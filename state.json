@@ -3978,6 +3978,21 @@
       "updatedAt": "2026-10-10T02:53:20.751Z",
       "summary": "Report 1475e1b8ef6ac64553ac47fa55f0da6e8c727b5f is published in PR222 and integrated into origin/codex/shared-development by ordinary push; remote SHA verified by coordinator. Primary /Users/xaknazar/Documents/ChatGPT/PickChick updated ff-only to the same SHA, tracked clean, existing untracked .claude preserved. Native16 TestFlight/Internal, installed releases and remaining rollout limits recorded. Six documentation files only over b31; Foundation CI b6b38ae8 11/11 and Roadmap CI success; final1475 changes only two corrected network strings with Prettier/diff checks.",
       "nextAction": "Online roadmap is not published to this report source yet. Resume only after trusted SSH and fresh API/public/Caddy pins, coordinated market release lock and exact-source roadmap package verification; preserve SQLite notes/team key and verify deployed sourceSha. Keep @vps/roadmap reserved; do not finish until actual publication and evidence. Devices/flags/BO and physical iPhone/iPad acceptance remain separate pending stages."
+    },
+    {
+      "id": "kiosk-build12",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-build12",
+      "scopes": [
+        "apps/kiosk",
+        "tests/kiosk",
+        "@apple/devices/kiosk",
+        "@release/ios",
+        "docs/operations/kiosk-build12-installation.md"
+      ],
+      "status": "active",
+      "head": "3c399b484b93b211da599116c2f42cb1e0cb95db",
+      "updatedAt": "2026-10-10T09:29:34.637Z"
     }
   ]
 }
