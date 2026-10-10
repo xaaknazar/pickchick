@@ -4006,9 +4006,11 @@
         "docs/operations/mobile-live-fixes.md",
         "apps/mobile/src/domain.ts"
       ],
-      "status": "active",
-      "head": "3533373169a338752d6132a5ec16a4826ee0495b",
-      "updatedAt": "2026-10-10T10:26:19.554Z"
+      "status": "done",
+      "head": "b56860b8601818c78a029639dff11f4bde181042",
+      "updatedAt": "2026-10-10T18:01:13.010Z",
+      "summary": "Ветка codex/mobile-live-fixes (b56860b8) включена в codex/shared-development (dd3bca8b) через mobile-into-shared-1010; сборка 17 принята владельцем.",
+      "nextAction": "Новых шагов по задаче нет; области освобождены."
     },
     {
       "id": "cloud-kitchen-channel",
