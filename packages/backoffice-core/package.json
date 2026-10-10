@@ -27,6 +27,10 @@
     "./workforce": {
       "types": "./dist/workforce-store.d.ts",
       "default": "./dist/workforce-store.js"
+    },
+    "./cloud-kitchen": {
+      "types": "./dist/cloud-kitchen.d.ts",
+      "default": "./dist/cloud-kitchen.js"
     }
   },
   "scripts": {
@@ -39,6 +43,7 @@
     "@pickchick/database": "workspace:*",
     "@pickchick/catalog-admin": "workspace:*",
     "@pickchick/commerce-core": "workspace:*",
+    "@pickchick/cloud-kitchen": "workspace:*",
     "@pickchick/menu-sync": "workspace:*",
     "zod": "4.5.4"
   },

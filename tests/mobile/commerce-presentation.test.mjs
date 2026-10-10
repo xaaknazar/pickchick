@@ -26,6 +26,11 @@ test('uncertain, failed and sent invoices never render as received money', () =>
     assert.equal(paymentReceived(phase), true);
   assert.match(checkoutError(new Error('QUOTE_EXPIRED')), /Цены обновились/);
   assert.match(checkoutError(new Error('CHECKOUT_STORAGE')), /Счёт не отправлен/);
+  // Cloud kitchen gate (ADR-0014): plain hyphen, no dash.
+  assert.equal(
+    checkoutError(new Error('KITCHEN_OFFLINE')),
+    'Кухня сейчас не на связи - заказ оформить нельзя. Попробуйте чуть позже.',
+  );
 });
 test('customer payment contract rejects extra financial internals and invalid phases', () => {
   const value = {

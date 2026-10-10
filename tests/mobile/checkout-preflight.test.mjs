@@ -13,6 +13,7 @@ test('retries transient reads and restaurant readiness with the same captured co
       attempts.push(command);
       if (attempts.length === 1) throw new CustomerSessionError('NETWORK_UNAVAILABLE');
       if (attempts.length === 2) throw new CustomerSessionError('AVAILABILITY_STALE', 409, true);
+      if (attempts.length === 3) throw new CustomerSessionError('KITCHEN_OFFLINE', 503, true);
       return 'accepted';
     },
     controller.signal,
@@ -21,7 +22,7 @@ test('retries transient reads and restaurant readiness with the same captured co
     },
   );
   assert.equal(value, 'accepted');
-  assert.deepEqual(delays, [1000, 2000]);
+  assert.deepEqual(delays, [1000, 2000, 2000]);
   assert.ok(attempts.every((value) => value === command));
 });
 test('confirmed stop list, closed restaurant and account rejection do not retry', async () => {

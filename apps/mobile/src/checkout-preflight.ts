@@ -27,7 +27,8 @@ export async function prepareCheckout<T>(
       const pending =
         error instanceof CustomerSessionError &&
         error.authoritative &&
-        ['NOT_READY', 'AVAILABILITY_STALE'].includes(error.code);
+        // KITCHEN_OFFLINE: branch in cloud mode (ADR-0014) whose kitchen screens are not polling.
+        ['NOT_READY', 'AVAILABILITY_STALE', 'KITCHEN_OFFLINE'].includes(error.code);
       const delay = pending ? 2000 : watchRetryDelay(error, ++failures);
       if (delay === null) throw error;
       await wait(Math.min(delay, 5000));

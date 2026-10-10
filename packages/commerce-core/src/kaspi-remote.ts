@@ -1,3 +1,4 @@
+import { cloudChannelOrder } from './cloud-channel.js';
 import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { transaction } from '@pickchick/database';
@@ -568,9 +569,21 @@ export class KaspiRemoteProcessor {
     return 'deferred' as const;
   }
 
+  private async cloudChannelAttempt(attemptId: string) {
+    const order = (
+      await this.pool.query<{ order_id: string }>(
+        'SELECT order_id FROM commerce_payment_attempts WHERE id=$1',
+        [attemptId],
+      )
+    ).rows[0];
+    return order ? (await cloudChannelOrder(this.pool, order.order_id)) !== null : false;
+  }
+
   private async submit(event: { id: string; attempt_id: string; token: string }) {
     const existing = await this.row(event.attempt_id);
     if (!existing && !(await this.client.checkSession())) return this.deferSubmission(event);
+    // A cloud channel order (ADR-0014 S4) has no edge reservation; it is ready without one.
+    const cloud = await this.cloudChannelAttempt(event.attempt_id);
     const source = (
       await this.pool.query<{
         snapshot: unknown;
@@ -580,8 +593,9 @@ export class KaspiRemoteProcessor {
       }>(
         `SELECT o.snapshot,o.branch_id,p.display_number::text,
          (b.ordering_enabled AND NOT o.attention_required AND t.active AND d.status='active'
-          AND p.state='held' AND p.device_id=o.admission_device_id
-          AND p.device_id=t.device_id AND p.reservation_id=o.admission_reservation_id
+          AND ((p.state='held' AND p.device_id=o.admission_device_id
+          AND p.device_id=t.device_id AND p.reservation_id=o.admission_reservation_id)
+           OR ($3::boolean AND p.order_id IS NULL AND o.admission_reservation_id IS NULL))
           AND NOT EXISTS(SELECT 1 FROM commerce_cancellation_intents c WHERE c.order_id=o.id)) ready
        FROM commerce_payment_attempts a
        JOIN commerce_orders o ON o.id=a.order_id
@@ -590,7 +604,7 @@ export class KaspiRemoteProcessor {
        LEFT JOIN devices d ON d.id=t.device_id
        LEFT JOIN cloud_fulfillment_projection p ON p.order_id=o.id
        WHERE a.id=$1 AND a.account_id=$2`,
-        [event.attempt_id, this.config.accountId],
+        [event.attempt_id, this.config.accountId, cloud],
       )
     ).rows[0];
     if (!source) throw new KaspiRemoteError('INVALID');

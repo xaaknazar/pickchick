@@ -78,7 +78,8 @@ class SafeExceptionFilter implements ExceptionFilter {
         .some((part) => part.trim() === 'application/json; profile=pickchick.checkout-errors-v1');
     const proposed = declared?.success ? declared.data : defaultCode;
     const code =
-      !preciseCheckout && ['RESTAURANT_CLOSED', 'AVAILABILITY_STALE'].includes(proposed)
+      !preciseCheckout &&
+      ['RESTAURANT_CLOSED', 'AVAILABILITY_STALE', 'KITCHEN_OFFLINE'].includes(proposed)
         ? defaultCode
         : proposed;
     const traceId = request.traceId ?? randomUUID();
