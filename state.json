@@ -4023,6 +4023,29 @@
       "updatedAt": "2026-10-10T10:08:29.735Z"
     },
     {
+      "id": "mobile-live-fixes",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-live-fixes",
+      "scopes": [
+        "apps/mobile/src/store.tsx",
+        "apps/mobile/src/cart-reprice.ts",
+        "apps/mobile/src/product-photo.tsx",
+        "apps/mobile/src/components/ProductMenuNotice.tsx",
+        "apps/mobile/src/screens/PhotoProduct.tsx",
+        "apps/mobile/src/screens/ProductConfiguration.tsx",
+        "tests/mobile/cart-reprice.test.mjs",
+        "tests/mobile/browser_live_menu_update.py",
+        "services/api/src/customer-checkout-controller.ts",
+        "services/api/src/catalog-publication-listener.ts",
+        "tests/integration/catalog-publication-latency.test.mjs",
+        "docs/operations/mobile-live-fixes.md",
+        "apps/mobile/src/domain.ts"
+      ],
+      "status": "active",
+      "head": "3533373169a338752d6132a5ec16a4826ee0495b",
+      "updatedAt": "2026-10-10T10:26:19.554Z"
+    },
+    {
       "id": "workforce",
       "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
       "branch": "codex/workforce",
@@ -4045,36 +4068,14 @@
         "tests/backoffice/workforce-http.test.mjs",
         "tests/backoffice/workforce-browser.py",
         "infra/staging/workforce-grants.mjs",
-        "tests/backoffice/workforce-browser.mjs"
+        "tests/backoffice/workforce-browser.mjs",
+        "apps/backoffice/PRODUCT.md"
       ],
       "status": "active",
       "head": "b7c81434b026705409f76a07934a38a3a908eeee",
-      "updatedAt": "2026-10-10T10:24:35.091Z",
+      "updatedAt": "2026-10-10T10:30:05.424Z",
       "summary": "Checkpoint b7c81434, draft PR223. Hourly-only workforce core; planned shifts, approved attendance, effective rates, explicit KPI awards, immutable raw event import, audit/replay/revisions and period locks. Local builds/lint/format and 16 tests passed; GitHub CI pending. Not wired or deployed; no BioCheck integration. Runbook docs/operations/workforce.md.",
       "nextAction": "Await user confirmation transferring app.ts/operations.ts/core exports and API/VPS from devices-access. Then wire API/UI/grants, add rate correction, confirm BioCheck model/export, breaks and statutory payroll rules. Shared status/roadmap remain restaurant-report-owned; reconcile after scope transfer. Do not merge/deploy this checkpoint as a finished workforce feature."
-    },
-    {
-      "id": "mobile-live-fixes",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/mobile-live-fixes",
-      "scopes": [
-        "apps/mobile/src/store.tsx",
-        "apps/mobile/src/cart-reprice.ts",
-        "apps/mobile/src/product-photo.tsx",
-        "apps/mobile/src/components/ProductMenuNotice.tsx",
-        "apps/mobile/src/screens/PhotoProduct.tsx",
-        "apps/mobile/src/screens/ProductConfiguration.tsx",
-        "tests/mobile/cart-reprice.test.mjs",
-        "tests/mobile/browser_live_menu_update.py",
-        "services/api/src/customer-checkout-controller.ts",
-        "services/api/src/catalog-publication-listener.ts",
-        "tests/integration/catalog-publication-latency.test.mjs",
-        "docs/operations/mobile-live-fixes.md",
-        "apps/mobile/src/domain.ts"
-      ],
-      "status": "active",
-      "head": "3533373169a338752d6132a5ec16a4826ee0495b",
-      "updatedAt": "2026-10-10T10:26:19.554Z"
     }
   ]
 }
