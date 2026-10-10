@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-09T14:23:11.247741+00:00",
+  "updatedAt": "2026-10-09T23:49:08Z",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -67,7 +67,12 @@
     "docs/design/magic-sort.md",
     "docs/operations/mobile-live-menu.md",
     "docs/operations/kiosk-build11-installation.md",
-    "docs/operations/kitchen-portal-kiosk-parser-2026-10-09.md"
+    "docs/operations/kitchen-portal-kiosk-parser-2026-10-09.md",
+    "docs/operations/mobile-native16.md",
+    "docs/operations/device-access.md",
+    "docs/operations/device-access-backoffice.md",
+    "docs/operations/unified-menu-continuation.md",
+    "docs/operations/unified-menu-installation-2026-10-09.md"
   ],
   "workstreams": [
     {
@@ -350,7 +355,7 @@
       "id": "project-roadmap",
       "workstream": "project",
       "title": "Онлайн-пульт проекта и общие проверки",
-      "summary": "Отдельный защищённый сайт: 21 направление, зависимости, план, источники в GitHub и совместные отметки с историей.",
+      "summary": "Защищённый пульт проекта работает с отдельными совместными отметками. Срез Git обновлён подтверждёнными iPad11, mobileAPI/Native16 и незавершённым Devices выпуском; публикация этого среза онлайн ждёт восстановления доверенного SSH и свежих pins.",
       "status": "done",
       "owner": "development",
       "phase": "foundation",
@@ -382,7 +387,7 @@
         "Отметки сохраняются после перезапуска; конфликт двух участников не перезаписывает результат.",
         "Ссылки различают макет, TEST-контур и установленный интерфейс."
       ],
-      "nextAction": "Подключить второй Mac к общему срезу, проверить sync/status и передачу задачи; продолжать сверку фактов и приёмку этапов.",
+      "nextAction": "После восстановления SSH опубликовать чистый проверенный commit по infra/roadmap/README.md, сохранить SQLite-отметки/ключ и проверить sourceSha онлайн.",
       "checks": {
         "implemented": true,
         "verified": true,
@@ -1061,7 +1066,7 @@
       "id": "mobile-testflight",
       "workstream": "mobile",
       "title": "Доставить базовую сборку в TestFlight",
-      "summary": "TestFlight 0.2.0 (12) доступна PickChick Internal (2 тестировщика). Apple processing, archive/export/upload подтверждены; CI native978c6e5 и API f398637 зелёные. Обновлённая ферма protocol=2 установлена, белая вспышка выбора исправлена. TipTop Pay в сборку12 не входит. Физическая приёмка открыта.",
+      "summary": "0.2.0 (16), source b25f6df6, прошла CI 11/11; Apple приняла архив 9 октября 14:30 UTC, обработала и включила PickChick Internal в 14:38 UTC. Те же 2 тестировщика, внешние группы не менялись. API 3bc98faf и защита актуального меню установлены. Физическая установка и приёмка 16 ещё не подтверждены.",
       "status": "done",
       "owner": "development",
       "phase": "foundation",
@@ -1074,10 +1079,14 @@
         {
           "label": "Подтверждённое состояние проекта",
           "path": "docs/project-status.md"
+        },
+        {
+          "label": "Архив, Apple processing и существующая группа",
+          "path": "docs/operations/mobile-native16.md"
         }
       ],
       "acceptance": ["Базовая сборка доступна во внутреннем тестировании на iPhone."],
-      "nextAction": "Обновить сборку12 на iPhone, проверить переход выбора и ферму; TipTop Pay выпускается отдельно.",
+      "nextAction": "Обновить iPhone через TestFlight поверх приложения; проверить опубликованное меню, корзину и восстановление сети без нового реального заказа.",
       "checks": {
         "implemented": true,
         "verified": true,
@@ -1284,7 +1293,7 @@
       "id": "catalog-unified",
       "workstream": "catalog",
       "title": "Подключить единый каталог ко всем каналам",
-      "summary": "Реализованы атомарная публикация общего каталога в edge MenuSnapshot/outbox и доказательство установки через ACK текущей привязки. Совпадение сумм 24 стандартных корзин mobile/kiosk/POS проверено. Новая публикация и коммерческий kiosk выключены; рабочая установка не выполнена.",
+      "summary": "Публикация и паритет общего каталога реализованы. Read-only baseline 9 октября подтвердил Windows23/schema019, protocol4, menu-sync apply и включённые access-roles/edge-publication; API3bc/schema050 и native16 TestFlight установлены. Remote-stops/media-upload ещё выключены; приёмка всей цепочки не завершена. Последний portal health: edgeConnected=false.",
       "status": "active",
       "owner": "development",
       "phase": "foundation",
@@ -1321,13 +1330,21 @@
         {
           "label": "Общий каталог и коммерческий гостевой киоск",
           "path": "docs/operations/commercial-channels.md"
+        },
+        {
+          "label": "Фактическое состояние поверх исторического checkpoint",
+          "path": "docs/operations/unified-menu-installation-2026-10-09.md"
+        },
+        {
+          "label": "Guarded продолжение оставшихся флагов",
+          "path": "docs/operations/unified-menu-continuation.md"
         }
       ],
       "acceptance": [
         "AC-02/32: каждый канал использует совместимую опубликованную версию.",
         "Offline/несовместимый клиент не ломает текущую смену."
       ],
-      "nextAction": "Установить согласованный cloud034-036/edge017 после зелёной CI, опубликовать утверждённые цены Dev, проверить ACK и стопы на физической точке.",
+      "nextAction": "Восстановить сеть и повторить свежую сверку меню/ACK; после отдельного Devices051/Windows020 выпуска включить remote-stops, затем media-upload по guarded continuation. Принять физические клиенты отдельно.",
       "checks": {
         "implemented": true,
         "verified": false,
@@ -4184,7 +4201,7 @@
       "id": "mobile-live-menu",
       "workstream": "mobile",
       "title": "Обновлять опубликованное меню без потери корзины",
-      "summary": "API 3bc98faf установлен, флаг проверки актуального меню включён; CI 11/11, backup/restore и сохранность соседних служб подтверждены. Native16 собран и экспортирован после CI; TestFlight и физическая приёмка ожидаются.",
+      "summary": "API 3bc98faf установлен, CUSTOMER_CHECKOUT_HEAD_GUARD включён; CI 11/11, backup/restore, schema050/ACL и соседние службы сохранены. Native16 source b25f6df6 прошёл CI 11/11 и доступен двум тестировщикам PickChick Internal. Физическая приёмка меню и foreground на iPhone ожидается.",
       "status": "active",
       "owner": "development",
       "phase": "product",
@@ -4193,6 +4210,10 @@
         {
           "label": "Реализация, проверки и выпуск",
           "path": "docs/operations/mobile-live-menu.md"
+        },
+        {
+          "label": "Подтверждённая доставка native16",
+          "path": "docs/operations/mobile-native16.md"
         }
       ],
       "acceptance": [
@@ -4200,11 +4221,11 @@
         "Корзина и доступные добавки сохраняются; новые цены требуют явного подтверждения.",
         "Начатый платёж сохраняет исходную сумму."
       ],
-      "nextAction": "Загрузить проверенную native16 в TestFlight и подтвердить обновление меню/корзины на iPhone.",
+      "nextAction": "Обновить 16 через TestFlight и подтвердить актуализацию меню/корзины и восстановление сети на iPhone. Начатые платежи не повторять.",
       "checks": {
         "implemented": true,
         "verified": true,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     },
@@ -4236,7 +4257,7 @@
       "id": "kitchen-kiosk-parser",
       "workstream": "platform",
       "title": "Восстановить кухню и сборку для заказов киоска",
-      "summary": "Portal b882 заменён на23fb; parser принимает kiosk. Backup/restore и соседние контейнеры проверены, владелец подтвердил обе страницы.",
+      "summary": "Portal23 исправил parser kiosk; backup/restore и соседи проверены, владелец принял кухню и сборку. Позднее health по-прежнему отвечает source23, но edgeConnected=false: восстановление parser принято, текущую сеть кассы нужно вернуть отдельно.",
       "status": "done",
       "owner": "development",
       "phase": "product",
@@ -4248,7 +4269,7 @@
         }
       ],
       "acceptance": ["Работать с существующей очередью; новые Devices выпускать отдельно."],
-      "nextAction": "Работать с существующей очередью; новые Devices выпускать отдельно.",
+      "nextAction": "Восстановить связь кассы и проверить edgeConnected; не повторять установленный parser fix. Новые Devices выпускать отдельно.",
       "checks": {
         "implemented": true,
         "verified": true,
@@ -4260,7 +4281,7 @@
       "id": "manager-device-access",
       "workstream": "backoffice",
       "title": "Подключать экраны и восстанавливать пароль из кабинета управляющего",
-      "summary": "Код опубликован PR218; hash-only коды, scoped pairing/revoke и восстановление kitchen без изменения POS PIN. Пока не установлен; нужны schema051/020 и guarded выпуск.",
+      "summary": "Код и guarded пакеты b31a59ba прошли полную Foundation CI 37945705803 11/11. Cloud051/Windows020/worker/portal/canonical BO ещё не установлены: SSH с Mac к VPS и кассе завершился timeout, kitchen health доступен с edgeConnected=false. Флаги новой процедуры не включались.",
       "status": "active",
       "owner": "development",
       "phase": "product",
@@ -4269,12 +4290,24 @@
         {
           "label": "Код Devices и результаты разработки",
           "url": "https://github.com/xaaknazar/pickchick/pull/218"
+        },
+        {
+          "label": "Порядок Devices и приёмка",
+          "path": "docs/operations/device-access.md"
+        },
+        {
+          "label": "Canonical кабинет обновляется отдельно",
+          "path": "docs/operations/device-access-backoffice.md"
+        },
+        {
+          "label": "Полная CI точного общего кандидата b31a59ba",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/37945705803"
         }
       ],
       "acceptance": [
         "Последовательно выпустить cloud051, Windows020 и портал; подтвердить подключение экранов и восстановление пароля управляющим."
       ],
-      "nextAction": "Доступ к Windows восстановлен; общая зелёная CI, затем guarded cloud/Windows/portal с backup/restore.",
+      "nextAction": "Восстановить доверенную связь, получить свежие runtime/схемы/pins и последовательно пройти cloud, Windows, worker/Ready, портал и canonical BO с backup/restore; отдельно принять pairing/reset.",
       "checks": {
         "implemented": true,
         "verified": true,
