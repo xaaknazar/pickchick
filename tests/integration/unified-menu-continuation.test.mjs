@@ -25,14 +25,19 @@ async function fixture(t) {
     await admin.query(`DROP SCHEMA ${schema} CASCADE;DROP OWNED BY ${role};DROP ROLE ${role}`);
     await admin.end();
   });
-  await migrate(pool, DIRECTORY, 'cloud');
+  const directory = await mkdtemp(join(tmpdir(), 'continuation051-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  for (const name of await readdir(DIRECTORY))
+    if (name.endsWith('.sql') && name <= '051_z')
+      await copyFile(join(DIRECTORY, name), join(directory, name));
+  await migrate(pool, directory, 'cloud');
   await pool.query(
     `GRANT USAGE ON SCHEMA ${schema} TO ${role}; GRANT SELECT ON branches,bo_access_grants,cloud_stop_commands TO ${role}; GRANT UPDATE ON cloud_branch_availability TO ${role}; GRANT UPDATE(state,result_version,delivered_at,resolved_at) ON cloud_stop_commands TO ${role};` +
       catalogAssetGrants(role, false),
   );
   const org = randomUUID();
   await pool.query("INSERT INTO organizations(id,name) VALUES($1,'Synthetic continuation')", [org]);
-  return { pool, role, org };
+  return { pool, role, org, directory };
 }
 async function tx(pool, run) {
   const c = await pool.connect();
@@ -51,7 +56,7 @@ async function tx(pool, run) {
 async function plan(f, phase, enabled, extra = {}) {
   return tx(f.pool, (c) =>
     continueUnifiedMenu(c, {
-      directory: DIRECTORY,
+      directory: f.directory,
       role: f.role,
       phase,
       enabled,
@@ -63,7 +68,7 @@ async function plan(f, phase, enabled, extra = {}) {
 async function apply(f, phase, enabled, proof, extra = {}) {
   return tx(f.pool, (c) =>
     continueUnifiedMenu(c, {
-      directory: DIRECTORY,
+      directory: f.directory,
       role: f.role,
       phase,
       enabled,
@@ -110,7 +115,8 @@ test('future or altered ledger bytes, unexpected asset grants and privileged rol
     dir = await mkdtemp(join(tmpdir(), 'continuation-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   for (const name of await readdir(DIRECTORY))
-    if (name.endsWith('.sql')) await copyFile(join(DIRECTORY, name), join(dir, name));
+    if (name.endsWith('.sql') && name <= '051_z')
+      await copyFile(join(DIRECTORY, name), join(dir, name));
   const file = join(dir, '050_cloud_kiosk_payment_incidents.sql'),
     original = await readFile(file);
   await writeFile(file, 'SELECT 1;');
@@ -128,7 +134,7 @@ test('injected DML is caught and rolled back, concurrent heartbeat writer is tol
   const f = await fixture(t),
     pre = await plan(f, 'remote-stops', true);
   const opts = {
-    directory: DIRECTORY,
+    directory: f.directory,
     role: f.role,
     phase: 'remote-stops',
     enabled: true,

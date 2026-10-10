@@ -1,0 +1,231 @@
+.workforce {
+  color: var(--ink, #18263b);
+}
+.wf-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.wf-header h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.65rem;
+}
+.wf-header p {
+  margin: 0;
+}
+.wf-toolbar {
+  display: grid;
+  grid-template-columns: minmax(10rem, 13rem) minmax(12rem, 22rem) auto;
+  align-items: end;
+  gap: 1rem;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid #d8e0ea;
+  border-radius: 12px;
+}
+.wf-toolbar .field {
+  margin: 0;
+}
+.wf-toolbar button {
+  justify-self: start;
+}
+.wf-tabs,
+.wf-actions,
+.wf-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.wf-tabs {
+  margin: 1.25rem 0;
+  border-bottom: 1px solid #d8e0ea;
+  padding-bottom: 0.75rem;
+}
+.wf-tabs .selected,
+.wf-actions .selected {
+  background: #0047bb;
+  border-color: #0047bb;
+  color: #fff;
+}
+.wf-actions {
+  margin: 1rem 0;
+}
+.wf-actions .field {
+  margin: 0;
+}
+.wf-table-wrap {
+  overflow: auto;
+  border: 1px solid #d8e0ea;
+  border-radius: 12px;
+  background: #fff;
+}
+.wf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.wf-table th,
+.wf-table td {
+  padding: 0.85rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid #e5eaf1;
+  vertical-align: middle;
+  min-width: 7rem;
+}
+.wf-table th {
+  color: #52647c;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #f5f7fb;
+}
+.wf-table tr:last-child td {
+  border-bottom: 0;
+}
+.wf-table tbody tr:hover {
+  background: #f8faff;
+}
+.wf-table td:first-child {
+  font-weight: 600;
+  width: auto;
+}
+.wf-row-actions {
+  min-width: 12rem;
+}
+.wf-row-actions .button {
+  min-height: 40px;
+  padding: 0.5rem 0.75rem;
+}
+.wf-empty {
+  padding: 2rem;
+  border: 1px dashed #b7c5d9;
+  border-radius: 12px;
+  background: #fff;
+  color: #52647c;
+  text-align: center;
+}
+.wf-note,
+.wf-alert,
+.wf-notice {
+  padding: 1rem 1.2rem;
+  border-radius: 10px;
+  line-height: 1.6;
+}
+.wf-note {
+  background: #edf3ff;
+  color: #264676;
+  border: 1px solid #cdddf5;
+}
+.wf-alert {
+  background: #fff1e7;
+  color: #753700;
+  border: 1px solid #edc5a3;
+}
+.wf-alert p {
+  margin: 0.3rem 0;
+}
+.wf-notice {
+  background: #eaf6ef;
+  color: #1c5a37;
+}
+.wf-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid #d8e0ea;
+  background: white;
+  border-radius: 12px;
+  margin: 1rem 0;
+}
+.wf-summary > div {
+  padding: 1rem 1.2rem;
+}
+.wf-summary span,
+.wf-summary strong {
+  display: block;
+}
+.wf-summary strong {
+  font-size: 1.35rem;
+  margin-top: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+.wf-editor {
+  padding: 1.4rem;
+  background: #fff;
+  border: 1px solid #d8e0ea;
+  border-radius: 12px;
+  max-width: 64rem;
+}
+.wf-editor h2 {
+  margin-top: 0;
+}
+.workforce input,
+.workforce select,
+.workforce textarea {
+  min-height: 44px;
+  width: 100%;
+  background: #fff;
+  border: 1px solid #b6c4d7;
+  border-radius: 8px;
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+  box-sizing: border-box;
+}
+.workforce .check input {
+  width: 1.2rem;
+  min-height: 1.2rem;
+}
+.workforce :focus-visible {
+  outline: 3px solid #0047bb;
+  outline-offset: 3px;
+}
+.workforce button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.wf-history {
+  min-width: 14rem;
+  padding: 0.5rem 0;
+}
+.wf-history p {
+  margin: 0.3rem 0;
+  overflow-wrap: anywhere;
+}
+.workforce summary {
+  cursor: pointer;
+  color: #0047bb;
+  padding: 0.5rem 0;
+}
+@media (max-width: 700px) {
+  .wf-toolbar {
+    grid-template-columns: 1fr;
+  }
+  .wf-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .wf-tabs .button {
+    flex: 1 1 auto;
+  }
+  .wf-editor {
+    padding: 1rem;
+  }
+  .wf-editor .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .wf-header h2 {
+    font-size: 1.4rem;
+  }
+  .wf-summary strong {
+    font-size: 1.1rem;
+  }
+}
+
+.wf-legacy-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 0;
+  align-items: end;
+}
