@@ -4112,9 +4112,11 @@
         "tests/operations/test_live_menu_fixes_release.py",
         "@vps/api"
       ],
-      "status": "active",
+      "status": "available",
       "head": "d85f0244ca92009d4ddc3998b748da6b5315c11b",
-      "updatedAt": "2026-10-10T12:58:07.026Z"
+      "updatedAt": "2026-10-10T13:03:06.892Z",
+      "summary": "2026-10-10 API f277d1a4 (codex/live-menu-fixes-050, CI 38051018005 11/11) installed by owner via release-live-menu-fixes.py over 3bc98faf: api healthy, pointer f277d1a4, no lock, QR worker unchanged. @vps/api no longer needed by this task.",
+      "nextAction": "Record install in project-status/roadmap; integrate codex/live-menu-fixes-050 into shared; TestFlight storefront build for owner acceptance."
     }
   ]
 }
