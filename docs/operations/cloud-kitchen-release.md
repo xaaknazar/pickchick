@@ -99,8 +99,8 @@ python3 $R prepare $PINS            # проверка
 python3 $R prepare $PINS --apply    # образ, releases/<sha>, пакет портала
 python3 $R apply $PINS              # проверка подготовленного
 python3 $R apply $PINS --apply      # бэкап+restore, 053-056+гранты, API(+портал), флаги OFF
-python3 $R stations $PINS --kitchen-setup <setup.json>           # проверка + stations-preview
-python3 $R stations $PINS --kitchen-setup <setup.json> --apply
+python3 $R stations $PINS --kitchen-setup infra/staging/cloud-kitchen-setup-abay-plaza.json   # проверка + stations-preview
+python3 $R stations $PINS --kitchen-setup infra/staging/cloud-kitchen-setup-abay-plaza.json --apply
 python3 $R enable $PINS             # проверка; печатает enabled_portal_config_sha256
 python3 $R enable $PINS --expected-enabled-config-sha256 <sha из проверки> \
   --operator <имя> --reason "<причина>" --apply
@@ -113,17 +113,31 @@ python3 $R disable $PINS --operator <имя> --reason "<причина>" --apply
 python3 $R rollback $PINS --apply   # только в выключенном состоянии
 ```
 
-Минимальный `setup.json` (имена станций - как у кассы, вписывает владелец):
+Маршрутизация облака по решению владельца 2026-10-11: одна станция цеха + сборка. Все товары облачных
+заказов идут на цех `9ba8dc69-260c-482b-bed9-cab791b64595`, затем на сборку
+`2cbc8ef3-359b-4cf0-bda8-28b82b727c93`. Когда касса снова будет доступна, точную маршрутизацию можно
+скопировать с неё (полная форма `{branchId, stations, routing}`, те же id и те же имена станций).
+
+Готовый файл: `infra/staging/cloud-kitchen-setup-abay-plaza.json`:
 
 ```json
 {
   "branchId": "7a6f6d98-395d-4462-b5e4-b0364a4a8ec1",
   "stations": [
-    { "id": "2cbc8ef3-359b-4cf0-bda8-28b82b727c93", "kind": "assembly", "name": "<имя сборки>" },
-    { "id": "9ba8dc69-260c-482b-bed9-cab791b64595", "kind": "prep", "name": "<имя цеха>" }
+    { "id": "2cbc8ef3-359b-4cf0-bda8-28b82b727c93", "kind": "assembly", "name": "Сборка" },
+    { "id": "9ba8dc69-260c-482b-bed9-cab791b64595", "kind": "prep", "name": "Кухня" }
   ],
   "routeAllProductsTo": "9ba8dc69-260c-482b-bed9-cab791b64595"
 }
+```
+
+Имена `Кухня` и `Сборка` - отображаемые имена, выбранные по решению владельца (формат требует имя, а
+имена станций кассы с VPS не подтверждены); они совпадают с именами из плана первой станции кассы
+`scripts/local-pos-operator-plan.mjs`, но это не проверенный факт live-кассы. Команда владельца:
+
+```sh
+python3 $R stations $PINS --kitchen-setup infra/staging/cloud-kitchen-setup-abay-plaza.json          # проверка
+python3 $R stations $PINS --kitchen-setup infra/staging/cloud-kitchen-setup-abay-plaza.json --apply
 ```
 
 Имя станции после первой загрузки не меняется (повтор с другим именем - `CONFLICT`). Коды экранов

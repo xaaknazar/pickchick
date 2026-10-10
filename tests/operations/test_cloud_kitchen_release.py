@@ -250,6 +250,11 @@ class CloudKitchenReleaseTests(unittest.TestCase):
                     {**self.minimal(), 'routing': {}}):
             with self.assertRaises(G): r.kitchen_setup_form(bad)
 
+    def test_shipped_owner_setup_routes_everything_to_the_known_prep_station(self):
+        setup = json.loads((ROOT/'infra/staging/cloud-kitchen-setup-abay-plaza.json').read_text())
+        self.assertEqual(r.kitchen_setup_form(setup), 'route_all')
+        self.assertEqual(setup['routeAllProductsTo'], r.KNOWN_PREP_STATION)
+
     def applied_release(self, **extra):
         obj = self.release(**extra)
         obj.applied = Mock(return_value={'portal': None, 'before': {'candidate': 'c'}})
