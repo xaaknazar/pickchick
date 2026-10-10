@@ -4157,17 +4157,6 @@
       "nextAction": "Owner acceptance: real employees, hourly rates, schedules and manual timesheets. BioCheck exact USB ZKTeco model/software still needed; no fingerprint data imported. Gross preview excludes statutory supplements/taxes. Future Devices rollout must account for already applied051 and no device grants. Fresh VPS baseline: API and staff portal8468e3ae, public/roadmap bd60ab6b, gateway971bbd6 unchanged. Rollback requires fresh coordinated guards after portal/roadmap changes, retaining schema052/history; do not blindly replay historical source050 operators. See docs/operations/workforce.md."
     },
     {
-      "id": "devices-release",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/devices-release",
-      "scopes": [
-        "docs/operations/device-access-release-2026-10-10.md"
-      ],
-      "status": "active",
-      "head": "bf41bf28d6cd491f5ab8c60ede370ca7d819943e",
-      "updatedAt": "2026-10-10T14:00:44.494Z"
-    },
-    {
       "id": "cloud-kitchen-s3",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/cloud-kitchen-s3",
@@ -4285,6 +4274,43 @@
       "status": "active",
       "head": "8284eabf467eba93a104b11fcd50bb9133df84a0",
       "updatedAt": "2026-10-10T16:14:50.713Z"
+    },
+    {
+      "id": "devices-release",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/devices-release",
+      "scopes": [
+        "docs/operations/device-access-release-2026-10-10.md",
+        "docs/operations/mobile-testflight17.md",
+        "infra/staging/release-device-access.py",
+        "tests/operations/test_device_access_release.py",
+        "infra/staging/device-access-owner.mjs",
+        "infra/staging/device-registry-grants.mjs",
+        "tests/integration/device-access-release.test.mjs",
+        "infra/public-staging/gateway.Caddyfile",
+        "infra/public-staging/device-access.Caddyfile",
+        "docs/operations/device-access.md",
+        "docs/operations/device-access-portal.md",
+        "apps/kitchen",
+        "apps/kitchen-desktop",
+        "infra/kitchen-portal",
+        "infra/windows/update-native-device-access.ps1",
+        "infra/windows/install-native-device-access.ps1",
+        "infra/windows/terminal-access-upgrade-db.mjs",
+        "infra/windows/native-device-access-worker.mjs",
+        "infra/windows/terminal-access-grants.mjs",
+        "packages/contracts/src/device-access.ts",
+        "packages/backoffice-core/src/device-access.ts",
+        "packages/backoffice-core/src/device-registry.ts",
+        "apps/backoffice/src/devices.ts",
+        "apps/backoffice/src/devices-model.ts",
+        "services/api/src/device-registry-controller.ts",
+        "services/device-access-worker",
+        "@windows/cashier"
+      ],
+      "status": "active",
+      "head": "9937fd900adbe79f4a6fd0d998da0093db24c6de",
+      "updatedAt": "2026-10-10T16:39:10.019Z"
     }
   ]
 }
