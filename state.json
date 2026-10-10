@@ -3766,11 +3766,12 @@
         "packages/commerce-core/tests/postgres.test.mjs",
         "apps/mobile/.storybook"
       ],
-      "head": "cf25cb9e4712a7beedc2d2b52a9d64d3e557598f",
+      "head": "3bc98faf7c76f16273e4ee240b2c673846002516",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "status": "active",
-      "updatedAt": "2026-10-09T12:17:43.429Z",
-      "summary": " Agreed parallel hunk: devices-access may register DeviceRegistryController and DeviceAccessTransportController in services/api/src/index.ts; root owns publication LISTEN provider and will merge both. 2026-10-09 root continues owner-authorized handoff: guarded schema050 mobile API release owns API/DB until verified; no bank containers or payment probes, Devices follows after exact CI and baseline handoff."
+      "status": "done",
+      "updatedAt": "2026-10-10T09:29:09.261Z",
+      "summary": "Влито в общий срез. Владелец 10.10 передал доработку Claude",
+      "nextAction": "Claude: исправления по аудиту 10.10 в новой ветке от общего среза"
     },
     {
       "id": "mobile-native16",
