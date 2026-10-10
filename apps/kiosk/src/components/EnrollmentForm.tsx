@@ -1,6 +1,6 @@
 import { KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { Locale } from '../i18n';
+import { copy, type Locale } from '../i18n';
 import { colors, useMetrics } from '../theme';
 import { Body, Button, Heading, Language } from './UI';
 import { DeviceField } from './DeviceField';
@@ -29,7 +29,7 @@ export function EnrollmentForm({
 }) {
   const { px } = useMetrics();
   const safe = useSafeAreaInsets();
-  const ru = locale === 'ru';
+  const t = copy(locale);
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.background }}
@@ -47,36 +47,30 @@ export function EnrollmentForm({
         }}
       >
         <Language locale={locale} onChange={onLocale} tone="light" />
-        <Heading>{ru ? 'Настройка киоска' : 'Киоскті баптау'}</Heading>
-        <Body>
-          {ru
-            ? 'Сотрудник ресторана вводит данные устройства, полученные от администратора.'
-            : 'Мейрамхана қызметкері әкімшіден алынған құрылғы деректерін енгізеді.'}
-        </Body>
+        <Heading>{t.enrollTitle}</Heading>
+        <Body>{t.enrollBody}</Body>
         <DeviceField
           name="id"
-          label={ru ? 'ID устройства' : 'Құрылғы ID'}
+          label={t.enrollId}
           value={deviceId}
           onChange={onDeviceId}
           busy={busy}
         />
         <DeviceField
           name="key"
-          label={ru ? 'Ключ устройства' : 'Құрылғы кілті'}
+          label={t.enrollKey}
           value={deviceKey}
           onChange={onDeviceKey}
           busy={busy}
         />
         {error ? (
           <Body accessibilityRole="alert" tone="danger">
-            {ru
-              ? 'Не удалось проверить или сохранить настройку. Проверьте данные и соединение. Для замены регистрации обратитесь к администратору.'
-              : 'Баптау тексерілмеді немесе сақталмады. Деректер мен байланысты тексеріңіз. Тіркеуді ауыстыру үшін әкімшіге хабарласыңыз.'}
+            {t.enrollError}
           </Body>
         ) : null}
         <Button
           testID="kiosk-enrollment-submit"
-          label={ru ? 'Подключить киоск' : 'Киоскті қосу'}
+          label={t.enrollSubmit}
           disabled={!valid}
           busy={busy}
           onPress={onSubmit}

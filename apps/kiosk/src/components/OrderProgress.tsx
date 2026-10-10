@@ -1,6 +1,7 @@
 import { Text, View } from 'react-native';
 import { copy, type Locale } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
+import { fixedText } from './Body';
 /** v3 step strip on blue surfaces: white labels, orange dots up to the current step. */
 export function OrderProgress({
   step,
@@ -50,6 +51,7 @@ export function OrderProgress({
               }}
             >
               <Text
+                {...fixedText}
                 style={{
                   fontSize: Math.max(13, v(14)),
                   fontFamily: fonts.black,
@@ -60,6 +62,7 @@ export function OrderProgress({
               </Text>
             </View>
             <Text
+              {...fixedText}
               style={{
                 fontFamily: i === current ? fonts.heavy : fonts.medium,
                 fontSize: Math.max(16, v(17)),

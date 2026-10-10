@@ -7,6 +7,7 @@ import { checkoutCopy } from '../checkoutCopy';
 import { productImage, productPhoto } from '../assets';
 import { colors, fonts, useMetrics } from '../theme';
 import { Icon } from './Icon';
+import { fixedText } from './Body';
 /**
  * Design 05: the upsell lives inside the cart as a white card with an orange top
  * stripe, a title and a row of cream tiles; a product already in the cart gets a
@@ -46,6 +47,7 @@ export function CartUpsell({
     >
       <View style={{ paddingHorizontal: v(6), gap: v(4) }}>
         <Text
+          {...fixedText}
           accessibilityRole="header"
           style={{
             fontFamily: fonts.black,
@@ -56,6 +58,7 @@ export function CartUpsell({
           {t.upsellTitle}
         </Text>
         <Text
+          {...fixedText}
           style={{
             fontFamily: fonts.medium,
             fontSize: Math.max(16, v(18)),
@@ -78,6 +81,7 @@ export function CartUpsell({
               key={p.id}
               testID={'kiosk-cart-upsell-' + p.id}
               accessibilityRole="button"
+              // A toggle: tapping the checked card takes one back out (state: selected).
               accessibilityState={{ disabled: busy, selected: added }}
               disabled={busy}
               onPress={() => onAdd(p)}
@@ -104,6 +108,7 @@ export function CartUpsell({
                 style={{ width: '100%', height: v(96) }}
               />
               <Text
+                {...fixedText}
                 numberOfLines={2}
                 style={{
                   fontFamily: fonts.medium,
@@ -118,6 +123,7 @@ export function CartUpsell({
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: v(4) }}>
                 <Icon name={added ? 'checkmark' : 'add'} tone={added ? 'success' : 'deep'} />
                 <Text
+                  {...fixedText}
                   style={{
                     fontFamily: fonts.bold,
                     fontSize: Math.max(15, v(16)),

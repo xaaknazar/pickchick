@@ -19,7 +19,7 @@ import { TestSelectionSchema } from '@pickchick/test-order-flow/contracts';
 import { CatalogMediaMapSchema, CatalogPayloadSchema } from '@pickchick/catalog-admin/contracts';
 import { KioskError } from './api.ts';
 import type { KioskReadResult } from './commercial-api';
-import { selectedPriceMinor, validSelections, testLineId } from './cart.ts';
+import { placeLine, selectedPriceMinor, validSelections, testLineId } from './cart.ts';
 import { KIOSK_IDLE_MS, KIOSK_IDLE_GRACE_MS, type KioskIO } from './controller.ts';
 import type { Locale } from './i18n';
 import type {
@@ -27,6 +27,7 @@ import type {
   KioskMedia,
   KioskMode,
   KioskSelection,
+  KioskErrorCode,
   KioskState,
   KioskStep,
   KioskPaymentMethod,
@@ -93,9 +94,66 @@ export const invoicePhone = (value: string) => {
 };
 const paid = (o: CustomerCommerceOrder | null) =>
   !!o && ['paid', 'preparing', 'ready', 'handed_over'].includes(o.phase);
-const waitingForNumber = (o: CustomerCommerceOrder | null) => paid(o) && !o?.displayNumber?.trim();
-const terminal = (o: CustomerCommerceOrder | null) =>
-  (paid(o) && !waitingForNumber(o)) || o?.phase === 'failed';
+/**
+ * A paid order is financially final even while its kitchen number has not arrived yet (edge or
+ * bridge without WAN): the guest may leave and the kiosk may serve the next guest.
+ */
+const terminal = (o: CustomerCommerceOrder | null) => paid(o) || o?.phase === 'failed';
+const definitive = (error: unknown, codes: string[]) =>
+  error instanceof KioskError &&
+  error.status >= 400 &&
+  error.status < 500 &&
+  codes.includes(error.code);
+/**
+ * Before a quote id is known no order can exist: every definitive refusal may drop the intent.
+ * The earlier list (any status) is kept; session and expiry refusals require a 4xx answer.
+ */
+const QUOTE_DEFINITIVE = [
+  'INVALID',
+  'CONFLICT',
+  'NOT_READY',
+  'ITEM_STOPPED',
+  'AVAILABILITY_STALE',
+  'RESTAURANT_CLOSED',
+  'CHECKOUT_DISABLED',
+  'PRICE_CHANGED',
+];
+const QUOTE_SESSION_DEFINITIVE = ['FORBIDDEN', 'NOT_FOUND', 'EXPIRED'];
+/**
+ * POST /orders returns this guest's existing order before any check (createLocked), so these
+ * answers mean no order exists for the saved keys. CONFLICT (another quote already has an order),
+ * INVALID and FORBIDDEN (refused before that lookup: device or session unknown) keep recovery.
+ */
+const ORDER_DEFINITIVE = [
+  'EXPIRED',
+  'RESTAURANT_CLOSED',
+  'NOT_READY',
+  'NOT_FOUND',
+  'ITEM_STOPPED',
+  'AVAILABILITY_STALE',
+];
+/**
+ * POST /orders/:id/payment returns an order that already has an attempt before any check
+ * (payLocked), so these answers mean the order has no payment attempt and no money.
+ */
+const PAYMENT_DEFINITIVE = ['ITEM_STOPPED', 'AVAILABILITY_STALE', 'RESTAURANT_CLOSED', 'NOT_READY'];
+/** Russian fallback text of every guest error code; the screen shows the guest's language. */
+export const COMMERCIAL_ERROR_TEXT: Record<KioskErrorCode, string> = {
+  PRICE_CHANGED: 'Сумма изменилась. Проверьте корзину и подтвердите оплату заново.',
+  CART_CHANGED: 'Состав или цена изменились. Проверьте корзину и выберите доступные позиции.',
+  NOT_ACCEPTING: 'Ресторан пока не принимает заказы. Обновите меню или пригласите сотрудника.',
+  DEVICE: 'Киоск не настроен. Пригласите сотрудника.',
+  PHONE: 'Введите номер Казахстана для счёта Kaspi.',
+  CART_LIMIT_LINE: 'Одной позиции можно добавить не больше 20 штук.',
+  CART_LIMIT_LINES: 'В корзине может быть не больше 11 разных позиций.',
+  RETRY_PAYMENT: 'Оплата не началась, деньги не списаны. Нажмите «Перейти к оплате» ещё раз.',
+  PAYMENT_UNKNOWN:
+    'Не удалось проверить результат. Пригласите сотрудника, не оплачивайте повторно.',
+  MENU_LOAD: 'Не удалось загрузить меню. Проверьте подключение и повторите попытку.',
+  NETWORK: 'Не удалось выполнить действие. Проверьте подключение и повторите попытку.',
+  CONNECTION: 'Связь с сервером прервалась. Проверяем снова, не оплачивайте повторно.',
+  OFFLINE: 'Нет связи с сервером. Новый заказ можно начать, когда связь восстановится.',
+};
 function decode(raw: string): unknown {
   if (raw.length > 200000) throw new KioskError('RECOVERY_DATA_INVALID');
   try {
@@ -383,6 +441,15 @@ function flow(value: unknown): Flow {
   return { ...value, order } as unknown as Flow;
 }
 
+/** Navigation steps a background reload keeps (the guest is browsing, nothing is pending). */
+const BROWSING: KioskStep[] = ['menu', 'product', 'upsell', 'cart', 'loyalty'];
+/** A read that may simply be retried: the network, a timeout or a server outage. */
+const transient = (error: unknown) =>
+  !(error instanceof KioskError) ||
+  error.code === 'NETWORK_UNCERTAIN' ||
+  error.code === 'API_UNAVAILABLE' ||
+  error.status >= 500;
+
 /** Commercial guest flow has separate storage and cannot invoke simulated payments. */
 export class CommercialKioskController {
   private current: Flow;
@@ -398,15 +465,27 @@ export class CommercialKioskController {
   private media: { version: string; products: Record<string, KioskMedia> } | null = null;
   private mediaRetryAt = 0;
   private checkoutReady = false;
+  /** Last `/config` enabled value; a fresh long-poll restores checkout after a stale one. */
+  private configEnabled = false;
+  /** The last availability was not fresh: every product is shown unavailable. */
+  private stale = false;
   private paymentMethods: ('kaspi' | 'kaspi_invoice')[] = [];
   private selectedMethod: 'kaspi' | 'kaspi_invoice' = 'kaspi';
   private ready = false;
   private busy = false;
+  /** A background reload in flight; it never marks the kiosk busy (see run). */
+  private backgroundTask: Promise<boolean> | null = null;
   private blocked = false;
   private initialized = false;
   private error: string | null = null;
+  private errorCode: KioskErrorCode | null = null;
   private step: KioskStep = 'start';
   private selectedId: string | null = null;
+  /** Where the product page was opened from; adding or closing returns there. */
+  private returnStep: KioskStep = 'menu';
+  private lastAdded: { lineId: string; serial: number } | null = null;
+  private editing: KioskState['editingLine'] = null;
+  private addSerial = 0;
   private phone = '';
   private warning: number | null = null;
   private listeners = new Set<() => void>();
@@ -436,11 +515,15 @@ export class CommercialKioskController {
     };
   };
   getSnapshot = () => this.view;
+  /** Editing is closed: a payment may exist, or a finished guest is still being ended. */
   private unsafe() {
+    return this.current.resetPending || this.pending();
+  }
+  /** A payment may exist whose result is not final: only the recovery path may continue. */
+  private pending() {
     return (
       this.blocked ||
       !!this.current.intent ||
-      this.current.resetPending ||
       (!!this.current.order && !terminal(this.current.order))
     );
   }
@@ -469,8 +552,13 @@ export class CommercialKioskController {
       ready: this.ready,
       busy: this.busy,
       error: this.error,
+      errorCode: this.errorCode,
       commercial: true,
       checkoutReady: this.checkoutReady,
+      menuUpdating: !!this.menu && this.stale,
+      syncPending: this.current.resetPending,
+      lastAdded: this.lastAdded,
+      editingLine: this.editing,
       commercialPaymentMethods: this.paymentMethods,
       invoicePhone: this.phone,
       phoneValid: !!invoicePhone(this.phone),
@@ -511,12 +599,8 @@ export class CommercialKioskController {
             snapshot: { total_minor: order.totalMinor },
           }
         : null,
-      recoveryRequired:
-        this.blocked ||
-        !!this.current.intent ||
-        this.current.resetPending ||
-        order?.phase === 'attention' ||
-        waitingForNumber(order),
+      // A paid order waiting for its kitchen number is final: it no longer blocks the kiosk.
+      recoveryRequired: this.blocked || !!this.current.intent || order?.phase === 'attention',
       idleWarningSeconds: this.warning,
     };
   }
@@ -528,76 +612,129 @@ export class CommercialKioskController {
     await this.io.writeFlow(JSON.stringify(next));
     this.current = next;
   }
-  private async run(fn: () => Promise<void>, unready = false) {
-    if (this.busy || (!this.ready && !unready)) return false;
-    this.busy = true;
-    this.error = null;
-    this.emit();
-    try {
-      await fn();
-      return true;
-    } catch (error) {
-      this.error =
-        error instanceof KioskError && error.code === 'PRICE_CHANGED'
-          ? 'Сумма изменилась. Проверьте корзину и подтвердите оплату заново.'
-          : error instanceof KioskError &&
-              ['INVALID', 'CONFLICT', 'ITEM_STOPPED'].includes(error.code)
-            ? 'Состав или цена изменились. Проверьте корзину и выберите доступные позиции.'
-            : error instanceof KioskError &&
-                [
-                  'NOT_READY',
-                  'AVAILABILITY_STALE',
-                  'RESTAURANT_CLOSED',
-                  'CHECKOUT_DISABLED',
-                ].includes(error.code)
-              ? 'Ресторан пока не принимает заказы. Обновите меню или пригласите сотрудника.'
-              : error instanceof KioskError && error.code === 'DEVICE_NOT_PROVISIONED'
-                ? 'Киоск не настроен. Пригласите сотрудника.'
-                : error instanceof KioskError && error.code === 'INVALID_PHONE'
-                  ? 'Введите номер Казахстана для счёта Kaspi.'
-                  : this.blocked || this.current.intent || this.current.order
-                    ? 'Не удалось проверить результат. Пригласите сотрудника, не оплачивайте повторно.'
-                    : !this.menu
-                      ? 'Не удалось загрузить меню. Проверьте подключение и повторите попытку.'
-                      : 'Не удалось выполнить действие. Проверьте подключение и повторите попытку.';
-      if (this.unsafe()) this.step = 'recovery';
-      return false;
-    } finally {
-      this.busy = false;
+  private setError(code: KioskErrorCode | null) {
+    this.errorCode = code;
+    this.error = code ? COMMERCIAL_ERROR_TEXT[code] : null;
+  }
+  private codeOf(error: unknown): KioskErrorCode {
+    const code = error instanceof KioskError ? error.code : '';
+    if (code === 'PRICE_CHANGED') return 'PRICE_CHANGED';
+    if (['INVALID', 'CONFLICT', 'ITEM_STOPPED'].includes(code)) return 'CART_CHANGED';
+    if (
+      ['NOT_READY', 'AVAILABILITY_STALE', 'RESTAURANT_CLOSED', 'CHECKOUT_DISABLED'].includes(code)
+    )
+      return 'NOT_ACCEPTING';
+    if (code === 'DEVICE_NOT_PROVISIONED') return 'DEVICE';
+    if (code === 'INVALID_PHONE') return 'PHONE';
+    if (code === 'CART_LIMIT_LINE' || code === 'CART_LIMIT_LINES') return code;
+    if (code === 'CONNECTION_SOFT') return 'CONNECTION';
+    if (code === 'RETRY_PAYMENT') return 'RETRY_PAYMENT';
+    if (this.current.resetPending && !this.pending() && transient(error)) return 'OFFLINE';
+    if (this.blocked || this.current.intent || this.current.order) return 'PAYMENT_UNKNOWN';
+    return !this.menu ? 'MENU_LOAD' : 'NETWORK';
+  }
+  /**
+   * Runs one operation. A guest command marks the kiosk busy (buttons show progress) and waits for
+   * a background reload in flight instead of being dropped. A background reload (polling) never
+   * marks the kiosk busy, and a transient failure of it stays silent: the poll simply retries.
+   */
+  private async run(fn: () => Promise<void>, unready = false, background = false) {
+    if (this.busy || (!this.ready && !unready) || (background && this.backgroundTask)) return false;
+    if (!background) {
+      this.busy = true;
+      this.setError(null);
       this.emit();
+      if (this.backgroundTask) await this.backgroundTask;
     }
+    const task = (async () => {
+      try {
+        await fn();
+        if (
+          background &&
+          this.errorCode &&
+          [
+            'CONNECTION',
+            'OFFLINE',
+            'NETWORK',
+            'MENU_LOAD',
+            'NOT_ACCEPTING',
+            'PAYMENT_UNKNOWN',
+          ].includes(this.errorCode)
+        )
+          this.setError(null);
+        return true;
+      } catch (error) {
+        const soft = error instanceof KioskError && error.code === 'CONNECTION_SOFT';
+        const quiet =
+          (error instanceof KioskError && error.code === 'QUIET') ||
+          (background && !this.pending() && !!this.menu && transient(error));
+        if (!quiet) this.setError(this.codeOf(error));
+        if (soft || quiet) return false;
+        if (this.pending()) this.step = 'recovery';
+        else if (this.current.resetPending) this.step = 'start';
+        return false;
+      } finally {
+        if (!background) this.busy = false;
+        this.emit();
+      }
+    })();
+    if (background) {
+      this.backgroundTask = task;
+      void task.then(() => {
+        if (this.backgroundTask === task) this.backgroundTask = null;
+      });
+    }
+    return task;
   }
   private async device() {
     if (!(await this.io.readDevice())) throw new KioskError('DEVICE_NOT_PROVISIONED');
   }
+  /**
+   * Forgets the guest identity locally while keeping the unsubmitted draft; the next request
+   * allocates another session. Only valid when no order or intent can belong to it.
+   */
+  private async detachGuest() {
+    await this.save({ ...this.current, guestId: null });
+    await this.io.removeSession();
+    this.guest = null;
+  }
   private async loadMenu() {
-    this.checkoutReady = false;
     await this.device();
-    const guest = await this.authenticate();
-    const config = await this.io.request('/config', guest.token);
+    let guest = await this.authenticate();
+    let config: unknown;
+    try {
+      config = await this.io.request('/config', guest.token);
+    } catch (error) {
+      // The server no longer knows this guest (restored database, removed row): without an
+      // order or intent nothing belongs to it, so allocate another one instead of looping.
+      if (
+        !(error instanceof KioskError && error.code === 'FORBIDDEN') ||
+        this.current.intent ||
+        this.current.order
+      )
+        throw error;
+      await this.detachGuest();
+      guest = await this.authenticate();
+      config = await this.io.request('/config', guest.token);
+    }
     if (
       !isObject(config) ||
       typeof config.enabled !== 'boolean' ||
       !['kaspi_qr', 'kaspi_invoice'].includes(String(config.paymentMethod)) ||
       !id(config.branchId)
-    )
+    ) {
+      this.checkoutReady = false;
       throw new KioskError('CHECKOUT_DISABLED');
+    }
     const methods = config.paymentMethods ?? [config.paymentMethod];
     if (
       !Array.isArray(methods) ||
       methods.length > 2 ||
       new Set(methods).size !== methods.length ||
       methods.some((m) => !['kaspi_qr', 'kaspi_invoice'].includes(m))
-    )
-      throw new KioskError('INVALID_RESPONSE');
-    this.paymentMethods = methods.map((m) => (m === 'kaspi_qr' ? 'kaspi' : 'kaspi_invoice'));
-    if (
-      !this.current.intent &&
-      !this.current.order &&
-      !this.paymentMethods.includes(this.selectedMethod)
     ) {
-      this.selectedMethod = this.paymentMethods[0] ?? 'kaspi';
-      this.phone = '';
+      this.checkoutReady = false;
+      throw new KioskError('INVALID_RESPONSE');
     }
     const published = await this.io.request('/catalog', guest.token);
     const textLocale = this.locale;
@@ -608,9 +745,18 @@ export class CommercialKioskController {
     )
       throw new KioskError('INVALID_RESPONSE');
     this.attachMedia(next, await this.catalogMedia(next.catalog_version, guest.token));
-    this.signature = null;
     const availability = await this.readAvailability('/availability', guest.token);
     const applied = applyAvailability(next, availability.data, true);
+    // Everything is loaded: apply it at once, so a failed reload keeps the previous state.
+    this.paymentMethods = methods.map((m) => (m === 'kaspi_qr' ? 'kaspi' : 'kaspi_invoice'));
+    if (
+      !this.current.intent &&
+      !this.current.order &&
+      !this.paymentMethods.includes(this.selectedMethod)
+    ) {
+      this.selectedMethod = this.paymentMethods[0] ?? 'kaspi';
+      this.phone = '';
+    }
     this.base = next;
     this.published = published;
     this.menu = applied.menu;
@@ -621,8 +767,10 @@ export class CommercialKioskController {
       this.menu = relabelCatalog(this.menu, texts);
     }
     this.signature = availability.signature;
+    this.configEnabled = config.enabled;
+    this.stale = !applied.fresh;
+    this.checkoutReady = applied.fresh && config.enabled;
     if (!applied.fresh) throw new KioskError('AVAILABILITY_STALE');
-    this.checkoutReady = config.enabled;
   }
   private async readAvailability(path: string, token: string): Promise<KioskReadResult> {
     return this.io.read
@@ -686,10 +834,19 @@ export class CommercialKioskController {
    * - Newer publication (X-Catalog-Version): on the idle start screen the catalog is reloaded at
    *   once; mid-session the loaded publication is kept and the quote CONFLICT path decides.
    * AVAILABILITY_STALE semantics are unchanged: a stale body makes every product unavailable.
+   * A fresh body after a stale one gives checkout back at once (the last `/config` decides).
    */
   watchAvailability = async (): Promise<AvailabilityWatch> => {
     if (!this.io.read) return 'unsupported';
-    if (!this.ready || this.busy || !this.menu || !this.base || this.unsafe() || this.current.order)
+    if (
+      !this.ready ||
+      this.busy ||
+      this.backgroundTask ||
+      !this.menu ||
+      !this.base ||
+      this.unsafe() ||
+      this.current.order
+    )
       return 'idle';
     const guest = this.guest;
     if (
@@ -700,7 +857,7 @@ export class CommercialKioskController {
       // A finished guest leaves no session; the start screen allocates the next one in the
       // normal refresh path (the same as a kiosk restart), so the poll can continue.
       if (!this.idleStart()) return 'idle';
-      return (await this.refreshResult()) ? 'reloaded' : 'failed';
+      return (await this.refreshResult(true)) ? 'reloaded' : 'failed';
     }
     const after = this.signature;
     let response: KioskReadResult;
@@ -717,6 +874,7 @@ export class CommercialKioskController {
     if (
       this.guest !== guest ||
       this.busy ||
+      this.backgroundTask ||
       !this.menu ||
       !this.base ||
       this.unsafe() ||
@@ -726,7 +884,7 @@ export class CommercialKioskController {
       return 'idle';
     const loaded = Number(this.base.catalog_version);
     if (response.catalogVersion !== null && response.catalogVersion > loaded && this.idleStart())
-      return (await this.refreshResult()) ? 'reloaded' : 'failed';
+      return (await this.refreshResult(true)) ? 'reloaded' : 'failed';
     let applied: { menu: KioskCatalog; fresh: boolean };
     try {
       applied = applyAvailability(this.base, response.data, false);
@@ -735,6 +893,14 @@ export class CommercialKioskController {
     }
     this.menu = applied.menu;
     this.signature = response.signature;
+    if (!applied.fresh) {
+      this.stale = true;
+      this.checkoutReady = false;
+    } else if (this.stale) {
+      this.stale = false;
+      this.checkoutReady = this.configEnabled;
+      if (this.errorCode === 'NOT_ACCEPTING') this.setError(null);
+    }
     this.emit();
     if (!response.signature) return 'unsupported';
     return response.signature === after ? 'unchanged' : 'changed';
@@ -752,13 +918,16 @@ export class CommercialKioskController {
         !this.unsafe() &&
         !this.current.order
       ) {
-        const ended = await this.io.request('/sessions/end', this.guest.token, {});
-        if (!isObject(ended) || ended.ended !== true) throw new KioskError('INVALID_RESPONSE');
+        try {
+          const ended = await this.io.request('/sessions/end', this.guest.token, {});
+          if (!isObject(ended) || ended.ended !== true) throw new KioskError('INVALID_RESPONSE');
+        } catch (error) {
+          // A guest the server no longer knows cannot be ended; nothing belongs to it.
+          if (!(error instanceof KioskError && error.code === 'FORBIDDEN')) throw error;
+        }
         // Detach before removing the credential: a crash can retry the old end,
         // or allocate the next session, without losing the unsubmitted draft.
-        await this.save({ ...this.current, guestId: null });
-        await this.io.removeSession();
-        this.guest = null;
+        await this.detachGuest();
       } else return this.guest;
     }
     if (this.current.guestId || this.current.intent || this.current.order)
@@ -796,17 +965,28 @@ export class CommercialKioskController {
     this.guest = next;
     return next;
   }
+  /**
+   * The step the stored state requires. A guest who is browsing stays on their screen: a
+   * background reload must not send them back to the menu or the start screen.
+   */
   private derive() {
+    const shown = this.step;
     this.step =
-      this.blocked || this.current.intent || this.current.resetPending
+      this.blocked || this.current.intent
         ? 'recovery'
         : this.current.order
           ? paid(this.current.order) || this.current.order.phase === 'failed'
             ? 'order'
             : 'payment'
-          : this.current.mode
-            ? 'menu'
-            : 'start';
+          : this.current.resetPending
+            ? 'start'
+            : !this.current.mode
+              ? shown === 'mode'
+                ? 'mode'
+                : 'start'
+              : BROWSING.includes(shown)
+                ? shown
+                : 'menu';
   }
   restore = () =>
     this.run(async () => {
@@ -817,15 +997,18 @@ export class CommercialKioskController {
         this.guest = guestRaw ? session(decode(guestRaw)) : null;
         if (this.guest && !this.current.guestId && !this.current.intent && !this.current.order)
           await this.save({ ...this.current, guestId: this.guest.sessionId });
-        if (this.current.resetPending) await this.finishReset();
-        else if (
-          (this.guest && this.guest.sessionId !== this.current.guestId) ||
-          ((this.current.order || this.current.intent) && !this.guest)
+        if (
+          !this.current.resetPending &&
+          ((this.guest && this.guest.sessionId !== this.current.guestId) ||
+            ((this.current.order || this.current.intent) && !this.guest))
         )
           throw new KioskError('GUEST_IDENTITY_UNAVAILABLE');
         this.blocked = false;
         this.initialized = true;
+        // Ready before the network: a finished guest whose end fails offline leaves the start
+        // screen usable, and polling finishes the reset when the network returns.
         this.ready = true;
+        if (this.current.resetPending) await this.finishReset();
       }
       try {
         await this.loadMenu();
@@ -849,6 +1032,8 @@ export class CommercialKioskController {
   }
   start = () =>
     this.run(async () => {
+      // The previous guest could not be ended offline; end it before the next one starts.
+      if (this.current.resetPending && !this.pending()) await this.finishReset();
       this.editable();
       this.step = 'mode';
       this.touch();
@@ -867,8 +1052,33 @@ export class CommercialKioskController {
   goLoyalty = () => this.navigate('loyalty');
   openProduct = (productId: string) => {
     if (!this.menu?.products.some((p) => p.id === productId)) return;
+    if (!this.ready || this.busy || this.unsafe() || this.current.order) return;
+    if (this.step !== 'product')
+      this.returnStep = this.step === 'upsell' || this.step === 'cart' ? this.step : 'menu';
     this.selectedId = productId;
+    this.editing = null;
     this.navigate('product');
+  };
+  editLine = (lineId: string) => {
+    const line = this.current.cart.find((l) => testLineId(l.productId, l.selections) === lineId);
+    const product = line && this.menu?.products.find((p) => p.id === line.productId);
+    if (!line || !product || product.available === false) return;
+    if (!this.ready || this.busy || this.unsafe() || this.current.order) return;
+    if (this.step !== 'product')
+      this.returnStep = this.step === 'upsell' || this.step === 'cart' ? this.step : 'menu';
+    this.selectedId = line.productId;
+    this.editing = {
+      lineId,
+      productId: line.productId,
+      selections: line.selections.map((s) => ({ ...s })),
+      quantity: line.quantity,
+    };
+    this.navigate('product');
+  };
+  closeProduct = () => {
+    if (!this.ready || this.busy || this.unsafe() || this.current.order) return;
+    this.editing = null;
+    this.navigate(this.returnStep);
   };
   setPaymentMethod = (method: KioskPaymentMethod) => {
     if (
@@ -890,7 +1100,12 @@ export class CommercialKioskController {
     this.touch();
     this.emit();
   };
-  addToCart = (productId: string, selections: KioskSelection[], quantity = 1) =>
+  addToCart = (
+    productId: string,
+    selections: KioskSelection[],
+    quantity = 1,
+    replaceLineId?: string,
+  ) =>
     this.run(async () => {
       this.editable();
       const product = this.menu!.products.find((p) => p.id === productId);
@@ -908,22 +1123,17 @@ export class CommercialKioskController {
         .sort((a, b) =>
           `${a.group_id}:${a.option_id}`.localeCompare(`${b.group_id}:${b.option_id}`),
         );
-      const old = this.current.cart.find(
-        (p) => testLineId(p.productId, p.selections) === testLineId(productId, normalized),
-      );
-      const total = (old?.quantity ?? 0) + quantity;
-      if (total > 20 || (!old && this.current.cart.length >= 11))
-        throw new KioskError('INVALID_CART');
-      const next = { productId, selections: normalized, quantity: total };
-      await this.save({
-        ...this.current,
-        cart: old
-          ? this.current.cart.map((p) => (p === old ? next : p))
-          : [...this.current.cart, next],
-        lastActivityAt: this.io.now(),
-      });
-      // Upsell (its own step or the cart's inline block) keeps the guest where they are.
-      if (this.step !== 'upsell' && this.step !== 'cart') this.step = 'menu';
+      const placed = placeLine(this.current.cart, productId, normalized, quantity, replaceLineId);
+      if ('error' in placed) throw new KioskError(placed.error);
+      await this.save({ ...this.current, cart: placed.cart, lastActivityAt: this.io.now() });
+      // An edited line is not a new add: the menu shows no "added" toast for it.
+      if (replaceLineId === undefined)
+        this.lastAdded = { lineId: placed.lineId, serial: ++this.addSerial };
+      this.editing = null;
+      // The product page returns where it was opened; upsell (its own step or the cart's
+      // inline block) keeps the guest where they are.
+      if (this.step === 'product') this.step = this.returnStep;
+      else if (this.step !== 'upsell' && this.step !== 'cart') this.step = 'menu';
     });
   updateQuantity = (lineId: string, quantity: number) =>
     this.run(async () => {
@@ -958,8 +1168,12 @@ export class CommercialKioskController {
       const phone = selected === 'kaspi_invoice' ? invoicePhone(this.phone) : null;
       if (selected === 'kaspi_invoice' && !phone) throw new KioskError('INVALID_PHONE');
       const state = this.snapshot();
-      if (!state.cartValid || !state.cart.length || !this.current.mode)
-        throw new KioskError('INVALID_CART');
+      if (!this.current.cart.length || !this.current.mode) throw new KioskError('INVALID_CART');
+      if (!state.cartValid) {
+        // A line was stopped since the review was shown: the cart shows it with a remove action.
+        this.step = 'cart';
+        throw new KioskError('ITEM_STOPPED');
+      }
       const guest = await this.authenticate();
       const intent: Intent = {
         guestId: guest.sessionId,
@@ -987,6 +1201,13 @@ export class CommercialKioskController {
       await this.resumeIntent();
       this.derive();
     });
+  /** The saved intent can no longer create anything: the guest returns to the review. */
+  private async dropIntent(detach: boolean) {
+    await this.save({ ...this.current, intent: null });
+    this.phone = '';
+    if (detach) await this.detachGuest();
+    this.step = 'loyalty';
+  }
   private async resumeIntent() {
     let intent = this.current.intent;
     if (!intent || !this.guest || intent.guestId !== this.guest.sessionId)
@@ -1028,53 +1249,71 @@ export class CommercialKioskController {
         intent = { ...intent, quoteId: quote.quoteId };
         await this.save({ ...this.current, intent });
       } catch (error) {
-        if (
-          error instanceof KioskError &&
-          [
-            'INVALID',
-            'CONFLICT',
-            'NOT_READY',
-            'ITEM_STOPPED',
-            'AVAILABILITY_STALE',
-            'RESTAURANT_CLOSED',
-            'CHECKOUT_DISABLED',
-            'PRICE_CHANGED',
-          ].includes(error.code)
-        ) {
-          await this.save({ ...this.current, intent: null });
-          this.phone = '';
-          this.step = 'loyalty';
+        // No quote id was ever saved, so no order can exist for this intent.
+        if (error instanceof KioskError && QUOTE_DEFINITIVE.includes(error.code))
+          await this.dropIntent(false);
+        else if (definitive(error, QUOTE_SESSION_DEFINITIVE)) {
+          // The server refuses this guest (expired or unknown session): start another one.
+          await this.dropIntent(error instanceof KioskError && error.code === 'FORBIDDEN');
+          throw new KioskError('RETRY_PAYMENT');
         }
         throw error;
       }
     }
     if (!intent.orderId) {
-      const order = CustomerCommerceOrderSchema.parse(
+      let created: CustomerCommerceOrder;
+      try {
+        created = CustomerCommerceOrderSchema.parse(
+          await this.io.request(
+            '/orders',
+            this.guest.token,
+            { quoteId: intent.quoteId, key: intent.orderKey },
+            intent.orderKey,
+          ),
+        );
+      } catch (error) {
+        if (definitive(error, ORDER_DEFINITIVE)) {
+          await this.dropIntent(false);
+          if (definitive(error, ['EXPIRED', 'NOT_FOUND'])) throw new KioskError('RETRY_PAYMENT');
+        }
+        throw error;
+      }
+      this.assertOrder(created);
+      intent = { ...intent, orderId: created.orderId };
+      await this.save({ ...this.current, intent, order: created });
+    }
+    let order: CustomerCommerceOrder;
+    try {
+      order = CustomerCommerceOrderSchema.parse(
         await this.io.request(
-          '/orders',
+          `/orders/${intent.orderId}/payment`,
           this.guest.token,
-          { quoteId: intent.quoteId, key: intent.orderKey },
-          intent.orderKey,
+          intent.method === 'kaspi_invoice'
+            ? { method: 'kaspi_invoice', phone: intent.phone }
+            : { method: 'kaspi_qr' },
+          intent.paymentKey,
         ),
       );
-      this.assertOrder(order);
-      intent = { ...intent, orderId: order.orderId };
-      await this.save({ ...this.current, intent, order });
+    } catch (error) {
+      if (definitive(error, PAYMENT_DEFINITIVE)) await this.abandonUnpaidOrder();
+      throw error;
     }
-    const order = CustomerCommerceOrderSchema.parse(
-      await this.io.request(
-        `/orders/${intent.orderId}/payment`,
-        this.guest.token,
-        intent.method === 'kaspi_invoice'
-          ? { method: 'kaspi_invoice', phone: intent.phone }
-          : { method: 'kaspi_qr' },
-        intent.paymentKey,
-      ),
-    );
     this.assertOrder(order);
     if (order.orderId !== intent.orderId) throw new KioskError('INVALID_RESPONSE');
     await this.save({ ...this.current, intent: null, order });
     this.phone = '';
+  }
+  /**
+   * The server refused to start the first payment attempt (stop, closing time, checkout off).
+   * The order has no attempt, so no money can move for it; it stays unpaid on the server and its
+   * guest session is left to expire (the server keeps such a session open until then). The guest
+   * keeps the cart under a new session and sees why.
+   */
+  private async abandonUnpaidOrder() {
+    await this.save({ ...this.current, intent: null, order: null });
+    this.phone = '';
+    await this.detachGuest();
+    this.step = 'cart';
   }
   private assertOrder(order: CustomerCommerceOrder) {
     if (
@@ -1096,22 +1335,30 @@ export class CommercialKioskController {
     if (order.orderId !== orderId) throw new KioskError('INVALID_RESPONSE');
     await this.save({ ...this.current, order });
   }
-  private refreshResult = () =>
-    this.run(async () => {
-      if (this.current.resetPending) {
-        await this.finishReset();
-        return;
-      }
-      if (this.current.intent) await this.resumeIntent();
-      else if (this.current.order) await this.readOrder();
-      else {
-        await this.loadMenu();
-      }
-      this.derive();
-    });
-  refresh = async (): Promise<void> => {
-    await this.refreshResult();
-  };
+  private refreshResult = (background = false) =>
+    this.run(
+      async () => {
+        if (this.current.resetPending) await this.finishReset();
+        if (this.current.intent) await this.resumeIntent();
+        else if (this.current.order) {
+          try {
+            await this.readOrder();
+          } catch (error) {
+            // A missed status read keeps the payment screen (its QR runs on a local clock) or the
+            // order screen; only a stored intent or an inconsistent answer needs recovery.
+            if (this.blocked || !transient(error)) throw error;
+            throw new KioskError(
+              background && terminal(this.current.order) ? 'QUIET' : 'CONNECTION_SOFT',
+            );
+          }
+        } else await this.loadMenu();
+        this.derive();
+      },
+      false,
+      background,
+    );
+  /** Background poll; resolves false when nothing was refreshed (the poll backs off). */
+  refresh = (): Promise<boolean> => this.refreshResult(true);
   recover = () => (this.initialized ? this.refreshResult() : this.restore());
   pay = async () => false;
   cancelOrder = () =>
@@ -1122,8 +1369,15 @@ export class CommercialKioskController {
     });
   private async finishReset() {
     if (this.guest) {
-      const ended = await this.io.request('/sessions/end', this.guest.token, {});
-      if (!isObject(ended) || ended.ended !== true) throw new KioskError('INVALID_RESPONSE');
+      try {
+        const ended = await this.io.request('/sessions/end', this.guest.token, {});
+        if (!isObject(ended) || ended.ended !== true) throw new KioskError('INVALID_RESPONSE');
+      } catch (error) {
+        // The server no longer knows this guest (restored database, deleted row, disabled
+        // device): there is nothing left to end, so unbind it locally instead of keeping the
+        // kiosk stuck on a reset that can never complete.
+        if (!(error instanceof KioskError && error.code === 'FORBIDDEN')) throw error;
+      }
     }
     await this.io.removeSession();
     this.guest = null;
@@ -1131,21 +1385,41 @@ export class CommercialKioskController {
     this.phone = '';
     this.selectedMethod = 'kaspi';
     this.warning = null;
+    this.lastAdded = null;
+    this.selectedId = null;
+    this.editing = null;
+    this.returnStep = 'menu';
     this.step = 'start';
   }
+  /**
+   * The finished guest is cleared locally first (cart, mode, final order), so a kiosk without
+   * WAN shows the start screen instead of keeping the previous guest's draft; ending the server
+   * session is retried in the background (resetPending).
+   */
   private async reset() {
-    await this.save({ ...this.current, resetPending: true });
+    await this.save({
+      ...this.empty(),
+      guestId: this.current.guestId,
+      resetPending: true,
+    });
+    this.warning = null;
+    this.lastAdded = null;
+    this.phone = '';
     await this.finishReset();
   }
   newGuest = () =>
     this.run(async () => {
-      if (this.unsafe()) throw new KioskError('RECOVERY_REQUIRED');
-      await this.reset();
+      if (this.pending()) throw new KioskError('RECOVERY_REQUIRED');
+      if (this.current.resetPending) await this.finishReset();
+      else await this.reset();
     });
   touch = () => {
     if (!this.ready || this.unsafe() || this.current.order) return;
+    const warned = this.warning !== null;
     this.current = { ...this.current, lastActivityAt: this.io.now() };
     this.warning = null;
+    // The countdown dialog closes on any touch, not only on "Continue".
+    if (warned) this.emit();
   };
   stay = () => {
     this.touch();

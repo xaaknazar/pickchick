@@ -1,6 +1,7 @@
 import { TextInput, View } from 'react-native';
 import { colors, fonts, useMetrics } from '../theme';
 import { Body } from './Body';
+import { fixedText } from './Body';
 export function DeviceField({
   name,
   label,
@@ -19,6 +20,7 @@ export function DeviceField({
     <View style={{ gap: 8 }}>
       <Body variant="label">{label}</Body>
       <TextInput
+        {...fixedText}
         testID={'kiosk-enrollment-' + name}
         accessibilityLabel={label}
         value={value}

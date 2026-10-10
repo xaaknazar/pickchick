@@ -53,6 +53,9 @@ jobs:
           python3 -m venv .local/design-venv
           .local/design-venv/bin/pip install -r tests/design/requirements.txt
           .local/design-venv/bin/python -m playwright install --with-deps chromium
+      # Axe WCAG 2.1 AA over every story. Owner-approved exception (2026-10-10): the design
+      # orange #FF6900 under white text on CTAs and active controls marked data-owner-orange
+      # (apps/kiosk/src/components/ownerOrange.ts); browser_mobbin.py excuses only that pair.
       - name: Verify every story, accessible states and reduced motion
         run: |
           python3 -m http.server 4184 --bind 127.0.0.1 --directory apps/kiosk/dist > .local/kiosk-library-preview.log 2>&1 &

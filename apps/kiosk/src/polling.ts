@@ -7,7 +7,8 @@ export const PLAIN_AVAILABILITY_MS = 15000;
 
 export interface PollingController {
   getSnapshot(): KioskState;
-  refresh(): Promise<void>;
+  /** Resolves `false` when nothing was refreshed; the loop then backs off and retries. */
+  refresh(): Promise<boolean | void>;
   tick(): Promise<void>;
   /** One background availability cycle (commercial kiosk only). */
   watchAvailability?: () => Promise<
@@ -42,12 +43,16 @@ export function startKioskPolling(
         !before.busy &&
         (before.order ||
           before.recoveryRequired ||
+          before.syncPending ||
           !before.catalog ||
           (before.step !== 'start' && Date.now() - catalogPollAt >= 60000))
       ) {
-        await controller.refresh();
-        if (controller.getSnapshot().catalog) catalogPollAt = Date.now();
-        failures = controller.getSnapshot().error ? failures + 1 : 0;
+        const result = await controller.refresh();
+        // A failed background reload is retried with back-off, not after another minute.
+        const failed =
+          result === false || (result === undefined && !!controller.getSnapshot().error);
+        if (!failed && controller.getSnapshot().catalog) catalogPollAt = Date.now();
+        failures = failed ? failures + 1 : 0;
       }
       schedule();
     }, backoffMs(failures));
