@@ -3955,9 +3955,11 @@
         "@release/ios",
         "docs/operations/kiosk-build12-installation.md"
       ],
-      "status": "active",
-      "head": "3c399b484b93b211da599116c2f42cb1e0cb95db",
-      "updatedAt": "2026-10-10T09:29:34.637Z"
+      "status": "done",
+      "head": "2debc001f3fd2aba58fb411936abfdce69d49b43",
+      "updatedAt": "2026-10-10T18:01:43.814Z",
+      "summary": "Ветка codex/kiosk-build12 (2debc001, установлена на iPad как build 12) включена в codex/shared-development (6ddde9cc/dd3bca8b), Foundation CI 38072279870 green.",
+      "nextAction": "Новых шагов по задаче нет; области освобождены."
     },
     {
       "id": "remove-pick-farm",
