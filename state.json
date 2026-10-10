@@ -4223,6 +4223,31 @@
       "head": "bd60ab6b539d1b9a4432e271fd5d5a17bfe50cc2",
       "updatedAt": "2026-10-10T15:23:42.237Z",
       "summary": "Код 32700a42 опубликован, PR224, проверяется CI. 3 общих файла и generated OpenAPI переданы задаче inventory на этом же Mac; склад работает в отдельном checkout поверх этого checkpoint."
+    },
+    {
+      "id": "inventory",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/inventory",
+      "scopes": [
+        "apps/backoffice/src/operations.ts",
+        "packages/backoffice-core/src/model.ts",
+        "packages/backoffice-core/src/index.ts",
+        "packages/contracts/openapi.json",
+        "apps/backoffice/src/inventory.ts",
+        "apps/backoffice/src/inventory-model.ts",
+        "apps/backoffice/src/inventory.css",
+        "apps/backoffice/src/operations-model.ts",
+        "packages/backoffice-core/src/inventory.ts",
+        "packages/backoffice-core/tests/inventory.test.mjs",
+        "tests/backoffice/inventory.test.mjs",
+        "tests/backoffice/inventory-browser.mjs",
+        "tests/backoffice/inventory-browser.py",
+        "docs/operations/inventory.md",
+        "docs/architecture/inventory.md"
+      ],
+      "status": "active",
+      "head": "32700a42ce281f368232a21a400528aa3935da98",
+      "updatedAt": "2026-10-10T15:23:47.253Z"
     }
   ]
 }
