@@ -22,7 +22,7 @@ class WorkforceReleaseTests(unittest.TestCase):
   self.assertFalse(args.apply)
  def test_backup_uses_this_macs_recipient_and_restores_only_isolated_database(self):
   with tempfile.TemporaryDirectory() as tmp:
-   key=Path(tmp)/'identity';key.write_bytes(b'synthetic-key');key.chmod(0o600)
+   key=Path(tmp).resolve()/'identity';key.write_bytes(b'synthetic-key');key.chmod(0o600)
    obj=object.__new__(w.Release);obj.args=SimpleNamespace(backup_identity=key)
    obj.execute=Mock(return_value=('age1'+'q'*58).encode())
    obj.ledger=Mock(return_value=[{'version':'synthetic'}]);obj.table_names=Mock(return_value=['synthetic'])
@@ -39,7 +39,7 @@ class WorkforceReleaseTests(unittest.TestCase):
    self.assertIn('dropdb',calls[-2][0])
  def test_failed_restore_cleans_only_its_isolated_database_and_stops(self):
   with tempfile.TemporaryDirectory() as tmp:
-   key=Path(tmp)/'identity';key.write_bytes(b'synthetic-key');key.chmod(0o600)
+   key=Path(tmp).resolve()/'identity';key.write_bytes(b'synthetic-key');key.chmod(0o600)
    obj=object.__new__(w.Release);obj.args=SimpleNamespace(backup_identity=key)
    obj.execute=Mock(return_value=('age1'+'q'*58).encode());obj.ledger=Mock(return_value=[]);obj.table_names=Mock(return_value=[])
    calls=[]
