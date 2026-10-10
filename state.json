@@ -3951,9 +3951,11 @@
         "infra/backoffice-login/rotate.py",
         "infra/backoffice-login/test_rotate.py"
       ],
-      "status": "active",
-      "head": "abee67cd10eba08bd059722c3f907edded739872",
-      "updatedAt": "2026-10-09T14:35:22.185Z"
+      "status": "available",
+      "head": "3c399b484b93b211da599116c2f42cb1e0cb95db",
+      "updatedAt": "2026-10-10T04:53:34.959Z",
+      "summary": "Operator3c399b484b93b211da599116c2f42cb1e0cb95db published and integrated into shared/primary. Runtime bytes identical to reviewed4cecded5; exact4ce Foundation38013012329 succeeded11/11. Final merge adds only previously verified report docs; no exact3c CI result claimed yet. Offline helper and guarded live operator checked incl private descriptors, inode/hash CAS, encrypted-source/config pins, same-container restart, backup/restore and fail-closed unknown attempts. No live password input or configuration rotation performed; PR221 contains proof and runbook.",
+      "nextAction": "When owner is ready and trusted SSH restored, verify exact source CI and fresh runtime/config/neighbor pins; receive owner-chosen password through private local input, never chat/argv/log. Perform prepare/review/apply and owner login acceptance per runbook. Preserve pending release locks, do not reset to old disclosed password automatically. Shared primary now3c399b48; Devices runtime release remains immutableb31."
     },
     {
       "id": "restaurant-report",
