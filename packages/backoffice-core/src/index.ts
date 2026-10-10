@@ -721,13 +721,13 @@ export class Backoffice {
     const exists = async (k: Kind, id: string) =>
       Boolean(
         (
-          await db.query('SELECT 1 FROM bo_records WHERE branch_id=$1 AND kind=$2 AND id=$3', [
-            branch,
-            k,
-            id,
-          ])
+          await db.query(
+            "SELECT 1 FROM bo_records WHERE branch_id=$1 AND kind=$2 AND id=$3 AND payload->>'deleted' IS DISTINCT FROM 'true'",
+            [branch, k, id],
+          )
         ).rowCount,
       );
+    if (kind === 'employee' && (payload['deleted'] || old?.payload['deleted'])) fail('CONFLICT');
     if (kind === 'game' && old && payload['template'] !== old.payload['template']) fail('CONFLICT');
     if (kind === 'ingredient' && old && payload['unit'] !== old.payload['unit']) fail('CONFLICT');
     if (kind === 'recipe') {

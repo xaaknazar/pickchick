@@ -73,7 +73,7 @@ export class Workforce {
     if (employees.length > 1000) return fail('NOT_READY');
     const linked = new Set(
       records
-        .filter((r) => r.kind === 'time')
+        .filter((r) => r.kind === 'time' && !(r.payload as Record<string, unknown>).deleted)
         .flatMap((r) => {
           const p = parse(WorkTime, r.payload);
           return p.status === 'approved' ? p.source_event_ids : [];
@@ -125,6 +125,7 @@ export class Workforce {
       )
     ).rows[0];
     if (!found) fail('NOT_FOUND');
+    if (found.payload.deleted) fail('CONFLICT');
   }
   private async unlocked(
     db: DatabaseClient,
@@ -187,11 +188,50 @@ export class Workforce {
       const c = request.command;
       let before: unknown = null;
       let result: Record<string, unknown>;
-      if (c.type === 'save') {
+      if (c.type === 'delete') {
+        // Serialize shared employee edits with the legacy BO route as well.
+        await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+          'bo:branch:' + branch,
+        ]);
+        const employee = c.kind === 'employee';
+        const old = (
+          await db.query<WorkRecord>(
+            employee
+              ? "SELECT id,kind,revision,payload FROM bo_records WHERE branch_id=$1 AND kind='employee' AND id=$2 FOR UPDATE"
+              : 'SELECT id,kind,revision,payload FROM bo_workforce_records WHERE branch_id=$1 AND id=$2 FOR UPDATE',
+            [branch, c.id],
+          )
+        ).rows[0];
+        if (!old) return fail('NOT_FOUND');
+        const payload = old.payload as Record<string, unknown>;
+        if (old.kind !== c.kind || old.revision !== c.expected_revision || payload.deleted)
+          return fail('CONFLICT');
+        if (employee) {
+          // Remove erroneous cards only after their working entries are corrected.
+          // Cash shifts and immutable device events retain their employee identity.
+          const dependencies = await db.query(
+            `SELECT 1 FROM bo_workforce_records WHERE branch_id=$1 AND employee_id=$2 AND payload->>'deleted' IS DISTINCT FROM 'true'
+            UNION ALL SELECT 1 FROM bo_workforce_events WHERE branch_id=$1 AND employee_id=$2
+            UNION ALL SELECT 1 FROM bo_records WHERE branch_id=$1 AND kind='shift' AND payload->>'employee_id'=$2::text LIMIT 1`,
+            [branch, c.id],
+          );
+          if (dependencies.rowCount) return fail('NOT_READY');
+        } else await this.unlocked(db, branch, payload, c.kind);
+        before = old;
+        const removed = { ...payload, deleted: true, ...(employee ? { active: false } : {}) };
+        await db.query(
+          employee
+            ? "UPDATE bo_records SET revision=revision+1,payload=$3,updated_at=clock_timestamp() WHERE branch_id=$1 AND kind='employee' AND id=$2"
+            : 'UPDATE bo_workforce_records SET revision=revision+1,payload=$3,updated_at=clock_timestamp() WHERE branch_id=$1 AND id=$2',
+          [branch, c.id, JSON.stringify(removed)],
+        );
+        result = { id: c.id, revision: c.expected_revision + 1, deleted: true };
+      } else if (c.type === 'save') {
         const payload = parse(
           WorkforceSchemas[c.kind] as z.ZodType<Record<string, unknown>>,
           c.payload,
         );
+        if (payload.deleted) return fail('INVALID_REQUEST');
         await this.employee(db, branch, String(payload.employee_id));
         const old = (
           await db.query<WorkRecord>(
@@ -203,6 +243,7 @@ export class Workforce {
           return fail('CONFLICT');
         if (old) {
           const previous = old.payload as Record<string, unknown>;
+          if (previous.deleted) return fail('CONFLICT');
           if (previous.employee_id !== payload.employee_id) fail('CONFLICT');
           // Correction is allowed only in open periods, with revision and audit.
           // Preserve the effective date; a future change is a separate rate.
@@ -212,7 +253,9 @@ export class Workforce {
         }
         await this.unlocked(db, branch, payload, c.kind);
         const records = await this.records(db, branch);
-        const others = records.filter((r) => r.id !== c.id);
+        const others = records.filter(
+          (r) => r.id !== c.id && !(r.payload as Record<string, unknown>).deleted,
+        );
         if (c.kind === 'rate') {
           const rate = parse(HourlyRate, payload);
           if (
@@ -377,7 +420,7 @@ export class Workforce {
           result.id ?? null,
           request.reason,
           JSON.stringify(before),
-          JSON.stringify(c),
+          JSON.stringify(c.type === 'delete' ? { ...c, deleted: true } : c),
         ],
       );
       await db.query(

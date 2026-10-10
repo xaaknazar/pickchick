@@ -84,6 +84,39 @@ export class WorkforceView {
     b.disabled = !this.model.writable;
     return b;
   }
+  private recordActions(kind: string, record: WorkRecord | EmployeeRecord) {
+    const actions = el('div', 'wf-row-actions');
+    actions.append(this.button('Изменить', () => this.edit(kind, record)));
+    const remove = this.button('Удалить', () => {
+      this.form = {
+        kind: 'delete',
+        id: record.id,
+        revision: record.revision,
+        active: false,
+        values: {
+          target_kind: kind,
+          name:
+            kind === 'employee'
+              ? String(record.payload['name'])
+              : this.name((record.payload as Data)['employee_id']),
+          reason: '',
+        },
+      };
+      this.formError = '';
+      this.changed();
+      this.focusEditor();
+    });
+    remove.classList.add('wf-delete');
+    actions.append(remove);
+    return actions;
+  }
+  private focusEditor() {
+    requestAnimationFrame(() => {
+      const editor = document.querySelector<HTMLElement>('.wf-editor');
+      editor?.scrollIntoView({ block: 'center', behavior: 'auto' });
+      editor?.querySelector<HTMLElement>('input, select, textarea')?.focus({ preventScroll: true });
+    });
+  }
   private download(title: string, rows: string[][]) {
     const a = el('a');
     const url = URL.createObjectURL(new Blob([csv(rows)], { type: 'text/csv;charset=utf-8' }));
@@ -121,6 +154,7 @@ export class WorkforceView {
     return wrap;
   }
   private matching(r: WorkRecord) {
+    if (r.payload['deleted']) return false;
     if (this.employee && r.payload['employee_id'] !== this.employee) return false;
     const p = r.payload,
       date =
@@ -210,7 +244,9 @@ export class WorkforceView {
         this.employee,
         [
           { value: '', label: 'Вся команда' },
-          ...data.employees.map((e) => ({ value: e.id, label: e.payload.name })),
+          ...data.employees
+            .filter((e) => !e.payload.deleted)
+            .map((e) => ({ value: e.id, label: e.payload.name })),
         ],
         (v) => {
           this.employee = v;
@@ -323,8 +359,7 @@ export class WorkforceView {
         const total =
           intervalSeconds(spans) -
           (this.tab === 'plan' ? Number(p['unpaid_break_minutes']) * 60 : 0);
-        const actions = el('div', 'wf-row-actions');
-        actions.append(this.button('Изменить', () => this.edit(r.kind, r)));
+        const actions = this.recordActions(r.kind, r);
         if (this.tab === 'plan')
           actions.append(this.button('+7 дней', () => this.edit('plan', r, true)));
         return [
@@ -366,12 +401,12 @@ export class WorkforceView {
         this.table(
           ['Сотрудник', 'Роль', 'Статус', 'Действия'],
           data.employees
-            .filter((e) => !this.employee || e.id === this.employee)
+            .filter((e) => !e.payload.deleted && (!this.employee || e.id === this.employee))
             .map((e) => [
               e.payload.name,
               status(e.payload.role),
               e.payload.active ? 'Работает' : 'Неактивен',
-              this.button('Изменить', () => this.edit('employee', e)),
+              this.recordActions('employee', e),
             ]),
           'Добавьте сотрудников, чтобы составлять график и табель.',
         ),
@@ -398,7 +433,7 @@ export class WorkforceView {
               this.name(r.payload['employee_id']),
               dateText(String(r.payload['effective_date'])),
               money(String(r.payload['hourly_minor'])),
-              this.button('Исправить', () => this.edit('rate', r)),
+              this.recordActions('rate', r),
             ]),
           'Ставки ещё не заданы. Без ставки начисление не подтверждается.',
         ),
@@ -445,6 +480,7 @@ export class WorkforceView {
                     continue;
                   const names: Record<string, string> = {
                     employee_id: 'Сотрудник',
+                    deleted: 'Удалено',
                     date: 'Дата',
                     start: 'Начало',
                     end: 'Конец',
@@ -482,13 +518,15 @@ export class WorkforceView {
             return [
               new Date(a.created_at).toLocaleString('ru-RU', { timeZone: 'Asia/Almaty' }),
               a.author ?? a.actor_id,
-              a.action === 'workforce.period'
-                ? 'Закрытие / открытие табеля'
-                : a.action === 'save:employee'
-                  ? 'Карточка сотрудника'
-                  : a.action === 'workforce.import'
-                    ? 'Импорт явок'
-                    : 'Изменение записи',
+              a.action === 'workforce.delete'
+                ? 'Удаление записи'
+                : a.action === 'workforce.period'
+                  ? 'Закрытие / открытие табеля'
+                  : a.action === 'save:employee'
+                    ? 'Карточка сотрудника'
+                    : a.action === 'workforce.import'
+                      ? 'Импорт явок'
+                      : 'Изменение записи',
               a.reason,
               details,
             ];
@@ -503,7 +541,9 @@ export class WorkforceView {
     const problems = calc.issues.filter((r) => !this.employee || r.employee_id === this.employee);
     const linked = new Set(
       data.records
-        .filter((r) => r.kind === 'time' && r.payload['status'] === 'approved')
+        .filter(
+          (r) => r.kind === 'time' && !r.payload['deleted'] && r.payload['status'] === 'approved',
+        )
         .flatMap((r) => r.payload['source_event_ids'] as string[]),
     );
     const unresolved = data.events.filter(
@@ -586,7 +626,7 @@ export class WorkforceView {
             `${r.payload['target']} / ${r.payload['actual']}`,
             money(String(r.payload['amount_minor'])),
             status(r.payload['status']),
-            this.button('Изменить', () => this.edit('bonus', r)),
+            this.recordActions('bonus', r),
           ]),
         'Автоматические KPI не назначены. Можно добавить премию с подтверждённым основанием.',
       ),
@@ -629,12 +669,14 @@ export class WorkforceView {
     };
     this.formError = '';
     this.changed();
+    this.focusEditor();
   }
   private editor(root: HTMLElement) {
     const f = this.form!,
       v = f.values,
       box = el('form', 'wf-editor');
     const titles: Record<string, string> = {
+      delete: 'Удалить запись?',
       plan: 'Смена в графике',
       time: 'Фактическая явка',
       rate: 'Почасовая ставка',
@@ -672,18 +714,29 @@ export class WorkforceView {
       control.querySelector('select')!.setAttribute('aria-label', label);
       controls.append(control);
     };
-    if (!['employee', 'period'].includes(f.kind))
+    if (f.kind === 'delete')
+      controls.append(
+        el(
+          'p',
+          'wf-note',
+          `${v['name']}. Запись исчезнет из рабочих списков и расчётов. Автор, причина и прежние данные останутся в истории. ${v['target_kind'] === 'employee' ? 'Сначала удалите ошибочные графики, явки, ставки и премии этого сотрудника. Сотрудника с кассовыми сменами или отметками устройства можно только сделать неактивным.' : 'Закрытый табель сначала нужно переоткрыть.'}`,
+        ),
+      );
+    if (!['employee', 'period', 'delete'].includes(f.kind))
       controls.append(
         select(
           'Сотрудник',
           v['employee_id']!,
-          this.model.data!.employees.map((e) => ({ value: e.id, label: e.payload.name })),
+          this.model
+            .data!.employees.filter((e) => !e.payload.deleted)
+            .map((e) => ({ value: e.id, label: e.payload.name })),
           (s) => {
             v['employee_id'] = s;
           },
         ),
       );
-    if (f.id && f.kind !== 'employee') controls.querySelector('select')!.disabled = true;
+    if (f.id && !['employee', 'delete', 'period'].includes(f.kind))
+      controls.querySelector('select')!.disabled = true;
     if (f.kind === 'plan') {
       input('start', 'Начало (Алматы)', 'datetime-local');
       input('end', 'Конец (Алматы)', 'datetime-local');
@@ -745,10 +798,14 @@ export class WorkforceView {
             : 'Закрытие фиксирует подтверждённый табель и базовый расчёт за месяц. Оно не создаёт выплату зарплаты.',
         ),
       );
-    input('reason', 'Причина добавления или изменения');
+    input('reason', f.kind === 'delete' ? 'Причина удаления' : 'Причина добавления или изменения');
     box.append(controls);
     const actions = el('div', 'wf-actions'),
-      save = el('button', 'button primary', 'Сохранить');
+      save = el(
+        'button',
+        f.kind === 'delete' ? 'button wf-delete-confirm' : 'button primary',
+        f.kind === 'delete' ? 'Удалить запись' : 'Сохранить',
+      );
     save.type = 'submit';
     save.disabled = !this.model.writable;
     actions.append(
@@ -825,7 +882,14 @@ export class WorkforceView {
         };
       if (f.kind === 'employee')
         payload = { name: v['name'], role: v['role'], active: f.active, note: v['note'] ?? '' };
-      if (f.kind === 'period')
+      if (f.kind === 'delete')
+        command = {
+          type: 'delete',
+          kind: v['target_kind'],
+          id: f.id,
+          expected_revision: f.revision,
+        };
+      else if (f.kind === 'period')
         command = {
           type: 'period',
           month: this.model.month,

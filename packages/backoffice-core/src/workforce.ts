@@ -21,6 +21,7 @@ const interval = z
   );
 export const WorkPlan = z
   .strictObject({
+    deleted: z.literal(true).optional(),
     employee_id: id,
     start: instant,
     end: instant,
@@ -34,6 +35,7 @@ export const WorkPlan = z
       Date.parse(v.end) - Date.parse(v.start) <= 86400000,
   );
 export const HourlyRate = z.strictObject({
+  deleted: z.literal(true).optional(),
   employee_id: id,
   effective_date: WorkDate,
   hourly_minor: money.refine((v) => BigInt(v) > 0n),
@@ -46,6 +48,7 @@ export const WorkPunch = z.strictObject({
 });
 export const WorkTime = z
   .strictObject({
+    deleted: z.literal(true).optional(),
     employee_id: id,
     date: WorkDate,
     status: z.enum(['draft', 'approved', 'voided']),
@@ -71,6 +74,7 @@ export const WorkTime = z
       bad();
   });
 export const WorkBonus = z.strictObject({
+  deleted: z.literal(true).optional(),
   employee_id: id,
   month: WorkMonth,
   name: z.string().trim().min(1).max(120),
@@ -93,6 +97,12 @@ export const WorkforceRequest = z.strictObject({
   request_id: id,
   reason: note,
   command: z.discriminatedUnion('type', [
+    z.strictObject({
+      type: z.literal('delete'),
+      kind: z.enum(['plan', 'rate', 'time', 'bonus', 'employee']),
+      id,
+      expected_revision: z.number().int().min(1).max(2147483646),
+    }),
     z.strictObject({
       type: z.literal('save'),
       kind: z.enum(['plan', 'rate', 'time', 'bonus']),
@@ -188,6 +198,7 @@ export type PayrollLine = {
 };
 /** Base gross pay only. Statutory premiums, deductions and payment are separate stages. */
 export function calculateWorkforce(month: string, records: WorkRecord[]) {
+  records = records.filter((r) => !(r.payload as Record<string, unknown>).deleted);
   const window = monthWindow(month),
     rows = new Map<string, PayrollLine>();
   const amounts = new Map<string, bigint>();
