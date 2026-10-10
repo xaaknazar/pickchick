@@ -4207,22 +4207,13 @@
         "tests/backoffice/workforce-model.test.mjs",
         "tests/backoffice/workforce-http.test.mjs",
         "docs/operations/workforce.md",
-        "docs/project-status.md",
-        "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json",
         "infra/staging/release-workforce-edit.py",
-        "tests/operations/test_workforce_edit_release.py",
-        "@vps/api",
-        "@vps/db",
-        "@vps/backoffice-login",
-        "@vps/public",
-        "@vps/gateway",
-        "@vps/roadmap"
+        "tests/operations/test_workforce_edit_release.py"
       ],
       "status": "active",
       "head": "bd60ab6b539d1b9a4432e271fd5d5a17bfe50cc2",
       "updatedAt": "2026-10-10T15:23:42.237Z",
-      "summary": "Код 32700a42 опубликован, PR224, проверяется CI. 3 общих файла и generated OpenAPI переданы задаче inventory на этом же Mac; склад работает в отдельном checkout поверх этого checkpoint."
+      "summary": "PR224: готовый код кадровых исправлений, CI проверяется. Общие документы и VPS переданы inventory этого же Mac для единого выпуска с расширением складского интерфейса. Код 32700a42 включён в inventory."
     },
     {
       "id": "inventory",
@@ -4248,11 +4239,21 @@
         "apps/backoffice/src/index.html",
         "tests/backoffice/operations_browser.py",
         "tests/backoffice/browser_operations.py",
-        "apps/backoffice/server.mjs"
+        "apps/backoffice/server.mjs",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "@vps/api",
+        "@vps/db",
+        "@vps/backoffice-login",
+        "@vps/public",
+        "@vps/gateway",
+        "@vps/roadmap"
       ],
       "status": "active",
       "head": "32700a42ce281f368232a21a400528aa3935da98",
-      "updatedAt": "2026-10-10T15:33:52.728Z"
+      "updatedAt": "2026-10-10T15:33:52.728Z",
+      "summary": "Обследование iiko и первый проверяемый складской этап поверх 32700a42. Совместный выпуск включает кадровые исправления PR224, общие документы и VPS переданы между задачами этого же Mac."
     }
   ]
 }
