@@ -4308,9 +4308,11 @@
       "scopes": [
         ".github/workflows/ci.yml"
       ],
-      "status": "active",
-      "head": "bd60ab6b539d1b9a4432e271fd5d5a17bfe50cc2",
-      "updatedAt": "2026-10-10T17:10:02.907Z"
+      "status": "done",
+      "head": "d033d4bc5cbfb3bf1acef0838c1c954c329c653b",
+      "updatedAt": "2026-10-10T17:32:54.929Z",
+      "summary": "Таймаут job Foundation static checks and transaction invariants поднят 25->40 мин по решению владельца 2026-10-10 (d033d4bc, CI 38070643070 green), включено в codex/shared-development fast-forward.",
+      "nextAction": "Остальные проверки не ослаблялись; следить за длительностью static job."
     },
     {
       "id": "mobile-native16",
