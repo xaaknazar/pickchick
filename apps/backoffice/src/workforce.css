@@ -229,3 +229,16 @@
   padding: 16px 0;
   align-items: end;
 }
+
+.workforce .wf-delete {
+  color: #a12424;
+  border-color: #d9b8b8;
+}
+.workforce .wf-delete-confirm {
+  color: #fff;
+  background: #a12424;
+  border-color: #a12424;
+}
+.workforce .wf-delete-confirm:hover {
+  background: #821d1d;
+}

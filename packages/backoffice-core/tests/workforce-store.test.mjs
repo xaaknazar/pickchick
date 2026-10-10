@@ -297,3 +297,85 @@ test('published schedule without attendance and missing rate block closing; late
     assert.equal(state.period.snapshot.calculation.total_minor, '800000');
     assert.equal(state.unresolved_events, 1);
   }));
+
+test('deletion is revision guarded, replayable, audited and releases the date for replacement', () =>
+  setup(async (c) => {
+    const rate = await c.save('rate', {
+      employee_id: c.employee_id,
+      effective_date: month,
+      hourly_minor: '100000',
+    });
+    const time = await c.save('time', c.entry());
+    const request = envelope(
+      { type: 'delete', kind: 'time', id: time.id, expected_revision: 1 },
+      'Ошибочная тестовая явка',
+    );
+    await assert.rejects(c.send({ ...request.command, expected_revision: 2 }), /CONFLICT/);
+    const deleted = await c.workforce.command(c.manager.token, c.branch, request);
+    assert.deepEqual(await c.workforce.command(c.manager.token, c.branch, request), deleted);
+    let snap = await c.read();
+    assert.equal(snap.calculation.lines.length, 0);
+    assert.equal(snap.records.find((r) => r.id === time.id).payload.deleted, true);
+    const audit = snap.audit.filter((a) => a.action === 'workforce.delete');
+    assert.equal(audit.length, 1);
+    assert.equal(audit[0].before_value.payload.date, month);
+    assert.equal(audit[0].after_value.deleted, true);
+    await assert.rejects(c.save('time', c.entry(), time.id, 2), /CONFLICT/);
+    await c.save('time', c.entry());
+    await c.send({ type: 'delete', kind: 'rate', id: rate.id, expected_revision: 1 });
+    snap = await c.read();
+    assert(snap.calculation.issues.some((i) => i.code === 'MISSING_RATE'));
+    await c.save('rate', {
+      employee_id: c.employee_id,
+      effective_date: month,
+      hourly_minor: '120000',
+    });
+    assert.equal((await c.read()).calculation.lines[0].base_minor, '960000');
+  }));
+
+test('closed payroll protects deletions and employee deletion requires clearing dependent records', () =>
+  setup(async (c) => {
+    const rate = await c.save('rate', {
+      employee_id: c.employee_id,
+      effective_date: month,
+      hourly_minor: '100000',
+    });
+    const time = await c.save('time', c.entry());
+    await c.send({ type: 'period', month, closed: true, expected_revision: 0 });
+    for (const [kind, r] of [
+      ['rate', rate],
+      ['time', time],
+    ])
+      await assert.rejects(
+        c.send({ type: 'delete', kind, id: r.id, expected_revision: 1 }),
+        /CONFLICT/,
+      );
+    await assert.rejects(
+      c.send({ type: 'delete', kind: 'employee', id: c.employee_id, expected_revision: 1 }),
+      /NOT_READY/,
+    );
+    await c.send({ type: 'period', month, closed: false, expected_revision: 1 });
+    for (const [kind, r] of [
+      ['rate', rate],
+      ['time', time],
+    ])
+      await c.send({ type: 'delete', kind, id: r.id, expected_revision: 1 });
+    await c.send({ type: 'delete', kind: 'employee', id: c.employee_id, expected_revision: 1 });
+    assert.equal((await c.read()).employees[0].payload.deleted, true);
+    await assert.rejects(c.save('time', c.entry()), /CONFLICT/);
+    const bo = new Backoffice(c.cloud.pool, true);
+    await assert.rejects(
+      bo.command(
+        c.manager.token,
+        c.branch,
+        envelope({
+          type: 'save',
+          kind: 'employee',
+          id: c.employee_id,
+          expected_revision: 2,
+          payload: { name: 'Restore silently', role: 'cook', active: true, note: '' },
+        }),
+      ),
+      /CONFLICT/,
+    );
+  }));

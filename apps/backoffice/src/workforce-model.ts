@@ -10,7 +10,7 @@ export type WorkRecord = {
 export type EmployeeRecord = {
   id: string;
   revision: number;
-  payload: { name: string; role: string; active: boolean; note: string };
+  payload: { name: string; role: string; active: boolean; note: string; deleted?: true };
 };
 export type WorkforceSnapshot = {
   branch_id: string;
@@ -161,6 +161,12 @@ export class WorkforceModel {
     }
   }
   private explain(e: unknown) {
+    if (
+      e instanceof ApiError &&
+      e.code === 'NOT_READY' &&
+      this.pending?.body.command['type'] === 'delete'
+    )
+      return 'У сотрудника есть связанные записи. Сначала удалите ошибочные графики, явки, ставки и премии. При наличии кассовых смен или отметок устройства сделайте сотрудника неактивным.';
     if (e instanceof ApiError)
       return (
         (
@@ -227,7 +233,10 @@ export class WorkforceModel {
       this.pending = null;
       if (['save', 'employee'].includes(String(p.body.command['type'])) && 'id' in result)
         this.lastEntryId = String(result.id);
-      this.notice = 'Сохранено на сервере. История изменений обновлена.';
+      this.notice =
+        p.body.command['type'] === 'delete'
+          ? 'Запись удалена. История сохранена.'
+          : 'Сохранено на сервере. История изменений обновлена.';
       ok = true;
     } catch (e) {
       if (generation === this.generation) {
