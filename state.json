@@ -4154,10 +4154,10 @@
         "tests/backoffice/browser_operations.py"
       ],
       "status": "active",
-      "head": "0e744f7202accad31ecf7769b21f9f51cbdd5788",
-      "updatedAt": "2026-10-10T14:00:39.610Z",
-      "summary": "24e878c5 / draft PR223: manual UI (schedule/day/week/month/+7, staff, hourly rates, timesheets, KPI preview, CSV, history), standalone HTTP controller and runtime ACL helper. Frozen install/full build, targeted lint/format, 17 automated tests and browser desktop/mobile/filter/month-boundary pass. Impeccable fix review resolved. Not wired to app/proxy/createApi or deployed. Prior CI fails cloud051 historical fixtures; new CI pending. SSH denied; agent empty; Keychain reload failed.",
-      "nextAction": "Need devices-access scope transfer for app.ts/api.ts/server.mjs/package exports/historical tests and VPS api/db/public/backoffice-login; async user confirmation pending. Need owner ssh-add --apple-use-keychain ~/.ssh/pickchick_finance_ed25519. Then wire module/flag/provisioning, test actual proxy and shell, pin historical fixtures without weakening guards, full CI, fresh baselines/backups/guarded release. BioCheck deferred by owner; manual attendance should ship first. See docs/operations/workforce.md; shared status/roadmap still restaurant-report-owned."
+      "head": "8468e3aed72c5355cf8b8d998df1de14ca55b03f",
+      "updatedAt": "2026-10-10T14:08:39.209Z",
+      "summary": "PR223: wired manual schedules, attendance, hourly gross preview, KPI, staff and audit into API/proxy/#shifts. Preserved f277 live-menu fixes by explicit merge. Full local check/227 unit, 30 targeted, 5 operator and 87 backoffice checks pass. Exact source 8468e3ae Foundation CI38058064778 running. SSH and fresh read-only VPS baseline verified; no runtime deployment yet. Owner explicitly authorized common scope handover and rollout without repeated confirmation.",
+      "nextAction": "Wait exact green CI; guarded API050→052 with own encrypted backup+isolated restore; update canonical staff portal; verify authenticated read and asset hashes; publish deployment/status/roadmap, integrate shared and finish. BioCheck exact model/protocol pending, no biometric import; gross preview is not final payroll."
     },
     {
       "id": "devices-release",
