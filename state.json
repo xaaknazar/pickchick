@@ -3934,10 +3934,11 @@
         "infra/backoffice-login/test_update.py",
         "docs/operations/device-access-backoffice.md"
       ],
-      "status": "active",
-      "head": "dd442241ccbd54ab1f16aebfe91c1dada23fd2ee",
-      "updatedAt": "2026-10-09T14:29:09.788Z",
-      "summary": " Root integrates completed mobile/iPad/kitchen/Devices stage and records installation facts; runtime source remains immutable during release."
+      "status": "available",
+      "head": "b31a59ba3f758cd8b6d03b8caf540d3bf04b33c0",
+      "updatedAt": "2026-10-10T02:54:26.888Z",
+      "summary": "Integrated release source b31a59ba, Foundation CI37945705803 success11/11; source/packages kept immutable. Shared and primary now include report1475e1b8 (PR222). iPad11 installed, kitchen/assembly parser accepted by owner, mobile API3bc/head guard installed, iPhone16 TestFlight Testing. Devices and unified continuation code/packages complete but not installed: fresh Windows/VPS SSH timed out from Mac192.168.10.5; no bank or device rollout mutations after network loss.",
+      "nextAction": "After owner restores cashier LAN, obtain fresh trusted VPS/Windows runtime/schema/image/identity/health pins; retain locks and exact b31 artifacts. Execute cloud051, Windows020, Devices activation and portal, then separate remote-stops/media flags and canonical BO as documented. Report worktree owns pending roadmap publication. No new payment orders; Kaspi unchanged. Physical iPad scroll and iPhone16 acceptance remain pending."
     },
     {
       "id": "ceo-password-rotation",
