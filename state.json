@@ -4415,11 +4415,12 @@
         "tests/operations/test_cloud_kitchen_release.py",
         "docs/operations/cloud-kitchen-release.md",
         "infra/staging/cloud-kitchen-release-owner.mjs",
-        "tests/integration/cloud-kitchen-release.test.mjs"
+        "tests/integration/cloud-kitchen-release.test.mjs",
+        "infra/staging/cloud-kitchen-setup-abay-plaza.json"
       ],
       "status": "active",
-      "head": "814ccc2d0a1dce9d68c50dba98242447d82a349d",
-      "updatedAt": "2026-10-10T20:06:57.255Z",
+      "head": "13637290cfb45d76b0a4ad0f632d11e0e15b7785",
+      "updatedAt": "2026-10-10T20:07:55.965Z",
       "summary": "Профиль release-cloud-kitchen.py + owner cloud-kitchen-release-owner.mjs + тесты (unittest 26, PG integration) + docs/operations/cloud-kitchen-release.md на 80ac5182, CI 38080436726 зелёная. Read-only prepare кандидата d87e3225 (--source-checkout) прошёл все live-пины, blocker: в кандидате нет owner-скрипта. На VPS ничего не применялось.",
       "nextAction": "Свести shared + cloud-kitchen-ipad + cloud-kitchen-portal (финальный SHA) + этот профиль в один кандидат, зелёная CI, затем владелец: prepare/apply по docs/operations/cloud-kitchen-release.md с резервом @vps; при смене формата cloudKitchen в портале обновить ENABLE_PORTAL. Обновить project-status/roadmap (заняты inventory)."
     }
