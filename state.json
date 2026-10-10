@@ -4101,6 +4101,28 @@
       "status": "active",
       "head": "3c399b484b93b211da599116c2f42cb1e0cb95db",
       "updatedAt": "2026-10-10T12:45:36.245Z"
+    },
+    {
+      "id": "cloud-kitchen-s1",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cloud-kitchen-s1",
+      "scopes": [
+        "packages/fulfillment-state",
+        "packages/edge-fulfillment/src/repository.ts",
+        "packages/edge-fulfillment/src/model.ts",
+        "packages/edge-fulfillment/src/records.ts",
+        "packages/edge-fulfillment/package.json",
+        "packages/edge-fulfillment/tests/state-machine-vectors.test.mjs",
+        "package.json",
+        "pnpm-lock.yaml",
+        "db/cloud/migrations/053_cloud_channel_numbers.sql",
+        "infra/staging/channel-number-grants.mjs",
+        "tests/unit/channel-number-grants.test.mjs",
+        "tests/integration/channel-numbers.test.mjs"
+      ],
+      "status": "active",
+      "head": "15f63f84d4dd7b3f1b4d9b8560491e772e223d9e",
+      "updatedAt": "2026-10-10T12:52:27.373Z"
     }
   ]
 }
