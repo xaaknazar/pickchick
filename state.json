@@ -4154,10 +4154,10 @@
         "tests/backoffice/browser_operations.py"
       ],
       "status": "active",
-      "head": "8468e3aed72c5355cf8b8d998df1de14ca55b03f",
-      "updatedAt": "2026-10-10T14:08:39.209Z",
-      "summary": "PR223: wired manual schedules, attendance, hourly gross preview, KPI, staff and audit into API/proxy/#shifts. Preserved f277 live-menu fixes by explicit merge. Full local check/227 unit, 30 targeted, 5 operator and 87 backoffice checks pass. Exact source 8468e3ae Foundation CI38058064778 running. SSH and fresh read-only VPS baseline verified; no runtime deployment yet. Owner explicitly authorized common scope handover and rollout without repeated confirmation.",
-      "nextAction": "Wait exact green CI; guarded API050→052 with own encrypted backup+isolated restore; update canonical staff portal; verify authenticated read and asset hashes; publish deployment/status/roadmap, integrate shared and finish. BioCheck exact model/protocol pending, no biometric import; gross preview is not final payroll."
+      "head": "bd60ab6b539d1b9a4432e271fd5d5a17bfe50cc2",
+      "updatedAt": "2026-10-10T14:29:00.973Z",
+      "summary": "Installed workforce API and canonical pickchick.kz staff portal source8468e3ae; exact Foundation38058064778 green11/11. Own encrypted backup/isolated restore passed, 051+052 applied, existing data/ACL preserved, workforce flag on and Devices off. CEO read and canonical assets verified, no synthetic production writes. Current bd60ab6b changes only deployment docs/status/roadmap; CI running. Owner authorized scoped rollout; credentials and neighboring services preserved.",
+      "nextAction": "Complete latest docs/roadmap CI, publish roadmap using current API8468e3ae/public23fb39e1/gateway971bbd6, then FF shared and finish. API rollback retains schema052; future Devices rollout must account for applied051. BioCheck exact model/protocol and payroll statutory supplements pending. Read docs/operations/workforce.md."
     },
     {
       "id": "devices-release",
