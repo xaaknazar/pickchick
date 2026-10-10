@@ -4357,9 +4357,11 @@
         "docs/architecture/cloud-kitchen-ipad.md",
         "docs/architecture/cloud-kitchen-s4.md"
       ],
-      "status": "active",
-      "head": "5d808286c4b99052d5ed681046e17a28c8738aaa",
-      "updatedAt": "2026-10-10T18:31:46.128Z"
+      "status": "available",
+      "head": "d87e322570dc5df6f8a03fe1720bc8f543cb8562",
+      "updatedAt": "2026-10-10T19:16:20.372Z",
+      "summary": "d87e3225: order-view.ts (cloud number/status из cloudKitchenProjection, receipt deferred), kiosk config() в режиме cloud = gate KITCHEN_OFFLINE (+kitchen online|offline, quote/create/pay -> KITCHEN_OFFLINE), edge без изменений; apps/kiosk build 13: KITCHEN_OFFLINE KZ/RU/EN, номер 300-599, повтор f2e34110. order-view.ts изменён без claim по передаче владельцем (занят tiptoppay-backend): с origin/codex/tiptoppay-backend сливается автоматически (git merge-tree), ручных конфликтов в order-view.ts нет; tiptop добавляет paymentMethod/hosted в body, наш receipt=deferred ставится после body. Проверки: pnpm check, test:commerce 43+122, test:kiosk 147, cloud-kitchen integration 14, browser_cloud_kitchen/mobbin/ui/payment_* OK; Foundation CI 38077066256 green (mobile browser_demo_account flaky, rerun), Kiosk UI library 38077066326 green. Browser-тест запускается из browser_payment_options.py (workflow kiosk-ui-library занят kiosk-kaspi-qr). project-status.md не обновлён (занят inventory). kiosk-v3-launch завершена (finish).",
+      "nextAction": "Ревью и интеграция codex/cloud-kitchen-ipad в codex/shared-development; затем KITCHEN_OFFLINE в ErrorSchema/openapi (после inventory), установка build 13 на iPad и включение режима cloud только по runbook с подтверждением владельца."
     },
     {
       "id": "cloud-kitchen-portal",
