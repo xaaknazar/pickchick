@@ -3968,9 +3968,11 @@
         "tests/mobile/test_ios_release.py",
         "apps/mobile/src/app/games/pick-farm.tsx"
       ],
-      "status": "active",
-      "head": "3c399b484b93b211da599116c2f42cb1e0cb95db",
-      "updatedAt": "2026-10-10T10:06:47.034Z"
+      "status": "done",
+      "head": "056ddb6411050545bd2de69b5679abf501f4ca43",
+      "updatedAt": "2026-10-10T18:01:24.885Z",
+      "summary": "Ветка codex/remove-pick-farm (056ddb64) включена в codex/shared-development (dd3bca8b); Pick Farm убран из сборки 17.",
+      "nextAction": "Новых шагов по задаче нет; области освобождены."
     },
     {
       "id": "magic-sort-record",
