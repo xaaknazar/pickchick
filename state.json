@@ -3993,6 +3993,28 @@
       "status": "active",
       "head": "3c399b484b93b211da599116c2f42cb1e0cb95db",
       "updatedAt": "2026-10-10T09:29:34.637Z"
+    },
+    {
+      "id": "mobile-live-fixes",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-live-fixes",
+      "scopes": [
+        "apps/mobile/src/store.tsx",
+        "apps/mobile/src/cart-reprice.ts",
+        "apps/mobile/src/product-photo.tsx",
+        "apps/mobile/src/components/ProductMenuNotice.tsx",
+        "apps/mobile/src/screens/PhotoProduct.tsx",
+        "apps/mobile/src/screens/ProductConfiguration.tsx",
+        "tests/mobile/cart-reprice.test.mjs",
+        "tests/mobile/browser_live_menu_update.py",
+        "services/api/src/customer-checkout-controller.ts",
+        "services/api/src/catalog-publication-listener.ts",
+        "tests/integration/catalog-publication-latency.test.mjs",
+        "docs/operations/mobile-live-fixes.md"
+      ],
+      "status": "active",
+      "head": "3c399b484b93b211da599116c2f42cb1e0cb95db",
+      "updatedAt": "2026-10-10T09:30:11.842Z"
     }
   ]
 }
