@@ -3985,9 +3985,11 @@
         "tests/mobile/browser_magic_sort.py",
         "docs/design/magic-sort.md"
       ],
-      "status": "active",
-      "head": "3c399b484b93b211da599116c2f42cb1e0cb95db",
-      "updatedAt": "2026-10-10T10:08:29.735Z"
+      "status": "done",
+      "head": "8f042522b5d260687568fefe5c2713997657e6ed",
+      "updatedAt": "2026-10-10T18:01:35.558Z",
+      "summary": "Ветка codex/magic-sort-record (8f042522) включена в codex/shared-development (dd3bca8b); рекорд Magic Sort в сборке 17.",
+      "nextAction": "Новых шагов по задаче нет; области освобождены."
     },
     {
       "id": "mobile-live-fixes",
