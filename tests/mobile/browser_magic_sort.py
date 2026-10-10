@@ -114,7 +114,7 @@ def geometry(page):
     page.evaluate('()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))')
     bounds = page.evaluate("""()=>{
       const ids=['magic-sort-board','magic-sort-collector','magic-sort-undo',
-        'magic-sort-hint','magic-sort-restart','magic-sort-pause',
+        'magic-sort-restart','magic-sort-pause',
         ...Array.from({length:24},(_,i)=>'magic-sort-bottle-'+i)];
       return {width:innerWidth,height:innerHeight,overflow:document.documentElement.scrollWidth>innerWidth,
         boxes:Object.fromEntries(ids.map(id=>[id,

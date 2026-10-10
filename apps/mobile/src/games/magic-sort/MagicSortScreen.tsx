@@ -684,13 +684,6 @@ export function MagicSortScreen() {
             onPress={model.undo}
           />
           <Control
-            label="Подсказка"
-            icon="bulb-outline"
-            testID="magic-sort-hint"
-            disabled={!!model.pending || !model.game || model.paused}
-            onPress={model.hint}
-          />
-          <Control
             label="Заново"
             icon="refresh"
             testID="magic-sort-restart"

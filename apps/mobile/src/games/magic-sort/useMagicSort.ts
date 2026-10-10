@@ -11,7 +11,6 @@ import {
   moveCount,
   resolveBottleTap,
   undo,
-  getHint,
   type GameState,
   type RecordResult,
   type Move,
@@ -247,16 +246,6 @@ export function useMagicSort() {
         setSelected(null);
         setNotice('Раскладка начата заново. Ходы: 0.');
       }
-    },
-    hint: () => {
-      if (!current.current || moving.current) return;
-      const hint = getHint(current.current);
-      if (hint) {
-        setSelected(hint.move.from);
-        setNotice(
-          `${hint.source === 'witness' ? 'Подсказка' : 'Возможный ход'}: бутылка ${hint.move.from + 1} - ${hint.move.to === 24 ? 'центр' : hint.move.to + 1}.`,
-        );
-      } else setNotice('Нет доступного хода. Отмените ход или начните заново.');
     },
     retrySave: () => {
       if (current.current) publish(current.current);

@@ -61,7 +61,7 @@ Slim glass bottles and the taller central vial carry the reference composition. 
 
 Select a source and then a destination. A legal pour transfers the largest contiguous top-color run that fits. A small destination must be empty or have the same top color; neither source nor destination may be sealed. The central collector accepts only yellow and never pours out. Overflow, invalid indices, self-pours and incompatible colors are rejected without mutation.
 
-Victory requires16 yellow units in the collector and every nonempty small bottle full, monochrome and sealed. Undo reconstructs the previous board, including unsealing; reset replays the same version and seed. There is no next level and no “Новая раскладка” action: the game is one fixed version2 puzzle (see “Fixed puzzle and personal record” below). No-move detection and hints are local engine functions. A hint follows the solution witness only while the move history matches its prefix; otherwise it is explicitly a valid suggestion, with no guarantee of solving the level.
+Victory requires16 yellow units in the collector and every nonempty small bottle full, monochrome and sealed. Undo reconstructs the previous board, including unsealing; reset replays the same version and seed. There is no next level and no “Новая раскладка” action: the game is one fixed version2 puzzle (see “Fixed puzzle and personal record” below). No-move detection is a local engine function. There is no hint button (owner decision 2026-10-10).
 
 Generation starts from a solvable crossed-color template and applies deterministic reverse moves. Each scramble is accepted only when its legal maximal forward inverse restores the exact previous board. Inverses are prepended to the witness, and the complete witness must replay to victory. The original version1 test sample of seeds0-99 contains three-color bottles and buried yellow;54 contain four-color bottles, with53-68 witness moves. This is historical version1 evidence, not a claim that all bottles have four distinct layers. The bounded scramble can saturate before its target; this is not an optimal-solution or difficulty ranking.
 
@@ -69,7 +69,7 @@ Persistence is local and account-scoped. The storage adapter serializes load/sav
 
 ## Do's and Don'ts
 
-Keep actual liquid layers, capacity and cork state visible. Label off-witness hints as suggestions. Preserve account isolation and safe interruption of pending pours. Do not infer native readiness from browser or engine checks.
+Keep actual liquid layers, capacity and cork state visible. Preserve account isolation and safe interruption of pending pours. Do not infer native readiness from browser or engine checks.
 
 Verification: `node --test tests/mobile/magic-sort.test.mjs` passed7 tests, including100 seed replays, conservation, capacity, collector rules, sealing/undo, invalid saves and queued account persistence. Scoped ESLint, Prettier, strict TypeScript with `noUncheckedIndexedAccess`, and `git diff --check` passed. A local Mac benchmark of100 serializations at100-move history took7.92ms total; this is not a phone-performance measurement. Expo iOS/Hermes and web exports passed. A browser journey made all60 solution moves through the bottle controls, verified illegal pours, undo, restart cancellation/confirmation and saved progress at320/390/430 widths without page errors. Root additionally checked guest login continuation and a normal animated pour through the actual UI. A physical-phone build, layout/gestures/performance and TestFlight distribution have not yet been checked for Magic Sort.
 
@@ -140,8 +140,9 @@ level is needed; the move count and a personal record are kept.
   раскладка. Отсортируйте её за меньшее число ходов." The earlier in-progress
   layout is discarded at that point: a move count on a different layout cannot be
   compared with the record, and those layouts had no record or rewards attached.
-- Hints are unchanged and still follow the witness; using them yields the
-  63-move witness result. No money, loyalty points or server calls are involved.
+- Hints are removed from the game (owner decision 2026-10-10): the record must
+  reflect the player's own solution. The engine keeps getHint only for tests and
+  no-move detection support. No money, loyalty points or server calls are involved.
 
 Verification (local Mac, 2026-10-10): `node --test tests/mobile/magic-sort.test.mjs`
 passed 16 tests (fixed puzzle solvable via witness, move counting with undo,
