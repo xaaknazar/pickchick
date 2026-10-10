@@ -8,6 +8,8 @@ export const modules = [
   'components/TerminalPairing',
   'components/DisplayAccess',
   'components/PasswordReset',
+  'components/StreamStatus',
+  'components/CloudPairing',
 ];
 export const inputPaths = [
   ...modules.map((name) => `apps/kitchen/src/${name}.ts`),

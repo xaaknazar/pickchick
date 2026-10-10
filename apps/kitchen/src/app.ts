@@ -2,7 +2,10 @@ import { passwordReset } from './components/PasswordReset.js';
 import { TerminalAccess } from './terminal-access.js';
 import { terminalPairing } from './components/TerminalPairing.js';
 import { DisplayAccess } from './components/DisplayAccess.js';
-import { KitchenModel, allowedActions, displayWindow } from './model.js';
+import { KitchenModel, allowedActions, displayWindow, ownerOf } from './model.js';
+import type { Owner } from './model.js';
+import { streamIndicators, sourceBadge } from './components/StreamStatus.js';
+import { cloudPairing } from './components/CloudPairing.js';
 import { request, apiPrefix, assetPrefix, portalMode, demoMode } from './api.js';
 import { createDemo, memoryStorage } from './demo.js';
 import { demoTicket } from './ticket-view.js';
@@ -19,6 +22,9 @@ let boardPage = 0;
 let terminalId: string | undefined;
 let loginName = '';
 let configLoaded = false;
+/** Portal cloud stream: the page is a cloud screen first; a cook login adds the cashier stream. */
+let cloudMode = false;
+let cookLogin = false;
 const escape = (s: string) =>
   s.replace(
     /[&<>"']/g,
@@ -69,6 +75,17 @@ const errors: Record<string, string> = {
   QUEUE_BOUND_EXCEEDED:
     'Очередь превысила безопасный предел загрузки. Обратитесь к администратору; частичный список не опубликован.',
   SCOPE_MISMATCH: 'Ответ относится к другой точке. Действия заблокированы.',
+  SERVICE_UNAVAILABLE: 'Сервер кухни сейчас недоступен. Повторим автоматически.',
+  EDGE_OFFLINE: 'Касса не на связи. Заказы кассы можно отметить после восстановления связи.',
+  CLOUD_OFFLINE:
+    'Сервер не на связи. Заказы киоска и приложения можно отметить после восстановления связи.',
+  COOK_LOGIN_REQUIRED: 'Для заказов кассы нужен вход повара.',
+  SCREEN_REVOKED: 'Экран отключён от сервера. Введите новый код экрана.',
+  INVALID_PAIRING_CODE: 'Введите код полностью: 10 символов, например AB12-CD34EF.',
+  PAIRING_REJECTED: 'Код не принят: проверьте его и срок действия (10 минут).',
+  PAIRING_WRONG_SCREEN:
+    'Код выпущен для другого экрана или точки. Попросите у управляющего новый код для этого экрана.',
+  PAIRING_RATE_LIMITED: 'Слишком много попыток. Подождите минуту.',
 };
 function scopedStorage(storage: Storage) {
   const prefix = portalMode ? 'portal.' + portalMode + '.' : '';
@@ -79,7 +96,7 @@ function scopedStorage(storage: Storage) {
   };
 }
 async function selectInitialScreen() {
-  if (!model.state.actor || model.state.pending) return;
+  if (!model.active || model.state.pending || model.state.cloudPending) return;
   if (portalMode === 'display') await model.selectMode('display');
   else if (portalMode) {
     const station = model.state.stations.find((s) => s.kind === portalMode);
@@ -117,8 +134,45 @@ const terminalAccess = new TerminalAccess(() => {
   render();
 });
 const pairedDisplay = new DisplayAccess(terminalAccess, render);
+/** Cloud mode: leave the optional cook login and return to the server queue. */
+function addBack() {
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.id = 'cook-login-back';
+  back.className = 'login-submit';
+  back.textContent = 'Назад к заказам сервера';
+  back.onclick = () => {
+    cookLogin = false;
+    model.state.error = null;
+    render();
+  };
+  root.querySelector('main section')?.append(back);
+}
 function render() {
-  if (configLoaded && terminalAccess.enabled) {
+  if (configLoaded && cloudMode) {
+    terminalId = terminalAccess.terminalId ?? terminalId;
+    if (!model.state.screenPaired) {
+      const mode = (portalMode ?? 'prep') as 'prep' | 'assembly' | 'display';
+      root.replaceChildren(
+        cloudPairing({
+          mode,
+          branch,
+          busy: model.state.busy,
+          error: model.state.error
+            ? (errors[model.state.error] ?? 'Не удалось подключить экран. Повторите.')
+            : '',
+          pair: (code) => void model.pairScreen(code, mode).then(() => selectInitialScreen()),
+        }),
+      );
+      return;
+    }
+    // The cashier stream is optional: it needs the existing edge pairing and a cook login.
+    if (cookLogin && !model.state.actor && terminalAccess.enabled && !terminalAccess.paired) {
+      root.replaceChildren(terminalPairing(terminalAccess, branch));
+      addBack();
+      return;
+    }
+  } else if (configLoaded && terminalAccess.enabled) {
     terminalId = terminalAccess.terminalId;
     if (!terminalAccess.paired) {
       root.replaceChildren(terminalPairing(terminalAccess, branch));
@@ -143,14 +197,29 @@ function render() {
   const scroll =
     renderedView === viewKey ? (document.querySelector('.workspace')?.scrollTop ?? 0) : 0;
   renderedView = viewKey;
-  const blocked = s.busy || !!s.pending || s.storageBlocked || !s.lease || !!s.error;
+  const blocked =
+    s.busy ||
+    !!s.pending ||
+    !!s.cloudPending ||
+    s.storageBlocked ||
+    (s.cloud ? !s.lease && !s.screenLease : !s.lease) ||
+    !!s.error;
+  // Each owner has its own journal: a stuck cashier command leaves cloud tickets workable.
+  const blockedFor = (o: { fulfillmentOwner?: Owner }) =>
+    s.cloud
+      ? s.busy ||
+        s.storageBlocked ||
+        !!s.error ||
+        (ownerOf(o) === 'cloud' ? !s.screenLease || !!s.cloudPending : !s.lease || !!s.pending) ||
+        model.ownerOffline(o)
+      : blocked;
   const clock = new Intl.DateTimeFormat('ru-RU', {
     timeZone: 'Asia/Almaty',
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date());
-  const header = `<header><div class="brand"><img src="${assetPrefix}/logo.png" alt="Pick Chick"></div><div class="heading"><h1>${escape(!s.actor ? 'Кухня PickChick' : s.mode === 'display' ? 'Табло выдачи' : 'Кухня · ' + (s.stations.find((t) => t.id === s.stationId)?.name ?? 'станция'))}</h1><p>${escape(branch)}</p></div>${s.actor && s.mode === 'kitchen' ? `<div class="stat"><span>НА СТРАНИЦЕ</span><strong>${visibleOrders.length}</strong></div><div class="stat"><span>В РАБОТЕ</span><strong>${s.orders.filter((o) => o.state === 'in_production').length}</strong></div>` : ''}<time id="clock">${clock}</time></header>`;
-  if (!s.actor) {
+  const header = `<header><div class="brand"><img src="${assetPrefix}/logo.png" alt="Pick Chick"></div><div class="heading"><h1>${escape(!s.actor && !s.screen ? 'Кухня PickChick' : s.mode === 'display' ? 'Табло выдачи' : 'Кухня · ' + (s.stations.find((t) => t.id === s.stationId)?.name ?? 'станция'))}</h1><p>${escape(branch)}</p></div>${(s.actor || s.screen) && s.mode === 'kitchen' ? `<div class="stat"><span>НА СТРАНИЦЕ</span><strong>${visibleOrders.length}</strong></div><div class="stat"><span>В РАБОТЕ</span><strong>${s.orders.filter((o) => o.state === 'in_production').length}</strong></div>` : ''}<time id="clock">${clock}</time></header>`;
+  if (!s.actor && (!cloudMode || cookLogin)) {
     const serviceOpen = root.querySelector<HTMLDetailsElement>('details.login-service')?.open;
     const disabled = s.busy || !terminalId ? ' disabled' : '';
     root.innerHTML =
@@ -199,11 +268,13 @@ function render() {
       const password = input.value;
       input.value = '';
       void model.signInWithPassword(loginName, password, terminalId).then(async () => {
+        if (model.state.actor) cookLogin = false;
         await selectInitialScreen();
         if (!model.state.actor) document.getElementById('staff-password')?.focus();
       });
     });
     updateLoginWait();
+    if (cloudMode) addBack();
     document
       .querySelector<HTMLInputElement>('#credential')
       ?.addEventListener('change', async (e) => {
@@ -223,13 +294,20 @@ function render() {
   const stations = [...s.stations].sort(
     (a, b) => Number(a.kind === 'assembly') - Number(b.kind === 'assembly'),
   );
-  const nav = `<nav aria-label="Рабочий экран">${portalMode === 'display' ? '' : button('Кухня', 'id="mode-kitchen" aria-pressed="' + (s.mode === 'kitchen') + '"', blocked)}${terminalAccess.enabled ? '' : button('Табло', 'id="mode-display" aria-pressed="' + (s.mode === 'display') + '"', blocked)}<span class="connection ${s.error ? 'offline' : ''}" role="status">${s.error ? 'Нет актуального подтверждения связи' : demo ? 'Демо-заказы' : s.lastSync ? 'Связь с локальным узлом' : 'Подключение'}${s.lastSync ? ` · ${new Date(s.lastSync).toLocaleTimeString('ru-RU')}` : ''}</span>${button('Обновить', 'id="refresh"', s.busy)}${demo ? '' : button('Выйти', 'id="logout"')}${s.mode === 'kitchen' ? `<div class="station-switcher" role="group" aria-label="Кухонные станции">${stations.map((station) => button(`<span class="station-kind">${station.kind === 'assembly' ? 'Сборка и выдача' : 'Приготовление'}</span><span class="station-name">${escape(station.name)}</span>`, `id="station-${station.id}" class="station-button" data-station="${station.id}" aria-pressed="${station.id === s.stationId}"`, blocked)).join('')}</div>` : ''}</nav>`;
+  const nav = `<nav aria-label="Рабочий экран">${portalMode === 'display' ? '' : button('Кухня', 'id="mode-kitchen" aria-pressed="' + (s.mode === 'kitchen') + '"', blocked)}${terminalAccess.enabled ? '' : button('Табло', 'id="mode-display" aria-pressed="' + (s.mode === 'display') + '"', blocked)}${s.cloud ? `<span class="connection ${s.error ? 'offline' : ''}">${streamIndicators(s.streams)}${s.lastSync ? `<span class="sync-time">${new Date(s.lastSync).toLocaleTimeString('ru-RU')}</span>` : ''}</span>` : `<span class="connection ${s.error ? 'offline' : ''}" role="status">${s.error ? 'Нет актуального подтверждения связи' : demo ? 'Демо-заказы' : s.lastSync ? 'Связь с локальным узлом' : 'Подключение'}${s.lastSync ? ` · ${new Date(s.lastSync).toLocaleTimeString('ru-RU')}` : ''}</span>`}${button('Обновить', 'id="refresh"', s.busy)}${demo ? '' : !cloudMode ? button('Выйти', 'id="logout"') : s.actor ? button('Выйти (повар)', 'id="logout"') : portalMode === 'display' && terminalAccess.enabled ? '' : button('Вход повара', 'id="cook-login"')}${s.mode === 'kitchen' ? `<div class="station-switcher" role="group" aria-label="Кухонные станции">${stations.map((station) => button(`<span class="station-kind">${station.kind === 'assembly' ? 'Сборка и выдача' : 'Приготовление'}</span><span class="station-name">${escape(station.name)}</span>`, `id="station-${station.id}" class="station-button" data-station="${station.id}" aria-pressed="${station.id === s.stationId}"`, blocked)).join('')}</div>` : ''}</nav>`;
   const error = s.error
     ? `<aside class="error" role="alert">${escape(errors[s.error] ?? 'Операция не завершена. Проверьте локальный узел и доступ.')} ${s.lastSync ? 'Показаны последние полученные данные.' : ''}</aside>`
     : '';
-  const recovery = s.pending
-    ? `<aside class="recovery" data-testid="recovery"><h2>${s.conflict ? 'Требуется сверка' : 'Незавершённая команда'}</h2><p>${escape(actionLabel[s.pending.body.action])} · заказ ${escape(s.reviewed?.displayNumber ?? s.pending.orderId)}. Новые действия заблокированы.</p>${s.conflict ? `<p>Состояние на узле: <strong>${escape(s.reviewed ? (labels[s.reviewed.state] ?? s.reviewed.state) : 'не получено')}</strong>${s.reviewed ? ` · версия ${s.reviewed.version}` : ''}. Команда автоматически не повторяется.</p>${button('Перечитать заказ', 'id="review"', s.busy)} ${button('Сверил состояние - продолжить', 'id="acknowledge"', s.busy || !s.reviewed)}` : `<p>Повтор использует исходные действие, версии и ключ. Не выполняйте действие повторно на другом терминале до сверки.</p>${button('Проверить повтором той же команды', 'id="retry"', s.busy || s.storageBlocked)}`}</aside>`
-    : '';
+  const recoveryPanel = (owner: Owner) => {
+    const pending = owner === 'cloud' ? s.cloudPending : s.pending;
+    if (!pending) return '';
+    const conflict = owner === 'cloud' ? s.cloudConflict : s.conflict;
+    const reviewed = owner === 'cloud' ? s.cloudReviewed : s.reviewed;
+    const suffix = owner === 'cloud' ? '-cloud' : '';
+    const busy = s.busy || (s.cloud && s.streams[owner] === 'offline');
+    return `<aside class="recovery" data-testid="recovery${suffix}"><h2>${conflict ? 'Требуется сверка' : 'Незавершённая команда'}${s.cloud ? ` · ${owner === 'cloud' ? 'сервер' : 'касса'}` : ''}</h2><p>${escape(actionLabel[pending.body.action])} · заказ ${escape(reviewed?.displayNumber ?? pending.orderId)}. Новые действия${s.cloud ? (owner === 'cloud' ? ' по заказам сервера' : ' по заказам кассы') : ''} заблокированы.</p>${conflict ? `<p>Состояние на узле: <strong>${escape(reviewed ? (labels[reviewed.state] ?? reviewed.state) : 'не получено')}</strong>${reviewed ? ` · версия ${reviewed.version}` : ''}. Команда автоматически не повторяется.</p>${button('Перечитать заказ', `id="review${suffix}"`, busy)} ${button('Сверил состояние - продолжить', `id="acknowledge${suffix}"`, busy || !reviewed)}` : `<p>Повтор использует исходные действие, версии и ключ. Не выполняйте действие повторно на другом терминале до сверки.</p>${button('Проверить повтором той же команды', `id="retry${suffix}"`, busy || s.storageBlocked)}`}</aside>`;
+  };
+  const recovery = recoveryPanel('edge') + (s.cloud ? recoveryPanel('cloud') : '');
   const board = displayWindow(s.display, boardPage);
   const boardPages = board.pages;
   boardPage = board.page;
@@ -261,17 +339,19 @@ function render() {
           if (demo)
             return demoTicket(o, s.stations, s.stationId ?? '', demo.details(o.orderId), blocked);
           const actions = allowedActions(o, s.stationId ?? '', s.wholeTicketActions);
+          const ticketBlocked = blockedFor(o);
+          const offline = model.ownerOffline(o);
           const prepTicket = s.wholeTicketActions && s.stationId !== o.assemblyStationId;
           const visibleTasks = prepTicket
             ? o.tasks.filter((t) => t.stationId === s.stationId)
             : o.tasks;
           const extras = prepTicket ? o.tasks.filter((t) => t.stationId !== s.stationId) : [];
-          return `<article class="ticket ${o.state === 'cancel_requested' ? 'cancel' : ''}" data-order="${o.orderId}"><div class="ticket-head"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div><span class="mode">${o.serviceMode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ'}</span><p class="channel">${o.channel === 'pos' ? 'Касса' : o.channel === 'kiosk' ? 'Киоск' : 'Приложение'}</p></div><div class="age"><strong>${Math.max(0, Math.floor((Date.now() - Date.parse(o.createdAt)) / 60000))} мин</strong><small>${escape(labels[o.state] ?? o.state)}</small></div></div>${o.kitchenComment ? `<aside class="order-note"><strong>Комментарий к заказу</strong><p>${escape(o.kitchenComment)}</p></aside>` : ''}<div class="lines">${visibleTasks
+          return `<article class="ticket ${o.state === 'cancel_requested' ? 'cancel' : ''}${offline ? ' owner-offline' : ''}" data-order="${o.orderId}"${s.cloud ? ` data-owner="${ownerOf(o)}"` : ''}><div class="ticket-head"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div><span class="mode">${o.serviceMode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ'}</span><p class="channel">${o.channel === 'pos' ? 'Касса' : o.channel === 'kiosk' ? 'Киоск' : 'Приложение'}</p>${s.cloud ? sourceBadge(ownerOf(o), offline) : ''}</div><div class="age"><strong>${Math.max(0, Math.floor((Date.now() - Date.parse(o.createdAt)) / 60000))} мин</strong><small>${escape(labels[o.state] ?? o.state)}</small></div></div>${o.kitchenComment ? `<aside class="order-note"><strong>Комментарий к заказу</strong><p>${escape(o.kitchenComment)}</p></aside>` : ''}<div class="lines">${visibleTasks
             .map((t) => {
               const index = o.tasks.indexOf(t);
               const own = t.stationId === s.stationId;
               const a = actions.find((a) => 'taskId' in a && a.taskId === t.taskId);
-              return `<section class="line ${own ? '' : 'other-station'}"><span class="line-number" aria-label="Позиция ${index + 1}">${index + 1}</span><span class="quantity">${t.details.quantity}×</span><div class="line-info"><h3>${escape(t.details.title)}</h3>${t.details.parentTitle && t.details.parentTitle !== t.details.title ? `<p class="parent">${escape(t.details.parentTitle)}</p>` : ''}${t.details.modifiers.length ? `<p class="modifiers">${t.details.modifiers.map((m) => `${escape(m.groupTitle.ru)}: ${escape(m.label.ru)}${m.quantity > 1 ? ' ×' + m.quantity : ''}`).join(' · ')}</p>` : ''}${t.details.description && t.details.description !== o.kitchenComment ? `<p class="description">${escape(t.details.description)}</p>` : ''}<p class="task-state">${own ? 'Эта станция' : escape(s.stations.find((x) => x.id === t.stationId)?.name ?? 'Другая станция')} · ${escape(labels[t.state] ?? t.state)}</p>${a ? button(actionLabel[a.action], `id="task-${t.taskId}" data-command="${escape(JSON.stringify({ orderId: o.orderId, body: a }))}"`, blocked) : ''}</div></section>`;
+              return `<section class="line ${own ? '' : 'other-station'}"><span class="line-number" aria-label="Позиция ${index + 1}">${index + 1}</span><span class="quantity">${t.details.quantity}×</span><div class="line-info"><h3>${escape(t.details.title)}</h3>${t.details.parentTitle && t.details.parentTitle !== t.details.title ? `<p class="parent">${escape(t.details.parentTitle)}</p>` : ''}${t.details.modifiers.length ? `<p class="modifiers">${t.details.modifiers.map((m) => `${escape(m.groupTitle.ru)}: ${escape(m.label.ru)}${m.quantity > 1 ? ' ×' + m.quantity : ''}`).join(' · ')}</p>` : ''}${t.details.description && t.details.description !== o.kitchenComment ? `<p class="description">${escape(t.details.description)}</p>` : ''}<p class="task-state">${own ? 'Эта станция' : escape(s.stations.find((x) => x.id === t.stationId)?.name ?? 'Другая станция')} · ${escape(labels[t.state] ?? t.state)}</p>${a ? button(actionLabel[a.action], `id="task-${t.taskId}" data-command="${escape(JSON.stringify({ orderId: o.orderId, body: a }))}"`, ticketBlocked) : ''}</div></section>`;
             })
             .join(
               '',
@@ -283,7 +363,7 @@ function render() {
                   ? 'Заказ собран'
                   : actionLabel[a.action],
                 `id="order-${o.orderId}" data-command="${escape(JSON.stringify({ orderId: o.orderId, body: a }))}"`,
-                blocked,
+                ticketBlocked,
               ),
             )
             .join(
@@ -331,6 +411,14 @@ function render() {
     retry: () => model.retry(),
     review: () => model.reviewConflict(),
     acknowledge: () => model.acknowledgeConflict(),
+    'cook-login': () => {
+      cookLogin = true;
+      model.state.error = null;
+      render();
+    },
+    'retry-cloud': () => model.retry('cloud'),
+    'review-cloud': () => model.reviewConflict('cloud'),
+    'acknowledge-cloud': () => model.acknowledgeConflict('cloud'),
     first: () => model.page(true),
     next: () => model.page(),
   }))
@@ -343,7 +431,8 @@ function render() {
   document.querySelectorAll<HTMLButtonElement>('[data-command]').forEach((b) =>
     b.addEventListener('click', () => {
       const data = JSON.parse(b.dataset.command!) as { orderId: string; body: Action };
-      const o = s.orders.find((x) => x.orderId === data.orderId);
+      const owner = b.closest<HTMLElement>('[data-owner]')?.dataset.owner ?? 'edge';
+      const o = s.orders.find((x) => x.orderId === data.orderId && ownerOf(x) === owner);
       if (o) void model.command(o, data.body);
     }),
   );
@@ -374,6 +463,14 @@ if (!demo) {
     });
     const config = (await response.json()) as Record<string, unknown>;
     terminalAccess.configure(config);
+    // Portal flag only; keys and the API address never reach the browser.
+    if (config.cloudKitchen === true) {
+      cloudMode = true;
+      model.enableCloud(config.cloudPaired === true);
+      // A paired customer display reads the cashier's numbers by its device cookie.
+      model.edgeDevice = () =>
+        terminalAccess.enabled && terminalAccess.paired && portalMode === 'display';
+    }
     if (typeof config.branchLabel === 'string') branch = config.branchLabel.slice(0, 120);
     if (typeof config.terminalId === 'string' && UUID.test(config.terminalId))
       terminalId = config.terminalId;
@@ -384,29 +481,21 @@ if (!demo) {
 configLoaded = true;
 if (terminalAccess.enabled && terminalAccess.paired) await terminalAccess.check();
 render();
-if (terminalAccess.enabled && terminalAccess.mode === 'display' && terminalAccess.paired)
-  void pairedDisplay.refresh();
+const deviceDisplay = () =>
+  !cloudMode &&
+  terminalAccess.enabled &&
+  terminalAccess.paired &&
+  terminalAccess.mode === 'display';
+if (deviceDisplay()) void pairedDisplay.refresh();
 window.setInterval(() => {
   if (!document.hidden && terminalAccess.enabled && terminalAccess.paired)
     void terminalAccess.check();
 }, 15000);
 window.setInterval(() => {
-  if (
-    !document.hidden &&
-    terminalAccess.enabled &&
-    terminalAccess.paired &&
-    terminalAccess.mode === 'display'
-  )
-    void pairedDisplay.refresh();
+  if (!document.hidden && deviceDisplay()) void pairedDisplay.refresh();
 }, 5000);
 window.setInterval(() => {
-  if (
-    !document.hidden &&
-    terminalAccess.enabled &&
-    terminalAccess.paired &&
-    terminalAccess.mode === 'display'
-  )
-    pairedDisplay.rotate();
+  if (!document.hidden && deviceDisplay()) pairedDisplay.rotate();
 }, 8000);
 window.setInterval(() => {
   updateLoginWait();
@@ -431,6 +520,11 @@ if (demo) {
     }
     void model.refresh();
   }, 25000);
+} else if (cloudMode) {
+  // Cloud screen first (works with the cashier off), then a stored cook session if any.
+  await model.restoreScreen();
+  if (!terminalAccess.enabled || terminalAccess.paired) await model.restore();
+  await selectInitialScreen();
 } else if (
   !terminalAccess.enabled ||
   (terminalAccess.paired && terminalAccess.mode !== 'display')

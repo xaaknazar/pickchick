@@ -17,6 +17,8 @@ export const ASSETS = [
   'components/TerminalPairing.js',
   'components/DisplayAccess.js',
   'components/PasswordReset.js',
+  'components/StreamStatus.js',
+  'components/CloudPairing.js',
   'components/PasswordReset.css',
   'logo.png',
   'bg-blue.png',
