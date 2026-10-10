@@ -4050,6 +4050,21 @@
       "status": "active",
       "head": "3c399b484b93b211da599116c2f42cb1e0cb95db",
       "updatedAt": "2026-10-10T10:06:47.034Z"
+    },
+    {
+      "id": "magic-sort-record",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/magic-sort-record",
+      "scopes": [
+        "apps/mobile/src/games/magic-sort",
+        "apps/mobile/src/app/games/magic-sort.tsx",
+        "tests/mobile/magic-sort.test.mjs",
+        "tests/mobile/browser_magic_sort.py",
+        "docs/design/magic-sort.md"
+      ],
+      "status": "active",
+      "head": "3c399b484b93b211da599116c2f42cb1e0cb95db",
+      "updatedAt": "2026-10-10T10:08:29.735Z"
     }
   ]
 }
