@@ -810,9 +810,6 @@ export function Cart(props: ScreenProps) {
                   {unavailableCartLine(line) ? (
                     <Caption style={{ color: colors.warning }}>{unavailableCartLine(line)}</Caption>
                   ) : null}
-                  {line.issue === 'choose_options' ? (
-                    <Caption>Нужно выбрать состав заново</Caption>
-                  ) : null}
                   {selectionDescription(line) ? (
                     <Caption numberOfLines={2} style={s.cartDescription}>
                       {selectionDescription(line)}

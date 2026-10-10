@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { setImmediate as flush } from 'node:timers/promises';
 import { CatalogMediaMapSchema } from '@pickchick/catalog-admin/contracts';
 import {
+  interimMedia,
   mediaForVersion,
   mediaPrefetchUris,
   remoteMediaSource,
@@ -429,4 +430,20 @@ test('published catalogs are re-read every minute in the foreground; failures st
   h.recovery.setActive(true);
   await flush();
   assert.deepEqual(h.events.at(-2), ['loading', false]);
+});
+
+test('a new publication keeps the previous photos until its own media map is read', () => {
+  const hero = { hero: 'catalog/upload-only/hero.jpg' };
+  const previous = { version: 4, products: { 'upload-only': hero } };
+  const deferred = { version: 5, products: {} };
+  const interim = interimMedia(previous, deferred);
+  assert.equal(interim.version, 5);
+  assert.deepEqual(interim.products, previous.products);
+  assert.ok(
+    hasPhotoPilot({ id: 'upload-only', media: mediaForVersion(interim, 5)['upload-only'] }),
+  );
+  const loaded = { version: 5, products: { burger: hero } };
+  assert.equal(interimMedia(previous, loaded), loaded);
+  assert.equal(interimMedia(null, deferred), deferred);
+  assert.equal(interimMedia(previous, { version: 4, products: {} }).version, 4);
 });

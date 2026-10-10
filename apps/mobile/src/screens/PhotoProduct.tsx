@@ -1,7 +1,6 @@
 import { ProductMenuNotice } from '../components/ProductMenuNotice';
 import { useEffect, useRef, useState } from 'react';
-import { retainSelections, MENU_UPDATED } from '../cart-reprice';
-import { CatalogChangeNotice } from '../components/CatalogChangeNotice';
+import { retainSelections } from '../cart-reprice';
 import {
   Platform,
   ScrollView,
@@ -69,7 +68,7 @@ export function PhotoProduct(props: Props) {
   const afterPickerDismiss = useRef<(() => void) | null>(null);
   const [info, setInfo] = useState(false);
   const [footerHeight, setFooterHeight] = useState(110);
-  const [compositionChanged, setCompositionChanged] = useState(false);
+  const [companionsChanged, setCompanionsChanged] = useState(false);
   const [companionCounts, setCompanionCounts] = useState<Record<string, number>>({});
   useEffect(() => {
     setSelections((previous) => retainSelections(product, previous));
@@ -114,7 +113,7 @@ export function PhotoProduct(props: Props) {
     setCompanionCounts((previous) => {
       if (Object.entries(previous).every(([id, count]) => count === 0 || available.has(id)))
         return previous;
-      setCompositionChanged(true);
+      setCompanionsChanged(true);
       return Object.fromEntries(Object.entries(previous).filter(([id]) => available.has(id)));
     });
   }, [product.id, props.model.products]);
@@ -324,13 +323,12 @@ export function PhotoProduct(props: Props) {
             ) : null}
           </View>
           <View style={s.intro}>
-            <ProductMenuNotice product={product} selections={selections} />
-            {compositionChanged ? (
-              <CatalogChangeNotice
-                message={MENU_UPDATED}
-                onDismiss={() => setCompositionChanged(false)}
-              />
-            ) : null}
+            <ProductMenuNotice
+              product={product}
+              selections={selections}
+              totalChanged={companionsChanged}
+              onDismiss={() => setCompanionsChanged(false)}
+            />
             <Text style={s.title} testID="photo-product-title">
               {title}
             </Text>

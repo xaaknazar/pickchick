@@ -24,6 +24,7 @@ export const sortStyles = StyleSheet.create({
   },
   title: { fontFamily: font.display, fontSize: 22, color: sortColors.ink },
   caption: { fontFamily: font.medium, fontSize: 12, color: sortColors.muted },
+  stats: { flexDirection: 'row', gap: 12 },
   iconButton: {
     width: 48,
     height: 48,
@@ -90,4 +91,14 @@ export const sortStyles = StyleSheet.create({
     backgroundColor: '#E7DDC7',
   },
   panelButtonLabel: { fontFamily: font.bold, fontSize: 14, color: '#273B3E' },
+  primaryButton: { backgroundColor: sortColors.accent },
+  resultRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
+  resultLabel: { fontFamily: font.bold, fontSize: 16, color: '#273B3E' },
+  badge: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    backgroundColor: sortColors.accent,
+  },
+  badgeLabel: { fontFamily: font.bold, fontSize: 13, color: '#273B3E' },
 });

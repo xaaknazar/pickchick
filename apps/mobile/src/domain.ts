@@ -96,6 +96,17 @@ export function validSelections(product: Product, selections: Selection[]): bool
     return total >= g.min && total <= g.max;
   });
 }
+/** Every selected option still exists in the product's menu (stop flags are ignored). */
+export function selectionsExist(product: Product, selections: Selection[]): boolean {
+  return (
+    Array.isArray(selections) &&
+    selections.every((s) =>
+      (product.modifierGroups ?? []).some(
+        (g) => g.id === s.group_id && g.options.some((o) => o.id === s.option_id),
+      ),
+    )
+  );
+}
 export function lineUnitPrice(line: Pick<CartLine, 'product' | 'selections'>): string {
   return (
     BigInt(line.product.priceMinor) +
@@ -306,10 +317,15 @@ export function restoreCart(
         },
       ];
     const selections = product && upgrade ? defaultSelections(product) : line.selections;
+    if (!product || product.source !== preferences.catalogMode) return [];
+    // Owner decision: a saved line whose chosen option (or its group) is gone from the
+    // publication is removed, never re-chosen. A dish that is only stopped (available ===
+    // false, options kept) stays in the basket marked unavailable until the customer acts.
+    const unavailable = product.available === false;
     if (
-      !product ||
-      product.source !== preferences.catalogMode ||
-      (preferences.version === 1 && !validSelections(product, selections ?? []))
+      unavailable
+        ? !selectionsExist(product, selections ?? [])
+        : !validSelections(product, selections ?? [])
     )
       return [];
     const restored: CartLine = {
@@ -320,8 +336,7 @@ export function restoreCart(
     if (line.key !== undefined) restored.key = line.key;
     if (line.previousUnitPriceMinor !== undefined)
       restored.previousUnitPriceMinor = line.previousUnitPriceMinor;
-    if (product.available === false) restored.issue = 'unavailable';
-    else if (!validSelections(product, selections ?? [])) restored.issue = 'choose_options';
+    if (unavailable) restored.issue = 'unavailable';
     return [restored];
   });
 }
