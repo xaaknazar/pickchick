@@ -4423,6 +4423,36 @@
       "updatedAt": "2026-10-10T20:07:55.965Z",
       "summary": "Профиль release-cloud-kitchen.py + owner cloud-kitchen-release-owner.mjs + тесты (unittest 26, PG integration) + docs/operations/cloud-kitchen-release.md на 80ac5182, CI 38080436726 зелёная. Read-only prepare кандидата d87e3225 (--source-checkout) прошёл все live-пины, blocker: в кандидате нет owner-скрипта. На VPS ничего не применялось.",
       "nextAction": "Свести shared + cloud-kitchen-ipad + cloud-kitchen-portal (финальный SHA) + этот профиль в один кандидат, зелёная CI, затем владелец: prepare/apply по docs/operations/cloud-kitchen-release.md с резервом @vps; при смене формата cloudKitchen в портале обновить ENABLE_PORTAL. Обновить project-status/roadmap (заняты inventory)."
+    },
+    {
+      "id": "mobile-luma-patterns",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-luma-patterns",
+      "scopes": [
+        "apps/mobile/src/components/ConfirmSheet.tsx",
+        "apps/mobile/src/components/Toast.tsx",
+        "apps/mobile/src/components/SlideToConfirm.tsx",
+        "apps/mobile/src/components/OrderStatusLine.tsx",
+        "apps/mobile/src/luma-patterns.ts",
+        "apps/mobile/src/components/CatalogChangeNotice.tsx",
+        "apps/mobile/src/components/RepeatOrder.tsx",
+        "apps/mobile/src/screens/ConnectedOrderScreens.tsx",
+        "apps/mobile/src/screens/ProfileScreen.tsx",
+        "apps/mobile/src/screens/OrderStatusScreen.tsx",
+        "apps/mobile/src/screens/ProductConfiguration.tsx",
+        "apps/mobile/src/screens/PhotoProduct.tsx",
+        "apps/mobile/src/store.tsx",
+        "tests/mobile/luma-patterns.test.mjs",
+        "tests/mobile/browser_luma_patterns.py",
+        "tests/mobile/browser_profile.py",
+        "tests/mobile/browser_catalog_price_migration.py",
+        "tests/mobile/browser_published_catalog.py",
+        "tests/mobile/browser_orders.py",
+        "tests/mobile/browser_live_menu_update.py"
+      ],
+      "status": "active",
+      "head": "581de23f0b3f5e187883f5a7930245cce9736025",
+      "updatedAt": "2026-10-10T20:27:13.795Z"
     }
   ]
 }
