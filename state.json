@@ -3951,17 +3951,14 @@
       "branch": "codex/restaurant-report",
       "scopes": [
         "@integration/restaurant-report",
-        "docs/project-status.md",
-        "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json",
         "docs/operations/mobile-live-menu.md",
         "docs/operations/unified-menu-installation-2026-10-09.md"
       ],
       "status": "available",
       "head": "1475e1b8ef6ac64553ac47fa55f0da6e8c727b5f",
-      "updatedAt": "2026-10-10T12:54:32.321Z",
+      "updatedAt": "2026-10-10T13:43:38.569Z",
       "summary": "Report 1475e1b8ef6ac64553ac47fa55f0da6e8c727b5f is published in PR222 and integrated into origin/codex/shared-development by ordinary push; remote SHA verified by coordinator. Primary /Users/xaknazar/Documents/ChatGPT/PickChick updated ff-only to the same SHA, tracked clean, existing untracked .claude preserved. Native16 TestFlight/Internal, installed releases and remaining rollout limits recorded. Six documentation files only over b31; Foundation CI b6b38ae8 11/11 and Roadmap CI success; final1475 changes only two corrected network strings with Prettier/diff checks.",
-      "nextAction": "Online roadmap is not published to this report source yet. Resume only after trusted SSH and fresh API/public/Caddy pins, coordinated market release lock and exact-source roadmap package verification; preserve SQLite notes/team key and verify deployed sourceSha. Keep @vps/roadmap reserved; do not finish until actual publication and evidence. Devices/flags/BO and physical iPhone/iPad acceptance remain separate pending stages.\n2026-10-10: По прямому поручению владельца «освободи бронь сервера» сняты резервы @vps/roadmap. Перед любыми дальнейшими серверными изменениями заново выполнить claim; прежние указания удерживать эти резервы отменены. Код, статус задачи и deployment locks не изменены."
+      "nextAction": "Online roadmap is not published to this report source yet. Resume only after trusted SSH and fresh API/public/Caddy pins, coordinated market release lock and exact-source roadmap package verification; preserve SQLite notes/team key and verify deployed sourceSha. Keep @vps/roadmap reserved; do not finish until actual publication and evidence. Devices/flags/BO and physical iPhone/iPad acceptance remain separate pending stages.\n2026-10-10: По прямому поручению владельца «освободи бронь сервера» сняты резервы @vps/roadmap. Перед любыми дальнейшими серверными изменениями заново выполнить claim; прежние указания удерживать эти резервы отменены. Код, статус задачи и deployment locks не изменены. 2026-10-10: owner-authorized workforce continuation takes shared status/handoff/roadmap documentation to record integration and release; retain prior evidence."
     },
     {
       "id": "kiosk-build12",
