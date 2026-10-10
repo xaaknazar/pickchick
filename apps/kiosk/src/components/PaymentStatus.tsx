@@ -115,9 +115,10 @@ export function PaymentStatus({
   /** Closer vertical rhythm so a control below the steps stays above the footer. */
   dense?: boolean;
 }) {
-  const { v, height } = useMetrics();
+  const { v, height, width } = useMetrics();
   const t = copy(locale);
-  const tight = height < v(1180);
+  // Shorter than the 820 x 1180 design (rounding of v() aside).
+  const tight = height < v(1180) - 4;
   const waiting = state === 'waiting';
   // VoiceOver hears every status change (live regions below serve Android and the web).
   useAnnounce(title + '. ' + message);
@@ -289,11 +290,15 @@ export function PaymentStatus({
       {qrPayload ? (
         <Animated.View
           style={{
+            // Design 07: white card 460 x 528 at 820 pt, radius 40.
+            minWidth: Math.min(v(460), width - v(48)),
             borderRadius: v(40),
             backgroundColor: colors.white,
-            padding: v(tight || dense ? 22 : 30),
+            paddingHorizontal: v(20),
+            paddingTop: v(20),
+            paddingBottom: v(24),
             alignItems: 'center',
-            gap: v(tight || dense ? 14 : 20),
+            gap: v(16),
             shadowColor: '#020A28',
             shadowOpacity: 0.45,
             shadowRadius: 35,

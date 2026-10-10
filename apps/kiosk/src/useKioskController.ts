@@ -59,6 +59,7 @@ export default function useKioskController(): KioskModel {
     goMenu: controller.goMenu,
     openProduct: controller.openProduct,
     closeProduct: controller.closeProduct,
+    editLine: controller.editLine,
     openUpsell: controller.openUpsell,
     openCart: controller.openCart,
     goLoyalty: controller.goLoyalty,

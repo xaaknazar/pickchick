@@ -76,6 +76,13 @@ export interface KioskState {
   syncPending?: boolean;
   /** The cart line of the latest add (its serial grows with every add). */
   lastAdded?: { lineId: string; serial: number } | null;
+  /** The cart line the product page is editing ("Изменить"): its choice and quantity. */
+  editingLine?: {
+    lineId: string;
+    productId: string;
+    selections: KioskSelection[];
+    quantity: number;
+  } | null;
   checkoutReady?: boolean;
   commercialPaymentMethods?: ('kaspi' | 'kaspi_invoice')[];
   qrPayment?: {
@@ -112,6 +119,8 @@ export interface KioskModel extends KioskState {
   openProduct(productId: string): void;
   /** Leaves the product page for the step it was opened from (menu, upsell or cart). */
   closeProduct(): void;
+  /** Opens the product page of a cart line with its choice; saving replaces the line. */
+  editLine?(lineId: string): void;
   openUpsell(): void;
   openCart(): void;
   goLoyalty(): void;
@@ -119,7 +128,13 @@ export interface KioskModel extends KioskState {
   /** Commercial catalog texts in the guest's language (absent in the simulator). */
   setCatalogLocale?(locale: Locale): void;
   setPaymentMethod(method: KioskPaymentMethod): void;
-  addToCart(productId: string, selections: KioskSelection[], quantity?: number): Promise<boolean>;
+  /** With `replaceLineId` the edited line is replaced by this choice and quantity. */
+  addToCart(
+    productId: string,
+    selections: KioskSelection[],
+    quantity?: number,
+    replaceLineId?: string,
+  ): Promise<boolean>;
   updateQuantity(lineId: string, quantity: number): Promise<boolean>;
   beginPayment(method?: KioskPaymentMethod): Promise<boolean>;
   pay(outcome: 'approved' | 'declined' | 'unknown'): Promise<boolean>;

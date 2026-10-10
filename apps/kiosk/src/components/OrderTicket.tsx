@@ -118,7 +118,10 @@ export function OrderTicket({
 }) {
   const { v, width, height } = useMetrics();
   const t = copy(locale);
-  const tight = height < v(1180);
+  // Design 08 is drawn for 820 x 1180: the chef and the number give up the height a
+  // taller-scaled screen lacks (13-inch iPad), so nothing is cut and nothing floats.
+  const deficit = Math.max(0, v(1180) - height);
+  const tight = deficit > v(60);
   useAnnounce(number ? `${t.yourNumber} ${number}. ${status}` : status);
   const [track, setTrack] = useState(0);
   const reduced = useMotionPreference();
@@ -140,10 +143,13 @@ export function OrderTicket({
   const progress = Animated.multiply(bar, target);
   const prefixed = number?.startsWith('№') ?? false;
   const digits = prefixed ? number!.slice(1) : (number ?? '');
+  const tallNumber = Math.max(v(170), v(230) - deficit * 0.4);
   const numberSize = Math.min(
-    v(tight ? 200 : 230),
+    tallNumber,
     Math.floor((width - v(120)) / Math.max(1, digits.length + (prefixed ? 0.5 : 0)) / 0.72),
   );
+  // A long number is narrowed by the width; the height it leaves goes to the chef.
+  const spare = tallNumber - numberSize;
   const numberText: TextStyle = {
     fontFamily: fonts.black,
     fontVariant: ['tabular-nums'],
@@ -163,7 +169,7 @@ export function OrderTicket({
     </>
   );
   const glowSize = v(760);
-  const chefSize = v(tight ? 250 : 340);
+  const chefSize = Math.min(v(420), Math.max(v(200), v(340) - deficit * 0.6 + spare * 0.9));
   const reached = stage ? order.indexOf(stage) : -1;
   const fadeUp = (value: Animated.Value, distance = 16) => ({
     opacity: value,

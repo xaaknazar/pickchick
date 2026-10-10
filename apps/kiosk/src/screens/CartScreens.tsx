@@ -89,7 +89,8 @@ export function UpsellScreen({ model, context }: { model: KioskModel; context: S
 export function CartScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   const t = copy(context.locale);
   const count = itemCount(model);
-  const qr = !!model.commercial && (model.commercialPaymentMethods ?? ['kaspi']).includes('kaspi');
+  // Design 05: the footer plate names Kaspi QR whenever it is offered.
+  const qr = (model.commercialPaymentMethods ?? ['kaspi']).includes('kaspi');
   return (
     <ScreenSurface testID="kiosk-screen-cart" tone="brand" entrance={context.direction}>
       <Header
@@ -100,8 +101,8 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
         subtitle={positionsLabel(count, context.locale)}
         mode={modeLabel(model, context)}
         modeKind={model.mode}
+        centered
       />
-      <OrderProgress step="cart" locale={context.locale} />
       <ScrollArea onInteraction={model.touch}>
         <Wrapper paddingX={24} paddingY={22} gap={14}>
           {!model.cart.length && !model.unavailableCartLines.length ? (
@@ -112,6 +113,7 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
             locale={context.locale}
             busy={model.busy}
             onQuantity={(lineId, q) => void model.updateQuantity(lineId, q)}
+            onEdit={model.editLine}
           />
           {model.menuUpdating && model.unavailableCartLines.length ? (
             // Availability is briefly not fresh: the lines come back by themselves.

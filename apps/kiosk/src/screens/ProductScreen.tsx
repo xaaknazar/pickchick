@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState, type SetStateAction } from 'react';
 import type { KioskModel, KioskModifierGroup, KioskProduct, KioskSelection } from '../model';
-import { defaultSelections, selectedPriceMinor, testLineId, validSelections } from '../cart';
+import {
+  LINE_LIMIT,
+  LINES_LIMIT,
+  defaultSelections,
+  selectedPriceMinor,
+  testLineId,
+  validSelections,
+} from '../cart';
 import { copy } from '../i18n';
 import {
   Body,
@@ -31,9 +38,6 @@ const countIn = (selections: KioskSelection[], group: KioskModifierGroup) =>
         s.group_id === group.id && group.options.some((o) => o.id === s.option_id && o.available),
     )
     .reduce((n, s) => n + s.quantity, 0);
-/** The cart's limits: 20 of one line, 11 different lines. */
-const LINE_LIMIT = 20;
-const LINES_LIMIT = 11;
 const complete = (selections: KioskSelection[], group: KioskModifierGroup) => {
   const count = countIn(selections, group);
   return count >= group.min && count <= group.max;
@@ -53,7 +57,13 @@ export function ProductScreen({
   product: KioskProduct;
 }) {
   const t = copy(context.locale);
-  const [selections, setSelectionState] = useState(() => defaultSelections(product));
+  // "Изменить" in the cart: the page opens with that line's choice and saves over it.
+  const [editing] = useState(() =>
+    model.editingLine?.productId === product.id ? model.editingLine : null,
+  );
+  const [selections, setSelectionState] = useState(() =>
+    editing ? editing.selections : defaultSelections(product),
+  );
   const [focus, setFocus] = useState<ScrollFocus | undefined>(undefined);
   const [attention, setAttention] = useState<{ group: string; request: number } | null>(null);
   const advance = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -64,7 +74,7 @@ export function ProductScreen({
   useEffect(() => () => stopAdvance(), []);
   const focusOn = (target: string, ahead: boolean) =>
     setFocus((now) => ({ target, request: (now?.request ?? 0) + 1, ahead }));
-  const [quantity, setQuantityState] = useState(1);
+  const [quantity, setQuantityState] = useState(() => editing?.quantity ?? 1);
   const setQuantity = (next: SetStateAction<number>) => {
     model.touch();
     setQuantityState(next);
@@ -101,8 +111,11 @@ export function ProductScreen({
   const requiredValid = requiredGroups.every((g) => complete(selections, g));
   // Cart limits for this exact choice: what is already in the cart counts.
   const lineId = testLineId(product.id, selections);
-  const inCart = model.cart.find((l) => l.lineId === lineId)?.quantity ?? 0;
-  const linesFull = !inCart && model.cart.length + model.unavailableCartLines.length >= LINES_LIMIT;
+  // The edited line itself is replaced, so it takes no room.
+  const inCart =
+    model.cart.find((l) => l.lineId === lineId && l.lineId !== editing?.lineId)?.quantity ?? 0;
+  const linesFull =
+    !inCart && !editing && model.cart.length + model.unavailableCartLines.length >= LINES_LIMIT;
   const room = linesFull ? 0 : LINE_LIMIT - inCart;
   const limit = room > 0 ? null : linesFull ? t.limitLines : t.limitLine;
   const shownQuantity = Math.max(1, Math.min(quantity, room));
@@ -231,7 +244,8 @@ export function ProductScreen({
           onNext={() => setWizardStep(1)}
           onMinus={() => setQuantity((q) => Math.max(1, Math.min(q, room) - 1))}
           onPlus={() => setQuantity((q) => Math.min(room, q + 1))}
-          onAdd={() => void model.addToCart(product.id, selections, shownQuantity)}
+          save={!!editing}
+          onAdd={() => void model.addToCart(product.id, selections, shownQuantity, editing?.lineId)}
           onAttention={pointAtMissing}
         />
         <Toast

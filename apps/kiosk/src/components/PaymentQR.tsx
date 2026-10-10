@@ -31,9 +31,10 @@ export function PaymentQR({
   // Snap the box to whole points per module so every module edge lands on the
   // pixel grid: no blurred or uneven modules at any iPad scale.
   const cells = Number(/viewBox="0 0 (\d+)/.exec(svg ?? '')?.[1] ?? 0);
-  // Design: about 360 pt on the 820 x 1180 iPad (~0.3 of the height), so the
-  // steps and the footer still fit on screen on every portrait iPad.
-  const wanted = Math.min(v(size === 'compact' ? 360 : 400), Math.round(height * 0.305));
+  // Design 07: a 460-pt card on the 820 x 1180 iPad holds ~360 pt of modules; with
+  // the 4-module quiet zone that is a ~420-pt code. Bounded by the height, so the
+  // steps and the footer still fit on every portrait iPad.
+  const wanted = Math.min(v(size === 'compact' ? 380 : 420), Math.round(height * 0.345));
   const box = cells ? Math.max(cells, Math.round(wanted / cells) * cells) : wanted;
   if (!svg) return null;
   return (

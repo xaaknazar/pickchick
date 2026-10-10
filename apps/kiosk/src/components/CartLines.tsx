@@ -22,11 +22,14 @@ export function CartLines({
   locale,
   busy,
   onQuantity,
+  onEdit,
 }: {
   lines: KioskCartLine[];
   locale: Locale;
   busy: boolean;
   onQuantity: (lineId: string, quantity: number) => void;
+  /** "Изменить": reopen the product page with the line's choice. */
+  onEdit?: (lineId: string) => void;
 }) {
   const reduced = useMotionPreference();
   const [ghosts, setGhosts] = useState<Ghost[]>([]);
@@ -81,6 +84,7 @@ export function CartLines({
             setGhosts((now) => now.filter((ghost) => ghost.line.lineId !== line.lineId))
           }
           onQuantity={(quantity) => onQuantity(line.lineId, quantity)}
+          onEdit={onEdit ? () => onEdit(line.lineId) : undefined}
         />
       ))}
     </>

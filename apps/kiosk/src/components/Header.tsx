@@ -31,6 +31,8 @@ export const pilotBranch = 'ТЦ Abay Plaza';
  *   title over the branch, two-segment dining switch, language pill (design 03,
  *   113 high, side padding 24; owner decision 2026-10-10: the cancel is a
  *   visible disc, the logo is not a control);
+ * - cart (`centered`, design 05): back pill, the title and subtitle centred, a
+ *   white dining chip on the right ("В ЗАЛЕ" / "С СОБОЙ"), nothing else;
  * - other screens: back pill or logo, a white title (two lines when long) over
  *   the subtitle and the dining mode, glass help/cancel controls and a compact
  *   language switch, so the title is never cut to a letter.
@@ -51,6 +53,8 @@ export function Header({
   onDining,
   minimal = false,
   cancellable = true,
+  centered = false,
+  helpPill = false,
 }: ScreenContext & {
   back?: () => void;
   /** Accessible name of the back pill or the close disc. */
@@ -68,6 +72,10 @@ export function Header({
   minimal?: boolean;
   /** `false` hides the cancel control (a screen whose own footer owns the way out). */
   cancellable?: boolean;
+  /** Design 05 cart header: centred title, dining chip, no help/cancel/language. */
+  centered?: boolean;
+  /** Centred header (design 07): an outlined "Помощь" pill on the right. */
+  helpPill?: boolean;
 }) {
   const { v, px } = useMetrics();
   const safe = useSafeAreaInsets();
@@ -82,6 +90,163 @@ export function Header({
   const close = v(64);
   const logo = <Logo size={brand || menu ? 'regular' : 'large'} />;
   const long = (title?.length ?? 0) > 16;
+  const backPill = back ? (
+    <Animated.View style={{ transform: [{ scale: backPress.scale }] }}>
+      <Pressable
+        testID="kiosk-header-back"
+        accessibilityRole="button"
+        accessibilityLabel={backLabel ?? t.back}
+        onPress={back}
+        onPressIn={backPress.onPressIn}
+        onPressOut={backPress.onPressOut}
+        style={{
+          minHeight: Math.max(52, v(64)),
+          paddingLeft: v(14),
+          paddingRight: v(22),
+          borderRadius: 999,
+          backgroundColor: colors.glass,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: v(8),
+        }}
+      >
+        <Icon name="chevron-back" tone="inverse" />
+        <Text
+          {...fixedText}
+          style={{ fontFamily: fonts.heavy, fontSize: v(18), color: colors.white }}
+        >
+          {backLabel ?? t.back}
+        </Text>
+      </Pressable>
+    </Animated.View>
+  ) : null;
+  if (centered)
+    return (
+      <View
+        style={{
+          paddingTop: safe.top,
+          paddingLeft: Math.max(safe.left, side),
+          paddingRight: Math.max(safe.right, side),
+          borderBottomWidth: 1,
+          borderColor: colors.glassLine,
+        }}
+      >
+        <View
+          style={{
+            minHeight: v(112),
+            paddingVertical: v(10),
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: v(12),
+          }}
+        >
+          {/* Without a way back (payment) the brand mark holds the left side. */}
+          {backPill ?? <Logo size="regular" />}
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: v(150),
+              right: v(150),
+              top: 0,
+              bottom: 0,
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: v(2),
+            }}
+          >
+            <Text
+              {...fixedText}
+              accessibilityRole="header"
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              style={{
+                fontFamily: fonts.black,
+                fontSize: v(32),
+                lineHeight: v(38),
+                letterSpacing: -0.4,
+                color: colors.white,
+                textAlign: 'center',
+              }}
+            >
+              {title}
+            </Text>
+            {subtitle ? (
+              <Text
+                {...fixedText}
+                testID="kiosk-header-subtitle"
+                numberOfLines={1}
+                style={{
+                  fontFamily: fonts.medium,
+                  fontSize: v(16),
+                  color: 'rgba(255,255,255,.75)',
+                  textAlign: 'center',
+                }}
+              >
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
+          {mode ? (
+            <View
+              testID="kiosk-header-mode"
+              accessible
+              accessibilityLabel={mode}
+              style={{
+                minHeight: v(56),
+                paddingLeft: v(14),
+                paddingRight: v(20),
+                borderRadius: 999,
+                backgroundColor: colors.white,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: v(8),
+              }}
+            >
+              <Icon
+                name={modeKind === 'dine_in' ? 'restaurant-outline' : 'bag-handle-outline'}
+                size="small"
+                tone="accent"
+              />
+              <Text
+                {...fixedText}
+                numberOfLines={1}
+                style={{ fontFamily: fonts.heavy, fontSize: v(16), color: colors.blue }}
+              >
+                {mode.toUpperCase()}
+              </Text>
+            </View>
+          ) : helpPill ? (
+            <Pressable
+              testID="kiosk-header-help"
+              accessibilityRole="button"
+              accessibilityLabel={t.help}
+              onPress={onHelp}
+              style={{
+                minHeight: Math.max(52, v(64)),
+                paddingHorizontal: v(24),
+                borderRadius: 999,
+                borderWidth: 2,
+                borderColor: 'rgba(255,255,255,.45)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text
+                {...fixedText}
+                numberOfLines={1}
+                style={{ fontFamily: fonts.heavy, fontSize: v(18), color: colors.white }}
+              >
+                {t.help}
+              </Text>
+            </Pressable>
+          ) : (
+            <View />
+          )}
+        </View>
+      </View>
+    );
   return (
     <View
       style={{
@@ -124,38 +289,7 @@ export function Header({
           </Animated.View>
         ) : null}
         {menu ? <CancelDisc label={t.cancel} onPress={onCancel} /> : null}
-        {back ? (
-          <Animated.View style={{ transform: [{ scale: backPress.scale }] }}>
-            <Pressable
-              testID="kiosk-header-back"
-              accessibilityRole="button"
-              accessibilityLabel={backLabel ?? t.back}
-              onPress={back}
-              onPressIn={backPress.onPressIn}
-              onPressOut={backPress.onPressOut}
-              style={{
-                minHeight: Math.max(52, v(64)),
-                paddingLeft: v(14),
-                paddingRight: v(22),
-                borderRadius: 999,
-                backgroundColor: colors.glass,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: v(8),
-              }}
-            >
-              <Icon name="chevron-back" tone="inverse" />
-              <Text
-                {...fixedText}
-                style={{ fontFamily: fonts.heavy, fontSize: v(18), color: colors.white }}
-              >
-                {backLabel ?? t.back}
-              </Text>
-            </Pressable>
-          </Animated.View>
-        ) : (
-          logo
-        )}
+        {back ? backPill : logo}
         {brand ? (
           <Wrapper flex={1} gap={2}>
             <Text

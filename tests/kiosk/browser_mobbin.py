@@ -20,7 +20,7 @@ class Design(base.KioskUI):
         base.element(page, 'kiosk-language-kk').click()
         base.capture(page, 'menu-kk-834.png')
         base.assert_no_overflow(page, 834)
-        for category in ['combo', 'duo', 'sets', 'extras']:
+        for category in ['combo', 'duo', 'sets', 'extras', 'drinks']:
             base.assert_bounded(page, 'kiosk-category-' + category, 834, 1194)
         page.set_viewport_size({'width': 1180, 'height': 820})
         base.assert_bounded(page, 'kiosk-menu-checkout', 1180, 820)

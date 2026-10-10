@@ -15,7 +15,7 @@ import type {
   TestSession,
 } from '@pickchick/test-order-flow/contracts';
 import { KioskError } from './api.ts';
-import { selectedPriceMinor, validSelections } from './cart.ts';
+import { placeLine, selectedPriceMinor, validSelections } from './cart.ts';
 import type {
   KioskErrorCode,
   KioskMode,
@@ -202,6 +202,7 @@ export class KioskController {
   /** Where the product page was opened from; adding or closing returns there. */
   private returnStep: KioskStep = 'menu';
   private lastAdded: { lineId: string; serial: number } | null = null;
+  private editing: KioskState['editingLine'] = null;
   private addSerial = 0;
   private idleWarningSeconds: number | null = null;
   private listeners = new Set<() => void>();
@@ -268,6 +269,7 @@ export class KioskController {
       error: this.error,
       errorCode: this.errorCode,
       lastAdded: this.lastAdded,
+      editingLine: this.editing,
       catalog: this.catalog,
       step: this.step,
       mode: this.flow.mode,
@@ -467,9 +469,29 @@ export class KioskController {
     if (this.step !== 'product')
       this.returnStep = this.step === 'upsell' || this.step === 'cart' ? this.step : 'menu';
     this.selectedId = id;
+    this.editing = null;
     this.navigate('product');
   };
-  closeProduct = () => this.navigate(this.returnStep);
+  editLine = (lineId: string) => {
+    const line = this.flow.cart.find((l) => testLineId(l.productId, l.selections) === lineId);
+    if (!line || !this.catalog?.products.some((p) => p.id === line.productId)) return;
+    if (!this.ready || this.busy || this.unsafe() || this.flow.order) return;
+    if (this.step !== 'product')
+      this.returnStep = this.step === 'upsell' || this.step === 'cart' ? this.step : 'menu';
+    this.selectedId = line.productId;
+    this.editing = {
+      lineId,
+      productId: line.productId,
+      selections: line.selections.map((s) => ({ ...s })),
+      quantity: line.quantity,
+    };
+    this.navigate('product');
+  };
+  closeProduct = () => {
+    if (!this.ready || this.busy || this.unsafe() || this.flow.order) return;
+    this.editing = null;
+    this.navigate(this.returnStep);
+  };
   setPaymentMethod = (method: KioskPaymentMethod) => {
     if (
       !this.ready ||
@@ -483,7 +505,12 @@ export class KioskController {
       await this.persist({ ...this.flow, paymentMethod: method, lastActivityAt: this.io.now() });
     });
   };
-  addToCart = (productId: string, selections: KioskSelection[], quantity = 1) =>
+  addToCart = (
+    productId: string,
+    selections: KioskSelection[],
+    quantity = 1,
+    replaceLineId?: string,
+  ) =>
     this.run(async () => {
       this.assertEditable();
       const product = this.catalog!.products.find((p) => p.id === productId);
@@ -500,17 +527,13 @@ export class KioskController {
         .sort((a, b) =>
           `${a.group_id}:${a.option_id}`.localeCompare(`${b.group_id}:${b.option_id}`),
         );
-      const lineId = testLineId(productId, normalized),
-        old = this.flow.cart.find((line) => testLineId(line.productId, line.selections) === lineId);
-      const nextQuantity = (old?.quantity ?? 0) + quantity;
-      if (nextQuantity > 20) throw new KioskError('CART_LIMIT_LINE');
-      if (!old && this.flow.cart.length >= 11) throw new KioskError('CART_LIMIT_LINES');
-      const line = { productId, selections: normalized, quantity: nextQuantity };
-      const cart = old
-        ? this.flow.cart.map((entry) => (entry === old ? line : entry))
-        : [...this.flow.cart, line];
-      await this.persist({ ...this.flow, cart, lastActivityAt: this.io.now() });
-      this.lastAdded = { lineId, serial: ++this.addSerial };
+      const placed = placeLine(this.flow.cart, productId, normalized, quantity, replaceLineId);
+      if ('error' in placed) throw new KioskError(placed.error);
+      await this.persist({ ...this.flow, cart: placed.cart, lastActivityAt: this.io.now() });
+      // An edited line is not a new add: the menu shows no "added" toast for it.
+      if (replaceLineId === undefined)
+        this.lastAdded = { lineId: placed.lineId, serial: ++this.addSerial };
+      this.editing = null;
       // The product page returns where it was opened; upsell (its own step or the cart's
       // inline block) keeps the guest where they are.
       if (this.step === 'product') this.step = this.returnStep;
@@ -793,6 +816,7 @@ export class KioskController {
     this.session = null;
     await this.persist(this.empty());
     this.selectedId = null;
+    this.editing = null;
     this.returnStep = 'menu';
     this.lastAdded = null;
     this.idleWarningSeconds = null;

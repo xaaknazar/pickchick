@@ -34,6 +34,7 @@ export function ProductActions({
   onPlus,
   onAdd,
   onAttention,
+  save = false,
 }: {
   locale: Locale;
   quantity: number;
@@ -54,6 +55,8 @@ export function ProductActions({
   onAdd: () => void;
   /** The guest tapped the pale pill: point them at the missing choice. */
   onAttention?: () => void;
+  /** Editing a cart line: the pill saves over it ("Сохранить") instead of adding. */
+  save?: boolean;
 }) {
   const { v } = useMetrics();
   const t = copy(locale);
@@ -70,7 +73,7 @@ export function ProductActions({
   }, [reduced, press]);
   const disabled = !valid || !available || !!limit;
   const blocked = disabled || busy;
-  const label = limit ?? (price ? `${t.toCart} · ${money(price)}` : t.required);
+  const label = limit ?? (price ? `${save ? t.saveLine : t.toCart} · ${money(price)}` : t.required);
   // Prototype `tween()` on #pctaSum: counts up from 0 whenever the price appears,
   // then to each new total; whole tenge while counting.
   const target = price ? Number(price) : 0;
@@ -78,7 +81,7 @@ export function ProductActions({
   const shown =
     limit || !price || counted === target
       ? label
-      : `${t.toCart} · ${money(String(Math.round(counted / 100) * 100))}`;
+      : `${save ? t.saveLine : t.toCart} · ${money(String(Math.round(counted / 100) * 100))}`;
   const wait = useTimingTo(disabled ? 1 : 0, 220, 'css');
   // Missing choices keep the pill tappable for feedback only; busy and sold-out do not.
   const attention = !valid && available && !limit && !busy && !!onAttention;

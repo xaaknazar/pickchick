@@ -3,6 +3,7 @@ import type { KioskModel } from '../model';
 import { visiblePaymentQr } from '../qr';
 import { kioskOrderNumber, kioskTicketNumber } from '../presentation';
 import { copy } from '../i18n';
+import { checkoutCopy } from '../checkoutCopy';
 import {
   Body,
   Button,
@@ -60,8 +61,8 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
       : t.testPayment;
   return (
     <ScreenSurface testID="kiosk-screen-payment" tone="brand" entrance={context.direction}>
-      {/* The footer owns the way out of a payment; the header has no cancel. */}
-      <Header {...context} title={t.payment} cancellable={false} />
+      {/* Design 07: "Оплата" centred, "Помощь" on the right; the footer owns the way out. */}
+      <Header {...context} title={checkoutCopy(context.locale).payment} centered helpPill />
       <ScrollArea fill>
         <Wrapper
           flex={1}
@@ -231,7 +232,7 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
       onTouchStart={() => setTouches((n) => n + 1)}
     >
       <ScrollArea fill>
-        <Wrapper flex={1} paddingX={60} paddingY={40} gap={20} justify="center">
+        <Wrapper flex={1} paddingX={60} paddingY={24} gap={12} justify="center">
           <OrderTicket
             number={number}
             status={status}
@@ -265,11 +266,11 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
       <Footer tone="clear">
         <Wrapper dir="row" gap={18} align="center">
           <Wrapper flex={1}>
-            {/* Secondary: the guest's number stays the main thing on screen. */}
+            {/* Design 08: the white "Новый заказ · 15" pill beside a glass help. */}
             <Button
               label={`${t.nextGuest}${canReset ? ` · ${seconds}` : ''}`}
               testID="kiosk-next-guest"
-              tone="outline"
+              tone="light"
               disabled={!canReset}
               busy={model.busy}
               onPress={() => void model.newGuest()}

@@ -19,7 +19,7 @@ import { TestSelectionSchema } from '@pickchick/test-order-flow/contracts';
 import { CatalogMediaMapSchema, CatalogPayloadSchema } from '@pickchick/catalog-admin/contracts';
 import { KioskError } from './api.ts';
 import type { KioskReadResult } from './commercial-api';
-import { selectedPriceMinor, validSelections, testLineId } from './cart.ts';
+import { placeLine, selectedPriceMinor, validSelections, testLineId } from './cart.ts';
 import { KIOSK_IDLE_MS, KIOSK_IDLE_GRACE_MS, type KioskIO } from './controller.ts';
 import type { Locale } from './i18n';
 import type {
@@ -484,6 +484,7 @@ export class CommercialKioskController {
   /** Where the product page was opened from; adding or closing returns there. */
   private returnStep: KioskStep = 'menu';
   private lastAdded: { lineId: string; serial: number } | null = null;
+  private editing: KioskState['editingLine'] = null;
   private addSerial = 0;
   private phone = '';
   private warning: number | null = null;
@@ -557,6 +558,7 @@ export class CommercialKioskController {
       menuUpdating: !!this.menu && this.stale,
       syncPending: this.current.resetPending,
       lastAdded: this.lastAdded,
+      editingLine: this.editing,
       commercialPaymentMethods: this.paymentMethods,
       invoicePhone: this.phone,
       phoneValid: !!invoicePhone(this.phone),
@@ -1054,9 +1056,30 @@ export class CommercialKioskController {
     if (this.step !== 'product')
       this.returnStep = this.step === 'upsell' || this.step === 'cart' ? this.step : 'menu';
     this.selectedId = productId;
+    this.editing = null;
     this.navigate('product');
   };
-  closeProduct = () => this.navigate(this.returnStep);
+  editLine = (lineId: string) => {
+    const line = this.current.cart.find((l) => testLineId(l.productId, l.selections) === lineId);
+    const product = line && this.menu?.products.find((p) => p.id === line.productId);
+    if (!line || !product || product.available === false) return;
+    if (!this.ready || this.busy || this.unsafe() || this.current.order) return;
+    if (this.step !== 'product')
+      this.returnStep = this.step === 'upsell' || this.step === 'cart' ? this.step : 'menu';
+    this.selectedId = line.productId;
+    this.editing = {
+      lineId,
+      productId: line.productId,
+      selections: line.selections.map((s) => ({ ...s })),
+      quantity: line.quantity,
+    };
+    this.navigate('product');
+  };
+  closeProduct = () => {
+    if (!this.ready || this.busy || this.unsafe() || this.current.order) return;
+    this.editing = null;
+    this.navigate(this.returnStep);
+  };
   setPaymentMethod = (method: KioskPaymentMethod) => {
     if (
       this.busy ||
@@ -1077,7 +1100,12 @@ export class CommercialKioskController {
     this.touch();
     this.emit();
   };
-  addToCart = (productId: string, selections: KioskSelection[], quantity = 1) =>
+  addToCart = (
+    productId: string,
+    selections: KioskSelection[],
+    quantity = 1,
+    replaceLineId?: string,
+  ) =>
     this.run(async () => {
       this.editable();
       const product = this.menu!.products.find((p) => p.id === productId);
@@ -1095,20 +1123,13 @@ export class CommercialKioskController {
         .sort((a, b) =>
           `${a.group_id}:${a.option_id}`.localeCompare(`${b.group_id}:${b.option_id}`),
         );
-      const lineId = testLineId(productId, normalized);
-      const old = this.current.cart.find((p) => testLineId(p.productId, p.selections) === lineId);
-      const total = (old?.quantity ?? 0) + quantity;
-      if (total > 20) throw new KioskError('CART_LIMIT_LINE');
-      if (!old && this.current.cart.length >= 11) throw new KioskError('CART_LIMIT_LINES');
-      const next = { productId, selections: normalized, quantity: total };
-      await this.save({
-        ...this.current,
-        cart: old
-          ? this.current.cart.map((p) => (p === old ? next : p))
-          : [...this.current.cart, next],
-        lastActivityAt: this.io.now(),
-      });
-      this.lastAdded = { lineId, serial: ++this.addSerial };
+      const placed = placeLine(this.current.cart, productId, normalized, quantity, replaceLineId);
+      if ('error' in placed) throw new KioskError(placed.error);
+      await this.save({ ...this.current, cart: placed.cart, lastActivityAt: this.io.now() });
+      // An edited line is not a new add: the menu shows no "added" toast for it.
+      if (replaceLineId === undefined)
+        this.lastAdded = { lineId: placed.lineId, serial: ++this.addSerial };
+      this.editing = null;
       // The product page returns where it was opened; upsell (its own step or the cart's
       // inline block) keeps the guest where they are.
       if (this.step === 'product') this.step = this.returnStep;
@@ -1348,8 +1369,15 @@ export class CommercialKioskController {
     });
   private async finishReset() {
     if (this.guest) {
-      const ended = await this.io.request('/sessions/end', this.guest.token, {});
-      if (!isObject(ended) || ended.ended !== true) throw new KioskError('INVALID_RESPONSE');
+      try {
+        const ended = await this.io.request('/sessions/end', this.guest.token, {});
+        if (!isObject(ended) || ended.ended !== true) throw new KioskError('INVALID_RESPONSE');
+      } catch (error) {
+        // The server no longer knows this guest (restored database, deleted row, disabled
+        // device): there is nothing left to end, so unbind it locally instead of keeping the
+        // kiosk stuck on a reset that can never complete.
+        if (!(error instanceof KioskError && error.code === 'FORBIDDEN')) throw error;
+      }
     }
     await this.io.removeSession();
     this.guest = null;
@@ -1359,6 +1387,7 @@ export class CommercialKioskController {
     this.warning = null;
     this.lastAdded = null;
     this.selectedId = null;
+    this.editing = null;
     this.returnStep = 'menu';
     this.step = 'start';
   }

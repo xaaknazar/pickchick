@@ -377,3 +377,88 @@ test('every guest error code has a text in KZ, RU and EN', () => {
       assert.doesNotMatch(strings[key], /[–—]/, `${locale} ${key}`);
     }
 });
+
+test('K4: a paid order without a display number is final; the next guest is allowed', async () => {
+  const h = fixture();
+  const c = await cart(h);
+  assert.equal(await c.beginPayment(), true);
+  assert.equal(c.getSnapshot().order.payment_state, 'pending');
+  // While the payment is open the guest cannot be reset.
+  assert.equal(await c.newGuest(), false);
+  // Paid, but the kitchen number has not arrived yet (edge or bridge without WAN).
+  h.order = { ...h.order, phase: 'paid', displayNumber: null, receipt: 'pending' };
+  await c.refresh();
+  const paid = c.getSnapshot();
+  assert.equal(paid.step, 'order');
+  assert.equal(paid.order.payment_state, 'paid');
+  assert.equal(paid.order.number, '-');
+  // Financially final: no recovery, nothing blocks the next guest.
+  assert.equal(paid.recoveryRequired, false);
+  const orders = h.calls.filter((r) => r.path === '/orders').length;
+  const payments = h.calls.filter((r) => r.path.endsWith('/payment')).length;
+  assert.equal(await c.newGuest(), true);
+  assert.equal(c.getSnapshot().step, 'start');
+  assert.equal(c.getSnapshot().order, null);
+  assert.equal(JSON.parse(h.rawFlow).order, null);
+  assert.equal(JSON.parse(h.rawFlow).resetPending, false);
+  // Leaving never re-submits the order or the payment.
+  assert.equal(h.calls.filter((r) => r.path === '/orders').length, orders);
+  assert.equal(h.calls.filter((r) => r.path.endsWith('/payment')).length, payments);
+});
+
+test('cart "edit" opens the line with its choice and saving replaces it in place', async () => {
+  const h = fixture();
+  const c = await browsing(h);
+  const [first, second] = c
+    .getSnapshot()
+    .catalog.products.filter((p) =>
+      p.modifier_groups.some((g) => g.options.length > 1 && g.max === 1 && g.min === 1),
+    );
+  assert.equal(await c.addToCart(first.id, defaults(first)), true);
+  assert.equal(await c.addToCart(second.id, defaults(second), 2), true);
+  c.openCart();
+  const line = c.getSnapshot().cart[1];
+  const serial = c.getSnapshot().lastAdded.serial;
+  c.editLine(line.lineId);
+  let view = c.getSnapshot();
+  assert.equal(view.step, 'product');
+  assert.equal(view.selectedProduct.id, second.id);
+  assert.deepEqual(view.editingLine.selections, line.selections);
+  assert.equal(view.editingLine.quantity, 2);
+  // Another choice in the single-choice group, saved with quantity 3.
+  const group = second.modifier_groups.find(
+    (g) => g.options.length > 1 && g.max === 1 && g.min === 1,
+  );
+  const chosen = line.selections.find((s) => s.group_id === group.id).option_id;
+  const other = group.options.find((o) => o.id !== chosen && o.available);
+  const next = [
+    ...line.selections.filter((s) => s.group_id !== group.id),
+    { group_id: group.id, option_id: other.id, quantity: 1 },
+  ];
+  assert.equal(await c.addToCart(second.id, next, 3, line.lineId), true);
+  view = c.getSnapshot();
+  assert.equal(view.step, 'cart');
+  assert.equal(view.editingLine, null);
+  assert.equal(view.cart.length, 2);
+  assert.equal(view.cart[1].productId, second.id);
+  assert.equal(view.cart[1].quantity, 3);
+  assert.equal(view.cart[1].selections.find((s) => s.group_id === group.id).option_id, other.id);
+  // An edit is not a new add: no "added" toast in the menu.
+  assert.equal(view.lastAdded.serial, serial);
+  // A line keeps its product; saving the original choice back replaces it again.
+  c.editLine(view.cart[1].lineId);
+  assert.equal(
+    await c.addToCart(first.id, defaults(first), 1, view.cart[1].lineId),
+    false,
+    'a line cannot be swapped for another product',
+  );
+  assert.equal(await c.addToCart(second.id, defaults(second), 1, view.cart[1].lineId), true);
+  view = c.getSnapshot();
+  assert.equal(view.cart.length, 2);
+  assert.equal(view.cart[1].quantity, 1);
+  // Closing without saving keeps the line and forgets the edit.
+  c.editLine(view.cart[0].lineId);
+  c.closeProduct();
+  assert.equal(c.getSnapshot().editingLine, null);
+  assert.equal(c.getSnapshot().step, 'cart');
+});

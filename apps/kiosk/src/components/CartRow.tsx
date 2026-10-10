@@ -7,7 +7,7 @@ import { copy, type Locale } from '../i18n';
 import { heroPhoto, productImage, productPhoto, productArtworkId, type Photo } from '../assets';
 import { colors, fonts, useMetrics } from '../theme';
 import { Icon } from './Icon';
-import { inCategory } from './categories';
+import { isSingleItem } from './categories';
 import { ease, usePopIn, usePress, useStagger } from './motion';
 import { useMotionPreference } from './useMotionPreference';
 import { fixedText } from './Body';
@@ -31,9 +31,10 @@ function selectionLines(line: KioskCartLine) {
 }
 /**
  * v3 cart line: white 30-pt card, 140-pt photo tile (blue studio shot for combos,
- * duos and sets), name, chosen options with blue checks, remove capsule, the line
+ * duos and sets), name, chosen options with blue checks, the "Изменить" capsule
+ * (05-cart.png; products with choices reopen their page with this line), the line
  * total and a soft capsule stepper (white minus, orange plus). Rows rise in stagger.
- * Removing the line (remove, or minus at 1) slides it out at once (prototype
+ * Removing the line (minus at 1) slides it out at once (prototype
  * `.line.gone`: fade, -80 pt, scale .96, 280 ms) while the cart updates; a line
  * that is still there afterwards slides back. `leaving` keeps a removed line on
  * screen, untouchable and without ids, until that exit ends (`onLeft`).
@@ -43,6 +44,7 @@ export function CartRow({
   locale,
   busy,
   onQuantity,
+  onEdit,
   position = 0,
   leaving = false,
   onLeft,
@@ -51,6 +53,8 @@ export function CartRow({
   locale: Locale;
   busy: boolean;
   onQuantity: (quantity: number) => void;
+  /** Reopens the product page with this line's choice (shown when it has choices). */
+  onEdit?: () => void;
   position?: number;
   /** Already removed from the cart: finish the exit, then call `onLeft`. */
   leaving?: boolean;
@@ -152,11 +156,11 @@ export function CartRow({
       ),
     [gone, rise],
   );
-  const removePress = usePress(0.95);
+  const editPress = usePress(0.95);
   const minusPress = usePress(0.9);
   const plusPress = usePress(0.9);
   const product = line.product;
-  const set = !inCategory(product, 'extras');
+  const set = !isSingleItem(product);
   const imageId = productArtworkId(product, line.selections);
   const photo: Photo = (set ? heroPhoto(imageId) : productPhoto(imageId)) ?? {
     source: productImage(imageId),
@@ -247,47 +251,50 @@ export function CartRow({
             ))}
           </View>
         ) : null}
-        <Animated.View
-          style={{
-            marginTop: 'auto',
-            alignSelf: 'flex-start',
-            transform: [{ scale: removePress.scale }],
-          }}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t.remove}
-            accessibilityState={{ disabled: busy }}
-            disabled={busy}
-            onPress={() => change(0)}
-            onPressIn={removePress.onPressIn}
-            onPressOut={removePress.onPressOut}
+        {onEdit && product.modifier_groups.length ? (
+          <Animated.View
             style={{
-              minHeight: Math.max(44, v(46)),
-              paddingLeft: v(12),
-              paddingRight: v(16),
-              borderRadius: 999,
-              borderWidth: 2,
-              borderColor: '#E3E9F5',
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: v(8),
-              opacity: busy ? 0.45 : 1,
+              marginTop: 'auto',
+              alignSelf: 'flex-start',
+              transform: [{ scale: editPress.scale }],
             }}
           >
-            <Icon name="trash-outline" size="small" tone="accent" />
-            <Text
-              {...fixedText}
+            <Pressable
+              testID={leaving ? undefined : 'kiosk-cart-edit-' + position}
+              accessibilityRole="button"
+              accessibilityLabel={`${t.edit}: ${product.name}`}
+              accessibilityState={{ disabled: busy }}
+              disabled={busy}
+              onPress={onEdit}
+              onPressIn={editPress.onPressIn}
+              onPressOut={editPress.onPressOut}
               style={{
-                fontFamily: fonts.bold,
-                fontSize: Math.max(15, v(16)),
-                color: colors.navy,
+                minHeight: Math.max(44, v(46)),
+                paddingLeft: v(14),
+                paddingRight: v(18),
+                borderRadius: 999,
+                borderWidth: 2,
+                borderColor: '#E3E9F5',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: v(8),
+                opacity: busy ? 0.45 : 1,
               }}
             >
-              {t.remove}
-            </Text>
-          </Pressable>
-        </Animated.View>
+              <Icon name="pencil-outline" size="small" tone="accent" />
+              <Text
+                {...fixedText}
+                style={{
+                  fontFamily: fonts.bold,
+                  fontSize: Math.max(15, v(16)),
+                  color: colors.navy,
+                }}
+              >
+                {t.edit}
+              </Text>
+            </Pressable>
+          </Animated.View>
+        ) : null}
       </View>
       <View
         style={{

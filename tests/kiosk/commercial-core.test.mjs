@@ -90,7 +90,7 @@ function fixture() {
           })),
         };
       if (path === '/sessions/end') {
-        if (h.endFail) throw new KioskError('NETWORK_UNCERTAIN');
+        if (h.endFail) throw new KioskError(h.endFail === true ? 'NETWORK_UNCERTAIN' : h.endFail);
         return { ended: true };
       }
       if (path === '/quotes') {
@@ -570,6 +570,29 @@ test('idle clears draft phone but preserves unresolved order; end network failur
   h.order = { ...h.order, phase: 'failed' };
   await c2.refresh();
   h.endFail = true;
+  assert.equal(await c2.newGuest(), false);
+  assert(h.rawSession);
+  assert.equal(JSON.parse(h.rawFlow).resetPending, true);
+});
+test('reset unbinds a guest the server no longer knows (FORBIDDEN end) without getting stuck', async () => {
+  const h = fixture(),
+    c = await cart(h);
+  await c.beginPayment();
+  h.order = { ...h.order, phase: 'failed' };
+  await c.refresh();
+  // Restored database, deleted session row or disabled device: /sessions/end is refused.
+  h.endFail = 'FORBIDDEN';
+  assert.equal(await c.newGuest(), true);
+  assert.equal(h.rawSession, null);
+  const flow = JSON.parse(h.rawFlow);
+  assert.equal(flow.resetPending, false);
+  assert.equal(flow.guestId, null);
+  assert.equal(flow.order, null);
+  assert.equal(c.getSnapshot().step, 'start');
+  assert.equal(c.getSnapshot().invoicePhone, '');
+  // Other end failures still keep the identity for a retry.
+  h.endFail = 'NETWORK_UNCERTAIN';
+  const c2 = await cart(h);
   assert.equal(await c2.newGuest(), false);
   assert(h.rawSession);
   assert.equal(JSON.parse(h.rawFlow).resetPending, true);
