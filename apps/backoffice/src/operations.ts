@@ -1,3 +1,4 @@
+import { InventoryView, inventoryEditor } from './inventory.js';
 import { element as el, button, field, select, check } from './dom.js';
 import { message } from './api.js';
 import {
@@ -385,6 +386,7 @@ export function stopName(item: StopItem) {
 }
 
 export class OperationsView {
+  private inventory = new InventoryView();
   private stopFilter: 'all' | 'stopped' | 'waiting' = 'all';
   private stopQuery = '';
   constructor(
@@ -672,7 +674,7 @@ export class OperationsView {
         d.remove();
       } else error.textContent = message(this.model.error);
     } catch (e) {
-      error.textContent = message(e);
+      error.textContent = e instanceof Error && !('code' in e) ? e.message : message(e);
     }
   }
   private footer(d: HTMLDialogElement, command: () => Data, label = 'Сохранить') {
@@ -1163,110 +1165,16 @@ export class OperationsView {
     );
   }
   private stock(kind: 'receipt' | 'waste' | 'count') {
-    const data = this.model.data!,
-      d = dialog(
-        status(kind),
-        'Количество указывается в учётной единице ингредиента. Документ проводится целиком.',
-      );
-    let reference = '';
-    d.append(
-      field(
-        'Номер документа',
-        reference,
-        (v) => {
-          reference = v;
-        },
-        { id: 'op-reference' },
-      ),
+    const d = dialog(
+      status(kind),
+      kind === 'count'
+        ? 'Введите фактически посчитанное количество. Ноль означает отсутствие запаса; пустая строка не считается нулём. Перед проведением проверьте расхождения.'
+        : 'Укажите ингредиенты, количество и основание. Все строки проводятся одним документом.',
     );
-    const lines: Data[] = [];
-    const wrap = el('div');
-    const draw = () => {
-      wrap.replaceChildren();
-      for (const [i, l] of lines.entries()) {
-        const ingredient = data.stock.find((v) => v['id'] === l['ingredient_id']),
-          unit = ingredient ? status(object(ingredient['payload'])['unit']) : '';
-        const row = el('div', 'op-line');
-        row.append(
-          select(
-            'Ингредиент',
-            String(l['ingredient_id']),
-            data.stock.map((v) => ({
-              value: String(v['id']),
-              label: String(object(v['payload'])['name']),
-            })),
-            (id) => {
-              l['ingredient_id'] = id;
-              draw();
-            },
-            'op-stock-ingredient-' + i,
-          ),
-          field(
-            'Количество, ' + unit,
-            String(l['quantity']),
-            (v) => {
-              l['quantity'] = v;
-            },
-            { id: 'op-stock-quantity-' + i },
-          ),
-        );
-        if (kind === 'receipt')
-          row.append(
-            field(
-              'Стоимость поступления, ₸',
-              String(l['cost'] ?? ''),
-              (v) => {
-                l['cost'] = v;
-              },
-              { id: 'op-stock-cost-' + i },
-            ),
-          );
-        row.append(
-          button(
-            'Убрать',
-            () => {
-              lines.splice(i, 1);
-              draw();
-            },
-            'button subtle',
-          ),
-        );
-        wrap.append(row);
-      }
-    };
-    const add = () => {
-      lines.push({ ingredient_id: String(data.stock[0]?.['id'] ?? ''), quantity: '', cost: '' });
-      draw();
-    };
-    add();
-    d.append(wrap, button('Добавить строку', add));
-    this.footer(
-      d,
-      () => ({
-        type: 'stock',
-        kind,
-        reference,
-        lines: lines.map((l) => {
-          const b = data.stock.find((v) => v['id'] === l['ingredient_id'])!,
-            m = String(l['cost'] ?? '0')
-              .replace(',', '.')
-              .match(/^(\d+)(?:\.(\d{1,2}))?$/);
-          return {
-            ingredient_id: l['ingredient_id'],
-            quantity: l['quantity'],
-            value_minor:
-              kind === 'receipt' && m
-                ? (BigInt(m[1]!) * 100n + BigInt((m[2] ?? '').padEnd(2, '0'))).toString()
-                : kind === 'receipt'
-                  ? String(l['cost'] ?? '')
-                  : '0',
-            expected_revision: Number(b['revision'] ?? 0),
-          };
-        }),
-      }),
-      'Провести документ',
-    );
+    const command = inventoryEditor(d, kind, this.model.data!.stock);
+    this.footer(d, command, 'Провести документ');
   }
+
   private cashierShift(shift: Data) {
     const p = panel(
       'Смена от ' + date(shift['opened_at']),
@@ -1743,63 +1651,26 @@ export class OperationsView {
           ['Документы', String(d.documents.length), 'Последние 200'],
         ]),
       );
-      const actions =
-        d.role === 'manager'
-          ? [
-              button('Поставка', () => this.stock('receipt'), 'button primary', 'op-receipt'),
-              button('Списание', () => this.stock('waste'), 'button', 'op-waste'),
-              button('Инвентаризация', () => this.stock('count'), 'button', 'op-count'),
-            ]
-          : [];
-      const p = panel(
-        'Остатки',
-        'Учёт по ингредиентам. Себестоимость списания - средневзвешенная.',
-        actions,
-      );
-      p.append(
-        table(
-          ['Ингредиент', 'Единица', 'Остаток', 'Минимум', 'Стоимость'],
-          d.stock.map((r) => {
-            const p = object(r['payload']);
-            return [
-              val(p['name']),
-              status(p['unit']),
-              val(r['quantity'] ?? 0),
-              val(p['minimum']),
-              amount(r['value_minor']),
-            ];
-          }),
-        ),
-      );
       content.append(
-        p,
-        this.records('ingredient', 'Ингредиенты', [
-          ['Единица', (p) => status(p['unit'])],
-          ['Используется', (p) => (p['active'] ? 'Да' : 'Нет')],
-        ]),
-        this.records('recipe', 'Техкарты', [
-          [
-            'Блюдо',
-            (p) =>
-              this.catalog()?.products.find((v) => v.id === p['product_id'])?.name.ru ??
-              val(p['product_id']),
-          ],
-          ['Компоненты', (p) => String((p['lines'] as Data[]).length)],
-        ]),
+        this.inventory.render(d, {
+          stock: (kind) => this.stock(kind),
+          records: (kind) =>
+            kind === 'ingredient'
+              ? this.records('ingredient', 'Ингредиенты', [
+                  ['Единица', (p) => status(p['unit'])],
+                  ['Используется', (p) => (p['active'] ? 'Да' : 'Нет')],
+                ])
+              : this.records('recipe', 'Техкарты', [
+                  [
+                    'Блюдо',
+                    (p) =>
+                      this.catalog()?.products.find((v) => v.id === p['product_id'])?.name.ru ??
+                      val(p['product_id']),
+                  ],
+                  ['Компоненты', (p) => String((p['lines'] as Data[]).length)],
+                ]),
+        }),
       );
-      const docs = panel('Документы склада');
-      docs.append(
-        table(
-          ['Документ', 'Тип', 'Причина', 'Создан'],
-          d.documents.map((v) => [
-            val(v['reference']),
-            status(v['kind']),
-            val(v['reason']),
-            date(v['created_at']),
-          ]),
-        ),
-      );
-      content.append(docs);
       return;
     }
     if (page === 'finance') {

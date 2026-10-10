@@ -9,7 +9,7 @@ const result = spawnSync(process.execPath, [root + 'node_modules/typescript/bin/
 });
 if (result.status !== 0) process.exit(result.status ?? 1);
 await mkdir(new URL('dist/assets/', import.meta.url), { recursive: true });
-for (const file of ['index.html', 'styles.css', 'workspace.css', 'workforce.css'])
+for (const file of ['index.html', 'styles.css', 'workspace.css', 'workforce.css', 'inventory.css'])
   await copyFile(new URL(`src/${file}`, import.meta.url), new URL(`dist/${file}`, import.meta.url));
 for (const file of ['logo.png', 'shot.jpg', ...Array.from({ length: 24 }, (_, i) => `i${i}.jpg`)]) {
   // The repository does not contain every numbered photo; only actual assets are shipped.
