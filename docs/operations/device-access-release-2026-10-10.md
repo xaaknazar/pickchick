@@ -13,17 +13,17 @@
 
 Read-only снимок VPS после workforce:
 
-| Пин | Значение |
-| --- | --- |
-| API SHA / pointer | `8468e3aed72c5355cf8b8d998df1de14ca55b03f` |
-| API image | `sha256:d7fa5d28932feb63d03fc68d7e15555057aeb9c71ea35df758023da53e2f3a75` |
-| public pointer | `bd60ab6b539d1b9a4432e271fd5d5a17bfe50cc2` |
-| gateway sha256 | `971bbd6ee3a951d6ab8a8b99e3f42eef013aa85c4640b9820fc93fde0637ac4a` (прежний, без Devices matchers) |
-| schema | 052 (51 строка ledger) |
-| `BACKOFFICE_DEVICE_ACCESS_ENABLED` | не задан (выключен) |
-| `WORKFORCE_ENABLED` | `"true"` |
-| release lock | отсутствует |
-| `/kitchen-live/health` | `edgeConnected: false` (касса офлайн) |
+| Пин                                | Значение                                                                                           |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------- |
+| API SHA / pointer                  | `8468e3aed72c5355cf8b8d998df1de14ca55b03f`                                                         |
+| API image                          | `sha256:d7fa5d28932feb63d03fc68d7e15555057aeb9c71ea35df758023da53e2f3a75`                          |
+| public pointer                     | `bd60ab6b539d1b9a4432e271fd5d5a17bfe50cc2`                                                         |
+| gateway sha256                     | `971bbd6ee3a951d6ab8a8b99e3f42eef013aa85c4640b9820fc93fde0637ac4a` (прежний, без Devices matchers) |
+| schema                             | 052 (51 строка ledger)                                                                             |
+| `BACKOFFICE_DEVICE_ACCESS_ENABLED` | не задан (выключен)                                                                                |
+| `WORKFORCE_ENABLED`                | `"true"`                                                                                           |
+| release lock                       | отсутствует                                                                                        |
+| `/kitchen-live/health`             | `edgeConnected: false` (касса офлайн)                                                              |
 
 Следствие: `release-device-access.py` (ожидает ровно schema050 и сам применяет 051)
 больше неприменим. Повторно его не запускать. Подготовленный для него кандидат
