@@ -69,6 +69,26 @@ import {
 import { BackofficeController, BackofficeContentController } from './backoffice-controller.js';
 import { FulfillmentTransportController } from './fulfillment-transport-controller.js';
 import { PosOrderSyncController } from './pos-order-sync-controller.js';
+import {
+  CLOUD_KITCHEN,
+  CLOUD_KITCHEN_OPTIONS,
+  CLOUD_KITCHEN_SCREENS,
+  CloudKitchenController,
+  cloudKitchenOptions,
+} from './cloud-kitchen-controller.js';
+import {
+  CLOUD_CHANNEL_STOPS,
+  CLOUD_KITCHEN_BACKOFFICE,
+  CloudKitchenBackofficeController,
+} from './cloud-kitchen-backoffice-controller.js';
+import { CloudChannelStops, cloudStopOptions } from '@pickchick/backoffice-core';
+import {
+  CloudKitchen,
+  CloudKitchenBackoffice,
+  KitchenScreens,
+  cloudKitchenBackofficeOptions,
+} from '@pickchick/backoffice-core/cloud-kitchen';
+import { useCloudKitchenAdmission } from '@pickchick/commerce-core';
 
 @Controller('v1/capabilities')
 class CapabilitiesController {
@@ -189,6 +209,52 @@ class MenuSyncController {
 
 export async function createApi(config: ServiceConfig = loadConfig('api')) {
   if (config.service !== 'api') throw new Error('API requires api configuration');
+  // ADR-0014 S4, both off by default: the cloud kitchen feed for paired kitchen screens and the
+  // back-office routes for screens, branch mode and cloud stops.
+  const kitchenApi = cloudKitchenOptions(process.env);
+  const kitchenBackoffice = {
+    ...cloudKitchenBackofficeOptions(process.env),
+    enabled: config.backofficeEnabled === true,
+  };
+  const kitchenProviders = kitchenApi.enabled
+    ? [
+        {
+          provide: CLOUD_KITCHEN,
+          inject: [RESOURCE],
+          useFactory: (resources: Resources) => {
+            const kitchen = new CloudKitchen(resources.pool);
+            // Paid cloud channel orders are admitted inside the capture transaction.
+            useCloudKitchenAdmission(kitchen);
+            return kitchen;
+          },
+        },
+        {
+          provide: CLOUD_KITCHEN_SCREENS,
+          inject: [RESOURCE],
+          useFactory: (resources: Resources) => new KitchenScreens(resources.pool),
+        },
+        { provide: CLOUD_KITCHEN_OPTIONS, useValue: kitchenApi },
+      ]
+    : [];
+  const kitchenBackofficeProviders = kitchenBackoffice.cloudKitchenEnabled
+    ? [
+        {
+          provide: CLOUD_KITCHEN_BACKOFFICE,
+          inject: [RESOURCE],
+          useFactory: (resources: Resources) =>
+            new CloudKitchenBackoffice(resources.pool, kitchenBackoffice),
+        },
+        {
+          provide: CLOUD_CHANNEL_STOPS,
+          inject: [RESOURCE],
+          useFactory: (resources: Resources) =>
+            new CloudChannelStops(resources.pool, {
+              ...cloudStopOptions(process.env),
+              enabled: config.backofficeEnabled === true,
+            }),
+        },
+      ]
+    : [];
   @Module({
     controllers: [
       WorkforceController,
@@ -212,9 +278,13 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       DeviceAccessTransportController,
       FulfillmentTransportController,
       PosOrderSyncController,
+      ...(kitchenApi.enabled ? [CloudKitchenController] : []),
+      ...(kitchenBackoffice.cloudKitchenEnabled ? [CloudKitchenBackofficeController] : []),
       ...(config.testOrderFlowEnabled ? [TestOrderController] : []),
     ],
     providers: [
+      ...kitchenProviders,
+      ...kitchenBackofficeProviders,
       CatalogPublicationListener,
       {
         provide: WORKFORCE,

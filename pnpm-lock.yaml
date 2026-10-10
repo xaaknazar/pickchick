@@ -391,6 +391,9 @@ importers:
       '@pickchick/catalog-admin':
         specifier: workspace:*
         version: link:../catalog-admin
+      '@pickchick/cloud-kitchen':
+        specifier: workspace:*
+        version: link:../cloud-kitchen
       '@pickchick/commerce-core':
         specifier: workspace:*
         version: link:../commerce-core

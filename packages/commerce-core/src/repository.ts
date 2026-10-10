@@ -26,6 +26,14 @@ import {
   priceSnapshot,
 } from './model.js';
 import type { CommerceScope, TrustedProvider, TrustedEdge } from './model.js';
+import {
+  cloudChannelEpoch,
+  cloudChannelNumberFree,
+  cloudChannelOrder,
+  cloudKitchenAdmission,
+  registerCloudChannelOrder,
+} from './cloud-channel.js';
+import type { CloudChannelOrder } from './cloud-channel.js';
 
 type Boundary = { organizationId: string; branchId: string };
 interface OrderRow {
@@ -171,9 +179,12 @@ async function fiscalDocument(
   kind: 'sale' | 'refund',
   operationId: string,
   amount: string,
+  cloud?: CloudChannelOrder | null,
 ) {
   // Deferred pilots record real money, but never manufacture a fiscal receipt.
   if (row.fiscal_policy === 'deferred_pilot') return;
+  // Cloud channel orders carry no receipt for now (deferred_no_receipt, cloud 056).
+  if (cloud === undefined ? await cloudChannelOrder(client, row.id) : cloud) return;
   const sale =
     kind === 'refund'
       ? (
@@ -207,7 +218,29 @@ async function fiscalDocument(
     ],
   );
 }
+/**
+ * Cloud channel order paid in full: admit it into the cloud kitchen in this capture
+ * transaction. A failure never undoes the capture: the savepoint is rolled back and the kitchen
+ * feed retries (admitPendingPaid). If the branch left mode 'cloud' before payment completed,
+ * the order is put up for review instead (no kitchen owns it).
+ */
+async function admitCloudOrder(client: DatabaseClient, row: OrderRow) {
+  const port = cloudKitchenAdmission();
+  if (!port) return;
+  await client.query('SAVEPOINT cloud_kitchen_admission');
+  let outcome: string | null = null;
+  try {
+    outcome = (await port.admitCloudChannelOrderInTransaction(client, row.id)).outcome;
+    await client.query('RELEASE SAVEPOINT cloud_kitchen_admission');
+  } catch {
+    await client.query('ROLLBACK TO SAVEPOINT cloud_kitchen_admission');
+    await client.query('RELEASE SAVEPOINT cloud_kitchen_admission');
+  }
+  if (outcome === 'mode_changed')
+    await issue(client, row, 'cloud-mode-changed', 'CLOUD_MODE_CHANGED_BEFORE_ADMISSION', {});
+}
 async function reconcile(client: DatabaseClient, row: OrderRow) {
+  const cloud = await cloudChannelOrder(client, row.id);
   const money = await totals(client, row.id);
   const captured = BigInt(money.captured),
     total = BigInt(row.total_minor);
@@ -239,7 +272,7 @@ async function reconcile(client: DatabaseClient, row: OrderRow) {
     row.id,
     paymentState,
   ]);
-  if (captured >= total) await fiscalDocument(client, row, 'sale', row.id, row.total_minor);
+  if (captured >= total) await fiscalDocument(client, row, 'sale', row.id, row.total_minor, cloud);
   const documents = (
     await client.query<FiscalRow>('SELECT * FROM commerce_fiscal_documents WHERE order_id=$1', [
       row.id,
@@ -287,11 +320,22 @@ async function reconcile(client: DatabaseClient, row: OrderRow) {
     );
     row.kitchen_effect_id = effectId;
   }
+  // Cloud channel orders have no edge reservation; the cloud kitchen admits them instead.
+  if (
+    cloud &&
+    captured === total &&
+    !row.attention_required &&
+    BigInt(money.refunded) === 0n &&
+    BigInt(money.reserved) === 0n &&
+    !(await client.query('SELECT 1 FROM commerce_cancellation_intents WHERE order_id=$1', [row.id]))
+      .rowCount
+  )
+    await admitCloudOrder(client, row);
   const state = row.attention_required
     ? 'attention_required'
     : captured >= total
       ? 'paid_pending_acceptance'
-      : row.admission_reservation_id
+      : row.admission_reservation_id || cloud
         ? 'awaiting_payment'
         : 'awaiting_admission';
   await client.query(
@@ -596,6 +640,26 @@ export class CommerceRepository {
         'INSERT INTO commerce_payment_intents(id,order_id,intended_minor) VALUES($1,$2,$3)',
         [randomUUID(), id, quote.total_minor],
       );
+      // Branch in mode 'cloud': the cloud kitchen owns kiosk/mobile orders, the cashier is
+      // never asked for admission and payment opens at once (ADR-0014 S4).
+      const channel = quote.snapshot.channel;
+      const epoch =
+        channel === 'kiosk' || channel === 'mobile'
+          ? await cloudChannelEpoch(client, actor.branchId)
+          : null;
+      if (epoch !== null) {
+        await registerCloudChannelOrder(client, {
+          orderId: id,
+          branchId: actor.branchId,
+          channel: channel as 'kiosk' | 'mobile',
+          epoch,
+        });
+        await client.query(
+          "UPDATE commerce_orders SET state='awaiting_payment',version=version+1,updated_at=clock_timestamp() WHERE id=$1",
+          [id],
+        );
+        return { orderId: id, quoteId: quote.id };
+      }
       await emit(client, id, 'admission', 'edge.admission_requested', {
         orderId: id,
         branchId: actor.branchId,
@@ -940,14 +1004,25 @@ export class CommerceRepository {
           ).rowCount
         )
           throw new CommerceError('NOT_READY');
+        // A cloud channel order needs its branch still in mode 'cloud' and a free display
+        // number; the cashier and its reservation play no part (ADR-0014 S4).
+        const cloud = await cloudChannelOrder(client, row.id);
+        if (
+          cloud &&
+          ((await cloudChannelEpoch(client, row.branch_id)) === null ||
+            !(await cloudChannelNumberFree(client, row.branch_id, cloud.channel)))
+        )
+          throw new CommerceError('NOT_READY');
         // A transport-owned admission may have been released/cancelled by its edge.
         // The order lock serializes this decision with incoming fulfillment facts.
-        const transport = (
-          await client.query<{ device_id: string; active: boolean }>(
-            'SELECT device_id,active FROM fulfillment_transport_bindings WHERE branch_id=$1 FOR SHARE',
-            [actor.branchId],
-          )
-        ).rows[0];
+        const transport = cloud
+          ? undefined
+          : (
+              await client.query<{ device_id: string; active: boolean }>(
+                'SELECT device_id,active FROM fulfillment_transport_bindings WHERE branch_id=$1 FOR SHARE',
+                [actor.branchId],
+              )
+            ).rows[0];
         if (transport) {
           if (!transport.active) throw new CommerceError('NOT_READY');
           const admission = (
@@ -974,7 +1049,7 @@ export class CommerceRepository {
           true,
           row.snapshot.legalEntityId,
         );
-        if ((!row.admission_reservation_id && !kioskQr) || row.attention_required)
+        if ((!row.admission_reservation_id && !kioskQr && !cloud) || row.attention_required)
           throw new CommerceError('NOT_READY');
         const money = await totals(client, row.id);
         if (BigInt(money.captured) > 0n) throw new CommerceError('NOT_READY');

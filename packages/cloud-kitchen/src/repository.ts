@@ -204,10 +204,8 @@ export class CloudKitchen {
    * kitchen order, its tasks and the display number. Idempotent per order: the first decision
    * is recorded and every later call returns it, whatever the branch mode is by then.
    *
-   * S5 hook point: call `admitPaidOrderInTransaction` inside the commerce capture transaction,
-   * where `reconcile` (packages/commerce-core/src/repository.ts) today emits
-   * `edge.kitchen_admission_requested`; in mode 'cloud' that edge event must not be emitted.
-   * Not wired in S2.
+   * Commerce (S4) calls `admitCloudChannelOrderInTransaction` for cloud channel orders inside
+   * the capture transaction; edge orders never reach this code.
    */
   async admitPaidOrder(orderId: string): Promise<AdmissionResult> {
     parse(z.uuid(), orderId);
@@ -342,6 +340,75 @@ export class CloudKitchen {
     );
     await emit(client, row, EVENT.accepted);
     return { outcome: 'admitted', fulfillmentOwner: 'cloud', order: view(row) };
+  }
+
+  /**
+   * Admission of a cloud channel order (cloud 056 `cloud_channel_orders`, created while the
+   * branch was in mode 'cloud'). Unlike `admitPaidOrderInTransaction` it never records an 'edge'
+   * decision: if the branch has left mode 'cloud' since the order was created, nothing is written
+   * and 'mode_changed' is returned so that commerce can raise a review. Orders that are not cloud
+   * channel orders are 'not_cloud'.
+   */
+  async admitCloudChannelOrderInTransaction(
+    client: DatabaseClient,
+    orderId: string,
+  ): Promise<AdmissionResult | { outcome: 'mode_changed' | 'not_cloud' }> {
+    parse(z.uuid(), orderId);
+    const registered = (
+      await client.query<{ branch_id: string }>(
+        'SELECT branch_id FROM cloud_channel_orders WHERE order_id=$1',
+        [orderId],
+      )
+    ).rows[0];
+    if (!registered) return { outcome: 'not_cloud' };
+    // Same shared lock as the admission itself (re-entrant): no mode switch in between.
+    await client.query('SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))', [
+      'channel_mode:' + registered.branch_id,
+    ]);
+    const decided = (
+      await client.query('SELECT 1 FROM cloud_kitchen_admissions WHERE order_id=$1', [orderId])
+    ).rowCount;
+    const cloud = (
+      await client.query(
+        "SELECT 1 FROM branch_channel_modes WHERE branch_id=$1 AND cloud_channels_owner='cloud'",
+        [registered.branch_id],
+      )
+    ).rowCount;
+    if (!decided && !cloud) return { outcome: 'mode_changed' };
+    return this.admitPaidOrderInTransaction(client, orderId);
+  }
+
+  /**
+   * Durable catch-up for cloud channel orders whose capture was committed by a process without
+   * the in-transaction admission hook (for example a payment worker): every paid, not yet
+   * admitted cloud channel order of the branch is admitted, oldest first, each in its own
+   * transaction. Orders that cannot be admitted now (numbers exhausted, no routing, review)
+   * stay as they are and are retried on the next call. Called on kitchen feed polls.
+   */
+  async admitPendingPaid(branchId: string, limit = 10) {
+    parse(z.uuid(), branchId);
+    parse(z.int().min(1).max(50), limit);
+    const pending = (
+      await this.pool.query<{ order_id: string }>(
+        `SELECT c.order_id FROM cloud_channel_orders c JOIN commerce_orders o ON o.id=c.order_id
+         WHERE c.branch_id=$1 AND o.state='paid_pending_acceptance' AND NOT o.attention_required
+          AND NOT EXISTS(SELECT 1 FROM cloud_kitchen_admissions a WHERE a.order_id=c.order_id)
+         ORDER BY c.registered_at,c.order_id LIMIT $2`,
+        [branchId, limit],
+      )
+    ).rows;
+    const admitted: string[] = [];
+    for (const { order_id } of pending) {
+      try {
+        const result = await transaction(this.pool, (client) =>
+          this.admitCloudChannelOrderInTransaction(client, order_id),
+        );
+        if (result.outcome === 'admitted') admitted.push(order_id);
+      } catch (error) {
+        if (!(error instanceof CloudKitchenError)) throw error;
+      }
+    }
+    return { admitted };
   }
 
   /**
