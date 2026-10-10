@@ -4247,11 +4247,12 @@
         "apps/backoffice/build.mjs",
         "apps/backoffice/src/index.html",
         "tests/backoffice/operations_browser.py",
-        "tests/backoffice/browser_operations.py"
+        "tests/backoffice/browser_operations.py",
+        "apps/backoffice/server.mjs"
       ],
       "status": "active",
       "head": "32700a42ce281f368232a21a400528aa3935da98",
-      "updatedAt": "2026-10-10T15:32:08.977Z"
+      "updatedAt": "2026-10-10T15:33:52.728Z"
     }
   ]
 }
