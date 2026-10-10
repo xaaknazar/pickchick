@@ -1,6 +1,6 @@
 ## 10 октября: установленное состояние и продолжение выпуска
 
-Общий кандидат [`b31a59ba`](https://github.com/xaaknazar/pickchick/commit/b31a59ba3f758cd8b6d03b8caf540d3bf04b33c0)
+Общий срез кода [`b31a59ba`](https://github.com/xaaknazar/pickchick/commit/b31a59ba3f758cd8b6d03b8caf540d3bf04b33c0)
 прошёл полную [Foundation CI 37945705803](https://github.com/xaaknazar/pickchick/actions/runs/37945705803):
 11/11. Исходники и пакеты готовы; это не означает установку всех компонентов.
 Время установки ниже указано в UTC за 9 октября, состояние продолжения - на

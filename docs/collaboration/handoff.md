@@ -1,6 +1,6 @@
 ## 10 октября: установленное состояние и продолжение выпуска
 
-Общий кандидат [`b31a59ba`](https://github.com/xaaknazar/pickchick/commit/b31a59ba3f758cd8b6d03b8caf540d3bf04b33c0)
+Общий срез кода [`b31a59ba`](https://github.com/xaaknazar/pickchick/commit/b31a59ba3f758cd8b6d03b8caf540d3bf04b33c0)
 прошёл полную [Foundation CI 37945705803](https://github.com/xaaknazar/pickchick/actions/runs/37945705803):
 11/11. Исходники и пакеты готовы; это не означает установку всех компонентов.
 Время установки ниже указано в UTC за 9 октября, состояние продолжения - на
@@ -41,6 +41,22 @@ cloud051 не применялась. Прежние успешные прове
 
 Онлайн-пульт **ещё не обновлён до этого среза**: публикация ждёт доверенного SSH
 и новых baseline pins. Данные в Git и доступная онлайн-версия различаются.
+
+## Общая ветка и основная папка на Mac
+
+`origin/codex/shared-development` обновлена до полного
+`b31a59ba3f758cd8b6d03b8caf540d3bf04b33c0`. Push вернул RPC disconnect,
+но последующие GitHub ref API и `git ls-remote` независимо подтвердили этот SHA;
+неопределённый вывод push не был принят за доказательство без проверки.
+
+Основная папка `/Users/xaknazar/Documents/ChatGPT/PickChick` обновлена
+`90eb6b6b -> b31a59ba` только fast-forward. Штатный `pnpm project:sync` отказал
+из-за существующей untracked `.claude/`. Координатор отдельно проверил чистоту
+tracked-файлов и отсутствие incoming `.claude/`, затем выполнил явный guarded
+`ff-only` с `no-overwrite-ignore`. `.claude/` сохранена, tracked-дерево чистое;
+reset/clean/stash/force не использовались. Документы данного отчёта войдут в
+основную папку только после отдельного merge/fast-forward опубликованной ветки
+`codex/restaurant-report`; этот checkpoint не утверждает, что он уже выполнен.
 
 ## Продолжение с этого checkpoint
 
