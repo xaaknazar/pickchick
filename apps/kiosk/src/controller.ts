@@ -16,7 +16,14 @@ import type {
 } from '@pickchick/test-order-flow/contracts';
 import { KioskError } from './api.ts';
 import { selectedPriceMinor, validSelections } from './cart.ts';
-import type { KioskMode, KioskPaymentMethod, KioskSelection, KioskState, KioskStep } from './model';
+import type {
+  KioskErrorCode,
+  KioskMode,
+  KioskPaymentMethod,
+  KioskSelection,
+  KioskState,
+  KioskStep,
+} from './model';
 
 export const KIOSK_SESSION_KEY = 'pickchick.kiosk.guest-session.v1';
 export const KIOSK_FLOW_KEY = 'pickchick.kiosk.guest-flow.v1';
@@ -166,6 +173,9 @@ function message(error: unknown): string {
       return 'Сначала уточните результат прежнего заказа. Нового гостя пока не начинаем.';
     if (error.code === 'INVALID_CART' || error.code === 'INVALID_SELECTIONS')
       return 'Проверьте состав и количество выбранных позиций.';
+    if (error.code === 'CART_LIMIT_LINE') return 'Одной позиции можно добавить не больше 20 штук.';
+    if (error.code === 'CART_LIMIT_LINES')
+      return 'В корзине может быть не больше 11 разных позиций.';
     if (error.status === 401)
       return 'Доступ киоска недоступен. Обратитесь к сотруднику; заказ сохраняется.';
     if (error.status === 429)
@@ -184,10 +194,15 @@ export class KioskController {
   private ready = false;
   private busy = false;
   private error: string | null = null;
+  private errorCode: KioskErrorCode | null = null;
   private blocked = false;
   private restoreDone = false;
   private step: KioskStep = 'start';
   private selectedId: string | null = null;
+  /** Where the product page was opened from; adding or closing returns there. */
+  private returnStep: KioskStep = 'menu';
+  private lastAdded: { lineId: string; serial: number } | null = null;
+  private addSerial = 0;
   private idleWarningSeconds: number | null = null;
   private listeners = new Set<() => void>();
   private view: KioskState;
@@ -251,6 +266,8 @@ export class KioskController {
       ready: this.ready,
       busy: this.busy,
       error: this.error,
+      errorCode: this.errorCode,
+      lastAdded: this.lastAdded,
       catalog: this.catalog,
       step: this.step,
       mode: this.flow.mode,
@@ -277,12 +294,18 @@ export class KioskController {
     if (this.busy || (!this.ready && !allowUnready)) return false;
     this.busy = true;
     this.error = null;
+    this.errorCode = null;
     this.emit();
     try {
       await operation();
       return true;
     } catch (error) {
       this.error = message(error);
+      this.errorCode =
+        error instanceof KioskError &&
+        (error.code === 'CART_LIMIT_LINE' || error.code === 'CART_LIMIT_LINES')
+          ? error.code
+          : null;
       if (this.unsafe()) this.step = 'recovery';
       return false;
     } finally {
@@ -294,7 +317,9 @@ export class KioskController {
     if (this.unsafe() || this.flow.order) throw new KioskError('RECOVERY_REQUIRED');
     if (!this.catalog) throw new KioskError('CATALOG_UNAVAILABLE');
   }
+  /** The step the stored state requires; a browsing guest stays on their screen. */
   private deriveStep() {
+    const shown = this.step;
     this.step = this.unsafe()
       ? 'recovery'
       : this.flow.order
@@ -302,8 +327,12 @@ export class KioskController {
           ? 'payment'
           : 'order'
         : this.flow.mode
-          ? 'menu'
-          : 'start';
+          ? (['menu', 'product', 'upsell', 'cart', 'loyalty'] as KioskStep[]).includes(shown)
+            ? shown
+            : 'menu'
+          : shown === 'mode'
+            ? 'mode'
+            : 'start';
   }
   private async loadCatalog() {
     const cap = await this.io.request('/capabilities');
@@ -434,9 +463,13 @@ export class KioskController {
   };
   openProduct = (id: string) => {
     if (!this.catalog?.products.some((p) => p.id === id)) return;
+    if (!this.ready || this.busy || this.unsafe() || this.flow.order) return;
+    if (this.step !== 'product')
+      this.returnStep = this.step === 'upsell' || this.step === 'cart' ? this.step : 'menu';
     this.selectedId = id;
     this.navigate('product');
   };
+  closeProduct = () => this.navigate(this.returnStep);
   setPaymentMethod = (method: KioskPaymentMethod) => {
     if (
       !this.ready ||
@@ -470,15 +503,18 @@ export class KioskController {
       const lineId = testLineId(productId, normalized),
         old = this.flow.cart.find((line) => testLineId(line.productId, line.selections) === lineId);
       const nextQuantity = (old?.quantity ?? 0) + quantity;
-      if (nextQuantity > 20 || (!old && this.flow.cart.length >= 11))
-        throw new KioskError('INVALID_CART');
+      if (nextQuantity > 20) throw new KioskError('CART_LIMIT_LINE');
+      if (!old && this.flow.cart.length >= 11) throw new KioskError('CART_LIMIT_LINES');
       const line = { productId, selections: normalized, quantity: nextQuantity };
       const cart = old
         ? this.flow.cart.map((entry) => (entry === old ? line : entry))
         : [...this.flow.cart, line];
       await this.persist({ ...this.flow, cart, lastActivityAt: this.io.now() });
-      // Upsell (its own step or the cart's inline block) keeps the guest where they are.
-      if (this.step !== 'upsell' && this.step !== 'cart') this.step = 'menu';
+      this.lastAdded = { lineId, serial: ++this.addSerial };
+      // The product page returns where it was opened; upsell (its own step or the cart's
+      // inline block) keeps the guest where they are.
+      if (this.step === 'product') this.step = this.returnStep;
+      else if (this.step !== 'upsell' && this.step !== 'cart') this.step = 'menu';
     });
   updateQuantity = (id: string, quantity: number) =>
     this.run(async () => {
@@ -757,6 +793,8 @@ export class KioskController {
     this.session = null;
     await this.persist(this.empty());
     this.selectedId = null;
+    this.returnStep = 'menu';
+    this.lastAdded = null;
     this.idleWarningSeconds = null;
     this.blocked = false;
     this.step = 'start';

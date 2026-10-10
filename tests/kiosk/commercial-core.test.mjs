@@ -718,7 +718,7 @@ for (const code of [
   'AVAILABILITY_STALE',
   'RESTAURANT_CLOSED',
 ])
-  test(`definitive quote ${code} returns review, while order errors retain recovery`, async () => {
+  test(`definitive quote ${code} returns review; /orders keeps recovery only when an order may exist`, async () => {
     const h = fixture(),
       c = await cart(h);
     h.before = async (path) => {
@@ -737,8 +737,17 @@ for (const code of [
     };
     c.setInvoicePhone('+77011234567');
     assert.equal(await c.beginPayment(), false);
-    assert(JSON.parse(h.rawFlow).intent);
-    assert.equal(c.getSnapshot().recoveryRequired, true);
+    // POST /orders answers the guest's existing order before any check, so a definitive refusal
+    // proves there is none; CONFLICT (another quote's order) and INVALID keep recovery.
+    if (['INVALID', 'CONFLICT'].includes(code)) {
+      assert(JSON.parse(h.rawFlow).intent);
+      assert.equal(c.getSnapshot().recoveryRequired, true);
+    } else {
+      assert.equal(JSON.parse(h.rawFlow).intent, null);
+      assert.equal(c.getSnapshot().step, 'loyalty');
+      assert.equal(c.getSnapshot().recoveryRequired, false);
+      assert.equal(await c.newGuest(), true);
+    }
   });
 test('stale availability closes local quote and retains shopping draft for retry', async () => {
   const h = fixture(),

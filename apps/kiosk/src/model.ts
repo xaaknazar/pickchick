@@ -51,8 +51,31 @@ export type KioskCatalog = Omit<
   TestCompleteCatalog,
   'catalog_version' | 'branch_id' | 'synthetic' | 'namespace' | 'products'
 > & { catalog_version: string; branch_id: string; products: KioskProduct[] };
+/** Guest-facing error kinds; the screen shows them in the guest's language (i18n `err*`). */
+export type KioskErrorCode =
+  | 'PRICE_CHANGED'
+  | 'CART_CHANGED'
+  | 'NOT_ACCEPTING'
+  | 'DEVICE'
+  | 'PHONE'
+  | 'CART_LIMIT_LINE'
+  | 'CART_LIMIT_LINES'
+  | 'RETRY_PAYMENT'
+  | 'PAYMENT_UNKNOWN'
+  | 'MENU_LOAD'
+  | 'NETWORK'
+  | 'CONNECTION'
+  | 'OFFLINE';
 export interface KioskState {
   commercial?: boolean;
+  /** Kind of `error`, for the guest's language; `error` keeps the Russian fallback text. */
+  errorCode?: KioskErrorCode | null;
+  /** Availability is not fresh: every product shows unavailable until the edge answers. */
+  menuUpdating?: boolean;
+  /** The previous guest is cleared locally; ending its server session is still pending. */
+  syncPending?: boolean;
+  /** The cart line of the latest add (its serial grows with every add). */
+  lastAdded?: { lineId: string; serial: number } | null;
   checkoutReady?: boolean;
   commercialPaymentMethods?: ('kaspi' | 'kaspi_invoice')[];
   qrPayment?: {
@@ -87,6 +110,8 @@ export interface KioskModel extends KioskState {
   goMode(): void;
   goMenu(): void;
   openProduct(productId: string): void;
+  /** Leaves the product page for the step it was opened from (menu, upsell or cart). */
+  closeProduct(): void;
   openUpsell(): void;
   openCart(): void;
   goLoyalty(): void;
@@ -100,7 +125,7 @@ export interface KioskModel extends KioskState {
   pay(outcome: 'approved' | 'declined' | 'unknown'): Promise<boolean>;
   cancelOrder(): Promise<boolean>;
   recover(): Promise<boolean>;
-  refresh(): Promise<void>;
+  refresh(): Promise<boolean | void>;
   newGuest(): Promise<boolean>;
   touch(): void;
   stay(): void;

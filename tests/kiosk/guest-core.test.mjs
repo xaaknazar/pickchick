@@ -755,3 +755,21 @@ test('corrupt command value cannot override saved version or mutate the original
   assert.equal(h.sessions.length, 1);
   assert.equal(restarted.getSnapshot().recoveryRequired, true);
 });
+
+test('simulator: limits have their own code, product returns where opened, toast follows the add', async () => {
+  const h = fixture(),
+    c = await basket(h);
+  const p = catalog.products[0];
+  assert.equal(await c.addToCart(p.id, defaultSelections(p), 20), false);
+  assert.equal(c.getSnapshot().errorCode, 'CART_LIMIT_LINE');
+  const line = c.getSnapshot().cart[0].lineId;
+  c.openCart();
+  c.openProduct(catalog.products[1].id);
+  c.closeProduct();
+  assert.equal(c.getSnapshot().step, 'cart');
+  c.openUpsell();
+  c.openProduct(p.id);
+  assert.equal(await c.addToCart(p.id, defaultSelections(p)), true);
+  assert.equal(c.getSnapshot().step, 'upsell');
+  assert.equal(c.getSnapshot().lastAdded.lineId, line);
+});
