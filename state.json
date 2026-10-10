@@ -3601,10 +3601,11 @@
       "scopes": [
         "docs/operations/kiosk-build10-installation.md"
       ],
-      "status": "active",
-      "head": "1cd378929489a8e4070f3ee093a8ddcd7cbbd066",
-      "updatedAt": "2026-10-09T10:43:52.611Z",
-      "nextAction": " 2026-10-09 owner explicitly assigned Claude continuation to Codex; transferred apps/kiosk, @apple/devices/kiosk, @release/ios to kiosk-build11-release. Preserve previous checkpoints; bank QR production behavior accepted and frozen."
+      "status": "done",
+      "head": "bd2b1ae4754c526532c19321754c75fb106dfc86",
+      "updatedAt": "2026-10-10T17:11:33.691Z",
+      "nextAction": "Новых шагов нет; области освобождены. Дальнейшая работа - новыми задачами от общей ветки.",
+      "summary": "Ветка codex/kiosk-build10 (bd2b1ae4) полностью включена в codex/shared-development; задача Codex закрыта Claude по решению владельца 2026-10-10 (Codex больше не работает на этом Mac)."
     },
     {
       "id": "kiosk-payment-incident",
