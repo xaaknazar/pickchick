@@ -3967,11 +3967,11 @@
         "@vps/roadmap",
         "docs/operations/unified-menu-installation-2026-10-09.md"
       ],
-      "status": "active",
-      "head": "b6b38ae876d02eb23d6c251d3f4c69fa5903f05f",
-      "updatedAt": "2026-10-10T01:50:58.163Z",
-      "summary": "Published PR222: six documentation files only over CI-green b31; includes native16 TestFlight evidence6aaa, installed iPad11/API3bc/kitchen23, honest pending Devices/flags/BO/network/physical acceptance. Roadmap7/7 and publication17/17, typecheck/build/format/links pass. Fresh roadmap source package prepared; no VPS write.",
-      "nextAction": "Root may integrate reviewed doc-only b6b38ae8 into shared. Online roadmap must await trusted SSH, fresh API/public/Caddy pins, exact-source checks and coordinated release lock. Preserve Devices reservations; owner iPhone/iPad acceptance and private CEO password input remain pending."
+      "status": "available",
+      "head": "1475e1b8ef6ac64553ac47fa55f0da6e8c727b5f",
+      "updatedAt": "2026-10-10T02:53:20.751Z",
+      "summary": "Report 1475e1b8ef6ac64553ac47fa55f0da6e8c727b5f is published in PR222 and integrated into origin/codex/shared-development by ordinary push; remote SHA verified by coordinator. Primary /Users/xaknazar/Documents/ChatGPT/PickChick updated ff-only to the same SHA, tracked clean, existing untracked .claude preserved. Native16 TestFlight/Internal, installed releases and remaining rollout limits recorded. Six documentation files only over b31; Foundation CI b6b38ae8 11/11 and Roadmap CI success; final1475 changes only two corrected network strings with Prettier/diff checks.",
+      "nextAction": "Online roadmap is not published to this report source yet. Resume only after trusted SSH and fresh API/public/Caddy pins, coordinated market release lock and exact-source roadmap package verification; preserve SQLite notes/team key and verify deployed sourceSha. Keep @vps/roadmap reserved; do not finish until actual publication and evidence. Devices/flags/BO and physical iPhone/iPad acceptance remain separate pending stages."
     }
   ]
 }
