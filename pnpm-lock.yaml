@@ -535,6 +535,9 @@ importers:
       '@pickchick/database':
         specifier: workspace:*
         version: link:../database
+      '@pickchick/fulfillment-state':
+        specifier: workspace:*
+        version: link:../fulfillment-state
       '@pickchick/local-orders':
         specifier: workspace:*
         version: link:../local-orders
@@ -586,6 +589,15 @@ importers:
       '@pickchick/platform':
         specifier: workspace:*
         version: link:../platform
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/fulfillment-state:
+    devDependencies:
       '@types/node':
         specifier: 24.13.3
         version: 24.13.3
