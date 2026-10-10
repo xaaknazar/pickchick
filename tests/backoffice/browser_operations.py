@@ -31,6 +31,9 @@ with sync_playwright() as pw:
    expect(toggle).to_have_attribute('aria-expanded','true')
   if not nav.is_visible():page.locator('.nav-secondary summary').click()
   nav.click()
+  if section=='shifts':
+   summary=page.get_by_text('Кассовые смены и прежний журнал',exact=True)
+   if not summary.locator('..').evaluate('(e)=>e.open'):summary.click()
  def snapshot_request(request,period):
   return '/v1/admin/backoffice/branches/' in request.url and '/orders/' not in request.url and request.method=='GET' and parse_qs(urlparse(request.url).query).get('period')==[period]
  for section in ['orders','items','stoplist','stock','reports','finance','settlements','promo','games','guests','tickets','reviews','stations','devices','shifts','audit','dash']:

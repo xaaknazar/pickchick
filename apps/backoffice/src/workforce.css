@@ -8,7 +8,7 @@
   gap: 1rem;
   margin-bottom: 1.25rem;
 }
-.wf-header h1 {
+.wf-header h2 {
   margin: 0 0 0.4rem;
   font-size: 1.65rem;
 }
@@ -214,10 +214,18 @@
   .wf-editor .form-grid {
     grid-template-columns: 1fr;
   }
-  .wf-header h1 {
+  .wf-header h2 {
     font-size: 1.4rem;
   }
   .wf-summary strong {
     font-size: 1.1rem;
   }
+}
+
+.wf-legacy-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 0;
+  align-items: end;
 }

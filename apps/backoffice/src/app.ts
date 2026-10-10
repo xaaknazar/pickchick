@@ -25,6 +25,7 @@ const root = document.querySelector<HTMLDivElement>('#app')!,
 let page = sections.some((s) => s[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'dash';
 /** «Другие разделы» opened by the user stays open across re-renders (stop list polling). */
 let secondaryOpen = false;
+let cashierJournalOpen = false;
 const operations = new OperationsModel(
   (path, request) => model.operations(path, request),
   window.sessionStorage,
@@ -338,7 +339,7 @@ function render() {
             !window.confirm('Сохранённый на сервере журнал останется. Отменить незавершённый ввод?')
           )
             return;
-          if (workforce.pending || workforce.busy) return;
+          if (workforce.pending) return;
           if (
             workforceView.dirty &&
             !window.confirm('Отменить несохранённый ввод в табеле или графике?')
@@ -476,7 +477,9 @@ function render() {
     workforce.busy ||
     Boolean(workforce.pending);
   header.append(branch);
-  if (page !== 'items' && page !== 'finance' && page !== 'shifts') {
+  const legacyControls = el('div', 'wf-legacy-controls');
+  const periodTarget = page === 'shifts' ? legacyControls : header;
+  if (page !== 'items' && page !== 'finance') {
     const periods = el('div', 'op-periods');
     for (const [id, label] of [
       ['day', 'Сегодня'],
@@ -522,7 +525,7 @@ function render() {
     );
     refresh.disabled = operations.busy || Boolean(operations.pending);
     tools.append(periods, refresh);
-    header.append(tools);
+    periodTarget.append(tools);
     if (['dash', 'orders', 'shifts', 'reports', 'settlements'].includes(page)) {
       const shifts = operations.data?.cashier_shifts ?? [];
       if (shifts.length) {
@@ -615,7 +618,7 @@ function render() {
       dates.append(start, end, apply);
       tools.append(dates);
     }
-    if (operations.data)
+    if (operations.data && page !== 'shifts')
       titles.append(
         el(
           'small',
@@ -638,7 +641,11 @@ function render() {
   if (page === 'shifts') {
     workforceView.render(content);
     const cashier = el('details', 'panel');
-    cashier.append(el('summary', '', 'Кассовые смены и прежний журнал'));
+    cashier.open = cashierJournalOpen;
+    cashier.addEventListener('toggle', () => {
+      if (cashier.isConnected) cashierJournalOpen = cashier.open;
+    });
+    cashier.append(el('summary', '', 'Кассовые смены и прежний журнал'), legacyControls);
     const cashierContent = el('div');
     operationView.render('shifts', cashierContent);
     cashier.append(cashierContent);

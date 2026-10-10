@@ -144,7 +144,7 @@ export class WorkforceView {
     const top = el('div', 'wf-header');
     const title = el('div');
     title.append(
-      el('h1', '', 'Смены и команда'),
+      el('h2', '', 'Смены и команда'),
       el('p', 'muted', 'Планируйте график, подтверждайте часы и контролируйте начисления.'),
     );
     top.append(title);
