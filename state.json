@@ -4070,18 +4070,6 @@
       "nextAction": "Need devices-access scope transfer for app.ts/api.ts/server.mjs/package exports/historical tests and VPS api/db/public/backoffice-login; async user confirmation pending. Need owner ssh-add --apple-use-keychain ~/.ssh/pickchick_finance_ed25519. Then wire module/flag/provisioning, test actual proxy and shell, pin historical fixtures without weakening guards, full CI, fresh baselines/backups/guarded release. BioCheck deferred by owner; manual attendance should ship first. See docs/operations/workforce.md; shared status/roadmap still restaurant-report-owned."
     },
     {
-      "id": "mobile-live-release",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/mobile-integration-1010",
-      "scopes": [
-        "infra/staging/release-live-menu-fixes.py",
-        "tests/operations/test_live_menu_fixes_release.py"
-      ],
-      "status": "active",
-      "head": "f3350ccfea7cbd67898ddfdb35952ba508196483",
-      "updatedAt": "2026-10-10T11:08:12.168Z"
-    },
-    {
       "id": "cloud-kitchen-channel",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/cloud-kitchen-channel",
@@ -4114,6 +4102,19 @@
       "status": "active",
       "head": "15f63f84d4dd7b3f1b4d9b8560491e772e223d9e",
       "updatedAt": "2026-10-10T12:52:27.373Z"
+    },
+    {
+      "id": "mobile-live-release",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-integration-1010",
+      "scopes": [
+        "infra/staging/release-live-menu-fixes.py",
+        "tests/operations/test_live_menu_fixes_release.py",
+        "@vps/api"
+      ],
+      "status": "active",
+      "head": "d85f0244ca92009d4ddc3998b748da6b5315c11b",
+      "updatedAt": "2026-10-10T12:58:07.026Z"
     }
   ]
 }
