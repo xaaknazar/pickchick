@@ -68,6 +68,19 @@ export class Resources implements OnApplicationShutdown {
             for (const table of ['catalog_managers', 'catalog_manager_branches'])
               await this.pool.query(`SELECT lock_anchor FROM ${table} LIMIT 0`);
           }
+          if (this.config.workforceEnabled) {
+            const ledger = await this.pool.query(
+              "SELECT 1 FROM schema_migrations WHERE scope='cloud' AND version='052_cloud_workforce.sql'",
+            );
+            if (ledger.rowCount !== 1) throw new Error('Workforce schema unavailable');
+            for (const table of [
+              'bo_workforce_records',
+              'bo_workforce_events',
+              'bo_workforce_periods',
+              'bo_workforce_commands',
+            ])
+              await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);
+          }
           if (this.config.backofficeEnabled) {
             const kitchen = await this.pool.query(
               "SELECT 1 FROM schema_migrations WHERE scope='cloud' AND version='018_pos_kitchen_sync.sql'",

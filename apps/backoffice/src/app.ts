@@ -1,6 +1,8 @@
 import { DevicesModel } from './devices-model.js';
 import { DeviceAccessView } from './components/DeviceAccessView.js';
 import { OperationsModel, StopsModel } from './operations-model.js';
+import { WorkforceModel } from './workforce-model.js';
+import { WorkforceView } from './workforce.js';
 import { FinanceModel } from './finance-model.js';
 import { FinanceView } from './finance.js';
 import { OperationsView, sections } from './operations.js';
@@ -71,8 +73,16 @@ const financeView = new FinanceView(finance, render, () => {
   history.replaceState(null, '', '#settlements');
   render();
 });
+const workforce = new WorkforceModel(
+  (path, request) => model.operations(path, request),
+  window.sessionStorage,
+  render,
+);
+const workforceView = new WorkforceView(workforce, render);
 function syncOperations() {
   if (!model.actor) {
+    workforce.clear();
+    workforceView.clear();
     finance.clear();
     financeView.clear();
     operations.clear();
@@ -93,6 +103,8 @@ function syncOperations() {
   )
     void devices.load(model.actor.id, branch);
   if (branch) void finance.scope(model.actor.id, branch);
+  if (branch && (page === 'shifts' || workforce.actor))
+    void workforce.scope(model.actor.id, branch);
   if (branch && (operations.actor !== model.actor.id || operations.branch !== branch))
     void operations.load(model.actor.id, branch);
   if (branch && page === 'stoplist' && (stops.actor !== model.actor.id || stops.branch !== branch))
@@ -326,9 +338,18 @@ function render() {
             !window.confirm('Сохранённый на сервере журнал останется. Отменить незавершённый ввод?')
           )
             return;
+          if (workforce.pending || workforce.busy) return;
+          if (
+            workforceView.dirty &&
+            !window.confirm('Отменить несохранённый ввод в табеле или графике?')
+          )
+            return;
+          workforceView.clear();
           if (finance.pending && page === 'finance') return;
           financeView.clear();
           page = id;
+          if (id === 'shifts' && model.actor && model.state)
+            void workforce.scope(model.actor.id, model.state.branch.id);
           secondaryOpen = false;
           history.replaceState(null, '', '#' + id);
           if (id === 'stoplist' && model.actor && model.state)
@@ -382,7 +403,18 @@ function render() {
     button(
       'Выйти',
       async () => {
-        if (financeView.dirty && !window.confirm('Отменить несохранённый ввод и выйти?')) return;
+        if (
+          workforce.pending &&
+          !window.confirm(
+            'Результат операции ещё не подтверждён. Запрос сохранён для проверки после следующего входа. Выйти?',
+          )
+        )
+          return;
+        if (
+          (workforceView.dirty || financeView.dirty) &&
+          !window.confirm('Отменить несохранённый ввод и выйти?')
+        )
+          return;
         try {
           if (staffMode) await staffAuth('logout');
           model.logout();
@@ -409,6 +441,15 @@ function render() {
     model.state?.branch.id ?? '',
     model.branches.map((b) => ({ value: b.id, label: b.name })),
     (id) => {
+      if (workforce.pending || workforce.busy) return;
+      if (
+        workforceView.dirty &&
+        !window.confirm('Отменить несохранённый ввод в табеле или графике перед сменой точки?')
+      ) {
+        render();
+        return;
+      }
+      workforceView.clear();
       if (
         financeView.dirty &&
         !window.confirm('Отменить несохранённую финансовую операцию перед сменой точки?')
@@ -431,9 +472,11 @@ function render() {
     operations.busy ||
     Boolean(operations.pending) ||
     finance.busy ||
-    Boolean(finance.pending);
+    Boolean(finance.pending) ||
+    workforce.busy ||
+    Boolean(workforce.pending);
   header.append(branch);
-  if (page !== 'items' && page !== 'finance') {
+  if (page !== 'items' && page !== 'finance' && page !== 'shifts') {
     const periods = el('div', 'op-periods');
     for (const [id, label] of [
       ['day', 'Сегодня'],
@@ -592,6 +635,16 @@ function render() {
   main.append(content);
   shell.append(sidebar, main);
   root.replaceChildren(shell);
+  if (page === 'shifts') {
+    workforceView.render(content);
+    const cashier = el('details', 'panel');
+    cashier.append(el('summary', '', 'Кассовые смены и прежний журнал'));
+    const cashierContent = el('div');
+    operationView.render('shifts', cashierContent);
+    cashier.append(cashierContent);
+    content.append(cashier);
+    return;
+  }
   if (page === 'finance') {
     financeView.render(content);
     return;
@@ -1061,7 +1114,15 @@ model.subscribe(() => {
   render();
 });
 window.addEventListener('beforeunload', (event) => {
-  if (model.dirty || model.pending || operations.pending || finance.pending || financeView.dirty) {
+  if (
+    model.dirty ||
+    model.pending ||
+    operations.pending ||
+    finance.pending ||
+    financeView.dirty ||
+    workforce.pending ||
+    workforceView.dirty
+  ) {
     event.preventDefault();
     event.returnValue = '';
   }
@@ -1088,6 +1149,7 @@ setInterval(() => {
   if (
     page !== 'items' &&
     page !== 'finance' &&
+    page !== 'shifts' &&
     model.actor &&
     operations.branch &&
     !operations.busy &&

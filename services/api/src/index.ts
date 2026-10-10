@@ -1,5 +1,7 @@
 import { CatalogPublicationListener } from './catalog-publication-listener.js';
 import { FarmController } from './farm-controller.js';
+import { Workforce } from '@pickchick/backoffice-core/workforce';
+import { WorkforceController, WORKFORCE } from './workforce-controller.js';
 import { FinanceController } from './finance-controller.js';
 import { FINANCE, Finance } from '@pickchick/backoffice-core/finance';
 import { KioskIncidentController } from './kiosk-incident-controller.js';
@@ -189,6 +191,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
   if (config.service !== 'api') throw new Error('API requires api configuration');
   @Module({
     controllers: [
+      WorkforceController,
       FinanceController,
       KioskIncidentController,
       FarmController,
@@ -213,6 +216,12 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
     ],
     providers: [
       CatalogPublicationListener,
+      {
+        provide: WORKFORCE,
+        inject: [RESOURCE],
+        useFactory: (resources: Resources) =>
+          new Workforce(resources.pool, config.workforceEnabled === true),
+      },
       {
         provide: FINANCE,
         inject: [RESOURCE],

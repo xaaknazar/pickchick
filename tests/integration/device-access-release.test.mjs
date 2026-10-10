@@ -171,7 +171,10 @@ test('RR proof tolerates a concurrent heartbeat-style writer without comparing s
 
 test('rollback table drain waits for a prior device write and observes it before accepting empty state', async (t) => {
   const f = await fixture(t);
-  await transaction(f.pool, (c) => deployDevices(c, { directory: MIGRATIONS, role: f.role }));
+  const candidateDirectory = await directory(t);
+  await transaction(f.pool, (c) =>
+    deployDevices(c, { directory: candidateDirectory, role: f.role }),
+  );
   const legal = randomUUID(),
     branch = randomUUID(),
     device = randomUUID();

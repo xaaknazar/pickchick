@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { createPool, migrate, transaction } from '@pickchick/database';
 import { loadConfig } from '@pickchick/platform';
 import { customerAuthGrants } from './customer-auth-grants.mjs';
+import { workforceGrants } from './workforce-grants.mjs';
 import { backofficeGrants } from './backoffice-grants.mjs';
 import { backofficeStopGrants } from './backoffice-stop-grants.mjs';
 import { catalogAdminGrants } from './catalog-admin-grants.mjs';
@@ -97,6 +98,7 @@ async function provision() {
       );
       await client.query(cloudPosSyncGrants('pickchick_app', config.posOrderSyncEnabled === true));
       await client.query(backofficeGrants('pickchick_app', config.backofficeEnabled === true));
+      await client.query(workforceGrants('pickchick_app', config.workforceEnabled === true));
       await client.query(catalogAccessGrants('pickchick_app', config.catalogAdminEnabled === true));
       await client.query(
         catalogAssetGrants(

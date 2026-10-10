@@ -23,6 +23,10 @@
     "./devices": {
       "types": "./dist/device-registry.d.ts",
       "default": "./dist/device-registry.js"
+    },
+    "./workforce": {
+      "types": "./dist/workforce-store.d.ts",
+      "default": "./dist/workforce-store.js"
     }
   },
   "scripts": {
