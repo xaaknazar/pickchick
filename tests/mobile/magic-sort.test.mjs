@@ -38,7 +38,6 @@ test('100 deterministic constructive levels replay their full witness and conser
     assert.ok(e.isWon(state));
     assert.equal(e.getHint(state), null);
     assert.deepEqual(e.resetLevel(state), initial);
-    assert.notEqual(e.newLevel(state).seed, state.seed);
   }
   assert.ok(fourColorLevels > 0);
 });
@@ -482,7 +481,8 @@ test('published version1 fixture resumes, resets and undoes without seed reinter
   assert.deepEqual(resumed, saved);
   assert.deepEqual(e.resetLevel(resumed), initial);
   assert.deepEqual(e.undo(resumed), prior);
-  assert.equal(e.newLevel(resumed).version, 2);
+  assert.equal(e.isPuzzle(resumed), false);
+  assert.equal(e.createPuzzle().version, 2);
   assert.equal(e.createLevel(42).version, 2);
   assert.notDeepEqual(e.createLevel(42).bottles, initial.bottles);
 });
@@ -525,4 +525,136 @@ test('bottle taps pour to compatible targets and collector, but never select emp
     [null, 24],
   ])
     assert.deepEqual(e.resolveBottleTap(state, from, to), { kind: 'blocked' });
+});
+
+test('fixed puzzle is identical for every attempt and solvable through its witness', () => {
+  const puzzle = e.createPuzzle();
+  assert.equal(puzzle.version, e.PUZZLE_VERSION);
+  assert.equal(puzzle.seed, e.PUZZLE_SEED);
+  assert.deepEqual(puzzle, e.createLevel(e.PUZZLE_SEED, e.PUZZLE_VERSION));
+  assert.deepEqual(e.createPuzzle(), puzzle);
+  assert.ok(e.isPuzzle(puzzle));
+  assert.equal(e.isPuzzle(e.createLevel(e.PUZZLE_SEED + 1)), false);
+  assert.equal(e.isPuzzle(e.createLevel(e.PUZZLE_SEED, 1)), false);
+  assert.equal(e.moveCount(puzzle), 0);
+  let state = puzzle;
+  for (const move of puzzle.witness) state = e.pour(state, move.from, move.to);
+  assert.ok(e.isWon(state));
+  assert.equal(e.moveCount(state), puzzle.witness.length);
+  assert.deepEqual(e.resetLevel(state), puzzle);
+  assert.equal(e.moveCount(e.resetLevel(state)), 0);
+  assert.equal('newLevel' in e, false, 'No next-level flow exists');
+});
+
+test('move count is committed pours: selection is free and undo removes a move', () => {
+  let state = e.createPuzzle();
+  const [a, b, c] = state.witness;
+  assert.equal(e.resolveBottleTap(state, null, a.from).kind, 'select');
+  assert.equal(e.moveCount(state), 0);
+  state = e.pour(state, a.from, a.to);
+  state = e.pour(state, b.from, b.to);
+  assert.equal(e.moveCount(state), 2);
+  state = e.undo(state);
+  assert.equal(e.moveCount(state), 1);
+  state = e.pour(state, b.from, b.to);
+  state = e.pour(state, c.from, c.to);
+  assert.equal(e.moveCount(state), 3);
+  assert.equal(e.moveCount(e.undo(e.undo(e.undo(state)))), 0);
+});
+
+test('record keeps the minimum and flags only strictly better results', () => {
+  assert.deepEqual(e.applyRecord(null, 70), { moves: 70, previous: null, best: 70, isNew: true });
+  assert.deepEqual(e.applyRecord(70, 63), { moves: 63, previous: 70, best: 63, isNew: true });
+  assert.deepEqual(e.applyRecord(63, 63), { moves: 63, previous: 63, best: 63, isNew: false });
+  assert.deepEqual(e.applyRecord(63, 90), { moves: 90, previous: 63, best: 63, isNew: false });
+  for (const bad of [0, -1, 1.5, e.MAX_MOVES + 1, NaN])
+    assert.throws(() => e.applyRecord(null, bad));
+});
+
+function memoryAdapter(values = new Map()) {
+  return {
+    values,
+    async getItem(k) {
+      return values.get(k) ?? null;
+    },
+    async setItem(k, v) {
+      await new Promise((r) => setTimeout(r, 2));
+      values.set(k, v);
+    },
+    async removeItem(k) {
+      values.delete(k);
+    },
+  };
+}
+
+test('personal record storage is per account, queued and keeps the minimum', async () => {
+  const adapter = memoryAdapter();
+  const store = storage.createGameStorage(adapter);
+  assert.equal(await store.loadRecord('a'), null);
+  const results = await Promise.all([
+    store.saveRecord('a', 80),
+    store.saveRecord('a', 63),
+    store.saveRecord('a', 70),
+  ]);
+  assert.deepEqual(
+    results.map((r) => [r.previous, r.best, r.isNew]),
+    [
+      [null, 80, true],
+      [80, 63, true],
+      [63, 63, false],
+    ],
+  );
+  assert.equal(await store.loadRecord('a'), 63);
+  assert.equal((await store.saveRecord('a', 63)).isNew, false, 'Repeated win is idempotent');
+  assert.equal(await store.loadRecord('b'), null, 'Other account has no record');
+  await store.saveRecord('b', 100);
+  assert.equal(await store.loadRecord('a'), 63);
+  assert.equal(await store.loadRecord('b'), 100);
+  assert.deepEqual([...adapter.values.keys()].sort(), [
+    'pickchick.magic-sort.record.v1:a',
+    'pickchick.magic-sort.record.v1:b',
+  ]);
+  await store.save('a', e.createPuzzle());
+  assert.equal(await store.loadRecord('a'), 63, 'Game save does not touch the record');
+  assert.throws(() => store.loadRecord(''));
+  assert.throws(() => store.saveRecord('a', 0));
+});
+
+test('corrupted or foreign records are ignored and replaced by the next win', async () => {
+  const key = 'pickchick.magic-sort.record.v1:a';
+  const valid = storage.serializeRecord(63);
+  assert.equal(storage.deserializeRecord(valid), 63);
+  const bad = [
+    null,
+    'no json',
+    '63',
+    '[]',
+    'null',
+    JSON.stringify({ version: 2, seed: e.PUZZLE_SEED }),
+    JSON.stringify({ version: 2, seed: e.PUZZLE_SEED, moves: 0 }),
+    JSON.stringify({ version: 2, seed: e.PUZZLE_SEED, moves: -5 }),
+    JSON.stringify({ version: 2, seed: e.PUZZLE_SEED, moves: 12.5 }),
+    JSON.stringify({ version: 2, seed: e.PUZZLE_SEED, moves: '12' }),
+    JSON.stringify({ version: 2, seed: e.PUZZLE_SEED, moves: e.MAX_MOVES + 1 }),
+    JSON.stringify({ version: 1, seed: e.PUZZLE_SEED, moves: 12 }),
+    JSON.stringify({ version: 2, seed: e.PUZZLE_SEED + 1, moves: 12 }),
+    JSON.stringify({ version: 2, seed: e.PUZZLE_SEED, moves: 12, extra: 1 }),
+    ' '.repeat(201),
+  ];
+  for (const raw of bad) assert.equal(storage.deserializeRecord(raw), null, String(raw));
+  const adapter = memoryAdapter(new Map([[key, JSON.stringify({ moves: 1 })]]));
+  const store = storage.createGameStorage(adapter);
+  assert.equal(await store.loadRecord('a'), null);
+  const result = await store.saveRecord('a', 75);
+  assert.deepEqual([result.previous, result.best, result.isNew], [null, 75, true]);
+  assert.equal(adapter.values.get(key), storage.serializeRecord(75));
+});
+
+test('earlier random-layout saves stay readable but are not the fixed puzzle', () => {
+  let old = e.createLevel(123456);
+  old = e.pour(old, old.witness[0].from, old.witness[0].to);
+  const resumed = storage.deserializeGame(storage.serializeGame(old));
+  assert.deepEqual(resumed, old);
+  assert.equal(e.isPuzzle(resumed), false);
+  assert.ok(e.isPuzzle(storage.deserializeGame(storage.serializeGame(e.createPuzzle()))));
 });
