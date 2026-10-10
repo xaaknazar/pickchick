@@ -4279,11 +4279,12 @@
         "apps/mobile/src/commerce-presentation.ts",
         "tests/mobile/commerce-presentation.test.mjs",
         "tests/unit/checkout-errors.test.mjs",
-        "packages/backoffice-core/package.json"
+        "packages/backoffice-core/package.json",
+        "tests/integration/workforce-release.test.mjs"
       ],
       "status": "active",
       "head": "8284eabf467eba93a104b11fcd50bb9133df84a0",
-      "updatedAt": "2026-10-10T15:47:53.415Z"
+      "updatedAt": "2026-10-10T16:14:50.713Z"
     }
   ]
 }
