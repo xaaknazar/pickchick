@@ -4169,6 +4169,26 @@
       "status": "active",
       "head": "bf41bf28d6cd491f5ab8c60ede370ca7d819943e",
       "updatedAt": "2026-10-10T14:00:44.494Z"
+    },
+    {
+      "id": "cloud-kitchen-s3",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cloud-kitchen-s3",
+      "scopes": [
+        "db/cloud/migrations/055_cloud_channel_stops.sql",
+        "packages/backoffice-core/src/cloud-stops.ts",
+        "packages/backoffice-core/src/stops.ts",
+        "packages/commerce-core/src/availability.ts",
+        "packages/fulfillment-transport/src/cloud.ts",
+        "infra/staging/cloud-channel-stop-grants.mjs",
+        "tests/unit/cloud-channel-stop-grants.test.mjs",
+        "tests/integration/cloud-channel-stops.test.mjs",
+        "apps/mobile/src/checkout-preflight.ts",
+        "docs/architecture/cloud-kitchen-s3.md"
+      ],
+      "status": "active",
+      "head": "bf8bb7b1fd3eef85d1fd2b489d0b312835c50626",
+      "updatedAt": "2026-10-10T14:25:47.510Z"
     }
   ]
 }
