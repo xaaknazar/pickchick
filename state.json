@@ -3778,24 +3778,6 @@
       "nextAction": "Claude: исправления по аудиту 10.10 в новой ветке от общего среза"
     },
     {
-      "id": "mobile-native16",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/mobile-native16",
-      "head": "6aaa219878934281cdefe5f35a3fadf7314197cb",
-      "status": "available",
-      "updatedAt": "2026-10-10T05:43:58.464Z",
-      "scopes": [
-        "apps/mobile/src/connectivity.ts",
-        "tests/mobile/connectivity.test.mjs",
-        "docs/operations/mobile-native16.md",
-        "apps/mobile/app.json",
-        "apps/mobile/ios",
-        "@apple/testflight"
-      ],
-      "summary": "Native0.2.0(16) sourceb25f6df6 passed exact Foundation37929668466 11/11, signed archive/export verified. Owner Xcode sign-in completed; Apple upload accepted14:30:20UTC9Oct, processed and PickChick Internal Testing14:38 with same2testers. Docs6aaa merged into shared; primary now3c399b48. No external/public release or physical iPhone install claimed.",
-      "nextAction": "Owner updates existing iPhone app via TestFlight to16 and checks live menu/cart/reconnect. No real bank transaction required. Keep native artifact sourceb25 and existing binary; no rebuild/reupload or iPad reinstall needed. Physical acceptance remains pending."
-    },
-    {
       "id": "devices-access",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/devices-access",
@@ -4329,6 +4311,24 @@
       "status": "active",
       "head": "bd60ab6b539d1b9a4432e271fd5d5a17bfe50cc2",
       "updatedAt": "2026-10-10T17:10:02.907Z"
+    },
+    {
+      "id": "mobile-native16",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-native16",
+      "head": "bd60ab6b539d1b9a4432e271fd5d5a17bfe50cc2",
+      "status": "active",
+      "updatedAt": "2026-10-10T17:12:17.475Z",
+      "scopes": [
+        "apps/mobile/src/connectivity.ts",
+        "tests/mobile/connectivity.test.mjs",
+        "docs/operations/mobile-native16.md",
+        "apps/mobile/app.json",
+        "apps/mobile/ios",
+        "@apple/testflight"
+      ],
+      "summary": "Native0.2.0(16) sourceb25f6df6 passed exact Foundation37929668466 11/11, signed archive/export verified. Owner Xcode sign-in completed; Apple upload accepted14:30:20UTC9Oct, processed and PickChick Internal Testing14:38 with same2testers. Docs6aaa merged into shared; primary now3c399b48. No external/public release or physical iPhone install claimed.",
+      "nextAction": "Owner updates existing iPhone app via TestFlight to16 and checks live menu/cart/reconnect. No real bank transaction required. Keep native artifact sourceb25 and existing binary; no rebuild/reupload or iPad reinstall needed. Physical acceptance remains pending."
     }
   ]
 }
