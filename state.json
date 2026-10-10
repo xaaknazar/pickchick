@@ -4411,11 +4411,13 @@
       "scopes": [
         "infra/staging/release-cloud-kitchen.py",
         "tests/operations/test_cloud_kitchen_release.py",
-        "docs/operations/cloud-kitchen-release.md"
+        "docs/operations/cloud-kitchen-release.md",
+        "infra/staging/cloud-kitchen-release-owner.mjs",
+        "tests/integration/cloud-kitchen-release.test.mjs"
       ],
       "status": "active",
       "head": "5d808286c4b99052d5ed681046e17a28c8738aaa",
-      "updatedAt": "2026-10-10T19:17:50.397Z"
+      "updatedAt": "2026-10-10T19:33:08.534Z"
     }
   ]
 }
