@@ -4317,8 +4317,8 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-native16",
       "head": "bd60ab6b539d1b9a4432e271fd5d5a17bfe50cc2",
-      "status": "active",
-      "updatedAt": "2026-10-10T17:12:17.475Z",
+      "status": "done",
+      "updatedAt": "2026-10-10T17:12:23.508Z",
       "scopes": [
         "apps/mobile/src/connectivity.ts",
         "tests/mobile/connectivity.test.mjs",
@@ -4327,8 +4327,8 @@
         "apps/mobile/ios",
         "@apple/testflight"
       ],
-      "summary": "Native0.2.0(16) sourceb25f6df6 passed exact Foundation37929668466 11/11, signed archive/export verified. Owner Xcode sign-in completed; Apple upload accepted14:30:20UTC9Oct, processed and PickChick Internal Testing14:38 with same2testers. Docs6aaa merged into shared; primary now3c399b48. No external/public release or physical iPhone install claimed.",
-      "nextAction": "Owner updates existing iPhone app via TestFlight to16 and checks live menu/cart/reconnect. No real bank transaction required. Keep native artifact sourceb25 and existing binary; no rebuild/reupload or iPad reinstall needed. Physical acceptance remains pending."
+      "summary": "Ветка codex/mobile-native16 (6aaa2198) полностью включена в codex/shared-development; TestFlight 16/17 приняты ранее. Задача Codex закрыта Claude по решению владельца 2026-10-10.",
+      "nextAction": "Новых шагов нет; apps/mobile/app.json, apps/mobile/ios и @apple/testflight освобождены."
     }
   ]
 }
