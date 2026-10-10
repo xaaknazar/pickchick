@@ -4254,6 +4254,35 @@
       "head": "32700a42ce281f368232a21a400528aa3935da98",
       "updatedAt": "2026-10-10T15:33:52.728Z",
       "summary": "Обследование iiko и первый проверяемый складской этап поверх 32700a42. Совместный выпуск включает кадровые исправления PR224, общие документы и VPS переданы между задачами этого же Mac."
+    },
+    {
+      "id": "cloud-kitchen-s4",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cloud-kitchen-s4",
+      "scopes": [
+        "db/cloud/migrations/056_cloud_kitchen_screens.sql",
+        "infra/staging/cloud-kitchen-screen-grants.mjs",
+        "infra/staging/cloud-kitchen-screen-owner.mjs",
+        "tests/integration/cloud-kitchen-screens.test.mjs",
+        "tests/integration/cloud-kitchen-payment.test.mjs",
+        "tests/unit/cloud-kitchen-screen-grants.test.mjs",
+        "tests/unit/cloud-kitchen-backoffice-controller.test.mjs",
+        "docs/architecture/cloud-kitchen-s4.md",
+        "services/api/src/cloud-kitchen-backoffice-controller.ts",
+        "packages/commerce-core/src/cloud-channel.ts",
+        "packages/commerce-core/src/repository.ts",
+        "packages/commerce-core/src/index.ts",
+        "packages/contracts/src/index.ts",
+        "services/api/src/index.ts",
+        "packages/platform/src/http.ts",
+        "apps/mobile/src/commerce-presentation.ts",
+        "tests/mobile/commerce-presentation.test.mjs",
+        "tests/unit/checkout-errors.test.mjs",
+        "packages/backoffice-core/package.json"
+      ],
+      "status": "active",
+      "head": "8284eabf467eba93a104b11fcd50bb9133df84a0",
+      "updatedAt": "2026-10-10T15:47:53.415Z"
     }
   ]
 }
