@@ -4187,9 +4187,11 @@
         "docs/architecture/cloud-kitchen-s3.md",
         "tests/mobile/checkout-preflight.test.mjs"
       ],
-      "status": "active",
-      "head": "bf8bb7b1fd3eef85d1fd2b489d0b312835c50626",
-      "updatedAt": "2026-10-10T14:39:58.972Z"
+      "status": "available",
+      "head": "5dad1087ffd33724b37028a6efacb95821a3e0dd",
+      "updatedAt": "2026-10-10T14:59:58.804Z",
+      "summary": "S3 5dad1087: cloud 055 (cloud_channel_stops+events, cloud_stale_stop_overrides, cloud_stop_commands.delivery_policy until_reconnect), transport skips expiry for durable unstop (edge 019 unchanged), backoffice-core cloud-stops.ts (versioned stops, override, read model, CloudChannelStops), commerce-core availability mode cloud + KITCHEN_OFFLINE, grants module, mobile preflight. Local: 9 new PG tests, backoffice-core 22, commerce-core 122, fulfillment-transport 65 (concurrency 1), unit 237, typecheck/lint/format ok. CI 38060574168: only 5 cloud051 guard tests fail.",
+      "nextAction": "Contracts KITCHEN_OFFLINE (devices-access), customer-checkout-controller fallback (mobile-live-fixes), kiosk mapping (kiosk-build12), BO routes in services/api index.ts + provision grants (workforce), BO UI; then S5 payment wiring and manual cancel of durable unstop."
     }
   ]
 }
