@@ -4334,11 +4334,11 @@
         "docs/architecture/cloud-kitchen-s3.md",
         "tests/mobile/checkout-preflight.test.mjs"
       ],
-      "status": "active",
+      "status": "done",
       "head": "dd3bca8b5db349747c367425e062cc2b50666641",
-      "updatedAt": "2026-10-10T18:03:37.071Z",
-      "summary": "S3 5dad1087: cloud 055 (cloud_channel_stops+events, cloud_stale_stop_overrides, cloud_stop_commands.delivery_policy until_reconnect), transport skips expiry for durable unstop (edge 019 unchanged), backoffice-core cloud-stops.ts (versioned stops, override, read model, CloudChannelStops), commerce-core availability mode cloud + KITCHEN_OFFLINE, grants module, mobile preflight. Local: 9 new PG tests, backoffice-core 22, commerce-core 122, fulfillment-transport 65 (concurrency 1), unit 237, typecheck/lint/format ok. CI 38060574168: only 5 cloud051 guard tests fail.",
-      "nextAction": "Contracts KITCHEN_OFFLINE (devices-access), customer-checkout-controller fallback (mobile-live-fixes), kiosk mapping (kiosk-build12), BO routes in services/api index.ts + provision grants (workforce), BO UI; then S5 payment wiring and manual cancel of durable unstop."
+      "updatedAt": "2026-10-10T18:03:43.540Z",
+      "summary": "Ветка codex/cloud-kitchen-s3 (5dad1087) включена в codex/shared-development (dd3bca8b; Foundation CI 38072282101 green на итоговом SHA); ветка fast-forward до общей версии для закрытия задачи.",
+      "nextAction": "Новых шагов по задаче нет; области освобождены."
     }
   ]
 }
