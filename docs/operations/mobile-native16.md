@@ -94,24 +94,37 @@ SHA-256 совпадает:
 
 ## Следующий этап и границы проверки
 
-9 октября в 14:22 UTC выполнена одна штатная попытка `ios_release.py upload`
+9 октября в 14:22 UTC выполнена первая штатная попытка `ios_release.py upload`
 для App Store Connect `6809208492`. Этот helper делает отдельный export с
 `destination=upload` из того же проверенного неизменного `PickChick.xcarchive`;
 SHA-256 выше относится к локальному `export/PickChick.ipa`, а не к транспортному
 контейнеру Xcode. Source, версия, Bundle ID, флаги и подпись архива сохранены.
 
-Xcode завершил попытку с exit 70: `exportArchive Failed to Use Accounts`.
-В Apple Accounts нет вошедшей учётной записи; открыта штатная страница входа.
-Временные настройки подписи восстановлены. Safari App Store Connect авторизован,
-но последняя видимая сборка - 15; сборки 16 в списке нет. `deliveryStatus` не
-установлен. Повторная отправка не выполнялась.
+Первая попытка завершилась exit 70: `exportArchive Failed to Use Accounts`.
+Владелец выполнил вход в Xcode. Перед следующей попыткой проверены вошедшая
+учётная запись, отсутствие 16 в App Store Connect и отсутствие `deliveryStatus`.
+Первый журнал сохранён отдельно; исходный архив не пересобирался.
 
-**Принятие upload Apple, processing, доступность группе и установка 16 ещё не
-подтверждены.** Следующий шаг - вход владельца в Xcode → Settings → Apple Accounts,
-затем проверка отсутствия уже принятой 16 и продолжение с тем же архивом. Пароль
-и 2FA вводятся владельцем. После принятия отдельно подтвердить processing и
-назначение существующей PickChick Internal. Тестеров, внешние группы, договоры
-и публичный App Store release эта операция не меняет.
+**Apple приняла загрузку 9 октября в 14:30:20 UTC (19:30:20 Алматы):**
+`Upload succeeded`, `Uploaded PickChick`, `EXPORT SUCCEEDED`;
+`release.json`: `deliveryStatus=submitted`, `ascAppId=6809208492`,
+`temporarySigningSettingsRestored=true`. После upload повторно проверены source,
+Info.plist, прежние public flags, неизменный JS-хеш и strict codesign архива.
+
+Обработка Apple завершена: [0.2.0 (16)](https://appstoreconnect.apple.com/teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/apps/6809208492/testflight/ios/9fb3a59a-32fb-48f4-8c4d-1bd9a8e6ea48),
+Build ID `9fb3a59a-32fb-48f4-8c4d-1bd9a8e6ea48`. В 14:38 UTC в существующей
+[PickChick Internal](https://appstoreconnect.apple.com/teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/apps/6809208492/testflight/groups/33b2ef37-6602-4b07-803e-cb336a09cb16/builds)
+подтверждена строка **0.2.0 (16) - «Тестируется»**. Группа содержит тех же двух
+тестировщиков; теперь ей доступны 15 сборок. Внешняя группа Testing не изменялась.
+Физическая установка 16 не подтверждена. Пользовательский следующий шаг -
+обновить PickChick через TestFlight поверх существующего приложения.
+
+Upload принят с прежними предупреждениями об отсутствующих dSYM восьми
+сторонних framework: ExpoImage, React, ReactNativeDependencies, SDWebImage,
+SDWebImageAVIFCoder, SDWebImageSVGCoder, SDWebImageWebPCoder и hermesvm.
+Это ограничение расшифровки crash stacks зависимостей; upload не отклонён.
+Новые сертификаты, тестировщики, внешние группы, договоры и публичный App Store
+release не создавались и не изменялись.
 
 По подтверждению координатора, API `3bc98faf` и `CUSTOMER_CHECKOUT_HEAD_GUARD=true`
 уже установлены независимо от этого native upload. Настройка API не доказывает
