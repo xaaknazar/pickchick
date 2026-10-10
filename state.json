@@ -4119,11 +4119,17 @@
         "@vps/db",
         "@vps/public",
         "@vps/gateway",
-        "@vps/backoffice-login"
+        "@vps/backoffice-login",
+        "packages/platform/src/config.ts",
+        "apps/backoffice/src/index.html",
+        "tests/backoffice/workforce-proxy.test.mjs",
+        "tests/backoffice/workforce-shell.mjs",
+        "tests/backoffice/workforce-shell.py",
+        "tests/unit/workforce-config.test.mjs"
       ],
       "status": "active",
-      "head": "24e878c5736133b9464ce87e9415388e698e7ed0",
-      "updatedAt": "2026-10-10T13:36:26.140Z",
+      "head": "0b2b12154522a9f03aff135ac7e1b4f6882f3318",
+      "updatedAt": "2026-10-10T13:37:46.017Z",
       "summary": "24e878c5 / draft PR223: manual UI (schedule/day/week/month/+7, staff, hourly rates, timesheets, KPI preview, CSV, history), standalone HTTP controller and runtime ACL helper. Frozen install/full build, targeted lint/format, 17 automated tests and browser desktop/mobile/filter/month-boundary pass. Impeccable fix review resolved. Not wired to app/proxy/createApi or deployed. Prior CI fails cloud051 historical fixtures; new CI pending. SSH denied; agent empty; Keychain reload failed.",
       "nextAction": "Need devices-access scope transfer for app.ts/api.ts/server.mjs/package exports/historical tests and VPS api/db/public/backoffice-login; async user confirmation pending. Need owner ssh-add --apple-use-keychain ~/.ssh/pickchick_finance_ed25519. Then wire module/flag/provisioning, test actual proxy and shell, pin historical fixtures without weakening guards, full CI, fresh baselines/backups/guarded release. BioCheck deferred by owner; manual attendance should ship first. See docs/operations/workforce.md; shared status/roadmap still restaurant-report-owned."
     }
