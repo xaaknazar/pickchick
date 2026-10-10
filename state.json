@@ -4136,6 +4136,25 @@
       "updatedAt": "2026-10-10T13:43:43.446Z",
       "summary": "24e878c5 / draft PR223: manual UI (schedule/day/week/month/+7, staff, hourly rates, timesheets, KPI preview, CSV, history), standalone HTTP controller and runtime ACL helper. Frozen install/full build, targeted lint/format, 17 automated tests and browser desktop/mobile/filter/month-boundary pass. Impeccable fix review resolved. Not wired to app/proxy/createApi or deployed. Prior CI fails cloud051 historical fixtures; new CI pending. SSH denied; agent empty; Keychain reload failed.",
       "nextAction": "Need devices-access scope transfer for app.ts/api.ts/server.mjs/package exports/historical tests and VPS api/db/public/backoffice-login; async user confirmation pending. Need owner ssh-add --apple-use-keychain ~/.ssh/pickchick_finance_ed25519. Then wire module/flag/provisioning, test actual proxy and shell, pin historical fixtures without weakening guards, full CI, fresh baselines/backups/guarded release. BioCheck deferred by owner; manual attendance should ship first. See docs/operations/workforce.md; shared status/roadmap still restaurant-report-owned."
+    },
+    {
+      "id": "cloud-kitchen-s2",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cloud-kitchen-s2",
+      "scopes": [
+        "db/cloud/migrations/054_cloud_kitchen_fulfillment.sql",
+        "packages/cloud-kitchen",
+        "infra/staging/cloud-kitchen-grants.mjs",
+        "tests/unit/cloud-kitchen-grants.test.mjs",
+        "tests/unit/cloud-kitchen-controller.test.mjs",
+        "tests/unit/cloud-kitchen-task-plan.test.mjs",
+        "tests/integration/cloud-kitchen.test.mjs",
+        "services/api/src/cloud-kitchen-controller.ts",
+        "docs/architecture/cloud-kitchen-s2.md"
+      ],
+      "status": "active",
+      "head": "7c6569bc6891eb33775bcd6e8b41664369a3fa5c",
+      "updatedAt": "2026-10-10T13:51:02.541Z"
     }
   ]
 }
