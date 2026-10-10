@@ -4364,25 +4364,6 @@
       "nextAction": "Ревью и интеграция codex/cloud-kitchen-ipad в codex/shared-development; затем KITCHEN_OFFLINE в ErrorSchema/openapi (после inventory), установка build 13 на iPad и включение режима cloud только по runbook с подтверждением владельца."
     },
     {
-      "id": "cloud-kitchen-portal",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/cloud-kitchen-portal",
-      "scopes": [
-        "infra/kitchen-portal",
-        "apps/kitchen",
-        "tests/kitchen",
-        "docs/operations/cloud-kitchen-portal.md",
-        "tests/kitchen-portal",
-        "apps/kitchen-desktop/scripts/inputs.mjs",
-        "apps/kitchen-desktop/security.mjs"
-      ],
-      "status": "available",
-      "head": "e1e5462d3f2bfdc4d247eeb2f9dfae9f7b758ecd",
-      "updatedAt": "2026-10-10T19:18:55.296Z",
-      "summary": "Облачные заказы (kiosk/mobile, fulfillmentOwner=cloud) на существующих /kitchen-live/{prep,assembly,display}: второй upstream портала (infra/kitchen-portal/cloud.mjs, флаг cloudKitchen по умолчанию выкл, ключи pcks_ только в защищённом config.json, проверка сессии порталом, команды только владельцу с Idempotency-Key/expectedVersion, cloudConnected в health), renderer объединяет ленты по orderId, метка источника, индикаторы «Касса/Сервер: на связи/нет связи», раздельные журналы, объединённое табло; compose.cloud.yaml; docs/operations/cloud-kitchen-portal.md. Коммит e1e5462d, Foundation CI 38077237396 полностью success; локально pnpm check, kitchen 50, kitchen-portal 14 (вкл. браузерные с PG и cloud), unittest 16, kitchen-lan 3, desktop security 4, Storybook build.",
-      "nextAction": "Включить в codex/shared-development после ревью. Релиз - guarded операция владельца по docs/operations/cloud-kitchen-portal.md (ключи по ролям через cloud-kitchen-screen-owner.mjs + pairing, сеть pickchick-kitchen_cloud, CLOUD_KITCHEN_API_ENABLED=1, новый expected-config-sha256). project-status/roadmap заняты inventory - не обновлены."
-    },
-    {
       "id": "mobile-luma-tabbar",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-luma-tabbar",
@@ -4422,6 +4403,25 @@
       "updatedAt": "2026-10-10T19:55:04.809Z",
       "summary": "Профиль release-cloud-kitchen.py + owner cloud-kitchen-release-owner.mjs + тесты (unittest 26, PG integration) + docs/operations/cloud-kitchen-release.md на 80ac5182, CI 38080436726 зелёная. Read-only prepare кандидата d87e3225 (--source-checkout) прошёл все live-пины, blocker: в кандидате нет owner-скрипта. На VPS ничего не применялось.",
       "nextAction": "Свести shared + cloud-kitchen-ipad + cloud-kitchen-portal (финальный SHA) + этот профиль в один кандидат, зелёная CI, затем владелец: prepare/apply по docs/operations/cloud-kitchen-release.md с резервом @vps; при смене формата cloudKitchen в портале обновить ENABLE_PORTAL. Обновить project-status/roadmap (заняты inventory)."
+    },
+    {
+      "id": "cloud-kitchen-portal",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cloud-kitchen-portal",
+      "scopes": [
+        "infra/kitchen-portal",
+        "apps/kitchen",
+        "tests/kitchen",
+        "docs/operations/cloud-kitchen-portal.md",
+        "tests/kitchen-portal",
+        "apps/kitchen-desktop/scripts/inputs.mjs",
+        "apps/kitchen-desktop/security.mjs"
+      ],
+      "status": "active",
+      "head": "c23d0c1d11b5a7c5d743a7c7f2d4c1b30331c474",
+      "updatedAt": "2026-10-10T19:56:32.940Z",
+      "summary": "Облачные заказы (kiosk/mobile, fulfillmentOwner=cloud) на существующих /kitchen-live/{prep,assembly,display}: второй upstream портала (infra/kitchen-portal/cloud.mjs, флаг cloudKitchen по умолчанию выкл, ключи pcks_ только в защищённом config.json, проверка сессии порталом, команды только владельцу с Idempotency-Key/expectedVersion, cloudConnected в health), renderer объединяет ленты по orderId, метка источника, индикаторы «Касса/Сервер: на связи/нет связи», раздельные журналы, объединённое табло; compose.cloud.yaml; docs/operations/cloud-kitchen-portal.md. Коммит e1e5462d, Foundation CI 38077237396 полностью success; локально pnpm check, kitchen 50, kitchen-portal 14 (вкл. браузерные с PG и cloud), unittest 16, kitchen-lan 3, desktop security 4, Storybook build.",
+      "nextAction": "Включить в codex/shared-development после ревью. Релиз - guarded операция владельца по docs/operations/cloud-kitchen-portal.md (ключи по ролям через cloud-kitchen-screen-owner.mjs + pairing, сеть pickchick-kitchen_cloud, CLOUD_KITCHEN_API_ENABLED=1, новый expected-config-sha256). project-status/roadmap заняты inventory - не обновлены."
     }
   ]
 }
