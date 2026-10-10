@@ -3777,8 +3777,8 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-native16",
       "head": "6aaa219878934281cdefe5f35a3fadf7314197cb",
-      "status": "active",
-      "updatedAt": "2026-10-09T14:39:44.825Z",
+      "status": "available",
+      "updatedAt": "2026-10-10T05:43:58.464Z",
       "scopes": [
         "apps/mobile/src/connectivity.ts",
         "tests/mobile/connectivity.test.mjs",
@@ -3787,8 +3787,8 @@
         "apps/mobile/ios",
         "@apple/testflight"
       ],
-      "summary": "Mobile0.2.0(16) immutable binary b25f6df6, CI37929668466 11/11, archive/export/signature verified. After owner Xcode sign-in, Apple upload accepted14:30:20UTC, processing complete, BuildID9fb3a59a-32fb-48f4-8c4d-1bd9a8e6ea48; existing PickChick Internal shows Testing14:38UTC with same2testers. Final docs6aaa2198 published; no public/external release or deviceinstall.",
-      "nextAction": "Integrate published native16 branch into shared after combinedCI; owner updates via TestFlight over existing app and verifies menu/reconnect without real payments. Preserve iPad11; full physical scroll acceptance separate."
+      "summary": "Native0.2.0(16) sourceb25f6df6 passed exact Foundation37929668466 11/11, signed archive/export verified. Owner Xcode sign-in completed; Apple upload accepted14:30:20UTC9Oct, processed and PickChick Internal Testing14:38 with same2testers. Docs6aaa merged into shared; primary now3c399b48. No external/public release or physical iPhone install claimed.",
+      "nextAction": "Owner updates existing iPhone app via TestFlight to16 and checks live menu/cart/reconnect. No real bank transaction required. Keep native artifact sourceb25 and existing binary; no rebuild/reupload or iPad reinstall needed. Physical acceptance remains pending."
     },
     {
       "id": "devices-access",
