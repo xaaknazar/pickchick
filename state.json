@@ -4313,6 +4313,17 @@
       "status": "active",
       "head": "9937fd900adbe79f4a6fd0d998da0093db24c6de",
       "updatedAt": "2026-10-10T16:39:10.019Z"
+    },
+    {
+      "id": "ci-integration-1010",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/ci-integration-1010",
+      "scopes": [
+        ".github/workflows/ci.yml"
+      ],
+      "status": "active",
+      "head": "bd60ab6b539d1b9a4432e271fd5d5a17bfe50cc2",
+      "updatedAt": "2026-10-10T17:10:02.907Z"
     }
   ]
 }
