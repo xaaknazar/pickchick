@@ -11,6 +11,7 @@ import {
   uuid,
   action,
   prefix,
+  cloudPrefix,
 } from './types.js';
 import type { Credential, Station, Order, DisplayItem, Action } from './types.js';
 export interface StoragePort {
@@ -18,6 +19,9 @@ export interface StoragePort {
   setItem(key: string, value: string): void;
   removeItem(key: string): void;
 }
+/** Who executes an order: the cashier edge, or the cloud for kiosk/mobile (ADR-0014). */
+export type Owner = 'edge' | 'cloud';
+export type StreamStatus = 'online' | 'offline' | 'unknown';
 export type Pending = {
   version: 1;
   scope: string;
@@ -25,6 +29,8 @@ export type Pending = {
   stationId: string;
   key: string;
   body: Action;
+  /** Present only in the separate cloud journal; edge journal entries keep the old shape. */
+  owner?: 'cloud';
 };
 export type State = {
   wholeTicketActions: boolean;
@@ -44,14 +50,29 @@ export type State = {
   lastSync: number | null;
   storageBlocked: boolean;
   lease: boolean;
+  /** Cloud kitchen stream configured by the portal; false keeps the edge-only behaviour. */
+  cloud: boolean;
+  streams: Record<Owner, StreamStatus>;
+  cloudPending: Pending | null;
+  cloudConflict: boolean;
+  cloudReviewed: Order | null;
 };
 export type Lease = (name: string) => Promise<(() => void) | null>;
 const authKey = 'pickchick.kitchen.credential.v1';
 const scope = (c: Credential) => `${c.branch_id}.${c.staff_id}.${c.terminal_id}`;
-export const journalKey = (c: Credential) => 'pickchick.kitchen.pending.v1.' + scope(c);
-export function parsePending(v: unknown, c: Credential): Pending {
+/** Each owner keeps its own durable journal: a stuck cashier command never blocks cloud work. */
+export const journalKey = (c: Credential, owner: Owner = 'edge') =>
+  'pickchick.kitchen.pending.v1.' + (owner === 'cloud' ? 'cloud.' : '') + scope(c);
+export const ownerOf = (o: Pick<Order, 'fulfillmentOwner'>): Owner =>
+  o.fulfillmentOwner === 'cloud' ? 'cloud' : 'edge';
+export function parsePending(v: unknown, c: Credential, owner: Owner = 'edge'): Pending {
   const p = record(v);
-  if (p.version !== 1 || p.scope !== scope(c)) throw new Error('JOURNAL_INVALID');
+  if (
+    p.version !== 1 ||
+    p.scope !== scope(c) ||
+    (owner === 'cloud' ? p.owner !== 'cloud' : p.owner !== undefined)
+  )
+    throw new Error('JOURNAL_INVALID');
   const body = action(p.body);
   if (body.action === 'complete_station' && body.stationId !== p.stationId)
     throw new Error('JOURNAL_INVALID');
@@ -62,6 +83,7 @@ export function parsePending(v: unknown, c: Credential): Pending {
     stationId: uuid(p.stationId),
     key: uuid(p.key),
     body,
+    ...(owner === 'cloud' ? { owner: 'cloud' as const } : {}),
   };
 }
 class StaleOperation extends Error {}
@@ -84,7 +106,14 @@ export class KitchenModel {
     lastSync: null,
     storageBlocked: false,
     lease: false,
+    cloud: false,
+    streams: { edge: 'unknown', cloud: 'unknown' },
+    cloudPending: null,
+    cloudConflict: false,
+    cloudReviewed: null,
   };
+  private streamOrders: Record<Owner, Order[]> = { edge: [], cloud: [] };
+  private streamDisplay: Record<Owner, DisplayItem[]> = { edge: [], cloud: [] };
   private release: (() => void) | null = null;
   private allOrders: Order[] = [];
   private epoch = 0;
@@ -103,9 +132,36 @@ export class KitchenModel {
       ? `${this.epoch}:${scope(c)}:${c.session_id}:${this.state.mode}:${this.state.stationId ?? ''}`
       : null;
   }
+  /** Called once from the portal config before any session is restored. */
+  enableCloud() {
+    this.state.cloud = true;
+  }
+  private slot(owner: Owner) {
+    const s = this.state;
+    return owner === 'cloud'
+      ? { pending: s.cloudPending, conflict: s.cloudConflict, reviewed: s.cloudReviewed }
+      : { pending: s.pending, conflict: s.conflict, reviewed: s.reviewed };
+  }
+  private setSlot(
+    owner: Owner,
+    patch: Partial<{ pending: Pending | null; conflict: boolean; reviewed: Order | null }>,
+  ) {
+    const s = this.state;
+    if (owner === 'cloud') {
+      if ('pending' in patch) s.cloudPending = patch.pending!;
+      if ('conflict' in patch) s.cloudConflict = patch.conflict!;
+      if ('reviewed' in patch) s.cloudReviewed = patch.reviewed!;
+    } else {
+      if ('pending' in patch) s.pending = patch.pending!;
+      if ('conflict' in patch) s.conflict = patch.conflict!;
+      if ('reviewed' in patch) s.reviewed = patch.reviewed!;
+    }
+  }
   private resetSnapshot() {
     this.snapshotScope = null;
     this.allOrders = [];
+    this.streamOrders = { edge: [], cloud: [] };
+    this.streamDisplay = { edge: [], cloud: [] };
     Object.assign(this.state, {
       orders: [],
       display: [],
@@ -243,13 +299,53 @@ export class KitchenModel {
       this.retryLoginAt = 0;
     });
   }
+  private async edgeSetup(c: Credential) {
+    const enabled = record(await this.call(prefix + '/config', null));
+    if (enabled.enabled !== true) throw new Error('FULFILLMENT_DISABLED');
+    return {
+      whole: enabled.wholeTicketActions === true,
+      list: stations(await this.call(prefix + '/stations', c), c.branch_id),
+    };
+  }
+  /** A revoked session or a stale epoch ends the whole sign-in, whichever stream reported it. */
+  private fatal(result: PromiseSettledResult<unknown>) {
+    if (result.status === 'fulfilled') return;
+    const e = result.reason;
+    if (
+      e instanceof StaleOperation ||
+      (e instanceof ApiError &&
+        e.validated &&
+        ((e.status === 401 && ['UNAUTHORIZED', 'SESSION_EXPIRED'].includes(e.code)) ||
+          (e.status === 403 && e.code === 'FORBIDDEN')))
+    )
+      throw e;
+  }
   private async signIn(c: Credential) {
     const epoch = this.epoch;
     if (Date.parse(c.expires_at) <= Date.now()) throw new Error('SESSION_EXPIRED');
-    const enabled = record(await this.call(prefix + '/config', null));
-    if (enabled.enabled !== true) throw new Error('FULFILLMENT_DISABLED');
-    this.state.wholeTicketActions = enabled.wholeTicketActions === true;
-    const list = stations(await this.call(prefix + '/stations', c), c.branch_id);
+    let list: Station[];
+    if (!this.state.cloud) {
+      const edge = await this.edgeSetup(c);
+      this.state.wholeTicketActions = edge.whole;
+      list = edge.list;
+    } else {
+      // Either stream is enough to work: a switched-off cashier must not hide cloud orders.
+      const [edge, cloud] = await Promise.allSettled([
+        this.edgeSetup(c),
+        this.call(cloudPrefix + '/stations', c).then((v) => stations(v, c.branch_id)),
+      ]);
+      this.fatal(edge);
+      this.fatal(cloud);
+      this.state.streams = {
+        edge: edge.status === 'fulfilled' ? 'online' : 'offline',
+        cloud: cloud.status === 'fulfilled' ? 'online' : 'offline',
+      };
+      if (edge.status === 'rejected' && cloud.status === 'rejected') throw edge.reason;
+      this.state.wholeTicketActions = edge.status === 'fulfilled' ? edge.value.whole : true;
+      list = edge.status === 'fulfilled' ? [...edge.value.list] : [];
+      for (const station of cloud.status === 'fulfilled' ? cloud.value : [])
+        if (!list.some((known) => known.id === station.id)) list.push(station);
+    }
     this.release?.();
     this.release = null;
     this.state.lease = false;
@@ -279,16 +375,21 @@ export class KitchenModel {
       pending: null,
       conflict: false,
       reviewed: null,
+      cloudPending: null,
+      cloudConflict: false,
+      cloudReviewed: null,
       storageBlocked: false,
       lease: true,
     });
     this.resetSnapshot();
     try {
-      const raw = this.durable.getItem(journalKey(c));
-      if (raw) {
-        const pending = parsePending(JSON.parse(raw), c);
-        this.state.pending = pending;
-        this.state.stationId = pending.stationId;
+      for (const owner of this.state.cloud ? (['cloud', 'edge'] as const) : (['edge'] as const)) {
+        const raw = this.durable.getItem(journalKey(c, owner));
+        if (raw) {
+          const pending = parsePending(JSON.parse(raw), c, owner);
+          this.setSlot(owner, { pending });
+          this.state.stationId = pending.stationId;
+        }
       }
     } catch {
       this.state.storageBlocked = true;
@@ -310,6 +411,62 @@ export class KitchenModel {
     const c = this.state.actor;
     if (!c) return;
     if (Date.parse(c.expires_at) <= Date.now()) throw new ApiError('SESSION_EXPIRED', 401, true);
+    if (!this.state.cloud) {
+      const edge = await this.readStream(prefix, c);
+      this.publish(edge.orders, edge.display);
+      return;
+    }
+    const scopeKey = this.scopeKey();
+    if (this.snapshotScope !== scopeKey) {
+      this.streamOrders = { edge: [], cloud: [] };
+      this.streamDisplay = { edge: [], cloud: [] };
+    }
+    const [edge, cloud] = await Promise.allSettled([
+      this.readStream(prefix, c),
+      this.readStream(cloudPrefix, c),
+    ]);
+    this.fatal(edge);
+    this.fatal(cloud);
+    this.state.streams = {
+      edge: edge.status === 'fulfilled' ? 'online' : 'offline',
+      cloud: cloud.status === 'fulfilled' ? 'online' : 'offline',
+    };
+    if (edge.status === 'rejected' && cloud.status === 'rejected') throw edge.reason;
+    // The unreachable stream keeps its last orders visible; its actions are blocked in the UI.
+    for (const [owner, result] of [
+      ['edge', edge],
+      ['cloud', cloud],
+    ] as const)
+      if (result.status === 'fulfilled') {
+        this.streamOrders[owner] = result.value.orders.map((o) =>
+          owner === 'cloud' ? { ...o, fulfillmentOwner: 'cloud' as const } : o,
+        );
+        this.streamDisplay[owner] = result.value.display;
+      }
+    // One ticket per orderId: the cloud copy is authoritative for orders the cloud owns.
+    const cloudIds = new Set(this.streamOrders.cloud.map((o) => o.orderId));
+    const numbers = new Set(this.streamDisplay.edge.map((i) => i.number));
+    this.publish(
+      [
+        ...this.streamOrders.cloud,
+        ...this.streamOrders.edge.filter((o) => !cloudIds.has(o.orderId)),
+      ],
+      [
+        ...this.streamDisplay.edge,
+        ...this.streamDisplay.cloud.filter((i) => !numbers.has(i.number)),
+      ],
+    );
+  }
+  private publish(all: Order[], display: DisplayItem[]) {
+    this.allOrders = all.sort(
+      (a, b) => a.createdAt.localeCompare(b.createdAt) || a.orderId.localeCompare(b.orderId),
+    );
+    this.state.display = display;
+    this.snapshotScope = this.scopeKey();
+    this.projectPage();
+    this.state.lastSync = Date.now();
+  }
+  private async readStream(base: string, c: Credential) {
     const all: Order[] = [],
       display: DisplayItem[] = [],
       seen = new Set<string>();
@@ -322,7 +479,7 @@ export class KitchenModel {
       const q = new URLSearchParams({ limit: '100' });
       if (this.state.mode === 'display') {
         if (cursor) q.set('afterNumber', cursor);
-        const page = displayPage(await this.call(prefix + '/display?' + q, c));
+        const page = displayPage(await this.call(base + '/display?' + q, c));
         for (const i of page.items) {
           if (seen.has(i.number)) throw new Error('INVALID_RESPONSE');
           seen.add(i.number);
@@ -335,7 +492,7 @@ export class KitchenModel {
         if (!station) throw new Error('NO_STATIONS');
         q.set('stationId', station);
         if (cursor) q.set('afterOrderId', cursor);
-        const page = kitchenPage(await this.call(prefix + '/kitchen?' + q, c), c.branch_id);
+        const page = kitchenPage(await this.call(base + '/kitchen?' + q, c), c.branch_id);
         for (const i of page.items) {
           if (seen.has(i.orderId)) throw new Error('INVALID_RESPONSE');
           seen.add(i.orderId);
@@ -346,16 +503,10 @@ export class KitchenModel {
       }
       if (bytes > 50 * 1024 * 1024 || seen.size > 10000) throw new Error('QUEUE_BOUND_EXCEEDED');
     } while (cursor);
-    this.allOrders = all.sort(
-      (a, b) => a.createdAt.localeCompare(b.createdAt) || a.orderId.localeCompare(b.orderId),
-    );
-    this.state.display = display;
-    this.snapshotScope = this.scopeKey();
-    this.projectPage();
-    this.state.lastSync = Date.now();
+    return { orders: all, display };
   }
   async selectStation(id: string) {
-    if (this.state.pending) return;
+    if (this.state.pending || this.state.cloudPending) return;
     await this.run(async () => {
       if (!this.state.stations.some((s) => s.id === id)) throw new Error('INVALID_STATION');
       this.state.stationId = id;
@@ -364,7 +515,7 @@ export class KitchenModel {
     });
   }
   async selectMode(mode: 'kitchen' | 'display') {
-    if (this.state.pending) return;
+    if (this.state.pending || this.state.cloudPending) return;
     await this.run(async () => {
       this.state.mode = mode;
       this.resetSnapshot();
@@ -390,111 +541,128 @@ export class KitchenModel {
     this.projectPage();
     this.emit();
   }
-  private persist(p: Pending) {
+  private persist(owner: Owner, p: Pending) {
     const c = this.state.actor;
     if (!c) throw new Error('UNAUTHENTICATED');
     try {
       const raw = JSON.stringify(p);
-      this.durable.setItem(journalKey(c), raw);
-      if (this.durable.getItem(journalKey(c)) !== raw) throw new Error();
+      this.durable.setItem(journalKey(c, owner), raw);
+      if (this.durable.getItem(journalKey(c, owner)) !== raw) throw new Error();
     } catch {
       this.state.storageBlocked = true;
       throw new Error('STORAGE_UNAVAILABLE');
     }
-    this.state.pending = p;
+    this.setSlot(owner, { pending: p });
     this.emit();
   }
-  private clearPending() {
+  private clearPending(owner: Owner) {
     const c = this.state.actor;
     if (!c) throw new Error('UNAUTHENTICATED');
     try {
-      this.durable.removeItem(journalKey(c));
-      if (this.durable.getItem(journalKey(c)) !== null) throw new Error();
+      this.durable.removeItem(journalKey(c, owner));
+      if (this.durable.getItem(journalKey(c, owner)) !== null) throw new Error();
     } catch {
       this.state.storageBlocked = true;
       throw new Error('STORAGE_UNAVAILABLE');
     }
-    this.state.pending = null;
-    this.state.conflict = false;
-    this.state.reviewed = null;
+    this.setSlot(owner, { pending: null, conflict: false, reviewed: null });
+  }
+  /** True when this order's owner stream is known to be unreachable right now. */
+  ownerOffline(o: Pick<Order, 'fulfillmentOwner'>) {
+    return this.state.cloud && this.state.streams[ownerOf(o)] === 'offline';
   }
   async command(o: Order, body: Action) {
     await this.run(async () => {
       const c = this.state.actor,
-        s = this.state.stationId;
-      if (!c || !s || !this.state.lease || this.state.pending || this.state.storageBlocked)
+        s = this.state.stationId,
+        owner = ownerOf(o);
+      if (owner === 'cloud' && !this.state.cloud) throw new Error('ACTION_UNAVAILABLE');
+      if (!c || !s || !this.state.lease || this.slot(owner).pending || this.state.storageBlocked)
         throw new Error('RECOVERY_REQUIRED');
+      if (this.ownerOffline(o))
+        throw new Error(owner === 'cloud' ? 'CLOUD_OFFLINE' : 'EDGE_OFFLINE');
       if (
         !this.state.orders.some(
-          (current) => current.orderId === o.orderId && current.version === o.version,
+          (current) =>
+            current.orderId === o.orderId &&
+            current.version === o.version &&
+            ownerOf(current) === owner,
         ) ||
         !allowedActions(o, s, this.state.wholeTicketActions).some(
           (a) => JSON.stringify(a) === JSON.stringify(body),
         )
       )
         throw new Error('ACTION_UNAVAILABLE');
-      const old = this.durable.getItem(journalKey(c));
+      const old = this.durable.getItem(journalKey(c, owner));
       if (old) throw new Error('RECOVERY_REQUIRED');
-      this.persist({
+      this.persist(owner, {
         version: 1,
         scope: scope(c),
         orderId: o.orderId,
         stationId: s,
         key: this.newId(),
         body: action(body),
+        ...(owner === 'cloud' ? { owner: 'cloud' as const } : {}),
       });
-      await this.sendPending();
+      await this.sendPending(owner);
     });
   }
-  private async sendPending() {
+  private async sendPending(owner: Owner) {
     const c = this.state.actor,
-      p = this.state.pending;
+      p = this.slot(owner).pending;
     if (!c || !p || !this.state.lease || this.state.storageBlocked)
       throw new Error('RECOVERY_REQUIRED');
-    const raw = this.durable.getItem(journalKey(c));
-    if (!raw || JSON.stringify(parsePending(JSON.parse(raw), c)) !== JSON.stringify(p))
+    const raw = this.durable.getItem(journalKey(c, owner));
+    if (!raw || JSON.stringify(parsePending(JSON.parse(raw), c, owner)) !== JSON.stringify(p))
       throw new Error('JOURNAL_CHANGED');
+    // Exactly one owner receives a command: the journal decides, never a fallback.
+    const base = owner === 'cloud' ? cloudPrefix : prefix;
     try {
       const result = summary(
-        await this.call(`${prefix}/orders/${p.orderId}/actions`, c, p.body, p.key),
+        await this.call(`${base}/orders/${p.orderId}/actions`, c, p.body, p.key),
         c.branch_id,
       );
       if (result.orderId !== p.orderId) throw new Error('INVALID_RESPONSE');
-      this.clearPending();
+      this.clearPending(owner);
       await this.read();
     } catch (e) {
       if (e instanceof ApiError && e.validated && e.status === 409 && e.code === 'CONFLICT') {
-        this.state.conflict = true;
-        await this.review();
+        this.setSlot(owner, { conflict: true });
+        await this.review(owner);
       }
       throw e;
     }
   }
-  async retry() {
+  async retry(owner: Owner = 'edge') {
     await this.run(async () => {
-      if (this.state.conflict) throw new Error('REVIEW_REQUIRED');
-      await this.sendPending();
+      if (this.slot(owner).conflict) throw new Error('REVIEW_REQUIRED');
+      await this.sendPending(owner);
     });
   }
-  private async review() {
+  private async review(owner: Owner) {
     const c = this.state.actor,
-      p = this.state.pending;
+      p = this.slot(owner).pending;
     if (!c || !p) return;
-    this.state.reviewed = order(
-      await this.call(`${prefix}/orders/${p.orderId}?stationId=${p.stationId}`, c),
+    const base = owner === 'cloud' ? cloudPrefix : prefix;
+    const reviewed = order(
+      await this.call(`${base}/orders/${p.orderId}?stationId=${p.stationId}`, c),
       c.branch_id,
     );
-  }
-  async reviewConflict() {
-    await this.run(async () => {
-      if (!this.state.conflict) throw new Error('REVIEW_REQUIRED');
-      await this.review();
+    this.setSlot(owner, {
+      reviewed: owner === 'cloud' ? { ...reviewed, fulfillmentOwner: 'cloud' } : reviewed,
     });
   }
-  async acknowledgeConflict() {
+  async reviewConflict(owner: Owner = 'edge') {
     await this.run(async () => {
-      if (!this.state.conflict || !this.state.reviewed) throw new Error('REVIEW_REQUIRED');
-      this.clearPending();
+      if (!this.slot(owner).conflict) throw new Error('REVIEW_REQUIRED');
+      await this.review(owner);
+    });
+  }
+  async acknowledgeConflict(owner: Owner = 'edge') {
+    await this.run(async () => {
+      const slot = this.slot(owner);
+      if (!slot.conflict || !slot.reviewed) throw new Error('REVIEW_REQUIRED');
+      this.clearPending(owner);
       await this.read();
     });
   }

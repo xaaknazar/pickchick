@@ -205,6 +205,76 @@ nav button[aria-pressed='true'] {
 .connection.offline {
   color: #9b350a;
 }
+/* Cloud kitchen (ADR-0014): one indicator per stream; text carries the state, not colour. */
+.streams {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px 14px;
+}
+.stream {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: #35674f;
+}
+.stream-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+.stream-offline {
+  color: #9b350a;
+}
+.stream-offline .stream-dot {
+  background: transparent;
+  border: 2px solid currentColor;
+}
+.stream-unknown {
+  color: #53657d;
+}
+.sync-time {
+  margin-left: 14px;
+  color: #53657d;
+}
+.source {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid #cdd7e8;
+  color: #3b4760;
+  background: #f4f7fc;
+}
+.source-cloud {
+  border-color: #b9cdf0;
+  color: #0047bb;
+  background: #eef3fc;
+}
+.source-offline {
+  border-color: #f0c7b3;
+  color: #9b350a;
+  background: #fff4ee;
+}
+.ticket.owner-offline {
+  opacity: 0.72;
+}
+.display-streams {
+  position: fixed;
+  right: 24px;
+  bottom: 16px;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 15px;
+}
 .workspace {
   flex: 1;
   min-height: 0;
@@ -599,6 +669,9 @@ nav button[aria-pressed='true'] {
     order: 5;
     flex-basis: 100%;
     text-align: left;
+  }
+  .streams {
+    justify-content: flex-start;
   }
   .board h2 {
     font-size: 22px;

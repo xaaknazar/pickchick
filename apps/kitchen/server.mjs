@@ -135,6 +135,7 @@ const assets = new Map([
     'components/TerminalPairing',
     'components/DisplayAccess',
     'components/PasswordReset',
+    'components/StreamStatus',
   ].map((n) => ['/' + n + '.js', [n + '.js', 'text/javascript; charset=utf-8']]),
   ...['logo.png', 'bg-blue.png'].map((n) => ['/' + n, [n, 'image/png']]),
   ...[
