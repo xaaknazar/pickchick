@@ -3697,10 +3697,12 @@
         "@release/ios",
         "docs/operations/kiosk-build11-installation.md"
       ],
-      "head": "fa50631c157a5bf6b7fd25eb5550299eed97adc9",
+      "head": "b7c0a4812aeae329a21a42d184d1595493dcb6e1",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "status": "active",
-      "updatedAt": "2026-10-09T10:43:52.611Z"
+      "status": "done",
+      "updatedAt": "2026-10-10T09:29:15.094Z",
+      "summary": "Влито в общий срез. Владелец 10.10 передал доработку Claude",
+      "nextAction": "Claude: исправления по аудиту 10.10 в новой ветке от общего среза"
     },
     {
       "id": "mobile-live-menu",
