@@ -4102,14 +4102,13 @@
       "branch": "codex/mobile-integration-1010",
       "scopes": [
         "infra/staging/release-live-menu-fixes.py",
-        "tests/operations/test_live_menu_fixes_release.py",
-        "@vps/api"
+        "tests/operations/test_live_menu_fixes_release.py"
       ],
       "status": "available",
       "head": "d85f0244ca92009d4ddc3998b748da6b5315c11b",
-      "updatedAt": "2026-10-10T13:03:06.892Z",
+      "updatedAt": "2026-10-10T13:36:19.513Z",
       "summary": "2026-10-10 API f277d1a4 (codex/live-menu-fixes-050, CI 38051018005 11/11) installed by owner via release-live-menu-fixes.py over 3bc98faf: api healthy, pointer f277d1a4, no lock, QR worker unchanged. @vps/api no longer needed by this task.",
-      "nextAction": "Record install in project-status/roadmap; integrate codex/live-menu-fixes-050 into shared; TestFlight storefront build for owner acceptance."
+      "nextAction": "Record install in project-status/roadmap; integrate codex/live-menu-fixes-050 into shared; TestFlight storefront build for owner acceptance. 2026-10-10: released @vps/api to owner-authorized workforce rollout; preserve installed f277d1a4."
     }
   ]
 }
