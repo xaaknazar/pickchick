@@ -75,9 +75,15 @@ importers:
       '@eslint/js':
         specifier: 10.0.1
         version: 10.0.1(eslint@10.10.0(supports-color@8.1.1))
+      '@pickchick/cloud-kitchen':
+        specifier: workspace:*
+        version: link:packages/cloud-kitchen
       '@pickchick/edge-fulfillment':
         specifier: workspace:*
         version: link:packages/edge-fulfillment
+      '@pickchick/fulfillment-state':
+        specifier: workspace:*
+        version: link:packages/fulfillment-state
       '@types/node':
         specifier: 24.13.3
         version: 24.13.3
@@ -438,6 +444,25 @@ importers:
       '@pickchick/database':
         specifier: workspace:*
         version: link:../database
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
+    devDependencies:
+      '@types/node':
+        specifier: 24.13.3
+        version: 24.13.3
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/cloud-kitchen:
+    dependencies:
+      '@pickchick/database':
+        specifier: workspace:*
+        version: link:../database
+      '@pickchick/fulfillment-state':
+        specifier: workspace:*
+        version: link:../fulfillment-state
       zod:
         specifier: 4.5.4
         version: 4.5.4

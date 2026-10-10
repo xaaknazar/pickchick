@@ -75,7 +75,9 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@pickchick/cloud-kitchen": "workspace:*",
     "@pickchick/edge-fulfillment": "workspace:*",
+    "@pickchick/fulfillment-state": "workspace:*",
     "@types/node": "24.13.3",
     "eslint": "10.10.0",
     "prettier": "3.9.6",
