@@ -4148,11 +4148,12 @@
         "docs/project-status.md",
         "docs/collaboration/handoff.md",
         "docs/roadmap/project.json",
-        "@vps/roadmap"
+        "@vps/roadmap",
+        "tests/backoffice/browser_operations.py"
       ],
       "status": "active",
       "head": "0e744f7202accad31ecf7769b21f9f51cbdd5788",
-      "updatedAt": "2026-10-10T13:52:16.434Z",
+      "updatedAt": "2026-10-10T14:00:39.610Z",
       "summary": "24e878c5 / draft PR223: manual UI (schedule/day/week/month/+7, staff, hourly rates, timesheets, KPI preview, CSV, history), standalone HTTP controller and runtime ACL helper. Frozen install/full build, targeted lint/format, 17 automated tests and browser desktop/mobile/filter/month-boundary pass. Impeccable fix review resolved. Not wired to app/proxy/createApi or deployed. Prior CI fails cloud051 historical fixtures; new CI pending. SSH denied; agent empty; Keychain reload failed.",
       "nextAction": "Need devices-access scope transfer for app.ts/api.ts/server.mjs/package exports/historical tests and VPS api/db/public/backoffice-login; async user confirmation pending. Need owner ssh-add --apple-use-keychain ~/.ssh/pickchick_finance_ed25519. Then wire module/flag/provisioning, test actual proxy and shell, pin historical fixtures without weakening guards, full CI, fresh baselines/backups/guarded release. BioCheck deferred by owner; manual attendance should ship first. See docs/operations/workforce.md; shared status/roadmap still restaurant-report-owned."
     }
