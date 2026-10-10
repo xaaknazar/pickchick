@@ -4417,9 +4417,11 @@
         "infra/staging/cloud-kitchen-release-owner.mjs",
         "tests/integration/cloud-kitchen-release.test.mjs"
       ],
-      "status": "active",
-      "head": "5d808286c4b99052d5ed681046e17a28c8738aaa",
-      "updatedAt": "2026-10-10T19:33:08.534Z"
+      "status": "available",
+      "head": "80ac51826acdc177dd9232985acc1f348e934c9c",
+      "updatedAt": "2026-10-10T19:55:04.809Z",
+      "summary": "Профиль release-cloud-kitchen.py + owner cloud-kitchen-release-owner.mjs + тесты (unittest 26, PG integration) + docs/operations/cloud-kitchen-release.md на 80ac5182, CI 38080436726 зелёная. Read-only prepare кандидата d87e3225 (--source-checkout) прошёл все live-пины, blocker: в кандидате нет owner-скрипта. На VPS ничего не применялось.",
+      "nextAction": "Свести shared + cloud-kitchen-ipad + cloud-kitchen-portal (финальный SHA) + этот профиль в один кандидат, зелёная CI, затем владелец: prepare/apply по docs/operations/cloud-kitchen-release.md с резервом @vps; при смене формата cloudKitchen в портале обновить ENABLE_PORTAL. Обновить project-status/roadmap (заняты inventory)."
     }
   ]
 }
