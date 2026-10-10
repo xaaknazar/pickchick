@@ -3650,12 +3650,12 @@
         "infra/staging/catalog-edge-grants.mjs",
         "tests/integration/unified-menu-release.test.mjs"
       ],
-      "status": "active",
-      "head": "cd7ffa66044b610cec630786bac11570851b86d1",
-      "updatedAt": "2026-10-09T12:13:30.731Z",
-      "nextAction": " 2026-10-09 owner explicitly assigned Claude continuation to Codex; transferred packages/catalog-admin/src/index.ts, services/api/src/index.ts to mobile-live-menu. Preserve previous checkpoints; bank QR production behavior accepted and frozen.",
+      "status": "done",
+      "head": "5ed34aad73f426a1add7d7b138d9eeff017c613e",
+      "updatedAt": "2026-10-10T17:09:50.221Z",
+      "nextAction": "Новых шагов по этой задаче нет; .github/workflows/ci.yml освобождён для ci-integration-1010.",
       "next": "Owner handed continued mobile/device work to Codex; payment behavior preserved.",
-      "summary": " 2026-10-09 owner incident: root delegates unified_ci_fixes portal-only @vps/kitchen-portal stock update-deploy.py b8821d5→23fb39e1, CI37845538624 11/11; preserve bank/edge/DB and existing locks/backups. New Devices not deployed. Root-agreed 3 exact builder/staff-test/historical-fixture paths handed to devices-access for schema020 packaging compatibility. 2026-10-10 parent coordinator explicitly transfers only the historical unified-menu installation protocol to restaurant-report; all runtime scopes and prior checkpoints retained."
+      "summary": "Ветка codex/unified-menu (5ed34aad) полностью включена в codex/shared-development; релиз единого меню установлен ранее (см. unified-menu-publication.md)."
     },
     {
       "id": "kaspi-qr-pending",
