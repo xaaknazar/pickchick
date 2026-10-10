@@ -4400,9 +4400,11 @@
         "tests/operations/layout_regression.py",
         ".github/workflows/ci.yml"
       ],
-      "status": "active",
-      "head": "5d808286c4b99052d5ed681046e17a28c8738aaa",
-      "updatedAt": "2026-10-10T19:14:14.001Z"
+      "status": "available",
+      "head": "3b2e27f7515a8767a1d63e7482bc7b8877f5ad93",
+      "updatedAt": "2026-10-10T19:44:17.229Z",
+      "summary": "Плавающий таб-бар (паттерн Luma) в цветах PickChick: кастомный tabBar FloatingTabBar, inset через TabBarInsetContext, корзина над баром. Коммит 3b2e27f7. pnpm check, test:mobile (327 node + 50 py), browser_tab_bar/layout_regression/cart_shortcut/cart_sheet и симуляторные browser-регрессии прошли локально; CI 38079635125 полностью зелёная. Нативный blur не добавлен (нужен expo-blur и пересборка). docs/project-status.md, handoff.md, roadmap не обновлены: заняты задачей inventory.",
+      "nextAction": "Владелец оценивает скриншоты; затем проверка на устройстве (VoiceOver, Reduce Transparency, крупный текст), решение о нативном blur, включение в общий срез и finish."
     },
     {
       "id": "cloud-kitchen-release",
