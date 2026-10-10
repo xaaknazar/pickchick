@@ -174,21 +174,14 @@ append-only, чтение облачных заказов) и `cloudChannelOrder
 
 ## Не сделано и заблокировано
 
-- `packages/commerce-core/src/order-view.ts` (занят `tiptoppay-backend`): чтение заказа для
-  iPad и приложения должно брать `cloudKitchenProjection(pool, orderId)`, если
-  `cloud_fulfillment_projection` пуст, и показывать `receipt: 'deferred'` для облачных заказов.
-  Пока экран заказа показывает «оплачен» без номера; номер и статус есть в БД и на табло.
+- Чтение заказа для iPad и приложения (`order-view.ts`), готовность киоска в режиме `cloud`
+  (`kiosk-checkout.ts`) и текст `KITCHEN_OFFLINE` в `apps/kiosk` сделаны в задаче
+  `cloud-kitchen-ipad`, см. [cloud-kitchen-ipad.md](cloud-kitchen-ipad.md).
 - `packages/contracts/src/index.ts` + `openapi.json` (`openapi.json` занят `inventory`): код
   `KITCHEN_OFFLINE` в `ErrorSchema`.
-- `apps/kiosk` (занят `kiosk-build12`): текст KZ/RU/EN, например RU «Кухня сейчас не на связи -
-  заказ оформить нельзя. Пригласите сотрудника.»
 - `services/api/src/customer-checkout-controller.ts` (занят `mobile-live-fixes`): отдельная
   правка не нужна - ошибка уже отдаётся 503, понижение кода для старых клиентов сделано в
   `http.ts`.
-- `packages/commerce-core/src/kiosk-checkout.ts` (занят `kiosk-v3-launch`): готовность киоска
-  (`config().enabled`) по-прежнему требует зарегистрированного активного устройства кассы и
-  активной привязки (это настройка, не связь). Для режима `cloud` её стоит заменить на
-  настроенную облачную кухню.
 - Неоплаченная отмена облачного заказа (`requestUnpaidCancellation`) ждёт edge-резерва, которого
   нет; номер облачному заказу выдаётся только при оплате, поэтому он не занимается.
 - UI BO, подключение грантов в provisioning, отчётное зеркало (protocol 5) и сверка

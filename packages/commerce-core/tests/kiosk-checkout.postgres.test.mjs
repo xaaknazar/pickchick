@@ -164,6 +164,14 @@ test('kiosk follows the back-office publication like mobile and needs only an on
   await fixture(async (f) => {
     // No per-device menu ACK: the published catalog is the single source for every channel.
     assert.equal((await f.checkout.config(f.who)).enabled, true);
+    // Mode 'edge' (default) keeps its exact answer: no cloud kitchen field (ADR-0014).
+    assert.deepEqual(Object.keys(await f.checkout.config(f.who)).sort(), [
+      'branchId',
+      'enabled',
+      'paymentMethod',
+      'paymentMethods',
+      'restaurant',
+    ]);
     const quote = await f.checkout.quote(f.who, f.cart());
     assert.equal(quote.totalMinor, '11000');
     const row = (
