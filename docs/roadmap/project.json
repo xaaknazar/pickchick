@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-09T23:49:08Z",
+  "updatedAt": "2026-10-10T14:27:35.317Z",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -72,7 +72,8 @@
     "docs/operations/device-access.md",
     "docs/operations/device-access-backoffice.md",
     "docs/operations/unified-menu-continuation.md",
-    "docs/operations/unified-menu-installation-2026-10-09.md"
+    "docs/operations/unified-menu-installation-2026-10-09.md",
+    "docs/operations/workforce.md"
   ],
   "workstreams": [
     {
@@ -2598,8 +2599,8 @@
       "id": "team-cash-discipline",
       "workstream": "team",
       "title": "Кассовая дисциплина и кадровые процессы",
-      "summary": "Обычные POS-смены и управленческий журнал существуют. Внесение/выемка, расхождения наличных и используемый кадровый учёт требуют завершения.",
-      "status": "planned",
+      "summary": "Обычные POS-смены и управленческий журнал существуют. 10 октября на pickchick.kz установлен ручной кадровый модуль: график, табель, сотрудники, ставки за час, KPI preview, CSV и аудит. Source 8468e3ae, Foundation CI 11/11, backup/restore, авторизованное чтение CEO и assets проверены. BioCheck USB ZKTeco не подключён, окончательная зарплатная ведомость и оставшаяся кассовая дисциплина не завершены.",
+      "status": "active",
       "owner": "joint",
       "phase": "integration",
       "dependsOn": ["team-passwords", "iiko-audit", "pos-client-upgrade"],
@@ -2615,13 +2616,17 @@
         {
           "label": "План обследования и перехода с iiko",
           "path": "docs/operations/iiko-replacement-discovery.md"
+        },
+        {
+          "label": "График, табель и почасовые начисления",
+          "path": "docs/operations/workforce.md"
         }
       ],
       "acceptance": [
         "AC-30: закрытие не скрывает незавершённый заказ или расхождение.",
         "Матрица прав и требуемые кадровые/расчётные операции приняты."
       ],
-      "nextAction": "Утвердить кассовые правила и реализовать отсутствующие операции.",
+      "nextAction": "Владелец проверяет работу с реальными сотрудниками, ставками, графиком и ручным табелем. Уточнить модель USB ZKTeco и ПО; согласовать обязательные доплаты и кадровые правила. Общую кадровую и кассовую задачу не считать полностью принятой.",
       "checks": {
         "implemented": true,
         "verified": false,
