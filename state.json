@@ -4377,6 +4377,28 @@
       "status": "active",
       "head": "5d808286c4b99052d5ed681046e17a28c8738aaa",
       "updatedAt": "2026-10-10T18:38:17.930Z"
+    },
+    {
+      "id": "mobile-luma-tabbar",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-luma-tabbar",
+      "scopes": [
+        "apps/mobile/src/app",
+        "apps/mobile/src/components/FloatingTabBar.tsx",
+        "apps/mobile/src/components/tab-bar-inset.ts",
+        "apps/mobile/src/tab-bar-metrics.ts",
+        "apps/mobile/src/ScreenHost.tsx",
+        "apps/mobile/src/components/CartShortcut.tsx",
+        "apps/mobile/src/components/UI.tsx",
+        "apps/mobile/src/screens/CatalogScreens.tsx",
+        "tests/mobile/tab-bar.test.mjs",
+        "tests/mobile/browser_tab_bar.py",
+        "tests/operations/layout_regression.py",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "active",
+      "head": "5d808286c4b99052d5ed681046e17a28c8738aaa",
+      "updatedAt": "2026-10-10T19:14:14.001Z"
     }
   ]
 }
