@@ -4031,27 +4031,6 @@
       "updatedAt": "2026-10-10T12:45:36.245Z"
     },
     {
-      "id": "cloud-kitchen-s2",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/cloud-kitchen-s2",
-      "scopes": [
-        "db/cloud/migrations/054_cloud_kitchen_fulfillment.sql",
-        "packages/cloud-kitchen",
-        "infra/staging/cloud-kitchen-grants.mjs",
-        "tests/unit/cloud-kitchen-grants.test.mjs",
-        "tests/unit/cloud-kitchen-controller.test.mjs",
-        "tests/unit/cloud-kitchen-task-plan.test.mjs",
-        "tests/integration/cloud-kitchen.test.mjs",
-        "services/api/src/cloud-kitchen-controller.ts",
-        "docs/architecture/cloud-kitchen-s2.md"
-      ],
-      "status": "available",
-      "head": "bf8bb7b1fd3eef85d1fd2b489d0b312835c50626",
-      "updatedAt": "2026-10-10T14:07:39.316Z",
-      "summary": "S2 pushed bf8bb7b1 on codex/cloud-kitchen-s2 (from cloud-kitchen-s1 7c6569bc): cloud 054 (mode/epoch default edge, admissions, cloud_kitchen_orders/tasks, Idempotency-Key journal, outbox, station presence), @pickchick/cloud-kitchen (fulfillment-state transitions, edge taskPlan port with parity vectors, admitPaidOrder idempotent with channel numbers, requestCancel, read models), flagged /v1/kitchen controller (404 by default, non-staging test auth hook only, not registered in createApi), grants module. pnpm check green; cloud-kitchen integration 11/11, channel-numbers 7/7, test:fulfillment green. Local test:integration: only known 051 guard tests (device-access-release, unified-menu-continuation) plus database/http tests needing a seeded public schema fail. package.json/pnpm-lock edited under cloud-kitchen-s1 scope.",
-      "nextAction": "S3/S4 per ADR-0014: device auth (cloud 056) and createApi registration (index.ts held by workforce, services/api/package.json by unified-menu-release), cloud stops + KITCHEN_OFFLINE gate; S5 wire admitPaidOrderInTransaction into commerce reconcile (see docs/architecture/cloud-kitchen-s2.md)."
-    },
-    {
       "id": "workforce",
       "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
       "branch": "codex/workforce",
@@ -4339,6 +4318,27 @@
       "updatedAt": "2026-10-10T18:03:09.466Z",
       "summary": "Ветка codex/cloud-kitchen-s1 (7c6569bc) включена в codex/shared-development (dd3bca8b; Foundation CI 38072282101 green на итоговом SHA); ветка fast-forward до общей версии для закрытия задачи.",
       "nextAction": "Новых шагов по задаче нет; области освобождены."
+    },
+    {
+      "id": "cloud-kitchen-s2",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cloud-kitchen-s2",
+      "scopes": [
+        "db/cloud/migrations/054_cloud_kitchen_fulfillment.sql",
+        "packages/cloud-kitchen",
+        "infra/staging/cloud-kitchen-grants.mjs",
+        "tests/unit/cloud-kitchen-grants.test.mjs",
+        "tests/unit/cloud-kitchen-controller.test.mjs",
+        "tests/unit/cloud-kitchen-task-plan.test.mjs",
+        "tests/integration/cloud-kitchen.test.mjs",
+        "services/api/src/cloud-kitchen-controller.ts",
+        "docs/architecture/cloud-kitchen-s2.md"
+      ],
+      "status": "active",
+      "head": "dd3bca8b5db349747c367425e062cc2b50666641",
+      "updatedAt": "2026-10-10T18:03:20.885Z",
+      "summary": "S2 pushed bf8bb7b1 on codex/cloud-kitchen-s2 (from cloud-kitchen-s1 7c6569bc): cloud 054 (mode/epoch default edge, admissions, cloud_kitchen_orders/tasks, Idempotency-Key journal, outbox, station presence), @pickchick/cloud-kitchen (fulfillment-state transitions, edge taskPlan port with parity vectors, admitPaidOrder idempotent with channel numbers, requestCancel, read models), flagged /v1/kitchen controller (404 by default, non-staging test auth hook only, not registered in createApi), grants module. pnpm check green; cloud-kitchen integration 11/11, channel-numbers 7/7, test:fulfillment green. Local test:integration: only known 051 guard tests (device-access-release, unified-menu-continuation) plus database/http tests needing a seeded public schema fail. package.json/pnpm-lock edited under cloud-kitchen-s1 scope.",
+      "nextAction": "S3/S4 per ADR-0014: device auth (cloud 056) and createApi registration (index.ts held by workforce, services/api/package.json by unified-menu-release), cloud stops + KITCHEN_OFFLINE gate; S5 wire admitPaidOrderInTransaction into commerce reconcile (see docs/architecture/cloud-kitchen-s2.md)."
     }
   ]
 }
