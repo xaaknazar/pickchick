@@ -4026,9 +4026,11 @@
         "docs/architecture/adr/0014-cloud-kitchen-channel.md",
         "docs/architecture/cloud-kitchen-channel.md"
       ],
-      "status": "active",
-      "head": "3c399b484b93b211da599116c2f42cb1e0cb95db",
-      "updatedAt": "2026-10-10T12:45:36.245Z"
+      "status": "done",
+      "head": "5d8bbeb412ba398b100c8befb623b8cdda987a94",
+      "updatedAt": "2026-10-10T18:26:35.977Z",
+      "summary": "ADR-0014 cloud-kitchen канала и решение владельца (облачный режим пока без фискального чека, 5d8bbeb4) включены в codex/shared-development (5d808286), Foundation CI 38074162274 green.",
+      "nextAction": "Дальше: UI кухни (два потока), связка оплата->admitPaidOrder, kiosk build 13 KITCHEN_OFFLINE, релиз миграций 053-056 по runbook."
     },
     {
       "id": "workforce",
