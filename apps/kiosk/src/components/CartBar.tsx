@@ -10,6 +10,8 @@ import { colors, fonts, useMetrics } from '../theme';
 import { Icon } from './Icon';
 import { measureRect, motion, useBump, useFly, usePop, useTimingTo, useTween } from './motion';
 import { useMotionPreference } from './useMotionPreference';
+import { ownerOrange } from './ownerOrange';
+import { fixedText } from './Body';
 const positions = (n: number, locale: Locale) => itemCount(n, locale);
 const minorOf = (total: string) => (/^[0-9]{1,15}$/.test(total) ? Number(total) : 0);
 /**
@@ -208,13 +210,17 @@ export function CartBar({
               transform: [{ scale: badge }],
             }}
           >
-            <Text style={{ fontFamily: fonts.black, fontSize: v(15), color: colors.white }}>
+            <Text
+              {...fixedText}
+              style={{ fontFamily: fonts.black, fontSize: v(15), color: colors.white }}
+            >
               {quantity}
             </Text>
           </Animated.View>
         </Animated.View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text
+            {...fixedText}
             testID="kiosk-cart-feedback"
             accessibilityLiveRegion="polite"
             numberOfLines={1}
@@ -224,9 +230,16 @@ export function CartBar({
               color: added ? colors.orangeInk : colors.muted,
             }}
           >
-            {added ? t.selected : quantity ? positions(quantity, locale) : t.cart}
+            {added
+              ? t.selected
+              : quantity
+                ? positions(quantity, locale)
+                : empty
+                  ? t.emptyCartHint
+                  : t.cart}
           </Text>
           <Text
+            {...fixedText}
             numberOfLines={1}
             adjustsFontSizeToFit
             accessibilityLabel={valid ? money(total) : undefined}
@@ -243,6 +256,7 @@ export function CartBar({
         <Animated.View style={{ opacity: dim, transform: [{ scale: press }] }}>
           <Pressable
             testID="kiosk-menu-checkout"
+            {...ownerOrange}
             accessibilityRole="button"
             accessibilityLabel={t.checkout}
             accessibilityState={{ disabled: blocked, busy }}
@@ -282,6 +296,7 @@ export function CartBar({
               <ActivityIndicator accessibilityLabel={t.checkout} color={colors.white} />
             ) : null}
             <Text
+              {...fixedText}
               style={{
                 fontFamily: fonts.black,
                 fontSize: Math.max(24, v(21)),

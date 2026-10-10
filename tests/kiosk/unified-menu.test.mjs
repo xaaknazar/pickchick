@@ -351,7 +351,7 @@ test('menu load attaches the published photo map; image_id stays the bundled key
     ['/catalog/media?version=2', '/availability'],
   );
   // The map of a version is fetched once.
-  assert.equal(await c.refresh(), undefined);
+  assert.equal(await c.refresh(), true);
   assert.equal(h.reads.filter((r) => r.path.startsWith('/catalog/media')).length, 1);
   assert.equal(c.getSnapshot().catalog.products.find((x) => x.id === p.id).media.sha256, hex('a'));
 });

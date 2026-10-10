@@ -10,6 +10,8 @@ import { Heading } from './Heading';
 import { IconButton } from './IconButton';
 import { motion, useEnter, useLoop, usePopIn, useTimingTo, useTween } from './motion';
 import { useMotionPreference } from './useMotionPreference';
+import { ownerOrange } from './ownerOrange';
+import { fixedText } from './Body';
 /**
  * v3 product action bar on blue: a glass quantity capsule with white discs and the
  * orange 96-pt "to cart" pill with a slow shine. Waiting states fade the pill pale
@@ -19,6 +21,8 @@ import { useMotionPreference } from './useMotionPreference';
 export function ProductActions({
   locale,
   quantity,
+  max = 20,
+  limit = null,
   price,
   valid,
   available,
@@ -30,9 +34,14 @@ export function ProductActions({
   onPlus,
   onAdd,
   onAttention,
+  save = false,
 }: {
   locale: Locale;
   quantity: number;
+  /** Most the stepper may reach (the cart's room for this exact line). */
+  max?: number;
+  /** The cart has no room for this line: the pill shows why and stays disabled. */
+  limit?: string | null;
   /** Line total in minor units, or null while a required choice is missing. */
   price: string | null;
   valid: boolean;
@@ -46,6 +55,8 @@ export function ProductActions({
   onAdd: () => void;
   /** The guest tapped the pale pill: point them at the missing choice. */
   onAttention?: () => void;
+  /** Editing a cart line: the pill saves over it ("Сохранить") instead of adding. */
+  save?: boolean;
 }) {
   const { v } = useMetrics();
   const t = copy(locale);
@@ -60,20 +71,20 @@ export function ProductActions({
     press.stopAnimation();
     press.setValue(1);
   }, [reduced, press]);
-  const disabled = !valid || !available;
+  const disabled = !valid || !available || !!limit;
   const blocked = disabled || busy;
-  const label = price ? `${t.toCart} · ${money(price)}` : t.required;
+  const label = limit ?? (price ? `${save ? t.saveLine : t.toCart} · ${money(price)}` : t.required);
   // Prototype `tween()` on #pctaSum: counts up from 0 whenever the price appears,
   // then to each new total; whole tenge while counting.
   const target = price ? Number(price) : 0;
   const counted = useTween(target, motion.enter, 0);
   const shown =
-    !price || counted === target
+    limit || !price || counted === target
       ? label
-      : `${t.toCart} · ${money(String(Math.round(counted / 100) * 100))}`;
+      : `${save ? t.saveLine : t.toCart} · ${money(String(Math.round(counted / 100) * 100))}`;
   const wait = useTimingTo(disabled ? 1 : 0, 220, 'css');
   // Missing choices keep the pill tappable for feedback only; busy and sold-out do not.
-  const attention = !valid && available && !busy && !!onAttention;
+  const attention = !valid && available && !limit && !busy && !!onAttention;
   const pressTo = (to: number) => {
     press.stopAnimation();
     Animated.timing(press, {
@@ -146,13 +157,14 @@ export function ProductActions({
                 label="+"
                 tone="light"
                 size="large"
-                disabled={quantity >= 20 || busy}
+                disabled={quantity >= max || busy}
                 onPress={onPlus}
               />
             </View>
             <Animated.View style={{ flex: 1, transform: [{ scale: press }] }}>
               <Pressable
                 testID="kiosk-product-add"
+                {...ownerOrange}
                 accessibilityRole="button"
                 accessibilityLabel={label}
                 accessibilityState={{ disabled: blocked, busy }}
@@ -163,7 +175,7 @@ export function ProductActions({
                 style={{
                   height,
                   borderRadius: height / 2,
-                  // Large white label: the accessible orangeCta (#FF6900 is 2.88:1).
+                  // Design orange under white text (owner decision 2026-10-10).
                   backgroundColor: colors.orangeCta,
                   shadowColor: colors.orange,
                   shadowOpacity: disabled ? 0 : 0.35,
@@ -241,6 +253,7 @@ export function ProductActions({
                   <ActivityIndicator accessibilityLabel={label} color={colors.white} />
                 ) : null}
                 <Text
+                  {...fixedText}
                   numberOfLines={1}
                   style={{
                     flexShrink: 1,

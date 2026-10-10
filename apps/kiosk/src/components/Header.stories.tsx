@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 import { View } from 'react-native';
 import { fn } from 'storybook/test';
@@ -29,19 +28,21 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Checkout = { args: { title: 'Как оплатите?' } };
-/** The mode chip pulses (.9 -> 1.05 -> 1) whenever the mode changes. */
-export const ModeChange: Story = {
-  render: function ModeChangeStory(args) {
-    const [here, setHere] = useState(false);
-    return (
-      <Header
-        {...args}
-        mode={here ? 'Здесь' : 'С собой'}
-        onMode={() => setHere((value) => !value)}
-      />
-    );
+/** The dining mode follows the subtitle with its own icon (bag to go, plate to eat in). */
+export const EatIn = {
+  args: { title: 'Ваш заказ', subtitle: '2 позиции', mode: 'В зале', modeKind: 'dine_in' },
+};
+export const LongTitle = {
+  args: {
+    locale: 'en',
+    title: 'How would you like to pay?',
+    subtitle: '2 items',
+    mode: 'Take away',
+    modeKind: 'takeaway',
   },
 };
+/** Payment: the footer owns the way out, so the header has no cancel. */
+export const NoCancel = { args: { title: 'Оплата заказа', cancellable: false, back: undefined } };
 export const Menu = {
   args: {
     back: undefined,

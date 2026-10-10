@@ -3,6 +3,7 @@ import { Animated, Text, View } from 'react-native';
 import { colors, fonts, useMetrics } from '../theme';
 import { cssEase, easeIn, springOut } from './motion';
 import { useMotionPreference } from './useMotionPreference';
+import { fixedText } from './Body';
 
 /** How long the paid card holds before it leaves; the ticket choreography starts then. */
 export const paidLead = 1000;
@@ -166,6 +167,7 @@ export function PaidStamp({ label, active }: { label: string; active: boolean })
           </View>
         </Animated.View>
         <Text
+          {...fixedText}
           style={{
             fontFamily: fonts.black,
             fontSize: v(48),

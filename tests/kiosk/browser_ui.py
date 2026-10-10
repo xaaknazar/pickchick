@@ -396,7 +396,7 @@ class KioskUI(unittest.TestCase):
                 capture(page, f'mode-{width}.png')
                 element(page, 'kiosk-mode-takeaway').click()
                 screen(page, 'menu')
-                for category in ['combo', 'duo', 'sets', 'extras', 'combo']:
+                for category in ['combo', 'duo', 'sets', 'extras', 'drinks', 'combo']:
                     chip = element(page, 'kiosk-category-' + category)
                     chip.click()
                     assert_bounded(page, 'kiosk-category-' + category, width, height)
@@ -488,27 +488,27 @@ class KioskUI(unittest.TestCase):
     def test_menu_restores_category_and_offset_after_product_close(self):
         page, fixture = self.open()
         self.start(page)
-        selected = element(page, 'kiosk-category-extras')
+        selected = element(page, 'kiosk-category-drinks')
         selected.click()
         expect(selected).to_have_attribute('aria-selected', 'true')
         scroller = element(page, 'kiosk-menu-scroll')
         product = element(page, 'kiosk-product-piko')
         product.scroll_into_view_if_needed()
         # Use actual UI scrolling; do not seed navigation memory or storage.
-        capture(page, 'extras-before-product.png')
+        capture(page, 'drinks-before-product.png')
         offset = scroller.evaluate('(e) => e.scrollTop')
         self.assertGreater(offset, 500, 'This must exercise a scrolled category')
         product.click()
         screen(page, 'product')
         element(page, 'kiosk-product-close').click()
         screen(page, 'menu')
-        expect(element(page, 'kiosk-category-extras')).to_have_attribute('aria-selected', 'true')
+        expect(element(page, 'kiosk-category-drinks')).to_have_attribute('aria-selected', 'true')
         page.wait_for_function("""(offset) => Math.abs(
             document.querySelector('[data-testid="kiosk-menu-scroll"]').scrollTop - offset) <= 2""", arg=offset)
         self.assertTrue(product.is_visible())
         assert_bounded(page, 'kiosk-menu-checkout', 820, 1180)
         self.assertEqual(len(fixture.orders), 0)
-        capture(page, 'extras-restored-after-product.png')
+        capture(page, 'drinks-restored-after-product.png')
 
     def test_lost_create_response_reconciles_committed_order_after_reload(self):
         page, fixture = self.open()

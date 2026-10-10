@@ -17,10 +17,11 @@ export const colors = {
   night: '#061B4E',
   cream: '#FEF8F0',
   peach: '#FFF0E5',
-  // WCAG AA orange roles (owner decision 2026-10-08). Brand `orange` stays for
-  // fills, icons, halos and badges that carry no text.
-  /** Orange surface under large white text (>= 24 px): white is 3.56:1. */
-  orangeCta: '#E85A00',
+  // Orange roles. Owner decision 2026-10-10: calls to action and active controls use the
+  // design orange #FF6900 with white text (an approved exception to the WCAG AA contrast
+  // check, see tests/kiosk/browser_mobbin.py). Brand `orange` stays for fills, icons, halos.
+  /** CTA and active-control surface under white text: the design orange (owner decision). */
+  orangeCta: '#FF6900',
   /** Orange text on white/peach (5.4/4.85:1) and surfaces under small white text. */
   orangeInk: '#B84500',
   sky: '#EAF1FF',
