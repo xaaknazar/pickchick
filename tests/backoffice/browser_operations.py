@@ -140,12 +140,16 @@ with sync_playwright() as pw:
  expect(at('op-refresh')).to_be_enabled()
  assert pending.value.status==200;expect(at('cashier-shift-select')).to_have_value('')
  stage('stock durable forms')
- navigate('stock');at('op-add-ingredient').click();at('op-name').fill('Synthetic chicken');at('op-minimum').fill('100');at('op-reason').fill('Create ingredient for acceptance');at('op-save').click();expect(at('op-editor')).to_have_count(0)
+ navigate('stock');page.get_by_role('button',name='Номенклатура',exact=True).click();at('op-add-ingredient').click();at('op-name').fill('Synthetic chicken');at('op-minimum').fill('100');at('op-reason').fill('Create ingredient for acceptance');at('op-save').click();expect(at('op-editor')).to_have_count(0)
  def stock(button,quantity,cost=None):
-  at(button).click();at('op-reference').fill('SYN-'+quantity);at('op-stock-quantity-0').fill(quantity)
+  at(button).click();at('op-reference').fill('SYN-'+quantity);at('op-stock-ingredient-0').select_option(label='Synthetic chicken');at('op-stock-quantity-0').fill(quantity)
   if cost:at('op-stock-cost-0').fill(cost)
-  at('op-reason').fill('Synthetic inventory acceptance');at('op-save').click();expect(page.locator('dialog')).to_have_count(0)
+  at('op-reason').fill('Synthetic inventory acceptance');at('inventory-reviewed').check();at('op-save').click();expect(page.locator('dialog')).to_have_count(0)
  stock('op-receipt','1000','3500');stock('op-waste','100');stock('op-count','800')
+ page.get_by_role('button',name='Документы',exact=True).click();page.locator('.inventory-table summary').first.click();expect(page.locator('.inventory-table details[open]')).to_contain_text('Synthetic chicken')
+ page.get_by_label('Разделы складского учёта').get_by_role('button',name='Остатки',exact=True).click();at('inventory-search').fill('Synthetic chicken');expect(page.locator('.inventory-table')).to_contain_text('0,8 кг');at('inventory-search').fill('')
+ at('op-count').click();at('op-reference').fill('PREVIEW-ONLY');at('op-stock-ingredient-0').select_option(label='Synthetic chicken');at('op-stock-quantity-0').fill('0,5');at('inventory-unit-0').select_option('kg');expect(page.locator('.inventory-preview')).to_contain_text('-0,3 кг')
+ page.screenshot(path=str(out/'stock-editor-1680.png'));page.get_by_role('button',name='Закрыть',exact=True).click()
  navigate('shifts');at('op-add-employee').click();at('op-name').fill('Synthetic employee');at('op-reason').fill('Roster acceptance');at('op-save').click();expect(at('op-editor')).to_have_count(0)
  at('op-add-shift').click();at('op-name').fill('Synthetic shift');at('op-reason').fill('Open management shift');at('op-save').click();expect(at('op-editor')).to_have_count(0)
  navigate('tickets');at('op-add-ticket').click();at('op-name').fill('Synthetic complaint');at('op-description').fill('<img src=x onerror=alert(1)>');at('op-reason').fill('Synthetic guest question');at('op-save').click();expect(at('op-editor')).to_have_count(0)
@@ -153,7 +157,7 @@ with sync_playwright() as pw:
  stage('screenshots')
  for width in [1680,1024,393]:
   page.set_viewport_size({'width':width,'height':1040 if width==1680 else 852 if width==393 else 768})
-  for section in ['dash','orders','stoplist','finance','shifts']:
+  for section in ['dash','orders','stoplist','stock','finance','shifts']:
    navigate(section);page.evaluate("async()=>{await document.fonts.ready;await Promise.all([...document.images].map(i=>i.decode().catch(()=>{})));await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));}");page.screenshot(path=str(out/f'{section}-{width}.png'))
    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),section
  navigate('shifts');at('cashier-shift-'+c['shiftId']).click();expect(at('cashier-shift-orders')).to_be_visible()

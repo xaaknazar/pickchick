@@ -297,7 +297,15 @@ export class Backoffice {
         'SELECT id,actor_id,action,occurred_at created_at FROM catalog_audit WHERE branch_id=$1 ORDER BY occurred_at DESC,id LIMIT 100',
       );
       const documents = await rows(
-        'SELECT id,kind,reference,reason,order_id,created_at FROM bo_stock_documents WHERE branch_id=$1 ORDER BY created_at DESC,id LIMIT 200',
+        `SELECT d.id,d.kind,d.reference,d.reason,d.order_id,d.created_at,d.actor_id,a.name actor_name,
+          coalesce((SELECT jsonb_agg(jsonb_build_object(
+            'ingredient_id',m.ingredient_id,'name',r.payload->>'name','unit',r.payload->>'unit',
+            'quantity_delta',m.quantity_delta::text,'value_delta_minor',m.value_delta_minor::text,
+            'balance_after',m.balance_after::text,'value_after_minor',m.value_after_minor::text
+          ) ORDER BY m.ingredient_id) FROM bo_stock_movements m
+          JOIN bo_records r ON r.id=m.ingredient_id AND r.branch_id=m.branch_id AND r.kind='ingredient'
+          WHERE m.document_id=d.id AND m.branch_id=d.branch_id),'[]'::jsonb) lines
+          FROM bo_stock_documents d JOIN catalog_managers a ON a.id=d.actor_id WHERE d.branch_id=$1 ORDER BY d.created_at DESC,d.id LIMIT 200`,
       );
       const publications = await rows(
         `SELECT DISTINCT ON(kind,record_id) id,kind,record_id,revision,published_at,payload FROM bo_publications WHERE branch_id=$1 ORDER BY kind,record_id,revision DESC`,
