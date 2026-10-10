@@ -61,7 +61,7 @@ Slim glass bottles and the taller central vial carry the reference composition. 
 
 Select a source and then a destination. A legal pour transfers the largest contiguous top-color run that fits. A small destination must be empty or have the same top color; neither source nor destination may be sealed. The central collector accepts only yellow and never pours out. Overflow, invalid indices, self-pours and incompatible colors are rejected without mutation.
 
-Victory requires16 yellow units in the collector and every nonempty small bottle full, monochrome and sealed. Undo reconstructs the previous board, including unsealing; reset replays the same version and seed. A new level or the confirmed “Новая раскладка” action starts version2 with four colors. Existing progress is never silently reset. No-move detection and hints are local engine functions. A hint follows the solution witness only while the move history matches its prefix; otherwise it is explicitly a valid suggestion, with no guarantee of solving the level.
+Victory requires16 yellow units in the collector and every nonempty small bottle full, monochrome and sealed. Undo reconstructs the previous board, including unsealing; reset replays the same version and seed. There is no next level and no “Новая раскладка” action: the game is one fixed version2 puzzle (see “Fixed puzzle and personal record” below). No-move detection and hints are local engine functions. A hint follows the solution witness only while the move history matches its prefix; otherwise it is explicitly a valid suggestion, with no guarantee of solving the level.
 
 Generation starts from a solvable crossed-color template and applies deterministic reverse moves. Each scramble is accepted only when its legal maximal forward inverse restores the exact previous board. Inverses are prepended to the witness, and the complete witness must replay to victory. The original version1 test sample of seeds0-99 contains three-color bottles and buried yellow;54 contain four-color bottles, with53-68 witness moves. This is historical version1 evidence, not a claim that all bottles have four distinct layers. The bounded scramble can saturate before its target; this is not an optimal-solution or difficulty ranking.
 
@@ -104,3 +104,54 @@ Browser 390x844 verified source switching, no move counted on selection, ordinar
 and collector pours after switching. Screenshot: `/tmp/magic-sort-selection-fixed.png`.
 This correction is not in TestFlight build 10; native acceptance and a new build
 remain separate release steps.
+
+## Fixed puzzle and personal record (2026-10-10)
+
+Owner request: the goal is to sort all colors in as few moves as possible; no next
+level is needed; the move count and a personal record are kept.
+
+- One fixed puzzle: `PUZZLE_VERSION = 2`, `PUZZLE_SEED = 1` (63-move solution
+  witness). Every attempt and every player gets the same layout, so move counts
+  are comparable. Changing either constant makes stored records meaningless.
+- A move is one committed pour. Selection, cancelled selection, rejected pours and
+  a pour interrupted by pause are not moves. Undo removes the last move, so the
+  count always equals the history length. "Заново" (with confirmation) returns to
+  the same layout with 0 moves; the record is kept.
+- Header: "Ходы: N" and "Рекорд: M" ("Рекорд: -" before the first win).
+- Victory panel: "Все цвета на месте", "Отсортировано за N ходов." (Russian plural),
+  "Ваш рекорд: M ходов", a gold "Новый рекорд!" badge only when N is strictly
+  smaller than the previous record or this is the first win, and a gold primary
+  "Сыграть снова" button that restarts the same layout. The next-level button
+  and the "Новая раскладка" option are removed.
+- Record storage: local, per account, separate key
+  `pickchick.magic-sort.record.v1:<account>`, value
+  `{"version":2,"seed":1,"moves":N}`. Accepted only with exactly these keys, the
+  fixed puzzle version/seed, an integer 1-1024 and at most 200 characters; any
+  other value is ignored (shown as "-") and replaced by the next win. Saving runs
+  inside the same serialized storage queue as the game save as
+  read-compare-write, so only a smaller count is written; a repeated save of the
+  same win, a reload of a won board or a retry after a storage error never raises
+  the record. A won board found on load (e.g. the app closed between the game and
+  record writes) is recorded again idempotently.
+- Migration of earlier saves: previous builds started a random seed per player.
+  Such a save (any version1 save or a version2 save with another seed) still
+  parses and replays exactly (covered by tests), but on the next start the player
+  is moved to the fixed puzzle from move 0 and sees the notice "Теперь у всех одна
+  раскладка. Отсортируйте её за меньшее число ходов." The earlier in-progress
+  layout is discarded at that point: a move count on a different layout cannot be
+  compared with the record, and those layouts had no record or rewards attached.
+- Hints are unchanged and still follow the witness; using them yields the
+  63-move witness result. No money, loyalty points or server calls are involved.
+
+Verification (local Mac, 2026-10-10): `node --test tests/mobile/magic-sort.test.mjs`
+passed 16 tests (fixed puzzle solvable via witness, move counting with undo,
+minimum record rule, per-account queued record storage, corrupted/foreign records
+ignored, earlier saves readable). Mobile `tsc --noEmit`, scoped ESLint and Prettier
+passed. Browser journey `tests/mobile/browser_magic_sort.py` on a loopback web
+export passed: 63-move witness win through the bottle controls, result panel with
+"Новый рекорд!" and stored record 63, reload of the won board without the badge,
+"Сыграть снова" back to "Ходы: 0" with "Рекорд: 63", a second 65-move win (witness
+plus a two-pour detour found on the engine) keeping record 63, migration of an
+earlier random-layout save to the fixed puzzle, plus the existing layout, undo,
+restart, pause and pour-flow checks at 320/390/430. This is web evidence only;
+the change is not in any TestFlight build and native acceptance is pending.

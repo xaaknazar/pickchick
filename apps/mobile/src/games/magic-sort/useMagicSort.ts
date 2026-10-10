@@ -4,19 +4,23 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { useAccount } from '../../useAccount';
 import {
-  createLevel,
+  applyRecord,
+  createPuzzle,
+  isPuzzle,
+  isWon,
+  moveCount,
   resolveBottleTap,
   undo,
-  resetLevel,
-  newLevel,
   getHint,
   type GameState,
+  type RecordResult,
   type Move,
   type Color,
 } from './engine';
 import { createGameStorage } from './storage';
 
 const storage = createGameStorage(AsyncStorage);
+
 function demoScope(phone: string) {
   let hash = 2166136261;
   for (const char of phone) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
@@ -39,49 +43,92 @@ export function useMagicSort() {
   const [paused, setPaused] = useState(false);
   const [notice, setNotice] = useState('Выберите бутылку, затем место для переливания.');
   const [saveError, setSaveError] = useState(false);
+  const [record, setRecord] = useState<number | null>(null);
+  const [result, setResult] = useState<(RecordResult & { confirmed: boolean }) | null>(null);
   const current = useRef<GameState | null>(null);
+  const recordRef = useRef<number | null>(null);
   const moving = useRef<PendingPour | null>(null);
   const owner = useRef(scope);
   owner.current = scope;
   const isPaused = useRef(false);
-  const publish = useCallback((next: GameState) => {
-    current.current = next;
-    setGame(next);
-    const key = owner.current;
-    if (key)
-      void storage
-        .save(key, next)
-        .then(() => {
-          if (owner.current === key) setSaveError(false);
-        })
-        .catch(() => {
-          if (owner.current === key) setSaveError(true);
-        });
+  // A solved fixed puzzle updates the account record. The storage queue keeps
+  // the minimum, so a retry or a reload of the same won board is idempotent.
+  const recordWin = useCallback((state: GameState, key: string) => {
+    if (!isWon(state) || !isPuzzle(state)) return;
+    const moves = moveCount(state);
+    setResult(
+      (shown) =>
+        shown ?? {
+          ...applyRecord(recordRef.current, moves),
+          confirmed: false,
+        },
+    );
+    void storage
+      .saveRecord(key, moves)
+      .then((stored) => {
+        if (owner.current !== key || current.current !== state) return;
+        recordRef.current = stored.best;
+        setRecord(stored.best);
+        setResult((shown) => (shown?.confirmed ? shown : { ...stored, confirmed: true }));
+      })
+      .catch(() => {
+        if (owner.current === key) setSaveError(true);
+      });
   }, []);
+  const publish = useCallback(
+    (next: GameState) => {
+      current.current = next;
+      setGame(next);
+      if (!isWon(next)) setResult(null);
+      const key = owner.current;
+      if (key) {
+        void storage
+          .save(key, next)
+          .then(() => {
+            if (owner.current === key) setSaveError(false);
+          })
+          .catch(() => {
+            if (owner.current === key) setSaveError(true);
+          });
+        recordWin(next, key);
+      }
+    },
+    [recordWin],
+  );
   useEffect(() => {
     let live = true;
     current.current = null;
     moving.current = null;
+    recordRef.current = null;
     setGame(null);
     setPending(null);
     setSelected(null);
+    setRecord(null);
+    setResult(null);
     if (!scope) return;
-    void storage
-      .load(scope)
-      .then((saved) => {
+    void Promise.all([storage.load(scope), storage.loadRecord(scope).catch(() => null)])
+      .then(([saved, best]) => {
         if (!live) return;
-        const next = saved ?? createLevel(Date.now() >>> 0);
+        recordRef.current = best;
+        setRecord(best);
+        // Earlier builds started a random layout per player. Records only compare
+        // on the shared fixed puzzle, so such a save is replaced by a fresh start.
+        const migrated = !!saved && !isPuzzle(saved);
+        const next = saved && !migrated ? saved : createPuzzle();
         current.current = next;
         setGame(next);
         setSaveError(false);
-        if (!saved)
+        if (migrated)
+          setNotice('Теперь у всех одна раскладка. Отсортируйте её за меньшее число ходов.');
+        if (next !== saved)
           void storage.save(scope, next).catch(() => {
             if (live) setSaveError(true);
           });
+        recordWin(next, scope);
       })
       .catch(() => {
         if (live) {
-          const next = createLevel(Date.now() >>> 0);
+          const next = createPuzzle();
           current.current = next;
           setGame(next);
           setSaveError(true);
@@ -90,7 +137,7 @@ export function useMagicSort() {
     return () => {
       live = false;
     };
-  }, [scope]);
+  }, [scope, recordWin]);
   const pause = useCallback(() => {
     moving.current = null;
     setPending(null);
@@ -125,7 +172,9 @@ export function useMagicSort() {
       setPending(null);
       setSelected(null);
       publish(expected.next);
-      setNotice('Перелито. Выберите следующую бутылку.');
+      setNotice(
+        isWon(expected.next) ? 'Все цвета отсортированы.' : 'Перелито. Выберите следующую бутылку.',
+      );
     },
     [publish],
   );
@@ -171,6 +220,8 @@ export function useMagicSort() {
   );
   return {
     game,
+    record,
+    result,
     pending,
     selected,
     paused,
@@ -192,13 +243,10 @@ export function useMagicSort() {
     },
     restart: () => {
       if (current.current && !moving.current) {
-        publish(resetLevel(current.current));
+        publish(createPuzzle());
         setSelected(null);
-        setNotice('Уровень начат заново.');
+        setNotice('Раскладка начата заново. Ходы: 0.');
       }
-    },
-    nextLevel: () => {
-      if (current.current && !moving.current) publish(newLevel(current.current));
     },
     hint: () => {
       if (!current.current || moving.current) return;
