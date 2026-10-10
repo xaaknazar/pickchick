@@ -114,6 +114,7 @@ const QUOTE_DEFINITIVE = [
   'NOT_READY',
   'ITEM_STOPPED',
   'AVAILABILITY_STALE',
+  'KITCHEN_OFFLINE',
   'RESTAURANT_CLOSED',
   'CHECKOUT_DISABLED',
   'PRICE_CHANGED',
@@ -131,18 +132,26 @@ const ORDER_DEFINITIVE = [
   'NOT_FOUND',
   'ITEM_STOPPED',
   'AVAILABILITY_STALE',
+  'KITCHEN_OFFLINE',
 ];
 /**
  * POST /orders/:id/payment returns an order that already has an attempt before any check
  * (payLocked), so these answers mean the order has no payment attempt and no money.
  */
-const PAYMENT_DEFINITIVE = ['ITEM_STOPPED', 'AVAILABILITY_STALE', 'RESTAURANT_CLOSED', 'NOT_READY'];
+const PAYMENT_DEFINITIVE = [
+  'ITEM_STOPPED',
+  'AVAILABILITY_STALE',
+  'KITCHEN_OFFLINE',
+  'RESTAURANT_CLOSED',
+  'NOT_READY',
+];
 /** Russian fallback text of every guest error code; the screen shows the guest's language. */
 export const COMMERCIAL_ERROR_TEXT: Record<KioskErrorCode, string> = {
   PRICE_CHANGED: 'Сумма изменилась. Проверьте корзину и подтвердите оплату заново.',
   CART_CHANGED: 'Состав или цена изменились. Проверьте корзину и выберите доступные позиции.',
   NOT_ACCEPTING: 'Ресторан пока не принимает заказы. Обновите меню или пригласите сотрудника.',
   DEVICE: 'Киоск не настроен. Пригласите сотрудника.',
+  KITCHEN_OFFLINE: 'Кухня сейчас не на связи - заказ оформить нельзя. Пригласите сотрудника.',
   PHONE: 'Введите номер Казахстана для счёта Kaspi.',
   CART_LIMIT_LINE: 'Одной позиции можно добавить не больше 20 штук.',
   CART_LIMIT_LINES: 'В корзине может быть не больше 11 разных позиций.',
@@ -469,6 +478,12 @@ export class CommercialKioskController {
   private configEnabled = false;
   /** The last availability was not fresh: every product is shown unavailable. */
   private stale = false;
+  /**
+   * Branch in mode 'cloud' (ADR-0014): `/config` names the cloud kitchen state, and a stale
+   * availability means the kitchen screens stopped polling (KITCHEN_OFFLINE), not the cashier.
+   */
+  private cloudKitchen = false;
+  private kitchenOffline = false;
   private paymentMethods: ('kaspi' | 'kaspi_invoice')[] = [];
   private selectedMethod: 'kaspi' | 'kaspi_invoice' = 'kaspi';
   private ready = false;
@@ -619,6 +634,14 @@ export class CommercialKioskController {
   private codeOf(error: unknown): KioskErrorCode {
     const code = error instanceof KioskError ? error.code : '';
     if (code === 'PRICE_CHANGED') return 'PRICE_CHANGED';
+    // The server answers KITCHEN_OFFLINE only to precise clients; older answers name the same
+    // refusal NOT_READY / AVAILABILITY_STALE / SERVICE_UNAVAILABLE while the kitchen is offline.
+    if (
+      code === 'KITCHEN_OFFLINE' ||
+      (this.kitchenOffline &&
+        ['NOT_READY', 'AVAILABILITY_STALE', 'SERVICE_UNAVAILABLE'].includes(code))
+    )
+      return 'KITCHEN_OFFLINE';
     if (['INVALID', 'CONFLICT', 'ITEM_STOPPED'].includes(code)) return 'CART_CHANGED';
     if (
       ['NOT_READY', 'AVAILABILITY_STALE', 'RESTAURANT_CLOSED', 'CHECKOUT_DISABLED'].includes(code)
@@ -658,6 +681,7 @@ export class CommercialKioskController {
             'NETWORK',
             'MENU_LOAD',
             'NOT_ACCEPTING',
+            'KITCHEN_OFFLINE',
             'PAYMENT_UNKNOWN',
           ].includes(this.errorCode)
         )
@@ -770,6 +794,12 @@ export class CommercialKioskController {
     this.configEnabled = config.enabled;
     this.stale = !applied.fresh;
     this.checkoutReady = applied.fresh && config.enabled;
+    this.cloudKitchen = config.kitchen === 'online' || config.kitchen === 'offline';
+    this.kitchenOffline = config.kitchen === 'offline' || (this.cloudKitchen && !applied.fresh);
+    if (this.kitchenOffline) {
+      this.checkoutReady = false;
+      throw new KioskError('KITCHEN_OFFLINE');
+    }
     if (!applied.fresh) throw new KioskError('AVAILABILITY_STALE');
   }
   private async readAvailability(path: string, token: string): Promise<KioskReadResult> {
@@ -896,6 +926,15 @@ export class CommercialKioskController {
     if (!applied.fresh) {
       this.stale = true;
       this.checkoutReady = false;
+      if (this.cloudKitchen) {
+        this.kitchenOffline = true;
+        this.setError('KITCHEN_OFFLINE');
+      }
+    } else if (this.kitchenOffline) {
+      // The cloud kitchen is back: `/config` answered offline, so read it again before checkout.
+      this.stale = false;
+      this.emit();
+      return (await this.refreshResult(true)) ? 'reloaded' : 'failed';
     } else if (this.stale) {
       this.stale = false;
       this.checkoutReady = this.configEnabled;

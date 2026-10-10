@@ -57,6 +57,7 @@ export type KioskErrorCode =
   | 'CART_CHANGED'
   | 'NOT_ACCEPTING'
   | 'DEVICE'
+  | 'KITCHEN_OFFLINE'
   | 'PHONE'
   | 'CART_LIMIT_LINE'
   | 'CART_LIMIT_LINES'
