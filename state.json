@@ -4056,9 +4056,11 @@
         "tests/unit/channel-number-grants.test.mjs",
         "tests/integration/channel-numbers.test.mjs"
       ],
-      "status": "active",
-      "head": "15f63f84d4dd7b3f1b4d9b8560491e772e223d9e",
-      "updatedAt": "2026-10-10T12:52:27.373Z"
+      "status": "available",
+      "head": "7c6569bc6891eb33775bcd6e8b41664369a3fa5c",
+      "updatedAt": "2026-10-10T13:46:57.230Z",
+      "summary": "S1: A bbab2e6e (@pickchick/fulfillment-state, edge на общей машине, векторы PG; Foundation CI 38054414332 зелёная) и B 7c6569bc (cloud 053 номера каналов, гранты, PG-тесты). CI 38056077544 на B: failure только в 'Test PostgreSQL constraints' - guard-тесты unified-menu-continuation (4) и device-access-release (1) требуют, чтобы кандидат заканчивался на cloud051; эти пути заняты devices-access.",
+      "nextAction": "devices-access: сделать guard-тесты независимыми от новых миграций (копировать миграции <=051 во временный каталог) или включить 053 после выпуска 051; затем перезапустить CI и PR в shared-development."
     },
     {
       "id": "mobile-live-release",
