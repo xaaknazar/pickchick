@@ -5,6 +5,8 @@ import { withSyncDatabases } from '../../../tests/helpers/sync.mjs';
 import { provisionCatalogManager, revokeCatalogManager } from '../../catalog-admin/dist/index.js';
 import { Backoffice, grantBackoffice } from '../dist/index.js';
 import { Workforce } from '../dist/workforce-store.js';
+import { createPool } from '@pickchick/database';
+import { workforceGrants } from '../../../infra/staging/workforce-grants.mjs';
 
 const month = '2026-09-01';
 const at = (d, h) => `2026-09-${d}T${h}:00:00+05:00`;
@@ -60,6 +62,48 @@ const setup = (fn) =>
     });
   });
 
+test('restricted runtime can save but cannot rewrite source events, erase history or grant itself access', () =>
+  setup(async (c) => {
+    const role = 'workforce_' + randomUUID().replaceAll('-', '');
+    const schema = c.cloud.schema;
+    await c.cloud.pool.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE`);
+    let runtime;
+    try {
+      await c.cloud.pool.query(
+        `GRANT USAGE ON SCHEMA ${schema} TO ${role}; GRANT SELECT ON catalog_managers,catalog_manager_branches,bo_access_grants,bo_records,bo_audit TO ${role}; GRANT UPDATE(lock_anchor) ON catalog_managers,catalog_manager_branches,bo_access_grants TO ${role}; GRANT UPDATE(revision) ON bo_records TO ${role}; GRANT INSERT ON bo_audit TO ${role}`,
+      );
+      await c.cloud.pool.query(workforceGrants(role, true));
+      const url = new URL(c.cloud.config.databaseUrl);
+      url.searchParams.set('options', url.searchParams.get('options') + ' -c role=' + role);
+      runtime = createPool(url.toString());
+      const w = new Workforce(runtime, true);
+      const cmd = {
+        type: 'save',
+        kind: 'rate',
+        id: randomUUID(),
+        expected_revision: 0,
+        payload: { employee_id: c.employee_id, effective_date: month, hourly_minor: '100000' },
+      };
+      await w.command(c.manager.token, c.branch, envelope(cmd));
+      assert.equal((await w.read(c.manager.token, c.branch, month)).records.length, 1);
+      for (const sql of [
+        'DELETE FROM bo_workforce_records',
+        "UPDATE bo_workforce_events SET direction='out'",
+        'DELETE FROM bo_audit',
+        "UPDATE bo_access_grants SET role='manager'",
+        'DELETE FROM bo_workforce_commands',
+      ])
+        await assert.rejects(runtime.query(sql), /permission denied/);
+      await c.cloud.pool.query(workforceGrants(role, false));
+      await assert.rejects(w.read(c.manager.token, c.branch, month), /permission denied/);
+    } finally {
+      await runtime?.end();
+      await c.cloud.pool.query(
+        `REVOKE ALL ON ALL TABLES IN SCHEMA ${schema} FROM ${role}; REVOKE UPDATE(lock_anchor) ON catalog_managers,catalog_manager_branches,bo_access_grants FROM ${role}; REVOKE UPDATE(revision) ON bo_records FROM ${role}; REVOKE UPDATE(revision,payload,updated_at) ON bo_workforce_records FROM ${role}; REVOKE UPDATE(closed,revision,snapshot) ON bo_workforce_periods FROM ${role}; REVOKE ALL ON SCHEMA ${schema} FROM ${role}; DROP ROLE ${role}`,
+      );
+    }
+  }));
+
 test('durable replay, revisions, audit and scoped authorization', () =>
   setup(async (c) => {
     const { workforce: w, manager: m, branch, employee_id, cloud } = c;
@@ -82,10 +126,15 @@ test('durable replay, revisions, audit and scoped authorization', () =>
     ]);
     assert.deepEqual(first, second);
     assert.equal((await c.read()).records.length, 1);
-    assert.equal((await c.read()).audit.length, 1);
+    assert.equal((await c.read()).audit.filter((a) => a.action.startsWith('workforce.')).length, 1);
     await assert.rejects(
       w.command(m.token, branch, { ...command, reason: 'Другой смысл запроса' }),
       /CONFLICT/,
+    );
+    assert.equal(
+      (await c.save('rate', { ...command.command.payload, hourly_minor: '120000' }, first.id, 1))
+        .revision,
+      2,
     );
     await assert.rejects(c.save('rate', command.command.payload, first.id, 1), /CONFLICT/);
     await assert.rejects(

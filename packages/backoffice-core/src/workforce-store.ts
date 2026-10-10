@@ -91,7 +91,7 @@ export class Workforce {
     ).rows[0] ?? { closed: false, revision: 0, snapshot: null };
     const audit = (
       await db.query(
-        "SELECT id,actor_id,action,reason,created_at,before_value,after_value FROM bo_audit WHERE branch_id=$1 AND action LIKE 'workforce.%' ORDER BY created_at DESC,id DESC LIMIT 100",
+        "SELECT a.id,a.actor_id,m.name author,a.action,a.reason,a.created_at,a.before_value,a.after_value FROM bo_audit a JOIN catalog_managers m ON m.id=a.actor_id WHERE a.branch_id=$1 AND (a.action LIKE 'workforce.%' OR a.action='save:employee') ORDER BY a.created_at DESC,a.id DESC LIMIT 100",
         [branch],
       )
     ).rows;
@@ -204,8 +204,10 @@ export class Workforce {
         if (old) {
           const previous = old.payload as Record<string, unknown>;
           if (previous.employee_id !== payload.employee_id) fail('CONFLICT');
-          // Rates are effective-dated and immutable; add a future rate instead.
-          if (c.kind === 'rate') fail('CONFLICT');
+          // Correction is allowed only in open periods, with revision and audit.
+          // Preserve the effective date; a future change is a separate rate.
+          if (c.kind === 'rate' && previous.effective_date !== payload.effective_date)
+            fail('CONFLICT');
           await this.unlocked(db, branch, previous, c.kind);
         }
         await this.unlocked(db, branch, payload, c.kind);
