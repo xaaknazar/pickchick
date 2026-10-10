@@ -4217,15 +4217,12 @@
         "@vps/backoffice-login",
         "@vps/public",
         "@vps/gateway",
-        "@vps/roadmap",
-        "apps/backoffice/src/operations.ts",
-        "packages/backoffice-core/src/model.ts",
-        "packages/backoffice-core/src/index.ts",
-        "packages/contracts/openapi.json"
+        "@vps/roadmap"
       ],
       "status": "active",
       "head": "bd60ab6b539d1b9a4432e271fd5d5a17bfe50cc2",
-      "updatedAt": "2026-10-10T15:20:33.185Z"
+      "updatedAt": "2026-10-10T15:23:42.237Z",
+      "summary": "Код 32700a42 опубликован, PR224, проверяется CI. 3 общих файла и generated OpenAPI переданы задаче inventory на этом же Mac; склад работает в отдельном checkout поверх этого checkpoint."
     }
   ]
 }
