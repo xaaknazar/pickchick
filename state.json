@@ -4089,6 +4089,18 @@
       "status": "active",
       "head": "f3350ccfea7cbd67898ddfdb35952ba508196483",
       "updatedAt": "2026-10-10T11:08:12.168Z"
+    },
+    {
+      "id": "cloud-kitchen-channel",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cloud-kitchen-channel",
+      "scopes": [
+        "docs/architecture/adr/0014-cloud-kitchen-channel.md",
+        "docs/architecture/cloud-kitchen-channel.md"
+      ],
+      "status": "active",
+      "head": "3c399b484b93b211da599116c2f42cb1e0cb95db",
+      "updatedAt": "2026-10-10T12:45:36.245Z"
     }
   ]
 }
