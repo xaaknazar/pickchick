@@ -61,7 +61,7 @@ export interface CartLine {
   product: Product;
   quantity: number;
   selections?: Selection[];
-  issue?: 'unavailable' | 'choose_options';
+  issue?: 'unavailable';
   previousUnitPriceMinor?: string;
 }
 export interface Branch {
@@ -80,6 +80,8 @@ export interface MobileModel {
   availabilityHours?: import('./availability').Availability['hours'];
   catalogUpdateNotice?: string | null;
   catalogUpdatePending?: boolean;
+  /** The server menu (or the photos of its current publication) is still being read. */
+  catalogPending?: boolean;
   cartChanges?: { oldTotal: string; newTotal: string } | null;
   refreshCatalog?(): Promise<boolean>;
   dismissCatalogUpdate?(): void;

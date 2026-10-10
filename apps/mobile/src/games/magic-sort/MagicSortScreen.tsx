@@ -28,6 +28,19 @@ const colorNames: Record<Color, string> = {
   rose: 'розовый',
   wine: 'бордовый',
 };
+function moves(count: number): string {
+  const tens = count % 100,
+    ones = count % 10;
+  const word =
+    tens >= 11 && tens <= 14
+      ? 'ходов'
+      : ones === 1
+        ? 'ход'
+        : ones >= 2 && ones <= 4
+          ? 'хода'
+          : 'ходов';
+  return `${count} ${word}`;
+}
 function Prop({ kind, width, height }: { kind: 'shelf' | 'cork'; width: number; height: number }) {
   const box = kind === 'shelf' ? ([38, 238, 1216, 386] as const) : ([474, 738, 782, 1095] as const);
   const sx = width / (box[2] - box[0]),
@@ -388,9 +401,14 @@ export function MagicSortScreen() {
         </Pressable>
         <View style={{ alignItems: 'center' }}>
           <Text style={s.title}>MAGIC SORT</Text>
-          <Text testID="magic-sort-moves" style={s.caption}>
-            Ходы: {model.game?.history.length ?? 0}
-          </Text>
+          <View style={s.stats}>
+            <Text testID="magic-sort-moves" style={s.caption}>
+              Ходы: {model.game?.history.length ?? 0}
+            </Text>
+            <Text testID="magic-sort-record" style={s.caption}>
+              Рекорд: {model.record ?? '-'}
+            </Text>
+          </View>
         </View>
         <Pressable
           testID="magic-sort-help"
@@ -666,13 +684,6 @@ export function MagicSortScreen() {
             onPress={model.undo}
           />
           <Control
-            label="Подсказка"
-            icon="bulb-outline"
-            testID="magic-sort-hint"
-            disabled={!!model.pending || !model.game || model.paused}
-            onPress={model.hint}
-          />
-          <Control
             label="Заново"
             icon="refresh"
             testID="magic-sort-restart"
@@ -701,15 +712,27 @@ export function MagicSortScreen() {
             </Text>
             <Text style={s.body}>
               {panel === 'help'
-                ? 'Выберите бутылку и затем другую с таким же верхним цветом или пустую. Переливается весь верхний слой, если хватает места. Жёлтый собирайте в длинной бутылке по центру; остальные цвета - в отдельных полных бутылках. Готовые бутылки закрываются пробкой. Прогресс сохраняется на этом устройстве для вашего аккаунта. Монеты и награды не начисляются.'
+                ? 'Отсортируйте все цвета за наименьшее число ходов. Выберите бутылку и затем другую с таким же верхним цветом или пустую. Переливается весь верхний слой, если хватает места. Жёлтый собирайте в длинной бутылке по центру; остальные цвета - в отдельных полных бутылках. Готовые бутылки закрываются пробкой. Каждое переливание - один ход, отмена убирает ход. Раскладка одна для всех, лучший результат сохраняется как ваш рекорд на этом устройстве для вашего аккаунта. Монеты и награды не начисляются.'
                 : panel === 'restart'
-                  ? 'Начните эту раскладку заново или выберите новую с четырьмя цветами. Текущие ходы будут отменены.'
+                  ? 'Раскладка начнётся с начала, счётчик ходов обнулится. Ваш рекорд сохранится.'
                   : won
-                    ? 'Жёлтый собран в центре, остальные бутылки закрыты. Следующая головоломка готова.'
+                    ? `Отсортировано за ${moves(model.game?.history.length ?? 0)}.`
                     : model.paused
                       ? 'Переливание остановлено. Продолжите, когда будете готовы.'
                       : 'Отмените последний ход или начните уровень заново.'}
             </Text>
+            {won && !panel && (
+              <View style={s.resultRow}>
+                <Text testID="magic-sort-best" style={s.resultLabel}>
+                  Ваш рекорд: {model.result ? moves(model.result.best) : '-'}
+                </Text>
+                {model.result?.isNew && (
+                  <View testID="magic-sort-new-record" style={s.badge}>
+                    <Text style={s.badgeLabel}>Новый рекорд!</Text>
+                  </View>
+                )}
+              </View>
+            )}
             {panel ? (
               <>
                 <Pressable
@@ -728,23 +751,10 @@ export function MagicSortScreen() {
                 {panel === 'restart' && (
                   <Pressable
                     accessibilityRole="button"
-                    testID="magic-sort-new-layout"
-                    style={s.panelButton}
-                    onPress={() => {
-                      model.nextLevel();
-                      setPanel(null);
-                    }}
-                  >
-                    <Text style={s.panelButtonLabel}>Новая раскладка</Text>
-                  </Pressable>
-                )}
-                {panel === 'restart' && (
-                  <Pressable
-                    accessibilityRole="button"
                     style={s.panelButton}
                     onPress={() => setPanel(null)}
                   >
-                    <Text style={s.panelButtonLabel}>Продолжить уровень</Text>
+                    <Text style={s.panelButtonLabel}>Продолжить игру</Text>
                   </Pressable>
                 )}
               </>
@@ -752,11 +762,11 @@ export function MagicSortScreen() {
               <Pressable
                 accessibilityRole="button"
                 testID="magic-sort-resume"
-                style={s.panelButton}
-                onPress={won ? model.nextLevel : model.paused ? model.resume : model.undo}
+                style={[s.panelButton, won && s.primaryButton]}
+                onPress={won ? model.restart : model.paused ? model.resume : model.undo}
               >
                 <Text style={s.panelButtonLabel}>
-                  {won ? 'Следующий уровень' : model.paused ? 'Продолжить' : 'Отменить ход'}
+                  {won ? 'Сыграть снова' : model.paused ? 'Продолжить' : 'Отменить ход'}
                 </Text>
               </Pressable>
             )}
