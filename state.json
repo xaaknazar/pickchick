@@ -4245,11 +4245,12 @@
         "docs/operations/inventory.md",
         "docs/architecture/inventory.md",
         "apps/backoffice/build.mjs",
-        "apps/backoffice/src/index.html"
+        "apps/backoffice/src/index.html",
+        "tests/backoffice/operations_browser.py"
       ],
       "status": "active",
       "head": "32700a42ce281f368232a21a400528aa3935da98",
-      "updatedAt": "2026-10-10T15:28:15.748Z"
+      "updatedAt": "2026-10-10T15:31:57.070Z"
     }
   ]
 }
