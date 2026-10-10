@@ -4217,11 +4217,14 @@
         "@vps/backoffice-login",
         "@vps/public",
         "@vps/gateway",
-        "@vps/roadmap"
+        "@vps/roadmap",
+        "apps/backoffice/src/operations.ts",
+        "packages/backoffice-core/src/model.ts",
+        "packages/backoffice-core/src/index.ts"
       ],
       "status": "active",
       "head": "bd60ab6b539d1b9a4432e271fd5d5a17bfe50cc2",
-      "updatedAt": "2026-10-10T15:04:46.606Z"
+      "updatedAt": "2026-10-10T15:10:33.052Z"
     }
   ]
 }
