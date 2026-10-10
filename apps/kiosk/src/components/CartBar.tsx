@@ -230,7 +230,13 @@ export function CartBar({
               color: added ? colors.orangeInk : colors.muted,
             }}
           >
-            {added ? t.selected : quantity ? positions(quantity, locale) : t.cart}
+            {added
+              ? t.selected
+              : quantity
+                ? positions(quantity, locale)
+                : empty
+                  ? t.emptyCartHint
+                  : t.cart}
           </Text>
           <Text
             {...fixedText}

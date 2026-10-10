@@ -104,11 +104,14 @@ export function GuestScreen() {
     from: arrival.current.from,
   };
   const closeCancel = () => setCancel(false);
+  const paying = model.step === 'payment';
+  // A live Kaspi QR (or any commercial order) cannot be cancelled from the kiosk.
+  const noCancel = !!model.commercial && !!model.order && paying;
   const unresolved =
     model.recoveryRequired ||
     ['simulated_unknown', 'unknown', 'pending'].includes(model.order?.payment_state ?? '');
   const confirmCancel = async () => {
-    if (unresolved) {
+    if (unresolved || noCancel) {
       setCancel(false);
       setHelp(true);
       return;
@@ -204,19 +207,25 @@ export function GuestScreen() {
         <Button label={t.close} onPress={() => setHelp(false)} />
       </Dialog>
       <Dialog visible={cancel && !warning} onClose={closeCancel} testID="kiosk-cancel-dialog">
-        <Heading size="title">{t.cancelQuestion}</Heading>
+        <Heading size="title">{noCancel ? t.qrNoCancelTitle : t.cancelQuestion}</Heading>
         <Body>
-          {unresolved
-            ? t.unknownBody
-            : model.order
-              ? model.commercial
-                ? t.unknownBody
-                : t.testPayment
-              : t.cancelBody}
+          {noCancel
+            ? t.qrNoCancel
+            : unresolved
+              ? t.unknownBody
+              : model.order
+                ? model.commercial
+                  ? t.unknownBody
+                  : t.testPayment
+                : t.cancelBody}
         </Body>
-        <Button label={t.keep} testID="kiosk-cancel-dismiss" onPress={closeCancel} />
         <Button
-          label={unresolved ? t.help : t.yesCancel}
+          label={paying ? t.backToPayment : t.keep}
+          testID="kiosk-cancel-dismiss"
+          onPress={closeCancel}
+        />
+        <Button
+          label={noCancel ? t.callStaff : unresolved ? t.help : t.yesCancel}
           tone="secondary"
           testID="kiosk-cancel-confirm"
           busy={model.busy}
@@ -225,8 +234,9 @@ export function GuestScreen() {
       </Dialog>
       <Dialog visible={idleShown} onClose={model.stay} testID="kiosk-idle-dialog">
         <Heading size="title">{t.stillHere}</Heading>
+        <Body tone="muted">{t.willCancel}</Body>
         <Heading size="display" tone="brand">
-          {model.idleWarningSeconds}
+          {`${model.idleWarningSeconds ?? 0} ${t.secondsShort}`}
         </Heading>
         <Button label={t.continueOrder} testID="kiosk-idle-continue" onPress={model.stay} />
         <Button

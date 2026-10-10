@@ -11,16 +11,21 @@ import { inCategory } from './categories';
 import { ease, usePopIn, usePress, useStagger } from './motion';
 import { useMotionPreference } from './useMotionPreference';
 import { fixedText } from './Body';
-/** One line per chosen option, in the same wording as the summary ("Соус × 2"). */
+/**
+ * One line per chosen option, in the same wording as the summary ("Соус × 2"); a paid
+ * extra shows its price per item ("+690 ₸").
+ */
 function selectionLines(line: KioskCartLine) {
   return line.selections
     .map((selection) => {
       const option = line.product.modifier_groups
         .find((g) => g.id === selection.group_id)
         ?.options.find((o) => o.id === selection.option_id);
-      return option
-        ? `${option.label}${selection.quantity > 1 ? ` × ${selection.quantity}` : ''}`
-        : '';
+      if (!option) return '';
+      const delta = BigInt(option.price_delta_minor) * BigInt(selection.quantity);
+      return `${option.label}${selection.quantity > 1 ? ` × ${selection.quantity}` : ''}${
+        delta > 0n ? `  +${money(delta.toString())}` : ''
+      }`;
     })
     .filter(Boolean);
 }
@@ -306,6 +311,23 @@ export function CartRow({
         >
           {money(line.lineTotalMinor)}
         </Text>
+        {line.quantity > 1 ? (
+          // Price per item, so the line total explains itself.
+          <Text
+            {...fixedText}
+            testID={id('-unit')}
+            numberOfLines={1}
+            style={{
+              marginTop: -v(8),
+              fontFamily: fonts.medium,
+              fontSize: Math.max(15, v(15)),
+              color: colors.muted,
+              fontVariant: ['tabular-nums'],
+            }}
+          >
+            {`${money(line.unitPriceMinor)} × ${line.quantity}`}
+          </Text>
+        ) : null}
         <View
           style={{
             flexDirection: 'row',

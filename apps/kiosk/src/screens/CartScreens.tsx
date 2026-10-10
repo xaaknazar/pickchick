@@ -63,6 +63,7 @@ export function UpsellScreen({ model, context }: { model: KioskModel; context: S
         title={t.yourOrder}
         subtitle={positionsLabel(itemCount(model), context.locale)}
         mode={modeLabel(model, context)}
+        modeKind={model.mode}
       />
       <UpsellGrid
         products={products}
@@ -98,7 +99,9 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
         title={t.yourOrder}
         subtitle={positionsLabel(count, context.locale)}
         mode={modeLabel(model, context)}
+        modeKind={model.mode}
       />
+      <OrderProgress step="cart" locale={context.locale} />
       <ScrollArea onInteraction={model.touch}>
         <Wrapper paddingX={24} paddingY={22} gap={14}>
           {!model.cart.length && !model.unavailableCartLines.length ? (

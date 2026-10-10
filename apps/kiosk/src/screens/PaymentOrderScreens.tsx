@@ -3,7 +3,6 @@ import type { KioskModel } from '../model';
 import { visiblePaymentQr } from '../qr';
 import { kioskOrderNumber, kioskTicketNumber } from '../presentation';
 import { copy } from '../i18n';
-import { PaymentCardSoon } from '../components/PaymentCardSoon';
 import {
   Body,
   Button,
@@ -32,8 +31,8 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
   const qrPayload = visiblePaymentQr(qr, unknown, Date.now());
   const showQr = !!qrPayload;
   const invoice = model.paymentMethod === 'kaspi_invoice';
-  // Design 07 (a live Kaspi QR): the footer is "Cancel" and the not-yet card option;
-  // the manual status check stays reachable as a quiet button under the steps.
+  // A live Kaspi QR: the footer keeps the way to staff and a secondary "I paid - check"
+  // (the not-yet card option no longer takes the main spot under the guest's hand).
   const kaspiQr =
     !!model.commercial && showQr && !unknown && !declined && model.paymentMethod !== 'card';
 
@@ -61,7 +60,8 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
       : t.testPayment;
   return (
     <ScreenSurface testID="kiosk-screen-payment" tone="brand" entrance={context.direction}>
-      <Header {...context} title={t.payment} />
+      {/* The footer owns the way out of a payment; the header has no cancel. */}
+      <Header {...context} title={t.payment} cancellable={false} />
       <ScrollArea fill>
         <Wrapper
           flex={1}
@@ -91,16 +91,6 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
             method={model.paymentMethod === 'card' ? 'card' : invoice ? 'invoice' : 'qr'}
             locale={context.locale}
           />
-          {kaspiQr ? (
-            <Button
-              testID="kiosk-payment-retry"
-              label={t.refresh}
-              tone="outline"
-              size="compact"
-              busy={model.busy}
-              onPress={() => void model.recover()}
-            />
-          ) : null}
           {!unknown && !model.commercial ? (
             <Wrapper dir="row" gap={16} wrap justify="center">
               <Button
@@ -124,18 +114,25 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
         </Wrapper>
       </ScrollArea>
       <Footer tone="brand">
-        {/* Design: outlined "Cancel" (the header's cancel dialog) beside the main action. */}
+        {/* Outlined way out beside the main action. A commercial order cannot be cancelled
+            at the kiosk, so there it calls staff instead of opening a cancel dialog. */}
         <Wrapper dir="row" gap={14} align="center">
           <Button
-            label={t.cancel}
+            label={model.commercial ? t.callStaff : t.cancel}
             tone="outline"
             testID="kiosk-payment-cancel"
-            onPress={context.onCancel}
+            onPress={model.commercial ? context.onHelp : context.onCancel}
           />
           <Wrapper flex={1}>
             {kaspiQr ? (
-              // Kiosk card payment is not offered yet (commercial methods are Kaspi only).
-              <PaymentCardSoon locale={context.locale} />
+              <Button
+                testID="kiosk-payment-retry"
+                label={t.paidCheck}
+                tone="inverse"
+                busy={model.busy}
+                onPress={() => void model.recover()}
+                fullWidth
+              />
             ) : (
               <Button
                 testID={
@@ -157,8 +154,10 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
     </ScreenSurface>
   );
 }
-/** Seconds a finished order (paid or failed) stays before the kiosk starts over. */
-const HOLD = 15;
+/** Seconds a paid order keeps its number on screen; any touch starts them again. */
+const PAID_HOLD = 40;
+/** Seconds a failed payment stays before the kiosk returns to the start screen. */
+const FAILED_HOLD = 30;
 export function OrderScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   const t = copy(context.locale);
   const order = model.order;
@@ -173,8 +172,9 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
     !!model.qrPayment &&
     model.qrPayment.state !== 'failed';
   const canReset = !!order && (paid || failed) && !model.recoveryRequired;
-  const hold = HOLD;
+  const hold = paid ? PAID_HOLD : FAILED_HOLD;
   const [seconds, setSeconds] = useState(hold);
+  const [touches, setTouches] = useState(0);
   const modelRef = useRef(model);
   modelRef.current = model;
   useEffect(() => {
@@ -193,7 +193,7 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [canReset, hold, order?.order_id]);
+  }, [canReset, hold, order?.order_id, touches]);
   const status = incident
     ? t.incidentTitle
     : waitingForNumber
@@ -223,9 +223,15 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
           : 'accepted';
 
   return (
-    <ScreenSurface testID="kiosk-screen-order" tone="brand" entrance={context.direction}>
+    <ScreenSurface
+      testID="kiosk-screen-order"
+      tone="brand"
+      entrance={context.direction}
+      // Any touch keeps the number on screen a while longer.
+      onTouchStart={() => setTouches((n) => n + 1)}
+    >
       <ScrollArea fill>
-        <Wrapper flex={1} paddingX={60} paddingY={40} justify="center">
+        <Wrapper flex={1} paddingX={60} paddingY={40} gap={20} justify="center">
           <OrderTicket
             number={number}
             status={status}
@@ -249,20 +255,25 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
                       : t.testPayment
             }
           />
+          {number ? (
+            <Body tone="onBlue" align="center">
+              {t.photoNumber}
+            </Body>
+          ) : null}
         </Wrapper>
       </ScrollArea>
       <Footer tone="clear">
         <Wrapper dir="row" gap={18} align="center">
           <Wrapper flex={1}>
+            {/* Secondary: the guest's number stays the main thing on screen. */}
             <Button
               label={`${t.nextGuest}${canReset ? ` · ${seconds}` : ''}`}
               testID="kiosk-next-guest"
-              tone="light"
+              tone="outline"
               disabled={!canReset}
               busy={model.busy}
               onPress={() => void model.newGuest()}
               fullWidth
-              progress={canReset ? (hold - seconds) / hold : undefined}
             />
           </Wrapper>
           <Button label={t.help} tone="inverse" onPress={context.onHelp} />

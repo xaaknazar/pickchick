@@ -20,6 +20,9 @@ import {
 import { useScrollTarget } from './scroll';
 import { fixedText } from './Body';
 type Option = KioskModifierGroup['options'][number];
+/** Keeps a volume or weight with its number on one line ("Coca-Cola 0.5 л" never breaks at л). */
+const tileLabel = (label: string) =>
+  label.replace(/(\d)\s+(мл|л|г|кг|шт|ml|l|g|kg|pcs)(?=$|[\s,.)])/giu, '$1\u00A0$2');
 const shadow = {
   shadowColor: '#020A28',
   shadowOpacity: 0.18,
@@ -69,7 +72,11 @@ function OptionArt({ id, dim, selected }: { id: string; dim: number; selected: b
       >
         <Text
           {...fixedText}
-          style={{ fontFamily: fonts.black, fontSize: dim * 0.16, color: heinzInk(id) }}
+          style={{
+            fontFamily: fonts.black,
+            fontSize: Math.max(15, dim * 0.16),
+            color: heinzInk(id),
+          }}
         >
           Heinz
         </Text>
@@ -205,7 +212,7 @@ function OptionTile({
                 }
           }
         >
-          {option.label}
+          {tileLabel(option.label)}
         </Text>
         <PricePill option={option} locale={locale} />
       </View>
@@ -438,7 +445,7 @@ function ExtraRow({
           numberOfLines={2}
           style={{ fontFamily: fonts.medium, fontSize: Math.max(16, v(19)), color: colors.navy }}
         >
-          {option.label}
+          {tileLabel(option.label)}
         </Text>
         <Text
           {...fixedText}

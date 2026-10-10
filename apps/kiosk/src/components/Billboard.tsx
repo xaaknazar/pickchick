@@ -439,12 +439,13 @@ function Dots({
           accessibilityState={{ selected: dot === index }}
           onPress={() => onPick(index)}
           hitSlop={8}
+          // Each dot owns a 44 x 44 pt target (Apple HIG), not just its 8 pt drawing.
           style={{
             position: 'absolute',
-            top: -12,
-            bottom: -12,
-            left: index ? dotsWidth / 2 : -6,
-            right: index ? -6 : dotsWidth / 2,
+            top: -18,
+            bottom: -18,
+            left: index ? dotsWidth / 2 : -24,
+            right: index ? -24 : dotsWidth / 2,
           }}
         />
       ))}
