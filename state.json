@@ -4017,28 +4017,6 @@
       "updatedAt": "2026-10-10T09:30:11.842Z"
     },
     {
-      "id": "workforce",
-      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
-      "branch": "codex/workforce",
-      "scopes": [
-        "packages/backoffice-core/src/workforce.ts",
-        "packages/backoffice-core/src/workforce-store.ts",
-        "packages/backoffice-core/tests/workforce.test.mjs",
-        "packages/backoffice-core/tests/workforce-store.test.mjs",
-        "apps/backoffice/src/workforce.ts",
-        "apps/backoffice/src/workforce-model.ts",
-        "apps/backoffice/workforce.css",
-        "tests/backoffice/workforce.test.mjs",
-        "docs/operations/workforce.md",
-        "db/cloud/migrations/052_cloud_workforce.sql"
-      ],
-      "status": "available",
-      "head": "b7c81434b026705409f76a07934a38a3a908eeee",
-      "updatedAt": "2026-10-10T09:52:34.241Z",
-      "summary": "Checkpoint b7c81434, draft PR223. Hourly-only workforce core; planned shifts, approved attendance, effective rates, explicit KPI awards, immutable raw event import, audit/replay/revisions and period locks. Local builds/lint/format and 16 tests passed; GitHub CI pending. Not wired or deployed; no BioCheck integration. Runbook docs/operations/workforce.md.",
-      "nextAction": "Await user confirmation transferring app.ts/operations.ts/core exports and API/VPS from devices-access. Then wire API/UI/grants, add rate correction, confirm BioCheck model/export, breaks and statutory payroll rules. Shared status/roadmap remain restaurant-report-owned; reconcile after scope transfer. Do not merge/deploy this checkpoint as a finished workforce feature."
-    },
-    {
       "id": "remove-pick-farm",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/remove-pick-farm",
@@ -4065,6 +4043,28 @@
       "status": "active",
       "head": "3c399b484b93b211da599116c2f42cb1e0cb95db",
       "updatedAt": "2026-10-10T10:08:29.735Z"
+    },
+    {
+      "id": "workforce",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/workforce",
+      "scopes": [
+        "packages/backoffice-core/src/workforce.ts",
+        "packages/backoffice-core/src/workforce-store.ts",
+        "packages/backoffice-core/tests/workforce.test.mjs",
+        "packages/backoffice-core/tests/workforce-store.test.mjs",
+        "apps/backoffice/src/workforce.ts",
+        "apps/backoffice/src/workforce-model.ts",
+        "apps/backoffice/workforce.css",
+        "tests/backoffice/workforce.test.mjs",
+        "docs/operations/workforce.md",
+        "db/cloud/migrations/052_cloud_workforce.sql"
+      ],
+      "status": "active",
+      "head": "b7c81434b026705409f76a07934a38a3a908eeee",
+      "updatedAt": "2026-10-10T10:16:01.229Z",
+      "summary": "Checkpoint b7c81434, draft PR223. Hourly-only workforce core; planned shifts, approved attendance, effective rates, explicit KPI awards, immutable raw event import, audit/replay/revisions and period locks. Local builds/lint/format and 16 tests passed; GitHub CI pending. Not wired or deployed; no BioCheck integration. Runbook docs/operations/workforce.md.",
+      "nextAction": "Await user confirmation transferring app.ts/operations.ts/core exports and API/VPS from devices-access. Then wire API/UI/grants, add rate correction, confirm BioCheck model/export, breaks and statutory payroll rules. Shared status/roadmap remain restaurant-report-owned; reconcile after scope transfer. Do not merge/deploy this checkpoint as a finished workforce feature."
     }
   ]
 }
