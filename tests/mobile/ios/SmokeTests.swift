@@ -355,6 +355,8 @@ final class SmokeTests: XCTestCase {
         tap("tab-profile", in: app)
         if element("demo-sign-out", in: app).exists {
             tap("demo-sign-out", in: app)
+            XCTAssertTrue(element("confirm-sheet-primary", in: app).waitForExistence(timeout: 5))
+            tap("confirm-sheet-primary", in: app)
         }
         tap("profile-sign-in", in: app)
         assertScreen("M02", in: app)
@@ -422,6 +424,8 @@ final class SmokeTests: XCTestCase {
         assertScreen("M30", in: app)
         XCTAssertTrue(element("profile-birthday", in: app).label.contains("29.02.2000"))
         tap("demo-sign-out", in: app)
+        XCTAssertTrue(element("confirm-sheet-primary", in: app).waitForExistence(timeout: 5))
+        tap("confirm-sheet-primary", in: app)
         XCTAssertTrue(element("profile-sign-in", in: app).waitForExistence(timeout: 10))
         XCTAssertFalse(element("demo-sign-out", in: app).exists)
         XCTAssertFalse(app.staticTexts["+7 700 000-00-00"].exists)
@@ -546,6 +550,8 @@ final class SmokeTests: XCTestCase {
         tap("tab-profile", in: app)
         if element("demo-sign-out", in: app).exists {
             tap("demo-sign-out", in: app)
+            XCTAssertTrue(element("confirm-sheet-primary", in: app).waitForExistence(timeout: 5))
+            tap("confirm-sheet-primary", in: app)
         }
         tap("profile-sign-in", in: app)
         assertScreen("M02", in: app)

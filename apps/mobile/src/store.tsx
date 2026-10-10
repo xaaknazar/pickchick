@@ -35,6 +35,7 @@ import {
 import { unpaidTestOrdersEnabled } from './order-simulator';
 import { restaurantLocation } from './restaurant-location';
 import { useTestOrders } from './useTestOrders';
+import { ToastProvider } from './components/Toast';
 import type { TestCatalog } from '@pickchick/test-order-flow/contracts';
 import {
   parsePreferences,
@@ -632,7 +633,10 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     },
   };
   return (
-    <Context.Provider value={{ live: model, preview: previewModel }}>{children}</Context.Provider>
+    <Context.Provider value={{ live: model, preview: previewModel }}>
+      {/* App-wide feedback pills; mounted here because every screen lives under this provider. */}
+      <ToastProvider>{children}</ToastProvider>
+    </Context.Provider>
   );
 }
 

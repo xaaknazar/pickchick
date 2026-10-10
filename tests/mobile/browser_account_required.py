@@ -160,6 +160,8 @@ with sync_playwright() as p:
             expect(visible(page, target)).to_be_enabled()
         page.goto(URL + '/profile')
         visible(page, 'demo-sign-out').click()
+        visible(page, 'confirm-sheet-primary').click()
+        expect(visible(page, 'account-required-login')).to_be_visible()
         page.goto(URL + destination)
         expect(visible(page, 'account-required-login')).to_be_visible(timeout=20000)
         assert page.get_by_test_id(target).count() == 0

@@ -53,6 +53,13 @@ with sync_playwright() as p:
         page.get_by_test_id('scroll-M30').evaluate('(e) => e.scrollTop = e.scrollHeight')
         page.screenshot(path=str(OUTPUT / f'settings-{width}.png'))
         page.get_by_test_id('demo-sign-out').click()
+        # Sign-out is confirmed in a sheet; closing it keeps the account.
+        expect(page.get_by_test_id('confirm-sheet')).to_contain_text('Выйти из профиля?')
+        page.get_by_test_id('confirm-sheet-close').click()
+        expect(page.get_by_test_id('confirm-sheet')).to_have_count(0)
+        assert page.evaluate('(key) => localStorage.getItem(key)', KEY) is not None
+        page.get_by_test_id('demo-sign-out').click()
+        page.get_by_test_id('confirm-sheet-primary').click()
         expect(page.get_by_test_id('account-required-login').filter(visible=True)).to_be_visible()
         assert page.evaluate('(key) => localStorage.getItem(key)', KEY) is None
         assert not mutations, mutations

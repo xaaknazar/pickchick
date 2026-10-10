@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { TestOrder } from '@pickchick/test-order-flow/contracts';
@@ -12,7 +12,16 @@ import { MotionModal } from './Motion';
 import { OrderSheet } from './OrderSheet';
 import { orderUI } from './OrderPresentation';
 
-export function RepeatOrder({ order, props }: { order: TestOrder; props: ScreenProps }) {
+export function RepeatOrder({
+  order,
+  props,
+  trigger,
+}: {
+  order: TestOrder;
+  props: ScreenProps;
+  /** Renders a custom opener (e.g. the order action row) instead of the default button. */
+  trigger?: (open: () => void) => ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
   const submitted = useRef(false);
@@ -24,19 +33,24 @@ export function RepeatOrder({ order, props }: { order: TestOrder; props: ScreenP
     (props.model.connection.status === 'online' && props.model.catalogMode === 'server');
   const limit = !mergeCartLines(props.model.cart, plan.lines, props.model.products);
   const blocked = !sameBranch || !online || !plan.lines.length || limit;
+  const start = () => {
+    submitted.current = false;
+    setError('');
+    setOpen(true);
+  };
   return (
     <>
-      <Button
-        secondary
-        icon="refresh-outline"
-        title="Повторить заказ"
-        testID={`repeat-order-${order.order_id}`}
-        onPress={() => {
-          submitted.current = false;
-          setError('');
-          setOpen(true);
-        }}
-      />
+      {trigger ? (
+        trigger(start)
+      ) : (
+        <Button
+          secondary
+          icon="refresh-outline"
+          title="Повторить заказ"
+          testID={`repeat-order-${order.order_id}`}
+          onPress={start}
+        />
+      )}
       <MotionModal
         visible={open}
         transparent

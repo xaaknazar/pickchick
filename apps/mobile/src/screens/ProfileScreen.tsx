@@ -1,5 +1,6 @@
 import { MotionPressable as Pressable } from '../components/Motion';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { ConfirmSheet } from '../components/ConfirmSheet';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { ComboRewardCard } from '../components/ComboRewardCard';
@@ -67,6 +68,7 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 export function Profile(props: ScreenProps) {
   const account = useAccount();
   const router = useRouter();
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
   const { fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const savedNickname =
@@ -290,16 +292,28 @@ export function Profile(props: ScreenProps) {
             disabled={account.busy || !account.ready || props.preview}
             style={s.signOut}
             onPress={() => {
-              if (!props.preview)
-                void account.signOut().then((success) => {
-                  if (success) {
-                    props.model.setNickname('');
-                    props.model.setOrderComment('');
-                  }
-                });
+              if (!props.preview) setConfirmSignOut(true);
             }}
           />
         ) : null}
+        <ConfirmSheet
+          visible={confirmSignOut}
+          icon="log-out-outline"
+          title="Выйти из профиля?"
+          message="Чтобы снова оформить заказ, войдите по номеру телефона."
+          primaryLabel="Выйти"
+          primaryDisabled={account.busy}
+          onClose={() => setConfirmSignOut(false)}
+          onPrimary={() => {
+            setConfirmSignOut(false);
+            void account.signOut().then((success) => {
+              if (success) {
+                props.model.setNickname('');
+                props.model.setOrderComment('');
+              }
+            });
+          }}
+        />
         <Text style={s.version}>Pick Chick · приложение</Text>
       </ScrollView>
     </View>

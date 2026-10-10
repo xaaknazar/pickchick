@@ -14,7 +14,8 @@ from playwright.sync_api import sync_playwright, expect
 fixture = json.loads(Path(sys.argv[1]).read_text())
 URL = fixture['url']; OUT = Path(fixture['output']); CUSTOMER = fixture['customer']; BRANCH = fixture['branch']
 assert urlparse(URL).hostname in ('127.0.0.1', 'localhost')
-NOTICE = 'Цены обновились. Проверьте итоговую сумму перед оплатой'
+# The cart and the open card present the change as a sheet («Цены обновились» + this text).
+NOTICE = 'Проверьте итоговую сумму перед оплатой'
 FORBIDDEN_TEXT = ['Позиция пока недоступна', 'Состав меню изменился', 'Нужно выбрать состав заново']
 LIMIT = 3.0
 future = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat().replace('+00:00', 'Z')
@@ -153,7 +154,7 @@ with sync_playwright() as p:
     expect(cart.get_by_test_id('cart-quantity-side')).to_have_text('1')
     expect(cart.get_by_test_id('cart-prices-updated')).to_contain_text(NOTICE)
     within('drop_option.card_total', card, 'product-add', '5 700,02', started)
-    expect(card.get_by_text(NOTICE, exact=True)).to_be_visible()
+    expect(card.get_by_text(NOTICE, exact=False)).to_be_visible()
     card.screenshot(path=str(OUT / 'live-card-option-removed.png')); cart.screenshot(path=str(OUT / 'live-cart-option-removed.png'))
 
     seen = {'card': card.evaluate('window.__seen'), 'cart': cart.evaluate('window.__seen')}

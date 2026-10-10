@@ -1,3 +1,5 @@
+import { useToast } from '../components/Toast';
+import { TOASTS } from '../luma-patterns';
 import { ProductMenuNotice } from '../components/ProductMenuNotice';
 import { useEffect, useRef, useState } from 'react';
 import { retainSelections } from '../cart-reprice';
@@ -56,6 +58,7 @@ export function PhotoProduct(props: Props) {
   const { product } = props;
   const insets = useSafeAreaInsets();
   const { width, height, fontScale } = useWindowDimensions();
+  const toast = useToast();
   const reduced = useReducedMotion();
   const scroll = useRef<ScrollView>(null);
   const choicesY = useRef(0);
@@ -156,7 +159,10 @@ export function PhotoProduct(props: Props) {
     else props.model.addToCart(product.id, choices, quantity);
     for (const line of selectedCompanions)
       props.model.addToCart(line.product.id, line.selections, line.quantity);
-    if (!props.onSave) props.goBack();
+    if (!props.onSave) {
+      toast(TOASTS.addedToCart);
+      props.goBack();
+    }
   };
   const companionCard = (line: CartLine) => {
     const id = line.product.id;

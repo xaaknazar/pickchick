@@ -1,3 +1,5 @@
+import { useToast } from '../components/Toast';
+import { TOASTS } from '../luma-patterns';
 import { ProductMenuNotice } from '../components/ProductMenuNotice';
 import { PhotoProduct } from './PhotoProduct';
 import { hasPhotoPilot } from '../product-photo-selection';
@@ -65,6 +67,7 @@ function LegacyConfiguredProduct(
   const { product } = props;
   const insets = useSafeAreaInsets();
   const { fontScale, width, height } = useWindowDimensions();
+  const toast = useToast();
   const [selections, setSelections] = useState<Selection[]>(
     () => props.editing?.selections ?? defaultSelections(product),
   );
@@ -428,6 +431,7 @@ function LegacyConfiguredProduct(
                 return;
               }
               props.model.addToCart(product.id, selections, quantity);
+              toast(TOASTS.addedToCart);
               props.goBack();
             }}
           />

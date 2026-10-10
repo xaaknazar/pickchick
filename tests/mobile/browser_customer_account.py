@@ -205,6 +205,7 @@ with sync_playwright() as p:
         assert json.loads(page.evaluate('(key) => sessionStorage.getItem(key)', KEY))['tokens']['session_id'] == session_id
         page.screenshot(path=str(OUTPUT / f'profile-{width}.png'))
         visible(page, 'demo-sign-out').click()
+        visible(page, 'confirm-sheet-primary').click()
         expect(visible(page, 'account-required-login')).to_be_visible()
         assert json.loads(page.evaluate('(key) => sessionStorage.getItem(key)', KEY))['tokens'] is None
         assert len([x for x in calls if x['path'] == '/v1/auth/otp/request']) == 1

@@ -205,8 +205,9 @@ with sync_playwright() as p:
         item['price_minor'] = str(int(item['price_minor']) + 10000)
         published_at = time.monotonic()
         fixture.version = 7
+        # Presented as the «Цены обновились» sheet in the open cart.
         expect(page.get_by_test_id('cart-prices-updated')).to_contain_text(
-            'Цены обновились. Проверьте итоговую сумму перед оплатой', timeout=3000)
+            'Проверьте итоговую сумму перед оплатой', timeout=3000)
         refresh_seconds = time.monotonic() - published_at
         assert refresh_seconds < 3, refresh_seconds
         assert fixture.count('/v1/customer-checkout/catalog') > catalog_reads

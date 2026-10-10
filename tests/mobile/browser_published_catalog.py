@@ -50,6 +50,8 @@ with sync_playwright() as p:
  expect(page.get_by_test_id('cart-checkout')).to_be_disabled()
  page.reload()
  expect(page.get_by_test_id('cart-quantity-side')).to_have_text('1',timeout=15000)
+ # The price change is presented as a sheet; × keeps the inline notice in the cart.
+ page.get_by_test_id('confirm-sheet-close').click();expect(page.get_by_test_id('confirm-sheet')).to_have_count(0)
  page.get_by_test_id('cart-minus-side').click()
  expect(page.get_by_test_id('cart-quantity-side')).to_have_count(0)
  expect(page.get_by_test_id('cart-checkout')).to_contain_text('5 600,02')

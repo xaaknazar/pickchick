@@ -31,6 +31,8 @@ import { restaurantLocation } from '../restaurant-location';
 export { orderStage } from '../order-status';
 import { orderStage } from '../order-status';
 import { OrderStatusScreen } from './OrderStatusScreen';
+import { ConfirmSheet } from '../components/ConfirmSheet';
+import { SlideToConfirm } from '../components/SlideToConfirm';
 function ContinueSession({ props }: { props: ScreenProps }) {
   const flow = props.model.testFlow;
   if (!flow.sessionExpired) return null;
@@ -362,6 +364,7 @@ export function ConnectedOrder(props: ScreenProps) {
   const flow = props.model.testFlow;
   const order = flow.current;
   const [reason, setReason] = useState('Отмена по просьбе клиента');
+  const [confirmCancel, setConfirmCancel] = useState(false);
   if (!order)
     return (
       <Page props={props} title="Заказ">
@@ -419,15 +422,34 @@ export function ConnectedOrder(props: ScreenProps) {
               unknown ||
               ['fulfilled', 'cancelled'].includes(order.state)
             }
-            onPress={() => {
-              void flow.cancel(reason).then((next) => {
-                if (next) props.navigate('M20');
-              });
-            }}
+            onPress={() => setConfirmCancel(true)}
           />
         ) : undefined
       }
     >
+      {cancel ? (
+        <ConfirmSheet
+          visible={confirmCancel}
+          icon="close-circle-outline"
+          title={`Отменить заказ №${order.number}?`}
+          message="Кухня перестанет готовить заказ. Отмену нельзя будет вернуть."
+          onClose={() => setConfirmCancel(false)}
+          action={
+            <SlideToConfirm
+              key={String(confirmCancel)}
+              label="Сдвиньте для отмены"
+              accessibilityLabel={`Отменить заказ №${order.number}`}
+              disabled={flow.busy}
+              onConfirm={() => {
+                void flow.cancel(reason).then((next) => {
+                  setConfirmCancel(false);
+                  if (next) props.navigate('M20');
+                });
+              }}
+            />
+          }
+        />
+      ) : null}
       <FlowNotice props={props} />
       <View accessibilityLiveRegion="polite" style={s.status}>
         <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>

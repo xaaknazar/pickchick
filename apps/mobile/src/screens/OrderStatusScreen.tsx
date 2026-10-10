@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -21,6 +21,9 @@ import { MotionPressable } from '../components/Motion';
 import { OrderActions } from '../components/OrderActions';
 import { RepeatOrder } from '../components/RepeatOrder';
 import { OrderChef } from '../components/OrderChef';
+import { OrderActionRow, OrderStatusLine } from '../components/OrderStatusLine';
+import { useToast } from '../components/Toast';
+import { TOASTS, readyTransition } from '../luma-patterns';
 import { assets } from '../assets';
 import { ProductPhoto, productPhoto } from '../components/ProductPhoto';
 import { colors, font } from '../theme';
@@ -44,20 +47,47 @@ export function OrderStatusScreen({
       order={order}
       notice={notice}
       afterItems={
-        order.state === 'fulfilled' || order.state === 'cancelled' ? (
-          <>
-            <RepeatOrder order={order} props={props} />
-            {order.state === 'fulfilled' ? (
-              <Button
-                title="Оценить заказ"
-                testID="order-rate"
-                onPress={() => props.navigate('M35')}
-              />
-            ) : null}
-          </>
+        order.state === 'fulfilled' ? (
+          <Button title="Оценить заказ" testID="order-rate" onPress={() => props.navigate('M35')} />
         ) : undefined
       }
       onSupport={() => props.navigate('M31')}
+      actionRow={(openMore) => (
+        <RepeatOrder
+          order={order}
+          props={props}
+          trigger={(repeat) => (
+            <OrderActionRow
+              actions={[
+                {
+                  key: 'repeat',
+                  label: 'Повторить',
+                  accessibilityLabel: 'Повторить заказ',
+                  icon: 'refresh',
+                  onPress: repeat,
+                  testID: `repeat-order-${order.order_id}`,
+                },
+                {
+                  key: 'support',
+                  label: 'Поддержка',
+                  accessibilityLabel: 'Написать в поддержку',
+                  icon: 'chatbubble-ellipses-outline',
+                  onPress: () => props.navigate('M31'),
+                  testID: 'order-action-support',
+                },
+                {
+                  key: 'more',
+                  label: 'Ещё',
+                  accessibilityLabel: 'Ещё действия заказа',
+                  icon: 'ellipsis-horizontal',
+                  onPress: openMore,
+                  testID: 'order-action-more',
+                },
+              ]}
+            />
+          )}
+        />
+      )}
       receipt={
         <NavRow
           title="Официальный чек"
@@ -77,6 +107,7 @@ export function OrderStatusView({
   afterItems,
   receipt,
   onSupport,
+  actionRow,
 }: {
   props: ScreenProps;
   order: OrderStatusData;
@@ -84,6 +115,8 @@ export function OrderStatusView({
   afterItems?: React.ReactNode;
   receipt?: React.ReactNode;
   onSupport?: () => void;
+  /** Luma-style row of up to three order actions under the status. */
+  actionRow?: (openMore: () => void) => React.ReactNode;
 }) {
   const [more, setMore] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -94,11 +127,18 @@ export function OrderStatusView({
   const active = order.state === 'preparing';
   const location = restaurantLocation(order.branch_id);
   const branch = props.model.branches.find((b) => b.id === order.branch_id);
-  const name = props.model.nickname.trim();
   const heroSize = Math.min(300, width - 72, Math.max(184, height * 0.29));
   useEffect(() => {
     setMore(false);
   }, [order.order_id]);
+  const toast = useToast();
+  const observed = useRef<{ id: string; state: string } | null>(null);
+  useEffect(() => {
+    // Only a live change seen on this screen; opening an order that is already ready is silent.
+    const previous = observed.current?.id === order.order_id ? observed.current.state : null;
+    if (readyTransition(previous, order.state)) toast(TOASTS.orderReady);
+    observed.current = { id: order.order_id, state: order.state };
+  }, [order.order_id, order.state, toast]);
   useEffect(() => {
     if (!active) return;
     setNow(Date.now());
@@ -212,16 +252,7 @@ export function OrderStatusView({
         >
           {notice ? <View style={s.inset}>{notice}</View> : null}
           <View style={s.hero}>
-            <View style={[s.badge, ready && s.readyBadge]}>
-              <Text
-                style={s.badgeText}
-                testID="connected-order-number"
-                accessibilityLabel={`${order.number ? `Заказ номер ${order.number}` : 'Заказ принят'}${name ? `, ${name}` : ''}`}
-              >
-                {order.number ? `№ ${order.number}` : 'Заказ принят'}
-                {name ? ` · ${name}` : ''}
-              </Text>
-            </View>
+            <OrderStatusLine order={order} />
             {order.state !== 'cancelled' ? (
               <OrderChef stage={orderScene(order)} size={heroSize} />
             ) : (
@@ -253,6 +284,7 @@ export function OrderStatusView({
                 </View>
               ))}
             </View>
+            {actionRow ? <View style={s.actions}>{actionRow(() => setMore(true))}</View> : null}
           </View>
           <View style={s.itemsSection}>
             <Row style={s.itemsHeader}>
@@ -364,21 +396,7 @@ const s = StyleSheet.create({
   mode: { fontSize: 12, color: colors.muted },
   inset: { paddingHorizontal: 20, gap: 12 },
   hero: { alignItems: 'center', paddingHorizontal: 20, gap: 10 },
-  badge: {
-    maxWidth: '100%',
-    paddingHorizontal: 18,
-    paddingVertical: 9,
-    borderRadius: 12,
-    backgroundColor: colors.action,
-  },
-  readyBadge: { backgroundColor: colors.surface },
-  badgeText: {
-    fontFamily: font.medium,
-    fontSize: 20,
-    lineHeight: 28,
-    textAlign: 'center',
-    color: colors.white,
-  },
+  actions: { width: '100%', alignItems: 'center', paddingTop: 8 },
   time: {
     paddingHorizontal: 14,
     paddingVertical: 10,
