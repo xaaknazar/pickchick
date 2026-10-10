@@ -6,13 +6,18 @@ import type { Owner, StreamStatus } from '../model.js';
  * state; the container is a polite live region.
  */
 const names: Record<Owner, string> = { edge: 'Касса', cloud: 'Сервер' };
-const states: Record<StreamStatus, string> = {
+const states: Record<Exclude<StreamStatus, 'signed_out'>, string> = {
   online: 'на связи',
   offline: 'нет связи',
   unknown: 'подключение',
 };
+/** Each stream has its own sign-in: a cook login for the cashier, a screen code for the server. */
+const signedOut: Record<Owner, string> = {
+  edge: 'нужен вход повара',
+  cloud: 'экран не подключён',
+};
 export function streamLabel(owner: Owner, status: StreamStatus) {
-  return `${names[owner]}: ${states[status]}`;
+  return `${names[owner]}: ${status === 'signed_out' ? signedOut[owner] : states[status]}`;
 }
 export function streamIndicators(streams: Record<Owner, StreamStatus>) {
   return `<span class="streams" role="status" aria-live="polite">${(['edge', 'cloud'] as const)

@@ -1,6 +1,7 @@
-"""Portal with cloud stream: real renderer, fake edge/cloud via loopback; WAN blocked."""
+"""Portal with cloud screens: real renderer, fake edge/cloud via loopback; WAN blocked."""
 import http.client
 import json
+import re
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -40,11 +41,10 @@ def refresh(page):
     expect(page.locator('#refresh')).to_be_enabled()
 
 
-def login(page):
-    page.locator('#staff-login').fill('kitchen.synthetic')
-    page.locator('#staff-password').fill(f['password'])
-    page.locator('#sign-in').click()
-    expect(page.locator('#logout')).to_be_visible()
+def pair(page, role):
+    expect(page.get_by_test_id('cloud-pairing')).to_be_visible()
+    page.locator('#cloud-code').fill(control('code/' + role)['code'])
+    page.locator('#cloud-pair').click()
 
 
 with sync_playwright() as p:
@@ -52,69 +52,78 @@ with sync_playwright() as p:
     context = browser.new_context(viewport={'width': 1366, 'height': 768}, has_touch=True)
     context.route('**/*', transport)
     errors = []
+    control('edge-down')
+
+    # Cashier off, fresh browser: only a screen code, no cook login.
     prep = context.new_page()
     prep.on('pageerror', lambda e: errors.append(str(e)))
     prep.goto(origin + '/kitchen/prep')
-    login(prep)
+    prep.screenshot(path=f['output'] + '/cloud-pairing.png')
+    pair(prep, 'prep')
     edge = prep.locator('[data-stream="edge"]')
     cloud = prep.locator('[data-stream="cloud"]')
-    expect(edge).to_have_text('Касса: на связи')
     expect(cloud).to_have_text('Сервер: на связи')
+    expect(edge).to_have_text('Касса: нужен вход повара')
     cloud_ticket = prep.locator('[data-order="' + f['cloudOrder'] + '"]')
-    edge_ticket = prep.locator('[data-order="' + f['edgeOrder'] + '"]')
     expect(cloud_ticket.locator('[data-source="cloud"]')).to_have_text('Сервер')
-    expect(edge_ticket.locator('[data-source="edge"]')).to_have_text('Касса')
-    expect(cloud_ticket.locator('.number')).to_have_text('301')
-    assert prep.locator('.ticket').count() == 2
-    assert prep.evaluate('document.documentElement.scrollWidth<=innerWidth')
-    prep.screenshot(path=f['output'] + '/both-online.png')
-
-    board = context.new_page()
-    board.on('pageerror', lambda e: errors.append(str(e)))
-    board.goto(origin + '/display')
-    login(board)
-    expect(board.get_by_test_id('display')).to_contain_text('12')
-    expect(board.get_by_test_id('display')).to_contain_text('301')
-    board.screenshot(path=f['output'] + '/display-merged.png')
-
-    # Cashier switched off: cloud ticket still workable, cashier ticket kept but blocked.
-    before = control('edge-down')
-    refresh(prep)
-    expect(edge).to_have_text('Касса: нет связи')
-    expect(cloud).to_have_text('Сервер: на связи')
-    expect(edge_ticket).to_have_class(__import__('re').compile('owner-offline'))
-    expect(edge_ticket.locator('[data-source="edge"]')).to_have_text('Касса · нет связи')
-    expect(edge_ticket.locator('[data-command]').first).to_be_disabled()
-    prep.screenshot(path=f['output'] + '/cashier-offline.png')
-    action = cloud_ticket.locator('[data-command]').first
-    expect(action).to_be_enabled()
-    action.click()
+    assert prep.locator('[data-order="' + f['edgeOrder'] + '"]').count() == 0
+    assert prep.evaluate('document.cookie') == '', 'screen cookie is HttpOnly'
+    prep.screenshot(path=f['output'] + '/cashier-off-screen-only.png')
+    before = control('state')
+    cloud_ticket.locator('[data-command]').first.click()
     expect(prep.locator('#refresh')).to_be_enabled()
     after = control('state')
     assert after['cloudCommands'] == before['cloudCommands'] + 1, after
     assert after['edgeActions'] == before['edgeActions'], after
-    expect(prep.get_by_test_id('recovery-cloud')).to_have_count(0)
-    refresh(board)
-    expect(board.get_by_test_id('display')).to_contain_text('301')
 
-    # Server unreachable, cashier back.
+    # Reload: still bound by the cookie, no code asked again.
+    prep.reload()
+    expect(cloud).to_have_text('Сервер: на связи')
+    assert prep.get_by_test_id('cloud-pairing').count() == 0
+
+    # Cashier back: a cook login adds the cashier stream and its orders.
     control('edge-up')
+    prep.locator('#cook-login').click()
+    prep.locator('#staff-login').fill('kitchen.synthetic')
+    prep.locator('#staff-password').fill(f['password'])
+    prep.locator('#sign-in').click()
+    expect(prep.locator('#logout')).to_be_visible()
+    expect(edge).to_have_text('Касса: на связи')
+    edge_ticket = prep.locator('[data-order="' + f['edgeOrder'] + '"]')
+    expect(edge_ticket.locator('[data-source="edge"]')).to_have_text('Касса')
+    assert prep.evaluate('document.documentElement.scrollWidth<=innerWidth')
+    prep.screenshot(path=f['output'] + '/both-online.png')
+
     control('cloud-down')
     refresh(prep)
-    expect(edge).to_have_text('Касса: на связи')
     expect(cloud).to_have_text('Сервер: нет связи')
+    expect(edge).to_have_text('Касса: на связи')
     prep.screenshot(path=f['output'] + '/server-offline.png')
-
-    # Both unreachable: the existing error banner, both indicators off.
+    control('cloud-up')
     control('edge-down')
     refresh(prep)
     expect(edge).to_have_text('Касса: нет связи')
-    expect(cloud).to_have_text('Сервер: нет связи')
-    expect(prep.locator('aside.error')).to_be_visible()
-    prep.screenshot(path=f['output'] + '/both-offline.png')
+    expect(cloud).to_have_text('Сервер: на связи')
+    expect(edge_ticket).to_have_class(re.compile('owner-offline'))
+    prep.screenshot(path=f['output'] + '/cashier-offline.png')
+
+    # Revoked in the back office: next poll returns the page to the code screen.
+    control('revoke')
+    prep.locator('#refresh').click()
+    expect(prep.get_by_test_id('cloud-pairing')).to_be_visible()
+    expect(prep.get_by_role('alert')).to_contain_text('Экран отключён от сервера')
+    prep.screenshot(path=f['output'] + '/revoked.png')
+
+    # Customer display bound as its own screen.
+    board = context.new_page()
+    board.on('pageerror', lambda e: errors.append(str(e)))
+    board.goto(origin + '/display')
+    pair(board, 'display')
+    expect(board.get_by_test_id('display')).to_be_visible()
+    board.screenshot(path=f['output'] + '/display.png')
     prep.set_viewport_size({'width': 1024, 'height': 768})
     assert prep.evaluate('document.documentElement.scrollWidth<=innerWidth')
     assert not errors, errors
     context.close()
     browser.close()
-print('PASS cloud+edge queue, source badges, per-stream status, owner-only command, merged display')
+print('PASS screen code without cashier/cook, cook adds cashier, per-stream status, revoke, display')

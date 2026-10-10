@@ -41,7 +41,12 @@ export function call(port, method, path, headers = {}, body) {
         } catch {
           /* raw */
         }
-        resolve({ status: res.statusCode, text, json: parsed });
+        resolve({
+          status: res.statusCode,
+          text,
+          json: parsed,
+          cookie: res.headers['set-cookie']?.[0],
+        });
       },
     );
     req.on('error', reject);
@@ -117,25 +122,49 @@ function fakeEdge(world) {
   });
 }
 
-/** Fake cloud API `/v1/kitchen/*` with per-key roles, idempotent commands and a key echo trap. */
+/**
+ * Fake cloud API `/v1/kitchen/*` like cloud 056: one-time codes -> screen keys, per-screen
+ * roles and stations, revocation, idempotent commands per screen and a key echo trap.
+ */
 function fakeCloud(world) {
   const results = new Map();
   return createServer(async (req, res) => {
     const body = await readBody(req);
     world.cloudCalls.push({ method: req.method, path: req.url, headers: req.headers, body });
     if (world.cloudDown) return json(res, 503, { code: 'SERVICE_UNAVAILABLE' });
-    const role = world.keyRoles.get(req.headers.authorization?.slice('Bearer '.length));
-    if (!role || world.cloudRevoked) return json(res, 401, { code: 'UNAUTHORIZED' });
     const url = new URL(req.url, 'http://x');
-    const leak = { echo: req.headers.authorization, key: req.headers.authorization };
-    if (url.pathname === '/v1/kitchen/me')
-      return json(res, 200, {
+    if (url.pathname === '/v1/kitchen/pairing' && req.method === 'POST') {
+      const code = String(JSON.parse(body).pairingCode ?? '')
+        .toUpperCase()
+        .replace(/[\s-]/g, '');
+      const issued = world.codes.get(code);
+      if (!issued) return json(res, 401, { code: 'UNAUTHORIZED' });
+      world.codes.delete(code);
+      const screenKey = key();
+      const screen = {
         screenId: randomUUID(),
-        branchId: world.branchId,
-        role,
-        stationIds: role === 'prep' ? [world.prep] : role === 'assembly' ? [world.assembly] : [],
+        branchId: issued.branchId,
+        role: issued.role,
+        stationIds:
+          issued.role === 'prep'
+            ? [world.prep]
+            : issued.role === 'assembly'
+              ? [world.assembly]
+              : [],
+        name: 'Экран',
         generation: 1,
-      });
+      };
+      world.screens.set(screenKey, screen);
+      return json(res, 200, { screenKey, screen });
+    }
+    const screen = world.screens.get(req.headers.authorization?.slice('Bearer '.length));
+    if (!screen || screen.revoked) return json(res, 401, { code: 'UNAUTHORIZED' });
+    const role = screen.role;
+    const leak = { echo: req.headers.authorization, key: req.headers.authorization };
+    if (url.pathname === '/v1/kitchen/me') {
+      const { screenId, branchId, role: r, stationIds, generation } = screen;
+      return json(res, 200, { screenId, branchId, role: r, stationIds, generation });
+    }
     if (url.pathname === '/v1/kitchen/stations')
       return json(res, 200, {
         items: [
@@ -153,7 +182,7 @@ function fakeCloud(world) {
     if (url.pathname === '/v1/kitchen/commands' && req.method === 'POST') {
       const idem = req.headers['idempotency-key'];
       const command = JSON.parse(body);
-      const scope = role + ':' + idem;
+      const scope = screen.screenId + ':' + idem;
       if (results.has(scope)) return json(res, 200, results.get(scope));
       if (command.orderId !== world.order.orderId) return json(res, 404, { code: 'NOT_FOUND' });
       if (command.expectedVersion !== world.order.version)
@@ -174,11 +203,14 @@ function fakeCloud(world) {
   });
 }
 
-export async function setup({ cloud = true, terminalAccess = false } = {}) {
+export async function setup({
+  cloud = true,
+  terminalAccess = false,
+  portalKey = 'a'.repeat(64),
+} = {}) {
   const branchId = randomUUID(),
     prep = randomUUID(),
     assembly = randomUUID();
-  const keys = { prep: key(), assembly: key(), display: key() };
   const at = new Date().toISOString();
   const world = {
     branchId,
@@ -188,8 +220,8 @@ export async function setup({ cloud = true, terminalAccess = false } = {}) {
     cloudCalls: [],
     sessions: new Map(),
     revoked: new Set(),
-    keyRoles: new Map(Object.entries(keys).map(([role, k]) => [k, role])),
-    cloudRevoked: false,
+    codes: new Map(),
+    screens: new Map(),
     cloudDown: false,
     password: 'Synthetic-' + randomUUID(),
     edgeOrder: {
@@ -276,7 +308,7 @@ export async function setup({ cloud = true, terminalAccess = false } = {}) {
   const terminals = { prep: randomUUID(), assembly: randomUUID(), display: randomUUID() };
   const portal = await createPortal({
     origin: ORIGIN,
-    key: 'a'.repeat(64),
+    key: portalKey,
     terminals,
     branchLabel: 'Synthetic',
     terminalAccess,
@@ -286,7 +318,6 @@ export async function setup({ cloud = true, terminalAccess = false } = {}) {
             enabled: true,
             apiOrigin: `http://127.0.0.1:${apiPort}`,
             branchId,
-            keys,
           },
         }
       : {}),
@@ -321,10 +352,22 @@ export async function setup({ cloud = true, terminalAccess = false } = {}) {
       },
     };
   };
+  /** Owner/BO issues a one-time code for a screen of this role (and branch). */
+  const issueCode = (role, branch = branchId) => {
+    const alphabet = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+    const raw = Array.from(randomBytes(10), (b) => alphabet[b % 32]).join('');
+    world.codes.set(raw, { role, branchId: branch });
+    return raw.slice(0, 4) + '-' + raw.slice(4);
+  };
+  const revokeAll = () => {
+    for (const screen of world.screens.values()) screen.revoked = true;
+  };
   return {
     world,
-    keys,
     terminals,
+    issueCode,
+    revokeAll,
+    apiOrigin: `http://127.0.0.1:${apiPort}`,
     port,
     portal,
     staff,
@@ -347,4 +390,7 @@ export async function setup({ cloud = true, terminalAccess = false } = {}) {
     },
   };
 }
-export const leaked = (ctx, text) => Object.values(ctx.keys).some((k) => text.includes(k));
+/** True when any issued screen key appears in a browser-facing response. */
+export const leaked = (ctx, text) => [...ctx.world.screens.keys()].some((k) => text.includes(k));
+/** `name=value` of a Set-Cookie header, for the next request. */
+export const cookieOf = (setCookie) => String(setCookie ?? '').split(';')[0];

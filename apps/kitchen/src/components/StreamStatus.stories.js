@@ -1,6 +1,4 @@
 import { streamIndicators, sourceBadge } from './StreamStatus.js';
-import { DisplayAccess } from './DisplayAccess.js';
-import { TerminalAccess } from '../terminal-access.js';
 import { surface } from '../../../operations-storybook/surface.mjs';
 export default { title: 'Kitchen/StreamStatus' };
 /** Synthetic nav strip and two ticket heads, as on /kitchen-live/prep with the cloud stream. */
@@ -15,15 +13,4 @@ export const BothOnline = { render: () => kitchen({ edge: 'online', cloud: 'onli
 export const CashierOffline = { render: () => kitchen({ edge: 'offline', cloud: 'online' }) };
 export const ServerOffline = { render: () => kitchen({ edge: 'online', cloud: 'offline' }) };
 export const BothOffline = { render: () => kitchen({ edge: 'offline', cloud: 'offline' }) };
-export const DisplayCashierOffline = {
-  render: () =>
-    surface('kitchen', (root) => {
-      const access = new TerminalAccess(() => {});
-      access.mode = 'display';
-      access.paired = true;
-      const display = new DisplayAccess(access, () => {});
-      display.cloud = true;
-      display.streams = { edge: 'offline', cloud: 'online' };
-      display.render(root, 'ТЦ Abay Plaza');
-    }),
-};
+export const NeedsCookLogin = { render: () => kitchen({ edge: 'signed_out', cloud: 'online' }) };

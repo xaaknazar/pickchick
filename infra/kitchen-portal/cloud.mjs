@@ -1,14 +1,17 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createCipheriv, createDecipheriv, hkdfSync, randomBytes, randomUUID } from 'node:crypto';
 import { isIP } from 'node:net';
 import { allowed } from '../../apps/kitchen/server.mjs';
 
 /**
  * Second upstream of the kitchen portal (ADR-0014, S6): the cloud API `/v1/kitchen/*` for
- * kiosk/mobile orders owned by the cloud. The browser never sees a cloud key: it calls
- * `/kitchen-live/<mode>/cloud/v1/fulfillment/*` with its existing staff session, the portal
- * checks that session itself, picks the key of (branch, page role) from its private config and
- * forwards the request over the private VPS network. Responses are re-shaped into the edge
- * fulfillment contract the renderer already validates, so no cloud-only field reaches it.
+ * kiosk/mobile orders owned by the cloud. Owner decision 5: the kitchen browser is a cloud
+ * screen, not a cook. It is bound once with a one-time pairing code (cloud 056); the portal
+ * exchanges the code server-side and keeps the resulting screen key only inside an encrypted,
+ * HttpOnly, Secure, SameSite=Strict, path-scoped cookie. Every request is authenticated by the
+ * cloud with that key (revocation and rotation take effect on the next poll; nothing is kept
+ * in portal memory). Responses are re-shaped into the edge fulfillment contract the renderer
+ * already validates, so no cloud-only field reaches it. The cashier and cook sessions are not
+ * involved.
  */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const KEY = /^pcks_[A-Za-z0-9_-]{43}$/;
@@ -57,18 +60,81 @@ export function validateCloudConfig(input) {
       (isIP(host) === 4 && /^(10|127)\.|^192\.168\.|^172\.(1[6-9]|2\d|3[01])\./.test(host))
     ) ||
     !UUID.test(input.branchId ?? '') ||
-    !input.keys ||
-    typeof input.keys !== 'object' ||
-    Object.keys(input.keys).sort().join(',') !== 'assembly,display,prep' ||
-    !MODES.every((mode) => KEY.test(input.keys[mode] ?? '')) ||
-    new Set(Object.values(input.keys)).size !== 3
+    Object.keys(input).some((k) => !['enabled', 'apiOrigin', 'branchId'].includes(k))
   )
     throw new Error('INVALID_PORTAL_CONFIG');
+  return { apiOrigin: origin.origin, branchId: input.branchId.toLowerCase() };
+}
+
+/**
+ * Encrypted screen cookie per page role. AES-256-GCM with a key derived from the portal secret
+ * and bound to the role and path, so a prep cookie never opens assembly. The browser cannot
+ * read the screen key; the cloud remains the authority on whether it is still valid.
+ */
+export function screenCookies({ key, mode, secure = true }) {
+  if (!/^[a-f0-9]{64}$/.test(key ?? '') || !MODES.includes(mode))
+    throw new Error('INVALID_PORTAL_CONFIG');
+  const path = `/kitchen-live/${mode}/`,
+    name = 'pickchick_cloud_screen_' + mode,
+    aad = Buffer.from('pickchick-cloud-screen-v1:' + mode + ':' + path);
+  const cipherKey = hkdfSync('sha256', Buffer.from(key, 'hex'), Buffer.alloc(0), aad, 32);
+  const suffix = `; Path=${path}; HttpOnly; SameSite=Strict${secure ? '; Secure' : ''}`;
+  const valid = (v) =>
+    isRecord(v) &&
+    Object.keys(v).sort().join(',') === 'branchId,generation,role,screenId,screenKey' &&
+    UUID.test(v.screenId) &&
+    UUID.test(v.branchId) &&
+    v.role === mode &&
+    Number.isSafeInteger(v.generation) &&
+    v.generation > 0 &&
+    KEY.test(v.screenKey);
   return {
-    apiOrigin: origin.origin,
-    branchId: input.branchId.toLowerCase(),
-    keys: { ...input.keys },
+    name,
+    clear: () => `${name}=; Max-Age=0${suffix}`,
+    seal(value) {
+      if (!valid(value)) throw new Error('INVALID_SCREEN');
+      const iv = randomBytes(12),
+        cipher = createCipheriv('aes-256-gcm', cipherKey, iv);
+      cipher.setAAD(aad);
+      const data = Buffer.concat([cipher.update(JSON.stringify(value), 'utf8'), cipher.final()]);
+      return `${name}=${Buffer.concat([iv, cipher.getAuthTag(), data]).toString('base64url')}; Max-Age=31536000${suffix}`;
+    },
+    read(header) {
+      if (typeof header !== 'string' || header.length > 4096) return null;
+      const values = header
+        .split(';')
+        .map((x) => x.trim())
+        .filter((x) => x.startsWith(name + '='));
+      if (values.length !== 1) return null;
+      try {
+        const text = values[0].slice(name.length + 1);
+        if (!/^[A-Za-z0-9_-]{40,1500}$/.test(text)) return null;
+        const bytes = Buffer.from(text, 'base64url');
+        const decipher = createDecipheriv('aes-256-gcm', cipherKey, bytes.subarray(0, 12));
+        decipher.setAAD(aad);
+        decipher.setAuthTag(bytes.subarray(12, 28));
+        const value = JSON.parse(
+          Buffer.concat([decipher.update(bytes.subarray(28)), decipher.final()]).toString('utf8'),
+        );
+        return valid(value) ? value : null;
+      } catch {
+        return null;
+      }
+    },
   };
+}
+/** What a person types (case, spaces, dashes); the cloud does the real normalisation. */
+export function pairingCode(raw) {
+  let v;
+  try {
+    v = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!isRecord(v) || Object.keys(v).join(',') !== 'code' || typeof v.code !== 'string')
+    return null;
+  const code = v.code.trim();
+  return code.length <= 40 && /^[0-9A-Za-z]{10}$/.test(code.replace(/[\s-]/g, '')) ? code : null;
 }
 
 /** The shared ErrorSchema shape: the renderer treats anything else as an unknown outcome. */
@@ -78,12 +144,13 @@ export function errorBody(code) {
     UNAUTHORIZED: 'errors.unauthorized',
     NOT_FOUND: 'errors.not_found',
     CONFLICT: 'errors.conflict',
+    RATE_LIMITED: 'errors.rate_limited',
     SERVICE_UNAVAILABLE: 'errors.service_unavailable',
   };
   return {
     code,
     message_key: keys[code],
-    retryable: code === 'SERVICE_UNAVAILABLE' || code === 'CONFLICT',
+    retryable: ['SERVICE_UNAVAILABLE', 'CONFLICT', 'RATE_LIMITED'].includes(code),
     trace_id: randomUUID(),
   };
 }
@@ -92,6 +159,7 @@ const STATUS = {
   UNAUTHORIZED: 401,
   NOT_FOUND: 404,
   CONFLICT: 409,
+  RATE_LIMITED: 429,
   SERVICE_UNAVAILABLE: 503,
 };
 export class CloudFailure extends Error {
@@ -268,43 +336,6 @@ class OwnerIndex {
   }
 }
 
-/**
- * Staff sessions verified by the edge (the only holder of staff accounts). A session the edge
- * confirmed stays usable for the cloud stream until its own expiry while the cashier is
- * unreachable; whenever the edge answers again it is re-checked (every 30 s), and a rejection
- * removes it at once. Nothing is persisted: after a portal restart the edge must confirm again.
- */
-export class SessionCache {
-  constructor({ recheckMs = 30000, limit = 512, now = () => Date.now() } = {}) {
-    this.recheckMs = recheckMs;
-    this.limit = limit;
-    this.now = now;
-    this.entries = new Map();
-  }
-  static key(parts) {
-    return createHash('sha256').update(parts.join('\n')).digest('hex');
-  }
-  get(key) {
-    const entry = this.entries.get(key);
-    if (entry && entry.expiresAt <= this.now()) {
-      this.entries.delete(key);
-      return null;
-    }
-    return entry ?? null;
-  }
-  fresh(entry) {
-    return this.now() - entry.checkedAt < this.recheckMs;
-  }
-  set(key, value) {
-    this.entries.delete(key);
-    this.entries.set(key, { ...value, checkedAt: this.now() });
-    while (this.entries.size > this.limit) this.entries.delete(this.entries.keys().next().value);
-  }
-  delete(key) {
-    this.entries.delete(key);
-  }
-}
-
 export class CloudUpstream {
   constructor(config, { fetchImpl = fetch, timeoutMs = 8000, now = () => Date.now() } = {}) {
     this.config = config;
@@ -313,16 +344,14 @@ export class CloudUpstream {
     this.now = now;
     this.owners = new OwnerIndex();
     this.lastOk = 0;
-    this.stationsByMode = new Map();
+    this.stations = new Map();
   }
   get online() {
     return this.now() - this.lastOk < 30000;
   }
-  async call(mode, method, path, { body, idempotencyKey } = {}) {
-    const headers = {
-      Accept: 'application/json',
-      Authorization: 'Bearer ' + this.config.keys[mode],
-    };
+  async call(screenKey, method, path, { body, idempotencyKey } = {}) {
+    const headers = { Accept: 'application/json' };
+    if (screenKey) headers.Authorization = 'Bearer ' + screenKey;
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
     let response;
@@ -346,45 +375,87 @@ export class CloudUpstream {
     } catch {
       return fail('SERVICE_UNAVAILABLE');
     }
-    // A reachable, authenticated API counts as connected even when it rejects one command.
-    if ([200, 400, 404, 409].includes(response.status)) this.lastOk = this.now();
+    // A reachable API counts as connected even when it rejects one request.
+    if ([200, 400, 401, 404, 409].includes(response.status)) this.lastOk = this.now();
     if (response.status === 200) return payload;
-    // Key revoked/foreign station (401/403) is a cloud-side configuration fault, never a reason
-    // to sign the cook out of the edge session.
+    // 401: the screen key is revoked, rotated or unknown - the browser must pair again.
+    if (response.status === 401) fail('UNAUTHORIZED');
     if (response.status === 400) fail('INVALID_REQUEST');
     if (response.status === 404) fail('NOT_FOUND');
     if (response.status === 409) fail('CONFLICT');
+    // 403 (station outside the screen) and 5xx are an outage of the stream, not a sign-out.
     return fail('SERVICE_UNAVAILABLE');
   }
-  /** Stations of the role key (from `/me`), cached for a minute. */
-  async keyStations(mode) {
-    const cached = this.stationsByMode.get(mode);
-    if (cached && this.now() - cached.at < 60000) return cached.ids;
-    const me = await this.call(mode, 'GET', '/me');
+  /** One-time code -> screen key, server-side. Only this role and branch are accepted. */
+  async pair(mode, code) {
+    const out = await this.call(null, 'POST', '/pairing', { body: { pairingCode: code } });
+    const screen = isRecord(out) && isRecord(out.screen) ? out.screen : null;
     if (
-      !isRecord(me) ||
-      String(me.branchId).toLowerCase() !== this.config.branchId ||
-      me.role !== mode ||
-      !Array.isArray(me.stationIds)
+      !screen ||
+      typeof out.screenKey !== 'string' ||
+      !UUID.test(screen.screenId ?? '') ||
+      !Number.isSafeInteger(screen.generation)
     )
       fail('SERVICE_UNAVAILABLE');
-    const ids = new Set(me.stationIds.map((s) => id(s).toLowerCase()));
-    this.stationsByMode.set(mode, { at: this.now(), ids });
-    return ids;
+    // The code is spent either way; a code for another role/branch never binds this page.
+    if (screen.role !== mode || String(screen.branchId).toLowerCase() !== this.config.branchId)
+      fail('CONFLICT');
+    return {
+      screenId: screen.screenId.toLowerCase(),
+      branchId: this.config.branchId,
+      role: mode,
+      generation: screen.generation,
+      screenKey: out.screenKey,
+    };
+  }
+  /** Live check of the cookie against the cloud (revocation, rotation, branch, role). */
+  async me(screen) {
+    const me = await this.call(screen.screenKey, 'GET', '/me');
+    if (
+      !isRecord(me) ||
+      String(me.screenId).toLowerCase() !== screen.screenId ||
+      String(me.branchId).toLowerCase() !== this.config.branchId ||
+      me.role !== screen.role ||
+      me.generation !== screen.generation ||
+      !Array.isArray(me.stationIds)
+    )
+      fail('UNAUTHORIZED');
+    const stationIds = me.stationIds.map((s) => id(s).toLowerCase());
+    this.stations.set(screen.screenId + ':' + screen.generation, {
+      at: this.now(),
+      ids: new Set(stationIds),
+    });
+    return {
+      screenId: screen.screenId,
+      branchId: this.config.branchId,
+      role: screen.role,
+      stationIds,
+    };
+  }
+  async screenStations(screen) {
+    const cached = this.stations.get(screen.screenId + ':' + screen.generation);
+    if (cached && this.now() - cached.at < 60000) return cached.ids;
+    await this.me(screen);
+    return this.stations.get(screen.screenId + ':' + screen.generation).ids;
   }
   /**
-   * One browser request in edge shape -> one cloud call -> edge-shaped JSON.
-   * `path` is relative to CLOUD_PREFIX and was validated with the edge allowlist.
+   * One browser request in edge shape -> one cloud call with this screen's key -> edge-shaped
+   * JSON. `path` is relative to CLOUD_PREFIX and was validated with the edge allowlist.
    */
-  async handle(mode, method, path, { body, idempotencyKey } = {}) {
-    const branchId = this.config.branchId;
+  async handle(screen, method, path, { body, idempotencyKey } = {}) {
+    const branchId = this.config.branchId,
+      mode = screen.role,
+      key = screen.screenKey;
     const url = new URL(path, 'http://portal.invalid');
     const order = /^\/orders\/([0-9a-f-]{36})(\/actions)?$/i.exec(url.pathname);
     if (method === 'GET' && url.pathname === '/config')
       return { enabled: true, wholeTicketActions: true };
     if (method === 'GET' && url.pathname === '/stations') {
-      if (mode === 'display') return { branchId, items: [] };
-      return stationsView(await this.call(mode, 'GET', '/stations'), branchId);
+      if (mode === 'display') {
+        await this.me(screen);
+        return { branchId, items: [] };
+      }
+      return stationsView(await this.call(key, 'GET', '/stations'), branchId);
     }
     if (method === 'GET' && url.pathname === '/display') {
       const q = new globalThis.URLSearchParams({ limit: url.searchParams.get('limit') ?? '50' });
@@ -394,21 +465,21 @@ export class CloudUpstream {
         if (BigInt(after) >= 899n) return { items: [], nextAfterNumber: null };
         q.set('afterNumber', after);
       }
-      return displayView(await this.call(mode, 'GET', '/display?' + q));
+      return displayView(await this.call(key, 'GET', '/display?' + q));
     }
     if (mode === 'display') fail('NOT_FOUND');
     if (method === 'GET' && url.pathname === '/kitchen') {
       const station = url.searchParams.get('stationId');
-      // A station this role key does not serve has no cloud work; polling it would 403.
-      if (station && !(await this.keyStations(mode)).has(station.toLowerCase()))
+      // A station this screen does not serve has no cloud work; polling it would 403.
+      if (station && !(await this.screenStations(screen)).has(station.toLowerCase()))
         return { items: [], nextAfterOrderId: null };
-      const page = kitchenView(await this.call(mode, 'GET', '/kitchen' + url.search), branchId);
+      const page = kitchenView(await this.call(key, 'GET', '/kitchen' + url.search), branchId);
       for (const item of page.items) this.owners.add(item.orderId.toLowerCase());
       return page;
     }
     if (method === 'GET' && order && !order[2]) {
       const view = orderView(
-        await this.call(mode, 'GET', '/orders/' + order[1] + url.search),
+        await this.call(key, 'GET', '/orders/' + order[1] + url.search),
         branchId,
       );
       this.owners.add(view.orderId.toLowerCase());
@@ -418,7 +489,7 @@ export class CloudUpstream {
       if (!/^[A-Za-z0-9._:-]{8,128}$/.test(idempotencyKey ?? '')) fail('INVALID_REQUEST');
       const command = { orderId: order[1].toLowerCase(), ...actionBody(body) };
       const result = summaryView(
-        await this.call(mode, 'POST', '/commands', { body: command, idempotencyKey }),
+        await this.call(key, 'POST', '/commands', { body: command, idempotencyKey }),
         branchId,
       );
       if (result.orderId.toLowerCase() !== command.orderId) fail('SERVICE_UNAVAILABLE');

@@ -10,13 +10,13 @@ import {
   validReply,
   MAX_REPLY,
 } from './link.mjs';
-import { terminalCookies } from '../../apps/kitchen/terminal-cookie.mjs';
 import {
   CloudFailure,
   CloudUpstream,
-  SessionCache,
   allowedCloud,
   errorBody,
+  pairingCode,
+  screenCookies,
   validateCloudConfig,
 } from './cloud.mjs';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -61,7 +61,6 @@ export async function createPortal({
   const cloud = cloudConfig
     ? new CloudUpstream(cloudConfig, cloudFetch ? { fetchImpl: cloudFetch } : {})
     : null;
-  const sessions = new SessionCache();
   if (
     url.protocol !== 'https:' ||
     url.origin !== origin ||
@@ -71,13 +70,10 @@ export async function createPortal({
         new Set(Object.values(terminals)).size !== 3))
   )
     throw new Error('INVALID_PORTAL_CONFIG');
-  // Same derivation as the per-mode gateways: the portal can verify a paired screen itself.
-  const cookieReaders = terminalAccess
+  // One encrypted cloud screen cookie per page role (owner decision 5: screen, not cook).
+  const screens = cloud
     ? Object.fromEntries(
-        ['prep', 'assembly', 'display'].map((mode) => [
-          mode,
-          terminalCookies({ key, mode, path: `/kitchen-live/${mode}/`, secure: true }),
-        ]),
+        ['prep', 'assembly', 'display'].map((mode) => [mode, screenCookies({ key, mode })]),
       )
     : null;
   const upstream = createServer(async (req, res) => {
@@ -134,85 +130,32 @@ export async function createPortal({
     }
     return ++buckets.get(id).count <= (login ? 12 : 360);
   }
-  /** The portal's own check of the page session before any cloud request is made. */
-  async function cloudSession(req, mode) {
-    const paired = cookieReaders?.[mode].read(req.headers.cookie) ?? null;
-    if (cookieReaders) {
-      if (!paired) throw new CloudFailure('UNAUTHORIZED');
-      if (paired.branchId !== cloudConfig.branchId) throw new CloudFailure('SERVICE_UNAVAILABLE');
-      // A paired customer display is a device session; it only reads numbers.
-      if (mode === 'display') return;
-    }
-    const authorization = req.headers.authorization,
-      sessionId = req.headers['x-staff-session-id'],
-      terminal = req.headers['x-terminal-id'];
-    if (
-      typeof authorization !== 'string' ||
-      !/^Bearer [^\s]{16,200}$/.test(authorization) ||
-      typeof sessionId !== 'string' ||
-      !UUID.test(sessionId) ||
-      typeof terminal !== 'string' ||
-      terminal !== (paired ? paired.terminalId : terminals[mode])
-    )
-      throw new CloudFailure('UNAUTHORIZED');
-    const cacheKey = SessionCache.key([mode, authorization, sessionId, terminal]);
-    const known = sessions.get(cacheKey);
-    if (known && sessions.fresh(known)) return;
-    if (link.online) {
-      try {
-        const localOrigin = `http://127.0.0.1:${gateways[mode]}`;
-        const response = await fetch(localOrigin + '/edge/v1/session', {
-          headers: {
-            Accept: 'application/json',
-            Origin: localOrigin,
-            authorization,
-            'x-staff-session-id': sessionId,
-            'x-terminal-id': terminal,
-            ...(cookieReaders && typeof req.headers.cookie === 'string'
-              ? { Cookie: req.headers.cookie }
-              : {}),
-          },
-          redirect: 'error',
-          signal: AbortSignal.timeout(11500),
-        });
-        if (response.status === 401 || response.status === 403) {
-          await response.body?.cancel();
-          sessions.delete(cacheKey);
-          throw new CloudFailure('UNAUTHORIZED');
-        }
-        if (response.ok) {
-          const value = await response.json();
-          const expiresAt = Date.parse(value?.expires_at);
-          if (
-            value?.session_id !== sessionId ||
-            value?.terminal_id !== terminal ||
-            !Number.isFinite(expiresAt) ||
-            expiresAt <= Date.now()
-          )
-            throw new CloudFailure('UNAUTHORIZED');
-          if (String(value.branch_id).toLowerCase() !== cloudConfig.branchId)
-            throw new CloudFailure('SERVICE_UNAVAILABLE');
-          sessions.set(cacheKey, { expiresAt });
-          return;
-        }
-        await response.body?.cancel();
-      } catch (error) {
-        if (error instanceof CloudFailure) throw error;
-      }
-    }
-    // Cashier unreachable: a session it confirmed earlier keeps the cloud queue usable.
-    if (known) return;
-    throw new CloudFailure('SERVICE_UNAVAILABLE');
-  }
+  /**
+   * Cloud screen routes of one page role. No cook session and no cashier are involved: the
+   * cookie carries the (encrypted) screen key and the cloud authenticates it on every call, so
+   * a revoked or rotated screen gets 401 and its cookie is cleared at once.
+   */
   async function serveCloud(req, res, mode, rest) {
-    const sendCloud = (status, body) => send(res, status, body);
-    if (!rate(req, false)) {
+    const cookies = screens[mode];
+    const reply = (status, body, clear = false) => {
+      if (clear) res.setHeader('Set-Cookie', cookies.clear());
+      send(res, status, body);
+    };
+    const pair = rest === '/pair';
+    if (!rate(req, pair)) {
       res.setHeader('Retry-After', '60');
-      send(res, 429, { code: 'RATE_LIMITED' });
+      reply(429, errorBody('RATE_LIMITED'));
       return;
     }
-    if (!allowedCloud(req.method, rest)) {
-      sendCloud(404, errorBody('NOT_FOUND'));
+    const fulfillment = rest.startsWith('/v1/fulfillment/')
+      ? rest.slice('/v1/fulfillment'.length)
+      : null;
+    if (
+      !(pair && req.method === 'POST') &&
+      !(rest === '/session' && req.method === 'GET') &&
+      !(fulfillment && allowedCloud(req.method, fulfillment))
+    ) {
+      reply(404, errorBody('NOT_FOUND'));
       return;
     }
     try {
@@ -220,16 +163,34 @@ export async function createPortal({
       if (req.method === 'POST') {
         if (req.headers['content-type'] !== 'application/json')
           throw new CloudFailure('INVALID_REQUEST');
-        body = (await boundedBody(req, 16384)).toString('utf8');
+        body = (await boundedBody(req, pair ? 2048 : 16384)).toString('utf8');
       } else if (req.headers['transfer-encoding'] || Number(req.headers['content-length'] ?? 0))
         throw new CloudFailure('INVALID_REQUEST');
-      await cloudSession(req, mode);
+      if (pair) {
+        const code = pairingCode(body);
+        if (!code) throw new CloudFailure('INVALID_REQUEST');
+        const paired = await cloud.pair(mode, code);
+        const info = await cloud.me(paired);
+        res.setHeader('Set-Cookie', cookies.seal(paired));
+        // The key stays in the HttpOnly cookie; the page only learns which screen it is.
+        reply(200, info);
+        return;
+      }
+      const screen = cookies.read(req.headers.cookie);
+      if (!screen || screen.branchId !== cloudConfig.branchId)
+        throw new CloudFailure('UNAUTHORIZED');
+      if (rest === '/session') {
+        reply(200, await cloud.me(screen));
+        return;
+      }
       const idempotencyKey = req.headers['idempotency-key'];
-      const result = await cloud.handle(mode, req.method, rest, {
-        body,
-        idempotencyKey: typeof idempotencyKey === 'string' ? idempotencyKey : undefined,
-      });
-      sendCloud(200, result);
+      reply(
+        200,
+        await cloud.handle(screen, req.method, fulfillment, {
+          body,
+          idempotencyKey: typeof idempotencyKey === 'string' ? idempotencyKey : undefined,
+        }),
+      );
     } catch (error) {
       const failure =
         error instanceof CloudFailure
@@ -237,7 +198,9 @@ export async function createPortal({
           : new CloudFailure(
               error?.message === 'BODY_LIMIT' ? 'INVALID_REQUEST' : 'SERVICE_UNAVAILABLE',
             );
-      sendCloud(failure.status, errorBody(failure.code));
+      // A pairing that failed never touches an existing binding; a rejected key clears it.
+      const clear = !pair && failure.code === 'UNAUTHORIZED' && req.headers.cookie !== undefined;
+      reply(failure.status, errorBody(failure.code), clear);
     }
   }
   const server = createServer(async (req, res) => {
@@ -303,7 +266,7 @@ export async function createPortal({
         return;
       }
       const cloudMatch = cloud
-        ? /^\/kitchen-live\/(prep|assembly|display)\/cloud\/v1\/fulfillment(\/[^#]*)$/.exec(path)
+        ? /^\/kitchen-live\/(prep|assembly|display)\/cloud(\/[^#]*)$/.exec(path)
         : null;
       if (cloudMatch) {
         await serveCloud(req, res, cloudMatch[1], cloudMatch[2]);
@@ -322,7 +285,7 @@ export async function createPortal({
         mode = 'prep';
         pathOnGateway = path.slice('/kitchen-live/assets'.length);
         if (
-          !/^\/(?:[a-z0-9-]+\.(?:js|css|png)|components\/(?:(?:TerminalPairing|DisplayAccess|PasswordReset|StreamStatus)\.js|PasswordReset\.css)|fonts\/[a-z0-9-]+\.woff2)$/.test(
+          !/^\/(?:[a-z0-9-]+\.(?:js|css|png)|components\/(?:(?:TerminalPairing|DisplayAccess|PasswordReset|StreamStatus|CloudPairing)\.js|PasswordReset\.css)|fonts\/[a-z0-9-]+\.woff2)$/.test(
             pathOnGateway,
           )
         ) {
@@ -410,7 +373,12 @@ export async function createPortal({
       if (cloud && pathOnGateway === '/config.json' && response.ok) {
         // Only a flag: keys, API address and branch stay on the server.
         payload = Buffer.from(
-          JSON.stringify({ ...JSON.parse(payload.toString('utf8')), cloudKitchen: true }),
+          JSON.stringify({
+            ...JSON.parse(payload.toString('utf8')),
+            cloudKitchen: true,
+            // Decryptable cookie only; the page then asks /cloud/session, which the cloud checks.
+            cloudPaired: Boolean(screens[mode].read(req.headers.cookie)),
+          }),
         );
       }
       if (pathOnGateway === '/' || pathOnGateway === '/styles.css')

@@ -233,8 +233,13 @@ nav button[aria-pressed='true'] {
   background: transparent;
   border: 2px solid currentColor;
 }
-.stream-unknown {
+.stream-unknown,
+.stream-signed_out {
   color: #53657d;
+}
+.stream-signed_out .stream-dot {
+  background: transparent;
+  border: 2px dashed currentColor;
 }
 .sync-time {
   margin-left: 14px;

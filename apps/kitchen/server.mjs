@@ -136,6 +136,7 @@ const assets = new Map([
     'components/DisplayAccess',
     'components/PasswordReset',
     'components/StreamStatus',
+    'components/CloudPairing',
   ].map((n) => ['/' + n + '.js', [n + '.js', 'text/javascript; charset=utf-8']]),
   ...['logo.png', 'bg-blue.png'].map((n) => ['/' + n, [n, 'image/png']]),
   ...[

@@ -8,21 +8,26 @@ import { resolve } from 'node:path';
 import { setup } from './cloud-fixture.mjs';
 
 // Real renderer + real portal + fake cashier edge + fake cloud API (no PostgreSQL needed):
-// both streams, «Касса: нет связи», «Сервер: нет связи», both down.
+// cashier off + fresh browser -> screen code -> cloud orders without a cook; a cook login adds
+// the cashier stream; «Сервер: нет связи», «Касса: нет связи»; revoke -> code screen; display.
 test(
-  'browser: one queue from cashier and server with per-stream status',
+  'browser: cloud screen without cashier or cook; cook login adds the cashier stream',
   { timeout: 120000 },
   async () => {
     const ctx = await setup();
     for (const mode of ['prep', 'assembly', 'display']) ctx.staff(mode, 'kitchen.synthetic');
     const control = createServer(async (req, res) => {
+      let code;
       if (req.url === '/edge-down') await ctx.edgeDown();
       else if (req.url === '/edge-up') ctx.edgeUp();
       else if (req.url === '/cloud-down') ctx.world.cloudDown = true;
       else if (req.url === '/cloud-up') ctx.world.cloudDown = false;
+      else if (req.url === '/revoke') ctx.revokeAll();
+      else if (req.url.startsWith('/code/')) code = ctx.issueCode(req.url.slice('/code/'.length));
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
+          code,
           cloudCommands: ctx.world.cloudCalls.filter((c) => c.path === '/v1/kitchen/commands')
             .length,
           edgeActions: ctx.world.edgeCalls.filter((c) => c.path.includes('/actions')).length,

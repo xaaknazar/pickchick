@@ -1,10 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { KitchenModel, allowedActions, journalKey, parsePending } from '../dist/model.js';
+import {
+  KitchenModel,
+  allowedActions,
+  journalKey,
+  screenJournalKey,
+  screenScope,
+  parsePending,
+} from '../dist/model.js';
 import { ApiError } from '../dist/api.js';
 import { streamIndicators, sourceBadge, streamLabel } from '../dist/components/StreamStatus.js';
+import { startRuntime } from '../dist/runtime.js';
 const id = () => randomUUID();
+const clone = (v) => globalThis.structuredClone(v);
 class Store {
   map = new Map();
   getItem(k) {
@@ -17,11 +26,11 @@ class Store {
     this.map.delete(k);
   }
 }
-function order(c, prep, assembly, number, channel, minutesAgo) {
+function order(branch, prep, assembly, number, channel, minutesAgo) {
   const at = new Date(Date.now() - minutesAgo * 60000).toISOString();
   return {
     orderId: id(),
-    branchId: c.branch_id,
+    branchId: branch,
     version: 1,
     state: 'accepted',
     displayNumber: number,
@@ -51,93 +60,107 @@ function order(c, prep, assembly, number, channel, minutesAgo) {
     ],
   };
 }
-/** Two fake upstreams behind one renderer transport, like the portal routes. */
+/**
+ * Fake portal: edge routes need the cook credential; cloud routes are authorised only by the
+ * (HttpOnly) screen cookie, modelled as `paired`/`revoked` flags - no actor is ever sent.
+ */
 function fixture() {
+  const branch = id(),
+    prep = id(),
+    assembly = id(),
+    screenId = id();
   const c = {
     session_id: id(),
     staff_id: id(),
     terminal_id: id(),
-    branch_id: id(),
+    branch_id: branch,
     role: 'kitchen',
     token: 'a'.repeat(64),
     expires_at: new Date(Date.now() + 3600000).toISOString(),
   };
-  const prep = id(),
-    assembly = id();
-  const edgeOrder = order(c, prep, assembly, '12', 'pos', 5);
-  const cloudOrder = order(c, prep, assembly, '301', 'kiosk', 3);
-  const down = { edge: false, cloud: false };
-  const calls = [];
-  const servers = {
-    edge: { orders: [edgeOrder], numbers: [{ number: '12', state: 'preparing' }] },
-    cloud: { orders: [cloudOrder], numbers: [{ number: '301', state: 'ready' }] },
+  const edgeOrder = order(branch, prep, assembly, '12', 'pos', 5);
+  const cloudOrder = order(branch, prep, assembly, '301', 'kiosk', 3);
+  const world = {
+    down: { edge: false, cloud: false },
+    paired: false,
+    revoked: false,
+    code: 'AB12-CD34EF',
+    role: 'prep',
+    calls: [],
+    servers: {
+      edge: { orders: [edgeOrder], numbers: [{ number: '12', state: 'preparing' }] },
+      cloud: { orders: [cloudOrder], numbers: [{ number: '301', state: 'ready' }] },
+    },
+    fault: null,
   };
-  let fault = null;
+  const screenInfo = () => ({ screenId, branchId: branch, role: world.role, stationIds: [prep] });
+  const unauthorized = () => new ApiError('UNAUTHORIZED', 401, true);
   const transport = async (path, actor, body, key) => {
     const owner = path.startsWith('/cloud/') ? 'cloud' : 'edge';
-    calls.push({ owner, path, body: globalThis.structuredClone(body), key });
-    if (down[owner])
-      throw new ApiError(
-        owner === 'cloud' ? 'SERVICE_UNAVAILABLE' : 'CONNECTION_UNKNOWN',
-        owner === 'cloud' ? 503 : 0,
-        owner === 'cloud',
-      );
-    const server = servers[owner];
-    if (path.endsWith('/config')) return { enabled: true, wholeTicketActions: false };
+    world.calls.push({ owner, path, actor, body: clone(body), key });
+    if (owner === 'cloud') {
+      assert.equal(actor, null, 'cloud routes never carry a cook credential');
+      if (world.down.cloud) throw new ApiError('SERVICE_UNAVAILABLE', 503, true);
+      if (path === '/cloud/pair') {
+        if (body.code !== world.code) throw unauthorized();
+        world.paired = true;
+        world.revoked = false;
+        return screenInfo();
+      }
+      if (!world.paired || world.revoked) throw unauthorized();
+      if (path === '/cloud/session') return screenInfo();
+    } else {
+      if (world.down.edge) throw new ApiError('CONNECTION_UNKNOWN');
+      if (path.endsWith('/config')) return { enabled: true, wholeTicketActions: true };
+      if (!actor) throw unauthorized();
+    }
+    const server = world.servers[owner];
     if (path.endsWith('/stations'))
       return {
-        branchId: c.branch_id,
-        items: [
-          { id: prep, kind: 'prep', name: 'Горячий цех' },
-          { id: assembly, kind: 'assembly', name: 'Сборка' },
-        ],
+        branchId: branch,
+        items:
+          owner === 'edge'
+            ? [
+                { id: prep, kind: 'prep', name: 'Горячий цех' },
+                { id: assembly, kind: 'assembly', name: 'Сборка' },
+              ]
+            : [{ id: prep, kind: 'prep', name: 'Горячий цех' }],
       };
-    if (path.includes('/kitchen?'))
-      return { items: globalThis.structuredClone(server.orders), nextAfterOrderId: null };
+    if (path.includes('/kitchen?')) return { items: clone(server.orders), nextAfterOrderId: null };
     if (path.includes('/display?')) return { items: server.numbers, nextAfterNumber: null };
+    const target = server.orders.find((o) => path.includes(o.orderId));
+    if (!target) throw new ApiError('NOT_FOUND', 404, true);
     if (body) {
-      if (fault) await fault(owner);
-      const target = server.orders.find((o) => path.includes(o.orderId));
-      if (!target) throw new ApiError('NOT_FOUND', 404, true);
+      if (world.fault) await world.fault(owner);
       target.version++;
       target.state = 'in_production';
-      target.tasks[0].state = 'in_progress';
+      target.tasks[0].state = 'done';
       target.tasks[0].version++;
-      return globalThis.structuredClone(target);
     }
-    const target = server.orders.find((o) => path.includes(o.orderId));
-    return globalThis.structuredClone(target);
+    return clone(target);
   };
   const session = new Store(),
     durable = new Store();
-  const make = (cloud = true) => {
+  const make = ({ cloud = true, paired = false } = {}) => {
     const m = new KitchenModel(transport, session, durable, async () => () => {});
-    if (cloud) m.enableCloud();
+    if (cloud) m.enableCloud(paired);
     return m;
   };
-  return {
-    c,
-    prep,
-    assembly,
-    edgeOrder,
-    cloudOrder,
-    servers,
-    down,
-    calls,
-    durable,
-    make,
-    setFault: (v) => (fault = v),
-  };
+  return { c, branch, prep, assembly, screenId, edgeOrder, cloudOrder, world, durable, make };
 }
-const login = async (f, m) => m.importCredential(JSON.stringify(f.c));
+const cookLogin = (f, m) => m.importCredential(JSON.stringify(f.c));
+const ticket = (m, o) => m.state.orders.find((x) => x.orderId === o.orderId);
+const act = (m, t) =>
+  m.command(t, allowedActions(t, m.state.stationId, m.state.wholeTicketActions)[0]);
+const cloudPosts = (f) =>
+  f.world.calls.filter((call) => call.body && call.owner === 'cloud' && call.key);
 
-test('cloud flag off: renderer never calls the cloud stream and behaves as edge-only', async () => {
+test('cloud flag off: renderer never calls the cloud and behaves as edge-only', async () => {
   const f = fixture(),
-    m = f.make(false);
-  await login(f, m);
+    m = f.make({ cloud: false });
+  await cookLogin(f, m);
   assert.equal(m.state.error, null);
-  assert.equal(m.state.cloud, false);
-  assert.ok(f.calls.every((call) => call.owner === 'edge'));
+  assert.ok(f.world.calls.every((call) => call.owner === 'edge'));
   assert.deepEqual(
     m.state.orders.map((o) => o.orderId),
     [f.edgeOrder.orderId],
@@ -145,15 +168,61 @@ test('cloud flag off: renderer never calls the cloud stream and behaves as edge-
   assert.equal(m.state.orders[0].fulfillmentOwner, undefined);
 });
 
-test('both streams up: one queue, no duplicate orderId, cloud copy owns the ticket, numbers merged', async () => {
+test('cashier down, fresh browser: code binds the screen; cloud orders visible and actionable without a cook', async () => {
   const f = fixture();
-  // A mistaken duplicate of the cloud order in the edge feed must not appear twice.
-  f.servers.edge.orders.push(globalThis.structuredClone(f.cloudOrder));
-  f.servers.edge.numbers.push({ number: '301', state: 'preparing' });
+  f.world.down.edge = true;
   const m = f.make();
-  await login(f, m);
+  assert.equal(m.active, false);
+  await m.pairScreen('ZZ12-CD34EF', 'prep');
+  assert.equal(m.state.error, 'PAIRING_REJECTED');
+  await m.pairScreen(f.world.code, 'prep');
   assert.equal(m.state.error, null);
+  assert.equal(m.active, true);
+  assert.equal(m.state.actor, null);
+  assert.equal(m.state.screen.screenId, f.screenId);
+  assert.deepEqual(m.state.streams, { edge: 'signed_out', cloud: 'online' });
+  assert.ok(!f.world.calls.some((call) => call.owner === 'edge'), 'cashier not needed');
+  const t = ticket(m, f.cloudOrder);
+  assert.equal(t.fulfillmentOwner, 'cloud');
+  await act(m, t);
+  assert.equal(m.state.error, null);
+  const posts = cloudPosts(f);
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].path, `/cloud/v1/fulfillment/orders/${t.orderId}/actions`);
+  assert.equal(f.world.servers.cloud.orders[0].version, 2);
+  // Same browser after a reload or portal restart: cookie -> session, no code, no cook.
+  const n = f.make({ paired: true });
+  await n.restoreScreen();
+  assert.equal(n.state.error, null);
+  assert.equal(n.state.screen.screenId, f.screenId);
+});
+
+test('revoked screen: 401 returns the page to the code screen, cook session untouched', async () => {
+  const f = fixture(),
+    m = f.make();
+  await m.pairScreen(f.world.code, 'prep');
+  await cookLogin(f, m);
   assert.deepEqual(m.state.streams, { edge: 'online', cloud: 'online' });
+  f.world.revoked = true;
+  await m.refresh();
+  assert.equal(m.state.error, 'SCREEN_REVOKED');
+  assert.equal(m.state.screenPaired, false);
+  assert.equal(m.state.screen, null);
+  assert.ok(m.state.actor, 'cook stays signed in for the cashier');
+  const before = f.world.calls.filter((call) => call.owner === 'cloud').length;
+  await m.refresh();
+  assert.equal(f.world.calls.filter((call) => call.owner === 'cloud').length, before);
+  assert.deepEqual(m.state.streams, { edge: 'online', cloud: 'signed_out' });
+});
+
+test('cashier orders still require a cook login; with it both streams merge without duplicates', async () => {
+  const f = fixture(),
+    m = f.make();
+  await m.pairScreen(f.world.code, 'prep');
+  assert.equal(ticket(m, f.edgeOrder), undefined, 'no cashier orders without a cook');
+  f.world.servers.edge.orders.push(clone(f.cloudOrder));
+  f.world.servers.edge.numbers.push({ number: '301', state: 'preparing' });
+  await cookLogin(f, m);
   assert.deepEqual(
     m.state.orders.map((o) => [o.displayNumber, o.fulfillmentOwner ?? 'edge']),
     [
@@ -166,137 +235,129 @@ test('both streams up: one queue, no duplicate orderId, cloud copy owns the tick
     m.state.display.map((i) => i.number),
     ['12', '301'],
   );
+  await m.selectMode('kitchen');
+  m.logout();
+  await m.refresh();
+  assert.deepEqual(
+    m.state.orders.map((o) => o.orderId),
+    [f.cloudOrder.orderId],
+  );
+  assert.equal(m.state.streams.edge, 'signed_out');
 });
 
-test('cashier off: sign-in, cloud orders visible and actionable; command goes to the cloud only', async () => {
-  const f = fixture();
-  f.down.edge = true;
-  const m = f.make();
-  await login(f, m);
-  assert.equal(m.state.error, null);
-  assert.deepEqual(m.state.streams, { edge: 'offline', cloud: 'online' });
-  assert.equal(m.state.stations.length, 2);
-  assert.equal(m.state.wholeTicketActions, true);
-  await m.selectStation(f.prep);
-  const ticket = m.state.orders.find((o) => o.orderId === f.cloudOrder.orderId);
-  assert.equal(ticket.fulfillmentOwner, 'cloud');
-  const before = f.calls.length;
-  await m.command(ticket, allowedActions(ticket, f.prep, m.state.wholeTicketActions)[0]);
-  assert.equal(m.state.error, null);
-  const posts = f.calls.slice(before).filter((call) => call.body);
-  assert.equal(posts.length, 1);
-  assert.equal(posts[0].owner, 'cloud');
-  assert.equal(posts[0].path, `/cloud/v1/fulfillment/orders/${ticket.orderId}/actions`);
-  assert.equal(f.servers.cloud.orders[0].version, 2);
-});
-
-test('cashier drops after sign-in: last edge tickets stay visible but blocked, no edge POST', async () => {
+test('cashier drops: last tickets stay visible but blocked; stored cook is retried on refresh', async () => {
   const f = fixture(),
     m = f.make();
-  await login(f, m);
-  await m.selectStation(f.prep);
-  f.down.edge = true;
+  await m.pairScreen(f.world.code, 'prep');
+  await cookLogin(f, m);
+  f.world.down.edge = true;
   await m.refresh();
   assert.equal(m.state.error, null);
   assert.equal(m.state.streams.edge, 'offline');
-  const edgeTicket = m.state.orders.find((o) => o.orderId === f.edgeOrder.orderId);
-  assert.ok(edgeTicket, 'last known cashier ticket kept');
+  const edgeTicket = ticket(m, f.edgeOrder);
+  assert.ok(edgeTicket);
   assert.equal(m.ownerOffline(edgeTicket), true);
-  const before = f.calls.length;
-  await m.command(edgeTicket, allowedActions(edgeTicket, f.prep, m.state.wholeTicketActions)[0]);
+  const before = f.world.calls.length;
+  await act(m, edgeTicket);
   assert.equal(m.state.error, 'EDGE_OFFLINE');
-  assert.equal(f.calls.slice(before).filter((call) => call.body).length, 0);
-  assert.equal(m.state.pending, null);
+  assert.equal(f.world.calls.slice(before).filter((call) => call.body).length, 0);
+  const n = f.make({ paired: true });
+  await n.restoreScreen();
+  await n.restore();
+  assert.equal(n.state.error, null);
+  assert.equal(n.state.actor, null);
+  assert.equal(n.state.streams.edge, 'offline');
+  f.world.down.edge = false;
+  await n.refresh();
+  assert.ok(n.state.actor, 'cook session resumed once the cashier answers');
 });
 
-test('server off: cashier queue unchanged, cloud indicator offline; both off is an error', async () => {
-  const f = fixture();
-  f.down.cloud = true;
-  const m = f.make();
-  await login(f, m);
-  assert.equal(m.state.error, null);
-  assert.deepEqual(m.state.streams, { edge: 'online', cloud: 'offline' });
-  assert.deepEqual(
-    m.state.orders.map((o) => o.orderId),
-    [f.edgeOrder.orderId],
-  );
-  f.down.edge = true;
-  await m.refresh();
-  assert.equal(m.state.error, 'CONNECTION_UNKNOWN');
-  assert.deepEqual(m.state.streams, { edge: 'offline', cloud: 'offline' });
-});
-
-test('separate journals: unknown cashier command never blocks cloud work; cloud replay is exact', async () => {
+test('separate journals per owner: stuck cashier command never blocks cloud; cloud replay exact', async () => {
   const f = fixture(),
     m = f.make();
-  await login(f, m);
-  await m.selectStation(f.prep);
-  f.setFault(async () => {
+  await m.pairScreen(f.world.code, 'prep');
+  await cookLogin(f, m);
+  f.world.fault = async () => {
     throw new ApiError('CONNECTION_UNKNOWN');
-  });
-  const edgeTicket = m.state.orders.find((o) => o.orderId === f.edgeOrder.orderId);
-  await m.command(edgeTicket, allowedActions(edgeTicket, f.prep, m.state.wholeTicketActions)[0]);
+  };
+  await act(m, ticket(m, f.edgeOrder));
   assert.ok(m.state.pending);
   assert.equal(m.state.cloudPending, null);
-  assert.ok(f.durable.getItem(journalKey(f.c)));
-  // Cloud command also loses its response: its own journal, its own key.
-  const cloudTicket = m.state.orders.find((o) => o.orderId === f.cloudOrder.orderId);
-  await m.command(cloudTicket, allowedActions(cloudTicket, f.prep, m.state.wholeTicketActions)[0]);
+  await act(m, ticket(m, f.cloudOrder));
   assert.ok(m.state.cloudPending);
-  assert.equal(m.state.cloudPending.owner, 'cloud');
-  assert.ok(f.durable.getItem(journalKey(f.c, 'cloud')));
-  const sent = f.calls.filter((call) => call.body && call.owner === 'cloud');
-  // Restart: both journals restored, nothing sent automatically.
-  const n = f.make();
+  const scr = { branchId: f.branch, screenId: f.screenId };
+  assert.equal(m.state.cloudPending.scope, screenScope(scr));
+  assert.ok(f.durable.getItem(screenJournalKey(scr)));
+  assert.ok(f.durable.getItem(journalKey(f.c)));
+  const sent = cloudPosts(f);
+  const n = f.make({ paired: true });
+  await n.restoreScreen();
   await n.restore();
   assert.deepEqual(n.state.cloudPending, m.state.cloudPending);
   assert.deepEqual(n.state.pending, m.state.pending);
-  assert.equal(f.calls.filter((call) => call.body && call.owner === 'cloud').length, sent.length);
-  f.setFault(null);
+  assert.equal(cloudPosts(f).length, sent.length, 'nothing sent automatically');
+  f.world.fault = null;
   await n.retry('cloud');
-  const replay = f.calls.filter((call) => call.body && call.owner === 'cloud').at(-1);
+  const replay = cloudPosts(f).at(-1);
   assert.deepEqual(
     [replay.path, replay.body, replay.key],
     [sent[0].path, sent[0].body, sent[0].key],
   );
   assert.equal(n.state.cloudPending, null);
-  assert.ok(n.state.pending, 'cashier journal untouched by cloud retry');
-  assert.ok(f.durable.getItem(journalKey(f.c)));
-  // A cloud journal entry cannot be read as an edge one or vice versa.
+  assert.ok(n.state.pending, 'cashier journal untouched');
   const edgeEntry = JSON.parse(f.durable.getItem(journalKey(f.c)));
-  assert.throws(() => parsePending(edgeEntry, f.c, 'cloud'), /JOURNAL_INVALID/);
-  assert.throws(
-    () => parsePending({ ...edgeEntry, owner: 'cloud' }, f.c, 'edge'),
-    /JOURNAL_INVALID/,
-  );
+  assert.throws(() => parsePending(edgeEntry, screenScope(scr), 'cloud'), /JOURNAL_INVALID/);
 });
 
-test('validated session revocation from the cloud route signs out like the cashier', async () => {
+test('pairing errors: wrong role refused, malformed code local, server down is not a rejection', async () => {
   const f = fixture();
-  const revoked = new KitchenModel(
-    async (path) => {
-      if (path.startsWith('/cloud/') && path.includes('/kitchen?'))
-        throw new ApiError('UNAUTHORIZED', 401, true);
-      if (path.startsWith('/edge/')) throw new ApiError('CONNECTION_UNKNOWN');
-      return { branchId: f.c.branch_id, items: [{ id: f.prep, kind: 'prep', name: 'Цех' }] };
+  f.world.role = 'assembly';
+  const m = f.make();
+  await m.pairScreen(f.world.code, 'prep');
+  assert.equal(m.state.error, 'PAIRING_WRONG_SCREEN');
+  assert.equal(m.state.screen, null);
+  const calls = f.world.calls.length;
+  await m.pairScreen('short', 'prep');
+  assert.equal(m.state.error, 'INVALID_PAIRING_CODE');
+  assert.equal(f.world.calls.length, calls);
+  f.world.down.cloud = true;
+  f.world.role = 'prep';
+  await m.pairScreen(f.world.code, 'prep');
+  assert.equal(m.state.error, 'SERVICE_UNAVAILABLE');
+  assert.equal(m.state.screenPaired, false);
+});
+
+test('server down with a paired cookie: page stays on the queue and retries the binding', async () => {
+  const f = fixture();
+  f.world.paired = true;
+  f.world.down.cloud = true;
+  const m = f.make({ paired: true });
+  await m.restoreScreen();
+  assert.equal(m.state.screenPaired, true, 'not sent back to the code screen');
+  assert.equal(m.active, true);
+  f.world.down.cloud = false;
+  await m.refresh();
+  assert.equal(m.state.screen.screenId, f.screenId);
+  assert.equal(m.state.streams.cloud, 'online');
+  let polls = 0;
+  const stop = startRuntime(
+    { state: m.state, refresh: async () => void polls++ },
+    () => {},
+    (fn) => {
+      fn();
+      return () => {};
     },
-    new Store(),
-    new Store(),
-    async () => () => {},
   );
-  revoked.enableCloud();
-  await login(f, revoked);
-  assert.equal(revoked.state.actor, null);
-  assert.equal(revoked.state.error, 'UNAUTHORIZED');
+  stop();
+  assert.equal(polls, 1, 'runtime polls a screen-only page');
 });
 
 test('indicators and source badge carry state in text', () => {
   assert.equal(streamLabel('edge', 'offline'), 'Касса: нет связи');
   assert.equal(streamLabel('cloud', 'online'), 'Сервер: на связи');
-  const html = streamIndicators({ edge: 'offline', cloud: 'online' });
-  assert.match(html, /role="status"/);
-  assert.match(html, /Касса: нет связи/);
-  assert.match(html, /Сервер: на связи/);
+  assert.equal(streamLabel('edge', 'signed_out'), 'Касса: нужен вход повара');
+  assert.equal(streamLabel('cloud', 'signed_out'), 'Сервер: экран не подключён');
+  assert.match(streamIndicators({ edge: 'offline', cloud: 'online' }), /role="status"/);
   assert.match(sourceBadge('cloud', false), /Сервер/);
   assert.match(sourceBadge('edge', true), /Касса · нет связи/);
 });
