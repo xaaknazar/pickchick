@@ -4210,9 +4210,9 @@
         "tests/operations/test_workforce_edit_release.py"
       ],
       "status": "active",
-      "head": "bd60ab6b539d1b9a4432e271fd5d5a17bfe50cc2",
+      "head": "32700a42ce281f368232a21a400528aa3935da98",
       "updatedAt": "2026-10-10T15:23:42.237Z",
-      "summary": "PR224: готовый код кадровых исправлений, CI проверяется. Общие документы и VPS переданы inventory этого же Mac для единого выпуска с расширением складского интерфейса. Код 32700a42 включён в inventory."
+      "summary": "PR224: локально проверки прошли; CI38063348012 прервана лимитом25m. Изменения включены в PR225/source79640b6a. Его CI также timeout25m, установка ожидает согласованную правку лимита занятого CI файла. Действующий API/portal8468 сохранён."
     },
     {
       "id": "inventory",
@@ -4251,9 +4251,10 @@
         "docs/operations/workforce.md"
       ],
       "status": "active",
-      "head": "32700a42ce281f368232a21a400528aa3935da98",
+      "head": "79640b6ab69ac0a7d524193c46e738b7612af6d8",
       "updatedAt": "2026-10-10T15:33:52.728Z",
-      "summary": "Обследование iiko и первый проверяемый складской этап поверх 32700a42. Совместный выпуск включает кадровые исправления PR224, общие документы и VPS переданы между задачами этого же Mac."
+      "summary": "PR225 опубликован, remote SHA проверен. Полный локальный check (227 unit), 94/94 backoffice, 7 roadmap и 3 operator tests прошли; browser 17 разделов 1680/1024/393. CI38064449398 остановлена по timeout25m foundation_core (check114249144065), без полного зелёного результата. Preflight API8468/publicbd60/schema052 прошёл; никаких deploy/apply и production writes не было. iiko обследован на чтение, техкарты владелец предоставит позднее.",
+      "nextAction": "Ждём уже запрошенную передачу только timeout foundation_core в .github/workflows/ci.yml от unified-menu-release (25->45 минут, все тесты сохранены). Claim сейчас отклонён из-за чужого резерва. После согласования опубликовать минимальную правку с CI, затем единый API/portal выпуск inventory + кадровые исправления через release-workforce-edit.py, backup/restore, fresh pins; записать факт установки, опубликовать roadmap и FF shared. Подготовленные приватные пакеты для79640b6a не использовать после нового SHA без пересборки."
     },
     {
       "id": "cloud-kitchen-s4",
