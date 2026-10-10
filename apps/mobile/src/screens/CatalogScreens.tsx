@@ -443,7 +443,10 @@ export function Menu(props: ScreenProps) {
         showsVerticalScrollIndicator={false}
         directionalLockEnabled
         contentContainerStyle={{
-          paddingBottom: props.model.cart.length ? (props.cartBottomInset || cartHeight) + 16 : 24,
+          paddingBottom: Math.max(
+            24,
+            (props.cartBottomInset || (props.model.cart.length ? cartHeight : 0)) + 16,
+          ),
         }}
         onContentSizeChange={(_, height) => {
           contentHeight.value = height;
