@@ -7,6 +7,12 @@ import { KIOSK_IDLE_MS, KIOSK_IDLE_GRACE_MS } from '../../apps/kiosk/src/control
 import { startKioskPolling } from '../../apps/kiosk/src/polling.ts';
 import { KioskError } from '../../apps/kiosk/src/api.ts';
 import { dictionariesForTest } from '../../apps/kiosk/src/i18n.ts';
+import {
+  orderScreenState,
+  FAILED_HOLD,
+  NUMBER_WAIT_HOLD,
+  PAID_HOLD,
+} from '../../apps/kiosk/src/orderScreen.ts';
 import { cart, fixture, storefront } from './commercial-fixture.mjs';
 
 const defaults = (product) =>
@@ -461,4 +467,81 @@ test('cart "edit" opens the line with its choice and saving replaces it in place
   c.closeProduct();
   assert.equal(c.getSnapshot().editingLine, null);
   assert.equal(c.getSnapshot().step, 'cart');
+});
+
+test('payment result unknown (incident): "Отменить" and the 30 s auto-reset take the same safe path', async () => {
+  const h = fixture();
+  const c = await cart(h);
+  assert.equal(await c.beginPayment(), true);
+  // A manager-accepted incident: the order failed on the device side while the QR payment is
+  // still being reconciled.
+  h.order = {
+    ...h.order,
+    phase: 'failed',
+    payment: { kind: 'kaspi_qr', state: 'pending', qrPayload: null, expiresAt: null },
+  };
+  await c.refresh();
+  const view = c.getSnapshot();
+  const screen = orderScreenState(view);
+  assert.equal(view.step, 'order');
+  assert.equal(screen.incident, true);
+  assert.equal(screen.cancel, true, 'the incident screen shows "Отменить"');
+  assert.equal(screen.hold, FAILED_HOLD);
+  assert.equal(FAILED_HOLD, 30);
+  // A plain decline (QR payment failed) is not an incident: no cancel, the usual next guest.
+  assert.equal(
+    orderScreenState({ ...view, qrPayment: { ...view.qrPayment, state: 'failed' } }).cancel,
+    false,
+  );
+  const before = h.calls.length;
+  // "Отменить" calls the same newGuest() the auto-reset calls: the kiosk only forgets the
+  // guest locally; it sends nothing that could mark the payment paid or failed.
+  assert.equal(await c.newGuest(), true);
+  assert.equal(c.getSnapshot().step, 'start');
+  assert.equal(c.getSnapshot().order, null);
+  assert.deepEqual(
+    h.calls.slice(before).map((r) => r.path),
+    ['/sessions/end'],
+  );
+  for (const { locale, text } of [
+    { locale: 'ru', text: 'Отменить' },
+    { locale: 'kk', text: 'Бас тарту' },
+    { locale: 'en', text: 'Cancel' },
+  ])
+    assert.equal(dictionariesForTest[locale].cancel, text);
+});
+
+test('paid without a number waits two minutes with polling; the number shows as soon as it arrives', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'], now: Date.now() });
+  const h = fixture();
+  const c = await cart(h);
+  assert.equal(await c.beginPayment(), true);
+  h.order = { ...h.order, phase: 'paid', displayNumber: null };
+  await c.refresh();
+  let screen = orderScreenState(c.getSnapshot());
+  assert.equal(screen.waitingForNumber, true);
+  assert.equal(screen.canReset, true);
+  assert.equal(screen.hold, NUMBER_WAIT_HOLD);
+  assert.equal(NUMBER_WAIT_HOLD, 120);
+  const texts = dictionariesForTest;
+  assert.equal(texts.ru.paidNumberPending, 'Оплачено, номер появится на табло');
+  assert.ok(texts.kk.paidNumberPending && texts.en.paidNumberPending);
+  // The background poll keeps reading the order; the number arrives from the kitchen.
+  const stop = startKioskPolling(c, () => true);
+  try {
+    h.order = { ...h.order, displayNumber: '27', phase: 'preparing', kitchenStage: 'cooking' };
+    for (let i = 0; i < 6; i++) {
+      t.mock.timers.tick(3000);
+      for (let k = 0; k < 20; k++) await Promise.resolve();
+    }
+  } finally {
+    stop();
+  }
+  const view = c.getSnapshot();
+  assert.equal(view.step, 'order');
+  assert.equal(view.order.number, '27');
+  screen = orderScreenState(view);
+  assert.equal(screen.waitingForNumber, false);
+  // With the number on screen the usual 40 s hold applies.
+  assert.equal(screen.hold, PAID_HOLD);
 });

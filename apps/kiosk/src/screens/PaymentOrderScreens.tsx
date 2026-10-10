@@ -4,6 +4,7 @@ import { visiblePaymentQr } from '../qr';
 import { kioskOrderNumber, kioskTicketNumber } from '../presentation';
 import { copy } from '../i18n';
 import { checkoutCopy } from '../checkoutCopy';
+import { orderScreenState } from '../orderScreen';
 import {
   Body,
   Button,
@@ -155,25 +156,11 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
     </ScreenSurface>
   );
 }
-/** Seconds a paid order keeps its number on screen; any touch starts them again. */
-const PAID_HOLD = 40;
-/** Seconds a failed payment stays before the kiosk returns to the start screen. */
-const FAILED_HOLD = 30;
 export function OrderScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   const t = copy(context.locale);
   const order = model.order;
-  const paid = !!order && ['simulated_approved', 'paid'].includes(order.payment_state);
-  const failed = order?.state === 'failed' || order?.state === 'cancelled';
-  const waitingForNumber = model.commercial && paid && (!order.number || order.number === '-');
-  // A manager-accepted payment incident reaches the device as `failed` while the QR payment is
-  // still being checked: the result is unknown, not a decline.
-  const incident =
-    !!model.commercial &&
-    order?.state === 'failed' &&
-    !!model.qrPayment &&
-    model.qrPayment.state !== 'failed';
-  const canReset = !!order && (paid || failed) && !model.recoveryRequired;
-  const hold = paid ? PAID_HOLD : FAILED_HOLD;
+  const { paid, failed, waitingForNumber, incident, canReset, hold, cancel } =
+    orderScreenState(model);
   const [seconds, setSeconds] = useState(hold);
   const [touches, setTouches] = useState(0);
   const modelRef = useRef(model);
@@ -198,7 +185,7 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
   const status = incident
     ? t.incidentTitle
     : waitingForNumber
-      ? t.paymentConfirmed
+      ? t.paidNumberPending
       : order?.state === 'ready'
         ? t.ready
         : order?.state === 'fulfilled'
@@ -267,15 +254,27 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
         <Wrapper dir="row" gap={18} align="center">
           <Wrapper flex={1}>
             {/* Design 08: the white "Новый заказ · 15" pill beside a glass help. */}
-            <Button
-              label={`${t.nextGuest}${canReset ? ` · ${seconds}` : ''}`}
-              testID="kiosk-next-guest"
-              tone="light"
-              disabled={!canReset}
-              busy={model.busy}
-              onPress={() => void model.newGuest()}
-              fullWidth
-            />
+            {cancel ? (
+              // Payment result unknown: leave now, by the same path as the auto-reset.
+              <Button
+                label={`${t.cancel} · ${seconds}`}
+                testID="kiosk-payment-unknown-cancel"
+                tone="light"
+                busy={model.busy}
+                onPress={() => void model.newGuest()}
+                fullWidth
+              />
+            ) : (
+              <Button
+                label={`${t.nextGuest}${canReset ? ` · ${seconds}` : ''}`}
+                testID="kiosk-next-guest"
+                tone="light"
+                disabled={!canReset}
+                busy={model.busy}
+                onPress={() => void model.newGuest()}
+                fullWidth
+              />
+            )}
           </Wrapper>
           <Button label={t.help} tone="inverse" onPress={context.onHelp} />
         </Wrapper>
