@@ -4136,23 +4136,15 @@
         "tests/backoffice/inventory.test.mjs",
         "tests/backoffice/inventory-browser.mjs",
         "tests/backoffice/inventory-browser.py",
-        "docs/operations/inventory.md",
         "docs/architecture/inventory.md",
         "apps/backoffice/build.mjs",
         "apps/backoffice/src/index.html",
         "tests/backoffice/operations_browser.py",
         "tests/backoffice/browser_operations.py",
         "apps/backoffice/server.mjs",
-        "docs/project-status.md",
-        "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json",
         "@vps/api",
         "@vps/db",
-        "@vps/backoffice-login",
-        "@vps/public",
-        "@vps/gateway",
-        "@vps/roadmap",
-        "docs/operations/workforce.md"
+        "@vps/backoffice-login"
       ],
       "status": "active",
       "head": "f01cb45f441de1b664806c42aa93deb5cbb568b6",
@@ -4478,11 +4470,21 @@
       "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
       "branch": "codex/inventory-shared",
       "scopes": [
-        "tests/operations/browser_staff_display.py"
+        "tests/operations/browser_staff_display.py",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/operations/inventory.md",
+        "docs/operations/workforce.md",
+        "@vps/public",
+        "@vps/gateway",
+        "@vps/roadmap"
       ],
       "status": "active",
-      "head": "7e27b655042ab229e1297ec5895bc3bcbc1bdb0c",
-      "updatedAt": "2026-10-11T10:00:07.043Z"
+      "head": "808933fb3768bc8eea1b9afd12dab59371d116a8",
+      "updatedAt": "2026-10-11T10:03:12.148Z",
+      "summary": "PR226 integrated into shared808933fb by ordinary FF; remote SHA verified. Installed API/portal sourcef01 has full CI38128477800 green11/11, backup/restore/HTTPS/CEO read passed. Merged source checked locally242unit+94backoffice+7roadmap. Fixed pre-existing staff_display polling isolation; normal6 tests and forced timer diagnostic passed (old test failed3roles). New Foundation CI38130486984 running. Online roadmap808 package ready, not applied.",
+      "nextAction": "After full Foundation CI808 green, publish roadmap808 via existing guarded operator (API=f01/public=bd60/gateway971), keep notes; verify health and finish. Source f01 API remains installed; do not install cloud-kitchen migrations053+ from shared automatically."
     }
   ]
 }
