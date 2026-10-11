@@ -4155,10 +4155,10 @@
         "docs/operations/workforce.md"
       ],
       "status": "active",
-      "head": "79640b6ab69ac0a7d524193c46e738b7612af6d8",
-      "updatedAt": "2026-10-10T15:33:52.728Z",
-      "summary": "PR225 опубликован, remote SHA проверен. Полный локальный check (227 unit), 94/94 backoffice, 7 roadmap и 3 operator tests прошли; browser 17 разделов 1680/1024/393. CI38064449398 остановлена по timeout25m foundation_core (check114249144065), без полного зелёного результата. Preflight API8468/publicbd60/schema052 прошёл; никаких deploy/apply и production writes не было. iiko обследован на чтение, техкарты владелец предоставит позднее.",
-      "nextAction": "Ждём уже запрошенную передачу только timeout foundation_core в .github/workflows/ci.yml от unified-menu-release (25->45 минут, все тесты сохранены). Claim сейчас отклонён из-за чужого резерва. После согласования опубликовать минимальную правку с CI, затем единый API/portal выпуск inventory + кадровые исправления через release-workforce-edit.py, backup/restore, fresh pins; записать факт установки, опубликовать roadmap и FF shared. Подготовленные приватные пакеты для79640b6a не использовать после нового SHA без пересборки."
+      "head": "f01cb45f441de1b664806c42aa93deb5cbb568b6",
+      "updatedAt": "2026-10-11T09:29:20.487Z",
+      "summary": "11 октября: повтор выпуска по поручению владельца. Включён опубликованный другим Mac d033d4bc: foundation_core timeout 25→40 минут, тесты сохранены. Новый source f01cb45f опубликован, remote SHA проверен, CI38128480635 выполняется. Ранее локально check227/backoffice94/roadmap7/operator3 прошли. Новый портал собран из f01cb45f. SSH-agent пуст, доверенный SSH отказал в аутентификации до каких-либо серверных изменений; владелец получил команду ssh-add.",
+      "nextAction": "Дождаться полной CI38128480635 и разблокировки SSH-ключа финансового Mac, повторить свежий preflight. Затем API и portal по guarded release-workforce-edit.py, backup/restore/schema052 без миграций; записать установку, roadmap и интеграция shared. Общий shared8891 содержит независимую ещё не включённую в этот ограниченный выпуск cloud-kitchen/mobile работу; не выкатывать её автоматически."
     },
     {
       "id": "devices-release",
