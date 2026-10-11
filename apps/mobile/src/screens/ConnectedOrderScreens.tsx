@@ -33,6 +33,7 @@ import { orderStage } from '../order-status';
 import { OrderStatusScreen } from './OrderStatusScreen';
 import { ConfirmSheet } from '../components/ConfirmSheet';
 import { SlideToConfirm } from '../components/SlideToConfirm';
+import { customerCanCancel, PAID_CANCEL_NOTICE } from '../order-cancellation';
 function ContinueSession({ props }: { props: ScreenProps }) {
   const flow = props.model.testFlow;
   if (!flow.sessionExpired) return null;
@@ -403,6 +404,7 @@ export function ConnectedOrder(props: ScreenProps) {
   };
   const receipt = props.screenId === 'M21';
   const cancel = props.screenId === 'M22';
+  const cancellable = customerCanCancel(order);
   if (!receipt && !cancel && !canPay && !unknown)
     return (
       <OrderStatusScreen props={props} order={order} notice={<ContinueSession props={props} />} />
@@ -412,22 +414,17 @@ export function ConnectedOrder(props: ScreenProps) {
       props={props}
       title={receipt ? 'Электронный чек' : cancel ? 'Отмена заказа' : `Заказ №${order.number}`}
       footer={
-        cancel ? (
+        cancel && cancellable ? (
           <Button
             testID="test-cancel-order"
             title="Отменить заказ"
-            disabled={
-              flow.busy ||
-              reason.trim().length < 3 ||
-              unknown ||
-              ['fulfilled', 'cancelled'].includes(order.state)
-            }
+            disabled={flow.busy || reason.trim().length < 3}
             onPress={() => setConfirmCancel(true)}
           />
         ) : undefined
       }
     >
-      {cancel ? (
+      {cancel && cancellable ? (
         <ConfirmSheet
           visible={confirmCancel}
           icon="close-circle-outline"
@@ -549,7 +546,12 @@ export function ConnectedOrder(props: ScreenProps) {
       ) : null}
       {!receipt && !cancel ? <StageTrack order={order} /> : null}
       <OrderLines order={order} />
-      {cancel ? (
+      {cancel && !cancellable && order.state !== 'cancelled' ? (
+        <Notice title="Отмена недоступна">
+          <Body testID="test-cancel-unavailable">{PAID_CANCEL_NOTICE}</Body>
+        </Notice>
+      ) : null}
+      {cancel && cancellable ? (
         <Card>
           <Heading small>Причина отмены</Heading>
           <TextInput
@@ -597,7 +599,7 @@ export function ConnectedOrder(props: ScreenProps) {
           onPress={() => props.navigate('M21')}
         />
       ) : null}
-      {!cancel && !unknown && !['fulfilled', 'cancelled'].includes(order.state) ? (
+      {!cancel && cancellable ? (
         <NavRow
           title="Отменить заказ"
           testID="test-open-cancel"

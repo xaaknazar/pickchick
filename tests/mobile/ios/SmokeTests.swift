@@ -54,21 +54,9 @@ final class SmokeTests: XCTestCase {
         assertLabel(savedNumber, on: element("connected-order-number", in: app))
         assertLabel("Готовится", on: element("connected-order-state", in: app))
         attachScreenshot("Connected-restored", of: app)
-        tap("test-open-cancel", in: app)
-        let cancellationReason = "Native TEST cancellation after relaunch: complete reason"
-        replaceText(in: element("test-cancel-reason", in: app), with: cancellationReason, app: app)
-        let cancelButton = element("test-cancel-order", in: app)
-        XCTAssertTrue(cancelButton.isHittable, "Cancellation action must remain reachable while editing")
-        XCTAssertTrue(cancelButton.isEnabled)
-        let keyboard = app.keyboards.firstMatch
-        XCTAssertTrue(keyboard.exists, "Exercise the first tap while the keyboard is open")
-        XCTAssertLessThanOrEqual(cancelButton.frame.maxY, keyboard.frame.minY + 1)
-        attachScreenshot("Connected-cancel-ready-with-keyboard", of: app)
-        cancelButton.tap()
-        assertLabel("Отменён", on: element("connected-order-state", in: app))
-        let savedReason = app.staticTexts.matching(NSPredicate(format: "label == %@", cancellationReason)).firstMatch
-        XCTAssertTrue(savedReason.waitForExistence(timeout: 10), "Server must preserve the complete typed cancellation reason")
-        attachScreenshot("Connected-cancelled", of: app)
+        // Owner decision 2026-10-11: a paid order offers no customer cancellation.
+        XCTAssertFalse(element("test-open-cancel", in: app).exists, "A paid order must not offer cancellation")
+        XCTAssertFalse(element("test-cancel-order", in: app).exists)
     }
 
     @MainActor

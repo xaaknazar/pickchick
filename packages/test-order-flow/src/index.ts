@@ -1002,7 +1002,10 @@ export class TestOrderFlow {
         version(old, body.expected_version);
         if (
           ['fulfilled', 'cancelled'].includes(old.state) ||
-          old.payment_state === 'simulated_unknown'
+          old.payment_state === 'simulated_unknown' ||
+          // Owner decision 2026-10-11: a customer cannot cancel a paid order;
+          // a paid order is stopped by staff through the refund process.
+          (actor.role === 'customer' && old.payment_state === 'simulated_approved')
         )
           throw new TestFlowError('CONFLICT');
         await client.query(

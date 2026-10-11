@@ -390,15 +390,23 @@ test('outbox failure rolls back simulated approval, kitchen admission and comman
     assert.equal((await approve(ctx, order, key)).tasks.length, 2);
   });
 });
-test('cancellation removes queued/ready test order without fabricating refund, and terminal states cannot resurrect', async () => {
+test('customer cannot cancel a paid order; staff cancellation removes it without fabricating refund, and terminal states cannot resurrect', async () => {
   await withDesk(async (ctx) => {
     let { order } = await ctx.make();
     order = await approve(ctx, order);
+    // Owner decision 2026-10-11: no customer cancellation after payment.
+    await assert.rejects(
+      ctx.flow.cancel(ctx.customer.token, randomUUID(), order.order_id, {
+        expected_version: order.version,
+        reason: 'Customer tries after payment',
+      }),
+      code('CONFLICT'),
+    );
     order = await complete(ctx, order, 'prep');
     order = await complete(ctx, order, 'assembly');
     const key = randomUUID();
     const body = { expected_version: order.version, reason: 'Synthetic test cancelled' };
-    const cancel = () => ctx.flow.cancel(ctx.customer.token, key, order.order_id, body);
+    const cancel = () => ctx.flow.cancel(ctx.actors.manager.token, key, order.order_id, body);
     const [a, b] = await Promise.all([cancel(), cancel()]);
     assert.deepEqual(a, b);
     assert.equal(a.state, 'cancelled');

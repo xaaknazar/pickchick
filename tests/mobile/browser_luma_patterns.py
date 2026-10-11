@@ -242,6 +242,22 @@ def cancel_flow(browser, width, height):
     close()
 
 
+def paid_cancel_blocked(browser, width, height):
+    """Owner decision 2026-10-11: a paid order offers no customer cancellation."""
+    page, state, advance, close = orders_context(browser, width, height)
+    state['order']['payment_state'] = 'simulated_approved'
+    open_order(page, state)
+    expect(page.get_by_test_id('test-open-cancel')).to_have_count(0)
+    page.goto(URL + '/screen/M22')
+    expect(page.get_by_test_id('test-cancel-unavailable')).to_be_visible(timeout=15000)
+    expect(page.get_by_test_id('test-cancel-order')).to_have_count(0)
+    expect(page.get_by_test_id('test-cancel-reason')).to_have_count(0)
+    expect(page.get_by_test_id('launch-reveal')).to_have_count(0, timeout=10000)
+    shot(page, f'05-paid-cancel-blocked-{width}')
+    assert not state['commands'], 'A paid order must not send cancel'
+    close()
+
+
 def add_to_cart(browser, width, height, frames=False):
     ctx = isolated_context(browser, viewport={'width': width, 'height': height}, has_touch=True,
                            reduced_motion='no-preference' if frames else 'reduce')
@@ -436,6 +452,8 @@ with sync_playwright() as p:
     order_status(browser, 320, 568)
     cancel_flow(browser, 393, 852)
     cancel_flow(browser, 320, 568)
+    if AFTER:
+        paid_cancel_blocked(browser, 393, 852)
     add_to_cart(browser, 393, 852)
     sign_out(browser, 393, 852)
     if AFTER:
