@@ -77,7 +77,8 @@ export function DemoBadge({
             justifyContent: 'center',
             paddingHorizontal: v(12),
             borderRadius: 999,
-            backgroundColor: 'rgba(255,255,255,.18)',
+            // Navy pill: white text keeps AA contrast (a white tint over orangeInk was 3.95:1).
+            backgroundColor: colors.navy,
           }}
         >
           <Text
