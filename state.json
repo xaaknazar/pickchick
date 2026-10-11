@@ -4364,30 +4364,6 @@
       "nextAction": "Ревью и интеграция codex/cloud-kitchen-ipad в codex/shared-development; затем KITCHEN_OFFLINE в ErrorSchema/openapi (после inventory), установка build 13 на iPad и включение режима cloud только по runbook с подтверждением владельца."
     },
     {
-      "id": "mobile-luma-tabbar",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/mobile-luma-tabbar",
-      "scopes": [
-        "apps/mobile/src/app",
-        "apps/mobile/src/components/FloatingTabBar.tsx",
-        "apps/mobile/src/components/tab-bar-inset.ts",
-        "apps/mobile/src/tab-bar-metrics.ts",
-        "apps/mobile/src/ScreenHost.tsx",
-        "apps/mobile/src/components/CartShortcut.tsx",
-        "apps/mobile/src/components/UI.tsx",
-        "apps/mobile/src/screens/CatalogScreens.tsx",
-        "tests/mobile/tab-bar.test.mjs",
-        "tests/mobile/browser_tab_bar.py",
-        "tests/operations/layout_regression.py",
-        ".github/workflows/ci.yml"
-      ],
-      "status": "available",
-      "head": "3b2e27f7515a8767a1d63e7482bc7b8877f5ad93",
-      "updatedAt": "2026-10-10T19:44:17.229Z",
-      "summary": "Плавающий таб-бар (паттерн Luma) в цветах PickChick: кастомный tabBar FloatingTabBar, inset через TabBarInsetContext, корзина над баром. Коммит 3b2e27f7. pnpm check, test:mobile (327 node + 50 py), browser_tab_bar/layout_regression/cart_shortcut/cart_sheet и симуляторные browser-регрессии прошли локально; CI 38079635125 полностью зелёная. Нативный blur не добавлен (нужен expo-blur и пересборка). docs/project-status.md, handoff.md, roadmap не обновлены: заняты задачей inventory.",
-      "nextAction": "Владелец оценивает скриншоты; затем проверка на устройстве (VoiceOver, Reduce Transparency, крупный текст), решение о нативном blur, включение в общий срез и finish."
-    },
-    {
       "id": "cloud-kitchen-portal",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/cloud-kitchen-portal",
@@ -4472,6 +4448,30 @@
       "status": "active",
       "head": "8891b329afed06b385675a0d7fce2f24580afa81",
       "updatedAt": "2026-10-11T09:13:36.875Z"
+    },
+    {
+      "id": "mobile-luma-tabbar",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-luma-tabbar",
+      "scopes": [
+        "apps/mobile/src/app",
+        "apps/mobile/src/components/FloatingTabBar.tsx",
+        "apps/mobile/src/components/tab-bar-inset.ts",
+        "apps/mobile/src/tab-bar-metrics.ts",
+        "apps/mobile/src/ScreenHost.tsx",
+        "apps/mobile/src/components/CartShortcut.tsx",
+        "apps/mobile/src/components/UI.tsx",
+        "apps/mobile/src/screens/CatalogScreens.tsx",
+        "tests/mobile/tab-bar.test.mjs",
+        "tests/mobile/browser_tab_bar.py",
+        "tests/operations/layout_regression.py",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "active",
+      "head": "8891b329afed06b385675a0d7fce2f24580afa81",
+      "updatedAt": "2026-10-11T09:16:59.174Z",
+      "summary": "Плавающий таб-бар (паттерн Luma) в цветах PickChick: кастомный tabBar FloatingTabBar, inset через TabBarInsetContext, корзина над баром. Коммит 3b2e27f7. pnpm check, test:mobile (327 node + 50 py), browser_tab_bar/layout_regression/cart_shortcut/cart_sheet и симуляторные browser-регрессии прошли локально; CI 38079635125 полностью зелёная. Нативный blur не добавлен (нужен expo-blur и пересборка). docs/project-status.md, handoff.md, roadmap не обновлены: заняты задачей inventory.",
+      "nextAction": "Владелец оценивает скриншоты; затем проверка на устройстве (VoiceOver, Reduce Transparency, крупный текст), решение о нативном blur, включение в общий срез и finish."
     }
   ]
 }
