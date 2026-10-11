@@ -4452,11 +4452,12 @@
         "packages/test-order-flow/src/index.ts",
         "packages/test-order-flow/tests",
         "apps/mobile/src/order-cancellation.ts",
-        "tests/mobile/order-cancellation.test.mjs"
+        "tests/mobile/order-cancellation.test.mjs",
+        "docs/01-technical-spec.md"
       ],
       "status": "active",
       "head": "10efb68232a58b35ee5076b0f67eb8e6d0cf3b5b",
-      "updatedAt": "2026-10-11T09:04:50.412Z"
+      "updatedAt": "2026-10-11T09:10:03.466Z"
     }
   ]
 }
