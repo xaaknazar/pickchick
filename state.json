@@ -4472,6 +4472,17 @@
       "updatedAt": "2026-10-11T09:17:04.023Z",
       "summary": "Плавающее нижнее меню (одобрено владельцем) включено в общий срез 8891b329, CI 38085375816 зелёная",
       "nextAction": "Мобильная сборка 18 (задача mobile-testflight18)"
+    },
+    {
+      "id": "inventory-shared",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/inventory-shared",
+      "scopes": [
+        "tests/operations/browser_staff_display.py"
+      ],
+      "status": "active",
+      "head": "7e27b655042ab229e1297ec5895bc3bcbc1bdb0c",
+      "updatedAt": "2026-10-11T10:00:07.043Z"
     }
   ]
 }
