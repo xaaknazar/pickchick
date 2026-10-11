@@ -21,7 +21,7 @@ const meta = {
     memory,
     locale: 'ru',
     busy: false,
-    featured: catalog.products.find((p) => p.name === 'Master Combo') ?? null,
+    featured: catalog.products.find((p) => p.id === 'master-combo') ?? null,
     onOpen: fn(),
     onAdd: fn(),
     onInteraction: fn(),

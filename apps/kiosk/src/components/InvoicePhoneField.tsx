@@ -3,6 +3,10 @@ import { colors, fonts, useMetrics } from '../theme';
 import { copy, type Locale } from '../i18n';
 import { Icon } from './Icon';
 import { useEnter, useTimingTo } from './motion';
+import { fixedText } from './Body';
+import { useScrollTarget } from './scroll';
+/** ScrollArea `focus` target id of the field (brought into view above the keyboard). */
+export const INVOICE_PHONE_TARGET = 'kiosk-invoice-phone';
 /**
  * v3 phone field for the Kaspi.kz invoice, drawn for the blue review screen:
  * white 26-pt field with an orange ring and big 40-pt digits. Uses the system
@@ -15,13 +19,17 @@ export function InvoicePhoneField({
   busy,
   locale,
   valid = false,
+  onFocus,
 }: {
   value: string;
   onChange: (value: string) => void;
   busy: boolean;
   locale: Locale;
   valid?: boolean;
+  /** The keypad is opening: the screen scrolls the field into view. */
+  onFocus?: () => void;
 }) {
+  const target = useScrollTarget(INVOICE_PHONE_TARGET);
   const { v } = useMetrics();
   const enter = useEnter(100);
   const full = useTimingTo(valid ? 1 : 0, 260, 'css');
@@ -30,6 +38,8 @@ export function InvoicePhoneField({
   const label = t.kaspiPhone;
   return (
     <Animated.View
+      ref={target}
+      collapsable={false}
       style={{
         gap: v(12),
         opacity: enter,
@@ -39,6 +49,7 @@ export function InvoicePhoneField({
       }}
     >
       <Text
+        {...fixedText}
         style={{
           fontFamily: fonts.heavy,
           fontSize: Math.max(18, v(20)),
@@ -81,10 +92,12 @@ export function InvoicePhoneField({
         />
         <Icon name="phone-portrait-outline" tone="accent" />
         <TextInput
+          {...fixedText}
           testID="kiosk-invoice-phone"
           accessibilityLabel={label}
           value={value}
           onChangeText={onChange}
+          onFocus={onFocus}
           editable={!busy}
           keyboardType="phone-pad"
           inputMode="tel"
@@ -109,6 +122,7 @@ export function InvoicePhoneField({
         />
       </View>
       <Text
+        {...fixedText}
         style={{
           fontFamily: fonts.body,
           fontSize: Math.max(16, v(17)),

@@ -4,6 +4,7 @@ import { copy, type Locale } from '../i18n';
 import { Icon } from './Icon';
 import { usePop, useStagger } from './motion';
 import type { KioskPaymentMethod } from '../model';
+import { fixedText } from './Body';
 /**
  * v3 payment choice: white 28-pt card with a method tile (orange QR, blue phone
  * invoice, soft card), title and explanation. Selected = orange ring + check pop.
@@ -104,6 +105,7 @@ export function PaymentMethodCard({
         </View>
         <View style={{ flex: 1, minWidth: 0, gap: v(4) }}>
           <Text
+            {...fixedText}
             accessibilityRole="header"
             style={{
               fontFamily: fonts.black,
@@ -116,6 +118,7 @@ export function PaymentMethodCard({
             {title}
           </Text>
           <Text
+            {...fixedText}
             style={{
               fontFamily: fonts.body,
               fontSize: Math.max(15, v(16)),

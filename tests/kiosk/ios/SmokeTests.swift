@@ -80,7 +80,7 @@ final class SmokeTests: XCTestCase {
         XCTAssertEqual(footer.frame.maxY, frame.maxY, accuracy: 1)
         assertBounded("kiosk-menu-checkout", in: app)
         XCTAssertFalse(element("kiosk-menu-checkout", in: app).isEnabled)
-        for category in ["duo", "sets", "extras", "combo"] {
+        for category in ["duo", "sets", "extras", "drinks", "combo"] {
             tap("kiosk-category-\(category)", in: app)
             assertBounded("kiosk-category-\(category)", in: app)
             XCTAssertEqual(footer.frame.minY, frame.minY, accuracy: 1)
@@ -156,10 +156,17 @@ final class SmokeTests: XCTestCase {
         assertBounded("kiosk-cart-checkout", in: app)
         screenshot("Kiosk-native-cart-restored", in: app)
 
+        // Design 05: the cart header has no cancel; the menu keeps it.
+        tap("kiosk-header-back", in: app)
+        assertScreen("menu", in: app)
         tap("kiosk-cancel-open", in: app)
         tap("kiosk-cancel-dismiss", in: app)
+        assertScreen("menu", in: app)
+        tap("kiosk-menu-checkout", in: app)
         assertScreen("cart", in: app)
         assertLabel("2", on: element("kiosk-cart-line-\(custom)-quantity", in: app))
+        tap("kiosk-header-back", in: app)
+        assertScreen("menu", in: app)
         finishGuest(in: app)
         tap("kiosk-start", in: app)
         tap("kiosk-mode-takeaway", in: app)

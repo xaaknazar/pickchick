@@ -68,6 +68,8 @@ export function checkoutError(error: unknown) {
     return 'Обновите приложение, чтобы получить актуальное меню и цены ресторана.';
   if (code === 'RESTAURANT_CLOSED')
     return 'Ресторан сейчас закрыт. Попробуйте оформить заказ в часы работы.';
+  if (code === 'KITCHEN_OFFLINE')
+    return 'Кухня сейчас не на связи - заказ оформить нельзя. Попробуйте чуть позже.';
   if (code === 'ITEM_STOPPED')
     return 'Блюдо или выбранный вариант закончились. Вернитесь в корзину и измените заказ.';
   if (code === 'COMMENT_UNAVAILABLE')

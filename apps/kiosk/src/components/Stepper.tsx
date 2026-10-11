@@ -4,6 +4,7 @@ import { copy, type Locale } from '../i18n';
 import { Wrapper } from './Wrapper';
 import { IconButton } from './IconButton';
 import { usePopIn } from './motion';
+import { fixedText } from './Body';
 /**
  * v3 quantity stepper: soft minus, orange plus and a heavy count that pops on change
  * (prototype `.stp output.tick`: scale .3 -> 1 and fade in, 300 ms --spring).
@@ -55,6 +56,7 @@ export function Stepper({
         style={{ minWidth: v(36), opacity: pop.opacity, transform: [{ scale: pop.scale }] }}
       >
         <Text
+          {...fixedText}
           testID={ids?.quantity ?? (prefix ? prefix + '-quantity' : undefined)}
           style={{
             fontFamily: fonts.black,

@@ -12,6 +12,7 @@ import { ProductArtwork } from './ProductArtwork';
 import { usePopIn, usePress, useTimingTo } from './motion';
 import { noteProductOrigin } from './reveal';
 import { useMotionPreference } from './useMotionPreference';
+import { fixedText } from './Body';
 /** A studio photo shot on (near) white: it multiplies onto the cream card like the design. */
 const lightTile = (tile: string) =>
   /^#[0-9A-F]{6}$/i.test(tile) &&
@@ -152,6 +153,7 @@ export function ProductCard({
               }}
             >
               <Text
+                {...fixedText}
                 style={{
                   fontFamily: fonts.heavy,
                   fontSize: v(12),
@@ -165,6 +167,7 @@ export function ProductCard({
           ) : null}
           <View style={{ paddingTop: v(2), paddingHorizontal: v(16), gap: v(6) }}>
             <Text
+              {...fixedText}
               numberOfLines={2}
               style={{
                 fontFamily: fonts.heavy,
@@ -176,6 +179,7 @@ export function ProductCard({
               {product.name}
             </Text>
             <Text
+              {...fixedText}
               numberOfLines={compact ? 1 : 2}
               style={{
                 fontFamily: fonts.body,
@@ -210,6 +214,7 @@ export function ProductCard({
           >
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: v(4) }}>
               <Text
+                {...fixedText}
                 numberOfLines={1}
                 style={{
                   fontFamily: fonts.black,
@@ -222,19 +227,23 @@ export function ProductCard({
               >
                 {amount}
               </Text>
-              <Text style={{ fontFamily: fonts.heavy, fontSize: v(18), color: colors.muted }}>
+              <Text
+                {...fixedText}
+                style={{ fontFamily: fonts.heavy, fontSize: v(18), color: colors.muted }}
+              >
                 ₸
               </Text>
             </View>
             {unavailable ? (
               <Text
+                {...fixedText}
                 style={{
                   fontFamily: fonts.medium,
                   fontSize: Math.max(13, v(13)),
                   color: colors.error,
                 }}
               >
-                Нет в наличии
+                {t.unavailableShort}
               </Text>
             ) : null}
           </Pressable>
@@ -264,7 +273,10 @@ export function ProductCard({
                 opacity: blocked ? 0.45 : 1,
               }}
             >
-              <Text style={{ fontFamily: fonts.heavy, fontSize: v(16), color: colors.orangeInk }}>
+              <Text
+                {...fixedText}
+                style={{ fontFamily: fonts.heavy, fontSize: v(16), color: colors.orangeInk }}
+              >
                 {t.pick}
               </Text>
               <Icon name="chevron-forward" size="small" tone="deep" />
@@ -341,7 +353,12 @@ function InBag({ count, hold }: { count: number; hold: boolean }) {
         transform: [{ scale: pop.scale }],
       }}
     >
-      <Text style={{ fontFamily: fonts.black, fontSize: v(16), color: colors.white }}>{count}</Text>
+      <Text
+        {...fixedText}
+        style={{ fontFamily: fonts.black, fontSize: v(16), color: colors.white }}
+      >
+        {count}
+      </Text>
     </Animated.View>
   );
 }

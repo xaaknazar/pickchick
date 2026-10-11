@@ -134,3 +134,30 @@ test('Wrapper cannot change child appearance or expose an untyped escape hatch',
     'Storybook must not supply component appearance through global CSS',
   );
 });
+test('every kiosk text ignores iPad system text size (Dynamic Type) through fixedText', () => {
+  // React 19 has no defaultProps for function components, so each Text, Animated.Text and
+  // TextInput spreads `fixedText` itself; a grown system size would overflow fixed layouts.
+  const paths = [
+    ...files.map((n) => 'components/' + n),
+    ...readdirSync(new URL('screens/', root))
+      .filter((n) => n.endsWith('.tsx'))
+      .map((n) => 'screens/' + n),
+  ];
+  let checked = 0;
+  for (const path of paths) {
+    const source = parse(path, readFileSync(new URL(path, root), 'utf8'));
+    walk(source, (node) => {
+      if (!ts.isJsxOpeningElement(node) && !ts.isJsxSelfClosingElement(node)) return;
+      const tag = node.tagName.getText(source);
+      if (!['Text', 'Animated.Text', 'TextInput'].includes(tag)) return;
+      checked++;
+      assert(
+        node.attributes.properties.some(
+          (p) => ts.isJsxSpreadAttribute(p) && p.expression.getText(source) === 'fixedText',
+        ),
+        `${path}: <${tag}> without {...fixedText}`,
+      );
+    });
+  }
+  assert(checked > 100, 'the check must see the kiosk texts');
+});

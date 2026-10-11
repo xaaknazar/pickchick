@@ -3,7 +3,7 @@ import { fn } from 'storybook/test';
 import { catalog } from '../stories/fixtures';
 import { Wrapper } from './Wrapper';
 import { Billboard } from './Billboard';
-const featured = catalog.products.find((p) => p.name === 'Master Combo') ?? catalog.products[0]!;
+const featured = catalog.products.find((p) => p.id === 'master-combo') ?? catalog.products[0]!;
 const meta = {
   title: 'Kiosk/Billboard',
   component: Billboard,

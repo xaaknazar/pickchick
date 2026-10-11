@@ -18,9 +18,27 @@ OUT.mkdir(parents=True, exist_ok=True)
 
 def fixture():
     source = """
-      import {createLevel,pour,parseGame,isWon} from './apps/mobile/src/games/magic-sort/engine.ts';
+      import {createLevel,createPuzzle,legalMoves,pour,parseGame,isWon} from './apps/mobile/src/games/magic-sort/engine.ts';
+      import {serializeRecord} from './apps/mobile/src/games/magic-sort/storage.ts';
       import {POUR_DURATION,POUR_TIMELINE} from './apps/mobile/src/games/magic-sort/motion.ts';
-      const game=createLevel(1), first=game.witness[0];
+      const game=createPuzzle(), first=game.witness[0];
+      // A longer winning route: the witness with a two-pour detour that returns
+      // to the same board, found on the actual engine rather than hard-coded.
+      const sig=s=>JSON.stringify([s.bottles,s.collector]);
+      let longer=null, walk=game;
+      for(let k=0;k<=game.witness.length && !longer;k++){
+        for(const a of legalMoves(walk)){
+          const s1=pour(walk,a.from,a.to);
+          const b=legalMoves(s1).find(b=>sig(pour(s1,b.from,b.to))===sig(walk));
+          if(b){longer=[...game.witness.slice(0,k),a,b,...game.witness.slice(k)];break;}
+        }
+        if(k<game.witness.length) walk=pour(walk,game.witness[k].from,game.witness[k].to);
+      }
+      let replay=game;
+      for(const m of longer??[]) replay=replay&&pour(replay,m.from,m.to);
+      if(!longer||!replay||!isWon(replay)) throw Error('No longer winning route');
+      let legacy=createLevel(7);
+      legacy=pour(legacy,legacy.witness[0].from,legacy.witness[0].to);
       const afterFirst=pour(game,first.from,first.to);
       const illegal=Array.from({length:25},(_,to)=>to).find(to=>
         to!==first.from && !pour(game,first.from,to));
@@ -34,8 +52,10 @@ def fixture():
       if(!parseGame(game)||!afterFirst||illegal===undefined||!isWon(won)) throw Error('Invalid engine fixture');
       let hash=2166136261;
       for(const char of process.argv[1]) hash=Math.imul(hash^char.charCodeAt(0),16777619);
+      const scope='demo-'+(hash>>>0).toString(16);
       console.log(JSON.stringify({game,afterFirst,illegal,won,collectorBefore,collectorMove,collectorAfter,ordinaryBefore,ordinaryMove,ordinaryAfter,POUR_DURATION,POUR_TIMELINE,
-        key:'pickchick.magic-sort.v1:demo-'+(hash>>>0).toString(16)}));
+        longer,legacy,record:serializeRecord(game.witness.length),
+        key:'pickchick.magic-sort.v1:'+scope,recordKey:'pickchick.magic-sort.record.v1:'+scope}));
     """
     return json.loads(subprocess.check_output(
         ['node', '--input-type=module', '-e', source, ACCOUNT['phone']], cwd=ROOT, text=True))
@@ -44,6 +64,21 @@ def fixture():
 FIXTURE = fixture()
 FLOW_ONLY = os.environ.get('MAGIC_SORT_FLOW_ONLY') == 'collector-320'
 KEY = FIXTURE['key']
+RECORD_KEY = FIXTURE['recordKey']
+SHOTS = os.environ.get('MAGIC_SORT_SHOTS')
+
+
+def shot(page, name):
+    page.screenshot(path=str(OUT / name))
+    if SHOTS:
+        Path(SHOTS).mkdir(parents=True, exist_ok=True)
+        page.screenshot(path=str(Path(SHOTS) / name))
+
+
+def plural(count):
+    tens, ones = count % 100, count % 10
+    word = 'ходов' if 11 <= tens <= 14 else 'ход' if ones == 1 else 'хода' if 2 <= ones <= 4 else 'ходов'
+    return f'{count} {word}'
 
 
 def saved(page):
@@ -79,7 +114,7 @@ def geometry(page):
     page.evaluate('()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))')
     bounds = page.evaluate("""()=>{
       const ids=['magic-sort-board','magic-sort-collector','magic-sort-undo',
-        'magic-sort-hint','magic-sort-restart','magic-sort-pause',
+        'magic-sort-restart','magic-sort-pause',
         ...Array.from({length:24},(_,i)=>'magic-sort-bottle-'+i)];
       return {width:innerWidth,height:innerHeight,overflow:document.documentElement.scrollWidth>innerWidth,
         boxes:Object.fromEntries(ids.map(id=>[id,
@@ -183,6 +218,9 @@ with sync_playwright() as playwright:
         expect(page.get_by_test_id('magic-sort-board')).to_be_visible()
         geometry(page)
         assert saved(page) == FIXTURE['game']
+        expect(page.get_by_test_id('magic-sort-moves')).to_have_text('Ходы: 0')
+        expect(page.get_by_test_id('magic-sort-record')).to_have_text('Рекорд: -')
+        assert page.evaluate('(k)=>localStorage.getItem(k)', RECORD_KEY) is None
         page.get_by_test_id('magic-sort-help').click()
         expect(page.get_by_test_id('magic-sort-panel-confirm')).to_be_visible()
         expect(page.get_by_text('Монеты и награды не начисляются.', exact=False)).to_be_visible()
@@ -197,8 +235,10 @@ with sync_playwright() as playwright:
         assert saved(page) == FIXTURE['game'], 'Illegal pour must not persist a move'
         bottle(page, FIXTURE['illegal']).click()  # Cancel the newly selected source.
         assert pour(page, first, 1) == FIXTURE['afterFirst']
+        expect(page.get_by_test_id('magic-sort-moves')).to_have_text('Ходы: 1')
         page.get_by_test_id('magic-sort-undo').click()
         assert wait_history(page, 0) == FIXTURE['game']
+        expect(page.get_by_test_id('magic-sort-moves')).to_have_text('Ходы: 0')
         pour(page, first, 1)
         before = saved(page)
         page.reload()
@@ -207,7 +247,8 @@ with sync_playwright() as playwright:
         page.get_by_test_id('magic-sort-restart').click()
         expect(page.get_by_test_id('magic-sort-panel-confirm')).to_be_visible()
         assert saved(page) == before, 'Opening reset confirmation must not reset progress'
-        page.get_by_role('button', name='Продолжить уровень', exact=True).click()
+        expect(page.get_by_text('Новая раскладка')).to_have_count(0)
+        page.get_by_role('button', name='Продолжить игру', exact=True).click()
         assert saved(page) == before, 'Cancelling reset must preserve progress'
         page.get_by_test_id('magic-sort-restart').click()
         page.get_by_test_id('magic-sort-panel-confirm').click()
@@ -215,16 +256,51 @@ with sync_playwright() as playwright:
 
         # Every winning move is made through the actual bottle controls. Neither the
         # final board nor history is injected; the witness comes from this engine.
-        for count, move in enumerate(FIXTURE['game']['witness'], 1):
+        witness = FIXTURE['game']['witness']
+        for count, move in enumerate(witness, 1):
             pour(page, move, count)
+            if count == 20:
+                shot(page, 'counter-390.png')
         assert saved(page) == FIXTURE['won']
+        best = len(witness)
         expect(page.get_by_test_id('magic-sort-won')).to_be_visible()
-        expect(page.get_by_role('button', name='Следующий уровень', exact=True)).to_be_visible()
-        page.screenshot(path=str(OUT / 'won-390.png'))
-        page.get_by_role('button', name='Следующий уровень', exact=True).click()
-        state = wait_history(page, 0)
-        assert state['seed'] == (FIXTURE['game']['seed'] + 1) % (2 ** 32)
+        expect(page.get_by_text(f'Отсортировано за {plural(best)}.', exact=True)).to_be_visible()
+        expect(page.get_by_test_id('magic-sort-best')).to_have_text(f'Ваш рекорд: {plural(best)}')
+        expect(page.get_by_test_id('magic-sort-new-record')).to_have_text('Новый рекорд!')
+        expect(page.get_by_test_id('magic-sort-record')).to_have_text(f'Рекорд: {best}')
+        page.wait_for_function('([k,v])=>localStorage.getItem(k)===v', arg=[RECORD_KEY, FIXTURE['record']])
+        expect(page.get_by_role('button', name='Следующий уровень', exact=True)).to_have_count(0)
+        shot(page, 'won-390.png')
+        page.reload()
+        expect(page.get_by_test_id('magic-sort-won')).to_be_visible(timeout=20000)
+        expect(page.get_by_test_id('magic-sort-best')).to_have_text(f'Ваш рекорд: {plural(best)}')
+        expect(page.get_by_test_id('magic-sort-new-record')).to_have_count(0)
+        page.get_by_role('button', name='Сыграть снова', exact=True).click()
+        assert wait_history(page, 0) == FIXTURE['game'], 'Play again restarts the same layout'
         expect(page.get_by_test_id('magic-sort-won')).to_have_count(0)
+        expect(page.get_by_test_id('magic-sort-moves')).to_have_text('Ходы: 0')
+        expect(page.get_by_test_id('magic-sort-record')).to_have_text(f'Рекорд: {best}')
+        shot(page, 'replay-390.png')
+
+        # A second win with more moves keeps the earlier (smaller) record.
+        longer = FIXTURE['longer']
+        for count, move in enumerate(longer, 1):
+            pour(page, move, count)
+        expect(page.get_by_test_id('magic-sort-won')).to_be_visible()
+        expect(page.get_by_text(f'Отсортировано за {plural(len(longer))}.', exact=True)).to_be_visible()
+        expect(page.get_by_test_id('magic-sort-best')).to_have_text(f'Ваш рекорд: {plural(best)}')
+        expect(page.get_by_test_id('magic-sort-new-record')).to_have_count(0)
+        page.wait_for_timeout(300)
+        assert page.evaluate('(k)=>localStorage.getItem(k)', RECORD_KEY) == FIXTURE['record']
+        shot(page, 'won-again-390.png')
+
+        # A saved random layout from an earlier build moves to the fixed puzzle.
+        migrated = open_game(snapshot=FIXTURE['legacy'])
+        expect(migrated.get_by_test_id('magic-sort-board')).to_be_visible(timeout=20000)
+        expect(migrated.get_by_test_id('magic-sort-notice')).to_have_text(
+            'Теперь у всех одна раскладка. Отсортируйте её за меньшее число ходов.')
+        migrated.wait_for_function('(k)=>JSON.parse(localStorage.getItem(k)).seed===%d' % FIXTURE['game']['seed'], arg=KEY)
+        assert saved(migrated) == FIXTURE['game']
 
         for size in [(320, 568), (430, 932)]:
             narrow = open_game(size=size)
@@ -303,6 +379,7 @@ with sync_playwright() as playwright:
                       'sizes': ['320x568'] if FLOW_ONLY else ['320x568', '390x844', '430x932'],
                       'normal_motion_pending_cancel_and_single_commit': None if FLOW_ONLY else True,
                       'continuous_source_drain_target_rise_and_mouth_anchors': True,
+                      'record': None if FLOW_ONLY else {'best': len(FIXTURE['game']['witness']), 'longer_win': len(FIXTURE['longer'])},
                       'external_requests_blocked': len(blocked), 'screenshots': str(OUT)}))
     for context in contexts:
         context.close()

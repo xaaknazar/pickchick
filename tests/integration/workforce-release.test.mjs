@@ -12,12 +12,16 @@ import {
   DEVICE_TABLES,
   MIGRATIONS,
 } from '../../infra/staging/workforce-owner.mjs';
-const directory = fileURLToPath(new URL('../../db/cloud/migrations/', import.meta.url));
+const migrations = fileURLToPath(new URL('../../db/cloud/migrations/', import.meta.url));
 test('workforce owner migrates only additive051/052, preserves rows/ACL and leaves device tables inaccessible', async () => {
   const old = await mkdtemp(join(tmpdir(), 'workforce050-'));
+  // The release candidate is bounded at 052: later migrations (053+) belong to later releases.
+  const directory = await mkdtemp(join(tmpdir(), 'workforce052-'));
   try {
-    for (const n of await readdir(directory))
-      if (n.endsWith('.sql') && n < '051') await copyFile(join(directory, n), join(old, n));
+    for (const n of await readdir(migrations)) {
+      if (n.endsWith('.sql') && n < '051') await copyFile(join(migrations, n), join(old, n));
+      if (n.endsWith('.sql') && n < '053') await copyFile(join(migrations, n), join(directory, n));
+    }
     await withSyncDatabases(
       async ({ cloud }) => {
         const role = 'wf_' + randomUUID().replaceAll('-', '');
@@ -55,5 +59,6 @@ test('workforce owner migrates only additive051/052, preserves rows/ACL and leav
     );
   } finally {
     await rm(old, { recursive: true, force: true });
+    await rm(directory, { recursive: true, force: true });
   }
 });

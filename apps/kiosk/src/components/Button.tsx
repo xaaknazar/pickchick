@@ -3,6 +3,8 @@ import { ActivityIndicator, Animated, Pressable, Text, View } from 'react-native
 import { colors, fonts, useMetrics } from '../theme';
 import { Icon, type IconName } from './Icon';
 import { useFlash, useLoop, usePress, useTimingTo } from './motion';
+import { ownerOrange } from './ownerOrange';
+import { fixedText } from './Body';
 export interface ButtonProps {
   label: string;
   onPress: () => void;
@@ -30,9 +32,9 @@ export interface ButtonProps {
   progress?: number;
 }
 /**
- * v3 pill button. Accent orange is the one primary action per screen; its fill
- * is the accessible orangeCta (orangeInk under the small compact label): white on
- * the design's #FF6900 is 2.88:1 and fails the Storybook contrast check.
+ * v3 pill button. Accent orange is the one primary action per screen; its fill is
+ * the design orange #FF6900 with white text at every size (owner decision
+ * 2026-10-10, an approved exception to the contrast check).
  * Enabling or disabling crossfades the fill over 260 ms (prototype `.octa.dim`)
  * while the button itself switches state at once.
  */
@@ -60,9 +62,7 @@ export function Button({
         ? 'rgba(201,210,227,.9)'
         : colors.soft
       : tone === 'accent'
-        ? size === 'compact'
-          ? colors.orangeInk
-          : colors.orangeCta
+        ? colors.orangeCta
         : tone === 'primary'
           ? colors.blue
           : tone === 'inverse'
@@ -88,6 +88,7 @@ export function Button({
     <Animated.View style={{ width: fullWidth ? '100%' : undefined, transform: [{ scale }] }}>
       <Pressable
         testID={testID}
+        {...(tone === 'accent' ? ownerOrange : {})}
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityState={{ disabled: blocked, busy }}
@@ -139,9 +140,10 @@ export function Button({
           />
         ) : null}
         <Text
+          {...fixedText}
           style={{
             fontFamily: fonts.black,
-            // Regular and hero labels stay >= 24 px: WCAG "large" text on orangeCta.
+            // Regular and hero labels stay >= 24 px (design type scale).
             fontSize:
               size === 'compact' ? Math.max(18, v(17)) : Math.max(24, v(size === 'hero' ? 34 : 23)),
             letterSpacing: size === 'hero' ? 1.2 : 0,

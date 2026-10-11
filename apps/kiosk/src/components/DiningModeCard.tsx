@@ -9,6 +9,7 @@ import { Icon } from './Icon';
 import { motion, useEnter, useLoop } from './motion';
 import { armReveal, trackRevealTile } from './reveal';
 import { useMotionPreference } from './useMotionPreference';
+import { ownerOrange } from './ownerOrange';
 /** v3 02 question above the dining choice, fading up on arrival. */
 export function DiningModeTitle({ children }: { children?: ReactNode }) {
   const { v } = useMetrics();
@@ -117,6 +118,7 @@ export function DiningModeCard({
     >
       <Pressable
         testID={'kiosk-mode-' + (here ? 'dine-in' : 'takeaway')}
+        {...(here ? {} : ownerOrange)}
         accessibilityRole="button"
         accessibilityState={{ disabled: busy }}
         disabled={busy}

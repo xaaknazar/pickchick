@@ -56,6 +56,8 @@ export type Order = Summary & {
   serviceMode: 'takeaway' | 'dine_in';
   kitchenComment?: string;
   tasks: Task[];
+  /** Set by the model for orders read from the cloud stream (never taken from the payload). */
+  fulfillmentOwner?: 'edge' | 'cloud';
 };
 export type DisplayItem = { number: string; name?: string; state: 'preparing' | 'ready' };
 export type Action =
@@ -68,6 +70,8 @@ export type Action =
   | { action: 'ready' | 'handoff'; expectedVersion: number }
   | { action: 'complete_station'; expectedVersion: number; stationId: string };
 export const prefix = '/edge/v1/fulfillment';
+/** Portal route to the cloud kitchen stream (same contract, ADR-0014). */
+export const cloudPrefix = '/cloud/v1/fulfillment';
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export function record(v: unknown): Record<string, unknown> {
   if (!v || typeof v !== 'object' || Array.isArray(v)) throw new Error('INVALID_RESPONSE');

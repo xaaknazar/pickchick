@@ -134,6 +134,7 @@ function renderCheckout({ locale }: { locale: Locale }) {
     goMode: c.goMode,
     goMenu: c.goMenu,
     openProduct: c.openProduct,
+    closeProduct: c.closeProduct,
     openUpsell: c.openUpsell,
     openCart: c.openCart,
     goLoyalty: c.goLoyalty,

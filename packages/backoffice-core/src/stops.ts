@@ -103,7 +103,7 @@ export function stopCatalogEntries(branchId: string, payload: unknown): StopCata
     ),
   ]);
 }
-async function readable(db: Db, table: string) {
+export async function readable(db: Db, table: string) {
   // CASE keeps the privilege lookup from resolving a table that does not exist yet.
   return (
     (
@@ -158,7 +158,7 @@ const StopStatesSchema = z.array(
 );
 type StopState = z.infer<typeof StopStatesSchema>[number];
 /** Edge projection through the active transport binding, as branchAvailability reads it. */
-async function edgeAvailability(db: Db, branchId: string) {
+export async function edgeAvailability(db: Db, branchId: string) {
   const row = (
     await db.query<{
       device_id: string;
@@ -202,20 +202,25 @@ type CommandRow = {
   resolved_at: Date | null;
   lapsed: boolean;
   blocks_sales: boolean;
+  awaits_reconnect: boolean;
 };
+/** cloud055 durable unstop; read through to_jsonb so a schema before 055 still works. */
+export const DURABLE_COMMAND_SQL =
+  "coalesce(to_jsonb(cloud_stop_commands)->>'delivery_policy','ttl')='until_reconnect'";
 /** Latest open and latest resolved command per variant. An open command past its deadline
- * is shown as expired already: the transport closes it on its next pull. */
-async function latestCommands(db: Db, branchId: string) {
+ * is shown as expired already: the transport closes it on its next pull. A durable unstop
+ * (cloud055) has no deadline: it stays open until the cashier answers. */
+export async function latestCommands(db: Db, branchId: string) {
   if (!(await readable(db, 'cloud_stop_commands'))) return null;
   const rows = (
     await db.query<CommandRow>(
       `SELECT * FROM (
         SELECT DISTINCT ON (variant_id) id,variant_id,stopped,duration,state,result_version,actor_label,created_at,expires_at,resolved_at,
-        ((state='pending' AND expires_at<=clock_timestamp()) OR (state='delivered' AND expires_at+$2*interval '1 second'<=clock_timestamp())) lapsed,
-        (stopped AND expires_at>clock_timestamp()) blocks_sales
+        (NOT ${DURABLE_COMMAND_SQL} AND ((state='pending' AND expires_at<=clock_timestamp()) OR (state='delivered' AND expires_at+$2*interval '1 second'<=clock_timestamp()))) lapsed,
+        (stopped AND expires_at>clock_timestamp()) blocks_sales,${DURABLE_COMMAND_SQL} awaits_reconnect
         FROM cloud_stop_commands WHERE branch_id=$1 AND state IN ('pending','delivered') ORDER BY variant_id,created_at DESC,id DESC) open
       UNION ALL SELECT * FROM (
-        SELECT DISTINCT ON (variant_id) id,variant_id,stopped,duration,state,result_version,actor_label,created_at,expires_at,resolved_at,false,false
+        SELECT DISTINCT ON (variant_id) id,variant_id,stopped,duration,state,result_version,actor_label,created_at,expires_at,resolved_at,false,false,${DURABLE_COMMAND_SQL}
         FROM cloud_stop_commands WHERE branch_id=$1 AND state NOT IN ('pending','delivered') ORDER BY variant_id,created_at DESC,id DESC) resolved`,
       [branchId, STOP_VERDICT_GRACE_SECONDS],
     )
@@ -233,16 +238,18 @@ async function latestCommands(db: Db, branchId: string) {
   return { open, resolved };
 }
 const iso = (value: Date | null) => (value ? value.toISOString() : null);
-const pendingView = (row: CommandRow) => ({
+export const pendingView = (row: CommandRow) => ({
   command_id: row.id,
   stopped: row.stopped,
   duration: row.duration,
   state: row.state as 'pending' | 'delivered',
   actor_label: row.actor_label,
   created_at: iso(row.created_at),
-  expires_at: iso(row.expires_at),
+  // A durable unstop waits for the cashier: its 120 s expires_at does not apply.
+  expires_at: row.awaits_reconnect ? null : iso(row.expires_at),
+  ...(row.awaits_reconnect ? { awaits_reconnect: true as const } : {}),
 });
-const resultView = (row: CommandRow) => ({
+export const resultView = (row: CommandRow) => ({
   command_id: row.id,
   stopped: row.stopped,
   state: row.state,
@@ -406,7 +413,8 @@ export async function requestStopInTransaction(
   await db.query(
     `UPDATE cloud_stop_commands SET state='expired',resolved_at=clock_timestamp()
     WHERE branch_id=$1 AND variant_id=$2 AND ((state='pending' AND expires_at<=clock_timestamp())
-      OR (state='delivered' AND expires_at+$3*interval '1 second'<=clock_timestamp()))`,
+      OR (state='delivered' AND expires_at+$3*interval '1 second'<=clock_timestamp()))
+      AND NOT ${DURABLE_COMMAND_SQL}`,
     [branchId, entry.variant_id, STOP_VERDICT_GRACE_SECONDS],
   );
   if (
@@ -475,3 +483,4 @@ export async function requestStopInTransaction(
   );
   return result;
 }
+export * from './cloud-stops.js';

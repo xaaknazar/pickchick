@@ -23,6 +23,7 @@ import { assets } from '../assets';
 import type { ScreenProps } from '../model';
 import { colors, font } from '../theme';
 import { SheetKeyboardOffsetContext } from './OrderSheet';
+import { useTabBarInset } from './tab-bar-inset';
 
 export type IconName = React.ComponentProps<typeof Ionicons>['name'];
 export function Icon({
@@ -305,6 +306,7 @@ export function Page({
 }) {
   const insets = useSafeAreaInsets();
   const keyboardOffset = useContext(SheetKeyboardOffsetContext);
+  const tabBarInset = useTabBarInset();
   const [keyboardVisible, setKeyboardVisible] = useState(() => Keyboard.isVisible());
   const hasKeyboardFooter = keyboardFooter != null;
   const scrollRef = useRef<ScrollView>(null);
@@ -390,7 +392,12 @@ export function Page({
       {footer || editing ? (
         <BottomActions
           safeArea={!props.inTabLayout && !editing}
-          style={[footerStyle, editing && { paddingTop: 8, paddingBottom: 8 }]}
+          style={[
+            footerStyle,
+            // A tab screen footer sits above the floating tab bar instead of under it.
+            props.inTabLayout && !editing && tabBarInset > 0 && { marginBottom: tabBarInset },
+            editing && { paddingTop: 8, paddingBottom: 8 },
+          ]}
         >
           {editing ? keyboardFooter : footer}
         </BottomActions>

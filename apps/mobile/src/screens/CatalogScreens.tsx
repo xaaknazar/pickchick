@@ -443,7 +443,10 @@ export function Menu(props: ScreenProps) {
         showsVerticalScrollIndicator={false}
         directionalLockEnabled
         contentContainerStyle={{
-          paddingBottom: props.model.cart.length ? (props.cartBottomInset || cartHeight) + 16 : 24,
+          paddingBottom: Math.max(
+            24,
+            (props.cartBottomInset || (props.model.cart.length ? cartHeight : 0)) + 16,
+          ),
         }}
         onContentSizeChange={(_, height) => {
           contentHeight.value = height;
@@ -809,9 +812,6 @@ export function Cart(props: ScreenProps) {
                   </Heading>
                   {unavailableCartLine(line) ? (
                     <Caption style={{ color: colors.warning }}>{unavailableCartLine(line)}</Caption>
-                  ) : null}
-                  {line.issue === 'choose_options' ? (
-                    <Caption>Нужно выбрать состав заново</Caption>
                   ) : null}
                   {selectionDescription(line) ? (
                     <Caption numberOfLines={2} style={s.cartDescription}>

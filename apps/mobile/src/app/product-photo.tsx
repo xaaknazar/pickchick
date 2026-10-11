@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { View, Text } from 'react-native';
+import { ActivityIndicator, View, Text } from 'react-native';
 import { useMobile } from '../store';
 import { PhotoProduct } from '../screens/PhotoProduct';
 import { hasPhotoPilot } from '../product-photo-selection';
@@ -16,6 +16,18 @@ export default function ProductPhotoRoute() {
       router.replace({ pathname: '/screen/[id]', params: { id: 'M06', preview: '1' } });
     else router.replace('/(tabs)/menu');
   };
+  // While the menu or the photos of a new publication are still being read, an upload-only
+  // product is not yet known: wait instead of flashing "unavailable".
+  if (!product && model.catalogPending)
+    return (
+      <View
+        testID="photo-product-loading"
+        accessibilityLabel="Загружаем позицию"
+        style={{ flex: 1, justifyContent: 'center', backgroundColor: '#04143A' }}
+      >
+        <ActivityIndicator color="white" />
+      </View>
+    );
   if (!product)
     return (
       <View
@@ -33,7 +45,8 @@ export default function ProductPhotoRoute() {
     );
   return (
     <PhotoProduct
-      key={`${product.source}:${product.catalogVersion}:${product.id}`}
+      // A publication must not remount the open card: quantity, choices and scroll survive.
+      key={`${product.source}:${product.id}`}
       product={product}
       model={model}
       screenId="M07"

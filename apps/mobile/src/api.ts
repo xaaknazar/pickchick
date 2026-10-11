@@ -120,23 +120,30 @@ export function publishedCatalogEnabled(): boolean {
 }
 
 /**
- * Uploaded photos of exactly this publication version. A missing route, an old or new version
- * (409), a malformed map or a network failure all yield an empty map: bundled photos stay.
+ * Uploaded photos of exactly this publication version, or null when the map could not be read
+ * (missing route, an old or new version (409), a malformed map or a network failure).
  */
-export async function loadCatalogMedia(
+export async function readCatalogMedia(
   version: number,
   signal?: AbortSignal,
-): Promise<CatalogMediaMap> {
-  const empty: CatalogMediaMap = { version, products: {} };
-  if (!Number.isSafeInteger(version) || version < 1) return empty;
+): Promise<CatalogMediaMap | null> {
+  if (!Number.isSafeInteger(version) || version < 1) return { version, products: {} };
   try {
     const media = CatalogMediaMapSchema.parse(
       await readCatalogJson(`/v1/customer-checkout/catalog/media?version=${version}`, signal, 5000),
     );
-    return media.version === version ? media : empty;
+    return media.version === version ? media : null;
   } catch {
-    return empty;
+    return null;
   }
+}
+
+/** Like readCatalogMedia, but any failure yields an empty map: bundled photos stay. */
+export async function loadCatalogMedia(
+  version: number,
+  signal?: AbortSignal,
+): Promise<CatalogMediaMap> {
+  return (await readCatalogMedia(version, signal)) ?? { version, products: {} };
 }
 
 export async function loadCatalog(

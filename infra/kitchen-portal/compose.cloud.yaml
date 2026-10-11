@@ -1,0 +1,13 @@
+# Optional overlay for the cloud kitchen stream (ADR-0014, S6). Default off: the portal keeps
+# using only compose.yaml until the owner enables `cloudKitchen` in the private config.json and
+# deploys with `-f compose.yaml -f compose.cloud.yaml`. The network is internal (no egress) and
+# carries only portal -> API `/v1/kitchen/*`; the API must be attached to it with the alias used
+# as `cloudKitchen.apiOrigin` (see docs/operations/cloud-kitchen-portal.md). The database network
+# of the API is never shared with the portal.
+services:
+  portal:
+    networks: [kitchen_ingress, kitchen_cloud]
+networks:
+  kitchen_cloud:
+    name: pickchick-kitchen_cloud
+    external: true

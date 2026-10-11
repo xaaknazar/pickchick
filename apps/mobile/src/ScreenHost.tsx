@@ -8,6 +8,7 @@ import { Pressable, Text } from 'react-native';
 import type { ScreenId } from './model';
 import { useMobile } from './store';
 import { CartShortcut } from './components/CartShortcut';
+import { useTabBarInset } from './components/tab-bar-inset';
 import { MobileScreen } from './screens/MobileScreen';
 
 const tabRoutes = {
@@ -24,6 +25,8 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
   const returnTo = accountDestination(params.returnTo);
   const model = useMobile(preview);
   const account = useAccount();
+  // The floating tab bar overlays the screen; content and the cart dock stay above it.
+  const tabBarInset = useTabBarInset();
   const activeTab =
     segments[0] === '(tabs)' &&
     id in tabRoutes &&
@@ -107,7 +110,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
       goBack={goBack}
       inSheet={inSheet}
       preview={preview}
-      cartBottomInset={activeTab && model.cart.length ? cartHeight : 0}
+      cartBottomInset={activeTab ? tabBarInset + (model.cart.length ? cartHeight : 0) : 0}
       inTabLayout={segments[0] === '(tabs)'}
     />
   );
@@ -130,6 +133,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
           model={model}
           onPress={() => navigate('M09')}
           floating
+          bottomOffset={tabBarInset}
           onHeightChange={setCartHeight}
         />
       ) : null}

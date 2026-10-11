@@ -36,10 +36,13 @@ FARM_PILOT_FLAGS = {**CUSTOMER_PILOT_FLAGS, "EXPO_PUBLIC_PICK_FARM": "1"}
 # Default mobile release: everything of farm-pilot, reading the published catalog.
 PUBLISHED_CATALOG_FLAGS = {**FARM_PILOT_FLAGS, "EXPO_PUBLIC_PUBLISHED_CATALOG": "1"}
 CATALOG_PILOT_FLAGS = PUBLISHED_CATALOG_FLAGS
-DEFAULT_MOBILE_PROFILE = "published-catalog"
+# Owner decision 2026-10-10: Pick Farm is removed from the app. The default release reads the
+# published catalog without the farm; published-catalog stays for already recorded archives.
+STOREFRONT_FLAGS = {**CUSTOMER_PILOT_FLAGS, "EXPO_PUBLIC_PUBLISHED_CATALOG": "1", "EXPO_PUBLIC_PICK_FARM": "0"}
+DEFAULT_MOBILE_PROFILE = "storefront"
 # Older names of the same flag set; archives recorded under an alias stay deliverable.
-PROFILE_ALIASES = {"catalog-pilot": DEFAULT_MOBILE_PROFILE}
-MOBILE_PROFILES = ("customer-pilot", "farm-pilot", DEFAULT_MOBILE_PROFILE, *PROFILE_ALIASES)
+PROFILE_ALIASES = {"catalog-pilot": "published-catalog"}
+MOBILE_PROFILES = ("customer-pilot", "farm-pilot", "published-catalog", DEFAULT_MOBILE_PROFILE, *PROFILE_ALIASES)
 # Archives made before the catalog source was pinned recorded these exact flag sets; their
 # bundles were built when an unset flag still meant the legacy catalog.
 HISTORICAL_PROFILE_FLAGS = {
@@ -395,7 +398,7 @@ def default_feature_profile(app):
 def feature_profile_flags(feature_profile):
     """Return an independent allowlisted flag snapshot for release metadata."""
     profiles = {"customer-pilot": CUSTOMER_PILOT_FLAGS, "farm-pilot": FARM_PILOT_FLAGS,
-                DEFAULT_MOBILE_PROFILE: PUBLISHED_CATALOG_FLAGS}
+                "published-catalog": PUBLISHED_CATALOG_FLAGS, DEFAULT_MOBILE_PROFILE: STOREFRONT_FLAGS}
     feature_profile = canonical_profile(feature_profile)
     if feature_profile == "legacy":
         return None

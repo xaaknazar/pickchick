@@ -1,6 +1,7 @@
 import { View } from 'react-native';
 import { colors, useMetrics } from '../theme';
 import { Body, Heading, Icon, Wrapper } from './UI';
+import { useAnnounce } from './announce';
 /**
  * v3 notice: a white card that reads on blue and on white sheets alike. The
  * error variant uses deep orange (title, icon, hairline; the body too when it
@@ -19,6 +20,7 @@ export function Notice({
 }) {
   const { v } = useMetrics();
   const error = tone === 'error';
+  useAnnounce(error ? (title ? title + '. ' : '') + body : null);
   return (
     <View
       testID={testID}

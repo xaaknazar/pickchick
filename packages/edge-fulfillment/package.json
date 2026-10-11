@@ -13,10 +13,11 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test tests/unit.test.mjs",
-    "test:integration": "node --test tests/postgres.test.mjs tests/commerce-port.test.mjs tests/read-concurrency.test.mjs tests/station-eligibility.test.mjs tests/release-results.test.mjs tests/whole-ticket.test.mjs"
+    "test:integration": "node --test tests/postgres.test.mjs tests/commerce-port.test.mjs tests/read-concurrency.test.mjs tests/station-eligibility.test.mjs tests/release-results.test.mjs tests/whole-ticket.test.mjs tests/state-machine-vectors.test.mjs"
   },
   "dependencies": {
     "@pickchick/database": "workspace:*",
+    "@pickchick/fulfillment-state": "workspace:*",
     "@pickchick/local-orders": "workspace:*",
     "zod": "4.5.4"
   },

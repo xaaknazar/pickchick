@@ -15,7 +15,10 @@ import { readKioskQrPayment } from './kiosk-kaspi-qr.js';
 import { readCheckoutOrder } from './order-view.js';
 import { localSelectionIds } from '@pickchick/menu-sync';
 import {
+  AvailabilityError,
   branchAvailability,
+  branchChannelOwner,
+  cloudChannelAvailability,
   assertBranchItemsAvailable,
   snapshotAvailabilityItems,
 } from './availability.js';
@@ -244,6 +247,12 @@ export class KioskCheckout {
       )
     ).rows[0];
     if (!row) throw new CommerceError('NOT_READY');
+    // ADR-0014: in mode 'cloud' the kitchen is the cloud kitchen gate (KITCHEN_OFFLINE: one prep
+    // and one assembly station polled within 30 s), not the cashier binding and device.
+    const cloud = (await branchChannelOwner(this.pool, scope.branchId)) === 'cloud';
+    const kitchen = cloud
+      ? (await cloudChannelAvailability(this.pool, scope.branchId)).fresh
+      : row.kitchen;
     // Same readiness as the mobile app: the back-office publication is the single menu
     // source for every channel, so no per-device menu ACK is required; the kitchen must be online.
     const primary = opt.paymentMethod ?? 'kaspi_invoice';
@@ -268,12 +277,20 @@ export class KioskCheckout {
       if (invoice.rowCount) paymentMethods.push('kaspi_invoice');
     }
     return {
-      enabled: paymentMethods.length > 0 && row.version !== null && row.kitchen,
+      enabled: paymentMethods.length > 0 && row.version !== null && kitchen,
       branchId: scope.branchId,
       restaurant: row.name,
       paymentMethod: primary,
       paymentMethods,
+      // Only in mode 'cloud' (edge answers keep their shape): lets the kiosk name the reason.
+      ...(cloud ? { kitchen: kitchen ? ('online' as const) : ('offline' as const) } : {}),
     };
+  }
+  /** Not ready: in mode 'cloud' a closed kitchen gate is KITCHEN_OFFLINE, otherwise NOT_READY. */
+  private notReady(config: { kitchen?: 'online' | 'offline' }) {
+    return config.kitchen === 'offline'
+      ? new AvailabilityError('KITCHEN_OFFLINE')
+      : new CommerceError('NOT_READY');
   }
   async quote(guest: KioskGuest, input: unknown) {
     const scope = this.scope(guest),
@@ -281,7 +298,8 @@ export class KioskCheckout {
       opt = this.options!;
     if (scope.branchId !== req.branchId) throw new CommerceError('FORBIDDEN');
     assertRestaurantOrderingOpen(opt.hours, this.now());
-    if (!(await this.config(guest)).enabled) throw new CommerceError('NOT_READY');
+    const config = await this.config(guest);
+    if (!config.enabled) throw this.notReady(config);
     const catalog = await this.catalog(guest);
     // Availability identifiers are catalog product ids, while the pricing port accepts SKU.
     const items = req.items.map((item) => {
@@ -361,7 +379,8 @@ export class KioskCheckout {
     }
     await this.sessions.assertActive(guest.sessionId);
     assertRestaurantOrderingOpen(opt.hours, this.now());
-    if (!(await this.config(guest)).enabled) throw new CommerceError('NOT_READY');
+    const config = await this.config(guest);
+    if (!config.enabled) throw this.notReady(config);
     const quote = await this.pool.query(
       "SELECT 1 FROM commerce_quotes WHERE id=$1 AND principal_id=$2 AND organization_id=$3 AND branch_id=$4 AND customer_id IS NULL AND snapshot->>'channel'='kiosk'",
       [req.quoteId, scope.principalId, scope.organizationId, scope.branchId],
@@ -419,8 +438,7 @@ export class KioskCheckout {
     if (method !== 'kaspi_qr') await this.sessions.assertActive(guest.sessionId);
     assertRestaurantOrderingOpen(this.options!.hours, this.now());
     const config = await this.config(guest);
-    if (!config.enabled || !config.paymentMethods.includes(method))
-      throw new CommerceError('NOT_READY');
+    if (!config.enabled || !config.paymentMethods.includes(method)) throw this.notReady(config);
     await assertBranchItemsAvailable(
       this.pool,
       scope.branchId,

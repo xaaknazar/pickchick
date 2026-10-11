@@ -64,3 +64,48 @@ export function money(minor: string): string {
   const fraction = amount % 100n;
   return `${(amount / 100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}${fraction ? `,${fraction.toString().padStart(2, '0')}` : ''} ₸`;
 }
+/** A stored cart line (both flows keep the same shape). */
+export interface StoredLine {
+  productId: string;
+  selections: KioskSelection[];
+  quantity: number;
+}
+/** The cart's limits: 20 of one line, 11 different lines. */
+export const LINE_LIMIT = 20;
+export const LINES_LIMIT = 11;
+/**
+ * Places a chosen product (selections already normalized) in the cart. Without
+ * `replaceLineId` it adds `quantity` (an equal line grows). With it, the edited
+ * line is swapped in place for the new choice with exactly `quantity`; a choice
+ * equal to another line merges into that line.
+ */
+export function placeLine(
+  cart: StoredLine[],
+  productId: string,
+  selections: KioskSelection[],
+  quantity: number,
+  replaceLineId?: string,
+):
+  | { cart: StoredLine[]; lineId: string }
+  | { error: 'INVALID_CART' | 'CART_LIMIT_LINE' | 'CART_LIMIT_LINES' } {
+  const key = (line: StoredLine) => testLineId(line.productId, line.selections);
+  const lineId = testLineId(productId, selections);
+  let base = cart;
+  let at = cart.length;
+  if (replaceLineId !== undefined) {
+    at = cart.findIndex((line) => key(line) === replaceLineId);
+    if (at < 0 || cart[at]!.productId !== productId) return { error: 'INVALID_CART' };
+    base = cart.filter((_, index) => index !== at);
+  }
+  const old = base.find((line) => key(line) === lineId);
+  const total = (old?.quantity ?? 0) + quantity;
+  if (total > LINE_LIMIT) return { error: 'CART_LIMIT_LINE' };
+  if (!old && base.length >= LINES_LIMIT) return { error: 'CART_LIMIT_LINES' };
+  const line = { productId, selections, quantity: total };
+  return {
+    lineId,
+    cart: old
+      ? base.map((entry) => (entry === old ? line : entry))
+      : [...base.slice(0, at), line, ...base.slice(at)],
+  };
+}

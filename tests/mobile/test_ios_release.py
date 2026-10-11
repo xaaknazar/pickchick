@@ -134,8 +134,13 @@ class ReleasePreflightTests(unittest.TestCase):
         self.assertEqual(release.CATALOG_PILOT_FLAGS, expected)
         self.assertIs(release.CATALOG_PILOT_FLAGS, release.PUBLISHED_CATALOG_FLAGS)
 
-    def test_mobile_default_profile_is_the_published_catalog_and_kiosk_stays_legacy(self):
-        self.assertEqual(release.default_feature_profile("mobile"), "published-catalog")
+    def test_mobile_default_profile_is_the_farm_free_storefront_and_kiosk_stays_legacy(self):
+        # Owner decision 2026-10-10: Pick Farm is removed from new mobile builds.
+        self.assertEqual(release.default_feature_profile("mobile"), "storefront")
+        self.assertEqual(release.feature_profile_flags("storefront"),
+                         release.CUSTOMER_PILOT_FLAGS | {"EXPO_PUBLIC_PUBLISHED_CATALOG": "1",
+                                                         "EXPO_PUBLIC_PICK_FARM": "0"})
+        self.assertEqual(release.feature_profile_flags("published-catalog")["EXPO_PUBLIC_PICK_FARM"], "1")
         self.assertEqual(release.default_feature_profile("kiosk"), "legacy")
         self.assertEqual(release.canonical_profile("catalog-pilot"), "published-catalog")
         self.assertEqual(release.canonical_profile("farm-pilot"), "farm-pilot")

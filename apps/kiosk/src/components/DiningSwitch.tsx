@@ -7,6 +7,7 @@ import { colors, fonts, useMetrics } from '../theme';
 import { fixedText } from './Body';
 import { Icon } from './Icon';
 import { useTimingTo } from './motion';
+import { ownerOrange } from './ownerOrange';
 const modes: KioskMode[] = ['dine_in', 'takeaway'];
 /**
  * Design `#eat` "В зале" glyph: the prototype's inline upright fork and knife
@@ -57,6 +58,7 @@ export function DiningSwitch({
   return (
     <View
       testID={testID}
+      {...ownerOrange}
       accessibilityRole="radiogroup"
       accessibilityLabel={chosen ? label(chosen) : undefined}
       style={{
@@ -148,7 +150,8 @@ function Pill({ span, offset }: { span: number; offset: number }) {
         bottom: v(4),
         width: span,
         borderRadius: v(22),
-        backgroundColor: colors.orangeInk,
+        // Active control: the design orange (owner decision 2026-10-10).
+        backgroundColor: colors.orangeCta,
         transform: [{ translateX: x }],
       }}
     />

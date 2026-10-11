@@ -2,7 +2,6 @@ import { cartLineKey, cartTotal, lineUnitPrice, validSelections } from './domain
 import type { CartLine, Product, Selection } from './model';
 
 export const PRICES_UPDATED = 'Цены обновились. Проверьте итоговую сумму перед оплатой';
-export const MENU_UPDATED = 'Состав меню изменился. Проверьте отмеченные позиции';
 
 /** Keep the customer's choices that still exist; never substitute a different paid option. */
 export function retainSelections(product: Product, selections: Selection[]): Selection[] {
@@ -19,8 +18,8 @@ export function repriceCart(cart: CartLine[], products: Product[]) {
   const byId = new Map(products.map((product) => [product.id, product]));
   const changes = {
     priceChanged: [] as string[],
-    optionsDropped: [] as string[],
-    needsChoice: [] as string[],
+    /** Lines removed because a chosen option left the menu (owner decision, no substitute). */
+    removed: [] as string[],
     unavailable: [] as string[],
     oldTotal: cart
       .reduce(
@@ -31,38 +30,40 @@ export function repriceCart(cart: CartLine[], products: Product[]) {
       .toString(),
     newTotal: '0',
   };
-  const next = cart.map((line): CartLine => {
+  const next = cart.flatMap((line): CartLine[] => {
     const key = cartLineKey(line);
     const product = byId.get(line.product.id);
     if (!product || product.available === false) {
       changes.unavailable.push(key);
       // A removed dish stays visible until the customer removes it; it cannot be ordered.
-      return {
-        ...line,
-        key,
-        product: product ?? { ...line.product, available: false },
-        issue: 'unavailable',
-      };
+      return [
+        {
+          ...line,
+          key,
+          product: product ?? { ...line.product, available: false },
+          issue: 'unavailable',
+        },
+      ];
     }
     const selections = retainSelections(product, line.selections ?? []);
-    if (selections.length !== (line.selections?.length ?? 0)) changes.optionsDropped.push(key);
-    const needsChoice = !validSelections(product, selections);
-    if (needsChoice) changes.needsChoice.push(key);
+    // A line whose chosen option disappeared (or no longer forms a valid choice) is removed
+    // entirely. Nothing is substituted; the total change is reported by the price notice only.
+    if (
+      selections.length !== (line.selections?.length ?? 0) ||
+      !validSelections(product, selections)
+    ) {
+      changes.removed.push(key);
+      return [];
+    }
     const oldPrice = lineUnitPrice(line);
-    const updated = {
-      ...line,
-      key,
-      product,
-      selections,
-      issue: needsChoice ? ('choose_options' as const) : undefined,
-    };
+    const updated: CartLine = { ...line, key, product, selections, issue: undefined };
     if (oldPrice !== lineUnitPrice(updated)) {
       updated.previousUnitPriceMinor = line.previousUnitPriceMinor ?? oldPrice;
     }
     if (updated.previousUnitPriceMinor === lineUnitPrice(updated))
       updated.previousUnitPriceMinor = undefined;
     if (updated.previousUnitPriceMinor !== undefined) changes.priceChanged.push(key);
-    return updated;
+    return [updated];
   });
   changes.newTotal = cartTotal(next);
   return { cart: next, changes };

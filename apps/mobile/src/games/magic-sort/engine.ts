@@ -332,8 +332,30 @@ export function isWon(state: GameState): boolean {
 export function resetLevel(state: GameState): GameState {
   return createLevel(state.seed, state.version);
 }
-export function newLevel(state: GameState, seed = (state.seed + 1) >>> 0): GameState {
-  return createLevel(seed);
+/**
+ * Magic Sort is one fixed puzzle: every attempt and every player gets the same
+ * version2 layout, so move counts are comparable and a personal record means
+ * the same thing for everyone. Changing these constants invalidates records.
+ */
+export const PUZZLE_VERSION = 2;
+export const PUZZLE_SEED = 1;
+export function createPuzzle(): GameState {
+  return createLevel(PUZZLE_SEED, PUZZLE_VERSION);
+}
+export function isPuzzle(state: GameState): boolean {
+  return state.version === PUZZLE_VERSION && state.seed === PUZZLE_SEED;
+}
+/** One committed pour is one move; undo removes it from the count. */
+export function moveCount(state: GameState): number {
+  return state.history.length;
+}
+export type RecordResult = { moves: number; previous: number | null; best: number; isNew: boolean };
+/** A personal record keeps the minimum number of moves for a solved puzzle. */
+export function applyRecord(previous: number | null, moves: number): RecordResult {
+  if (!Number.isInteger(moves) || moves < 1 || moves > MAX_MOVES)
+    throw new Error('Invalid Magic Sort move count');
+  if (previous === null || moves < previous) return { moves, previous, best: moves, isNew: true };
+  return { moves, previous, best: previous, isNew: false };
 }
 export function undo(state: GameState): GameState {
   let result = createLevel(state.seed, state.version);

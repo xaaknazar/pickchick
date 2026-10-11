@@ -97,7 +97,8 @@ class MobileLayout(unittest.TestCase):
             expect(page.get_by_test_id('screen-M06')).to_be_visible()
             for width, height in [(320, 568), (390, 667), (390, 844), (430, 932), (844, 390)]:
                 page.set_viewport_size({'width': width, 'height': height})
-                self.fixed(page, 'tab-menu', 'scroll-M06', height, bottom_gap=0)
+                # Floating capsule: 12pt above the edge plus the 5pt inner padding.
+                self.fixed(page, 'tab-menu', 'scroll-M06', height, bottom_gap=17)
                 tab = page.get_by_test_id('tab-menu').bounding_box()
                 cart = page.get_by_test_id('open-cart').bounding_box()
                 self.assertGreaterEqual(tab['y'] - cart['y'] - cart['height'], 0)
@@ -115,7 +116,7 @@ class MobileLayout(unittest.TestCase):
             for tab, screen in [('orders', 'M19'), ('events', 'M26'), ('profile', 'M30')]:
                 page.get_by_test_id('tab-' + tab).click()
                 expect(page.get_by_test_id('screen-' + screen)).to_be_visible()
-                self.fixed(page, 'tab-' + tab, 'scroll-' + screen, 390, bottom_gap=0)
+                self.fixed(page, 'tab-' + tab, 'scroll-' + screen, 390, bottom_gap=17)
                 self.fixed(page, 'open-cart', 'scroll-' + screen, 390)
                 self.assertEqual(page.get_by_test_id('open-cart').count(), 1)
             self.assertEqual(errors, [])

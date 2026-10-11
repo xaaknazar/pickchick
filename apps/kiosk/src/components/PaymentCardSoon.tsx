@@ -3,6 +3,7 @@ import type { Locale } from '../i18n';
 import { checkoutCopy } from '../checkoutCopy';
 import { colors, fonts, useMetrics } from '../theme';
 import { Icon } from './Icon';
+import { fixedText } from './Body';
 /**
  * Design 07: the card option beside "Cancel", shown but not yet available
  * ("Банковская карта · Скоро"). Not a button: nothing can be started from it.
@@ -29,6 +30,7 @@ export function PaymentCardSoon({ locale }: { locale: Locale }) {
     >
       <Icon name="card-outline" tone="onBlue" />
       <Text
+        {...fixedText}
         numberOfLines={1}
         style={{
           flexShrink: 1,
@@ -49,6 +51,7 @@ export function PaymentCardSoon({ locale }: { locale: Locale }) {
         }}
       >
         <Text
+          {...fixedText}
           style={{ fontFamily: fonts.heavy, fontSize: Math.max(15, v(15)), color: colors.white }}
         >
           {c.soon}

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 import { CatalogChangeNotice } from './CatalogChangeNotice';
-import { PRICES_UPDATED, MENU_UPDATED } from '../cart-reprice';
+import { PRICES_UPDATED } from '../cart-reprice';
 const meta = {
   title: 'Mobile/CatalogChangeNotice',
   component: CatalogChangeNotice,
@@ -14,5 +14,4 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const UpdatedPrices: Story = {};
-export const CompositionChanged: Story = { args: { message: MENU_UPDATED, totals: null } };
 export const Checkout: Story = { args: { onDismiss: undefined } };

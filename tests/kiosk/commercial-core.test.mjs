@@ -90,7 +90,7 @@ function fixture() {
           })),
         };
       if (path === '/sessions/end') {
-        if (h.endFail) throw new KioskError('NETWORK_UNCERTAIN');
+        if (h.endFail) throw new KioskError(h.endFail === true ? 'NETWORK_UNCERTAIN' : h.endFail);
         return { ended: true };
       }
       if (path === '/quotes') {
@@ -574,6 +574,29 @@ test('idle clears draft phone but preserves unresolved order; end network failur
   assert(h.rawSession);
   assert.equal(JSON.parse(h.rawFlow).resetPending, true);
 });
+test('reset unbinds a guest the server no longer knows (FORBIDDEN end) without getting stuck', async () => {
+  const h = fixture(),
+    c = await cart(h);
+  await c.beginPayment();
+  h.order = { ...h.order, phase: 'failed' };
+  await c.refresh();
+  // Restored database, deleted session row or disabled device: /sessions/end is refused.
+  h.endFail = 'FORBIDDEN';
+  assert.equal(await c.newGuest(), true);
+  assert.equal(h.rawSession, null);
+  const flow = JSON.parse(h.rawFlow);
+  assert.equal(flow.resetPending, false);
+  assert.equal(flow.guestId, null);
+  assert.equal(flow.order, null);
+  assert.equal(c.getSnapshot().step, 'start');
+  assert.equal(c.getSnapshot().invoicePhone, '');
+  // Other end failures still keep the identity for a retry.
+  h.endFail = 'NETWORK_UNCERTAIN';
+  const c2 = await cart(h);
+  assert.equal(await c2.newGuest(), false);
+  assert(h.rawSession);
+  assert.equal(JSON.parse(h.rawFlow).resetPending, true);
+});
 test('commercial HTTP requires device scope and guest; rejects test and customer endpoints', async () => {
   let calls = 0;
   const fetcher = async (url, options) => {
@@ -718,7 +741,7 @@ for (const code of [
   'AVAILABILITY_STALE',
   'RESTAURANT_CLOSED',
 ])
-  test(`definitive quote ${code} returns review, while order errors retain recovery`, async () => {
+  test(`definitive quote ${code} returns review; /orders keeps recovery only when an order may exist`, async () => {
     const h = fixture(),
       c = await cart(h);
     h.before = async (path) => {
@@ -737,8 +760,17 @@ for (const code of [
     };
     c.setInvoicePhone('+77011234567');
     assert.equal(await c.beginPayment(), false);
-    assert(JSON.parse(h.rawFlow).intent);
-    assert.equal(c.getSnapshot().recoveryRequired, true);
+    // POST /orders answers the guest's existing order before any check, so a definitive refusal
+    // proves there is none; CONFLICT (another quote's order) and INVALID keep recovery.
+    if (['INVALID', 'CONFLICT'].includes(code)) {
+      assert(JSON.parse(h.rawFlow).intent);
+      assert.equal(c.getSnapshot().recoveryRequired, true);
+    } else {
+      assert.equal(JSON.parse(h.rawFlow).intent, null);
+      assert.equal(c.getSnapshot().step, 'loyalty');
+      assert.equal(c.getSnapshot().recoveryRequired, false);
+      assert.equal(await c.newGuest(), true);
+    }
   });
 test('stale availability closes local quote and retains shopping draft for retry', async () => {
   const h = fixture(),

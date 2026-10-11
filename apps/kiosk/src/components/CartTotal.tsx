@@ -4,6 +4,7 @@ import { copy, itemCount, type Locale } from '../i18n';
 import { money } from '../cart';
 import { colors, fonts, useMetrics } from '../theme';
 import { useTween } from './motion';
+import { fixedText } from './Body';
 const kaspiLogo = require('../../assets/v3/kaspi.webp');
 /** "3 позиции" / "3 позиция" / "3 items" (see `itemCount`). */
 export const positionsLabel = (n: number, locale: Locale) => itemCount(n, locale);
@@ -50,6 +51,7 @@ export function CartTotal({
     >
       <View style={{ gap: v(8), flexShrink: 1 }}>
         <Text
+          {...fixedText}
           style={{
             fontFamily: fonts.medium,
             fontSize: Math.max(17, v(large ? 19 : 18)),
@@ -80,6 +82,7 @@ export function CartTotal({
               style={{ width: v(32), height: v(32) }}
             />
             <Text
+              {...fixedText}
               style={{
                 fontFamily: fonts.medium,
                 fontSize: Math.max(15, v(17)),
@@ -92,6 +95,7 @@ export function CartTotal({
         ) : null}
       </View>
       <Text
+        {...fixedText}
         numberOfLines={1}
         adjustsFontSizeToFit
         accessibilityLabel={amount}

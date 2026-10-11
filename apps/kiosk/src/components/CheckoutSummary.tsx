@@ -7,6 +7,7 @@ import { Icon } from './Icon';
 import { CartTotal } from './CartTotal';
 import { selectionSummary } from './selectionSummary';
 import { useEnter } from './motion';
+import { fixedText } from './Body';
 /**
  * v3 order summary card on the blue review screen: white 30-pt card, one row per
  * line (name × qty, chosen options, line total), the total and the preparation time.
@@ -63,6 +64,7 @@ export function CheckoutSummary({
           >
             <View style={{ flex: 1, minWidth: 0, gap: v(4) }}>
               <Text
+                {...fixedText}
                 style={{
                   fontFamily: fonts.heavy,
                   fontSize: Math.max(18, v(20)),
@@ -74,6 +76,7 @@ export function CheckoutSummary({
               </Text>
               {summary ? (
                 <Text
+                  {...fixedText}
                   style={{
                     fontFamily: fonts.body,
                     fontSize: Math.max(15, v(15)),
@@ -86,6 +89,7 @@ export function CheckoutSummary({
               ) : null}
             </View>
             <Text
+              {...fixedText}
               style={{
                 fontFamily: fonts.black,
                 fontSize: Math.max(18, v(20)),
@@ -115,6 +119,7 @@ export function CheckoutSummary({
         >
           <Icon name="time-outline" size="small" tone="brand" />
           <Text
+            {...fixedText}
             style={{
               fontFamily: fonts.medium,
               fontSize: Math.max(15, v(15)),

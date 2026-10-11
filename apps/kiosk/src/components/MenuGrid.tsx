@@ -8,6 +8,7 @@ import { RAIL_WIDTH } from './CategoryRail';
 import { Billboard } from './Billboard';
 import { useStagger } from './motion';
 import type { Category, MenuMemory } from './categories';
+import { fixedText } from './Body';
 const tags: Record<string, 'hit' | 'new'> = {
   'pick-combo': 'hit',
   'solo-combo': 'new',
@@ -138,6 +139,7 @@ export function MenuGrid({
             }}
           >
             <Text
+              {...fixedText}
               accessibilityRole="header"
               style={{
                 fontFamily: fonts.black,
@@ -149,6 +151,7 @@ export function MenuGrid({
               {copy(locale)[category]}
             </Text>
             <Text
+              {...fixedText}
               style={{
                 fontFamily: fonts.body,
                 fontSize: Math.max(15, v(16)),

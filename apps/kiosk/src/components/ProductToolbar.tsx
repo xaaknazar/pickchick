@@ -4,6 +4,7 @@ import { copy, type Locale } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
 import { IconButton } from './IconButton';
 import { useEnter } from './motion';
+import { fixedText } from './Body';
 /**
  * v3 product controls on the photo: a white 72-pt close disc (a back arrow on the
  * second set step) and, inside the set wizard, a step pill beside it. Render it as
@@ -64,11 +65,12 @@ export function ProductToolbar({
           }}
         >
           <Text
+            {...fixedText}
             numberOfLines={1}
             style={{ fontFamily: fonts.heavy, fontSize: Math.max(15, v(17)), color: colors.white }}
           >
             {step === 1 ? t.saucesTitle : t.extrasTitle}
-            <Text style={{ fontFamily: fonts.medium, color: colors.onBlueMuted }}>
+            <Text {...fixedText} style={{ fontFamily: fonts.medium, color: colors.onBlueMuted }}>
               {`  ·  ${t.step} ${step} / ${steps}`}
             </Text>
           </Text>

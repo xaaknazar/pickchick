@@ -22,4 +22,5 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Extras: Story = { args: { category: 'extras' } };
+export const Drinks: Story = { args: { category: 'drinks' } };
 export const Kazakh = { args: { locale: 'kk' } };

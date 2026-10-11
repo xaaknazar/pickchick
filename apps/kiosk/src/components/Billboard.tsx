@@ -9,6 +9,7 @@ import { ProductArtwork } from './ProductArtwork';
 import { curve, useTimingTo, type Curve } from './motion';
 import { noteProductOrigin } from './reveal';
 import { useMotionPreference } from './useMotionPreference';
+import { fixedText } from './Body';
 /** Approved v3 `bill`: 1100 ms cubic-bezier(.65,0,.35,1), a slide every 9 s. */
 const slideTime = 1100;
 const slideCurve = Easing.bezier(0.65, 0, 0.35, 1);
@@ -312,6 +313,7 @@ function Slide({
         }}
       >
         <Text
+          {...fixedText}
           style={{
             fontFamily: fonts.black,
             fontSize: v(15),
@@ -334,6 +336,7 @@ function Slide({
       >
         {promo ? (
           <Text
+            {...fixedText}
             numberOfLines={2}
             adjustsFontSizeToFit
             style={{
@@ -345,10 +348,13 @@ function Slide({
             }}
           >
             {t.p7Title + '\n'}
-            <Text style={{ color: colors.orange }}>{t.p7Gift}</Text>
+            <Text {...fixedText} style={{ color: colors.orange }}>
+              {t.p7Gift}
+            </Text>
           </Text>
         ) : (
           <Text
+            {...fixedText}
             numberOfLines={1}
             adjustsFontSizeToFit
             style={{
@@ -363,6 +369,7 @@ function Slide({
           </Text>
         )}
         <Text
+          {...fixedText}
           numberOfLines={3}
           style={{
             fontFamily: fonts.body,
@@ -432,12 +439,13 @@ function Dots({
           accessibilityState={{ selected: dot === index }}
           onPress={() => onPick(index)}
           hitSlop={8}
+          // Each dot owns a 44 x 44 pt target (Apple HIG), not just its 8 pt drawing.
           style={{
             position: 'absolute',
-            top: -12,
-            bottom: -12,
-            left: index ? dotsWidth / 2 : -6,
-            right: index ? -6 : dotsWidth / 2,
+            top: -18,
+            bottom: -18,
+            left: index ? dotsWidth / 2 : -24,
+            right: index ? -24 : dotsWidth / 2,
           }}
         />
       ))}

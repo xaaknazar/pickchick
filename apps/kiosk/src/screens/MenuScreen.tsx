@@ -23,8 +23,9 @@ export function MenuScreen({
   const [category, setCategory] = useState<Category>(memory.category);
   const [revision, setRevision] = useState(0);
   const products = model.catalog?.products ?? [];
+  // By id: the name is localized in the commercial catalog.
   const featured =
-    products.find((p) => p.name === 'Master Combo') ??
+    products.find((p) => p.id === 'master-combo') ??
     products.find((p) => inCategory(p, 'combo')) ??
     null;
   const quantity = model.cart.reduce((sum, line) => sum + line.quantity, 0);
@@ -34,26 +35,33 @@ export function MenuScreen({
     memory.cartQuantity = quantity;
     memory.cartTotal = model.cartTotalMinor;
   }, [memory, model.cartTotalMinor, quantity]);
-  const newest = model.cart[model.cart.length - 1];
+  // The line of the latest add (an earlier line that grew keeps its place in the cart).
+  const added = model.lastAdded
+    ? (model.cart.find((line) => line.lineId === model.lastAdded!.lineId) ?? null)
+    : null;
+  const addSerial = model.lastAdded?.serial ?? 0;
   // A line added on the product screen just closed flies into the bag; its
   // card's count badge waits for the landing.
   const [arrival] = useState(() =>
-    context.from === 'product' && quantity > previousQuantity.current ? (newest ?? null) : null,
+    context.from === 'product' && addSerial > (memory.addSerial ?? 0) ? added : null,
   );
   const [arriving, setArriving] = useState(arrival?.productId ?? null);
   const counts: Record<string, number> = {};
   for (const line of model.cart)
     counts[line.productId] = (counts[line.productId] ?? 0) + line.quantity;
-  // Every rise in the cart (here or on the product screen just closed) replaces
-  // the toast with the newest line's name; the 7 + 1 billboard has its own.
-  const counted = useRef(previousQuantity.current);
+  // Every add (here or on the product screen just closed) replaces the toast with
+  // that line's name; a quantity that grows by itself (availability) shows none.
+  // The 7 + 1 billboard has its own.
+  // Adds made on the upsell or cart screens are not announced again on return.
+  const announced = useRef(context.from === 'product' ? (memory.addSerial ?? 0) : addSerial);
   const [toast, setToast] = useState<{ message: string; id: number } | null>(null);
-  const addedMessage = newest ? t.addedToCart + ': ' + newest.product.name : t.addedToCart;
+  const addedMessage = added ? t.addedToCart + ': ' + added.product.name : t.addedToCart;
   useEffect(() => {
-    if (quantity > counted.current)
+    if (addSerial > announced.current)
       setToast((current) => ({ message: addedMessage, id: (current?.id ?? 0) + 1 }));
-    counted.current = quantity;
-  }, [addedMessage, quantity]);
+    announced.current = addSerial;
+    memory.addSerial = addSerial;
+  }, [addSerial, addedMessage, memory]);
   const select = (key: Category) => {
     model.touch();
     memory.category = key;
@@ -79,7 +87,6 @@ export function MenuScreen({
         dining={model.mode}
         onDining={(mode) => (mode === model.mode ? true : model.setMode(mode))}
         minimal
-        logoCancels
       />
       <Wrapper dir="row" flex={1}>
         <CategoryRail
