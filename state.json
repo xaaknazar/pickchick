@@ -4146,11 +4146,11 @@
         "@vps/db",
         "@vps/backoffice-login"
       ],
-      "status": "active",
+      "status": "done",
       "head": "f01cb45f441de1b664806c42aa93deb5cbb568b6",
-      "updatedAt": "2026-10-11T09:57:53.844Z",
-      "summary": "11 октября: API и canonical staff portal УСТАНОВЛЕНЫ из f01cb45f, Foundation CI38128477800 success11/11. API09:54:06UTC, portal после него: healthy/assets/private backup restore passed, 12 соседей неизменны. Encrypted DB backup+restore passed, schema052/ACL/compose сохранены. HTTPS hash9files и CEO workforce/inventory read passed, production test writes0. PR225 и PR224 включены в интеграционный PR226/source7e27b655, он сохраняет shared8891; check242/backoffice94/roadmap7 passed. Его CI38130149812 выполняется. Пакет roadmap7e27 собран, пока не опубликован.",
-      "nextAction": "Довести PR226/CI и обычный FF shared, обновить онлайн-roadmap7e27 по свежим pins API=f01/public=bd60/gateway971, сохранив заметки. Завершить обе задачи и освободить scopes после публикации. Техкарты позже от владельца; реальные остатки/автосписание/iiko cutover/BioCheck не сделаны. Не устанавливать cloud-kitchen/migrations053+ автоматически из общей интеграции."
+      "updatedAt": "2026-10-11T10:03:16.805Z",
+      "summary": "Installed API+portal f01cb45f, CI38128477800 11/11, encrypted backup/isolated restore, schema052/ACL/compose unchanged, HTTPS assets and CEO read passed. PR225 integrated into shared808 via PR226; local merged check242/backoffice94 passed. Remaining roadmap/docs transferred to own inventory-shared task.",
+      "nextAction": "Owner acceptance of real stock documents, techcards and initial count. No imported norms, automatic sales consumption, iiko cutover or BioCheck. Read latest baseline before server work; API/portal now f01cb45f."
     },
     {
       "id": "devices-release",
