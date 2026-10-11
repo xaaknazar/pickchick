@@ -4497,11 +4497,11 @@
         "infra/roadmap/package.py",
         "infra/roadmap/test_package.py"
       ],
-      "status": "active",
-      "head": "4f1bb2b7c14204d7c0559eb3f160613414eea5ea",
-      "updatedAt": "2026-10-11T10:27:23.017Z",
-      "summary": "API/portal f01 remain installed/verified; full sourcef01 CI38128477800 passed11/11. Shared808 includes inventory/workforce and polling test fix; its branch CI38130486984 passed11/11. Roadmap808 apply rolled back before gateway due dist metadata7e; old roadmapbd60 restored, notes/API preserved and lock released. Fixed package.py to reject stale build SHA/dataHash before archive,22 Python checks passed and actual stale archive creation rejected. PR227/source4f1bb2b7 built AFTER commit; all13 hashes+manifest/built source+deployed inventory flags verified, uploaded to new private incoming dir; inspect passed. Project roadmap CI38131861824 success; Foundation CI38131861831 still running. No 4f apply yet.",
-      "nextAction": "Wait for exact Foundation4f CI38131861831 all11, then fresh inspect/apply via ../pickchick-inventory/.local/inventory-roadmap-run.py (currently pins4f, APIf01/publicbd60/gateway971). Preserve failed immutable808 release. Verify public /roadmap/health source4f and unchanged services. Record actual result in docs and PR227; normal FF shared from808 preserving any newer work; finish inventory-shared. Earlier tasks inventory and workforce-edit are already done with API/db scopes free."
+      "status": "done",
+      "head": "3e35293d115fb1ddd2d2875334653942687a9cd8",
+      "updatedAt": "2026-10-11T10:47:18.435Z",
+      "summary": "Stage complete. API/portal f01cb45f installed with Foundation CI38128477800 11/11, encrypted backup+restore, schema052/ACL/compose preserved, canonical assets and CEO read passed. Shared808 CI38130486984 and38130522132 green11/11; polling isolation regression fixed. Roadmap4f1bb2b7 deployed after exact Foundation38131861831 11/11 and Project roadmap38131861824 success; public health confirmed10:46UTC,15 neighbors and team notes preserved. Failed808 rollback retained; package now rejects stale SHA/dataHash. Final documentation checkpoint pushed and remote SHAs verified; PR226/227 integrated.",
+      "nextAction": "Owner/accountant acceptance on /backoffice/#stock and #shifts. Await real techcards and initial stock count; no sales autowriteoff, BioCheck or iiko cutover. Next deploy must freshly read API f01 and public/roadmap4f pins. Release all remaining scopes; source release proofs remain separate from documentation-only follow-up CI."
     }
   ]
 }
