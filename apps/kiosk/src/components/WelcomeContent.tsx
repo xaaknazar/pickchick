@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  Easing,
   Platform,
   Pressable,
   StyleSheet,
@@ -14,19 +15,203 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { copy, type Locale } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
 import { Language, Logo } from './UI';
-import { motion, useEnter, useLoop } from './motion';
+import { ease, motion, useEnter, useLoop } from './motion';
 import { useMotionPreference } from './useMotionPreference';
 import { ownerOrange } from './ownerOrange';
 import { fixedText } from './Body';
+import {
+  CTA_FLIP,
+  CTA_ORDER,
+  CTA_STEP_MS,
+  ctaRotates,
+  ctaShownLocale,
+  nextCtaStep,
+} from './ctaLanguage';
 /** Nine samples of the CTA shine sweep and its ease-in-out (quad) curve. */
 const sweep = Array.from({ length: 9 }, (_, k) => k / 8);
 const inOutQuad = (u: number) => (u < 0.5 ? 2 * u * u : 1 - 2 * (1 - u) * (1 - u));
 /** Kaspi brand mark for the "Pay with Kaspi QR" chip (same file as the checkout package). */
 const kaspiLogo = require('../../assets/v3/kaspi.webp');
-/** v3 attract CTA: one orange pill with an expanding halo and a passing shine. */
-function StartCta({ label, busy, onPress }: { label: string; busy: boolean; onPress: () => void }) {
+/**
+ * Rotation step of the CTA caption (ctaLanguage.ts). The interval runs only while the caption
+ * rotates: it stops under Reduce Motion, in the background (useMotionPreference follows AppState
+ * and the page visibility), once the guest picks a language, and when the attract screen unmounts.
+ */
+function useCtaStep(rotating: boolean) {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    if (!rotating) return;
+    const timer = setInterval(() => setStep(nextCtaStep), CTA_STEP_MS);
+    return () => clearInterval(timer);
+  }, [rotating]);
+  return step;
+}
+/**
+ * The rotating caption: a vertical flip without blur on the native driver (transform and
+ * opacity). The old caption leaves up and fades out in 120 ms; the new one rises from below and
+ * fades in between 100 and 280 ms. Hidden from VoiceOver: the button carries its own label.
+ */
+function CtaCaption({ shown, animate }: { shown: Locale; animate: boolean }) {
+  const { v } = useMetrics();
+  const lineHeight = v(42);
+  const [pair, setPair] = useState<{ cur: Locale; prev: Locale | null }>({
+    cur: shown,
+    prev: null,
+  });
+  const current = useRef(shown);
+  const move = useRef(new Animated.Value(1)).current;
+  const fade = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const from = current.current;
+    if (shown === from) return;
+    current.current = shown;
+    move.stopAnimation();
+    fade.stopAnimation();
+    if (!animate) {
+      move.setValue(1);
+      fade.setValue(1);
+      setPair({ cur: shown, prev: null });
+      return;
+    }
+    move.setValue(0);
+    fade.setValue(0);
+    setPair({ cur: shown, prev: from });
+    const flip = Animated.parallel([
+      Animated.timing(move, {
+        toValue: 1,
+        duration: CTA_FLIP.duration,
+        easing: ease,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fade, {
+        toValue: 1,
+        duration: CTA_FLIP.duration,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    ]);
+    flip.start(({ finished }) => {
+      if (finished) setPair((p) => (p.cur === shown ? { cur: shown, prev: null } : p));
+    });
+    return () => flip.stop();
+  }, [shown, animate, move, fade]);
+  const shift = lineHeight * CTA_FLIP.shift;
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      aria-hidden
+      pointerEvents="none"
+      style={{ flex: 1, height: lineHeight, overflow: 'hidden', marginBottom: v(10) }}
+    >
+      {CTA_ORDER.map((locale) => {
+        const role = locale === pair.cur ? 'cur' : locale === pair.prev ? 'prev' : 'off';
+        return (
+          <Animated.Text
+            {...fixedText}
+            key={locale}
+            testID={role === 'cur' ? 'kiosk-start-caption' : undefined}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: 0,
+              fontFamily: fonts.black,
+              fontSize: v(38),
+              lineHeight,
+              letterSpacing: v(38) * 0.04,
+              color: colors.white,
+              textAlign: 'center',
+              opacity:
+                role === 'cur'
+                  ? fade.interpolate({
+                      inputRange: [0, CTA_FLIP.inDelay / CTA_FLIP.duration, 1],
+                      outputRange: [0, 0, 1],
+                    })
+                  : role === 'prev'
+                    ? fade.interpolate({
+                        inputRange: [0, CTA_FLIP.outFade / CTA_FLIP.duration, 1],
+                        outputRange: [1, 0, 0],
+                      })
+                    : 0,
+              transform: [
+                {
+                  translateY:
+                    role === 'cur'
+                      ? move.interpolate({ inputRange: [0, 1], outputRange: [shift, 0] })
+                      : role === 'prev'
+                        ? move.interpolate({ inputRange: [0, 1], outputRange: [0, -shift] })
+                        : shift,
+                },
+              ],
+            }}
+          >
+            {copy(locale).orderNow}
+          </Animated.Text>
+        );
+      })}
+    </View>
+  );
+}
+/** Three decorative dots KZ, RU, EN under the caption; the shown language is stretched. */
+function CtaDots({ shown }: { shown: Locale }) {
+  const { v } = useMetrics();
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      aria-hidden
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        bottom: v(14),
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: v(8),
+      }}
+    >
+      {CTA_ORDER.map((locale) => (
+        <View
+          key={locale}
+          testID={locale === shown ? 'kiosk-start-dot-active' : undefined}
+          style={{
+            width: locale === shown ? v(22) : v(8),
+            height: v(8),
+            borderRadius: 999,
+            backgroundColor: locale === shown ? colors.white : 'rgba(255,255,255,.45)',
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+/**
+ * v3 attract CTA: one orange pill with an expanding halo and a passing shine. Its caption takes
+ * turns KZ -> RU -> EN (owner decision 2026-10-11); the accessible name and the order language
+ * always follow the language switch (`locale`).
+ */
+function StartCta({
+  locale,
+  pinned,
+  busy,
+  onPress,
+}: {
+  locale: Locale;
+  pinned: boolean;
+  busy: boolean;
+  onPress: () => void;
+}) {
   const { v } = useMetrics();
   const reduced = useMotionPreference();
+  const label = copy(locale).orderNow;
+  // useMotionPreference is also true in the background: the rotation stops there too.
+  const rotating = ctaRotates({ pinned, reduced, active: true });
+  const step = useCtaStep(rotating);
+  const shown = ctaShownLocale(step, { pinned, reduced }, locale);
   const rise = useEnter(260, 650);
   const halo = useLoop(1800);
   const shine = useLoop(3200);
@@ -143,22 +328,8 @@ function StartCta({ label, busy, onPress }: { label: string; busy: boolean; onPr
             </Animated.View>
           )}
           {busy ? <ActivityIndicator accessibilityLabel={label} color={colors.white} /> : null}
-          <Text
-            {...fixedText}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            style={{
-              fontFamily: fonts.black,
-              fontSize: v(38),
-              lineHeight: v(42),
-              letterSpacing: v(38) * 0.04,
-              color: colors.white,
-              textAlign: 'center',
-              flexShrink: 1,
-            }}
-          >
-            {label}
-          </Text>
+          <CtaCaption shown={shown} animate={rotating} />
+          <CtaDots shown={shown} />
         </Pressable>
       </View>
     </Animated.View>
@@ -187,6 +358,9 @@ export function WelcomeContent({
   const { v } = useMetrics();
   const safe = useSafeAreaInsets();
   const t = copy(locale);
+  // The guest touched the language switch: the CTA caption stops on that language until the
+  // attract screen is shown again (this component remounts with it).
+  const [pinned, setPinned] = useState(false);
   // Prototype logo `drop` (700 ms, spring curve): -28 pt and .92, overshoot, settle.
   const drop = useEnter(0, 700, 'spring');
   const language = useEnter(200, 500);
@@ -254,11 +428,20 @@ export function WelcomeContent({
             )}
           </Animated.View>
           <Animated.View style={{ opacity: language }}>
-            <Language locale={locale} onChange={onLocale} tone="inverse" />
+            <Language
+              locale={locale}
+              onChange={(value) => {
+                setPinned(true);
+                onLocale(value);
+              }}
+              tone="inverse"
+            />
           </Animated.View>
         </View>
         <View pointerEvents="box-none" style={{ paddingHorizontal: v(48), gap: v(22) }}>
-          <StartCta label={t.orderNow} busy={busy} onPress={onStart} />
+          {/* A tap always starts the order in the switch language (GuestScreen), whatever
+              language the caption shows (owner decision 2026-10-11). */}
+          <StartCta locale={locale} pinned={pinned} busy={busy} onPress={onStart} />
           <Animated.View
             pointerEvents="none"
             style={{
