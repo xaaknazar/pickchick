@@ -4486,6 +4486,20 @@
       "updatedAt": "2026-10-11T10:04:08.173Z",
       "summary": "Киоск build 13 (облачная кухня) включён в общий срез и установлен на iPad 11.10 14:31",
       "nextAction": "Выпуск облачной кухни на сервере (cloud-kitchen-release)"
+    },
+    {
+      "id": "kiosk-design-demo",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-design-demo",
+      "scopes": [
+        "apps/kiosk",
+        "tests/kiosk",
+        "docs/operations/kiosk-design-demo.md",
+        "@ipad/kiosk"
+      ],
+      "status": "active",
+      "head": "808933fb3768bc8eea1b9afd12dab59371d116a8",
+      "updatedAt": "2026-10-11T10:04:16.277Z"
     }
   ]
 }
