@@ -1,0 +1,8 @@
+{
+  "branchId": "7a6f6d98-395d-4462-b5e4-b0364a4a8ec1",
+  "stations": [
+    { "id": "2cbc8ef3-359b-4cf0-bda8-28b82b727c93", "kind": "assembly", "name": "Сборка" },
+    { "id": "9ba8dc69-260c-482b-bed9-cab791b64595", "kind": "prep", "name": "Кухня" }
+  ],
+  "routeAllProductsTo": "9ba8dc69-260c-482b-bed9-cab791b64595"
+}
