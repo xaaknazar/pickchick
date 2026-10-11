@@ -145,11 +145,17 @@ const PAYMENT_DEFINITIVE = [
   'RESTAURANT_CLOSED',
   'NOT_READY',
 ];
-/** Russian fallback text of every guest error code; the screen shows the guest's language. */
-export const COMMERCIAL_ERROR_TEXT: Record<KioskErrorCode, string> = {
+/**
+ * Owner decision 2026-10-11: NOT_ACCEPTING (the restaurant does not take orders: closed, checkout
+ * off, stale availability) is never shown to the guest. The code stays as internal state; the
+ * review screen keeps its payment button disabled while checkout is not ready (checkoutReady and
+ * the server checks are unchanged), with the neutral `kioskPayUnavailable` caption. See
+ * guestError.ts.
+ */
+/** Russian fallback text of every visible guest error code; the screen shows the guest's language. */
+export const COMMERCIAL_ERROR_TEXT: Record<Exclude<KioskErrorCode, 'NOT_ACCEPTING'>, string> = {
   PRICE_CHANGED: 'Сумма изменилась. Проверьте корзину и подтвердите оплату заново.',
   CART_CHANGED: 'Состав или цена изменились. Проверьте корзину и выберите доступные позиции.',
-  NOT_ACCEPTING: 'Ресторан пока не принимает заказы. Обновите меню или пригласите сотрудника.',
   DEVICE: 'Киоск не настроен. Пригласите сотрудника.',
   KITCHEN_OFFLINE: 'Кухня сейчас не на связи - заказ оформить нельзя. Пригласите сотрудника.',
   PHONE: 'Введите номер Казахстана для счёта Kaspi.',
@@ -530,6 +536,13 @@ export class CommercialKioskController {
     };
   };
   getSnapshot = () => this.view;
+  /**
+   * The loaded publication and its photo map, read by the staff demo mode (demo.ts) so the demo
+   * shows the current menu without any request of its own. Null before the first menu load.
+   */
+  demoSeed() {
+    return this.published ? { published: this.published, media: this.media } : null;
+  }
   /** Editing is closed: a payment may exist, or a finished guest is still being ended. */
   private unsafe() {
     return this.current.resetPending || this.pending();
@@ -629,7 +642,8 @@ export class CommercialKioskController {
   }
   private setError(code: KioskErrorCode | null) {
     this.errorCode = code;
-    this.error = code ? COMMERCIAL_ERROR_TEXT[code] : null;
+    // A silent code (NOT_ACCEPTING, owner decision 2026-10-11) carries no guest text.
+    this.error = code && code !== 'NOT_ACCEPTING' ? COMMERCIAL_ERROR_TEXT[code] : null;
   }
   private codeOf(error: unknown): KioskErrorCode {
     const code = error instanceof KioskError ? error.code : '';

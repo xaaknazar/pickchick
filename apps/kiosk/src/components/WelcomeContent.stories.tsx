@@ -14,7 +14,7 @@ const meta = {
       </ScreenSurface>
     ),
   ],
-  args: { locale: 'ru', onLocale: fn(), onStart: fn(), busy: false },
+  args: { locale: 'ru', onLocale: fn(), onStart: fn(), busy: false, onLogoHold: fn() },
   tags: ['autodocs'],
 } satisfies Meta<typeof WelcomeContent>;
 export default meta;

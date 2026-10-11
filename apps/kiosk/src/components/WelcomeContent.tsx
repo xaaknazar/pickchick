@@ -164,17 +164,25 @@ function StartCta({ label, busy, onPress }: { label: string; busy: boolean; onPr
     </Animated.View>
   );
 }
+/**
+ * Staff gesture on the attract logo (owner decision 2026-10-11): holding it this long opens the
+ * demo mode dialog. Equal to DEMO_HOLD_MS in demo.ts (checked by tests/kiosk/design-demo.test.mjs).
+ */
+export const STAFF_HOLD_MS = 5000;
 /** v3 01 attract screen content over the film: logo, language, CTA and a QR hint. */
 export function WelcomeContent({
   locale,
   onLocale,
   onStart,
   busy,
+  onLogoHold,
 }: {
   locale: Locale;
   onLocale: (v: Locale) => void;
   onStart: () => void;
   busy: boolean;
+  /** Staff only: a long hold (STAFF_HOLD_MS) on the logo; no visible hint for guests. */
+  onLogoHold?: () => void;
 }) {
   const { v } = useMetrics();
   const safe = useSafeAreaInsets();
@@ -232,7 +240,18 @@ export function WelcomeContent({
                 : null),
             }}
           >
-            <Logo size="hero" />
+            {onLogoHold ? (
+              <Pressable
+                testID="kiosk-logo-hold"
+                accessible={false}
+                delayLongPress={STAFF_HOLD_MS}
+                onLongPress={onLogoHold}
+              >
+                <Logo size="hero" />
+              </Pressable>
+            ) : (
+              <Logo size="hero" />
+            )}
           </Animated.View>
           <Animated.View style={{ opacity: language }}>
             <Language locale={locale} onChange={onLocale} tone="inverse" />

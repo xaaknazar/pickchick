@@ -44,6 +44,15 @@ export const QrKk: Story = {
     reference: 'Тапсырыс 128',
   },
 };
+/** Staff demo mode (owner decision 2026-10-11): a non-payable QR marked "ДЕМО - не оплачивать". */
+export const DemoQr: Story = {
+  args: {
+    ...Qr.args,
+    qrPayload: 'PICKCHICK-DEMO-NOT-PAYABLE',
+    demoWarning: 'ДЕМО - не оплачивать. Это не настоящий QR Kaspi.',
+    message: 'Демо-оплата: подождите несколько секунд или выберите результат кнопками ниже.',
+  },
+};
 export const Invoice: Story = {
   args: {
     state: 'waiting',

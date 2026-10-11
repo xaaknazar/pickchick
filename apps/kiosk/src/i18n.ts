@@ -18,7 +18,6 @@ const ru = {
   // Build 12: guest errors by code (commercial controller), payment and order states
   err_PRICE_CHANGED: 'Сумма изменилась. Проверьте корзину и подтвердите оплату заново.',
   err_CART_CHANGED: 'Состав или цена изменились. Проверьте корзину и выберите доступные позиции.',
-  err_NOT_ACCEPTING: 'Ресторан пока не принимает заказы. Обновите меню или пригласите сотрудника.',
   err_DEVICE: 'Киоск не настроен. Пригласите сотрудника.',
   err_KITCHEN_OFFLINE: 'Кухня сейчас не на связи - заказ оформить нельзя. Пригласите сотрудника.',
   err_PHONE: 'Введите номер Казахстана для счёта Kaspi.',
@@ -218,6 +217,23 @@ const ru = {
     'Пригласите сотрудника ресторана. Если результат оплаты неизвестен, не оплачивайте повторно.',
   sendingToKitchen:
     'Передаём заказ на кухню. Номер появится здесь. Не оплачивайте повторно. Если ожидание затянулось, пригласите сотрудника.',
+  // Staff demo mode (owner decision 2026-10-11): no real orders or payments.
+  demoBadge: 'ДЕМО',
+  demoExit: 'Выйти из демо',
+  demoEnterTitle: 'Включить демо-режим?',
+  demoEnterBody:
+    'Только для персонала. Можно пройти все экраны до QR и номера заказа. Настоящие заказы и оплаты не создаются.',
+  demoExitTitle: 'Выйти из демо-режима?',
+  demoExitBody: 'Киоск вернётся на заставку в обычном режиме.',
+  demoTurnOn: 'Включить',
+  demoTurnOff: 'Выйти',
+  demoCancel: 'Отмена',
+  demoQr: 'ДЕМО - не оплачивать. Это не настоящий QR Kaspi.',
+  demoQrHint: 'Демо-оплата: подождите несколько секунд или выберите результат кнопками ниже.',
+  demoPaid: 'Демо: оплачено',
+  demoDeclined: 'Демо: отказ',
+  demoUnknown: 'Демо: неизвестно',
+  demoReceipt: 'Демо-заказ: деньги не списаны, на кухню ничего не отправлено.',
 };
 type Strings = { [K in keyof typeof ru]: string };
 const kk: Strings = {
@@ -232,8 +248,6 @@ const kk: Strings = {
   err_PRICE_CHANGED: 'Сома өзгерді. Себетті тексеріп, төлемді қайта растаңыз.',
   err_CART_CHANGED:
     'Құрамы немесе бағасы өзгерді. Себетті тексеріп, қолжетімді позицияларды таңдаңыз.',
-  err_NOT_ACCEPTING:
-    'Мейрамхана әзірге тапсырыс қабылдамайды. Мәзірді жаңартыңыз немесе қызметкерді шақырыңыз.',
   err_DEVICE: 'Киоск бапталмаған. Қызметкерді шақырыңыз.',
   err_KITCHEN_OFFLINE:
     'Ас үй қазір байланыста емес - тапсырыс беру мүмкін емес. Қызметкерді шақырыңыз.',
@@ -433,6 +447,24 @@ const kk: Strings = {
     'Мейрамхана қызметкерін шақырыңыз. Төлем нәтижесі белгісіз болса, қайта төлемеңіз.',
   sendingToKitchen:
     'Тапсырысты асүйге жіберіп жатырмыз. Нөмірі осында пайда болады. Қайта төлем жасамаңыз. Күту ұзаққа созылса, қызметкерді шақырыңыз.',
+  // Staff demo mode (owner decision 2026-10-11). KZ wording: to be checked by a native speaker.
+  demoBadge: 'ДЕМО',
+  demoExit: 'Демодан шығу',
+  demoEnterTitle: 'Демо режимін қосасыз ба?',
+  demoEnterBody:
+    'Тек қызметкерлерге арналған. QR мен тапсырыс нөміріне дейінгі барлық экранды ашуға болады. Нақты тапсырыстар мен төлемдер жасалмайды.',
+  demoExitTitle: 'Демо режимінен шығасыз ба?',
+  demoExitBody: 'Киоск әдеттегі режимде бастапқы экранға оралады.',
+  demoTurnOn: 'Қосу',
+  demoTurnOff: 'Шығу',
+  demoCancel: 'Болдырмау',
+  demoQr: 'ДЕМО - төлемеңіз. Бұл нақты Kaspi QR емес.',
+  demoQrHint:
+    'Демо төлем: бірнеше секунд күтіңіз немесе төмендегі батырмалармен нәтижені таңдаңыз.',
+  demoPaid: 'Демо: төленді',
+  demoDeclined: 'Демо: төлем өтпеді',
+  demoUnknown: 'Демо: белгісіз',
+  demoReceipt: 'Демо тапсырыс: ақша алынбады, ас үйге ештеңе жіберілмеді.',
 };
 const en: Strings = {
   enrollTitle: 'Kiosk setup',
@@ -445,8 +477,6 @@ const en: Strings = {
   // Build 12: guest errors by code (commercial controller), payment and order states
   err_PRICE_CHANGED: 'The total has changed. Check your cart and confirm the payment again.',
   err_CART_CHANGED: 'Items or prices have changed. Check your cart and choose available items.',
-  err_NOT_ACCEPTING:
-    'The restaurant is not taking orders right now. Refresh the menu or call a team member.',
   err_DEVICE: 'The kiosk is not set up. Please call a team member.',
   err_KITCHEN_OFFLINE:
     'The kitchen is offline right now - orders cannot be placed. Please call a team member.',
@@ -648,6 +678,23 @@ const en: Strings = {
   helpCommercial: 'Please call a team member. If the payment result is unknown, do not pay again.',
   sendingToKitchen:
     'Sending your order to the kitchen. The number will appear here. Do not pay again. If it takes too long, please call a team member.',
+  // Staff demo mode (owner decision 2026-10-11): no real orders or payments.
+  demoBadge: 'DEMO',
+  demoExit: 'Exit demo',
+  demoEnterTitle: 'Turn on demo mode?',
+  demoEnterBody:
+    'Staff only. Every screen up to the QR and the order number can be opened. No real orders or payments are created.',
+  demoExitTitle: 'Leave demo mode?',
+  demoExitBody: 'The kiosk returns to the start screen in normal mode.',
+  demoTurnOn: 'Turn on',
+  demoTurnOff: 'Leave',
+  demoCancel: 'Cancel',
+  demoQr: 'DEMO - do not pay. This is not a real Kaspi QR.',
+  demoQrHint: 'Demo payment: wait a few seconds or choose the result with the buttons below.',
+  demoPaid: 'Demo: paid',
+  demoDeclined: 'Demo: declined',
+  demoUnknown: 'Demo: unknown',
+  demoReceipt: 'Demo order: no money was taken and nothing was sent to the kitchen.',
 };
 const dictionaries: Record<Locale, Strings> = { kk, ru, en };
 /** UI strings for the locale; an unknown value falls back to Russian. */
