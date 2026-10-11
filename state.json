@@ -4453,11 +4453,13 @@
         "packages/test-order-flow/tests",
         "apps/mobile/src/order-cancellation.ts",
         "tests/mobile/order-cancellation.test.mjs",
-        "docs/01-technical-spec.md"
+        "docs/01-technical-spec.md",
+        "tests/mobile/ios/SmokeTests.swift",
+        "tests/integration/test-order-flow.test.mjs"
       ],
       "status": "active",
       "head": "10efb68232a58b35ee5076b0f67eb8e6d0cf3b5b",
-      "updatedAt": "2026-10-11T09:10:03.466Z"
+      "updatedAt": "2026-10-11T09:10:14.659Z"
     }
   ]
 }
