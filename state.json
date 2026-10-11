@@ -4113,10 +4113,11 @@
         "infra/staging/release-workforce-edit.py",
         "tests/operations/test_workforce_edit_release.py"
       ],
-      "status": "active",
+      "status": "done",
       "head": "32700a42ce281f368232a21a400528aa3935da98",
-      "updatedAt": "2026-10-10T15:23:42.237Z",
-      "summary": "PR224: локально проверки прошли; CI38063348012 прервана лимитом25m. Изменения включены в PR225/source79640b6a. Его CI также timeout25m, установка ожидает согласованную правку лимита занятого CI файла. Действующий API/portal8468 сохранён."
+      "updatedAt": "2026-10-11T10:03:27.556Z",
+      "summary": "Workforce edit/delete with history installed in combined sourcef01cb45f; CI38128477800 success11/11, encrypted backup/restore, schema052, HTTPS and CEO read verified. PR224 included in shared808933fb via PR225/226; no raw deletion or employee pay data discarded.",
+      "nextAction": "Owner acceptance on pickchick.kz/backoffice/#shifts; real BioCheck model/integration and final payroll remain pending. Rollback to old reader8468 prohibited after tombstones; preserve audit and use compatible forward fix."
     },
     {
       "id": "inventory",
