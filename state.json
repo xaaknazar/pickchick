@@ -4338,25 +4338,6 @@
       "nextAction": "Новых шагов по задаче нет; области освобождены."
     },
     {
-      "id": "cloud-kitchen-ipad",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/cloud-kitchen-ipad",
-      "scopes": [
-        "packages/commerce-core/src/kiosk-checkout.ts",
-        "packages/commerce-core/tests/kiosk-checkout.postgres.test.mjs",
-        "apps/kiosk",
-        "tests/kiosk",
-        "tests/integration/cloud-kitchen-payment.test.mjs",
-        "docs/architecture/cloud-kitchen-ipad.md",
-        "docs/architecture/cloud-kitchen-s4.md"
-      ],
-      "status": "available",
-      "head": "d87e322570dc5df6f8a03fe1720bc8f543cb8562",
-      "updatedAt": "2026-10-10T19:16:20.372Z",
-      "summary": "d87e3225: order-view.ts (cloud number/status из cloudKitchenProjection, receipt deferred), kiosk config() в режиме cloud = gate KITCHEN_OFFLINE (+kitchen online|offline, quote/create/pay -> KITCHEN_OFFLINE), edge без изменений; apps/kiosk build 13: KITCHEN_OFFLINE KZ/RU/EN, номер 300-599, повтор f2e34110. order-view.ts изменён без claim по передаче владельцем (занят tiptoppay-backend): с origin/codex/tiptoppay-backend сливается автоматически (git merge-tree), ручных конфликтов в order-view.ts нет; tiptop добавляет paymentMethod/hosted в body, наш receipt=deferred ставится после body. Проверки: pnpm check, test:commerce 43+122, test:kiosk 147, cloud-kitchen integration 14, browser_cloud_kitchen/mobbin/ui/payment_* OK; Foundation CI 38077066256 green (mobile browser_demo_account flaky, rerun), Kiosk UI library 38077066326 green. Browser-тест запускается из browser_payment_options.py (workflow kiosk-ui-library занят kiosk-kaspi-qr). project-status.md не обновлён (занят inventory). kiosk-v3-launch завершена (finish).",
-      "nextAction": "Ревью и интеграция codex/cloud-kitchen-ipad в codex/shared-development; затем KITCHEN_OFFLINE в ErrorSchema/openapi (после inventory), установка build 13 на iPad и включение режима cloud только по runbook с подтверждением владельца."
-    },
-    {
       "id": "cloud-kitchen-portal",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/cloud-kitchen-portal",
@@ -4486,6 +4467,25 @@
       "updatedAt": "2026-10-11T10:03:12.148Z",
       "summary": "PR226 integrated into shared808933fb by ordinary FF; remote SHA verified. Installed API/portal sourcef01 has full CI38128477800 green11/11, backup/restore/HTTPS/CEO read passed. Merged source checked locally242unit+94backoffice+7roadmap. Fixed pre-existing staff_display polling isolation; normal6 tests and forced timer diagnostic passed (old test failed3roles). New Foundation CI38130486984 running. Online roadmap808 package ready, not applied.",
       "nextAction": "After full Foundation CI808 green, publish roadmap808 via existing guarded operator (API=f01/public=bd60/gateway971), keep notes; verify health and finish. Source f01 API remains installed; do not install cloud-kitchen migrations053+ from shared automatically."
+    },
+    {
+      "id": "cloud-kitchen-ipad",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cloud-kitchen-ipad",
+      "scopes": [
+        "packages/commerce-core/src/kiosk-checkout.ts",
+        "packages/commerce-core/tests/kiosk-checkout.postgres.test.mjs",
+        "apps/kiosk",
+        "tests/kiosk",
+        "tests/integration/cloud-kitchen-payment.test.mjs",
+        "docs/architecture/cloud-kitchen-ipad.md",
+        "docs/architecture/cloud-kitchen-s4.md"
+      ],
+      "status": "active",
+      "head": "808933fb3768bc8eea1b9afd12dab59371d116a8",
+      "updatedAt": "2026-10-11T10:04:02.726Z",
+      "summary": "d87e3225: order-view.ts (cloud number/status из cloudKitchenProjection, receipt deferred), kiosk config() в режиме cloud = gate KITCHEN_OFFLINE (+kitchen online|offline, quote/create/pay -> KITCHEN_OFFLINE), edge без изменений; apps/kiosk build 13: KITCHEN_OFFLINE KZ/RU/EN, номер 300-599, повтор f2e34110. order-view.ts изменён без claim по передаче владельцем (занят tiptoppay-backend): с origin/codex/tiptoppay-backend сливается автоматически (git merge-tree), ручных конфликтов в order-view.ts нет; tiptop добавляет paymentMethod/hosted в body, наш receipt=deferred ставится после body. Проверки: pnpm check, test:commerce 43+122, test:kiosk 147, cloud-kitchen integration 14, browser_cloud_kitchen/mobbin/ui/payment_* OK; Foundation CI 38077066256 green (mobile browser_demo_account flaky, rerun), Kiosk UI library 38077066326 green. Browser-тест запускается из browser_payment_options.py (workflow kiosk-ui-library занят kiosk-kaspi-qr). project-status.md не обновлён (занят inventory). kiosk-v3-launch завершена (finish).",
+      "nextAction": "Ревью и интеграция codex/cloud-kitchen-ipad в codex/shared-development; затем KITCHEN_OFFLINE в ErrorSchema/openapi (после inventory), установка build 13 на iPad и включение режима cloud только по runbook с подтверждением владельца."
     }
   ]
 }
