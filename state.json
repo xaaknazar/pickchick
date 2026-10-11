@@ -4498,10 +4498,10 @@
         "infra/roadmap/test_package.py"
       ],
       "status": "active",
-      "head": "808933fb3768bc8eea1b9afd12dab59371d116a8",
-      "updatedAt": "2026-10-11T10:23:14.371Z",
-      "summary": "PR226 integrated into shared808933fb by ordinary FF; remote SHA verified. Installed API/portal sourcef01 has full CI38128477800 green11/11, backup/restore/HTTPS/CEO read passed. Merged source checked locally242unit+94backoffice+7roadmap. Fixed pre-existing staff_display polling isolation; normal6 tests and forced timer diagnostic passed (old test failed3roles). New Foundation CI38130486984 running. Online roadmap808 package ready, not applied.",
-      "nextAction": "After full Foundation CI808 green, publish roadmap808 via existing guarded operator (API=f01/public=bd60/gateway971), keep notes; verify health and finish. Source f01 API remains installed; do not install cloud-kitchen migrations053+ from shared automatically."
+      "head": "4f1bb2b7c14204d7c0559eb3f160613414eea5ea",
+      "updatedAt": "2026-10-11T10:27:23.017Z",
+      "summary": "API/portal f01 remain installed/verified; full sourcef01 CI38128477800 passed11/11. Shared808 includes inventory/workforce and polling test fix; its branch CI38130486984 passed11/11. Roadmap808 apply rolled back before gateway due dist metadata7e; old roadmapbd60 restored, notes/API preserved and lock released. Fixed package.py to reject stale build SHA/dataHash before archive,22 Python checks passed and actual stale archive creation rejected. PR227/source4f1bb2b7 built AFTER commit; all13 hashes+manifest/built source+deployed inventory flags verified, uploaded to new private incoming dir; inspect passed. Project roadmap CI38131861824 success; Foundation CI38131861831 still running. No 4f apply yet.",
+      "nextAction": "Wait for exact Foundation4f CI38131861831 all11, then fresh inspect/apply via ../pickchick-inventory/.local/inventory-roadmap-run.py (currently pins4f, APIf01/publicbd60/gateway971). Preserve failed immutable808 release. Verify public /roadmap/health source4f and unchanged services. Record actual result in docs and PR227; normal FF shared from808 preserving any newer work; finish inventory-shared. Earlier tasks inventory and workforce-edit are already done with API/db scopes free."
     }
   ]
 }
