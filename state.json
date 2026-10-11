@@ -4448,11 +4448,15 @@
         "tests/mobile/browser_catalog_price_migration.py",
         "tests/mobile/browser_published_catalog.py",
         "tests/mobile/browser_orders.py",
-        "tests/mobile/browser_live_menu_update.py"
+        "tests/mobile/browser_live_menu_update.py",
+        "packages/test-order-flow/src/index.ts",
+        "packages/test-order-flow/tests",
+        "apps/mobile/src/order-cancellation.ts",
+        "tests/mobile/order-cancellation.test.mjs"
       ],
       "status": "active",
-      "head": "581de23f0b3f5e187883f5a7930245cce9736025",
-      "updatedAt": "2026-10-10T20:27:13.795Z"
+      "head": "10efb68232a58b35ee5076b0f67eb8e6d0cf3b5b",
+      "updatedAt": "2026-10-11T09:04:50.412Z"
     }
   ]
 }
