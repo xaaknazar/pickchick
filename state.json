@@ -4521,11 +4521,12 @@
         "docs/roadmap/project.json",
         "@vps/domains",
         "@vps/staff-login",
-        "@vps/roadmap"
+        "@vps/roadmap",
+        "tests/backoffice/design-browser.py"
       ],
       "status": "active",
       "head": "3e35293d115fb1ddd2d2875334653942687a9cd8",
-      "updatedAt": "2026-10-12T04:43:10.214Z"
+      "updatedAt": "2026-10-12T04:43:36.671Z"
     }
   ]
 }
