@@ -4636,12 +4636,14 @@
       "branch": "codex/stop-report",
       "scopes": [
         "docs/collaboration/handoff.md",
-        "docs/operations/deployments/2026-10-12-existing-stops.md"
+        "docs/operations/deployments/2026-10-12-existing-stops.md",
+        "@vps/roadmap",
+        "@vps/public-https"
       ],
       "status": "active",
       "head": "7125c00a977b3e5a22d4c749157559175c41c8b2",
-      "updatedAt": "2026-10-12T19:48:06.463Z",
-      "nextAction": "2026-10-12: по прямому подтверждению владельца в чате переданы задаче mobile-redesign-1012 только следующие файлы: docs/project-status.md, docs/roadmap/project.json. Остальные резервы, рабочая ветка и checkpoint сохранены. 2026-10-13: владелец явно разрешил временно передать @vps/roadmap и @vps/public-https mobile-testflight19 для публикации; после публикации вернуть."
+      "updatedAt": "2026-10-12T20:21:09.863Z",
+      "nextAction": "2026-10-12: по прямому подтверждению владельца в чате переданы задаче mobile-redesign-1012 только следующие файлы: docs/project-status.md, docs/roadmap/project.json. Остальные резервы, рабочая ветка и checkpoint сохранены. 2026-10-13: владелец явно разрешил временно передать @vps/roadmap и @vps/public-https mobile-testflight19 для публикации; после публикации вернуть. 2026-10-13: оба VPS-резерва возвращены после публикации mobile-testflight19. Public/roadmap current=4a97a1ab253b3f78405a8398a4e184d1082377b1, API=f01cb45f441de1b664806c42aa93deb5cbb568b6, gateway SHA256=971bbd6ee3a951d6ab8a8b99e3f42eef013aa85c4640b9820fc93fde0637ac4a. HTTPS health проверен, lock снят, 17 соседних сервисов сохранены."
     },
     {
       "id": "mobile-redesign-1012",
@@ -4800,13 +4802,11 @@
         "docs/operations/mobile-bugfix-2026-10-12.md",
         "docs/operations/mobile-redesign-2026-10-12.md",
         "docs/project-status.md",
-        "docs/roadmap/project.json",
-        "@vps/roadmap",
-        "@vps/public-https"
+        "docs/roadmap/project.json"
       ],
       "status": "active",
       "head": "4a97a1ab253b3f78405a8398a4e184d1082377b1",
-      "updatedAt": "2026-10-12T20:19:52.723Z"
+      "updatedAt": "2026-10-12T20:21:09.863Z"
     }
   ]
 }
