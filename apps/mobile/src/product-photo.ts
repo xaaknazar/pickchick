@@ -16,6 +16,8 @@ export interface PhotoCandidate<S> {
 }
 
 export interface BundledPhotos<S> {
+  /** The owner's real drink photographs keyed by product id; see `ownerPhoto`. */
+  owner?: Readonly<Record<string, S>>;
   /** Context-specific retouches keyed by product id (light menu tile, blue hero...). */
   byId: Readonly<Record<string, S>>;
   /** Bundled photographs keyed by published `image_asset_key`. */
@@ -37,6 +39,47 @@ export function seedImageKey(productId: string): string | undefined {
   return SEED_IMAGE_KEYS.get(productId);
 }
 
+/** Closed back-office key of a drink without its own bundled photo (CATALOG_ASSET_KEYS). */
+export const GENERIC_DRINK_KEY = 'generic-drink';
+
+/**
+ * Product and drink option ids with the owner's real photograph (assets/drinks/README.md).
+ * Exact packaging only: the 0.5 l bottles never stand in for a can (cola, cola-can, *-can), and
+ * drinks without an owner photo (fuse-berry, fuse-watermelon, lemonade...) keep their image.
+ */
+export const ownerDrinkPhotoIds = [
+  'fuse-peach',
+  'fuse-mango',
+  'fuse-mango-pineapple',
+  'water',
+  'cola-bottle',
+  'cola-zero',
+  'sprite',
+  'fanta',
+  'piko',
+  'piko-apple',
+  'piko-orange',
+] as const;
+export type OwnerDrinkPhotoId = (typeof ownerDrinkPhotoIds)[number];
+
+/**
+ * The owner's photo of exactly this product id while the published key still means "no other
+ * photo chosen": the seed key, or `generic-drink`, which the back-office publishes for new
+ * drinks. Any other published key is a back-office choice and wins.
+ */
+export function ownerPhoto<S>(
+  owner: Readonly<Record<string, S>> | undefined,
+  productId: string,
+  imageKey: string | undefined,
+): S | undefined {
+  if (!owner || !Object.prototype.hasOwnProperty.call(owner, productId)) return undefined;
+  return imageKey === undefined ||
+    imageKey === seedImageKey(productId) ||
+    imageKey === GENERIC_DRINK_KEY
+    ? owner[productId]
+    : undefined;
+}
+
 const MEDIA_PATH = /^\/v1\/media\/catalog\/([a-f0-9]{64})\.(card|hero|thumb)\.webp$/;
 const ORIGIN = /^https:\/\/[a-z0-9.-]+(?::\d{1,5})?$/;
 
@@ -52,13 +95,18 @@ export function remoteMediaSource(
   return { uri: `${origin}${path}`, cacheKey: match[1]! };
 }
 
-/** Bundled choice for a product: id retouch only while the published key is unchanged. */
+/**
+ * Bundled choice for a product: the owner's photo of this id (seed or generic drink key), then the
+ * id retouch while the published key is unchanged, then the key photo, then the logo.
+ */
 export function resolveBundledPhoto<S>(
   product: PhotoCandidate<S>,
   bundled: BundledPhotos<S>,
 ): Exclude<ResolvedPhoto<S>, { kind: 'remote' }> {
   const has = (map: Readonly<Record<string, S>>, key: string) =>
     Object.prototype.hasOwnProperty.call(map, key) && map[key] !== undefined;
+  const owned = ownerPhoto(bundled.owner, product.id, product.imageKey);
+  if (owned !== undefined) return { kind: 'id', source: owned };
   const unchanged = product.imageKey === undefined || product.imageKey === seedImageKey(product.id);
   if (unchanged && has(bundled.byId, product.id))
     return { kind: 'id', source: bundled.byId[product.id]! };
@@ -70,8 +118,9 @@ export function resolveBundledPhoto<S>(
 
 /**
  * Photo precedence for one product: the published uploaded photo (remote, immutable hash URL),
- * then the bundled photo of the published key, then the logo. A product-id retouch is used only
- * while the key is still the seed default, so it never overrides a back-office choice.
+ * then the bundled photo of the published key, then the logo. A product-id photo is used only
+ * while the key is still the seed default (or `generic-drink` for an owner drink photo), so it
+ * never overrides a back-office choice.
  */
 export function resolveProductPhoto<S>(
   product: PhotoCandidate<S>,

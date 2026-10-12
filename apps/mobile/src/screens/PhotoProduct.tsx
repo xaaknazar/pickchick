@@ -26,7 +26,7 @@ import {
   photoCartLimit,
 } from '../product-photo-selection';
 import { optionPhotos, extraPhotos } from '../product-photo-assets';
-import { ProductPhoto, productPhoto } from '../components/ProductPhoto';
+import { ProductPhoto, isDrinkCutout, productPhoto } from '../components/ProductPhoto';
 import { MotionModal, MotionPressable as Pressable, useReducedMotion } from '../components/Motion';
 import { CloseButton, Icon, Row } from '../components/UI';
 import { colors, font } from '../theme';
@@ -233,6 +233,9 @@ export function PhotoProduct(props: Props) {
     optionPhotos.pick
       ? { kind: 'id' as const, source: optionPhotos.pick }
       : resolvedHero;
+  // A transparent bottle needs no backdrop blend: show it whole, clear of the close button.
+  const drinkCutout = isDrinkCutout(hero);
+  const closeTop = Math.max(0, insets.top - 16);
   const nutritionMultiplier =
     product.nutrition?.basis === 'per_serving' ? (chosenSize?.nutrition_multiplier ?? 1) : 1;
   const infoContent = (
@@ -292,7 +295,7 @@ export function PhotoProduct(props: Props) {
             {hero ? (
               <ProductPhoto
                 photo={hero}
-                style={StyleSheet.absoluteFill}
+                style={[StyleSheet.absoluteFill, drinkCutout && { top: closeTop + 12, bottom: 12 }]}
                 contentFit="contain"
                 accessibilityLabel={title}
               />
@@ -307,7 +310,9 @@ export function PhotoProduct(props: Props) {
                 <Text style={s.noPhoto}>Фото скоро</Text>
               </View>
             )}
-            <View pointerEvents="none" style={[s.blend, blue ? blueBlend : blend]} />
+            {drinkCutout ? null : (
+              <View pointerEvents="none" style={[s.blend, blue ? blueBlend : blend]} />
+            )}
             {combo ? (
               <Pressable
                 style={s.photoAction}
@@ -600,7 +605,7 @@ export function PhotoProduct(props: Props) {
           testID="product-close"
           label="Закрыть блюдо"
           onPress={props.goBack}
-          style={[s.close, { top: Math.max(0, insets.top - 16), left: 16 }]}
+          style={[s.close, { top: closeTop, left: 16 }]}
         />
       </View>
       <MotionModal

@@ -1,4 +1,5 @@
 import { catalogCutouts } from './catalog-cutouts';
+import { ownerDrinkPhotos } from './drink-photos';
 import type { ImageSourcePropType } from 'react-native';
 export const photoHeroes: Record<string, ImageSourcePropType> = {
   'pick-combo': require('../assets/catalog-hd/pick-combo.png'),
@@ -20,29 +21,24 @@ export const photoHeroes: Record<string, ImageSourcePropType> = {
   wedges: require('../assets/catalog-hd/wedges.png'),
   burger: require('../assets/catalog-hd/burger.png'),
   lemonade: require('../assets/catalog-hd/lemonade.png'),
+  // The can SKU keeps its own photo; the owner's bottle photo is never used for it.
   cola: require('../assets/catalog-hd/cola.png'),
-  piko: require('../assets/catalog-options/piko.png'),
-  'fuse-peach': catalogCutouts['fuse-peach']!,
+  piko: ownerDrinkPhotos['piko']!,
+  'fuse-peach': ownerDrinkPhotos['fuse-peach']!,
   'iced-tea': require('../assets/catalog-hd/iced-tea.png'),
-  water: require('../assets/catalog-hd/water.png'),
+  water: ownerDrinkPhotos['water']!,
 };
 // No invented packaging: missing catalog references keep an explicit placeholder.
 export const optionPhotos: Record<string, ImageSourcePropType> = {
-  fanta: catalogCutouts['fanta']!,
-  sprite: catalogCutouts['sprite']!,
-  'cola-zero': catalogCutouts['cola-zero']!,
+  // The owner's real photographs: fuse-peach/-mango, water, cola-bottle/-zero, sprite, fanta, piko.
+  ...ownerDrinkPhotos,
+  // No owner photo yet: these keep their earlier images.
   'fuse-berry': catalogCutouts['fuse-berry']!,
-  'fuse-mango': catalogCutouts['fuse-mango']!,
   'fuse-watermelon': catalogCutouts['fuse-watermelon']!,
-  piko: require('../assets/catalog-options/piko.png'),
-
-  'cola-bottle': catalogCutouts['cola-bottle']!,
   lemonade: require('../assets/catalog-hd/lemonade.png'),
   'cola-can': require('../assets/catalog-hd/cola.png'),
-  'fuse-peach': catalogCutouts['fuse-peach']!,
   'iced-tea-sweet': require('../assets/catalog-hd/iced-tea.png'),
   'iced-tea-unsweet': require('../assets/catalog-hd/iced-tea.png'),
-  water: require('../assets/catalog-hd/water.png'),
   pick: require('../assets/catalog-hd/signature-small.png'),
   hot: require('../assets/catalog-hd/sauce-hot.png'),
 };

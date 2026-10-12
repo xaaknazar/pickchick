@@ -4,6 +4,7 @@ import { Image, type ImageContentFit, type ImageStyle } from 'expo-image';
 import type { CatalogMediaMap } from '@pickchick/catalog-admin/contracts';
 import { API_URL } from '../api';
 import { bundledCatalogImages, catalogLogo } from '../catalog';
+import { ownerDrinkPhotos } from '../drink-photos';
 import { menuPhotos } from '../menu-photo-assets';
 import { photoHeroes } from '../product-photo-assets';
 import {
@@ -20,22 +21,28 @@ import {
  * - menu: light menu tiles (cards, cart lines, order status and history);
  * - hero: blue product-page heroes and companion cards;
  * - extra: cart recommendations, which prefer the light tile and then the hero cut-out.
+ * The owner's real drink photographs are the same in every context.
  */
 export type PhotoContext = 'menu' | 'hero' | 'extra';
 
-const piko: ImageSourcePropType = require('../../assets/catalog-options/piko.png');
 const byId: Record<PhotoContext, Record<string, ImageSourcePropType>> = {
-  menu: { piko, ...menuPhotos },
+  menu: menuPhotos,
   hero: photoHeroes,
   extra: { ...photoHeroes, ...menuPhotos },
 };
 const bundled = (context: PhotoContext): BundledPhotos<ImageSourcePropType> => ({
+  owner: ownerDrinkPhotos,
   byId: byId[context],
   byKey: bundledCatalogImages,
   logo: catalogLogo,
 });
 
 export type ProductPhotoSource = ResolvedPhoto<ImageSourcePropType>;
+
+const ownerDrinkSources = new Set<unknown>(Object.values(ownerDrinkPhotos));
+/** The owner's drink photographs are transparent portrait cut-outs, not square backdrops. */
+export const isDrinkCutout = (photo: ProductPhotoSource) =>
+  photo.kind !== 'remote' && ownerDrinkSources.has(photo.source);
 
 /** Remote uploaded photo, else the bundled photo for the published key, else the logo. */
 export function productPhoto(

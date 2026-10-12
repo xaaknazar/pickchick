@@ -1,4 +1,5 @@
 import { defaultSelections, validSelections, cartLineKey } from './domain.ts';
+import { ownerDrinkPhotoIds } from './product-photo.ts';
 import type { CartLine, ModifierGroup, Product, Selection } from './model';
 
 export const photoProductIds = [
@@ -27,14 +28,16 @@ export const photoProductIds = [
   'water',
   'piko',
 ];
+const photoPageIds: readonly string[] = [...photoProductIds, ...ownerDrinkPhotoIds];
 /**
- * The photo product page is used for every seeded product and for any product the back-office
- * gave an uploaded photo (media map hero), so new published products get the same design.
+ * The photo product page is used for every seeded product, for drinks with the owner's photo
+ * (also when the back-office adds them later) and for any product the back-office gave an
+ * uploaded photo (media map hero), so new published products get the same design.
  */
 export const hasPhotoPilot = (product: string | { id: string; media?: { hero?: string } }) =>
   typeof product === 'string'
-    ? photoProductIds.includes(product)
-    : photoProductIds.includes(product.id) || typeof product.media?.hero === 'string';
+    ? photoPageIds.includes(product)
+    : photoPageIds.includes(product.id) || typeof product.media?.hero === 'string';
 export const isComboProduct = (id: string) =>
   id.endsWith('-combo') || id.endsWith('-duo') || /^fingers-(25|50|75|100)$/.test(id);
 
