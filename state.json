@@ -4580,9 +4580,11 @@
         "tests/backoffice/workforce-shell.py",
         "docs/operations/cashier-finance-ssh-2026-10-12.md"
       ],
-      "status": "active",
-      "head": "41a8d7e4208da85fdb2127675f1ed9f98f65b91b",
-      "updatedAt": "2026-10-12T11:07:33.111Z"
+      "status": "done",
+      "head": "7125c00a977b3e5a22d4c749157559175c41c8b2",
+      "updatedAt": "2026-10-12T11:39:44.274Z",
+      "summary": "Установлены portal661f84c2 и roadmap3c51229e; полная Foundation CI обоих источников 11/11, HTTPS55файлов/авторизация, backup/restore, сохранность соседей проверены. PR #230. Коммит 7125c00a включён в shared.",
+      "nextAction": "Приёмка владельцем фильтров/месяца/должностей; отдельная задача stop-activation продолжает включение стопов на cloud052/edge019."
     },
     {
       "id": "stop-activation",
