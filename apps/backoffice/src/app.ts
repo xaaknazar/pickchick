@@ -504,6 +504,10 @@ function render() {
       periods.append(b);
     }
     const tools = el('div', 'header-tools');
+    const periodField = el('div', 'field header-period');
+    periods.setAttribute('role', 'group');
+    periods.setAttribute('aria-label', 'Период');
+    periodField.append(el('span', 'field-label', 'Период'), periods);
     const refresh = button(
       operations.busy ? 'Обновляем...' : 'Обновить',
       () => {
@@ -515,7 +519,7 @@ function render() {
       'op-refresh',
     );
     refresh.disabled = operations.busy || Boolean(operations.pending);
-    tools.append(periods, refresh);
+    tools.append(periodField);
     periodTarget.append(tools);
     if (['dash', 'orders', 'shifts', 'reports', 'settlements'].includes(page)) {
       const shifts = operations.data?.cashier_shifts ?? [];
@@ -550,11 +554,19 @@ function render() {
           'cashier-shift-select',
         );
         chooser.querySelector('select')!.disabled = operations.busy || Boolean(operations.pending);
+        chooser.classList.add('header-shift');
         tools.append(chooser);
       }
+    }
+    tools.append(refresh);
+    if (['dash', 'orders', 'shifts', 'reports', 'settlements'].includes(page)) {
       if (operations.filters.shiftId)
         tools.append(
-          el('small', 'muted', 'Выбрана вся смена, независимо от календарного периода.'),
+          el(
+            'small',
+            'muted header-filter-hint',
+            'Выбрана вся смена, независимо от календарного периода.',
+          ),
         );
     }
     if (choosingCustom || operations.period === 'custom') {

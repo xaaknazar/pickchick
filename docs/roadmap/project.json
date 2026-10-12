@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-12T12:45:36.912134Z",
+  "updatedAt": "2026-10-12",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -1295,7 +1295,7 @@
       "id": "catalog-unified",
       "workstream": "catalog",
       "title": "Подключить единый каталог ко всем каналам",
-      "summary": "Публикация и паритет общего каталога реализованы. Read-only baseline 9 октября подтвердил Windows23/schema019, protocol4, menu-sync apply и включённые access-roles/edge-publication; API3bc/schema050 и native16 TestFlight установлены. Remote-stops/media-upload ещё выключены; приёмка всей цепочки не завершена. Последний portal health: edgeConnected=false.",
+      "summary": "Публикация и паритет общего каталога реализованы. Read-only baseline 9 октября подтвердил Windows23/schema019, protocol4, menu-sync apply и включённые access-roles/edge-publication; API3bc/schema050 и native16 TestFlight установлены. Remote-stops/media-upload ещё выключены; приёмка всей цепочки не завершена. Последний portal health: edgeConnected=false. 12 октября API f01cb45f/schema052: обмен protocol4 свежий, remote-stops выключен; SSH финансового Mac проверен; edge23/schema019 ready, права стоп-команд проверены на чтение, активация ещё не выполнена.",
       "status": "active",
       "owner": "development",
       "phase": "foundation",
@@ -1340,13 +1340,17 @@
         {
           "label": "Guarded продолжение оставшихся флагов",
           "path": "docs/operations/unified-menu-continuation.md"
+        },
+        {
+          "label": "Проверка стоп-листа 12 октября и границы доступа",
+          "path": "docs/operations/filter-layout.md"
         }
       ],
       "acceptance": [
         "AC-02/32: каждый канал использует совместимую опубликованную версию.",
         "Offline/несовместимый клиент не ломает текущую смену."
       ],
-      "nextAction": "Восстановить сеть и повторить свежую сверку меню/ACK; после отдельного Devices051/Windows020 выпуска включить remote-stops, затем media-upload по guarded continuation. Принять физические клиенты отдельно.",
+      "nextAction": "Согласовать и проверить оператор активации на фактических cloud052/edge019, сохранив отдельный план cloud-kitchen. Затем включить флаги с резервной копией/откатом и принять доставку STOP/UNSTOP; старый pinned cloud051/edge020 оператор без адаптации не запускать.",
       "checks": {
         "implemented": true,
         "verified": false,
@@ -4385,6 +4389,33 @@
         "Все разрешённые разделы видны без «Других разделов», включая мобильное меню."
       ],
       "nextAction": "Владельцу проверить вход через основной адрес и удобство списка разделов.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "filter-layout",
+      "workstream": "backoffice",
+      "title": "Выровнять фильтры и упростить выбор месяца и должности",
+      "summary": "Установлен портал 661f84c2: выровненные панели Главной/Заказов/графика, списки месяца/года и должности. Foundation CI 11/11; 55 HTTPS-файлов, защита входа и соседние сервисы проверены. API/БД и учётные записи сохранены.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["backoffice-ui-core"],
+      "evidence": [
+        {
+          "label": "Фильтры, должности и проверки",
+          "path": "docs/operations/filter-layout.md"
+        }
+      ],
+      "acceptance": [
+        "Фильтры и кнопки выровнены на компьютере и телефоне.",
+        "Месяц, год и должность выбираются из списка; сохранённые значения не теряются."
+      ],
+      "nextAction": "Владельцу проверить фильтры на компьютере/телефоне и выбор должности при создании и изменении смены.",
       "checks": {
         "implemented": true,
         "verified": true,
