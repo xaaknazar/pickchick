@@ -20,28 +20,41 @@ Archive и export завершены на Xcode 26.6 (17F113). Release label
 `~/Library/Caches/PickChick/releases/`. Bundle ID `kz.pickchick.app`, версия
 0.2.0, build 19, `dirty=false`. Строгая проверка подписи архива и IPA успешна,
 `get-task-allow=false`, встроенный JS совпадает побайтно; схема `dgis` присутствует.
+Все 10 фото напитков владельца побайтно совпадают с исходниками внутри архива и IPA.
 Подпись использует прежний сертификат и профиль PickChick; временные настройки
 signing/keychain восстановлены. Первая установка Pods перешла к клонированию
 Hermes после сбоя проверки download URL. Повторная штатная установка использовала
 официальные debug/release tarballs версии 250829098.0.17 из кэша, с проверкой
 контрольных сумм. Исходники зависимостей и приложения не менялись.
 
-- IPA: 129078059 байт, SHA-256
+- Локальный export IPA: 129078059 байт, SHA-256
   `ea6761465a85c192f1a6cb66d815b2718df1aebd3e1741c09c88cc57d780f6b4`.
 - `main.jsbundle` в архиве и IPA: SHA-256
   `05b1713d11c13ce6e7a4cc641a0f351d6c870eda2ff4fa7b8f4e07eb0b8a0ae1`.
 - Флаги storefront: server auth, Kaspi=1, published catalog=1; simulator=0,
   unpaid test orders=0, Pick Farm=0.
 
-В 00:42 Алматы upload остановлен: `Failed to Use Accounts`. В Xcode Settings →
-Apple Accounts подтверждён пустой список, владельцу открыта форма входа.
-Вход в браузерный App Store Connect сохранён, но не заменяет вход Xcode.
-Загрузка, обработка Apple и доступность build 19 в TestFlight пока не подтверждены.
-Повторная сборка не требуется: после входа нужно отправить этот же архив.
+Upload завершён после входа владельца в Xcode: `Uploaded PickChick` /
+`EXPORT SUCCEEDED`, `deliveryStatus=submitted`. App Store Connect показывает
+0.2.0 (19), загрузка 13 октября в 00:49 Алматы. Обработка Apple завершена.
+Первый upload в 00:42 остановился на пустом списке Apple Accounts; исходный
+архив после входа не пересобирался. В существующей группе PickChick Internal
+(два прежних тестировщика) подтверждён статус «Тестируется». Русский чек-лист
+«Что тестировать» сохранён. Внешняя beta и новые тестировщики не добавлялись.
+[Build 19 в App Store Connect](https://appstoreconnect.apple.com/teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/apps/6809208492/testflight/ios/b5b1f555-21bc-4ecb-b988-3757afda9529).
+Список внутренних тестировщиков уже показывает одну установку 19; это факт
+доставки, а не подтверждение прохождения чек-листа владельцем.
+
+Apple предупредила об отсутствующих dSYM восьми сторонних framework:
+ExpoImage, React, ReactNativeDependencies, SDWebImage и его AVIF/SVG/WebP
+coders, hermesvm. Это ограничение расшифровки crash-отчётов зависимостей;
+загрузку оно не остановило.
 
 Каталог и цены не публиковались. `catalog-add-drinks.mjs` не запускался,
-реальные заказы, счета, QR и платежи не создавались. Онлайн-пульт пока
-не обновлён: `@vps/roadmap` и `@vps/public-https` остаются за задачей stop-report.
+реальные заказы, счета, QR и платежи не создавались. Владелец разрешил временно
+передать `@vps/roadmap` и `@vps/public-https` из stop-report для публикации
+онлайн-пульта. Резервы приняты; обновление будет выполнено после проверки CI,
+затем оба резерва возвращаются stop-report.
 
 ## Чек-лист владельца на iPhone
 
