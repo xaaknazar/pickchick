@@ -4795,11 +4795,18 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-testflight19",
       "scopes": [
-        "@preparation/mobile-testflight19"
+        "@preparation/mobile-testflight19",
+        "@release/ios",
+        "apps/mobile/app.json",
+        "docs/operations/mobile-testflight19.md",
+        "docs/operations/mobile-bugfix-2026-10-12.md",
+        "docs/operations/mobile-redesign-2026-10-12.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json"
       ],
       "status": "active",
       "head": "699c003ff99518358a8462028d980245e470282e",
-      "updatedAt": "2026-10-12T13:32:31.522Z"
+      "updatedAt": "2026-10-12T19:28:08.117Z"
     }
   ]
 }
