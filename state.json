@@ -4623,6 +4623,17 @@
       "status": "active",
       "head": "7125c00a977b3e5a22d4c749157559175c41c8b2",
       "updatedAt": "2026-10-12T11:52:20.517Z"
+    },
+    {
+      "id": "mobile-redesign-1012",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-redesign-1012",
+      "scopes": [
+        "@publication/mobile-redesign-1012"
+      ],
+      "status": "active",
+      "head": "fced4c99806d035b6a16dbf3c376a8aed74232b5",
+      "updatedAt": "2026-10-12T12:56:53.243Z"
     }
   ]
 }
