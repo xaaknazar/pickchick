@@ -1,6 +1,6 @@
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Platform, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { LOCALES, LOCALE_LABELS, type Locale } from '../i18n';
-import { colors, fonts, useMetrics } from '../theme';
+import { colors, fonts, redesign, useMetrics } from '../theme';
 import { useTimingTo } from './motion';
 import { ownerOrange } from './ownerOrange';
 import { fixedText } from './Body';
@@ -16,6 +16,7 @@ export function Language({
   locale,
   onChange,
   tone = 'default',
+  surface,
 }: {
   locale: Locale;
   onChange: (locale: Locale) => void;
@@ -25,12 +26,32 @@ export function Language({
    * order-step headers (56x44 options), `light` on light surfaces.
    */
   tone?: Tone;
+  /**
+   * Redesign 2026-10-13 track behind the options; the tone keeps the geometry. `start`: the
+   * attract screen's smoked glass, rgba(2,10,31,.55) with a 1 px light line and a 14 px
+   * backdrop blur on the web.
+   */
+  surface?: 'start';
 }) {
   const { v } = useMetrics();
   const film = tone === 'inverse';
   const light = tone === 'light';
   const menu = tone === 'menu';
   const compact = tone === 'compact';
+  const startTrack: ViewStyle | null =
+    surface === 'start'
+      ? {
+          backgroundColor: redesign.startGlass,
+          borderWidth: 1,
+          borderColor: redesign.startGlassLine,
+          ...(Platform.OS === 'web'
+            ? ({
+                backdropFilter: 'blur(14px)',
+                WebkitBackdropFilter: 'blur(14px)',
+              } as unknown as ViewStyle)
+            : null),
+        }
+      : null;
   return (
     <View
       {...(menu ? ownerOrange : {})}
@@ -52,6 +73,7 @@ export function Language({
         borderWidth: film || menu || compact ? 1 : 0,
         borderColor: menu ? 'rgba(255,255,255,.2)' : colors.glassLine,
         gap: v(menu || compact ? 2 : 4),
+        ...startTrack,
       }}
     >
       {LOCALES.map((value) => (
