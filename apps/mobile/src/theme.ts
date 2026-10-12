@@ -22,3 +22,11 @@ export const font = {
   bold: 'Manrope_700Bold',
 };
 export const spacing = { page: tokens.spacing[3] ?? 16, gap: 12, card: 20 };
+/** Extras approved for «Наши рестораны» (M05) in the 2026-10-12 redesign brief. */
+export const restaurantColors = {
+  open: '#5FD3A0',
+  closed: '#FFB777',
+  divider: '#1E3563',
+  outline: '#2A4378',
+  mapControl: 'rgba(4,20,58,0.88)',
+};
