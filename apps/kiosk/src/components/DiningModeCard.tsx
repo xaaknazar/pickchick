@@ -28,10 +28,15 @@ export function DiningModeTitle({ children }: { children?: ReactNode }) {
       <Text
         {...fixedText}
         accessibilityRole="header"
+        // One line in every locale (kk is the longest); shrink rather than wrap,
+        // so both dining cards keep the same height.
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
         style={{
           fontFamily: fonts.black,
-          fontSize: v(62),
-          lineHeight: v(68),
+          fontSize: v(56),
+          lineHeight: v(62),
           letterSpacing: -v(1),
           color: colors.white,
         }}

@@ -34,3 +34,14 @@ export const Light: Story = {
     ),
   ],
 };
+/** Redesign 2026-10-13 attract switch: film geometry on smoked glass over the video. */
+export const Start: Story = {
+  args: { tone: 'inverse', surface: 'start' },
+  decorators: [
+    (Inner) => (
+      <View style={{ backgroundColor: colors.navy }}>
+        <Inner />
+      </View>
+    ),
+  ],
+};
