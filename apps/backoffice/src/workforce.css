@@ -17,7 +17,7 @@
 }
 .wf-toolbar {
   display: grid;
-  grid-template-columns: minmax(10rem, 13rem) minmax(12rem, 22rem) auto;
+  grid-template-columns: minmax(8rem, 12rem) minmax(6rem, 7rem) minmax(12rem, 1fr) auto;
   align-items: end;
   gap: 1rem;
   padding: 1rem;
@@ -52,6 +52,18 @@
 }
 .wf-actions {
   margin: 1rem 0;
+  align-items: end;
+  gap: 12px;
+}
+.wf-range-buttons {
+  display: flex;
+  gap: 8px;
+}
+.wf-actions > .button,
+.wf-range-buttons .button,
+.wf-actions input,
+.wf-toolbar > .button {
+  min-height: 44px;
 }
 .wf-actions .field {
   margin: 0;
@@ -200,7 +212,10 @@
 }
 @media (max-width: 700px) {
   .wf-toolbar {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(6rem, 7rem);
+  }
+  .wf-toolbar > :nth-child(n + 3) {
+    grid-column: 1 / -1;
   }
   .wf-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
