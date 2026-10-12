@@ -4538,9 +4538,11 @@
         "tests/backoffice/design-browser.py",
         "@vps/public-https"
       ],
-      "status": "active",
-      "head": "41720c5529cea6a8de23e40c84f975ebfded3336",
-      "updatedAt": "2026-10-12T05:52:33.872Z"
+      "status": "done",
+      "head": "9d352fd54543cb776cca2f741bd3ab193df25742",
+      "updatedAt": "2026-10-12T06:51:18.258Z",
+      "summary": "Установлены открытое меню d379075b, вход с домена 41720c55 и пульт 9ecd81a2; Foundation CI 38211061920 11/11 после повтора, локальные браузерные проверки, HTTPS 55 файлов и health. PR #228; общий SHA 9d352fd5. Итоговый docs-checkpoint не является новым серверным выпуском.",
+      "nextAction": "Владелец проверяет вход через pickchick.kz и доступность разделов; приёмка ещё не отмечена. Подробности и единичный timeout CI сохранены в docs/operations/cabinet-entry.md."
     }
   ]
 }
