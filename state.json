@@ -4559,11 +4559,15 @@
         "docs/roadmap/project.json",
         "@vps/staff-login",
         "@vps/roadmap",
-        "@vps/public-https"
+        "@vps/public-https",
+        "apps/backoffice/src/workforce.ts",
+        "apps/backoffice/src/workforce.css",
+        "tests/backoffice/workforce-browser.py",
+        "tests/backoffice/workforce-shell.py"
       ],
       "status": "active",
       "head": "9d352fd54543cb776cca2f741bd3ab193df25742",
-      "updatedAt": "2026-10-12T10:23:04.166Z"
+      "updatedAt": "2026-10-12T10:27:15.840Z"
     }
   ]
 }
