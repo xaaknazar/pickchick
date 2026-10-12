@@ -332,10 +332,10 @@ class KioskUI(unittest.TestCase):
             self.assertEqual(errors, [])
             self.assertEqual(fixture.unexpected, [], 'Unexpected requests were blocked')
 
-    def open(self, width=820, height=1180):
+    def open(self, width=820, height=1180, catalog=None):
         context = self.browser.new_context(viewport={'width': width, 'height': height},
                                            reduced_motion='reduce')
-        fixture = Fixture(self.catalog)
+        fixture = Fixture(catalog or self.catalog)
         context.route('**/*', fixture.route)
         page = context.new_page()
         errors = []
@@ -486,13 +486,21 @@ class KioskUI(unittest.TestCase):
         capture(page, 'cart-with-upsell.png')
 
     def test_menu_restores_category_and_offset_after_product_close(self):
-        page, fixture = self.open()
+        # The bento menu fits the six fixture drinks on one screen; the live catalog grows to
+        # 19 drinks, which scroll. Copies of the fixture drinks stand in for the new ones.
+        catalog = copy.deepcopy(self.catalog)
+        drinks = [p for p in catalog['products'] if p['category'] == 'Напитки']
+        for number in range(1, 14):
+            base = drinks[(number - 1) % len(drinks)]
+            catalog['products'].append({**copy.deepcopy(base), 'id': f"{base['id']}-x{number}",
+                                        'name': f"{base['name']} #{number}"})
+        page, fixture = self.open(catalog=catalog)
         self.start(page)
         selected = element(page, 'kiosk-category-drinks')
         selected.click()
         expect(selected).to_have_attribute('aria-selected', 'true')
         scroller = element(page, 'kiosk-menu-scroll')
-        product = element(page, 'kiosk-product-piko')
+        product = element(page, 'kiosk-product-' + catalog['products'][-1]['id'])
         product.scroll_into_view_if_needed()
         # Use actual UI scrolling; do not seed navigation memory or storage.
         capture(page, 'drinks-before-product.png')

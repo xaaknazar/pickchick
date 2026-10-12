@@ -23,11 +23,6 @@ export function MenuScreen({
   const [category, setCategory] = useState<Category>(memory.category);
   const [revision, setRevision] = useState(0);
   const products = model.catalog?.products ?? [];
-  // By id: the name is localized in the commercial catalog.
-  const featured =
-    products.find((p) => p.id === 'master-combo') ??
-    products.find((p) => inCategory(p, 'combo')) ??
-    null;
   const quantity = model.cart.reduce((sum, line) => sum + line.quantity, 0);
   const previousQuantity = useRef(memory.cartQuantity ?? quantity);
   const previousTotal = useRef(memory.cartTotal ?? model.cartTotalMinor);
@@ -51,7 +46,6 @@ export function MenuScreen({
     counts[line.productId] = (counts[line.productId] ?? 0) + line.quantity;
   // Every add (here or on the product screen just closed) replaces the toast with
   // that line's name; a quantity that grows by itself (availability) shows none.
-  // The 7 + 1 billboard has its own.
   // Adds made on the upsell or cart screens are not announced again on return.
   const announced = useRef(context.from === 'product' ? (memory.addSerial ?? 0) : addSerial);
   const [toast, setToast] = useState<{ message: string; id: number } | null>(null);
@@ -72,7 +66,7 @@ export function MenuScreen({
   return (
     <ScreenSurface
       testID="kiosk-screen-menu"
-      tone="brand"
+      tone="redesign"
       entrance={
         // Arrival from the dining choice and from a product has its own reveal.
         context.from === 'mode' || context.from === 'product' || context.from === 'boot'
@@ -102,17 +96,9 @@ export function MenuScreen({
           memory={memory}
           locale={context.locale}
           busy={model.busy}
-          featured={featured}
           cartCounts={counts}
           arriving={arriving}
           onInteraction={model.touch}
-          onPromo={() => {
-            select('combo');
-            setToast((current) => ({
-              message: t.p7Title + ' ' + t.p7Gift,
-              id: (current?.id ?? 0) + 1,
-            }));
-          }}
           onOpen={(p) => model.openProduct(p.id)}
           onAdd={(p) => {
             const selected = defaultSelections(p);
@@ -122,8 +108,9 @@ export function MenuScreen({
         />
       </Wrapper>
       <CartBar
+        lines={model.cart}
         previousQuantity={previousQuantity.current}
-        quantity={model.cart.reduce((s, l) => s + l.quantity, 0)}
+        quantity={quantity}
         total={model.cartTotalMinor}
         previousTotal={previousTotal.current}
         valid={model.cartValid}
@@ -133,6 +120,7 @@ export function MenuScreen({
         arrival={arrival}
         onLanded={() => setArriving(null)}
         onCheckout={model.cartValid ? model.openUpsell : model.openCart}
+        onOpenCart={model.openCart}
       />
       <Toast
         testID="kiosk-toast"
