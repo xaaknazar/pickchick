@@ -4568,6 +4568,20 @@
       "status": "active",
       "head": "9d352fd54543cb776cca2f741bd3ab193df25742",
       "updatedAt": "2026-10-12T10:27:15.840Z"
+    },
+    {
+      "id": "cashier-finance-ssh-20261012",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cashier-finance-ssh-20261012",
+      "scopes": [
+        "@windows/cashier",
+        "docs/operations/cashier-finance-ssh-2026-10-12.md"
+      ],
+      "status": "active",
+      "head": "9d352fd54543cb776cca2f741bd3ab193df25742",
+      "updatedAt": "2026-10-12T10:54:38.770Z",
+      "summary": "Owner-authorized addition of the finance Mac public SSH key to the Windows cashier. Reservation via GitHub Contents API with blob CAS because local Git authentication is unavailable. No cashier changes yet.",
+      "nextAction": "Verify pinned cashier host key and effective authorized_keys file; preserve existing keys and ACLs, append supplied public key, verify and publish evidence. Do not restart the cashier application."
     }
   ]
 }
