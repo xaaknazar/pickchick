@@ -4783,9 +4783,10 @@
         "docs/roadmap/project.json",
         "docs/operations/mobile-bugfix-2026-10-12.md",
         "docs/operations/mobile-testflight19.md",
-        "tests/mobile/browser_tab_bar.py"
+        "tests/mobile/browser_tab_bar.py",
+        "@release/ios"
       ],
-      "updatedAt": "2026-10-12T13:21:02.393Z",
+      "updatedAt": "2026-10-12T13:23:31.062Z",
       "summary": "Ветка ddb32f73 принята для явной интеграции в отдельном worktree. Сначала зарезервированы области; стандартный claim требует обновить старую базу и будет повторён после merge. Скрипт catalog-add-drinks.mjs не запускать; цены и каталог не менять.",
       "nextAction": "Влить свежий shared и PR233; в двух конфликтах сохранить редизайн. Пройти typecheck/lint/mobile/browser и CI, подготовить build19."
     }
