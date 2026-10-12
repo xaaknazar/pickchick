@@ -1,7 +1,7 @@
 import { GardenArt } from './GardenArt';
 import { memo } from 'react';
 import { useRouter } from 'expo-router';
-import { Image as NativeImage, Pressable, Text } from 'react-native';
+import { Image as NativeImage, Pressable, Text, type ImageSourcePropType } from 'react-native';
 import { Icon } from '../../components/UI';
 import { font } from '../../theme';
 import { useGameCardHeight } from '../ArcadeCard';
@@ -247,6 +247,13 @@ export const Landscape = memo(function Landscape({
   );
 });
 
+/** «События» card copy and cover; the order tracker carousel reuses them. */
+export const pickFarmPoster = {
+  name: 'PICK FARM',
+  description: 'Семена, урожай и ваша маленькая ферма.',
+  cover: require('../../../assets/games/pick-farm/cover-alex.png') as ImageSourcePropType,
+  coverPosition: { left: '75%', top: '35%' } as const,
+};
 export function PickFarmCard() {
   const router = useRouter();
   const height = useGameCardHeight();
@@ -266,9 +273,9 @@ export function PickFarmCard() {
       })}
     >
       <Image
-        source={require('../../../assets/games/pick-farm/cover-alex.png')}
+        source={pickFarmPoster.cover}
         contentFit="cover"
-        contentPosition={{ left: '75%', top: '35%' }}
+        contentPosition={pickFarmPoster.coverPosition}
         accessible={false}
         pointerEvents="none"
         style={{ position: 'absolute', width: '100%', height: '100%' }}
@@ -297,7 +304,7 @@ export function PickFarmCard() {
               textShadowRadius: 4,
             }}
           >
-            PICK FARM
+            {pickFarmPoster.name}
           </Text>
           <Text
             style={{
@@ -310,7 +317,7 @@ export function PickFarmCard() {
               textShadowRadius: 3,
             }}
           >
-            Семена, урожай и ваша маленькая ферма.
+            {pickFarmPoster.description}
           </Text>
         </View>
         <View

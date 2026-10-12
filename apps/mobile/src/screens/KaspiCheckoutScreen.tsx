@@ -629,18 +629,15 @@ function KaspiCheckoutSession(props: ScreenProps) {
               </View>
             ) : undefined
           }
-          receipt={
-            <View style={s.note}>
-              <Icon name="receipt-outline" color={colors.muted} />
-              <Caption style={s.flex}>
-                {order.receipt === 'deferred'
-                  ? 'Фискальный чек пока не выпускается - Webkassa подключается.'
-                  : order.receipt === 'issued'
-                    ? 'Чек выпущен. Ссылка на него уточняется.'
-                    : 'Ожидаем фискальный чек'}
-              </Caption>
-            </View>
-          }
+          receipt={{
+            // Status only: the tracker has no receipt link; the completed order opens it.
+            caption:
+              order.receipt === 'deferred'
+                ? 'Фискальный чек пока не выпускается - Webkassa подключается.'
+                : order.receipt === 'issued'
+                  ? 'Чек выпущен. Ссылка на него уточняется.'
+                  : 'Ожидаем фискальный чек',
+          }}
         />
       );
     if (props.inSheet) return status(props);
@@ -776,5 +773,4 @@ const s = StyleSheet.create({
   card: { gap: 12, padding: 18, borderRadius: 22, backgroundColor: colors.surface },
   loading: { padding: 24, alignItems: 'center', gap: 12 },
   warning: { padding: 16, gap: 12, borderRadius: 18, backgroundColor: colors.warningSurface },
-  note: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
 });
