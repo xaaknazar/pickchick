@@ -4583,6 +4583,25 @@
       "status": "active",
       "head": "41a8d7e4208da85fdb2127675f1ed9f98f65b91b",
       "updatedAt": "2026-10-12T11:07:33.111Z"
+    },
+    {
+      "id": "stop-activation",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/stop-activation",
+      "scopes": [
+        "infra/staging/release-existing-stops.py",
+        "infra/staging/existing-stops-owner.mjs",
+        "infra/windows/enable-existing-remote-stops.ps1",
+        "tests/operations/test_existing_stops_release.py",
+        "tests/integration/existing-stops-owner.test.mjs",
+        "docs/operations/existing-stop-activation.md",
+        "@vps/api",
+        "@vps/db",
+        "@windows/cashier"
+      ],
+      "status": "active",
+      "head": "3c51229ed4580e5865537f1f137a9c9d14d08fe0",
+      "updatedAt": "2026-10-12T11:09:35.901Z"
     }
   ]
 }
