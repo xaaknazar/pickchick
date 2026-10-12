@@ -60,7 +60,8 @@ Kaspi-список в `KaspiCheckoutScreen`, предпросмотр `History`)
 - Снимки сборки рядом с макетами: [images/mobile-redesign-2026-10-12/](images/mobile-redesign-2026-10-12/).
   Состояния: открыт/закрыт ресторан, активный + история, два активных, ждём
   оплату, история с отменённым и 5+ позициями, пустая история, пять этапов трекера.
-- Не проверено: физический iPhone/Android, VoiceOver, новая TestFlight-сборка.
+- Не проверено: физический iPhone/Android, VoiceOver. Результат новой
+  TestFlight-сборки записан в [протоколе build 19](mobile-testflight19.md).
 
 ## Отличия от макета и открытые вопросы
 
@@ -80,10 +81,10 @@ Kaspi-список в `KaspiCheckoutScreen`, предпросмотр `History`)
 8. Перекрытие «Открыть Kaspi» исправлено: нижние действия учитывают высоту
    плавающего таб-бара и safe area. Проверены 393×852 и 320×568; тест проверяет
    геометрию и доступность нажатия без открытия банка.
-9. Конфликты слияния ожидаются с `codex/mobile-bugfix-1012`
-   (`OrderStatusScreen.tsx`: брать эту ветку; `config/restaurant-locations.json`:
-   брать эту ветку) и с активной задачей Luma (`codex/mobile-luma-patterns`,
-   те же экраны заказов).
+9. Конфликты с `codex/mobile-bugfix-1012` разрешены версией редизайна:
+   `OrderStatusScreen.tsx` и `config/restaurant-locations.json`.
+   Задачу Luma (`codex/mobile-luma-patterns`, те же экраны заказов) потребуется
+   интегрировать отдельно с учётом этого результата.
 
 ## Проверки и CI на Mac, 12 октября
 
@@ -105,4 +106,7 @@ HTTP fixtures. Реальные счета, QR и платежи не созда
 Исходная Foundation CI для `fced4c99`: [38252313963](https://github.com/xaaknazar/pickchick/actions/runs/38252313963),
 success 11/11. `browser_mockup_fidelity.py` в GitHub прошёл; прежнее падение
 относилось к облачной среде. На Mac `pnpm test:mobile`: 352 Node + 50 Python,
-все успешны. Дополнение с CI-сценариями и отступом оплаты проходит отдельную CI.
+все успешны. Дополнение с CI-сценариями и отступом оплаты (`f333d1b8`):
+[Foundation CI 38254754757](https://github.com/xaaknazar/pickchick/actions/runs/38254754757)
+успешна, 11/11. PR #233 включён в shared 13 октября (Алматы) fast-forward
+без force; затем включён PR #234, источник iOS build 19 - `699c003f`.
