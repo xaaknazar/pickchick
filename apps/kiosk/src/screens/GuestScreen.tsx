@@ -6,7 +6,7 @@ import { Body, Button, Dialog, Heading, ScreenSurface, type ScreenContext } from
 import { WelcomeScreen, ModeScreen } from '../screens/WelcomeMode';
 import { MenuScreen, type MenuMemory } from '../screens/MenuScreen';
 import { ProductScreen } from '../screens/ProductScreen';
-import { CartScreen, ReviewScreen, UpsellScreen } from '../screens/CartScreens';
+import { CartScreen, ReviewScreen, UpsellScreen, type UpsellMemory } from '../screens/CartScreens';
 import { OrderScreen, PaymentScreen, RecoveryScreen } from '../screens/PaymentOrderScreens';
 import { BootState } from '../components/BootState';
 import { Notice } from '../components/Notice';
@@ -36,7 +36,7 @@ export function GuestScreen() {
   const [help, setHelp] = useState(false);
   const [cancel, setCancel] = useState(false);
   const t = copy(locale);
-  const upsellSeen = useRef(false);
+  const upsellMemory = useRef<UpsellMemory>({ base: null });
   const menuMemory = useRef<MenuMemory>({ category: 'combo', offsets: {} });
   const previousStep = useRef(liveModel.step);
   // Where the visible step came from, settled once per step change.
@@ -58,7 +58,7 @@ export function GuestScreen() {
   }
   useEffect(() => {
     if (liveModel.step === 'start' && previousStep.current !== 'start') {
-      upsellSeen.current = false;
+      upsellMemory.current = { base: null };
       menuMemory.current = { category: 'combo', offsets: {} };
       setLocale('ru');
       setCancel(false);
@@ -68,13 +68,12 @@ export function GuestScreen() {
   }, [liveModel.step]);
   const setCatalogLocale = liveModel.setCatalogLocale;
   useEffect(() => setCatalogLocale?.(locale), [locale, setCatalogLocale]);
+  // Redesign 2026-10-13: «Оформить заказ» always opens the smart upsell, which starts over from
+  // the order as it is now (a visit to a product page from it keeps what it remembered).
   const openUpsell = useCallback(() => {
-    if (upsellSeen.current || BigInt(liveModel.cartTotalMinor) > 1000000n) liveModel.openCart();
-    else {
-      upsellSeen.current = true;
-      liveModel.openUpsell();
-    }
-  }, [liveModel.cartTotalMinor, liveModel.openCart, liveModel.openUpsell]);
+    upsellMemory.current = { base: null };
+    liveModel.openUpsell();
+  }, [liveModel.openUpsell]);
   const model: KioskModel = { ...liveModel, openUpsell };
   // Errors come with a code in the guest's language; the simulator keeps its own text.
   const errorText = model.errorCode ? t[('err_' + model.errorCode) as keyof typeof t] : model.error;
@@ -171,7 +170,7 @@ export function GuestScreen() {
         );
         break;
       case 'upsell':
-        screen = <UpsellScreen model={model} context={context} />;
+        screen = <UpsellScreen model={model} context={context} memory={upsellMemory.current} />;
         break;
       case 'cart':
         screen = <CartScreen model={model} context={context} />;
