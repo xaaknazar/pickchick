@@ -21,7 +21,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import * as Linking from 'expo-linking';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { CartLine, Product, ScreenProps } from '../model';
@@ -35,7 +34,15 @@ import { CartOffers, CartRecommendations, PromoCodeEntry } from '../components/C
 import { mergeCartLines } from '../cart-actions';
 import { ConfiguredProduct } from './ProductConfiguration';
 import { CartShortcut } from '../components/CartShortcut';
-import { colors, font } from '../theme';
+import {
+  CityButton,
+  RestaurantCard,
+  RestaurantMap,
+  openIn2Gis,
+  useMinuteClock,
+} from '../components/Restaurants';
+import { restaurantCountLabel, restaurantHoursStatus } from '../restaurant-hours';
+import { colors, font, restaurantColors } from '../theme';
 import { HeroVideo, LoyaltyCard } from '../components/Brand';
 import {
   Body,
@@ -104,79 +111,124 @@ export function Welcome(props: ScreenProps) {
     </View>
   );
 }
+// M05 (owner-approved redesign 2026-10-12): static map, sheet with one block per
+// restaurant, menu action at the bottom. Selection and navigation are unchanged:
+// choosing a restaurant still selects it and opens its menu.
 export function Branches(props: ScreenProps) {
+  const insets = useSafeAreaInsets();
+  const now = useMinuteClock();
   const [mapError, setMapError] = useState(false);
+  const loading = props.model.connection.status === 'loading';
+  const entries = props.model.branches.map((branch) => {
+    const location = restaurantLocation(branch.id);
+    return { branch, location, status: restaurantHoursStatus(location, now) };
+  });
+  const selected = entries.find((entry) => entry.branch.id === props.model.branch?.id);
+  const closed = selected?.status?.open === false ? selected.status : null;
+  const city = entries.find((entry) => entry.location)?.location?.city ?? 'Алматы';
+  const controlsTop = Math.max(insets.top + 6, 18);
   return (
-    <Page props={props} title="Наши рестораны">
-      <Heading>Где ваш{`\n`}следующий пик?</Heading>
-      <Body muted>Выберите ресторан, чтобы увидеть его меню.</Body>
-      {props.model.connection.status === 'loading' ? <Loading title="Ищем рестораны" /> : null}
-      {props.model.branches.map((branch) => {
-        const location = restaurantLocation(branch.id);
-        return (
-          <View key={branch.id} style={{ gap: 12 }}>
-            <Pressable
-              testID={`branch-${branch.id}`}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: props.model.branch?.id === branch.id }}
-              onPress={() => {
-                props.model.setBranch(branch.id);
-                props.navigate('M06');
-              }}
-            >
-              <Card
-                style={
-                  props.model.branch?.id === branch.id ? { borderColor: colors.accent } : undefined
-                }
-              >
-                <Row>
-                  <View style={ui.flex}>
-                    <Heading small>{branch.name}</Heading>
-                    {location ? (
-                      <Body style={{ marginTop: 8 }}>
-                        {location.city}, {location.address}
-                      </Body>
-                    ) : null}
-                    <Caption style={{ marginTop: 7 }}>
-                      {branch.ordering_enabled
-                        ? 'Приём заказов доступен'
-                        : 'Заказы пока недоступны'}
-                    </Caption>
-                  </View>
-                  <Icon
-                    name={
-                      props.model.branch?.id === branch.id ? 'checkmark-circle' : 'chevron-forward'
-                    }
-                    color={colors.accent}
-                  />
-                </Row>
-              </Card>
-            </Pressable>
-            {location ? (
-              <Button
-                title="Открыть в 2ГИС"
-                secondary
-                testID={`branch-map-${branch.id}`}
-                onPress={() => {
-                  setMapError(false);
-                  void Linking.openURL(location.map_url).catch(() => setMapError(true));
+    <View testID="screen-M05" style={s.branchesPage}>
+      <ScrollView
+        testID="scroll-M05"
+        style={ui.scroll}
+        contentContainerStyle={s.branchesScroll}
+        alwaysBounceVertical={false}
+        showsVerticalScrollIndicator={false}
+      >
+        <RestaurantMap
+          pins={entries.flatMap(({ branch, location, status }) =>
+            location
+              ? [
+                  {
+                    id: branch.id,
+                    latitude: location.latitude,
+                    longitude: location.longitude,
+                    open: status?.open !== false,
+                    selected: branch.id === props.model.branch?.id,
+                  },
+                ]
+              : [],
+          )}
+        >
+          <Pressable
+            testID="branches-back"
+            accessibilityRole="button"
+            accessibilityLabel="Назад"
+            onPress={props.goBack}
+            style={[s.mapBack, { top: controlsTop }]}
+          >
+            <Icon name="chevron-back" size={26} color={colors.text} />
+          </Pressable>
+          <CityButton city={city} top={controlsTop} />
+        </RestaurantMap>
+        <View style={s.branchSheet}>
+          <View style={s.branchSheetContent}>
+            <View style={s.sheetHandle} />
+            <Text accessibilityRole="header" style={s.branchesTitle}>
+              Рестораны
+            </Text>
+            <Text testID="branches-summary" style={s.branchesSummary}>
+              {entries.length ? `${city} · ${restaurantCountLabel(entries.length)}` : city}
+            </Text>
+            {props.preview ? <ReviewBadge /> : null}
+            {loading ? <Loading title="Ищем рестораны" /> : null}
+            {entries.map(({ branch, location, status }) => (
+              <RestaurantCard
+                key={branch.id}
+                branch={branch}
+                address={location ? `${location.address}, ${location.city}` : undefined}
+                status={status}
+                selected={props.model.branch?.id === branch.id}
+                onSelect={() => {
+                  props.model.setBranch(branch.id);
+                  props.navigate('M06');
                 }}
+                onOpenMap={
+                  location
+                    ? () => {
+                        setMapError(false);
+                        void openIn2Gis(location.map_url).catch(() => setMapError(true));
+                      }
+                    : undefined
+                }
+              />
+            ))}
+            {mapError ? (
+              <Notice warning>Не удалось открыть 2ГИС. Попробуйте ещё раз.</Notice>
+            ) : null}
+            {!entries.length && !loading ? (
+              <Empty
+                icon="location-outline"
+                title="Не удалось получить рестораны"
+                detail="Проверьте подключение и обновите список."
+                action={<Button title="Обновить" onPress={props.model.refresh} />}
               />
             ) : null}
           </View>
-        );
-      })}
-      {mapError ? <Notice warning>Не удалось открыть 2ГИС. Попробуйте ещё раз.</Notice> : null}
-      {!props.model.branches.length && props.model.connection.status !== 'loading' ? (
-        <Empty
-          icon="location-outline"
-          title="Не удалось получить рестораны"
-          detail="Проверьте подключение и обновите список."
-          action={<Button title="Обновить" onPress={props.model.refresh} />}
-        />
+        </View>
+      </ScrollView>
+      {entries.length ? (
+        <View
+          testID="branches-footer"
+          style={[s.branchesFooter, { paddingBottom: Math.max(28, insets.bottom + 8) }]}
+        >
+          <Caption testID="branches-caption" style={s.branchesCaption}>
+            {closed
+              ? `Заказ можно оформить с ${closed.opensAt}`
+              : 'При смене ресторана корзина проверяется заново'}
+          </Caption>
+          <Button
+            testID="branches-menu"
+            title={closed ? 'Посмотреть меню' : 'Перейти в меню'}
+            secondary={Boolean(closed)}
+            onPress={() => props.navigate('M06')}
+            style={[s.branchMenuButton, closed && s.branchMenuButtonClosed]}
+            textStyle={s.branchMenuText}
+          />
+        </View>
       ) : null}
-      <Notice>При смене ресторана нужно заново проверить состав и цены корзины.</Notice>
-    </Page>
+    </View>
   );
 }
 const ProductMenuCard = memo(function ProductMenuCard({
@@ -965,6 +1017,71 @@ export function Unavailable(props: ScreenProps) {
 }
 export { Checkout } from './CheckoutScreen';
 const s = StyleSheet.create({
+  branchesPage: { flex: 1, minHeight: 0, backgroundColor: colors.background },
+  branchesScroll: { flexGrow: 1 },
+  mapBack: {
+    position: 'absolute',
+    left: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: restaurantColors.mapControl,
+  },
+  branchSheet: {
+    flexGrow: 1,
+    marginTop: -22,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: colors.background,
+  },
+  branchSheetContent: {
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+    gap: 12,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 5,
+    borderRadius: 2.5,
+    alignSelf: 'center',
+    backgroundColor: restaurantColors.outline,
+  },
+  branchesTitle: {
+    marginTop: 2,
+    fontFamily: font.bold,
+    fontSize: 28,
+    lineHeight: 34,
+    letterSpacing: -0.4,
+    color: colors.text,
+  },
+  branchesSummary: {
+    marginTop: -10,
+    marginBottom: 4,
+    fontFamily: font.body,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.muted,
+  },
+  branchesFooter: {
+    flexShrink: 0,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    gap: 9,
+    backgroundColor: colors.background,
+  },
+  branchesCaption: { textAlign: 'center', fontSize: 12.5, lineHeight: 18 },
+  branchMenuButton: { minHeight: 54, borderRadius: 14 },
+  branchMenuButtonClosed: { borderColor: restaurantColors.outline },
+  branchMenuText: { fontFamily: font.bold, fontSize: 16, lineHeight: 22 },
   clearBackdrop: {
     flexGrow: 1,
     justifyContent: 'center',

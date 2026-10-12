@@ -261,19 +261,19 @@ with sync_playwright() as p:
   page.goto(URL+'/orders')
   history=page.get_by_test_id('order-history-'+ORDER)
   expect(history).to_be_visible()
-  expect(history).to_contain_text('Pick Combo ×1')
-  expect(history.get_by_text('Ваша оценка',exact=True)).to_be_visible()
-  # RN Web button selected state has no aria-selected; verify the exact visible star pattern.
-  stars=[page.get_by_test_id(f'order-history-rate-{ORDER}-{value}').inner_text() for value in range(1,6)]
-  assert stars[0] and len(set(stars[:4]))==1 and stars[4]!=stars[0],stars
-  # A new star selection from history overrides the previously saved rating.
-  page.get_by_test_id(f'order-history-rate-{ORDER}-5').click()
+  expect(history).to_contain_text('Pick Combo')
+  # A rated order shows its saved stars in the row and no longer asks «Как вам заказ?».
+  expect(history).to_contain_text('★ 4')
+  expect(page.get_by_test_id(f'order-history-rate-{ORDER}-5')).to_have_count(0)
+  # Reopening loads the saved review; a new star selection overrides it.
+  page.get_by_test_id(f'order-history-open-{ORDER}').click()
   sheet=page.get_by_test_id('order-sheet')
   close=page.get_by_test_id('completed-order-close')
   expect(close).to_be_visible()
-  expect(page.get_by_test_id('completed-rating-5')).to_have_attribute('aria-checked','true')
-  # Reopening loads authoritative feedback before the editor can save.
+  expect(page.get_by_test_id('completed-rating-4')).to_have_attribute('aria-checked','true',timeout=10000)
   expect(page.get_by_test_id('completed-rating-5')).to_be_enabled(timeout=10000)
+  page.get_by_test_id('completed-rating-5').click()
+  expect(page.get_by_test_id('completed-rating-5')).to_have_attribute('aria-checked','true')
   expect(review_comment).to_have_value('Всё понравилось. Спасибо!')
   expect(save).to_be_enabled()
   page.wait_for_timeout(450)
@@ -287,8 +287,8 @@ with sync_playwright() as p:
   expect(page.get_by_test_id(f'order-history-open-{ORDER}')).to_be_visible()
   # Reload the app to prove history/detail rehydrate from HTTP, not the hook cache.
   page.reload()
-  expect(history.get_by_text('Ваша оценка',exact=True)).to_be_visible(timeout=10000)
-  for value in range(1,6):expect(page.get_by_test_id(f'order-history-rate-{ORDER}-{value}')).to_have_text(stars[0])
+  expect(history).to_contain_text('★ 5',timeout=10000)
+  expect(page.get_by_test_id(f'order-history-rate-{ORDER}-5')).to_have_count(0)
   page.get_by_test_id(f'order-history-open-{ORDER}').click()
   expect(page.get_by_test_id('completed-rating-5')).to_have_attribute('aria-checked','true')
   # Reopening loads authoritative feedback before the editor can save.
@@ -305,7 +305,7 @@ with sync_playwright() as p:
   page.wait_for_timeout(150)
   state['phase']='failed';state['revision']+=1
   state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
-  expect(page.get_by_text('Заказов пока нет',exact=True)).to_be_visible()
+  expect(page.get_by_text('Фритюр уже горячий',exact=True)).to_be_visible()
   assert state['payments']==2
   state['teardown']=True
   for held in state['held_routes']:

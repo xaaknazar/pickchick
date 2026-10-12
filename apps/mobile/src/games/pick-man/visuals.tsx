@@ -229,16 +229,20 @@ export function MazeArt({ size = 140 }: { size?: number }) {
     </View>
   );
 }
+/** «События» card copy and cover; the order tracker carousel reuses them. */
+export const pickManPoster = {
+  name: 'PICK MAN',
+  subtitle: 'ПОЙМАЙ СВОЙ ВКУС',
+  description: 'Бургеры, фингерсы, кола.\nСобери всё в лабиринте.',
+  cover: assets.pickManCover,
+};
 export function PickManCard() {
   const router = useRouter();
   return (
     <GamePosterCard
-      name="PICK MAN"
-      subtitle="ПОЙМАЙ СВОЙ ВКУС"
-      description={'Бургеры, фингерсы, кола.\nСобери всё в лабиринте.'}
+      {...pickManPoster}
       testID="pick-man-open"
       onPress={() => router.push('/games/pick-man')}
-      cover={assets.pickManCover}
     />
   );
 }

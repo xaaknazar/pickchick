@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import type { ViewStyle } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
 import type { TestOrder } from '@pickchick/test-order-flow/contracts';
 import type { ScreenProps } from '../model';
 import {
@@ -12,16 +10,17 @@ import {
   Caption,
   Heading,
   Icon,
-  NavRow,
   Row,
   Button,
-  styles as ui,
+  type IconName,
 } from '../components/UI';
 import { MotionPressable } from '../components/Motion';
 import { OrderActions } from '../components/OrderActions';
 import { RepeatOrder } from '../components/RepeatOrder';
 import { OrderChef } from '../components/OrderChef';
-import { assets } from '../assets';
+import { GameCarousel } from '../components/GameCarousel';
+import { openOrderGame } from '../games/order-games';
+import { useOrderGames } from '../games/useOrderGames';
 import { ProductPhoto, productPhoto } from '../components/ProductPhoto';
 import { colors, font } from '../theme';
 import { money } from '../domain';
@@ -58,17 +57,25 @@ export function OrderStatusScreen({
         ) : undefined
       }
       onSupport={() => props.navigate('M31')}
-      receipt={
-        <NavRow
-          title="Официальный чек"
-          subtitle="Чеки и оплата в процессе"
-          testID="order-receipt"
-          onPress={() => props.navigate('M21')}
-        />
-      }
+      receipt={{
+        testID: 'order-receipt',
+        hint: 'Чеки и оплата в процессе',
+        onPress: () => props.navigate('M21'),
+      }}
     />
   );
 }
+
+/**
+ * The «Чек» tile. With `onPress` it opens the receipt screen; without it the tile only
+ * states the receipt status from `caption`, so a host never has to invent an action.
+ */
+export type OrderReceiptTile = {
+  onPress?: () => void;
+  caption?: string;
+  hint?: string;
+  testID?: string;
+};
 
 export function OrderStatusView({
   props,
@@ -83,7 +90,7 @@ export function OrderStatusView({
   order: OrderStatusData;
   notice?: React.ReactNode;
   afterItems?: React.ReactNode;
-  receipt?: React.ReactNode;
+  receipt?: OrderReceiptTile;
   onSupport?: () => void;
   /** Close a React Native <Modal> host first: a native route cannot be presented above it. */
   onBeforeGame?: () => void;
@@ -130,9 +137,11 @@ export function OrderStatusView({
             : order.state === 'paid'
               ? 'Оплата подтверждена. Ждём подтверждение кухни'
               : 'Жарим, собираем и следим за каждой деталью';
-  const itemCount = order.snapshot.lines.reduce((sum, line) => sum + line.quantity, 0);
-  const cardWidth = Math.min(680, width - 40);
-  const lineCards = order.snapshot.lines.map((line) => {
+  // 20 pt side fields on phones; wide screens keep one centred 680 pt column.
+  const inset = Math.max(20, (width - 680) / 2);
+  // Published availability is the same check the game routes use; read it only while shown.
+  const games = useOrderGames(active || ready ? props.model.branch?.id : null);
+  const lineRows = order.snapshot.lines.map((line) => {
     const product = props.model.products.find((p) => p.id === line.id);
     const description = line.selections?.length
       ? line.selections
@@ -142,33 +151,33 @@ export function OrderStatusView({
         ? line.serving_label
         : line.description;
     return (
-      <View key={line.line_id ?? line.id} style={[s.foodCard, { width: cardWidth }]}>
-        <View style={s.foodMain}>
-          <View style={s.foodVisual}>
-            {product ? (
-              <ProductPhoto
-                photo={productPhoto(product, 'card', 'menu')}
-                contentFit="contain"
-                style={s.foodImage}
-                accessibilityLabel={line.name}
-              />
-            ) : (
-              <Icon name="restaurant-outline" size={32} color={colors.muted} />
-            )}
-          </View>
-          <View style={s.foodCopy}>
-            <Body style={s.foodName}>{line.name}</Body>
-            <Row style={s.foodBottom}>
-              <Text style={s.foodPrice}>{money(line.line_total_minor)}</Text>
-              <Text style={s.quantity}>{line.quantity} шт.</Text>
-            </Row>
-          </View>
+      <View key={line.line_id ?? line.id} style={s.line}>
+        <View style={s.linePhoto}>
+          {product ? (
+            <ProductPhoto
+              photo={productPhoto(product, 'card', 'menu')}
+              contentFit="contain"
+              style={s.lineImage}
+              accessibilityLabel={line.name}
+            />
+          ) : (
+            <Icon name="restaurant-outline" size={22} color={colors.muted} />
+          )}
         </View>
-        {description ? (
-          <View style={s.foodOptions}>
-            <Caption style={s.foodDetail}>{description}</Caption>
-          </View>
-        ) : null}
+        <View style={s.lineCopy}>
+          <Text numberOfLines={2} style={s.lineName}>
+            {line.name}
+          </Text>
+          {description ? (
+            <Text numberOfLines={1} style={s.lineDetail}>
+              {description}
+            </Text>
+          ) : null}
+        </View>
+        <Text style={s.lineQuantity} accessibilityLabel={`${line.quantity} шт.`}>
+          ×{line.quantity}
+        </Text>
+        <Text style={s.linePrice}>{money(line.line_total_minor)}</Text>
       </View>
     );
   });
@@ -257,78 +266,51 @@ export function OrderStatusView({
               ))}
             </View>
           </View>
-          <View style={s.itemsSection}>
-            <Row style={s.itemsHeader}>
-              <Heading style={s.itemsTitle}>Ваш заказ</Heading>
-              <Caption style={s.itemsCount}>{itemCount} шт.</Caption>
+          <View testID="order-status-items" style={[s.orderBlock, { marginHorizontal: inset }]}>
+            <Row style={s.orderHeader}>
+              <Text accessibilityRole="header" style={s.orderTitle}>
+                Ваш заказ
+              </Text>
+              <Caption style={s.orderSummary}>
+                {order.snapshot.lines.length} поз. · {money(order.snapshot.total_minor)}
+              </Caption>
             </Row>
-            <View style={s.foodList} testID="order-status-items">
-              {lineCards}
-            </View>
+            {lineRows}
           </View>
-          {afterItems ? <View style={s.inset}>{afterItems}</View> : null}
-          {active || ready ? (
-            <MotionPressable
-              testID="order-play-blocks"
-              accessibilityRole="button"
-              accessibilityLabel={
-                active ? 'Пока готовим, сыграйте в Pick Blocks' : 'Сыграть в Pick Blocks'
-              }
-              onPress={() => {
-                onBeforeGame?.();
-                router.push({ pathname: '/games/pick-blocks', params: { from: 'order' } });
-              }}
-              style={s.game}
-            >
-              <Image
-                source={assets.pickBlocksCover}
-                contentFit="cover"
-                style={StyleSheet.absoluteFill}
-              />
-              <View pointerEvents="none" style={[StyleSheet.absoluteFill, gameShade]} />
-              <View style={s.gameIntro}>
-                <Icon name="game-controller-outline" size={16} color={colors.white} />
-                <Caption style={s.gameIntroText}>
-                  {active ? 'Пока готовим' : 'Ещё один раунд?'}
-                </Caption>
-              </View>
-              <View style={s.gameCopy}>
-                <View style={s.gameHeading}>
-                  <Heading style={s.gameTitle}>Pick Blocks</Heading>
-                  <Caption style={s.gameDetail}>Соберите свой рекорд</Caption>
-                </View>
-                <Row style={s.play}>
-                  <Body style={s.playText}>Играть</Body>
-                  <Icon name="arrow-forward" color={colors.orangeInk} size={18} />
-                </Row>
-              </View>
-            </MotionPressable>
+          {afterItems ? (
+            <View style={[s.inset, { paddingHorizontal: inset }]}>{afterItems}</View>
           ) : null}
-          <View style={s.bottom}>
-            {receipt}
-            {onSupport ? (
-              <NavRow
-                title="Написать в поддержку"
-                subtitle="Мы видим, по какому заказу нужна помощь"
-                testID="order-support"
-                onPress={onSupport}
-              />
-            ) : null}
-            {location ? (
-              <View style={s.address}>
-                <Icon name="location-outline" color={colors.accent} />
-                <View style={ui.flex}>
-                  <Body style={s.foodName}>{location.address}</Body>
-                  <Caption style={s.foodDetail}>
-                    {location.city} ·{' '}
-                    {order.snapshot.service_mode === 'takeaway'
-                      ? 'Заберите с собой'
-                      : 'Ждём вас в зале'}
-                  </Caption>
-                </View>
-              </View>
-            ) : null}
-          </View>
+          {active || ready ? (
+            <GameCarousel
+              title={active ? 'Пока готовим - сыграйте' : 'Ещё один раунд?'}
+              games={games}
+              inset={inset}
+              onOpen={(id) => openOrderGame(router, id, onBeforeGame)}
+            />
+          ) : null}
+          {receipt || onSupport ? (
+            <View style={[s.tiles, { paddingHorizontal: inset }]}>
+              {receipt ? (
+                <ActionTile
+                  icon="receipt-outline"
+                  label="Чек"
+                  caption={receipt.caption}
+                  hint={receipt.hint}
+                  testID={receipt.testID ?? 'order-receipt'}
+                  onPress={receipt.onPress}
+                />
+              ) : null}
+              {onSupport ? (
+                <ActionTile
+                  icon="chatbox-outline"
+                  label="Поддержка"
+                  hint="Мы видим, по какому заказу нужна помощь"
+                  testID="order-support"
+                  onPress={onSupport}
+                />
+              ) : null}
+            </View>
+          ) : null}
         </ScrollView>
       </View>
       <OrderActions
@@ -347,13 +329,54 @@ export function OrderStatusView({
     </View>
   );
 }
-const gameGradient =
-  'linear-gradient(180deg, rgba(2,10,30,0.06) 0%, rgba(2,10,30,0.02) 35%, rgba(2,10,30,0.65) 62%, rgba(2,10,30,0.98) 100%)';
-const gameShade = (
-  Platform.OS === 'web'
-    ? { backgroundImage: gameGradient }
-    : { experimental_backgroundImage: gameGradient }
-) as ViewStyle;
+/** «Чек» / «Поддержка»: an orange icon above the label; a status caption when not tappable. */
+function ActionTile({
+  icon,
+  label,
+  caption,
+  hint,
+  testID,
+  onPress,
+}: {
+  icon: IconName;
+  label: string;
+  caption?: string;
+  hint?: string;
+  testID: string;
+  onPress?: () => void;
+}) {
+  const content = (
+    <>
+      <Icon name={icon} size={22} color={colors.accent} />
+      <Text style={s.tileLabel}>{label}</Text>
+      {caption ? <Text style={s.tileCaption}>{caption}</Text> : null}
+    </>
+  );
+  if (!onPress)
+    return (
+      <View
+        testID={testID}
+        accessible
+        accessibilityLabel={caption ? `${label}. ${caption}` : label}
+        style={s.tile}
+      >
+        {content}
+      </View>
+    );
+  return (
+    <MotionPressable
+      testID={testID}
+      feedback="scale"
+      accessibilityRole="button"
+      accessibilityLabel={caption ? `${label}. ${caption}` : label}
+      accessibilityHint={hint}
+      onPress={onPress}
+      style={s.tile}
+    >
+      {content}
+    </MotionPressable>
+  );
+}
 const s = StyleSheet.create({
   root: { flex: 1, minHeight: 0, backgroundColor: colors.background },
   header: { paddingHorizontal: 16, paddingBottom: 12, alignItems: 'center', gap: 12 },
@@ -408,73 +431,69 @@ const s = StyleSheet.create({
   trackBar: { height: 3, borderRadius: 2, backgroundColor: colors.border },
   trackActive: { backgroundColor: colors.accent },
   trackLabel: { fontSize: 11, textAlign: 'center', color: colors.muted },
-  itemsSection: { gap: 12 },
-  itemsHeader: { paddingHorizontal: 20, justifyContent: 'space-between', gap: 12 },
-  itemsTitle: { fontSize: 20, lineHeight: 26 },
-  itemsCount: { fontSize: 13, color: colors.muted },
-  foodList: { paddingHorizontal: 20, gap: 12, alignItems: 'center' },
-  foodCard: {
-    padding: 12,
+  orderBlock: {
+    paddingHorizontal: 16,
+    paddingTop: 13,
+    paddingBottom: 5,
     borderRadius: 20,
     backgroundColor: colors.surface,
-    gap: 12,
   },
-  foodMain: { flexDirection: 'row', gap: 14, alignItems: 'center' },
-  foodVisual: {
-    width: 92,
-    height: 92,
-    borderRadius: 14,
+  orderHeader: { justifyContent: 'space-between', gap: 12, paddingBottom: 4 },
+  orderTitle: { fontFamily: font.bold, fontSize: 15, lineHeight: 21, color: colors.text },
+  orderSummary: {
+    flexShrink: 1,
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.muted,
+    textAlign: 'right',
+    fontVariant: ['tabular-nums'],
+  },
+  line: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
+  linePhoto: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#F6F6F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  foodImage: { width: '100%', height: '100%' },
-  foodCopy: { flex: 1, gap: 12 },
-  foodName: { fontFamily: font.bold, fontSize: 16, lineHeight: 22 },
-  foodOptions: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    paddingTop: 10,
+  lineImage: { width: '100%', height: '100%' },
+  lineCopy: { flex: 1, minWidth: 0, gap: 1 },
+  lineName: { fontFamily: font.medium, fontSize: 14, lineHeight: 20, color: colors.text },
+  lineDetail: { fontFamily: font.body, fontSize: 12.5, lineHeight: 17, color: colors.muted },
+  lineQuantity: {
+    fontFamily: font.medium,
+    fontSize: 12.5,
+    lineHeight: 17,
+    color: colors.muted,
+    fontVariant: ['tabular-nums'],
   },
-  foodDetail: { fontSize: 13, lineHeight: 19, color: colors.muted },
-  foodBottom: { flexWrap: 'wrap', gap: 10 },
-  quantity: { fontFamily: font.medium, color: colors.muted, fontSize: 13 },
-  foodPrice: { fontFamily: font.bold, fontSize: 16, lineHeight: 22, color: colors.text },
-  game: {
-    marginHorizontal: 20,
-    borderRadius: 24,
+  linePrice: {
+    fontFamily: font.bold,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.text,
+    fontVariant: ['tabular-nums'],
+  },
+  tiles: { flexDirection: 'row', gap: 10 },
+  tile: {
+    flex: 1,
+    minHeight: 74,
+    paddingHorizontal: 12,
+    paddingVertical: 13,
+    borderRadius: 18,
     backgroundColor: colors.surface,
-    overflow: 'hidden',
-    minHeight: 248,
-    justifyContent: 'space-between',
-    padding: 16,
-    gap: 96,
-  },
-  gameIntro: {
-    flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
-    backgroundColor: '#020A1EDD',
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  gameIntroText: { color: colors.white, fontSize: 12, lineHeight: 18 },
-  gameCopy: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 12 },
-  gameHeading: { flex: 1, minWidth: 128, gap: 4 },
-  gameTitle: { color: colors.white, fontSize: 24, lineHeight: 30 },
-  gameDetail: { color: '#D5DDF0', fontSize: 12, lineHeight: 18 },
-  play: {
-    backgroundColor: colors.accent,
-    minHeight: 48,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 24,
+    justifyContent: 'center',
     gap: 6,
   },
-  playText: { fontFamily: font.bold, fontSize: 14, color: colors.orangeInk },
-  bottom: { paddingHorizontal: 20, gap: 12 },
-  address: { flexDirection: 'row', gap: 12, paddingVertical: 16 },
+  tileLabel: { fontFamily: font.medium, fontSize: 14, lineHeight: 19, color: colors.text },
+  tileCaption: {
+    fontFamily: font.body,
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.muted,
+    textAlign: 'center',
+  },
 });

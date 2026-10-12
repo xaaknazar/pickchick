@@ -12,7 +12,7 @@ import {
 import type { BottomTabBarProps } from 'expo-router/tabs';
 import { MotionPressable as Pressable } from './Motion';
 import { TabIcon } from './UI';
-import { font } from '../theme';
+import { colors, font } from '../theme';
 import { tabBarMetrics, tabBarPalette as palette, tabLabelMaxScale } from '../tab-bar-metrics';
 
 type TabName = 'menu' | 'events' | 'orders' | 'profile';
@@ -105,6 +105,12 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
           const focused = state.index === index;
           const label = typeof options.title === 'string' ? options.title : route.name;
           const color = focused ? palette.active : palette.inactive;
+          const badge =
+            options.tabBarBadge === undefined || options.tabBarBadge === ''
+              ? null
+              : Number(options.tabBarBadge) > 9
+                ? '9+'
+                : String(options.tabBarBadge);
           const onPress = () => {
             const event = navigation.emit({
               type: 'tabPress',
@@ -120,7 +126,10 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
               accessibilityRole="tab"
               accessibilityState={{ selected: focused }}
               aria-selected={focused}
-              accessibilityLabel={options.tabBarAccessibilityLabel ?? label}
+              accessibilityLabel={
+                options.tabBarAccessibilityLabel ??
+                (badge ? `${label}, активных заказов: ${badge}` : label)
+              }
               feedback="scale"
               onPress={onPress}
               onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route.key })}
@@ -133,7 +142,20 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
                   style={s.pill}
                 />
               ) : null}
-              <TabIcon name={route.name as TabName} color={color} />
+              <View>
+                <TabIcon name={route.name as TabName} color={color} />
+                {badge ? (
+                  <View
+                    testID={`${options.tabBarButtonTestID}-badge`}
+                    pointerEvents="none"
+                    style={s.badge}
+                  >
+                    <Text style={s.badgeText} maxFontSizeMultiplier={1.2} numberOfLines={1}>
+                      {badge}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
               <Text
                 numberOfLines={1}
                 maxFontSizeMultiplier={tabLabelMaxScale}
@@ -192,4 +214,25 @@ const s = StyleSheet.create({
     textAlign: 'center',
   },
   labelActive: { fontFamily: font.bold },
+  // Active-order counter on «Заказы»: brand orange with dark ink, like primary buttons.
+  badge: {
+    position: 'absolute',
+    top: -6,
+    left: 13,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accent,
+  },
+  badgeText: {
+    fontFamily: font.bold,
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.orangeInk,
+    includeFontPadding: false,
+    textAlign: 'center',
+  },
 });
