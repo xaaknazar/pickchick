@@ -4726,11 +4726,12 @@
         "tests/mobile/orders-tab.test.mjs",
         "tests/mobile/restaurant-hours.test.mjs",
         "tests/mobile/restaurant-location.test.mjs",
-        "tests/mobile/restaurant-map.test.mjs"
+        "tests/mobile/restaurant-map.test.mjs",
+        "docs/design/mobile-redesign-2026-10-12"
       ],
       "status": "active",
       "head": "fced4c99806d035b6a16dbf3c376a8aed74232b5",
-      "updatedAt": "2026-10-12T13:00:33.036Z",
+      "updatedAt": "2026-10-12T13:00:50.361Z",
       "summary": "По прямому поручению владельца опубликована без изменения коммитов ветка codex/mobile-redesign-1012, remote SHA fced4c99806d035b6a16dbf3c376a8aed74232b5 подтверждён. PR https://github.com/xaaknazar/pickchick/pull/233 открыт в codex/shared-development с точным текстом .local/mobile-redesign-1012/PR.md. Проверены свежая база7125c00a, чистота рабочей копии, diff --check и стандартные шаблоны секретов. Владелец отдельно подтвердил передачу пересекающихся файлов от Luma, TestFlight18, Pick Farm, TipTop и stop-report; чужие checkpoints и остальные области сохранены. Продуктовые тесты здесь повторно не запускались; результаты предыдущей облачной сессии сохранены в описании PR, полная новая CI ещё не подтверждена.",
       "nextAction": "Дождаться полной CI PR233; проверить на физическом iPhone/TestFlight и явно интегрировать параллельные ветки mobile-bugfix-1012/Luma с сохранением функциональности. После проверки включить коммит в общий срез без force и выполнить finish. Онлайн-пульт этим этапом публикации не обновлялся."
     }
