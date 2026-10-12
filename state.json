@@ -4502,6 +4502,30 @@
       "updatedAt": "2026-10-11T10:47:18.435Z",
       "summary": "Stage complete. API/portal f01cb45f installed with Foundation CI38128477800 11/11, encrypted backup+restore, schema052/ACL/compose preserved, canonical assets and CEO read passed. Shared808 CI38130486984 and38130522132 green11/11; polling isolation regression fixed. Roadmap4f1bb2b7 deployed after exact Foundation38131861831 11/11 and Project roadmap38131861824 success; public health confirmed10:46UTC,15 neighbors and team notes preserved. Failed808 rollback retained; package now rejects stale SHA/dataHash. Final documentation checkpoint pushed and remote SHAs verified; PR226/227 integrated.",
       "nextAction": "Owner/accountant acceptance on /backoffice/#stock and #shifts. Await real techcards and initial stock count; no sales autowriteoff, BioCheck or iiko cutover. Next deploy must freshly read API f01 and public/roadmap4f pins. Release all remaining scopes; source release proofs remain separate from documentation-only follow-up CI."
+    },
+    {
+      "id": "cabinet-entry",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/cabinet-entry",
+      "scopes": [
+        "apps/backoffice/src/app.ts",
+        "apps/backoffice/src/styles.css",
+        "apps/backoffice/src/workspace.css",
+        "tests/backoffice/browser_operations.py",
+        "infra/backoffice-login/pickchick.Caddyfile",
+        "infra/domains/release-root.py",
+        "infra/domains/test_release_root.py",
+        "docs/operations/cabinet-entry.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "@vps/domains",
+        "@vps/staff-login",
+        "@vps/roadmap"
+      ],
+      "status": "active",
+      "head": "3e35293d115fb1ddd2d2875334653942687a9cd8",
+      "updatedAt": "2026-10-12T04:43:10.214Z"
     }
   ]
 }
