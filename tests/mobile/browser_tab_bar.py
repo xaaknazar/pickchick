@@ -109,6 +109,14 @@ with sync_playwright() as p:
         page.goto(URL + '/menu')
         expect(page.get_by_test_id('product-pick-combo')).to_be_visible(timeout=20000)
         expect(page.get_by_test_id('launch-reveal')).to_have_count(0, timeout=10000)
+        if not CAPTURE_ONLY:
+            # Exercise repeated refocus without artificial waits between tab presses.
+            # The native iOS detach regression still needs the owner/device checklist.
+            for _ in range(20):
+                page.get_by_test_id('tab-events').click()
+                expect(page.get_by_test_id('screen-M26')).to_be_visible()
+                page.get_by_test_id('tab-menu').click()
+                expect(page.get_by_test_id('product-pick-combo')).to_be_visible()
         page.wait_for_timeout(500)
         # Photo-heavy storefront: hero cover and product photos run under the bar.
         page.screenshot(path=str(OUT / f'menu-hero-{width}.png'))

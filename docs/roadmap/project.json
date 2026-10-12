@@ -4422,6 +4422,38 @@
         "deployed": true,
         "accepted": false
       }
+    },
+    {
+      "id": "mobile-testflight19",
+      "workstream": "mobile",
+      "title": "iOS build 19: редизайн и исправления",
+      "summary": "Объединены shared, PR #233 и мобильные исправления. Подготовлен номер 0.2.0 (19). Typecheck/lint/format, 358 Node + 50 Python mobile и 244 unit успешны. Архив/upload/обработка Apple и приёмка iPhone ещё не выполнены. Каталог и цены не публикуются.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["mobile-redesign-1012"],
+      "evidence": [
+        {
+          "label": "Объединение и проверки",
+          "path": "docs/operations/mobile-bugfix-2026-10-12.md"
+        },
+        {
+          "label": "Выпуск и чек-лист",
+          "path": "docs/operations/mobile-testflight19.md"
+        }
+      ],
+      "acceptance": [
+        "Полная CI обоих PR успешна; исходник архива включён в shared.",
+        "0.2.0 (19) обработана Apple и доступна внутренним тестировщикам.",
+        "Владелец проверил приложение на iPhone."
+      ],
+      "nextAction": "Завершить CI, включить изменения в shared, собрать и загрузить build 19; затем приёмка владельцем.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
     }
   ]
 }

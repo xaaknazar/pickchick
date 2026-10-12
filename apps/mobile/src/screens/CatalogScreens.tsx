@@ -171,7 +171,6 @@ export function Branches(props: ScreenProps) {
             <Text testID="branches-summary" style={s.branchesSummary}>
               {entries.length ? `${city} · ${restaurantCountLabel(entries.length)}` : city}
             </Text>
-            {props.preview ? <ReviewBadge /> : null}
             {loading ? <Loading title="Ищем рестораны" /> : null}
             {entries.map(({ branch, location, status }) => (
               <RestaurantCard
