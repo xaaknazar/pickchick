@@ -35,6 +35,40 @@ export const colors = {
   /** Small orange-tinted accent text on brand blue (4.9:1 on #014FCE). */
   orangeOnBlue: '#FFCFA8',
 };
+/**
+ * Kiosk redesign 2026-10-13 (docs/design/kiosk-redesign-2026-10-13/README.md): owner-approved
+ * tokens for the start, menu (bento) and smart-upsell screens. Payment and order screens keep
+ * the v3 palette above.
+ */
+export const redesign = {
+  /** Screen background: radial 120% 60% at 75% 0%, #1E6BE6 → #0047BB 45% → #02297A. */
+  screen: ['#1E6BE6', '#0047BB', '#02297A'] as const,
+  cta: '#FF6900',
+  ctaShadow: 'rgba(255,105,0,.5)',
+  cardInk: '#15213A',
+  cardMuted: '#55617A',
+  cream: '#FEF8F0',
+  cardShadow: 'rgba(2,10,31,.25)',
+  /** Glass for every header control and the bottom panels. */
+  glass: 'rgba(14,22,48,.40)',
+  glassLine: 'rgba(255,255,255,.20)',
+  glassHighlight: 'rgba(255,255,255,.14)',
+  glassShadow: 'rgba(2,10,31,.18)',
+  /** Start screen: language switch and the Kaspi QR chip over the film. */
+  startGlass: 'rgba(2,10,31,0.55)',
+  startGlassLine: 'rgba(255,255,255,.18)',
+  startChip: 'rgba(2,10,31,.28)',
+  startChipLine: 'rgba(255,255,255,.2)',
+  /** «ХИТ» / «ХИТ НЕДЕЛИ» badge gradient (135deg). */
+  hit: ['#FF3B1F', '#D7141A'] as const,
+  newBadge: '#0047BB',
+  lemonadeBadge: '#FFC21A',
+  added: '#2E9E5B',
+  /** Darkening above the bottom panel, 220 tall. */
+  scrim: ['rgba(2,10,31,0)', 'rgba(2,10,31,.55)'] as const,
+  /** Salute particles. */
+  spark: ['#FFD166', '#FFFFFF', '#FF6900'] as const,
+};
 export const fonts = {
   body: 'GolosText_400Regular',
   medium: 'GolosText_600SemiBold',
