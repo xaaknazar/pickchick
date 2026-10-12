@@ -4728,7 +4728,7 @@
       "id": "mobile-bugfix-1012",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-bugfix-1012",
-      "head": "20568cf69a4bd02bde680ffb3fedbb39edacd2e2",
+      "head": "699c003ff99518358a8462028d980245e470282e",
       "status": "active",
       "scopes": [
         "@integration/mobile-bugfix-1012",
@@ -4786,7 +4786,7 @@
         "tests/mobile/browser_tab_bar.py",
         "@release/ios"
       ],
-      "updatedAt": "2026-10-12T13:23:31.062Z",
+      "updatedAt": "2026-10-12T13:26:56.613Z",
       "summary": "Ветка ddb32f73 принята для явной интеграции в отдельном worktree. Сначала зарезервированы области; стандартный claim требует обновить старую базу и будет повторён после merge. Скрипт catalog-add-drinks.mjs не запускать; цены и каталог не менять.",
       "nextAction": "Влить свежий shared и PR233; в двух конфликтах сохранить редизайн. Пройти typecheck/lint/mobile/browser и CI, подготовить build19."
     }
