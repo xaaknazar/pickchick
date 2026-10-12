@@ -1,4 +1,3 @@
-import { useReducedMotion } from '../../components/Motion';
 import { useAccount } from '../../useAccount';
 import { Tabs, useRouter } from 'expo-router';
 import { useWindowDimensions } from 'react-native';
@@ -20,7 +19,6 @@ export default function TabLayout() {
       }
     },
   });
-  const reduced = useReducedMotion();
   const { fontScale } = useWindowDimensions();
   const inset = tabBarMetrics(insets, fontScale).inset;
   return (

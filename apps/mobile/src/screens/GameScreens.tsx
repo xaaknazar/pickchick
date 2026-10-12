@@ -9,15 +9,7 @@ import { PickFarmCard } from '../games/pick-farm/visuals';
 import { FARM_ENABLED } from '../games/pick-farm/api';
 import { MagicSortCard } from '../games/magic-sort/MagicSortCard';
 import { PickManCard } from '../games/pick-man/visuals';
-import {
-  Body,
-  Caption,
-  Heading,
-  Icon,
-  Row,
-  styles as ui,
-  type IconName,
-} from '../components/UI';
+import { Body, Caption, Heading, Icon, Row, styles as ui, type IconName } from '../components/UI';
 
 export function Events(props: ScreenProps) {
   const published = usePublishedContent(props.model.branch?.id);
