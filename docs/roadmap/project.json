@@ -1295,7 +1295,7 @@
       "id": "catalog-unified",
       "workstream": "catalog",
       "title": "Подключить единый каталог ко всем каналам",
-      "summary": "Публикация и паритет общего каталога реализованы. Read-only baseline 9 октября подтвердил Windows23/schema019, protocol4, menu-sync apply и включённые access-roles/edge-publication; API3bc/schema050 и native16 TestFlight установлены. Remote-stops/media-upload ещё выключены; приёмка всей цепочки не завершена. Последний portal health: edgeConnected=false. 12 октября API f01cb45f/schema052: обмен protocol4 свежий, remote-stops выключен; готовность Windows не подтверждена.",
+      "summary": "Публикация и паритет общего каталога реализованы. Read-only baseline 9 октября подтвердил Windows23/schema019, protocol4, menu-sync apply и включённые access-roles/edge-publication; API3bc/schema050 и native16 TestFlight установлены. Remote-stops/media-upload ещё выключены; приёмка всей цепочки не завершена. Последний portal health: edgeConnected=false. 12 октября API f01cb45f/schema052: обмен protocol4 свежий, remote-stops выключен; SSH финансового Mac проверен; edge23/schema019 ready, права стоп-команд проверены на чтение, активация ещё не выполнена.",
       "status": "active",
       "owner": "development",
       "phase": "foundation",
@@ -1350,7 +1350,7 @@
         "AC-02/32: каждый канал использует совместимую опубликованную версию.",
         "Offline/несовместимый клиент не ломает текущую смену."
       ],
-      "nextAction": "Получить текущий IP и SSH-доступ к Windows с финансового Mac, подтвердить edge/ACL/меню/readiness. Согласовать актуальный guarded выпуск с фактической schema052 и отдельной задачей cloud-kitchen; не запускать старый pinned cloud051 оператор без адаптации и проверок.",
+      "nextAction": "Согласовать и проверить оператор активации на фактических cloud052/edge019, сохранив отдельный план cloud-kitchen. Затем включить флаги с резервной копией/откатом и принять доставку STOP/UNSTOP; старый pinned cloud051/edge020 оператор без адаптации не запускать.",
       "checks": {
         "implemented": true,
         "verified": false,
@@ -4368,7 +4368,7 @@
       "id": "filter-layout",
       "workstream": "backoffice",
       "title": "Выровнять фильтры и упростить выбор месяца и должности",
-      "summary": "Подготовлены выровненные панели Главной/Заказов и графика, списки месяца/года и должности. Локальные браузерные проверки и снимки четырёх размеров прошли; установка ожидается.",
+      "summary": "Установлен портал 661f84c2: выровненные панели Главной/Заказов/графика, списки месяца/года и должности. Foundation CI 11/11; 55 HTTPS-файлов, защита входа и соседние сервисы проверены. API/БД и учётные записи сохранены.",
       "status": "active",
       "owner": "development",
       "phase": "product",
@@ -4383,11 +4383,11 @@
         "Фильтры и кнопки выровнены на компьютере и телефоне.",
         "Месяц, год и должность выбираются из списка; сохранённые значения не теряются."
       ],
-      "nextAction": "Пройти CI точного коммита, установить портал и принять интерфейс с владельцем.",
+      "nextAction": "Владельцу проверить фильтры на компьютере/телефоне и выбор должности при создании и изменении смены.",
       "checks": {
         "implemented": true,
         "verified": true,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     }
