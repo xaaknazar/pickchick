@@ -1847,6 +1847,38 @@
       }
     },
     {
+      "id": "kiosk-redesign-1013",
+      "workstream": "kiosk",
+      "title": "Редизайн киоска: старт, меню-бенто, умные допы (13.10)",
+      "summary": "По заданию владельца от 13.10: стеклянный язык, чип Kaspi QR и «Салют» на старте; заголовок выбора зала в одну строку; меню-бенто с хитом раздела и сеткой по числу позиций; умные допы после «Оформить заказ» и переход сразу на существующую оплату Kaspi QR без страницы корзины. Оплата, ошибки и номер заказа не менялись. Проверены test:kiosk 163/163, typecheck, lint и web-снимки на трёх iPad. Физический iPad - впереди.",
+      "status": "active",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": ["kiosk-client"],
+      "evidence": [
+        {
+          "label": "Задание и макеты владельца",
+          "path": "docs/design/kiosk-redesign-2026-10-13/README.md"
+        },
+        {
+          "label": "Внедрение, проверки, снимки и отличия",
+          "path": "docs/operations/kiosk-redesign-2026-10-13.md"
+        }
+      ],
+      "acceptance": [
+        "Старт, выбор зала, меню и допы совпадают с макетами на 1024×1366, 820×1180 и 744×1133 в RU/KZ/EN.",
+        "Из допов «К оплате» открывает существующий экран Kaspi QR; оплата и номер заказа не изменены.",
+        "Владелец принял сборку на iPad."
+      ],
+      "nextAction": "Push ветки codex/kiosk-redesign-1013, PR и полная CI; затем сборка киоска в TestFlight и приёмка на iPad.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
       "id": "kiosk-terminal",
       "workstream": "kiosk",
       "title": "Связать киоск с выделенным терминалом",
