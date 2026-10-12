@@ -101,6 +101,11 @@ test('geometry stretches rows by fr and scrolls instead of squeezing a long sect
   assert.ok(drinks.height > 1082);
   assert.ok(drinks.cards.every((c) => c.height >= 250));
   assert.ok(drinks.hit.height >= 260);
+  // Three rows of cards (up to ten products) still fit; a longer section scrolls with roomy rows.
+  assert.equal(bentoGeometry(bentoLayout(10), 806, 1082, 16, 250, 260, 320).height, 1082);
+  const scrolling = bentoGeometry(bentoLayout(19), 806, 1082, 16, 250, 260, 320);
+  assert.ok(scrolling.cards.every((c) => c.height === 320));
+  assert.equal(scrolling.hit.height, 272, '0.85 of a roomy row');
   // The same rule on the 11-inch and mini iPads (scale 0.8).
   for (const [w, h] of [
     [645, 953],

@@ -16,8 +16,12 @@ import { MENU_BOTTOM, RAIL_WIDTH } from './CategoryRail';
 import { Billboard } from './Billboard';
 import { useStagger } from './motion';
 import type { Category, MenuMemory } from './categories';
-/** Grid metrics in design points (1024 pt mockups): gutter, smallest card and hit rows. */
-const GRID = { gap: 16, right: 16, minRow: 300, minHit: 260 };
+/**
+ * Grid metrics in design points (1024 pt mockups): gutter, the smallest card and hit rows that
+ * still fit on screen (three rows of cards do on every iPad), and the card row of a section
+ * long enough to scroll.
+ */
+const GRID = { gap: 16, right: 16, minRow: 250, minHit: 260, scrollRow: 320 };
 /**
  * Bento menu grid (kiosk redesign 2026-10-13, README section 3), right of the rail from the
  * header down to 156 pt above the bottom edge: the section's hit across the full width, then
@@ -71,6 +75,7 @@ export function MenuGrid({
     px(GRID.gap),
     px(GRID.minRow),
     px(GRID.minHit),
+    px(GRID.scrollRow),
   );
   const initial = memory.offsets[category] ?? 0;
   const restoration = useMemo(() => ({ done: initial === 0, viewport: 0, content: 0 }), [initial]);

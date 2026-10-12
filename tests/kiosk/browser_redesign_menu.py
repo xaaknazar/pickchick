@@ -23,18 +23,23 @@ HITS = {'combo': 'master-combo', 'duo': 'finger-duo', 'sets': 'fingers-25',
         'extras': 'burger', 'drinks': 'lemonade'}
 
 
-def many_drinks(catalog, total=19):
-    """The live catalog grows to 19 drinks: copies of the fixture drinks under new ids."""
+def grown(catalog, category, total):
+    """A section grown to `total` products: copies of its fixture products under new ids."""
     result = copy.deepcopy(catalog)
-    drinks = [p for p in result['products'] if p['category'] == 'Напитки']
+    section = [p for p in result['products'] if p['category'] == category]
     extra = []
-    while len(drinks) + len(extra) < total:
-        base = drinks[len(extra) % len(drinks)]
+    while len(section) + len(extra) < total:
+        base = section[len(extra) % len(section)]
         number = len(extra) + 1
         extra.append({**copy.deepcopy(base), 'id': f"{base['id']}-x{number}",
                       'name': f"{base['name']} #{number}"})
     result['products'] += extra
     return result
+
+
+def many_drinks(catalog, total=19):
+    """The live catalog grows to 19 drinks."""
+    return grown(catalog, 'Напитки', total)
 
 
 def clipped(page, selector, allowed=()):
@@ -162,6 +167,19 @@ class RedesignMenu(ui.KioskUI):
                 self.assertGreater(checkout['height'], 0)
                 self.assertEqual(len(fixture.orders), 0)
 
+    def test_ten_extras_still_fit(self):
+        # Three rows of cards fit on every iPad; only a longer section scrolls.
+        catalog = grown(self.catalog, 'Допы', 10)
+        for width, height in SIZES:
+            with self.subTest(width=width, height=height):
+                page, fixture = self.open_with(width, height, catalog)
+                self.start(page)
+                ui.element(page, 'kiosk-category-extras').click()
+                self.assertFalse(self.check_layout(page, width, height, 'extras'))
+                if width == 744:
+                    ui.capture(page, f'menu-extras10-{width}.png')
+                self.assertEqual(len(fixture.orders), 0)
+
     def test_empty_cart_disables_checkout(self):
         for width, height in SIZES:
             with self.subTest(width=width, height=height):
@@ -180,5 +198,6 @@ if __name__ == '__main__':
         'RedesignMenu.test_sections_with_cart_on_three_ipads',
         'RedesignMenu.test_kazakh_and_english_headers_fit',
         'RedesignMenu.test_nineteen_drinks_scroll_under_the_panel',
+        'RedesignMenu.test_ten_extras_still_fit',
         'RedesignMenu.test_empty_cart_disables_checkout',
     ], verbosity=2)

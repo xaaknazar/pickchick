@@ -132,9 +132,9 @@ export interface BentoGeometry {
 }
 /**
  * Pixel frames for a layout in a `width` x `height` viewport. Rows share the height by their
- * `fr` weights (the grid stretches with the screen); a row never drops below its minimum
- * (`minHit` for the hit row, `minRow` for cards), so a long section grows taller than the
- * viewport and scrolls instead of squeezing its cards.
+ * `fr` weights, so the grid stretches with the screen; the hit row keeps at least `minHit`
+ * and the card rows share the rest. When that would make a card row lower than `minRow`, the
+ * section scrolls instead, with roomier rows (`scrollRow` per `fr`) rather than squeezed ones.
  */
 export function bentoGeometry(
   layout: BentoLayout,
@@ -143,12 +143,23 @@ export function bentoGeometry(
   gap: number,
   minRow: number,
   minHit: number,
+  scrollRow = minRow,
 ): BentoGeometry {
   const { rows, columns } = layout;
   if (!rows.length) return { hit: null, cards: [], height: 0 };
   const total = rows.reduce((sum, weight) => sum + weight, 0);
-  const fr = Math.max(0, height - gap * (rows.length - 1)) / total;
-  const heights = rows.map((weight, index) => Math.max(weight * fr, index === 0 ? minHit : minRow));
+  const free = height - gap * (rows.length - 1);
+  // The hit takes its share (at least `minHit`); the card rows share what is left.
+  const hit = Math.max((rows[0]! * Math.max(0, free)) / total, minHit);
+  const cardWeights = rows.slice(1);
+  const cardFr = (free - hit) / Math.max(1e-9, total - rows[0]!);
+  const fits = cardWeights.every((weight) => weight * cardFr >= minRow);
+  const heights = fits
+    ? [hit, ...cardWeights.map((weight) => weight * cardFr)]
+    : [
+        Math.max(rows[0]! * scrollRow, minHit),
+        ...cardWeights.map((weight) => Math.max(weight * scrollRow, minRow)),
+      ];
   // Edges are rounded from exact running sums, so cells meet the gap and the grid's own
   // edges to the pixel whatever the fr unit is.
   const top = (row: number) =>
