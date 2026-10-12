@@ -195,4 +195,36 @@ class ExistingStops(unittest.TestCase):
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
         self.assertIn('guard checks passed',result.stdout)
 
+    def test_backup_uses_this_macs_recipient_and_restores_only_isolated_database(self):
+     with tempfile.TemporaryDirectory() as tmp:
+      key=Path(tmp).resolve()/'identity';key.write_bytes(b'synthetic-key');key.chmod(0o600)
+      obj=object.__new__(r.Release);obj.args=types.SimpleNamespace(backup_identity=key)
+      obj.execute=Mock(return_value=('age1'+'q'*58).encode())
+      obj.ledger=Mock(return_value=[{'version':'synthetic'}]);obj.table_names=Mock(return_value=['synthetic'])
+      calls=[]
+      obj.remote=Mock(side_effect=lambda command,**kw:calls.append((command,kw)) or 'a'*64+'  backup')
+      result=obj.backup_restore()
+      self.assertEqual(result['restore'],'passed')
+      commands='\n'.join(c[0] for c in calls)
+      self.assertNotIn('backup-recipient.txt',commands)
+      self.assertIn('age1'+'q'*58,commands)
+      self.assertNotIn('synthetic-key',commands)
+      restore=next(c for c in calls if 'pg_restore' in c[0])
+      self.assertIn('-d pickchick_restore_existing_stops_',restore[0]);self.assertEqual(restore[1]['input'],b'synthetic-key')
+      self.assertIn('dropdb',calls[-2][0])
+    def test_failed_restore_cleans_only_its_isolated_database_and_stops(self):
+     with tempfile.TemporaryDirectory() as tmp:
+      key=Path(tmp).resolve()/'identity';key.write_bytes(b'synthetic-key');key.chmod(0o600)
+      obj=object.__new__(r.Release);obj.args=types.SimpleNamespace(backup_identity=key)
+      obj.execute=Mock(return_value=('age1'+'q'*58).encode());obj.ledger=Mock(return_value=[]);obj.table_names=Mock(return_value=[])
+      calls=[]
+      def remote(command,**kw):
+       calls.append(command)
+       if 'pg_restore' in command:raise r.GuardFailure('Synthetic restore failed')
+       return ''
+      obj.remote=remote
+      with self.assertRaises(r.GuardFailure):obj.backup_restore()
+      self.assertIn('dropdb -U postgres pickchick_restore_existing_stops_',calls[-1])
+      self.assertFalse(any('up -d' in c for c in calls))
+
 if __name__=='__main__':unittest.main()
