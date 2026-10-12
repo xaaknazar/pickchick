@@ -4728,7 +4728,7 @@
       "id": "mobile-bugfix-1012",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-bugfix-1012",
-      "head": "ddb32f73b1ff0f930cbfc1d5a84b10ebc485a4e9",
+      "head": "66a23da89a8f10d031efa7e13cafc45dab09d158",
       "status": "active",
       "scopes": [
         "@integration/mobile-bugfix-1012",
@@ -4784,7 +4784,7 @@
         "docs/operations/mobile-bugfix-2026-10-12.md",
         "docs/operations/mobile-testflight19.md"
       ],
-      "updatedAt": "2026-10-12T13:19:11.124Z",
+      "updatedAt": "2026-10-12T13:19:38.063Z",
       "summary": "Ветка ddb32f73 принята для явной интеграции в отдельном worktree. Сначала зарезервированы области; стандартный claim требует обновить старую базу и будет повторён после merge. Скрипт catalog-add-drinks.mjs не запускать; цены и каталог не менять.",
       "nextAction": "Влить свежий shared и PR233; в двух конфликтах сохранить редизайн. Пройти typecheck/lint/mobile/browser и CI, подготовить build19."
     }
