@@ -4597,11 +4597,14 @@
         "docs/operations/existing-stop-activation.md",
         "@vps/api",
         "@vps/db",
-        "@windows/cashier"
+        "@windows/cashier",
+        "infra/windows/existing-stops-readiness.mjs",
+        "tests/integration/existing-stops-readiness.test.mjs",
+        "tests/operations/windows-existing-stops.test.ps1"
       ],
       "status": "active",
       "head": "3c51229ed4580e5865537f1f137a9c9d14d08fe0",
-      "updatedAt": "2026-10-12T11:09:35.901Z"
+      "updatedAt": "2026-10-12T11:16:25.712Z"
     }
   ]
 }
