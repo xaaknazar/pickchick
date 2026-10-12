@@ -51,10 +51,28 @@ coders, hermesvm. Это ограничение расшифровки crash-о�
 загрузку оно не остановило.
 
 Каталог и цены не публиковались. `catalog-add-drinks.mjs` не запускался,
-реальные заказы, счета, QR и платежи не создавались. Владелец разрешил временно
-передать `@vps/roadmap` и `@vps/public-https` из stop-report для публикации
-онлайн-пульта. Резервы приняты; обновление будет выполнено после проверки CI,
-затем оба резерва возвращаются stop-report.
+реальные заказы, счета, QR и платежи не создавались.
+
+## Онлайн-пульт и сохранение результата
+
+[PR #235](https://github.com/xaaknazar/pickchick/pull/235) включён в shared
+после полной [Foundation CI 38301074361](https://github.com/xaaknazar/pickchick/actions/runs/38301074361)
+(11/11) и [Project roadmap 38301074347](https://github.com/xaaknazar/pickchick/actions/runs/38301074347).
+Повторная CI исходника iOS на shared также успешна:
+[38297796770](https://github.com/xaaknazar/pickchick/actions/runs/38297796770), 11/11.
+
+Пульт установлен из `4a97a1ab253b3f78405a8398a4e184d1082377b1`, публичный HTTPS
+`/roadmap/health` подтвердил этот SHA. Пакет из чистого committed checkout,
+SHA-256 `c7013cd35b3c5d332aec4a85c942f6cc2eb208a0429f5cd893e057d6b29f5f02`,
+проверен на Mac и VPS. Локально: 7 проверок roadmap и 22 deployment guards.
+Оператор выполнил inspect/apply, приватный backup SQLite с заметками команды,
+проверки авторизации и прежних публичных файлов. Все 17 соседних сервисов
+сохранены, API остался на `f01cb45f441de1b664806c42aa93deb5cbb568b6`;
+public/roadmap pointers теперь `4a97a1ab`. Gateway SHA-256 не изменился:
+`971bbd6ee3a951d6ab8a8b99e3f42eef013aa85c4640b9820fc93fde0637ac4a`.
+Блокировка выпуска снята. Временная передача `@vps/roadmap` и
+`@vps/public-https` согласована владельцем; после публикации оба резерва
+возвращены stop-report. Эта итоговая запись не меняет установленный пакет.
 
 ## Чек-лист владельца на iPhone
 
