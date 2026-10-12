@@ -4543,6 +4543,27 @@
       "updatedAt": "2026-10-12T06:51:18.258Z",
       "summary": "Установлены открытое меню d379075b, вход с домена 41720c55 и пульт 9ecd81a2; Foundation CI 38211061920 11/11 после повтора, локальные браузерные проверки, HTTPS 55 файлов и health. PR #228; общий SHA 9d352fd5. Итоговый docs-checkpoint не является новым серверным выпуском.",
       "nextAction": "Владелец проверяет вход через pickchick.kz и доступность разделов; приёмка ещё не отмечена. Подробности и единичный timeout CI сохранены в docs/operations/cabinet-entry.md."
+    },
+    {
+      "id": "filter-layout",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/filter-layout",
+      "scopes": [
+        "apps/backoffice/src/app.ts",
+        "apps/backoffice/src/workspace.css",
+        "tests/backoffice/design-browser.py",
+        "tests/backoffice/design-browser.test.mjs",
+        "docs/operations/filter-layout.md",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "@vps/staff-login",
+        "@vps/roadmap",
+        "@vps/public-https"
+      ],
+      "status": "active",
+      "head": "9d352fd54543cb776cca2f741bd3ab193df25742",
+      "updatedAt": "2026-10-12T10:23:04.166Z"
     }
   ]
 }
