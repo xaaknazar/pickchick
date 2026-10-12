@@ -4729,7 +4729,7 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-bugfix-1012",
       "head": "699c003ff99518358a8462028d980245e470282e",
-      "status": "active",
+      "status": "done",
       "scopes": [
         "@integration/mobile-bugfix-1012",
         "apps/mobile/assets/catalog-cutouts/README.md",
@@ -4786,9 +4786,9 @@
         "tests/mobile/browser_tab_bar.py",
         "@release/ios"
       ],
-      "updatedAt": "2026-10-12T13:26:56.613Z",
-      "summary": "Ветка ddb32f73 принята для явной интеграции в отдельном worktree. Сначала зарезервированы области; стандартный claim требует обновить старую базу и будет повторён после merge. Скрипт catalog-add-drinks.mjs не запускать; цены и каталог не менять.",
-      "nextAction": "Влить свежий shared и PR233; в двух конфликтах сохранить редизайн. Пройти typecheck/lint/mobile/browser и CI, подготовить build19."
+      "updatedAt": "2026-10-12T19:27:40.841Z",
+      "summary": "PR https://github.com/xaaknazar/pickchick/pull/234 включён в shared:699c003f, Foundation CI38255692108 success11/11, roadmap success. Build/typecheck/lint/format, 358Node+50Python,244unit,7roadmap; browser checks включая Kaspi4sizes и Orders393x852/320x568 прошли. Каталог/цены не менялись; запрещённый скрипт исключён из final diff и не запускался.",
+      "nextAction": "TestFlight19 готовится в отдельном worktree mobile-testflight19 из shared699c003f. Передать @release/ios и документы выпуска через claim. Физическая приёмка владельцем отдельно."
     },
     {
       "id": "mobile-testflight19",
