@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-12T06:07:52.564928Z",
+  "updatedAt": "2026-10-12T12:45:36.912134Z",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -3762,6 +3762,38 @@
         "implemented": true,
         "verified": true,
         "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-redesign-1012",
+      "workstream": "mobile",
+      "title": "Редизайн: рестораны, заказы и трекер (12.10)",
+      "summary": "По заданию владельца от 12.10 внедрены M05 «Наши рестораны» (статичная карта OSM, статус по Asia/Almaty, «Открыть в 2ГИС» через dgis://), M19 «Заказы» (Сейчас/История по дням, коллаж фото, отменённые, оценка, пустое состояние, счётчик) и низ трекера M17/M18 (компактный состав, карусель игр, плитки Чек/Поддержка). Только UI. Проверены test:mobile 352+50, typecheck, ESLint, Prettier и web 393×852 (16 browser-проверок). Физический iPhone, CI и TestFlight - впереди.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["mobile-orders-feedback"],
+      "evidence": [
+        {
+          "label": "Задание и макеты владельца",
+          "path": "docs/design/mobile-redesign-2026-10-12/README.md"
+        },
+        {
+          "label": "Внедрение, проверки, снимки и отличия",
+          "path": "docs/operations/mobile-redesign-2026-10-12.md"
+        }
+      ],
+      "acceptance": [
+        "Экраны M05, M19, M17/M18 совпадают с макетами на 393×852 во всех состояниях из задания.",
+        "Запуск/вход, оплата и API не изменены; существующие testID сохранены.",
+        "Владелец принял сборку на физическом iPhone."
+      ],
+      "nextAction": "Push ветки codex/mobile-redesign-1012, PR и полная CI; затем TestFlight и приёмка владельцем на iPhone.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
         "accepted": false
       }
     },
