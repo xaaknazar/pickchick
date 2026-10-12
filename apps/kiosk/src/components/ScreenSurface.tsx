@@ -1,13 +1,22 @@
 import type { ReactNode } from 'react';
-import { Animated, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { Animated, KeyboardAvoidingView, Platform, StyleSheet, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, useMetrics } from '../theme';
+import { colors, redesign, useMetrics } from '../theme';
 import { motion, useEnter } from './motion';
 /** Which way a newly shown screen arrives: from the right, or back from the left. */
 export type ScreenEntrance = 'forward' | 'back' | 'none';
+/** Redesign 2026-10-13 screen background (README "Общие токены"). */
+const redesignGradient = `radial-gradient(120% 60% at 75% 0%, ${redesign.screen[0]}, ${redesign.screen[1]} 45%, ${redesign.screen[2]})`;
+/** The web build paints it with CSS; iOS (new architecture) with React Native's own gradient. */
+const redesignBackground = (
+  Platform.OS === 'web'
+    ? { backgroundImage: redesignGradient }
+    : { experimental_backgroundImage: redesignGradient }
+) as ViewStyle;
 /**
  * Full-screen surface. v3 tones: `brand` is the blue working surface, `night`
- * the deep gradient behind the dining choice, `dark` the film backdrop.
+ * the deep gradient behind the dining choice, `dark` the film backdrop; `redesign` is the
+ * owner-approved radial blue of the 2026-10-13 menu (deepest blue at the bottom).
  * `entrance` plays the prototype screen change on mount: the whole surface fades
  * in while sliding 60 pt from the right (`forward`) or from the left (`back`),
  * 380 ms on the v3 ease. It is static under reduced motion, and content is
@@ -23,7 +32,7 @@ export function ScreenSurface({
 }: {
   children?: ReactNode;
   testID?: string;
-  tone?: 'default' | 'brand' | 'dark' | 'night';
+  tone?: 'default' | 'brand' | 'dark' | 'night' | 'redesign';
   onTouchStart?: () => void;
   keyboardAware?: boolean;
   entrance?: ScreenEntrance;
@@ -36,23 +45,32 @@ export function ScreenSurface({
     <Animated.View
       testID={testID}
       onTouchStart={onTouchStart}
-      style={{
-        flex: 1,
-        minHeight: 0,
-        backgroundColor:
-          tone === 'brand'
-            ? colors.blue
-            : tone === 'dark'
-              ? colors.navy
-              : tone === 'night'
+      style={[
+        {
+          flex: 1,
+          minHeight: 0,
+          backgroundColor:
+            tone === 'brand'
+              ? colors.blue
+              : tone === 'dark'
                 ? colors.navy
-                : colors.background,
-        overflow: 'hidden',
-        opacity: moving ? enter : 1,
-        transform: moving
-          ? [{ translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [distance, 0] }) }]
-          : [],
-      }}
+                : tone === 'night'
+                  ? colors.navy
+                  : tone === 'redesign'
+                    ? redesign.screen[2]
+                    : colors.background,
+          overflow: 'hidden',
+          opacity: moving ? enter : 1,
+          transform: moving
+            ? [
+                {
+                  translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [distance, 0] }),
+                },
+              ]
+            : [],
+        },
+        tone === 'redesign' ? redesignBackground : null,
+      ]}
     >
       {tone === 'night' ? (
         <LinearGradient

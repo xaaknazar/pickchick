@@ -12,6 +12,10 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const KeyboardAware: Story = { args: { keyboardAware: true } };
 export const Brand = { args: { tone: 'brand', children: <Body tone="inverse">PICK CHICK</Body> } };
+/** Redesign 2026-10-13: the radial blue behind the bento menu. */
+export const Redesign = {
+  args: { tone: 'redesign', children: <Body tone="inverse">Меню</Body> },
+};
 /** Prototype `scrIn`: fades in while sliding 60 pt from the right. */
 export const EnterForward: Story = {
   args: { tone: 'brand', entrance: 'forward', children: <Body tone="inverse">Вперёд</Body> },

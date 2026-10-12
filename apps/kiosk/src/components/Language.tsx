@@ -1,10 +1,11 @@
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LOCALES, LOCALE_LABELS, type Locale } from '../i18n';
-import { colors, fonts, useMetrics } from '../theme';
+import { colors, fonts, redesign, useMetrics } from '../theme';
+import { GlassPanel } from './GlassPanel';
 import { useTimingTo } from './motion';
 import { ownerOrange } from './ownerOrange';
 import { fixedText } from './Body';
-type Tone = 'default' | 'inverse' | 'light' | 'menu' | 'compact';
+type Tone = 'default' | 'inverse' | 'light' | 'menu' | 'compact' | 'glass';
 /**
  * v3 language switch KZ / RU / EN. On the attract screen and the dining choice the active
  * language is a white capsule with navy text; in the menu header it is an orange capsule with
@@ -22,11 +23,13 @@ export function Language({
   /**
    * `default` sits on blue glass (dining choice, 306x60), `inverse` on photos (attract,
    * 124x60 options), `menu` in the menu header (62x44 options, orange active), `compact` in the
-   * order-step headers (56x44 options), `light` on light surfaces.
+   * order-step headers (56x44 options), `light` on light surfaces, `glass` in the redesigned
+   * menu header (2026-10-13: glass track, 70x52 options, orange active).
    */
   tone?: Tone;
 }) {
   const { v } = useMetrics();
+  if (tone === 'glass') return <GlassLanguage locale={locale} onChange={onChange} />;
   const film = tone === 'inverse';
   const light = tone === 'light';
   const menu = tone === 'menu';
@@ -155,6 +158,76 @@ function Option({
           {short}
         </Animated.Text>
       </View>
+    </Pressable>
+  );
+}
+/**
+ * Redesign 2026-10-13 menu header (README section 3): KZ / RU / EN on the owner-approved glass,
+ * a 64 pt track with 70 x 52 options. The active option fades to the design orange (200 ms,
+ * instant under reduced motion); every label stays white. In a crowded header the options
+ * shrink, never below a 48 pt target.
+ */
+function GlassLanguage({
+  locale,
+  onChange,
+}: {
+  locale: Locale;
+  onChange: (locale: Locale) => void;
+}) {
+  const { px } = useMetrics();
+  return (
+    <View {...ownerOrange} style={{ flexShrink: 1, minWidth: 0 }}>
+      <GlassPanel>
+        <View style={{ flexDirection: 'row', flexShrink: 1, minWidth: 0, padding: px(6) }}>
+          {LOCALES.map((value) => (
+            <GlassOption
+              key={value}
+              value={value}
+              on={value === locale}
+              onPress={() => onChange(value)}
+            />
+          ))}
+        </View>
+      </GlassPanel>
+    </View>
+  );
+}
+function GlassOption({ value, on, onPress }: { value: Locale; on: boolean; onPress: () => void }) {
+  const { px } = useMetrics();
+  const fill = useTimingTo(on ? 1 : 0, 200, 'css');
+  const { short, name } = LOCALE_LABELS[value];
+  return (
+    <Pressable
+      testID={'kiosk-language-' + value}
+      accessibilityRole="button"
+      accessibilityLabel={name}
+      accessibilityState={{ selected: on }}
+      aria-pressed={on}
+      onPress={onPress}
+      style={{
+        width: Math.max(48, px(70)),
+        minWidth: 48,
+        flexShrink: 1,
+        height: Math.max(44, px(52)),
+        borderRadius: 999,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
+    >
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          { borderRadius: 999, backgroundColor: redesign.cta, opacity: fill },
+        ]}
+      />
+      <Text
+        {...fixedText}
+        numberOfLines={1}
+        style={{ fontFamily: fonts.heavy, fontSize: px(18), color: colors.white }}
+      >
+        {short}
+      </Text>
     </Pressable>
   );
 }

@@ -24,6 +24,8 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Kazakh = { args: { locale: 'kk' } };
+/** Redesign 2026-10-13 menu header: glass track, orange active option. */
+export const Glass: Story = { args: { tone: 'glass' } };
 export const Light: Story = {
   args: { tone: 'light' },
   decorators: [
