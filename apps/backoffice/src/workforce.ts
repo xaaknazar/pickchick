@@ -226,18 +226,40 @@ export class WorkforceView {
       this.day = today().slice(0, 7) === this.model.month.slice(0, 7) ? today() : this.model.month;
     }
     const filters = el('div', 'wf-toolbar');
+    const changeMonth = (year: string, month: string) => {
+      this.model.month = `${year}-${month}-01`;
+      this.day = this.model.month;
+      void this.model.load();
+    };
+    const selectedYear = this.model.month.slice(0, 4);
+    const years = [
+      ...new Set([...Array.from({ length: 101 }, (_, i) => String(2000 + i)), selectedYear]),
+    ].sort();
     filters.append(
-      field(
+      select(
         'Месяц',
-        this.model.month.slice(0, 7),
-        (v) => {
-          if (/^\d{4}-\d{2}$/.test(v)) {
-            this.model.month = v + '-01';
-            this.day = this.model.month;
-            void this.model.load();
-          }
-        },
-        { type: 'month' },
+        this.model.month.slice(5, 7),
+        [
+          'Январь',
+          'Февраль',
+          'Март',
+          'Апрель',
+          'Май',
+          'Июнь',
+          'Июль',
+          'Август',
+          'Сентябрь',
+          'Октябрь',
+          'Ноябрь',
+          'Декабрь',
+        ].map((label, i) => ({ value: String(i + 1).padStart(2, '0'), label })),
+        (v) => changeMonth(selectedYear, v),
+      ),
+      select(
+        'Год',
+        selectedYear,
+        years.map((value) => ({ value, label: value })),
+        (v) => changeMonth(v, this.model.month.slice(5, 7)),
       ),
       select(
         'Сотрудник',
@@ -255,6 +277,12 @@ export class WorkforceView {
       ),
       button('Обновить', () => void this.model.load()),
     );
+    filters.querySelectorAll('select').forEach((control) => {
+      control.setAttribute(
+        'aria-label',
+        control.parentElement!.querySelector('.field-label')!.textContent!,
+      );
+    });
     filters
       .querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>(
         'input,select,button',
@@ -290,6 +318,12 @@ export class WorkforceView {
     }
     if (['plan', 'time'].includes(this.tab)) {
       const bar = el('div', 'wf-actions');
+      const rangeField = el('div', 'field wf-range-field');
+      const rangeButtons = el('div', 'wf-range-buttons');
+      rangeButtons.setAttribute('role', 'group');
+      rangeButtons.setAttribute('aria-label', 'Вид графика');
+      rangeField.append(el('span', 'field-label', 'Вид графика'), rangeButtons);
+      bar.append(rangeField);
       for (const [v, label] of [
         ['day', 'День'],
         ['week', 'Неделя'],
@@ -304,7 +338,7 @@ export class WorkforceView {
           this.range === v ? 'button selected' : 'button',
         );
         b.setAttribute('aria-pressed', String(this.range === v));
-        bar.append(b);
+        rangeButtons.append(b);
       }
       if (this.range !== 'month')
         bar.append(
@@ -740,7 +774,29 @@ export class WorkforceView {
     if (f.kind === 'plan') {
       input('start', 'Начало (Алматы)', 'datetime-local');
       input('end', 'Конец (Алматы)', 'datetime-local');
-      input('position', 'Должность на смене');
+      const positions = [
+        ...new Set([
+          ...['manager', 'cashier', 'cook', 'assembler'].map((role) => labels[role]!),
+          ...this.model
+            .data!.records.filter((record) => record.kind === 'plan')
+            .map((record) => String(record.payload['position'] ?? '')),
+          v['position'] ?? '',
+        ]),
+      ].filter(Boolean);
+      const position = select(
+        'Должность на смене',
+        v['position'] ?? '',
+        [
+          { value: '', label: 'Выберите должность' },
+          ...positions.map((value) => ({ value, label: value })),
+        ],
+        (value) => {
+          v['position'] = value;
+        },
+      );
+      position.querySelector('select')!.required = true;
+      position.querySelector('select')!.setAttribute('aria-label', 'Должность на смене');
+      controls.append(position);
       v['unpaid_break_minutes'] ??= '0';
       input('unpaid_break_minutes', 'План неоплачиваемого перерыва, мин', 'number');
       choice('status', 'Статус', ['draft', 'published', 'cancelled']);

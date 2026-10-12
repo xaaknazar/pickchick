@@ -29,7 +29,7 @@ with sync_playwright() as pw:
   if toggle.is_visible() and toggle.get_attribute('aria-expanded')=='false':
    toggle.click()
    expect(toggle).to_have_attribute('aria-expanded','true')
-  if not nav.is_visible():page.locator('.nav-secondary summary').click()
+  expect(nav).to_be_visible()
   nav.click()
   if section=='shifts':
    summary=page.get_by_text('Кассовые смены и прежний журнал',exact=True)

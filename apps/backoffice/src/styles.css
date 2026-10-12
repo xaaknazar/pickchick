@@ -1340,25 +1340,6 @@ td:nth-child(5) {
   color: #fff;
   background: #26344a;
 }
-.nav-secondary {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid #26344f;
-}
-.nav-secondary summary {
-  color: #b4c1d5;
-  cursor: pointer;
-  min-height: 44px;
-  padding: 12px;
-  font-size: 13px;
-}
-.nav-secondary summary:focus-visible {
-  outline: 3px solid #93c5fd;
-  outline-offset: 2px;
-}
-.nav-secondary[open] summary {
-  margin-bottom: 4px;
-}
 .topbar {
   align-items: flex-start;
 }
@@ -1461,20 +1442,6 @@ textarea {
   }
   .nav-item:before {
     display: none;
-  }
-  .nav-secondary {
-    margin: 0;
-    padding: 0;
-    border: 0;
-  }
-  .nav-secondary[open] {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-  .nav-secondary summary {
-    width: 100%;
-    padding: 8px 12px;
   }
   .topbar {
     padding: 20px 16px;
