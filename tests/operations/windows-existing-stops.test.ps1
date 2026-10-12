@@ -22,6 +22,9 @@ Rejects {Assert-StopHead (Clone $head) (Clone $menu) $sha $branch $device 1901} 
 $plan=[ordered]@{source_sha=$sha;env_before_sha256='c'*64;services=[ordered]@{edge=1;worker=2};menu=$menu}
 Assert-StopReviewedPlan (Clone $plan) $plan;Check $true 'Roundtrip saved plan'
 $bad=Clone $plan;$bad.services.worker=3;Rejects {Assert-StopReviewedPlan $bad $plan} 'Restart since plan requires reread'
+# The portable byte/SCM tests mock ACLs; real Windows ACL coverage follows below.
+$realAclFingerprint=${function:Get-StopAclFingerprint}
+function Get-StopAclFingerprint {param($Path) return 'synthetic-acl'}
 function Assert-Acl {param($Path,[switch]$Foundation,[switch]$ServiceRead,[switch]$InheritedAllowed)}
 function Set-ProtectedAcl {param($Path,[switch]$ServiceRead)}
 $t=$null;$e=$null;$a=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot '../../infra/windows/install-native-menu-sync.ps1'),[ref]$t,[ref]$e)
@@ -68,4 +71,35 @@ Check ($script:states.PickChickEdge -ceq 'Running' -and $script:states.PickChick
 Reset-Scm;$script:startFailure='PickChickEdge';Rejects {Invoke-StopEdgeRestart {}} 'Failed new service start is not success'
 Invoke-StopEdgeRestart {$script:events.Add('restore')} -ResumeStopped
 Check ($script:states.PickChickEdge -ceq 'Running' -and $script:states.PickChickKitchenLink -ceq 'Running') 'Owned rollback resumes even a stopped Edge'
+# Exercise real NTFS inheritance, not mocked ACLs: ReplaceFile keeps destination DACL.
+if([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
+ Set-Item Function:Get-StopAclFingerprint $realAclFingerprint
+ $script:operatorSid=[Security.Principal.WindowsIdentity]::GetCurrent().User
+ foreach($name in @('Assert-NtfsPath','Assert-Acl','Set-ProtectedAcl')) {
+  $f=$a.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$false)
+  . ([scriptblock]::Create($f.Extent.Text))
+ }
+ $temp=Join-Path ([IO.Path]::GetTempPath()) ('stop-real-acl-'+[guid]::NewGuid().ToString('N'))
+ Set-ProtectedAcl $temp -Directory -ServiceRead
+ try {
+  $acl=Get-Acl -LiteralPath $temp
+  $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($script:operatorSid,'FullControl','ContainerInherit,ObjectInherit','None','Allow'))
+  Set-Acl -LiteralPath $temp -AclObject $acl
+  $path=Join-Path $temp 'edge.env';[IO.File]::WriteAllBytes($path,$before)
+  $aclBefore=Get-StopAclFingerprint $path
+  Check (-not (Get-Acl -LiteralPath $path).AreAccessRulesProtected) 'Fixture inherits actual foundation principals'
+  Assert-Acl $path -Foundation -ServiceRead -InheritedAllowed
+  Rejects {Assert-Acl $path -ServiceRead} 'Reproduces original overly strict post-replace check'
+  Write-StopCas $path $before $after
+  Check ((Hash-File $path) -ceq (Stop-BytesHash $after)) 'Inherited ACL allows reviewed enable'
+  Check ((Get-StopAclFingerprint $path) -ceq $aclBefore) 'Enable retains exact destination owner and DACL'
+  Restore-StopCas $path $before $after
+  Check ((Hash-File $path) -ceq (Stop-BytesHash $before) -and (Get-StopAclFingerprint $path) -ceq $aclBefore) 'Rollback retains exact original bytes and ACL'
+  $unsafe=Get-Acl -LiteralPath $path
+  $unsafe.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]::new('S-1-5-32-545'),'Write','Allow'))
+  Set-Acl -LiteralPath $path -AclObject $unsafe
+  Rejects {Write-StopCas $path $before $after} 'Unreviewed writable principal still rejected before mutation'
+  Check ((Hash-File $path) -ceq (Stop-BytesHash $before)) 'Rejected ACL leaves bytes unchanged'
+ } finally {Remove-Item $temp -Recurse -Force}
+}
 Write-Output "$count remote stop activation guard checks passed"

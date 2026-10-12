@@ -51,14 +51,26 @@ function New-StopAttemptMarker([string]$Path,$Plan,[string]$Attempt) {
  # Write-NewText uses CreateNew. A failed/unknown attempt is never silently superseded.
  Write-NewText $Path (@{format='pickchick-remote-stops-attempt-v1';plan=$Plan;attempt=$Attempt;completed=$false} | ConvertTo-Json -Depth 14)
 }
+function Get-StopAclFingerprint([string]$Path) {
+ $acl=Get-Acl -LiteralPath $Path
+ # ReplaceFile can add SE_DACL_AUTO_INHERITED without changing any permission.
+ # Compare owner, group, protection and every ordered ACE, not that bookkeeping bit.
+ $state=[ordered]@{owner=$acl.GetOwner([Security.Principal.SecurityIdentifier]).Value;group=$acl.GetGroup([Security.Principal.SecurityIdentifier]).Value;protected=$acl.AreAccessRulesProtected;rules=@($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]) | ForEach-Object {
+  [ordered]@{sid=$_.IdentityReference.Value;rights=[long]$_.FileSystemRights;type=[string]$_.AccessControlType;inheritance=[string]$_.InheritanceFlags;propagation=[string]$_.PropagationFlags;inherited=$_.IsInherited}
+ })}
+ return Stop-BytesHash ([Text.Encoding]::UTF8.GetBytes(($state | ConvertTo-Json -Depth 5 -Compress)))
+}
 function Write-StopCas([string]$Path,[byte[]]$Before,[byte[]]$After) {
  Assert-Acl $Path -Foundation -ServiceRead -InheritedAllowed
+ $aclBefore=Get-StopAclFingerprint $Path
  if((Stop-BytesHash ([IO.File]::ReadAllBytes($Path))) -cne (Stop-BytesHash $Before)) {throw 'Concurrent environment change.'}
  $temp=$Path+'.remote-stop-'+[guid]::NewGuid().ToString('N')+'.tmp'
  $h=[IO.File]::Open($temp,'CreateNew','Write','None');try{$h.Write($After,0,$After.Length);$h.Flush($true)}finally{$h.Dispose()}
  Set-ProtectedAcl $temp -ServiceRead
  [IO.File]::Replace($temp,$Path,[Management.Automation.Language.NullString]::Value)
- Assert-Acl $Path -ServiceRead
+ # ReplaceFile preserves the destination ACL, including reviewed foundation inheritance.
+ Assert-Acl $Path -Foundation -ServiceRead -InheritedAllowed
+ if((Get-StopAclFingerprint $Path) -cne $aclBefore) {throw 'Environment permissions changed during replacement.'}
  if((Hash-File $Path) -cne (Stop-BytesHash $After)) {throw 'Replaced environment bytes differ.'}
 }
 function Restore-StopCas([string]$Path,[byte[]]$Before,[byte[]]$After) {
@@ -145,7 +157,7 @@ try {
  if((Hash-File $probe) -cne $ReadinessSha256) {throw 'Read-only probe differs.'}
  $readMenu={Run-Tool $node @($probe,$foundationRoot,$app,$branch,$device) 120 | ConvertFrom-Json}
  $menu=& $readMenu;Assert-StopHead $head $menu $ApiSourceCommit $branch $device
- $plan=[ordered]@{format='pickchick-existing-stops-plan-v1';source_sha=$SourceCommit;branch_id=$branch;edge_device_id=$device;ci_run=$ci.run.id;menu_head_proof_sha256=$MenuHeadProofSha256;operator_sha=$OperatorCommit;api_source_sha=$ApiSourceCommit;operator_script_sha256=$OperatorScriptSha256;readiness_sha256=$ReadinessSha256;runtime_manifest_sha256=(Hash-File $manifestPath);env_before_sha256=(Stop-BytesHash $before);env_after_sha256=(Stop-BytesHash $after);menu=$menu;services=$services;restart=@('PickChickKitchenLink','PickChickEdge')}
+ $plan=[ordered]@{format='pickchick-existing-stops-plan-v1';source_sha=$SourceCommit;branch_id=$branch;edge_device_id=$device;ci_run=$ci.run.id;menu_head_proof_sha256=$MenuHeadProofSha256;operator_sha=$OperatorCommit;api_source_sha=$ApiSourceCommit;operator_script_sha256=$OperatorScriptSha256;readiness_sha256=$ReadinessSha256;runtime_manifest_sha256=(Hash-File $manifestPath);env_acl_sha256=(Get-StopAclFingerprint $edgeEnv);env_before_sha256=(Stop-BytesHash $before);env_after_sha256=(Stop-BytesHash $after);menu=$menu;services=$services;restart=@('PickChickKitchenLink','PickChickEdge')}
  $attempt=$null
  if($Mode -eq 'Enable' -and -not $Apply) {$plan | ConvertTo-Json -Depth 12 -Compress;return}
  if($Apply) {
@@ -159,12 +171,15 @@ try {
   $restore=Join-Path $attempt 'restore-rehearsal.env';[IO.File]::Copy((Join-Path $attempt 'before.env'),$restore,$false);Set-ProtectedAcl $restore
   if((Hash-File $restore) -cne $ExpectedEdgeEnvSha256) {throw 'Private environment restore rehearsal failed.'}
   Write-NewText (Join-Path $attempt 'intent.json') ($plan | ConvertTo-Json -Depth 12)
+  $phase='replace-and-restart'
   try {
    Invoke-StopEdgeRestart {Write-StopCas $edgeEnv $before $after}
-   Wait-UnifiedReady $app
+   $phase='edge-readiness';Wait-UnifiedReady $app
+   $phase='service-bindings'
    $null=Get-StopServiceBinding 'PickChickEdge' (Join-Path $program 'Edge\edge-0186902\PickChickEdge.xml') $node $stage.winSwSha256
    $null=Get-StopServiceBinding 'PickChickKitchenLink' (Join-Path $program 'KitchenLink\PickChickKitchenLink.xml') $node $stage.winSwSha256
-   $menu=& $readMenu;Assert-StopHead $head $menu $ApiSourceCommit $branch $device
+   $phase='menu-readiness';$menu=& $readMenu;Assert-StopHead $head $menu $ApiSourceCommit $branch $device
+   $phase='preservation'
    foreach($p in $preserved.Keys) {if((Hash-File $p) -cne $preserved[$p]) {throw 'Unrelated configuration changed.'}}
    foreach($name in $services.Keys) {
     $s=Get-CimInstance Win32_Service -Filter "Name='$name'"
@@ -172,9 +187,10 @@ try {
    }
    if((Hash-File $edgeEnv) -cne (Stop-BytesHash $after)) {throw 'Final environment differs.'}
   } catch {
-   $restored=$false
-   try {Invoke-StopEdgeRestart {Restore-StopCas $edgeEnv $before $after} -ResumeStopped;Wait-UnifiedReady $app;$restored=((Hash-File $edgeEnv) -ceq (Stop-BytesHash $before))} catch {}
-   Write-NewText (Join-Path $attempt 'failed.json') (@{completed=$false;rollback_verified=$restored;inspect_required=$true} | ConvertTo-Json)
+   $failureLine=$_.InvocationInfo.ScriptLineNumber
+   $restored=$false;$rollbackLine=$null
+   try {Invoke-StopEdgeRestart {Restore-StopCas $edgeEnv $before $after} -ResumeStopped;Wait-UnifiedReady $app;$restored=((Hash-File $edgeEnv) -ceq (Stop-BytesHash $before))} catch {$rollbackLine=$_.InvocationInfo.ScriptLineNumber}
+   Write-NewText (Join-Path $attempt 'failed.json') (@{completed=$false;phase=$phase;failure_line=$failureLine;rollback_failure_line=$rollbackLine;rollback_verified=$restored;inspect_required=$true} | ConvertTo-Json)
    throw 'Activation did not complete; inspect retained attempt and service state before another command.'
   }
  }
