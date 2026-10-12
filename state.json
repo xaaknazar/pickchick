@@ -4636,14 +4636,12 @@
       "branch": "codex/stop-report",
       "scopes": [
         "docs/collaboration/handoff.md",
-        "docs/operations/deployments/2026-10-12-existing-stops.md",
-        "@vps/roadmap",
-        "@vps/public-https"
+        "docs/operations/deployments/2026-10-12-existing-stops.md"
       ],
       "status": "active",
       "head": "7125c00a977b3e5a22d4c749157559175c41c8b2",
-      "updatedAt": "2026-10-12T13:00:33.036Z",
-      "nextAction": "2026-10-12: по прямому подтверждению владельца в чате переданы задаче mobile-redesign-1012 только следующие файлы: docs/project-status.md, docs/roadmap/project.json. Остальные резервы, рабочая ветка и checkpoint сохранены."
+      "updatedAt": "2026-10-12T19:48:06.463Z",
+      "nextAction": "2026-10-12: по прямому подтверждению владельца в чате переданы задаче mobile-redesign-1012 только следующие файлы: docs/project-status.md, docs/roadmap/project.json. Остальные резервы, рабочая ветка и checkpoint сохранены. 2026-10-13: владелец явно разрешил временно передать @vps/roadmap и @vps/public-https mobile-testflight19 для публикации; после публикации вернуть."
     },
     {
       "id": "mobile-redesign-1012",
@@ -4802,11 +4800,13 @@
         "docs/operations/mobile-bugfix-2026-10-12.md",
         "docs/operations/mobile-redesign-2026-10-12.md",
         "docs/project-status.md",
-        "docs/roadmap/project.json"
+        "docs/roadmap/project.json",
+        "@vps/roadmap",
+        "@vps/public-https"
       ],
       "status": "active",
-      "head": "699c003ff99518358a8462028d980245e470282e",
-      "updatedAt": "2026-10-12T19:28:08.117Z"
+      "head": "749b0458266a7b8f2dbf02b73e51eb2afa0c0d79",
+      "updatedAt": "2026-10-12T19:48:06.463Z"
     }
   ]
 }
