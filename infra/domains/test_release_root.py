@@ -11,6 +11,27 @@ spec.loader.exec_module(r)
 
 
 class RootRoute(unittest.TestCase):
+    def test_adapted_redirect_rejects_ambiguous_caddy_syntax(self):
+        def config():
+            response = {'handler': 'static_response', 'headers': {'Location': ['/backoffice/']}, 'status_code': 302}
+            root = {'match': [{'method': ['GET', 'HEAD'], 'path': ['/']}],
+                    'handle': [{'handler': 'subroute', 'routes': [{'handle': [response]}]}]}
+            host = {'match': [{'host': ['pickchick.kz']}],
+                    'handle': [{'handler': 'subroute', 'routes': [root]}]}
+            return {'apps': {'http': {'servers': {'srv0': {'routes': [host]}}}}}
+        r.validate_redirect(config())
+        for change in ['path', 'location', 'method', 'status', 'host']:
+            data = config()
+            host = data['apps']['http']['servers']['srv0']['routes'][0]
+            root = host['handle'][0]['routes'][0]
+            redirect = root['handle'][0]['routes'][0]
+            if change == 'path': redirect['match'] = [{'path': ['/backoffice/']}]
+            if change == 'location': redirect['handle'][0]['headers']['Location'] = ['302']
+            if change == 'method': root['match'][0]['method'].append('POST')
+            if change == 'status': redirect['handle'][0]['status_code'] = 200
+            if change == 'host': host['match'][0]['host'] = ['api.pickchick.kz']
+            with self.assertRaises(RuntimeError, msg=change): r.validate_redirect(data)
+
     def test_auth_trace_changes_do_not_hide_semantic_changes(self):
         def body(trace, **fields):
             return json.dumps({'code': 'UNAUTHORIZED', 'trace_id': trace, 'retryable': False, **fields}).encode()

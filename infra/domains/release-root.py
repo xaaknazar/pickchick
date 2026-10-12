@@ -17,7 +17,7 @@ u = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(u)
 d = u.d
 ANCHOR = b'\npickchick.kz {\n'
-ROUTE = b'\t@cabinet_entry {\n\t\tpath /\n\t\tmethod GET HEAD\n\t}\n\thandle @cabinet_entry {\n\t\tredir /backoffice/ 302\n\t}\n'
+ROUTE = b'\t@cabinet_entry {\n\t\tpath /\n\t\tmethod GET HEAD\n\t}\n\thandle @cabinet_entry {\n\t\tredir * /backoffice/ 302\n\t}\n'
 
 
 def candidate(original):
@@ -26,6 +26,25 @@ def candidate(original):
     start = original.index(ANCHOR) + len(ANCHOR)
     # Preserve everything except this insertion, including current bank routes.
     return original[:start] + ROUTE + original[start:]
+
+
+def validate_redirect(adapted):
+    hosts = [route for server in adapted['apps']['http']['servers'].values()
+             for route in server.get('routes', [])
+             if route.get('match') == [{'host': ['pickchick.kz']}]]
+    d.require(len(hosts) == 1, 'Expected one adapted canonical host')
+    routes = hosts[0]['handle'][0]['routes']
+    roots = [route for route in routes
+             if route.get('match') == [{'method': ['GET', 'HEAD'], 'path': ['/']}]]
+    d.require(len(roots) == 1, 'Exact GET/HEAD root matcher missing')
+    redirects = roots[0]['handle'][0]['routes']
+    d.require(len(redirects) == 1 and not redirects[0].get('match'),
+              'Redirect unexpectedly has a second path matcher')
+    handlers = redirects[0]['handle']
+    d.require(len(handlers) == 1 and handlers[0].get('handler') == 'static_response'
+              and str(handlers[0].get('status_code')) == '302'
+              and handlers[0].get('headers', {}).get('Location') == ['/backoffice/'],
+              'Adapted redirect target or status differs')
 
 
 def runtime():
@@ -119,6 +138,8 @@ def main(a):
         d.guards(a)
         d.require(runtime() == before and responses() == probes, 'Neighbor or protected route changed')
     d.caddy('validate', new)
+    validate_redirect(json.loads(d.run(['docker', 'exec', '-i', 'deploy-caddy-1',
+                                      'caddy', 'adapt', '--config', '-', '--adapter', 'caddyfile'], new)))
     if not a.apply:
         print(json.dumps({'validated': True, 'applied': False, 'candidate_sha256': d.digest(new)}))
         return
