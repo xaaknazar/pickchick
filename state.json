@@ -4607,6 +4607,22 @@
       "status": "active",
       "head": "3c51229ed4580e5865537f1f137a9c9d14d08fe0",
       "updatedAt": "2026-10-12T11:16:25.712Z"
+    },
+    {
+      "id": "stop-report",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/stop-report",
+      "scopes": [
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/operations/deployments/2026-10-12-existing-stops.md",
+        "@vps/roadmap",
+        "@vps/public-https"
+      ],
+      "status": "active",
+      "head": "7125c00a977b3e5a22d4c749157559175c41c8b2",
+      "updatedAt": "2026-10-12T11:52:20.517Z"
     }
   ]
 }
