@@ -19,8 +19,8 @@ shared `7125c00a` и редизайн `f333d1b8` ([PR #233](https://github.com/x
 - Рабочий филиал показывает 10:00-00:00. Надпись «Просмотр дизайна» удалена,
   включая оставшуюся после автоматического merge ссылку в ресторанах.
 - Исправление нижнего отступа Kaspi из PR #233 сохранено.
-- Номер iOS подготовлен к 0.2.0 (19). Архивирование и загрузка - только после
-  полной CI и включения обоих PR в shared.
+- Номер iOS 0.2.0 (19). Оба PR включены в shared после полной CI;
+  результат архива и доставки записан в [протоколе выпуска](mobile-testflight19.md).
 
 ## Границы
 
@@ -41,7 +41,11 @@ Node 24.16.0, pnpm 11.19.0: workspace build, typecheck, lint, format;
 (четыре размера), peak loyalty, complete catalog, arcade, account required,
 restaurants/orders/tracker redesign (simulator) - успешны.
 Kaspi checkout (четыре размера), Orders 393×852/320×568 и Kaspi tracker
-также успешны. Итог CI фиксируется перед слиянием. Все запросы изолированы,
+также успешны. [PR #234](https://github.com/xaaknazar/pickchick/pull/234),
+вершина `699c003ff99518358a8462028d980245e470282e`: полная
+[Foundation CI 38255692108](https://github.com/xaaknazar/pickchick/actions/runs/38255692108)
+успешна, 11/11. 13 октября (Алматы) shared обновлён fast-forward без force;
+PR #233 и #234 имеют статус MERGED. Все запросы изолированы,
 реальные заказы, счета, QR и платежи не создавались.
 
 Нативное отсоединение вкладки и жест падения фигуры требуют проверки iPhone.

@@ -5,12 +5,43 @@
 неоплаченных заказов. Исходник для архива - shared после включения редизайна
 PR #233 и `codex/mobile-bugfix-1012`, включая отступ кнопки Kaspi.
 
-## Состояние выпуска
+## Состояние выпуска, 13 октября 2026
 
-Номер 19 подготовлен. Архивирование, export, upload и обработка Apple ещё
-не выполнены. Их нельзя считать успешными по одному изменению номера сборки.
-Полный SHA, CI, хеш IPA и результат Apple будут записаны после соответствующих
-проверок. Каталог, цены и реальные платежи этим выпуском не меняются.
+Источник архива - чистый shared `699c003ff99518358a8462028d980245e470282e`.
+[PR #233](https://github.com/xaaknazar/pickchick/pull/233) и
+[PR #234](https://github.com/xaaknazar/pickchick/pull/234) включены fast-forward
+после полной CI, без force. Foundation CI исходников:
+[редизайн 38254754757](https://github.com/xaaknazar/pickchick/actions/runs/38254754757)
+и [исправления 38255692108](https://github.com/xaaknazar/pickchick/actions/runs/38255692108)
+успешны, по 11/11 групп.
+
+Archive и export завершены на Xcode 26.6 (17F113). Release label
+`mobile-storefront-20261013-19`; артефакты хранятся локально в
+`~/Library/Caches/PickChick/releases/`. Bundle ID `kz.pickchick.app`, версия
+0.2.0, build 19, `dirty=false`. Строгая проверка подписи архива и IPA успешна,
+`get-task-allow=false`, встроенный JS совпадает побайтно; схема `dgis` присутствует.
+Подпись использует прежний сертификат и профиль PickChick; временные настройки
+signing/keychain восстановлены. Первая установка Pods перешла к клонированию
+Hermes после сбоя проверки download URL. Повторная штатная установка использовала
+официальные debug/release tarballs версии 250829098.0.17 из кэша, с проверкой
+контрольных сумм. Исходники зависимостей и приложения не менялись.
+
+- IPA: 129078059 байт, SHA-256
+  `ea6761465a85c192f1a6cb66d815b2718df1aebd3e1741c09c88cc57d780f6b4`.
+- `main.jsbundle` в архиве и IPA: SHA-256
+  `05b1713d11c13ce6e7a4cc641a0f351d6c870eda2ff4fa7b8f4e07eb0b8a0ae1`.
+- Флаги storefront: server auth, Kaspi=1, published catalog=1; simulator=0,
+  unpaid test orders=0, Pick Farm=0.
+
+В 00:42 Алматы upload остановлен: `Failed to Use Accounts`. В Xcode Settings →
+Apple Accounts подтверждён пустой список, владельцу открыта форма входа.
+Вход в браузерный App Store Connect сохранён, но не заменяет вход Xcode.
+Загрузка, обработка Apple и доступность build 19 в TestFlight пока не подтверждены.
+Повторная сборка не требуется: после входа нужно отправить этот же архив.
+
+Каталог и цены не публиковались. `catalog-add-drinks.mjs` не запускался,
+реальные заказы, счета, QR и платежи не создавались. Онлайн-пульт пока
+не обновлён: `@vps/roadmap` и `@vps/public-https` остаются за задачей stop-report.
 
 ## Чек-лист владельца на iPhone
 
