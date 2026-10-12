@@ -47,7 +47,13 @@
 API `f01cb45f`, БД, credentials и ingress сохранены. Прежний портал оставлен
 остановленным как `pickchick-staff-login-backup-661f84c20b47` для отката.
 Путь протокола VPS: `/opt/pickchick-staging/backoffice-login/661f84c20b477c7dbd18d3ff9c9c92af9a1aae9b/result.json`.
-Приёмка владельцем не отмечена. Публикация обновлённых фактов roadmap выполняется отдельно.
+Приёмка владельцем не отмечена.
+
+Онлайн-пульт опубликован из `3c51229ed4580e5865537f1f137a9c9d14d08fe0`:
+Foundation CI 38240672729 прошла 11/11, Project roadmap CI 38240678072 успешна.
+HTTPS `/roadmap/health` подтвердил этот SHA. Заметки команды сохранены через
+private SQLite backup; 17 соседних контейнеров и прежние публичные файлы не изменены.
+API остаётся `f01cb45f`, портал `661f84c2`; public/roadmap pointers теперь `3c51229e`.
 
 ## Стоп-лист: отдельная незавершённая зависимость
 
