@@ -23,8 +23,6 @@ import { openEditor, emptyProduct, type EditorContext } from './editor.js';
 const root = document.querySelector<HTMLDivElement>('#app')!,
   model = new CatalogModel(transport, window.sessionStorage);
 let page = sections.some((s) => s[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'dash';
-/** «Другие разделы» opened by the user stays open across re-renders (stop list polling). */
-let secondaryOpen = false;
 let cashierJournalOpen = false;
 const operations = new OperationsModel(
   (path, request) => model.operations(path, request),
@@ -351,7 +349,6 @@ function render() {
           page = id;
           if (id === 'shifts' && model.actor && model.state)
             void workforce.scope(model.actor.id, model.state.branch.id);
-          secondaryOpen = false;
           history.replaceState(null, '', '#' + id);
           if (id === 'stoplist' && model.actor && model.state)
             void stops.load(model.actor.id, model.state.branch.id);
@@ -372,17 +369,11 @@ function render() {
       .filter((section) => primary.includes(section[0]))
       .sort((a, b) => primary.indexOf(a[0]) - primary.indexOf(b[0])),
   );
-  const secondary = el('details', 'nav-secondary');
-  secondary.open = !primary.includes(page) || secondaryOpen;
-  secondary.addEventListener('toggle', () => {
-    if (secondary.isConnected) secondaryOpen = secondary.open;
-  });
-  secondary.append(el('summary', '', 'Другие разделы'));
   appendLinks(
-    secondary,
+    daily,
     [...sections].filter((section) => !primary.includes(section[0])),
   );
-  navigation.append(daily, secondary);
+  navigation.append(daily);
   navigation.id = 'cabinet-navigation';
   const menuToggle = button(
     'Разделы кабинета',

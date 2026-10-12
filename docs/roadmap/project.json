@@ -73,7 +73,8 @@
     "docs/operations/device-access-backoffice.md",
     "docs/operations/unified-menu-continuation.md",
     "docs/operations/unified-menu-installation-2026-10-09.md",
-    "docs/operations/workforce.md"
+    "docs/operations/workforce.md",
+    "docs/operations/cabinet-entry.md"
   ],
   "workstreams": [
     {
@@ -4328,6 +4329,33 @@
       "checks": {
         "implemented": true,
         "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "cabinet-entry",
+      "workstream": "backoffice",
+      "title": "Открывать кабинет с основного домена и показывать все разделы",
+      "summary": "Подготовлен точный GET/HEAD redirect корня pickchick.kz на вход; меню без вложенного раскрытия. Установка ожидает SSH и полной CI.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["backoffice-ui-core"],
+      "evidence": [
+        {
+          "label": "Вход и навигация: проверки и выпуск",
+          "path": "docs/operations/cabinet-entry.md"
+        }
+      ],
+      "acceptance": [
+        "Основной домен открывает страницу входа без JSON-ошибки.",
+        "Все разрешённые разделы видны без «Других разделов», включая мобильное меню."
+      ],
+      "nextAction": "Проверить CI и SSH, отдельно выпустить redirect и портал; подтвердить публичные ответы.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
         "deployed": false,
         "accepted": false
       }
