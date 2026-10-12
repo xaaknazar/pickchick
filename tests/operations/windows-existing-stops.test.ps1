@@ -22,6 +22,9 @@ Rejects {Assert-StopHead (Clone $head) (Clone $menu) $sha $branch $device 1901} 
 $plan=[ordered]@{source_sha=$sha;env_before_sha256='c'*64;services=[ordered]@{edge=1;worker=2};menu=$menu}
 Assert-StopReviewedPlan (Clone $plan) $plan;Check $true 'Roundtrip saved plan'
 $bad=Clone $plan;$bad.services.worker=3;Rejects {Assert-StopReviewedPlan $bad $plan} 'Restart since plan requires reread'
+# The portable byte/SCM tests mock ACLs; real Windows ACL coverage follows below.
+$realAclFingerprint=${function:Get-StopAclFingerprint}
+function Get-StopAclFingerprint {param($Path) return 'synthetic-acl'}
 function Assert-Acl {param($Path,[switch]$Foundation,[switch]$ServiceRead,[switch]$InheritedAllowed)}
 function Set-ProtectedAcl {param($Path,[switch]$ServiceRead)}
 $t=$null;$e=$null;$a=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot '../../infra/windows/install-native-menu-sync.ps1'),[ref]$t,[ref]$e)
@@ -70,6 +73,7 @@ Invoke-StopEdgeRestart {$script:events.Add('restore')} -ResumeStopped
 Check ($script:states.PickChickEdge -ceq 'Running' -and $script:states.PickChickKitchenLink -ceq 'Running') 'Owned rollback resumes even a stopped Edge'
 # Exercise real NTFS inheritance, not mocked ACLs: ReplaceFile keeps destination DACL.
 if([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
+ Set-Item Function:Get-StopAclFingerprint $realAclFingerprint
  $script:operatorSid=[Security.Principal.WindowsIdentity]::GetCurrent().User
  foreach($name in @('Assert-NtfsPath','Assert-Acl','Set-ProtectedAcl')) {
   $f=$a.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$false)
