@@ -11,6 +11,9 @@ import {
 
 // Owner-reviewed bar drinks from iiko (docs/operations/iiko-menu-details-2026-09-28.md) that the
 // published catalog does not sell standalone. Pure: no network, no clock, input never mutated.
+// Owner decision 12.10.2026 («цены делай так как в бэкофисе стоит»): a new drink costs what its
+// analog (`price_like`) costs in the given back-office draft, a new combo choice costs what the
+// analog choice (`price_delta_like`) of the same group costs. iiko prices stay informational.
 export const BAR_DRINKS_FORMAT = 'pickchick-catalog-bar-drinks-v1';
 /** Drink choice group of every combo/duo; the Piko flavor change uses the same id. */
 export const COMBO_DRINK_GROUP_ID = 'drink';
@@ -23,35 +26,59 @@ const Id = z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/);
 const Minor = z.string().regex(/^(0|[1-9][0-9]{0,15})$/);
 const Text = z.string().trim().min(1).max(150);
 const IikoSku = z.string().regex(/^[0-9]{5}$/);
-export const BarDrinkSchema = z.strictObject({
-  id: Id,
-  iiko_sku: IikoSku,
-  iiko_name: Text,
-  name_ru: Text,
-  description_ru: z.string().trim().max(2000),
-  price_minor: Minor,
-  volume_ml: z.int().min(1).max(100000),
-  available: z.boolean(),
-  image_asset_key: z.enum(CATALOG_ASSET_KEYS),
-  kitchen_route: CatalogKitchenRouteSchema,
-  nutrition: z.strictObject({
-    energy_kcal: z.number().min(0).max(100000),
-    protein_g: z.number().min(0).max(10000),
-    fat_g: z.number().min(0).max(10000),
-    carbs_g: z.number().min(0).max(10000),
-  }),
-  nutrition_note: z.string().max(300),
-  note: z.string().max(500).optional(),
-  /** Choice in every combo drink group; null keeps the drink out of combos. */
-  combo_option: z
-    .strictObject({
-      iiko_sku: IikoSku,
-      label_ru: Text,
-      price_delta_minor: Minor,
-      available: z.boolean(),
-    })
-    .nullable(),
+/** Exactly one price source: an analog in the back-office draft or an explicit price. */
+const oneOf = (like: string, minor: string) => ({
+  check: (value: Record<string, unknown>) =>
+    (value[like] === undefined) !== (value[minor] === undefined),
+  message: `Exactly one of ${like} / ${minor} is required`,
 });
+const deltaSource = oneOf('price_delta_like', 'price_delta_minor');
+const priceSource = oneOf('price_like', 'price_minor');
+export const BarDrinkSchema = z
+  .strictObject({
+    id: Id,
+    iiko_sku: IikoSku,
+    iiko_name: Text,
+    name_ru: Text,
+    description_ru: z.string().trim().max(2000),
+    /** Product id whose current draft price (and channel prices) the new drink gets. */
+    price_like: Id.optional(),
+    /** Explicit price; only when no analog is named. */
+    price_minor: Minor.optional(),
+    /** iiko reference price; informational, never sold. */
+    iiko_price_minor: Minor.optional(),
+    volume_ml: z.int().min(1).max(100000),
+    available: z.boolean(),
+    image_asset_key: z.enum(CATALOG_ASSET_KEYS),
+    kitchen_route: CatalogKitchenRouteSchema,
+    nutrition: z.strictObject({
+      energy_kcal: z.number().min(0).max(100000),
+      protein_g: z.number().min(0).max(10000),
+      fat_g: z.number().min(0).max(10000),
+      carbs_g: z.number().min(0).max(10000),
+    }),
+    nutrition_note: z.string().max(300),
+    note: z.string().max(500).optional(),
+    /** Choice in every combo drink group; null keeps the drink out of combos. */
+    combo_option: z
+      .strictObject({
+        iiko_sku: IikoSku,
+        label_ru: Text,
+        /** Choice id of the same combo group whose current surcharge the new choice gets. */
+        price_delta_like: Id.optional(),
+        /** Explicit surcharge; only when no analog choice is named. */
+        price_delta_minor: Minor.optional(),
+        /** iiko reference surcharge (group 0007); informational. */
+        iiko_price_delta_minor: Minor.optional(),
+        available: z.boolean(),
+      })
+      .refine(deltaSource.check, { message: deltaSource.message })
+      .nullable(),
+  })
+  .refine(priceSource.check, { message: priceSource.message })
+  .refine((drink) => drink.price_like !== drink.id, {
+    message: 'price_like must name another product',
+  });
 export const BarDrinksSpecSchema = z
   .strictObject({
     format: z.literal(BAR_DRINKS_FORMAT),
@@ -66,12 +93,22 @@ export const BarDrinksSpecSchema = z
   });
 export type BarDrink = z.infer<typeof BarDrinkSchema>;
 export type BarDrinksSpec = z.infer<typeof BarDrinksSpecSchema>;
+/** Where a price came from: the analog in the input draft, or null for a price in the data. */
+export interface BarDrinkPriceFrom {
+  product_id: string;
+  name: string;
+}
+export interface BarDrinkDeltaFrom {
+  option_id: string;
+  label: string;
+}
 export type BarDrinksChange =
   | {
       kind: 'product_added';
       product_id: string;
       name: string;
       price_minor: string;
+      price_from: BarDrinkPriceFrom | null;
       available: boolean;
     }
   | { kind: 'product_available'; product_id: string; from: boolean; to: boolean }
@@ -81,6 +118,7 @@ export type BarDrinksChange =
       group_id: string;
       option_id: string;
       price_delta_minor: string;
+      price_delta_from: BarDrinkDeltaFrom | null;
     };
 export interface BarDrinksResult {
   payload: CatalogPayload;
@@ -115,8 +153,51 @@ export function canonicalJson(value: unknown): string {
 }
 export const catalogDigest = (value: unknown) =>
   createHash('sha256').update(canonicalJson(value)).digest('hex');
+/** Russian note for the operator: which back-office position a price was copied from. */
+export const priceFromNote = (name: string) => `как «${name}» в бэк-офисе`;
 
-function drinkProduct(drink: BarDrink, categoryId: string): CatalogProduct {
+interface ResolvedPrice {
+  price_minor: string;
+  channel_prices_minor: CatalogProduct['channel_prices_minor'];
+  from: BarDrinkPriceFrom | null;
+}
+/** Price of a drink from its analog in the input draft; never a silent fallback. */
+function resolvePrice(drink: BarDrink, source: CatalogPayload): ResolvedPrice {
+  if (drink.price_like === undefined)
+    return { price_minor: drink.price_minor!, channel_prices_minor: undefined, from: null };
+  const analog = source.products.find((p) => p.id === drink.price_like);
+  if (!analog)
+    throw new BarDrinksError(
+      `${drink.id}: price analog ${drink.price_like} is not in the back-office draft; add it or name another price_like`,
+    );
+  return {
+    price_minor: analog.price_minor,
+    channel_prices_minor:
+      analog.channel_prices_minor && structuredClone(analog.channel_prices_minor),
+    from: { product_id: analog.id, name: analog.name.ru },
+  };
+}
+/** Surcharge of a combo choice from the analog choice of the same group, before this run. */
+function resolveDelta(
+  drink: BarDrink,
+  original: ReadonlyMap<string, CatalogModifier['options'][number]>,
+  where: string,
+): { price_delta_minor: string; from: BarDrinkDeltaFrom | null } {
+  const option = drink.combo_option!;
+  if (option.price_delta_like === undefined)
+    return { price_delta_minor: option.price_delta_minor!, from: null };
+  const analog = original.get(option.price_delta_like);
+  if (!analog)
+    throw new BarDrinksError(
+      `${where}: no choice ${option.price_delta_like} to price the ${drink.id} choice like; review this combo in the back-office`,
+    );
+  return {
+    price_delta_minor: analog.price_delta_minor,
+    from: { option_id: analog.id, label: analog.label.ru },
+  };
+}
+
+function drinkProduct(drink: BarDrink, categoryId: string, price: ResolvedPrice): CatalogProduct {
   const text = (ru: string) => ({ ru, kk: '' });
   return {
     id: drink.id,
@@ -125,7 +206,8 @@ function drinkProduct(drink: BarDrink, categoryId: string): CatalogProduct {
     // Existing drinks repeat the short description as their composition line.
     description: text(drink.description_ru),
     category_id: categoryId,
-    price_minor: drink.price_minor,
+    price_minor: price.price_minor,
+    ...(price.channel_prices_minor ? { channel_prices_minor: price.channel_prices_minor } : {}),
     image_asset_key: drink.image_asset_key,
     kitchen_route: drink.kitchen_route,
     available: drink.available,
@@ -144,12 +226,16 @@ function drinkProduct(drink: BarDrink, categoryId: string): CatalogProduct {
     modifier_groups: [],
   };
 }
-function comboOption(drink: BarDrink, group: CatalogModifier): CatalogModifier['options'][number] {
+function comboOption(
+  drink: BarDrink,
+  group: CatalogModifier,
+  priceDeltaMinor: string,
+): CatalogModifier['options'][number] {
   const option = drink.combo_option!;
   return {
     id: drink.id,
     label: { ru: option.label_ru, kk: '' },
-    price_delta_minor: option.price_delta_minor,
+    price_delta_minor: priceDeltaMinor,
     default_quantity: 0,
     max_quantity: Math.min(40, group.max),
     available: option.available,
@@ -163,7 +249,9 @@ function comboOption(drink: BarDrink, group: CatalogModifier): CatalogModifier['
  * Adds every missing drink of the reviewed spec as a standalone product of the named category,
  * placed after that category's last product; an existing drink only gets the reviewed
  * availability. With `comboOptions`, every combo drink group receives the missing choices.
- * Existing prices, names and options are reported, never overwritten. Idempotent.
+ * Prices come from the analogs in the input draft (`price_like`, per group `price_delta_like`);
+ * a missing analog stops the run. Existing prices, names and options are reported, never
+ * overwritten. Idempotent.
  */
 export function withBarDrinks(
   input: unknown,
@@ -172,6 +260,8 @@ export function withBarDrinks(
 ): BarDrinksResult {
   const payload = CatalogPayloadSchema.parse(structuredClone(input));
   const spec = BarDrinksSpecSchema.parse(specInput);
+  // Analogs are read from the draft as given, never from products this run adds.
+  const source = structuredClone(payload);
   const categories = payload.categories.filter((c) => c.name.ru === spec.category_name_ru);
   if (categories.length !== 1)
     throw new BarDrinksError(
@@ -183,13 +273,18 @@ export function withBarDrinks(
   let insertAt = payload.products.findLastIndex((p) => p.category_id === category.id) + 1;
   if (insertAt === 0) insertAt = payload.products.length;
   for (const drink of spec.drinks) {
+    const price = resolvePrice(drink, source);
     const existing = payload.products.find((p) => p.id === drink.id);
     if (existing) {
       if (existing.category_id !== category.id || existing.kind !== 'item')
         throw new BarDrinksError(`Product ${drink.id} exists outside «${category.name.ru}»`);
-      if (existing.price_minor !== drink.price_minor)
+      if (
+        existing.price_minor !== price.price_minor ||
+        canonicalJson(existing.channel_prices_minor ?? {}) !==
+          canonicalJson(price.channel_prices_minor ?? {})
+      )
         warnings.push(
-          `${drink.id}: catalog price ${formatMinor(existing.price_minor)} differs from reviewed ${formatMinor(drink.price_minor)}; not changed`,
+          `${drink.id}: catalog price ${formatMinor(existing.price_minor)} differs from ${formatMinor(price.price_minor)} ${price.from ? `(${priceFromNote(price.from.name)})` : 'in the data file'}; not changed`,
         );
       if (existing.name.ru !== drink.name_ru)
         warnings.push(`${drink.id}: catalog name «${existing.name.ru}» kept`);
@@ -206,12 +301,13 @@ export function withBarDrinks(
     }
     if (payload.products.some((p) => p.sku === drink.id))
       throw new BarDrinksError(`SKU ${drink.id} is already used by another product`);
-    payload.products.splice(insertAt++, 0, drinkProduct(drink, category.id));
+    payload.products.splice(insertAt++, 0, drinkProduct(drink, category.id, price));
     changes.push({
       kind: 'product_added',
       product_id: drink.id,
       name: drink.name_ru,
-      price_minor: drink.price_minor,
+      price_minor: price.price_minor,
+      price_from: price.from,
       available: drink.available,
     });
   }
@@ -226,25 +322,30 @@ export function withBarDrinks(
       for (const group of product.modifier_groups) {
         if (group.id !== COMBO_DRINK_GROUP_ID) continue;
         groups++;
+        // The group's choices as given: this run's additions never serve as an analog.
+        const original = new Map(group.options.map((o) => [o.id, o] as const));
+        const where = `${product.id}/${group.id}`;
         for (const drink of choices) {
+          const delta = resolveDelta(drink, original, where);
           const current = group.options.find((o) => o.id === drink.id);
           if (current) {
             if (
-              current.price_delta_minor !== drink.combo_option!.price_delta_minor ||
+              current.price_delta_minor !== delta.price_delta_minor ||
               current.label.ru !== drink.combo_option!.label_ru
             )
               warnings.push(
-                `${product.id}/${group.id}/${drink.id}: existing choice «${current.label.ru}» ${formatMinor(current.price_delta_minor)} kept`,
+                `${where}/${drink.id}: existing choice «${current.label.ru}» +${formatMinor(current.price_delta_minor)} kept (expected «${drink.combo_option!.label_ru}» +${formatMinor(delta.price_delta_minor)}${delta.from ? `, ${priceFromNote(delta.from.label)}` : ''})`,
               );
             continue;
           }
-          group.options.push(comboOption(drink, group));
+          group.options.push(comboOption(drink, group, delta.price_delta_minor));
           changes.push({
             kind: 'combo_option_added',
             product_id: product.id,
             group_id: group.id,
             option_id: drink.id,
-            price_delta_minor: drink.combo_option!.price_delta_minor,
+            price_delta_minor: delta.price_delta_minor,
+            price_delta_from: delta.from,
           });
         }
         if (group.options.length > CATALOG_MAX_GROUP_OPTIONS)
@@ -258,16 +359,44 @@ export function withBarDrinks(
   return { payload: CatalogPayloadSchema.parse(payload), changes, warnings };
 }
 
-const describeProduct = (p: CatalogProduct, categories: Map<string, string>) =>
-  `«${p.name.ru}» ${formatMinor(p.price_minor)}, ${categories.get(p.category_id) ?? p.category_id}, ${p.available ? 'в продаже' : 'скрыта'}`;
-const describeOption = (o: CatalogModifier['options'][number]) =>
-  `«${o.label.ru}» +${formatMinor(o.price_delta_minor)}${o.available ? '' : ' (стоп)'}`;
+/**
+ * Diff annotations for added drinks and choices whose price came from a back-office analog:
+ * product id, or `<product>/<group>/<option>` for a combo choice -> «как «…» в бэк-офисе».
+ */
+export function barDrinkPriceNotes(changes: readonly BarDrinksChange[]): Map<string, string> {
+  const notes = new Map<string, string>();
+  for (const change of changes)
+    if (change.kind === 'product_added' && change.price_from)
+      notes.set(change.product_id, priceFromNote(change.price_from.name));
+    else if (change.kind === 'combo_option_added' && change.price_delta_from)
+      notes.set(
+        `${change.product_id}/${change.group_id}/${change.option_id}`,
+        priceFromNote(change.price_delta_from.label),
+      );
+  return notes;
+}
+
+/** «Name» price (or «Name» - price (как «…» в бэк-офисе) for a priced-like drink), category, state. */
+const describeProduct = (p: CatalogProduct, categories: Map<string, string>, note?: string) => {
+  const channels = Object.entries(p.channel_prices_minor ?? {})
+    .map(([channel, minor]) => `${channel} ${formatMinor(minor!)}`)
+    .join(', ');
+  const price = `${formatMinor(p.price_minor)}${channels ? ` (${channels})` : ''}`;
+  return `«${p.name.ru}» ${note ? `- ${price} (${note})` : price}, ${categories.get(p.category_id) ?? p.category_id}, ${p.available ? 'в продаже' : 'скрыта'}`;
+};
+const describeOption = (o: CatalogModifier['options'][number], note?: string) =>
+  `«${o.label.ru}» ${note ? `- доплата +${formatMinor(o.price_delta_minor)} (${note})` : `+${formatMinor(o.price_delta_minor)}`}${o.available ? '' : ' (стоп)'}`;
 
 /**
  * Human-readable difference between two catalog payloads (e.g. published -> to be published).
- * Identical option changes in many products are listed once with all product ids.
+ * Identical option changes in many products are listed once with all product ids. `notes`
+ * (see barDrinkPriceNotes) say where the price of an added product or choice was taken from.
  */
-export function describeCatalogDiff(beforeInput: unknown, afterInput: unknown): string[] {
+export function describeCatalogDiff(
+  beforeInput: unknown,
+  afterInput: unknown,
+  notes: ReadonlyMap<string, string> = new Map(),
+): string[] {
   const before = CatalogPayloadSchema.parse(beforeInput),
     after = CatalogPayloadSchema.parse(afterInput);
   const lines: string[] = [];
@@ -291,7 +420,7 @@ export function describeCatalogDiff(beforeInput: unknown, afterInput: unknown): 
   for (const p of after.products) {
     const was = old.get(p.id);
     if (!was) {
-      lines.push(`+ ${p.id} ${describeProduct(p, names)}`);
+      lines.push(`+ ${p.id} ${describeProduct(p, names, notes.get(p.id))}`);
       continue;
     }
     const fields: string[] = [];
@@ -317,7 +446,11 @@ export function describeCatalogDiff(beforeInput: unknown, afterInput: unknown): 
       g.options.forEach((o, index) => {
         const oo = oldOptions.get(o.id);
         oldOptions.delete(o.id);
-        if (!oo) group(`+ ${g.id}: ${o.id} ${describeOption(o)}`, p.id);
+        if (!oo)
+          group(
+            `+ ${g.id}: ${o.id} ${describeOption(o, notes.get(`${p.id}/${g.id}/${o.id}`))}`,
+            p.id,
+          );
         else if (canonicalJson(oo) !== canonicalJson(o))
           group(`~ ${g.id}: ${o.id} ${describeOption(oo)} -> ${describeOption(o)}`, p.id);
         else if (og.options[index]?.id !== o.id) group(`~ ${g.id}: порядок выбора`, p.id);

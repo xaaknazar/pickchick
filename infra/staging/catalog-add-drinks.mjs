@@ -5,6 +5,10 @@
  * choices, through the same back-office catalog API a manager uses. Runbook:
  * docs/operations/catalog-add-drinks-2026-10-12.md
  *
+ * Prices are those of the back-office (owner, 12.10.2026): a new drink gets the current draft price
+ * of its analog (price_like), a new combo choice the surcharge of the analog choice in the same
+ * group (price_delta_like). A missing analog stops the run; existing prices are never changed.
+ *
  *   node infra/staging/catalog-add-drinks.mjs --auth staff --username ceo --branch-id <uuid> [--combo-options]
  *   ... --plan-sha256 <hash from the dry-run> --save       draft only (content_reviewed=false)
  *   ... --plan-sha256 <hash from the dry-run> --publish    draft + publication (owner approval)
@@ -31,6 +35,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import {
   BarDrinksSpecSchema,
+  barDrinkPriceNotes,
   catalogDigest,
   describeCatalogDiff,
   withBarDrinks,
@@ -249,7 +254,11 @@ export function catalogApi({ base, auth, fetchImpl = fetch, timeoutMs = 20000 })
 
 const normal = (payload) => catalogDigest({ ...payload, content_reviewed: false });
 
-/** Pure plan: what will be written and published, and the hash an operator reviews. */
+/**
+ * Pure plan: what will be written and published, and the hash an operator reviews. Prices are
+ * resolved from the draft, so the target (and draft) digest in the plan pins them: a back-office
+ * price change after the review changes the hash and the write is refused.
+ */
 export function planChange({
   state,
   branchId,
@@ -266,6 +275,7 @@ export function planChange({
     'Branch needs an existing draft and publication; use the back-office first',
   );
   let target, changes, warnings, foreign;
+  let notes = new Map();
   if (restore) {
     target = CatalogPayloadSchema.parse(restore);
     changes = [];
@@ -278,6 +288,8 @@ export function planChange({
     changes = fromPublished.changes;
     warnings = fromDraft.warnings;
     foreign = normal(fromDraft.payload) !== normal(fromPublished.payload);
+    // The target is built from the draft: its analogs name the source of each new price.
+    notes = barDrinkPriceNotes([...fromPublished.changes, ...fromDraft.changes]);
   }
   const plan = {
     format: PLAN_FORMAT,
@@ -300,7 +312,7 @@ export function planChange({
     warnings,
     foreign,
     live: normal(target) === normal(published.payload),
-    diff: describeCatalogDiff(published.payload, { ...target, content_reviewed: true }),
+    diff: describeCatalogDiff(published.payload, { ...target, content_reviewed: true }, notes),
     draftDiff: foreign ? describeCatalogDiff(published.payload, draft.payload) : [],
   };
 }

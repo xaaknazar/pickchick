@@ -70,7 +70,7 @@ async function installLocalMenu(edge, branch, version) {
   return { active_release_id: menu.release_id, active_version: version };
 }
 
-test('operator script adds the bar drinks to a real draft, publishes to cashier and storefront, and rolls back', async () =>
+test('operator script adds the bar drinks at back-office prices to a real draft, publishes to cashier and storefront, and rolls back', async () =>
   withSyncDatabases(async ({ cloud, edge, org, branch, device }) => {
     const dir = await mkdtemp(path.join(tmpdir(), 'drinks-integration-'));
     try {
@@ -121,15 +121,18 @@ test('operator script adds the bar drinks to a real draft, publishes to cashier 
         enforceRoles: true,
         edgePublicationBranchId: branch,
       });
-      // Live-like start: the reviewed operator catalog is published once (version 1).
+      // Live-like start: the reviewed operator catalog is published once (version 1), with the
+      // back-office price of Coca-Cola (the analog of every Coca-Cola family drink) at 450 ₸.
       let state = await service.seed(owner.token, branch, {
         expected_revision: 0,
         request_id: randomUUID(),
       });
+      const start = { ...state.draft.payload, content_source: 'operator', content_reviewed: true };
+      start.products.find((p) => p.id === 'cola').price_minor = '45000';
       state = await service.save(owner.token, branch, {
         expected_revision: state.draft.revision,
         request_id: randomUUID(),
-        payload: { ...state.draft.payload, content_source: 'operator', content_reviewed: true },
+        payload: start,
       });
       state = await service.publish(owner.token, branch, {
         expected_revision: state.draft.revision,
@@ -141,13 +144,15 @@ test('operator script adds the bar drinks to a real draft, publishes to cashier 
       await deliver();
       assert.equal((await service.read(owner.token, branch)).edge_delivery.status, 'applied');
 
-      const approved = path.join(dir, 'approved.json');
+      // The repository data is owner-approved; a copy without the approval must be refused.
+      const approved = DATA;
+      const unapprovedData = path.join(dir, 'unapproved.json');
       await writeFile(
-        approved,
+        unapprovedData,
         JSON.stringify({
           ...JSON.parse(await readFile(DATA, 'utf8')),
-          approved_by_owner: true,
-          approval_note: 'synthetic test approval',
+          approved_by_owner: false,
+          approval_note: '',
         }),
       );
       const evidence = path.join(dir, 'evidence');
@@ -189,9 +194,16 @@ test('operator script adds the bar drinks to a real draft, publishes to cashier 
         const revision = async () => (await service.read(owner.token, branch)).draft.revision;
         const before = await revision();
 
-        // Repository data is not approved: dry-run works, publication is refused, nothing written.
-        const unapproved = await dry();
-        let run = await cli(['--combo-options', '--publish', '--plan-sha256', unapproved]);
+        // Data without approval: dry-run works, publication is refused, nothing written.
+        const unapproved = await dry(['--data', unapprovedData]);
+        let run = await cli([
+          '--data',
+          unapprovedData,
+          '--combo-options',
+          '--publish',
+          '--plan-sha256',
+          unapproved,
+        ]);
         assert.equal(run.code, 1);
         assert.match(run.stderr, /approved_by_owner is false/);
         assert.equal(await revision(), before);
@@ -205,10 +217,11 @@ test('operator script adds the bar drinks to a real draft, publishes to cashier 
         assert.equal(run.code, 1);
         assert.match(run.stderr, /no manager role/);
 
-        // A concurrent edit after review invalidates the plan; foreign edits need explicit consent.
+        // A back-office price change after review invalidates the plan; the new drinks follow the
+        // draft price; unpublished edits need explicit consent.
         const reviewed = await dry(['--data', approved]);
         const edited = structuredClone(v1);
-        edited.products.find((p) => p.id === 'toast').price_minor = '29000';
+        edited.products.find((p) => p.id === 'cola').price_minor = '29000';
         state = await service.save(owner.token, branch, {
           expected_revision: await revision(),
           request_id: randomUUID(),
@@ -234,7 +247,11 @@ test('operator script adds the bar drinks to a real draft, publishes to cashier 
           withForeign,
         ]);
         assert.match(run.stderr, /unpublished edits/);
-        assert.match(run.stdout, /~ toast «Тост, 1 шт»: цена 390 ₸ -> 290 ₸/);
+        assert.match(run.stdout, /~ cola «Coca-Cola 0.5 л, банка»: цена 450 ₸ -> 290 ₸/);
+        assert.match(
+          run.stdout,
+          /\+ cola-zero-can «Coca-Cola Zero 0.5 л, банка» - 290 ₸ \(как «Coca-Cola 0.5 л, банка» в бэк-офисе\), Напитки, в продаже/,
+        );
         await service.save(owner.token, branch, {
           expected_revision: await revision(),
           request_id: randomUUID(),
@@ -263,13 +280,46 @@ test('operator script adds the bar drinks to a real draft, publishes to cashier 
         assert.equal(run.code, 0, run.stderr);
         assert.equal(run.result.published_version, 2);
         assert.match(run.stdout, /Cashier delivery: pending \(menu 4\)/);
+        assert.match(
+          run.stdout,
+          /\+ fuse-lemon «Fuse Tea Лимон 0.5 л» - 790 ₸ \(как «Fuse Tea Персик 0.5 л» в бэк-офисе\)/,
+        );
+        assert.match(
+          run.stdout,
+          /\+ drink: sprite-can «Sprite 0.5 л, банка» - доплата \+100 ₸ \(как «Coca-Cola 0.5 л, банка» в бэк-офисе\)/,
+        );
         const published = await fetch(`${base}/v1/catalog/branches/${branch}`).then((r) =>
           r.json(),
         );
         assert.equal(published.version, 2);
         const products = new Map(published.payload.products.map((p) => [p.id, p]));
         assert.equal(products.size, 37);
-        assert.equal(products.get('cola-zero-can').price_minor, '79000');
+        // Prices as in the back-office draft, not iiko: Coca-Cola family like cola (450 ₸),
+        // Fuse like fuse-peach; existing prices unchanged.
+        assert.equal(products.get('cola').price_minor, '45000');
+        for (const id of ['cola-bottle', 'sprite', 'cola-zero-can', 'fanta-can'])
+          assert.equal(products.get(id).price_minor, '45000', id);
+        assert.equal(
+          products.get('fuse-lemon').price_minor,
+          products.get('fuse-peach').price_minor,
+        );
+        for (const p of v1.products)
+          assert.equal(products.get(p.id).price_minor, p.price_minor, p.id);
+        const choices = (combo) =>
+          new Map(
+            products
+              .get(combo)
+              .modifier_groups.find((g) => g.id === 'drink')
+              .options.map((o) => [o.id, o.price_delta_minor]),
+          );
+        assert.equal(
+          choices('pick-combo').get('sprite-can'),
+          choices('pick-combo').get('cola-can'),
+        );
+        assert.equal(
+          choices('pick-combo').get('fuse-lemon'),
+          choices('pick-combo').get('fuse-peach'),
+        );
         assert.equal(products.get('fuse-lemon').available, true);
         assert.equal(products.get('fuse-watermelon').available, false);
         for (const combo of ['pick-combo', 'finger-duo'])
@@ -316,7 +366,7 @@ test('operator script adds the bar drinks to a real draft, publishes to cashier 
         // Rollback: republish the saved version 1 as version 3.
         run = await cli(['--restore-from', rollbackFile]);
         assert.equal(run.code, 0, run.stderr);
-        assert.match(run.stdout, /- sprite-can «Sprite 0.5 л, банка» 790 ₸/);
+        assert.match(run.stdout, /- sprite-can «Sprite 0.5 л, банка» 450 ₸/);
         run = await cli([
           '--restore-from',
           rollbackFile,

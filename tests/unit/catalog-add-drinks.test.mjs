@@ -14,6 +14,7 @@ import {
 } from '../../packages/catalog-admin/dist/contracts.js';
 import {
   BarDrinksSpecSchema,
+  barDrinkPriceNotes,
   catalogDigest,
   describeCatalogDiff,
   formatMinor,
@@ -45,6 +46,14 @@ const IDS = [
   'fuse-mango-pineapple',
 ];
 const NEW_CHOICES = IDS.slice(7);
+const FUSE = IDS.filter((id) => id.startsWith('fuse-'));
+const CANS = IDS.filter((id) => id.endsWith('-can'));
+/** Owner decision 12.10.2026: price like the back-office analog, not like iiko. */
+const priceLike = (id) => (FUSE.includes(id) ? 'fuse-peach' : 'cola');
+const deltaLike = (id) =>
+  FUSE.includes(id) ? 'fuse-peach' : CANS.includes(id) ? 'cola-can' : 'cola-bottle';
+const COLA = { product_id: 'cola', name: 'Coca-Cola 0.5 л, банка' };
+const PEACH = { product_id: 'fuse-peach', name: 'Fuse Tea Персик 0.5 л' };
 const COMBOS = [
   'pick-combo',
   'master-combo',
@@ -62,6 +71,12 @@ const live = () => ({
 });
 const drinkGroup = (payload, id) =>
   payload.products.find((p) => p.id === id).modifier_groups.find((g) => g.id === 'drink');
+const product = (payload, id) => payload.products.find((p) => p.id === id);
+const withData = (change) => {
+  const copy = structuredClone(spec);
+  change(copy);
+  return copy;
+};
 
 test('reviewed data matches the iiko bar menu, combo surcharges and the agreed ids', async () => {
   const doc = await readFile(
@@ -81,10 +96,11 @@ test('reviewed data matches the iiko bar menu, combo surcharges and the agreed i
   const combo = rows(section('### Напитки к комбо 0,5 зал'));
   assert.equal(bar.size, 19);
   const parsed = BarDrinksSpecSchema.parse(spec);
-  assert.equal(
-    parsed.approved_by_owner,
-    false,
-    'owner approval is given only in a reviewed commit',
+  assert.equal(parsed.approved_by_owner, true, 'owner approval is given in a reviewed commit');
+  assert.ok(
+    parsed.approval_note.startsWith(
+      'Владелец, чат 12.10.2026: «цены делай так как в бэкофисе стоит».',
+    ),
   );
   assert.equal(parsed.category_name_ru, 'Напитки');
   assert.deepEqual(
@@ -95,7 +111,10 @@ test('reviewed data matches the iiko bar menu, combo surcharges and the agreed i
     const row = bar.get(drink.iiko_sku);
     assert.ok(row, drink.id);
     assert.equal(row.name, drink.iiko_name, drink.id);
-    assert.equal(drink.price_minor, String(Number(row.tenge) * 100), drink.id);
+    // iiko prices stay as a reference; the selling price is the back-office analog's.
+    assert.equal(drink.iiko_price_minor, String(Number(row.tenge) * 100), drink.id);
+    assert.equal(drink.price_minor, undefined, drink.id);
+    assert.equal(drink.price_like, priceLike(drink.id), drink.id);
     assert.equal(drink.volume_ml, 500);
     assert.equal(drink.image_asset_key, 'generic-drink');
     assert.equal(drink.kitchen_route, 'assembly_item');
@@ -103,15 +122,30 @@ test('reviewed data matches the iiko bar menu, combo surcharges and the agreed i
     const choice = combo.get(drink.combo_option.iiko_sku);
     assert.ok(choice, drink.id);
     assert.equal(
-      drink.combo_option.price_delta_minor,
+      drink.combo_option.iiko_price_delta_minor,
       String(Number(choice.tenge) * 100),
       drink.id,
     );
+    assert.equal(drink.combo_option.price_delta_minor, undefined, drink.id);
+    assert.equal(drink.combo_option.price_delta_like, deltaLike(drink.id), drink.id);
     assert.equal(drink.combo_option.available, drink.available, drink.id);
   }
+  // The Coca-Cola analog is the can: the data says so for every drink priced like it.
+  for (const drink of parsed.drinks.filter((d) => d.price_like === 'cola'))
+    assert.match(drink.note, /Цена - как у cola.*банка/, drink.id);
   // The six standalone drinks already sold stay out of the data.
   for (const id of ['lemonade', 'cola', 'fuse-peach', 'iced-tea', 'water', 'piko'])
     assert.ok(!IDS.includes(id));
+  // Every analog is a drink and a choice of every combo in the published catalog shape.
+  const catalog = live();
+  for (const id of new Set(parsed.drinks.map((d) => d.price_like)))
+    assert.equal(product(catalog, id).category_id, 'category-5', id);
+  for (const id of new Set(parsed.drinks.map((d) => d.combo_option.price_delta_like)))
+    for (const comboId of COMBOS)
+      assert.ok(
+        drinkGroup(catalog, comboId).options.some((o) => o.id === id),
+        `${comboId}/${id}`,
+      );
 });
 
 test('missing drinks are added after the last drink; everything else and the input stay intact', () => {
@@ -134,9 +168,17 @@ test('missing drinks are added after the last drink; everything else and the inp
       payload.products.find((p) => p.id === before.id),
       before,
     );
+  // Seed prices: cola 990 ₸, fuse-peach 790 ₸ - the new drinks follow them, not iiko.
   assert.deepEqual(
-    changes.map((c) => [c.kind, c.product_id]),
-    IDS.map((id) => ['product_added', id]),
+    changes,
+    spec.drinks.map((d) => ({
+      kind: 'product_added',
+      product_id: d.id,
+      name: d.name_ru,
+      price_minor: FUSE.includes(d.id) ? '79000' : '99000',
+      price_from: FUSE.includes(d.id) ? PEACH : COLA,
+      available: d.id !== 'fuse-watermelon',
+    })),
   );
   const can = payload.products.find((p) => p.id === 'sprite-can');
   assert.deepEqual(can, {
@@ -145,7 +187,7 @@ test('missing drinks are added after the last drink; everything else and the inp
     name: { ru: 'Sprite 0.5 л, банка', kk: '' },
     description: { ru: 'Sprite в железной банке, 0,5 л.', kk: '' },
     category_id: 'category-5',
-    price_minor: '79000',
+    price_minor: '99000',
     image_asset_key: 'generic-drink',
     kitchen_route: 'assembly_item',
     available: true,
@@ -164,8 +206,171 @@ test('missing drinks are added after the last drink; everything else and the inp
     modifier_groups: [],
   });
   assert.equal(payload.products.find((p) => p.id === 'fuse-watermelon').available, false);
-  assert.equal(payload.products.find((p) => p.id === 'cola-zero-can').price_minor, '79000');
+  assert.equal(payload.products.find((p) => p.id === 'cola-zero-can').price_minor, '99000');
+  assert.equal(payload.products.find((p) => p.id === 'fuse-lemon').price_minor, '79000');
   assert.equal(payload.content_reviewed, true, 'review flag is the operator script decision');
+});
+
+test('new prices are the current draft prices of the analogs, channel prices included', () => {
+  const input = live();
+  product(input, 'cola').price_minor = '45000';
+  product(input, 'cola').channel_prices_minor = { mobile: '47000' };
+  product(input, 'fuse-peach').price_minor = '100';
+  const original = structuredClone(input);
+  const { payload, changes, warnings } = withBarDrinks(input, spec, { comboOptions: false });
+  assert.deepEqual(input, original);
+  assert.deepEqual(warnings, []);
+  for (const id of IDS) {
+    const added = product(payload, id);
+    assert.equal(added.price_minor, FUSE.includes(id) ? '100' : '45000', id);
+    assert.deepEqual(
+      added.channel_prices_minor,
+      FUSE.includes(id) ? undefined : { mobile: '47000' },
+      id,
+    );
+  }
+  assert.notEqual(
+    product(payload, 'sprite').channel_prices_minor,
+    product(payload, 'cola').channel_prices_minor,
+    'copied, not shared',
+  );
+  for (const before of original.products)
+    assert.deepEqual(product(payload, before.id), before, 'existing prices never change');
+  assert.deepEqual(changes.find((c) => c.product_id === 'fuse-lemon').price_from, PEACH);
+  // An explicit price in the data is still possible and has no analog.
+  const explicit = withBarDrinks(
+    live(),
+    withData((d) => {
+      delete d.drinks[0].price_like;
+      d.drinks[0].price_minor = '69000';
+    }),
+    { comboOptions: false },
+  );
+  assert.equal(product(explicit.payload, 'cola-bottle').price_minor, '69000');
+  assert.deepEqual(explicit.changes[0], {
+    kind: 'product_added',
+    product_id: 'cola-bottle',
+    name: 'Coca-Cola 0.5 л, бутылка',
+    price_minor: '69000',
+    price_from: null,
+    available: true,
+  });
+});
+
+test('a missing analog stops the run; analogs come only from the draft as given', () => {
+  const noCola = live();
+  noCola.products = noCola.products.filter((p) => p.id !== 'cola');
+  noCola.upsell_product_ids = noCola.upsell_product_ids.filter((id) => id !== 'cola');
+  for (const comboOptions of [false, true])
+    assert.throws(
+      () => withBarDrinks(noCola, spec, { comboOptions }),
+      (error) =>
+        error.name === 'BarDrinksError' &&
+        error.message.startsWith('cola-bottle: price analog cola is not in the back-office draft'),
+    );
+  // A drink added earlier in the same run is not an analog.
+  const chained = withData((d) => {
+    d.drinks.find((x) => x.id === 'fuse-lemon').price_like = 'fuse-berry';
+  });
+  assert.throws(
+    () => withBarDrinks(live(), chained, { comboOptions: false }),
+    /fuse-lemon: price analog fuse-berry is not in the back-office draft/,
+  );
+  // Once fuse-berry is in the draft, it is a valid analog.
+  const withBerry = withBarDrinks(live(), spec, { comboOptions: false }).payload;
+  product(withBerry, 'fuse-berry').price_minor = '12300';
+  const next = withBarDrinks(
+    {
+      ...withBerry,
+      products: withBerry.products.filter((p) => p.id !== 'fuse-lemon'),
+    },
+    chained,
+    { comboOptions: false },
+  );
+  assert.equal(product(next.payload, 'fuse-lemon').price_minor, '12300');
+});
+
+test('combo surcharges resolve per group from that group’s existing analog choice', () => {
+  const input = live();
+  drinkGroup(input, 'pick-combo').options.find((o) => o.id === 'cola-can').price_delta_minor =
+    '15000';
+  drinkGroup(input, 'finger-duo').options.find((o) => o.id === 'cola-can').price_delta_minor =
+    '5000';
+  drinkGroup(input, 'mix-duo').options.find((o) => o.id === 'fuse-peach').price_delta_minor =
+    '2000';
+  const { payload, changes, warnings } = withBarDrinks(input, spec, { comboOptions: true });
+  // Fuse choices that already exist in mix-duo keep their surcharge and are reported.
+  assert.deepEqual(
+    warnings.map((w) => w.split(':')[0]),
+    ['fuse-berry', 'fuse-mango', 'fuse-watermelon'].map((id) => `mix-duo/drink/${id}`),
+  );
+  assert.equal(
+    warnings[0],
+    'mix-duo/drink/fuse-berry: existing choice «Fuse Tea Ягода 0.5 л» +0 ₸ kept (expected «Fuse Tea Ягода 0.5 л» +20 ₸, как «Fuse Tea Персик 0.5 л» в бэк-офисе)',
+  );
+  assert.equal(
+    drinkGroup(payload, 'mix-duo').options.find((o) => o.id === 'fuse-berry').price_delta_minor,
+    '0',
+  );
+  const delta = (combo, id) =>
+    drinkGroup(payload, combo).options.find((o) => o.id === id).price_delta_minor;
+  for (const combo of COMBOS) {
+    for (const id of CANS)
+      assert.equal(
+        delta(combo, id),
+        { 'pick-combo': '15000', 'finger-duo': '5000' }[combo] ?? '10000',
+        `${combo}/${id}`,
+      );
+    for (const id of ['fuse-strawberry-melon', 'fuse-lemon', 'fuse-mango-pineapple'])
+      assert.equal(delta(combo, id), combo === 'mix-duo' ? '2000' : '0', `${combo}/${id}`);
+  }
+  assert.deepEqual(
+    changes.find((c) => c.product_id === 'finger-duo' && c.option_id === 'sprite-can'),
+    {
+      kind: 'combo_option_added',
+      product_id: 'finger-duo',
+      group_id: 'drink',
+      option_id: 'sprite-can',
+      price_delta_minor: '5000',
+      price_delta_from: { option_id: 'cola-can', label: 'Coca-Cola 0.5 л, банка' },
+    },
+  );
+  // A group without the analog choice stops the run, naming the combo and its group.
+  const gap = live();
+  const group = drinkGroup(gap, 'burger-duo');
+  group.options = group.options.filter((o) => o.id !== 'cola-can');
+  assert.throws(
+    () => withBarDrinks(gap, spec, { comboOptions: true }),
+    (error) =>
+      error.name === 'BarDrinksError' &&
+      error.message.startsWith('burger-duo/drink: no choice cola-can to price the cola-zero-can'),
+  );
+  assert.equal(withBarDrinks(gap, spec, { comboOptions: false }).payload.products.length, 37);
+  // A choice added earlier in the same run is not an analog either.
+  const chained = withData((d) => {
+    d.drinks.find((x) => x.id === 'fuse-lemon').combo_option.price_delta_like =
+      'fuse-strawberry-melon';
+  });
+  assert.throws(
+    () => withBarDrinks(live(), chained, { comboOptions: true }),
+    /pick-combo\/drink: no choice fuse-strawberry-melon to price the fuse-lemon choice like/,
+  );
+  // Explicit surcharges in the data are still possible.
+  const explicit = withBarDrinks(
+    live(),
+    withData((d) => {
+      const option = d.drinks.find((x) => x.id === 'fanta-can').combo_option;
+      delete option.price_delta_like;
+      option.price_delta_minor = '7000';
+    }),
+    { comboOptions: true },
+  );
+  assert.equal(
+    drinkGroup(explicit.payload, 'solo-combo').options.find((o) => o.id === 'fanta-can')
+      .price_delta_minor,
+    '7000',
+  );
+  assert.equal(explicit.changes.find((c) => c.option_id === 'fanta-can').price_delta_from, null);
 });
 
 test('combo choices fill every drink group exactly to the 20-option limit', () => {
@@ -219,12 +424,41 @@ test('idempotent; an existing drink only gets the reviewed availability, never a
   const after = result.payload.products.find((p) => p.id === 'sprite');
   assert.equal(after.available, true);
   assert.equal(after.price_minor, '100');
-  assert.equal(result.warnings.length, 2);
-  assert.match(
-    result.warnings[0],
-    /sprite: catalog price 1 ₸ differs from reviewed 690 ₸; not changed/,
+  assert.deepEqual(result.warnings, [
+    'sprite: catalog price 1 ₸ differs from 990 ₸ (как «Coca-Cola 0.5 л, банка» в бэк-офисе); not changed',
+    'pick-combo/drink/sprite-can: existing choice «Sprite 0.5 л, банка» +0 ₸ kept (expected «Sprite 0.5 л, банка» +100 ₸, как «Coca-Cola 0.5 л, банка» в бэк-офисе)',
+  ]);
+  // The owner reprices the analog later: existing drinks are reported, never repriced.
+  const repriced = structuredClone(once.payload);
+  product(repriced, 'cola').price_minor = '50000';
+  drinkGroup(repriced, 'mix-duo').options.find((o) => o.id === 'fuse-peach').price_delta_minor =
+    '3000';
+  const later = withBarDrinks(repriced, spec, { comboOptions: true });
+  assert.deepEqual(later.changes, []);
+  assert.equal(catalogDigest(later.payload), catalogDigest(repriced));
+  assert.deepEqual(
+    later.warnings.filter((w) => !w.startsWith('mix-duo/')),
+    IDS.filter((id) => !FUSE.includes(id)).map(
+      (id) =>
+        `${id}: catalog price 990 ₸ differs from 500 ₸ (как «Coca-Cola 0.5 л, банка» в бэк-офисе); not changed`,
+    ),
   );
-  assert.match(result.warnings[1], /pick-combo\/drink\/sprite-can: existing choice/);
+  assert.deepEqual(
+    later.warnings.filter((w) => w.startsWith('mix-duo/')).map((w) => w.split(':')[0]),
+    FUSE.map((id) => `mix-duo/drink/${id}`),
+  );
+  // An explicit price in the data is compared as such.
+  const explicit = withBarDrinks(
+    once.payload,
+    withData((d) => {
+      delete d.drinks[0].price_like;
+      d.drinks[0].price_minor = '69000';
+    }),
+    { comboOptions: false },
+  );
+  assert.deepEqual(explicit.warnings, [
+    'cola-bottle: catalog price 990 ₸ differs from 690 ₸ in the data file; not changed',
+  ]);
 });
 
 test('ambiguous catalogs and invalid data are refused', () => {
@@ -258,11 +492,7 @@ test('ambiguous catalogs and invalid data are refused', () => {
   const piko = withPikoFlavors(live());
   refuse(piko, /pick-combo\/drink: 21 choices exceed the limit of 20/);
   assert.equal(withBarDrinks(piko, spec, { comboOptions: false }).payload.products.length, 37);
-  const data = (change) => {
-    const copy = structuredClone(spec);
-    change(copy);
-    return copy;
-  };
+  const data = withData;
   refuse(
     live(),
     /Duplicate drink id/,
@@ -281,7 +511,55 @@ test('ambiguous catalogs and invalid data are refused', () => {
   refuse(
     live(),
     /price_minor/,
-    data((d) => (d.drinks[0].price_minor = '690.00')),
+    data((d) => {
+      delete d.drinks[0].price_like;
+      d.drinks[0].price_minor = '690.00';
+    }),
+  );
+  refuse(
+    live(),
+    /iiko_price_minor/,
+    data((d) => (d.drinks[0].iiko_price_minor = '690.00')),
+  );
+  refuse(
+    live(),
+    /price_like/,
+    data((d) => (d.drinks[0].price_like = 'Cola')),
+  );
+  // Exactly one price source per drink and per combo choice.
+  const oneOf = /Exactly one of price_like \/ price_minor is required/;
+  refuse(
+    live(),
+    oneOf,
+    data((d) => (d.drinks[0].price_minor = '69000')),
+  );
+  refuse(
+    live(),
+    oneOf,
+    data((d) => delete d.drinks[0].price_like),
+  );
+  const deltaOneOf = /Exactly one of price_delta_like \/ price_delta_minor is required/;
+  refuse(
+    live(),
+    deltaOneOf,
+    data((d) => (d.drinks[7].combo_option.price_delta_minor = '10000')),
+  );
+  refuse(
+    live(),
+    deltaOneOf,
+    data((d) => delete d.drinks[7].combo_option.price_delta_like),
+  );
+  refuse(
+    live(),
+    /price_like must name another product/,
+    data((d) => (d.drinks[0].price_like = d.drinks[0].id)),
+  );
+  // The schema check holds even when combo choices are not requested.
+  refuse(
+    live(),
+    deltaOneOf,
+    data((d) => delete d.drinks[7].combo_option.price_delta_like),
+    false,
   );
 });
 
@@ -339,13 +617,42 @@ test('new drinks reach the cashier as assembly items and old strict clients stil
 
 test('the diff names each added drink and lists each new combo choice once', () => {
   const before = live();
-  const { payload } = withBarDrinks(before, spec, { comboOptions: true });
+  const { payload, changes } = withBarDrinks(before, spec, { comboOptions: true });
   const lines = describeCatalogDiff(before, payload);
   assert.equal(lines.length, 13 + 6);
-  assert.equal(lines[0], '+ cola-bottle «Coca-Cola 0.5 л, бутылка» 690 ₸, Напитки, в продаже');
-  assert.ok(lines.includes('+ fuse-watermelon «Fuse Tea Арбуз 0.5 л» 690 ₸, Напитки, скрыта'));
+  assert.equal(lines[0], '+ cola-bottle «Coca-Cola 0.5 л, бутылка» 990 ₸, Напитки, в продаже');
+  assert.ok(lines.includes('+ fuse-watermelon «Fuse Tea Арбуз 0.5 л» 790 ₸, Напитки, скрыта'));
   assert.ok(
     lines.includes(`+ drink: sprite-can «Sprite 0.5 л, банка» +100 ₸ [${COMBOS.join(', ')}]`),
+  );
+  // With the price notes every new price names its back-office analog.
+  const noted = describeCatalogDiff(before, payload, barDrinkPriceNotes(changes));
+  assert.equal(noted.length, 13 + 6);
+  assert.equal(
+    noted[0],
+    '+ cola-bottle «Coca-Cola 0.5 л, бутылка» - 990 ₸ (как «Coca-Cola 0.5 л, банка» в бэк-офисе), Напитки, в продаже',
+  );
+  assert.ok(
+    noted.includes(
+      '+ fuse-watermelon «Fuse Tea Арбуз 0.5 л» - 790 ₸ (как «Fuse Tea Персик 0.5 л» в бэк-офисе), Напитки, скрыта',
+    ),
+  );
+  assert.ok(
+    noted.includes(
+      `+ drink: sprite-can «Sprite 0.5 л, банка» - доплата +100 ₸ (как «Coca-Cola 0.5 л, банка» в бэк-офисе) [${COMBOS.join(', ')}]`,
+    ),
+  );
+  assert.ok(
+    noted.includes(
+      `+ drink: fuse-lemon «Fuse Tea Лимон 0.5 л» - доплата +0 ₸ (как «Fuse Tea Персик 0.5 л» в бэк-офисе) [${COMBOS.join(', ')}]`,
+    ),
+  );
+  const channel = structuredClone(payload);
+  product(channel, 'sprite').channel_prices_minor = { mobile: '47000' };
+  assert.ok(
+    describeCatalogDiff(before, channel).includes(
+      '+ sprite «Sprite 0.5 л, бутылка» 990 ₸ (mobile 470 ₸), Напитки, в продаже',
+    ),
   );
   assert.deepEqual(describeCatalogDiff(before, before), []);
   const repriced = structuredClone(before);
@@ -387,7 +694,30 @@ test('the plan hash pins draft, publication and data; foreign draft edits are su
   assert.equal(clean.foreign, false);
   assert.equal(clean.live, false);
   assert.equal(clean.diff.length, 19);
+  const colaBottle =
+    '+ cola-bottle «Coca-Cola 0.5 л, бутылка» - 990 ₸ (как «Coca-Cola 0.5 л, банка» в бэк-офисе), Напитки, в продаже';
+  assert.equal(clean.diff[0], colaBottle);
   assert.equal(planChange({ ...base, state: state(live(), live()) }).planSha256, clean.planSha256);
+  // Recommended first publication: products only, combo drink groups untouched.
+  const productsOnly = planChange({ ...base, comboOptions: false, state: state(live(), live()) });
+  assert.equal(productsOnly.diff.length, 13);
+  assert.ok(productsOnly.diff.every((line) => / - \d+ ₸ \(как «.+» в бэк-офисе\), /.test(line)));
+  // A back-office price change after the review changes the plan, even at the same revision.
+  const repriced = live();
+  product(repriced, 'cola').price_minor = '45000';
+  const sprite450 =
+    '+ sprite-can «Sprite 0.5 л, банка» - 450 ₸ (как «Coca-Cola 0.5 л, банка» в бэк-офисе), Напитки, в продаже';
+  const after = planChange({ ...base, state: state(repriced, repriced) });
+  assert.notEqual(after.planSha256, clean.planSha256);
+  assert.notEqual(after.plan.target_sha256, clean.plan.target_sha256);
+  assert.equal(product(after.target, 'sprite-can').price_minor, '45000');
+  assert.ok(after.diff.includes(sprite450));
+  // Repriced only in the draft: the target follows the draft; the edit is surfaced as foreign.
+  const draftOnly = planChange({ ...base, state: state(repriced, live()) });
+  assert.equal(draftOnly.foreign, true);
+  assert.equal(product(draftOnly.target, 'sprite-can').price_minor, '45000');
+  assert.ok(draftOnly.diff.includes(sprite450));
+  assert.deepEqual(draftOnly.draftDiff, ['~ cola «Coca-Cola 0.5 л, банка»: цена 990 ₸ -> 450 ₸']);
   for (const changed of [
     { ...base, state: state(live(), live(), 10) },
     { ...base, state: state(live(), live(), 9, 7) },
@@ -403,6 +733,7 @@ test('the plan hash pins draft, publication and data; foreign draft edits are su
   const resumed = planChange({ ...base, state: state(saved, live()) });
   assert.equal(resumed.foreign, false);
   assert.equal(resumed.diff.length, 19);
+  assert.equal(resumed.diff[0], colaBottle);
   const foreign = live();
   foreign.products.find((p) => p.id === 'toast').price_minor = '29000';
   const edited = planChange({ ...base, state: state(foreign, live()) });
@@ -574,7 +905,7 @@ function fakePortal({ password, published, loseFirstSaveResponse = false }) {
   return { fetchImpl, calls, db };
 }
 
-test('staff session end to end: dry-run, refusal without approval, publish, replay after a lost response', async () => {
+test('staff session end to end: dry-run, refusals without approval or after a reprice, publish, lost-response replay', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'drinks-run-'));
   const password = 'correct horse battery staple 2026';
   try {
@@ -597,40 +928,68 @@ test('staff session end to end: dry-run, refusal without approval, publish, repl
       '--evidence-dir',
       path.join(dir, 'evidence'),
     ];
+    // Repository data (owner-approved): dry-run prices every new drink like its analog.
     const dry = await run(base, io);
     assert.equal(dry.mode, 'dry-run');
-    assert.ok(lines.includes('  + sprite-can «Sprite 0.5 л, банка» 790 ₸, Напитки, в продаже'));
-    assert.ok(lines.some((l) => l.includes('approved_by_owner=false')));
+    assert.ok(
+      lines.includes(
+        '  + sprite-can «Sprite 0.5 л, банка» - 990 ₸ (как «Coca-Cola 0.5 л, банка» в бэк-офисе), Напитки, в продаже',
+      ),
+    );
+    assert.ok(lines.some((l) => l.includes('approved_by_owner=true')));
     assert.equal(
       portal.calls.filter((c) => c.method !== 'GET' && !c.pathname.startsWith('/backoffice/auth/'))
         .length,
       0,
       'dry-run writes nothing',
     );
+    // Data without the approval is still refused for publication.
+    const unapproved = path.join(dir, 'unapproved.json');
+    await writeFile(
+      unapproved,
+      JSON.stringify({ ...spec, approved_by_owner: false, approval_note: '' }),
+    );
+    const unreviewed = await run([...base, '--data', unapproved], io);
+    assert.notEqual(unreviewed.plan_sha256, dry.plan_sha256, 'the data hash is part of the plan');
     await assert.rejects(
-      run([...base, '--publish', '--plan-sha256', dry.plan_sha256], io),
+      run(
+        [...base, '--data', unapproved, '--publish', '--plan-sha256', unreviewed.plan_sha256],
+        io,
+      ),
       /approved_by_owner is false/,
     );
-    assert.equal(portal.db.revision, 9);
-    const approved = path.join(dir, 'approved.json');
-    await writeFile(
-      approved,
-      JSON.stringify({ ...spec, approved_by_owner: true, approval_note: 'test' }),
-    );
-    const reviewed = await run([...base, '--data', approved], io);
-    assert.notEqual(reviewed.plan_sha256, dry.plan_sha256, 'the data hash is part of the plan');
     await assert.rejects(
-      run([...base, '--data', approved, '--publish', '--plan-sha256', dry.plan_sha256], io),
+      run([...base, '--publish', '--plan-sha256', unreviewed.plan_sha256], io),
       /Plan changed since review/,
     );
-    const published = await run(
-      [...base, '--data', approved, '--publish', '--plan-sha256', reviewed.plan_sha256],
-      io,
+    assert.equal(portal.db.revision, 9);
+    // The owner reprices Coca-Cola in the back-office after the review: the plan is stale.
+    for (const payload of [portal.db.draft, portal.db.published])
+      product(payload, 'cola').price_minor = '45000';
+    portal.db.revision += 2;
+    portal.db.version += 1;
+    await assert.rejects(
+      run([...base, '--publish', '--plan-sha256', dry.plan_sha256], io),
+      /Plan changed since review/,
     );
-    assert.equal(published.published_version, 9);
+    assert.equal(portal.db.revision, 11);
+    lines.length = 0;
+    const reviewed = await run(base, io);
+    assert.ok(
+      lines.includes(
+        '  + sprite-can «Sprite 0.5 л, банка» - 450 ₸ (как «Coca-Cola 0.5 л, банка» в бэк-офисе), Напитки, в продаже',
+      ),
+    );
+    assert.ok(
+      lines.includes(
+        `  + drink: sprite-can «Sprite 0.5 л, банка» - доплата +100 ₸ (как «Coca-Cola 0.5 л, банка» в бэк-офисе) [${COMBOS.join(', ')}]`,
+      ),
+    );
+    const published = await run([...base, '--publish', '--plan-sha256', reviewed.plan_sha256], io);
+    assert.equal(published.published_version, 10);
     assert.equal(
       portal.db.revision,
-      11,
+      13,
       'one save (replayed after the lost response) and one publication',
     );
     const puts = portal.calls.filter((c) => c.method === 'PUT');
@@ -638,17 +997,15 @@ test('staff session end to end: dry-run, refusal without approval, publish, repl
     assert.equal(puts[0].body.request_id, puts[1].body.request_id, 'retry reuses the request id');
     assert.equal(portal.db.published.products.length, 37);
     assert.equal(portal.db.published.content_reviewed, true);
+    assert.equal(product(portal.db.published, 'cola').price_minor, '45000');
+    assert.equal(product(portal.db.published, 'cola-zero-can').price_minor, '45000');
+    assert.equal(product(portal.db.published, 'fuse-lemon').price_minor, '79000');
     assert.equal(drinkGroup(portal.db.published, 'mix-duo').options.length, 20);
-    assert.ok(lines.includes('Mobile storefront serves version 9.'));
-    const again = await run([...base, '--data', approved], io);
+    assert.ok(lines.includes('Mobile storefront serves version 10.'));
+    const again = await run(base, io);
     assert.equal(again.live, true);
     assert.equal(
-      (
-        await run(
-          [...base, '--data', approved, '--publish', '--plan-sha256', again.plan_sha256],
-          io,
-        )
-      ).published_version,
+      (await run([...base, '--publish', '--plan-sha256', again.plan_sha256], io)).published_version,
       undefined,
     );
     // Every login is followed by a logout; no secret reaches output or evidence.
