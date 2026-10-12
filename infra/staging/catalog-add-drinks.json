@@ -1,0 +1,273 @@
+{
+  "format": "pickchick-catalog-bar-drinks-v1",
+  "approved_by_owner": false,
+  "approval_note": "",
+  "source": "docs/operations/iiko-menu-details-2026-09-28.md: «Меню бар» (артикулы и цены) и группа 0007 «Напитки к комбо 0,5 зал» (доплаты в комбо)",
+  "category_name_ru": "Напитки",
+  "drinks": [
+    {
+      "id": "cola-bottle",
+      "iiko_sku": "00159",
+      "iiko_name": "Кока-кола",
+      "name_ru": "Coca-Cola 0.5 л, бутылка",
+      "description_ru": "Coca-Cola Classic в пластиковой бутылке, 0,5 л.",
+      "price_minor": "69000",
+      "volume_ml": 500,
+      "available": true,
+      "image_asset_key": "generic-drink",
+      "kitchen_route": "assembly_item",
+      "nutrition": { "energy_kcal": 210, "protein_g": 0, "fat_g": 0, "carbs_g": 53 },
+      "nutrition_note": "как у позиции cola (тот же напиток 0,5 л); не сверено с этикеткой",
+      "combo_option": {
+        "iiko_sku": "00019",
+        "label_ru": "Coca-Cola 0.5 л, бутылка",
+        "price_delta_minor": "0",
+        "available": true
+      }
+    },
+    {
+      "id": "cola-zero",
+      "iiko_sku": "00231",
+      "iiko_name": "Кока-кола зеро",
+      "name_ru": "Coca-Cola Zero 0.5 л, бутылка",
+      "description_ru": "Coca-Cola Zero без сахара в пластиковой бутылке, 0,5 л.",
+      "price_minor": "69000",
+      "volume_ml": 500,
+      "available": true,
+      "image_asset_key": "generic-drink",
+      "kitchen_route": "assembly_item",
+      "nutrition": { "energy_kcal": 0, "protein_g": 0, "fat_g": 0, "carbs_g": 0 },
+      "nutrition_note": "напиток без сахара; нули не сверены с этикеткой",
+      "combo_option": {
+        "iiko_sku": "00279",
+        "label_ru": "Coca-Cola Zero 0.5 л, бутылка",
+        "price_delta_minor": "0",
+        "available": true
+      }
+    },
+    {
+      "id": "sprite",
+      "iiko_sku": "00161",
+      "iiko_name": "Спрайт",
+      "name_ru": "Sprite 0.5 л, бутылка",
+      "description_ru": "Sprite в пластиковой бутылке, 0,5 л.",
+      "price_minor": "69000",
+      "volume_ml": 500,
+      "available": true,
+      "image_asset_key": "generic-drink",
+      "kitchen_route": "assembly_item",
+      "nutrition": { "energy_kcal": 210, "protein_g": 0, "fat_g": 0, "carbs_g": 53 },
+      "nutrition_note": "временно как у cola (сладкий газированный 0,5 л); нужна этикетка",
+      "combo_option": {
+        "iiko_sku": "00153",
+        "label_ru": "Sprite 0.5 л, бутылка",
+        "price_delta_minor": "0",
+        "available": true
+      }
+    },
+    {
+      "id": "fanta",
+      "iiko_sku": "00160",
+      "iiko_name": "Фанта",
+      "name_ru": "Fanta 0.5 л, бутылка",
+      "description_ru": "Fanta в пластиковой бутылке, 0,5 л.",
+      "price_minor": "69000",
+      "volume_ml": 500,
+      "available": true,
+      "image_asset_key": "generic-drink",
+      "kitchen_route": "assembly_item",
+      "nutrition": { "energy_kcal": 210, "protein_g": 0, "fat_g": 0, "carbs_g": 53 },
+      "nutrition_note": "временно как у cola (сладкий газированный 0,5 л); нужна этикетка",
+      "combo_option": {
+        "iiko_sku": "00020",
+        "label_ru": "Fanta 0.5 л, бутылка",
+        "price_delta_minor": "0",
+        "available": true
+      }
+    },
+    {
+      "id": "fuse-berry",
+      "iiko_sku": "00196",
+      "iiko_name": "Фьюс ягодный 0,5",
+      "name_ru": "Fuse Tea Ягода 0.5 л",
+      "description_ru": "Холодный чай Fuse Tea со вкусом ягод, 0,5 л.",
+      "price_minor": "69000",
+      "volume_ml": 500,
+      "available": true,
+      "image_asset_key": "generic-drink",
+      "kitchen_route": "assembly_item",
+      "nutrition": { "energy_kcal": 90, "protein_g": 0, "fat_g": 0, "carbs_g": 22 },
+      "nutrition_note": "временно как у fuse-peach (Fuse Tea 0,5 л); нужна этикетка",
+      "combo_option": {
+        "iiko_sku": "00281",
+        "label_ru": "Fuse Tea Ягода 0.5 л",
+        "price_delta_minor": "0",
+        "available": true
+      }
+    },
+    {
+      "id": "fuse-mango",
+      "iiko_sku": "00412",
+      "iiko_name": "Фьюс манго-ромашка 0,5",
+      "name_ru": "Fuse Tea Манго-Ромашка 0.5 л",
+      "description_ru": "Холодный чай Fuse Tea со вкусом манго и ромашки, 0,5 л.",
+      "price_minor": "69000",
+      "volume_ml": 500,
+      "available": true,
+      "image_asset_key": "generic-drink",
+      "kitchen_route": "assembly_item",
+      "nutrition": { "energy_kcal": 90, "protein_g": 0, "fat_g": 0, "carbs_g": 22 },
+      "nutrition_note": "временно как у fuse-peach (Fuse Tea 0,5 л); нужна этикетка",
+      "combo_option": {
+        "iiko_sku": "00203",
+        "label_ru": "Fuse Tea Манго-Ромашка 0.5 л",
+        "price_delta_minor": "0",
+        "available": true
+      }
+    },
+    {
+      "id": "fuse-watermelon",
+      "iiko_sku": "00408",
+      "iiko_name": "Фьюс арбуз 0,5",
+      "name_ru": "Fuse Tea Арбуз 0.5 л",
+      "description_ru": "Холодный чай Fuse Tea со вкусом арбуза, 0,5 л.",
+      "price_minor": "69000",
+      "volume_ml": 500,
+      "available": false,
+      "image_asset_key": "generic-drink",
+      "kitchen_route": "assembly_item",
+      "nutrition": { "energy_kcal": 90, "protein_g": 0, "fat_g": 0, "carbs_g": 22 },
+      "nutrition_note": "временно как у fuse-peach (Fuse Tea 0,5 л); нужна этикетка",
+      "note": "В опубликованной версии 8 выбор арбуза в комбо остановлен, поэтому позиция добавляется скрытой. Если арбуз есть в наличии - владелец меняет available на true.",
+      "combo_option": {
+        "iiko_sku": "00290",
+        "label_ru": "Fuse Tea Арбуз 0.5 л",
+        "price_delta_minor": "0",
+        "available": false
+      }
+    },
+    {
+      "id": "cola-zero-can",
+      "iiko_sku": "00414",
+      "iiko_name": "Кока-кола zero жб",
+      "name_ru": "Coca-Cola Zero 0.5 л, банка",
+      "description_ru": "Coca-Cola Zero без сахара в железной банке, 0,5 л.",
+      "price_minor": "79000",
+      "volume_ml": 500,
+      "available": true,
+      "image_asset_key": "generic-drink",
+      "kitchen_route": "assembly_item",
+      "nutrition": { "energy_kcal": 0, "protein_g": 0, "fat_g": 0, "carbs_g": 0 },
+      "nutrition_note": "напиток без сахара; нули не сверены с этикеткой",
+      "note": "Объём банки в iiko не указан (в карточке вес 790 г, вероятно ошибка); 0,5 л взят как у cola и группы «Напитки к комбо 0,5».",
+      "combo_option": {
+        "iiko_sku": "00204",
+        "label_ru": "Coca-Cola Zero 0.5 л, банка",
+        "price_delta_minor": "10000",
+        "available": true
+      }
+    },
+    {
+      "id": "sprite-can",
+      "iiko_sku": "00210",
+      "iiko_name": "Спрайт жб",
+      "name_ru": "Sprite 0.5 л, банка",
+      "description_ru": "Sprite в железной банке, 0,5 л.",
+      "price_minor": "79000",
+      "volume_ml": 500,
+      "available": true,
+      "image_asset_key": "generic-drink",
+      "kitchen_route": "assembly_item",
+      "nutrition": { "energy_kcal": 210, "protein_g": 0, "fat_g": 0, "carbs_g": 53 },
+      "nutrition_note": "временно как у cola (сладкий газированный 0,5 л); нужна этикетка",
+      "note": "Объём банки в iiko не указан; 0,5 л как у cola и группы «Напитки к комбо 0,5».",
+      "combo_option": {
+        "iiko_sku": "00201",
+        "label_ru": "Sprite 0.5 л, банка",
+        "price_delta_minor": "10000",
+        "available": true
+      }
+    },
+    {
+      "id": "fanta-can",
+      "iiko_sku": "00211",
+      "iiko_name": "Фанта жб",
+      "name_ru": "Fanta 0.5 л, банка",
+      "description_ru": "Fanta в железной банке, 0,5 л.",
+      "price_minor": "79000",
+      "volume_ml": 500,
+      "available": true,
+      "image_asset_key": "generic-drink",
+      "kitchen_route": "assembly_item",
+      "nutrition": { "energy_kcal": 210, "protein_g": 0, "fat_g": 0, "carbs_g": 53 },
+      "nutrition_note": "временно как у cola (сладкий газированный 0,5 л); нужна этикетка",
+      "note": "Объём банки в iiko не указан; 0,5 л как у cola и группы «Напитки к комбо 0,5».",
+      "combo_option": {
+        "iiko_sku": "00202",
+        "label_ru": "Fanta 0.5 л, банка",
+        "price_delta_minor": "10000",
+        "available": true
+      }
+    },
+    {
+      "id": "fuse-strawberry-melon",
+      "iiko_sku": "00409",
+      "iiko_name": "Фьюс клубника-дыня 0,5",
+      "name_ru": "Fuse Tea Клубника-Дыня 0.5 л",
+      "description_ru": "Холодный чай Fuse Tea со вкусом клубники и дыни, 0,5 л.",
+      "price_minor": "69000",
+      "volume_ml": 500,
+      "available": true,
+      "image_asset_key": "generic-drink",
+      "kitchen_route": "assembly_item",
+      "nutrition": { "energy_kcal": 90, "protein_g": 0, "fat_g": 0, "carbs_g": 22 },
+      "nutrition_note": "временно как у fuse-peach (Fuse Tea 0,5 л); нужна этикетка",
+      "combo_option": {
+        "iiko_sku": "00289",
+        "label_ru": "Fuse Tea Клубника-Дыня 0.5 л",
+        "price_delta_minor": "0",
+        "available": true
+      }
+    },
+    {
+      "id": "fuse-lemon",
+      "iiko_sku": "00410",
+      "iiko_name": "Фьюс лимон 0,5",
+      "name_ru": "Fuse Tea Лимон 0.5 л",
+      "description_ru": "Холодный чай Fuse Tea со вкусом лимона, 0,5 л.",
+      "price_minor": "69000",
+      "volume_ml": 500,
+      "available": true,
+      "image_asset_key": "generic-drink",
+      "kitchen_route": "assembly_item",
+      "nutrition": { "energy_kcal": 90, "protein_g": 0, "fat_g": 0, "carbs_g": 22 },
+      "nutrition_note": "временно как у fuse-peach (Fuse Tea 0,5 л); нужна этикетка",
+      "combo_option": {
+        "iiko_sku": "00291",
+        "label_ru": "Fuse Tea Лимон 0.5 л",
+        "price_delta_minor": "0",
+        "available": true
+      }
+    },
+    {
+      "id": "fuse-mango-pineapple",
+      "iiko_sku": "00411",
+      "iiko_name": "Фьюс манго-ананас 0,5",
+      "name_ru": "Fuse Tea Манго-Ананас 0.5 л",
+      "description_ru": "Холодный чай Fuse Tea со вкусом манго и ананаса, 0,5 л.",
+      "price_minor": "69000",
+      "volume_ml": 500,
+      "available": true,
+      "image_asset_key": "generic-drink",
+      "kitchen_route": "assembly_item",
+      "nutrition": { "energy_kcal": 90, "protein_g": 0, "fat_g": 0, "carbs_g": 22 },
+      "nutrition_note": "временно как у fuse-peach (Fuse Tea 0,5 л); нужна этикетка",
+      "combo_option": {
+        "iiko_sku": "00288",
+        "label_ru": "Fuse Tea Манго-Ананас 0.5 л",
+        "price_delta_minor": "0",
+        "available": true
+      }
+    }
+  ]
+}
