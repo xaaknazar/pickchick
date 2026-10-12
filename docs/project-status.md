@@ -13,10 +13,11 @@
 Проверено в облачной сессии (Node 22): `pnpm test:mobile` 352 + 50, typecheck,
 ESLint, Prettier; web-сборки 393×852 и 16 browser-проверок, включая три новые
 для экранов редизайна. Снимки рядом с макетами и отличия -
-[протокол](operations/mobile-redesign-2026-10-12.md). Не проверено: физический
-iPhone/Android, TestFlight, CI GitHub. Ветка `codex/mobile-redesign-1012`;
-push и PR выполняются с Mac (у облачной сессии нет доступа на запись в GitHub).
-Следующий шаг - CI, PR, сборка TestFlight и приёмка владельцем.
+[протокол](operations/mobile-redesign-2026-10-12.md). На Mac опубликован [PR #233](https://github.com/xaaknazar/pickchick/pull/233);
+новые браузерные сценарии подключены к CI. Кнопка Kaspi теперь расположена
+над плавающим таб-баром; проверены 393×852 и 320×568 на изолированных fixtures.
+Локальные build/typecheck и адресные lint/format успешны. Полная CI новой
+вершины, объединение исправлений, TestFlight 19 и приёмка на iPhone - далее.
 
 ## 12 октября: фильтры, месяц и должности установлены
 

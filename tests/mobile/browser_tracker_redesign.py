@@ -7,6 +7,8 @@ address row, and saves viewport, bottom and stitched full-length screenshots.
 
 CUSTOMER_AUTH_URL (optional) points at the Kaspi customer-auth export: the bank-paid sheet is
 checked for kitchen, assembly and ready with its status-only «Чек» tile.
+TRACKER_MODE=sim|kaspi|all selects the export to check (default: all when
+CUSTOMER_AUTH_URL is set, otherwise sim). CI jobs can run each export independently.
 Screenshots go to TRACKER_SHOTS_DIR (default .local/tracker-redesign). No external requests.
 """
 from browser_network import isolated_context, route_fixture
@@ -21,6 +23,9 @@ from playwright.sync_api import sync_playwright, expect
 ROOT = Path(__file__).resolve().parents[2]
 URL = os.environ.get('MOBILE_RECOVERY_URL', 'http://127.0.0.1:4182').rstrip('/')
 KASPI_URL = os.environ.get('CUSTOMER_AUTH_URL', '').rstrip('/')
+MODE = os.environ.get('TRACKER_MODE', 'all' if KASPI_URL else 'sim')
+assert MODE in ('sim', 'kaspi', 'all'), f'Unknown TRACKER_MODE: {MODE}'
+assert MODE == 'sim' or KASPI_URL, 'CUSTOMER_AUTH_URL is required for Kaspi checks'
 for url in filter(None, [URL, KASPI_URL]):
     assert urlparse(url).hostname in ('localhost', '127.0.0.1')
 OUT = Path(os.environ.get('TRACKER_SHOTS_DIR', ROOT / '.local/tracker-redesign'))
@@ -289,12 +294,14 @@ def kaspi_flow(browser):
 def main():
     with sync_playwright() as p:
         browser = p.chromium.launch()
-        test_flow(browser)
-        if KASPI_URL:
+        if MODE in ('sim', 'all'):
+            test_flow(browser)
+        if MODE in ('kaspi', 'all'):
             kaspi_flow(browser)
         browser.close()
     assert not errors, errors
-    print(f'PASS tracker redesign: 5 test-flow stages{" + 3 Kaspi stages" if KASPI_URL else ""}, compact order, games carousel, tiles, no address row; shots in {OUT}')
+    stages = {'sim': '5 test-flow stages', 'kaspi': '3 Kaspi stages', 'all': '5 test-flow + 3 Kaspi stages'}[MODE]
+    print(f'PASS tracker redesign: {stages}, compact order, games carousel, tiles, no address row; shots in {OUT}')
 
 
 if __name__ == '__main__':

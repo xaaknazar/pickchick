@@ -363,6 +363,15 @@ def run_kaspi(browser):
             # «Перейти к оплате» resumes the existing Kaspi payment state; nothing is sent.
             page.get_by_test_id('order-history-pay-' + orders[0]['orderId']).click()
             expect(page.get_by_test_id('kaspi-waiting')).to_be_visible(timeout=10000)
+            kaspi_button = page.get_by_test_id('kaspi-open-app')
+            expect(kaspi_button).to_be_visible()
+            button_box = kaspi_button.bounding_box()
+            tab_box = page.get_by_test_id('tab-orders').bounding_box()
+            assert button_box and tab_box
+            assert button_box['y'] >= 0
+            assert button_box['y'] + button_box['height'] <= tab_box['y'], 'Kaspi action is covered by the floating tab bar'
+            # Check pointer reachability without opening Kaspi or sending an invoice.
+            kaspi_button.click(trial=True)
             page.screenshot(path=str(OUT / f'kaspi-{name}-resume{SUFFIX}.png'))
         if name == 'active-history':
             expect(page.get_by_test_id('tab-orders-badge')).to_have_text('1')
