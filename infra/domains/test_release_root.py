@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -10,6 +11,15 @@ spec.loader.exec_module(r)
 
 
 class RootRoute(unittest.TestCase):
+    def test_auth_trace_changes_do_not_hide_semantic_changes(self):
+        def body(trace, **fields):
+            return json.dumps({'code': 'UNAUTHORIZED', 'trace_id': trace, 'retryable': False, **fields}).encode()
+        original = r.signature(401, {}, body('first'))
+        self.assertEqual(original, r.signature(401, {}, body('second')))
+        self.assertNotEqual(original, r.signature(401, {}, body('second', retryable=True)))
+        self.assertNotEqual(original, r.signature(200, {}, body('first')))
+        with self.assertRaises(RuntimeError): r.signature(401, {}, body('first', code='unexpected'))
+
     def test_only_canonical_get_head_root_changes(self):
         old = b'neighbor {\n respond untouched\n}\n'+Path(__file__).with_name('pickchick.Caddyfile').read_bytes()
         new = r.candidate(old)

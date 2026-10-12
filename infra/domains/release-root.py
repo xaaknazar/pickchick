@@ -37,6 +37,17 @@ def runtime():
     return result
 
 
+def signature(status, headers, body):
+    if status == 401:
+        payload = json.loads(body)
+        d.require(payload.get('code') == 'UNAUTHORIZED', 'Unexpected authentication error')
+        # The API generates a fresh trace ID for each rejected request. Compare
+        # the error semantics and status, not this per-request diagnostic ID.
+        payload.pop('trace_id', None)
+        body = json.dumps(payload, sort_keys=True).encode()
+    return [status, headers.get('Location'), d.digest(body)]
+
+
 def responses():
     # Read-only stable probes; never call a payment action or authenticated data.
     urls = [
@@ -53,7 +64,7 @@ def responses():
     for url in urls:
         status, headers, body = d.http(url)
         d.require(status < 500, 'Existing public route unavailable')
-        result[url] = [status, headers.get('Location'), d.digest(body)]
+        result[url] = signature(status, headers, body)
     u.portal_http()
     return result
 
