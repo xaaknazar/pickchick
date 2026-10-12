@@ -404,7 +404,7 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
     >
       <Header
         {...context}
-        back={model.openCart}
+        back={model.openUpsell}
         title={t.payTitle}
         subtitle={positionsLabel(count, context.locale)}
       />

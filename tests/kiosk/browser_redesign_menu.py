@@ -92,8 +92,14 @@ class RedesignMenu(ui.KioskUI):
         hit = ui.assert_bounded(page, 'kiosk-product-' + HITS[section], width, height)
         self.assertGreater(hit['width'], width * .7, 'the hit spans the grid')
         descriptions = {p['description'] for p in self.catalog['products']}
-        self.assertEqual(clipped(page, '[data-testid="kiosk-screen-menu"]', descriptions), [],
-                         f'{section}: a text is cut')
+        # Long names are fitted after layout and font load; give the fit a moment to settle.
+        cut = clipped(page, '[data-testid="kiosk-screen-menu"]', descriptions)
+        for _ in range(10):
+            if not cut:
+                break
+            page.wait_for_timeout(200)
+            cut = clipped(page, '[data-testid="kiosk-screen-menu"]', descriptions)
+        self.assertEqual(cut, [], f'{section}: a text is cut')
         branch = ui.element(page, 'kiosk-header-subtitle')
         self.assertTrue(branch.evaluate('(e) => e.scrollWidth <= e.clientWidth + 1'))
         # Cards that fit stay above the checkout panel (the grid ends 156 pt above the bottom).

@@ -119,7 +119,7 @@ export function MenuScreen({
         locale={context.locale}
         arrival={arrival}
         onLanded={() => setArriving(null)}
-        onCheckout={model.cartValid ? model.openUpsell : model.openCart}
+        onCheckout={model.openUpsell}
         onOpenCart={model.openCart}
       />
       <Toast

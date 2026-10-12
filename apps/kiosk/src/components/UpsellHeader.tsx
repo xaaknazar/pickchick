@@ -107,7 +107,7 @@ export function UpsellHeader({
             </Text>
           ) : null}
         </View>
-        <Language locale={locale} onChange={setLocale} tone="menu" />
+        <Language locale={locale} onChange={setLocale} tone="glass" />
         <Animated.View style={{ transform: [{ scale: help.scale }] }}>
           <GlassPanel shape="circle">
             <Pressable
