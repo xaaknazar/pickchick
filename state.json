@@ -4718,11 +4718,11 @@
         ".github/workflows/ci.yml",
         "apps/mobile/src/components/KaspiPaymentState.tsx"
       ],
-      "status": "active",
-      "head": "fced4c99806d035b6a16dbf3c376a8aed74232b5",
-      "updatedAt": "2026-10-12T13:19:11.124Z",
-      "summary": "По прямому поручению владельца опубликована без изменения коммитов ветка codex/mobile-redesign-1012, remote SHA fced4c99806d035b6a16dbf3c376a8aed74232b5 подтверждён. PR https://github.com/xaaknazar/pickchick/pull/233 открыт в codex/shared-development с точным текстом .local/mobile-redesign-1012/PR.md. Проверены свежая база7125c00a, чистота рабочей копии, diff --check и стандартные шаблоны секретов. Владелец отдельно подтвердил передачу пересекающихся файлов от Luma, TestFlight18, Pick Farm, TipTop и stop-report; чужие checkpoints и остальные области сохранены. Продуктовые тесты здесь повторно не запускались; результаты предыдущей облачной сессии сохранены в описании PR, полная новая CI ещё не подтверждена.",
-      "nextAction": "Дождаться полной CI PR233; проверить на физическом iPhone/TestFlight и явно интегрировать параллельные ветки mobile-bugfix-1012/Luma с сохранением функциональности. После проверки включить коммит в общий срез без force и выполнить finish. Онлайн-пульт этим этапом публикации не обновлялся.\n2026-10-12: по прямому заданию владельца интегрировать mobile-bugfix-1012 со свежим shared и редизайном переданы только apps/mobile/app.json, apps/mobile/src/app, apps/mobile/src/screens/CatalogScreens.tsx, apps/mobile/src/screens/KaspiCheckoutScreen.tsx, apps/mobile/src/screens/OrderScreens.tsx, apps/mobile/src/screens/OrderStatusScreen.tsx, config/restaurant-locations.json, docs/project-status.md, docs/roadmap/project.json, tests/mobile/restaurant-location.test.mjs. Сохранены ветка, checkpoint и остальные резервы."
+      "status": "done",
+      "head": "f333d1b81b06cfaa0952bf27c837e71c9d3fea4a",
+      "updatedAt": "2026-10-12T19:27:20.578Z",
+      "summary": "PR https://github.com/xaaknazar/pickchick/pull/233 включён в shared без force: f333d1b8. Foundation CI 38254754757 success 11/11, roadmap success. Новые browser-проверки и отступ Kaspi 393x852/320x568, 352 Node + 50 Python успешны. API и оплата не менялись.",
+      "nextAction": "Далее включить уже проверенный PR234, собрать TestFlight19 из shared; физическая приёмка отдельно."
     },
     {
       "id": "mobile-bugfix-1012",
