@@ -4577,11 +4577,11 @@
         "@windows/cashier",
         "docs/operations/cashier-finance-ssh-2026-10-12.md"
       ],
-      "status": "active",
-      "head": "9d352fd54543cb776cca2f741bd3ab193df25742",
-      "updatedAt": "2026-10-12T10:54:38.770Z",
-      "summary": "Owner-authorized addition of the finance Mac public SSH key to the Windows cashier. Reservation via GitHub Contents API with blob CAS because local Git authentication is unavailable. No cashier changes yet.",
-      "nextAction": "Verify pinned cashier host key and effective authorized_keys file; preserve existing keys and ACLs, append supplied public key, verify and publish evidence. Do not restart the cashier application."
+      "status": "done",
+      "head": "00af5ee50cdc650070d7fefa73242247a9c05076",
+      "updatedAt": "2026-10-12T11:00:25.287Z",
+      "summary": "По поручению владельца ключ pickchick-finance-mac (SHA256:qpaC/6pxreJJEtE2E03L0+CKnwZ+RwSR/CAIg6udhEk) добавлен в действующий C:\\ProgramData\\ssh\\administrators_authorized_keys кассы 192.168.3.33 для Админ. Host key сверён. Два прежних ключа и исходные 221 байт сохранены, новый ключ присутствует один раз (итого 3, 325 байт); ACL и владелец не изменены, защищённая резервная копия проверена. Повторное SSH-подключение подтвердило результат. Процессы PickChick и SSH не перезапускались, PID/старты сохранены. Протокол: PR https://github.com/xaaknazar/pickchick/pull/231, 00af5ee50cdc650070d7fefa73242247a9c05076 включён fast-forward в shared-development, удалённый SHA подтверждён. Координация через GitHub API CAS из-за недоступного локального Git; полная CI не заявляется. Status/roadmap заняты filter-layout, онлайн-пульт не обновлялся.",
+      "nextAction": "На финансовом Mac проверить SSH-вход собственным приватным ключом под Админ на текущий IP 192.168.3.33 со сверкой host fingerprint SHA256:LyXj9xzIn/z9OubsMrmqEtVhwSpjayGahVyeCaMLf0M. Приватные ключи не переносились. @windows/cashier освобождён; перед следующими изменениями занять новый резерв. При восстановлении локального Git-доступа получить свежий общий срез, сохранив локальные файлы."
     }
   ]
 }
