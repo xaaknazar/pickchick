@@ -570,7 +570,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
       />
     );
   if (order && paymentReceived(order.phase)) {
-    const status = (statusProps: ScreenProps) =>
+    const status = (statusProps: ScreenProps, onBeforeGame?: () => void) =>
       order.phase === 'handed_over' ? (
         <CompletedOrderScreen
           key={order.orderId}
@@ -605,6 +605,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
         <OrderStatusView
           props={statusProps}
           order={commerceStatus(order)}
+          onBeforeGame={onBeforeGame}
           afterItems={
             order.kitchenComment ? (
               <View testID="order-kitchen-comment" style={s.savedComment}>
@@ -641,7 +642,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
           name={order.phase === 'handed_over' ? 'Завершённый заказ' : 'Статус заказа'}
           onClose={close}
         >
-          {(dismiss) => status({ ...props, inSheet: true, goBack: dismiss })}
+          {(dismiss) => status({ ...props, inSheet: true, goBack: dismiss }, close)}
         </OrderSheet>
       </Modal>
     );

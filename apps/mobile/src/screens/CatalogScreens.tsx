@@ -52,7 +52,6 @@ import {
   NavRow,
   Notice,
   Page,
-  ReviewBadge,
   Row,
   SummaryRow,
   styles as ui,
@@ -88,7 +87,6 @@ export function Welcome(props: ScreenProps) {
           <Body style={{ color: '#FFFFFFBF', lineHeight: 24 }}>
             Один продукт, доведённый до пика вкуса. Своё производство, свои соусы.
           </Body>
-          {props.preview ? <ReviewBadge /> : null}
         </View>
         <Row style={{ gap: 6, marginBottom: 4 }}>
           <View style={s.dotActive} />
@@ -492,7 +490,6 @@ export function Menu(props: ScreenProps) {
           style={{ height: categoryHeight }}
         />
         <View style={s.menuBody}>
-          {props.preview ? <ReviewBadge /> : null}
           {props.model.catalogMode === 'design' ? (
             <Notice title="Образцы меню">
               Блюда и цены из макета. Эта корзина подходит для проверки дизайна; оформить заказ

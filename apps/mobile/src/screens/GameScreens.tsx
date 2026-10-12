@@ -14,7 +14,6 @@ import {
   Caption,
   Heading,
   Icon,
-  ReviewBadge,
   Row,
   styles as ui,
   type IconName,
@@ -36,7 +35,6 @@ export function Events(props: ScreenProps) {
           },
         ]}
       >
-        {props.preview ? <ReviewBadge /> : null}
         <Heading style={s.eventsTitle}>События</Heading>
         <Body muted style={s.eventsSubtitle}>
           Афиша Pick Chick: игры, события и новые поводы заглянуть к нам.

@@ -12,3 +12,14 @@ test('the current branch has the owner-confirmed address; unknown branches never
     assert.equal(restaurantLocation(id), undefined);
   }
 });
+
+test('the live Abay Plaza branch shows its hours instead of "Часы уточняются"', () => {
+  // Live branch id from /v1/branches (ABAY-PLAZA); the 1000…0003 entry is the test branch.
+  const live = restaurantLocation('7a6f6d98-395d-4462-b5e4-b0364a4a8ec1');
+  const test = restaurantLocation('10000000-0000-4000-8000-000000000003');
+  assert.equal(live.name, 'ТЦ Abay Plaza');
+  assert.equal(live.opening_time, '10:00');
+  assert.equal(live.closing_time, '00:00');
+  assert.equal(live.address, test.address);
+  assert.equal(live.map_url, test.map_url);
+});

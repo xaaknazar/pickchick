@@ -27,7 +27,6 @@ import {
   Notice,
   Page,
   Pill,
-  ReviewBadge,
   Row,
   SummaryRow,
   styles as ui,
@@ -221,7 +220,6 @@ export function Ready(props: ScreenProps) {
         contentFit="cover"
       />
       <ScrollView contentContainerStyle={s.readyContent}>
-        <ReviewBadge />
         <Row>
           <View style={ui.flex}>
             <Heading style={s.readyTitle}>Готово!</Heading>

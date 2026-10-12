@@ -77,6 +77,7 @@ export function OrderStatusView({
   afterItems,
   receipt,
   onSupport,
+  onBeforeGame,
 }: {
   props: ScreenProps;
   order: OrderStatusData;
@@ -84,6 +85,8 @@ export function OrderStatusView({
   afterItems?: React.ReactNode;
   receipt?: React.ReactNode;
   onSupport?: () => void;
+  /** Close a React Native <Modal> host first: a native route cannot be presented above it. */
+  onBeforeGame?: () => void;
 }) {
   const [more, setMore] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -271,7 +274,10 @@ export function OrderStatusView({
               accessibilityLabel={
                 active ? 'Пока готовим, сыграйте в Pick Blocks' : 'Сыграть в Pick Blocks'
               }
-              onPress={() => router.push('/games/pick-blocks')}
+              onPress={() => {
+                onBeforeGame?.();
+                router.push({ pathname: '/games/pick-blocks', params: { from: 'order' } });
+              }}
               style={s.game}
             >
               <Image

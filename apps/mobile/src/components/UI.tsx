@@ -273,16 +273,6 @@ export function Notice({
     </View>
   );
 }
-export function ReviewBadge() {
-  return (
-    <View style={styles.reviewBadge}>
-      <Icon name="color-palette-outline" size={16} color={colors.warning} />
-      <Caption style={{ color: colors.warning, flex: 1 }}>
-        Просмотр дизайна · пример, не операция
-      </Caption>
-    </View>
-  );
-}
 export function Page({
   props,
   title,
@@ -386,7 +376,6 @@ export function Page({
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {props.preview ? <ReviewBadge /> : null}
         {children}
       </ScrollView>
       {footer || editing ? (
@@ -626,14 +615,6 @@ export const styles = StyleSheet.create({
   warning: { backgroundColor: colors.warningSurface },
   noticeTitle: { fontFamily: font.bold, marginBottom: 4 },
   noticeBody: { fontSize: 14, lineHeight: 22 },
-  reviewBadge: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-    backgroundColor: colors.warningSurface,
-    padding: 10,
-    borderRadius: 10,
-  },
   navRow: {
     minHeight: 72,
     flexDirection: 'row',

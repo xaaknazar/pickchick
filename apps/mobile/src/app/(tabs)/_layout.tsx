@@ -29,7 +29,11 @@ export default function TabLayout() {
         tabBar={(props) => <FloatingTabBar {...props} />}
         screenOptions={{
           headerShown: false,
-          animation: reduced ? 'none' : 'fade',
+          // No tab fade on purpose. expo-router 57's bottom-tab view derives a hidden tab's native
+          // attach state from the fade's animated value; on iOS a quick switch back can leave the
+          // returning tab detached and blank (expo/expo#49681, react-navigation#12755). Instant
+          // switching is also the standard iOS tab behaviour.
+          animation: 'none',
           tabBarHideOnKeyboard: true,
           sceneStyle: { backgroundColor: '#04143A' },
         }}
