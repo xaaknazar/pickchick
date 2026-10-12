@@ -3,7 +3,8 @@ import { Modal } from 'react-native';
 import type { CustomerCommerceOrder } from '@pickchick/contracts';
 import type { ScreenProps } from '../model';
 import { defaultSelections, lineUnitPrice } from '../domain';
-import { OrderHistoryCard } from '../components/OrderHistoryCard';
+import { CommerceOrderList } from '../components/OrderHistoryCard';
+import { OrdersHeader, ordersPageStyle } from '../components/OrdersTab';
 import { OrderSheet } from '../components/OrderSheet';
 import { Caption, Page } from '../components/UI';
 import { CompletedOrderScreen } from './CompletedOrderScreen';
@@ -66,17 +67,23 @@ export function OrderHistoryPreview(props: ScreenProps) {
   const order = completedOrderFixture(props);
   return (
     <>
-      <Page props={props} title="Заказы" noBack>
+      <Page
+        props={props}
+        title="Заказы"
+        noBack
+        header={<OrdersHeader />}
+        contentStyle={ordersPageStyle.content}
+      >
         <Caption>Пример завершённого заказа</Caption>
-        <OrderHistoryCard
-          order={order}
+        <CommerceOrderList
+          orders={[order]}
           products={props.model.products}
-          savedRating={review?.rating}
+          ratings={review ? { [order.orderId]: review } : {}}
           onOpen={() => {
             setInitialRating(undefined);
             setOpened(true);
           }}
-          onRate={(rating) => {
+          onRate={(_, rating) => {
             setInitialRating(rating);
             setOpened(true);
           }}

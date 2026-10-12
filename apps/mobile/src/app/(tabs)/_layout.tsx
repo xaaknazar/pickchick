@@ -5,6 +5,11 @@ import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FloatingTabBar, TabBarInsetContext } from '../../components/FloatingTabBar';
 import { tabBarMetrics } from '../../tab-bar-metrics';
+import { useMobile } from '../../store';
+import { kaspiCheckoutEnabled } from '../../commerce-checkout';
+import { connectedTestOrdersEnabled } from '../../order-simulator';
+import { usePublishedActiveOrderCount } from '../../active-orders';
+import { activeOrderCount, testActiveKind } from '../../orders-tab';
 
 // Floating capsule bar (Luma pattern, owner request 2026-10-11). Screens scroll under it
 // and reserve its height through TabBarInsetContext.
@@ -23,6 +28,16 @@ export default function TabLayout() {
   const reduced = useReducedMotion();
   const { fontScale } = useWindowDimensions();
   const inset = tabBarMetrics(insets, fontScale).inset;
+  // Orange counter of the «Сейчас» orders, from data the app already holds.
+  const model = useMobile();
+  const kaspiActive = usePublishedActiveOrderCount();
+  const activeOrders = !account.account
+    ? 0
+    : kaspiCheckoutEnabled
+      ? kaspiActive
+      : connectedTestOrdersEnabled
+        ? activeOrderCount(model.testFlow.orders, (order) => testActiveKind(order.state))
+        : 0;
   return (
     <TabBarInsetContext.Provider value={inset}>
       <Tabs
@@ -55,6 +70,7 @@ export default function TabLayout() {
           options={{
             title: 'Заказы',
             tabBarButtonTestID: 'tab-orders',
+            tabBarBadge: activeOrders > 0 ? activeOrders : undefined,
           }}
         />
         <Tabs.Screen
