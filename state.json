@@ -4804,9 +4804,11 @@
         "docs/project-status.md",
         "docs/roadmap/project.json"
       ],
-      "status": "active",
-      "head": "4a97a1ab253b3f78405a8398a4e184d1082377b1",
-      "updatedAt": "2026-10-12T20:21:09.863Z"
+      "status": "done",
+      "head": "00eed43269ea4d6f1a65e944dff1b821ebd779f8",
+      "updatedAt": "2026-10-12T20:23:05.118Z",
+      "summary": "PR233/234/235 включены в shared после полной CI, PR236 сохраняет только итог публикации. iOS0.2.0(19) из чистого699c003f, archive/export/codesign/10photo/JS/upload проверены, Apple обработала, PickChick Internal: Тестируется, чек-лист сохранён. Пульт4a97a1ab установлен после CI38301074361 11/11, HTTPS подтверждён, backup SQLite и17 соседних сервисов сохранены. VPS-резервы возвращены stop-report; каталог/цены/реальные платежи не менялись.",
+      "nextAction": "Владелец проходит чек-лист iPhone в docs/operations/mobile-testflight19.md; accepted=false до подтверждения. Audit-fixes и миграция051 - отдельный следующий этап, не запускать catalog-add-drinks без согласованных цен."
     }
   ]
 }
