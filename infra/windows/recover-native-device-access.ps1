@@ -41,6 +41,7 @@ $data='C:\ProgramData\PickChick';$program='C:\Program Files\PickChick'
 $script:toolsRoot=Join-Path $data 'EdgeTools\edge-0186902'
 $script:stateRoot=Join-Path $data ('EdgeTools\device-access-'+$SourceCommit.Substring(0,7))
 $node=Join-Path $program 'Edge\edge-0186902\node\node.exe'
+$script:nodeExe=$node;$script:pgBin=Join-Path $program 'Postgres\18.6-3\bin'
 $app=Join-Path $program ('Edge\edge-'+$SourceCommit.Substring(0,7)+'\app')
 $oldApp=Join-Path $program 'Edge\edge-23fb39e\app'
 $xml=Join-Path $program 'Edge\edge-0186902\PickChickEdge.xml'
@@ -49,7 +50,7 @@ $deviceEnv=Join-Path $data 'DeviceAccess\service\device-access.env'
 $lease=$null
 try {
  $lease=Enter-UnifiedMaintenanceLock (Join-Path $data 'EdgeTools\unified-menu-maintenance.lock')
- foreach($p in @($PSScriptRoot,$OperatorDirectory,$OperatorCiProof,$stateRoot)) {Assert-UpdateAcl $p}
+ foreach($p in @($PSScriptRoot,$PSCommandPath,$helper,$OperatorDirectory,$OperatorCiProof,$stateRoot)) {Assert-UpdateAcl $p}
  Assert-UnifiedCi (Get-Content $OperatorCiProof -Raw | ConvertFrom-Json) $OperatorCommit
  if(Test-Path (Join-Path $stateRoot 'Prepare.json')) {throw 'Preparation receipt exists; do not overwrite or replay.'}
  $p=@{Mode='Inspect';SourceCommit=$SourceCommit;RuntimeArchive=$RuntimeArchive;RuntimeSha256=$RuntimeSha256;BackupManifest=$BackupManifest;CiProof=$CiProof;BranchId=$BranchId;DeviceId=$DeviceId}
