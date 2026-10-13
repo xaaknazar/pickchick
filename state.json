@@ -5076,11 +5076,12 @@
         "tests/integration/terminal-access-upgrade.test.mjs",
         "packages/backoffice-core/tests/workforce-store.test.mjs",
         "infra/staging/activate-device-center.py",
-        "tests/operations/test_device_center_activation.py"
+        "tests/operations/test_device_center_activation.py",
+        "tests/integration/remote-stops-readiness.test.mjs"
       ],
       "status": "active",
-      "head": "5a64e695eda481fa5aa794dfe64085679fa75bf6",
-      "updatedAt": "2026-10-13T10:55:05.852Z"
+      "head": "d5a5282c6be9f79caacee5496a254c4f059c0bbd",
+      "updatedAt": "2026-10-13T10:57:43.940Z"
     }
   ]
 }
