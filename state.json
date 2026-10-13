@@ -4860,6 +4860,19 @@
       "nextAction": "Зелёная CI → Release 0.1.0 (15) → PickChick Kiosk Internal; обновить протокол, shared и онлайн-пульт. Физическая установка/приёмка отдельно."
     },
     {
+      "id": "kaspi-relogin-1013",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kaspi-relogin-1013",
+      "scopes": [
+        "@vps/kaspi-bridge",
+        "@vps/kaspi-workers",
+        "docs/operations/kaspi-relogin-2026-10-13.md"
+      ],
+      "status": "active",
+      "head": "1d1414339e4b8c4b87de545d47e753b7ffb2b233",
+      "updatedAt": "2026-10-13T07:29:14.491Z"
+    },
+    {
       "id": "payroll-september",
       "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
       "branch": "codex/payroll-september",
@@ -4885,24 +4898,12 @@
         "infra/staging/release-payroll.py",
         "infra/staging/payroll-owner.mjs",
         "infra/staging/payroll-grants.mjs",
-        "apps/backoffice/PRODUCT.md"
+        "apps/backoffice/PRODUCT.md",
+        "db/cloud/migrations/057_cloud_workforce_payroll.sql"
       ],
       "status": "active",
       "head": "1d1414339e4b8c4b87de545d47e753b7ffb2b233",
-      "updatedAt": "2026-10-13T07:21:22.006Z"
-    },
-    {
-      "id": "kaspi-relogin-1013",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/kaspi-relogin-1013",
-      "scopes": [
-        "@vps/kaspi-bridge",
-        "@vps/kaspi-workers",
-        "docs/operations/kaspi-relogin-2026-10-13.md"
-      ],
-      "status": "active",
-      "head": "1d1414339e4b8c4b87de545d47e753b7ffb2b233",
-      "updatedAt": "2026-10-13T07:29:14.491Z"
+      "updatedAt": "2026-10-13T07:29:37.955Z"
     }
   ]
 }
