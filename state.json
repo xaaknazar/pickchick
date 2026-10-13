@@ -5108,7 +5108,9 @@
       ],
       "status": "active",
       "head": "8a7273a9db343baaae05f65d72b2ee947ce1ab90",
-      "updatedAt": "2026-10-13T13:32:50.328Z"
+      "updatedAt": "2026-10-13T13:32:50.328Z",
+      "summary": "Direct owner instruction 13 Oct: import supplied bundle 8a7273a9 and install build 17 over 16 on connected iPad, preserve data, no real payment. Continuation of owner-authorized kiosk-design-demo/redesign work. Separate device-center files stay reserved there; supplied useKioskController/status/roadmap changes are not edited in this checkout.",
+      "nextAction": "Push supplied branch, PR from supplied PR.md; require full CI, locked install/tests, commercial=1 Release and signature/identity verification; prioritize cable install. Native checklist in isolated demo only; record installation protocol."
     }
   ]
 }
