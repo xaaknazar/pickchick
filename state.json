@@ -4631,21 +4631,6 @@
       "updatedAt": "2026-10-12T11:16:25.712Z"
     },
     {
-      "id": "stop-report",
-      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
-      "branch": "codex/stop-report",
-      "scopes": [
-        "docs/collaboration/handoff.md",
-        "docs/operations/deployments/2026-10-12-existing-stops.md",
-        "@vps/roadmap",
-        "@vps/public-https"
-      ],
-      "status": "active",
-      "head": "7125c00a977b3e5a22d4c749157559175c41c8b2",
-      "updatedAt": "2026-10-12T20:21:09.863Z",
-      "nextAction": "2026-10-12: по прямому подтверждению владельца в чате переданы задаче mobile-redesign-1012 только следующие файлы: docs/project-status.md, docs/roadmap/project.json. Остальные резервы, рабочая ветка и checkpoint сохранены. 2026-10-13: владелец явно разрешил временно передать @vps/roadmap и @vps/public-https mobile-testflight19 для публикации; после публикации вернуть. 2026-10-13: оба VPS-резерва возвращены после публикации mobile-testflight19. Public/roadmap current=4a97a1ab253b3f78405a8398a4e184d1082377b1, API=f01cb45f441de1b664806c42aa93deb5cbb568b6, gateway SHA256=971bbd6ee3a951d6ab8a8b99e3f42eef013aa85c4640b9820fc93fde0637ac4a. HTTPS health проверен, lock снят, 17 соседних сервисов сохранены."
-    },
-    {
       "id": "mobile-redesign-1012",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-redesign-1012",
@@ -4809,6 +4794,24 @@
       "updatedAt": "2026-10-12T20:23:05.118Z",
       "summary": "PR233/234/235 включены в shared после полной CI, PR236 сохраняет только итог публикации. iOS0.2.0(19) из чистого699c003f, archive/export/codesign/10photo/JS/upload проверены, Apple обработала, PickChick Internal: Тестируется, чек-лист сохранён. Пульт4a97a1ab установлен после CI38301074361 11/11, HTTPS подтверждён, backup SQLite и17 соседних сервисов сохранены. VPS-резервы возвращены stop-report; каталог/цены/реальные платежи не менялись.",
       "nextAction": "Владелец проходит чек-лист iPhone в docs/operations/mobile-testflight19.md; accepted=false до подтверждения. Audit-fixes и миграция051 - отдельный следующий этап, не запускать catalog-add-drinks без согласованных цен."
+    },
+    {
+      "id": "stop-report",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/stop-report",
+      "scopes": [
+        "docs/collaboration/handoff.md",
+        "docs/operations/deployments/2026-10-12-existing-stops.md",
+        "@vps/roadmap",
+        "@vps/public-https",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/operations/deployments/2026-10-13-existing-stops.md"
+      ],
+      "status": "active",
+      "head": "4ff5a9db6330256b52d02ccdf23c07286fbb9b4f",
+      "updatedAt": "2026-10-13T04:59:04.599Z",
+      "nextAction": "2026-10-12: по прямому подтверждению владельца в чате переданы задаче mobile-redesign-1012 только следующие файлы: docs/project-status.md, docs/roadmap/project.json. Остальные резервы, рабочая ветка и checkpoint сохранены. 2026-10-13: владелец явно разрешил временно передать @vps/roadmap и @vps/public-https mobile-testflight19 для публикации; после публикации вернуть. 2026-10-13: оба VPS-резерва возвращены после публикации mobile-testflight19. Public/roadmap current=4a97a1ab253b3f78405a8398a4e184d1082377b1, API=f01cb45f441de1b664806c42aa93deb5cbb568b6, gateway SHA256=971bbd6ee3a951d6ab8a8b99e3f42eef013aa85c4640b9820fc93fde0637ac4a. HTTPS health проверен, lock снят, 17 соседних сервисов сохранены."
     }
   ]
 }
