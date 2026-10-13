@@ -169,3 +169,144 @@ test('strict schemas reject biometrics, invalid dates, overlapping intervals and
     false,
   );
 });
+
+test('duration-only attendance preserves decimal hours without inventing clock times; historical rates expire', () => {
+  const entry = time();
+  entry.payload.intervals = [];
+  entry.payload.paid_duration_ms = 4802400; // 1.334 decimal hours, exact to 0.1 second.
+  entry.payload.source = { sha256: 'a'.repeat(64), cell: 'График!D4', hours: '1.334' };
+  assert.equal(WorkTime.safeParse(entry.payload).success, true);
+  const r = rate('12345');
+  r.payload.valid_until = '2026-09-30';
+  const result = calc([r, entry]);
+  assert.equal(result.lines[0].seconds, 4802.4);
+  assert.equal(result.lines[0].unknown_clock_seconds, 4802.4);
+  assert.equal(result.lines[0].base_minor, '16468');
+  assert.equal(result.lines[0].night_seconds, 0);
+  assert.equal(
+    WorkTime.safeParse({ ...entry.payload, intervals: time().payload.intervals }).success,
+    false,
+  );
+  assert.equal(
+    WorkTime.safeParse({ ...entry.payload, source_event_ids: [randomUUID()] }).success,
+    false,
+  );
+  entry.payload.date = '2026-10-01';
+  assert.equal(calculateWorkforce('2026-10-01', [r, entry]).issues[0].code, 'MISSING_RATE');
+});
+
+test('monthly worksheet keeps source salary, adjustments and review status separate from hourly preview', () => {
+  const sheet = record('payroll', {
+    employee_id,
+    month: '2026-09-01',
+    status: 'draft',
+    base_override_minor: '900000',
+    note: 'Сверка источника',
+    items: [
+      { name: 'Аванс', effect: 'deduction', amount_minor: '200000' },
+      { name: 'Доплата', effect: 'addition', amount_minor: '10000' },
+    ],
+    source: {
+      sha256: 'a'.repeat(64),
+      sheet: 'Табель',
+      row: 4,
+      gross_minor: '900000',
+      net_minor: '700000',
+      cells: [],
+      issues: [],
+    },
+  });
+  const result = calc([rate(), time(), sheet]);
+  assert.equal(result.total_minor, '800000');
+  assert.equal(result.payroll[0].total_minor, '710000');
+  assert.equal(result.payroll[0].source_net_minor, '700000');
+  assert.equal(result.issues[0].code, 'UNAPPROVED_PAYROLL');
+  sheet.payload.base_override_minor = null;
+  sheet.payload.status = 'approved';
+  assert.equal(calc([rate(), time(), sheet]).payroll[0].total_minor, '610000');
+  sheet.payload.deleted = true;
+  assert.equal(calc([sheet]).payroll.length, 0);
+});
+
+test('workbook import resumes stable commands and refuses duplicate attendance or changed imported data', async () => {
+  const { planImport, runImport } = await import('../../../scripts/payroll-import.mjs');
+  const branch = randomUUID();
+  const input = {
+    version: 1,
+    sha256: 'a'.repeat(64),
+    month: '2026-09-01',
+    employees: [
+      {
+        name: 'Synthetic Person',
+        position: 'Кухня',
+        rate_minor: '100000',
+        days: [
+          {
+            date: '2026-09-01',
+            paid_duration_ms: 30600000,
+            source: { sha256: 'a'.repeat(64), cell: 'График!D4', hours: '8.5' },
+          },
+        ],
+        payroll: {
+          base_override_minor: '850000',
+          items: [],
+          source: {
+            sha256: 'a'.repeat(64),
+            sheet: 'Табель',
+            row: 4,
+            gross_minor: '850000',
+            net_minor: '850000',
+            cells: [],
+            issues: [],
+          },
+        },
+      },
+    ],
+  };
+  const snapshot = {
+    branch_id: branch,
+    month: input.month,
+    role: 'manager',
+    period: { closed: false },
+    employees: [],
+    records: [],
+  };
+  const initial = planImport(input, snapshot, branch);
+  assert.equal(initial.summary.commands, 4);
+  let writes = 0;
+  const request = async (path, body) => {
+    if (!body) return globalThis.structuredClone(snapshot);
+    writes++;
+    const c = body.command;
+    (c.kind === 'employee' ? snapshot.employees : snapshot.records).push({
+      id: c.id,
+      kind: c.kind,
+      revision: 1,
+      payload: c.payload,
+    });
+    return { id: c.id, revision: 1 };
+  };
+  const applied = await runImport({
+    input,
+    branch,
+    request,
+    apply: true,
+    expectedPlan: initial.hash,
+  });
+  assert.equal(applied.saved, 4);
+  assert.equal(writes, 4);
+  const again = await runImport({
+    input,
+    branch,
+    request,
+    apply: true,
+    expectedPlan: initial.hash,
+  });
+  assert.equal(again.saved, 0);
+  assert.equal(writes, 4);
+  snapshot.records.find((r) => r.kind === 'time').payload.paid_duration_ms = 3600000;
+  assert.throws(() => planImport(input, snapshot, branch), /modified/);
+  snapshot.records.find((r) => r.kind === 'time').payload.paid_duration_ms = 30600000;
+  snapshot.records.push({ ...snapshot.records.find((r) => r.kind === 'time'), id: randomUUID() });
+  assert.throws(() => planImport(input, snapshot, branch), /conflicts/);
+});

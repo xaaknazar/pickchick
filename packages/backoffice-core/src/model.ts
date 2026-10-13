@@ -132,9 +132,11 @@ export const Station = z.strictObject({
   target_seconds: z.number().int().min(1).max(3600),
 });
 export const Employee = z.strictObject({
+  position: z.string().trim().min(1).max(100).optional(),
+  employment_status: z.enum(['working', 'inactive', 'unknown']).optional(),
   deleted: z.literal(true).optional(),
   name: text,
-  role: z.enum(['manager', 'cashier', 'cook', 'assembler']),
+  role: z.enum(['manager', 'cashier', 'cook', 'assembler', 'staff']),
   active: z.boolean(),
   note,
 });
