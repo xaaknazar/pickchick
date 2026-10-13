@@ -24,6 +24,7 @@ export function WelcomeScreen({ model, context }: { model: KioskModel; context: 
         onLocale={context.setLocale}
         onStart={() => void model.start()}
         busy={model.busy}
+        onLogoHold={context.onStaffHold}
       />
     </ScreenSurface>
   );
