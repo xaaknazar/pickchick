@@ -9,6 +9,10 @@ final class InstalledUITests: XCTestCase {
         let app = XCUIApplication(bundleIdentifier: "kz.pickchick.kiosk")
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20))
+        // Recover only our isolated demo after an interrupted verification.
+        if element("kiosk-demo-badge", app).exists {
+            tap("kiosk-demo-exit", app)
+        }
         guard element("kiosk-start", app).waitForExistence(timeout: 10) else {
             throw XCTSkip("Existing guest flow must be left intact; start from idle welcome")
         }
@@ -26,9 +30,17 @@ final class InstalledUITests: XCTestCase {
         tap("kiosk-start", app)
         let dine = element("kiosk-mode-dine-in", app)
         let take = element("kiosk-mode-takeaway", app)
+        XCTAssertTrue(dine.waitForExistence(timeout: 5))
+        Thread.sleep(forTimeInterval: 1.3) // entrance animation, before measuring
         let dineFrame = dine.frame, takeFrame = take.frame
-        element("kiosk-screen-mode", app).swipeUp()
-        element("kiosk-screen-mode", app).swipeDown()
+        for card in [dine, take] {
+            let top = card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
+            let bottom = card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
+            bottom.press(forDuration: 0.05, thenDragTo: top)
+            XCTAssertTrue(element("kiosk-screen-mode", app).exists)
+            top.press(forDuration: 0.05, thenDragTo: bottom)
+            XCTAssertTrue(element("kiosk-screen-mode", app).exists)
+        }
         XCTAssertEqual(dine.frame, dineFrame)
         XCTAssertEqual(take.frame, takeFrame)
         capture("18-fixed-mode", app)
