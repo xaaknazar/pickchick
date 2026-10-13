@@ -250,8 +250,9 @@ class RedesignProduct(ui.KioskUI):
     def test_other_combos_duos_and_sets_follow_the_scheme(self):
         cases = [('combo', 'master-combo', '5 490 ₸', ['drink', 'sauce']),
                  ('duo', 'finger-duo', '7 990 ₸', ['drink', 'sauce']),
-                 ('sets', 'fingers-25', '13 990 ₸', ['sauce']),
-                 ('extras', 'sauce', '390 ₸', ['size'])]
+                 ('sets', 'fingers-25', '13 990 ₸', ['sauce'])]
+        # A size-only extra (the sauce) opens the sheet over the menu, not this page:
+        # browser_redesign_sheet.py covers it.
         for width, height in [(1024, 1366), (744, 1133)]:
             for category, product_id, price, sections in cases:
                 with self.subTest(width=width, product=product_id):
