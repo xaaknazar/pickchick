@@ -116,6 +116,12 @@ export interface KioskState {
   order: KioskOrderView | null;
   recoveryRequired: boolean;
   idleWarningSeconds: number | null;
+  /**
+   * Owner decision 2026-10-13: the Kaspi QR may offer «Начать заново» (the QR is not revoked;
+   * the kiosk starts over for the next guest). True only while the commercial controller allows
+   * it; absent in the simulator.
+   */
+  canStartOver?: boolean;
 }
 export interface KioskModel extends KioskState {
   start(): Promise<boolean>;
@@ -147,6 +153,8 @@ export interface KioskModel extends KioskState {
   cancelOrder(): Promise<boolean>;
   /** Isolated demo capability only. Live QR cancellation is not supported by the bank bridge. */
   cancelPayment?(): Promise<boolean>;
+  /** «Начать заново» on the Kaspi QR (see `canStartOver`); nothing is cancelled or paid. */
+  startOver?(): Promise<boolean>;
   recover(): Promise<boolean>;
   refresh(): Promise<boolean | void>;
   newGuest(): Promise<boolean>;

@@ -74,6 +74,23 @@ type Intent = {
     catalogVersion: number;
   };
 };
+/**
+ * Owner decision 2026-10-13: a guest who gives up at the Kaspi QR starts over («Начать заново»).
+ * The QR is not revoked (the bridge cannot; it lapses by itself), the server keeps the order and
+ * keeps tracking its attempt, so a late payment is captured and reaches the kitchen as before.
+ * The kiosk forgets that guest locally and ends its server session later: /sessions/end is
+ * refused (CONFLICT) while the attempt is pending. Only these credentials are kept for it.
+ */
+type AbandonedGuest = { sessionId: string; token: string; expiresAt: string };
+/**
+ * Abandoned guests remembered at once. The server keeps at most 10 open guest sessions per
+ * device (TTL 1 h); with the guest at the screen and one spare the kiosk stays below it, so
+ * «Начать заново» is offered only while fewer are waiting.
+ */
+export const MAX_ABANDONED_GUESTS = 8;
+/** Next /sessions/end of an abandoned guest after a refusal: 5 s, 10 s, 20 s, then every 30 s. */
+export const abandonedRetryMs = (failures: number) =>
+  Math.min(30000, 5000 * 2 ** Math.min(Math.max(failures, 0), 3));
 type Flow = {
   version: 1;
   guestId: string | null;
@@ -83,6 +100,8 @@ type Flow = {
   order: CustomerCommerceOrder | null;
   lastActivityAt: number;
   resetPending: boolean;
+  /** Stored only while not empty: flows of installed builds have no such field. */
+  abandoned: AbandonedGuest[];
 };
 const isObject = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === 'object' && !Array.isArray(v);
@@ -358,19 +377,47 @@ export function applyAvailability(
     },
   };
 }
+const FLOW_KEYS = [
+  'version',
+  'guestId',
+  'mode',
+  'cart',
+  'intent',
+  'order',
+  'lastActivityAt',
+  'resetPending',
+];
+/** Absent (every flow of an installed build) means none; otherwise strictly checked. */
+function abandonedGuests(value: unknown, guestId: unknown): AbandonedGuest[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > MAX_ABANDONED_GUESTS)
+    throw new KioskError('RECOVERY_DATA_INVALID');
+  const seen = new Set<string>();
+  for (const entry of value) {
+    if (
+      !isObject(entry) ||
+      !exactKeys(entry, ['sessionId', 'token', 'expiresAt']) ||
+      !id(entry.sessionId) ||
+      entry.sessionId === guestId ||
+      seen.has(entry.sessionId) ||
+      typeof entry.token !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(entry.token) ||
+      typeof entry.expiresAt !== 'string' ||
+      !Number.isFinite(Date.parse(entry.expiresAt))
+    )
+      throw new KioskError('RECOVERY_DATA_INVALID');
+    seen.add(entry.sessionId);
+  }
+  return value.map((entry: AbandonedGuest) => ({
+    sessionId: entry.sessionId,
+    token: entry.token,
+    expiresAt: entry.expiresAt,
+  }));
+}
 function flow(value: unknown): Flow {
   if (
     !isObject(value) ||
-    !exactKeys(value, [
-      'version',
-      'guestId',
-      'mode',
-      'cart',
-      'intent',
-      'order',
-      'lastActivityAt',
-      'resetPending',
-    ]) ||
+    !(exactKeys(value, [...FLOW_KEYS]) || exactKeys(value, [...FLOW_KEYS, 'abandoned'])) ||
     value.version !== 1 ||
     !(value.guestId === null || id(value.guestId)) ||
     ![null, 'takeaway', 'dine_in'].includes(value.mode as null) ||
@@ -453,7 +500,8 @@ function flow(value: unknown): Flow {
     (value.resetPending && (p || (order && !terminal(order))))
   )
     throw new KioskError('RECOVERY_DATA_INVALID');
-  return { ...value, order } as unknown as Flow;
+  const abandoned = abandonedGuests(value.abandoned, value.guestId);
+  return { ...value, order, abandoned } as unknown as Flow;
 }
 
 /** Navigation steps a background reload keeps (the guest is browsing, nothing is pending). */
@@ -509,6 +557,11 @@ export class CommercialKioskController {
   private addSerial = 0;
   private phone = '';
   private warning: number | null = null;
+  /** Abandoned guests whose session is over (ended, unknown to the server or expired). */
+  private ended = new Set<string>();
+  /** Next /sessions/end per abandoned guest; memory only, so after a restart all are due. */
+  private endRetry = new Map<string, { at: number; failures: number }>();
+  private ending = false;
   private listeners = new Set<() => void>();
   private view: KioskState;
   private io: CommercialKioskIO;
@@ -517,6 +570,7 @@ export class CommercialKioskController {
     this.current = this.empty();
     this.view = this.snapshot();
   }
+  /** A flow without a guest. Abandoned guests outlive it: their sessions are still to be ended. */
   private empty(): Flow {
     return {
       version: 1,
@@ -527,6 +581,7 @@ export class CommercialKioskController {
       order: null,
       lastActivityAt: this.io.now(),
       resetPending: false,
+      abandoned: this.current?.abandoned ?? [],
     };
   }
   subscribe = (fn: () => void) => {
@@ -553,6 +608,29 @@ export class CommercialKioskController {
       this.blocked ||
       !!this.current.intent ||
       (!!this.current.order && !terminal(this.current.order))
+    );
+  }
+  /**
+   * «Начать заново» (owner decision 2026-10-13) is offered only for a Kaspi QR order still being
+   * prepared or waiting for the scan: no stored intent, not final, not checking or needing
+   * attention (an unknown result stays with staff), with its own guest at hand and room to
+   * remember one more abandoned guest.
+   */
+  private restartable() {
+    const order = this.current.order;
+    return (
+      !!order &&
+      !this.blocked &&
+      !this.current.intent &&
+      !this.current.resetPending &&
+      !terminal(order) &&
+      !['checking', 'attention'].includes(order.phase) &&
+      order.paymentMethod !== 'kaspi_invoice' &&
+      order.payment?.kind === 'kaspi_qr' &&
+      ['preparing', 'pending'].includes(order.payment.state) &&
+      !!this.guest &&
+      this.guest.sessionId === this.current.guestId &&
+      this.current.abandoned.length < MAX_ABANDONED_GUESTS
     );
   }
   private snapshot(): KioskState {
@@ -630,6 +708,7 @@ export class CommercialKioskController {
       // A paid order waiting for its kitchen number is final: it no longer blocks the kiosk.
       recoveryRequired: this.blocked || !!this.current.intent || order?.phase === 'attention',
       idleWarningSeconds: this.warning,
+      canStartOver: this.ready && this.restartable(),
     };
   }
   private emit() {
@@ -637,8 +716,13 @@ export class CommercialKioskController {
     for (const fn of this.listeners) fn();
   }
   private async save(next: Flow) {
-    await this.io.writeFlow(JSON.stringify(next));
-    this.current = next;
+    // An abandoned guest whose session is over is never written back.
+    const abandoned = next.abandoned.filter((guest) => !this.ended.has(guest.sessionId));
+    const stored: Record<string, unknown> = { ...next, abandoned };
+    // Installed builds read flows without the field: it is written only while a guest waits.
+    if (!abandoned.length) delete stored.abandoned;
+    await this.io.writeFlow(JSON.stringify(stored));
+    this.current = { ...next, abandoned };
   }
   private setError(code: KioskErrorCode | null) {
     this.errorCode = code;
@@ -1048,6 +1132,14 @@ export class CommercialKioskController {
         const [raw, guestRaw] = await Promise.all([this.io.readFlow(), this.io.readSession()]);
         this.current = raw ? flow(decode(raw)) : this.empty();
         this.guest = guestRaw ? session(decode(guestRaw)) : null;
+        // «Начать заново» was interrupted after its flow write: that guest is never adopted again.
+        if (
+          this.guest &&
+          this.current.abandoned.some((a) => a.sessionId === this.guest?.sessionId)
+        ) {
+          this.guest = null;
+          await this.io.removeSession().catch(() => {});
+        }
         if (this.guest && !this.current.guestId && !this.current.intent && !this.current.order)
           await this.save({ ...this.current, guestId: this.guest.sessionId });
         if (
@@ -1450,6 +1542,10 @@ export class CommercialKioskController {
     await this.io.removeSession();
     this.guest = null;
     await this.save(this.empty());
+    this.clearGuestScreens();
+  }
+  /** Local screen state of a guest who is gone; the next guest starts on the start screen. */
+  private clearGuestScreens() {
     this.phone = '';
     this.selectedMethod = 'kaspi';
     this.warning = null;
@@ -1458,6 +1554,119 @@ export class CommercialKioskController {
     this.editing = null;
     this.returnStep = 'menu';
     this.step = 'start';
+  }
+  /**
+   * «Начать заново» on the Kaspi QR (owner decision 2026-10-13): the guest gives up and the kiosk
+   * starts over from the start screen. Nothing is cancelled or paid: the server keeps the order
+   * and keeps tracking its QR (a late payment is captured and reaches the kitchen as today). One
+   * flow write forgets the cart, mode and order and remembers the guest's session, which
+   * `endAbandoned` ends later; then the guest is unbound locally like `detachGuest`. The next
+   * guest gets a new session and order. A last status read first lets a payment that has just
+   * been captured show its number instead; a refused restart keeps the screen as it is.
+   */
+  startOver = () =>
+    this.run(async () => {
+      if (!this.restartable()) throw new KioskError('QUIET');
+      try {
+        await this.readOrder();
+      } catch (error) {
+        // Offline the known state decides; an inconsistent answer stays with the payment screen.
+        if (this.blocked || !transient(error)) throw new KioskError('QUIET');
+      }
+      if (!this.restartable()) {
+        this.derive();
+        throw new KioskError('QUIET');
+      }
+      const guest = this.guest!;
+      const abandoned: AbandonedGuest = {
+        sessionId: guest.sessionId,
+        token: guest.token,
+        // A guest with an order was confirmed by the server; its TTL is at most an hour.
+        expiresAt: guest.expiresAt ?? new Date(this.io.now() + 3600000).toISOString(),
+      };
+      await this.save({ ...this.empty(), abandoned: [...this.current.abandoned, abandoned] });
+      // Unbound in memory before the credential is removed: a failed removal can never hand this
+      // guest to the next one (the next session overwrites it, a restart removes it).
+      this.guest = null;
+      this.clearGuestScreens();
+      try {
+        await this.io.removeSession();
+      } catch {
+        // See restore: a stored abandoned guest is removed there.
+      }
+    });
+  /**
+   * Ends the sessions of abandoned guests in the background (owner decision 2026-10-13): one
+   * request at a time, outside the guest's commands, so the next guest never waits for it. The
+   * server refuses (CONFLICT) while that order's QR attempt is pending, so a refusal or a network
+   * failure is retried later; a guest is dropped once the server ends it, answers FORBIDDEN
+   * (unknown or expired) or its expiry has passed. Only /sessions/end is ever sent with an
+   * abandoned guest's token: never a quote, an order read or a payment.
+   */
+  endAbandoned = async (): Promise<void> => {
+    if (!this.initialized || this.ending || !this.current.abandoned.length) return;
+    this.ending = true;
+    try {
+      const now = this.io.now();
+      for (const guest of this.current.abandoned) {
+        if (this.ended.has(guest.sessionId)) continue;
+        if (Date.parse(guest.expiresAt) <= now) {
+          this.ended.add(guest.sessionId);
+          continue;
+        }
+        const retry = this.endRetry.get(guest.sessionId);
+        if (retry && retry.at > now) continue;
+        let over = false;
+        try {
+          const answer = await this.io.request('/sessions/end', guest.token, {});
+          over = isObject(answer) && answer.ended === true;
+        } catch (error) {
+          over = error instanceof KioskError && error.code === 'FORBIDDEN';
+        }
+        if (over) {
+          this.ended.add(guest.sessionId);
+          this.endRetry.delete(guest.sessionId);
+        } else {
+          const failures = (retry?.failures ?? 0) + 1;
+          this.endRetry.set(guest.sessionId, {
+            at: this.io.now() + abandonedRetryMs(failures - 1),
+            failures,
+          });
+        }
+        break;
+      }
+      await this.forgetEnded();
+    } finally {
+      this.ending = false;
+    }
+  };
+  /**
+   * Writes the flow without the abandoned guests that are over. The write waits for no one and
+   * never overlaps a guest command (or a background reload): a busy kiosk retries on the next
+   * tick, and any other write already leaves them out.
+   */
+  private async forgetEnded() {
+    if (!this.current.abandoned.some((guest) => this.ended.has(guest.sessionId))) return;
+    if (!this.ready || this.busy || this.backgroundTask) return;
+    const task = (async () => {
+      try {
+        await this.save({ ...this.current });
+        for (const sessionId of this.ended)
+          if (!this.current.abandoned.some((guest) => guest.sessionId === sessionId)) {
+            this.ended.delete(sessionId);
+            this.endRetry.delete(sessionId);
+          }
+        this.emit();
+      } catch {
+        // The secure write failed: the next tick tries again.
+      }
+      return true;
+    })();
+    this.backgroundTask = task;
+    void task.then(() => {
+      if (this.backgroundTask === task) this.backgroundTask = null;
+    });
+    await task;
   }
   /**
    * The finished guest is cleared locally first (cart, mode, final order), so a kiosk without
@@ -1494,6 +1703,8 @@ export class CommercialKioskController {
     this.emit();
   };
   tick = async () => {
+    // Abandoned guests are ended alongside, never awaited: the next guest does not wait.
+    if (this.current.abandoned.length) void this.endAbandoned();
     if (!this.ready || this.busy || this.step === 'start') return;
     const elapsed = this.io.now() - this.current.lastActivityAt;
     if (this.unsafe() || this.current.order) {
