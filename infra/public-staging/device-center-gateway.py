@@ -81,13 +81,13 @@ def main(a):
         r.require(re.fullmatch('[a-f0-9]{40}', value), 'Exact commit required')
     p.verify_ci(json.loads(a.ci_proof.read_text()), a.source_sha)
     # Source artifact is checked against the caller-provided, locally verified digest.
-    r.require(p.digest((ROOT/'infra/public-staging/gateway.Caddyfile').read_bytes()) ==
+    r.require(p.digest((ROOT/'infra/domains/device-center.Caddyfile').read_bytes()) ==
               a.source_config_sha256, 'Source configuration differs')
     a.expected_api_release = str(r.ROOT/'releases'/a.expected_api_sha)
     a.expected_public_release = str(r.ROOT/'public-https/releases'/a.expected_public_sha)
     old, api, before = r.baseline(a)
     original = old/'infra/public-staging/gateway.Caddyfile'
-    new_text = candidate(original.read_text(), (ROOT/'infra/public-staging/gateway.Caddyfile').read_text())
+    new_text = candidate(original.read_text(), (ROOT/'infra/domains/device-center.Caddyfile').read_text())
     manifest = r.public_files(old)
     baseline = {path: r.http(path)[:2] for path in ['/v1/capabilities', '/roadmap/health']}
     r.require(all(status == 200 for status, _ in baseline.values()), 'Baseline health failed')

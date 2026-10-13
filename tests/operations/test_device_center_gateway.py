@@ -11,9 +11,9 @@ spec.loader.exec_module(g)
 
 class GatewayTests(unittest.TestCase):
     def test_only_presence_block_added_and_repeat_rejected(self):
-        source = (ROOT/'infra/public-staging/gateway.Caddyfile').read_text()
+        source = (ROOT/'infra/domains/device-center.Caddyfile').read_text()
         block = g.START + source.split(g.START)[1].split(g.END)[0] + g.END
-        old = source.replace(block+'\n', '') + '\n# unrelated installed kiosk route\n'
+        old = (ROOT/'infra/public-staging/gateway.Caddyfile').read_text() + '\n# unrelated installed kiosk route\n'
         new = g.candidate(old, source)
         self.assertEqual(new.replace(block+'\n', ''), old)
         self.assertIn('header_up -Authorization', block)
