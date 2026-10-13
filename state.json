@@ -4924,7 +4924,6 @@
       "branch": "codex/kiosk-redesign-1013",
       "scopes": [
         "docs/operations/kiosk-build15-installation.md",
-        "@vps/roadmap",
         "tests/kiosk/ios",
         "docs/operations/kiosk-motion-2026-10-13.md",
         "docs/operations/images/kiosk-motion-2026-10-13"
@@ -5024,12 +5023,16 @@
         "docs/operations/kiosk-build17-installation.md",
         "docs/operations/images/kiosk-product-payment-2026-10-13",
         "@ipad/kiosk",
-        "@release/ios"
+        "@release/ios",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "@vps/public-https",
+        "@vps/roadmap"
       ],
       "status": "active",
-      "head": "8a7273a9db343baaae05f65d72b2ee947ce1ab90",
-      "updatedAt": "2026-10-13T13:32:50.328Z",
-      "summary": "Direct owner instruction 13 Oct: import supplied bundle 8a7273a9 and install build 17 over 16 on connected iPad, preserve data, no real payment. Continuation of owner-authorized kiosk-design-demo/redesign work. Separate device-center files stay reserved there; supplied useKioskController/status/roadmap changes are not edited in this checkout.",
+      "head": "f4f5dc998d5d62604bbb9f911227eaa61160512c",
+      "updatedAt": "2026-10-13T14:01:54.923Z",
+      "summary": "Build 17 f4f5dc99 installed over 17 after original 8a7273a9 over 16; local 228 tests, UI accessibility and caption checks pass. PR244 full CI running. Owner authorized temporary status/roadmap/public-https transfer; return after publication.",
       "nextAction": "Push supplied branch, PR from supplied PR.md; require full CI, locked install/tests, commercial=1 Release and signature/identity verification; prioritize cable install. Native checklist in isolated demo only; record installation protocol."
     },
     {
@@ -5095,9 +5098,6 @@
         "infra/windows/device-center-upgrade-db.mjs",
         "tests/operations/test_device_center_windows.py",
         "infra/domains/device-center.Caddyfile",
-        "@vps/public-https",
-        "docs/project-status.md",
-        "docs/roadmap/project.json",
         "infra/public-staging/gateway.Caddyfile",
         "infra/public-staging/device-center-gateway.py",
         "tests/operations/test_device_center_gateway.py",
@@ -5111,7 +5111,8 @@
       ],
       "status": "active",
       "head": "4caca195a4a52f15ae5f7d441b88155533146f4b",
-      "updatedAt": "2026-10-13T13:56:18.833Z"
+      "updatedAt": "2026-10-13T13:56:18.833Z",
+      "summary": " Owner explicitly authorized temporary transfer of status/roadmap/public-https to kiosk-product-payment-1013 on 2026-10-13; return after publication."
     }
   ]
 }
