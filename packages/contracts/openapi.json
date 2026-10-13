@@ -26064,7 +26064,6 @@
                                   },
                                   "lines": {
                                     "minItems": 1,
-                                    "maxItems": 200,
                                     "type": "array",
                                     "items": {
                                       "type": "object",
@@ -26388,7 +26387,6 @@
                                   },
                                   "lines": {
                                     "minItems": 1,
-                                    "maxItems": 200,
                                     "type": "array",
                                     "items": {
                                       "type": "object",

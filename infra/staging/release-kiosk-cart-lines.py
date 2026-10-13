@@ -25,6 +25,7 @@ e.BASELINE = w.BASELINE = lm.BASELINE = BASELINE
 # Byte-reviewed runtime changes only. Historical release helpers stay unchanged.
 SOURCE_HASHES = {'packages/commerce-core/src/kiosk-checkout.ts': '50935811f95574d356cc31db2c76e9df6142ce7addb83b9894b1499f8a73d971', 'packages/catalog-pricing/src/model.ts': '687e7dba8abaefeb0bfe667bdc3fbb07293fcda4477aedc1175e4eb320c82fa9', 'packages/commerce-core/src/model.ts': '8f85e58bb53eb3a021474c0d8d89e3f8a67f2ae58d3226c49eb49e6d2f93cee3', 'packages/contracts/src/customer-commerce.ts': '2dacc05e77e57e09fa6fbc9375bc349618e829295d99676587673f77cc23fa44'}
 SOURCE_HASHES['packages/edge-fulfillment/src/model.ts'] = 'fc0534777640a2ffb42d60f057c0981fb010eddef730429a630fec181bd24c08'
+SOURCE_HASHES['packages/contracts/openapi.json'] = '14092aedd25f0bc327210bd154890fb70c01971df10d6abcd45f0eeb9271d012'
 SUPPORT_PATHS = {
     'packages/edge-fulfillment/tests/postgres.test.mjs',
     'packages/commerce-core/tests/kiosk-checkout.postgres.test.mjs',
