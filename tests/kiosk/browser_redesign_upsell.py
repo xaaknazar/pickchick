@@ -39,10 +39,18 @@ CUT_TEXT = '''(root) => [...root.querySelectorAll('div')].filter((e) => {
 }).map((e) => e.textContent)'''
 
 
-def illustrations(card):
-    """The bg1-bg4 card illustrations drawn inside `card`."""
-    return card.locator('img').evaluate_all(
+def illustrations(card, expected=None):
+    """The bg1-bg4 card illustrations drawn inside `card`. With `expected`, waits up to 3 s
+    for that count (the card's images mount a frame or two after the screen on a busy runner)."""
+    count = lambda: card.locator('img').evaluate_all(  # noqa: E731
         '(all) => all.filter((i) => /\\/bg\\/bg[1-4]\\b/.test(i.currentSrc || i.src)).length')
+    found = count()
+    for _ in range(30):
+        if expected is None or found == expected:
+            break
+        card.page.wait_for_timeout(100)
+        found = count()
+    return found
 
 
 def tiles(page):
@@ -122,7 +130,7 @@ class SmartUpsell(ui.KioskUI):
                 expect(hero.get_by_test_id('kiosk-upsell-badge-toFingers')).to_have_text('К ФИНГЕРСАМ')
                 # Owner update: the hero is plain cream; only the row tiles keep bg1-bg4.
                 self.assertEqual(illustrations(hero), 0, 'no line illustration on the hero')
-                self.assertEqual(illustrations(ui.element(page, 'kiosk-upsell-tile-sauce')), 1)
+                self.assertEqual(illustrations(ui.element(page, 'kiosk-upsell-tile-sauce'), 1), 1)
                 # Nothing of the order is offered, and no cheese sauce exists in the catalog.
                 self.assertEqual(tiles(page), ['cola', 'iced-tea', 'lemonade', 'sauce', 'sauce-hot'])
                 self.assertEqual(page.get_by_test_id('kiosk-upsell-pick-combo').count(), 0)
