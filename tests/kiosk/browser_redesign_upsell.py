@@ -39,6 +39,12 @@ CUT_TEXT = '''(root) => [...root.querySelectorAll('div')].filter((e) => {
 }).map((e) => e.textContent)'''
 
 
+def illustrations(card):
+    """The bg1-bg4 card illustrations drawn inside `card`."""
+    return card.locator('img').evaluate_all(
+        '(all) => all.filter((i) => /\\/bg\\/bg[1-4]\\b/.test(i.currentSrc || i.src)).length')
+
+
 def tiles(page):
     return sorted(page.locator('[data-testid^="kiosk-upsell-tile-"]').evaluate_all(
         '(all) => all.map((e) => e.dataset.testid.replace("kiosk-upsell-tile-", ""))'))
@@ -114,6 +120,9 @@ class SmartUpsell(ui.KioskUI):
                 expect(hero).to_contain_text('Добавьте бургер')
                 expect(hero).to_contain_text('2 390')
                 expect(hero.get_by_test_id('kiosk-upsell-badge-toFingers')).to_have_text('К ФИНГЕРСАМ')
+                # Owner update: the hero is plain cream; only the row tiles keep bg1-bg4.
+                self.assertEqual(illustrations(hero), 0, 'no line illustration on the hero')
+                self.assertEqual(illustrations(ui.element(page, 'kiosk-upsell-tile-sauce')), 1)
                 # Nothing of the order is offered, and no cheese sauce exists in the catalog.
                 self.assertEqual(tiles(page), ['cola', 'iced-tea', 'lemonade', 'sauce', 'sauce-hot'])
                 self.assertEqual(page.get_by_test_id('kiosk-upsell-pick-combo').count(), 0)
