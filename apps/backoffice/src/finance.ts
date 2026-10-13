@@ -597,9 +597,16 @@ export class FinanceView {
     const extra = el('details', 'finance-extra');
     extra.open = this.extraOpen;
     extra.addEventListener('toggle', () => {
-      this.extraOpen = extra.open;
+      if (extra.isConnected) this.extraOpen = extra.open;
     });
-    extra.append(el('summary', '', 'Дополнительно: ОПиУ, контрагент, примечание'));
+    const summary = el('summary', '', 'Дополнительно: ОПиУ, контрагент, примечание');
+    summary.addEventListener('click', (event) => {
+      // Persist before a category redraw; native toggle events are asynchronous.
+      event.preventDefault();
+      this.extraOpen = !extra.open;
+      extra.open = this.extraOpen;
+    });
+    extra.append(summary);
     const extraGrid = el('div', 'finance-form-grid');
     if (!transfer && cat?.recognition !== 'never') {
       if (!accrual)
