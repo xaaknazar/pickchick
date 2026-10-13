@@ -38,7 +38,7 @@
 
 Владелец разрешил временную передачу `packages/contracts/openapi.json` и `@vps/api` от
 задачи device-center. Резервы переданы, OpenAPI пересоздан, contracts:check проходит.
-Сервер пока не обновлён: установленный API `ad7132fa` проверяется отдельно, чтобы не включать
+Сервер пока не обновлён: установленный API `5b6f846b` проверяется отдельно, чтобы не включать
 другие изменения shared. До серверной публикации его ограничения сохраняются.
 
 ## Установка на iPad
@@ -60,9 +60,11 @@ strict/deep, включение iPad в профиль и совпадение �
 [допы](images/kiosk-owner-polish-2026-10-13/18-upsell-added.png),
 [оплата](images/kiosk-owner-polish-2026-10-13/18-payment-method-after-skip.png).
 
-Полная CI отслеживается в
-[PR #245](https://github.com/xaaknazar/pickchick/pull/245); установка для локальной проверки
-не является принятым выпуском. TestFlight не использовался.
+Исходник UI `2d1bf83f` прошёл полную
+[Foundation CI](https://github.com/xaaknazar/pickchick/actions/runs/38423367984) 11/11,
+Storybook/accessibility/motion и roadmap проверки. Изменения сохраняются в
+[PR #245](https://github.com/xaaknazar/pickchick/pull/245). Установка для локальной проверки
+не является приёмкой владельца. TestFlight не использовался.
 
 Хеши установленного артефакта:
 
