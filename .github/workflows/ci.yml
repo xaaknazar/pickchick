@@ -374,6 +374,11 @@ jobs:
           done
           .local/design-venv/bin/python tests/kiosk/browser_ui.py
           .local/design-venv/bin/python tests/kiosk/browser_payment_success.py
+          .local/design-venv/bin/python tests/kiosk/browser_redesign_start.py
+          .local/design-venv/bin/python tests/kiosk/browser_redesign_menu.py
+          .local/design-venv/bin/python tests/kiosk/browser_redesign_upsell.py
+          .local/design-venv/bin/python tests/kiosk/browser_design_demo.py
+          .local/design-venv/bin/python tests/kiosk/browser_welcome_cta.py
 
   staging:
     name: Private staging image and restricted database role

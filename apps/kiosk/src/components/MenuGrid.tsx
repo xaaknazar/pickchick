@@ -1,27 +1,35 @@
-import { useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
-import { Animated, FlatList, Text, View } from 'react-native';
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Animated, ScrollView, View } from 'react-native';
 import type { KioskProduct } from '../model';
-import { copy, itemCount, type Locale } from '../i18n';
-import { colors, fonts, useMetrics } from '../theme';
+import { copy, type Locale } from '../i18n';
+import {
+  SECTION_HITS,
+  badgeOf,
+  bentoGeometry,
+  bentoLayout,
+  sectionHit,
+  type BentoFrame,
+} from '../menu-presentation';
+import { useMetrics } from '../theme';
 import { ProductCard } from './ProductCard';
-import { RAIL_WIDTH } from './CategoryRail';
+import { MENU_BOTTOM, RAIL_WIDTH } from './CategoryRail';
 import { Billboard } from './Billboard';
 import { useStagger } from './motion';
 import type { Category, MenuMemory } from './categories';
-import { fixedText } from './Body';
-const tags: Record<string, 'hit' | 'new'> = {
-  'pick-combo': 'hit',
-  'solo-combo': 'new',
-  'sauce-hot': 'new',
-};
-/** Design `mixBg`: combo, duo and set cards sit on the bg1-bg4 illustrations. */
-const illustratedCategories = new Set<Category>(['combo', 'duo', 'sets']);
-const positions = (n: number, locale: Locale) => itemCount(n, locale);
 /**
- * v3 menu feed: featured billboard (the Master / 7 + 1 carousel when `onPromo`
- * is given), category title with count and a two-column grid of photo cards
- * that rise in with a stagger whenever a category opens; cards already in the
- * bag carry a count badge.
+ * Grid metrics in design points (1024 pt mockups): gutter, the smallest card and hit rows that
+ * still fit on screen (three rows of cards do on every iPad), and the card row of a section
+ * long enough to scroll.
+ */
+const GRID = { gap: 16, right: 16, minRow: 250, minHit: 260, scrollRow: 320 };
+/**
+ * Bento menu grid (kiosk redesign 2026-10-13, README section 3), right of the rail from the
+ * header down to 156 pt above the bottom edge: the section's hit across the full width, then
+ * its other products by the count rule of `bentoLayout` (rows in `fr`, so the grid stretches
+ * with the screen). A section with more rows than fit keeps its rows at their minimum height
+ * and scrolls under the checkout panel; the scroll position of every section is remembered in
+ * `memory` (e.g. while a product page is open). Cards rise in with a stagger whenever a section
+ * opens; cards already in the bag carry a count badge.
  */
 export function MenuGrid({
   products,
@@ -29,40 +37,48 @@ export function MenuGrid({
   memory,
   locale,
   busy,
-  featured,
   cartCounts = {},
   arriving,
   onOpen,
   onAdd,
-  onPromo,
   onInteraction,
 }: {
+  /** Every product of the section, in catalog order. */
   products: KioskProduct[];
   category: Category;
   memory: MenuMemory;
   locale: Locale;
   busy: boolean;
-  featured?: KioskProduct | null;
   /** Units of each product already in the bag, shown as the card's count badge. */
   cartCounts?: Record<string, number>;
   /** Product flying into the bag; its badge pops once the photo lands. */
   arriving?: string | null;
   onOpen: (p: KioskProduct) => void;
   onAdd: (p: KioskProduct) => void;
-  /** The 7 + 1 billboard slide was tapped. */
-  onPromo?: () => void;
   onInteraction: () => void;
 }) {
-  const { v, width, columns } = useMetrics();
-  const list = useRef<FlatList<KioskProduct>>(null);
-  const initialOffset = useMemo(
-    () => ({ x: 0, y: memory.offsets[category] ?? 0 }),
-    [category, columns, memory],
+  const { px, width: screenWidth, height: screenHeight } = useMetrics();
+  const t = copy(locale);
+  const list = useRef<ScrollView>(null);
+  // Before the first layout the grid assumes the header's 128 pt; the measured box wins.
+  const [box, setBox] = useState({
+    width: screenWidth - px(RAIL_WIDTH),
+    height: screenHeight - px(128),
+  });
+  const hit = sectionHit(products, category);
+  const rest = products.filter((p) => p !== hit);
+  const layout = bentoLayout(products.length);
+  const geometry = bentoGeometry(
+    layout,
+    Math.max(0, box.width - px(GRID.right)),
+    Math.max(0, box.height - px(MENU_BOTTOM)),
+    px(GRID.gap),
+    px(GRID.minRow),
+    px(GRID.minHit),
+    px(GRID.scrollRow),
   );
-  const restoration = useMemo(
-    () => ({ done: initialOffset.y === 0, viewport: 0, content: 0 }),
-    [initialOffset],
-  );
+  const initial = memory.offsets[category] ?? 0;
+  const restoration = useMemo(() => ({ done: initial === 0, viewport: 0, content: 0 }), [initial]);
   useLayoutEffect(
     () => () => {
       // A departing native/web scroll view can emit a final zero offset.
@@ -74,29 +90,25 @@ export function MenuGrid({
   const restore = () => {
     if (restoration.done || !restoration.viewport || !restoration.content) return;
     restoration.done = true;
-    list.current?.scrollToOffset({
-      offset: Math.min(initialOffset.y, Math.max(0, restoration.content - restoration.viewport)),
+    list.current?.scrollTo({
+      y: Math.min(initial, Math.max(0, restoration.content - restoration.viewport)),
       animated: false,
     });
   };
-  const cardWidth = Math.floor(
-    (width - v(RAIL_WIDTH) - v(4) - v(20) - v(14) * (columns - 1)) / columns,
-  );
   return (
-    <FlatList
+    <ScrollView
       ref={list}
-      key={columns + '-' + category}
       testID="kiosk-menu-scroll"
       style={{ flex: 1, minHeight: 0 }}
-      data={products}
-      numColumns={columns}
-      initialNumToRender={products.length}
-      keyExtractor={(p) => p.id}
       showsVerticalScrollIndicator={false}
       onScrollBeginDrag={onInteraction}
-      contentOffset={initialOffset}
+      contentOffset={{ x: 0, y: initial }}
       onLayout={(e) => {
-        restoration.viewport = e.nativeEvent.layout.height;
+        const { width, height } = e.nativeEvent.layout;
+        setBox((current) =>
+          current.width === width && current.height === height ? current : { width, height },
+        );
+        restoration.viewport = height;
         restore();
       }}
       onContentSizeChange={(_, h) => {
@@ -107,87 +119,67 @@ export function MenuGrid({
       onScroll={(e) => {
         if (restoration.done) memory.offsets[category] = Math.max(0, e.nativeEvent.contentOffset.y);
       }}
-      columnWrapperStyle={{ gap: v(14) }}
-      contentContainerStyle={{
-        paddingTop: v(18),
-        paddingRight: v(20),
-        paddingBottom: v(28),
-        paddingLeft: v(4),
-        gap: v(14),
-      }}
-      ListHeaderComponent={
-        <View style={{ gap: v(18), paddingBottom: v(4) }}>
-          {featured ? (
+      contentContainerStyle={{ paddingRight: px(GRID.right), paddingBottom: px(MENU_BOTTOM) }}
+    >
+      <View style={{ height: geometry.height }}>
+        {hit && geometry.hit ? (
+          <Rise index={0} frame={geometry.hit}>
             <Billboard
-              product={featured}
+              key={hit.id}
+              product={hit}
+              label={t[SECTION_HITS[category].label]}
               locale={locale}
-              slide={memory.billboard}
-              onSlide={(slide) => {
-                memory.billboard = slide;
-              }}
-              onOpen={() => onOpen(featured)}
-              onPromo={onPromo}
+              busy={busy}
+              inCart={cartCounts[hit.id]}
+              arriving={arriving === hit.id}
+              onOpen={() => onOpen(hit)}
+              onAdd={() => onAdd(hit)}
             />
-          ) : null}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'baseline',
-              justifyContent: 'space-between',
-              paddingHorizontal: v(4),
-              gap: v(12),
-            }}
-          >
-            <Text
-              {...fixedText}
-              accessibilityRole="header"
-              style={{
-                fontFamily: fonts.black,
-                fontSize: v(30),
-                color: colors.white,
-                flexShrink: 1,
-              }}
-            >
-              {copy(locale)[category]}
-            </Text>
-            <Text
-              {...fixedText}
-              style={{
-                fontFamily: fonts.body,
-                fontSize: Math.max(15, v(16)),
-                color: colors.onBlueMuted,
-              }}
-            >
-              {positions(products.length, locale)}
-            </Text>
-          </View>
-        </View>
-      }
-      renderItem={({ item, index }) => (
-        <Rise index={index} span={cardWidth}>
-          <ProductCard
-            product={item}
-            busy={busy}
-            locale={locale}
-            tag={tags[item.id]}
-            index={index}
-            illustrated={illustratedCategories.has(category)}
-            inCart={cartCounts[item.id]}
-            arriving={arriving === item.id}
-            onOpen={() => onOpen(item)}
-            onAdd={() => onAdd(item)}
-          />
-        </Rise>
-      )}
-    />
+          </Rise>
+        ) : null}
+        {geometry.cards.map((cell) => {
+          const item = rest[cell.item];
+          if (!item) return null;
+          return (
+            <Rise key={item.id} index={cell.item + 1} frame={cell}>
+              <ProductCard
+                product={item}
+                size={cell.size}
+                busy={busy}
+                locale={locale}
+                badge={badgeOf(item.id)}
+                index={cell.item}
+                inCart={cartCounts[item.id]}
+                arriving={arriving === item.id}
+                onOpen={() => onOpen(item)}
+                onAdd={() => onAdd(item)}
+              />
+            </Rise>
+          );
+        })}
+      </View>
+    </ScrollView>
   );
 }
-function Rise({ index, span, children }: { index: number; span: number; children: ReactNode }) {
+/** Places a tile on its frame and plays the prototype rise (staggered, static when reduced). */
+function Rise({
+  index,
+  frame,
+  children,
+}: {
+  index: number;
+  frame: BentoFrame;
+  children: ReactNode;
+}) {
   const enter = useStagger(index);
   return (
     <Animated.View
       style={{
-        width: span,
+        position: 'absolute',
+        left: frame.x,
+        top: frame.y,
+        width: frame.width,
+        height: frame.height,
         opacity: enter,
         transform: [
           { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [34, 0] }) },

@@ -69,6 +69,11 @@ export type KioskErrorCode =
   | 'OFFLINE';
 export interface KioskState {
   commercial?: boolean;
+  /**
+   * Staff demo mode (owner decision 2026-10-11): an in-memory transport, no real orders or
+   * payments; every screen shows the "ДЕМО" badge.
+   */
+  demo?: boolean;
   /** Kind of `error`, for the guest's language; `error` keeps the Russian fallback text. */
   errorCode?: KioskErrorCode | null;
   /** Availability is not fresh: every product shows unavailable until the edge answers. */
@@ -145,4 +150,6 @@ export interface KioskModel extends KioskState {
   newGuest(): Promise<boolean>;
   touch(): void;
   stay(): void;
+  /** Turns the staff demo mode on (start screen only) or off; absent where it is unavailable. */
+  setDemo?(on: boolean): void;
 }

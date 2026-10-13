@@ -332,10 +332,10 @@ class KioskUI(unittest.TestCase):
             self.assertEqual(errors, [])
             self.assertEqual(fixture.unexpected, [], 'Unexpected requests were blocked')
 
-    def open(self, width=820, height=1180):
+    def open(self, width=820, height=1180, catalog=None):
         context = self.browser.new_context(viewport={'width': width, 'height': height},
                                            reduced_motion='reduce')
-        fixture = Fixture(self.catalog)
+        fixture = Fixture(catalog or self.catalog)
         context.route('**/*', fixture.route)
         page = context.new_page()
         errors = []
@@ -362,12 +362,16 @@ class KioskUI(unittest.TestCase):
         screen(page, 'upsell')
         if capture_name:
             capture(page, capture_name)
-        element(page, 'kiosk-upsell-continue').click()
+        # Redesign 2026-10-13: the order page left the path; «В заказе» on the upsell opens it.
+        element(page, 'kiosk-upsell-cart').click()
         screen(page, 'cart')
 
     def review(self, page):
-        self.cart(page)
-        element(page, 'kiosk-cart-checkout').click()
+        # «К оплате» on the smart upsell goes straight to payment: the simulator offers Kaspi
+        # and card, so the existing payment-method screen opens.
+        element(page, 'kiosk-menu-checkout').click()
+        screen(page, 'upsell')
+        element(page, 'kiosk-upsell-continue').click()
         screen(page, 'loyalty')
 
     def test_three_ipad_sizes_configuration_fixed_actions_and_reset(self):
@@ -436,9 +440,7 @@ class KioskUI(unittest.TestCase):
                 assert_bounded(page, 'kiosk-cart-checkout', width, height)
                 page.reload()
                 screen(page, 'menu')
-                self.cart(page)
-                element(page, 'kiosk-cart-checkout').click()
-                screen(page, 'loyalty')
+                self.review(page)
                 element(page, 'kiosk-payment-method-card').click()
                 element(page, 'kiosk-review-create').click()
                 screen(page, 'payment')
@@ -464,35 +466,44 @@ class KioskUI(unittest.TestCase):
                 self.assertEqual(len(fixture.orders), 1)
                 assert_no_overflow(page, width)
 
-    def test_compact_upsell_cards_add_to_cart_without_creating_order(self):
+    def test_smart_upsell_cards_add_to_cart_without_creating_order(self):
         page, fixture = self.open(1024, 1366)
         self.start(page)
         self.add(page)
         element(page, 'kiosk-menu-checkout').click()
         screen(page, 'upsell')
-        for product_id in self.catalog['upsell_product_ids']:
+        # Fingers in the order: the burger on top, then the sauces and drinks rows.
+        for product_id in ['burger', 'sauce', 'sauce-hot', 'lemonade', 'iced-tea', 'cola']:
             assert_bounded(page, 'kiosk-upsell-' + product_id, 1024, 1366)
         assert_bounded(page, 'kiosk-upsell-continue', 1024, 1366)
-        element(page, 'kiosk-upsell-toast').click()
+        element(page, 'kiosk-upsell-burger').click()
         screen(page, 'upsell')
-        element(page, 'kiosk-upsell-continue').click()
+        element(page, 'kiosk-upsell-cart').click()
         screen(page, 'cart')
-        expect(element(page, 'kiosk-cart-line-toast-quantity')).to_have_text('1')
+        expect(element(page, 'kiosk-cart-line-burger-quantity')).to_have_text('1')
         cart = stored(page, FLOW_KEY)['cart']
         self.assertEqual(len(cart), 2)
-        self.assertEqual({line['productId'] for line in cart}, {'pick-combo', 'toast'})
+        self.assertEqual({line['productId'] for line in cart}, {'pick-combo', 'burger'})
         self.assertEqual(len(fixture.orders), 0)
         self.assertEqual(len(fixture.sessions), 0, 'Browse/upsell must not allocate an ordering identity')
         capture(page, 'cart-with-upsell.png')
 
     def test_menu_restores_category_and_offset_after_product_close(self):
-        page, fixture = self.open()
+        # The bento menu fits the six fixture drinks on one screen; the live catalog grows to
+        # 19 drinks, which scroll. Copies of the fixture drinks stand in for the new ones.
+        catalog = copy.deepcopy(self.catalog)
+        drinks = [p for p in catalog['products'] if p['category'] == 'Напитки']
+        for number in range(1, 14):
+            base = drinks[(number - 1) % len(drinks)]
+            catalog['products'].append({**copy.deepcopy(base), 'id': f"{base['id']}-x{number}",
+                                        'name': f"{base['name']} #{number}"})
+        page, fixture = self.open(catalog=catalog)
         self.start(page)
         selected = element(page, 'kiosk-category-drinks')
         selected.click()
         expect(selected).to_have_attribute('aria-selected', 'true')
         scroller = element(page, 'kiosk-menu-scroll')
-        product = element(page, 'kiosk-product-piko')
+        product = element(page, 'kiosk-product-' + catalog['products'][-1]['id'])
         product.scroll_into_view_if_needed()
         # Use actual UI scrolling; do not seed navigation memory or storage.
         capture(page, 'drinks-before-product.png')

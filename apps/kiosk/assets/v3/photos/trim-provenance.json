@@ -1,0 +1,222 @@
+{
+  "method": "Crop to the subject (corner-colour backdrop or alpha) plus a 3 % margin; original pixels, no generation, retouching or resizing; WebP q90.",
+  "script": "scripts/kiosk/trim-photo-margins.py",
+  "source_rev": "d85541b1503fa90f7b99d424b51d69578a9c4d3e",
+  "pillow": "12.3.0",
+  "photos": [
+    {
+      "name": "burger-combo.webp",
+      "source_sha256": "7e0d5a6c764a5b7ebee93e8cd244e8061920d4aaed2f4049dd3c76092a5a6d17",
+      "source_size": [1000, 1000],
+      "trimmed": true,
+      "crop_ltrb": [0, 24, 993, 883],
+      "output_size": [993, 859],
+      "output_sha256": "3d1455a5960f2c7eb49dc3c24b55db05da934c26e6ff4b18ee97f4a9213f360f"
+    },
+    {
+      "name": "burger-duo.webp",
+      "source_sha256": "1d6329172d60640431cab4800b2c612ab30a6eee2e110ba892986b5644a1c561",
+      "source_size": [700, 700],
+      "trimmed": true,
+      "crop_ltrb": [2, 10, 700, 682],
+      "output_size": [698, 672],
+      "output_sha256": "844360a10d3764e0a2aa7d2be43313622169de2b97d23e2d2fad56f8d1f996b9"
+    },
+    {
+      "name": "burger.webp",
+      "source_sha256": "7b817021c36b4b08598dabada01ca6bc533076087cca8205075a3ebbe2564d3f",
+      "source_size": [700, 700],
+      "trimmed": true,
+      "crop_ltrb": [23, 115, 700, 612],
+      "output_size": [677, 497],
+      "output_sha256": "40e3e83027ca039cc915922a0c3e5c3bbab1e3bdfa3c281925eec39af798f7ad"
+    },
+    {
+      "name": "cola.webp",
+      "source_sha256": "080338d3b8408de9c5ae042f18d0787abc794331928c1f9fa3bfa498574a99af",
+      "source_size": [700, 700],
+      "trimmed": true,
+      "crop_ltrb": [228, 44, 605, 656],
+      "output_size": [377, 612],
+      "output_sha256": "5ba771bb004fe5e691db733cd581bb4f515bc77e3681006af632ea5a47e60340"
+    },
+    {
+      "name": "coleslaw.webp",
+      "source_sha256": "978d671bf91ad97933cd9c87807b8318f4cfc9ac53c67a16b17e4726cf734f05",
+      "source_size": [700, 700],
+      "trimmed": true,
+      "crop_ltrb": [49, 80, 698, 634],
+      "output_size": [649, 554],
+      "output_sha256": "d3e401de4d8898ad2af33fd66d97690cf755fcae2fddbba71196bbf0f2466fb7"
+    },
+    {
+      "name": "finger-duo.webp",
+      "source_sha256": "afead3d2761702f20e3e8106b4669849ebb5fb0964d0c47e48f398424576c799",
+      "source_size": [1000, 1000],
+      "trimmed": true,
+      "crop_ltrb": [0, 37, 1000, 960],
+      "output_size": [1000, 923],
+      "output_sha256": "a536bf01cf4d65afac94231fcceaa7e91fd5096f7b7cff432032e9b5777dd672"
+    },
+    {
+      "name": "fingers-100.webp",
+      "source_sha256": "9510f9f2b2023e9926dbcbdf0b2b6ec5fde1c042e89aa8291acc40de603a1c30",
+      "source_size": [700, 700],
+      "trimmed": true,
+      "crop_ltrb": [0, 61, 692, 654],
+      "output_size": [692, 593],
+      "output_sha256": "555be97c27f4347ed345baf561f4413cadadbf8dfbe3271a36f4071965dceb08"
+    },
+    {
+      "name": "fingers-25.webp",
+      "source_sha256": "35bde44c962cc63aaf6791a283254238745132a2b9d8dd4098b1de3fb17e0b87",
+      "source_size": [700, 700],
+      "trimmed": true,
+      "crop_ltrb": [0, 181, 700, 575],
+      "output_size": [700, 394],
+      "output_sha256": "1d4f9b69e4db04f2abef287e975e57c1652cb155fc99c450d49a856c9cf6b24e"
+    },
+    {
+      "name": "fingers-50.webp",
+      "source_sha256": "3aa7c363fa2e15a376f6eeefacb6a219cc674adc155502a8abc391452e66364e",
+      "source_size": [1000, 1000],
+      "trimmed": true,
+      "crop_ltrb": [0, 145, 1000, 864],
+      "output_size": [1000, 719],
+      "output_sha256": "f25cd2a5b82d9e1e08e1d5fa7023b1a469b394edd004a10ac4fc595ac210e5d4"
+    },
+    {
+      "name": "fingers-75.webp",
+      "source_sha256": "74aa95db766aa2e40aaf1b9f61db40ef2de15e6325abb75113ba9da70d227893",
+      "source_size": [700, 700],
+      "trimmed": true,
+      "crop_ltrb": [0, 13, 700, 615],
+      "output_size": [700, 602],
+      "output_sha256": "a608947b9a95684e944ece5689373093c9818c67470e063be51909eea785e066"
+    },
+    {
+      "name": "fingers.webp",
+      "source_sha256": "859b4e66823503c75edf2c0dc6a732458d72c9a74cf1d1337e21d4c3a1b47404",
+      "source_size": [800, 800],
+      "trimmed": true,
+      "crop_ltrb": [0, 103, 800, 718],
+      "output_size": [800, 615],
+      "output_sha256": "bbb616b986b796df22bcb89da04961584529836f9af0d4f7026af5e8b7aa8359"
+    },
+    {
+      "name": "fuse-peach.webp",
+      "source_sha256": "560393f38268591ed3bb40f9ed994f5a1f98c3cff9dd5b7eca9ade0ca653e9f6",
+      "source_size": [700, 700],
+      "trimmed": true,
+      "crop_ltrb": [242, 33, 534, 658],
+      "output_size": [292, 625],
+      "output_sha256": "d2825aff65fd721ff9687107d91598820101f4bc9807f7903b46c7deb3402ace"
+    },
+    {
+      "name": "iced-tea.webp",
+      "source_sha256": "34bb9f040ecf82cd1ef5db4df8758dabe85a21be907b3e731653b8534c4a5a31",
+      "source_size": [700, 700],
+      "trimmed": true,
+      "crop_ltrb": [181, 42, 616, 623],
+      "output_size": [435, 581],
+      "output_sha256": "9eec1b76ab304a33835257c253269aa7a0b56039d360fcb9a57389d1c84aaaca"
+    },
+    {
+      "name": "lemonade.webp",
+      "source_sha256": "6e104e74ea91537225060a8d3815b572ed8ce7aefd0730e1112e8afef8ea6c85",
+      "source_size": [1000, 1000],
+      "trimmed": true,
+      "crop_ltrb": [324, 61, 758, 916],
+      "output_size": [434, 855],
+      "output_sha256": "bdfc604ecb536d4a1e4abbec7564378e39c5fad17150a2048cd6d833a53951ad"
+    },
+    {
+      "name": "master-combo.webp",
+      "source_sha256": "25504920beae457e211ecd35f64df74772a34059bc0c9b4659d46fceb1b974ac",
+      "source_size": [1000, 1000],
+      "trimmed": false,
+      "output_sha256": "25504920beae457e211ecd35f64df74772a34059bc0c9b4659d46fceb1b974ac"
+    },
+    {
+      "name": "mix-duo.webp",
+      "source_sha256": "972787e8ea1b99d7ca90b98436de985d8a4175e38a0d0acbc8f8a87b9b2132e6",
+      "source_size": [1000, 1000],
+      "trimmed": true,
+      "crop_ltrb": [0, 99, 1000, 928],
+      "output_size": [1000, 829],
+      "output_sha256": "c8bf719aeda41e0e04457bac946f0596e092ba3cef8e5c20e9c36c3753c2d3a5"
+    },
+    {
+      "name": "pick-combo.webp",
+      "source_sha256": "035441a2404a43a35540930fc9870c8676d0a1196c91deeeae7c841cb95a5112",
+      "source_size": [1000, 1000],
+      "trimmed": true,
+      "crop_ltrb": [58, 10, 975, 958],
+      "output_size": [917, 948],
+      "output_sha256": "ea90cf0c01540f794e0d2506d61f126a171b81f880b65f95afcab02a587138fc"
+    },
+    {
+      "name": "piko.webp",
+      "source_sha256": "bf0c716225bea73c49ad877d7dd9456a15826ea25a7ca767d68f3c0d6364a06b",
+      "source_size": [900, 900],
+      "trimmed": true,
+      "crop_ltrb": [239, 0, 780, 900],
+      "output_size": [541, 900],
+      "output_sha256": "79708bab58ee0edf28a9e396e1a899bcdd2c0b5c2ffb696aeb7608780d30d6b4"
+    },
+    {
+      "name": "sauce-hot.webp",
+      "source_sha256": "fca1746b21b900513b0277da3b9d33e03446f8c0af84673e1c56d6b51586c03a",
+      "source_size": [700, 700],
+      "trimmed": true,
+      "crop_ltrb": [19, 148, 617, 565],
+      "output_size": [598, 417],
+      "output_sha256": "500c95edaac808e602c9c568c608a3451d9fb064820c341edeea3a1103e163bc"
+    },
+    {
+      "name": "sauce.webp",
+      "source_sha256": "a23da4a2184ecb6bfb3c302866ad75015454c1c92305f807d475917bba52a396",
+      "source_size": [700, 700],
+      "trimmed": true,
+      "crop_ltrb": [135, 78, 655, 623],
+      "output_size": [520, 545],
+      "output_sha256": "9db39dee1c9c88582061379c235e1ef31500e879018fff1419fe2ca87a07d9d1"
+    },
+    {
+      "name": "solo-combo.webp",
+      "source_sha256": "3cc356b0ff28e7537a320f328355c3ac60ccaa3a1bcc3c544a30fb05e21aaab5",
+      "source_size": [1000, 1000],
+      "trimmed": true,
+      "crop_ltrb": [40, 49, 1000, 961],
+      "output_size": [960, 912],
+      "output_sha256": "c14d540108775af145ec8eddffa194b214a2a42ef7801069aa8844d59acb4c16"
+    },
+    {
+      "name": "toast.webp",
+      "source_sha256": "003f1a192cb37995603caf2eb30830dcb881bf035726652e5d8817bf6bfe9725",
+      "source_size": [700, 700],
+      "trimmed": true,
+      "crop_ltrb": [0, 91, 700, 658],
+      "output_size": [700, 567],
+      "output_sha256": "9e07c467ed65ae57c3f5b78c2bd035aceef443c2773bc8fe1009ce576a958be4"
+    },
+    {
+      "name": "water.webp",
+      "source_sha256": "504c8b6f190b4b97a1ad32e565a7b35ccd405a2f833ae9a1c0c258debe8de39b",
+      "source_size": [700, 700],
+      "trimmed": true,
+      "crop_ltrb": [242, 31, 538, 660],
+      "output_size": [296, 629],
+      "output_sha256": "2138c1d77230191a06a31b9705aa2f7dad8023dc090bc83387e46bf104df260c"
+    },
+    {
+      "name": "wedges.webp",
+      "source_sha256": "9da1a15ecb57b0c68839ae6070523d7455738f1000aa2bd90cf5e9d8ddd483ac",
+      "source_size": [1000, 1000],
+      "trimmed": true,
+      "crop_ltrb": [0, 212, 1000, 876],
+      "output_size": [1000, 664],
+      "output_sha256": "7aaee954ae9a3c7f670009aa96b6258a9f8505bba18c8f4236dffcc4a73deff9"
+    }
+  ]
+}

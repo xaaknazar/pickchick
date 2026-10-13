@@ -5,26 +5,33 @@ import { PhotoImage } from './PhotoImage';
 import { money } from '../cart';
 import type { KioskProduct } from '../model';
 import { copy, displayCopy, type Locale } from '../i18n';
-import { cardBackgroundRatio, cardBackgrounds, productPhoto, productArtworkId } from '../assets';
-import { colors, fonts, useMetrics } from '../theme';
-import { Icon } from './Icon';
-import { ProductArtwork } from './ProductArtwork';
+import { fitTitle, type BadgeKind, type CardSize } from '../menu-presentation';
+import { cardBackgroundRatio, cardBackgrounds, productArtworkId, productPhoto } from '../assets';
+import { colors, fonts, redesign, useMetrics } from '../theme';
+import { Badge } from './Badge';
 import { usePopIn, usePress, useTimingTo } from './motion';
 import { noteProductOrigin } from './reveal';
 import { useMotionPreference } from './useMotionPreference';
 import { fixedText } from './Body';
+/** Share of a horizontal (`wide`) card given to its photo. */
+const WIDE_PHOTO = 0.58;
 /** A studio photo shot on (near) white: it multiplies onto the cream card like the design. */
 const lightTile = (tile: string) =>
   /^#[0-9A-F]{6}$/i.test(tile) &&
   [1, 3, 5].every((at) => parseInt(tile.slice(at, at + 2), 16) >= 0xf0);
 /**
- * v3 menu card (approved iPad v3 design, `.card`): a cream #FEF8F0 card; combo, duo
- * and set cards carry the bg1-bg4 illustration (by position, right-top at 190%) with
- * the photo inset 34/10/0 on it. White studio photos multiply onto the cream, as the
- * design's `mix-blend-mode: multiply`; a photo on a coloured tile keeps that tile. Name, two-line
- * description, big price and a peach "pick" pill (the quick-add path).
- * The card squeezes to 0.96 with an orange ring while pressed, and a blue
- * badge counts how many are already in the bag.
+ * Bento menu card (kiosk redesign 2026-10-13, README "Карточка позиции"): a cream #FEF8F0 card
+ * (radius 32, shadow 0 14 30 navy .25) on one of the bg1-bg4 illustrations (by position,
+ * right-top at 190 %). The photo takes all the room above the text strip (contain) and
+ * multiplies onto the cream like the design's `mix-blend-mode: multiply`; a `wide` card puts
+ * the photo on the left 58 % and the text on the right.
+ * - `large`: name Montserrat 900 27, description 15/20, price 30, a 54 pt orange "+";
+ * - `medium`: the same type without the description;
+ * - `small` (3 columns) and `wide`: name 24, price 28, a 50 pt "+" (`wide` keeps one line of
+ *   description).
+ * Tapping the card opens the product; "+" adds it (or opens it when it has choices, decided by
+ * the menu). The card squeezes to .96 with an orange ring while pressed, a blue badge counts
+ * the units already in the bag, and a stopped product dims its photo and its "+".
  */
 export function ProductCard({
   product,
@@ -32,32 +39,29 @@ export function ProductCard({
   onAdd,
   prefix = 'kiosk-product',
   busy = false,
-  variant = 'catalog',
+  size = 'large',
   locale = 'ru',
-  tag,
+  badge,
   inCart = 0,
   arriving = false,
   index = 0,
-  illustrated = false,
 }: {
   product: KioskProduct;
   onOpen: () => void;
   onAdd: () => void;
   prefix?: string;
   busy?: boolean;
-  variant?: 'catalog' | 'recommendation';
+  size?: CardSize;
   locale?: Locale;
-  tag?: 'hit' | 'new';
+  badge?: BadgeKind;
   /** Units of this product already in the bag (the blue count badge). */
   inCart?: number;
   /** Its photo is still flying to the bag: the badge waits for the landing. */
   arriving?: boolean;
-  /** Position in its category: picks the illustration (i % 4). */
+  /** Position in its section: picks the illustration (i % 4). */
   index?: number;
-  /** Combo, duo and set cards carry the card illustration. */
-  illustrated?: boolean;
 }) {
-  const { v } = useMetrics();
+  const { px } = useMetrics();
   const t = copy(locale);
   const reduced = useMotionPreference();
   const [pressed, setPressed] = useState(false);
@@ -67,141 +71,163 @@ export function ProductCard({
   const zoom = useTimingTo(pressed && !reduced ? 1 : 0, 500, 'ease');
   const ring = useTimingTo(pressed ? 1 : 0, 150, 'css');
   const imageId = productArtworkId(product);
-  const photo = productPhoto(imageId);
-  const blend = !photo || lightTile(photo.tile);
-  const tile = blend ? colors.cream : photo.tile;
+  const shot = productPhoto(imageId);
+  // A published photo on a coloured backdrop keeps that backdrop instead of multiplying.
+  const blend = !shot || lightTile(shot.tile);
   const unavailable = product.available === false;
   const blocked = busy || unavailable;
   const amount = money(product.price_minor).replace(/\s₸$/, '');
-  const compact = variant === 'recommendation';
-  const art = illustrated && blend && !compact;
-  const pick = usePress(0.94);
+  const wide = size === 'wide';
+  const big = size === 'large' || size === 'medium';
+  const describe = (size === 'large' || wide) && !!product.description;
+  const plus = px(big ? 54 : 50);
+  // The name steps down (to .8 of its size) rather than break a word or lose a line to an
+  // ellipsis in a narrow column; a name that still does not fit gets a third line.
+  const [cardWidth, setCardWidth] = useState(0);
+  const column = cardWidth * (wide ? 1 - WIDE_PHOTO : 1) - px(wide ? 22 : 36);
+  const base = px(big ? 27 : 24);
+  const title = fitTitle(product.name, cardWidth ? column : 0, base, base * 0.8);
+  const pick = usePress(0.92);
   // The product page opens as a circle from this card's centre.
   const card = useRef<View>(null);
   const hold = () => {
     setPressed(true);
     noteProductOrigin(card.current);
   };
+  const badgeLabel =
+    badge === 'hit'
+      ? t.hitTag
+      : badge === 'new'
+        ? t.newTag
+        : badge === 'spicy'
+          ? t.spicyTag
+          : badge === 'recipe'
+            ? t.recipeTag
+            : null;
+  const photo = (
+    <View
+      style={{
+        // The photo multiplies onto its own copy of the illustration, aligned with the card's
+        // (every web view is its own stacking context).
+        ...(wide ? { width: `${WIDE_PHOTO * 100}%` as const, height: '100%' } : { flex: 1 }),
+        minHeight: 0,
+        overflow: 'hidden',
+        backgroundColor: blend ? redesign.cream : shot.tile,
+        paddingTop: px(wide ? 18 : 20),
+        paddingBottom: px(wide ? 18 : 4),
+        paddingHorizontal: px(wide ? 18 : 14),
+      }}
+    >
+      {blend ? <Illustration index={index} part={wide ? WIDE_PHOTO : 1} /> : null}
+      <Animated.View
+        style={{
+          flex: 1,
+          mixBlendMode: blend ? 'multiply' : 'normal',
+          opacity: unavailable ? 0.45 : 1,
+          transform: [{ scale: zoom.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }) }],
+        }}
+      >
+        <PhotoImage imageId={imageId} />
+      </Animated.View>
+    </View>
+  );
+  const name = (
+    <Text
+      {...fixedText}
+      numberOfLines={title.lines}
+      style={{
+        fontFamily: fonts.black,
+        fontSize: title.size,
+        lineHeight: Math.round(title.size * 1.16),
+        letterSpacing: -0.2,
+        color: redesign.cardInk,
+      }}
+    >
+      {product.name}
+    </Text>
+  );
+  const note = unavailable ? (
+    <Text
+      {...fixedText}
+      numberOfLines={1}
+      style={{
+        fontFamily: fonts.medium,
+        fontSize: px(15),
+        lineHeight: px(20),
+        color: colors.error,
+      }}
+    >
+      {t.unavailableShort}
+    </Text>
+  ) : describe ? (
+    <Text
+      {...fixedText}
+      numberOfLines={2}
+      style={{
+        fontFamily: fonts.body,
+        fontSize: px(15),
+        lineHeight: px(20),
+        color: redesign.cardMuted,
+      }}
+    >
+      {displayCopy(product.description)}
+    </Text>
+  ) : null;
   return (
     <Animated.View
       ref={card}
+      onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
       style={{
         flex: 1,
-        borderRadius: v(28),
-        backgroundColor: tile,
-        shadowColor: '#020A28',
-        shadowOpacity: 0.22,
-        shadowRadius: 26,
-        shadowOffset: { width: 0, height: 12 },
+        borderRadius: px(32),
+        backgroundColor: redesign.cream,
+        shadowColor: '#020A1F',
+        shadowOpacity: 0.25,
+        shadowRadius: px(15),
+        shadowOffset: { width: 0, height: px(14) },
         elevation: 6,
         transform: [{ scale: squeeze.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] }) }],
       }}
     >
-      <View style={{ flex: 1, borderRadius: v(28), overflow: 'hidden' }}>
-        {art ? <Illustration index={index} /> : null}
+      <View style={{ flex: 1, borderRadius: px(32), overflow: 'hidden' }}>
+        <Illustration index={index} part={1} />
         <Pressable
           testID={prefix + '-' + product.id}
           accessibilityRole="button"
           onPress={onOpen}
           onPressIn={hold}
           onPressOut={() => setPressed(false)}
+          style={{ flex: 1, flexDirection: wide ? 'row' : 'column', minHeight: 0 }}
         >
-          {photo ? (
-            <View
-              style={{
-                width: '100%',
-                // Design `aspect-ratio:1/1; padding:34px 10px 0` (content box): a square
-                // photo inset 10 pt at the sides and 34 pt from the top.
-                aspectRatio: art ? undefined : compact ? 1.6 : 1,
-                paddingTop: art ? v(34) : 0,
-                paddingHorizontal: art ? v(10) : 0,
-                backgroundColor: tile,
-                overflow: 'hidden',
-              }}
-            >
-              {/* The photo multiplies onto its own backdrop: the same illustration, aligned
-                  with the card's (every web view is its own stacking context). */}
-              {art ? <Illustration index={index} /> : null}
-              <Animated.View
-                style={{
-                  ...(art ? { width: '100%', aspectRatio: 1 } : { flex: 1 }),
-                  mixBlendMode: blend ? 'multiply' : 'normal',
-                  transform: [
-                    {
-                      scale: zoom.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }),
-                    },
-                  ],
-                }}
-              >
-                <PhotoImage imageId={imageId} />
-              </Animated.View>
-            </View>
-          ) : (
-            <ProductArtwork imageId={imageId} variant={compact ? 'recommendation' : 'tile'} />
-          )}
-          {tag ? (
-            <View
-              style={{
-                position: 'absolute',
-                left: v(14),
-                top: v(14),
-                height: v(30),
-                paddingHorizontal: v(12),
-                borderRadius: v(15),
-                backgroundColor: tag === 'new' ? colors.sky : colors.peach,
-                justifyContent: 'center',
-              }}
-            >
-              <Text
-                {...fixedText}
-                style={{
-                  fontFamily: fonts.heavy,
-                  fontSize: v(12),
-                  letterSpacing: 0.8,
-                  color: tag === 'new' ? colors.blue : colors.orangeInk,
-                }}
-              >
-                {tag === 'new' ? t.newTag : t.hitTag}
-              </Text>
-            </View>
-          ) : null}
-          <View style={{ paddingTop: v(2), paddingHorizontal: v(16), gap: v(6) }}>
-            <Text
-              {...fixedText}
-              numberOfLines={2}
-              style={{
-                fontFamily: fonts.heavy,
-                fontSize: v(21),
-                lineHeight: v(25),
-                color: colors.navy,
-              }}
-            >
-              {product.name}
-            </Text>
-            <Text
-              {...fixedText}
-              numberOfLines={compact ? 1 : 2}
-              style={{
-                fontFamily: fonts.body,
-                fontSize: Math.max(14, v(14)),
-                lineHeight: Math.max(20, v(20)),
-                color: colors.muted,
-              }}
-            >
-              {displayCopy(product.description)}
-            </Text>
+          {photo}
+          <View
+            style={{
+              ...(wide ? { flex: 1, justifyContent: 'flex-end' } : null),
+              paddingTop: px(wide ? 0 : 2),
+              paddingLeft: px(wide ? 4 : 18),
+              paddingRight: px(18),
+              // Room for the price row, which sits on its own at the bottom.
+              paddingBottom: px(16) + plus + px(6),
+              gap: px(4),
+            }}
+          >
+            {name}
+            {note}
           </View>
         </Pressable>
         <View
+          pointerEvents="box-none"
           style={{
-            marginTop: 'auto',
-            paddingTop: v(10),
-            paddingBottom: v(14),
-            paddingLeft: v(16),
-            paddingRight: v(14),
+            position: 'absolute',
+            left: wide ? `${WIDE_PHOTO * 100}%` : 0,
+            right: 0,
+            bottom: 0,
+            paddingLeft: px(wide ? 4 : 18),
+            paddingRight: px(16),
+            paddingBottom: px(16),
             flexDirection: 'row',
             alignItems: 'center',
-            gap: v(10),
+            gap: px(10),
           }}
         >
           <Pressable
@@ -210,42 +236,37 @@ export function ProductCard({
             onPress={onOpen}
             onPressIn={hold}
             onPressOut={() => setPressed(false)}
-            style={{ flex: 1, minWidth: 0 }}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              flexDirection: 'row',
+              alignItems: 'baseline',
+              gap: px(5),
+            }}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: v(4) }}>
-              <Text
-                {...fixedText}
-                numberOfLines={1}
-                style={{
-                  fontFamily: fonts.black,
-                  fontSize: v(26),
-                  lineHeight: v(28),
-                  letterSpacing: -0.4,
-                  color: colors.navy,
-                  fontVariant: ['tabular-nums'],
-                }}
-              >
-                {amount}
-              </Text>
-              <Text
-                {...fixedText}
-                style={{ fontFamily: fonts.heavy, fontSize: v(18), color: colors.muted }}
-              >
-                ₸
-              </Text>
-            </View>
-            {unavailable ? (
-              <Text
-                {...fixedText}
-                style={{
-                  fontFamily: fonts.medium,
-                  fontSize: Math.max(13, v(13)),
-                  color: colors.error,
-                }}
-              >
-                {t.unavailableShort}
-              </Text>
-            ) : null}
+            <Text
+              {...fixedText}
+              numberOfLines={1}
+              style={{
+                fontFamily: fonts.black,
+                fontSize: px(big ? 30 : 28),
+                letterSpacing: -0.4,
+                color: redesign.cardInk,
+                fontVariant: ['tabular-nums'],
+              }}
+            >
+              {amount}
+            </Text>
+            <Text
+              {...fixedText}
+              style={{
+                fontFamily: fonts.heavy,
+                fontSize: px(big ? 20 : 19),
+                color: redesign.cardInk,
+              }}
+            >
+              ₸
+            </Text>
           </Pressable>
           <Animated.View style={{ transform: [{ scale: pick.scale }] }}>
             <Pressable
@@ -257,44 +278,46 @@ export function ProductCard({
               onPress={onAdd}
               onPressIn={() => {
                 pick.onPressIn();
-                // "Pick" opens the page for products with choices.
+                // "+" opens the page for products with choices.
                 noteProductOrigin(card.current);
               }}
               onPressOut={pick.onPressOut}
+              hitSlop={px(8)}
               style={{
-                minHeight: Math.max(44, v(44)),
-                paddingLeft: v(16),
-                paddingRight: v(10),
-                borderRadius: 999,
-                backgroundColor: colors.peach,
-                flexDirection: 'row',
+                width: plus,
+                height: plus,
+                borderRadius: plus / 2,
+                backgroundColor: redesign.cta,
                 alignItems: 'center',
-                gap: v(2),
-                opacity: blocked ? 0.45 : 1,
+                justifyContent: 'center',
+                opacity: blocked ? 0.4 : 1,
+                shadowColor: redesign.cta,
+                shadowOpacity: blocked ? 0 : 0.5,
+                shadowRadius: px(13),
+                shadowOffset: { width: 0, height: px(10) },
               }}
             >
-              <Text
-                {...fixedText}
-                style={{ fontFamily: fonts.heavy, fontSize: v(16), color: colors.orangeInk }}
-              >
-                {t.pick}
-              </Text>
-              <Icon name="chevron-forward" size="small" tone="deep" />
+              <Plus size={big ? 22 : 20} />
             </Pressable>
           </Animated.View>
         </View>
       </View>
+      {badgeLabel ? (
+        <View pointerEvents="none" style={{ position: 'absolute', left: px(16), top: px(16) }}>
+          <Badge label={badgeLabel} tone={badge === 'hit' ? 'hit' : 'new'} />
+        </View>
+      ) : null}
       <Animated.View
         pointerEvents="none"
         style={{
           position: 'absolute',
-          left: -v(4),
-          right: -v(4),
-          top: -v(4),
-          bottom: -v(4),
-          borderRadius: v(32),
-          borderWidth: v(4),
-          borderColor: colors.orange,
+          left: -px(4),
+          right: -px(4),
+          top: -px(4),
+          bottom: -px(4),
+          borderRadius: px(36),
+          borderWidth: px(4),
+          borderColor: redesign.cta,
           opacity: ring,
         }}
       />
@@ -302,8 +325,24 @@ export function ProductCard({
     </Animated.View>
   );
 }
-/** Design card background: bg1-bg4 by position, `right top / 190% auto no-repeat`. */
-function Illustration({ index }: { index: number }) {
+/** The bold white "+" of the design (two 3 pt bars); the icon font's plus is too thin. */
+function Plus({ size }: { size: number }) {
+  const { px } = useMetrics();
+  const bar = { position: 'absolute' as const, borderRadius: px(2), backgroundColor: colors.white };
+  return (
+    <View pointerEvents="none" style={{ width: px(size), height: px(size) }}>
+      <View style={{ ...bar, left: 0, right: 0, top: (px(size) - px(3)) / 2, height: px(3) }} />
+      <View style={{ ...bar, top: 0, bottom: 0, left: (px(size) - px(3)) / 2, width: px(3) }} />
+    </View>
+  );
+}
+/**
+ * Design card background: bg1-bg4 by position, `right top / 190% auto no-repeat` of the card.
+ * `part` is the share of the card's width the owning view spans from the left, so the photo's
+ * copy lines up with the card's own illustration.
+ */
+function Illustration({ index, part }: { index: number; part: number }) {
+  const scale = 1.9 / part;
   return (
     <Image
       accessible={false}
@@ -312,9 +351,9 @@ function Illustration({ index }: { index: number }) {
       contentFit="cover"
       style={{
         position: 'absolute',
-        right: 0,
         top: 0,
-        width: '190%',
+        right: part === 1 ? 0 : `${-((1 - part) / part) * 100}%`,
+        width: `${scale * 100}%`,
         aspectRatio: cardBackgroundRatio,
       }}
     />
@@ -326,7 +365,7 @@ function Illustration({ index }: { index: number }) {
  * hidden and pops on release. Decorative: the card's name is unchanged.
  */
 function InBag({ count, hold }: { count: number; hold: boolean }) {
-  const { v } = useMetrics();
+  const { px } = useMetrics();
   const pop = usePopIn(hold ? 'hold' : count);
   return (
     <Animated.View
@@ -336,12 +375,12 @@ function InBag({ count, hold }: { count: number; hold: boolean }) {
       aria-hidden
       style={{
         position: 'absolute',
-        right: v(14),
-        top: v(14),
-        minWidth: v(36),
-        height: v(36),
-        paddingHorizontal: v(10),
-        borderRadius: v(18),
+        right: px(16),
+        top: px(16),
+        minWidth: px(36),
+        height: px(36),
+        paddingHorizontal: px(10),
+        borderRadius: px(18),
         backgroundColor: colors.blue,
         alignItems: 'center',
         justifyContent: 'center',
@@ -355,7 +394,7 @@ function InBag({ count, hold }: { count: number; hold: boolean }) {
     >
       <Text
         {...fixedText}
-        style={{ fontFamily: fonts.black, fontSize: v(16), color: colors.white }}
+        style={{ fontFamily: fonts.black, fontSize: px(17), color: colors.white }}
       >
         {count}
       </Text>

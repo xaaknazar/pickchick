@@ -23,6 +23,10 @@ export const springOut = Easing.bezier(0.34, 1.56, 0.64, 1);
 export const easeIn = Easing.bezier(0.42, 0, 1, 1);
 export const easeOut = Easing.bezier(0, 0, 0.58, 1);
 export const cssEase = Easing.bezier(0.25, 0.1, 0.25, 1);
+/** CSS `ease-in-out`. */
+export const easeInOut = Easing.bezier(0.42, 0, 0.58, 1);
+/** Start CTA «Салют» particles: cubic-bezier(.15,.7,.3,1), a fast burst that glides out. */
+export const burst = Easing.bezier(0.15, 0.7, 0.3, 1);
 /** Product hero landing: cubic-bezier(.2,.9,.25,1.15), a slight overshoot. */
 export const settle = Easing.bezier(0.2, 0.9, 0.25, 1.15);
 

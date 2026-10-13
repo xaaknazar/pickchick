@@ -350,6 +350,8 @@ test('stale then fresh availability gives checkout back without a reload', async
   const c = new CommercialKioskController(h.io);
   assert.equal(await c.restore(), false);
   assert.equal(c.getSnapshot().errorCode, 'NOT_ACCEPTING');
+  // Internal code only: no guest text (owner decision 2026-10-11).
+  assert.equal(c.getSnapshot().error, null);
   assert.equal(c.getSnapshot().checkoutReady, false);
   assert.equal(c.getSnapshot().menuUpdating, true);
   fresh = true;
@@ -360,11 +362,11 @@ test('stale then fresh availability gives checkout back without a reload', async
   assert.equal(c.getSnapshot().menuUpdating, false);
 });
 
-test('every guest error code has a text in KZ, RU and EN', () => {
+test('every visible guest error code has a text in KZ, RU and EN', () => {
+  // NOT_ACCEPTING has no text: owner decision 2026-10-11 (tests/kiosk/design-demo.test.mjs).
   const codes = [
     'PRICE_CHANGED',
     'CART_CHANGED',
-    'NOT_ACCEPTING',
     'DEVICE',
     'KITCHEN_OFFLINE',
     'PHONE',

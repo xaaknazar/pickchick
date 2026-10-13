@@ -3,6 +3,8 @@
 Run after exporting apps/kiosk, with the same environment as browser_ui.py.
 This deliberately runs one 1024x1366 journey, not the full kiosk suite. Every
 API request is intercepted by browser_ui.Fixture; no real order or payment.
+The guest goes the redesign 2026-10-13 path: menu -> smart upsell -> «К оплате» ->
+payment method (the simulator offers Kaspi and card); the order page is not on it.
 """
 import json
 import unittest
@@ -16,10 +18,21 @@ class KioskPaymentSuccess(ui.KioskUI):
     def test_review_payment_and_readable_order_number(self):
         width, height = 1024, 1366
         page, fixture = self.open(width, height)
+        # Every screen the guest passes, to prove the order page is no longer on the way.
+        page.evaluate("""() => {
+            window.kioskScreens = new Set();
+            const note = () => document.querySelectorAll('[data-testid^="kiosk-screen-"]')
+                .forEach((e) => window.kioskScreens.add(e.dataset.testid));
+            note();
+            new MutationObserver(note).observe(document.body, {subtree: true, childList: true});
+        }""")
         self.start(page)
         self.add(page)
         self.review(page)
         ui.screen(page, 'loyalty')
+        passed = page.evaluate('() => [...window.kioskScreens]')
+        self.assertIn('kiosk-screen-upsell', passed)
+        self.assertNotIn('kiosk-screen-cart', passed)
         self.assertEqual(len(fixture.orders), 0)
 
         # Both radios remain reachable; choosing one must update its actual

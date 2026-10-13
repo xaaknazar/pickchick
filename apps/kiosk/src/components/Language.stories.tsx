@@ -24,11 +24,24 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Kazakh = { args: { locale: 'kk' } };
+/** Redesign 2026-10-13 menu header: glass track, orange active option. */
+export const Glass: Story = { args: { tone: 'glass' } };
 export const Light: Story = {
   args: { tone: 'light' },
   decorators: [
     (Inner) => (
       <View style={{ backgroundColor: colors.background }}>
+        <Inner />
+      </View>
+    ),
+  ],
+};
+/** Redesign 2026-10-13 attract switch: film geometry on smoked glass over the video. */
+export const Start: Story = {
+  args: { tone: 'inverse', surface: 'start' },
+  decorators: [
+    (Inner) => (
+      <View style={{ backgroundColor: colors.navy }}>
         <Inner />
       </View>
     ),
