@@ -4970,14 +4970,15 @@
         "docs/operations/kiosk-cart-lines-windows-2026-10-13.md",
         "@windows/cashier"
       ],
-      "updatedAt": "2026-10-13T15:49:38.737Z",
-      "summary": "Owner explicitly authorized temporary @windows/cashier transfer from device-center: exact-CI two-file runtime delta, protected backup/restore, restart fulfillment worker only; POS app and other services preserved. Return resources after completion."
+      "updatedAt": "2026-10-13T16:20:16.158Z",
+      "summary": "API6870 CI11/11 and immutable prepare passed; running API still5b6f/schema058. Windows62f CI11/11, protected schema020 backup/restore passed; runtime staged, installer not started because Mac left cashier subnet. Owner authorized Windows transfer/restart worker only. API apply intentionally follows compatible receiver.",
+      "nextAction": "Restore Mac connection to cashier LAN; retry pinned SSH; fresh guards, worker-only install then API encrypted backup/restore and apply; publish final roadmap and return temporary reservations."
     },
     {
       "id": "kiosk-owner-polish-1013",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-owner-polish-1013",
-      "head": "db682ae1cbb6dea94c77f2ff985f63a4ace720e8",
+      "head": "81cf5cb755985597b80ac225fb963feb08ef06dd",
       "status": "active",
       "scopes": [
         "apps/kiosk/.storybook",
@@ -5073,8 +5074,9 @@
         "@vps/public-https",
         "@vps/roadmap"
       ],
-      "updatedAt": "2026-10-13T15:28:44.932Z",
-      "summary": "Owner authorized temporary status/roadmap/public-https reservations from device-center for build18 publication. Return after completion. Native XCTest passed 1/1, 0 skips; installed source db682ae1."
+      "updatedAt": "2026-10-13T16:20:16.151Z",
+      "summary": "Build18 installed/native verified (db682ae1). UI full CI 2d1 green 11/11. Published consolidated checkpoint 81cf5cb7 incl exact Windows release ancestry; current CI running. No TestFlight or real payments.",
+      "nextAction": "Restore Mac connection to cashier LAN; retry pinned SSH; fresh guards, worker-only install then API encrypted backup/restore and apply; publish final roadmap and return temporary reservations."
     },
     {
       "id": "device-center",
