@@ -4855,7 +4855,9 @@
       ],
       "status": "active",
       "head": "3b9733affd4db3f1ea7082b12534f63a04637af4",
-      "updatedAt": "2026-10-13T06:53:01.359Z"
+      "updatedAt": "2026-10-13T06:53:05.287Z",
+      "summary": "По прямому поручению владельца области kiosk-design-demo (claim 202) переданы редизайну; владелец отдельно подтвердил включение скрытого демо и смены KZ → RU → EN с сохранением Салюта. PR #238, исходник 3b9733af опубликован. 181 kiosk tests, 24 browser checks, 7 roadmap tests, typecheck/lint/format успешны. Ожидается полная CI; build 15 ещё не загружен.",
+      "nextAction": "Зелёная CI → Release 0.1.0 (15) → PickChick Kiosk Internal; обновить протокол, shared и онлайн-пульт. Физическая установка/приёмка отдельно."
     }
   ]
 }
