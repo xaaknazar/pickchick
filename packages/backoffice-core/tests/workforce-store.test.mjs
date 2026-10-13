@@ -7,6 +7,63 @@ import { Backoffice, grantBackoffice } from '../dist/index.js';
 import { Workforce } from '../dist/workforce-store.js';
 import { createPool } from '@pickchick/database';
 import { workforceGrants } from '../../../infra/staging/workforce-grants.mjs';
+import { deployPayroll, MIGRATIONS } from '../../../infra/staging/payroll-owner.mjs';
+import { mkdtemp, readdir, copyFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+test('payroll owner preserves populated schema052, keeps channels dormant and rejects replay', async () => {
+  const directory = fileURLToPath(new URL('../../../db/cloud/migrations/', import.meta.url));
+  const old = await mkdtemp(join(tmpdir(), 'payroll-schema052-'));
+  try {
+    for (const n of await readdir(directory))
+      if (n.endsWith('.sql') && +n.slice(0, 3) <= 52)
+        await copyFile(join(directory, n), join(old, n));
+    await withSyncDatabases(
+      async (c) => {
+        const connection = await c.cloud.pool.connect();
+        try {
+          const role = (await connection.query('SELECT current_user AS name')).rows[0].name;
+          await connection.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
+          assert.deepEqual(await deployPayroll(connection, { directory, role, inspect: true }), {
+            pending: MIGRATIONS,
+            privilegesAdded: [],
+          });
+          const result = await deployPayroll(connection, { directory, role });
+          assert.equal(result.existingDataPreserved, true);
+          assert.equal(result.channelsDormant, true);
+          assert.deepEqual(result.privilegesAdded, []);
+          assert.equal(
+            (await connection.query('SELECT count(*)::int AS n FROM branches')).rows[0].n,
+            1,
+          );
+          assert.equal(
+            (
+              await connection.query(
+                "SELECT count(*)::int AS n FROM schema_migrations WHERE version LIKE '057_%'",
+              )
+            ).rows[0].n,
+            1,
+          );
+          await connection.query('COMMIT');
+          await connection.query('BEGIN');
+          await assert.rejects(
+            deployPayroll(connection, { directory, role }),
+            /Exact schema052 ledger/,
+          );
+          await connection.query('ROLLBACK');
+        } finally {
+          await connection.query('ROLLBACK');
+          connection.release();
+        }
+      },
+      { cloudMigrationDirectory: old },
+    );
+  } finally {
+    await rm(old, { recursive: true, force: true });
+  }
+});
 
 const month = '2026-09-01';
 const at = (d, h) => `2026-09-${d}T${h}:00:00+05:00`;
