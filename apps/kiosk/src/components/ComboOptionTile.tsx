@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { KioskModifierGroup } from '../model';
 import { money } from '../cart';
 import { heinzColor, heinzInk, optionPhoto } from '../assets';
@@ -13,7 +13,7 @@ import { ownerOrange } from './ownerOrange';
 import { fixedText } from './Body';
 type Option = KioskModifierGroup['options'][number];
 /** Design colours of the option tile (product-and-payment.md §1). */
-const INCLUDED = '#2E9E5B';
+const INCLUDED = '#227A45';
 const SURCHARGE_FILL = '#FFE7D6';
 const SURCHARGE_INK = '#B84500';
 const SOLD_OUT = '#8A93A6';
@@ -31,6 +31,9 @@ function OptionMark({ id, name }: { id: string; name: string }) {
   const word = heinz ? 'Heinz' : (name.split(' ')[0] ?? name).slice(0, 8);
   return (
     <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      aria-hidden
       style={{
         height: '100%',
         maxHeight: px(92),
@@ -62,7 +65,7 @@ function OptionMark({ id, name }: { id: string; name: string }) {
  * product-and-payment.md §1): a white tile (radius 24; 172 high for drinks, 164 otherwise; a
  * photo shot on a near-white backdrop lends the tile that backdrop) with the photo (contain) on
  * top, the short name in Montserrat 800 15, its caption 13 #55617A and the status: «Входит в
- * комбо» in green #2E9E5B, a surcharge pill «+200 ₸» (#FFE7D6 / #B84500) or «Нет в наличии» (the
+ * комбо» in readable green #227A45, a surcharge pill «+200 ₸» (#FFE7D6 / #B84500) or «Нет в наличии» (the
  * tile at .5 and not pressable). A pick shows the 4-pt #FF6900 ring around the tile and the
  * orange check disc at the top right; in a group of several picks the disc counts them and a
  * white minus disc takes one back. An option without a photo shows a 92-pt colour disc with its
@@ -235,7 +238,10 @@ export function ComboOptionTile({
     shadowRadius: px(9),
     shadowOffset: { width: 0, height: px(6) },
   };
-  const label = [name, text.caption, status].filter(Boolean).join(', ');
+  // The browser derives the name from the rendered text, preserving its exact spacing.
+  // Native gets an explicit grouped name so VoiceOver reads the tile as one control.
+  const label =
+    Platform.OS === 'web' ? undefined : [name, text.caption, status].filter(Boolean).join(', ');
   return (
     <Animated.View
       style={{

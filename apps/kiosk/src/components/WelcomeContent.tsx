@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Animated,
   Platform,
@@ -75,7 +75,9 @@ function CtaCaption({ shown, animate }: { shown: Locale; animate: boolean }) {
     ) as Record<Locale, CaptionTrack>;
   });
   const current = useRef(shown);
-  useEffect(() => {
+  // Pin before paint, including Reduce Motion: the visible caption must change in the
+  // same frame as the selected language, without a stale caption between commits.
+  useLayoutEffect(() => {
     const from = current.current;
     current.current = shown;
     const pose = (poses: Record<Locale, CtaPose>) => {

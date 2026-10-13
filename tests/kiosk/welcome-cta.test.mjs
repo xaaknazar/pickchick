@@ -158,9 +158,9 @@ test('stopping the rotation settles every caption at once, also in the middle of
     // The same language again while rotating (e.g. a new size): rest, no flip.
     assert.deepEqual(ctaCaptionMove(from, from, true), { start: ctaRestPoses(from), legs: [] });
   }
-  // The effect always applies `start` before anything else, keeps no early return, and its
+  // The layout effect pins before paint, always applies `start`, keeps no early return, and its
   // cleanup stops the flip so a stale completion cannot touch the values.
-  const effect = caption.slice(caption.indexOf('useEffect('), caption.indexOf('return (\n'));
+  const effect = caption.slice(caption.indexOf('useLayoutEffect('), caption.indexOf('return (\n'));
   assert.doesNotMatch(effect, /shown === from|from === shown/);
   assert.match(
     effect,

@@ -158,7 +158,7 @@ export function QrPlate({
             {expired ? (
               <Icon name="time-outline" size="hero" tone="brand" />
             ) : (
-              <ActivityIndicator size="large" color={colors.blue} />
+              <ActivityIndicator accessibilityLabel={message} size="large" color={colors.blue} />
             )}
             <Text
               {...fixedText}
