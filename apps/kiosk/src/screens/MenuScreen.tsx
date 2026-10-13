@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { KioskModel } from '../model';
+import type { KioskModel, KioskProduct } from '../model';
 import { copy } from '../i18n';
 import { defaultSelections, validSelections } from '../cart';
 import { Header, pilotBranch, ScreenSurface, Wrapper, type ScreenContext } from '../components/UI';
@@ -7,8 +7,9 @@ import { CategoryRail } from '../components/CategoryRail';
 import { MenuGrid } from '../components/MenuGrid';
 import { CartBar } from '../components/CartBar';
 import { Toast } from '../components/Toast';
-import { ModeReveal } from '../components/ModeReveal';
+import { ProductSheet } from '../components/ProductSheet';
 import { inCategory, type Category, type MenuMemory } from '../components/categories';
+import { opensInSheet } from '../productSheet';
 export type { MenuMemory } from '../components/categories';
 export function MenuScreen({
   model,
@@ -23,6 +24,15 @@ export function MenuScreen({
   const [category, setCategory] = useState<Category>(memory.category);
   const [revision, setRevision] = useState(0);
   const products = model.catalog?.products ?? [];
+  // Simple products (extras, drinks and sauces without a choice or with one size choice) open
+  // as a sheet over the menu (product-and-payment.md §3); everything else keeps the product page.
+  const [sheetId, setSheetId] = useState<string | null>(null);
+  const sheet = sheetId ? products.find((p) => p.id === sheetId) : undefined;
+  const open = (p: KioskProduct) => {
+    if (!opensInSheet(p)) return model.openProduct(p.id);
+    model.touch();
+    setSheetId(p.id);
+  };
   const quantity = model.cart.reduce((sum, line) => sum + line.quantity, 0);
   const previousQuantity = useRef(memory.cartQuantity ?? quantity);
   const previousTotal = useRef(memory.cartTotal ?? model.cartTotalMinor);
@@ -99,10 +109,10 @@ export function MenuScreen({
           cartCounts={counts}
           arriving={arriving}
           onInteraction={model.touch}
-          onOpen={(p) => model.openProduct(p.id)}
+          onOpen={open}
           onAdd={(p) => {
             const selected = defaultSelections(p);
-            if (p.modifier_groups.length || !validSelections(p, selected)) model.openProduct(p.id);
+            if (p.modifier_groups.length || !validSelections(p, selected)) open(p);
             else void model.addToCart(p.id, selected);
           }}
         />
@@ -127,7 +137,25 @@ export function MenuScreen({
         message={toast?.message ?? t.addedToCart}
         trigger={toast?.id ?? null}
       />
-      <ModeReveal mode={model.mode} />
+      {sheet ? (
+        <ProductSheet
+          key={sheet.id}
+          product={sheet}
+          locale={context.locale}
+          busy={model.busy}
+          cart={model.cart}
+          lineCount={model.cart.length + model.unavailableCartLines.length}
+          onInteraction={model.touch}
+          onClose={() => setSheetId(null)}
+          // The product page's add: the same selections and quantity; the sheet closes once the
+          // line is in the cart (the bar below updates and the toast names it).
+          onAdd={(selections, count) =>
+            void model.addToCart(sheet.id, selections, count).then((added) => {
+              if (added) setSheetId(null);
+            })
+          }
+        />
+      ) : null}
     </ScreenSurface>
   );
 }

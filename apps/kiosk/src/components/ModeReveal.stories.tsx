@@ -13,12 +13,21 @@ const tile = (x: number, y: number) => ({
 /** Arms a tap on the stand-in tile, then mounts the reveal as the menu would. */
 function Replay({ mode }: { mode: RevealMode }) {
   const [round, setRound] = useState(0);
+  const [covered, setCovered] = useState(false);
+  const [done, setDone] = useState(false);
   useEffect(() => {
     armReveal(mode, tile(40, mode === 'takeaway' ? 320 : 80));
     const timer = setTimeout(() => setRound(1), 30);
     return () => clearTimeout(timer);
   }, [mode]);
-  return round ? <ModeReveal mode={mode} /> : null;
+  return round && !done ? (
+    <ModeReveal
+      mode={mode}
+      uncover={covered}
+      onCovered={() => setCovered(true)}
+      onDone={() => setDone(true)}
+    />
+  ) : null;
 }
 const meta = {
   title: 'Kiosk/ModeReveal',

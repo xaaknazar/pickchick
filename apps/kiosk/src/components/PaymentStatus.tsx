@@ -30,7 +30,7 @@ function useCountdown(expiresAt: string | null | undefined) {
 
 function QrStep({ index, label }: { index: number; label: string }) {
   const { v } = useMetrics();
-  const enter = useEnter(300 + index * 70, 460);
+  const enter = useEnter(120 + index * 35, 340);
   return (
     <Animated.View
       style={{
@@ -45,11 +45,10 @@ function QrStep({ index, label }: { index: number; label: string }) {
         shadowRadius: 18,
         shadowOffset: { width: 0, height: 8 },
         elevation: 6,
-        // Prototype `rise`: translateY 34 and scale .97 to rest.
+        // A short, quiet cascade keeps the instructions readable promptly.
         opacity: enter,
         transform: [
-          { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [34, 0] }) },
-          { scale: enter.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1] }) },
+          { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) },
         ],
       }}
     >
@@ -86,10 +85,8 @@ function QrStep({ index, label }: { index: number; label: string }) {
 }
 
 /**
- * v3 payment centre on the blue surface: method tile and title (drop), the
- * amount (fade up), the QR card (springs in, scanning line, live expiry pill)
- * and three numbered steps (rise, 70 ms apart). Without a QR the existing
- * message is shown in a white card instead.
+ * Branded payment centre. The amount settles first, the QR fades into place
+ * without stretching its modules, then the instructions arrive in a short cascade.
  */
 export function PaymentStatus({
   state,
@@ -103,6 +100,7 @@ export function PaymentStatus({
   locale = 'ru',
   dense = false,
   demoWarning = null,
+  checking = false,
 }: {
   state: 'waiting' | 'unknown' | 'declined';
   title: string;
@@ -120,6 +118,7 @@ export function PaymentStatus({
    * is not payable, and the Kaspi steps give way to the message card.
    */
   demoWarning?: string | null;
+  checking?: boolean;
 }) {
   const { v, height, width } = useMetrics();
   const t = copy(locale);
@@ -129,10 +128,9 @@ export function PaymentStatus({
   // VoiceOver hears every status change (live regions below serve Android and the web).
   useAnnounce(title + '. ' + message);
   const left = useCountdown(qrPayload ? expiresAt : null);
-  const drop = useEnter(0, 520);
-  const rise = useEnter(80, 520);
-  // Prototype `qrIn` runs on the spring curve: the card overshoots, then settles.
-  const card = useEnter(140, 640, 'spring');
+  const drop = useEnter(0, 360);
+  const rise = useEnter(40, 360);
+  const card = useEnter(80, 300);
   const methodLabel =
     method === 'invoice' ? 'Kaspi - ' + t.invoiceMethod : method === 'card' ? t.card : t.payQR;
   const icon: IconName =
@@ -158,11 +156,9 @@ export function PaymentStatus({
           alignItems: 'center',
           gap: v(16),
           maxWidth: '100%',
-          // Prototype `drop`: from translateY -28 and scale .92.
           opacity: drop,
           transform: [
-            { translateY: drop.interpolate({ inputRange: [0, 1], outputRange: [-28, 0] }) },
-            { scale: drop.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) },
+            { translateY: drop.interpolate({ inputRange: [0, 1], outputRange: [-10, 0] }) },
           ],
         }}
       >
@@ -209,31 +205,18 @@ export function PaymentStatus({
           >
             {heading}
           </Text>
-          {/* With the QR on screen the design shows no status line; until then
-              it says what the kiosk is waiting for. */}
-          {waiting && !qrPayload ? (
+          {waiting ? (
             <Text
               {...fixedText}
-              style={{ fontFamily: fonts.body, fontSize: v(18), color: colors.onBlueMuted }}
-              accessibilityLiveRegion="polite"
-            >
-              {title}
-            </Text>
-          ) : waiting ? (
-            // Hidden with the QR on screen (design); a live region for Android and the web,
-            // VoiceOver hears it through useAnnounce above.
-            <Text
-              {...fixedText}
-              accessibilityLiveRegion="polite"
+              testID="kiosk-payment-waiting-status"
               style={{
-                position: 'absolute',
-                width: 1,
-                height: 1,
-                overflow: 'hidden',
-                opacity: 0,
+                fontFamily: fonts.body,
+                fontSize: Math.max(17, v(18)),
+                color: colors.onBlueMuted,
               }}
+              accessibilityLiveRegion="polite"
             >
-              {title}
+              {checking ? t.checkingPayment : qrPayload ? t.paymentAuto : title}
             </Text>
           ) : null}
         </View>
@@ -245,7 +228,7 @@ export function PaymentStatus({
           gap: v(2),
           opacity: rise,
           transform: [
-            { translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) },
+            { translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) },
           ],
         }}
       >
@@ -315,18 +298,13 @@ export function PaymentStatus({
               outputRange: [0, 1],
               extrapolate: 'clamp',
             }),
-            transform: [
-              { scale: card.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] }) },
-              {
-                translateY: card.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }),
-              },
-            ],
           }}
         >
           {demoWarning ? (
             <View
               testID="kiosk-demo-qr-warning"
               style={{
+                maxWidth: v(400),
                 paddingVertical: v(8),
                 paddingHorizontal: v(18),
                 borderRadius: 999,
@@ -335,7 +313,12 @@ export function PaymentStatus({
             >
               <Text
                 {...fixedText}
-                style={{ fontFamily: fonts.bold, fontSize: v(20), color: colors.white }}
+                style={{
+                  fontFamily: fonts.bold,
+                  fontSize: v(20),
+                  color: colors.white,
+                  textAlign: 'center',
+                }}
               >
                 {demoWarning}
               </Text>
@@ -344,7 +327,7 @@ export function PaymentStatus({
           <PaymentQR
             payload={qrPayload}
             label={demoWarning ?? 'Kaspi QR'}
-            size={tight ? 'compact' : 'regular'}
+            size={tight || demoWarning ? 'compact' : 'regular'}
             scanning={waiting}
           />
           {left !== null ? (

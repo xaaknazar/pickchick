@@ -65,6 +65,8 @@ class KioskDesignDemo(ui.KioskUI):
         ui.screen(page, 'order')
         self.badge(page)
         expect(ui.element(page, 'kiosk-order-number')).to_have_text('Д-123')
+        expect(page.get_by_test_id('kiosk-payment-cancel')).to_have_count(0)
+        expect(page.get_by_test_id('kiosk-cancel-dialog')).to_have_count(0)
         ui.capture(page, 'demo-order-820.png')
 
         demo_requests = fixture.requests[before:]
@@ -94,10 +96,44 @@ class KioskDesignDemo(ui.KioskUI):
         ui.screen(page, 'welcome')
         expect(page.get_by_test_id('kiosk-demo-badge')).to_have_count(0)
 
+    def test_demo_cancellation_keeps_items_and_never_reaches_live_payment(self):
+        for width, height, locale in [(744, 1133, 'ru'), (820, 1180, 'kk'), (1024, 1366, 'en')]:
+            with self.subTest(width=width, locale=locale):
+                page, fixture = self.open(width, height)
+                hold(page, 'kiosk-logo-hold', 5600)
+                ui.element(page, 'kiosk-demo-confirm').click()
+                self.badge(page)
+                before = len(fixture.requests)
+                ui.element(page, 'kiosk-language-' + locale).click()
+                self.start(page)
+                self.add(page)
+                ui.element(page, 'kiosk-menu-checkout').click()
+                ui.element(page, 'kiosk-upsell-continue').click()
+                ui.element(page, 'kiosk-payment-method-kaspi').click()
+                ui.element(page, 'kiosk-review-create').click()
+                ui.screen(page, 'payment')
+                expect(ui.element(page, 'kiosk-payment-waiting-status')).to_be_visible()
+                cancel = ui.element(page, 'kiosk-payment-cancel')
+                box = cancel.bounding_box()
+                self.assertLessEqual(box['y'] + box['height'], height)
+                ui.assert_no_overflow(page, width)
+                ui.capture(page, f'demo-payment-cancel-{width}.png')
+                cancel.click()
+                expect(ui.element(page, 'kiosk-cancel-dialog')).to_be_visible()
+                ui.element(page, 'kiosk-cancel-confirm').click()
+                ui.screen(page, 'cart')
+                expect(page.get_by_test_id('kiosk-payment-qr')).to_have_count(0)
+                expect(page.get_by_test_id('kiosk-cancel-dialog')).to_have_count(0)
+                expect(page.locator('[data-testid^="kiosk-cart-line-"][data-testid$="-quantity"]')).to_have_text('1')
+                self.assertEqual(fixture.orders, {})
+                self.assertEqual([r for r in fixture.requests[before:]
+                                  if r['path'].startswith(ORDER_PATHS)], [])
+
 
 if __name__ == '__main__':
     # Inherited helpers include the full suite: select only the demo checks.
     unittest.main(defaultTest=[
         'KioskDesignDemo.test_logo_hold_demo_reaches_qr_and_number_without_orders',
         'KioskDesignDemo.test_demo_is_off_after_reload',
+        'KioskDesignDemo.test_demo_cancellation_keeps_items_and_never_reaches_live_payment',
     ], verbosity=2)

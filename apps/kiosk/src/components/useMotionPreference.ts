@@ -1,37 +1,49 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import { AccessibilityInfo, AppState } from 'react-native';
-let lastReduced = true;
-// Ask once at load so screens mounted after boot already know the setting and
-// only the very first frames before the answer arrive render statically.
-try {
-  void AccessibilityInfo.isReduceMotionEnabled()
-    .then((value) => {
-      lastReduced = value;
-    })
-    .catch(() => {});
-} catch {
-  // Keep the static default when the platform cannot answer.
-}
-/** Start static; follow changes live and suspend motion while backgrounded. */
-export function useMotionPreference() {
-  const [reduced, setReduced] = useState(lastReduced);
-  const [active, setActive] = useState(AppState.currentState === 'active');
-  useEffect(() => {
-    let live = true;
-    const update = (value: boolean) => {
-      lastReduced = value;
-      if (live) setReduced(value);
-    };
+let reduced = true;
+let active = AppState.currentState === 'active';
+let generation = 0;
+const listeners = new Set<() => void>();
+let detach: (() => void) | undefined;
+const snapshot = () => reduced || !active;
+const notify = () => listeners.forEach((listener) => listener());
+/** One native subscription/query for the whole screen, not one per animated card. */
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  if (!detach) {
+    active = AppState.currentState === 'active';
+    const request = ++generation;
     void AccessibilityInfo.isReduceMotionEnabled()
-      .then(update)
+      .then((value) => {
+        if (generation !== request) return;
+        reduced = value;
+        notify();
+      })
       .catch(() => {});
-    const motion = AccessibilityInfo.addEventListener('reduceMotionChanged', update);
-    const state = AppState.addEventListener('change', (v) => setActive(v === 'active'));
-    return () => {
-      live = false;
+    const motion = AccessibilityInfo.addEventListener('reduceMotionChanged', (value) => {
+      generation += 1;
+      reduced = value;
+      notify();
+    });
+    const state = AppState.addEventListener('change', (value) => {
+      active = value === 'active';
+      notify();
+    });
+    detach = () => {
+      generation += 1;
       motion.remove();
       state.remove();
     };
-  }, []);
-  return reduced || !active;
+  }
+  return () => {
+    listeners.delete(listener);
+    if (!listeners.size) {
+      detach?.();
+      detach = undefined;
+    }
+  };
+}
+/** Start static; honour live preference changes and stop when backgrounded. */
+export function useMotionPreference() {
+  return useSyncExternalStore(subscribe, snapshot, () => true);
 }

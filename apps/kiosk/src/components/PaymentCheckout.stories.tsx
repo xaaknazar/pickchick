@@ -150,12 +150,14 @@ function renderCheckout({ locale }: { locale: Locale }) {
     newGuest: c.newGuest,
     touch: c.touch,
     stay: c.stay,
+    startOver: c.startOver,
   };
   const context = { locale, setLocale: () => {}, onHelp: () => {}, onCancel: () => {} };
   return !state.ready ? (
     <BootState />
   ) : state.step === 'payment' ? (
-    <PaymentScreen model={model} context={context} />
+    // «Начать заново» without its dialog: the story starts over at once.
+    <PaymentScreen model={model} context={context} onStartOver={() => void c.startOver()} />
   ) : state.step === 'recovery' ? (
     <RecoveryScreen model={model} context={context} />
   ) : (

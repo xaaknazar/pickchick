@@ -376,7 +376,8 @@ class KioskUI(unittest.TestCase):
 
     def test_three_ipad_sizes_configuration_fixed_actions_and_reset(self):
         base = {('drink', 'cola-bottle', 1), ('sauce', 'pick', 1)}
-        custom = {('drink', 'lemonade', 1), ('sauce', 'pick', 1), ('extras', 'toast', 1)}
+        # Redesign 2026-10-13: the product card has no extras list (the smart upsell offers them).
+        custom = {('drink', 'lemonade', 1), ('sauce', 'pick', 1)}
         for width, height in [(768, 1024), (820, 1180), (1024, 1366)]:
             with self.subTest(width=width, height=height):
                 page, fixture = self.open(width, height)
@@ -427,8 +428,7 @@ class KioskUI(unittest.TestCase):
                 expect(sheet).not_to_be_visible()
                 expect(element(page, 'kiosk-product-add')).to_contain_text('4 190')
                 element(page, 'kiosk-modifier-drink-lemonade').click()
-                element(page, 'kiosk-modifier-plus-extras-toast').click()
-                expect(element(page, 'kiosk-product-add')).to_contain_text('4 780')
+                expect(element(page, 'kiosk-product-add')).to_contain_text('4 390')
                 fixed_action(page, 'kiosk-product-add', 'kiosk-product-scroll', width, height)
                 capture(page, f'product-{width}.png')
                 element(page, 'kiosk-product-add').click()
@@ -451,7 +451,7 @@ class KioskUI(unittest.TestCase):
                 self.assertEqual(len(order['snapshot']['lines']), 2)
                 self.assertEqual({frozenset(selection_set(line)) for line in order['snapshot']['lines']},
                                  {frozenset(base), frozenset(custom)})
-                self.assertEqual(order['snapshot']['total_minor'], '897000')
+                self.assertEqual(order['snapshot']['total_minor'], '858000')
                 capture(page, f'payment-{width}.png')
                 element(page, 'kiosk-payment-approve').click()
                 screen(page, 'order')
@@ -489,37 +489,38 @@ class KioskUI(unittest.TestCase):
         capture(page, 'cart-with-upsell.png')
 
     def test_menu_restores_category_and_offset_after_product_close(self):
-        # The bento menu fits the six fixture drinks on one screen; the live catalog grows to
-        # 19 drinks, which scroll. Copies of the fixture drinks stand in for the new ones.
+        # A section long enough to scroll. Drinks and extras now open as a sheet over the menu
+        # (browser_redesign_sheet.py), so copies of the combos (which keep their product page)
+        # stand in for a long section here.
         catalog = copy.deepcopy(self.catalog)
-        drinks = [p for p in catalog['products'] if p['category'] == 'Напитки']
-        for number in range(1, 14):
-            base = drinks[(number - 1) % len(drinks)]
+        combos = [p for p in catalog['products'] if p['category'] == 'Комбо']
+        for number in range(1, 16):
+            base = combos[(number - 1) % len(combos)]
             catalog['products'].append({**copy.deepcopy(base), 'id': f"{base['id']}-x{number}",
                                         'name': f"{base['name']} #{number}"})
         page, fixture = self.open(catalog=catalog)
         self.start(page)
-        selected = element(page, 'kiosk-category-drinks')
+        selected = element(page, 'kiosk-category-combo')
         selected.click()
         expect(selected).to_have_attribute('aria-selected', 'true')
         scroller = element(page, 'kiosk-menu-scroll')
         product = element(page, 'kiosk-product-' + catalog['products'][-1]['id'])
         product.scroll_into_view_if_needed()
         # Use actual UI scrolling; do not seed navigation memory or storage.
-        capture(page, 'drinks-before-product.png')
+        capture(page, 'combos-before-product.png')
         offset = scroller.evaluate('(e) => e.scrollTop')
         self.assertGreater(offset, 500, 'This must exercise a scrolled category')
         product.click()
         screen(page, 'product')
         element(page, 'kiosk-product-close').click()
         screen(page, 'menu')
-        expect(element(page, 'kiosk-category-drinks')).to_have_attribute('aria-selected', 'true')
+        expect(element(page, 'kiosk-category-combo')).to_have_attribute('aria-selected', 'true')
         page.wait_for_function("""(offset) => Math.abs(
             document.querySelector('[data-testid="kiosk-menu-scroll"]').scrollTop - offset) <= 2""", arg=offset)
         self.assertTrue(product.is_visible())
         assert_bounded(page, 'kiosk-menu-checkout', 820, 1180)
         self.assertEqual(len(fixture.orders), 0)
-        capture(page, 'drinks-restored-after-product.png')
+        capture(page, 'combos-restored-after-product.png')
 
     def test_lost_create_response_reconciles_committed_order_after_reload(self):
         page, fixture = self.open()

@@ -32,11 +32,12 @@ const lightTile = (tile: string) =>
  * - `UpsellTile`: a row card (about 270 high). `tall` puts the photo on top with the name 24,
  *   price 28 and the 50 toggle; `wide` (the lemonade, or a row of one or two) puts a large photo
  *   on the left and name, description and price on the right.
- * Both are the cream menu card (#FEF8F0, radius 32, the bg1-bg4 illustration at 190% from the
- * top right, shadow 0 14 30 rgba(2,10,31,.25)). The whole card and the round button toggle:
- * the orange «+» adds one, and once in the order the card gets the green 4-pt ring and a green
- * check that takes it out again. Cards rise in after the header, squeeze while pressed and pulse
- * on a tap; all of it is static under reduced motion.
+ * Both are the cream menu card (#FEF8F0, radius 32, shadow 0 14 30 rgba(2,10,31,.25)). Only the
+ * row tiles carry the bg1-bg4 illustration (190% from the top right); the hero is plain cream
+ * (owner update of `images/upsell-*.webp`, product-and-payment.md). The whole card and the
+ * round button toggle: the orange «+» adds one, and once in the order the card gets the green
+ * 4-pt ring and a green check that takes it out again. Cards rise in after the header, squeeze
+ * while pressed and pulse on a tap; all of it is static under reduced motion.
  */
 export function UpsellHero({
   product,
@@ -64,7 +65,7 @@ export function UpsellHero({
       testID="kiosk-upsell-hero"
       product={product}
       label={product.name}
-      art={0}
+      art={null}
       position={0}
       added={added}
       busy={busy}
@@ -302,7 +303,8 @@ function Card({
   testID: string;
   product: KioskProduct;
   label: string;
-  art: number;
+  /** Illustration bg1-bg4 (i % 4), or null for the plain cream hero. */
+  art: number | null;
   position: number;
   added: boolean;
   busy: boolean;
@@ -389,19 +391,21 @@ function Card({
             backgroundColor: redesign.cream,
           }}
         >
-          <Image
-            accessible={false}
-            accessibilityLabel=""
-            source={cardBackgrounds[art % cardBackgrounds.length]}
-            contentFit="cover"
-            style={{
-              position: 'absolute',
-              right: 0,
-              top: 0,
-              width: '190%',
-              aspectRatio: cardBackgroundRatio,
-            }}
-          />
+          {art === null ? null : (
+            <Image
+              accessible={false}
+              accessibilityLabel=""
+              source={cardBackgrounds[art % cardBackgrounds.length]}
+              contentFit="cover"
+              style={{
+                position: 'absolute',
+                right: 0,
+                top: 0,
+                width: '190%',
+                aspectRatio: cardBackgroundRatio,
+              }}
+            />
+          )}
           {children(photo)}
         </Pressable>
         <Toggle
