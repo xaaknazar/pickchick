@@ -14,32 +14,35 @@ with sync_playwright() as p:
     page = browser.new_page(viewport={"width": 1280, "height": 900})
     page.on("pageerror", lambda e: errors.append(str(e)))
     for story, heading in [
-        ("backoffice-devices--manager", "Подключённые экраны"),
-        ("backoffice-devices--analyst", "Подключённые экраны"),
-        ("backoffice-devices--one-time-code", "Подключённые экраны"),
+        ("backoffice-devices--manager", "Устройства точки"),
+        ("backoffice-devices--analyst", "Устройства точки"),
+        ("backoffice-devices--one-time-code", "Устройства точки"),
         ("kitchen-terminalpairing--kitchen", "Подключение кухни"),
         ("kitchen-terminalpairing--assembly", "Подключение сборки"),
         ("kitchen-terminalpairing--display", "Подключение табло"),
         ("kitchen-displayaccess--empty", "Табло выдачи"),
         ("kitchen-displayaccess--offline", "Табло выдачи"),
     ]:
-        for width in [1280, 768, 393]:
+        for width in [1440, 768, 393]:
             page.set_viewport_size({"width": width, "height": 900})
             page.goto(origin + "/iframe.html?id=" + story + "&viewMode=story")
             expect(page.get_by_role("heading", name=heading, exact=True)).to_be_visible()
-            page.locator("link[data-operation-story]").evaluate("e => e.sheet !== null")
+            page.wait_for_function("[...document.querySelectorAll('link[data-operation-story]')].every(e=>e.sheet!==null)")
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (story, width)
+            if "devices--" in story:
+                assert page.locator(".device-table-wrap").evaluate("e=>e.scrollWidth<=e.clientWidth+1"), (story,width,"internal overflow")
             if "analyst" in story:
                 assert page.get_by_role("button", name="Восстановить пароль кухни", exact=True).count() == 0
                 assert page.get_by_role("button", name="Подключить экран", exact=True).count() == 0
             if "devices--manager" in story:
-                edge = page.get_by_role("article").filter(has=page.get_by_role("heading", name="Касса Abay Plaza"))
+                edge = page.get_by_role("row").filter(has=page.get_by_text("Касса Abay Plaza", exact=True))
                 assert edge.get_by_role("button", name="Отключить", exact=True).count() == 0
             if len(sys.argv)>3 and width==768:
                 page.add_script_tag(path=sys.argv[3])
                 violations=page.evaluate("async()=> (await axe.run(document.querySelector('#app'),{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}})).violations.map(v=>({id:v.id,impact:v.impact,nodes:v.nodes.map(n=>n.target)}))")
                 assert not violations,(story,violations)
-            page.screenshot(path=str(output / (story + "-" + str(width) + ".png")), full_page=True)
+            if "devices--manager" in story or ("devices--one-time-code" in story and width==393):
+                page.screenshot(path=str(output / (story + "-" + str(width) + ".png")), full_page=True)
             results.append({"story": story, "width": width, "overflow": False})
     page.set_viewport_size({"width": 768, "height": 900})
     page.goto(origin + "/iframe.html?id=kitchen-passwordreset--form&viewMode=story")

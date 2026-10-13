@@ -90,7 +90,7 @@ export function allowedPath(path: string): boolean {
   return (
     search === undefined &&
     new RegExp(
-      `^operations/branches/${UUID}/(?:commands|stops|orders/${UUID}|devices(?:/(?:pairing-codes|revoke|kitchen-password-reset(?:/events)?|${UUID}/events))?)$`,
+      `^operations/branches/${UUID}/(?:commands|stops|orders/${UUID}|devices(?:/(?:inventory|pairing-codes|revoke|kitchen-password-reset(?:/events)?|${UUID}/(?:events|inventory-events)))?)$`,
     ).test(pathname)
   );
 }

@@ -2,6 +2,19 @@ import { ApiError, type Request } from './api.js';
 import { object, type Data } from './operations-model.js';
 type Api = (path: string, request?: Request) => Promise<unknown>;
 export type DeviceRow = {
+  presence?: {
+    observed_at: string;
+    app_version: string | null;
+    state: string;
+    issue: string;
+    menu_version: number | null;
+  } | null;
+  edge_last_seen_at?: string | null;
+  edge_device_id?: string | null;
+  location?: string;
+  notes?: string;
+  archived?: boolean;
+  inventory_revision?: number;
   id: string;
   name: string;
   kind: string;
@@ -17,6 +30,8 @@ export type DeviceRow = {
   code_expires_at: string | null;
 };
 export type DeviceList = {
+  pairing_enabled?: boolean;
+  inventory_enabled?: boolean;
   branch_id: string;
   role: 'manager' | 'analyst';
   devices: DeviceRow[];
@@ -56,6 +71,13 @@ export class DevicesModel {
   uncertain = false;
   private epoch = 0;
   private loadSequence = 0;
+  private receivedAt = 0;
+  private pendingInventory: { fingerprint: string; request_id: string } | null = null;
+  now() {
+    return this.data
+      ? Date.parse(this.data.as_of) + Math.max(0, Date.now() - this.receivedAt)
+      : Date.now();
+  }
   constructor(
     private readonly api: Api,
     private readonly changed: () => void,
@@ -67,6 +89,7 @@ export class DevicesModel {
     this.data = null;
     this.code = null;
     this.error = null;
+    this.pendingInventory = null;
     this.busy = false;
     this.uncertain = false;
   }
@@ -85,6 +108,7 @@ export class DevicesModel {
       const data = list(await this.api(`branches/${branch}/devices`), branch);
       if (epoch !== this.epoch || sequence !== this.loadSequence) return;
       this.data = data;
+      this.receivedAt = Date.now();
       this.error = null;
       if (
         this.code &&
@@ -115,6 +139,22 @@ export class DevicesModel {
   async resetPassword(body: Data) {
     return this.send('kitchen-password-reset', body);
   }
+  async saveInventory(body: Data) {
+    const fingerprint = JSON.stringify(body);
+    if (this.pendingInventory?.fingerprint !== fingerprint)
+      this.pendingInventory = { fingerprint, request_id: crypto.randomUUID() };
+    const result = await this.send('inventory', {
+      ...body,
+      request_id: this.pendingInventory.request_id,
+    });
+    if (result) this.pendingInventory = null;
+    return result;
+  }
+  async inventoryHistory(id: string) {
+    const epoch = this.epoch;
+    const raw = object(await this.api(`branches/${this.branch}/devices/${id}/inventory-events`));
+    return epoch === this.epoch && Array.isArray(raw['events']) ? raw['events'].map(object) : [];
+  }
   async revoke(body: Data) {
     return this.send('revoke', body);
   }
@@ -131,7 +171,7 @@ export class DevicesModel {
       const raw = object(
         await this.api(`branches/${branch}/devices/${action}`, {
           method: 'POST',
-          body: { ...body, request_id: crypto.randomUUID() },
+          body: { ...body, request_id: body['request_id'] ?? crypto.randomUUID() },
         }),
       );
       if (epoch !== this.epoch) return false;
@@ -177,6 +217,7 @@ export class DevicesModel {
   }
 }
 export function deviceStatus(d: DeviceRow, now = Date.now()) {
+  if (d.command_state === 'rejected') return 'Касса отклонила команду';
   if (d.command_action === 'revoke' && ['pending', 'delivered'].includes(d.command_state ?? ''))
     return 'Отключение ждёт кассу';
   if (d.status === 'revoked') return 'Отключено';
@@ -190,4 +231,101 @@ export function deviceStatus(d: DeviceRow, now = Date.now()) {
       ? 'Касса на связи'
       : 'Нет свежего ответа кассы';
   return 'Связь экрана не проверена';
+}
+
+export function deviceConnection(
+  d: DeviceRow,
+  now = Date.now(),
+): { label: string; tone: string; detail: string } {
+  if (d.kind === 'usb_tv')
+    return {
+      label: 'Без мониторинга',
+      tone: 'neutral',
+      detail: 'Видео с USB. Состояние телевизора не передаётся на сервер.',
+    };
+  if (d.status === 'revoked')
+    return {
+      label: 'Доступ отключён',
+      tone: 'neutral',
+      detail: 'Подключение с прежним ключом недоступно.',
+    };
+  if (d.command_action === 'revoke' && ['pending', 'delivered'].includes(d.command_state ?? ''))
+    return {
+      label: 'Отключение ожидается',
+      tone: 'warning',
+      detail: 'Касса ещё не подтвердила команду.',
+    };
+  if (d.key_expires_at && Date.parse(d.key_expires_at) <= now)
+    return {
+      label: 'Истёк ключ',
+      tone: 'warning',
+      detail: 'Требуется обновление доступа устройства.',
+    };
+  const recent = (time?: string | null) =>
+    !!time && now - Date.parse(time) < 90_000 && now - Date.parse(time) >= -30_000;
+  if (d.kind === 'edge')
+    return recent(d.last_seen_at)
+      ? {
+          label: 'Касса на связи',
+          tone: 'good',
+          detail: 'Локальный сервер передаёт состояние точки.',
+        }
+      : {
+          label: 'Нет связи с точкой',
+          tone: 'warning',
+          detail: 'Локальная работа неизвестна. Проверьте интернет и питание кассы.',
+        };
+  if (d.mode && !d.paired_at) {
+    const failed =
+      d.command_state === 'rejected' ||
+      d.command_state === 'expired' ||
+      (!!d.code_expires_at && Date.parse(d.code_expires_at) <= now);
+    return {
+      label: deviceStatus(d, now),
+      tone: failed ? 'warning' : 'neutral',
+      detail: failed
+        ? 'Проверьте связь с кассой и выпустите новый код для экрана.'
+        : 'После подтверждения привязки появится проверка связи.',
+    };
+  }
+  if (d.mode && !recent(d.edge_last_seen_at))
+    return {
+      label: 'Состояние неизвестно',
+      tone: 'warning',
+      detail: 'Нет свежего ответа кассы. Экран может работать в локальной сети.',
+    };
+  if (!d.presence)
+    return {
+      label: 'Связь не проверена',
+      tone: 'neutral',
+      detail: 'Устройство зарегистрировано, но ещё не передавало состояние приложения.',
+    };
+  if (!recent(d.presence.observed_at))
+    return {
+      label: 'Нет свежего ответа',
+      tone: 'warning',
+      detail: 'Проверьте питание, Wi-Fi и открыто ли приложение. Привязка сохранена.',
+    };
+  if (d.presence.state === 'background')
+    return {
+      label: 'Приложение свёрнуто',
+      tone: 'warning',
+      detail: 'Откройте PickChick на устройстве.',
+    };
+  if (d.presence.issue === 'demo')
+    return { label: 'Открыто демо', tone: 'neutral', detail: 'Переключите киоск в рабочий режим.' };
+  if (d.presence.issue !== 'none')
+    return {
+      label: 'Требует внимания',
+      tone: 'warning',
+      detail: 'Приложение отвечает, но сообщает о проблеме загрузки данных или соединения.',
+    };
+  return {
+    label: 'Приложение на связи',
+    tone: 'good',
+    detail:
+      d.kind === 'kiosk'
+        ? 'Киоск передаёт состояние приложения.'
+        : 'Экран отвечает локальному серверу. Это не проверка изображения на дисплее.',
+  };
 }

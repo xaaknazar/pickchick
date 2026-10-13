@@ -64,6 +64,7 @@ import { CatalogMediaController, useCatalogAssetBodyParser } from './catalog-med
 import { BACKOFFICE, Backoffice, backofficeOptions } from '@pickchick/backoffice-core';
 import {
   DeviceRegistryController,
+  KioskPresenceController,
   DeviceAccessTransportController,
 } from './device-registry-controller.js';
 import { BackofficeController, BackofficeContentController } from './backoffice-controller.js';
@@ -275,6 +276,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       BackofficeController,
       BackofficeContentController,
       DeviceRegistryController,
+      KioskPresenceController,
       DeviceAccessTransportController,
       FulfillmentTransportController,
       PosOrderSyncController,

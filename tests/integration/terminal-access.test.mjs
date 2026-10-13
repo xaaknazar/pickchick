@@ -804,3 +804,31 @@ test('a managed terminal with missing registry remains fail-closed for bearer an
       else process.env.EDGE_DEVICE_ACCESS_ENABLED = before;
     }
   }));
+
+test('only authenticated screen checks record presence and revoked generations stop reporting', async () =>
+  fixture(async (ctx) => {
+    const access = new TerminalAccess(ctx.pool, ctx.scope.branchId, ctx.scope.deviceId, true),
+      item = make(ctx);
+    await access.receive(item.command);
+    const key = await access.pair({ code: item.code });
+    assert.deepEqual(await access.observations(), []);
+    await rejects(access.session({ id: key.terminalId, key: 'a'.repeat(64) }), 'UNAUTHORIZED');
+    assert.deepEqual(await access.observations(), []);
+    await access.session(auth(key));
+    const [sample] = await access.observations();
+    assert.equal(sample.terminalId, key.terminalId);
+    assert.equal(sample.generation, 1);
+    assert.ok(sample.ageMs >= 0 && sample.ageMs < 1000);
+    await ctx.pool.query(
+      "UPDATE terminal_presence SET observed_at=clock_timestamp()-interval '5 minutes'",
+    );
+    assert.ok((await access.observations())[0].ageMs >= 300000);
+    const revoke = make(ctx, {
+      terminalId: key.terminalId,
+      generation: 2,
+      action: 'revoke',
+      codeHash: null,
+    });
+    await access.receive(revoke.command);
+    assert.deepEqual(await access.observations(), []);
+  }));
