@@ -4877,11 +4877,19 @@
         "tests/backoffice/workforce-browser.mjs",
         "packages/backoffice-core/tests/workforce.test.mjs",
         "packages/backoffice-core/tests/workforce-store.test.mjs",
-        "docs/operations/payroll-september.md"
+        "docs/operations/payroll-september.md",
+        "packages/backoffice-core/src/model.ts",
+        "db/cloud/migrations/053_cloud_workforce_payroll.sql",
+        "scripts/payroll-import.mjs",
+        "scripts/payroll-workbook.py",
+        "infra/staging/release-payroll.py",
+        "infra/staging/payroll-owner.mjs",
+        "infra/staging/payroll-grants.mjs",
+        "apps/backoffice/PRODUCT.md"
       ],
       "status": "active",
       "head": "1d1414339e4b8c4b87de545d47e753b7ffb2b233",
-      "updatedAt": "2026-10-13T07:16:07.640Z"
+      "updatedAt": "2026-10-13T07:21:22.006Z"
     }
   ]
 }
