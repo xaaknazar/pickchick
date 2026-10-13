@@ -195,7 +195,11 @@ export function GuestScreen() {
   return (
     <ScreenSurface onTouchStart={model.touch}>
       {/* The product page opens and closes as a circle over the menu. */}
-      <ScreenTransition screenKey={screenKey} reveal={screenKey.startsWith('product-')}>
+      <ScreenTransition
+        screenKey={screenKey}
+        reveal={screenKey.startsWith('product-')}
+        diningMode={model.mode}
+      >
         {screen}
       </ScreenTransition>
       {model.ready && errorText && (model.catalog || model.order || model.recoveryRequired) ? (

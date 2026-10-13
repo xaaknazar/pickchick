@@ -21,7 +21,7 @@ import type { Category, MenuMemory } from './categories';
  * still fit on screen (three rows of cards do on every iPad), and the card row of a section
  * long enough to scroll.
  */
-const GRID = { gap: 16, right: 16, minRow: 250, minHit: 260, scrollRow: 320 };
+const GRID = { gap: 16, right: 16, minRow: 250, minHit: 284, scrollRow: 320 };
 /**
  * Bento menu grid (kiosk redesign 2026-10-13, README section 3), right of the rail from the
  * header down to 156 pt above the bottom edge: the section's hit across the full width, then

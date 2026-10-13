@@ -1,10 +1,9 @@
 import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { useMetrics } from '../theme';
 import { circleClose, circleOpen, LeavingContext, takeProductOrigin } from './reveal';
 import { useMotionPreference } from './useMotionPreference';
 /** Prototype `clip-path: circle()` curves for opening and closing the page. */
-const openCurve = Easing.bezier(0.6, 0, 0.2, 1);
+const openCurve = Easing.bezier(0.22, 0.75, 0.2, 1);
 const closeCurve = Easing.bezier(0.6, 0, 0.4, 1);
 /** Smallest circle scale; its inverse keeps the page itself at full size. */
 const least = 0.002;
@@ -19,7 +18,6 @@ type Phase = 'opening' | 'open' | 'closing';
  * appears.
  */
 export function RevealCircle({ children }: { children?: ReactNode }) {
-  const { v } = useMetrics();
   const screen = useWindowDimensions();
   const reduced = useMotionPreference();
   const leaving = useContext(LeavingContext);
@@ -70,8 +68,8 @@ export function RevealCircle({ children }: { children?: ReactNode }) {
   const { width, height } = frame;
   const x = origin ? origin.x - frame.x : width / 2;
   const y = origin ? origin.y - frame.y : height / 2;
-  // Prototype radius is 1500 pt on the 820-pt kiosk; never short of a corner.
-  const radius = Math.max(v(1500), Math.hypot(Math.max(x, width - x), Math.max(y, height - y)) + 2);
+  // Only allocate the radius needed to reach the farthest corner, not a 3750-pt layer.
+  const radius = Math.hypot(Math.max(x, width - x), Math.max(y, height - y)) + 2;
   return (
     <View
       ref={host}

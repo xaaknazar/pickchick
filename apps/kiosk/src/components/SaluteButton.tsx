@@ -137,7 +137,13 @@ export function SaluteButton({
     time.setValue(0);
     if (calm) return;
     const to = (toValue: number, duration: number) =>
-      Animated.timing(time, { toValue, duration, easing: Easing.linear, useNativeDriver: true });
+      Animated.timing(time, {
+        toValue,
+        duration,
+        easing: Easing.linear,
+        useNativeDriver: true,
+        isInteraction: false,
+      });
     // A sequence (0 → 1, then back to 0 at once), as in `useLoop`: a bare native-driver
     // timing in Animated.loop plays only once where the JS fallback runs (web export).
     const loop = Animated.loop(Animated.sequence([to(1, cycle), to(0, 0)]));

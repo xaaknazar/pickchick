@@ -7,7 +7,6 @@ import { CategoryRail } from '../components/CategoryRail';
 import { MenuGrid } from '../components/MenuGrid';
 import { CartBar } from '../components/CartBar';
 import { Toast } from '../components/Toast';
-import { ModeReveal } from '../components/ModeReveal';
 import { inCategory, type Category, type MenuMemory } from '../components/categories';
 export type { MenuMemory } from '../components/categories';
 export function MenuScreen({
@@ -127,7 +126,6 @@ export function MenuScreen({
         message={toast?.message ?? t.addedToCart}
         trigger={toast?.id ?? null}
       />
-      <ModeReveal mode={model.mode} />
     </ScreenSurface>
   );
 }

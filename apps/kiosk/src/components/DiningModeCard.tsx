@@ -247,17 +247,6 @@ export function DiningModeCard({
           >
             {here ? t.here : t.togo}
           </Text>
-          <Text
-            {...fixedText}
-            style={{
-              fontFamily: fonts.body,
-              fontSize: v(28),
-              lineHeight: v(34),
-              color: here ? 'rgba(255,255,255,.9)' : colors.white,
-            }}
-          >
-            {here ? t.hereSub : t.togoSub}
-          </Text>
           <View
             style={{
               width: go,
