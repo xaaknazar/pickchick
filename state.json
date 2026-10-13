@@ -4845,6 +4845,25 @@
       "updatedAt": "2026-10-13T07:29:14.491Z"
     },
     {
+      "id": "kiosk-redesign-1013",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-redesign-1013",
+      "scopes": [
+        "docs/operations/kiosk-build15-installation.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "@ipad/kiosk",
+        "@vps/roadmap",
+        "@vps/public-https",
+        "@release/ios"
+      ],
+      "status": "active",
+      "head": "af61d67030896d2b57980ba7e1a96d935255d7a9",
+      "updatedAt": "2026-10-13T08:27:54.797Z",
+      "summary": "По прямому поручению владельца области claim 202 переданы редизайну; сохранены скрытое демо и КЗ → РУ → EN с Салютом. PR https://github.com/xaaknazar/pickchick/pull/238 включён в shared af61d67030896d2b57980ba7e1a96d935255d7a9; дерево совпадает с проверенным 395b77f4. Build 0.1.0 (15) из чистого 3b9733af собран, codesign архива/IPA успешен, загружен и обработан Apple только в PickChick Kiosk Internal, internalTestingOnly=true. Владелец 13 октября подтвердил видимость 15 в TestFlight на iPad; установка и визуальная приёмка ещё не подтверждены. 181 kiosk + 24 browser + 7 roadmap проверок успешны. Полные CI 38359170302 и 38364063832 успешны (11/11), UI library и roadmap CI зелёные. Протокол, статус, roadmap и фото TestFlight сохранены в shared. Реальных заказов/QR/счетов/платежей не было. project:check после слияния сообщает только merge-коммит этого же PR поверх HEAD, новых различий дерева нет. Онлайн-пульт остаётся e89fe9d7: штатная блокировка занята kaspi-relogin. Подтверждение владельца и ограничения записаны в PR.",
+      "nextAction": "На iPad обновить PickChick Kiosk через TestFlight до 15 и пройти чек-лист (демо: удерживать логотип 5 секунд). После штатного завершения kaspi-relogin заново проверить refs, claims, CI, серверные baseline и lock; готовый пакет roadmap 395b77f4 лежит в /opt/pickchick-staging/roadmap-incoming/395b77f4d24f27d386104fc924953057ab49a3a5, inspect успешен, apply не выполнялся. SHA256 tar 22c9532c25ba572dad754003b5fb891121bc38070d331a0be212f5ad7707d2a1. Публиковать только по infra/roadmap/README.md с сохранением заметок команды и соседних сервисов; чужую блокировку не удалять. Кодовые/CI/Apple/release области освобождены после включения в shared; оставлены области протокола, приёмки и публикации пульта."
+    },
+    {
       "id": "payroll-september",
       "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
       "branch": "codex/payroll-september",
@@ -4880,30 +4899,11 @@
         "packages/contracts/openapi.json",
         "tests/mobile/browser_demo_account.py"
       ],
-      "status": "available",
+      "status": "active",
       "head": "d80ba47902663ec05fe20b8e0faa5e7770774a75",
-      "updatedAt": "2026-10-13T08:27:59.137Z",
+      "updatedAt": "2026-10-13T08:28:30.470Z",
       "summary": "Подготовлены месячная сетка графика/табеля, независимые ведомости, правки/удаление с аудитом и проверяемый импорт. Пользователь подтвердил независимость листов и статус Уточнить. 68 сотрудников, 631 дневная запись, 67 ведомостей; 829 команд, все исходные итоги и длительности сверены. Реальные данные только в закрытой .local/payroll, не в Git. UI/source 2585583e: Foundation CI38365341922 success; UI идентичен текущему d80ba479, PR239. API b5992484, PR240, CI38369254038 ещё выполняется. Предыдущая API CI f215 упала в browser_demo_account.py: reload без ожидания async logout; добавлены ожидание гостевого состояния и проверка хранилища, оба сценария локально прошли 320/390/430. 22 core/store, 47 commerce/Kaspi QR, 378 operations (8 пропусков), UI review ship; после включения shared af61d670 сборка и 14 тестов прошли. НЕ УСТАНОВЛЕНО И НЕ ИМПОРТИРОВАНО. VPS lock 12209019-9122-4aec-9eed-469f13366357 принадлежит kaspi-relogin; не удалять. API f01/cloud052 и portal661 остаются прежними.",
       "nextAction": "После штатного освобождения kaspi-relogin получить свежие refs/claims/pins, принять эту задачу и проверить exact green CI API b5992484378ab0b8c0d763ea5e8f0c1423098f39 (38369254038) и интеграции d80ba479; portal source2585583e уже green. Из work/pickchick-payroll-api: .local/payroll/api-release.py prepare/apply с CI proof, own encrypted backup/restore, migrations053-057, только API. Из work/pickchick-inventory-shared: .local/payroll/portal-release.py upload/inspect/apply для2585 и ожидаемогоAPIb599; затем .local/payroll/import-live.py upload/preview/apply с НОВЫМ plan hash/verify. Все операторы pins обновлены наb599, ещё не исполнялись на сервере. Проверить pending0, Unknown68, суммы/часы и сохранение прежних записей. Shared af61 интегрирован без конфликтов в d80ba479, API release намеренно остаётся на installed f01. После итоговой проверки включить этап в shared без force, обновить статус/roadmap с согласованием оставшихся claims kiosk-redesign-1013, опубликовать протокол и выполнить finish. docs/operations/payroll-september.md и PR239/240 содержат ограничения."
-    },
-    {
-      "id": "kiosk-redesign-1013",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/kiosk-redesign-1013",
-      "scopes": [
-        "docs/operations/kiosk-build15-installation.md",
-        "docs/project-status.md",
-        "docs/roadmap/project.json",
-        "@ipad/kiosk",
-        "@vps/roadmap",
-        "@vps/public-https",
-        "@release/ios"
-      ],
-      "status": "active",
-      "head": "af61d67030896d2b57980ba7e1a96d935255d7a9",
-      "updatedAt": "2026-10-13T08:27:54.797Z",
-      "summary": "По прямому поручению владельца области claim 202 переданы редизайну; сохранены скрытое демо и КЗ → РУ → EN с Салютом. PR https://github.com/xaaknazar/pickchick/pull/238 включён в shared af61d67030896d2b57980ba7e1a96d935255d7a9; дерево совпадает с проверенным 395b77f4. Build 0.1.0 (15) из чистого 3b9733af собран, codesign архива/IPA успешен, загружен и обработан Apple только в PickChick Kiosk Internal, internalTestingOnly=true. Владелец 13 октября подтвердил видимость 15 в TestFlight на iPad; установка и визуальная приёмка ещё не подтверждены. 181 kiosk + 24 browser + 7 roadmap проверок успешны. Полные CI 38359170302 и 38364063832 успешны (11/11), UI library и roadmap CI зелёные. Протокол, статус, roadmap и фото TestFlight сохранены в shared. Реальных заказов/QR/счетов/платежей не было. project:check после слияния сообщает только merge-коммит этого же PR поверх HEAD, новых различий дерева нет. Онлайн-пульт остаётся e89fe9d7: штатная блокировка занята kaspi-relogin. Подтверждение владельца и ограничения записаны в PR.",
-      "nextAction": "На iPad обновить PickChick Kiosk через TestFlight до 15 и пройти чек-лист (демо: удерживать логотип 5 секунд). После штатного завершения kaspi-relogin заново проверить refs, claims, CI, серверные baseline и lock; готовый пакет roadmap 395b77f4 лежит в /opt/pickchick-staging/roadmap-incoming/395b77f4d24f27d386104fc924953057ab49a3a5, inspect успешен, apply не выполнялся. SHA256 tar 22c9532c25ba572dad754003b5fb891121bc38070d331a0be212f5ad7707d2a1. Публиковать только по infra/roadmap/README.md с сохранением заметок команды и соседних сервисов; чужую блокировку не удалять. Кодовые/CI/Apple/release области освобождены после включения в shared; оставлены области протокола, приёмки и публикации пульта."
     }
   ]
 }
