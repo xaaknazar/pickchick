@@ -4815,6 +4815,20 @@
       "updatedAt": "2026-10-13T05:41:15.779Z",
       "nextAction": "Следующий шаг — приёмка владельцем STOP/UNSTOP на выбранном рабочем блюде во всех каналах. API f01cb45f, portal661f84c2, public/roadmap e89fe9d7; новые релизы начинать со свежих pins и claims.",
       "summary": "PR237 включён в shared 1d141433; проверенный source e89fe9d7: Foundation CI38349867556 11/11 и roadmap CI38349897327 успешны. Онлайн-roadmap опубликован, HTTPS SHA проверен; SQLite/17 соседних контейнеров сохранены. Протокол установки STOP/UNSTOP, статус и handoff опубликованы."
+    },
+    {
+      "id": "mobile-glass-colors-1013",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-glass-colors-1013",
+      "scopes": [
+        "design/experiments/mobile-glass-colors",
+        "docs/design/mobile-glass-colors-2026-10-13.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json"
+      ],
+      "status": "active",
+      "head": "1d1414339e4b8c4b87de545d47e753b7ffb2b233",
+      "updatedAt": "2026-10-13T06:20:27.032Z"
     }
   ]
 }
