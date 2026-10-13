@@ -4911,6 +4911,41 @@
       "updatedAt": "2026-10-13T10:02:46.101Z",
       "summary": "По прямому поручению владельца 13 октября build 15 установлен по кабелю на iPad Air 13 M3 поверх build 13 без удаления приложения и сброса данных; device info apps подтвердил 0.1.0 (15), запуск успешен. Для устройства выполнен локальный debugging export того же Release-архива 3b9733af, без новой компиляции или upload; codesign, включение устройства в профиль, идентичность приложения и совпадение JS подтверждены. Исходник уже прошёл полную CI 38359170302 (11/11); основной PR238 включён в shared af61d670. Отчёт установки, статус и roadmap опубликованы отдельным a8446b1ce1c9de5e960bf8d98ff6818102b61208, PR https://github.com/xaaknazar/pickchick/pull/241. Prettier, diff check и 7/7 roadmap tests успешны; CI нового отчёта ещё идёт. Реальных заказов/QR/счетов/платежей не создавали. Визуальная приёмка остаётся владельцу. Последняя проверка VPS: блокировки kaspi-relogin уже нет; онлайн-пульт с фактом установки ещё не опубликован.",
       "nextAction": "Дождаться полной CI PR241, проверить diff и включить отчёт в shared. Затем собрать новый roadmap пакет с фактом установки из принятого SHA и опубликовать по infra/roadmap/README.md после свежих claims/baseline/lock checks, сохранив заметки и соседние сервисы. Старый пакет 395b77f4 не отражает кабельную установку и устарел. На iPad уже запущена 15; владельцу пройти визуальный чек-лист (демо: логотип 5 секунд), установку повторять не требуется. Приватные доказательства /Users/xaknazar/Library/Caches/PickChick/releases/kiosk-redesign-20261013-15/device-install/. Резервы устройства и выпуска освобождены; оставлены документы и серверные области публикации."
+    },
+    {
+      "id": "device-center",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/device-center",
+      "scopes": [
+        "apps/backoffice/src/devices-model.ts",
+        "apps/backoffice/src/components/DeviceAccessView.ts",
+        "apps/backoffice/src/components/DeviceAccessView.stories.js",
+        "apps/backoffice/src/device-center.css",
+        "apps/backoffice/src/app.ts",
+        "apps/backoffice/PRODUCT.md",
+        "packages/backoffice-core/src/device-registry.ts",
+        "packages/backoffice-core/src/device-presence.ts",
+        "packages/backoffice-core/src/device-access.ts",
+        "services/api/src/device-registry-controller.ts",
+        "services/api/src/device-presence-controller.ts",
+        "services/api/src/main.ts",
+        "packages/contracts/src/device-access.ts",
+        "packages/contracts/openapi.json",
+        "db/cloud/migrations/058_cloud_device_center.sql",
+        "db/edge/migrations/021_edge_device_presence.sql",
+        "tests/backoffice/devices-model.test.mjs",
+        "tests/backoffice/devices-browser.py",
+        "tests/integration/device-access.test.mjs",
+        "tests/integration/device-presence.test.mjs",
+        "tests/unit/device-access.test.mjs",
+        "docs/operations/device-center.md",
+        "infra/staging/release-device-center.py",
+        "infra/staging/device-center-owner.mjs",
+        "tests/operations/test_device_center_release.py"
+      ],
+      "status": "active",
+      "head": "f61da9d6de3bed69d83700c2f0f672a2e5c9e14e",
+      "updatedAt": "2026-10-13T10:05:00.204Z"
     }
   ]
 }
