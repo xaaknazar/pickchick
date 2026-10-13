@@ -4925,11 +4925,12 @@
       "scopes": [
         "docs/operations/kiosk-build15-installation.md",
         "docs/operations/kiosk-motion-2026-10-13.md",
-        "docs/operations/images/kiosk-motion-2026-10-13"
+        "docs/operations/images/kiosk-motion-2026-10-13",
+        "@vps/roadmap"
       ],
       "status": "active",
       "head": "d83b53ef767d4ce6c1706b9428cf3ed4381a7c64",
-      "updatedAt": "2026-10-13T14:44:24.025Z",
+      "updatedAt": "2026-10-13T14:51:32.816Z",
       "summary": "Release 0.1.0 (16), source 85f99bc3, installed over 15 by cable without uninstall/reset. Signature and identity verified; exact source full CI 16/16 successful. PR #241; report d83b53ef published, report CI 38384979787 pending. Native test incomplete: first demo-entry assertion failed; retry skipped outside welcome. Read-only diagnostic found waiting live payment; no test-created live order/invoice. Owner asked to signal when idle; do not clear order or restart it. Live QR cancellation unsupported; only isolated demo cancellation is implemented.",
       "nextAction": "Wait report CI and owner signal before native demo test. Preserve current order. Resume tests/kiosk/ios/MotionUITests.swift only from idle welcome, with explicit demo badge before checkout; capture proof. Do not merge PR until native failure understood. After device-center releases docs/project-status.md, docs/roadmap/project.json and @vps/public-https, claim and update installed16 status then publish roadmap with fresh baseline guards. Real QR cancellation remains blocked; no bank commands or payments. Report: docs/operations/kiosk-motion-2026-10-13.md.\nOwner requested build 17 from imported 8a7273a9. Local kiosk UI/release areas transferred to kiosk-product-payment-1013; PR241 is an ancestor. Preserve separate device-center reservations."
     },
@@ -4940,16 +4941,12 @@
       "scopes": [
         "docs/operations/kiosk-product-payment-2026-10-13.md",
         "docs/operations/kiosk-build17-installation.md",
-        "docs/operations/images/kiosk-product-payment-2026-10-13",
-        "docs/project-status.md",
-        "docs/roadmap/project.json",
-        "@vps/public-https",
-        "@vps/roadmap"
+        "docs/operations/images/kiosk-product-payment-2026-10-13"
       ],
       "status": "active",
       "head": "f4f5dc998d5d62604bbb9f911227eaa61160512c",
-      "updatedAt": "2026-10-13T14:01:54.923Z",
-      "summary": "Build 17 f4f5dc99 installed over 17 after original 8a7273a9 over 16; local 228 tests, UI accessibility and caption checks pass. PR244 full CI running. Owner authorized temporary status/roadmap/public-https transfer; return after publication. Owner next feedback continues in kiosk-owner-polish-1013; app/test/device scopes transferred, this task retains PR244 installation documentation and temporary publishing scopes.",
+      "updatedAt": "2026-10-13T14:51:32.816Z",
+      "summary": "PR244 merged after 13 green checks. Build17 installed over16; final native 1/1 passed, no skips. Roadmap06652 deployed after the unrelated backoffice release lock cleared; guarded receipt passed. Temporary reservations returned.",
       "nextAction": "Push supplied branch, PR from supplied PR.md; require full CI, locked install/tests, commercial=1 Release and signature/identity verification; prioritize cable install. Native checklist in isolated demo only; record installation protocol."
     },
     {
@@ -5024,11 +5021,14 @@
         "infra/staging/activate-device-center.py",
         "tests/operations/test_device_center_activation.py",
         "tests/integration/remote-stops-readiness.test.mjs",
-        "docs/operations/deployments/2026-10-13-device-center.md"
+        "docs/operations/deployments/2026-10-13-device-center.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "@vps/public-https"
       ],
       "status": "active",
       "head": "4caca195a4a52f15ae5f7d441b88155533146f4b",
-      "updatedAt": "2026-10-13T13:56:18.833Z",
+      "updatedAt": "2026-10-13T14:51:32.816Z",
       "summary": " Owner explicitly authorized temporary transfer of status/roadmap/public-https to kiosk-product-payment-1013 on 2026-10-13; return after publication."
     },
     {
