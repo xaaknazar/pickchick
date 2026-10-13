@@ -91,8 +91,7 @@ const QuoteInput = z.strictObject({
           .max(40),
       }),
     )
-    .min(1)
-    .max(50),
+    .min(1),
 });
 export type KioskGuest = {
   sessionId: string;
