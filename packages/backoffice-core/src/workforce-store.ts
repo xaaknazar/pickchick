@@ -143,10 +143,11 @@ export class Workforce {
       if (
         kind === 'rate' &&
         String(payload.effective_date) <
-          new Date(monthWindow(month).end + 5 * 3600000).toISOString().slice(0, 10)
+          new Date(monthWindow(month).end + 5 * 3600000).toISOString().slice(0, 10) &&
+        (!payload.valid_until || String(payload.valid_until) >= month)
       )
         fail('CONFLICT');
-      if (kind === 'bonus' && payload.month === month) fail('CONFLICT');
+      if ((kind === 'bonus' || kind === 'payroll') && payload.month === month) fail('CONFLICT');
       if (
         kind === 'plan' &&
         (localWorkDate(String(payload.start)).slice(0, 7) === month.slice(0, 7) ||
@@ -268,6 +269,25 @@ export class Workforce {
           )
             fail('CONFLICT');
         }
+        if (
+          c.kind === 'payroll' &&
+          others.some(
+            (r) =>
+              r.kind === 'payroll' &&
+              (r.payload as Record<string, unknown>).employee_id === payload.employee_id &&
+              (r.payload as Record<string, unknown>).month === payload.month &&
+              (r.payload as Record<string, unknown>).status !== 'voided',
+          ) &&
+          payload.status !== 'voided'
+        )
+          fail('CONFLICT');
+        if (
+          old &&
+          ['time', 'payroll'].includes(c.kind) &&
+          digest((old.payload as Record<string, unknown>).source ?? null) !==
+            digest(payload.source ?? null)
+        )
+          fail('CONFLICT');
         if (c.kind === 'plan') {
           const p = parse(WorkPlan, payload);
           if (
@@ -298,7 +318,12 @@ export class Workforce {
             )
           )
             fail('CONFLICT');
-          if (time.intervals.some((s) => Date.parse(s.end) > Date.now())) fail('INVALID_REQUEST');
+          if (
+            (time.paid_duration_ms !== undefined &&
+              Date.parse(time.date + 'T00:00:00+05:00') + time.paid_duration_ms > Date.now()) ||
+            time.intervals.some((s) => Date.parse(s.end) > Date.now())
+          )
+            fail('INVALID_REQUEST');
           const linked = (
             await db.query(
               'SELECT id,employee_id,occurred_at FROM bo_workforce_events WHERE branch_id=$1 AND id=ANY($2::uuid[])',
@@ -336,13 +361,25 @@ export class Workforce {
               q.employee_id === time.employee_id &&
               q.status !== 'voided' &&
               time.status !== 'voided' &&
-              time.intervals.some((s) =>
+              ((time.paid_duration_ms !== undefined &&
                 q.intervals.some(
-                  (t) =>
-                    Date.parse(s.start) < Date.parse(t.end) &&
-                    Date.parse(s.end) > Date.parse(t.start),
-                ),
-              )
+                  (s) =>
+                    localWorkDate(s.start) <= time.date &&
+                    localWorkDate(new Date(Date.parse(s.end) - 1).toISOString()) >= time.date,
+                )) ||
+                (q.paid_duration_ms !== undefined &&
+                  time.intervals.some(
+                    (s) =>
+                      localWorkDate(s.start) <= q.date &&
+                      localWorkDate(new Date(Date.parse(s.end) - 1).toISOString()) >= q.date,
+                  )) ||
+                time.intervals.some((s) =>
+                  q.intervals.some(
+                    (t) =>
+                      Date.parse(s.start) < Date.parse(t.end) &&
+                      Date.parse(s.end) > Date.parse(t.start),
+                  ),
+                ))
             )
               fail('CONFLICT');
           }
@@ -385,6 +422,38 @@ export class Workforce {
           inserted++;
         }
         result = { inserted, duplicates: c.events.length - inserted };
+      } else if (c.type === 'generate_payroll') {
+        const snap = await this.snapshot(db, branch, c.month);
+        if (snap.period.closed) fail('CONFLICT');
+        const created: string[] = [];
+        for (const line of snap.calculation.lines) {
+          if (
+            snap.records.some(
+              (r) =>
+                r.kind === 'payroll' &&
+                !(r.payload as Record<string, unknown>).deleted &&
+                (r.payload as Record<string, unknown>).status !== 'voided' &&
+                (r.payload as Record<string, unknown>).employee_id === line.employee_id &&
+                (r.payload as Record<string, unknown>).month === c.month,
+            )
+          )
+            continue;
+          const id = randomUUID();
+          const payload = {
+            employee_id: line.employee_id,
+            month: c.month,
+            status: 'draft',
+            base_override_minor: null,
+            items: [],
+            note: 'Автоматическая база по подтверждённым часам и ставкам. Требуется проверка.',
+          };
+          await db.query(
+            'INSERT INTO bo_workforce_records(id,branch_id,kind,employee_id,revision,payload) VALUES($1,$2,$3,$4,1,$5)',
+            [id, branch, 'payroll', line.employee_id, JSON.stringify(payload)],
+          );
+          created.push(id);
+        }
+        result = { month: c.month, created };
       } else {
         const snap = await this.snapshot(db, branch, c.month);
         if (snap.period.revision !== c.expected_revision || snap.period.closed === c.closed)
@@ -420,7 +489,13 @@ export class Workforce {
           result.id ?? null,
           request.reason,
           JSON.stringify(before),
-          JSON.stringify(c.type === 'delete' ? { ...c, deleted: true } : c),
+          JSON.stringify(
+            c.type === 'delete'
+              ? { ...c, deleted: true }
+              : c.type === 'generate_payroll'
+                ? { ...c, ...result }
+                : c,
+          ),
         ],
       );
       await db.query(

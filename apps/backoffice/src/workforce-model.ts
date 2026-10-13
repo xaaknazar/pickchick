@@ -3,14 +3,22 @@ import { today } from './finance-model.js';
 export { today, money, minor, csv } from './finance-model.js';
 export type WorkRecord = {
   id: string;
-  kind: 'plan' | 'time' | 'rate' | 'bonus';
+  kind: 'plan' | 'time' | 'rate' | 'bonus' | 'payroll';
   revision: number;
   payload: Record<string, unknown>;
 };
 export type EmployeeRecord = {
   id: string;
   revision: number;
-  payload: { name: string; role: string; active: boolean; note: string; deleted?: true };
+  payload: {
+    name: string;
+    role: string;
+    active: boolean;
+    note: string;
+    deleted?: true;
+    position?: string;
+    employment_status?: 'working' | 'inactive' | 'unknown';
+  };
 };
 export type WorkforceSnapshot = {
   branch_id: string;
@@ -22,10 +30,22 @@ export type WorkforceSnapshot = {
   source_status: string;
   period: { closed: boolean; revision: number; snapshot: unknown };
   calculation: {
+    payroll?: {
+      id: string;
+      employee_id: string;
+      status: string;
+      base_minor: string;
+      bonus_minor: string;
+      additions_minor: string;
+      deductions_minor: string;
+      total_minor: string;
+      source_net_minor: string | null;
+    }[];
     lines: {
       employee_id: string;
       seconds: number;
       night_seconds: number;
+      unknown_clock_seconds?: number;
       base_minor: string;
       bonus_minor: string;
       total_minor: string;
