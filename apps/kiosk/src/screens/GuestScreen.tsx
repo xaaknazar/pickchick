@@ -12,6 +12,7 @@ import { BootState } from '../components/BootState';
 import { Notice } from '../components/Notice';
 import { DemoBadge } from '../components/DemoBadge';
 import { guestErrorText } from '../guestError';
+import { paymentCopy } from '../paymentCopy';
 import { ScreenTransition } from '../components/ScreenTransition';
 // Prototype flow order: moving to a later step slides in from the right, to an
 // earlier one from the left. A finished order starting over counts as forward.
@@ -37,6 +38,8 @@ export function GuestScreen() {
   const [locale, setLocale] = useState<Locale>('ru');
   const [help, setHelp] = useState(false);
   const [cancel, setCancel] = useState(false);
+  // «Начать заново?» on the Kaspi QR (owner decision 2026-10-13).
+  const [restartAsk, setRestartAsk] = useState(false);
   // Staff demo mode dialog (long hold on the start screen logo).
   const [demoAsk, setDemoAsk] = useState(false);
   const t = copy(locale);
@@ -61,12 +64,16 @@ export function GuestScreen() {
     };
   }
   useEffect(() => {
-    if (previousStep.current === 'payment' && liveModel.step !== 'payment') setCancel(false);
+    if (previousStep.current === 'payment' && liveModel.step !== 'payment') {
+      setCancel(false);
+      setRestartAsk(false);
+    }
     if (liveModel.step === 'start' && previousStep.current !== 'start') {
       upsellMemory.current = { base: null };
       menuMemory.current = { category: 'combo', offsets: {} };
       setLocale('ru');
       setCancel(false);
+      setRestartAsk(false);
       setHelp(false);
     }
     previousStep.current = liveModel.step;
@@ -94,6 +101,7 @@ export function GuestScreen() {
     }
     setHelp(false);
     setCancel(false);
+    setRestartAsk(false);
     setDemoAsk(false);
     const timer = setTimeout(() => setIdleShown(true), 300);
     return () => clearTimeout(timer);
@@ -197,7 +205,16 @@ export function GuestScreen() {
         screen = <ReviewScreen model={model} context={context} />;
         break;
       case 'payment':
-        screen = <PaymentScreen model={model} context={context} />;
+        screen = (
+          <PaymentScreen
+            model={model}
+            context={context}
+            onStartOver={() => {
+              model.touch();
+              setRestartAsk(true);
+            }}
+          />
+        );
         break;
       case 'order':
         screen = <OrderScreen model={model} context={context} />;
@@ -290,6 +307,29 @@ export function GuestScreen() {
           testID="kiosk-cancel-confirm"
           busy={model.busy}
           onPress={() => void confirmCancel()}
+        />
+      </Dialog>
+      {/* Owner decision 2026-10-13: the guest gives up at the QR and the kiosk starts over. The
+          QR is not revoked; a late payment is still captured by the server (staff, as before).
+          Shown only while the controller allows it. */}
+      <Dialog
+        visible={restartAsk && !!model.canStartOver && !warning}
+        onClose={() => setRestartAsk(false)}
+        testID="kiosk-restart-dialog"
+      >
+        <Heading size="title">{paymentCopy(locale).startOverTitle}</Heading>
+        <Body>{paymentCopy(locale).startOverBody}</Body>
+        <Button
+          label={paymentCopy(locale).backToPayment}
+          testID="kiosk-restart-dismiss"
+          onPress={() => setRestartAsk(false)}
+        />
+        <Button
+          label={paymentCopy(locale).startOver}
+          tone="secondary"
+          testID="kiosk-restart-confirm"
+          busy={model.busy}
+          onPress={() => void model.startOver?.()}
         />
       </Dialog>
       <Dialog visible={idleShown} onClose={model.stay} testID="kiosk-idle-dialog">
