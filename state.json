@@ -5080,8 +5080,8 @@
         "tests/integration/remote-stops-readiness.test.mjs"
       ],
       "status": "active",
-      "head": "d5a5282c6be9f79caacee5496a254c4f059c0bbd",
-      "updatedAt": "2026-10-13T10:57:43.940Z"
+      "head": "86b9769e0187fe114027ac57da25c3cd81bbf404",
+      "updatedAt": "2026-10-13T11:12:37.081Z"
     }
   ]
 }
