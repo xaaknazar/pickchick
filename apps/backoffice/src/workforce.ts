@@ -1,4 +1,4 @@
-import { element as el, button, field, select, check, grid } from './dom.js';
+import { element as el, button, field, select, grid } from './dom.js';
 import {
   WorkforceModel,
   type WorkRecord,
@@ -21,6 +21,10 @@ type Form = {
   active: boolean;
 };
 const labels: Record<string, string> = {
+  staff: 'Сотрудник',
+  working: 'Работает',
+  inactive: 'Не работает',
+  unknown: 'Статус нужно уточнить',
   draft: 'Черновик',
   published: 'Опубликована',
   cancelled: 'Отменена',
@@ -37,11 +41,15 @@ const labels: Record<string, string> = {
   assembler: 'Сборщик',
 };
 const issues: Record<string, string> = {
+  UNAPPROVED_PAYROLL: 'Начисление ждёт проверки',
+  MISSING_PAYROLL_BASE: 'Не задана база начисления',
   MISSING_RATE: 'Не задана ставка',
   MISSING_TIME: 'Нет подтверждённого табеля',
   UNAPPROVED_TIME: 'Табель ждёт проверки',
   UNAPPROVED_BONUS: 'Премия ждёт подтверждения',
 };
+const decimalHours = (milliseconds: number) =>
+  new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 3 }).format(milliseconds / 3600000);
 const dateText = (v: string) =>
   v ? new Date(v.slice(0, 10) + 'T12:00:00Z').toLocaleDateString('ru-RU') : '-';
 const addDays = (v: string, n: number) =>
@@ -162,7 +170,7 @@ export class WorkforceView {
           ? localDateTime(String(p['start'])).slice(0, 10)
           : String(p['date'] ?? p['effective_date'] ?? p['month']);
     if (r.kind === 'rate') return true;
-    if (r.kind === 'bonus') return date === this.model.month;
+    if (r.kind === 'bonus' || r.kind === 'payroll') return date === this.model.month;
     if (this.range === 'day') return date === this.day;
     if (this.range === 'week') {
       const offset = (new Date(this.day + 'T12:00:00Z').getUTCDay() + 6) % 7;
@@ -372,7 +380,7 @@ export class WorkforceView {
           el(
             'p',
             'wf-note',
-            `BioCheck пока не подключён. Вводите фактические оплачиваемые интервалы вручную. ${data.period.closed ? 'Месячный табель закрыт.' : 'Табель открыт.'}`,
+            `BioCheck пока не подключён. Вводите фактические часы или интервалы вручную. Пустая ячейка не означает выходной. ${data.period.closed ? 'Месячный табель закрыт.' : 'Табель открыт.'}`,
           ),
         );
       const records = data.records
@@ -382,6 +390,10 @@ export class WorkforceView {
             String(b.payload['start'] ?? b.payload['date']),
           ),
         );
+      if (this.range === 'month') {
+        this.monthGrid(root, records);
+        return;
+      }
       const rows = records.map((r) => {
         const p = r.payload;
         const spans =
@@ -391,7 +403,9 @@ export class WorkforceView {
         const date =
           this.tab === 'plan' ? localDateTime(String(p['start'])).slice(0, 10) : String(p['date']);
         const total =
-          intervalSeconds(spans) -
+          (p['paid_duration_ms'] !== undefined
+            ? Number(p['paid_duration_ms']) / 1000
+            : intervalSeconds(spans)) -
           (this.tab === 'plan' ? Number(p['unpaid_break_minutes']) * 60 : 0);
         const actions = this.recordActions(r.kind, r);
         if (this.tab === 'plan')
@@ -399,7 +413,11 @@ export class WorkforceView {
         return [
           dateText(date),
           this.name(p['employee_id']),
-          spans.length ? spanText(spans) : status(p['attendance']),
+          p['paid_duration_ms'] !== undefined
+            ? 'Длительность, без времени прихода'
+            : spans.length
+              ? spanText(spans)
+              : status(p['attendance']),
           hours(total),
           status(p['status']),
           actions,
@@ -438,8 +456,8 @@ export class WorkforceView {
             .filter((e) => !e.payload.deleted && (!this.employee || e.id === this.employee))
             .map((e) => [
               e.payload.name,
-              status(e.payload.role),
-              e.payload.active ? 'Работает' : 'Неактивен',
+              e.payload.position ?? status(e.payload.role),
+              status(e.payload.employment_status ?? (e.payload.active ? 'working' : 'inactive')),
               this.recordActions('employee', e),
             ]),
           'Добавьте сотрудников, чтобы составлять график и табель.',
@@ -465,7 +483,10 @@ export class WorkforceView {
             )
             .map((r) => [
               this.name(r.payload['employee_id']),
-              dateText(String(r.payload['effective_date'])),
+              dateText(String(r.payload['effective_date'])) +
+                (r.payload['valid_until']
+                  ? ' - ' + dateText(String(r.payload['valid_until']))
+                  : ''),
               money(String(r.payload['hourly_minor'])),
               this.recordActions('rate', r),
             ]),
@@ -532,6 +553,11 @@ export class WorkforceView {
                     month: 'Месяц',
                     closed: 'Закрыт',
                     position: 'Должность',
+                    employment_status: 'Статус сотрудника',
+                    paid_duration_ms: 'Оплачиваемые часы',
+                    base_override_minor: 'База вручную',
+                    items: 'Доплаты и удержания',
+                    valid_until: 'Действует по',
                     unpaid_break_minutes: 'План перерыва, мин',
                     target: 'План KPI',
                     actual: 'Факт KPI',
@@ -540,10 +566,20 @@ export class WorkforceView {
                   if (!names[k]) continue;
                   let text = String(v);
                   if (k === 'employee_id') text = this.name(v);
-                  else if (k.endsWith('_minor')) text = money(String(v));
+                  else if (k.endsWith('_minor'))
+                    text = v === null ? 'Автоматически' : money(String(v));
+                  else if (k === 'paid_duration_ms') text = decimalHours(Number(v));
+                  else if (k === 'items')
+                    text = (v as { name: string; effect: string; amount_minor: string }[])
+                      .map(
+                        (i) =>
+                          `${i.name}: ${i.effect === 'deduction' ? '-' : '+'}${money(i.amount_minor)}`,
+                      )
+                      .join('; ');
                   else if (k === 'intervals')
                     text = spanText(v as { start: string; end: string }[]);
-                  else if (['status', 'attendance', 'role'].includes(k)) text = status(v);
+                  else if (['status', 'attendance', 'role', 'employment_status'].includes(k))
+                    text = status(v);
                   else if (typeof v === 'boolean') text = v ? 'Да' : 'Нет';
                   d.append(el('p', '', `${names[k]}: ${text}`));
                 }
@@ -570,6 +606,10 @@ export class WorkforceView {
       );
       return;
     }
+    this.payrollTable(root);
+    const breakdown = el('details', 'wf-calculation');
+    breakdown.append(el('summary', '', 'Расчёт по часам, ставки и проверка табеля'));
+    root.append(breakdown);
     const calc = data.calculation;
     const lines = calc.lines.filter((r) => !this.employee || r.employee_id === this.employee);
     const problems = calc.issues.filter((r) => !this.employee || r.employee_id === this.employee);
@@ -586,7 +626,7 @@ export class WorkforceView {
         localDateTime(e.occurred_at).slice(0, 7) === this.model.month.slice(0, 7) &&
         !linked.has(e.id),
     ).length;
-    root.append(
+    breakdown.append(
       el('h2', '', 'Предварительные начисления'),
       el(
         'p',
@@ -605,7 +645,7 @@ export class WorkforceView {
       cell.append(el('span', 'muted', label), el('strong', '', value));
       summary.append(cell);
     }
-    root.append(summary);
+    breakdown.append(summary);
     if (problems.length || unresolved) {
       const box = el('div', 'wf-alert');
       box.append(el('strong', '', 'Расчёт неполный - проверьте записи'));
@@ -613,12 +653,12 @@ export class WorkforceView {
         box.append(el('p', '', `${this.name(i.employee_id)}: ${issues[i.code] ?? i.code}`)),
       );
       if (unresolved) box.append(el('p', '', `Не разобрано отметок устройства: ${unresolved}`));
-      root.append(box);
+      breakdown.append(box);
     }
     const rows = lines.map((r) => [
       this.name(r.employee_id),
       hours(r.seconds),
-      hours(r.night_seconds),
+      r.unknown_clock_seconds ? 'Время не указано' : hours(r.night_seconds),
       money(r.base_minor),
       money(r.bonus_minor),
       money(r.total_minor),
@@ -631,7 +671,7 @@ export class WorkforceView {
       'Премии',
       'Предварительно',
     ];
-    root.append(
+    breakdown.append(
       this.table(headers, rows, 'После подтверждения явок здесь появится расчёт по сотрудникам.'),
     );
     const bar = el('div', 'wf-actions');
@@ -648,8 +688,8 @@ export class WorkforceView {
         this.edit('period'),
       ),
     );
-    root.append(bar, el('h2', '', 'Премии KPI'));
-    root.append(
+    breakdown.append(bar, el('h2', '', 'Премии KPI'));
+    breakdown.append(
       this.table(
         ['Сотрудник', 'Показатель', 'План / факт', 'Сумма', 'Статус', 'Действия'],
         data.records
@@ -666,18 +706,243 @@ export class WorkforceView {
       ),
     );
   }
+  private monthGrid(root: HTMLElement, records: WorkRecord[]) {
+    const month = this.model.month;
+    const count = new Date(
+      Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0),
+    ).getUTCDate();
+    const days = Array.from(
+      { length: count },
+      (_, i) => month.slice(0, 8) + String(i + 1).padStart(2, '0'),
+    );
+    const people = this.model.data!.employees.filter(
+      (e) => !e.payload.deleted && (!this.employee || e.id === this.employee),
+    );
+    const totals = new Map<string, number>();
+    const rows = people.map((e) => {
+      const title = el('div', 'wf-person');
+      title.append(
+        el('strong', '', e.payload.name),
+        el('small', 'muted', e.payload.position ?? status(e.payload.role)),
+      );
+      let sum = 0,
+        shifts = 0;
+      const cells = days.map((date) => {
+        const entries = records.filter(
+          (r) =>
+            r.payload['employee_id'] === e.id &&
+            (this.tab === 'plan'
+              ? localDateTime(String(r.payload['start'])).slice(0, 10)
+              : r.payload['date']) === date &&
+            !['cancelled', 'voided'].includes(String(r.payload['status'])),
+        );
+        const duration = entries.reduce(
+          (n, r) =>
+            n +
+            (this.tab === 'plan'
+              ? Date.parse(String(r.payload['end'])) -
+                Date.parse(String(r.payload['start'])) -
+                Number(r.payload['unpaid_break_minutes']) * 60000
+              : Number(
+                  r.payload['paid_duration_ms'] ??
+                    intervalSeconds(r.payload['intervals'] as { start: string; end: string }[]) *
+                      1000,
+                )),
+          0,
+        );
+        sum += duration;
+        if (duration) shifts++;
+        const b = button(
+          entries.length
+            ? duration
+              ? decimalHours(duration)
+              : status(entries[0]!.payload['attendance'])
+            : '+',
+          () => {
+            this.day = date;
+            this.edit(this.tab, entries[0]);
+            if (this.form) {
+              this.form.values['employee_id'] = e.id;
+              this.form.values['date'] = date;
+              this.changed();
+            }
+          },
+          'wf-day-cell',
+        );
+        b.disabled = !this.model.writable || this.model.data!.period.closed;
+        b.setAttribute(
+          'aria-label',
+          `${e.payload.name}, ${dateText(date)}: ${entries.length ? decimalHours(duration) + ' ч' : 'нет записи'}`,
+        );
+        b.title = entries.map((r) => status(r.payload['status'])).join(', ') || 'Добавить запись';
+        if (entries.some((r) => r.payload['status'] === 'draft')) {
+          b.classList.add('wf-draft');
+          b.append(el('span', 'wf-cell-note', 'черн.'));
+        }
+        if (entries.length > 1) b.append(el('span', 'wf-cell-note', `${entries.length} смены`));
+        return b;
+      });
+      totals.set(e.id, sum);
+      return [title, ...cells, decimalHours(sum), String(shifts)];
+    });
+    root.append(
+      el(
+        'p',
+        'muted',
+        `Нажмите на день сотрудника, чтобы внести или исправить запись. Всего: ${decimalHours([...totals.values()].reduce((a, b) => a + b, 0))} ч. Часы в десятичном формате. В итог входят черновики; начисления используют только подтверждённый факт.`,
+      ),
+    );
+    const table = this.table(
+      ['Сотрудник', ...days.map((d) => d.slice(8)), 'Часы', 'Дни'],
+      rows,
+      'Добавьте сотрудника, чтобы вести месячный табель.',
+    );
+    table.classList.add('wf-month-grid');
+    root.append(table);
+    root.append(
+      button('Скачать CSV', () =>
+        this.download(this.tab, [
+          ['Сотрудник', ...days.map((d) => d.slice(8)), 'Часы', 'Дни'],
+          ...rows.map((r, i) => [
+            people[i]!.payload.name,
+            ...r
+              .slice(1)
+              .map((x) =>
+                typeof x === 'string' ? x : x.textContent === '+' ? '' : (x.textContent ?? ''),
+              ),
+          ]),
+        ]),
+      ),
+    );
+  }
+  private payrollTable(root: HTMLElement) {
+    const data = this.model.data!;
+    root.append(
+      el('h2', '', 'Ведомость начислений'),
+      el(
+        'p',
+        'muted',
+        'База, доплаты, авансы и удержания по каждому сотруднику. Исходные суммы Excel сохранены для сверки. Подтверждение ведомости не отправляет деньги и не рассчитывает налоги.',
+      ),
+    );
+    const payroll = (data.calculation.payroll ?? [])
+      .filter((p) => !this.employee || p.employee_id === this.employee)
+      .sort((a, b) => this.name(a.employee_id).localeCompare(this.name(b.employee_id), 'ru'));
+    const summary = el('div', 'wf-summary wf-payroll-summary');
+    const sum = (
+      key: 'base_minor' | 'bonus_minor' | 'additions_minor' | 'deductions_minor' | 'total_minor',
+    ) => payroll.reduce((n, p) => n + BigInt(p[key]), 0n);
+    for (const [label, amount] of [
+      ['Начислено', sum('base_minor') + sum('bonus_minor') + sum('additions_minor')],
+      ['Авансы и удержания', sum('deductions_minor')],
+      ['Остаток по ведомости', sum('total_minor')],
+    ] as const) {
+      const cell = el('div');
+      cell.append(el('span', 'muted', label), el('strong', '', money(String(amount))));
+      summary.append(cell);
+    }
+    root.append(summary);
+    const rows = payroll.map((p) => {
+      const record = data.records.find((r) => r.id === p.id)!;
+      const source = record.payload['source'] as
+        | {
+            sheet: string;
+            row: number;
+            cells: { cell: string; label: string; value: string; formula: string }[];
+            issues: string[];
+          }
+        | undefined;
+      const details = el('details');
+      details.append(el('summary', '', 'Исходные данные'));
+      if (source) {
+        details.append(el('p', 'muted', `${source.sheet}, строка ${source.row}`));
+        source.issues.forEach((issue) => details.append(el('p', 'wf-alert', issue)));
+        details.append(
+          this.table(
+            ['Ячейка', 'Поле', 'Значение', 'Формула'],
+            source.cells.map((c) => [c.cell, c.label, c.value, c.formula || '-']),
+            'Нет исходных полей',
+          ),
+        );
+      } else details.append(el('p', '', 'Введено в кабинете'));
+      const total = el('div');
+      total.append(el('strong', '', money(p.total_minor)));
+      if (p.source_net_minor !== null && p.total_minor !== p.source_net_minor)
+        total.append(el('small', 'wf-difference', `В Excel: ${money(p.source_net_minor)}`));
+      return [
+        this.name(p.employee_id),
+        money(p.base_minor),
+        money(String(BigInt(p.additions_minor) + BigInt(p.bonus_minor))),
+        money(p.deductions_minor),
+        total,
+        status(p.status),
+        this.recordActions('payroll', record),
+        details,
+      ];
+    });
+    const worksheet = this.table(
+      [
+        'Сотрудник',
+        'База',
+        'Доплаты / KPI',
+        'Удержано / аванс',
+        'Остаток по ведомости',
+        'Статус',
+        'Действия',
+        'Сверка',
+      ],
+      rows,
+      'Ведомость ещё не создана. Добавьте начисление сотруднику.',
+    );
+    worksheet.classList.add('wf-payroll-table');
+    root.append(worksheet);
+    const actions = el('div', 'wf-actions');
+    actions.append(
+      this.button(
+        'Сформировать по табелю',
+        () => {
+          void this.model.send(
+            { type: 'generate_payroll', month: this.model.month },
+            'Формирование ведомости по подтверждённому табелю',
+          );
+        },
+        true,
+      ),
+      this.button('Добавить вручную', () => this.edit('payroll')),
+    );
+    actions.append(
+      button('Скачать ведомость CSV', () =>
+        this.download('ведомость', [
+          ['Сотрудник', 'База', 'Доплаты / KPI', 'Авансы / удержания', 'Остаток', 'Статус'],
+          ...payroll.map((p) => [
+            this.name(p.employee_id),
+            money(p.base_minor),
+            money(String(BigInt(p.additions_minor) + BigInt(p.bonus_minor))),
+            money(p.deductions_minor),
+            money(p.total_minor),
+            status(p.status),
+          ]),
+        ]),
+      ),
+    );
+    root.append(actions);
+  }
   private edit(kind: string, record?: WorkRecord | EmployeeRecord, duplicate = false) {
     const p = (record?.payload ?? {}) as Data;
     const values: Record<string, string> = {};
     for (const [k, v] of Object.entries(p)) if (typeof v !== 'object') values[k] = String(v);
     values['employee_id'] ??=
-      this.employee || this.model.data?.employees.find((e) => e.payload.active)?.id || '';
+      this.employee ||
+      this.model.data?.employees.find((e) => e.payload.active)?.id ||
+      this.model.data?.employees.find((e) => !e.payload.deleted)?.id ||
+      '';
     values['date'] ??= this.day;
     values['effective_date'] ??= today();
     values['status'] ??= 'draft';
     values['attendance'] ??= 'worked';
     values['reason'] = '';
     values['role'] ??= 'cook';
+    values['employment_status'] ??= p['active'] === false ? 'inactive' : 'working';
     if (kind === 'plan') {
       values['start'] = p['start'] ? localDateTime(String(p['start'])) : this.day + 'T09:00';
       values['end'] = p['end'] ? localDateTime(String(p['end'])) : this.day + 'T18:00';
@@ -687,11 +952,21 @@ export class WorkforceView {
         values['status'] = 'draft';
       }
     }
-    if (kind === 'time')
+    if (kind === 'time') {
+      values['entry_mode'] =
+        p['paid_duration_ms'] !== undefined || !record ? 'duration' : 'intervals';
+      values['paid_hours'] =
+        p['paid_duration_ms'] !== undefined ? String(Number(p['paid_duration_ms']) / 3600000) : '';
       values['intervals'] =
         (p['intervals'] as { start: string; end: string }[] | undefined)
           ?.map((s) => `${localDateTime(s.start).slice(11)}-${localDateTime(s.end).slice(11)}`)
-          .join('\n') ?? '09:00-18:00';
+          .join('\n') ?? '';
+    }
+    if (kind === 'payroll') {
+      values['base_override_minor'] =
+        p['base_override_minor'] == null ? '' : String(Number(p['base_override_minor']) / 100);
+      values['items'] = JSON.stringify(p['items'] ?? []);
+    }
     for (const k of ['hourly_minor', 'amount_minor'])
       if (p[k] !== undefined) values[k] = String(Number(p[k]) / 100);
     this.form = {
@@ -715,6 +990,7 @@ export class WorkforceView {
       time: 'Фактическая явка',
       rate: 'Почасовая ставка',
       bonus: 'Премия KPI',
+      payroll: 'Начисление за месяц',
       employee: 'Карточка сотрудника',
       period: this.model.data!.period.closed ? 'Переоткрыть табель' : 'Закрыть табель',
     };
@@ -777,6 +1053,7 @@ export class WorkforceView {
       const positions = [
         ...new Set([
           ...['manager', 'cashier', 'cook', 'assembler'].map((role) => labels[role]!),
+          ...this.model.data!.employees.map((e) => e.payload.position ?? ''),
           ...this.model
             .data!.records.filter((record) => record.kind === 'plan')
             .map((record) => String(record.payload['position'] ?? '')),
@@ -804,19 +1081,47 @@ export class WorkforceView {
     if (f.kind === 'time') {
       input('date', 'Дата явки', 'date');
       choice('attendance', 'Тип явки', ['worked', 'day_off', 'absence', 'leave', 'sick']);
-      controls.append(
-        field(
-          'Оплачиваемые интервалы',
-          v['intervals'] ?? '',
-          (s) => {
-            v['intervals'] = s;
-          },
-          {
-            multiline: true,
-            hint: 'По одному на строку: 09:00-12:00 и 12:30-18:00. Для отсутствия оставьте пустым. Конец раньше начала означает следующий день.',
-          },
-        ),
+      const mode = select(
+        'Способ ввода',
+        v['entry_mode'] ?? 'duration',
+        [
+          { value: 'duration', label: 'Количество часов за день' },
+          { value: 'intervals', label: 'Время прихода и ухода' },
+        ],
+        (value) => {
+          v['entry_mode'] = value;
+          this.changed();
+        },
       );
+      mode.querySelector('select')!.setAttribute('aria-label', 'Способ ввода');
+      controls.append(mode);
+      if (v['entry_mode'] === 'duration') {
+        controls.append(
+          field(
+            'Отработано часов',
+            v['paid_hours'] ?? '',
+            (value) => {
+              v['paid_hours'] = value;
+            },
+            {
+              hint: 'Десятичные часы: 8,5 = 8 ч 30 мин. До трёх знаков после запятой. Для отсутствия оставьте пустым.',
+            },
+          ),
+        );
+      } else
+        controls.append(
+          field(
+            'Оплачиваемые интервалы',
+            v['intervals'] ?? '',
+            (s) => {
+              v['intervals'] = s;
+            },
+            {
+              multiline: true,
+              hint: 'По одному на строку: 09:00-12:00 и 12:30-18:00. Для отсутствия оставьте пустым. Конец раньше начала означает следующий день.',
+            },
+          ),
+        );
       choice('status', 'Подтверждение', ['draft', 'approved', 'voided']);
       input('note', 'Примечание / основание явки');
     }
@@ -824,6 +1129,7 @@ export class WorkforceView {
       input('effective_date', 'Действует с', 'date');
       if (f.id) controls.querySelectorAll('input')[0]!.readOnly = true;
       input('hourly_minor', 'Ставка за час, ₸');
+      input('valid_until', 'Действует по (необязательно)', 'date', false);
     }
     if (f.kind === 'bonus') {
       input('name', 'Показатель KPI');
@@ -834,15 +1140,79 @@ export class WorkforceView {
       choice('status', 'Подтверждение', ['draft', 'approved', 'voided']);
       controls.append(el('p', 'muted', `Месяц: ${this.model.month.slice(0, 7)}`));
     }
-    if (f.kind === 'employee') {
-      input('name', 'Имя сотрудника');
-      choice('role', 'Роль', ['cook', 'cashier', 'assembler', 'manager']);
-      input('note', 'Примечание', 'text', false);
+    if (f.kind === 'payroll') {
       controls.append(
-        check('Сотрудник активен', f.active, (s) => {
-          f.active = s;
+        el(
+          'p',
+          'wf-note',
+          'Пустая база - автоматический расчёт по подтверждённым часам и ставкам. Явная сумма заменяет только базу. Премии KPI учитываются отдельно. Запись не создаёт выплату.',
+        ),
+      );
+      input('base_override_minor', 'База вручную, ₸ (необязательно)', 'text', false);
+      input('note', 'Основание расчёта');
+      choice('status', 'Подтверждение', ['draft', 'approved', 'voided']);
+      const items = JSON.parse(v['items'] ?? '[]') as {
+        name: string;
+        effect: string;
+        amount_minor: string;
+      }[];
+      const list = el('div', 'wf-pay-items');
+      const sync = () => {
+        v['items'] = JSON.stringify(items);
+      };
+      items.forEach((item, index) => {
+        const row = el('div', 'wf-pay-item');
+        row.append(
+          field('Статья', item.name, (value) => {
+            item.name = value;
+            sync();
+          }),
+          select(
+            'Вид',
+            item.effect,
+            [
+              { value: 'addition', label: 'Доплата' },
+              { value: 'deduction', label: 'Удержание / аванс' },
+            ],
+            (value) => {
+              item.effect = value;
+              sync();
+            },
+          ),
+          field('Сумма, ₸', String(Number(item.amount_minor) / 100), (value) => {
+            try {
+              item.amount_minor = minor(value);
+              sync();
+            } catch {
+              item.amount_minor = 'invalid';
+              sync();
+            }
+          }),
+        );
+        row.append(
+          button('Убрать', () => {
+            items.splice(index, 1);
+            sync();
+            this.changed();
+          }),
+        );
+        list.append(row);
+      });
+      list.append(
+        button('Добавить статью', () => {
+          items.push({ name: '', effect: 'deduction', amount_minor: '0' });
+          sync();
+          this.changed();
         }),
       );
+      controls.append(list);
+    }
+    if (f.kind === 'employee') {
+      input('name', 'Имя сотрудника');
+      choice('role', 'Роль', ['cook', 'cashier', 'assembler', 'manager', 'staff']);
+      input('position', 'Должность', 'text', false);
+      input('note', 'Примечание', 'text', false);
+      choice('employment_status', 'Текущий статус', ['working', 'inactive', 'unknown']);
     }
     if (f.kind === 'period')
       controls.append(
@@ -899,10 +1269,11 @@ export class WorkforceView {
         payload = {
           ...payload,
           effective_date: v['effective_date'],
+          ...(v['valid_until'] ? { valid_until: v['valid_until'] } : {}),
           hourly_minor: minor(v['hourly_minor'] ?? ''),
         };
       if (f.kind === 'time') {
-        const intervals = (v['intervals'] ?? '')
+        const intervals = (v['entry_mode'] === 'duration' ? '' : (v['intervals'] ?? ''))
           .trim()
           .split('\n')
           .filter(Boolean)
@@ -921,9 +1292,17 @@ export class WorkforceView {
           status: v['status'],
           attendance: v['attendance'],
           intervals,
-          source_event_ids: previous?.payload['source_event_ids'] ?? [],
+          source_event_ids:
+            v['entry_mode'] === 'duration' ? [] : (previous?.payload['source_event_ids'] ?? []),
+          ...(previous?.payload['source'] ? { source: previous.payload['source'] } : {}),
           note: v['note'],
         };
+        if (v['entry_mode'] === 'duration' && v['attendance'] === 'worked') {
+          const text = (v['paid_hours'] ?? '').trim().replace(',', '.');
+          if (!/^\d+(\.\d{1,3})?$/.test(text) || Number(text) <= 0 || Number(text) > 24)
+            throw Error('Укажите отработанные часы от 0 до 24, до трёх знаков после запятой.');
+          payload['paid_duration_ms'] = Math.round(Number(text) * 3600000);
+        }
       }
       if (f.kind === 'bonus')
         payload = {
@@ -936,8 +1315,29 @@ export class WorkforceView {
           amount_minor: minor(v['amount_minor'] ?? ''),
           status: v['status'],
         };
+      if (f.kind === 'payroll') {
+        const previous = this.model.data!.records.find((r) => r.id === f.id);
+        payload = {
+          ...payload,
+          month: this.model.month,
+          status: v['status'],
+          note: v['note'],
+          base_override_minor: v['base_override_minor']?.trim()
+            ? minor(v['base_override_minor'])
+            : null,
+          items: JSON.parse(v['items'] ?? '[]'),
+          ...(previous?.payload['source'] ? { source: previous.payload['source'] } : {}),
+        };
+      }
       if (f.kind === 'employee')
-        payload = { name: v['name'], role: v['role'], active: f.active, note: v['note'] ?? '' };
+        payload = {
+          name: v['name'],
+          role: v['role'],
+          active: v['employment_status'] === 'working',
+          employment_status: v['employment_status'],
+          ...(v['position']?.trim() ? { position: v['position'] } : {}),
+          note: v['note'] ?? '',
+        };
       if (f.kind === 'delete')
         command = {
           type: 'delete',

@@ -28845,6 +28845,19 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "position": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "employment_status": {
+            "type": "string",
+            "enum": [
+              "working",
+              "inactive",
+              "unknown"
+            ]
+          },
           "deleted": {
             "type": "boolean",
             "const": true
@@ -28860,7 +28873,8 @@
               "manager",
               "cashier",
               "cook",
-              "assembler"
+              "assembler",
+              "staff"
             ]
           },
           "active": {

@@ -7,6 +7,63 @@ import { Backoffice, grantBackoffice } from '../dist/index.js';
 import { Workforce } from '../dist/workforce-store.js';
 import { createPool } from '@pickchick/database';
 import { workforceGrants } from '../../../infra/staging/workforce-grants.mjs';
+import { deployPayroll, MIGRATIONS } from '../../../infra/staging/payroll-owner.mjs';
+import { mkdtemp, readdir, copyFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+test('payroll owner preserves populated schema052, keeps channels dormant and rejects replay', async () => {
+  const directory = fileURLToPath(new URL('../../../db/cloud/migrations/', import.meta.url));
+  const old = await mkdtemp(join(tmpdir(), 'payroll-schema052-'));
+  try {
+    for (const n of await readdir(directory))
+      if (n.endsWith('.sql') && +n.slice(0, 3) <= 52)
+        await copyFile(join(directory, n), join(old, n));
+    await withSyncDatabases(
+      async (c) => {
+        const connection = await c.cloud.pool.connect();
+        try {
+          const role = (await connection.query('SELECT current_user AS name')).rows[0].name;
+          await connection.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
+          assert.deepEqual(await deployPayroll(connection, { directory, role, inspect: true }), {
+            pending: MIGRATIONS,
+            privilegesAdded: [],
+          });
+          const result = await deployPayroll(connection, { directory, role });
+          assert.equal(result.existingDataPreserved, true);
+          assert.equal(result.channelsDormant, true);
+          assert.deepEqual(result.privilegesAdded, []);
+          assert.equal(
+            (await connection.query('SELECT count(*)::int AS n FROM branches')).rows[0].n,
+            1,
+          );
+          assert.equal(
+            (
+              await connection.query(
+                "SELECT count(*)::int AS n FROM schema_migrations WHERE version LIKE '057_%'",
+              )
+            ).rows[0].n,
+            1,
+          );
+          await connection.query('COMMIT');
+          await connection.query('BEGIN');
+          await assert.rejects(
+            deployPayroll(connection, { directory, role }),
+            /Exact schema052 ledger/,
+          );
+          await connection.query('ROLLBACK');
+        } finally {
+          await connection.query('ROLLBACK');
+          connection.release();
+        }
+      },
+      { cloudMigrationDirectory: old },
+    );
+  } finally {
+    await rm(old, { recursive: true, force: true });
+  }
+});
 
 const month = '2026-09-01';
 const at = (d, h) => `2026-09-${d}T${h}:00:00+05:00`;
@@ -61,6 +118,24 @@ const setup = (fn) =>
       read: () => workforce.read(manager.token, c.branch, month),
     });
   });
+
+test('automatic payroll cannot be approved with missing hours or rates; manual historical base stays independent', () =>
+  setup(async ({ employee_id, save, entry }) => {
+    const payroll = {
+      employee_id,
+      month,
+      status: 'approved',
+      base_override_minor: null,
+      note: 'Проверка автоматической базы',
+      items: [],
+    };
+    await save('payroll', { ...payroll, month: '2026-08-01', base_override_minor: '123400' });
+    await assert.rejects(save('payroll', payroll), { code: 'NOT_READY' });
+    await save('time', entry({ intervals: [], paid_duration_ms: 3600000 }));
+    await assert.rejects(save('payroll', payroll), { code: 'NOT_READY' });
+    await save('rate', { employee_id, effective_date: month, hourly_minor: '100000' });
+    await save('payroll', payroll);
+  }));
 
 test('restricted runtime can save but cannot rewrite source events, erase history or grant itself access', () =>
   setup(async (c) => {
@@ -378,4 +453,88 @@ test('closed payroll protects deletions and employee deletion requires clearing 
       ),
       /CONFLICT/,
     );
+  }));
+
+test('payroll source is immutable, monthly duplicates and closed-month edits rejected; corrections audited', () =>
+  setup(async (c) => {
+    const source = {
+      sha256: 'a'.repeat(64),
+      sheet: 'Табель',
+      row: 4,
+      gross_minor: '800000',
+      net_minor: '790000',
+      cells: [],
+      issues: [],
+    };
+    const payload = {
+      employee_id: c.employee_id,
+      month,
+      status: 'draft',
+      base_override_minor: '800000',
+      note: 'Историческая сверка',
+      items: [{ name: 'Аванс', effect: 'deduction', amount_minor: '10000' }],
+      source,
+    };
+    const id = randomUUID();
+    const command = { type: 'save', kind: 'payroll', id, expected_revision: 0, payload };
+    const req = envelope(command);
+    const first = await c.workforce.command(c.manager.token, c.branch, req);
+    assert.deepEqual(await c.workforce.command(c.manager.token, c.branch, req), first);
+    await assert.rejects(c.save('payroll', payload), /CONFLICT/);
+    await assert.rejects(
+      c.save('payroll', { ...payload, source: { ...source, net_minor: '0' } }, id, 1),
+      /CONFLICT/,
+    );
+    await c.save('payroll', { ...payload, status: 'approved' }, id, 1);
+    await c.send({ type: 'period', month, closed: true, expected_revision: 0 });
+    await assert.rejects(c.save('payroll', { ...payload, status: 'approved' }, id, 2), /CONFLICT/);
+    await assert.rejects(
+      c.send({ type: 'delete', kind: 'payroll', id, expected_revision: 2 }),
+      /CONFLICT/,
+    );
+    await c.send({ type: 'period', month, closed: false, expected_revision: 1 });
+    await c.send({ type: 'delete', kind: 'payroll', id, expected_revision: 2 });
+    const snapshot = await c.read();
+    assert.equal(snapshot.calculation.payroll.length, 0);
+    assert.ok(snapshot.audit.some((a) => a.action === 'workforce.delete'));
+  }));
+
+test('duration-only source cannot be rewritten or overlap an overnight clock record', () =>
+  setup(async (c) => {
+    const source = { sha256: 'a'.repeat(64), cell: 'График!D4', hours: '8.5' };
+    const p = c.entry({ intervals: [], paid_duration_ms: 30600000, source });
+    const saved = await c.save('time', p);
+    await assert.rejects(
+      c.save('time', { ...p, source: { ...source, hours: '9' } }, saved.id, 1),
+      /CONFLICT/,
+    );
+    await c.save('time', { ...p, paid_duration_ms: 28800000 }, saved.id, 1);
+    await assert.rejects(
+      c.save(
+        'time',
+        c.entry({
+          date: '2026-08-31',
+          intervals: [{ start: '2026-08-31T22:00:00+05:00', end: '2026-09-01T02:00:00+05:00' }],
+        }),
+      ),
+      /CONFLICT/,
+    );
+  }));
+
+test('generate monthly payroll is replayable and keeps existing manual worksheets', () =>
+  setup(async (c) => {
+    await c.save('rate', {
+      employee_id: c.employee_id,
+      effective_date: month,
+      hourly_minor: '100000',
+    });
+    await c.save('time', c.entry());
+    const request = envelope({ type: 'generate_payroll', month });
+    const first = await c.workforce.command(c.manager.token, c.branch, request);
+    assert.equal(first.created.length, 1);
+    assert.deepEqual(await c.workforce.command(c.manager.token, c.branch, request), first);
+    assert.equal((await c.send({ type: 'generate_payroll', month })).created.length, 0);
+    const snapshot = await c.read();
+    assert.equal(snapshot.calculation.payroll[0].total_minor, '800000');
+    assert.equal(snapshot.calculation.payroll[0].status, 'draft');
   }));
