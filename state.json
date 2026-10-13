@@ -5043,11 +5043,20 @@
         "tests/kitchen/device-presence.test.mjs",
         "apps/kiosk/src/useKioskController.ts",
         "apps/kiosk/src/device-presence.ts",
-        "tests/kiosk/device-presence.test.mjs"
+        "tests/kiosk/device-presence.test.mjs",
+        "packages/local-orders/src/terminal-access.ts",
+        "infra/windows/terminal-access-grants.mjs",
+        "infra/staging/device-registry-grants.mjs",
+        "apps/backoffice/server.mjs",
+        "apps/backoffice/src/style.css",
+        "packages/backoffice-core/package.json",
+        "services/edge/src/terminal-access-controller.ts",
+        "tests/integration/terminal-access.test.mjs",
+        "infra/windows/native-device-access-worker.mjs"
       ],
       "status": "active",
       "head": "f61da9d6de3bed69d83700c2f0f672a2e5c9e14e",
-      "updatedAt": "2026-10-13T10:06:16.771Z"
+      "updatedAt": "2026-10-13T10:06:21.544Z"
     }
   ]
 }
