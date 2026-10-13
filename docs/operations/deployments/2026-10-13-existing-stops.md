@@ -81,3 +81,23 @@ public recipient локальной identity, как уже установлен
 кабинет, кассу, приложение и киоск. Действующий online-протокол требует доступной
 кассы; offline-политика нового cloud-kitchen - отдельный этап. Расчёт последней
 порции по техкартам этим выпуском не реализован.
+
+## Публикация общего плана
+
+Отчёт объединён с общей веткой `00eed432`, включая последние мобильные изменения
+другого Mac. Проверенный общий source `e89fe9d7661bd44a9a87d85a19c6404f582ec7c7`:
+[Foundation CI 38349867556](https://github.com/xaaknazar/pickchick/actions/runs/38349867556) - 11/11,
+[Project roadmap CI 38349897327](https://github.com/xaaknazar/pickchick/actions/runs/38349897327) успешна.
+Локально прошли 7 тестов roadmap и 22 проверки оператора публикации.
+Дополнительная проверка production API подтвердила 262 позиции с доступным
+действием (listed, известная version, нет pending); ожидающих команд - 0.
+
+Этот source опубликован в онлайн-пульт; HTTPS `/roadmap/health` подтвердил
+полный SHA. Сохранены заметки команды и ключ доступа; создана приватная SQLite
+копия. Проверены прежние публичные файлы и 17 соседних контейнеров.
+Public/roadmap pointers теперь `e89fe9d7661bd44a9a87d85a19c6404f582ec7c7`; API остаётся `f01cb45f`,
+портал бэк-офиса - `661f84c2`. Этот документ дополняется после выпуска;
+последующий commit протокола не является новым установленным runtime.
+
+SQLite backup: `/opt/pickchick-staging/roadmap/backups/e89fe9d7661bd44a9a87d85a19c6404f582ec7c7-0aeee01298694d1db57dee6ff1b5aad1`.
+[PR #237](https://github.com/xaaknazar/pickchick/pull/237).
