@@ -4626,9 +4626,11 @@
         "tests/integration/existing-stops-readiness.test.mjs",
         "tests/operations/windows-existing-stops.test.ps1"
       ],
-      "status": "active",
-      "head": "3c51229ed4580e5865537f1f137a9c9d14d08fe0",
-      "updatedAt": "2026-10-12T11:16:25.712Z"
+      "status": "done",
+      "head": "bce06c161f36e73977fbad0f279d0e18dfd4d673",
+      "updatedAt": "2026-10-13T05:40:48.589Z",
+      "summary": "Удалённые STOP/UNSTOP включены 12–13 октября на API f01cb45f/cloud052 и edge23/schema019. Оператор bce06c16: полная CI 38251403173 11/11, backup/restore, Windows/SQL/21 функциональный тест пройдены; manager flags true, 262 доступных действия. PR232 включён в shared через PR237.",
+      "nextAction": "Владельцу принять выбранное блюдо STOP/UNSTOP в кабинете, кассе, приложении и киоске. Для нового выпуска получить свежие pins; протокол docs/operations/deployments/2026-10-13-existing-stops.md."
     },
     {
       "id": "mobile-redesign-1012",
