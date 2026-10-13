@@ -4903,11 +4903,12 @@
         "@vps/api",
         "@vps/db",
         "@vps/backoffice-login",
-        "tests/operations/payroll-release.test.mjs"
+        "tests/operations/payroll-release.test.mjs",
+        "tests/operations/test_payroll_release.py"
       ],
       "status": "active",
-      "head": "1d1414339e4b8c4b87de545d47e753b7ffb2b233",
-      "updatedAt": "2026-10-13T07:41:58.572Z"
+      "head": "b93bd4d2d1742da582b18e13e0f8992ee50286d4",
+      "updatedAt": "2026-10-13T07:46:38.073Z"
     }
   ]
 }
