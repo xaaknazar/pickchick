@@ -204,9 +204,11 @@ final class SmokeTests: XCTestCase {
         attachScreenshot("Completed-order-review-saved", of: app)
         tap("completed-order-close", in: app)
         assertScreen("M19", in: app)
-        let savedStar = element("order-history-rate-\(id)-4", in: app)
-        reveal(savedStar, in: app)
-        XCTAssertTrue(savedStar.isSelected)
+        // A rated order shows «★ 4» in its row and no longer asks for stars.
+        let savedRow = element("order-history-open-\(id)", in: app)
+        reveal(savedRow, in: app)
+        XCTAssertTrue(savedRow.label.contains("оценка 4 из 5"), "Saved rating in history: \(savedRow.label)")
+        XCTAssertFalse(element("order-history-rate-\(id)-4", in: app).exists)
         attachScreenshot("Orders-history-saved-rating", of: app)
     }
 

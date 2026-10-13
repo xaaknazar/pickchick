@@ -20,6 +20,7 @@ import { PaymentMark } from './PaymentChoice';
 import { useReducedMotion } from './Motion';
 import { colors, font } from '../theme';
 import { checkoutStyle } from './CheckoutPresentation';
+import { useTabBarInset } from './tab-bar-inset';
 
 export function KaspiPaymentState({
   order,
@@ -39,6 +40,7 @@ export function KaspiPaymentState({
   extraAction?: React.ReactNode;
 }) {
   const reduced = useReducedMotion();
+  const tabBarInset = useTabBarInset();
   const { height } = useWindowDimensions();
   const compact = height < 700;
   const [foreground, setForeground] = useState(AppState.currentState !== 'background');
@@ -234,7 +236,10 @@ export function KaspiPaymentState({
           </Caption>
         ) : null}
       </ScrollView>
-      <BottomActions style={checkoutStyle.cartFooter}>
+      <BottomActions
+        safeArea={tabBarInset === 0}
+        style={[checkoutStyle.cartFooter, { marginBottom: tabBarInset }]}
+      >
         {paid ? (
           <>
             <Caption style={s.detail}>

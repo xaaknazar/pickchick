@@ -100,16 +100,20 @@ export function BlockArt({ size = 27 }: { size?: number }) {
   );
 }
 
+/** «События» card copy and cover; the order tracker carousel reuses them. */
+export const pickBlocksPoster = {
+  name: 'PICK BLOCKS',
+  subtitle: 'СОБИРАЙ СВОЙ ПИК',
+  description: 'Заполняй ряды.\nВсё сложится.',
+  cover: assets.pickBlocksCover,
+};
 export function PickBlocksCard() {
   const router = useRouter();
   return (
     <GamePosterCard
-      name="PICK BLOCKS"
-      subtitle="СОБИРАЙ СВОЙ ПИК"
-      description={'Заполняй ряды.\nВсё сложится.'}
+      {...pickBlocksPoster}
       testID="pick-blocks-open"
       onPress={() => router.push('/games/pick-blocks')}
-      cover={assets.pickBlocksCover}
     />
   );
 }

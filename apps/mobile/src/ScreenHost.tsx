@@ -154,7 +154,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
           }}
         >
           <Text style={{ color: '#C0CDE6', fontFamily: 'Manrope_600SemiBold', fontSize: 12 }}>
-            В меню · пример дизайна, операции не выполняются
+            Вернуться в меню
           </Text>
         </Pressable>
       ) : null}

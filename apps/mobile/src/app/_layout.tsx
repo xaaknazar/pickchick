@@ -14,6 +14,7 @@ import { Manrope_700Bold } from '@expo-google-fonts/manrope/700Bold';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { MobileProvider } from '../store';
 import { AccountProvider } from '../useAccount';
+import { ARCADE_SCREEN_OPTIONS } from '../games/route-options';
 
 // Keep the OS launch image until the matching React layer has laid out.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -87,6 +88,7 @@ function AppLayout() {
                     contentStyle: { backgroundColor: 'transparent' },
                   }}
                 />
+                <Stack.Screen name="games/pick-blocks" options={ARCADE_SCREEN_OPTIONS} />
                 <Stack.Screen
                   name="cart"
                   options={{

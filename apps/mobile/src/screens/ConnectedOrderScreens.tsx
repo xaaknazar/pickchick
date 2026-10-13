@@ -1,8 +1,17 @@
 import { OrderTotal, orderUI } from '../components/OrderPresentation';
+import {
+  OrdersEmpty,
+  OrdersHeader,
+  OrdersMoreButton,
+  OrdersOverview,
+  ordersPageStyle,
+  type ActiveOrderModel,
+  type HistoryOrderModel,
+} from '../components/OrdersTab';
+import { latestUnratedOrderId, progressStage, testActiveKind } from '../orders-tab';
 import { RepeatOrder } from '../components/RepeatOrder';
 import { CheckoutDetails, CheckoutHeader } from './CheckoutScreen';
 import { unpaidTestOrdersEnabled } from '../order-simulator';
-import { MotionPressable } from '../components/Motion';
 import { useState } from 'react';
 import { Text, TextInput, View, StyleSheet } from 'react-native';
 import type { TestOrder } from '@pickchick/test-order-flow/contracts';
@@ -29,7 +38,7 @@ import { cartMatchesOrder } from '../test-order-session';
 import { restaurantLocation } from '../restaurant-location';
 
 export { orderStage } from '../order-status';
-import { orderStage } from '../order-status';
+import { orderScene, orderStage } from '../order-status';
 import { OrderStatusScreen } from './OrderStatusScreen';
 function ContinueSession({ props }: { props: ScreenProps }) {
   const flow = props.model.testFlow;
@@ -96,7 +105,6 @@ function OrderLines({ order }: { order: TestOrder }) {
   );
 }
 
-const completed = (order: TestOrder) => ['fulfilled', 'cancelled'].includes(order.state);
 const orderDate = (value: string) =>
   new Date(value).toLocaleString('ru-RU', {
     timeZone: 'Asia/Almaty',
@@ -260,100 +268,128 @@ export function ConnectedHistory(props: ScreenProps) {
   const sorted = [...flow.orders].sort(
     (a, b) => b.created_at.localeCompare(a.created_at) || b.order_id.localeCompare(a.order_id),
   );
-  const groups = [
-    { title: 'Сейчас', orders: sorted.filter((order) => !completed(order)) },
-    { title: 'История', orders: sorted.filter(completed) },
-  ];
+  const open = (order: TestOrder) => {
+    flow.select(order.order_id);
+    props.navigate('M20');
+  };
+  const lines = (order: TestOrder) =>
+    order.snapshot.lines.map((line) => ({
+      productId: line.id,
+      title: line.name,
+      quantity: line.quantity,
+    }));
+  const method = (order: TestOrder) =>
+    'payment_method' in order.snapshot ? paymentName(order.snapshot.payment_method) : 'Kaspi';
+  const restaurant = (order: TestOrder) =>
+    restaurantLocation(order.branch_id)?.name ??
+    props.model.branches.find((branch) => branch.id === order.branch_id)?.name ??
+    'PickChick';
+  const active: ActiveOrderModel[] = sorted.flatMap((order) => {
+    const kind = testActiveKind(order.state);
+    if (!kind) return [];
+    const unknown = order.payment_state === 'simulated_unknown';
+    const stage = progressStage(orderStage(order) === 'На сборке' ? 'assembly' : 'cooking');
+    return [
+      {
+        id: order.order_id,
+        kind,
+        number: order.number,
+        scene: orderScene(order),
+        badge:
+          kind === 'ready'
+            ? 'Готов'
+            : kind === 'payment'
+              ? unknown
+                ? 'Уточняем оплату'
+                : 'Ждём оплату'
+              : stage.badge,
+        bars: stage.bars,
+        serviceMode: order.snapshot.service_mode,
+        items: lines(order),
+        totalMinor: order.snapshot.total_minor,
+        place: `${restaurant(order)} · ${method(order)}`,
+        paymentMethod: method(order),
+        paymentNote: unknown ? 'уточняем результат' : 'ждём подтверждения',
+        openTestID: `history-order-${order.order_id}`,
+        onOpen: () => open(order),
+        // Same continuation as opening the order: the payment step lives on M20.
+        onPay: kind === 'payment' && !unknown ? () => open(order) : undefined,
+        payTestID: `history-order-pay-${order.order_id}`,
+      },
+    ];
+  });
+  const finished = sorted.filter((order) => !testActiveKind(order.state));
+  // The list has no saved review per order; the newest handed-over order asks for one.
+  const rateId = latestUnratedOrderId(
+    finished.map((order) => ({
+      id: order.order_id,
+      createdAt: order.created_at,
+      rateable: order.state === 'fulfilled',
+      rated: false,
+    })),
+  );
+  const history: HistoryOrderModel[] = finished.map((order) => ({
+    id: order.order_id,
+    number: order.number,
+    createdAt: order.created_at,
+    serviceMode: order.snapshot.service_mode,
+    items: lines(order),
+    totalMinor: order.snapshot.total_minor,
+    // Test orders never move money, so a cancellation never claims a refund.
+    status: order.state === 'cancelled' ? 'cancelled' : 'done',
+    statusText: order.state === 'cancelled' ? 'Отменён' : undefined,
+    openTestID: `history-order-${order.order_id}`,
+    onOpen: () => open(order),
+    repeat:
+      order.state === 'fulfilled' ? (
+        <RepeatOrder order={order} props={props} variant="link" />
+      ) : undefined,
+    rate:
+      order.order_id === rateId
+        ? {
+            onRate: () => {
+              flow.select(order.order_id);
+              props.navigate('M35');
+            },
+            testID: (stars: number) => `history-order-rate-${order.order_id}-${stars}`,
+          }
+        : null,
+  }));
   return (
-    <Page props={props} title="Мои заказы" noBack>
+    <Page
+      props={props}
+      title="Заказы"
+      noBack
+      header={<OrdersHeader />}
+      contentStyle={ordersPageStyle.content}
+    >
       <FlowNotice props={props} />
       {!flow.restored || (!flow.orders.length && !!flow.error) ? (
         <Loading title="Загружаем заказы" />
       ) : !flow.orders.length ? (
-        <Empty
-          title="Здесь будут ваши заказы"
-          detail="Выбирайте любимые блюда. Здесь можно следить за приготовлением и смотреть историю."
-          action={<Button title="Открыть меню" onPress={() => props.navigate('M06')} />}
-        />
+        <OrdersEmpty onMenu={() => props.navigate('M06')} />
       ) : (
-        groups.map((group) =>
-          group.orders.length ? (
-            <View key={group.title} style={{ gap: 12 }}>
-              <Heading small style={orderUI.section}>
-                {group.title}
-              </Heading>
-              {group.orders.map((order) => (
-                <View key={order.order_id} style={s.orderCard}>
-                  <MotionPressable
-                    testID={`history-order-${order.order_id}`}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Заказ номер ${order.number}, ${orderStage(order)}, ${money(order.snapshot.total_minor)}. Открыть заказ`}
-                    onPress={() => {
-                      flow.select(order.order_id);
-                      props.navigate('M20');
-                    }}
-                    style={{ gap: 12 }}
-                  >
-                    <Row>
-                      <View style={ui.flex}>
-                        <Heading small style={orderUI.title}>
-                          Заказ №{order.number}
-                        </Heading>
-                        <Caption style={orderUI.detail}>{orderDate(order.created_at)}</Caption>
-                      </View>
-                      <Icon name="chevron-forward" size={20} color={colors.muted} />
-                    </Row>
-                    <Row>
-                      <Icon
-                        name={
-                          order.state === 'ready' || order.state === 'fulfilled'
-                            ? 'checkmark-circle-outline'
-                            : order.state === 'cancelled'
-                              ? 'close-circle-outline'
-                              : 'time-outline'
-                        }
-                        color={order.state === 'ready' ? colors.success : colors.accent}
-                        size={20}
-                      />
-                      <Body style={[orderUI.label, { fontFamily: font.bold }]}>
-                        {orderStage(order)}
-                      </Body>
-                    </Row>
-                    <Body style={[orderUI.detail, { color: colors.muted }]}>
-                      {order.snapshot.lines
-                        .map(
-                          (line) => `${line.name}${line.quantity > 1 ? ` ×${line.quantity}` : ''}`,
-                        )
-                        .join(' · ')}
-                    </Body>
-                    <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                      <Caption style={orderUI.detail}>
-                        {order.snapshot.service_mode === 'takeaway' ? 'С собой' : 'В зале'}
-                      </Caption>
-                      <Body style={orderUI.amount}>{money(order.snapshot.total_minor)}</Body>
-                    </Row>
-                  </MotionPressable>
-                  {completed(order) ? <RepeatOrder order={order} props={props} /> : null}
-                </View>
-              ))}
-            </View>
-          ) : null,
-        )
-      )}
-      {flow.orders.length >= 20 && flow.moreHistory ? (
-        <Button
-          title={flow.historyBusy ? 'Загружаем…' : 'Показать предыдущие заказы'}
-          testID="orders-load-history"
-          secondary
-          disabled={flow.historyBusy}
-          onPress={() => {
-            void flow.loadHistory();
-          }}
+        <OrdersOverview
+          active={active}
+          history={history}
+          products={props.model.products}
+          footer={
+            <>
+              {flow.orders.length >= 20 && flow.moreHistory ? (
+                <OrdersMoreButton
+                  title={flow.historyBusy ? 'Загружаем…' : 'Показать предыдущие заказы'}
+                  testID="orders-load-history"
+                  disabled={flow.historyBusy}
+                  onPress={() => {
+                    void flow.loadHistory();
+                  }}
+                />
+              ) : null}
+              <OrdersMoreButton title="Обновить заказы" onPress={flow.refresh} />
+            </>
+          }
         />
-      ) : null}
-      {flow.orders.length ? (
-        <Button title="Обновить заказы" secondary onPress={flow.refresh} />
-      ) : null}
+      )}
     </Page>
   );
 }
@@ -594,7 +630,6 @@ export function ConnectedOrder(props: ScreenProps) {
 const s = StyleSheet.create({
   section: { gap: 12 },
   line: { gap: 6, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
-  orderCard: { padding: 18, gap: 12, backgroundColor: colors.surface, borderRadius: 16 },
   step: {
     width: 28,
     height: 28,

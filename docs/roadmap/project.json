@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-12",
+  "updatedAt": "2026-10-13",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -3770,6 +3770,38 @@
       }
     },
     {
+      "id": "mobile-redesign-1012",
+      "workstream": "mobile",
+      "title": "Редизайн: рестораны, заказы и трекер (12.10)",
+      "summary": "По заданию владельца от 12.10 внедрены M05 «Наши рестораны» (статичная карта OSM, статус по Asia/Almaty, «Открыть в 2ГИС» через dgis://), M19 «Заказы» (Сейчас/История по дням, коллаж фото, отменённые, оценка, пустое состояние, счётчик) и низ трекера M17/M18 (компактный состав, карусель игр, плитки Чек/Поддержка). Только UI. Проверены test:mobile 352+50, typecheck, ESLint, Prettier и web 393×852 (16 browser-проверок). PR #233 включён в shared; новые browser-сценарии подключены к CI. Перекрытие кнопки Kaspi исправлено и проверено на 393×852 и 320×568. Полная CI f333d1b8 и объединённых исправлений 699c003f успешна, 11/11. Build 19 загружен и обработан Apple, статус «Тестируется» в PickChick Internal; приёмка iPhone отдельно.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["mobile-orders-feedback"],
+      "evidence": [
+        {
+          "label": "Задание и макеты владельца",
+          "path": "docs/design/mobile-redesign-2026-10-12/README.md"
+        },
+        {
+          "label": "Внедрение, проверки, снимки и отличия",
+          "path": "docs/operations/mobile-redesign-2026-10-12.md"
+        }
+      ],
+      "acceptance": [
+        "Экраны M05, M19, M17/M18 совпадают с макетами на 393×852 во всех состояниях из задания.",
+        "Запуск/вход, оплата и API не изменены; существующие testID сохранены.",
+        "Владелец принял сборку на физическом iPhone."
+      ],
+      "nextAction": "Владелец проходит чек-лист на физическом iPhone в TestFlight 0.2.0 (19).",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
       "id": "identity-telegram-login",
       "workstream": "identity",
       "title": "Подготовить Telegram-вход и ручной SMS-резерв",
@@ -4384,6 +4416,38 @@
         "Месяц, год и должность выбираются из списка; сохранённые значения не теряются."
       ],
       "nextAction": "Владельцу проверить фильтры на компьютере/телефоне и выбор должности при создании и изменении смены.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-testflight19",
+      "workstream": "mobile",
+      "title": "iOS build 19: редизайн и исправления",
+      "summary": "PR #233 и #234 включены в shared 699c003f после полной CI 11/11. Локально успешны typecheck/lint/format, 358 Node + 50 Python mobile, 244 unit и браузерные сценарии. 0.2.0 (19) собрана из чистого shared, подпись, JS и 10 фото напитков в архиве/IPA проверены. Apple обработала build 19, в группе PickChick Internal (два прежних тестировщика) статус «Тестируется», чек-лист сохранён. Установка 19 видна в Apple; приёмка владельцем ещё не подтверждена. Каталог и цены не публиковались.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["mobile-redesign-1012"],
+      "evidence": [
+        {
+          "label": "Объединение и проверки",
+          "path": "docs/operations/mobile-bugfix-2026-10-12.md"
+        },
+        {
+          "label": "Выпуск и чек-лист",
+          "path": "docs/operations/mobile-testflight19.md"
+        }
+      ],
+      "acceptance": [
+        "Полная CI обоих PR успешна; исходник архива включён в shared.",
+        "0.2.0 (19) обработана Apple и доступна внутренним тестировщикам.",
+        "Владелец проверил приложение на iPhone."
+      ],
+      "nextAction": "Владелец проходит чек-лист на iPhone; статус установленной сборки не подменяет приёмку.",
       "checks": {
         "implemented": true,
         "verified": true,

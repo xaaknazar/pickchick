@@ -31,12 +31,14 @@ import {
 } from '../commerce-checkout';
 import { OrderStatusView } from './OrderStatusScreen';
 import { CompletedOrderScreen } from './CompletedOrderScreen';
-import { OrderHistoryCard } from '../components/OrderHistoryCard';
+import { CommerceOrderList } from '../components/OrderHistoryCard';
+import { OrdersEmpty, OrdersHeader, ordersPageStyle } from '../components/OrdersTab';
+import { publishActiveOrderCount } from '../active-orders';
+import { commerceActiveKind } from '../orders-tab';
 import { useCommerceFeedback } from '../useCommerceFeedback';
 import { checkoutError, paymentReceived, commerceStatus } from '../commerce-presentation';
 import { CheckoutDetails } from './CheckoutScreen';
 import { CheckoutKeyboardDone } from '../components/CheckoutKeyboard';
-import { OrderHeader } from '../components/OrderPresentation';
 import { OrderSheet } from '../components/OrderSheet';
 import { PaymentMark } from '../components/PaymentChoice';
 import { Body, Button, Caption, Empty, Icon, Page, Row } from '../components/UI';
@@ -303,6 +305,20 @@ function KaspiCheckoutSession(props: ScreenProps) {
     return () => controller.abort();
   }, [props.screenId, order, foreground, history, request, key]);
 
+  // Tab badge mirrors the list already loaded here; no extra request or poll.
+  const activeCount =
+    props.screenId === 'M19'
+      ? history.filter((item) => commerceActiveKind(item.phase) !== null).length
+      : null;
+  useEffect(() => {
+    if (activeCount !== null) publishActiveOrderCount(activeCount);
+  }, [activeCount]);
+  useEffect(
+    () => () => {
+      if (props.screenId === 'M19') publishActiveOrderCount(0);
+    },
+    [props.screenId],
+  );
   useEffect(() => {
     if (!paidMoment || !foreground) return;
     const timer = setTimeout(() => setPaidMoment(false), 2000);
@@ -570,7 +586,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
       />
     );
   if (order && paymentReceived(order.phase)) {
-    const status = (statusProps: ScreenProps) =>
+    const status = (statusProps: ScreenProps, onBeforeGame?: () => void) =>
       order.phase === 'handed_over' ? (
         <CompletedOrderScreen
           key={order.orderId}
@@ -605,6 +621,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
         <OrderStatusView
           props={statusProps}
           order={commerceStatus(order)}
+          onBeforeGame={onBeforeGame}
           afterItems={
             order.kitchenComment ? (
               <View testID="order-kitchen-comment" style={s.savedComment}>
@@ -613,18 +630,15 @@ function KaspiCheckoutSession(props: ScreenProps) {
               </View>
             ) : undefined
           }
-          receipt={
-            <View style={s.note}>
-              <Icon name="receipt-outline" color={colors.muted} />
-              <Caption style={s.flex}>
-                {order.receipt === 'deferred'
-                  ? 'Фискальный чек пока не выпускается - Webkassa подключается.'
-                  : order.receipt === 'issued'
-                    ? 'Чек выпущен. Ссылка на него уточняется.'
-                    : 'Ожидаем фискальный чек'}
-              </Caption>
-            </View>
-          }
+          receipt={{
+            // Status only: the tracker has no receipt link; the completed order opens it.
+            caption:
+              order.receipt === 'deferred'
+                ? 'Фискальный чек пока не выпускается - Webkassa подключается.'
+                : order.receipt === 'issued'
+                  ? 'Чек выпущен. Ссылка на него уточняется.'
+                  : 'Ожидаем фискальный чек',
+          }}
         />
       );
     if (props.inSheet) return status(props);
@@ -641,7 +655,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
           name={order.phase === 'handed_over' ? 'Завершённый заказ' : 'Статус заказа'}
           onClose={close}
         >
-          {(dismiss) => status({ ...props, inSheet: true, goBack: dismiss })}
+          {(dismiss) => status({ ...props, inSheet: true, goBack: dismiss }, close)}
         </OrderSheet>
       </Modal>
     );
@@ -650,13 +664,13 @@ function KaspiCheckoutSession(props: ScreenProps) {
     <Page
       props={props}
       title={props.screenId === 'M19' ? 'Заказы' : 'Оформление'}
-      contentStyle={checkoutStyle.content}
+      contentStyle={props.screenId === 'M19' ? ordersPageStyle.content : checkoutStyle.content}
       footerStyle={checkoutStyle.footer}
       footer={footer}
       keyboardFooter={props.screenId === 'M12' ? <CheckoutKeyboardDone /> : undefined}
       header={
         props.screenId === 'M19' ? (
-          <OrderHeader title="Заказы" onClose={props.goBack} testID="kaspi-order-close" />
+          <OrdersHeader />
         ) : (
           <CheckoutSheetHeader
             title="Оформление"
@@ -691,32 +705,21 @@ function KaspiCheckoutSession(props: ScreenProps) {
       {props.screenId === 'M19' ? (
         <>
           {!history.length && loaded && !error ? (
-            <Empty
-              title="Заказов пока нет"
-              detail="Здесь появятся ваши заказы с оплатой Kaspi."
-              action={<Button title="Выбрать блюда" onPress={() => props.navigate('M06')} />}
-            />
+            <OrdersEmpty onMenu={() => props.navigate('M06')} />
           ) : null}
-          {history.map((item) => (
-            <OrderHistoryCard
-              key={item.orderId}
-              order={item}
-              products={props.model.products}
-              savedRating={reviews.ratings[item.orderId]?.rating}
-              onOpen={() => {
-                setInitialRating(undefined);
-                setOrder(item);
-              }}
-              onRate={
-                item.phase === 'handed_over'
-                  ? (stars) => {
-                      setInitialRating(stars);
-                      setOrder(item);
-                    }
-                  : undefined
-              }
-            />
-          ))}
+          <CommerceOrderList
+            orders={history}
+            products={props.model.products}
+            ratings={reviews.ratings}
+            onOpen={(item) => {
+              setInitialRating(undefined);
+              setOrder(item);
+            }}
+            onRate={(item, stars) => {
+              setInitialRating(stars);
+              setOrder(item);
+            }}
+          />
         </>
       ) : props.model.cart.length ? (
         <CheckoutDetails
@@ -771,5 +774,4 @@ const s = StyleSheet.create({
   card: { gap: 12, padding: 18, borderRadius: 22, backgroundColor: colors.surface },
   loading: { padding: 24, alignItems: 'center', gap: 12 },
   warning: { padding: 16, gap: 12, borderRadius: 18, backgroundColor: colors.warningSurface },
-  note: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
 });

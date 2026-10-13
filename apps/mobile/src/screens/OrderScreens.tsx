@@ -1,4 +1,5 @@
 import { OrderHistoryPreview } from './CompletedOrderPreview';
+import { OrdersEmpty, OrdersHeader, ordersPageStyle } from '../components/OrdersTab';
 import { Image } from 'expo-image';
 import {
   ActivityIndicator,
@@ -27,7 +28,6 @@ import {
   Notice,
   Page,
   Pill,
-  ReviewBadge,
   Row,
   SummaryRow,
   styles as ui,
@@ -221,7 +221,6 @@ export function Ready(props: ScreenProps) {
         contentFit="cover"
       />
       <ScrollView contentContainerStyle={s.readyContent}>
-        <ReviewBadge />
         <Row>
           <View style={ui.flex}>
             <Heading style={s.readyTitle}>Готово!</Heading>
@@ -256,13 +255,14 @@ export function Ready(props: ScreenProps) {
 export function History(props: ScreenProps) {
   if (!props.preview)
     return (
-      <Page props={props} title="Мои заказы" noBack>
-        <Empty
-          icon="receipt-outline"
-          title="Пока без заказов"
-          detail="Здесь появятся ваши заказы. Выбирайте любимые блюда в меню."
-          action={<Button title="Открыть меню" onPress={() => props.navigate('M06')} />}
-        />
+      <Page
+        props={props}
+        title="Заказы"
+        noBack
+        header={<OrdersHeader />}
+        contentStyle={ordersPageStyle.content}
+      >
+        <OrdersEmpty onMenu={() => props.navigate('M06')} />
       </Page>
     );
   return <OrderHistoryPreview {...props} />;

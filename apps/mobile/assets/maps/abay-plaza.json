@@ -1,0 +1,19 @@
+{
+  "image": "abay-plaza.webp",
+  "source": "OpenStreetMap standard tiles (tile.openstreetmap.org), recoloured",
+  "attribution": "© OpenStreetMap",
+  "licence": "ODbL - © OpenStreetMap contributors",
+  "generated": "2026-10-12",
+  "zoom": 16,
+  "width": 393,
+  "height": 320,
+  "pointsPerTilePixel": 0.61,
+  "originWorldPixel": {
+    "x": 11970262,
+    "y": 6150072
+  },
+  "center": {
+    "latitude": 43.226274,
+    "longitude": 76.860865
+  }
+}
