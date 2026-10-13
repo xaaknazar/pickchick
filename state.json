@@ -5052,11 +5052,17 @@
         "packages/backoffice-core/package.json",
         "services/edge/src/terminal-access-controller.ts",
         "tests/integration/terminal-access.test.mjs",
-        "infra/windows/native-device-access-worker.mjs"
+        "infra/windows/native-device-access-worker.mjs",
+        "services/api/src/index.ts",
+        "apps/backoffice/src/api.ts",
+        "apps/backoffice/src/styles.css",
+        "apps/backoffice/build.mjs",
+        "apps/backoffice/src/index.html",
+        "infra/staging/device-center-grants.mjs"
       ],
       "status": "active",
       "head": "f61da9d6de3bed69d83700c2f0f672a2e5c9e14e",
-      "updatedAt": "2026-10-13T10:06:21.544Z"
+      "updatedAt": "2026-10-13T10:09:23.264Z"
     }
   ]
 }
