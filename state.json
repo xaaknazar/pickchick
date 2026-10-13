@@ -5044,7 +5044,9 @@
         "infra/staging/release-kiosk-cart-lines.py",
         "tests/operations/test_kiosk_cart_lines_release.py",
         "docs/operations/kiosk-cart-lines-api-2026-10-13.md",
-        "@vps/postgres"
+        "@vps/postgres",
+        "packages/edge-fulfillment/src/model.ts",
+        "packages/edge-fulfillment/tests/postgres.test.mjs"
       ],
       "updatedAt": "2026-10-13T15:28:44.932Z",
       "summary": "Owner authorized temporary @vps/api and @vps/postgres for this substage; postgres only encrypted backup + isolated restore, no live schema/data changes. Exact installed baseline now 5b6f846b/schema058, explicitly integrated."
@@ -5142,9 +5144,7 @@
         "docs/operations/kiosk-owner-polish-2026-10-13.md",
         "tests/kiosk/ios",
         "packages/contracts/openapi.json",
-        "packages/edge-fulfillment/src/model.ts",
         "packages/edge-fulfillment/tests/kiosk-large-order.test.mjs",
-        "packages/edge-fulfillment/tests/postgres.test.mjs",
         "docs/operations/images/kiosk-owner-polish-2026-10-13",
         "docs/project-status.md",
         "docs/roadmap/project.json",
