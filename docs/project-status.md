@@ -16,6 +16,22 @@
 `codex/kiosk-redesign-1013`; push и PR - с Mac. Следующий шаг - CI, PR, сборка киоска и
 приёмка владельцем на iPad.
 
+## 13 октября: стоп-лист доступен управляющему
+
+Включены удалённые STOP/UNSTOP на действующих API `f01cb45f`/cloud052 и кассе
+`23fb39e1`/edge019 через оператор `bce06c16`. Полная Foundation CI 38251403173
+прошла 11/11. Runtime и миграции не обновлялись. Проверены фактические readiness
+и права управляющего: 262 позиции, `enabled/edge_ready/writable=true`.
+Windows env backup/restore и encrypted cloud backup с изолированным restore успешны;
+данные и соседние сервисы сохранены. Локально 21 функциональная проверка стопов,
+8 новых SQL-проверок, 15 Python guards и 46 Windows guards прошли.
+Онлайн-пульт обновлён из `e89fe9d7`; полная Foundation CI 38349867556 прошла
+11/11, Project roadmap CI 38349897327 успешна. Заметки команды сохранены.
+Приёмка владельцем на рабочем блюде не отмечена. Online-протокол требует кассу
+в сети; cloud-kitchen и расчёт последней порции - отдельные этапы.
+
+[Протокол выпуска](operations/deployments/2026-10-13-existing-stops.md).
+
 ## 13 октября: мобильные PR в shared, build 19 в TestFlight
 
 [PR #233](https://github.com/xaaknazar/pickchick/pull/233) и
