@@ -34,12 +34,15 @@ export const WorkPlan = z
       Date.parse(v.end) > Date.parse(v.start) + v.unpaid_break_minutes * 60000 &&
       Date.parse(v.end) - Date.parse(v.start) <= 86400000,
   );
-export const HourlyRate = z.strictObject({
-  deleted: z.literal(true).optional(),
-  employee_id: id,
-  effective_date: WorkDate,
-  hourly_minor: money.refine((v) => BigInt(v) > 0n),
-});
+export const HourlyRate = z
+  .strictObject({
+    valid_until: WorkDate.optional(),
+    deleted: z.literal(true).optional(),
+    employee_id: id,
+    effective_date: WorkDate,
+    hourly_minor: money.refine((v) => BigInt(v) > 0n),
+  })
+  .refine((v) => !v.valid_until || v.valid_until >= v.effective_date);
 export const WorkPunch = z.strictObject({
   external_id: z.string().trim().min(1).max(160),
   employee_id: id,
@@ -54,12 +57,26 @@ export const WorkTime = z
     status: z.enum(['draft', 'approved', 'voided']),
     attendance: z.enum(['worked', 'day_off', 'absence', 'leave', 'sick']),
     intervals: z.array(interval).max(20),
+    paid_duration_ms: z.number().int().min(1).max(86400000).optional(),
+    source: z
+      .strictObject({
+        sha256: z.string().regex(/^[a-f0-9]{64}$/),
+        cell: z.string().max(100),
+        hours: z.string().regex(/^\d+(\.\d{1,6})?$/),
+      })
+      .optional(),
     source_event_ids: z.array(id).max(100),
     note,
   })
   .superRefine((v, ctx) => {
     const bad = () => ctx.addIssue({ code: 'custom', message: 'Invalid timesheet' });
-    if ((v.attendance === 'worked') !== v.intervals.length > 0) bad();
+    if (
+      (v.attendance === 'worked') !==
+      (v.intervals.length > 0 || v.paid_duration_ms !== undefined)
+    )
+      bad();
+    if (v.paid_duration_ms !== undefined && (v.intervals.length || v.source_event_ids.length))
+      bad();
     if (new Set(v.source_event_ids).size !== v.source_event_ids.length) bad();
     const sorted = [...v.intervals].sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
     if (
@@ -84,11 +101,52 @@ export const WorkBonus = z.strictObject({
   amount_minor: money,
   status: z.enum(['draft', 'approved', 'voided']),
 });
+export const WorkPayroll = z.strictObject({
+  deleted: z.literal(true).optional(),
+  employee_id: id,
+  month: WorkMonth,
+  status: z.enum(['draft', 'approved', 'voided']),
+  base_override_minor: money.nullable(),
+  note,
+  items: z
+    .array(
+      z.strictObject({
+        name: z.string().trim().min(1).max(120),
+        effect: z.enum(['addition', 'deduction']),
+        amount_minor: money,
+      }),
+    )
+    .max(30),
+  source: z
+    .strictObject({
+      sha256: z.string().regex(/^[a-f0-9]{64}$/),
+      sheet: z.string().max(100),
+      row: z.number().int().min(1).max(100000),
+      gross_minor: money.nullable(),
+      net_minor: z
+        .string()
+        .regex(/^-?(0|[1-9][0-9]{0,13})$/)
+        .nullable(),
+      cells: z
+        .array(
+          z.strictObject({
+            cell: z.string().max(12),
+            label: z.string().max(120),
+            value: z.string().max(500),
+            formula: z.string().max(500),
+          }),
+        )
+        .max(30),
+      issues: z.array(z.string().max(250)).max(20),
+    })
+    .optional(),
+});
 export const WorkforceSchemas = {
   plan: WorkPlan,
   rate: HourlyRate,
   time: WorkTime,
   bonus: WorkBonus,
+  payroll: WorkPayroll,
 };
 export type WorkforceKind = keyof typeof WorkforceSchemas;
 export type WorkRecord = { id: string; kind: WorkforceKind; revision: number; payload: unknown };
@@ -99,13 +157,13 @@ export const WorkforceRequest = z.strictObject({
   command: z.discriminatedUnion('type', [
     z.strictObject({
       type: z.literal('delete'),
-      kind: z.enum(['plan', 'rate', 'time', 'bonus', 'employee']),
+      kind: z.enum(['plan', 'rate', 'time', 'bonus', 'payroll', 'employee']),
       id,
       expected_revision: z.number().int().min(1).max(2147483646),
     }),
     z.strictObject({
       type: z.literal('save'),
-      kind: z.enum(['plan', 'rate', 'time', 'bonus']),
+      kind: z.enum(['plan', 'rate', 'time', 'bonus', 'payroll']),
       id,
       expected_revision: z.number().int().min(0).max(2147483646),
       payload: z.unknown(),
@@ -115,6 +173,7 @@ export const WorkforceRequest = z.strictObject({
       source: z.string().regex(/^[a-z0-9_-]{1,50}$/),
       events: z.array(WorkPunch).min(1).max(500),
     }),
+    z.strictObject({ type: z.literal('generate_payroll'), month: WorkMonth }),
     z.strictObject({
       type: z.literal('period'),
       month: WorkMonth,
@@ -195,6 +254,7 @@ export type PayrollLine = {
   base_minor: string;
   bonus_minor: string;
   total_minor: string;
+  unknown_clock_seconds: number;
 };
 /** Base gross pay only. Statutory premiums, deductions and payment are separate stages. */
 export function calculateWorkforce(month: string, records: WorkRecord[]) {
@@ -213,6 +273,7 @@ export function calculateWorkforce(month: string, records: WorkRecord[]) {
         employee_id: employee,
         seconds: 0,
         night_seconds: 0,
+        unknown_clock_seconds: 0,
         base_minor: '0',
         bonus_minor: '0',
         total_minor: '0',
@@ -237,6 +298,29 @@ export function calculateWorkforce(month: string, records: WorkRecord[]) {
         });
       continue;
     }
+    if (time.paid_duration_ms !== undefined && time.date.slice(0, 7) === month.slice(0, 7)) {
+      const line = row(time.employee_id);
+      line.seconds += time.paid_duration_ms / 1000;
+      line.unknown_clock_seconds += time.paid_duration_ms / 1000;
+      const applicable = rates
+        .filter(
+          (r) =>
+            r.employee_id === time.employee_id &&
+            r.effective_date <= time.date &&
+            (!r.valid_until || r.valid_until >= time.date),
+        )
+        .sort((a, b) => b.effective_date.localeCompare(a.effective_date));
+      if (!applicable[0])
+        issues.push({ employee_id: time.employee_id, code: 'MISSING_RATE', record_id: record.id });
+      else if (applicable[1]?.effective_date === applicable[0].effective_date)
+        throw new BackofficeError('CONFLICT');
+      else
+        amounts.set(
+          time.employee_id,
+          (amounts.get(time.employee_id) ?? 0n) +
+            BigInt(applicable[0].hourly_minor) * BigInt(time.paid_duration_ms),
+        );
+    }
     for (const span of time.intervals) {
       let cursor = Math.max(window.start, Date.parse(span.start));
       const end = Math.min(window.end, Date.parse(span.end));
@@ -258,7 +342,12 @@ export function calculateWorkforce(month: string, records: WorkRecord[]) {
           overlap(midnight, midnight + 6 * 3600000) +
           overlap(midnight + 22 * 3600000, midnight + 86400000);
         const applicable = rates
-          .filter((r) => r.employee_id === time.employee_id && r.effective_date <= date)
+          .filter(
+            (r) =>
+              r.employee_id === time.employee_id &&
+              r.effective_date <= date &&
+              (!r.valid_until || r.valid_until >= date),
+          )
           .sort((a, b) => b.effective_date.localeCompare(a.effective_date));
         const rate = applicable[0];
         if (!rate)
@@ -272,7 +361,8 @@ export function calculateWorkforce(month: string, records: WorkRecord[]) {
         else
           amounts.set(
             time.employee_id,
-            (amounts.get(time.employee_id) ?? 0n) + BigInt(rate.hourly_minor) * BigInt(seconds),
+            (amounts.get(time.employee_id) ?? 0n) +
+              BigInt(rate.hourly_minor) * BigInt(stop - cursor),
           );
         cursor = stop;
       }
@@ -320,11 +410,43 @@ export function calculateWorkforce(month: string, records: WorkRecord[]) {
     }
   }
   for (const line of rows.values()) {
-    line.base_minor = String(((amounts.get(line.employee_id) ?? 0n) + 1800n) / 3600n);
+    line.base_minor = String(((amounts.get(line.employee_id) ?? 0n) + 1800000n) / 3600000n);
     line.total_minor = String(BigInt(line.base_minor) + BigInt(line.bonus_minor));
   }
+  const payroll = records
+    .filter((r) => r.kind === 'payroll')
+    .map((r) => {
+      const p = parse(WorkPayroll, r.payload);
+      if (p.month !== month || p.status === 'voided') return null;
+      const calculated = rows.get(p.employee_id);
+      const base = BigInt(p.base_override_minor ?? calculated?.base_minor ?? '0');
+      const bonus = BigInt(calculated?.bonus_minor ?? '0');
+      const additions = p.items
+        .filter((i) => i.effect === 'addition')
+        .reduce((n, i) => n + BigInt(i.amount_minor), 0n);
+      const deductions = p.items
+        .filter((i) => i.effect === 'deduction')
+        .reduce((n, i) => n + BigInt(i.amount_minor), 0n);
+      if (p.status !== 'approved')
+        issues.push({ employee_id: p.employee_id, code: 'UNAPPROVED_PAYROLL', record_id: r.id });
+      if (p.base_override_minor === null && !calculated)
+        issues.push({ employee_id: p.employee_id, code: 'MISSING_PAYROLL_BASE', record_id: r.id });
+      return {
+        id: r.id,
+        employee_id: p.employee_id,
+        status: p.status,
+        base_minor: String(base),
+        bonus_minor: String(bonus),
+        additions_minor: String(additions),
+        deductions_minor: String(deductions),
+        total_minor: String(base + bonus + additions - deductions),
+        source_net_minor: p.source?.net_minor ?? null,
+      };
+    })
+    .filter((p) => p !== null);
   return {
     month,
+    payroll,
     calculation: 'base_gross_preview' as const,
     lines: [...rows.values()].sort((a, b) => a.employee_id.localeCompare(b.employee_id)),
     issues,
