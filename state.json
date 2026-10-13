@@ -4967,10 +4967,11 @@
         "packages/edge-fulfillment/tests/postgres.test.mjs",
         "infra/windows/update-native-kiosk-cart-lines.ps1",
         "tests/operations/test_windows_kiosk_cart_lines.py",
-        "docs/operations/kiosk-cart-lines-windows-2026-10-13.md"
+        "docs/operations/kiosk-cart-lines-windows-2026-10-13.md",
+        "@windows/cashier"
       ],
-      "updatedAt": "2026-10-13T15:38:19.138Z",
-      "summary": "Owner authorized temporary @vps/api and @vps/postgres for this substage; postgres only encrypted backup + isolated restore, no live schema/data changes. Exact installed baseline now 5b6f846b/schema058, explicitly integrated. Windows recipient substage uses a separate codex/kiosk-cart-lines-windows-1013 worktree from the read-only verified installed 23fb39e/schema019 baseline. Same owned edge-model/test scopes; no Windows mutation yet.\n2026-10-13: владелец в device-center подтвердил «Выпуск завершён — можно передать API». API и зависимые ограниченные grants переданы обратно для Devices activation; исходники киоска/публичный сайт/roadmap сохранены. Перед новым выпуском киоска прочитать фактический 5b6f846b/cloud058 и device-center deployment record."
+      "updatedAt": "2026-10-13T15:49:38.737Z",
+      "summary": "Owner explicitly authorized temporary @windows/cashier transfer from device-center: exact-CI two-file runtime delta, protected backup/restore, restart fulfillment worker only; POS app and other services preserved. Return resources after completion."
     },
     {
       "id": "kiosk-owner-polish-1013",
@@ -5130,7 +5131,6 @@
         "infra/staging/device-center-grants.mjs",
         "@vps/staff-login",
         "@vps/kitchen-portal",
-        "@windows/cashier",
         "infra/windows/update-native-device-center.ps1",
         "infra/windows/device-center-upgrade-db.mjs",
         "tests/operations/test_device_center_windows.py",
@@ -5154,8 +5154,8 @@
       ],
       "status": "active",
       "head": "94f0ce2a5cd94d0938666089c926e4da13ee149a",
-      "updatedAt": "2026-10-13T15:48:46.875Z",
-      "summary": "API5b6f846b/cloud058, canonical portal4caca195 and gateway installed with exact CI11/11. Kitchen portal and Windows KitchenLink now5b6f846b, edgeConnected=true. Windows020 COMMITTED; old23fb runtime running, recovery receipt is pending exact CI dfcf7d8f. Do not replay schema019 or overwrite installed Devices API. 2026-10-13: владелец в device-center подтвердил «Выпуск завершён — можно передать API». API и зависимые ограниченные grants переданы обратно для Devices activation; исходники киоска/публичный сайт/roadmap сохранены. Перед новым выпуском киоска прочитать фактический 5b6f846b/cloud058 и device-center deployment record."
+      "updatedAt": "2026-10-13T15:49:38.737Z",
+      "summary": "API5b6f846b/cloud058, canonical portal4caca195 and gateway installed with exact CI11/11. Kitchen portal and Windows KitchenLink now5b6f846b, edgeConnected=true. Windows020 COMMITTED; old23fb runtime running, recovery receipt is pending exact CI dfcf7d8f. Do not replay schema019 or overwrite installed Devices API. 2026-10-13: владелец в device-center подтвердил «Выпуск завершён — можно передать API». API и зависимые ограниченные grants переданы обратно для Devices activation; исходники киоска/публичный сайт/roadmap сохранены. Перед новым выпуском киоска прочитать фактический 5b6f846b/cloud058 и device-center deployment record. Owner authorized temporary @windows/cashier transfer for kiosk18 fulfillment-worker-only update."
     }
   ]
 }
