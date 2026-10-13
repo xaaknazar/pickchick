@@ -4943,11 +4943,11 @@
         "docs/operations/kiosk-build17-installation.md",
         "docs/operations/images/kiosk-product-payment-2026-10-13"
       ],
-      "status": "active",
-      "head": "f4f5dc998d5d62604bbb9f911227eaa61160512c",
-      "updatedAt": "2026-10-13T14:51:32.816Z",
-      "summary": "PR244 merged after 13 green checks. Build17 installed over16; final native 1/1 passed, no skips. Roadmap06652 deployed after the unrelated backoffice release lock cleared; guarded receipt passed. Temporary reservations returned.",
-      "nextAction": "Push supplied branch, PR from supplied PR.md; require full CI, locked install/tests, commercial=1 Release and signature/identity verification; prioritize cable install. Native checklist in isolated demo only; record installation protocol."
+      "status": "done",
+      "head": "06652d6fbe60e607f2863bbe539cf0601b599c79",
+      "updatedAt": "2026-10-13T14:53:58.579Z",
+      "summary": "Build17 installed over16; native1/1 no skips; PR244 merged9bef7855 after full13 green checks. Roadmap06652 deployed with guarded verification; temporary reservations returned.",
+      "nextAction": "New owner feedback is implemented separately in kiosk-owner-polish-1013 build18; owner acceptance remains separate."
     },
     {
       "id": "device-center",
