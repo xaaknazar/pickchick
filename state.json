@@ -4924,10 +4924,7 @@
       "branch": "codex/kiosk-redesign-1013",
       "scopes": [
         "docs/operations/kiosk-build15-installation.md",
-        "docs/project-status.md",
-        "docs/roadmap/project.json",
         "@vps/roadmap",
-        "@vps/public-https",
         "apps/kiosk/.storybook",
         "apps/kiosk/App.tsx",
         "apps/kiosk/COMMERCIAL.md",
@@ -5002,9 +4999,9 @@
       ],
       "status": "active",
       "head": "85f99bc36bb91c4b931ee1a2ae25b502914d4f42",
-      "updatedAt": "2026-10-13T10:18:42.087Z",
+      "updatedAt": "2026-10-13T10:27:03.923Z",
       "summary": "Build 16 source 85f99bc3: smooth mode/menu transition, CTA below price, QR waiting polish and demo-only unpaid cancellation. 188 kiosk tests and browser checks pass; signed archive ready. Live QR cancellation unsupported; no bank requests.",
-      "nextAction": "Await complete Foundation CI 38380416800; update iPad 15 to 16, run isolated native demo test, commit installation proof and publish roadmap. Do not install the superseded f200906c archive."
+      "nextAction": "Await complete Foundation CI 38380416800; update iPad 15 to 16, run isolated native demo test, commit installation proof and publish roadmap. Do not install the superseded f200906c archive.\n2026-10-13: владелец явно передал device-center серверный резерв и общие документы на время выпуска: @vps/public-https, docs/project-status.md, docs/roadmap/project.json. Дизайн и остальные области сохранены."
     },
     {
       "id": "device-center",
@@ -5068,11 +5065,14 @@
         "infra/windows/update-native-device-center.ps1",
         "infra/windows/device-center-upgrade-db.mjs",
         "tests/operations/test_device_center_windows.py",
-        "infra/domains/device-center.Caddyfile"
+        "infra/domains/device-center.Caddyfile",
+        "@vps/public-https",
+        "docs/project-status.md",
+        "docs/roadmap/project.json"
       ],
       "status": "active",
       "head": "f61da9d6de3bed69d83700c2f0f672a2e5c9e14e",
-      "updatedAt": "2026-10-13T10:21:43.703Z"
+      "updatedAt": "2026-10-13T10:27:03.929Z"
     }
   ]
 }
