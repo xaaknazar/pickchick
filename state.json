@@ -5049,7 +5049,7 @@
         "packages/edge-fulfillment/tests/postgres.test.mjs"
       ],
       "updatedAt": "2026-10-13T15:28:44.932Z",
-      "summary": "Owner authorized temporary @vps/api and @vps/postgres for this substage; postgres only encrypted backup + isolated restore, no live schema/data changes. Exact installed baseline now 5b6f846b/schema058, explicitly integrated."
+      "summary": "Owner authorized temporary @vps/api and @vps/postgres for this substage; postgres only encrypted backup + isolated restore, no live schema/data changes. Exact installed baseline now 5b6f846b/schema058, explicitly integrated. Windows recipient substage uses a separate codex/kiosk-cart-lines-windows-1013 worktree from the read-only verified installed 23fb39e/schema019 baseline. Same owned edge-model/test scopes; no Windows mutation yet."
     },
     {
       "id": "kiosk-owner-polish-1013",
