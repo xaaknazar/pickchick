@@ -291,6 +291,10 @@ with sync_playwright() as p:
         assert stored_account(page) == after_skip
         assert page.evaluate('(key) => localStorage.getItem(key)', SESSION_KEY) == SESSION
         profile.get_by_test_id('demo-sign-out').click()
+        # Logout persists asynchronously. Reload only after the guest state
+        # acknowledges it, then verify that state survives a new app instance.
+        expect(visible_element(page, 'account-required-login')).to_be_visible()
+        assert stored_account(page) is None
         page.reload()
         expect(visible_element(page, 'account-required-login')).to_be_visible()
         assert stored_account(page) is None

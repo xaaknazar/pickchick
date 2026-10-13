@@ -119,6 +119,24 @@ const setup = (fn) =>
     });
   });
 
+test('automatic payroll cannot be approved with missing hours or rates; manual historical base stays independent', () =>
+  setup(async ({ employee_id, save, entry }) => {
+    const payroll = {
+      employee_id,
+      month,
+      status: 'approved',
+      base_override_minor: null,
+      note: 'Проверка автоматической базы',
+      items: [],
+    };
+    await save('payroll', { ...payroll, month: '2026-08-01', base_override_minor: '123400' });
+    await assert.rejects(save('payroll', payroll), { code: 'NOT_READY' });
+    await save('time', entry({ intervals: [], paid_duration_ms: 3600000 }));
+    await assert.rejects(save('payroll', payroll), { code: 'NOT_READY' });
+    await save('rate', { employee_id, effective_date: month, hourly_minor: '100000' });
+    await save('payroll', payroll);
+  }));
+
 test('restricted runtime can save but cannot rewrite source events, erase history or grant itself access', () =>
   setup(async (c) => {
     const role = 'workforce_' + randomUUID().replaceAll('-', '');
