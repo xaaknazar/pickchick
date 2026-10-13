@@ -17,6 +17,7 @@ import {
   DeviceAccessError,
   deviceAccessEnabled,
   exchangeDeviceAccess,
+  kioskPresence,
 } from '@pickchick/backoffice-core/devices';
 import { SyncError } from '@pickchick/menu-sync';
 
@@ -72,6 +73,8 @@ export class DeviceRegistryController {
     this.service = new DeviceRegistry(
       resources.pool,
       deviceAccessEnabled() && resources.config.backofficeEnabled === true,
+      process.env['DEVICE_CENTER_ENABLED'] === 'true' &&
+        resources.config.backofficeEnabled === true,
     );
   }
   private token(auth?: string) {
@@ -95,6 +98,25 @@ export class DeviceRegistryController {
     @Headers('authorization') auth?: string,
   ) {
     return run(() => this.service.events(this.token(auth), branch, id));
+  }
+  @Post('inventory')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  inventory(
+    @Param('branch') branch: string,
+    @Body() body: unknown,
+    @Headers('authorization') auth?: string,
+  ) {
+    return run(() => this.service.inventory(this.token(auth), branch, bounded(body)));
+  }
+  @Get(':id/inventory-events')
+  @Header('Cache-Control', 'no-store')
+  inventoryEvents(
+    @Param('branch') branch: string,
+    @Param('id') id: string,
+    @Headers('authorization') auth?: string,
+  ) {
+    return run(() => this.service.inventoryHistory(this.token(auth), branch, id));
   }
   @Post('pairing-codes')
   @HttpCode(201)
@@ -146,5 +168,22 @@ export class DeviceAccessTransportController {
         bounded(body),
       ),
     );
+  }
+}
+
+@Controller('v1/kiosk-checkout/device-presence')
+export class KioskPresenceController {
+  constructor(@Inject(RESOURCE) private readonly resources: Resources) {}
+  @Post()
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  receive(
+    @Headers('x-kiosk-device') id?: string,
+    @Headers('x-kiosk-key') key?: string,
+    @Body() body?: unknown,
+  ) {
+    if (process.env['DEVICE_CENTER_ENABLED'] !== 'true')
+      throw new HttpException({ code: 'NOT_FOUND' }, 404);
+    return run(() => kioskPresence(this.resources.pool, id ?? '', key ?? '', bounded(body)));
   }
 }
