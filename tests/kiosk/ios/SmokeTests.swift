@@ -110,9 +110,9 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(calories.waitForExistence(timeout: 10), "Source calorie caption must be present")
         XCTAssertTrue(calories.isHittable, "The 1240 ккал caption must be readable without scrolling")
         tap("kiosk-modifier-drink-lemonade", in: app)
-        tap("kiosk-modifier-plus-extras-toast", in: app)
+        // Redesign 2026-10-13: no extras list on the product card (the smart upsell offers them).
         let add = element("kiosk-product-add", in: app)
-        XCTAssertTrue(add.label.replacingOccurrences(of: "\u{00a0}", with: " ").contains("4 780"))
+        XCTAssertTrue(add.label.replacingOccurrences(of: "\u{00a0}", with: " ").contains("4 390"))
         let frame = add.frame
         element("kiosk-product-scroll", in: app).swipeUp()
         assertBounded("kiosk-product-add", in: app)
@@ -132,7 +132,7 @@ final class SmokeTests: XCTestCase {
         tap("kiosk-upsell-continue", in: app)
         assertScreen("cart", in: app)
 
-        let custom = "pick-combo|drink:lemonade:1,extras:toast:1,sauce:pick:1"
+        let custom = "pick-combo|drink:lemonade:1,sauce:pick:1"
         let standard = "pick-combo|drink:cola-bottle:1,sauce:pick:1"
         assertLabel("1", on: element("kiosk-cart-line-\(custom)-quantity", in: app))
         assertLabel("1", on: element("kiosk-cart-line-\(standard)-quantity", in: app))
@@ -143,14 +143,14 @@ final class SmokeTests: XCTestCase {
         app.launch()
         assertScreen("menu", in: app)
         tap("kiosk-menu-checkout", in: app)
-        // Source rule: 2 × 4 780 + 4 190 = 13 750 exceeds the 10 000 upsell threshold.
-        // The first 8 970 cart above must show upsell; this restored cart must skip it.
+        // Source rule: 2 × 4 390 + 4 190 = 12 970 exceeds the 10 000 upsell threshold.
+        // The first 8 580 cart above must show upsell; this restored cart must skip it.
         assertScreen("cart", in: app)
         XCTAssertFalse(element("kiosk-screen-upsell", in: app).exists)
         let total = app.staticTexts.matching(NSPredicate(
-            format: "label MATCHES %@", "13[\\s\u{00a0}\u{202f}]750[\\s\u{00a0}\u{202f}]*₸"
+            format: "label MATCHES %@", "12[\\s\u{00a0}\u{202f}]970[\\s\u{00a0}\u{202f}]*₸"
         )).firstMatch
-        XCTAssertTrue(total.waitForExistence(timeout: 10), "Restored total must remain 13 750 ₸")
+        XCTAssertTrue(total.waitForExistence(timeout: 10), "Restored total must remain 12 970 ₸")
         assertLabel("2", on: element("kiosk-cart-line-\(custom)-quantity", in: app))
         assertLabel("1", on: element("kiosk-cart-line-\(standard)-quantity", in: app))
         assertBounded("kiosk-cart-checkout", in: app)

@@ -376,7 +376,8 @@ class KioskUI(unittest.TestCase):
 
     def test_three_ipad_sizes_configuration_fixed_actions_and_reset(self):
         base = {('drink', 'cola-bottle', 1), ('sauce', 'pick', 1)}
-        custom = {('drink', 'lemonade', 1), ('sauce', 'pick', 1), ('extras', 'toast', 1)}
+        # Redesign 2026-10-13: the product card has no extras list (the smart upsell offers them).
+        custom = {('drink', 'lemonade', 1), ('sauce', 'pick', 1)}
         for width, height in [(768, 1024), (820, 1180), (1024, 1366)]:
             with self.subTest(width=width, height=height):
                 page, fixture = self.open(width, height)
@@ -427,8 +428,7 @@ class KioskUI(unittest.TestCase):
                 expect(sheet).not_to_be_visible()
                 expect(element(page, 'kiosk-product-add')).to_contain_text('4 190')
                 element(page, 'kiosk-modifier-drink-lemonade').click()
-                element(page, 'kiosk-modifier-plus-extras-toast').click()
-                expect(element(page, 'kiosk-product-add')).to_contain_text('4 780')
+                expect(element(page, 'kiosk-product-add')).to_contain_text('4 390')
                 fixed_action(page, 'kiosk-product-add', 'kiosk-product-scroll', width, height)
                 capture(page, f'product-{width}.png')
                 element(page, 'kiosk-product-add').click()
@@ -451,7 +451,7 @@ class KioskUI(unittest.TestCase):
                 self.assertEqual(len(order['snapshot']['lines']), 2)
                 self.assertEqual({frozenset(selection_set(line)) for line in order['snapshot']['lines']},
                                  {frozenset(base), frozenset(custom)})
-                self.assertEqual(order['snapshot']['total_minor'], '897000')
+                self.assertEqual(order['snapshot']['total_minor'], '858000')
                 capture(page, f'payment-{width}.png')
                 element(page, 'kiosk-payment-approve').click()
                 screen(page, 'order')
