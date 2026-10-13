@@ -19,6 +19,13 @@ BASELINE='ad7132fa5f4ae93bfa0693c8dd5e790c885d0201'
 MIGRATION='058_cloud_device_center.sql'
 FLAG='DEVICE_CENTER_ENABLED'
 e.BASELINE=w.BASELINE=lm.BASELINE=BASELINE
+RUNTIME_DELTA=frozenset({'packages/backoffice-core/src/device-registry.ts','packages/backoffice-core/src/device-presence.ts','packages/contracts/src/device-access.ts','packages/contracts/openapi.json','services/api/src/device-registry-controller.ts','services/api/src/index.ts'})
+REVIEWED_FIXTURES={'packages/backoffice-core/tests/workforce-store.test.mjs':'25a766bfaffd05b63e704c0ad78110a28338d1eeadf2a274523af63ddf706b4a'}
+
+def check_source_delta(changed,read):
+    require(changed<=RUNTIME_DELTA|REVIEWED_FIXTURES.keys(),'Unrelated API/payment dependency delta')
+    for path in changed & REVIEWED_FIXTURES.keys():
+        require(digest(read(path))==REVIEWED_FIXTURES[path],'Historical fixture differs from reviewed schema057 boundary')
 
 def compose_candidate(text,expected):
     require(digest(text.encode())==expected,'Installed compose differs')
@@ -45,9 +52,8 @@ class Release(e.Release):
     def source_checks(self):
         market.Release.source_checks(self)
         self.execute(['git','merge-base','--is-ancestor',BASELINE,self.sha])
-        allowed={'packages/backoffice-core/src/device-registry.ts','packages/backoffice-core/src/device-presence.ts','packages/contracts/src/device-access.ts','packages/contracts/openapi.json','services/api/src/device-registry-controller.ts','services/api/src/index.ts'}
         changed=set(self.git('diff','--name-only',BASELINE,self.sha,'--','services/api','packages/backoffice-core','packages/contracts','packages/commerce-core','infra/staging/compose.yaml','pnpm-lock.yaml').splitlines())
-        require(changed<=allowed,'Unrelated API/payment dependency delta')
+        check_source_delta(changed,lambda path:self.execute(['git','show',self.sha+':'+path]))
         # Other controllers already installed must remain byte-for-byte identical.
     def baseline_migrations(self):
         names=sorted(Path(p).name for p in self.git('ls-tree','-r','--name-only',BASELINE,'--','db/cloud/migrations/').splitlines() if p.endswith('.sql'))
