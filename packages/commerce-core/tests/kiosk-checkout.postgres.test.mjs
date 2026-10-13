@@ -18,7 +18,7 @@ import {
   KaspiRemoteProcessor,
   kioskCheckoutOptions,
 } from '../dist/index.js';
-import { publishCatalog } from './catalog-fixture.mjs';
+import { publishCatalog, catalogPayload } from './catalog-fixture.mjs';
 
 // Same explicit localhost fixtures as commerce tests; never read a private server env.
 process.env.APP_ENV ??= 'test';
@@ -573,5 +573,57 @@ test('QR checkout owns its server price and payment without recording guest phon
     assert.equal(view.payment.qrPayload, null);
     assert.equal(view.totalMinor, quote.totalMinor);
     await assert.rejects(f.checkout.read(await f.guest(), order.orderId), { code: 'NOT_FOUND' });
+  }, 'kaspi_qr');
+});
+
+// No count cap in kiosk intake, pricing, the durable quote or returned order. The normal
+// amount, availability and payload-size guards still apply. No payment attempt is created.
+test('kiosk accepts more than 200 cart configurations through quote and order persistence', async () => {
+  await fixture(async (f) => {
+    f.options.maxOrderMinor = 'unlimited';
+    const payload = catalogPayload();
+    const source = payload.products[0];
+    payload.products = Array.from({ length: 67 }, (_, i) => ({
+      ...source,
+      id: i === 0 ? 'burger' : `synthetic-${i}`,
+      sku: i === 0 ? 'BURGER' : `SYNTHETIC-${i}`,
+    }));
+    payload.products.push(catalogPayload().products[1]);
+    payload.upsell_product_ids = [];
+    await publishCatalog(
+      { pool: f.pool, scope: { organizationId: f.org, branchId: f.branch } },
+      { version: 2, payload },
+    );
+    const request = {
+      ...f.cart(),
+      catalog_version: 2,
+      items: payload.products
+        .filter((p) => p.id !== 'sauce')
+        .flatMap((p) =>
+          [0, 1, 2].map((n) => ({
+            productId: p.sku,
+            quantity: 1,
+            selections: n ? [{ group_id: 'extra', option_id: 'sauce', quantity: n }] : [],
+          })),
+        ),
+    };
+    const quote = await f.checkout.quote(f.who, request);
+    const saved = (
+      await f.pool.query('SELECT snapshot FROM commerce_quotes WHERE id=$1', [quote.quoteId])
+    ).rows[0].snapshot;
+    assert.equal(saved.lines.length, 201);
+    assert.equal(saved.totalMinor, quote.totalMinor);
+    const order = await f.checkout.create(f.who, { key: randomUUID(), quoteId: quote.quoteId });
+    assert.equal(order.items.length, 201);
+    assert.equal(order.totalMinor, quote.totalMinor);
+    assert.equal(
+      (
+        await f.pool.query(
+          'SELECT count(*)::int AS n FROM commerce_payment_attempts WHERE order_id=$1',
+          [order.orderId],
+        )
+      ).rows[0].n,
+      0,
+    );
   }, 'kaspi_qr');
 });

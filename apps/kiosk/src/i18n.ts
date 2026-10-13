@@ -22,7 +22,6 @@ const ru = {
   err_KITCHEN_OFFLINE: 'Кухня сейчас не на связи - заказ оформить нельзя. Пригласите сотрудника.',
   err_PHONE: 'Введите номер Казахстана для счёта Kaspi.',
   err_CART_LIMIT_LINE: 'Одной позиции можно добавить не больше 20 штук.',
-  err_CART_LIMIT_LINES: 'В корзине может быть не больше 11 разных позиций.',
   err_RETRY_PAYMENT: 'Оплата не началась, деньги не списаны. Нажмите «Перейти к оплате» ещё раз.',
   err_PAYMENT_UNKNOWN:
     'Не удалось проверить результат. Пригласите сотрудника, не оплачивайте повторно.',
@@ -52,7 +51,6 @@ const ru = {
   menuUpdatingBody: 'Подождите несколько секунд: позиции появятся снова. Удалять их не нужно.',
   emptyCartHint: 'Выберите блюдо - оно появится здесь',
   limitLine: 'Больше 20 одинаковых позиций добавить нельзя',
-  limitLines: 'В корзине уже 11 разных позиций',
   removeOne: 'Убрать одну',
   // v3 kiosk design
   orderNow: 'СДЕЛАТЬ ЗАКАЗ',
@@ -120,7 +118,7 @@ const ru = {
   total: 'Итого',
   empty: 'Заказ пуст. Вернитесь в меню и выберите блюдо.',
   review: 'Проверьте заказ',
-  payTitle: 'Как оплатите?',
+  payTitle: 'Оплата заказа',
   payChoose: 'Способ оплаты',
   card: 'Банковская карта',
   toPay: 'К оплате',
@@ -296,7 +294,6 @@ const kk: Strings = {
     'Ас үй қазір байланыста емес - тапсырыс беру мүмкін емес. Қызметкерді шақырыңыз.',
   err_PHONE: 'Kaspi шоты үшін Қазақстан нөмірін енгізіңіз.',
   err_CART_LIMIT_LINE: 'Бір позицияны 20 данадан артық қосуға болмайды.',
-  err_CART_LIMIT_LINES: 'Себетте 11-ден артық түрлі позиция болмайды.',
   err_RETRY_PAYMENT: 'Төлем басталмады, ақша алынған жоқ. «Төлемге өту» батырмасын қайта басыңыз.',
   err_PAYMENT_UNKNOWN: 'Нәтижені тексеру мүмкін болмады. Қызметкерді шақырыңыз, қайта төлемеңіз.',
   err_MENU_LOAD: 'Мәзірді жүктеу мүмкін болмады. Байланысты тексеріп, қайталап көріңіз.',
@@ -326,7 +323,6 @@ const kk: Strings = {
     'Бірнеше секунд күтіңіз: позициялар қайта пайда болады. Оларды жоюдың қажеті жоқ.',
   emptyCartHint: 'Тағам таңдаңыз - ол осында пайда болады',
   limitLine: 'Бірдей позицияны 20-дан артық қосуға болмайды',
-  limitLines: 'Себетте 11 түрлі позиция бар',
   removeOne: 'Біреуін алып тастау',
   // v3 kiosk design
   orderNow: 'ТАПСЫРЫС БЕРУ',
@@ -394,7 +390,7 @@ const kk: Strings = {
   total: 'Барлығы',
   empty: 'Себет бос. Мәзірге оралып, тағам таңдаңыз.',
   review: 'Тапсырысты тексеріңіз',
-  payTitle: 'Қалай төлейсіз?',
+  payTitle: 'Тапсырысты төлеу',
   payChoose: 'Төлем әдісі',
   card: 'Банк картасы',
   toPay: 'Төлеуге',
@@ -567,7 +563,6 @@ const en: Strings = {
     'The kitchen is offline right now - orders cannot be placed. Please call a team member.',
   err_PHONE: 'Enter a Kazakhstan number for the Kaspi invoice.',
   err_CART_LIMIT_LINE: 'You can add up to 20 of one item.',
-  err_CART_LIMIT_LINES: 'The cart can hold up to 11 different items.',
   err_RETRY_PAYMENT:
     'The payment did not start and no money was charged. Tap «Go to payment» again.',
   err_PAYMENT_UNKNOWN:
@@ -600,7 +595,6 @@ const en: Strings = {
   menuUpdatingBody: 'Please wait a few seconds: the items will come back. No need to remove them.',
   emptyCartHint: 'Pick a dish - it will appear here',
   limitLine: 'You cannot add more than 20 of one item',
-  limitLines: 'The cart already has 11 different items',
   removeOne: 'Remove one',
   // v3 kiosk design (wording from the approved prototype's EN strings)
   orderNow: 'ORDER NOW',
@@ -668,7 +662,7 @@ const en: Strings = {
   total: 'Total',
   empty: 'Your order is empty. Go back to the menu and pick a dish.',
   review: 'Check your order',
-  payTitle: 'How would you like to pay?',
+  payTitle: 'Order payment',
   payChoose: 'Payment method',
   card: 'Bank card',
   toPay: 'To pay',

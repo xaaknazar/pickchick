@@ -179,7 +179,6 @@ export const COMMERCIAL_ERROR_TEXT: Record<Exclude<KioskErrorCode, 'NOT_ACCEPTIN
   KITCHEN_OFFLINE: 'Кухня сейчас не на связи - заказ оформить нельзя. Пригласите сотрудника.',
   PHONE: 'Введите номер Казахстана для счёта Kaspi.',
   CART_LIMIT_LINE: 'Одной позиции можно добавить не больше 20 штук.',
-  CART_LIMIT_LINES: 'В корзине может быть не больше 11 разных позиций.',
   RETRY_PAYMENT: 'Оплата не началась, деньги не списаны. Нажмите «Перейти к оплате» ещё раз.',
   PAYMENT_UNKNOWN:
     'Не удалось проверить результат. Пригласите сотрудника, не оплачивайте повторно.',
@@ -422,7 +421,6 @@ function flow(value: unknown): Flow {
     !(value.guestId === null || id(value.guestId)) ||
     ![null, 'takeaway', 'dine_in'].includes(value.mode as null) ||
     !Array.isArray(value.cart) ||
-    value.cart.length > 11 ||
     !Number.isSafeInteger(value.lastActivityAt) ||
     typeof value.resetPending !== 'boolean'
   )
@@ -477,7 +475,6 @@ function flow(value: unknown): Flow {
       !exactKeys(p.payload, ['items', 'serviceMode', 'catalogVersion']) ||
       !Array.isArray(p.payload.items) ||
       p.payload.items.length < 1 ||
-      p.payload.items.length > 11 ||
       p.payload.items.some(
         (item) =>
           !isObject(item) ||
@@ -747,7 +744,7 @@ export class CommercialKioskController {
       return 'NOT_ACCEPTING';
     if (code === 'DEVICE_NOT_PROVISIONED') return 'DEVICE';
     if (code === 'INVALID_PHONE') return 'PHONE';
-    if (code === 'CART_LIMIT_LINE' || code === 'CART_LIMIT_LINES') return code;
+    if (code === 'CART_LIMIT_LINE') return code;
     if (code === 'CONNECTION_SOFT') return 'CONNECTION';
     if (code === 'RETRY_PAYMENT') return 'RETRY_PAYMENT';
     if (this.current.resetPending && !this.pending() && transient(error)) return 'OFFLINE';

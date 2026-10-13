@@ -48,6 +48,7 @@ export function UpsellHero({
   busy,
   locale,
   onAdd,
+  controls,
 }: {
   product: KioskProduct;
   badge: UpsellBadgeKind;
@@ -57,6 +58,7 @@ export function UpsellHero({
   busy: boolean;
   locale: Locale;
   onAdd: () => void;
+  controls?: ReactNode;
 }) {
   const { px } = useMetrics();
   const toggle = Math.max(52, px(70));
@@ -71,6 +73,7 @@ export function UpsellHero({
       busy={busy}
       locale={locale}
       onAdd={onAdd}
+      controls={controls}
       grow={329}
       minHeight={px(329)}
       toggle={toggle}
@@ -126,7 +129,7 @@ export function UpsellHero({
               style={{
                 marginTop: px(16),
                 minHeight: toggle,
-                paddingRight: toggle + px(12),
+                paddingRight: controls ? 0 : toggle + px(12),
                 justifyContent: 'center',
               }}
             >
@@ -151,6 +154,7 @@ export function UpsellTile({
   busy,
   locale,
   onAdd,
+  controls,
 }: {
   product: KioskProduct;
   /** The short name the design gives the tile («Фирменный», «Холодный чай»). */
@@ -166,6 +170,7 @@ export function UpsellTile({
   busy: boolean;
   locale: Locale;
   onAdd: () => void;
+  controls?: ReactNode;
 }) {
   const { px } = useMetrics();
   const toggle = Math.max(44, px(50));
@@ -173,7 +178,7 @@ export function UpsellTile({
   const nameText = (
     <Text
       {...fixedText}
-      numberOfLines={wide ? 2 : 1}
+      numberOfLines={2}
       style={{
         fontFamily: fonts.black,
         fontSize: px(24),
@@ -190,7 +195,7 @@ export function UpsellTile({
       style={{
         marginTop: px(wide ? 12 : 6),
         minHeight: toggle,
-        paddingRight: toggle + px(10),
+        paddingRight: controls ? 0 : toggle + px(10),
         justifyContent: 'center',
       }}
     >
@@ -208,6 +213,7 @@ export function UpsellTile({
       busy={busy}
       locale={locale}
       onAdd={onAdd}
+      controls={controls}
       grow={1}
       toggle={toggle}
       inset={px(20)}
@@ -294,6 +300,7 @@ function Card({
   busy,
   locale,
   onAdd,
+  controls,
   grow,
   minHeight,
   toggle,
@@ -310,6 +317,7 @@ function Card({
   busy: boolean;
   locale: Locale;
   onAdd: () => void;
+  controls?: ReactNode;
   grow: number;
   minHeight?: number;
   toggle: number;
@@ -408,16 +416,18 @@ function Card({
           )}
           {children(photo)}
         </Pressable>
-        <Toggle
-          testID={'kiosk-upsell-plus-' + product.id}
-          label={(added ? t.removeOne + ': ' : '+ ') + label}
-          added={added}
-          busy={busy}
-          size={toggle}
-          inset={inset}
-          scale={pulse.scale}
-          onPress={tap}
-        />
+        {controls ?? (
+          <Toggle
+            testID={'kiosk-upsell-plus-' + product.id}
+            label={(added ? t.removeOne + ': ' : '+ ') + label}
+            added={added}
+            busy={busy}
+            size={toggle}
+            inset={inset}
+            scale={pulse.scale}
+            onPress={tap}
+          />
+        )}
       </View>
       <Animated.View
         pointerEvents="none"

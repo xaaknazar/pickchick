@@ -441,12 +441,12 @@ class KioskUI(unittest.TestCase):
                 page.reload()
                 screen(page, 'menu')
                 self.review(page)
-                element(page, 'kiosk-payment-method-card').click()
+                expect(page.get_by_test_id('kiosk-payment-method-card')).to_have_count(0)
                 element(page, 'kiosk-review-create').click()
                 screen(page, 'payment')
                 self.assertEqual(len(fixture.orders), 1)
                 order = next(iter(fixture.orders.values()))
-                self.assertEqual(order['snapshot']['payment_method'], 'card')
+                self.assertEqual(order['snapshot']['payment_method'], 'kaspi')
                 self.assertEqual(order['snapshot']['service_mode'], 'takeaway')
                 self.assertEqual(len(order['snapshot']['lines']), 2)
                 self.assertEqual({frozenset(selection_set(line)) for line in order['snapshot']['lines']},
@@ -474,9 +474,12 @@ class KioskUI(unittest.TestCase):
         screen(page, 'upsell')
         # Fingers in the order: the burger on top, then the sauces and drinks rows.
         for product_id in ['burger', 'sauce', 'sauce-hot', 'lemonade', 'iced-tea', 'cola']:
-            assert_bounded(page, 'kiosk-upsell-' + product_id, 1024, 1366)
+            element(page, 'kiosk-upsell-' + product_id).scroll_into_view_if_needed()
+            expect(element(page, 'kiosk-upsell-' + product_id)).to_be_in_viewport()
         assert_bounded(page, 'kiosk-upsell-continue', 1024, 1366)
         element(page, 'kiosk-upsell-burger').click()
+        expect(element(page, 'kiosk-product-sheet')).to_be_visible()
+        element(page, 'kiosk-sheet-add').click()
         screen(page, 'upsell')
         element(page, 'kiosk-upsell-cart').click()
         screen(page, 'cart')

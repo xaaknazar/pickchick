@@ -70,9 +70,8 @@ export interface StoredLine {
   selections: KioskSelection[];
   quantity: number;
 }
-/** The cart's limits: 20 of one line, 11 different lines. */
+/** Quantity limit of one exact configuration; distinct lines have no UI cap. */
 export const LINE_LIMIT = 20;
-export const LINES_LIMIT = 11;
 /**
  * Places a chosen product (selections already normalized) in the cart. Without
  * `replaceLineId` it adds `quantity` (an equal line grows). With it, the edited
@@ -85,9 +84,7 @@ export function placeLine(
   selections: KioskSelection[],
   quantity: number,
   replaceLineId?: string,
-):
-  | { cart: StoredLine[]; lineId: string }
-  | { error: 'INVALID_CART' | 'CART_LIMIT_LINE' | 'CART_LIMIT_LINES' } {
+): { cart: StoredLine[]; lineId: string } | { error: 'INVALID_CART' | 'CART_LIMIT_LINE' } {
   const key = (line: StoredLine) => testLineId(line.productId, line.selections);
   const lineId = testLineId(productId, selections);
   let base = cart;
@@ -100,7 +97,6 @@ export function placeLine(
   const old = base.find((line) => key(line) === lineId);
   const total = (old?.quantity ?? 0) + quantity;
   if (total > LINE_LIMIT) return { error: 'CART_LIMIT_LINE' };
-  if (!old && base.length >= LINES_LIMIT) return { error: 'CART_LIMIT_LINES' };
   const line = { productId, selections, quantity: total };
   return {
     lineId,

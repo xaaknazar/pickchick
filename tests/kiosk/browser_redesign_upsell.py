@@ -109,178 +109,130 @@ class SmartUpsell(ui.KioskUI):
         ui.assert_no_overflow(page, width)
         self.assertEqual(ui.element(page, 'kiosk-screen-upsell').evaluate(CUT_TEXT), [],
                          'A text of the upsell is cut')
-        # The whole board fits above the bottom panel on every iPad: nothing to scroll to.
-        footer = ui.element(page, 'kiosk-upsell-footer').bounding_box()
-        cards = page.locator('[data-testid^="kiosk-upsell-tile-"], [data-testid="kiosk-upsell-hero"]')
-        self.assertGreater(cards.count(), 0)
-        for card in cards.all():
-            rect = card.bounding_box()
-            assert rect['x'] >= 0 and rect['x'] + rect['width'] <= width + 1, rect
-            assert rect['y'] + rect['height'] <= footer['y'] + 1, (rect, footer)
+        # Rows may scroll horizontally; each control must be reachable without page overflow.
+        for kind in ('sauces', 'drinks'):
+            row = ui.element(page, 'kiosk-upsell-' + kind + '-carousel')
+            row.scroll_into_view_if_needed()
+            expect(row).to_be_visible()
+            self.assertLessEqual(row.bounding_box()['width'], width)
+        footer = ui.element(page, 'kiosk-upsell-footer')
+        ui.assert_bounded(page, 'kiosk-upsell-footer', width, height)
 
-    def test_fingers_order_suggests_a_burger_on_three_ipads(self):
+    def sheet_add(self, page, product, size=None):
+        ui.element(page, 'kiosk-upsell-' + product).first.click()
+        expect(ui.element(page, 'kiosk-product-sheet')).to_be_visible()
+        if size is not None:
+            ui.element(page, 'kiosk-sheet-size-' + size).click()
+        ui.element(page, 'kiosk-sheet-add').click()
+        expect(ui.element(page, 'kiosk-product-sheet')).to_have_count(0)
+        ui.screen(page, 'upsell')
+
+    def test_recommendations_and_all_drinks_on_three_ipads(self):
         for width, height in SIZES:
-            with self.subTest(width=width):
-                page, fixture = self.upsell(FINGERS, width, height)
-                expect(ui.element(page, 'kiosk-upsell-subtitle')).to_have_text(
-                    'Вы взяли Pick Combo - к фингерсам подобрали')
-                hero = ui.element(page, 'kiosk-upsell-hero')
-                expect(hero).to_contain_text('Добавьте бургер')
-                expect(hero).to_contain_text('2 390')
-                expect(hero.get_by_test_id('kiosk-upsell-badge-toFingers')).to_have_text('К ФИНГЕРСАМ')
-                # Owner update: the hero is plain cream; only the row tiles keep bg1-bg4.
-                self.assertEqual(illustrations(hero), 0, 'no line illustration on the hero')
-                self.assertEqual(illustrations(ui.element(page, 'kiosk-upsell-tile-sauce'), 1), 1)
-                # Nothing of the order is offered, and no cheese sauce exists in the catalog.
-                self.assertEqual(tiles(page), ['cola', 'iced-tea', 'lemonade', 'sauce', 'sauce-hot'])
-                self.assertEqual(page.get_by_test_id('kiosk-upsell-pick-combo').count(), 0)
-                expect(ui.element(page, 'kiosk-upsell-badge-lemonade')).to_have_text('НАШ ЛИМОНАД')
-                expect(ui.element(page, 'kiosk-step-extras')).to_contain_text('Допы')
-                expect(ui.element(page, 'kiosk-upsell-cart')).to_contain_text('В заказе: Pick Combo')
-                expect(ui.element(page, 'kiosk-upsell-total')).to_have_text('4 190 ₸')
+            page, fixture = self.upsell(FINGERS, width, height)
+            hero = ui.element(page, 'kiosk-upsell-hero')
+            expect(hero).to_contain_text('Добавьте бургер')
+            self.assertEqual(illustrations(hero), 0)
+            self.assertEqual(illustrations(ui.element(page, 'kiosk-upsell-tile-sauce'), 1), 1)
+            drinks = page.get_by_test_id('kiosk-upsell-drinks-carousel')
+            ids = drinks.locator('[data-testid^="kiosk-upsell-tile-"]').evaluate_all(
+                '(all) => all.map(e => e.dataset.testid.replace("kiosk-upsell-tile-", ""))')
+            self.assertEqual(ids[0], 'lemonade')
+            self.assertGreater(len(ids), 3)
+            expected = {p['id'] for p in fixture.catalog['products']
+                        if p['category'] == 'Напитки' and p.get('available', True)}
+            self.assertEqual(set(ids), expected)
+            for product_id in ids:
+                tile = drinks.get_by_test_id('kiosk-upsell-tile-' + product_id)
+                tile.scroll_into_view_if_needed()
+                expect(tile).to_be_in_viewport()
+            for locale in ('ru', 'kk', 'en'):
+                ui.element(page, 'kiosk-language-' + locale).click()
                 self.check_layout(page, width, height)
-                ui.capture(page, f'upsell-fingers-{width}.png')
-                if width in (1024, 744):
-                    ui.element(page, 'kiosk-language-kk').click()
-                    expect(ui.element(page, 'kiosk-upsell-subtitle')).to_have_text(
-                        'Pick Combo - фингерстерге қоса ұсынамыз')
-                    expect(ui.element(page, 'kiosk-upsell-continue')).to_have_text('Төлеуге')
-                    self.check_layout(page, width, height)
-                    ui.capture(page, f'upsell-fingers-kk-{width}.png')
-                    ui.element(page, 'kiosk-language-en').click()
-                    self.check_layout(page, width, height)
-                    ui.capture(page, f'upsell-fingers-en-{width}.png')
-                self.assertEqual(len(fixture.orders), 0)
+                ui.capture(page, f'upsell-all-{locale}-{width}.png')
+            self.assertEqual(len(fixture.orders), 0)
 
-    def test_burger_order_suggests_fingers_and_an_added_sauce_turns_green(self):
-        for width, height in SIZES:
-            with self.subTest(width=width):
-                page, fixture = self.upsell(BURGER, width, height)
-                expect(ui.element(page, 'kiosk-upsell-subtitle')).to_have_text(
-                    'Вы взяли Burger Combo - к бургеру подобрали')
-                hero = ui.element(page, 'kiosk-upsell-hero')
-                expect(hero).to_contain_text('Добавьте фингерсы')
-                expect(hero).to_contain_text('от 690 ₸ за штуку')
-                expect(hero.get_by_test_id('kiosk-upsell-badge-toBurger')).to_have_text('К БУРГЕРУ')
-                plus = ui.element(page, 'kiosk-upsell-plus-sauce')
-                expect(plus).to_have_attribute('aria-label', '+ Фирменный')
-                plus.click()
-                expect(plus).to_have_attribute('aria-label', 'Убрать одну: Фирменный')
-                expect(ui.element(page, 'kiosk-upsell-cart')).to_contain_text(
-                    'В заказе: Burger Combo + Соус фирменный')
-                expect(ui.element(page, 'kiosk-upsell-total')).to_have_text('4 180 ₸')
-                cart = ui.stored(page, ui.FLOW_KEY)['cart']
-                self.assertEqual([line['productId'] for line in cart], ['burger-combo', 'sauce'])
-                # Still offered (green) after the add, unlike what the guest brought.
-                self.assertIn('sauce', tiles(page))
-                self.check_layout(page, width, height)
-                ui.capture(page, f'upsell-burger-{width}.png')
-                if width == 1024:
-                    # The hero is a toggle as well; a second tap on the card takes it out.
-                    ui.element(page, 'kiosk-upsell-fingers').click()
-                    expect(ui.element(page, 'kiosk-upsell-plus-fingers')).to_have_attribute(
-                        'aria-label', 'Убрать одну: Фингерс, 1 шт')
-                    ui.capture(page, 'upsell-burger-added-hero-1024.png')
-                    ui.element(page, 'kiosk-upsell-fingers').click()
-                    plus.click()
-                    expect(plus).to_have_attribute('aria-label', '+ Фирменный')
-                    cart = ui.stored(page, ui.FLOW_KEY)['cart']
-                    self.assertEqual([line['productId'] for line in cart], ['burger-combo'])
-                self.assertEqual(len(fixture.orders), 0)
+    def test_quantities_sizes_and_skip_restore_the_original_order(self):
+        page, fixture = self.upsell(BURGER, 820, 1180)
+        expect(ui.element(page, 'kiosk-upsell-hero')).to_contain_text('Добавьте фингерсы')
+        self.sheet_add(page, 'sauce', 'size-1')
+        count = ui.element(page, 'kiosk-upsell-quantity-sauce')
+        expect(count).to_have_text('1')
+        for quantity in range(2, 6):
+            ui.element(page, 'kiosk-upsell-plus-sauce').click()
+            expect(count).to_have_text(str(quantity))
+        ui.element(page, 'kiosk-upsell-minus-sauce').click()
+        expect(count).to_have_text('4')
+        lines = ui.stored(page, ui.FLOW_KEY)['cart']
+        sauce = next(line for line in lines if line['productId'] == 'sauce')
+        self.assertEqual(sauce['quantity'], 4)
+        self.assertIn(('size', 'size-1', 1), ui.selection_set(sauce))
+        self.sheet_add(page, 'lemonade')
+        ui.element(page, 'kiosk-upsell-plus-lemonade').click()
+        expect(ui.element(page, 'kiosk-upsell-quantity-lemonade')).to_have_text('2')
+        ui.capture(page, 'upsell-quantity-and-volume-820.png')
+        ui.element(page, 'kiosk-upsell-skip').click()
+        ui.screen(page, 'loyalty')
+        self.assertEqual([line['productId'] for line in ui.stored(page, ui.FLOW_KEY)['cart']],
+                         ['burger-combo'])
+        self.assertEqual(len(fixture.orders), 0)
 
-    def test_both_mains_offer_the_lemonade(self):
-        for width, height in [(1024, 1366), (744, 1133)]:
-            with self.subTest(width=width):
-                page, fixture = self.upsell(BOTH, width, height)
-                expect(ui.element(page, 'kiosk-upsell-subtitle')).to_have_text(
-                    'Вы взяли Pick Combo +1 - подобрали к заказу')
-                hero = ui.element(page, 'kiosk-upsell-hero')
-                expect(hero).to_contain_text('Добавьте лимонад')
-                expect(hero.get_by_test_id('kiosk-upsell-badge-lemonade')).to_be_visible()
-                self.assertEqual(tiles(page), ['cola', 'iced-tea', 'sauce', 'sauce-hot'])
-                self.assertEqual(page.get_by_test_id('kiosk-upsell-burger').count(), 0)
-                self.check_layout(page, width, height)
-                ui.capture(page, f'upsell-both-{width}.png')
-                self.assertEqual(len(fixture.orders), 0)
+    def test_existing_drink_can_grow_and_skip_undoes_only_the_extras(self):
+        page, fixture = self.upsell(FINGERS + [('drinks', 'cola')], 1024, 1366)
+        expect(ui.element(page, 'kiosk-upsell-quantity-cola')).to_have_text('1')
+        ui.element(page, 'kiosk-upsell-plus-cola').click()
+        expect(ui.element(page, 'kiosk-upsell-quantity-cola')).to_have_text('2')
+        self.sheet_add(page, 'sauce')
+        ui.element(page, 'kiosk-upsell-skip').click()
+        ui.screen(page, 'loyalty')
+        lines = ui.stored(page, ui.FLOW_KEY)['cart']
+        self.assertEqual([line['productId'] for line in lines], ['pick-combo', 'cola'])
+        self.assertEqual(lines[1]['quantity'], 1)
+        self.assertEqual(len(fixture.orders), 0)
 
-    def test_pay_reaches_payment_and_the_order_page_stays_reachable(self):
+    def test_both_mains_keep_lemonade_first_and_quantity_in_sync(self):
+        page, fixture = self.upsell(BOTH, 744, 1133)
+        hero = ui.element(page, 'kiosk-upsell-hero')
+        expect(hero).to_contain_text('Добавьте лимонад')
+        hero.get_by_test_id('kiosk-upsell-lemonade').click()
+        ui.element(page, 'kiosk-sheet-add').click()
+        # The recommendation and carousel represent the same product, never two orders.
+        quantities = page.get_by_test_id('kiosk-upsell-quantity-lemonade')
+        expect(quantities).to_have_count(2)
+        for item in quantities.all():
+            expect(item).to_have_text('1')
+        hero.get_by_test_id('kiosk-upsell-plus-lemonade').click()
+        for item in quantities.all():
+            expect(item).to_have_text('2')
+        self.assertEqual(len(fixture.orders), 0)
+
+    def test_review_with_photos_time_and_qr_only_then_synthetic_payment(self):
         page, fixture = self.upsell(FINGERS, 820, 1180)
-        # «В заказе» opens the order page for changes; back from it is the menu.
         ui.element(page, 'kiosk-upsell-cart').click()
         ui.screen(page, 'cart')
-        expect(ui.element(page, 'kiosk-cart-checkout')).to_be_enabled()
         ui.element(page, 'kiosk-header-back').click()
         ui.screen(page, 'menu')
         ui.element(page, 'kiosk-menu-checkout').click()
-        ui.screen(page, 'upsell')
-        # «Без допов»: the simulator offers Kaspi and card, so the method screen opens.
-        ui.element(page, 'kiosk-upsell-skip').click()
-        ui.screen(page, 'loyalty')
-        expect(ui.element(page, 'kiosk-payment-method-kaspi')).to_be_visible()
-        expect(ui.element(page, 'kiosk-payment-method-card')).to_be_visible()
-        self.assertEqual(len(fixture.orders), 0)
-        self.assertEqual(len(fixture.sessions), 0, 'The upsell must not allocate an ordering identity')
-        # Back to the menu, add a drink on the upsell and go on with «К оплате».
-        page.reload()
-        ui.screen(page, 'menu')
-        ui.element(page, 'kiosk-menu-checkout').click()
-        ui.screen(page, 'upsell')
-        ui.element(page, 'kiosk-upsell-plus-lemonade').click()
-        expect(ui.element(page, 'kiosk-upsell-total')).to_have_text('5 380 ₸')
+        self.sheet_add(page, 'lemonade')
         ui.element(page, 'kiosk-upsell-continue').click()
         ui.screen(page, 'loyalty')
-        ui.capture(page, 'upsell-pay-method-screen-820.png')
+        expect(ui.element(page, 'kiosk-payment-method-kaspi')).to_be_visible()
+        expect(page.get_by_test_id('kiosk-payment-method-card')).to_have_count(0)
+        expect(page.get_by_test_id('kiosk-payment-method-kaspi_invoice')).to_have_count(0)
+        expect(page.get_by_text('10-13', exact=False).first).to_be_visible()
+        photos = page.locator('[data-testid^="kiosk-review-photo-"]')
+        expect(photos).to_have_count(2)
+        for photo in photos.all():
+            expect(photo).to_be_visible()
+        ui.capture(page, 'review-photos-qr-820.png')
         ui.element(page, 'kiosk-review-create').click()
         ui.screen(page, 'payment')
         self.assertEqual(len(fixture.orders), 1)
         order = next(iter(fixture.orders.values()))
-        self.assertEqual(order['snapshot']['total_minor'], '538000')
-        self.assertEqual({line['id'] for line in order['snapshot']['lines']},
-                         {'pick-combo', 'lemonade'})
+        self.assertEqual({line['id'] for line in order['snapshot']['lines']}, {'pick-combo', 'lemonade'})
         ui.element(page, 'kiosk-payment-approve').click()
         ui.screen(page, 'order')
         expect(ui.element(page, 'kiosk-order-number')).to_have_text(order['number'])
-
-    def test_skip_takes_out_the_extras_added_on_the_screen(self):
-        # Owner bug 2026-10-13: extras added on the upsell were ordered after «Без допов».
-        # The guest brings a Pick Combo and a cola (the cola from its sheet), adds a sauce and a
-        # lemonade on the upsell, then presses «Без допов».
-        page, fixture = self.upsell(FINGERS + [('drinks', 'cola')], 1024, 1366)
-        ui.element(page, 'kiosk-upsell-plus-sauce').click()
-        ui.element(page, 'kiosk-upsell-plus-lemonade').click()
-        expect(ui.element(page, 'kiosk-upsell-total')).to_have_text('6 760 ₸')
-        self.assertEqual({line['productId'] for line in ui.stored(page, ui.FLOW_KEY)['cart']},
-                         {'pick-combo', 'cola', 'sauce', 'lemonade'})
-        ui.element(page, 'kiosk-upsell-skip').click()
-        ui.screen(page, 'loyalty')
-        cart = ui.stored(page, ui.FLOW_KEY)['cart']
-        self.assertEqual([(line['productId'], line['quantity']) for line in cart],
-                         [('pick-combo', 1), ('cola', 1)], 'what the guest brought stays')
-        ui.capture(page, 'upsell-skip-method-screen-1024.png')
-        ui.element(page, 'kiosk-review-create').click()
-        ui.screen(page, 'payment')
-        quotes = [r for r in fixture.requests
-                  if r['method'] == 'POST' and r['path'] == '/v1/test/quotes']
-        self.assertEqual(len(quotes), 1)
-        self.assertEqual(sorted((item['product_id'], item['quantity'])
-                                for item in quotes[0]['body']['items']),
-                         [('cola', 1), ('pick-combo', 1)], 'the quote has no upsell extra')
-        order = next(iter(fixture.orders.values()))
-        self.assertEqual({line['id'] for line in order['snapshot']['lines']}, {'pick-combo', 'cola'})
-        self.assertEqual(order['snapshot']['total_minor'], '518000')
-        # «К оплате» keeps what was added: back from payment is not possible, so a new guest
-        # repeats the visit and pays with the extras.
-        page2, fixture2 = self.upsell(FINGERS, 1024, 1366)
-        ui.element(page2, 'kiosk-upsell-plus-sauce').click()
-        expect(ui.element(page2, 'kiosk-upsell-total')).to_have_text('4 580 ₸')
-        ui.element(page2, 'kiosk-upsell-continue').click()
-        ui.screen(page2, 'loyalty')
-        ui.element(page2, 'kiosk-review-create').click()
-        ui.screen(page2, 'payment')
-        quotes = [r for r in fixture2.requests
-                  if r['method'] == 'POST' and r['path'] == '/v1/test/quotes']
-        self.assertEqual(sorted(item['product_id'] for item in quotes[0]['body']['items']),
-                         ['pick-combo', 'sauce'])
 
     def test_a_line_stopped_on_the_screen_is_shown_and_blocks_payment(self):
         page, fixture = self.upsell(FINGERS, 1024, 1366, clock=True)
@@ -338,30 +290,23 @@ class CommercialUpsell(unittest.TestCase):
         expect(page.get_by_test_id('kiosk-upsell-continue')).to_be_enabled()
         return page, errors, external
 
-    def test_kaspi_qr_only_goes_straight_to_the_qr(self):
+    def test_every_new_order_reviews_then_uses_qr_without_invoice(self):
         report = []
-        for name, button in [('qr-only', 'kiosk-upsell-continue'), ('burger-order', 'kiosk-upsell-skip')]:
+        for name, button in [('qr-only', 'kiosk-upsell-continue'),
+                             ('qr-only', 'kiosk-upsell-skip'),
+                             ('qr-and-invoice', 'kiosk-upsell-continue')]:
             page, errors, external = self.story(name)
-            ui.capture(page, f'commercial-upsell-{name}-1024.png')
             page.get_by_test_id(button).click()
-            expect(page.get_by_test_id('kiosk-screen-payment')).to_be_visible(timeout=20000)
-            expect(page.get_by_test_id('kiosk-payment-qr')).to_be_visible()
-            self.assertEqual(page.get_by_test_id('kiosk-screen-loyalty').count(), 0)
-            page.wait_for_function('[...document.images].every(i => i.complete && i.naturalWidth > 0)')
-            ui.capture(page, f'commercial-qr-after-{name}-1024.png')
+            expect(page.get_by_test_id('kiosk-screen-loyalty')).to_be_visible()
+            expect(page.get_by_test_id('kiosk-payment-method-kaspi_invoice')).to_have_count(0)
+            expect(page.get_by_test_id('kiosk-invoice-phone')).to_have_count(0)
+            page.get_by_test_id('kiosk-review-create').click()
+            expect(page.get_by_test_id('kiosk-payment-qr')).to_be_visible(timeout=20000)
+            ui.capture(page, f'commercial-qr-{name}-{button}.png')
             self.assertEqual(errors, [])
             self.assertEqual(external, [])
-            report.append({'story': name, 'pressed': button, 'reached': 'kaspi-qr'})
+            report.append({'story': name, 'pressed': button, 'reached': 'review then synthetic QR'})
             page.close()
-        page, errors, external = self.story('qr-and-invoice')
-        page.get_by_test_id('kiosk-upsell-continue').click()
-        expect(page.get_by_test_id('kiosk-screen-loyalty')).to_be_visible(timeout=20000)
-        expect(page.get_by_test_id('kiosk-payment-method-kaspi_invoice')).to_be_visible()
-        ui.capture(page, 'commercial-method-screen-1024.png')
-        self.assertEqual(errors, [])
-        self.assertEqual(external, [])
-        report.append({'story': 'qr-and-invoice', 'pressed': 'kiosk-upsell-continue',
-                       'reached': 'payment-method screen'})
         (ui.OUTPUT / 'upsell-commercial-result.json').write_text(json.dumps(
             {'synthetic': True, 'checks': report}, indent=2) + '\n')
 

@@ -153,8 +153,8 @@ test('the quantity keeps to the cart room of that exact line, as on the product 
     room: 0,
     limit: 'line',
   });
-  // 11 different lines: a new line has no room, a line already there still grows.
-  assert.deepEqual(sheetRoom(line, [], 11), { room: 0, limit: 'lines' });
+  // Distinct lines never consume the room of another configuration.
+  assert.deepEqual(sheetRoom(line, [], 100), { room: 20, limit: null });
   assert.deepEqual(sheetRoom(line, [{ lineId: line, quantity: 3 }], 11), { room: 17, limit: null });
 });
 

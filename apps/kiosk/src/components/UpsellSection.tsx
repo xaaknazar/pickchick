@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { colors, fonts, useMetrics } from '../theme';
 import { fixedText } from './Body';
 /**
@@ -13,11 +13,13 @@ export function UpsellSection({
   note,
   testID,
   children,
+  horizontal = false,
 }: {
   title: string;
   note?: string;
   testID?: string;
   children?: ReactNode;
+  horizontal?: boolean;
 }) {
   const { px } = useMetrics();
   return (
@@ -59,9 +61,23 @@ export function UpsellSection({
           </Text>
         ) : null}
       </View>
-      <View style={{ flexGrow: 1, minHeight: px(274), flexDirection: 'row', gap: px(16) }}>
-        {children}
-      </View>
+      {horizontal ? (
+        <ScrollView
+          horizontal
+          nestedScrollEnabled
+          bounces={false}
+          testID={testID ? testID + '-carousel' : undefined}
+          showsHorizontalScrollIndicator={false}
+          style={{ height: px(342), flexGrow: 0, margin: -px(4) }}
+          contentContainerStyle={{ padding: px(4), gap: px(16), alignItems: 'stretch' }}
+        >
+          {children}
+        </ScrollView>
+      ) : (
+        <View style={{ flexGrow: 1, minHeight: px(274), flexDirection: 'row', gap: px(16) }}>
+          {children}
+        </View>
+      )}
     </View>
   );
 }

@@ -104,7 +104,6 @@ function parseFlow(raw: string): StoredFlow {
     ![null, 'takeaway', 'dine_in'].includes(v.mode as null) ||
     !['kaspi', 'card'].includes(String(v.paymentMethod)) ||
     !Array.isArray(v.cart) ||
-    v.cart.length > 11 ||
     !Number.isSafeInteger(v.lastActivityAt) ||
     Number(v.lastActivityAt) < 1
   )
@@ -174,8 +173,6 @@ function message(error: unknown): string {
     if (error.code === 'INVALID_CART' || error.code === 'INVALID_SELECTIONS')
       return 'Проверьте состав и количество выбранных позиций.';
     if (error.code === 'CART_LIMIT_LINE') return 'Одной позиции можно добавить не больше 20 штук.';
-    if (error.code === 'CART_LIMIT_LINES')
-      return 'В корзине может быть не больше 11 разных позиций.';
     if (error.status === 401)
       return 'Доступ киоска недоступен. Обратитесь к сотруднику; заказ сохраняется.';
     if (error.status === 429)
@@ -304,10 +301,7 @@ export class KioskController {
     } catch (error) {
       this.error = message(error);
       this.errorCode =
-        error instanceof KioskError &&
-        (error.code === 'CART_LIMIT_LINE' || error.code === 'CART_LIMIT_LINES')
-          ? error.code
-          : null;
+        error instanceof KioskError && error.code === 'CART_LIMIT_LINE' ? error.code : null;
       if (this.unsafe()) this.step = 'recovery';
       return false;
     } finally {

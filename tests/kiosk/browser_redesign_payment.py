@@ -97,6 +97,8 @@ class RedesignPayment(ui.KioskUI):
             plus = page.get_by_test_id('kiosk-upsell-plus-' + product).filter(visible=True)
             if plus.count():
                 plus.click()
+                expect(ui.element(page, 'kiosk-product-sheet')).to_be_visible()
+                ui.element(page, 'kiosk-sheet-add').click()
         ui.element(page, 'kiosk-upsell-continue').click()
         # The demo offers QR and invoice, so the method screen stays in the path.
         ui.screen(page, 'loyalty')

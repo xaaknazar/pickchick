@@ -68,7 +68,6 @@ export function ProductSheet({
   locale,
   busy,
   cart,
-  lineCount,
   onAdd,
   onClose,
   onInteraction,
@@ -78,8 +77,6 @@ export function ProductSheet({
   busy: boolean;
   /** The cart's lines (id and quantity): the add keeps to the cart's room for its line. */
   cart: readonly { lineId: string; quantity: number }[];
-  /** Lines in the cart, stopped ones included (the cart holds 11 at most). */
-  lineCount: number;
   /** The product page's add: these selections, this many. */
   onAdd: (selections: KioskSelection[], quantity: number) => void;
   onClose: () => void;
@@ -104,7 +101,7 @@ export function ProductSheet({
     : initialSize(group);
   const [quantity, setQuantity] = useState(1);
   const [macros, setMacros] = useState(false);
-  const { room, limit } = sheetRoom(sheetLineId(product, size), cart, lineCount);
+  const { room, limit } = sheetRoom(sheetLineId(product, size), cart);
   const shown = Math.max(1, Math.min(quantity, room));
   const unit = sheetUnitMinor(product, size);
   const available = product.available !== false && (!group || size !== null);
@@ -112,9 +109,7 @@ export function ProductSheet({
   const label = !available
     ? t.unavailable
     : limit
-      ? limit === 'line'
-        ? t.limitLine
-        : t.limitLines
+      ? t.limitLine
       : `${t.toCart} · ${money((BigInt(unit) * BigInt(shown)).toString())}`;
   const facts = sheetFacts(product, size);
   const factParts = [

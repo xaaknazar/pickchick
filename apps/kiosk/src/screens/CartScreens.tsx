@@ -1,18 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { KioskModel, KioskProduct } from '../model';
-import { defaultSelections, money, testLineId, validSelections } from '../cart';
+import { defaultSelections, LINE_LIMIT, money, testLineId, validSelections } from '../cart';
 import { copy } from '../i18n';
 import {
   orderLines,
   orderSummary,
-  paysDirectly,
   planUpsell,
   undoUpsellAdds,
   type UpsellLine,
   type UpsellTileKey,
 } from '../smartUpsell';
 import { CartUpsell } from '../components/CartUpsell';
-import { InvoicePhoneField } from '../components/InvoicePhoneField';
 import {
   Body,
   Button,
@@ -23,9 +21,7 @@ import {
   ScrollArea,
   Wrapper,
   type ScreenContext,
-  type ScrollFocus,
 } from '../components/UI';
-import { INVOICE_PHONE_TARGET } from '../components/InvoicePhoneField';
 import { OrderProgress } from '../components/OrderProgress';
 import { RadialBackdrop } from '../components/RadialBackdrop';
 import { StepPills } from '../components/StepPills';
@@ -40,6 +36,11 @@ import { EmptyCart } from '../components/EmptyCart';
 import { Notice } from '../components/Notice';
 import { CheckoutSummary } from '../components/CheckoutSummary';
 import { PaymentMethodCard } from '../components/PaymentMethodCard';
+import { ProductSheet } from '../components/ProductSheet';
+import { selectionSummary } from '../components/selectionSummary';
+import { UpsellQuantity } from '../components/UpsellQuantity';
+import { opensInSheet } from '../productSheet';
+import { useMetrics } from '../theme';
 const itemCount = (model: KioskModel) => model.cart.reduce((sum, line) => sum + line.quantity, 0);
 const modeLabel = (model: KioskModel, context: ScreenContext) =>
   model.mode
@@ -68,8 +69,8 @@ const addUpsell = (model: KioskModel, p: KioskProduct) => {
 };
 /**
  * What the smart upsell remembers while the guest visits a product page from it: the order's
- * products when the screen was opened from the menu. Those are never offered; anything added on
- * the screen stays visible (green) until the guest leaves for the menu or payment.
+ * products when the screen was opened from the menu. Recommendations exclude those products;
+ * the sauce/drink rows keep every available product and its editable quantity.
  */
 export interface UpsellMemory {
   base: string[] | null;
@@ -82,19 +83,10 @@ const cartLines = (model: KioskModel): UpsellLine[] =>
     lineId,
     quantity,
   }));
-/** A smart upsell tile toggles like the old cards; a choice made on the product page counts too. */
-const toggleSmart = (model: KioskModel, p: KioskProduct) => {
-  const selections = defaultSelections(p);
-  const line =
-    upsellLine(model, p) ?? [...model.cart].reverse().find((entry) => entry.productId === p.id);
-  if (line) void model.updateQuantity(line.lineId, line.quantity - 1);
-  else if (validSelections(p, selections)) void model.addToCart(p.id, selections);
-  else model.openProduct(p.id);
-};
 /**
  * Smart upsell (kiosk redesign 2026-10-13, README §4): always opened by «Оформить заказ».
- * The suggestion follows `planUpsell`; «К оплате» and «Без допов» lead straight to payment
- * (the Kaspi QR when it is the only method, the payment-method screen otherwise); «Без допов»
+ * The suggestion follows `planUpsell`; both actions open the order review with Kaspi QR.
+ * «Без допов»
  * first takes out what was added on the screen during this visit. «В заказе»
  * opens the order page for changes. Unavailable lines stay visible here and block payment.
  */
@@ -108,6 +100,40 @@ export function UpsellScreen({
   memory: UpsellMemory;
 }) {
   const t = copy(context.locale);
+  const { px } = useMetrics();
+  const [sheetId, setSheetId] = useState<string | null>(null);
+  const sheet = model.catalog?.products.find((p) => p.id === sheetId);
+  const choose = (p: KioskProduct) => {
+    model.touch();
+    if (opensInSheet(p)) setSheetId(p.id);
+    else model.openProduct(p.id);
+  };
+  const controls = (p: KioskProduct) => {
+    const lines = model.cart.filter((line) => line.productId === p.id);
+    const last = lines.at(-1);
+    return (
+      <UpsellQuantity
+        productId={p.id}
+        detail={last ? selectionSummary(last) : p.serving_label}
+        name={p.name}
+        quantity={lines.reduce((sum, line) => sum + line.quantity, 0)}
+        busy={model.busy}
+        increaseDisabled={!!last && last.quantity >= LINE_LIMIT}
+        locale={context.locale}
+        onIncrease={() => {
+          if (last) void model.updateQuantity(last.lineId, last.quantity + 1);
+          else choose(p);
+        }}
+        onDecrease={() => {
+          if (last) void model.updateQuantity(last.lineId, last.quantity - 1);
+        }}
+      />
+    );
+  };
+  const displayedProduct = (p: KioskProduct) => {
+    const last = model.cart.filter((line) => line.productId === p.id).at(-1);
+    return last ? { ...p, price_minor: last.unitPriceMinor } : p;
+  };
   const [base] = useState(() => {
     memory.opened ??= cartLines(model);
     return (memory.base ??= [
@@ -155,11 +181,7 @@ export function UpsellScreen({
   };
   const commercial = !!model.commercial;
   const blocked = !model.cartValid || !model.cart.length || (commercial && !model.checkoutReady);
-  const pay = () => {
-    if (paysDirectly(model.commercial, model.commercialPaymentMethods))
-      void model.beginPayment('kaspi');
-    else model.goLoyalty();
-  };
+  const pay = () => model.goLoyalty();
   // «Без допов» takes out exactly what was added during this visit (the cart goes back to the
   // quantities it had when the screen opened), then goes on to payment like «К оплате».
   const skip = () => {
@@ -216,14 +238,15 @@ export function UpsellScreen({
           ) : null}
           {hero && heroCopy ? (
             <UpsellHero
-              product={hero.product}
+              product={displayedProduct(hero.product)}
               badge={hero.badge}
               title={heroCopy.title}
               body={heroCopy.body}
               added={inCart.has(hero.product.id)}
               busy={model.busy}
               locale={context.locale}
-              onAdd={() => toggleSmart(model, hero.product)}
+              onAdd={() => choose(hero.product)}
+              controls={controls(hero.product)}
             />
           ) : null}
           {rows.map((row, rowIndex) => (
@@ -232,27 +255,24 @@ export function UpsellScreen({
               testID={'kiosk-upsell-' + row.key}
               title={row.title}
               note={row.note}
+              horizontal
             >
               {row.tiles.map((tile, index) => {
-                // Lemonade is the row's wide card; a row of one or two is all wide cards.
-                const wide = row.tiles.length <= 2 || tile.key === 'lemonade';
                 return (
-                  <Wrapper
-                    key={tile.product.id}
-                    flex={row.tiles.length > 2 && tile.key === 'lemonade' ? 1.4 : 1}
-                  >
+                  <Wrapper key={tile.product.id} width={px(326)}>
                     <UpsellTile
-                      product={tile.product}
-                      name={tileName[tile.key]}
+                      product={displayedProduct(tile.product)}
+                      name={tileName[tile.key] ?? tile.product.name}
                       badge={tile.badge}
                       description={tile.key === 'lemonade' ? t.smartBodyLemonade : undefined}
-                      layout={wide ? 'wide' : 'tall'}
+                      layout="tall"
                       art={row.art + index + (row.key === 'drinks' && index ? 1 : 0)}
                       position={1 + rowIndex * 3 + index}
                       added={inCart.has(tile.product.id)}
                       busy={model.busy}
                       locale={context.locale}
-                      onAdd={() => toggleSmart(model, tile.product)}
+                      onAdd={() => choose(tile.product)}
+                      controls={controls(tile.product)}
                     />
                   </Wrapper>
                 );
@@ -279,6 +299,22 @@ export function UpsellScreen({
         onSkip={skip}
         onPay={pay}
       />
+      {sheet ? (
+        <ProductSheet
+          key={sheet.id}
+          product={sheet}
+          locale={context.locale}
+          busy={model.busy}
+          cart={model.cart}
+          onInteraction={model.touch}
+          onClose={() => setSheetId(null)}
+          onAdd={(selections, quantity) =>
+            void model.addToCart(sheet.id, selections, quantity).then((added) => {
+              if (added) setSheetId(null);
+            })
+          }
+        />
+      ) : null}
     </ScreenSurface>
   );
 }
@@ -393,34 +429,13 @@ export function CartScreen({ model, context }: { model: KioskModel; context: Scr
 export function ReviewScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
   const t = copy(context.locale);
   const count = itemCount(model);
-  // The phone field comes into view above the keypad (and when the invoice is chosen).
-  const [focus, setFocus] = useState<ScrollFocus | undefined>(undefined);
-  const reveal = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showPhone = () => {
-    if (reveal.current) clearTimeout(reveal.current);
-    // After the keypad has resized the screen.
-    reveal.current = setTimeout(
-      () => setFocus((now) => ({ target: INVOICE_PHONE_TARGET, request: (now?.request ?? 0) + 1 })),
-      350,
-    );
-  };
-  useEffect(
-    () => () => {
-      if (reveal.current) clearTimeout(reveal.current);
-    },
-    [],
-  );
-  const invoice = !!model.commercial && model.paymentMethod === 'kaspi_invoice';
   useEffect(() => {
-    if (invoice) showPhone();
-  }, [invoice]);
+    if (model.commercial) model.setPaymentMethod('kaspi');
+  }, [model.commercial, model.setPaymentMethod]);
+  const qrAvailable =
+    !model.commercial || (model.commercialPaymentMethods ?? ['kaspi']).includes('kaspi');
   return (
-    <ScreenSurface
-      testID="kiosk-screen-loyalty"
-      tone="brand"
-      keyboardAware
-      entrance={context.direction}
-    >
+    <ScreenSurface testID="kiosk-screen-loyalty" tone="brand" entrance={context.direction}>
       <Header
         {...context}
         back={model.openUpsell}
@@ -428,7 +443,7 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
         subtitle={positionsLabel(count, context.locale)}
       />
       <OrderProgress step="payment" locale={context.locale} />
-      <ScrollArea onInteraction={model.touch} focus={focus}>
+      <ScrollArea onInteraction={model.touch}>
         <Wrapper paddingX={24} paddingY={22} gap={24}>
           <CheckoutSummary
             lines={model.cart}
@@ -441,38 +456,20 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
             <Heading size="section" tone="inverse">
               {t.payChoose}
             </Heading>
-            {(model.commercial
-              ? (model.commercialPaymentMethods ?? (['kaspi'] as const))
-              : (['kaspi', 'card'] as const)
-            ).map((method, index) => (
-              <PaymentMethodCard
-                key={method}
-                method={method}
-                position={index}
-                selected={model.paymentMethod === method}
-                busy={model.busy}
-                commercial={!!model.commercial}
-                locale={context.locale}
-                onSelect={() => model.setPaymentMethod(method)}
-              />
-            ))}
-          </Wrapper>
-          {model.commercial && model.paymentMethod === 'kaspi_invoice' ? (
-            <InvoicePhoneField
-              value={model.invoicePhone ?? ''}
-              onChange={(value) => model.setInvoicePhone?.(value)}
+            <PaymentMethodCard
+              method="kaspi"
+              position={0}
+              selected
               busy={model.busy}
+              commercial={!!model.commercial}
               locale={context.locale}
-              valid={!!model.phoneValid}
-              onFocus={showPhone}
+              onSelect={() => model.setPaymentMethod('kaspi')}
             />
-          ) : null}
+          </Wrapper>
           <Body tone="onBlue">
             {model.commercial
-              ? model.checkoutReady
-                ? model.paymentMethod === 'kaspi_invoice'
-                  ? t.invoiceAfterConfirm
-                  : t.qrNextScreen
+              ? model.checkoutReady && qrAvailable
+                ? t.qrNextScreen
                 : t.kioskPayUnavailable
               : t.testPayment}
           </Body>
@@ -487,22 +484,19 @@ export function ReviewScreen({ model, context }: { model: KioskModel; context: S
           size="large"
         />
         <Button
-          label={
-            model.commercial && model.paymentMethod === 'kaspi_invoice'
-              ? t.sendInvoice
-              : t.createPayment
-          }
+          label={t.createPayment}
           icon="arrow-forward"
           testID="kiosk-review-create"
           disabled={
             !model.cartValid ||
             !model.cart.length ||
-            (model.commercial &&
-              (!model.checkoutReady ||
-                (model.paymentMethod === 'kaspi_invoice' && !model.phoneValid)))
+            (model.commercial && (!model.checkoutReady || !qrAvailable))
           }
           busy={model.busy}
-          onPress={() => void model.beginPayment(model.paymentMethod)}
+          onPress={() => {
+            if (model.commercial) model.setPaymentMethod('kaspi');
+            void model.beginPayment('kaspi');
+          }}
           fullWidth
         />
       </Footer>

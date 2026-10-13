@@ -7,12 +7,13 @@ import {
   isCheeseSauce,
   orderLines,
   orderSummary,
-  paysDirectly,
   planUpsell,
   upsellReason,
 } from '../../apps/kiosk/src/smartUpsell.ts';
 
 const products = testCompleteCatalog.products;
+const drinks = products.filter((p) => p.category === 'Напитки').map((p) => p.id);
+const allDrinks = ['lemonade', ...drinks.filter((id) => id !== 'lemonade')];
 const ids = (tiles) => tiles.map((tile) => tile.product.id);
 const plan = (base, catalog = products) => planUpsell(catalog, base);
 
@@ -42,10 +43,10 @@ test('fingers without a burger: the burger «К ФИНГЕРСАМ», sauces and
     result.sauces.map((tile) => tile.badge),
     ['hit', 'hot'],
   );
-  assert.deepEqual(ids(result.drinks), ['lemonade', 'iced-tea', 'cola']);
+  assert.deepEqual(ids(result.drinks), allDrinks);
   assert.deepEqual(
     result.drinks.map((tile) => tile.badge),
-    ['lemonade', null, null],
+    allDrinks.map((id) => (id === 'lemonade' ? 'lemonade' : null)),
   );
 });
 
@@ -55,20 +56,20 @@ test('a burger without fingers: single fingers «К БУРГЕРУ»', () => {
   assert.equal(result.hero.product.id, 'fingers');
   assert.equal(result.hero.pairing, true);
   assert.equal(result.hero.badge, 'toBurger');
-  assert.deepEqual(ids(result.drinks), ['lemonade', 'iced-tea', 'cola']);
+  assert.deepEqual(ids(result.drinks), allDrinks);
 });
 
-test('both mains: the lemonade becomes the hero and leaves the drinks row', () => {
+test('both mains: the lemonade hero also stays first in the editable drinks row', () => {
   const result = plan(['pick-combo', 'burger']);
   assert.equal(result.reason, 'both');
   assert.equal(result.hero.product.id, 'lemonade');
   assert.equal(result.hero.pairing, false);
   assert.equal(result.hero.badge, 'lemonade');
-  assert.deepEqual(ids(result.drinks), ['iced-tea', 'cola']);
-  // A hit already in the order is never offered: no hero, the rows remain.
+  assert.deepEqual(ids(result.drinks), allDrinks);
+  // No repeated recommendation, but its quantity stays editable in the row.
   const withLemonade = plan(['mix-duo', 'lemonade']);
   assert.equal(withLemonade.hero, null);
-  assert.deepEqual(ids(withLemonade.drinks), ['iced-tea', 'cola']);
+  assert.deepEqual(ids(withLemonade.drinks), allDrinks);
 });
 
 test('neither main: fingers as the house dish, then the burger, then the lemonade', () => {
@@ -77,12 +78,12 @@ test('neither main: fingers as the house dish, then the burger, then the lemonad
   assert.equal(result.hero.product.id, 'fingers');
   assert.equal(result.hero.pairing, false);
   assert.equal(result.hero.badge, 'hit');
-  assert.deepEqual(ids(result.drinks), ['lemonade', 'cola']);
+  assert.deepEqual(ids(result.drinks), allDrinks);
   const stopped = products.map((p) => (p.id === 'fingers' ? { ...p, available: false } : p));
   assert.equal(plan(['cola'], stopped).hero.product.id, 'burger');
 });
 
-test('products of the order and stopped products are not offered; the pair falls back', () => {
+test('existing products keep quantity controls; stopped products disappear and the hero falls back', () => {
   const stopped = products.map((p) =>
     ['burger', 'sauce-hot', 'cola'].includes(p.id) ? { ...p, available: false } : p,
   );
@@ -90,8 +91,15 @@ test('products of the order and stopped products are not offered; the pair falls
   assert.equal(result.reason, 'fingers');
   assert.equal(result.hero.product.id, 'lemonade', 'a stopped burger gives way to the drinks hit');
   assert.equal(result.hero.pairing, false);
-  assert.deepEqual(ids(result.sauces), [], 'signature is in the order, hot is stopped');
-  assert.deepEqual(ids(result.drinks), ['iced-tea']);
+  assert.deepEqual(
+    ids(result.sauces),
+    ['sauce'],
+    'signature quantity stays editable, hot is stopped',
+  );
+  assert.deepEqual(
+    ids(result.drinks),
+    allDrinks.filter((id) => id !== 'cola'),
+  );
 });
 
 test('the cheese sauce tile appears only once the catalog has a cheese sauce', () => {
@@ -119,7 +127,7 @@ test('the cheese sauce tile appears only once the catalog has a cheese sauce', (
   assert.deepEqual(ids(off.sauces), ['sauce', 'sauce-hot']);
 });
 
-test('order captions and the direct Kaspi QR path', () => {
+test('order captions combine configurations', () => {
   assert.equal(orderSummary(['Pick Combo']), 'Pick Combo');
   assert.equal(orderSummary(['Pick Combo', 'Burger Combo', 'Pick Combo']), 'Pick Combo +1');
   assert.equal(orderSummary([]), '');
@@ -139,11 +147,4 @@ test('order captions and the direct Kaspi QR path', () => {
     'Pick Combo ×2 + Cola',
     'two Pick Combos with different drinks read as one product',
   );
-  assert.equal(paysDirectly(true, ['kaspi']), true);
-  assert.equal(paysDirectly(true, undefined), true, 'commercial default is Kaspi QR');
-  assert.equal(paysDirectly(true, ['kaspi', 'kaspi_invoice']), false);
-  assert.equal(paysDirectly(true, ['kaspi_invoice']), false);
-  assert.equal(paysDirectly(true, []), false, 'no method yet: the method screen explains');
-  assert.equal(paysDirectly(false, undefined), false, 'the test simulator offers Kaspi and card');
-  assert.equal(paysDirectly(undefined, ['kaspi']), false);
 });

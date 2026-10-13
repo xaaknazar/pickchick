@@ -186,7 +186,14 @@ class RedesignStart(ui.KioskUI):
         here = ui.assert_bounded(page, 'kiosk-mode-dine-in', width, height)
         take = ui.assert_bounded(page, 'kiosk-mode-takeaway', width, height)
         self.assertLessEqual(abs(here['height'] - take['height']), 1, ('card heights', here, take))
+        page.mouse.move(width / 2, height / 2)
+        for delta in (700, -700):
+            page.mouse.wheel(0, delta)
+            page.wait_for_timeout(150)
+            self.assertEqual(ui.element(page, 'kiosk-mode-dine-in').bounding_box(), here)
+            self.assertEqual(ui.element(page, 'kiosk-mode-takeaway').bounding_box(), take)
         return {'title': line, 'cards': [here['height'], take['height']]}
+
 
     def salute(self, width, height, value):
         page = self.page_for(width, height, motion=True)
