@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { mkdtemp, readdir, copyFile, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, copyFile, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -27,6 +27,13 @@ async function fixture(run) {
     branchId = randomUUID(),
     deviceId = randomUUID();
   const dir = await mkdtemp(join(tmpdir(), 'devices019-'));
+  const candidateRoot = join(dir, 'runtime');
+  const candidateMigrations = join(candidateRoot, 'db/edge/migrations');
+  await mkdir(candidateMigrations, { recursive: true });
+  for (const name of (await readdir(join(appRoot, 'db/edge/migrations'))).filter(
+    (x) => x.endsWith('.sql') && x < '021',
+  ))
+    await copyFile(join(appRoot, 'db/edge/migrations', name), join(candidateMigrations, name));
   let pool;
   try {
     await admin.query(`CREATE SCHEMA ${schema}`);
@@ -93,7 +100,7 @@ async function fixture(run) {
     });
     const options = async (mode, extra = {}) => ({
       mode,
-      appRoot,
+      appRoot: candidateRoot,
       schema,
       runtimeRole,
       workerRole,
