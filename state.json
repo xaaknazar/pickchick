@@ -5147,9 +5147,11 @@
         "tests/kiosk/ios",
         "packages/contracts/openapi.json",
         "packages/edge-fulfillment/src/model.ts",
-        "packages/edge-fulfillment/tests/kiosk-large-order.test.mjs"
+        "packages/edge-fulfillment/tests/kiosk-large-order.test.mjs",
+        "packages/edge-fulfillment/tests/postgres.test.mjs",
+        "docs/operations/images/kiosk-owner-polish-2026-10-13"
       ],
-      "updatedAt": "2026-10-13T15:19:13.264Z",
+      "updatedAt": "2026-10-13T15:21:05.228Z",
       "summary": "Build18 installed. Narrow API substage based on installed ad713: codex/kiosk-cart-lines-api-1013; owner authorized temporary @vps/api reservation."
     }
   ]
