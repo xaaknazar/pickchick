@@ -4493,12 +4493,13 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-design-demo",
       "scopes": [
-        "docs/operations/kiosk-design-demo.md"
+        "@checkpoint/kiosk-design-demo"
       ],
       "status": "active",
       "head": "808933fb3768bc8eea1b9afd12dab59371d116a8",
-      "updatedAt": "2026-10-13T06:31:44.619Z",
-      "summary": " 2026-10-13: по прямому поручению владельца в этом чате области apps/kiosk, tests/kiosk и @ipad/kiosk переданы kiosk-redesign-1013 для сборки/установки 15. Ветка build14 и её артефакты сохранены."
+      "updatedAt": "2026-10-13T06:41:02.788Z",
+      "summary": " 2026-10-13: по прямому поручению владельца в этом чате области apps/kiosk, tests/kiosk и @ipad/kiosk переданы kiosk-redesign-1013 для сборки/установки 15. Ветка build14 и её артефакты сохранены.",
+      "nextAction": "Владелец 13.10 явно поручил включить демо и смену надписи в kiosk-redesign-1013/build15. Ветка114d5555 и артефакты сохранены; прежние резервы переданы."
     },
     {
       "id": "inventory-shared",
