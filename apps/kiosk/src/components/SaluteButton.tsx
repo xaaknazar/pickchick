@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -113,8 +113,11 @@ export function SaluteButton({
   still = false,
   delay = 0,
   testID,
+  children,
 }: {
   label: string;
+  /** Optional animated caption; the accessible label remains stable. */
+  children?: ReactNode;
   onPress: () => void;
   busy?: boolean;
   /** Rest without the salute, as under the system reduced-motion setting. */
@@ -357,23 +360,25 @@ export function SaluteButton({
                 </Animated.View>
               )}
               {busy ? <ActivityIndicator accessibilityLabel={label} color={colors.white} /> : null}
-              <Text
-                {...fixedText}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                style={{
-                  fontFamily: fonts.black,
-                  fontSize: size,
-                  // Montserrat's normal line height (1.22 em), as in the mock-up.
-                  lineHeight: Math.round(size * 1.22),
-                  letterSpacing: size * 0.04,
-                  color: colors.white,
-                  textAlign: 'center',
-                  flexShrink: 1,
-                }}
-              >
-                {label}
-              </Text>
+              {children ?? (
+                <Text
+                  {...fixedText}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  style={{
+                    fontFamily: fonts.black,
+                    fontSize: size,
+                    // Montserrat's normal line height (1.22 em), as in the mock-up.
+                    lineHeight: Math.round(size * 1.22),
+                    letterSpacing: size * 0.04,
+                    color: colors.white,
+                    textAlign: 'center',
+                    flexShrink: 1,
+                  }}
+                >
+                  {label}
+                </Text>
+              )}
             </Pressable>
           </View>
         </Animated.View>

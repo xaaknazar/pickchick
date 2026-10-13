@@ -102,6 +102,7 @@ export function PaymentStatus({
   method = 'qr',
   locale = 'ru',
   dense = false,
+  demoWarning = null,
 }: {
   state: 'waiting' | 'unknown' | 'declined';
   title: string;
@@ -114,6 +115,11 @@ export function PaymentStatus({
   locale?: Locale;
   /** Closer vertical rhythm so a control below the steps stays above the footer. */
   dense?: boolean;
+  /**
+   * Staff demo mode (owner decision 2026-10-11): "ДЕМО - не оплачивать" over the QR. The QR text
+   * is not payable, and the Kaspi steps give way to the message card.
+   */
+  demoWarning?: string | null;
 }) {
   const { v, height, width } = useMetrics();
   const t = copy(locale);
@@ -317,9 +323,27 @@ export function PaymentStatus({
             ],
           }}
         >
+          {demoWarning ? (
+            <View
+              testID="kiosk-demo-qr-warning"
+              style={{
+                paddingVertical: v(8),
+                paddingHorizontal: v(18),
+                borderRadius: 999,
+                backgroundColor: colors.orangeInk,
+              }}
+            >
+              <Text
+                {...fixedText}
+                style={{ fontFamily: fonts.bold, fontSize: v(20), color: colors.white }}
+              >
+                {demoWarning}
+              </Text>
+            </View>
+          ) : null}
           <PaymentQR
             payload={qrPayload}
-            label="Kaspi QR"
+            label={demoWarning ?? 'Kaspi QR'}
             size={tight ? 'compact' : 'regular'}
             scanning={waiting}
           />
@@ -360,7 +384,7 @@ export function PaymentStatus({
         </Animated.View>
       ) : null}
 
-      {qrPayload && waiting ? (
+      {qrPayload && waiting && !demoWarning ? (
         <View style={{ width: '100%', flexDirection: 'row', gap: v(12) }}>
           {/* The QR on screen is always a Kaspi QR: design steps name Kaspi.kz. */}
           {checkoutCopy(locale).kaspiSteps.map((label, index) => (

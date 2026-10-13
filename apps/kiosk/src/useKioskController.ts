@@ -1,29 +1,60 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
+import * as Crypto from 'expo-crypto';
 import { prefetchCatalogMedia, rememberCatalogMedia } from './assets';
 import { startKioskPolling } from './polling';
 import { KioskController } from './controller';
 import { CommercialKioskController } from './commercial-controller';
 import { commercialKioskEnabled } from './commercial-api';
 import { createCommercialKioskIO, createKioskIO } from './storage';
+import { createDemoKiosk, type DemoKiosk } from './demo';
 import type { KioskModel } from './model';
 
 export default function useKioskController(): KioskModel {
-  const controller = useMemo(
+  const live = useMemo(
     () =>
       commercialKioskEnabled
         ? new CommercialKioskController(createCommercialKioskIO())
         : new KioskController(createKioskIO()),
     [],
   );
+  // Staff demo mode (owner decision 2026-10-11): React state only, so an app restart always
+  // starts in normal mode. The demo controller has its own in-memory transport (demo.ts).
+  const [demo, setDemoKiosk] = useState<DemoKiosk | null>(null);
+  const controller = demo?.controller ?? live;
   const state = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
     controller.getSnapshot,
   );
   useEffect(() => {
-    void controller.restore();
-  }, [controller]);
+    void live.restore();
+  }, [live]);
+  const setDemo = useCallback(
+    (on: boolean) => {
+      if (!on) {
+        setDemoKiosk(null);
+        return;
+      }
+      // Only from the idle start screen: a live guest, order or payment is never left behind.
+      const current = live.getSnapshot();
+      if (current.step !== 'start' || current.busy || current.recoveryRequired || current.order)
+        return;
+      const seed = live instanceof CommercialKioskController ? live.demoSeed() : null;
+      setDemoKiosk((previous) => previous ?? createDemoKiosk(seed, { uuid: Crypto.randomUUID }));
+    },
+    [live],
+  );
+  useEffect(() => {
+    if (!demo) return;
+    const c = demo.controller;
+    void c.restore();
+    // Order reads and the idle return to the start screen; no availability long-poll in demo.
+    return startKioskPolling(
+      { getSnapshot: c.getSnapshot, refresh: c.refresh, tick: c.tick },
+      () => AppState.currentState === 'active',
+    );
+  }, [demo]);
   // Register the publication's photos before the screens render, then keep them on disk.
   const [, setMediaReady] = useState(0);
   useMemo(() => rememberCatalogMedia(state.catalog), [state.catalog]);
@@ -39,20 +70,23 @@ export default function useKioskController(): KioskModel {
     };
   }, [state.catalog]);
   useEffect(() => {
-    const stop = startKioskPolling(controller, () => AppState.currentState === 'active');
+    // The live kiosk keeps its own polling while the demo is shown (menu reads only).
+    const stop = startKioskPolling(live, () => AppState.currentState === 'active');
     const active = AppState.addEventListener('change', (status) => {
       if (status === 'active') {
-        void controller.tick();
-        void controller.refresh();
+        void live.tick();
+        void live.refresh();
       }
     });
     return () => {
       stop();
       active.remove();
     };
-  }, [controller]);
+  }, [live]);
   return {
     ...state,
+    demo: !!demo,
+    setDemo,
     start: controller.start,
     setMode: controller.setMode,
     goMode: controller.goMode,
@@ -71,7 +105,7 @@ export default function useKioskController(): KioskModel {
     addToCart: controller.addToCart,
     updateQuantity: controller.updateQuantity,
     beginPayment: controller.beginPayment,
-    pay: controller.pay,
+    pay: demo ? demo.pay : controller.pay,
     cancelOrder: controller.cancelOrder,
     recover: controller.recover,
     refresh: controller.refresh,

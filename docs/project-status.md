@@ -9,12 +9,17 @@
 Оплата, ошибки, диалоги и номер заказа не менялись. Сырного соуса нет в каталоге - его
 плитка не показывается.
 
-Проверено в облачной сессии (Node 22): `pnpm test:kiosk` 163/163, typecheck, ESLint, Prettier,
-экспорт iOS/web, браузерные `browser_ui`, `browser_payment_success` и три новые проверки
-редизайна на 1024×1366, 820×1180, 744×1133. Физический iPad и TestFlight не проверены.
-[Протокол и отличия](operations/kiosk-redesign-2026-10-13.md). Ветка
-`codex/kiosk-redesign-1013`; push и PR - с Mac. Следующий шаг - CI, PR, сборка киоска и
-приёмка владельцем на iPad.
+На Mac открыт [PR #238](https://github.com/xaaknazar/pickchick/pull/238).
+По прямому разрешению владельца включены скрытый демо-режим и смена надписи
+KZ → RU → EN с сохранением новой кнопки «Салют». После объединения:
+181/181 kiosk tests, typecheck, ESLint и Prettier успешны. Пять браузерных
+сценариев добавлены в Foundation CI. BuildNumber 15 задан отдельным коммитом
+`5367bbd7`, версия 0.1.0 и Bundle ID сохранены. Подготовлена нативная сборка
+с прежним `EXPO_PUBLIC_KIOSK_COMMERCIAL=1`. iPad сейчас недоступен для кабельной
+установки; следующий шаг - полная CI, Release и внутренняя группа TestFlight.
+Приёмка на физическом iPad не подтверждена.
+[Протокол build 15](operations/kiosk-build15-installation.md),
+[реализация и отличия](operations/kiosk-redesign-2026-10-13.md).
 
 ## 13 октября: стоп-лист доступен управляющему
 

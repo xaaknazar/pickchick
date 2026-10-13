@@ -8,6 +8,7 @@ import { BootState } from './BootState';
 import { Notice } from './Notice';
 import { ScreenSurface } from './UI';
 import { copy, type Locale } from '../i18n';
+import { guestErrorText } from '../guestError';
 import type { KioskModel } from '../model';
 
 // Storybook-only, entirely in-memory transport for a branch in mode 'cloud' (ADR-0014).
@@ -190,7 +191,7 @@ function renderCloudKitchen({ locale, scenario }: { locale: Locale; scenario: Sc
   const context = { locale, setLocale: () => {}, onHelp: () => {}, onCancel: () => {} };
   const t = copy(locale);
   // The same notice GuestScreen shows: the guest's language for the error code.
-  const errorText = state.errorCode ? t[`err_${state.errorCode}`] : state.error;
+  const errorText = guestErrorText(state, t);
   if (!state.ready) return <BootState />;
   return (
     <ScreenSurface>

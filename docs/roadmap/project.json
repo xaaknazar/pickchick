@@ -1858,7 +1858,7 @@
       "id": "kiosk-redesign-1013",
       "workstream": "kiosk",
       "title": "Редизайн киоска: старт, меню-бенто, умные допы (13.10)",
-      "summary": "По заданию владельца от 13.10: стеклянный язык, чип Kaspi QR и «Салют» на старте; заголовок выбора зала в одну строку; меню-бенто с хитом раздела и сеткой по числу позиций; умные допы после «Оформить заказ» и переход сразу на существующую оплату Kaspi QR без страницы корзины. Оплата, ошибки и номер заказа не менялись. Проверены test:kiosk 163/163, typecheck, lint и web-снимки на трёх iPad. Физический iPad - впереди.",
+      "summary": "Редизайн 13.10: стеклянный язык, чип Kaspi QR, Салют, меню-бенто и умные допы. По разрешению владельца объединён с демо и сменой KZ → RU → EN. На Mac пройдены 181 kiosk tests, typecheck/lint/format. PR #238, build 15 подготовлен; доставка и приёмка на iPad ещё не подтверждены.",
       "status": "active",
       "owner": "development",
       "phase": "foundation",
@@ -1871,6 +1871,10 @@
         {
           "label": "Внедрение, проверки, снимки и отличия",
           "path": "docs/operations/kiosk-redesign-2026-10-13.md"
+        },
+        {
+          "label": "Подготовка и доставка build 15",
+          "path": "docs/operations/kiosk-build15-installation.md"
         }
       ],
       "acceptance": [
@@ -1878,7 +1882,7 @@
         "Из допов «К оплате» открывает существующий экран Kaspi QR; оплата и номер заказа не изменены.",
         "Владелец принял сборку на iPad."
       ],
-      "nextAction": "Push ветки codex/kiosk-redesign-1013, PR и полная CI; затем сборка киоска в TestFlight и приёмка на iPad.",
+      "nextAction": "Дождаться полной CI PR #238, собрать Release 0.1.0 (15), доставить через PickChick Kiosk Internal и принять на iPad.",
       "checks": {
         "implemented": true,
         "verified": true,

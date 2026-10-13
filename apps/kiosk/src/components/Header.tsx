@@ -21,6 +21,8 @@ export interface ScreenContext {
   direction?: 'forward' | 'back';
   /** The step shown before this one (`boot` before the first screen). */
   from?: KioskStep | 'boot';
+  /** Staff gesture: a long hold on the start screen logo (demo mode dialog). */
+  onStaffHold?: () => void;
 }
 /** Single pilot point; the catalog carries only a branch id, not its display name. */
 export const pilotBranch = 'ТЦ Abay Plaza';

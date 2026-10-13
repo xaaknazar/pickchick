@@ -55,7 +55,9 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
             ? t.invoiceRestaurant
             : t.invoiceChecking
         : showQr
-          ? t.qrScan
+          ? model.demo
+            ? t.demoQrHint
+            : t.qrScan
           : qrExpired
             ? t.qrExpired
             : t.qrPreparing
@@ -92,7 +94,40 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
             expiresAt={qr?.expiresAt ?? null}
             method={model.paymentMethod === 'card' ? 'card' : invoice ? 'invoice' : 'qr'}
             locale={context.locale}
+            demoWarning={model.demo ? t.demoQr : null}
           />
+          {/* Staff demo mode (owner decision 2026-10-11): the outcome is chosen locally, the
+              in-memory demo transport never reaches a bank. */}
+          {model.demo && model.order && !declined ? (
+            <Wrapper dir="row" gap={16} wrap justify="center">
+              <Button
+                label={t.demoPaid}
+                tone="inverse"
+                testID="kiosk-demo-paid"
+                size="compact"
+                busy={model.busy}
+                onPress={() => void model.pay('approved')}
+              />
+              <Button
+                label={t.demoDeclined}
+                tone="inverse"
+                testID="kiosk-demo-declined"
+                size="compact"
+                busy={model.busy}
+                onPress={() => void model.pay('declined')}
+              />
+              {unknown ? null : (
+                <Button
+                  label={t.demoUnknown}
+                  tone="inverse"
+                  testID="kiosk-demo-unknown"
+                  size="compact"
+                  busy={model.busy}
+                  onPress={() => void model.pay('unknown')}
+                />
+              )}
+            </Wrapper>
+          ) : null}
           {!unknown && !model.commercial ? (
             <Wrapper dir="row" gap={16} wrap justify="center">
               <Button
@@ -228,19 +263,21 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
             showBoard={order?.state === 'preparing' || order?.state === 'ready'}
             locale={context.locale}
             receipt={
-              incident
-                ? t.incidentBody
-                : waitingForNumber
-                  ? t.numberPending
-                  : failed
-                    ? model.commercial
-                      ? t.helpCommercial
-                      : t.testPayment
-                    : model.commercial
-                      ? model.receiptState === 'issued'
-                        ? t.receiptIssued
-                        : t.receiptMissing
-                      : t.testPayment
+              model.demo
+                ? t.demoReceipt
+                : incident
+                  ? t.incidentBody
+                  : waitingForNumber
+                    ? t.numberPending
+                    : failed
+                      ? model.commercial
+                        ? t.helpCommercial
+                        : t.testPayment
+                      : model.commercial
+                        ? model.receiptState === 'issued'
+                          ? t.receiptIssued
+                          : t.receiptMissing
+                        : t.testPayment
             }
           />
           {number ? (
