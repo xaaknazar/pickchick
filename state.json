@@ -5072,11 +5072,12 @@
         "infra/public-staging/gateway.Caddyfile",
         "infra/public-staging/device-center-gateway.py",
         "tests/operations/test_device_center_gateway.py",
-        "tests/operations/windows-device-access-upgrade.test.ps1"
+        "tests/operations/windows-device-access-upgrade.test.ps1",
+        "tests/integration/terminal-access-upgrade.test.mjs"
       ],
       "status": "active",
-      "head": "aabad0e7761a944aed2faaf524eb10d80be2b6d5",
-      "updatedAt": "2026-10-13T10:41:41.655Z"
+      "head": "29f2740781ae3ab52300771ad755f15fddbd0ccb",
+      "updatedAt": "2026-10-13T10:43:43.708Z"
     }
   ]
 }
