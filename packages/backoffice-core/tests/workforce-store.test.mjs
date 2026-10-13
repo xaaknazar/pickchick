@@ -14,12 +14,15 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 test('payroll owner preserves populated schema052, keeps channels dormant and rejects replay', async () => {
-  const directory = fileURLToPath(new URL('../../../db/cloud/migrations/', import.meta.url));
+  const source = fileURLToPath(new URL('../../../db/cloud/migrations/', import.meta.url));
+  const directory = await mkdtemp(join(tmpdir(), 'payroll-schema057-'));
   const old = await mkdtemp(join(tmpdir(), 'payroll-schema052-'));
   try {
-    for (const n of await readdir(directory))
-      if (n.endsWith('.sql') && +n.slice(0, 3) <= 52)
-        await copyFile(join(directory, n), join(old, n));
+    for (const n of await readdir(source)) {
+      if (!n.endsWith('.sql')) continue;
+      if (+n.slice(0, 3) <= 57) await copyFile(join(source, n), join(directory, n));
+      if (+n.slice(0, 3) <= 52) await copyFile(join(source, n), join(old, n));
+    }
     await withSyncDatabases(
       async (c) => {
         const connection = await c.cloud.pool.connect();
@@ -62,6 +65,7 @@ test('payroll owner preserves populated schema052, keeps channels dormant and re
     );
   } finally {
     await rm(old, { recursive: true, force: true });
+    await rm(directory, { recursive: true, force: true });
   }
 });
 
