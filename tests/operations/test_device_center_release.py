@@ -19,5 +19,14 @@ class DeviceCenterReleaseTests(unittest.TestCase):
         self.assertEqual(m.BASELINE,'ad7132fa5f4ae93bfa0693c8dd5e790c885d0201')
         self.assertEqual(m.MIGRATION,'058_cloud_device_center.sql')
         self.assertEqual(m.FLAG,'DEVICE_CENTER_ENABLED')
+    def test_only_reviewed_fixture_bytes_can_accompany_device_runtime(self):
+        root=path.parents[2]
+        fixture='packages/backoffice-core/tests/workforce-store.test.mjs'
+        m.check_source_delta(set(m.RUNTIME_DELTA)|{fixture},lambda p:(root/p).read_bytes())
+        with self.assertRaises(m.market.GuardFailure):
+            m.check_source_delta({fixture},lambda p:b'changed fixture')
+        for unrelated in ('packages/backoffice-core/src/workforce-store.ts','packages/commerce-core/src/index.ts','pnpm-lock.yaml','packages/backoffice-core/tests/another.test.mjs'):
+            with self.assertRaises(m.market.GuardFailure):
+                m.check_source_delta({unrelated},lambda p:b'')
 
 if __name__=='__main__':unittest.main()
