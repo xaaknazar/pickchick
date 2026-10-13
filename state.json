@@ -5154,8 +5154,9 @@
       ],
       "status": "active",
       "head": "94f0ce2a5cd94d0938666089c926e4da13ee149a",
-      "updatedAt": "2026-10-13T15:49:38.737Z",
-      "summary": "API5b6f846b/cloud058, canonical portal4caca195 and gateway installed with exact CI11/11. Kitchen portal and Windows KitchenLink now5b6f846b, edgeConnected=true. Windows020 COMMITTED; old23fb runtime running, recovery receipt is pending exact CI dfcf7d8f. Do not replay schema019 or overwrite installed Devices API. 2026-10-13: владелец в device-center подтвердил «Выпуск завершён — можно передать API». API и зависимые ограниченные grants переданы обратно для Devices activation; исходники киоска/публичный сайт/roadmap сохранены. Перед новым выпуском киоска прочитать фактический 5b6f846b/cloud058 и device-center deployment record. Owner authorized temporary @windows/cashier transfer for kiosk18 fulfillment-worker-only update."
+      "updatedAt": "2026-10-13T16:18:28.012Z",
+      "summary": "API5b6f846b/cloud058, portal4caca195, gateway and Kitchen portal/Windows KitchenLink5b installed. CI94f0ce2a full Foundation38424263005 SUCCESS11/11; roadmap/UI CI pass. Owner explicitly transferred API/Postgres back for activation; server lease free. Windows020 is COMMITTED with old23fb runtime last verified running. Lost original Prepare receipt must NOT be replayed. Guarded recovery94f did not start: initial SSH check failed (timeout/Host is down) and kitchen health edgeConnected=false. Await current cashier IPv4/network/power. Never downgrade to019 or overwrite Devices API. PR242/243 contain current progress and blockers.",
+      "next": "Restore verified SSH to cashier; inspect actual state before running recovery94f exactly once. Then Switch020, install stopped mailbox, Verify, cloud/Windows/portal activation with actual proofs. Do not rerun Stage/Prepare/migration020. Edge021 and kiosk heartbeat native build remain separate; physical pairing acceptance pending."
     }
   ]
 }
