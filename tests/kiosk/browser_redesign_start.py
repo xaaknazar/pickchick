@@ -4,7 +4,7 @@ Run after exporting apps/kiosk, with the same environment as browser_ui.py
 (KIOSK_UI_URL points at the local preview server). Every API request goes to
 browser_ui.Fixture. For each iPad size (1024x1366, 820x1180, 744x1133) and
 locale it checks and captures the start screen at rest (reduced motion) and the
-dining choice, then frames of the CTA salute at ~8 %, ~20 %, ~40 % and ~65 %
+dining choice, then frames of the CTA salute at ~8 %, ~25 %, ~40 % and ~60 %
 of its 2.8 s cycle. Salute frames run in real time: the page watches the sweep band,
 derives the cycle phase from its position when it starts to move (6 %), waits
 for the target phase and reports the sparks; the screenshot follows at once, so
@@ -28,7 +28,7 @@ COPY = {
     'kk': {'kaspi': 'Kaspi QR арқылы төлем', 'cta': 'ТАПСЫРЫС БЕРУ', 'title': 'Қалай тамақтанасыз?'},
     'en': {'kaspi': 'Pay with Kaspi QR', 'cta': 'ORDER NOW', 'title': 'Where will you eat?'},
 }
-FRAMES = (0.08, 0.20, 0.40, 0.65)
+FRAMES = (0.08, 0.25, 0.40, 0.60)
 
 # Shared page helpers: the visible copy of a test id and the salute's current state.
 STATE = '''
@@ -60,7 +60,7 @@ const salute = () => {
 };
 '''
 
-# Wait for the next sweep start, infer the phase (band: -35 % at 6 %, CSS `ease`
+# Wait for the next sweep start, infer the phase (band: -35 % at 6 %, CSS `ease-in-out`
 # to 125 % at 50 % of 2.8 s), then wait for `target` and return the state.
 AT_PHASE = '''async (target) => {
 ''' + STATE + '''
@@ -73,7 +73,7 @@ AT_PHASE = '''async (target) => {
         }
         return (low + high) / 2;
     };
-    const ease = (x) => bezier(solve((t) => bezier(t, 0.25, 0.25), x), 0.1, 1);
+    const ease = (x) => bezier(solve((t) => bezier(t, 0.42, 0.58), x), 0, 1);
     const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
     const started = performance.now();
     let previous = salute().sweep;
@@ -142,7 +142,11 @@ class RedesignStart(ui.KioskUI):
             const chip = getComputedStyle(visible('kiosk-start-kaspi'));
             const track = getComputedStyle(visible('kiosk-language-ru').parentElement);
             const label = getComputedStyle(visible('kiosk-start-kaspi').querySelector('[dir="auto"]'));
+            const cta = getComputedStyle(visible('kiosk-start').querySelector('[dir="auto"]'));
+            const glow = getComputedStyle(visible('kiosk-start').parentElement);
             return {
+                cta: [cta.fontFamily, cta.fontSize, cta.letterSpacing],
+                glow: glow.boxShadow,
                 chip: [chip.backgroundColor, chip.borderTopColor, chip.borderTopWidth,
                        chip.backdropFilter, chip.borderTopLeftRadius],
                 track: [track.backgroundColor, track.borderTopColor, track.borderTopWidth,
@@ -156,6 +160,11 @@ class RedesignStart(ui.KioskUI):
                                          '1px', 'blur(14px)'], look)
         self.assertIn('Montserrat_700Bold', look['label'][0], look)
         self.assertEqual(look['label'][1], f'{px(width, 24)}px', look)
+        # CTA as in the approved mock-up: Montserrat 900 58, letter-spacing .04em, glow 0 16 48.
+        self.assertIn('Montserrat_900Black', look['cta'][0], look)
+        self.assertEqual(look['cta'][1], f'{px(width, 58)}px', look)
+        self.assertAlmostEqual(float(look['cta'][2][:-2]), px(width, 58) * 0.04, delta=0.05, msg=look)
+        self.assertIn(f'0px {px(width, 16)}px {px(width, 48)}px', look['glow'], look)
         ui.assert_no_overflow(page, width)
         return {'chip': chip, 'look': look}
 
@@ -196,14 +205,14 @@ class RedesignStart(ui.KioskUI):
         self.assertGreaterEqual(early['lit'], 10, early)
         self.assertLess(early['sweep'], 0.2, early)
         self.assertLess(early['reach'], px(width, 40), early)
-        # ~20 %: the band crosses the button (CSS `ease` from 6 % to 50 %), sparks fly out.
+        # ~25 %: the band crosses the button (ease-in-out from 6 % to 50 %), sparks fly out.
         self.assertTrue(0 < crossing['sweep'] < 1, crossing)
         self.assertEqual(crossing['lit'], 14, crossing)
         # ~40 %: the band is leaving the button, all sparks still out.
         self.assertGreater(middle['sweep'], 0.8, middle)
         self.assertEqual(middle['lit'], 14, middle)
         self.assertGreater(middle['reach'], crossing['reach'], (crossing, middle))
-        # ~65 %: sparks near their 60-120 pt reach, the band has left the button.
+        # ~60 %: sparks near their 60-120 pt reach and fading (55-70 %), the band has left.
         self.assertGreater(late['reach'], px(width, 45), late)
         self.assertLessEqual(late['reach'], px(width, 140), late)
         self.assertGreaterEqual(late['sweep'], 1, late)

@@ -45,6 +45,8 @@ export const redesign = {
   screen: ['#1E6BE6', '#0047BB', '#02297A'] as const,
   cta: '#FF6900',
   ctaShadow: 'rgba(255,105,0,.5)',
+  /** Start CTA glow: 0 16 48 rgba(255,105,0,.45). */
+  saluteShadow: 'rgba(255,105,0,.45)',
   cardInk: '#15213A',
   cardMuted: '#55617A',
   cream: '#FEF8F0',

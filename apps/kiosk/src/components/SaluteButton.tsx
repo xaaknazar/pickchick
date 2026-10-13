@@ -13,14 +13,35 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, redesign, useMetrics } from '../theme';
 import { fixedText } from './Body';
-import { cssEase, easeOut, motion } from './motion';
+import { burst, easeInOut, easeOut, motion } from './motion';
 import { ownerOrange } from './ownerOrange';
 import { useMotionPreference } from './useMotionPreference';
 
 /** One «Салют» cycle (kiosk redesign 2026-10-13). */
 const cycle = 2800;
-/** Fourteen sparks: even `kind` is a 22 pt four-point star, odd a 16 pt dot. */
-const sparkCount = 14;
+/** The approved mock-up button (1024-wide points): 904 × 140, its particles placed on it. */
+const mock = { width: 904, height: 140 };
+/**
+ * The approved mock-up's fourteen particles (`Main.dc.html`, variant «burst»): centre on the
+ * 904 × 140 button, flight (dx, dy) and colour (`redesign.spark`: gold, white, orange).
+ * Even entries are 16 pt dots, odd ones 22 pt four-point stars. They sit behind the button.
+ */
+const particles = [
+  [90, 10, -50, -80, 0],
+  [230, 0, -14, -110, 1],
+  [380, 0, 6, -96, 2],
+  [530, 0, 18, -120, 0],
+  [690, 0, 40, -96, 1],
+  [830, 14, 80, -70, 2],
+  [902, 70, 96, 0, 0],
+  [830, 126, 72, 66, 1],
+  [640, 140, 24, 90, 2],
+  [450, 140, 0, 104, 0],
+  [250, 140, -30, 90, 1],
+  [74, 126, -76, 66, 2],
+  [2, 70, -96, 0, 0],
+  [310, 0, -36, -86, 1],
+] as const;
 type Frame = readonly [at: number, value: number];
 /**
  * CSS-like keyframes for the native driver: it drops `easing` inside `interpolate`
@@ -46,27 +67,14 @@ function frames(points: readonly Frame[], easing: EasingFunction, steps = 8) {
   });
   return { inputRange, outputRange, extrapolate: 'clamp' as const };
 }
-/** Point on the pill outline at fraction `u` (clockwise from the top-left) and its outward angle. */
-function outline(u: number, width: number, height: number) {
-  const r = height / 2;
-  const straight = Math.max(0, width - height);
-  const total = 2 * straight + Math.PI * height;
-  let d = (((u % 1) + 1) % 1) * total;
-  if (d < straight) return { x: r + d, y: 0, angle: -Math.PI / 2 };
-  d -= straight;
-  if (d < Math.PI * r) {
-    const a = -Math.PI / 2 + d / r;
-    return { x: r + straight + Math.cos(a) * r, y: r + Math.sin(a) * r, angle: a };
-  }
-  d -= Math.PI * r;
-  if (d < straight) return { x: r + straight - d, y: height, angle: Math.PI / 2 };
-  d -= straight;
-  const a = Math.PI / 2 + d / r;
-  return { x: r + Math.cos(a) * r, y: r + Math.sin(a) * r, angle: a };
-}
-/** Four-point star from two crossed slim diamonds (no SVG on the kiosk). */
+/**
+ * Four-point star of the mock-up, `clip-path: polygon(50% 0, 62% 38%, 100% 50%, …)`, drawn as
+ * two crossed slim diamonds (no SVG on the kiosk): a half-width of 15.8 % puts their crossings
+ * exactly on the polygon's inner corners.
+ */
 function Star({ size, fill }: { size: number; fill: string }) {
   const side = size / Math.SQRT2;
+  const slim = 0.316;
   const diamond = (axis: 'scaleX' | 'scaleY') => (
     <View
       style={{
@@ -76,7 +84,7 @@ function Star({ size, fill }: { size: number; fill: string }) {
         width: side,
         height: side,
         backgroundColor: fill,
-        transform: [axis === 'scaleX' ? { scaleX: 0.36 } : { scaleY: 0.36 }, { rotate: '45deg' }],
+        transform: [axis === 'scaleX' ? { scaleX: slim } : { scaleY: slim }, { rotate: '45deg' }],
       }}
     />
   );
@@ -88,12 +96,15 @@ function Star({ size, fill }: { size: number; fill: string }) {
   );
 }
 /**
- * Kiosk redesign 2026-10-13 «Салют» CTA: the orange pill springs (scale 1 → .965 → 1.045 → 1
- * over the first 16 % of a 2.8 s loop, ease-out), a light band (18 % of the width,
- * skewed -20°) sweeps across it during 6-50 %, and fourteen sparks (dots and four-point
- * stars) leave its edges at 4-8 %, fly 60-120 pt outward by 70 % and fade. No arrow. All of it
- * runs on the native driver (opacity and transforms only). Under reduced motion, while busy or
- * when `still`, the button rests at scale 1 with no band and no sparks.
+ * Kiosk redesign 2026-10-13 «Салют» CTA, as in the owner's approved mock-up (variant «burst»):
+ * an orange pill 140 tall with «СДЕЛАТЬ ЗАКАЗ» in Montserrat 900 58, letter-spacing .04em,
+ * no arrow, glow 0 16 48 rgba(255,105,0,.45). On a 2.8 s loop it springs (scale 1 → .965 →
+ * 1.045 → 1 over the first 16 %, ease-out), a light band (18 % of the width, skewed -20°)
+ * sweeps across it during 6-50 % (ease-in-out), and fourteen particles behind it pop in at
+ * 4-8 % (scale .3 → 1), fly to their own offsets by 70 % (scale .4) and fade during 55-70 %,
+ * cubic-bezier(.15,.7,.3,1). Sizes are 1024-wide mock-up points (`px`). All of it runs on the
+ * native driver (opacity and transforms only). Under reduced motion, while busy or when
+ * `still`, the button rests at scale 1 with no band and no particles.
  */
 export function SaluteButton({
   label,
@@ -112,7 +123,7 @@ export function SaluteButton({
   delay?: number;
   testID?: string;
 }) {
-  const { v, scale } = useMetrics();
+  const { px, scale } = useMetrics();
   const reduced = useMotionPreference();
   const calm = reduced || still || busy;
   const [box, setBox] = useState({ width: 0, height: 0 });
@@ -174,7 +185,7 @@ export function SaluteButton({
             [0.5, 1.25 * box.width],
             [1, 1.25 * box.width],
           ],
-          cssEase,
+          easeInOut,
           12,
         ),
       ),
@@ -182,60 +193,62 @@ export function SaluteButton({
   );
   const sparks = useMemo(() => {
     if (!box.width) return [];
-    // 1024-wide mock-up points (like `px`); keyed on `scale` so a re-render keeps the nodes.
-    const px = (n: number) => Math.round(n * scale);
-    return Array.from({ length: sparkCount }, (_, index) => {
-      const star = index % 2 === 0;
-      const size = px(star ? 22 : 16);
-      const spot = outline((index + 0.35) / sparkCount, box.width, box.height);
-      const angle = spot.angle + (((index * 7) % 5) - 2) * 0.16;
-      const reach = px(60 + ((index * 3) % 7) * 10);
-      const travel = (axis: number) =>
-        time.interpolate(
-          frames(
-            [
-              [0, 0],
-              [0.04, 0],
-              [0.7, axis * reach],
-              [1, axis * reach * 1.12],
-            ],
-            easeOut,
-          ),
-        );
+    // Shared by every particle: appear at 4-8 %, hold, fade during 55-70 %.
+    const opacity = time.interpolate(
+      frames(
+        [
+          [0, 0],
+          [0.04, 0],
+          [0.08, 1],
+          [0.55, 1],
+          [0.7, 0],
+          [1, 0],
+        ],
+        burst,
+      ),
+    );
+    const grow = time.interpolate(
+      frames(
+        [
+          [0, 0.3],
+          [0.04, 0.3],
+          [0.08, 1],
+          [0.7, 0.4],
+          [1, 0.4],
+        ],
+        burst,
+        16,
+      ),
+    );
+    const fly = (distance: number) =>
+      time.interpolate(
+        frames(
+          [
+            [0, 0],
+            [0.08, 0],
+            [0.7, distance],
+            [1, distance],
+          ],
+          burst,
+          16,
+        ),
+      );
+    // Keyed on `scale` so a re-render keeps the nodes.
+    return particles.map(([x, y, dx, dy, tint], index) => {
+      const star = index % 2 === 1;
+      const size = Math.round((star ? 22 : 16) * scale);
       return {
         key: index,
         star,
         size,
-        fill: redesign.spark[index % redesign.spark.length] ?? colors.white,
-        left: spot.x - size / 2,
-        top: spot.y - size / 2,
-        opacity: time.interpolate({
-          inputRange: [0, 0.04, 0.08, 0.7, 0.92, 1],
-          outputRange: [0, 0, 1, 1, 0, 0],
-          extrapolate: 'clamp',
-        }),
+        fill: redesign.spark[tint],
+        left: (x / mock.width) * box.width - size / 2,
+        top: (y / mock.height) * box.height - size / 2,
+        opacity,
         transform: [
-          { translateX: travel(Math.cos(angle)) },
-          { translateY: travel(Math.sin(angle)) },
-          {
-            scale: time.interpolate({
-              inputRange: [0, 0.04, 0.08, 0.7, 0.92, 1],
-              outputRange: [0.4, 0.4, 1, 1, 0.6, 0.6],
-              extrapolate: 'clamp',
-            }),
-          },
-          // Stars turn a quarter as they fly; a dot has nothing to turn.
-          ...(star
-            ? [
-                {
-                  rotate: time.interpolate({
-                    inputRange: [0, 0.04, 1],
-                    outputRange: ['0deg', '0deg', `${index % 4 === 0 ? -90 : 90}deg`],
-                    extrapolate: 'clamp',
-                  }),
-                },
-              ]
-            : []),
+          { translateX: fly(Math.round(dx * scale)) },
+          { translateY: fly(Math.round(dy * scale)) },
+          { scale: grow },
         ],
       };
     });
@@ -244,7 +257,8 @@ export function SaluteButton({
     const { width, height } = event.nativeEvent.layout;
     if (width !== box.width || height !== box.height) setBox({ width, height });
   };
-  const height = Math.max(64, v(112));
+  const height = Math.max(64, px(140));
+  const size = px(58);
   return (
     <View onLayout={layout}>
       {calm ? null : (
@@ -257,27 +271,27 @@ export function SaluteButton({
           aria-hidden
           style={StyleSheet.absoluteFill}
         >
-          {sparks.map(({ key, star, size, fill, left, top, opacity, transform }) => (
+          {sparks.map(({ key, star, size: side, fill, left, top, opacity, transform }) => (
             <Animated.View
               key={key}
               style={{
                 position: 'absolute',
                 left,
                 top,
-                width: size,
-                height: size,
+                width: side,
+                height: side,
                 opacity,
                 transform,
               }}
             >
               {star ? (
-                <Star size={size} fill={fill} />
+                <Star size={side} fill={fill} />
               ) : (
                 <View
                   style={{
-                    width: size,
-                    height: size,
-                    borderRadius: size / 2,
+                    width: side,
+                    height: side,
+                    borderRadius: side / 2,
                     backgroundColor: fill,
                   }}
                 />
@@ -294,10 +308,7 @@ export function SaluteButton({
           <View
             style={{
               borderRadius: height / 2,
-              shadowColor: colors.orange,
-              shadowOpacity: 0.45,
-              shadowRadius: v(20),
-              shadowOffset: { width: 0, height: v(18) },
+              boxShadow: `0 ${px(16)}px ${px(48)}px ${redesign.saluteShadow}`,
             }}
           >
             <Pressable
@@ -318,8 +329,8 @@ export function SaluteButton({
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: v(16),
-                paddingHorizontal: v(32),
+                gap: px(22),
+                paddingHorizontal: px(40),
                 opacity: busy ? 0.7 : 1,
               }}
             >
@@ -352,9 +363,10 @@ export function SaluteButton({
                 adjustsFontSizeToFit
                 style={{
                   fontFamily: fonts.black,
-                  fontSize: v(38),
-                  lineHeight: v(42),
-                  letterSpacing: v(38) * 0.04,
+                  fontSize: size,
+                  // Montserrat's normal line height (1.22 em), as in the mock-up.
+                  lineHeight: Math.round(size * 1.22),
+                  letterSpacing: size * 0.04,
                   color: colors.white,
                   textAlign: 'center',
                   flexShrink: 1,
