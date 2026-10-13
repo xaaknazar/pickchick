@@ -7,6 +7,8 @@ import {
   orderSummary,
   paysDirectly,
   planUpsell,
+  undoUpsellAdds,
+  type UpsellLine,
   type UpsellTileKey,
 } from '../smartUpsell';
 import { CartUpsell } from '../components/CartUpsell';
@@ -71,7 +73,15 @@ const addUpsell = (model: KioskModel, p: KioskProduct) => {
  */
 export interface UpsellMemory {
   base: string[] | null;
+  /** The cart's lines and quantities when the screen opened: «Без допов» puts them back. */
+  opened?: UpsellLine[] | null;
 }
+/** The cart's lines (stopped ones included) by id and quantity. */
+const cartLines = (model: KioskModel): UpsellLine[] =>
+  [...model.cart, ...model.unavailableCartLines].map(({ lineId, quantity }) => ({
+    lineId,
+    quantity,
+  }));
 /** A smart upsell tile toggles like the old cards; a choice made on the product page counts too. */
 const toggleSmart = (model: KioskModel, p: KioskProduct) => {
   const selections = defaultSelections(p);
@@ -84,7 +94,8 @@ const toggleSmart = (model: KioskModel, p: KioskProduct) => {
 /**
  * Smart upsell (kiosk redesign 2026-10-13, README §4): always opened by «Оформить заказ».
  * The suggestion follows `planUpsell`; «К оплате» and «Без допов» lead straight to payment
- * (the Kaspi QR when it is the only method, the payment-method screen otherwise), and «В заказе»
+ * (the Kaspi QR when it is the only method, the payment-method screen otherwise); «Без допов»
+ * first takes out what was added on the screen during this visit. «В заказе»
  * opens the order page for changes. Unavailable lines stay visible here and block payment.
  */
 export function UpsellScreen({
@@ -97,13 +108,13 @@ export function UpsellScreen({
   memory: UpsellMemory;
 }) {
   const t = copy(context.locale);
-  const [base] = useState(
-    () =>
-      (memory.base ??= [
-        ...model.cart.map((line) => line.productId),
-        ...model.unavailableCartLines.map((line) => line.productId),
-      ]),
-  );
+  const [base] = useState(() => {
+    memory.opened ??= cartLines(model);
+    return (memory.base ??= [
+      ...model.cart.map((line) => line.productId),
+      ...model.unavailableCartLines.map((line) => line.productId),
+    ]);
+  });
   const products = model.catalog?.products ?? [];
   const plan = planUpsell(products, base);
   const inCart = new Set(model.cart.map((line) => line.productId));
@@ -148,6 +159,14 @@ export function UpsellScreen({
     if (paysDirectly(model.commercial, model.commercialPaymentMethods))
       void model.beginPayment('kaspi');
     else model.goLoyalty();
+  };
+  // «Без допов» takes out exactly what was added during this visit (the cart goes back to the
+  // quantities it had when the screen opened), then goes on to payment like «К оплате».
+  const skip = () => {
+    model.touch();
+    void undoUpsellAdds(model, memory.opened ?? [], cartLines(model)).then((done) => {
+      if (done) pay();
+    });
   };
   const rows = [
     { key: 'sauces', title: t.smartSauces, note: t.smartSaucesNote, tiles: plan.sauces, art: 1 },
@@ -257,7 +276,7 @@ export function UpsellScreen({
         busy={model.busy}
         locale={context.locale}
         onCart={model.openCart}
-        onSkip={pay}
+        onSkip={skip}
         onPay={pay}
       />
     </ScreenSurface>

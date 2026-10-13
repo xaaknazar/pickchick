@@ -39,6 +39,12 @@ CUT_TEXT = '''(root) => [...root.querySelectorAll('div')].filter((e) => {
 }).map((e) => e.textContent)'''
 
 
+def illustrations(card):
+    """The bg1-bg4 card illustrations drawn inside `card`."""
+    return card.locator('img').evaluate_all(
+        '(all) => all.filter((i) => /\\/bg\\/bg[1-4]\\b/.test(i.currentSrc || i.src)).length')
+
+
 def tiles(page):
     return sorted(page.locator('[data-testid^="kiosk-upsell-tile-"]').evaluate_all(
         '(all) => all.map((e) => e.dataset.testid.replace("kiosk-upsell-tile-", ""))'))
@@ -68,8 +74,14 @@ class SmartUpsell(ui.KioskUI):
             card = ui.element(page, 'kiosk-product-' + product_id)
             card.scroll_into_view_if_needed()
             card.click()
-            ui.screen(page, 'product')
-            ui.element(page, 'kiosk-product-add').click()
+            if category in ('extras', 'drinks'):
+                # Simple products open as the sheet over the menu (product-and-payment.md §3).
+                expect(ui.element(page, 'kiosk-product-sheet')).to_be_visible()
+                ui.element(page, 'kiosk-sheet-add').click()
+                expect(ui.element(page, 'kiosk-product-sheet')).to_have_count(0)
+            else:
+                ui.screen(page, 'product')
+                ui.element(page, 'kiosk-product-add').click()
             ui.screen(page, 'menu')
 
     def upsell(self, products, width=1024, height=1366, clock=False):
@@ -108,6 +120,9 @@ class SmartUpsell(ui.KioskUI):
                 expect(hero).to_contain_text('Добавьте бургер')
                 expect(hero).to_contain_text('2 390')
                 expect(hero.get_by_test_id('kiosk-upsell-badge-toFingers')).to_have_text('К ФИНГЕРСАМ')
+                # Owner update: the hero is plain cream; only the row tiles keep bg1-bg4.
+                self.assertEqual(illustrations(hero), 0, 'no line illustration on the hero')
+                self.assertEqual(illustrations(ui.element(page, 'kiosk-upsell-tile-sauce')), 1)
                 # Nothing of the order is offered, and no cheese sauce exists in the catalog.
                 self.assertEqual(tiles(page), ['cola', 'iced-tea', 'lemonade', 'sauce', 'sauce-hot'])
                 self.assertEqual(page.get_by_test_id('kiosk-upsell-pick-combo').count(), 0)
@@ -217,6 +232,47 @@ class SmartUpsell(ui.KioskUI):
         ui.element(page, 'kiosk-payment-approve').click()
         ui.screen(page, 'order')
         expect(ui.element(page, 'kiosk-order-number')).to_have_text(order['number'])
+
+    def test_skip_takes_out_the_extras_added_on_the_screen(self):
+        # Owner bug 2026-10-13: extras added on the upsell were ordered after «Без допов».
+        # The guest brings a Pick Combo and a cola (the cola from its sheet), adds a sauce and a
+        # lemonade on the upsell, then presses «Без допов».
+        page, fixture = self.upsell(FINGERS + [('drinks', 'cola')], 1024, 1366)
+        ui.element(page, 'kiosk-upsell-plus-sauce').click()
+        ui.element(page, 'kiosk-upsell-plus-lemonade').click()
+        expect(ui.element(page, 'kiosk-upsell-total')).to_have_text('6 760 ₸')
+        self.assertEqual({line['productId'] for line in ui.stored(page, ui.FLOW_KEY)['cart']},
+                         {'pick-combo', 'cola', 'sauce', 'lemonade'})
+        ui.element(page, 'kiosk-upsell-skip').click()
+        ui.screen(page, 'loyalty')
+        cart = ui.stored(page, ui.FLOW_KEY)['cart']
+        self.assertEqual([(line['productId'], line['quantity']) for line in cart],
+                         [('pick-combo', 1), ('cola', 1)], 'what the guest brought stays')
+        ui.capture(page, 'upsell-skip-method-screen-1024.png')
+        ui.element(page, 'kiosk-review-create').click()
+        ui.screen(page, 'payment')
+        quotes = [r for r in fixture.requests
+                  if r['method'] == 'POST' and r['path'] == '/v1/test/quotes']
+        self.assertEqual(len(quotes), 1)
+        self.assertEqual(sorted((item['product_id'], item['quantity'])
+                                for item in quotes[0]['body']['items']),
+                         [('cola', 1), ('pick-combo', 1)], 'the quote has no upsell extra')
+        order = next(iter(fixture.orders.values()))
+        self.assertEqual({line['id'] for line in order['snapshot']['lines']}, {'pick-combo', 'cola'})
+        self.assertEqual(order['snapshot']['total_minor'], '518000')
+        # «К оплате» keeps what was added: back from payment is not possible, so a new guest
+        # repeats the visit and pays with the extras.
+        page2, fixture2 = self.upsell(FINGERS, 1024, 1366)
+        ui.element(page2, 'kiosk-upsell-plus-sauce').click()
+        expect(ui.element(page2, 'kiosk-upsell-total')).to_have_text('4 580 ₸')
+        ui.element(page2, 'kiosk-upsell-continue').click()
+        ui.screen(page2, 'loyalty')
+        ui.element(page2, 'kiosk-review-create').click()
+        ui.screen(page2, 'payment')
+        quotes = [r for r in fixture2.requests
+                  if r['method'] == 'POST' and r['path'] == '/v1/test/quotes']
+        self.assertEqual(sorted(item['product_id'] for item in quotes[0]['body']['items']),
+                         ['pick-combo', 'sauce'])
 
     def test_a_line_stopped_on_the_screen_is_shown_and_blocks_payment(self):
         page, fixture = self.upsell(FINGERS, 1024, 1366, clock=True)
