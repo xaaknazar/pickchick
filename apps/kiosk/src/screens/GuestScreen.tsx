@@ -6,10 +6,12 @@ import { Body, Button, Dialog, Heading, ScreenSurface, type ScreenContext } from
 import { WelcomeScreen, ModeScreen } from '../screens/WelcomeMode';
 import { MenuScreen, type MenuMemory } from '../screens/MenuScreen';
 import { ProductScreen } from '../screens/ProductScreen';
-import { CartScreen, ReviewScreen, UpsellScreen } from '../screens/CartScreens';
+import { CartScreen, ReviewScreen, UpsellScreen, type UpsellMemory } from '../screens/CartScreens';
 import { OrderScreen, PaymentScreen, RecoveryScreen } from '../screens/PaymentOrderScreens';
 import { BootState } from '../components/BootState';
 import { Notice } from '../components/Notice';
+import { DemoBadge } from '../components/DemoBadge';
+import { guestErrorText } from '../guestError';
 import { ScreenTransition } from '../components/ScreenTransition';
 // Prototype flow order: moving to a later step slides in from the right, to an
 // earlier one from the left. A finished order starting over counts as forward.
@@ -35,8 +37,10 @@ export function GuestScreen() {
   const [locale, setLocale] = useState<Locale>('ru');
   const [help, setHelp] = useState(false);
   const [cancel, setCancel] = useState(false);
+  // Staff demo mode dialog (long hold on the start screen logo).
+  const [demoAsk, setDemoAsk] = useState(false);
   const t = copy(locale);
-  const upsellSeen = useRef(false);
+  const upsellMemory = useRef<UpsellMemory>({ base: null });
   const menuMemory = useRef<MenuMemory>({ category: 'combo', offsets: {} });
   const previousStep = useRef(liveModel.step);
   // Where the visible step came from, settled once per step change.
@@ -58,7 +62,7 @@ export function GuestScreen() {
   }
   useEffect(() => {
     if (liveModel.step === 'start' && previousStep.current !== 'start') {
-      upsellSeen.current = false;
+      upsellMemory.current = { base: null };
       menuMemory.current = { category: 'combo', offsets: {} };
       setLocale('ru');
       setCancel(false);
@@ -68,16 +72,16 @@ export function GuestScreen() {
   }, [liveModel.step]);
   const setCatalogLocale = liveModel.setCatalogLocale;
   useEffect(() => setCatalogLocale?.(locale), [locale, setCatalogLocale]);
+  // Redesign 2026-10-13: «Оформить заказ» always opens the smart upsell, which starts over from
+  // the order as it is now (a visit to a product page from it keeps what it remembered).
   const openUpsell = useCallback(() => {
-    if (upsellSeen.current || BigInt(liveModel.cartTotalMinor) > 1000000n) liveModel.openCart();
-    else {
-      upsellSeen.current = true;
-      liveModel.openUpsell();
-    }
-  }, [liveModel.cartTotalMinor, liveModel.openCart, liveModel.openUpsell]);
+    upsellMemory.current = { base: null };
+    liveModel.openUpsell();
+  }, [liveModel.openUpsell]);
   const model: KioskModel = { ...liveModel, openUpsell };
   // Errors come with a code in the guest's language; the simulator keeps its own text.
-  const errorText = model.errorCode ? t[('err_' + model.errorCode) as keyof typeof t] : model.error;
+  // NOT_ACCEPTING is never shown (owner decision 2026-10-11, guestError.ts).
+  const errorText = guestErrorText(model, t);
   // iOS presents one modal at a time: the idle countdown first closes help or cancel (and the
   // product page its drinks sheet), then appears once they are gone.
   const warning = model.idleWarningSeconds !== null && !model.order && !model.recoveryRequired;
@@ -89,6 +93,7 @@ export function GuestScreen() {
     }
     setHelp(false);
     setCancel(false);
+    setDemoAsk(false);
     const timer = setTimeout(() => setIdleShown(true), 300);
     return () => clearTimeout(timer);
   }, [warning]);
@@ -100,6 +105,7 @@ export function GuestScreen() {
     },
     onHelp: () => setHelp(true),
     onCancel: () => setCancel(true),
+    onStaffHold: model.setDemo ? () => setDemoAsk(true) : undefined,
     direction: arrival.current.direction,
     from: arrival.current.from,
   };
@@ -171,7 +177,7 @@ export function GuestScreen() {
         );
         break;
       case 'upsell':
-        screen = <UpsellScreen model={model} context={context} />;
+        screen = <UpsellScreen model={model} context={context} memory={upsellMemory.current} />;
         break;
       case 'cart':
         screen = <CartScreen model={model} context={context} />;
@@ -201,6 +207,29 @@ export function GuestScreen() {
           }
         />
       ) : null}
+      {model.demo ? <DemoBadge locale={locale} onExit={() => model.setDemo?.(false)} /> : null}
+      <Dialog
+        visible={demoAsk && !warning}
+        onClose={() => setDemoAsk(false)}
+        testID="kiosk-demo-dialog"
+      >
+        <Heading size="title">{model.demo ? t.demoExitTitle : t.demoEnterTitle}</Heading>
+        <Body>{model.demo ? t.demoExitBody : t.demoEnterBody}</Body>
+        <Button
+          label={model.demo ? t.demoTurnOff : t.demoTurnOn}
+          testID="kiosk-demo-confirm"
+          onPress={() => {
+            setDemoAsk(false);
+            model.setDemo?.(!model.demo);
+          }}
+        />
+        <Button
+          label={t.demoCancel}
+          tone="secondary"
+          testID="kiosk-demo-dismiss"
+          onPress={() => setDemoAsk(false)}
+        />
+      </Dialog>
       <Dialog visible={help && !warning} onClose={() => setHelp(false)} testID="kiosk-help">
         <Heading size="title">{t.helpTitle}</Heading>
         <Body>{model.commercial ? t.helpCommercial : t.helpBody}</Body>

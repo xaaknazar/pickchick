@@ -1855,6 +1855,42 @@
       }
     },
     {
+      "id": "kiosk-redesign-1013",
+      "workstream": "kiosk",
+      "title": "Редизайн киоска: старт, меню-бенто, умные допы (13.10)",
+      "summary": "Редизайн 13.10: стеклянный язык, чип Kaspi QR, Салют, меню-бенто и умные допы. По разрешению владельца сохранены демо и смена KZ → RU → EN. 181 kiosk tests, 24 browser checks, typecheck/lint/format и полная CI исходника 3b9733af прошли. Release 0.1.0 (15) подписан, загружен и доступен только в PickChick Kiosk Internal со статусом Тестируется. iPad недоступен для кабельной установки; физическая установка/приёмка ещё не подтверждены. PR #238. Восемь сторонних frameworks без dSYM ограничивают crash-диагностику.",
+      "status": "active",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": ["kiosk-client"],
+      "evidence": [
+        {
+          "label": "Задание и макеты владельца",
+          "path": "docs/design/kiosk-redesign-2026-10-13/README.md"
+        },
+        {
+          "label": "Внедрение, проверки, снимки и отличия",
+          "path": "docs/operations/kiosk-redesign-2026-10-13.md"
+        },
+        {
+          "label": "CI, подпись, хеши и внутренний TestFlight build 15",
+          "path": "docs/operations/kiosk-build15-installation.md"
+        }
+      ],
+      "acceptance": [
+        "Старт, выбор зала, меню и допы совпадают с макетами на 1024×1366, 820×1180 и 744×1133 в RU/KZ/EN.",
+        "Из допов «К оплате» открывает существующий экран Kaspi QR; оплата и номер заказа не изменены.",
+        "Владелец принял сборку на iPad."
+      ],
+      "nextAction": "Обновить PickChick Kiosk до 0.1.0 (15) через TestFlight, пройти чек-лист на физическом iPad. Приёмку отметить отдельно; реальные оплаты без разрешения владельца не выполнять.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
       "id": "kiosk-terminal",
       "workstream": "kiosk",
       "title": "Связать киоск с выделенным терминалом",

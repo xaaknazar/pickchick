@@ -86,11 +86,11 @@ class Design(base.KioskUI):
         page.emulate_media(reduced_motion='no-preference')
         button.click()
         base.screen(page, 'upsell')
-        recommendation = page.locator('[data-testid^="kiosk-recommendation-"]').first
-        # Recommendation motion must settle promptly and keep the action usable.
+        recommendation = page.locator('[data-testid^="kiosk-upsell-tile-"]').first
+        # Smart upsell card motion must settle promptly and keep the action usable.
         expect(recommendation).to_have_css('opacity', '1', timeout=1500)
         page.wait_for_function('''() => [...document.querySelectorAll(
-            '[data-testid^="kiosk-recommendation-"]')].every(e =>
+            '[data-testid^="kiosk-upsell-tile-"]')].every(e =>
                 new DOMMatrix(getComputedStyle(e).transform).m42 === 0)''', timeout=1500)
         base.assert_bounded(page, 'kiosk-upsell-continue', 820, 1180)
         self.assertEqual(len(fixture.orders), 0)

@@ -5,6 +5,7 @@ import type { KioskMode, KioskStep } from '../model';
 import { colors, fonts, useMetrics } from '../theme';
 import { Wrapper } from './Wrapper';
 import { fixedText } from './Body';
+import { GlassPanel } from './GlassPanel';
 import { IconButton } from './IconButton';
 import { Icon } from './Icon';
 import { Logo } from './Logo';
@@ -20,6 +21,8 @@ export interface ScreenContext {
   direction?: 'forward' | 'back';
   /** The step shown before this one (`boot` before the first screen). */
   from?: KioskStep | 'boot';
+  /** Staff gesture: a long hold on the start screen logo (demo mode dialog). */
+  onStaffHold?: () => void;
 }
 /** Single pilot point; the catalog carries only a branch id, not its display name. */
 export const pilotBranch = 'ТЦ Abay Plaza';
@@ -27,10 +30,8 @@ export const pilotBranch = 'ТЦ Abay Plaza';
  * v3 header on blue/night surfaces, per design screen:
  * - dining choice (`onClose`): round close disc, logo, "PICK CHICK" over the
  *   branch, language pill (design 02, 105 high, side padding 28);
- * - menu (`onDining`, `minimal`): a small round cancel disc, the (static) logo,
- *   title over the branch, two-segment dining switch, language pill (design 03,
- *   113 high, side padding 24; owner decision 2026-10-10: the cancel is a
- *   visible disc, the logo is not a control);
+ * - menu (`onDining`): the redesign 2026-10-13 glass header (README section 3), see
+ *   `GlassHeader`;
  * - cart (`centered`, design 05): back pill, the title and subtitle centred, a
  *   white dining chip on the right ("В ЗАЛЕ" / "С СОБОЙ"), nothing else;
  * - other screens: back pill or logo, a white title (two lines when long) over
@@ -83,12 +84,23 @@ export function Header({
   const backPress = usePress(0.96);
   const closePress = usePress(0.92);
   const brand = !!onClose;
-  // Only the menu (design 03) carries the dining switch; cart, upsell, loyalty
-  // and payment headers keep their own title/subtitle styling.
-  const menu = !brand && !!onDining;
+  // Only the menu carries the dining switch; cart, upsell, loyalty and payment headers keep
+  // their own title/subtitle styling.
+  if (!brand && onDining)
+    return (
+      <GlassHeader
+        locale={locale}
+        setLocale={setLocale}
+        onCancel={onCancel}
+        title={title}
+        subtitle={subtitle}
+        dining={dining ?? null}
+        onDining={onDining}
+      />
+    );
   const side = v(brand ? 28 : 24);
   const close = v(64);
-  const logo = <Logo size={brand || menu ? 'regular' : 'large'} />;
+  const logo = <Logo size={brand ? 'regular' : 'large'} />;
   const long = (title?.length ?? 0) > 16;
   const backPill = back ? (
     <Animated.View style={{ transform: [{ scale: backPress.scale }] }}>
@@ -259,11 +271,11 @@ export function Header({
     >
       <View
         style={{
-          minHeight: brand ? v(104) : menu ? v(112) : undefined,
-          paddingVertical: brand || menu ? v(10) : px(14),
+          minHeight: brand ? v(104) : undefined,
+          paddingVertical: brand ? v(10) : px(14),
           flexDirection: 'row',
           alignItems: 'center',
-          gap: brand ? v(16) : menu ? v(12) : px(14),
+          gap: brand ? v(16) : px(14),
         }}
       >
         {onClose ? (
@@ -288,7 +300,6 @@ export function Header({
             </Pressable>
           </Animated.View>
         ) : null}
-        {menu ? <CancelDisc label={t.cancel} onPress={onCancel} /> : null}
         {back ? backPill : logo}
         {brand ? (
           <Wrapper flex={1} gap={2}>
@@ -322,15 +333,15 @@ export function Header({
           // The title keeps a readable minimum width; the language pill gives way first (its
           // options stop at 48 pt), so a crowded cart/upsell header no longer squeezes "Ваш
           // заказ" down to a single letter.
-          <View style={{ flex: 1, gap: px(2), minWidth: v(menu ? 132 : 180) }}>
+          <View style={{ flex: 1, gap: px(2), minWidth: v(180) }}>
             <Text
               {...fixedText}
               accessibilityRole="header"
-              numberOfLines={menu ? 1 : 2}
+              numberOfLines={2}
               style={{
                 fontFamily: fonts.black,
-                fontSize: v(title ? (menu ? 26 : long ? 24 : 28) : 15),
-                lineHeight: v(title ? (menu ? 30 : long ? 27 : 32) : 18),
+                fontSize: v(title ? (long ? 24 : 28) : 15),
+                lineHeight: v(title ? (long ? 27 : 32) : 18),
                 letterSpacing: title ? -0.3 : 1.4,
                 color: title ? colors.white : colors.onBlueMuted,
               }}
@@ -349,7 +360,7 @@ export function Header({
                     style={{
                       fontFamily: fonts.medium,
                       fontSize: v(16),
-                      color: menu ? 'rgba(255,255,255,.8)' : colors.onBlueMuted,
+                      color: colors.onBlueMuted,
                     }}
                   >
                     {subtitle}
@@ -392,9 +403,6 @@ export function Header({
             ) : null}
           </View>
         )}
-        {onDining ? (
-          <DiningSwitch key={locale} mode={dining ?? null} locale={locale} onChange={onDining} />
-        ) : null}
         {!minimal ? (
           <>
             <IconButton name="help-circle-outline" label={t.help} onPress={onHelp} tone="inverse" />
@@ -409,46 +417,114 @@ export function Header({
             ) : null}
           </>
         ) : null}
-        <Language
-          locale={locale}
-          onChange={setLocale}
-          tone={onDining ? 'menu' : brand ? 'default' : 'compact'}
-        />
+        <Language locale={locale} onChange={setLocale} tone={brand ? 'default' : 'compact'} />
       </View>
     </View>
   );
 }
 /**
- * Menu cancel (owner decision 2026-10-10): a small visible glass disc with a cross; it opens
- * the cancel dialog. 46 pt on the 820-pt design, never below the 44 pt touch target.
+ * Menu header of the kiosk redesign 2026-10-13 (README section 3): a row 80 pt high, 24 pt
+ * below the top: the glass close disc (64 pt, opens the cancel dialog; owner decision
+ * 2026-10-10: a visible disc, the logo is not a control), the logo (78 x 72), "Меню" (Montserrat
+ * 900, 30) over the branch (17, 75 % white), the glass dining switch and the glass language
+ * switch. 24 pt more below it, the rail and the grid start at 128.
  */
-function CancelDisc({ label, onPress }: { label: string; onPress: () => void }) {
-  const { v } = useMetrics();
-  const press = usePress(0.92);
-  const size = Math.max(44, v(46));
+function GlassHeader({
+  locale,
+  setLocale,
+  onCancel,
+  title,
+  subtitle,
+  dining,
+  onDining,
+}: {
+  locale: Locale;
+  setLocale: (locale: Locale) => void;
+  onCancel: () => void;
+  title?: string;
+  subtitle?: string;
+  dining: KioskMode | null;
+  onDining: (mode: KioskMode) => unknown;
+}) {
+  const { px } = useMetrics();
+  const safe = useSafeAreaInsets();
+  const t = copy(locale);
   return (
-    <Animated.View style={{ transform: [{ scale: press.scale }] }}>
-      <Pressable
-        testID="kiosk-cancel-open"
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        onPress={onPress}
-        onPressIn={press.onPressIn}
-        onPressOut={press.onPressOut}
-        hitSlop={v(6)}
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: colors.glass,
-          borderWidth: 1,
-          borderColor: colors.glassLine,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Icon name="close" size="small" tone="inverse" />
-      </Pressable>
+    <View
+      style={{
+        paddingTop: Math.max(safe.top, px(24)),
+        paddingBottom: px(24),
+        paddingLeft: Math.max(safe.left, px(24)),
+        paddingRight: Math.max(safe.right, px(24)),
+      }}
+    >
+      <View style={{ height: px(80), flexDirection: 'row', alignItems: 'center', gap: px(14) }}>
+        <GlassClose label={t.cancel} onPress={onCancel} />
+        <Logo size="regular" />
+        {/* The branch name is never cut: the language options shrink first. */}
+        <View style={{ flex: 1, minWidth: px(124), gap: px(2) }}>
+          <Text
+            {...fixedText}
+            accessibilityRole="header"
+            numberOfLines={1}
+            style={{
+              fontFamily: fonts.black,
+              fontSize: px(30),
+              lineHeight: px(36),
+              letterSpacing: -0.3,
+              color: colors.white,
+            }}
+          >
+            {title}
+          </Text>
+          {subtitle ? (
+            <Text
+              {...fixedText}
+              testID="kiosk-header-subtitle"
+              numberOfLines={1}
+              style={{
+                fontFamily: fonts.medium,
+                fontSize: px(17),
+                lineHeight: px(22),
+                color: 'rgba(255,255,255,.75)',
+              }}
+            >
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
+        <DiningSwitch key={locale} mode={dining} locale={locale} onChange={onDining} />
+        <Language locale={locale} onChange={setLocale} tone="glass" />
+      </View>
+    </View>
+  );
+}
+/** Glass close disc, 64 pt (never below the 44 pt target), squeezing to .92 while pressed. */
+function GlassClose({ label, onPress }: { label: string; onPress: () => void }) {
+  const { px } = useMetrics();
+  const press = usePress(0.92);
+  const size = Math.max(44, px(64));
+  return (
+    <Animated.View style={{ width: size, height: size, transform: [{ scale: press.scale }] }}>
+      <GlassPanel shape="circle">
+        <Pressable
+          testID="kiosk-cancel-open"
+          accessibilityRole="button"
+          accessibilityLabel={label}
+          onPress={onPress}
+          onPressIn={press.onPressIn}
+          onPressOut={press.onPressOut}
+          hitSlop={px(6)}
+          style={{
+            width: size - 2,
+            height: size - 2,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon name="close" size="small" tone="inverse" />
+        </Pressable>
+      </GlassPanel>
     </Animated.View>
   );
 }
