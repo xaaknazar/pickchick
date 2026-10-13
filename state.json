@@ -5074,11 +5074,13 @@
         "tests/operations/test_device_center_gateway.py",
         "tests/operations/windows-device-access-upgrade.test.ps1",
         "tests/integration/terminal-access-upgrade.test.mjs",
-        "packages/backoffice-core/tests/workforce-store.test.mjs"
+        "packages/backoffice-core/tests/workforce-store.test.mjs",
+        "infra/staging/activate-device-center.py",
+        "tests/operations/test_device_center_activation.py"
       ],
       "status": "active",
-      "head": "1a634a81125d6990c88c8ef676f276aff0c6a57c",
-      "updatedAt": "2026-10-13T10:52:19.075Z"
+      "head": "5a64e695eda481fa5aa794dfe64085679fa75bf6",
+      "updatedAt": "2026-10-13T10:55:05.852Z"
     }
   ]
 }
