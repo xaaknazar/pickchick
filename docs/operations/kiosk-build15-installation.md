@@ -30,11 +30,60 @@ base `codex/shared-development`. Интегрирован shared `1d141433` и �
 
 ## Доставка
 
-Пока не выполнена. На проверке 13 октября iPad Air 13 M3 недоступен через
-`devicectl`, поэтому предусмотрен archive/export/upload с обязательным
+Точный исходник архива: `3b9733affd4db3f1ea7082b12534f63a04637af4`, чистое
+дерево, локальная и удалённая вершины совпали. До архива проверена полная
+[Foundation CI 38359170302](https://github.com/xaaknazar/pickchick/actions/runs/38359170302)
+(11/11), [Kiosk UI library](https://github.com/xaaknazar/pickchick/actions/runs/38359175164)
+и [Project roadmap](https://github.com/xaaknazar/pickchick/actions/runs/38359175149).
+Все проверки PR на этом исходнике успешны.
+
+Release archive завершился `ARCHIVE SUCCEEDED`; export успешен.
+`codesign --verify --deep --strict` прошёл для архива и приложения из IPA;
+метаданные подтверждают 0.1.0 (15), `kz.pickchick.kiosk`, iPad family `[2]`.
+Release label: `kiosk-redesign-20261013-15`. Приватные артефакты сохранены в
+`~/Library/Caches/PickChick/releases/kiosk-redesign-20261013-15`.
+`application-identifier`, `keychain-access-groups` и Team совпали с сохранённым
+подписанным артефактом build 14 (`114d5555`); это проверка совместимости
+идентичности, а не доказательство установки 14 или 15 на iPad.
+
+На повторной проверке 13 октября iPad Air 13 M3 недоступен через `devicectl`.
+Выбран предусмотренный владельцем путь archive/export/upload с обязательным
 `testFlightInternalTestingOnly=true` и только существующая группа
-PickChick Kiosk Internal. Фактические SHA, CI, хеши и результат доставки
-будут записаны после сборки; физическая установка и приёмка не заявляются.
+PickChick Kiosk Internal. Release helper завершил upload успешно;
+`release.json` содержит `deliveryStatus=submitted`, ASC app ID `6809407135`.
+App Store Connect показал 0.1.0 (15), «Обработка», загрузка 13 октября в 12:30
+Алматы. ASC build ID `5ae11bed-a1a2-4782-986d-f0b87cc804c7`.
+Обработка завершена: Apple показывает «Тестируется», «Внутреннее» и
+**PickChick Kiosk Internal**. Сборка добавлена только в эту существующую
+внутреннюю группу с одним прежним тестировщиком. Внешних групп и публичных
+ссылок нет. Русский чек-лист сохранён в «Что тестировать».
+[Открыть сборку](https://appstoreconnect.apple.com/teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/apps/6809407135/testflight/ios/5ae11bed-a1a2-4782-986d-f0b87cc804c7).
+[Подтверждение группы и статуса](images/kiosk-redesign-2026-10-13/testflight15-ready.jpg).
+Приложение и его данные с iPad не удалялись. Физическая установка и приёмка
+пока не подтверждены.
+
+Для установки: на iPad открыть TestFlight → PickChick Kiosk → обновить до
+0.1.0 (15), сохранив существующее приложение. Демо включается удержанием
+логотипа на заставке 5 секунд и подтверждением.
+
+## Контрольные суммы SHA-256
+
+| Артефакт                            | SHA-256                                                            |
+| ----------------------------------- | ------------------------------------------------------------------ |
+| IPA                                 | `ae11ffad0c1caebb8eb293c5c60768149f162f4b67df353fe1248eabba44c707` |
+| main.jsbundle (архив и IPA совпали) | `aaa1a6fd7267715aaac145799f10da7d337f70d5954df4fd54bc9a9cbc7c361e` |
+| Executable в архиве                 | `f3376d46af4504ce64dfbd5ab5571e9b01d555175ecd3ea6c542b9119ce2dc6a` |
+| Executable после экспорта           | `b2bc3c8b73a05040afee9524c2489f02af05f7491d3206cd624e7d77afb5f20a` |
+
+Хеши executable зафиксированы отдельно для архива и экспортированного IPA;
+обе подписи прошли проверку, встроенный JS совпал.
+Приватные доказательства: `release.json`, `artifact-proof.json`, `archive.log`,
+`export.log`, `upload.log` и ExportOptions. Оба ExportOptions содержат
+`testFlightInternalTestingOnly=true`. Содержимое профиля и ключей в Git не переносится.
+
+Apple приняла загрузку с восемью предупреждениями об отсутствующих dSYM
+сторонних frameworks. Собственный dSYM приложения присутствует; диагностика
+нативных сбоев этих зависимостей остаётся ограничением, а не проверенной функцией.
 
 ## Чек-лист владельца на iPad
 
