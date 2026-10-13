@@ -1295,7 +1295,7 @@
       "id": "catalog-unified",
       "workstream": "catalog",
       "title": "Подключить единый каталог ко всем каналам",
-      "summary": "Публикация и паритет общего каталога реализованы. Read-only baseline 9 октября подтвердил Windows23/schema019, protocol4, menu-sync apply и включённые access-roles/edge-publication; API3bc/schema050 и native16 TestFlight установлены. Remote-stops/media-upload ещё выключены; приёмка всей цепочки не завершена. Последний portal health: edgeConnected=false. 12 октября API f01cb45f/schema052: обмен protocol4 свежий, remote-stops выключен; SSH финансового Mac проверен; edge23/schema019 ready, права стоп-команд проверены на чтение, активация ещё не выполнена.",
+      "summary": "Единый каталог опубликован, Windows edge23/schema019 работает в protocol4/menu-sync apply. 13 октября на API f01cb45f/schema052 и кассе включён online STOP/UNSTOP из кабинета; menu v7 и catalog v10 согласованы по hash/ACK. Media-upload и отдельный cloud-kitchen не активированы этим выпуском. Приёмка всей цепочки ещё не завершена.",
       "status": "active",
       "owner": "development",
       "phase": "foundation",
@@ -1344,13 +1344,17 @@
         {
           "label": "Проверка стоп-листа 12 октября и границы доступа",
           "path": "docs/operations/filter-layout.md"
+        },
+        {
+          "label": "Включение online STOP/UNSTOP 13 октября",
+          "path": "docs/operations/deployments/2026-10-13-existing-stops.md"
         }
       ],
       "acceptance": [
         "AC-02/32: каждый канал использует совместимую опубликованную версию.",
         "Offline/несовместимый клиент не ломает текущую смену."
       ],
-      "nextAction": "Согласовать и проверить оператор активации на фактических cloud052/edge019, сохранив отдельный план cloud-kitchen. Затем включить флаги с резервной копией/откатом и принять доставку STOP/UNSTOP; старый pinned cloud051/edge020 оператор без адаптации не запускать.",
+      "nextAction": "Принять STOP/UNSTOP на выбранном блюде во всех каналах; отдельно завершить оставшиеся функции общего каталога и cloud-kitchen.",
       "checks": {
         "implemented": true,
         "verified": false,
@@ -1362,7 +1366,7 @@
       "id": "catalog-availability",
       "workstream": "catalog",
       "title": "Стоп-листы и последняя порция",
-      "summary": "Стоп-лист кассы установлен в мобильном меню и серверных quote/pay/admission: API и edge e47702a, CI 6/6, свежий реальный стоп Pick Combo и UI 320/390 px проверены. Полный расчёт последней порции по нормам ещё не реализован.",
+      "summary": "Стоп-лист кассы учитывается в мобильном меню и quote/pay/admission. 13 октября включено управление STOP/UNSTOP из кабинета на API f01cb45f и edge23, готовность управляющего и кассы проверена. Приёмка на рабочем блюде отдельно. Полный расчёт последней порции по нормам ещё не реализован.",
       "status": "active",
       "owner": "development",
       "phase": "integration",
@@ -1383,6 +1387,10 @@
         {
           "label": "Стоп-лист кассы в мобильном меню",
           "path": "docs/operations/mobile-stop-list.md"
+        },
+        {
+          "label": "Включение online STOP/UNSTOP 13 октября",
+          "path": "docs/operations/deployments/2026-10-13-existing-stops.md"
         }
       ],
       "acceptance": ["AC-03: последняя порция достаётся одному заказу до открытия оплаты."],
@@ -4448,6 +4456,33 @@
         "Владелец проверил приложение на iPhone."
       ],
       "nextAction": "Владелец проходит чек-лист на iPhone; статус установленной сборки не подменяет приёмку.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "backoffice-remote-stops-live",
+      "workstream": "backoffice",
+      "title": "Управлять стоп-листом из кабинета управляющего",
+      "summary": "Online STOP/UNSTOP включён на существующих cloud052/edge019 без обновления runtime. Полная CI 11/11, readiness и права управляющего подтверждены, резервные копии и сохранность данных проверены. Рабочие блюда ради автоматического теста не изменялись.",
+      "status": "active",
+      "owner": "joint",
+      "phase": "integration",
+      "dependsOn": ["backoffice-ui-core", "catalog-editor"],
+      "evidence": [
+        {
+          "label": "Включение online STOP/UNSTOP 13 октября",
+          "path": "docs/operations/deployments/2026-10-13-existing-stops.md"
+        }
+      ],
+      "acceptance": [
+        "Управляющий ставит выбранную позицию на стоп и возвращает в продажу; касса подтверждает применение.",
+        "Статус согласован в кабинете, кассе, приложении и киоске; история действия сохраняется."
+      ],
+      "nextAction": "Владельцу принять STOP/UNSTOP на выбранном блюде.",
       "checks": {
         "implemented": true,
         "verified": true,

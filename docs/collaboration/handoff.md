@@ -1,3 +1,17 @@
+## 13 октября: стоп-лист доступен управляющему
+
+Включены удалённые STOP/UNSTOP на действующих API `f01cb45f`/cloud052 и кассе
+`23fb39e1`/edge019 через оператор `bce06c16`. Полная Foundation CI 38251403173
+прошла 11/11. Runtime и миграции не обновлялись. Проверены фактические readiness
+и права управляющего: 262 позиции, `enabled/edge_ready/writable=true`.
+Windows env backup/restore и encrypted cloud backup с изолированным restore успешны;
+данные и соседние сервисы сохранены. Локально 21 функциональная проверка стопов,
+8 новых SQL-проверок, 15 Python guards и 46 Windows guards прошли.
+Приёмка владельцем на рабочем блюде не отмечена. Online-протокол требует кассу
+в сети; cloud-kitchen и расчёт последней порции - отдельные этапы.
+
+[Протокол выпуска](../operations/deployments/2026-10-13-existing-stops.md).
+
 ## 12 октября: фильтры, месяц и должности установлены
 
 На [pickchick.kz/backoffice/](https://pickchick.kz/backoffice/) установлен портал
