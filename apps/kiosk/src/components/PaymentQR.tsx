@@ -16,23 +16,29 @@ export function PaymentQR({
   label,
   size = 'regular',
   scanning = false,
+  fit,
+  quiet = 4,
 }: {
   payload: string;
   label: string;
   size?: 'regular' | 'compact';
   scanning?: boolean;
+  /** Side the code should take, in points (the redesign's QR plate); default: the v3 sizes. */
+  fit?: number;
+  /** White margin in modules; below 4 only on a white plate whose padding completes it. */
+  quiet?: number;
 }) {
   const { v, height } = useMetrics();
   const reduced = useMotionPreference();
   const pulse = useLoop(3000, 0, true);
-  const svg = useMemo(() => paymentQrSvg(payload), [payload]);
+  const svg = useMemo(() => paymentQrSvg(payload, quiet), [payload, quiet]);
   // Snap the box to whole points per module so every module edge lands on the
   // pixel grid: no blurred or uneven modules at any iPad scale.
   const cells = Number(/viewBox="0 0 (\d+)/.exec(svg ?? '')?.[1] ?? 0);
   // Design 07: a 460-pt card on the 820 x 1180 iPad holds ~360 pt of modules; with
   // the 4-module quiet zone that is a ~420-pt code. Bounded by the height, so the
   // steps and the footer still fit on every portrait iPad.
-  const wanted = Math.min(v(size === 'compact' ? 380 : 420), Math.round(height * 0.345));
+  const wanted = fit ?? Math.min(v(size === 'compact' ? 380 : 420), Math.round(height * 0.345));
   const box = cells ? Math.max(cells, Math.round(wanted / cells) * cells) : wanted;
   if (!svg) return null;
   return (

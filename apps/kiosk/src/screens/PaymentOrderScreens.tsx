@@ -20,7 +20,26 @@ import {
 } from '../components/UI';
 import { PaymentStatus } from '../components/PaymentStatus';
 import { OrderTicket } from '../components/OrderTicket';
-export function PaymentScreen({ model, context }: { model: KioskModel; context: ScreenContext }) {
+import { RadialBackdrop } from '../components/RadialBackdrop';
+import { StarField } from '../components/StarField';
+import { PaymentHeader } from '../components/PaymentHeader';
+import { StepPills } from '../components/StepPills';
+import { KaspiAmount } from '../components/KaspiAmount';
+import { QrPlate } from '../components/QrPlate';
+import { QrTimer } from '../components/QrTimer';
+import { QrStepTiles } from '../components/QrStepTiles';
+import { PaymentPanel } from '../components/PaymentPanel';
+import { paymentCopy } from '../paymentCopy';
+export function PaymentScreen({
+  model,
+  context,
+  onStartOver,
+}: {
+  model: KioskModel;
+  context: ScreenContext;
+  /** Opens the «Начать заново?» confirmation (owner decision 2026-10-13). */
+  onStartOver?: () => void;
+}) {
   const t = copy(context.locale);
   const unknown =
     model.order?.payment_state === 'simulated_unknown' ||
@@ -40,6 +59,116 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
   const kaspiQr =
     !!model.commercial && showQr && !unknown && !declined && model.paymentMethod !== 'card';
 
+  // Staff demo mode (owner decision 2026-10-11): the outcome is chosen locally, the in-memory
+  // demo transport never reaches a bank.
+  const demoOutcomes =
+    model.demo && model.order && !declined ? (
+      <Wrapper dir="row" gap={12} width="100%" align="center">
+        <Wrapper flex={1}>
+          <Button
+            label={t.demoPaid}
+            tone="inverse"
+            testID="kiosk-demo-paid"
+            size="compact"
+            busy={model.busy}
+            onPress={() => void model.pay('approved')}
+            fullWidth
+          />
+        </Wrapper>
+        <Wrapper flex={1}>
+          <Button
+            label={t.demoDeclined}
+            tone="inverse"
+            testID="kiosk-demo-declined"
+            size="compact"
+            busy={model.busy}
+            onPress={() => void model.pay('declined')}
+            fullWidth
+          />
+        </Wrapper>
+        {unknown ? null : (
+          <Wrapper flex={1}>
+            <Button
+              label={t.demoUnknown}
+              tone="inverse"
+              testID="kiosk-demo-unknown"
+              size="compact"
+              busy={model.busy}
+              onPress={() => void model.pay('unknown')}
+              fullWidth
+            />
+          </Wrapper>
+        )}
+      </Wrapper>
+    ) : null;
+  // Kiosk redesign 2026-10-13 (product-and-payment.md §4): the commercial Kaspi QR while it is
+  // prepared or waits for the scan. Checking, an unknown result, a failure, the invoice and the
+  // simulator keep the screen below unchanged; the payment logic and polling are the same.
+  if (
+    model.commercial &&
+    !unknown &&
+    !declined &&
+    !invoice &&
+    (qr?.state === 'preparing' || qr?.state === 'pending')
+  ) {
+    const pc = paymentCopy(context.locale);
+    const number =
+      model.order?.number && model.order.number !== '-'
+        ? pc.orderNo.replace('{n}', kioskTicketNumber(model.order.number))
+        : null;
+    const mode = model.mode ? (model.mode === 'dine_in' ? pc.dineIn : pc.takeaway) : null;
+    return (
+      <ScreenSurface testID="kiosk-screen-payment" tone="brand" entrance={context.direction}>
+        <RadialBackdrop />
+        <StarField />
+        <PaymentHeader
+          locale={context.locale}
+          setLocale={context.setLocale}
+          title={pc.title}
+          subtitle={[number, mode].filter(Boolean).join(' · ') || undefined}
+          onHelp={context.onHelp}
+        />
+        <StepPills current="payment" locale={context.locale} />
+        <ScrollArea testID="kiosk-payment-scroll" fill>
+          <Wrapper
+            flex={1}
+            paddingX={16}
+            paddingY={model.demo ? 14 : 24}
+            gap={model.demo ? 18 : 30}
+            align="center"
+            justify="center"
+          >
+            <KaspiAmount total={total} locale={context.locale} />
+            <Wrapper align="center" gap={model.demo ? 10 : 22}>
+              <QrPlate
+                payload={qrPayload}
+                label={model.demo ? t.demoQr : 'Kaspi QR'}
+                message={qrExpired ? pc.qrExpired : pc.qrPreparing}
+                expired={qrExpired}
+                demoWarning={model.demo ? t.demoQr : null}
+                compact={!!model.demo}
+              />
+              <QrTimer expiresAt={qrPayload ? qr?.expiresAt : null} locale={context.locale} />
+            </Wrapper>
+            {demoOutcomes}
+            <QrStepTiles locale={context.locale} />
+          </Wrapper>
+        </ScrollArea>
+        <PaymentPanel
+          lines={model.cart}
+          checking={model.busy}
+          busy={model.busy}
+          locale={context.locale}
+          restart={!!model.canStartOver && !!onStartOver}
+          onRestart={() => onStartOver?.()}
+          // The live QR bridge has no cancellation: staff is the way out besides starting over.
+          // Only the isolated demo previews a cancellation of its unpaid QR.
+          actionLabel={canCancelDemo ? t.cancelPayment : pc.callStaff}
+          onAction={canCancelDemo ? context.onCancel : context.onHelp}
+        />
+      </ScreenSurface>
+    );
+  }
   const title = unknown
     ? t.unknownTitle
     : declined
@@ -99,47 +228,7 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
             demoWarning={model.demo ? t.demoQr : null}
             checking={model.busy}
           />
-          {/* Staff demo mode (owner decision 2026-10-11): the outcome is chosen locally, the
-              in-memory demo transport never reaches a bank. */}
-          {model.demo && model.order && !declined ? (
-            <Wrapper dir="row" gap={12} width="100%" align="center">
-              <Wrapper flex={1}>
-                <Button
-                  label={t.demoPaid}
-                  tone="inverse"
-                  testID="kiosk-demo-paid"
-                  size="compact"
-                  busy={model.busy}
-                  onPress={() => void model.pay('approved')}
-                  fullWidth
-                />
-              </Wrapper>
-              <Wrapper flex={1}>
-                <Button
-                  label={t.demoDeclined}
-                  tone="inverse"
-                  testID="kiosk-demo-declined"
-                  size="compact"
-                  busy={model.busy}
-                  onPress={() => void model.pay('declined')}
-                  fullWidth
-                />
-              </Wrapper>
-              {unknown ? null : (
-                <Wrapper flex={1}>
-                  <Button
-                    label={t.demoUnknown}
-                    tone="inverse"
-                    testID="kiosk-demo-unknown"
-                    size="compact"
-                    busy={model.busy}
-                    onPress={() => void model.pay('unknown')}
-                    fullWidth
-                  />
-                </Wrapper>
-              )}
-            </Wrapper>
-          ) : null}
+          {demoOutcomes}
           {!unknown && !model.commercial ? (
             <Wrapper dir="row" gap={16} wrap justify="center">
               <Button
