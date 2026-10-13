@@ -4998,10 +4998,10 @@
         "docs/operations/images/kiosk-motion-2026-10-13"
       ],
       "status": "active",
-      "head": "85f99bc36bb91c4b931ee1a2ae25b502914d4f42",
-      "updatedAt": "2026-10-13T10:27:03.923Z",
-      "summary": "Build 16 source 85f99bc3: smooth mode/menu transition, CTA below price, QR waiting polish and demo-only unpaid cancellation. 188 kiosk tests and browser checks pass; signed archive ready. Live QR cancellation unsupported; no bank requests.",
-      "nextAction": "Await complete Foundation CI 38380416800; update iPad 15 to 16, run isolated native demo test, commit installation proof and publish roadmap. Do not install the superseded f200906c archive.\n2026-10-13: владелец явно передал device-center серверный резерв и общие документы на время выпуска: @vps/public-https, docs/project-status.md, docs/roadmap/project.json. Дизайн и остальные области сохранены."
+      "head": "d83b53ef767d4ce6c1706b9428cf3ed4381a7c64",
+      "updatedAt": "2026-10-13T10:42:42.575Z",
+      "summary": "Release 0.1.0 (16), source 85f99bc3, installed over 15 by cable without uninstall/reset. Signature and identity verified; exact source full CI 16/16 successful. PR #241; report d83b53ef published, report CI 38384979787 pending. Native test incomplete: first demo-entry assertion failed; retry skipped outside welcome. Read-only diagnostic found waiting live payment; no test-created live order/invoice. Owner asked to signal when idle; do not clear order or restart it. Live QR cancellation unsupported; only isolated demo cancellation is implemented.",
+      "nextAction": "Wait report CI and owner signal before native demo test. Preserve current order. Resume tests/kiosk/ios/MotionUITests.swift only from idle welcome, with explicit demo badge before checkout; capture proof. Do not merge PR until native failure understood. After device-center releases docs/project-status.md, docs/roadmap/project.json and @vps/public-https, claim and update installed16 status then publish roadmap with fresh baseline guards. Real QR cancellation remains blocked; no bank commands or payments. Report: docs/operations/kiosk-motion-2026-10-13.md."
     },
     {
       "id": "device-center",
