@@ -1919,6 +1919,39 @@
       }
     },
     {
+      "id": "kiosk-product-payment-1013",
+      "workstream": "kiosk",
+      "title": "Киоск: карточка товара, шторки, экран Kaspi QR и «Начать заново» (13.10)",
+      "summary": "Карточка комбо на одном экране, шторки напитков и простых товаров, новый экран Kaspi QR, «Начать заново» без отмены QR в банке (решение владельца 13.10), исправлены наслоение подписи на заставке и «Без допов», HD-фото. 228 kiosk tests, typecheck/lint/format и 10 браузерных наборов прошли в облачной сессии. Физический iPad не проверен.",
+      "status": "active",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": ["kiosk-motion-1013"],
+      "evidence": [
+        {
+          "label": "Задание и макеты владельца",
+          "path": "docs/design/kiosk-redesign-2026-10-13/product-and-payment.md"
+        },
+        {
+          "label": "Внедрение, проверки, снимки и отличия",
+          "path": "docs/operations/kiosk-product-payment-2026-10-13.md"
+        }
+      ],
+      "acceptance": [
+        "Карточка Pick Combo, шторки напитков, соуса и тоста и экран QR совпадают с макетами на трёх размерах iPad в RU/KZ/EN.",
+        "«Начать заново» возвращает на старт только пока QR ждёт оплаты; поздняя оплата засчитывается сервером.",
+        "После выбора языка на заставке видна одна подпись; «Без допов» убирает добавленные допы.",
+        "Владелец принял сборку на iPad."
+      ],
+      "nextAction": "С Mac: PR, полная CI, build 17 по кабелю на iPad, чек-лист владельца. Реальные оплаты без разрешения владельца не выполнять.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
       "id": "kiosk-qr-cancellation",
       "workstream": "kiosk",
       "title": "Отмена неоплаченного Kaspi QR с возвратом к заказу",
@@ -1939,7 +1972,12 @@
         "Оплаченный или неизвестный платёж не отменяется и не теряется."
       ],
       "nextAction": "Получить подтверждённый контракт отмены QR для используемого провайдера, затем добавить серверную операцию и проверить гонки на фикстурах. Реальные финансовые пробы требуют отдельного разрешения владельца.",
-      "checks": { "implemented": false, "verified": false, "deployed": false, "accepted": false }
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
     },
     {
       "id": "kiosk-terminal",
