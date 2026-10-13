@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { mkdtemp, readdir, copyFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createPool, migrate } from '@pickchick/database';
 import { loadConfig } from '@pickchick/platform';
 import { fixtureMenu } from '@pickchick/test-fixtures';
@@ -19,16 +22,17 @@ async function fixture(run, { badHash = false, omitResult = false } = {}) {
     branchId = randomUUID(),
     deviceId = randomUUID(),
     releaseId = randomUUID();
+  const source = fileURLToPath(new URL('../../db/edge/migrations/', import.meta.url));
+  const directory = await mkdtemp(join(tmpdir(), 'remote-stops-schema020-'));
   let pool, client;
   try {
+    for (const name of await readdir(source))
+      if (name.endsWith('.sql') && name < '021')
+        await copyFile(join(source, name), join(directory, name));
     await admin.query(`CREATE SCHEMA ${schema}`);
     url.searchParams.set('options', '-c search_path=' + schema);
     pool = createPool(url.toString(), 2);
-    await migrate(
-      pool,
-      fileURLToPath(new URL('../../db/edge/migrations/', import.meta.url)),
-      'edge',
-    );
+    await migrate(pool, directory, 'edge');
     await pool.query(
       "INSERT INTO branch_config(id,code,name,timezone) VALUES($1,'SYN','Synthetic','Asia/Almaty')",
       [branchId],
@@ -105,6 +109,7 @@ async function fixture(run, { badHash = false, omitResult = false } = {}) {
     await admin.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
     for (const role of [runtimeRole, workerRole]) await admin.query(`DROP ROLE IF EXISTS ${role}`);
     await admin.end();
+    await rm(directory, { recursive: true, force: true });
   }
 }
 test('020 continuation uses actual applied menu/ACK and exact grants without SQL side effects', async () => {
