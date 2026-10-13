@@ -81,6 +81,11 @@ def main():
                            capture_output=True, check=True, text=True).stdout.split()
     recorded = json.loads(PROVENANCE.read_text()) if PROVENANCE.exists() else None
     known = {p['name']: p for p in recorded['photos']} if recorded else {}
+    # Photos later replaced by sharper HD cut-outs (scripts/kiosk/hd-cutout-photos.py) are not
+    # rewritten here; their trim record stays for the history of the v3 originals.
+    hd = ROOT / 'apps/kiosk/assets/v3/hd-cutout-provenance.json'
+    replaced = {Path(p['target']).name for p in json.loads(hd.read_text())['photos']
+                if p['target'].startswith('photos/')} if hd.exists() else set()
     photos = []
     for name in sorted(n for n in names if n.endswith('.webp')):
         data = original(name)
@@ -92,6 +97,10 @@ def main():
         box = crop_box(image)
         entry = {'name': name, 'source_sha256': source_sha, 'source_size': list(image.size)}
         target = ROOT / PHOTOS / name
+        if name in replaced:
+            entry.update({k: v for k, v in known.get(name, {}).items() if k not in entry})
+            photos.append(entry)
+            continue
         if box is None:
             entry.update({'trimmed': False})
             if not args.check:

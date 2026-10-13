@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Animated,
-  Easing,
   Platform,
   Pressable,
   StyleSheet,
@@ -14,15 +13,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { copy, type Locale } from '../i18n';
 import { colors, fonts, redesign, useMetrics } from '../theme';
 import { Language, Logo } from './UI';
-import { ease, useEnter } from './motion';
+import { curve, useEnter } from './motion';
 import { useMotionPreference } from './useMotionPreference';
 import {
   CTA_FLIP,
   CTA_ORDER,
   CTA_STEP_MS,
+  ctaCaptionMove,
+  ctaRestPoses,
   ctaRotates,
   ctaShownLocale,
   nextCtaStep,
+  type CtaPose,
 } from './ctaLanguage';
 import { SaluteButton } from './SaluteButton';
 import { fixedText } from './Body';
@@ -38,56 +40,81 @@ function useCtaStep(rotating: boolean) {
   }, [rotating]);
   return step;
 }
+/** One caption's own animated opacity and vertical offset (points). */
+interface CaptionTrack {
+  opacity: Animated.Value;
+  y: Animated.Value;
+}
 /**
  * The rotating caption: a vertical flip without blur on the native driver (transform and
  * opacity). The old caption leaves up and fades out in 120 ms; the new one rises from below and
  * fades in between 100 and 280 ms. Hidden from VoiceOver: the button carries its own label.
+ *
+ * Each caption owns its Animated values for its whole life and its style always reads them,
+ * never a plain number. On iOS Fabric a view whose opacity or transform the native driver has
+ * moved ignores later plain values from React, and nothing restores it when the animated value
+ * is detached: a caption a flip had left opaque stayed on the button after its style switched
+ * to a static `opacity: 0`, so build 16 stacked languages once a guest chose one. Every change
+ * now goes through these values, and any stop (a chosen language, Reduce Motion) stops their
+ * animations and sets every caption's rest pose at once, never a frozen half-flip.
  */
 function CtaCaption({ shown, animate }: { shown: Locale; animate: boolean }) {
   const { px } = useMetrics();
   const lineHeight = Math.round(px(58) * 1.22);
-  const [pair, setPair] = useState<{ cur: Locale; prev: Locale | null }>({
-    cur: shown,
-    prev: null,
+  const shift = lineHeight * CTA_FLIP.shift;
+  const [tracks] = useState(() => {
+    const rest = ctaRestPoses(shown);
+    return Object.fromEntries(
+      CTA_ORDER.map((locale) => [
+        locale,
+        {
+          opacity: new Animated.Value(rest[locale].opacity),
+          y: new Animated.Value(rest[locale].lift * shift),
+        },
+      ]),
+    ) as Record<Locale, CaptionTrack>;
   });
   const current = useRef(shown);
-  const move = useRef(new Animated.Value(1)).current;
-  const fade = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
+  // Pin before paint, including Reduce Motion: the visible caption must change in the
+  // same frame as the selected language, without a stale caption between commits.
+  useLayoutEffect(() => {
     const from = current.current;
-    if (shown === from) return;
     current.current = shown;
-    move.stopAnimation();
-    fade.stopAnimation();
-    if (!animate) {
-      move.setValue(1);
-      fade.setValue(1);
-      setPair({ cur: shown, prev: null });
-      return;
-    }
-    move.setValue(0);
-    fade.setValue(0);
-    setPair({ cur: shown, prev: from });
-    const flip = Animated.parallel([
-      Animated.timing(move, {
-        toValue: 1,
-        duration: CTA_FLIP.duration,
-        easing: ease,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fade, {
-        toValue: 1,
-        duration: CTA_FLIP.duration,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    ]);
+    const pose = (poses: Record<Locale, CtaPose>) => {
+      for (const locale of CTA_ORDER) {
+        const track = tracks[locale];
+        track.opacity.stopAnimation();
+        track.y.stopAnimation();
+        track.opacity.setValue(poses[locale].opacity);
+        track.y.setValue(poses[locale].lift * shift);
+      }
+    };
+    const { start, legs } = ctaCaptionMove(from, shown, animate);
+    pose(start);
+    if (legs.length === 0) return;
+    let live = true;
+    const flip = Animated.parallel(
+      legs.map((leg) =>
+        Animated.timing(
+          leg.prop === 'opacity' ? tracks[leg.locale].opacity : tracks[leg.locale].y,
+          {
+            toValue: leg.prop === 'opacity' ? leg.to : leg.to * shift,
+            delay: leg.delay,
+            duration: leg.duration,
+            easing: curve(leg.curve),
+            useNativeDriver: true,
+          },
+        ),
+      ),
+    );
     flip.start(({ finished }) => {
-      if (finished) setPair((p) => (p.cur === shown ? { cur: shown, prev: null } : p));
+      if (finished && live) pose(ctaRestPoses(shown));
     });
-    return () => flip.stop();
-  }, [shown, animate, move, fade]);
-  const shift = lineHeight * CTA_FLIP.shift;
+    return () => {
+      live = false;
+      flip.stop();
+    };
+  }, [shown, animate, shift, tracks]);
   return (
     <View
       accessibilityElementsHidden
@@ -96,54 +123,31 @@ function CtaCaption({ shown, animate }: { shown: Locale; animate: boolean }) {
       pointerEvents="none"
       style={{ flex: 1, height: lineHeight, overflow: 'hidden', marginBottom: px(12) }}
     >
-      {CTA_ORDER.map((locale) => {
-        const role = locale === pair.cur ? 'cur' : locale === pair.prev ? 'prev' : 'off';
-        return (
-          <Animated.Text
-            {...fixedText}
-            key={locale}
-            testID={role === 'cur' ? 'kiosk-start-caption' : undefined}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              top: 0,
-              fontFamily: fonts.black,
-              fontSize: px(58),
-              lineHeight,
-              letterSpacing: px(58) * 0.04,
-              color: colors.white,
-              textAlign: 'center',
-              opacity:
-                role === 'cur'
-                  ? fade.interpolate({
-                      inputRange: [0, CTA_FLIP.inDelay / CTA_FLIP.duration, 1],
-                      outputRange: [0, 0, 1],
-                    })
-                  : role === 'prev'
-                    ? fade.interpolate({
-                        inputRange: [0, CTA_FLIP.outFade / CTA_FLIP.duration, 1],
-                        outputRange: [1, 0, 0],
-                      })
-                    : 0,
-              transform: [
-                {
-                  translateY:
-                    role === 'cur'
-                      ? move.interpolate({ inputRange: [0, 1], outputRange: [shift, 0] })
-                      : role === 'prev'
-                        ? move.interpolate({ inputRange: [0, 1], outputRange: [0, -shift] })
-                        : shift,
-                },
-              ],
-            }}
-          >
-            {copy(locale).orderNow}
-          </Animated.Text>
-        );
-      })}
+      {CTA_ORDER.map((locale) => (
+        <Animated.Text
+          {...fixedText}
+          key={locale}
+          testID={locale === shown ? 'kiosk-start-caption' : undefined}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: 0,
+            fontFamily: fonts.black,
+            fontSize: px(58),
+            lineHeight,
+            letterSpacing: px(58) * 0.04,
+            color: colors.white,
+            textAlign: 'center',
+            opacity: tracks[locale].opacity,
+            transform: [{ translateY: tracks[locale].y }],
+          }}
+        >
+          {copy(locale).orderNow}
+        </Animated.Text>
+      ))}
     </View>
   );
 }

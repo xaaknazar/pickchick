@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { money } from '../cart';
@@ -9,9 +9,8 @@ import { fitTitle } from '../menu-presentation';
 import { colors, fonts, redesign, useMetrics } from '../theme';
 import { Badge } from './Badge';
 import { PhotoImage } from './PhotoImage';
-import { curve, usePopIn, usePress, type Curve } from './motion';
+import { useEnter, usePopIn, usePress } from './motion';
 import { noteProductOrigin } from './reveal';
-import { useMotionPreference } from './useMotionPreference';
 import { fixedText } from './Body';
 import { ownerOrange } from './ownerOrange';
 /** Share of the tile's width given to the product photo (right side). */
@@ -50,9 +49,9 @@ export function Billboard({
 }) {
   const { px } = useMetrics();
   const t = copy(locale);
-  // Prototype `bbIn` (900 ms --ease) and the tag `pop` (480 ms after 200 ms, --spring).
-  const float = useArrival(900, 0, 'ease');
-  const pop = useArrival(480, 200, 'spring');
+  // Begin only when visible; short, non-overshooting arrivals do not compete with the cover.
+  const float = useEnter(0, 640);
+  const pop = useEnter(100, 380);
   const choose = usePress(0.95);
   const tile = useRef<View>(null);
   const imageId = productArtworkId(product);
@@ -142,9 +141,9 @@ export function Billboard({
           style={{
             position: 'absolute',
             left: px(28),
-            top: px(26),
+            top: px(24),
             width: `${(1 - PHOTO) * 100 + 2}%`,
-            gap: px(10),
+            gap: px(8),
           }}
         >
           <Animated.View
@@ -177,12 +176,10 @@ export function Billboard({
           >
             {product.name}
           </Text>
-          <View
-            pointerEvents="box-none"
-            style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: px(16) }}
-          >
+          <View pointerEvents="box-none" style={{ alignItems: 'flex-start', gap: px(12) }}>
             <View
               pointerEvents="none"
+              testID="kiosk-billboard-price"
               style={{ flexDirection: 'row', alignItems: 'baseline', gap: px(5) }}
             >
               <Text
@@ -256,31 +253,6 @@ export function Billboard({
       {inCart > 0 ? <Count count={inCart} hold={arriving} /> : null}
     </View>
   );
-}
-/** Plays 0 -> 1 once on mount (every section change remounts the tile); 1 under reduced motion. */
-function useArrival(duration: number, delay: number, shape: Curve) {
-  const reduced = useMotionPreference();
-  const value = useRef(new Animated.Value(reduced ? 1 : 0)).current;
-  useEffect(() => {
-    value.stopAnimation();
-    if (reduced) {
-      value.setValue(1);
-      return;
-    }
-    const animation = Animated.timing(value, {
-      toValue: 1,
-      duration,
-      delay,
-      easing: curve(shape),
-      useNativeDriver: true,
-    });
-    animation.start();
-    return () => {
-      animation.stop();
-      value.setValue(1);
-    };
-  }, [delay, duration, reduced, shape, value]);
-  return value;
 }
 /** Blue count of the units already in the bag; pops when it changes, waits while `hold`. */
 function Count({ count, hold }: { count: number; hold: boolean }) {

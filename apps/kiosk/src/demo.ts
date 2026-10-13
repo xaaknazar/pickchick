@@ -94,6 +94,14 @@ export function createDemoTransport(
   let session: string | null = null;
   let flow: string | null = null;
   let order: Order | null = null;
+  /**
+   * The guest token and quote of `order`. After «Начать заново» the abandoned guest's late
+   * /sessions/end leaves the next guest's order alone, and the next guest's new quote gets a new
+   * order instead of the abandoned one.
+   */
+  let orderToken: string | undefined;
+  let orderQuote: unknown = null;
+  let quoteToken: string | undefined;
   let autoPaidAt: number | null = null;
   let settled: DemoOutcome | null = null;
   let next = DEMO_FIRST_NUMBER;
@@ -177,7 +185,7 @@ export function createDemoTransport(
         return { data: availability(), catalogVersion: null, signature: null };
       throw new KioskError('DEMO_UNSUPPORTED', 400);
     },
-    request: async (path, _token, body) => {
+    request: async (path, token, body) => {
       calls.push(path);
       const input = isObject(body) ? body : {};
       if (path === '/sessions')
@@ -187,10 +195,15 @@ export function createDemoTransport(
           expiresAt: iso(now() + 3600000),
         };
       if (path === '/sessions/end') {
-        order = null;
-        quote = null;
-        autoPaidAt = null;
-        settled = null;
+        // Only the ending guest's own quote and order go away.
+        if (!quote || quoteToken === token) quote = null;
+        if (!order || orderToken === token) {
+          order = null;
+          orderToken = undefined;
+          orderQuote = null;
+          autoPaidAt = null;
+          settled = null;
+        }
         return { ended: true };
       }
       if (path === '/config')
@@ -209,11 +222,17 @@ export function createDemoTransport(
           totalMinor: quoteTotal(input.items),
           serviceMode: input.serviceMode === 'dine_in' ? 'dine_in' : 'takeaway',
         };
+        quoteToken = token;
         return { ...quote, expiresAt: iso(now() + 120000) };
       }
       if (path === '/orders') {
         if (!quote || input.quoteId !== quote.quoteId) throw new KioskError('NOT_FOUND', 404);
-        if (order) return order;
+        // The same quote replays its order; a new quote (the next guest) gets a new one.
+        if (order && orderQuote === input.quoteId) return order;
+        settled = null;
+        autoPaidAt = null;
+        orderToken = token;
+        orderQuote = input.quoteId;
         const at = iso(now());
         order = {
           orderId: options.uuid(),
@@ -258,7 +277,12 @@ export function createDemoTransport(
       throw new KioskError('DEMO_UNSUPPORTED', 400);
     },
   };
-  return { io, settle, calls, branchId };
+  const cancelUnpaid = () => {
+    if (!settled && autoPaidAt !== null && now() >= autoPaidAt) settle('approved');
+    if (order?.phase !== 'awaiting_payment') return false;
+    return settle('declined');
+  };
+  return { io, settle, cancelUnpaid, calls, branchId };
 }
 
 /** The demo controller (the real commercial controller over the in-memory transport). */
@@ -273,6 +297,14 @@ export function createDemoKiosk(
     transport,
     /** "Демо: оплачено / отказ / неизвестно": settles the open demo payment and re-reads it. */
     pay: async (outcome: DemoOutcome) => (transport.settle(outcome) ? controller.recover() : false),
+    cancelPayment: async () => {
+      if (!(await controller.recover())) return false;
+      if (!transport.cancelUnpaid()) {
+        await controller.recover();
+        return false;
+      }
+      return controller.returnAfterFailedPayment();
+    },
   };
 }
 export type DemoKiosk = ReturnType<typeof createDemoKiosk>;

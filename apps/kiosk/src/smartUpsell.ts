@@ -184,3 +184,38 @@ export function paysDirectly(
   const offered = methods ?? ['kaspi'];
   return !!commercial && offered.length === 1 && offered[0] === 'kaspi';
 }
+/** A cart line as the upsell remembers it: its id and quantity. */
+export interface UpsellLine {
+  lineId: string;
+  quantity: number;
+}
+/**
+ * «Без допов» (owner bug report 2026-10-13: extras added on the upsell were still ordered): the
+ * quantities that put the cart back to what it held when the guest opened the upsell. Every line
+ * added or grown during this visit returns to its opening quantity (0 takes it out); lines the
+ * guest brought keep theirs, and a line lowered meanwhile is never raised again.
+ */
+export function upsellUndo(
+  opened: readonly UpsellLine[],
+  now: readonly UpsellLine[],
+): UpsellLine[] {
+  const before = new Map(opened.map((line) => [line.lineId, line.quantity]));
+  return now.flatMap((line) => {
+    const target = before.get(line.lineId) ?? 0;
+    return line.quantity > target ? [{ lineId: line.lineId, quantity: target }] : [];
+  });
+}
+/**
+ * Applies `upsellUndo` with the cart's own quantity operation (the model's `updateQuantity`),
+ * one line after another. Stops at the first refusal (false), so the guest never goes on to
+ * payment with a half-undone cart; true when the cart is back as it was.
+ */
+export async function undoUpsellAdds(
+  model: { updateQuantity(lineId: string, quantity: number): Promise<boolean> },
+  opened: readonly UpsellLine[],
+  now: readonly UpsellLine[],
+): Promise<boolean> {
+  for (const step of upsellUndo(opened, now))
+    if (!(await model.updateQuantity(step.lineId, step.quantity))) return false;
+  return true;
+}

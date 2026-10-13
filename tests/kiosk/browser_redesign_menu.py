@@ -8,6 +8,7 @@ written to KIOSK_MENU_OUTPUT for comparison with
 docs/design/kiosk-redesign-2026-10-13/images/menu-*.webp.
 """
 import copy
+import json
 import os
 import unittest
 from pathlib import Path
@@ -110,7 +111,65 @@ class RedesignMenu(ui.KioskUI):
             for card in page.locator('[data-testid^="kiosk-product-plus-"]').all():
                 box = card.bounding_box()
                 self.assertLessEqual(box['y'] + box['height'], limit, card.get_attribute('data-testid'))
+        billboard = ui.element(page, 'kiosk-billboard')
+        if billboard.count():
+            price = ui.element(page, 'kiosk-billboard-price').bounding_box()
+            choose = billboard.locator('[data-testid^="kiosk-product-plus-"]').bounding_box()
+            frame = billboard.bounding_box()
+            self.assertGreaterEqual(choose['y'], price['y'] + price['height'] + 7)
+            self.assertLessEqual(choose['y'] + choose['height'], frame['y'] + frame['height'] - 8)
         return scrolls
+
+    def test_dining_colour_covers_before_menu_is_visible(self):
+        for width, height in SIZES:
+            for mode in ['dine-in', 'takeaway']:
+                with self.subTest(width=width, mode=mode):
+                    page, fixture = self.open_with(width, height, reduced='no-preference')
+                    ui.element(page, 'kiosk-start').click()
+                    ui.screen(page, 'mode')
+                    page.evaluate('''() => {
+                        window.motionFrames = [];
+                        const get = id => document.querySelector('[data-testid="' + id + '"]');
+                        const sample = () => {
+                            const menu = get('kiosk-stage-menu');
+                            const fill = get('kiosk-mode-reveal-fill');
+                            const box = fill?.getBoundingClientRect();
+                            const visible = !!menu && Number(getComputedStyle(menu).opacity) > .01;
+                            const covered = !!box && box.left <= 1 && box.top <= 1 &&
+                                box.right >= innerWidth - 1 && box.bottom >= innerHeight - 1;
+                            window.motionFrames.push({visible, covered, fill: !!fill,
+                                opacity: fill ? Number(getComputedStyle(fill).opacity) : 0,
+                                menu: !!menu, time: performance.now()});
+                            if (!(visible && !get('kiosk-mode-reveal')) && window.motionFrames.length < 240)
+                                requestAnimationFrame(sample);
+                        };
+                        requestAnimationFrame(sample);
+                    }''')
+                    # Deliberately choose during the card entrance, without Playwright's stability wait.
+                    ui.element(page, 'kiosk-mode-' + mode).click(force=True)
+                    page.wait_for_function('''() => window.motionFrames.some(f => f.visible && !f.fill)''')
+                    frames = page.evaluate('window.motionFrames')
+                    first_visible = next(i for i, f in enumerate(frames) if f['visible'])
+                    self.assertTrue(any(f['menu'] and not f['visible'] for f in frames[:first_visible]),
+                                    'Menu must start hidden instead of flashing before the colour')
+                    self.assertTrue(frames[first_visible]['covered'], 'Menu appeared before full cover')
+                    self.assertGreater(frames[first_visible]['opacity'], .9)
+                    self.assertLess(frames[-1]['time'] - frames[0]['time'], 1800)
+                    self.assertTrue(ui.element(page, 'kiosk-category-duo').is_enabled())
+                    self.assertEqual(len(fixture.orders), 0)
+                    (ui.OUTPUT / f'motion-{mode}-{width}.json').write_text(json.dumps(frames))
+
+    def test_reduced_motion_mid_cover_releases_menu(self):
+        page, fixture = self.open_with(820, 1180, reduced='no-preference')
+        ui.element(page, 'kiosk-start').click()
+        ui.screen(page, 'mode')
+        ui.element(page, 'kiosk-mode-takeaway').click(force=True)
+        expect(ui.element(page, 'kiosk-mode-reveal')).to_be_attached()
+        page.emulate_media(reduced_motion='reduce')
+        expect(ui.element(page, 'kiosk-mode-reveal')).to_have_count(0)
+        expect(ui.element(page, 'kiosk-stage-menu')).to_have_css('opacity', '1')
+        ui.element(page, 'kiosk-category-duo').click()
+        self.assertEqual(len(fixture.orders), 0)
 
     def test_sections_with_cart_on_three_ipads(self):
         for width, height in SIZES:
@@ -206,4 +265,6 @@ if __name__ == '__main__':
         'RedesignMenu.test_nineteen_drinks_scroll_under_the_panel',
         'RedesignMenu.test_ten_extras_still_fit',
         'RedesignMenu.test_empty_cart_disables_checkout',
+        'RedesignMenu.test_dining_colour_covers_before_menu_is_visible',
+        'RedesignMenu.test_reduced_motion_mid_cover_releases_menu',
     ], verbosity=2)

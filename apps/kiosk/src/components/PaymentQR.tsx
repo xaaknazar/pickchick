@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { Animated, View } from 'react-native';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { paymentQrSvg } from '../qr';
 import { colors, useMetrics } from '../theme';
 import { useLoop } from './motion';
@@ -9,32 +8,37 @@ import { useMotionPreference } from './useMotionPreference';
 
 /**
  * The bank QR, encoded locally from the exact payload. Error correction is M,
- * so nothing is ever drawn over the modules. `scanning` sweeps a thin orange
- * line up and down the code (2.4 s each way); it is hidden under reduced motion.
+ * so nothing is ever drawn over the modules. Waiting gently pulses a frame
+ * outside the quiet zone; the QR itself never moves or changes brightness.
  */
 export function PaymentQR({
   payload,
   label,
   size = 'regular',
   scanning = false,
+  fit,
+  quiet = 4,
 }: {
   payload: string;
   label: string;
   size?: 'regular' | 'compact';
   scanning?: boolean;
+  /** Side the code should take, in points (the redesign's QR plate); default: the v3 sizes. */
+  fit?: number;
+  /** White margin in modules; below 4 only on a white plate whose padding completes it. */
+  quiet?: number;
 }) {
   const { v, height } = useMetrics();
   const reduced = useMotionPreference();
-  const line = 5;
-  const sweep = useLoop(4800, 0, true);
-  const svg = useMemo(() => paymentQrSvg(payload), [payload]);
+  const pulse = useLoop(3000, 0, true);
+  const svg = useMemo(() => paymentQrSvg(payload, quiet), [payload, quiet]);
   // Snap the box to whole points per module so every module edge lands on the
   // pixel grid: no blurred or uneven modules at any iPad scale.
   const cells = Number(/viewBox="0 0 (\d+)/.exec(svg ?? '')?.[1] ?? 0);
   // Design 07: a 460-pt card on the 820 x 1180 iPad holds ~360 pt of modules; with
   // the 4-module quiet zone that is a ~420-pt code. Bounded by the height, so the
   // steps and the footer still fit on every portrait iPad.
-  const wanted = Math.min(v(size === 'compact' ? 380 : 420), Math.round(height * 0.345));
+  const wanted = fit ?? Math.min(v(size === 'compact' ? 380 : 420), Math.round(height * 0.345));
   const box = cells ? Math.max(cells, Math.round(wanted / cells) * cells) : wanted;
   if (!svg) return null;
   return (
@@ -49,36 +53,22 @@ export function PaymentQR({
       />
       {scanning && !reduced ? (
         <Animated.View
+          testID="kiosk-payment-qr-waiting-frame"
           pointerEvents="none"
           accessible={false}
           importantForAccessibility="no-hide-descendants"
           style={{
             position: 'absolute',
-            left: -10,
-            right: -10,
-            top: 0,
-            height: line,
-            shadowColor: colors.orange,
-            shadowOpacity: 0.6,
-            shadowRadius: 8,
-            shadowOffset: { width: 0, height: 0 },
-            transform: [
-              {
-                translateY: sweep.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, box - line],
-                }),
-              },
-            ],
+            left: -8,
+            right: -8,
+            top: -8,
+            bottom: -8,
+            borderWidth: 2,
+            borderRadius: 12,
+            borderColor: colors.orange,
+            opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.2, 0.55] }),
           }}
-        >
-          <LinearGradient
-            colors={['rgba(255,105,0,0)', colors.orange, 'rgba(255,105,0,0)']}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={{ flex: 1, borderRadius: 3 }}
-          />
-        </Animated.View>
+        />
       ) : null}
     </View>
   );

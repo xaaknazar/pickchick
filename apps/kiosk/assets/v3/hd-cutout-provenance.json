@@ -1,0 +1,138 @@
+{
+  "method": "Sharper kiosk photos from the owner-commissioned HD catalog set (apps/mobile/assets/catalog-hd,\ncatalog-options; see their README): the subject is cut out with rembg (isnet-general-use), cropped\nto it plus a 3 % margin and scaled to at most MAX px on the long side.",
+  "script": "scripts/kiosk/hd-cutout-photos.py",
+  "model": "isnet-general-use",
+  "model_sha256": "60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a",
+  "max_px": 900,
+  "margin": 0.03,
+  "photos": [
+    {
+      "target": "options/lemonade.webp",
+      "source": "apps/mobile/assets/catalog-hd/lemonade.png",
+      "source_sha256": "9a211e89e604134b5458326d6abafe9a4e3b35a6506ef95261e36a39bd3506c0",
+      "mode": "alpha",
+      "output_size": [373, 900],
+      "output_sha256": "41862d33c7b033f09b258e1b48da113ceb8679e186097da7e6a9365641609f44"
+    },
+    {
+      "target": "options/cola-can.webp",
+      "source": "apps/mobile/assets/catalog-hd/cola.png",
+      "source_sha256": "40c55023c72f4aed5a27bc801363544b1d8dfed41cff0223c6124d5b7d711cd8",
+      "mode": "alpha",
+      "output_size": [358, 900],
+      "output_sha256": "01dc26713ea00eb91e2780dad483fee0f8841eb0075b553f407532f9ec058256"
+    },
+    {
+      "target": "options/iced-tea.webp",
+      "source": "apps/mobile/assets/catalog-hd/iced-tea.png",
+      "source_sha256": "f780846ab3f1b4546c8ea638f6461dca56804eb924befb19593aa8686a258dbe",
+      "mode": "alpha",
+      "output_size": [543, 900],
+      "output_sha256": "fac6744aa07c45c523bac6eebd49385e459345e53b98f209794ff6ec1640ae7f"
+    },
+    {
+      "target": "options/water.webp",
+      "source": "apps/mobile/assets/catalog-hd/water.png",
+      "source_sha256": "dccd2aaadab7cabf0a4fa8dad8c0a9b1bc7e5f0248161cb91e170051dcf74d75",
+      "mode": "alpha",
+      "output_size": [308, 900],
+      "output_sha256": "d08e9ce4ce0cb8a6b5657031c5a9b1d62467a4cb7869d968a7529a4a72e28a60"
+    },
+    {
+      "target": "options/piko.webp",
+      "source": "apps/mobile/assets/catalog-options/piko.png",
+      "source_sha256": "cdd3dcf0ecb150f970b7821c7cdf98fb143c177c52e36037e761393fed97b96d",
+      "mode": "alpha",
+      "output_size": [445, 900],
+      "output_sha256": "2efc9939ed0ac4c2492491888f690614c77fe4eeab78126767541f5ece010c56"
+    },
+    {
+      "target": "options/coleslaw.webp",
+      "source": "apps/mobile/assets/catalog-hd/coleslaw.png",
+      "source_sha256": "5b4090b7faf78c9b9a6cba583aacf43d3c4148a9109dae1357d89444bbc5c622",
+      "mode": "alpha",
+      "output_size": [900, 772],
+      "output_sha256": "a0d7548b0b35c03aaa52605d967ca5fd90a18a37adc114c837ae5fafc6620016"
+    },
+    {
+      "target": "photos/lemonade.webp",
+      "source": "apps/mobile/assets/catalog-hd/lemonade.png",
+      "source_sha256": "9a211e89e604134b5458326d6abafe9a4e3b35a6506ef95261e36a39bd3506c0",
+      "mode": "white",
+      "output_size": [373, 900],
+      "output_sha256": "aac937dfa8763b36844242397d0e3cb244e8260fe4f176eb3c1482aff3d22cb2"
+    },
+    {
+      "target": "photos/cola.webp",
+      "source": "apps/mobile/assets/catalog-hd/cola.png",
+      "source_sha256": "40c55023c72f4aed5a27bc801363544b1d8dfed41cff0223c6124d5b7d711cd8",
+      "mode": "white",
+      "output_size": [358, 900],
+      "output_sha256": "4cdfbed3e654bcb5ed366ff00dc94e7c718661b81b4e5d8518949818936d7857"
+    },
+    {
+      "target": "photos/fuse-peach.webp",
+      "source": "apps/mobile/assets/catalog-hd/fuse-peach.png",
+      "source_sha256": "e33c2b073927d3c3a4c9eba2e3baf6b38933f6af2ff161bf5db81f0bf679859a",
+      "mode": "white",
+      "output_size": [317, 900],
+      "output_sha256": "e8fa80dee7cfe1360dabe16312b4c1eac45ca48133d3c4ad2cc589220c79f117"
+    },
+    {
+      "target": "photos/iced-tea.webp",
+      "source": "apps/mobile/assets/catalog-hd/iced-tea.png",
+      "source_sha256": "f780846ab3f1b4546c8ea638f6461dca56804eb924befb19593aa8686a258dbe",
+      "mode": "white",
+      "output_size": [543, 900],
+      "output_sha256": "60f8d0de22435f9702ac26f11208228f7b6e32cc3754e52bc40105fe7a97bdbf"
+    },
+    {
+      "target": "photos/water.webp",
+      "source": "apps/mobile/assets/catalog-hd/water.png",
+      "source_sha256": "dccd2aaadab7cabf0a4fa8dad8c0a9b1bc7e5f0248161cb91e170051dcf74d75",
+      "mode": "white",
+      "output_size": [308, 900],
+      "output_sha256": "0e1f1dfb6c6fa57c6effe372b4c0fdd5712747967bf03be49e663e54af30a628"
+    },
+    {
+      "target": "photos/piko.webp",
+      "source": "apps/mobile/assets/catalog-options/piko.png",
+      "source_sha256": "cdd3dcf0ecb150f970b7821c7cdf98fb143c177c52e36037e761393fed97b96d",
+      "mode": "white",
+      "output_size": [445, 900],
+      "output_sha256": "452b416909ef7c17203c25a6bc4b1748fc07acea8085411f14de68004dcf7835"
+    },
+    {
+      "target": "photos/sauce.webp",
+      "source": "apps/mobile/assets/catalog-hd/sauce.png",
+      "source_sha256": "7142acac0f164deabf79c85c3479d02f4369ca3b8e21557b917e0d1dd2b10027",
+      "mode": "white",
+      "output_size": [733, 900],
+      "output_sha256": "f49aed19d06b160976e58f75849b2ed7f63d01b65fa39272e605c7da20a19d12"
+    },
+    {
+      "target": "photos/sauce-hot.webp",
+      "source": "apps/mobile/assets/catalog-hd/sauce-hot.png",
+      "source_sha256": "f8f3cf45504623c0ed7c7739caa50e1a02db8751919f130cabc3e8eda41e5eb1",
+      "mode": "white",
+      "output_size": [900, 693],
+      "output_sha256": "84f9e56426ae299a531fc0cd84cdc70e5142575f81f735561e9aca07b259f700"
+    },
+    {
+      "target": "photos/burger.webp",
+      "source": "apps/mobile/assets/catalog-hd/burger.png",
+      "source_sha256": "0a5abdf3daf33f43f32108013a394d7077641766406951c741b771bac8d9512d",
+      "mode": "white",
+      "output_size": [900, 649],
+      "output_sha256": "968c291cc1e1ea903745eac699561ef558343095df533164ac52aa9bda4871e3"
+    },
+    {
+      "target": "photos/coleslaw.webp",
+      "source": "apps/mobile/assets/catalog-hd/coleslaw.png",
+      "source_sha256": "5b4090b7faf78c9b9a6cba583aacf43d3c4148a9109dae1357d89444bbc5c622",
+      "mode": "white",
+      "output_size": [900, 772],
+      "output_sha256": "70127697308bf28f90f61a30528e83e0a9675835bad08b0ec38d01f03a5b14a7"
+    }
+  ]
+}

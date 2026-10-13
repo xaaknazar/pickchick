@@ -139,6 +139,67 @@ test('the NOT_ACCEPTING text is gone from every dictionary and kiosk source', ()
 
 // 2. Demo mode: in-memory transport, no network, demo QR and number.
 
+test('demo cancellation keeps the cart and permits a fresh demo payment without network', async (t) => {
+  const fetchCalls = forbidFetch(t);
+  const time = clock();
+  const demo = createDemoKiosk(null, { uuid: randomUUID, now: time.now });
+  const c = await fill(demo.controller);
+  const before = c.getSnapshot();
+  await c.beginPayment();
+  const firstOrder = c.getSnapshot().order.order_id;
+  assert.equal(await demo.cancelPayment(), true);
+  const after = c.getSnapshot();
+  assert.equal(after.step, 'cart');
+  assert.equal(after.order, null);
+  assert.equal(after.qrPayment, null);
+  assert.equal(after.mode, before.mode);
+  assert.deepEqual(after.cart, before.cart);
+  assert.equal(await c.beginPayment(), true);
+  assert.notEqual(c.getSnapshot().order.order_id, firstOrder);
+  assert.equal(fetchCalls.length, 0);
+});
+
+test('demo cancellation loses to an elapsed auto-payment and never clears a paid order', async (t) => {
+  forbidFetch(t);
+  const time = clock();
+  const demo = createDemoKiosk(null, { uuid: randomUUID, now: time.now });
+  const c = await fill(demo.controller);
+  await c.beginPayment();
+  const id = c.getSnapshot().order.order_id;
+  time.value += DEMO_AUTO_PAID_MS;
+  assert.equal(await demo.cancelPayment(), false);
+  assert.equal(c.getSnapshot().step, 'order');
+  assert.equal(c.getSnapshot().order.payment_state, 'paid');
+  assert.equal(c.getSnapshot().order.order_id, id);
+  assert.equal(demo.transport.calls.includes('/sessions/end'), false);
+});
+
+test('unknown demo payment cannot be cancelled or turned into a new draft', async (t) => {
+  forbidFetch(t);
+  const demo = createDemoKiosk(null, { uuid: randomUUID });
+  const c = await fill(demo.controller);
+  await c.beginPayment();
+  await demo.pay('unknown');
+  const id = c.getSnapshot().order.order_id;
+  assert.equal(await demo.cancelPayment(), false);
+  assert.equal(await c.returnAfterFailedPayment(), false);
+  assert.equal(c.getSnapshot().order.order_id, id);
+  assert.equal(c.getSnapshot().order.payment_state, 'unknown');
+  assert.equal(demo.transport.calls.includes('/sessions/end'), false);
+});
+
+test('repeated demo cancellation clears only one failed order and keeps the draft', async (t) => {
+  forbidFetch(t);
+  const demo = createDemoKiosk(null, { uuid: randomUUID });
+  const c = await fill(demo.controller);
+  await c.beginPayment();
+  const answers = await Promise.all([demo.cancelPayment(), demo.cancelPayment()]);
+  assert.equal(answers.filter(Boolean).length, 1);
+  assert.equal(c.getSnapshot().step, 'cart');
+  assert.equal(c.getSnapshot().cart.length, 1);
+  assert.equal(demo.transport.calls.filter((p) => p === '/sessions/end').length, 1);
+});
+
 test('demo walks to a non-payable QR and a "Д-123" number without any network call', async (t) => {
   const fetchCalls = forbidFetch(t);
   const time = clock();
