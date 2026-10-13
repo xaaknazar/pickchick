@@ -107,6 +107,7 @@ export default function useKioskController(): KioskModel {
     beginPayment: controller.beginPayment,
     pay: demo ? demo.pay : controller.pay,
     cancelOrder: controller.cancelOrder,
+    cancelPayment: demo?.cancelPayment,
     recover: controller.recover,
     refresh: controller.refresh,
     newGuest: controller.newGuest,

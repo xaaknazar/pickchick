@@ -145,6 +145,8 @@ export interface KioskModel extends KioskState {
   beginPayment(method?: KioskPaymentMethod): Promise<boolean>;
   pay(outcome: 'approved' | 'declined' | 'unknown'): Promise<boolean>;
   cancelOrder(): Promise<boolean>;
+  /** Isolated demo capability only. Live QR cancellation is not supported by the bank bridge. */
+  cancelPayment?(): Promise<boolean>;
   recover(): Promise<boolean>;
   refresh(): Promise<boolean | void>;
   newGuest(): Promise<boolean>;

@@ -258,7 +258,12 @@ export function createDemoTransport(
       throw new KioskError('DEMO_UNSUPPORTED', 400);
     },
   };
-  return { io, settle, calls, branchId };
+  const cancelUnpaid = () => {
+    if (!settled && autoPaidAt !== null && now() >= autoPaidAt) settle('approved');
+    if (order?.phase !== 'awaiting_payment') return false;
+    return settle('declined');
+  };
+  return { io, settle, cancelUnpaid, calls, branchId };
 }
 
 /** The demo controller (the real commercial controller over the in-memory transport). */
@@ -273,6 +278,14 @@ export function createDemoKiosk(
     transport,
     /** "Демо: оплачено / отказ / неизвестно": settles the open demo payment and re-reads it. */
     pay: async (outcome: DemoOutcome) => (transport.settle(outcome) ? controller.recover() : false),
+    cancelPayment: async () => {
+      if (!(await controller.recover())) return false;
+      if (!transport.cancelUnpaid()) {
+        await controller.recover();
+        return false;
+      }
+      return controller.returnAfterFailedPayment();
+    },
   };
 }
 export type DemoKiosk = ReturnType<typeof createDemoKiosk>;

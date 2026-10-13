@@ -33,6 +33,8 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
   const qrPayload = visiblePaymentQr(qr, unknown, Date.now());
   const showQr = !!qrPayload;
   const invoice = model.paymentMethod === 'kaspi_invoice';
+  const canCancelDemo =
+    !!model.demo && !!model.cancelPayment && model.order?.payment_state === 'pending' && !unknown;
   // A live Kaspi QR: the footer keeps the way to staff and a secondary "I paid - check"
   // (the not-yet card option no longer takes the main spot under the guest's hand).
   const kaspiQr =
@@ -95,36 +97,46 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
             method={model.paymentMethod === 'card' ? 'card' : invoice ? 'invoice' : 'qr'}
             locale={context.locale}
             demoWarning={model.demo ? t.demoQr : null}
+            checking={model.busy}
           />
           {/* Staff demo mode (owner decision 2026-10-11): the outcome is chosen locally, the
               in-memory demo transport never reaches a bank. */}
           {model.demo && model.order && !declined ? (
-            <Wrapper dir="row" gap={16} wrap justify="center">
-              <Button
-                label={t.demoPaid}
-                tone="inverse"
-                testID="kiosk-demo-paid"
-                size="compact"
-                busy={model.busy}
-                onPress={() => void model.pay('approved')}
-              />
-              <Button
-                label={t.demoDeclined}
-                tone="inverse"
-                testID="kiosk-demo-declined"
-                size="compact"
-                busy={model.busy}
-                onPress={() => void model.pay('declined')}
-              />
-              {unknown ? null : (
+            <Wrapper dir="row" gap={12} width="100%" align="center">
+              <Wrapper flex={1}>
                 <Button
-                  label={t.demoUnknown}
+                  label={t.demoPaid}
                   tone="inverse"
-                  testID="kiosk-demo-unknown"
+                  testID="kiosk-demo-paid"
                   size="compact"
                   busy={model.busy}
-                  onPress={() => void model.pay('unknown')}
+                  onPress={() => void model.pay('approved')}
+                  fullWidth
                 />
+              </Wrapper>
+              <Wrapper flex={1}>
+                <Button
+                  label={t.demoDeclined}
+                  tone="inverse"
+                  testID="kiosk-demo-declined"
+                  size="compact"
+                  busy={model.busy}
+                  onPress={() => void model.pay('declined')}
+                  fullWidth
+                />
+              </Wrapper>
+              {unknown ? null : (
+                <Wrapper flex={1}>
+                  <Button
+                    label={t.demoUnknown}
+                    tone="inverse"
+                    testID="kiosk-demo-unknown"
+                    size="compact"
+                    busy={model.busy}
+                    onPress={() => void model.pay('unknown')}
+                    fullWidth
+                  />
+                </Wrapper>
               )}
             </Wrapper>
           ) : null}
@@ -151,20 +163,21 @@ export function PaymentScreen({ model, context }: { model: KioskModel; context: 
         </Wrapper>
       </ScrollArea>
       <Footer tone="brand">
-        {/* Outlined way out beside the main action. A commercial order cannot be cancelled
-            at the kiosk, so there it calls staff instead of opening a cancel dialog. */}
+        {/* A true cancellation preview exists only in the isolated demo transport.
+            The live QR bridge has no cancellation endpoint; staff remains its way out. */}
         <Wrapper dir="row" gap={14} align="center">
           <Button
-            label={model.commercial ? t.callStaff : t.cancel}
+            label={canCancelDemo ? t.cancelPayment : model.commercial ? t.callStaff : t.cancel}
             tone="outline"
             testID="kiosk-payment-cancel"
-            onPress={model.commercial ? context.onHelp : context.onCancel}
+            disabled={model.busy}
+            onPress={canCancelDemo || !model.commercial ? context.onCancel : context.onHelp}
           />
           <Wrapper flex={1}>
             {kaspiQr ? (
               <Button
                 testID="kiosk-payment-retry"
-                label={t.paidCheck}
+                label={model.busy ? t.checkingPayment : t.paidCheck}
                 tone="inverse"
                 busy={model.busy}
                 onPress={() => void model.recover()}

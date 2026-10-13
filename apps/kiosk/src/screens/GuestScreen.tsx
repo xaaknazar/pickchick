@@ -61,6 +61,7 @@ export function GuestScreen() {
     };
   }
   useEffect(() => {
+    if (previousStep.current === 'payment' && liveModel.step !== 'payment') setCancel(false);
     if (liveModel.step === 'start' && previousStep.current !== 'start') {
       upsellMemory.current = { base: null };
       menuMemory.current = { category: 'combo', offsets: {} };
@@ -111,12 +112,22 @@ export function GuestScreen() {
   };
   const closeCancel = () => setCancel(false);
   const paying = model.step === 'payment';
+  const demoCancelPayment =
+    paying &&
+    !!model.demo &&
+    !!model.cancelPayment &&
+    model.order?.payment_state === 'pending' &&
+    !model.recoveryRequired;
   // A live Kaspi QR (or any commercial order) cannot be cancelled from the kiosk.
-  const noCancel = !!model.commercial && !!model.order && paying;
+  const noCancel = !!model.commercial && !!model.order && paying && !demoCancelPayment;
   const unresolved =
     model.recoveryRequired ||
     ['simulated_unknown', 'unknown', 'pending'].includes(model.order?.payment_state ?? '');
   const confirmCancel = async () => {
+    if (demoCancelPayment) {
+      if (await model.cancelPayment?.()) setCancel(false);
+      return;
+    }
     if (unresolved || noCancel) {
       setCancel(false);
       setHelp(true);
@@ -240,17 +251,25 @@ export function GuestScreen() {
         <Button label={t.close} onPress={() => setHelp(false)} />
       </Dialog>
       <Dialog visible={cancel && !warning} onClose={closeCancel} testID="kiosk-cancel-dialog">
-        <Heading size="title">{noCancel ? t.qrNoCancelTitle : t.cancelQuestion}</Heading>
+        <Heading size="title">
+          {demoCancelPayment
+            ? t.cancelPaymentQuestion
+            : noCancel
+              ? t.qrNoCancelTitle
+              : t.cancelQuestion}
+        </Heading>
         <Body>
-          {noCancel
-            ? t.qrNoCancel
-            : unresolved
-              ? t.unknownBody
-              : model.order
-                ? model.commercial
-                  ? t.unknownBody
-                  : t.testPayment
-                : t.cancelBody}
+          {demoCancelPayment
+            ? t.cancelPaymentBody
+            : noCancel
+              ? t.qrNoCancel
+              : unresolved
+                ? t.unknownBody
+                : model.order
+                  ? model.commercial
+                    ? t.unknownBody
+                    : t.testPayment
+                  : t.cancelBody}
         </Body>
         <Button
           label={paying ? t.backToPayment : t.keep}
@@ -258,7 +277,15 @@ export function GuestScreen() {
           onPress={closeCancel}
         />
         <Button
-          label={noCancel ? t.callStaff : unresolved ? t.help : t.yesCancel}
+          label={
+            demoCancelPayment
+              ? t.cancelPayment
+              : noCancel
+                ? t.callStaff
+                : unresolved
+                  ? t.help
+                  : t.yesCancel
+          }
           tone="secondary"
           testID="kiosk-cancel-confirm"
           busy={model.busy}

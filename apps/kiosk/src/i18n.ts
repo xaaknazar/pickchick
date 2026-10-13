@@ -37,6 +37,11 @@ const ru = {
   qrNoCancelTitle: 'Оплату по QR нельзя отменить',
   qrNoCancel: 'Если передумали, просто не сканируйте QR и пригласите сотрудника.',
   paidCheck: 'Я оплатил - проверить',
+  checkingPayment: 'Проверяем оплату…',
+  paymentAuto: 'Статус оплаты обновляется автоматически',
+  cancelPayment: 'Отменить оплату',
+  cancelPaymentQuestion: 'Отменить оплату?',
+  cancelPaymentBody: 'Демо-счёт будет отменён. Вы вернётесь к заказу, выбранные блюда сохранятся.',
   incidentTitle: 'Результат оплаты уточняется',
   incidentBody:
     'Сотрудник проверяет оплату. Не оплачивайте повторно. Если нужна помощь, обратитесь к сотруднику.',
@@ -305,6 +310,11 @@ const kk: Strings = {
   qrNoCancelTitle: 'QR төлемін жоюға болмайды',
   qrNoCancel: 'Ойыңыз өзгерсе, QR-ды сканерлемеңіз және қызметкерді шақырыңыз.',
   paidCheck: 'Төледім - тексеру',
+  checkingPayment: 'Төлем тексерілуде…',
+  paymentAuto: 'Төлем күйі автоматты түрде жаңарады',
+  cancelPayment: 'Төлемді тоқтату',
+  cancelPaymentQuestion: 'Төлемді тоқтатасыз ба?',
+  cancelPaymentBody: 'Демо шот жойылады. Тапсырысқа ораласыз, таңдалған тағамдар сақталады.',
   incidentTitle: 'Төлем нәтижесі нақтыланып жатыр',
   incidentBody:
     'Қызметкер төлемді тексеріп жатыр. Қайта төлемеңіз. Көмек керек болса, қызметкерге жүгініңіз.',
@@ -573,6 +583,12 @@ const en: Strings = {
   qrNoCancelTitle: 'A QR payment cannot be cancelled',
   qrNoCancel: 'If you changed your mind, do not scan the QR and call a team member.',
   paidCheck: 'I paid - check',
+  checkingPayment: 'Checking payment…',
+  paymentAuto: 'Payment status updates automatically',
+  cancelPayment: 'Cancel payment',
+  cancelPaymentQuestion: 'Cancel this payment?',
+  cancelPaymentBody:
+    'The demo bill will be cancelled. You will return to your order with your items saved.',
   incidentTitle: 'The payment result is being checked',
   incidentBody:
     'A team member is checking the payment. Do not pay again. If you need help, please ask a team member.',

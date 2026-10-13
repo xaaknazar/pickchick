@@ -1414,6 +1414,21 @@ export class CommercialKioskController {
   refresh = (): Promise<boolean> => this.refreshResult(true);
   recover = () => (this.initialized ? this.refreshResult() : this.restore());
   pay = async () => false;
+  /** Keep the draft only after a fresh, definitive failed result. This does not cancel a QR. */
+  returnAfterFailedPayment = () =>
+    this.run(async () => {
+      if (this.current.intent || this.blocked || !this.current.order)
+        throw new KioskError('RECOVERY_REQUIRED');
+      await this.readOrder();
+      if (this.current.order?.phase !== 'failed') {
+        this.derive();
+        throw new KioskError('QUIET');
+      }
+      // End the old guest before unbinding: a failed request must retain its identity.
+      const ended = await this.io.request('/sessions/end', this.guest!.token, {});
+      if (!isObject(ended) || ended.ended !== true) throw new KioskError('INVALID_RESPONSE');
+      await this.abandonUnpaidOrder();
+    });
   cancelOrder = () =>
     this.run(async () => {
       if ((this.current.order && !terminal(this.current.order)) || this.current.intent)

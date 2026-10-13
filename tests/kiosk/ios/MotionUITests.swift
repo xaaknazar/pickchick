@@ -47,6 +47,21 @@ final class InstalledUITests: XCTestCase {
             capture("product-\(mode)", app)
             element("kiosk-product-close", app).tap()
             XCTAssertTrue(menu.waitForExistence(timeout: 10))
+            if mode == "takeaway" {
+                // All requests here still use the in-memory demo transport.
+                XCTAssertTrue(element("kiosk-demo-badge", app).exists)
+                element("kiosk-product-pick-combo", app).tap()
+                element("kiosk-product-add", app).tap()
+                element("kiosk-menu-checkout", app).tap()
+                element("kiosk-upsell-continue", app).tap()
+                element("kiosk-review-create", app).tap()
+                XCTAssertTrue(element("kiosk-demo-qr-warning", app).waitForExistence(timeout: 10))
+                capture("demo-qr", app)
+                element("kiosk-payment-cancel", app).tap()
+                element("kiosk-cancel-confirm", app).tap()
+                XCTAssertTrue(element("kiosk-screen-cart", app).waitForExistence(timeout: 10))
+                capture("demo-cart-after-cancel", app)
+            }
             element("kiosk-demo-exit", app).tap()
             XCTAssertTrue(start.waitForExistence(timeout: 10))
         }

@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { Animated, View } from 'react-native';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { paymentQrSvg } from '../qr';
 import { colors, useMetrics } from '../theme';
 import { useLoop } from './motion';
@@ -9,8 +8,8 @@ import { useMotionPreference } from './useMotionPreference';
 
 /**
  * The bank QR, encoded locally from the exact payload. Error correction is M,
- * so nothing is ever drawn over the modules. `scanning` sweeps a thin orange
- * line up and down the code (2.4 s each way); it is hidden under reduced motion.
+ * so nothing is ever drawn over the modules. Waiting gently pulses a frame
+ * outside the quiet zone; the QR itself never moves or changes brightness.
  */
 export function PaymentQR({
   payload,
@@ -25,8 +24,7 @@ export function PaymentQR({
 }) {
   const { v, height } = useMetrics();
   const reduced = useMotionPreference();
-  const line = 5;
-  const sweep = useLoop(4800, 0, true);
+  const pulse = useLoop(3000, 0, true);
   const svg = useMemo(() => paymentQrSvg(payload), [payload]);
   // Snap the box to whole points per module so every module edge lands on the
   // pixel grid: no blurred or uneven modules at any iPad scale.
@@ -49,36 +47,22 @@ export function PaymentQR({
       />
       {scanning && !reduced ? (
         <Animated.View
+          testID="kiosk-payment-qr-waiting-frame"
           pointerEvents="none"
           accessible={false}
           importantForAccessibility="no-hide-descendants"
           style={{
             position: 'absolute',
-            left: -10,
-            right: -10,
-            top: 0,
-            height: line,
-            shadowColor: colors.orange,
-            shadowOpacity: 0.6,
-            shadowRadius: 8,
-            shadowOffset: { width: 0, height: 0 },
-            transform: [
-              {
-                translateY: sweep.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, box - line],
-                }),
-              },
-            ],
+            left: -8,
+            right: -8,
+            top: -8,
+            bottom: -8,
+            borderWidth: 2,
+            borderRadius: 12,
+            borderColor: colors.orange,
+            opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.2, 0.55] }),
           }}
-        >
-          <LinearGradient
-            colors={['rgba(255,105,0,0)', colors.orange, 'rgba(255,105,0,0)']}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={{ flex: 1, borderRadius: 3 }}
-          />
-        </Animated.View>
+        />
       ) : null}
     </View>
   );
