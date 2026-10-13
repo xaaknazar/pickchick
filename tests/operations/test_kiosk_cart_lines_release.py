@@ -52,12 +52,12 @@ class KioskCartReleaseTests(unittest.TestCase):
         obj.psql.return_value = json.dumps({'n': 0})
         obj.compatible_rollback()
 
-    def test_exact_057_ledger_rejects_058(self):
+    def test_exact_058_ledger_rejects_059(self):
         obj = object.__new__(r.Release)
-        names = [f'db/cloud/migrations/{n:03d}_synthetic.sql' for n in [*range(1, 41), *range(42, 58)]]
+        names = [f'db/cloud/migrations/{n:03d}_synthetic.sql' for n in [*range(1, 41), *range(42, 59)]]
         obj.git = Mock(return_value='\n'.join(names))
-        self.assertEqual(len(obj.baseline_migrations()), 56)
-        obj.git.return_value += '\ndb/cloud/migrations/058_unreviewed.sql'
+        self.assertEqual(len(obj.baseline_migrations()), 57)
+        obj.git.return_value += '\ndb/cloud/migrations/059_unreviewed.sql'
         with self.assertRaises(r.market.GuardFailure):
             obj.baseline_migrations()
 

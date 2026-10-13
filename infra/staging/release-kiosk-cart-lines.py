@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Narrow kiosk line-count release on installed ad713/schema057.
+"""Narrow kiosk line-count release on installed 5b6f/schema058.
 
 Default is inspection. Immutable source/full green CI, exact live pins, shared
 release lock and encrypted backup with isolated restore remain mandatory. Only
@@ -20,7 +20,7 @@ sys.modules[spec.name] = e
 spec.loader.exec_module(e)
 w, lm, base, market = e.w, e.lm, e.base, e.market
 require, digest, quote, REMOTE = e.require, e.digest, e.quote, e.REMOTE
-BASELINE = 'ad7132fa5f4ae93bfa0693c8dd5e790c885d0201'
+BASELINE = '5b6f846b80785f915e9f8dd7d45fa72fd4bc13ee'
 e.BASELINE = w.BASELINE = lm.BASELINE = BASELINE
 # Byte-reviewed runtime changes only. Historical release helpers stay unchanged.
 SOURCE_HASHES = {'packages/commerce-core/src/kiosk-checkout.ts': '50935811f95574d356cc31db2c76e9df6142ce7addb83b9894b1499f8a73d971', 'packages/catalog-pricing/src/model.ts': '687e7dba8abaefeb0bfe667bdc3fbb07293fcda4477aedc1175e4eb320c82fa9', 'packages/commerce-core/src/model.ts': '8f85e58bb53eb3a021474c0d8d89e3f8a67f2ae58d3226c49eb49e6d2f93cee3', 'packages/contracts/src/customer-commerce.ts': '2dacc05e77e57e09fa6fbc9375bc349618e829295d99676587673f77cc23fa44'}
@@ -39,13 +39,13 @@ def validate_source(changed, hashes):
 
 class Release(e.Release):
     def __init__(self, args):
-        require(args.expected_api_sha == BASELINE, 'Exact installed ad713 baseline required')
+        require(args.expected_api_sha == BASELINE, 'Exact installed 5b6f baseline required')
         require(re.fullmatch('[a-f0-9]{40}', args.expected_public_sha), 'Reviewed public SHA required')
         for name in ('expected_compose_sha256', 'expected_gateway_sha256'):
             require(re.fullmatch('[a-f0-9]{64}', getattr(args, name, '')), 'Reviewed hash required')
         require(re.fullmatch('sha256:[a-f0-9]{64}', args.expected_api_image), 'Reviewed API image required')
-        profile = market.ReleaseProfile('kiosk-cart-lines-schema057', BASELINE, args.expected_public_sha,
-            56, (), base.workflow_jobs((market.REPO/'.github/workflows/ci.yml').read_text()),
+        profile = market.ReleaseProfile('kiosk-cart-lines-schema058', BASELINE, args.expected_public_sha,
+            57, (), base.workflow_jobs((market.REPO/'.github/workflows/ci.yml').read_text()),
             frozenset(), 'kiosk-cart-lines-release', (), exact_ci_jobs=True)
         market.Release.__init__(self, args, profile)
 
@@ -59,7 +59,7 @@ class Release(e.Release):
     def baseline_migrations(self):
         names = sorted(Path(p).name for p in self.git('ls-tree', '-r', '--name-only', BASELINE,
             '--', 'db/cloud/migrations/').splitlines() if p.endswith('.sql'))
-        require([int(n[:3]) for n in names] == list(range(1, 41)) + list(range(42, 58)), 'Exact schema057 required')
+        require([int(n[:3]) for n in names] == list(range(1, 41)) + list(range(42, 59)), 'Exact schema058 required')
         return names
 
     def current(self, proof, flag=True):
@@ -86,13 +86,13 @@ class Release(e.Release):
         super().apply()
         if self.args.apply:
             record = json.loads((self.private/'applied.json').read_text())
-            record['schema'] = 57
+            record['schema'] = 58
             self.save('applied.json', record)
 
     def restore(self, proof):
         super().restore(proof)
         record = json.loads((self.private/'rollback.json').read_text())
-        record['schema_retained'] = 57
+        record['schema_retained'] = 58
         self.save('rollback.json', record)
 
 
