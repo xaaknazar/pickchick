@@ -4849,11 +4849,13 @@
         "@apple/testflight",
         "@release/ios",
         "docs/operations/kiosk-design-demo.md",
-        ".github/workflows/ci.yml"
+        ".github/workflows/ci.yml",
+        "@vps/roadmap",
+        "@vps/public-https"
       ],
       "status": "active",
-      "head": "5367bbd783385d9ec93068170e076a96dfb08a2e",
-      "updatedAt": "2026-10-13T06:41:07.686Z"
+      "head": "3b9733affd4db3f1ea7082b12534f63a04637af4",
+      "updatedAt": "2026-10-13T06:53:01.359Z"
     }
   ]
 }
