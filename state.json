@@ -4967,7 +4967,6 @@
         "services/api/src/device-presence-controller.ts",
         "services/api/src/main.ts",
         "packages/contracts/src/device-access.ts",
-        "packages/contracts/openapi.json",
         "db/cloud/migrations/058_cloud_device_center.sql",
         "db/edge/migrations/021_edge_device_presence.sql",
         "tests/backoffice/devices-model.test.mjs",
@@ -5003,7 +5002,6 @@
         "apps/backoffice/build.mjs",
         "apps/backoffice/src/index.html",
         "infra/staging/device-center-grants.mjs",
-        "@vps/api",
         "@vps/postgres",
         "@vps/staff-login",
         "@vps/kitchen-portal",
@@ -5028,7 +5026,7 @@
       ],
       "status": "active",
       "head": "4caca195a4a52f15ae5f7d441b88155533146f4b",
-      "updatedAt": "2026-10-13T14:51:32.816Z",
+      "updatedAt": "2026-10-13T15:00:28.797Z",
       "summary": " Owner explicitly authorized temporary transfer of status/roadmap/public-https to kiosk-product-payment-1013 on 2026-10-13; return after publication."
     },
     {
@@ -5123,10 +5121,12 @@
         "packages/test-order-flow/src/contracts.ts",
         "packages/commerce-core/src/kiosk-checkout.ts",
         "docs/operations/kiosk-owner-polish-2026-10-13.md",
-        "tests/kiosk/ios"
+        "tests/kiosk/ios",
+        "packages/contracts/openapi.json",
+        "@vps/api"
       ],
-      "updatedAt": "2026-10-13T14:44:24.025Z",
-      "summary": "Owner requests static language caption, fixed mode screen, no distinct-cart-line cap, upsell quantities/size sheets and horizontal choices, QR-only checkout, order photos and 10-13 min. Local iPad first; no real payments."
+      "updatedAt": "2026-10-13T15:00:28.797Z",
+      "summary": "Owner explicitly authorized temporary transfer of openapi.json and @vps/api from device-center for removing kiosk cart-line caps. Local201-line quote/order test passes without payment. iPad18 build underway."
     }
   ]
 }
