@@ -4899,11 +4899,15 @@
         "infra/staging/payroll-owner.mjs",
         "infra/staging/payroll-grants.mjs",
         "apps/backoffice/PRODUCT.md",
-        "db/cloud/migrations/057_cloud_workforce_payroll.sql"
+        "db/cloud/migrations/057_cloud_workforce_payroll.sql",
+        "@vps/api",
+        "@vps/db",
+        "@vps/backoffice-login",
+        "tests/operations/payroll-release.test.mjs"
       ],
       "status": "active",
       "head": "1d1414339e4b8c4b87de545d47e753b7ffb2b233",
-      "updatedAt": "2026-10-13T07:29:37.955Z"
+      "updatedAt": "2026-10-13T07:41:58.572Z"
     }
   ]
 }
