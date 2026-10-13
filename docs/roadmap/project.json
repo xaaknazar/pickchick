@@ -4618,6 +4618,34 @@
         "deployed": true,
         "accepted": false
       }
+    },
+    {
+      "id": "kiosk-owner-polish-1013",
+      "workstream": "kiosk",
+      "title": "Доработки киоска после проверки 17",
+      "summary": "Build 18 установлен по кабелю и проверен нативно: язык, неподвижный режим, количество/объём допов, только QR, фото и 10-13 минут. Сервер и кухня для большого числа строк ожидают публикации.",
+      "status": "active",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": ["kiosk-client"],
+      "evidence": [
+        {
+          "label": "Установка, проверки, снимки и ограничения",
+          "path": "docs/operations/kiosk-owner-polish-2026-10-13.md"
+        }
+      ],
+      "acceptance": [
+        "Физический iPad: язык, режим, допы, фото и QR-only.",
+        "Большой заказ проходит сервер и кухню без ограничения числа строк.",
+        "Владелец принял изменения."
+      ],
+      "nextAction": "Завершить серверную публикацию и совместимость кухни; получить приёмку владельца.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
     }
   ]
 }
