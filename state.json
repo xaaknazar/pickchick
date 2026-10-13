@@ -4847,11 +4847,13 @@
         "docs/roadmap/project.json",
         "@ipad/kiosk",
         "@apple/testflight",
-        "@release/ios"
+        "@release/ios",
+        "docs/operations/kiosk-design-demo.md",
+        ".github/workflows/ci.yml"
       ],
       "status": "active",
-      "head": "9009b84f99bfdd1551af3d873777da3119f2e225",
-      "updatedAt": "2026-10-13T06:31:49.716Z"
+      "head": "5367bbd783385d9ec93068170e076a96dfb08a2e",
+      "updatedAt": "2026-10-13T06:41:07.686Z"
     }
   ]
 }
