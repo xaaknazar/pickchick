@@ -1,7 +1,7 @@
 # Киоск 18 - приём больших заказов на установленной кухне
 
 Отдельная ветка `codex/kiosk-cart-lines-windows-1013` основана на фактически
-установленном runtime `23fb39e152fccaa97a32e9bf179c2d89a50dc1d5`, schema019.
+установленном runtime `23fb39e152fccaa97a32e9bf179c2d89a50dc1d5`, schema020.
 Новые неопубликованные изменения shared сюда не переносятся. Это подэтап
 `kiosk-owner-polish-1013`; владелец разрешил временную передачу
 `@windows/cashier` от device-center и обновление фонового обработчика.
@@ -11,7 +11,7 @@
 идемпотентную повторную доставку. Все платёжные события в тестах искусственные.
 
 Сравнение с манифестом установленного runtime показывает изменение только
-`edge-fulfillment/dist/model.js` и его source map. Остальные файлы, миграции,
+`edge-fulfillment/dist/model.js` и его source map. Остальные файлы runtime, миграции,
 Node.js, окружение и идентификаторы сохраняются. Обновляется только
 PickChickFulfillmentWorker; кассовое приложение, Edge, кухня и MenuSync не
 перезапускаются. Обработчик пишет в существующий EdgeFulfillment напрямую;
@@ -23,7 +23,7 @@ PickChickFulfillmentWorker; кассовое приложение, Edge, кух�
 2. Собрать неизменяемый Windows runtime штатным
    `scripts/build-windows-edge-runtime.py`; сохранить SHA-256 архива.
 3. Сверить SSH-отпечаток и установленный runtime. Подготовить защищённую
-   резервную копию schema019 штатным `backup-native-service.mjs` и проверить
+   резервную копию schema020 штатным `backup-native-service.mjs` и проверить
    восстановление в отдельную БД. Пароли и архив остаются на кассе.
 4. `update-native-kiosk-cart-lines.ps1` без `-Apply` проверяет точный baseline,
    CI, архив и все его файлы, фактические установленные байты, ACL, backup/restore,
@@ -41,3 +41,8 @@ PickChickFulfillmentWorker; кассовое приложение, Edge, кух�
 Проверки оператора: 26 сценариев в Windows PowerShell 5.1 с подменёнными SCM/IO,
 включая частичный stop/switch/start, конфликт XML, недоступную БД и запрет
 несовместимого отката. Установка на этом этапе ещё не выполнена.
+
+На кассе уже применена device-center миграция `020_terminal_access.sql`,
+её хеш сверён с опубликованным `5b6f846b`. Первая попытка backup schema019
+остановилась до dump/restore; службы не менялись. Оператор требует точный
+ledger 001-020 и новый backup schema020. Миграция не запускается повторно.

@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 #Requires -RunAsAdministrator
-<# App-only fulfillment worker update over 23fb39e/schema019.
+<# App-only fulfillment worker update over 23fb39e with installed schema020.
 Default is inspection. No price/menu/payment/config/SQL mutation. Requires exact
 CI, backup/restore, immutable runtime, current ledger, shared maintenance lock and
 byte-pinned two-file runtime delta. Only the fulfillment worker is restarted.
@@ -112,9 +112,12 @@ $foundation=Get-Content (Join-Path $data 'EdgeTools\edge-0186902\private\foundat
 if(!$foundation.complete -or $foundation.branchId -cne $BranchId.ToString() -or $foundation.computerName -ine $env:COMPUTERNAME){throw 'Foreign foundation.'}
 $oldFiles=@{};foreach($f in $old.files){if($oldFiles.ContainsKey($f.path)){throw 'Duplicate installed path.'};$oldFiles[$f.path]=$f}
 $ledger=@(foreach($path in ($oldFiles.Keys|Where-Object {$_ -like 'db/edge/migrations/*.sql'}|Sort-Object)){@{version=$path.Substring('db/edge/migrations/'.Length);checksum=$oldFiles[$path].sha256;scope='edge'}})
-if($ledger.Count -ne 19){throw 'Exact schema019 required.'}
+if($ledger.Count -ne 19){throw 'Exact baseline runtime migrations required.'}
+# Device-center already installed this additive migration separately. Preserve it;
+# no migration is applied by this worker-only release.
+$ledger+=@{version='020_terminal_access.sql';checksum='afeffbdd49c9dfaa5a3fea4be32b97aa99c45e6897f4ff0c220f9b89d02a24b6';scope='edge'}
 $backup=Get-Content $BackupManifest -Raw|ConvertFrom-Json
-Assert-UnifiedBackup $backup $BranchId.ToString() $foundation.systemIdentifier 19 $ledger
+Assert-UnifiedBackup $backup $BranchId.ToString() $foundation.systemIdentifier 20 $ledger
 $stream=Open-VerifiedFile (Join-Path (Split-Path $BackupManifest) 'pickchick_edge.dump') $backup.sha256;$stream.Dispose()
 Assert-KioskLedger (Read-KioskDatabaseState).ledger $ledger
 $xml=[IO.File]::ReadAllText($xmlPath)
@@ -149,6 +152,6 @@ try{
  New-ProtectedDirectory $newRoot 'ReadAndExecute';New-ProtectedDirectory $newApp 'ReadAndExecute'
  foreach($item in $plan){$null=Assert-LocalNtfsPath $item.Target;$null=[IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($item.Target));$input=$item.Entry.Open();try{$output=[IO.File]::Open($item.Target,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None);try{$input.CopyTo($output);$output.Flush($true)}finally{$output.Dispose()}}finally{$input.Dispose()};Assert-UpdateAcl $item.Target 'ReadAndExecute';if($item.Relative -cne 'runtime-manifest.json' -and (Get-FileHash $item.Target -Algorithm SHA256).Hash.ToLowerInvariant() -cne $files[$item.Relative].sha256){throw 'Extracted bytes differ.'}}
  Invoke-KioskWorkerSwitch $xmlPath $xml $newXml $oldApp $newApp
- Write-UpdateText (Join-Path $stateRoot 'completed.json') (@{sourceCommit=$SourceCommit;completedAt=[DateTime]::UtcNow.ToString('o');workerOnly=$true;schema=19;databaseChanged=$false;environmentChanged=$false;otherServicesRestarted=$false}|ConvertTo-Json)
+ Write-UpdateText (Join-Path $stateRoot 'completed.json') (@{sourceCommit=$SourceCommit;completedAt=[DateTime]::UtcNow.ToString('o');workerOnly=$true;schema=20;databaseChanged=$false;environmentChanged=$false;otherServicesRestarted=$false}|ConvertTo-Json)
  Write-Output 'READY: fulfillment worker updated; cashier app, Edge, database and other services preserved.'
 }finally{$zip.Dispose();$archive.Dispose();if($lease){$lease.Dispose()}}
