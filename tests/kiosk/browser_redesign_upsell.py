@@ -68,8 +68,14 @@ class SmartUpsell(ui.KioskUI):
             card = ui.element(page, 'kiosk-product-' + product_id)
             card.scroll_into_view_if_needed()
             card.click()
-            ui.screen(page, 'product')
-            ui.element(page, 'kiosk-product-add').click()
+            if category in ('extras', 'drinks'):
+                # Simple products open as the sheet over the menu (product-and-payment.md §3).
+                expect(ui.element(page, 'kiosk-product-sheet')).to_be_visible()
+                ui.element(page, 'kiosk-sheet-add').click()
+                expect(ui.element(page, 'kiosk-product-sheet')).to_have_count(0)
+            else:
+                ui.screen(page, 'product')
+                ui.element(page, 'kiosk-product-add').click()
             ui.screen(page, 'menu')
 
     def upsell(self, products, width=1024, height=1366, clock=False):
