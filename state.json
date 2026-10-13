@@ -4924,13 +4924,12 @@
       "branch": "codex/kiosk-redesign-1013",
       "scopes": [
         "docs/operations/kiosk-build15-installation.md",
-        "tests/kiosk/ios",
         "docs/operations/kiosk-motion-2026-10-13.md",
         "docs/operations/images/kiosk-motion-2026-10-13"
       ],
       "status": "active",
       "head": "d83b53ef767d4ce6c1706b9428cf3ed4381a7c64",
-      "updatedAt": "2026-10-13T13:32:45.006Z",
+      "updatedAt": "2026-10-13T14:44:24.025Z",
       "summary": "Release 0.1.0 (16), source 85f99bc3, installed over 15 by cable without uninstall/reset. Signature and identity verified; exact source full CI 16/16 successful. PR #241; report d83b53ef published, report CI 38384979787 pending. Native test incomplete: first demo-entry assertion failed; retry skipped outside welcome. Read-only diagnostic found waiting live payment; no test-created live order/invoice. Owner asked to signal when idle; do not clear order or restart it. Live QR cancellation unsupported; only isolated demo cancellation is implemented.",
       "nextAction": "Wait report CI and owner signal before native demo test. Preserve current order. Resume tests/kiosk/ios/MotionUITests.swift only from idle welcome, with explicit demo badge before checkout; capture proof. Do not merge PR until native failure understood. After device-center releases docs/project-status.md, docs/roadmap/project.json and @vps/public-https, claim and update installed16 status then publish roadmap with fresh baseline guards. Real QR cancellation remains blocked; no bank commands or payments. Report: docs/operations/kiosk-motion-2026-10-13.md.\nOwner requested build 17 from imported 8a7273a9. Local kiosk UI/release areas transferred to kiosk-product-payment-1013; PR241 is an ancestor. Preserve separate device-center reservations."
     },
@@ -5123,9 +5122,10 @@
         "@release/ios",
         "packages/test-order-flow/src/contracts.ts",
         "packages/commerce-core/src/kiosk-checkout.ts",
-        "docs/operations/kiosk-owner-polish-2026-10-13.md"
+        "docs/operations/kiosk-owner-polish-2026-10-13.md",
+        "tests/kiosk/ios"
       ],
-      "updatedAt": "2026-10-13T14:10:27.008Z",
+      "updatedAt": "2026-10-13T14:44:24.025Z",
       "summary": "Owner requests static language caption, fixed mode screen, no distinct-cart-line cap, upsell quantities/size sheets and horizontal choices, QR-only checkout, order photos and 10-13 min. Local iPad first; no real payments."
     }
   ]
