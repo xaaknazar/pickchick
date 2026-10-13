@@ -10,6 +10,7 @@ import {
   WorkMonth,
   WorkTime,
   WorkPlan,
+  WorkPayroll,
   HourlyRate,
   calculateWorkforce,
   localWorkDate,
@@ -288,6 +289,17 @@ export class Workforce {
             digest(payload.source ?? null)
         )
           fail('CONFLICT');
+        if (c.kind === 'payroll') {
+          const payroll = parse(WorkPayroll, payload);
+          if (payroll.status === 'approved' && payroll.base_override_minor === null) {
+            const calculation = calculateWorkforce(payroll.month, [
+              ...others,
+              { id: c.id, kind: 'payroll', revision: c.expected_revision + 1, payload },
+            ]);
+            if (calculation.issues.some((issue) => issue.employee_id === payroll.employee_id))
+              fail('NOT_READY');
+          }
+        }
         if (c.kind === 'plan') {
           const p = parse(WorkPlan, payload);
           if (
