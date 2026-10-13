@@ -5073,11 +5073,12 @@
         "infra/public-staging/device-center-gateway.py",
         "tests/operations/test_device_center_gateway.py",
         "tests/operations/windows-device-access-upgrade.test.ps1",
-        "tests/integration/terminal-access-upgrade.test.mjs"
+        "tests/integration/terminal-access-upgrade.test.mjs",
+        "packages/backoffice-core/tests/workforce-store.test.mjs"
       ],
       "status": "active",
-      "head": "29f2740781ae3ab52300771ad755f15fddbd0ccb",
-      "updatedAt": "2026-10-13T10:43:43.708Z"
+      "head": "1a634a81125d6990c88c8ef676f276aff0c6a57c",
+      "updatedAt": "2026-10-13T10:52:19.075Z"
     }
   ]
 }
