@@ -5021,12 +5021,14 @@
         "infra/windows/recover-native-device-access.ps1",
         "infra/windows/device-access-recovery.mjs",
         "tests/operations/device-access-recovery.test.mjs",
-        "tests/operations/test_device_access_recovery.py"
+        "tests/operations/test_device_access_recovery.py",
+        "@vps/api",
+        "@vps/postgres"
       ],
       "status": "active",
-      "head": "d2aff3cc36885dadae52dc65e6954922b79c2321",
-      "updatedAt": "2026-10-13T15:28:44.931Z",
-      "summary": " Owner explicitly authorized temporary transfer of status/roadmap/public-https to kiosk-product-payment-1013 on 2026-10-13; return after publication."
+      "head": "dfcf7d8fad924ca615240fff78f489dba6b6606b",
+      "updatedAt": "2026-10-13T15:38:19.142Z",
+      "summary": "API5b6f846b/cloud058, canonical portal4caca195 and gateway installed with exact CI11/11. Kitchen portal and Windows KitchenLink now5b6f846b, edgeConnected=true. Windows020 COMMITTED; old23fb runtime running, recovery receipt is pending exact CI dfcf7d8f. Do not replay schema019 or overwrite installed Devices API. 2026-10-13: владелец в device-center подтвердил «Выпуск завершён — можно передать API». API и зависимые ограниченные grants переданы обратно для Devices activation; исходники киоска/публичный сайт/roadmap сохранены. Перед новым выпуском киоска прочитать фактический 5b6f846b/cloud058 и device-center deployment record."
     },
     {
       "id": "kiosk-cart-lines-api-1013",
@@ -5036,7 +5038,6 @@
       "status": "active",
       "scopes": [
         "packages/commerce-core/src/kiosk-checkout.ts",
-        "@vps/api",
         "packages/catalog-pricing/src/model.ts",
         "packages/commerce-core/src/model.ts",
         "packages/contracts/src/customer-commerce.ts",
@@ -5044,15 +5045,14 @@
         "infra/staging/release-kiosk-cart-lines.py",
         "tests/operations/test_kiosk_cart_lines_release.py",
         "docs/operations/kiosk-cart-lines-api-2026-10-13.md",
-        "@vps/postgres",
         "packages/edge-fulfillment/src/model.ts",
         "packages/edge-fulfillment/tests/postgres.test.mjs",
         "infra/windows/update-native-kiosk-cart-lines.ps1",
         "tests/operations/test_windows_kiosk_cart_lines.py",
         "docs/operations/kiosk-cart-lines-windows-2026-10-13.md"
       ],
-      "updatedAt": "2026-10-13T15:28:44.932Z",
-      "summary": "Owner authorized temporary @vps/api and @vps/postgres for this substage; postgres only encrypted backup + isolated restore, no live schema/data changes. Exact installed baseline now 5b6f846b/schema058, explicitly integrated. Windows recipient substage uses a separate codex/kiosk-cart-lines-windows-1013 worktree from the read-only verified installed 23fb39e/schema019 baseline. Same owned edge-model/test scopes; no Windows mutation yet."
+      "updatedAt": "2026-10-13T15:38:19.138Z",
+      "summary": "Owner authorized temporary @vps/api and @vps/postgres for this substage; postgres only encrypted backup + isolated restore, no live schema/data changes. Exact installed baseline now 5b6f846b/schema058, explicitly integrated. Windows recipient substage uses a separate codex/kiosk-cart-lines-windows-1013 worktree from the read-only verified installed 23fb39e/schema019 baseline. Same owned edge-model/test scopes; no Windows mutation yet.\n2026-10-13: владелец в device-center подтвердил «Выпуск завершён — можно передать API». API и зависимые ограниченные grants переданы обратно для Devices activation; исходники киоска/публичный сайт/roadmap сохранены. Перед новым выпуском киоска прочитать фактический 5b6f846b/cloud058 и device-center deployment record."
     },
     {
       "id": "kiosk-owner-polish-1013",
