@@ -4829,6 +4829,28 @@
       "updatedAt": "2026-10-13T06:29:07.788Z",
       "summary": "Владелец отменил выбор новых цветов: «оставим все как есть». Исходники приложения и shared не изменены. Исследование было только в локальном предпросмотре; сохранено локально, не внедрено. Резервы освобождены.",
       "nextAction": "Сохранить текущий дизайн. Новые изменения только по следующему поручению владельца."
+    },
+    {
+      "id": "kiosk-redesign-1013",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-redesign-1013",
+      "scopes": [
+        "apps/kiosk",
+        "tests/kiosk",
+        "scripts/kiosk",
+        "docs/design/kiosk-redesign-2026-10-13",
+        "docs/operations/kiosk-redesign-2026-10-13.md",
+        "docs/operations/images/kiosk-redesign-2026-10-13",
+        "docs/operations/kiosk-build15-installation.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "@ipad/kiosk",
+        "@apple/testflight",
+        "@release/ios"
+      ],
+      "status": "active",
+      "head": "9009b84f99bfdd1551af3d873777da3119f2e225",
+      "updatedAt": "2026-10-13T06:31:49.716Z"
     }
   ]
 }
