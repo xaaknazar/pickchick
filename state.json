@@ -5068,11 +5068,14 @@
         "infra/domains/device-center.Caddyfile",
         "@vps/public-https",
         "docs/project-status.md",
-        "docs/roadmap/project.json"
+        "docs/roadmap/project.json",
+        "infra/public-staging/gateway.Caddyfile",
+        "infra/public-staging/device-center-gateway.py",
+        "tests/operations/test_device_center_gateway.py"
       ],
       "status": "active",
       "head": "f61da9d6de3bed69d83700c2f0f672a2e5c9e14e",
-      "updatedAt": "2026-10-13T10:27:03.929Z"
+      "updatedAt": "2026-10-13T10:27:08.800Z"
     }
   ]
 }
