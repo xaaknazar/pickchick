@@ -4895,11 +4895,12 @@
         "@vps/backoffice-login",
         "tests/operations/payroll-release.test.mjs",
         "tests/operations/test_payroll_release.py",
-        "packages/contracts/openapi.json"
+        "packages/contracts/openapi.json",
+        "tests/mobile/browser_demo_account.py"
       ],
       "status": "active",
-      "head": "bf91eaa540409e4f9505265702a3ff9686650bf9",
-      "updatedAt": "2026-10-13T07:50:39.492Z"
+      "head": "691d4912351fff3224678a41a2dc71bde09e02b2",
+      "updatedAt": "2026-10-13T08:24:45.799Z"
     }
   ]
 }
