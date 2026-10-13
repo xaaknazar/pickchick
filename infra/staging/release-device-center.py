@@ -110,7 +110,8 @@ class Release(e.Release):
         self.save('applied.json',{'sha':self.sha,'schema':58,'pairing':False,'backup':backup,'at':time.time()})
     def restore(self,proof):
         # ad7132 understands imported workforce payroll. New device tables remain additive.
-        return w.Release.restore(self,proof)
+        w.Release.restore(self,proof)
+        self.save('rollback.json',{'sha':self.sha,'restored_api':BASELINE,'schema_retained':58,'history_retained':True,'database_restore':False})
 
 def main():
     os.umask(0o077);release=Release(w.parse())
