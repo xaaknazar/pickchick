@@ -50,11 +50,14 @@ Stage receipt и 8004 файла проверены. Прежний runtime `23f
 флаг и восстановленные службы. `device-access-recovery.mjs` вызывает только
 исходную read-only инспекцию, проверяет фактический вход сохранённым служебным
 credential в READ ONLY транзакции, пустой mailbox и отсутствие enrolled экранов.
+На короткое время штатный Invoke-UnifiedQuiesced приостанавливает writers и
+восстанавливает их в finally; PostgreSQL и туннель не останавливаются. Это нужно,
+поскольку фоновые heartbeat меняют служебные записи между двумя снимками.
 Повторная инспекция должна дать тот же fingerprint данных; изменения блокируют
 продолжение. Только `-Apply` записывает новый CreateNew Prepare.json с форматом
 `pickchick-device-preparation-recovered-v1`, mode=inspect, migrationApplied=false
 и originalPreparationReceiptAvailable=false. Это новая проверка текущей готовности,
-не поддельный результат старой миграции. БД, env и службы не меняются.
+не поддельный результат старой миграции. БД и env не меняются; краткая приостановка и восстановление служб явно записываются в receipt.
 
 На момент этого checkpoint recovery ещё не выполнен на рабочей кассе.
 Далее: Switch exact020, ManualStopped worker, KitchenLink update/Verify, актуальные

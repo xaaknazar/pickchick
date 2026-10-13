@@ -20,6 +20,8 @@ class Recovery(unittest.TestCase):
         self.assertIn('do not overwrite or replay', script)
         self.assertIn('Assert-UnifiedCi', script)
         self.assertIn('Enter-UnifiedMaintenanceLock', script)
+        self.assertIn('$result=Invoke-UnifiedQuiesced {Invoke-UpdateProcess', script)
+        self.assertIn('servicesBrieflyQuiesced=$true;servicesRestored=$true', script)
         self.assertIn('originalPreparationReceiptAvailable=$false', script)
 
     def test_read_only_login_and_state_guards(self):

@@ -2,7 +2,8 @@
 #Requires -RunAsAdministrator
 <# Recover a missing Prepare receipt from current, read-only020 evidence.
 This does not reconstruct the lost migration output or replay the migration.
-Only a new protected receipt is written; existing services/config/data are preserved. #>
+Only a new protected receipt is written. Writers are briefly quiesced and restored;
+configuration, identities and database contents are not modified. #>
 [CmdletBinding()]
 param(
  [Parameter(Mandatory=$true)][string]$OperatorDirectory,
@@ -32,7 +33,7 @@ if([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT -or $PSVersionTab
 $script:OperatorSid=[Security.Principal.WindowsIdentity]::GetCurrent().User
 foreach($def in (Import-RecoveryFunctions (Join-Path $OperatorDirectory 'install-native-foundation.ps1') '6addec134f3c5aa548406286ccf061722360cc968dee1d34743365ad61d62af5' @('Assert-LocalNtfsPath'))) {. ([scriptblock]::Create($def))}
 foreach($def in (Import-RecoveryFunctions (Join-Path $OperatorDirectory 'update-native-service.ps1') '96c2b48c103d8ae74b055468c791ae048c0edb13f2093e0b26c8df2d94acdcea' @('Assert-UpdateAcl','Write-UpdateText','Quote-UpdateArgument','Invoke-UpdateProcess','Read-UpdateHttp'))) {. ([scriptblock]::Create($def))}
-foreach($def in (Import-RecoveryFunctions (Join-Path $OperatorDirectory 'update-native-unified-menu.ps1') 'b764a8733224f951ad1543d9d1b18bf7ac269b1e034a1fbadbefbba488f903ef' @('Assert-UnifiedCi','Enter-UnifiedMaintenanceLock','Wait-UnifiedReady','Save-UnifiedEvidence','Read-UnifiedEvidence','Assert-UnifiedPreserved'))) {. ([scriptblock]::Create($def))}
+foreach($def in (Import-RecoveryFunctions (Join-Path $OperatorDirectory 'update-native-unified-menu.ps1') 'b764a8733224f951ad1543d9d1b18bf7ac269b1e034a1fbadbefbba488f903ef' @('Assert-UnifiedCi','Invoke-UnifiedQuiesced','Enter-UnifiedMaintenanceLock','Wait-UnifiedReady','Save-UnifiedEvidence','Read-UnifiedEvidence','Assert-UnifiedPreserved'))) {. ([scriptblock]::Create($def))}
 $updater=Join-Path $OperatorDirectory 'update-native-device-access.ps1'
 if((Get-FileHash $updater -Algorithm SHA256).Hash.ToLowerInvariant() -cne '01073736cb48731758799b3911184cb02b2929953c76a0511b7ec31bcaedd9a2') {throw 'Reviewed updater differs.'}
 $helper=Join-Path $PSScriptRoot 'device-access-recovery.mjs'
@@ -63,11 +64,11 @@ try {
  foreach($p in @($xml,$workerXml,$deviceEnv)) {Assert-UpdateAcl $p 'ReadAndExecute';$preserved[$p]=(Get-FileHash $p -Algorithm SHA256).Hash}
  if([IO.File]::ReadAllText($xml) -cne [IO.File]::ReadAllText((Join-Path $stateRoot 'original-edge.xml')) -or [IO.File]::ReadAllText($workerXml) -cne [IO.File]::ReadAllText((Join-Path $stateRoot 'original-worker.xml'))) {throw 'Only the original running bindings may be recovered.'}
  $script:neighbors=@{}
- foreach($name in @('PickChickPostgres','PickChickFulfillmentTunnel','PickChickEdge','PickChickFulfillmentWorker','PickChickMenuSyncWorker','PickChickKitchenLink')) {$svc=Get-CimInstance Win32_Service -Filter "Name='$name'";if($svc.State -cne 'Running') {throw 'Existing services must be restored first.'};$neighbors[$name]=$svc.ProcessId}
- $result=Invoke-UpdateProcess $node @($helper,$toolsRoot,$app,$BranchId.ToString(),$DeviceId.ToString(),$BackupManifest,$deviceEnv) 'read-only-device-recovery' | ConvertFrom-Json
+ foreach($name in @('PickChickPostgres','PickChickFulfillmentTunnel','PickChickEdge','PickChickFulfillmentWorker','PickChickMenuSyncWorker','PickChickKitchenLink')) {$svc=Get-CimInstance Win32_Service -Filter "Name='$name'";if($svc.State -cne 'Running') {throw 'Existing services must be restored first.'};if($name -in @('PickChickPostgres','PickChickFulfillmentTunnel')) {$neighbors[$name]=$svc.ProcessId}}
+ $result=Invoke-UnifiedQuiesced {Invoke-UpdateProcess $node @($helper,$toolsRoot,$app,$BranchId.ToString(),$DeviceId.ToString(),$BackupManifest,$deviceEnv) 'read-only-device-recovery' | ConvertFrom-Json}
  Assert-RecoveredInspection $result
  Wait-UnifiedReady $oldApp;Assert-UnifiedPreserved
- $record=@{format='pickchick-device-preparation-recovered-v1';sourceCommit=$SourceCommit;archiveSha256=$RuntimeSha256;branchId=$BranchId.ToString();deviceId=$DeviceId.ToString();operatorCommit=$OperatorCommit;operatorCiRun=(Get-Content $OperatorCiProof -Raw | ConvertFrom-Json).run.id;result=$result;originalPreparationReceiptAvailable=$false;databaseChanged=$false;servicesChanged=$false;completedAt=[DateTime]::UtcNow.ToString('o')}
+ $record=@{format='pickchick-device-preparation-recovered-v1';sourceCommit=$SourceCommit;archiveSha256=$RuntimeSha256;branchId=$BranchId.ToString();deviceId=$DeviceId.ToString();operatorCommit=$OperatorCommit;operatorCiRun=(Get-Content $OperatorCiProof -Raw | ConvertFrom-Json).run.id;result=$result;originalPreparationReceiptAvailable=$false;databaseChanged=$false;servicesBrieflyQuiesced=$true;servicesRestored=$true;completedAt=[DateTime]::UtcNow.ToString('o')}
  if($Apply) {Save-UnifiedEvidence 'Prepare.json' $record}
  @{phase='recovery-verified';receiptWritten=[bool]$Apply;record=$record} | ConvertTo-Json -Depth 12 -Compress
 } finally {if($lease) {$lease.Dispose()}}
