@@ -5071,11 +5071,12 @@
         "docs/roadmap/project.json",
         "infra/public-staging/gateway.Caddyfile",
         "infra/public-staging/device-center-gateway.py",
-        "tests/operations/test_device_center_gateway.py"
+        "tests/operations/test_device_center_gateway.py",
+        "tests/operations/windows-device-access-upgrade.test.ps1"
       ],
       "status": "active",
-      "head": "f61da9d6de3bed69d83700c2f0f672a2e5c9e14e",
-      "updatedAt": "2026-10-13T10:27:08.800Z"
+      "head": "aabad0e7761a944aed2faaf524eb10d80be2b6d5",
+      "updatedAt": "2026-10-13T10:41:41.655Z"
     }
   ]
 }
