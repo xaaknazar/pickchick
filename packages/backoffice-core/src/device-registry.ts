@@ -13,6 +13,7 @@ import {
   type DeviceAccessReceipt,
 } from '@pickchick/contracts';
 import { BackofficeError, parse } from './model.js';
+export { kioskPresence } from './device-presence.js';
 
 const request = z.strictObject({
   request_id: z.uuid(),
@@ -21,6 +22,17 @@ const request = z.strictObject({
   mode: TerminalModeSchema,
   name: z.string().trim().min(1).max(120),
   confirm_name: z.string().trim().min(1).max(120).optional(),
+});
+const inventoryInput = z.strictObject({
+  request_id: z.uuid(),
+  id: z.uuid(),
+  expected_revision: z.number().int().nonnegative(),
+  kind: z.enum(['registered', 'usb_tv']),
+  name: z.string().trim().min(1).max(120),
+  location: z.string().trim().max(120),
+  notes: z.string().trim().max(500),
+  archived: z.boolean(),
+  reason: z.string().trim().min(3).max(500),
 });
 const revoke = z.strictObject({
   request_id: z.uuid(),
@@ -68,14 +80,17 @@ export class DeviceRegistry {
   constructor(
     private readonly pool: DatabasePool,
     private readonly enabled = false,
+    private readonly centerEnabled = false,
   ) {}
   private async scope(
     db: DatabaseClient,
     token: string,
     branch: string,
     write = false,
+    pairing = write,
   ): Promise<Actor> {
-    if (!this.enabled) throw new DeviceAccessError('DEVICE_ACCESS_UNAVAILABLE');
+    if ((!this.enabled && !this.centerEnabled) || (pairing && !this.enabled))
+      throw new DeviceAccessError('DEVICE_ACCESS_UNAVAILABLE');
     parse(z.uuid(), branch);
     if (!/^[a-f0-9]{64}$/.test(token)) throw new BackofficeError('UNAUTHORIZED');
     const actor = (
@@ -103,7 +118,7 @@ export class DeviceRegistry {
       const devices = (
         await db.query(
           `SELECT d.id,d.name,d.kind,d.status,r.mode,r.generation,r.paired_at,
-        a.observed_at AS last_seen_at,c.expires_at AS key_expires_at,
+        a.observed_at AS last_seen_at,r.edge_device_id,c.expires_at AS key_expires_at,
         cmd.id AS command_id,cmd.action AS command_action,cmd.state AS command_state,cmd.expires_at AS code_expires_at
         FROM devices d LEFT JOIN device_terminal_registry r ON r.device_id=d.id
         LEFT JOIN cloud_branch_availability a ON a.device_id=d.id AND a.branch_id=d.branch_id
@@ -137,6 +152,54 @@ export class DeviceRegistry {
         if (existing < 0) devices.push(row);
         else devices[existing] = { ...devices[existing], ...row, name: devices[existing].name };
       }
+      if (this.centerEnabled) {
+        const assets = (
+          await db.query('SELECT * FROM device_inventory WHERE branch_id=$1', [branch])
+        ).rows;
+        const presence = (
+          await db.query('SELECT * FROM device_presence WHERE branch_id=$1', [branch])
+        ).rows;
+        for (const device of devices) {
+          const asset = assets.find((a) => a.id === device.id && a.kind === 'registered');
+          Object.assign(device, {
+            inventory_revision: asset?.revision ?? 0,
+            location: asset?.location ?? '',
+            notes: asset?.notes ?? '',
+            archived: asset?.archived ?? false,
+            ...(asset ? { name: asset.name } : {}),
+            presence:
+              presence.find(
+                (p) =>
+                  p.device_id === device.id &&
+                  p.source === (device.kind === 'kiosk' ? 'kiosk' : 'terminal') &&
+                  (!device.paired_at || p.observed_at >= device.paired_at),
+              ) ?? null,
+          });
+          const parent = devices.find((d) => d.id === device.edge_device_id);
+          device.edge_last_seen_at = parent?.last_seen_at ?? null;
+        }
+        for (const asset of assets.filter((a) => a.kind === 'usb_tv'))
+          devices.push({
+            id: asset.id,
+            name: asset.name,
+            kind: 'usb_tv',
+            status: 'unmonitored',
+            mode: null,
+            generation: null,
+            paired_at: null,
+            last_seen_at: null,
+            key_expires_at: null,
+            command_id: null,
+            command_action: null,
+            command_state: null,
+            code_expires_at: null,
+            location: asset.location,
+            notes: asset.notes,
+            archived: asset.archived,
+            inventory_revision: asset.revision,
+            presence: null,
+          });
+      }
       // A connected edge is not proof that a particular kitchen browser is currently online.
       const password_reset =
         (
@@ -151,6 +214,100 @@ export class DeviceRegistry {
         devices,
         password_reset,
         as_of: new Date().toISOString(),
+        pairing_enabled: this.enabled,
+        inventory_enabled: this.centerEnabled,
+      };
+    });
+  }
+  async inventory(token: string, branch: string, input: unknown) {
+    if (!this.centerEnabled) throw new DeviceAccessError('DEVICE_ACCESS_UNAVAILABLE');
+    const value = parse(inventoryInput, input);
+    return transaction(this.pool, async (db) => {
+      const actor = await this.scope(db, token, branch, true, false);
+      await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+        'device-inventory:' + value.id,
+      ]);
+      await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+        'inventory-request:' + actor.id + ':' + value.request_id,
+      ]);
+      const previous = (
+        await db.query(
+          'SELECT * FROM device_inventory_commands WHERE actor_id=$1 AND request_id=$2',
+          [actor.id, value.request_id],
+        )
+      ).rows[0];
+      if (previous) {
+        if (previous.branch_id !== branch || previous.request_digest !== digest(value))
+          throw new BackofficeError('CONFLICT');
+        return previous.after_state;
+      }
+      if (value.kind === 'registered') {
+        const exists = (
+          await db.query(
+            `SELECT id FROM devices WHERE id=$1 AND branch_id=$2 AND organization_id=$3
+          UNION SELECT id FROM kiosk_devices WHERE id=$1 AND branch_id=$2 AND organization_id=$3`,
+            [value.id, branch, actor.organization_id],
+          )
+        ).rowCount;
+        if (!exists) throw new BackofficeError('NOT_FOUND');
+        if (value.archived) throw new BackofficeError('INVALID_REQUEST');
+      } else {
+        if (
+          (
+            await db.query(
+              'SELECT id FROM devices WHERE id=$1 UNION SELECT id FROM kiosk_devices WHERE id=$1',
+              [value.id],
+            )
+          ).rowCount
+        )
+          throw new BackofficeError('CONFLICT');
+      }
+      const current = (
+        await db.query('SELECT * FROM device_inventory WHERE id=$1 FOR UPDATE', [value.id])
+      ).rows[0];
+      if (
+        (current && (current.branch_id !== branch || current.kind !== value.kind)) ||
+        (current?.revision ?? 0) !== value.expected_revision
+      )
+        throw new BackofficeError('CONFLICT');
+      const saved = (
+        await db.query(
+          `INSERT INTO device_inventory(id,branch_id,kind,name,location,notes,archived,revision)
+        VALUES($1,$2,$3,$4,$5,$6,$7,1) ON CONFLICT(id) DO UPDATE SET name=excluded.name,location=excluded.location,
+        notes=excluded.notes,archived=excluded.archived,revision=device_inventory.revision+1,updated_at=clock_timestamp() RETURNING *`,
+          [value.id, branch, value.kind, value.name, value.location, value.notes, value.archived],
+        )
+      ).rows[0]!;
+      await db.query(
+        `INSERT INTO device_inventory_commands(actor_id,request_id,branch_id,device_id,request_digest,reason,before_state,after_state)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [
+          actor.id,
+          value.request_id,
+          branch,
+          value.id,
+          digest(value),
+          value.reason,
+          current ?? null,
+          saved,
+        ],
+      );
+      return saved;
+    });
+  }
+  async inventoryHistory(token: string, branch: string, device: string) {
+    if (!this.centerEnabled) throw new DeviceAccessError('DEVICE_ACCESS_UNAVAILABLE');
+    parse(z.uuid(), device);
+    return transaction(this.pool, async (db) => {
+      await this.scope(db, token, branch);
+      return {
+        events: (
+          await db.query(
+            `SELECT reason,at,actor_id,before_state,after_state FROM device_inventory_commands
+        WHERE branch_id=$1 AND device_id=$2 ORDER BY at DESC LIMIT 50`,
+            [branch, device],
+          )
+        ).rows,
       };
     });
   }
@@ -319,13 +476,23 @@ export class DeviceRegistry {
         if (!old) throw new BackofficeError('NOT_FOUND');
         if (old.kind === 'edge')
           throw new BackofficeError('CONFLICT', 'EDGE_REVOKE_REQUIRES_REPLACEMENT_PROTOCOL');
-        if (old.name !== body.confirm_name)
+        const inventoryName = this.centerEnabled
+          ? (
+              await db.query('SELECT name FROM device_inventory WHERE id=$1 AND branch_id=$2', [
+                device,
+                branch,
+              ])
+            ).rows[0]?.name
+          : undefined;
+        const displayName = inventoryName ?? old.name;
+        if (displayName !== body.confirm_name)
           throw new BackofficeError('CONFLICT', 'DEVICE_NAME_CONFIRMATION_REQUIRED');
-        if (!old.edge_device_id || old.status === 'revoked') throw new BackofficeError('CONFLICT');
+        if (!old.edge_device_id || (old.status === 'revoked' && action !== 'pair'))
+          throw new BackofficeError('CONFLICT');
         if (
           action === 'pair' &&
           'mode' in body &&
-          (body.mode !== old.mode || body.name !== old.name)
+          (body.mode !== old.mode || body.name !== displayName)
         )
           throw new BackofficeError('CONFLICT');
         edge = old.edge_device_id;
@@ -478,6 +645,24 @@ export async function exchangeDeviceAccess(pool: DatabasePool, auth: DeviceAuth,
         }
       }
       acknowledged.push(receipt);
+    }
+    for (const observation of body.observations) {
+      const bound = (
+        await db.query(
+          `SELECT r.device_id FROM device_terminal_registry r JOIN devices d ON d.id=r.device_id
+        WHERE r.device_id=$1 AND r.branch_id=$2 AND r.edge_device_id=$3 AND r.generation=$4
+        AND r.paired_at IS NOT NULL AND d.status='active' FOR SHARE OF r,d`,
+          [observation.terminalId, branch, auth.deviceId, observation.generation],
+        )
+      ).rowCount;
+      if (!bound) continue; // A late sample cannot resurrect a revoked or replaced generation.
+      await db.query(
+        `INSERT INTO device_presence(branch_id,device_id,source,observed_at,state,issue)
+        VALUES($1,$2,'terminal',clock_timestamp()-($3::integer+8000)*interval '1 millisecond','active','none')
+        ON CONFLICT(branch_id,device_id,source) DO UPDATE SET observed_at=greatest(device_presence.observed_at,excluded.observed_at),
+        state=excluded.state,issue=excluded.issue`,
+        [branch, observation.terminalId, observation.ageMs],
+      );
     }
     const resetAcknowledged: KitchenPasswordResetReceipt[] = [];
     for (const receipt of body.resetReceipts) {

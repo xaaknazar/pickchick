@@ -99,7 +99,7 @@ export const allowed = (method, path) => {
   if (
     method === 'GET' &&
     new RegExp(
-      `^/v1/admin/backoffice/branches/${UUID}/devices(?:/(?:${UUID}|kitchen-password-reset)/events)?$`,
+      `^/v1/admin/backoffice/branches/${UUID}/devices(?:/(?:${UUID}|kitchen-password-reset)/events|/${UUID}/inventory-events)?$`,
       'i',
     ).test(pathname)
   )
@@ -107,7 +107,7 @@ export const allowed = (method, path) => {
   if (
     method === 'POST' &&
     new RegExp(
-      `^/v1/admin/backoffice/branches/${UUID}/devices/(?:pairing-codes|revoke|kitchen-password-reset)$`,
+      `^/v1/admin/backoffice/branches/${UUID}/devices/(?:pairing-codes|revoke|kitchen-password-reset|inventory)$`,
       'i',
     ).test(pathname)
   )
@@ -136,7 +136,7 @@ export const allowed = (method, path) => {
 const assets = new Map([
   ['/workspace.css', ['workspace.css', 'text/css; charset=utf-8']],
   ['/', ['index.html', 'text/html; charset=utf-8']],
-  ...['styles', 'fonts', 'workforce', 'inventory'].map((n) => [
+  ...['styles', 'fonts', 'workforce', 'inventory', 'device-center'].map((n) => [
     `/${n}.css`,
     [`${n}.css`, 'text/css; charset=utf-8'],
   ]),
