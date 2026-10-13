@@ -275,7 +275,7 @@ test('workbook import resumes stable commands and refuses duplicate attendance o
   assert.equal(initial.summary.commands, 4);
   let writes = 0;
   const request = async (path, body) => {
-    if (!body) return structuredClone(snapshot);
+    if (!body) return globalThis.structuredClone(snapshot);
     writes++;
     const c = body.command;
     (c.kind === 'employee' ? snapshot.employees : snapshot.records).push({
