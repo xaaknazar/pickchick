@@ -4845,29 +4845,6 @@
       "nextAction": "Включить документ операции из опубликованной ветки в shared. Постоянный дефект EROFS в HTTP finish требует отдельного проверенного исправления. Реальная контрольная оплата только с разрешения владельца."
     },
     {
-      "id": "kiosk-redesign-1013",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/kiosk-redesign-1013",
-      "scopes": [
-        "docs/operations/kiosk-build15-installation.md",
-        "docs/project-status.md",
-        "docs/roadmap/project.json",
-        "@vps/roadmap",
-        "@vps/public-https",
-        "apps/kiosk",
-        "tests/kiosk",
-        "scripts/kiosk",
-        "docs/operations/kiosk-motion-2026-10-13.md",
-        "@ipad/kiosk",
-        "@release/ios"
-      ],
-      "status": "active",
-      "head": "a8446b1ce1c9de5e960bf8d98ff6818102b61208",
-      "updatedAt": "2026-10-13T08:37:52.745Z",
-      "summary": "По прямому поручению владельца 13 октября build 15 установлен по кабелю на iPad Air 13 M3 поверх build 13 без удаления приложения и сброса данных; device info apps подтвердил 0.1.0 (15), запуск успешен. Для устройства выполнен локальный debugging export того же Release-архива 3b9733af, без новой компиляции или upload; codesign, включение устройства в профиль, идентичность приложения и совпадение JS подтверждены. Исходник уже прошёл полную CI 38359170302 (11/11); основной PR238 включён в shared af61d670. Отчёт установки, статус и roadmap опубликованы отдельным a8446b1ce1c9de5e960bf8d98ff6818102b61208, PR https://github.com/xaaknazar/pickchick/pull/241. Prettier, diff check и 7/7 roadmap tests успешны; CI нового отчёта ещё идёт. Реальных заказов/QR/счетов/платежей не создавали. Визуальная приёмка остаётся владельцу. Последняя проверка VPS: блокировки kaspi-relogin уже нет; онлайн-пульт с фактом установки ещё не опубликован.",
-      "nextAction": "Дождаться полной CI PR241, проверить diff и включить отчёт в shared. Затем собрать новый roadmap пакет с фактом установки из принятого SHA и опубликовать по infra/roadmap/README.md после свежих claims/baseline/lock checks, сохранив заметки и соседние сервисы. Старый пакет 395b77f4 не отражает кабельную установку и устарел. На iPad уже запущена 15; владельцу пройти визуальный чек-лист (демо: логотип 5 секунд), установку повторять не требуется. Приватные доказательства /Users/xaknazar/Library/Caches/PickChick/releases/kiosk-redesign-20261013-15/device-install/. Резервы устройства и выпуска освобождены; оставлены документы и серверные области публикации."
-    },
-    {
       "id": "payroll-september",
       "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
       "branch": "codex/payroll-september",
@@ -4911,6 +4888,29 @@
       "updatedAt": "2026-10-13T08:47:05.077Z",
       "summary": "Подготовлены месячная сетка графика/табеля, независимые ведомости, правки/удаление с аудитом и проверяемый импорт. Пользователь подтвердил независимость листов и статус Уточнить. 68 сотрудников, 631 дневная запись, 67 ведомостей; 829 команд, все исходные итоги и длительности сверены. Реальные данные только в закрытой .local/payroll, не в Git. UI/source 2585583e: Foundation CI38365341922 success; UI идентичен текущему d80ba479, PR239. API b5992484, PR240, CI38369254038 ещё выполняется. Предыдущая API CI f215 упала в browser_demo_account.py: reload без ожидания async logout; добавлены ожидание гостевого состояния и проверка хранилища, оба сценария локально прошли 320/390/430. 22 core/store, 47 commerce/Kaspi QR, 378 operations (8 пропусков), UI review ship; после включения shared af61d670 сборка и 14 тестов прошли. НЕ УСТАНОВЛЕНО И НЕ ИМПОРТИРОВАНО. VPS lock 12209019-9122-4aec-9eed-469f13366357 принадлежит kaspi-relogin; не удалять. API f01/cloud052 и portal661 остаются прежними.",
       "nextAction": "После штатного освобождения kaspi-relogin получить свежие refs/claims/pins, принять эту задачу и проверить exact green CI API b5992484378ab0b8c0d763ea5e8f0c1423098f39 (38369254038) и интеграции d80ba479; portal source2585583e уже green. Из work/pickchick-payroll-api: .local/payroll/api-release.py prepare/apply с CI proof, own encrypted backup/restore, migrations053-057, только API. Из work/pickchick-inventory-shared: .local/payroll/portal-release.py upload/inspect/apply для2585 и ожидаемогоAPIb599; затем .local/payroll/import-live.py upload/preview/apply с НОВЫМ plan hash/verify. Все операторы pins обновлены наb599, ещё не исполнялись на сервере. Проверить pending0, Unknown68, суммы/часы и сохранение прежних записей. Shared af61 интегрирован без конфликтов в d80ba479, API release намеренно остаётся на installed f01. После итоговой проверки включить этап в shared без force, обновить статус/roadmap с согласованием оставшихся claims kiosk-redesign-1013, опубликовать протокол и выполнить finish. docs/operations/payroll-september.md и PR239/240 содержат ограничения."
+    },
+    {
+      "id": "kiosk-redesign-1013",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-redesign-1013",
+      "scopes": [
+        "docs/operations/kiosk-build15-installation.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "@vps/roadmap",
+        "@vps/public-https",
+        "apps/kiosk",
+        "tests/kiosk",
+        "scripts/kiosk",
+        "docs/operations/kiosk-motion-2026-10-13.md",
+        "@ipad/kiosk",
+        "@release/ios"
+      ],
+      "status": "active",
+      "head": "f200906c80413fe106c9f201a6f399f9117b988a",
+      "updatedAt": "2026-10-13T09:16:36.021Z",
+      "summary": "По прямому поручению владельца 13 октября build 15 установлен по кабелю на iPad Air 13 M3 поверх build 13 без удаления приложения и сброса данных; device info apps подтвердил 0.1.0 (15), запуск успешен. Для устройства выполнен локальный debugging export того же Release-архива 3b9733af, без новой компиляции или upload; codesign, включение устройства в профиль, идентичность приложения и совпадение JS подтверждены. Исходник уже прошёл полную CI 38359170302 (11/11); основной PR238 включён в shared af61d670. Отчёт установки, статус и roadmap опубликованы отдельным a8446b1ce1c9de5e960bf8d98ff6818102b61208, PR https://github.com/xaaknazar/pickchick/pull/241. Prettier, diff check и 7/7 roadmap tests успешны; CI нового отчёта ещё идёт. Реальных заказов/QR/счетов/платежей не создавали. Визуальная приёмка остаётся владельцу. Последняя проверка VPS: блокировки kaspi-relogin уже нет; онлайн-пульт с фактом установки ещё не опубликован.",
+      "nextAction": "Дождаться полной CI PR241, проверить diff и включить отчёт в shared. Затем собрать новый roadmap пакет с фактом установки из принятого SHA и опубликовать по infra/roadmap/README.md после свежих claims/baseline/lock checks, сохранив заметки и соседние сервисы. Старый пакет 395b77f4 не отражает кабельную установку и устарел. На iPad уже запущена 15; владельцу пройти визуальный чек-лист (демо: логотип 5 секунд), установку повторять не требуется. Приватные доказательства /Users/xaknazar/Library/Caches/PickChick/releases/kiosk-redesign-20261013-15/device-install/. Резервы устройства и выпуска освобождены; оставлены документы и серверные области публикации."
     }
   ]
 }
