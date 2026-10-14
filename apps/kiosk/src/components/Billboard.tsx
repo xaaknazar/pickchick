@@ -1,3 +1,4 @@
+import { glassSurface } from './glassSurface';
 import { useRef, useState } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
@@ -220,7 +221,7 @@ export function Billboard({
                   height: Math.max(48, px(54)),
                   paddingHorizontal: px(24),
                   borderRadius: 999,
-                  backgroundColor: redesign.cta,
+                  ...glassSurface('accent'),
                   justifyContent: 'center',
                   opacity: blocked ? 0.4 : 1,
                   shadowColor: redesign.cta,

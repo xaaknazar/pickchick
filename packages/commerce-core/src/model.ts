@@ -76,8 +76,7 @@ export const PublishedCatalogQuoteSchema = PricedCatalogQuoteSchema.extend({
   taxBinding: TaxBindingSchema,
   lines: z
     .array(PricedCatalogLineSchema.extend({ taxCode: z.string().trim().min(1).max(32) }))
-    .min(1)
-    .max(200),
+    .min(1),
 });
 export const PricedQuoteSchema = z.union([
   FoundationPricedQuoteSchema,

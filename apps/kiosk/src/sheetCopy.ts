@@ -45,7 +45,6 @@ export type SheetCopy = Own & {
   carbs: string;
   grams: string;
   limitLine: string;
-  limitLines: string;
   decrease: string;
   increase: string;
 };
@@ -63,7 +62,6 @@ export const sheetCopy = (locale: string): SheetCopy => {
     carbs: t.carbs,
     grams: t.grams,
     limitLine: t.limitLine,
-    limitLines: t.limitLines,
     decrease: t.decrease,
     increase: t.increase,
   };

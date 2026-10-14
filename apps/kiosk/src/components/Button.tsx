@@ -1,3 +1,4 @@
+import { glassSurface } from './glassSurface';
 import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, Animated, Pressable, Text, View } from 'react-native';
 import { colors, fonts, useMetrics } from '../theme';
@@ -101,13 +102,18 @@ export function Button({
           paddingVertical: v(size === 'compact' ? 12 : 18),
           paddingHorizontal: v(size === 'compact' ? 22 : 32),
           borderRadius: 999,
-          backgroundColor: fillFor(disabled),
-          borderWidth: tone === 'outline' ? 2.5 : tone === 'brandOutline' ? 3 : 0,
-          borderColor: tone === 'brandOutline' ? colors.blue : 'rgba(255,255,255,.4)',
-          shadowColor: tone === 'accent' ? colors.orange : '#020A28',
-          shadowOpacity: !disabled && tone === 'accent' ? 0.42 : 0,
-          shadowRadius: 22,
-          shadowOffset: { width: 0, height: 12 },
+          ...glassSurface(
+            tone === 'accent'
+              ? 'accent'
+              : tone === 'primary'
+                ? 'brand'
+                : tone === 'danger'
+                  ? 'danger'
+                  : tone === 'inverse' || tone === 'outline'
+                    ? 'dark'
+                    : 'light',
+          ),
+          ...(disabled ? { backgroundColor: fillFor(true) } : {}),
           opacity: busy ? 0.7 : 1,
           flexDirection: 'row',
           alignItems: 'center',

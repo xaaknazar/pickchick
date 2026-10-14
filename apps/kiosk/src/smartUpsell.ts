@@ -16,13 +16,8 @@
  * A hero that is stopped or already in the order gives way to the next candidate of its case;
  * when none is left there is no hero and only the rows are shown.
  *
- * Always shown below it, each row without products already in the order (or stopped):
- * - sauces: signature (ХИТ), hot (ОСТРО) and a cheese sauce (НОВЫЙ) only once the catalog has
- *   one (see `isCheeseSauce`; today it has none, so that tile is not shown);
- * - drinks: lemonade (НАШ ЛИМОНАД), iced tea, Coca-Cola; the lemonade leaves the row while it
- *   is the hero.
- * "Already in the order" means the products of the cart when the guest opened the screen: what
- * the guest adds here stays on the screen (green) and can be taken out again.
+ * Rows contain every available sauce and drink, including products already in the order so
+ * their quantities stay editable. Signature lemonade is always the first drink.
  */
 export const FINGERS_PRODUCT_IDS: readonly string[] = [
   'pick-combo',
@@ -45,13 +40,14 @@ export const BURGER_PRODUCT_IDS: readonly string[] = [
 export type UpsellReason = 'fingers' | 'burger' | 'both' | 'neither';
 export type UpsellHeroKind = 'burger' | 'fingers' | 'lemonade';
 /** Fixed tiles of the rows; `cheese` is whichever cheese sauce the catalog gains. */
-export type UpsellTileKey = 'sauce' | 'sauce-hot' | 'cheese' | 'lemonade' | 'iced-tea' | 'cola';
+export type UpsellTileKey = string;
 export type UpsellBadgeKind = 'hit' | 'hot' | 'new' | 'lemonade' | 'toFingers' | 'toBurger';
 /** The few product fields the rule reads. */
 export interface UpsellProduct {
   id: string;
   name: string;
   available?: boolean;
+  category?: string;
 }
 export interface UpsellHeroPick<P extends UpsellProduct = UpsellProduct> {
   product: P;
@@ -132,27 +128,32 @@ export function planUpsell<P extends UpsellProduct>(
     };
     break;
   }
-  const tile = (
-    key: UpsellTileKey,
-    id: string | undefined,
-    badge: UpsellBadgeKind | null,
-  ): UpsellTilePick<P>[] => {
-    const product = offered(id);
-    return product && product.id !== hero?.product.id ? [{ product, key, badge }] : [];
-  };
+  const available = products.filter((p) => p.available !== false);
+  const sauce = (p: P) => p.id === 'sauce' || p.id.startsWith('sauce-') || isCheeseSauce(p);
+  const drink = (p: P) =>
+    p.category === 'Напитки' || /^(lemonade|iced-tea|cola|fuse-|water|piko)/.test(p.id);
+  const asTile = (product: P): UpsellTilePick<P> => ({
+    product,
+    key: isCheeseSauce(product) ? 'cheese' : product.id,
+    badge:
+      product.id === 'lemonade'
+        ? 'lemonade'
+        : product.id === 'sauce'
+          ? 'hit'
+          : product.id === 'sauce-hot'
+            ? 'hot'
+            : isCheeseSauce(product)
+              ? 'new'
+              : null,
+  });
   return {
     reason,
     hero,
-    sauces: [
-      ...tile('sauce', 'sauce', 'hit'),
-      ...tile('sauce-hot', 'sauce-hot', 'hot'),
-      ...tile('cheese', products.find(isCheeseSauce)?.id, 'new'),
-    ],
-    drinks: [
-      ...tile('lemonade', 'lemonade', 'lemonade'),
-      ...tile('iced-tea', 'iced-tea', null),
-      ...tile('cola', 'cola', null),
-    ],
+    sauces: available.filter(sauce).map(asTile),
+    drinks: available
+      .filter(drink)
+      .sort((a, b) => Number(b.id === 'lemonade') - Number(a.id === 'lemonade'))
+      .map(asTile),
   };
 }
 /** «Pick Combo» or «Pick Combo +2»: the first product of the order and how many more. */
@@ -171,18 +172,6 @@ export function orderLines(lines: readonly { name: string; quantity: number }[])
   return [...counts]
     .map(([name, quantity]) => (quantity > 1 ? `${name} ×${quantity}` : name))
     .join(' + ');
-}
-/**
- * The upsell's «К оплате» goes straight to the Kaspi QR when Kaspi QR is the kiosk's only way
- * to pay (commercial mode, methods exactly ['kaspi']); any choice (QR and invoice, the test
- * simulator's Kaspi and card) keeps the existing payment-method screen.
- */
-export function paysDirectly(
-  commercial: boolean | undefined,
-  methods: readonly string[] | undefined,
-): boolean {
-  const offered = methods ?? ['kaspi'];
-  return !!commercial && offered.length === 1 && offered[0] === 'kaspi';
 }
 /** A cart line as the upsell remembers it: its id and quantity. */
 export interface UpsellLine {

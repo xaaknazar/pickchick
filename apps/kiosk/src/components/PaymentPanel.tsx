@@ -1,3 +1,5 @@
+import { glassSurface } from './glassSurface';
+import { Icon } from './Icon';
 import { useState } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -42,14 +44,15 @@ function GlassAction({
           paddingHorizontal: px(24),
           paddingVertical: px(8),
           borderRadius: 999,
-          borderWidth: 1,
-          borderColor: 'rgba(255,255,255,.24)',
-          backgroundColor: 'rgba(255,255,255,.14)',
+          ...glassSurface('light'),
+          flexDirection: 'row',
+          gap: px(12),
           alignItems: 'center',
           justifyContent: 'center',
           opacity: disabled ? 0.55 : 1,
         }}
       >
+        <Icon name="refresh" tone="brand" />
         <Text
           {...fixedText}
           numberOfLines={2}
@@ -57,7 +60,7 @@ function GlassAction({
             fontFamily: fonts.heavy,
             fontSize: Math.max(16, px(20)),
             lineHeight: Math.max(20, px(25)),
-            color: colors.white,
+            color: colors.navy,
             textAlign: 'center',
           }}
         >
@@ -94,7 +97,7 @@ export function PaymentPanel({
   /** «Начать заново» is allowed now. */
   restart: boolean;
   onRestart: () => void;
-  actionLabel: string;
+  actionLabel?: string;
   onAction: () => void;
 }) {
   const { px, width } = useMetrics();
@@ -240,12 +243,14 @@ export function PaymentPanel({
               onPress={onRestart}
             />
           ) : null}
-          <GlassAction
-            testID="kiosk-payment-cancel"
-            label={actionLabel}
-            disabled={busy}
-            onPress={onAction}
-          />
+          {actionLabel ? (
+            <GlassAction
+              testID="kiosk-payment-cancel"
+              label={actionLabel}
+              disabled={busy}
+              onPress={onAction}
+            />
+          ) : null}
         </View>
       </GlassPanel>
     </Animated.View>

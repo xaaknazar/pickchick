@@ -20,7 +20,6 @@ const meta = {
     locale: 'ru',
     busy: false,
     cart: [],
-    lineCount: 0,
     onAdd: fn(),
     onClose: fn(),
     onInteraction: fn(),
@@ -40,11 +39,9 @@ export const English: Story = { args: { locale: 'en', product: product('toast') 
 export const LineFull: Story = {
   args: {
     cart: [{ lineId: sheetLineId(product('sauce'), 'size-0'), quantity: 20 }],
-    lineCount: 1,
   },
 };
 /** The cart already holds 11 different lines. */
-export const CartFull: Story = { args: { product: product('toast'), lineCount: 11 } };
 export const SoldOut: Story = {
   args: { product: { ...product('toast'), available: false } },
 };

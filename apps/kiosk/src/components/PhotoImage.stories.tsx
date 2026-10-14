@@ -18,7 +18,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
-export const PikoBothFlavors: Story = { args: { imageId: 'drink:piko' } };
+export const PikoDefault: Story = { args: { imageId: 'drink:piko' } };
 export const OrangeInCart: Story = { args: { imageId: 'drink:piko-orange', variant: 'cart' } };
 export const ComboHero: Story = { args: { imageId: 'i7.jpg', variant: 'hero' } };
 export const BottleOption: Story = { args: { imageId: 'cola-bottle', variant: 'option' } };

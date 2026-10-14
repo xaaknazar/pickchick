@@ -28,3 +28,9 @@ export const Duo: Story = { args: { product: find('finger-duo') } };
 /** Prose description: the text instead of pills. */
 export const Description: Story = { args: { product: find('burger-duo') } };
 export const English: Story = { args: { locale: 'en', product: find('master-combo') } };
+export const PikoOrange: Story = {
+  args: {
+    product: find('piko'),
+    selections: [{ group_id: 'piko-flavor', option_id: 'piko-orange', quantity: 1 }],
+  },
+};

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type SetStateAction } from 'react';
 import type { KioskModel, KioskModifierGroup, KioskProduct, KioskSelection } from '../model';
 import {
   LINE_LIMIT,
-  LINES_LIMIT,
   defaultSelections,
   selectedPriceMinor,
   testLineId,
@@ -115,10 +114,8 @@ export function ProductScreen({
   // The edited line itself is replaced, so it takes no room.
   const inCart =
     model.cart.find((l) => l.lineId === lineId && l.lineId !== editing?.lineId)?.quantity ?? 0;
-  const linesFull =
-    !inCart && !editing && model.cart.length + model.unavailableCartLines.length >= LINES_LIMIT;
-  const room = linesFull ? 0 : LINE_LIMIT - inCart;
-  const limit = room > 0 ? null : linesFull ? t.limitLines : t.limitLine;
+  const room = LINE_LIMIT - inCart;
+  const limit = room > 0 ? null : t.limitLine;
   const shownQuantity = Math.max(1, Math.min(quantity, room));
   const price = valid
     ? (BigInt(selectedPriceMinor(product, selections)) * BigInt(shownQuantity)).toString()
@@ -205,6 +202,7 @@ export function ProductScreen({
           <Wrapper paddingX={16} paddingY={20} gap={26}>
             <ComboHero
               product={product}
+              selections={selections}
               locale={context.locale}
               onDetails={() => setDetails(true)}
             />

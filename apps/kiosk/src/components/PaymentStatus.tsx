@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Animated, Text, View } from 'react-native';
-import { Image } from 'expo-image';
 import { colors, fonts, useMetrics } from '../theme';
 import { money } from '../cart';
 import { copy, type Locale } from '../i18n';
@@ -10,7 +9,6 @@ import { useEnter } from './motion';
 import { checkoutCopy } from '../checkoutCopy';
 import { fixedText } from './Body';
 import { useAnnounce } from './announce';
-const kaspiLogo = require('../../assets/v3/kaspi.webp');
 
 const clock = (seconds: number) =>
   `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
@@ -131,8 +129,7 @@ export function PaymentStatus({
   const drop = useEnter(0, 360);
   const rise = useEnter(40, 360);
   const card = useEnter(80, 300);
-  const methodLabel =
-    method === 'invoice' ? 'Kaspi - ' + t.invoiceMethod : method === 'card' ? t.card : t.payQR;
+  const methodLabel = method === 'invoice' ? t.invoiceMethod : method === 'card' ? t.card : t.payQR;
   const icon: IconName =
     state === 'unknown'
       ? 'time-outline'
@@ -143,10 +140,9 @@ export function PaymentStatus({
           : method === 'card'
             ? 'card-outline'
             : 'qr-code-outline';
-  // Design: Kaspi payments open with the Kaspi mark and "Kaspi QR" (no tile).
+  // Neutral payment heading; provider identifiers remain in the transport only.
   // Only a real bank QR or invoice carries the brand; the simulator keeps the tile.
-  const kaspi = waiting && (method === 'invoice' || (method === 'qr' && !!qrPayload));
-  const heading = waiting ? (kaspi && method === 'qr' ? 'Kaspi QR' : methodLabel) : title;
+  const heading = waiting ? methodLabel : title;
   const amountSize = v(tight ? 58 : dense ? 62 : 70);
   return (
     <View style={{ width: '100%', alignItems: 'center', gap: v(tight || dense ? 12 : 26) }}>
@@ -162,34 +158,24 @@ export function PaymentStatus({
           ],
         }}
       >
-        {kaspi ? (
-          <Image
-            testID="kiosk-payment-kaspi-mark"
-            source={kaspiLogo}
-            contentFit="contain"
-            accessible={false}
-            accessibilityLabel=""
-            style={{ width: v(dense ? 64 : 76), height: v(dense ? 64 : 76) }}
-          />
-        ) : (
-          <View
-            style={{
-              width: v(76),
-              height: v(76),
-              borderRadius: v(22),
-              backgroundColor: waiting ? colors.orange : colors.white,
-              alignItems: 'center',
-              justifyContent: 'center',
-              shadowColor: waiting ? colors.orange : '#020A28',
-              shadowOpacity: 0.4,
-              shadowRadius: 12,
-              shadowOffset: { width: 0, height: 10 },
-              elevation: 8,
-            }}
-          >
-            <Icon name={icon} size="large" tone={waiting ? 'inverse' : 'brand'} />
-          </View>
-        )}
+        <View
+          style={{
+            width: v(76),
+            height: v(76),
+            borderRadius: v(22),
+            backgroundColor: waiting ? colors.orange : colors.white,
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: waiting ? colors.orange : '#020A28',
+            shadowOpacity: 0.4,
+            shadowRadius: 12,
+            shadowOffset: { width: 0, height: 10 },
+            elevation: 8,
+          }}
+        >
+          <Icon name={icon} size="large" tone={waiting ? 'inverse' : 'brand'} />
+        </View>
+
         <View style={{ flexShrink: 1, gap: v(2), alignItems: waiting ? 'flex-start' : 'center' }}>
           <Text
             {...fixedText}
@@ -326,7 +312,7 @@ export function PaymentStatus({
           ) : null}
           <PaymentQR
             payload={qrPayload}
-            label={demoWarning ?? 'Kaspi QR'}
+            label={demoWarning ?? t.payKaspiQR}
             size={tight || demoWarning ? 'compact' : 'regular'}
             scanning={waiting}
           />
@@ -369,7 +355,7 @@ export function PaymentStatus({
 
       {qrPayload && waiting && !demoWarning ? (
         <View style={{ width: '100%', flexDirection: 'row', gap: v(12) }}>
-          {/* The QR on screen is always a Kaspi QR: design steps name Kaspi.kz. */}
+          {/* Instructions refer to the guest banking app. */}
           {checkoutCopy(locale).kaspiSteps.map((label, index) => (
             <QrStep key={index} index={index} label={label} />
           ))}

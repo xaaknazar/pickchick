@@ -60,7 +60,6 @@ export type KioskErrorCode =
   | 'KITCHEN_OFFLINE'
   | 'PHONE'
   | 'CART_LIMIT_LINE'
-  | 'CART_LIMIT_LINES'
   | 'RETRY_PAYMENT'
   | 'PAYMENT_UNKNOWN'
   | 'MENU_LOAD'

@@ -133,8 +133,7 @@ export const SnapshotSchema = z
           })
           .passthrough(),
       )
-      .min(1)
-      .max(200),
+      .min(1),
   })
   .passthrough();
 export const AdmissionPayloadSchema = z.strictObject({
