@@ -293,7 +293,7 @@ export function GuestScreen() {
           testID="kiosk-cancel-dismiss"
           onPress={closeCancel}
         />
-        {!noCancel && !unresolved ? (
+        {demoCancelPayment || (!noCancel && !unresolved) ? (
           <Button
             label={demoCancelPayment ? t.cancelPayment : t.yesCancel}
             tone="secondary"
