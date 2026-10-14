@@ -5151,9 +5151,10 @@
         "@vps/public-https",
         "@vps/roadmap",
         "docs/operations/kiosk-glass-polish-2026-10-14.md",
-        "tests/kiosk/browser_glass_polish.py"
+        "tests/kiosk/browser_glass_polish.py",
+        ".github/workflows/ci.yml"
       ],
-      "updatedAt": "2026-10-14T05:40:51.440Z",
+      "updatedAt": "2026-10-14T06:02:34.697Z",
       "summary": "Build18 installed/native verified (db682ae1). UI full CI 2d1 green 11/11. Published consolidated checkpoint 81cf5cb7 incl exact Windows release ancestry; current CI running. No TestFlight or real payments.",
       "nextAction": "Restore Mac connection to cashier LAN; retry pinned SSH; fresh guards, worker-only install then API encrypted backup/restore and apply; publish final roadmap and return temporary reservations."
     }
