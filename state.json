@@ -5158,9 +5158,10 @@
         "apps/kiosk/src/components/ComboHero.tsx",
         "apps/kiosk/src/components/ProductCard.tsx",
         "apps/kiosk/src/components/UpsellFooter.tsx",
-        "apps/kiosk/src/screens/CartScreens.tsx"
+        "apps/kiosk/src/screens/CartScreens.tsx",
+        "apps/kiosk/src/components/UpsellCards.tsx"
       ],
-      "updatedAt": "2026-10-14T08:38:35.699Z",
+      "updatedAt": "2026-10-14T09:08:11.269Z",
       "summary": "Build18 installed/native verified (db682ae1). UI full CI 2d1 green 11/11. Published consolidated checkpoint 81cf5cb7 incl exact Windows release ancestry; current CI running. No TestFlight or real payments.",
       "nextAction": "Restore Mac connection to cashier LAN; retry pinned SSH; fresh guards, worker-only install then API encrypted backup/restore and apply; publish final roadmap and return temporary reservations."
     }
