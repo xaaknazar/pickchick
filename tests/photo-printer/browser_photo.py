@@ -9,15 +9,13 @@ from playwright.sync_api import expect
 ui.OUTPUT = Path('.local/photo-browser')
 
 def capture(page, filename):
-    # Capture once per fresh browser process: repeated video/modal captures can lose
-    # static composited layers in headless Chromium on this Mac.
+    # One capture per fresh browser process isolates permission and camera state.
     # Wait for actual fonts, images and video; do not alter rendered UI or hide content.
     page.evaluate('() => document.fonts.ready')
     page.wait_for_function("""() => [...document.images].filter(i => {
         const r=i.getBoundingClientRect(); return r.width>0 && r.height>0 && r.top<innerHeight && r.bottom>0;
     }).every(i => i.complete && i.naturalWidth>0)""")
-    # Expo's modal/video compositor needs a settled frame after the state change.
-    # One bounded capture delay, after the real readiness checks above.
+    # Allow the modal transition to settle after the real readiness checks above.
     page.wait_for_timeout(1000)
     page.screenshot(path=str(ui.OUTPUT / filename), full_page=True)
 
