@@ -136,7 +136,7 @@ class RedesignStart(ui.KioskUI):
         expect(ui.element(page, 'kiosk-start')).to_contain_text(COPY[value]['cta'])
         ui.assert_bounded(page, 'kiosk-start', width, height)
         chip = ui.assert_bounded(page, 'kiosk-start-kaspi', width, height)
-        expect(ui.element(page, 'kiosk-start-kaspi')).to_have_text(COPY[value]['kaspi'])
+        expect(ui.element(page, 'kiosk-start-kaspi').get_by_text(COPY[value]['kaspi'], exact=True)).to_be_visible()
         self.assertLessEqual(abs(chip['height'] - px(width, 75)), 1, chip)
         look = page.evaluate('() => {' + STATE + '''
             const chip = getComputedStyle(visible('kiosk-start-kaspi'));

@@ -41,8 +41,18 @@
 ## Доставка
 
 Последняя подтверждённая установка на физическом iPad - 0.1.0 (18).
-На момент подготовки iPad отключён от Mac. Следующая локальная сборка будет установлена
-по кабелю поверх приложения без удаления данных после подключения. TestFlight не используется.
+Release archive **0.1.0 (19)** собран из `fee0b340ae0c1340af81303a5389aac25bebee31`:
+locked install, prebuild, CocoaPods и archive прошли. `codesign --verify --deep --strict`
+успешен; идентификаторы подписи/keychain и список устройств совместимы с установленной 18.
+Переменные сохранены: `EXPO_PUBLIC_KIOSK_COMMERCIAL=1`, `EXPO_NO_DOTENV=1`; других публичных
+переменных не добавлено. Архив и готовое приложение хранятся в приватном каталоге выпусков Mac.
+
+- JS SHA-256: `16e67f148a9dfa06862c81df6aef452590dd1980707249ccbc72c96f246d2fc0`.
+- Executable SHA-256: `42e07a7b367686549dd1f15b101b395cc4b86231db687174513d339ca1c98d00`.
+- ZIP SHA-256: `d1b2abb36ac7686c193e95caa8bfb9629474b81e03381e251380510a5edea282`.
+
+iPad отключён от Mac. Готовую 19 нужно установить по кабелю поверх приложения без удаления
+данных после подключения. TestFlight не используется.
 Нативная проверка новых изменений и приёмка владельцем ещё не отмечены. Реальные счета,
 платёжные QR и оплаты в этой работе не создавались.
 
@@ -50,3 +60,10 @@
 [допы](images/kiosk-glass-polish-2026-10-14/glass-upsell-top-1024.png),
 [напитки](images/kiosk-glass-polish-2026-10-14/product-drinks-sheet-820.png),
 [повторный старт](images/kiosk-glass-polish-2026-10-14/payment-restart-dialog-1024.png).
+
+Публикация исходника: [Foundation CI](https://github.com/xaaknazar/pickchick/actions/runs/38520130520),
+[Storybook/axe](https://github.com/xaaknazar/pickchick/actions/runs/38520136856),
+[roadmap](https://github.com/xaaknazar/pickchick/actions/runs/38520136881).
+Storybook и roadmap зелёные. Первая Foundation CI выявила устаревшее сравнение текста стартовой
+плашки: новый QR-значок попадал в `textContent`. Проверка исправлена на точную видимую подпись;
+повторная полная CI отслеживается в PR. Код приложения после сборки 19 не менялся.
