@@ -5559,35 +5559,6 @@
       "nextAction": "Владелец обновляет iPhone через TestFlight до 0.2.0 (20) и проходит checklist mobile-testflight20.md; физическая установка/приёмка ещё не подтверждены. @release/ios освобождён завершением этапа. Временно взятые app.json/status/roadmap возвращаются mobile-l10n-push-1014; при продолжении переводов явно интегрировать shared0aa873c5, сохранить build20 и оба исправления. Новый App Store release не выполнялся."
     },
     {
-      "id": "kiosk-photo",
-      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
-      "branch": "codex/kiosk-photo",
-      "scopes": [
-        "apps/kiosk/src/photobooth",
-        "tools/photo-printer",
-        "tests/photo-printer",
-        "docs/operations/kiosk-photo.md",
-        "apps/kiosk/src/screens/MenuScreen.tsx",
-        "apps/kiosk/src/components/PhotoBooth.tsx",
-        "apps/kiosk/src/components/PhotoBooth.stories.tsx",
-        "apps/kiosk/src/components/PhotoCamera.tsx",
-        "apps/kiosk/src/components/PhotoCamera.stories.tsx",
-        "apps/kiosk/src/components/PhotoEntry.tsx",
-        "apps/kiosk/src/components/PhotoEntry.stories.tsx",
-        "apps/kiosk/app.json",
-        "apps/kiosk/package.json",
-        "pnpm-lock.yaml",
-        ".github/workflows/photo-printer.yml",
-        "tests/kiosk/photo-booth.test.mjs",
-        "apps/kiosk/src/components/CategoryRail.tsx",
-        "apps/kiosk/src/components/WelcomeContent.tsx",
-        "apps/kiosk/src/screens/WelcomeMode.tsx"
-      ],
-      "status": "active",
-      "head": "830eafe8e0e250fd17f0f07a977c24625ea342dd",
-      "updatedAt": "2026-10-14T13:40:02.355Z"
-    },
-    {
       "id": "mobile-combo-rewards",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-combo-rewards",
@@ -5641,6 +5612,35 @@
       "updatedAt": "2026-10-14T13:39:25.785Z",
       "summary": "Владелец 14 октября утвердил любое комбо, подарок Pick Combo, отметку сразу после подтверждённой оплаты и снятие отметок при возврате; временная передача пересечений согласована. Текущие изменения в исходных worktree сохраняются.",
       "nextAction": "Получить ответы владельца об участвующих комбо/подарке, моменте начисления и передаче пересекающихся файлов. Затем claim этой задачи, ledger/резерв/checkout с 0-суммой/UI, проверки и полноценный PR. Старые пробные отметки не превращать в подарки; не публиковать сервер и реальные финансовые эффекты без согласованной активации."
+    },
+    {
+      "id": "kiosk-photo",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/kiosk-photo",
+      "scopes": [
+        "apps/kiosk/src/photobooth",
+        "tools/photo-printer",
+        "tests/photo-printer",
+        "docs/operations/kiosk-photo.md",
+        "apps/kiosk/src/screens/MenuScreen.tsx",
+        "apps/kiosk/src/components/PhotoBooth.tsx",
+        "apps/kiosk/src/components/PhotoBooth.stories.tsx",
+        "apps/kiosk/src/components/PhotoCamera.tsx",
+        "apps/kiosk/src/components/PhotoCamera.stories.tsx",
+        "apps/kiosk/src/components/PhotoEntry.tsx",
+        "apps/kiosk/src/components/PhotoEntry.stories.tsx",
+        "apps/kiosk/app.json",
+        "apps/kiosk/package.json",
+        "pnpm-lock.yaml",
+        ".github/workflows/photo-printer.yml",
+        "tests/kiosk/photo-booth.test.mjs",
+        "apps/kiosk/src/components/CategoryRail.tsx",
+        "apps/kiosk/src/components/WelcomeContent.tsx",
+        "apps/kiosk/src/screens/WelcomeMode.tsx"
+      ],
+      "status": "active",
+      "head": "10443ef7bdb99d66a838939e704eb93610992b4a",
+      "updatedAt": "2026-10-14T13:49:41.002Z"
     }
   ]
 }
