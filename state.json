@@ -5629,11 +5629,13 @@
         "docs/01-technical-spec.md",
         "docs/project-status.md",
         "docs/roadmap/project.json",
-        "infra/staging/combo-rewards-grants.mjs"
+        "infra/staging/combo-rewards-grants.mjs",
+        "packages/commerce-core/src/combo-reward-ledger.ts",
+        "tests/unit/combo-rewards-postgres.test.mjs"
       ],
       "status": "active",
       "head": "900854a8345358389e4f7b3fe33ba61c151b7a84",
-      "updatedAt": "2026-10-14T13:36:29.355Z",
+      "updatedAt": "2026-10-14T13:39:25.785Z",
       "summary": "Владелец 14 октября утвердил любое комбо, подарок Pick Combo, отметку сразу после подтверждённой оплаты и снятие отметок при возврате; временная передача пересечений согласована. Текущие изменения в исходных worktree сохраняются.",
       "nextAction": "Получить ответы владельца об участвующих комбо/подарке, моменте начисления и передаче пересекающихся файлов. Затем claim этой задачи, ledger/резерв/checkout с 0-суммой/UI, проверки и полноценный PR. Старые пробные отметки не превращать в подарки; не публиковать сервер и реальные финансовые эффекты без согласованной активации."
     }
