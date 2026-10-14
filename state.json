@@ -5185,6 +5185,17 @@
       "status": "active",
       "head": "b81a3498d19bc20240d80b278ac6bd547416d791",
       "updatedAt": "2026-10-14T09:45:58.643Z"
+    },
+    {
+      "id": "mobile-appstore-audit-1014",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-appstore-audit-1014",
+      "scopes": [
+        "docs/audits/mobile-appstore-readiness-2026-10-14.md"
+      ],
+      "status": "active",
+      "head": "b81a3498d19bc20240d80b278ac6bd547416d791",
+      "updatedAt": "2026-10-14T09:56:29.419Z"
     }
   ]
 }
