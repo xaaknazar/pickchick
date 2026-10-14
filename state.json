@@ -5186,20 +5186,6 @@
       "nextAction": "Закрыть препятствия по docs/audits/mobile-appstore-readiness-2026-10-14.md, интегрировать PR246 после CI, новый общий Release и физическая приёмка iPhone. Audit PR247 только документ; проверить его CI перед включением. Status/roadmap и онлайн-пульт не обновлялись из-за резерва kiosk-owner-polish-1013. App Store отправка только по следующему поручению владельца."
     },
     {
-      "id": "order-game-gestures",
-      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
-      "branch": "codex/order-game-gestures",
-      "scopes": [
-        "tests/mobile/game-route-presentation.test.mjs",
-        "tests/mobile/browser_tracker_redesign.py",
-        "docs/operations/order-game-gestures.md"
-      ],
-      "status": "active",
-      "head": "885afaa58846088c77d175d3b60f32c7a1bbab6f",
-      "updatedAt": "2026-10-14T10:34:54.408Z",
-      "summary": " 2026-10-14: владелец прямо разрешил временную передачу для переводов RU/KK/EN и push задаче mobile-l10n-push-1014: apps/mobile/src/games/pick-man/PickManScreen.tsx, apps/mobile/src/games/route-options.ts, apps/mobile/src/app/_layout.tsx. Текущие изменения сохраняются, остальные области остаются за исходной задачей."
-    },
-    {
       "id": "mobile-l10n-push-1014",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-l10n-push-1014",
@@ -5383,6 +5369,20 @@
       "status": "active",
       "head": "885afaa58846088c77d175d3b60f32c7a1bbab6f",
       "updatedAt": "2026-10-14T10:35:53.462Z"
+    },
+    {
+      "id": "order-game-gestures",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/order-game-gestures",
+      "scopes": [
+        "tests/mobile/game-route-presentation.test.mjs",
+        "tests/mobile/browser_tracker_redesign.py",
+        "docs/operations/order-game-gestures.md"
+      ],
+      "status": "active",
+      "head": "6d8db476405ba4e896413136243eedb154bbb921",
+      "updatedAt": "2026-10-14T10:38:53.112Z",
+      "summary": " 2026-10-14: владелец прямо разрешил временную передачу для переводов RU/KK/EN и push задаче mobile-l10n-push-1014: apps/mobile/src/games/pick-man/PickManScreen.tsx, apps/mobile/src/games/route-options.ts, apps/mobile/src/app/_layout.tsx. Текущие изменения сохраняются, остальные области остаются за исходной задачей."
     }
   ]
 }
