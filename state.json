@@ -5165,6 +5165,26 @@
       "updatedAt": "2026-10-14T09:17:04.339Z",
       "summary": "Build18 installed/native verified (db682ae1). UI full CI 2d1 green 11/11. Published consolidated checkpoint 81cf5cb7 incl exact Windows release ancestry; current CI running. No TestFlight or real payments.",
       "nextAction": "Restore Mac connection to cashier LAN; retry pinned SSH; fresh guards, worker-only install then API encrypted backup/restore and apply; publish final roadmap and return temporary reservations."
+    },
+    {
+      "id": "mobile-payment-recovery",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/mobile-payment-recovery",
+      "scopes": [
+        "apps/mobile/src/components/OrderSheet.tsx",
+        "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
+        "apps/mobile/src/components/KaspiPaymentState.tsx",
+        "apps/mobile/src/ScreenHost.tsx",
+        "apps/mobile/src/app/_layout.tsx",
+        "apps/mobile/src/components/PaymentRecovery.tsx",
+        "apps/mobile/src/payment-recovery.ts",
+        "tests/mobile/browser_kaspi_checkout.py",
+        "tests/mobile/payment-recovery.test.mjs",
+        "docs/operations/mobile-payment-recovery.md"
+      ],
+      "status": "active",
+      "head": "b81a3498d19bc20240d80b278ac6bd547416d791",
+      "updatedAt": "2026-10-14T09:45:58.643Z"
     }
   ]
 }
