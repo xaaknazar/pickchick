@@ -6,7 +6,13 @@ import { copy, displayCopy, type Locale } from '../i18n';
 import { productCopy } from '../productCopy';
 import { fitTitle } from '../menu-presentation';
 import { compositionPills, productBadge, servingLine } from '../product-presentation';
-import { cardBackgroundRatio, cardBackgrounds, productArtworkId, productPhoto } from '../assets';
+import {
+  cardBackgroundRatio,
+  cardBackgrounds,
+  heroPhoto,
+  productArtworkId,
+  productPhoto,
+} from '../assets';
 import { colors, fonts, redesign, useMetrics } from '../theme';
 import { Badge } from './Badge';
 import { PhotoImage } from './PhotoImage';
@@ -43,7 +49,8 @@ export function ComboHero({
   const enter = useEnter(60, 520);
   const details = usePress(0.95);
   const imageId = productArtworkId(product);
-  const shot = productPhoto(imageId);
+  const largePick = product.id === 'pick-combo';
+  const shot = largePick ? heroPhoto(imageId) : productPhoto(imageId);
   // A published photo on a coloured backdrop keeps that backdrop instead of multiplying.
   const blend = !shot || lightTile(shot.tile);
   const badge = productBadge(product.id);
@@ -94,9 +101,9 @@ export function ComboHero({
         <View
           style={{
             width: `${PHOTO * 100}%`,
-            paddingVertical: px(24),
-            paddingLeft: px(28),
-            paddingRight: px(12),
+            paddingVertical: px(largePick ? 0 : 24),
+            paddingLeft: px(largePick ? 8 : 28),
+            paddingRight: px(largePick ? 8 : 12),
             // A direct layer of the clip, so its multiply sees the cream and the illustration
             // (every web view is its own stacking context).
             zIndex: 1,
@@ -111,7 +118,7 @@ export function ComboHero({
               backgroundColor: blend ? 'transparent' : (shot?.tile ?? redesign.cream),
             }}
           >
-            <PhotoImage imageId={imageId} />
+            <PhotoImage imageId={imageId} variant={largePick ? 'hero' : 'card'} />
           </View>
         </View>
         <View

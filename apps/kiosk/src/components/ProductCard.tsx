@@ -7,7 +7,13 @@ import { money } from '../cart';
 import type { KioskProduct } from '../model';
 import { copy, displayCopy, type Locale } from '../i18n';
 import { fitTitle, type BadgeKind, type CardSize } from '../menu-presentation';
-import { cardBackgroundRatio, cardBackgrounds, productArtworkId, productPhoto } from '../assets';
+import {
+  cardBackgroundRatio,
+  cardBackgrounds,
+  heroPhoto,
+  productArtworkId,
+  productPhoto,
+} from '../assets';
 import { colors, fonts, redesign, useMetrics } from '../theme';
 import { Badge } from './Badge';
 import { usePopIn, usePress, useTimingTo } from './motion';
@@ -72,7 +78,8 @@ export function ProductCard({
   const zoom = useTimingTo(pressed && !reduced ? 1 : 0, 500, 'ease');
   const ring = useTimingTo(pressed ? 1 : 0, 150, 'css');
   const imageId = productArtworkId(product);
-  const shot = productPhoto(imageId);
+  const largePick = product.id === 'pick-combo';
+  const shot = largePick ? heroPhoto(imageId) : productPhoto(imageId);
   // A published photo on a coloured backdrop keeps that backdrop instead of multiplying.
   const blend = !shot || lightTile(shot.tile);
   const unavailable = product.available === false;
@@ -114,9 +121,9 @@ export function ProductCard({
         minHeight: 0,
         overflow: 'hidden',
         backgroundColor: shot?.cutout ? 'transparent' : blend ? colors.white : shot?.tile,
-        paddingTop: px(wide ? 18 : 20),
-        paddingBottom: px(wide ? 18 : 4),
-        paddingHorizontal: px(wide ? 18 : 14),
+        paddingTop: px(largePick ? 4 : wide ? 18 : 20),
+        paddingBottom: px(largePick ? 0 : wide ? 18 : 4),
+        paddingHorizontal: px(largePick ? 6 : wide ? 18 : 14),
       }}
     >
       <Animated.View
@@ -127,7 +134,7 @@ export function ProductCard({
           transform: [{ scale: zoom.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }) }],
         }}
       >
-        <PhotoImage imageId={imageId} />
+        <PhotoImage imageId={imageId} variant={largePick ? 'hero' : 'card'} />
       </Animated.View>
     </View>
   );

@@ -104,8 +104,10 @@
       "source": "apps/kiosk/assets/v3/photos/pick-combo.webp",
       "width": 1254,
       "height": 1254,
-      "sha256": "f12500b74015f7dae3ac6f246faf91541d7e28f112b7040753b29037b3dca2ff",
-      "treatment": "AI detail enhancement and transparent-background extraction"
+      "sha256": "0ec0d72c52a662e5fbc3a155af4e54acb810d7af0e4bc5f0b25d28b43da1b312",
+      "treatment": "AI detail enhancement from the previous cut-out by owner request; composition, portions, tray, bottle and branding preserved",
+      "previous_sha256": "f12500b74015f7dae3ac6f246faf91541d7e28f112b7040753b29037b3dca2ff",
+      "prompt": "Preserve the exact Pick Combo composition and food portions. Improve natural photographic detail for a large iPad card, preserve true alpha, bottle and PickChick packaging, with no added objects or shadow. Highest available resolution."
     },
     {
       "file": "sauce-hot.png",
