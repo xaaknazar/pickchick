@@ -110,10 +110,11 @@
     {
       "file": "sauce-hot.png",
       "source": "apps/kiosk/assets/v3/photos/sauce-hot.webp",
-      "width": 1430,
-      "height": 1100,
-      "sha256": "8f3fa438d713529bd651def23585f7da105418c5f570448f96cbe979a4fef721",
-      "treatment": "AI detail enhancement and transparent-background extraction"
+      "width": 1254,
+      "height": 1254,
+      "sha256": "dcf1456250bd578ee4b5c7d832f8bdddd9b9c74461d68a005f8b88812d8ab0ce",
+      "treatment": "AI detail enhancement, transparent-background extraction and camera angle aligned with other portion sauces by owner request",
+      "angle_reference": "apps/kiosk/assets/v3/hd/heinz-cheese.png"
     },
     {
       "file": "signature-60.png",

@@ -8,8 +8,10 @@ from the card illustration; there is no multiply blend through opaque product pi
 the selected existing catalog size; no prices, nutrition or catalog entries were changed.
 `heinz-cheese.png` and `heinz-bbq.png` are portion illustrations based on that cup with the
 respective sauce contents. They do not claim to photograph Heinz retail packaging.
+`sauce-hot.png` matches the same elevated three-quarter camera angle and cup framing,
+as requested by the owner. Its spicy red-orange contents are preserved.
 
 Sources, pixel dimensions and SHA-256 values are in `provenance.json`. Outputs have at least
-1280 pixels on their long side. Existing owner-supplied bottled-drink photographs remain in
+1200 pixels on their long side. Existing owner-supplied bottled-drink photographs remain in
 `../../drinks`. No artificial HD claim is made for arbitrary future
 remote catalog assets. Card background geometry lives in `../bg/*.svg` for resolution-independent rendering.
