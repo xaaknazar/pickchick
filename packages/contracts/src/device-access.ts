@@ -56,8 +56,14 @@ export const KitchenPasswordResetReceiptSchema = z.strictObject({
   state: z.enum(['applied', 'used', 'expired', 'rejected']),
 });
 export type KitchenPasswordResetReceipt = z.infer<typeof KitchenPasswordResetReceiptSchema>;
+export const DevicePresenceObservationSchema = z.strictObject({
+  terminalId: uuid,
+  generation,
+  ageMs: z.number().int().min(0).max(86_400_000),
+});
 export const DeviceAccessExchangeSchema = z.strictObject({
   protocolVersion: z.literal(1),
+  observations: z.array(DevicePresenceObservationSchema).max(200).default([]),
   receipts: z.array(DeviceAccessReceiptSchema).max(50),
   resetReceipts: z.array(KitchenPasswordResetReceiptSchema).max(50).default([]),
 });

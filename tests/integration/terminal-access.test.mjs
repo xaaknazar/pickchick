@@ -14,6 +14,13 @@ import { createEdge } from '../../services/edge/dist/index.js';
 import { fixture } from '../../packages/edge-fulfillment/tests/fixture.mjs';
 import { terminalAccessGrants } from '../../infra/windows/terminal-access-grants.mjs';
 
+function ticketWindow(issuedAt) {
+  return {
+    issuedAt: new Date(issuedAt).toISOString(),
+    expiresAt: new Date(issuedAt + 600000).toISOString(),
+  };
+}
+
 function make(ctx, extras = {}) {
   const code = randomBytes(16).toString('hex'),
     issuedAt = new Date();
@@ -92,8 +99,7 @@ test('generation fence invalidates old key, stale command cannot resurrect; over
       generation: 4,
       action: 'revoke',
       codeHash: null,
-      issuedAt: new Date(Date.now() - 1200000).toISOString(),
-      expiresAt: new Date(Date.now() - 600000).toISOString(),
+      ...ticketWindow(Date.now() - 1200000),
     });
     assert.equal(await access.receive(revoke.command), 'applied');
     await rejects(access.session(auth(current)), 'UNAUTHORIZED');
@@ -126,8 +132,7 @@ test('foreign binding, legacy terminal collision and expired pair never grant ac
       true,
     );
     const expired = make(ctx, {
-      issuedAt: new Date(Date.now() - 700000).toISOString(),
-      expiresAt: new Date(Date.now() - 100000).toISOString(),
+      ...ticketWindow(Date.now() - 700000),
     });
     assert.equal(await access.receive(expired.command), 'expired');
     await rejects(access.pair({ code: expired.code }), 'UNAUTHORIZED');
@@ -543,8 +548,7 @@ test('reset unknown identity/expired/older tickets never enroll staff; newer own
     const first = resetTicket(ctx);
     assert.equal(await resets.receive(first.command), 'applied');
     const newer = resetTicket(ctx, {
-      issuedAt: new Date(Date.now() + 100).toISOString(),
-      expiresAt: new Date(Date.now() + 600000).toISOString(),
+      ...ticketWindow(Date.parse(first.command.issuedAt) + 100),
     });
     assert.equal(await resets.receive(newer.command), 'applied');
     assert.equal(
@@ -554,8 +558,7 @@ test('reset unknown identity/expired/older tickets never enroll staff; newer own
     assert.equal(
       await resets.receive(
         resetTicket(ctx, {
-          issuedAt: new Date(Date.now() - 1000).toISOString(),
-          expiresAt: new Date(Date.now() + 599000).toISOString(),
+          ...ticketWindow(Date.parse(first.command.issuedAt) - 1000),
         }).command,
       ),
       'rejected',
@@ -630,8 +633,7 @@ test('restricted worker cannot read password hashes; restricted runtime executes
         (error) => error.code === '42501',
       );
       const next = resetTicket(ctx, {
-        issuedAt: new Date(Date.now() + 200).toISOString(),
-        expiresAt: new Date(Date.now() + 600000).toISOString(),
+        ...ticketWindow(Date.parse(ticket.command.issuedAt) + 200),
       });
       await resetWorker.receive(next.command);
       await http(ctx, async (call) => {
@@ -803,4 +805,32 @@ test('a managed terminal with missing registry remains fail-closed for bearer an
       if (before === undefined) delete process.env.EDGE_DEVICE_ACCESS_ENABLED;
       else process.env.EDGE_DEVICE_ACCESS_ENABLED = before;
     }
+  }));
+
+test('only authenticated screen checks record presence and revoked generations stop reporting', async () =>
+  fixture(async (ctx) => {
+    const access = new TerminalAccess(ctx.pool, ctx.scope.branchId, ctx.scope.deviceId, true),
+      item = make(ctx);
+    await access.receive(item.command);
+    const key = await access.pair({ code: item.code });
+    assert.deepEqual(await access.observations(), []);
+    await rejects(access.session({ id: key.terminalId, key: 'a'.repeat(64) }), 'UNAUTHORIZED');
+    assert.deepEqual(await access.observations(), []);
+    await access.session(auth(key));
+    const [sample] = await access.observations();
+    assert.equal(sample.terminalId, key.terminalId);
+    assert.equal(sample.generation, 1);
+    assert.ok(sample.ageMs >= 0 && sample.ageMs < 1000);
+    await ctx.pool.query(
+      "UPDATE terminal_presence SET observed_at=clock_timestamp()-interval '5 minutes'",
+    );
+    assert.ok((await access.observations())[0].ageMs >= 300000);
+    const revoke = make(ctx, {
+      terminalId: key.terminalId,
+      generation: 2,
+      action: 'revoke',
+      codeHash: null,
+    });
+    await access.receive(revoke.command);
+    assert.deepEqual(await access.observations(), []);
   }));

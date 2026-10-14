@@ -4472,7 +4472,7 @@
       "id": "manager-device-access",
       "workstream": "backoffice",
       "title": "Подключать экраны и восстанавливать пароль из кабинета управляющего",
-      "summary": "Код и guarded пакеты b31a59ba прошли полную Foundation CI 37945705803 11/11. Cloud051/Windows020/worker/portal/canonical BO ещё не установлены: SSH с Mac к VPS и кассе завершился timeout, kitchen health доступен с edgeConnected=false. Флаги новой процедуры не включались.",
+      "summary": "Кабинет 4caca195, API 5b6f846b/cloud058 и маршрут heartbeat установлены; обе полные CI 11/11, backup/restore и сохранность данных проверены. Карточки и история доступны, pairing выключен. На Windows committed020; старый runtime и службы работают. После рестарта туннеля не сохранился Prepare receipt; подготовлено read-only продолжение без повторной миграции. Edge021, worker, pairing и нативный heartbeat киоска ещё не выпущены.",
       "status": "active",
       "owner": "development",
       "phase": "product",
@@ -4493,12 +4493,19 @@
         {
           "label": "Полная CI точного общего кандидата b31a59ba",
           "url": "https://github.com/xaaknazar/pickchick/actions/runs/37945705803"
+        },
+        {
+          "label": "Центр устройств, проверка связи и порядок выпуска",
+          "path": "docs/operations/device-center.md"
         }
       ],
       "acceptance": [
-        "Последовательно выпустить cloud051, Windows020 и портал; подтвердить подключение экранов и восстановление пароля управляющим."
+        "Карточки и история доступны по ролям и точкам; телевизор USB не имеет ложного онлайн-статуса.",
+        "Привязка одноразовым кодом, отзыв и повторная привязка проверены на кассе и экранах.",
+        "Существующие заказы, оплаты, ключи киоска и табели сохранены.",
+        "Потеря связи и возврат приложения корректно отображаются; физическая приёмка отдельно."
       ],
-      "nextAction": "Восстановить доверенную связь, получить свежие runtime/схемы/pins и последовательно пройти cloud, Windows, worker/Ready, портал и canonical BO с backup/restore; отдельно принять pairing/reset.",
+      "nextAction": "Проверить и выполнить продолжение с фактической schema020, переключить runtime, установить worker и KitchenLink. После освобождения API вторым Mac включить pairing с реальными cloud/windows proofs. Отдельно выпустить edge021 и нативный heartbeat киоска; принять физические экраны.",
       "checks": {
         "implemented": true,
         "verified": true,

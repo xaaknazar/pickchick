@@ -31,6 +31,7 @@ export class TerminalAccessController {
           this.resources.pool,
           this.resources.config.branchId!,
           this.resources.config.edgeDeviceId,
+          process.env['EDGE_DEVICE_CENTER_ENABLED'] === 'true',
         ),
       );
     } catch (error) {

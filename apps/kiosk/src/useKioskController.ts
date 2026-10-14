@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
+import Constants from 'expo-constants';
+import { startDevicePresence } from './device-presence';
+import { KIOSK_API_URL } from './api';
 import * as Crypto from 'expo-crypto';
 import { prefetchCatalogMedia, rememberCatalogMedia } from './assets';
 import { startKioskPolling } from './polling';
@@ -55,6 +58,29 @@ export default function useKioskController(): KioskModel {
       () => AppState.currentState === 'active',
     );
   }, [demo]);
+  useEffect(() => {
+    if (!commercialKioskEnabled) return;
+    const io = createCommercialKioskIO();
+    const presence = startDevicePresence({
+      readDevice: io.readDevice,
+      origin: KIOSK_API_URL,
+      appVersion: `${Constants.expoConfig?.version ?? 'unknown'} (${Constants.expoConfig?.ios?.buildNumber ?? 'unknown'})`,
+      snapshot: () => {
+        const current = live.getSnapshot();
+        const version = Number(current.catalog?.catalog_version);
+        return {
+          state: AppState.currentState === 'active' ? 'active' : 'background',
+          issue: demo ? 'demo' : current.error ? 'connection' : !current.catalog ? 'data' : 'none',
+          menuVersion: Number.isInteger(version) && version > 0 ? version : null,
+        };
+      },
+    });
+    const subscription = AppState.addEventListener('change', () => void presence.send());
+    return () => {
+      presence.stop();
+      subscription.remove();
+    };
+  }, [live, demo]);
   // Register the publication's photos before the screens render, then keep them on disk.
   const [, setMediaReady] = useState(0);
   useMemo(() => rememberCatalogMedia(state.catalog), [state.catalog]);

@@ -1,6 +1,6 @@
 import { element as el, button, field, select } from '../dom.js';
 import { message } from '../api.js';
-import { DevicesModel, deviceStatus, type DeviceRow } from '../devices-model.js';
+import { DevicesModel, deviceStatus, deviceConnection, type DeviceRow } from '../devices-model.js';
 const modes = [
   { value: 'prep', label: 'Кухня - приготовление' },
   { value: 'assembly', label: 'Кухня - сборка' },
@@ -9,8 +9,11 @@ const modes = [
 const date = (v: string | null) =>
   v ? new Date(v).toLocaleString('ru-RU', { timeZone: 'Asia/Almaty' }) : 'Нет данных';
 function modal(title: string) {
-  const d = el('dialog', 'op-dialog');
-  d.append(el('h2', '', title));
+  const d = el('dialog', 'op-dialog device-dialog');
+  const heading = el('h2', '', title);
+  heading.id = 'device-dialog-' + crypto.randomUUID();
+  d.setAttribute('aria-labelledby', heading.id);
+  d.append(heading);
   d.addEventListener('close', () => d.remove());
   document.body.append(d);
   d.showModal();
@@ -19,70 +22,54 @@ function modal(title: string) {
 /** Component owns all visual classes. Callers supply the model, never appearance overrides. */
 export class DeviceAccessView {
   constructor(private readonly model: DevicesModel) {}
+  private search = '';
+  private inventoryEditor: HTMLElement | null = null;
+  private target: HTMLElement | null = null;
+  private editorScope = '';
+
+  private show = 'active';
   render(target: HTMLElement) {
+    this.target = target;
+    const scope = this.model.actor + ':' + this.model.branch;
+    if (this.editorScope && this.editorScope !== scope) {
+      this.inventoryEditor?.remove();
+      this.inventoryEditor = null;
+    }
     const m = this.model,
-      panel = el('section', 'panel op-panel');
-    const heading = el('div', 'panel-head');
-    heading.append(el('h2', '', 'Подключённые экраны'));
-    if (m.data?.role === 'manager')
-      heading.append(button('Подключить экран', () => this.pair(), 'button primary', 'device-add'));
-    panel.append(
-      heading,
-      el(
-        'p',
-        'muted',
-        'Кухня и сборка работают через локальную кассу. Табло показывает номера заказов без доступа к их изменению.',
-      ),
+      panel = el('section', 'panel device-center');
+    const heading = el('div', 'device-heading');
+    const intro = el('div');
+    intro.append(
+      el('h2', '', 'Устройства точки'),
+      el('p', 'muted', 'Подключение, состояние приложений и оборудование ресторана'),
     );
+    const actions = el('div', 'op-actions');
+    if (m.data?.role === 'manager') {
+      if (m.data.pairing_enabled !== false)
+        actions.append(
+          button('Подключить экран', () => this.pair(), 'button primary', 'device-add'),
+        );
+      if (m.data.inventory_enabled)
+        actions.append(
+          button('Добавить телевизор', () => this.editInventory(), 'button', 'device-tv-add'),
+        );
+    }
+    actions.append(
+      button('Проверить связь', () => void m.load(m.actor, m.branch), 'button', 'device-refresh'),
+    );
+    heading.append(intro, actions);
+    panel.append(heading);
+    if (this.inventoryEditor) panel.append(this.inventoryEditor);
     if (m.error) {
       const notice = el(
         'p',
         'notice error',
         m.uncertain
-          ? 'Ответ не получен. Проверьте список устройств перед выпуском нового кода. Повтор автоматически не отправляется.'
+          ? 'Ответ не получен. Проверьте список перед повтором. Для карточки оборудования можно повторить сохранение того же ввода.'
           : message(m.error),
       );
       notice.setAttribute('role', 'alert');
       panel.append(notice);
-      panel.append(
-        button(
-          'Обновить устройства',
-          () => void m.load(m.actor, m.branch),
-          'button',
-          'device-refresh',
-        ),
-      );
-    }
-    if (m.code && Date.parse(m.code.expires_at) <= Date.now()) m.hideCode();
-    if (m.code) {
-      const code = el('section', 'notice');
-      code.setAttribute('aria-label', 'Код подключения');
-      code.append(
-        el(
-          'h3',
-          '',
-          m.code.purpose === 'kitchen-password-reset'
-            ? 'Код восстановления пароля кухни'
-            : 'Введите код на нужном экране',
-        ),
-        el('code', '', m.code.code),
-        el(
-          'p',
-          '',
-          `Код действует до ${date(m.code.expires_at)}. Показывается только сейчас. Не передавайте его посторонним.`,
-        ),
-      );
-      code.append(
-        button(
-          'Скрыть код',
-          () => {
-            m.hideCode();
-            code.remove();
-          },
-          'button',
-        ),
-      );
-      panel.append(code);
     }
     if (!m.data) {
       panel.append(
@@ -90,107 +77,396 @@ export class DeviceAccessView {
           'p',
           'muted',
           m.error
-            ? 'Подключение экранов пока недоступно. Действующие устройства не изменены.'
+            ? 'Нет актуальных данных об устройствах. Проверьте соединение и повторите проверку.'
             : 'Загружаем устройства…',
         ),
       );
       target.append(panel);
       return;
     }
-    const reset = el('section', 'op-panel');
-    reset.append(
-      el('h3', '', 'Пароль кухни и сборки'),
-      el(
-        'p',
-        'muted',
-        'Для общего входа kitchen. Управляющий выдаёт одноразовый код, а новый пароль сотрудник вводит на подключённом экране кухни или сборки. Старые входы завершатся, личные PIN кассы не меняются.',
-      ),
-    );
-    if (m.data.password_reset)
-      reset.append(
+    if (m.data.pairing_enabled === false)
+      panel.append(
         el(
           'p',
-          'op-badge',
-          m.data.password_reset.state === 'used'
-            ? 'Пароль изменён'
-            : m.data.password_reset.state === 'applied'
-              ? 'Код готов на кассе'
-              : m.data.password_reset.state === 'rejected'
-                ? 'Сброс отклонён кассой'
-                : Date.parse(m.data.password_reset.expires_at) <= Date.now()
-                  ? 'Код истёк'
-                  : 'Ждём кассу',
+          'notice',
+          'Список устройств доступен. Подключение новых экранов кухни требует завершения настройки кассы. Действующие привязки сохранены.',
         ),
       );
-    if (m.data.role === 'manager') {
-      const b = button('Восстановить пароль кухни', () => this.resetPassword(), 'button');
-      b.disabled = m.busy;
-      reset.append(b);
+    if (m.code && Date.parse(m.code.expires_at) <= m.now()) m.hideCode();
+    if (m.code) {
+      const code = el('section', 'device-code');
+      code.setAttribute('aria-label', 'Код подключения');
+      code.append(
+        el(
+          'h3',
+          '',
+          m.code.purpose === 'kitchen-password-reset'
+            ? 'Код восстановления пароля кухни'
+            : 'Код для нового экрана',
+        ),
+        el('code', '', m.code.code),
+        el(
+          'p',
+          'muted',
+          `Действует до ${date(m.code.expires_at)}. Введите его в PickChick на нужном экране.`,
+        ),
+      );
+      const copy = button(
+        'Скопировать код',
+        () =>
+          void navigator.clipboard
+            .writeText(m.code?.code ?? '')
+            .then(() => {
+              copy.textContent = 'Скопировано';
+            })
+            .catch(() => {
+              copy.textContent = 'Выделите и скопируйте код';
+            }),
+        'button',
+      );
+      code.append(
+        copy,
+        button(
+          'Скрыть код',
+          () => {
+            m.hideCode();
+            code.remove();
+          },
+          'button subtle',
+        ),
+      );
+      panel.append(code);
     }
-    reset.append(button('Журнал восстановления', () => void this.resetHistory(), 'button subtle'));
-    panel.append(reset);
-    const groups: [string, (d: DeviceRow) => boolean][] = [
-      ['Касса и моноблок', (d) => ['edge', 'pos'].includes(d.kind)],
-      ['Киоски iPad', (d) => d.kind === 'kiosk'],
-      ['Кухня - приготовление', (d) => d.mode === 'prep' || (d.kind === 'kitchen' && !d.mode)],
-      ['Кухня - сборка', (d) => d.mode === 'assembly'],
-      ['Табло / LED', (d) => d.kind === 'display'],
-    ];
-    for (const [title, match] of groups) {
-      const rows = m.data.devices.filter(match);
-      const group = el('section');
-      group.append(el('h3', '', title));
-      if (!rows.length) group.append(el('p', 'muted', 'Устройства не подключены.'));
-      for (const device of rows) group.append(this.row(device));
-      panel.append(group);
+    const controls = el('div', 'device-filters');
+    const rows: { node: HTMLTableRowElement; device: DeviceRow }[] = [];
+    const apply = () => {
+      let count = 0;
+      for (const r of rows) {
+        const d = r.device;
+        const text = [d.name, d.location, d.notes, d.kind].join(' ').toLocaleLowerCase('ru');
+        const state = deviceConnection(d, m.now());
+        r.node.hidden = !(
+          text.includes(this.search.toLocaleLowerCase('ru')) &&
+          (this.show === 'archived'
+            ? !!d.archived
+            : this.show === 'attention'
+              ? !d.archived && state.tone === 'warning'
+              : !d.archived)
+        );
+        if (!r.node.hidden) count++;
+      }
+      empty.hidden = count > 0;
+    };
+    controls.append(
+      field(
+        'Найти устройство',
+        this.search,
+        (v) => {
+          this.search = v;
+          apply();
+        },
+        { id: 'device-search', hint: 'Название или место установки' },
+      ),
+      select(
+        'Показать',
+        this.show,
+        [
+          { value: 'active', label: 'Все действующие' },
+          { value: 'attention', label: 'Требуют внимания' },
+          { value: 'archived', label: 'Архив оборудования' },
+        ],
+        (v) => {
+          this.show = v;
+          apply();
+        },
+      ),
+    );
+    panel.append(controls);
+    const wrap = el('div', 'device-table-wrap'),
+      table = el('table', 'device-table'),
+      head = el('thead'),
+      hr = el('tr');
+    for (const label of ['Устройство', 'Состояние', 'Последний ответ', 'Действия']) {
+      const th = el('th', '', label);
+      th.scope = 'col';
+      hr.append(th);
+    }
+    head.append(hr);
+    table.append(head);
+    const body = el('tbody');
+    for (const d of m.data.devices) {
+      const node = this.row(d);
+      rows.push({ node, device: d });
+      body.append(node);
+    }
+    table.append(body);
+    wrap.append(table);
+    panel.append(wrap);
+    const empty = el('p', 'device-empty', 'По выбранным условиям устройств нет.');
+    panel.append(empty);
+    apply();
+    const footer = el(
+      'p',
+      'muted device-footnote',
+      `Последняя проверка: ${date(m.data.as_of)}. Статус приложения не подтверждает питание самого дисплея.`,
+    );
+    panel.append(footer);
+    if (m.data.pairing_enabled !== false) {
+      const reset = el('details', 'device-help'),
+        summary = el('summary', '', 'Доступ кухни и история восстановления');
+      reset.append(
+        summary,
+        el(
+          'p',
+          'muted',
+          'Привязка экрана и вход сотрудника независимы. Восстановление пароля kitchen не меняет личные PIN кассы.',
+        ),
+      );
+      if (m.data.password_reset)
+        reset.append(
+          el(
+            'p',
+            '',
+            `Последний запрос: ${m.data.password_reset.state === 'used' ? 'Пароль изменён' : m.data.password_reset.state === 'applied' ? 'Код готов на кассе' : Date.parse(m.data.password_reset.expires_at) <= m.now() ? 'Код истёк' : 'Ожидает подтверждения кассы'}`,
+          ),
+        );
+      if (m.data.role === 'manager')
+        reset.append(button('Восстановить пароль кухни', () => this.resetPassword(), 'button'));
+      reset.append(
+        button('Журнал восстановления', () => void this.resetHistory(), 'button subtle'),
+      );
+      panel.append(reset);
     }
     target.append(panel);
   }
   private row(d: DeviceRow) {
-    const row = el('article', 'op-panel');
-    row.append(el('h4', '', d.name), el('p', 'op-badge', deviceStatus(d)));
-    if (d.kind === 'edge')
-      row.append(
-        el(
-          'p',
-          'muted',
-          `Последний ответ кассы: ${date(d.last_seen_at)}. Ключ облака действует до ${date(d.key_expires_at)}.`,
-        ),
-        el(
-          'p',
-          'muted',
-          'Замена кассы выполняется по процедуре переноса точки. Отключение здесь недоступно.',
-        ),
+    const row = el('tr'),
+      name = el('td'),
+      status = el('td'),
+      seen = el('td'),
+      actions = el('td');
+    const kinds: Record<string, string> = {
+      edge: 'Кассовый моноблок / локальный сервер',
+      pos: 'Кассовое приложение',
+      kiosk: 'Киоск iPad',
+      kitchen: 'Кухня',
+      display: 'Табло номеров',
+      usb_tv: 'Телевизор с USB',
+    };
+    name.append(
+      el('strong', '', d.name),
+      el(
+        'span',
+        'muted',
+        d.mode
+          ? (modes.find((m) => m.value === d.mode)?.label ?? d.mode)
+          : (kinds[d.kind] ?? d.kind),
+      ),
+    );
+    if (d.location) name.append(el('span', 'muted', d.location));
+    const state = deviceConnection(d, this.model.now());
+    status.append(
+      el('span', `device-status ${state.tone}`, state.label),
+      el('p', 'muted', state.detail),
+    );
+    const last = d.kind === 'edge' ? d.last_seen_at : (d.presence?.observed_at ?? null);
+    seen.append(el('span', '', d.kind === 'usb_tv' ? 'Не передаётся' : date(last)));
+    if (d.presence?.app_version)
+      seen.append(el('span', 'muted', `Версия ${d.presence.app_version}`));
+    if (d.presence?.menu_version)
+      seen.append(el('span', 'muted', `Меню v${d.presence.menu_version}`));
+    if (d.mode) seen.append(el('span', 'muted', `Привязка: ${deviceStatus(d, this.model.now())}`));
+    const buttons = el('div', 'op-actions');
+    if (this.model.data?.inventory_enabled) {
+      if (this.model.data.role === 'manager')
+        buttons.append(button('Изменить', () => this.editInventory(d), 'button subtle'));
+      buttons.append(
+        button('История карточки', () => void this.inventoryHistory(d), 'button subtle'),
       );
-    else if (d.kind === 'kiosk')
-      row.append(
-        el(
-          'p',
-          'muted',
-          'Существующая привязка iPad сохранена. Изменение доступа киоска выполняется отдельно от настройки экранов кухни.',
-        ),
-      );
-    else if (!d.mode)
-      row.append(
-        el(
-          'p',
-          'muted',
-          'Устройство подключено прежним способом. Для нового экрана выпустите отдельный код.',
-        ),
-      );
+    }
     if (d.mode) {
-      const actions = el('div', 'op-actions');
-      actions.append(button('Журнал', () => void this.history(d), 'button subtle'));
-      if (this.model.data?.role === 'manager' && d.status !== 'revoked') {
-        const pair = button('Новый код', () => this.pair(d), 'button');
+      buttons.append(button('История доступа', () => void this.history(d), 'button subtle'));
+      if (this.model.data?.role === 'manager' && this.model.data.pairing_enabled !== false) {
+        const pair = button(
+          d.status === 'revoked' ? 'Подключить снова' : 'Новый код',
+          () => this.pair(d),
+          'button',
+        );
         pair.disabled = this.model.busy;
-        const revoke = button('Отключить', () => this.revoke(d), 'button danger');
-        revoke.disabled = this.model.busy;
-        actions.append(pair, revoke);
+        buttons.append(pair);
+        if (d.status !== 'revoked') {
+          const revoke = button('Отключить', () => this.revoke(d), 'button danger');
+          revoke.disabled = this.model.busy;
+          buttons.append(revoke);
+        }
       }
-      row.append(actions);
+    }
+    if (d.kind === 'edge')
+      buttons.append(el('span', 'muted', 'Перенос основной кассы выполняется отдельно.'));
+    if (d.kind === 'kiosk')
+      buttons.append(el('span', 'muted', 'Действующая регистрация iPad сохранена.'));
+    actions.append(buttons);
+    for (const [cell, label] of [
+      [name, 'Устройство'],
+      [status, 'Состояние'],
+      [seen, 'Последний ответ'],
+      [actions, 'Действия'],
+    ] as const) {
+      cell.dataset['label'] = label;
+      row.append(cell);
     }
     return row;
+  }
+  private editInventory(device?: DeviceRow) {
+    this.inventoryEditor?.remove();
+    const dialog = el('section', 'device-editor');
+    this.inventoryEditor = dialog;
+    this.editorScope = this.model.actor + ':' + this.model.branch;
+    const title = el('h3', '', device ? 'Карточка устройства' : 'Телевизор с USB');
+    title.id = 'device-editor-title';
+    dialog.setAttribute('aria-labelledby', title.id);
+    dialog.append(title);
+    const close = () => {
+      dialog.remove();
+      if (this.inventoryEditor === dialog) this.inventoryEditor = null;
+    };
+    const id = device?.id ?? crypto.randomUUID();
+    let name = device?.name ?? '',
+      location = device?.location ?? '',
+      notes = device?.notes ?? '',
+      reason = '',
+      archived = device?.archived ?? false;
+    dialog.append(
+      el(
+        'p',
+        'muted',
+        device?.kind === 'usb_tv' || !device
+          ? 'Карточка оборудования. USB-воспроизведение не передаёт состояние телевизора.'
+          : 'Название и место установки меняются без изменения ключей и прав устройства.',
+      ),
+    );
+    dialog.append(
+      field(
+        'Название',
+        name,
+        (v) => {
+          name = v;
+        },
+        { required: true, max: 120, id: 'inventory-device-name' },
+      ),
+      field(
+        'Место установки',
+        location,
+        (v) => {
+          location = v;
+        },
+        { max: 120, id: 'inventory-device-location' },
+      ),
+      field(
+        'Примечание',
+        notes,
+        (v) => {
+          notes = v;
+        },
+        { max: 500, id: 'inventory-device-notes' },
+      ),
+      field(
+        'Причина изменения',
+        reason,
+        (v) => {
+          reason = v;
+        },
+        { required: true, max: 500, id: 'inventory-device-reason' },
+      ),
+    );
+    if (device?.kind === 'usb_tv')
+      dialog.append(
+        select(
+          'Карточка',
+          archived ? 'archived' : 'active',
+          [
+            { value: 'active', label: 'Используется' },
+            { value: 'archived', label: 'В архиве' },
+          ],
+          (v) => {
+            archived = v === 'archived';
+          },
+        ),
+      );
+    const error = el('p', 'notice error');
+    error.setAttribute('role', 'alert');
+    dialog.append(error);
+    const save = button(
+      'Сохранить',
+      () =>
+        void (async () => {
+          if (!name.trim() || reason.trim().length < 3) {
+            error.textContent = 'Укажите название и причину.';
+            return;
+          }
+          save.disabled = true;
+          try {
+            const ok = await this.model.saveInventory({
+              id,
+              kind: device && device.kind !== 'usb_tv' ? 'registered' : 'usb_tv',
+              expected_revision: device?.inventory_revision ?? 0,
+              name: name.trim(),
+              location: location.trim(),
+              notes: notes.trim(),
+              archived,
+              reason: reason.trim(),
+            });
+            if (ok) close();
+            else error.textContent = message(this.model.error);
+          } finally {
+            save.disabled = false;
+          }
+        })(),
+      'button primary',
+      'inventory-device-save',
+    );
+    const actions = el('div', 'op-actions');
+    actions.append(save, button('Отмена', close, 'button'));
+    dialog.append(actions);
+    this.target?.querySelector('.device-heading')?.after(dialog);
+    dialog.querySelector<HTMLInputElement>('input')?.focus();
+  }
+  private async inventoryHistory(device: DeviceRow) {
+    const dialog = modal(`История карточки: ${device.name}`);
+    try {
+      const events = await this.model.inventoryHistory(device.id);
+      if (!events.length) dialog.append(el('p', 'muted', 'Карточка ещё не изменялась.'));
+      for (const e of events) {
+        const after = e['after_state'] as Record<string, unknown>,
+          before = (e['before_state'] ?? {}) as Record<string, unknown>;
+        const entry = el('section', 'device-history-entry');
+        entry.append(
+          el('h3', '', `${date(String(e['at']))}: ${String(e['reason'])}`),
+          el(
+            'p',
+            'muted',
+            `Редакция ${String(after['revision'])}. Автор: ${String(e['actor_id'])}`,
+          ),
+        );
+        for (const [key, label] of [
+          ['name', 'Название'],
+          ['location', 'Место установки'],
+          ['notes', 'Примечание'],
+          ['archived', 'Архив'],
+        ] as const) {
+          if (before[key] !== after[key])
+            entry.append(
+              el('p', '', `${label}: ${String(before[key] ?? '-')} → ${String(after[key] ?? '-')}`),
+            );
+        }
+        dialog.append(entry);
+      }
+    } catch {
+      dialog.append(
+        el('p', 'notice error', 'Не удалось загрузить историю. Закройте окно и повторите.'),
+      );
+    }
+    dialog.append(button('Закрыть', () => dialog.close(), 'button'));
   }
   private pair(device?: DeviceRow) {
     const d = modal(device ? 'Новый код для экрана' : 'Подключить экран');

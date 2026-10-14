@@ -1,9 +1,14 @@
 /** Schema020 only. Separate mailbox metadata and runtime reset privileges.
  * No staff enrollment, role/PIN changes, order access or worker password verifiers. */
-export function terminalAccessGrants(role, schema = 'public', { worker = false } = {}) {
+export function terminalAccessGrants(
+  role,
+  schema = 'public',
+  { worker = false, presence = false } = {},
+) {
   for (const id of [role, schema])
     if (!/^[a-z][a-z0-9_]{0,62}$/.test(id)) throw new Error('Invalid terminal access identifier');
-  if (typeof worker !== 'boolean') throw new Error('Invalid terminal access role');
+  if (typeof worker !== 'boolean' || typeof presence !== 'boolean')
+    throw new Error('Invalid terminal access role');
   const grant = (privilege, tables) =>
     `GRANT ${privilege} ON ${tables.map((t) => `"${schema}"."${t}"`).join(',')} TO "${role}";`;
   return [
@@ -19,6 +24,12 @@ export function terminalAccessGrants(role, schema = 'public', { worker = false }
     grant('UPDATE(active)', ['local_terminals']),
     grant('UPDATE(state,code_hash,key_hash)', ['terminal_access_registry']),
     grant('UPDATE(state)', ['terminal_access_commands', 'kitchen_password_reset_commands']),
+    ...(presence
+      ? [
+          grant('SELECT', ['terminal_presence']),
+          ...(worker ? [] : [grant('INSERT,UPDATE', ['terminal_presence'])]),
+        ]
+      : []),
     ...(worker
       ? [
           grant('INSERT', [

@@ -98,3 +98,76 @@ test('edge availability is not misrepresented as browser online status', () => {
     'Отключение ждёт кассу',
   );
 });
+
+test('inventory unknown result retries the same request and branch switch clears it', async () => {
+  const branch = randomUUID(),
+    actor = randomUUID(),
+    ids = [];
+  let fail = true;
+  const m = new DevicesModel(
+    async (path, req) => {
+      if (!req) return snapshot(path.split('/')[1]);
+      ids.push(req.body.request_id);
+      if (fail) throw new ApiError('NETWORK');
+      return {};
+    },
+    () => {},
+  );
+  await m.load(actor, branch);
+  const body = { id: randomUUID(), name: 'USB' };
+  assert.equal(await m.saveInventory(body), false);
+  fail = false;
+  assert.equal(await m.saveInventory(body), true);
+  assert.equal(ids[0], ids[1]);
+  await m.load(actor, randomUUID());
+  await m.saveInventory(body);
+  assert.notEqual(ids[1], ids[2]);
+});
+
+test('online requires fresh application observation and reachable parent; USB is never online', async () => {
+  const { deviceConnection } = await import('../../apps/backoffice/dist/devices-model.js');
+  const now = Date.now(),
+    recent = new Date(now).toISOString();
+  const d = {
+    kind: 'kitchen',
+    mode: 'prep',
+    status: 'active',
+    paired_at: recent,
+    edge_last_seen_at: recent,
+    presence: { observed_at: recent, state: 'active', issue: 'none' },
+  };
+  assert.equal(deviceConnection(d, now).tone, 'good');
+  assert.equal(
+    deviceConnection({ ...d, edge_last_seen_at: null }, now).label,
+    'Состояние неизвестно',
+  );
+  assert.equal(deviceConnection({ ...d, presence: null }, now).label, 'Связь не проверена');
+  assert.equal(deviceConnection(d, now + 100000).tone, 'warning');
+  assert.equal(deviceConnection({ ...d, kind: 'usb_tv' }, now).label, 'Без мониторинга');
+  assert.equal(deviceConnection({ ...d, status: 'revoked' }, now).label, 'Доступ отключён');
+  for (const path of ['devices/inventory', 'devices/' + randomUUID() + '/inventory-events'])
+    assert.equal(allowedPath(`operations/branches/${randomUUID()}/${path}`), true);
+});
+
+test('failed and expired pairing appear among attention states', async () => {
+  const { deviceConnection } = await import('../../apps/backoffice/dist/devices-model.js');
+  const now = Date.now(),
+    row = {
+      kind: 'kitchen',
+      mode: 'prep',
+      status: 'pending',
+      paired_at: null,
+      command_action: 'pair',
+      command_state: 'rejected',
+      code_expires_at: new Date(now + 10000).toISOString(),
+    };
+  assert.equal(deviceStatus(row, now), 'Касса отклонила команду');
+  assert.equal(deviceConnection(row, now).tone, 'warning');
+  assert.equal(
+    deviceConnection(
+      { ...row, command_state: 'applied', code_expires_at: new Date(now - 1).toISOString() },
+      now,
+    ).tone,
+    'warning',
+  );
+});
