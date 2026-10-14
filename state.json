@@ -5346,7 +5346,6 @@
         "apps/mobile/src/games/pick-man/motion.ts",
         "apps/mobile/src/games/pick-man/usePickMan.ts",
         "apps/mobile/package.json",
-        "apps/mobile/app.json",
         "apps/mobile/app.config.ts",
         "pnpm-lock.yaml",
         "package.json",
@@ -5356,8 +5355,6 @@
         "packages/contracts/src/notifications.ts",
         "packages/contracts/openapi.json",
         "scripts/contracts.mjs",
-        "docs/project-status.md",
-        "docs/roadmap/project.json",
         "docs/01-technical-spec.md",
         "tests/mobile/browser_localization.py",
         "tests/notifications",
@@ -5369,7 +5366,8 @@
       ],
       "status": "active",
       "head": "47efd26963c16cc734d9ce98c98cbf04815e98d6",
-      "updatedAt": "2026-10-14T11:14:46.018Z"
+      "updatedAt": "2026-10-14T11:23:59.578Z",
+      "summary": " 14 октября: по прямому поручению владельца выпуск iPhone с PR246/248 выполняется этим же Mac; app.json/status/roadmap временно переданы mobile-payment-recovery. Незавершённые переводы сохранены в отдельной рабочей копии, в выпуск не входят."
     },
     {
       "id": "mobile-payment-recovery",
