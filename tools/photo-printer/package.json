@@ -1,0 +1,16 @@
+{
+  "name": "@pickchick/photo-printer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.16.0"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "cd ../.. && node --test tests/photo-printer/*.test.mjs"
+  },
+  "dependencies": {
+    "sharp": "0.35.5"
+  }
+}

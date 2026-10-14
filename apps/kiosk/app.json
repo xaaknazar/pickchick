@@ -18,7 +18,8 @@
         "CFBundleLocalizations": ["ru", "kk"],
         "UIRequiresFullScreen": true,
         "UIStatusBarHidden": true,
-        "UIViewControllerBasedStatusBarAppearance": false
+        "UIViewControllerBasedStatusBarAppearance": false,
+        "NSLocalNetworkUsageDescription": "Подключение к фотопринтеру PickChick в локальной сети ресторана."
       }
     },
     "web": {
@@ -41,6 +42,15 @@
         {
           "supportsBackgroundPlayback": false,
           "supportsPictureInPicture": false
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Разрешите камеру, чтобы сделать фото на память и напечатать его в PickChick.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": false
         }
       ]
     ],
