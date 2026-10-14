@@ -5055,8 +5055,8 @@
       "id": "kiosk-owner-polish-1013",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-owner-polish-1013",
-      "head": "9e24cc3db70ed817cee953fe00b2d516861e0540",
-      "status": "active",
+      "head": "54348f9d9126d30c3eeeaacf71a9562f31e77ff8",
+      "status": "available",
       "scopes": [
         "apps/kiosk/.storybook",
         "apps/kiosk/App.tsx",
@@ -5162,9 +5162,9 @@
         "apps/kiosk/src/components/UpsellCards.tsx",
         "@vps/catalog"
       ],
-      "updatedAt": "2026-10-14T09:17:04.339Z",
-      "summary": "Build18 installed/native verified (db682ae1). UI full CI 2d1 green 11/11. Published consolidated checkpoint 81cf5cb7 incl exact Windows release ancestry; current CI running. No TestFlight or real payments.",
-      "nextAction": "Restore Mac connection to cashier LAN; retry pinned SSH; fresh guards, worker-only install then API encrypted backup/restore and apply; publish final roadmap and return temporary reservations."
+      "updatedAt": "2026-10-14T09:54:47.644Z",
+      "summary": "Build21 deb62522 установлен по USB поверх20, strict codesign/хеши/версия/запуск подтверждены. Полная CI установленного исходника11/11; native demo1/1, 0 ошибок/пропусков,15 снимков, заставка вне демо. Допы опущены16pt; Piko яблоко/апельсин catalog11/draft24 опубликованы по разрешению владельца без изменения цен, edge menu8 applied. Документы и пульт54348f9d опубликованы, health совпал, бизнес-сервисы неизменны. PR245 обновлён; его последний commit только документы/снимки.",
+      "nextAction": "Приёмка владельцем build21; дождаться CI документационного checkpoint54348f9d перед включением PR245 в shared. Сервер/Windows больших заказов отдельно от текущего device-center baseline; прежние пакеты не применять. TestFlight и реальные счета/QR/оплаты не выполнять без прямого поручения."
     },
     {
       "id": "mobile-payment-recovery",
