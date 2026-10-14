@@ -149,8 +149,49 @@ def swipe_carousel(page):
     expect(page.get_by_test_id('order-games-counter')).to_have_text('1 / 3')
 
 
+def play_from_order(page, prefix, reopen=None):
+    """Exercise navigation and touch input on web; native presentation is a separate check."""
+    source_url = page.url
+    for tile, game, screen, exit_button in [
+        ('order-play-blocks', 'pick-blocks', 'pick-blocks-screen', lambda: page.get_by_test_id('blocks-exit')),
+        ('order-play-pick-man', 'pick-man', 'pick-man-screen', lambda: page.get_by_test_id('pick-man-exit')),
+        ('order-play-magic-sort', 'magic-sort', 'magic-sort-screen', lambda: page.get_by_role('button', name='Выйти из Magic Sort')),
+    ]:
+        page.get_by_test_id(tile).click()
+        page.wait_for_url('**/games/' + game + '?**')
+        assert parse_qs(urlparse(page.url).query).get('from') == ['order'], page.url
+        expect(page.get_by_test_id(screen)).to_be_visible()
+        expect(page.get_by_test_id('order-status-scroll')).not_to_be_visible()
+        if game == 'pick-man':
+            expect(exit_button()).to_have_attribute('aria-label', 'К заказу')
+            page.get_by_test_id('pick-man-start').click()
+            board = page.get_by_test_id('pick-man-board')
+            expect(board).to_be_visible()
+            before = page.get_by_test_id(screen).bounding_box()
+            box = board.bounding_box()
+            x, y = box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
+            touch = page.context.new_cdp_session(page)
+            for dx, dy in [(0, 65), (-65, 0), (65, 0), (0, -65)]:
+                touch.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [{'x': x, 'y': y}]})
+                for step in range(1, 5):
+                    touch.send('Input.dispatchTouchEvent', {'type': 'touchMove', 'touchPoints': [{'x': x + dx * step / 4, 'y': y + dy * step / 4}]})
+                    page.wait_for_timeout(20)
+                touch.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
+                assert page.get_by_test_id(screen).bounding_box() == before
+            touch.detach()
+            page.get_by_test_id('pick-man-pause').click()
+            expect(page.get_by_text('К заказу', exact=True)).to_be_visible()
+            page.wait_for_function('JSON.parse(localStorage.getItem("pickchick.pick-man.v1"))?.game.desired === "up"')
+            page.screenshot(path=str(OUT / f'{prefix}-pick-man-gestures.png'))
+        exit_button().click()
+        page.wait_for_url(source_url)
+        if reopen:
+            reopen()
+        expect(page.get_by_test_id('order-status-scroll')).to_be_visible()
+
+
 def test_flow(browser):
-    ctx = isolated_context(browser, viewport={'width': WIDTH, 'height': HEIGHT}, device_scale_factor=2, reduced_motion='reduce')
+    ctx = isolated_context(browser, viewport={'width': WIDTH, 'height': HEIGHT}, device_scale_factor=2, reduced_motion='reduce', has_touch=True)
     signed_in(ctx)
     ctx.add_init_script('localStorage.setItem("pickchick.test.customer.v1",' + json.dumps(json.dumps(SESSION)) + ')')
     order = copy.deepcopy(ORDER)
@@ -206,10 +247,7 @@ def test_flow(browser):
         if name == 'kitchen':
             swipe_carousel(page)
         capture(page, f'tracker-{name}')
-    # One helper opens every game: the order origin travels with the route.
-    page.get_by_test_id('order-play-blocks').click()
-    page.wait_for_url('**/games/pick-blocks?**')
-    assert parse_qs(urlparse(page.url).query).get('from') == ['order'], page.url
+    play_from_order(page, 'sim')
     teardown[0] = True
     for held in waiting:
         try: held.abort()
@@ -234,7 +272,7 @@ def kaspi_flow(browser):
                 'totalMinor': '419000', 'serviceMode': 'takeaway', 'kitchenComment': None, 'phase': state['phase'], 'expiresAt': None, 'receipt': 'deferred',
                 'receiptUrl': None, 'items': [{'productId': 'pick-combo', 'title': 'Pick Combo', 'quantity': 1, 'totalMinor': '419000', 'modifiers': [s['option_label'] for s in SELECTIONS]}]}
 
-    ctx = isolated_context(browser, viewport={'width': WIDTH, 'height': HEIGHT}, device_scale_factor=2, reduced_motion='reduce')
+    ctx = isolated_context(browser, viewport={'width': WIDTH, 'height': HEIGHT}, device_scale_factor=2, reduced_motion='reduce', has_touch=True)
     ctx.add_init_script('sessionStorage.setItem("pickchick.customer.session.v1",' + json.dumps(json.dumps(envelope)) + ');')
 
     def route(r):
@@ -283,6 +321,9 @@ def kaspi_flow(browser):
         assert receipt.get_attribute('role') != 'button', 'Status-only receipt tile is not an action'
         expect(page.get_by_test_id('order-support')).to_have_count(0)
         capture(page, f'kaspi-tracker-{name}')
+    # History's native Modal closes before opening a game. Back returns to the same history;
+    # reopening the same order must still show its current state, without starting a new order.
+    play_from_order(page, 'kaspi', lambda: page.get_by_test_id(f'order-history-open-{order_id}').click())
     state['teardown'] = True
     for held in state['held']:
         try: held.abort()
