@@ -1,12 +1,10 @@
 import { Animated, Text, View } from 'react-native';
-import { Image } from 'expo-image';
 import { money } from '../cart';
-import type { Locale } from '../i18n';
+import { copy, type Locale } from '../i18n';
 import { paymentCopy } from '../paymentCopy';
 import { colors, fonts, useMetrics } from '../theme';
 import { fixedText } from './Body';
 import { useEnter } from './motion';
-const kaspiLogo = require('../../assets/v3/kaspi.webp');
 /**
  * Centre of the Kaspi QR screen (kiosk redesign 2026-10-13, product-and-payment.md §4, 1024-pt
  * layout): the Kaspi mark 62 on a white ring beside «Kaspi QR» (Montserrat 900 40), «К оплате»
@@ -18,7 +16,6 @@ export function KaspiAmount({ total, locale }: { total: string; locale: Locale }
   const t = paymentCopy(locale);
   const drop = useEnter(0, 360);
   const rise = useEnter(60, 360);
-  const mark = px(62);
   const amount = px(92);
   return (
     <View style={{ alignItems: 'center', maxWidth: '100%' }}>
@@ -33,25 +30,6 @@ export function KaspiAmount({ total, locale }: { total: string; locale: Locale }
           ],
         }}
       >
-        <View
-          style={{
-            width: mark,
-            height: mark,
-            borderRadius: mark / 2,
-            backgroundColor: colors.white,
-            padding: Math.max(2, px(4)),
-            boxShadow: `0 ${px(6)}px ${px(16)}px rgba(2,10,31,.25)`,
-          }}
-        >
-          <Image
-            testID="kiosk-payment-kaspi-mark"
-            source={kaspiLogo}
-            contentFit="contain"
-            accessible={false}
-            accessibilityLabel=""
-            style={{ width: '100%', height: '100%' }}
-          />
-        </View>
         <Text
           {...fixedText}
           accessibilityRole="header"
@@ -64,7 +42,7 @@ export function KaspiAmount({ total, locale }: { total: string; locale: Locale }
             color: colors.white,
           }}
         >
-          Kaspi QR
+          {copy(locale).payKaspiQR}
         </Text>
       </Animated.View>
       <Animated.View

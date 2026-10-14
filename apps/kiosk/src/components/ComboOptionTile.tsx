@@ -1,3 +1,4 @@
+import { glassSurface } from './glassSurface';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { KioskModifierGroup } from '../model';
@@ -106,6 +107,8 @@ export function ComboOptionTile({
   const { px } = useMetrics();
   const t = copy(locale);
   const text = optionText(option.label);
+  if ((option.id === 'pick' || option.id === 'sauce') && !/\d/.test(text.caption))
+    text.caption = '60 ' + (locale === 'en' ? 'ml' : 'мл');
   const name = text.name || option.label;
   const photo = optionPhoto(option.id);
   // A photo shot on a light backdrop gives the tile that backdrop, so no box shows around it
@@ -363,19 +366,17 @@ export function ComboOptionTile({
             position: 'absolute',
             top: px(10),
             left: px(10),
-            width: px(32),
-            height: px(32),
-            borderRadius: px(16),
-            backgroundColor: colors.white,
-            borderWidth: 1,
-            borderColor: 'rgba(21,33,58,.12)',
+            width: Math.max(44, px(44)),
+            height: Math.max(44, px(44)),
+            borderRadius: 999,
+            ...glassSurface('brand'),
             alignItems: 'center',
             justifyContent: 'center',
-            opacity: selected ? 1 : 0,
+            opacity: selected ? 1 : 0.55,
             transform: [{ scale: pressed ? 0.9 : 1 }],
           })}
         >
-          <Icon name="remove" size="small" tone="navy" />
+          <Icon name="remove" tone="inverse" />
         </Pressable>
       ) : null}
     </Animated.View>

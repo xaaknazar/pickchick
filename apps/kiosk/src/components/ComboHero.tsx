@@ -99,7 +99,7 @@ export function ComboHero({
             paddingRight: px(12),
             // A direct layer of the clip, so its multiply sees the cream and the illustration
             // (every web view is its own stacking context).
-            mixBlendMode: blend ? 'multiply' : 'normal',
+            zIndex: 1,
           }}
         >
           <View

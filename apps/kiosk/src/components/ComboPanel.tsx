@@ -1,3 +1,4 @@
+import { glassSurface } from './glassSurface';
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -250,7 +251,7 @@ export function ComboPanel({
                   paddingLeft: px(32),
                   paddingRight: px(28),
                   borderRadius: 999,
-                  backgroundColor: redesign.cta,
+                  ...glassSurface('accent'),
                   shadowColor: redesign.cta,
                   shadowOpacity: disabled ? 0 : 0.5,
                   shadowRadius: px(13),

@@ -47,7 +47,8 @@ export function PhotoImage({
             step === 0 && photo?.sha256 ? photo.sha256 : `${imageId}-${variant}-${step}-${index}`
           }
           source={source}
-          cachePolicy="disk"
+          cachePolicy="memory-disk"
+          allowDownscaling={false}
           onError={() =>
             setFailed((current) => ({
               key: chainKey,

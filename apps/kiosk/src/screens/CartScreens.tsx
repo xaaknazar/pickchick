@@ -37,6 +37,7 @@ import { Notice } from '../components/Notice';
 import { CheckoutSummary } from '../components/CheckoutSummary';
 import { PaymentMethodCard } from '../components/PaymentMethodCard';
 import { ProductSheet } from '../components/ProductSheet';
+import { initialSize, sheetFacts, sheetSizeGroup } from '../productSheet';
 import { selectionSummary } from '../components/selectionSummary';
 import { UpsellQuantity } from '../components/UpsellQuantity';
 import { opensInSheet } from '../productSheet';
@@ -114,7 +115,11 @@ export function UpsellScreen({
     return (
       <UpsellQuantity
         productId={p.id}
-        detail={last ? selectionSummary(last) : p.serving_label}
+        detail={
+          last
+            ? selectionSummary(last)
+            : (sheetFacts(p, initialSize(sheetSizeGroup(p))).serving ?? undefined)
+        }
         name={p.name}
         quantity={lines.reduce((sum, line) => sum + line.quantity, 0)}
         busy={model.busy}

@@ -36,7 +36,7 @@ export function PaymentMethodCard({
     : method === 'kaspi'
       ? commercial
         ? t.payQR
-        : 'Kaspi'
+        : t.payQR
       : t.card;
   const description = commercial
     ? invoice

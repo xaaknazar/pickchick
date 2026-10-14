@@ -1,3 +1,4 @@
+import { glassSurface } from './glassSurface';
 import { useMemo, type ReactNode } from 'react';
 import {
   Animated,
@@ -74,7 +75,7 @@ export function UpsellHero({
       locale={locale}
       onAdd={onAdd}
       controls={controls}
-      grow={329}
+      grow={0}
       minHeight={px(329)}
       toggle={toggle}
       inset={px(26)}
@@ -86,8 +87,8 @@ export function UpsellHero({
             position: 'absolute',
             left: '8%',
             width: '44%',
-            top: -px(36),
-            bottom: -px(36),
+            top: px(28),
+            bottom: px(28),
           })}
           <View
             style={{
@@ -214,7 +215,8 @@ export function UpsellTile({
       locale={locale}
       onAdd={onAdd}
       controls={controls}
-      grow={1}
+      grow={0}
+      minHeight={px(342)}
       toggle={toggle}
       inset={px(20)}
     >
@@ -267,8 +269,8 @@ export function UpsellTile({
         ) : (
           <>
             {photo({
-              flex: 1,
-              minHeight: px(110),
+              height: px(150),
+              flexShrink: 0,
               marginTop: px(18),
               marginHorizontal: px(22),
               marginBottom: px(6),
@@ -358,8 +360,8 @@ function Card({
         {
           borderRadius: blend ? 0 : px(20),
           overflow: 'hidden',
-          backgroundColor: blend ? 'transparent' : (shot?.tile ?? redesign.cream),
-          mixBlendMode: blend ? 'multiply' : 'normal',
+          backgroundColor: shot?.cutout ? 'transparent' : (shot?.tile ?? colors.white),
+          zIndex: 1,
         },
       ]}
     >
@@ -373,7 +375,8 @@ function Card({
         // A row tile fills its column; the hero keeps its 329 and takes a share of spare height.
         flexGrow: grow,
         flexShrink: 0,
-        flexBasis: minHeight === undefined ? 0 : 'auto',
+        flexBasis: 'auto',
+        width: '100%',
         minHeight,
         opacity: rise,
         transform: [
@@ -512,7 +515,7 @@ function Toggle({
             width: size,
             height: size,
             borderRadius: size / 2,
-            backgroundColor: redesign.cta,
+            ...glassSurface('accent'),
             alignItems: 'center',
             justifyContent: 'center',
             opacity: busy ? 0.7 : 1,

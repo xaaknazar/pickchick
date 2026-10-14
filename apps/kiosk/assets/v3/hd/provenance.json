@@ -1,0 +1,151 @@
+{
+  "date": "2026-10-14",
+  "tool": "OpenAI imagegen",
+  "brief": "Preserve supplied food, portions, tray, packaging and branding. Remove only background and cast shadow. Improve photographic detail; true alpha. Sauce illustrations use the reference portion cup, yellow cheese or dark barbecue contents, no invented Heinz retail packaging.",
+  "assets": [
+    {
+      "file": "burger-combo.png",
+      "source": "apps/kiosk/assets/v3/photos/burger-combo.webp",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "e68b76d4dbcbf54e878bd66ca4e5d8fc88a0d7d8749f22e2a6a578bd83a90c1f",
+      "treatment": "AI detail enhancement and transparent-background extraction"
+    },
+    {
+      "file": "burger-duo.png",
+      "source": "apps/kiosk/assets/v3/photos/burger-duo.webp",
+      "width": 1279,
+      "height": 1230,
+      "sha256": "901b383db22cddb1a6cfda519d16284d12dc40cbc9855724f6e3de5160b429dc",
+      "treatment": "AI detail enhancement and transparent-background extraction"
+    },
+    {
+      "file": "burger.png",
+      "source": "apps/kiosk/assets/v3/photos/burger.webp",
+      "width": 1478,
+      "height": 1064,
+      "sha256": "22b96d471260a41f903beec7b875dcc41b80c7de7bfb0f985edb0053ce376960",
+      "treatment": "AI detail enhancement and transparent-background extraction"
+    },
+    {
+      "file": "finger-duo.png",
+      "source": "apps/kiosk/assets/v3/photos/finger-duo.webp",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "5bfb4a6ce393f5759fa75267ed8bb343e9ad96cc934326cc9bc75f259a0dc918",
+      "treatment": "AI detail enhancement and transparent-background extraction"
+    },
+    {
+      "file": "fingers-100.png",
+      "source": "apps/kiosk/assets/v3/photos/fingers-100.webp",
+      "width": 1355,
+      "height": 1160,
+      "sha256": "593a42ceff054935c1d36419f708076b7804baf0096af7a038f55972871abf46",
+      "treatment": "AI detail enhancement and transparent-background extraction"
+    },
+    {
+      "file": "fingers-25.png",
+      "source": "apps/kiosk/assets/v3/photos/fingers-25.webp",
+      "width": 1672,
+      "height": 941,
+      "sha256": "b7a7af57ef3ff352647c6a75dae2f45ee1eef58b175e8628a948e849260b0c68",
+      "treatment": "AI detail enhancement and transparent-background extraction"
+    },
+    {
+      "file": "fingers-50.png",
+      "source": "apps/kiosk/assets/v3/photos/fingers-50.webp",
+      "width": 1479,
+      "height": 1063,
+      "sha256": "0255599577211f4a1353a5658510cebb254e20ab95b87bbe4601f5c40e2d7c0c",
+      "treatment": "AI detail enhancement and transparent-background extraction"
+    },
+    {
+      "file": "fingers-75.png",
+      "source": "apps/kiosk/assets/v3/photos/fingers-75.webp",
+      "width": 1353,
+      "height": 1162,
+      "sha256": "a09e693532e5593962f67e4139b2f3665211ffa352f4699d77b2bd39ed5ae190",
+      "treatment": "AI detail enhancement and transparent-background extraction"
+    },
+    {
+      "file": "heinz-bbq.png",
+      "source": "apps/mobile/assets/product-photo/signature-sauce.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "cb9bf7a8520547e7f6d1f8fed7643eb61c0a30fb65754fdc3eb1470c8162e6eb",
+      "treatment": "portion illustration based on sauce cup"
+    },
+    {
+      "file": "heinz-cheese.png",
+      "source": "apps/mobile/assets/product-photo/signature-sauce.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "5b3bf690383e62b92f5fa5774115b94aee033b59a459dac95bc65592bfe23961",
+      "treatment": "portion illustration based on sauce cup"
+    },
+    {
+      "file": "master-combo.png",
+      "source": "apps/kiosk/assets/v3/photos/master-combo.webp",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "66fdc570a4abded1f48214ada3fd859a7ebf79703418eb35c7685d0a26c1d6a6",
+      "treatment": "AI detail enhancement and transparent-background extraction"
+    },
+    {
+      "file": "mix-duo.png",
+      "source": "apps/kiosk/assets/v3/photos/mix-duo.webp",
+      "width": 1378,
+      "height": 1141,
+      "sha256": "c4e798fb8451d3ec4240c590e5eb1edefd915c50832c8213e0261015aa5a536c",
+      "treatment": "AI detail enhancement and transparent-background extraction"
+    },
+    {
+      "file": "pick-combo.png",
+      "source": "apps/kiosk/assets/v3/photos/pick-combo.webp",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "f12500b74015f7dae3ac6f246faf91541d7e28f112b7040753b29037b3dca2ff",
+      "treatment": "AI detail enhancement and transparent-background extraction"
+    },
+    {
+      "file": "sauce-hot.png",
+      "source": "apps/kiosk/assets/v3/photos/sauce-hot.webp",
+      "width": 1430,
+      "height": 1100,
+      "sha256": "8f3fa438d713529bd651def23585f7da105418c5f570448f96cbe979a4fef721",
+      "treatment": "AI detail enhancement and transparent-background extraction"
+    },
+    {
+      "file": "signature-60.png",
+      "source": "apps/mobile/assets/product-photo/signature-sauce.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "642a8c362a22be02c99467c455398223aaab053101be61a10f422241a94800dc",
+      "treatment": "AI detail enhancement and transparent-background extraction"
+    },
+    {
+      "file": "solo-combo.png",
+      "source": "apps/kiosk/assets/v3/photos/solo-combo.webp",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "33c24a2a931f090dbd3cbf4a4f4eb79942f2420da88b2155e572c785cd636618",
+      "treatment": "AI detail enhancement and transparent-background extraction"
+    },
+    {
+      "file": "toast.png",
+      "source": "apps/kiosk/assets/v3/photos/toast.webp",
+      "width": 1394,
+      "height": 1128,
+      "sha256": "d6779364e3ed9cb0cbaeed96072cd2c2624890cd1850859c3779a130a430f4e2",
+      "treatment": "AI detail enhancement and transparent-background extraction"
+    },
+    {
+      "file": "wedges.png",
+      "source": "apps/kiosk/assets/v3/photos/wedges.webp",
+      "width": 1536,
+      "height": 1024,
+      "sha256": "872418f5e7d2f072020c7bdc3bf86711135ae6d53403c85d8612f24036f4c349",
+      "treatment": "AI detail enhancement and transparent-background extraction"
+    }
+  ]
+}

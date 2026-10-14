@@ -31,6 +31,7 @@ import { fixedText } from './Body';
 import { Icon } from './Icon';
 import { PhotoImage } from './PhotoImage';
 import { ownerOrange } from './ownerOrange';
+import { glassSurface } from './glassSurface';
 import { useEnter, usePopIn, usePress } from './motion';
 
 /** Darkening over the menu (as the option sheets of the product page): navy .6, blur 6 on web. */
@@ -44,7 +45,7 @@ const DISABLED = '#D5DBE6';
 const ART_WIDTH = '142%';
 /** bg2: the lines-and-stars illustration the design puts at the sheet's top right. */
 const ART = 1;
-/** A studio photo shot on (near) white multiplies onto the cream, as on the menu cards. */
+/** Neutral photo backdrop; transparent cut-outs are placed above the card illustration. */
 const lightTile = (tile: string) =>
   /^#[0-9A-F]{6}$/i.test(tile) &&
   [1, 3, 5].every((at) => parseInt(tile.slice(at, at + 2), 16) >= 0xf0);
@@ -207,8 +208,7 @@ export function ProductSheet({
               aspectRatio: cardBackgroundRatio,
             }}
           />
-          {/* A direct layer of the clip, so its multiply sees the cream and the illustration
-              (every web view is its own stacking context). */}
+          {/* Opaque product pixels sit above the decorative background. */}
           <View
             style={{
               position: 'absolute',
@@ -219,7 +219,7 @@ export function ProductSheet({
               overflow: 'hidden',
               borderRadius: blend ? 0 : px(28),
               backgroundColor: blend ? 'transparent' : (shot?.tile ?? redesign.cream),
-              mixBlendMode: blend ? 'multiply' : 'normal',
+              zIndex: 1,
               opacity: product.available === false ? 0.5 : 1,
             }}
           >
@@ -501,7 +501,7 @@ function SizeTile({
           {
             height: Math.max(72, px(96)),
             borderRadius: px(22),
-            backgroundColor: colors.white,
+            ...glassSurface('light'),
             borderWidth: ring,
             borderColor: selected ? redesign.cta : colors.white,
             alignItems: 'center',
@@ -668,12 +668,11 @@ function Disc({
           borderRadius: size / 2,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: accent ? redesign.cta : colors.soft,
-          // The minus keeps its soft disc at 1 (as on the product page); a full cart dims the plus.
-          opacity: accent && disabled ? 0.4 : 1,
+          ...glassSurface(accent ? 'accent' : 'brand'),
+          opacity: disabled ? 0.55 : 1,
         }}
       >
-        <Icon name={icon} tone={accent ? 'inverse' : 'navy'} />
+        <Icon name={icon} tone="inverse" />
       </Pressable>
     </Animated.View>
   );
@@ -725,7 +724,8 @@ function AddButton({
             paddingHorizontal: px(28),
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: disabled ? DISABLED : redesign.cta,
+            ...glassSurface('accent'),
+            ...(disabled ? { backgroundColor: DISABLED } : {}),
           },
           glow,
         ]}

@@ -115,11 +115,9 @@ const round = (value: number) => Math.round(value * 10) / 10;
 export function sheetFacts(product: KioskProduct, sizeId: string | null): SheetFacts {
   const option: Option | undefined = sheetSizeGroup(product)?.options.find((o) => o.id === sizeId);
   const base = !option || option.default_quantity > 0;
-  const serving = base
-    ? product.serving_label && product.serving_label.trim() !== '-'
-      ? product.serving_label.trim()
-      : null
-    : option.label;
+  const serving =
+    option?.label ??
+    (product.serving_label?.trim() !== '-' ? product.serving_label?.trim() || null : null);
   const n = product.nutrition as KioskProduct['nutrition'] | null | undefined;
   if (!n || !Number.isFinite(n.energy_kcal))
     return { serving, kcal: null, per100g: false, macros: null };

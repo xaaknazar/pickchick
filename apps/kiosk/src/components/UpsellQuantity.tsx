@@ -1,6 +1,7 @@
+import { glassSurface } from './glassSurface';
 import { Pressable, Text, View } from 'react-native';
 import { copy, type Locale } from '../i18n';
-import { colors, fonts, redesign, useMetrics } from '../theme';
+import { fonts, redesign, useMetrics } from '../theme';
 import { Icon } from './Icon';
 import { fixedText } from './Body';
 import { ownerOrange } from './ownerOrange';
@@ -68,11 +69,11 @@ export function UpsellQuantity({
           borderRadius: side / 2,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: colors.white,
+          ...glassSurface('brand'),
           opacity: quantity === 0 ? 0.45 : 1,
         }}
       >
-        <Icon name="remove" tone="default" />
+        <Icon name="remove" tone="inverse" />
       </Pressable>
       <Text
         {...fixedText}
@@ -103,7 +104,7 @@ export function UpsellQuantity({
           borderRadius: side / 2,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: redesign.cta,
+          ...glassSurface('accent'),
           opacity: busy || increaseDisabled ? 0.6 : 1,
         }}
       >

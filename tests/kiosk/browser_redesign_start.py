@@ -24,9 +24,9 @@ import browser_ui as ui
 OUTPUT = Path(os.environ.get('KIOSK_REDESIGN_OUTPUT', '.local/kiosk-redesign-start'))
 SIZES = [(1024, 1366), (820, 1180), (744, 1133)]
 COPY = {
-    'ru': {'kaspi': 'Оплата через Kaspi QR', 'cta': 'СДЕЛАТЬ ЗАКАЗ', 'title': 'Как будете есть?'},
-    'kk': {'kaspi': 'Kaspi QR арқылы төлем', 'cta': 'ТАПСЫРЫС БЕРУ', 'title': 'Қалай тамақтанасыз?'},
-    'en': {'kaspi': 'Pay with Kaspi QR', 'cta': 'ORDER NOW', 'title': 'Where will you eat?'},
+    'ru': {'kaspi': 'Оплата по QR', 'cta': 'СДЕЛАТЬ ЗАКАЗ', 'title': 'Как будете есть?'},
+    'kk': {'kaspi': 'QR арқылы төлем', 'cta': 'ТАПСЫРЫС БЕРУ', 'title': 'Қалай тамақтанасыз?'},
+    'en': {'kaspi': 'Pay by QR', 'cta': 'ORDER NOW', 'title': 'Where will you eat?'},
 }
 FRAMES = (0.08, 0.25, 0.40, 0.60)
 

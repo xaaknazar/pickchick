@@ -1,3 +1,4 @@
+import { glassSurface } from './glassSurface';
 import { useEffect, useState } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import type { KioskModifierGroup, KioskSelection } from '../model';
@@ -73,9 +74,7 @@ function MoreTile({
         style={{
           flex: 1,
           borderRadius: px(24),
-          borderWidth: Math.max(1.5, px(2)),
-          borderStyle: 'dashed',
-          borderColor: 'rgba(255,255,255,.5)',
+          ...glassSurface(),
           alignItems: 'center',
           justifyContent: 'center',
           gap: px(6),
@@ -90,15 +89,12 @@ function MoreTile({
               paddingHorizontal: px(6),
               paddingVertical: px(5),
               borderRadius: px(14),
-              backgroundColor: colors.white,
+              backgroundColor: 'rgba(255,255,255,.12)',
               marginBottom: px(4),
             }}
           >
             {previews.map((option) => (
-              <View
-                key={option.id}
-                style={{ width: px(32), height: '100%', mixBlendMode: 'multiply' }}
-              >
+              <View key={option.id} style={{ width: px(38), height: '100%' }}>
                 <PhotoImage imageId={option.id} variant="option" />
               </View>
             ))}
@@ -118,7 +114,7 @@ function MoreTile({
             fontFamily: fonts.medium,
             fontSize: px(14),
             lineHeight: px(18),
-            color: 'rgba(255,255,255,.75)',
+            color: colors.onGlass,
           }}
         >
           {t.showAll}

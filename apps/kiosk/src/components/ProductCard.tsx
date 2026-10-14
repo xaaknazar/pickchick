@@ -1,3 +1,4 @@
+import { glassSurface } from './glassSurface';
 import { useRef, useState } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
@@ -112,17 +113,16 @@ export function ProductCard({
         ...(wide ? { width: `${WIDE_PHOTO * 100}%` as const, height: '100%' } : { flex: 1 }),
         minHeight: 0,
         overflow: 'hidden',
-        backgroundColor: blend ? redesign.cream : shot.tile,
+        backgroundColor: shot?.cutout ? 'transparent' : blend ? colors.white : shot?.tile,
         paddingTop: px(wide ? 18 : 20),
         paddingBottom: px(wide ? 18 : 4),
         paddingHorizontal: px(wide ? 18 : 14),
       }}
     >
-      {blend ? <Illustration index={index} part={wide ? WIDE_PHOTO : 1} /> : null}
       <Animated.View
         style={{
           flex: 1,
-          mixBlendMode: blend ? 'multiply' : 'normal',
+          zIndex: 1,
           opacity: unavailable ? 0.45 : 1,
           transform: [{ scale: zoom.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }) }],
         }}
@@ -287,7 +287,7 @@ export function ProductCard({
                 width: plus,
                 height: plus,
                 borderRadius: plus / 2,
-                backgroundColor: redesign.cta,
+                ...glassSurface('accent'),
                 alignItems: 'center',
                 justifyContent: 'center',
                 opacity: blocked ? 0.4 : 1,

@@ -102,7 +102,7 @@ class SmartUpsell(ui.KioskUI):
         return page, fixture
 
     def check_layout(self, page, width, height):
-        for identifier in ['kiosk-header-back', 'kiosk-upsell-help', 'kiosk-language-kk',
+        for identifier in ['kiosk-header-back', 'kiosk-language-kk',
                            'kiosk-language-ru', 'kiosk-language-en', 'kiosk-step-pills',
                            'kiosk-upsell-cart', 'kiosk-upsell-skip', 'kiosk-upsell-continue']:
             ui.assert_bounded(page, identifier, width, height)

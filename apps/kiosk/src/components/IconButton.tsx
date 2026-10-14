@@ -1,5 +1,6 @@
+import { glassSurface } from './glassSurface';
 import { Animated, Pressable, StyleSheet } from 'react-native';
-import { colors, useMetrics } from '../theme';
+import { useMetrics } from '../theme';
 import { Icon, type IconName } from './Icon';
 import { usePress } from './motion';
 /**
@@ -52,19 +53,8 @@ export function IconButton({
           borderRadius: dim / 2,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor:
-            tone === 'accent'
-              ? colors.orange
-              : tone === 'inverse'
-                ? colors.glass
-                : tone === 'light'
-                  ? colors.white
-                  : colors.soft,
-          shadowColor: '#04143A',
-          shadowOpacity: tone === 'light' ? 0.14 : 0,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 6 },
-          opacity: disabled && dimDisabled ? 0.35 : 1,
+          ...glassSurface(tone === 'accent' ? 'accent' : tone === 'inverse' ? 'dark' : 'light'),
+          opacity: disabled && dimDisabled ? 0.58 : 1,
         }}
       >
         <Icon name={name} tone={tone === 'inverse' || tone === 'accent' ? 'inverse' : 'navy'} />

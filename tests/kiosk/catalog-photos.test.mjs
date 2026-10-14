@@ -89,7 +89,11 @@ const catalog = publishedKioskCatalog({
 function assertBundled(source, label) {
   assert.equal(typeof source, 'string', `${label}: bundled module, not a remote URL`);
   assert.notEqual(source, LOGO, `${label}: falls back to the logo`);
-  assert.match(source, /^\.\.\/assets\/(v3\/(photos|hero)|drinks)\//, `${label}: ${source}`);
+  assert.match(
+    source,
+    /^\.\.\/assets\/(v3\/(photos|hero|hd|options)|drinks)\//,
+    `${label}: ${source}`,
+  );
   assert.ok(existsSync(resolve(src, source)), `${label}: missing file ${source}`);
 }
 
@@ -144,7 +148,7 @@ test('a published remote photo keeps the bundled photo as its offline fallback',
 test('card illustrations bg1-bg4 are bundled', () => {
   assert.equal(assets.cardBackgrounds.length, 4);
   assets.cardBackgrounds.forEach((source, index) => {
-    assert.equal(source, `../assets/v3/bg/bg${index + 1}.webp`);
+    assert.equal(source, `../assets/v3/bg/bg${index + 1}.svg`);
     assert.ok(existsSync(resolve(src, source)));
   });
 });

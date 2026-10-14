@@ -293,21 +293,15 @@ export function GuestScreen() {
           testID="kiosk-cancel-dismiss"
           onPress={closeCancel}
         />
-        <Button
-          label={
-            demoCancelPayment
-              ? t.cancelPayment
-              : noCancel
-                ? t.callStaff
-                : unresolved
-                  ? t.help
-                  : t.yesCancel
-          }
-          tone="secondary"
-          testID="kiosk-cancel-confirm"
-          busy={model.busy}
-          onPress={() => void confirmCancel()}
-        />
+        {!noCancel && !unresolved ? (
+          <Button
+            label={demoCancelPayment ? t.cancelPayment : t.yesCancel}
+            tone="secondary"
+            testID="kiosk-cancel-confirm"
+            busy={model.busy}
+            onPress={() => void confirmCancel()}
+          />
+        ) : null}
       </Dialog>
       {/* Owner decision 2026-10-13: the guest gives up at the QR and the kiosk starts over. The
           QR is not revoked; a late payment is still captured by the server (staff, as before).

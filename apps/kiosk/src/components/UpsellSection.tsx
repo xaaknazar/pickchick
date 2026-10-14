@@ -23,7 +23,7 @@ export function UpsellSection({
 }) {
   const { px } = useMetrics();
   return (
-    <View testID={testID} style={{ flexGrow: 274, flexShrink: 0, gap: px(14) }}>
+    <View testID={testID} style={{ flexGrow: 0, flexShrink: 0, gap: px(14) }}>
       <View
         style={{
           flexDirection: 'row',
@@ -68,7 +68,7 @@ export function UpsellSection({
           bounces={false}
           testID={testID ? testID + '-carousel' : undefined}
           showsHorizontalScrollIndicator={false}
-          style={{ height: px(342), flexGrow: 0, margin: -px(4) }}
+          style={{ height: px(410), flexGrow: 0, margin: -px(4) }}
           contentContainerStyle={{ padding: px(4), gap: px(16), alignItems: 'stretch' }}
         >
           {children}

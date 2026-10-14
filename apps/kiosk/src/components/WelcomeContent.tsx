@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import {
   Animated,
   Platform,
@@ -7,7 +8,6 @@ import {
   View,
   type ViewStyle,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { copy, type Locale } from '../i18n';
 import { colors, fonts, redesign, useMetrics } from '../theme';
@@ -17,7 +17,6 @@ const CTA_ORDER: readonly Locale[] = ['kk', 'ru', 'en'];
 import { SaluteButton } from './SaluteButton';
 import { fixedText } from './Body';
 /** Kaspi brand mark for the "Pay with Kaspi QR" chip (same file as the checkout package). */
-const kaspiLogo = require('../../assets/v3/kaspi.webp');
 /** Owner 2026-10-13: one static caption, always in the selected language. */
 function CtaCaption({ shown }: { shown: Locale }) {
   const { px } = useMetrics();
@@ -159,13 +158,7 @@ function KaspiChip({ label }: { label: string }) {
           overflow: 'hidden',
         }}
       >
-        <Image
-          source={kaspiLogo}
-          contentFit="contain"
-          accessible={false}
-          accessibilityLabel=""
-          style={{ width: px(42), height: px(42) }}
-        />
+        <Icon name="qr-code-outline" tone="brand" />
       </View>
       <Text
         {...fixedText}

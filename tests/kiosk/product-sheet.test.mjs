@@ -158,10 +158,10 @@ test('the quantity keeps to the cart room of that exact line, as on the product 
   assert.deepEqual(sheetRoom(line, [{ lineId: line, quantity: 3 }], 11), { room: 17, limit: null });
 });
 
-test('«60 г · 230 ккал · КБЖУ» comes from catalog data and omits what it does not know', () => {
+test('«60 мл · 230 ккал · КБЖУ» comes from catalog data and omits what it does not know', () => {
   const sauce = byId('sauce');
   assert.deepEqual(sheetFacts(sauce, 'size-0'), {
-    serving: '60 г',
+    serving: '60 мл',
     kcal: 230,
     per100g: false,
     macros: { protein: 1, fat: 23, carbs: 4 },

@@ -1,3 +1,4 @@
+import { glassSurface } from './glassSurface';
 import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -137,7 +138,7 @@ export function UpsellFooter({
                 borderRadius: 999,
                 borderWidth: 1,
                 borderColor: 'rgba(255,255,255,.24)',
-                backgroundColor: 'rgba(255,255,255,.14)',
+                ...glassSurface(),
                 alignItems: 'center',
                 justifyContent: 'center',
                 opacity: disabled ? 0.45 : 1,
@@ -168,7 +169,8 @@ export function UpsellFooter({
                 paddingLeft: px(36),
                 paddingRight: px(32),
                 borderRadius: 999,
-                backgroundColor: disabled ? 'rgba(201,210,227,.9)' : redesign.cta,
+                ...glassSurface('accent'),
+                ...(disabled ? { backgroundColor: 'rgba(201,210,227,.9)' } : {}),
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'center',
