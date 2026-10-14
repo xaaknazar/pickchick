@@ -5174,7 +5174,6 @@
         "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
         "apps/mobile/src/components/KaspiPaymentState.tsx",
         "apps/mobile/src/ScreenHost.tsx",
-        "apps/mobile/src/app/_layout.tsx",
         "apps/mobile/src/components/PaymentRecovery.tsx",
         "apps/mobile/src/payment-recovery.ts",
         "tests/mobile/browser_kaspi_checkout.py",
@@ -5184,9 +5183,9 @@
       ],
       "status": "available",
       "head": "885afaa58846088c77d175d3b60f32c7a1bbab6f",
-      "updatedAt": "2026-10-14T10:26:59.861Z",
+      "updatedAt": "2026-10-14T10:31:34.483Z",
       "summary": "Исправление Kaspi 885afaa58846088c77d175d3b60f32c7a1bbab6f включено в shared без force, удалённые SHA совпали; PR246 merged. Foundation CI38547014342 11/11. 361 Node tests, browser checkout 4/4, typecheck/lint/format, web и iOS/Android Hermes exports прошли. Локальный Python 49/50: macOS release fixture требует xcodeproj, установка изолированных Ruby gems не прошла из-за отсутствующих Ruby headers. Полного Xcode на этом Mac нет, на iPhone не установлено. Резерв @release/ios передан владельцем 14 октября и записан в журнал; остальные области другого Mac сохранены. Незавершённая оплата блокирует закрытие и восстанавливается после перезапуска без нового счёта. Отменить в Kaspi открывает инструкцию, банковскую отмену локально не выдумывает.",
-      "nextAction": "На Mac с полным Xcode получить codex/mobile-payment-recovery и claim этой задачи, затем fresh refs/проверка выпускных блокировок и действующего мобильного профиля по mobile-testflight.md, штатная сборка/установка и физическая проверка свайпа, перехода в Kaspi, восстановления после закрытия, отказа и сети. Реальных платежей в автотестах не выполнять. Общие project-status/roadmap пока у kiosk-owner-polish-1013: обновить их согласованно с доказательством установки. WhatsApp пользователь пока просит только исследование и варианты; ручной выбор WhatsApp/Telegram не реализовывать до его следующей команды."
+      "nextAction": "На Mac с полным Xcode получить codex/mobile-payment-recovery и claim этой задачи, затем fresh refs/проверка выпускных блокировок и действующего мобильного профиля по mobile-testflight.md, штатная сборка/установка и физическая проверка свайпа, перехода в Kaspi, восстановления после закрытия, отказа и сети. Реальных платежей в автотестах не выполнять. Общие project-status/roadmap пока у kiosk-owner-polish-1013: обновить их согласованно с доказательством установки. WhatsApp пользователь пока просит только исследование и варианты; ручной выбор WhatsApp/Telegram не реализовывать до его следующей команды.\n14 октября: корневой layout передан следующей задаче этого Mac order-game-gestures. Выпуск iOS должен включать оба исправления; резерв выпуска сохранён."
     },
     {
       "id": "mobile-appstore-audit-1014",
@@ -5210,11 +5209,12 @@
         "apps/mobile/src/games/route-options.ts",
         "tests/mobile/game-route-presentation.test.mjs",
         "tests/mobile/browser_tracker_redesign.py",
-        "docs/operations/order-game-gestures.md"
+        "docs/operations/order-game-gestures.md",
+        "apps/mobile/src/app/_layout.tsx"
       ],
       "status": "active",
       "head": "885afaa58846088c77d175d3b60f32c7a1bbab6f",
-      "updatedAt": "2026-10-14T10:31:30.292Z"
+      "updatedAt": "2026-10-14T10:31:34.483Z"
     }
   ]
 }
