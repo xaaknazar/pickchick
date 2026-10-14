@@ -5194,9 +5194,11 @@
       "scopes": [
         "docs/audits/mobile-appstore-readiness-2026-10-14.md"
       ],
-      "status": "active",
-      "head": "b81a3498d19bc20240d80b278ac6bd547416d791",
-      "updatedAt": "2026-10-14T09:56:29.419Z"
+      "status": "available",
+      "head": "a998467954bce2f8f78e87c18d0481d9df43b61f",
+      "updatedAt": "2026-10-14T10:20:18.139Z",
+      "summary": "Аудит mobile/App Store сохранён в PR247, a998467954bce2f8f78e87c18d0481d9df43b61f. Shared b81: CI11/11, 358 Node+50 Python, typecheck/lint, browser login/checkout/orders/tracker/photos; archive19 codesign OK. Apple требует новое соглашение; карточка/скриншоты/privacy/рейтинг/цена/страны не заполнены. Каталог11 содержит цены1₸, условия пилотные, receiptUrl null, поддержка-заглушка. Ничего не публиковалось, реальные операции не выполнялись.",
+      "nextAction": "Закрыть препятствия по docs/audits/mobile-appstore-readiness-2026-10-14.md, интегрировать PR246 после CI, новый общий Release и физическая приёмка iPhone. Audit PR247 только документ; проверить его CI перед включением. Status/roadmap и онлайн-пульт не обновлялись из-за резерва kiosk-owner-polish-1013. App Store отправка только по следующему поручению владельца."
     }
   ]
 }
