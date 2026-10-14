@@ -5156,9 +5156,9 @@
       ],
       "status": "active",
       "head": "94f0ce2a5cd94d0938666089c926e4da13ee149a",
-      "updatedAt": "2026-10-14T05:25:02.046Z",
-      "summary": "2026-10-14: owner returned @windows/cashier; LAN/SSH and edgeConnected restored. Fresh schema020 backup/isolated restore verified (SHA530c1068). Recovery94f completed at05:05UTC: actual current-state receipt written, no DB/migration changes, services restored. Switch exact5b020 completed05:11UTC; SSH reply was lost but saved Switch receipt and readiness200 verified on reconnect. ManualStopped mailbox installed; Verify05:24UTC confirmed runtime/grants/Link. Cloud activation is starting; no replay. API remains5b/cloud058, portal4c and kitchen5b; pairing disabled until guarded activation. Preserve other Mac staged62f; do not replay Stage/Prepare/020.",
-      "nextAction": "Finish Windows020 proof, then guarded cloud/Windows/portal activation. Publish final source/compose/config pins before returning reservations. Edge021 telemetry, kiosk native heartbeat and physical screen acceptance remain separate."
+      "updatedAt": "2026-10-14T05:27:58.246Z",
+      "summary": "2026-10-14: Windows recovery94f succeeded05:05, Switch exact5b/020 completed05:11 and read-back after lost SSH confirmed readiness200. ManualStopped mailbox installed; full Verify05:24 successful. API pairing activated05:27: exact5b/cloud058 image preserved, 14 grants only, compose now e40ee261c23d8de8e7649f1d86db87ab0d095c75a84ad1230ef31c59d2f012fb; CEO pairing_enabled=true. Windows Activate currently running; portal opt-in still off. Preserve staged62f and old fulfillment worker; never replay020/Prepare/Switch/cloud activation.",
+      "nextAction": "Finish guarded Windows Activate and portal Enable, verify actual health and public pairing page. Publish final pins. Edge021 telemetry, kiosk native heartbeat and physical screen acceptance remain separate."
     }
   ]
 }
