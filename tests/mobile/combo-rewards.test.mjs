@@ -1,3 +1,4 @@
+import { matchesPaidComboCart } from '../../apps/mobile/src/loyalty/combo-progress.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { comboRewardProgress } from '../../packages/commerce-core/src/combo-rewards.ts';
@@ -62,4 +63,38 @@ test('negative, fractional and unsafe balances are never rendered as real progre
     }
   }
   assert.throws(() => progress(7, Number.MAX_SAFE_INTEGER, 1), /INVALID_COMBO_BALANCE/);
+});
+
+test('paid gift recovery recognizes the saved cart after restart without clearing a changed cart', () => {
+  const cart = {
+    items: [
+      {
+        productId: 'pick-combo',
+        quantity: 1,
+        selections: [{ group_id: 'drink', option_id: 'cola', quantity: 1 }],
+      },
+    ],
+    serviceMode: 'takeaway',
+  };
+  const pending = JSON.stringify({ ...cart, giftItemIndex: 0, kitchenComment: 'Без соли' });
+  const restarted = JSON.stringify({ ...cart, kitchenComment: 'Без соли' });
+  assert.equal(matchesPaidComboCart(pending, restarted), true);
+  assert.equal(matchesPaidComboCart(pending, pending), true);
+  assert.equal(
+    matchesPaidComboCart(pending, JSON.stringify({ ...cart, kitchenComment: 'Другая корзина' })),
+    false,
+  );
+  assert.equal(
+    matchesPaidComboCart(
+      pending,
+      JSON.stringify({
+        ...cart,
+        items: [{ productId: 'pick-combo', quantity: 2, selections: [] }],
+        kitchenComment: 'Без соли',
+      }),
+    ),
+    false,
+  );
+  assert.equal(matchesPaidComboCart('broken', restarted), false);
+  assert.equal(matchesPaidComboCart('null', restarted), false);
 });

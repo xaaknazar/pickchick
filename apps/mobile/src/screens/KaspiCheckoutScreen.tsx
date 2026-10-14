@@ -1,3 +1,4 @@
+import { matchesPaidComboCart } from '../loyalty/combo-progress';
 import { PRICES_UPDATED } from '../cart-reprice';
 import { CatalogChangeNotice } from '../components/CatalogChangeNotice';
 import { recoverCommerceRead, historyOrderNeedsWatch } from '../commerce-read-recovery';
@@ -132,14 +133,17 @@ function KaspiCheckoutSession(props: ScreenProps) {
       setOrder(current);
       if (pending.current && (paymentReceived(current.phase) || current.phase === 'failed')) {
         // A newer cart or changed modifiers are never cleared by an older payment.
-        if (paymentReceived(current.phase) && pending.current.signature === signatureRef.current) {
+        if (
+          paymentReceived(current.phase) &&
+          matchesPaidComboCart(pending.current.signature, signatureRef.current)
+        ) {
           props.model.clearCart(
             cart.current.map((line) => ({ id: cartLineKey(line), quantity: line.quantity })),
           );
           props.model.setOrderComment('');
           props.model.comboRewards?.select(false);
-          props.model.comboRewards?.refresh();
         }
+        if (paymentReceived(current.phase)) props.model.comboRewards?.refresh();
         await AsyncStorage.removeItem(key);
         pending.current = null;
       } else if (pending.current && pending.current.orderId !== current.orderId) {

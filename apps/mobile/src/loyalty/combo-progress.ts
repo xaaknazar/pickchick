@@ -71,3 +71,25 @@ export function comboNextStep(state?: ComboProgressState, preview = false) {
     action: 'Открыть меню',
   };
 }
+
+/** Gift choice is intentionally not persisted as an entitlement. After a restart,
+ * a confirmed old gift order may still match the same saved items and comment. */
+export function matchesPaidComboCart(pending: string, current: string): boolean {
+  if (pending === current) return true;
+  try {
+    const previous = JSON.parse(pending) as Record<string, unknown>;
+    const next = JSON.parse(current) as Record<string, unknown>;
+    if (
+      !Number.isInteger(previous.giftItemIndex) ||
+      typeof previous.giftItemIndex !== 'number' ||
+      previous.giftItemIndex < 0 ||
+      next.giftItemIndex !== undefined
+    )
+      return false;
+    const { giftItemIndex, ...purchased } = previous;
+    void giftItemIndex;
+    return JSON.stringify(purchased) === JSON.stringify(next);
+  } catch {
+    return false;
+  }
+}
