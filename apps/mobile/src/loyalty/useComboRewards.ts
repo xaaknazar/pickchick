@@ -75,5 +75,10 @@ export function useComboRewards() {
     : snapshot && snapshot.customerId === customerId
       ? snapshot.state
       : { status: 'loading', data: null };
-  return { progress, refresh, customerId };
+  return {
+    progress,
+    refresh,
+    customerId,
+    enabled: kaspiCheckoutEnabled && account.mode === 'server',
+  };
 }

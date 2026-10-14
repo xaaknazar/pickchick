@@ -444,38 +444,40 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       ? cart[giftItemIndex]!.product.priceMinor
       : '0';
   const model: MobileModel = {
-    comboRewards: {
-      progress: combo.progress,
-      selected: giftSelected,
-      giftItemIndex: giftSelected && giftItemIndex >= 0 ? giftItemIndex : undefined,
-      discountMinor: giftDiscount,
-      refresh: combo.refresh,
-      select(value) {
-        if (!value) {
-          setGiftChoice(null);
-          return;
+    comboRewards: combo.enabled
+      ? {
+          progress: combo.progress,
+          selected: giftSelected,
+          giftItemIndex: giftSelected && giftItemIndex >= 0 ? giftItemIndex : undefined,
+          discountMinor: giftDiscount,
+          refresh: combo.refresh,
+          select(value) {
+            if (!value) {
+              setGiftChoice(null);
+              return;
+            }
+            if (
+              !combo.customerId ||
+              combo.progress.status !== 'ready' ||
+              !combo.progress.commercial?.availableGifts ||
+              combo.progress.commercial.reconciliationRequired
+            )
+              return;
+            const product = products.find((p) => p.id === 'pick-combo' && p.available !== false);
+            if (!product) return;
+            if (!cart.some((line) => line.product.id === 'pick-combo')) {
+              const next = mergeCartLines(
+                cart,
+                [{ product, quantity: 1, selections: defaultSelections(product) }],
+                products,
+              );
+              if (!next) return;
+              setCart(next);
+            }
+            setGiftChoice(combo.customerId);
+          },
         }
-        if (
-          !combo.customerId ||
-          combo.progress.status !== 'ready' ||
-          !combo.progress.commercial?.availableGifts ||
-          combo.progress.commercial.reconciliationRequired
-        )
-          return;
-        const product = products.find((p) => p.id === 'pick-combo' && p.available !== false);
-        if (!product) return;
-        if (!cart.some((line) => line.product.id === 'pick-combo')) {
-          const next = mergeCartLines(
-            cart,
-            [{ product, quantity: 1, selections: defaultSelections(product) }],
-            products,
-          );
-          if (!next) return;
-          setCart(next);
-        }
-        setGiftChoice(combo.customerId);
-      },
-    },
+      : undefined,
     catalogUpdateNotice,
     catalogUpdatePending,
     catalogPending:

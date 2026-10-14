@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-13",
+  "updatedAt": "2026-10-14",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -74,7 +74,8 @@
     "docs/operations/unified-menu-continuation.md",
     "docs/operations/unified-menu-installation-2026-10-09.md",
     "docs/operations/workforce.md",
-    "docs/operations/cabinet-entry.md"
+    "docs/operations/cabinet-entry.md",
+    "docs/operations/mobile-combo-rewards.md"
   ],
   "workstreams": [
     {
@@ -4707,6 +4708,39 @@
         "implemented": true,
         "verified": true,
         "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-combo-rewards",
+      "workstream": "loyalty",
+      "title": "Комбо 7 + 1: отметки, подарок и возвраты",
+      "summary": "По решению владельца любое оплаченное комбо даёт отметку, подарок - Pick Combo. Подготовлены PostgreSQL-журнал, профиль, корзина, защита от повторного погашения и пересчёт после подтверждённого возврата. Проверены 12 новых PostgreSQL-сценариев и интерфейс 393×852/320×568. На сервере и iPhone пока не включено.",
+      "status": "active",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["identity-core", "payments-core", "kitchen-routing"],
+      "evidence": [
+        {
+          "label": "Правила, проверки и условия включения",
+          "path": "docs/operations/mobile-combo-rewards.md"
+        },
+        {
+          "label": "PR #251",
+          "url": "https://github.com/xaaknazar/pickchick/pull/251"
+        }
+      ],
+      "acceptance": [
+        "Каждая оплаченная единица комбо даёт ровно одну отметку; повтор банка не начисляет ещё раз.",
+        "Один подарок нельзя одновременно потратить с двух устройств; неизвестная оплата сохраняет резерв.",
+        "Подтверждённый возврат снимает соответствующие отметки и отзывает неподкреплённый подарок. Использованный подарок требует сверки без автоматического списания денег.",
+        "Физический iPhone и кухня принимают бесплатный заказ после согласованного серверного выпуска."
+      ],
+      "nextAction": "Дождаться полной CI; согласовать дату начала и выпуск cloud060/API/edge/iOS с действующими резервами. Проверить допустимый фискальный режим подарочного заказа, совместить новые тексты с переводами/push, выполнить физическую приёмку. Онлайн-пульт ещё не опубликован.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
         "accepted": false
       }
     }

@@ -1,3 +1,7 @@
+import { fixture as transportFixture } from '../../fulfillment-transport/tests/cloud-fixture.mjs';
+import { pullFulfillment, receiveFulfillment } from '../../fulfillment-transport/dist/index.js';
+import { provisionFulfillment } from '../../edge-fulfillment/dist/index.js';
+import { comboRewardsGrants } from '../../../infra/staging/combo-rewards-grants.mjs';
 import { priceCatalogSnapshot } from '@pickchick/catalog-pricing';
 import { customerComboProgress } from '../dist/combo-reward-ledger.js';
 import assert from 'node:assert/strict';
@@ -190,7 +194,14 @@ const options = {
 };
 async function programme(f, config = options) {
   const payload = catalogPayload();
+  payload.products.push({
+    ...payload.products[0],
+    id: 'burger-base',
+    sku: 'BURGER-BASE',
+    modifier_groups: [],
+  });
   payload.products[0].kind = 'combo';
+  payload.products[0].combo_components = [{ product_id: 'burger-base', quantity: 1 }];
   payload.products.push({ ...payload.products[0], id: 'pick-combo', sku: 'PICK-COMBO' });
   const pub = await publishCatalog(f, { payload });
   const progress = () => customerComboProgress(f.pool, f.scope, config);
@@ -347,6 +358,13 @@ test('gift hold survives unknown payment; terminal failure releases it', () =>
     await p.repo.observePayment(f.provider, observation(a, 'failed'));
     assert.equal((await p.progress()).availableGifts, 1);
     assert.equal((await p.progress()).reservedGifts, 0);
+    await assert.rejects(
+      p.repo.startPaymentAttempt(f.scope, randomUUID(), {
+        orderId: o.orderId,
+        providerAccountId: f.payment,
+      }),
+      /NOT_READY/,
+    );
   }));
 test('full refund revokes earned stamps, including after a gift was consumed; no automatic money charge', () =>
   fixture(async (f) => {
@@ -453,4 +471,134 @@ test('item return must match the immutable purchase price before any bank reques
     );
     assert.equal(await f.count('commerce_refunds'), before);
     assert.equal((await p.progress()).earnedUnits, 2);
+  }));
+
+for (const cancelGift of [false, true])
+  test(
+    cancelGift
+      ? 'confirmed unpaid edge cancellation returns the gift hold'
+      : 'zero-total gift reaches the real edge kitchen without a bank attempt',
+    () =>
+      transportFixture(
+        async (f) => {
+          await provisionFulfillment(f.edge.pool, {
+            ...f.edge.setup,
+            routing: {
+              ...f.edge.setup.routing,
+              version: 2,
+              routes: [
+                ...f.edge.setup.routing.routes,
+                { productId: 'burger-base', stationId: f.edge.prep, kind: 'prep' },
+                { productId: 'sauce', stationId: f.edge.assembly, kind: 'assembly_item' },
+              ],
+            },
+          });
+          const p = await programme({
+            ...f,
+            edge: {
+              organizationId: f.edge.scope.organizationId,
+              branchId: f.edge.scope.branchId,
+              deviceId: f.edge.scope.deviceId,
+            },
+            provider: {
+              organizationId: f.scope.organizationId,
+              branchId: f.scope.branchId,
+              accountId: f.payment,
+            },
+          });
+          const paidQuote = await p.quote(7),
+            paidOrder = await p.create(paidQuote);
+          const paidDelivery = (await f.pull()).event;
+          await f.edge.repo.acceptCloud(f.edge.scope, paidDelivery.command);
+          await receiveFulfillment(f.pool, f.auth, (await f.events(paidOrder.orderId))[0]);
+          await f.ack(paidDelivery);
+          const attempt = await p.repo.startPaymentAttempt(f.scope, randomUUID(), {
+            orderId: paidOrder.orderId,
+            providerAccountId: f.payment,
+          });
+          await p.repo.observePayment(
+            {
+              organizationId: f.scope.organizationId,
+              branchId: f.scope.branchId,
+              accountId: f.payment,
+            },
+            observation(attempt),
+          );
+          const paidKitchen = (await f.pull()).event;
+          await f.edge.repo.acceptCloud(f.edge.scope, paidKitchen.command);
+          await f.ack(paidKitchen);
+          assert.equal((await p.progress()).availableGifts, 1);
+          const q = await p.quote(1, true, cancelGift),
+            o = await p.create(q),
+            d = (await f.pull()).event;
+          assert.equal(d.command.payload.orderId, o.orderId);
+          await f.edge.repo.acceptCloud(f.edge.scope, d.command);
+          const admission = (await f.events(o.orderId)).find(
+            (e) => e.type === 'edge.admission_reserved',
+          );
+          await receiveFulfillment(f.pool, f.auth, admission);
+          await f.ack(d);
+          if (cancelGift) {
+            await p.repo.requestUnpaidCancellation(f.manager, randomUUID(), {
+              orderId: o.orderId,
+              reason: 'Synthetic unpaid gift cancellation',
+            });
+            assert.equal((await p.progress()).reservedGifts, 1);
+            const release = (
+              await pullFulfillment(f.pool, f.auth, {
+                workerId: f.workerId,
+                leaseSeconds: 15,
+                protocolVersion: 2,
+              })
+            ).event;
+            await f.edge.repo.acceptRelease(f.edge.scope, release.command);
+            await f.ack(release);
+            const events = await f.events(o.orderId);
+            await receiveFulfillment(
+              f.pool,
+              f.auth,
+              events.find((e) => e.type === 'edge.admission_release_result'),
+            );
+            assert.equal((await p.progress()).reservedGifts, 0);
+            assert.equal((await p.progress()).availableGifts, 1);
+          } else {
+            const kitchen = (await f.pull()).event;
+            assert.equal(kitchen.command.type, 'edge.kitchen_admission_requested');
+            const accepted = await f.edge.repo.acceptCloud(f.edge.scope, kitchen.command);
+            await f.ack(kitchen);
+            assert.equal(accepted.state, 'accepted');
+            assert.equal((await p.repo.readOrder(f.scope, o.orderId)).attempts.length, 0);
+            assert.equal((await p.progress()).usedGifts, 1);
+          }
+        },
+        { deferred: true },
+      ),
+  );
+test('runtime grants allow progress reads but cannot rewrite immutable reward audit', () =>
+  fixture(async (f) => {
+    const p = await programme(f);
+    await p.buy(7);
+    const role = 'combo_test_' + randomUUID().replaceAll('-', '');
+    await f.admin.query('CREATE ROLE ' + role);
+    let limited;
+    try {
+      await f.pool.query('GRANT USAGE ON SCHEMA ' + f.schema + ' TO ' + role);
+      await f.pool.query(
+        'GRANT SELECT ON commerce_cancellation_intents,commerce_payment_attempts,commerce_captures TO ' +
+          role,
+      );
+      await f.pool.query(comboRewardsGrants(role));
+      const url = new URL(f.url);
+      url.searchParams.set('options', '-c search_path=' + f.schema + ' -c role=' + role);
+      limited = createPool(url.toString(), 2);
+      assert.equal((await customerComboProgress(limited, f.scope, options)).availableGifts, 1);
+      await assert.rejects(limited.query('DELETE FROM combo_reward_events'));
+      await assert.rejects(
+        limited.query('UPDATE combo_reward_programs SET approval_reference=approval_reference'),
+      );
+    } finally {
+      await limited?.end();
+      await f.pool.query('DROP OWNED BY ' + role);
+      await f.admin.query('DROP ROLE ' + role);
+    }
   }));

@@ -54,6 +54,7 @@ with sync_playwright() as p:
   expect(toggle).to_have_attribute('aria-checked','false',timeout=25000)
   toggle.click();expect(toggle).to_have_attribute('aria-checked','true')
   expect(page.get_by_test_id('cart-checkout')).to_be_enabled()
+  toggle.scroll_into_view_if_needed()
   page.screenshot(path=str(OUT/f'cart-{width}.png'))
   toggle.click();expect(toggle).to_have_attribute('aria-checked','false')
   toggle.click();page.get_by_test_id('cart-checkout').click()

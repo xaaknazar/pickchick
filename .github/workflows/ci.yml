@@ -304,6 +304,7 @@ jobs:
           # Isolated Kaspi checkout fixture: no bank, no real customer or VPS requests.
           EXPO_PUBLIC_CUSTOMER_AUTH=server EXPO_PUBLIC_KASPI_CHECKOUT=1 EXPO_PUBLIC_UNPAID_TEST_ORDERS=1 EXPO_PUBLIC_PUBLISHED_CATALOG=0 pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/customer-auth-web
           .local/design-venv/bin/python tests/mobile/browser_kaspi_checkout.py
+          CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_combo_rewards.py
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_orders_redesign.py kaspi
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 ORDERS_VIEWPORT=320x568 .local/design-venv/bin/python tests/mobile/browser_orders_redesign.py kaspi
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 TRACKER_MODE=kaspi .local/design-venv/bin/python tests/mobile/browser_tracker_redesign.py

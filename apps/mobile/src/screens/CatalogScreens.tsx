@@ -926,6 +926,7 @@ export function Cart(props: ScreenProps) {
               </View>
             </View>
           ))}
+          <ComboGiftChoice props={props} />
           <CartRecommendations props={props} />
           <Button
             title="Добавить ещё что-нибудь"

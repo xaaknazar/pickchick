@@ -1,5 +1,6 @@
 import {
   priceComboGift,
+  assertComboGiftPayable,
   reserveComboGift,
   reconcileComboRewards,
   recordComboRefundLines,
@@ -1088,6 +1089,7 @@ export class CommerceRepository {
           ).rowCount
         )
           throw new CommerceError('NOT_READY');
+        await assertComboGiftPayable(client, row.id, row.snapshot);
         const intent = (
           await client.query<{ id: string }>(
             'SELECT id FROM commerce_payment_intents WHERE order_id=$1',

@@ -204,6 +204,28 @@ export async function reserveComboGift(
   await event(db, gift.programId, scope.principalId, orderId, 'hold', 0);
 }
 
+/** Never charge paid upgrades against a released or revoked gift. Recovery of an
+ * already-created attempt does not enter this new-attempt path. */
+export async function assertComboGiftPayable(
+  db: DatabaseClient,
+  orderId: string,
+  snapshot: Record<string, unknown>,
+) {
+  const gift = snapshot.comboGift as Gift | undefined;
+  if (!gift) return;
+  const customerId = String(snapshot.customerId);
+  await lockAccount(db, gift.programId, customerId);
+  const balance = await comboBalance(db, gift.programId, customerId);
+  const redemption = (
+    await db.query<{ state: string }>(
+      'SELECT state FROM combo_reward_redemptions WHERE order_id=$1',
+      [orderId],
+    )
+  ).rows[0];
+  if (redemption?.state !== 'held' || balance.reconciliationRequired)
+    throw new CommerceError('NOT_READY');
+}
+
 /** Same transaction and order lock as capture/refund/cancellation reconciliation. */
 export async function reconcileComboRewards(db: DatabaseClient, orderId: string): Promise<boolean> {
   // New code remains compatible with an installation that has not applied 060 yet.
