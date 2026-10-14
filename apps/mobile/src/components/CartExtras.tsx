@@ -1,3 +1,4 @@
+import { ComboGiftChoice } from './ComboGiftChoice';
 import { UpcomingPayments, checkoutStyle } from './CheckoutPresentation';
 import { PaymentMark } from './PaymentChoice';
 import { useState } from 'react';
@@ -94,9 +95,10 @@ export function CartOffers({ props }: { props: ScreenProps }) {
       <Heading small style={orderUI.section}>
         Акции
       </Heading>
+      <ComboGiftChoice props={props} />
       <ComboRewardCard
         preview={props.preview}
-        progress={props.model.testFlow.comboProgress}
+        progress={props.model.comboRewards?.progress ?? props.model.testFlow.comboProgress}
         compact
         testID="cart-combo-reward"
         onMenu={() => props.navigate('M06')}

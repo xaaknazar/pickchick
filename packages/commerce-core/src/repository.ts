@@ -1,3 +1,10 @@
+import {
+  priceComboGift,
+  reserveComboGift,
+  reconcileComboRewards,
+  recordComboRefundLines,
+  type ComboProgramOptions,
+} from './combo-reward-ledger.js';
 import { MenuChangedError } from './menu-changed.js';
 import { UnpaidCancellationRequestSchema, UnpaidCancellationViewSchema } from './model.js';
 import { randomUUID } from 'node:crypto';
@@ -240,6 +247,8 @@ async function admitCloudOrder(client: DatabaseClient, row: OrderRow) {
     await issue(client, row, 'cloud-mode-changed', 'CLOUD_MODE_CHANGED_BEFORE_ADMISSION', {});
 }
 async function reconcile(client: DatabaseClient, row: OrderRow) {
+  if (await reconcileComboRewards(client, row.id))
+    await issue(client, row, 'combo-gift-conflict', 'COMBO_REWARD_RECONCILIATION_REQUIRED', {});
   const cloud = await cloudChannelOrder(client, row.id);
   const money = await totals(client, row.id);
   const captured = BigInt(money.captured),
@@ -272,7 +281,8 @@ async function reconcile(client: DatabaseClient, row: OrderRow) {
     row.id,
     paymentState,
   ]);
-  if (captured >= total) await fiscalDocument(client, row, 'sale', row.id, row.total_minor, cloud);
+  if (captured >= total && total > 0n)
+    await fiscalDocument(client, row, 'sale', row.id, row.total_minor, cloud);
   const documents = (
     await client.query<FiscalRow>('SELECT * FROM commerce_fiscal_documents WHERE order_id=$1', [
       row.id,
@@ -423,133 +433,147 @@ export class CommerceRepository {
   }
 
   /** Internal pricing port: amounts MUST originate from a trusted pricing service. */
-  async issueQuote(scope: CommerceScope, key: string, input: unknown) {
+  async issueQuote(
+    scope: CommerceScope,
+    key: string,
+    input: unknown,
+    gift?: { lineIndex: number; options: ComboProgramOptions },
+  ) {
     const quote = priceSnapshot(input);
-    return this.command(scope, key, 'quote', quote, async (client, actor) => {
-      const branch = (
-        await client.query<{ legal_entity_id: string; ordering_enabled: boolean }>(
-          'SELECT legal_entity_id,ordering_enabled FROM branches WHERE id=$1',
-          [actor.branchId],
-        )
-      ).rows[0]!;
-      if ('catalogReference' in quote) {
-        const ref = quote.catalogReference;
-        if (!branch.ordering_enabled) throw new CommerceError('NOT_READY');
-        if (
-          ref.organizationId !== actor.organizationId ||
-          ref.branchId !== actor.branchId ||
-          quote.taxBinding.legalEntityId !== branch.legal_entity_id
-        )
-          throw new CommerceError('FORBIDDEN');
-        // Publication takes FOR UPDATE on the same mutable head. Minimal runtime
-        // UPDATE(lock_anchor) permits this lock, without permission to publish.
-        const head = (
-          await client.query<{ published_version: number | null }>(
-            'SELECT published_version FROM catalog_branch_heads WHERE branch_id=$1 AND organization_id=$2 FOR SHARE',
-            [actor.branchId, actor.organizationId],
+    return this.command(
+      scope,
+      key,
+      'quote',
+      gift ? { quote, gift } : quote,
+      async (client, actor) => {
+        const branch = (
+          await client.query<{ legal_entity_id: string; ordering_enabled: boolean }>(
+            'SELECT legal_entity_id,ordering_enabled FROM branches WHERE id=$1',
+            [actor.branchId],
           )
-        ).rows[0];
-        if (!head) throw new CommerceError('NOT_FOUND');
-        if (head.published_version !== ref.version) throw new CommerceError('CONFLICT');
-        const publication = (
-          await client.query<{ payload: unknown; payload_hash: string; published_at: Date }>(
-            'SELECT payload,payload_hash,published_at FROM catalog_publications WHERE branch_id=$1 AND organization_id=$2 AND version=$3',
-            [actor.branchId, actor.organizationId, ref.version],
+        ).rows[0]!;
+        if ('catalogReference' in quote) {
+          const ref = quote.catalogReference;
+          if (!branch.ordering_enabled) throw new CommerceError('NOT_READY');
+          if (
+            ref.organizationId !== actor.organizationId ||
+            ref.branchId !== actor.branchId ||
+            quote.taxBinding.legalEntityId !== branch.legal_entity_id
           )
-        ).rows[0];
-        if (!publication) throw new CommerceError('NOT_FOUND');
-        if (
-          publication.payload_hash !== ref.payloadHash ||
-          publication.published_at.toISOString() !== ref.publishedAt
-        )
-          throw new CommerceError('CONFLICT');
-        const cart = {
-          catalog_version: ref.version,
-          service_mode: quote.serviceMode,
-          items: quote.lines.map((line) => ({
-            sku: line.sku,
-            quantity: line.quantity,
-            selections: line.selectedDetails.modifiers.map((option) => ({
-              group_id: option.groupId,
-              option_id: option.optionId,
-              quantity: option.quantity,
+            throw new CommerceError('FORBIDDEN');
+          // Publication takes FOR UPDATE on the same mutable head. Minimal runtime
+          // UPDATE(lock_anchor) permits this lock, without permission to publish.
+          const head = (
+            await client.query<{ published_version: number | null }>(
+              'SELECT published_version FROM catalog_branch_heads WHERE branch_id=$1 AND organization_id=$2 FOR SHARE',
+              [actor.branchId, actor.organizationId],
+            )
+          ).rows[0];
+          if (!head) throw new CommerceError('NOT_FOUND');
+          if (head.published_version !== ref.version) throw new CommerceError('CONFLICT');
+          const publication = (
+            await client.query<{ payload: unknown; payload_hash: string; published_at: Date }>(
+              'SELECT payload,payload_hash,published_at FROM catalog_publications WHERE branch_id=$1 AND organization_id=$2 AND version=$3',
+              [actor.branchId, actor.organizationId, ref.version],
+            )
+          ).rows[0];
+          if (!publication) throw new CommerceError('NOT_FOUND');
+          if (
+            publication.payload_hash !== ref.payloadHash ||
+            publication.published_at.toISOString() !== ref.publishedAt
+          )
+            throw new CommerceError('CONFLICT');
+          const cart = {
+            catalog_version: ref.version,
+            service_mode: quote.serviceMode,
+            items: quote.lines.map((line) => ({
+              sku: line.sku,
+              quantity: line.quantity,
+              selections: line.selectedDetails.modifiers.map((option) => ({
+                group_id: option.groupId,
+                option_id: option.optionId,
+                quantity: option.quantity,
+              })),
             })),
-          })),
-        };
-        let repriced;
-        try {
-          repriced = priceCatalogSnapshot(
-            {
-              reference: ref,
-              orderingEnabled: branch.ordering_enabled,
-              payload: publication.payload,
-            },
-            {
-              organizationId: actor.organizationId,
-              branchId: actor.branchId,
-              customerId: quote.customerId,
-              channel: quote.channel,
-            },
-            cart,
+          };
+          let repriced;
+          try {
+            repriced = priceCatalogSnapshot(
+              {
+                reference: ref,
+                orderingEnabled: branch.ordering_enabled,
+                payload: publication.payload,
+              },
+              {
+                organizationId: actor.organizationId,
+                branchId: actor.branchId,
+                customerId: quote.customerId,
+                channel: quote.channel,
+              },
+              cart,
+            );
+          } catch (error) {
+            if (error instanceof CatalogPricingError) throw new CommerceError('INVALID');
+            throw error;
+          }
+          // Prices, SKU/selection identity, components, allergens and nutrition
+          // must match the immutable PG publication, not just internally add up.
+          const comparable = {
+            ...quote,
+            lines: quote.lines.map(({ taxCode, ...line }) => {
+              void taxCode;
+              return line;
+            }),
+          };
+          const { taxBinding, kitchenComment, ...withoutTax } = comparable;
+          void taxBinding;
+          void kitchenComment;
+          if (digest(withoutTax) !== digest(repriced)) throw new CommerceError('INVALID');
+        } else {
+          const release = await client.query(
+            'SELECT 1 FROM menu_releases WHERE id=$1 AND branch_id=$2',
+            [quote.releaseId, actor.branchId],
           );
-        } catch (error) {
-          if (error instanceof CatalogPricingError) throw new CommerceError('INVALID');
-          throw error;
+          if (!release.rowCount) throw new CommerceError('NOT_FOUND');
         }
-        // Prices, SKU/selection identity, components, allergens and nutrition
-        // must match the immutable PG publication, not just internally add up.
-        const comparable = {
+        const originalSnapshot = {
           ...quote,
-          lines: quote.lines.map(({ taxCode, ...line }) => {
-            void taxCode;
-            return line;
-          }),
+          organizationId: actor.organizationId,
+          branchId: actor.branchId,
+          legalEntityId: branch.legal_entity_id,
         };
-        const { taxBinding, kitchenComment, ...withoutTax } = comparable;
-        void taxBinding;
-        void kitchenComment;
-        if (digest(withoutTax) !== digest(repriced)) throw new CommerceError('INVALID');
-      } else {
-        const release = await client.query(
-          'SELECT 1 FROM menu_releases WHERE id=$1 AND branch_id=$2',
-          [quote.releaseId, actor.branchId],
+        const snapshot = gift
+          ? await priceComboGift(client, actor, originalSnapshot, gift)
+          : originalSnapshot;
+        const id = randomUUID();
+        const result = await client.query<{ created_at: Date; expires_at: Date }>(
+          `INSERT INTO commerce_quotes(id,organization_id,branch_id,principal_id,customer_id,release_id,total_minor,currency,snapshot,digest,created_at,expires_at,catalog_version,catalog_payload_hash,catalog_published_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,statement_timestamp(),statement_timestamp()+$11*interval '1 second',$12,$13,$14) RETURNING created_at,expires_at`,
+          [
+            id,
+            actor.organizationId,
+            actor.branchId,
+            actor.principalId,
+            quote.customerId,
+            'releaseId' in quote ? quote.releaseId : null,
+            snapshot.totalMinor,
+            quote.currency,
+            snapshot,
+            digest(snapshot),
+            quote.ttlSeconds,
+            'catalogReference' in quote ? quote.catalogReference.version : null,
+            'catalogReference' in quote ? quote.catalogReference.payloadHash : null,
+            'catalogReference' in quote ? quote.catalogReference.publishedAt : null,
+          ],
         );
-        if (!release.rowCount) throw new CommerceError('NOT_FOUND');
-      }
-      const snapshot = {
-        ...quote,
-        organizationId: actor.organizationId,
-        branchId: actor.branchId,
-        legalEntityId: branch.legal_entity_id,
-      };
-      const id = randomUUID();
-      const result = await client.query<{ created_at: Date; expires_at: Date }>(
-        `INSERT INTO commerce_quotes(id,organization_id,branch_id,principal_id,customer_id,release_id,total_minor,currency,snapshot,digest,created_at,expires_at,catalog_version,catalog_payload_hash,catalog_published_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,statement_timestamp(),statement_timestamp()+$11*interval '1 second',$12,$13,$14) RETURNING created_at,expires_at`,
-        [
-          id,
-          actor.organizationId,
-          actor.branchId,
-          actor.principalId,
-          quote.customerId,
-          'releaseId' in quote ? quote.releaseId : null,
-          quote.totalMinor,
-          quote.currency,
+        return {
+          quoteId: id,
           snapshot,
-          digest(snapshot),
-          quote.ttlSeconds,
-          'catalogReference' in quote ? quote.catalogReference.version : null,
-          'catalogReference' in quote ? quote.catalogReference.payloadHash : null,
-          'catalogReference' in quote ? quote.catalogReference.publishedAt : null,
-        ],
-      );
-      return {
-        quoteId: id,
-        snapshot,
-        digest: digest(snapshot),
-        createdAt: result.rows[0]!.created_at.toISOString(),
-        expiresAt: result.rows[0]!.expires_at.toISOString(),
-      };
-    });
+          digest: digest(snapshot),
+          createdAt: result.rows[0]!.created_at.toISOString(),
+          expiresAt: result.rows[0]!.expires_at.toISOString(),
+        };
+      },
+    );
   }
   async createOrder(scope: CommerceScope, key: string, input: unknown) {
     return this.createOrderWithPolicy(scope, key, parse(CreateOrderSchema, input), null);
@@ -636,6 +660,7 @@ export class CommerceRepository {
           deferral,
         ],
       );
+      await reserveComboGift(client, actor, id, quote.snapshot);
       await client.query(
         'INSERT INTO commerce_payment_intents(id,order_id,intended_minor) VALUES($1,$2,$3)',
         [randomUUID(), id, quote.total_minor],
@@ -658,6 +683,7 @@ export class CommerceRepository {
           "UPDATE commerce_orders SET state='awaiting_payment',version=version+1,updated_at=clock_timestamp() WHERE id=$1",
           [id],
         );
+        if (quote.total_minor === '0') await reconcile(client, await order(client, actor, id));
         return { orderId: id, quoteId: quote.id };
       }
       await emit(client, id, 'admission', 'edge.admission_requested', {
@@ -1265,6 +1291,7 @@ export class CommerceRepository {
             request.fulfillmentPolicy,
           ],
         );
+        await recordComboRefundLines(client, row.id, id, request.amountMinor, request.items);
         await emit(client, row.id, 'refund:' + id, 'refund.submit_requested', {
           refundId: id,
           orderId: row.id,

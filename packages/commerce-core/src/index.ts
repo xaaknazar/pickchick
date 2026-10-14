@@ -16,3 +16,5 @@ export * from './kiosk-kaspi-qr.js';
 export * from './kiosk-enrollment.js';
 
 export { MenuChangedError } from './menu-changed.js';
+
+export { comboProgramOptions, type ComboProgramOptions } from './combo-reward-ledger.js';

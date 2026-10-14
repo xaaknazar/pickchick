@@ -87,9 +87,14 @@ function KaspiCheckoutSession(props: ScreenProps) {
     lock = useRef(false);
   const cart = useRef(props.model.cart);
   cart.current = props.model.cart;
-  const cartOnlySignature = cartSignature(props.model.cart, props.model.diningMode);
+  const giftIndex = props.model.comboRewards?.selected
+    ? props.model.comboRewards.giftItemIndex
+    : undefined;
+  const giftDiscount = props.model.comboRewards?.discountMinor ?? '0';
+  const localTotal = (BigInt(cartTotal(props.model.cart)) - BigInt(giftDiscount)).toString();
+  const cartOnlySignature = cartSignature(props.model.cart, props.model.diningMode, '', giftIndex);
   const comment = normalizedOrderComment(props.model.orderComment);
-  const signature = cartSignature(props.model.cart, props.model.diningMode, comment);
+  const signature = cartSignature(props.model.cart, props.model.diningMode, comment, giftIndex);
   const signatureRef = useRef(signature);
   signatureRef.current = signature;
   const key = pendingPaymentKey(customerId);
@@ -132,6 +137,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
             cart.current.map((line) => ({ id: cartLineKey(line), quantity: line.quantity })),
           );
           props.model.setOrderComment('');
+          props.model.comboRewards?.select(false);
+          props.model.comboRewards?.refresh();
         }
         await AsyncStorage.removeItem(key);
         pending.current = null;
@@ -347,13 +354,13 @@ function KaspiCheckoutSession(props: ScreenProps) {
     },
     [key, props.model.refreshCatalog],
   );
-  const displayedCartTotal = cartTotal(props.model.cart);
+  const displayedCartTotal = localTotal;
   useEffect(() => {
     if (!orderRef.current) setQuote(null);
   }, [displayedCartTotal]);
   const submit = async () => {
     if (lock.current || !cart.current.length) return;
-    const acceptedTotal = quote?.totalMinor ?? cartTotal(cart.current);
+    const acceptedTotal = quote?.totalMinor ?? localTotal;
     lock.current = true;
     bootstrap.current?.abort();
     const controller = new AbortController();
@@ -382,6 +389,13 @@ function KaspiCheckoutSession(props: ScreenProps) {
         await accept(existing);
         return;
       }
+      // A held gift may no longer be available for a NEW order. Existing intents above
+      // still recover normally, including an unknown payment after a network failure.
+      if (props.model.comboRewards?.selected && (giftIndex === undefined || giftDiscount === '0')) {
+        setError(new Error('GIFT_UNAVAILABLE'));
+        props.model.comboRewards.refresh();
+        return;
+      }
       const setup = await prepared(async () => {
         const value = CustomerCheckoutConfigSchema.parse(
           await request('/config', 'GET', undefined, controller.signal),
@@ -408,6 +422,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
                 : { catalog_version: publishedCartVersion(cart.current, setup.branchId) }),
               serviceMode: props.model.diningMode,
               items: checkoutItems(cart.current),
+              ...(giftIndex === undefined ? {} : { giftItemIndex: giftIndex }),
               ...(comment ? { kitchenComment: comment } : {}),
             },
             controller.signal,
@@ -495,7 +510,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
     setError(null);
     setRefresh((c) => c + 1);
   };
-  const total = quote ? quote.totalMinor : cartTotal(props.model.cart);
+  const total = quote ? quote.totalMinor : localTotal;
   // Keep the failure itself for payment/recovery guards; transient failures have no UI copy.
   const visibleError = error ? checkoutError(error) : '';
   const historyNeedsRefresh = !!error && !visibleError && watchRetryDelay(error, 1) === null;
@@ -536,8 +551,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
         </Row>
         <CheckoutAction
           testID="kaspi-checkout-submit"
-          title={busy ? 'Готовим счёт…' : 'Оплатить через'}
-          kaspi={!busy}
+          title={busy ? 'Оформляем заказ…' : total === '0' ? 'Заказать подарок' : 'Оплатить через'}
+          kaspi={!busy && total !== '0'}
           onPress={() => void submit()}
           disabled={busy}
         />
@@ -735,7 +750,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
           commentEditable={!busy}
           restaurantName={config?.restaurant}
           details={
-            quote && quote.totalMinor !== cartTotal(props.model.cart) ? (
+            quote && quote.totalMinor !== localTotal ? (
               <Caption>Сумма обновлена по меню ресторана. Проверьте её перед оплатой.</Caption>
             ) : undefined
           }

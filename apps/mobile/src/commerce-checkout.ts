@@ -18,7 +18,7 @@ export const commerceRequest = (
 ) =>
   createCustomerRequest(API_URL, nativeFetch, {
     allowed:
-      /^\/v1\/customer-checkout\/(config|quotes|orders(?:\/[a-f0-9-]{36}(?:\/payment|\/watch\?after=[a-f0-9]{64})?)?)$/,
+      /^\/v1\/customer-checkout\/(config|combo-rewards|quotes|orders(?:\/[a-f0-9-]{36}(?:\/payment|\/watch\?after=[a-f0-9]{64})?)?)$/,
     timeoutMs: 28000,
     maxBytes: 128000,
     accept:
@@ -34,10 +34,16 @@ export const checkoutItems = (cart: CartLine[]) =>
     selections: line.selections ?? [],
   }));
 export const normalizedOrderComment = (value: string) => value.trim();
-export const cartSignature = (cart: CartLine[], serviceMode: string, orderComment = '') =>
+export const cartSignature = (
+  cart: CartLine[],
+  serviceMode: string,
+  orderComment = '',
+  giftItemIndex?: number,
+) =>
   JSON.stringify({
     items: checkoutItems(cart),
     serviceMode,
+    ...(giftItemIndex === undefined ? {} : { giftItemIndex }),
     ...(normalizedOrderComment(orderComment)
       ? { kitchenComment: normalizedOrderComment(orderComment) }
       : {}),

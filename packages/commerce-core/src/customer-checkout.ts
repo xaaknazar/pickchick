@@ -1,3 +1,4 @@
+import { customerComboProgress, type ComboProgramOptions } from './combo-reward-ledger.js';
 import { MenuChangedError } from './menu-changed.js';
 import { readCheckoutOrder } from './order-view.js';
 import {
@@ -60,6 +61,7 @@ export function customerCheckoutOptions(env: NodeJS.ProcessEnv): CheckoutOptions
   });
 }
 const QuoteInput = z.strictObject({
+  giftItemIndex: z.int().min(0).max(49).optional(),
   key: z.uuid(),
   branchId: z.uuid(),
   catalog_version: z.int().positive().optional(),
@@ -101,6 +103,7 @@ export class CustomerCheckout {
     private readonly pool: DatabasePool,
     private readonly options: CheckoutOptions | null,
     private readonly now: () => Date = () => new Date(),
+    private readonly comboOptions: ComboProgramOptions | null = null,
   ) {
     this.repository = new CommerceRepository(pool, options ?? undefined);
   }
@@ -122,6 +125,9 @@ export class CustomerCheckout {
       principalId: customerId,
       role: 'sales' as const,
     };
+  }
+  async comboProgress(customerId: string) {
+    return customerComboProgress(this.pool, await this.scope(customerId), this.comboOptions);
   }
   async catalog() {
     if (!this.options?.publishedCatalogEnabled) throw new CommerceError('NOT_FOUND');
@@ -257,6 +263,9 @@ export class CustomerCheckout {
   async quote(customerId: string, input: unknown) {
     const scope = await this.scope(customerId),
       request = parse(QuoteInput, input);
+    if (request.giftItemIndex !== undefined && !this.comboOptions)
+      throw new CommerceError('NOT_READY');
+    if (this.comboOptions) await this.comboProgress(customerId);
     if (request.branchId !== scope.branchId) throw new CommerceError('FORBIDDEN');
     if (this.options!.publishedCatalogEnabled && request.catalog_version === undefined)
       throw new CommerceError('CATALOG_UPGRADE_REQUIRED');
@@ -308,17 +317,24 @@ export class CustomerCheckout {
       );
       if (BigInt(priced.totalMinor) > BigInt(this.options!.maxOrderMinor))
         throw new CommerceError('NOT_READY');
-      const quote = await this.repository.issueQuote(scope, request.key, {
-        ...priced,
-        ...(request.kitchenComment ? { kitchenComment: request.kitchenComment } : {}),
-        taxBinding: {
-          legalEntityId: head.legal_entity_id,
-          approvalReference: this.options!.approvalReference,
-          version: 1,
+      const quote = await this.repository.issueQuote(
+        scope,
+        request.key,
+        {
+          ...priced,
+          ...(request.kitchenComment ? { kitchenComment: request.kitchenComment } : {}),
+          taxBinding: {
+            legalEntityId: head.legal_entity_id,
+            approvalReference: this.options!.approvalReference,
+            version: 1,
+          },
+          // This is not a tax classification and may never be submitted to Webkassa.
+          lines: priced.lines.map((line) => ({ ...line, taxCode: 'PENDING_PILOT' })),
         },
-        // This is not a tax classification and may never be submitted to Webkassa.
-        lines: priced.lines.map((line) => ({ ...line, taxCode: 'PENDING_PILOT' })),
-      });
+        request.giftItemIndex === undefined
+          ? undefined
+          : { lineIndex: request.giftItemIndex, options: this.comboOptions! },
+      );
       return {
         quoteId: quote.quoteId,
         totalMinor: quote.snapshot.totalMinor,
@@ -369,7 +385,11 @@ export class CustomerCheckout {
     const scope = await this.scope(customerId);
     await this.assertMobileOrder(scope, orderId);
     const current = await this.repository.readOrder(scope, orderId);
-    if (current.attempts.length || BigInt(current.money.captured) > 0n)
+    if (
+      current.totalMinor === '0' ||
+      current.attempts.length ||
+      BigInt(current.money.captured) > 0n
+    )
       return this.read(customerId, orderId);
     assertRestaurantOrderingOpen(this.options!.hours, this.now());
     await assertBranchItemsAvailable(

@@ -27,6 +27,7 @@ import {
   MenuChangedError,
   CustomerCheckout,
   customerCheckoutOptions,
+  comboProgramOptions,
   pollAvailability,
 } from '@pickchick/commerce-core';
 import { catalogMediaOptions } from '@pickchick/catalog-admin';
@@ -84,7 +85,12 @@ export class CustomerCheckoutController {
     @Inject(RESOURCE) resources: Resources,
     @Inject(CatalogPublicationListener) private readonly publications: CatalogPublicationListener,
   ) {
-    this.checkout = new CustomerCheckout(resources.pool, customerCheckoutOptions(process.env));
+    this.checkout = new CustomerCheckout(
+      resources.pool,
+      customerCheckoutOptions(process.env),
+      () => new Date(),
+      comboProgramOptions(process.env),
+    );
     this.mediaEnabled = catalogMediaOptions(process.env).mediaEnabled;
   }
   private async execute<T>(
@@ -137,6 +143,13 @@ export class CustomerCheckoutController {
       }
       throw error;
     }
+  }
+  @Get('combo-rewards') async comboRewards(
+    @Headers('authorization') auth: string | undefined,
+    @Res({ passthrough: true }) response: ServerResponse,
+  ) {
+    response.setHeader('Cache-Control', 'no-store');
+    return this.execute(auth, (customerId) => this.checkout.comboProgress(customerId));
   }
   @Get('catalog') async catalog(@Res({ passthrough: true }) response: ServerResponse) {
     response.setHeader('Cache-Control', 'no-store');

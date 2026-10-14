@@ -72,6 +72,8 @@ export function checkoutError(error: unknown) {
     return 'Кухня сейчас не на связи - заказ оформить нельзя. Попробуйте чуть позже.';
   if (code === 'ITEM_STOPPED')
     return 'Блюдо или выбранный вариант закончились. Вернитесь в корзину и измените заказ.';
+  if (code === 'GIFT_UNAVAILABLE')
+    return 'Подарок сейчас недоступен. Вернитесь в корзину, обновите отметки или снимите галочку акции.';
   if (code === 'COMMENT_UNAVAILABLE')
     return 'Комментарий временно недоступен. Удалите его, чтобы оформить заказ.';
   if (code === 'CHECKOUT_STORAGE')

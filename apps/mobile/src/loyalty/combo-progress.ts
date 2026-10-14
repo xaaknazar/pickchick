@@ -1,8 +1,10 @@
+import type { CustomerComboRewards } from '@pickchick/contracts';
 import type { TestComboProgress } from '@pickchick/test-order-flow/contracts';
 
 export type ComboProgressState = {
   status: 'signed_out' | 'unavailable' | 'loading' | 'ready' | 'error';
   data: TestComboProgress | null;
+  commercial?: Extract<CustomerComboRewards, { enabled: true }>;
 };
 
 export function comboProgressView(state?: ComboProgressState, preview = false) {
@@ -11,6 +13,11 @@ export function comboProgressView(state?: ComboProgressState, preview = false) {
     return { count: null, text: 'Войдите, чтобы видеть отметки' };
   if (state.status === 'unavailable') return { count: null, text: 'Отметки пока у кассира' };
   if (state.status === 'loading') return { count: null, text: 'Загружаем отметки…' };
+  if (state.status === 'ready' && state.commercial)
+    return {
+      count: state.commercial.visibleStamps,
+      text: `Куплено комбо: ${state.commercial.earnedUnits}`,
+    };
   if (state.status === 'error' || !state.data)
     return { count: null, text: 'Не удалось обновить отметки' };
   const { current_stamps: current, completed_cycles: cycles } = state.data;
@@ -33,6 +40,21 @@ export function comboNextStep(state?: ComboProgressState, preview = false) {
         'Отметки не теряются при отсутствии связи. Условия действующей акции уточняйте на кассе.',
       action: 'Открыть меню',
     };
+  if (state?.commercial) {
+    const reward = state.commercial;
+    return {
+      title: reward.reconciliationRequired
+        ? 'Проверяем отметки после возврата'
+        : reward.availableGifts > 0
+          ? `Pick Combo в подарок доступен${reward.availableGifts > 1 ? `: ${reward.availableGifts}` : ''}`
+          : reward.reservedGifts > 0
+            ? 'Подарок в оформляемом заказе'
+            : `Ещё ${reward.remainingToNextGift} комбо до подарка`,
+      detail:
+        'Одна отметка за каждое оплаченное комбо. За семь отметок - Pick Combo в подарок. Возврат комбо снимает его отметку.',
+      action: reward.availableGifts > 0 ? 'Использовать подарок' : 'Выбрать комбо',
+    };
+  }
   if (state?.data?.mode === 'practice')
     return {
       title:

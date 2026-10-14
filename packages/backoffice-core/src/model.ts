@@ -224,7 +224,17 @@ export const Command = z.discriminatedUnion('type', [
     id,
     expected_version: z.number().int().positive(),
   }),
-  z.strictObject({ type: z.literal('refund'), id, capture_id: id, amount_minor: positive }),
+  z.strictObject({
+    type: z.literal('refund'),
+    id,
+    capture_id: id,
+    amount_minor: positive,
+    items: z
+      .array(z.strictObject({ line_id: id, quantity: z.int().min(1).max(1000) }))
+      .min(1)
+      .max(200)
+      .optional(),
+  }),
 ]);
 export const Request = z.strictObject({
   request_id: id,

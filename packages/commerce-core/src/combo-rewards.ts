@@ -41,7 +41,9 @@ export function comboRewardProgress(input: ComboRewardBalance) {
     // Keep a just-completed card visible until its gift is selected/redeemed.
     // Beyond that boundary the remainder belongs to the next card.
     visibleStamps:
-      currentStamps === 0 && availableGifts > 0 ? COMBO_REWARD_THRESHOLD : currentStamps,
+      currentStamps === 0 && !reconciliationRequired && (availableGifts > 0 || reservedGifts > 0)
+        ? COMBO_REWARD_THRESHOLD
+        : currentStamps,
     remainingToNextGift: COMBO_REWARD_THRESHOLD - currentStamps,
   };
 }

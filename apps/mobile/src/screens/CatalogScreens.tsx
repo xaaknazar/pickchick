@@ -1,3 +1,4 @@
+import { ComboGiftChoice } from '../components/ComboGiftChoice';
 import { unavailableCartLine } from '../availability';
 import {
   CheckoutSheetHeader,
@@ -674,7 +675,8 @@ export function Cart(props: ScreenProps) {
   const [clearSnapshot, setClearSnapshot] = useState<{ id: string; quantity: number }[] | null>(
     null,
   );
-  const total = cartTotal(props.model.cart);
+  const discount = props.model.comboRewards?.discountMinor ?? '0';
+  const total = (BigInt(cartTotal(props.model.cart)) - BigInt(discount)).toString();
   const [editing, setEditing] = useState<CartLine | null>(null);
   return (
     <Page
@@ -714,6 +716,8 @@ export function Cart(props: ScreenProps) {
             <CheckoutAction
               title="Оформить заказ"
               disabled={
+                (props.model.comboRewards?.selected &&
+                  (props.model.comboRewards.giftItemIndex === undefined || discount === '0')) ||
                 props.model.catalogUpdatePending ||
                 props.model.cart.some((line) => line.product.available === false)
               }
@@ -725,6 +729,7 @@ export function Cart(props: ScreenProps) {
         ) : null
       }
     >
+      {!props.model.cart.length ? <ComboGiftChoice props={props} /> : null}
       {props.model.catalogUpdateNotice ? (
         <CatalogChangeNotice
           message={props.model.catalogUpdateNotice}

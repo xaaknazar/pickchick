@@ -1315,25 +1315,82 @@ export class OperationsView {
                 'Запрос уйдёт платёжному адаптеру. Результат будет показан после подтверждения; склад автоматически не восстанавливается.',
               );
               let value = '';
+              const returned = new Map<string, number>();
+              const snapshot = o['snapshot'] as Data | undefined;
+              const lines = Array.isArray(snapshot?.['lines']) ? (snapshot['lines'] as Data[]) : [];
+              const gift = snapshot?.['comboGift'] as Data | undefined;
               refund.append(
-                field('Сумма, ₸', value, (v) => {
+                note(
+                  'При возврате конкретных позиций укажите количество ниже. Отметки за комбо снимутся после подтверждения банка. Сумма рассчитывается по выбранным позициям.',
+                ),
+              );
+              const itemTotal = note('Позиции для возврата не выбраны.');
+              const updateTotal = () => {
+                const total = lines.reduce(
+                  (sum, line) =>
+                    sum +
+                    BigInt(String(line['unitPriceMinor'])) *
+                      BigInt(Math.max(0, returned.get(String(line['lineId'])) ?? 0)),
+                  0n,
+                );
+                itemTotal.textContent =
+                  total > 0n
+                    ? 'Возврат выбранных позиций: ' +
+                      (Number(total) / 100).toLocaleString('ru-RU') +
+                      ' ₸. Ручная сумма ниже не применяется.'
+                    : 'Позиции для возврата не выбраны.';
+              };
+              for (const line of lines) {
+                const lineId = String(line['lineId']);
+                const max = Number(line['quantity']) - (gift?.['lineId'] === lineId ? 1 : 0);
+                if (max > 0)
+                  refund.append(
+                    field(String(line['title']) + ' - вернуть, шт. (0-' + max + ')', '0', (v) => {
+                      const n = Number(v);
+                      returned.set(lineId, Number.isInteger(n) && n >= 0 ? n : -1);
+                      updateTotal();
+                    }),
+                  );
+              }
+              refund.append(itemTotal);
+              refund.append(
+                field('Сумма, ₸ (если позиции не выбраны)', value, (v) => {
                   value = v;
                 }),
               );
               this.footer(
                 refund,
                 () => {
+                  const selected = [...returned]
+                    .filter(([, quantity]) => quantity !== 0)
+                    .map(([line_id, quantity]) => ({ line_id, quantity }));
+                  const itemAmount = selected.reduce(
+                    (sum, item) =>
+                      sum +
+                      BigInt(
+                        String(
+                          lines.find((line) => line['lineId'] === item.line_id)?.[
+                            'unitPriceMinor'
+                          ] ?? '0',
+                        ),
+                      ) *
+                        BigInt(item.quantity),
+                    0n,
+                  );
                   const parts = value.replace(',', '.').match(/^(\d+)(?:\.(\d{1,2}))?$/);
                   return {
                     type: 'refund',
                     id,
                     capture_id: capture['id'],
-                    amount_minor: parts
-                      ? (
-                          BigInt(parts[1]!) * 100n +
-                          BigInt((parts[2] ?? '').padEnd(2, '0'))
-                        ).toString()
-                      : value,
+                    ...(selected.length ? { items: selected } : {}),
+                    amount_minor: selected.length
+                      ? itemAmount.toString()
+                      : parts
+                        ? (
+                            BigInt(parts[1]!) * 100n +
+                            BigInt((parts[2] ?? '').padEnd(2, '0'))
+                          ).toString()
+                        : value,
                   };
                 },
                 'Запросить возврат',

@@ -667,6 +667,14 @@ export class Backoffice {
               {
                 orderId: c.id,
                 captureId: c.capture_id,
+                ...(c.items
+                  ? {
+                      items: c.items.map((item) => ({
+                        lineId: item.line_id,
+                        quantity: item.quantity,
+                      })),
+                    }
+                  : {}),
                 amountMinor: c.amount_minor,
                 reason: req.reason,
                 fulfillmentPolicy: 'manager_reviewed',

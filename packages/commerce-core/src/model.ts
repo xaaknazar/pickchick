@@ -163,6 +163,11 @@ export const PaymentObservationSchema = z.discriminatedUnion('outcome', [
   }),
 ]);
 export const RefundRequestSchema = z.strictObject({
+  items: z
+    .array(z.strictObject({ lineId: uuid, quantity: z.int().min(1).max(1000) }))
+    .min(1)
+    .max(200)
+    .optional(),
   orderId: uuid,
   captureId: uuid,
   amountMinor: positive,

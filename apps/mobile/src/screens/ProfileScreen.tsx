@@ -200,9 +200,13 @@ export function Profile(props: ScreenProps) {
 
         <ComboRewardCard
           preview={props.preview}
-          progress={props.model.testFlow.comboProgress}
+          progress={props.model.comboRewards?.progress ?? props.model.testFlow.comboProgress}
           testID="profile-combo-reward"
-          onMenu={() => props.navigate('M06')}
+          onMenu={() =>
+            props.navigate(
+              props.model.comboRewards?.progress.commercial?.availableGifts ? 'M09' : 'M06',
+            )
+          }
         />
 
         <Pressable

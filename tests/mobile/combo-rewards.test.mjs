@@ -45,6 +45,7 @@ test('returns after gift use expose reconciliation, not an invented debt or new 
   assert.equal(result.reconciliationRequired, true);
   assert.equal(result.availableGifts, 0);
   assert.equal(result.visibleStamps, 6);
+  assert.equal(progress(0, 0, 1).visibleStamps, 0);
   assert.equal(progress(7, 1).reconciliationRequired, false);
   assert.equal(progress(7, 1).availableGifts, 0);
   assert.equal(progress(14, 1).availableGifts, 1);
