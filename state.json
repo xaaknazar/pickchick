@@ -5200,6 +5200,21 @@
       "updatedAt": "2026-10-14T10:20:18.139Z",
       "summary": "Аудит mobile/App Store сохранён в PR247, a998467954bce2f8f78e87c18d0481d9df43b61f. Shared b81: CI11/11, 358 Node+50 Python, typecheck/lint, browser login/checkout/orders/tracker/photos; archive19 codesign OK. Apple требует новое соглашение; карточка/скриншоты/privacy/рейтинг/цена/страны не заполнены. Каталог11 содержит цены1₸, условия пилотные, receiptUrl null, поддержка-заглушка. Ничего не публиковалось, реальные операции не выполнялись.",
       "nextAction": "Закрыть препятствия по docs/audits/mobile-appstore-readiness-2026-10-14.md, интегрировать PR246 после CI, новый общий Release и физическая приёмка iPhone. Audit PR247 только документ; проверить его CI перед включением. Status/roadmap и онлайн-пульт не обновлялись из-за резерва kiosk-owner-polish-1013. App Store отправка только по следующему поручению владельца."
+    },
+    {
+      "id": "order-game-gestures",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/order-game-gestures",
+      "scopes": [
+        "apps/mobile/src/games/pick-man/PickManScreen.tsx",
+        "apps/mobile/src/games/route-options.ts",
+        "tests/mobile/game-route-presentation.test.mjs",
+        "tests/mobile/browser_tracker_redesign.py",
+        "docs/operations/order-game-gestures.md"
+      ],
+      "status": "active",
+      "head": "885afaa58846088c77d175d3b60f32c7a1bbab6f",
+      "updatedAt": "2026-10-14T10:31:30.292Z"
     }
   ]
 }
