@@ -91,10 +91,10 @@ test('full-height photograph is encoded in small lossless stripes without inter-
   assert.deepEqual(Buffer.concat(images), bits);
   assert.deepEqual([...packet.subarray(offset)], [27, 100, 3]);
 });
-test('colour photographs retain luminance after compositing and the logo remains visible', async () => {
+test('colour photographs retain distinct lifted tones and the logo remains visible', async () => {
   for (const [color, low, high] of [
-    ['#0047BB', 0.6, 0.76],
-    ['#FF671F', 0.32, 0.5],
+    ['#0047BB', 0.48, 0.61],
+    ['#FF671F', 0.22, 0.36],
   ]) {
     const input = await sharp({
       create: { width: 128, height: 96, channels: 3, background: color },
@@ -113,6 +113,80 @@ test('colour photographs retain luminance after compositing and the logo remains
       logo = density(216, 444, 144, 132);
     assert(photograph > low && photograph < high, `colour ${color}: ${photograph}`);
     assert(logo > 0.1 && logo < 0.35, `visible, non-solid logo: ${logo}`);
+  }
+});
+test('thermal photo profile opens dark tones without clipping highlights or changing logo density', async () => {
+  // Underexposed patches, midtones and bright highlights; no real customer photograph.
+  const width = 528,
+    height = 396,
+    values = [0, 32, 64, 128, 224, 248, 255];
+  const inputPixels = Buffer.alloc(width * height);
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++)
+      inputPixels[y * width + x] = values[Math.min(6, Math.floor(x / (width / 7)))];
+  const input = await sharp(inputPixels, { raw: { width, height, channels: 1 } })
+    .png()
+    .toBuffer();
+  const p = await preparePhoto(input, logoPath);
+  const output = await sharp(p.png).grayscale().raw().toBuffer();
+  const means = values.map((_, band) => {
+    let total = 0,
+      count = 0;
+    for (let y = 40; y < 400; y++)
+      for (
+        let x = 24 + Math.ceil((band * width) / 7) + 8;
+        x < 24 + ((band + 1) * width) / 7 - 8;
+        x++
+      ) {
+        total += output[y * p.width + x];
+        count++;
+      }
+    return total / count;
+  });
+  assert(means[1] > 60 && means[2] > 95 && means[3] > 150, `lift dark/mid tones: ${means}`);
+  assert(means[0] < 2 && means[6] > 254, 'preserve black and white anchors');
+  for (let i = 1; i < means.length; i++)
+    assert(means[i] > means[i - 1] + 1, 'tones remain distinct');
+  assert(means[4] < 248 && means[5] < 254, 'bright detail does not become flat white');
+  const blank = await sharp({ create: { width, height, channels: 3, background: '#fff' } })
+    .png()
+    .toBuffer();
+  const whitePhoto = await preparePhoto(blank, logoPath);
+  assert.deepEqual(
+    p.bits.subarray(72 * 444),
+    whitePhoto.bits.subarray(72 * 444),
+    'logo unaffected by photo brightness',
+  );
+});
+test('photo framing preserves both edges at every supported paper width', async () => {
+  const input = await sharp({
+    create: { width: 800, height: 200, channels: 3, background: '#fff' },
+  })
+    .composite([
+      {
+        input: await sharp({ create: { width: 50, height: 200, channels: 3, background: '#000' } })
+          .png()
+          .toBuffer(),
+        left: 0,
+        top: 0,
+      },
+      {
+        input: await sharp({ create: { width: 50, height: 200, channels: 3, background: '#000' } })
+          .png()
+          .toBuffer(),
+        left: 750,
+        top: 0,
+      },
+    ])
+    .png()
+    .toBuffer();
+  for (const width of [384, 512, 576]) {
+    const p = await preparePhoto(input, logoPath, width);
+    const pixels = await sharp(p.png).grayscale().raw().toBuffer();
+    const y = 24 + Math.floor(((width - 48) * 3) / 8);
+    assert.equal(pixels[y * width + 28], 0, 'left friend not cropped');
+    assert.equal(pixels[y * width + width - 29], 0, 'right friend not cropped');
+    assert.equal(pixels[10 * width + 10], 255, 'margin stays paper-white');
   }
 });
 test('pairing is one-use, expires, and locks after ten wrong attempts', (t) => {

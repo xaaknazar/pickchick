@@ -1,6 +1,6 @@
 import sharp from 'sharp';
 
-/** Floyd-Steinberg, black = 1. Only application-generated pixels reach ESC/POS. */
+/** Serpentine Floyd-Steinberg, black = 1. Only generated pixels reach ESC/POS. */
 export function monochrome(gray, width, height) {
   if (
     !Number.isInteger(width) ||
@@ -16,20 +16,26 @@ export function monochrome(gray, width, height) {
   const work = Float32Array.from(gray);
   const bits = Buffer.alloc((width * height) / 8);
   const pixels = Buffer.alloc(width * height);
-  for (let y = 0; y < height; y++)
-    for (let x = 0; x < width; x++) {
+  for (let y = 0; y < height; y++) {
+    // Alternate direction to avoid the directional streaks of a single left-to-right pass.
+    const direction = y % 2 ? -1 : 1;
+    for (let x = direction === 1 ? 0 : width - 1; x >= 0 && x < width; x += direction) {
       const i = y * width + x;
       const value = work[i] < 128 ? 0 : 255;
       pixels[i] = value;
       if (!value) bits[i >> 3] |= 0x80 >> (x % 8);
       const error = work[i] - value;
-      if (x + 1 < width) work[i + 1] += (error * 7) / 16;
+      const ahead = x + direction >= 0 && x + direction < width;
+      const behind = x - direction >= 0 && x - direction < width;
+      if (ahead) work[i + direction] += (error * 7) / 16;
       if (y + 1 < height) {
-        if (x) work[i + width - 1] += (error * 3) / 16;
+        if (behind) work[i + width - direction] += (error * 3) / 16;
         work[i + width] += (error * 5) / 16;
-        if (x + 1 < width) work[i + width + 1] += error / 16;
+        if (ahead) work[i + width + direction] += error / 16;
       }
     }
+  }
+  work.fill(0);
   return { bits, pixels };
 }
 
@@ -71,12 +77,29 @@ export async function preparePhoto(input, logoPath, width = 576) {
   const photoWidth = width - margin * 2;
   const photoHeight = Math.round((photoWidth * 3) / 4);
   // Contain preserves friends at either edge; no face detection or biometric processing.
-  const photo = await image
+  const resized = await image
     .rotate()
     .flatten({ background: '#fff' })
     .resize(photoWidth, photoHeight, { fit: 'contain', background: '#fff' })
     .png()
     .toBuffer();
+  // A receipt printer has no continuous grey: dense dots merge on paper. Lift only the
+  // photograph's shadows/midtones before dithering; keep the logo and white margins intact.
+  // Materialize the resize first so detail enhancement runs at the final print resolution.
+  const photoGray = await sharp(resized)
+    .grayscale()
+    .sharpen({ sigma: 0.7, m1: 0, m2: 1.5, y2: 8, y3: 8 })
+    .raw()
+    .toBuffer();
+  for (let i = 0; i < photoGray.length; i++)
+    photoGray[i] = Math.round(255 * (photoGray[i] / 255) ** 0.65);
+  const photo = await sharp(photoGray, {
+    raw: { width: photoWidth, height: photoHeight, channels: 1 },
+  })
+    .png()
+    .toBuffer();
+  resized.fill(0);
+  photoGray.fill(0);
   const logo = await sharp(logoPath)
     .resize(144, 132, { fit: 'contain', background: '#fff' })
     .flatten({ background: '#fff' })
@@ -93,11 +116,22 @@ export async function preparePhoto(input, logoPath, width = 576) {
     .png()
     .toBuffer();
   const gray = await sharp(composed).flatten({ background: '#fff' }).grayscale().raw().toBuffer();
-  const { bits, pixels } = monochrome(gray, width, height);
+  // Start logo dithering with a fresh error buffer. Photo diffusion must not change the mark.
+  const logoTop = photoHeight + margin * 2;
+  const top = monochrome(gray.subarray(0, width * logoTop), width, logoTop);
+  const bottom = monochrome(gray.subarray(width * logoTop), width, height - logoTop);
+  const bits = Buffer.concat([top.bits, bottom.bits]);
+  const pixels = Buffer.concat([top.pixels, bottom.pixels]);
+  top.bits.fill(0);
+  top.pixels.fill(0);
+  bottom.bits.fill(0);
+  bottom.pixels.fill(0);
+  photo.fill(0);
   composed.fill(0);
   gray.fill(0);
   const png = await sharp(pixels, { raw: { width, height, channels: 1 } })
     .png()
     .toBuffer();
+  pixels.fill(0);
   return { width, height, bits, png };
 }
