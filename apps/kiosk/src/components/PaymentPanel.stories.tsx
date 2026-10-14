@@ -37,17 +37,16 @@ const meta = {
     locale: 'ru',
     restart: true,
     onRestart: fn(),
-    actionLabel: 'Позвать сотрудника',
     onAction: fn(),
   },
   tags: ['autodocs'],
 } satisfies Meta<typeof PaymentPanel>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-/** Live Kaspi QR: «Начать заново» beside «Позвать сотрудника». */
+/** Neutral QR payment with one clear restart action. */
 export const Default: Story = {};
-/** Restart not allowed (e.g. the list of abandoned guests is full): staff only, as before. */
-export const StaffOnly: Story = { args: { restart: false } };
+/** Restart is unavailable while unresolved orders need attention. */
+export const RestartUnavailable: Story = { args: { restart: false } };
 export const Checking: Story = { args: { checking: true } };
-export const Kazakh: Story = { args: { locale: 'kk', actionLabel: 'Қызметкерді шақыру' } };
-export const English: Story = { args: { locale: 'en', actionLabel: 'Call a team member' } };
+export const Kazakh: Story = { args: { locale: 'kk' } };
+export const English: Story = { args: { locale: 'en' } };

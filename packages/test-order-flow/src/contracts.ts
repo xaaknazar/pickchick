@@ -67,8 +67,7 @@ export const TestLegacyCartSchema = z
       .array(
         z.strictObject({ product_id: z.string().min(1).max(40), quantity: z.int().min(1).max(20) }),
       )
-      .min(1)
-      .max(11),
+      .min(1),
   })
   .superRefine((cart, ctx) => {
     if (new Set(cart.items.map((item) => item.product_id)).size !== cart.items.length)
@@ -87,7 +86,7 @@ export const TestLegacyQuoteSchema = z.strictObject({
   service_mode: z.enum(['takeaway', 'dine_in']),
   currency: z.literal('KZT'),
   total_minor: Minor,
-  lines: z.array(TestLineSchema).min(1).max(11),
+  lines: z.array(TestLineSchema).min(1),
   created_at: z.iso.datetime(),
   expires_at: z.iso.datetime(),
 });
@@ -168,8 +167,7 @@ export const TestCompleteCartSchema = z
           selections: z.array(TestSelectionSchema).max(40),
         }),
       )
-      .min(1)
-      .max(11),
+      .min(1),
   })
   .superRefine((cart, ctx) => {
     if (
@@ -208,7 +206,7 @@ export const TestCompleteLineSchema = TestLineSchema.extend({
 });
 export const TestCompleteQuoteSchema = TestLegacyQuoteSchema.extend({
   catalog_version: z.literal(TEST_COMPLETE_CATALOG_VERSION),
-  lines: z.array(TestCompleteLineSchema).min(1).max(11),
+  lines: z.array(TestCompleteLineSchema).min(1),
   payment_method: z.enum(['kaspi', 'card']),
   estimated_minutes: EstimatedMinutes,
 });

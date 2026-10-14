@@ -144,7 +144,6 @@ export function MenuScreen({
           locale={context.locale}
           busy={model.busy}
           cart={model.cart}
-          lineCount={model.cart.length + model.unavailableCartLines.length}
           onInteraction={model.touch}
           onClose={() => setSheetId(null)}
           // The product page's add: the same selections and quantity; the sheet closes once the

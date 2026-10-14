@@ -72,7 +72,7 @@ class RedesignProduct(ui.KioskUI):
         self.assertGreaterEqual(add['height'], 52)
         # The price with surcharges and quantity, in full (never cut by an ellipsis).
         self.assertIn(' · ' + price, text_of(ui.element(page, 'kiosk-product-add')))
-        for control in ['kiosk-product-close', 'kiosk-product-help', 'kiosk-product-decrement',
+        for control in ['kiosk-product-close', 'kiosk-product-decrement',
                         'kiosk-product-increment', 'kiosk-product-details-open']:
             ui.assert_bounded(page, control, width, height, minimum=28)
         hero = ui.assert_bounded(page, 'kiosk-product-hero', width, height)

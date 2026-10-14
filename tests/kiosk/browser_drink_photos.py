@@ -44,7 +44,7 @@ class DrinkPhotos(unittest.TestCase):
                 apple = page.get_by_test_id('kiosk-modifier-piko-flavor-piko-apple')
                 orange = page.get_by_test_id('kiosk-modifier-piko-flavor-piko-orange')
                 expect(apple).to_have_attribute('aria-checked', 'true')
-                cart = page.locator('[data-testid^="kiosk-cart-line-"]').filter(has=page.get_by_role('button', name='Убрать', exact=True))
+                cart = page.locator('[data-testid^="kiosk-cart-line-"]').filter(has=page.get_by_role('button', name='Уменьшить количество', exact=True))
                 expect(cart).to_have_count(1)
                 before_id = cart.get_attribute('data-testid')
                 expect(cart.get_by_text('Piko Яблоко 0.2 л', exact=False)).to_be_visible()
@@ -65,6 +65,10 @@ class DrinkPhotos(unittest.TestCase):
                     self.assertGreaterEqual(rect['x'], 0)
                     self.assertLessEqual(rect['x'] + rect['width'], width)
                 page.screenshot(path=str(output / f'piko-{width}.png'), full_page=True)
+                story('kiosk-redesign-combohero--piko-orange')
+                expect(page.get_by_test_id('kiosk-photo-card-drink:piko-orange').locator('img')).to_have_count(1)
+                expect(page.get_by_test_id('kiosk-photo-card-drink:piko-apple')).to_have_count(0)
+                page.screenshot(path=str(output / f'piko-orange-hero-{width}.png'), full_page=True)
                 story('kiosk-modifieroptions--combo-with-piko-flavors')
                 for drink in ['fuse-peach', 'fuse-mango', 'water', 'sprite', 'fanta', 'cola-bottle', 'cola-zero', 'piko-apple', 'piko-orange']:
                     option = page.get_by_test_id('kiosk-modifier-drink-' + drink)
@@ -75,8 +79,11 @@ class DrinkPhotos(unittest.TestCase):
                     self.assertLessEqual(rect['x'] + rect['width'], width)
                 page.screenshot(path=str(output / f'combo-{width}.png'), full_page=True)
                 if width == 820:
-                    for name in ['peach', 'water', 'cola-bottle', 'cola-can', 'cola-zero', 'sprite', 'fanta', 'mango-chamomile', 'piko-apple', 'piko-orange', 'piko-both-flavors']:
+                    for name in ['peach', 'water', 'cola-bottle', 'cola-can', 'cola-zero', 'sprite', 'fanta', 'mango-chamomile', 'piko-apple', 'piko-orange', 'piko-default']:
                         story('kiosk-productartwork--' + name)
+                        if name.startswith('piko-'):
+                            expect(page.locator('[data-testid^="kiosk-photo-card-"] img')).to_have_count(1)
+                            page.screenshot(path=str(output / f'{name}-820.png'))
                     story('kiosk-productartwork--peach')
                     page.screenshot(path=str(output / 'peach-820.png'))
                 self.assertEqual(errors, [])

@@ -35,13 +35,10 @@ class KioskPaymentSuccess(ui.KioskUI):
         self.assertNotIn('kiosk-screen-cart', passed)
         self.assertEqual(len(fixture.orders), 0)
 
-        # Both radios remain reachable; choosing one must update its actual
-        # accessibility state rather than only the visual border.
-        ui.element(page, 'kiosk-payment-method-card').click()
-        expect(ui.element(page, 'kiosk-payment-method-card')).to_have_attribute('aria-checked', 'true')
-        ui.element(page, 'kiosk-payment-method-kaspi').click()
+        # New kiosk checkout has exactly one payment method and never asks for a phone.
+        expect(page.get_by_test_id('kiosk-payment-method-card')).to_have_count(0)
+        expect(page.get_by_test_id('kiosk-payment-method-kaspi_invoice')).to_have_count(0)
         expect(ui.element(page, 'kiosk-payment-method-kaspi')).to_have_attribute('aria-checked', 'true')
-        expect(ui.element(page, 'kiosk-payment-method-card')).to_have_attribute('aria-checked', 'false')
         ui.assert_bounded(page, 'kiosk-review-create', width, height)
         ui.assert_no_overflow(page, width)
         ui.capture(page, 'web-review-1024.png')

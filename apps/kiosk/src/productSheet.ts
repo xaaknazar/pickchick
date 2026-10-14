@@ -13,9 +13,9 @@
  * Adding from the sheet uses exactly the product page's model call: `addToCart(productId,
  * selections, quantity)`, with the selections of a single-choice group as the page builds them
  * (`{ group_id, option_id, quantity: 1 }`) and the quantity capped by the cart's room for that
- * very line (20 of one line, 11 different lines).
+ * very line (20 of one exact configuration).
  */
-import { LINE_LIMIT, LINES_LIMIT, testLineId } from './cart.ts';
+import { LINE_LIMIT, testLineId } from './cart.ts';
 import { isSingleItem } from './components/categories.ts';
 import type { KioskModifierGroup, KioskProduct, KioskSelection } from './model';
 
@@ -77,16 +77,14 @@ export function sheetUnitMinor(product: KioskProduct, sizeId: string | null): st
 
 /**
  * How many more of this exact line the cart takes, as on the product page: what the cart already
- * holds of the line counts, and a new line needs a free one of the 11. `limit` names the rule
+ * holds of the line counts. Distinct configurations are not capped. `limit` names the rule
  * that leaves no room.
  */
 export function sheetRoom(
   lineId: string,
   cart: readonly { lineId: string; quantity: number }[],
-  lineCount: number,
-): { room: number; limit: 'line' | 'lines' | null } {
+): { room: number; limit: 'line' | null } {
   const inCart = cart.find((line) => line.lineId === lineId)?.quantity ?? 0;
-  if (!inCart && lineCount >= LINES_LIMIT) return { room: 0, limit: 'lines' };
   const room = Math.max(0, LINE_LIMIT - inCart);
   return { room, limit: room ? null : 'line' };
 }
@@ -117,11 +115,9 @@ const round = (value: number) => Math.round(value * 10) / 10;
 export function sheetFacts(product: KioskProduct, sizeId: string | null): SheetFacts {
   const option: Option | undefined = sheetSizeGroup(product)?.options.find((o) => o.id === sizeId);
   const base = !option || option.default_quantity > 0;
-  const serving = base
-    ? product.serving_label && product.serving_label.trim() !== '-'
-      ? product.serving_label.trim()
-      : null
-    : option.label;
+  const serving =
+    option?.label ??
+    (product.serving_label?.trim() !== '-' ? product.serving_label?.trim() || null : null);
   const n = product.nutrition as KioskProduct['nutrition'] | null | undefined;
   if (!n || !Number.isFinite(n.energy_kcal))
     return { serving, kcal: null, per100g: false, macros: null };

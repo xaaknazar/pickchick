@@ -24,9 +24,9 @@ import browser_ui as ui
 OUTPUT = Path(os.environ.get('KIOSK_REDESIGN_OUTPUT', '.local/kiosk-redesign-start'))
 SIZES = [(1024, 1366), (820, 1180), (744, 1133)]
 COPY = {
-    'ru': {'kaspi': 'Оплата через Kaspi QR', 'cta': 'СДЕЛАТЬ ЗАКАЗ', 'title': 'Как будете есть?'},
-    'kk': {'kaspi': 'Kaspi QR арқылы төлем', 'cta': 'ТАПСЫРЫС БЕРУ', 'title': 'Қалай тамақтанасыз?'},
-    'en': {'kaspi': 'Pay with Kaspi QR', 'cta': 'ORDER NOW', 'title': 'Where will you eat?'},
+    'ru': {'kaspi': 'Оплата по QR', 'cta': 'СДЕЛАТЬ ЗАКАЗ', 'title': 'Как будете есть?'},
+    'kk': {'kaspi': 'QR арқылы төлем', 'cta': 'ТАПСЫРЫС БЕРУ', 'title': 'Қалай тамақтанасыз?'},
+    'en': {'kaspi': 'Pay by QR', 'cta': 'ORDER NOW', 'title': 'Where will you eat?'},
 }
 FRAMES = (0.08, 0.25, 0.40, 0.60)
 
@@ -136,12 +136,12 @@ class RedesignStart(ui.KioskUI):
         expect(ui.element(page, 'kiosk-start')).to_contain_text(COPY[value]['cta'])
         ui.assert_bounded(page, 'kiosk-start', width, height)
         chip = ui.assert_bounded(page, 'kiosk-start-kaspi', width, height)
-        expect(ui.element(page, 'kiosk-start-kaspi')).to_have_text(COPY[value]['kaspi'])
+        expect(ui.element(page, 'kiosk-start-kaspi').get_by_text(COPY[value]['kaspi'], exact=True)).to_be_visible()
         self.assertLessEqual(abs(chip['height'] - px(width, 75)), 1, chip)
-        look = page.evaluate('() => {' + STATE + '''
+        look = page.evaluate('(expected) => {' + STATE + '''
             const chip = getComputedStyle(visible('kiosk-start-kaspi'));
             const track = getComputedStyle(visible('kiosk-language-ru').parentElement);
-            const label = getComputedStyle(visible('kiosk-start-kaspi').querySelector('[dir="auto"]'));
+            const label = getComputedStyle([...visible('kiosk-start-kaspi').querySelectorAll('[dir="auto"]')].find(e => e.textContent === expected));
             const cta = getComputedStyle(visible('kiosk-start').querySelector('[dir="auto"]'));
             const glow = getComputedStyle(visible('kiosk-start').parentElement);
             return {
@@ -153,7 +153,7 @@ class RedesignStart(ui.KioskUI):
                         track.backdropFilter],
                 label: [label.fontFamily, label.fontSize],
             };
-        }''')
+        }''', COPY[value]['kaspi'])
         self.assertEqual(look['chip'][:4], ['rgba(2, 10, 31, 0.28)', 'rgba(255, 255, 255, 0.2)',
                                             '1px', 'blur(14px)'], look)
         self.assertEqual(look['track'], ['rgba(2, 10, 31, 0.55)', 'rgba(255, 255, 255, 0.18)',
@@ -186,7 +186,14 @@ class RedesignStart(ui.KioskUI):
         here = ui.assert_bounded(page, 'kiosk-mode-dine-in', width, height)
         take = ui.assert_bounded(page, 'kiosk-mode-takeaway', width, height)
         self.assertLessEqual(abs(here['height'] - take['height']), 1, ('card heights', here, take))
+        page.mouse.move(width / 2, height / 2)
+        for delta in (700, -700):
+            page.mouse.wheel(0, delta)
+            page.wait_for_timeout(150)
+            self.assertEqual(ui.element(page, 'kiosk-mode-dine-in').bounding_box(), here)
+            self.assertEqual(ui.element(page, 'kiosk-mode-takeaway').bounding_box(), take)
         return {'title': line, 'cards': [here['height'], take['height']]}
+
 
     def salute(self, width, height, value):
         page = self.page_for(width, height, motion=True)

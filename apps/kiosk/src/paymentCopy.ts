@@ -15,8 +15,8 @@ const table = {
     orderNo: 'Заказ № {n}',
     /** The three glass tiles under the QR: a bold line over a caption. */
     steps: [
-      ['Откройте Kaspi.kz', 'на своём телефоне'],
-      ['Нажмите «Kaspi QR»', 'на главном экране'],
+      ['Приложение банка', 'откройте на телефоне'],
+      ['Оплата по QR', 'выберите сканер'],
       ['Наведите камеру', 'на код выше'],
     ],
     waiting: 'Ждём оплату - экран обновится сам',
@@ -29,8 +29,8 @@ const table = {
     title: 'Төлем',
     orderNo: 'Тапсырыс № {n}',
     steps: [
-      ['Kaspi.kz ашыңыз', 'өз телефоныңызда'],
-      ['«Kaspi QR» басыңыз', 'басты экранда'],
+      ['Банк қосымшасы', 'телефоныңызда ашыңыз'],
+      ['QR арқылы төлеу', 'сканерді таңдаңыз'],
       ['Камераны бағыттаңыз', 'жоғарыдағы кодқа'],
     ],
     waiting: 'Төлемді күтеміз - экран өзі жаңарады',
@@ -43,8 +43,8 @@ const table = {
     title: 'Payment',
     orderNo: 'Order #{n}',
     steps: [
-      ['Open Kaspi.kz', 'on your phone'],
-      ['Tap «Kaspi QR»', 'on the home screen'],
+      ['Your banking app', 'open it on your phone'],
+      ['Pay by QR', 'choose the scanner'],
       ['Point the camera', 'at the code above'],
     ],
     waiting: 'Waiting for payment - the screen updates itself',

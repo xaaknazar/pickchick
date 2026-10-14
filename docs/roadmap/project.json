@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-14",
+  "updatedAt": "2026-10-13",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -1068,7 +1068,7 @@
       "id": "mobile-testflight",
       "workstream": "mobile",
       "title": "Доставить базовую сборку в TestFlight",
-      "summary": "0.2.0 (20), source eaa21d08 с исправлениями PR246/248, прошла Foundation CI 11/11. Apple обработала и предоставила сборку двум прежним тестировщикам PickChick Internal 14 октября; статус «Тестируется». Архив/IPA/JS/подпись проверены. Физическая установка и приёмка 20 ещё не подтверждены.",
+      "summary": "0.2.0 (16), source b25f6df6, прошла CI 11/11; Apple приняла архив 9 октября 14:30 UTC, обработала и включила PickChick Internal в 14:38 UTC. Те же 2 тестировщика, внешние группы не менялись. API 3bc98faf и защита актуального меню установлены. Физическая установка и приёмка 16 ещё не подтверждены.",
       "status": "done",
       "owner": "development",
       "phase": "foundation",
@@ -1085,14 +1085,10 @@
         {
           "label": "Архив, Apple processing и существующая группа",
           "path": "docs/operations/mobile-native16.md"
-        },
-        {
-          "label": "TestFlight 20: исходник, CI, подпись и доступность в Apple",
-          "path": "docs/operations/mobile-testflight20.md"
         }
       ],
       "acceptance": ["Базовая сборка доступна во внутреннем тестировании на iPhone."],
-      "nextAction": "Обновить iPhone через TestFlight и проверить защиту/восстановление оплаты и неподвижные игры по чек-листу build20. Реальные платежи автоматически не создавать.",
+      "nextAction": "Обновить iPhone через TestFlight поверх приложения; проверить опубликованное меню, корзину и восстановление сети без нового реального заказа.",
       "checks": {
         "implemented": true,
         "verified": true,
@@ -2990,7 +2986,7 @@
       "id": "games-local",
       "workstream": "games",
       "title": "PICK MAN и PICK BLOCKS",
-      "summary": "По решению владельца PICK RUN временно скрыт, включая старые ссылки и галерею. В приложении две игры: MAN со свайпами и BLOCKS с разноцветными клетками. Проверены четыре размера; очки локальные, серверные награды выключены. 25.09 исправлены выход BLOCKS за стену при повороте и смена траектории свайпа; 20 адресных browser-сценариев пройдены. Приёмка на телефоне ещё нужна. Pick Blocks rendering now uses engine coordinates for the piece origin and shape, plus a bounded Reanimated fraction of one free cell. Removed Animated.ValueXY absolute motion and remounts on every swipe/rotation. Explicit native bounds and collapsable=false keep the coordinate hierarchy stable. Verified 202 Node + 30 Python mobile tests, typecheck/lint/format, detector, and iOS Dev HTTP200. CUA393x852 covered both wall swipes, rotation, accelerated drop, multiple landings, pause and restoration. The original native iPhone failure was not reproduced locally; physical iPhone acceptance is still required. VPS/TestFlight/online roadmap not deployed. 14 октября: PR248 включён в TestFlight 0.2.0 (20), CI исходника 11/11. Игровые маршруты fullScreenModal/gestureEnabled=false; PICK MAN сохраняет возврат по источнику. Apple подтверждает доступность PickChick Internal. Физические свайпы и возврат на iPhone ещё принимает владелец.",
+      "summary": "По решению владельца PICK RUN временно скрыт, включая старые ссылки и галерею. В приложении две игры: MAN со свайпами и BLOCKS с разноцветными клетками. Проверены четыре размера; очки локальные, серверные награды выключены. 25.09 исправлены выход BLOCKS за стену при повороте и смена траектории свайпа; 20 адресных browser-сценариев пройдены. Приёмка на телефоне ещё нужна. Pick Blocks rendering now uses engine coordinates for the piece origin and shape, plus a bounded Reanimated fraction of one free cell. Removed Animated.ValueXY absolute motion and remounts on every swipe/rotation. Explicit native bounds and collapsable=false keep the coordinate hierarchy stable. Verified 202 Node + 30 Python mobile tests, typecheck/lint/format, detector, and iOS Dev HTTP200. CUA393x852 covered both wall swipes, rotation, accelerated drop, multiple landings, pause and restoration. The original native iPhone failure was not reproduced locally; physical iPhone acceptance is still required. VPS/TestFlight/online roadmap not deployed.",
       "status": "done",
       "owner": "development",
       "phase": "product",
@@ -3019,10 +3015,6 @@
         {
           "label": "Две доступные игры и возврат со старых ссылок",
           "path": "docs/operations/mobile-design-refinement.md"
-        },
-        {
-          "label": "TestFlight 20: исходник, CI, подпись и доступность в Apple",
-          "path": "docs/operations/mobile-testflight20.md"
         }
       ],
       "acceptance": [
@@ -3032,11 +3024,11 @@
         "BLOCKS: семь цветов и отсутствие логотипов на клетках проверены визуально; browser-сценарий четырёх размеров пройден.",
         "23.09: в событиях и галерее нет PICK RUN; M27/M28, включая preview, возвращают в события. MAN/BLOCKS проверены на четырёх размерах."
       ],
-      "nextAction": "Обновить iPhone до 0.2.0 (20), проверить неподвижный экран всех игр из заказа, игровые свайпы и возврат к исходному заказу. Приёмку отмечать отдельно.",
+      "nextAction": "Проверить ощущения и FPS на физических iPhone/Android, принять дизайн с владельцем и затем выпустить TestFlight.",
       "checks": {
         "implemented": true,
         "verified": true,
-        "deployed": true,
+        "deployed": false,
         "accepted": false
       }
     },
@@ -4480,7 +4472,7 @@
       "id": "manager-device-access",
       "workstream": "backoffice",
       "title": "Подключать экраны и восстанавливать пароль из кабинета управляющего",
-      "summary": "Кабинет 4caca195, API 5b6f846b/cloud058 и маршрут heartbeat установлены; обе полные CI 11/11, backup/restore и сохранность данных проверены. Карточки и история доступны, pairing выключен. На Windows committed020; старый runtime и службы работают. После рестарта туннеля не сохранился Prepare receipt; подготовлено read-only продолжение без повторной миграции. Edge021, worker, pairing и нативный heartbeat киоска ещё не выпущены.",
+      "summary": "Кабинет 4caca195, API 5b6f846b/cloud058, Windows runtime 5b6f846b/schema020 и KitchenLink установлены. Recovery, Switch и Activate завершены 14 октября; backup020 восстановлена отдельно, сверены 47 таблиц. Mailbox worker работает автоматически, pairing включён на cloud, Windows и портале. Полные CI операторов 11/11; данные, ключи и настройки сохранены. Физическая привязка экранов, cloud delivery и приёмка ещё не подтверждены. Edge021 и проверка heartbeat остаются отдельно.",
       "status": "active",
       "owner": "development",
       "phase": "product",
@@ -4505,6 +4497,10 @@
         {
           "label": "Центр устройств, проверка связи и порядок выпуска",
           "path": "docs/operations/device-center.md"
+        },
+        {
+          "label": "Фактический выпуск и включение pairing 14 октября",
+          "path": "docs/operations/deployments/2026-10-13-device-center.md"
         }
       ],
       "acceptance": [
@@ -4513,11 +4509,11 @@
         "Существующие заказы, оплаты, ключи киоска и табели сохранены.",
         "Потеря связи и возврат приложения корректно отображаются; физическая приёмка отдельно."
       ],
-      "nextAction": "Проверить и выполнить продолжение с фактической schema020, переключить runtime, установить worker и KitchenLink. После освобождения API вторым Mac включить pairing с реальными cloud/windows proofs. Отдельно выпустить edge021 и нативный heartbeat киоска; принять физические экраны.",
+      "nextAction": "Проверить на физических экранах привязку кодом, назначение станции, доставку и отзыв. Отдельно согласовать выпуск edge021 и проверить heartbeat нативного киоска; получить приёмку владельца.",
       "checks": {
         "implemented": true,
         "verified": true,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     },
@@ -4631,6 +4627,50 @@
         "implemented": true,
         "verified": true,
         "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "kiosk-owner-polish-1013",
+      "workstream": "kiosk",
+      "title": "Доработки киоска после проверки 17",
+      "summary": "Build 21 из deb62522 установлен по USB поверх 20 без удаления данных и запущен. На допах фото/названия/цены опущены на 16 дизайн-пунктов, кнопки количества сохранены. Piko показывает одну упаковку и фото выбранного вкуса. По отдельному разрешению владельца опубликован catalog11/draft24 с яблоком/апельсином без изменения цен; касса подтвердила menu8 applied, Piko остаётся 590 ₸. Проверка копии фактического меню на трёх iPad прошла. 224 unit tests, typecheck/lint, 7 браузерных сценариев допов, полная Foundation CI 11/11, UI/axe и roadmap CI успешны. Нативная проверка 21: 1/1, 0 ошибок/пропусков, 15 снимков; киоск оставлен на заставке вне демо. Фото, стеклянные действия, нейтральный QR и единственная «К оплате» сохранены. Банковский механизм не менялся, реальных оплат не проводили. Сервер/кухня для больших заказов и приёмка владельцем остаются отдельно.",
+      "status": "active",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": ["kiosk-client"],
+      "evidence": [
+        {
+          "label": "Установка, проверки, снимки и ограничения",
+          "path": "docs/operations/kiosk-owner-polish-2026-10-13.md"
+        },
+        {
+          "label": "Фото, стекло, QR и проверки 14 октября",
+          "path": "docs/operations/kiosk-glass-polish-2026-10-14.md"
+        },
+        {
+          "label": "Полная CI установленного кода: 11/11",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/38530154916"
+        },
+        {
+          "label": "Полная CI установленной сборки 20: 11/11",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/38536178374"
+        },
+        {
+          "label": "Полная CI установленной сборки 21: 11/11",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/38541949577"
+        }
+      ],
+      "acceptance": [
+        "Физический iPad: язык, режим, допы, фото и QR-only.",
+        "Большой заказ проходит сервер и кухню без ограничения числа строк.",
+        "Владелец принял изменения."
+      ],
+      "nextAction": "Приёмка владельцем установленной 21: расположение допов, фото и выбор вкуса Piko. Серверный/Windows выпуск больших заказов готовить отдельно от текущего device-center baseline; прежние пакеты не применять автоматически.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
         "accepted": false
       }
     },

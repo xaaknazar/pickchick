@@ -42,17 +42,15 @@ export const CustomerCommerceOrderSchema = z.strictObject({
   expiresAt: z.iso.datetime().nullable(),
   receipt: z.enum(['deferred', 'pending', 'issued']),
   receiptUrl: z.url().nullable(),
-  items: z
-    .array(
-      z.strictObject({
-        productId: z.string(),
-        title: z.string(),
-        quantity: z.int().positive(),
-        totalMinor: amount,
-        modifiers: z.array(z.string()),
-      }),
-    )
-    .max(200),
+  items: z.array(
+    z.strictObject({
+      productId: z.string(),
+      title: z.string(),
+      quantity: z.int().positive(),
+      totalMinor: amount,
+      modifiers: z.array(z.string()),
+    }),
+  ),
 });
 export type CustomerCommerceOrder = z.infer<typeof CustomerCommerceOrderSchema>;
 

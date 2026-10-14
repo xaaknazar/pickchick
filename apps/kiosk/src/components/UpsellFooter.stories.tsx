@@ -24,7 +24,6 @@ const meta = {
     busy: false,
     locale: 'ru',
     onCart: fn(),
-    onSkip: fn(),
     onPay: fn(),
   },
   tags: ['autodocs'],

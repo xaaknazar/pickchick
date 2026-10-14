@@ -36,13 +36,13 @@ CUT_TEXT = '''(root) => [...root.querySelectorAll('div')].filter((e) => {
 }).map((e) => e.textContent)'''
 COPY = {
     'ru': {'title': 'Оплата', 'restart': 'Начать заново', 'staff': 'Позвать сотрудника',
-           'waiting': 'Ждём оплату - экран обновится сам', 'step': 'Откройте Kaspi.kz',
+           'waiting': 'Ждём оплату - экран обновится сам', 'step': 'Приложение банка',
            'valid': 'QR действует', 'cancel': 'Отменить оплату'},
     'kk': {'title': 'Төлем', 'restart': 'Басынан бастау', 'staff': 'Қызметкерді шақыру',
-           'waiting': 'Төлемді күтеміз - экран өзі жаңарады', 'step': 'Kaspi.kz ашыңыз',
+           'waiting': 'Төлемді күтеміз - экран өзі жаңарады', 'step': 'Банк қосымшасы',
            'valid': 'QR жарамды', 'cancel': 'Төлемді тоқтату'},
     'en': {'title': 'Payment', 'restart': 'Start over', 'staff': 'Call a team member',
-           'waiting': 'Waiting for payment - the screen updates itself', 'step': 'Open Kaspi.kz',
+           'waiting': 'Waiting for payment - the screen updates itself', 'step': 'Your banking app',
            'valid': 'QR valid for', 'cancel': 'Cancel payment'},
 }
 
@@ -97,6 +97,8 @@ class RedesignPayment(ui.KioskUI):
             plus = page.get_by_test_id('kiosk-upsell-plus-' + product).filter(visible=True)
             if plus.count():
                 plus.click()
+                expect(ui.element(page, 'kiosk-product-sheet')).to_be_visible()
+                ui.element(page, 'kiosk-sheet-add').click()
         ui.element(page, 'kiosk-upsell-continue').click()
         # The demo offers QR and invoice, so the method screen stays in the path.
         ui.screen(page, 'loyalty')
@@ -110,20 +112,24 @@ class RedesignPayment(ui.KioskUI):
 
     def check_screen(self, page, width, height, locale):
         text = COPY[locale]
+        expect(page.get_by_test_id('kiosk-header-help')).to_have_count(0)
+        expect(page.get_by_test_id('kiosk-payment-kaspi-mark')).to_have_count(0)
+        expect(page.get_by_role('button', name=text['staff'], exact=True)).to_have_count(0)
+        self.assertNotIn('Kaspi', ui.element(page, 'kiosk-screen-payment').inner_text())
         screen = ui.element(page, 'kiosk-screen-payment')
-        expect(screen.get_by_role('heading', name=text['title'])).to_be_visible()
-        expect(screen.get_by_role('heading', name='Kaspi QR')).to_be_visible()
+        expect(screen.get_by_role('heading', name=text['title'], exact=True)).to_be_visible()
+        expect(screen.get_by_role('heading', name={'ru': 'Оплата по QR', 'kk': 'QR арқылы төлем', 'en': 'Pay by QR'}[locale])).to_be_visible()
         expect(ui.element(page, 'kiosk-step-payment')).to_be_visible()
         expect(ui.element(page, 'kiosk-payment-qr-plate')).to_be_visible()
         expect(ui.element(page, 'kiosk-payment-qr-timer')).to_contain_text(text['valid'])
         expect(ui.element(page, 'kiosk-payment-qr-timer')).to_contain_text('02:5')
         expect(ui.element(page, 'kiosk-payment-steps')).to_contain_text(text['step'])
         expect(ui.element(page, 'kiosk-payment-waiting-status')).to_have_text(text['waiting'])
-        expect(ui.element(page, 'kiosk-payment-restart')).to_have_text(text['restart'])
-        # The staff demo previews its own cancellation where the live screen calls staff.
-        expect(ui.element(page, 'kiosk-payment-cancel')).to_have_text(text['cancel'])
+        expect(ui.element(page, 'kiosk-payment-restart')).to_have_attribute('aria-label', text['restart'])
+        # The staff demo retains its explicit synthetic-payment cancellation.
+        expect(ui.element(page, 'kiosk-payment-cancel')).to_have_attribute('aria-label', text['cancel'])
         expect(page.get_by_test_id('kiosk-payment-stars')).to_have_attribute('aria-hidden', 'true')
-        for identifier in ['kiosk-header-help', 'kiosk-language-kk', 'kiosk-language-ru',
+        for identifier in ['kiosk-language-kk', 'kiosk-language-ru',
                            'kiosk-language-en', 'kiosk-step-pills', 'kiosk-payment-restart',
                            'kiosk-payment-cancel']:
             ui.assert_bounded(page, identifier, width, height)
@@ -180,12 +186,8 @@ class RedesignPayment(ui.KioskUI):
         ui.element(page, 'kiosk-restart-dismiss').click()
         expect(page.get_by_test_id('kiosk-restart-dialog')).to_have_count(0)
         expect(ui.element(page, 'kiosk-payment-qr')).to_be_visible()
-        # «Позвать сотрудника» on the live screen is the help dialog; in the demo it is the
-        # cancellation preview. Help stays one tap away in the header.
-        ui.element(page, 'kiosk-header-help').click()
-        expect(ui.element(page, 'kiosk-help')).to_be_visible()
-        ui.element(page, 'kiosk-help').get_by_role('button', name='Закрыть').click()
-        expect(page.get_by_test_id('kiosk-help')).to_have_count(0)
+        expect(page.get_by_test_id('kiosk-header-help')).to_have_count(0)
+        expect(page.get_by_test_id('kiosk-payment-kaspi-mark')).to_have_count(0)
 
         ui.element(page, 'kiosk-payment-restart').click()
         ui.element(page, 'kiosk-restart-confirm').click()

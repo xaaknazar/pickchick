@@ -1,12 +1,10 @@
-import { Animated, Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { copy, type Locale } from '../i18n';
+import { type Locale } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
 import { fixedText } from './Body';
-import { GlassPanel } from './GlassPanel';
 import { Language } from './Language';
 import { Logo } from './Logo';
-import { usePress } from './motion';
 /**
  * Kaspi QR header (kiosk redesign 2026-10-13, product-and-payment.md §4, 1024-pt layout): a row
  * 80 high at the top 24 with the logo, «Оплата» (Montserrat 900 30) over «Заказ № 42 · С собой»
@@ -19,7 +17,6 @@ export function PaymentHeader({
   setLocale,
   title,
   subtitle,
-  onHelp,
 }: {
   locale: Locale;
   setLocale: (locale: Locale) => void;
@@ -29,9 +26,6 @@ export function PaymentHeader({
 }) {
   const { px } = useMetrics();
   const safe = useSafeAreaInsets();
-  const t = copy(locale);
-  const help = usePress(0.92);
-  const control = Math.max(48, px(64));
   return (
     <View
       style={{
@@ -74,31 +68,6 @@ export function PaymentHeader({
           ) : null}
         </View>
         <Language locale={locale} onChange={setLocale} tone="glass" />
-        <Animated.View style={{ transform: [{ scale: help.scale }] }}>
-          <GlassPanel shape="circle">
-            <Pressable
-              testID="kiosk-header-help"
-              accessibilityRole="button"
-              accessibilityLabel={t.help}
-              onPress={onHelp}
-              onPressIn={help.onPressIn}
-              onPressOut={help.onPressOut}
-              style={{
-                width: control,
-                height: control,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text
-                {...fixedText}
-                style={{ fontFamily: fonts.black, fontSize: px(24), color: colors.white }}
-              >
-                ?
-              </Text>
-            </Pressable>
-          </GlassPanel>
-        </Animated.View>
       </View>
     </View>
   );

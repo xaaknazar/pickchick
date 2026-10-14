@@ -128,32 +128,34 @@ test('a stop found when paying sends the guest to the cart with a stop message',
   }
 });
 
-test('cart limits have their own message (20 per line, 11 lines) in both controllers', async () => {
+test('distinct cart lines have no eleven-item cap; the per-configuration quantity rule remains', async () => {
   const h = fixture();
   const c = await browsing(h);
-  const product = c.getSnapshot().catalog.products[0];
-  assert.equal(await c.addToCart(product.id, defaults(product), 20), true);
-  assert.equal(await c.addToCart(product.id, defaults(product)), false);
+  const products = c.getSnapshot().catalog.products.filter((p) => p.available !== false);
+  for (const p of products) assert.equal(await c.addToCart(p.id, defaults(p)), true, p.id);
+  assert.ok(c.getSnapshot().cart.length > 11);
+  assert.equal(c.getSnapshot().cart.length, products.length);
+  const first = c.getSnapshot().cart[0];
+  assert.equal(await c.updateQuantity(first.lineId, 20), true);
+  assert.equal(await c.addToCart(first.productId, defaults(first.product)), false);
   assert.equal(c.getSnapshot().errorCode, 'CART_LIMIT_LINE');
-  const others = c
-    .getSnapshot()
-    .catalog.products.filter((p) => p.id !== product.id && p.available !== false);
-  let added = 1;
-  for (const p of others) {
-    if (added === 11) break;
-    if (await c.addToCart(p.id, defaults(p))) added++;
-  }
-  assert.equal(c.getSnapshot().cart.length, 11);
-  const extra = others[others.length - 1];
+  const restored = new CommercialKioskController(h.io);
+  assert.equal(await restored.restore(), true);
+  assert.equal(restored.getSnapshot().cart.length, products.length);
+  const request = h.io.request;
+  h.io.request = async (...args) => {
+    const response = await request(...args);
+    return 'totalMinor' in response
+      ? { ...response, totalMinor: restored.getSnapshot().cartTotalMinor }
+      : response;
+  };
+  restored.goLoyalty();
   assert.equal(
-    await c.addToCart(extra.id, defaults(extra), 1),
-    c.getSnapshot().cart.some((l) => l.productId === extra.id),
+    await restored.beginPayment(),
+    true,
+    'large restored cart reaches the isolated adapter',
   );
-  const fresh = others.find((p) => !c.getSnapshot().cart.some((l) => l.productId === p.id));
-  if (fresh) {
-    assert.equal(await c.addToCart(fresh.id, defaults(fresh)), false);
-    assert.equal(c.getSnapshot().errorCode, 'CART_LIMIT_LINES');
-  }
+  assert.equal(restored.getSnapshot().step, 'payment');
 });
 
 test('the toast follows the line that was added, also when an earlier line grows', async () => {
@@ -371,7 +373,6 @@ test('every visible guest error code has a text in KZ, RU and EN', () => {
     'KITCHEN_OFFLINE',
     'PHONE',
     'CART_LIMIT_LINE',
-    'CART_LIMIT_LINES',
     'RETRY_PAYMENT',
     'PAYMENT_UNKNOWN',
     'MENU_LOAD',

@@ -1,3 +1,4 @@
+import { glassSurface } from './glassSurface';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
@@ -280,7 +281,7 @@ export function CartBar({
                         height: px(34),
                         paddingHorizontal: px(6),
                         borderRadius: px(17),
-                        backgroundColor: redesign.cta,
+                        ...glassSurface('accent'),
                         borderWidth: px(2),
                         borderColor: colors.white,
                         alignItems: 'center',
@@ -346,7 +347,7 @@ export function CartBar({
                   paddingLeft: px(34),
                   paddingRight: px(30),
                   borderRadius: 999,
-                  backgroundColor: redesign.cta,
+                  ...glassSurface('accent'),
                   shadowColor: redesign.cta,
                   shadowOpacity: empty ? 0 : 0.5,
                   shadowRadius: px(13),

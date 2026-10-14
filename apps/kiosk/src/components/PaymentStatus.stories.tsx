@@ -30,7 +30,7 @@ export const Default: Story = {};
 export const Qr: Story = {
   args: {
     state: 'waiting',
-    title: 'Ожидаем оплату Kaspi',
+    title: 'Ожидаем оплату',
     method: 'qr',
     qrPayload: 'pickchick:storybook:not-a-payment',
     expiresAt: new Date(Date.now() + 272000).toISOString(),
@@ -40,7 +40,7 @@ export const QrKk: Story = {
   args: {
     ...Qr.args,
     locale: 'kk',
-    title: 'Kaspi төлемін күтеміз',
+    title: 'Төлемді күтеміз',
     reference: 'Тапсырыс 128',
   },
 };
@@ -49,14 +49,14 @@ export const DemoQr: Story = {
   args: {
     ...Qr.args,
     qrPayload: 'PICKCHICK-DEMO-NOT-PAYABLE',
-    demoWarning: 'ДЕМО - не оплачивать. Это не настоящий QR Kaspi.',
+    demoWarning: 'ДЕМО - не оплачивать. Это не настоящий QR.',
     message: 'Демо-оплата: подождите несколько секунд или выберите результат кнопками ниже.',
   },
 };
 export const Invoice: Story = {
   args: {
     state: 'waiting',
-    title: 'Ожидаем оплату Kaspi',
+    title: 'Ожидаем оплату',
     method: 'invoice',
     message:
       'Счёт отправлен. Откройте Kaspi.kz на своём телефоне и подтвердите оплату. Этот экран обновится автоматически.',

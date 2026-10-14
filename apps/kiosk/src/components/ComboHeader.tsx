@@ -1,6 +1,6 @@
 import { Animated, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { copy, type Locale } from '../i18n';
+import { type Locale } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
 import { fixedText } from './Body';
 import { GlassPanel } from './GlassPanel';
@@ -21,7 +21,6 @@ export function ComboHeader({
   subtitle,
   back,
   onBack,
-  onHelp,
 }: {
   locale: Locale;
   setLocale: (locale: Locale) => void;
@@ -34,9 +33,7 @@ export function ComboHeader({
 }) {
   const { px } = useMetrics();
   const safe = useSafeAreaInsets();
-  const t = copy(locale);
   const press = usePress(0.96);
-  const help = usePress(0.92);
   const control = Math.max(48, px(64));
   return (
     <View
@@ -109,31 +106,6 @@ export function ComboHeader({
           ) : null}
         </View>
         <Language locale={locale} onChange={setLocale} tone="glass" />
-        <Animated.View style={{ transform: [{ scale: help.scale }] }}>
-          <GlassPanel shape="circle">
-            <Pressable
-              testID="kiosk-product-help"
-              accessibilityRole="button"
-              accessibilityLabel={t.help}
-              onPress={onHelp}
-              onPressIn={help.onPressIn}
-              onPressOut={help.onPressOut}
-              style={{
-                width: control,
-                height: control,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text
-                {...fixedText}
-                style={{ fontFamily: fonts.black, fontSize: px(24), color: colors.white }}
-              >
-                ?
-              </Text>
-            </Pressable>
-          </GlassPanel>
-        </Animated.View>
       </View>
     </View>
   );
