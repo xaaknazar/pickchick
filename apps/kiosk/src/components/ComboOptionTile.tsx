@@ -159,7 +159,9 @@ export function ComboOptionTile({
           <OptionMark id={option.id} name={name} />
         )}
       </View>
-      <View style={{ gap: px(2), marginTop: px(6) }}>
+      <View
+        style={{ gap: px(2), marginTop: px(6), height: groupId === 'sauce' ? px(57) : undefined }}
+      >
         <Text
           {...fixedText}
           numberOfLines={2}

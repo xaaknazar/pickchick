@@ -10,6 +10,8 @@ the selected existing catalog size; no prices, nutrition or catalog entries were
 respective sauce contents. They do not claim to photograph Heinz retail packaging.
 `sauce-hot.png` matches the same elevated three-quarter camera angle and cup framing,
 as requested by the owner. Its spicy red-orange contents are preserved.
+The shared photo renderer aligns the visible cup bounds and scale, ignoring transparent
+padding. Sauce options reserve equal photo/text space; image proportions are preserved.
 
 Sources, pixel dimensions and SHA-256 values are in `provenance.json`. Outputs have at least
 1200 pixels on their long side. Existing owner-supplied bottled-drink photographs remain in

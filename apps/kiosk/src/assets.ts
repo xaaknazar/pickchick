@@ -35,6 +35,15 @@ const photo = (source: number, tile: string | null): Photo => ({
   tile: tile ?? '#FEF8F0',
   cutout: tile === null,
 });
+// Visible cup bounds (alpha >= 64), independent of each PNG's transparent padding.
+// Match the bundled source, so a future published photo keeps its own framing.
+const sauceBounds = new Map<Photo['source'], readonly [number, number, number, number]>([
+  [require('../assets/v3/hd/signature-60.png'), [0.03429, 0.10048, 0.93222, 0.81659]],
+  [require('../assets/v3/hd/sauce-hot.png'), [0.11085, 0.17703, 0.77193, 0.66906]],
+  [require('../assets/v3/hd/heinz-cheese.png'), [0.11324, 0.17783, 0.77352, 0.66667]],
+  [require('../assets/v3/hd/heinz-bbq.png'), [0.1244, 0.18182, 0.75199, 0.64833]],
+]);
+export const saucePhotoBounds = (source: Photo['source']) => sauceBounds.get(source);
 const cards: Record<string, Photo> = {
   'i7.jpg': photo(require('../assets/v3/hd/pick-combo.png'), null),
   'i8.jpg': photo(require('../assets/v3/hd/master-combo.png'), null),
