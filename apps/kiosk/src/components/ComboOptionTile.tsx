@@ -160,7 +160,7 @@ export function ComboOptionTile({
         )}
       </View>
       <View
-        style={{ gap: px(2), marginTop: px(6), height: groupId === 'sauce' ? px(57) : undefined }}
+        style={{ gap: px(2), marginTop: px(6), height: groupId === 'sauce' ? px(38) : undefined }}
       >
         <Text
           {...fixedText}
