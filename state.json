@@ -5215,6 +5215,26 @@
       "status": "active",
       "head": "885afaa58846088c77d175d3b60f32c7a1bbab6f",
       "updatedAt": "2026-10-14T10:31:34.483Z"
+    },
+    {
+      "id": "mobile-l10n-push-1014",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-l10n-push-1014",
+      "scopes": [
+        "apps/mobile/src/i18n",
+        "apps/mobile/src/notifications",
+        "docs/operations/mobile-l10n-push-2026-10-14.md",
+        "docs/translations/mobile-ru-kk-en.md",
+        "scripts/mobile/translations.mjs",
+        "tests/mobile/localization.test.mjs",
+        "tests/mobile/notifications.test.mjs",
+        "packages/customer-notifications",
+        "services/api/src/customer-notifications-controller.ts",
+        "services/api/src/customer-notifications-worker.ts"
+      ],
+      "status": "active",
+      "head": "885afaa58846088c77d175d3b60f32c7a1bbab6f",
+      "updatedAt": "2026-10-14T10:33:17.659Z"
     }
   ]
 }
