@@ -9,6 +9,7 @@ import { usePress, useTimingTo } from './motion';
 import { categoryKeys, inCategory, type Category } from './categories';
 import { ownerOrange } from './ownerOrange';
 import { fixedText } from './Body';
+import { PhotoEntry } from './PhotoEntry';
 /** Rail column in design points: 16 pt gutters around 170 pt tiles (the grid starts at 202). */
 export const RAIL_WIDTH = 202;
 const TILE = { max: 150, min: 104, gap: 12, radius: 28 };
@@ -28,18 +29,21 @@ export function CategoryRail({
   products,
   locale,
   onSelect,
+  onPhotoInteraction,
 }: {
   category: Category;
   products: KioskProduct[];
   locale: Locale;
   onSelect: (key: Category) => void;
+  onPhotoInteraction?: () => void;
 }) {
   const { px, height: screen } = useMetrics();
   const t = copy(locale);
   const [room, setRoom] = useState(0);
   const count = categoryKeys.length;
   // Before the first layout the rail assumes the header's 128 pt; the measured room wins.
-  const available = room || screen - px(128) - px(MENU_BOTTOM);
+  const photoSpace = onPhotoInteraction ? Math.max(68, px(76)) : 0;
+  const available = (room || screen - px(128) - px(MENU_BOTTOM)) - photoSpace;
   const tile = Math.round(
     Math.min(
       px(TILE.max),
@@ -56,12 +60,13 @@ export function CategoryRail({
       onLayout={(e) => setRoom(Math.max(0, e.nativeEvent.layout.height - px(MENU_BOTTOM)))}
     >
       <ScrollView
+        style={onPhotoInteraction ? { marginBottom: px(MENU_BOTTOM) + photoSpace } : undefined}
         accessibilityRole="tablist"
         accessibilityLabel={t.menuCategories}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingHorizontal: px(16),
-          paddingBottom: px(MENU_BOTTOM),
+          paddingBottom: onPhotoInteraction ? 0 : px(MENU_BOTTOM),
           gap: px(TILE.gap),
         }}
       >
@@ -98,6 +103,18 @@ export function CategoryRail({
           );
         })}
       </ScrollView>
+      {onPhotoInteraction ? (
+        <View
+          style={{
+            position: 'absolute',
+            left: px(16),
+            right: px(16),
+            bottom: px(MENU_BOTTOM),
+          }}
+        >
+          <PhotoEntry locale={locale} onInteraction={onPhotoInteraction} />
+        </View>
+      ) : null}
     </View>
   );
 }

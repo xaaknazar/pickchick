@@ -33,7 +33,12 @@ class PhotoUI(ui.KioskUI):
                 page.context.grant_permissions(['camera'])
                 self.start(page); self.add(page)
                 before=ui.stored(page,ui.FLOW_KEY)
-                ui.assert_bounded(page,'photo-open',width,height)
+                entry=ui.assert_bounded(page,'photo-open',width,height)
+                category=ui.element(page,'kiosk-category-drinks')
+                category.scroll_into_view_if_needed()
+                last=category.bounding_box()
+                self.assertLessEqual(last['y']+last['height'],entry['y']-8,
+                                     'Categories must remain reachable above the photo action')
                 ui.element(page,'photo-open').click()
                 ui.assert_bounded(page,'photo-close',width,height)
                 ui.element(page,'photo-start').click()

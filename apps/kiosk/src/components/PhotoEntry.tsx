@@ -17,7 +17,7 @@ export function PhotoEntry({
   const [open, setOpen] = useState(false);
   const t = photoCopy(locale);
   return (
-    <View style={{ paddingHorizontal: 24, paddingBottom: 16, alignItems: 'flex-end' }}>
+    <View>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t.title}
@@ -29,16 +29,17 @@ export function PhotoEntry({
         style={({ pressed }) => ({
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 10,
+          justifyContent: 'center',
+          gap: 8,
           minHeight: 52,
-          paddingHorizontal: 20,
+          paddingHorizontal: 8,
           borderRadius: 16,
           backgroundColor: pressed ? colors.sky : colors.white,
         })}
       >
         <Ionicons name="camera-outline" size={24} color={colors.blue} accessible={false} />
-        <Text {...fixedText} style={{ color: colors.blue, fontFamily: fonts.bold, fontSize: 18 }}>
-          {t.title}
+        <Text {...fixedText} style={{ color: colors.blue, fontFamily: fonts.bold, fontSize: 16 }}>
+          {locale === 'en' ? 'Photo' : 'Фото'}
         </Text>
       </Pressable>
       <Modal

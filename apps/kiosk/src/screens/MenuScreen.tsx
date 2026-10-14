@@ -10,7 +10,6 @@ import { Toast } from '../components/Toast';
 import { ProductSheet } from '../components/ProductSheet';
 import { inCategory, type Category, type MenuMemory } from '../components/categories';
 import { opensInSheet } from '../productSheet';
-import { PhotoEntry } from '../components/PhotoEntry';
 export type { MenuMemory } from '../components/categories';
 export function MenuScreen({
   model,
@@ -93,13 +92,13 @@ export function MenuScreen({
         onDining={(mode) => (mode === model.mode ? true : model.setMode(mode))}
         minimal
       />
-      <PhotoEntry locale={context.locale} onInteraction={model.touch} />
       <Wrapper dir="row" flex={1}>
         <CategoryRail
           category={category}
           products={products}
           locale={context.locale}
           onSelect={select}
+          onPhotoInteraction={model.touch}
         />
         <MenuGrid
           key={category + '-' + revision}
