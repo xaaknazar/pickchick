@@ -5055,7 +5055,7 @@
       "id": "kiosk-owner-polish-1013",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-owner-polish-1013",
-      "head": "4de5257ea14f362c4669dd0a0876c3c035557468",
+      "head": "276b015e308e3106ecca61b556f983c8dc30317c",
       "status": "active",
       "scopes": [
         "apps/kiosk/.storybook",
@@ -5154,9 +5154,11 @@
         "tests/kiosk/browser_glass_polish.py",
         ".github/workflows/ci.yml",
         "docs/operations/images/kiosk-glass-polish-2026-10-14",
-        "apps/kiosk/src/components/ComboSection.tsx"
+        "apps/kiosk/src/components/ComboSection.tsx",
+        "apps/kiosk/src/components/ComboHero.tsx",
+        "apps/kiosk/src/components/ProductCard.tsx"
       ],
-      "updatedAt": "2026-10-14T07:36:16.975Z",
+      "updatedAt": "2026-10-14T07:44:21.910Z",
       "summary": "Build18 installed/native verified (db682ae1). UI full CI 2d1 green 11/11. Published consolidated checkpoint 81cf5cb7 incl exact Windows release ancestry; current CI running. No TestFlight or real payments.",
       "nextAction": "Restore Mac connection to cashier LAN; retry pinned SSH; fresh guards, worker-only install then API encrypted backup/restore and apply; publish final roadmap and return temporary reservations."
     }
