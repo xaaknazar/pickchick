@@ -5055,7 +5055,7 @@
       "id": "kiosk-owner-polish-1013",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-owner-polish-1013",
-      "head": "452b87954a4601cec2100824e9289b91916658d1",
+      "head": "9e24cc3db70ed817cee953fe00b2d516861e0540",
       "status": "active",
       "scopes": [
         "apps/kiosk/.storybook",
@@ -5159,9 +5159,10 @@
         "apps/kiosk/src/components/ProductCard.tsx",
         "apps/kiosk/src/components/UpsellFooter.tsx",
         "apps/kiosk/src/screens/CartScreens.tsx",
-        "apps/kiosk/src/components/UpsellCards.tsx"
+        "apps/kiosk/src/components/UpsellCards.tsx",
+        "@vps/catalog"
       ],
-      "updatedAt": "2026-10-14T09:08:11.269Z",
+      "updatedAt": "2026-10-14T09:17:04.339Z",
       "summary": "Build18 installed/native verified (db682ae1). UI full CI 2d1 green 11/11. Published consolidated checkpoint 81cf5cb7 incl exact Windows release ancestry; current CI running. No TestFlight or real payments.",
       "nextAction": "Restore Mac connection to cashier LAN; retry pinned SSH; fresh guards, worker-only install then API encrypted backup/restore and apply; publish final roadmap and return temporary reservations."
     }
