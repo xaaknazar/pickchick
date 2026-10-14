@@ -82,21 +82,21 @@ export function UpsellHero({
     >
       {(photo) => (
         <>
-          {/* The design's photo is larger than the card: it bleeds past the top and bottom. */}
+          {/* Lower the photo with the text while keeping its size and the quantity row fixed. */}
           {photo({
             position: 'absolute',
             left: '8%',
             width: '44%',
-            top: px(28),
-            bottom: px(28),
+            top: px(44),
+            bottom: px(12),
           })}
           <View
             style={{
               flex: 1,
               marginLeft: '53%',
-              paddingTop: px(30),
+              paddingTop: px(46),
               paddingRight: px(26),
-              paddingBottom: px(26),
+              paddingBottom: px(10),
               justifyContent: 'flex-end',
             }}
           >
@@ -271,11 +271,11 @@ export function UpsellTile({
             {photo({
               height: px(150),
               flexShrink: 0,
-              marginTop: px(18),
+              marginTop: px(34),
               marginHorizontal: px(22),
               marginBottom: px(6),
             })}
-            <View style={{ paddingHorizontal: px(20), paddingBottom: px(20) }}>
+            <View style={{ paddingHorizontal: px(20), paddingBottom: px(4) }}>
               {nameText}
               {price}
             </View>
