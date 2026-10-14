@@ -5362,12 +5362,16 @@
         "apps/mobile/src/app",
         "db/cloud/migrations/059_cloud_customer_notifications.sql",
         "tests/mobile/tab-bar.test.mjs",
-        "docs/translations/mobile-ru-kk-en.html"
+        "docs/translations/mobile-ru-kk-en.html",
+        "apps/mobile/app.json",
+        "docs/project-status.md",
+        "docs/roadmap/project.json"
       ],
       "status": "active",
       "head": "47efd26963c16cc734d9ce98c98cbf04815e98d6",
-      "updatedAt": "2026-10-14T11:23:59.578Z",
-      "summary": " 14 октября: по прямому поручению владельца выпуск iPhone с PR246/248 выполняется этим же Mac; app.json/status/roadmap временно переданы mobile-payment-recovery. Незавершённые переводы сохранены в отдельной рабочей копии, в выпуск не входят."
+      "updatedAt": "2026-10-14T12:09:08.946Z",
+      "summary": " 14 октября: по прямому поручению владельца выпуск iPhone с PR246/248 выполняется этим же Mac; app.json/status/roadmap временно переданы mobile-payment-recovery. Незавершённые переводы сохранены в отдельной рабочей копии, в выпуск не входят. 14 октября: временные app.json/status/roadmap возвращены после завершения mobile-payment-recovery/TestFlight20. Локальные незавершённые изменения сохранены; обычный claim отказался из-за нового shared, поэтому восстановление ранее переданных областей оформлено guard/CAS штатного ProjectSync без изменения рабочих файлов.",
+      "nextAction": "Перед продолжением переводов/push сохранить checkpoint и явно интегрировать shared0aa873c541e70d11c3b015a8e758df7b633c350a, сохраняя build20 и исправления оплаты/игр. Завершить локальные проверки, документ RU/KK/EN и отдельный PR. Переводы/push не входят в доступную TestFlight 0.2.0 (20)."
     },
     {
       "id": "mobile-payment-recovery",
