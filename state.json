@@ -5607,6 +5607,24 @@
       "status": "active",
       "head": "8193fba61b00328e95b7f71e703e7510f7640955",
       "updatedAt": "2026-10-14T13:21:40.892Z"
+    },
+    {
+      "id": "mobile-combo-rewards",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-combo-rewards",
+      "scopes": [
+        "packages/commerce-core/src/combo-rewards.ts",
+        "packages/commerce-core/tests/combo-rewards.postgres.test.mjs",
+        "packages/commerce-core/tests/combo-rewards.test.mjs",
+        "packages/contracts/src/combo-rewards.ts",
+        "db/cloud/migrations/060_cloud_combo_rewards.sql",
+        "docs/operations/mobile-combo-rewards.md",
+        "tests/mobile/combo-rewards.test.mjs",
+        "tests/mobile/browser_combo_rewards.py"
+      ],
+      "status": "active",
+      "head": "0aa873c541e70d11c3b015a8e758df7b633c350a",
+      "updatedAt": "2026-10-14T13:25:36.769Z"
     }
   ]
 }
