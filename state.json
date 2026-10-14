@@ -5381,8 +5381,9 @@
       ],
       "status": "active",
       "head": "6d8db476405ba4e896413136243eedb154bbb921",
-      "updatedAt": "2026-10-14T10:38:53.112Z",
-      "summary": " 2026-10-14: владелец прямо разрешил временную передачу для переводов RU/KK/EN и push задаче mobile-l10n-push-1014: apps/mobile/src/games/pick-man/PickManScreen.tsx, apps/mobile/src/games/route-options.ts, apps/mobile/src/app/_layout.tsx. Текущие изменения сохраняются, остальные области остаются за исходной задачей."
+      "updatedAt": "2026-10-14T10:38:57.080Z",
+      "summary": "PR248, 6d8db476: неподвижные fullScreenModal для всех игровых маршрутов и возврат PICK MAN к исходному экрану. 363 Node tests, typecheck/lint/format; TEST/Kaspi browser tracker с тремя играми, четырьмя свайпами, возвратом; PICK MAN Events/persistence/5 размеров прошли. После переключения env один запуск fixtures был на кешированной сборке; чистый export с --clear и повторный Kaspi сценарий прошли. Web/iOS/Android Hermes export пройден. Foundation CI38550804066 выполняется, в shared пока не включено. Физический iPhone не проверен: полного Xcode на этом Mac нет.",
+      "nextAction": "Дождаться полной CI38550804066, проверить свежую общую ветку и включить проверенный коммит без force. Для iPhone использовать существующий резерв mobile-payment-recovery @release/ios и включить оба исправления в один мобильный выпуск; checklist docs/operations/order-game-gestures.md. Общие status/roadmap остаются у kiosk-owner-polish-1013; обновить games-local согласованно с фактом установки."
     }
   ]
 }
