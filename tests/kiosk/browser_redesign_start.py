@@ -138,10 +138,10 @@ class RedesignStart(ui.KioskUI):
         chip = ui.assert_bounded(page, 'kiosk-start-kaspi', width, height)
         expect(ui.element(page, 'kiosk-start-kaspi').get_by_text(COPY[value]['kaspi'], exact=True)).to_be_visible()
         self.assertLessEqual(abs(chip['height'] - px(width, 75)), 1, chip)
-        look = page.evaluate('() => {' + STATE + '''
+        look = page.evaluate('(expected) => {' + STATE + '''
             const chip = getComputedStyle(visible('kiosk-start-kaspi'));
             const track = getComputedStyle(visible('kiosk-language-ru').parentElement);
-            const label = getComputedStyle(visible('kiosk-start-kaspi').querySelector('[dir="auto"]'));
+            const label = getComputedStyle([...visible('kiosk-start-kaspi').querySelectorAll('[dir="auto"]')].find(e => e.textContent === expected));
             const cta = getComputedStyle(visible('kiosk-start').querySelector('[dir="auto"]'));
             const glow = getComputedStyle(visible('kiosk-start').parentElement);
             return {
@@ -153,7 +153,7 @@ class RedesignStart(ui.KioskUI):
                         track.backdropFilter],
                 label: [label.fontFamily, label.fontSize],
             };
-        }''')
+        }''', COPY[value]['kaspi'])
         self.assertEqual(look['chip'][:4], ['rgba(2, 10, 31, 0.28)', 'rgba(255, 255, 255, 0.2)',
                                             '1px', 'blur(14px)'], look)
         self.assertEqual(look['track'], ['rgba(2, 10, 31, 0.55)', 'rgba(255, 255, 255, 0.18)',
