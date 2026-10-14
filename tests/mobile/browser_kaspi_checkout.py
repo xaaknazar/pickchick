@@ -74,6 +74,7 @@ with sync_playwright() as p:
      state['keys'].append(body['key']);state['created']=True;state['comment']=state['quote_comment']
      if state['drop']:state['drop']=False;r.abort();return
      data=order()
+   elif path==f'/v1/customer-checkout/orders/{ORDER}' and method=='GET':data=order()
    elif path==f'/v1/customer-checkout/orders/{ORDER}/payment':
     if state['payment_blocked']:
      state['payment_blocked']=False;r.fulfill(status=403,json={'code':'FORBIDDEN','message_key':'errors.forbidden','trace_id':'40000000-0000-4000-8000-000000000009','retryable':False},headers={'Access-Control-Allow-Origin':'*'});return
@@ -152,7 +153,31 @@ with sync_playwright() as p:
   assert state['payments']==0 and len(set(state['keys']))==1
   resume.click()
   expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi',timeout=10000)
+  # Once an invoice exists, neither backdrop/Escape nor the old drag affordance dismiss it.
+  sheet=page.get_by_role('dialog',name='Оформление',exact=True)
+  expect(sheet.get_by_test_id('sheet-handle')).to_have_count(0)
+  expect(page.get_by_role('button',name='Закрыть: Оформление',exact=True)).to_have_count(0)
+  page.get_by_test_id('kaspi-open-app').focus();page.keyboard.press('Escape')
+  expect(page.get_by_test_id('kaspi-waiting')).to_be_visible()
+  page.mouse.click(width/2,2)
+  expect(page.get_by_test_id('kaspi-waiting')).to_be_visible()
+  # Dismissing/cancelling is never represented as a local failed payment.
+  page.get_by_test_id('kaspi-cancel-instructions').click()
+  expect(page.get_by_test_id('kaspi-cancel-help')).to_contain_text('Отклонить счёт')
+  expect(page.get_by_text('Отмена в Kaspi.kz',exact=True)).to_be_visible()
+  expect(page.get_by_text('Если вы уже оплатили, дождитесь статуса заказа.',exact=True)).to_be_visible()
+  expect(page.get_by_test_id('kaspi-retry-payment')).to_have_count(0)
+  assert state['phase']=='awaiting_payment' and state['payments']==1
+  page.screenshot(path=str(OUT/f'cancel-{width}.png'))
+  page.get_by_test_id('kaspi-cancel-instructions').click()
+  expect(page.get_by_test_id('kaspi-cancel-help')).to_have_count(0)
   page.screenshot(path=str(OUT/f'invoice-{width}.png'))
+  # OS restart / a legacy dismissed sheet: the saved identity reopens checkout from the menu.
+  page.goto(URL+'/menu')
+  expect(page.get_by_test_id('kaspi-waiting')).to_be_visible(timeout=25000)
+  assert page.url.endswith('/checkout')
+  assert state['payments']==1 and len(state['keys'])==2, 'Recovery reads the saved order, no second create/pay'
+  expect(page.get_by_role('dialog',name='Оформление',exact=True).get_by_test_id('sheet-handle')).to_have_count(0)
   assert len(state['keys'])==2 and state['keys'][0]==state['keys'][1], state
   assert state['payments']==1 and state['quotes']==(3 if width==393 else 2)
   assert state['quote_keys'][0]==state['quote_keys'][1], 'Lost quote response must reuse its key'
@@ -194,7 +219,11 @@ with sync_playwright() as p:
   assert len(state['keys'])==3 and state['keys'][2]!=state['keys'][0] and state['payments']==2,state
   state['phase']='paid';state['paid']=True;state['revision']+=1
   page.wait_for_timeout(100)
-  state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
+  if width==393:
+   # Paid while the application was closed: recover the same order and show confirmation.
+   page.goto(URL+'/menu')
+  else:
+   state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
   expect(page.get_by_test_id('kaspi-paid')).to_contain_text('Оплачено')
   page.screenshot(path=str(OUT/f'confirmation-{width}.png'))
   if width != 393:page.get_by_test_id('kaspi-track-order').click()

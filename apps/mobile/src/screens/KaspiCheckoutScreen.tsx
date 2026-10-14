@@ -39,20 +39,15 @@ import { useCommerceFeedback } from '../useCommerceFeedback';
 import { checkoutError, paymentReceived, commerceStatus } from '../commerce-presentation';
 import { CheckoutDetails } from './CheckoutScreen';
 import { CheckoutKeyboardDone } from '../components/CheckoutKeyboard';
-import { OrderSheet } from '../components/OrderSheet';
+import { pendingPaymentKey, parsePendingPayment, type PendingPayment } from '../payment-recovery';
+import { OrderSheet, useSheetDismissalLock } from '../components/OrderSheet';
 import { PaymentMark } from '../components/PaymentChoice';
 import { Body, Button, Caption, Empty, Icon, Page, Row } from '../components/UI';
 import { cartTotal, cartLineKey, money } from '../domain';
 import { colors, font } from '../theme';
 
 type Quote = ReturnType<typeof CustomerQuoteSchema.parse>;
-type Pending = {
-  key: string;
-  quoteId: string;
-  signature: string;
-  orderId?: string;
-  sendInvoice?: boolean;
-};
+type Pending = PendingPayment;
 const root = '/v1/customer-checkout';
 
 /** One durable create command per customer. Never reissues a bank invoice on reconnect. */
@@ -76,6 +71,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
   const [loaded, setLoaded] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<unknown>(null);
+  const [restoring, setRestoring] = useState(true);
   const [connectionPaused, setConnectionPaused] = useState(false);
   const [paymentPaused, setPaymentPaused] = useState(false);
   const preparation = useRef<AbortController | null>(null);
@@ -96,7 +92,15 @@ function KaspiCheckoutSession(props: ScreenProps) {
   const signature = cartSignature(props.model.cart, props.model.diningMode, comment);
   const signatureRef = useRef(signature);
   signatureRef.current = signature;
-  const key = `pickchick.commerce.pending.v1:${customerId}`;
+  const key = pendingPaymentKey(customerId);
+  useSheetDismissalLock(
+    restoring ||
+      busy ||
+      connectionPaused ||
+      paidMoment ||
+      Boolean(pending.current && !order) ||
+      Boolean(order && !paymentReceived(order.phase) && order.phase !== 'failed'),
+  );
   const access = auth.withOrderAccess;
   const request = useCallback(
     (path: string, method: 'GET' | 'POST' = 'GET', body?: unknown, signal?: AbortSignal) => {
@@ -111,8 +115,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
     async (value: unknown) => {
       const current = CustomerCommerceOrderSchema.parse(value);
       if (
-        orderRef.current &&
-        !paymentReceived(orderRef.current.phase) &&
+        ((orderRef.current && !paymentReceived(orderRef.current.phase)) || pending.current) &&
         paymentReceived(current.phase) &&
         !paidSeen.current.has(current.orderId)
       ) {
@@ -121,6 +124,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
       }
       // Publish the accepted identity before cart/storage changes can trigger another recovery.
       orderRef.current = current;
+      setOrder(current);
       if (pending.current && (paymentReceived(current.phase) || current.phase === 'failed')) {
         // A newer cart or changed modifiers are never cleared by an older payment.
         if (paymentReceived(current.phase) && pending.current.signature === signatureRef.current) {
@@ -131,8 +135,10 @@ function KaspiCheckoutSession(props: ScreenProps) {
         }
         await AsyncStorage.removeItem(key);
         pending.current = null;
+      } else if (pending.current && pending.current.orderId !== current.orderId) {
+        pending.current = { ...pending.current, orderId: current.orderId };
+        await AsyncStorage.setItem(key, JSON.stringify(pending.current));
       }
-      setOrder(current);
       return current;
     },
     [key, props.model.clearCart],
@@ -140,7 +146,9 @@ function KaspiCheckoutSession(props: ScreenProps) {
   const recover = useCallback(
     async (draft: Pending, signal?: AbortSignal) => {
       try {
-        return await request('/orders', 'POST', { key: draft.key, quoteId: draft.quoteId }, signal);
+        return draft.orderId
+          ? await request(`/orders/${draft.orderId}`, 'GET', undefined, signal)
+          : await request('/orders', 'POST', { key: draft.key, quoteId: draft.quoteId }, signal);
       } catch (e) {
         // Only a definitive server rejection allows discarding an unconsumed quote.
         if (e instanceof CustomerSessionError && e.authoritative && e.code === 'QUOTE_EXPIRED') {
@@ -160,7 +168,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
   }, []);
 
   useEffect(() => {
-    if (orderRef.current && props.screenId !== 'M19') return;
+    if (!foreground || (orderRef.current && props.screenId !== 'M19')) return;
     let active = true;
     const controller = new AbortController();
     bootstrap.current = controller;
@@ -197,26 +205,20 @@ function KaspiCheckoutSession(props: ScreenProps) {
         },
       });
     setLoaded(false);
+    setRestoring(true);
     setError(null);
     setQuote(null);
     setOrder(null);
     const run = async () => {
       const raw = await AsyncStorage.getItem(key);
-      let draft: Pending | null = null;
-      if (raw) {
-        const parsed = JSON.parse(raw) as Pending;
-        if (
-          !/^[a-f0-9-]{36}$/.test(parsed.key) ||
-          !/^[a-f0-9-]{36}$/.test(parsed.quoteId) ||
-          typeof parsed.signature !== 'string'
-        )
-          throw new Error('INVALID_PENDING');
-        draft = parsed;
-      }
+      const draft = parsePendingPayment(raw);
       if (!active || controller.signal.aborted || lock.current) return;
       pending.current = draft;
+      setRestoring(false);
       if (draft) {
-        const existing = CustomerCommerceOrderSchema.parse(await recover(draft));
+        const existing = CustomerCommerceOrderSchema.parse(
+          await prepareCheckout(() => recover(draft, controller.signal), controller.signal),
+        );
         if (!active || controller.signal.aborted || lock.current) return;
         await acceptRef.current(existing);
         if (props.screenId !== 'M19' || existing.phase !== 'failed') return;
@@ -238,10 +240,13 @@ function KaspiCheckoutSession(props: ScreenProps) {
     };
     void run()
       .catch((e) => {
-        if (active && !controller.signal.aborted && props.screenId === 'M19') setError(e);
+        if (active && !controller.signal.aborted) setError(e);
       })
       .finally(() => {
-        if (active) setLoaded(true);
+        if (active) {
+          setLoaded(true);
+          setRestoring(false);
+        }
       });
     return () => {
       active = false;
@@ -256,6 +261,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
     props.model.branch?.id,
     cartOnlySignature,
     props.model.diningMode,
+    foreground,
   ]);
 
   useEffect(() => {
@@ -363,13 +369,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
       // Restore the exact previous intent before any new quote/order is created.
       const raw = await AsyncStorage.getItem(key);
       if (raw) {
-        const draft = JSON.parse(raw) as Pending;
-        if (
-          !/^[a-f0-9-]{36}$/.test(draft.key) ||
-          !/^[a-f0-9-]{36}$/.test(draft.quoteId) ||
-          typeof draft.signature !== 'string'
-        )
-          throw new Error('INVALID_PENDING');
+        const draft = parsePendingPayment(raw)!;
         pending.current = draft;
         await accept(await prepared(() => recover(draft, controller.signal)));
         return;
@@ -543,17 +543,24 @@ function KaspiCheckoutSession(props: ScreenProps) {
         />
       </>
     ) : undefined;
-  if ((busy || connectionPaused) && !order)
+  if ((busy || connectionPaused || pending.current) && !order)
     return (
       <KaspiPaymentState
+        canReturnToCheckout={!pending.current}
         onContinue={() => {}}
         onRetry={() => {}}
         onCart={() => {
+          if (pending.current) return;
           preparation.current?.abort('user');
           setConnectionPaused(false);
         }}
         extraAction={
-          connectionPaused ? <Button title="Продолжить" onPress={() => void submit()} /> : undefined
+          connectionPaused || (error && pending.current) ? (
+            <Button
+              title="Проверить оплату"
+              onPress={() => (pending.current ? retry() : void submit())}
+            />
+          ) : undefined
         }
       />
     );

@@ -1,7 +1,7 @@
 import { OrderSheet } from './components/OrderSheet';
 import { useCallback, useState } from 'react';
 import { ScreenTransition } from './components/Motion';
-import { Redirect, useLocalSearchParams, useRouter, useSegments } from 'expo-router';
+import { Stack, Redirect, useLocalSearchParams, useRouter, useSegments } from 'expo-router';
 import { useAccount } from './useAccount';
 import { accountDestination, requiresAccount } from './account-access';
 import { Pressable, Text } from 'react-native';
@@ -19,6 +19,7 @@ const tabRoutes = {
 } as const;
 export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: boolean }) {
   const [cartHeight, setCartHeight] = useState(100);
+  const [dismissBlocked, setDismissBlocked] = useState(false);
   const router = useRouter();
   const segments = useSegments();
   const params = useLocalSearchParams();
@@ -116,14 +117,18 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
   );
   if (inSheet)
     return (
-      <OrderSheet
-        raised={statusSheet}
-        checkout={id === 'M09' || id === 'M12'}
-        name={statusSheet ? 'Статус заказа' : id === 'M09' ? 'Корзина' : 'Оформление'}
-        onClose={back}
-      >
-        {(close) => screen(close)}
-      </OrderSheet>
+      <>
+        <Stack.Screen options={{ gestureEnabled: !dismissBlocked }} />
+        <OrderSheet
+          onDismissBlockedChange={setDismissBlocked}
+          raised={statusSheet}
+          checkout={id === 'M09' || id === 'M12'}
+          name={statusSheet ? 'Статус заказа' : id === 'M09' ? 'Корзина' : 'Оформление'}
+          onClose={back}
+        >
+          {(close) => screen(close)}
+        </OrderSheet>
+      </>
     );
   return (
     <ScreenTransition style={{ flex: 1, minHeight: 0, backgroundColor: '#04143A' }}>

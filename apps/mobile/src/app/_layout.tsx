@@ -1,3 +1,4 @@
+import { PaymentRecovery } from '../components/PaymentRecovery';
 import { colors } from '../theme';
 import { useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
@@ -55,6 +56,7 @@ function AppLayout() {
           <AccountProvider>
             <MobileProvider>
               <StatusBar style="light" />
+              <PaymentRecovery />
               <Stack
                 screenOptions={{
                   headerShown: false,

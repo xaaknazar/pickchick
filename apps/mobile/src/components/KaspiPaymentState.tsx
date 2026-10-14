@@ -30,6 +30,7 @@ export function KaspiPaymentState({
   onCart,
   notice,
   extraAction,
+  canReturnToCheckout = true,
 }: {
   order?: CustomerCommerceOrder;
   paid?: boolean;
@@ -38,6 +39,7 @@ export function KaspiPaymentState({
   onCart(): void;
   notice?: React.ReactNode;
   extraAction?: React.ReactNode;
+  canReturnToCheckout?: boolean;
 }) {
   const reduced = useReducedMotion();
   const tabBarInset = useTabBarInset();
@@ -45,6 +47,11 @@ export function KaspiPaymentState({
   const compact = height < 700;
   const [foreground, setForeground] = useState(AppState.currentState !== 'background');
   const [openError, setOpenError] = useState(false);
+  const [cancelHelp, setCancelHelp] = useState(false);
+  const openKaspi = () => {
+    setOpenError(false);
+    void Linking.openURL('https://kaspi.kz').catch(() => setOpenError(true));
+  };
   const pulse = useRef(new Animated.Value(0)).current;
   const phase = order?.phase ?? 'awaiting_restaurant';
   const failed = phase === 'failed';
@@ -52,6 +59,7 @@ export function KaspiPaymentState({
   const [now, setNow] = useState(Date.now);
   const remaining = invoiceSecondsRemaining(order?.expiresAt ?? null, now);
   const deadlineReached = (waiting || phase === 'checking') && remaining === 0;
+  const showCancelHelp = cancelHelp && waiting && !paid && !deadlineReached;
   useEffect(() => {
     if ((!waiting && phase !== 'checking') || !foreground || !order?.expiresAt) return;
     setNow(Date.now());
@@ -110,14 +118,16 @@ export function KaspiPaymentState({
         {notice}
         {!paid && !failed ? (
           <Heading style={s.title}>
-            {deadlineReached
-              ? 'Проверяем отмену счёта'
-              : waiting
-                ? 'Отличный выбор!\nЖдём оплату в Kaspi'
-                : paymentCopy[phase].title}
+            {showCancelHelp
+              ? 'Отмена в Kaspi.kz'
+              : deadlineReached
+                ? 'Проверяем отмену счёта'
+                : waiting
+                  ? 'Отличный выбор!\nЖдём оплату в Kaspi'
+                  : paymentCopy[phase].title}
           </Heading>
         ) : null}
-        {height >= 500 ? (
+        {height >= 500 && !showCancelHelp ? (
           <View
             style={[s.visual, (paid || failed) && s.resultVisual, compact && s.compactVisual]}
             accessible={false}
@@ -190,18 +200,29 @@ export function KaspiPaymentState({
         {paid || failed ? (
           <Heading style={s.title}>{paid ? 'Оплачено' : 'Счёт не оплачен'}</Heading>
         ) : null}
-        {!paid && !failed && phase !== 'attention' ? (
+        {!paid && !failed && !showCancelHelp && phase !== 'attention' ? (
           <ActivityIndicator color={colors.accent} style={{ marginBottom: 14 }} />
         ) : null}
-        <Caption style={s.detail} accessibilityLiveRegion="polite">
-          {paid
-            ? `${money(order?.totalMinor ?? '0')} · Kaspi`
-            : deadlineReached
-              ? 'Время оплаты истекло. Ждём подтверждение Kaspi. Если вы успели оплатить, заказ продолжится.'
-              : waiting
-                ? `Подтвердите счёт на ${money(order?.totalMinor ?? '0')} в приложении Kaspi.kz. Обычно это быстро.`
-                : paymentCopy[phase].detail}
-        </Caption>
+        {showCancelHelp ? (
+          <View testID="kaspi-cancel-help" style={s.cancelHelp} accessibilityLiveRegion="polite">
+            <Caption style={s.detail}>
+              В Kaspi.kz найдите счёт PickChick в сообщениях об удалённой оплате и выберите
+              «Отклонить счёт». Вернитесь сюда. Когда банк подтвердит отмену, можно будет изменить
+              заказ.
+            </Caption>
+            <Caption style={s.small}>Если вы уже оплатили, дождитесь статуса заказа.</Caption>
+          </View>
+        ) : (
+          <Caption style={s.detail} accessibilityLiveRegion="polite">
+            {paid
+              ? `${money(order?.totalMinor ?? '0')} · Kaspi`
+              : deadlineReached
+                ? 'Время оплаты истекло. Ждём подтверждение Kaspi. Если вы успели оплатить, заказ продолжится.'
+                : waiting
+                  ? `Подтвердите счёт на ${money(order?.totalMinor ?? '0')} в приложении Kaspi.kz. Обычно это быстро.`
+                  : paymentCopy[phase].detail}
+          </Caption>
+        )}
         {waiting && remaining !== null && remaining > 0 ? (
           <View
             style={s.deadline}
@@ -265,19 +286,24 @@ export function KaspiPaymentState({
         ) : (
           <>
             {extraAction}
-            {!order ? (
+            {!order && canReturnToCheckout ? (
               <Button title="Вернуться к оформлению" secondary onPress={onCart} style={s.button} />
             ) : null}
             {!deadlineReached && (waiting || phase === 'checking') ? (
               <Button
                 title="Открыть Kaspi.kz"
                 testID="kaspi-open-app"
+                style={s.button}
+                onPress={openKaspi}
+              />
+            ) : null}
+            {!deadlineReached && waiting ? (
+              <Button
+                title={showCancelHelp ? 'Вернуться к оплате' : 'Отменить в Kaspi'}
+                testID="kaspi-cancel-instructions"
                 secondary
                 style={s.button}
-                onPress={() => {
-                  setOpenError(false);
-                  void Linking.openURL('https://kaspi.kz').catch(() => setOpenError(true));
-                }}
+                onPress={() => setCancelHelp((value) => !value)}
               />
             ) : null}
             {order ? <Caption style={s.small}>Статус обновится после ответа банка</Caption> : null}
@@ -288,6 +314,7 @@ export function KaspiPaymentState({
   );
 }
 const s = StyleSheet.create({
+  cancelHelp: { gap: 12, alignItems: 'center', marginTop: 24, maxWidth: 350 },
   deadline: { alignItems: 'center', gap: 4, marginTop: 16 },
   deadlineTime: {
     fontSize: 24,
