@@ -5638,9 +5638,11 @@
         "apps/kiosk/src/components/WelcomeContent.tsx",
         "apps/kiosk/src/screens/WelcomeMode.tsx"
       ],
-      "status": "active",
+      "status": "done",
       "head": "10443ef7bdb99d66a838939e704eb93610992b4a",
-      "updatedAt": "2026-10-14T13:49:41.002Z"
+      "updatedAt": "2026-10-14T13:53:33.902Z",
+      "summary": "Программный этап включён в shared 10443ef7bdb99d66a838939e704eb93610992b4a, PR250. По уточнению владельца вход только со стартовой заставки: сразу камера, Переснять/Распечатать, автоматический возврат после sent; в меню фотокнопки нет. Спокойный cream/navy/blue UI. Локально 18 photo Node, 233 kiosk Node, 3 browser_photo, 4 browser_mobbin со всеми stories/Axe и reduced motion, заставка 3 языка × 3 размера, TypeScript/ESLint/Prettier, Web/iOS JS export и Storybook build прошли. Независимый новый полный UI-review: ship, все 12 снимков на 4 размерах, материальных замечаний нет; документер сверил новый сценарий. Photo CI38574742882/38574733364 и roadmap38574742737 успешны. Foundation38574733483 и Kiosk UI38574742778 ещё выполняются: полная зелёная CI не заявлена, выпуска нет. Временные снимки удаляются, очередь печати дедуплицируется, неизвестный результат не повторяется. VPS/Windows/iPad не менялись; native-камера, VoiceOver и бумага не приняты. Runbook docs/operations/kiosk-photo.md.",
+      "nextAction": "До выпуска дождаться результатов Foundation38574733483 и Kiosk UI38574742778 на 10443ef7, разобрать любые ошибки. После получения модели/инструкции подтвердить DPI, raster-протокол, порт и реальную LAN. Зарезервировать Windows и iOS release, установить отдельную HTTPS-службу с приватной конфигурацией, задать разрешённый origin EXPO_PUBLIC_KIOSK_PHOTO_URL, подписать новую сборку PickChick Kiosk и выполнить физический чек-лист. Реальная печать пока выключена. После освобождения mobile-combo-rewards сверить общие project-status/roadmap с runbook/PR/registry и опубликовать пульт; онлайн-пульт этой задачей не обновлялся."
     }
   ]
 }
