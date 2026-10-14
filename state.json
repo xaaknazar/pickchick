@@ -5379,11 +5379,11 @@
         "tests/mobile/browser_tracker_redesign.py",
         "docs/operations/order-game-gestures.md"
       ],
-      "status": "active",
+      "status": "done",
       "head": "6d8db476405ba4e896413136243eedb154bbb921",
-      "updatedAt": "2026-10-14T10:38:57.080Z",
-      "summary": "PR248, 6d8db476: неподвижные fullScreenModal для всех игровых маршрутов и возврат PICK MAN к исходному экрану. 363 Node tests, typecheck/lint/format; TEST/Kaspi browser tracker с тремя играми, четырьмя свайпами, возвратом; PICK MAN Events/persistence/5 размеров прошли. После переключения env один запуск fixtures был на кешированной сборке; чистый export с --clear и повторный Kaspi сценарий прошли. Web/iOS/Android Hermes export пройден. Foundation CI38550804066 выполняется, в shared пока не включено. Физический iPhone не проверен: полного Xcode на этом Mac нет.",
-      "nextAction": "Дождаться полной CI38550804066, проверить свежую общую ветку и включить проверенный коммит без force. Для iPhone использовать существующий резерв mobile-payment-recovery @release/ios и включить оба исправления в один мобильный выпуск; checklist docs/operations/order-game-gestures.md. Общие status/roadmap остаются у kiosk-owner-polish-1013; обновить games-local согласованно с фактом установки."
+      "updatedAt": "2026-10-14T11:03:50.003Z",
+      "summary": "PR248 merged; shared и рабочая ветка совпадают: 6d8db476405ba4e896413136243eedb154bbb921. Foundation CI38550804066 завершилась success 11/11 для точного SHA. Локально 363 Node tests, typecheck/ESLint/Prettier, свежие web/iOS/Android Hermes exports; TEST и Kaspi tracker с запуском 3 игр, 4 свайпами и возвратом; PICK MAN Events/persistence/5 размеров прошли. Все игровые маршруты fullScreenModal/gestureEnabled=false; выход PICK MAN возвращает назад с подписью по источнику. Код реализован и проверен, на физический iPhone не установлен. Реальных счетов/платежей и серверных изменений не было.",
+      "nextAction": "Владелец подтвердил: приложение из TestFlight. На Mac с Xcode принять существующий резерв mobile-payment-recovery @release/ios, получить shared 6d8db476 (включает Kaspi recovery 885afaa), собрать следующий номер после сверки App Store Connect. Использовать прежний storefront по docs/operations/mobile-testflight19.md: server auth/Kaspi/published catalog=1, simulator/unpaid test orders/Farm=0. Пройти подписанный archive/export/upload и проверить обработку Apple; затем checklist docs/operations/order-game-gestures.md и mobile-payment-recovery.md на iPhone. Общие status/roadmap у kiosk-owner-polish-1013: согласованно обновить games-local с фактом установки, не считать CI приёмкой устройства."
     }
   ]
 }
