@@ -65,6 +65,10 @@ class DrinkPhotos(unittest.TestCase):
                     self.assertGreaterEqual(rect['x'], 0)
                     self.assertLessEqual(rect['x'] + rect['width'], width)
                 page.screenshot(path=str(output / f'piko-{width}.png'), full_page=True)
+                story('kiosk-redesign-combohero--piko-orange')
+                expect(page.get_by_test_id('kiosk-photo-card-drink:piko-orange').locator('img')).to_have_count(1)
+                expect(page.get_by_test_id('kiosk-photo-card-drink:piko-apple')).to_have_count(0)
+                page.screenshot(path=str(output / f'piko-orange-hero-{width}.png'), full_page=True)
                 story('kiosk-modifieroptions--combo-with-piko-flavors')
                 for drink in ['fuse-peach', 'fuse-mango', 'water', 'sprite', 'fanta', 'cola-bottle', 'cola-zero', 'piko-apple', 'piko-orange']:
                     option = page.get_by_test_id('kiosk-modifier-drink-' + drink)

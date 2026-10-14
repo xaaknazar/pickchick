@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
-import type { KioskProduct } from '../model';
+import type { KioskProduct, KioskSelection } from '../model';
 import { copy, displayCopy, type Locale } from '../i18n';
 import { productCopy } from '../productCopy';
 import { fitTitle } from '../menu-presentation';
@@ -35,10 +35,12 @@ const PHOTO = 0.5;
  */
 export function ComboHero({
   product,
+  selections = [],
   locale,
   onDetails,
 }: {
   product: KioskProduct;
+  selections?: readonly KioskSelection[];
   locale: Locale;
   /** The «КБЖУ и состав» button: the nutrition and ingredients sheet. */
   onDetails: () => void;
@@ -48,7 +50,7 @@ export function ComboHero({
   const tp = productCopy(locale);
   const enter = useEnter(60, 520);
   const details = usePress(0.95);
-  const imageId = productArtworkId(product);
+  const imageId = productArtworkId(product, selections);
   const largePick = product.id === 'pick-combo';
   const shot = largePick ? heroPhoto(imageId) : productPhoto(imageId);
   // A published photo on a coloured backdrop keeps that backdrop instead of multiplying.

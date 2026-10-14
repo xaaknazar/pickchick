@@ -202,6 +202,7 @@ export function ProductScreen({
           <Wrapper paddingX={16} paddingY={20} gap={26}>
             <ComboHero
               product={product}
+              selections={selections}
               locale={context.locale}
               onDetails={() => setDetails(true)}
             />
