@@ -5156,8 +5156,8 @@
       ],
       "status": "active",
       "head": "94f0ce2a5cd94d0938666089c926e4da13ee149a",
-      "updatedAt": "2026-10-14T05:09:41.305Z",
-      "summary": "2026-10-14: owner returned @windows/cashier; LAN/SSH and edgeConnected restored. Fresh schema020 backup/isolated restore verified (SHA530c1068). Recovery94f completed at05:05UTC: actual current-state receipt written, no DB/migration changes, services restored. Switch exact5b020, stopped mailbox install and Verify are in progress. API remains5b/cloud058, portal4c and kitchen5b; pairing disabled until guarded activation. Preserve other Mac staged62f; do not replay Stage/Prepare/020.",
+      "updatedAt": "2026-10-14T05:16:33.307Z",
+      "summary": "2026-10-14: owner returned @windows/cashier; LAN/SSH and edgeConnected restored. Fresh schema020 backup/isolated restore verified (SHA530c1068). Recovery94f completed at05:05UTC: actual current-state receipt written, no DB/migration changes, services restored. Switch exact5b020 completed05:11UTC; SSH reply was lost but saved Switch receipt and readiness200 verified on reconnect. Stopped mailbox install and Verify in progress; no replay. API remains5b/cloud058, portal4c and kitchen5b; pairing disabled until guarded activation. Preserve other Mac staged62f; do not replay Stage/Prepare/020.",
       "nextAction": "Finish Windows020 proof, then guarded cloud/Windows/portal activation. Publish final source/compose/config pins before returning reservations. Edge021 telemetry, kiosk native heartbeat and physical screen acceptance remain separate."
     }
   ]
