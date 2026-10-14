@@ -4967,11 +4967,10 @@
         "packages/edge-fulfillment/tests/postgres.test.mjs",
         "infra/windows/update-native-kiosk-cart-lines.ps1",
         "tests/operations/test_windows_kiosk_cart_lines.py",
-        "docs/operations/kiosk-cart-lines-windows-2026-10-13.md",
-        "@windows/cashier"
+        "docs/operations/kiosk-cart-lines-windows-2026-10-13.md"
       ],
-      "updatedAt": "2026-10-13T16:20:16.158Z",
-      "summary": "API6870 CI11/11 and immutable prepare passed; running API still5b6f/schema058. Windows62f CI11/11, protected schema020 backup/restore passed; runtime staged, installer not started because Mac left cashier subnet. Owner authorized Windows transfer/restart worker only. API apply intentionally follows compatible receiver.",
+      "updatedAt": "2026-10-14T04:58:52.108Z",
+      "summary": "API6870 CI11/11 and immutable prepare passed; running API still5b6f/schema058. Windows62f CI11/11, protected schema020 backup/restore passed; runtime staged, installer not started because Mac left cashier subnet. Owner authorized Windows transfer/restart worker only. API apply intentionally follows compatible receiver.\n2026-10-14: владелец подтвердил «Да, работа остановлена — передать кассу». @windows/cashier возвращён device-center для recovery020 и подключения экранов. SSH и health/ready200 проверены, Edge/worker пока23fb; schema020 уже committed. Сохранить staged62f и не перезаписывать изменения другого выпуска. После Devices сверить новый Edge baseline перед запуском worker-only обновления киоска.",
       "nextAction": "Restore Mac connection to cashier LAN; retry pinned SSH; fresh guards, worker-only install then API encrypted backup/restore and apply; publish final roadmap and return temporary reservations."
     },
     {
@@ -5152,12 +5151,13 @@
         "tests/operations/device-access-recovery.test.mjs",
         "tests/operations/test_device_access_recovery.py",
         "@vps/api",
-        "@vps/postgres"
+        "@vps/postgres",
+        "@windows/cashier"
       ],
       "status": "active",
       "head": "94f0ce2a5cd94d0938666089c926e4da13ee149a",
-      "updatedAt": "2026-10-13T16:18:28.012Z",
-      "summary": "API5b6f846b/cloud058, portal4caca195, gateway and Kitchen portal/Windows KitchenLink5b installed. CI94f0ce2a full Foundation38424263005 SUCCESS11/11; roadmap/UI CI pass. Owner explicitly transferred API/Postgres back for activation; server lease free. Windows020 is COMMITTED with old23fb runtime last verified running. Lost original Prepare receipt must NOT be replayed. Guarded recovery94f did not start: initial SSH check failed (timeout/Host is down) and kitchen health edgeConnected=false. Await current cashier IPv4/network/power. Never downgrade to019 or overwrite Devices API. PR242/243 contain current progress and blockers.",
+      "updatedAt": "2026-10-14T04:58:52.112Z",
+      "summary": "2026-10-14: владелец подтвердил «Да, работа остановлена — передать кассу». @windows/cashier возвращён device-center для recovery020 и подключения экранов. SSH и health/ready200 проверены, Edge/worker пока23fb; schema020 уже committed. Сохранить staged62f и не перезаписывать изменения другого выпуска. После Devices сверить новый Edge baseline перед запуском worker-only обновления киоска. API5b/cloud058 и portal5b без изменений; CI94f 11/11. Recovery еще не запускался, требуется свежий backup020.",
       "next": "Restore verified SSH to cashier; inspect actual state before running recovery94f exactly once. Then Switch020, install stopped mailbox, Verify, cloud/Windows/portal activation with actual proofs. Do not rerun Stage/Prepare/migration020. Edge021 and kiosk heartbeat native build remain separate; physical pairing acceptance pending."
     }
   ]
