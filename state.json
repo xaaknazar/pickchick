@@ -5380,11 +5380,12 @@
         "infra/notifications",
         "apps/mobile/src/app",
         "db/cloud/migrations/059_cloud_customer_notifications.sql",
-        "tests/mobile/tab-bar.test.mjs"
+        "tests/mobile/tab-bar.test.mjs",
+        "docs/translations/mobile-ru-kk-en.html"
       ],
       "status": "active",
       "head": "47efd26963c16cc734d9ce98c98cbf04815e98d6",
-      "updatedAt": "2026-10-14T11:05:13.798Z"
+      "updatedAt": "2026-10-14T11:14:46.018Z"
     }
   ]
 }
