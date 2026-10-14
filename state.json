@@ -5157,22 +5157,6 @@
       "nextAction": "Приёмка владельцем build21; дождаться CI документационного checkpoint54348f9d перед включением PR245 в shared. Сервер/Windows больших заказов отдельно от текущего device-center baseline; прежние пакеты не применять. TestFlight и реальные счета/QR/оплаты не выполнять без прямого поручения."
     },
     {
-      "id": "mobile-payment-recovery",
-      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
-      "branch": "codex/mobile-payment-recovery",
-      "scopes": [
-        "tests/mobile/browser_kaspi_checkout.py",
-        "tests/mobile/payment-recovery.test.mjs",
-        "docs/operations/mobile-payment-recovery.md",
-        "@release/ios"
-      ],
-      "status": "available",
-      "head": "885afaa58846088c77d175d3b60f32c7a1bbab6f",
-      "updatedAt": "2026-10-14T11:03:54.085Z",
-      "summary": "Исправление Kaspi 885afaa58846088c77d175d3b60f32c7a1bbab6f включено в shared без force, удалённые SHA совпали; PR246 merged. Foundation CI38547014342 11/11. 361 Node tests, browser checkout 4/4, typecheck/lint/format, web и iOS/Android Hermes exports прошли. Локальный Python 49/50: macOS release fixture требует xcodeproj, установка изолированных Ruby gems не прошла из-за отсутствующих Ruby headers. Полного Xcode на этом Mac нет, на iPhone не установлено. Резерв @release/ios передан владельцем 14 октября и записан в журнал; остальные области другого Mac сохранены. Незавершённая оплата блокирует закрытие и восстанавливается после перезапуска без нового счёта. Отменить в Kaspi открывает инструкцию, банковскую отмену локально не выдумывает. 2026-10-14: владелец прямо разрешил временную передачу для переводов RU/KK/EN и push задаче mobile-l10n-push-1014: apps/mobile/src/components/OrderSheet.tsx, apps/mobile/src/screens/KaspiCheckoutScreen.tsx, apps/mobile/src/components/KaspiPaymentState.tsx, apps/mobile/src/ScreenHost.tsx, apps/mobile/src/components/PaymentRecovery.tsx, apps/mobile/src/payment-recovery.ts. Текущие изменения сохраняются, остальные области остаются за исходной задачей.",
-      "nextAction": "На Mac с полным Xcode получить codex/mobile-payment-recovery и claim этой задачи, затем fresh refs/проверка выпускных блокировок и действующего мобильного профиля по mobile-testflight.md, штатная сборка/установка и физическая проверка свайпа, перехода в Kaspi, восстановления после закрытия, отказа и сети. Реальных платежей в автотестах не выполнять. Общие project-status/roadmap пока у kiosk-owner-polish-1013: обновить их согласованно с доказательством установки. WhatsApp пользователь пока просит только исследование и варианты; ручной выбор WhatsApp/Telegram не реализовывать до его следующей команды.\n14 октября: корневой layout передан следующей задаче этого Mac order-game-gestures. Выпуск iOS должен включать оба исправления; резерв выпуска сохранён.\n14 октября, следующий готовый checkpoint: shared 6d8db476405ba4e896413136243eedb154bbb921, PR248 merged, CI38550804066 success 11/11. Добавлено исправление неподвижных игр из заказа. Владелец подтвердил TestFlight; доставить оба исправления в одном выпуске. Перед claim обновить локальную codex/mobile-payment-recovery fast-forward из общей версии, сохраняя изменения; не собирать прежний 885afaa без нового исправления игр. Storefront-профиль сверять по mobile-testflight19.md, а номер сборки по Apple. Чек-лист order-game-gestures.md; на текущем Mac нет Xcode, подписанной сборки не создавали."
-    },
-    {
       "id": "mobile-appstore-audit-1014",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-appstore-audit-1014",
@@ -5386,6 +5370,22 @@
       "status": "active",
       "head": "47efd26963c16cc734d9ce98c98cbf04815e98d6",
       "updatedAt": "2026-10-14T11:14:46.018Z"
+    },
+    {
+      "id": "mobile-payment-recovery",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-payment-recovery",
+      "scopes": [
+        "tests/mobile/browser_kaspi_checkout.py",
+        "tests/mobile/payment-recovery.test.mjs",
+        "docs/operations/mobile-payment-recovery.md",
+        "@release/ios"
+      ],
+      "status": "active",
+      "head": "6d8db476405ba4e896413136243eedb154bbb921",
+      "updatedAt": "2026-10-14T11:23:55.409Z",
+      "summary": "Исправление Kaspi 885afaa58846088c77d175d3b60f32c7a1bbab6f включено в shared без force, удалённые SHA совпали; PR246 merged. Foundation CI38547014342 11/11. 361 Node tests, browser checkout 4/4, typecheck/lint/format, web и iOS/Android Hermes exports прошли. Локальный Python 49/50: macOS release fixture требует xcodeproj, установка изолированных Ruby gems не прошла из-за отсутствующих Ruby headers. Полного Xcode на этом Mac нет, на iPhone не установлено. Резерв @release/ios передан владельцем 14 октября и записан в журнал; остальные области другого Mac сохранены. Незавершённая оплата блокирует закрытие и восстанавливается после перезапуска без нового счёта. Отменить в Kaspi открывает инструкцию, банковскую отмену локально не выдумывает. 2026-10-14: владелец прямо разрешил временную передачу для переводов RU/KK/EN и push задаче mobile-l10n-push-1014: apps/mobile/src/components/OrderSheet.tsx, apps/mobile/src/screens/KaspiCheckoutScreen.tsx, apps/mobile/src/components/KaspiPaymentState.tsx, apps/mobile/src/ScreenHost.tsx, apps/mobile/src/components/PaymentRecovery.tsx, apps/mobile/src/payment-recovery.ts. Текущие изменения сохраняются, остальные области остаются за исходной задачей.",
+      "nextAction": "На Mac с полным Xcode получить codex/mobile-payment-recovery и claim этой задачи, затем fresh refs/проверка выпускных блокировок и действующего мобильного профиля по mobile-testflight.md, штатная сборка/установка и физическая проверка свайпа, перехода в Kaspi, восстановления после закрытия, отказа и сети. Реальных платежей в автотестах не выполнять. Общие project-status/roadmap пока у kiosk-owner-polish-1013: обновить их согласованно с доказательством установки. WhatsApp пользователь пока просит только исследование и варианты; ручной выбор WhatsApp/Telegram не реализовывать до его следующей команды.\n14 октября: корневой layout передан следующей задаче этого Mac order-game-gestures. Выпуск iOS должен включать оба исправления; резерв выпуска сохранён.\n14 октября, следующий готовый checkpoint: shared 6d8db476405ba4e896413136243eedb154bbb921, PR248 merged, CI38550804066 success 11/11. Добавлено исправление неподвижных игр из заказа. Владелец подтвердил TestFlight; доставить оба исправления в одном выпуске. Перед claim обновить локальную codex/mobile-payment-recovery fast-forward из общей версии, сохраняя изменения; не собирать прежний 885afaa без нового исправления игр. Storefront-профиль сверять по mobile-testflight19.md, а номер сборки по Apple. Чек-лист order-game-gestures.md; на текущем Mac нет Xcode, подписанной сборки не создавали."
     }
   ]
 }
