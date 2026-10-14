@@ -35,7 +35,7 @@ const rows = <T,>(items: T[], size: number): T[][] =>
     all[all.length - 1]!.push(item);
     return all;
   }, []);
-/** «Ещё N · Показать все»: dashed tile with small photos of the options in the sheet. */
+/** «Ещё N · Показать все»: glass tile with full-size previews of hidden options. */
 function MoreTile({
   groupId,
   hidden,
@@ -53,7 +53,7 @@ function MoreTile({
   const t = copy(locale);
   const tp = productCopy(locale);
   const press = usePress(0.96);
-  const previews = hidden.filter((option) => optionPhoto(option.id)).slice(0, 3);
+  const previews = hidden.filter((option) => optionPhoto(option.id)).slice(-3);
   const more = tp.more.replace('{n}', String(hidden.length));
   return (
     <Animated.View
@@ -77,7 +77,7 @@ function MoreTile({
           ...glassSurface(),
           alignItems: 'center',
           justifyContent: 'center',
-          gap: px(6),
+          gap: px(4),
           padding: px(10),
         }}
       >
@@ -85,16 +85,20 @@ function MoreTile({
           <View
             style={{
               flexDirection: 'row',
-              height: px(70),
-              paddingHorizontal: px(6),
-              paddingVertical: px(5),
-              borderRadius: px(14),
-              backgroundColor: 'rgba(255,255,255,.12)',
-              marginBottom: px(4),
+              width: '100%',
+              height: px(96),
+              alignItems: 'center',
             }}
           >
             {previews.map((option) => (
-              <View key={option.id} style={{ width: px(38), height: '100%' }}>
+              <View
+                key={option.id}
+                style={{
+                  flex: optionPhoto(option.id)?.secondarySource ? 2 : 1,
+                  minWidth: 0,
+                  height: '100%',
+                }}
+              >
                 <PhotoImage imageId={option.id} variant="option" />
               </View>
             ))}
