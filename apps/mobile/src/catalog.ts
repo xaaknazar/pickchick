@@ -1,3 +1,4 @@
+import { translate } from './i18n/core.ts';
 import { publishedProductData } from './published-catalog';
 import { mediaForVersion, ownerPhoto } from './product-photo';
 import { ownerDrinkPhotos } from './drink-photos';
@@ -71,7 +72,7 @@ export const designProducts: Product[] = connectedProducts(testCompleteCatalog).
 export function serverProducts(menu: MenuSnapshot | null, locale: Locale): Product[] {
   return (menu?.items ?? []).map((item) => ({
     id: item.variant_id,
-    name: item.name[locale],
+    name: locale === 'en' ? translate(item.name.ru, locale) : item.name[locale],
     priceMinor: item.price_minor,
     category: 'Меню',
     description: 'Позиция ресторана. Оформление пока недоступно.',

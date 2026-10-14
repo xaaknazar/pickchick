@@ -1,3 +1,4 @@
+import { localize, t, useLocale } from '../i18n';
 import { useCallback, useRef } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
@@ -32,6 +33,7 @@ export function CartShortcut({
   bottomOffset?: number;
   onHeightChange?: (height: number) => void;
 }) {
+  useLocale();
   const count = model.cart.reduce((sum, line) => sum + line.quantity, 0);
   const total = cartTotal(model.cart);
   const reduced = useReducedMotion();
@@ -91,8 +93,10 @@ export function CartShortcut({
       <Pressable
         testID="open-cart"
         accessibilityRole="button"
-        accessibilityLabel={`Корзина, ${count} позиций, ${MinorMoney(total)}`}
-        accessibilityHint="Открыть состав заказа"
+        accessibilityLabel={localize(
+          t('Корзина, {p0} позиций, {p1}', { p0: count, p1: MinorMoney(total) }),
+        )}
+        accessibilityHint={t('Открыть состав заказа')}
         onPress={onPress}
         style={s.pill}
       >
@@ -107,7 +111,9 @@ export function CartShortcut({
         </View>
         <View style={[s.content, compact && s.contentCompact]}>
           <View style={s.labelRow}>
-            <Body style={s.label}>{model.catalogUpdateNotice ? 'Цены обновились' : 'Корзина'}</Body>
+            <Body style={s.label}>
+              {localize(model.catalogUpdateNotice ? 'Цены обновились' : 'Корзина')}
+            </Body>
             <Animated.View
               testID="cart-count-feedback"
               style={[
@@ -120,12 +126,12 @@ export function CartShortcut({
               ]}
             >
               <Body testID="cart-count" style={s.countText}>
-                {count}
+                {localize(count)}
               </Body>
             </Animated.View>
           </View>
           <Body testID="cart-total" style={[s.total, compact && s.totalCompact]}>
-            {MinorMoney(total)}
+            {localize(MinorMoney(total))}
           </Body>
         </View>
         <View

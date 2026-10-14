@@ -1,3 +1,4 @@
+import { localize, t, useLocale } from '../i18n';
 import { useState } from 'react';
 import { Image, type ImageContentPosition } from 'expo-image';
 import {
@@ -56,6 +57,7 @@ export function GameCarousel<Id extends string>({
   inset?: number;
   testID?: string;
 }) {
+  useLocale();
   const { width } = useWindowDimensions();
   const [index, setIndex] = useState(0);
   if (!games.length) return null;
@@ -79,15 +81,17 @@ export function GameCarousel<Id extends string>({
     <View testID={testID} style={s.root}>
       <View style={[s.header, { paddingHorizontal: inset }]}>
         <Text accessibilityRole="header" style={s.title} testID={`${testID}-title`}>
-          {title}
+          {localize(title)}
         </Text>
         {several ? (
           <Text
             testID={`${testID}-counter`}
-            accessibilityLabel={`Игра ${current + 1} из ${games.length}`}
+            accessibilityLabel={localize(
+              t('Игра {p0} из {p1}', { p0: current + 1, p1: games.length }),
+            )}
             style={s.counter}
           >
-            {current + 1} / {games.length}
+            {localize(current + 1)} / {localize(games.length)}
           </Text>
         ) : null}
       </View>
@@ -112,7 +116,9 @@ export function GameCarousel<Id extends string>({
             testID={game.testID}
             feedback="scale"
             accessibilityRole="button"
-            accessibilityLabel={`Играть в ${game.title}. ${game.description}`}
+            accessibilityLabel={localize(
+              t('Играть в {p0}. {p1}', { p0: game.title, p1: game.description }),
+            )}
             onPress={() => onOpen(game.id)}
             style={[s.card, { width: cardWidth }, webCard]}
           >
@@ -128,14 +134,14 @@ export function GameCarousel<Id extends string>({
             <View pointerEvents="none" style={[s.cardBottom, stacked && s.cardStacked]}>
               <View style={stacked ? s.copyStacked : s.copy}>
                 <Text numberOfLines={1} style={s.cardTitle}>
-                  {game.title}
+                  {localize(game.title)}
                 </Text>
                 <Text numberOfLines={1} style={s.cardText}>
-                  {game.description}
+                  {localize(game.description)}
                 </Text>
               </View>
               <View style={s.play}>
-                <Text style={s.playText}>Играть</Text>
+                <Text style={s.playText}>{t('Играть')}</Text>
                 <Icon name="arrow-forward" size={18} color={colors.orangeInk} />
               </View>
             </View>

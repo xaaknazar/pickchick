@@ -1,3 +1,4 @@
+import { t, localize, useLocale } from '../i18n';
 import { unavailableCartLine } from '../availability';
 import {
   CheckoutSheetHeader,
@@ -65,6 +66,7 @@ import {
 } from '../components/UI';
 
 export function Welcome(props: ScreenProps) {
+  useLocale();
   const insets = useSafeAreaInsets();
   return (
     <View
@@ -85,14 +87,16 @@ export function Welcome(props: ScreenProps) {
           style={{ alignSelf: 'flex-end', minHeight: 44, justifyContent: 'center' }}
         >
           <Body style={{ color: '#FFFFFFAA', fontFamily: font.medium, fontSize: 15 }}>
-            Пропустить
+            {t('Пропустить')}
           </Body>
         </Pressable>
         <View style={{ flex: 1, justifyContent: 'center', gap: 28, paddingVertical: 30 }}>
           <Logo size={128} />
-          <Heading style={s.welcomeHeading}>Куриные фингерсы для тех, кто в движении</Heading>
+          <Heading style={s.welcomeHeading}>
+            {t('Куриные фингерсы для тех, кто в движении')}
+          </Heading>
           <Body style={{ color: '#FFFFFFBF', lineHeight: 24 }}>
-            Один продукт, доведённый до пика вкуса. Своё производство, свои соусы.
+            {t('Один продукт, доведённый до пика вкуса. Своё производство, свои соусы.')}
           </Body>
         </View>
         <Row style={{ gap: 6, marginBottom: 4 }}>
@@ -100,9 +104,13 @@ export function Welcome(props: ScreenProps) {
           <View style={s.dot} />
           <View style={s.dot} />
         </Row>
-        <Button title="Открыть меню" onPress={() => props.navigate('M06')} testID="welcome-menu" />
         <Button
-          title="Войти по номеру"
+          title={t('Открыть меню')}
+          onPress={() => props.navigate('M06')}
+          testID="welcome-menu"
+        />
+        <Button
+          title={t('Войти по номеру')}
           secondary
           onPress={() => props.navigate('M02')}
           testID="welcome-login"
@@ -115,6 +123,7 @@ export function Welcome(props: ScreenProps) {
 // restaurant, menu action at the bottom. Selection and navigation are unchanged:
 // choosing a restaurant still selects it and opens its menu.
 export function Branches(props: ScreenProps) {
+  useLocale();
   const insets = useSafeAreaInsets();
   const now = useMinuteClock();
   const [mapError, setMapError] = useState(false);
@@ -154,7 +163,7 @@ export function Branches(props: ScreenProps) {
           <Pressable
             testID="branches-back"
             accessibilityRole="button"
-            accessibilityLabel="Назад"
+            accessibilityLabel={t('Назад')}
             onPress={props.goBack}
             style={[s.mapBack, { top: controlsTop }]}
           >
@@ -166,12 +175,14 @@ export function Branches(props: ScreenProps) {
           <View style={s.branchSheetContent}>
             <View style={s.sheetHandle} />
             <Text accessibilityRole="header" style={s.branchesTitle}>
-              Рестораны
+              {t('Рестораны')}
             </Text>
             <Text testID="branches-summary" style={s.branchesSummary}>
-              {entries.length ? `${city} · ${restaurantCountLabel(entries.length)}` : city}
+              {localize(
+                entries.length ? `${city} · ${restaurantCountLabel(entries.length)}` : city,
+              )}
             </Text>
-            {loading ? <Loading title="Ищем рестораны" /> : null}
+            {loading ? <Loading title={t('Ищем рестораны')} /> : null}
             {entries.map(({ branch, location, status }) => (
               <RestaurantCard
                 key={branch.id}
@@ -194,14 +205,14 @@ export function Branches(props: ScreenProps) {
               />
             ))}
             {mapError ? (
-              <Notice warning>Не удалось открыть 2ГИС. Попробуйте ещё раз.</Notice>
+              <Notice warning>{t('Не удалось открыть 2ГИС. Попробуйте ещё раз.')}</Notice>
             ) : null}
             {!entries.length && !loading ? (
               <Empty
                 icon="location-outline"
-                title="Не удалось получить рестораны"
-                detail="Проверьте подключение и обновите список."
-                action={<Button title="Обновить" onPress={props.model.refresh} />}
+                title={t('Не удалось получить рестораны')}
+                detail={t('Проверьте подключение и обновите список.')}
+                action={<Button title={t('Обновить')} onPress={props.model.refresh} />}
               />
             ) : null}
           </View>
@@ -213,13 +224,15 @@ export function Branches(props: ScreenProps) {
           style={[s.branchesFooter, { paddingBottom: Math.max(28, insets.bottom + 8) }]}
         >
           <Caption testID="branches-caption" style={s.branchesCaption}>
-            {closed
-              ? `Заказ можно оформить с ${closed.opensAt}`
-              : 'При смене ресторана корзина проверяется заново'}
+            {localize(
+              closed
+                ? t('Заказ можно оформить с {p0}', { p0: closed.opensAt })
+                : 'При смене ресторана корзина проверяется заново',
+            )}
           </Caption>
           <Button
             testID="branches-menu"
-            title={closed ? 'Посмотреть меню' : 'Перейти в меню'}
+            title={localize(closed ? 'Посмотреть меню' : 'Перейти в меню')}
             secondary={Boolean(closed)}
             onPress={() => props.navigate('M06')}
             style={[s.branchMenuButton, closed && s.branchMenuButtonClosed]}
@@ -251,7 +264,9 @@ const ProductMenuCard = memo(function ProductMenuCard({
     <Pressable
       testID={`product-${product.id}`}
       accessibilityRole="button"
-      accessibilityLabel={`${product.name}, ${product.available === false ? 'Нет в наличии' : MinorMoney(product.priceMinor) + ', выбрать'}`}
+      accessibilityLabel={localize(
+        `${product.name}, ${product.available === false ? 'Нет в наличии' : MinorMoney(product.priceMinor) + ', выбрать'}`,
+      )}
       accessibilityState={{ disabled: product.available === false }}
       disabled={product.available === false}
       onPress={() => openProduct(product)}
@@ -273,18 +288,20 @@ const ProductMenuCard = memo(function ProductMenuCard({
         />
         {hit ? (
           <View style={s.hit}>
-            <Caption style={s.hitText}>ХИТ</Caption>
+            <Caption style={s.hitText}>{t('ХИТ')}</Caption>
           </View>
         ) : null}
       </View>
       <View style={s.productInfo}>
         <Heading small style={compact ? s.compactTitle : s.productTitle}>
-          {product.name}
+          {localize(product.name)}
         </Heading>
-        {!compact ? <Caption style={s.productDescription}>{product.description}</Caption> : null}
+        {!compact ? (
+          <Caption style={s.productDescription}>{localize(product.description)}</Caption>
+        ) : null}
         <Row style={s.productPriceRow}>
           <Body style={[s.productPrice, compact && { fontSize: 16 }]}>
-            {MinorMoney(product.priceMinor)}
+            {localize(MinorMoney(product.priceMinor))}
           </Body>
           <View
             style={
@@ -296,11 +313,11 @@ const ProductMenuCard = memo(function ProductMenuCard({
             }
           >
             {product.available === false ? (
-              <Caption style={{ color: colors.text }}>Нет в наличии</Caption>
+              <Caption style={{ color: colors.text }}>{t('Нет в наличии')}</Caption>
             ) : compact ? (
               <Icon name="add" color={colors.orangeInk} size={20} />
             ) : (
-              <Body style={s.productChooseText}>Выбрать</Body>
+              <Body style={s.productChooseText}>{t('Выбрать')}</Body>
             )}
           </View>
         </Row>
@@ -309,6 +326,7 @@ const ProductMenuCard = memo(function ProductMenuCard({
   );
 });
 export function Menu(props: ScreenProps) {
+  useLocale();
   const [cartHeight, setCartHeight] = useState(100);
   const router = useRouter();
   const { catalogVisit } = useLocalSearchParams();
@@ -467,13 +485,15 @@ export function Menu(props: ScreenProps) {
           style={({ pressed }) => [s.category, pressed && ui.pressed]}
         >
           <Body style={[s.categoryText, category === item && s.categoryTextSelected]}>
-            {item === 'Комбо'
-              ? 'Комбо на одного'
-              : item === 'На двоих'
-                ? 'Комбо на двоих'
-                : item === 'На компанию'
-                  ? 'Комбо на компанию'
-                  : item}
+            {localize(
+              item === 'Комбо'
+                ? 'Комбо на одного'
+                : item === 'На двоих'
+                  ? 'Комбо на двоих'
+                  : item === 'На компанию'
+                    ? 'Комбо на компанию'
+                    : item,
+            )}
           </Body>
         </Pressable>
       ))}
@@ -514,9 +534,9 @@ export function Menu(props: ScreenProps) {
           <Pressable
             testID="hero-promotion"
             accessibilityRole="button"
-            accessibilityLabel={
-              promotion ? promotion.title.ru + ', подробнее' : 'Комбо недели, подробнее'
-            }
+            accessibilityLabel={localize(
+              promotion ? promotion.title.ru + ', подробнее' : 'Комбо недели, подробнее',
+            )}
             onPress={() => {
               if (promotion) {
                 setPromotionOpen(true);
@@ -528,8 +548,8 @@ export function Menu(props: ScreenProps) {
             }}
             style={[s.heroCaption, { bottom: Math.round(heroHeight * 0.27) }]}
           >
-            <Heading style={s.heroTitle}>{promotion?.title.ru ?? 'Комбо недели'}</Heading>
-            <Body style={s.heroSubtitle}>подробнее</Body>
+            <Heading style={s.heroTitle}>{localize(promotion?.title.ru ?? 'Комбо недели')}</Heading>
+            <Body style={s.heroSubtitle}>{t('подробнее')}</Body>
           </Pressable>
         </View>
         <View style={[s.loyaltyLead, { marginTop: -Math.round(heroHeight * 0.26) }]}>
@@ -542,9 +562,10 @@ export function Menu(props: ScreenProps) {
         />
         <View style={s.menuBody}>
           {props.model.catalogMode === 'design' ? (
-            <Notice title="Образцы меню">
-              Блюда и цены из макета. Эта корзина подходит для проверки дизайна; оформить заказ
-              нельзя.
+            <Notice title={t('Образцы меню')}>
+              {t(
+                'Блюда и цены из макета. Эта корзина подходит для проверки дизайна; оформить заказ нельзя.',
+              )}
             </Notice>
           ) : null}
           {props.model.connection.status === 'loading' && props.model.catalogMode === 'server' ? (
@@ -554,10 +575,12 @@ export function Menu(props: ScreenProps) {
           props.model.catalogMode === 'server' &&
           props.model.connection.status !== 'loading' ? (
             <>
-              <Notice warning title="Нет свежего меню">
-                {props.model.connection.message ?? 'Проверьте интернет и повторите загрузку.'}
+              <Notice warning title={t('Нет свежего меню')}>
+                {localize(
+                  props.model.connection.message ?? 'Проверьте интернет и повторите загрузку.',
+                )}
               </Notice>
-              <NavRow title="Проверить доступность" onPress={() => props.navigate('M11')} />
+              <NavRow title={t('Проверить доступность')} onPress={() => props.navigate('M11')} />
             </>
           ) : null}
         </View>
@@ -574,7 +597,7 @@ export function Menu(props: ScreenProps) {
                 }}
               >
                 <Heading small testID={`category-heading-${item}`} style={s.sectionTitle}>
-                  {item}
+                  {localize(item)}
                 </Heading>
                 <View style={compact ? s.compactGrid : s.productList}>
                   {products.map((product, index) => (
@@ -595,9 +618,9 @@ export function Menu(props: ScreenProps) {
           })}
           {!props.model.products.length && props.model.connection.status !== 'loading' ? (
             <Empty
-              title="Меню скоро появится"
-              detail="Мы готовим каталог этого ресторана."
-              action={<Button title="Обновить меню" secondary onPress={props.model.refresh} />}
+              title={t('Меню скоро появится')}
+              detail={t('Мы готовим каталог этого ресторана.')}
+              action={<Button title={t('Обновить меню')} secondary onPress={props.model.refresh} />}
             />
           ) : null}
         </View>
@@ -618,24 +641,26 @@ export function Menu(props: ScreenProps) {
             <Logo size={38} />
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Выбрать ресторан"
+              accessibilityLabel={t('Выбрать ресторан')}
               onPress={() => props.navigate('M05')}
               style={s.branchTitle}
             >
               <Text style={s.brandTitle} numberOfLines={1}>
-                {location?.name ?? props.model.branch?.name ?? 'Выбрать ресторан'}
+                {localize(location?.name ?? props.model.branch?.name ?? 'Выбрать ресторан')}
               </Text>
               <Caption style={s.branchCaption}>
-                {location?.opening_time && location.closing_time
-                  ? `${location.opening_time}-${location.closing_time}`
-                  : location?.closing_time
-                    ? `до ${location.closing_time}`
-                    : 'Часы уточняются'}
+                {localize(
+                  location?.opening_time && location.closing_time
+                    ? `${location.opening_time}-${location.closing_time}`
+                    : location?.closing_time
+                      ? t('до {p0}', { p0: location.closing_time })
+                      : 'Часы уточняются',
+                )}
               </Caption>
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Уведомления"
+              accessibilityLabel={t('Уведомления')}
               testID="storefront-notifications"
               onPress={() => router.push('/notifications')}
               style={({ pressed }) => [s.heroProfile, pressed && s.heroProfilePressed]}
@@ -668,6 +693,7 @@ export {
   ProductConfiguration as Combo,
 } from './ProductConfiguration';
 export function Cart(props: ScreenProps) {
+  useLocale();
   const insets = useSafeAreaInsets();
   const [removed, setRemoved] = useState<CartLine[]>([]);
   useEffect(() => setRemoved([]), [props.model.branch?.id, props.model.catalogMode]);
@@ -679,20 +705,22 @@ export function Cart(props: ScreenProps) {
   return (
     <Page
       props={props}
-      title="Корзина"
+      title={t('Корзина')}
       contentStyle={checkoutStyle.content}
       footerStyle={checkoutStyle.cartFooter}
       header={
         <CheckoutSheetHeader
-          title="Корзина"
-          subtitle={restaurantLocation(props.model.branch?.id)?.name ?? props.model.branch?.name}
+          title={t('Корзина')}
+          subtitle={localize(
+            restaurantLocation(props.model.branch?.id)?.name ?? props.model.branch?.name,
+          )}
           testID="cart-close"
           onBack={props.goBack}
           action={
             <IconButton
               style={checkoutStyle.control}
               name="trash-outline"
-              label="Очистить корзину"
+              label={t('Очистить корзину')}
               testID="cart-clear"
               disabled={!props.model.cart.length}
               onPress={() =>
@@ -712,7 +740,7 @@ export function Cart(props: ScreenProps) {
         props.model.cart.length ? (
           <>
             <CheckoutAction
-              title="Оформить заказ"
+              title={t('Оформить заказ')}
               disabled={
                 props.model.catalogUpdatePending ||
                 props.model.cart.some((line) => line.product.available === false)
@@ -769,15 +797,15 @@ export function Cart(props: ScreenProps) {
           ]}
         >
           <View testID="cart-clear-dialog" accessibilityViewIsModal style={s.clearCard}>
-            <Heading small>Очистить корзину?</Heading>
-            <Body muted>Все выбранные блюда и добавки будут удалены из корзины.</Body>
+            <Heading small>{t('Очистить корзину?')}</Heading>
+            <Body muted>{t('Все выбранные блюда и добавки будут удалены из корзины.')}</Body>
             <Button
-              title="Оставить заказ"
+              title={t('Оставить заказ')}
               testID="cart-clear-cancel"
               onPress={() => setClearSnapshot(null)}
             />
             <Button
-              title="Очистить корзину"
+              title={t('Очистить корзину')}
               secondary
               testID="cart-clear-confirm"
               onPress={() => {
@@ -799,15 +827,20 @@ export function Cart(props: ScreenProps) {
           >
             <Row style={{ alignItems: 'center' }}>
               <View style={{ flex: 1 }}>
-                <Body>{line.product.name} удалён</Body>
+                <Body>
+                  {localize(line.product.name)}
+                  {t('удалён')}
+                </Body>
                 <Caption>
-                  {canRestore
-                    ? 'Вернём с теми же настройками'
-                    : 'Меню или лимит корзины изменились'}
+                  {localize(
+                    canRestore
+                      ? 'Вернём с теми же настройками'
+                      : 'Меню или лимит корзины изменились',
+                  )}
                 </Caption>
               </View>
               <Button
-                title="Вернуть"
+                title={t('Вернуть')}
                 secondary
                 disabled={!canRestore}
                 testID={`cart-undo-${line.product.id}`}
@@ -825,21 +858,23 @@ export function Cart(props: ScreenProps) {
       })}
       {!props.model.cart.length ? (
         <Empty
-          title="Здесь пока тихо"
-          detail="Добавьте любимые блюда - и станет хрустяще."
-          action={<Button title="Выбрать в меню" onPress={() => props.navigate('M06')} />}
+          title={t('Здесь пока тихо')}
+          detail={t('Добавьте любимые блюда - и станет хрустяще.')}
+          action={<Button title={t('Выбрать в меню')} onPress={() => props.navigate('M06')} />}
         />
       ) : (
         <>
           {props.model.catalogMode === 'design' ? (
-            <Notice warning>Это корзина из образцов дизайна. Заказ и оплата недоступны.</Notice>
+            <Notice warning>
+              {t('Это корзина из образцов дизайна. Заказ и оплата недоступны.')}
+            </Notice>
           ) : null}
           {props.model.cart.map((line) => (
             <View key={cartLineKey(line)} style={s.cartLine}>
               <Pressable
                 onPress={() => setEditing(line)}
                 accessibilityRole="button"
-                accessibilityLabel={`Изменить ${line.product.name}`}
+                accessibilityLabel={localize(t('Изменить {p0}', { p0: line.product.name }))}
                 testID={`cart-edit-${line.product.id}`}
               >
                 <ProductPhoto
@@ -852,18 +887,20 @@ export function Cart(props: ScreenProps) {
                 <Pressable
                   onPress={() => setEditing(line)}
                   accessibilityRole="button"
-                  accessibilityLabel={`Настроить ${line.product.name}`}
+                  accessibilityLabel={localize(t('Настроить {p0}', { p0: line.product.name }))}
                   style={{ minHeight: 48 }}
                 >
                   <Heading small style={s.cartName}>
-                    {line.product.name}
+                    {localize(line.product.name)}
                   </Heading>
                   {unavailableCartLine(line) ? (
-                    <Caption style={{ color: colors.warning }}>{unavailableCartLine(line)}</Caption>
+                    <Caption style={{ color: colors.warning }}>
+                      {localize(unavailableCartLine(line))}
+                    </Caption>
                   ) : null}
                   {selectionDescription(line) ? (
                     <Caption numberOfLines={2} style={s.cartDescription}>
-                      {selectionDescription(line)}
+                      {localize(selectionDescription(line))}
                     </Caption>
                   ) : null}
                 </Pressable>
@@ -878,11 +915,11 @@ export function Cart(props: ScreenProps) {
                   <Row style={s.stepper}>
                     <IconButton
                       name="remove"
-                      label={
+                      label={localize(
                         line.quantity === 1
-                          ? `Удалить ${line.product.name}`
-                          : `Уменьшить ${line.product.name}`
-                      }
+                          ? t('Удалить {p0}', { p0: line.product.name })
+                          : t('Уменьшить {p0}', { p0: line.product.name }),
+                      )}
                       testID={`cart-minus-${line.product.id}`}
                       onPress={() => {
                         if (line.quantity === 1)
@@ -902,11 +939,11 @@ export function Cart(props: ScreenProps) {
                         textAlign: 'center',
                       }}
                     >
-                      {line.quantity}
+                      {localize(line.quantity)}
                     </Body>
                     <IconButton
                       name="add"
-                      label={`Добавить ещё ${line.product.name}`}
+                      label={localize(t('Добавить ещё {p0}', { p0: line.product.name }))}
                       testID={`cart-plus-${line.product.id}`}
                       disabled={line.quantity >= 20}
                       onPress={() => props.model.setQuantity(cartLineKey(line), line.quantity + 1)}
@@ -923,7 +960,7 @@ export function Cart(props: ScreenProps) {
           ))}
           <CartRecommendations props={props} />
           <Button
-            title="Добавить ещё что-нибудь"
+            title={t('Добавить ещё что-нибудь')}
             testID="cart-add-more"
             textStyle={orderUI.actionText}
             secondary
@@ -934,82 +971,102 @@ export function Cart(props: ScreenProps) {
           <PromoCodeEntry />
           <View style={{ gap: 12, paddingVertical: 8 }}>
             <Heading small style={orderUI.section}>
-              Детали
+              {t('Детали')}
             </Heading>
             <SummaryRow
-              label={`Блюда · ${props.model.cart.reduce((sum, line) => sum + line.quantity, 0)} шт.`}
+              label={localize(
+                t('Блюда · {p0} шт.', {
+                  p0: props.model.cart.reduce((sum, line) => sum + line.quantity, 0),
+                }),
+              )}
               value={MinorMoney(total)}
             />
             <OrderTotal value={MinorMoney(total)} />
             <Caption style={orderUI.detail}>
-              Чики за покупки появятся после подключения программы.
+              {t('Чики за покупки появятся после подключения программы.')}
             </Caption>
           </View>
-          <Caption style={orderUI.detail}>Цены и наличие блюд проверим при оформлении.</Caption>
+          <Caption style={orderUI.detail}>
+            {t('Цены и наличие блюд проверим при оформлении.')}
+          </Caption>
         </>
       )}
     </Page>
   );
 }
 export function ChangedCart(props: ScreenProps) {
+  useLocale();
   return (
-    <Page props={props} title="Меню обновилось">
+    <Page props={props} title={t('Меню обновилось')}>
       <View style={s.largeIcon}>
         <Icon name="refresh" size={42} color={colors.accent} />
       </View>
-      <Heading>Давайте проверим{`\n`}корзину</Heading>
-      <Body muted>Цены и наличие могли измениться. Мы ничего не заменяем без вашего решения.</Body>
+      <Heading>
+        {t('Давайте проверим')}
+        {localize(`\n`)}
+        {t('корзину')}
+      </Heading>
+      <Body muted>
+        {t('Цены и наличие могли измениться. Мы ничего не заменяем без вашего решения.')}
+      </Body>
       {props.preview ? (
         <Card>
-          <Caption>ПРИМЕР ИЗМЕНЕНИЯ</Caption>
+          <Caption>{t('ПРИМЕР ИЗМЕНЕНИЯ')}</Caption>
           <Heading small>Pick Combo</Heading>
-          <SummaryRow label="Было" value="3 490 ₸" />
-          <SummaryRow label="Стало" value="3 590 ₸" />
-          <Notice warning>Новая цена показана для проверки макета.</Notice>
+          <SummaryRow label={t('Было')} value="3 490 ₸" />
+          <SummaryRow label={t('Стало')} value="3 590 ₸" />
+          <Notice warning>{t('Новая цена показана для проверки макета.')}</Notice>
         </Card>
       ) : (
         <Notice>
-          {props.model.connection.message ??
-            'Корзина сверяется с текущей версией меню. При смене версии её нужно собрать заново; новый состав и цену подтвердит сервер при оформлении.'}
+          {localize(
+            props.model.connection.message ??
+              'Корзина сверяется с текущей версией меню. При смене версии её нужно собрать заново; новый состав и цену подтвердит сервер при оформлении.',
+          )}
         </Notice>
       )}
-      <Button title="Вернуться в корзину" onPress={() => props.navigate('M09')} />
-      <Button title="Посмотреть меню" secondary onPress={() => props.navigate('M06')} />
+      <Button title={t('Вернуться в корзину')} onPress={() => props.navigate('M09')} />
+      <Button title={t('Посмотреть меню')} secondary onPress={() => props.navigate('M06')} />
     </Page>
   );
 }
 export function Unavailable(props: ScreenProps) {
+  useLocale();
   const online = props.model.connection.status === 'online';
   const testAvailable = props.model.testFlow.available;
   return (
-    <Page props={props} title="Доступность ресторана">
+    <Page props={props} title={t('Доступность ресторана')}>
       <Empty
         icon="storefront-outline"
-        title={
+        title={localize(
           testAvailable
             ? 'Можно оформить заказ'
             : online
               ? 'Приём заказов пока недоступен'
-              : 'Доступность пока не подтверждена'
-        }
-        detail={
+              : 'Доступность пока не подтверждена',
+        )}
+        detail={localize(
           testAvailable
             ? 'Заказ поступит на кухню. Оплата и чеки - в процессе подключения.'
-            : 'Сбой загрузки не означает отмену заказа. Ваша корзина и прежний сеанс остаются на устройстве.'
-        }
-        action={<Button title="Выбрать ресторан" onPress={() => props.navigate('M05')} />}
+            : 'Сбой загрузки не означает отмену заказа. Ваша корзина и прежний сеанс остаются на устройстве.',
+        )}
+        action={<Button title={t('Выбрать ресторан')} onPress={() => props.navigate('M05')} />}
       />
       <Card>
-        <Heading small>{props.model.branch?.name ?? 'Pick Chick'}</Heading>
+        <Heading small>{localize(props.model.branch?.name ?? 'Pick Chick')}</Heading>
         <Body muted>
-          {props.model.connection.message ??
-            (online ? 'Состояние меню получено с сервера' : 'Проверьте связь и повторите загрузку')}
+          {localize(
+            props.model.connection.message ??
+              (online
+                ? 'Состояние меню получено с сервера'
+                : 'Проверьте связь и повторите загрузку'),
+          )}
         </Body>
         {props.model.connection.status === 'loading' ? (
-          <Loading title="Проверяем доступность" />
+          <Loading title={t('Проверяем доступность')} />
         ) : null}
-        <Button title="Обновить доступность" secondary onPress={props.model.refresh} />
-        <Button title="Вернуться в меню" onPress={() => props.navigate('M06')} />
+        <Button title={t('Обновить доступность')} secondary onPress={props.model.refresh} />
+        <Button title={t('Вернуться в меню')} onPress={() => props.navigate('M06')} />
       </Card>
     </Page>
   );

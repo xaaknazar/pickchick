@@ -1,3 +1,5 @@
+import { dateLocale } from '../i18n/core';
+import { t, localize, useLocale } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import type { CustomerCommerceOrder } from '@pickchick/contracts';
 import { Image } from 'expo-image';
@@ -48,6 +50,7 @@ export function CompletedOrderScreen({
   receiptError,
   onSupport,
 }: CompletedOrderScreenProps) {
+  useLocale();
   const [rating, setRating] = useState(initialRating ?? review?.rating ?? 0);
   const [comment, setComment] = useState(review?.comment ?? '');
   const [focused, setFocused] = useState(false);
@@ -63,7 +66,7 @@ export function CompletedOrderScreen({
   const changed = rating !== (review?.rating ?? 0) || comment.trim() !== (review?.comment ?? '');
   const created = new Date(order.createdAt);
   const date = Number.isFinite(created.getTime())
-    ? created.toLocaleString('ru-KZ', {
+    ? created.toLocaleString(dateLocale(), {
         timeZone: 'Asia/Almaty',
         day: 'numeric',
         month: 'long',
@@ -82,17 +85,17 @@ export function CompletedOrderScreen({
   return (
     <Page
       props={props}
-      title="Завершённый заказ"
+      title={t('Завершённый заказ')}
       contentStyle={[checkoutStyle.content, s.content]}
       keyboardFooter={<CheckoutKeyboardDone />}
       header={
         <View style={s.header}>
           <CloseButton
-            label="Закрыть заказ"
+            label={t('Закрыть заказ')}
             testID="completed-order-close"
             onPress={props.goBack}
           />
-          <Heading style={s.headerTitle}>Ваш заказ</Heading>
+          <Heading style={s.headerTitle}>{t('Ваш заказ')}</Heading>
         </View>
       }
     >
@@ -100,25 +103,31 @@ export function CompletedOrderScreen({
         <View style={s.overview}>
           <Row style={s.status}>
             <Icon name="checkmark-circle-outline" color={colors.success} size={22} />
-            <Body style={s.statusText}>Заказ получен</Body>
+            <Body style={s.statusText}>{t('Заказ получен')}</Body>
           </Row>
           <Heading testID="completed-order-number" style={s.number}>
-            {order.displayNumber ? `№ ${order.displayNumber}` : 'Заказ завершён'}
+            {localize(order.displayNumber ? `№ ${order.displayNumber}` : 'Заказ завершён')}
           </Heading>
-          <Body style={s.restaurant}>{order.restaurant}</Body>
+          <Body style={s.restaurant}>{localize(order.restaurant)}</Body>
           {date ? (
             <Caption testID="completed-order-date" style={s.muted}>
-              {date} · Алматы
+              {localize(date)}
+              {t('· Алматы')}
             </Caption>
           ) : null}
           <View style={s.facts}>
             <Caption style={s.muted}>
-              {order.serviceMode === 'takeaway' ? 'С собой' : 'В зале'}
+              {localize(order.serviceMode === 'takeaway' ? 'С собой' : 'В зале')}
             </Caption>
             {preparationMinutes !== null ? (
               <Caption testID="completed-order-duration" style={s.muted}>
-                Приготовление:{' '}
-                {preparationMinutes < 1 ? 'меньше минуты' : `${preparationMinutes} мин`}
+                {t('Приготовление:')}
+                {localize(' ')}
+                {localize(
+                  preparationMinutes < 1
+                    ? 'меньше минуты'
+                    : t('{p0} мин', { p0: preparationMinutes }),
+                )}
               </Caption>
             ) : null}
           </View>
@@ -126,7 +135,7 @@ export function CompletedOrderScreen({
 
         <View style={s.section}>
           <Heading small style={s.sectionTitle}>
-            Состав заказа
+            {t('Состав заказа')}
           </Heading>
           {order.items.map((item, index) => {
             const product = props.model.products.find(
@@ -146,41 +155,44 @@ export function CompletedOrderScreen({
                       photo={photo}
                       contentFit="contain"
                       style={s.image}
-                      accessibilityLabel={item.title}
+                      accessibilityLabel={localize(item.title)}
                     />
                   ) : legacyPhoto ? (
                     <Image
                       source={legacyPhoto}
                       contentFit="contain"
                       style={s.image}
-                      accessibilityLabel={item.title}
+                      accessibilityLabel={localize(item.title)}
                     />
                   ) : (
                     <Icon name="restaurant-outline" color={colors.orangeInk} size={28} />
                   )}
                 </View>
                 <View style={s.itemCopy}>
-                  <Body style={s.itemName}>{item.title}</Body>
+                  <Body style={s.itemName}>{localize(item.title)}</Body>
                   {item.modifiers.length ? (
-                    <Caption style={s.modifiers}>{item.modifiers.join(' · ')}</Caption>
+                    <Caption style={s.modifiers}>{localize(item.modifiers.join(' · '))}</Caption>
                   ) : null}
                   <Row style={s.itemBottom}>
-                    <Caption style={s.muted}>{item.quantity} шт.</Caption>
-                    <Body style={s.itemAmount}>{money(item.totalMinor)}</Body>
+                    <Caption style={s.muted}>
+                      {localize(item.quantity)}
+                      {t('шт.')}
+                    </Caption>
+                    <Body style={s.itemAmount}>{localize(money(item.totalMinor))}</Body>
                   </Row>
                 </View>
               </View>
             );
           })}
           <Row style={s.total}>
-            <Body style={s.totalLabel}>Итого</Body>
+            <Body style={s.totalLabel}>{t('Итого')}</Body>
             <Heading small testID="completed-order-total" style={s.totalAmount}>
-              {money(order.totalMinor)}
+              {localize(money(order.totalMinor))}
             </Heading>
           </Row>
           {order.kitchenComment ? (
             <View testID="order-kitchen-comment" style={s.kitchenComment}>
-              <Caption style={s.muted}>Ваш комментарий к заказу</Caption>
+              <Caption style={s.muted}>{t('Ваш комментарий к заказу')}</Caption>
               <Body>{order.kitchenComment}</Body>
             </View>
           ) : null}
@@ -188,19 +200,26 @@ export function CompletedOrderScreen({
 
         <View testID="completed-order-review" style={s.review}>
           <Heading small style={s.sectionTitle}>
-            Как вам заказ?
+            {t('Как вам заказ?')}
           </Heading>
-          <Body style={s.muted}>Оцените блюда и поделитесь впечатлениями.</Body>
+          <Body style={s.muted}>{t('Оцените блюда и поделитесь впечатлениями.')}</Body>
           {reviewLoading ? (
-            <ActivityIndicator accessibilityLabel="Загружаем оценку заказа" color={colors.accent} />
+            <ActivityIndicator
+              accessibilityLabel={t('Загружаем оценку заказа')}
+              color={colors.accent}
+            />
           ) : null}
-          <View style={s.stars} accessibilityRole="radiogroup" accessibilityLabel="Оценка заказа">
+          <View
+            style={s.stars}
+            accessibilityRole="radiogroup"
+            accessibilityLabel={t('Оценка заказа')}
+          >
             {[1, 2, 3, 4, 5].map((value) => (
               <MotionPressable
                 key={value}
                 testID={`completed-rating-${value}`}
                 accessibilityRole="radio"
-                accessibilityLabel={`Оценка ${value} из 5`}
+                accessibilityLabel={localize(t('Оценка {p0} из 5', { p0: value }))}
                 accessibilityState={{ checked: rating === value, disabled: locked }}
                 aria-checked={rating === value}
                 disabled={locked}
@@ -219,13 +238,15 @@ export function CompletedOrderScreen({
             ))}
           </View>
           <Caption style={s.muted}>
-            {rating ? `Ваша оценка: ${rating} из 5` : 'Выберите от 1 до 5 звёзд'}
+            {localize(
+              rating ? t('Ваша оценка: {p0} из 5', { p0: rating }) : 'Выберите от 1 до 5 звёзд',
+            )}
           </Caption>
           <View style={s.commentGroup}>
-            <Body style={s.fieldLabel}>Отзыв - по желанию</Body>
+            <Body style={s.fieldLabel}>{t('Отзыв - по желанию')}</Body>
             <TextInput
               testID="completed-review-comment"
-              accessibilityLabel="Отзыв о заказе, необязательно"
+              accessibilityLabel={t('Отзыв о заказе, необязательно')}
               value={comment}
               onChangeText={(value) => {
                 commentEdited.current = true;
@@ -241,28 +262,28 @@ export function CompletedOrderScreen({
               returnKeyType="done"
               submitBehavior="blurAndSubmit"
               onSubmitEditing={Keyboard.dismiss}
-              placeholder="Что понравилось или что можно улучшить?"
+              placeholder={t('Что понравилось или что можно улучшить?')}
               placeholderTextColor={colors.muted}
               selectionColor={colors.accent}
               style={[s.input, focused && s.inputFocused, locked && s.locked]}
             />
-            <Caption style={s.counter}>{comment.length}/500</Caption>
+            <Caption style={s.counter}>{localize(comment.length)}/500</Caption>
           </View>
-          {reviewUnavailable ? <Body style={s.muted}>{reviewUnavailable}</Body> : null}
+          {reviewUnavailable ? <Body style={s.muted}>{localize(reviewUnavailable)}</Body> : null}
           {reviewError ? (
             <Caption
               testID="completed-review-error"
               accessibilityLiveRegion="polite"
               style={s.error}
             >
-              {reviewError}
+              {localize(reviewError)}
             </Caption>
           ) : null}
           {reviewError && onRetryReview ? (
             <Button
               secondary
               testID="completed-review-retry"
-              title="Повторить загрузку"
+              title={t('Повторить загрузку')}
               disabled={reviewLoading || reviewSaving}
               onPress={onRetryReview}
             />
@@ -273,12 +294,14 @@ export function CompletedOrderScreen({
               accessibilityLiveRegion="polite"
               style={s.saved}
             >
-              Спасибо! Ваша оценка сохранена.
+              {t('Спасибо! Ваша оценка сохранена.')}
             </Caption>
           ) : null}
           <Button
             testID="completed-review-save"
-            title={reviewSaving ? 'Сохраняем...' : review ? 'Обновить отзыв' : 'Отправить отзыв'}
+            title={localize(
+              reviewSaving ? 'Сохраняем...' : review ? 'Обновить отзыв' : 'Отправить отзыв',
+            )}
             disabled={locked || !rating || !changed}
             onPress={() => {
               Keyboard.dismiss();
@@ -290,12 +313,12 @@ export function CompletedOrderScreen({
 
         <View style={s.section}>
           <Heading small style={s.sectionTitle}>
-            {onSupport ? 'Чек и помощь' : 'Фискальный чек'}
+            {localize(onSupport ? 'Чек и помощь' : 'Фискальный чек')}
           </Heading>
           {receiptAvailable ? (
             <Button
               testID="completed-order-receipt"
-              title="Открыть фискальный чек"
+              title={t('Открыть фискальный чек')}
               secondary
               icon="receipt-outline"
               onPress={onOpenReceipt}
@@ -304,11 +327,13 @@ export function CompletedOrderScreen({
             <View testID="completed-receipt-unavailable" style={s.receipt}>
               <Icon name="receipt-outline" color={colors.muted} size={22} />
               <Caption style={[s.muted, s.flex]}>
-                {order.receipt === 'issued'
-                  ? 'Чек выпущен. Ссылка пока недоступна.'
-                  : order.receipt === 'deferred'
-                    ? 'Фискальный чек пока недоступен - подключаем сервис чеков.'
-                    : 'Ожидаем фискальный чек. Ссылка появится после выпуска.'}
+                {localize(
+                  order.receipt === 'issued'
+                    ? 'Чек выпущен. Ссылка пока недоступна.'
+                    : order.receipt === 'deferred'
+                      ? 'Фискальный чек пока недоступен - подключаем сервис чеков.'
+                      : 'Ожидаем фискальный чек. Ссылка появится после выпуска.',
+                )}
               </Caption>
             </View>
           )}
@@ -319,13 +344,13 @@ export function CompletedOrderScreen({
               accessibilityLiveRegion="polite"
               style={s.error}
             >
-              {receiptError}
+              {localize(receiptError)}
             </Caption>
           ) : null}
           {onSupport ? (
             <Button
               testID="completed-order-support"
-              title="Связаться с поддержкой"
+              title={t('Связаться с поддержкой')}
               secondary
               icon="chatbubble-outline"
               onPress={onSupport}

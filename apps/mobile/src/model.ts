@@ -5,7 +5,7 @@ import type { TestFlowModel } from './useTestOrders';
 export type ScreenId = `M${string}`;
 export type CatalogMode = 'server' | 'design';
 export type DiningMode = 'takeaway' | 'dine_in';
-export type Locale = 'ru' | 'kk';
+export type Locale = import('./i18n/core.ts').Locale;
 export interface Selection {
   group_id: string;
   option_id: string;

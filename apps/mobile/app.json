@@ -14,7 +14,7 @@
       "appleTeamId": "DAJTP6MC3Q",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "CFBundleLocalizations": ["ru", "kk"],
+        "CFBundleLocalizations": ["ru", "kk", "en"],
         "LSApplicationQueriesSchemes": ["dgis"]
       }
     },
@@ -45,7 +45,13 @@
           "supportsPictureInPicture": false
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "orders"
+        }
+      ]
     ],
     "extra": {
       "environment": "staging",

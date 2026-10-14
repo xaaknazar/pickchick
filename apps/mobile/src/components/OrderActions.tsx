@@ -1,3 +1,4 @@
+import { t, localize, useLocale } from '../i18n';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotionModal, MotionPressable } from './Motion';
@@ -15,6 +16,7 @@ export function OrderActions({
   onClose(): void;
   onSupport?: () => void;
 }) {
+  useLocale();
   const insets = useSafeAreaInsets();
   return (
     <MotionModal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -26,7 +28,7 @@ export function OrderActions({
       >
         <MotionPressable
           accessibilityRole="button"
-          accessibilityLabel="Закрыть действия заказа"
+          accessibilityLabel={t('Закрыть действия заказа')}
           onPress={onClose}
           style={StyleSheet.absoluteFill}
         />
@@ -35,32 +37,35 @@ export function OrderActions({
           role="dialog"
           aria-modal
           accessibilityViewIsModal
-          accessibilityLabel="Помощь с заказом"
+          accessibilityLabel={t('Помощь с заказом')}
           style={s.dialog}
         >
           <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
             <Row style={{ justifyContent: 'space-between', gap: 12 }}>
               <CloseButton
                 testID="order-actions-close"
-                label="Закрыть окно помощи"
+                label={t('Закрыть окно помощи')}
                 onPress={onClose}
               />
               <Heading small style={{ flex: 1 }}>
-                Заказ №{number}
+                {t('Заказ №')}
+                {localize(number)}
               </Heading>
             </Row>
             <View style={s.symbol}>
               <Icon name="chatbubbles-outline" color={colors.accent} size={30} />
             </View>
-            <Body>Нужна помощь с заказом?</Body>
+            <Body>{t('Нужна помощь с заказом?')}</Body>
             <Caption>
-              {onSupport
-                ? 'Напишите управляющему. Номер заказа и ресторан добавим автоматически.'
-                : 'Обращения по оплате подключаются. Если нужна помощь сейчас, обратитесь к сотруднику ресторана.'}
+              {localize(
+                onSupport
+                  ? 'Напишите управляющему. Номер заказа и ресторан добавим автоматически.'
+                  : 'Обращения по оплате подключаются. Если нужна помощь сейчас, обратитесь к сотруднику ресторана.',
+              )}
             </Caption>
             {onSupport ? (
               <Button
-                title="Написать в поддержку"
+                title={t('Написать в поддержку')}
                 testID="order-actions-support"
                 onPress={onSupport}
               />

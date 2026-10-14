@@ -1,3 +1,4 @@
+import { t, useLocale } from './i18n';
 import { OrderSheet } from './components/OrderSheet';
 import { useCallback, useState } from 'react';
 import { ScreenTransition } from './components/Motion';
@@ -18,6 +19,7 @@ const tabRoutes = {
   M30: '/(tabs)/profile',
 } as const;
 export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: boolean }) {
+  useLocale();
   const [cartHeight, setCartHeight] = useState(100);
   const [dismissBlocked, setDismissBlocked] = useState(false);
   const router = useRouter();
@@ -146,7 +148,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
         <Pressable
           testID="close-design-preview"
           accessibilityRole="button"
-          accessibilityLabel="Вернуться в меню"
+          accessibilityLabel={t('Вернуться в меню')}
           onPress={() => router.replace('/(tabs)/menu')}
           style={{
             minHeight: 44,
@@ -159,7 +161,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
           }}
         >
           <Text style={{ color: '#C0CDE6', fontFamily: 'Manrope_600SemiBold', fontSize: 12 }}>
-            Вернуться в меню
+            {t('Вернуться в меню')}
           </Text>
         </Pressable>
       ) : null}

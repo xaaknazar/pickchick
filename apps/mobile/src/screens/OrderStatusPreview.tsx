@@ -1,3 +1,4 @@
+import { t, useLocale } from '../i18n';
 import { useMemo } from 'react';
 import type { TestOrder } from '@pickchick/test-order-flow/contracts';
 import type { ScreenProps } from '../model';
@@ -89,12 +90,13 @@ export function previewOrder(props: ScreenProps): TestOrder {
   };
 }
 export function OrderStatusPreview(props: ScreenProps) {
+  useLocale();
   const order = useMemo(() => previewOrder(props), [props.model.products, props.screenId]);
   return (
     <OrderStatusScreen
       props={props}
       order={order}
-      notice={<Caption>Пример дизайна. Заказ не отправляется на кухню.</Caption>}
+      notice={<Caption>{t('Пример дизайна. Заказ не отправляется на кухню.')}</Caption>}
     />
   );
 }

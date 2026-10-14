@@ -1,3 +1,4 @@
+import { t, localize, useLocale } from '../i18n';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
   AppState,
@@ -54,10 +55,11 @@ const chefScenes: Record<OrderScene, number> = {
 };
 
 export function OrdersHeader() {
+  useLocale();
   return (
     <View style={s.header}>
       <Text accessibilityRole="header" style={s.title} testID="orders-title">
-        Заказы
+        {t('Заказы')}
       </Text>
       <Logo size={40} />
     </View>
@@ -65,9 +67,10 @@ export function OrdersHeader() {
 }
 
 export function OrdersSectionLabel({ children, testID }: { children: string; testID?: string }) {
+  useLocale();
   return (
     <Text accessibilityRole="header" style={s.sectionLabel} testID={testID}>
-      {children}
+      {localize(children)}
     </Text>
   );
 }
@@ -93,10 +96,11 @@ function PhotoCellView({
   products: readonly Product[];
   style: StyleProp<ViewStyle>;
 }) {
+  useLocale();
   if (cell.kind === 'more')
     return (
       <View style={[style, s.cellMore]}>
-        <Text style={s.cellMoreText}>+{cell.count}</Text>
+        <Text style={s.cellMoreText}>+{localize(cell.count)}</Text>
       </View>
     );
   if (cell.kind === 'empty') return <View style={[style, s.cellEmpty]} />;
@@ -128,6 +132,7 @@ export function OrderPhotoTile({
   size?: number;
   testID?: string;
 }) {
+  useLocale();
   const layout = photoTileLayout(productIds);
   const gap = 2;
   const half = (size - gap) / 2;
@@ -203,13 +208,14 @@ function useInvoiceRemaining(expiresAt: string | null | undefined) {
 }
 
 function StageBars({ bars }: { bars: number }) {
+  useLocale();
   return (
     <View style={s.bars} accessible={false}>
       {['Кухня', 'Сборка', 'Выдача'].map((label, index) => (
         <View key={label} style={s.barItem}>
           <View style={[s.bar, index < bars && s.barActive]} />
           <Text style={[s.barLabel, index === bars - 1 && s.barLabelActive]} numberOfLines={1}>
-            {label}
+            {localize(label)}
           </Text>
         </View>
       ))}
@@ -218,6 +224,7 @@ function StageBars({ bars }: { bars: number }) {
 }
 
 function Badge({ kind, children }: { kind: ActiveKind; children: string }) {
+  useLocale();
   return (
     <View
       style={[
@@ -236,7 +243,7 @@ function Badge({ kind, children }: { kind: ActiveKind; children: string }) {
               : { color: colors.accentText },
         ]}
       >
-        {children}
+        {localize(children)}
       </Text>
     </View>
   );
@@ -244,14 +251,17 @@ function Badge({ kind, children }: { kind: ActiveKind; children: string }) {
 
 // Jost has no «№» glyph (web falls back to a serif), so the sign is set in Manrope.
 function OrderNumber({ number, style }: { number: string | null; style: StyleProp<TextStyle> }) {
+  useLocale();
   return (
     <Text style={style} numberOfLines={1}>
-      {number ? (
-        <>
-          <Text style={s.numberSign}>№</Text> {number}
-        </>
-      ) : (
-        'Заказ'
+      {localize(
+        number ? (
+          <>
+            <Text style={s.numberSign}>№</Text> {number}
+          </>
+        ) : (
+          'Заказ'
+        ),
       )}
     </Text>
   );
@@ -264,13 +274,14 @@ export function ActiveOrderCard({
   model: ActiveOrderModel;
   products: readonly Product[];
 }) {
+  useLocale();
   const remaining = useInvoiceRemaining(model.kind === 'payment' ? model.expiresAt : null);
   const summary = itemsSummary(model.items);
-  const label = `${model.number ? `Заказ номер ${model.number}` : 'Заказ'}, ${model.badge}, ${serviceLabel(model.serviceMode)}, ${summary}, ${money(model.totalMinor)}`;
+  const label = `${model.number ? t('Заказ номер {p0}', { p0: model.number }) : 'Заказ'}, ${model.badge}, ${serviceLabel(model.serviceMode)}, ${summary}, ${money(model.totalMinor)}`;
   if (model.kind === 'payment') {
     const note =
       remaining !== null && remaining > 0
-        ? `осталось ${countdownLabel(remaining)}`
+        ? t('осталось {p0}', { p0: countdownLabel(remaining) })
         : remaining === 0
           ? 'проверяем счёт'
           : model.paymentNote;
@@ -280,7 +291,7 @@ export function ActiveOrderCard({
         <MotionPressable
           testID={model.openTestID}
           accessibilityRole="button"
-          accessibilityLabel={`${label}. Открыть заказ`}
+          accessibilityLabel={localize(t('{p0}. Открыть заказ', { p0: label }))}
           onPress={model.onOpen}
           style={s.payTop}
         >
@@ -302,15 +313,15 @@ export function ActiveOrderCard({
                   remaining !== null && remaining > 0 ? `${model.openTestID}-countdown` : undefined
                 }
               >
-                {line}
+                {localize(line)}
               </Text>
             ) : null}
           </View>
-          <Text style={s.amount}>{money(model.totalMinor)}</Text>
+          <Text style={s.amount}>{localize(money(model.totalMinor))}</Text>
         </MotionPressable>
         {model.onPay ? (
           <Button
-            title="Перейти к оплате"
+            title={t('Перейти к оплате')}
             testID={model.payTestID}
             onPress={model.onPay}
             style={s.payButton}
@@ -326,7 +337,7 @@ export function ActiveOrderCard({
       <MotionPressable
         testID={model.openTestID}
         accessibilityRole="button"
-        accessibilityLabel={`${label}. Открыть статус заказа`}
+        accessibilityLabel={localize(t('{p0}. Открыть статус заказа', { p0: label }))}
         onPress={model.onOpen}
         style={[s.card, ready && s.cardReady]}
       >
@@ -345,10 +356,10 @@ export function ActiveOrderCard({
               <Badge kind={model.kind}>{model.badge}</Badge>
             </View>
             {ready ? (
-              <Text style={s.readyCaption}>Покажите номер на выдаче</Text>
+              <Text style={s.readyCaption}>{t('Покажите номер на выдаче')}</Text>
             ) : (
               <Text style={s.line} numberOfLines={2}>
-                {[serviceLabel(model.serviceMode), summary].filter(Boolean).join(' · ')}
+                {localize([serviceLabel(model.serviceMode), summary].filter(Boolean).join(' · '))}
               </Text>
             )}
           </View>
@@ -358,8 +369,8 @@ export function ActiveOrderCard({
             </View>
           ) : model.etaMinutes != null && model.etaMinutes > 0 ? (
             <View style={s.eta} testID={`${model.openTestID}-eta`}>
-              <Text style={s.etaValue}>~{model.etaMinutes}</Text>
-              <Text style={s.etaUnit}>мин</Text>
+              <Text style={s.etaValue}>~{localize(model.etaMinutes)}</Text>
+              <Text style={s.etaUnit}>{t('мин')}</Text>
             </View>
           ) : null}
         </View>
@@ -367,11 +378,13 @@ export function ActiveOrderCard({
         <View style={[s.divider, ready && { backgroundColor: ordersPalette.readyBorder }]} />
         <View style={s.cardBottom}>
           <Text style={[s.place, ready && s.readyPlace]} numberOfLines={1}>
-            {ready
-              ? [serviceLabel(model.serviceMode), summary].filter(Boolean).join(' · ')
-              : model.place}
+            {localize(
+              ready
+                ? [serviceLabel(model.serviceMode), summary].filter(Boolean).join(' · ')
+                : model.place,
+            )}
           </Text>
-          <Text style={s.amount}>{money(model.totalMinor)}</Text>
+          <Text style={s.amount}>{localize(money(model.totalMinor))}</Text>
           {ready ? null : <Icon name="chevron-forward" size={18} color={colors.muted} />}
         </View>
       </MotionPressable>
@@ -407,15 +420,16 @@ export function RateOrderRow({
   onRate(stars: number): void;
   testID(stars: number): string;
 }) {
+  useLocale();
   return (
     <View style={s.rate} testID="orders-rate-row">
-      <Text style={s.rateLabel}>Как вам заказ?</Text>
+      <Text style={s.rateLabel}>{t('Как вам заказ?')}</Text>
       <View style={s.stars}>
         {[1, 2, 3, 4, 5].map((stars) => (
           <MotionPressable
             key={stars}
             accessibilityRole="button"
-            accessibilityLabel={`Оценить заказ на ${stars} из 5`}
+            accessibilityLabel={localize(t('Оценить заказ на {p0} из 5', { p0: stars }))}
             onPress={() => onRate(stars)}
             testID={testID(stars)}
             style={s.star}
@@ -437,6 +451,7 @@ export function HistoryOrderRow({
   products: readonly Product[];
   first: boolean;
 }) {
+  useLocale();
   const cancelled = model.status === 'cancelled';
   const meta = cancelled
     ? historyMetaParts(model).slice(0, model.number ? 2 : 1)
@@ -445,7 +460,7 @@ export function HistoryOrderRow({
   const status = model.statusText
     ? model.statusText
     : model.rating
-      ? `оценка ${model.rating} из 5`
+      ? t('оценка {p0} из 5', { p0: model.rating })
       : '';
   return (
     <View style={[s.row, !first && s.rowDivider]} testID={model.testID}>
@@ -454,7 +469,9 @@ export function HistoryOrderRow({
         <MotionPressable
           testID={model.openTestID}
           accessibilityRole="button"
-          accessibilityLabel={`${model.number ? `Заказ номер ${model.number}` : 'Заказ'}, ${title}, ${money(model.totalMinor)}${status ? `, ${status}` : ''}. ${model.openLabel ?? 'Открыть заказ'}`}
+          accessibilityLabel={localize(
+            `${model.number ? t('Заказ номер {p0}', { p0: model.number }) : 'Заказ'}, ${title}, ${money(model.totalMinor)}${status ? `, ${status}` : ''}. ${model.openLabel ?? 'Открыть заказ'}`,
+          )}
           onPress={model.onOpen}
           style={({ pressed }) => [StyleSheet.absoluteFill, pressed && s.rowPressed]}
         />
@@ -478,9 +495,11 @@ export function HistoryOrderRow({
               importantForAccessibility="no-hide-descendants"
             >
               <Text style={[s.rowTitle, cancelled && s.mutedText]} numberOfLines={2}>
-                {title}
+                {localize(title)}
               </Text>
-              <Text style={[s.rowAmount, cancelled && s.struck]}>{money(model.totalMinor)}</Text>
+              <Text style={[s.rowAmount, cancelled && s.struck]}>
+                {localize(money(model.totalMinor))}
+              </Text>
             </View>
             <View style={s.rowMeta} pointerEvents="box-none">
               <View
@@ -490,20 +509,22 @@ export function HistoryOrderRow({
                 importantForAccessibility="no-hide-descendants"
               >
                 <Text style={s.metaText} numberOfLines={2}>
-                  {meta.join(' · ')}
-                  {model.statusText ? (
-                    <>
-                      {meta.length ? ' · ' : ''}
-                      <Text style={cancelled ? s.cancelledText : s.noteText}>
-                        {model.statusText}
-                      </Text>
-                    </>
-                  ) : model.rating ? (
-                    <>
-                      {' · '}
-                      <Text style={s.ratingText}>★ {model.rating}</Text>
-                    </>
-                  ) : null}
+                  {localize(meta.join(' · '))}
+                  {localize(
+                    model.statusText ? (
+                      <>
+                        {meta.length ? ' · ' : ''}
+                        <Text style={cancelled ? s.cancelledText : s.noteText}>
+                          {localize(model.statusText)}
+                        </Text>
+                      </>
+                    ) : model.rating ? (
+                      <>
+                        {' · '}
+                        <Text style={s.ratingText}>★ {localize(model.rating)}</Text>
+                      </>
+                    ) : null,
+                  )}
                 </Text>
               </View>
               {model.repeat && !cancelled ? model.repeat : null}
@@ -526,16 +547,17 @@ export function RepeatLink({
   testID?: string;
   number: string;
 }) {
+  useLocale();
   return (
     <MotionPressable
       accessibilityRole="button"
-      accessibilityLabel={`Повторить заказ ${number}`}
+      accessibilityLabel={localize(t('Повторить заказ {p0}', { p0: number }))}
       testID={testID}
       onPress={onPress}
       style={s.repeat}
     >
       <Icon name="sync-outline" size={16} color={colors.accentText} />
-      <Text style={s.repeatText}>Повторить</Text>
+      <Text style={s.repeatText}>{t('Повторить')}</Text>
     </MotionPressable>
   );
 }
@@ -553,6 +575,7 @@ export function OrdersOverview({
   footer?: ReactNode;
   now?: number;
 }) {
+  useLocale();
   const days = groupByAlmatyDay(history, (order) => order.createdAt, now);
   return (
     <View style={s.overview}>
@@ -568,11 +591,11 @@ export function OrdersOverview({
       ) : null}
       {days.length ? (
         <View style={s.history} testID="orders-history">
-          {active.length ? <OrdersSectionLabel>История</OrdersSectionLabel> : null}
+          {active.length ? <OrdersSectionLabel>{t('История')}</OrdersSectionLabel> : null}
           {days.map((day) => (
             <View key={day.key} style={s.day} testID={`orders-day-${day.key}`}>
               <Text style={s.dayLabel} accessibilityRole="header">
-                {day.label}
+                {localize(day.label)}
               </Text>
               <View style={s.dayBlock}>
                 {day.items.map((model, index) => (
@@ -604,10 +627,11 @@ export function OrdersMoreButton({
   disabled?: boolean;
   testID?: string;
 }) {
+  useLocale();
   return (
     <Button
       secondary
-      title={title}
+      title={localize(title)}
       testID={testID}
       disabled={disabled}
       onPress={onPress}
@@ -618,6 +642,7 @@ export function OrdersMoreButton({
 }
 
 export function OrdersEmpty({ onMenu }: { onMenu(): void }) {
+  useLocale();
   const [width, setWidth] = useState(0);
   const onLayout = (event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width);
   const art = Math.min(192, Math.max(132, width * 0.55 || 192));
@@ -648,13 +673,13 @@ export function OrdersEmpty({ onMenu }: { onMenu(): void }) {
         />
       </View>
       <Text accessibilityRole="header" style={s.emptyTitle}>
-        Фритюр уже горячий
+        {t('Фритюр уже горячий')}
       </Text>
       <Text style={s.emptyDetail}>
-        Сделайте первый заказ - здесь появится номер, статус готовки и кнопка «Повторить».
+        {t('Сделайте первый заказ - здесь появится номер, статус готовки и кнопка «Повторить».')}
       </Text>
       <Button
-        title="Открыть меню"
+        title={t('Открыть меню')}
         testID="orders-open-menu"
         onPress={onMenu}
         style={s.emptyButton}
@@ -665,9 +690,9 @@ export function OrdersEmpty({ onMenu }: { onMenu(): void }) {
           (step, index) => (
             <View key={step} style={s.step}>
               <View style={s.stepNumber}>
-                <Text style={s.stepNumberText}>{index + 1}</Text>
+                <Text style={s.stepNumberText}>{localize(index + 1)}</Text>
               </View>
-              <Text style={s.stepText}>{step}</Text>
+              <Text style={s.stepText}>{localize(step)}</Text>
             </View>
           ),
         )}

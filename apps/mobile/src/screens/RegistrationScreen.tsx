@@ -1,3 +1,5 @@
+import { dateLocale } from '../i18n/core';
+import { localize, t, useLocale } from '../i18n';
 import { MotionPressable as Pressable } from '../components/Motion';
 import { useEffect, useRef, useState } from 'react';
 import { Keyboard, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
@@ -11,6 +13,7 @@ import BirthDatePicker from '../components/BirthDatePicker';
 
 /** Registration and subsequent editing share the original mockup's form. */
 export function Onboarding(props: ScreenProps) {
+  useLocale();
   const demo = useAccount();
   const { fontScale } = useWindowDimensions();
   const profile = demo.account?.profile;
@@ -24,7 +27,7 @@ export function Onboarding(props: ScreenProps) {
   const [birthDate, setBirthDate] = useState<string | null>(profile?.birthDate ?? null);
   const dateLabel = birthDate
     ? new Date(`${birthDate}T12:00:00`)
-        .toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+        .toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' })
         .replace(' г.', '')
     : 'Выбрать';
   const [gender, setGender] = useState<DemoProfileInput['gender']>(profile?.gender ?? null);
@@ -83,8 +86,8 @@ export function Onboarding(props: ScreenProps) {
   return (
     <AuthLayout
       props={props}
-      title={editing ? 'Мои данные' : 'Знакомимся'}
-      subtitle="Как к вам обращаться и когда поздравить"
+      title={localize(editing ? 'Мои данные' : 'Знакомимся')}
+      subtitle={t('Как к вам обращаться и когда поздравить')}
       overlay={
         pickerOpen ? (
           <BirthDatePicker
@@ -101,7 +104,7 @@ export function Onboarding(props: ScreenProps) {
       footer={
         <>
           <AuthButton
-            title={demo.busy ? 'Сохраняем…' : editing ? 'Сохранить' : 'Готово'}
+            title={localize(demo.busy ? 'Сохраняем…' : editing ? 'Сохранить' : 'Готово')}
             testID="nickname-save"
             disabled={!canSave}
             onPress={() => void save()}
@@ -117,7 +120,7 @@ export function Onboarding(props: ScreenProps) {
               }}
               style={({ pressed }) => [s.later, pressed && s.pressed]}
             >
-              <Body style={s.laterText}>Отмена</Body>
+              <Body style={s.laterText}>{t('Отмена')}</Body>
             </Pressable>
           ) : null}
         </>
@@ -125,11 +128,11 @@ export function Onboarding(props: ScreenProps) {
     >
       <View style={s.group}>
         <View style={s.formRow}>
-          <Body style={s.rowLabel}>Никнейм</Body>
+          <Body style={s.rowLabel}>{t('Никнейм')}</Body>
           <TextInput
             key={`${accountKey}:${nicknameRevision}`}
             testID="nickname-input"
-            accessibilityLabel="Никнейм"
+            accessibilityLabel={t('Никнейм')}
             defaultValue={savedNickname}
             onChangeText={(value) => {
               nicknameEdited.current = true;
@@ -137,7 +140,7 @@ export function Onboarding(props: ScreenProps) {
               setSubmitted(false);
             }}
             editable={demo.ready && !demo.busy}
-            placeholder="Ваше имя"
+            placeholder={t('Ваше имя')}
             placeholderTextColor={authColors.muted}
             autoComplete="nickname"
             autoCorrect={false}
@@ -154,15 +157,15 @@ export function Onboarding(props: ScreenProps) {
         <Pressable
           testID="birthday-open"
           accessibilityRole="button"
-          accessibilityLabel={`Дата рождения: ${dateLabel}`}
+          accessibilityLabel={localize(t('Дата рождения: {p0}', { p0: dateLabel }))}
           accessibilityState={{ expanded: pickerOpen, disabled: demo.busy }}
           disabled={demo.busy}
           onPress={openPicker}
           style={[s.formRow, s.dateRow]}
         >
-          <Body style={s.rowLabel}>Дата рождения</Body>
+          <Body style={s.rowLabel}>{t('Дата рождения')}</Body>
           <View style={s.dateContent}>
-            <Body style={s.dateValue}>{dateLabel}</Body>
+            <Body style={s.dateValue}>{localize(dateLabel)}</Body>
             <Icon name="chevron-forward" size={18} color={authColors.muted} />
           </View>
         </Pressable>
@@ -171,25 +174,27 @@ export function Onboarding(props: ScreenProps) {
         <Pressable
           testID="birthday-clear"
           accessibilityRole="button"
-          accessibilityLabel="Очистить дату рождения"
+          accessibilityLabel={t('Очистить дату рождения')}
           onPress={() => {
             setBirthDate(null);
             setPickerOpen(false);
           }}
           style={s.later}
         >
-          <Body style={s.clearText}>Очистить дату рождения</Body>
+          <Body style={s.clearText}>{t('Очистить дату рождения')}</Body>
         </Pressable>
       ) : null}
       {dateError ? (
         <Body testID="birthday-error" style={s.error}>
-          {dateError}
+          {localize(dateError)}
         </Body>
       ) : null}
-      {nameLength > 32 ? <Body style={s.error}>Никнейм - не больше 32 символов.</Body> : null}
+      {nameLength > 32 ? (
+        <Body style={s.error}>{t('Никнейм - не больше 32 символов.')}</Body>
+      ) : null}
 
       <View style={s.field}>
-        <Caption style={s.label}>ПОЛ · ОБЯЗАТЕЛЬНО</Caption>
+        <Caption style={s.label}>{t('ПОЛ · ОБЯЗАТЕЛЬНО')}</Caption>
         <View style={[s.genderRow, fontScale > 1.3 && { flexDirection: 'column' }]}>
           {(
             [
@@ -210,7 +215,7 @@ export function Onboarding(props: ScreenProps) {
                 pressed && s.pressed,
               ]}
             >
-              <Body style={s.genderText}>{item.label}</Body>
+              <Body style={s.genderText}>{localize(item.label)}</Body>
               {gender === item.value ? <Icon name="checkmark" color="#FFFFFF" size={16} /> : null}
             </Pressable>
           ))}
@@ -219,12 +224,12 @@ export function Onboarding(props: ScreenProps) {
 
       {!demo.account && demo.ready ? (
         <Pressable accessibilityRole="button" onPress={() => props.navigate('M02')} style={s.later}>
-          <Body style={s.clearText}>Войти по номеру телефона</Body>
+          <Body style={s.clearText}>{t('Войти по номеру телефона')}</Body>
         </Pressable>
       ) : null}
       {submitted && demo.error ? (
         <Body testID="profile-save-error" style={s.error}>
-          {demo.error}
+          {localize(demo.error)}
         </Body>
       ) : null}
     </AuthLayout>

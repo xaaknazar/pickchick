@@ -1,3 +1,5 @@
+import { dateLocale } from '../i18n/core';
+import { t, localize, useLocale } from '../i18n';
 import { OrderTotal, orderUI } from '../components/OrderPresentation';
 import {
   OrdersEmpty,
@@ -41,11 +43,12 @@ export { orderStage } from '../order-status';
 import { orderScene, orderStage } from '../order-status';
 import { OrderStatusScreen } from './OrderStatusScreen';
 function ContinueSession({ props }: { props: ScreenProps }) {
+  useLocale();
   const flow = props.model.testFlow;
   if (!flow.sessionExpired) return null;
   return (
     <Button
-      title="Восстановить доступ"
+      title={t('Восстановить доступ')}
       testID="test-continue-session"
       secondary
       disabled={flow.busy}
@@ -56,13 +59,14 @@ function ContinueSession({ props }: { props: ScreenProps }) {
   );
 }
 function FlowNotice({ props }: { props: ScreenProps }) {
+  useLocale();
   const flow = props.model.testFlow;
   return (
     <>
       <ContinueSession props={props} />
       {flow.recoveryAvailable ? (
         <Button
-          title="Восстановить проверку"
+          title={t('Восстановить проверку')}
           testID="test-recover-pending"
           secondary
           disabled={flow.busy}
@@ -77,26 +81,32 @@ function FlowNotice({ props }: { props: ScreenProps }) {
   );
 }
 function OrderLines({ order }: { order: TestOrder }) {
+  useLocale();
   return (
     <View style={s.section}>
       <Heading small style={orderUI.section}>
-        Состав заказа
+        {t('Состав заказа')}
       </Heading>
       {order.snapshot.lines.map((line) => (
         <View key={'line_id' in line ? line.line_id : line.id} style={s.line}>
           <Row style={{ alignItems: 'flex-start' }}>
-            <Body style={[orderUI.label, ui.flex]}>{line.name}</Body>
-            <Body style={orderUI.label}>{line.quantity} шт.</Body>
+            <Body style={[orderUI.label, ui.flex]}>{localize(line.name)}</Body>
+            <Body style={orderUI.label}>
+              {localize(line.quantity)}
+              {t('шт.')}
+            </Body>
           </Row>
           {'selections' in line && line.selections.length ? (
             <Caption style={orderUI.detail}>
-              {line.selections
-                .map((s) => s.option_label + (s.quantity > 1 ? ` ×${s.quantity}` : ''))
-                .join(' · ')}
+              {localize(
+                line.selections
+                  .map((s) => s.option_label + (s.quantity > 1 ? ` ×${s.quantity}` : ''))
+                  .join(' · '),
+              )}
             </Caption>
           ) : null}
           <Body style={[orderUI.label, { fontFamily: font.bold }]}>
-            {money(line.line_total_minor)}
+            {localize(money(line.line_total_minor))}
           </Body>
         </View>
       ))}
@@ -106,7 +116,7 @@ function OrderLines({ order }: { order: TestOrder }) {
 }
 
 const orderDate = (value: string) =>
-  new Date(value).toLocaleString('ru-RU', {
+  new Date(value).toLocaleString(dateLocale(), {
     timeZone: 'Asia/Almaty',
     day: 'numeric',
     month: 'short',
@@ -114,6 +124,7 @@ const orderDate = (value: string) =>
     minute: '2-digit',
   });
 function StageTrack({ order }: { order: TestOrder }) {
+  useLocale();
   if (order.state === 'cancelled' || order.state === 'awaiting_test_payment') return null;
   const current =
     order.state === 'fulfilled'
@@ -124,7 +135,10 @@ function StageTrack({ order }: { order: TestOrder }) {
           ? 1
           : 0;
   return (
-    <View style={s.section} accessibilityLabel={`Этап заказа: ${orderStage(order)}`}>
+    <View
+      style={s.section}
+      accessibilityLabel={localize(t('Этап заказа: {p0}', { p0: orderStage(order) }))}
+    >
       {['Готовим на кухне', 'Собираем заказ', 'Можно забирать', 'Заказ выдан'].map(
         (label, index) => (
           <Row key={label} style={{ minHeight: 36 }}>
@@ -151,10 +165,10 @@ function StageTrack({ order }: { order: TestOrder }) {
                 },
               ]}
             >
-              {label}
+              {localize(label)}
             </Body>
             {index === current && order.state !== 'fulfilled' ? (
-              <Caption style={{ color: colors.accentText }}>Сейчас</Caption>
+              <Caption style={{ color: colors.accentText }}>{t('Сейчас')}</Caption>
             ) : null}
           </Row>
         ),
@@ -164,6 +178,7 @@ function StageTrack({ order }: { order: TestOrder }) {
 }
 
 export function ConnectedCheckout(props: ScreenProps) {
+  useLocale();
   const flow = props.model.testFlow;
   const unknown = flow.orders.find((order) => order.payment_state === 'simulated_unknown');
   const matching = flow.orders.find(
@@ -202,7 +217,7 @@ export function ConnectedCheckout(props: ScreenProps) {
   return (
     <Page
       props={props}
-      title="Оформление"
+      title={t('Оформление')}
       header={<CheckoutHeader props={props} />}
       footer={
         <>
@@ -211,15 +226,15 @@ export function ConnectedCheckout(props: ScreenProps) {
             style={orderUI.action}
             textStyle={orderUI.actionText}
             testID="test-checkout-create"
-            title={
+            title={localize(
               flow.busy
                 ? 'Сохраняем заказ…'
                 : pending
-                  ? `Продолжить ${pending.number}`
+                  ? t('Продолжить {p0}', { p0: pending.number })
                   : unpaidTestOrdersEnabled
                     ? 'Отправить на кухню'
-                    : 'Продолжить оформление'
-            }
+                    : 'Продолжить оформление',
+            )}
             disabled={flow.busy || (!pending && (!flow.available || props.model.cart.length === 0))}
             onPress={() => {
               void submit();
@@ -237,33 +252,37 @@ export function ConnectedCheckout(props: ScreenProps) {
       />
       <FlowNotice props={props} />
       {!flow.available ? (
-        <Button title="Обновить меню" secondary onPress={props.model.refresh} />
+        <Button title={t('Обновить меню')} secondary onPress={props.model.refresh} />
       ) : null}
       {unknown ? (
         <Notice warning>
-          Прежде чем создавать другой заказ, нужно уточнить результат проверки {unknown.number}.
-          Новая корзина остаётся на устройстве.
+          {t('Прежде чем создавать другой заказ, нужно уточнить результат проверки')}
+          {localize(unknown.number)}
+          {t('. Новая корзина остаётся на устройстве.')}
         </Notice>
       ) : null}
       {unpaidTestOrdersEnabled && !pending ? (
         <Caption>
-          Заказ поступит на кухню без списания денег. Статус приготовления появится в приложении.
+          {t(
+            'Заказ поступит на кухню без списания денег. Статус приготовления появится в приложении.',
+          )}
         </Caption>
       ) : null}
       {flow.current?.state === 'awaiting_test_payment' &&
       flow.current.order_id !== pending?.order_id ? (
         <NavRow
-          title={`Ранее созданный ${flow.current.number}`}
-          subtitle="Открыть отдельно от этой корзины"
+          title={localize(t('Ранее созданный {p0}', { p0: flow.current.number }))}
+          subtitle={t('Открыть отдельно от этой корзины')}
           onPress={() => props.navigate('M20')}
         />
       ) : null}
-      {!unpaidTestOrdersEnabled ? <Caption>Деньги не списываются.</Caption> : null}
+      {!unpaidTestOrdersEnabled ? <Caption>{t('Деньги не списываются.')}</Caption> : null}
     </Page>
   );
 }
 
 export function ConnectedHistory(props: ScreenProps) {
+  useLocale();
   const flow = props.model.testFlow;
   const sorted = [...flow.orders].sort(
     (a, b) => b.created_at.localeCompare(a.created_at) || b.order_id.localeCompare(a.order_id),
@@ -358,14 +377,14 @@ export function ConnectedHistory(props: ScreenProps) {
   return (
     <Page
       props={props}
-      title="Заказы"
+      title={t('Заказы')}
       noBack
       header={<OrdersHeader />}
       contentStyle={ordersPageStyle.content}
     >
       <FlowNotice props={props} />
       {!flow.restored || (!flow.orders.length && !!flow.error) ? (
-        <Loading title="Загружаем заказы" />
+        <Loading title={t('Загружаем заказы')} />
       ) : !flow.orders.length ? (
         <OrdersEmpty onMenu={() => props.navigate('M06')} />
       ) : (
@@ -377,7 +396,7 @@ export function ConnectedHistory(props: ScreenProps) {
             <>
               {flow.orders.length >= 20 && flow.moreHistory ? (
                 <OrdersMoreButton
-                  title={flow.historyBusy ? 'Загружаем…' : 'Показать предыдущие заказы'}
+                  title={localize(flow.historyBusy ? 'Загружаем…' : 'Показать предыдущие заказы')}
                   testID="orders-load-history"
                   disabled={flow.historyBusy}
                   onPress={() => {
@@ -385,7 +404,7 @@ export function ConnectedHistory(props: ScreenProps) {
                   }}
                 />
               ) : null}
-              <OrdersMoreButton title="Обновить заказы" onPress={flow.refresh} />
+              <OrdersMoreButton title={t('Обновить заказы')} onPress={flow.refresh} />
             </>
           }
         />
@@ -395,20 +414,21 @@ export function ConnectedHistory(props: ScreenProps) {
 }
 
 export function ConnectedOrder(props: ScreenProps) {
+  useLocale();
   const flow = props.model.testFlow;
   const order = flow.current;
   const [reason, setReason] = useState('Отмена по просьбе клиента');
   if (!order)
     return (
-      <Page props={props} title="Заказ">
+      <Page props={props} title={t('Заказ')}>
         <FlowNotice props={props} />
         {!flow.restored || flow.error ? (
-          <Loading title="Загружаем заказ" />
+          <Loading title={t('Загружаем заказ')} />
         ) : (
           <Empty
-            title="Выберите заказ"
-            detail="Здесь появятся статус и состав заказа."
-            action={<Button title="Мои заказы" onPress={() => props.navigate('M19')} />}
+            title={t('Выберите заказ')}
+            detail={t('Здесь появятся статус и состав заказа.')}
+            action={<Button title={t('Мои заказы')} onPress={() => props.navigate('M19')} />}
           />
         )}
       </Page>
@@ -443,12 +463,18 @@ export function ConnectedOrder(props: ScreenProps) {
   return (
     <Page
       props={props}
-      title={receipt ? 'Электронный чек' : cancel ? 'Отмена заказа' : `Заказ №${order.number}`}
+      title={localize(
+        receipt
+          ? 'Электронный чек'
+          : cancel
+            ? 'Отмена заказа'
+            : t('Заказ №{p0}', { p0: order.number }),
+      )}
       footer={
         cancel ? (
           <Button
             testID="test-cancel-order"
-            title="Отменить заказ"
+            title={t('Отменить заказ')}
             disabled={
               flow.busy ||
               reason.trim().length < 3 ||
@@ -468,42 +494,45 @@ export function ConnectedOrder(props: ScreenProps) {
       <View accessibilityLiveRegion="polite" style={s.status}>
         <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
           <Heading testID="connected-order-state" style={orderUI.title}>
-            {unknown ? 'Уточняем результат' : orderStage(order)}
+            {localize(unknown ? 'Уточняем результат' : orderStage(order))}
           </Heading>
           <Text
             testID="connected-order-number"
-            accessibilityLabel={`Заказ номер ${order.number}`}
+            accessibilityLabel={localize(t('Заказ номер {p0}', { p0: order.number }))}
             style={s.number}
           >
-            {order.number}
+            {localize(order.number)}
           </Text>
         </Row>
         <Body style={orderUI.label}>
-          {unknown
-            ? 'Ресторан уточняет результат оплаты.'
-            : order.state === 'preparing'
-              ? orderStage(order) === 'На сборке'
-                ? 'Всё приготовили. Проверяем состав и собираем ваш заказ.'
-                : 'Ваши блюда уже на кухне. Здесь появится следующий этап приготовления.'
-              : order.state === 'ready'
-                ? 'Подходите к стойке выдачи и назовите номер заказа.'
-                : order.state === 'fulfilled'
-                  ? 'Приятного аппетита! Расскажите, как вам заказ.'
-                  : order.state === 'cancelled'
-                    ? (order.cancellation_reason ?? 'Заказ отменён.')
-                    : 'Подтвердите передачу заказа на кухню без оплаты.'}
+          {localize(
+            unknown
+              ? 'Ресторан уточняет результат оплаты.'
+              : order.state === 'preparing'
+                ? orderStage(order) === 'На сборке'
+                  ? 'Всё приготовили. Проверяем состав и собираем ваш заказ.'
+                  : 'Ваши блюда уже на кухне. Здесь появится следующий этап приготовления.'
+                : order.state === 'ready'
+                  ? 'Подходите к стойке выдачи и назовите номер заказа.'
+                  : order.state === 'fulfilled'
+                    ? 'Приятного аппетита! Расскажите, как вам заказ.'
+                    : order.state === 'cancelled'
+                      ? (order.cancellation_reason ?? 'Заказ отменён.')
+                      : 'Подтвердите передачу заказа на кухню без оплаты.',
+          )}
         </Body>
       </View>
       <View style={s.section}>
         <Row>
           <Icon name="location-outline" color={colors.muted} />
           <Body style={[orderUI.label, ui.flex]}>
-            {restaurantLocation(order.branch_id)?.name ?? 'Ресторан PickChick'}
+            {localize(restaurantLocation(order.branch_id)?.name ?? 'Ресторан PickChick')}
           </Body>
         </Row>
         <Caption style={orderUI.detail}>
-          {order.snapshot.service_mode === 'takeaway' ? 'С собой' : 'В зале'} ·{' '}
-          {orderDate(order.created_at)}
+          {localize(order.snapshot.service_mode === 'takeaway' ? 'С собой' : 'В зале')} ·
+          {localize(' ')}
+          {localize(orderDate(order.created_at))}
         </Caption>
       </View>
       {receipt ? (
@@ -511,32 +540,36 @@ export function ConnectedOrder(props: ScreenProps) {
           <Row>
             <Icon name="receipt-outline" color={colors.accent} />
             <Heading small style={orderUI.section}>
-              Официальный чек
+              {t('Официальный чек')}
             </Heading>
           </Row>
-          <Body style={orderUI.label}>Оплата и чеки - в процессе подключения.</Body>
+          <Body style={orderUI.label}>{t('Оплата и чеки - в процессе подключения.')}</Body>
           <Caption style={orderUI.detail}>
-            По этому заказу деньги не списывались, фискальный чек не выпускался. Состав заказа ниже
-            не является чеком.
+            {t(
+              'По этому заказу деньги не списывались, фискальный чек не выпускался. Состав заказа ниже не является чеком.',
+            )}
           </Caption>
         </View>
       ) : null}
       {canPay && !receipt && !cancel ? (
         <Card>
           <Heading small>
-            {'payment_method' in order.snapshot
-              ? paymentName(order.snapshot.payment_method)
-              : 'Kaspi'}{' '}
-            · без списания
+            {localize(
+              'payment_method' in order.snapshot
+                ? paymentName(order.snapshot.payment_method)
+                : 'Kaspi',
+            )}
+            {localize(' ')}
+            {t('· без списания')}
           </Heading>
-          <Caption>Оплата и чеки - в процессе подключения.</Caption>
+          <Caption>{t('Оплата и чеки - в процессе подключения.')}</Caption>
           <Button
             testID="test-payment-approve"
-            title={
+            title={localize(
               flow.busy
                 ? 'Проверяем…'
-                : `Продолжить без оплаты · ${money(order.snapshot.total_minor)}`
-            }
+                : t('Продолжить без оплаты · {p0}', { p0: money(order.snapshot.total_minor) }),
+            )}
             disabled={flow.busy}
             onPress={() => {
               void pay('approved');
@@ -544,7 +577,7 @@ export function ConnectedOrder(props: ScreenProps) {
           />
           <Button
             testID="test-payment-unknown"
-            title="Уточнить результат"
+            title={t('Уточнить результат')}
             secondary
             disabled={flow.busy}
             onPress={() => {
@@ -552,7 +585,7 @@ export function ConnectedOrder(props: ScreenProps) {
             }}
           />
           <Button
-            title="Отметить отказ"
+            title={t('Отметить отказ')}
             secondary
             disabled={flow.busy}
             onPress={() => {
@@ -565,10 +598,10 @@ export function ConnectedOrder(props: ScreenProps) {
       <OrderLines order={order} />
       {cancel ? (
         <Card>
-          <Heading small>Причина отмены</Heading>
+          <Heading small>{t('Причина отмены')}</Heading>
           <TextInput
             testID="test-cancel-reason"
-            accessibilityLabel="Причина отмены заказа"
+            accessibilityLabel={t('Причина отмены заказа')}
             // Native owns edits; reason keeps the latest draft for remount and submission.
             defaultValue={reason}
             onChangeText={setReason}
@@ -582,14 +615,14 @@ export function ConnectedOrder(props: ScreenProps) {
         </Card>
       ) : null}
       <Button
-        title="Обновить статус"
+        title={t('Обновить статус')}
         testID="test-refresh-order"
         secondary
         onPress={flow.refresh}
       />
       {!receipt && !cancel && order.state === 'fulfilled' ? (
         <Button
-          title="Оценить заказ"
+          title={t('Оценить заказ')}
           testID="order-rate"
           style={orderUI.action}
           textStyle={orderUI.actionText}
@@ -598,28 +631,28 @@ export function ConnectedOrder(props: ScreenProps) {
       ) : null}
       {!cancel ? (
         <NavRow
-          title="Написать в поддержку"
-          subtitle="Помощь по этому заказу"
+          title={t('Написать в поддержку')}
+          subtitle={t('Помощь по этому заказу')}
           testID="order-support"
           onPress={() => props.navigate('M31')}
         />
       ) : null}
       {!receipt ? (
         <NavRow
-          title="Официальный чек"
-          subtitle="Оплата и чеки - в процессе подключения"
+          title={t('Официальный чек')}
+          subtitle={t('Оплата и чеки - в процессе подключения')}
           onPress={() => props.navigate('M21')}
         />
       ) : null}
       {!cancel && !unknown && !['fulfilled', 'cancelled'].includes(order.state) ? (
         <NavRow
-          title="Отменить заказ"
+          title={t('Отменить заказ')}
           testID="test-open-cancel"
           onPress={() => props.navigate('M22')}
         />
       ) : null}
       <Button
-        title="Мои заказы"
+        title={t('Мои заказы')}
         testID="test-open-history"
         secondary
         onPress={() => props.navigate('M19')}

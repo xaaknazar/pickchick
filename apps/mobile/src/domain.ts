@@ -203,7 +203,7 @@ export interface SavedPreferences {
   version: 1 | 2;
   catalogMode: CatalogMode;
   diningMode: 'takeaway' | 'dine_in';
-  locale: 'ru' | 'kk';
+  locale: 'ru' | 'kk' | 'en';
   nickname: string;
   orderComment?: string;
   paymentMethod?: PaymentMethod;
@@ -230,7 +230,7 @@ export function parsePreferences(raw: string | null): SavedPreferences | null {
       (p.version !== 1 && p.version !== 2) ||
       !['server', 'design'].includes(String(p.catalogMode)) ||
       !['takeaway', 'dine_in'].includes(String(p.diningMode)) ||
-      !['ru', 'kk'].includes(String(p.locale)) ||
+      !['ru', 'kk', 'en'].includes(String(p.locale)) ||
       (p.paymentMethod !== undefined && !['kaspi', 'card'].includes(String(p.paymentMethod))) ||
       typeof p.nickname !== 'string' ||
       p.nickname.length > 32 ||

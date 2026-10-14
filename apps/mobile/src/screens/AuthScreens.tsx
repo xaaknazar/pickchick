@@ -1,3 +1,4 @@
+import { t, localize, useLocale } from '../i18n';
 import { MotionPressable as Pressable } from '../components/Motion';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -18,14 +19,19 @@ import { useAccount } from '../useAccount';
 import { useAuthFlow } from '../auth-flow';
 
 function DemoNote() {
+  useLocale();
   const account = useAccount();
   if (account.mode === 'server')
     return account.deliveryUnknown ? (
-      <Text style={s.hint}>Ожидаем подтверждение отправки. Если код уже пришёл, введите его.</Text>
+      <Text style={s.hint}>
+        {t('Ожидаем подтверждение отправки. Если код уже пришёл, введите его.')}
+      </Text>
     ) : null;
   return (
     <Text style={s.hint}>
-      Код для локального просмотра: {DEMO_LOGIN_CODE}. Сообщения не отправляются.
+      {t('Код для локального просмотра:')}
+      {localize(DEMO_LOGIN_CODE)}
+      {t('. Сообщения не отправляются.')}
     </Text>
   );
 }
@@ -41,6 +47,7 @@ function displayPhone(value: string) {
 }
 
 export function Phone(props: ScreenProps) {
+  useLocale();
   const account = useAccount();
   const flow = useAuthFlow();
   const [phone, setPhone] = useState(
@@ -101,22 +108,25 @@ export function Phone(props: ScreenProps) {
   return (
     <AuthLayout
       props={props}
-      title={'Укажите телефон,\nчтобы войти в профиль'}
+      title={localize('Укажите телефон,\nчтобы войти в профиль')}
       footer={
         <>
           <Text style={s.legal}>
-            Нажимая «Продолжить», принимаю{' '}
+            {t('Нажимая «Продолжить», принимаю')}
+            {localize(' ')}
             <Text accessibilityRole="link" onPress={() => props.navigate('M33')} style={s.link}>
-              условия и политику
+              {t('условия и политику')}
             </Text>
-            {account.mode === 'server'
-              ? account.automaticSelection && account.whatsappFallbackEnabled
-                ? ' и даю согласие на обработку данных и передачу номера и кода в Telegram или WhatsApp для входа.'
-                : ' и даю согласие на обработку данных и передачу номера и кода Telegram для входа.'
-              : '.'}
+            {localize(
+              account.mode === 'server'
+                ? account.automaticSelection && account.whatsappFallbackEnabled
+                  ? ' и даю согласие на обработку данных и передачу номера и кода в Telegram или WhatsApp для входа.'
+                  : ' и даю согласие на обработку данных и передачу номера и кода Telegram для входа.'
+                : '.',
+            )}
           </Text>
           <AuthButton
-            title={account.busy ? 'Подготавливаем код…' : 'Продолжить'}
+            title={localize(account.busy ? 'Подготавливаем код…' : 'Продолжить')}
             testID="request-otp"
             disabled={props.preview || !canContinue}
             onPress={() => void request()}
@@ -130,7 +140,7 @@ export function Phone(props: ScreenProps) {
         <TextInput
           ref={input}
           testID="phone-input"
-          accessibilityLabel="Мобильный номер Казахстана, 10 цифр после +7"
+          accessibilityLabel={t('Мобильный номер Казахстана, 10 цифр после +7')}
           value={displayPhone(phone)}
           editable={account.ready && !account.busy && !account.pendingOtp}
           autoFocus={!props.preview && readyForInput}
@@ -163,18 +173,20 @@ export function Phone(props: ScreenProps) {
       <View style={s.delivery}>
         <Icon name="paper-plane" size={16} color="#74C8F0" />
         <Text style={s.hint}>
-          {account.mode === 'demo'
-            ? 'Предпросмотр входа'
-            : channel === 'auto'
-              ? 'Отправим код в доступный мессенджер'
-              : channel === 'telegram'
-                ? 'Пришлём код в Telegram'
-                : 'Подтверждение номера пока недоступно'}
+          {localize(
+            account.mode === 'demo'
+              ? 'Предпросмотр входа'
+              : channel === 'auto'
+                ? 'Отправим код в доступный мессенджер'
+                : channel === 'telegram'
+                  ? 'Пришлём код в Telegram'
+                  : 'Подтверждение номера пока недоступно',
+          )}
         </Text>
       </View>
       {phone.length === 10 && !valid ? (
         <Text accessibilityRole="alert" style={s.error}>
-          Проверьте мобильный номер Казахстана.
+          {t('Проверьте мобильный номер Казахстана.')}
         </Text>
       ) : null}
       {!available && account.ready ? (
@@ -183,12 +195,12 @@ export function Phone(props: ScreenProps) {
           style={s.textButton}
           onPress={() => void account.retryRestore()}
         >
-          <Text style={s.orange}>Повторить подключение</Text>
+          <Text style={s.orange}>{t('Повторить подключение')}</Text>
         </Pressable>
       ) : null}
       {submitted && account.error ? (
         <Text testID="demo-auth-error" accessibilityRole="alert" style={s.error}>
-          {account.error}
+          {localize(account.error)}
         </Text>
       ) : null}
       {account.pendingOtp ? (
@@ -199,7 +211,7 @@ export function Phone(props: ScreenProps) {
           style={s.textButton}
           onPress={() => account.cancelChallenge()}
         >
-          <Text style={s.hint}>Начать заново или изменить номер</Text>
+          <Text style={s.hint}>{t('Начать заново или изменить номер')}</Text>
         </Pressable>
       ) : null}
       <DemoNote />
@@ -208,6 +220,7 @@ export function Phone(props: ScreenProps) {
 }
 
 export function Otp(props: ScreenProps) {
+  useLocale();
   const account = useAccount();
   const flow = useAuthFlow();
   const input = useRef<TextInput>(null);
@@ -302,8 +315,8 @@ export function Otp(props: ScreenProps) {
     <AuthLayout
       props={props}
       topAction={{ label: 'Изменить номер', onPress: () => props.navigate('M02') }}
-      title="Введите код"
-      subtitle={
+      title={t('Введите код')}
+      subtitle={localize(
         <View style={s.channelLine}>
           <View style={s.channelChip}>
             <Icon
@@ -318,26 +331,32 @@ export function Otp(props: ScreenProps) {
               size={15}
             />
             <Text style={s.channelText}>
-              {account.mode === 'demo'
-                ? 'Локальный просмотр'
-                : account.deliveryUnknown
-                  ? 'Проверяем отправку'
-                  : account.activeChannel === 'telegram'
-                    ? 'Код в Telegram'
-                    : account.activeChannel === 'whatsapp'
-                      ? 'Код в WhatsApp'
-                      : 'Код запрошен'}
+              {localize(
+                account.mode === 'demo'
+                  ? 'Локальный просмотр'
+                  : account.deliveryUnknown
+                    ? 'Проверяем отправку'
+                    : account.activeChannel === 'telegram'
+                      ? 'Код в Telegram'
+                      : account.activeChannel === 'whatsapp'
+                        ? 'Код в WhatsApp'
+                        : 'Код запрошен',
+              )}
             </Text>
           </View>
           <Text style={s.hint}>
-            {challenge ? `на ${formatDemoPhone(challenge.phone)}` : 'Сначала укажите номер'}
+            {localize(
+              challenge
+                ? t('на {p0}', { p0: formatDemoPhone(challenge.phone) })
+                : 'Сначала укажите номер',
+            )}
           </Text>
-        </View>
-      }
+        </View>,
+      )}
       footer={
         submitted && account.error ? (
           <AuthButton
-            title="Проверить ещё раз"
+            title={t('Проверить ещё раз')}
             testID="confirm-otp"
             disabled={!canVerify || account.busy}
             onPress={() => void verify()}
@@ -349,14 +368,16 @@ export function Otp(props: ScreenProps) {
         <View pointerEvents="none" accessible={false} style={s.otpCells}>
           {Array.from({ length: codeLength }, (_, index) => (
             <View key={index} style={[s.otpCell, index === code.length && s.focused]}>
-              <Text style={s.otpDigit}>{code[index] ?? (index === code.length ? '│' : '')}</Text>
+              <Text style={s.otpDigit}>
+                {localize(code[index] ?? (index === code.length ? '│' : ''))}
+              </Text>
             </View>
           ))}
         </View>
         <TextInput
           ref={input}
           testID="otp-input"
-          accessibilityLabel={`Код подтверждения, ${codeLength} цифр`}
+          accessibilityLabel={localize(t('Код подтверждения, {p0} цифр', { p0: codeLength }))}
           value={code}
           autoFocus={!props.preview && readyForInput}
           editable={
@@ -396,9 +417,14 @@ export function Otp(props: ScreenProps) {
           onPress={() => void resend()}
         >
           <Text style={remaining ? s.hint : s.orange}>
-            {remaining
-              ? `Новый код через ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`
-              : 'Отправить ещё раз'}
+            {localize(
+              remaining
+                ? t('Новый код через {p0}:{p1}', {
+                    p0: Math.floor(remaining / 60),
+                    p1: String(remaining % 60).padStart(2, '0'),
+                  })
+                : 'Отправить ещё раз',
+            )}
           </Text>
         </Pressable>
         <Pressable
@@ -408,21 +434,23 @@ export function Otp(props: ScreenProps) {
           onPress={() => props.navigate('M02')}
           style={s.textButton}
         >
-          <Text style={s.orange}>Изменить номер</Text>
+          <Text style={s.orange}>{t('Изменить номер')}</Text>
         </Pressable>
       </View>
       {!accepted && account.mode === 'server' ? (
         <View>
-          <Text style={s.legal}>Для входа примите условия и согласие на обработку данных.</Text>
+          <Text style={s.legal}>
+            {t('Для входа примите условия и согласие на обработку данных.')}
+          </Text>
           <Pressable
             accessibilityRole="link"
             onPress={() => props.navigate('M33')}
             style={s.textButton}
           >
-            <Text style={s.link}>Юридические документы</Text>
+            <Text style={s.link}>{t('Юридические документы')}</Text>
           </Pressable>
           <AuthButton
-            title="Принимаю и продолжаю"
+            title={t('Принимаю и продолжаю')}
             onPress={() => setFallbackConsent(account.legal?.version ?? null)}
             disabled={!account.legal || account.busy}
           />
@@ -430,17 +458,17 @@ export function Otp(props: ScreenProps) {
       ) : null}
       {account.busy ? (
         <Text accessibilityLiveRegion="polite" style={s.hint}>
-          Проверяем код…
+          {t('Проверяем код…')}
         </Text>
       ) : null}
       {submitted && account.error ? (
         <Text testID="demo-auth-error" accessibilityRole="alert" style={s.error}>
-          {account.error}
+          {localize(account.error)}
         </Text>
       ) : null}
       {expired ? (
         <Text accessibilityRole="alert" style={s.error}>
-          Код истёк. Запросите новый.
+          {t('Код истёк. Запросите новый.')}
         </Text>
       ) : null}
       <DemoNote />

@@ -1,3 +1,4 @@
+import { localize, useLocale } from '../../i18n';
 import { memo } from 'react';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
@@ -26,11 +27,11 @@ export const FoodIcon = memo(function FoodIcon({ kind, size }: { kind: Food; siz
       contentFit="contain"
       style={{ width: size, height: size }}
       pointerEvents="none"
-      accessibilityLabel={
+      accessibilityLabel={localize(
         { burger: 'Бургер', fingers: 'Фингерсы', cola: 'Кола', power: 'Фирменный соус - защита' }[
           kind
-        ]
-      }
+        ],
+      )}
     />
   );
 });
@@ -153,6 +154,7 @@ export const MazeWalls = memo(function MazeWalls({ cell }: { cell: number }) {
   );
 });
 export function PickManHero({ size }: { size: number }) {
+  useLocale();
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <View style={{ position: 'absolute', opacity: 0.7, transform: [{ rotate: '-6deg' }] }}>
@@ -188,6 +190,7 @@ export function PickManHero({ size }: { size: number }) {
   );
 }
 export function MazeArt({ size = 140 }: { size?: number }) {
+  useLocale();
   return (
     <View
       style={{
@@ -237,6 +240,7 @@ export const pickManPoster = {
   cover: assets.pickManCover,
 };
 export function PickManCard() {
+  useLocale();
   const router = useRouter();
   return (
     <GamePosterCard

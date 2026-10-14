@@ -1,3 +1,5 @@
+import { dateLocale } from '../../i18n/core';
+import { t, localize, useLocale } from '../../i18n';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import {
@@ -112,6 +114,7 @@ function MovingActor({
   scared?: boolean;
   shield?: boolean;
 }) {
+  useLocale();
   const motion = useSharedValue(createMotion(actor));
   const running = useSharedValue(false);
   const interval = useSharedValue(duration);
@@ -214,6 +217,7 @@ function MazeBoard({
   playing: boolean;
   steer(d: Direction): void;
 }) {
+  useLocale();
   const live = useRef({ playing, steer });
   live.current = { playing, steer };
   const origin = useRef({ x: 0, y: 0 });
@@ -253,7 +257,9 @@ function MazeBoard({
         if (live.current.playing && ['left', 'right', 'up', 'down'].includes(direction))
           live.current.steer(direction);
       }}
-      accessibilityLabel="Лабиринт Pick Man. Свайпните влево, вправо, вверх или вниз, чтобы направить Чика."
+      accessibilityLabel={t(
+        'Лабиринт Pick Man. Свайпните влево, вправо, вверх или вниз, чтобы направить Чика.',
+      )}
       style={{
         flex: 1,
         width: '100%',
@@ -265,12 +271,14 @@ function MazeBoard({
       <View style={[s.boardHeading, { width: COLS * cell }]} pointerEvents="none">
         <View style={s.boardLabel}>
           <View style={s.statusDot} />
-          <Text style={s.boardTitle}>СОБЕРИ СВОЙ ВКУС</Text>
+          <Text style={s.boardTitle}>{t('СОБЕРИ СВОЙ ВКУС')}</Text>
         </View>
         <Text style={s.boardMeta}>
-          {game.power > 0
-            ? `Соус: ${Math.ceil((game.power * stepDuration(game.level)) / 1000)} с`
-            : `${game.remaining.length} осталось`}
+          {localize(
+            game.power > 0
+              ? t('Соус: {p0} с', { p0: Math.ceil((game.power * stepDuration(game.level)) / 1000) })
+              : t('{p0} осталось', { p0: game.remaining.length }),
+          )}
         </Text>
       </View>
       <View
@@ -316,16 +324,18 @@ function MazeBoard({
       </View>
       <View style={[s.gestureStatus, { width: COLS * cell }]} pointerEvents="none">
         <Text style={s.gestureText} numberOfLines={1}>
-          {game.power > 0
-            ? 'Острый режим!'
-            : game.shield > 0
-              ? 'Чик под защитой'
-              : 'Управляй свайпами по полю'}
+          {localize(
+            game.power > 0
+              ? 'Острый режим!'
+              : game.shield > 0
+                ? 'Чик под защитой'
+                : 'Управляй свайпами по полю',
+          )}
         </Text>
         <View
           testID="pick-man-power"
           accessibilityRole="progressbar"
-          accessibilityLabel="Защита фирменного соуса"
+          accessibilityLabel={t('Защита фирменного соуса')}
           accessible
           aria-valuemin={0}
           aria-valuemax={42}
@@ -339,6 +349,7 @@ function MazeBoard({
   );
 }
 export function PickManScreen() {
+  useLocale();
   const router = useRouter(),
     controller = usePickMan(),
     reduced = useReducedMotion();
@@ -445,7 +456,7 @@ export function PickManScreen() {
         <Pressable
           testID="pick-man-exit"
           accessibilityRole="button"
-          accessibilityLabel="К событиям"
+          accessibilityLabel={t('К событиям')}
           onPress={close}
           style={({ pressed }) => [s.icon, pressed && s.iconPressed]}
         >
@@ -458,7 +469,7 @@ export function PickManScreen() {
         <Pressable
           testID={playing ? 'pick-man-pause' : 'pick-man-help'}
           accessibilityRole="button"
-          accessibilityLabel={playing ? 'Пауза' : 'Как играть'}
+          accessibilityLabel={localize(playing ? 'Пауза' : 'Как играть')}
           onPress={playing ? controller.pause : openHelp}
           style={({ pressed }) => [s.icon, pressed && s.iconPressed]}
         >
@@ -467,13 +478,13 @@ export function PickManScreen() {
       </View>
       {status === 'loading' ? (
         <View style={s.center}>
-          <Text style={s.body}>Готовим вкусный маршрут…</Text>
+          <Text style={s.body}>{t('Готовим вкусный маршрут…')}</Text>
         </View>
       ) : status === 'ready' ? (
         <ArcadeIntro
           cover={assets.pickManCover}
-          title="Охота за вкусом."
-          subtitle="Твой Чик. Любимое меню. Целый лабиринт приключений."
+          title={t('Охота за вкусом.')}
+          subtitle={t('Твой Чик. Любимое меню. Целый лабиринт приключений.')}
           best={best}
           testID="pick-man-start"
           onStart={controller.start}
@@ -488,7 +499,7 @@ export function PickManScreen() {
         <View style={[s.gameLayout, wide && s.gameLayoutWide]}>
           <View style={[s.stats, compact && s.statsCompact, wide && s.statsWide]}>
             <View style={[s.statCard, s.scoreCard, compact && s.statCompact]}>
-              <Text style={s.caption}>СЧЁТ</Text>
+              <Text style={s.caption}>{t('СЧЁТ')}</Text>
               <Text
                 testID="pick-man-score"
                 numberOfLines={1}
@@ -510,18 +521,21 @@ export function PickManScreen() {
                   },
                 ]}
               >
-                {game.score.toLocaleString('ru-RU')}
+                {localize(game.score.toLocaleString(dateLocale()))}
               </Text>
             </View>
             <View style={[s.statCard, compact && s.statCompact]}>
-              <Text style={s.caption}>УРОВЕНЬ {game.level}</Text>
+              <Text style={s.caption}>
+                {t('УРОВЕНЬ')}
+                {localize(game.level)}
+              </Text>
               <Text testID="pick-man-remaining" style={s.count}>
-                {collected} / {FOOD_IDS.length}
+                {localize(collected)} / {localize(FOOD_IDS.length)}
               </Text>
               <View
                 testID="pick-man-progress"
                 accessibilityRole="progressbar"
-                accessibilityLabel="Блюда собраны"
+                accessibilityLabel={t('Блюда собраны')}
                 accessible
                 aria-valuemin={0}
                 aria-valuemax={FOOD_IDS.length}
@@ -534,14 +548,14 @@ export function PickManScreen() {
               </View>
             </View>
             <View style={[s.statCard, compact && s.statCompact]}>
-              <Text style={s.caption}>ЖИЗНИ</Text>
+              <Text style={s.caption}>{t('ЖИЗНИ')}</Text>
               <Text
                 testID="pick-man-lives"
-                accessibilityLabel={`${game.lives} жизни`}
+                accessibilityLabel={localize(t('{p0} жизни', { p0: game.lives }))}
                 style={s.lives}
               >
-                {'♥'.repeat(game.lives)}
-                {'♡'.repeat(3 - game.lives)}
+                {localize('♥'.repeat(game.lives))}
+                {localize('♡'.repeat(3 - game.lives))}
               </Text>
             </View>
           </View>
@@ -567,7 +581,7 @@ export function PickManScreen() {
                 />
               ) : tooSmall ? (
                 <Text style={[s.body, s.centerText]}>
-                  Поверните телефон, чтобы поместился лабиринт.
+                  {t('Поверните телефон, чтобы поместился лабиринт.')}
                 </Text>
               ) : null}
             </View>
@@ -593,39 +607,48 @@ export function PickManScreen() {
                       />
                     </View>
                     <Text testID="pick-man-dialog-title" style={s.dialogTitle}>
-                      {help
-                        ? 'Как играть'
-                        : restart
-                          ? 'Новая партия?'
-                          : status === 'won'
-                            ? 'Вкусная победа!'
-                            : status === 'over'
-                              ? 'Отличный забег.'
-                              : 'Перекусим?'}
+                      {localize(
+                        help
+                          ? 'Как играть'
+                          : restart
+                            ? 'Новая партия?'
+                            : status === 'won'
+                              ? 'Вкусная победа!'
+                              : status === 'over'
+                                ? 'Отличный забег.'
+                                : 'Перекусим?',
+                      )}
                     </Text>
                     <Text style={[s.body, s.centerText]}>
-                      {help
-                        ? 'Свайп влево, вправо, вверх или вниз задаёт направление. Чик движется сам; у стены поворот выполнится в ближайшем проходе. Соберите все блюда и не попадитесь соперникам. Фирменный соус на время позволяет ловить их.'
-                        : restart
-                          ? 'Текущая партия закончится. Личный рекорд сохранится.'
-                          : status === 'won'
-                            ? 'Все блюда собраны. Следующий маршрут будет немного быстрее.'
-                            : status === 'over'
-                              ? `Твой счёт - ${game.score}. Рекорд - ${best}. Ещё один вкусный маршрут?`
-                              : 'Игра на паузе. Продолжим, когда будешь готов.'}
+                      {localize(
+                        help
+                          ? 'Свайп влево, вправо, вверх или вниз задаёт направление. Чик движется сам; у стены поворот выполнится в ближайшем проходе. Соберите все блюда и не попадитесь соперникам. Фирменный соус на время позволяет ловить их.'
+                          : restart
+                            ? 'Текущая партия закончится. Личный рекорд сохранится.'
+                            : status === 'won'
+                              ? 'Все блюда собраны. Следующий маршрут будет немного быстрее.'
+                              : status === 'over'
+                                ? t('Твой счёт - {p0}. Рекорд - {p1}. Ещё один вкусный маршрут?', {
+                                    p0: game.score,
+                                    p1: best,
+                                  })
+                                : 'Игра на паузе. Продолжим, когда будешь готов.',
+                      )}
                     </Text>
                     {help ? (
                       <>
                         <View style={s.legend}>
                           <FoodIcon kind="power" size={32} />
-                          <Text style={s.small}>Фирменный соус: +50 · соперник: +200</Text>
+                          <Text style={s.small}>{t('Фирменный соус: +50 · соперник: +200')}</Text>
                         </View>
                         <Text style={[s.caption, s.centerText]}>
-                          Очки и рекорд сохраняются на этом устройстве. Чики за игру не начисляются.
+                          {t(
+                            'Очки и рекорд сохраняются на этом устройстве. Чики за игру не начисляются.',
+                          )}
                         </Text>
                         <Button
                           testID="pick-man-help-close"
-                          title="Всё понятно"
+                          title={t('Всё понятно')}
                           onPress={() => setHelp(false)}
                         />
                       </>
@@ -633,14 +656,14 @@ export function PickManScreen() {
                       <>
                         <Button
                           testID="pick-man-restart-confirm"
-                          title="Начать заново"
+                          title={t('Начать заново')}
                           onPress={() => {
                             setRestart(false);
                             controller.start();
                           }}
                         />
                         <Button
-                          title="Остаться в игре"
+                          title={t('Остаться в игре')}
                           secondary
                           onPress={() => setRestart(false)}
                         />
@@ -655,13 +678,13 @@ export function PickManScreen() {
                                 ? 'pick-man-next'
                                 : 'pick-man-again'
                           }
-                          title={
+                          title={localize(
                             status === 'paused'
                               ? 'Продолжить'
                               : status === 'won'
                                 ? 'Следующий уровень'
-                                : 'Ещё раз'
-                          }
+                                : 'Ещё раз',
+                          )}
                           disabled={tooSmall}
                           onPress={
                             status === 'paused'
@@ -675,20 +698,20 @@ export function PickManScreen() {
                           <>
                             <Button
                               testID="pick-man-rules"
-                              title="Как играть"
+                              title={t('Как играть')}
                               secondary
                               onPress={openHelp}
                             />
                             <Button
                               testID="pick-man-restart"
-                              title="Новая партия"
+                              title={t('Новая партия')}
                               secondary
                               onPress={() => setRestart(true)}
                             />
                           </>
                         ) : null}
                         <Pressable accessibilityRole="button" onPress={close} style={s.leave}>
-                          <Text style={s.small}>К событиям</Text>
+                          <Text style={s.small}>{t('К событиям')}</Text>
                         </Pressable>
                       </>
                     )}
@@ -702,16 +725,17 @@ export function PickManScreen() {
       {status === 'ready' && help ? (
         <View style={s.readyHelp}>
           <Text style={[s.body, s.centerText]}>
-            Соберите все блюда. Свайп задаёт поворот заранее. Фирменный соус позволяет ловить
-            соперников. У вас три жизни.
+            {t(
+              'Соберите все блюда. Свайп задаёт поворот заранее. Фирменный соус позволяет ловить соперников. У вас три жизни.',
+            )}
           </Text>
-          <Button title="Понятно" onPress={() => setHelp(false)} />
+          <Button title={t('Понятно')} onPress={() => setHelp(false)} />
         </View>
       ) : null}
       {controller.storageError ? (
         <View style={s.storage}>
           <Text style={s.caption}>
-            {game ? 'Не удалось сохранить партию.' : 'Не удалось прочитать сохранение.'}
+            {localize(game ? 'Не удалось сохранить партию.' : 'Не удалось прочитать сохранение.')}
           </Text>
           <Pressable
             testID="pick-man-storage-retry"
@@ -719,7 +743,7 @@ export function PickManScreen() {
             style={s.retry}
             onPress={game ? controller.retrySave : () => void controller.retryRestore()}
           >
-            <Text style={s.small}>Повторить</Text>
+            <Text style={s.small}>{t('Повторить')}</Text>
           </Pressable>
         </View>
       ) : null}

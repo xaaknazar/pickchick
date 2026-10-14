@@ -1,9 +1,11 @@
+import { t, useLocale } from '../i18n';
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 import { useState } from 'react';
 import { ProductMenuNotice } from './ProductMenuNotice';
 import { Button } from './UI';
 import type { Product } from '../model';
 function PublicationPreview() {
+  useLocale();
   const [published, setPublished] = useState(false);
   const product: Product = {
     id: 'combo',
@@ -19,7 +21,7 @@ function PublicationPreview() {
     <>
       <ProductMenuNotice product={product} selections={[]} />
       <Button
-        title="Опубликовать новую цену"
+        title={t('Опубликовать новую цену')}
         onPress={() => setPublished(true)}
         disabled={published}
       />

@@ -1,3 +1,4 @@
+import { localize, t, useLocale } from '../i18n';
 import { useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
@@ -25,6 +26,7 @@ export function ComboRewardCard({
   progress?: ComboProgressState;
   preview?: boolean;
 }) {
+  useLocale();
   const [open, setOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const { count, text: progressText } = comboProgressView(progress, preview);
@@ -35,7 +37,9 @@ export function ComboRewardCard({
       <MotionPressable
         testID={`${testID}-details`}
         accessibilityRole="button"
-        accessibilityLabel={`Комбо-бонус. Купи 7 комбо, 8-е в подарок. ${progressText}. Условия акции`}
+        accessibilityLabel={localize(
+          t('Комбо-бонус. Купи 7 комбо, 8-е в подарок. {p0}. Условия акции', { p0: progressText }),
+        )}
         onPress={() => setOpen(true)}
         style={[s.ticket, compact && { minHeight: 136 }]}
       >
@@ -62,7 +66,9 @@ export function ComboRewardCard({
         />
         <View style={[s.offer, compact && s.offerCompact]}>
           <Text accessibilityRole="header" style={[s.title, compact && s.titleCompact]}>
-            Купи 7 комбо.{`\n`}8-е - в подарок!
+            {t('Купи 7 комбо.')}
+            {localize(`\n`)}
+            {t('8-е - в подарок!')}
           </Text>
           <View style={s.progress}>
             <View
@@ -85,7 +91,7 @@ export function ComboRewardCard({
                     ) : index === 7 ? (
                       <Icon name="gift-outline" size={17} color="#FFE2C3" />
                     ) : (
-                      <Text style={s.stampNumber}>{index + 1}</Text>
+                      <Text style={s.stampNumber}>{localize(index + 1)}</Text>
                     )}
                   </View>
                 );
@@ -97,7 +103,7 @@ export function ComboRewardCard({
                 style={s.detailsText}
                 accessibilityLiveRegion="polite"
               >
-                {nextStep.title}
+                {localize(nextStep.title)}
               </Text>
               <Icon name="arrow-forward" size={16} color={colors.white} />
             </View>
@@ -124,18 +130,18 @@ export function ComboRewardCard({
           >
             <View style={s.sheetHeader}>
               <CloseButton
-                label="Закрыть условия акции"
+                label={t('Закрыть условия акции')}
                 testID="combo-reward-close"
                 onPress={() => setOpen(false)}
               />
               <Heading small style={{ flex: 1 }}>
-                Твоё восьмое комбо
+                {t('Твоё восьмое комбо')}
               </Heading>
             </View>
             <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={s.rules}>
               <View style={{ gap: 8 }}>
-                <Heading small>{nextStep.title}</Heading>
-                <Body muted>{nextStep.detail}</Body>
+                <Heading small>{localize(nextStep.title)}</Heading>
+                <Body muted>{localize(nextStep.detail)}</Body>
               </View>
               {[
                 [
@@ -152,23 +158,26 @@ export function ComboRewardCard({
                   '3',
                   'Сохраните свои отметки',
                   progress?.data?.mode === 'practice'
-                    ? `Сейчас показан отдельный пробный счётчик без права на подарок. После выдачи Solo, Burger, Pick или Master Combo сервер добавляет одну отметку за каждое комбо. Сеты на двоих, напитки и допы не учитываются. Завершено пробных кругов: ${progress.data.completed_cycles}. Остаток переносится. Бумажные отметки остаются у кассира.`
+                    ? t(
+                        'Сейчас показан отдельный пробный счётчик без права на подарок. После выдачи Solo, Burger, Pick или Master Combo сервер добавляет одну отметку за каждое комбо. Сеты на двоих, напитки и допы не учитываются. Завершено пробных кругов: {p0}. Остаток переносится. Бумажные отметки остаются у кассира.',
+                        { p0: progress.data.completed_cycles },
+                      )
                     : 'Личные отметки загружаются после входа. При отсутствии связи счётчик не обнуляется. Бумажные отметки и право на подарок пока учитываются на кассе.',
                 ],
               ].map(([number, title, text]) => (
                 <View key={number} style={s.rule}>
-                  <Text style={s.ruleNumber}>{number}</Text>
+                  <Text style={s.ruleNumber}>{localize(number)}</Text>
                   <View style={{ flex: 1 }}>
-                    <Body style={{ fontFamily: font.bold }}>{title}</Body>
+                    <Body style={{ fontFamily: font.bold }}>{localize(title)}</Body>
                     <Body muted style={{ marginTop: 6 }}>
-                      {text}
+                      {localize(text)}
                     </Body>
                   </View>
                 </View>
               ))}
             </ScrollView>
             <Button
-              title={nextStep.action}
+              title={localize(nextStep.action)}
               testID="combo-reward-menu"
               onPress={() => {
                 setOpen(false);

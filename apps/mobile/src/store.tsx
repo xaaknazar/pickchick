@@ -1,3 +1,4 @@
+import { setAppLocale } from './i18n/core';
 import { restoreLegacyPublishedCart, publishedCartStorageRelease } from './published-catalog';
 import { repriceCart, PRICES_UPDATED } from './cart-reprice';
 import type { CatalogMediaMap, CatalogMobileStorefront } from '@pickchick/catalog-admin/contracts';
@@ -78,7 +79,11 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   const [catalogMode, setMode] = useState<CatalogMode>('server');
   const [diningMode, setDiningMode] = useState<DiningMode>('takeaway');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('kaspi');
-  const [locale, setLocale] = useState<Locale>('ru');
+  const [locale, updateLocale] = useState<Locale>('ru');
+  const setLocale = useCallback((next: Locale) => {
+    setAppLocale(next);
+    updateLocale(next);
+  }, []);
   const [nickname, setNickname] = useState('');
   const [orderComment, setOrderComment] = useState('');
   const [practiceScore, setPracticeScore] = useState<number | null>(null);

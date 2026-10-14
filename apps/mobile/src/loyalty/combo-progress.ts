@@ -1,3 +1,4 @@
+import { t } from '../i18n/core.ts';
 import type { TestComboProgress } from '@pickchick/test-order-flow/contracts';
 
 export type ComboProgressState = {
@@ -15,7 +16,7 @@ export function comboProgressView(state?: ComboProgressState, preview = false) {
     return { count: null, text: 'Не удалось обновить отметки' };
   const { current_stamps: current, completed_cycles: cycles } = state.data;
   const count = current === 0 && cycles > 0 ? 7 : current;
-  return { count, text: `Пробные отметки: ${count} из 7` };
+  return { count, text: t('Пробные отметки: {p0} из 7', { p0: count }) };
 }
 
 export function comboNextStep(state?: ComboProgressState, preview = false) {
@@ -36,7 +37,9 @@ export function comboNextStep(state?: ComboProgressState, preview = false) {
   if (state?.data?.mode === 'practice')
     return {
       title:
-        view.count === 7 ? 'Пробный круг собран' : `Ещё ${7 - view.count} комбо до полного круга`,
+        view.count === 7
+          ? 'Пробный круг собран'
+          : t('Ещё {p0} комбо до полного круга', { p0: 7 - view.count }),
       detail:
         view.count === 7
           ? '7 из 7. Следующее подходящее комбо начнёт новый пробный круг. Подарок пока оформляется только по правилам акции на кассе.'

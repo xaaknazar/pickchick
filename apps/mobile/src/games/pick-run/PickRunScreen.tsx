@@ -1,3 +1,4 @@
+import { t, localize, useLocale } from '../../i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -45,6 +46,7 @@ function saveBest(score: number) {
 }
 type Status = 'ready' | 'countdown' | 'playing' | 'paused' | 'over';
 export function PickRunScreen(props: ScreenProps) {
+  useLocale();
   const reduced = useArcadeMotion();
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
@@ -184,7 +186,7 @@ export function PickRunScreen(props: ScreenProps) {
       <Pressable
         testID="game-field"
         accessibilityRole="button"
-        accessibilityLabel="Игровое поле. Коснитесь для прыжка"
+        accessibilityLabel={t('Игровое поле. Коснитесь для прыжка')}
         onPressIn={leap}
         onLayout={(e) => setFieldWidth(e.nativeEvent.layout.width)}
         style={[
@@ -280,8 +282,8 @@ export function PickRunScreen(props: ScreenProps) {
         />
         {status === 'countdown' ? (
           <View style={r.countdown}>
-            <Text style={r.countNumber}>{count}</Text>
-            <Text style={r.body}>Лови ритм</Text>
+            <Text style={r.countNumber}>{localize(count)}</Text>
+            <Text style={r.body}>{t('Лови ритм')}</Text>
           </View>
         ) : null}
       </Pressable>
@@ -299,7 +301,7 @@ export function PickRunScreen(props: ScreenProps) {
         <Pressable
           onPress={exit}
           accessibilityRole="button"
-          accessibilityLabel="К событиям"
+          accessibilityLabel={t('К событиям')}
           style={r.icon}
         >
           <Icon name="chevron-back" color={arcade.white} size={24} />
@@ -310,7 +312,7 @@ export function PickRunScreen(props: ScreenProps) {
           onPress={pause}
           disabled={!['playing', 'countdown'].includes(status)}
           accessibilityRole="button"
-          accessibilityLabel="Пауза"
+          accessibilityLabel={t('Пауза')}
           style={r.icon}
         >
           <Icon name="pause" color={arcade.white} size={22} />
@@ -319,8 +321,8 @@ export function PickRunScreen(props: ScreenProps) {
       {status === 'ready' ? (
         <ArcadeIntro
           cover={assets.pickrun}
-          title="Город твой."
-          subtitle="Ночной Алматы. Один палец. Новый личный рекорд."
+          title={t('Город твой.')}
+          subtitle={t('Ночной Алматы. Один палец. Новый личный рекорд.')}
           best={best}
           testID="game-start"
           onStart={start}
@@ -346,26 +348,34 @@ export function PickRunScreen(props: ScreenProps) {
             ]}
           >
             <View style={r.metrics}>
-              <ArcadeMetric label="СЧЁТ" value={hud.score} accent testID="run-score" />
+              <ArcadeMetric label={t('СЧЁТ')} value={hud.score} accent testID="run-score" />
               <ArcadeMetric
-                label="ДО ФИНИША"
-                value={`${Math.max(0, Math.ceil((RUN_DURATION - hud.elapsed) / 1000))} с`}
+                label={t('ДО ФИНИША')}
+                value={t('{p0} с', {
+                  p0: Math.max(0, Math.ceil((RUN_DURATION - hud.elapsed) / 1000)),
+                })}
               />
             </View>
             <View style={r.livesRow}>
-              <Text accessibilityLabel={`Осталось жизней: ${hud.lives}`} style={r.hearts}>
-                {'♥'.repeat(hud.lives)}
-                {'♡'.repeat(3 - hud.lives)}
+              <Text
+                accessibilityLabel={localize(t('Осталось жизней: {p0}', { p0: hud.lives }))}
+                style={r.hearts}
+              >
+                {localize('♥'.repeat(hud.lives))}
+                {localize('♡'.repeat(3 - hud.lives))}
               </Text>
               <Text style={r.caption}>
-                Рекорд {Math.max(best, hud.score)} · серия {hud.combo}
+                {t('Рекорд')}
+                {localize(Math.max(best, hud.score))}
+                {t('· серия')}
+                {localize(hud.combo)}
               </Text>
             </View>
             {!landscape ? field : null}
             <Pressable
               testID="game-jump"
               accessibilityRole="button"
-              accessibilityLabel="Прыжок"
+              accessibilityLabel={t('Прыжок')}
               disabled={status !== 'playing'}
               onPressIn={leap}
               style={({ pressed }) => [
@@ -374,10 +384,10 @@ export function PickRunScreen(props: ScreenProps) {
               ]}
             >
               <Icon name="arrow-up" color="#24130A" size={24} />
-              <Text style={r.jumpLabel}>ПРЫЖОК</Text>
-              {!landscape ? <Text style={r.jumpHint}>или коснись поля</Text> : null}
+              <Text style={r.jumpLabel}>{t('ПРЫЖОК')}</Text>
+              {!landscape ? <Text style={r.jumpHint}>{t('или коснись поля')}</Text> : null}
             </Pressable>
-            <Text style={r.caption}>Перепрыгни +5 · блюдо +10 · серия даёт больше</Text>
+            <Text style={r.caption}>{t('Перепрыгни +5 · блюдо +10 · серия даёт больше')}</Text>
           </View>
         </View>
       )}
@@ -393,45 +403,56 @@ export function PickRunScreen(props: ScreenProps) {
                 />
               </View>
               <Text style={r.dialogTitle}>
-                {status === 'paused'
-                  ? 'Переведём дух.'
-                  : hud.elapsed >= RUN_DURATION - 1
-                    ? 'Финиш. Красиво!'
-                    : 'Ещё один забег?'}
+                {localize(
+                  status === 'paused'
+                    ? 'Переведём дух.'
+                    : hud.elapsed >= RUN_DURATION - 1
+                      ? 'Финиш. Красиво!'
+                      : 'Ещё один забег?',
+                )}
               </Text>
               <Text style={r.body}>
-                {status === 'paused'
-                  ? 'Продолжим с того же места.'
-                  : 'Каждый прыжок приближает к новому пику.'}
+                {localize(
+                  status === 'paused'
+                    ? 'Продолжим с того же места.'
+                    : 'Каждый прыжок приближает к новому пику.',
+                )}
               </Text>
               <View style={r.metrics}>
-                <ArcadeMetric label="СЧЁТ" value={hud.score} accent />
-                <ArcadeMetric label="ЛУЧШАЯ СЕРИЯ" value={hud.bestCombo} />
+                <ArcadeMetric label={t('СЧЁТ')} value={hud.score} accent />
+                <ArcadeMetric label={t('ЛУЧШАЯ СЕРИЯ')} value={hud.bestCombo} />
               </View>
-              <Text style={r.caption}>Рекорд {best} · игровые очки без начисления Чиков</Text>
+              <Text style={r.caption}>
+                {t('Рекорд')}
+                {localize(best)}
+                {t('· игровые очки без начисления Чиков')}
+              </Text>
               <ArcadeButton
-                title={status === 'paused' ? 'Продолжить' : 'Ещё раз!'}
+                title={localize(status === 'paused' ? 'Продолжить' : 'Ещё раз!')}
                 testID={status === 'paused' ? 'game-resume' : 'game-replay'}
                 icon="play"
                 onPress={status === 'paused' ? () => change('countdown') : start}
               />
-              <ArcadeButton title="К событиям" secondary onPress={exit} />
+              <ArcadeButton title={t('К событиям')} secondary onPress={exit} />
             </View>
           </ScrollView>
         </View>
       ) : null}
-      {saveError ? <Text style={r.caption}>Рекорд пока не сохранился на устройстве.</Text> : null}
+      {saveError ? (
+        <Text style={r.caption}>{t('Рекорд пока не сохранился на устройстве.')}</Text>
+      ) : null}
     </SafeAreaView>
   );
 }
 /** Legacy result deep links use the same arcade presentation as the in-game finish. */
 export function PickRunResult(props: ScreenProps) {
+  useLocale();
   const score = props.model.practiceScore;
   return (
     <SafeAreaView style={r.page}>
       <ArcadeBackdrop />
       <View style={r.header}>
-        <Text style={r.name}>PICK RUN / РЕЗУЛЬТАТ</Text>
+        <Text style={r.name}>{t('PICK RUN / РЕЗУЛЬТАТ')}</Text>
       </View>
       <ScrollView contentContainerStyle={r.dialogScroll}>
         <View style={r.dialog}>
@@ -439,17 +460,17 @@ export function PickRunResult(props: ScreenProps) {
             <Icon name="trophy-outline" size={38} color={arcade.orange} />
           </View>
           <Text style={r.dialogTitle}>
-            {score === null ? 'Твой пик впереди.' : 'Красивый забег!'}
+            {localize(score === null ? 'Твой пик впереди.' : 'Красивый забег!')}
           </Text>
-          <ArcadeMetric label="ТВОЙ СЧЁТ" value={score ?? '-'} accent />
-          <Text style={r.body}>Игровые очки не переводятся в Чики.</Text>
+          <ArcadeMetric label={t('ТВОЙ СЧЁТ')} value={score ?? '-'} accent />
+          <Text style={r.body}>{t('Игровые очки не переводятся в Чики.')}</Text>
           <ArcadeButton
-            title={score === null ? 'Начать игру' : 'Ещё раз!'}
+            title={localize(score === null ? 'Начать игру' : 'Ещё раз!')}
             testID="game-replay"
             icon="play"
             onPress={() => props.navigate('M27')}
           />
-          <ArcadeButton title="К событиям" secondary onPress={() => props.navigate('M26')} />
+          <ArcadeButton title={t('К событиям')} secondary onPress={() => props.navigate('M26')} />
         </View>
       </ScrollView>
     </SafeAreaView>

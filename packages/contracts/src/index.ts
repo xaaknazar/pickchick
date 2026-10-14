@@ -530,3 +530,4 @@ export * from './fulfillment.js';
 export * from './customer-commerce.js';
 
 export * from './device-access.js';
+export * from './notifications.js';

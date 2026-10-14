@@ -1,3 +1,4 @@
+import { localize, useLocale } from '../i18n';
 import { useState } from 'react';
 import type { ImageSourcePropType, StyleProp } from 'react-native';
 import { Image, type ImageContentFit, type ImageStyle } from 'expo-image';
@@ -82,6 +83,7 @@ export function ProductPhoto({
   /** Cache policy for bundled sources; remote photos always use the disk cache. */
   cachePolicy?: 'memory-disk' | 'memory' | 'disk' | 'none';
 }) {
+  useLocale();
   const [failed, setFailed] = useState<string | null>(null);
   const remote = photo.kind === 'remote' && failed !== photo.cacheKey;
   const shown = photo.kind === 'remote' ? (remote ? photo : photo.fallback) : photo;
@@ -91,7 +93,7 @@ export function ProductPhoto({
       style={style}
       contentFit={contentFit}
       accessible={accessible}
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={localize(accessibilityLabel)}
       testID={testID}
       cachePolicy={remote ? 'disk' : cachePolicy}
       recyclingKey={photo.kind === 'remote' ? photo.cacheKey : undefined}

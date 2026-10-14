@@ -1,3 +1,4 @@
+import { localize, t, useLocale } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import type { TestFeedback, TestFeedbackInput } from '@pickchick/test-order-flow/contracts';
@@ -31,6 +32,7 @@ function message(error: unknown) {
 }
 
 export function ConnectedFeedback(props: ScreenProps) {
+  useLocale();
   const account = useAccount();
   const owner = account.mode === 'server' ? (account.account?.customerId ?? 'signed-out') : 'demo';
   return (
@@ -42,6 +44,7 @@ export function ConnectedFeedback(props: ScreenProps) {
 }
 
 function FeedbackForm(props: ScreenProps) {
+  useLocale();
   const order = props.model.testFlow.current;
   const kind = props.screenId === 'M35' ? 'review' : 'ticket';
   const client = useOrderClient();
@@ -128,20 +131,20 @@ function FeedbackForm(props: ScreenProps) {
   return (
     <Page
       props={props}
-      title={kind === 'review' ? 'Оценить заказ' : 'Поддержка'}
+      title={localize(kind === 'review' ? 'Оценить заказ' : 'Поддержка')}
       footer={
         canWrite ? (
           <Button
             testID="feedback-submit"
-            title={
+            title={localize(
               busy
                 ? 'Отправляем…'
                 : pending
                   ? 'Повторить отправку'
                   : kind === 'review'
                     ? 'Отправить отзыв'
-                    : 'Отправить обращение'
-            }
+                    : 'Отправить обращение',
+            )}
             style={orderUI.action}
             textStyle={orderUI.actionText}
             disabled={
@@ -158,23 +161,26 @@ function FeedbackForm(props: ScreenProps) {
     >
       <View style={s.context}>
         <Heading small style={orderUI.title}>
-          Заказ №{order?.number ?? ''}
+          {t('Заказ №')}
+          {localize(order?.number ?? '')}
         </Heading>
         <Caption style={orderUI.detail}>
-          {kind === 'review'
-            ? 'Как всё прошло? Ваш отзыв увидит управляющий.'
-            : 'Опишите вопрос. Номер и ресторан добавим к обращению автоматически.'}
+          {localize(
+            kind === 'review'
+              ? 'Как всё прошло? Ваш отзыв увидит управляющий.'
+              : 'Опишите вопрос. Номер и ресторан добавим к обращению автоматически.',
+          )}
         </Caption>
       </View>
-      {busy && !feedback ? <Loading title="Загружаем…" /> : null}
+      {busy && !feedback ? <Loading title={t('Загружаем…')} /> : null}
       {error ? (
-        <Notice warning title="Не удалось подтвердить">
-          {error}
+        <Notice warning title={t('Не удалось подтвердить')}>
+          {localize(error)}
         </Notice>
       ) : null}
       {error ? (
         <Button
-          title="Проверить ещё раз"
+          title={t('Проверить ещё раз')}
           secondary
           disabled={busy}
           onPress={() => {
@@ -182,28 +188,32 @@ function FeedbackForm(props: ScreenProps) {
           }}
         />
       ) : null}
-      {!allowed ? <Notice>Оценить заказ можно после выдачи.</Notice> : null}
+      {!allowed ? <Notice>{t('Оценить заказ можно после выдачи.')}</Notice> : null}
       {kind === 'review' && review ? (
         <View style={s.context}>
           <Icon name="checkmark-circle-outline" size={32} color={colors.success} />
           <Heading small style={orderUI.title}>
-            Спасибо за отзыв
+            {t('Спасибо за отзыв')}
           </Heading>
-          <Body style={orderUI.label}>Ваша оценка: {review.stars} из 5</Body>
+          <Body style={orderUI.label}>
+            {t('Ваша оценка:')}
+            {localize(review.stars)}
+            {t('из 5')}
+          </Body>
           {review.text ? <Body>{review.text}</Body> : null}
         </View>
       ) : canWrite ? (
         <View style={{ gap: 20 }}>
           {kind === 'review' ? (
             <View style={{ gap: 12 }}>
-              <Body style={orderUI.label}>Ваша оценка</Body>
+              <Body style={orderUI.label}>{t('Ваша оценка')}</Body>
               <Row style={{ gap: 8, flexWrap: 'wrap' }}>
                 {[1, 2, 3, 4, 5].map((value) => (
                   <MotionPressable
                     key={value}
                     testID={`rating-${value}`}
                     accessibilityRole="radio"
-                    accessibilityLabel={`${value} из 5`}
+                    accessibilityLabel={localize(t('{p0} из 5', { p0: value }))}
                     accessibilityState={{
                       checked: stars === value,
                       disabled: busy || Boolean(pending),
@@ -224,56 +234,58 @@ function FeedbackForm(props: ScreenProps) {
           ) : null}
           <View style={{ gap: 8 }}>
             <Body style={orderUI.label}>
-              {kind === 'review' ? 'Комментарий · необязательно' : 'Ваш вопрос'}
+              {localize(kind === 'review' ? 'Комментарий · необязательно' : 'Ваш вопрос')}
             </Body>
             <TextInput
               testID="feedback-text"
-              accessibilityLabel={kind === 'review' ? 'Комментарий к заказу' : 'Вопрос по заказу'}
+              accessibilityLabel={localize(
+                kind === 'review' ? 'Комментарий к заказу' : 'Вопрос по заказу',
+              )}
               value={text}
               onChangeText={setText}
               editable={!busy && !pending}
               maxLength={2000}
               multiline
-              placeholder={
+              placeholder={localize(
                 kind === 'review'
                   ? 'Что понравилось, а что можно улучшить?'
-                  : 'Расскажите, чем мы можем помочь'
-              }
+                  : 'Расскажите, чем мы можем помочь',
+              )}
               placeholderTextColor={colors.muted}
               style={s.input}
             />
-            <Caption style={orderUI.detail}>{text.length} / 2000</Caption>
+            <Caption style={orderUI.detail}>{localize(text.length)} / 2000</Caption>
           </View>
           {pending ? (
             <Caption style={orderUI.detail}>
-              Попытка сохранена на устройстве. Повторная отправка использует те же данные.
+              {t('Попытка сохранена на устройстве. Повторная отправка использует те же данные.')}
             </Caption>
           ) : null}
         </View>
       ) : null}
       {kind === 'ticket' && sent ? (
-        <Notice title="Обращение принято">
-          Управляющий увидит его в системе. Статус обращения появится ниже.
+        <Notice title={t('Обращение принято')}>
+          {t('Управляющий увидит его в системе. Статус обращения появится ниже.')}
         </Notice>
       ) : null}
       {kind === 'ticket' && feedback?.tickets.length ? (
         <View style={{ gap: 16 }}>
           <Heading small style={orderUI.section}>
-            Ваши обращения
+            {t('Ваши обращения')}
           </Heading>
           {feedback.tickets.map((ticket) => (
             <View key={ticket.id} style={s.ticket}>
               <Row>
                 <Icon name="chatbubble-outline" color={colors.accent} />
                 <Body style={[orderUI.label, { fontFamily: font.bold }]}>
-                  {ticketStatus[ticket.status]}
+                  {localize(ticketStatus[ticket.status])}
                 </Body>
               </Row>
               <Body style={orderUI.label}>{ticket.text}</Body>
             </View>
           ))}
           <Button
-            title="Обновить обращения"
+            title={t('Обновить обращения')}
             secondary
             disabled={busy}
             onPress={() => {

@@ -1,3 +1,5 @@
+import { NotificationsProvider } from '../notifications/provider';
+import { t, useLocale } from '../i18n';
 import { PaymentRecovery } from '../components/PaymentRecovery';
 import { colors } from '../theme';
 import { useState } from 'react';
@@ -21,6 +23,7 @@ import { ARCADE_SCREEN_OPTIONS } from '../games/route-options';
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function Layout() {
+  useLocale();
   return (
     <MotionProvider>
       <AppLayout />
@@ -28,6 +31,7 @@ export default function Layout() {
   );
 }
 function AppLayout() {
+  useLocale();
   const reduced = useReducedMotion();
   const [introDone, setIntroDone] = useState(false);
   const [loaded, error] = useFonts({
@@ -49,69 +53,71 @@ function AppLayout() {
         {error ? (
           <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
             <Text style={{ color: 'white', fontSize: 18 }}>
-              Не удалось загрузить приложение. Закройте и откройте PickChick снова.
+              {t('Не удалось загрузить приложение. Закройте и откройте PickChick снова.')}
             </Text>
           </View>
         ) : loaded ? (
           <AccountProvider>
             <MobileProvider>
-              <StatusBar style="light" />
-              <PaymentRecovery />
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  orientation: 'portrait',
-                  animation: reduced ? 'none' : 'default',
-                  contentStyle: { backgroundColor: '#04143A' },
-                }}
-              >
-                <Stack.Screen
-                  name="auth"
-                  options={{
-                    presentation: 'transparentModal',
-                    animation: 'none',
-                    contentStyle: { backgroundColor: 'transparent' },
+              <NotificationsProvider>
+                <StatusBar style="light" />
+                <PaymentRecovery />
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    orientation: 'portrait',
+                    animation: reduced ? 'none' : 'default',
+                    contentStyle: { backgroundColor: '#04143A' },
                   }}
-                />
-                <Stack.Screen
-                  name="product-photo"
-                  options={{
-                    presentation: 'modal',
-                    animation: reduced ? 'none' : 'slide_from_bottom',
-                    animationDuration: reduced ? 0 : motion.sheetEnter,
-                    contentStyle: { backgroundColor: '#D8C5A7' },
-                  }}
-                />
-                <Stack.Screen
-                  name="order-status"
-                  options={{
-                    presentation: 'transparentModal',
-                    animation: 'none',
-                    contentStyle: { backgroundColor: 'transparent' },
-                  }}
-                />
-                <Stack.Screen name="games/pick-blocks" options={ARCADE_SCREEN_OPTIONS} />
-                <Stack.Screen
-                  name="cart"
-                  options={{
-                    presentation: 'transparentModal',
-                    animation: 'none',
-                    contentStyle: { backgroundColor: 'transparent' },
-                  }}
-                />
-                <Stack.Screen
-                  name="checkout"
-                  options={{
-                    presentation: 'transparentModal',
-                    animation: 'none',
-                    contentStyle: { backgroundColor: 'transparent' },
-                  }}
-                />
-              </Stack>
+                >
+                  <Stack.Screen
+                    name="auth"
+                    options={{
+                      presentation: 'transparentModal',
+                      animation: 'none',
+                      contentStyle: { backgroundColor: 'transparent' },
+                    }}
+                  />
+                  <Stack.Screen
+                    name="product-photo"
+                    options={{
+                      presentation: 'modal',
+                      animation: reduced ? 'none' : 'slide_from_bottom',
+                      animationDuration: reduced ? 0 : motion.sheetEnter,
+                      contentStyle: { backgroundColor: '#D8C5A7' },
+                    }}
+                  />
+                  <Stack.Screen
+                    name="order-status"
+                    options={{
+                      presentation: 'transparentModal',
+                      animation: 'none',
+                      contentStyle: { backgroundColor: 'transparent' },
+                    }}
+                  />
+                  <Stack.Screen name="games/pick-blocks" options={ARCADE_SCREEN_OPTIONS} />
+                  <Stack.Screen
+                    name="cart"
+                    options={{
+                      presentation: 'transparentModal',
+                      animation: 'none',
+                      contentStyle: { backgroundColor: 'transparent' },
+                    }}
+                  />
+                  <Stack.Screen
+                    name="checkout"
+                    options={{
+                      presentation: 'transparentModal',
+                      animation: 'none',
+                      contentStyle: { backgroundColor: 'transparent' },
+                    }}
+                  />
+                </Stack>
+              </NotificationsProvider>
             </MobileProvider>
           </AccountProvider>
         ) : (
-          <ActivityIndicator accessibilityLabel="Загрузка PickChick" color={colors.accent} />
+          <ActivityIndicator accessibilityLabel={t('Загрузка PickChick')} color={colors.accent} />
         )}
       </View>
       {!introDone ? (

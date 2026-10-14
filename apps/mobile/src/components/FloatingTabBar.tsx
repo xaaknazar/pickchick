@@ -1,3 +1,4 @@
+import { localize, t, useLocale } from '../i18n';
 import { useEffect, useState } from 'react';
 import {
   AccessibilityInfo,
@@ -81,6 +82,7 @@ const webGlass =
     : null;
 
 export function FloatingTabBar({ state, descriptors, navigation, insets }: BottomTabBarProps) {
+  useLocale();
   const { fontScale } = useWindowDimensions();
   const reducedTransparency = useReducedTransparency();
   const keyboardVisible = useKeyboardVisible();
@@ -126,10 +128,10 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
               accessibilityRole="tab"
               accessibilityState={{ selected: focused }}
               aria-selected={focused}
-              accessibilityLabel={
+              accessibilityLabel={localize(
                 options.tabBarAccessibilityLabel ??
-                (badge ? `${label}, активных заказов: ${badge}` : label)
-              }
+                  (badge ? t('{p0}, активных заказов: {p1}', { p0: label, p1: badge }) : label),
+              )}
               feedback="scale"
               onPress={onPress}
               onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route.key })}
@@ -151,7 +153,7 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
                     style={s.badge}
                   >
                     <Text style={s.badgeText} maxFontSizeMultiplier={1.2} numberOfLines={1}>
-                      {badge}
+                      {localize(badge)}
                     </Text>
                   </View>
                 ) : null}
@@ -161,7 +163,7 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
                 maxFontSizeMultiplier={tabLabelMaxScale}
                 style={[s.label, { color }, focused && s.labelActive]}
               >
-                {label}
+                {localize(label)}
               </Text>
             </Pressable>
           );

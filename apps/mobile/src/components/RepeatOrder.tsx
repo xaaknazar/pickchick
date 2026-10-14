@@ -1,3 +1,4 @@
+import { t, localize, useLocale } from '../i18n';
 import { useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,6 +24,7 @@ export function RepeatOrder({
   /** `link`: compact «↻ Повторить» for the orders list; the flow below is the same. */
   variant?: 'button' | 'link';
 }) {
+  useLocale();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
   const submitted = useRef(false);
@@ -51,7 +53,7 @@ export function RepeatOrder({
         <Button
           secondary
           icon="refresh-outline"
-          title="Повторить заказ"
+          title={t('Повторить заказ')}
           testID={`repeat-order-${order.order_id}`}
           onPress={start}
         />
@@ -74,29 +76,34 @@ export function RepeatOrder({
                 }}
               >
                 <Row>
-                  <CloseButton label="Закрыть повтор заказа" onPress={close} />
+                  <CloseButton label={t('Закрыть повтор заказа')} onPress={close} />
                   <Heading small style={{ flex: 1 }}>
-                    Повторить заказ №{order.number}
+                    {t('Повторить заказ №')}
+                    {localize(order.number)}
                   </Heading>
                 </Row>
                 <ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 12 }}>
                   <Body muted>
-                    Проверьте состав и актуальную сумму. Оформление будет следующим шагом.
+                    {t('Проверьте состав и актуальную сумму. Оформление будет следующим шагом.')}
                   </Body>
                   {props.model.cart.length ? (
-                    <Caption>Добавим к тому, что уже в корзине.</Caption>
+                    <Caption>{t('Добавим к тому, что уже в корзине.')}</Caption>
                   ) : null}
                   {!sameBranch ? (
-                    <Notice warning>Этот заказ из другой точки. Сначала выберите её в меню.</Notice>
+                    <Notice warning>
+                      {t('Этот заказ из другой точки. Сначала выберите её в меню.')}
+                    </Notice>
                   ) : !online ? (
                     <Notice warning>
-                      Для проверки меню нужен интернет. Обновите меню и попробуйте снова.
+                      {t('Для проверки меню нужен интернет. Обновите меню и попробуйте снова.')}
                     </Notice>
                   ) : null}
                   {plan.changes.map((c, i) => (
-                    <Notice key={i} warning title={c.name}>
-                      {c.reason}
-                      {c.before && c.after ? `: ${money(c.before)} → ${money(c.after)}` : ''}
+                    <Notice key={i} warning title={localize(c.name)}>
+                      {localize(c.reason)}
+                      {localize(
+                        c.before && c.after ? `: ${money(c.before)} → ${money(c.after)}` : '',
+                      )}
                     </Notice>
                   ))}
                   {plan.lines.map((line, i) => (
@@ -113,21 +120,21 @@ export function RepeatOrder({
                       />
                       <View style={{ flex: 1, gap: 4 }}>
                         <Body style={orderUI.label}>
-                          {line.product.name} ×{line.quantity}
+                          {localize(line.product.name)} ×{localize(line.quantity)}
                         </Body>
                         {selectionDescription(line) ? (
-                          <Caption>{selectionDescription(line)}</Caption>
+                          <Caption>{localize(selectionDescription(line))}</Caption>
                         ) : null}
-                        <Body>{money(cartTotal([line]))}</Body>
+                        <Body>{localize(money(cartTotal([line])))}</Body>
                       </View>
                     </Row>
                   ))}
                   {!plan.lines.length ? (
                     <>
-                      <Body>Нет позиций, которые можно повторить с прежним составом.</Body>
+                      <Body>{t('Нет позиций, которые можно повторить с прежним составом.')}</Body>
                       <Button
                         secondary
-                        title="Выбрать блюда в меню"
+                        title={t('Выбрать блюда в меню')}
                         onPress={() => {
                           setOpen(false);
                           props.navigate('M06');
@@ -137,18 +144,19 @@ export function RepeatOrder({
                   ) : null}
                   {limit ? (
                     <Notice warning>
-                      Не помещается в корзину: максимум 11 вариантов и 20 одинаковых позиций.
-                      Сначала измените корзину.
+                      {t(
+                        'Не помещается в корзину: максимум 11 вариантов и 20 одинаковых позиций. Сначала измените корзину.',
+                      )}
                     </Notice>
                   ) : null}
                 </ScrollView>
-                {error ? <Notice warning>{error}</Notice> : null}
+                {error ? <Notice warning>{localize(error)}</Notice> : null}
                 <Button
-                  title={
+                  title={localize(
                     plan.lines.length
-                      ? `Добавить в корзину · ${money(cartTotal(plan.lines))}`
-                      : 'Нет доступных позиций'
-                  }
+                      ? t('Добавить в корзину · {p0}', { p0: money(cartTotal(plan.lines)) })
+                      : 'Нет доступных позиций',
+                  )}
                   testID="repeat-order-confirm"
                   disabled={blocked}
                   style={orderUI.action}
@@ -166,7 +174,7 @@ export function RepeatOrder({
                   }}
                 />
                 <Caption style={{ textAlign: 'center', color: colors.muted }}>
-                  Ничего не оплачивается автоматически
+                  {t('Ничего не оплачивается автоматически')}
                 </Caption>
               </View>
             )}

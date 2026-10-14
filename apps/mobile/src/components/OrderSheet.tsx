@@ -1,3 +1,4 @@
+import { localize, t, useLocale } from '../i18n';
 import {
   createContext,
   useCallback,
@@ -65,6 +66,7 @@ export function OrderSheet({
   checkout?: boolean;
   onDismissBlockedChange?(blocked: boolean): void;
 }) {
+  useLocale();
   const { height, width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
@@ -192,7 +194,7 @@ export function OrderSheet({
       {!blocked ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Закрыть: ${name}`}
+          accessibilityLabel={localize(t('Закрыть: {p0}', { p0: name }))}
           onPress={close}
           style={StyleSheet.absoluteFill}
         />
@@ -201,7 +203,7 @@ export function OrderSheet({
         ref={dialog}
         testID={auth ? 'auth-sheet' : 'order-sheet'}
         accessibilityViewIsModal
-        accessibilityLabel={name}
+        accessibilityLabel={localize(name)}
         role="dialog"
         aria-modal
         style={[

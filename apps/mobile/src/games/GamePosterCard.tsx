@@ -1,3 +1,4 @@
+import { localize, t, useLocale } from '../i18n';
 import { Image } from 'expo-image';
 import {
   Platform,
@@ -33,12 +34,13 @@ export function GamePosterCard({
   onPress(): void;
   testID: string;
 }) {
+  useLocale();
   const height = useGameCardHeight();
   return (
     <Pressable
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={`Играть в ${name}. ${description}`}
+      accessibilityLabel={localize(t('Играть в {p0}. {p1}', { p0: name, p1: description }))}
       onPress={onPress}
       style={({ pressed }) => [s.card, { height }, pressed && { opacity: 0.88 }]}
     >
@@ -52,14 +54,14 @@ export function GamePosterCard({
       />
       <View pointerEvents="none" style={[StyleSheet.absoluteFill, scrim]} />
       <View style={s.tag}>
-        <Text style={s.tagText}>{subtitle}</Text>
+        <Text style={s.tagText}>{localize(subtitle)}</Text>
       </View>
       <View style={s.bottom}>
         <View style={s.copy}>
           <Text testID={`${testID}-title`} style={s.title}>
-            {name}
+            {localize(name)}
           </Text>
-          <Text style={s.description}>{description}</Text>
+          <Text style={s.description}>{localize(description)}</Text>
         </View>
         <View style={s.play}>
           <Icon name="play" size={25} color="#FFFFFF" />

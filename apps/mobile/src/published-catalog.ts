@@ -1,3 +1,4 @@
+import { translate } from './i18n/core.ts';
 import { restoreCart, validSelections, type SavedPreferences } from './domain.ts';
 import type { CatalogMobileStorefront } from '@pickchick/catalog-admin/contracts';
 import type { Product, Locale, CartLine } from './model';
@@ -29,12 +30,14 @@ export function publishedProductData(
   catalog: CatalogMobileStorefront,
   locale: Locale,
 ): Omit<Product, 'image'>[] {
-  const localized = (text: { ru: string; kk: string }) => text[locale] || text.ru;
+  const localized = (text: { ru: string; kk: string }) =>
+    locale === 'en' ? translate(text.ru, locale) : text[locale] || translate(text.ru, locale);
   return catalog.payload.products.map((item) => ({
     id: item.id,
     name: localized(item.name),
     description: displayCopy(localized(item.description)),
-    category: localized(catalog.payload.categories.find((c) => c.id === item.category_id)!.name),
+    // Stable category keys drive filters; the view translates their labels.
+    category: catalog.payload.categories.find((c) => c.id === item.category_id)!.name.ru,
     priceMinor: item.channel_prices_minor?.mobile ?? item.price_minor,
     catalogVersion: `published:${catalog.branch.id}:${catalog.version}`,
     source: 'server',

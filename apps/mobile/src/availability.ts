@@ -1,3 +1,4 @@
+import { t } from './i18n/core.ts';
 import type { Product, CartLine } from './model';
 export interface Availability {
   enabled: boolean;
@@ -113,7 +114,10 @@ export function availabilityMessage(
 ): string | null {
   if (status === 'closed')
     return hours
-      ? `Ресторан сейчас закрыт. Принимаем заказы с ${hours.openingTime} до ${hours.closingTime}.`
+      ? t('Ресторан сейчас закрыт. Принимаем заказы с {p0} до {p1}.', {
+          p0: hours.openingTime,
+          p1: hours.closingTime,
+        })
       : 'Ресторан сейчас закрыт.';
   if (status === 'checking') return 'Проверяем доступность блюд.';
   if (status === 'offline')

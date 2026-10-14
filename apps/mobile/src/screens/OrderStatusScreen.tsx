@@ -1,3 +1,4 @@
+import { t, localize, useLocale } from '../i18n';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -37,6 +38,7 @@ export function OrderStatusScreen({
   order: TestOrder;
   notice?: React.ReactNode;
 }) {
+  useLocale();
   return (
     <OrderStatusView
       props={props}
@@ -48,7 +50,7 @@ export function OrderStatusScreen({
             <RepeatOrder order={order} props={props} />
             {order.state === 'fulfilled' ? (
               <Button
-                title="Оценить заказ"
+                title={t('Оценить заказ')}
                 testID="order-rate"
                 onPress={() => props.navigate('M35')}
               />
@@ -95,6 +97,7 @@ export function OrderStatusView({
   /** Close a React Native <Modal> host first: a native route cannot be presented above it. */
   onBeforeGame?: () => void;
 }) {
+  useLocale();
   const [more, setMore] = useState(false);
   const [now, setNow] = useState(Date.now());
   const { width, height } = useWindowDimensions();
@@ -158,7 +161,7 @@ export function OrderStatusView({
               photo={productPhoto(product, 'card', 'menu')}
               contentFit="contain"
               style={s.lineImage}
-              accessibilityLabel={line.name}
+              accessibilityLabel={localize(line.name)}
             />
           ) : (
             <Icon name="restaurant-outline" size={22} color={colors.muted} />
@@ -166,18 +169,21 @@ export function OrderStatusView({
         </View>
         <View style={s.lineCopy}>
           <Text numberOfLines={2} style={s.lineName}>
-            {line.name}
+            {localize(line.name)}
           </Text>
           {description ? (
             <Text numberOfLines={1} style={s.lineDetail}>
-              {description}
+              {localize(description)}
             </Text>
           ) : null}
         </View>
-        <Text style={s.lineQuantity} accessibilityLabel={`${line.quantity} шт.`}>
-          ×{line.quantity}
+        <Text
+          style={s.lineQuantity}
+          accessibilityLabel={localize(t('{p0} шт.', { p0: line.quantity }))}
+        >
+          ×{localize(line.quantity)}
         </Text>
-        <Text style={s.linePrice}>{money(line.line_total_minor)}</Text>
+        <Text style={s.linePrice}>{localize(money(line.line_total_minor))}</Text>
       </View>
     );
   });
@@ -195,21 +201,21 @@ export function OrderStatusView({
         <Row style={s.header}>
           <CloseButton
             testID="order-status-close"
-            label="Закрыть статус заказа"
+            label={t('Закрыть статус заказа')}
             onPress={props.goBack}
           />
           <View style={s.location}>
             <Body style={s.locationName}>
-              {order.restaurant ?? location?.name ?? branch?.name ?? 'Ресторан PickChick'}
+              {localize(order.restaurant ?? location?.name ?? branch?.name ?? 'Ресторан PickChick')}
             </Body>
             <Caption style={s.mode}>
-              {order.snapshot.service_mode === 'takeaway' ? 'С собой' : 'В зале'}
+              {localize(order.snapshot.service_mode === 'takeaway' ? 'С собой' : 'В зале')}
             </Caption>
           </View>
           <MotionPressable
             testID="order-more"
             accessibilityRole="button"
-            accessibilityLabel={more ? 'Закрыть действия заказа' : 'Действия заказа'}
+            accessibilityLabel={localize(more ? 'Закрыть действия заказа' : 'Действия заказа')}
             accessibilityState={{ expanded: more }}
             onPress={() => setMore(!more)}
             style={s.iconButton}
@@ -228,10 +234,12 @@ export function OrderStatusView({
               <Text
                 style={s.badgeText}
                 testID="connected-order-number"
-                accessibilityLabel={`${order.number ? `Заказ номер ${order.number}` : 'Заказ принят'}${name ? `, ${name}` : ''}`}
+                accessibilityLabel={localize(
+                  `${order.number ? t('Заказ номер {p0}', { p0: order.number }) : 'Заказ принят'}${name ? `, ${name}` : ''}`,
+                )}
               >
-                {order.number ? `№ ${order.number}` : 'Заказ принят'}
-                {name ? ` · ${name}` : ''}
+                {localize(order.number ? `№ ${order.number}` : 'Заказ принят')}
+                {localize(name ? ` · ${name}` : '')}
               </Text>
             </View>
             {order.state !== 'cancelled' ? (
@@ -243,15 +251,18 @@ export function OrderStatusView({
             )}
             <Row style={s.time}>
               <Icon name="time-outline" size={18} color={colors.accent} />
-              <Caption style={s.timeText}>{orderTimeLabel(order, now)}</Caption>
+              <Caption style={s.timeText}>{localize(orderTimeLabel(order, now))}</Caption>
             </Row>
             <View accessibilityLiveRegion="polite" style={s.statusText}>
               <Heading style={s.title} testID="connected-order-state">
-                {title}
+                {localize(title)}
               </Heading>
-              <Body style={s.subtitle}>{subtitle}</Body>
+              <Body style={s.subtitle}>{localize(subtitle)}</Body>
             </View>
-            <View style={s.track} accessibilityLabel={`Этап заказа: ${orderStage(order)}`}>
+            <View
+              style={s.track}
+              accessibilityLabel={localize(t('Этап заказа: {p0}', { p0: orderStage(order) }))}
+            >
               {['Кухня', 'Сборка', 'Выдача'].map((label, i) => (
                 <View key={label} style={s.trackItem}>
                   <View
@@ -261,7 +272,7 @@ export function OrderStatusView({
                         s.trackActive,
                     ]}
                   />
-                  <Caption style={s.trackLabel}>{label}</Caption>
+                  <Caption style={s.trackLabel}>{localize(label)}</Caption>
                 </View>
               ))}
             </View>
@@ -269,10 +280,12 @@ export function OrderStatusView({
           <View testID="order-status-items" style={[s.orderBlock, { marginHorizontal: inset }]}>
             <Row style={s.orderHeader}>
               <Text accessibilityRole="header" style={s.orderTitle}>
-                Ваш заказ
+                {t('Ваш заказ')}
               </Text>
               <Caption style={s.orderSummary}>
-                {order.snapshot.lines.length} поз. · {money(order.snapshot.total_minor)}
+                {localize(order.snapshot.lines.length)}
+                {t('поз. ·')}
+                {localize(money(order.snapshot.total_minor))}
               </Caption>
             </Row>
             {lineRows}
@@ -282,7 +295,7 @@ export function OrderStatusView({
           ) : null}
           {active || ready ? (
             <GameCarousel
-              title={active ? 'Пока готовим - сыграйте' : 'Ещё один раунд?'}
+              title={localize(active ? 'Пока готовим - сыграйте' : 'Ещё один раунд?')}
               games={games}
               inset={inset}
               onOpen={(id) => openOrderGame(router, id, onBeforeGame)}
@@ -293,7 +306,7 @@ export function OrderStatusView({
               {receipt ? (
                 <ActionTile
                   icon="receipt-outline"
-                  label="Чек"
+                  label={t('Чек')}
                   caption={receipt.caption}
                   hint={receipt.hint}
                   testID={receipt.testID ?? 'order-receipt'}
@@ -303,7 +316,7 @@ export function OrderStatusView({
               {onSupport ? (
                 <ActionTile
                   icon="chatbox-outline"
-                  label="Поддержка"
+                  label={t('Поддержка')}
                   hint="Мы видим, по какому заказу нужна помощь"
                   testID="order-support"
                   onPress={onSupport}
@@ -345,11 +358,12 @@ function ActionTile({
   testID: string;
   onPress?: () => void;
 }) {
+  useLocale();
   const content = (
     <>
       <Icon name={icon} size={22} color={colors.accent} />
-      <Text style={s.tileLabel}>{label}</Text>
-      {caption ? <Text style={s.tileCaption}>{caption}</Text> : null}
+      <Text style={s.tileLabel}>{localize(label)}</Text>
+      {caption ? <Text style={s.tileCaption}>{localize(caption)}</Text> : null}
     </>
   );
   if (!onPress)
@@ -357,7 +371,7 @@ function ActionTile({
       <View
         testID={testID}
         accessible
-        accessibilityLabel={caption ? `${label}. ${caption}` : label}
+        accessibilityLabel={localize(caption ? `${label}. ${caption}` : label)}
         style={s.tile}
       >
         {content}
@@ -368,8 +382,8 @@ function ActionTile({
       testID={testID}
       feedback="scale"
       accessibilityRole="button"
-      accessibilityLabel={caption ? `${label}. ${caption}` : label}
-      accessibilityHint={hint}
+      accessibilityLabel={localize(caption ? `${label}. ${caption}` : label)}
+      accessibilityHint={localize(hint)}
       onPress={onPress}
       style={s.tile}
     >
