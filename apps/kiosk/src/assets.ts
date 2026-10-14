@@ -134,10 +134,8 @@ const drinkPhotos: Record<string, Photo> = {
   'piko-apple': photo(require('../assets/drinks/piko-apple.png'), null),
   'piko-orange': photo(require('../assets/drinks/piko-orange.png'), null),
 };
-drinkPhotos.piko = {
-  ...drinkPhotos['piko-apple']!,
-  secondarySource: drinkPhotos['piko-orange']!.source,
-};
+// The generic Piko preview shows one pack; each named flavour keeps its own photo.
+drinkPhotos.piko = drinkPhotos['piko-apple']!;
 Object.assign(cards, {
   'i1.jpg': drinkPhotos['fuse-peach'],
   'i23.jpg': drinkPhotos.water,

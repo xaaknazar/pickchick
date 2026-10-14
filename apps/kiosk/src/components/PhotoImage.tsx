@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { Image } from 'expo-image';
 import { heroPhoto, optionPhoto, photoCandidates, productPhoto, saucePhotoBounds } from '../assets';
 /**
- * A complete photograph (or the two Piko packs), within its owning component's stage.
+ * A complete photograph within its owning component's stage.
  * A published remote photo comes first (disk-cached); if it cannot load, the bundled photo
  * for the same image key, then the mockup shot, then the logo is shown instead.
  */

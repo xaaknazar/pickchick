@@ -26,4 +26,4 @@ export const Fanta: Story = { args: { imageId: 'drink:fanta' } };
 export const MangoChamomile: Story = { args: { imageId: 'drink:fuse-mango' } };
 export const PikoApple: Story = { args: { imageId: 'drink:piko-apple' } };
 export const PikoOrange: Story = { args: { imageId: 'drink:piko-orange' } };
-export const PikoBothFlavors: Story = { args: { imageId: 'drink:piko' } };
+export const PikoDefault: Story = { args: { imageId: 'drink:piko' } };
