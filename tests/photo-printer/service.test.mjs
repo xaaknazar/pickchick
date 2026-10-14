@@ -69,6 +69,52 @@ test('exact preview pixels match printer bits, with real logo and bounded output
   );
   await assert.rejects(() => preparePhoto(Buffer.from('<svg/>'), logoPath));
 });
+test('full-height photograph is encoded in small lossless stripes without inter-stripe paper feeds', () => {
+  const width = 576,
+    height = 600,
+    bits = Buffer.alloc((width * height) / 8);
+  for (let i = 0; i < bits.length; i++) bits[i] = i % 256;
+  const packet = escpos(bits, width, height);
+  let offset = 5,
+    rows = 0;
+  const images = [];
+  while (rows < height) {
+    assert.deepEqual([...packet.subarray(offset, offset + 4)], [29, 118, 48, 0]);
+    assert.equal(packet.readUInt16LE(offset + 4), width / 8);
+    const stripe = packet.readUInt16LE(offset + 6);
+    assert(stripe > 0 && stripe <= 24);
+    images.push(packet.subarray(offset + 8, offset + 8 + (stripe * width) / 8));
+    offset += 8 + (stripe * width) / 8;
+    rows += stripe;
+  }
+  assert.equal(rows, height);
+  assert.deepEqual(Buffer.concat(images), bits);
+  assert.deepEqual([...packet.subarray(offset)], [27, 100, 3]);
+});
+test('colour photographs retain luminance after compositing and the logo remains visible', async () => {
+  for (const [color, low, high] of [
+    ['#0047BB', 0.6, 0.76],
+    ['#FF671F', 0.32, 0.5],
+  ]) {
+    const input = await sharp({
+      create: { width: 128, height: 96, channels: 3, background: color },
+    })
+      .png()
+      .toBuffer();
+    const p = await preparePhoto(input, logoPath);
+    const density = (x0, y0, width, height) => {
+      let black = 0;
+      for (let y = y0; y < y0 + height; y++)
+        for (let x = x0; x < x0 + width; x++)
+          black += !!(p.bits[(y * p.width + x) >> 3] & (128 >> (x % 8)));
+      return black / (width * height);
+    };
+    const photograph = density(30, 30, 516, 370),
+      logo = density(216, 444, 144, 132);
+    assert(photograph > low && photograph < high, `colour ${color}: ${photograph}`);
+    assert(logo > 0.1 && logo < 0.35, `visible, non-solid logo: ${logo}`);
+  }
+});
 test('pairing is one-use, expires, and locks after ten wrong attempts', (t) => {
   const f = fixture(t);
   const code = f.service.pairing();
