@@ -5654,11 +5654,12 @@
         "tests/photo-printer",
         "apps/kiosk/src/photobooth/io.ts",
         "apps/kiosk/src/photobooth/mac-preview.ts",
-        "docs/operations/kiosk-photo-mac.md"
+        "docs/operations/kiosk-photo-mac.md",
+        ".github/workflows/photo-printer.yml"
       ],
       "status": "active",
       "head": "10443ef7bdb99d66a838939e704eb93610992b4a",
-      "updatedAt": "2026-10-14T14:03:50.087Z"
+      "updatedAt": "2026-10-14T14:10:54.443Z"
     }
   ]
 }
