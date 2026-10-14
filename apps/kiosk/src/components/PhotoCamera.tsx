@@ -27,9 +27,16 @@ export function PhotoCamera({
   const callbacks = useRef({ onReady, onCapture, onError });
   callbacks.current = { onReady, onCapture, onError };
   const ready = useRef(false);
+  const requested = useRef(false);
   const mounted = useRef(true);
   const last = useRef(shot);
   const t = photoCopy(locale);
+  useEffect(() => {
+    if (permission && !permission.granted && permission.canAskAgain && !requested.current) {
+      requested.current = true;
+      void requestPermission().catch(() => callbacks.current.onError());
+    }
+  }, [permission, requestPermission]);
   useEffect(() => {
     mounted.current = true;
     // Camera is used only by this booth in the kiosk. Remove orphaned capture files after a crash.
@@ -110,7 +117,7 @@ export function PhotoCamera({
       </View>
     );
   return (
-    <View style={styles.frame}>
+    <View testID="photo-camera-frame" style={styles.frame}>
       {active && cacheReady ? (
         <CameraView
           ref={camera}

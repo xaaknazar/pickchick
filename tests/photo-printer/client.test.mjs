@@ -152,3 +152,38 @@ test('only the provisioned restaurant HTTPS origin can receive photos or pairing
     assert.equal(approvedEndpoint(other, allowed), false);
   assert.equal(approvedEndpoint(allowed, undefined), false);
 });
+
+test('automatic return clears the photo only after sent; ambiguous and failed jobs stay visible', async () => {
+  const f = fixture();
+  await capture(f);
+  assert.equal(await f.controller.finishIfSent(), false);
+  await f.controller.print();
+  const job = f.controller.state.job;
+  for (const state of ['sending', 'unknown', 'failed']) {
+    f.controller.state = { ...f.controller.state, job: { ...job, state } };
+    assert.equal(await f.controller.finishIfSent(), false);
+    assert(f.pending());
+    assert(f.controller.state.preview);
+  }
+  f.controller.state = { ...f.controller.state, job };
+  assert.equal(await f.controller.finishIfSent(), true);
+  assert.equal(f.pending(), null);
+  assert.equal(f.controller.state.preview, null);
+  f.controller.dispose();
+});
+
+test('failed session cleanup after sending never claims the print did not start', async () => {
+  const f = fixture();
+  const write = f.io.writePending;
+  f.io.writePending = async (id) => {
+    if (id === null) throw Error('storage');
+    await write(id);
+  };
+  await capture(f);
+  await f.controller.print();
+  assert.equal(await f.controller.finishIfSent(), false);
+  assert.equal(f.controller.state.job.state, 'sent');
+  assert.equal(f.controller.state.error, 'CLEANUP');
+  assert(f.pending());
+  f.controller.dispose();
+});

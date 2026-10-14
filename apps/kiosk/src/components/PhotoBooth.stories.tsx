@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
-import { fn } from 'storybook/test';
+import { expect, fn, waitFor } from 'storybook/test';
 import { PhotoBooth } from './PhotoBooth';
 import { PhotoController } from '../photobooth/controller';
 import { createPhotoIO } from '../photobooth/io';
@@ -21,7 +21,12 @@ const meta = {
 } satisfies Meta<typeof PhotoBooth>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const Intro: Story = {};
-export const Sent: Story = { args: { controller: sent } };
+export const Camera: Story = {};
+export const Sent: Story = {
+  args: { controller: sent },
+  play: async ({ args }) => {
+    await waitFor(() => expect(args.onClose).toHaveBeenCalled());
+  },
+};
 export const Unknown: Story = { args: { controller: unknown } };
 export const Kazakh: Story = { args: { locale: 'kk' } };

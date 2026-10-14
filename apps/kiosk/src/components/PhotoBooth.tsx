@@ -43,7 +43,7 @@ export function PhotoBooth({
   const [shot, setShot] = useState(0);
   const t = photoCopy(locale);
   const { height } = useWindowDimensions();
-  const cameraWidth = Math.min(760, Math.max(320, ((height - 450) * 4) / 3));
+  const cameraWidth = Math.min(760, Math.max(320, ((height - 370) * 4) / 3));
   const lastTouch = useRef(Date.now());
   const callbacks = useRef({ onClose, onInteraction });
   callbacks.current = { onClose, onInteraction };
@@ -59,7 +59,7 @@ export function PhotoBooth({
     };
     const timeout = setInterval(() => {
       if (Date.now() - lastTouch.current >= 60000) close();
-      else callbacks.current.onInteraction(); // Keep the cart alive during the bounded camera visit.
+      else callbacks.current.onInteraction(); // Bound the camera visit without starting an order.
     }, 1000);
     const sub = AppState.addEventListener('change', (s) => {
       if (s === 'background') close();
@@ -82,6 +82,27 @@ export function PhotoBooth({
     }, 1000);
     return () => clearTimeout(timer);
   }, [count]);
+  useEffect(() => {
+    if (state.ready && state.phase === 'intro' && !setup) controller.camera();
+  }, [controller, state.ready, state.phase, setup]);
+  const completed = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      state.phase !== 'result' ||
+      state.job?.state !== 'sent' ||
+      state.busy ||
+      completed.current === state.job.id
+    )
+      return;
+    completed.current = state.job.id;
+    let active = true;
+    void controller.finishIfSent().then((done) => {
+      if (active && done) callbacks.current.onClose();
+    });
+    return () => {
+      active = false;
+    };
+  }, [controller, state.phase, state.job, state.busy]);
   const exit = () => {
     void controller
       .finish()
@@ -134,19 +155,40 @@ export function PhotoBooth({
           onPress={exit}
           style={styles.back}
         >
-          <Ionicons name="arrow-back" size={28} color={colors.white} accessible={false} />
+          <Ionicons name="arrow-back" size={28} color={colors.blue} accessible={false} />
           <Text {...fixedText} style={styles.backText}>
             {t.back}
           </Text>
         </Pressable>
-        <Image source={assets.logo} style={styles.logo} accessibilityLabel="PickChick" />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t.operator}
+          testID="photo-staff-hold"
+          delayLongPress={5000}
+          onLongPress={() => {
+            touch();
+            setCount(null);
+            setSetup(true);
+          }}
+          disabled={state.busy}
+        >
+          <Image source={assets.logo} style={styles.logo} accessibilityLabel="PickChick" />
+        </Pressable>
       </View>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text {...fixedText} accessibilityRole="header" style={styles.title}>
           {setup ? t.operator : result ? resultTitle : t.title}
         </Text>
         <Text {...fixedText} style={styles.subtitle}>
-          {setup ? t.pairHelp : result ? resultBody : t.subtitle}
+          {setup
+            ? t.pairHelp
+            : result
+              ? resultBody
+              : state.phase === 'preview'
+                ? state.preview
+                  ? t.preview
+                  : t.local
+                : t.subtitle}
         </Text>
         {setup ? (
           <View style={styles.setup}>
@@ -203,36 +245,7 @@ export function PhotoBooth({
           </View>
         ) : (
           <>
-            {state.phase === 'intro' ? (
-              <View style={styles.intro}>
-                <View style={styles.printIcon}>
-                  <Ionicons
-                    name="camera-outline"
-                    size={80}
-                    color={colors.blue}
-                    accessible={false}
-                  />
-                  <Image source={assets.logo} style={styles.sampleLogo} accessible={false} />
-                </View>
-                <Text {...fixedText} style={styles.hint}>
-                  {state.printingEnabled ? t.ready : t.unconfigured}
-                </Text>
-                {action(t.start, () => controller.camera(), 'photo-start', false, !state.ready)}
-                <Pressable
-                  accessibilityRole="button"
-                  testID="photo-setup"
-                  onPress={() => {
-                    touch();
-                    setSetup(true);
-                  }}
-                  style={styles.staff}
-                >
-                  <Text {...fixedText} style={styles.small}>
-                    {t.operator}
-                  </Text>
-                </Pressable>
-              </View>
-            ) : null}
+            {!state.ready ? <ActivityIndicator size="large" color={colors.blue} /> : null}
             {state.phase === 'camera' ? (
               <View style={[styles.camera, { maxWidth: cameraWidth }]}>
                 <PhotoCamera
@@ -263,9 +276,6 @@ export function PhotoBooth({
             ) : null}
             {state.phase === 'preview' && photoUri ? (
               <>
-                <Text {...fixedText} style={styles.hint}>
-                  {preview ? t.preview : t.local}
-                </Text>
                 <View style={styles.receipt}>
                   <Image
                     source={{ uri: photoUri }}
@@ -296,16 +306,11 @@ export function PhotoBooth({
                     !preview || !state.printingEnabled || state.busy,
                   )}
                 </View>
-                {preview ? (
-                  <Text {...fixedText} style={styles.small}>
-                    {t.expires}
-                  </Text>
-                ) : null}
               </>
             ) : null}
             {state.phase === 'preparing' || state.phase === 'submitting' ? (
               <View style={styles.progress}>
-                <ActivityIndicator size="large" color={colors.white} />
+                <ActivityIndicator size="large" color={colors.blue} />
                 <Text {...fixedText} accessibilityLiveRegion="polite" style={styles.hint}>
                   {state.phase === 'preparing' ? t.preparing : t.sending}
                 </Text>
@@ -316,7 +321,7 @@ export function PhotoBooth({
                 <Ionicons
                   name={sent ? 'print-outline' : failed ? 'alert-circle-outline' : 'time-outline'}
                   size={88}
-                  color={colors.white}
+                  color={colors.blue}
                   accessible={false}
                 />
                 {!sent && !failed
@@ -332,6 +337,11 @@ export function PhotoBooth({
             {t.errors[state.error] ?? t.errors.CONNECTION}
           </Text>
         ) : null}
+        {!setup && !result && state.ready && !state.printingEnabled ? (
+          <Text {...fixedText} style={styles.small}>
+            {t.unconfigured}
+          </Text>
+        ) : null}
         <Text {...fixedText} style={styles.privacy}>
           {t.privacy}
         </Text>
@@ -340,7 +350,7 @@ export function PhotoBooth({
   );
 }
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.blue },
+  root: { flex: 1, backgroundColor: colors.cream },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -349,35 +359,24 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   back: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12, paddingRight: 16 },
-  backText: { fontFamily: fonts.bold, fontSize: 20, color: colors.white },
+  backText: { fontFamily: fonts.bold, fontSize: 18, color: colors.blue },
   logo: { width: 76, height: 72, resizeMode: 'contain' },
   content: { alignItems: 'center', paddingHorizontal: 32, paddingBottom: 32, gap: 24, flexGrow: 1 },
   title: {
     fontFamily: fonts.black,
-    fontSize: 38,
-    lineHeight: 46,
-    color: colors.white,
+    fontSize: 32,
+    lineHeight: 40,
+    color: colors.navy,
     textAlign: 'center',
     maxWidth: 760,
   },
   subtitle: {
     fontFamily: fonts.body,
-    fontSize: 21,
-    lineHeight: 30,
-    color: colors.white,
+    fontSize: 19,
+    lineHeight: 28,
+    color: colors.navy,
     textAlign: 'center',
     maxWidth: 620,
-  },
-  intro: { width: '100%', maxWidth: 600, gap: 24, alignItems: 'stretch' },
-  printIcon: {
-    alignSelf: 'center',
-    backgroundColor: colors.cream,
-    width: 232,
-    height: 264,
-    alignItems: 'center',
-    justifyContent: 'space-evenly',
-    borderRadius: 16,
-    marginVertical: 16,
   },
   sampleLogo: {
     width: 112,
@@ -387,7 +386,7 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   hint: {
-    color: colors.white,
+    color: colors.navy,
     fontFamily: fonts.body,
     fontSize: 19,
     lineHeight: 28,
@@ -395,7 +394,7 @@ const styles = StyleSheet.create({
     maxWidth: 640,
   },
   small: {
-    color: colors.white,
+    color: colors.navy,
     fontFamily: fonts.body,
     fontSize: 16,
     lineHeight: 24,
@@ -403,7 +402,7 @@ const styles = StyleSheet.create({
     maxWidth: 580,
   },
   privacy: {
-    color: colors.onGlass,
+    color: colors.navy,
     fontFamily: fonts.body,
     fontSize: 16,
     lineHeight: 24,
@@ -413,7 +412,6 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   camera: { width: '100%', maxWidth: 760, gap: 24 },
-  staff: { minHeight: 48, alignItems: 'center', justifyContent: 'center' },
   countdown: {
     position: 'absolute',
     top: '24%',
@@ -448,7 +446,7 @@ const styles = StyleSheet.create({
   progress: { minHeight: 240, gap: 24, alignItems: 'center', justifyContent: 'center' },
   result: { gap: 32, alignItems: 'center', width: '100%', maxWidth: 620, paddingVertical: 32 },
   setup: { width: '100%', maxWidth: 620, gap: 16 },
-  label: { color: colors.white, fontFamily: fonts.bold, fontSize: 18 },
+  label: { color: colors.navy, fontFamily: fonts.bold, fontSize: 18 },
   input: {
     backgroundColor: colors.white,
     color: colors.ink,

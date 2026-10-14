@@ -221,6 +221,17 @@ export class PhotoController {
     this.clearPhoto();
     this.listeners.clear();
   }
+  async finishIfSent() {
+    if (this.state.phase !== 'result' || this.state.job?.state !== 'sent' || this.state.busy)
+      return false;
+    try {
+      await this.finish();
+      return true;
+    } catch {
+      this.set({ error: 'CLEANUP' });
+      return false;
+    }
+  }
   async finish() {
     // Explicit exit acknowledges the status; the durable printer job remains deduplicated.
     if (this.pending && !this.state.busy) {

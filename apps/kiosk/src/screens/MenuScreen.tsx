@@ -98,7 +98,6 @@ export function MenuScreen({
           products={products}
           locale={context.locale}
           onSelect={select}
-          onPhotoInteraction={model.touch}
         />
         <MenuGrid
           key={category + '-' + revision}
