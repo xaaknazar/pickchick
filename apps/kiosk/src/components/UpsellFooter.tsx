@@ -15,7 +15,7 @@ import { ownerOrange } from './ownerOrange';
  * 16 from the sides and 22 from the bottom, under the 220-pt darkening. On the left «В заказе: …»
  * (17, 75% white, two lines at most) over the total (Montserrat 900 36): the block is a button
  * that opens the order page to change it (no extra mark, as in the approved design). On the
- * right the glass «Без допов» and the orange «К оплате →», both 88 high; both lead to payment.
+ * right the orange «К оплате →», 88 high, continues with the current order, extras optional.
  * Disabled actions turn grey; while busy the orange action shows a spinner. The panel slides up
  * as the screen opens (static under reduced motion).
  */
@@ -27,7 +27,6 @@ export function UpsellFooter({
   busy,
   locale,
   onCart,
-  onSkip,
   onPay,
 }: {
   /** The order's lines, e.g. «Burger Combo + Соус фирменный». */
@@ -39,7 +38,6 @@ export function UpsellFooter({
   busy: boolean;
   locale: Locale;
   onCart: () => void;
-  onSkip: () => void;
   onPay: () => void;
 }) {
   const { px } = useMetrics();
@@ -47,7 +45,6 @@ export function UpsellFooter({
   const t = copy(locale);
   const rise = useEnter(0, 520);
   const cart = usePress(0.98);
-  const skip = usePress(0.96);
   const pay = usePress(0.96);
   const blocked = disabled || busy;
   const height = Math.max(64, px(88));
@@ -119,37 +116,6 @@ export function UpsellFooter({
                 }}
               >
                 {amount}
-              </Text>
-            </Pressable>
-          </Animated.View>
-          <Animated.View style={{ transform: [{ scale: skip.scale }] }}>
-            <Pressable
-              testID="kiosk-upsell-skip"
-              accessibilityRole="button"
-              accessibilityLabel={t.smartSkip}
-              accessibilityState={{ disabled: blocked, busy }}
-              disabled={blocked}
-              onPress={onSkip}
-              onPressIn={skip.onPressIn}
-              onPressOut={skip.onPressOut}
-              style={{
-                minHeight: height,
-                paddingHorizontal: px(34),
-                borderRadius: 999,
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,.24)',
-                ...glassSurface(),
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: disabled ? 0.45 : 1,
-              }}
-            >
-              <Text
-                {...fixedText}
-                numberOfLines={1}
-                style={{ fontFamily: fonts.heavy, fontSize: px(21), color: colors.white }}
-              >
-                {t.smartSkip}
               </Text>
             </Pressable>
           </Animated.View>

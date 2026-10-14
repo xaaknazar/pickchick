@@ -2,14 +2,7 @@ import { useEffect, useState } from 'react';
 import type { KioskModel, KioskProduct } from '../model';
 import { defaultSelections, LINE_LIMIT, money, testLineId, validSelections } from '../cart';
 import { copy } from '../i18n';
-import {
-  orderLines,
-  orderSummary,
-  planUpsell,
-  undoUpsellAdds,
-  type UpsellLine,
-  type UpsellTileKey,
-} from '../smartUpsell';
+import { orderLines, orderSummary, planUpsell, type UpsellTileKey } from '../smartUpsell';
 import { CartUpsell } from '../components/CartUpsell';
 import {
   Body,
@@ -75,20 +68,11 @@ const addUpsell = (model: KioskModel, p: KioskProduct) => {
  */
 export interface UpsellMemory {
   base: string[] | null;
-  /** The cart's lines and quantities when the screen opened: «Без допов» puts them back. */
-  opened?: UpsellLine[] | null;
 }
-/** The cart's lines (stopped ones included) by id and quantity. */
-const cartLines = (model: KioskModel): UpsellLine[] =>
-  [...model.cart, ...model.unavailableCartLines].map(({ lineId, quantity }) => ({
-    lineId,
-    quantity,
-  }));
 /**
  * Smart upsell (kiosk redesign 2026-10-13, README §4): always opened by «Оформить заказ».
- * The suggestion follows `planUpsell`; both actions open the order review with Kaspi QR.
- * «Без допов»
- * first takes out what was added on the screen during this visit. «В заказе»
+ * The suggestion follows `planUpsell`; «К оплате» keeps the current order and opens review.
+ * Extras are optional and their quantity can be reduced to zero. «В заказе»
  * opens the order page for changes. Unavailable lines stay visible here and block payment.
  */
 export function UpsellScreen({
@@ -140,7 +124,6 @@ export function UpsellScreen({
     return last ? { ...p, price_minor: last.unitPriceMinor } : p;
   };
   const [base] = useState(() => {
-    memory.opened ??= cartLines(model);
     return (memory.base ??= [
       ...model.cart.map((line) => line.productId),
       ...model.unavailableCartLines.map((line) => line.productId),
@@ -187,14 +170,6 @@ export function UpsellScreen({
   const commercial = !!model.commercial;
   const blocked = !model.cartValid || !model.cart.length || (commercial && !model.checkoutReady);
   const pay = () => model.goLoyalty();
-  // «Без допов» takes out exactly what was added during this visit (the cart goes back to the
-  // quantities it had when the screen opened), then goes on to payment like «К оплате».
-  const skip = () => {
-    model.touch();
-    void undoUpsellAdds(model, memory.opened ?? [], cartLines(model)).then((done) => {
-      if (done) pay();
-    });
-  };
   const rows = [
     { key: 'sauces', title: t.smartSauces, note: t.smartSaucesNote, tiles: plan.sauces, art: 1 },
     { key: 'drinks', title: t.drinks, note: undefined, tiles: plan.drinks, art: 0 },
@@ -301,7 +276,6 @@ export function UpsellScreen({
         busy={model.busy}
         locale={context.locale}
         onCart={model.openCart}
-        onSkip={skip}
         onPay={pay}
       />
       {sheet ? (

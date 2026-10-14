@@ -3,8 +3,8 @@
 Exported kiosk (test simulator) with browser_ui's local API fixture: fingers in the order
 suggest the burger, a burger suggests fingers, both mains suggest the lemonade; an added item
 turns green and a second tap takes it out; RU on the 13-inch (1024x1366), 11-inch (820x1180) and
-mini (744x1133) iPads plus KZ, with no text cut and every action on screen. «К оплате» and «Без
-допов» open the existing payment-method screen in the simulator (Kaspi and card), and the
+mini (744x1133) iPads plus KZ, with no text cut and every action on screen. The single
+«К оплате» action opens review with or without extras; quantities remain unchanged, and the
 payment, the order number and «В заказе» -> order page keep working. A line stopped while the
 guest is on the screen is shown and blocks payment.
 
@@ -104,8 +104,9 @@ class SmartUpsell(ui.KioskUI):
     def check_layout(self, page, width, height):
         for identifier in ['kiosk-header-back', 'kiosk-language-kk',
                            'kiosk-language-ru', 'kiosk-language-en', 'kiosk-step-pills',
-                           'kiosk-upsell-cart', 'kiosk-upsell-skip', 'kiosk-upsell-continue']:
+                           'kiosk-upsell-cart', 'kiosk-upsell-continue']:
             ui.assert_bounded(page, identifier, width, height)
+        expect(ui.element(page, 'kiosk-upsell-skip')).to_have_count(0)
         ui.assert_no_overflow(page, width)
         self.assertEqual(ui.element(page, 'kiosk-screen-upsell').evaluate(CUT_TEXT), [],
                          'A text of the upsell is cut')
@@ -152,7 +153,7 @@ class SmartUpsell(ui.KioskUI):
                 ui.capture(page, f'upsell-all-{locale}-{width}.png')
             self.assertEqual(len(fixture.orders), 0)
 
-    def test_quantities_sizes_and_skip_restore_the_original_order(self):
+    def test_quantities_sizes_and_continue_preserve_selected_extras(self):
         page, fixture = self.upsell(BURGER, 820, 1180)
         expect(ui.element(page, 'kiosk-upsell-hero')).to_contain_text('Добавьте фингерсы')
         self.sheet_add(page, 'sauce', 'size-1')
@@ -171,19 +172,24 @@ class SmartUpsell(ui.KioskUI):
         ui.element(page, 'kiosk-upsell-plus-lemonade').click()
         expect(ui.element(page, 'kiosk-upsell-quantity-lemonade')).to_have_text('2')
         ui.capture(page, 'upsell-quantity-and-volume-820.png')
-        ui.element(page, 'kiosk-upsell-skip').click()
+        ui.element(page, 'kiosk-upsell-continue').click()
         ui.screen(page, 'loyalty')
         self.assertEqual([line['productId'] for line in ui.stored(page, ui.FLOW_KEY)['cart']],
-                         ['burger-combo'])
+                         ['burger-combo', 'sauce', 'lemonade'])
+        paid_lines = ui.stored(page, ui.FLOW_KEY)['cart']
+        self.assertEqual([line['quantity'] for line in paid_lines], [1, 4, 2])
         self.assertEqual(len(fixture.orders), 0)
 
-    def test_existing_drink_can_grow_and_skip_undoes_only_the_extras(self):
+    def test_existing_drink_can_grow_and_extras_can_be_removed_with_minus(self):
         page, fixture = self.upsell(FINGERS + [('drinks', 'cola')], 1024, 1366)
         expect(ui.element(page, 'kiosk-upsell-quantity-cola')).to_have_text('1')
         ui.element(page, 'kiosk-upsell-plus-cola').click()
         expect(ui.element(page, 'kiosk-upsell-quantity-cola')).to_have_text('2')
         self.sheet_add(page, 'sauce')
-        ui.element(page, 'kiosk-upsell-skip').click()
+        ui.element(page, 'kiosk-upsell-minus-sauce').click()
+        expect(ui.element(page, 'kiosk-upsell-quantity-sauce')).to_have_text('0')
+        ui.element(page, 'kiosk-upsell-minus-cola').click()
+        ui.element(page, 'kiosk-upsell-continue').click()
         ui.screen(page, 'loyalty')
         lines = ui.stored(page, ui.FLOW_KEY)['cart']
         self.assertEqual([line['productId'] for line in lines], ['pick-combo', 'cola'])
@@ -246,7 +252,7 @@ class SmartUpsell(ui.KioskUI):
         page.clock.fast_forward('01:05')
         expect(ui.element(page, 'kiosk-upsell-check-cart')).to_be_visible(timeout=20000)
         expect(ui.element(page, 'kiosk-upsell-continue')).to_be_disabled()
-        expect(ui.element(page, 'kiosk-upsell-skip')).to_be_disabled()
+        expect(ui.element(page, 'kiosk-upsell-skip')).to_have_count(0)
         expect(ui.element(page, 'kiosk-upsell-total')).to_have_text('Проверьте корзину')
         ui.capture(page, 'upsell-stopped-line-1024.png')
         ui.element(page, 'kiosk-upsell-open-cart').click()
@@ -293,9 +299,9 @@ class CommercialUpsell(unittest.TestCase):
     def test_every_new_order_reviews_then_uses_qr_without_invoice(self):
         report = []
         for name, button in [('qr-only', 'kiosk-upsell-continue'),
-                             ('qr-only', 'kiosk-upsell-skip'),
                              ('qr-and-invoice', 'kiosk-upsell-continue')]:
             page, errors, external = self.story(name)
+            expect(page.get_by_test_id('kiosk-upsell-skip')).to_have_count(0)
             page.get_by_test_id(button).click()
             expect(page.get_by_test_id('kiosk-screen-loyalty')).to_be_visible()
             expect(page.get_by_test_id('kiosk-payment-method-kaspi_invoice')).to_have_count(0)
