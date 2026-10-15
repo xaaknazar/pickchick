@@ -5698,11 +5698,14 @@
         "@release/ios",
         "@ipad/kiosk",
         "tests/photo-printer/browser_photo.py",
-        "tools/photo-printer/mac-app.tsx"
+        "tools/photo-printer/mac-app.tsx",
+        "tools/photo-printer/raster.mjs",
+        "tests/photo-printer/printer.test.mjs",
+        "design/photo-alex/print-caption.svg"
       ],
       "status": "active",
       "head": "b9e33adb0cab57c5e332c1c65fc0bc284922b6b7",
-      "updatedAt": "2026-10-15T13:23:13.444Z",
+      "updatedAt": "2026-10-15T13:25:20.421Z",
       "summary": "Menu-corner animated Alex, welcome entry removed, cart preserved; Mac preview restored. 233 unit tests, 4 viewport photo checks, motion and full Storybook accessibility passed locally. PR257 source b9e33adb, build23 archive preparing; device still22.",
       "nextAction": "Wait exact-source full CI, verify signed archive, install over22 preserving pairing, native demo-only validation. Paper caption awaits owner selection; global status/roadmap retained by other task."
     }
