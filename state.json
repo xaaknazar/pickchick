@@ -5673,8 +5673,10 @@
         "docs/operations/kiosk-photo-ipad.md"
       ],
       "status": "active",
-      "head": "cbe771107fdd042650cc57340edc822abb7bc6cd",
-      "updatedAt": "2026-10-15T04:22:49.460Z"
+      "head": "98a53606d40f624dfad02c51f4bd534d71d8ce53",
+      "updatedAt": "2026-10-15T04:26:48.482Z",
+      "summary": "PR253 https://github.com/xaaknazar/pickchick/pull/253: HTTPS-служба получила mac-usb через проверенный адаптер; TCP сохранён. 31 Node tests, lint/format/diff прошли, CI нового SHA ещё выполняется. База cbe77110 полностью зелёная. Установка на iPad НЕ выполнена: на этом Mac не найден Xcode/devicectl, 0 valid signing identities, iPad/принтер отсутствуют в USB. Native UI уже реализован; новый TLS origin/номер сборки не выдумывали. Shared status/roadmap заняты mobile-combo-rewards.",
+      "nextAction": "Ждём ответа владельца, к какому Mac подключён iPad и где будет подключён принтер. Затем свежие refs/claims, trusted HTTPS/LAN, резерв @release/ios, проверенная подпись и установка поверх существующего kiosk. Ключи/данные не удалять. Подробный runbook docs/operations/kiosk-photo-ipad.md. Перед продолжением проверить CI PR253."
     }
   ]
 }
