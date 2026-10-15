@@ -5673,10 +5673,10 @@
         "docs/operations/kiosk-photo-ipad.md"
       ],
       "status": "active",
-      "head": "98a53606d40f624dfad02c51f4bd534d71d8ce53",
-      "updatedAt": "2026-10-15T04:26:48.482Z",
-      "summary": "PR253 https://github.com/xaaknazar/pickchick/pull/253: HTTPS-служба получила mac-usb через проверенный адаптер; TCP сохранён. 31 Node tests, lint/format/diff прошли, CI нового SHA ещё выполняется. База cbe77110 полностью зелёная. Установка на iPad НЕ выполнена: на этом Mac не найден Xcode/devicectl, 0 valid signing identities, iPad/принтер отсутствуют в USB. Native UI уже реализован; новый TLS origin/номер сборки не выдумывали. Shared status/roadmap заняты mobile-combo-rewards.",
-      "nextAction": "Ждём ответа владельца, к какому Mac подключён iPad и где будет подключён принтер. Затем свежие refs/claims, trusted HTTPS/LAN, резерв @release/ios, проверенная подпись и установка поверх существующего kiosk. Ключи/данные не удалять. Подробный runbook docs/operations/kiosk-photo-ipad.md. Перед продолжением проверить CI PR253."
+      "head": "607aadd9296c3a9c1738fa383c0f6defe6318a3c",
+      "updatedAt": "2026-10-15T04:42:13.846Z",
+      "summary": "PR253: HTTPS mac-usb adapter и runbook опубликованы в shared 607aadd9. 31 Node tests/lint успешны на runtime98a53606; его photo_ui/photo_printer green, полная Foundation38681493236 ещё не завершена. Документ607aadd9 format/diff проверен. Владелец выбрал iPad на этот Mac и USB-принтер на Mac. Локальные TLS/config/profile подготовлены; HTTPS, проверка CA/имени и auth401/200 прошли с выключенной печатью. Журнал 2sent/1unknown сохранён, процесс службы остановлен. На Mac macOS14.6.1, нет Xcode/подписи; USB iPad/принтер ещё не обнаружены. Установка на iPad НЕ выполнена.",
+      "nextAction": "Владелец разрешил подготовить обновление этого Mac. Идёт softwareupdate --fetch-full-installer Tahoe26.7.1; одноразовый локальный наблюдатель проверит Apple codesign/spctl и покажет установщик в Finder. Состояние .local/photo-ipad/macos-preparation.txt, ошибки installer-watch.log; проверка подписи ожидает загрузки. ОС/перезагрузка автоматически не запускались; свежая TimeMachine-копия не подтверждена. После обновления - Xcode26.6+совместимый, существующая Apple team/signing, USB iPad/printer, TLS trust/LAN. Затем свежие refs/claims и резерв @release/ios, зелёная CI точного source, сборка с origin.txt и установка поверх kiosk21. Shared status/roadmap заняты mobile-combo-rewards."
     }
   ]
 }
