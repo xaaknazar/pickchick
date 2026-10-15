@@ -63,8 +63,7 @@ export function PhotoEntry({
     <View testID="photo-entry">
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={t.capture}
-        accessibilityHint={message.detail}
+        accessibilityLabel={`${message.title} ${message.detail} ${t.capture}`}
         accessibilityState={{ disabled }}
         disabled={disabled}
         testID="photo-open"
