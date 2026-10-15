@@ -5678,6 +5678,29 @@
       "updatedAt": "2026-10-15T13:00:05.881Z",
       "summary": "Build 22 installed and launched on physical iPad from source 21ebf92b after green release CI. Owner confirmed physical photo with logo and return to welcome on 2026-10-15. HTTPS pairing and authenticated status verified; USB print sent, old unknown job not retried. Acceptance recorded in PR256; docs-only checkpoint, no native rebuild or TestFlight upload.",
       "nextAction": "Temporary USB photo bridge remains running on owner's Mac; keep Mac awake and on same LAN with iPad and USB printer attached. No autostart configured. Do not launch duplicate writer or retry unknown jobs. Retake and network/paper failure acceptance remain separate future checks. Transfer verified milestone from docs/operations/kiosk-photo-ipad.md to global status/roadmap when mobile-combo-rewards releases those files."
+    },
+    {
+      "id": "photo-alex",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/photo-alex",
+      "scopes": [
+        "apps/kiosk/src/screens/MenuScreen.tsx",
+        "apps/kiosk/src/screens/WelcomeMode.tsx",
+        "apps/kiosk/src/components/WelcomeContent.tsx",
+        "apps/kiosk/src/components/CategoryRail.tsx",
+        "apps/kiosk/src/components/PhotoEntry.tsx",
+        "apps/kiosk/src/components/PhotoEntry.stories.tsx",
+        "apps/kiosk/src/photobooth/copy.ts",
+        "apps/kiosk/app.json",
+        "design/photo-alex",
+        "tests/kiosk/photo-entry",
+        "docs/operations/kiosk-photo-alex.md",
+        "@release/ios",
+        "@ipad/kiosk"
+      ],
+      "status": "active",
+      "head": "442e51f7e9a837294df7f3ba1794eba3995ee268",
+      "updatedAt": "2026-10-15T13:02:17.141Z"
     }
   ]
 }
