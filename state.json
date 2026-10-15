@@ -5723,7 +5723,9 @@
       ],
       "status": "active",
       "head": "13009f8d98aa74bae3df5d351d962d4be3664cf4",
-      "updatedAt": "2026-10-15T13:36:43.497Z"
+      "updatedAt": "2026-10-15T13:41:59.841Z",
+      "summary": "PR258 source 13009f8d: logo/photo/one selected menu-language caption (KK/RU/EN). 34 tests, typecheck/lint, Mac camera locale/retake/inert single-print checks passed. Signed final iPad build23 archive verified; app currently22 and live Mac service unchanged.",
+      "nextAction": "Wait full exact-source CI38744033616; then update existing Mac HTTPS/USB service without resetting pairing/jobs, install verified build23 over22, run demo-only native UI smoke, integrate both PR257/258 and document actual outcomes. Global status/roadmap owned by other task."
     }
   ]
 }
