@@ -5717,11 +5717,12 @@
         "apps/kiosk/src/photobooth/controller.ts",
         "tools/photo-printer/service.mjs",
         "tests/photo-printer/client.test.mjs",
-        "tests/photo-printer/browser_photo.py"
+        "tests/photo-printer/browser_photo.py",
+        "tests/photo-printer/browser_mac.py"
       ],
       "status": "active",
       "head": "f50bece77601f88502ca2c418245f70d1dde22d2",
-      "updatedAt": "2026-10-15T13:32:32.634Z"
+      "updatedAt": "2026-10-15T13:32:48.757Z"
     }
   ]
 }
