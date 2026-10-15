@@ -5693,15 +5693,13 @@
         "apps/kiosk/src/photobooth/copy.ts",
         "apps/kiosk/app.json",
         "tests/kiosk/photo-entry",
-        "@release/ios",
-        "@ipad/kiosk",
         "tools/photo-printer/mac-app.tsx"
       ],
       "status": "active",
       "head": "b9e33adb0cab57c5e332c1c65fc0bc284922b6b7",
-      "updatedAt": "2026-10-15T13:32:27.316Z",
+      "updatedAt": "2026-10-15T13:36:14.956Z",
       "summary": "Menu-corner animated Alex, welcome entry removed, cart preserved; Mac preview restored. 233 unit tests, 4 viewport photo checks, motion and full Storybook accessibility passed locally. PR257 source b9e33adb, build23 archive preparing; device still22.",
-      "nextAction": "Native source b9e33adb in PR257 continues CI for build23 installation; user-approved trilingual paper layout moved to same-owner photo-caption continuation."
+      "nextAction": "Finish PR257 after shared integration; final iPad build23 now belongs to photo-caption because menu locale is passed to printer."
     },
     {
       "id": "photo-caption",
