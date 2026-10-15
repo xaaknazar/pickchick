@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Animated, Pressable, ScrollView, View } from 'react-native';
 import { PhotoImage } from './PhotoImage';
 import { copy, type Locale } from '../i18n';
@@ -28,18 +28,20 @@ export function CategoryRail({
   products,
   locale,
   onSelect,
+  footer,
 }: {
   category: Category;
   products: KioskProduct[];
   locale: Locale;
   onSelect: (key: Category) => void;
+  footer?: ReactNode;
 }) {
   const { px, height: screen } = useMetrics();
   const t = copy(locale);
   const [room, setRoom] = useState(0);
   const count = categoryKeys.length;
   // Before the first layout the rail assumes the header's 128 pt; the measured room wins.
-  const available = room || screen - px(128) - px(MENU_BOTTOM);
+  const available = room || screen - px(128) - px(MENU_BOTTOM) - (footer ? px(240) : 0);
   const tile = Math.round(
     Math.min(
       px(TILE.max),
@@ -52,16 +54,17 @@ export function CategoryRail({
   return (
     <View
       {...ownerOrange}
-      style={{ width: px(RAIL_WIDTH), flexShrink: 0 }}
-      onLayout={(e) => setRoom(Math.max(0, e.nativeEvent.layout.height - px(MENU_BOTTOM)))}
+      style={{ width: px(RAIL_WIDTH), flexShrink: 0, paddingBottom: px(MENU_BOTTOM) }}
     >
       <ScrollView
+        style={{ flex: 1 }}
+        onLayout={(e) => setRoom(Math.max(0, e.nativeEvent.layout.height - px(12)))}
         accessibilityRole="tablist"
         accessibilityLabel={t.menuCategories}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingHorizontal: px(16),
-          paddingBottom: px(MENU_BOTTOM),
+          paddingBottom: px(12),
           gap: px(TILE.gap),
         }}
       >
@@ -98,6 +101,9 @@ export function CategoryRail({
           );
         })}
       </ScrollView>
+      {footer ? (
+        <View style={{ paddingHorizontal: px(16), paddingBottom: px(12) }}>{footer}</View>
+      ) : null}
     </View>
   );
 }

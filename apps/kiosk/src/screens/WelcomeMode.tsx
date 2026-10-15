@@ -18,7 +18,6 @@ export function WelcomeScreen({ model, context }: { model: KioskModel; context: 
         onStart={() => void model.start()}
         busy={model.busy}
         onLogoHold={context.onStaffHold}
-        onPhotoInteraction={model.touch}
       />
     </ScreenSurface>
   );

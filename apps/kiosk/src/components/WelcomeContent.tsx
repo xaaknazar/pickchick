@@ -16,7 +16,6 @@ import { useEnter } from './motion';
 const CTA_ORDER: readonly Locale[] = ['kk', 'ru', 'en'];
 import { SaluteButton } from './SaluteButton';
 import { fixedText } from './Body';
-import { PhotoEntry } from './PhotoEntry';
 /** Kaspi brand mark for the "Pay with Kaspi QR" chip (same file as the checkout package). */
 /** Owner 2026-10-13: one static caption, always in the selected language. */
 function CtaCaption({ shown }: { shown: Locale }) {
@@ -184,7 +183,6 @@ export function WelcomeContent({
   onStart,
   busy,
   onLogoHold,
-  onPhotoInteraction,
 }: {
   locale: Locale;
   onLocale: (v: Locale) => void;
@@ -192,7 +190,6 @@ export function WelcomeContent({
   busy: boolean;
   /** Staff only: a long hold (STAFF_HOLD_MS) on the logo; no visible hint for guests. */
   onLogoHold?: () => void;
-  onPhotoInteraction?: () => void;
 }) {
   const { v } = useMetrics();
   const safe = useSafeAreaInsets();
@@ -289,7 +286,6 @@ export function WelcomeContent({
             }}
           >
             <KaspiChip label={t.payKaspiQR} />
-            <PhotoEntry locale={locale} onInteraction={onPhotoInteraction} disabled={busy} />
           </Animated.View>
         </View>
       </View>
