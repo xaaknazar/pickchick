@@ -5662,6 +5662,19 @@
       "updatedAt": "2026-10-14T14:27:42.757Z",
       "summary": "PR https://github.com/xaaknazar/pickchick/pull/252; cbe771107fdd042650cc57340edc822abb7bc6cd опубликован и включён в shared без force. Локальная камера Mac и USB POS-80: после исправления полос/порций владелец подтвердил полный отпечаток с логотипом. Затем сообщил о тёмном фото; установлен новый профиль осветления/мягкой резкости/serpentine, бумажная приёмка нового качества ожидается. 27 Node tests, browser fake-camera flow, isolated web build, kiosk typecheck, scoped lint/format/diff прошли. CI текущего SHA выполняется, зелёный релиз не заявлен. Локальный сервис 13441 оставлен, iPad/VPS/Windows не обновлялись. Прежний unknown сохранён без повторов.",
       "nextAction": "Получить отзыв о новом более светлом отпечатке; при необходимости продолжить настройку отдельным claim. Затем native iPad/network printer и серия/бумага/обрыв кабеля. Проверить финальную CI PR252. docs/project-status.md и docs/roadmap/project.json остаются у mobile-combo-rewards: после передачи перенести факты и SHA из docs/operations/kiosk-photo-mac.md."
+    },
+    {
+      "id": "photo-ipad",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/photo-ipad",
+      "scopes": [
+        "tools/photo-printer",
+        "tests/photo-printer",
+        "docs/operations/kiosk-photo-ipad.md"
+      ],
+      "status": "active",
+      "head": "cbe771107fdd042650cc57340edc822abb7bc6cd",
+      "updatedAt": "2026-10-15T04:22:49.460Z"
     }
   ]
 }
