@@ -5695,11 +5695,11 @@
         "tests/kiosk/photo-entry",
         "tools/photo-printer/mac-app.tsx"
       ],
-      "status": "active",
+      "status": "done",
       "head": "b9e33adb0cab57c5e332c1c65fc0bc284922b6b7",
-      "updatedAt": "2026-10-15T13:36:14.956Z",
-      "summary": "Menu-corner animated Alex, welcome entry removed, cart preserved; Mac preview restored. 233 unit tests, 4 viewport photo checks, motion and full Storybook accessibility passed locally. PR257 source b9e33adb, build23 archive preparing; device still22.",
-      "nextAction": "Finish PR257 after shared integration; final iPad build23 now belongs to photo-caption because menu locale is passed to printer."
+      "updatedAt": "2026-10-15T13:57:41.152Z",
+      "summary": "PR257 b9e33adb fully green (17 checks; Foundation38742174457) and integrated into shared-development. Animated menu-corner Alex, welcome entry removed, cart preservation; browser accessibility/motion checks passed. No intermediate build installed.",
+      "nextAction": "Final selected-language printing and iPad build23 installation continue under photo-caption / PR258."
     },
     {
       "id": "photo-caption",
