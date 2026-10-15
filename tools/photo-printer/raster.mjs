@@ -1,8 +1,11 @@
 import sharp from 'sharp';
 import { fileURLToPath } from 'node:url';
 
-const captionPath = fileURLToPath(
-  new URL('../../design/photo-alex/print-caption.svg', import.meta.url),
+const captionPaths = Object.fromEntries(
+  ['ru', 'kk', 'en'].map((locale) => [
+    locale,
+    fileURLToPath(new URL(`../../design/photo-alex/print-caption-${locale}.svg`, import.meta.url)),
+  ]),
 );
 
 /** Serpentine Floyd-Steinberg, black = 1. Only generated pixels reach ESC/POS. */
@@ -71,7 +74,8 @@ export function escpos(bits, width, height, cut = false) {
 }
 
 /** Same binary pixels are returned for the preview and sent to the printer. No metadata retained. */
-export async function preparePhoto(input, logoPath, width = 576) {
+export async function preparePhoto(input, logoPath, width = 576, locale = 'ru') {
+  if (!Object.hasOwn(captionPaths, locale)) throw new Error('INVALID_LOCALE');
   if (![384, 512, 576].includes(width) || input.length > 5 * 1024 * 1024)
     throw new Error('INVALID_IMAGE');
   const image = sharp(input, { limitInputPixels: 16000000, failOn: 'warning', animated: false });
@@ -113,8 +117,8 @@ export async function preparePhoto(input, logoPath, width = 576) {
   const photoTop = margin * 2 + 132;
   const captionTop = photoTop + photoHeight + margin;
   // Outlined lettering includes Kazakh glyphs and needs no printer code page or installed font.
-  const caption = await sharp(captionPath).resize(photoWidth).png().toBuffer();
-  const captionHeight = Math.round((photoWidth * 180) / 336);
+  const caption = await sharp(captionPaths[locale]).resize(photoWidth).png().toBuffer();
+  const captionHeight = Math.round((photoWidth * 60) / 336);
   const height = captionTop + captionHeight + margin;
   // Sharp applies colour operations before composite. Materialize first so the photograph
   // and logo, not just the white base, pass through the same grayscale conversion.

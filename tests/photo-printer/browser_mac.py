@@ -12,17 +12,30 @@ try:
         browser = p.chromium.launch(args=['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'])
         page = browser.new_page(viewport={'width': 1440, 'height': 900}, permissions=['camera'])
         external = []
+        preview_languages = []
         page.on('request', lambda r: external.append(r.url) if r.url.startswith('http') and not r.url.startswith(config['origin'] + '/') else None)
+        page.on('request', lambda r: preview_languages.append(r.post_data_json.get('locale')) if r.url == config['origin'] + '/v1/previews' and r.method == 'POST' else None)
         page.goto(config['origin'] + '/#photo-key=' + config['token'])
         expect(page.get_by_test_id('photo-open')).to_be_visible(timeout=20000)
         page.evaluate('() => document.fonts.ready')
         page.wait_for_timeout(1800)  # The welcome entrance finishes before visual evidence.
         Path('.local/photo-mac-check').mkdir(exist_ok=True)
         page.screenshot(path='.local/photo-mac-check/welcome.png')
+        for locale in ['kk', 'en']:
+            page.get_by_test_id('kiosk-language-' + locale).click()
+            page.get_by_test_id('photo-open').click()
+            expect(page.get_by_test_id('photo-capture')).to_be_enabled(timeout=15000)
+            page.get_by_test_id('photo-capture').click()
+            expect(page.get_by_test_id('photo-print')).to_be_enabled(timeout=15000)
+            assert preview_languages[-1] == locale
+            page.get_by_test_id('photo-close').click()
+            expect(page.get_by_test_id('photo-open')).to_be_visible()
+        page.get_by_test_id('kiosk-language-ru').click()
         page.get_by_test_id('photo-open').click()
         expect(page.get_by_test_id('photo-capture')).to_be_enabled(timeout=15000)
         page.get_by_test_id('photo-capture').click()
         expect(page.get_by_test_id('photo-print')).to_be_enabled(timeout=15000)
+        assert preview_languages[-1] == 'ru'
         page.screenshot(path='.local/photo-mac-check/preview.png')
         page.get_by_test_id('photo-retake').click()
         expect(page.get_by_test_id('photo-capture')).to_be_enabled(timeout=15000)
@@ -35,7 +48,7 @@ try:
         assert not external, external
         assert page.evaluate('Object.keys(localStorage).length') == 0
         browser.close()
-    print('PASS: camera, thermal preview, retake, one print dispatch, automatic welcome, no external requests')
+    print('PASS: three selected languages, camera, thermal preview, retake, one print dispatch, automatic welcome, no external requests')
 finally:
     server.terminate()
     server.wait(timeout=10)

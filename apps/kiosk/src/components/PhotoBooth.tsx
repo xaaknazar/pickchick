@@ -256,7 +256,7 @@ export function PhotoBooth({
                     setCount(null);
                     controller.cameraError();
                   }}
-                  onCapture={(b, u, d) => void controller.captured(b, u, d)}
+                  onCapture={(b, u, d) => void controller.captured(b, u, d, locale)}
                 />
                 {count !== null ? (
                   <View pointerEvents="none" style={styles.countdown}>

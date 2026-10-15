@@ -160,7 +160,7 @@ test('thermal photo profile opens dark tones without clipping highlights or chan
   assert.deepEqual(
     p.bits.subarray(72 * 600),
     whitePhoto.bits.subarray(72 * 600),
-    'three-language lettering unaffected by photo brightness',
+    'caption unaffected by photo brightness',
   );
 });
 test('photo framing preserves both edges at every supported paper width', async () => {
@@ -194,25 +194,58 @@ test('photo framing preserves both edges at every supported paper width', async 
     assert.equal(pixels[10 * width + 10], 255, 'margin stays paper-white');
   }
 });
-test('six readable caption lines follow the photograph at every supported paper width', async () => {
+test('two readable caption lines follow the photograph at every supported paper width', async () => {
   for (const width of [384, 512, 576]) {
-    const p = await preparePhoto(image, logoPath, width);
-    assert(p.height <= 1000, 'short souvenir within the existing printer limit');
-    const pixels = await sharp(p.png).grayscale().raw().toBuffer();
-    const scale = (width - 48) / 336;
-    const top = 180 + Math.round(((width - 48) * 3) / 4) + 24;
-    for (const baseline of [23, 47, 83, 107, 143, 167]) {
-      let dots = 0;
-      for (
-        let y = top + Math.floor((baseline - 18) * scale);
-        y < top + Math.ceil(baseline * scale);
-        y++
-      )
-        for (let x = 24; x < width - 24; x++) dots += pixels[y * width + x] === 0;
-      assert(dots > 100, `visible caption line ${baseline} at ${width}`);
+    for (const locale of ['ru', 'kk', 'en']) {
+      const p = await preparePhoto(image, logoPath, width, locale);
+      assert(p.height <= 1000, 'short souvenir within the existing printer limit');
+      const pixels = await sharp(p.png).grayscale().raw().toBuffer();
+      const scale = (width - 48) / 336;
+      const top = 180 + Math.round(((width - 48) * 3) / 4) + 24;
+      for (const baseline of [23, 47]) {
+        let dots = 0;
+        for (
+          let y = top + Math.floor((baseline - 18) * scale);
+          y < top + Math.ceil(baseline * scale);
+          y++
+        )
+          for (let x = 24; x < width - 24; x++) dots += pixels[y * width + x] === 0;
+        assert(dots > 100, `visible caption line ${baseline} at ${width}`);
+      }
+      assert.doesNotThrow(() => escpos(p.bits, p.width, p.height));
     }
-    assert.doesNotThrow(() => escpos(p.bits, p.width, p.height));
   }
+});
+test('HTTP preview uses exactly the selected language and rejects unsupported locales', async (t) => {
+  const f = fixture(t);
+  const server = http.createServer(handler(f.service));
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  t.after(() => server.close());
+  const url = 'http://127.0.0.1:' + server.address().port;
+  const headers = { Authorization: 'Bearer ' + f.token, 'Content-Type': 'application/json' };
+  const previews = new Set();
+  for (const locale of ['ru', 'kk', 'en']) {
+    f.advance(2001);
+    const response = await fetch(url + '/v1/previews', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ image: image.toString('base64'), locale }),
+    });
+    assert.equal(response.status, 200);
+    const preview = await response.json();
+    assert.equal(preview.locale, locale);
+    const expected = await preparePhoto(image, logoPath, 576, locale);
+    assert.equal(preview.png, expected.png.toString('base64'));
+    previews.add(preview.png);
+  }
+  assert.equal(previews.size, 3, 'each language has its own lettering, not a combined caption');
+  const bad = await fetch(url + '/v1/previews', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ image: image.toString('base64'), locale: '../ru' }),
+  });
+  assert.equal(bad.status, 400);
+  assert.equal((await bad.json()).code, 'INVALID_LOCALE');
 });
 test('pairing is one-use, expires, and locks after ten wrong attempts', (t) => {
   const f = fixture(t);

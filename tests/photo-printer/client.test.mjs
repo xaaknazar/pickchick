@@ -10,6 +10,7 @@ function fixture(overrides = {}) {
     png: 'synthetic-png',
     width: 576,
     height: 600,
+    locale: 'ru',
     expiresAt: Date.now() + 90000,
   };
   const io = {
@@ -24,7 +25,7 @@ function fixture(overrides = {}) {
     request: async (c, path, body, method) => {
       calls.push({ path, body, method });
       if (path === '/v1/status') return { printingEnabled: true };
-      if (path === '/v1/previews') return preview;
+      if (path === '/v1/previews') return Object.assign(preview, { locale: body.locale });
       if (path === '/v1/jobs') {
         assert.equal(body.id, pending);
         return { ...body, state: 'sent' };
@@ -37,11 +38,31 @@ function fixture(overrides = {}) {
   };
   return { controller: new PhotoController(io), io, preview, calls, pending: () => pending };
 }
-async function capture(f) {
+async function capture(f, locale = 'ru') {
   await f.controller.init();
   f.controller.camera();
-  await f.controller.captured('encoded', 'temporary', () => {});
+  await f.controller.captured('encoded', 'temporary', () => {}, locale);
 }
+test('the guest language reaches the preview and a wrong-language response cannot be printed', async () => {
+  for (const locale of ['ru', 'kk', 'en']) {
+    const f = fixture();
+    await capture(f, locale);
+    assert.equal(f.calls.find((c) => c.path === '/v1/previews').body.locale, locale);
+    assert.equal(f.controller.state.preview.locale, locale);
+    f.controller.dispose();
+  }
+  const f = fixture();
+  const request = f.io.request;
+  f.io.request = async (c, path, body, method) => {
+    const response = await request(c, path, body, method);
+    return path === '/v1/previews' ? { ...response, locale: 'en' } : response;
+  };
+  await capture(f, 'kk');
+  assert.equal(f.controller.state.preview, null);
+  await f.controller.print();
+  assert.equal(f.calls.filter((c) => c.path === '/v1/jobs').length, 0);
+  f.controller.dispose();
+});
 test('double tap persists the request before one print, without touching ordering APIs', async () => {
   const f = fixture();
   await capture(f);
