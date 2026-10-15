@@ -5701,10 +5701,10 @@
         "tools/photo-printer/mac-app.tsx"
       ],
       "status": "active",
-      "head": "c2a325388fbf41de8c3922b7ab341790c5702ab0",
-      "updatedAt": "2026-10-15T13:14:21.490Z",
-      "summary": "PR257 source c2a32538: photo entry moved from welcome to reserved menu-rail space. Generated Alex camera cutout, native motion with reduced/background/modal stop, cart preserved. Typecheck, scoped lint/format,233 kiosk tests,4 isolated browser scenarios passed. Build23 native archive running; CI pending, iPad remains22.",
-      "nextAction": "Wait exact-source CI, verify signed archive23 then install over22 preserving data and printer pairing. Native demo-only check prepared privately; do not create orders or prints. Print caption awaits owner choice. Full protocol docs/operations/kiosk-photo-alex.md."
+      "head": "b9e33adb0cab57c5e332c1c65fc0bc284922b6b7",
+      "updatedAt": "2026-10-15T13:23:13.444Z",
+      "summary": "Menu-corner animated Alex, welcome entry removed, cart preserved; Mac preview restored. 233 unit tests, 4 viewport photo checks, motion and full Storybook accessibility passed locally. PR257 source b9e33adb, build23 archive preparing; device still22.",
+      "nextAction": "Wait exact-source full CI, verify signed archive, install over22 preserving pairing, native demo-only validation. Paper caption awaits owner selection; global status/roadmap retained by other task."
     }
   ]
 }
