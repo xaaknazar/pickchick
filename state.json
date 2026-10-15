@@ -5716,11 +5716,13 @@
         "tools/photo-printer/service.mjs",
         "tests/photo-printer/client.test.mjs",
         "tests/photo-printer/browser_photo.py",
-        "tests/photo-printer/browser_mac.py"
+        "tests/photo-printer/browser_mac.py",
+        "@release/ios",
+        "@ipad/kiosk"
       ],
       "status": "active",
-      "head": "f50bece77601f88502ca2c418245f70d1dde22d2",
-      "updatedAt": "2026-10-15T13:32:48.757Z"
+      "head": "13009f8d98aa74bae3df5d351d962d4be3664cf4",
+      "updatedAt": "2026-10-15T13:36:20.143Z"
     }
   ]
 }
