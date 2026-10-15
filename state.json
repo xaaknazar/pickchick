@@ -5674,11 +5674,11 @@
         "@release/ios",
         "apps/kiosk/app.json"
       ],
-      "status": "active",
-      "head": "d8396090e9eac32ac3ab8d8432dfe71e433bc227",
-      "updatedAt": "2026-10-15T12:56:01.373Z",
-      "summary": "Build22 remains installed/launched from exact source21ebf92b (full green CI/signature verified, PR254). Owner reported generic pairing failure; first code had been accepted at12:47UTC and was consumed/expired by investigation, exact first client failure unconfirmed. Verified same LAN/IP/TLS/USB printer; enabled protocolConfirmed and restarted only owned bridge with fresh one-use code and private method/route-group/status diagnostics. At12:52UTC iPad POST pair200 then authenticated GET status200; preview and print succeeded, new job sent at12:53UTC. Journal now3sent/1unknown, original unknown not retried. Code removed from private instructions after confirmed connection. No photographs/tokens in diagnostic logs. Protocol updated in docs-only PR255, integrated shared. Paper quality and welcome return await owner confirmation; no new native build/TestFlight upload.",
-      "nextAction": "Owner confirms actual paper photo/logo quality and return to welcome. HTTPS diagnostic bridge remains running via .local/photo-ipad/diagnostic-bridge.mjs, config protocolConfirmed=true; do not start a duplicate writer or resend unknown jobs. If quality accepted, record physical acceptance and decide stable service operation for temporary USB Mac setup; preserve app data and prior certificates. Installed artifact source21ebf92b remains distinct from docs-only checkpoint. Status/roadmap still owned by mobile-combo-rewards."
+      "status": "done",
+      "head": "442e51f7e9a837294df7f3ba1794eba3995ee268",
+      "updatedAt": "2026-10-15T13:00:05.881Z",
+      "summary": "Build 22 installed and launched on physical iPad from source 21ebf92b after green release CI. Owner confirmed physical photo with logo and return to welcome on 2026-10-15. HTTPS pairing and authenticated status verified; USB print sent, old unknown job not retried. Acceptance recorded in PR256; docs-only checkpoint, no native rebuild or TestFlight upload.",
+      "nextAction": "Temporary USB photo bridge remains running on owner's Mac; keep Mac awake and on same LAN with iPad and USB printer attached. No autostart configured. Do not launch duplicate writer or retry unknown jobs. Retake and network/paper failure acceptance remain separate future checks. Transfer verified milestone from docs/operations/kiosk-photo-ipad.md to global status/roadmap when mobile-combo-rewards releases those files."
     }
   ]
 }
