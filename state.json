@@ -5696,11 +5696,12 @@
         "tests/kiosk/photo-entry",
         "docs/operations/kiosk-photo-alex.md",
         "@release/ios",
-        "@ipad/kiosk"
+        "@ipad/kiosk",
+        "tests/photo-printer/browser_photo.py"
       ],
       "status": "active",
       "head": "442e51f7e9a837294df7f3ba1794eba3995ee268",
-      "updatedAt": "2026-10-15T13:02:17.141Z"
+      "updatedAt": "2026-10-15T13:05:49.243Z"
     }
   ]
 }
