@@ -5316,7 +5316,6 @@
         "tests/kiosk/welcome-cta.test.mjs",
         "scripts/kiosk",
         "docs/design/kiosk-redesign-2026-10-13",
-        "@ipad/kiosk",
         "packages/test-order-flow/src/contracts.ts",
         "docs/operations/kiosk-owner-polish-2026-10-13.md",
         "tests/kiosk/ios",
@@ -5333,9 +5332,9 @@
         "apps/kiosk/src/components/UpsellCards.tsx",
         "@vps/catalog"
       ],
-      "updatedAt": "2026-10-14T14:19:02.194Z",
+      "updatedAt": "2026-10-15T13:02:11.620Z",
       "summary": "Build21 deb62522 установлен по USB поверх20, strict codesign/хеши/версия/запуск подтверждены. Полная CI установленного исходника11/11; native demo1/1, 0 ошибок/пропусков,15 снимков, заставка вне демо. Допы опущены16pt; Piko яблоко/апельсин catalog11/draft24 опубликованы по разрешению владельца без изменения цен, edge menu8 applied. Документы и пульт54348f9d опубликованы, health совпал, бизнес-сервисы неизменны. PR245 обновлён; его последний commit только документы/снимки. 14 октября: владелец явно подтвердил передачу @release/ios задаче mobile-payment-recovery; остальные области сохранены. 2026-10-14: владелец прямо разрешил временную передачу для переводов RU/KK/EN и push задаче mobile-l10n-push-1014: packages/contracts/openapi.json, docs/project-status.md, docs/roadmap/project.json. Текущие изменения сохраняются, остальные области остаются за исходной задачей. 14 октября: владелец разрешил передать kiosk-photo точку входа, новые компоненты фотокабины, app.json/package.json киоска и общий pnpm-lock.yaml. Остальные изменения сохраняются; широкие component/screen scopes разложены на существующие файлы, переданные пути не менять до возврата. 14 октября: по разрешённой передаче точки входа и уточнению владельца фотокабина переносится исключительно на заставку; WelcomeContent.tsx и WelcomeMode.tsx переданы kiosk-photo. Временная передача ci.yml mobile-combo-rewards по разрешению владельца на пересечения для акции 7+1; существующие kiosk jobs сохраняются. Владелец 14 октября разрешил временную передачу roadmap/public-https mobile-combo-rewards только для публикации статуса.",
-      "nextAction": "Приёмка владельцем build21; дождаться CI документационного checkpoint54348f9d перед включением PR245 в shared. Сервер/Windows больших заказов отдельно от текущего device-center baseline; прежние пакеты не применять. TestFlight и реальные счета/QR/оплаты не выполнять без прямого поручения."
+      "nextAction": "Приёмка владельцем build21; дождаться CI документационного checkpoint54348f9d перед включением PR245 в shared. Сервер/Windows больших заказов отдельно от текущего device-center baseline; прежние пакеты не применять. TestFlight и реальные счета/QR/оплаты не выполнять без прямого поручения. Photo menu entry paths and iPad reserved for photo-alex under owner authorization to transfer photo entry files and install on this Mac; other design scopes retained."
     },
     {
       "id": "mobile-appstore-audit-1014",
