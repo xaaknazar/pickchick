@@ -64,7 +64,7 @@ test('exact preview pixels match printer bits, with real logo and bounded output
   for (let i = 0; i < data.length; i++)
     assert.equal(data[i], p.bits[i >> 3] & (0x80 >> (i % 8)) ? 0 : 255);
   assert(
-    p.bits.subarray(72 * (p.height - 156)).some((n) => n),
+    p.bits.subarray(72 * 24, 72 * 156).some((n) => n),
     'logo is not blank',
   );
   await assert.rejects(() => preparePhoto(Buffer.from('<svg/>'), logoPath));
@@ -109,8 +109,8 @@ test('colour photographs retain distinct lifted tones and the logo remains visib
           black += !!(p.bits[(y * p.width + x) >> 3] & (128 >> (x % 8)));
       return black / (width * height);
     };
-    const photograph = density(30, 30, 516, 370),
-      logo = density(216, 444, 144, 132);
+    const photograph = density(30, 186, 516, 370),
+      logo = density(216, 24, 144, 132);
     assert(photograph > low && photograph < high, `colour ${color}: ${photograph}`);
     assert(logo > 0.1 && logo < 0.35, `visible, non-solid logo: ${logo}`);
   }
@@ -132,7 +132,7 @@ test('thermal photo profile opens dark tones without clipping highlights or chan
   const means = values.map((_, band) => {
     let total = 0,
       count = 0;
-    for (let y = 40; y < 400; y++)
+    for (let y = 196; y < 556; y++)
       for (
         let x = 24 + Math.ceil((band * width) / 7) + 8;
         x < 24 + ((band + 1) * width) / 7 - 8;
@@ -153,9 +153,14 @@ test('thermal photo profile opens dark tones without clipping highlights or chan
     .toBuffer();
   const whitePhoto = await preparePhoto(blank, logoPath);
   assert.deepEqual(
-    p.bits.subarray(72 * 444),
-    whitePhoto.bits.subarray(72 * 444),
+    p.bits.subarray(0, 72 * 180),
+    whitePhoto.bits.subarray(0, 72 * 180),
     'logo unaffected by photo brightness',
+  );
+  assert.deepEqual(
+    p.bits.subarray(72 * 600),
+    whitePhoto.bits.subarray(72 * 600),
+    'three-language lettering unaffected by photo brightness',
   );
 });
 test('photo framing preserves both edges at every supported paper width', async () => {
@@ -183,10 +188,30 @@ test('photo framing preserves both edges at every supported paper width', async 
   for (const width of [384, 512, 576]) {
     const p = await preparePhoto(input, logoPath, width);
     const pixels = await sharp(p.png).grayscale().raw().toBuffer();
-    const y = 24 + Math.floor(((width - 48) * 3) / 8);
+    const y = 180 + Math.floor(((width - 48) * 3) / 8);
     assert.equal(pixels[y * width + 28], 0, 'left friend not cropped');
     assert.equal(pixels[y * width + width - 29], 0, 'right friend not cropped');
     assert.equal(pixels[10 * width + 10], 255, 'margin stays paper-white');
+  }
+});
+test('six readable caption lines follow the photograph at every supported paper width', async () => {
+  for (const width of [384, 512, 576]) {
+    const p = await preparePhoto(image, logoPath, width);
+    assert(p.height <= 1000, 'short souvenir within the existing printer limit');
+    const pixels = await sharp(p.png).grayscale().raw().toBuffer();
+    const scale = (width - 48) / 336;
+    const top = 180 + Math.round(((width - 48) * 3) / 4) + 24;
+    for (const baseline of [23, 47, 83, 107, 143, 167]) {
+      let dots = 0;
+      for (
+        let y = top + Math.floor((baseline - 18) * scale);
+        y < top + Math.ceil(baseline * scale);
+        y++
+      )
+        for (let x = 24; x < width - 24; x++) dots += pixels[y * width + x] === 0;
+      assert(dots > 100, `visible caption line ${baseline} at ${width}`);
+    }
+    assert.doesNotThrow(() => escpos(p.bits, p.width, p.height));
   }
 });
 test('pairing is one-use, expires, and locks after ten wrong attempts', (t) => {

@@ -1,4 +1,9 @@
 import sharp from 'sharp';
+import { fileURLToPath } from 'node:url';
+
+const captionPath = fileURLToPath(
+  new URL('../../design/photo-alex/print-caption.svg', import.meta.url),
+);
 
 /** Serpentine Floyd-Steinberg, black = 1. Only generated pixels reach ESC/POS. */
 export function monochrome(gray, width, height) {
@@ -105,27 +110,41 @@ export async function preparePhoto(input, logoPath, width = 576) {
     .flatten({ background: '#fff' })
     .png()
     .toBuffer();
-  const height = photoHeight + 132 + margin * 3;
+  const photoTop = margin * 2 + 132;
+  const captionTop = photoTop + photoHeight + margin;
+  // Outlined lettering includes Kazakh glyphs and needs no printer code page or installed font.
+  const caption = await sharp(captionPath).resize(photoWidth).png().toBuffer();
+  const captionHeight = Math.round((photoWidth * 180) / 336);
+  const height = captionTop + captionHeight + margin;
   // Sharp applies colour operations before composite. Materialize first so the photograph
   // and logo, not just the white base, pass through the same grayscale conversion.
   const composed = await sharp({ create: { width, height, channels: 3, background: '#fff' } })
     .composite([
-      { input: photo, left: margin, top: margin },
-      { input: logo, left: (width - 144) / 2, top: photoHeight + margin * 2 },
+      { input: logo, left: (width - 144) / 2, top: margin },
+      { input: photo, left: margin, top: photoTop },
+      { input: caption, left: margin, top: captionTop },
     ])
     .png()
     .toBuffer();
   const gray = await sharp(composed).flatten({ background: '#fff' }).grayscale().raw().toBuffer();
-  // Start logo dithering with a fresh error buffer. Photo diffusion must not change the mark.
-  const logoTop = photoHeight + margin * 2;
-  const top = monochrome(gray.subarray(0, width * logoTop), width, logoTop);
-  const bottom = monochrome(gray.subarray(width * logoTop), width, height - logoTop);
-  const bits = Buffer.concat([top.bits, bottom.bits]);
-  const pixels = Buffer.concat([top.pixels, bottom.pixels]);
-  top.bits.fill(0);
-  top.pixels.fill(0);
-  bottom.bits.fill(0);
-  bottom.pixels.fill(0);
+  // Isolate error diffusion: photo tones cannot change the mark or the lettering.
+  const boundaries = [0, photoTop, captionTop, height];
+  const sections = boundaries
+    .slice(0, -1)
+    .map((start, i) =>
+      monochrome(
+        gray.subarray(width * start, width * boundaries[i + 1]),
+        width,
+        boundaries[i + 1] - start,
+      ),
+    );
+  const bits = Buffer.concat(sections.map((section) => section.bits));
+  const pixels = Buffer.concat(sections.map((section) => section.pixels));
+  for (const section of sections) {
+    section.bits.fill(0);
+    section.pixels.fill(0);
+  }
+  caption.fill(0);
   photo.fill(0);
   composed.fill(0);
   gray.fill(0);

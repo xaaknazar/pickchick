@@ -13,4 +13,16 @@ The native PhotoEntry animates the cutout with a short lean and camera pose, the
 a seven-second pause. No video, audio, flashing light or added animation dependency.
 Reduced Motion, backgrounding, a disabled entry and the open camera stop the loop.
 The entry has reserved space below the scrollable categories, above checkout.
-The photograph's print caption is deliberately unchanged pending the owner's choice.
+
+The owner chose “Хрустящий момент на память. Приятного аппетита!” and requested
+all three languages on the souvenir. `print-caption.svg` contains Kazakh, Russian
+and English outlined lettering, below the photo; the logo is now above the photo.
+The Kazakh text is adapted as “Қытырлақ сәт - тәтті естелік. Ас болсын!”.
+English: “A crispy moment to remember. Enjoy your meal!”.
+
+Regenerate the vector asset with `python3 design/photo-alex/build-caption.py`
+(authoring dependency: fontTools). It uses the existing Golos Text Medium font
+from `@expo-google-fonts/golos-text`, licensed under SIL OFL 1.1 (see
+`font-OFL.txt`). All requested Kazakh characters exist in its cmap. The service
+needs neither fontTools nor system fonts; captions become the same binary raster
+as the preview. Text never enters the printer's character-code-page mode.
