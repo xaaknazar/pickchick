@@ -5700,8 +5700,10 @@
         "tests/photo-printer/browser_photo.py"
       ],
       "status": "active",
-      "head": "442e51f7e9a837294df7f3ba1794eba3995ee268",
-      "updatedAt": "2026-10-15T13:05:49.243Z"
+      "head": "c2a325388fbf41de8c3922b7ab341790c5702ab0",
+      "updatedAt": "2026-10-15T13:12:04.915Z",
+      "summary": "PR257 source c2a32538: photo entry moved from welcome to reserved menu-rail space. Generated Alex camera cutout, native motion with reduced/background/modal stop, cart preserved. Typecheck, scoped lint/format,233 kiosk tests,4 isolated browser scenarios passed. Build23 native archive running; CI pending, iPad remains22.",
+      "nextAction": "Wait exact-source CI, verify signed archive23 then install over22 preserving data and printer pairing. Native demo-only check prepared privately; do not create orders or prints. Print caption awaits owner choice. Full protocol docs/operations/kiosk-photo-alex.md."
     }
   ]
 }
