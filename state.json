@@ -5721,11 +5721,11 @@
         "@ipad/kiosk",
         "@mac/photo-printer"
       ],
-      "status": "active",
-      "head": "13009f8d98aa74bae3df5d351d962d4be3664cf4",
-      "updatedAt": "2026-10-15T13:41:59.841Z",
-      "summary": "PR258 source 13009f8d: logo/photo/one selected menu-language caption (KK/RU/EN). 34 tests, typecheck/lint, Mac camera locale/retake/inert single-print checks passed. Signed final iPad build23 archive verified; app currently22 and live Mac service unchanged.",
-      "nextAction": "Wait full exact-source CI38744033616; then update existing Mac HTTPS/USB service without resetting pairing/jobs, install verified build23 over22, run demo-only native UI smoke, integrate both PR257/258 and document actual outcomes. Global status/roadmap owned by other task."
+      "status": "done",
+      "head": "ecacb4fab856d770be3b833f66087379ee53f508",
+      "updatedAt": "2026-10-15T14:06:34.556Z",
+      "summary": "PR258 source13009f8d: all14 exact-source CI checks green. Signed kiosk0.1.0(23) installed and launched on physical iPad18.7.8. Existing Mac HTTPS/USB bridge updated without pairing/job reset; all3 language previews exact. Physical demo menu/camera/cart XCTest passed, no skips/failures, demo exited. PR259 records verification; global status/roadmap remain owned by another task.",
+      "nextAction": "Owner can assess new selected-language caption on paper. Mac bridge must remain awake on same LAN/USB; autostart not configured. No new paper print claimed. iPadOS27 simulator lifecycle compatibility is separate."
     }
   ]
 }
