@@ -5718,11 +5718,12 @@
         "tests/photo-printer/browser_photo.py",
         "tests/photo-printer/browser_mac.py",
         "@release/ios",
-        "@ipad/kiosk"
+        "@ipad/kiosk",
+        "@mac/photo-printer"
       ],
       "status": "active",
       "head": "13009f8d98aa74bae3df5d351d962d4be3664cf4",
-      "updatedAt": "2026-10-15T13:36:20.143Z"
+      "updatedAt": "2026-10-15T13:36:43.497Z"
     }
   ]
 }
