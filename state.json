@@ -5703,6 +5703,21 @@
       "updatedAt": "2026-10-15T13:29:21.163Z",
       "summary": "Menu-corner animated Alex, welcome entry removed, cart preserved; Mac preview restored. 233 unit tests, 4 viewport photo checks, motion and full Storybook accessibility passed locally. PR257 source b9e33adb, build23 archive preparing; device still22.",
       "nextAction": "Native source b9e33adb in PR257 continues CI for build23 installation; user-approved trilingual paper layout moved to same-owner photo-caption continuation."
+    },
+    {
+      "id": "photo-caption",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/photo-alex-caption",
+      "scopes": [
+        "tools/photo-printer/raster.mjs",
+        "tests/photo-printer/service.test.mjs",
+        "tests/photo-printer/printer.test.mjs",
+        "design/photo-alex",
+        "docs/operations/kiosk-photo-alex.md"
+      ],
+      "status": "active",
+      "head": "f50bece77601f88502ca2c418245f70d1dde22d2",
+      "updatedAt": "2026-10-15T13:29:26.973Z"
     }
   ]
 }
