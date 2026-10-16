@@ -5726,6 +5726,20 @@
       "updatedAt": "2026-10-15T14:06:34.556Z",
       "summary": "PR258 source13009f8d: all14 exact-source CI checks green. Signed kiosk0.1.0(23) installed and launched on physical iPad18.7.8. Existing Mac HTTPS/USB bridge updated without pairing/job reset; all3 language previews exact. Physical demo menu/camera/cart XCTest passed, no skips/failures, demo exited. PR259 records verification; global status/roadmap remain owned by another task.",
       "nextAction": "Owner can assess new selected-language caption on paper. Mac bridge must remain awake on same LAN/USB; autostart not configured. No new paper print claimed. iPadOS27 simulator lifecycle compatibility is separate."
+    },
+    {
+      "id": "photo-printer-recovery",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/photo-printer-recovery",
+      "scopes": [
+        "tools/photo-printer/macos",
+        "tests/photo-printer/macos-recovery.test.mjs",
+        "docs/operations/photo-printer-macos-recovery.md",
+        "@mac/photo-printer"
+      ],
+      "status": "active",
+      "head": "ecacb4fab856d770be3b833f66087379ee53f508",
+      "updatedAt": "2026-10-16T11:59:51.132Z"
     }
   ]
 }
