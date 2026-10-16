@@ -5748,10 +5748,10 @@
         "tests/photo-printer/service.test.mjs"
       ],
       "status": "active",
-      "head": "96ee5723c3694754e5bf0c2dbed0af54a5214d4e",
-      "updatedAt": "2026-10-16T12:15:59.600Z",
-      "summary": "Owner confirmed iPad photo printed after Mac bridge restore. Mac recovery source 96ee5723 published PR260; not installed as persistent runtime.",
-      "nextAction": "Owner chose permanent Windows cashier host. Prepare dedicated USB photo service; keep Mac fallback until verified. Cashier 192.168.3.33:22 times out; requested current IP/network."
+      "head": "4a4c9e7130910daa0b8798fd477168a31f03e042",
+      "updatedAt": "2026-10-16T12:21:21.233Z",
+      "summary": "Published 4a4c9e71 PR260: permanent Windows USB photo transport/readiness/DHCP/guarded service installer; 41 tests pass, helper compiled and installer parsed on physical cashier. Cashier found at 192.168.2.61 via hostname; SSH pinned and 7 services Running. Mac fallback user-confirmed printing.",
+      "nextAction": "Await owner connecting dedicated photo printer to cashier USB; full exact-source CI then TLS/service setup and iPad pairing/short paper/reconnect acceptance. No permanent Mac LaunchAgent installed."
     }
   ]
 }
