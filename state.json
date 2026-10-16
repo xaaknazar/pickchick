@@ -5735,11 +5735,12 @@
         "tools/photo-printer/macos",
         "tests/photo-printer/macos-recovery.test.mjs",
         "docs/operations/photo-printer-macos-recovery.md",
-        "@mac/photo-printer"
+        "@mac/photo-printer",
+        "tests/photo-printer/test_macos_recovery.py"
       ],
       "status": "active",
       "head": "ecacb4fab856d770be3b833f66087379ee53f508",
-      "updatedAt": "2026-10-16T11:59:51.132Z"
+      "updatedAt": "2026-10-16T12:01:54.400Z"
     }
   ]
 }
