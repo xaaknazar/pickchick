@@ -5739,8 +5739,10 @@
         "tests/photo-printer/test_macos_recovery.py"
       ],
       "status": "active",
-      "head": "ecacb4fab856d770be3b833f66087379ee53f508",
-      "updatedAt": "2026-10-16T12:01:54.400Z"
+      "head": "96ee5723c3694754e5bf0c2dbed0af54a5214d4e",
+      "updatedAt": "2026-10-16T12:07:40.917Z",
+      "summary": "PR260 source96ee5723: 35 local photo tests pass incl5 recovery tests. Original manual bridge absent and old Wi-Fi bind stale; exact USB printer now reconnected. Unchanged green service restored on current private IP; TLS/pairing/all3 synthetic locale previews pass, jobs6sent/1unknown preserved. New isolated runtime staged; no LaunchAgent installed yet.",
+      "nextAction": "Wait exact-source full CI38897943192; install per-user supervisor outside Documents with preserved DB/CA and verify graceful restart/no duplicate jobs. Await owner iPad print result and preference for permanent cashier vs powered Mac host. Globals status/roadmap owned elsewhere."
     }
   ]
 }
