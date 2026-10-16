@@ -5749,9 +5749,9 @@
       ],
       "status": "active",
       "head": "4a4c9e7130910daa0b8798fd477168a31f03e042",
-      "updatedAt": "2026-10-16T12:21:21.233Z",
-      "summary": "Published 4a4c9e71 PR260: permanent Windows USB photo transport/readiness/DHCP/guarded service installer; 41 tests pass, helper compiled and installer parsed on physical cashier. Cashier found at 192.168.2.61 via hostname; SSH pinned and 7 services Running. Mac fallback user-confirmed printing.",
-      "nextAction": "Await owner connecting dedicated photo printer to cashier USB; full exact-source CI then TLS/service setup and iPad pairing/short paper/reconnect acceptance. No permanent Mac LaunchAgent installed."
+      "updatedAt": "2026-10-16T12:23:50.950Z",
+      "summary": "PR260 /4a4c9e71: 41 local tests pass; photo CI pass, full CI pending. Real cashier at192.168.2.61 pinned SSH, 7 services healthy. USB helper compiled, installer syntax checked. Isolated Windows runtime renders ru/kk/en 576x718 without printing. Only staging prepared; service not installed.",
+      "nextAction": "Await physical USB move to cashier. Then exact hardware identity, full CI, TLS, metadata backup and disabled dedicated service install, short paper test, iPad pairing/reconnect acceptance. Mac manual bridge remains fallback. No LaunchAgent. No unknown replay. Private continuation in .local/photo-windows."
     }
   ]
 }
