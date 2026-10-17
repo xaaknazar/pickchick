@@ -3,6 +3,7 @@ import type { KioskModel, KioskProduct } from '../model';
 import { copy } from '../i18n';
 import { defaultSelections, validSelections } from '../cart';
 import { Header, pilotBranch, ScreenSurface, Wrapper, type ScreenContext } from '../components/UI';
+import { PhotoEntry } from '../components/PhotoEntry';
 import { CategoryRail } from '../components/CategoryRail';
 import { MenuGrid } from '../components/MenuGrid';
 import { CartBar } from '../components/CartBar';
@@ -98,6 +99,13 @@ export function MenuScreen({
           products={products}
           locale={context.locale}
           onSelect={select}
+          footer={
+            <PhotoEntry
+              locale={context.locale}
+              onInteraction={model.touch}
+              disabled={model.busy || !!sheet || model.idleWarningSeconds !== null}
+            />
+          }
         />
         <MenuGrid
           key={category + '-' + revision}

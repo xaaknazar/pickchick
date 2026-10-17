@@ -1,10 +1,12 @@
 export type PhotoConfig = { url: string; token: string };
+export type PhotoLocale = 'ru' | 'kk' | 'en';
 export type PhotoPreview = {
   id: string;
   png: string;
   expiresAt: number;
   width: number;
   height: number;
+  locale: PhotoLocale;
 };
 export type PrintJob = {
   id: string;
@@ -120,7 +122,7 @@ export class PhotoController {
     this.clearPhoto();
     this.set({ phase: 'camera', error: null, job: null });
   }
-  async captured(image: string, uri: string, dispose: () => void) {
+  async captured(image: string, uri: string, dispose: () => void, locale: PhotoLocale = 'ru') {
     if (this.state.phase !== 'camera' || this.state.busy) {
       dispose();
       return;
@@ -133,7 +135,7 @@ export class PhotoController {
     }
     this.set({ phase: 'preparing', busy: true, error: null });
     try {
-      const p = await this.io.request<PhotoPreview>(this.config, '/v1/previews', { image });
+      const p = await this.io.request<PhotoPreview>(this.config, '/v1/previews', { image, locale });
       if (version !== this.generation) {
         void this.io
           .request(this.config, '/v1/previews/' + p.id, undefined, 'DELETE')
@@ -142,6 +144,7 @@ export class PhotoController {
       }
       if (
         !p.id ||
+        p.locale !== locale ||
         !p.png ||
         !Number.isFinite(p.expiresAt) ||
         ![384, 512, 576].includes(p.width) ||

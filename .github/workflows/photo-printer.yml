@@ -44,6 +44,7 @@ jobs:
         run: |
           npm install --global pnpm@11.19.0
           pnpm install --frozen-lockfile
+          pnpm --dir tools/photo-printer install --ignore-workspace --frozen-lockfile --ignore-scripts
           pnpm --filter @pickchick/kiosk... build
           EXPO_PUBLIC_KIOSK_COMMERCIAL=0 pnpm --filter @pickchick/kiosk exec expo export --platform web
       - name: Install browser tools
@@ -61,10 +62,16 @@ jobs:
             sleep 1
           done
           KIOSK_UI_URL=http://127.0.0.1:4187 .local/design-venv/bin/python tests/photo-printer/browser_photo.py
+      - name: Verify isolated Mac photo entry without hardware
+        run: |
+          node tools/photo-printer/build-mac-preview.mjs
+          .local/design-venv/bin/python tests/photo-printer/browser_mac.py
       - name: Keep synthetic UI evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: photo-booth-ui
-          path: .local/photo-browser
+          path: |
+            .local/photo-browser
+            .local/photo-mac-check
           retention-days: 7

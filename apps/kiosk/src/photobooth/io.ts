@@ -3,11 +3,17 @@ import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
 import type { PhotoIO } from './controller';
 import { approvedEndpoint } from './endpoint';
+import { createMacPreviewIO } from './mac-preview';
 const CONFIG = 'pickchick.photo-printer.v1';
 const PENDING = 'pickchick.photo-job.v1';
 const options = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
 const provisionedUrl = process.env.EXPO_PUBLIC_KIOSK_PHOTO_URL;
 export function createPhotoIO(): PhotoIO {
+  // An explicit local-only build. The installed kiosk and public web build keep native pairing.
+  if (Platform.OS === 'web' && process.env.EXPO_PUBLIC_KIOSK_PHOTO_MAC_PREVIEW === '1') {
+    const local = createMacPreviewIO();
+    if (local) return local;
+  }
   const native = () => {
     if (Platform.OS === 'web') throw Error('NATIVE_ONLY');
   };

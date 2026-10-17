@@ -3,24 +3,21 @@ import { readFileSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PhotoService, handler } from './service.mjs';
-import { privateIPv4, sendRaster } from './transport.mjs';
+import { privateIPv4 } from './transport.mjs';
+import { createPrintTransport } from './printer.mjs';
 
 process.umask(0o077);
 const configPath = process.argv[2];
 if (!configPath) throw new Error('Usage: node server.mjs /private/photo-printer.json [--pair]');
 const config = JSON.parse(readFileSync(resolve(configPath), 'utf8'));
 const enabled = config.protocolConfirmed === true;
-if (enabled && (!privateIPv4(config.printerHost) || ![384, 512, 576].includes(config.width)))
-  throw new Error(
-    'Confirm the private printer IPv4, raster width and ESC/POS raster support first.',
-  );
+if (![384, 512, 576].includes(config.width ?? 576)) throw new Error('Invalid raster width.');
 if (!Number.isInteger(config.port) || config.port < 1024 || config.port > 65535)
   throw new Error('A dedicated HTTPS service port is required.');
-if (
-  config.printerPort !== undefined &&
-  (!Number.isInteger(config.printerPort) || config.printerPort < 1 || config.printerPort > 65535)
-)
-  throw new Error('Invalid printer TCP port.');
+const bind = config.bind ?? '127.0.0.1';
+if (bind !== '127.0.0.1' && !privateIPv4(bind))
+  throw new Error('Bind photo HTTPS to loopback or one private LAN IPv4, never all interfaces.');
+const send = await createPrintTransport(config);
 const database = resolve(config.database);
 mkdirSync(dirname(database), { recursive: true, mode: 0o700 });
 const service = new PhotoService({
@@ -29,8 +26,7 @@ const service = new PhotoService({
   width: config.width ?? 576,
   cut: config.cut === true,
   enabled,
-  send: (bytes) =>
-    sendRaster({ host: config.printerHost, port: config.printerPort ?? 9100 }, bytes),
+  send,
 });
 const server = https.createServer(
   { cert: readFileSync(config.tlsCert), key: readFileSync(config.tlsKey), minVersion: 'TLSv1.2' },
@@ -39,7 +35,7 @@ const server = https.createServer(
 server.requestTimeout = 15000;
 server.headersTimeout = 10000;
 server.maxRequestsPerSocket = 100;
-server.listen(config.port, config.bind ?? '127.0.0.1', () => {
+server.listen(config.port, bind, () => {
   console.log('PickChick photo service started. No photograph is stored on disk.');
   if (process.argv.includes('--pair'))
     console.log('One-use kiosk pairing code (5 minutes):', service.pairing());

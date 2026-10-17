@@ -88,7 +88,8 @@ export class PhotoService {
   purge() {
     for (const [id, p] of this.previews) if (p.expiresAt <= this.now()) this.forget(id);
   }
-  async preview(device, base64) {
+  async preview(device, base64, locale = 'ru') {
+    if (!['ru', 'kk', 'en'].includes(locale)) throw new PhotoError('INVALID_LOCALE');
     this.purge();
     if (this.rendering || this.printing || this.now() - (this.lastPreview.get(device) ?? 0) < 2000)
       throw new PhotoError('BUSY', 429);
@@ -106,7 +107,7 @@ export class PhotoService {
     const input = Buffer.from(base64, 'base64');
     try {
       for (const [id, p] of this.previews) if (p.device === device) this.forget(id);
-      const photo = await preparePhoto(input, this.logoPath, this.width);
+      const photo = await preparePhoto(input, this.logoPath, this.width, locale);
       const id = randomUUID(),
         expiresAt = this.now() + 90000;
       this.previews.set(id, { ...photo, device, expiresAt });
@@ -115,6 +116,7 @@ export class PhotoService {
         expiresAt,
         width: photo.width,
         height: photo.height,
+        locale,
         png: photo.png.toString('base64'),
       };
     } catch {
@@ -237,9 +239,10 @@ export function handler(service, allowedOrigins = []) {
       }
       const device = service.authenticate(request.headers.authorization?.replace(/^Bearer /, ''));
       if (path === '/v1/status' && request.method === 'GET') reply(200, service.status());
-      else if (path === '/v1/previews' && request.method === 'POST')
-        reply(200, await service.preview(device, (await body(request)).image));
-      else if (path.startsWith('/v1/previews/') && request.method === 'DELETE') {
+      else if (path === '/v1/previews' && request.method === 'POST') {
+        const b = await body(request);
+        reply(200, await service.preview(device, b.image, b.locale));
+      } else if (path.startsWith('/v1/previews/') && request.method === 'DELETE') {
         service.deletePreview(device, path.split('/').pop());
         reply(200, { deleted: true });
       } else if (path === '/v1/jobs' && request.method === 'POST') {
