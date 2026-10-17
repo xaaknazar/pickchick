@@ -5632,11 +5632,11 @@
         "tests/operations/combo-refund.test.mjs",
         "docs/operations/images/mobile-combo-rewards"
       ],
-      "status": "active",
-      "head": "5dc0b293242187a0b45fe3a6d63455f4f52299d6",
-      "updatedAt": "2026-10-17T06:26:49.997Z",
-      "summary": "PR251/shared76902fa4: Foundation11/11, roadmap опубликован и проверен; временные области возвращены исходным задачам. https://github.com/xaaknazar/pickchick/pull/251#issuecomment-6230666927",
-      "nextAction": "Дождаться CI, включить проверенный код в shared, опубликовать только roadmap и вернуть временные ресурсы. Серверная активация cloud060/API/edge и TestFlight отдельно."
+      "status": "done",
+      "head": "76902fa4b8403f9084c0028fa16f02b8ec155586",
+      "updatedAt": "2026-10-17T06:26:55.153Z",
+      "summary": "PR251 / 76902fa4 включён в shared. Реализованы 7+1 и подтверждённые возвраты, учёт только с запуска. Foundation39007746335 прошла11/11; roadmap39007750116 и Kiosk UI39007746339 green. Онлайн-пульт опубликован из76902fa4, HTTPS SHA проверен17Oct06:25UTC, SQLite backup сохранён,19 других контейнеров/бизнес-API неизменны. Временные области возвращены. Акция/API060/касса/TestFlight этим не включены. Протокол в PR251 и docs/operations/mobile-combo-rewards.md.",
+      "nextAction": "Отдельный согласованный выпуск: cloud060, минимальные grants и защищённый GET, совместимая кухня/подарочный итог0, проверка фискального режима, дата фактического старта без прошлых покупок; переводы/push совместить перед новым TestFlight и физической приёмкой. Текущий TestFlight20 не содержит акции."
     },
     {
       "id": "photo-mac",
