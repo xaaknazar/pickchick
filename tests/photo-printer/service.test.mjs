@@ -43,6 +43,27 @@ function fixture(t, options = {}) {
     device = service.authenticate(token);
   return { service, config, token, device, advance: (n) => (now += n), writes: () => writes };
 }
+test('status observes USB reconnect and fails closed on discovery error without creating a job', async (t) => {
+  let connected = false,
+    probes = 0;
+  const send = async () => assert.fail('status must never print');
+  send.ready = async () => {
+    probes++;
+    if (connected === 'error') throw Error('discovery failed');
+    return connected;
+  };
+  const { service } = fixture(t, { send });
+  assert.equal((await service.status()).printingEnabled, false);
+  connected = true;
+  assert.equal((await service.status()).printingEnabled, true);
+  connected = 'error';
+  assert.equal((await service.status()).printingEnabled, false);
+  service.printing = true;
+  assert.equal((await service.status()).printingEnabled, true);
+  assert.equal(probes, 3);
+  service.printing = false;
+  assert.equal(service.db.prepare('SELECT COUNT(*) AS n FROM jobs').get().n, 0);
+});
 test('dither packs black MSB-first and the print packet contains only raster/feed (cut opt-in)', () => {
   const mono = monochrome(Buffer.from([0, 255, 0, 255, 0, 255, 0, 255]), 8, 1);
   assert.equal(mono.bits[0], 0b10101010);
