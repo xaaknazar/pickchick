@@ -4988,7 +4988,6 @@
         "tests/backoffice/devices-model.test.mjs",
         "tests/backoffice/devices-browser.py",
         "tests/integration/device-access.test.mjs",
-        "tests/integration/device-presence.test.mjs",
         "tests/unit/device-access.test.mjs",
         "docs/operations/device-center.md",
         "infra/staging/release-device-center.py",
@@ -5038,8 +5037,8 @@
       ],
       "status": "active",
       "head": "b81a3498d19bc20240d80b278ac6bd547416d791",
-      "updatedAt": "2026-10-14T10:34:54.408Z",
-      "summary": "2026-10-14: pairing rollout COMPLETE on exact API/Windows/portal5b6f846b, cloud058/edge020. Recovery94f read-only receipt05:05; Switch05:11 confirmed after lost SSH reply (not replayed); fresh backup020+isolated restore47tables passed. ManualStopped install/Verify then cloud enable05:27, Windows Activate05:32, portal Enable05:32 all verified. Seven Windows services Running/Auto, ready200, mailbox error log empty. CEO inventory/pairing true; browser shows connection code form. PIN/password/iPad keys/payments preserved. Full Foundation CI5b/4c/94f11/11; b81a3498 is docs-only, published and fast-forwarded into shared. PR242/243 updated. No fake physical devices, codes or password resets. Server lease free. Releasing only our completed deployment resources; source task remains active for telemetry021 and native kiosk heartbeat. Current general status/roadmap remains owned by kiosk-owner-polish-1013; exact updated evidence in docs/operations/deployments/2026-10-13-device-center.md. 2026-10-14: владелец прямо разрешил временную передачу для переводов RU/KK/EN и push задаче mobile-l10n-push-1014: services/api/src/index.ts. Текущие изменения сохраняются, остальные области остаются за исходной задачей.",
+      "updatedAt": "2026-10-17T05:49:46.459Z",
+      "summary": "2026-10-14: pairing rollout COMPLETE on exact API/Windows/portal5b6f846b, cloud058/edge020. Recovery94f read-only receipt05:05; Switch05:11 confirmed after lost SSH reply (not replayed); fresh backup020+isolated restore47tables passed. ManualStopped install/Verify then cloud enable05:27, Windows Activate05:32, portal Enable05:32 all verified. Seven Windows services Running/Auto, ready200, mailbox error log empty. CEO inventory/pairing true; browser shows connection code form. PIN/password/iPad keys/payments preserved. Full Foundation CI5b/4c/94f11/11; b81a3498 is docs-only, published and fast-forwarded into shared. PR242/243 updated. No fake physical devices, codes or password resets. Server lease free. Releasing only our completed deployment resources; source task remains active for telemetry021 and native kiosk heartbeat. Current general status/roadmap remains owned by kiosk-owner-polish-1013; exact updated evidence in docs/operations/deployments/2026-10-13-device-center.md. 2026-10-14: владелец прямо разрешил временную передачу для переводов RU/KK/EN и push задаче mobile-l10n-push-1014: services/api/src/index.ts. Текущие изменения сохраняются, остальные области остаются за исходной задачей. 2026-10-17: владелец разрешил временную передачу tests/integration/device-presence.test.mjs задаче mobile-combo-rewards для изоляции fixture058 и проверки отказа при новых миграциях; production guard не меняется.",
       "nextAction": "Other Mac: fresh check/claim before next deploy. Live API5b image e1b4a09a; compose SHA256 e40ee261c23d8de8e7649f1d86db87ab0d095c75a84ad1230ef31c59d2f012fb includes BACKOFFICE_DEVICE_ACCESS_ENABLED=true and14 narrow grants. DO NOT replay old cc9 baseline or disable pairing in API687 rollout. Windows Edge now edge-5b6f846, schema020, DeviceAccessWorker Auto/Running; old fulfillment worker23fb retained, staged62f untouched. Refresh Windows62f/API687 plans from actual new state. Kitchen config SHA2569239aa1209befe91109254695ddc36afe5f7dd383f4815100075777d23d42b7f, terminalAccess=true. Next owner step: pair real iPads by BO code and verify station/revoke. Remaining separate technical step: edge021 telemetry and native kiosk heartbeat; no claim of physical acceptance. Update project-status/roadmap from deployment record when your owned files are ready."
     },
     {
@@ -5636,12 +5635,13 @@
         ".github/workflows/ci.yml",
         "docs/operations/images/mobile-combo-rewards",
         "@vps/roadmap",
-        "@vps/public-https"
+        "@vps/public-https",
+        "tests/integration/device-presence.test.mjs"
       ],
       "status": "active",
       "head": "5dc0b293242187a0b45fe3a6d63455f4f52299d6",
-      "updatedAt": "2026-10-14T14:19:02.194Z",
-      "summary": "Реализована акция 7+1 и подтверждённые возвраты; начисление с фактического запуска, без прошлых покупок. Код f9f31428 опубликован PR251, локальные проверки прошли; полная CI38579029485 ожидается. Владелец разрешил временные roadmap/public-https только для статуса, без включения акции/оплаты/кассы.",
+      "updatedAt": "2026-10-17T05:49:46.459Z",
+      "summary": "Реализована акция 7+1 и подтверждённые возвраты; начисление с фактического запуска, без прошлых покупок. Код f9f31428 опубликован PR251, локальные проверки прошли; полная CI38579029485 ожидается. Владелец разрешил временные roadmap/public-https только для статуса, без включения акции/оплаты/кассы. 2026-10-17: владелец разрешил временную передачу tests/integration/device-presence.test.mjs задаче mobile-combo-rewards для изоляции fixture058 и проверки отказа при новых миграциях; production guard не меняется.",
       "nextAction": "Дождаться CI, включить проверенный код в shared, опубликовать только roadmap и вернуть временные ресурсы. Серверная активация cloud060/API/edge и TestFlight отдельно."
     },
     {
