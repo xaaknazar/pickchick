@@ -281,9 +281,13 @@ test('owner migration preserves prior data and exact ACL, rejects a repeated app
   const { deployDeviceCenter } = await import('../../infra/staging/device-center-owner.mjs');
   const source = fileURLToPath(new URL('../../db/cloud/migrations/', import.meta.url));
   const dir = await mkdtemp(join(tmpdir(), 'device-before058-'));
+  const candidate = await mkdtemp(join(tmpdir(), 'device-candidate058-'));
   try {
     for (const f of await readdir(source))
-      if (f.endsWith('.sql') && +f.slice(0, 3) <= 57) await copyFile(join(source, f), join(dir, f));
+      if (f.endsWith('.sql')) {
+        if (+f.slice(0, 3) <= 57) await copyFile(join(source, f), join(dir, f));
+        if (+f.slice(0, 3) <= 58) await copyFile(join(source, f), join(candidate, f));
+      }
     await withSyncDatabases(
       async (c) => {
         const role = 'device_owner_test_' + randomUUID().replaceAll('-', '');
@@ -292,18 +296,22 @@ test('owner migration preserves prior data and exact ACL, rejects a repeated app
           const client = await c.cloud.pool.connect();
           try {
             await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
+            await assert.rejects(
+              deployDeviceCenter(client, { directory: source, role, inspect: true }),
+              /Exact schema057 baseline and058 candidate required/,
+            );
             assert.equal(
-              (await deployDeviceCenter(client, { directory: source, role, inspect: true }))
+              (await deployDeviceCenter(client, { directory: candidate, role, inspect: true }))
                 .pending[0],
               '058_cloud_device_center.sql',
             );
-            const result = await deployDeviceCenter(client, { directory: source, role });
+            const result = await deployDeviceCenter(client, { directory: candidate, role });
             assert.equal(result.existingDataPreserved, true);
             assert.equal(result.pairingEnabled, false);
             await client.query('COMMIT');
             await client.query('BEGIN');
             await assert.rejects(
-              deployDeviceCenter(client, { directory: source, role }),
+              deployDeviceCenter(client, { directory: candidate, role }),
               /Exact schema057 ledger required/,
             );
             await client.query('ROLLBACK');
@@ -319,6 +327,7 @@ test('owner migration preserves prior data and exact ACL, rejects a repeated app
     );
   } finally {
     await rm(dir, { recursive: true, force: true });
+    await rm(candidate, { recursive: true, force: true });
   }
 });
 
