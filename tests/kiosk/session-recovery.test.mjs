@@ -200,7 +200,7 @@ test('3.1: an app restart with a pending reset refused by CONFLICT reaches a usa
 
 test('3.1: with no room left for another background guest a refusal shows a neutral staff notice', async () => {
   const h = sessionFixture();
-  const c = await paidGuest(h);
+  await paidGuest(h);
   const paidToken = token(h);
   // Fill the background list with guests the server still refuses to end.
   const flow = stored(h);

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
 import Constants from 'expo-constants';
 import { startDevicePresence } from './device-presence';
@@ -10,7 +10,7 @@ import { KioskController } from './controller';
 import { CommercialKioskController } from './commercial-controller';
 import { commercialKioskEnabled } from './commercial-api';
 import { createCommercialKioskIO, createKioskIO } from './storage';
-import { createDemoKiosk, type DemoKiosk } from './demo';
+import { createDemoKiosk, demoIdleExpired, DEMO_IDLE_CHECK_MS, type DemoKiosk } from './demo';
 import type { KioskModel } from './model';
 
 export default function useKioskController(): KioskModel {
@@ -33,21 +33,46 @@ export default function useKioskController(): KioskModel {
   useEffect(() => {
     void live.restore();
   }, [live]);
+  // Last touch while the demo is shown; the demo leaves by itself after a while (finding 3.4).
+  const demoActivity = useRef(0);
   const setDemo = useCallback(
-    (on: boolean) => {
+    async (on: boolean, pin?: string) => {
       if (!on) {
         setDemoKiosk(null);
-        return;
+        return true;
       }
       // Only from the idle start screen: a live guest, order or payment is never left behind.
-      const current = live.getSnapshot();
-      if (current.step !== 'start' || current.busy || current.recoveryRequired || current.order)
-        return;
+      const idle = () => {
+        const current = live.getSnapshot();
+        return (
+          current.step === 'start' && !current.busy && !current.recoveryRequired && !current.order
+        );
+      };
+      if (!idle()) return false;
+      // Audit 19.10, finding 3.4: the commercial kiosk enters the demo only after the staff code
+      // (checked by the server). The simulator build has no real payments and keeps the hold.
+      if (live instanceof CommercialKioskController) {
+        if (!(await live.verifyStaff(pin ?? '')) || !idle()) return false;
+      }
       const seed = live instanceof CommercialKioskController ? live.demoSeed() : null;
+      demoActivity.current = Date.now();
       setDemoKiosk((previous) => previous ?? createDemoKiosk(seed, { uuid: Crypto.randomUUID }));
+      return true;
     },
     [live],
   );
+  useEffect(() => {
+    if (!demo) return;
+    const timer = setInterval(() => {
+      if (demoIdleExpired(demoActivity.current, Date.now())) setDemoKiosk(null);
+    }, DEMO_IDLE_CHECK_MS);
+    return () => clearInterval(timer);
+  }, [demo]);
+  const touch = controller.touch;
+  const touchAny = useCallback(() => {
+    demoActivity.current = Date.now();
+    touch();
+  }, [touch]);
   useEffect(() => {
     if (!demo) return;
     const c = demo.controller;
@@ -137,10 +162,15 @@ export default function useKioskController(): KioskModel {
     cancelOrder: controller.cancelOrder,
     cancelPayment: demo?.cancelPayment,
     startOver: controller instanceof CommercialKioskController ? controller.startOver : undefined,
+    staffReset: controller instanceof CommercialKioskController ? controller.staffReset : undefined,
+    clearStaffError:
+      controller instanceof CommercialKioskController ? controller.clearStaff : undefined,
+    // The simulator build keeps the plain hold; a commercial kiosk asks for the staff code.
+    staffPinRequired: live instanceof CommercialKioskController,
     recover: controller.recover,
     refresh: controller.refresh,
     newGuest: controller.newGuest,
-    touch: controller.touch,
+    touch: touchAny,
     stay: controller.stay,
   };
 }

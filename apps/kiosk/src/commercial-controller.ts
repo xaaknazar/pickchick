@@ -31,6 +31,7 @@ import type {
   KioskState,
   KioskStep,
   KioskPaymentMethod,
+  StaffPinError,
 } from './model';
 
 export const COMMERCIAL_SESSION_KEY = 'pickchick.kiosk.commercial-session.v1';
@@ -43,6 +44,11 @@ export interface CommercialKioskIO extends KioskIO {
    * without it the kiosk keeps bundled photos and plain availability reads.
    */
   read?(path: string, token: string, options?: { timeoutMs?: number }): Promise<KioskReadResult>;
+  /**
+   * Server check of a staff code (POST /staff/verify, device credentials only); rejects with the
+   * server code. Absent (the demo transport, tests) means staff actions are unavailable.
+   */
+  verifyStaff?(pin: string): Promise<void>;
 }
 /** Server long-poll window is 25 s; the client gives up a little later. */
 export const AVAILABILITY_LONG_POLL_MS = 32000;
@@ -94,6 +100,15 @@ export const MAX_ABANDONED_GUESTS = 8;
  * the previous guest could otherwise expire between the quote and POST /orders.
  */
 export const SESSION_RENEW_MS = 15 * 60000;
+/**
+ * Audit 19.10, finding 3.3: «Начать заново» is free only this long after the kiosk first showed
+ * the QR. The server cannot tell a scanned QR (QrTokenScanned/Wait stay 'pending'), and a guest
+ * cannot scan and confirm a payment in Kaspi this fast; later a staff code is needed.
+ */
+export const FREE_RESTART_MS = 15000;
+/** Wrong staff codes before the kiosk itself pauses staff actions (the server locks too). */
+export const STAFF_PIN_ATTEMPTS = 5;
+export const STAFF_PIN_LOCK_MS = 5 * 60000;
 /** Next /sessions/end of an abandoned guest after a refusal: 5 s, 10 s, 20 s, then every 30 s. */
 export const abandonedRetryMs = (failures: number) =>
   Math.min(30000, 5000 * 2 ** Math.min(Math.max(failures, 0), 3));
@@ -566,6 +581,11 @@ export class CommercialKioskController {
   /** Next /sessions/end per abandoned guest; memory only, so after a restart all are due. */
   private endRetry = new Map<string, { at: number; failures: number }>();
   private ending = false;
+  /** When this kiosk first showed the QR of an order (memory only; a restart counts as long ago). */
+  private qrSeen: { orderId: string; at: number } | null = null;
+  private staffError: StaffPinError | null = null;
+  private staffFailures = 0;
+  private staffLockedUntil = 0;
   private listeners = new Set<() => void>();
   private view: KioskState;
   private io: CommercialKioskIO;
@@ -632,9 +652,41 @@ export class CommercialKioskController {
       order.paymentMethod !== 'kaspi_invoice' &&
       order.payment?.kind === 'kaspi_qr' &&
       ['preparing', 'pending'].includes(order.payment.state) &&
+      // An expired QR is being checked with the bank («Проверяем оплату»): never start over.
+      !(
+        order.payment.state === 'pending' &&
+        order.payment.expiresAt &&
+        Date.parse(order.payment.expiresAt) <= this.io.now()
+      ) &&
       !!this.guest &&
       this.guest.sessionId === this.current.guestId &&
       this.current.abandoned.length < MAX_ABANDONED_GUESTS
+    );
+  }
+  /** Finding 3.3: the QR has been visible long enough that only staff may start over. */
+  private restartNeedsStaff() {
+    const order = this.current.order;
+    if (!order || order.payment?.state !== 'pending') return false;
+    const seen = this.qrSeen?.orderId === order.orderId ? this.qrSeen.at : -Infinity;
+    return this.io.now() - seen >= FREE_RESTART_MS;
+  }
+  /** «Начать заново» is offered: free in the first seconds, later only with a staff code. */
+  private canStartOver() {
+    return this.ready && this.restartable() && (!this.restartNeedsStaff() || !!this.io.verifyStaff);
+  }
+  /**
+   * A stuck kiosk staff may reset without any risk to money (findings 3.0 and 3.1): an intent
+   * whose order id was never known (no payment was ever requested for it), or a finished guest
+   * whose session the server will not end.
+   */
+  private staffResettable() {
+    const intent = this.current.intent;
+    return (
+      this.ready &&
+      !this.blocked &&
+      !!this.io.verifyStaff &&
+      ((!!intent && !intent.orderId && !this.current.order) ||
+        (this.current.resetPending && !this.pending()))
     );
   }
   private snapshot(): KioskState {
@@ -712,7 +764,11 @@ export class CommercialKioskController {
       // A paid order waiting for its kitchen number is final: it no longer blocks the kiosk.
       recoveryRequired: this.blocked || !!this.current.intent || order?.phase === 'attention',
       idleWarningSeconds: this.warning,
-      canStartOver: this.ready && this.restartable(),
+      canStartOver: this.canStartOver(),
+      startOverNeedsStaff: this.canStartOver() && this.restartNeedsStaff(),
+      staffResetAvailable: this.staffResettable(),
+      staffPinRequired: true,
+      staffPinError: this.staffError,
     };
   }
   private emit() {
@@ -720,6 +776,15 @@ export class CommercialKioskController {
     for (const fn of this.listeners) fn();
   }
   private async save(next: Flow) {
+    const qr = next.order?.payment;
+    if (
+      next.order &&
+      qr?.kind === 'kaspi_qr' &&
+      qr.state === 'pending' &&
+      qr.qrPayload &&
+      this.qrSeen?.orderId !== next.order.orderId
+    )
+      this.qrSeen = { orderId: next.order.orderId, at: this.io.now() };
     // An abandoned guest whose session is over is never written back.
     const abandoned = next.abandoned.filter((guest) => !this.ended.has(guest.sessionId));
     const stored: Record<string, unknown> = { ...next, abandoned };
@@ -1147,6 +1212,9 @@ export class CommercialKioskController {
         const [raw, guestRaw] = await Promise.all([this.io.readFlow(), this.io.readSession()]);
         this.current = raw ? flow(decode(raw)) : this.empty();
         this.guest = guestRaw ? session(decode(guestRaw)) : null;
+        // A QR shown before the restart may have been scanned meanwhile (finding 3.3).
+        if (this.current.order)
+          this.qrSeen = { orderId: this.current.order.orderId, at: -Infinity };
         // «Начать заново» was interrupted after its flow write: that guest is never adopted again.
         if (
           this.guest &&
@@ -1636,6 +1704,7 @@ export class CommercialKioskController {
     this.editing = null;
     this.returnStep = 'menu';
     this.step = 'start';
+    this.staffError = null;
   }
   /**
    * «Начать заново» on the Kaspi QR (owner decision 2026-10-13): the guest gives up and the kiosk
@@ -1646,9 +1715,11 @@ export class CommercialKioskController {
    * guest gets a new session and order. A last status read first lets a payment that has just
    * been captured show its number instead; a refused restart keeps the screen as it is.
    */
-  startOver = () =>
+  startOver = (pin?: string) =>
     this.run(async () => {
       if (!this.restartable()) throw new KioskError('QUIET');
+      // Finding 3.3: the QR may already be scanned; only staff may give up this payment now.
+      if (this.restartNeedsStaff()) await this.staff(pin);
       try {
         await this.readOrder();
       } catch (error) {
@@ -1675,6 +1746,73 @@ export class CommercialKioskController {
         await this.io.removeSession();
       } catch {
         // See restore: a stored abandoned guest is removed there.
+      }
+    });
+  /**
+   * Checks a staff code with the server. A failure keeps the screen as it is and only records why
+   * (`staffPinError`, shown under the code field), so it never becomes a guest notice.
+   */
+  private async staff(pin: string | undefined) {
+    const now = this.io.now();
+    const fail = (error: StaffPinError): never => {
+      this.staffError = error;
+      throw new KioskError('QUIET');
+    };
+    if (this.staffLockedUntil > now) return fail('locked');
+    if (!this.io.verifyStaff) return fail('unavailable');
+    if (typeof pin !== 'string' || !/^\d{4,8}$/.test(pin)) return fail('wrong');
+    try {
+      await this.io.verifyStaff(pin);
+    } catch (error) {
+      const code = error instanceof KioskError ? error.code : '';
+      if (code === 'UNAUTHORIZED') {
+        if (++this.staffFailures < STAFF_PIN_ATTEMPTS) return fail('wrong');
+        this.staffFailures = 0;
+        this.staffLockedUntil = now + STAFF_PIN_LOCK_MS;
+        return fail('locked');
+      }
+      if (code === 'RATE_LIMITED') {
+        this.staffLockedUntil = now + STAFF_PIN_LOCK_MS;
+        return fail('locked');
+      }
+      // No code configured (NOT_READY), an older server without the route (NOT_FOUND) or a
+      // device the server refuses: staff actions are unavailable, not a network problem.
+      if (!transient(error) || ['NOT_READY', 'SERVICE_UNAVAILABLE'].includes(code))
+        return fail('unavailable');
+      return fail('network');
+    }
+    this.staffFailures = 0;
+    this.staffError = null;
+  }
+  /** Staff code check for actions outside this controller (the demo mode). */
+  verifyStaff = (pin: string) =>
+    this.run(async () => {
+      await this.staff(pin);
+    });
+  clearStaff = () => {
+    if (!this.staffError) return;
+    this.staffError = null;
+    this.emit();
+  };
+  /**
+   * Service reset of a stuck kiosk after the staff code (findings 3.0 and 3.1): see
+   * `staffResettable`. The guest's session is remembered with the abandoned guests (or left to
+   * its expiry when no room is left) and the kiosk returns to the start screen.
+   */
+  staffReset = (pin: string) =>
+    this.run(async () => {
+      if (!this.staffResettable()) throw new KioskError('QUIET');
+      await this.staff(pin);
+      if (!this.staffResettable()) throw new KioskError('QUIET');
+      const guest = this.guest;
+      const abandoned = guest?.branchId ? this.abandon(guest) : null;
+      await this.save({ ...this.empty(), ...(abandoned ? { abandoned } : {}) });
+      this.guest = null;
+      this.clearGuestScreens();
+      try {
+        await this.io.removeSession();
+      } catch {
+        // See restore: a stored abandoned guest is removed there; any other is replaced.
       }
     });
   /**
