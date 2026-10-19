@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { AppState } from 'react-native';
 import Constants from 'expo-constants';
 import { startDevicePresence } from './device-presence';
-import { KIOSK_API_URL } from './api';
+import { KIOSK_API_URL, KIOSK_RELEASE_ID } from './api';
 import * as Crypto from 'expo-crypto';
 import { prefetchCatalogMedia, rememberCatalogMedia } from './assets';
 import { startKioskPolling } from './polling';
@@ -61,10 +61,12 @@ export default function useKioskController(): KioskModel {
   useEffect(() => {
     if (!commercialKioskEnabled) return;
     const io = createCommercialKioskIO();
+    const build = `${Constants.expoConfig?.version ?? 'unknown'} (${Constants.expoConfig?.ios?.buildNumber ?? 'unknown'})`;
     const presence = startDevicePresence({
       readDevice: io.readDevice,
       origin: KIOSK_API_URL,
-      appVersion: `${Constants.expoConfig?.version ?? 'unknown'} (${Constants.expoConfig?.ios?.buildNumber ?? 'unknown'})`,
+      // The release id names the pinned build; the server keeps at most 60 characters.
+      appVersion: [build, KIOSK_RELEASE_ID].filter(Boolean).join(' ').slice(0, 60),
       snapshot: () => {
         const current = live.getSnapshot();
         const version = Number(current.catalog?.catalog_version);
