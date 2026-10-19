@@ -382,3 +382,40 @@ test('runtime grant helper is the exact privilege the API needs', () =>
       await f.pool.query(`DROP ROLE ${role}`);
     }
   }));
+
+// Audit 19.10, finding 4.3: the cabinet records what the manager saw in Kaspi Pay. Neither answer
+// changes money; the kiosk is released either way and a late bank result still settles the order.
+test('the manager Kaspi finding is recorded with the incident and in the audit, money unchanged', () =>
+  fixture(async (f) => {
+    await f.age(20);
+    const { token } = await f.manager('manager');
+    const listed = await f.incidents.list(token, f.branch);
+    assert.equal(listed.role, 'manager');
+    const before = await f.money();
+    const request = f.accept({ kaspi_check: 'payment_found', reason: 'bank_identity_lost' });
+    const result = await f.incidents.accept(token, f.branch, request);
+    assert.equal(result.kiosk, 'session_end_allowed');
+    assert.deepEqual(await f.incidents.accept(token, f.branch, request), result);
+    await assert.rejects(
+      f.incidents.accept(token, f.branch, { ...request, kaspi_check: 'payment_not_found' }),
+      code('CONFLICT'),
+    );
+    await assert.rejects(
+      f.incidents.accept(token, f.branch, { ...f.accept(), kaspi_check: 'paid' }),
+      code('INVALID_REQUEST'),
+    );
+    assert.deepEqual(await f.money(), before);
+    const accepted = (await f.incidents.list(token, f.branch)).accepted;
+    assert.equal(accepted.length, 1);
+    assert.equal(accepted[0].kaspi_check, 'payment_found');
+    const audit = (
+      await f.pool.query(
+        "SELECT before_value FROM bo_audit WHERE action='kiosk_payment_incident' AND entity_id=$1",
+        [f.order.orderId],
+      )
+    ).rows;
+    assert.equal(audit[0].before_value.manager_kaspi_check, 'payment_found');
+    const analyst = await f.manager('analyst');
+    assert.equal((await f.incidents.list(analyst.token, f.branch)).role, 'analyst');
+    await f.sessions.end(f.who.sessionId);
+  }));
