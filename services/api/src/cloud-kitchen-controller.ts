@@ -80,6 +80,21 @@ export function cloudKitchenOptions(env: Record<string, string | undefined>): Cl
   };
 }
 const FORWARDED = ['forwarded', 'x-forwarded-for', 'x-forwarded-host', 'x-real-ip'];
+/** Below this many free display numbers a channel is reported (audit 1.5), at most every
+ * 5 minutes per branch: payment closes for the channel once none is left. */
+export const NUMBERS_LOW = 30;
+const numbersReported = new Map<string, number>();
+function numbersLow(branchId: string, sweep: unknown) {
+  const free = (sweep as { numbersFree?: Record<string, number> } | undefined)?.numbersFree;
+  if (!free) return;
+  const low = Object.entries(free).filter(([, n]) => n < NUMBERS_LOW);
+  if (!low.length || Date.now() - (numbersReported.get(branchId) ?? -Infinity) < 5 * 60_000) return;
+  numbersReported.set(branchId, Date.now());
+  console.error(
+    JSON.stringify({ event: 'cloud_kitchen_numbers_low', free: Object.fromEntries(low) }),
+  );
+}
+
 /** Request headers as Nest passes them; used only for the internal-only check. */
 type Incoming = { headers: Record<string, string | string[] | undefined> };
 
@@ -177,7 +192,7 @@ export class CloudKitchenController {
     return this.run(request, 'feed', async (a) => {
       // Catch-up admission of paid cloud orders captured by processes without the hook.
       await this.kitchen.admitPendingPaid(a.branchId);
-      await this.kitchen.sweepStale?.(a.branchId);
+      numbersLow(a.branchId, await this.kitchen.sweepStale?.(a.branchId));
       return this.kitchen.listKitchen(a, numeric(query, ['limit']));
     });
   }

@@ -719,12 +719,14 @@ test('refunded and long-ready cloud orders free their display numbers', () =>
       assert.deepEqual(await f.kitchen.sweepStale(f.branch), {
         cancelled: [refunded.order.orderId],
         closed: [],
+        numbersFree: { kiosk: 299, mobile: 300 },
       });
       assert.equal(await holds(), 1);
       await new Promise((r) => setTimeout(r, 1200));
       assert.deepEqual(await f.kitchen.sweepStale(f.branch), {
         cancelled: [],
         closed: [ready.order.orderId],
+        numbersFree: { kiosk: 300, mobile: 300 },
       });
       assert.equal(await holds(), 0);
       const states = (

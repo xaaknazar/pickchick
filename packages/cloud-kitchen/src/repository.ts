@@ -543,7 +543,20 @@ export class CloudKitchen {
           closed.push(order_id);
         });
     }
-    return { cancelled, closed };
+    // Free numbers per channel, so an emptying range is noticed before payment closes.
+    const free = (
+      await this.pool.query<{ channel: 'kiosk' | 'mobile'; free: number }>(
+        `SELECT r.channel,((r.high-r.low+1)-count(h.order_id))::int AS free FROM channel_number_ranges r
+         LEFT JOIN channel_number_holds h ON h.channel=r.channel AND h.branch_id=$1 AND h.released_at IS NULL
+         GROUP BY r.channel,r.low,r.high ORDER BY r.channel`,
+        [branchId],
+      )
+    ).rows;
+    return {
+      cancelled,
+      closed,
+      numbersFree: Object.fromEntries(free.map((r) => [r.channel, r.free])),
+    };
   }
 
   /**
