@@ -506,9 +506,8 @@ test('ended or expired guests cannot create a new order or payment', async () =>
     await f.pool.query(
       "UPDATE kiosk_sessions SET created_at=clock_timestamp()-interval '2 hours',expires_at=clock_timestamp()-interval '1 hour'",
     );
-    // Expired, not ended: a definitive EXPIRED (no attempt was started), never FORBIDDEN.
     await assert.rejects(f.checkout.pay(f.who, order.orderId, { phone: '+77011234567' }), {
-      code: 'EXPIRED',
+      code: 'FORBIDDEN',
     });
     assert.equal(
       (await f.pool.query('SELECT count(*)::int n FROM commerce_payment_attempts')).rows[0].n,
@@ -520,8 +519,9 @@ test('ended or expired guests cannot create a new order or payment', async () =>
   });
 });
 // Audit 19.10, finding 3.0: a retried POST /orders after the guest's TTL used to answer
-// FORBIDDEN, which every installed kiosk keeps on the recovery screen for ever.
-test('an expired guest without an order gets EXPIRED on create; ended or disabled stay FORBIDDEN', async () => {
+// FORBIDDEN, which every installed kiosk keeps on the recovery screen for ever. NOT_FOUND (404)
+// is definitive for every installed kiosk; EXPIRED would reach it as CONFLICT.
+test('an expired guest without an order gets NOT_FOUND on create; ended or disabled stay FORBIDDEN', async () => {
   await fixture(async (f) => {
     await f.ack();
     const q = await f.checkout.quote(f.who, f.cart());
@@ -530,7 +530,7 @@ test('an expired guest without an order gets EXPIRED on create; ended or disable
       [f.who.sessionId],
     );
     await assert.rejects(f.checkout.create(f.who, { key: randomUUID(), quoteId: q.quoteId }), {
-      code: 'EXPIRED',
+      code: 'NOT_FOUND',
     });
     assert.equal((await f.pool.query('SELECT count(*)::int n FROM commerce_orders')).rows[0].n, 0);
     await f.pool.query('UPDATE kiosk_devices SET active=false');

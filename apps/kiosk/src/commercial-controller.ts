@@ -169,8 +169,6 @@ const PAYMENT_DEFINITIVE = [
   'KITCHEN_OFFLINE',
   'RESTAURANT_CLOSED',
   'NOT_READY',
-  // Since 19.10 a phone invoice for an expired guest is refused with EXPIRED before any attempt.
-  'EXPIRED',
 ];
 /**
  * Owner decision 2026-10-11: NOT_ACCEPTING (the restaurant does not take orders: closed, checkout
@@ -1440,8 +1438,9 @@ export class CommercialKioskController {
           if (definitive(error, ['EXPIRED', 'NOT_FOUND'])) throw new KioskError('RETRY_PAYMENT');
         }
         // Finding 3.0: servers before 19.10 refuse an expired guest without an order with
-        // FORBIDDEN. No payment was ever requested for this intent (its order id is unknown), so
-        // no money can exist: drop it, unbind the expired guest and let the guest pay again.
+        // FORBIDDEN (since 19.10: NOT_FOUND, handled above). No payment was ever requested for
+        // this intent (its order id is unknown), so no money can exist: drop it, unbind the
+        // expired guest and let the guest pay again.
         if (
           definitive(error, ['FORBIDDEN']) &&
           this.guest.expiresAt &&
@@ -1469,10 +1468,7 @@ export class CommercialKioskController {
         ),
       );
     } catch (error) {
-      if (definitive(error, PAYMENT_DEFINITIVE)) {
-        await this.abandonUnpaidOrder();
-        if (definitive(error, ['EXPIRED'])) throw new KioskError('RETRY_PAYMENT');
-      }
+      if (definitive(error, PAYMENT_DEFINITIVE)) await this.abandonUnpaidOrder();
       throw error;
     }
     this.assertOrder(order);

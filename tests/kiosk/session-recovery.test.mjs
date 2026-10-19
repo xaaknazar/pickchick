@@ -17,7 +17,7 @@ const token = (h) => (h.rawSession ? JSON.parse(h.rawSession).token : null);
 
 /**
  * The shared fixture with a real guest TTL (`ttl`), the server's answer to POST /orders for an
- * expired guest without an order (`expiredOrder`: FORBIDDEN before 19.10, EXPIRED after) and a
+ * expired guest without an order (`expiredOrder`: FORBIDDEN before 19.10, NOT_FOUND after) and a
  * scripted /sessions/end per token (`endAnswer(token)`: 'ok' | 'CONFLICT' | 'NETWORK').
  */
 function sessionFixture({ ttl = 60 * MINUTE, expiredOrder = 'FORBIDDEN' } = {}) {
@@ -44,7 +44,7 @@ function sessionFixture({ ttl = 60 * MINUTE, expiredOrder = 'FORBIDDEN' } = {}) 
     if (path === '/orders' && h.clock >= (h.expiry.get(tok) ?? Infinity) && !h.order) {
       h.calls.push({ path, token: tok, body, key });
       // KioskCheckout.createLocked: no order exists for this guest and it has expired.
-      if (expiredOrder === 'EXPIRED') throw new KioskError('EXPIRED', 409);
+      if (expiredOrder === 'NOT_FOUND') throw new KioskError('NOT_FOUND', 404);
       throw new KioskError('FORBIDDEN', 403);
     }
     return base(path, tok, body, key);
@@ -53,7 +53,7 @@ function sessionFixture({ ttl = 60 * MINUTE, expiredOrder = 'FORBIDDEN' } = {}) 
 }
 const ordersCalls = (h) => h.calls.filter((r) => r.path === '/orders').length;
 
-for (const expiredOrder of ['FORBIDDEN', 'EXPIRED'])
+for (const expiredOrder of ['FORBIDDEN', 'NOT_FOUND'])
   test(`3.0: a POST /orders retried after the guest expired never loops (server answers ${expiredOrder})`, async () => {
     const h = sessionFixture({ expiredOrder });
     const c = await cart(h);

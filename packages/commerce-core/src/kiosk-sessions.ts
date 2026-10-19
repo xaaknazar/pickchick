@@ -277,13 +277,15 @@ export class KioskSessions {
     return operation;
   }
   /**
-   * The guest may still act. With `expired: 'EXPIRED'` a guest whose only problem is its TTL
-   * (not ended, device active) is refused with EXPIRED (409) instead of FORBIDDEN: every installed
-   * kiosk treats EXPIRED as a definitive "no order was created" and starts a new guest, while
-   * FORBIDDEN kept it on the recovery screen forever (audit 19.10, finding 3.0). Unknown or ended
-   * guests and inactive devices stay FORBIDDEN.
+   * The guest may still act. With `ifExpired: 'NOT_FOUND'` a guest whose only problem is its TTL
+   * (not ended, device active) is refused with NOT_FOUND (404) instead of FORBIDDEN. Audit 19.10,
+   * finding 3.0: a retried POST /orders of an expired guest without an order answered FORBIDDEN,
+   * which every installed kiosk keeps on «Восстанавливаем заказ» for ever. NOT_FOUND is a public
+   * error code (EXPIRED is not: the HTTP filter turns it into CONFLICT) that every installed kiosk
+   * already reads as "no order exists, start the payment again". Unknown or ended guests and
+   * inactive devices stay FORBIDDEN.
    */
-  async assertActive(sessionId: string, options: { expired?: 'EXPIRED' } = {}): Promise<void> {
+  async assertActive(sessionId: string, options: { ifExpired?: 'NOT_FOUND' } = {}): Promise<void> {
     uuid(sessionId);
     const row = (
       await this.pool.query<{ live: boolean }>(
@@ -294,7 +296,7 @@ export class KioskSessions {
     ).rows[0];
     if (!row) return forbidden();
     if (!row.live) {
-      if (options.expired === 'EXPIRED') throw new CommerceError('EXPIRED');
+      if (options.ifExpired === 'NOT_FOUND') throw new CommerceError('NOT_FOUND');
       return forbidden();
     }
   }
