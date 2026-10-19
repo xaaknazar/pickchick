@@ -1,0 +1,134 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {
+  AUTO_SEND_WINDOW_MS,
+  BANK_RESUME_WINDOW_MS,
+  INVOICE_GRACE_MS,
+  STUCK_AFTER_MS,
+  closeDelay,
+  draftCanAutoSend,
+  draftIsFinal,
+  liveBankAction,
+  resumableOrder,
+} from '../../apps/mobile/src/checkout-resume.ts';
+import {
+  dismissPendingPayment,
+  parsePendingPayment,
+  pendingPaymentDismissed,
+} from '../../apps/mobile/src/payment-recovery.ts';
+
+// Audit 0.2 / 2.0 / 2.1 / 2.4: a saved payment draft or an old unpaid order must never trap
+// the customer, while an order that may still take money keeps blocking a second invoice.
+const now = Date.parse('2026-10-19T12:00:00.000Z');
+const iso = (offset) => new Date(now + offset).toISOString();
+const order = (phase, changes = {}) => ({
+  orderId: '40000000-0000-4000-8000-000000000006',
+  phase,
+  createdAt: iso(-60_000),
+  updatedAt: iso(-60_000),
+  expiresAt: null,
+  ...changes,
+});
+const draft = {
+  key: '40000000-0000-4000-8000-000000000004',
+  quoteId: '40000000-0000-4000-8000-000000000005',
+  signature: '{"items":[]}',
+  sendInvoice: true,
+};
+
+test('only an order that may still take money blocks a new checkout', () => {
+  for (const phase of ['sending', 'checking', 'awaiting_payment'])
+    assert.equal(liveBankAction(order(phase), now), true, phase);
+  for (const phase of [
+    'awaiting_restaurant',
+    'ready_to_pay',
+    'failed',
+    'attention',
+    'paid',
+    'preparing',
+    'ready',
+    'handed_over',
+  ])
+    assert.equal(liveBankAction(order(phase), now), false, phase);
+  // A known invoice deadline bounds the wait (plus grace for a late bank answer).
+  assert.equal(
+    liveBankAction(order('awaiting_payment', { expiresAt: iso(-INVOICE_GRACE_MS + 1000) }), now),
+    true,
+  );
+  assert.equal(
+    liveBankAction(order('awaiting_payment', { expiresAt: iso(-INVOICE_GRACE_MS - 1000) }), now),
+    false,
+  );
+  // Without a deadline the last observed change (or the customer's own tap) bounds it.
+  const old = { createdAt: iso(-BANK_RESUME_WINDOW_MS - 1000) };
+  assert.equal(liveBankAction(order('checking', { ...old, updatedAt: old.createdAt }), now), false);
+  assert.equal(
+    liveBankAction(order('checking', { ...old, updatedAt: old.createdAt }), now, now - 1000),
+    true,
+  );
+  assert.equal(liveBankAction(order('sending', { ...old, updatedAt: iso(-1000) }), now), true);
+});
+
+test('the resumed order is the newest live one; unbilled and settled orders are left alone', () => {
+  const live = order('awaiting_payment', { orderId: '40000000-0000-4000-8000-000000000007' });
+  assert.equal(resumableOrder([order('attention'), order('ready_to_pay'), live], now), live);
+  assert.equal(
+    resumableOrder([order('ready_to_pay'), order('awaiting_restaurant'), order('attention')], now),
+    undefined,
+  );
+});
+
+test('a draft ends with the order: paid, failed, refused and attention clear it', () => {
+  for (const phase of ['paid', 'preparing', 'ready', 'handed_over', 'failed', 'attention'])
+    assert.equal(draftIsFinal(order(phase), draft, now), true, phase);
+  for (const phase of ['sending', 'checking', 'awaiting_payment'])
+    assert.equal(draftIsFinal(order(phase), draft, now), false, phase);
+  // An unbilled order keeps a fresh draft (the invoice is sent on admission), not a stale one.
+  const fresh = { ...draft, createdAt: now - 1000 };
+  for (const phase of ['ready_to_pay', 'awaiting_restaurant']) {
+    assert.equal(draftIsFinal(order(phase), fresh, now), false, phase);
+    assert.equal(draftIsFinal(order(phase), draft, now), true, `${phase} legacy draft`);
+    assert.equal(
+      draftIsFinal(order(phase), { ...draft, createdAt: now - AUTO_SEND_WINDOW_MS - 1 }, now),
+      true,
+    );
+  }
+});
+
+test('an invoice is sent automatically only from a fresh explicit tap', () => {
+  assert.equal(draftCanAutoSend({ ...draft, createdAt: now - 1000 }, now), true);
+  assert.equal(
+    draftCanAutoSend({ ...draft, createdAt: now - AUTO_SEND_WINDOW_MS - 1 }, now),
+    false,
+  );
+  // Drafts written by build 20 carry no time: never resent without a new tap.
+  assert.equal(draftCanAutoSend(draft, now), false);
+  assert.equal(draftCanAutoSend({ ...draft, sendInvoice: false, createdAt: now }, now), false);
+  assert.equal(draftCanAutoSend(null, now), false);
+});
+
+test('every non-final payment screen offers a way out', () => {
+  for (const phase of ['attention', 'ready_to_pay', 'awaiting_restaurant'])
+    assert.equal(closeDelay(order(phase), now), 0, phase);
+  for (const phase of ['sending', 'checking', 'awaiting_payment'])
+    assert.equal(closeDelay(order(phase), now), STUCK_AFTER_MS, phase);
+  assert.equal(
+    closeDelay(order('checking', { expiresAt: iso(-INVOICE_GRACE_MS - 1) }), now),
+    0,
+    'a dead invoice is closable at once',
+  );
+  assert.equal(closeDelay(undefined, now), STUCK_AFTER_MS);
+  for (const phase of ['paid', 'failed']) assert.equal(closeDelay(order(phase), now), null);
+});
+
+test('drafts record their time; a customer close is remembered for this app session', () => {
+  const timed = { ...draft, createdAt: now };
+  assert.deepEqual(parsePendingPayment(JSON.stringify(timed)), timed);
+  for (const createdAt of ['now', -1, 1.5])
+    assert.throws(() => parsePendingPayment(JSON.stringify({ ...draft, createdAt })));
+  assert.equal(pendingPaymentDismissed(timed), false);
+  dismissPendingPayment(timed.key);
+  assert.equal(pendingPaymentDismissed(timed), true);
+  assert.equal(pendingPaymentDismissed({ ...timed, key: draft.quoteId }), false);
+  assert.equal(pendingPaymentDismissed(null), false);
+});
