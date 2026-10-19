@@ -575,8 +575,9 @@ function KaspiCheckoutSession(props: ScreenProps) {
         }}
         extraAction={
           connectionPaused || (error && pending.current) ? (
+            // Without a saved intent nothing was ordered or billed: this is a connection retry.
             <Button
-              title="Проверить оплату"
+              title={pending.current ? 'Проверить оплату' : 'Повторить попытку'}
               onPress={() => (pending.current ? retry() : void submit())}
             />
           ) : undefined

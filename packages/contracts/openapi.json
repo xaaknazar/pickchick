@@ -12267,6 +12267,7 @@
               "AVAILABILITY_STALE",
               "BRANCH_UNAVAILABLE",
               "ITEM_STOPPED",
+              "KITCHEN_OFFLINE",
               "CASH_SHIFT_REQUIRED",
               "SHIFT_CLOSED",
               "CONFLICT",

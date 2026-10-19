@@ -188,6 +188,9 @@ export const ErrorSchema = z.strictObject({
     'AVAILABILITY_STALE',
     'BRANCH_UNAVAILABLE',
     'ITEM_STOPPED',
+    // Cloud-mode branch whose kitchen screens stopped polling (ADR-0014). Sent only to clients
+    // that list the checkout-errors-v2 profile: older bundles reject unknown codes.
+    'KITCHEN_OFFLINE',
     'CASH_SHIFT_REQUIRED',
     'SHIFT_CLOSED',
     'CONFLICT',
