@@ -320,3 +320,76 @@ test('stop states and receipts require protocol 4; stop commands are bounded', (
   ])
     assert.equal(PullResponseSchema.safeParse(response(bad)).success, false);
 });
+
+test('attention line: counts only, throttled while it lasts, one recovery line after it', async () => {
+  const { TransportAttention, fulfillmentPullOptions } = await import('../dist/index.js');
+  let now = 0;
+  const attention = new TransportAttention(300_000, 120_000, () => now);
+  assert.equal(attention.observe({ state: 'idle', unresolvedFailures: 0 }), null);
+  const first = attention.observe({
+    state: 'deferred',
+    error: 'LOCAL_NOT_READY',
+    reason: 'NOT_READY',
+    unresolvedFailures: 0,
+  });
+  assert.deepEqual(first, {
+    event: 'fulfillment_transport_attention',
+    deferred: 1,
+    parked: 0,
+    reasons: { NOT_READY: 1 },
+    unresolvedFailures: 0,
+  });
+  now = 30_000;
+  assert.equal(attention.observe({ state: 'deferred', reason: 'ITEM_STOPPED' }), null);
+  assert.equal(attention.observe({ state: 'idle', unresolvedFailures: 0 }), null);
+  now = 300_000;
+  assert.deepEqual(
+    attention.observe({ state: 'parked', error: 'LOCAL_ROUTING_MISSING', unresolvedFailures: 1 }),
+    {
+      event: 'fulfillment_transport_attention',
+      deferred: 1,
+      parked: 1,
+      reasons: { ITEM_STOPPED: 1, LOCAL_ROUTING_MISSING: 1 },
+      unresolvedFailures: 1,
+    },
+  );
+  now = 500_000;
+  // A parked failure is still open: not recovered yet.
+  assert.equal(attention.observe({ state: 'idle', unresolvedFailures: 1 }), null);
+  assert.deepEqual(attention.observe({ state: 'applied', unresolvedFailures: 0 }), {
+    event: 'fulfillment_transport_attention',
+    recovered: true,
+  });
+  assert.equal(attention.observe({ state: 'idle', unresolvedFailures: 0 }), null);
+  assert.ok(!JSON.stringify(first).match(/[0-9a-f]{8}-[0-9a-f]{4}/));
+  assert.deepEqual(fulfillmentPullOptions({}), { admissionReviewMinutes: 15 });
+  assert.deepEqual(fulfillmentPullOptions({ FULFILLMENT_ADMISSION_REVIEW_MINUTES: '0' }), {
+    admissionReviewMinutes: 0,
+  });
+  assert.throws(() => fulfillmentPullOptions({ FULFILLMENT_ADMISSION_REVIEW_MINUTES: '15m' }));
+  assert.throws(() => fulfillmentPullOptions({ FULFILLMENT_ADMISSION_REVIEW_MINUTES: '1441' }));
+});
+
+test('optional pull fields are validated and bounded', () => {
+  const base = { workerId: randomUUID(), leaseSeconds: 30 };
+  assert.ok(
+    PullRequestSchema.safeParse({
+      ...base,
+      availabilityOnly: true,
+      availability: { revision: '1', stoppedIds: [], orderingEnabled: false },
+      admissionRefusals: [{ eventId: randomUUID(), reason: 'ITEM_STOPPED' }],
+    }).success,
+  );
+  for (const bad of [
+    { admissionRefusals: [] },
+    { admissionRefusals: [{ eventId: randomUUID(), reason: 'TIMEOUT' }] },
+    {
+      admissionRefusals: Array.from({ length: 21 }, () => ({
+        eventId: randomUUID(),
+        reason: 'CONFLICT',
+      })),
+    },
+    { admissionRefusals: [{ eventId: randomUUID(), reason: 'CONFLICT', orderId: randomUUID() }] },
+  ])
+    assert.equal(PullRequestSchema.safeParse({ ...base, ...bad }).success, false);
+});

@@ -233,7 +233,9 @@ export class KioskCheckout {
        ($4::uuid IS NULL OR EXISTS(SELECT 1 FROM commerce_provider_accounts f WHERE f.id=$4 AND f.branch_id=b.id
        AND f.organization_id=b.organization_id AND f.legal_entity_id=b.legal_entity_id AND f.kind='fiscal' AND f.enabled))) ready,
        EXISTS(SELECT 1 FROM fulfillment_transport_bindings t JOIN devices d ON d.id=t.device_id
-       WHERE t.branch_id=b.id AND t.active AND d.status='active') kitchen
+       WHERE t.branch_id=b.id AND t.active AND d.status='active'
+       AND NOT EXISTS(SELECT 1 FROM cloud_branch_availability a WHERE a.branch_id=b.id
+        AND a.device_id=t.device_id AND coalesce((to_jsonb(a)->>'ordering_closed')::boolean,false))) kitchen
        FROM branches b LEFT JOIN catalog_branch_heads h ON h.branch_id=b.id AND h.organization_id=b.organization_id
        WHERE b.id=$1 AND b.organization_id=$2`,
         [
@@ -502,7 +504,20 @@ export class KioskCheckout {
           orderId,
         ])
       ).rowCount;
-    const phase = handed ? 'failed' : shown;
+    // A paid QR order the cashier refused is a staff case (refund or a manual order). Installed
+    // builds would keep the guest and the device on 'attention'; 'failed' with a paid QR shows
+    // their staff-help screen ("ask a team member, do not pay again") instead of a number "-",
+    // then frees the kiosk. Device presentation only: the order stays on review for the manager.
+    const refused =
+      shown === 'attention' &&
+      payment.state === 'paid' &&
+      !!(
+        await this.pool.query(
+          "SELECT 1 FROM commerce_reconciliation_issues WHERE order_id=$1 AND code IN ('KITCHEN_ADMISSION_REFUSED','KITCHEN_ADMISSION_OVERDUE')",
+          [orderId],
+        )
+      ).rowCount;
+    const phase = handed || refused ? 'failed' : shown;
     // Existing QR-only native builds use a strict response schema. Keep their shape.
     return { ...order, phase, payment };
   }

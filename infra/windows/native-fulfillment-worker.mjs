@@ -89,6 +89,8 @@ async function main() {
   for (const signal of ['SIGTERM', 'SIGINT']) process.once(signal, () => stop.abort());
   let failures = 0,
     remoteStops;
+  // Kitchen admission health (PM interface 19.10): counts only, throttled.
+  const attention = sync.TransportAttention ? new sync.TransportAttention() : null;
   try {
     do {
       let delivered = false;
@@ -108,6 +110,8 @@ async function main() {
         });
         if (once || !['idle', 'busy', 'disabled'].includes(result.state))
           console.log(JSON.stringify({ event: 'fulfillment_transport', ...result }));
+        const notice = attention?.observe(result);
+        if (notice) console.error(JSON.stringify(notice));
         else if (result.state === 'idle' && result.remoteStops !== remoteStops)
           // A degraded stop channel is not an error for the order loop; report changes only.
           console.log(

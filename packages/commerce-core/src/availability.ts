@@ -26,12 +26,15 @@ async function pendingRemoteStops(pool: Pick<DatabasePool, 'query'>, branchId: s
     )
   ).rows.map((r) => r.variant_id);
 }
-/** An offline restaurant must not acquire a new mobile payment. Keep last known stops visible. */
+/** An offline restaurant must not acquire a new mobile payment. Keep last known stops visible.
+ * A cashier that closed ordering (cloud064, reported by the edge) refuses every new admission,
+ * so it is not fresh either: kiosk and mobile stop selling with it. */
 async function edgeBranchAvailability(pool: Pick<DatabasePool, 'query'>, branchId: string) {
   const row = (
     await pool.query<{ stopped_ids: string[]; fresh: boolean }>(
       `SELECT a.stopped_ids,
-    (a.observed_at > clock_timestamp()-interval '30 seconds') fresh
+    (a.observed_at > clock_timestamp()-interval '30 seconds'
+      AND NOT coalesce((to_jsonb(a)->>'ordering_closed')::boolean,false)) fresh
     FROM cloud_branch_availability a JOIN fulfillment_transport_bindings b ON b.branch_id=a.branch_id AND b.device_id=a.device_id AND b.active
     JOIN devices d ON d.id=b.device_id AND d.status='active' WHERE a.branch_id=$1`,
       [branchId],
