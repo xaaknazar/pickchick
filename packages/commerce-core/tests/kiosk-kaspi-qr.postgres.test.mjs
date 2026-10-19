@@ -183,7 +183,8 @@ async function ready(f, client = new FakeQr(), admitted = true) {
     latitude: 43,
     longitude: 76,
   };
-  const processor = (pool = f.pool) => new KioskKaspiQrProcessor(pool, config, client);
+  const processor = (pool = f.pool, now = undefined) =>
+    new KioskKaspiQrProcessor(pool, config, client, now);
   const due = () =>
     f.pool.query(
       "UPDATE commerce_kiosk_kaspi_qr SET next_check_at=clock_timestamp()-interval '1 second'",
@@ -651,4 +652,79 @@ test('expired guest resumes only its existing QR order without renewal, while ne
       ).rows[0].expires_at.toISOString(),
       expires.toISOString(),
     );
+  }));
+
+test('an expired own QR the bank discarded without amount or id fails instead of unknown', async () =>
+  fixture(async (f) => {
+    const r = await ready(f);
+    await r.processor().tick();
+    const issued = await r.row();
+    assert.equal(issued.state, 'issued');
+    // Real 8.10 answer shape: terminal status, no Amount and no Id/QrOperationId.
+    r.client.statusAnswer = {
+      kind: 'ok',
+      data: { Status: 'QrTokenDiscarded', StatusDesc: 'Discarded' },
+    };
+    const afterExpiry = () => new Date(issued.expires_at.getTime() + 1000);
+    await r.due();
+    await r.processor(f.pool, afterExpiry).tick();
+    assert.equal((await r.row()).state, 'failed');
+    const view = await f.checkout.read(f.who, r.order.orderId);
+    assert.equal(view.phase, 'failed');
+    assert.equal(view.payment.state, 'failed');
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_captures')).rows[0].n,
+      0,
+    );
+  }));
+
+test('QR terminal answers: matching id fails without amount, conflicting or early answers stay unknown', async () =>
+  fixture(async (f) => {
+    const r = await ready(f);
+    await r.processor().tick();
+    const issued = await r.row();
+    const afterExpiry = () => new Date(issued.expires_at.getTime() + 1000);
+    // Before the QR expired an anonymous discard is not bound to this QR: keep it unknown.
+    r.client.statusAnswer = { kind: 'ok', data: { Status: 'QrTokenDiscarded' } };
+    await r.due();
+    await r.processor().tick();
+    assert.equal((await r.row()).state, 'unknown');
+    // Another operation's identity is genuinely ambiguous, even after expiry.
+    r.client.statusAnswer = { kind: 'ok', data: { Id: 124, Status: 'QrTokenDiscarded' } };
+    await r.due();
+    await r.processor(f.pool, afterExpiry).tick();
+    assert.equal((await r.row()).state, 'unknown');
+    // A positive foreign amount stays unknown too.
+    r.client.statusAnswer = { kind: 'ok', data: { Status: 'Expired', Amount: 999 } };
+    await r.due();
+    await r.processor(f.pool, afterExpiry).tick();
+    assert.equal((await r.row()).state, 'unknown');
+    // The bank names this very operation as discarded: no money, the attempt fails.
+    r.client.statusAnswer = { kind: 'ok', data: { Id: 123, Status: 'QrTokenDiscarded' } };
+    await r.due();
+    await r.processor().tick();
+    assert.equal((await r.row()).state, 'failed');
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_captures')).rows[0].n,
+      0,
+    );
+  }));
+
+test('QR pending answer with the own id but without amount keeps the QR payable', async () =>
+  fixture(async (f) => {
+    const r = await ready(f);
+    await r.processor().tick();
+    // Real pending answer shape (8.10): Id and Status only.
+    r.client.statusAnswer = { kind: 'ok', data: { Id: 123, Status: 'QrTokenCreated' } };
+    await r.due();
+    await r.processor().tick();
+    assert.equal((await r.row()).state, 'issued');
+    assert.equal((await readKioskQrPayment(f.pool, r.order.orderId)).state, 'pending');
+    r.client.statusAnswer = {
+      kind: 'ok',
+      data: { Id: 123, Status: 'QrTokenScanned', Amount: 111 },
+    };
+    await r.due();
+    await r.processor().tick();
+    assert.equal((await r.row()).state, 'unknown');
   }));

@@ -107,6 +107,47 @@ function statusOperationId(data: Record<string, unknown>): string | null {
   // Reject ambiguous or malformed identities even when the other field matches.
   return primary && alias && operationId(data.Id) !== id ? null : id;
 }
+const QR_FAILED = new Set([
+  'CancelledByUser',
+  'NotConfirmedByUser',
+  'CancelledByExternalSource',
+  'ProcessingFailed',
+  'Rejected',
+  'InsufficientFunds',
+  'InsufficientFundsError',
+  'QrTokenDiscarded',
+  'Expired',
+]);
+const QR_PENDING = new Set(['QrTokenCreated', 'QrTokenScanned', 'Wait']);
+/**
+ * Status answer of this QR's own operation (we asked by its operation id). Money needs the exact
+ * id and amount with Processed. A terminal failure carries no money, so its amount is not
+ * required: it fails with the matching id, or, as the real 8.10 QrTokenDiscarded answer (no id,
+ * no amount), once the QR has expired. A foreign id or a positive foreign amount stays unknown.
+ * Pending answers with the own id and no amount (real shape) keep the QR as it is.
+ */
+export function qrStatusOutcome(
+  data: Record<string, unknown>,
+  row: { operation_id: string | null; amount_minor: string; expires_at: Date },
+  now: Date,
+): 'paid' | 'failed' | 'unknown' | 'pending' {
+  const id = statusOperationId(data);
+  const named = Object.hasOwn(data, 'QrOperationId') || Object.hasOwn(data, 'Id');
+  const foreignId = named && id !== row.operation_id;
+  const amount = data.Amount;
+  const noAmount = amount === undefined || amount === null || amount === 0 || amount === '0';
+  const foreignAmount = !noAmount && kaspiMinor(amount) !== row.amount_minor;
+  const status = String(data.Status);
+  if (status === 'Processed')
+    return id === row.operation_id && kaspiMinor(amount) === row.amount_minor ? 'paid' : 'unknown';
+  if (QR_FAILED.has(status)) {
+    if (id === row.operation_id) return 'failed';
+    if (!named && noAmount && now >= row.expires_at) return 'failed';
+    return 'unknown';
+  }
+  if (QR_PENDING.has(status)) return foreignId || foreignAmount ? 'unknown' : 'pending';
+  return 'unknown';
+}
 function payload(value: unknown): string | null {
   if (typeof value !== 'string' || value.length > 4096) return null;
   try {
@@ -367,28 +408,8 @@ export class KioskKaspiQrProcessor {
       const answer = await this.client.status(row.operation_id);
       session = answer.kind === 'session';
       if (answer.kind === 'ok') {
-        const bound =
-          statusOperationId(answer.data) === row.operation_id &&
-          kaspiMinor(answer.data.Amount) === row.amount_minor;
-        const status = answer.data.Status;
-        if (bound && status === 'Processed') await this.state(row, 'paid', lease);
-        else if (
-          bound &&
-          [
-            'CancelledByUser',
-            'NotConfirmedByUser',
-            'CancelledByExternalSource',
-            'ProcessingFailed',
-            'Rejected',
-            'InsufficientFunds',
-            'InsufficientFundsError',
-            'QrTokenDiscarded',
-            'Expired',
-          ].includes(String(status))
-        )
-          await this.state(row, 'failed', lease);
-        else if (!bound || !['QrTokenCreated', 'QrTokenScanned', 'Wait'].includes(String(status)))
-          await this.state(row, 'unknown', lease);
+        const outcome = qrStatusOutcome(answer.data, row, this.now());
+        if (outcome !== 'pending') await this.state(row, outcome, lease);
       }
     }
     row = (await this.row(attempt))!;
