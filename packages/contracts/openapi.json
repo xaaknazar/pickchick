@@ -20978,10 +20978,17 @@
             ]
           },
           "gender": {
-            "type": "string",
-            "enum": [
-              "female",
-              "male"
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "female",
+                  "male"
+                ]
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "marketing_opt_in": {
