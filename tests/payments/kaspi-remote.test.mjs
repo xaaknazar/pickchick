@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createCipheriv, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import {
+  KaspiAttention,
   KaspiBridgeClient,
   findByReference,
   findByInvoiceComment,
@@ -37,6 +38,12 @@ test('configuration is opt-in, loopback-only and validates every secret shape', 
   const ok = kaspiRemoteConfig({ ...base, ...session });
   assert.equal(ok.bridgeUrl, 'http://127.0.0.1:3931');
   assert.equal(ok.invoiceTtlSeconds, 180);
+  assert.equal(ok.pendingMaxAgeSeconds, 600);
+  assert.equal(
+    kaspiRemoteConfig({ ...base, KASPI_REMOTE_PENDING_MAX_AGE_SECONDS: '300' })
+      .pendingMaxAgeSeconds,
+    300,
+  );
   assert.equal(ok.session.profileId, '12345');
   assert.equal(kaspiRemoteConfig(base).session, null);
   for (const bad of [
@@ -48,6 +55,9 @@ test('configuration is opt-in, loopback-only and validates every secret shape', 
     { KASPI_REMOTE_ACCOUNT_ID: 'not-a-uuid' },
     { KASPI_INVOICE_TTL_SECONDS: '30' },
     { KASPI_INVOICE_TTL_SECONDS: '10.5' },
+    { KASPI_REMOTE_PENDING_MAX_AGE_SECONDS: '30' },
+    { KASPI_REMOTE_PENDING_MAX_AGE_SECONDS: '600.5' },
+    { KASPI_REMOTE_PENDING_MAX_AGE_SECONDS: 'never' },
     { ...session, KASPI_SESSION_PROFILE_ID: '' },
     { ...session, KASPI_SESSION_TOKEN_SN: 'x' },
   ])
@@ -677,13 +687,63 @@ test('read-only session readiness requires explicit active true and never issues
       return new Response(JSON.stringify(payload), { status });
     });
     assert.equal(await client.checkSession(), expected);
+    assert.equal(
+      await client.sessionStatus(),
+      expected ? 'active' : status >= 500 ? 'unreachable' : 'inactive',
+    );
   }
   const unavailable = new KaspiBridgeClient(config, async () => {
     throw Error('timeout');
   });
   assert.equal(await unavailable.checkSession(), false);
+  assert.equal(await unavailable.sessionStatus(), 'unreachable');
   const missing = new KaspiBridgeClient({ ...config, session: null }, async () => {
     assert.fail('missing credentials must never leave the host');
   });
   assert.equal(await missing.checkSession(), false);
+  assert.equal(await missing.sessionStatus(), 'missing');
+});
+
+test('worker attention is rate-limited while a problem lasts and reports one recovery', () => {
+  const healthy = {
+    submitted: 0,
+    checked: 0,
+    errors: 0,
+    sessionProblem: false,
+    unknownOverdue: 0,
+    deferred: 0,
+    notSent: 0,
+    pendingUnsent: 0,
+    oldestUnsentSeconds: 0,
+  };
+  const attention = new KaspiAttention(300_000);
+  assert.equal(attention.next(healthy, 0), null);
+  const down = { ...healthy, sessionProblem: true, sessionReason: 'session_inactive' };
+  const first = attention.next(down, 1_000);
+  assert.deepEqual(first, {
+    event: 'kaspi_remote_attention',
+    sessionProblem: true,
+    sessionRejected: true,
+    reason: 'session_inactive',
+    unknownOverdue: 0,
+    errors: 0,
+    pendingUnsent: 0,
+    oldestUnsentSeconds: 0,
+  });
+  assert.equal(attention.next(down, 60_000), null);
+  assert.equal(attention.next(down, 302_000).reason, 'session_inactive');
+  assert.deepEqual(attention.next(healthy, 303_000), {
+    event: 'kaspi_remote_attention',
+    recovered: true,
+    sessionProblem: false,
+  });
+  assert.equal(attention.next(healthy, 304_000), null);
+  const waiting = { ...healthy, pendingUnsent: 2, oldestUnsentSeconds: 130 };
+  assert.equal(attention.next({ ...waiting, oldestUnsentSeconds: 60 }, 305_000), null);
+  const stuck = attention.next(waiting, 306_000);
+  assert.equal(stuck.reason, 'invoice_not_sent');
+  assert.equal(stuck.sessionProblem, false);
+  assert.equal(stuck.pendingUnsent, 2);
+  // Only codes and counts: no session values, phones or amounts.
+  assert.doesNotMatch(JSON.stringify(stuck), /token|secret|phone|amount/i);
 });

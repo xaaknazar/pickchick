@@ -2,6 +2,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { createPool } from '@pickchick/database';
 import { loadConfig } from '@pickchick/platform';
 import {
+  KaspiAttention,
   KaspiBridgeClient,
   KaspiRemoteProcessor,
   kaspiRemoteConfig,
@@ -39,7 +40,7 @@ if (!kaspi) {
     undefined,
     guests ? (orderId: string) => guests.readOrderPhone(orderId) : undefined,
   );
-  let lastSessionAlert = 0;
+  const attention = new KaspiAttention();
   let lastGuestCleanup = 0;
   try {
     do {
@@ -50,23 +51,13 @@ if (!kaspi) {
           await guests.purgeExpiredPhones();
           lastGuestCleanup = Date.now();
         }
-        busy = result.submitted + result.checked > 0;
-        if (
-          (result.sessionProblem || result.unknownOverdue > 0 || result.errors > 0) &&
-          Date.now() - lastSessionAlert > 5 * 60_000
-        ) {
-          lastSessionAlert = Date.now();
-          // session_rejected: re-login required. unknown_overdue: check Kaspi Pay by hand.
-          console.error(
-            JSON.stringify({
-              event: 'kaspi_remote_attention',
-              sessionRejected: result.sessionProblem,
-              unknownOverdue: result.unknownOverdue,
-              errors: result.errors,
-            }),
-          );
-        }
-        if (once || result.submitted)
+        busy = result.submitted + result.checked + result.notSent > 0;
+        // session_*: re-login or bridge restart required. unknown_overdue: check Kaspi Pay by
+        // hand. invoice_not_sent: customers wait for an invoice. Rate-limited, plus recovery.
+        const signal = attention.next(result);
+        if (signal?.recovered) console.log(JSON.stringify(signal));
+        else if (signal) console.error(JSON.stringify(signal));
+        if (once || result.submitted || result.notSent)
           console.log(JSON.stringify({ event: 'kaspi_remote', ...result }));
       } catch {
         console.error(JSON.stringify({ event: 'kaspi_remote_failed', retrying: !once }));

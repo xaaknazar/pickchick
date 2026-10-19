@@ -3,6 +3,7 @@ import test from 'node:test';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createPool, migrate } from '@pickchick/database';
+import { localSelectionIds } from '@pickchick/menu-sync';
 import { fixtureMenu } from '@pickchick/test-fixtures';
 import {
   CommerceRepository,
@@ -167,6 +168,7 @@ async function fixture(run, deferred = false) {
       unitPriceMinor = '50000',
       phone = '+77011234567',
       customerId = randomUUID(),
+      productId = 'synthetic-burger',
     } = {}) {
       await pool.query(
         'UPDATE cloud_branch_availability SET observed_at=clock_timestamp() WHERE branch_id=$1',
@@ -184,7 +186,7 @@ async function fixture(run, deferred = false) {
         lines: [
           {
             lineId: randomUUID(),
-            productId: 'synthetic-burger',
+            productId,
             title: 'Synthetic burger',
             quantity: 2,
             unitPriceMinor,
@@ -250,6 +252,16 @@ async function fixture(run, deferred = false) {
         [seconds],
       );
     };
+    // Simulate time passing for outbox leases (order-level and bank deferrals).
+    const releaseLeases = () =>
+      pool.query(
+        "UPDATE commerce_outbox SET lease_until=clock_timestamp()-interval '1 second' WHERE acknowledged_at IS NULL",
+      );
+    const stop = (productIds) =>
+      pool.query('UPDATE cloud_branch_availability SET stopped_ids=$2::uuid[] WHERE branch_id=$1', [
+        branch,
+        productIds.map((id) => localSelectionIds(branch, id, [])[0]),
+      ]);
     await run({
       schema,
       url,
@@ -266,6 +278,9 @@ async function fixture(run, deferred = false) {
       invoice,
       due,
       age,
+      releaseLeases,
+      stop,
+      branch,
       advance: (ms) => (clock += ms),
       now: () => clock,
     });
@@ -329,11 +344,175 @@ test('restaurant freshness is checked after the bank probe and the same attempt 
 
 test('restaurant admission released after payment request prevents a new invoice', () =>
   fixture(async (f) => {
-    const { attempt } = await f.order();
+    const { attempt, orderId } = await f.order();
     await f.pool.query("UPDATE cloud_fulfillment_projection SET state='released'");
-    assert.equal((await f.processor().tick()).submitted, 0);
+    const result = await f.processor().tick();
+    assert.equal(result.submitted, 0);
     assert.equal(f.bridge.count('create'), 0);
     assert.equal(await f.invoice(attempt.attemptId), undefined);
+    // Finding 0.0: the held order can never come back, so the attempt fails at once (no money).
+    assert.equal(result.notSent, 1);
+    assert.equal((await f.view(orderId)).attempts[0].state, 'failed');
+    const inbox = await f.pool.query(
+      "SELECT 1 FROM commerce_provider_inbox WHERE event_id=$1 AND observation->>'outcome'='failed'",
+      [`kaspi-remote:${attempt.attemptId}:not-sent:order_not_held`],
+    );
+    assert.equal(inbox.rowCount, 1);
+  }));
+
+test('one blocked attempt never stalls later ready invoices (per-attempt deferral)', () =>
+  fixture(async (f) => {
+    // A: no current held admission yet (transient), B and C ready behind it.
+    const a = await f.order();
+    const b = await f.order();
+    const c = await f.order();
+    const held = (
+      await f.pool.query('SELECT * FROM cloud_fulfillment_projection WHERE order_id=$1', [
+        a.orderId,
+      ])
+    ).rows[0];
+    await f.pool.query('DELETE FROM cloud_fulfillment_projection WHERE order_id=$1', [a.orderId]);
+    const worker = f.processor();
+    const first = await worker.tick();
+    assert.equal((await f.invoice(b.attempt.attemptId))?.state, 'issued');
+    assert.equal((await f.invoice(c.attempt.attemptId))?.state, 'issued');
+    assert.equal(await f.invoice(a.attempt.attemptId), undefined);
+    assert.equal(first.deferred, 1);
+    assert.equal(first.submitted, 2);
+    assert.equal(first.pendingUnsent, 1);
+    assert.equal(first.sessionProblem, false);
+    // The deferred attempt keeps its own retry time and is sent once its order is ready.
+    await f.pool.query(
+      `INSERT INTO cloud_fulfillment_projection(order_id,branch_id,organization_id,device_id,reservation_id,quote_id,quote_hash,owner_hash,version,state,display_number,routing_version,payload)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+      [
+        held.order_id,
+        held.branch_id,
+        held.organization_id,
+        held.device_id,
+        held.reservation_id,
+        held.quote_id,
+        held.quote_hash,
+        held.owner_hash,
+        held.version,
+        held.state,
+        held.display_number,
+        held.routing_version,
+        held.payload,
+      ],
+    );
+    assert.equal((await worker.tick()).submitted, 0); // still inside its own back-off
+    await f.releaseLeases();
+    assert.equal((await worker.tick()).submitted, 1);
+    assert.equal((await f.invoice(a.attempt.attemptId)).state, 'issued');
+    assert.equal(f.bridge.count('create'), 3);
+  }));
+
+test('a stop-listed item defers only its own order; others are invoiced in the same tick', () =>
+  fixture(async (f) => {
+    const blocked = await f.order({ productId: 'synthetic-fries' });
+    const b = await f.order();
+    const c = await f.order();
+    await f.stop(['synthetic-fries']);
+    const worker = f.processor();
+    for (let round = 0; round < 3; round++) {
+      await f.releaseLeases();
+      await worker.tick();
+    }
+    assert.equal((await f.invoice(b.attempt.attemptId)).state, 'issued');
+    assert.equal((await f.invoice(c.attempt.attemptId)).state, 'issued');
+    assert.equal(await f.invoice(blocked.attempt.attemptId), undefined);
+    assert.equal(f.bridge.count('create'), 2);
+    // Still on stop past the maximum age: it fails, it is never invoiced later.
+    f.advance(601_000);
+    await f.releaseLeases();
+    const expired = await worker.tick();
+    assert.equal(expired.notSent, 1);
+    assert.equal((await f.view(blocked.orderId)).attempts[0].state, 'failed');
+    await f.stop([]);
+    await f.releaseLeases();
+    await f.processor().tick();
+    assert.equal(f.bridge.count('create'), 2);
+    assert.equal(await f.invoice(blocked.attempt.attemptId), undefined);
+  }));
+
+test('a lost cashier session is reported and never-sent attempts expire without a late invoice', () =>
+  fixture(async (f) => {
+    const { orderId, attempt } = await f.order();
+    f.bridge.sessionReady = false;
+    const worker = f.processor();
+    const blocked = await worker.tick();
+    assert.equal(blocked.sessionProblem, true);
+    assert.equal(blocked.sessionReason, 'session_inactive');
+    assert.equal(blocked.deferred, 1);
+    assert.equal(blocked.pendingUnsent, 1);
+    assert.equal((await f.view(orderId)).attempts[0].state, 'pending');
+    // Ten minutes later the session is still down: the attempt fails, nothing was sent.
+    f.advance(601_000);
+    await f.releaseLeases();
+    const expired = await worker.tick();
+    assert.equal(expired.sessionProblem, true);
+    assert.equal(expired.notSent, 1);
+    assert.equal(expired.pendingUnsent, 0);
+    assert.equal((await f.view(orderId)).attempts[0].state, 'failed');
+    assert.equal(await f.invoice(attempt.attemptId), undefined);
+    // Re-login and worker restart: the abandoned attempt is never invoiced hours later.
+    f.bridge.sessionReady = true;
+    await f.releaseLeases();
+    const restarted = await f.processor().tick();
+    assert.equal(restarted.submitted, 0);
+    assert.equal(f.bridge.count('create'), 0);
+  }));
+
+test('the oldest unsent attempt age is reported while the bank is down', () =>
+  fixture(async (f) => {
+    await f.order();
+    f.bridge.sessionReady = false;
+    const worker = f.processor();
+    await worker.tick();
+    f.advance(150_000);
+    const later = await worker.tick();
+    assert.equal(later.sessionProblem, true);
+    assert.equal(later.pendingUnsent, 1);
+    assert.ok(later.oldestUnsentSeconds >= 149, String(later.oldestUnsentSeconds));
+  }));
+
+test('a recovered session resumes invoices without a worker restart and reports recovery', () =>
+  fixture(async (f) => {
+    const { attempt } = await f.order();
+    f.bridge.sessionReady = false;
+    const worker = f.processor();
+    assert.equal((await worker.tick()).sessionProblem, true);
+    const probes = f.bridge.sessionChecks;
+    assert.equal((await worker.tick()).sessionProblem, true);
+    assert.equal(f.bridge.sessionChecks, probes); // back-off between probes
+    f.bridge.sessionReady = true;
+    f.advance(6_000);
+    await f.releaseLeases();
+    const recovered = await worker.tick();
+    assert.equal(recovered.sessionRecovered, true);
+    assert.equal(recovered.sessionProblem, false);
+    assert.equal(recovered.submitted, 1);
+    assert.equal((await f.invoice(attempt.attemptId)).state, 'issued');
+  }));
+
+test('a bank session rejection pauses new invoices and resumes after a successful re-probe', () =>
+  fixture(async (f) => {
+    const rejected = await f.order();
+    const next = await f.order();
+    f.bridge.create = () => ({ kind: 'session' });
+    const worker = f.processor();
+    const first = await worker.tick();
+    assert.equal(first.sessionProblem, true);
+    assert.equal(first.sessionReason, 'session_rejected');
+    assert.equal((await f.view(rejected.orderId)).attempts[0].state, 'failed');
+    f.bridge.create = null;
+    assert.equal((await worker.tick()).submitted, 0);
+    f.advance(31_000);
+    const resumed = await worker.tick();
+    assert.equal(resumed.sessionRecovered, true);
+    assert.equal(resumed.submitted, 1);
+    assert.equal((await f.invoice(next.attempt.attemptId)).state, 'issued');
   }));
 
 test('invoice to the customer phone, Processed status records exactly one capture', () =>
@@ -804,7 +983,7 @@ test('an answer for a different operation cannot pay this order', () =>
     assert.equal((await f.view(orderId)).captures.length, 0);
   }));
 
-test('session eviction pauses new invoices until the worker is restarted', () =>
+test('session eviction pauses new invoices; a restarted worker resumes at once', () =>
   fixture(async (f) => {
     await f.order();
     await f.order();
