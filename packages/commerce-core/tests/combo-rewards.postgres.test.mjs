@@ -398,6 +398,56 @@ test('an unpaid gift order the restaurant already released frees the gift when i
       false,
     );
   }));
+test('a manual Kaspi Pay refund removes the returned stamp; a withdrawn request lifts the freeze', () =>
+  fixture(async (f) => {
+    const p = await programme(f),
+      two = await p.buy(2);
+    await p.buy(5);
+    assert.equal((await p.progress()).availableGifts, 1);
+    // An old adapter request stays pending and freezes the gift until it is withdrawn.
+    const pending = await p.repo.requestRefund(f.manager, randomUUID(), {
+      orderId: two.o.orderId,
+      captureId: two.capture.id,
+      amountMinor: '10000',
+      reason: 'Synthetic old button request',
+      fulfillmentPolicy: 'manager_reviewed',
+      items: [{ lineId: two.q.snapshot.lines[0].lineId, quantity: 1 }],
+    });
+    assert.equal((await p.progress()).availableGifts, 0);
+    await p.repo.withdrawRefundRequest(f.manager, randomUUID(), {
+      orderId: two.o.orderId,
+      refundId: pending.refundId,
+      reason: 'Synthetic: no money was returned',
+    });
+    assert.equal((await p.progress()).availableGifts, 1);
+    assert.equal((await p.progress()).earnedUnits, 7);
+    const manual = await p.repo.registerManualRefund(f.manager, randomUUID(), {
+      orderId: two.o.orderId,
+      captureId: two.capture.id,
+      amountMinor: '10000',
+      bankReference: 'KP-REFUND-0001',
+      reason: 'Synthetic one combo returned in Kaspi Pay',
+      items: [{ lineId: two.q.snapshot.lines[0].lineId, quantity: 1 }],
+    });
+    assert.equal(manual.state, 'succeeded');
+    const progress = await p.progress();
+    assert.equal(progress.earnedUnits, 6);
+    assert.equal(progress.availableGifts, 0);
+    const order = await p.repo.readOrder(f.scope, two.o.orderId);
+    assert.equal(order.money.refunded, '10000');
+    // A receipt-less pilot owes no refund receipt: no attention for the missing sale document.
+    assert.equal(order.attentionRequired, false);
+    await assert.rejects(
+      p.repo.registerManualRefund(f.scope, randomUUID(), {
+        orderId: two.o.orderId,
+        captureId: two.capture.id,
+        amountMinor: '10000',
+        bankReference: 'KP-REFUND-0002',
+        reason: 'Synthetic sales role',
+      }),
+      /FORBIDDEN/,
+    );
+  }));
 test('gift hold survives unknown payment; terminal failure releases it', () =>
   fixture(async (f) => {
     const p = await programme(f);

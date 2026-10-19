@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { fixture } from '../../fulfillment-transport/tests/cloud-fixture.mjs';
 import { provisionCatalogManager } from '../../catalog-admin/dist/index.js';
 import { Backoffice, grantBackoffice } from '../dist/index.js';
-async function boFixture(run) {
+async function boFixture(run, options = {}) {
   return fixture(async (f) => {
     const manager = await provisionCatalogManager(f.pool, {
       organization_id: f.scope.organizationId,
@@ -12,7 +12,7 @@ async function boFixture(run) {
       branch_ids: [f.scope.branchId],
     });
     await grantBackoffice(f.pool, manager.actor_id, f.scope.branchId, 'manager');
-    const bo = new Backoffice(f.pool, true),
+    const bo = new Backoffice(f.pool, true, options),
       command = (command) => ({
         request_id: randomUUID(),
         reason: 'Synthetic cross-domain acceptance',
@@ -22,82 +22,91 @@ async function boFixture(run) {
   });
 }
 test('manager refund uses commerce reservation/outbox atomically and never marks money returned early', () =>
-  boFixture(async (f) => {
-    const v = await f.reserve();
-    await f.confirm(v);
-    const captured = await f.capture(v);
-    const req = f.command({
-      type: 'refund',
-      id: v.orderId,
-      capture_id: captured.captures[0].id,
-      amount_minor: '10000',
-    });
-    const result = await f.bo.command(f.boManager.token, f.branch, req);
-    assert.equal(result.state, 'pending');
-    assert.deepEqual(await f.bo.command(f.boManager.token, f.branch, req), result);
-    let d = await f.bo.read(f.boManager.token, f.branch);
-    assert.equal(d.metrics.captured_minor, '300000');
-    assert.equal(d.metrics.refunded_minor, '0');
-    assert.equal(d.refunds.length, 1);
-    await f.commerce.observeRefund(
-      { organizationId: f.scope.organizationId, branchId: f.branch, accountId: f.payment },
-      {
-        eventId: randomUUID(),
-        refundId: result.refundId,
-        outcome: 'succeeded',
-        operationId: randomUUID(),
-        amountMinor: '10000',
-        occurredAt: new Date().toISOString(),
-      },
-    );
-    d = await f.bo.read(f.boManager.token, f.branch);
-    assert.equal(d.metrics.refunded_minor, '10000');
-    await assert.rejects(
-      f.bo.command(
-        f.boManager.token,
-        f.branch,
-        f.command({
-          type: 'refund',
-          id: v.orderId,
-          capture_id: captured.captures[0].id,
-          amount_minor: '300001',
-        }),
-      ),
-      /CONFLICT/,
-    );
-    assert.equal((await f.pool.query('SELECT count(*) FROM bo_audit')).rows[0].count, '1');
-  }));
+  boFixture(
+    async (f) => {
+      const v = await f.reserve();
+      await f.confirm(v);
+      const captured = await f.capture(v);
+      const req = f.command({
+        type: 'refund',
+        id: v.orderId,
+        capture_id: captured.captures[0].id,
+        amount_minor: '10000',
+      });
+      const result = await f.bo.command(f.boManager.token, f.branch, req);
+      assert.equal(result.state, 'pending');
+      assert.deepEqual(await f.bo.command(f.boManager.token, f.branch, req), result);
+      let d = await f.bo.read(f.boManager.token, f.branch);
+      assert.equal(d.metrics.captured_minor, '300000');
+      assert.equal(d.metrics.refunded_minor, '0');
+      assert.equal(d.refunds.length, 1);
+      await f.commerce.observeRefund(
+        { organizationId: f.scope.organizationId, branchId: f.branch, accountId: f.payment },
+        {
+          eventId: randomUUID(),
+          refundId: result.refundId,
+          outcome: 'succeeded',
+          operationId: randomUUID(),
+          amountMinor: '10000',
+          occurredAt: new Date().toISOString(),
+        },
+      );
+      d = await f.bo.read(f.boManager.token, f.branch);
+      assert.equal(d.metrics.refunded_minor, '10000');
+      await assert.rejects(
+        f.bo.command(
+          f.boManager.token,
+          f.branch,
+          f.command({
+            type: 'refund',
+            id: v.orderId,
+            capture_id: captured.captures[0].id,
+            amount_minor: '300001',
+          }),
+        ),
+        /CONFLICT/,
+      );
+      assert.equal((await f.pool.query('SELECT count(*) FROM bo_audit')).rows[0].count, '1');
+    },
+    { refundAdapterEnabled: true },
+  ));
 test('an audit insertion failure rolls back the commerce command, refund reservation and outbox', () =>
-  boFixture(async (f) => {
-    const v = await f.reserve();
-    await f.confirm(v);
-    const captured = await f.capture(v);
-    await f.pool.query(
-      "CREATE FUNCTION reject_bo_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic audit failure'; END $$; CREATE TRIGGER reject_bo_test BEFORE INSERT ON bo_audit FOR EACH ROW EXECUTE FUNCTION reject_bo_test()",
-    );
-    await assert.rejects(
-      f.bo.command(
-        f.boManager.token,
-        f.branch,
-        f.command({
-          type: 'refund',
-          id: v.orderId,
-          capture_id: captured.captures[0].id,
-          amount_minor: '10000',
-        }),
-      ),
-      /synthetic audit failure/,
-    );
-    assert.equal((await f.pool.query('SELECT count(*) FROM commerce_refunds')).rows[0].count, '0');
-    assert.equal(
-      (
-        await f.pool.query(
-          "SELECT count(*) FROM commerce_outbox WHERE event_type='refund.submit_requested'",
-        )
-      ).rows[0].count,
-      '0',
-    );
-  }));
+  boFixture(
+    async (f) => {
+      const v = await f.reserve();
+      await f.confirm(v);
+      const captured = await f.capture(v);
+      await f.pool.query(
+        "CREATE FUNCTION reject_bo_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic audit failure'; END $$; CREATE TRIGGER reject_bo_test BEFORE INSERT ON bo_audit FOR EACH ROW EXECUTE FUNCTION reject_bo_test()",
+      );
+      await assert.rejects(
+        f.bo.command(
+          f.boManager.token,
+          f.branch,
+          f.command({
+            type: 'refund',
+            id: v.orderId,
+            capture_id: captured.captures[0].id,
+            amount_minor: '10000',
+          }),
+        ),
+        /synthetic audit failure/,
+      );
+      assert.equal(
+        (await f.pool.query('SELECT count(*) FROM commerce_refunds')).rows[0].count,
+        '0',
+      );
+      assert.equal(
+        (
+          await f.pool.query(
+            "SELECT count(*) FROM commerce_outbox WHERE event_type='refund.submit_requested'",
+          )
+        ).rows[0].count,
+        '0',
+      );
+    },
+    { refundAdapterEnabled: true },
+  ));
 test('unpaid cancellation delegates to the versioned cloud-edge protocol; stale versions cannot cancel', () =>
   boFixture(async (f) => {
     const v = await f.reserve();
@@ -339,3 +348,191 @@ test('a payment that arrives after the restaurant cancelled the held order is sh
       ['PAID_AFTER_RESTAURANT_CANCEL'],
     );
   }));
+
+test('without a refund adapter the old request-refund command is refused and nothing is queued', () =>
+  boFixture(async (f) => {
+    const v = await f.reserve();
+    await f.confirm(v);
+    const captured = await f.capture(v);
+    await assert.rejects(
+      f.bo.command(
+        f.boManager.token,
+        f.branch,
+        f.command({
+          type: 'refund',
+          id: v.orderId,
+          capture_id: captured.captures[0].id,
+          amount_minor: '10000',
+        }),
+      ),
+      (e) => e.code === 'NOT_READY' && e.reason === 'REFUND_ADAPTER_NOT_CONFIGURED',
+    );
+    assert.equal((await f.pool.query('SELECT count(*) FROM commerce_refunds')).rows[0].count, '0');
+    const detail = await f.bo.order(f.boManager.token, f.branch, v.orderId);
+    assert.deepEqual(detail.refund_capabilities, { adapter: false, manual: false });
+    // Manual registration stays off until the owner enables it with its grants.
+    await assert.rejects(
+      f.bo.command(
+        f.boManager.token,
+        f.branch,
+        f.command({
+          type: 'manual_refund',
+          id: v.orderId,
+          capture_id: captured.captures[0].id,
+          amount_minor: '10000',
+          bank_reference: 'KP-000001',
+        }),
+      ),
+      (e) => e.code === 'NOT_READY' && e.reason === 'MANUAL_REFUNDS_DISABLED',
+    );
+  }));
+
+test('a manual Kaspi Pay refund is recorded once, counts as refunded and leaves an audit entry', () =>
+  boFixture(
+    async (f) => {
+      const v = await f.reserve();
+      await f.confirm(v);
+      const captured = await f.capture(v);
+      const capture = captured.captures[0].id;
+      const req = f.command({
+        type: 'manual_refund',
+        id: v.orderId,
+        capture_id: capture,
+        amount_minor: '10000',
+        bank_reference: 'KP 123456',
+      });
+      const result = await f.bo.command(f.boManager.token, f.branch, req);
+      assert.equal(result.state, 'succeeded');
+      assert.equal(result.bankReference, 'KP 123456');
+      assert.deepEqual(await f.bo.command(f.boManager.token, f.branch, req), result);
+      const d = await f.bo.read(f.boManager.token, f.branch);
+      assert.equal(d.metrics.refunded_minor, '10000');
+      const detail = await f.bo.order(f.boManager.token, f.branch, v.orderId);
+      assert.deepEqual(detail.refund_capabilities, { adapter: false, manual: true });
+      assert.equal(detail.refunds[0].state, 'succeeded');
+      assert.equal(detail.refunds[0].bank_reference, 'manual:KP 123456');
+      const audit = (await f.pool.query('SELECT action,reason FROM bo_audit')).rows;
+      assert.deepEqual(audit, [
+        { action: 'manual_refund', reason: 'Synthetic cross-domain acceptance' },
+      ]);
+      // No bank request is queued: the refund already happened in Kaspi Pay.
+      assert.equal(
+        (
+          await f.pool.query(
+            "SELECT count(*) FROM commerce_outbox WHERE event_type='refund.submit_requested'",
+          )
+        ).rows[0].count,
+        '0',
+      );
+      // The same Kaspi operation cannot be recorded twice, nor more than was paid.
+      await assert.rejects(
+        f.bo.command(
+          f.boManager.token,
+          f.branch,
+          f.command({ ...req.command, amount_minor: '100' }),
+        ),
+        (e) => e.code === 'CONFLICT' && e.reason === 'REFUND_REFERENCE_ALREADY_USED',
+      );
+      await assert.rejects(
+        f.bo.command(
+          f.boManager.token,
+          f.branch,
+          f.command({ ...req.command, bank_reference: 'KP-2', amount_minor: '290001' }),
+        ),
+        (e) => e.code === 'CONFLICT' && e.reason === 'REFUND_EXCEEDS_PAYMENT',
+      );
+      await assert.rejects(
+        f.bo.command(
+          f.boManager.token,
+          f.branch,
+          f.command({ ...req.command, bank_reference: 'x' }),
+        ),
+        /INVALID_REQUEST/,
+      );
+      assert.equal(
+        (
+          await f.bo.command(
+            f.boManager.token,
+            f.branch,
+            f.command({ ...req.command, bank_reference: 'KP-2', amount_minor: '290000' }),
+          )
+        ).state,
+        'succeeded',
+      );
+      const order = await f.commerce.readOrder(f.manager, v.orderId);
+      assert.equal(order.money.refunded, '300000');
+      assert.equal(order.kitchenEffectId, null);
+    },
+    { manualRefundsEnabled: true },
+  ));
+
+test('an old pending refund request can be withdrawn or settled as a manual refund', () =>
+  boFixture(
+    async (f) => {
+      const v = await f.reserve();
+      await f.confirm(v);
+      const captured = await f.capture(v);
+      const capture = captured.captures[0].id;
+      const legacy = (amount) =>
+        f.commerce.requestRefund(f.manager, randomUUID(), {
+          orderId: v.orderId,
+          captureId: capture,
+          amountMinor: amount,
+          reason: 'Synthetic old button request',
+          fulfillmentPolicy: 'manager_reviewed',
+        });
+      const withdrawn = await legacy('10000');
+      const result = await f.bo.command(
+        f.boManager.token,
+        f.branch,
+        f.command({ type: 'withdraw_refund', id: v.orderId, refund_id: withdrawn.refundId }),
+      );
+      assert.equal(result.state, 'failed');
+      const settled = await legacy('20000');
+      await assert.rejects(
+        f.bo.command(
+          f.boManager.token,
+          f.branch,
+          f.command({
+            type: 'manual_refund',
+            id: v.orderId,
+            capture_id: capture,
+            amount_minor: '19999',
+            bank_reference: 'KP-777',
+            refund_id: settled.refundId,
+          }),
+        ),
+        /INVALID_REQUEST/,
+      );
+      const manual = await f.bo.command(
+        f.boManager.token,
+        f.branch,
+        f.command({
+          type: 'manual_refund',
+          id: v.orderId,
+          capture_id: capture,
+          amount_minor: '20000',
+          bank_reference: 'KP-777',
+          refund_id: settled.refundId,
+        }),
+      );
+      assert.equal(manual.refundId, settled.refundId);
+      const detail = await f.bo.order(f.boManager.token, f.branch, v.orderId);
+      assert.deepEqual(
+        detail.refunds.map((r) => r.state),
+        ['failed', 'succeeded'],
+      );
+      // A settled refund cannot be withdrawn afterwards.
+      await assert.rejects(
+        f.bo.command(
+          f.boManager.token,
+          f.branch,
+          f.command({ type: 'withdraw_refund', id: v.orderId, refund_id: settled.refundId }),
+        ),
+        /CONFLICT/,
+      );
+      assert.equal((await f.commerce.readOrder(f.manager, v.orderId)).money.refunded, '20000');
+      assert.equal((await f.commerce.readOrder(f.manager, v.orderId)).money.reserved, '0');
+    },
+    { manualRefundsEnabled: true },
+  ));

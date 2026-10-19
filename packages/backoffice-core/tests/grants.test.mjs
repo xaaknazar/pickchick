@@ -5,7 +5,7 @@ import { createPool } from '@pickchick/database';
 import { fixture } from '../../fulfillment-transport/tests/cloud-fixture.mjs';
 import { provisionCatalogManager } from '../../catalog-admin/dist/index.js';
 import { Backoffice, grantBackoffice } from '../dist/index.js';
-import { backofficeGrants } from '../../../infra/staging/backoffice-grants.mjs';
+import { backofficeGrants, manualRefundGrants } from '../../../infra/staging/backoffice-grants.mjs';
 test('restricted runtime reads scoped operations and requests refunds without capture, credential or grant provisioning powers', () =>
   fixture(async (f) => {
     const role = 'bo_runtime_' + randomUUID().replaceAll('-', '');
@@ -25,7 +25,7 @@ test('restricted runtime reads scoped operations and requests refunds without ca
         branch_ids: [f.scope.branchId],
       });
       await grantBackoffice(f.pool, manager.actor_id, f.scope.branchId, 'manager');
-      const bo = new Backoffice(pool, true),
+      const bo = new Backoffice(pool, true, { refundAdapterEnabled: true }),
         command = (command) => ({
           request_id: randomUUID(),
           reason: 'Synthetic permissions check',
@@ -57,6 +57,25 @@ test('restricted runtime reads scoped operations and requests refunds without ca
         }),
       );
       assert.equal(refunded.state, 'pending');
+      // Manual Kaspi refunds need their own explicit grant (BACKOFFICE_MANUAL_REFUNDS_ENABLED).
+      const manualBo = new Backoffice(pool, true, { manualRefundsEnabled: true });
+      const manual = (reference) =>
+        manualBo.command(
+          manager.token,
+          f.scope.branchId,
+          command({
+            type: 'manual_refund',
+            id: v.orderId,
+            capture_id: captured.captures[0].id,
+            amount_minor: '100',
+            bank_reference: reference,
+          }),
+        );
+      await assert.rejects(manual('KP-GRANT-1'), { code: '42501' });
+      await f.pool.query(manualRefundGrants(role, true));
+      assert.equal((await manual('KP-GRANT-2')).state, 'succeeded');
+      await f.pool.query(manualRefundGrants(role, false));
+      await assert.rejects(manual('KP-GRANT-3'), { code: '42501' });
       const unpaid = await f.reserve();
       await f.confirm(unpaid);
       const detail = await bo.order(manager.token, f.scope.branchId, unpaid.orderId);

@@ -24,6 +24,8 @@ import {
   AdmissionSchema,
   PaymentObservationSchema,
   RefundRequestSchema,
+  ManualRefundSchema,
+  RefundWithdrawalSchema,
   RefundObservationSchema,
   FiscalObservationSchema,
   UUIDSchema,
@@ -1381,6 +1383,179 @@ export class CommerceRepository {
           amountMinor: request.amountMinor,
           state: 'pending',
         };
+      },
+      true,
+      db,
+    );
+  }
+  /**
+   * Manager-only: record a refund staff already made by hand in Kaspi Pay (no refund adapter
+   * exists). The Kaspi operation reference is the effect's operation id, so one bank refund is
+   * recorded once. The refund is completed in the ledger at once; combo stamps/gifts follow the
+   * same confirmed-refund rules as an adapter refund. No bank call is made.
+   */
+  async registerManualRefund(
+    scope: CommerceScope,
+    key: string,
+    input: unknown,
+    db?: DatabaseClient,
+  ) {
+    const request = parse(ManualRefundSchema, input);
+    const operationId = 'manual:' + request.bankReference.replace(/\s+/gu, ' ');
+    return this.command(
+      scope,
+      key,
+      'manual_refund',
+      request,
+      async (client, actor) => {
+        const row = await order(client, actor, request.orderId);
+        const capture = (
+          await client.query<{ id: string; account_id: string; amount_minor: string }>(
+            'SELECT id,account_id,amount_minor::text FROM commerce_captures WHERE id=$1 AND order_id=$2',
+            [request.captureId, row.id],
+          )
+        ).rows[0];
+        if (!capture) throw new CommerceError('NOT_FOUND');
+        // Staff may refund after the account was disabled; the scope must still match.
+        await account(
+          client,
+          actor,
+          capture.account_id,
+          'payment',
+          false,
+          row.snapshot.legalEntityId,
+        );
+        if (
+          (
+            await client.query(
+              'SELECT 1 FROM commerce_refund_effects WHERE account_id=$1 AND operation_id=$2',
+              [capture.account_id, operationId],
+            )
+          ).rowCount
+        )
+          throw new CommerceError('CONFLICT');
+        let refundId: string;
+        if (request.refundId) {
+          // Resolve a request left pending by the old adapter button: same amount, same lines.
+          if (request.items) throw new CommerceError('INVALID');
+          const refund = (
+            await client.query<RefundRow>(
+              'SELECT * FROM commerce_refunds WHERE id=$1 AND order_id=$2 AND capture_id=$3 FOR UPDATE',
+              [request.refundId, row.id, capture.id],
+            )
+          ).rows[0];
+          if (!refund) throw new CommerceError('NOT_FOUND');
+          if (refund.state !== 'pending' && refund.state !== 'unknown')
+            throw new CommerceError('CONFLICT');
+          if (refund.amount_minor !== request.amountMinor) throw new CommerceError('INVALID');
+          refundId = refund.id;
+        } else {
+          const balance = (
+            await client.query<{ refunded: string; reserved: string }>(
+              `SELECT
+          COALESCE((SELECT SUM(e.amount_minor) FROM commerce_refund_effects e JOIN commerce_refunds r ON r.id=e.refund_id WHERE r.capture_id=$1),0)::text refunded,
+          COALESCE((SELECT SUM(amount_minor) FROM commerce_refunds WHERE capture_id=$1 AND state IN ('pending','unknown')),0)::text reserved`,
+              [capture.id],
+            )
+          ).rows[0]!;
+          if (
+            BigInt(request.amountMinor) + BigInt(balance.refunded) + BigInt(balance.reserved) >
+            BigInt(capture.amount_minor)
+          )
+            throw new CommerceError('REFUND_LIMIT');
+          refundId = randomUUID();
+          await client.query(
+            "INSERT INTO commerce_refunds(id,order_id,capture_id,account_id,principal_id,amount_minor,reason,fulfillment_policy) VALUES($1,$2,$3,$4,$5,$6,$7,'manager_reviewed')",
+            [
+              refundId,
+              row.id,
+              capture.id,
+              capture.account_id,
+              actor.principalId,
+              request.amountMinor,
+              request.reason,
+            ],
+          );
+          await recordComboRefundLines(
+            client,
+            row.id,
+            refundId,
+            request.amountMinor,
+            request.items,
+          );
+        }
+        const effectId = randomUUID();
+        await client.query(
+          'INSERT INTO commerce_refund_effects(id,refund_id,order_id,account_id,operation_id,amount_minor,occurred_at) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp())',
+          [effectId, refundId, row.id, capture.account_id, operationId, request.amountMinor],
+        );
+        await client.query("UPDATE commerce_refunds SET state='succeeded' WHERE id=$1", [refundId]);
+        const hasSale = (
+          await client.query(
+            "SELECT 1 FROM commerce_fiscal_documents WHERE order_id=$1 AND kind='sale'",
+            [row.id],
+          )
+        ).rowCount;
+        // Receipt-less pilots never had a sale receipt, so no refund receipt is owed either.
+        if (hasSale) await fiscalDocument(client, row, 'refund', effectId, request.amountMinor);
+        else if (row.fiscal_policy === 'required' && !(await cloudChannelOrder(client, row.id)))
+          await issue(client, row, 'refund-no-sale:' + refundId, 'REFUND_WITHOUT_SALE_DOCUMENT', {
+            refundId,
+          });
+        await emit(client, row.id, 'refund-recorded:' + effectId, 'refund.effect_recorded', {
+          orderId: row.id,
+          refundId,
+          effectId,
+          amountMinor: request.amountMinor,
+          manual: true,
+        });
+        await reconcile(client, row);
+        return {
+          refundId,
+          orderId: row.id,
+          amountMinor: request.amountMinor,
+          state: 'succeeded' as const,
+          bankReference: request.bankReference,
+        };
+      },
+      true,
+      db,
+    );
+  }
+  /** Manager-only: withdraw a refund request no adapter ever sent (no money moved). */
+  async withdrawRefundRequest(
+    scope: CommerceScope,
+    key: string,
+    input: unknown,
+    db?: DatabaseClient,
+  ) {
+    const request = parse(RefundWithdrawalSchema, input);
+    return this.command(
+      scope,
+      key,
+      'refund_withdrawal',
+      request,
+      async (client, actor) => {
+        const row = await order(client, actor, request.orderId);
+        const refund = (
+          await client.query<RefundRow>(
+            'SELECT * FROM commerce_refunds WHERE id=$1 AND order_id=$2 FOR UPDATE',
+            [request.refundId, row.id],
+          )
+        ).rows[0];
+        if (!refund) throw new CommerceError('NOT_FOUND');
+        if (
+          refund.state !== 'pending' ||
+          (
+            await client.query('SELECT 1 FROM commerce_refund_effects WHERE refund_id=$1', [
+              refund.id,
+            ])
+          ).rowCount
+        )
+          throw new CommerceError('CONFLICT');
+        await client.query("UPDATE commerce_refunds SET state='failed' WHERE id=$1", [refund.id]);
+        await reconcile(client, row);
+        return { refundId: refund.id, orderId: row.id, state: 'failed' as const };
       },
       true,
       db,

@@ -99,15 +99,26 @@ async function age(pool, id, seconds) {
 }
 
 test('BACKOFFICE_REMOTE_STOPS_ENABLED defaults off and accepts only true or false', () => {
-  assert.deepEqual(backofficeOptions({}), { remoteStopsEnabled: false });
+  assert.deepEqual(backofficeOptions({}), {
+    remoteStopsEnabled: false,
+    manualRefundsEnabled: false,
+  });
   assert.deepEqual(backofficeOptions({ BACKOFFICE_REMOTE_STOPS_ENABLED: 'false' }), {
     remoteStopsEnabled: false,
+    manualRefundsEnabled: false,
   });
   assert.deepEqual(backofficeOptions({ BACKOFFICE_REMOTE_STOPS_ENABLED: 'true' }), {
     remoteStopsEnabled: true,
+    manualRefundsEnabled: false,
   });
-  for (const value of ['1', 'TRUE', 'yes', ''])
+  assert.equal(
+    backofficeOptions({ BACKOFFICE_MANUAL_REFUNDS_ENABLED: 'true' }).manualRefundsEnabled,
+    true,
+  );
+  for (const value of ['1', 'TRUE', 'yes', '']) {
     assert.throws(() => backofficeOptions({ BACKOFFICE_REMOTE_STOPS_ENABLED: value }));
+    assert.throws(() => backofficeOptions({ BACKOFFICE_MANUAL_REFUNDS_ENABLED: value }));
+  }
   assert.match(
     backofficeStopGrants('pickchick_app', false),
     /^REVOKE INSERT ON cloud_stop_commands/,
