@@ -14,7 +14,8 @@ import {
 } from './availability.js';
 import { catalogMediaMap, storefrontPayload } from './catalog-media.js';
 import type { CatalogMediaMapOptions } from './catalog-media.js';
-import { localSelectionIds } from '@pickchick/menu-sync';
+import { catalogStopView } from '@pickchick/menu-sync';
+import type { StopRuleProduct } from '@pickchick/menu-sync';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { transaction, type DatabasePool } from '@pickchick/database';
@@ -185,35 +186,17 @@ export class CustomerCheckout {
     const row = (
       await this.pool.query<{
         version: number;
-        payload: {
-          products: {
-            id: string;
-            available: boolean;
-            modifier_groups: { id: string; options: { id: string; available: boolean }[] }[];
-          }[];
-        };
+        payload: { products: StopRuleProduct[] };
       }>(
         `SELECT p.version,p.payload FROM catalog_branch_heads h JOIN catalog_publications p ON p.branch_id=h.branch_id AND p.organization_id=h.organization_id AND p.version=h.published_version WHERE h.branch_id=$1`,
         [branchId],
       )
     ).rows[0];
-    const products = (row?.payload.products ?? []).map((p) => ({
-      id: p.id,
-      available:
-        p.available &&
-        !localSelectionIds(branchId, p.id, []).some((id) => stopped.has(id)) &&
-        !stopped.has(p.id),
-      stoppedOptions: p.modifier_groups.flatMap((g) =>
-        g.options
-          .filter(
-            (o) =>
-              !o.available ||
-              localSelectionIds(branchId, p.id, [{ group_id: g.id, option_id: o.id }])
-                .slice(1)
-                .some((id) => stopped.has(id)),
-          )
-          .map((o) => ({ groupId: g.id, optionId: o.id })),
-      ),
+    // Combo stop rule (PM decision 1, 19.10): same view as the kiosk and the cashier admission.
+    const products = catalogStopView(branchId, stopped, row?.payload.products ?? []).map((p) => ({
+      id: p.productId,
+      available: p.available,
+      stoppedOptions: p.stoppedOptions.map((o) => ({ groupId: o.group_id, optionId: o.option_id })),
     }));
     const value = {
       enabled: true,
@@ -317,6 +300,12 @@ export class CustomerCheckout {
       );
       if (BigInt(priced.totalMinor) > BigInt(this.options!.maxOrderMinor))
         throw new CommerceError('NOT_READY');
+      // Priced lines name the products the options point to and the fixed combo components.
+      await assertBranchItemsAvailable(
+        this.pool,
+        scope.branchId,
+        snapshotAvailabilityItems(priced),
+      );
       const quote = await this.repository.issueQuote(
         scope,
         request.key,

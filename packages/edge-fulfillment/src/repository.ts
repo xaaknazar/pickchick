@@ -1,4 +1,4 @@
-import { effectiveLocalStops, localSelectionIds } from '@pickchick/local-orders';
+import { effectiveLocalStops, lineStopIds } from '@pickchick/local-orders';
 import { ReleaseCommandSchema, ReleaseResultSchema } from './model.js';
 import type { ReleaseResult } from './model.js';
 import { randomUUID } from 'node:crypto';
@@ -162,15 +162,18 @@ export class EdgeFulfillment {
           ).rows[0];
           if (!branch?.ordering_enabled) fail('NOT_READY');
           const stopped = new Set(await effectiveLocalStops(client, scope.branchId));
+          // Same combo stop rule as kiosk and mobile: chosen options, the products they point
+          // to and the fixed components of a combo stop the line too.
           for (const line of p.snapshot.lines) {
-            const ids = localSelectionIds(
-              scope.branchId,
-              line.productId,
-              (line.selectedDetails?.modifiers ?? []).map((m) => ({
+            const ids = lineStopIds(scope.branchId, {
+              productId: line.productId,
+              selections: (line.selectedDetails?.modifiers ?? []).map((m) => ({
                 group_id: m.groupId,
                 option_id: m.optionId,
+                linked_product_id: m.linkedProductId,
               })),
-            );
+              componentIds: (line.selectedDetails?.components ?? []).map((c) => c.productId),
+            });
             if (ids.some((id) => stopped.has(id)) || stopped.has(line.productId))
               throw new FulfillmentError('NOT_READY', 'ITEM_STOPPED');
           }

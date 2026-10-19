@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { DatabasePool } from '@pickchick/database';
-import { localSelectionIds } from '@pickchick/menu-sync';
+import { lineStopIds } from '@pickchick/menu-sync';
 
 export class AvailabilityError extends Error {
   constructor(readonly code: 'ITEM_STOPPED' | 'AVAILABILITY_STALE' | 'KITCHEN_OFFLINE') {
@@ -135,18 +135,25 @@ export async function branchAvailability(pool: Pick<DatabasePool, 'query'>, bran
     ? cloudChannelAvailability(pool, branchId)
     : edgeBranchAvailability(pool, branchId);
 }
+/** One line to sell: catalog product, chosen options (with the product an option points to) and,
+ * once priced, its fixed components. Lines without them are checked by product and options. */
+export interface AvailabilityItem {
+  productId: string;
+  selections: { group_id: string; option_id: string; linked_product_id?: string | null }[];
+  componentIds?: readonly string[];
+}
 export async function assertBranchItemsAvailable(
   pool: Pick<DatabasePool, 'query'>,
   branchId: string,
-  items: { productId: string; selections: { group_id: string; option_id: string }[] }[],
+  items: AvailabilityItem[],
 ) {
   const state = await branchAvailability(pool, branchId);
   const stopped = new Set(state.stoppedIds);
+  // Combo stop rule (PM decision 1, 19.10): the same lineStopIds the cashier admission uses.
   if (
     items.some(
       (item) =>
-        stopped.has(item.productId) ||
-        localSelectionIds(branchId, item.productId, item.selections).some((id) => stopped.has(id)),
+        stopped.has(item.productId) || lineStopIds(branchId, item).some((id) => stopped.has(id)),
     )
   )
     throw new AvailabilityError('ITEM_STOPPED');
@@ -156,14 +163,23 @@ export async function assertBranchItemsAvailable(
     );
 }
 
-export function snapshotAvailabilityItems(input: unknown) {
+export function snapshotAvailabilityItems(input: unknown): AvailabilityItem[] {
   const snapshot = z
     .object({
       lines: z.array(
         z.object({
           productId: z.string(),
           selectedDetails: z
-            .object({ modifiers: z.array(z.object({ groupId: z.string(), optionId: z.string() })) })
+            .object({
+              modifiers: z.array(
+                z.object({
+                  groupId: z.string(),
+                  optionId: z.string(),
+                  linkedProductId: z.string().nullable().optional(),
+                }),
+              ),
+              components: z.array(z.object({ productId: z.string() })).optional(),
+            })
             .optional(),
         }),
       ),
@@ -174,6 +190,8 @@ export function snapshotAvailabilityItems(input: unknown) {
     selections: (line.selectedDetails?.modifiers ?? []).map((m) => ({
       group_id: m.groupId,
       option_id: m.optionId,
+      linked_product_id: m.linkedProductId ?? null,
     })),
+    componentIds: (line.selectedDetails?.components ?? []).map((c) => c.productId),
   }));
 }

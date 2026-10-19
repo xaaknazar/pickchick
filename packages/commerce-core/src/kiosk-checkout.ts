@@ -13,7 +13,7 @@ import type { CatalogMediaMapOptions } from './catalog-media.js';
 import { KioskSessions } from './kiosk-sessions.js';
 import { readKioskQrPayment } from './kiosk-kaspi-qr.js';
 import { readCheckoutOrder } from './order-view.js';
-import { localSelectionIds } from '@pickchick/menu-sync';
+import { catalogStopView } from '@pickchick/menu-sync';
 import {
   AvailabilityError,
   branchAvailability,
@@ -189,26 +189,10 @@ export class KioskCheckout {
       catalog = await this.catalog(guest);
     const state = await branchAvailability(this.pool, scope.branchId),
       stopped = new Set(state.stoppedIds);
+    // Combo stop rule (PM decision 1, 19.10); the body keeps its installed-build shape.
     const body = {
       fresh: state.fresh,
-      products: catalog.payload.products.map((product) => ({
-        productId: product.id,
-        available:
-          product.available &&
-          !stopped.has(product.id) &&
-          !localSelectionIds(scope.branchId, product.id, []).some((id) => stopped.has(id)),
-        stoppedOptions: product.modifier_groups.flatMap((group) =>
-          group.options
-            .filter(
-              (option) =>
-                !option.available ||
-                localSelectionIds(scope.branchId, product.id, [
-                  { group_id: group.id, option_id: option.id },
-                ]).some((id) => stopped.has(id)),
-            )
-            .map((option) => ({ group_id: group.id, option_id: option.id })),
-        ),
-      })),
+      products: catalogStopView(scope.branchId, stopped, catalog.payload.products),
     };
     return {
       body,
@@ -338,6 +322,8 @@ export class KioskCheckout {
       BigInt(priced.totalMinor) % 100n !== 0n
     )
       throw new CommerceError('INVALID');
+    // Priced lines name the products the options point to and the fixed combo components.
+    await assertBranchItemsAvailable(this.pool, scope.branchId, snapshotAvailabilityItems(priced));
     const legal = (
       await this.pool.query<{ legal_entity_id: string }>(
         'SELECT legal_entity_id FROM branches WHERE id=$1',
