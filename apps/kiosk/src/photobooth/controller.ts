@@ -77,7 +77,16 @@ export class PhotoController {
         );
         this.set({ printingEnabled: status.printingEnabled === true });
       }
-      if (this.pending) await this.check();
+      if (this.pending) {
+        await this.check();
+        // Finding 3.8: a final result belongs to the previous guest. It is acknowledged here, so
+        // the next guest never sees it (nor is the booth closed at once by finishIfSent). An
+        // ambiguous job stays visible: printing waits until its result is known.
+        if (this.terminalJob()) {
+          await this.finish();
+          this.set({ phase: 'intro', job: null });
+        }
+      }
     } catch {
       this.set({
         error: this.pending ? 'UNKNOWN' : 'CONNECTION',
@@ -193,7 +202,12 @@ export class PhotoController {
       if (['PREVIEW_EXPIRED', 'BUSY', 'PRINT_LIMIT', 'NOT_CONFIGURED'].includes(code)) {
         await this.io.writePending(null).catch(() => {});
         this.pending = null;
-        this.set({ error: code, phase: 'preview' });
+        // Printing is off on the service: the print button closes with «печать недоступна».
+        this.set({
+          error: code,
+          phase: 'preview',
+          ...(code === 'NOT_CONFIGURED' ? { printingEnabled: false } : {}),
+        });
       } else this.set({ error: 'UNKNOWN', phase: 'result' });
     } finally {
       this.set({ busy: false });
@@ -204,11 +218,40 @@ export class PhotoController {
     this.set({ busy: true, phase: 'result', error: null });
     try {
       this.set({ job: await this.io.request<PrintJob>(this.config, '/v1/jobs/' + this.pending) });
-    } catch {
-      this.set({ error: 'UNKNOWN' });
+    } catch (e) {
+      // The service commits a job before any print: NOT_FOUND means this one never started.
+      if (e instanceof Error && e.message === 'NOT_FOUND') {
+        await this.io.writePending(null).catch(() => {});
+        this.pending = null;
+        this.set({
+          job: null,
+          error: 'CONNECTION',
+          phase: this.state.preview ? 'preview' : 'intro',
+        });
+      } else this.set({ error: 'UNKNOWN' });
     } finally {
       this.set({ busy: false });
     }
+  }
+  /** The visible job has a final result (sent or failed). */
+  private terminalJob() {
+    return ['sent', 'failed'].includes(this.state.job?.state ?? '');
+  }
+  /**
+   * The booth closes by itself (60 s without a touch, the app leaves the screen). A final result
+   * is acknowledged so it is never shown to the next guest; an ambiguous one is kept.
+   */
+  async close() {
+    if (!this.state.busy && this.terminalJob()) {
+      try {
+        await this.finish();
+        this.set({ phase: 'intro', job: null });
+        return;
+      } catch {
+        // The acknowledgement is retried when the booth opens next time (init).
+      }
+    }
+    this.clearPhoto();
   }
   clearPhoto() {
     ++this.generation;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AppState, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Directory, File, Paths } from 'expo-file-system';
 import type { Locale } from '../i18n';
@@ -94,26 +94,27 @@ export function PhotoCamera({
         }
       });
   }, [shot]);
+  // Audit 19.10, finding 3.6: a guest never leaves the kiosk for iOS Settings. Once the system
+  // stops asking (a guest chose «Не разрешать»), staff restores the permission in Settings while
+  // the iPad is out of Guided Access / Single App Mode (docs/operations/ipad-kiosk-lockdown.md).
   if (!permission?.granted)
     return (
       <View style={styles.permission}>
         <Text {...fixedText} style={styles.label}>
-          {t.permission}
+          {permission?.canAskAgain === false ? t.permissionStaff : t.permission}
         </Text>
-        <Pressable
-          accessibilityRole="button"
-          testID="photo-camera-permission"
-          onPress={() =>
-            void (
-              permission?.canAskAgain === false ? Linking.openSettings() : requestPermission()
-            ).catch(onError)
-          }
-          style={styles.button}
-        >
-          <Text {...fixedText} style={styles.action}>
-            {permission?.canAskAgain === false ? t.settings : t.allow}
-          </Text>
-        </Pressable>
+        {permission?.canAskAgain === false ? null : (
+          <Pressable
+            accessibilityRole="button"
+            testID="photo-camera-permission"
+            onPress={() => void requestPermission().catch(onError)}
+            style={styles.button}
+          >
+            <Text {...fixedText} style={styles.action}>
+              {t.allow}
+            </Text>
+          </Pressable>
+        )}
       </View>
     );
   return (

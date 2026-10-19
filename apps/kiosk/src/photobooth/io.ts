@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
 import type { PhotoIO } from './controller';
 import { approvedEndpoint } from './endpoint';
+import { photoErrorCode } from './errors';
 import { createMacPreviewIO } from './mac-preview';
 const CONFIG = 'pickchick.photo-printer.v1';
 const PENDING = 'pickchick.photo-job.v1';
@@ -60,10 +61,7 @@ export function createPhotoIO(): PhotoIO {
           redirect: 'error',
         });
         const result = await response.json();
-        if (!response.ok)
-          throw Error(
-            response.status < 500 && typeof result.code === 'string' ? result.code : 'CONNECTION',
-          );
+        if (!response.ok) throw Error(photoErrorCode(response.status, result));
         return result as T;
       } finally {
         clearTimeout(timer);
