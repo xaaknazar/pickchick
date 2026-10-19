@@ -53,8 +53,5 @@ test('right code passes, wrong codes lock only that device and the lock expires'
   now += KIOSK_STAFF_PIN_LOCK_MS;
   await staff.verify(device, { pin: '482915' });
   // A success clears the count.
-  await assert.rejects(
-    staff.verify(device, { pin: '000000' }),
-    (e) => code(e) === 'UNAUTHORIZED',
-  );
+  await assert.rejects(staff.verify(device, { pin: '000000' }), (e) => code(e) === 'UNAUTHORIZED');
 });

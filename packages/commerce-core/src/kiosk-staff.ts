@@ -26,7 +26,8 @@ const derive = (pin: string, salt: Buffer): Promise<Buffer> =>
 
 /** Offline: the verifier line for the server environment. The code itself is never stored. */
 export async function createKioskStaffPinVerifier(pin: string): Promise<string> {
-  if (typeof pin !== 'string' || !KIOSK_STAFF_PIN.test(pin)) throw new KioskStaffPinError('INVALID');
+  if (typeof pin !== 'string' || !KIOSK_STAFF_PIN.test(pin))
+    throw new KioskStaffPinError('INVALID');
   const salt = randomBytes(16);
   return `scrypt1$${salt.toString('hex')}$${(await derive(pin, salt)).toString('hex')}`;
 }
