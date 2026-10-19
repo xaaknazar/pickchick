@@ -166,7 +166,9 @@ with sync_playwright() as p:
             assert len(verify_attempts) == 2
             assert verify_attempts[0] == verify_attempts[1]
         visible(page, 'nickname-input').fill('Проверка аккаунта')
-        expect(visible(page, 'nickname-save')).to_be_disabled()
+        # Audit 7.7: gender is voluntary, the form can be saved without it.
+        expect(visible(page, 'nickname-save')).to_be_enabled()
+        expect(page.get_by_test_id('profile-gender-clear')).to_have_count(0)
         visible(page, 'birthday-open').click()
         visible(page, 'birthday-picker-cancel').click(trial=True)
         visible(page, 'birthday-native-input').fill('2000-02-29')
@@ -174,7 +176,7 @@ with sync_playwright() as p:
         expect(visible(page, 'birthday-picker')).to_have_count(0)
         expect(visible(page, 'screen-M04')).to_be_visible()
         expect(visible(page, 'nickname-input')).to_have_value('Проверка аккаунта')
-        expect(visible(page, 'nickname-save')).to_be_disabled()
+        expect(visible(page, 'nickname-save')).to_be_enabled()
         assert not any(c['path']=='/v1/customers/me' and c['method']=='PATCH' for c in calls)
         # Cancelling another choice closes only the calendar and retains the confirmed date.
         visible(page, 'birthday-open').click()
@@ -183,6 +185,9 @@ with sync_playwright() as p:
         expect(visible(page, 'birthday-picker')).to_have_count(0)
         expect(visible(page, 'screen-M04')).to_be_visible()
         expect(visible(page, 'birthday-open')).to_contain_text('29 февраля 2000')
+        visible(page, 'profile-gender-female').click()
+        visible(page, 'profile-gender-clear').click()
+        expect(visible(page, 'profile-gender-female')).to_have_attribute('aria-selected', 'false')
         visible(page, 'profile-gender-female').click()
         expect(visible(page, 'nickname-save')).to_be_enabled()
         # Even with gender selected, closing a confirmed calendar must not submit the form.
