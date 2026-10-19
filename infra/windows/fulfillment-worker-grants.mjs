@@ -68,5 +68,12 @@ export function fulfillmentWorkerGrants(role, schema = 'public', { remoteStops =
       'USAGE',
       'cashier_report_outbox_sequence_seq,fulfillment_display_sequence,fulfillment_outbox_sequence_seq',
     ).replace(' ON ', ' ON SEQUENCE '),
+    displayNumberGrant(`"${schema}"`, `"${role}"`),
   ].join('\n');
+}
+/** Edge 022 display numbers (1-299 per shift): EXECUTE only, once the function exists. Before
+ * 022 this is a no-op and admissions keep the legacy sequence. */
+export function displayNumberGrant(namespace, target) {
+  const fn = `${namespace}.fulfillment_display_allocate(uuid)`;
+  return `DO $$ BEGIN IF to_regprocedure('${fn}') IS NOT NULL THEN EXECUTE 'GRANT EXECUTE ON FUNCTION ${fn} TO ${target}'; END IF; END $$;`;
 }

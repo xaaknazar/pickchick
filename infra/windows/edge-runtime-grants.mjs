@@ -1,4 +1,5 @@
 import { transaction } from '@pickchick/database';
+import { displayNumberGrant } from './fulfillment-worker-grants.mjs';
 
 const posRead = [
   'schema_migrations',
@@ -129,6 +130,7 @@ export function edgeRuntimeGrantSql(
           ]),
           `GRANT USAGE ON SEQUENCE ${namespace}.fulfillment_display_sequence TO ${target};`,
           `GRANT USAGE ON SEQUENCE ${namespace}.fulfillment_outbox_sequence_seq TO ${target};`,
+          displayNumberGrant(namespace, target),
         ]
       : []),
   ].join('\n');

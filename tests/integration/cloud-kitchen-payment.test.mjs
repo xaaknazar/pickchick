@@ -543,8 +543,13 @@ test('a Kaspi-paid order after a switch to edge goes to review from the feed cat
       );
       const { setMode: ownerSetMode } =
         await import('../../infra/staging/cloud-kitchen-release-owner.mjs');
+      const { stuckCloudOrders, overlappingEdgeNumbers } =
+        await import('../../packages/backoffice-core/dist/cloud-kitchen.js');
       const client = await f.pool.connect();
       try {
+        // The back-office switch uses the same two checks.
+        assert.equal(await stuckCloudOrders(client, f.branch), 1);
+        assert.equal(await overlappingEdgeNumbers(client, f.branch), 0);
         await assert.rejects(
           ownerSetMode(client, {
             branch: f.branch,
@@ -566,6 +571,32 @@ test('a Kaspi-paid order after a switch to edge goes to review from the feed cat
         );
         // Reviewed once; later polls select nothing.
         assert.deepEqual(await f.kitchen.admitPendingPaid(f.branch), { admitted: [] });
+        // Audit 1.4: a live cashier order still numbered in 300-899 (before edge 022) blocks too.
+        const row = (
+          await f.pool.query('SELECT quote_id,quote_digest FROM commerce_orders WHERE id=$1', [
+            order.orderId,
+          ])
+        ).rows[0];
+        await f.pool.query(
+          `INSERT INTO cloud_fulfillment_projection(order_id,branch_id,organization_id,device_id,reservation_id,quote_id,quote_hash,owner_hash,version,state,display_number,routing_version,payload)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$7,2,'accepted','345',1,'{}')`,
+          [order.orderId, f.branch, f.org, f.device, randomUUID(), row.quote_id, row.quote_digest],
+        );
+        assert.equal(await stuckCloudOrders(client, f.branch), 0);
+        assert.equal(await overlappingEdgeNumbers(client, f.branch), 1);
+        await assert.rejects(
+          ownerSetMode(client, {
+            branch: f.branch,
+            owner: 'cloud',
+            operator: 'owner',
+            reason: 'Synthetic switch back',
+          }),
+          /numbers 300-899/,
+        );
+        await f.pool.query(
+          "UPDATE cloud_fulfillment_projection SET state='handed_over',version=3 WHERE order_id=$1",
+          [order.orderId],
+        );
         assert.equal(
           (
             await ownerSetMode(client, {

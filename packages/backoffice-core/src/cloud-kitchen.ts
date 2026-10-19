@@ -46,6 +46,22 @@ export async function stuckCloudOrders(db: DatabaseClient, branch: string) {
   ).rows[0]!.n;
 }
 
+/** Live cashier orders (seen within 12 hours) numbered inside the cloud range 300-899: the
+ * numbers of a cashier before edge 022 (audit 1.4). */
+export async function overlappingEdgeNumbers(db: DatabaseClient, branch: string) {
+  return (
+    await db.query<{ n: number }>(
+      `SELECT ((SELECT count(*) FROM cloud_fulfillment_projection p WHERE p.branch_id=$1
+          AND p.state IN ('accepted','in_production','ready') AND p.display_number BETWEEN 300 AND 899
+          AND p.observed_at>clock_timestamp()-interval '12 hours')
+        + (SELECT count(*) FROM pos_kitchen_sync_projection k WHERE k.branch_id=$1
+          AND k.state IN ('accepted','in_production','ready') AND k.display_number BETWEEN 300 AND 899
+          AND k.observed_at>clock_timestamp()-interval '12 hours'))::int AS n`,
+      [branch],
+    )
+  ).rows[0]!.n;
+}
+
 export interface CloudKitchenBackofficeOptions {
   /** BACKOFFICE_ENABLED */
   enabled: boolean;
@@ -365,8 +381,13 @@ export class CloudKitchenBackoffice {
         )
           throw new BackofficeError('NOT_READY');
         // Audit 1.2: not back to cloud while paid cloud orders from an earlier cloud period
-        // still wait without a kitchen owner (resolve or review them first).
-        if (request.owner === 'cloud' && (await stuckCloudOrders(db, branch)) > 0)
+        // still wait without a kitchen owner (resolve or review them first). Audit 1.4: not
+        // while live cashier orders still carry old numbers inside the cloud range 300-899.
+        if (
+          request.owner === 'cloud' &&
+          ((await stuckCloudOrders(db, branch)) > 0 ||
+            (await overlappingEdgeNumbers(db, branch)) > 0)
+        )
           throw new BackofficeError('NOT_READY');
         await db.query('SELECT * FROM cloud_kitchen_set_mode($1,$2,$3,$4)', [
           branch,

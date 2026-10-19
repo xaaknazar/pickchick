@@ -361,3 +361,22 @@ test('indicators and source badge carry state in text', () => {
   assert.match(sourceBadge('cloud', false), /Сервер/);
   assert.match(sourceBadge('edge', true), /Касса · нет связи/);
 });
+
+test('two live orders with one number on the cashier board are both shown, the board stays online', async () => {
+  const f = fixture(),
+    m = f.make();
+  await m.pairScreen(f.world.code, 'prep');
+  // Release fixes 19.10 (audit 1.4): a long-unpaid hold paid late can share a reused number.
+  f.world.servers.edge.numbers.push({ number: '12', state: 'ready' });
+  await cookLogin(f, m);
+  await m.selectMode('display');
+  assert.deepEqual(
+    m.state.display.map((i) => [i.number, i.state]),
+    [
+      ['12', 'preparing'],
+      ['12', 'ready'],
+      ['301', 'ready'],
+    ],
+  );
+  assert.equal(m.state.streams.edge, 'online');
+});
