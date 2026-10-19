@@ -187,7 +187,7 @@ with sync_playwright() as p:
         expect(visible(page, 'birthday-open')).to_contain_text('29 февраля 2000')
         visible(page, 'profile-gender-female').click()
         visible(page, 'profile-gender-clear').click()
-        expect(visible(page, 'profile-gender-female')).to_have_attribute('aria-selected', 'false')
+        expect(page.get_by_test_id('profile-gender-clear')).to_have_count(0)
         visible(page, 'profile-gender-female').click()
         expect(visible(page, 'nickname-save')).to_be_enabled()
         # Even with gender selected, closing a confirmed calendar must not submit the form.
