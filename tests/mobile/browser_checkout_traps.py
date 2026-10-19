@@ -29,6 +29,7 @@ BRANCH = CATALOG['branch_id']
 CUSTOMER = '40000000-0000-4000-8000-000000000001'
 ORDER = '40000000-0000-4000-8000-000000000003'
 UNPAID = '40000000-0000-4000-8000-000000000013'
+INVOICED = '40000000-0000-4000-8000-000000000023'
 DRAFT_KEY = 'pickchick.commerce.pending.v1:' + CUSTOMER
 TRACE = '40000000-0000-4000-8000-000000000009'
 ACCEPT_V2 = 'application/json; profile=pickchick.checkout-errors-v2'
@@ -255,7 +256,8 @@ def scenario_orders(browser):
 
     def handler(r, path, method, body):
         if path == '/v1/customer-checkout/orders' and method == 'GET':
-            return fulfill(r, {'orders': [order('ready_to_pay', UNPAID), order('attention')]})
+            return fulfill(r, {'orders': [order('awaiting_payment', INVOICED), order('ready_to_pay', UNPAID),
+                                          order('attention')]})
         return False
 
     ctx, page = context(browser, state, handler)
@@ -272,6 +274,11 @@ def scenario_orders(browser):
     expect(page.get_by_role('button', name='Отправить счёт на', exact=False)).to_be_visible(timeout=10000)
     page.get_by_test_id('kaspi-close-order').click()
     expect(page.get_by_test_id('order-history-open-' + UNPAID)).to_be_visible(timeout=10000)
+    # An invoice waiting in Kaspi: the tab is not a modal, the list is one tap away at once.
+    page.get_by_test_id('order-history-pay-' + INVOICED).click()
+    expect(page.get_by_test_id('kaspi-open-app')).to_be_visible(timeout=10000)
+    page.get_by_test_id('kaspi-close-order').click()
+    expect(page.get_by_test_id('order-history-open-' + INVOICED)).to_be_visible(timeout=10000)
     assert state['payments'] == 0, 'returning to the list sends nothing'
     release(state)
     ctx.close()

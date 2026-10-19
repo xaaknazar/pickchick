@@ -721,7 +721,12 @@ function KaspiCheckoutSession(props: ScreenProps) {
         }
         onClose={busy ? undefined : () => void closeOrder()}
         closeLabel={props.screenId === 'M19' ? 'К списку заказов' : 'Закрыть'}
-        closeDelayMs={closeDelay(order, Date.now())}
+        // The Orders tab is not a modal: going back to the list touches nothing (audit 2.4).
+        closeDelayMs={
+          props.screenId === 'M19' && closeDelay(order, Date.now()) !== null
+            ? 0
+            : closeDelay(order, Date.now())
+        }
       />
     );
   if (order && paymentReceived(order.phase)) {
