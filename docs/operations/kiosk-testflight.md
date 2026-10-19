@@ -87,6 +87,23 @@ test runner запускает
 до экспорта. Профиль потребительского приложения отвергается. Для киоска export
 и upload всегда содержат `testFlightInternalTestingOnly=true`.
 
+С 19.10.2026 (аудит, замечания 3.5 и 7.3) новый архив киоска собирается только
+с явным профилем и адресом фотопринтера:
+
+```sh
+python3 scripts/mobile/ios_release.py archive --app kiosk \
+  --feature-profile kiosk-production --kiosk-photo-url https://<хост-фотопринтера>:13440 \
+  --release kiosk-<дата>-1 [параметры подписи]
+```
+
+Helper сам закрепляет `EXPO_PUBLIC_KIOSK_COMMERCIAL=1`, профиль сборки, API
+(`kiosk-production` -> `https://api.pickchick.kz`, `kiosk-staging` -> nip.io), адрес
+фотопринтера и случайный release id, отвергает localhost/127.x/example/.test и после
+архива ищет в `main.jsbundle` release id, адрес фотопринтера, API и
+`/v1/kiosk-checkout`. Без них выпуск останавливается до export/upload. `export` и
+`upload` берут профиль из метаданных архива и проверяют те же значения.
+Старые архивы (`legacy`) по-прежнему можно экспортировать.
+
 1. В аккаунте Apple зарегистрировать отдельный App ID `kz.pickchick.kiosk` и
    App Store provisioning profile с существующим разрешённым distribution
    certificate. Затем создать отдельную запись **PickChick Kiosk** в App Store
