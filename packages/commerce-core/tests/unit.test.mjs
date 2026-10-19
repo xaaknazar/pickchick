@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
-import { digest, priceSnapshot, MinorSchema, customerCheckoutOptions } from '../dist/index.js';
+import {
+  digest,
+  priceSnapshot,
+  MinorSchema,
+  customerCheckoutOptions,
+  kioskCheckoutOptions,
+} from '../dist/index.js';
 import { catalogPayload, pricePublication } from './catalog-fixture.mjs';
 import { catalogPayloadHash } from '@pickchick/catalog-pricing';
 
@@ -134,4 +140,41 @@ test('all verified customer audience requires an explicit server environment swi
     }),
     null,
   );
+});
+
+test('kiosk phone invoice is offered only on the account the invoice worker serves', () => {
+  const served = randomUUID(),
+    other = randomUUID();
+  const env = {
+    KIOSK_CHECKOUT_ENABLED: 'true',
+    KIOSK_CHECKOUT_ORGANIZATION_ID: randomUUID(),
+    KIOSK_CHECKOUT_BRANCH_ID: randomUUID(),
+    KIOSK_CHECKOUT_PAYMENT_METHOD: 'kaspi_qr',
+    KIOSK_KASPI_QR_ACCOUNT_ID: randomUUID(),
+    KIOSK_KASPI_INVOICE_ACCOUNT_ID: other,
+    KASPI_REMOTE_ACCOUNT_ID: served,
+    KIOSK_CHECKOUT_FISCAL_POLICY: 'deferred_pilot',
+    KIOSK_CHECKOUT_APPROVAL_REFERENCE: 'Synthetic approval',
+    KIOSK_CHECKOUT_TAX_CODE: 'PENDING_PILOT',
+    CUSTOMER_KASPI_OPENING_TIME: '10:00',
+    CUSTOMER_KASPI_CLOSING_TIME: '00:00',
+    CUSTOMER_KASPI_TIMEZONE: 'Asia/Almaty',
+  };
+  // Finding 0.6: the only invoice worker claims KASPI_REMOTE_ACCOUNT_ID; another account
+  // would leave the guest on "sending" forever, so the method is not offered at all.
+  assert.equal(kioskCheckoutOptions(env).invoicePaymentAccountId, undefined);
+  assert.equal(
+    kioskCheckoutOptions({ ...env, KIOSK_KASPI_INVOICE_ACCOUNT_ID: served })
+      .invoicePaymentAccountId,
+    served,
+  );
+  const withoutWorker = { ...env, KIOSK_KASPI_INVOICE_ACCOUNT_ID: served };
+  delete withoutWorker.KASPI_REMOTE_ACCOUNT_ID;
+  assert.equal(kioskCheckoutOptions(withoutWorker).invoicePaymentAccountId, undefined);
+  assert.throws(() =>
+    kioskCheckoutOptions({ ...env, KIOSK_KASPI_INVOICE_ACCOUNT_ID: 'not-a-uuid' }),
+  );
+  // The QR path itself is unchanged.
+  assert.equal(kioskCheckoutOptions(env).paymentAccountId, env.KIOSK_KASPI_QR_ACCOUNT_ID);
+  assert.equal(kioskCheckoutOptions(env).paymentMethod, 'kaspi_qr');
 });

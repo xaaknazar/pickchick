@@ -25,6 +25,7 @@ import {
   KioskEnrollment,
   kioskEnrollmentKey,
   kioskCheckoutOptions,
+  kioskInvoiceAccountUnserved,
   kioskPiiKey,
 } from '@pickchick/commerce-core';
 import type { KioskGuest } from '@pickchick/commerce-core';
@@ -40,6 +41,11 @@ export class KioskCheckoutController {
     const options = kioskCheckoutOptions(process.env),
       key = kioskPiiKey(process.env);
     if (options && !key) throw new Error('KIOSK_CHECKOUT_PII_KEY required');
+    // The phone-invoice method is withheld (not offered) when no invoice worker serves it.
+    if (kioskInvoiceAccountUnserved(process.env))
+      console.error(
+        JSON.stringify({ event: 'kiosk_checkout', warning: 'kiosk_invoice_account_not_served' }),
+      );
     const enrollmentKey = kioskEnrollmentKey(process.env);
     this.enrollment =
       options && enrollmentKey

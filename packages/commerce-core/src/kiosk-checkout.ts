@@ -48,7 +48,7 @@ export type KioskCheckoutOptions = z.infer<typeof Options>;
 /** Separate opt-in: a mobile pilot never enables unattended kiosk payments. */
 export function kioskCheckoutOptions(env: NodeJS.ProcessEnv): KioskCheckoutOptions | null {
   if (env.KIOSK_CHECKOUT_ENABLED !== 'true') return null;
-  return parse(Options, {
+  const options = parse(Options, {
     organizationId: env.KIOSK_CHECKOUT_ORGANIZATION_ID,
     branchId: env.KIOSK_CHECKOUT_BRANCH_ID,
     paymentAccountId:
@@ -64,6 +64,25 @@ export function kioskCheckoutOptions(env: NodeJS.ProcessEnv): KioskCheckoutOptio
     maxOrderMinor: env.KIOSK_CHECKOUT_MAX_MINOR ?? '10000',
     hours: restaurantHoursFromEnv(env),
   });
+  // The only phone-invoice worker serves KASPI_REMOTE_ACCOUNT_ID. Any other invoice account
+  // would leave the guest on "sending" forever, so that method is simply not offered.
+  if (
+    options.invoicePaymentAccountId !== undefined &&
+    options.invoicePaymentAccountId !== env.KASPI_REMOTE_ACCOUNT_ID
+  ) {
+    const { invoicePaymentAccountId, ...served } = options;
+    void invoicePaymentAccountId;
+    return served;
+  }
+  return options;
+}
+/** Startup diagnostics: the configured kiosk invoice account is not the worker's account. */
+export function kioskInvoiceAccountUnserved(env: NodeJS.ProcessEnv) {
+  return (
+    env.KIOSK_CHECKOUT_ENABLED === 'true' &&
+    !!env.KIOSK_KASPI_INVOICE_ACCOUNT_ID &&
+    env.KIOSK_KASPI_INVOICE_ACCOUNT_ID !== env.KASPI_REMOTE_ACCOUNT_ID
+  );
 }
 /** Used independently by the payment worker, even when new kiosk checkout is disabled. */
 export function kioskPiiKey(env: NodeJS.ProcessEnv): Buffer | null {
