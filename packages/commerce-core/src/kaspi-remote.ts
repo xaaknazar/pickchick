@@ -502,6 +502,8 @@ const ORDER_RELEASED = ['released', 'cancelled', 'cancel_requested'];
 const ORDER_RETRY_SECONDS = 5;
 const SESSION_PROBE_RETRY_MS = 5_000;
 const SESSION_REJECTED_RETRY_MS = 30_000;
+/** Read-only re-probes while the session stays bad: 5 s, doubling up to once a minute. */
+const SESSION_PROBE_MAX_RETRY_MS = 60_000;
 
 const REFERENCE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const reference = () =>
@@ -565,6 +567,7 @@ export class KaspiRemoteProcessor {
   /** Bank-level problem: no new invoice is sent until a session probe succeeds again. */
   private sessionReason: KaspiSessionReason | null = null;
   private sessionRetryAt = 0;
+  private failedProbes = 0;
   constructor(
     private readonly pool: DatabasePool,
     private readonly config: KaspiRemoteConfig,
@@ -670,6 +673,7 @@ export class KaspiRemoteProcessor {
     if (status === 'active') {
       this.sessionReason = null;
       this.sessionRetryAt = 0;
+      this.failedProbes = 0;
       return true;
     }
     this.sessionReason =
@@ -678,7 +682,10 @@ export class KaspiRemoteProcessor {
         : status === 'missing'
           ? 'session_missing'
           : 'session_inactive';
-    this.sessionRetryAt = this.now().getTime() + SESSION_PROBE_RETRY_MS;
+    this.sessionRetryAt =
+      this.now().getTime() +
+      Math.min(SESSION_PROBE_RETRY_MS * 2 ** this.failedProbes, SESSION_PROBE_MAX_RETRY_MS);
+    this.failedProbes++;
     return false;
   }
 

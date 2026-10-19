@@ -500,6 +500,27 @@ test('a recovered session resumes invoices without a worker restart and reports 
     assert.equal((await f.invoice(attempt.attemptId)).state, 'issued');
   }));
 
+test('a long session outage re-probes with a growing back-off, at most once a minute', () =>
+  fixture(async (f) => {
+    await f.order();
+    f.bridge.sessionReady = false;
+    const worker = f.processor();
+    await worker.tick();
+    assert.equal(f.bridge.sessionChecks, 1);
+    const probes = [0];
+    // Advance one second per tick for ten minutes and record when the worker probed.
+    for (let second = 1; second <= 600; second++) {
+      f.advance(1000);
+      const before = f.bridge.sessionChecks;
+      await worker.tick();
+      if (f.bridge.sessionChecks > before) probes.push(second);
+    }
+    const gaps = probes.slice(1).map((at, i) => at - probes[i]);
+    assert.deepEqual(gaps.slice(0, 5), [5, 10, 20, 40, 60]);
+    assert.ok(gaps.every((gap) => gap <= 60));
+    assert.ok(probes.length < 20, String(probes.length));
+  }));
+
 test('a bank session rejection pauses new invoices and resumes after a successful re-probe', () =>
   fixture(async (f) => {
     const rejected = await f.order();
