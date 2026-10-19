@@ -6,12 +6,14 @@ import { createPool, migrate } from '@pickchick/database';
 import { localSelectionIds } from '@pickchick/menu-sync';
 import { fixtureMenu } from '@pickchick/test-fixtures';
 import {
+  AvailabilityError,
   CommerceRepository,
   CustomerCheckout,
   KaspiRemoteProcessor,
   digest,
   hintKaspiInvoice,
 } from '../dist/index.js';
+import { publishCatalog } from './catalog-fixture.mjs';
 
 // Disposable schemas in local PostgreSQL only; the bridge is a scripted fake.
 const connection =
@@ -169,6 +171,7 @@ async function fixture(run, deferred = false) {
       phone = '+77011234567',
       customerId = randomUUID(),
       productId = 'synthetic-burger',
+      pay = true,
     } = {}) {
       await pool.query(
         'UPDATE cloud_branch_availability SET observed_at=clock_timestamp() WHERE branch_id=$1',
@@ -222,6 +225,7 @@ async function fixture(run, deferred = false) {
           String(++number),
         ],
       );
+      if (!pay) return { orderId: created.orderId, attempt: null };
       const attempt = await repo.startPaymentAttempt(scope, randomUUID(), {
         orderId: created.orderId,
         providerAccountId: payment,
@@ -1528,4 +1532,121 @@ test('recovery finds its own invoice although an older invoice had the same read
     await worker.tick();
     assert.equal((await f.view(today.orderId)).captures.length, 1);
     assert.equal(f.bridge.count('create'), 2);
+  }));
+
+const checkoutFor = (f, extra = {}, now = undefined) =>
+  new CustomerCheckout(
+    f.pool,
+    {
+      ...f.scope,
+      paymentAccountId: f.payment,
+      customerIds: [f.scope.principalId],
+      maxOrderMinor: '1000000',
+      repeatOrdersEnabled: true,
+      approvalReference: 'Synthetic approval',
+      ...extra,
+    },
+    now,
+  );
+const intentOf = async (f, orderId) =>
+  (
+    await f.pool.query('SELECT reason,state FROM commerce_cancellation_intents WHERE order_id=$1', [
+      orderId,
+    ])
+  ).rows[0];
+
+test('an order refused at payment for a stopped item is cancelled unpaid; the error code is kept', () =>
+  fixture(async (f) => {
+    const { orderId } = await f.order({ customerId: f.scope.principalId, pay: false });
+    const checkout = checkoutFor(f);
+    assert.equal((await checkout.read(f.scope.principalId, orderId)).phase, 'ready_to_pay');
+    await f.stop(['synthetic-burger']);
+    await assert.rejects(
+      checkout.pay(f.scope.principalId, orderId),
+      (e) => e instanceof AvailabilityError && e.code === 'ITEM_STOPPED',
+    );
+    assert.equal((await intentOf(f, orderId)).reason, 'ITEM_STOPPED_BEFORE_PAYMENT');
+    // A later GET shows the order as ended, so installed builds stop re-sending /payment.
+    assert.equal((await checkout.read(f.scope.principalId, orderId)).phase, 'failed');
+    await f.stop([]);
+    await assert.rejects(checkout.pay(f.scope.principalId, orderId), { code: 'NOT_READY' });
+    assert.equal((await f.view(orderId)).attempts.length, 0);
+    assert.equal(f.bridge.count('create'), 0);
+  }));
+
+test('an order refused at payment after closing time is cancelled unpaid', () =>
+  fixture(async (f) => {
+    const { orderId } = await f.order({ customerId: f.scope.principalId, pay: false });
+    const closed = checkoutFor(
+      f,
+      { hours: { openingTime: '10:00', closingTime: '00:00', timeZone: 'Asia/Almaty' } },
+      () => new Date('2026-10-19T20:30:00Z'), // 01:30 in Almaty
+    );
+    await assert.rejects(closed.pay(f.scope.principalId, orderId), { code: 'RESTAURANT_CLOSED' });
+    assert.equal((await intentOf(f, orderId)).reason, 'RESTAURANT_CLOSED_BEFORE_PAYMENT');
+    assert.equal((await closed.read(f.scope.principalId, orderId)).phase, 'failed');
+  }));
+
+test('an order whose held admission the restaurant released is cancelled at payment', () =>
+  fixture(async (f) => {
+    const { orderId } = await f.order({ customerId: f.scope.principalId, pay: false });
+    await f.pool.query(
+      "UPDATE cloud_fulfillment_projection SET state='released' WHERE order_id=$1",
+      [orderId],
+    );
+    const checkout = checkoutFor(f);
+    await assert.rejects(checkout.pay(f.scope.principalId, orderId), { code: 'NOT_READY' });
+    assert.equal((await intentOf(f, orderId)).reason, 'ORDER_RELEASED_BEFORE_PAYMENT');
+    assert.equal((await checkout.read(f.scope.principalId, orderId)).phase, 'failed');
+  }));
+
+test('a transient payment refusal keeps the order payable', () =>
+  fixture(async (f) => {
+    const { orderId } = await f.order({ customerId: f.scope.principalId, pay: false });
+    await f.pool.query(
+      "UPDATE cloud_branch_availability SET observed_at=clock_timestamp()-interval '31 seconds'",
+    );
+    const checkout = checkoutFor(f);
+    await assert.rejects(checkout.pay(f.scope.principalId, orderId), {
+      code: 'AVAILABILITY_STALE',
+    });
+    assert.equal(await intentOf(f, orderId), undefined);
+    await f.pool.query('UPDATE cloud_branch_availability SET observed_at=clock_timestamp()');
+    const paid = await checkout.pay(f.scope.principalId, orderId);
+    assert.equal(paid.phase, 'sending');
+  }));
+
+test('unpaid orders without an attempt expire after the TTL; attempted ones stay', () =>
+  fixture(async (f) => {
+    const old = await f.order({ customerId: f.scope.principalId, pay: false });
+    const attempted = await f.order({ customerId: f.scope.principalId });
+    const later = () => new Date(Date.now() + 31 * 60_000);
+    const second = await f.order({ customerId: f.scope.principalId, pay: false });
+    const sweeper = checkoutFor(f, {}, later);
+    // Nothing is 30 minutes old yet; half an hour later both never-billed orders expire.
+    assert.equal(await checkoutFor(f).expireUnpaid(), 0);
+    assert.equal(await sweeper.expireUnpaid(), 2);
+    assert.equal((await intentOf(f, old.orderId)).reason, 'UNPAID_ORDER_EXPIRED');
+    assert.equal((await intentOf(f, second.orderId)).reason, 'UNPAID_ORDER_EXPIRED');
+    assert.equal(await intentOf(f, attempted.orderId), undefined);
+    assert.equal((await sweeper.read(f.scope.principalId, old.orderId)).phase, 'failed');
+    assert.equal(await sweeper.expireUnpaid(), 0);
+    assert.equal(await checkoutFor(f, { unpaidOrderTtlMinutes: 0 }, later).expireUnpaid(), 0);
+  }));
+
+test('the server sales switch closes new mobile Kaspi payments; in-flight ones are kept', () =>
+  fixture(async (f) => {
+    await publishCatalog(f);
+    const inFlight = await f.order({ customerId: f.scope.principalId });
+    const ready = await f.order({ customerId: f.scope.principalId, pay: false });
+    assert.equal((await checkoutFor(f).config(f.scope.principalId)).enabled, true);
+    const closed = checkoutFor(f, { salesEnabled: false });
+    assert.equal((await closed.config(f.scope.principalId)).enabled, false);
+    await assert.rejects(closed.pay(f.scope.principalId, ready.orderId), { code: 'NOT_READY' });
+    assert.equal((await intentOf(f, ready.orderId)).reason, 'SALES_DISABLED_BEFORE_PAYMENT');
+    assert.equal((await f.view(ready.orderId)).attempts.length, 0);
+    // An attempt that already exists is only read back and still gets its invoice.
+    assert.equal((await closed.pay(f.scope.principalId, inFlight.orderId)).phase, 'sending');
+    await f.processor().tick();
+    assert.equal((await f.invoice(inFlight.attempt.attemptId)).state, 'issued');
   }));

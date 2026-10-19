@@ -178,3 +178,44 @@ test('kiosk phone invoice is offered only on the account the invoice worker serv
   assert.equal(kioskCheckoutOptions(env).paymentAccountId, env.KIOSK_KASPI_QR_ACCOUNT_ID);
   assert.equal(kioskCheckoutOptions(env).paymentMethod, 'kaspi_qr');
 });
+
+test('mobile Kaspi sales switch and unpaid TTL are explicit server flags with safe defaults', () => {
+  const env = {
+    CUSTOMER_KASPI_PILOT_ENABLED: 'true',
+    CUSTOMER_KASPI_ORGANIZATION_ID: randomUUID(),
+    CUSTOMER_KASPI_BRANCH_ID: randomUUID(),
+    KASPI_REMOTE_ACCOUNT_ID: randomUUID(),
+    CUSTOMER_KASPI_PILOT_CUSTOMER_IDS: randomUUID(),
+    CUSTOMER_KASPI_FISCAL_DEFERRAL_REFERENCE: 'Synthetic approval',
+  };
+  // Default = today's behaviour: sales open, never-billed orders expire after 30 minutes.
+  assert.equal(customerCheckoutOptions(env).salesEnabled, true);
+  assert.equal(customerCheckoutOptions(env).unpaidOrderTtlMinutes, 30);
+  assert.equal(
+    customerCheckoutOptions({ ...env, CUSTOMER_KASPI_SALES_ENABLED: 'false' }).salesEnabled,
+    false,
+  );
+  assert.equal(
+    customerCheckoutOptions({ ...env, CUSTOMER_KASPI_SALES_ENABLED: 'true' }).salesEnabled,
+    true,
+  );
+  assert.equal(
+    customerCheckoutOptions({ ...env, CUSTOMER_UNPAID_ORDER_TTL_MINUTES: '0' })
+      .unpaidOrderTtlMinutes,
+    0,
+  );
+  assert.equal(
+    customerCheckoutOptions({ ...env, CUSTOMER_UNPAID_ORDER_TTL_MINUTES: '45' })
+      .unpaidOrderTtlMinutes,
+    45,
+  );
+  for (const bad of [
+    { CUSTOMER_KASPI_SALES_ENABLED: 'no' },
+    { CUSTOMER_KASPI_SALES_ENABLED: 'False' },
+    { CUSTOMER_UNPAID_ORDER_TTL_MINUTES: '3' },
+    { CUSTOMER_UNPAID_ORDER_TTL_MINUTES: '-1' },
+    { CUSTOMER_UNPAID_ORDER_TTL_MINUTES: '1441' },
+    { CUSTOMER_UNPAID_ORDER_TTL_MINUTES: '10.5' },
+  ])
+    assert.throws(() => customerCheckoutOptions({ ...env, ...bad }), { code: 'INVALID' });
+});

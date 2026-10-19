@@ -7,6 +7,8 @@ import {
   HttpCode,
   HttpException,
   Inject,
+  type OnModuleDestroy,
+  type OnModuleInit,
   Param,
   Post,
   Query,
@@ -35,8 +37,10 @@ import { checkoutRepresentation } from './customer-checkout-response.js';
 import { RESOURCE, Resources } from '@pickchick/platform';
 
 @Controller('v1/customer-checkout')
-export class CustomerCheckoutController {
+export class CustomerCheckoutController implements OnModuleInit, OnModuleDestroy {
   private readonly checkout: CustomerCheckout;
+  private unpaidSweep: ReturnType<typeof setInterval> | undefined;
+  private sweeping = false;
   private readonly mediaEnabled: boolean;
   private availabilityCache: {
     revision: number;
@@ -92,6 +96,27 @@ export class CustomerCheckoutController {
       comboProgramOptions(process.env),
     );
     this.mediaEnabled = catalogMediaOptions(process.env).mediaEnabled;
+  }
+  /** Finding 2.1: never-billed mobile orders expire after CUSTOMER_UNPAID_ORDER_TTL_MINUTES. */
+  onModuleInit() {
+    this.unpaidSweep = setInterval(() => void this.sweepUnpaid(), 60_000);
+    this.unpaidSweep.unref();
+  }
+  onModuleDestroy() {
+    clearInterval(this.unpaidSweep);
+  }
+  private async sweepUnpaid() {
+    if (this.sweeping) return;
+    this.sweeping = true;
+    try {
+      const expired = await this.checkout.expireUnpaid();
+      if (expired)
+        console.log(JSON.stringify({ event: 'customer_unpaid_orders_expired', expired }));
+    } catch {
+      console.error(JSON.stringify({ event: 'customer_unpaid_orders_expiry_failed' }));
+    } finally {
+      this.sweeping = false;
+    }
   }
   private async execute<T>(
     authorization: string | undefined,

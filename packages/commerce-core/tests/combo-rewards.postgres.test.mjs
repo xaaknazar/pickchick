@@ -340,6 +340,64 @@ test('refund one of two combos removes one stamp only after bank confirmation; d
       }),
     );
   }));
+test('an unpaid gift order the restaurant already released frees the gift when it is abandoned', () =>
+  fixture(async (f) => {
+    const p = await programme(f);
+    await p.buy(7);
+    const paid = await p.buy(1);
+    const q = await p.quote(1, true, true);
+    assert.equal(q.snapshot.totalMinor, '1000');
+    const o = await p.create(q);
+    const reservation = randomUUID();
+    await p.repo.confirmAdmission(f.edge, {
+      eventId: randomUUID(),
+      orderId: o.orderId,
+      reservationId: reservation,
+      quoteDigest: q.digest,
+    });
+    assert.equal((await p.progress()).reservedGifts, 1);
+    // The cashier released the held order before the guest paid (finding 2.1).
+    await f.pool.query(
+      'INSERT INTO fulfillment_transport_bindings(branch_id,organization_id,device_id,producer_id) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',
+      [f.scope.branchId, f.scope.organizationId, f.edge.deviceId, randomUUID()],
+    );
+    await f.pool.query(
+      `INSERT INTO cloud_fulfillment_projection(order_id,branch_id,organization_id,device_id,reservation_id,quote_id,quote_hash,owner_hash,version,state,display_number,routing_version,payload)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$7,2,'released','5',1,'{}')`,
+      [
+        o.orderId,
+        f.scope.branchId,
+        f.scope.organizationId,
+        f.edge.deviceId,
+        reservation,
+        q.quoteId,
+        q.digest,
+      ],
+    );
+    assert.equal(
+      await p.repo.abandonUnpaidOrder(f.scope, o.orderId, 'ORDER_RELEASED_BEFORE_PAYMENT'),
+      true,
+    );
+    const progress = await p.progress();
+    assert.equal(progress.reservedGifts, 0);
+    assert.equal(progress.availableGifts, 1);
+    await assert.rejects(
+      p.repo.startPaymentAttempt(f.scope, randomUUID(), {
+        orderId: o.orderId,
+        providerAccountId: f.payment,
+      }),
+      /NOT_READY/,
+    );
+    // Idempotent; a paid order is never abandoned.
+    assert.equal(
+      await p.repo.abandonUnpaidOrder(f.scope, o.orderId, 'ORDER_RELEASED_BEFORE_PAYMENT'),
+      true,
+    );
+    assert.equal(
+      await p.repo.abandonUnpaidOrder(f.scope, paid.o.orderId, 'UNPAID_ORDER_EXPIRED'),
+      false,
+    );
+  }));
 test('gift hold survives unknown payment; terminal failure releases it', () =>
   fixture(async (f) => {
     const p = await programme(f);

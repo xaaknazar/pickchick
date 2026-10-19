@@ -863,6 +863,51 @@ export class CommerceRepository {
     return this.cancellationView(client, actor, row.id);
   }
 
+  /**
+   * Trusted server port (no HTTP principal): durably cancel an unpaid order that can never be
+   * billed - refused at payment (stopped item, closed restaurant, released admission, sales
+   * switched off) or unpaid past its TTL. Same intent and edge release protocol as a manager
+   * cancellation, but it is a no-op once any payment history exists. Returns true when the order
+   * now carries an unpaid cancellation.
+   */
+  async abandonUnpaidOrder(scopeInput: CommerceScope, orderId: string, reason: string) {
+    const scope = parse(ScopeSchema, scopeInput);
+    parse(UUIDSchema, orderId);
+    parse(UnpaidCancellationRequestSchema, { orderId, reason });
+    return transaction(this.pool, async (client) => {
+      await boundary(client, scope);
+      const row = await order(client, scope, orderId);
+      if (
+        (
+          await client.query('SELECT 1 FROM commerce_cancellation_intents WHERE order_id=$1', [
+            row.id,
+          ])
+        ).rowCount
+      )
+        return true;
+      if (
+        row.kitchen_effect_id ||
+        row.attention_required ||
+        row.total_minor === '0' ||
+        (
+          await client.query(
+            `SELECT 1 FROM commerce_payment_attempts WHERE order_id=$1 UNION ALL SELECT 1 FROM commerce_captures WHERE order_id=$1 UNION ALL SELECT 1 FROM commerce_refunds WHERE order_id=$1 LIMIT 1`,
+            [row.id],
+          )
+        ).rowCount
+      )
+        return false;
+      await client.query(
+        "INSERT INTO commerce_cancellation_intents(id,order_id,organization_id,branch_id,requested_by,reason,state) VALUES($1,$2,$3,$4,$5,$6,'waiting_admission')",
+        [randomUUID(), row.id, scope.organizationId, scope.branchId, scope.principalId, reason],
+      );
+      await this.scheduleUnpaidCancellation(client, scope, row.id);
+      // Releases a held combo gift once nothing can bill this order any more.
+      await reconcile(client, await order(client, scope, row.id));
+      return true;
+    });
+  }
+
   /** Trusted mobile port: published prices and first attempt are serialized with publication. */
   async startMobilePaymentAttempt(scopeInput: CommerceScope, key: string, input: unknown) {
     const scope = parse(ScopeSchema, scopeInput),
