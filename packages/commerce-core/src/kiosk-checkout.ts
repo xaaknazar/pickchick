@@ -376,7 +376,8 @@ export class KioskCheckout {
       if (prior.quote_id !== req.quoteId) throw new CommerceError('CONFLICT');
       return this.read(guest, prior.id);
     }
-    await this.sessions.assertActive(guest.sessionId);
+    // No order exists for this guest: an expired guest gets a definitive EXPIRED, never FORBIDDEN.
+    await this.sessions.assertActive(guest.sessionId, { expired: 'EXPIRED' });
     assertRestaurantOrderingOpen(opt.hours, this.now());
     const config = await this.config(guest);
     if (!config.enabled) throw this.notReady(config);
@@ -434,7 +435,8 @@ export class KioskCheckout {
     // QR may resume the existing order created during this guest's valid session.
     // The trusted repository and SQL guard still require its active device and
     // non-ended owner; quote/create and phone invoices retain live-session expiry.
-    if (method !== 'kaspi_qr') await this.sessions.assertActive(guest.sessionId);
+    if (method !== 'kaspi_qr')
+      await this.sessions.assertActive(guest.sessionId, { expired: 'EXPIRED' });
     assertRestaurantOrderingOpen(this.options!.hours, this.now());
     const config = await this.config(guest);
     if (!config.enabled || !config.paymentMethods.includes(method)) throw this.notReady(config);

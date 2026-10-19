@@ -292,6 +292,11 @@ test('phone is encrypted, immutable and idempotent; unresolved order refuses end
     );
     const order = await f.order(a.sessionId);
     assert.equal(await f.sessions.readOrderPhone(order.orderId), phone);
+    // An order never sent to payment does not hold its guest (finding 3.7); an open attempt does.
+    await new CommerceRepository(f.pool).startPaymentAttempt(order.scope, randomUUID(), {
+      orderId: order.orderId,
+      providerAccountId: order.payment,
+    });
     await assert.rejects(f.sessions.end(a.sessionId), { code: 'CONFLICT' });
     assert.equal(await f.sessions.readOrderPhone(order.orderId), phone);
     assert.equal(await f.sessions.readOrderPhone(randomUUID()), null);

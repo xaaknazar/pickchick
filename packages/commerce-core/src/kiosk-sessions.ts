@@ -233,7 +233,13 @@ export class KioskSessions {
           NOT (
            (SELECT COALESCE(sum(c.amount_minor),0) FROM commerce_captures c WHERE c.order_id=o.id)=o.total_minor OR
            (NOT EXISTS(SELECT 1 FROM commerce_captures c WHERE c.order_id=o.id) AND
-            EXISTS(SELECT 1 FROM commerce_payment_attempts a WHERE a.order_id=o.id AND a.state='failed'))
+            EXISTS(SELECT 1 FROM commerce_payment_attempts a WHERE a.order_id=o.id AND a.state='failed')) OR
+           -- Never sent to payment (the first attempt was refused: stop, closing time, kitchen):
+           -- no money can exist, and once the guest is ended no attempt can start for it either
+           -- (QR needs a non-ended owner, the invoice a live guest). Audit 19.10, finding 3.7.
+           (NOT EXISTS(SELECT 1 FROM commerce_captures c WHERE c.order_id=o.id) AND
+            NOT EXISTS(SELECT 1 FROM commerce_payment_attempts a WHERE a.order_id=o.id) AND
+            NOT EXISTS(SELECT 1 FROM commerce_kaspi_invoices i WHERE i.order_id=o.id))
           ))
          -- A manager-accepted incident releases the device only while its single QR attempt is
          -- the sole open item; the attempt itself stays unknown for reconciliation.
@@ -270,14 +276,27 @@ export class KioskSessions {
     this.sessionOperations = operation.catch(() => {});
     return operation;
   }
-  async assertActive(sessionId: string): Promise<void> {
+  /**
+   * The guest may still act. With `expired: 'EXPIRED'` a guest whose only problem is its TTL
+   * (not ended, device active) is refused with EXPIRED (409) instead of FORBIDDEN: every installed
+   * kiosk treats EXPIRED as a definitive "no order was created" and starts a new guest, while
+   * FORBIDDEN kept it on the recovery screen forever (audit 19.10, finding 3.0). Unknown or ended
+   * guests and inactive devices stay FORBIDDEN.
+   */
+  async assertActive(sessionId: string, options: { expired?: 'EXPIRED' } = {}): Promise<void> {
     uuid(sessionId);
-    const result = await this.pool.query(
-      `SELECT 1 FROM kiosk_sessions s JOIN kiosk_devices d ON d.id=s.device_id
-       WHERE s.id=$1 AND s.ended_at IS NULL AND s.expires_at>clock_timestamp() AND d.active`,
-      [sessionId],
-    );
-    if (!result.rowCount) return forbidden();
+    const row = (
+      await this.pool.query<{ live: boolean }>(
+        `SELECT s.expires_at>clock_timestamp() AS live FROM kiosk_sessions s JOIN kiosk_devices d ON d.id=s.device_id
+       WHERE s.id=$1 AND s.ended_at IS NULL AND d.active`,
+        [sessionId],
+      )
+    ).rows[0];
+    if (!row) return forbidden();
+    if (!row.live) {
+      if (options.expired === 'EXPIRED') throw new CommerceError('EXPIRED');
+      return forbidden();
+    }
   }
   /** Retention cleanup is independent of guest expiry and never deletes orders. */
   async purgeExpiredPhones(): Promise<number> {
