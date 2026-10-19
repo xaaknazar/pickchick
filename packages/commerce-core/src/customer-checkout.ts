@@ -494,7 +494,8 @@ export class CustomerCheckout {
        ORDER BY o.created_at,o.id LIMIT $4`,
       [this.options.organizationId, this.options.branchId, cutoff, limit],
     );
-    let expired = 0;
+    let expired = 0,
+      failed = 0;
     for (const row of rows.rows) {
       const scope = {
         organizationId: this.options.organizationId,
@@ -502,9 +503,15 @@ export class CustomerCheckout {
         principalId: row.principal_id,
         role: 'sales' as const,
       };
-      if (await this.repository.abandonUnpaidOrder(scope, row.id, 'UNPAID_ORDER_EXPIRED'))
-        expired++;
+      // One order (lock timeout, missing grant) must not hold back the rest of the batch.
+      try {
+        if (await this.repository.abandonUnpaidOrder(scope, row.id, 'UNPAID_ORDER_EXPIRED'))
+          expired++;
+      } catch {
+        failed++;
+      }
     }
+    if (failed && !expired) throw new CommerceError('NOT_READY');
     return expired;
   }
   async listFeedback(customerId: string) {
