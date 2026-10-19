@@ -9,6 +9,7 @@ import {
   KioskCheckout,
   KioskSessions,
   cloudKitchenProjection,
+  reviewOrderInTransaction,
   useCloudKitchenAdmission,
 } from '../../packages/commerce-core/dist/index.js';
 import { provisionDevice } from '../../packages/menu-sync/dist/index.js';
@@ -29,7 +30,7 @@ for (const name of ['CLOUD_DATABASE_URL', 'EDGE_DATABASE_URL'])
   if (process.env[name])
     assert.ok(['localhost', '127.0.0.1', '[::1]'].includes(new URL(process.env[name]).hostname));
 
-async function fixture(run, { mode = 'cloud', hook = true } = {}) {
+async function fixture(run, { mode = 'cloud', hook = true, kitchenOptions = {} } = {}) {
   await withSyncDatabases(async (f) => {
     const pool = f.cloud.pool,
       payment = randomUUID(),
@@ -108,7 +109,8 @@ async function fixture(run, { mode = 'cloud', hook = true } = {}) {
         'Synthetic switch',
       ]);
     if (mode === 'cloud') await setMode('cloud');
-    const kitchen = new CloudKitchen(pool),
+    // As the API wires it (release fixes 19.10): catch-up failures go to commerce review.
+    const kitchen = new CloudKitchen(pool, { review: reviewOrderInTransaction, ...kitchenOptions }),
       screens = new KitchenScreens(pool);
     useCloudKitchenAdmission(hook ? kitchen : null);
     const pair = async (role, stationIds) => {
@@ -501,4 +503,206 @@ test("mode 'edge' (default): the cashier admits as before and nothing cloud is w
       assert.equal(await cloudKitchenProjection(f.pool, order.orderId), null);
     },
     { mode: 'edge' },
+  ));
+
+// Release fixes 2026-10-19 (audit 1.2, 1.5).
+const issueCodes = async (f, orderId) =>
+  (
+    await f.pool.query(
+      'SELECT code FROM commerce_reconciliation_issues WHERE order_id=$1 ORDER BY code',
+      [orderId],
+    )
+  ).rows.map((r) => r.code);
+/** Both stations polled within 30 s: the KITCHEN_OFFLINE gate is open. */
+async function online(f) {
+  const cook = await f.pair('prep', [f.prep]),
+    packer = await f.pair('assembly', [f.assembly]);
+  await f.http(cook, '/kitchen');
+  await f.http(packer, '/kitchen');
+}
+async function paidOrder(f, selections) {
+  const who = await f.guest();
+  const cart = f.cart();
+  if (selections) cart.items[0].selections = selections;
+  const quote = await f.checkout.quote(who, cart);
+  const order = await f.checkout.create(who, { key: randomUUID(), quoteId: quote.quoteId });
+  await f.checkout.pay(who, order.orderId, { method: 'kaspi_qr' });
+  return { order, quote, who };
+}
+
+test('a Kaspi-paid order after a switch to edge goes to review from the feed catch-up; cloud mode stays closed until then', () =>
+  fixture(
+    async (f) => {
+      await online(f);
+      const { order, quote } = await paidOrder(f);
+      await f.setMode('edge');
+      // As the Kaspi payment worker commits it: no kitchen hook in that process.
+      assert.equal(
+        (await f.capture(order.orderId, quote.totalMinor)).state,
+        'paid_pending_acceptance',
+      );
+      const { setMode: ownerSetMode } =
+        await import('../../infra/staging/cloud-kitchen-release-owner.mjs');
+      const client = await f.pool.connect();
+      try {
+        await assert.rejects(
+          ownerSetMode(client, {
+            branch: f.branch,
+            owner: 'cloud',
+            operator: 'owner',
+            reason: 'Synthetic switch back',
+          }),
+          /Paid cloud orders still wait/,
+        );
+        const result = await f.kitchen.admitPendingPaid(f.branch);
+        assert.deepEqual(result, { admitted: [], reviewed: [order.orderId] });
+        assert.deepEqual(await issueCodes(f, order.orderId), [
+          'CLOUD_MODE_CHANGED_BEFORE_ADMISSION',
+        ]);
+        assert.equal(
+          (await f.pool.query('SELECT state FROM commerce_orders WHERE id=$1', [order.orderId]))
+            .rows[0].state,
+          'attention_required',
+        );
+        // Reviewed once; later polls select nothing.
+        assert.deepEqual(await f.kitchen.admitPendingPaid(f.branch), { admitted: [] });
+        assert.equal(
+          (
+            await ownerSetMode(client, {
+              branch: f.branch,
+              owner: 'cloud',
+              operator: 'owner',
+              reason: 'Synthetic switch back',
+            })
+          ).after,
+          'cloud',
+        );
+      } finally {
+        client.release();
+      }
+    },
+    { hook: false },
+  ));
+
+test('orders that can never be admitted go to review and never starve a newer paid order', () =>
+  fixture(
+    async (f) => {
+      await online(f);
+      const broken = [await paidOrder(f), await paidOrder(f)];
+      const fine = await paidOrder(f, []);
+      // A route was removed after these sauce orders were paid (owner republished stations).
+      await f.pool.query(
+        'UPDATE cloud_kitchen_config SET active_routing_version=1 WHERE branch_id=$1',
+        [f.branch],
+      );
+      const { provisionCloudKitchen } = await import('@pickchick/cloud-kitchen');
+      await provisionCloudKitchen(f.pool, {
+        branchId: f.branch,
+        stations: [
+          { id: f.prep, kind: 'prep', name: 'Горячий цех' },
+          { id: f.assembly, kind: 'assembly', name: 'Сборка' },
+        ],
+        routing: {
+          version: 2,
+          assemblyStationId: f.assembly,
+          routes: [{ productId: 'burger', stationId: f.prep, kind: 'prep' }],
+        },
+      });
+      for (const { order, quote } of [...broken, fine])
+        await f.capture(order.orderId, quote.totalMinor);
+      // Window of two: before the fix the same two failing orders were retried forever.
+      const first = await f.kitchen.admitPendingPaid(f.branch, 2);
+      assert.deepEqual(first.admitted, []);
+      assert.deepEqual([...first.reviewed].sort(), broken.map((b) => b.order.orderId).sort());
+      const second = await f.kitchen.admitPendingPaid(f.branch, 2);
+      assert.deepEqual(second, { admitted: [fine.order.orderId] });
+      for (const { order } of broken)
+        assert.deepEqual(await issueCodes(f, order.orderId), ['CLOUD_KITCHEN_ADMISSION_FAILED']);
+    },
+    { hook: false },
+  ));
+
+test('refunded and long-ready cloud orders free their display numbers', () =>
+  fixture(
+    async (f) => {
+      await online(f);
+      const holds = async () =>
+        (
+          await f.pool.query(
+            'SELECT count(*)::int n FROM channel_number_holds WHERE released_at IS NULL',
+          )
+        ).rows[0].n;
+      const refunded = await paidOrder(f);
+      const paid = await f.capture(refunded.order.orderId, refunded.quote.totalMinor);
+      assert.equal(paid.state, 'paid_pending_acceptance');
+      const ready = await paidOrder(f);
+      await f.capture(ready.order.orderId, ready.quote.totalMinor);
+      assert.equal(await holds(), 2);
+      // A manager refunds the first order (money goes back; the kitchen must stop).
+      const view = await f.checkout.repository.readOrder(
+        { organizationId: f.org, branchId: f.branch, principalId: randomUUID(), role: 'manager' },
+        refunded.order.orderId,
+      );
+      await f.checkout.repository.requestRefund(
+        { organizationId: f.org, branchId: f.branch, principalId: randomUUID(), role: 'manager' },
+        randomUUID(),
+        {
+          orderId: refunded.order.orderId,
+          captureId: view.captures[0].id,
+          amountMinor: refunded.quote.totalMinor,
+          reason: 'Synthetic refund',
+          fulfillmentPolicy: 'manager_reviewed',
+        },
+      );
+      // The second order is ready and nobody presses "Выдан".
+      const manager = {
+        branchId: f.branch,
+        deviceId: randomUUID(),
+        stationIds: [],
+        manager: true,
+      };
+      let current = await f.kitchen.readOrder(manager, ready.order.orderId);
+      for (const task of current.tasks) {
+        await f.kitchen.act(manager, 'k-' + randomUUID(), {
+          orderId: current.orderId,
+          expectedVersion: current.version,
+          action: 'start_task',
+          taskId: task.id,
+          expectedTaskVersion: task.version,
+        });
+        current = await f.kitchen.readOrder(manager, ready.order.orderId);
+        await f.kitchen.act(manager, 'k-' + randomUUID(), {
+          orderId: current.orderId,
+          expectedVersion: current.version,
+          action: 'complete_task',
+          taskId: task.id,
+          expectedTaskVersion: task.version + 1,
+        });
+        current = await f.kitchen.readOrder(manager, ready.order.orderId);
+      }
+      await f.kitchen.act(manager, 'k-' + randomUUID(), {
+        orderId: current.orderId,
+        expectedVersion: current.version,
+        action: 'ready',
+      });
+      assert.deepEqual(await f.kitchen.sweepStale(f.branch), {
+        cancelled: [refunded.order.orderId],
+        closed: [],
+      });
+      assert.equal(await holds(), 1);
+      await new Promise((r) => setTimeout(r, 1200));
+      assert.deepEqual(await f.kitchen.sweepStale(f.branch), {
+        cancelled: [],
+        closed: [ready.order.orderId],
+      });
+      assert.equal(await holds(), 0);
+      const states = (
+        await f.pool.query('SELECT order_id,state FROM cloud_kitchen_orders ORDER BY state')
+      ).rows;
+      assert.deepEqual(Object.fromEntries(states.map((r) => [r.order_id, r.state])), {
+        [refunded.order.orderId]: 'cancelled',
+        [ready.order.orderId]: 'handed_over',
+      });
+    },
+    { kitchenOptions: { staleReadySeconds: 1 } },
   ));

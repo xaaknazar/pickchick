@@ -53,6 +53,8 @@ export interface CloudKitchenPort {
   readOrder(actor: KitchenActor, orderId: string, input: unknown): Promise<unknown>;
   act(actor: KitchenActor, idempotencyKey: unknown, input: unknown): Promise<unknown>;
   admitPendingPaid(branchId: string): Promise<unknown>;
+  /** Frees display numbers of refunded and long-ready orders (audit 1.5). */
+  sweepStale?(branchId: string): Promise<unknown>;
 }
 /** Structural port implemented by `KitchenScreens` from @pickchick/cloud-kitchen. */
 export interface KitchenScreenAuthPort {
@@ -175,6 +177,7 @@ export class CloudKitchenController {
     return this.run(request, 'feed', async (a) => {
       // Catch-up admission of paid cloud orders captured by processes without the hook.
       await this.kitchen.admitPendingPaid(a.branchId);
+      await this.kitchen.sweepStale?.(a.branchId);
       return this.kitchen.listKitchen(a, numeric(query, ['limit']));
     });
   }

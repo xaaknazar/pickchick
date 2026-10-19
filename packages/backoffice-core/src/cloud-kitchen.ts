@@ -28,10 +28,23 @@ export {
   CloudKitchenError,
   KitchenScreens,
   authenticateScreen,
+  cloudKitchenStaleReadySeconds,
   exchangePairingCode,
   provisionCloudKitchen,
 } from '@pickchick/cloud-kitchen';
 export type { KitchenActor, KitchenScreen } from '@pickchick/cloud-kitchen';
+
+/** Paid cloud channel orders that no kitchen owns yet and that nobody reviews (audit 1.2). */
+export async function stuckCloudOrders(db: DatabaseClient, branch: string) {
+  return (
+    await db.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM cloud_channel_orders c JOIN commerce_orders o ON o.id=c.order_id
+       WHERE c.branch_id=$1 AND o.state='paid_pending_acceptance' AND NOT o.attention_required
+        AND NOT EXISTS(SELECT 1 FROM cloud_kitchen_admissions a WHERE a.order_id=c.order_id)`,
+      [branch],
+    )
+  ).rows[0]!.n;
+}
 
 export interface CloudKitchenBackofficeOptions {
   /** BACKOFFICE_ENABLED */
@@ -350,6 +363,10 @@ export class CloudKitchenBackoffice {
           !(await db.query('SELECT 1 FROM cloud_kitchen_config WHERE branch_id=$1', [branch]))
             .rowCount
         )
+          throw new BackofficeError('NOT_READY');
+        // Audit 1.2: not back to cloud while paid cloud orders from an earlier cloud period
+        // still wait without a kitchen owner (resolve or review them first).
+        if (request.owner === 'cloud' && (await stuckCloudOrders(db, branch)) > 0)
           throw new BackofficeError('NOT_READY');
         await db.query('SELECT * FROM cloud_kitchen_set_mode($1,$2,$3,$4)', [
           branch,

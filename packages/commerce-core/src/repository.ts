@@ -365,6 +365,26 @@ async function reconcile(client: DatabaseClient, row: OrderRow) {
   };
 }
 
+/**
+ * Puts one order up for a manager's review from a process other than its payment transaction
+ * (the cloud kitchen catch-up admission). Takes the order lock, records the issue once per key
+ * and recomputes the order state, inside the caller's transaction.
+ */
+export async function reviewOrderInTransaction(
+  client: DatabaseClient,
+  orderId: string,
+  key: string,
+  code: string,
+  details: Record<string, unknown>,
+) {
+  const row = (
+    await client.query<OrderRow>('SELECT * FROM commerce_orders WHERE id=$1 FOR UPDATE', [orderId])
+  ).rows[0];
+  if (!row) throw new CommerceError('NOT_FOUND');
+  await issue(client, row, key, code, details);
+  return reconcile(client, row);
+}
+
 export class CommerceRepository {
   constructor(
     private readonly pool: DatabasePool,
