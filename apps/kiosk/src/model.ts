@@ -65,7 +65,9 @@ export type KioskErrorCode =
   | 'MENU_LOAD'
   | 'NETWORK'
   | 'CONNECTION'
-  | 'OFFLINE';
+  | 'OFFLINE'
+  /** The kiosk cannot start a new guest without staff (finding 3.1, neutral text). */
+  | 'STAFF';
 export interface KioskState {
   commercial?: boolean;
   /**

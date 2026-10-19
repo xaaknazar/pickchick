@@ -88,6 +88,12 @@ type AbandonedGuest = { sessionId: string; token: string; expiresAt: string };
  * «Начать заново» is offered only while fewer are waiting.
  */
 export const MAX_ABANDONED_GUESTS = 8;
+/**
+ * Audit 19.10, finding 3.0: a guest session closer than this to its expiry is renewed before a new
+ * payment starts (no intent or order exists yet, so this is safe). A session allocated right after
+ * the previous guest could otherwise expire between the quote and POST /orders.
+ */
+export const SESSION_RENEW_MS = 15 * 60000;
 /** Next /sessions/end of an abandoned guest after a refusal: 5 s, 10 s, 20 s, then every 30 s. */
 export const abandonedRetryMs = (failures: number) =>
   Math.min(30000, 5000 * 2 ** Math.min(Math.max(failures, 0), 3));
@@ -163,6 +169,8 @@ const PAYMENT_DEFINITIVE = [
   'KITCHEN_OFFLINE',
   'RESTAURANT_CLOSED',
   'NOT_READY',
+  // Since 19.10 a phone invoice for an expired guest is refused with EXPIRED before any attempt.
+  'EXPIRED',
 ];
 /**
  * Owner decision 2026-10-11: NOT_ACCEPTING (the restaurant does not take orders: closed, checkout
@@ -186,6 +194,7 @@ export const COMMERCIAL_ERROR_TEXT: Record<Exclude<KioskErrorCode, 'NOT_ACCEPTIN
   NETWORK: 'Не удалось выполнить действие. Проверьте подключение и повторите попытку.',
   CONNECTION: 'Связь с сервером прервалась. Проверяем снова, не оплачивайте повторно.',
   OFFLINE: 'Нет связи с сервером. Новый заказ можно начать, когда связь восстановится.',
+  STAFF: 'Киоск временно не может начать новый заказ. Пригласите сотрудника.',
 };
 function decode(raw: string): unknown {
   if (raw.length > 200000) throw new KioskError('RECOVERY_DATA_INVALID');
@@ -737,6 +746,9 @@ export class CommercialKioskController {
         ['NOT_READY', 'AVAILABILITY_STALE', 'SERVICE_UNAVAILABLE'].includes(code))
     )
       return 'KITCHEN_OFFLINE';
+    // Finding 3.1: the server will not end a finished guest yet (refund, kitchen cancellation,
+    // attention) and no room is left to end it in the background. Never a cart text.
+    if (this.current.resetPending && !this.pending() && code === 'CONFLICT') return 'STAFF';
     if (['INVALID', 'CONFLICT', 'ITEM_STOPPED'].includes(code)) return 'CART_CHANGED';
     if (
       ['NOT_READY', 'AVAILABILITY_STALE', 'RESTAURANT_CLOSED', 'CHECKOUT_DISABLED'].includes(code)
@@ -1039,16 +1051,21 @@ export class CommercialKioskController {
     if (!response.signature) return 'unsupported';
     return response.signature === after ? 'unchanged' : 'changed';
   };
-  private async authenticate() {
+  /**
+   * The current guest, allocated or resumed as needed. A guest that has expired (or, with
+   * `renewWithinMs`, expires within that time) and owns nothing is ended and replaced; an early
+   * renewal is best effort and keeps the still valid guest when the end fails.
+   */
+  private async authenticate(renewWithinMs = 0) {
     if (this.guest) {
       if (!this.current.guestId && !this.current.order && !this.current.intent)
         await this.save({ ...this.current, guestId: this.guest.sessionId });
       if (!this.guest.branchId) return this.resumeSession(this.guest);
       if (this.guest.sessionId !== this.current.guestId)
         throw new KioskError('GUEST_IDENTITY_UNAVAILABLE');
+      const expiresAt = this.guest.expiresAt ? Date.parse(this.guest.expiresAt) : Infinity;
       if (
-        this.guest.expiresAt &&
-        Date.parse(this.guest.expiresAt) <= this.io.now() &&
+        expiresAt <= this.io.now() + Math.max(0, renewWithinMs) &&
         !this.unsafe() &&
         !this.current.order
       ) {
@@ -1057,7 +1074,10 @@ export class CommercialKioskController {
           if (!isObject(ended) || ended.ended !== true) throw new KioskError('INVALID_RESPONSE');
         } catch (error) {
           // A guest the server no longer knows cannot be ended; nothing belongs to it.
-          if (!(error instanceof KioskError && error.code === 'FORBIDDEN')) throw error;
+          if (!(error instanceof KioskError && error.code === 'FORBIDDEN')) {
+            if (expiresAt > this.io.now()) return this.guest;
+            throw error;
+          }
         }
         // Detach before removing the credential: a crash can retry the old end,
         // or allocate the next session, without losing the unsubmitted draft.
@@ -1316,7 +1336,8 @@ export class CommercialKioskController {
         this.step = 'cart';
         throw new KioskError('ITEM_STOPPED');
       }
-      const guest = await this.authenticate();
+      // Finding 3.0: a guest close to its expiry is replaced before the intent exists.
+      const guest = await this.authenticate(SESSION_RENEW_MS);
       const intent: Intent = {
         guestId: guest.sessionId,
         quoteKey: this.io.uuid(),
@@ -1418,6 +1439,17 @@ export class CommercialKioskController {
           await this.dropIntent(false);
           if (definitive(error, ['EXPIRED', 'NOT_FOUND'])) throw new KioskError('RETRY_PAYMENT');
         }
+        // Finding 3.0: servers before 19.10 refuse an expired guest without an order with
+        // FORBIDDEN. No payment was ever requested for this intent (its order id is unknown), so
+        // no money can exist: drop it, unbind the expired guest and let the guest pay again.
+        if (
+          definitive(error, ['FORBIDDEN']) &&
+          this.guest.expiresAt &&
+          Date.parse(this.guest.expiresAt) <= this.io.now()
+        ) {
+          await this.dropIntent(true);
+          throw new KioskError('RETRY_PAYMENT');
+        }
         throw error;
       }
       this.assertOrder(created);
@@ -1437,7 +1469,10 @@ export class CommercialKioskController {
         ),
       );
     } catch (error) {
-      if (definitive(error, PAYMENT_DEFINITIVE)) await this.abandonUnpaidOrder();
+      if (definitive(error, PAYMENT_DEFINITIVE)) {
+        await this.abandonUnpaidOrder();
+        if (definitive(error, ['EXPIRED'])) throw new KioskError('RETRY_PAYMENT');
+      }
       throw error;
     }
     this.assertOrder(order);
@@ -1447,15 +1482,49 @@ export class CommercialKioskController {
   }
   /**
    * The server refused to start the first payment attempt (stop, closing time, checkout off).
-   * The order has no attempt, so no money can move for it; it stays unpaid on the server and its
-   * guest session is left to expire (the server keeps such a session open until then). The guest
-   * keeps the cart under a new session and sees why.
+   * The order has no attempt, so no money can move for it; it stays unpaid on the server. The
+   * guest keeps the cart under a new session and sees why. Finding 3.7: the given-up session is
+   * remembered with the abandoned guests (unless `ended`), so it counts against the server limit
+   * of open sessions and is ended in the background (servers since 19.10 allow that at once,
+   * older ones at its expiry).
    */
-  private async abandonUnpaidOrder() {
-    await this.save({ ...this.current, intent: null, order: null });
+  private async abandonUnpaidOrder(ended = false) {
+    const guest = this.guest;
+    const abandoned = !ended && guest?.branchId ? this.abandon(guest) : null;
+    if (!abandoned) {
+      await this.save({ ...this.current, intent: null, order: null });
+      this.phone = '';
+      await this.detachGuest();
+      this.step = 'cart';
+      return;
+    }
+    // One write forgets the order and the guest identity and remembers the session to end.
+    await this.save({ ...this.current, intent: null, order: null, guestId: null, abandoned });
     this.phone = '';
-    await this.detachGuest();
+    this.guest = null;
     this.step = 'cart';
+    try {
+      await this.io.removeSession();
+    } catch {
+      // A stored abandoned guest is removed on the next restore.
+    }
+  }
+  /**
+   * The abandoned list with `guest` added, or null when it is full (the server keeps at most 10
+   * open guest sessions per device). An unconfirmed expiry is bounded by the server TTL (1 h).
+   */
+  private abandon(guest: Session): AbandonedGuest[] | null {
+    const list = this.current.abandoned.filter((a) => !this.ended.has(a.sessionId));
+    if (list.some((a) => a.sessionId === guest.sessionId)) return list;
+    if (list.length >= MAX_ABANDONED_GUESTS) return null;
+    return [
+      ...list,
+      {
+        sessionId: guest.sessionId,
+        token: guest.token,
+        expiresAt: guest.expiresAt ?? new Date(this.io.now() + 3600000).toISOString(),
+      },
+    ];
   }
   private assertOrder(order: CustomerCommerceOrder) {
     if (
@@ -1516,7 +1585,7 @@ export class CommercialKioskController {
       // End the old guest before unbinding: a failed request must retain its identity.
       const ended = await this.io.request('/sessions/end', this.guest!.token, {});
       if (!isObject(ended) || ended.ended !== true) throw new KioskError('INVALID_RESPONSE');
-      await this.abandonUnpaidOrder();
+      await this.abandonUnpaidOrder(true);
     });
   cancelOrder = () =>
     this.run(async () => {
@@ -1533,7 +1602,27 @@ export class CommercialKioskController {
         // The server no longer knows this guest (restored database, deleted row, disabled
         // device): there is nothing left to end, so unbind it locally instead of keeping the
         // kiosk stuck on a reset that can never complete.
-        if (!(error instanceof KioskError && error.code === 'FORBIDDEN')) throw error;
+        if (!(error instanceof KioskError && error.code === 'FORBIDDEN')) {
+          // Finding 3.1: the server refuses to end a finished guest (refund, kitchen
+          // cancellation, attention: CONFLICT). The guest is final, so it never gates the next
+          // one: it is ended in the background like an abandoned guest. A transient failure keeps
+          // the pending reset (retried by polling, OFFLINE notice) as before.
+          const abandoned =
+            error instanceof KioskError && error.status >= 400 && error.status < 500
+              ? this.abandon(this.guest)
+              : null;
+          if (!abandoned) throw error;
+          // Flow first, like «Начать заново»: a restart never adopts a remembered guest again.
+          await this.save({ ...this.empty(), abandoned });
+          this.guest = null;
+          this.clearGuestScreens();
+          try {
+            await this.io.removeSession();
+          } catch {
+            // See restore: a stored abandoned guest is removed there.
+          }
+          return;
+        }
       }
     }
     await this.io.removeSession();
