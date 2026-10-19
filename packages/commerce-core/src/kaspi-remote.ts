@@ -1013,37 +1013,45 @@ export class KaspiRemoteProcessor {
       const history = await this.client.history(200);
       if (history.kind === 'session') return this.later(row, 60, 'session');
       if (history.kind === 'ok') {
-        // A repeated human-readable message is ambiguous across attempts/shifts.
-        // Never guess, reissue, or credit another invoice in that case.
+        // The readable message repeats across days (order numbers restart, cloud orders have
+        // none). Only another attempt whose send window overlaps this one is ambiguous; never
+        // guess, reissue, or credit another invoice in that case.
+        const start = row.issue_started_at.getTime();
+        const sentInWindow = (record: Record<string, unknown>) => {
+          const rawDate = record.OrderRegDate;
+          const at =
+            typeof rawDate === 'string' &&
+            /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(rawDate)
+              ? Date.parse(rawDate)
+              : NaN;
+          return (
+            Number.isFinite(at) &&
+            at >= start - 5000 &&
+            at <= start + this.config.requestTimeoutMs + 5000
+          );
+        };
+        const overlap = this.config.requestTimeoutMs + 10_000;
         const uniqueComment =
           row.invoice_comment === null ||
           (
             await this.pool.query(
-              'SELECT 1 FROM commerce_kaspi_invoices WHERE account_id=$1 AND invoice_comment=$2 AND attempt_id<>$3 LIMIT 1',
-              [row.account_id, row.invoice_comment, row.attempt_id],
+              `SELECT 1 FROM commerce_kaspi_invoices WHERE account_id=$1 AND invoice_comment=$2 AND attempt_id<>$3
+               AND issue_started_at BETWEEN $4::timestamptz-$5*interval '1 millisecond'
+                 AND $4::timestamptz+$5*interval '1 millisecond' LIMIT 1`,
+              [row.account_id, row.invoice_comment, row.attempt_id, row.issue_started_at, overlap],
             )
           ).rowCount === 0;
         const matches = !uniqueComment
           ? []
           : row.invoice_comment === null
             ? findByReference(history.data, row.reference)
-            : findByInvoiceComment(history.data, row.invoice_comment);
+            : // Older bank records with the same text were sent at another time: not ours.
+              findByInvoiceComment(history.data, row.invoice_comment).filter(sentInWindow);
         const match = matches.length === 1 ? matches[0]! : null;
         const amount = match ? kaspiMinor(match.Amount) : null;
         let identityMatches = row.invoice_comment === null;
         if (match && row.invoice_comment !== null) {
-          const rawDate = match.OrderRegDate;
-          const at =
-            typeof rawDate === 'string' &&
-            /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(rawDate)
-              ? Date.parse(rawDate)
-              : NaN;
-          const start = row.issue_started_at.getTime();
-          if (
-            Number.isFinite(at) &&
-            at >= start - 5000 &&
-            at <= start + this.config.requestTimeoutMs + 5000
-          ) {
+          if (sentInWindow(match)) {
             const phone = row.customer_id
               ? await this.phone(row.customer_id).catch(() => null)
               : ((await this.guestPhone?.(row.order_id).catch(() => null)) ?? null);
@@ -1100,8 +1108,13 @@ export class KaspiRemoteProcessor {
       [row.attempt_id, safeStatus(status), row.state, row.lease_token],
     );
     // A fast-food order must not wait for Kaspi's own long expiry: cancel once, then keep checking
-    // until Kaspi reports the cancellation (or a payment that raced it).
-    if (row.expires_at && this.now() >= row.expires_at && !row.cancel_requested_at) {
+    // until Kaspi reports the cancellation (or a payment that raced it). The same applies at once
+    // when the restaurant released or cancelled the held order while the invoice was open.
+    const restaurantCancelled = ORDER_RELEASED.includes(row.fulfillment_state ?? '');
+    if (
+      !row.cancel_requested_at &&
+      ((row.expires_at && this.now() >= row.expires_at) || restaurantCancelled)
+    ) {
       // Persist the intent BEFORE the network call. If the reply/process is lost,
       // the next worker only reads status; it must not send another cancellation.
       const claimed = await this.pool.query(

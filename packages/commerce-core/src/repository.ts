@@ -247,6 +247,23 @@ async function admitCloudOrder(client: DatabaseClient, row: OrderRow) {
   if (outcome === 'mode_changed')
     await issue(client, row, 'cloud-mode-changed', 'CLOUD_MODE_CHANGED_BEFORE_ADMISSION', {});
 }
+/** Edge admission state, or null (cloud channel order, old schema or a role without access). */
+async function admissionState(client: DatabaseClient, orderId: string) {
+  const readable = (
+    await client.query<{ readable: boolean }>(
+      "SELECT CASE WHEN to_regclass('cloud_fulfillment_projection') IS NULL THEN false ELSE has_table_privilege('cloud_fulfillment_projection','SELECT') END AS readable",
+    )
+  ).rows[0]?.readable;
+  if (!readable) return null;
+  return (
+    (
+      await client.query<{ state: string }>(
+        'SELECT state FROM cloud_fulfillment_projection WHERE order_id=$1',
+        [orderId],
+      )
+    ).rows[0]?.state ?? null
+  );
+}
 async function reconcile(client: DatabaseClient, row: OrderRow) {
   if (await reconcileComboRewards(client, row.id))
     await issue(client, row, 'combo-gift-conflict', 'COMBO_REWARD_RECONCILIATION_REQUIRED', {});
@@ -258,6 +275,16 @@ async function reconcile(client: DatabaseClient, row: OrderRow) {
     await issue(client, row, 'overcapture', 'CAPTURE_EXCEEDS_INTENT', {
       intendedMinor: row.total_minor,
     });
+  // Money arrived for an order the restaurant had already released or cancelled before it was
+  // sent to the kitchen: never cook it, show it to a manager for a refund.
+  if (
+    captured > 0n &&
+    !row.kitchen_effect_id &&
+    ['released', 'cancelled', 'cancel_requested'].includes(
+      (await admissionState(client, row.id)) ?? '',
+    )
+  )
+    await issue(client, row, 'paid-after-restaurant-cancel', 'PAID_AFTER_RESTAURANT_CANCEL', {});
   if (BigInt(money.refunded) + BigInt(money.reserved) > captured)
     await issue(client, row, 'refund-exposure', 'REFUND_EXPOSURE_EXCEEDS_CAPTURE', {});
   const attempts = (

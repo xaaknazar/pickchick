@@ -1436,3 +1436,96 @@ test('restricted checkout role can persist reviews but cannot move their owner o
       await f.admin.query(`DROP ROLE ${role}`);
     }
   }, true));
+
+test('a restaurant cancellation of a held order cancels its open Kaspi invoice at once', () =>
+  fixture(async (f) => {
+    const { orderId, attempt } = await f.order();
+    const worker = f.processor();
+    await worker.tick();
+    const id = (await f.invoice(attempt.attemptId)).operation_id;
+    // Well inside the 3-minute window: the cashier cancels the held order.
+    await f.pool.query(
+      "UPDATE cloud_fulfillment_projection SET state='cancelled' WHERE order_id=$1",
+      [orderId],
+    );
+    await f.due();
+    await worker.tick();
+    assert.equal(f.bridge.count('cancel'), 1);
+    assert.ok((await f.invoice(attempt.attemptId)).cancel_requested_at);
+    f.bridge.status.set(id, 'RemotePaymentCanceled');
+    await f.due();
+    await worker.tick();
+    assert.equal((await f.view(orderId)).attempts[0].state, 'failed');
+    assert.equal((await f.view(orderId)).captures.length, 0);
+  }));
+
+test('a payment that races the restaurant cancellation is flagged for refund, never cooked', () =>
+  fixture(async (f) => {
+    const { orderId, attempt } = await f.order();
+    const worker = f.processor();
+    await worker.tick();
+    const id = (await f.invoice(attempt.attemptId)).operation_id;
+    await f.pool.query(
+      "UPDATE cloud_fulfillment_projection SET state='cancelled' WHERE order_id=$1",
+      [orderId],
+    );
+    f.bridge.status.set(id, 'Processed');
+    await f.due();
+    await worker.tick();
+    const order = await f.view(orderId);
+    assert.equal(order.captures.length, 1);
+    assert.equal(order.attentionRequired, true);
+    assert.deepEqual(
+      order.issues.map((i) => i.code),
+      ['PAID_AFTER_RESTAURANT_CANCEL'],
+    );
+    assert.equal(order.kitchenEffectId, null);
+    const admissions = await f.pool.query(
+      "SELECT 1 FROM commerce_outbox WHERE order_id=$1 AND event_type='edge.kitchen_admission_requested'",
+      [orderId],
+    );
+    assert.equal(admissions.rowCount, 0);
+  }, true));
+
+test('recovery finds its own invoice although an older invoice had the same readable message', () =>
+  fixture(async (f) => {
+    // Daily order numbers restart: yesterday's order No 1 had exactly the same message.
+    const old = await f.order();
+    const worker = f.processor();
+    await worker.tick();
+    const previous = await f.invoice(old.attempt.attemptId);
+    f.bridge.status.set(previous.operation_id, 'Processed');
+    await f.due();
+    await worker.tick();
+    assert.equal((await f.invoice(old.attempt.attemptId)).state, 'paid');
+    await f.pool.query(
+      "UPDATE commerce_kaspi_invoices SET issue_started_at=issue_started_at-interval '1 day' WHERE attempt_id=$1",
+      [old.attempt.attemptId],
+    );
+    const bankOld = f.bridge.invoices.get(previous.operation_id);
+    bankOld.OrderRegDate = new Date(Date.parse(bankOld.OrderRegDate) - 86_400_000).toISOString();
+    const today = await f.order();
+    await f.pool.query(
+      "UPDATE cloud_fulfillment_projection SET display_number='1' WHERE order_id=$1",
+      [today.orderId],
+    );
+    f.bridge.create = (_phone, amount, comment) => {
+      f.bridge.issue(amount, comment); // Kaspi created it, the answer was lost.
+      return { kind: 'uncertain' };
+    };
+    await worker.tick();
+    const lost = await f.invoice(today.attempt.attemptId);
+    assert.equal(lost.state, 'unknown');
+    assert.equal(lost.invoice_comment, previous.invoice_comment);
+    f.bridge.create = null;
+    await f.due();
+    await worker.tick();
+    const adopted = await f.invoice(today.attempt.attemptId);
+    assert.equal(adopted.state, 'issued');
+    assert.notEqual(adopted.operation_id, previous.operation_id);
+    f.bridge.status.set(adopted.operation_id, 'Processed');
+    await f.due();
+    await worker.tick();
+    assert.equal((await f.view(today.orderId)).captures.length, 1);
+    assert.equal(f.bridge.count('create'), 2);
+  }));

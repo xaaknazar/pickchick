@@ -100,6 +100,11 @@ const labels: Record<string, string> = {
   repeat: 'Повторные гости',
   inactive_30d: 'Без заказов 30 дней',
   operator_recorded: 'Записано оператором',
+  PAID_AFTER_RESTAURANT_CANCEL: 'Оплачен после отмены рестораном, нужен возврат',
+  CAPTURE_EXCEEDS_INTENT: 'Оплачено больше суммы заказа',
+  REFUND_EXPOSURE_EXCEEDS_CAPTURE: 'Возвраты больше оплаты',
+  CAPTURE_WITH_ANOTHER_PENDING_ATTEMPT: 'Оплата при другой незавершённой попытке',
+  COMBO_REWARD_RECONCILIATION_REQUIRED: 'Нужна сверка подарка 7 + 1',
   g: 'г',
   ml: 'мл',
   pcs: 'шт',
@@ -1274,6 +1279,15 @@ export class OperationsView {
               amount(r['amount_minor']),
               badge(r['state'] ?? 'succeeded'),
             ]),
+          ),
+        );
+      const issues = Array.isArray(data['issues']) ? (data['issues'] as Data[]) : [];
+      if (issues.length)
+        d.append(
+          el('h3', '', 'Сигналы сверки'),
+          table(
+            ['Сигнал', 'Получен'],
+            issues.map((r) => [status(r['code']), date(r['created_at'])]),
           ),
         );
       d.append(

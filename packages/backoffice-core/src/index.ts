@@ -524,7 +524,14 @@ export class Backoffice {
           [id],
         )
       ).rows;
-      return { order: o, owner: 'cloud', captures, refunds, fiscal, events };
+      // Reconciliation signals, e.g. PAID_AFTER_RESTAURANT_CANCEL: the guest needs a refund.
+      const issues = (
+        await db.query(
+          'SELECT code,created_at FROM commerce_reconciliation_issues WHERE order_id=$1 ORDER BY created_at,id LIMIT 50',
+          [id],
+        )
+      ).rows;
+      return { order: o, owner: 'cloud', captures, refunds, fiscal, events, issues };
     });
   }
   async command(token: string, branch: string, input: unknown) {

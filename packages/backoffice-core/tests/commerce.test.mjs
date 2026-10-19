@@ -309,3 +309,33 @@ test('director calendar bounds financial events, rejects unknown shift and repor
     assert.equal((await f.bo.read(f.boManager.token, f.branch)).availability.observed_at, null);
     assert.equal((await f.bo.stops(f.boManager.token, f.branch)).availability.observed_at, null);
   }));
+test('a payment that arrives after the restaurant cancelled the held order is shown for refund', () =>
+  boFixture(async (f) => {
+    const v = await f.reserve();
+    await f.confirm(v);
+    const attempt = await f.commerce.startPaymentAttempt(f.scope, randomUUID(), {
+      orderId: v.orderId,
+      providerAccountId: f.payment,
+    });
+    await f.pool.query(
+      "UPDATE cloud_fulfillment_projection SET state='cancelled' WHERE order_id=$1",
+      [v.orderId],
+    );
+    await f.commerce.observePayment(
+      { organizationId: f.scope.organizationId, branchId: f.branch, accountId: f.payment },
+      {
+        eventId: randomUUID(),
+        attemptId: attempt.attemptId,
+        outcome: 'captured',
+        operationId: randomUUID(),
+        amountMinor: attempt.amountMinor,
+        occurredAt: new Date().toISOString(),
+      },
+    );
+    const detail = await f.bo.order(f.boManager.token, f.branch, v.orderId);
+    assert.equal(detail.order.state, 'attention_required');
+    assert.deepEqual(
+      detail.issues.map((i) => i.code),
+      ['PAID_AFTER_RESTAURANT_CANCEL'],
+    );
+  }));
