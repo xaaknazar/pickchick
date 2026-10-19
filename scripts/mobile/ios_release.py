@@ -40,9 +40,15 @@ CATALOG_PILOT_FLAGS = PUBLISHED_CATALOG_FLAGS
 # published catalog without the farm; published-catalog stays for already recorded archives.
 STOREFRONT_FLAGS = {**CUSTOMER_PILOT_FLAGS, "EXPO_PUBLIC_PUBLISHED_CATALOG": "1", "EXPO_PUBLIC_PICK_FARM": "0"}
 DEFAULT_MOBILE_PROFILE = "storefront"
+# Audit 2.2/7.3: the public App Store build uses the owned domain (apps/mobile/src/build-config.ts).
+# Every other profile pins staging, whatever the invoking shell exports.
+STAGING_API_URL = "https://pickchick.185.129.51.103.nip.io"
+PRODUCTION_API_URL = "https://api.pickchick.kz"
+PRODUCTION_FLAGS = {**STOREFRONT_FLAGS, "EXPO_PUBLIC_PICKCHICK_ENV": "production"}
 # Older names of the same flag set; archives recorded under an alias stay deliverable.
 PROFILE_ALIASES = {"catalog-pilot": "published-catalog"}
-MOBILE_PROFILES = ("customer-pilot", "farm-pilot", "published-catalog", DEFAULT_MOBILE_PROFILE, *PROFILE_ALIASES)
+MOBILE_PROFILES = ("customer-pilot", "farm-pilot", "published-catalog", DEFAULT_MOBILE_PROFILE,
+                   "production", *PROFILE_ALIASES)
 # Archives made before the catalog source was pinned recorded these exact flag sets; their
 # bundles were built when an unset flag still meant the legacy catalog.
 HISTORICAL_PROFILE_FLAGS = {
@@ -398,13 +404,21 @@ def default_feature_profile(app):
 def feature_profile_flags(feature_profile):
     """Return an independent allowlisted flag snapshot for release metadata."""
     profiles = {"customer-pilot": CUSTOMER_PILOT_FLAGS, "farm-pilot": FARM_PILOT_FLAGS,
-                "published-catalog": PUBLISHED_CATALOG_FLAGS, DEFAULT_MOBILE_PROFILE: STOREFRONT_FLAGS}
+                "published-catalog": PUBLISHED_CATALOG_FLAGS, DEFAULT_MOBILE_PROFILE: STOREFRONT_FLAGS,
+                "production": PRODUCTION_FLAGS}
     feature_profile = canonical_profile(feature_profile)
     if feature_profile == "legacy":
         return None
     if feature_profile not in profiles:
         fail("Unknown release feature profile.")
     return dict(profiles[feature_profile])
+
+
+def profile_backend(feature_profile):
+    """(environment, API origin) that a pinned mobile profile compiles into the JS bundle."""
+    flags = feature_profile_flags(feature_profile) or {}
+    environment = flags.get("EXPO_PUBLIC_PICKCHICK_ENV", "staging")
+    return environment, PRODUCTION_API_URL if environment == "production" else STAGING_API_URL
 
 
 def archive_environment(feature_profile, source=None):
@@ -416,6 +430,9 @@ def archive_environment(feature_profile, source=None):
     if "EXPO_NO_CLIENT_ENV_VARS" in source:
         fail("EXPO_NO_CLIENT_ENV_VARS prevents the pilot flags from reaching the JS bundle.")
     env = dict(source)
+    # The backend is part of the profile: no shell override of the API host reaches an archive.
+    env.pop("EXPO_PUBLIC_API_URL", None)
+    env["EXPO_PUBLIC_PICKCHICK_ENV"] = profile_backend(feature_profile)[0]
     env.update(flags)
     env["PICKCHICK_APP_VARIANT"] = "release"
     env["EXPO_NO_DOTENV"] = "1"
@@ -553,7 +570,12 @@ def perform_phase(args, signing, artifacts):
             fail("Kiosk releases require iPad-only and internal TestFlight configuration.")
         if extra.get("environment") != "staging" or extra.get("customerOperationsEnabled") is not False:
             fail("This first TestFlight release requires staging and disabled customer operations.")
-        api_url = checked_api_url(extra.get("apiUrl", ""))
+        if APP_DIRECTORY == "mobile" and bundle_env is not None:
+            # app.json keeps the staging defaults; the pinned profile selects the bundle's backend.
+            environment, api_url = profile_backend(args.feature_profile)
+            api_url = checked_api_url(api_url)
+        else:
+            environment, api_url = "staging", checked_api_url(extra.get("apiUrl", ""))
         if archive.exists() or metadata_path.exists():
             fail("Release artifacts already exist. Use a new --release label; no archive is overwritten.")
         with ExitStack() as stack:
@@ -567,6 +589,8 @@ def perform_phase(args, signing, artifacts):
                 fail("CURRENT_PROJECT_VERSION is missing. Assign the PickChick build number first.")
             metadata = {"createdAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                         "team": TEAM, "bundleIdentifier": BUNDLE, "apiUrl": api_url,
+                        "environment": environment,
+                        "supportUrl": (bundle_env or {}).get("EXPO_PUBLIC_SUPPORT_URL") or None,
                         "app": APP_DIRECTORY, "testFlightInternalTestingOnly": INTERNAL_ONLY,
                         "version": version, "build": build,
                         "featureProfile": canonical_profile(args.feature_profile),

@@ -181,6 +181,46 @@ class ReleasePreflightTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("only for the mobile app", result.stdout)
 
+    def test_production_profile_selects_owned_domain_and_staging_profiles_pin_staging(self):
+        # Audit 2.2/7.3: the public build talks to api.pickchick.kz; every older profile keeps
+        # the staging host even when the invoking shell exports another backend.
+        self.assertIn("production", release.MOBILE_PROFILES)
+        self.assertEqual(release.feature_profile_flags("production"),
+                         release.STOREFRONT_FLAGS | {"EXPO_PUBLIC_PICKCHICK_ENV": "production"})
+        self.assertEqual(release.default_feature_profile("mobile"), "storefront")
+        shell = {"EXPO_PUBLIC_PICKCHICK_ENV": "production", "EXPO_PUBLIC_API_URL": "https://evil.example",
+                 "EXPO_PUBLIC_SUPPORT_URL": "tel:+77000000000"}
+        production = release.archive_environment("production", shell)
+        self.assertEqual(production["EXPO_PUBLIC_PICKCHICK_ENV"], "production")
+        self.assertNotIn("EXPO_PUBLIC_API_URL", production)
+        self.assertEqual(production["EXPO_PUBLIC_SUPPORT_URL"], "tel:+77000000000")
+        for name in ["storefront", "customer-pilot", "farm-pilot", "published-catalog"]:
+            with self.subTest(profile=name):
+                env = release.archive_environment(name, shell)
+                self.assertEqual(env["EXPO_PUBLIC_PICKCHICK_ENV"], "staging")
+                self.assertNotIn("EXPO_PUBLIC_API_URL", env)
+        self.assertEqual(release.profile_backend("production"),
+                         ("production", "https://api.pickchick.kz"))
+        self.assertEqual(release.profile_backend("storefront"),
+                         ("staging", "https://pickchick.185.129.51.103.nip.io"))
+        self.assertIsNone(release.archive_environment("legacy", shell))
+        result = subprocess.run([sys.executable, release.__file__, "doctor", "--app", "kiosk",
+                                 "--feature-profile", "production"], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("only for the mobile app", result.stdout)
+
+    def test_production_delivery_requires_exact_metadata(self):
+        flags = release.feature_profile_flags("production")
+        release.verify_feature_profile({"featureProfile": "production", "embeddedPublicEnv": flags},
+                                       "production")
+        with self.assertRaisesRegex(RuntimeError, "differs"):
+            release.verify_feature_profile(
+                {"featureProfile": "production", "embeddedPublicEnv": flags}, "storefront")
+        with self.assertRaisesRegex(RuntimeError, "do not match"):
+            release.verify_feature_profile(
+                {"featureProfile": "production", "embeddedPublicEnv": dict(release.STOREFRONT_FLAGS)},
+                "production")
+
     def test_public_staging_url_without_embedded_credentials(self):
         self.assertEqual(
             release.checked_api_url("https://pickchick.185.129.51.103.nip.io/"),

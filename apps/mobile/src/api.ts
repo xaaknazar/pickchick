@@ -8,39 +8,49 @@ import { BranchSchema, MenuSnapshotSchema } from '@pickchick/contracts';
 import { TestCatalogSchema } from '@pickchick/test-order-flow/contracts';
 import type { Branch, MenuSnapshot } from '@pickchick/contracts';
 
-export const API_URL = 'https://pickchick.185.129.51.103.nip.io';
+import { BUILD_CONFIG } from './build-config.ts';
+
+/** Chosen by the build profile (staging by default, production = api.pickchick.kz). */
+export const API_URL = BUILD_CONFIG.apiUrl;
 export interface Capabilities {
-  schema_version: 1;
-  environment: 'staging';
-  data_mode: 'synthetic' | 'pilot';
-  ordering_enabled: false;
-  features: Record<'payments' | 'fiscal' | 'checkout' | 'loyalty', false> & {
+  schema_version: number;
+  /** Informational: 'staging' today, 'production' later, or a future value. */
+  environment: string;
+  data_mode: string;
+  ordering_enabled: boolean;
+  features: {
     phone_auth: boolean;
-    test_order_flow?: boolean;
-    unpaid_test_orders?: boolean;
+    test_order_flow: boolean;
+    unpaid_test_orders: boolean;
   };
 }
 
+/**
+ * Tolerant by design (audit 2.2): the menu must keep loading when the server reports
+ * production, a new data mode or new flags. Payment and ordering are decided by the
+ * authenticated /v1/customer-checkout/config, never by this public document. Only the
+ * synthetic TEST flows read flags here, and only from the schema they were defined in.
+ */
 export function parseCapabilities(value: unknown): Capabilities {
-  if (!value || typeof value !== 'object') throw new Error('Invalid capabilities');
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    throw new Error('Invalid capabilities');
   const c = value as Record<string, unknown>;
-  if (
-    c.schema_version !== 1 ||
-    c.environment !== 'staging' ||
-    !['synthetic', 'pilot'].includes(String(c.data_mode)) ||
-    c.ordering_enabled !== false ||
-    !c.features ||
-    typeof c.features !== 'object'
-  )
-    throw new Error('Unsupported environment');
-  const flags = c.features as Record<string, unknown>;
-  if (flags.test_order_flow !== undefined && typeof flags.test_order_flow !== 'boolean')
-    throw new Error('Unsupported test feature');
-  for (const key of ['payments', 'fiscal', 'checkout', 'loyalty']) {
-    if (flags[key] !== false) throw new Error('Unsupported feature');
-  }
-  if (flags.phone_auth !== (c.data_mode === 'pilot')) throw new Error('Invalid identity mode');
-  return c as unknown as Capabilities;
+  const flags =
+    c.features && typeof c.features === 'object' && !Array.isArray(c.features)
+      ? (c.features as Record<string, unknown>)
+      : {};
+  const known = c.schema_version === 1;
+  return {
+    schema_version: typeof c.schema_version === 'number' ? c.schema_version : 0,
+    environment: typeof c.environment === 'string' ? c.environment : 'unknown',
+    data_mode: typeof c.data_mode === 'string' ? c.data_mode : 'unknown',
+    ordering_enabled: c.ordering_enabled === true,
+    features: {
+      phone_auth: flags.phone_auth === true,
+      test_order_flow: known && flags.test_order_flow === true,
+      unpaid_test_orders: known && flags.unpaid_test_orders === true,
+    },
+  };
 }
 
 export class CatalogRequestError extends Error {
