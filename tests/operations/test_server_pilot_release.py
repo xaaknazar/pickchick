@@ -36,6 +36,17 @@ class ServerPilotGuards(unittest.TestCase):
   self.assertEqual(r.auth_environment(raw(env)),env)
   for changed in [{'CUSTOMER_AUTH_DAILY_SMS_BUDGET':'1001'},{'PHONE_SMS_FALLBACK_ENABLED':'true'}, {'CUSTOMER_AUTH_PII_KEY':env['CUSTOMER_AUTH_LOOKUP_KEY']},{'TEST_PHONE':'+77000000000'}]:
    with self.assertRaises(r.market.GuardFailure):r.auth_environment(raw({**env,**changed}))
+  review={'CUSTOMER_REVIEW_ACCOUNT_ENABLED':'true','CUSTOMER_REVIEW_ACCOUNT_PHONE':'+77010009999',
+          'CUSTOMER_REVIEW_ACCOUNT_CODE_SHA256':'ab'*32,'CUSTOMER_AUTH_NEW_PHONE_BUDGET_PERCENT':'80',
+          'CUSTOMER_AUTH_SESSION_MAX_DAYS':'90','CUSTOMER_AUTH_SESSION_IDLE_DAYS':'30'}
+  self.assertEqual(r.auth_environment(raw({**env,**review})),{**env,**review})
+  for changed in [{'CUSTOMER_REVIEW_ACCOUNT_PHONE':'+79120000001'},{'CUSTOMER_REVIEW_ACCOUNT_ENABLED':'yes'},
+                  {'CUSTOMER_REVIEW_ACCOUNT_CODE_SHA256':'4826'},{'CUSTOMER_AUTH_NEW_PHONE_BUDGET_PERCENT':'0'}]:
+   with self.assertRaises(r.market.GuardFailure):r.auth_environment(raw({**env,**review,**changed}))
+  with self.assertRaises(r.market.GuardFailure):
+   r.auth_environment(raw({**env,'CUSTOMER_REVIEW_ACCOUNT_ENABLED':'true','CUSTOMER_REVIEW_ACCOUNT_PHONE':'+77010009999'}))
+  without=dict(env);without.pop('TELEGRAM_GATEWAY_TOKEN')
+  with self.assertRaises(r.market.GuardFailure):r.auth_environment(raw(without))
  def test_runtime_rejects_extra_authority(self):
   def row(name,privilege,column=None):return {'name':name,'privilege':privilege,'column':column,'kind':'r','grantable':False}
   expected={'test_service_shifts':['SELECT'],'test_service_shifts_sequence_seq':['USAGE'],
