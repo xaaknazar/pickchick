@@ -129,14 +129,30 @@ async function admitDelivery(
     if (existing.rows[0].payload_hash !== eventHash) throw new SyncError('CONFLICT');
     return MenuAckSchema.parse(existing.rows[0].result);
   }
-  const state = await client.query(
-    'SELECT producer_id, last_sequence FROM menu_sync_state WHERE branch_id = $1',
-    [branchId],
-  );
-  if (state.rows[0] && state.rows[0].producer_id !== delivered.producer_id)
-    throw new SyncError('CONFLICT');
-  const sequence = BigInt(state.rows[0]?.last_sequence ?? '0');
-  if (BigInt(delivered.producer_sequence) !== sequence + 1n) throw new SyncError('CONFLICT');
+  // to_jsonb: restore_resync_from exists only from edge schema023.
+  const state = (
+    await client.query<{
+      producer_id: string;
+      last_sequence: string;
+      restore_resync_from: string | null;
+    }>(
+      `SELECT producer_id, last_sequence::text,
+        to_jsonb(s)->>'restore_resync_from' AS restore_resync_from
+      FROM menu_sync_state s WHERE branch_id = $1`,
+      [branchId],
+    )
+  ).rows[0];
+  if (state && state.producer_id !== delivered.producer_id) throw new SyncError('CONFLICT');
+  const sequence = BigInt(state?.last_sequence ?? '0'),
+    next = BigInt(delivered.producer_sequence);
+  // After a restore fence the cursor is behind the cloud, which only ever offers its oldest
+  // unacknowledged publication: everything before it was acknowledged by this device on the
+  // lost timeline. One forward skip from the fenced cursor is allowed, never a step back.
+  const resync =
+    state?.restore_resync_from != null &&
+    BigInt(state.restore_resync_from) === sequence &&
+    next > sequence + 1n;
+  if (next !== sequence + 1n && !resync) throw new SyncError('CONFLICT');
   return null;
 }
 
