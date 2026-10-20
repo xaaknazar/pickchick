@@ -11,6 +11,7 @@ import { catalogAssetGrants } from './catalog-asset-grants.mjs';
 import { fulfillmentTransportGrants } from './fulfillment-transport-grants.mjs';
 import { cloudPosSyncGrants } from './pos-sync-grants.mjs';
 import { customerCheckoutGrants } from './checkout-grants.mjs';
+import { edgeIdentityRotationGrants } from './edge-identity-rotation-grants.mjs';
 import { customerCheckoutOptions } from '../../packages/commerce-core/dist/index.js';
 
 async function provision() {
@@ -97,6 +98,9 @@ async function provision() {
         fulfillmentTransportGrants('pickchick_app', config.fulfillmentTransportEnabled === true),
       );
       await client.query(cloudPosSyncGrants('pickchick_app', config.posOrderSyncEnabled === true));
+      await client.query(
+        edgeIdentityRotationGrants('pickchick_app', config.edgeIdentityRotationEnabled === true),
+      );
       await client.query(backofficeGrants('pickchick_app', config.backofficeEnabled === true));
       await client.query(workforceGrants('pickchick_app', config.workforceEnabled === true));
       await client.query(catalogAccessGrants('pickchick_app', config.catalogAdminEnabled === true));

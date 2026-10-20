@@ -43,6 +43,25 @@ export function workerProtocolVersion(env = process.env) {
 }
 export { readWindowsIdentity } from './native-pos-sync-worker.mjs';
 import { readWindowsIdentity } from './native-pos-sync-worker.mjs';
+
+/**
+ * Status line for monitoring when the identity's expiry state or whole day count changes
+ * (and on start). Renewal itself runs in native-identity-rotation.mjs: this LocalService
+ * worker may only read the identity file. Returns the new report key, or null if unchanged.
+ */
+export function identityExpiryReport(status, previous) {
+  const key = `${status.state}:${Math.floor(status.daysRemaining)}`;
+  if (key === previous) return null;
+  return {
+    key,
+    entry: {
+      event: 'edge_identity',
+      state: status.state,
+      days_remaining: status.daysRemaining,
+      expires_at: status.expiresAt,
+    },
+  };
+}
 async function main() {
   const [identityPath, branchId, deviceId, ...extra] = process.argv.slice(2);
   if (
@@ -88,7 +107,8 @@ async function main() {
     once = extra.includes('--once');
   for (const signal of ['SIGTERM', 'SIGINT']) process.once(signal, () => stop.abort());
   let failures = 0,
-    remoteStops;
+    remoteStops,
+    identityReport;
   try {
     do {
       let delivered = false;
@@ -99,6 +119,11 @@ async function main() {
           branchId,
           deviceId,
         );
+        const report = identityExpiryReport(sync.identityExpiryStatus(identity), identityReport);
+        if (report) {
+          identityReport = report.key;
+          console.log(JSON.stringify(report.entry));
+        }
         const result = await sync.syncFulfillmentOnce(pool, {
           enabled: true,
           branchId,

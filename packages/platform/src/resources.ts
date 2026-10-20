@@ -8,10 +8,21 @@ import type { ServiceConfig } from './config.js';
 
 export const RESOURCE = Symbol('PICKCHICK_RESOURCES');
 
+/** Cloud-only monitoring snapshot of edge device credential expiry (no ids or hashes). */
+export interface EdgeIdentityExpirySnapshot {
+  activeDevices: number;
+  minSecondsRemaining: number | null;
+  observedAt: number;
+}
+const EDGE_IDENTITY_REFRESH_MS = 60_000;
+
 export class Resources implements OnApplicationShutdown {
   readonly pool: DatabasePool;
   readonly admission: Admission;
   private readinessPending: Promise<Readiness> | undefined;
+  /** Refreshed by readiness probes at most once a minute; /health/metrics never queries. */
+  edgeIdentityExpiry: EdgeIdentityExpirySnapshot | undefined;
+  private edgeIdentityCheckedAt = 0;
 
   constructor(readonly config: ServiceConfig) {
     this.pool = createPool(config.databaseUrl, config.databasePoolMax);
@@ -46,6 +57,25 @@ export class Resources implements OnApplicationShutdown {
         // Also verify the serving tables and branch binding, not only SELECT 1.
         if (scope === 'cloud') {
           await this.pool.query('SELECT branch_id FROM branch_menu_activations LIMIT 1');
+          // Every edge request authenticates against the rotation overlap columns (cloud066).
+          await this.pool.query(
+            'SELECT previous_token_hash, previous_expires_at FROM device_credentials LIMIT 0',
+          );
+          if (this.config.edgeIdentityRotationEnabled) {
+            const rotation = await this.pool.query(
+              "SELECT 1 FROM schema_migrations WHERE scope='cloud' AND version='066_cloud_edge_identity_rotation.sql'",
+            );
+            if (rotation.rowCount !== 1)
+              throw new Error('Edge identity rotation schema unavailable');
+            const grant = await this.pool.query(
+              `SELECT has_column_privilege('device_credentials','token_hash','UPDATE')
+                AND has_column_privilege('device_credentials','previous_token_hash','UPDATE')
+                AND has_table_privilege('device_identity_rotations','INSERT')
+                AND has_column_privilege('device_identity_rotations','confirmed_at','UPDATE') AS ok`,
+            );
+            if (!grant.rows[0]?.ok) throw new Error('Edge identity rotation grant unavailable');
+          }
+          await this.refreshEdgeIdentityExpiry();
           // Published catalog remains readable when its editor is disabled.
           const catalogVersion = await this.pool.query(
             'SELECT 1 FROM schema_migrations WHERE scope=$1 AND version=$2',
@@ -384,6 +414,30 @@ export class Resources implements OnApplicationShutdown {
       degraded: !ready || redis === 'down',
       dependencies: { database, schema, redis },
     };
+  }
+
+  /** Monitoring only: a failure here never changes readiness. */
+  private async refreshEdgeIdentityExpiry() {
+    if (Date.now() - this.edgeIdentityCheckedAt < EDGE_IDENTITY_REFRESH_MS) return;
+    this.edgeIdentityCheckedAt = Date.now();
+    try {
+      const row = (
+        await this.pool.query<{ devices: string; min_seconds: number | null }>(
+          `SELECT count(*) AS devices,
+             min(extract(epoch FROM c.expires_at - clock_timestamp()))::float8 AS min_seconds
+           FROM devices d JOIN device_credentials c ON c.device_id = d.id
+           WHERE d.kind = 'edge' AND d.status = 'active'`,
+        )
+      ).rows[0];
+      if (row)
+        this.edgeIdentityExpiry = {
+          activeDevices: Number(row.devices),
+          minSecondsRemaining: row.min_seconds === null ? null : Number(row.min_seconds),
+          observedAt: Date.now(),
+        };
+    } catch {
+      // Stale snapshot stays visible through its observed age.
+    }
   }
 
   async onApplicationShutdown(): Promise<void> {

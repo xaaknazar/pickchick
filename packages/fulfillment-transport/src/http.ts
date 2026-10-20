@@ -40,6 +40,17 @@ export async function transportRequest(
   body: unknown,
   io: TransportIo = {},
 ) {
+  return deviceJsonRequest(origin, `/internal/v1/edge/fulfillment/${path}`, identity, body, io);
+}
+
+/** Bounded device-authenticated JSON POST to a fixed private-API path (same rules as transport). */
+export async function deviceJsonRequest(
+  origin: string,
+  path: `/internal/v1/edge/${string}`,
+  identity: DeviceIdentity,
+  body: unknown,
+  io: TransportIo = {},
+) {
   const base = cloudTransportOrigin(origin),
     input = JSON.stringify(body);
   if (Buffer.byteLength(input) > 64 * 1024) throw new TransportHttpError('INVALID_RESPONSE');
@@ -59,7 +70,7 @@ export async function transportRequest(
     return await Promise.race([
       deadline,
       (async () => {
-        const response = await (io.fetch ?? fetch)(`${base}/internal/v1/edge/fulfillment/${path}`, {
+        const response = await (io.fetch ?? fetch)(`${base}${path}`, {
           method: 'POST',
           redirect: 'error',
           signal: abort.signal,

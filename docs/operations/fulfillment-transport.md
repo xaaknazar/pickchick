@@ -63,7 +63,8 @@ Worker читает существующий `.local/edge-identity.json` с пр
 `scripts/private-identity.mjs`. Применяются фактические срок действия, статус
 устройства и hash credentials; отзыв/ротация сериализуются shared lock с приёмом
 события. Срок текущей DeviceIdentity — 30 дней; постоянный device credential
-этот этап не вводит. Конфигурация/логи не содержат raw токенов, полных событий,
+этот этап не вводит. Автоматическое продление за 10 дней до истечения (за флагами):
+[edge-identity-rotation.md](edge-identity-rotation.md). Конфигурация/логи не содержат raw токенов, полных событий,
 снимков, исходных сетевых исключений или клиентских данных.
 
 `EDGE_FULFILLMENT_CLOUD_ORIGIN` — утверждённый HTTPS origin без credentials,
