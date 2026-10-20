@@ -105,12 +105,15 @@ async function fixture(run) {
   });
 }
 
-function watchResponse() {
+/** `req` is the incoming request: admission (ops lane) marks an overflow long-poll on it. */
+function watchResponse(request = {}) {
   const response = new EventEmitter();
   response.destroyed = false;
   response.setHeader = () => {};
+  response.req = request;
   return response;
 }
+const LONG_POLL_IMMEDIATE = Symbol.for('pickchick.admission.long-poll-immediate');
 
 test('the change mark moves with every input of the customer view and is stable otherwise', () =>
   fixture(async ({ pool, customer, service, repo, scope, orderId, payment }) => {
@@ -212,4 +215,32 @@ test('a closed client ends the watch without further reads', () =>
     const settled = counter.statements;
     await new Promise((resolve) => setTimeout(resolve, 1500));
     assert.equal(counter.statements, settled);
+  }));
+
+// Integration 19.10 (ops x mob): when the long-poll budget is full, admission marks the request
+// and the watch answers with one cheap mark and one full read instead of waiting.
+test('an overflow watch answers the current order at once with one read', () =>
+  fixture(async ({ pool, customer, options, orderId }) => {
+    const { pool: measured, counter } = counting(pool);
+    const controller = new CustomerCheckoutController(
+      { me: async () => ({ customer: { id: customer } }) },
+      { pool: measured },
+      { revision: 0 },
+    );
+    controller.checkout = new CustomerCheckout(measured, options);
+    const before = await controller.checkout.read(customer, orderId);
+    const readStatements = counter.statements;
+    counter.statements = 0;
+    const started = Date.now();
+    const result = await controller.watch(
+      orderId,
+      before.revision,
+      watchResponse({ [LONG_POLL_IMMEDIATE]: true }),
+      'Bearer ' + 'a'.repeat(64),
+      'application/json',
+    );
+    assert.equal(result.revision, before.revision);
+    assert.ok(Date.now() - started < 1000, 'no wait in overflow mode');
+    // One full read plus the cheap mark (and the one-off cloud table check), nothing repeated.
+    assert.ok(counter.statements <= readStatements + 3, `${counter.statements} statements`);
   }));
