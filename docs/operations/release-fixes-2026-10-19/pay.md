@@ -2,9 +2,11 @@
 
 Ветка `codex/fix-pay-1019` от `76902fa4` (общий срез `codex/shared-development`).
 Источник находок: аудит запуска 19.10 (`findings.json`, id вида `i.j`).
-Миграций нет (номера 061-062 линии не использованы), контракты (`packages/contracts`) не менялись. Реальные счета, банк,
-VPS, Telegram и касса не использовались: все проверки на локальном PostgreSQL
-со scripted bridge.
+Миграций нет (номера 061-062 линии не использованы). Рукописные контракты
+(`packages/contracts/src`) не менялись; сгенерированный `openapi.json` обновлён
+`pnpm contracts:generate` из-за новых команд кабинета `manual_refund` и `withdraw_refund`.
+Реальные счета, банк, VPS, Telegram и касса не использовались: все проверки на
+локальном PostgreSQL со scripted bridge.
 
 ## Итог по находкам
 
@@ -186,6 +188,7 @@ Worker `kaspi-remote-worker` пишет в stderr JSON:
 | `pnpm test:fulfillment-transport`                                                                                                          | unit 10/10, integration 65/65 pass                                                  |
 | backoffice-core `grants.test.mjs` (порядок provision для ручных возвратов)                                                                 | 1/1 pass                                                                            |
 | typecheck commerce-core, backoffice-core, api, backoffice                                                                                  | без ошибок                                                                          |
+| `pnpm contracts:check` (после регенерации `openapi.json`)                                                                                  | контракты совпадают                                                                 |
 | ESLint и Prettier по всем изменённым файлам                                                                                                | без ошибок                                                                          |
 
 Проверка «красный до исправления»: исходники commerce-core базы `76902fa4` с тестами
@@ -219,6 +222,9 @@ answers ...`, `QR pending answer with the own id but without amount`; 7.2 -
 - ful: правки в `customer-checkout.ts`, `kiosk-checkout.ts`, `repository.ts`
   объединяются без конфликта (проверено `git merge-tree`), но интеграции стоит
   прогнать `pnpm test:commerce` после слияния.
+- `packages/contracts/openapi.json` (генерируемый): mob и ful тоже его меняют; сейчас
+  слияние текстово чистое, но после объединения всех линий выполнить
+  `pnpm contracts:generate` и `pnpm contracts:check`.
 - ops: читает `sessionProblem`/`sessionRejected` из `kaspi_remote_attention` - формат
   совместим; новые поля (`reason`, `pendingUnsent`, `oldestUnsentSeconds`) необязательны.
 - `mac/codex/kiosk-cart-lines-api-1013`: те же файлы `kiosk-checkout.ts`, `model.ts`
