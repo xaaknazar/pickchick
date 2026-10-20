@@ -209,6 +209,16 @@ class ReleasePreflightTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("only for the mobile app", result.stdout)
 
+    def test_legacy_mobile_archive_refuses_a_shell_backend(self):
+        # Review 20.10: a legacy archive inherits the shell, while release.json records staging.
+        release.legacy_backend_guard("mobile", {})
+        release.legacy_backend_guard("mobile", {"EXPO_PUBLIC_PICKCHICK_ENV": "staging"})
+        release.legacy_backend_guard("kiosk", {"EXPO_PUBLIC_PICKCHICK_ENV": "production"})
+        for shell in [{"EXPO_PUBLIC_PICKCHICK_ENV": "production"},
+                      {"EXPO_PUBLIC_API_URL": "https://api.pickchick.kz"}]:
+            with self.subTest(shell=shell), self.assertRaisesRegex(RuntimeError, "staging backend only"):
+                release.legacy_backend_guard("mobile", shell)
+
     def test_production_delivery_requires_exact_metadata(self):
         flags = release.feature_profile_flags("production")
         release.verify_feature_profile({"featureProfile": "production", "embeddedPublicEnv": flags},

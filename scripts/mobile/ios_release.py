@@ -439,6 +439,18 @@ def archive_environment(feature_profile, source=None):
     return env
 
 
+def legacy_backend_guard(app, source=None):
+    """A legacy mobile archive inherits the shell, and its metadata records the staging host.
+
+    Refuse a shell that would compile another backend into that bundle (review of audit 2.2).
+    """
+    source = os.environ if source is None else source
+    if app == "mobile" and (source.get("EXPO_PUBLIC_API_URL")
+                            or source.get("EXPO_PUBLIC_PICKCHICK_ENV", "") not in ("", "staging")):
+        fail("The legacy profile archives the staging backend only. Unset EXPO_PUBLIC_API_URL and "
+             "EXPO_PUBLIC_PICKCHICK_ENV, or choose a pinned profile such as production.")
+
+
 def verify_feature_profile(metadata, requested):
     archived = metadata.get("featureProfile", "legacy")
     if canonical_profile(archived) != canonical_profile(requested):
@@ -559,6 +571,8 @@ def perform_phase(args, signing, artifacts):
 
     if args.phase == "archive":
         bundle_env = archive_environment(args.feature_profile)
+        if bundle_env is None:
+            legacy_backend_guard(APP_DIRECTORY)
         config = json.loads((ROOT / f"apps/{APP_DIRECTORY}/app.json").read_text())["expo"]
         if (config.get("ios", {}).get("bundleIdentifier") != BUNDLE
                 or config.get("ios", {}).get("appleTeamId") != TEAM):
