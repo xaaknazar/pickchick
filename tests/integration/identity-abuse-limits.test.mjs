@@ -362,6 +362,33 @@ test('a refund waits for the budget lock before it touches the challenge (no dea
     assert.deepEqual(await ctx.reservations(), { total: 1, fresh: 1 });
   }));
 
+test('a refusal that stops every login (Gateway balance, token) is reported once per 5 minutes', async () =>
+  fixture(async (ctx) => {
+    const attention = () =>
+      ctx.events
+        .filter((e) => e.event === 'customer_otp_delivery_attention')
+        .map((e) => [e.channel, e.reason]);
+    // A number Telegram cannot reach is that customer's problem, not an outage.
+    ctx.setOutcome({ kind: 'rejected', reason: 'recipient_unavailable' });
+    await assert.rejects(ctx.request(phoneOf(820)), failsWith('SERVICE_UNAVAILABLE'));
+    assert.deepEqual(attention(), []);
+    ctx.setOutcome({ kind: 'rejected', reason: 'channel_unavailable' });
+    for (let n = 0; n < 3; n++)
+      await assert.rejects(
+        ctx.request(phoneOf(821 + n), { ip: `192.0.2.${30 + n}` }),
+        failsWith('SERVICE_UNAVAILABLE'),
+      );
+    assert.deepEqual(attention(), [['telegram', 'channel_unavailable']]);
+    ctx.setOutcome({ kind: 'rejected', reason: 'provider_rejected', providerCode: 500 });
+    await assert.rejects(ctx.request(phoneOf(830)), failsWith('SERVICE_UNAVAILABLE'));
+    assert.deepEqual(attention(), [
+      ['telegram', 'channel_unavailable'],
+      ['telegram', 'provider_rejected'],
+    ]);
+    // Events never carry the number, the code or the provider's raw answer.
+    assert.ok(ctx.events.every((e) => !JSON.stringify(e).includes('+7701')));
+  }));
+
 test('environment defaults: reserve 20%, 90-day sessions, 30-day idle; review account off', () => {
   const env = {
     CUSTOMER_AUTH_ENABLED: 'true',

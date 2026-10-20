@@ -149,6 +149,18 @@ export class CustomerIdentity {
     private readonly delivery: PhoneCodeDelivery,
     private readonly events: (event: IdentityEvent) => void = logEvent,
   ) {}
+  private readonly deliveryAlerts = new Map<string, number>();
+  /**
+   * The provider refused the code for a reason that is not the recipient's (Gateway balance,
+   * token, configuration): nobody can sign in. At most one event per channel/reason in 5 min.
+   */
+  private deliveryAttention(channel: PhoneDeliveryChannel, reason: string) {
+    const key = `${channel}:${reason}`,
+      at = Date.now();
+    if ((this.deliveryAlerts.get(key) ?? -Infinity) > at - 5 * 60_000) return;
+    this.deliveryAlerts.set(key, at);
+    this.events({ event: 'customer_otp_delivery_attention', channel, reason });
+  }
   /** The App Review phone (enabled or not) never pays or places TEST orders. */
   isReviewCustomer(customer: Pick<Customer, 'phone'>): boolean {
     return !!this.options.reviewAccount && customer.phone === this.options.reviewAccount.phone;
@@ -505,6 +517,11 @@ export class CustomerIdentity {
         result.kind === 'rejected' &&
         ['recipient_unavailable', 'invalid_input'].includes(result.reason) &&
         actualChannel === (channel === 'auto' ? 'telegram' : channel);
+      if (
+        result.kind === 'rejected' &&
+        (result.reason === 'channel_unavailable' || result.reason === 'provider_rejected')
+      )
+        this.deliveryAttention(actualChannel, result.reason);
       state =
         result.kind === 'submitted'
           ? 'submitted'
