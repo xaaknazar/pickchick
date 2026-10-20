@@ -90,6 +90,28 @@ test('rejects cycles, unknown portions and duplicate identities', () => {
   invalid.recipes[0].sha256 = 'b'.repeat(64);
   assert.throws(() => prepare(invalid), /source mismatch/);
 });
+test('explicit finished-weight decision scales entire source batches without rounding', () => {
+  const source = input(
+    card('1', 'Fractional output', 'кг', [['Raw', 'кг', 1.5]], {
+      output: { value: 1.2436, unit: 'кг' },
+    }),
+    card('2', 'Drink', 'л', [['Water', 'л', 1]], {
+      output: { value: 1.02, unit: 'кг' },
+    }),
+  );
+  source.mass_yield_policy = 'finished_weight';
+  const p = planImport(source, snapshot(), branch);
+  assert.deepEqual(p.summary.held, []);
+  const recipes = p.operations.filter((o) => o.body.command.kind === 'recipe');
+  const recipe = recipes[0].body.command.payload;
+  assert.equal(recipe.yield_quantity, '6218');
+  assert.equal(recipe.lines[0].quantity, '7500');
+  assert.match(recipe.name, /5 исходных партий/);
+  assert.match(recipes[0].body.reason, /Исходных партий: 5/);
+  assert.equal(recipes[1].body.command.payload.yield_quantity, '1000');
+  source.mass_yield_policy = 'guess';
+  assert.throws(() => prepare(source), /Unknown mass yield policy/);
+});
 test('rejects unauthorized/truncated scope and existing ambiguous names', () => {
   assert.throws(() => planImport(simple(), { ...snapshot(), role: 'viewer' }, branch), /Scope/);
   assert.throws(

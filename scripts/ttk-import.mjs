@@ -42,6 +42,21 @@ export function quantity(value, unit) {
   return n.toString();
 }
 const key = (name, unit) => JSON.stringify([norm(name), unit]);
+const finishedBatch = (value) => {
+  const s = String(value);
+  assert(/^\d+(\.\d+)?$/.test(s), 'Invalid finished mass');
+  const [whole, fraction = ''] = s.split('.');
+  const denominator = 10n ** BigInt(fraction.length);
+  const numerator = (BigInt(whole) * denominator + BigInt(fraction || '0')) * 1000n;
+  assert(numerator > 0n, 'Empty finished mass');
+  const gcd = (a, b) => (b === 0n ? a : gcd(b, a % b));
+  const multiplier = denominator / gcd(numerator, denominator);
+  assert(multiplier <= 1000n, 'Finished mass precision requires explicit review');
+  return {
+    multiplier,
+    yieldQuantity: quantity(((numerator * multiplier) / denominator).toString(), 'шт'),
+  };
+};
 
 export function prepare(input) {
   assert(
@@ -51,6 +66,10 @@ export function prepare(input) {
   assert(
     Array.isArray(input.recipes) && input.recipes.length > 0 && input.recipes.length <= 500,
     'Invalid cards',
+  );
+  assert(
+    input.mass_yield_policy === undefined || input.mass_yield_policy === 'finished_weight',
+    'Unknown mass yield policy',
   );
   const sources = new Map();
   for (const s of input.sources) {
@@ -82,19 +101,21 @@ export function prepare(input) {
       r.output?.unit === 'кг' && Number.isFinite(r.output.value) && r.output.value >= 0,
       'Invalid finished weight',
     );
-    const card = { ...r, unit, yieldQuantity, blocked: false };
+    const card = { ...r, unit, yieldQuantity, multiplier: 1n, blocked: false };
     if (!r.lines.length) {
       issues.push({ code: r.code, reason: 'empty_card', file: r.file, row: r.row });
       continue;
     }
     // The source contains both a nominal batch and a finished weight. Do not choose silently.
     if (unit === 'кг' && Number(match[1].replace(',', '.')) !== r.output.value) {
-      card.blocked = true;
+      card.blocked = input.mass_yield_policy !== 'finished_weight';
+      if (!card.blocked) Object.assign(card, finishedBatch(r.output.value));
       issues.push({
         code: r.code,
-        reason: 'yield_mismatch',
+        reason: card.blocked ? 'yield_mismatch' : 'finished_weight_selected',
         batch: r.batch,
         output: r.output,
+        source_batches: card.multiplier.toString(),
         file: r.file,
         row: r.row,
       });
@@ -185,7 +206,7 @@ export function planImport(input, snapshot, branch) {
       ),
       'Existing name requires explicit mapping',
     );
-    const reason = `ТТК ${source.code}; ${source.file}; ${source.sheet}!A${source.row}; SHA256 ${source.sha256}. Импорт состава, без остатков и цен.`;
+    const reason = `ТТК ${source.code}; ${source.file}; ${source.sheet}!A${source.row}; SHA256 ${source.sha256}. Импорт состава, без остатков и цен.${input.mass_yield_policy === 'finished_weight' ? ` Массовый выход по итогу ТТК. Исходных партий: ${source.multiplier}.` : ''}`;
     const command = { type: 'save', kind, id: recordId, expected_revision: 0, payload };
     operations.push({
       body: { request_id: uuid([branch, digest(input), command]), reason, command },
@@ -210,13 +231,13 @@ export function planImport(input, snapshot, branch) {
       'recipe',
       'recipe:' + c.code,
       {
-        name: `ТТК ${c.code}: ${c.name}`,
+        name: `ТТК ${c.code}: ${c.name}${c.multiplier > 1n ? ` (${c.multiplier} исходных партий)` : ''}`,
         product_id: 'ttk:' + c.code,
         output_ingredient_id: id('card:' + c.code),
         yield_quantity: c.yieldQuantity,
         lines: [...c.resolved].map(([k, n]) => ({
           ingredient_id: id(k),
-          quantity: quantity(n.toString(), 'шт'),
+          quantity: quantity((n * c.multiplier).toString(), 'шт'),
         })),
       },
       c,
