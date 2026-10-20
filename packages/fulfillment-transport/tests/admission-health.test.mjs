@@ -198,3 +198,56 @@ test('the dedicated Windows worker role can report a closed cashier and a refusa
       assert.equal((await cloudAvailability(f)).ordering_closed, true);
     }),
   ));
+
+// QA 20.10 (release-fixes-1019), audit S10 (1.0): several orders the cashier refuses for
+// different reasons (a stopped item, then closed ordering) never hold back a paid order's kitchen
+// admission or an unrelated new order, and a refused order keeps coming back without starving.
+test('QA S10: mixed refusals never hold back a paid kitchen admission or a ready order', () =>
+  fixture(async (f) => {
+    const { localSelectionIds } = await import('@pickchick/menu-sync');
+    assert.equal((await f.tick()).state, 'applied');
+    assert.equal(await reservation(f, f.order.orderId), 'held');
+    const fries = await f.createAdditional('fries');
+    await f.pool.query(
+      "INSERT INTO local_stops(branch_id,variant_id,stopped,version,reason) VALUES($1,$2,true,1,'QA stop')",
+      [f.scope.branchId, localSelectionIds(f.scope.branchId, 'fries', [])[0]],
+    );
+    // The stopped order is refused and deferred alone.
+    const refused = await f.tick();
+    assert.equal(refused.state, 'deferred');
+    assert.equal(refused.reason, 'ITEM_STOPPED');
+    assert.equal((await state(f)).pending_cloud, null);
+    // The guest of the held order pays meanwhile: its kitchen admission goes first.
+    const { sale } = await f.pay();
+    await f.fiscalize(sale);
+    const burger = await f.createAdditional('burger');
+    assert.equal((await f.tick()).state, 'applied');
+    assert.equal(await reservation(f, f.order.orderId), 'accepted');
+    // An unrelated new order is reserved while the refused one sits out its lease.
+    assert.equal((await f.tick()).state, 'applied');
+    assert.equal(await reservation(f, burger.orderId), 'held');
+    // Leases lapse: the refused order is retried and refused again, never parked as a failure.
+    await expireCloud(f);
+    const again = await f.tick();
+    assert.equal(again.state, 'deferred');
+    assert.equal(again.reason, 'ITEM_STOPPED');
+    assert.equal(again.unresolvedFailures, 0);
+    assert.equal(await reservation(f, fries.orderId), undefined);
+    // The cashier now closes ordering: kiosk and mobile stop selling, nothing else is blocked.
+    await ordering(f, false);
+    await expireCloud(f);
+    const closed = await f.tick();
+    assert.equal(closed.state, 'deferred');
+    assert.equal((await cloudAvailability(f)).ordering_closed, true);
+    assert.equal((await branchAvailability(f.cloud, f.scope.branchId)).fresh, false);
+    // Unpaid refusals are never manager cases; the stop lifted and ordering reopened, it is held.
+    assert.equal(
+      (await f.commerce.readOrder(f.commercialScope, fries.orderId)).state,
+      'awaiting_admission',
+    );
+    await f.pool.query('UPDATE local_stops SET stopped=false,version=2');
+    await ordering(f, true);
+    await expireCloud(f);
+    assert.equal((await f.tick()).state, 'applied');
+    assert.equal(await reservation(f, fries.orderId), 'held');
+  }));
