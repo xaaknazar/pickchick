@@ -110,8 +110,6 @@ async function main() {
         });
         if (once || !['idle', 'busy', 'disabled'].includes(result.state))
           console.log(JSON.stringify({ event: 'fulfillment_transport', ...result }));
-        const notice = attention?.observe(result);
-        if (notice) console.error(JSON.stringify(notice));
         else if (result.state === 'idle' && result.remoteStops !== remoteStops)
           // A degraded stop channel is not an error for the order loop; report changes only.
           console.log(
@@ -120,6 +118,8 @@ async function main() {
               state: result.remoteStops ?? (protocolVersion === 4 ? 'active' : 'off'),
             }),
           );
+        const notice = attention?.observe(result);
+        if (notice) console.error(JSON.stringify(notice));
         if (['idle', 'acknowledged', 'applied'].includes(result.state))
           remoteStops = result.remoteStops;
         delivered = ['applied', 'acknowledged'].includes(result.state);
