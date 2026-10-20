@@ -1795,6 +1795,12 @@ export class CommercialKioskController {
     };
     if (this.staffLockedUntil > now) return fail('locked');
     if (!this.io.verifyStaff) return fail('unavailable');
+    // No code was typed (the guest confirmed «Начать заново» just as its free seconds ended): the
+    // dialog now asks for the staff code; nothing was wrong yet (review 19.10).
+    if (pin === undefined) {
+      this.staffError = null;
+      throw new KioskError('QUIET');
+    }
     if (typeof pin !== 'string' || !/^\d{4,8}$/.test(pin)) return fail('wrong');
     try {
       await this.io.verifyStaff(pin);

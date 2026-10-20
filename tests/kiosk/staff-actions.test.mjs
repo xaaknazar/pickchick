@@ -67,7 +67,13 @@ test('3.3: «Начать заново» is free only in the first seconds of th
   assert.equal(view.canStartOver, true);
   assert.equal(view.startOverNeedsStaff, true);
   const order = view.order;
-  for (const pin of [undefined, '12', '1111']) {
+  // The guest confirms just as the free seconds end: the dialog now asks for the staff code, and
+  // nothing typed yet is not shown as a wrong code (review 19.10).
+  assert.equal(await c.startOver(), false);
+  assert.equal(c.getSnapshot().staffPinError, null);
+  assert.equal(c.getSnapshot().startOverNeedsStaff, true);
+  assert.equal(c.getSnapshot().step, 'payment');
+  for (const pin of ['12', '1111']) {
     assert.equal(await c.startOver(pin), false, String(pin));
     assert.equal(c.getSnapshot().staffPinError, 'wrong');
     assert.deepEqual(c.getSnapshot().order, order);
