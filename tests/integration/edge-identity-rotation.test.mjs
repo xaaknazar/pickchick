@@ -723,3 +723,39 @@ test('a rotation the cloud committed survives the cloud flag being off: same id,
     }
   });
 });
+
+// QA 20.10 (release-fixes-1019), audit S17 (4.1/6.0): the cashier lost both the new key and its
+// rotation intent (disk image restored after an unconfirmed rotation). Renewal can never leave it
+// worse off than not renewing: its old key keeps working until its own expiry, every new attempt is
+// refused visibly (never a silent swap), and a manual re-provisioning recovers at once.
+test('QA S17: a cashier that lost its rotation intent keeps its old key until expiry', async () => {
+  await withIdentityFiles(async (t) => {
+    await t.due('4 days');
+    const before = await t.read();
+    const lost = await renewIdentityFile(t.options({ io: failing('/rotate') }));
+    assert.deepEqual([lost.state, lost.error], ['retry', 'NETWORK_UNKNOWN']);
+    assert.equal(await rotations(t.cloud), 1);
+    // The image restore brings back the old file and nothing else.
+    await rm(`${t.path}.rotation`, { force: true });
+    await rm(`${t.path}.next`, { force: true });
+    assert.deepEqual(await t.read(), before);
+    for (let turn = 0; turn < 2; turn++) {
+      const refused = await renewIdentityFile(t.options());
+      assert.deepEqual([refused.state, refused.error], ['refused', 'ROTATION_REFUSED']);
+      assert.equal((await t.read()).token, before.token, 'no silent swap');
+    }
+    assert.equal(await rotations(t.cloud), 1);
+    // The unconfirmed rotation never cuts the old key short.
+    assert.equal(await authenticates(t.cloud.pool, before), t.branch);
+    const overlap = (
+      await t.cloud.pool.query('SELECT previous_expires_at,expires_at FROM device_credentials')
+    ).rows[0];
+    near(overlap.previous_expires_at.toISOString(), Date.parse(before.expires_at), 5_000);
+    // Manual re-provisioning (runbook) replaces both and the cashier is current again.
+    const manual = await provisionDevice(t.cloud.pool, t.device, true);
+    await t.write(t.path, manual);
+    assert.equal(await authenticates(t.cloud.pool, manual), t.branch);
+    await assert.rejects(authenticates(t.cloud.pool, before), code('UNAUTHORIZED'));
+    assert.equal((await renewIdentityFile(t.options())).state, 'not_due');
+  });
+});
