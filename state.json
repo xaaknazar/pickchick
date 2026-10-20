@@ -5759,9 +5759,11 @@
         "docs/operations/ttk-import-2026-10-20.md",
         "@vps/inventory"
       ],
-      "status": "active",
-      "head": "76902fa4b8403f9084c0028fa16f02b8ec155586",
-      "updatedAt": "2026-10-20T07:08:45.694Z"
+      "status": "done",
+      "head": "4dde5b34f116461ceeec556da961028604de65f6",
+      "updatedAt": "2026-10-20T07:46:02.841Z",
+      "summary": "ТТК применены на Abay Plaza: 229 позиций, 165 рецептов, 394 команды/аудит; pending=0, прежние 72 записи и меню сохранены. c8937d20: 13/13 CI, encrypted backup restore, full installed-core rehearsal/replay/manufacturing passed. 4dde5b34 только отчёт; новая CI отдельно, не заявлена зелёной. PR https://github.com/xaaknazar/pickchick/pull/261; docs/operations/ttk-import-2026-10-20.md; общий срез опубликован.",
+      "nextAction": "Соответствия ТТК меню уточнить с владельцем отдельно; автосписание продаж не включалось. Ввести фактические остатки/приходы для стоимости. Владелец занятых docs/project-status.md и docs/roadmap/project.json должен перенести факты из журнала этапа и обновить онлайн-пульт; эти области не менялись. Приватный архив источников и result.json на VPS в ttk-import/c8937d204d9a5f62081e09da50b2949d0dd444a6; @vps/inventory освобождён."
     }
   ]
 }
