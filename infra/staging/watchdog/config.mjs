@@ -120,6 +120,11 @@ export function loadWatchdogConfig(env) {
     kitchenBacklogMinutes: integer(env, 'WATCHDOG_KITCHEN_BACKLOG_MINUTES', 5, 1, 120),
     // New manager review cases stay alerted this long (issues have no resolved state).
     reviewWindowHours: integer(env, 'WATCHDOG_REVIEW_WINDOW_HOURS', 6, 1, 72),
+    // Customer login code budget: the API's CUSTOMER_AUTH_DAILY_SMS_BUDGET (0 = not checked).
+    otpBudget: {
+      daily: integer(env, 'WATCHDOG_OTP_DAILY_BUDGET', 0, 0, 999_999),
+      warnPercent: integer(env, 'WATCHDOG_OTP_BUDGET_WARN_PERCENT', 80, 10, 99),
+    },
     factsMaxAgeMinutes: integer(env, 'WATCHDOG_FACTS_MAX_AGE_MINUTES', 15, 1, 1440),
     expect: {
       'kaspi-bridge': flag(env, 'WATCHDOG_EXPECT_KASPI_BRIDGE', true),

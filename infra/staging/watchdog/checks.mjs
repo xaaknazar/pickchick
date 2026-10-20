@@ -301,6 +301,42 @@ function reviewFinding(reviews, hours) {
   };
 }
 
+/**
+ * Daily budget of customer login codes (identity_sms_daily_budget, reset at 00:00 UTC). When it
+ * is used up, every new login and every new customer is refused until the next UTC day.
+ */
+function otpBudgetFinding(reservations, { daily, warnPercent }, nowMs, timeZone) {
+  const key = 'identity.otp_budget';
+  const title = 'Коды входа клиентов: дневной бюджет';
+  const percent = Math.floor((reservations * 100) / daily);
+  const used = `выдано ${reservations} из ${daily} (${percent}%)`;
+  const reset = clock(Date.UTC(...utcNextDay(nowMs)), timeZone);
+  if (reservations >= daily)
+    return result(
+      key,
+      'db',
+      title,
+      'fail',
+      'critical',
+      `${used}: новые входы в приложение отклоняются до ${reset}. Проверить, не атака ли это (много номеров с одних адресов); поднять CUSTOMER_AUTH_DAILY_SMS_BUDGET только решением владельца.`,
+    );
+  if (percent >= warnPercent)
+    return result(
+      key,
+      'db',
+      title,
+      'fail',
+      'warning',
+      `${used}, порог ${warnPercent}%. Бюджет обнуляется в ${reset}.`,
+    );
+  return ok(key, 'db', title, used);
+}
+
+function utcNextDay(nowMs) {
+  const now = new Date(nowMs);
+  return [now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1];
+}
+
 function heartbeatFinding(row, config, nowMs) {
   const key = `edge.heartbeat.${row.deviceId}`;
   const title = `Пульс кассы "${row.name}"`;
@@ -591,6 +627,10 @@ export function evaluate({ api, host, db, config, nowMs }) {
   if (db.ok) {
     findings.push(kitchenFinding(db.facts.kitchenBacklog, config.kitchenBacklogMinutes));
     if (db.facts.reviews) findings.push(reviewFinding(db.facts.reviews, config.reviewWindowHours));
+    if (config.otpBudget.daily > 0 && Number.isSafeInteger(db.facts.otpReservations))
+      findings.push(
+        otpBudgetFinding(db.facts.otpReservations, config.otpBudget, nowMs, config.timeZone),
+      );
     for (const row of db.facts.heartbeats) findings.push(heartbeatFinding(row, config, nowMs));
     for (const row of db.facts.identities) findings.push(identityFinding(row, config));
     if (config.backup.expectPitr) findings.push(archiverFinding(db.facts.archiver, config));

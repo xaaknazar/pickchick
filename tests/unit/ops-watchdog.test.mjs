@@ -99,6 +99,7 @@ function dbFacts(overrides = {}) {
     paymentBacklog: { 'kaspi-remote-worker': 0, 'kiosk-qr-worker': 0 },
     kitchenBacklog: { kitchen: 0, admission: 0, oldestSeconds: 0 },
     reviews: { total: 0, codes: {}, newestSeconds: null },
+    otpReservations: 0,
     archiver: {
       mode: 'off',
       archivedCount: 0,
@@ -139,10 +140,14 @@ test('config defaults keep Telegram off and validate thresholds without echoing 
   assert.equal(cfg.dailySummary.enabled, false);
   assert.equal(cfg.db.user, 'pickchick_watchdog');
   assert.equal(cfg.reviewWindowHours, 6);
+  assert.deepEqual(cfg.otpBudget, { daily: 0, warnPercent: 80 });
   for (const [name, value] of [
     ['WATCHDOG_DB_PASSWORD', 'short'],
     ['WATCHDOG_REVIEW_WINDOW_HOURS', '0'],
     ['WATCHDOG_REVIEW_WINDOW_HOURS', '73'],
+    ['WATCHDOG_OTP_DAILY_BUDGET', '-1'],
+    ['WATCHDOG_OTP_DAILY_BUDGET', '1000000'],
+    ['WATCHDOG_OTP_BUDGET_WARN_PERCENT', '100'],
     ['WATCHDOG_TELEGRAM_ENABLED', 'yes'],
     ['WATCHDOG_DISK_WARN_PERCENT', '101'],
     ['WATCHDOG_DISK_CRITICAL_PERCENT', '80'],
@@ -637,6 +642,65 @@ test('a new review case while the review alert is open is announced at once', ()
   // Checks without a mark keep the plain reminder policy.
   assert.equal(find(at(NOW, 1, null), 'orders.review').mark, undefined);
   assert.equal(find(run(), 'kitchen.backlog').mark, undefined);
+});
+
+test('customer login code budget: off by default, warning near the limit, critical when used up', () => {
+  // Audit alerting blocker: an exhausted daily budget refuses every new login until 00:00 UTC.
+  assert.equal(
+    find(run({ db: dbFacts({ otpReservations: 999 }) }), 'identity.otp_budget'),
+    undefined,
+  );
+  const cfg = config({ WATCHDOG_OTP_DAILY_BUDGET: '1000' });
+  const check = (reservations, nowMs = NOW) =>
+    find(
+      run({
+        cfg,
+        nowMs,
+        host: hostFacts({ collectedAt: iso(nowMs - MIN) }),
+        db: dbFacts({ otpReservations: reservations }),
+      }),
+      'identity.otp_budget',
+    );
+  assert.deepEqual([check(0).status, check(0).detail], ['ok', 'выдано 0 из 1000 (0%)']);
+  assert.equal(check(799).status, 'ok');
+  const warning = check(800);
+  assert.deepEqual([warning.status, warning.severity, warning.source], ['fail', 'warning', 'db']);
+  // NOW is 06:00 UTC on 09.10: the budget resets at 00:00 UTC on 10.10.
+  assert.equal(
+    warning.detail,
+    'выдано 800 из 1000 (80%), порог 80%. Бюджет обнуляется в 10.10 00:00.',
+  );
+  const exhausted = check(1000);
+  assert.deepEqual([exhausted.status, exhausted.severity], ['fail', 'critical']);
+  assert.match(
+    exhausted.detail,
+    /^выдано 1000 из 1000 \(100%\): новые входы в приложение отклоняются до 10\.10 00:00\./,
+  );
+  // Shown in the operator's time zone; month end rolls over correctly.
+  const almaty = find(
+    run({
+      cfg: config({ WATCHDOG_OTP_DAILY_BUDGET: '10', WATCHDOG_TIMEZONE: 'Asia/Almaty' }),
+      nowMs: Date.parse('2026-10-31T20:00:00Z'),
+      host: hostFacts({ collectedAt: '2026-10-31T19:59:00Z' }),
+      db: dbFacts({ otpReservations: 10 }),
+    }),
+    'identity.otp_budget',
+  );
+  assert.match(almaty.detail, /отклоняются до 01\.11 05:00\./);
+  // An unreadable database keeps any open budget alert (no false recovery).
+  assert.equal(
+    find(run({ cfg, db: { ok: false, code: 'timeout' } }), 'identity.otp_budget'),
+    undefined,
+  );
+  const config80 = config({
+    WATCHDOG_OTP_DAILY_BUDGET: '10',
+    WATCHDOG_OTP_BUDGET_WARN_PERCENT: '50',
+  });
+  assert.equal(
+    find(run({ cfg: config80, db: dbFacts({ otpReservations: 5 }) }), 'identity.otp_budget')
+      .severity,
+    'warning',
+  );
 });
 
 test('fulfillment_transport_attention lines are read only when the container is collected', () => {
@@ -1233,6 +1297,7 @@ function fakePool(db) {
       if (sql.includes('edge.kitchen_admission_requested'))
         return { rows: [{ kitchen: 0, admission: 0, oldest_seconds: '0' }] };
       if (sql.includes('FROM commerce_reconciliation_issues')) return { rows: [] };
+      if (sql.includes('FROM identity_sms_daily_budget')) return { rows: [{ reservations: 3 }] };
       if (sql.includes('pg_stat_archiver'))
         return {
           rows: [

@@ -32,6 +32,8 @@ export const WATCHDOG_COLUMNS = Object.freeze({
   commerce_cancellation_intents: Object.freeze(['order_id']),
   // Review case codes and times only; never details (they can carry order data).
   commerce_reconciliation_issues: Object.freeze(['code', 'created_at']),
+  // Today's count of reserved customer login codes (no phones, no challenges).
+  identity_sms_daily_budget: Object.freeze(['budget_day', 'reservations']),
 });
 
 function identifier(value) {

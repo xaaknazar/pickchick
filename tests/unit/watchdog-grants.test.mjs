@@ -37,6 +37,7 @@ test('grant SQL is exactly the reviewed column-level SELECT list', () => {
       'GRANT SELECT(id, provider, kind, enabled) ON public.commerce_provider_accounts TO pickchick_watchdog;',
       'GRANT SELECT(order_id) ON public.commerce_cancellation_intents TO pickchick_watchdog;',
       'GRANT SELECT(code, created_at) ON public.commerce_reconciliation_issues TO pickchick_watchdog;',
+      'GRANT SELECT(budget_day, reservations) ON public.identity_sms_daily_budget TO pickchick_watchdog;',
     ].join('\n'),
   );
   const all = watchdogApplySql({ password: PASSWORD });

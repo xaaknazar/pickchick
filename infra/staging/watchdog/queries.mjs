@@ -62,6 +62,10 @@ export const WATCHDOG_SQL = Object.freeze({
     FROM commerce_reconciliation_issues
     WHERE created_at > clock_timestamp() - make_interval(hours => $1::int)
     GROUP BY code ORDER BY count(*) DESC, code LIMIT 20`,
+  // Customer login codes reserved today: the same UTC day as customer-identity's daily budget
+  // (CUSTOMER_AUTH_DAILY_SMS_BUDGET). A count only, no phones.
+  otpBudget: `SELECT reservations FROM identity_sms_daily_budget
+    WHERE budget_day = (clock_timestamp() AT TIME ZONE 'UTC')::date`,
   // PITR option: archive_command health. pg_stat_archiver is readable without table grants.
   archiver: `SELECT current_setting('archive_mode') AS mode, archived_count::text,
       failed_count::text, last_archived_time, last_failed_time FROM pg_stat_archiver`,
@@ -116,6 +120,7 @@ export async function readDatabaseFacts(
       const at = iso(row.newest_at);
       if (at && (reviews.newestAt === null || at > reviews.newestAt)) reviews.newestAt = at;
     }
+    const otp = (await client.query(WATCHDOG_SQL.otpBudget)).rows[0];
     const archiver = (await client.query(WATCHDOG_SQL.archiver)).rows[0];
     return {
       now: iso(now),
@@ -135,6 +140,7 @@ export async function readDatabaseFacts(
         oldestSeconds: seconds(kitchen.oldest_seconds),
       },
       reviews,
+      otpReservations: otp ? Number(otp.reservations) : 0,
       archiver: {
         mode: label(archiver.mode),
         archivedCount: Number(archiver.archived_count),

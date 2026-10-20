@@ -45,9 +45,17 @@ async function cloudSchema(run) {
     await run({ admin, pool, schema, role, base, database: base.pathname.slice(1) });
   } finally {
     await pool.end();
-    await admin.query(`DROP SCHEMA ${schema} CASCADE`);
-    await admin.query(`DROP OWNED BY ${role}`).catch(() => undefined);
-    await admin.query(`DROP ROLE IF EXISTS ${role}`);
+    // Dropping a full migrated schema can exceed the pool's 5 s statement timeout on a loaded
+    // machine, which used to replace the test result with a cleanup error.
+    const cleanup = await admin.connect();
+    try {
+      await cleanup.query('SET statement_timeout = 0');
+      await cleanup.query(`DROP SCHEMA ${schema} CASCADE`);
+      await cleanup.query(`DROP OWNED BY ${role}`).catch(() => undefined);
+      await cleanup.query(`DROP ROLE IF EXISTS ${role}`);
+    } finally {
+      cleanup.release();
+    }
     await admin.end();
   }
 }
@@ -235,6 +243,12 @@ async function seed(pool) {
        VALUES ($1,$2,$3,1000,'issuing',clock_timestamp()-interval '10 minutes',clock_timestamp()-interval '9 minutes')`,
       [qrOrder.attempt, qrOrder.id, qr],
     );
+    // Customer login codes: 9 reserved today (UTC day of customer-identity), 50 yesterday.
+    await client.query(
+      `INSERT INTO identity_sms_daily_budget(budget_day,reservations) VALUES
+         ((clock_timestamp() AT TIME ZONE 'UTC')::date,9),
+         ((clock_timestamp() AT TIME ZONE 'UTC')::date-1,50)`,
+    );
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');
@@ -317,6 +331,7 @@ test('read-only watchdog role answers every check and can do nothing else', asyn
         },
       );
       assert.equal((await readDatabaseFacts(watchdog, { reviewWindowHours: 8 })).reviews.total, 3);
+      assert.equal(facts.otpReservations, 9);
       // pg_stat_archiver needs no table grant; the local database does not archive.
       assert.equal(facts.archiver.mode, 'off');
       assert.equal(facts.archiver.failedCount, 0);
@@ -334,6 +349,7 @@ test('read-only watchdog role answers every check and can do nothing else', asyn
         'SELECT order_id FROM commerce_reconciliation_issues',
         'SELECT id FROM organizations',
         'SELECT id FROM identity_customers',
+        'SELECT phone_lookup FROM identity_otp_challenges',
         'SELECT id FROM kiosk_devices',
       ])
         await assert.rejects(watchdog.query(sql), denied, sql);
@@ -439,7 +455,13 @@ test('read-only watchdog role answers every check and can do nothing else', asyn
     ]);
     const code = await runWatchdog({
       argv: ['--facts', '/facts.json', '--state', '/state.json', '--dry-run'],
-      env: { WATCHDOG_DB_PASSWORD: rotated, WATCHDOG_DB_USER: role, WATCHDOG_TIMEZONE: 'UTC' },
+      env: {
+        WATCHDOG_DB_PASSWORD: rotated,
+        WATCHDOG_DB_USER: role,
+        WATCHDOG_TIMEZONE: 'UTC',
+        // 9 of 10 login codes used today: above the 80% warning.
+        WATCHDOG_OTP_DAILY_BUDGET: '10',
+      },
       now: () => now,
       fetcher: async () => new Response(JSON.stringify({ ready: true }), { status: 200 }),
       readText: async (path) => files.get(path) ?? Promise.reject(new Error('missing')),
@@ -458,6 +480,7 @@ test('read-only watchdog role answers every check and can do nothing else', asyn
         [`device.identity.${ids.edgeA}`, 'warning'],
         [`device.identity.${ids.posExpired}`, 'critical'],
         [`edge.heartbeat.${ids.edgeA}`, 'critical'],
+        ['identity.otp_budget', 'warning'],
         ['kitchen.backlog', 'critical'],
         ['orders.review', 'critical'],
         ['worker.kaspi-remote-worker.backlog', 'critical'],
