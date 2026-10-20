@@ -2,9 +2,11 @@
 """PickChick watchdog host runner (systemd timer, user pickchick-ops).
 
 1. Collects read-only host facts: `docker inspect`/`docker logs` of the three Kaspi
-   containers (only whitelisted fields of the workers' own JSON event lines), disk usage
-   and the encrypted backup listing. Optionally (off by default) runs the existing
-   bridge `session-check.mjs` at most every N >= 6 hours.
+   containers (only whitelisted fields of the workers' own JSON event lines), the customer
+   login code events of the API container (sec lane: budget and delivery attention, no
+   phones), disk usage and the encrypted backup listing. Optionally (off by default) runs
+   the existing bridge `session-check.mjs` at most every N >= 6 hours and the gateway's own
+   read-only `client-ip-gateway.py --check` (sec lane, trusted proxy and client address).
 2. Runs the pinned watchdog container (`docker compose run --rm`) that evaluates the
    facts, reads PostgreSQL as pickchick_watchdog and notifies Telegram.
 
@@ -40,6 +42,17 @@ WORKER_EVENTS = {
     'kiosk-qr-worker': {'kiosk_kaspi_qr', 'kiosk_kaspi_qr_attention', 'kiosk_kaspi_qr_failed'},
 }
 FULFILLMENT_EVENT = 'fulfillment_transport_attention'
+# Customer login codes (sec lane, packages/customer-identity): counts and codes only, no phones.
+IDENTITY_BUDGET_EVENT = 'customer_otp_budget_attention'
+IDENTITY_DELIVERY_EVENT = 'customer_otp_delivery_attention'
+IDENTITY_POOLS = {'all', 'new_phones'}
+IDENTITY_PERCENTS = {50, 80, 100}
+IDENTITY_CHANNELS = {'sms', 'telegram', 'whatsapp'}
+IDENTITY_DELIVERY_REASONS = {'channel_unavailable', 'provider_rejected'}
+# client-ip-gateway.py --check problem codes (sec lane, audit 5.0/5.6).
+GATEWAY_PROBLEMS = {'outer_proxy_address_unknown', 'trusted_proxies_unreadable', 'outer_proxy_not_trusted',
+                    'kitchen_route_forwards_proxy_hop'}
+GATEWAY_EVENT = 'gateway_client_ip_check'
 KASPI_REASONS = {'session_inactive', 'session_missing', 'session_rejected', 'bridge_unreachable',
                  'unknown_overdue', 'invoice_not_sent', 'worker_errors'}
 REASON_CODE = re.compile(r'[A-Z][A-Z0-9_]{0,40}')
@@ -74,6 +87,10 @@ DEFAULTS = {
     'WATCHDOG_KASPI_SESSION_PROBE_HOURS': '0',
     # Empty: the fulfillment worker runs on the Windows cashier (DB check covers it).
     'WATCHDOG_FULFILLMENT_CONTAINER': '',
+    # API container whose logs carry the customer login code events (empty = not read).
+    'WATCHDOG_API_CONTAINER': 'pickchick-staging-api-1',
+    # Run the gateway's read-only client-ip-gateway.py --check (only after its release).
+    'WATCHDOG_GATEWAY_CHECK': 'false',
 }
 
 
@@ -100,6 +117,11 @@ def parse_settings(text):
     fulfillment = values['WATCHDOG_FULFILLMENT_CONTAINER']
     if fulfillment and not NETWORK.fullmatch(fulfillment):
         raise ValueError('WATCHDOG_FULFILLMENT_CONTAINER')
+    api = values['WATCHDOG_API_CONTAINER']
+    if api != '-' and not NETWORK.fullmatch(api):
+        raise ValueError('WATCHDOG_API_CONTAINER')
+    if values['WATCHDOG_GATEWAY_CHECK'] not in ('true', 'false'):
+        raise ValueError('WATCHDOG_GATEWAY_CHECK')
     hours = values['WATCHDOG_KASPI_SESSION_PROBE_HOURS']
     if not re.fullmatch('[0-9]{1,3}', hours) or not (int(hours) == 0 or 6 <= int(hours) <= 168):
         raise ValueError('WATCHDOG_KASPI_SESSION_PROBE_HOURS')
@@ -110,6 +132,9 @@ def parse_settings(text):
         'network': values['WATCHDOG_STAGING_NETWORK'],
         'probe_hours': int(hours),
         'fulfillment': fulfillment or None,
+        # '-' switches the API log reading off (the empty value keeps the default name).
+        'api': None if api == '-' else api,
+        'gateway_check': values['WATCHDOG_GATEWAY_CHECK'] == 'true',
     }
 
 
@@ -175,6 +200,86 @@ def sanitize_fulfillment_line(line):
         if kept:
             event['reasons'] = kept
     return event
+
+
+def sanitize_identity_line(line):
+    """Customer login code events of the API (sec lane): pool/percent/budget or channel/reason."""
+    match = LOG_LINE.match(line.strip())
+    if not match or len(line) > 4096:
+        return None
+    try:
+        raw = json.loads(match.group(2))
+    except ValueError:
+        return None
+    if not isinstance(raw, dict):
+        return None
+    at = match.group(1) + 'Z'
+    if (raw.get('event') == IDENTITY_BUDGET_EVENT and raw.get('pool') in IDENTITY_POOLS
+            and raw.get('percent') in IDENTITY_PERCENTS and not isinstance(raw.get('percent'), bool)
+            and is_count(raw.get('budget'))):
+        return {'at': at, 'event': IDENTITY_BUDGET_EVENT, 'pool': raw['pool'], 'percent': raw['percent'],
+                'budget': raw['budget']}
+    if (raw.get('event') == IDENTITY_DELIVERY_EVENT and raw.get('channel') in IDENTITY_CHANNELS
+            and raw.get('reason') in IDENTITY_DELIVERY_REASONS):
+        return {'at': at, 'event': IDENTITY_DELIVERY_EVENT, 'channel': raw['channel'], 'reason': raw['reason']}
+    return None
+
+
+def utc_day(seconds):
+    return datetime.fromtimestamp(seconds, timezone.utc).strftime('%Y-%m-%d')
+
+
+def remember_budget(events, now, state_dir):
+    """The API reports each budget threshold once; keep the highest of today's UTC day.
+
+    The daily budget resets at 00:00 UTC, so the memory does too. A short log window would
+    otherwise drop an exhausted budget after ten minutes and announce a false recovery.
+    """
+    today = utc_day(now())
+    target = state_dir / 'identity-budget.json'
+    pools = {}
+    try:
+        stored = json.loads(target.read_text())
+        if isinstance(stored, dict) and stored.get('day') == today and isinstance(stored.get('pools'), dict):
+            for pool, value in stored['pools'].items():
+                if (pool in IDENTITY_POOLS and isinstance(value, dict) and value.get('percent') in IDENTITY_PERCENTS
+                        and is_count(value.get('budget')) and isinstance(value.get('at'), str)
+                        and STARTED.match(value['at'])):
+                    pools[pool] = {'percent': value['percent'], 'budget': value['budget'], 'at': value['at']}
+    except (OSError, ValueError):
+        pools = {}
+    before = json.dumps(pools, sort_keys=True)
+    for event in events:
+        if event['at'][:10] != today:
+            continue
+        known = pools.get(event['pool'])
+        if known is None or event['percent'] > known['percent'] or event['budget'] != known['budget']:
+            pools[event['pool']] = {'percent': event['percent'], 'budget': event['budget'], 'at': event['at']}
+    if json.dumps(pools, sort_keys=True) != before:
+        try:
+            write_private_json(target, {'day': today, 'pools': pools})
+        except OSError:
+            pass  # This run still reports what it saw; only the memory for later runs is lost.
+    return {'day': today, 'pools': pools}
+
+
+def gateway_check(release, run, now):
+    """Runs the installed gateway's own read-only check; keeps the verdict and problem codes only."""
+    result = {'checkedAt': iso(now()), 'ok': None, 'problems': ['check_failed']}
+    try:
+        completed_run = run([sys.executable, '-I', str(release / 'infra/public-staging/client-ip-gateway.py'),
+                             '--check'], capture_output=True, text=True, errors='replace', timeout=60)
+        lines = [line for line in completed_run.stdout.splitlines() if line.strip()]
+        raw = json.loads(lines[-1]) if lines else None
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return result
+    if not isinstance(raw, dict) or raw.get('event') != GATEWAY_EVENT or not isinstance(raw.get('ok'), bool):
+        return result
+    problems = raw.get('problems') if isinstance(raw.get('problems'), list) else []
+    kept = sorted({code for code in problems if code in GATEWAY_PROBLEMS})
+    if raw['ok'] != (completed_run.returncode == 0) or (not raw['ok'] and not kept):
+        return result
+    return {'checkedAt': result['checkedAt'], 'ok': raw['ok'], 'problems': [] if raw['ok'] else kept}
 
 
 def read_status(directory, kind):
@@ -307,7 +412,7 @@ def kaspi_session_probe(settings, bridge_present, run, now, state_dir):
     return probe, failed
 
 
-def collect(settings, run=subprocess.run, now=time.time, state_dir=HOME / 'state'):
+def collect(settings, run=subprocess.run, now=time.time, state_dir=HOME / 'state', release=None):
     errors = []
     containers = {role: {'present': False} for role in CONTAINERS}
     events = {role: [] for role in WORKER_EVENTS}
@@ -351,6 +456,23 @@ def collect(settings, run=subprocess.run, now=time.time, state_dir=HOME / 'state
                 fulfillment_collected = True
         except (OSError, subprocess.TimeoutExpired):
             errors.append('logs_unavailable')
+    identity_delivery, identity_budget, identity_collected = [], None, False
+    if docker_ok and settings.get('api'):
+        try:
+            result = docker(run, 'logs', '--since', str(settings['window']) + 's', '--timestamps',
+                            '--tail', '5000', settings['api'], timeout=30)
+            # A missing API container is the API readiness alert's job; these checks just wait.
+            if result.returncode == 0:
+                lines = (result.stdout + '\n' + result.stderr).splitlines()
+                parsed = sorted((item for item in map(sanitize_identity_line, lines) if item),
+                                key=lambda item: item['at'])
+                identity_delivery = [item for item in parsed if item['event'] == IDENTITY_DELIVERY_EVENT][-50:]
+                identity_budget = remember_budget(
+                    [item for item in parsed if item['event'] == IDENTITY_BUDGET_EVENT], now, state_dir)
+                identity_collected = True
+        except (OSError, subprocess.TimeoutExpired):
+            errors.append('logs_unavailable')
+    gateway = gateway_check(release, run, now) if settings.get('gateway_check') and release else None
     probe, probe_failed = kaspi_session_probe(
         settings, docker_ok and containers['kaspi-bridge'].get('running') is True, run, now, state_dir)
     if probe_failed:
@@ -364,6 +486,10 @@ def collect(settings, run=subprocess.run, now=time.time, state_dir=HOME / 'state
         'workerEvents': events,
         'fulfillmentEvents': fulfillment,
         'fulfillmentCollected': fulfillment_collected,
+        'identityDelivery': identity_delivery,
+        'identityBudget': identity_budget,
+        'identityCollected': identity_collected,
+        'gatewayClientIp': gateway,
         'disks': disk_usage(settings['disks']),
         'backups': list_backups(settings['backups']),
         'kaspiSessionProbe': probe,
@@ -431,7 +557,7 @@ def main(argv):
                       '{{index .Config.Labels "org.opencontainers.image.revision"}}', 'pickchick-api:' + sha)
     if revision.returncode != 0 or revision.stdout.strip() != sha:
         raise RuntimeError('Pinned watchdog image is missing or mislabeled')
-    facts = collect(settings)
+    facts = collect(settings, release=release)
     if args.collect_only:
         print(json.dumps(facts, indent=2))
         return 0

@@ -24,7 +24,9 @@ export const WATCHDOG_COLUMNS = Object.freeze({
   fulfillment_transport_bindings: Object.freeze(['branch_id', 'device_id', 'active']),
   cloud_branch_availability: Object.freeze(['branch_id', 'device_id', 'observed_at']),
   commerce_kaspi_invoices: Object.freeze(['state', 'issue_started_at']),
-  commerce_kiosk_kaspi_qr: Object.freeze(['state', 'issue_started_at']),
+  commerce_kiosk_kaspi_qr: Object.freeze(['attempt_id', 'state', 'issue_started_at']),
+  // Kiosk QR attempts a manager took over (accepted incident); the attempt id only.
+  commerce_kiosk_payment_incidents: Object.freeze(['attempt_id']),
   commerce_outbox: Object.freeze(['order_id', 'event_type', 'created_at', 'acknowledged_at']),
   commerce_orders: Object.freeze(['id', 'attention_required']),
   commerce_payment_attempts: Object.freeze(['order_id', 'account_id', 'state']),

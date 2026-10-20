@@ -16,12 +16,20 @@ export const WATCHDOG_SQL = Object.freeze({
     JOIN devices d ON d.id = b.device_id AND d.status = 'active'
     LEFT JOIN cloud_branch_availability a ON a.branch_id = b.branch_id AND a.device_id = b.device_id
     WHERE b.active ORDER BY b.branch_id LIMIT 100`,
-  // Identical predicate to KaspiRemoteProcessor/KioskKaspiQrProcessor unknownOverdue().
+  // Identical predicate to KaspiRemoteProcessor/KioskKaspiQrProcessor unknownOverdue(). Kiosk QR
+  // attempts a manager already took over in the cabinet (accepted kiosk payment incident, kio
+  // lane) are counted apart: staff has acted, the worker still checks the bank result.
   unknownOverdue: `SELECT
       (SELECT count(*) FROM commerce_kaspi_invoices WHERE state IN ('issuing','unknown')
         AND issue_started_at < clock_timestamp() - interval '5 minutes')::int AS kaspi_remote,
-      (SELECT count(*) FROM commerce_kiosk_kaspi_qr WHERE state IN ('issuing','unknown')
-        AND issue_started_at < clock_timestamp() - interval '5 minutes')::int AS kiosk_qr`,
+      (SELECT count(*) FROM commerce_kiosk_kaspi_qr q WHERE q.state IN ('issuing','unknown')
+        AND q.issue_started_at < clock_timestamp() - interval '5 minutes'
+        AND NOT EXISTS (SELECT 1 FROM commerce_kiosk_payment_incidents h
+          WHERE h.attempt_id = q.attempt_id))::int AS kiosk_qr,
+      (SELECT count(*) FROM commerce_kiosk_kaspi_qr q WHERE q.state IN ('issuing','unknown')
+        AND q.issue_started_at < clock_timestamp() - interval '5 minutes'
+        AND EXISTS (SELECT 1 FROM commerce_kiosk_payment_incidents h
+          WHERE h.attempt_id = q.attempt_id))::int AS kiosk_qr_handed`,
   // Payment submissions the Kaspi workers have not sent to the bank (silent deferral covers a
   // rejected session pre-check, a stale restaurant heartbeat or a stopped worker). Bounded to the
   // last hour so abandoned history cannot keep an alert open forever.
@@ -130,6 +138,7 @@ export async function readDatabaseFacts(
         'kaspi-remote-worker': overdue.kaspi_remote,
         'kiosk-qr-worker': overdue.kiosk_qr,
       },
+      unknownHanded: { 'kaspi-remote-worker': 0, 'kiosk-qr-worker': overdue.kiosk_qr_handed },
       paymentBacklog: {
         'kaspi-remote-worker': backlog['kaspi-remote'],
         'kiosk-qr-worker': backlog['kaspi-qr'],

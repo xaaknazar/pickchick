@@ -1,4 +1,5 @@
 """Host side of the ops watchdog with fake docker; never touches the real host or VPS."""
+from datetime import datetime, timezone
 import importlib.util
 import json
 import os
@@ -64,7 +65,8 @@ class Settings(unittest.TestCase):
         self.assertEqual(parsed, {'window': 600, 'disks': ['/', '/var/lib/docker', '/opt/pickchick-staging/backups'],
                                   'backups': '/opt/pickchick-staging/backups',
                                   'network': 'pickchick-staging_private', 'probe_hours': 0,
-                                  'fulfillment': None})
+                                  'fulfillment': None, 'api': 'pickchick-staging-api-1',
+                                  'gateway_check': False})
         self.assertNotIn(SECRET_TOKEN, json.dumps(parsed))
         self.assertNotIn(SECRET_PASSWORD, json.dumps(parsed))
 
@@ -72,7 +74,8 @@ class Settings(unittest.TestCase):
         for key, value in [('WATCHDOG_LOG_WINDOW_SECONDS', '60'), ('WATCHDOG_DISK_PATHS', 'relative/path'),
                            ('WATCHDOG_DISK_PATHS', '/;rm -rf /'), ('WATCHDOG_BACKUP_DIR', '/x y'),
                            ('WATCHDOG_STAGING_NETWORK', '-bad'), ('WATCHDOG_KASPI_SESSION_PROBE_HOURS', '1'),
-                           ('WATCHDOG_FULFILLMENT_CONTAINER', 'x;rm')]:
+                           ('WATCHDOG_FULFILLMENT_CONTAINER', 'x;rm'), ('WATCHDOG_API_CONTAINER', 'a b'),
+                           ('WATCHDOG_GATEWAY_CHECK', '1')]:
             with self.subTest(key=key, value=value), self.assertRaises(ValueError) as error:
                 settings(**{key: value})
             self.assertEqual(str(error.exception), key)
@@ -235,10 +238,106 @@ class HostFacts(unittest.TestCase):
         facts = runner.collect(settings(WATCHDOG_DISK_PATHS='/'), run=missing, now=lambda: NOW,
                                state_dir=Path('/nonexistent'))
         self.assertEqual(facts['containers']['kaspi-remote-worker'], {'present': False})
-        self.assertNotIn('logs', {call[1] for call in missing.calls})
+        self.assertFalse([call for call in missing.calls
+                          if call[1] == 'logs' and call[-1] in runner.CONTAINERS.values()])
+        self.assertEqual(facts['collectorErrors'], [])
         down = runner.collect(settings(WATCHDOG_DISK_PATHS='/'), run=FakeDocker(available=False),
                               now=lambda: NOW, state_dir=Path('/nonexistent'))
         self.assertEqual(down['collectorErrors'], ['docker_unavailable'])
+
+    def test_identity_lines_keep_pool_percent_budget_or_channel_reason_only(self):
+        budget = ('2026-10-09T05:58:00.5Z {"event":"customer_otp_budget_attention","pool":"new_phones",'
+                  '"percent":80,"budget":800,"phone":"+77000000000","ip":"10.1.2.3"}')
+        self.assertEqual(runner.sanitize_identity_line(budget), {
+            'at': '2026-10-09T05:58:00Z', 'event': 'customer_otp_budget_attention', 'pool': 'new_phones',
+            'percent': 80, 'budget': 800})
+        delivery = ('2026-10-09T05:59:00Z {"event":"customer_otp_delivery_attention","channel":"telegram",'
+                    '"reason":"provider_rejected","response":"BALANCE_TOO_LOW token=' + SECRET_TOKEN + '"}')
+        self.assertEqual(runner.sanitize_identity_line(delivery), {
+            'at': '2026-10-09T05:59:00Z', 'event': 'customer_otp_delivery_attention', 'channel': 'telegram',
+            'reason': 'provider_rejected'})
+        for text in [budget.replace('new_phones', 'phone +7700'), budget.replace('"percent":80', '"percent":81'),
+                     budget.replace('"percent":80', '"percent":true'), budget.replace('"budget":800', '"budget":-1'),
+                     delivery.replace('provider_rejected', 'Bearer x'), delivery.replace('telegram', 'mail'),
+                     '2026-10-09T05:59:00Z {"event":"customer_otp_requested","phone":"+77000000000"}',
+                     '{"event":"customer_otp_delivery_attention","channel":"telegram","reason":"provider_rejected"}']:
+            with self.subTest(text=text[:70]):
+                self.assertIsNone(runner.sanitize_identity_line(text))
+
+    def test_api_login_code_events_and_the_daily_budget_memory(self):
+        day = runner.utc_day(NOW)
+        stamp = lambda seconds: datetime.fromtimestamp(NOW - seconds, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        logs = {'pickchick-staging-api-1': ('', '\n'.join([
+            stamp(300) + ' {"event":"customer_otp_budget_attention","pool":"all","percent":50,"budget":1000}',
+            stamp(200) + ' {"event":"customer_otp_budget_attention","pool":"new_phones","percent":100,"budget":800}',
+            stamp(100) + ' {"event":"customer_otp_delivery_attention","channel":"telegram","reason":"channel_unavailable"}',
+            stamp(50) + ' {"event":"customer_otp_requested","phone":"+77000000000"}']) + '\n')}
+        with tempfile.TemporaryDirectory() as name:
+            state = Path(name)
+            facts = runner.collect(settings(WATCHDOG_DISK_PATHS='/'), run=FakeDocker(logs=logs),
+                                   now=lambda: NOW, state_dir=state)
+            self.assertTrue(facts['identityCollected'])
+            self.assertEqual(facts['identityDelivery'], [{'at': stamp(100), 'event': 'customer_otp_delivery_attention',
+                                                          'channel': 'telegram', 'reason': 'channel_unavailable'}])
+            self.assertEqual(facts['identityBudget'], {'day': day, 'pools': {
+                'all': {'percent': 50, 'budget': 1000, 'at': stamp(300)},
+                'new_phones': {'percent': 100, 'budget': 800, 'at': stamp(200)}}})
+            self.assertEqual(os.stat(state / 'identity-budget.json').st_mode & 0o777, 0o600)
+            self.assertNotIn('+7700', json.dumps(facts))
+            # The thresholds were reported once; later runs of the same UTC day keep them.
+            later = runner.collect(settings(WATCHDOG_DISK_PATHS='/'), run=FakeDocker(), now=lambda: NOW + 600,
+                                   state_dir=state)
+            self.assertEqual((later['identityDelivery'], later['identityBudget']['pools']['new_phones']['percent']),
+                             ([], 100))
+            # 00:00 UTC resets the API budget and the memory.
+            tomorrow = (NOW // 86400 + 1) * 86400 + 60
+            reset = runner.collect(settings(WATCHDOG_DISK_PATHS='/'), run=FakeDocker(), now=lambda: tomorrow,
+                                   state_dir=state)
+            self.assertEqual(reset['identityBudget'], {'day': runner.utc_day(tomorrow), 'pools': {}})
+        off = runner.collect(settings(WATCHDOG_DISK_PATHS='/', WATCHDOG_API_CONTAINER='-'),
+                             run=FakeDocker(logs=logs), now=lambda: NOW, state_dir=Path('/nonexistent'))
+        self.assertEqual((off['identityCollected'], off['identityBudget']), (False, None))
+
+    def test_gateway_check_runs_the_installed_check_only_when_enabled(self):
+        release = Path('/opt/pickchick-staging/releases/' + 'a' * 40)
+        calls = []
+
+        def fake(answer, returncode):
+            docker = FakeDocker()
+
+            def run(command, **kwargs):
+                if command[0] == 'docker':
+                    return docker(command, **kwargs)
+                calls.append((command, kwargs.get('timeout')))
+                return completed(answer + '\n', 'Traceback with ' + SECRET_TOKEN, returncode)
+            return run
+        broken = json.dumps({'event': 'gateway_client_ip_check', 'ok': False,
+                             'problems': ['outer_proxy_not_trusted', 'phone +7700'], 'trusted': ['172.18.0.0/16'],
+                             'outer_proxy': '172.18.0.5'})
+        config = settings(WATCHDOG_DISK_PATHS='/', WATCHDOG_GATEWAY_CHECK='true')
+        facts = runner.collect(config, run=fake(broken, 1), now=lambda: NOW, state_dir=Path('/nonexistent'),
+                               release=release)
+        self.assertEqual(calls, [([runner.sys.executable, '-I',
+                                   str(release / 'infra/public-staging/client-ip-gateway.py'), '--check'], 60)])
+        self.assertEqual(facts['gatewayClientIp'], {'checkedAt': runner.iso(NOW), 'ok': False,
+                                                    'problems': ['outer_proxy_not_trusted']})
+        self.assertNotIn('172.18', json.dumps(facts))
+        self.assertNotIn(SECRET_TOKEN, json.dumps(facts))
+        healthy = json.dumps({'event': 'gateway_client_ip_check', 'ok': True, 'problems': []})
+        self.assertEqual(runner.collect(config, run=fake(healthy, 0), now=lambda: NOW,
+                                        state_dir=Path('/nonexistent'), release=release)['gatewayClientIp'],
+                         {'checkedAt': runner.iso(NOW), 'ok': True, 'problems': []})
+        failed = {'checkedAt': runner.iso(NOW), 'ok': None, 'problems': ['check_failed']}
+        for answer, code in [('', 1), ('not json', 1), (healthy, 1), (broken, 0),
+                             (json.dumps({'event': 'other', 'ok': True}), 0)]:
+            with self.subTest(answer=answer[:30], code=code):
+                self.assertEqual(runner.collect(config, run=fake(answer, code), now=lambda: NOW,
+                                                state_dir=Path('/nonexistent'), release=release)['gatewayClientIp'],
+                                 failed)
+        calls.clear()
+        off = runner.collect(settings(WATCHDOG_DISK_PATHS='/'), run=fake(healthy, 0), now=lambda: NOW,
+                             state_dir=Path('/nonexistent'), release=release)
+        self.assertEqual((off['gatewayClientIp'], calls), (None, []))
 
     def test_optional_session_probe_reuses_session_check_and_respects_interval(self):
         output = '{"active":false,"reason":"not_verified","invoiceAttempted":false}\n'

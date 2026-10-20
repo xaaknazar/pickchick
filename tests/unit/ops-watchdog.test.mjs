@@ -703,6 +703,160 @@ test('customer login code budget: off by default, warning near the limit, critic
   );
 });
 
+// Integration 19.10, ops x sec: the API's customer login code events and the gateway check.
+test('login code events: a delivery refusal is critical, budget thresholds stay for the UTC day', () => {
+  const at = (minutes) => iso(NOW - minutes * MIN);
+  const facts = (extra) =>
+    hostFacts({
+      identityCollected: true,
+      identityDelivery: [],
+      identityBudget: { day: '2026-10-09', pools: {} },
+      ...extra,
+    });
+  const quiet = run({ host: facts() });
+  assert.equal(find(quiet, 'identity.otp_delivery').status, 'ok');
+  assert.deepEqual(
+    [
+      find(quiet, 'identity.otp_budget_pool').status,
+      find(quiet, 'identity.otp_budget_pool').detail,
+    ],
+    ['ok', 'порогов 80% сегодня нет'],
+  );
+  const delivery = find(
+    run({
+      host: facts({
+        identityDelivery: [
+          {
+            at: at(9),
+            event: 'customer_otp_delivery_attention',
+            channel: 'telegram',
+            reason: 'provider_rejected',
+          },
+          {
+            at: at(3),
+            event: 'customer_otp_delivery_attention',
+            channel: 'telegram',
+            reason: 'channel_unavailable',
+            phone: '+77000000000',
+          },
+        ],
+      }),
+    }),
+    'identity.otp_delivery',
+  );
+  assert.deepEqual(
+    [delivery.status, delivery.severity, delivery.source],
+    ['fail', 'critical', 'logs'],
+  );
+  assert.equal(
+    delivery.detail,
+    '09.10 05:57: Telegram Gateway: провайдер отклонил отправку; Telegram Gateway: канал недоступен (баланс, токен или настройка). Коды не уходят никому: вход и регистрация в приложении сейчас не работают. Проверить баланс и токен Telegram Gateway в кабинете провайдера.',
+  );
+  assert.doesNotMatch(JSON.stringify(delivery), /\+7700/);
+  const pool = (pools, cfg = config()) =>
+    find(
+      run({ cfg, host: facts({ identityBudget: { day: '2026-10-09', pools } }) }),
+      'identity.otp_budget_pool',
+    );
+  const exhausted = pool({ new_phones: { percent: 100, budget: 800, at: at(30) } });
+  assert.deepEqual([exhausted.status, exhausted.severity], ['fail', 'critical']);
+  assert.match(
+    exhausted.detail,
+    /^доля новых номеров \(800 кодов\) исчерпана в 09\.10 05:30: новые клиенты не могут войти до 10\.10 00:00, постоянные входят\. /,
+  );
+  assert.equal(exhausted.mark, NOW - 30 * MIN);
+  assert.equal(pool({ new_phones: { percent: 80, budget: 800, at: at(5) } }).severity, 'warning');
+  // The whole budget: from events only while the database check is off.
+  const all = { all: { percent: 100, budget: 1000, at: at(2) } };
+  assert.equal(pool(all).severity, 'critical');
+  assert.match(pool(all).detail, /дневной бюджет кодов \(1000\) исчерпан/);
+  assert.equal(pool(all, config({ WATCHDOG_OTP_DAILY_BUDGET: '1000' })).status, 'ok');
+  assert.equal(
+    pool({ all: { percent: 50, budget: 1000, at: at(2) } }).detail,
+    'использовано 50% дневного бюджета',
+  );
+  // Garbage never survives parsing; a broken budget memory reads as no thresholds.
+  assert.equal(pool({ new_phones: { percent: 90, budget: 800, at: at(5) } }).status, 'ok');
+  assert.equal(
+    find(
+      run({ host: facts({ identityBudget: { day: 'today', pools: {} } }) }),
+      'identity.otp_budget_pool',
+    ).status,
+    'ok',
+  );
+  // Not collected (API container absent or reading off) or unreadable logs: no verdict.
+  assert.equal(find(run({ host: hostFacts() }), 'identity.otp_delivery'), undefined);
+  assert.equal(
+    find(
+      run({ host: facts({ collectorErrors: ['logs_unavailable'] }) }),
+      'identity.otp_budget_pool',
+    ),
+    undefined,
+  );
+});
+
+test('gateway client address check: problems are critical, a failed check warns, off by default', () => {
+  const check = (gatewayClientIp) =>
+    find(run({ host: hostFacts({ gatewayClientIp }) }), 'gateway.client_ip');
+  assert.equal(check(undefined), undefined);
+  assert.deepEqual(
+    [
+      check({ checkedAt: iso(NOW - MIN), ok: true, problems: [] }).status,
+      check({ checkedAt: iso(NOW - MIN), ok: true, problems: [] }).detail,
+    ],
+    ['ok', 'проверено 09.10 05:59'],
+  );
+  const broken = check({
+    checkedAt: iso(NOW - MIN),
+    ok: false,
+    problems: ['outer_proxy_not_trusted', 'kitchen_route_forwards_proxy_hop', '172.18.0.5'],
+  });
+  assert.deepEqual([broken.status, broken.severity, broken.source], ['fail', 'critical', 'host']);
+  assert.match(
+    broken.detail,
+    /^gateway не доверяет текущему адресу внешнего Caddy; маршрут кухни передаёт адрес прокси вместо адреса клиента\. Все клиенты выглядят одним адресом/,
+  );
+  assert.doesNotMatch(broken.detail, /172\.18/);
+  const failed = check({ checkedAt: iso(NOW - MIN), ok: null, problems: ['check_failed'] });
+  assert.deepEqual([failed.status, failed.severity], ['fail', 'warning']);
+  // "not ok" without a known problem code is treated as a failed check, never as healthy.
+  assert.equal(
+    check({ checkedAt: iso(NOW - MIN), ok: false, problems: ['x'] }).severity,
+    'warning',
+  );
+});
+
+test('kiosk QR attempts a manager took over no longer keep the unknown alert open', () => {
+  const kiosk = (db, events = []) =>
+    find(
+      run({
+        db: dbFacts(db),
+        host: hostFacts({ workerEvents: { 'kaspi-remote-worker': [], 'kiosk-qr-worker': events } }),
+      }),
+      'worker.kiosk-qr-worker.unknown',
+    );
+  // The worker log still counts the handed attempt; the database knows it was taken over.
+  const handed = kiosk(
+    {
+      unknownOverdue: { 'kaspi-remote-worker': 0, 'kiosk-qr-worker': 0 },
+      unknownHanded: { 'kaspi-remote-worker': 0, 'kiosk-qr-worker': 1 },
+    },
+    [{ at: iso(NOW - 2 * MIN), event: 'kiosk_kaspi_qr_attention', unknownOverdue: 1 }],
+  );
+  assert.deepEqual([handed.status, handed.detail], ['ok', 'нет; передано сотруднику: 1']);
+  const open = kiosk({
+    unknownOverdue: { 'kaspi-remote-worker': 0, 'kiosk-qr-worker': 2 },
+    unknownHanded: { 'kaspi-remote-worker': 0, 'kiosk-qr-worker': 1 },
+  });
+  assert.deepEqual([open.status, open.severity], ['fail', 'critical']);
+  assert.match(
+    open.detail,
+    /дольше 5 мин: 2\. .*Передано сотруднику \(инцидент принят в кабинете\): 1\.$/,
+  );
+  // Older database facts without the field behave as before.
+  assert.equal(kiosk({}).status, 'ok');
+});
+
 test('fulfillment_transport_attention lines are read only when the container is collected', () => {
   const at = (minutes) => iso(NOW - minutes * MIN);
   const line = (minutes, extra) => ({

@@ -183,11 +183,18 @@ function workerErrorFinding(role, summary, config, windowSeconds) {
   return ok(key, 'logs', title, 'ошибок нет');
 }
 
-function unknownFinding(role, dbCount, logCount) {
+/**
+ * `handed`: kiosk QR attempts a manager already took over in the cabinet (kio lane, accepted
+ * kiosk payment incident). Their bank result stays unknown and the worker keeps checking them,
+ * but staff has acted, so they no longer keep the critical alert open. The worker's own log
+ * count still includes them.
+ */
+function unknownFinding(role, dbCount, logCount, handed = 0) {
   const key = `worker.${role}.unknown`;
   const title = `${WORKER_TITLES[role]}: счета без ответа банка`;
   if (dbCount === null && logCount === 0) return skip(key, 'db', title, 'нет данных');
-  const value = Math.max(dbCount ?? 0, logCount);
+  const value = Math.max(dbCount ?? 0, logCount - handed);
+  const staff = handed > 0 ? ` Передано сотруднику (инцидент принят в кабинете): ${handed}.` : '';
   if (value > 0)
     return result(
       key,
@@ -195,9 +202,9 @@ function unknownFinding(role, dbCount, logCount) {
       title,
       'fail',
       'critical',
-      `счетов в статусе issuing/unknown дольше 5 мин: ${value}. Проверить в Kaspi Pay вручную, повторный счёт не создавать.`,
+      `счетов в статусе issuing/unknown дольше 5 мин: ${value}. Проверить в Kaspi Pay вручную, повторный счёт не создавать.${staff}`,
     );
-  return ok(key, 'db', title, 'нет');
+  return ok(key, 'db', title, handed > 0 ? `нет; передано сотруднику: ${handed}` : 'нет');
 }
 
 function backlogFinding(role, value, minutes) {
@@ -330,6 +337,130 @@ function otpBudgetFinding(reservations, { daily, warnPercent }, nowMs, timeZone)
       `${used}, порог ${warnPercent}%. Бюджет обнуляется в ${reset}.`,
     );
   return ok(key, 'db', title, used);
+}
+
+const CHANNEL_TITLES = Object.freeze({
+  telegram: 'Telegram Gateway',
+  whatsapp: 'WhatsApp',
+  sms: 'SMS',
+});
+const DELIVERY_REASONS = Object.freeze({
+  channel_unavailable: 'канал недоступен (баланс, токен или настройка)',
+  provider_rejected: 'провайдер отклонил отправку',
+});
+
+/**
+ * `customer_otp_delivery_attention` (sec lane): the provider refused a code for a reason that is
+ * not the recipient's, so nobody can sign in. The API repeats it at most every 5 minutes per
+ * channel and reason while logins keep failing; with no login attempts it falls silent.
+ */
+export function otpDeliveryFinding(events, config) {
+  const key = 'identity.otp_delivery';
+  const title = 'Коды входа клиентов: доставка';
+  if (!events.length) return ok(key, 'logs', title, 'отказов провайдера за окно нет');
+  const last = events[events.length - 1];
+  const kinds = [
+    ...new Set(
+      events.map((event) => `${CHANNEL_TITLES[event.channel]}: ${DELIVERY_REASONS[event.reason]}`),
+    ),
+  ];
+  return result(
+    key,
+    'logs',
+    title,
+    'fail',
+    'critical',
+    `${clock(Date.parse(last.at), config.timeZone)}: ${kinds.join('; ')}. Коды не уходят никому: вход и регистрация в приложении сейчас не работают. Проверить баланс и токен Telegram Gateway в кабинете провайдера.`,
+  );
+}
+
+/**
+ * `customer_otp_budget_attention` (sec lane), highest threshold of the current UTC day per pool.
+ * The new-phone share (CUSTOMER_AUTH_NEW_PHONE_BUDGET_PERCENT) is visible only here; the whole
+ * budget is left to `identity.otp_budget` (database) when WATCHDOG_OTP_DAILY_BUDGET is set.
+ */
+export function otpBudgetPoolFinding(budget, config) {
+  const key = 'identity.otp_budget_pool';
+  const title = 'Коды входа клиентов: сигналы бюджета API';
+  const pools = budget?.pools ?? {};
+  const [year, month, day] = (budget?.day ?? '1970-01-01').split('-').map(Number);
+  const reset = clock(Date.UTC(year, month - 1, day + 1), config.timeZone);
+  const parts = [];
+  let severity = null,
+    mark = 0;
+  const raise = (level, entry, text) => {
+    severity = severity === 'critical' || level === 'critical' ? 'critical' : 'warning';
+    mark = Math.max(mark, Date.parse(entry.at));
+    parts.push(text);
+  };
+  const fresh = pools.new_phones;
+  if (fresh?.percent === 100)
+    raise(
+      'critical',
+      fresh,
+      `доля новых номеров (${fresh.budget} кодов) исчерпана в ${clock(Date.parse(fresh.at), config.timeZone)}: новые клиенты не могут войти до ${reset}, постоянные входят`,
+    );
+  else if (fresh?.percent === 80)
+    raise('warning', fresh, `доля новых номеров (${fresh.budget} кодов) израсходована на 80%`);
+  const all = config.otpBudget.daily > 0 ? null : pools.all;
+  if (all?.percent === 100)
+    raise(
+      'critical',
+      all,
+      `дневной бюджет кодов (${all.budget}) исчерпан: новые входы отклоняются до ${reset}`,
+    );
+  else if (all?.percent === 80)
+    raise('warning', all, `дневной бюджет кодов (${all.budget}) израсходован на 80%`);
+  if (!severity)
+    return ok(
+      key,
+      'logs',
+      title,
+      all?.percent === 50 ? 'использовано 50% дневного бюджета' : 'порогов 80% сегодня нет',
+    );
+  return {
+    ...result(
+      key,
+      'logs',
+      title,
+      'fail',
+      severity,
+      `${parts.join('; ')}. Проверить, не атака ли это (много новых номеров с одних адресов); поднимать бюджет только решением владельца.`,
+    ),
+    ...(mark > 0 ? { mark } : {}),
+  };
+}
+
+const GATEWAY_TEXT = Object.freeze({
+  outer_proxy_not_trusted: 'gateway не доверяет текущему адресу внешнего Caddy',
+  kitchen_route_forwards_proxy_hop: 'маршрут кухни передаёт адрес прокси вместо адреса клиента',
+  trusted_proxies_unreadable: 'строка trusted_proxies в gateway не читается',
+  outer_proxy_address_unknown: 'адрес внешнего Caddy в его сети не найден',
+});
+
+/** client-ip-gateway.py --check (sec lane, audit 5.0/5.6), run by the host collector. */
+export function gatewayFinding(check, config) {
+  const key = 'gateway.client_ip';
+  const title = 'Gateway: адрес клиента (trusted proxy)';
+  const at = clock(Date.parse(check.checkedAt), config.timeZone);
+  if (check.ok === true) return ok(key, 'host', title, `проверено ${at}`);
+  if (check.ok === null)
+    return result(
+      key,
+      'host',
+      title,
+      'fail',
+      'warning',
+      `проверка client-ip-gateway.py --check ${at} не выполнилась; запустить её вручную от pickchick-ops`,
+    );
+  return result(
+    key,
+    'host',
+    title,
+    'fail',
+    'critical',
+    `${check.problems.map((code) => GATEWAY_TEXT[code]).join('; ')}. Все клиенты выглядят одним адресом: лимиты кодов входа и входа кухни становятся общими и блокируют всех. Повторить релиз client-ip-gateway.py (docs/operations/release-fixes-2026-10-19/sec.md, 5.6).`,
+  );
 }
 
 function utcNextDay(nowMs) {
@@ -611,12 +742,18 @@ export function evaluate({ api, host, db, config, nowMs }) {
   }
   if (facts && !unavailable.has('logs') && facts.fulfillmentCollected)
     findings.push(fulfillmentFinding(facts.fulfillmentEvents, config));
+  if (facts && !unavailable.has('logs') && facts.identityCollected) {
+    findings.push(otpDeliveryFinding(facts.identityDelivery, config));
+    findings.push(otpBudgetPoolFinding(facts.identityBudget, config));
+  }
+  if (facts?.gatewayClientIp) findings.push(gatewayFinding(facts.gatewayClientIp, config));
   for (const role of Object.keys(WORKER_EVENTS)) {
     findings.push(
       unknownFinding(
         role,
         db.ok ? db.facts.unknownOverdue[role] : null,
         workers[role].unknownOverdue,
+        db.ok ? (db.facts.unknownHanded?.[role] ?? 0) : 0,
       ),
     );
     if (db.ok)

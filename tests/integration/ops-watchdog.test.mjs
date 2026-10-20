@@ -243,6 +243,32 @@ async function seed(pool) {
        VALUES ($1,$2,$3,1000,'issuing',clock_timestamp()-interval '10 minutes',clock_timestamp()-interval '9 minutes')`,
       [qrOrder.attempt, qrOrder.id, qr],
     );
+    // A second stuck QR attempt that a manager already took over in the cabinet (kio lane,
+    // accepted kiosk payment incident). The guard trigger and foreign keys need a full kiosk
+    // session and manager; this synthetic row skips them for this transaction only.
+    const handedOrder = await order({ accountId: qr, outboxAgeMs: 0, acknowledged: true });
+    await client.query(
+      `INSERT INTO commerce_kiosk_kaspi_qr(attempt_id,order_id,account_id,amount_minor,state,issue_started_at,expires_at)
+       VALUES ($1,$2,$3,1000,'unknown',clock_timestamp()-interval '30 minutes',clock_timestamp()-interval '29 minutes')`,
+      [handedOrder.attempt, handedOrder.id, qr],
+    );
+    await client.query('SET LOCAL session_replication_role = replica');
+    await client.query(
+      `INSERT INTO commerce_kiosk_payment_incidents(attempt_id,order_id,account_id,organization_id,branch_id,
+         session_id,accepted_by,request_id,reason,note,observed)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'bank_identity_lost','synthetic incident','{}')`,
+      [
+        handedOrder.attempt,
+        handedOrder.id,
+        qr,
+        org,
+        ids.branchA,
+        randomUUID(),
+        randomUUID(),
+        randomUUID(),
+      ],
+    );
+    await client.query('SET LOCAL session_replication_role = origin');
     // Customer login codes: 9 reserved today (UTC day of customer-identity), 50 yesterday.
     await client.query(
       `INSERT INTO identity_sms_daily_budget(budget_day,reservations) VALUES
@@ -310,6 +336,8 @@ test('read-only watchdog role answers every check and can do nothing else', asyn
       assert.ok(heartbeat.get(ids.edgeA).ageSeconds >= 25 * 60 - 1);
       assert.ok(heartbeat.get(ids.edgeB).ageSeconds <= 60);
       assert.deepEqual(facts.unknownOverdue, { 'kaspi-remote-worker': 1, 'kiosk-qr-worker': 1 });
+      // The QR attempt with an accepted incident is counted apart (granted attempt_id only).
+      assert.deepEqual(facts.unknownHanded, { 'kaspi-remote-worker': 0, 'kiosk-qr-worker': 1 });
       assert.deepEqual(facts.paymentBacklog, { 'kaspi-remote-worker': 1, 'kiosk-qr-worker': 1 });
       assert.deepEqual(
         { ...facts.kitchenBacklog, oldestSeconds: facts.kitchenBacklog.oldestSeconds >= 599 },

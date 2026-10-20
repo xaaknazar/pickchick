@@ -24,6 +24,22 @@ export const WORKER_EVENTS = Object.freeze({
  * worker is covered by the database check of unacknowledged kitchen events instead.
  */
 export const FULFILLMENT_EVENTS = Object.freeze(['fulfillment_transport_attention']);
+/**
+ * Customer login code events of the API container (sec lane, packages/customer-identity):
+ * `customer_otp_budget_attention` (pool, percent, budget) and `customer_otp_delivery_attention`
+ * (channel, reason). Never phones, codes or provider answers.
+ */
+export const IDENTITY_POOLS = Object.freeze(['all', 'new_phones']);
+const IDENTITY_PERCENTS = [50, 80, 100];
+const IDENTITY_CHANNELS = ['sms', 'telegram', 'whatsapp'];
+const IDENTITY_DELIVERY_REASONS = ['channel_unavailable', 'provider_rejected'];
+/** Problem codes of the gateway's read-only `client-ip-gateway.py --check` (sec lane). */
+export const GATEWAY_PROBLEMS = Object.freeze([
+  'outer_proxy_address_unknown',
+  'trusted_proxies_unreadable',
+  'outer_proxy_not_trusted',
+  'kitchen_route_forwards_proxy_hop',
+]);
 /** Reason codes of kaspi_remote_attention (pay lane, KaspiAttention). Anything else is dropped. */
 export const KASPI_REASONS = Object.freeze([
   'session_inactive',
@@ -138,6 +154,52 @@ export function fulfillmentEvent(raw) {
     if (Object.keys(reasons).length) event.reasons = reasons;
   }
   return event;
+}
+
+/** One `customer_otp_delivery_attention` line: the provider refuses codes for everyone. */
+export function identityDeliveryEvent(raw) {
+  if (
+    !isObject(raw) ||
+    !iso(raw.at) ||
+    raw.event !== 'customer_otp_delivery_attention' ||
+    !IDENTITY_CHANNELS.includes(raw.channel) ||
+    !IDENTITY_DELIVERY_REASONS.includes(raw.reason)
+  )
+    return null;
+  return { at: raw.at, event: raw.event, channel: raw.channel, reason: raw.reason };
+}
+
+/** Highest budget threshold per pool reported today (UTC day, kept by run-watchdog.py). */
+function identityBudget(raw) {
+  if (
+    !isObject(raw) ||
+    typeof raw.day !== 'string' ||
+    !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(raw.day)
+  )
+    return null;
+  const pools = {};
+  for (const pool of IDENTITY_POOLS) {
+    const value = raw.pools?.[pool];
+    if (
+      isObject(value) &&
+      IDENTITY_PERCENTS.includes(value.percent) &&
+      count(value.budget) !== null &&
+      iso(value.at)
+    )
+      pools[pool] = { percent: value.percent, budget: value.budget, at: value.at };
+  }
+  return { day: raw.day, pools };
+}
+
+/** Verdict of client-ip-gateway.py --check: ok, or the problem codes, or null when it failed. */
+function gatewayCheck(raw) {
+  if (!isObject(raw) || !iso(raw.checkedAt)) return null;
+  const problems = Array.isArray(raw.problems)
+    ? [...new Set(raw.problems.filter((code) => GATEWAY_PROBLEMS.includes(code)))]
+    : [];
+  if (raw.ok === true) return { checkedAt: raw.checkedAt, ok: true, problems: [] };
+  if (raw.ok === false && problems.length) return { checkedAt: raw.checkedAt, ok: false, problems };
+  return { checkedAt: raw.checkedAt, ok: null, problems: [] };
 }
 
 function disk(raw) {
@@ -265,6 +327,13 @@ export function parseHostFacts(text, nowMs, maxAgeMs) {
         .map(fulfillmentEvent)
         .filter(Boolean),
       fulfillmentCollected: raw.fulfillmentCollected === true,
+      identityCollected: raw.identityCollected === true,
+      identityDelivery: (Array.isArray(raw.identityDelivery) ? raw.identityDelivery : [])
+        .slice(-50)
+        .map(identityDeliveryEvent)
+        .filter(Boolean),
+      identityBudget: identityBudget(raw.identityBudget),
+      gatewayClientIp: gatewayCheck(raw.gatewayClientIp),
       disks: (Array.isArray(raw.disks) ? raw.disks.slice(0, 16) : []).map(disk).filter(Boolean),
       backups: backups(raw.backups),
       kaspiSessionProbe: probe(raw.kaspiSessionProbe),
