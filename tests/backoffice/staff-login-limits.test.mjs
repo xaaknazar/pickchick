@@ -280,3 +280,31 @@ test('client address comes from the proxy header only behind a private proxy hop
     staffClientAddress(req('172.18.0.4', '2001:db8:1:3::1')),
   );
 });
+
+// QA 20.10 (release-fixes-1019), audit S20 (4.0/5.5): rotating login names from one address mints
+// no fresh budget, and a burst of wrong passwords from many addresses only delays a manager for a
+// moment: the bounded verification queue drains and the real password still signs in.
+test('QA S20: rotating names from one address and a distributed burst never lock out a manager', async (t) => {
+  const p = await portal(t);
+  const attacker = '203.0.113.90';
+  for (let i = 0; i < 5; i++)
+    assert.equal(
+      (await p.login(`ghost.user${i}`, 'Synthetic-wrong-password-' + i, attacker)).status,
+      401,
+    );
+  // A new name from the same address is refused before any password work.
+  assert.equal((await p.login('ghost.user99', 'Synthetic-wrong-password-z', attacker)).status, 429);
+  // Twenty concurrent wrong passwords from twenty addresses with random names.
+  const burst = await Promise.all(
+    Array.from({ length: 20 }, (_, i) =>
+      p.login(`random.name${i}`, 'Synthetic-wrong-password-' + i, `198.18.0.${i + 1}`),
+    ),
+  );
+  for (const r of burst) assert.ok([401, 429].includes(r.status), String(r.status));
+  // At most two checks run and eight wait; the rest are refused at once (Retry-After 5).
+  assert.ok(burst.filter((r) => r.status === 401).length <= 10);
+  assert.ok(burst.filter((r) => r.status === 429).every((r) => r.headers['retry-after'] === '5'));
+  // Once the burst drained, both managers sign in from their own addresses.
+  assert.equal((await p.login('ceo', ceoPassword, '198.51.100.60')).status, 200);
+  assert.equal((await p.login('aigerim.manager', managerPassword, '198.51.100.61')).status, 200);
+});
