@@ -606,9 +606,10 @@ export class EdgeFulfillment {
     );
     const rows = (
       await this.pool.query<{ display_number: string; state: State; display_name: string }>(
-        // An order untouched for 12 hours is off the board: its number may already belong to a
-        // new order (edge 022 numbering), and the board never shows one number twice.
-        `SELECT display_number,state,left(coalesce(snapshot->>'displayName',''),14) AS display_name FROM fulfillment_reservations WHERE branch_id=$1 AND state IN ('accepted','in_production','ready') AND updated_at>clock_timestamp()-interval '12 hours' AND display_number>$2::bigint ORDER BY display_number LIMIT $3`,
+        // An order no longer live for edge 022 numbering (untouched for 12 hours, or 'ready' for
+        // 3 hours) is off the board: its number may already belong to a new order, and the
+        // board never shows one number twice.
+        `SELECT display_number,state,left(coalesce(snapshot->>'displayName',''),14) AS display_name FROM fulfillment_reservations WHERE branch_id=$1 AND state IN ('accepted','in_production','ready') AND updated_at>clock_timestamp()-CASE WHEN state='ready' THEN interval '3 hours' ELSE interval '12 hours' END AND display_number>$2::bigint ORDER BY display_number LIMIT $3`,
         [branchId, q.afterNumber, q.limit + 1],
       )
     ).rows;

@@ -23,11 +23,12 @@ CREATE INDEX IF NOT EXISTS fulfillment_display_live_idx ON fulfillment_reservati
 WHERE state IN ('held','accepted','in_production','ready','cancel_requested');
 
 -- Next free number of the branch, or NULL when every number 1-299 is held by a live order (the
--- caller refuses the admission). Live: changed within 12 hours in a kitchen state, or a hold
--- reserved within 6 hours. A forgotten "ready" order or an abandoned unpaid hold therefore never
--- blocks numbering for good. The counter row lock serializes allocations of one branch until
--- commit; each statement then reads with a fresh READ COMMITTED snapshot that includes the
--- previous holder's order.
+-- caller refuses the admission). Live: changed within 12 hours in a kitchen state, a "ready"
+-- order changed within 3 hours (nobody collects an order after that; the cloud kitchen closes it
+-- at the same age), or a hold reserved within 6 hours. Forgotten handovers and abandoned unpaid
+-- holds therefore do not use up the cashier's numbers. The counter row lock serializes
+-- allocations of one branch until commit; each statement then reads with a fresh READ COMMITTED
+-- snapshot that includes the previous holder's order.
 CREATE OR REPLACE FUNCTION fulfillment_display_allocate(p_branch_id uuid) RETURNS bigint
 LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE v_epoch text; v_last integer; v_saved text; v_candidate integer;
@@ -46,8 +47,9 @@ BEGIN
   CROSS JOIN LATERAL (SELECT ((v_last+g.i-1)%299)+1 AS n) x
   WHERE NOT EXISTS(SELECT 1 FROM fulfillment_reservations r
     WHERE r.branch_id=p_branch_id AND r.display_number=x.n
-      AND ((r.state IN ('accepted','in_production','ready','cancel_requested')
+      AND ((r.state IN ('accepted','in_production','cancel_requested')
           AND r.updated_at>clock_timestamp()-interval '12 hours')
+        OR (r.state='ready' AND r.updated_at>clock_timestamp()-interval '3 hours')
         OR (r.state='held' AND r.created_at>clock_timestamp()-interval '6 hours')))
   ORDER BY g.i LIMIT 1;
   IF v_candidate IS NULL THEN RETURN NULL; END IF;

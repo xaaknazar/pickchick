@@ -112,3 +112,46 @@ test('299 live orders: the next admission is refused until a number frees up; ne
     assert.equal(admitted.displayNumber, '7');
     assert.equal(admitted.state, 'accepted');
   }));
+
+/** Moves one order's last change back in time; the reservation guard allows no such rewrite. */
+async function age(f, displayNumber, hours) {
+  const client = await f.pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SET LOCAL session_replication_role=replica');
+    await client.query(
+      "UPDATE fulfillment_reservations SET updated_at=clock_timestamp()-$2*interval '1 hour' WHERE display_number=$1",
+      [displayNumber, hours],
+    );
+    await client.query('COMMIT');
+  } finally {
+    client.release();
+  }
+}
+
+test('a ready order nobody hands over frees its number after 3 hours and leaves the board', () =>
+  fixture(async (f) => {
+    // Staff often forget "Выдан": such orders must not use up the 299 cashier numbers.
+    const forgotten = await f.accepted(),
+      recent = await f.accepted(),
+      cooking = await f.accepted();
+    for (const { order } of [forgotten, recent])
+      await f.act(await f.complete(order), 'ready', f.packer);
+    await age(f, 1, 4);
+    await age(f, 2, 2);
+    await age(f, 3, 4);
+    const board = await f.repo.readDisplay(f.scope.branchId);
+    assert.deepEqual(
+      board.items.map((i) => [i.number, i.state]),
+      [
+        ['2', 'ready'],
+        ['3', 'preparing'],
+      ],
+    );
+    await openShift(f);
+    // 1: ready for 4 hours, free again; 2: ready for 2 hours and 3: cooking, both still live.
+    assert.equal(number((await f.accepted()).order), 1);
+    assert.equal(number((await f.accepted()).order), 4);
+    assert.equal(cooking.order.displayNumber, '3');
+    assert.equal(recent.order.displayNumber, '2');
+  }));
