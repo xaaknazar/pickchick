@@ -13,9 +13,10 @@ try {
     options: {
       bootstrap: { type: 'string' },
       replace: { type: 'boolean', default: false },
-      // New and changed PINs are 6 digits (finding 6.5). 4 only while a cashier still runs a
-      // POS build without the pinLength setting; existing 4-digit PINs keep working either way.
-      digits: { type: 'string', default: '6' },
+      // 6-digit PINs (finding 6.5) need owner setup: the PIN pad types only its configured
+      // pinLength (default 4; installed POS builds have no 6-digit pad). Pass --digits 6 when
+      // re-enrolling a branch for pinLength 6. Existing 4-digit PINs keep working either way.
+      digits: { type: 'string', default: '4' },
     },
     strict: true,
     allowPositionals: false,
@@ -70,7 +71,7 @@ try {
 } catch {
   // Do not print exceptions, validation input, connection strings or subprocess output.
   console.error(
-    'Staff PIN setup failed. Use the local protected owner configuration, a current private bootstrap session, an unused PIN of --digits length (default 6) and matching confirmation. Existing PINs require --replace; expired/revoked bootstrap sessions require operator staff renewal first. No PIN is printed or saved in a file.',
+    'Staff PIN setup failed. Use the local protected owner configuration, a current private bootstrap session, an unused PIN of --digits length (default 4, 6 only for a pinLength 6 POS) and matching confirmation. Existing PINs require --replace; expired/revoked bootstrap sessions require operator staff renewal first. No PIN is printed or saved in a file.',
   );
   process.exitCode = 1;
 } finally {
