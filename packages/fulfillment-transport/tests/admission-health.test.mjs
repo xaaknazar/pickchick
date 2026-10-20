@@ -167,15 +167,20 @@ test('an older cloud without the new pull fields still gets the heartbeat and th
 test('restoring the cashier database cannot rewind the heartbeat revision', () =>
   fixture(async (f) => {
     assert.equal((await f.tick()).state, 'applied');
-    const first = (await cloudAvailability(f)).revision;
-    // A restore brings back the old counter and an old stop list.
-    await f.pool.query('UPDATE fulfillment_transport_state SET attempts=3');
+    // The backup is taken here; hours of turns (one per second) move the counter on after it.
+    const backup = (await state(f)).attempts;
+    await f.pool.query('UPDATE fulfillment_transport_state SET attempts=attempts+20000');
+    await f.tick();
+    const before = (await cloudAvailability(f)).revision;
+    // The restore brings back the old counter; the cloud last saw the cashier an hour ago.
+    await f.pool.query('UPDATE fulfillment_transport_state SET attempts=$1', [backup]);
     await f.cloud.query(
       "UPDATE cloud_branch_availability SET observed_at=clock_timestamp()-interval '1 hour'",
     );
     await f.tick();
     const after = await cloudAvailability(f);
-    assert.ok(BigInt(after.revision) > BigInt(first));
+    // Before the fix the restored counter stayed below the cloud revision and was ignored.
+    assert.ok(BigInt(after.revision) > BigInt(before));
     assert.equal(
       (await branchAvailability(f.cloud, f.scope.branchId)).fresh,
       true,
