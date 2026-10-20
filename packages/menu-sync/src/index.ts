@@ -9,3 +9,4 @@ export * from './catalog-projection.js';
 export * from './catalog-delivery.js';
 export * from './routing.js';
 export * from './media.js';
+export * from './restore-fence.js';

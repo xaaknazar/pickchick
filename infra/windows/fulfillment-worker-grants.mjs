@@ -1,10 +1,16 @@
 /** Separate commercial edge transport role. No staff, POS or credential access.
  * remoteStops (edge schema019, transport protocol 4): fill the stop-command inbox, report
- * verdicts and read per-variant stop versions. It never writes local_stops. */
-export function fulfillmentWorkerGrants(role, schema = 'public', { remoteStops = false } = {}) {
+ * verdicts and read per-variant stop versions. It never writes local_stops.
+ * restoreFence (edge schema023): run the owner-rights restore fence on its first cycle. */
+export function fulfillmentWorkerGrants(
+  role,
+  schema = 'public',
+  { remoteStops = false, restoreFence = false } = {},
+) {
   for (const name of [role, schema])
     if (!/^[a-z][a-z0-9_]{0,62}$/.test(name)) throw new Error('Invalid role/schema');
   if (typeof remoteStops !== 'boolean') throw new Error('Invalid remote stop grant flag');
+  if (typeof restoreFence !== 'boolean') throw new Error('Invalid restore fence grant flag');
   const grant = (privilege, names) =>
     `GRANT ${privilege} ON ${names
       .split(',')
@@ -12,6 +18,9 @@ export function fulfillmentWorkerGrants(role, schema = 'public', { remoteStops =
       .join(',')} TO "${role}";`;
   return [
     `GRANT USAGE ON SCHEMA "${schema}" TO "${role}";`,
+    ...(restoreFence
+      ? [`GRANT EXECUTE ON FUNCTION "${schema}".edge_restore_fence(boolean) TO "${role}";`]
+      : []),
     grant(
       'SELECT',
       'cashier_report_outbox,schema_migrations,branch_config,fulfillment_config,fulfillment_routing,fulfillment_reservations,fulfillment_tasks,fulfillment_inbox,fulfillment_outbox,fulfillment_release_results,fulfillment_transport_state,fulfillment_transport_failures,fulfillment_transport_reverse_failures',
