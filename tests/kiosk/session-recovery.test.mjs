@@ -127,6 +127,78 @@ test('3.0: a failed early renewal keeps the still valid guest instead of blockin
   assert.equal(c.getSnapshot().step, 'payment');
 });
 
+/**
+ * Review 19.10, finding 3.0 (phone invoice variant): the order exists, its first
+ * POST /orders/:id/payment never reached the server and the guest expired meanwhile. The server
+ * refuses an invoice for an expired guest (KioskCheckout.payLocked -> assertActive: FORBIDDEN) but
+ * still lets that guest read its order. `read` scripts GET /orders/:id after the expiry.
+ */
+async function expiredInvoice({ read = 'order' } = {}) {
+  const h = sessionFixture();
+  h.paymentMethods = ['kaspi_qr', 'kaspi_invoice'];
+  const c = await cart(h);
+  c.setPaymentMethod('kaspi_invoice');
+  c.setInvoicePhone('8 (701) 123-45-67');
+  const base = h.io.request;
+  const guest = token(h);
+  let expired = false;
+  h.io.request = async (path, tok, body, key) => {
+    if (tok === guest && path.endsWith('/payment')) {
+      h.calls.push({ path, token: tok, body, key });
+      // Lost before it reached the server: no attempt exists.
+      if (!expired) throw new KioskError('NETWORK_UNCERTAIN');
+      throw new KioskError('FORBIDDEN', 403);
+    }
+    if (tok === guest && expired && path.startsWith('/orders/')) {
+      h.calls.push({ path, token: tok, body, key });
+      if (read === 'refused') throw new KioskError('FORBIDDEN', 403);
+      if (read === 'attempt')
+        return { ...h.order, phase: 'sending', paymentMethod: 'kaspi_invoice' };
+    }
+    return base(path, tok, body, key);
+  };
+  assert.equal(await c.beginPayment(), false);
+  const intent = stored(h).intent;
+  assert.ok(intent.orderId);
+  assert.equal(c.getSnapshot().step, 'recovery');
+  h.clock += 61 * MINUTE;
+  expired = true;
+  return { h, c, intent, guest };
+}
+
+test('3.0: a phone invoice whose guest expired before its payment reached the server never loops', async () => {
+  const { h, c, guest } = await expiredInvoice();
+  assert.equal(await c.recover(), false);
+  // The order was read: no attempt, nothing captured, and no invoice can start for an expired
+  // guest any more. The unpaid order is given up like a refused first payment (finding 3.7).
+  assert.equal(stored(h).intent, null);
+  assert.equal(stored(h).order, null);
+  assert.equal(c.getSnapshot().recoveryRequired, false);
+  assert.equal(c.getSnapshot().errorCode, 'RETRY_PAYMENT');
+  assert.equal(stored(h).cart.length, 1);
+  assert.deepEqual(
+    stored(h).abandoned.map((a) => a.token),
+    [guest],
+  );
+  // The guest pays again under a new session and a new order.
+  h.order = null;
+  c.setPaymentMethod('kaspi_invoice');
+  c.setInvoicePhone('8 (701) 123-45-67');
+  assert.equal(await c.beginPayment(), true);
+  assert.notEqual(token(h), guest);
+  assert.equal(c.getSnapshot().step, 'payment');
+});
+
+for (const read of ['refused', 'attempt'])
+  test(`3.0: a refused invoice payment keeps its recovery when the order read is ${read}`, async () => {
+    // 'refused': an ended guest or a disabled device; 'attempt': a payment may exist.
+    const { h, c, intent } = await expiredInvoice({ read });
+    assert.equal(await c.recover(), false);
+    assert.deepEqual(stored(h).intent, intent);
+    assert.equal(c.getSnapshot().step, 'recovery');
+    assert.equal(c.getSnapshot().staffResetAvailable, false);
+  });
+
 /** A paid guest on the order screen; the kitchen then cancels the order (end -> CONFLICT). */
 async function paidGuest(h) {
   const c = await cart(h);

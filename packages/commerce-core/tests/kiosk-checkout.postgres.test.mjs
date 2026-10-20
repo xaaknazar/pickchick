@@ -516,6 +516,14 @@ test('ended or expired guests cannot create a new order or payment', async () =>
     // The existing order is still returned to its guest (lost-response replay).
     const replay = await f.checkout.create(f.who, { key: randomUUID(), quoteId: q.quoteId });
     assert.equal(replay.orderId, order.orderId);
+    // Review 19.10, finding 3.0 (invoice variant): the expired guest can still read its order, and
+    // the read proves no payment exists (the kiosk then gives the order up instead of looping).
+    const read = await f.checkout.read(f.who, order.orderId);
+    assert.ok(['ready_to_pay', 'awaiting_restaurant'].includes(read.phase), read.phase);
+    assert.equal(read.paymentMethod, undefined);
+    assert.equal(read.payment, undefined);
+    // Nothing can be paid for it any more, so the guest may be ended (finding 3.7).
+    await f.sessions.end(f.who.sessionId);
   });
 });
 // Audit 19.10, finding 3.0: a retried POST /orders after the guest's TTL used to answer

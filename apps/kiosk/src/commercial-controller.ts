@@ -1537,12 +1537,47 @@ export class CommercialKioskController {
       );
     } catch (error) {
       if (definitive(error, PAYMENT_DEFINITIVE)) await this.abandonUnpaidOrder();
+      else if (
+        intent.method === 'kaspi_invoice' &&
+        definitive(error, ['FORBIDDEN']) &&
+        (await this.unpaidAfterExpiry(intent.orderId!))
+      ) {
+        await this.abandonUnpaidOrder();
+        throw new KioskError('RETRY_PAYMENT');
+      }
       throw error;
     }
     this.assertOrder(order);
     if (order.orderId !== intent.orderId) throw new KioskError('INVALID_RESPONSE');
     await this.save({ ...this.current, intent: null, order });
     this.phone = '';
+  }
+  /**
+   * Finding 3.0, phone invoice variant (review 19.10): POST /orders/:id/payment of a phone invoice
+   * whose first request was lost and whose guest has expired since is refused with FORBIDDEN (an
+   * invoice needs a live guest), so the intent looped on «Восстанавливаем заказ» like the expired
+   * POST /orders. The order is read (allowed for an expired, not ended guest): with no payment
+   * attempt and nothing captured no money exists, and none can start any more (an invoice needs a
+   * live guest, and this kiosk never sends QR for an invoice intent). Any other answer, including
+   * a refused read (ended guest, disabled device), keeps the recovery.
+   */
+  private async unpaidAfterExpiry(orderId: string) {
+    const guest = this.guest;
+    if (!guest?.expiresAt || Date.parse(guest.expiresAt) > this.io.now()) return false;
+    try {
+      const order = CustomerCommerceOrderSchema.parse(
+        await this.io.request(`/orders/${orderId}`, guest.token),
+      );
+      this.assertOrder(order);
+      return (
+        order.orderId === orderId &&
+        ['ready_to_pay', 'awaiting_restaurant'].includes(order.phase) &&
+        !order.paymentMethod &&
+        !order.payment
+      );
+    } catch {
+      return false;
+    }
   }
   /**
    * The server refused to start the first payment attempt (stop, closing time, checkout off).
