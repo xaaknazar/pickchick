@@ -2,12 +2,15 @@
 Description=Encrypted PickChick staging database backup
 After=docker.service
 Requires=docker.service
+# A failed run starts one watchdog pass at once (backup.run alert); harmless if not installed.
+OnFailure=pickchick-watchdog.service
 
 [Service]
 Type=oneshot
 User=pickchick-ops
 Group=pickchick-ops
 ExecStart=/bin/bash /opt/pickchick-staging/current/infra/staging/backup.sh
+TimeoutStartSec=2h
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true

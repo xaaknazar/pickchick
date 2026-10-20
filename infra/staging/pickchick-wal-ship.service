@@ -1,0 +1,16 @@
+[Unit]
+Description=PickChick PITR: ship archived WAL to off-site storage (encrypted)
+After=docker.service
+Requires=docker.service
+OnFailure=pickchick-watchdog.service
+
+[Service]
+Type=oneshot
+User=pickchick-ops
+Group=pickchick-ops
+# No-op until secrets/backup-offsite.env sets BACKUP_PITR_ENABLED=true (compose.pitr.yaml).
+ExecStart=/usr/bin/python3 /opt/pickchick-staging/current/infra/staging/backup-offsite.py ship-wal
+TimeoutStartSec=15min
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
