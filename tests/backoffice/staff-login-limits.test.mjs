@@ -205,6 +205,26 @@ test('a browser that signed in before is not locked out by guessing of its login
   assert.equal((await p.login('ceo', ceoPassword, '198.51.100.56', device)).status, 429);
 });
 
+test('a copied device cookie used from many addresses backs off like a login name', async (t) => {
+  const p = await portal(t);
+  const device = (await p.login('ceo', ceoPassword, '198.51.100.70')).headers[
+    'set-cookie'
+  ][1].split(';')[0];
+  // Each address stays under its own limit; the cookie itself collects the failures.
+  for (let i = 0; i < 10; i++)
+    assert.equal(
+      (await p.login('ceo', 'Synthetic-wrong-password-' + i, `203.0.113.${20 + i}`, device)).status,
+      401,
+    );
+  const limited = await p.login('ceo', ceoPassword, '203.0.113.40', device);
+  assert.equal(limited.status, 429);
+  assert.equal(limited.headers['retry-after'], '30');
+  // The owner's other browsers and the login name itself are not touched by that cookie.
+  assert.equal((await p.login('ceo', ceoPassword, '198.51.100.71')).status, 200);
+  p.advance(30_001);
+  assert.equal((await p.login('ceo', ceoPassword, '203.0.113.41', device)).status, 200);
+});
+
 test('a password change voids the device cookies issued for the old password', async (t) => {
   const before = await portal(t);
   const device = (await before.login('ceo', ceoPassword)).headers['set-cookie'][1].split(';')[0];

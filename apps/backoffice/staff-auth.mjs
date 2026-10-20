@@ -235,13 +235,17 @@ export function createStaffAccess(raw, { now = Date.now } = {}) {
   // Per client address and per login name; no global window that anonymous traffic can fill.
   const byAddress = backoff({ free: 5, baseMs: 30_000, maxMs: 15 * 60_000, size: 4096 }, now);
   const byLogin = backoff({ free: 10, baseMs: 30_000, maxMs: 5 * 60_000, size: 1024 }, now);
+  // A device cookie replaces the login key with its own, equally strict one (OWASP): a stolen
+  // cookie used from many addresses still gets no more guesses than the login name would.
+  const byDevice = backoff({ free: 10, baseMs: 30_000, maxMs: 5 * 60_000, size: 1024 }, now);
   const slots = verificationSlots();
   const clearCookie = `${cookieName}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`;
   /**
    * Device cookie (OWASP): a browser that signed in as this login within 90 days is not stopped
    * by the per-login backoff, so guessing a known login name from many addresses cannot lock its
    * owner out. The proof is keyed by that account's own password hash: a password change voids
-   * it, and it never reveals or grants anything else. Its failures still count per address.
+   * it, and it never reveals or grants anything else. Its failures count per address and per
+   * device cookie (the same limits as a login name), never against the login name.
    */
   const deviceProof = (user, issued) =>
     createHmac('sha256', Buffer.from(user.hash, 'hex'))
@@ -251,28 +255,32 @@ export function createStaffAccess(raw, { now = Date.now } = {}) {
     const issued = now();
     return `${deviceCookieName}=${issued}.${deviceProof(user, issued).toString('hex')}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${DEVICE_MS / 1000}`;
   };
+  /** The limiter key of a valid device cookie of this login, or null. */
   const knownDevice = (req, login) => {
     const user = accounts.get(login);
-    if (!user) return false;
-    return (req.headers.cookie ?? '').split(';').some((part) => {
+    if (!user) return null;
+    for (const part of (req.headers.cookie ?? '').split(';')) {
       const match = /^([0-9]{1,15})\.([a-f0-9]{64})$/.exec(
         part.trim().startsWith(deviceCookieName + '=')
           ? part.trim().slice(deviceCookieName.length + 1)
           : '',
       );
       const issued = Number(match?.[1]);
-      return (
-        !!match &&
+      if (
+        match &&
         issued <= now() &&
         issued + DEVICE_MS > now() &&
         timingSafeEqual(Buffer.from(match[2], 'hex'), deviceProof(user, issued))
-      );
-    });
+      )
+        return `${login}:${match[2]}`;
+    }
+    return null;
   };
   const cleanup = () => {
     for (const [id, s] of sessions) if (s.expires <= now() || s.idle <= now()) sessions.delete(id);
     byAddress.prune();
     byLogin.prune();
+    byDevice.prune();
   };
   return async (req, res, send) => {
     cleanup();
@@ -343,7 +351,7 @@ export function createStaffAccess(raw, { now = Date.now } = {}) {
       // Unknown names are limited exactly like real ones, so a 429 does not reveal accounts.
       const login = data.username.toLowerCase().trim();
       const trusted = knownDevice(req, login);
-      const loginWait = trusted ? 0 : byLogin.retryAfter(login);
+      const loginWait = trusted ? byDevice.retryAfter(trusted) : byLogin.retryAfter(login);
       if (loginWait) return limited(loginWait);
       let checked;
       try {
@@ -360,13 +368,15 @@ export function createStaffAccess(raw, { now = Date.now } = {}) {
       const user = checked.value;
       if (!user) {
         byAddress.fail(address);
-        if (!trusted) byLogin.fail(login);
+        if (trusted) byDevice.fail(trusted);
+        else byLogin.fail(login);
         send(401, { code: 'UNAUTHORIZED' });
         return false;
       }
       byAddress.clear(address);
       // A known browser passing does not lift the lock that guessing put on everyone else.
-      if (!trusted) byLogin.clear(login);
+      if (trusted) byDevice.clear(trusted);
+      else byLogin.clear(login);
       if (sessions.size >= 64) {
         send(429, { code: 'RATE_LIMITED' });
         return false;
