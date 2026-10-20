@@ -7,7 +7,8 @@ no bank, no real customer, no VPS request.
      support contact, the intent is cleared, the next start does not reopen checkout.
   B  /payment refused with ITEM_STOPPED: back to the cart with the reason, no automatic
      resend, no reopen after restart, the next tap quotes the current cart.
-  C  Orders tab: an attention order and an unpaid order both lead back to the list.
+  C  Orders tab: attention, unpaid, invoiced and long-unknown orders all lead back to the
+     list; the long-unknown payment offers the support contact at once.
   D  kitchen offline at the quote: the honest message at once, no minute of spinner.
   E  invoice in Kaspi + saved intent: closing reaches the Orders list, an older unpaid order
      opened there neither sends its invoice by itself nor takes over the intent.
@@ -30,6 +31,7 @@ CATALOG = json.loads(subprocess.check_output(['node', '--input-type=module', '-e
 BRANCH = CATALOG['branch_id']
 CUSTOMER = '40000000-0000-4000-8000-000000000001'
 ORDER = '40000000-0000-4000-8000-000000000003'
+STALE = '40000000-0000-4000-8000-000000000033'
 UNPAID = '40000000-0000-4000-8000-000000000013'
 INVOICED = '40000000-0000-4000-8000-000000000023'
 DRAFT_KEY = 'pickchick.commerce.pending.v1:' + CUSTOMER
@@ -255,11 +257,14 @@ def scenario_item_stopped(browser):
 
 def scenario_orders(browser):
     state = fresh_state()
+    # An unknown payment from two hours ago: the app cannot settle it, a person can.
+    hours = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat().replace('+00:00', 'Z')
+    stale = {'createdAt': hours, 'updatedAt': hours}
 
     def handler(r, path, method, body):
         if path == '/v1/customer-checkout/orders' and method == 'GET':
             return fulfill(r, {'orders': [order('awaiting_payment', INVOICED), order('ready_to_pay', UNPAID),
-                                          order('attention')]})
+                                          order('attention'), {**order('checking', STALE), **stale}]})
         return False
 
     ctx, page = context(browser, state, handler)
@@ -281,6 +286,13 @@ def scenario_orders(browser):
     expect(page.get_by_test_id('kaspi-open-app')).to_be_visible(timeout=10000)
     page.get_by_test_id('kaspi-close-order').click()
     expect(page.get_by_test_id('order-history-open-' + INVOICED)).to_be_visible(timeout=10000)
+    # An ambiguous bank result has no pay button; the row itself opens it.
+    page.get_by_test_id('order-history-open-' + STALE).click()
+    expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Уточняем оплату', timeout=10000)
+    expect(page.get_by_test_id('support-contact-fallback')).to_be_visible()
+    page.screenshot(path=str(OUT / 'C-stale-checking.png'))
+    page.get_by_test_id('kaspi-close-order').click()
+    expect(page.get_by_test_id('order-history-open-' + STALE)).to_be_visible(timeout=10000)
     assert state['payments'] == 0, 'returning to the list sends nothing'
     release(state)
     ctx.close()

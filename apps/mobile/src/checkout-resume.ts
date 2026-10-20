@@ -46,6 +46,14 @@ export function liveBankAction(order: Order, now: number, since?: number): boole
 }
 
 /**
+ * A bank wait that outlived its window (sending or checking too long, an expired invoice): the
+ * app can no longer settle it by itself, so the screen offers the support contact at once.
+ */
+export function staleBankAction(order: Order, now: number): boolean {
+  return BANK_PHASES.includes(order.phase) && !liveBankAction(order, now);
+}
+
+/**
  * The saved intent belongs to this order. An intent without an order id meets its order only
  * through its own create command; the Orders tab never lends it to another order.
  */

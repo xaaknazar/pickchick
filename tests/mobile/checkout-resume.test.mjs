@@ -12,6 +12,7 @@ import {
   liveBankAction,
   noteBankCommand,
   resumableOrder,
+  staleBankAction,
 } from '../../apps/mobile/src/checkout-resume.ts';
 import {
   dismissPendingPayment,
@@ -167,4 +168,22 @@ test('a saved intent belongs only to the order it created', () => {
   // An intent whose create command has not answered yet belongs to no listed order.
   assert.equal(draftOwns({ ...draft, createdAt: now }, own.orderId), false);
   assert.equal(draftOwns(null, own.orderId), false);
+});
+
+test('a bank wait past its window offers the support contact at once', () => {
+  // Lane 0.2: «checking too long», a stuck sending or an expired invoice needs a person.
+  const old = {
+    createdAt: iso(-BANK_RESUME_WINDOW_MS - 1000),
+    updatedAt: iso(-BANK_RESUME_WINDOW_MS - 1000),
+  };
+  assert.equal(staleBankAction(order('checking', old), now), true);
+  assert.equal(staleBankAction(order('sending', old), now), true);
+  assert.equal(
+    staleBankAction(order('awaiting_payment', { expiresAt: iso(-INVOICE_GRACE_MS - 1) }), now),
+    true,
+  );
+  for (const phase of ['checking', 'sending', 'awaiting_payment'])
+    assert.equal(staleBankAction(order(phase), now), false, `${phase} still live`);
+  for (const phase of ['attention', 'ready_to_pay', 'awaiting_restaurant', 'paid', 'failed'])
+    assert.equal(staleBankAction(order(phase, old), now), false, phase);
 });

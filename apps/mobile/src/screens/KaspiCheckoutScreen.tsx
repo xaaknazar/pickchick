@@ -55,6 +55,7 @@ import {
   liveBankAction,
   noteBankCommand,
   resumableOrder,
+  staleBankAction,
 } from '../checkout-resume';
 import { OrderSheet, useSheetDismissalLock } from '../components/OrderSheet';
 import { PaymentMark } from '../components/PaymentChoice';
@@ -755,6 +756,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
             ? 0
             : closeDelay(order, Date.now())
         }
+        // Sending or checking too long, or an expired invoice: a person settles it (audit 0.2).
+        support={staleBankAction(order, Date.now())}
       />
     );
   if (order && paymentReceived(order.phase)) {

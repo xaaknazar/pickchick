@@ -37,6 +37,7 @@ export function KaspiPaymentState({
   onClose,
   closeLabel = 'Закрыть',
   closeDelayMs = null,
+  support = false,
 }: {
   order?: CustomerCommerceOrder;
   paid?: boolean;
@@ -51,6 +52,8 @@ export function KaspiPaymentState({
   closeLabel?: string;
   /** 0: offer close at once; >0: after this wait (the bank may still answer); null: never. */
   closeDelayMs?: number | null;
+  /** Show the support contact at once (a bank wait the app can no longer settle). */
+  support?: boolean;
 }) {
   const closable = Boolean(onClose);
   const [closeReady, setCloseReady] = useState(closeDelayMs === 0);
@@ -329,7 +332,7 @@ export function KaspiPaymentState({
                 onPress={() => setCancelHelp((value) => !value)}
               />
             ) : null}
-            {phase === 'attention' || (closeReady && closeDelayMs !== 0) ? (
+            {support || phase === 'attention' || (closeReady && closeDelayMs !== 0) ? (
               <SupportContact buttonStyle={s.button} textStyle={s.small} />
             ) : null}
             {closeReady ? (
