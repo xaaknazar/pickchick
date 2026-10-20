@@ -6,6 +6,7 @@ import { fixture } from '../../fulfillment-transport/tests/cloud-fixture.mjs';
 import { provisionCatalogManager } from '../../catalog-admin/dist/index.js';
 import { Backoffice, grantBackoffice } from '../dist/index.js';
 import { backofficeGrants, manualRefundGrants } from '../../../infra/staging/backoffice-grants.mjs';
+import { fulfillmentTransportGrants } from '../../../infra/staging/fulfillment-transport-grants.mjs';
 test('restricted runtime reads scoped operations and requests refunds without capture, credential or grant provisioning powers', () =>
   fixture(async (f) => {
     const role = 'bo_runtime_' + randomUUID().replaceAll('-', '');
@@ -74,6 +75,22 @@ test('restricted runtime reads scoped operations and requests refunds without ca
       await assert.rejects(manual('KP-GRANT-1'), { code: '42501' });
       await f.pool.query(manualRefundGrants(role, true));
       assert.equal((await manual('KP-GRANT-2')).state, 'succeeded');
+      // provision.mjs order: the transport helper revokes refund privileges, so the manual
+      // refund helper runs last and keeps the flag working after a generic provision.
+      const effectInsert = async () =>
+        (
+          await f.pool.query(
+            "SELECT has_table_privilege($1,'commerce_refund_effects','INSERT') allowed",
+            [role],
+          )
+        ).rows[0].allowed;
+      await f.pool.query(fulfillmentTransportGrants(role, true));
+      await f.pool.query(backofficeGrants(role, true));
+      assert.equal(await effectInsert(), false);
+      await f.pool.query(manualRefundGrants(role, true));
+      assert.equal(await effectInsert(), true);
+      await f.pool.query(fulfillmentTransportGrants(role, false));
+      await f.pool.query(backofficeGrants(role, true));
       await f.pool.query(manualRefundGrants(role, false));
       await assert.rejects(manual('KP-GRANT-3'), { code: '42501' });
       const unpaid = await f.reserve();
