@@ -1836,3 +1836,68 @@ test('QA S2: a bridge that is down is reported as such and nothing is sent until
     assert.equal(back.sessionProblem, false);
     assert.equal((await f.invoice(attempt.attemptId))?.state, 'issued');
   }));
+
+// QA 20.10 (release-fixes-1019), audit S7 (2.1): the TTL sweep and a late "pay" tap race on the
+// same old unbilled order. Exactly one wins: either an attempt (and no cancellation) or a
+// cancellation (and no attempt, no invoice). Never both, never neither.
+test('QA S7: a late pay tap racing the unpaid-order sweep ends in exactly one outcome', () =>
+  fixture(async (f) => {
+    const later = () => new Date(Date.now() + 31 * 60_000);
+    const orders = [];
+    for (let i = 0; i < 6; i++)
+      orders.push((await f.order({ customerId: f.scope.principalId, pay: false })).orderId);
+    const checkout = checkoutFor(f, {}, later);
+    const sweeper = checkoutFor(f, {}, later);
+    const results = await Promise.all([
+      sweeper.expireUnpaid(),
+      ...orders.map((id) =>
+        checkout.pay(f.scope.principalId, id).then(
+          (view) => view.phase,
+          (error) => error.code,
+        ),
+      ),
+    ]);
+    for (const [i, orderId] of orders.entries()) {
+      const attempts = (await f.view(orderId)).attempts.length;
+      const intent = await intentOf(f, orderId);
+      assert.ok(
+        (attempts === 1 && !intent) ||
+          (attempts === 0 && intent?.reason === 'UNPAID_ORDER_EXPIRED'),
+        `order ${i}: attempts=${attempts} intent=${intent?.reason} pay=${results[i + 1]}`,
+      );
+      const shown = (await checkout.read(f.scope.principalId, orderId)).phase;
+      assert.equal(shown, attempts ? 'sending' : 'failed');
+    }
+    // The worker invoices only the orders whose tap won; a cancelled one is never billed.
+    await f.processor().tick();
+    const billed = (await f.pool.query('SELECT count(*)::int n FROM commerce_kaspi_invoices'))
+      .rows[0].n;
+    const attempted = (await f.pool.query('SELECT count(*)::int n FROM commerce_payment_attempts'))
+      .rows[0].n;
+    assert.equal(billed, attempted);
+    assert.equal(await sweeper.expireUnpaid(), 0);
+  }));
+
+test('QA S7: an order refused at payment is never billed by an automatic retry', () =>
+  fixture(async (f) => {
+    const { orderId } = await f.order({ customerId: f.scope.principalId, pay: false });
+    const checkout = checkoutFor(f);
+    await f.stop(['synthetic-burger']);
+    await assert.rejects(checkout.pay(f.scope.principalId, orderId), { code: 'ITEM_STOPPED' });
+    // Installed build 20 re-sends /payment from its saved draft after every app start.
+    await f.stop([]);
+    for (let i = 0; i < 3; i++)
+      await assert.rejects(checkout.pay(f.scope.principalId, orderId), { code: 'NOT_READY' });
+    await f.processor().tick();
+    assert.equal(f.bridge.count('create'), 0);
+    assert.equal((await checkout.read(f.scope.principalId, orderId)).phase, 'failed');
+    // The list no longer offers it as something to pay; the sweep has nothing left to do.
+    const listed = (await checkout.list(f.scope.principalId)).orders.find(
+      (o) => o.orderId === orderId,
+    );
+    assert.ok(!listed || listed.phase === 'failed');
+    assert.equal(
+      await checkoutFor(f, {}, () => new Date(Date.now() + 31 * 60_000)).expireUnpaid(),
+      0,
+    );
+  }));
