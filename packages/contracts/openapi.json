@@ -26006,6 +26006,9 @@
                   "format": "uuid",
                   "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                 }
+              },
+              "orderingEnabled": {
+                "type": "boolean"
               }
             },
             "required": [
@@ -26105,6 +26108,37 @@
                 "commandId",
                 "result",
                 "version"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "admissionRefusals": {
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "eventId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "NOT_READY",
+                    "ITEM_STOPPED",
+                    "CONFLICT",
+                    "INVALID",
+                    "NOT_FOUND",
+                    "ROUTING_MISSING"
+                  ]
+                }
+              },
+              "required": [
+                "eventId",
+                "reason"
               ],
               "additionalProperties": false
             }

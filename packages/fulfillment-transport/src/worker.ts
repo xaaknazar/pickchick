@@ -13,7 +13,7 @@ import {
   TransportReceiptSchema,
   TransportScopeSchema,
 } from './model.js';
-import type { StopReceipt, StopStateReport } from './model.js';
+import type { AdmissionRefusal, StopReceipt, StopStateReport } from './model.js';
 import { cloudTransportOrigin, transportRequest, TransportHttpError } from './http.js';
 import type { TransportIo } from './http.js';
 
@@ -114,6 +114,103 @@ const failed = (error: unknown): Failure =>
             ? 'LOCAL_NOT_READY'
             : 'LOCAL_CONFLICT'
         : 'LOCAL_STORAGE_UNKNOWN';
+/** What the cloud may learn about a refused admission. FORBIDDEN is a local binding problem of
+ * the whole branch, not of the order, and is never reported as the order's refusal. */
+const refusalReason = (error: FulfillmentError): AdmissionRefusal['reason'] | null =>
+  error.code === 'NOT_READY'
+    ? error.reason === 'ITEM_STOPPED'
+      ? 'ITEM_STOPPED'
+      : 'NOT_READY'
+    : error.code === 'FORBIDDEN'
+      ? null
+      : error.code;
+
+/**
+ * Optional pull fields (closed cashier ordering, refused admissions) are sent only when they say
+ * something, so a normal heartbeat is byte-for-byte the old one. A cloud that predates them
+ * answers 400: the request is repeated at once without them, and they stay off for this cloud
+ * origin for a while.
+ */
+const EXTENSION_RETRY_MS = 10 * 60_000;
+const extensionsRefused = new Map<string, number>();
+const extensionsAllowed = (origin: string) =>
+  Date.now() - (extensionsRefused.get(origin) ?? -Infinity) >= EXTENSION_RETRY_MS;
+type PullBody = {
+  availability?: { orderingEnabled?: boolean };
+  admissionRefusals?: AdmissionRefusal[];
+} & Record<string, unknown>;
+function withoutExtensions(body: PullBody): PullBody {
+  const { admissionRefusals, ...rest } = body;
+  void admissionRefusals;
+  if (!rest.availability) return rest;
+  const { orderingEnabled, ...availability } = rest.availability;
+  void orderingEnabled;
+  return { ...rest, availability };
+}
+const hasExtensions = (body: PullBody) =>
+  body.admissionRefusals !== undefined || body.availability?.orderingEnabled !== undefined;
+
+/**
+ * Runner side of the kitchen admission health interface (PM, 19.10): one JSON line
+ * `fulfillment_transport_attention` with counts only (no order, guest or payment data) when an
+ * order is deferred or parked, then at most every `intervalMs` while it lasts, and one recovery
+ * line once no order was deferred or parked for `recoveryMs` and no parked failure is open.
+ */
+export class TransportAttention {
+  private deferred = 0;
+  private parked = 0;
+  private reasons: Record<string, number> = {};
+  private lastEmitAt = -Infinity;
+  private lastProblemAt = -Infinity;
+  private active = false;
+  constructor(
+    private readonly intervalMs = 5 * 60_000,
+    private readonly recoveryMs = 2 * 60_000,
+    private readonly now: () => number = () => Date.now(),
+  ) {}
+  observe(result: {
+    state: string;
+    error?: string;
+    reason?: string;
+    unresolvedFailures?: number;
+  }): Record<string, unknown> | null {
+    const now = this.now();
+    if (result.state === 'deferred' || result.state === 'parked') {
+      if (result.state === 'deferred') this.deferred++;
+      else this.parked++;
+      const reason = result.reason ?? result.error ?? 'UNKNOWN';
+      this.reasons[reason] = (this.reasons[reason] ?? 0) + 1;
+      this.lastProblemAt = now;
+      if (this.active && now - this.lastEmitAt < this.intervalMs) return null;
+      const line = {
+        event: 'fulfillment_transport_attention',
+        deferred: this.deferred,
+        parked: this.parked,
+        reasons: this.reasons,
+        unresolvedFailures: result.unresolvedFailures ?? null,
+      };
+      this.deferred = 0;
+      this.parked = 0;
+      this.reasons = {};
+      this.lastEmitAt = now;
+      this.active = true;
+      return line;
+    }
+    if (
+      this.active &&
+      ['idle', 'applied', 'acknowledged'].includes(result.state) &&
+      (result.unresolvedFailures ?? 0) === 0 &&
+      now - this.lastProblemAt >= this.recoveryMs
+    ) {
+      this.active = false;
+      this.deferred = 0;
+      this.parked = 0;
+      this.reasons = {};
+      return { event: 'fulfillment_transport_attention', recovered: true };
+    }
+    return null;
+  }
+}
 
 /** One bounded turn; supervisor may repeat after its interval. No SQL transaction spans HTTP. */
 export async function syncFulfillmentOnce(
@@ -161,9 +258,12 @@ export async function syncFulfillmentOnce(
       'INSERT INTO fulfillment_transport_state(branch_id) VALUES($1) ON CONFLICT DO NOTHING',
       [branchId],
     );
+    // The counter is the availability revision the cloud requires to grow. It follows the clock
+    // (microseconds), so restoring the edge database from a backup cannot move it back and the
+    // cloud keeps accepting the heartbeat; +1 keeps it strictly growing if the clock steps back.
     return (
       await client.query(
-        `UPDATE fulfillment_transport_state SET worker_id=$2,lease_token=$3,lease_until=clock_timestamp()+interval '60 seconds',attempts=attempts+1,updated_at=clock_timestamp() WHERE branch_id=$1 AND (lease_until IS NULL OR lease_until<clock_timestamp()) RETURNING pending_cloud,attempts::text AS revision`,
+        `UPDATE fulfillment_transport_state SET worker_id=$2,lease_token=$3,lease_until=clock_timestamp()+interval '60 seconds',attempts=GREATEST(attempts+1,(extract(epoch FROM clock_timestamp())*1000000)::bigint),updated_at=clock_timestamp() WHERE branch_id=$1 AND (lease_until IS NULL OR lease_until<clock_timestamp()) RETURNING pending_cloud,attempts::text AS revision`,
         [branchId, workerId, leaseToken],
       )
     ).rows[0];
@@ -181,9 +281,18 @@ export async function syncFulfillmentOnce(
   const heartbeat = async () => {
     const stopReceipts =
       remoteStops === 'active' ? await unreportedStopReceipts(pool, branchId) : [];
+    // A closed cashier refuses every new admission: kiosk and mobile must stop selling too.
+    const closed =
+      (
+        await pool.query<{ ordering_enabled: boolean }>(
+          'SELECT ordering_enabled FROM branch_config WHERE id=$1',
+          [branchId],
+        )
+      ).rows[0]?.ordering_enabled === false;
     const availability = {
       revision: acquired.revision,
       stoppedIds: await effectiveLocalStops(pool, branchId),
+      ...(closed && extensionsAllowed(origin) ? { orderingEnabled: false } : {}),
     };
     return remoteStops === 'active'
       ? {
@@ -221,21 +330,33 @@ export async function syncFulfillmentOnce(
           [branchId, receipts.map((r) => r.commandId)],
         );
     });
+  const send = async (body: PullBody) => {
+    try {
+      return await transportRequest(origin, 'pull', identity, body, io);
+    } catch (error) {
+      if (
+        !hasExtensions(body) ||
+        !(error instanceof TransportHttpError) ||
+        error.code !== 'HTTP_REJECTED' ||
+        error.status !== 400
+      )
+        throw error;
+      extensionsRefused.set(origin, Date.now());
+      return transportRequest(origin, 'pull', identity, withoutExtensions(body), io);
+    }
+  };
   /** Heartbeat pull. Protocol 4 carries stop receipts/states out and stop commands in; an old
    * cloud that rejects protocol 4 gets the protocol-2 request instead, in the same turn. */
-  const pull = async (body: { availabilityOnly?: true }) => {
+  const pull = async (body: {
+    availabilityOnly?: true;
+    admissionRefusals?: AdmissionRefusal[];
+  }) => {
     const beat = await heartbeat();
     const base = { workerId, leaseSeconds: 30, protocolVersion: 2, ...body };
     if (remoteStops === 'active') {
       try {
         const response = PullResponseSchema.parse(
-          await transportRequest(
-            origin,
-            'pull',
-            identity,
-            { ...base, protocolVersion: 4, ...beat },
-            io,
-          ),
+          await send({ ...base, protocolVersion: 4, ...beat }),
         );
         if (!response.stopCommands) throw new TransportHttpError('INVALID_RESPONSE');
         await stopInbound(response, 'stopReceipts' in beat ? (beat.stopReceipts ?? []) : []);
@@ -251,16 +372,33 @@ export async function syncFulfillmentOnce(
       }
     }
     const response = PullResponseSchema.parse(
-      await transportRequest(
-        origin,
-        'pull',
-        identity,
-        { ...base, availability: beat.availability },
-        io,
-      ),
+      await send({ ...base, availability: beat.availability }),
     );
     if (response.stopCommands) throw new TransportHttpError('INVALID_RESPONSE');
     return response;
+  };
+  /** Tells the cloud at once that this cashier refused an admission command, so a paid order
+   * becomes a manager case instead of waiting silently. Best effort: the command stays
+   * unacknowledged, comes back after its cloud lease and is refused and reported again. */
+  const report = async (pending: Pending, reason: AdmissionRefusal['reason'] | null) => {
+    const type = pending.delivery.command.type;
+    if (
+      reason === null ||
+      !['edge.admission_requested', 'edge.kitchen_admission_requested'].includes(type) ||
+      !extensionsAllowed(origin)
+    )
+      return false;
+    try {
+      const response = await pull({
+        availabilityOnly: true,
+        admissionRefusals: [{ eventId: pending.delivery.command.eventId, reason }],
+      });
+      if (JSON.stringify(response.scope) !== JSON.stringify(scope) || response.event !== null)
+        return false;
+      return extensionsAllowed(origin);
+    } catch {
+      return false;
+    }
   };
   const stopNote = () =>
     remoteStops && remoteStops !== 'active' ? { remoteStops: remoteStops } : {};
@@ -319,23 +457,14 @@ export async function syncFulfillmentOnce(
     if (!reports.length) return;
     try {
       const response = PullResponseSchema.parse(
-        await transportRequest(
-          origin,
-          'pull',
-          identity,
-          {
-            workerId,
-            leaseSeconds: 30,
-            protocolVersion: 3,
-            availabilityOnly: true,
-            availability: {
-              revision: acquired.revision,
-              stoppedIds: await effectiveLocalStops(pool, branchId),
-            },
-            cashierReports: reports,
-          },
-          io,
-        ),
+        await send({
+          workerId,
+          leaseSeconds: 30,
+          protocolVersion: 3,
+          availabilityOnly: true,
+          availability: (await heartbeat()).availability,
+          cashierReports: reports,
+        }),
       );
       if (
         JSON.stringify(response.scope) !== JSON.stringify(scope) ||
@@ -459,25 +588,31 @@ export async function syncFulfillmentOnce(
         await repo.acceptRelease(scope, pending.delivery.command);
       else await repo.acceptCloud(scope, pending.delivery.command);
     } catch (error) {
-      if (error instanceof FulfillmentError && error.reason === 'ITEM_STOPPED') {
-        // No local effect committed. Leave the command unacknowledged in cloud,
-        // but free the local slot so another customer's available order can progress.
-        await update("pending_cloud=NULL,last_error='LOCAL_NOT_READY'");
-        return {
-          state: 'retry' as const,
-          error: 'LOCAL_NOT_READY' as const,
-          ...(await diagnostic()),
-        };
-      }
-      if (error instanceof FulfillmentError && error.code === 'ROUTING_MISSING') {
+      if (!(error instanceof FulfillmentError)) throw error;
+      if (error.code === 'ROUTING_MISSING') {
         await park(pending);
         return {
           state: 'parked' as const,
           error: 'LOCAL_ROUTING_MISSING' as const,
+          reason: 'ROUTING_MISSING' as const,
+          reported: await report(pending, 'ROUTING_MISSING'),
           ...(await diagnostic()),
         };
       }
-      throw error;
+      // A domain refusal rolled back with no local effect and is about this command only
+      // (closed ordering, stopped item, conflict, invalid or unknown order). Defer just this
+      // command: it stays unacknowledged and durable in the cloud, comes back after its cloud
+      // lease behind commands with fewer attempts, and every other order keeps moving.
+      const error_ = error.code === 'NOT_READY' ? 'LOCAL_NOT_READY' : 'LOCAL_CONFLICT';
+      const reason = refusalReason(error);
+      await update('pending_cloud=NULL,last_error=$4', [error_]);
+      return {
+        state: 'deferred' as const,
+        error: error_,
+        ...(reason ? { reason } : {}),
+        reported: await report(pending, reason),
+        ...(await diagnostic()),
+      };
     }
     await pool.query(
       'UPDATE fulfillment_transport_failures SET resolved_at=COALESCE(resolved_at,clock_timestamp()) WHERE event_id=$1 AND branch_id=$2',

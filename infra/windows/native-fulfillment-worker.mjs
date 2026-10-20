@@ -89,6 +89,8 @@ async function main() {
   for (const signal of ['SIGTERM', 'SIGINT']) process.once(signal, () => stop.abort());
   let failures = 0,
     remoteStops;
+  // Kitchen admission health (PM interface 19.10): counts only, throttled.
+  const attention = sync.TransportAttention ? new sync.TransportAttention() : null;
   try {
     do {
       let delivered = false;
@@ -116,6 +118,8 @@ async function main() {
               state: result.remoteStops ?? (protocolVersion === 4 ? 'active' : 'off'),
             }),
           );
+        const notice = attention?.observe(result);
+        if (notice) console.error(JSON.stringify(notice));
         if (['idle', 'acknowledged', 'applied'].includes(result.state))
           remoteStops = result.remoteStops;
         delivered = ['applied', 'acknowledged'].includes(result.state);

@@ -1,7 +1,11 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { createPool } from '@pickchick/database';
 import { loadConfig } from '@pickchick/platform';
-import { syncFulfillmentOnce, cloudTransportOrigin } from '@pickchick/fulfillment-transport';
+import {
+  syncFulfillmentOnce,
+  cloudTransportOrigin,
+  TransportAttention,
+} from '@pickchick/fulfillment-transport';
 import { readIdentity } from './private-identity.mjs';
 
 const config = loadConfig('edge');
@@ -16,6 +20,7 @@ if (!config.fulfillmentTransportEnabled) {
     once = process.argv.includes('--once');
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => stop.abort());
   let failures = 0;
+  const attention = new TransportAttention();
   try {
     do {
       let state = 'retry';
@@ -29,6 +34,8 @@ if (!config.fulfillmentTransportEnabled) {
         state = result.state;
         if (once || !['idle', 'busy'].includes(state))
           console.log(JSON.stringify({ event: 'fulfillment_transport', ...result }));
+        const notice = attention.observe(result);
+        if (notice) console.error(JSON.stringify(notice));
         if (state === 'retry' || state === 'blocked') {
           failures = Math.min(failures + 1, 6);
           if (once) process.exitCode = 1;

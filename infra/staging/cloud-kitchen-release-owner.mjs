@@ -423,6 +423,36 @@ export async function setMode(c, { branch, owner, operator, reason }) {
         before.assemblyStations.length > 0,
       'Cloud mode requires provisioned stations and routing',
     );
+  // Audit 1.2: never back to cloud while paid cloud orders of an earlier cloud period still
+  // wait without a kitchen owner and without a review.
+  if (owner === 'cloud')
+    guard(
+      (
+        await c.query(
+          `SELECT count(*)::int AS n FROM cloud_channel_orders x JOIN commerce_orders o ON o.id=x.order_id
+           WHERE x.branch_id=$1 AND o.state='paid_pending_acceptance' AND NOT o.attention_required
+            AND NOT EXISTS(SELECT 1 FROM cloud_kitchen_admissions a WHERE a.order_id=x.order_id)`,
+          [branch],
+        )
+      ).rows[0].n === 0,
+      'Paid cloud orders still wait for a kitchen owner; resolve them first',
+    );
+  // Audit 1.4: never while live cashier orders still carry old numbers in the cloud range.
+  if (owner === 'cloud')
+    guard(
+      (
+        await c.query(
+          `SELECT ((SELECT count(*) FROM cloud_fulfillment_projection p WHERE p.branch_id=$1
+              AND p.state IN ('accepted','in_production','ready') AND p.display_number BETWEEN 300 AND 899
+              AND p.observed_at>clock_timestamp()-interval '12 hours')
+            + (SELECT count(*) FROM pos_kitchen_sync_projection k WHERE k.branch_id=$1
+              AND k.state IN ('accepted','in_production','ready') AND k.display_number BETWEEN 300 AND 899
+              AND k.observed_at>clock_timestamp()-interval '12 hours'))::int AS n`,
+          [branch],
+        )
+      ).rows[0].n === 0,
+      'Live cashier orders use numbers 300-899; finish them or update the cashier first',
+    );
   const row = (
     await c.query('SELECT * FROM cloud_kitchen_set_mode($1,$2,$3,$4)', [
       branch,

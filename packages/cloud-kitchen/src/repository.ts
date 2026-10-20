@@ -196,8 +196,38 @@ function kitchenView(row: OrderRow, tasks: TaskRow[]) {
  * commands; a step is one order version and one outbox event, committed with the command
  * journal row in one transaction.
  */
+/**
+ * Commerce review of one paid order (implemented by commerce-core `reviewOrderInTransaction`):
+ * marks the order for a manager in the caller's transaction, idempotent per key.
+ */
+export type CloudKitchenReview = (
+  client: DatabaseClient,
+  orderId: string,
+  key: string,
+  code: string,
+  details: Record<string, unknown>,
+) => Promise<unknown>;
+export interface CloudKitchenOptions {
+  /** Without it a failing catch-up order is only skipped (it is retried, never reviewed). */
+  review?: CloudKitchenReview;
+  /** Seconds a 'ready' order may wait for its handoff before the stale sweep closes it. */
+  staleReadySeconds?: number;
+}
+
+/** CLOUD_KITCHEN_STALE_READY_MINUTES: whole minutes 0-1440, default 180, 0 turns the sweep off. */
+export function cloudKitchenStaleReadySeconds(env: Record<string, string | undefined>) {
+  const raw = env.CLOUD_KITCHEN_STALE_READY_MINUTES;
+  if (raw === undefined || raw === '') return 3 * 3600;
+  if (!/^\d{1,4}$/.test(raw) || Number(raw) > 1440)
+    throw new Error('CLOUD_KITCHEN_STALE_READY_MINUTES must be 0-1440');
+  return Number(raw) * 60;
+}
+
 export class CloudKitchen {
-  constructor(private readonly pool: DatabasePool) {}
+  constructor(
+    private readonly pool: DatabasePool,
+    private readonly options: CloudKitchenOptions = {},
+  ) {}
 
   /**
    * Fix the fulfillment owner of a paid kiosk/mobile order and, in mode 'cloud', create the
@@ -380,35 +410,153 @@ export class CloudKitchen {
 
   /**
    * Durable catch-up for cloud channel orders whose capture was committed by a process without
-   * the in-transaction admission hook (for example a payment worker): every paid, not yet
-   * admitted cloud channel order of the branch is admitted, oldest first, each in its own
-   * transaction. Orders that cannot be admitted now (numbers exhausted, no routing, review)
-   * stay as they are and are retried on the next call. Called on kitchen feed polls.
+   * the in-transaction admission hook (for example a Kaspi payment worker): paid, not yet
+   * admitted cloud channel orders of the branch are admitted, oldest first, each in its own
+   * transaction. Called on kitchen feed polls.
+   *
+   * Release fixes 19.10 (audit 1.2): an order paid after the branch left mode 'cloud' is put up
+   * for review (CLOUD_MODE_CHANGED_BEFORE_ADMISSION), exactly like the in-transaction path; an
+   * order that cannot ever be admitted by itself (invalid snapshot, missing routing, conflict)
+   * goes to review (CLOUD_KITCHEN_ADMISSION_FAILED) and leaves the selection. Each channel has
+   * its own window and an exhausted number range only skips its own channel, so failing orders
+   * never starve newer paid orders.
    */
   async admitPendingPaid(branchId: string, limit = 10) {
     parse(z.uuid(), branchId);
     parse(z.int().min(1).max(50), limit);
     const pending = (
-      await this.pool.query<{ order_id: string }>(
-        `SELECT c.order_id FROM cloud_channel_orders c JOIN commerce_orders o ON o.id=c.order_id
-         WHERE c.branch_id=$1 AND o.state='paid_pending_acceptance' AND NOT o.attention_required
-          AND NOT EXISTS(SELECT 1 FROM cloud_kitchen_admissions a WHERE a.order_id=c.order_id)
-         ORDER BY c.registered_at,c.order_id LIMIT $2`,
+      await this.pool.query<{ order_id: string; channel: string }>(
+        `SELECT order_id,channel FROM (
+          SELECT c.order_id,c.channel,c.registered_at,
+           row_number() OVER (PARTITION BY c.channel ORDER BY c.registered_at,c.order_id) AS n
+          FROM cloud_channel_orders c JOIN commerce_orders o ON o.id=c.order_id
+          WHERE c.branch_id=$1 AND o.state='paid_pending_acceptance' AND NOT o.attention_required
+           AND NOT EXISTS(SELECT 1 FROM cloud_kitchen_admissions a WHERE a.order_id=c.order_id)) w
+         WHERE n<=$2 ORDER BY registered_at,order_id`,
         [branchId, limit],
       )
     ).rows;
-    const admitted: string[] = [];
-    for (const { order_id } of pending) {
+    const admitted: string[] = [],
+      reviewed: string[] = [],
+      exhausted = new Set<string>();
+    const review = this.options.review;
+    for (const { order_id, channel } of pending) {
+      if (exhausted.has(channel)) continue;
       try {
-        const result = await transaction(this.pool, (client) =>
-          this.admitCloudChannelOrderInTransaction(client, order_id),
-        );
-        if (result.outcome === 'admitted') admitted.push(order_id);
+        const outcome = await transaction(this.pool, async (client) => {
+          const result = await this.admitCloudChannelOrderInTransaction(client, order_id);
+          if (result.outcome !== 'mode_changed' || !review) return result.outcome;
+          await review(
+            client,
+            order_id,
+            'cloud-mode-changed',
+            'CLOUD_MODE_CHANGED_BEFORE_ADMISSION',
+            {},
+          );
+          return 'reviewed';
+        });
+        if (outcome === 'admitted') admitted.push(order_id);
+        if (outcome === 'reviewed') reviewed.push(order_id);
       } catch (error) {
+        if (!(error instanceof CloudKitchenError)) throw error;
+        if (error.reason === 'NUMBERS_EXHAUSTED') exhausted.add(channel);
+        // NOT_READY: not paid in full yet, or numbers exhausted; retried on the next poll.
+        if (error.code === 'NOT_READY' || !review) continue;
+        await transaction(this.pool, (client) =>
+          review(client, order_id, 'cloud-admission-failed', 'CLOUD_KITCHEN_ADMISSION_FAILED', {
+            code: error.code,
+          }),
+        );
+        reviewed.push(order_id);
+      }
+    }
+    return { admitted, ...(reviewed.length ? { reviewed } : {}) };
+  }
+
+  /**
+   * Release fixes 19.10 (audit 1.5): display numbers come back without a missing handoff or a
+   * manual step. Bounded, idempotent, run on kitchen feed polls:
+   * - an order refunded or cancelled in commerce is cancelled in the kitchen by the same rule as
+   *   requestCancel (untouched: cancelled at once and its number is free; started:
+   *   cancel_requested, the kitchen confirms the stop);
+   * - a 'ready' order nobody handed over within `staleReadySeconds` (default 3 hours, 0 = off)
+   *   is closed as handed over by the system ('stale_ready_sweep' in its event) and frees its
+   *   number.
+   */
+  async sweepStale(branchId: string, limit = 20) {
+    parse(z.uuid(), branchId);
+    parse(z.int().min(1).max(100), limit);
+    const cancelled: string[] = [],
+      closed: string[] = [];
+    const refunded = (
+      await this.pool.query<{ order_id: string; version: number }>(
+        `SELECT k.order_id,k.version FROM cloud_kitchen_orders k
+         WHERE k.branch_id=$1 AND k.state IN ('accepted','in_production')
+          AND (EXISTS(SELECT 1 FROM commerce_refunds r WHERE r.order_id=k.order_id AND r.state<>'failed')
+           OR EXISTS(SELECT 1 FROM commerce_cancellation_intents i WHERE i.order_id=k.order_id))
+         ORDER BY k.created_at,k.order_id LIMIT $2`,
+        [branchId, limit],
+      )
+    ).rows;
+    for (const row of refunded) {
+      try {
+        await this.requestCancel(row.order_id, {
+          branchId,
+          expectedVersion: row.version,
+          reason: 'Оплата возвращена или заказ отменён',
+        });
+        cancelled.push(row.order_id);
+      } catch (error) {
+        // A concurrent kitchen command won; the next poll sees the new version.
         if (!(error instanceof CloudKitchenError)) throw error;
       }
     }
-    return { admitted };
+    const seconds = this.options.staleReadySeconds ?? 3 * 3600;
+    if (seconds > 0) {
+      const stale = (
+        await this.pool.query<{ order_id: string }>(
+          `SELECT order_id FROM cloud_kitchen_orders WHERE branch_id=$1 AND state='ready'
+            AND updated_at<clock_timestamp()-$2*interval '1 second' ORDER BY updated_at,order_id LIMIT $3`,
+          [branchId, seconds, limit],
+        )
+      ).rows;
+      for (const { order_id } of stale)
+        await transaction(this.pool, async (client) => {
+          const row = await lockedOrder(client, branchId, order_id);
+          const fresh = (
+            await client.query(
+              "SELECT 1 FROM cloud_kitchen_orders WHERE order_id=$1 AND state='ready' AND updated_at<clock_timestamp()-$2*interval '1 second'",
+              [order_id, seconds],
+            )
+          ).rowCount;
+          if (!fresh) return;
+          for (const step of decided(planHandoff({ order: row.state })))
+            await advance(
+              client,
+              row,
+              step.order as CloudState,
+              EVENT[step.event as 'handed_over'],
+              {
+                sweep: 'stale_ready_sweep',
+              },
+            );
+          closed.push(order_id);
+        });
+    }
+    // Free numbers per channel, so an emptying range is noticed before payment closes.
+    const free = (
+      await this.pool.query<{ channel: 'kiosk' | 'mobile'; free: number }>(
+        `SELECT r.channel,((r.high-r.low+1)-count(h.order_id))::int AS free FROM channel_number_ranges r
+         LEFT JOIN channel_number_holds h ON h.channel=r.channel AND h.branch_id=$1 AND h.released_at IS NULL
+         GROUP BY r.channel,r.low,r.high ORDER BY r.channel`,
+        [branchId],
+      )
+    ).rows;
+    return {
+      cancelled,
+      closed,
+      numbersFree: Object.fromEntries(free.map((r) => [r.channel, r.free])),
+    };
   }
 
   /**

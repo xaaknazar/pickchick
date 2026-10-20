@@ -2,6 +2,7 @@ import { Body, Controller, Headers, HttpCode, HttpException, Inject, Post } from
 import { RESOURCE, Resources } from '@pickchick/platform';
 import {
   pullFulfillment,
+  fulfillmentPullOptions,
   acknowledgeFulfillment,
   receiveFulfillment,
   TransportError,
@@ -13,6 +14,8 @@ import { CommerceError } from '@pickchick/commerce-core';
 
 @Controller('internal/v1/edge/fulfillment')
 export class FulfillmentTransportController {
+  /** FULFILLMENT_ADMISSION_REVIEW_MINUTES (default 15); an invalid value stops the start. */
+  private readonly pullOptions = fulfillmentPullOptions(process.env);
   constructor(@Inject(RESOURCE) private readonly resources: Resources) {}
   private async run(
     kind: 'pull' | 'ack' | 'events',
@@ -29,7 +32,9 @@ export class FulfillmentTransportController {
     try {
       const result =
         kind === 'pull'
-          ? PullResponseSchema.parse(await pullFulfillment(this.resources.pool, auth, body))
+          ? PullResponseSchema.parse(
+              await pullFulfillment(this.resources.pool, auth, body, this.pullOptions),
+            )
           : TransportReceiptSchema.parse(
               await (kind === 'ack' ? acknowledgeFulfillment : receiveFulfillment)(
                 this.resources.pool,

@@ -88,8 +88,9 @@ import {
   CloudKitchenBackoffice,
   KitchenScreens,
   cloudKitchenBackofficeOptions,
+  cloudKitchenStaleReadySeconds,
 } from '@pickchick/backoffice-core/cloud-kitchen';
-import { useCloudKitchenAdmission } from '@pickchick/commerce-core';
+import { reviewOrderInTransaction, useCloudKitchenAdmission } from '@pickchick/commerce-core';
 
 @Controller('v1/capabilities')
 class CapabilitiesController {
@@ -223,7 +224,12 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
           provide: CLOUD_KITCHEN,
           inject: [RESOURCE],
           useFactory: (resources: Resources) => {
-            const kitchen = new CloudKitchen(resources.pool);
+            // Release fixes 19.10: catch-up failures go to commerce review; stale ready
+            // orders and refunded orders free their display numbers.
+            const kitchen = new CloudKitchen(resources.pool, {
+              review: reviewOrderInTransaction,
+              staleReadySeconds: cloudKitchenStaleReadySeconds(process.env),
+            });
             // Paid cloud channel orders are admitted inside the capture transaction.
             useCloudKitchenAdmission(kitchen);
             return kitchen;

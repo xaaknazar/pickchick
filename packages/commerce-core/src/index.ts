@@ -1,5 +1,5 @@
 export * from './model.js';
-export { CommerceRepository } from './repository.js';
+export { CommerceRepository, reviewOrderInTransaction } from './repository.js';
 export * from './tiptoppay.js';
 export * from './kaspi-remote.js';
 

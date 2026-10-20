@@ -700,8 +700,11 @@ export class KitchenModel {
         if (cursor) q.set('afterNumber', cursor);
         const page = displayPage(await get(base + '/display?' + q));
         for (const i of page.items) {
-          if (seen.has(i.number)) throw new Error('INVALID_RESPONSE');
-          seen.add(i.number);
+          // Two live orders may share a number (an old unpaid hold paid much later): show both
+          // rather than taking the whole board offline (release fixes 19.10, audit 1.4).
+          const key = i.number + ':' + i.state + ':' + (i.name ?? '');
+          if (seen.has(key)) continue;
+          seen.add(key);
           display.push(i);
         }
         bytes += JSON.stringify(page.items).length;

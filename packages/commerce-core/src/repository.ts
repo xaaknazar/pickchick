@@ -407,6 +407,26 @@ async function reconcile(client: DatabaseClient, row: OrderRow) {
   };
 }
 
+/**
+ * Puts one order up for a manager's review from a process other than its payment transaction
+ * (the cloud kitchen catch-up admission). Takes the order lock, records the issue once per key
+ * and recomputes the order state, inside the caller's transaction.
+ */
+export async function reviewOrderInTransaction(
+  client: DatabaseClient,
+  orderId: string,
+  key: string,
+  code: string,
+  details: Record<string, unknown>,
+) {
+  const row = (
+    await client.query<OrderRow>('SELECT * FROM commerce_orders WHERE id=$1 FOR UPDATE', [orderId])
+  ).rows[0];
+  if (!row) throw new CommerceError('NOT_FOUND');
+  await issue(client, row, key, code, details);
+  return reconcile(client, row);
+}
+
 export class CommerceRepository {
   constructor(
     private readonly pool: DatabasePool,
@@ -774,6 +794,82 @@ export class CommerceRepository {
       );
     };
     return client ? apply(client) : transaction(this.pool, apply);
+  }
+  /**
+   * The bound cashier refused one cloud admission command (closed ordering, stopped item, lost
+   * reservation, conflict). Only the authenticated transport pull calls this, inside its
+   * transaction. A paid order becomes a manager case at once: the guest needs staff and
+   * possibly a refund, and an attention order is never delivered to the kitchen later on its
+   * own. An unpaid order is left alone: no money moved, the command is retried and payment
+   * stays gated by the cashier's availability. Repeated reports change nothing.
+   */
+  async recordAdmissionRefusal(
+    client: DatabaseClient,
+    edge: TrustedEdge,
+    refusal: { eventId: string; reason: string },
+  ): Promise<'ignored' | 'unpaid' | 'attention'> {
+    const found = (
+      await client.query<{ order_id: string; event_type: string }>(
+        `SELECT e.order_id,e.event_type FROM commerce_outbox e JOIN commerce_orders o ON o.id=e.order_id
+        WHERE e.id=$1 AND o.organization_id=$2 AND o.branch_id=$3 AND e.acknowledged_at IS NULL
+        AND e.event_type IN ('edge.admission_requested','edge.kitchen_admission_requested')
+        AND (o.admission_device_id IS NULL OR o.admission_device_id=$4)`,
+        [refusal.eventId, edge.organizationId, edge.branchId, edge.deviceId],
+      )
+    ).rows[0];
+    if (!found) return 'ignored';
+    const row = await order(client, edge, found.order_id);
+    if (row.attention_required) return 'attention';
+    const money = await totals(client, row.id);
+    if (BigInt(money.captured) < BigInt(row.total_minor)) return 'unpaid';
+    await issue(client, row, 'kitchen-admission-refused', 'KITCHEN_ADMISSION_REFUSED', {
+      reason: refusal.reason,
+      eventType: found.event_type,
+    });
+    await reconcile(client, row);
+    return 'attention';
+  }
+  /**
+   * Safety net for cashiers that cannot report a refusal (installed edge builds) or were offline:
+   * a paid order whose kitchen admission is still undelivered `minutes` after its payment is
+   * put up for review instead of being admitted late into a later kitchen queue (for example
+   * the next morning). Orders the kitchen already accepted are never touched. Called inside the
+   * authenticated transport pull transaction, before a command is selected for delivery.
+   */
+  async reviewOverdueAdmissions(
+    client: DatabaseClient,
+    edge: TrustedEdge,
+    minutes: number,
+    limit = 20,
+  ) {
+    if (!Number.isInteger(minutes) || minutes < 1) return 0;
+    const overdue = (id: string | null) =>
+      client.query<{ id: string }>(
+        `SELECT o.id FROM commerce_orders o
+        WHERE o.organization_id=$1 AND o.branch_id=$2 AND o.state='paid_pending_acceptance'
+        AND NOT o.attention_required AND (o.admission_device_id IS NULL OR o.admission_device_id=$3)
+        AND ($6::uuid IS NULL OR o.id=$6)
+        AND EXISTS(SELECT 1 FROM commerce_outbox e WHERE e.order_id=o.id AND e.acknowledged_at IS NULL
+          AND e.event_type IN ('edge.admission_requested','edge.kitchen_admission_requested'))
+        AND NOT EXISTS(SELECT 1 FROM cloud_fulfillment_projection p WHERE p.order_id=o.id
+          AND p.state NOT IN ('held','released'))
+        AND (SELECT max(c.received_at) FROM commerce_captures c WHERE c.order_id=o.id)
+          < clock_timestamp()-$4*interval '1 minute'
+        ORDER BY o.created_at,o.id LIMIT $5`,
+        [edge.organizationId, edge.branchId, edge.deviceId, minutes, limit, id],
+      );
+    let reviewed = 0;
+    for (const { id } of (await overdue(null)).rows) {
+      const row = await order(client, edge, id);
+      // Rechecked with a fresh snapshot after taking the order lock.
+      if (!(await overdue(id)).rowCount) continue;
+      await issue(client, row, 'kitchen-admission-overdue', 'KITCHEN_ADMISSION_OVERDUE', {
+        minutes,
+      });
+      await reconcile(client, row);
+      reviewed++;
+    }
+    return reviewed;
   }
   private async applyAdmission(
     client: DatabaseClient,
