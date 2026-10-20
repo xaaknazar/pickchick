@@ -1725,3 +1725,114 @@ test('the server sales switch closes new mobile Kaspi payments; in-flight ones a
     await f.processor().tick();
     assert.equal((await f.invoice(inFlight.attempt.attemptId)).state, 'issued');
   }));
+
+// QA 20.10 (release-fixes-1019): adversarial checks of audit S1 (0.0) and S2 (0.1/5.1).
+
+test('QA S1: more blocked attempts than one tick serves never starve a later ready invoice', () =>
+  fixture(async (f) => {
+    // Twelve attempts for a stopped product queue ahead of one ready order (tick limit is 10).
+    const blocked = [];
+    for (let i = 0; i < 12; i++) blocked.push(await f.order({ productId: 'synthetic-fries' }));
+    const ready = await f.order();
+    await f.stop(['synthetic-fries']);
+    const worker = f.processor();
+    const first = await worker.tick();
+    assert.equal(first.deferred, 10);
+    assert.equal(first.sessionProblem, false);
+    // No lease is released by hand: the next tick alone must reach the ready order.
+    const second = await worker.tick();
+    assert.equal(second.submitted, 1);
+    assert.equal((await f.invoice(ready.attempt.attemptId))?.state, 'issued');
+    assert.equal(f.bridge.count('create'), 1);
+    // Leases lapse while the stop lasts: the blocked ones keep deferring, never invoiced.
+    await f.releaseLeases();
+    const third = await worker.tick();
+    assert.equal(third.submitted, 0);
+    assert.equal(third.pendingUnsent, 12);
+    for (const b of blocked) assert.equal(await f.invoice(b.attempt.attemptId), undefined);
+    // A new ready order arriving behind the re-deferred ones is served first (least tried).
+    const late = await f.order();
+    await f.releaseLeases();
+    assert.equal((await worker.tick()).submitted, 1);
+    assert.equal((await f.invoice(late.attempt.attemptId))?.state, 'issued');
+    // Past the maximum age every blocked attempt fails; the stop lifting later sends nothing.
+    f.advance(601_000);
+    await f.releaseLeases();
+    let notSent = 0;
+    for (let round = 0; round < 3; round++) notSent += (await worker.tick()).notSent;
+    assert.equal(notSent, 12);
+    await f.stop([]);
+    await f.releaseLeases();
+    await worker.tick();
+    assert.equal(f.bridge.count('create'), 2);
+  }));
+
+test('QA S1+S2: a session outage with a stop in between: ready orders go first after re-login', () =>
+  fixture(async (f) => {
+    const { KaspiAttention } = await import('../dist/index.js');
+    const attention = new KaspiAttention();
+    f.bridge.sessionReady = false;
+    const stopped = await f.order({ productId: 'synthetic-fries' });
+    const ready = await f.order();
+    const worker = f.processor();
+    const down = await worker.tick();
+    assert.equal(down.sessionProblem, true);
+    assert.equal(down.submitted, 0);
+    const lost = attention.next(down, f.now());
+    assert.equal(lost?.sessionProblem, true);
+    assert.equal(lost?.reason, 'session_inactive');
+    // While the bank is down the fries run out; three minutes later the cashier logs in again.
+    await f.stop(['synthetic-fries']);
+    for (let s = 0; s < 180; s += 10) {
+      f.advance(10_000);
+      await worker.tick();
+    }
+    f.bridge.sessionReady = true;
+    f.advance(60_000);
+    await f.releaseLeases();
+    const back = await worker.tick();
+    assert.equal(back.sessionProblem, false);
+    assert.equal(back.sessionRecovered, true);
+    assert.equal((await f.invoice(ready.attempt.attemptId))?.state, 'issued');
+    assert.equal(await f.invoice(stopped.attempt.attemptId), undefined);
+    assert.equal(back.pendingUnsent, 1);
+    // The session change is reported at once; the stopped order still waits over 120 s.
+    const signal = attention.next(back, f.now());
+    assert.equal(signal?.sessionProblem, false);
+    assert.equal(signal?.reason, 'invoice_not_sent');
+    // Ten minutes after its tap the stopped order fails without an invoice, and the alert clears.
+    f.advance(400_000);
+    await f.releaseLeases();
+    const ended = await worker.tick();
+    assert.equal(ended.notSent, 1);
+    assert.equal(ended.pendingUnsent, 0);
+    assert.equal((await f.view(stopped.orderId)).attempts[0].state, 'failed');
+    assert.deepEqual(attention.next(ended, f.now()), {
+      event: 'kaspi_remote_attention',
+      recovered: true,
+      sessionProblem: false,
+    });
+    assert.equal(f.bridge.count('create'), 1);
+  }));
+
+test('QA S2: a bridge that is down is reported as such and nothing is sent until it is back', () =>
+  fixture(async (f) => {
+    let status = 'unreachable';
+    const client = Object.create(f.bridge);
+    client.sessionStatus = async () => status;
+    const { attempt } = await f.order();
+    const worker = f.processor(client);
+    const down = await worker.tick();
+    assert.equal(down.sessionProblem, true);
+    assert.equal(down.sessionReason, 'bridge_unreachable');
+    assert.equal(f.bridge.count('create'), 0);
+    status = 'missing';
+    f.advance(6_000);
+    assert.equal((await worker.tick()).sessionReason, 'session_missing');
+    status = 'active';
+    f.advance(11_000);
+    await f.releaseLeases();
+    const back = await worker.tick();
+    assert.equal(back.sessionProblem, false);
+    assert.equal((await f.invoice(attempt.attemptId))?.state, 'issued');
+  }));

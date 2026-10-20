@@ -97,7 +97,26 @@ async function fixture(run) {
     };
     const stop = (ids) =>
       pool.query('UPDATE cloud_branch_availability SET stopped_ids=$1::uuid[]', [ids]);
-    await run({ ...f, pool, payment, who, checkout, cart, order, stop });
+    // The guest as the kiosk presents it again later (an expired, not ended guest may still read).
+    const reauth = (options = {}) => sessions.authenticate(kiosk, deviceKey, token, options);
+    const nextGuest = async () => {
+      const next = randomBytes(32).toString('hex');
+      await sessions.start(kiosk, deviceKey, { sessionId: randomUUID(), token: next });
+      return sessions.authenticate(kiosk, deviceKey, next);
+    };
+    await run({
+      ...f,
+      pool,
+      payment,
+      who,
+      checkout,
+      cart,
+      order,
+      stop,
+      sessions,
+      reauth,
+      nextGuest,
+    });
   });
 }
 const code = (expected) => (error) => error.code === expected;
@@ -206,4 +225,95 @@ test('a stopped linked product hides the option and blocks quote and payment on 
     );
     // Without the stopped option the burger is still sold.
     assert.ok((await f.checkout.quote(f.who, f.cart([]))).quoteId);
+  }));
+
+// QA 20.10 (release-fixes-1019), audit S11 (1.1) x S15/S16 (3.0/3.1): the kiosk guest paid by QR,
+// the cashier refused the order and the guest session expired meanwhile. Staff see the case, the
+// device still reads the staff-help state, and the next guest is never blocked by it.
+test('QA S11: a paid kiosk order refused by the cashier after the guest session expired', () =>
+  fixture(async (f) => {
+    const created = await f.order();
+    await f.checkout.pay(f.who, created.orderId, { method: 'kaspi_qr' });
+    const bank = {
+      async checkSession() {
+        return true;
+      },
+      async create(amount) {
+        return {
+          kind: 'ok',
+          data: { QrOperationId: 321, Amount: amount, QrToken: 'https://qr.kaspi.kz/synthetic' },
+        };
+      },
+      async status() {
+        return { kind: 'ok', data: { QrOperationId: 321, Amount: 110, Status: 'Processed' } };
+      },
+    };
+    const processor = new KioskKaspiQrProcessor(
+      f.pool,
+      {
+        accountId: f.payment,
+        bridgeUrl: 'http://127.0.0.1:1',
+        requestTimeoutMs: 1000,
+        invoiceTtlSeconds: 180,
+        webhookSecret: 'x'.repeat(32),
+        session: null,
+        latitude: 43,
+        longitude: 76,
+      },
+      bank,
+    );
+    await processor.tick();
+    await f.pool.query(
+      "UPDATE commerce_kiosk_kaspi_qr SET next_check_at=clock_timestamp()-interval '1 second'",
+    );
+    await processor.tick();
+    assert.equal((await f.checkout.read(f.who, created.orderId)).phase, 'paid');
+    // The guest walks away; its session expires before the cashier answers.
+    await f.pool.query(
+      `UPDATE kiosk_sessions SET created_at=created_at-interval '2 hours',
+       expires_at=clock_timestamp()-interval '1 minute' WHERE id=$1`,
+      [f.who.sessionId],
+    );
+    await assert.rejects(f.reauth(), code('FORBIDDEN'));
+    const expired = await f.reauth({ allowExpired: true });
+    const event = (
+      await f.pool.query(
+        "SELECT id FROM commerce_outbox WHERE order_id=$1 AND event_type='edge.admission_requested'",
+        [created.orderId],
+      )
+    ).rows[0].id;
+    assert.equal(
+      await transaction(f.pool, (client) =>
+        f.checkout.repository.recordAdmissionRefusal(
+          client,
+          { organizationId: f.org, branchId: f.branch, deviceId: f.device },
+          { eventId: event, reason: 'ITEM_STOPPED' },
+        ),
+      ),
+      'attention',
+    );
+    const shown = await f.checkout.read(expired, created.orderId);
+    assert.equal(shown.phase, 'failed');
+    assert.equal(shown.payment.state, 'paid');
+    const issues = (
+      await f.pool.query('SELECT code FROM commerce_reconciliation_issues WHERE order_id=$1', [
+        created.orderId,
+      ])
+    ).rows.map((r) => r.code);
+    assert.deepEqual(issues, ['KITCHEN_ADMISSION_REFUSED']);
+    // The refused paid order is unresolved: ending this guest is refused (the kiosk keeps it in
+    // its background list), and it never counts against the device's open-guest limit.
+    await assert.rejects(f.sessions.end(expired.sessionId), code('CONFLICT'));
+    const guests = [];
+    // The server keeps at most 10 open guests per device; the expired one is not among them.
+    for (let i = 0; i < 10; i++) guests.push(await f.nextGuest());
+    assert.equal(guests.length, 10);
+    // The cashier reopens the next morning: an attention order is never selected for the kitchen
+    // (pullFulfillment skips attention orders); the manager decides on a refund or a manual order.
+    const order = await f.checkout.repository.readOrder(
+      { organizationId: f.org, branchId: f.branch, principalId: expired.sessionId, role: 'sales' },
+      created.orderId,
+    );
+    assert.equal(order.attentionRequired, true);
+    assert.equal(order.state, 'attention_required');
   }));

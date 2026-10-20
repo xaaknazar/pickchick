@@ -139,3 +139,38 @@ test('an invalid client address header cannot mint fresh budgets', async () => {
     await ctx.close();
   }
 });
+
+// QA 20.10 (release-fixes-1019), audit S18 (5.0): rotating addresses inside one IPv6 subscriber
+// prefix, or switching between the IPv4 and IPv4-mapped forms, never mints fresh budgets.
+test('QA S18: one IPv6 /64 or one IPv4 in two notations shares a single anonymous budget', async () => {
+  const ctx = await setup({ cloud: false });
+  try {
+    let last;
+    for (let i = 0; i < 361; i++)
+      last = await call(ctx.port, 'GET', config, {
+        'X-PickChick-Client-IP': `2001:db8:1:2:${(i % 65535).toString(16)}::${i % 7}`,
+      });
+    assert.equal(last.status, 429);
+    // The same subscriber written in full or compressed form is the same client.
+    assert.equal(
+      (
+        await call(ctx.port, 'GET', config, {
+          'X-PickChick-Client-IP': '2001:0db8:0001:0002:ffff:0000:0000:0001',
+        })
+      ).status,
+      429,
+    );
+    // Another /64 has its own budget.
+    assert.equal(
+      (await call(ctx.port, 'GET', config, { 'X-PickChick-Client-IP': '2001:db8:1:3::1' })).status,
+      200,
+    );
+    for (let i = 0; i < 361; i++)
+      last = await call(ctx.port, 'GET', config, {
+        'X-PickChick-Client-IP': i % 2 ? '203.0.113.9' : '::ffff:203.0.113.9',
+      });
+    assert.equal(last.status, 429);
+  } finally {
+    await ctx.close();
+  }
+});
