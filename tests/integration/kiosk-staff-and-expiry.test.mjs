@@ -1,5 +1,5 @@
 // Release audit 19.10.2026 (kiosk lane), HTTP level against the real API on synthetic local
-// databases: the kiosk staff code route (findings 3.3/3.4/3.0) and the definitive EXPIRED answer
+// databases: the kiosk staff code route (findings 3.3/3.4/3.0) and the definitive NOT_FOUND answer
 // for a retried POST /orders of an expired guest (finding 3.0). No bank, kitchen or device.
 import assert from 'node:assert/strict';
 import test from 'node:test';
