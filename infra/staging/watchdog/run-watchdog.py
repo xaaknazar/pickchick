@@ -48,7 +48,7 @@ STATUS_FIELDS = {
     'status': {'lastAttemptAt': 'time', 'lastSuccessAt': 'time', 'ok': 'bool', 'stage': 'stage'},
     'offsite': {'enabled': 'bool', 'lastAttemptAt': 'time', 'lastSuccessAt': 'time', 'ok': 'bool',
                 'sizeBytes': 'count'},
-    'wal': {'checkedAt': 'time', 'ok': 'bool', 'pending': 'count', 'oldestPendingAt': 'time',
+    'wal': {'enabled': 'bool', 'checkedAt': 'time', 'ok': 'bool', 'pending': 'count', 'oldestPendingAt': 'time',
             'lastShippedAt': 'time', 'lastBaseBackupAt': 'time'},
 }
 STAGES = {'config', 'counts', 'dump', 'encrypt', 'manifest', 'offsite', 'base_backup', 'retention',

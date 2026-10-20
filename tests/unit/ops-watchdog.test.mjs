@@ -744,6 +744,9 @@ test('backup run status, off-site copy, WAL shipping and the archiver raise thei
   );
   const pitr = config({ WATCHDOG_EXPECT_BACKUP_PITR: 'true' });
   assert.match(find(withBackups({}, pitr), 'backup.wal').detail, /ни разу/);
+  // A status left behind after PITR was switched off raises nothing.
+  const off = wal({ enabled: false, checkedAt: iso(NOW - 3 * DAY) });
+  assert.equal(find(withBackups({ wal: off }), 'backup.wal'), undefined);
   // pg_stat_archiver: only with PITR expected.
   const archiver = (extra) =>
     run({

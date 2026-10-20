@@ -343,8 +343,11 @@ def ship_wal(settings, root, s3=None, now=time.time):
     status_path = root / 'backups' / 'wal-status.json'
     status = read_status(status_path)
     if not settings['pitr']:
+        # After PITR is switched off, a stale status must not keep the watchdog alert open.
+        if status_path.exists():
+            write_status(status_path, {**status, 'enabled': False, 'checkedAt': utc(now())})
         return 0
-    status.update(checkedAt=utc(now()), ok=False)
+    status.update(enabled=True, checkedAt=utc(now()), ok=False)
     pending = []
     try:
         listing = docker('exec', settings['container'], 'find', settings['archive'], '-maxdepth', '1',

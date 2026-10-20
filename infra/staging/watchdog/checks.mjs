@@ -568,7 +568,7 @@ export function evaluate({ api, host, db, config, nowMs }) {
       findings.push(backupRunFinding(backups.status, config));
       if (config.backup.expectOffsite || backups.offsite?.enabled)
         findings.push(offsiteFinding(backups.offsite, config, nowMs));
-      if (config.backup.expectPitr || backups.wal)
+      if (config.backup.expectPitr || backups.wal?.enabled)
         findings.push(walFinding(backups.wal, config, nowMs));
     }
     for (const disk of facts.disks) findings.push(diskFinding(disk, config));

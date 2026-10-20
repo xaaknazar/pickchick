@@ -391,7 +391,8 @@ class BackupScript(unittest.TestCase):
         shipped = self.run_offsite('ship-wal')
         self.assertEqual(shipped.returncode, 0, shipped.stderr)
         wal = self.status('wal-status.json')
-        self.assertEqual((wal['ok'], wal['pending'], wal['lastSegment']), (True, 0, '00000002.history'))
+        self.assertEqual((wal['enabled'], wal['ok'], wal['pending'], wal['lastSegment']),
+                         (True, True, 0, '00000002.history'))
         self.assertNotIn('oldestPendingAt', wal)
         self.assertEqual([path.name for path in archive.iterdir()], ['.000000010000000000000003.tmp'])
         for name, data in segments.items():
@@ -414,6 +415,12 @@ class BackupScript(unittest.TestCase):
         for command in ('ship-wal', 'base-backup'):
             self.assertEqual(self.run_offsite(command).returncode, 0)
         self.assertFalse((self.root / 'backups/wal-status.json').exists())
+        self.assertFalse(self.log.exists())
+        # Switched off later: the old status is marked disabled for the watchdog.
+        (self.root / 'backups/wal-status.json').write_text('{"checkedAt": "2026-10-01T00:00:00Z", "ok": true}')
+        self.assertEqual(self.run_offsite('ship-wal').returncode, 0)
+        status = self.status('wal-status.json')
+        self.assertEqual((status['enabled'], status['ok']), (False, True))
         self.assertFalse(self.log.exists())
 
 

@@ -207,6 +207,7 @@ function offsiteStatus(raw) {
 function walStatus(raw) {
   if (!isObject(raw) || !iso(raw.checkedAt)) return null;
   return {
+    enabled: raw.enabled !== false,
     checkedAt: raw.checkedAt,
     ok: raw.ok === true,
     pending: count(raw.pending) ?? 0,
