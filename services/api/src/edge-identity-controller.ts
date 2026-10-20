@@ -1,5 +1,5 @@
 import { Body, Controller, Headers, HttpCode, HttpException, Inject, Post } from '@nestjs/common';
-import { RESOURCE, Resources } from '@pickchick/platform';
+import { EdgeDeviceRoute, RESOURCE, Resources } from '@pickchick/platform';
 import { confirmDeviceIdentity, rotateDeviceIdentity, SyncError } from '@pickchick/menu-sync';
 
 /**
@@ -8,6 +8,9 @@ import { confirmDeviceIdentity, rotateDeviceIdentity, SyncError } from '@pickchi
  * current (or, for a replay, just-replaced) credential. See edge-identity-rotation.md.
  */
 @Controller('internal/v1/edge/identity')
+// Device-authenticated cashier edge transport: the reserved edge admission budget (ops lane),
+// like the other /internal/v1/edge/* controllers, so public load cannot block key renewal.
+@EdgeDeviceRoute()
 export class EdgeIdentityController {
   constructor(@Inject(RESOURCE) private readonly resources: Resources) {}
 
