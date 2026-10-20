@@ -728,3 +728,40 @@ test('QR pending answer with the own id but without amount keeps the QR payable'
     await r.processor().tick();
     assert.equal((await r.row()).state, 'unknown');
   }));
+
+// QA 20.10 (release-fixes-1019), audit S14 (3.2) x kiosk incidents (4.3): a QR whose bank status
+// stays "pending" long after the QR expired must not keep the kiosk on «Проверяем оплату» with
+// no exit. It becomes unknown (the manager incident path and the unknown-payment alert apply);
+// a late bank answer still settles it.
+test('QA S14: a QR the bank keeps reporting as pending after expiry leaves the payable state', async () =>
+  fixture(async (f) => {
+    const r = await ready(f);
+    await r.processor().tick();
+    const issued = await r.row();
+    assert.equal(issued.state, 'issued');
+    // Real 8.10 pending shape: own Id and Status only. The guest scanned and walked away.
+    r.client.statusAnswer = { kind: 'ok', data: { Id: 123, Status: 'QrTokenScanned' } };
+    const at = (ms) => () => new Date(issued.expires_at.getTime() + ms);
+    // Shortly after expiry the bank may still be finishing a payment: keep waiting.
+    await r.due();
+    await r.processor(f.pool, at(30_000)).tick();
+    assert.equal((await r.row()).state, 'issued');
+    // Thirty minutes later the bank still says "scanned": staff must be able to take over.
+    await r.due();
+    await r.processor(f.pool, at(30 * 60_000)).tick();
+    assert.equal((await r.row()).state, 'unknown');
+    const view = await f.checkout.read(f.who, r.order.orderId);
+    assert.equal(view.phase, 'checking');
+    // A late, exact Processed answer still captures the original order.
+    r.client.statusAnswer = {
+      kind: 'ok',
+      data: { Id: 123, QrOperationId: 123, Status: 'Processed', Amount: 110 },
+    };
+    await r.due();
+    await r.processor(f.pool, at(31 * 60_000)).tick();
+    assert.equal((await r.row()).state, 'paid');
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_captures')).rows[0].n,
+      1,
+    );
+  }));

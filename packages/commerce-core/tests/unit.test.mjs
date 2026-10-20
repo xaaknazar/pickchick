@@ -8,6 +8,7 @@ import {
   customerCheckoutOptions,
   kioskCheckoutOptions,
   qrStatusOutcome,
+  KIOSK_QR_PENDING_GRACE_MS,
 } from '../dist/index.js';
 import { catalogPayload, pricePublication } from './catalog-fixture.mjs';
 import { catalogPayloadHash } from '@pickchick/catalog-pricing';
@@ -252,4 +253,17 @@ test('kiosk QR status: an empty identity is anonymous, a named foreign one stays
   assert.equal(outcome({ Status: 'QrTokenCreated', Id: null }), 'pending');
   assert.equal(outcome({ Status: 'QrTokenScanned', Id: 124 }), 'unknown');
   assert.equal(outcome({ Status: 'SomethingNew', Id: 123 }), 'unknown');
+  // QA 20.10: still "pending" well after expiry is unknown (incident flow), never payable forever.
+  const late = new Date(row.expires_at.getTime() + KIOSK_QR_PENDING_GRACE_MS);
+  const justBefore = new Date(late.getTime() - 1);
+  for (const pending of [
+    { Status: 'QrTokenCreated', Id: 123 },
+    { Status: 'QrTokenScanned', Id: null },
+    { Status: 'Wait', Id: 123, Amount: 100 },
+  ]) {
+    assert.equal(outcome(pending, justBefore), 'pending', JSON.stringify(pending));
+    assert.equal(outcome(pending, late), 'unknown', JSON.stringify(pending));
+  }
+  assert.equal(outcome({ Status: 'Processed', Id: 123, Amount: 100 }, late), 'paid');
+  assert.equal(outcome({ Status: 'QrTokenDiscarded', Id: 123 }, late), 'failed');
 });

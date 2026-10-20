@@ -120,11 +120,19 @@ const QR_FAILED = new Set([
 ]);
 const QR_PENDING = new Set(['QrTokenCreated', 'QrTokenScanned', 'Wait']);
 /**
+ * A pending answer this long after the QR expired no longer keeps it payable: the QR becomes
+ * unknown, so the kiosk shows «уточняется», the manager incident (4.3) and the unknown-payment
+ * alert apply, and a late exact Processed or own-id failure still settles it.
+ */
+export const KIOSK_QR_PENDING_GRACE_MS = 2 * 60_000;
+/**
  * Status answer of this QR's own operation (we asked by its operation id). Money needs the exact
  * id and amount with Processed. A terminal failure carries no money, so its amount is not
  * required: it fails with the matching id, or, as the real 8.10 QrTokenDiscarded answer (no id,
  * no amount), once the QR has expired. A foreign id or a positive foreign amount stays unknown.
- * Pending answers with the own id and no amount (real shape) keep the QR as it is.
+ * Pending answers with the own id and no amount (real shape) keep the QR as it is until the
+ * grace after its expiry ends; a QR still "pending" after that is unknown (QA 20.10: an issued
+ * QR is outside the incident flow and would hold the kiosk on «Проверяем оплату» for good).
  */
 export function qrStatusOutcome(
   data: Record<string, unknown>,
@@ -150,7 +158,12 @@ export function qrStatusOutcome(
     if (!named && noAmount && now >= row.expires_at) return 'failed';
     return 'unknown';
   }
-  if (QR_PENDING.has(status)) return foreignId || foreignAmount ? 'unknown' : 'pending';
+  if (QR_PENDING.has(status))
+    return foreignId ||
+      foreignAmount ||
+      now.getTime() >= row.expires_at.getTime() + KIOSK_QR_PENDING_GRACE_MS
+      ? 'unknown'
+      : 'pending';
   return 'unknown';
 }
 function payload(value: unknown): string | null {
