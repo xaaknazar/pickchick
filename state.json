@@ -5746,6 +5746,22 @@
       "updatedAt": "2026-10-16T12:23:50.950Z",
       "summary": "PR260 /4a4c9e71: 41 local tests pass; photo CI pass, full CI pending. Real cashier at192.168.2.61 pinned SSH, 7 services healthy. USB helper compiled, installer syntax checked. Isolated Windows runtime renders ru/kk/en 576x718 without printing. Only staging prepared; service not installed.",
       "nextAction": "Await physical USB move to cashier. Then exact hardware identity, full CI, TLS, metadata backup and disabled dedicated service install, short paper test, iPad pairing/reconnect acceptance. Mac manual bridge remains fallback. No LaunchAgent. No unknown replay. Private continuation in .local/photo-windows."
+    },
+    {
+      "id": "ttk-import-1020",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/ttk-import-1020",
+      "scopes": [
+        "scripts/ttk-import.mjs",
+        "scripts/ttk-extract.py",
+        "tests/unit/ttk-import.test.mjs",
+        "tests/operations/test_ttk_extract.py",
+        "docs/operations/ttk-import-2026-10-20.md",
+        "@vps/inventory"
+      ],
+      "status": "active",
+      "head": "76902fa4b8403f9084c0028fa16f02b8ec155586",
+      "updatedAt": "2026-10-20T07:08:45.694Z"
     }
   ]
 }
