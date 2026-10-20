@@ -1,3 +1,81 @@
+## 20 октября: исправления аудита 19.10 собраны в `codex/release-fixes-1019`
+
+Ветка `codex/release-fixes-1019` от `76902fa4` (общий срез). Полный прогон ниже выполнен на
+`f02af0e8`; следующий коммит добавляет только эту запись. **Ветка не отправлена**: push, PR в
+общий срез и полная CI - с Mac. На VPS, кассу, iPad, TestFlight и App Store ничего не
+устанавливалось; приёмки владельцем нет; онлайн-пульт не обновлялся.
+
+Слиты без fast-forward, в порядке pay `5a363ab9`, ful `b4ad36ce`, pos `8870b46d`, sec `807040ff`,
+kio `ec826041`, mob `b78f3a12`, ops `46b9b66c`. Конфликты решены объединением (обе стороны
+сохранены): `.env.example`, списки тестов `fulfillment-transport` и `commerce-core`, воркеры
+FulfillmentWorker (сигналы допуска ful + продление ключа pos), экспорты `local-orders`,
+`services/api/src/index.ts`, `customer-checkout-controller.ts` (TTL pay + long-poll mob + бюджет
+ops), `scripts/mobile/ios_release.py` (профили киоска kio + профили mobile mob).
+
+Доработки интеграции: `@EdgeDeviceRoute()` на продлении ключа кассы и тест всех
+`internal/v1/edge/*`; watchdog читает `customer_otp_*_attention`, `client-ip-gateway.py --check`
+(флаг `WATCHDOG_GATEWAY_CHECK`, по умолчанию выключен) и не держит тревогу по QR с принятым
+инцидентом; тест интерфейсов pay/ful/sec -> watchdog; охраняемый `kiosk-staff-gateway.py` для
+`POST /v1/kiosk-checkout/staff/verify`; `StaffPinLoginSchema` 4|6 цифр. Найдено полным прогоном и
+исправлено: закреплённый по хешу `backoffice-grants.mjs` (ручные возвраты вынесены в
+`manual-refund-grants.mjs`), фикстура watch без `req`, тест восстановления кассы под обе схемы
+пульса. Подробно, с таблицей всех 59 находок, флагами, миграциями (cloud 064/066/068, edge
+022/023) и планом выпуска: [сводка](../operations/release-fixes-2026-10-19/README.md),
+[действия владельца](../operations/release-fixes-2026-10-19/owner-actions.md).
+
+Проверки 20.10 на свежей базе `reset-db.sh int` (Node 24, pnpm 11.19), `f02af0e8`:
+
+| Команда                                                                              | Результат                                               |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------- |
+| `pnpm build`, `typecheck`, `lint`, `format:check`, `contracts:check`, `design:check` | все успешно                                             |
+| `pnpm test`                                                                          | 322/322                                                 |
+| `pnpm test:kiosk`                                                                    | 265/265                                                 |
+| `pnpm test:mobile`                                                                   | 387/387 Node + 58 Python OK (1 пропуск: macOS)          |
+| `pnpm test:integration`                                                              | 401: 398 прошли, 3 пропущены (opt-in), 0 упало          |
+| `pnpm test:commerce`                                                                 | 216: 215 прошли, 1 пропуск (прежний), 0 упало           |
+| `pnpm test:loyalty`                                                                  | 25/25                                                   |
+| `pnpm test:fulfillment`                                                              | 48/48                                                   |
+| `pnpm test:fulfillment-transport`                                                    | 88/88                                                   |
+| `pnpm test:pos-order-sync`                                                           | 24/24                                                   |
+| `backoffice-core` test + test:integration                                            | 32/32                                                   |
+| `pnpm test:backoffice`                                                               | 123/123                                                 |
+| `pnpm test:pos`                                                                      | 50/50                                                   |
+| `pnpm test:kitchen` (`PICKCHICK_BROWSER_PYTHON=python3`)                             | 59/59                                                   |
+| `tests/kitchen-portal` Node + Python                                                 | 18/18 + 16 OK                                           |
+| roadmap: build, `apps/roadmap/test`, `node --check`, `infra/roadmap` Python          | 7/7 + 22 OK                                             |
+| `tests/payments`                                                                     | 36/36                                                   |
+| `tests/photo-printer/client.test.mjs`                                                | 17/17                                                   |
+| `tests/load/fulfillment-capacity.test.mjs`                                           | 4/4                                                     |
+| `python3 -m unittest discover -s tests/operations`                                   | 490 OK (10 пропусков: нет caddy, PowerShell, opt-in БД) |
+| `infra/domains` Python                                                               | 12 OK                                                   |
+| `tests/pos-desktop` (`--env-file=.env`)                                              | 20: 19 прошли, 1 упал (среда)                           |
+| `tests/operations/windows-*.test.mjs`, `kitchen-lan*.test.mjs`                       | 8: 6 прошли, 2 упали (среда)                            |
+
+Три падения - ограничения этой машины, а не кода: они так же падают на `76902fa4` в отдельной
+рабочей копии (проверено): Electron-приёмка POS (`tests/pos-desktop/browser.test.mjs`, нет
+бинарника Electron, `apps/pos-desktop` вне pnpm workspace, в CI не запускается) и два теста
+TLS-шлюза кухни (`kitchen-lan.test.mjs`, `kitchen-lan-chain.test.mjs`: 403 вместо 200 на
+интерфейсе docker0 этой песочницы; в CI на GitHub-раннере проходят). Файлы этих тестов и код под
+ними с базы не менялись.
+
+Дальше: (1) с Mac - push ветки, PR в общий срез, полная CI; (2) решения владельца по
+owner-actions.md (продажи без чека, ручные возвраты, код сотрудника киоска, App Review, хранилище
+копий, Telegram-бот, домен api.pickchick.kz); (3) охраняемые выпуски по плану сводки; перед ними
+написать owner-скрипт облачных миграций по фактическому журналу VPS (060 ещё не применена) и
+инструмент edge 022 -> 023; (4) стоп комбо на самой кассе - решение о расширении меню кассы;
+(5) финансовый Mac принимает кумулятивное закрытие месяца (`204d318b`).
+
+Ветки Mac (пробное слияние во временной рабочей копии на `220ce8d8`, `git merge-tree` на
+`f02af0e8` даёт тот же список):
+`mac/codex/kiosk-cart-lines-api-1013` - 2 конфликта, оба есть и с базой
+(`docs/operations/kiosk-cart-lines-api-2026-10-13.md`, `tests/integration/device-presence.test.mjs`):
+оставить версии ветки релиза, остальное содержимое ветки уже в общем срезе;
+`mac/codex/mobile-l10n-push-1014` - 10 файлов (6 и с базой: `ComboRewardCard.tsx`,
+`combo-progress.ts`, `CatalogScreens.tsx`, `store.tsx`, `contracts/src/index.ts`,
+`KaspiCheckoutScreen.tsx`; новые из-за релиза: `KaspiPaymentState.tsx`, `AuthScreens.tsx`,
+`ProfileScreens.tsx`, `RegistrationScreen.tsx`): брать логику ветки релиза и оборачивать строки
+в `t()`/`localize()`, в contracts оставить оба экспорта; подсказки по файлам - в сводке.
+
 ## 13 октября: стоп-лист доступен управляющему
 
 Включены удалённые STOP/UNSTOP на действующих API `f01cb45f`/cloud052 и кассе
