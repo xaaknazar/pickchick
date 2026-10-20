@@ -575,3 +575,10 @@ test('a wrong or foreign PIN in the close-shift dialog keeps the cashier journal
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('terminal config accepts a 6-digit PIN pad only as an explicit 4 or 6 (6.5)', () => {
+  assert.equal(validateConfig({}).pinLength, undefined);
+  assert.equal(validateConfig({ pinLength: 6 }).pinLength, 6);
+  assert.equal(validateConfig({ pinLength: 4 }).pinLength, 4);
+  for (const pinLength of [5, 8, '6', null, 0]) assert.throws(() => validateConfig({ pinLength }));
+});

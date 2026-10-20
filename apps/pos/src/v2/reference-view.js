@@ -4,6 +4,7 @@ export class ReferenceView {
     screen: 'lock',
     tab: 'order',
     pin: '',
+    pinLength: 4,
     pinErr: '',
     pinShake: false,
     openCash: 0,
@@ -280,7 +281,9 @@ export class ReferenceView {
       offline: s.offline,
       restored: s.restored,
       queued: s.queued,
-      pinDots: [0, 1, 2, 3].map((i) => ({ bg: i < s.pin.length ? '#fff' : 'transparent' })),
+      pinDots: Array.from({ length: s.pinLength }, (_, i) => ({
+        bg: i < s.pin.length ? '#fff' : 'transparent',
+      })),
       pinShake: s.pinShake ? 'posShake .45s ease both' : 'none',
       openCashLabel: this.MONEY(s.openCash),
       openQuick: [5000, 10000, 20000, 50000].map((v) => ({
@@ -888,7 +891,7 @@ export class ReferenceView {
       diffFg: s.counted === s.drawer ? '#0B7A3B' : 'var(--red)',
       queueBg: s.queued ? '#FFF3C4' : 'rgba(18,161,80,.1)',
       queueFg: s.queued ? '#5A4600' : '#0B7A3B',
-      closePinDots: [0, 1, 2, 3].map((i) => ({
+      closePinDots: Array.from({ length: s.pinLength }, (_, i) => ({
         bg: i < s.closePin.length ? 'var(--blue)' : 'transparent',
       })),
       closeCtaBg: s.closeStep === 5 ? 'var(--n300)' : 'var(--orange)',

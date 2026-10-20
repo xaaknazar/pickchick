@@ -152,11 +152,17 @@ export function validateConfig(value = {}) {
     typeof value !== 'object' ||
     Array.isArray(value) ||
     Object.keys(value).some(
-      (key) => !['edgePort', 'branchLabel', 'categories', 'terminalId'].includes(key),
+      (key) => !['edgePort', 'branchLabel', 'categories', 'terminalId', 'pinLength'].includes(key),
     )
   )
     throw new Error('INVALID_POS_CONFIG');
-  const { edgePort = 3101, branchLabel = 'Локальная точка', categories = {}, terminalId } = value;
+  const {
+    edgePort = 3101,
+    branchLabel = 'Локальная точка',
+    categories = {},
+    terminalId,
+    pinLength,
+  } = value;
   if (
     !Number.isInteger(edgePort) ||
     edgePort < 1 ||
@@ -169,7 +175,9 @@ export function validateConfig(value = {}) {
     Array.isArray(categories) ||
     Object.keys(categories).length > 200 ||
     (terminalId !== undefined &&
-      (typeof terminalId !== 'string' || !new RegExp(`^${UUID}$`, 'i').test(terminalId)))
+      (typeof terminalId !== 'string' || !new RegExp(`^${UUID}$`, 'i').test(terminalId))) ||
+    // 6 only after every staff PIN of the branch was re-enrolled with 6 digits (6.5).
+    (pinLength !== undefined && pinLength !== 4 && pinLength !== 6)
   )
     throw new Error('INVALID_POS_CONFIG');
   for (const [id, label] of Object.entries(categories)) {
@@ -186,6 +194,7 @@ export function validateConfig(value = {}) {
     branchLabel,
     categories: { ...categories },
     ...(terminalId === undefined ? {} : { terminalId }),
+    ...(pinLength === undefined ? {} : { pinLength }),
   };
 }
 

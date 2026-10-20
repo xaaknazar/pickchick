@@ -47,6 +47,7 @@ export function createPosServer({
   branchLabel = 'Локальная точка',
   categories = {},
   terminalId,
+  pinLength,
   timeoutMs = 10000,
 } = {}) {
   if (!Number.isInteger(edgePort) || edgePort < 1 || edgePort > 65535)
@@ -56,8 +57,11 @@ export function createPosServer({
     (typeof terminalId !== 'string' || !new RegExp(`^${UUID}$`, 'i').test(terminalId))
   )
     throw new Error('Invalid terminal id');
+  if (pinLength !== undefined && pinLength !== 4 && pinLength !== 6)
+    throw new Error('Invalid PIN length');
   const config = {
     ...(terminalId === undefined ? {} : { terminalId }),
+    ...(pinLength === undefined ? {} : { pinLength }),
     branchLabel: String(branchLabel).slice(0, 120),
     categories: Object.fromEntries(
       Object.entries(categories).filter(

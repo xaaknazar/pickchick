@@ -92,3 +92,22 @@ test('web readiness proxy uses configured loopback Edge and rejects POST', async
     ]);
   }
 });
+test('web POS publishes the configured PIN length and rejects anything but 4 or 6 (6.5)', async () => {
+  const { createPosServer } = await import('../../apps/pos/server.mjs');
+  assert.throws(() => createPosServer({ pinLength: 5 }), /PIN length/);
+  for (const [options, expected] of [
+    [{}, undefined],
+    [{ pinLength: 6 }, 6],
+  ]) {
+    const pos = createPosServer({ edgePort: 9, ...options });
+    await new Promise((resolve) => pos.listen(0, '127.0.0.1', resolve));
+    try {
+      const config = await (
+        await fetch(`http://127.0.0.1:${pos.address().port}/config.json`)
+      ).json();
+      assert.equal(config.pinLength, expected);
+    } finally {
+      await new Promise((resolve) => pos.close(resolve));
+    }
+  }
+});
