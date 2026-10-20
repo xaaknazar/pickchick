@@ -747,3 +747,36 @@ test('worker attention is rate-limited while a problem lasts and reports one rec
   // Only codes and counts: no session values, phones or amounts.
   assert.doesNotMatch(JSON.stringify(stuck), /token|secret|phone|amount/i);
 });
+
+test('a session change is reported at once even while another attention is rate-limited', () => {
+  const healthy = {
+    submitted: 0,
+    checked: 0,
+    errors: 0,
+    sessionProblem: false,
+    unknownOverdue: 0,
+    deferred: 0,
+    notSent: 0,
+    pendingUnsent: 0,
+    oldestUnsentSeconds: 0,
+  };
+  const attention = new KaspiAttention(300_000);
+  const overdue = { ...healthy, unknownOverdue: 1 };
+  const down = { ...overdue, sessionProblem: true, sessionReason: 'bridge_unreachable' };
+  assert.equal(attention.next(overdue, 0).reason, 'unknown_overdue');
+  // The session is lost 30 s later: ops must not wait for the 5-minute window.
+  const lost = attention.next(down, 30_000);
+  assert.equal(lost.sessionProblem, true);
+  assert.equal(lost.reason, 'bridge_unreachable');
+  assert.equal(attention.next(down, 60_000), null);
+  // Restored while the overdue invoice remains: the session alarm closes at once.
+  const restored = attention.next(overdue, 90_000);
+  assert.equal(restored.sessionProblem, false);
+  assert.equal(restored.reason, 'unknown_overdue');
+  assert.equal(attention.next(overdue, 120_000), null);
+  assert.deepEqual(attention.next(healthy, 150_000), {
+    event: 'kaspi_remote_attention',
+    recovered: true,
+    sessionProblem: false,
+  });
+});

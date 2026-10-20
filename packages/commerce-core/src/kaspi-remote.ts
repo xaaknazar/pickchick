@@ -525,10 +525,14 @@ export const KASPI_UNSENT_ATTENTION_SECONDS = 120;
 /**
  * Worker log signal for ops (TEAM interface pay -> ops): `kaspi_remote_attention` with
  * `sessionProblem` and a short reason code, at most once per interval while a problem lasts,
- * then exactly one recovery event. Contains only counts and codes: no phone, amount or session.
+ * then exactly one recovery event. A change of the session state itself is never held back by
+ * the interval: a session lost during another alert, or a session restored while another problem
+ * remains, is reported at once (the watchdog closes the session alarm on `sessionProblem:false`).
+ * Contains only counts and codes: no phone, amount or session.
  */
 export class KaspiAttention {
   private alertedAt: number | null = null;
+  private alertedSession = false;
   constructor(private readonly intervalMs = 5 * 60_000) {}
   next(result: KaspiTickResult, now = Date.now()): Record<string, unknown> | null {
     const reason = result.sessionProblem
@@ -543,10 +547,17 @@ export class KaspiAttention {
     if (reason === null) {
       if (this.alertedAt === null) return null;
       this.alertedAt = null;
+      this.alertedSession = false;
       return { event: 'kaspi_remote_attention', recovered: true, sessionProblem: false };
     }
-    if (this.alertedAt !== null && now - this.alertedAt < this.intervalMs) return null;
+    if (
+      this.alertedAt !== null &&
+      result.sessionProblem === this.alertedSession &&
+      now - this.alertedAt < this.intervalMs
+    )
+      return null;
     this.alertedAt = now;
+    this.alertedSession = result.sessionProblem;
     return {
       event: 'kaspi_remote_attention',
       sessionProblem: result.sessionProblem,
