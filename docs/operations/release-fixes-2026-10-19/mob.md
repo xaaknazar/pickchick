@@ -176,6 +176,27 @@ EXPO_PUBLIC_SUPPORT_URL='tel:+7XXXXXXXXXX' \
 6. Цены, коммерческие условия, возвраты и фискальные чеки - решение владельца и бухгалтера.
 7. Приёмка окончательной сборки на iPhone по чек-листу аудита 14.10.
 
+## Проверки (20.10, свежая БД линии после `reset-db.sh mob`)
+
+| Набор                                                                                                                                                                                                               | Результат                             |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `pnpm test:mobile`                                                                                                                                                                                                  | 383 Node + 52 Python (1 пропуск)      |
+| `pnpm test` (unit)                                                                                                                                                                                                  | 247 из 247                            |
+| `pnpm test:integration`                                                                                                                                                                                             | 358: 355 прошли, 3 пропуска, 0 ошибок |
+| `pnpm --filter @pickchick/commerce-core test` / `test:integration`                                                                                                                                                  | 43 + 1 пропуск / 135 из 135           |
+| `pnpm contracts:check`                                                                                                                                                                                              | схемы и openapi совпадают             |
+| typecheck contracts, platform, commerce-core, customer-identity, api, mobile                                                                                                                                        | без ошибок                            |
+| ESLint и Prettier по изменённым файлам                                                                                                                                                                              | без замечаний                         |
+| Браузер, экспорт customer-auth + Kaspi: `browser_checkout_traps.py`, `browser_kaspi_checkout.py`, `browser_orders_redesign.py kaspi` (393 и 320), `browser_combo_rewards.py`, `browser_tracker_redesign.py` (kaspi) | все PASS                              |
+| Браузер, экспорт customer-auth: `browser_customer_account.py`                                                                                                                                                       | PASS, 3 размера                       |
+
+Тестовые фикстуры по умолчанию ходят на общие порты `infra/local` (55432/55433). На общей машине
+спринта интеграционные наборы запускались с переменными `EDGE_FULFILLMENT_TEST_DATABASE_URL`,
+`LOCAL_POS_DRAFT_TEST_DATABASE_URL`, `FULFILLMENT_TRANSPORT_CLOUD_TEST_DATABASE_URL`,
+`EDGE_FULFILLMENT_CLOUD_TEST_DATABASE_URL`, `COMMERCE_TEST_DATABASE_URL`, указывающими на
+частные БД линии. Без них 42 теста edge/kitchen/terminal падают с `ECONNREFUSED 55433`, это
+не связано с изменениями линии. Простаивающий watch в этом прогоне: 18 запросов за 3,2 с.
+
 ## Что не проверено
 
 - Нативная сборка iOS/Android и реальное устройство (по правилам спринта не собирались);
