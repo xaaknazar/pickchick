@@ -7,8 +7,9 @@ no bank, no real customer, no VPS request.
      support contact, the intent is cleared, the next start does not reopen checkout.
   B  /payment refused with ITEM_STOPPED: back to the cart with the reason, no automatic
      resend, no reopen after restart, the next tap quotes the current cart.
-  C  Orders tab: attention, unpaid, invoiced and long-unknown orders all lead back to the
-     list; the long-unknown payment offers the support contact at once.
+  C  Orders tab: attention, unpaid, invoiced, long-unknown and never-admitted orders all lead
+     back to the list; the long-unknown payment and the order the restaurant never admitted
+     offer the support contact at once.
   D  kitchen offline at the quote: the honest message at once, no minute of spinner.
   E  invoice in Kaspi + saved intent: closing reaches the Orders list, an older unpaid order
      opened there neither sends its invoice by itself nor takes over the intent.
@@ -32,6 +33,7 @@ BRANCH = CATALOG['branch_id']
 CUSTOMER = '40000000-0000-4000-8000-000000000001'
 ORDER = '40000000-0000-4000-8000-000000000003'
 STALE = '40000000-0000-4000-8000-000000000033'
+SILENT = '40000000-0000-4000-8000-000000000043'
 UNPAID = '40000000-0000-4000-8000-000000000013'
 INVOICED = '40000000-0000-4000-8000-000000000023'
 DRAFT_KEY = 'pickchick.commerce.pending.v1:' + CUSTOMER
@@ -264,7 +266,8 @@ def scenario_orders(browser):
     def handler(r, path, method, body):
         if path == '/v1/customer-checkout/orders' and method == 'GET':
             return fulfill(r, {'orders': [order('awaiting_payment', INVOICED), order('ready_to_pay', UNPAID),
-                                          order('attention'), {**order('checking', STALE), **stale}]})
+                                          order('attention'), {**order('checking', STALE), **stale},
+                                          {**order('awaiting_restaurant', SILENT), **stale}]})
         return False
 
     ctx, page = context(browser, state, handler)
@@ -293,6 +296,12 @@ def scenario_orders(browser):
     page.screenshot(path=str(OUT / 'C-stale-checking.png'))
     page.get_by_test_id('kaspi-close-order').click()
     expect(page.get_by_test_id('order-history-open-' + STALE)).to_be_visible(timeout=10000)
+    # Never admitted by the restaurant for two hours: no money was taken, a person explains why.
+    page.get_by_test_id('order-history-open-' + SILENT).click()
+    expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Связываемся с рестораном', timeout=10000)
+    expect(page.get_by_test_id('support-contact-fallback')).to_be_visible()
+    page.get_by_test_id('kaspi-close-order').click()
+    expect(page.get_by_test_id('order-history-open-' + SILENT)).to_be_visible(timeout=10000)
     assert state['payments'] == 0, 'returning to the list sends nothing'
     release(state)
     ctx.close()

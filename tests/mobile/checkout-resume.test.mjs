@@ -13,6 +13,7 @@ import {
   noteBankCommand,
   resumableOrder,
   staleBankAction,
+  supportAtOnce,
 } from '../../apps/mobile/src/checkout-resume.ts';
 import {
   dismissPendingPayment,
@@ -186,4 +187,20 @@ test('a bank wait past its window offers the support contact at once', () => {
     assert.equal(staleBankAction(order(phase), now), false, `${phase} still live`);
   for (const phase of ['attention', 'ready_to_pay', 'awaiting_restaurant', 'paid', 'failed'])
     assert.equal(staleBankAction(order(phase, old), now), false, phase);
+});
+
+test('a restaurant that does not admit the order for long offers the support contact', () => {
+  // Lane 0.2: «awaiting_restaurant» is closable at once; after the waiting time a person helps.
+  const silent = { createdAt: iso(-STUCK_AFTER_MS - 1000), updatedAt: iso(-STUCK_AFTER_MS - 1000) };
+  assert.equal(supportAtOnce(order('awaiting_restaurant', silent), now), true);
+  assert.equal(supportAtOnce(order('awaiting_restaurant'), now), false, 'still being admitted');
+  // A stale bank wait keeps its own rule; an unbilled or settled order needs no contact.
+  const old = {
+    createdAt: iso(-BANK_RESUME_WINDOW_MS - 1000),
+    updatedAt: iso(-BANK_RESUME_WINDOW_MS - 1000),
+  };
+  assert.equal(supportAtOnce(order('checking', old), now), true);
+  assert.equal(supportAtOnce(order('checking'), now), false);
+  for (const phase of ['ready_to_pay', 'paid', 'failed'])
+    assert.equal(supportAtOnce(order(phase, old), now), false, phase);
 });

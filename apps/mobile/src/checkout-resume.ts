@@ -54,6 +54,18 @@ export function staleBankAction(order: Order, now: number): boolean {
 }
 
 /**
+ * The payment screen offers the support contact at once: a stale bank wait, or an order the
+ * restaurant has not admitted for longer than a waiting screen offers "close" (lane 0.2:
+ * «awaiting_restaurant»). No money was taken there, but only a person can say why.
+ */
+export function supportAtOnce(order: Order, now: number): boolean {
+  if (staleBankAction(order, now)) return true;
+  if (order.phase !== 'awaiting_restaurant') return false;
+  const seen = [time(order.createdAt), time(order.updatedAt)].filter(Number.isFinite);
+  return seen.length > 0 && now - Math.max(...seen) >= STUCK_AFTER_MS;
+}
+
+/**
  * The saved intent belongs to this order. An intent without an order id meets its order only
  * through its own create command; the Orders tab never lends it to another order.
  */
