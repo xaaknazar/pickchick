@@ -392,6 +392,78 @@ test('a pending back-office stop reaches kiosk availability at once and wakes it
     assert.notEqual(stale.signature, after.signature);
   }));
 
+test('kiosk and mobile apply one combo stop rule (PM decision 1, release fixes 19.10)', () =>
+  fixture(async (f) => {
+    const payload = structuredClone(catalogPayload());
+    const sauce = payload.products.find((p) => p.id === 'sauce');
+    const option = (id, defaultQuantity) => ({
+      id,
+      label: { ru: 'Synthetic ' + id, kk: '' },
+      price_delta_minor: '0',
+      default_quantity: defaultQuantity,
+      max_quantity: 1,
+      available: true,
+      nutrition_multiplier: 1,
+      linked_product_id: null,
+    });
+    payload.products.push(
+      { ...structuredClone(sauce), id: 'fries', sku: 'FRIES' },
+      {
+        ...structuredClone(sauce),
+        id: 'duo',
+        sku: 'DUO',
+        kind: 'combo',
+        combo_components: [{ product_id: 'fries', quantity: 1 }],
+        // 'sauce' repeats a product id (follows its stop); 'water' names no product.
+        modifier_groups: [
+          {
+            id: 'drink',
+            title: { ru: 'Synthetic drink', kk: '' },
+            min: 1,
+            max: 1,
+            options: [option('sauce', 0), option('water', 1)],
+          },
+        ],
+      },
+    );
+    await f.publish(1, CatalogPayloadSchema.parse(payload));
+    const stop = (ids) =>
+      f.pool.query('UPDATE cloud_branch_availability SET stopped_ids=$1::uuid[]', [ids]);
+    const [fries] = localSelectionIds(f.branch, 'fries', []),
+      [sauceStop] = localSelectionIds(f.branch, 'sauce', []),
+      water = localSelectionIds(f.branch, 'duo', [{ group_id: 'drink', option_id: 'water' }])[1];
+    /** Both channels, in the mobile body's shape; they must agree on every product. */
+    const views = async () => {
+      const kiosk = (await f.kioskCheckout.availability(f.guest)).products.map((p) => ({
+        id: p.productId,
+        available: p.available,
+        stoppedOptions: p.stoppedOptions.map((o) => ({
+          groupId: o.group_id,
+          optionId: o.option_id,
+        })),
+      }));
+      const mobile = (await f.customer.availability()).products;
+      assert.deepEqual(kiosk, mobile);
+      return Object.fromEntries(mobile.map((p) => [p.id, p]));
+    };
+    // A stopped fixed component stops the combo.
+    await stop([fries]);
+    let v = await views();
+    assert.equal(v.duo.available, false);
+    assert.equal(v.burger.available, true);
+    // A stopped product hides the options that point to it; the combo stays on sale.
+    await stop([sauceStop]);
+    v = await views();
+    assert.equal(v.duo.available, true);
+    assert.deepEqual(v.duo.stoppedOptions, [{ groupId: 'drink', optionId: 'sauce' }]);
+    assert.deepEqual(v.burger.stoppedOptions, [{ groupId: 'extra', optionId: 'sauce' }]);
+    // Every option of the required group stopped: the combo cannot be sold.
+    await stop([sauceStop, water]);
+    v = await views();
+    assert.equal(v.duo.available, false);
+    assert.equal(v.burger.available, true);
+  }));
+
 test('disabled mobile checkout keeps the disabled availability body and no catalog version', () =>
   fixture(async (f) => {
     const disabled = new CustomerCheckout(f.pool, null);
