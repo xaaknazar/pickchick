@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID, scrypt, timingSafeEqual, createHash } from 'node:crypto';
 import { lstat, readFile } from 'node:fs/promises';
+import { isIP } from 'node:net';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 const derive = promisify(scrypt);
@@ -113,6 +114,107 @@ export async function readStaffConfig(path, options) {
 export async function loadStaffAccess(path, options = {}) {
   return createStaffAccess(await readStaffConfig(path, options), options);
 }
+const PRIVATE_PEER = [
+  /^10\./,
+  /^172\.(1[6-9]|2[0-9]|3[01])\./,
+  /^192\.168\./,
+  /^127\./,
+  /^::1$/,
+  /^f[cd][0-9a-f]{2}:/,
+];
+const unmapped = (value) =>
+  value.startsWith('::ffff:') && isIP(value.slice(7)) === 4 ? value.slice(7) : value.toLowerCase();
+/** IPv6 clients are limited per /64: one subscriber usually owns the whole block. */
+function addressKey(value) {
+  const ip = unmapped(value);
+  if (isIP(ip) !== 6) return ip;
+  const groups = (part) =>
+    part ? part.split(':').flatMap((g) => (g.includes('.') ? ['0', '0'] : [g])) : [];
+  const [head, tail] = ip.split('%')[0].split('::');
+  const left = groups(head),
+    right = groups(tail);
+  const full =
+    tail === undefined
+      ? left
+      : [...left, ...Array(8 - left.length - right.length).fill('0'), ...right];
+  return (
+    full
+      .slice(0, 4)
+      .map((g) => parseInt(g, 16).toString(16))
+      .join(':') + '::/64'
+  );
+}
+/**
+ * The deployed container has no published port: only the outer Caddy (a private Docker peer)
+ * reaches it, and Caddy replaces X-Forwarded-For with the client it saw. The rightmost value is
+ * that observation; anything left of it was supplied by the client. A public peer is the client.
+ */
+export function staffClientAddress(req) {
+  const peer = unmapped(String(req.socket?.remoteAddress ?? ''));
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && PRIVATE_PEER.some((re) => re.test(peer))) {
+    const last = forwarded.split(',').at(-1)?.trim() ?? '';
+    if (isIP(last)) return addressKey(last);
+  }
+  return addressKey(peer);
+}
+const FAILURE_WINDOW_MS = 15 * 60 * 1000;
+/**
+ * Failed password checks only. The first `free` failures within the window cost nothing; each
+ * further failure locks the key for base * 2^n, capped. Locked keys are refused before scrypt,
+ * so they cannot extend their own lock. Bounded: the oldest entries are evicted first.
+ */
+function backoff({ free, baseMs, maxMs, size }, now) {
+  const entries = new Map();
+  const current = (key) => {
+    const entry = entries.get(key);
+    if (entry && entry.last + FAILURE_WINDOW_MS <= now() && entry.until <= now()) {
+      entries.delete(key);
+      return undefined;
+    }
+    return entry;
+  };
+  return {
+    retryAfter(key) {
+      const entry = current(key);
+      return entry && entry.until > now() ? Math.ceil((entry.until - now()) / 1000) : 0;
+    },
+    fail(key) {
+      const entry = current(key) ?? { count: 0, until: 0, last: 0 };
+      entry.count++;
+      entry.last = now();
+      if (entry.count >= free)
+        entry.until = now() + Math.min(baseMs * 2 ** (entry.count - free), maxMs);
+      entries.delete(key);
+      entries.set(key, entry);
+      while (entries.size > size) entries.delete(entries.keys().next().value);
+    },
+    clear: (key) => entries.delete(key),
+    prune() {
+      for (const key of [...entries.keys()]) current(key);
+    },
+  };
+}
+/** scrypt (N=2^17) holds 128 MiB per call: two at once, a short queue, then 429. */
+function verificationSlots(active = 2, waiting = 8) {
+  let running = 0;
+  const queue = [];
+  return {
+    async run(task) {
+      if (running >= active) {
+        if (queue.length >= waiting) return { busy: true };
+        await new Promise((resolve) => queue.push(resolve));
+      } else running++;
+      try {
+        return { value: await task() };
+      } finally {
+        const next = queue.shift();
+        if (next) next();
+        else running--;
+      }
+    },
+  };
+}
 /** One deployed instance. Restart/revocation logs out all sessions; no financial state lives here. */
 export function createStaffAccess(raw, { now = Date.now } = {}) {
   const config = parseStaffConfig(raw);
@@ -120,12 +222,15 @@ export function createStaffAccess(raw, { now = Date.now } = {}) {
   // An unknown login still runs one scrypt, so timing does not reveal which usernames exist.
   const decoy = { salt: randomBytes(16).toString('hex'), hash: randomBytes(32).toString('hex') };
   const sessions = new Map();
-  let attempts = [],
-    verifying = false;
+  // Per client address and per login name; no global window that anonymous traffic can fill.
+  const byAddress = backoff({ free: 5, baseMs: 30_000, maxMs: 15 * 60_000, size: 4096 }, now);
+  const byLogin = backoff({ free: 10, baseMs: 30_000, maxMs: 5 * 60_000, size: 1024 }, now);
+  const slots = verificationSlots();
   const clearCookie = `${cookieName}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`;
   const cleanup = () => {
     for (const [id, s] of sessions) if (s.expires <= now() || s.idle <= now()) sessions.delete(id);
-    attempts = attempts.filter((t) => t > now() - 15 * 60 * 1000);
+    byAddress.prune();
+    byLogin.prune();
   };
   return async (req, res, send) => {
     cleanup();
@@ -157,12 +262,14 @@ export function createStaffAccess(raw, { now = Date.now } = {}) {
       return false;
     }
     if (path === '/backoffice/auth/login' && req.method === 'POST') {
-      if (verifying || attempts.length >= 30) {
-        res.setHeader('Retry-After', '900');
+      const limited = (seconds) => {
+        res.setHeader('Retry-After', String(seconds));
         send(429, { code: 'RATE_LIMITED' });
         return false;
-      }
-      attempts.push(now());
+      };
+      const address = staffClientAddress(req);
+      const addressWait = byAddress.retryAfter(address);
+      if (addressWait) return limited(addressWait);
       if (req.headers['content-type'] !== 'application/json') {
         send(400, { code: 'INVALID_REQUEST' });
         return false;
@@ -191,25 +298,31 @@ export function createStaffAccess(raw, { now = Date.now } = {}) {
         send(400, { code: 'INVALID_REQUEST' });
         return false;
       }
-      if (verifying) {
-        send(429, { code: 'RATE_LIMITED' });
-        return false;
-      }
-      verifying = true;
-      let user;
+      // Unknown names are limited exactly like real ones, so a 429 does not reveal accounts.
+      const login = data.username.toLowerCase().trim();
+      const loginWait = byLogin.retryAfter(login);
+      if (loginWait) return limited(loginWait);
+      let checked;
       try {
-        const candidate = accounts.get(data.username.toLowerCase().trim());
-        const target = candidate ?? decoy;
-        const derived = await derive(data.password, target.salt, 32, params);
-        user = timingSafeEqual(derived, Buffer.from(target.hash, 'hex')) ? candidate : undefined;
+        checked = await slots.run(async () => {
+          const candidate = accounts.get(login);
+          const target = candidate ?? decoy;
+          const derived = await derive(data.password, target.salt, 32, params);
+          return timingSafeEqual(derived, Buffer.from(target.hash, 'hex')) ? candidate : undefined;
+        });
       } finally {
-        verifying = false;
         data.password = '';
       }
+      if (checked.busy) return limited(5);
+      const user = checked.value;
       if (!user) {
+        byAddress.fail(address);
+        byLogin.fail(login);
         send(401, { code: 'UNAUTHORIZED' });
         return false;
       }
+      byAddress.clear(address);
+      byLogin.clear(login);
       if (sessions.size >= 64) {
         send(429, { code: 'RATE_LIMITED' });
         return false;
