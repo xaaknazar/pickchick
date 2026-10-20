@@ -79,6 +79,9 @@ function makeCore(): CustomerSessionCore {
     request: createCustomerRequest(API_URL, customerFetch),
   });
 }
+/** Audit 2.7: login is Telegram-only for now; say so instead of "try later". */
+export const TELEGRAM_REQUIRED_MESSAGE =
+  'Не удалось отправить код в Telegram на этот номер. Сейчас вход работает только через Telegram: установите Telegram на этот номер и попробуйте снова. Если Telegram нет, обратитесь в поддержку.';
 function message(error: unknown): string {
   if (!(error instanceof CustomerSessionError))
     return 'Не удалось прочитать или сохранить доступ на устройстве. Попробуйте ещё раз.';
@@ -93,6 +96,7 @@ function message(error: unknown): string {
     CONSENT_REQUIRED: 'Подтвердите условия заказа и обработку данных для входа.',
     INVALID_PROFILE: 'Проверьте имя и дату рождения.',
     SERVICE_UNAVAILABLE: 'Этот способ входа сейчас недоступен. Попробуйте позднее.',
+    TELEGRAM_UNAVAILABLE: TELEGRAM_REQUIRED_MESSAGE,
     NETWORK_UNAVAILABLE:
       'Нет связи с сервером. Сохранённый вход останется на устройстве. Попробуйте ещё раз.',
     RESTORE_REQUIRED: 'Не удалось прочитать сохранённый вход. Повторите восстановление.',

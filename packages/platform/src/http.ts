@@ -71,15 +71,19 @@ class SafeExceptionFilter implements ExceptionFilter {
         ? ErrorSchema.shape.code.safeParse(details.code)
         : null;
     const accept = request.headers.accept;
-    const preciseCheckout =
-      typeof accept === 'string' &&
-      accept
-        .split(',')
-        .some((part) => part.trim() === 'application/json; profile=pickchick.checkout-errors-v1');
+    const profiles = new Set(
+      typeof accept === 'string' ? accept.split(',').map((part) => part.trim()) : [],
+    );
+    const preciseCheckout = profiles.has('application/json; profile=pickchick.checkout-errors-v1');
+    // KITCHEN_OFFLINE joined the contract after mobile build 20 shipped with v1: that bundle
+    // validates error bodies against its own enum, so only v2 clients receive the new code.
+    const kitchenOfflineAware = profiles.has(
+      'application/json; profile=pickchick.checkout-errors-v2',
+    );
     const proposed = declared?.success ? declared.data : defaultCode;
     const code =
-      !preciseCheckout &&
-      ['RESTAURANT_CLOSED', 'AVAILABILITY_STALE', 'KITCHEN_OFFLINE'].includes(proposed)
+      (proposed === 'KITCHEN_OFFLINE' && !kitchenOfflineAware) ||
+      (!preciseCheckout && ['RESTAURANT_CLOSED', 'AVAILABILITY_STALE'].includes(proposed))
         ? defaultCode
         : proposed;
     const traceId = request.traceId ?? randomUUID();

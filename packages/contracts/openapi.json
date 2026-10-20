@@ -12267,6 +12267,7 @@
               "AVAILABILITY_STALE",
               "BRANCH_UNAVAILABLE",
               "ITEM_STOPPED",
+              "KITCHEN_OFFLINE",
               "CASH_SHIFT_REQUIRED",
               "SHIFT_CLOSED",
               "CONFLICT",
@@ -20977,10 +20978,17 @@
             ]
           },
           "gender": {
-            "type": "string",
-            "enum": [
-              "female",
-              "male"
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "female",
+                  "male"
+                ]
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "marketing_opt_in": {

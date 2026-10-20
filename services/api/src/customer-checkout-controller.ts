@@ -28,6 +28,9 @@ import {
   CommerceError,
   MenuChangedError,
   CustomerCheckout,
+  checkoutOrderMark,
+  checkoutWatchCloudTables,
+  watchCheckoutOrder,
   customerCheckoutOptions,
   comboProgramOptions,
   pollAvailability,
@@ -41,6 +44,17 @@ export class CustomerCheckoutController implements OnModuleInit, OnModuleDestroy
   private readonly checkout: CustomerCheckout;
   private unpaidSweep: ReturnType<typeof setInterval> | undefined;
   private sweeping = false;
+  private readonly pool: Resources['pool'];
+  /** Whether the cloud kitchen tables are readable (schema 054/056 and grants); rechecked each minute. */
+  private cloudTables: { readable: boolean; at: number } | null = null;
+  private async watchCloudTables() {
+    if (!this.cloudTables || Date.now() - this.cloudTables.at > 60_000)
+      this.cloudTables = {
+        readable: await checkoutWatchCloudTables(this.pool),
+        at: Date.now(),
+      };
+    return this.cloudTables.readable;
+  }
   private readonly mediaEnabled: boolean;
   private availabilityCache: {
     revision: number;
@@ -89,6 +103,7 @@ export class CustomerCheckoutController implements OnModuleInit, OnModuleDestroy
     @Inject(RESOURCE) resources: Resources,
     @Inject(CatalogPublicationListener) private readonly publications: CatalogPublicationListener,
   ) {
+    this.pool = resources.pool;
     this.checkout = new CustomerCheckout(
       resources.pool,
       customerCheckoutOptions(process.env),
@@ -340,12 +355,19 @@ export class CustomerCheckoutController implements OnModuleInit, OnModuleDestroy
       };
       response.once('close', onClose);
       try {
-        let order = await this.checkout.read(id, orderId);
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId))
+          throw new CommerceError('INVALID');
+        const cloud = await this.watchCloudTables();
         // Long poll reads local projections only; never calls Kaspi or creates invoices.
-        while (!disconnected && order.revision === after && Date.now() < deadline) {
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          order = await this.checkout.read(id, orderId);
-        }
+        // Audit 2.8: one full (ownership-checked) read, then a one-statement change mark each
+        // second; the full read and its row lock repeat only when the mark moves.
+        const order = await watchCheckoutOrder({
+          after,
+          deadline,
+          stopped: () => disconnected,
+          mark: () => checkoutOrderMark(this.pool, orderId, cloud),
+          read: () => this.checkout.read(id, orderId),
+        });
         return checkoutRepresentation(order, accept);
       } finally {
         response.off('close', onClose);

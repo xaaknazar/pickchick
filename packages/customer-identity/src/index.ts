@@ -909,7 +909,8 @@ export class CustomerIdentity {
           [
             customer.id,
             encrypt(config.piiKey, `profile:${customer.id}`, profile),
-            hasProfile && profile.gender !== null,
+            // Audit 7.7: every profile field is voluntary; saving the form completes it.
+            hasProfile,
             now,
           ],
         )

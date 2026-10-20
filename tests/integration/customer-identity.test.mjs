@@ -1624,12 +1624,25 @@ test('four-digit Telegram challenge survives restart, enforces attempt budget an
     );
     const session = await restart.verifyOtp(verify);
     assert.deepEqual(await restart.verifyOtp(verify), session);
-    await restart.patchMe(session.access_token, { nickname: 'Имя' });
+    // Audit 7.7: gender is a voluntary field, as in the personal-data documents. A saved
+    // profile without it is complete; an existing value can be set and cleared again.
     assert.equal((await restart.me(session.access_token)).customer.profile_completed_at, null);
+    await restart.patchMe(session.access_token, { marketing_opt_in: false });
+    assert.equal((await restart.me(session.access_token)).customer.profile_completed_at, null);
+    await restart.patchMe(session.access_token, { nickname: 'Имя', birth_date: null });
+    const completed = (await restart.me(session.access_token)).customer;
+    assert.ok(completed.profile_completed_at);
+    assert.equal(completed.gender, null);
+    assert.equal(
+      (await restart.patchMe(session.access_token, { gender: 'female' })).customer.gender,
+      'female',
+    );
+    const cleared = (await restart.patchMe(session.access_token, { gender: null })).customer;
+    assert.equal(cleared.gender, null);
+    assert.equal(cleared.nickname, 'Имя');
+    assert.ok(cleared.profile_completed_at);
     await assert.rejects(
-      restart.patchMe(session.access_token, { gender: null }),
+      restart.patchMe(session.access_token, { gender: 'other' }),
       error('INVALID_REQUEST'),
     );
-    await restart.patchMe(session.access_token, { gender: 'female' });
-    assert.ok((await restart.me(session.access_token)).customer.profile_completed_at);
   }));

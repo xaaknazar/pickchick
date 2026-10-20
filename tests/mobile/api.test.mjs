@@ -48,18 +48,39 @@ test('release config and client URL are identical and keep transactions disabled
   assert.equal(expo.ios.infoPlist.NSAppTransportSecurity, undefined);
 });
 
-test('unknown environments or new feature flags fail closed', () => {
-  assert.deepEqual(parseCapabilities(capabilities), capabilities);
+test('production and future capabilities never break the menu; test features stay opt-in', () => {
+  // Audit 2.2: any value other than the staging pilot used to throw, so moving the server to
+  // production (or adding a flag) would have broken menu loading for every installed copy.
+  // Payments are decided by /v1/customer-checkout/config, not by these informational flags.
+  const pilot = {
+    ...capabilities,
+    data_mode: 'pilot',
+    features: { ...capabilities.features, phone_auth: true, test_order_flow: true },
+  };
+  assert.equal(parseCapabilities(pilot).features.test_order_flow, true);
+  assert.equal(parseCapabilities(capabilities).environment, 'staging');
   for (const changes of [
     { environment: 'production' },
+    { environment: 'something-new' },
     { schema_version: 2 },
     { data_mode: 'live' },
     { ordering_enabled: true },
     { features: {} },
-    { features: { ...capabilities.features, payments: true } },
+    { features: { ...capabilities.features, payments: true, checkout: true, brand_new: 1 } },
+    { notice: { ru: 'Новое', kk: 'Жаңа' } },
   ]) {
-    assert.throws(() => parseCapabilities({ ...capabilities, ...changes }));
+    const parsed = parseCapabilities({ ...capabilities, ...changes });
+    assert.equal(parsed.features.test_order_flow, false);
+    assert.equal(parsed.features.unpaid_test_orders, false);
   }
+  assert.equal(
+    parseCapabilities({ ...pilot, environment: 'production' }).environment,
+    'production',
+  );
+  // A future schema cannot switch on synthetic TEST ordering by reusing a flag name.
+  assert.equal(parseCapabilities({ ...pilot, schema_version: 2 }).features.test_order_flow, false);
+  for (const garbage of [null, 'staging', [], 42])
+    assert.throws(() => parseCapabilities(garbage), /Invalid capabilities/);
 });
 
 test('catalog reads only public GET routes without cookies or auth; validates branch ownership', async (t) => {
@@ -251,13 +272,20 @@ test('a stalled full-catalog GET is aborted at its original ten-second deadline 
   assert.equal(passedSignal.aborted, true);
 });
 
-test('pilot capabilities expose phone identity while keeping commercial actions disabled', () => {
+test('pilot capabilities expose phone identity; commercial flags are informational only', () => {
   const pilot = {
     ...capabilities,
     data_mode: 'pilot',
     features: { ...capabilities.features, phone_auth: true },
   };
   assert.equal(parseCapabilities(pilot).features.phone_auth, true);
-  for (const flags of [{ phone_auth: false }, { payments: true }, { fiscal: true }])
-    assert.throws(() => parseCapabilities({ ...pilot, features: { ...pilot.features, ...flags } }));
+  // The parsed shape carries no payment/fiscal switch the app could act on.
+  for (const flags of [{ phone_auth: false }, { payments: true }, { fiscal: true }]) {
+    const parsed = parseCapabilities({ ...pilot, features: { ...pilot.features, ...flags } });
+    assert.deepEqual(Object.keys(parsed.features).sort(), [
+      'phone_auth',
+      'test_order_flow',
+      'unpaid_test_orders',
+    ]);
+  }
 });

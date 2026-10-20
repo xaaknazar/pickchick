@@ -458,12 +458,19 @@ export class CustomerSessionCore {
       } catch (error) {
         // Definitive validation/rate/conflict replies did not leave a usable challenge.
         // Unknown transport or provider outcomes retain their original key for safe retry.
-        if (
-          error instanceof CustomerSessionError &&
-          error.authoritative &&
-          [400, 409, 429].includes(error.status)
-        )
+        const rejected =
+          error instanceof CustomerSessionError && error.authoritative ? error : null;
+        // Audit 2.7: with Telegram as the only channel the server answers 503 when the number has
+        // no Telegram (the gateway rejected it). Replaying that request id can never succeed, so
+        // the next attempt (after installing Telegram) starts a new request.
+        const telegramOnly =
+          (channel === 'auto' || channel === 'telegram') &&
+          !this.config.whatsappFallbackEnabled &&
+          this.config.channels.every((value) => value === 'telegram');
+        const undelivered = rejected?.status === 503 && telegramOnly;
+        if ((rejected && [400, 409, 429].includes(rejected.status)) || undelivered)
           await this.persist({ ...s, otp_request: null });
+        if (undelivered) throw new CustomerSessionError('TELEGRAM_UNAVAILABLE', 503, true);
         throw error;
       }
       challenge.deliveryConsentVersion = s.otp_request?.delivery_consent?.privacy_version;
@@ -647,12 +654,15 @@ export class CustomerSessionCore {
     return this.serial(async () => {
       if (this.current().closing) throw new CustomerSessionError('LOGOUT_PENDING');
       const profile = normalizeProfileDetails(input, this.io.now());
-      if (!profile || profile.gender === null) throw new CustomerSessionError('INVALID_PROFILE');
+      if (!profile) throw new CustomerSessionError('INVALID_PROFILE');
+      // Gender is voluntary (audit 7.7). An unset value is omitted so servers before that change
+      // still accept the form; only removing a saved value sends an explicit null.
+      const savedGender = this.current().tokens?.customer.gender ?? null;
       const v = object(
         await this.authenticated('/v1/customers/me', 'PATCH', {
           nickname: profile.nickname,
           birth_date: profile.birthDate,
-          gender: profile.gender,
+          ...(profile.gender !== null || savedGender !== null ? { gender: profile.gender } : {}),
         }),
       );
       const s = this.current();
