@@ -37,7 +37,7 @@ import {
 } from '@pickchick/commerce-core';
 import { catalogMediaOptions } from '@pickchick/catalog-admin';
 import { checkoutRepresentation } from './customer-checkout-response.js';
-import { RESOURCE, Resources } from '@pickchick/platform';
+import { LongPollRoute, longPollMayWait, RESOURCE, Resources } from '@pickchick/platform';
 
 @Controller('v1/customer-checkout')
 export class CustomerCheckoutController implements OnModuleInit, OnModuleDestroy {
@@ -338,7 +338,9 @@ export class CustomerCheckoutController implements OnModuleInit, OnModuleDestroy
       checkoutRepresentation(await this.checkout.read(id, orderId), accept),
     );
   }
-  @Get('orders/:orderId/watch') watch(
+  @Get('orders/:orderId/watch')
+  @LongPollRoute()
+  watch(
     @Param('orderId') orderId: string,
     @Query('after') after: string,
     @Res({ passthrough: true }) response: ServerResponse,
@@ -348,7 +350,8 @@ export class CustomerCheckoutController implements OnModuleInit, OnModuleDestroy
     response.setHeader('Cache-Control', 'no-store');
     return this.execute(auth, async (id) => {
       if (!/^[a-f0-9]{64}$/.test(after ?? '')) throw new CommerceError('INVALID');
-      const deadline = Date.now() + 20000;
+      // Admission overflow: one read of the current order, the same answer as a timed-out wait.
+      const deadline = Date.now() + (longPollMayWait(response.req) ? 20000 : 0);
       let disconnected = false;
       const onClose = () => {
         disconnected = true;

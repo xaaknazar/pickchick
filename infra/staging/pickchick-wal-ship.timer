@@ -1,0 +1,11 @@
+[Unit]
+Description=Ship archived PickChick WAL every minute (PITR option)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=10s
+Unit=pickchick-wal-ship.service
+
+[Install]
+WantedBy=timers.target
