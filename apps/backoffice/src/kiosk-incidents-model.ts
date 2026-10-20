@@ -125,6 +125,9 @@ export class KioskIncidentsModel {
   /** Releases the kiosk; the same input repeats with the same request id (idempotent). */
   async accept(candidate: KioskIncidentCandidate, check: KaspiCheck, note: string) {
     if (this.busy || this.data?.role !== 'manager') throw new ApiError('FORBIDDEN');
+    // The Kaspi Pay finding is always stated by the manager, never assumed (review 19.10).
+    if (check !== 'payment_found' && check !== 'payment_not_found')
+      throw new ApiError('INVALID_REQUEST');
     const body = {
       order_id: candidate.order_id,
       attempt_id: candidate.attempt_id,

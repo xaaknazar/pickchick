@@ -16,7 +16,10 @@ const attemptStates: Record<string, string> = {
   failed: 'банк отклонил',
   succeeded: 'оплата получена',
 };
-const checks: { value: KaspiCheck; label: string }[] = [
+// No default: the manager states what Kaspi Pay shows (review 19.10), a preselected «оплаты нет»
+// could send a guest who has paid to pay again.
+const checks: { value: KaspiCheck | ''; label: string }[] = [
+  { value: '', label: 'Выберите результат проверки' },
   { value: 'payment_not_found', label: 'В Kaspi Pay оплаты нет' },
   { value: 'payment_found', label: 'В Kaspi Pay оплата есть' },
 ];
@@ -154,7 +157,7 @@ export class KioskIncidentsView {
     title.id = 'kiosk-incident-' + crypto.randomUUID();
     d.setAttribute('aria-labelledby', title.id);
     d.addEventListener('close', () => d.remove());
-    let kaspi: KaspiCheck = 'payment_not_found',
+    let kaspi: KaspiCheck | '' = '',
       note = '',
       understood = false;
     d.append(
@@ -169,7 +172,7 @@ export class KioskIncidentsView {
         kaspi,
         checks,
         (v) => {
-          kaspi = v as KaspiCheck;
+          kaspi = v === 'payment_found' || v === 'payment_not_found' ? v : '';
         },
         'kiosk-incident-kaspi',
       ),
@@ -197,8 +200,9 @@ export class KioskIncidentsView {
       'Освободить киоск',
       () =>
         void (async () => {
-          if (note.trim().length < 3 || !understood) {
-            error.textContent = 'Заполните комментарий (от 3 символов) и подтвердите условие.';
+          if (!kaspi || note.trim().length < 3 || !understood) {
+            error.textContent =
+              'Выберите, что показывает Kaspi Pay, заполните комментарий (от 3 символов) и подтвердите условие.';
             return;
           }
           send.disabled = true;

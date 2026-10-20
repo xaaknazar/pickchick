@@ -4,6 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { allowed } from '../../apps/backoffice/server.mjs';
 import { ApiError, allowedPath } from '../../apps/backoffice/dist/api.js';
 import {
@@ -109,6 +110,29 @@ test('a lost answer repeats with the same request id; analysts cannot decide', a
   await assert.rejects(analyst.accept(c, 'payment_not_found', 'Оплаты нет'), {
     code: 'FORBIDDEN',
   });
+});
+
+// Review 19.10: the Kaspi Pay finding is never assumed; nothing is sent without it.
+test('a decision without an explicit Kaspi Pay finding is never sent', async () => {
+  const c = candidate();
+  const posts = [];
+  const model = new KioskIncidentsModel(
+    async (path, request) => {
+      if (request) posts.push(request);
+      return request ? { kiosk: 'session_end_allowed' } : list('manager', [c]);
+    },
+    () => {},
+  );
+  await model.load(randomUUID(), branch);
+  for (const check of ['', undefined, 'paid'])
+    await assert.rejects(model.accept(c, check, 'Проверено'), { code: 'INVALID_REQUEST' });
+  assert.equal(posts.length, 0);
+  const view = readFileSync(
+    new URL('../../apps/backoffice/src/components/KioskIncidentsView.ts', import.meta.url),
+    'utf8',
+  );
+  assert.match(view, /let kaspi: KaspiCheck \| '' = ''/);
+  assert.match(view, /if \(!kaspi \|\|/);
 });
 
 test('responses are checked and the staff texts are plain and honest', () => {
