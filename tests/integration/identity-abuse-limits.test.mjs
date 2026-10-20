@@ -200,6 +200,44 @@ test('a locked phone refuses the correct code of a live challenge', async () =>
     await assert.rejects(ctx.verify(third, third.code), failsWith('RATE_LIMITED'));
   }));
 
+test("guessing cannot lock the owner out of the device that already held the owner's session", async () =>
+  fixture(async (ctx) => {
+    const victim = phoneOf(5);
+    const owner = await ctx.login(victim, { ip: '198.51.100.40' });
+    // Signed out (or the session lifetime ended): the owner will need a new code here.
+    await ctx.make().logout(owner.session.access_token);
+    await ctx.age();
+    // Someone else guesses from fresh devices until the phone is locked (six wrong codes).
+    for (const ip of ['203.0.113.40', '203.0.113.41']) {
+      const challenge = await ctx.request(victim, { ip });
+      for (let i = 0; i < 3; i++)
+        await assert.rejects(
+          ctx.verify(challenge, ctx.wrong(challenge.code), ctx.make()),
+          failsWith('UNAUTHORIZED'),
+        );
+      await ctx.age();
+    }
+    await assert.rejects(ctx.request(victim, { ip: '203.0.113.42' }), failsWith('RATE_LIMITED'));
+    // The owner's own device (its device_id never left it) still gets a code and signs in;
+    // its own typo still counts as a failure.
+    const again = await ctx.request(victim, { ip: '198.51.100.40', device: owner.device });
+    assert.ok(again.code);
+    await assert.rejects(ctx.verify(again, ctx.wrong(again.code)), failsWith('UNAUTHORIZED'));
+    const session = await ctx.verify(again, again.code);
+    assert.equal(session.customer.id, owner.session.customer.id);
+    assert.equal(
+      (
+        await ctx.pool.query(
+          'SELECT coalesce(sum(failures),0)::int AS n FROM identity_otp_failures',
+        )
+      ).rows[0].n,
+      7,
+    );
+    // Every other device stays locked.
+    await ctx.age();
+    await assert.rejects(ctx.request(victim, { ip: '203.0.113.43' }), failsWith('RATE_LIMITED'));
+  }));
+
 // --- 5.3 / 2.6: budget and shared addresses -------------------------------------------------
 
 test('returning customers keep a reserve when new numbers use up their share of the day', async () =>

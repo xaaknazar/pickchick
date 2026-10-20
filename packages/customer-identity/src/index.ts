@@ -159,8 +159,18 @@ export class CustomerIdentity {
       ? review.codeDigest
       : null;
   }
-  /** Failed code checks for this phone across all its challenges (hour buckets, 30 days). */
-  private async phoneLocked(db: DatabaseClient, lookup: string, now: Date): Promise<boolean> {
+  /**
+   * Failed code checks for this phone across all its challenges (hour buckets, 30 days).
+   * A device that already held a session of this phone's customer is the owner's own device
+   * (its random device_id never leaves it), so guessing by others cannot lock the owner out
+   * of signing in again there, for example after the session lifetime ended.
+   */
+  private async phoneLocked(
+    db: DatabaseClient,
+    lookup: string,
+    deviceHash: string,
+    now: Date,
+  ): Promise<boolean> {
     const row = (
       await db.query<{ day: string; month: string }>(
         `SELECT coalesce(sum(failures) FILTER (WHERE failure_hour>$2::timestamptz-interval '24 hours'),0)::text AS day,
@@ -169,10 +179,17 @@ export class CustomerIdentity {
         [lookup, now],
       )
     ).rows[0]!;
-    return (
-      Number(row.day) >= OTP_LIMITS.phoneFailuresDay ||
-      Number(row.month) >= OTP_LIMITS.phoneFailuresMonth
+    if (
+      Number(row.day) < OTP_LIMITS.phoneFailuresDay &&
+      Number(row.month) < OTP_LIMITS.phoneFailuresMonth
+    )
+      return false;
+    const known = await db.query(
+      `SELECT 1 FROM identity_sessions s JOIN identity_customers c ON c.id=s.customer_id
+       WHERE c.phone_lookup=$1 AND c.deleted_at IS NULL AND s.device_hash=$2 LIMIT 1`,
+      [lookup, deviceHash],
     );
+    return known.rowCount === 0;
   }
   private sessionExpired(session: SessionRow, now: Date): boolean {
     const config = this.options.enabled ? this.options : null;
@@ -347,7 +364,7 @@ export class CustomerIdentity {
         // Per phone first: a shared carrier address must not decide a real customer's login.
         Number(counts.phone_hour) >= 5 ||
         Number(counts.phone_day) >= 10 ||
-        (await this.phoneLocked(db, phoneHash, now)) ||
+        (await this.phoneLocked(db, phoneHash, deviceHash, now)) ||
         Number(counts.device_hour) >= 10 ||
         Number(counts.device_day) >= 30 ||
         Number(counts.ip_open_hour) >= limits.addressOpenHour ||
@@ -598,7 +615,8 @@ export class CustomerIdentity {
         )
           return fail('UNAUTHORIZED');
         // Too many wrong codes for this phone across challenges: no further guess is evaluated.
-        if (await this.phoneLocked(db, challenge.phone_lookup, now)) return fail('RATE_LIMITED');
+        if (await this.phoneLocked(db, challenge.phone_lookup, deviceHash, now))
+          return fail('RATE_LIMITED');
         const review = challenge.delivery_provider === REVIEW_PROVIDER;
         if (review && !this.options.reviewAccount?.enabled) return fail('UNAUTHORIZED');
         const correct = equalHash(
