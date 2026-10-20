@@ -36,6 +36,24 @@ export const WATCHDOG_SQL = Object.freeze({
       AND e.created_at > clock_timestamp() - interval '60 minutes'
       AND NOT EXISTS (SELECT 1 FROM commerce_cancellation_intents i WHERE i.order_id = e.order_id)
     GROUP BY p.provider ORDER BY p.provider`,
+  // Kitchen admission health from the database, wherever the fulfillment worker runs (the
+  // Windows cashier service logs are not visible here): events the cashier edge has not taken.
+  // Bounded to six hours so abandoned history cannot keep an alert open forever.
+  kitchenBacklog: `SELECT
+      count(*) FILTER (WHERE e.event_type = 'edge.kitchen_admission_requested')::int AS kitchen,
+      count(*) FILTER (WHERE e.event_type = 'edge.admission_requested')::int AS admission,
+      COALESCE(floor(extract(epoch FROM clock_timestamp() - min(e.created_at))), 0)::bigint::text
+        AS oldest_seconds
+    FROM commerce_outbox e
+    JOIN commerce_orders o ON o.id = e.order_id AND NOT o.attention_required
+    WHERE e.event_type IN ('edge.kitchen_admission_requested', 'edge.admission_requested')
+      AND e.acknowledged_at IS NULL
+      AND e.created_at < clock_timestamp() - make_interval(mins => $1::int)
+      AND e.created_at > clock_timestamp() - interval '6 hours'
+      AND NOT EXISTS (SELECT 1 FROM commerce_cancellation_intents i WHERE i.order_id = e.order_id)`,
+  // PITR option: archive_command health. pg_stat_archiver is readable without table grants.
+  archiver: `SELECT current_setting('archive_mode') AS mode, archived_count::text,
+      failed_count::text, last_archived_time, last_failed_time FROM pg_stat_archiver`,
 });
 
 const iso = (value) => (value instanceof Date ? value.toISOString() : null);
@@ -44,7 +62,10 @@ const label = (value) =>
   typeof value === 'string' ? value.replace(/\p{Cc}/gu, ' ').slice(0, 60) : '';
 
 /** Runs every watchdog query in one READ ONLY transaction on a dedicated client. */
-export async function readDatabaseFacts(pool, { paymentBacklogMinutes = 3 } = {}) {
+export async function readDatabaseFacts(
+  pool,
+  { paymentBacklogMinutes = 5, kitchenBacklogMinutes = 5 } = {},
+) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN READ ONLY');
@@ -68,6 +89,9 @@ export async function readDatabaseFacts(pool, { paymentBacklogMinutes = 3 } = {}
     for (const row of (await client.query(WATCHDOG_SQL.paymentBacklog, [paymentBacklogMinutes]))
       .rows)
       backlog[row.provider] = row.orders;
+    const kitchen = (await client.query(WATCHDOG_SQL.kitchenBacklog, [kitchenBacklogMinutes]))
+      .rows[0];
+    const archiver = (await client.query(WATCHDOG_SQL.archiver)).rows[0];
     return {
       now: iso(now),
       identities,
@@ -79,6 +103,18 @@ export async function readDatabaseFacts(pool, { paymentBacklogMinutes = 3 } = {}
       paymentBacklog: {
         'kaspi-remote-worker': backlog['kaspi-remote'],
         'kiosk-qr-worker': backlog['kaspi-qr'],
+      },
+      kitchenBacklog: {
+        kitchen: kitchen.kitchen,
+        admission: kitchen.admission,
+        oldestSeconds: seconds(kitchen.oldest_seconds),
+      },
+      archiver: {
+        mode: label(archiver.mode),
+        archivedCount: Number(archiver.archived_count),
+        failedCount: Number(archiver.failed_count),
+        lastArchivedAt: iso(archiver.last_archived_time),
+        lastFailedAt: iso(archiver.last_failed_time),
       },
     };
   } finally {

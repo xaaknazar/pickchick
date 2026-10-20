@@ -63,14 +63,16 @@ class Settings(unittest.TestCase):
         parsed = settings()
         self.assertEqual(parsed, {'window': 600, 'disks': ['/', '/var/lib/docker', '/opt/pickchick-staging/backups'],
                                   'backups': '/opt/pickchick-staging/backups',
-                                  'network': 'pickchick-staging_private', 'probe_hours': 0})
+                                  'network': 'pickchick-staging_private', 'probe_hours': 0,
+                                  'fulfillment': None})
         self.assertNotIn(SECRET_TOKEN, json.dumps(parsed))
         self.assertNotIn(SECRET_PASSWORD, json.dumps(parsed))
 
     def test_invalid_values_name_the_key_only(self):
         for key, value in [('WATCHDOG_LOG_WINDOW_SECONDS', '60'), ('WATCHDOG_DISK_PATHS', 'relative/path'),
                            ('WATCHDOG_DISK_PATHS', '/;rm -rf /'), ('WATCHDOG_BACKUP_DIR', '/x y'),
-                           ('WATCHDOG_STAGING_NETWORK', '-bad'), ('WATCHDOG_KASPI_SESSION_PROBE_HOURS', '1')]:
+                           ('WATCHDOG_STAGING_NETWORK', '-bad'), ('WATCHDOG_KASPI_SESSION_PROBE_HOURS', '1'),
+                           ('WATCHDOG_FULFILLMENT_CONTAINER', 'x;rm')]:
             with self.subTest(key=key, value=value), self.assertRaises(ValueError) as error:
                 settings(**{key: value})
             self.assertEqual(str(error.exception), key)
@@ -86,7 +88,22 @@ class Sanitizing(unittest.TestCase):
         tick = '2026-10-09T05:59:00Z {"event":"kiosk_kaspi_qr","submitted":1,"checked":0,"errors":0,"sessionProblem":false,"unknownOverdue":0}'
         self.assertEqual(runner.sanitize_worker_line('kiosk-qr-worker', tick), {
             'at': '2026-10-09T05:59:00Z', 'event': 'kiosk_kaspi_qr', 'errors': 0, 'unknownOverdue': 0,
-            'submitted': 1, 'checked': 0})
+            'submitted': 1, 'checked': 0, 'sessionProblem': False})
+        # Pay lane attention shape (PM interface 19.10) and its recovery line.
+        attention = ('2026-10-09T06:00:00Z {"event":"kaspi_remote_attention","sessionProblem":true,'
+                     '"sessionRejected":true,"reason":"bridge_unreachable","unknownOverdue":0,"errors":0,'
+                     '"pendingUnsent":2,"oldestUnsentSeconds":150,"detail":"http://10.0.0.1 secret"}')
+        self.assertEqual(runner.sanitize_worker_line('kaspi-remote-worker', attention), {
+            'at': '2026-10-09T06:00:00Z', 'event': 'kaspi_remote_attention', 'errors': 0, 'unknownOverdue': 0,
+            'pendingUnsent': 2, 'oldestUnsentSeconds': 150, 'sessionProblem': True,
+            'reason': 'bridge_unreachable'})
+        recovered = ('2026-10-09T06:05:00Z {"event":"kaspi_remote_attention","recovered":true,'
+                     '"sessionProblem":false}')
+        self.assertEqual(runner.sanitize_worker_line('kaspi-remote-worker', recovered), {
+            'at': '2026-10-09T06:05:00Z', 'event': 'kaspi_remote_attention', 'sessionProblem': False,
+            'recovered': True})
+        odd_reason = attention.replace('bridge_unreachable', 'Bearer abc')
+        self.assertNotIn('reason', runner.sanitize_worker_line('kaspi-remote-worker', odd_reason))
         for role, text in [
             ('kiosk-qr-worker', line),  # another worker's event name
             ('kaspi-remote-worker', '2026-10-09T05:58:00Z not json at all'),
@@ -99,6 +116,19 @@ class Sanitizing(unittest.TestCase):
         odd = runner.sanitize_worker_line(
             'kaspi-remote-worker', '2026-10-09T05:58:00Z {"event":"kaspi_remote","errors":true,"unknownOverdue":-1,"state":"weird"}')
         self.assertEqual(odd, {'at': '2026-10-09T05:58:00Z', 'event': 'kaspi_remote'})
+
+    def test_fulfillment_lines_keep_counts_and_reason_codes_only(self):
+        line = ('2026-10-09T05:58:00Z {"event":"fulfillment_transport_attention","deferred":2,"parked":1,'
+                '"reasons":{"KITCHEN_OFFLINE":2,"phone +7700":1,"ITEM_STOPPED":"x"},"unresolvedFailures":1,'
+                '"orderId":"abc"}')
+        self.assertEqual(runner.sanitize_fulfillment_line(line), {
+            'at': '2026-10-09T05:58:00Z', 'event': 'fulfillment_transport_attention', 'deferred': 2,
+            'parked': 1, 'unresolvedFailures': 1, 'reasons': {'KITCHEN_OFFLINE': 2}})
+        self.assertEqual(runner.sanitize_fulfillment_line(
+            '2026-10-09T06:00:00Z {"event":"fulfillment_transport_attention","recovered":true}'),
+            {'at': '2026-10-09T06:00:00Z', 'event': 'fulfillment_transport_attention', 'recovered': True})
+        self.assertIsNone(runner.sanitize_fulfillment_line(
+            '2026-10-09T06:00:00Z {"event":"fulfillment_transport","state":"applied"}'))
 
     def test_inspect_output_is_reduced_to_state(self):
         parsed = runner.parse_inspect(json.dumps({'status': 'running', 'running': True, 'health': 'healthy',
@@ -145,6 +175,27 @@ class HostFacts(unittest.TestCase):
             self.assertRegex(listing['files'][0]['mtime'], r'^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$')
         self.assertEqual(runner.list_backups('/nonexistent/watchdog'), {'error': 'unavailable', 'files': []})
 
+    def test_backup_status_files_are_whitelisted(self):
+        with tempfile.TemporaryDirectory() as name:
+            directory = Path(name)
+            (directory / 'backup-status.json').write_text(json.dumps({
+                'lastAttemptAt': '2026-10-09T02:15:00Z', 'lastSuccessAt': None, 'ok': False, 'stage': 'offsite',
+                'note': 'secret'}))
+            (directory / 'offsite-status.json').write_text(json.dumps({
+                'enabled': True, 'lastAttemptAt': '2026-10-09T02:16:00Z', 'lastSuccessAt': '2026-10-08T02:16:00Z',
+                'ok': False, 'object': 'pickchick-staging/dumps/x', 'sizeBytes': 10}))
+            (directory / 'wal.json').write_text('{}')
+            os.symlink(directory / 'wal.json', directory / 'wal-status.json')
+            listing = runner.list_backups(str(directory))
+            self.assertEqual(listing['status'], {'lastAttemptAt': '2026-10-09T02:15:00Z', 'ok': False,
+                                                 'stage': 'offsite'})
+            self.assertEqual(listing['offsite'], {'enabled': True, 'lastAttemptAt': '2026-10-09T02:16:00Z',
+                                                  'lastSuccessAt': '2026-10-08T02:16:00Z', 'ok': False,
+                                                  'sizeBytes': 10})
+            self.assertNotIn('wal', listing)
+            (directory / 'backup-status.json').write_text('{"stage": "' + 'x' * 5000 + '"}')
+            self.assertNotIn('status', runner.list_backups(str(directory)))
+
     def test_collect_uses_only_read_only_docker_commands_without_probe(self):
         logs = {'pickchick-kaspi-worker': (
             '2026-10-09T05:50:00Z {"event":"kaspi_remote","submitted":1,"checked":0,"errors":0,"sessionProblem":false,"unknownOverdue":0}\n',
@@ -164,6 +215,20 @@ class HostFacts(unittest.TestCase):
         self.assertIsNone(facts['kaspiSessionProbe'])
         self.assertNotIn(SECRET_TOKEN, json.dumps(facts))
         self.assertEqual(facts['version'], 1)
+
+    def test_fulfillment_container_logs_are_read_only_when_configured(self):
+        logs = {'pickchick-fulfillment-worker': (
+            '', '2026-10-09T05:55:00Z {"event":"fulfillment_transport_attention","deferred":1,"parked":0}\n')}
+        fake = FakeDocker(logs=logs)
+        facts = runner.collect(settings(WATCHDOG_DISK_PATHS='/'), run=fake, now=lambda: NOW,
+                               state_dir=Path('/nonexistent'))
+        self.assertEqual((facts['fulfillmentEvents'], facts['fulfillmentCollected']), ([], False))
+        configured = runner.collect(settings(WATCHDOG_DISK_PATHS='/',
+                                             WATCHDOG_FULFILLMENT_CONTAINER='pickchick-fulfillment-worker'),
+                                    run=fake, now=lambda: NOW, state_dir=Path('/nonexistent'))
+        self.assertTrue(configured['fulfillmentCollected'])
+        self.assertEqual(configured['fulfillmentEvents'], [{
+            'at': '2026-10-09T05:55:00Z', 'event': 'fulfillment_transport_attention', 'deferred': 1, 'parked': 0}])
 
     def test_missing_containers_and_docker_outage_are_explicit(self):
         missing = FakeDocker(containers={})

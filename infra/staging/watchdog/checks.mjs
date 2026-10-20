@@ -2,6 +2,13 @@
 import { bytes, clock, duration, withinQuietHours } from './format.mjs';
 import { CONTAINER_ROLES, WORKER_EVENTS } from './host-facts.mjs';
 
+const SESSION_REASONS = Object.freeze({
+  session_inactive: 'сессия кассира неактивна',
+  session_missing: 'сессии кассира нет',
+  session_rejected: 'банк отклонил сессию кассира',
+  bridge_unreachable: 'мост Kaspi не отвечает',
+});
+
 export const CONTAINER_TITLES = Object.freeze({
   'kaspi-bridge': 'Kaspi мост (pickchick-kaspi-bridge)',
   'kaspi-remote-worker': 'Kaspi worker счетов (pickchick-kaspi-worker)',
@@ -69,10 +76,15 @@ function containerFinding(role, info, config) {
   return ok(key, 'docker', title, `работает${since}, перезапусков ${info.restarts}`);
 }
 
-/** Folds the attention/failed/tick lines the workers already print (no extra bank calls). */
+/**
+ * Folds the attention/failed/tick lines the workers already print (no extra bank calls). Events
+ * arrive in time order; the latest explicit session state wins, so the worker's recovery line
+ * (or any tick that reached the bank) closes the problem without waiting for the log window.
+ */
 export function aggregateWorkerEvents(events) {
   const summary = {
     sessionProblemAt: null,
+    sessionReason: null,
     errorEvents: 0,
     unknownOverdue: 0,
     disabled: false,
@@ -80,8 +92,18 @@ export function aggregateWorkerEvents(events) {
   };
   for (const event of events) {
     summary.events++;
-    if (event.sessionProblem || event.state === 'no_cashier_session')
+    if (event.sessionProblem === true || event.state === 'no_cashier_session') {
       summary.sessionProblemAt = event.at;
+      summary.sessionReason =
+        event.reason in SESSION_REASONS
+          ? event.reason
+          : event.state === 'no_cashier_session'
+            ? 'session_missing'
+            : null;
+    } else if (event.sessionProblem === false || event.recovered === true) {
+      summary.sessionProblemAt = null;
+      summary.sessionReason = null;
+    }
     if (event.event.endsWith('_failed') || (event.errors ?? 0) > 0) summary.errorEvents++;
     summary.unknownOverdue = Math.max(summary.unknownOverdue, event.unknownOverdue ?? 0);
     if (event.state === 'disabled') summary.disabled = true;
@@ -93,11 +115,15 @@ function sessionFinding(workers, probe, config, nowMs) {
   const key = 'kaspi.session';
   const title = 'Сессия кассира Kaspi';
   const reasons = [];
+  let bridge = false;
   for (const [role, summary] of Object.entries(workers))
-    if (summary.sessionProblemAt)
+    if (summary.sessionProblemAt) {
+      const why = summary.sessionReason ? ` (${SESSION_REASONS[summary.sessionReason]})` : '';
+      bridge ||= summary.sessionReason === 'bridge_unreachable';
       reasons.push(
-        `${WORKER_TITLES[role]} сообщил о проблеме сессии ${clock(Date.parse(summary.sessionProblemAt), config.timeZone)}`,
+        `${WORKER_TITLES[role]} сообщил о проблеме сессии${why} ${clock(Date.parse(summary.sessionProblemAt), config.timeZone)}`,
       );
+    }
   if (probe?.active === false)
     reasons.push(
       `проверка session-check.mjs ${clock(Date.parse(probe.checkedAt), config.timeZone)}: ${probe.reason}`,
@@ -109,7 +135,11 @@ function sessionFinding(workers, probe, config, nowMs) {
       title,
       'fail',
       'critical',
-      `${reasons.join('; ')}. Нужен повторный вход кассира (kaspi-login.mjs) и перезапуск worker.`,
+      `${reasons.join('; ')}. ${
+        bridge
+          ? 'Проверить контейнер pickchick-kaspi-bridge, затем сессию.'
+          : 'Нужен повторный вход кассира (kaspi-login.mjs, ECDH в памяти) и перезапуск worker.'
+      } Счета в приложении и QR в киоске сейчас не выставляются. Runbook: docs/operations/kaspi-remote.md.`,
     );
   const quiet = Object.values(workers).every((summary) => summary.events === 0);
   if (probe?.active === true)
@@ -173,16 +203,69 @@ function unknownFinding(role, dbCount, logCount) {
 function backlogFinding(role, value, minutes) {
   const key = `worker.${role}.backlog`;
   const title = `${WORKER_TITLES[role]}: оплаты ждут отправки в банк`;
+  // A customer is waiting for an invoice/QR that was never sent; money has not been taken.
   if (value > 0)
     return result(
       key,
       'db',
       title,
       'fail',
-      'warning',
+      'critical',
       `заказов ждут счёта дольше ${minutes} мин: ${value}. Возможные причины: сессия кассира, пульс кассы, стоп-лист, остановленный worker.`,
     );
   return ok(key, 'db', title, 'очереди нет');
+}
+
+/** Paid orders whose kitchen admission event the cashier edge has not taken (any worker host). */
+function kitchenFinding(backlog, minutes) {
+  const key = 'kitchen.backlog';
+  const title = 'Передача заказов на кухню (касса)';
+  if (backlog.kitchen > 0 || backlog.admission > 0) {
+    const parts = [];
+    if (backlog.kitchen > 0)
+      parts.push(
+        `оплаченных заказов не передано на кухню дольше ${minutes} мин: ${backlog.kitchen}`,
+      );
+    if (backlog.admission > 0)
+      parts.push(`заказов ждут резерва кассы дольше ${minutes} мин: ${backlog.admission}`);
+    const oldest = backlog.oldestSeconds
+      ? `, самый старый ${duration(backlog.oldestSeconds * 1000)}`
+      : '';
+    return result(
+      key,
+      'db',
+      title,
+      'fail',
+      backlog.kitchen > 0 ? 'critical' : 'warning',
+      `${parts.join('; ')}${oldest}. Проверить пульс кассы, службу PickChickFulfillmentWorker и стоп-лист.`,
+    );
+  }
+  return ok(key, 'db', title, 'очереди нет');
+}
+
+/** `fulfillment_transport_attention` lines of a fulfillment worker container on this host. */
+export function fulfillmentFinding(events, config) {
+  const key = 'kitchen.transport';
+  const title = 'Kitchen admission: отложенные заказы';
+  let open = null;
+  for (const event of events) open = event.recovered ? null : event;
+  if (!open) return ok(key, 'logs', title, events.length ? 'восстановлено' : 'событий нет');
+  const reasons = open.reasons
+    ? ` (${Object.entries(open.reasons)
+        .map(([code, value]) => `${code}: ${value}`)
+        .join(', ')})`
+    : '';
+  const parked = (open.parked ?? 0) > 0 || (open.unresolvedFailures ?? 0) > 0;
+  return result(
+    key,
+    'logs',
+    title,
+    'fail',
+    parked ? 'critical' : 'warning',
+    `${clock(Date.parse(open.at), config.timeZone)}: отложено ${open.deferred ?? 0}, остановлено ${open.parked ?? 0}${
+      open.unresolvedFailures ? `, нерешённых сбоев ${open.unresolvedFailures}` : ''
+    }${reasons}. Заказы не попадают на кухню.`,
+  );
 }
 
 function heartbeatFinding(row, config, nowMs) {
@@ -264,6 +347,111 @@ function backupFinding(backups, config, nowMs) {
     title,
     `последняя копия ${duration(age)} назад, ${bytes(newest.sizeBytes)}`,
   );
+}
+
+/** backup-status.json: the last backup.sh run failed (OnFailure also starts this check). */
+function backupRunFinding(status, config) {
+  const key = 'backup.run';
+  const title = 'Резервная копия: последний запуск';
+  if (!status) return skip(key, 'host', title, 'нет файла статуса (backup.sh старой версии)');
+  if (!status.ok)
+    return result(
+      key,
+      'host',
+      title,
+      'fail',
+      'critical',
+      `запуск ${clock(Date.parse(status.lastAttemptAt), config.timeZone)} завершился ошибкой на этапе ${status.stage}. Проверить journalctl -u pickchick-backup.service.`,
+    );
+  return ok(
+    key,
+    'host',
+    title,
+    `успешно ${clock(Date.parse(status.lastAttemptAt), config.timeZone)}`,
+  );
+}
+
+/** offsite-status.json: encrypted copy in independent S3-compatible storage. */
+function offsiteFinding(offsite, config, nowMs) {
+  const key = 'backup.offsite';
+  const title = 'Резервная копия: внешнее хранилище';
+  const limit = config.backup.offsiteMaxAgeHours;
+  if (!offsite || !offsite.enabled)
+    return result(
+      key,
+      'host',
+      title,
+      'fail',
+      'critical',
+      'внешняя копия ожидается (WATCHDOG_EXPECT_BACKUP_OFFSITE=true), но выгрузка не включена или не запускалась',
+    );
+  if (!offsite.lastSuccessAt)
+    return result(key, 'host', title, 'fail', 'critical', 'ни одной успешной выгрузки');
+  const age = nowMs - Date.parse(offsite.lastSuccessAt);
+  if (!offsite.ok || age > limit * 3_600_000)
+    return result(
+      key,
+      'host',
+      title,
+      'fail',
+      'critical',
+      `последняя успешная выгрузка ${duration(age)} назад (${clock(Date.parse(offsite.lastSuccessAt), config.timeZone)}), лимит ${limit} ч${
+        offsite.ok ? '' : '; последняя попытка не удалась'
+      }. Проверить journalctl -u pickchick-backup.service.`,
+    );
+  return ok(key, 'host', title, `выгружена ${duration(age)} назад`);
+}
+
+/** wal-status.json: PITR WAL shipping (optional). */
+function walFinding(wal, config, nowMs) {
+  const key = 'backup.wal';
+  const title = 'PITR: отправка WAL во внешнее хранилище';
+  const limit = config.backup.walMaxDelayMinutes * 60_000;
+  if (!wal)
+    return result(key, 'host', title, 'fail', 'critical', 'отправка WAL ни разу не запускалась');
+  const checked = nowMs - Date.parse(wal.checkedAt);
+  if (checked > limit)
+    return result(
+      key,
+      'host',
+      title,
+      'fail',
+      'critical',
+      `отправка WAL не запускалась ${duration(checked)}; проверить pickchick-wal-ship.timer`,
+    );
+  const oldest = wal.oldestPendingAt ? nowMs - Date.parse(wal.oldestPendingAt) : 0;
+  if (!wal.ok || oldest > limit)
+    return result(
+      key,
+      'host',
+      title,
+      'fail',
+      'critical',
+      `не отправлено сегментов: ${wal.pending}${oldest ? `, самый старый ${duration(oldest)}` : ''}${
+        wal.ok ? '' : '; последняя отправка с ошибкой'
+      }. Точка восстановления отстаёт.`,
+    );
+  return ok(key, 'host', title, `в очереди ${wal.pending}`);
+}
+
+/** pg_stat_archiver: archive_command keeps failing (PITR option only). */
+function archiverFinding(archiver, config) {
+  const key = 'backup.archiver';
+  const title = 'PITR: архивирование WAL в PostgreSQL';
+  if (archiver.mode !== 'on' && archiver.mode !== 'always')
+    return result(key, 'db', title, 'fail', 'critical', `archive_mode=${archiver.mode}`);
+  const failed = archiver.lastFailedAt ? Date.parse(archiver.lastFailedAt) : 0;
+  const archived = archiver.lastArchivedAt ? Date.parse(archiver.lastArchivedAt) : 0;
+  if (failed > archived)
+    return result(
+      key,
+      'db',
+      title,
+      'fail',
+      'critical',
+      `archive_command падает с ${clock(failed, config.timeZone)} (ошибок всего ${archiver.failedCount}); WAL копится в pg_wal`,
+    );
+  return ok(key, 'db', title, `архивировано ${archiver.archivedCount}`);
 }
 
 function diskFinding(disk, config) {
@@ -352,6 +540,8 @@ export function evaluate({ api, host, db, config, nowMs }) {
       if (config.expect[role] || workers[role].events)
         findings.push(workerErrorFinding(role, workers[role], config, facts.logWindowSeconds));
   }
+  if (facts && !unavailable.has('logs') && facts.fulfillmentCollected)
+    findings.push(fulfillmentFinding(facts.fulfillmentEvents, config));
   for (const role of Object.keys(WORKER_EVENTS)) {
     findings.push(
       unknownFinding(
@@ -366,11 +556,21 @@ export function evaluate({ api, host, db, config, nowMs }) {
       );
   }
   if (db.ok) {
+    findings.push(kitchenFinding(db.facts.kitchenBacklog, config.kitchenBacklogMinutes));
     for (const row of db.facts.heartbeats) findings.push(heartbeatFinding(row, config, nowMs));
     for (const row of db.facts.identities) findings.push(identityFinding(row, config));
+    if (config.backup.expectPitr) findings.push(archiverFinding(db.facts.archiver, config));
   }
   if (facts) {
-    findings.push(backupFinding(facts.backups, config, nowMs));
+    const backups = facts.backups;
+    findings.push(backupFinding(backups, config, nowMs));
+    if (!backups.error) {
+      findings.push(backupRunFinding(backups.status, config));
+      if (config.backup.expectOffsite || backups.offsite?.enabled)
+        findings.push(offsiteFinding(backups.offsite, config, nowMs));
+      if (config.backup.expectPitr || backups.wal)
+        findings.push(walFinding(backups.wal, config, nowMs));
+    }
     for (const disk of facts.disks) findings.push(diskFinding(disk, config));
   }
   return { findings, unavailable };

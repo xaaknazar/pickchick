@@ -193,6 +193,28 @@ async function seed(pool) {
               ($4,$2,$3,1000,'issuing','ABCDEFGH24',clock_timestamp()-interval '2 minutes')`,
       [stuckRemote.attempt, stuckRemote.id, remote, randomUUID()],
     );
+    // Kitchen transport: one paid order not taken by the cashier for 10 min, one reservation
+    // waiting 7 min; not counted: acknowledged, too new, attention, cancelled.
+    const kitchen = async (eventType, ageMs, { acknowledged = false, attention = false } = {}) => {
+      const { id } = await order({
+        accountId: remote,
+        outboxAgeMs: 0,
+        acknowledged: true,
+        attention,
+      });
+      await client.query(
+        `INSERT INTO commerce_outbox(id,order_id,effect_key,event_type,payload,created_at,acknowledged_at)
+         VALUES ($1,$2,$3,$4,'{}',clock_timestamp()-$5::bigint*interval '1 millisecond',
+           CASE WHEN $6 THEN clock_timestamp() END)`,
+        [randomUUID(), id, `kitchen:${randomUUID()}`, eventType, ageMs, acknowledged],
+      );
+      return id;
+    };
+    await kitchen('edge.kitchen_admission_requested', 10 * MIN);
+    await kitchen('edge.admission_requested', 7 * MIN);
+    await kitchen('edge.kitchen_admission_requested', 10 * MIN, { acknowledged: true });
+    await kitchen('edge.kitchen_admission_requested', MIN);
+    await kitchen('edge.kitchen_admission_requested', 10 * MIN, { attention: true });
     const qrOrder = await order({ accountId: qr, outboxAgeMs: 0, acknowledged: true });
     await client.query(
       `INSERT INTO commerce_kiosk_kaspi_qr(attempt_id,order_id,account_id,amount_minor,state,issue_started_at,expires_at)
@@ -261,6 +283,13 @@ test('read-only watchdog role answers every check and can do nothing else', asyn
       assert.ok(heartbeat.get(ids.edgeB).ageSeconds <= 60);
       assert.deepEqual(facts.unknownOverdue, { 'kaspi-remote-worker': 1, 'kiosk-qr-worker': 1 });
       assert.deepEqual(facts.paymentBacklog, { 'kaspi-remote-worker': 1, 'kiosk-qr-worker': 1 });
+      assert.deepEqual(
+        { ...facts.kitchenBacklog, oldestSeconds: facts.kitchenBacklog.oldestSeconds >= 599 },
+        { kitchen: 1, admission: 1, oldestSeconds: true },
+      );
+      // pg_stat_archiver needs no table grant; the local database does not archive.
+      assert.equal(facts.archiver.mode, 'off');
+      assert.equal(facts.archiver.failedCount, 0);
 
       // Secrets, whole rows, other tables, writes and DDL are all refused.
       for (const sql of [
@@ -397,9 +426,10 @@ test('read-only watchdog role answers every check and can do nothing else', asyn
         [`device.identity.${ids.edgeA}`, 'warning'],
         [`device.identity.${ids.posExpired}`, 'critical'],
         [`edge.heartbeat.${ids.edgeA}`, 'critical'],
-        ['worker.kaspi-remote-worker.backlog', 'warning'],
+        ['kitchen.backlog', 'critical'],
+        ['worker.kaspi-remote-worker.backlog', 'critical'],
         ['worker.kaspi-remote-worker.unknown', 'critical'],
-        ['worker.kiosk-qr-worker.backlog', 'warning'],
+        ['worker.kiosk-qr-worker.backlog', 'critical'],
         ['worker.kiosk-qr-worker.unknown', 'critical'],
       ].sort(),
     );

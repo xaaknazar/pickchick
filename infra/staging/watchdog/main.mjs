@@ -46,6 +46,7 @@ async function readDatabase(config, connect) {
     pool = await connect(config.db);
     const facts = await readDatabaseFacts(pool, {
       paymentBacklogMinutes: config.paymentBacklogMinutes,
+      kitchenBacklogMinutes: config.kitchenBacklogMinutes,
     });
     return { ok: true, facts };
   } catch (error) {

@@ -64,6 +64,8 @@ test('every granted column is used by the watchdog queries and every queried tab
   const tables = new Set(
     [...sql.matchAll(/\b(?:FROM|JOIN) ([a-z_]+)\b(?![.(])/g)].map((match) => match[1]),
   );
+  // The only catalog view: pg_stat_archiver (PITR health), readable without table grants.
+  assert.ok(tables.delete('pg_stat_archiver'));
   assert.deepEqual([...tables].sort(), Object.keys(WATCHDOG_COLUMNS).sort());
   assert.doesNotMatch(
     sql,

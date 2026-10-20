@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { loadWatchdogConfig, parseQuietHours } from '../../infra/staging/watchdog/config.mjs';
 import { parseHostFacts } from '../../infra/staging/watchdog/host-facts.mjs';
-import { aggregateWorkerEvents, evaluate } from '../../infra/staging/watchdog/checks.mjs';
+import {
+  aggregateWorkerEvents,
+  evaluate,
+  fulfillmentFinding,
+} from '../../infra/staging/watchdog/checks.mjs';
 import {
   emptyState,
   normalizeState,
@@ -60,6 +64,11 @@ function hostFacts(overrides = {}) {
           checksum: true,
         },
       ],
+      status: {
+        lastAttemptAt: iso(NOW - 3 * HOUR),
+        lastSuccessAt: iso(NOW - 3 * HOUR),
+        ok: true,
+      },
     },
     kaspiSessionProbe: null,
     ...overrides,
@@ -88,6 +97,14 @@ function dbFacts(overrides = {}) {
     ],
     unknownOverdue: { 'kaspi-remote-worker': 0, 'kiosk-qr-worker': 0 },
     paymentBacklog: { 'kaspi-remote-worker': 0, 'kiosk-qr-worker': 0 },
+    kitchenBacklog: { kitchen: 0, admission: 0, oldestSeconds: 0 },
+    archiver: {
+      mode: 'off',
+      archivedCount: 0,
+      failedCount: 0,
+      lastArchivedAt: null,
+      lastFailedAt: null,
+    },
     ...overrides,
   };
 }
@@ -205,12 +222,17 @@ test('healthy facts produce no failing finding', () => {
     'worker.kaspi-remote-worker.errors',
     'worker.kiosk-qr-worker.unknown',
     'worker.kaspi-remote-worker.backlog',
+    'kitchen.backlog',
     'edge.heartbeat.d1',
     'device.identity.d1',
     'backup.age',
+    'backup.run',
     'disk./',
   ])
     assert.ok(find(evaluation, key), key);
+  // Off-site/PITR checks appear only when expected or when their status files exist.
+  for (const key of ['backup.offsite', 'backup.wal', 'backup.archiver', 'kitchen.transport'])
+    assert.equal(find(evaluation, key), undefined, key);
 });
 
 test('API readiness failure is critical, needs confirmation and lists only dependency states', () => {
@@ -374,6 +396,7 @@ test('worker errors need confirmation, unknown invoices are critical from DB or 
     ),
     {
       sessionProblemAt: null,
+      sessionReason: null,
       errorEvents: 2,
       unknownOverdue: 2,
       disabled: false,
@@ -412,15 +435,123 @@ test('worker errors need confirmation, unknown invoices are critical from DB or 
   assert.match(find(disabled, 'worker.kiosk-qr-worker.errors').detail, /disabled/);
 });
 
-test('payment backlog warns when Kaspi submissions wait for the bank', () => {
+test('payment backlog is critical when Kaspi submissions wait for the bank over 5 minutes', () => {
   const evaluation = run({
     db: dbFacts({ paymentBacklog: { 'kaspi-remote-worker': 2, 'kiosk-qr-worker': 0 } }),
   });
   const backlog = find(evaluation, 'worker.kaspi-remote-worker.backlog');
   assert.equal(backlog.status, 'fail');
-  assert.equal(backlog.severity, 'warning');
-  assert.match(backlog.detail, /заказов ждут счёта дольше 3 мин: 2\./);
+  assert.equal(backlog.severity, 'critical');
+  assert.match(backlog.detail, /заказов ждут счёта дольше 5 мин: 2\./);
   assert.equal(find(evaluation, 'worker.kiosk-qr-worker.backlog').status, 'ok');
+  assert.equal(config().paymentBacklogMinutes, 5);
+});
+
+test('Kaspi session follows the latest worker state: reason codes, recovery line, bridge outage', () => {
+  const events = (list) =>
+    hostFacts({ workerEvents: { 'kaspi-remote-worker': list, 'kiosk-qr-worker': [] } });
+  const attention = (at, extra) => ({
+    at: iso(at),
+    event: 'kaspi_remote_attention',
+    unknownOverdue: 0,
+    errors: 0,
+    pendingUnsent: 1,
+    oldestUnsentSeconds: 130,
+    ...extra,
+  });
+  // Pay lane shape (PM interface): sessionProblem + reason, then one recovery line.
+  const rejected = attention(NOW - 8 * MIN, {
+    sessionProblem: true,
+    sessionRejected: true,
+    reason: 'session_rejected',
+  });
+  const open = find(run({ host: events([rejected]) }), 'kaspi.session');
+  assert.equal(open.severity, 'critical');
+  assert.match(open.detail, /банк отклонил сессию кассира.*kaspi-login\.mjs.*kaspi-remote\.md/);
+  const recovered = {
+    at: iso(NOW - 2 * MIN),
+    event: 'kaspi_remote_attention',
+    recovered: true,
+    sessionProblem: false,
+  };
+  assert.equal(find(run({ host: events([rejected, recovered]) }), 'kaspi.session').status, 'ok');
+  // A later attention for another reason (sessionProblem false) also closes the session alert.
+  const unknown = attention(NOW - MIN, { sessionProblem: false, reason: 'unknown_overdue' });
+  assert.equal(find(run({ host: events([rejected, unknown]) }), 'kaspi.session').status, 'ok');
+  // ...but a problem after a recovery is open again.
+  const bridge = attention(NOW - MIN, { sessionProblem: true, reason: 'bridge_unreachable' });
+  const down = find(run({ host: events([rejected, recovered, bridge]) }), 'kaspi.session');
+  assert.equal(down.status, 'fail');
+  assert.match(down.detail, /мост Kaspi не отвечает.*pickchick-kaspi-bridge/);
+  // A tick that reached the bank (installed worker shape) clears it as well.
+  const tick = { at: iso(NOW - MIN), event: 'kaspi_remote', submitted: 1, sessionProblem: false };
+  assert.equal(find(run({ host: events([rejected, tick]) }), 'kaspi.session').status, 'ok');
+});
+
+test('kitchen backlog: paid orders not taken by the cashier are critical, reservations warn', () => {
+  const kitchen = find(
+    run({ db: dbFacts({ kitchenBacklog: { kitchen: 2, admission: 1, oldestSeconds: 900 } }) }),
+    'kitchen.backlog',
+  );
+  assert.deepEqual([kitchen.status, kitchen.severity], ['fail', 'critical']);
+  assert.match(
+    kitchen.detail,
+    /не передано на кухню дольше 5 мин: 2; заказов ждут резерва кассы дольше 5 мин: 1, самый старый 15 мин/,
+  );
+  const reservation = find(
+    run({ db: dbFacts({ kitchenBacklog: { kitchen: 0, admission: 3, oldestSeconds: 400 } }) }),
+    'kitchen.backlog',
+  );
+  assert.equal(reservation.severity, 'warning');
+  assert.equal(find(run({ db: { ok: false, code: 'timeout' } }), 'kitchen.backlog'), undefined);
+});
+
+test('fulfillment_transport_attention lines are read only when the container is collected', () => {
+  const at = (minutes) => iso(NOW - minutes * MIN);
+  const line = (minutes, extra) => ({
+    at: at(minutes),
+    event: 'fulfillment_transport_attention',
+    ...extra,
+  });
+  const facts = (list, collected = true) =>
+    hostFacts({ fulfillmentEvents: list, fulfillmentCollected: collected });
+  const deferred = line(4, { deferred: 2, parked: 0, reasons: { KITCHEN_OFFLINE: 2 } });
+  const open = find(run({ host: facts([deferred]) }), 'kitchen.transport');
+  assert.deepEqual([open.status, open.severity], ['fail', 'warning']);
+  assert.match(open.detail, /отложено 2, остановлено 0 \(KITCHEN_OFFLINE: 2\)/);
+  const parked = line(3, { deferred: 0, parked: 1, unresolvedFailures: 1, reasons: {} });
+  assert.equal(find(run({ host: facts([parked]) }), 'kitchen.transport').severity, 'critical');
+  assert.equal(
+    find(run({ host: facts([deferred, line(1, { recovered: true })]) }), 'kitchen.transport')
+      .status,
+    'ok',
+  );
+  assert.equal(find(run({ host: facts([deferred], false) }), 'kitchen.transport'), undefined);
+  // Only counts and reason codes survive parsing.
+  const parsed = parseHostFacts(
+    JSON.stringify(
+      facts([
+        line(2, {
+          deferred: 1,
+          parked: 0,
+          reasons: { KITCHEN_OFFLINE: 1, 'phone +7700': 3, lower: 1 },
+          orderId: 'x',
+        }),
+      ]),
+    ),
+    NOW,
+    15 * MIN,
+  ).facts.fulfillmentEvents;
+  assert.deepEqual(parsed, [
+    {
+      at: at(2),
+      event: 'fulfillment_transport_attention',
+      deferred: 1,
+      parked: 0,
+      reasons: { KITCHEN_OFFLINE: 1 },
+    },
+  ]);
+  assert.equal(fulfillmentFinding([], config()).status, 'ok');
 });
 
 test('edge heartbeat: never seen and stale are critical, quiet hours skip (also across midnight)', () => {
@@ -538,6 +669,103 @@ test('backup age uses only completed encrypted copies and the 26 hour limit', ()
       .detail,
     /недоступен/,
   );
+});
+
+test('backup run status, off-site copy, WAL shipping and the archiver raise their own alerts', () => {
+  const withBackups = (extra, cfg = config()) => {
+    const base = hostFacts().backups;
+    return run({ host: hostFacts({ backups: { ...base, ...extra } }), cfg });
+  };
+  const failed = find(
+    withBackups({
+      status: {
+        lastAttemptAt: iso(NOW - 10 * MIN),
+        lastSuccessAt: iso(NOW - 26 * HOUR),
+        ok: false,
+        stage: 'offsite',
+      },
+    }),
+    'backup.run',
+  );
+  assert.deepEqual([failed.status, failed.severity], ['fail', 'critical']);
+  assert.match(failed.detail, /ошибкой на этапе offsite/);
+  assert.equal(
+    find(
+      withBackups({ status: { lastAttemptAt: iso(NOW), ok: false, stage: 'rm -rf' } }),
+      'backup.run',
+    ).detail.includes('этапе unknown'),
+    true,
+  );
+  assert.equal(find(withBackups({ status: undefined }), 'backup.run').status, 'skip');
+  // Off-site: checked when its status says enabled, or when the env expects it.
+  const offsite = (extra) => ({
+    enabled: true,
+    lastAttemptAt: iso(NOW - HOUR),
+    lastSuccessAt: iso(NOW - HOUR),
+    ok: true,
+    sizeBytes: 10,
+    ...extra,
+  });
+  assert.equal(find(withBackups({ offsite: offsite() }), 'backup.offsite').status, 'ok');
+  const stale = find(
+    withBackups({ offsite: offsite({ lastSuccessAt: iso(NOW - 30 * HOUR), ok: false }) }),
+    'backup.offsite',
+  );
+  assert.equal(stale.severity, 'critical');
+  assert.match(stale.detail, /30 ч назад.*лимит 26 ч; последняя попытка не удалась/);
+  assert.equal(
+    find(withBackups({ offsite: offsite({ enabled: false }) }), 'backup.offsite'),
+    undefined,
+  );
+  const expected = config({ WATCHDOG_EXPECT_BACKUP_OFFSITE: 'true' });
+  assert.match(
+    find(withBackups({ offsite: offsite({ enabled: false }) }, expected), 'backup.offsite').detail,
+    /не включена/,
+  );
+  // WAL shipping (PITR): a silent shipper and an old pending segment are both critical.
+  const wal = (extra) => ({
+    checkedAt: iso(NOW - MIN),
+    ok: true,
+    pending: 0,
+    lastShippedAt: iso(NOW - MIN),
+    ...extra,
+  });
+  assert.equal(find(withBackups({ wal: wal() }), 'backup.wal').status, 'ok');
+  assert.match(
+    find(withBackups({ wal: wal({ checkedAt: iso(NOW - 40 * MIN) }) }), 'backup.wal').detail,
+    /не запускалась 40 мин/,
+  );
+  assert.match(
+    find(
+      withBackups({ wal: wal({ pending: 3, oldestPendingAt: iso(NOW - 20 * MIN), ok: false }) }),
+      'backup.wal',
+    ).detail,
+    /не отправлено сегментов: 3, самый старый 20 мин; последняя отправка с ошибкой/,
+  );
+  const pitr = config({ WATCHDOG_EXPECT_BACKUP_PITR: 'true' });
+  assert.match(find(withBackups({}, pitr), 'backup.wal').detail, /ни разу/);
+  // pg_stat_archiver: only with PITR expected.
+  const archiver = (extra) =>
+    run({
+      cfg: pitr,
+      db: dbFacts({
+        archiver: {
+          mode: 'on',
+          archivedCount: 10,
+          failedCount: 0,
+          lastArchivedAt: iso(NOW - MIN),
+          lastFailedAt: null,
+          ...extra,
+        },
+      }),
+    });
+  assert.equal(find(archiver({}), 'backup.archiver').status, 'ok');
+  assert.match(
+    find(archiver({ failedCount: 4, lastFailedAt: iso(NOW - 30_000) }), 'backup.archiver').detail,
+    /archive_command падает.*ошибок всего 4/,
+  );
+  assert.match(find(archiver({ mode: 'off' }), 'backup.archiver').detail, /archive_mode=off/);
+  assert.equal(find(run(), 'backup.archiver'), undefined);
 });
 
 test('disk usage: warning above 85%, critical above 95%, unreadable is reported', () => {
@@ -866,6 +1094,20 @@ function fakePool(db) {
           ],
         };
       if (sql.includes('payment.submit_requested')) return { rows: [] };
+      if (sql.includes('edge.kitchen_admission_requested'))
+        return { rows: [{ kitchen: 0, admission: 0, oldest_seconds: '0' }] };
+      if (sql.includes('pg_stat_archiver'))
+        return {
+          rows: [
+            {
+              mode: 'off',
+              archived_count: '0',
+              failed_count: '0',
+              last_archived_time: null,
+              last_failed_time: null,
+            },
+          ],
+        };
       throw new Error('unexpected query');
     },
     release: () => undefined,

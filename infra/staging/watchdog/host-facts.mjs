@@ -18,6 +18,34 @@ export const WORKER_EVENTS = Object.freeze({
     'kiosk_kaspi_qr_failed',
   ]),
 });
+/**
+ * Kitchen admission health (PM interface ful -> ops, 19.10). Read only when the fulfillment
+ * worker runs in a container on this host (WATCHDOG_FULFILLMENT_CONTAINER); the Windows cashier
+ * worker is covered by the database check of unacknowledged kitchen events instead.
+ */
+export const FULFILLMENT_EVENTS = Object.freeze(['fulfillment_transport_attention']);
+/** Reason codes of kaspi_remote_attention (pay lane, KaspiAttention). Anything else is dropped. */
+export const KASPI_REASONS = Object.freeze([
+  'session_inactive',
+  'session_missing',
+  'session_rejected',
+  'bridge_unreachable',
+  'unknown_overdue',
+  'invoice_not_sent',
+  'worker_errors',
+]);
+const BACKUP_STAGES = [
+  'config',
+  'counts',
+  'dump',
+  'encrypt',
+  'manifest',
+  'offsite',
+  'base_backup',
+  'retention',
+  'wal_ship',
+  'unknown',
+];
 const CONTAINER_STATES = [
   'created',
   'running',
@@ -68,12 +96,47 @@ function container(raw) {
 export function workerEvent(role, raw) {
   if (!isObject(raw) || !iso(raw.at) || !WORKER_EVENTS[role]?.includes(raw.event)) return null;
   const event = { at: raw.at, event: raw.event };
-  for (const key of ['errors', 'unknownOverdue', 'submitted', 'checked']) {
+  for (const key of [
+    'errors',
+    'unknownOverdue',
+    'submitted',
+    'checked',
+    'pendingUnsent',
+    'oldestUnsentSeconds',
+  ]) {
     const value = count(raw[key]);
     if (value !== null) event[key] = value;
   }
+  // An explicit false (a tick that reached the bank, or the recovery line) clears the problem.
   if (raw.sessionProblem === true || raw.sessionRejected === true) event.sessionProblem = true;
+  else if (raw.sessionProblem === false || raw.sessionRejected === false)
+    event.sessionProblem = false;
+  if (raw.recovered === true) event.recovered = true;
+  if (KASPI_REASONS.includes(raw.reason)) event.reason = raw.reason;
   if (WORKER_STATES.includes(raw.state)) event.state = raw.state;
+  return event;
+}
+
+const REASON_CODE = /^[A-Z][A-Z0-9_]{0,40}$/;
+
+/** One `fulfillment_transport_attention` line: counts and reason codes only. */
+export function fulfillmentEvent(raw) {
+  if (!isObject(raw) || !iso(raw.at) || !FULFILLMENT_EVENTS.includes(raw.event)) return null;
+  const event = { at: raw.at, event: raw.event };
+  if (raw.recovered === true) {
+    event.recovered = true;
+    return event;
+  }
+  for (const key of ['deferred', 'parked', 'unresolvedFailures']) {
+    const value = count(raw[key]);
+    if (value !== null) event[key] = value;
+  }
+  if (isObject(raw.reasons)) {
+    const reasons = {};
+    for (const [code, value] of Object.entries(raw.reasons).slice(0, 8))
+      if (REASON_CODE.test(code) && count(value) !== null) reasons[code] = value;
+    if (Object.keys(reasons).length) event.reasons = reasons;
+  }
   return event;
 }
 
@@ -91,7 +154,7 @@ function disk(raw) {
 
 function backups(raw) {
   if (!isObject(raw) || raw.error !== undefined || !Array.isArray(raw.files))
-    return { error: 'unavailable', files: [] };
+    return { error: 'unavailable', files: [], status: null, offsite: null, wal: null };
   const files = raw.files
     .filter(
       (file) =>
@@ -107,7 +170,50 @@ function backups(raw) {
       sizeBytes: file.sizeBytes,
       checksum: file.checksum === true,
     }));
-  return { files };
+  return {
+    files,
+    status: backupStatus(raw.status),
+    offsite: offsiteStatus(raw.offsite),
+    wal: walStatus(raw.wal),
+  };
+}
+
+const time = (value) => (iso(value) ? value : null);
+
+/** backup-status.json written by backup.sh: last attempt, last success, failed stage. */
+function backupStatus(raw) {
+  if (!isObject(raw) || !iso(raw.lastAttemptAt)) return null;
+  return {
+    lastAttemptAt: raw.lastAttemptAt,
+    lastSuccessAt: time(raw.lastSuccessAt),
+    ok: raw.ok === true,
+    stage: raw.ok === true ? null : BACKUP_STAGES.includes(raw.stage) ? raw.stage : 'unknown',
+  };
+}
+
+/** offsite-status.json written by backup-offsite.py after each upload attempt. */
+function offsiteStatus(raw) {
+  if (!isObject(raw) || !iso(raw.lastAttemptAt)) return null;
+  return {
+    enabled: raw.enabled === true,
+    lastAttemptAt: raw.lastAttemptAt,
+    lastSuccessAt: time(raw.lastSuccessAt),
+    ok: raw.ok === true,
+    sizeBytes: count(raw.sizeBytes, Number.MAX_SAFE_INTEGER),
+  };
+}
+
+/** wal-status.json written by `backup-offsite.py ship-wal` on every run (PITR option). */
+function walStatus(raw) {
+  if (!isObject(raw) || !iso(raw.checkedAt)) return null;
+  return {
+    checkedAt: raw.checkedAt,
+    ok: raw.ok === true,
+    pending: count(raw.pending) ?? 0,
+    oldestPendingAt: time(raw.oldestPendingAt),
+    lastShippedAt: time(raw.lastShippedAt),
+    lastBaseBackupAt: time(raw.lastBaseBackupAt),
+  };
 }
 
 function probe(raw) {
@@ -153,6 +259,11 @@ export function parseHostFacts(text, nowMs, maxAgeMs) {
         : [],
       containers,
       workerEvents,
+      fulfillmentEvents: (Array.isArray(raw.fulfillmentEvents) ? raw.fulfillmentEvents : [])
+        .slice(-200)
+        .map(fulfillmentEvent)
+        .filter(Boolean),
+      fulfillmentCollected: raw.fulfillmentCollected === true,
       disks: (Array.isArray(raw.disks) ? raw.disks.slice(0, 16) : []).map(disk).filter(Boolean),
       backups: backups(raw.backups),
       kaspiSessionProbe: probe(raw.kaspiSessionProbe),

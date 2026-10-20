@@ -108,8 +108,16 @@ export function loadWatchdogConfig(env) {
     },
     identityWarnDays: integer(env, 'WATCHDOG_IDENTITY_WARN_DAYS', 7, 1, 60),
     backupMaxAgeHours: integer(env, 'WATCHDOG_BACKUP_MAX_AGE_HOURS', 26, 1, 720),
+    backup: {
+      // Off by default: these copies need owner-provided storage (backup-offsite.env.example).
+      expectOffsite: flag(env, 'WATCHDOG_EXPECT_BACKUP_OFFSITE', false),
+      offsiteMaxAgeHours: integer(env, 'WATCHDOG_BACKUP_OFFSITE_MAX_AGE_HOURS', 26, 1, 720),
+      expectPitr: flag(env, 'WATCHDOG_EXPECT_BACKUP_PITR', false),
+      walMaxDelayMinutes: integer(env, 'WATCHDOG_WAL_MAX_DELAY_MINUTES', 15, 2, 1440),
+    },
     disk: { warnPercent, criticalPercent },
-    paymentBacklogMinutes: integer(env, 'WATCHDOG_PAYMENT_BACKLOG_MINUTES', 3, 1, 59),
+    paymentBacklogMinutes: integer(env, 'WATCHDOG_PAYMENT_BACKLOG_MINUTES', 5, 1, 59),
+    kitchenBacklogMinutes: integer(env, 'WATCHDOG_KITCHEN_BACKLOG_MINUTES', 5, 1, 120),
     factsMaxAgeMinutes: integer(env, 'WATCHDOG_FACTS_MAX_AGE_MINUTES', 15, 1, 1440),
     expect: {
       'kaspi-bridge': flag(env, 'WATCHDOG_EXPECT_KASPI_BRIDGE', true),

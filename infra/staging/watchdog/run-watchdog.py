@@ -39,6 +39,20 @@ WORKER_EVENTS = {
     'kaspi-remote-worker': {'kaspi_remote', 'kaspi_remote_attention', 'kaspi_remote_failed'},
     'kiosk-qr-worker': {'kiosk_kaspi_qr', 'kiosk_kaspi_qr_attention', 'kiosk_kaspi_qr_failed'},
 }
+FULFILLMENT_EVENT = 'fulfillment_transport_attention'
+KASPI_REASONS = {'session_inactive', 'session_missing', 'session_rejected', 'bridge_unreachable',
+                 'unknown_overdue', 'invoice_not_sent', 'worker_errors'}
+REASON_CODE = re.compile(r'[A-Z][A-Z0-9_]{0,40}')
+STATUS_FILES = {'status': 'backup-status.json', 'offsite': 'offsite-status.json', 'wal': 'wal-status.json'}
+STATUS_FIELDS = {
+    'status': {'lastAttemptAt': 'time', 'lastSuccessAt': 'time', 'ok': 'bool', 'stage': 'stage'},
+    'offsite': {'enabled': 'bool', 'lastAttemptAt': 'time', 'lastSuccessAt': 'time', 'ok': 'bool',
+                'sizeBytes': 'count'},
+    'wal': {'checkedAt': 'time', 'ok': 'bool', 'pending': 'count', 'oldestPendingAt': 'time',
+            'lastShippedAt': 'time', 'lastBaseBackupAt': 'time'},
+}
+STAGES = {'config', 'counts', 'dump', 'encrypt', 'manifest', 'offsite', 'base_backup', 'retention',
+          'wal_ship', 'unknown'}
 CONTAINER_STATES = {'created', 'running', 'paused', 'restarting', 'removing', 'exited', 'dead'}
 HEALTH = {'starting', 'healthy', 'unhealthy'}
 PROBE_REASONS = {'verified', 'not_verified', 'unavailable', 'missing_session'}
@@ -58,6 +72,8 @@ DEFAULTS = {
     'WATCHDOG_BACKUP_DIR': '/opt/pickchick-staging/backups',
     'WATCHDOG_STAGING_NETWORK': 'pickchick-staging_private',
     'WATCHDOG_KASPI_SESSION_PROBE_HOURS': '0',
+    # Empty: the fulfillment worker runs on the Windows cashier (DB check covers it).
+    'WATCHDOG_FULFILLMENT_CONTAINER': '',
 }
 
 
@@ -81,6 +97,9 @@ def parse_settings(text):
         raise ValueError('WATCHDOG_BACKUP_DIR')
     if not NETWORK.fullmatch(values['WATCHDOG_STAGING_NETWORK']):
         raise ValueError('WATCHDOG_STAGING_NETWORK')
+    fulfillment = values['WATCHDOG_FULFILLMENT_CONTAINER']
+    if fulfillment and not NETWORK.fullmatch(fulfillment):
+        raise ValueError('WATCHDOG_FULFILLMENT_CONTAINER')
     hours = values['WATCHDOG_KASPI_SESSION_PROBE_HOURS']
     if not re.fullmatch('[0-9]{1,3}', hours) or not (int(hours) == 0 or 6 <= int(hours) <= 168):
         raise ValueError('WATCHDOG_KASPI_SESSION_PROBE_HOURS')
@@ -90,6 +109,7 @@ def parse_settings(text):
         'backups': values['WATCHDOG_BACKUP_DIR'],
         'network': values['WATCHDOG_STAGING_NETWORK'],
         'probe_hours': int(hours),
+        'fulfillment': fulfillment or None,
     }
 
 
@@ -113,14 +133,74 @@ def sanitize_worker_line(role, line):
     if not isinstance(raw, dict) or raw.get('event') not in WORKER_EVENTS[role]:
         return None
     event = {'at': match.group(1) + 'Z', 'event': raw['event']}
-    for key in ('errors', 'unknownOverdue', 'submitted', 'checked'):
+    for key in ('errors', 'unknownOverdue', 'submitted', 'checked', 'pendingUnsent', 'oldestUnsentSeconds'):
         if is_count(raw.get(key)):
             event[key] = raw[key]
+    # An explicit false (a tick that reached the bank, or the recovery line) clears the problem.
     if raw.get('sessionProblem') is True or raw.get('sessionRejected') is True:
         event['sessionProblem'] = True
+    elif raw.get('sessionProblem') is False or raw.get('sessionRejected') is False:
+        event['sessionProblem'] = False
+    if raw.get('recovered') is True:
+        event['recovered'] = True
+    if raw.get('reason') in KASPI_REASONS:
+        event['reason'] = raw['reason']
     if raw.get('state') in ('disabled', 'no_cashier_session'):
         event['state'] = raw['state']
     return event
+
+
+def sanitize_fulfillment_line(line):
+    """`fulfillment_transport_attention` (PM interface ful -> ops): counts and reason codes only."""
+    match = LOG_LINE.match(line.strip())
+    if not match or len(line) > 4096:
+        return None
+    try:
+        raw = json.loads(match.group(2))
+    except ValueError:
+        return None
+    if not isinstance(raw, dict) or raw.get('event') != FULFILLMENT_EVENT:
+        return None
+    event = {'at': match.group(1) + 'Z', 'event': FULFILLMENT_EVENT}
+    if raw.get('recovered') is True:
+        event['recovered'] = True
+        return event
+    for key in ('deferred', 'parked', 'unresolvedFailures'):
+        if is_count(raw.get(key)):
+            event[key] = raw[key]
+    reasons = raw.get('reasons')
+    if isinstance(reasons, dict):
+        kept = {code: value for code, value in list(reasons.items())[:8]
+                if isinstance(code, str) and REASON_CODE.fullmatch(code) and is_count(value)}
+        if kept:
+            event['reasons'] = kept
+    return event
+
+
+def read_status(directory, kind):
+    """Small status JSON written by backup.sh / backup-offsite.py; whitelisted fields only."""
+    path = Path(directory, STATUS_FILES[kind])
+    try:
+        info = path.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_size > 4096:
+            return None
+        raw = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+    if not isinstance(raw, dict):
+        return None
+    result = {}
+    for key, kind_of in STATUS_FIELDS[kind].items():
+        value = raw.get(key)
+        if kind_of == 'time' and isinstance(value, str) and STARTED.match(value):
+            result[key] = STARTED.match(value).group(1) + 'Z'
+        elif kind_of == 'bool' and isinstance(value, bool):
+            result[key] = value
+        elif kind_of == 'count' and isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+            result[key] = value
+        elif kind_of == 'stage' and value in STAGES:
+            result[key] = value
+    return result
 
 
 def parse_inspect(output):
@@ -170,7 +250,12 @@ def list_backups(directory):
                 files.append({'name': entry.name, 'mtime': iso(info.st_mtime), 'sizeBytes': info.st_size,
                               'checksum': checksum.is_file() and not checksum.is_symlink()})
         files.sort(key=lambda item: item['mtime'], reverse=True)
-        return {'files': files[:10]}
+        listing = {'files': files[:10]}
+        for kind in STATUS_FILES:
+            status = read_status(directory, kind)
+            if status is not None:
+                listing[kind] = status
+        return listing
     except OSError:
         return {'error': 'unavailable', 'files': []}
 
@@ -254,6 +339,18 @@ def collect(settings, run=subprocess.run, now=time.time, state_dir=HOME / 'state
                 events[role] = sorted((item for item in parsed if item), key=lambda item: item['at'])[-200:]
             except (OSError, subprocess.TimeoutExpired):
                 errors.append('logs_unavailable')
+    fulfillment, fulfillment_collected = [], False
+    if docker_ok and settings.get('fulfillment'):
+        try:
+            result = docker(run, 'logs', '--since', str(settings['window']) + 's', '--timestamps',
+                            '--tail', '5000', settings['fulfillment'], timeout=30)
+            if result.returncode == 0:
+                lines = (result.stdout + '\n' + result.stderr).splitlines()
+                parsed = [sanitize_fulfillment_line(line) for line in lines]
+                fulfillment = sorted((item for item in parsed if item), key=lambda item: item['at'])[-200:]
+                fulfillment_collected = True
+        except (OSError, subprocess.TimeoutExpired):
+            errors.append('logs_unavailable')
     probe, probe_failed = kaspi_session_probe(
         settings, docker_ok and containers['kaspi-bridge'].get('running') is True, run, now, state_dir)
     if probe_failed:
@@ -265,6 +362,8 @@ def collect(settings, run=subprocess.run, now=time.time, state_dir=HOME / 'state
         'collectorErrors': sorted(set(errors)),
         'containers': containers,
         'workerEvents': events,
+        'fulfillmentEvents': fulfillment,
+        'fulfillmentCollected': fulfillment_collected,
         'disks': disk_usage(settings['disks']),
         'backups': list_backups(settings['backups']),
         'kaspiSessionProbe': probe,
