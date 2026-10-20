@@ -244,6 +244,91 @@ test('cancel persists exact reason and version before request; reload does not a
     );
   });
 });
+test('definitive 409 CONFLICT on cancel, stop, ordering and create resolves the journal (6.1)', async () => {
+  await desk(async (ctx, _edge, api) => {
+    let before = null,
+      posts = 0;
+    const racing = async (path, c, o = {}) => {
+      if (o.method === 'POST' && path !== 'checkout/quotes') {
+        posts++;
+        // Another workplace changes the same aggregate between our read and our POST.
+        if (before) await before(path, o);
+        before = null;
+      }
+      return api(path, c, o);
+    };
+    const journalKey = `pickchick.pos.journal.v1.${scopeFor(ctx.cashier)}`;
+    const { controller, sessions, storage } = await prepared(ctx, racing);
+    const variant = ctx.cart.items[0].variant_id;
+    const unwedged = async (c, expectPosts) => {
+      assert.equal(c.state.error?.code, 'CONFLICT');
+      assert.equal(c.state.pending, null, 'final 409 must not stay pending');
+      assert.equal(JSON.parse(storage.getItem(journalKey) ?? 'null')?.pending ?? null, null);
+      await c.recover();
+      assert.equal(posts, expectPosts, 'a rejected command is never replayed');
+      const restarted = new PosController(racing, sessions, storage, randomUUID);
+      await restarted.boot();
+      assert.equal(restarted.state.pending, null);
+    };
+
+    // Create: the quote was consumed by another request (another key) of the same cashier.
+    before = async (_path, o) =>
+      api('orders', ctx.cashier, { method: 'POST', key: randomUUID(), body: o.body });
+    await controller.create();
+    await unwedged(controller, 1);
+    assert.equal(controller.state.quote, null);
+    assert.equal(controller.state.draft.items.length, 1, 'the cart is kept for a new quote');
+    assert.equal(controller.state.orders.length, 1, 'order list shows the existing order');
+
+    // Cancel: the order was cancelled elsewhere (version 1 -> 2) before our cancel arrived.
+    const id = controller.state.orders[0].order_id;
+    await controller.openOrder(id);
+    assert.equal(controller.state.order.version, 1);
+    before = () =>
+      cancelLocalOrder(ctx.edge.pool, ctx.branch, staffAuth(ctx.manager), randomUUID(), id, {
+        expected_version: 1,
+        reason: 'Отменено начальником смены',
+      });
+    await controller.cancel('Гость передумал');
+    await unwedged(controller, 2);
+    assert.equal(controller.state.order.state, 'cancelled');
+    assert.equal(controller.state.order.cancellation_reason, 'Отменено начальником смены');
+
+    // Stop: a remote/other-terminal stop changed the version between GET and POST.
+    controller.newDraft();
+    before = () =>
+      setStop(ctx.edge.pool, ctx.branch, staffAuth(ctx.manager), randomUUID(), {
+        variant_id: variant,
+        stopped: true,
+        expected_version: 0,
+        reason: 'Стоп с другой кассы',
+      });
+    await controller.setStop(variant, true, 'Закончилось');
+    await unwedged(controller, 3);
+    assert.equal(controller.state.stops.get(variant).stopped, true);
+    assert.equal(controller.state.stops.get(variant).version, 1);
+
+    // The cashier can work again: unstop with the refreshed version succeeds.
+    await controller.setStop(variant, false, 'Привезли');
+    assert.equal(controller.state.error, null);
+    assert.equal(controller.state.stops.get(variant).stopped, false);
+
+    // Ordering: the shift manager's ordering version is stale.
+    const manager = new PosController(racing, memory(), memory(), randomUUID);
+    await manager.login(JSON.stringify(ctx.manager));
+    const version = manager.state.ordering.version;
+    await ctx.edge.pool.query('UPDATE branch_config SET ordering_version=ordering_version+1');
+    const managerPosts = posts;
+    await manager.setOrdering(false);
+    assert.equal(posts, managerPosts + 1);
+    assert.equal(manager.state.error?.code, 'CONFLICT');
+    assert.equal(manager.state.pending, null);
+    assert.equal(manager.state.ordering.version, version + 1, 'ordering state re-read');
+    await manager.setOrdering(false);
+    assert.equal(manager.state.error, null);
+    assert.equal(manager.state.ordering.ordering_enabled, false);
+  });
+});
 test('loopback proxy forwards real auth and rejects cross-origin, arbitrary URLs and unsupported actions', async () => {
   await desk(async (ctx, edge) => {
     const proxy = createPosServer({ edgePort: Number(new URL(edge.url).port) });
