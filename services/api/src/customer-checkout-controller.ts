@@ -97,6 +97,7 @@ export class CustomerCheckoutController {
     authorization: string | undefined,
     run: (customerId: string) => Promise<T>,
     accept?: string,
+    money = false,
   ) {
     const precise = accept
       ?.split(',')
@@ -105,6 +106,10 @@ export class CustomerCheckoutController {
     if (!token) throw new HttpException({ code: 'UNAUTHORIZED' }, 401);
     try {
       const { customer } = await this.identity.me(token);
+      // App Review account: browse, quote and delete itself, never an order, invoice or kitchen.
+      // Installed apps already show FORBIDDEN as "Оплата Kaspi ещё не открыта для вашего аккаунта".
+      if (money && this.identity.isReviewCustomer(customer))
+        throw new HttpException({ code: 'FORBIDDEN' }, 403);
       return await run(customer.id);
     } catch (error) {
       if (error instanceof CustomerIdentityError)
@@ -242,6 +247,7 @@ export class CustomerCheckoutController {
       auth,
       async (id) => checkoutRepresentation(await this.checkout.create(id, body), accept),
       accept,
+      true,
     );
   }
   @Get('orders') list(@Headers('authorization') auth?: string, @Headers('accept') accept?: string) {
@@ -258,6 +264,7 @@ export class CustomerCheckoutController {
       auth,
       async (id) => checkoutRepresentation(await this.checkout.pay(id, orderId), accept),
       accept,
+      true,
     );
   }
   @Get('feedback') listFeedback(
