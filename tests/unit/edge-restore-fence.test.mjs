@@ -38,7 +38,13 @@ test('restore fence grants are opt-in and give only EXECUTE on the owner-rights 
 
 test('schema023 is additive, append-only, owner-rights with a pinned search_path, not PUBLIC (6.4)', () => {
   assert.doesNotMatch(migration, /\bDROP\b|\bTRUNCATE\b|ALTER COLUMN|RENAME/i);
-  assert.match(migration, /SECURITY DEFINER SET search_path FROM CURRENT/);
+  assert.match(migration, /LANGUAGE plpgsql SECURITY DEFINER AS/);
+  // Same pinning as the cloud owner-rights functions: own schema, pg_temp searched last.
+  assert.match(
+    migration,
+    /ALTER FUNCTION %I\.edge_restore_fence\(boolean\) SET search_path = pg_catalog, %I, pg_temp/,
+  );
+  assert.doesNotMatch(migration, /search_path FROM CURRENT|current_schema\(\)\s*,\s*0\)/);
   assert.match(migration, /REVOKE EXECUTE ON FUNCTION edge_restore_fence\(boolean\) FROM PUBLIC;/);
   assert.match(migration, /BEFORE UPDATE OR DELETE ON edge_database_epochs/);
   assert.match(migration, /gap constant bigint := 1000000000;/);

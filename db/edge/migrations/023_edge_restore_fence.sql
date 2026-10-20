@@ -27,10 +27,11 @@ ALTER TABLE menu_sync_state ADD COLUMN restore_resync_from bigint;
 -- Idempotent: 'initial' on first use, 'current' while the identity is unchanged, 'restore' once
 -- after a restore. p_force records an operator fence for a file-level restore that kept the
 -- identity. Owner rights (SECURITY DEFINER) so the least-privileged runtime may run it without
--- sequence UPDATE rights; it can only ever add the fixed gap.
+-- sequence UPDATE rights; it can only ever add the fixed gap. The search_path is pinned below
+-- with pg_temp last, so a caller's temporary table can never stand in for the ledger.
 CREATE FUNCTION edge_restore_fence(p_force boolean DEFAULT false)
 RETURNS TABLE(state text, epoch integer, sequence_gap bigint)
-LANGUAGE plpgsql SECURITY DEFINER SET search_path FROM CURRENT AS $$
+LANGUAGE plpgsql SECURITY DEFINER AS $$
 #variable_conflict use_column
 DECLARE
   gap constant bigint := 1000000000;
@@ -40,7 +41,8 @@ DECLARE
   source text;
   sequence_name text;
 BEGIN
-  PERFORM pg_advisory_xact_lock(hashtextextended('pickchick:edge_restore_fence:' || current_schema(), 0));
+  -- Serializes concurrent fences (edge service and FulfillmentWorker); readers are not blocked.
+  LOCK TABLE edge_database_epochs IN EXCLUSIVE MODE;
   SELECT c.system_identifier INTO live_system FROM pg_control_system() c;
   SELECT d.oid::bigint INTO live_oid FROM pg_database d WHERE d.datname = current_database();
   SELECT * INTO last_epoch FROM edge_database_epochs e ORDER BY e.epoch DESC LIMIT 1;
@@ -71,6 +73,10 @@ BEGIN
       CASE WHEN p_force THEN 'operator' ELSE 'restore' END, gap);
   RETURN QUERY SELECT CASE WHEN p_force THEN 'operator' ELSE 'restore' END, last_epoch.epoch + 1, gap;
 END; $$;
+-- Pin the owner-controlled schema, including in isolated integration-test schemas.
+DO $$ BEGIN
+ EXECUTE format('ALTER FUNCTION %I.edge_restore_fence(boolean) SET search_path = pg_catalog, %I, pg_temp',current_schema(),current_schema());
+END $$;
 REVOKE EXECUTE ON FUNCTION edge_restore_fence(boolean) FROM PUBLIC;
 -- Record this database's identity now, so even a backup taken before the next service start
 -- carries it.

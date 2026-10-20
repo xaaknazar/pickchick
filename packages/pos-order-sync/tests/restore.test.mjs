@@ -245,6 +245,31 @@ test('least-privilege roles: the runtime fences only through the owner-rights fu
       await assert.rejects(fenceRestoredEdge(worker), /permission denied/);
       assert.equal((await fenceRestoredEdge(fencingWorker)).state, 'current');
       assert.equal((await fenceRestoredEdge(runtime)).state, 'current');
+      // A caller's temporary table cannot stand in for the ledger: the owner-rights function
+      // resolves names in its own schema and pg_temp last.
+      const fenced = async () =>
+        (
+          await pool.query(
+            `SELECT (SELECT count(*) FROM edge_database_epochs)::int AS epochs,
+             coalesce(pg_sequence_last_value(${sequence}::regclass),0)::text AS kitchen`,
+          )
+        ).rows[0];
+      const before = await fenced();
+      const session = await runtime.connect();
+      try {
+        await session.query(
+          `CREATE TEMP TABLE edge_database_epochs(epoch integer, system_identifier bigint,
+           database_oid bigint, reason text, sequence_gap bigint, recorded_at timestamptz)`,
+        );
+        await session.query(
+          "INSERT INTO pg_temp.edge_database_epochs VALUES (99, 1, 1, 'initial', 0, now())",
+        );
+        assert.equal((await fenceRestoredEdge(session)).state, 'current');
+      } finally {
+        await session.query('DROP TABLE IF EXISTS pg_temp.edge_database_epochs');
+        session.release();
+      }
+      assert.deepEqual(await fenced(), before, 'a spoofed ledger never fences');
       await restoredIdentity({ edge: { pool } });
       assert.equal((await fenceRestoredEdge(runtime)).state, 'restore');
       assert.equal((await fenceRestoredEdge(fencingWorker)).state, 'current');
