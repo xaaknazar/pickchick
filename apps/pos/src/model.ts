@@ -826,6 +826,9 @@ export class PosController {
         // Persist resolution before reading the new state; uncertain responses remain pending.
         this.save({ ...j, pending: null });
         this.state.quote = null;
+        // A create is rejected when its quote is already an order (made on this terminal with
+        // another key): show that order instead of leaving the same cart to be sold twice.
+        if (p.kind === 'create' && (await this.adoptQuotedOrder(p))) return;
         await this.reconcileRejected(p);
       }
       if (
@@ -914,6 +917,21 @@ export class PosController {
       await this.refreshData();
       await this.readOperations();
     }
+  }
+  /** Selects the order a rejected create's quote already became; false if there is none. */
+  private async adoptQuotedOrder(p: Pending) {
+    await this.readOperations();
+    const found = this.state.orders.find((o) => o.quote_id === p.body.quote_id),
+      j = this.journal;
+    if (!found || !j || found.branch_id !== this.state.actor?.branch_id) return false;
+    this.save({
+      ...j,
+      selected: found.order_id,
+      known: [found.order_id, ...j.known.filter((id) => id !== found.order_id)].slice(0, 100),
+      draft: null,
+    });
+    this.state.order = found;
+    return true;
   }
   /** Best-effort re-read of whatever a rejected command targeted; the CONFLICT stays visible. */
   private async reconcileRejected(p: Pending) {

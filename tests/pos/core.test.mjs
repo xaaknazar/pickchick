@@ -272,13 +272,26 @@ test('definitive 409 CONFLICT on cancel, stop, ordering and create resolves the 
     };
 
     // Create: the quote was consumed by another request (another key) of the same cashier.
-    before = async (_path, o) =>
-      api('orders', ctx.cashier, { method: 'POST', key: randomUUID(), body: o.body });
+    // The 409 resolves the journal and selects the order the quote already became; the same
+    // cart is not left behind for a second sale.
+    let made = null;
+    before = async (_path, o) => {
+      made = await api('orders', ctx.cashier, { method: 'POST', key: randomUUID(), body: o.body });
+    };
     await controller.create();
-    await unwedged(controller, 1);
+    assert.equal(controller.state.error, null);
+    assert.equal(controller.state.pending, null, 'final 409 must not stay pending');
+    assert.equal(JSON.parse(storage.getItem(journalKey) ?? 'null')?.pending ?? null, null);
+    assert.equal(controller.state.order?.order_id, made.order_id);
     assert.equal(controller.state.quote, null);
-    assert.equal(controller.state.draft.items.length, 1, 'the cart is kept for a new quote');
+    assert.equal(controller.state.draft, null, 'the same cart is not sold twice');
     assert.equal(controller.state.orders.length, 1, 'order list shows the existing order');
+    await controller.recover();
+    assert.equal(posts, 1, 'a rejected command is never replayed');
+    const reopened = new PosController(racing, sessions, storage, randomUUID);
+    await reopened.boot();
+    assert.equal(reopened.state.pending, null);
+    assert.equal(reopened.state.draft?.items.length ?? 0, 0, 'no leftover cart after restart');
 
     // Cancel: the order was cancelled elsewhere (version 1 -> 2) before our cancel arrived.
     const id = controller.state.orders[0].order_id;
