@@ -43,7 +43,7 @@ export class StaffAuthController {
       });
     } catch (error) {
       if (error instanceof StaffRateLimitError) {
-        response.setHeader('Retry-After', '60');
+        response.setHeader('Retry-After', String(error.retryAfterSeconds));
         throw new HttpException({ code: 'AUTH_RATE_LIMITED' }, 429);
       }
       if (error instanceof OrderError)
@@ -68,7 +68,7 @@ export class StaffAuthController {
       });
     } catch (error) {
       if (error instanceof StaffRateLimitError) {
-        response.setHeader('Retry-After', '60');
+        response.setHeader('Retry-After', String(error.retryAfterSeconds));
         throw new HttpException({ code: 'AUTH_RATE_LIMITED' }, 429);
       }
       if (error instanceof OrderError) {

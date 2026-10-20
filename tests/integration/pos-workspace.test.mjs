@@ -20,7 +20,9 @@ import {
   PIN_BACKOFF,
   pinBackoffStatus,
 } from '@pickchick/local-orders';
+import { createEdge } from '@pickchick/edge';
 import { withOrderDesk, staffAuth } from '../helpers/orders.mjs';
+import { running } from '../helpers/sync.mjs';
 const code = (name) => (error) => error.code === name;
 
 test('PIN is local, preserves password access and shared shift; unknown PINs are rate limited without credentials in storage', async () => {
@@ -83,7 +85,11 @@ test('PIN is local, preserves password access and shared shift; unknown PINs are
 
 test('PIN backoff is per terminal, never reveals a PIN, and new 6-digit PINs work beside 4-digit ones (6.5)', async () => {
   await withOrderDesk(async (ctx) => {
-    const limited = (error) => error.constructor.name === 'StaffRateLimitError';
+    // Retry-After carries the real remaining lock, the same for every PIN.
+    const limited = (error) =>
+      error.constructor.name === 'StaffRateLimitError' &&
+      error.retryAfterSeconds > 0 &&
+      error.retryAfterSeconds <= 30;
     await setStaffPin(ctx.edge.pool, ctx.branch, staffAuth(ctx.cashier), '735190');
     await setStaffPin(ctx.edge.pool, ctx.branch, staffAuth(ctx.manager), '2468');
     for (const pin of ['12345', '1234567', '73519O', ''])
@@ -143,6 +149,21 @@ test('PIN backoff is per terminal, never reveals a PIN, and new 6-digit PINs wor
       ).rows[0].attempts,
       before,
     );
+    // Over HTTP the cashier sees the same 429 with the real remaining lock, not a fixed minute.
+    const edge = await running(createEdge, ctx.edge.config);
+    try {
+      const locked = await fetch(edge.url + '/edge/v1/staff/pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: '735190', terminal_id: terminal }),
+      });
+      assert.equal(locked.status, 429);
+      assert.equal((await locked.json()).code, 'AUTH_RATE_LIMITED');
+      const seconds = Number(locked.headers.get('retry-after'));
+      assert.ok(Number.isInteger(seconds) && seconds >= 1 && seconds <= 30);
+    } finally {
+      await edge.app.close();
+    }
     // Another workplace of the same branch is not locked out.
     const other = await provisionStaff(ctx.edge.pool, ctx.branch, ctx.setup('cashier'));
     await setStaffPin(ctx.edge.pool, ctx.branch, staffAuth(other), '480215');

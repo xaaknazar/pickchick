@@ -42,6 +42,26 @@ for (const failure of ['not-ready', '503', 'network', '401', '429']) {
     assert.equal(writes, failure === 'not-ready' ? 0 : 1);
   });
 }
+test('a PIN lock after wrong attempts tells how many minutes to wait (6.5)', async () => {
+  for (const [retryAfter, message] of [
+    ['600', /временно заблокирован.*через 10 мин\./],
+    ['30', /Подождите минуту/],
+    [null, /Подождите минуту/],
+  ])
+    await assert.rejects(
+      requestPinCredential('000000', 'synthetic-terminal', {
+        pause: noPause,
+        fetchImpl: async (path) =>
+          path === '/health/ready'
+            ? ready()
+            : new Response('', {
+                status: 429,
+                headers: retryAfter ? { 'Retry-After': retryAfter } : {},
+              }),
+      }),
+      message,
+    );
+});
 test('native readiness proxy allows only fixed local GET', async () => {
   const { createProtocolHandler, APP_URL } = await import('../../apps/pos-desktop/protocol.mjs');
   const calls = [];

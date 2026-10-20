@@ -22,7 +22,8 @@ let activePasswordOperations = 0;
 
 export class StaffRateLimitError extends Error {
   readonly code = 'AUTH_RATE_LIMITED';
-  constructor() {
+  /** Seconds until a retry can succeed (HTTP Retry-After); the same for every PIN. */
+  constructor(readonly retryAfterSeconds = 60) {
     super('AUTH_RATE_LIMITED');
   }
 }
@@ -222,7 +223,8 @@ export async function loginStaff(
   const { login, password, terminal_id: terminalId } = parsed.data;
   const backoff = pinMode ? pinBackoffKey(branchId, terminalId) : null;
   // A locked terminal answers every PIN alike, before any lookup or password work.
-  if (backoff && pinBackoff.lockedMs(backoff) > 0) throw new StaffRateLimitError();
+  const lockedMs = backoff ? pinBackoff.lockedMs(backoff) : 0;
+  if (lockedMs > 0) throw new StaffRateLimitError(Math.ceil(lockedMs / 1000));
   // Reserve and commit before password work. Rejections/failures do not roll the counter back.
   if (!(await reserveAttempt(pool, branchId, terminalId))) throw new OrderError('UNAUTHORIZED');
   if (activePasswordOperations >= 2) throw new StaffRateLimitError();
