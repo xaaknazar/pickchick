@@ -1,4 +1,11 @@
-import { randomBytes, randomUUID, scrypt, timingSafeEqual, createHash } from 'node:crypto';
+import {
+  randomBytes,
+  randomUUID,
+  scrypt,
+  timingSafeEqual,
+  createHash,
+  createHmac,
+} from 'node:crypto';
 import { lstat, readFile } from 'node:fs/promises';
 import { isIP } from 'node:net';
 import { resolve } from 'node:path';
@@ -6,6 +13,9 @@ import { promisify } from 'node:util';
 const derive = promisify(scrypt);
 const params = { N: 131072, r: 8, p: 1, maxmem: 256 * 1024 * 1024 };
 const cookieName = '__Host-pickchick_staff';
+// Marks a browser that signed in before; see knownDevice() in createStaffAccess.
+const deviceCookieName = '__Host-pickchick_staff_device';
+const DEVICE_MS = 90 * 24 * 60 * 60 * 1000;
 const digest = (s) => createHash('sha256').update(s).digest('hex');
 /** Lower-case login names; 'ceo' stays valid so the original account migrates unchanged. */
 export const STAFF_USERNAME = /^[a-z][a-z0-9._-]{1,31}$/;
@@ -227,6 +237,38 @@ export function createStaffAccess(raw, { now = Date.now } = {}) {
   const byLogin = backoff({ free: 10, baseMs: 30_000, maxMs: 5 * 60_000, size: 1024 }, now);
   const slots = verificationSlots();
   const clearCookie = `${cookieName}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`;
+  /**
+   * Device cookie (OWASP): a browser that signed in as this login within 90 days is not stopped
+   * by the per-login backoff, so guessing a known login name from many addresses cannot lock its
+   * owner out. The proof is keyed by that account's own password hash: a password change voids
+   * it, and it never reveals or grants anything else. Its failures still count per address.
+   */
+  const deviceProof = (user, issued) =>
+    createHmac('sha256', Buffer.from(user.hash, 'hex'))
+      .update(`staff-device-v1:${user.username}:${issued}`)
+      .digest();
+  const deviceCookie = (user) => {
+    const issued = now();
+    return `${deviceCookieName}=${issued}.${deviceProof(user, issued).toString('hex')}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${DEVICE_MS / 1000}`;
+  };
+  const knownDevice = (req, login) => {
+    const user = accounts.get(login);
+    if (!user) return false;
+    return (req.headers.cookie ?? '').split(';').some((part) => {
+      const match = /^([0-9]{1,15})\.([a-f0-9]{64})$/.exec(
+        part.trim().startsWith(deviceCookieName + '=')
+          ? part.trim().slice(deviceCookieName.length + 1)
+          : '',
+      );
+      const issued = Number(match?.[1]);
+      return (
+        !!match &&
+        issued <= now() &&
+        issued + DEVICE_MS > now() &&
+        timingSafeEqual(Buffer.from(match[2], 'hex'), deviceProof(user, issued))
+      );
+    });
+  };
   const cleanup = () => {
     for (const [id, s] of sessions) if (s.expires <= now() || s.idle <= now()) sessions.delete(id);
     byAddress.prune();
@@ -300,7 +342,8 @@ export function createStaffAccess(raw, { now = Date.now } = {}) {
       }
       // Unknown names are limited exactly like real ones, so a 429 does not reveal accounts.
       const login = data.username.toLowerCase().trim();
-      const loginWait = byLogin.retryAfter(login);
+      const trusted = knownDevice(req, login);
+      const loginWait = trusted ? 0 : byLogin.retryAfter(login);
       if (loginWait) return limited(loginWait);
       let checked;
       try {
@@ -317,12 +360,13 @@ export function createStaffAccess(raw, { now = Date.now } = {}) {
       const user = checked.value;
       if (!user) {
         byAddress.fail(address);
-        byLogin.fail(login);
+        if (!trusted) byLogin.fail(login);
         send(401, { code: 'UNAUTHORIZED' });
         return false;
       }
       byAddress.clear(address);
-      byLogin.clear(login);
+      // A known browser passing does not lift the lock that guessing put on everyone else.
+      if (!trusted) byLogin.clear(login);
       if (sessions.size >= 64) {
         send(429, { code: 'RATE_LIMITED' });
         return false;
@@ -336,10 +380,10 @@ export function createStaffAccess(raw, { now = Date.now } = {}) {
         username: user.username,
         token: user.token,
       });
-      res.setHeader(
-        'Set-Cookie',
+      res.setHeader('Set-Cookie', [
         `${cookieName}=${value}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=28800`,
-      );
+        deviceCookie(user),
+      ]);
       send(200, { ok: true });
       return false;
     }

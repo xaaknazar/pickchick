@@ -51,7 +51,7 @@ function call(port, path, { method = 'GET', body, raw, headers = {} } = {}) {
   });
 }
 
-async function portal(t) {
+async function portal(t, staff = config) {
   let now = 5_000_000;
   const api = createServer((_req, res) => {
     res.setHeader('Content-Type', 'application/json');
@@ -60,7 +60,7 @@ async function portal(t) {
   await new Promise((r) => api.listen(0, '127.0.0.1', r));
   const server = createBackofficeServer({
     apiPort: api.address().port,
-    staffAccess: createStaffAccess(config, { now: () => now }),
+    staffAccess: createStaffAccess(staff, { now: () => now }),
     staticPrefix: '/backoffice',
   });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
@@ -72,11 +72,11 @@ async function portal(t) {
   });
   const get = (p, o) => call(server.address().port, p, o);
   // The outer Caddy is the only peer that may name the client (X-Forwarded-For).
-  const login = (username, password, ip = '198.51.100.10') =>
+  const login = (username, password, ip = '198.51.100.10', cookie) =>
     get('/backoffice/auth/login', {
       method: 'POST',
       body: { username, password },
-      headers: { 'x-forwarded-for': ip },
+      headers: { 'x-forwarded-for': ip, ...(cookie ? { cookie } : {}) },
     });
   return { get, login, advance: (ms) => (now += ms) };
 }
@@ -155,6 +155,73 @@ test('distributed guessing of one login backs off that login only, then recovers
   assert.equal((await p.login('aigerim.manager', managerPassword, '198.51.100.31')).status, 200);
   p.advance(30_001);
   assert.equal((await p.login(' CEO ', ceoPassword, '198.51.100.30')).status, 200);
+});
+
+test('a browser that signed in before is not locked out by guessing of its login name', async (t) => {
+  const p = await portal(t);
+  const first = await p.login('ceo', ceoPassword, '198.51.100.50');
+  assert.equal(first.status, 200);
+  // The session cookie stays first; the device cookie is a separate long-lived marker.
+  assert.match(first.headers['set-cookie'][0], /^__Host-pickchick_staff=/);
+  const marker = first.headers['set-cookie'][1];
+  assert.match(
+    marker,
+    /^__Host-pickchick_staff_device=[0-9]+\.[a-f0-9]{64}; Path=\/; HttpOnly; Secure; SameSite=Strict; Max-Age=7776000$/,
+  );
+  const device = marker.split(';')[0];
+  const lockLogin = async (username, base) => {
+    for (let i = 0; i < 10; i++)
+      assert.equal(
+        (await p.login(username, 'Synthetic-wrong-password-' + i, `203.0.113.${base + i}`)).status,
+        401,
+      );
+    assert.equal(
+      (await p.login(username, 'Synthetic-wrong-password-x', '198.51.100.59')).status,
+      429,
+    );
+  };
+  await lockLogin('ceo', 150);
+  // Everyone else waits; the owner's browser signs in from any address.
+  assert.equal((await p.login('ceo', ceoPassword, '198.51.100.51')).status, 429);
+  assert.equal((await p.login('ceo', ceoPassword, '198.51.100.52', device)).status, 200);
+  // Its own typos still back off its address (5 free, then a lock), never the login name.
+  for (let i = 0; i < 5; i++)
+    assert.equal(
+      (await p.login('ceo', 'Synthetic-typo-' + i, '198.51.100.53', device)).status,
+      401,
+    );
+  assert.equal((await p.login('ceo', ceoPassword, '198.51.100.53', device)).status, 429);
+  // Bound to its own login and to an exact proof: no help for another login or a forgery.
+  await lockLogin('aigerim.manager', 170);
+  assert.equal(
+    (await p.login('aigerim.manager', managerPassword, '198.51.100.54', device)).status,
+    429,
+  );
+  const forged = device.replace(/[a-f0-9]{64}$/, 'a'.repeat(64));
+  assert.equal((await p.login('ceo', ceoPassword, '198.51.100.55', forged)).status, 429);
+  // It ends after 90 days.
+  p.advance(90 * 24 * 60 * 60 * 1000);
+  await lockLogin('ceo', 190);
+  assert.equal((await p.login('ceo', ceoPassword, '198.51.100.56', device)).status, 429);
+});
+
+test('a password change voids the device cookies issued for the old password', async (t) => {
+  const before = await portal(t);
+  const device = (await before.login('ceo', ceoPassword)).headers['set-cookie'][1].split(';')[0];
+  const rotated = {
+    ...config,
+    accounts: [
+      { ...config.accounts[0], ...(await passwordHash('Synthetic-ceo-password-rotated')) },
+      config.accounts[1],
+    ],
+  };
+  const after = await portal(t, rotated);
+  for (let i = 0; i < 10; i++)
+    await after.login('ceo', 'Synthetic-wrong-password-' + i, `203.0.113.${210 + i}`);
+  assert.equal(
+    (await after.login('ceo', 'Synthetic-ceo-password-rotated', '198.51.100.60', device)).status,
+    429,
+  );
 });
 
 test('failures older than the window are forgotten', async (t) => {
