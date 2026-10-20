@@ -285,14 +285,20 @@ function reviewFinding(reviews, hours) {
     reviews.newestSeconds === null
       ? ''
       : `, последний ${duration(reviews.newestSeconds * 1000)} назад`;
-  return result(
-    key,
-    'db',
-    title,
-    'fail',
-    'critical',
-    `новых сигналов сверки за ${hours} ч: ${reviews.total} (${codes})${newest}. Деньги могли быть приняты без передачи на кухню или нужен возврат: разобрать в кабинете (сигналы сверки).`,
-  );
+  // Every issue is a separate order for a manager: a new one while the alert is open is announced
+  // at once ("НОВЫЙ СЛУЧАЙ"), not only with the next reminder.
+  const mark = reviews.newestAt ? Date.parse(reviews.newestAt) : NaN;
+  return {
+    ...result(
+      key,
+      'db',
+      title,
+      'fail',
+      'critical',
+      `новых сигналов сверки за ${hours} ч: ${reviews.total} (${codes})${newest}. Деньги могли быть приняты без передачи на кухню или нужен возврат: разобрать в кабинете (сигналы сверки).`,
+    ),
+    ...(Number.isSafeInteger(mark) && mark > 0 ? { mark } : {}),
+  };
 }
 
 function heartbeatFinding(row, config, nowMs) {

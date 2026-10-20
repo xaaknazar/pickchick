@@ -5,6 +5,7 @@ const SEVERITY = { critical: 'критично', warning: 'внимание' };
 const KIND = {
   alert: 'ТРЕВОГА',
   escalation: 'УХУДШЕНИЕ',
+  update: 'НОВЫЙ СЛУЧАЙ',
   reminder: 'НАПОМИНАНИЕ',
   recovery: 'НОРМА',
   resolved: 'СНЯТО',

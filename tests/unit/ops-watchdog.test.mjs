@@ -570,6 +570,75 @@ test('paid order moved to manager review stays alerted instead of looking recove
   assert.equal(find(run(), 'orders.review').detail, 'новых за 6 ч нет');
 });
 
+test('a new review case while the review alert is open is announced at once', () => {
+  // Each reconciliation issue is a separate order a manager must handle. Before this fix a second
+  // paid order sent to review within the window waited for the 2 hour reminder.
+  const cfg = config();
+  const reviews = (total, newestAt) => ({
+    total,
+    codes: { KITCHEN_ADMISSION_OVERDUE: total },
+    newestSeconds: 60,
+    newestAt,
+  });
+  const at = (ms, total, newestAt) =>
+    run({
+      nowMs: ms,
+      host: hostFacts({ collectedAt: iso(ms - MIN) }),
+      db: dbFacts({ reviews: reviews(total, newestAt) }),
+    });
+  const first = iso(NOW - MIN);
+  let planned = planNotifications(emptyState('print'), at(NOW, 1, first), NOW, cfg);
+  assert.deepEqual(
+    planned.events.map((event) => [event.kind, event.key]),
+    [['alert', 'orders.review']],
+  );
+  // The same newest case stays quiet until the reminder interval.
+  planned = planNotifications(planned.state, at(NOW + 5 * MIN, 1, first), NOW + 5 * MIN, cfg);
+  assert.deepEqual(planned.events, []);
+  // A second order goes to review 20 minutes later: announced in the same run.
+  const second = iso(NOW + 19 * MIN);
+  planned = planNotifications(planned.state, at(NOW + 20 * MIN, 2, second), NOW + 20 * MIN, cfg);
+  assert.deepEqual(
+    planned.events.map((event) => [event.kind, event.key, event.severity]),
+    [['update', 'orders.review', 'critical']],
+  );
+  assert.match(
+    renderEvents(planned.events, cfg, NOW + 20 * MIN),
+    /НОВЫЙ СЛУЧАЙ \(критично\): Заказы на разборе \(сигналы сверки\)\nновых сигналов сверки за 6 ч: 2/,
+  );
+  // The known case survives a restart of the state file and is not announced again.
+  const stored = normalizeState(JSON.parse(JSON.stringify(planned.state)), 'print');
+  assert.equal(stored.checks['orders.review'].mark, Date.parse(second));
+  planned = planNotifications(stored, at(NOW + 25 * MIN, 2, second), NOW + 25 * MIN, cfg);
+  assert.deepEqual(planned.events, []);
+  // The reminder interval still applies to an unchanged problem.
+  planned = planNotifications(planned.state, at(NOW + 140 * MIN, 2, second), NOW + 140 * MIN, cfg);
+  assert.deepEqual(
+    planned.events.map((event) => event.kind),
+    ['reminder'],
+  );
+  // A state written before marks existed adopts the current case silently, then reacts to the
+  // next one.
+  const legacy = JSON.parse(JSON.stringify(planned.state));
+  delete legacy.checks['orders.review'].mark;
+  planned = planNotifications(
+    normalizeState(legacy, 'print'),
+    at(NOW + 145 * MIN, 2, second),
+    NOW + 145 * MIN,
+    cfg,
+  );
+  assert.deepEqual(planned.events, []);
+  const third = iso(NOW + 149 * MIN);
+  planned = planNotifications(planned.state, at(NOW + 150 * MIN, 3, third), NOW + 150 * MIN, cfg);
+  assert.deepEqual(
+    planned.events.map((event) => event.kind),
+    ['update'],
+  );
+  // Checks without a mark keep the plain reminder policy.
+  assert.equal(find(at(NOW, 1, null), 'orders.review').mark, undefined);
+  assert.equal(find(run(), 'kitchen.backlog').mark, undefined);
+});
+
 test('fulfillment_transport_attention lines are read only when the container is collected', () => {
   const at = (minutes) => iso(NOW - minutes * MIN);
   const line = (minutes, extra) => ({

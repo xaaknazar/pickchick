@@ -301,12 +301,19 @@ test('read-only watchdog role answers every check and can do nothing else', asyn
         { ...facts.kitchenBacklog, oldestSeconds: facts.kitchenBacklog.oldestSeconds >= 599 },
         { kitchen: 1, admission: 1, oldestSeconds: true },
       );
+      // newestAt is the database time of the newest case (about 2 minutes before facts.now).
+      const newestLag = Date.parse(facts.now) - Date.parse(facts.reviews.newestAt);
       assert.deepEqual(
-        { ...facts.reviews, newestSeconds: facts.reviews.newestSeconds >= 119 },
+        {
+          ...facts.reviews,
+          newestSeconds: facts.reviews.newestSeconds >= 119,
+          newestAt: newestLag >= 119_000 && newestLag < 180_000,
+        },
         {
           total: 2,
           codes: { KITCHEN_ADMISSION_OVERDUE: 1, PAID_AFTER_RESTAURANT_CANCEL: 1 },
           newestSeconds: true,
+          newestAt: true,
         },
       );
       assert.equal((await readDatabaseFacts(watchdog, { reviewWindowHours: 8 })).reviews.total, 3);

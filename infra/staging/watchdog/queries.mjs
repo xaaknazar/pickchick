@@ -55,8 +55,10 @@ export const WATCHDOG_SQL = Object.freeze({
   // after a cancellation, capture/refund mismatches. Such orders carry attention_required and
   // leave the backlogs above, so this is their only alert. Issues are immutable and have no
   // resolved state, hence the time window. Codes only: never details, order or payment data.
+  // newest_at marks a new case while the alert is already open (dedup "update").
   reviews: `SELECT code, count(*)::int AS issues,
-      floor(extract(epoch FROM clock_timestamp() - max(created_at)))::bigint::text AS newest_seconds
+      floor(extract(epoch FROM clock_timestamp() - max(created_at)))::bigint::text AS newest_seconds,
+      max(created_at) AS newest_at
     FROM commerce_reconciliation_issues
     WHERE created_at > clock_timestamp() - make_interval(hours => $1::int)
     GROUP BY code ORDER BY count(*) DESC, code LIMIT 20`,
@@ -102,7 +104,7 @@ export async function readDatabaseFacts(
       backlog[row.provider] = row.orders;
     const kitchen = (await client.query(WATCHDOG_SQL.kitchenBacklog, [kitchenBacklogMinutes]))
       .rows[0];
-    const reviews = { total: 0, codes: {}, newestSeconds: null };
+    const reviews = { total: 0, codes: {}, newestSeconds: null, newestAt: null };
     for (const row of (await client.query(WATCHDOG_SQL.reviews, [reviewWindowHours])).rows) {
       const code = issueCode(row.code);
       reviews.total += row.issues;
@@ -110,6 +112,9 @@ export async function readDatabaseFacts(
       const newest = seconds(row.newest_seconds);
       if (newest !== null && (reviews.newestSeconds === null || newest < reviews.newestSeconds))
         reviews.newestSeconds = newest;
+      // Database time of the newest case: compared run to run, independent of the watchdog clock.
+      const at = iso(row.newest_at);
+      if (at && (reviews.newestAt === null || at > reviews.newestAt)) reviews.newestAt = at;
     }
     const archiver = (await client.query(WATCHDOG_SQL.archiver)).rows[0];
     return {

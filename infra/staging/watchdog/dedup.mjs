@@ -1,5 +1,6 @@
 // De-duplication: first alert after N consecutive failing runs, reminders every renotify
-// interval, one escalation when severity rises, one recovery message. Pure functions.
+// interval, one escalation when severity rises, an update when an open problem gains a new
+// case (finding.mark grows), one recovery message. Pure functions.
 import { localDay } from './format.mjs';
 
 export const STATE_VERSION = 1;
@@ -56,6 +57,7 @@ export function normalizeState(raw, delivery) {
           : entry.notifiedSeverity in SEVERITY_RANK
             ? entry.notifiedSeverity
             : entry.severity,
+      mark: notifiedAt === null ? null : time(entry.mark),
     };
   }
   return {
@@ -71,7 +73,11 @@ export function normalizeState(raw, delivery) {
 }
 
 /**
- * @returns {{events: Array<{kind: 'alert'|'escalation'|'reminder'|'recovery'|'resolved',
+ * `finding.mark` (optional, ms) identifies the newest case behind a failing check, for example
+ * the creation time of the newest reconciliation issue. A mark newer than the one already
+ * notified sends an immediate "update" instead of waiting for the next reminder.
+ *
+ * @returns {{events: Array<{kind: 'alert'|'escalation'|'update'|'reminder'|'recovery'|'resolved',
  *   key: string, title: string, detail: string, severity: string, since: number}>, state: object}}
  */
 export function planNotifications(previous, evaluation, nowMs, { renotifyMinutes }) {
@@ -108,12 +114,16 @@ export function planNotifications(previous, evaluation, nowMs, { renotifyMinutes
       notifiedAt: prior?.notifiedAt ?? null,
       lastNotifiedAt: prior?.lastNotifiedAt ?? null,
       notifiedSeverity: prior?.notifiedSeverity ?? null,
+      mark: prior?.mark ?? null,
     };
+    const mark = time(finding.mark);
     let kind = null;
     if (entry.notifiedAt === null) {
       if (entry.consecutive >= finding.confirmRuns) kind = 'alert';
     } else if (SEVERITY_RANK[finding.severity] > SEVERITY_RANK[entry.notifiedSeverity]) {
       kind = 'escalation';
+    } else if (mark !== null && entry.mark !== null && mark > entry.mark) {
+      kind = 'update';
     } else if (nowMs - entry.lastNotifiedAt >= renotifyMs) {
       kind = 'reminder';
     }
@@ -128,8 +138,11 @@ export function planNotifications(previous, evaluation, nowMs, { renotifyMinutes
       });
       entry.notifiedAt ??= nowMs;
       entry.lastNotifiedAt = nowMs;
-      if (kind !== 'reminder') entry.notifiedSeverity = finding.severity;
+      if (kind === 'alert' || kind === 'escalation') entry.notifiedSeverity = finding.severity;
     }
+    // Only a case that has been announced counts as known; an older state without a mark adopts
+    // the current one silently.
+    if (mark !== null && entry.notifiedAt !== null) entry.mark = Math.max(entry.mark ?? 0, mark);
     checks[finding.key] = entry;
   }
   for (const [key, prior] of Object.entries(previous.checks)) {
@@ -149,7 +162,7 @@ export function planNotifications(previous, evaluation, nowMs, { renotifyMinutes
         since: prior.since,
       });
   }
-  const order = { alert: 0, escalation: 0, reminder: 1, recovery: 2, resolved: 2 };
+  const order = { alert: 0, escalation: 0, update: 0, reminder: 1, recovery: 2, resolved: 2 };
   events.sort(
     (a, b) =>
       order[a.kind] - order[b.kind] ||
