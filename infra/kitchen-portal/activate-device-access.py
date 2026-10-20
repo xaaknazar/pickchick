@@ -21,7 +21,7 @@ import uuid
 
 HERE = Path(__file__).resolve().parent
 PINS = {'update-deploy.py': '6cca519fde806b9bdb74924c955a22a21d717679a9ab2e7a44ad89d3dcce8416',
-        'remote-deploy.py': 'b8b1140d8150fac08374cc49313b322037b226d40a1b15c7eaa6e7eb14b23777',
+        'remote-deploy.py': '585373ff5fabe687163bf096d88d8a49f78f607786ef1f9aa625fada4abd072f',
         '../roadmap/remote-deploy.py': 'cd40654d2f347ba8f76385012e8067a91d56417c491805bedad8212697297de6'}
 for name, expected in PINS.items():
     if hashlib.sha256((HERE / name).read_bytes()).hexdigest() != expected:
