@@ -10,6 +10,7 @@ import {
   draftIsFinal,
   draftOwns,
   liveBankAction,
+  noteBankCommand,
   resumableOrder,
 } from '../../apps/mobile/src/checkout-resume.ts';
 import {
@@ -132,6 +133,29 @@ test('drafts record their time; a customer close is remembered for this app sess
   assert.equal(pendingPaymentDismissed(timed), true);
   assert.equal(pendingPaymentDismissed({ ...timed, key: draft.quoteId }), false);
   assert.equal(pendingPaymentDismissed(null), false);
+});
+
+test('an invoice requested now for an older unpaid order still holds a new checkout', () => {
+  // Review 20.10: the order view carries no attempt time. An order created long ago and paid
+  // from «Заказы» just now must not look stale while its invoice is being issued.
+  const old = order('sending', {
+    orderId: '40000000-0000-4000-8000-000000000031',
+    createdAt: iso(-BANK_RESUME_WINDOW_MS - 60_000),
+    updatedAt: iso(-BANK_RESUME_WINDOW_MS - 60_000),
+  });
+  assert.equal(liveBankAction(old, now), false);
+  assert.equal(resumableOrder([old], now), undefined);
+  noteBankCommand(old.orderId, now - 5_000);
+  assert.equal(liveBankAction(old, now), true);
+  assert.equal(resumableOrder([old], now), old);
+  assert.equal(closeDelay(old, now), STUCK_AFTER_MS);
+  // Bounded like any other bank wait.
+  assert.equal(liveBankAction(old, now + BANK_RESUME_WINDOW_MS), false);
+  // Another order with the same age is not affected.
+  assert.equal(
+    liveBankAction({ ...old, orderId: '40000000-0000-4000-8000-000000000032' }, now),
+    false,
+  );
 });
 
 test('a saved intent belongs only to the order it created', () => {

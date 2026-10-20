@@ -53,6 +53,7 @@ import {
   draftIsFinal,
   draftOwns,
   liveBankAction,
+  noteBankCommand,
   resumableOrder,
 } from '../checkout-resume';
 import { OrderSheet, useSheetDismissalLock } from '../components/OrderSheet';
@@ -568,6 +569,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
     const controller = new AbortController();
     preparation.current = controller;
     const deadline = setTimeout(() => controller.abort('timeout'), 60_000);
+    // Bounds "the bank may still answer" for this order even when it was created long ago.
+    noteBankCommand(order.orderId, Date.now());
     try {
       await accept(
         await prepareCheckout(
