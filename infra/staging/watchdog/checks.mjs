@@ -268,6 +268,33 @@ export function fulfillmentFinding(events, config) {
   );
 }
 
+/**
+ * Orders sent to a manager's review (commerce reconciliation issues): a refused or overdue
+ * kitchen admission, money after a cancellation, capture/refund mismatches. They carry
+ * attention_required, so the backlog checks above stop counting them; without this check a
+ * paid order that moved to review would look like a recovery.
+ */
+function reviewFinding(reviews, hours) {
+  const key = 'orders.review';
+  const title = 'Заказы на разборе (сигналы сверки)';
+  if (!reviews.total) return ok(key, 'db', title, `новых за ${hours} ч нет`);
+  const codes = Object.entries(reviews.codes)
+    .map(([code, count]) => `${code}: ${count}`)
+    .join(', ');
+  const newest =
+    reviews.newestSeconds === null
+      ? ''
+      : `, последний ${duration(reviews.newestSeconds * 1000)} назад`;
+  return result(
+    key,
+    'db',
+    title,
+    'fail',
+    'critical',
+    `новых сигналов сверки за ${hours} ч: ${reviews.total} (${codes})${newest}. Деньги могли быть приняты без передачи на кухню или нужен возврат: разобрать в кабинете (сигналы сверки).`,
+  );
+}
+
 function heartbeatFinding(row, config, nowMs) {
   const key = `edge.heartbeat.${row.deviceId}`;
   const title = `Пульс кассы "${row.name}"`;
@@ -557,6 +584,7 @@ export function evaluate({ api, host, db, config, nowMs }) {
   }
   if (db.ok) {
     findings.push(kitchenFinding(db.facts.kitchenBacklog, config.kitchenBacklogMinutes));
+    if (db.facts.reviews) findings.push(reviewFinding(db.facts.reviews, config.reviewWindowHours));
     for (const row of db.facts.heartbeats) findings.push(heartbeatFinding(row, config, nowMs));
     for (const row of db.facts.identities) findings.push(identityFinding(row, config));
     if (config.backup.expectPitr) findings.push(archiverFinding(db.facts.archiver, config));

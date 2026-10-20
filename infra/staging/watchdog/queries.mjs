@@ -51,6 +51,15 @@ export const WATCHDOG_SQL = Object.freeze({
       AND e.created_at < clock_timestamp() - make_interval(mins => $1::int)
       AND e.created_at > clock_timestamp() - interval '6 hours'
       AND NOT EXISTS (SELECT 1 FROM commerce_cancellation_intents i WHERE i.order_id = e.order_id)`,
+  // Manager review cases (reconciliation issues): a refused or overdue kitchen admission, money
+  // after a cancellation, capture/refund mismatches. Such orders carry attention_required and
+  // leave the backlogs above, so this is their only alert. Issues are immutable and have no
+  // resolved state, hence the time window. Codes only: never details, order or payment data.
+  reviews: `SELECT code, count(*)::int AS issues,
+      floor(extract(epoch FROM clock_timestamp() - max(created_at)))::bigint::text AS newest_seconds
+    FROM commerce_reconciliation_issues
+    WHERE created_at > clock_timestamp() - make_interval(hours => $1::int)
+    GROUP BY code ORDER BY count(*) DESC, code LIMIT 20`,
   // PITR option: archive_command health. pg_stat_archiver is readable without table grants.
   archiver: `SELECT current_setting('archive_mode') AS mode, archived_count::text,
       failed_count::text, last_archived_time, last_failed_time FROM pg_stat_archiver`,
@@ -60,11 +69,13 @@ const iso = (value) => (value instanceof Date ? value.toISOString() : null);
 const seconds = (value) => (value === null || value === undefined ? null : Number(value));
 const label = (value) =>
   typeof value === 'string' ? value.replace(/\p{Cc}/gu, ' ').slice(0, 60) : '';
+const issueCode = (value) =>
+  typeof value === 'string' && /^[A-Z][A-Z0-9_]{0,40}$/.test(value) ? value : 'OTHER';
 
 /** Runs every watchdog query in one READ ONLY transaction on a dedicated client. */
 export async function readDatabaseFacts(
   pool,
-  { paymentBacklogMinutes = 5, kitchenBacklogMinutes = 5 } = {},
+  { paymentBacklogMinutes = 5, kitchenBacklogMinutes = 5, reviewWindowHours = 6 } = {},
 ) {
   const client = await pool.connect();
   try {
@@ -91,6 +102,15 @@ export async function readDatabaseFacts(
       backlog[row.provider] = row.orders;
     const kitchen = (await client.query(WATCHDOG_SQL.kitchenBacklog, [kitchenBacklogMinutes]))
       .rows[0];
+    const reviews = { total: 0, codes: {}, newestSeconds: null };
+    for (const row of (await client.query(WATCHDOG_SQL.reviews, [reviewWindowHours])).rows) {
+      const code = issueCode(row.code);
+      reviews.total += row.issues;
+      reviews.codes[code] = (reviews.codes[code] ?? 0) + row.issues;
+      const newest = seconds(row.newest_seconds);
+      if (newest !== null && (reviews.newestSeconds === null || newest < reviews.newestSeconds))
+        reviews.newestSeconds = newest;
+    }
     const archiver = (await client.query(WATCHDOG_SQL.archiver)).rows[0];
     return {
       now: iso(now),
@@ -109,6 +129,7 @@ export async function readDatabaseFacts(
         admission: kitchen.admission,
         oldestSeconds: seconds(kitchen.oldest_seconds),
       },
+      reviews,
       archiver: {
         mode: label(archiver.mode),
         archivedCount: Number(archiver.archived_count),

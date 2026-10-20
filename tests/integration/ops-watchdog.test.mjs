@@ -214,7 +214,21 @@ async function seed(pool) {
     await kitchen('edge.admission_requested', 7 * MIN);
     await kitchen('edge.kitchen_admission_requested', 10 * MIN, { acknowledged: true });
     await kitchen('edge.kitchen_admission_requested', MIN);
-    await kitchen('edge.kitchen_admission_requested', 10 * MIN, { attention: true });
+    const reviewed = await kitchen('edge.kitchen_admission_requested', 10 * MIN, {
+      attention: true,
+    });
+    // Manager review cases: two new ones (the paid order above went to review, plus a second
+    // code) are counted; one older than the 6 hour window is not.
+    for (const [code, ageMs] of [
+      ['KITCHEN_ADMISSION_OVERDUE', 2 * MIN],
+      ['PAID_AFTER_RESTAURANT_CANCEL', 20 * MIN],
+      ['KITCHEN_ADMISSION_REFUSED', 7 * 60 * MIN],
+    ])
+      await client.query(
+        `INSERT INTO commerce_reconciliation_issues(id,order_id,issue_key,code,details,created_at)
+         VALUES ($1,$2,$3,$4,'{"synthetic":true}',clock_timestamp()-$5::bigint*interval '1 millisecond')`,
+        [randomUUID(), reviewed, `synthetic:${code}`, code, ageMs],
+      );
     const qrOrder = await order({ accountId: qr, outboxAgeMs: 0, acknowledged: true });
     await client.query(
       `INSERT INTO commerce_kiosk_kaspi_qr(attempt_id,order_id,account_id,amount_minor,state,issue_started_at,expires_at)
@@ -287,6 +301,15 @@ test('read-only watchdog role answers every check and can do nothing else', asyn
         { ...facts.kitchenBacklog, oldestSeconds: facts.kitchenBacklog.oldestSeconds >= 599 },
         { kitchen: 1, admission: 1, oldestSeconds: true },
       );
+      assert.deepEqual(
+        { ...facts.reviews, newestSeconds: facts.reviews.newestSeconds >= 119 },
+        {
+          total: 2,
+          codes: { KITCHEN_ADMISSION_OVERDUE: 1, PAID_AFTER_RESTAURANT_CANCEL: 1 },
+          newestSeconds: true,
+        },
+      );
+      assert.equal((await readDatabaseFacts(watchdog, { reviewWindowHours: 8 })).reviews.total, 3);
       // pg_stat_archiver needs no table grant; the local database does not archive.
       assert.equal(facts.archiver.mode, 'off');
       assert.equal(facts.archiver.failedCount, 0);
@@ -300,6 +323,8 @@ test('read-only watchdog role answers every check and can do nothing else', asyn
         'SELECT external_reference FROM commerce_provider_accounts',
         'SELECT reference, operation_id FROM commerce_kaspi_invoices',
         'SELECT qr_payload FROM commerce_kiosk_kaspi_qr',
+        'SELECT details FROM commerce_reconciliation_issues',
+        'SELECT order_id FROM commerce_reconciliation_issues',
         'SELECT id FROM organizations',
         'SELECT id FROM identity_customers',
         'SELECT id FROM kiosk_devices',
@@ -427,6 +452,7 @@ test('read-only watchdog role answers every check and can do nothing else', asyn
         [`device.identity.${ids.posExpired}`, 'critical'],
         [`edge.heartbeat.${ids.edgeA}`, 'critical'],
         ['kitchen.backlog', 'critical'],
+        ['orders.review', 'critical'],
         ['worker.kaspi-remote-worker.backlog', 'critical'],
         ['worker.kaspi-remote-worker.unknown', 'critical'],
         ['worker.kiosk-qr-worker.backlog', 'critical'],

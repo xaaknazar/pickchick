@@ -98,6 +98,7 @@ function dbFacts(overrides = {}) {
     unknownOverdue: { 'kaspi-remote-worker': 0, 'kiosk-qr-worker': 0 },
     paymentBacklog: { 'kaspi-remote-worker': 0, 'kiosk-qr-worker': 0 },
     kitchenBacklog: { kitchen: 0, admission: 0, oldestSeconds: 0 },
+    reviews: { total: 0, codes: {}, newestSeconds: null },
     archiver: {
       mode: 'off',
       archivedCount: 0,
@@ -137,8 +138,11 @@ test('config defaults keep Telegram off and validate thresholds without echoing 
   assert.equal(cfg.disk.warnPercent, 85);
   assert.equal(cfg.dailySummary.enabled, false);
   assert.equal(cfg.db.user, 'pickchick_watchdog');
+  assert.equal(cfg.reviewWindowHours, 6);
   for (const [name, value] of [
     ['WATCHDOG_DB_PASSWORD', 'short'],
+    ['WATCHDOG_REVIEW_WINDOW_HOURS', '0'],
+    ['WATCHDOG_REVIEW_WINDOW_HOURS', '73'],
     ['WATCHDOG_TELEGRAM_ENABLED', 'yes'],
     ['WATCHDOG_DISK_WARN_PERCENT', '101'],
     ['WATCHDOG_DISK_CRITICAL_PERCENT', '80'],
@@ -223,6 +227,7 @@ test('healthy facts produce no failing finding', () => {
     'worker.kiosk-qr-worker.unknown',
     'worker.kaspi-remote-worker.backlog',
     'kitchen.backlog',
+    'orders.review',
     'edge.heartbeat.d1',
     'device.identity.d1',
     'backup.age',
@@ -504,6 +509,65 @@ test('kitchen backlog: paid orders not taken by the cashier are critical, reserv
   );
   assert.equal(reservation.severity, 'warning');
   assert.equal(find(run({ db: { ok: false, code: 'timeout' } }), 'kitchen.backlog'), undefined);
+});
+
+test('paid order moved to manager review stays alerted instead of looking recovered', () => {
+  // 10 min: the cashier has not taken the paid order (kitchen backlog, critical).
+  const cfg = config();
+  const waiting = run({
+    db: dbFacts({ kitchenBacklog: { kitchen: 1, admission: 0, oldestSeconds: 600 } }),
+  });
+  assert.equal(find(waiting, 'kitchen.backlog').status, 'fail');
+  assert.equal(find(waiting, 'orders.review').status, 'ok');
+  let state = planNotifications(emptyState('print'), waiting, NOW, cfg).state;
+  // 15 min: the order goes to review (attention_required) and leaves the kitchen backlog. The
+  // same message that reports the backlog as gone raises the review alert.
+  const reviewed = run({
+    nowMs: NOW + 5 * MIN,
+    db: dbFacts({
+      reviews: {
+        total: 2,
+        codes: { KITCHEN_ADMISSION_OVERDUE: 1, PAID_AFTER_RESTAURANT_CANCEL: 1 },
+        newestSeconds: 25 * 60,
+      },
+    }),
+  });
+  const review = find(reviewed, 'orders.review');
+  assert.deepEqual([review.status, review.severity, review.source], ['fail', 'critical', 'db']);
+  assert.match(
+    review.detail,
+    /за 6 ч: 2 \(KITCHEN_ADMISSION_OVERDUE: 1, PAID_AFTER_RESTAURANT_CANCEL: 1\), последний 25 мин назад/,
+  );
+  const planned = planNotifications(state, reviewed, NOW + 5 * MIN, cfg);
+  assert.deepEqual(
+    planned.events.map((event) => [event.kind, event.key]),
+    [
+      ['alert', 'orders.review'],
+      ['recovery', 'kitchen.backlog'],
+    ],
+  );
+  state = planned.state;
+  // An unreadable database keeps the review alert open; it is not closed by a false recovery.
+  const offline = run({ nowMs: NOW + 10 * MIN, db: { ok: false, code: 'timeout' } });
+  assert.equal(find(offline, 'orders.review'), undefined);
+  const outage = planNotifications(state, offline, NOW + 10 * MIN, cfg);
+  assert.deepEqual(
+    outage.events.map((event) => event.key),
+    ['watchdog.database'],
+  );
+  assert.ok(outage.state.checks['orders.review']);
+  // A custom window is named in the text; an empty window is healthy.
+  assert.match(
+    find(
+      run({
+        cfg: config({ WATCHDOG_REVIEW_WINDOW_HOURS: '24' }),
+        db: dbFacts({ reviews: { total: 1, codes: { OTHER: 1 }, newestSeconds: null } }),
+      }),
+      'orders.review',
+    ).detail,
+    /за 24 ч: 1 \(OTHER: 1\)\. /,
+  );
+  assert.equal(find(run(), 'orders.review').detail, 'новых за 6 ч нет');
 });
 
 test('fulfillment_transport_attention lines are read only when the container is collected', () => {
@@ -1099,6 +1163,7 @@ function fakePool(db) {
       if (sql.includes('payment.submit_requested')) return { rows: [] };
       if (sql.includes('edge.kitchen_admission_requested'))
         return { rows: [{ kitchen: 0, admission: 0, oldest_seconds: '0' }] };
+      if (sql.includes('FROM commerce_reconciliation_issues')) return { rows: [] };
       if (sql.includes('pg_stat_archiver'))
         return {
           rows: [

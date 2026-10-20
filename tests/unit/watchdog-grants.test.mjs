@@ -36,12 +36,13 @@ test('grant SQL is exactly the reviewed column-level SELECT list', () => {
       'GRANT SELECT(order_id, account_id, state) ON public.commerce_payment_attempts TO pickchick_watchdog;',
       'GRANT SELECT(id, provider, kind, enabled) ON public.commerce_provider_accounts TO pickchick_watchdog;',
       'GRANT SELECT(order_id) ON public.commerce_cancellation_intents TO pickchick_watchdog;',
+      'GRANT SELECT(code, created_at) ON public.commerce_reconciliation_issues TO pickchick_watchdog;',
     ].join('\n'),
   );
   const all = watchdogApplySql({ password: PASSWORD });
   assert.doesNotMatch(
     watchdogGrantSql(WATCHDOG_ROLE),
-    /INSERT|UPDATE|DELETE|TRUNCATE|GRANT ALL|SEQUENCE|WITH GRANT OPTION|token_hash|phone|payload|snapshot|amount|external_reference|CREATE/,
+    /INSERT|UPDATE|DELETE|TRUNCATE|GRANT ALL|SEQUENCE|WITH GRANT OPTION|token_hash|phone|payload|snapshot|amount|external_reference|details|CREATE/,
   );
   assert.match(all, /^BEGIN;\n/);
   assert.match(all, /\nCOMMIT;$/);

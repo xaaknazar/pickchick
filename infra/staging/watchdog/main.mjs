@@ -47,6 +47,7 @@ async function readDatabase(config, connect) {
     const facts = await readDatabaseFacts(pool, {
       paymentBacklogMinutes: config.paymentBacklogMinutes,
       kitchenBacklogMinutes: config.kitchenBacklogMinutes,
+      reviewWindowHours: config.reviewWindowHours,
     });
     return { ok: true, facts };
   } catch (error) {

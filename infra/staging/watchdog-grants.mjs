@@ -30,6 +30,8 @@ export const WATCHDOG_COLUMNS = Object.freeze({
   commerce_payment_attempts: Object.freeze(['order_id', 'account_id', 'state']),
   commerce_provider_accounts: Object.freeze(['id', 'provider', 'kind', 'enabled']),
   commerce_cancellation_intents: Object.freeze(['order_id']),
+  // Review case codes and times only; never details (they can carry order data).
+  commerce_reconciliation_issues: Object.freeze(['code', 'created_at']),
 });
 
 function identifier(value) {

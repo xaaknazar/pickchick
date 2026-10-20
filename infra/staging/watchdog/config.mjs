@@ -118,6 +118,8 @@ export function loadWatchdogConfig(env) {
     disk: { warnPercent, criticalPercent },
     paymentBacklogMinutes: integer(env, 'WATCHDOG_PAYMENT_BACKLOG_MINUTES', 5, 1, 59),
     kitchenBacklogMinutes: integer(env, 'WATCHDOG_KITCHEN_BACKLOG_MINUTES', 5, 1, 120),
+    // New manager review cases stay alerted this long (issues have no resolved state).
+    reviewWindowHours: integer(env, 'WATCHDOG_REVIEW_WINDOW_HOURS', 6, 1, 72),
     factsMaxAgeMinutes: integer(env, 'WATCHDOG_FACTS_MAX_AGE_MINUTES', 15, 1, 1440),
     expect: {
       'kaspi-bridge': flag(env, 'WATCHDOG_EXPECT_KASPI_BRIDGE', true),
