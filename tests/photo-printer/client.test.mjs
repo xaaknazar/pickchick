@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { PhotoController } from '../../apps/kiosk/src/photobooth/controller.ts';
+import { photoErrorCode } from '../../apps/kiosk/src/photobooth/errors.ts';
 function fixture(overrides = {}) {
   let pending = null;
   const calls = [];
@@ -89,7 +91,12 @@ test('lost response and restart reconcile by GET only', async () => {
   assert.equal(f.calls.filter((c) => c.path === '/v1/jobs').length, 1);
   const restored = new PhotoController(f.io);
   await restored.init();
-  assert.equal(restored.state.job.state, 'sent');
+  // Reconciled by GET only; the final result belongs to the previous visit (finding 3.8): it is
+  // acknowledged and the booth opens fresh for the next guest.
+  assert.ok(f.calls.some((c) => c.path.startsWith('/v1/jobs/') && !c.body));
+  assert.equal(restored.state.phase, 'intro');
+  assert.equal(restored.state.job, null);
+  assert.equal(f.pending(), null);
   assert.equal(f.calls.filter((c) => c.path === '/v1/jobs').length, 1);
   f.controller.dispose();
   restored.dispose();
@@ -207,4 +214,114 @@ test('failed session cleanup after sending never claims the print did not start'
   assert.equal(f.controller.state.error, 'CLEANUP');
   assert(f.pending());
   f.controller.dispose();
+});
+
+// Audit 19.10, finding 3.8 (1): NOT_CONFIGURED comes with 503 and means nothing was printed.
+test('a known refusal is read at any status; other server errors stay ambiguous', () => {
+  assert.equal(photoErrorCode(503, { code: 'NOT_CONFIGURED' }), 'NOT_CONFIGURED');
+  assert.equal(photoErrorCode(503, { code: 'PRINTER_DOWN' }), 'CONNECTION');
+  assert.equal(photoErrorCode(500, {}), 'CONNECTION');
+  assert.equal(photoErrorCode(429, { code: 'BUSY' }), 'BUSY');
+  assert.equal(photoErrorCode(404, { code: 'NOT_FOUND' }), 'NOT_FOUND');
+  assert.equal(photoErrorCode(409, { code: 'bad code' }), 'CONNECTION');
+  assert.equal(photoErrorCode(409, null), 'CONNECTION');
+});
+test('NOT_CONFIGURED shows «печать недоступна» and keeps no pending job', async () => {
+  const f = fixture();
+  const request = f.io.request;
+  f.io.request = async (c, p, b, m) => {
+    if (p === '/v1/jobs') throw Error(photoErrorCode(503, { code: 'NOT_CONFIGURED' }));
+    return request(c, p, b, m);
+  };
+  await capture(f);
+  await f.controller.print();
+  assert.equal(f.controller.state.error, 'NOT_CONFIGURED');
+  assert.equal(f.controller.state.phase, 'preview');
+  assert.equal(f.controller.state.printingEnabled, false);
+  assert.equal(f.pending(), null);
+  f.controller.dispose();
+});
+// Finding 3.8 (2): the booth closed by its 60 s timeout or the app going to the background.
+test('the next guest never sees the previous guest result', async () => {
+  for (const state of ['sent', 'failed']) {
+    const f = fixture();
+    const request = f.io.request;
+    f.io.request = async (c, p, b, m) => {
+      const answer = await request(c, p, b, m);
+      return p.startsWith('/v1/jobs') ? { ...answer, state } : answer;
+    };
+    await capture(f);
+    await f.controller.print();
+    assert.equal(f.controller.state.job.state, state);
+    // Closed by itself, without «Назад»: the final result is acknowledged.
+    await f.controller.close();
+    assert.equal(f.pending(), null, state);
+    const next = new PhotoController(f.io);
+    await next.init();
+    assert.equal(next.state.phase, 'intro', state);
+    assert.equal(next.state.job, null, state);
+    assert.equal(await next.finishIfSent(), false, state);
+    next.dispose();
+    f.controller.dispose();
+  }
+});
+test('a previous guest final result left by a crash is acknowledged when the booth opens', async () => {
+  const f = fixture();
+  await capture(f);
+  await f.controller.print();
+  // The app died before the booth closed: the pending job stays stored.
+  assert.ok(f.pending());
+  const next = new PhotoController(f.io);
+  await next.init();
+  assert.equal(next.state.phase, 'intro');
+  assert.equal(next.state.job, null);
+  assert.equal(f.pending(), null);
+  assert.equal(f.calls.filter((c) => c.path === '/v1/jobs').length, 1);
+  next.dispose();
+});
+test('an ambiguous job survives an automatic close and still blocks a second print', async () => {
+  const f = fixture();
+  const request = f.io.request;
+  f.io.request = async (c, p, b, m) => {
+    const answer = await request(c, p, b, m);
+    return p.startsWith('/v1/jobs') ? { ...answer, state: 'unknown' } : answer;
+  };
+  await capture(f);
+  await f.controller.print();
+  await f.controller.close();
+  assert.ok(f.pending());
+  const next = new PhotoController(f.io);
+  await next.init();
+  assert.equal(next.state.phase, 'result');
+  assert.equal(next.state.job.state, 'unknown');
+  next.dispose();
+});
+test('a job the service never received is not pending for ever', async () => {
+  const f = fixture();
+  const request = f.io.request;
+  let lost = true;
+  f.io.request = async (c, p, b, m) => {
+    if (p === '/v1/jobs' && lost) throw Error('timeout');
+    if (p.startsWith('/v1/jobs/')) throw Error('NOT_FOUND');
+    return request(c, p, b, m);
+  };
+  await capture(f);
+  await f.controller.print();
+  assert.equal(f.controller.state.error, 'UNKNOWN');
+  await f.controller.check();
+  assert.equal(f.pending(), null);
+  assert.equal(f.controller.state.phase, 'preview');
+  lost = false;
+  await f.controller.print();
+  assert.equal(f.controller.state.job.state, 'sent');
+  f.controller.dispose();
+});
+// Finding 3.6: no exit from the guest flow to iOS Settings.
+test('the photo camera never opens iOS Settings', () => {
+  const source = readFileSync(
+    new URL('../../apps/kiosk/src/components/PhotoCamera.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.doesNotMatch(source, /openSettings|Linking/);
+  assert.match(source, /permissionStaff/);
 });

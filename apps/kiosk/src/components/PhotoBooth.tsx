@@ -54,7 +54,9 @@ export function PhotoBooth({
   useEffect(() => {
     if (!supplied) void controller.init();
     const close = () => {
-      controller.dispose();
+      // Finding 3.8: a final print result is acknowledged before the next guest can open the
+      // booth; an ambiguous one is kept for its own status check.
+      void controller.close().finally(() => controller.dispose());
       callbacks.current.onClose();
     };
     const timeout = setInterval(() => {

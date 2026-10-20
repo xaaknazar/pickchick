@@ -383,7 +383,9 @@ export class KioskCheckout {
       if (prior.quote_id !== req.quoteId) throw new CommerceError('CONFLICT');
       return this.read(guest, prior.id);
     }
-    await this.sessions.assertActive(guest.sessionId);
+    // No order exists for this guest: an expired guest gets a definitive NOT_FOUND, never
+    // FORBIDDEN (see KioskSessions.assertActive).
+    await this.sessions.assertActive(guest.sessionId, { ifExpired: 'NOT_FOUND' });
     assertRestaurantOrderingOpen(opt.hours, this.now());
     const config = await this.config(guest);
     if (!config.enabled) throw this.notReady(config);

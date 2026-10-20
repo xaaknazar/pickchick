@@ -27,6 +27,9 @@ import {
   kioskCheckoutOptions,
   kioskInvoiceAccountUnserved,
   kioskPiiKey,
+  KioskStaffPin,
+  KioskStaffPinError,
+  kioskStaffPinVerifier,
 } from '@pickchick/commerce-core';
 import type { KioskGuest } from '@pickchick/commerce-core';
 import { catalogMediaOptions } from '@pickchick/catalog-admin';
@@ -36,6 +39,7 @@ export class KioskCheckoutController {
   private readonly enrollment: KioskEnrollment | null;
   private readonly sessions: KioskSessions | null;
   private readonly checkout: KioskCheckout | null;
+  private readonly staff = new KioskStaffPin(kioskStaffPinVerifier(process.env));
   private readonly mediaEnabled = catalogMediaOptions(process.env).mediaEnabled;
   constructor(@Inject(RESOURCE) resources: Resources) {
     const options = kioskCheckoutOptions(process.env),
@@ -68,6 +72,11 @@ export class KioskCheckoutController {
     } catch (error) {
       if (error instanceof AvailabilityError)
         throw new HttpException({ code: error.code }, error.code === 'ITEM_STOPPED' ? 409 : 503);
+      if (error instanceof KioskStaffPinError)
+        throw new HttpException(
+          { code: error.code },
+          { INVALID: 400, UNAUTHORIZED: 401, RATE_LIMITED: 429, NOT_READY: 503 }[error.code],
+        );
       if (error instanceof CommerceError) {
         const codes = {
           INVALID: 400,
@@ -118,6 +127,23 @@ export class KioskCheckoutController {
       // Ordering and kitchen readiness do not prevent enrolling an authorized device.
       const config = await this.checkout!.config({ ...enrolled, sessionId: enrolled.deviceId });
       return { valid: true, branchId: config.branchId, restaurant: config.restaurant };
+    });
+  }
+  /**
+   * Staff code check for kiosk staff actions (audit 19.10: demo mode, «Начать заново» on a QR
+   * that may be scanned, service reset). Device credentials only; no guest is allocated and the
+   * answer carries nothing but the result. Off (NOT_READY) until KIOSK_STAFF_PIN_VERIFIER is set.
+   */
+  @Post('staff/verify') @HttpCode(200) staffVerify(
+    @Res({ passthrough: true }) res: ServerResponse,
+    @Body() body: unknown,
+    @Headers('x-kiosk-device') device?: string,
+    @Headers('x-kiosk-key') key?: string,
+  ) {
+    return this.execute(res, async () => {
+      const enrolled = await this.sessions!.validateDevice(device ?? '', key ?? '');
+      await this.staff.verify(enrolled.deviceId, body);
+      return { valid: true };
     });
   }
   @Post('sessions') @HttpCode(200) start(

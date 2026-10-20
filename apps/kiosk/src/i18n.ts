@@ -29,6 +29,7 @@ const ru = {
   err_NETWORK: 'Не удалось выполнить действие. Проверьте подключение и повторите попытку.',
   err_CONNECTION: 'Связь с сервером прервалась. Проверяем снова, не оплачивайте повторно.',
   err_OFFLINE: 'Нет связи с сервером. Новый заказ можно начать, когда связь восстановится.',
+  err_STAFF: 'Киоск временно не может начать новый заказ. Пригласите сотрудника.',
   willCancel: 'Заказ будет отменён через',
   secondsShort: 'с',
   backToPayment: 'Вернуться к оплате',
@@ -276,6 +277,20 @@ const ru = {
   demoDeclined: 'Демо: отказ',
   demoUnknown: 'Демо: неизвестно',
   demoReceipt: 'Демо-заказ: деньги не списаны, на кухню ничего не отправлено.',
+  // Audit 19.10: staff code for demo mode, «Начать заново» after the first seconds of a QR and
+  // the service reset of a stuck kiosk. The code is checked only by the server.
+  staffTitle: 'Действия сотрудника',
+  staffBody: 'Только для персонала. Введите код сотрудника.',
+  staffPin: 'Код сотрудника',
+  staffDemo: 'Включить демо-режим',
+  staffReset: 'Сбросить киоск',
+  staffResetBody:
+    'Сброс доступен, только когда деньги списаться не могут. Киоск вернётся на заставку.',
+  staffService: 'Сотруднику',
+  staffErr_wrong: 'Неверный код.',
+  staffErr_locked: 'Слишком много попыток. Повторите через несколько минут.',
+  staffErr_unavailable: 'Код сотрудника не настроен на сервере. Обратитесь к администратору.',
+  staffErr_network: 'Нет связи с сервером. Повторите попытку.',
 };
 type Strings = { [K in keyof typeof ru]: string };
 const kk: Strings = {
@@ -301,6 +316,7 @@ const kk: Strings = {
   err_NETWORK: 'Әрекетті орындау мүмкін болмады. Байланысты тексеріп, қайталап көріңіз.',
   err_CONNECTION: 'Сервермен байланыс үзілді. Қайта тексеріп жатырмыз, қайта төлемеңіз.',
   err_OFFLINE: 'Сервермен байланыс жоқ. Байланыс қалпына келгенде жаңа тапсырыс бастауға болады.',
+  err_STAFF: 'Киоск жаңа тапсырысты уақытша бастай алмайды. Қызметкерді шақырыңыз.',
   willCancel: 'Тапсырыс мына уақыттан кейін жойылады',
   secondsShort: 'с',
   backToPayment: 'Төлемге оралу',
@@ -547,6 +563,19 @@ const kk: Strings = {
   demoDeclined: 'Демо: төлем өтпеді',
   demoUnknown: 'Демо: белгісіз',
   demoReceipt: 'Демо тапсырыс: ақша алынбады, ас үйге ештеңе жіберілмеді.',
+  // Audit 19.10: staff code. KZ wording: to be checked by a native speaker.
+  staffTitle: 'Қызметкер әрекеттері',
+  staffBody: 'Тек қызметкерлерге арналған. Қызметкер кодын енгізіңіз.',
+  staffPin: 'Қызметкер коды',
+  staffDemo: 'Демо режимін қосу',
+  staffReset: 'Киоскті тазарту',
+  staffResetBody:
+    'Тазарту тек ақша алынбайтын жағдайда қолжетімді. Киоск бастапқы экранға оралады.',
+  staffService: 'Қызметкерге',
+  staffErr_wrong: 'Код қате.',
+  staffErr_locked: 'Әрекет тым көп. Бірнеше минуттан кейін қайталаңыз.',
+  staffErr_unavailable: 'Қызметкер коды серверде бапталмаған. Әкімшіге хабарласыңыз.',
+  staffErr_network: 'Сервермен байланыс жоқ. Қайталап көріңіз.',
 };
 const en: Strings = {
   enrollTitle: 'Kiosk setup',
@@ -572,6 +601,7 @@ const en: Strings = {
   err_NETWORK: 'Could not complete the action. Check the connection and try again.',
   err_CONNECTION: 'The connection to the server was lost. Checking again - do not pay again.',
   err_OFFLINE: 'No connection to the server. A new order can start once it is back.',
+  err_STAFF: 'The kiosk cannot start a new order right now. Please call a team member.',
   willCancel: 'Your order will be cancelled in',
   secondsShort: 's',
   backToPayment: 'Back to payment',
@@ -818,6 +848,19 @@ const en: Strings = {
   demoDeclined: 'Demo: declined',
   demoUnknown: 'Demo: unknown',
   demoReceipt: 'Demo order: no money was taken and nothing was sent to the kitchen.',
+  // Audit 19.10: staff code for demo mode, a late «Start over» and the service reset.
+  staffTitle: 'Staff actions',
+  staffBody: 'Staff only. Enter the staff code.',
+  staffPin: 'Staff code',
+  staffDemo: 'Turn on demo mode',
+  staffReset: 'Reset the kiosk',
+  staffResetBody:
+    'The reset is offered only when no money can be taken. The kiosk returns to the start screen.',
+  staffService: 'For staff',
+  staffErr_wrong: 'Wrong code.',
+  staffErr_locked: 'Too many attempts. Try again in a few minutes.',
+  staffErr_unavailable: 'The staff code is not set up on the server. Contact the administrator.',
+  staffErr_network: 'No connection to the server. Try again.',
 };
 const dictionaries: Record<Locale, Strings> = { kk, ru, en };
 /** UI strings for the locale; an unknown value falls back to Russian. */

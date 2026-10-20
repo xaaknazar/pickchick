@@ -23,6 +23,14 @@ import type { KioskMedia, KioskProduct, KioskSelection } from './model';
 export const DEMO_HOLD_MS = 5000;
 /** A demo QR becomes "paid" by itself after this delay (or at once with "Демо: оплачено"). */
 export const DEMO_AUTO_PAID_MS = 12000;
+/**
+ * Audit 19.10, finding 3.4: the demo leaves by itself after this long without a touch, so a kiosk
+ * left in demo mode returns to real sales. Checked every DEMO_IDLE_CHECK_MS.
+ */
+export const DEMO_IDLE_EXIT_MS = 3 * 60000;
+export const DEMO_IDLE_CHECK_MS = 5000;
+export const demoIdleExpired = (lastTouchAt: number, now: number) =>
+  now - lastTouchAt >= DEMO_IDLE_EXIT_MS;
 /** QR text of a demo payment: a plain marker, not a Kaspi link, so it cannot be paid. */
 export const DEMO_QR_PAYLOAD = 'PICKCHICK-DEMO-NOT-PAYABLE';
 /** First demo order number; the next demo orders count up from it. */

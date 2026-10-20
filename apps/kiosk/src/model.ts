@@ -51,6 +51,8 @@ export type KioskCatalog = Omit<
   TestCompleteCatalog,
   'catalog_version' | 'branch_id' | 'synthetic' | 'namespace' | 'products'
 > & { catalog_version: string; branch_id: string; products: KioskProduct[] };
+/** Why a staff code was not accepted (audit 19.10); shown under the code field. */
+export type StaffPinError = 'wrong' | 'locked' | 'unavailable' | 'network';
 /** Guest-facing error kinds; the screen shows them in the guest's language (i18n `err*`). */
 export type KioskErrorCode =
   | 'PRICE_CHANGED'
@@ -65,7 +67,9 @@ export type KioskErrorCode =
   | 'MENU_LOAD'
   | 'NETWORK'
   | 'CONNECTION'
-  | 'OFFLINE';
+  | 'OFFLINE'
+  /** The kiosk cannot start a new guest without staff (finding 3.1, neutral text). */
+  | 'STAFF';
 export interface KioskState {
   commercial?: boolean;
   /**
@@ -121,6 +125,17 @@ export interface KioskState {
    * it; absent in the simulator.
    */
   canStartOver?: boolean;
+  /**
+   * Audit 19.10, finding 3.3: the QR has been shown long enough to be scanned already (the server
+   * cannot tell), so «Начать заново» needs a staff code.
+   */
+  startOverNeedsStaff?: boolean;
+  /** A money-safe service reset of a stuck kiosk is available to staff (code required). */
+  staffResetAvailable?: boolean;
+  /** Staff actions of this build require the staff code (commercial kiosk). */
+  staffPinRequired?: boolean;
+  /** The last staff code check failed and why; null after a success or when closed. */
+  staffPinError?: StaffPinError | null;
 }
 export interface KioskModel extends KioskState {
   start(): Promise<boolean>;
@@ -152,13 +167,23 @@ export interface KioskModel extends KioskState {
   cancelOrder(): Promise<boolean>;
   /** Isolated demo capability only. Live QR cancellation is not supported by the bank bridge. */
   cancelPayment?(): Promise<boolean>;
-  /** «Начать заново» on the Kaspi QR (see `canStartOver`); nothing is cancelled or paid. */
-  startOver?(): Promise<boolean>;
+  /**
+   * «Начать заново» on the Kaspi QR (see `canStartOver`); nothing is cancelled or paid. With
+   * `startOverNeedsStaff` the staff code is required.
+   */
+  startOver?(pin?: string): Promise<boolean>;
+  /** Service reset of a stuck kiosk (see `staffResetAvailable`), after the staff code. */
+  staffReset?(pin: string): Promise<boolean>;
+  /** Clears the last staff code error (the dialog closed). */
+  clearStaffError?(): void;
   recover(): Promise<boolean>;
   refresh(): Promise<boolean | void>;
   newGuest(): Promise<boolean>;
   touch(): void;
   stay(): void;
-  /** Turns the staff demo mode on (start screen only) or off; absent where it is unavailable. */
-  setDemo?(on: boolean): void;
+  /**
+   * Turns the staff demo mode on (start screen only, after the staff code where
+   * `staffPinRequired`) or off (no code); absent where it is unavailable.
+   */
+  setDemo?(on: boolean, pin?: string): Promise<boolean>;
 }
