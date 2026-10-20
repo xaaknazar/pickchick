@@ -50,7 +50,8 @@
 ## Права БД
 
 Новых таблиц нет. Для ручных возвратов роли API нужен отдельный помощник
-`manualRefundGrants(role, true)` из `infra/staging/backoffice-grants.mjs`:
+`manualRefundGrants(role, true)` из `infra/staging/manual-refund-grants.mjs` (при интеграции вынесен из
+`backoffice-grants.mjs`, который закреплён по хешу в `release-finance-ledger.py`):
 `INSERT` на `commerce_refund_effects` и `UPDATE(state)` на `commerce_refunds`.
 Применять **после** `fulfillmentTransportGrants`, `backofficeGrants` и
 `customerCheckoutGrants`: помощник транспорта отзывает у общей роли все права на возвраты.

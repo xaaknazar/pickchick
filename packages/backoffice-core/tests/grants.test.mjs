@@ -5,7 +5,8 @@ import { createPool } from '@pickchick/database';
 import { fixture } from '../../fulfillment-transport/tests/cloud-fixture.mjs';
 import { provisionCatalogManager } from '../../catalog-admin/dist/index.js';
 import { Backoffice, grantBackoffice } from '../dist/index.js';
-import { backofficeGrants, manualRefundGrants } from '../../../infra/staging/backoffice-grants.mjs';
+import { backofficeGrants } from '../../../infra/staging/backoffice-grants.mjs';
+import { manualRefundGrants } from '../../../infra/staging/manual-refund-grants.mjs';
 import { fulfillmentTransportGrants } from '../../../infra/staging/fulfillment-transport-grants.mjs';
 test('restricted runtime reads scoped operations and requests refunds without capture, credential or grant provisioning powers', () =>
   fixture(async (f) => {
