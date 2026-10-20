@@ -48,5 +48,7 @@ test('schema023 is additive, append-only, owner-rights with a pinned search_path
   assert.match(migration, /REVOKE EXECUTE ON FUNCTION edge_restore_fence\(boolean\) FROM PUBLIC;/);
   assert.match(migration, /BEFORE UPDATE OR DELETE ON edge_database_epochs/);
   assert.match(migration, /gap constant bigint := 1000000000;/);
+  // The heartbeat revision moves with the producer sequences, or availability stays stale.
+  assert.match(migration, /UPDATE fulfillment_transport_state SET attempts = attempts \+ gap;/);
   assert.match(migration, /ADD COLUMN restore_resync_from bigint;/);
 });

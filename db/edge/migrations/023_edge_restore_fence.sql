@@ -2,8 +2,9 @@
 -- A logical restore (pg_restore into a new database or cluster) brings this ledger back with
 -- the identity of the database the backup was taken from. The edge service compares it with the
 -- live PostgreSQL system identifier and database OID at start. On a mismatch every
--- edge-to-cloud producer sequence moves past anything the lost timeline may have used (the cloud
--- accepts gaps but never a reused sequence), and the menu cursor may skip forward once to the
+-- edge-to-cloud producer sequence and the stop-list heartbeat revision move past anything the
+-- lost timeline may have used (the cloud accepts gaps but never a reused sequence and ignores a
+-- revision it has already passed), and the menu cursor may skip forward once to the
 -- oldest publication the cloud still has unacknowledged. Nothing is deleted or replayed.
 CREATE TABLE edge_database_epochs (
   epoch integer PRIMARY KEY CHECK (epoch > 0),
@@ -67,6 +68,10 @@ BEGIN
       END IF;
     END IF;
   END LOOP;
+  -- The stop-list heartbeat revision is this counter; the cloud ignores any revision not above
+  -- the last one it stored, so a restored counter would leave branch availability stale (every
+  -- app and kiosk checkout AVAILABILITY_STALE) until it caught up with the lost timeline.
+  UPDATE fulfillment_transport_state SET attempts = attempts + gap;
   UPDATE menu_sync_state SET restore_resync_from = last_sequence;
   INSERT INTO edge_database_epochs(epoch, system_identifier, database_oid, reason, sequence_gap)
     VALUES (last_epoch.epoch + 1, live_system, live_oid,
