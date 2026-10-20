@@ -87,3 +87,42 @@ test('hidden password input refuses redirected stdin and restores raw mode on ca
     assert.equal(tty.input.isRaw, false);
   }
 });
+
+test('PIN backoff: free typos, doubling locks capped at 15 minutes, decay only after quiet time (6.5)', async () => {
+  const { PinBackoff, PIN_BACKOFF } = await import('@pickchick/local-orders');
+  let now = 1_000_000;
+  const backoff = new PinBackoff(() => now);
+  const key = 'branch:terminal';
+  assert.equal(backoff.lockedMs(key), 0);
+  for (let i = 1; i < PIN_BACKOFF.freeFailures; i++) {
+    assert.equal(backoff.fail(key).lockedMs, 0);
+    now += 1000;
+  }
+  const locks = [];
+  let last = now;
+  for (let i = 0; i < 8; i++) {
+    last = now;
+    locks.push(backoff.fail(key).lockedMs);
+    assert.equal(backoff.lockedMs(key), locks.at(-1));
+    now += locks.at(-1);
+    assert.equal(backoff.lockedMs(key), 0);
+  }
+  assert.deepEqual(
+    locks.map((ms) => ms / 1000),
+    [30, 60, 120, 240, 480, 900, 900, 900],
+  );
+  // Waiting out a lock does not forgive the failures; a quiet half hour does.
+  assert.equal(backoff.status(key).failures, PIN_BACKOFF.freeFailures + 7);
+  now = last + PIN_BACKOFF.decayMs - 1;
+  assert.equal(backoff.status(key).failures, PIN_BACKOFF.freeFailures + 7);
+  now += 1;
+  assert.equal(backoff.status(key).failures, 0);
+  assert.equal(backoff.fail(key).lockedMs, 0);
+  // Bounded memory: the oldest terminal is forgotten first.
+  const small = new PinBackoff(() => now, { ...PIN_BACKOFF, maxTerminals: 2 });
+  for (const k of ['a', 'b', 'c']) small.fail(k);
+  assert.deepEqual(
+    ['a', 'b', 'c'].map((k) => small.status(k).failures),
+    [0, 1, 1],
+  );
+});
