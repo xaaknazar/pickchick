@@ -25,7 +25,9 @@
 `notice` (текст, который установленные клиенты не показывают) больше не утверждает «Заказы
 доступны без оплаты», когда включён mobile Kaspi: при `CUSTOMER_KASPI_PILOT_ENABLED=true` и
 `CUSTOMER_KASPI_SALES_ENABLED` не `false` он сообщает, что заказы оплачиваются через Kaspi, а
-чеки в процессе подключения. Код: `services/api/src/capabilities.ts`, тест:
+чеки в процессе подключения; при выключателе продаж владельца
+(`CUSTOMER_KASPI_SALES_ENABLED=false`: новые заказы и оплаты отклоняются) - что оплата в
+приложении временно приостановлена. Код: `services/api/src/capabilities.ts`, тест:
 `tests/unit/capabilities.test.mjs` (в том числе проверка установленным парсером mobile).
 Release-скрипты, сравнивающие ответ до/после выпуска, увидят изменение `notice` - это
 ожидаемо.

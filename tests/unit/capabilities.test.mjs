@@ -22,12 +22,25 @@ test('the pilot notice no longer claims ordering without payment while Kaspi tak
   assert.match(live.ru, /оплачиваются через Kaspi/);
   assert.doesNotMatch(live.ru, /без оплаты/);
   assert.match(live.kk, /Kaspi арқылы төленеді/);
-  // The owner's sales switch (pay lane) or a disabled pilot keep the previous wording.
+  // A disabled pilot keeps the previous wording.
+  assert.match(capabilityNotice(true, {}).ru, /без оплаты/);
+  // The owner's sales switch (pay lane) refuses new orders and payments: never "without payment".
+  const paused = capabilityNotice(true, {
+    CUSTOMER_KASPI_PILOT_ENABLED: 'true',
+    CUSTOMER_KASPI_SALES_ENABLED: 'false',
+  });
+  assert.match(paused.ru, /временно приостановлена/);
+  assert.match(paused.kk, /уақытша тоқтатылды/);
+  assert.doesNotMatch(paused.ru, /без оплаты/);
+  assert.match(capabilityNotice(false, { CUSTOMER_KASPI_PILOT_ENABLED: 'true' }).ru, /Тестовый/);
+  for (const text of [live.ru, live.kk, paused.ru, paused.kk]) assert.doesNotMatch(text, /[—–]/);
+  // Every variant still passes the shared contract (CapabilitiesSchema notice limits).
   for (const env of [
     {},
     { CUSTOMER_KASPI_PILOT_ENABLED: 'true', CUSTOMER_KASPI_SALES_ENABLED: 'false' },
   ])
-    assert.match(capabilityNotice(true, env).ru, /без оплаты/);
-  assert.match(capabilityNotice(false, { CUSTOMER_KASPI_PILOT_ENABLED: 'true' }).ru, /Тестовый/);
-  for (const text of [live.ru, live.kk]) assert.doesNotMatch(text, /[—–]/);
+    assert.equal(
+      parseCapabilities(capabilities(config({ customerAuthEnabled: true }), env)).schema_version,
+      1,
+    );
 });

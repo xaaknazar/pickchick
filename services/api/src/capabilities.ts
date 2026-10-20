@@ -18,12 +18,18 @@ export function capabilityNotice(customerAuth: boolean, env: NodeJS.ProcessEnv) 
       ru: 'Тестовый стенд PickChick. Доступен только синтетический TEST-сценарий при включённом тестовом режиме. Реальные заказы, SMS, платежи и чеки недоступны.',
       kk: 'PickChick сынақ ортасы. Сынақ режимі қосылғанда тек синтетикалық TEST сценарийі қолжетімді. Нақты тапсырыстар, SMS, төлемдер мен чектер қолжетімсіз.',
     };
-  // CUSTOMER_KASPI_SALES_ENABLED=false is the owner's switch for new mobile Kaspi payments.
-  if (env.CUSTOMER_KASPI_PILOT_ENABLED === 'true' && env.CUSTOMER_KASPI_SALES_ENABLED !== 'false')
-    return {
-      ru: 'Заказы в приложении оплачиваются через Kaspi. Чеки в процессе подключения.',
-      kk: 'Қосымшадағы тапсырыстар Kaspi арқылы төленеді. Чектер қосылуда.',
-    };
+  if (env.CUSTOMER_KASPI_PILOT_ENABLED === 'true')
+    // CUSTOMER_KASPI_SALES_ENABLED=false is the owner's switch for new mobile Kaspi payments:
+    // new orders and payments are refused then, so "without payment" would be untrue.
+    return env.CUSTOMER_KASPI_SALES_ENABLED === 'false'
+      ? {
+          ru: 'Оплата заказов в приложении через Kaspi временно приостановлена. Чеки в процессе подключения.',
+          kk: 'Қосымшадағы тапсырыстарды Kaspi арқылы төлеу уақытша тоқтатылды. Чектер қосылуда.',
+        }
+      : {
+          ru: 'Заказы в приложении оплачиваются через Kaspi. Чеки в процессе подключения.',
+          kk: 'Қосымшадағы тапсырыстар Kaspi арқылы төленеді. Чектер қосылуда.',
+        };
   return {
     ru: 'Заказы в ресторане доступны без оплаты. Оплата и чеки в процессе подключения.',
     kk: 'Мейрамханаға тапсырыстар төлемсіз қолжетімді. Төлем мен чектер қосылуда.',
