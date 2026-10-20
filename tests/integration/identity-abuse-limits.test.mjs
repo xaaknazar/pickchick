@@ -333,6 +333,35 @@ test('a number Telegram cannot reach returns its reservation; other refusals sti
     );
   }));
 
+test('a refund waits for the budget lock before it touches the challenge (no deadlock)', async () =>
+  fixture(async (ctx) => {
+    let answer;
+    ctx.setOutcome(new Promise((resolve) => (answer = resolve)));
+    const pending = ctx.request(phoneOf(840));
+    while (ctx.sent.length === 0) await new Promise((r) => setTimeout(r, 20));
+    // Another request holds the budget lock and is about to supersede this phone's challenge.
+    const other = await ctx.pool.connect();
+    try {
+      await other.query('BEGIN');
+      await other.query('SELECT pg_advisory_xact_lock(90827001)');
+      answer({ kind: 'rejected', reason: 'recipient_unavailable' });
+      await new Promise((r) => setTimeout(r, 500));
+      const superseded = await other.query(
+        "UPDATE identity_otp_challenges SET state='superseded',code_hash=NULL,phone_cipher=NULL WHERE state='reserved'",
+      );
+      assert.equal(superseded.rowCount, 1);
+      await other.query('COMMIT');
+    } catch (error) {
+      await other.query('ROLLBACK');
+      throw error;
+    } finally {
+      other.release();
+    }
+    // The superseded challenge is not finalized and its reservation is not returned twice.
+    await assert.rejects(pending, failsWith('SERVICE_UNAVAILABLE'));
+    assert.deepEqual(await ctx.reservations(), { total: 1, fresh: 1 });
+  }));
+
 test('environment defaults: reserve 20%, 90-day sessions, 30-day idle; review account off', () => {
   const env = {
     CUSTOMER_AUTH_ENABLED: 'true',

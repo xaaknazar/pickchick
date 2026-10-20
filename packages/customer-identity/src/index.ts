@@ -517,13 +517,15 @@ export class CustomerIdentity {
     }
     const refund = state === 'rejected' && undeliverable ? reservation.refund : null;
     const finalization = await transaction(this.pool, async (db) => {
+      // Same lock order as the reservation (budget lock, then challenge rows): a refund can
+      // never deadlock with a new request for this phone that supersedes the challenge.
+      if (refund) await db.query('SELECT pg_advisory_xact_lock(90827001)');
       const updated = await db.query(
         "UPDATE identity_otp_challenges SET state=$2,delivery_provider=$3,delivery_reference=$4,code_hash=CASE WHEN $2='rejected' THEN NULL ELSE code_hash END,phone_cipher=CASE WHEN $2='rejected' THEN NULL ELSE phone_cipher END WHERE id=$1 AND state='reserved' AND delivery_channel=$5",
         [id, state, submitted?.provider ?? null, submitted?.messageId ?? null, actualChannel],
       );
       if (updated.rowCount === 1 && refund) {
         // Nothing was delivered or charged: the reservation returns to the day's budget.
-        await db.query('SELECT pg_advisory_xact_lock(90827001)');
         // reservations>0 is a table invariant: the day's only reservation removes the row.
         const removed = await db.query(
           "DELETE FROM identity_sms_daily_budget WHERE budget_day=($1::timestamptz AT TIME ZONE 'UTC')::date AND reservations=1",
