@@ -8,6 +8,7 @@ import {
   closeDelay,
   draftCanAutoSend,
   draftIsFinal,
+  draftOwns,
   liveBankAction,
   resumableOrder,
 } from '../../apps/mobile/src/checkout-resume.ts';
@@ -131,4 +132,15 @@ test('drafts record their time; a customer close is remembered for this app sess
   assert.equal(pendingPaymentDismissed(timed), true);
   assert.equal(pendingPaymentDismissed({ ...timed, key: draft.quoteId }), false);
   assert.equal(pendingPaymentDismissed(null), false);
+});
+
+test('a saved intent belongs only to the order it created', () => {
+  // Review 20.10: «Заказы» may show an older order while an intent is pending; that order must
+  // never auto-send, settle or clear the intent of another one.
+  const own = { ...draft, orderId: '40000000-0000-4000-8000-000000000006', createdAt: now };
+  assert.equal(draftOwns(own, own.orderId), true);
+  assert.equal(draftOwns(own, '40000000-0000-4000-8000-000000000013'), false);
+  // An intent whose create command has not answered yet belongs to no listed order.
+  assert.equal(draftOwns({ ...draft, createdAt: now }, own.orderId), false);
+  assert.equal(draftOwns(null, own.orderId), false);
 });

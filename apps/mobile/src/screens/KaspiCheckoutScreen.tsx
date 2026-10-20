@@ -51,6 +51,7 @@ import {
   closeDelay,
   draftCanAutoSend,
   draftIsFinal,
+  draftOwns,
   liveBankAction,
   resumableOrder,
 } from '../checkout-resume';
@@ -124,9 +125,17 @@ function KaspiCheckoutSession(props: ScreenProps) {
         connectionPaused ||
         paidMoment ||
         Boolean(pending.current && !order) ||
-        Boolean(order && pending.current && !draftIsFinal(order, pending.current, lockedAt)) ||
+        Boolean(
+          order &&
+          draftOwns(pending.current, order.orderId) &&
+          !draftIsFinal(order, pending.current, lockedAt),
+        ) ||
         Boolean(order && liveBankAction(order, lockedAt))),
   );
+  // Only the order created by the saved intent may send its invoice without a new tap; an older
+  // unpaid order opened from «Заказы» always waits for «Отправить счёт».
+  const autoSends = (target: CustomerCommerceOrder) =>
+    draftOwns(pending.current, target.orderId) && draftCanAutoSend(pending.current, Date.now());
   const access = auth.withOrderAccess;
   const request = useCallback(
     (path: string, method: 'GET' | 'POST' = 'GET', body?: unknown, signal?: AbortSignal) => {
@@ -138,10 +147,17 @@ function KaspiCheckoutSession(props: ScreenProps) {
     [customerId, access],
   );
   const accept = useCallback(
-    async (value: unknown) => {
+    async (value: unknown, adopt = true) => {
       const current = CustomerCommerceOrderSchema.parse(value);
+      // The saved intent belongs to this order, or this is the answer to its own create command.
+      // Another order (opened from «Заказы» or watched there) never adopts, settles or clears it.
+      const draft =
+        pending.current &&
+        (pending.current.orderId ? pending.current.orderId === current.orderId : adopt)
+          ? pending.current
+          : null;
       if (
-        ((orderRef.current && !paymentReceived(orderRef.current.phase)) || pending.current) &&
+        ((orderRef.current && !paymentReceived(orderRef.current.phase)) || draft) &&
         paymentReceived(current.phase) &&
         !paidSeen.current.has(current.orderId)
       ) {
@@ -152,11 +168,11 @@ function KaspiCheckoutSession(props: ScreenProps) {
       orderRef.current = current;
       setOrder(current);
       // Paid, failed, attention or an old unbilled order: the intent has nothing left to do.
-      if (pending.current && draftIsFinal(current, pending.current, Date.now())) {
+      if (draft && draftIsFinal(current, draft, Date.now())) {
         // A newer cart or changed modifiers are never cleared by an older payment.
         if (
           paymentReceived(current.phase) &&
-          matchesPaidComboCart(pending.current.signature, signatureRef.current)
+          matchesPaidComboCart(draft.signature, signatureRef.current)
         ) {
           props.model.clearCart(
             cart.current.map((line) => ({ id: cartLineKey(line), quantity: line.quantity })),
@@ -167,8 +183,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
         if (paymentReceived(current.phase)) props.model.comboRewards?.refresh();
         await AsyncStorage.removeItem(key);
         pending.current = null;
-      } else if (pending.current && pending.current.orderId !== current.orderId) {
-        pending.current = { ...pending.current, orderId: current.orderId };
+      } else if (draft && !draft.orderId) {
+        pending.current = { ...draft, orderId: current.orderId };
         await AsyncStorage.setItem(key, JSON.stringify(pending.current));
       }
       return current;
@@ -274,6 +290,10 @@ function KaspiCheckoutSession(props: ScreenProps) {
           orderRef.current = null;
           setOrder(null);
         }
+      } else if (draft) {
+        // Closed in «Заказы» (audit 2.4): the tab shows its list, not the intent. The intent
+        // stays saved for the checkout and the next start, and no other order touches it here.
+        pending.current = null;
       }
       if (props.screenId !== 'M19') {
         // Passive configuration only; price/admission checks belong to the explicit pay action.
@@ -323,7 +343,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
       read: (signal) =>
         request(`/orders/${order.orderId}/watch?after=${order.revision}`, 'GET', undefined, signal),
       accept: async (next) => {
-        await acceptRef.current(next);
+        // A watch answer is never the create command of a pending intent.
+        await acceptRef.current(next, false);
       },
       // Connection recovery keeps the last confirmed order on screen without banners.
       onError: () => {},
@@ -384,11 +405,14 @@ function KaspiCheckoutSession(props: ScreenProps) {
     return () => clearTimeout(timer);
   }, [paidMoment, foreground]);
   const refreshChangedMenu = useCallback(
-    async (discardUnattempted = false) => {
+    async (discardUnattempted?: string) => {
       if (discardUnattempted) {
         // MENU_CHANGED on pay guarantees no bank attempt and a durable local cancellation.
-        await AsyncStorage.removeItem(key);
-        pending.current = null;
+        // Only that order's own intent is dropped (audit 2.4: «Заказы» may show another order).
+        if (draftOwns(pending.current, discardUnattempted)) {
+          await AsyncStorage.removeItem(key);
+          pending.current = null;
+        }
         orderRef.current = null;
         setOrder(null);
       }
@@ -555,13 +579,15 @@ function KaspiCheckoutSession(props: ScreenProps) {
       );
     } catch (e) {
       if (e instanceof CustomerSessionError && e.authoritative && e.code === 'MENU_CHANGED')
-        await refreshChangedMenu(true);
+        await refreshChangedMenu(order.orderId);
       else if (paymentRefused(e)) {
         // Audit 2.1: the restaurant refused to bill this order (stop list, closed, not ready,
-        // kitchen offline). No attempt exists and no money was taken. Drop the intent so nothing
+        // kitchen offline). No attempt exists and no money was taken. Drop its intent so nothing
         // re-sends it, return to the cart with the reason and refresh the menu.
-        await AsyncStorage.removeItem(key).catch(() => undefined);
-        pending.current = null;
+        if (draftOwns(pending.current, order.orderId)) {
+          await AsyncStorage.removeItem(key).catch(() => undefined);
+          pending.current = null;
+        }
         orderRef.current = null;
         setOrder(null);
         setQuote(null);
@@ -581,15 +607,9 @@ function KaspiCheckoutSession(props: ScreenProps) {
     // Explicit consent is persisted before order creation. Admission can arrive later.
     // Existing pre-consent drafts retain the manual action; no charge on a passive history visit.
     // A draft older than a few minutes (or from build 20) never sends an invoice by itself.
-    if (
-      order?.phase === 'ready_to_pay' &&
-      draftCanAutoSend(pending.current, Date.now()) &&
-      !busy &&
-      !error &&
-      !paymentPaused
-    )
+    if (order?.phase === 'ready_to_pay' && autoSends(order) && !busy && !error && !paymentPaused)
       void pay();
-  }, [order?.phase, busy, error, paymentPaused, pay]);
+  }, [order?.phase, order?.orderId, busy, error, paymentPaused, pay]);
   const retry = () => {
     setError(null);
     setRefresh((c) => c + 1);
@@ -601,11 +621,15 @@ function KaspiCheckoutSession(props: ScreenProps) {
    */
   const closeOrder = async () => {
     const draft = pending.current;
-    const current = orderRef.current ?? order;
-    if (draft && current && !liveBankAction(current, Date.now(), draft.createdAt)) {
+    const shown = order ?? orderRef.current;
+    const current = shown && orderRef.current?.orderId === shown.orderId ? orderRef.current : shown;
+    // Only the intent of the closed order (or of a create still in flight) is affected; leaving an
+    // older order opened from «Заказы» never touches the intent of another order.
+    const own = !!current && draftOwns(draft, current.orderId);
+    if (own && !liveBankAction(current, Date.now(), draft.createdAt)) {
       await AsyncStorage.removeItem(key).catch(() => undefined);
       pending.current = null;
-    } else if (draft) dismissPendingPayment(draft.key);
+    } else if (draft && (own || !current)) dismissPendingPayment(draft.key);
     preparation.current?.abort('user');
     if (props.screenId === 'M19') {
       orderRef.current = null;
@@ -690,7 +714,9 @@ function KaspiCheckoutSession(props: ScreenProps) {
           ) : undefined
         }
         onClose={pending.current ? () => void closeOrder() : undefined}
-        closeDelayMs={closeDelay(undefined, Date.now())}
+        closeLabel={props.screenId === 'M19' ? 'К списку заказов' : 'Закрыть'}
+        // «Заказы» is a tab, not the checkout: its list is reachable at once (audit 2.4).
+        closeDelayMs={props.screenId === 'M19' ? 0 : closeDelay(undefined, Date.now())}
       />
     );
   if (order && (!paymentReceived(order.phase) || paidMoment))
@@ -710,8 +736,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
           setRefresh((c) => c + 1);
         }}
         extraAction={
-          order.phase === 'ready_to_pay' &&
-          (!draftCanAutoSend(pending.current, Date.now()) || paymentPaused || !!error) ? (
+          order.phase === 'ready_to_pay' && (!autoSends(order) || paymentPaused || !!error) ? (
             <Button
               title={`Отправить счёт на ${money(order.totalMinor)}`}
               onPress={() => void pay()}

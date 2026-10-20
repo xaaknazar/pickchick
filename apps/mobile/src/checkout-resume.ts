@@ -7,7 +7,9 @@ import type { PendingPayment } from './payment-recovery.ts';
  * 2.1, 2.4). Only an order that may still take the customer's money blocks a second invoice;
  * everything else returns the customer to the cart, the list or a new order.
  */
-type Order = Pick<CustomerCommerceOrder, 'phase' | 'createdAt' | 'updatedAt' | 'expiresAt'>;
+type Order = Pick<CustomerCommerceOrder, 'phase' | 'createdAt' | 'updatedAt' | 'expiresAt'> & {
+  orderId?: string;
+};
 
 /** A saved intent sends the invoice by itself only this soon after the customer's tap. */
 export const AUTO_SEND_WINDOW_MS = 5 * 60_000;
@@ -28,6 +30,14 @@ export function liveBankAction(order: Order, now: number, since?: number): boole
   if (Number.isFinite(deadline)) return now < deadline + INVOICE_GRACE_MS;
   const seen = [time(order.createdAt), time(order.updatedAt), since ?? NaN].filter(Number.isFinite);
   return !seen.length || now < Math.max(...seen) + BANK_RESUME_WINDOW_MS;
+}
+
+/**
+ * The saved intent belongs to this order. An intent without an order id meets its order only
+ * through its own create command; the Orders tab never lends it to another order.
+ */
+export function draftOwns(draft: PendingPayment | null, orderId: string): draft is PendingPayment {
+  return !!draft && draft.orderId === orderId;
 }
 
 /** The order a new "pay" tap must show instead of creating another one. */

@@ -9,6 +9,8 @@ no bank, no real customer, no VPS request.
      resend, no reopen after restart, the next tap quotes the current cart.
   C  Orders tab: an attention order and an unpaid order both lead back to the list.
   D  kitchen offline at the quote: the honest message at once, no minute of spinner.
+  E  invoice in Kaspi + saved intent: closing reaches the Orders list, an older unpaid order
+     opened there neither sends its invoice by itself nor takes over the intent.
 """
 from browser_network import isolated_context, route_fixture
 import json, os, subprocess
@@ -284,6 +286,60 @@ def scenario_orders(browser):
     ctx.close()
 
 
+def scenario_orders_with_live_intent(browser):
+    """E (review 20.10): an invoice waiting in Kaspi plus the saved intent of this build.
+
+    Closing it must lead to the Orders list (not back to the same screen), and an older unpaid
+    order opened there must neither send its invoice by itself nor take over the intent.
+    """
+    state = fresh_state()
+    soon = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat().replace('+00:00', 'Z')
+    invoiced = {**order('awaiting_payment', INVOICED), 'expiresAt': soon}
+
+    def handler(r, path, method, body):
+        if path == f'/v1/customer-checkout/orders/{INVOICED}' and method == 'GET':
+            return fulfill(r, invoiced)
+        if path == '/v1/customer-checkout/orders' and method == 'GET':
+            return fulfill(r, {'orders': [invoiced, order('ready_to_pay', UNPAID), order('attention')]})
+        if path.endswith('/payment'):
+            return fulfill(r, order('sending', UNPAID))
+        return False
+
+    tapped = int(datetime.now(timezone.utc).timestamp() * 1000) - 60_000
+    draft = {'key': '40000000-0000-4000-8000-000000000025', 'quoteId': '40000000-0000-4000-8000-000000000026',
+             'signature': '{"items":[]}', 'orderId': INVOICED, 'sendInvoice': True, 'createdAt': tapped}
+    ctx, page = context(browser, state, handler, draft)
+    ctx.clock.install()
+    page.goto(URL + '/orders')
+    sheet = page.get_by_test_id('order-sheet')
+    expect(sheet.get_by_test_id('kaspi-open-app')).to_be_visible(timeout=25000)
+    assert page.url.endswith('/checkout'), page.url
+    # The bank may still charge this invoice: the checkout waits before offering to close.
+    expect(sheet.get_by_test_id('kaspi-close-order')).to_have_count(0)
+    page.clock.fast_forward(91_000)
+    sheet.get_by_test_id('kaspi-close-order').click(timeout=10000)
+    expect(page.get_by_test_id('order-sheet')).to_have_count(0, timeout=10000)
+    assert json.loads(draft_saved(page))['orderId'] == INVOICED, 'a live invoice keeps its intent'
+    # «Заказы» may still show the same invoice; its own way back must reach the list.
+    back = page.get_by_test_id('kaspi-close-order')
+    if back.count():
+        expect(back).to_have_text('К списку заказов')
+        back.click()
+    expect(page.get_by_test_id('order-history-pay-' + UNPAID)).to_be_visible(timeout=10000)
+    page.screenshot(path=str(OUT / 'E-orders-live-intent.png'))
+    # An older unpaid order waits for an explicit «Отправить счёт», whatever intent is pending.
+    page.get_by_test_id('order-history-pay-' + UNPAID).click()
+    expect(page.get_by_role('button', name='Отправить счёт на', exact=False)).to_be_visible(timeout=10000)
+    page.wait_for_timeout(2500)
+    assert state['payments'] == 0, 'no automatic invoice for an order the intent did not create'
+    page.get_by_test_id('kaspi-close-order').click()
+    expect(page.get_by_test_id('order-history-pay-' + UNPAID)).to_be_visible(timeout=10000)
+    assert json.loads(draft_saved(page))['orderId'] == INVOICED, 'the intent still names its own order'
+    assert state['payments'] == 0 and state['creates'] == 0, state
+    release(state)
+    ctx.close()
+
+
 def scenario_kitchen_offline(browser):
     state = fresh_state()
 
@@ -307,14 +363,26 @@ def scenario_kitchen_offline(browser):
     ctx.close()
 
 
+# CHECKOUT_TRAPS=E runs a subset while iterating; the default runs every scenario.
+SELECTED = os.environ.get('CHECKOUT_TRAPS', 'ABCDE').upper()
 with sync_playwright() as p:
     browser = p.chromium.launch()
-    for width, height in [(393, 852), (320, 568)]:
-        scenario_attention(browser, width, height)
-    scenario_item_stopped(browser)
-    scenario_orders(browser)
-    scenario_kitchen_offline(browser)
+    if 'A' in SELECTED:
+        for width, height in [(393, 852), (320, 568)]:
+            scenario_attention(browser, width, height)
+    if 'B' in SELECTED:
+        scenario_item_stopped(browser)
+    if 'C' in SELECTED:
+        scenario_orders(browser)
+    if 'E' in SELECTED:
+        scenario_orders_with_live_intent(browser)
+    if 'D' in SELECTED:
+        scenario_kitchen_offline(browser)
     browser.close()
 assert not errors, errors
+if SELECTED != 'ABCDE':
+    print('PASS checkout traps (subset ' + SELECTED + ')')
+    raise SystemExit(0)
 print('PASS checkout traps: attention intent closes and stays closed, refused payment returns to the cart '
-      'without resend, Orders tab returns to the list, kitchen offline is reported at once')
+      'without resend, Orders tab returns to the list (also with a live intent, no foreign auto-invoice), '
+      'kitchen offline is reported at once')
