@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { createPool, migrate } from '@pickchick/database';
+import { createPool, migrate, transaction } from '@pickchick/database';
 import { localSelectionIds } from '@pickchick/menu-sync';
 import { fixtureMenu } from '@pickchick/test-fixtures';
 import {
@@ -1510,6 +1510,60 @@ test('a payment that races the restaurant cancellation is flagged for refund, ne
       [orderId],
     );
     assert.equal(admissions.rowCount, 0);
+  }, true));
+
+/** Paid order whose kitchen admission is queued; then the cashier's projection says `state`. */
+async function paidThenCashierCancels(f, { delivered = false, state = 'cancelled' } = {}) {
+  const { orderId, attempt } = await f.order();
+  const worker = f.processor();
+  await worker.tick();
+  f.bridge.status.set((await f.invoice(attempt.attemptId)).operation_id, 'Processed');
+  await f.due();
+  await worker.tick();
+  const paid = await f.view(orderId);
+  assert.equal(paid.captures.length, 1);
+  assert.equal(paid.attentionRequired, false);
+  assert.ok(paid.kitchenEffectId);
+  if (delivered)
+    await f.pool.query('UPDATE commerce_outbox SET acknowledged_at=clock_timestamp() WHERE id=$1', [
+      paid.kitchenEffectId,
+    ]);
+  await f.pool.query(
+    'UPDATE cloud_fulfillment_projection SET state=$2,version=version+1 WHERE order_id=$1',
+    [orderId, state],
+  );
+  // The transport's projection observation runs this hook inside its own transaction.
+  await transaction(f.pool, (client) =>
+    f.repo.scheduleUnpaidCancellation(client, f.scope, orderId),
+  );
+  return orderId;
+}
+
+test('a paid order the cashier cancels before its kitchen admission arrives is flagged for refund', () =>
+  fixture(async (f) => {
+    // The cashier was offline: the payment arrived, the admission was still queued, and the
+    // cashier cancelled the held order. The transport never delivers that admission.
+    const orderId = await paidThenCashierCancels(f);
+    const flagged = await f.view(orderId);
+    assert.equal(flagged.attentionRequired, true);
+    assert.equal(flagged.state, 'attention_required');
+    assert.deepEqual(
+      flagged.issues.map((i) => i.code),
+      ['PAID_AFTER_RESTAURANT_CANCEL'],
+    );
+    // Repeated projection events add nothing.
+    await transaction(f.pool, (client) =>
+      f.repo.scheduleUnpaidCancellation(client, f.scope, orderId),
+    );
+    assert.equal((await f.view(orderId)).issues.length, 1);
+  }, true));
+
+test('a cancellation after the kitchen admission was delivered is not a paid-after-cancel case', () =>
+  fixture(async (f) => {
+    const orderId = await paidThenCashierCancels(f, { delivered: true });
+    const order = await f.view(orderId);
+    assert.equal(order.attentionRequired, false);
+    assert.deepEqual(order.issues, []);
   }, true));
 
 test('recovery finds its own invoice although an older invoice had the same readable message', () =>

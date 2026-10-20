@@ -266,6 +266,25 @@ async function admissionState(client: DatabaseClient, orderId: string) {
     ).rows[0]?.state ?? null
   );
 }
+/**
+ * Money arrived for an order the restaurant released or cancelled before its kitchen admission
+ * reached the cashier: the payment came after the cancellation, or the cashier cancelled the hold
+ * while the paid admission was still queued (for example while offline). The transport never
+ * delivers that admission, so the order is never cooked and a manager must refund it (0.4).
+ */
+async function paidAfterRestaurantCancel(client: DatabaseClient, row: OrderRow, captured: bigint) {
+  if (captured <= 0n) return false;
+  const state = await admissionState(client, row.id);
+  if (!['released', 'cancelled', 'cancel_requested'].includes(state ?? '')) return false;
+  if (!row.kitchen_effect_id) return true;
+  // An admission the cashier already applied makes this a cancellation of an accepted order.
+  return !(
+    await client.query(
+      'SELECT 1 FROM commerce_outbox WHERE id=$1 AND order_id=$2 AND acknowledged_at IS NOT NULL',
+      [row.kitchen_effect_id, row.id],
+    )
+  ).rowCount;
+}
 async function reconcile(client: DatabaseClient, row: OrderRow) {
   if (await reconcileComboRewards(client, row.id))
     await issue(client, row, 'combo-gift-conflict', 'COMBO_REWARD_RECONCILIATION_REQUIRED', {});
@@ -279,13 +298,7 @@ async function reconcile(client: DatabaseClient, row: OrderRow) {
     });
   // Money arrived for an order the restaurant had already released or cancelled before it was
   // sent to the kitchen: never cook it, show it to a manager for a refund.
-  if (
-    captured > 0n &&
-    !row.kitchen_effect_id &&
-    ['released', 'cancelled', 'cancel_requested'].includes(
-      (await admissionState(client, row.id)) ?? '',
-    )
-  )
+  if (await paidAfterRestaurantCancel(client, row, captured))
     await issue(client, row, 'paid-after-restaurant-cancel', 'PAID_AFTER_RESTAURANT_CANCEL', {});
   if (BigInt(money.refunded) + BigInt(money.reserved) > captured)
     await issue(client, row, 'refund-exposure', 'REFUND_EXPOSURE_EXCEEDS_CAPTURE', {});
@@ -994,6 +1007,19 @@ export class CommerceRepository {
   /** Called inside authenticated admission/projection TX; never across HTTP. */
   async scheduleUnpaidCancellation(client: DatabaseClient, scope: Boundary, orderId: string) {
     const row = await order(client, scope, orderId);
+    // The cashier released or cancelled a hold whose payment already arrived (the admission was
+    // still queued): put it up for a refund now instead of leaving a paid order silently uncooked.
+    if (
+      !row.attention_required &&
+      (await paidAfterRestaurantCancel(
+        client,
+        row,
+        BigInt((await totals(client, row.id)).captured),
+      ))
+    ) {
+      await issue(client, row, 'paid-after-restaurant-cancel', 'PAID_AFTER_RESTAURANT_CANCEL', {});
+      await reconcile(client, row);
+    }
     const intent = (
       await client.query(
         'SELECT * FROM commerce_cancellation_intents WHERE order_id=$1 FOR UPDATE',
