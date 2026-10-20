@@ -318,3 +318,66 @@ test('3.7: a guest given up after a refused payment is ended and counted, never 
   await c.endAbandoned();
   assert.ok(h.ended.includes(refused));
 });
+
+// QA 20.10 (release-fixes-1019), audit S15 (3.0) x S11 (1.1) x S16 (3.1): the guest pays the QR and
+// walks away, the guest session expires, then the cashier refuses the paid order. The kiosk is not
+// held, the refused guest goes to the background list, the next guest starts under a new session,
+// and the expired token is never used for anything but /sessions/end.
+test('QA S15: a guest session that expires while the cashier refuses the paid order', async () => {
+  const h = sessionFixture({ ttl: 20 * MINUTE, expiredOrder: 'NOT_FOUND' });
+  const c = await cart(h);
+  assert.equal(await c.beginPayment(), true);
+  const qr = (state) => ({
+    kind: 'kaspi_qr',
+    state,
+    qrPayload: null,
+    expiresAt: new Date(h.clock + 3 * MINUTE).toISOString(),
+  });
+  // Paid; the cashier has not admitted it yet (no number), the guest leaves.
+  h.order = { ...h.order, phase: 'paid', displayNumber: null, payment: qr('paid') };
+  assert.equal(await c.refresh(), true);
+  assert.equal(c.getSnapshot().step, 'order');
+  assert.equal(c.getSnapshot().recoveryRequired, false);
+  const paidToken = token(h);
+  h.clock += 21 * MINUTE;
+  // The cashier refused it: the server shows installed builds 'failed' with a paid QR.
+  h.order = { ...h.order, phase: 'failed', payment: qr('paid') };
+  await c.refresh();
+  const shown = c.getSnapshot();
+  // Paid is already final for the kiosk (number «-», staff-help copy if it reads again); either
+  // way the device is not held: no recovery, the money stays a manager case on the server.
+  assert.ok(['paid', 'failed'].includes(shown.order.state), shown.order.state);
+  assert.equal(shown.qrPayment.state, 'paid');
+  assert.equal(shown.recoveryRequired, false);
+  // The refused paid order is unresolved on the server: ending the guest answers CONFLICT.
+  h.endAnswer = (tok) => (tok === paidToken ? 'CONFLICT' : 'ok');
+  const mark = h.calls.length;
+  assert.equal(await c.newGuest(), true);
+  assert.equal(c.getSnapshot().step, 'start');
+  assert.notEqual(c.getSnapshot().errorCode, 'CART_CHANGED');
+  h.order = null;
+  assert.equal(await c.start(), true);
+  assert.equal(c.getSnapshot().step, 'mode');
+  assert.notEqual(token(h), paidToken);
+  // Its expiry has passed: the background list drops it without another request.
+  await c.endAbandoned();
+  assert.equal(stored(h).abandoned, undefined);
+  assert.ok(
+    h.calls
+      .slice(mark)
+      .filter((r) => r.token === paidToken)
+      .every((r) => r.path === '/sessions/end'),
+  );
+  // The next guest pays normally under its own session.
+  await c.setMode('takeaway');
+  const product = c.getSnapshot().catalog.products[0];
+  const selections = product.modifier_groups.flatMap((g) =>
+    g.options
+      .filter((o) => o.default_quantity > 0)
+      .map((o) => ({ group_id: g.id, option_id: o.id, quantity: o.default_quantity })),
+  );
+  assert.equal(await c.addToCart(product.id, selections), true);
+  c.goLoyalty();
+  assert.equal(await c.beginPayment(), true);
+  assert.equal(c.getSnapshot().step, 'payment');
+});
