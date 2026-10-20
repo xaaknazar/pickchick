@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { setImmediate } from 'node:timers';
 import test from 'node:test';
 import { edgeRuntimeGrantSql } from '../../infra/windows/edge-runtime-grants.mjs';
 import { fulfillmentWorkerGrants } from '../../infra/windows/fulfillment-worker-grants.mjs';
@@ -51,4 +52,62 @@ test('schema023 is additive, append-only, owner-rights with a pinned search_path
   // The heartbeat revision moves with the producer sequences, or availability stays stale.
   assert.match(migration, /UPDATE fulfillment_transport_state SET attempts = attempts \+ gap;/);
   assert.match(migration, /ADD COLUMN restore_resync_from bigint;/);
+});
+
+test('the edge retries the restore fence until PostgreSQL answers, but not a missing grant (6.4)', async (t) => {
+  const { RestoreFenceOnStart, RESTORE_FENCE_RETRY_MS } =
+    await import('../../services/edge/dist/restore-fence.js');
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const logs = [];
+  for (const level of ['log', 'warn'])
+    t.mock.method(console, level, (line) => logs.push(JSON.parse(line)));
+  const flush = async () => {
+    for (let i = 0; i < 10; i++) await new Promise((resolve) => setImmediate(resolve));
+  };
+  const fake = (failure) => {
+    const db = { failure, fenced: 0 };
+    db.pool = {
+      query: async (sql) => {
+        if (db.failure) throw Object.assign(new Error('synthetic'), { code: db.failure });
+        if (/to_regprocedure/.test(sql)) return { rows: [{ ok: true }] };
+        db.fenced++;
+        return { rows: [{ state: 'restore', epoch: 2, sequence_gap: '1000000000' }] };
+      },
+    };
+    return db;
+  };
+
+  // A reboot right after a restore: PostgreSQL is not up when the edge starts.
+  const starting = fake('ECONNREFUSED');
+  const fence = new RestoreFenceOnStart({ pool: starting.pool });
+  await fence.onApplicationBootstrap();
+  t.mock.timers.tick(RESTORE_FENCE_RETRY_MS);
+  await flush();
+  assert.equal(starting.fenced, 0);
+  starting.failure = null;
+  t.mock.timers.tick(RESTORE_FENCE_RETRY_MS);
+  await flush();
+  assert.equal(starting.fenced, 1, 'the fence runs as soon as the database answers');
+  t.mock.timers.tick(RESTORE_FENCE_RETRY_MS * 3);
+  await flush();
+  assert.equal(starting.fenced, 1, 'and only once');
+  await fence.onModuleDestroy();
+  assert.deepEqual(
+    logs.map((l) => l.reason ?? l.state),
+    ['RETRYING', 'restore'],
+    'one line per state change, no spam while retrying',
+  );
+
+  // No EXECUTE grant: a release setup problem, logged once and never retried.
+  logs.length = 0;
+  const denied = fake('42501');
+  let queries = 0;
+  const counted = { query: (sql) => (queries++, denied.pool.query(sql)) };
+  const ungranted = new RestoreFenceOnStart({ pool: counted });
+  await ungranted.onApplicationBootstrap();
+  t.mock.timers.tick(RESTORE_FENCE_RETRY_MS * 3);
+  await flush();
+  assert.equal(queries, 1);
+  assert.deepEqual(logs, [{ event: 'edge_restore_fence_unavailable', reason: 'NOT_GRANTED' }]);
+  await ungranted.onModuleDestroy();
 });
