@@ -194,6 +194,7 @@ export class Resources implements OnApplicationShutdown {
               '022_cloud_otp_channels.sql',
               '023_cloud_otp_delivery_consent.sql',
               '024_cloud_customer_pilot_orders.sql',
+              '068_cloud_identity_abuse_limits.sql',
             ]) {
               const identityVersion = await this.pool.query(
                 'SELECT 1 FROM schema_migrations WHERE scope=$1 AND version=$2',
@@ -212,12 +213,17 @@ export class Resources implements OnApplicationShutdown {
               'identity_consents',
               'identity_deletions',
               'identity_customer_test_actors',
+              'identity_otp_failures',
             ]) {
               await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);
             }
             await this.pool.query(
-              'SELECT receipt_failed_attempts, delivery_channel, delivery_provider, delivery_reference, delivery_consent_version FROM identity_otp_challenges LIMIT 0',
+              'SELECT receipt_failed_attempts, delivery_channel, delivery_provider, delivery_reference, delivery_consent_version, ip_net_hash FROM identity_otp_challenges LIMIT 0',
             );
+            await this.pool.query(
+              'SELECT new_phone_reservations FROM identity_sms_daily_budget LIMIT 0',
+            );
+            await this.pool.query('SELECT retired_refresh_hashes FROM identity_sessions LIMIT 0');
           }
           if (this.config.fulfillmentTransportEnabled) {
             for (const version of [

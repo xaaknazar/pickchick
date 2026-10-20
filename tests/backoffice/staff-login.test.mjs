@@ -195,10 +195,16 @@ test('bounded rate limit and body size; service restart revokes sessions', async
   const f = await fixture(t);
   const c = cookie(await f.login());
   assert.equal((await f.login({ username: 'ceo', password: 'a'.repeat(3000) })).status, 413);
-  for (let i = 0; i < 28; i++)
+  // Rejected bodies never reach a password check, so they cannot lock anyone out.
+  for (let i = 0; i < 40; i++)
     assert.equal((await f.login({ username: [], password })).status, 400);
-  assert.equal((await f.login()).status, 429);
-  f.advance(15 * 60 * 1000 + 1);
+  assert.equal((await f.login()).status, 200);
+  for (let i = 0; i < 5; i++)
+    assert.equal((await f.login({ username: 'ceo', password: 'wrong-' + i })).status, 401);
+  const limited = await f.login();
+  assert.equal(limited.status, 429);
+  assert.equal(limited.headers['retry-after'], '30');
+  f.advance(30 * 1000 + 1);
   assert.equal((await f.login()).status, 200);
   const other = await fixture(t);
   assert.equal(

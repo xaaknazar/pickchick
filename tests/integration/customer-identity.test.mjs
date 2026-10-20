@@ -370,9 +370,11 @@ test('concurrent requests reserve once before delivery; restart preserves cooldo
   }));
 test('daily global budget fails closed under distinct concurrent phones/devices without additional submissions', async () =>
   fixture(async (ctx) => {
+    // The whole budget open to new phones; the returning-customer reserve has its own test.
+    const identity = ctx.make({ newPhoneBudgetPercent: 100 });
     const results = await Promise.allSettled(
       Array.from({ length: 9 }, (_, n) =>
-        ctx.identity.requestOtp(
+        identity.requestOtp(
           {
             phone: '+770100000' + String(n + 11),
             delivery_consent: { privacy_version: version, accepted: true },
@@ -509,7 +511,7 @@ test('lost verify response recovers exact tokens after restart, but never after 
     );
     await assert.rejects(ctx.make().verifyOtp(again.request), error('CONFLICT'));
   }));
-test('concurrent refresh rotates once; lost response is recoverable after long offline only with exact request/device', async () =>
+test('concurrent refresh rotates once; lost response is recoverable offline within the session lifetime only with exact request/device', async () =>
   fixture(async (ctx) => {
     const { session, device } = await ctx.login();
     const request = {
@@ -534,11 +536,12 @@ test('concurrent refresh rotates once; lost response is recoverable after long o
       ctx.identity.refresh({ ...request, device_id: randomUUID(), request_id: randomUUID() }),
       error('UNAUTHORIZED'),
     );
+    // Offline for weeks, inside the 30-day idle and 90-day absolute lifetime.
     await ctx.pool.query(
-      "UPDATE identity_sessions SET access_expires_at=clock_timestamp()-interval '400 days',created_at=created_at-interval '401 days',refreshed_at=refreshed_at-interval '400 days'",
+      "UPDATE identity_sessions SET access_expires_at=clock_timestamp()-interval '20 days',created_at=created_at-interval '21 days',refreshed_at=refreshed_at-interval '20 days'",
     );
     await ctx.pool.query(
-      "UPDATE identity_refresh_receipts SET created_at=created_at-interval '400 days'",
+      "UPDATE identity_refresh_receipts SET created_at=created_at-interval '20 days'",
     );
     await ctx.make().cleanup();
     assert.deepEqual(await ctx.make().refresh(request), next);
@@ -547,12 +550,14 @@ test('concurrent refresh rotates once; lost response is recoverable after long o
       .refresh({ refresh_token: next.refresh_token, device_id: device, request_id: randomUUID() });
     assert.equal(newest.customer.id, session.customer.id);
     assert.equal(ctx.deliveries.length, 1);
+    assert.equal((await ctx.identity.me(newest.access_token)).customer.id, session.customer.id);
+    // Replaying a token two rotations old is reuse: the whole session ends (audit 5.7).
     await assert.rejects(ctx.identity.refresh(request), error('UNAUTHORIZED'));
     assert.equal(
       (await ctx.pool.query('SELECT count(*) FROM identity_refresh_receipts')).rows[0].count,
-      '1',
+      '0',
     );
-    assert.equal((await ctx.identity.me(newest.access_token)).customer.id, session.customer.id);
+    await assert.rejects(ctx.identity.me(newest.access_token), error('UNAUTHORIZED'));
   }));
 test('parallel distinct refresh request IDs cannot revoke the winning legitimate device', async () =>
   fixture(async (ctx) => {
@@ -858,7 +863,8 @@ test('phone, device and shared-IP rolling limits survive new request IDs without
       ),
       error('RATE_LIMITED'),
     );
-    for (let n = 30; n < 45; n++)
+    // Twenty requests from one address were never verified: the address is limited.
+    for (let n = 30; n < 35; n++)
       await ctx.identity.requestOtp(
         {
           phone: '+7701' + String(n).padStart(7, '0'),
@@ -880,7 +886,7 @@ test('phone, device and shared-IP rolling limits survive new request IDs without
       ),
       error('RATE_LIMITED'),
     );
-    assert.equal(ctx.deliveries.length, 30);
+    assert.equal(ctx.deliveries.length, 20);
   }));
 
 test('HTTP controller exposes strict responses and sanitized errors with no-store; forged forwarding headers do not choose client IP', async () =>
