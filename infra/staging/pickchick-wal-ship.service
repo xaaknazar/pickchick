@@ -8,7 +8,8 @@ OnFailure=pickchick-watchdog.service
 Type=oneshot
 User=pickchick-ops
 Group=pickchick-ops
-# No-op until secrets/backup-offsite.env sets BACKUP_PITR_ENABLED=true (compose.pitr.yaml).
+# No-op until secrets/backup-offsite.env sets BACKUP_PITR_ENABLED=true and
+# `backup-offsite.py pitr-sql enable` turned WAL archiving on (docs/operations/backup-offsite.md).
 ExecStart=/usr/bin/python3 /opt/pickchick-staging/current/infra/staging/backup-offsite.py ship-wal
 TimeoutStartSec=15min
 UMask=0077

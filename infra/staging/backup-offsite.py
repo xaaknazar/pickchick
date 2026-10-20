@@ -337,8 +337,9 @@ def encrypt_stream(producer, destination, recipient_value, timeout=3600):
 def ship_wal(settings, root, s3=None, now=time.time):
     """Encrypts and uploads every archived WAL file, then removes it from the archive directory.
 
-    Postgres writes the archive inside its own volume (compose.pitr.yaml); files are read and
-    removed only through `docker exec` as the postgres user, never changed in place.
+    archive_command (`pitr-sql enable`) writes the archive inside the cloud-db data volume
+    (/var/lib/postgresql/wal-archive, outside PGDATA); files are listed, read and removed only
+    through `docker exec` into that container, never changed in place.
     """
     status_path = root / 'backups' / 'wal-status.json'
     status = read_status(status_path)
