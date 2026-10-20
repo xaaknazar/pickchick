@@ -233,6 +233,9 @@ export function deviceStatus(d: DeviceRow, now = Date.now()) {
   return 'Связь экрана не проверена';
 }
 
+/** Edge device key warning lead time (docs/operations/edge-identity-rotation.md). */
+export const KEY_EXPIRY_WARNING_MS = 7 * 86_400_000;
+
 export function deviceConnection(
   d: DeviceRow,
   now = Date.now(),
@@ -261,6 +264,16 @@ export function deviceConnection(
       tone: 'warning',
       detail: 'Требуется обновление доступа устройства.',
     };
+  // Shown whatever the renewal flags are: the cabinet only reads device_credentials.expires_at.
+  if (d.key_expires_at && Date.parse(d.key_expires_at) - now <= KEY_EXPIRY_WARNING_MS) {
+    const days = Math.floor((Date.parse(d.key_expires_at) - now) / 86_400_000);
+    return {
+      label: days < 1 ? 'Ключ истекает сегодня' : `Ключ истекает через ${days} дн.`,
+      tone: 'warning',
+      detail:
+        'После истечения ключа остановятся заказы из приложения и киоска, стопы и обмен с кабинетом. Продлите ключ кассы по регламенту.',
+    };
+  }
   const recent = (time?: string | null) =>
     !!time && now - Date.parse(time) < 90_000 && now - Date.parse(time) >= -30_000;
   if (d.kind === 'edge')

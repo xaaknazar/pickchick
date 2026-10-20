@@ -1,5 +1,6 @@
 export * from './common.js';
 export * from './identity.js';
+export * from './identity-rotation.js';
 export * from './cloud.js';
 export * from './edge.js';
 export * from './worker.js';
@@ -8,3 +9,4 @@ export * from './catalog-projection.js';
 export * from './catalog-delivery.js';
 export * from './routing.js';
 export * from './media.js';
+export * from './restore-fence.js';

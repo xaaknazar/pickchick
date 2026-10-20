@@ -22,6 +22,8 @@ export interface ServiceConfig {
   posOrderSyncEnabled?: boolean;
   /** Edge service applies back-office stop commands from its inbox (edge schema019). */
   remoteStopsEnabled?: boolean;
+  /** Cloud accepts device-initiated identity renewal (cloud066, edge-identity-rotation.md). */
+  edgeIdentityRotationEnabled?: boolean;
 }
 
 function boundedInteger(env: NodeJS.ProcessEnv, name: string, fallback: number, max: number) {
@@ -131,6 +133,12 @@ export function loadConfig(
   const remoteStops = env.EDGE_REMOTE_STOPS_ENABLED ?? 'false';
   if (!['true', 'false'].includes(remoteStops) || (remoteStops === 'true' && service !== 'edge'))
     throw new Error('EDGE_REMOTE_STOPS_ENABLED configuration invalid');
+  const identityRotation = env.CLOUD_EDGE_IDENTITY_ROTATION_ENABLED ?? 'false';
+  if (
+    !['true', 'false'].includes(identityRotation) ||
+    (identityRotation === 'true' && service !== 'api')
+  )
+    throw new Error('CLOUD_EDGE_IDENTITY_ROTATION_ENABLED configuration invalid');
   const proxyIps = env.TRUSTED_PROXY_IPS?.split(',').map((ip) => ip.trim());
   if (
     proxyIps &&
@@ -171,6 +179,7 @@ export function loadConfig(
     ...(posSync ? { posOrderSyncEnabled: true } : {}),
     ...(posSync && service === 'edge' ? { edgeDeviceId: env.EDGE_DEVICE_ID! } : {}),
     ...(remoteStops === 'true' ? { remoteStopsEnabled: true } : {}),
+    ...(identityRotation === 'true' ? { edgeIdentityRotationEnabled: true } : {}),
   };
   if (service === 'edge') {
     const branch = UuidSchema.safeParse(required(env, 'EDGE_BRANCH_ID'));

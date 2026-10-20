@@ -1,5 +1,5 @@
 import { pendingCashierReports, acknowledgeCashierReports } from './cashier-reports.js';
-import { effectiveLocalStops } from '@pickchick/menu-sync';
+import { effectiveLocalStops, fenceRestoredEdge } from '@pickchick/menu-sync';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { DeviceIdentitySchema } from '@pickchick/contracts';
@@ -213,6 +213,22 @@ export class TransportAttention {
 }
 
 /** One bounded turn; supervisor may repeat after its interval. No SQL transaction spans HTTP. */
+const fencedPools = new WeakSet<DatabasePool>();
+/**
+ * This worker also produces kitchen and cashier-report events, so on its first cycle it applies
+ * the restore fence (edge schema023) in case it starts before the edge service. A role without
+ * the grant keeps the previous behaviour; the edge service fences at its own start.
+ */
+async function fenceOnce(pool: DatabasePool) {
+  if (fencedPools.has(pool)) return;
+  fencedPools.add(pool);
+  try {
+    await fenceRestoredEdge(pool);
+  } catch {
+    // Not granted to this role: the edge service remains the fencing process.
+  }
+}
+
 export async function syncFulfillmentOnce(
   pool: DatabasePool,
   options: FulfillmentWorkerOptions,
@@ -228,6 +244,7 @@ export async function syncFulfillmentOnce(
     ).rowCount !== 1
   )
     return { state: 'blocked' as const, error: 'SCHEMA_UNAVAILABLE' as const };
+  await fenceOnce(pool);
   const identity = DeviceIdentitySchema.parse(options.identity),
     branchId = z.uuid().parse(options.branchId),
     origin = cloudTransportOrigin(options.origin);

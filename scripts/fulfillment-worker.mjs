@@ -1,14 +1,22 @@
 import { setTimeout as delay } from 'node:timers/promises';
+import { fileURLToPath } from 'node:url';
 import { createPool } from '@pickchick/database';
 import { loadConfig } from '@pickchick/platform';
 import {
   syncFulfillmentOnce,
   cloudTransportOrigin,
   TransportAttention,
+  edgeIdentityAutoRotate,
+  identityExpiryStatus,
+  renewIdentityFile,
 } from '@pickchick/fulfillment-transport';
-import { readIdentity } from './private-identity.mjs';
+import { readIdentity, identityPath } from './private-identity.mjs';
 
+/** Renewal is checked this often; no cloud request is made before the 10-day window. */
+const RENEWAL_CHECK_MS = 15 * 60 * 1000;
 const config = loadConfig('edge');
+// Off by default; when on, this worker owns .local/edge-identity.json and renews it in place.
+const autoRotate = edgeIdentityAutoRotate(process.env);
 if (!config.fulfillmentTransportEnabled) {
   console.log(JSON.stringify({ event: 'fulfillment_transport', state: 'disabled' }));
 } else {
@@ -19,17 +27,57 @@ if (!config.fulfillmentTransportEnabled) {
   const stop = new AbortController(),
     once = process.argv.includes('--once');
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => stop.abort());
-  let failures = 0;
+  let failures = 0,
+    renewalAt = 0,
+    identityReport;
   const attention = new TransportAttention();
   try {
     do {
       let state = 'retry';
+      if (autoRotate && Date.now() >= renewalAt) {
+        renewalAt = Date.now() + RENEWAL_CHECK_MS;
+        try {
+          const renewal = await renewIdentityFile({
+            path: fileURLToPath(identityPath),
+            origin,
+            branchId: config.branchId,
+            deviceId: config.edgeDeviceId,
+          });
+          if (renewal.state !== 'not_due')
+            console.log(
+              JSON.stringify({
+                event: 'edge_identity_rotation',
+                state: renewal.state,
+                ...(renewal.error ? { error: renewal.error } : {}),
+                ...(renewal.daysRemaining === undefined
+                  ? {}
+                  : { days_remaining: renewal.daysRemaining }),
+              }),
+            );
+        } catch {
+          console.error(JSON.stringify({ event: 'edge_identity_rotation', state: 'failed' }));
+        }
+      }
       try {
+        const identity = await readIdentity();
+        const expiry = identityExpiryStatus(identity);
+        const report = `${expiry.state}:${Math.floor(expiry.daysRemaining)}`;
+        if (report !== identityReport) {
+          identityReport = report;
+          console.log(
+            JSON.stringify({
+              event: 'edge_identity',
+              state: expiry.state,
+              days_remaining: expiry.daysRemaining,
+              expires_at: expiry.expiresAt,
+            }),
+          );
+        }
         const result = await syncFulfillmentOnce(pool, {
           enabled: true,
           branchId: config.branchId,
           origin,
-          identity: await readIdentity(),
+          identity,
         });
         state = result.state;
         if (once || !['idle', 'busy'].includes(state))

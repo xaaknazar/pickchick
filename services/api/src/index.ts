@@ -91,6 +91,7 @@ import {
   cloudKitchenStaleReadySeconds,
 } from '@pickchick/backoffice-core/cloud-kitchen';
 import { reviewOrderInTransaction, useCloudKitchenAdmission } from '@pickchick/commerce-core';
+import { EdgeIdentityController } from './edge-identity-controller.js';
 
 @Controller('v1/capabilities')
 class CapabilitiesController {
@@ -288,6 +289,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       PosOrderSyncController,
       ...(kitchenApi.enabled ? [CloudKitchenController] : []),
       ...(kitchenBackoffice.cloudKitchenEnabled ? [CloudKitchenBackofficeController] : []),
+      EdgeIdentityController,
       ...(config.testOrderFlowEnabled ? [TestOrderController] : []),
     ],
     providers: [

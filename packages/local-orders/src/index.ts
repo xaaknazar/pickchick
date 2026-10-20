@@ -5,6 +5,12 @@ export * from './orders.js';
 export * from './shifts.js';
 export * from './staff-passwords.js';
 export * from './remote-stops.js';
-export { effectiveLocalStops, localSelectionIds, lineStopIds } from '@pickchick/menu-sync';
+export {
+  effectiveLocalStops,
+  localSelectionIds,
+  lineStopIds,
+  fenceRestoredEdge,
+} from '@pickchick/menu-sync';
+export type { EdgeRestoreFence, EdgeRestoreState } from '@pickchick/menu-sync';
 export * from './terminal-access.js';
 export * from './kitchen-password-reset.js';

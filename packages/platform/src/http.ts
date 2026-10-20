@@ -121,7 +121,25 @@ export class HealthController {
       pickchick_db_pool_waiting: pool.waitingCount,
       pickchick_process_heap_bytes: process.memoryUsage().heapUsed,
     };
-    return Object.entries(values)
+    // Cloud only, from the last readiness probe (never a query here): alert well before the
+    // earliest active edge credential expires (docs/operations/edge-identity-rotation.md).
+    const identity = this.resources.edgeIdentityExpiry;
+    const expiry: Record<string, number> = identity
+      ? {
+          pickchick_edge_identity_active_devices: identity.activeDevices,
+          ...(identity.minSecondsRemaining === null
+            ? {}
+            : {
+                pickchick_edge_identity_min_days_remaining:
+                  Math.floor((identity.minSecondsRemaining / 86400) * 100) / 100,
+              }),
+          pickchick_edge_identity_observed_age_seconds: Math.max(
+            0,
+            Math.round((Date.now() - identity.observedAt) / 1000),
+          ),
+        }
+      : {};
+    return Object.entries({ ...values, ...expiry })
       .map(
         ([name, value]) =>
           `# TYPE ${name} ${name.endsWith('_total') && name.includes('http_') ? 'counter' : 'gauge'}\n${name} ${value}\n`,

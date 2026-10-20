@@ -152,11 +152,17 @@ export function validateConfig(value = {}) {
     typeof value !== 'object' ||
     Array.isArray(value) ||
     Object.keys(value).some(
-      (key) => !['edgePort', 'branchLabel', 'categories', 'terminalId'].includes(key),
+      (key) => !['edgePort', 'branchLabel', 'categories', 'terminalId', 'pinLength'].includes(key),
     )
   )
     throw new Error('INVALID_POS_CONFIG');
-  const { edgePort = 3101, branchLabel = 'Локальная точка', categories = {}, terminalId } = value;
+  const {
+    edgePort = 3101,
+    branchLabel = 'Локальная точка',
+    categories = {},
+    terminalId,
+    pinLength,
+  } = value;
   if (
     !Number.isInteger(edgePort) ||
     edgePort < 1 ||
@@ -169,7 +175,9 @@ export function validateConfig(value = {}) {
     Array.isArray(categories) ||
     Object.keys(categories).length > 200 ||
     (terminalId !== undefined &&
-      (typeof terminalId !== 'string' || !new RegExp(`^${UUID}$`, 'i').test(terminalId)))
+      (typeof terminalId !== 'string' || !new RegExp(`^${UUID}$`, 'i').test(terminalId))) ||
+    // 6 only after every staff PIN of the branch was re-enrolled with 6 digits (6.5).
+    (pinLength !== undefined && pinLength !== 4 && pinLength !== 6)
   )
     throw new Error('INVALID_POS_CONFIG');
   for (const [id, label] of Object.entries(categories)) {
@@ -186,6 +194,7 @@ export function validateConfig(value = {}) {
     branchLabel,
     categories: { ...categories },
     ...(terminalId === undefined ? {} : { terminalId }),
+    ...(pinLength === undefined ? {} : { pinLength }),
   };
 }
 
@@ -236,6 +245,12 @@ export function createProtocolHandler({
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60000)
     throw new Error('INVALID_TIMEOUT');
   const mediaCache = createMenuMediaCache();
+  // Session id whose GET /session last granted the native journal its authority.
+  let journalSession = null;
+  const revoke = () => {
+    journalSession = null;
+    onSession(null);
+  };
   return async (request) => {
     const url = localURL(request.url);
     const origin = request.headers.get('origin');
@@ -249,17 +264,23 @@ export function createProtocolHandler({
       )
         return json(404, { code: 'NOT_FOUND' });
       const headers = {};
-      const authenticating = request.method === 'GET' && path === '/edge/v1/session';
-      if (
-        authenticating ||
-        ['/edge/v1/staff/login', '/edge/v1/staff/pin'].includes(path) ||
-        path === '/edge/v1/staff/logout'
-      )
-        onSession(null);
       for (const name of ['authorization', 'x-staff-session-id', 'idempotency-key']) {
         const value = request.headers.get(name);
         if (value && value.length < 200) headers[name] = value;
       }
+      const authenticating = request.method === 'GET' && path === '/edge/v1/session';
+      // Only the session that holds journal authority can lose it. An isolated PIN check (the
+      // shift-close dialog) and another person's credential (logout of a non-manager PIN) never
+      // revoke the logged-in cashier's journal; a request without a session id still does.
+      const pinCheck = path === '/edge/v1/staff/pin';
+      const ownSession =
+        !headers['x-staff-session-id'] || headers['x-staff-session-id'] === journalSession;
+      if (
+        authenticating ||
+        path === '/edge/v1/staff/login' ||
+        (path === '/edge/v1/staff/logout' && ownSession)
+      )
+        revoke();
       let body;
       if (request.method === 'POST') {
         if (request.headers.get('content-type') !== 'application/json')
@@ -291,15 +312,16 @@ export function createProtocolHandler({
         if (response.redirected || (response.status >= 300 && response.status < 400))
           return json(502, { code: 'INVALID_RESPONSE' });
         const payload = await readBounded(response.body, 4000000);
-        if ([401, 403].includes(response.status)) onSession(null);
+        if ([401, 403].includes(response.status) && !pinCheck && ownSession) revoke();
         if (authenticating && response.status === 200) {
           try {
             onSession(
               JSON.parse(Buffer.from(payload).toString('utf8')),
               headers['x-staff-session-id'],
             );
+            journalSession = headers['x-staff-session-id'] ?? null;
           } catch {
-            onSession(null);
+            revoke();
           }
         }
         return new Response([204, 205, 304].includes(response.status) ? null : payload, {
