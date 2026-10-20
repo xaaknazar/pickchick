@@ -238,6 +238,44 @@ test("guessing cannot lock the owner out of the device that already held the own
     await assert.rejects(ctx.request(victim, { ip: '203.0.113.43' }), failsWith('RATE_LIMITED'));
   }));
 
+test("a copy of the owner's device_id gets no more guesses than the phone limit", async () =>
+  fixture(async (ctx) => {
+    const victim = phoneOf(6);
+    const owner = await ctx.login(victim, { ip: '198.51.100.60' });
+    await ctx.make().logout(owner.session.access_token);
+    // Lets the phone ask again without its hourly request limit deciding the outcome.
+    const hoursLater = () =>
+      ctx.pool.query(
+        "UPDATE identity_otp_challenges SET created_at=created_at-interval '2 hours',expires_at=expires_at-interval '2 hours'",
+      );
+    const round = async (options) => {
+      await hoursLater();
+      const challenge = await ctx.request(victim, options);
+      for (let i = 0; i < 3; i++)
+        await assert.rejects(
+          ctx.verify(challenge, ctx.wrong(challenge.code), ctx.make()),
+          failsWith('UNAUTHORIZED'),
+        );
+    };
+    // Others lock the phone; the owner's device_id is still exempt from their failures.
+    await round({ ip: '203.0.113.60' });
+    await round({ ip: '203.0.113.61' });
+    await hoursLater();
+    await assert.rejects(ctx.request(victim, { ip: '203.0.113.62' }), failsWith('RATE_LIMITED'));
+    // Someone holding a copy of that device_id (for example from a backup) guesses with it.
+    await round({ ip: '203.0.113.63', device: owner.device });
+    await round({ ip: '203.0.113.64', device: owner.device });
+    await hoursLater();
+    await assert.rejects(
+      ctx.request(victim, { ip: '203.0.113.65', device: owner.device }),
+      failsWith('RATE_LIMITED'),
+    );
+    const failures = await ctx.pool.query(
+      'SELECT count(DISTINCT device_hash)::int AS devices, sum(failures)::int AS n FROM identity_otp_failures',
+    );
+    assert.deepEqual(failures.rows[0], { devices: 3, n: 12 });
+  }));
+
 // --- 5.3 / 2.6: budget and shared addresses -------------------------------------------------
 
 test('returning customers keep a reserve when new numbers use up their share of the day', async () =>

@@ -9,12 +9,14 @@ ALTER TABLE identity_sms_daily_budget
   ADD COLUMN new_phone_reservations integer NOT NULL DEFAULT 0
   CHECK (new_phone_reservations >= 0);
 -- Wrong codes per phone across challenges (challenges themselves are purged after 24 hours).
--- Keyed phone lookup only, hour buckets, removed after 31 days by the identity cleanup.
+-- Keyed phone and device lookups only (the device that checked the code), hour buckets,
+-- removed after 31 days by the identity cleanup.
 CREATE TABLE identity_otp_failures (
   phone_lookup text NOT NULL CHECK (phone_lookup ~ '^[a-f0-9]{64}$'),
+  device_hash text NOT NULL CHECK (device_hash ~ '^[a-f0-9]{64}$'),
   failure_hour timestamptz NOT NULL,
   failures integer NOT NULL CHECK (failures > 0),
-  PRIMARY KEY (phone_lookup, failure_hour)
+  PRIMARY KEY (phone_lookup, failure_hour, device_hash)
 );
 CREATE INDEX identity_otp_failures_hour_idx ON identity_otp_failures(failure_hour);
 -- Refresh-token reuse detection: hashes of the latest rotated-away tokens of a live session.

@@ -175,7 +175,8 @@ export class CustomerIdentity {
    * Failed code checks for this phone across all its challenges (hour buckets, 30 days).
    * A device that already held a session of this phone's customer is the owner's own device
    * (its random device_id never leaves it), so guessing by others cannot lock the owner out
-   * of signing in again there, for example after the session lifetime ended.
+   * of signing in again there, for example after the session lifetime ended. That device's
+   * own failures have the same limits, so a copied device_id gains no extra guesses.
    */
   private async phoneLocked(
     db: DatabaseClient,
@@ -184,18 +185,19 @@ export class CustomerIdentity {
     now: Date,
   ): Promise<boolean> {
     const row = (
-      await db.query<{ day: string; month: string }>(
+      await db.query<{ day: string; month: string; device_day: string; device_month: string }>(
         `SELECT coalesce(sum(failures) FILTER (WHERE failure_hour>$2::timestamptz-interval '24 hours'),0)::text AS day,
-                coalesce(sum(failures),0)::text AS month
+                coalesce(sum(failures),0)::text AS month,
+                coalesce(sum(failures) FILTER (WHERE device_hash=$3 AND failure_hour>$2::timestamptz-interval '24 hours'),0)::text AS device_day,
+                coalesce(sum(failures) FILTER (WHERE device_hash=$3),0)::text AS device_month
          FROM identity_otp_failures WHERE phone_lookup=$1 AND failure_hour>$2::timestamptz-interval '30 days'`,
-        [lookup, now],
+        [lookup, now, deviceHash],
       )
     ).rows[0]!;
-    if (
-      Number(row.day) < OTP_LIMITS.phoneFailuresDay &&
-      Number(row.month) < OTP_LIMITS.phoneFailuresMonth
-    )
-      return false;
+    const over = (day: string, month: string) =>
+      Number(day) >= OTP_LIMITS.phoneFailuresDay || Number(month) >= OTP_LIMITS.phoneFailuresMonth;
+    if (!over(row.day, row.month)) return false;
+    if (over(row.device_day, row.device_month)) return true;
     const known = await db.query(
       `SELECT 1 FROM identity_sessions s JOIN identity_customers c ON c.id=s.customer_id
        WHERE c.phone_lookup=$1 AND c.deleted_at IS NULL AND s.device_hash=$2 LIMIT 1`,
@@ -652,10 +654,10 @@ export class CustomerIdentity {
         ]);
         if (!correct) {
           await db.query(
-            `INSERT INTO identity_otp_failures(phone_lookup,failure_hour,failures)
-             VALUES($1,date_trunc('hour',$2::timestamptz),1)
-             ON CONFLICT(phone_lookup,failure_hour) DO UPDATE SET failures=identity_otp_failures.failures+1`,
-            [challenge.phone_lookup, now],
+            `INSERT INTO identity_otp_failures(phone_lookup,device_hash,failure_hour,failures)
+             VALUES($1,$3,date_trunc('hour',$2::timestamptz),1)
+             ON CONFLICT(phone_lookup,failure_hour,device_hash) DO UPDATE SET failures=identity_otp_failures.failures+1`,
+            [challenge.phone_lookup, now, challenge.device_hash],
           );
           return fail('UNAUTHORIZED');
         }
