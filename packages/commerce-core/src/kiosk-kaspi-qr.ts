@@ -132,10 +132,15 @@ export function qrStatusOutcome(
   now: Date,
 ): 'paid' | 'failed' | 'unknown' | 'pending' {
   const id = statusOperationId(data);
-  const named = Object.hasOwn(data, 'QrOperationId') || Object.hasOwn(data, 'Id');
+  // An empty identity (null, '', 0) names no operation: it is the anonymous shape, not a foreign id.
+  const blank = (value: unknown) =>
+    value === undefined || value === null || value === '' || value === 0 || value === '0';
+  const named = !blank(data.QrOperationId) || !blank(data.Id);
   const foreignId = named && id !== row.operation_id;
   const amount = data.Amount;
-  const noAmount = amount === undefined || amount === null || amount === 0 || amount === '0';
+  const noAmount =
+    blank(amount) ||
+    (typeof amount === 'string' && /^0+(?:[.,]0{1,2})?(?:[ \u00a0\u202f]?₸)?$/.test(amount));
   const foreignAmount = !noAmount && kaspiMinor(amount) !== row.amount_minor;
   const status = String(data.Status);
   if (status === 'Processed')

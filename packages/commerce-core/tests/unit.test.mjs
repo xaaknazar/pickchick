@@ -7,6 +7,7 @@ import {
   MinorSchema,
   customerCheckoutOptions,
   kioskCheckoutOptions,
+  qrStatusOutcome,
 } from '../dist/index.js';
 import { catalogPayload, pricePublication } from './catalog-fixture.mjs';
 import { catalogPayloadHash } from '@pickchick/catalog-pricing';
@@ -218,4 +219,37 @@ test('mobile Kaspi sales switch and unpaid TTL are explicit server flags with sa
     { CUSTOMER_UNPAID_ORDER_TTL_MINUTES: '10.5' },
   ])
     assert.throws(() => customerCheckoutOptions({ ...env, ...bad }), { code: 'INVALID' });
+});
+
+test('kiosk QR status: an empty identity is anonymous, a named foreign one stays unknown (3.2)', () => {
+  const row = {
+    operation_id: '123',
+    amount_minor: '10000',
+    expires_at: new Date('2026-10-08T14:36:03Z'),
+  };
+  const before = new Date('2026-10-08T14:35:52Z');
+  const after = new Date('2026-10-08T14:36:04Z');
+  const outcome = (data, now = after) => qrStatusOutcome(data, row, now);
+  // 8.10 shapes: discarded without amount and without a usable id fails only after expiry.
+  for (const anonymous of [
+    { Status: 'QrTokenDiscarded' },
+    { Status: 'QrTokenDiscarded', Id: null, Amount: null },
+    { Status: 'QrTokenDiscarded', Id: '', QrOperationId: 0, Amount: '0.00' },
+    { Status: 'Expired', Amount: '0 ₸' },
+  ]) {
+    assert.equal(outcome(anonymous), 'failed', JSON.stringify(anonymous));
+    assert.equal(outcome(anonymous, before), 'unknown', JSON.stringify(anonymous));
+  }
+  assert.equal(outcome({ Status: 'QrTokenDiscarded', Id: 124 }), 'unknown');
+  assert.equal(outcome({ Status: 'QrTokenDiscarded', Id: 123, QrOperationId: 124 }), 'unknown');
+  assert.equal(outcome({ Status: 'Expired', Amount: 999 }), 'unknown');
+  assert.equal(outcome({ Status: 'QrTokenDiscarded', Id: 123 }, before), 'failed');
+  // Money needs Processed with the exact id and amount, never an anonymous answer.
+  assert.equal(outcome({ Status: 'Processed', Id: 123, Amount: 100 }), 'paid');
+  assert.equal(outcome({ Status: 'Processed', Amount: 100 }), 'unknown');
+  assert.equal(outcome({ Status: 'Processed', Id: 123 }), 'unknown');
+  assert.equal(outcome({ Status: 'QrTokenCreated', Id: 123 }), 'pending');
+  assert.equal(outcome({ Status: 'QrTokenCreated', Id: null }), 'pending');
+  assert.equal(outcome({ Status: 'QrTokenScanned', Id: 124 }), 'unknown');
+  assert.equal(outcome({ Status: 'SomethingNew', Id: 123 }), 'unknown');
 });
