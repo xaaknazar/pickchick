@@ -24,6 +24,8 @@ import {
   AdmissionSchema,
   PaymentObservationSchema,
   RefundRequestSchema,
+  ManualRefundSchema,
+  RefundWithdrawalSchema,
   RefundObservationSchema,
   FiscalObservationSchema,
   UUIDSchema,
@@ -247,6 +249,42 @@ async function admitCloudOrder(client: DatabaseClient, row: OrderRow) {
   if (outcome === 'mode_changed')
     await issue(client, row, 'cloud-mode-changed', 'CLOUD_MODE_CHANGED_BEFORE_ADMISSION', {});
 }
+/** Edge admission state, or null (cloud channel order, old schema or a role without access). */
+async function admissionState(client: DatabaseClient, orderId: string) {
+  const readable = (
+    await client.query<{ readable: boolean }>(
+      "SELECT CASE WHEN to_regclass('cloud_fulfillment_projection') IS NULL THEN false ELSE has_table_privilege('cloud_fulfillment_projection','SELECT') END AS readable",
+    )
+  ).rows[0]?.readable;
+  if (!readable) return null;
+  return (
+    (
+      await client.query<{ state: string }>(
+        'SELECT state FROM cloud_fulfillment_projection WHERE order_id=$1',
+        [orderId],
+      )
+    ).rows[0]?.state ?? null
+  );
+}
+/**
+ * Money arrived for an order the restaurant released or cancelled before its kitchen admission
+ * reached the cashier: the payment came after the cancellation, or the cashier cancelled the hold
+ * while the paid admission was still queued (for example while offline). The transport never
+ * delivers that admission, so the order is never cooked and a manager must refund it (0.4).
+ */
+async function paidAfterRestaurantCancel(client: DatabaseClient, row: OrderRow, captured: bigint) {
+  if (captured <= 0n) return false;
+  const state = await admissionState(client, row.id);
+  if (!['released', 'cancelled', 'cancel_requested'].includes(state ?? '')) return false;
+  if (!row.kitchen_effect_id) return true;
+  // An admission the cashier already applied makes this a cancellation of an accepted order.
+  return !(
+    await client.query(
+      'SELECT 1 FROM commerce_outbox WHERE id=$1 AND order_id=$2 AND acknowledged_at IS NOT NULL',
+      [row.kitchen_effect_id, row.id],
+    )
+  ).rowCount;
+}
 async function reconcile(client: DatabaseClient, row: OrderRow) {
   if (await reconcileComboRewards(client, row.id))
     await issue(client, row, 'combo-gift-conflict', 'COMBO_REWARD_RECONCILIATION_REQUIRED', {});
@@ -258,6 +296,10 @@ async function reconcile(client: DatabaseClient, row: OrderRow) {
     await issue(client, row, 'overcapture', 'CAPTURE_EXCEEDS_INTENT', {
       intendedMinor: row.total_minor,
     });
+  // Money arrived for an order the restaurant had already released or cancelled before it was
+  // sent to the kitchen: never cook it, show it to a manager for a refund.
+  if (await paidAfterRestaurantCancel(client, row, captured))
+    await issue(client, row, 'paid-after-restaurant-cancel', 'PAID_AFTER_RESTAURANT_CANCEL', {});
   if (BigInt(money.refunded) + BigInt(money.reserved) > captured)
     await issue(client, row, 'refund-exposure', 'REFUND_EXPOSURE_EXCEEDS_CAPTURE', {});
   const attempts = (
@@ -836,6 +878,51 @@ export class CommerceRepository {
     return this.cancellationView(client, actor, row.id);
   }
 
+  /**
+   * Trusted server port (no HTTP principal): durably cancel an unpaid order that can never be
+   * billed - refused at payment (stopped item, closed restaurant, released admission, sales
+   * switched off) or unpaid past its TTL. Same intent and edge release protocol as a manager
+   * cancellation, but it is a no-op once any payment history exists. Returns true when the order
+   * now carries an unpaid cancellation.
+   */
+  async abandonUnpaidOrder(scopeInput: CommerceScope, orderId: string, reason: string) {
+    const scope = parse(ScopeSchema, scopeInput);
+    parse(UUIDSchema, orderId);
+    parse(UnpaidCancellationRequestSchema, { orderId, reason });
+    return transaction(this.pool, async (client) => {
+      await boundary(client, scope);
+      const row = await order(client, scope, orderId);
+      if (
+        (
+          await client.query('SELECT 1 FROM commerce_cancellation_intents WHERE order_id=$1', [
+            row.id,
+          ])
+        ).rowCount
+      )
+        return true;
+      if (
+        row.kitchen_effect_id ||
+        row.attention_required ||
+        row.total_minor === '0' ||
+        (
+          await client.query(
+            `SELECT 1 FROM commerce_payment_attempts WHERE order_id=$1 UNION ALL SELECT 1 FROM commerce_captures WHERE order_id=$1 UNION ALL SELECT 1 FROM commerce_refunds WHERE order_id=$1 LIMIT 1`,
+            [row.id],
+          )
+        ).rowCount
+      )
+        return false;
+      await client.query(
+        "INSERT INTO commerce_cancellation_intents(id,order_id,organization_id,branch_id,requested_by,reason,state) VALUES($1,$2,$3,$4,$5,$6,'waiting_admission')",
+        [randomUUID(), row.id, scope.organizationId, scope.branchId, scope.principalId, reason],
+      );
+      await this.scheduleUnpaidCancellation(client, scope, row.id);
+      // Releases a held combo gift once nothing can bill this order any more.
+      await reconcile(client, await order(client, scope, row.id));
+      return true;
+    });
+  }
+
   /** Trusted mobile port: published prices and first attempt are serialized with publication. */
   async startMobilePaymentAttempt(scopeInput: CommerceScope, key: string, input: unknown) {
     const scope = parse(ScopeSchema, scopeInput),
@@ -920,6 +1007,19 @@ export class CommerceRepository {
   /** Called inside authenticated admission/projection TX; never across HTTP. */
   async scheduleUnpaidCancellation(client: DatabaseClient, scope: Boundary, orderId: string) {
     const row = await order(client, scope, orderId);
+    // The cashier released or cancelled a hold whose payment already arrived (the admission was
+    // still queued): put it up for a refund now instead of leaving a paid order silently uncooked.
+    if (
+      !row.attention_required &&
+      (await paidAfterRestaurantCancel(
+        client,
+        row,
+        BigInt((await totals(client, row.id)).captured),
+      ))
+    ) {
+      await issue(client, row, 'paid-after-restaurant-cancel', 'PAID_AFTER_RESTAURANT_CANCEL', {});
+      await reconcile(client, row);
+    }
     const intent = (
       await client.query(
         'SELECT * FROM commerce_cancellation_intents WHERE order_id=$1 FOR UPDATE',
@@ -1309,6 +1409,179 @@ export class CommerceRepository {
           amountMinor: request.amountMinor,
           state: 'pending',
         };
+      },
+      true,
+      db,
+    );
+  }
+  /**
+   * Manager-only: record a refund staff already made by hand in Kaspi Pay (no refund adapter
+   * exists). The Kaspi operation reference is the effect's operation id, so one bank refund is
+   * recorded once. The refund is completed in the ledger at once; combo stamps/gifts follow the
+   * same confirmed-refund rules as an adapter refund. No bank call is made.
+   */
+  async registerManualRefund(
+    scope: CommerceScope,
+    key: string,
+    input: unknown,
+    db?: DatabaseClient,
+  ) {
+    const request = parse(ManualRefundSchema, input);
+    const operationId = 'manual:' + request.bankReference.replace(/\s+/gu, ' ');
+    return this.command(
+      scope,
+      key,
+      'manual_refund',
+      request,
+      async (client, actor) => {
+        const row = await order(client, actor, request.orderId);
+        const capture = (
+          await client.query<{ id: string; account_id: string; amount_minor: string }>(
+            'SELECT id,account_id,amount_minor::text FROM commerce_captures WHERE id=$1 AND order_id=$2',
+            [request.captureId, row.id],
+          )
+        ).rows[0];
+        if (!capture) throw new CommerceError('NOT_FOUND');
+        // Staff may refund after the account was disabled; the scope must still match.
+        await account(
+          client,
+          actor,
+          capture.account_id,
+          'payment',
+          false,
+          row.snapshot.legalEntityId,
+        );
+        if (
+          (
+            await client.query(
+              'SELECT 1 FROM commerce_refund_effects WHERE account_id=$1 AND operation_id=$2',
+              [capture.account_id, operationId],
+            )
+          ).rowCount
+        )
+          throw new CommerceError('CONFLICT');
+        let refundId: string;
+        if (request.refundId) {
+          // Resolve a request left pending by the old adapter button: same amount, same lines.
+          if (request.items) throw new CommerceError('INVALID');
+          const refund = (
+            await client.query<RefundRow>(
+              'SELECT * FROM commerce_refunds WHERE id=$1 AND order_id=$2 AND capture_id=$3 FOR UPDATE',
+              [request.refundId, row.id, capture.id],
+            )
+          ).rows[0];
+          if (!refund) throw new CommerceError('NOT_FOUND');
+          if (refund.state !== 'pending' && refund.state !== 'unknown')
+            throw new CommerceError('CONFLICT');
+          if (refund.amount_minor !== request.amountMinor) throw new CommerceError('INVALID');
+          refundId = refund.id;
+        } else {
+          const balance = (
+            await client.query<{ refunded: string; reserved: string }>(
+              `SELECT
+          COALESCE((SELECT SUM(e.amount_minor) FROM commerce_refund_effects e JOIN commerce_refunds r ON r.id=e.refund_id WHERE r.capture_id=$1),0)::text refunded,
+          COALESCE((SELECT SUM(amount_minor) FROM commerce_refunds WHERE capture_id=$1 AND state IN ('pending','unknown')),0)::text reserved`,
+              [capture.id],
+            )
+          ).rows[0]!;
+          if (
+            BigInt(request.amountMinor) + BigInt(balance.refunded) + BigInt(balance.reserved) >
+            BigInt(capture.amount_minor)
+          )
+            throw new CommerceError('REFUND_LIMIT');
+          refundId = randomUUID();
+          await client.query(
+            "INSERT INTO commerce_refunds(id,order_id,capture_id,account_id,principal_id,amount_minor,reason,fulfillment_policy) VALUES($1,$2,$3,$4,$5,$6,$7,'manager_reviewed')",
+            [
+              refundId,
+              row.id,
+              capture.id,
+              capture.account_id,
+              actor.principalId,
+              request.amountMinor,
+              request.reason,
+            ],
+          );
+          await recordComboRefundLines(
+            client,
+            row.id,
+            refundId,
+            request.amountMinor,
+            request.items,
+          );
+        }
+        const effectId = randomUUID();
+        await client.query(
+          'INSERT INTO commerce_refund_effects(id,refund_id,order_id,account_id,operation_id,amount_minor,occurred_at) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp())',
+          [effectId, refundId, row.id, capture.account_id, operationId, request.amountMinor],
+        );
+        await client.query("UPDATE commerce_refunds SET state='succeeded' WHERE id=$1", [refundId]);
+        const hasSale = (
+          await client.query(
+            "SELECT 1 FROM commerce_fiscal_documents WHERE order_id=$1 AND kind='sale'",
+            [row.id],
+          )
+        ).rowCount;
+        // Receipt-less pilots never had a sale receipt, so no refund receipt is owed either.
+        if (hasSale) await fiscalDocument(client, row, 'refund', effectId, request.amountMinor);
+        else if (row.fiscal_policy === 'required' && !(await cloudChannelOrder(client, row.id)))
+          await issue(client, row, 'refund-no-sale:' + refundId, 'REFUND_WITHOUT_SALE_DOCUMENT', {
+            refundId,
+          });
+        await emit(client, row.id, 'refund-recorded:' + effectId, 'refund.effect_recorded', {
+          orderId: row.id,
+          refundId,
+          effectId,
+          amountMinor: request.amountMinor,
+          manual: true,
+        });
+        await reconcile(client, row);
+        return {
+          refundId,
+          orderId: row.id,
+          amountMinor: request.amountMinor,
+          state: 'succeeded' as const,
+          bankReference: request.bankReference,
+        };
+      },
+      true,
+      db,
+    );
+  }
+  /** Manager-only: withdraw a refund request no adapter ever sent (no money moved). */
+  async withdrawRefundRequest(
+    scope: CommerceScope,
+    key: string,
+    input: unknown,
+    db?: DatabaseClient,
+  ) {
+    const request = parse(RefundWithdrawalSchema, input);
+    return this.command(
+      scope,
+      key,
+      'refund_withdrawal',
+      request,
+      async (client, actor) => {
+        const row = await order(client, actor, request.orderId);
+        const refund = (
+          await client.query<RefundRow>(
+            'SELECT * FROM commerce_refunds WHERE id=$1 AND order_id=$2 FOR UPDATE',
+            [request.refundId, row.id],
+          )
+        ).rows[0];
+        if (!refund) throw new CommerceError('NOT_FOUND');
+        if (
+          refund.state !== 'pending' ||
+          (
+            await client.query('SELECT 1 FROM commerce_refund_effects WHERE refund_id=$1', [
+              refund.id,
+            ])
+          ).rowCount
+        )
+          throw new CommerceError('CONFLICT');
+        await client.query("UPDATE commerce_refunds SET state='failed' WHERE id=$1", [refund.id]);
+        await reconcile(client, row);
+        return { refundId: refund.id, orderId: row.id, state: 'failed' as const };
       },
       true,
       db,

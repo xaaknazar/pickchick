@@ -14,14 +14,26 @@ import { BackofficeError, type StopRequestInput } from './model.js';
 export interface BackofficeOptions {
   /** BACKOFFICE_REMOTE_STOPS_ENABLED: managers may queue stop/unstop commands. Default off. */
   remoteStopsEnabled?: boolean;
+  /**
+   * BACKOFFICE_MANUAL_REFUNDS_ENABLED: managers record refunds made by hand in Kaspi Pay.
+   * Default off; needs manualRefundGrants on the API role (applied after the other grants).
+   */
+  manualRefundsEnabled?: boolean;
+  /** A bank refund adapter consumes refund.submit_requested. None exists yet: never from env. */
+  refundAdapterEnabled?: boolean;
+}
+function flag(env: Record<string, string | undefined>, name: string) {
+  const value = env[name] ?? 'false';
+  if (value !== 'true' && value !== 'false') throw new Error(`${name} must be true or false`);
+  return value === 'true';
 }
 export function backofficeOptions(
   env: Record<string, string | undefined> = process.env,
 ): BackofficeOptions {
-  const value = env['BACKOFFICE_REMOTE_STOPS_ENABLED'] ?? 'false';
-  if (value !== 'true' && value !== 'false')
-    throw new Error('BACKOFFICE_REMOTE_STOPS_ENABLED must be true or false');
-  return { remoteStopsEnabled: value === 'true' };
+  return {
+    remoteStopsEnabled: flag(env, 'BACKOFFICE_REMOTE_STOPS_ENABLED'),
+    manualRefundsEnabled: flag(env, 'BACKOFFICE_MANUAL_REFUNDS_ENABLED'),
+  };
 }
 export interface StopActor {
   id: string;

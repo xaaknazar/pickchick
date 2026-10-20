@@ -506,9 +506,12 @@ export class Backoffice {
           [id],
         )
       ).rows;
+      // A manual refund keeps its Kaspi Pay reference as the effect's operation id (manual:...).
       const refunds = (
         await db.query(
-          'SELECT id,amount_minor::text,state,reason,created_at FROM commerce_refunds WHERE order_id=$1 ORDER BY created_at',
+          `SELECT r.id,r.capture_id,r.amount_minor::text,r.state,r.reason,r.created_at,
+           (SELECT string_agg(e.operation_id,', ' ORDER BY e.received_at) FROM commerce_refund_effects e WHERE e.refund_id=r.id) bank_reference
+           FROM commerce_refunds r WHERE r.order_id=$1 ORDER BY r.created_at`,
           [id],
         )
       ).rows;
@@ -524,11 +527,33 @@ export class Backoffice {
           [id],
         )
       ).rows;
-      return { order: o, owner: 'cloud', captures, refunds, fiscal, events };
+      // Reconciliation signals, e.g. PAID_AFTER_RESTAURANT_CANCEL: the guest needs a refund.
+      const issues = (
+        await db.query(
+          'SELECT code,created_at FROM commerce_reconciliation_issues WHERE order_id=$1 ORDER BY created_at,id LIMIT 50',
+          [id],
+        )
+      ).rows;
+      return {
+        order: o,
+        owner: 'cloud',
+        captures,
+        refunds,
+        fiscal,
+        events,
+        issues,
+        // Without a refund adapter the old "request refund" button would create a refund that
+        // nothing ever executes; staff refund in Kaspi Pay and record it here instead.
+        refund_capabilities: {
+          adapter: this.options.refundAdapterEnabled === true,
+          manual: this.options.manualRefundsEnabled === true,
+        },
+      };
     });
   }
   async command(token: string, branch: string, input: unknown) {
     const req = parse(Request, input);
+    const manualRefund = req.command.type === 'manual_refund';
     try {
       return await transaction(this.pool, async (db) => {
         const actor = await this.scope(db, token, branch, true);
@@ -660,7 +685,44 @@ export class Backoffice {
               { orderId: c.id, reason: req.reason },
               db,
             );
-          } else
+          } else if (c.type === 'manual_refund') {
+            if (!this.options.manualRefundsEnabled)
+              throw new ErrorCode('NOT_READY', 'MANUAL_REFUNDS_DISABLED');
+            result = await commerce.registerManualRefund(
+              scope,
+              req.request_id,
+              {
+                orderId: c.id,
+                captureId: c.capture_id,
+                amountMinor: c.amount_minor,
+                bankReference: c.bank_reference,
+                reason: req.reason,
+                ...(c.refund_id ? { refundId: c.refund_id } : {}),
+                ...(c.items
+                  ? {
+                      items: c.items.map((item) => ({
+                        lineId: item.line_id,
+                        quantity: item.quantity,
+                      })),
+                    }
+                  : {}),
+              },
+              db,
+            );
+          } else if (c.type === 'withdraw_refund') {
+            // With an adapter a pending request may already be at the bank: never withdraw it.
+            if (!this.options.manualRefundsEnabled || this.options.refundAdapterEnabled)
+              throw new ErrorCode('NOT_READY', 'MANUAL_REFUNDS_DISABLED');
+            result = await commerce.withdrawRefundRequest(
+              scope,
+              req.request_id,
+              { orderId: c.id, refundId: c.refund_id, reason: req.reason },
+              db,
+            );
+          } else {
+            // No adapter executes refund.submit_requested: such a refund would stay pending forever.
+            if (!this.options.refundAdapterEnabled)
+              throw new ErrorCode('NOT_READY', 'REFUND_ADAPTER_NOT_CONFIGURED');
             result = await commerce.requestRefund(
               scope,
               req.request_id,
@@ -681,6 +743,7 @@ export class Backoffice {
               },
               db,
             );
+          }
         }
         await db.query(
           'INSERT INTO bo_audit(id,branch_id,organization_id,actor_id,request_id,action,entity_id,reason,before_value,after_value) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
@@ -709,6 +772,12 @@ export class Backoffice {
         if (['23503', '23514'].includes(String(error.code))) throw new ErrorCode('INVALID_REQUEST');
         if (['40001', '40P01'].includes(String(error.code)))
           throw new ErrorCode('SERVICE_UNAVAILABLE');
+      }
+      if (error instanceof CommerceError && manualRefund) {
+        if (error.code === 'REFUND_LIMIT')
+          throw new ErrorCode('CONFLICT', 'REFUND_EXCEEDS_PAYMENT');
+        if (error.code === 'CONFLICT')
+          throw new ErrorCode('CONFLICT', 'REFUND_REFERENCE_ALREADY_USED');
       }
       if (error instanceof CommerceError)
         throw new ErrorCode(

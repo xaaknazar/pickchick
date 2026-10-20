@@ -3,7 +3,7 @@ import { createPool, migrate, transaction } from '@pickchick/database';
 import { loadConfig } from '@pickchick/platform';
 import { customerAuthGrants } from './customer-auth-grants.mjs';
 import { workforceGrants } from './workforce-grants.mjs';
-import { backofficeGrants } from './backoffice-grants.mjs';
+import { backofficeGrants, manualRefundGrants } from './backoffice-grants.mjs';
 import { backofficeStopGrants } from './backoffice-stop-grants.mjs';
 import { catalogAdminGrants } from './catalog-admin-grants.mjs';
 import { catalogAccessGrants, edgeMenuStateGrants } from './catalog-edge-grants.mjs';
@@ -117,6 +117,14 @@ async function provision() {
       // Validate the complete owner/branch policy before enabling checkout privileges.
       await client.query(
         customerCheckoutGrants('pickchick_app', customerCheckoutOptions(process.env) !== null),
+      );
+      // Last: the transport helper above revokes every refund privilege from the shared role.
+      await client.query(
+        manualRefundGrants(
+          'pickchick_app',
+          config.backofficeEnabled === true &&
+            process.env.BACKOFFICE_MANUAL_REFUNDS_ENABLED === 'true',
+        ),
       );
       if (config.testOrderFlowEnabled)
         await client.query('GRANT INSERT ON bo_records TO pickchick_app');

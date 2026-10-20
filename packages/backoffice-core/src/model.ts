@@ -11,6 +11,10 @@ export const BackofficeErrorReasonSchema = z.enum([
   'DEVICE_NAME_CONFIRMATION_REQUIRED',
   'DEVICE_REVOKE_REQUIRES_EDGE_ACK',
   'KIOSK_REVOKE_REQUIRES_SESSION_PROTOCOL',
+  'REFUND_ADAPTER_NOT_CONFIGURED',
+  'MANUAL_REFUNDS_DISABLED',
+  'REFUND_REFERENCE_ALREADY_USED',
+  'REFUND_EXCEEDS_PAYMENT',
 ]);
 export type BackofficeErrorReason = z.infer<typeof BackofficeErrorReasonSchema>;
 export class BackofficeError extends Error {
@@ -235,6 +239,27 @@ export const Command = z.discriminatedUnion('type', [
       .max(200)
       .optional(),
   }),
+  /** Record a refund staff already made by hand in Kaspi Pay (BACKOFFICE_MANUAL_REFUNDS_ENABLED). */
+  z.strictObject({
+    type: z.literal('manual_refund'),
+    id,
+    capture_id: id,
+    amount_minor: positive,
+    bank_reference: z
+      .string()
+      .trim()
+      .min(3)
+      .max(120)
+      .regex(/^[\p{L}\p{N}][\p{L}\p{N} ._:/#№-]*$/u),
+    refund_id: id.optional(),
+    items: z
+      .array(z.strictObject({ line_id: id, quantity: z.int().min(1).max(1000) }))
+      .min(1)
+      .max(200)
+      .optional(),
+  }),
+  /** Withdraw a refund request created by the old adapter button that nothing ever sent. */
+  z.strictObject({ type: z.literal('withdraw_refund'), id, refund_id: id }),
 ]);
 export const Request = z.strictObject({
   request_id: id,
