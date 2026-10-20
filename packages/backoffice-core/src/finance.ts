@@ -208,20 +208,20 @@ export class Finance {
     if (!actor || (write && actor.role !== 'manager')) return fail('FORBIDDEN');
     return actor;
   }
+  // Closing is cumulative (audit 4.4): a closed month's opening balances are the sum of
+  // everything before it, so a closed month also locks every earlier month, open or not.
   private async unlocked(db: DatabaseClient, branch: string, dates: (string | null)[]) {
-    for (const d of new Set(
-      dates.filter((v): v is string => !!v).map((v) => v.slice(0, 7) + '-01'),
-    )) {
-      if (
-        (
-          await db.query(
-            'SELECT 1 FROM bo_finance_periods WHERE branch_id=$1 AND month=$2 AND closed',
-            [branch, d],
-          )
-        ).rows.length
-      )
-        fail('CONFLICT');
-    }
+    const months = dates.filter((v): v is string => !!v).map((v) => v.slice(0, 7) + '-01');
+    if (!months.length) return;
+    if (
+      (
+        await db.query(
+          'SELECT 1 FROM bo_finance_periods WHERE branch_id=$1 AND closed AND month>=$2 LIMIT 1',
+          [branch, months.sort()[0]],
+        )
+      ).rows.length
+    )
+      fail('CONFLICT');
   }
   // Corrections and deletions use the same immutable reversal. The caller holds
   // the branch lock and commits the replacement, audit and receipt atomically.
@@ -324,6 +324,17 @@ export class Finance {
           )
         ).rows[0];
         if ((current?.revision ?? 0) !== c.expected_revision) fail('CONFLICT');
+        // Reopening runs backwards: a later closed month would keep this one locked anyway.
+        if (
+          !c.closed &&
+          (
+            await db.query(
+              'SELECT 1 FROM bo_finance_periods WHERE branch_id=$1 AND closed AND month>$2 LIMIT 1',
+              [branch, c.month],
+            )
+          ).rows.length
+        )
+          fail('CONFLICT');
         before = current ?? null;
         await db.query(
           'INSERT INTO bo_finance_periods(branch_id,month,closed,revision) VALUES($1,$2,$3,1) ON CONFLICT(branch_id,month) DO UPDATE SET closed=excluded.closed,revision=bo_finance_periods.revision+1',
