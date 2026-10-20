@@ -4,9 +4,13 @@ Static checks always run. The two-hop checks run the real pinned Caddy (CADDY_BI
 on PATH; skipped otherwise) on loopback: client 127.0.0.20 -> outer Caddy -> transformed
 gateway -> echo upstream. No Docker, VPS or live data.
 """
+import argparse
+from contextlib import redirect_stdout
+import hashlib
 import http.client
 import http.server
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -83,6 +87,130 @@ class StaticTests(unittest.TestCase):
         drift = g.check(FIXTURE.replace(g.CLIENT_OLD, g.CLIENT_NEW), '172.18.0.200')
         self.assertEqual(drift['problems'], ['outer_proxy_not_trusted'])
         self.assertEqual(g.check(fixed, '')['problems'], ['outer_proxy_address_unknown'])
+
+
+class SimulatedVps:
+    """The real deploy helpers on a temporary tree; only Docker and HTTP answers are simulated."""
+
+    def __init__(self, root, health=200):
+        self.root, self.health = root, health
+        self.api, self.public, self.source = 'b' * 40, 'c' * 40, 'a' * 40
+        self.old = old = root/'public-https/releases'/self.public
+        web = old/'infra/public-staging/public-web'
+        web.mkdir(parents=True)
+        (web/'index.html').write_text('<!doctype html>synthetic')
+        files = {'index.html': hashlib.sha256((web/'index.html').read_bytes()).hexdigest()}
+        (web/'.release.json').write_text(json.dumps({'files': files}))
+        (old/'infra/public-staging/gateway.Caddyfile').write_text(FIXTURE)
+        (old/'infra/public-staging/compose.yaml').write_text('services: {}\n')
+        (root/'releases'/self.api).mkdir(parents=True)
+        (root/'current').symlink_to(root/'releases'/self.api)
+        (root/'public-https/current').symlink_to(old)
+        self.mounts = self.mounts_of(old/'infra/public-staging')
+        spec = importlib.util.spec_from_file_location('client_ip_sim_parent',
+                                                      ROOT/'infra/roadmap/remote-deploy.py')
+        r = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(r)
+        r.ROOT, r.LOCK = root, root/'.market-release.lock'
+        r.run, r.http = self.run, self.http
+        r.containers = lambda: {'neighbor': ['id', 'image', 'started']}
+        r.gateway_mounts = lambda: dict(self.mounts)
+        r.verify_public_asset = lambda item: None
+        self.r = r
+        self.ci = root/'ci-proof.json'
+        self.ci.write_text('{}')
+
+    @staticmethod
+    def mounts_of(staging):
+        return {'/etc/caddy/Caddyfile': str(staging/'gateway.Caddyfile'),
+                '/srv/public': str(staging/'public-web')}
+
+    def run(self, command, timeout=90):
+        if command[:2] == ['docker', 'inspect']:
+            return '172.18.0.4'
+        if command[:3] == ['docker', 'network', 'inspect']:
+            return json.dumps(network('172.18.0.0/16'))
+        if command[:2] == ['docker', 'compose']:
+            staging = Path(command[command.index('-f') + 1]).parent
+            if command[-3:] == ['config', '--format', 'json']:
+                return json.dumps({'services': {'gateway': {
+                    'image': 'caddy:2.11.4-alpine@sha256:' + '5' * 64,
+                    'volumes': [{'type': 'bind', 'source': v, 'target': k, 'read_only': True}
+                                for k, v in self.mounts_of(staging).items()]}}})
+            if 'up' in command:
+                self.mounts = self.mounts_of(staging)
+                return ''
+        if command[:2] == ['docker', 'run'] and 'validate' in command:
+            return ''
+        raise AssertionError('Unexpected command: ' + ' '.join(command))
+
+    def http(self, path, **kwargs):
+        candidate = self.mounts != self.mounts_of(self.old/'infra/public-staging')
+        return (self.health if candidate and path == '/kitchen-live/health' else 200), b'{}', {}
+
+    def args(self, **changes):
+        values = dict(check=False, network='deploy_default', source_sha=self.source,
+                      expected_api_sha=self.api, expected_public_sha=self.public,
+                      expected_gateway_sha256=hashlib.sha256(FIXTURE.encode()).hexdigest(),
+                      ci_proof=self.ci, apply=True)
+        values.update(changes)
+        return argparse.Namespace(**values)
+
+    def main(self, args):
+        ci = type('Ci', (), {'verify_ci': staticmethod(lambda proof, sha: None)})
+        original = g.load
+        g.load = lambda name, path: self.r if path.name == 'remote-deploy.py' else ci
+        try:
+            return g.main(args)
+        finally:
+            g.load = original
+
+
+class ApplyTests(unittest.TestCase):
+    """main() --apply and --check with the real deploy helpers on a temporary tree."""
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory(prefix='pickchick-client-ip-apply-')
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+        (self.root/'public-https').mkdir()
+
+    def test_apply_switches_only_the_gateway_and_check_turns_green(self):
+        vps = SimulatedVps(self.root)
+        with redirect_stdout(io.StringIO()) as out, self.assertRaises(SystemExit) as before:
+            vps.main(vps.args(check=True, apply=False))
+        self.assertEqual(before.exception.code, 1)
+        self.assertEqual(json.loads(out.getvalue())['problems'], ['kitchen_route_forwards_proxy_hop'])
+        with redirect_stdout(io.StringIO()) as out:
+            vps.main(vps.args(apply=False))
+        self.assertEqual(json.loads(out.getvalue())['trusted_subnet'], '172.18.0.0/16')
+        self.assertEqual(vps.r.pointer(self.root/'public-https/current'), vps.old)
+        with redirect_stdout(io.StringIO()):
+            vps.main(vps.args())
+        release = self.root/'public-https/releases'/vps.source
+        self.assertEqual(vps.r.pointer(self.root/'public-https/current'), release)
+        self.assertEqual(vps.mounts, vps.mounts_of(release/'infra/public-staging'))
+        self.assertEqual((release/'infra/public-staging/gateway.Caddyfile').read_text(),
+                         g.candidate(FIXTURE, '172.18.0.0/16'))
+        self.assertEqual((release/'gateway.before').read_text(), FIXTURE)
+        self.assertEqual(json.loads((release/'client-ip-release.json').read_text())['status'],
+                         'deployed')
+        self.assertFalse(vps.r.LOCK.exists())
+        with redirect_stdout(io.StringIO()), self.assertRaises(SystemExit) as after:
+            vps.main(vps.args(check=True, apply=False))
+        self.assertEqual(after.exception.code, 0)
+
+    def test_failed_health_rolls_back_the_gateway_and_releases_the_lock(self):
+        vps = SimulatedVps(self.root, health=502)
+        with redirect_stdout(io.StringIO()), self.assertRaises(g.GuardFailure):
+            vps.main(vps.args())
+        release = self.root/'public-https/releases'/vps.source
+        self.assertEqual(vps.r.pointer(self.root/'public-https/current'), vps.old)
+        self.assertEqual(vps.mounts, vps.mounts_of(vps.old/'infra/public-staging'))
+        self.assertEqual(json.loads((release/'client-ip-release.json').read_text())['status'],
+                         'rolled_back')
+        self.assertFalse(vps.r.LOCK.exists())
+        self.assertEqual((vps.old/'infra/public-staging/gateway.Caddyfile').read_text(), FIXTURE)
 
 
 CADDY = os.environ.get('CADDY_BIN') or shutil.which('caddy')
