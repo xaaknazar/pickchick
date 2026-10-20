@@ -36,6 +36,7 @@ import {
 } from '@pickchick/contracts';
 import {
   createHttpApplication,
+  EdgeDeviceRoute,
   HealthController,
   loadConfig,
   RESOURCE,
@@ -162,6 +163,7 @@ function edgeMenuState(query: Record<string, unknown>) {
 }
 
 @Controller('internal/v1/edge/sync')
+@EdgeDeviceRoute()
 class MenuSyncController {
   constructor(@Inject(RESOURCE) private readonly resources: Resources) {}
 

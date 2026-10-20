@@ -15,7 +15,16 @@ export class Resources implements OnApplicationShutdown {
 
   constructor(readonly config: ServiceConfig) {
     this.pool = createPool(config.databaseUrl, config.databasePoolMax);
-    this.admission = new Admission(config.httpMaxInFlight);
+    this.admission = new Admission({
+      limit: config.httpMaxInFlight,
+      longPollLimit: config.httpMaxLongPoll,
+      longPollPerClient: config.httpMaxLongPollPerIp,
+      edgeLimit: config.httpMaxEdgeInFlight,
+      overflowDelayMs: config.httpLongPollOverflowDelayMs,
+      // Opt-in; without explicit proxy hops every client shares the gateway address.
+      perClient:
+        config.httpLongPollPerIpEnabled === true && (config.trustedProxyIps?.length ?? 0) > 0,
+    });
   }
 
   readiness(): Promise<Readiness> {

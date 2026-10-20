@@ -1,5 +1,5 @@
 import { Body, Controller, Headers, HttpCode, HttpException, Inject, Post } from '@nestjs/common';
-import { RESOURCE, Resources } from '@pickchick/platform';
+import { EdgeDeviceRoute, RESOURCE, Resources } from '@pickchick/platform';
 import {
   pullFulfillment,
   acknowledgeFulfillment,
@@ -12,6 +12,7 @@ import { SyncError } from '@pickchick/menu-sync';
 import { CommerceError } from '@pickchick/commerce-core';
 
 @Controller('internal/v1/edge/fulfillment')
+@EdgeDeviceRoute()
 export class FulfillmentTransportController {
   constructor(@Inject(RESOURCE) private readonly resources: Resources) {}
   private async run(
