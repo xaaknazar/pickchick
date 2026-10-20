@@ -13421,7 +13421,7 @@
         "properties": {
           "pin": {
             "type": "string",
-            "pattern": "^[0-9]{4}$"
+            "pattern": "^(?:[0-9]{4}|[0-9]{6})$"
           },
           "terminal_id": {
             "type": "string",

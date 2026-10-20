@@ -322,7 +322,8 @@ export const StaffLoginNameSchema = z
   .toLowerCase()
   .regex(/^[a-z0-9][a-z0-9._-]{2,63}$/);
 export const StaffPinLoginSchema = z.strictObject({
-  pin: z.string().regex(/^[0-9]{4}$/),
+  // 4 digits, or 6 for PINs issued with staff-pin-setup --digits 6 (release fixes 19.10, 6.5).
+  pin: z.string().regex(/^(?:[0-9]{4}|[0-9]{6})$/),
   terminal_id: UuidSchema,
 });
 export const StaffPasswordSchema = z.string().min(12).max(128);
