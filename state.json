@@ -6044,11 +6044,13 @@
         "tests/operations/test_server_pilot_release.py",
         "docs/operations/release-fixes-2026-10-19/claims-2026-10-21.md",
         "docs/operations/release-fixes-2026-10-19/release-plan-2026-10-21.md",
-        "docs/operations/release-fixes-2026-10-19/verification-2026-10-21.md"
+        "docs/operations/release-fixes-2026-10-19/verification-2026-10-21.md",
+        "tests/mobile/browser_menu_recovery.py",
+        "tests/mobile/browser_demo_account.py"
       ],
       "status": "active",
       "head": "8d4edb748f7949e6bdc134e1e668005c7c01ade0",
-      "updatedAt": "2026-10-21T05:58:42.727Z"
+      "updatedAt": "2026-10-21T06:00:11.421Z"
     }
   ]
 }
