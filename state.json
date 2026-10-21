@@ -6184,8 +6184,9 @@
         "@release/ios"
       ],
       "status": "active",
-      "head": "d6085655fd630fc43e7b7775c1e8d377fe49dccc",
-      "updatedAt": "2026-10-21T13:40:09.299Z"
+      "head": "410e5c74ea8d8d520a3a67a25cbcff57063db50e",
+      "updatedAt": "2026-10-21T14:04:41.216Z",
+      "summary": "PR272, Apple21 свободен, storefront, локальные тесты PASS. Профиль обновлён с прежним сертификатом для push; повторный archive идёт. Upload только после полной CI; серверный push OFF."
     },
     {
       "id": "kitchen-package-1021",
@@ -6197,8 +6198,9 @@
         "docs/operations/kitchen-package-2026-10-21.md"
       ],
       "status": "active",
-      "head": "d6085655fd630fc43e7b7775c1e8d377fe49dccc",
-      "updatedAt": "2026-10-21T13:52:47.472Z"
+      "head": "dc16d5efe5c00e4a3b6870db0293917e7fec8083",
+      "updatedAt": "2026-10-21T14:04:41.218Z",
+      "summary": "PR273. Исправлен отсутствующий cloud.mjs в дистрибутиве. Изолированный packaged-startup 1/1, build PASS. Кандидат staged; старый портал восстановлен, ожидается полная CI."
     },
     {
       "id": "release-results-1021",
