@@ -6195,10 +6195,11 @@
         "infra/kitchen-portal/package.mjs",
         "tests/kitchen-portal/package.test.mjs"
       ],
-      "status": "active",
+      "status": "done",
       "head": "dc16d5efe5c00e4a3b6870db0293917e7fec8083",
-      "updatedAt": "2026-10-21T14:31:37.473Z",
-      "summary": "PR273. Исправлен отсутствующий cloud.mjs в дистрибутиве. Изолированный packaged-startup 1/1, build PASS. Кандидат staged; старый портал восстановлен, ожидается полная CI."
+      "updatedAt": "2026-10-21T14:36:34.241Z",
+      "summary": "PR273 merge156d1e43; Foundation39612180711 11/11. Пакет с cloud.mjs dc16d5ef установлен после inspect/apply. HTTPS health подтверждает source dc16d5efe5c00e4a3b6870db0293917e7fec8083 и edgeConnected=true, конфигурация и21сосед сохранены.",
+      "nextAction": "Протокол передан release-results-1021/PR275. Физическая приёмка отдельно; новых заказов/платежей не создавать."
     },
     {
       "id": "kaspi-queue-test-1021",
