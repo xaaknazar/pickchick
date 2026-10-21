@@ -6010,11 +6010,11 @@
         "apps/kitchen-desktop/scripts/inputs.mjs",
         "apps/kitchen-desktop/security.mjs"
       ],
-      "status": "active",
+      "status": "done",
       "head": "4dde5b34f116461ceeec556da961028604de65f6",
-      "updatedAt": "2026-10-21T05:57:49.935Z",
-      "summary": "Облачный поток кухни переведён на экраны cloud 056 (решение 5 ADR-0014): одноразовый код на /kitchen-live/<роль>, ключ только в зашифрованной HttpOnly/Secure/SameSite=Strict cookie роли, каждый запрос проверяет облако (отзыв -> 401, экран кода), переживает перезапуск портала; касса и пароль повара не нужны; касса - прежний вход повара; конфиг без ключей. Коммит c23d0c1d, Foundation CI 38080265192 success (11/11); локально pnpm check, kitchen 51, kitchen-portal 17, unittest, kitchen-lan, desktop 4, Storybook build.",
-      "nextAction": "Ревью и включение в codex/shared-development. Выпуск - guarded операция владельца по docs/operations/cloud-kitchen-portal.md. project-status/roadmap заняты inventory - не обновлены.\n2026-10-13: владелец явно передал device-center файлы подключения/состояния: apps/kitchen/src/terminal-access.ts, apps/kitchen/src/app.ts, apps/kitchen/src/device-presence.ts, apps/kitchen/server.mjs, infra/kitchen-portal/server.mjs, tests/kitchen/device-presence.test.mjs. Дизайн и остальные области сохранены."
+      "updatedAt": "2026-10-21T05:57:54.756Z",
+      "summary": "2026-10-21: по поручению владельца завершён устаревший резерв кода. Ветка уже объединена; чистый checkpoint синхронизирован с shared4dde5b34 без новых изменений кода. Контекст сохранён в истории и PR262.",
+      "nextAction": "Неустановленные компоненты и приёмка остаются отдельными шагами с новым claim и разрешением владельца. Этот finish ничего не выпускает."
     }
   ]
 }
