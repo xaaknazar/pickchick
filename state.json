@@ -4858,31 +4858,6 @@
       "nextAction": "New owner feedback is implemented separately in kiosk-owner-polish-1013 build18; owner acceptance remains separate."
     },
     {
-      "id": "kiosk-cart-lines-api-1013",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/kiosk-cart-lines-api-1013",
-      "head": "ad7132fa5f4ae93bfa0693c8dd5e790c885d0201",
-      "status": "active",
-      "scopes": [
-        "packages/commerce-core/src/kiosk-checkout.ts",
-        "packages/catalog-pricing/src/model.ts",
-        "packages/contracts/src/customer-commerce.ts",
-        "packages/commerce-core/tests/kiosk-checkout.postgres.test.mjs",
-        "infra/staging/release-kiosk-cart-lines.py",
-        "tests/operations/test_kiosk_cart_lines_release.py",
-        "docs/operations/kiosk-cart-lines-api-2026-10-13.md",
-        "packages/edge-fulfillment/tests/postgres.test.mjs",
-        "infra/windows/update-native-kiosk-cart-lines.ps1",
-        "tests/operations/test_windows_kiosk_cart_lines.py",
-        "docs/operations/kiosk-cart-lines-windows-2026-10-13.md",
-        "packages/commerce-core/src/model.ts",
-        "packages/edge-fulfillment/src/model.ts"
-      ],
-      "updatedAt": "2026-10-21T08:06:54.858Z",
-      "summary": "API6870 CI11/11 and immutable prepare passed; running API still5b6f/schema058. Windows62f CI11/11, protected schema020 backup/restore passed; runtime staged, installer not started because Mac left cashier subnet. Owner authorized Windows transfer/restart worker only. API apply intentionally follows compatible receiver.\n2026-10-14: владелец подтвердил «Да, работа остановлена — передать кассу». @windows/cashier возвращён device-center для recovery020 и подключения экранов. SSH и health/ready200 проверены, Edge/worker пока23fb; schema020 уже committed. Сохранить staged62f и не перезаписывать изменения другого выпуска. После Devices сверить новый Edge baseline перед запуском worker-only обновления киоска. 2026-10-17: после PR251/shared76902fa4 и подтверждённой публикации только roadmap возвращены временные области: packages/commerce-core/src/model.ts, packages/edge-fulfillment/src/model.ts. Изменения/проверки: https://github.com/xaaknazar/pickchick/pull/251#issuecomment-6230666927. Перед изменениями получить и явно объединить свежий shared; рабочие копии не менялись. Решение владельца 21.10.2026: разрешён обычный merge PR262 после полной зелёной Foundation CI, включая 37 путей пересечения активных claims. Это не закрывает данную задачу и не разрешает выпуск. Свою ветку интегрировать с новым shared; чужие текущие правки сохранить.\n21.10.2026: по прямому разрешению владельца PR262 с пересечениями активных claims включён обычным merge d15bde82 в shared после полной Foundation CI 39561964524 (11/11). Перед продолжением явно объединить этот shared; резерв и незавершённая работа сохранены.",
-      "nextAction": "Restore Mac connection to cashier LAN; retry pinned SSH; fresh guards, worker-only install then API encrypted backup/restore and apply; publish final roadmap and return temporary reservations."
-    },
-    {
       "id": "device-center",
       "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
       "branch": "codex/device-center",
@@ -6059,6 +6034,31 @@
       "updatedAt": "2026-10-21T08:06:59.826Z",
       "summary": "PR262 слит обычным merge d15bde82 после полной Foundation CI 39561964524 11/11; Vite исправлен отдельным fc5acc26. Разрешённая ручная ротация ключа кассы завершена: до 20.11.2026 12:34:54 Алматы, ACL/7 служб/readiness/heartbeat проверены. Внешние выпуски и миграции не выполнялись.",
       "nextAction": "Продолжить l10n и cart-lines до зелёной CI/PR без слияния; первый шаг 060 затем064/066/068 требует отдельного разрешения и подготовленного оператора. 204d318b ждёт финансовый Mac."
+    },
+    {
+      "id": "kiosk-cart-lines-api-1013",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-cart-lines-api-1013",
+      "head": "79cd0625159c8ad331812952aa50e30e5f82701b",
+      "status": "active",
+      "scopes": [
+        "packages/commerce-core/src/kiosk-checkout.ts",
+        "packages/catalog-pricing/src/model.ts",
+        "packages/contracts/src/customer-commerce.ts",
+        "packages/commerce-core/tests/kiosk-checkout.postgres.test.mjs",
+        "infra/staging/release-kiosk-cart-lines.py",
+        "tests/operations/test_kiosk_cart_lines_release.py",
+        "docs/operations/kiosk-cart-lines-api-2026-10-13.md",
+        "packages/edge-fulfillment/tests/postgres.test.mjs",
+        "infra/windows/update-native-kiosk-cart-lines.ps1",
+        "tests/operations/test_windows_kiosk_cart_lines.py",
+        "docs/operations/kiosk-cart-lines-windows-2026-10-13.md",
+        "packages/commerce-core/src/model.ts",
+        "packages/edge-fulfillment/src/model.ts"
+      ],
+      "updatedAt": "2026-10-21T08:07:46.976Z",
+      "summary": "API6870 CI11/11 and immutable prepare passed; running API still5b6f/schema058. Windows62f CI11/11, protected schema020 backup/restore passed; runtime staged, installer not started because Mac left cashier subnet. Owner authorized Windows transfer/restart worker only. API apply intentionally follows compatible receiver.\n2026-10-14: владелец подтвердил «Да, работа остановлена — передать кассу». @windows/cashier возвращён device-center для recovery020 и подключения экранов. SSH и health/ready200 проверены, Edge/worker пока23fb; schema020 уже committed. Сохранить staged62f и не перезаписывать изменения другого выпуска. После Devices сверить новый Edge baseline перед запуском worker-only обновления киоска. 2026-10-17: после PR251/shared76902fa4 и подтверждённой публикации только roadmap возвращены временные области: packages/commerce-core/src/model.ts, packages/edge-fulfillment/src/model.ts. Изменения/проверки: https://github.com/xaaknazar/pickchick/pull/251#issuecomment-6230666927. Перед изменениями получить и явно объединить свежий shared; рабочие копии не менялись. Решение владельца 21.10.2026: разрешён обычный merge PR262 после полной зелёной Foundation CI, включая 37 путей пересечения активных claims. Это не закрывает данную задачу и не разрешает выпуск. Свою ветку интегрировать с новым shared; чужие текущие правки сохранить.\n21.10.2026: по прямому разрешению владельца PR262 с пересечениями активных claims включён обычным merge d15bde82 в shared после полной Foundation CI 39561964524 (11/11). Перед продолжением явно объединить этот shared; резерв и незавершённая работа сохранены.",
+      "nextAction": "Restore Mac connection to cashier LAN; retry pinned SSH; fresh guards, worker-only install then API encrypted backup/restore and apply; publish final roadmap and return temporary reservations."
     }
   ]
 }
