@@ -6144,6 +6144,21 @@
       "updatedAt": "2026-10-21T13:13:00.940Z",
       "summary": "Финансовая приёмка завершена, PR267 слит dba1c004 после полной CI11/11. API59f не переключался: rehearsal остановился на staging hostname contract; baseline сохранён и собственная блокировка снята после сверки. Исправленная изолированная репетиция167таблиц/API/Redis прошла. PR268 headd6085655 включает поправку и перенос Node-теста в фазу после сборки; CI нового SHA идёт. Gateway client-IP уже установлен из1633bf79/CI39593263845, hash89868254, все соседи сохранены. QR-совместимость продолжена отдельно в PR269 с проверенной точной суммой банка; живой worker прежний.",
       "nextAction": "Дождаться полной CI268, API prepare/apply с новым public1633/gateway89868254. Затем кабинет/кухня/staff gateway. QR269 отдельно после API и полной CI. Windows фактически020, нужен отдельный охраняемый путь020->023; чужой photo-printer резерв сохранён. Apple login pending; акция/push/авторотация выключены."
+    },
+    {
+      "id": "windows-runtime-1021",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/windows-runtime-1021",
+      "scopes": [
+        "infra/windows/runtime-schema-1021.mjs",
+        "infra/windows/update-runtime-1021.ps1",
+        "tests/operations/windows-runtime-1021.test.mjs",
+        "tests/operations/test_windows_runtime_1021.py",
+        "docs/operations/windows-runtime-2026-10-21.md"
+      ],
+      "status": "active",
+      "head": "d6085655fd630fc43e7b7775c1e8d377fe49dccc",
+      "updatedAt": "2026-10-21T13:15:51.893Z"
     }
   ]
 }
