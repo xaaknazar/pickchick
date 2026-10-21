@@ -10,3 +10,20 @@ export function notificationId(value: unknown): string | null {
     ? v.notificationId
     : null;
 }
+
+/** Native push registration may wait indefinitely without connectivity. Keep settings recoverable. */
+export function boundedNativeRequest<T>(request: Promise<T>, milliseconds = 15000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('native_push_timeout')), milliseconds);
+    request.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}

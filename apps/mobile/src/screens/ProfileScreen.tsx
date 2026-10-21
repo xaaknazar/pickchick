@@ -44,7 +44,7 @@ function ProfileRow({
       </View>
       <View style={s.flex}>
         <Text style={s.rowTitle}>{localize(title)}</Text>
-        {value ? <Text style={s.rowValue}>{localize(value)}</Text> : null}
+        {value ? <Text style={s.rowValue}>{value}</Text> : null}
       </View>
       {onPress ? (
         <Icon name="chevron-forward" size={17} color={colors.muted} />
@@ -240,14 +240,14 @@ export function Profile(props: ScreenProps) {
           <ProfileRow
             title={t('Мои данные')}
             icon="person-outline"
-            value={account.account ? savedNickname || 'Добавить имя' : 'Войти в аккаунт'}
+            value={account.account ? savedNickname || t('Добавить имя') : t('Войти в аккаунт')}
             onPress={() => props.navigate(account.account ? 'M04' : 'M02')}
           />
           {account.account ? (
             <ProfileRow
               title={t('Дата рождения')}
               icon="gift-outline"
-              value={formatBirthDate(account.account.profile.birthDate) || 'Добавить'}
+              value={formatBirthDate(account.account.profile.birthDate) || t('Добавить')}
               testID="profile-birthday"
               onPress={() => props.navigate('M04')}
             />
@@ -255,7 +255,7 @@ export function Profile(props: ScreenProps) {
           <ProfileRow
             title={t('Уведомления')}
             icon="notifications-outline"
-            value="Заказы и предложения для вас"
+            value={t('Заказы и предложения для вас')}
             testID="profile-notifications"
             onPress={() => router.push('/notifications')}
           />

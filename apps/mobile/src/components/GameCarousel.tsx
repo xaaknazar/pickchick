@@ -117,7 +117,7 @@ export function GameCarousel<Id extends string>({
             feedback="scale"
             accessibilityRole="button"
             accessibilityLabel={localize(
-              t('Играть в {p0}. {p1}', { p0: game.title, p1: game.description }),
+              t('Играть в {p0}. {p1}', { p0: t(game.title), p1: t(game.description) }),
             )}
             onPress={() => onOpen(game.id)}
             style={[s.card, { width: cardWidth }, webCard]}

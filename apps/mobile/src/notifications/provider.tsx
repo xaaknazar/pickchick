@@ -23,7 +23,7 @@ import { API_URL } from '../api';
 import { createCustomerRequest } from '../customer-http';
 import { useAccount } from '../useAccount';
 import { t, useLocale } from '../i18n';
-import { notificationId } from './routing';
+import { notificationId, boundedNativeRequest } from './routing';
 
 type Preferences = ReturnType<typeof NotificationPreferencesSchema.parse>;
 type Config = ReturnType<typeof NotificationConfigSchema.parse>;
@@ -119,7 +119,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         throw new Error('permission_denied');
       }
       setDenied(false);
-      const nativeToken = await Notifications.getDevicePushTokenAsync();
+      const nativeToken = await boundedNativeRequest(Notifications.getDevicePushTokenAsync());
       const environment =
         Platform.OS === 'ios'
           ? await Application.getIosPushNotificationServiceEnvironmentAsync()

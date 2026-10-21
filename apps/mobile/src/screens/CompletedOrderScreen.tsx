@@ -171,7 +171,9 @@ export function CompletedOrderScreen({
                 <View style={s.itemCopy}>
                   <Body style={s.itemName}>{localize(item.title)}</Body>
                   {item.modifiers.length ? (
-                    <Caption style={s.modifiers}>{localize(item.modifiers.join(' · '))}</Caption>
+                    <Caption style={s.modifiers}>
+                      {localize(item.modifiers.map((value) => t(value)).join(' · '))}
+                    </Caption>
                   ) : null}
                   <Row style={s.itemBottom}>
                     <Caption style={s.muted}>

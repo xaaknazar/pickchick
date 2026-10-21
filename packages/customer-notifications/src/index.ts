@@ -42,10 +42,13 @@ interface Identity {
   id: string;
 }
 export class CustomerNotifications {
+  private readonly providers: PushProviders;
   constructor(
     readonly pool: DatabasePool,
     readonly options: PushOptions,
-  ) {}
+  ) {
+    this.providers = new PushProviders(options);
+  }
   config() {
     return {
       enabled: this.options.enabled,
@@ -232,6 +235,18 @@ export class CustomerNotifications {
   /** Called only by the server observer after reading the authoritative checkout projection. */
   async observe(customerId: string, orderId: string, kind: OrderNotificationKind) {
     return transaction(this.pool, async (db) => {
+      await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 41875))', [orderId]);
+      const ranks: Record<OrderNotificationKind, number> = {
+        paid: 0,
+        preparing: 1,
+        ready: 2,
+        handed_over: 3,
+      };
+      const observed = await db.query<{ kind: OrderNotificationKind }>(
+        'SELECT kind FROM customer_notifications WHERE order_id=$1 AND customer_id=$2',
+        [orderId, customerId],
+      );
+      if (observed.rows.some((row) => ranks[row.kind] >= ranks[kind])) return;
       const eligible = await db.query(
         `SELECT 1 FROM customer_notification_preferences p JOIN identity_customers c ON c.id=p.customer_id JOIN commerce_orders o ON o.customer_id=p.customer_id AND o.principal_id=p.customer_id WHERE p.customer_id=$1 AND o.id=$2 AND o.snapshot->>'channel'='mobile' AND p.orders AND c.deleted_at IS NULL AND o.created_at>=p.orders_enabled_at FOR SHARE OF p,c`,
         [customerId, orderId],
@@ -256,9 +271,8 @@ export class CustomerNotifications {
   }
   async deliver(send?: (target: PushTarget, message: PushMessage) => Promise<DeliveryResult>) {
     if (!this.options.enabled) return 0;
-    const providers = new PushProviders(this.options);
     const dispatch =
-      send ?? ((target: PushTarget, message: PushMessage) => providers.send(target, message));
+      send ?? ((target: PushTarget, message: PushMessage) => this.providers.send(target, message));
     await this.pool.query(
       "UPDATE customer_push_deliveries SET state='failed',last_code='attempts_exhausted' WHERE state='sending' AND lease_until<clock_timestamp() AND attempts>=10",
     );

@@ -31,7 +31,13 @@ export function publishedProductData(
   locale: Locale,
 ): Omit<Product, 'image'>[] {
   const localized = (text: { ru: string; kk: string }) =>
-    locale === 'en' ? translate(text.ru, locale) : text[locale] || translate(text.ru, locale);
+    locale === 'ru'
+      ? text.ru
+      : translate(text.ru, locale) !== text.ru
+        ? translate(text.ru, locale)
+        : locale === 'kk'
+          ? text.kk || text.ru
+          : text.ru;
   return catalog.payload.products.map((item) => ({
     id: item.id,
     name: localized(item.name),

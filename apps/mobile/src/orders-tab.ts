@@ -137,7 +137,7 @@ export interface OrderLineView {
 /** «Master Combo ×2, Pick Combo, Фингер Дуо». */
 export function itemsSummary(items: readonly OrderLineView[]): string {
   return items
-    .map((item) => (item.quantity > 1 ? `${item.title} ×${item.quantity}` : item.title))
+    .map((item) => (item.quantity > 1 ? `${t(item.title)} ×${item.quantity}` : t(item.title)))
     .join(', ');
 }
 

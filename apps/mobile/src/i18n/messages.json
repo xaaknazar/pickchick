@@ -6397,7 +6397,7 @@
   },
   {
     "ru": "Язык и уведомления",
-    "kk": "Тіл мен хабарландырулар",
+    "kk": "Тіл және хабарламалар",
     "en": "Language and notifications",
     "context": "apps/mobile/src/screens/ProfileScreens.tsx:306"
   },

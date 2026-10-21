@@ -351,7 +351,8 @@ export function Settings(props: ScreenProps) {
             key={language}
             testID={`language-${language}`}
             accessibilityRole="radio"
-            accessibilityState={{ selected: props.model.locale === language }}
+            accessibilityState={{ checked: props.model.locale === language }}
+            aria-checked={props.model.locale === language}
             accessibilityLabel={{ kk: 'Қазақша', ru: 'Русский', en: 'English' }[language]}
             onPress={() => props.model.setLocale(language)}
             style={s.settingRow}

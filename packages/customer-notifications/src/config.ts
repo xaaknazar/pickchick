@@ -10,6 +10,7 @@ export interface PushOptions {
 export function pushOptions(env: NodeJS.ProcessEnv): PushOptions {
   if (env.CUSTOMER_PUSH_ENABLED !== '1') return { enabled: false };
   try {
+    if (env.CUSTOMER_AUTH_ENABLED !== 'true') throw new Error();
     const encryptionKey = Buffer.from(
       readFileSync(env.CUSTOMER_PUSH_ENCRYPTION_KEY_FILE!, 'utf8').trim(),
       'base64',

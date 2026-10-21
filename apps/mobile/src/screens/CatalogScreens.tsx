@@ -874,7 +874,7 @@ export function Cart(props: ScreenProps) {
               <Pressable
                 onPress={() => setEditing(line)}
                 accessibilityRole="button"
-                accessibilityLabel={localize(t('Изменить {p0}', { p0: line.product.name }))}
+                accessibilityLabel={localize(t('Изменить {p0}', { p0: t(line.product.name) }))}
                 testID={`cart-edit-${line.product.id}`}
               >
                 <ProductPhoto
@@ -887,7 +887,7 @@ export function Cart(props: ScreenProps) {
                 <Pressable
                   onPress={() => setEditing(line)}
                   accessibilityRole="button"
-                  accessibilityLabel={localize(t('Настроить {p0}', { p0: line.product.name }))}
+                  accessibilityLabel={localize(t('Настроить {p0}', { p0: t(line.product.name) }))}
                   style={{ minHeight: 48 }}
                 >
                   <Heading small style={s.cartName}>
@@ -917,8 +917,8 @@ export function Cart(props: ScreenProps) {
                       name="remove"
                       label={localize(
                         line.quantity === 1
-                          ? t('Удалить {p0}', { p0: line.product.name })
-                          : t('Уменьшить {p0}', { p0: line.product.name }),
+                          ? t('Удалить {p0}', { p0: t(line.product.name) })
+                          : t('Уменьшить {p0}', { p0: t(line.product.name) }),
                       )}
                       testID={`cart-minus-${line.product.id}`}
                       onPress={() => {
@@ -943,7 +943,7 @@ export function Cart(props: ScreenProps) {
                     </Body>
                     <IconButton
                       name="add"
-                      label={localize(t('Добавить ещё {p0}', { p0: line.product.name }))}
+                      label={localize(t('Добавить ещё {p0}', { p0: t(line.product.name) }))}
                       testID={`cart-plus-${line.product.id}`}
                       disabled={line.quantity >= 20}
                       onPress={() => props.model.setQuantity(cartLineKey(line), line.quantity + 1)}

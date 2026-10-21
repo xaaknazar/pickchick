@@ -187,7 +187,7 @@ function MountainRoad({ preview }: { preview: boolean }) {
                 accessibilityRole="button"
                 accessibilityLabel={localize(
                   t('{p0}, {p1} Чиков, {p2}. Подробнее', {
-                    p0: peak.name,
+                    p0: t(peak.name),
                     p1: number(peak.points),
                     p2: peak.reward,
                   }),

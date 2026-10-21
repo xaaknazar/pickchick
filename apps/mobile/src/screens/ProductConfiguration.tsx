@@ -99,7 +99,7 @@ function LegacyConfiguredProduct(
     : (existing?.quantity ?? 0) + quantity > 20
       ? 'В одном заказе можно до 20 одинаковых наборов.'
       : incompleteGroup
-        ? t('Завершите выбор: {p0}.', { p0: incompleteGroup.title.toLowerCase() })
+        ? t('Завершите выбор: {p0}.', { p0: t(incompleteGroup.title).toLowerCase() })
         : !valid
           ? 'Проверьте выбранные добавки: часть вариантов недоступна.'
           : null;
@@ -277,7 +277,7 @@ function LegacyConfiguredProduct(
                     <Pressable
                       testID={`modifier-none-${group.id}`}
                       accessibilityRole="radio"
-                      accessibilityLabel={localize(t('{p0}: не добавлять', { p0: group.title }))}
+                      accessibilityLabel={localize(t('{p0}: не добавлять', { p0: t(group.title) }))}
                       aria-checked={total === 0}
                       accessibilityState={{ checked: total === 0 }}
                       onPress={() =>
@@ -324,7 +324,7 @@ function LegacyConfiguredProduct(
                         testID={`modifier-${group.id}-${option.id}`}
                         accessibilityRole="radio"
                         accessibilityLabel={localize(
-                          `${group.title}: ${option.label}, ${unavailable ? 'временно нет' : option.price_delta_minor === '0' ? 'входит в стоимость' : '+' + MinorMoney(option.price_delta_minor)}`,
+                          `${t(group.title)}: ${t(option.label)}, ${unavailable ? t('временно нет') : option.price_delta_minor === '0' ? t('входит в стоимость') : '+' + MinorMoney(option.price_delta_minor)}`,
                         )}
                         aria-checked={!!selected}
                         accessibilityState={{ checked: !!selected, disabled: unavailable }}
@@ -367,7 +367,7 @@ function LegacyConfiguredProduct(
                         <Row style={s.stepper}>
                           <IconButton
                             name="remove"
-                            label={localize(t('Убрать {p0}', { p0: option.label }))}
+                            label={localize(t('Убрать {p0}', { p0: t(option.label) }))}
                             testID={`modifier-minus-${group.id}-${option.id}`}
                             disabled={selected === 0}
                             onPress={() => select(group, option.id, selected - 1)}
@@ -380,7 +380,7 @@ function LegacyConfiguredProduct(
                           </Body>
                           <IconButton
                             name="add"
-                            label={localize(t('Добавить {p0}', { p0: option.label }))}
+                            label={localize(t('Добавить {p0}', { p0: t(option.label) }))}
                             testID={`modifier-plus-${group.id}-${option.id}`}
                             disabled={
                               unavailable ||

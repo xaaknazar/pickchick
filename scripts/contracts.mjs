@@ -1,3 +1,10 @@
+import {
+  NotificationConfigSchema,
+  NotificationPreferencesSchema,
+  NotificationPreferencePatchSchema,
+  PushDeviceSchema,
+  NotificationInboxSchema,
+} from '@pickchick/contracts';
 import { FarmStateSchema, FarmCommandSchema } from '@pickchick/farm-game';
 import { FarmRequestSchema } from '@pickchick/farm-persistence';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -1175,6 +1182,65 @@ Object.assign(openapi.paths, {
   },
   '/v1/content/branches/{branchId}': { get: boContent },
 });
+
+for (const [name, schema] of Object.entries({
+  NotificationConfigSchema,
+  NotificationPreferencesSchema,
+  NotificationPreferencePatchSchema,
+  PushDeviceSchema,
+  NotificationInboxSchema,
+})) {
+  openapi.components.schemas[name.replace(/Schema$/, '')] = jsonSchema(schema);
+}
+openapi.components.schemas.PushRegistration = {
+  type: 'object',
+  required: ['registered'],
+  properties: { registered: { type: 'boolean' } },
+  additionalProperties: false,
+};
+openapi.components.schemas.NotificationRead = {
+  type: 'object',
+  required: ['read'],
+  properties: { read: { type: 'boolean' } },
+  additionalProperties: false,
+};
+for (const [path, method, operation, result, input] of [
+  ['/v1/notifications/config', 'get', 'notificationConfig', 'NotificationConfig'],
+  [
+    '/v1/customers/me/notification-preferences',
+    'get',
+    'notificationPreferences',
+    'NotificationPreferences',
+  ],
+  [
+    '/v1/customers/me/notification-preferences',
+    'patch',
+    'updateNotificationPreferences',
+    'NotificationPreferences',
+    'NotificationPreferencePatch',
+  ],
+  ['/v1/customers/me/push-devices', 'post', 'registerPushDevice', 'PushRegistration', 'PushDevice'],
+  ['/v1/customers/me/push-devices/{id}', 'delete', 'unregisterPushDevice', 'PushRegistration'],
+  ['/v1/customers/me/notifications', 'get', 'notificationInbox', 'NotificationInbox'],
+  ['/v1/customers/me/notifications/{id}/read', 'post', 'readNotification', 'NotificationRead'],
+]) {
+  const endpoint = customerOperation(
+    operation,
+    result,
+    input,
+    path !== '/v1/notifications/config',
+    method === 'post' ? 201 : 200,
+  );
+  endpoint.tags = ['Customer notifications'];
+  endpoint.description =
+    'Off by default. Opaque customer bearer; preferences, devices and inbox are scoped to the current account. Separate explicit promotions consent. Push never authorizes a payment or changes an order. No raw token in responses or logs.';
+  if (path.includes('{id}'))
+    endpoint.parameters = [
+      { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+    ];
+  openapi.paths[path] ??= {};
+  openapi.paths[path][method] = endpoint;
+}
 
 for (const [filename, value] of [
   ['openapi.json', openapi],

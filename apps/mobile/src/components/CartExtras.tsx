@@ -64,14 +64,14 @@ export function CartRecommendations({ props }: { props: ScreenProps }) {
                   testID={`cart-recommend-${line.product.id}`}
                   accessibilityLabel={localize(
                     t('Добавить {p0}, {p1}', {
-                      p0: line.product.name,
+                      p0: t(line.product.name),
                       p1: money(lineUnitPrice(line)),
                     }),
                   )}
                   onPress={() => {
                     setAdded(
                       props.model.appendCartLines([line])
-                        ? t('{p0} добавлен в корзину', { p0: line.product.name })
+                        ? t('{p0} добавлен в корзину', { p0: t(line.product.name) })
                         : 'Меню или корзина изменились. Попробуйте ещё раз.',
                     );
                   }}
@@ -119,7 +119,7 @@ export function CartOffers({ props }: { props: ScreenProps }) {
             <MotionPressable
               key={promo.id}
               accessibilityRole="button"
-              accessibilityLabel={localize(t('{p0}, условия акции', { p0: promo.title.ru }))}
+              accessibilityLabel={localize(t('{p0}, условия акции', { p0: t(promo.title.ru) }))}
               onPress={() => setSelected(promo)}
               style={s.promotion}
             >
