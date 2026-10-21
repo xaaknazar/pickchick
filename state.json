@@ -6093,11 +6093,14 @@
       "branch": "codex/finance-acceptance-1021",
       "scopes": [
         "docs/operations/reviews/finance-204d318b-2026-10-21.md",
-        "tests/backoffice/finance-period-acceptance.test.mjs"
+        "tests/backoffice/finance-period-acceptance.test.mjs",
+        "apps/backoffice/src/finance.ts",
+        "apps/backoffice/src/finance-model.ts",
+        "tests/backoffice/finance-period-ui.test.mjs"
       ],
       "status": "active",
       "head": "94cdf79b08f73870b7220da04f8ee0366b3b2e82",
-      "updatedAt": "2026-10-21T10:49:12.223Z"
+      "updatedAt": "2026-10-21T10:51:19.119Z"
     }
   ]
 }
