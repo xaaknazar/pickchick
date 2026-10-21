@@ -354,7 +354,7 @@ test('QR process loss after create leaves durable intent and cannot create again
     assert.equal((await r.row()).state, 'unknown');
   }));
 
-test('QR zero create amount preserves bank identity without showing QR or reissuing', async () =>
+test('QR zero create amount shows the existing bank QR without capture or reissuing', async () =>
   fixture(async (f) => {
     const client = new FakeQr();
     client.createAnswer = {
@@ -370,10 +370,13 @@ test('QR zero create amount preserves bank identity without showing QR or reissu
     const r = await ready(f, client);
     assert.equal((await r.processor().tick()).errors, 0);
     const before = await r.row();
-    assert.equal(before.state, 'unknown');
+    assert.equal(before.state, 'issued');
     assert.equal(before.operation_id, '123');
     assert.equal(before.qr_payload, 'https://qr.kaspi.kz/synthetic-test');
-    assert.equal((await readKioskQrPayment(f.pool, r.order.orderId)).qrPayload, null);
+    assert.equal(
+      (await readKioskQrPayment(f.pool, r.order.orderId)).qrPayload,
+      'https://qr.kaspi.kz/synthetic-test',
+    );
     await f.pool.query(
       "UPDATE commerce_outbox SET acknowledged_at=NULL,lease_until=NULL WHERE event_type='payment.submit_requested'",
     );
@@ -384,12 +387,12 @@ test('QR zero create amount preserves bank identity without showing QR or reissu
     assert.equal(after.operation_id, before.operation_id);
     assert.equal(after.qr_payload, before.qr_payload);
     assert.deepEqual(after.expires_at, before.expires_at);
-    assert.equal(after.state, 'unknown');
+    assert.equal(after.state, 'issued');
     assert.equal(
       (await f.pool.query('SELECT count(*)::int n FROM commerce_captures')).rows[0].n,
       0,
     );
-    // Synthetic final response verifies the guard; a real Processed response is not yet observed.
+    // Capture still requires an exact amount (status itself or verified bank details).
     client.statusAnswer = { kind: 'ok', data: { Id: 123, Amount: 110, Status: 'Processed' } };
     await r.due();
     assert.equal((await r.processor().tick()).errors, 0);

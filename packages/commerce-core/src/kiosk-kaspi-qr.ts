@@ -55,8 +55,31 @@ export class KioskKaspiQrBridgeClient implements KioskKaspiQrClient {
   create(amount: number, latitude: number, longitude: number) {
     return this.call('/api/qr/create', { amount, latitude, longitude });
   }
-  status(operationId: string) {
-    return this.call('/api/qr/status?qrOperationId=' + operationId);
+  async status(id: string): Promise<Answer> {
+    const answer = await this.call('/api/qr/status?qrOperationId=' + id);
+    // Real Processed replies omit Amount. Confirm it independently through the
+    // signed, read-only details route; never replace an explicit bank amount.
+    if (
+      answer.kind !== 'ok' ||
+      answer.data.Status !== 'Processed' ||
+      statusOperationId(answer.data) !== id ||
+      Object.hasOwn(answer.data, 'Amount')
+    )
+      return answer;
+    const details = await this.call('/api/history/details', { id, operationMethod: 0 });
+    if (details.kind !== 'ok') return details;
+    const data = details.data;
+    const amount = typeof data.Amount === 'string' ? data.Amount.trim() : data.Amount;
+    // This is the observed dynamic-sale shape, not a refund/history heuristic.
+    if (
+      statusOperationId(data) !== id ||
+      data.OperationType !== 0 ||
+      data.OperationMethod !== 0 ||
+      data.SaleType !== 'Dynamic' ||
+      kaspiMinor(amount) === null
+    )
+      return { kind: 'uncertain' };
+    return { kind: 'ok', data: { ...answer.data, Amount: amount } };
   }
   private async call(path: string, body?: object): Promise<Answer> {
     const session = this.config.session;
@@ -368,7 +391,13 @@ export class KioskKaspiQrProcessor {
     );
     const id = answer.kind === 'ok' ? operationId(answer.data.QrOperationId) : null;
     const qr = answer.kind === 'ok' ? payload(answer.data.QrToken) : null;
-    const bound = answer.kind === 'ok' && kaspiMinor(answer.data.Amount) === row.amount_minor;
+    // Preserve the installed bridge compatibility: create may report zero or no
+    // amount. Showing its QR is not capture; paid still requires exact bank money.
+    const created = answer.kind === 'ok' ? answer.data : {};
+    const unspecified =
+      !Object.hasOwn(created, 'Amount') || created.Amount === 0 || created.Amount === '0';
+    const bound =
+      answer.kind === 'ok' && (unspecified || kaspiMinor(created.Amount) === row.amount_minor);
     if (id && qr) {
       // Preserve the bank identity for reconciliation even when the amount is unbound.
       // Unknown QR payloads remain hidden by readKioskQrPayment.
