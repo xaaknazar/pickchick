@@ -1,3 +1,4 @@
+import { localize, useLocale } from '../i18n';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, font } from '../theme';
 import { money } from '../domain';
@@ -11,14 +12,17 @@ export function CartLinePrice({
   previousUnitMinor?: string;
   quantity: number;
 }) {
+  useLocale();
   return (
     <View style={s.amount}>
       {previousUnitMinor && previousUnitMinor !== unitMinor ? (
         <Text style={s.previous}>
-          {money((BigInt(previousUnitMinor) * BigInt(quantity)).toString())}
+          {localize(money((BigInt(previousUnitMinor) * BigInt(quantity)).toString()))}
         </Text>
       ) : null}
-      <Text style={s.current}>{money((BigInt(unitMinor) * BigInt(quantity)).toString())}</Text>
+      <Text style={s.current}>
+        {localize(money((BigInt(unitMinor) * BigInt(quantity)).toString()))}
+      </Text>
     </View>
   );
 }

@@ -1,3 +1,4 @@
+import { t, useLocale } from '../i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -25,6 +26,7 @@ export function LaunchReveal({
   failed: boolean;
   onComplete(): void;
 }) {
+  useLocale();
   const { width, height } = useWindowDimensions();
   const reduced = useReducedMotion();
   const motionReady = useMotionReady();
@@ -90,7 +92,7 @@ export function LaunchReveal({
     <Animated.View
       testID="launch-reveal"
       onLayout={() => setLaidOut(true)}
-      accessibilityLabel="Pick Chick. Твой пик вкуса"
+      accessibilityLabel={t('Pick Chick. Твой пик вкуса')}
       accessibilityRole="image"
       style={[
         s.overlay,
@@ -137,7 +139,7 @@ export function LaunchReveal({
             },
           ]}
         >
-          <Text style={s.text}>Твой пик вкуса</Text>
+          <Text style={s.text}>{t('Твой пик вкуса')}</Text>
         </Animated.View>
       ) : null}
     </Animated.View>

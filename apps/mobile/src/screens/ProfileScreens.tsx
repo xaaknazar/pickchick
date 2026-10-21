@@ -1,3 +1,5 @@
+import { useNotifications } from '../notifications/provider';
+import { t, localize, useLocale } from '../i18n';
 import { MotionPressable as Pressable, MotionModal as Modal } from '../components/Motion';
 import { useState } from 'react';
 import * as Linking from 'expo-linking';
@@ -28,12 +30,14 @@ export { Profile } from './ProfileScreen';
 // App Store audit 14.10: the screen offered a draft form that sent nothing. It now shows the
 // build's real contact (EXPO_PUBLIC_SUPPORT_URL) or sends the customer to the restaurant staff.
 export function Support(props: ScreenProps) {
+  useLocale();
   return (
-    <Page props={props} title="Помощь">
-      <Heading>Мы рядом</Heading>
+    <Page props={props} title={t('Помощь')}>
+      <Heading>{t('Мы рядом')}</Heading>
       <Body muted>
-        Вопрос по заказу или оплате? Назовите сумму и время заказа, так мы быстрее его найдём. Не
-        сообщайте коды входа и данные карты.
+        {t(
+          'Вопрос по заказу или оплате? Назовите сумму и время заказа, так мы быстрее его найдём. Не сообщайте коды входа и данные карты.',
+        )}
       </Body>
       <Card>
         <Row>
@@ -41,21 +45,24 @@ export function Support(props: ScreenProps) {
             <Icon name="chatbubbles-outline" color={colors.accent} size={28} />
           </View>
           <View style={ui.flex}>
-            <Heading small>Поддержка Pick Chick</Heading>
-            <Caption>Вопросы по заказу и оплате</Caption>
+            <Heading small>{t('Поддержка Pick Chick')}</Heading>
+            <Caption>{t('Вопросы по заказу и оплате')}</Caption>
           </View>
         </Row>
       </Card>
-      <SupportContact fallback="Пока поддержка работает в ресторане: обратитесь к сотруднику на кассе." />
+      <SupportContact
+        fallback={t('Пока поддержка работает в ресторане: обратитесь к сотруднику на кассе.')}
+      />
       <NavRow
-        title="Неясен результат оплаты?"
-        subtitle="Не оплачивайте тот же заказ повторно"
+        title={t('Неясен результат оплаты?')}
+        subtitle={t('Не оплачивайте тот же заказ повторно')}
         onPress={() => props.navigate('M14')}
       />
     </Page>
   );
 }
 export function DeleteAccount(props: ScreenProps) {
+  useLocale();
   const demo = useAccount();
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [cleared, setCleared] = useState(false);
@@ -79,7 +86,7 @@ export function DeleteAccount(props: ScreenProps) {
       setConfirmVisible(true);
       return;
     }
-    Alert.alert('Очистить данные устройства?', clearDescription, [
+    Alert.alert(localize('Очистить данные устройства?'), localize(clearDescription), [
       { text: 'Оставить', style: 'cancel' },
       {
         text: 'Очистить',
@@ -89,7 +96,7 @@ export function DeleteAccount(props: ScreenProps) {
     ]);
   };
   return (
-    <Page props={props} title="Управление данными">
+    <Page props={props} title={t('Управление данными')}>
       <Modal
         visible={deleteConfirmVisible}
         transparent
@@ -98,19 +105,20 @@ export function DeleteAccount(props: ScreenProps) {
       >
         <ScrollView style={{ flex: 1 }} contentContainerStyle={s.confirmBackdrop}>
           <View testID="server-delete-confirmation" accessibilityViewIsModal style={s.confirmCard}>
-            <Heading small>Удалить аккаунт Pick Chick?</Heading>
+            <Heading small>{t('Удалить аккаунт Pick Chick?')}</Heading>
             <Body>
-              Профиль и доступ на всех ваших устройствах будут удалены. Необходимые документы по
-              заказам обрабатываются по политике хранения данных.
+              {t(
+                'Профиль и доступ на всех ваших устройствах будут удалены. Необходимые документы по заказам обрабатываются по политике хранения данных.',
+              )}
             </Body>
             <Button
-              title="Оставить аккаунт"
+              title={t('Оставить аккаунт')}
               secondary
               disabled={demo.busy}
               onPress={() => setDeleteConfirmVisible(false)}
             />
             <Button
-              title={demo.busy ? 'Удаляем…' : 'Удалить аккаунт'}
+              title={localize(demo.busy ? 'Удаляем…' : 'Удалить аккаунт')}
               testID="confirm-server-delete"
               disabled={props.preview || demo.busy}
               onPress={() => {
@@ -122,7 +130,7 @@ export function DeleteAccount(props: ScreenProps) {
                 });
               }}
             />
-            {demo.error ? <Body style={s.authError}>{demo.error}</Body> : null}
+            {demo.error ? <Body style={s.authError}>{localize(demo.error)}</Body> : null}
           </View>
         </ScrollView>
       </Modal>
@@ -135,11 +143,15 @@ export function DeleteAccount(props: ScreenProps) {
         >
           <ScrollView style={{ flex: 1 }} contentContainerStyle={s.confirmBackdrop}>
             <View testID="local-clear-confirmation" accessibilityViewIsModal style={s.confirmCard}>
-              <Heading small>Очистить данные устройства?</Heading>
-              <Body>{clearDescription}</Body>
-              <Button title="Оставить данные" secondary onPress={() => setConfirmVisible(false)} />
+              <Heading small>{t('Очистить данные устройства?')}</Heading>
+              <Body>{localize(clearDescription)}</Body>
               <Button
-                title="Очистить"
+                title={t('Оставить данные')}
+                secondary
+                onPress={() => setConfirmVisible(false)}
+              />
+              <Button
+                title={t('Очистить')}
                 testID="confirm-clear-local-data"
                 onPress={clearPreferences}
               />
@@ -147,20 +159,28 @@ export function DeleteAccount(props: ScreenProps) {
           </ScrollView>
         </Modal>
       ) : null}
-      <Heading>Всё под вашим{`\n`}контролем</Heading>
+      <Heading>
+        {t('Всё под вашим')}
+        {localize(`\n`)}
+        {t('контролем')}
+      </Heading>
       <Card>
-        <Heading small>Аккаунт</Heading>
+        <Heading small>{t('Аккаунт')}</Heading>
         <Body muted>
-          {demo.mode === 'server'
-            ? demo.account
-              ? 'Данные хранятся в вашем аккаунте. Удаление уберёт профиль и отзовёт доступ на всех устройствах.'
-              : 'Войдите по своему номеру, чтобы управлять аккаунтом.'
-            : demo.account
-              ? 'Ваш профиль хранится на этом устройстве. Можно удалить номер, дату рождения и другие данные профиля; заказы этого устройства сохранятся.'
-              : 'Профиля на устройстве нет. Регистрация с настоящей SMS готовится.'}
+          {localize(
+            demo.mode === 'server'
+              ? demo.account
+                ? 'Данные хранятся в вашем аккаунте. Удаление уберёт профиль и отзовёт доступ на всех устройствах.'
+                : 'Войдите по своему номеру, чтобы управлять аккаунтом.'
+              : demo.account
+                ? 'Ваш профиль хранится на этом устройстве. Можно удалить номер, дату рождения и другие данные профиля; заказы этого устройства сохранятся.'
+                : 'Профиля на устройстве нет. Регистрация с настоящей SMS готовится.',
+          )}
         </Body>
         <Button
-          title={demo.mode === 'server' ? 'Удалить аккаунт' : 'Удалить профиль на устройстве'}
+          title={localize(
+            demo.mode === 'server' ? 'Удалить аккаунт' : 'Удалить профиль на устройстве',
+          )}
           testID="delete-demo-profile"
           disabled={props.preview || !demo.ready || !demo.account || demo.busy}
           onPress={() => {
@@ -176,51 +196,61 @@ export function DeleteAccount(props: ScreenProps) {
         />
       </Card>
       <Card>
-        <Heading small>На этом устройстве</Heading>
+        <Heading small>{t('На этом устройстве')}</Heading>
         <Body muted>
-          {demo.mode === 'server'
-            ? 'Очистка локальных настроек выполнит выход на этом устройстве. Сам аккаунт сохранится. Незавершённые запросы заказа сохраняются отдельно.'
-            : 'Можно очистить профиль на устройстве, номер, ник, дату рождения, пол и корзину. История заказов и незавершённые запросы сохранятся.'}
+          {localize(
+            demo.mode === 'server'
+              ? 'Очистка локальных настроек выполнит выход на этом устройстве. Сам аккаунт сохранится. Незавершённые запросы заказа сохраняются отдельно.'
+              : 'Можно очистить профиль на устройстве, номер, ник, дату рождения, пол и корзину. История заказов и незавершённые запросы сохранятся.',
+          )}
         </Body>
         <Button
-          title="Очистить локальные данные"
+          title={t('Очистить локальные данные')}
           secondary
           testID="clear-local-data"
           disabled={props.preview || !demo.ready || demo.busy}
           onPress={reset}
         />
       </Card>
-      {demo.error ? <Body style={s.authError}>{demo.error}</Body> : null}
-      {cleared ? <Notice title="Готово">Локальные данные очищены.</Notice> : null}
+      {demo.error ? <Body style={s.authError}>{localize(demo.error)}</Body> : null}
+      {cleared ? <Notice title={t('Готово')}>{t('Локальные данные очищены.')}</Notice> : null}
       {demo.mode === 'demo' ? (
         <Caption>
-          Когда появится аккаунт, удалить его можно будет здесь после подтверждения личности.
-          Обязательные сроки хранения документов будут описаны в политике.
+          {t(
+            'Когда появится аккаунт, удалить его можно будет здесь после подтверждения личности. Обязательные сроки хранения документов будут описаны в политике.',
+          )}
         </Caption>
       ) : null}
     </Page>
   );
 }
 export function Legal(props: ScreenProps) {
+  useLocale();
   const account = useAccount();
   const [linkError, setLinkError] = useState(false);
   const [opened, setOpened] = useState<string | null>(null);
   const documents = ['Условия заказа', 'Политика конфиденциальности', 'Правила программы Чиков'];
   if (account.mode === 'server')
     return (
-      <Page props={props} title="Документы">
-        <Heading>Открыто{`\n`}и понятно</Heading>
+      <Page props={props} title={t('Документы')}>
+        <Heading>
+          {t('Открыто')}
+          {localize(`\n`)}
+          {t('и понятно')}
+        </Heading>
         {account.legal ? (
           <>
-            <Body muted>Документы Pick Chick · версия {account.legal.version}</Body>
+            <Body muted>
+              {t('Документы Pick Chick · версия {p0}', { p0: account.legal.version })}
+            </Body>
             {[
               { title: 'Условия заказа', url: account.legal.termsUrl },
               { title: 'Политика конфиденциальности', url: account.legal.privacyUrl },
             ].map((document) => (
               <NavRow
                 key={document.title}
-                title={document.title}
-                subtitle="Открыть документ"
+                title={localize(document.title)}
+                subtitle={t('Открыть документ')}
                 icon="open-outline"
                 onPress={() => {
                   if (!props.preview) {
@@ -233,129 +263,177 @@ export function Legal(props: ScreenProps) {
           </>
         ) : (
           <Notice>
-            Документы ещё не опубликованы. Вход по SMS станет доступен после их утверждения.
+            {t('Документы ещё не опубликованы. Вход по SMS станет доступен после их утверждения.')}
           </Notice>
         )}
         {linkError ? (
           <Notice warning>
-            Не удалось открыть документ. Проверьте подключение и попробуйте ещё раз.
+            {t('Не удалось открыть документ. Проверьте подключение и попробуйте ещё раз.')}
           </Notice>
         ) : null}
         <Body muted>
-          Согласие на сообщения об акциях запрашивается отдельно. Для регистрации оно не требуется.
+          {t(
+            'Согласие на сообщения об акциях запрашивается отдельно. Для регистрации оно не требуется.',
+          )}
         </Body>
-        <NavRow title="Управлять аккаунтом и данными" onPress={() => props.navigate('M32')} />
+        <NavRow title={t('Управлять аккаунтом и данными')} onPress={() => props.navigate('M32')} />
       </Page>
     );
   return (
-    <Page props={props} title="Документы">
-      <Heading>Открыто{`\n`}и понятно</Heading>
-      <Body muted>Здесь будут актуальные документы Pick Chick и дата каждой версии.</Body>
+    <Page props={props} title={t('Документы')}>
+      <Heading>
+        {t('Открыто')}
+        {localize(`\n`)}
+        {t('и понятно')}
+      </Heading>
+      <Body muted>{t('Здесь будут актуальные документы Pick Chick и дата каждой версии.')}</Body>
       <View>
         {documents.map((title) => (
           <View key={title}>
             <NavRow
-              title={title}
-              subtitle="На подготовке"
+              title={localize(title)}
+              subtitle={t('На подготовке')}
               icon={opened === title ? 'chevron-up' : 'chevron-down'}
               onPress={() => setOpened(opened === title ? null : title)}
             />
             {opened === title ? (
               <Notice>
-                Документ ещё не утверждён и не опубликован компанией Pick Chick. Здесь нет
-                действующей оферты или условий программы.
+                {t(
+                  'Документ ещё не утверждён и не опубликован компанией Pick Chick. Здесь нет действующей оферты или условий программы.',
+                )}
               </Notice>
             ) : null}
           </View>
         ))}
       </View>
       <Notice warning>
-        Оплата и чеки - в процессе подключения. В приложении можно выбрать блюда и следить за
-        заказом.
+        {t(
+          'Оплата и чеки - в процессе подключения. В приложении можно выбрать блюда и следить за заказом.',
+        )}
       </Notice>
       <Card>
-        <Heading small>Данные этой версии</Heading>
+        <Heading small>{t('Данные этой версии')}</Heading>
         <Body muted>
-          Номер профиля, ник, дата рождения, пол и корзина хранятся только на устройстве. Код входа
-          не подтверждает владение номером; SMS не отправляется. Заказы хранятся на сервере отдельно
-          от номера. Реальные платежи и бонусные операции не выполняются.
+          {t(
+            'Номер профиля, ник, дата рождения, пол и корзина хранятся только на устройстве. Код входа не подтверждает владение номером; SMS не отправляется. Заказы хранятся на сервере отдельно от номера. Реальные платежи и бонусные операции не выполняются.',
+          )}
         </Body>
-        <NavRow title="Управлять локальными данными" onPress={() => props.navigate('M32')} />
+        <NavRow title={t('Управлять локальными данными')} onPress={() => props.navigate('M32')} />
       </Card>
     </Page>
   );
 }
 export function Settings(props: ScreenProps) {
+  const notifications = useNotifications();
+  useLocale();
   return (
-    <Page props={props} title="Язык и уведомления">
-      <Heading small>Язык приложения</Heading>
+    <Page props={props} title={t('Язык и уведомления')}>
+      <Heading small>{t('Язык приложения')}</Heading>
       <Card>
-        <Pressable
-          accessibilityRole="radio"
-          accessibilityState={{ selected: true }}
-          onPress={() => props.model.setLocale('ru')}
-          style={s.settingRow}
-        >
-          <Body style={ui.flex}>Русский</Body>
-          <Icon name="checkmark-circle" color={colors.accent} />
-        </Pressable>
-        <View style={s.settingDivider} />
-        <Pressable
-          disabled
-          accessibilityRole="radio"
-          accessibilityState={{ selected: false, disabled: true }}
-          style={s.settingRow}
-        >
-          <View style={ui.flex}>
-            <Body>Қазақша</Body>
-            <Caption>Перевод готовится</Caption>
-          </View>
-          <Icon name="lock-closed-outline" color={colors.muted} />
-        </Pressable>
+        {(['kk', 'ru', 'en'] as const).map((language) => (
+          <Pressable
+            key={language}
+            testID={`language-${language}`}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: props.model.locale === language }}
+            aria-checked={props.model.locale === language}
+            accessibilityLabel={{ kk: 'Қазақша', ru: 'Русский', en: 'English' }[language]}
+            onPress={() => props.model.setLocale(language)}
+            style={s.settingRow}
+          >
+            <Body style={ui.flex}>{{ kk: 'Қазақша', ru: 'Русский', en: 'English' }[language]}</Body>
+            <Icon
+              name={props.model.locale === language ? 'checkmark-circle' : 'ellipse-outline'}
+              color={props.model.locale === language ? colors.accent : colors.muted}
+            />
+          </Pressable>
+        ))}
       </Card>
-      <Heading small>Уведомления</Heading>
+      <Heading small>{t('Уведомления')}</Heading>
       <Card>
         {[
-          { title: 'О моих заказах', detail: 'Статус приготовления и выдачи' },
-          { title: 'События и предложения', detail: 'Только с вашего отдельного согласия' },
+          {
+            id: 'orders' as const,
+            title: 'О моих заказах',
+            detail: 'Статус приготовления и выдачи',
+          },
+          {
+            id: 'promotions' as const,
+            title: 'События и предложения',
+            detail: 'Только с вашего отдельного согласия',
+          },
         ].map((setting) => (
           <Row key={setting.title} style={{ paddingVertical: 8 }}>
             <View style={ui.flex}>
-              <Body>{setting.title}</Body>
-              <Caption style={{ marginTop: 4 }}>{setting.detail}</Caption>
+              <Body>{localize(setting.title)}</Body>
+              <Caption style={{ marginTop: 4 }}>{localize(setting.detail)}</Caption>
             </View>
             <Switch
-              value={false}
-              disabled
-              accessibilityLabel={`${setting.title}, пока недоступно`}
+              testID={`push-${setting.id}`}
+              value={notifications.preferences[setting.id]}
+              disabled={props.preview || notifications.busy || !notifications.available}
+              onValueChange={(enabled) => {
+                void notifications.change(setting.id, enabled);
+              }}
+              accessibilityLabel={t(setting.title)}
               trackColor={{ false: colors.border, true: colors.action }}
             />
           </Row>
         ))}
       </Card>
       <Notice>
-        Push-уведомления появятся после подключения сервиса и входа. Сейчас приложение не
-        запрашивает разрешение на рекламные уведомления.
+        {notifications.reason === 'web'
+          ? t('Push-уведомления доступны в приложении на iPhone и Android.')
+          : notifications.reason === 'login'
+            ? t('Войдите в аккаунт, чтобы настроить уведомления.')
+            : notifications.reason === 'service'
+              ? t('Сервис уведомлений ещё не подключён. Статусы заказов доступны в приложении.')
+              : t(
+                  'Уведомления о заказах и предложениях включаются отдельно. Их можно отключить в любое время.',
+                )}
       </Notice>
+      {notifications.error ? <Body muted>{t(notifications.error)}</Body> : null}
+      {notifications.error ? (
+        <Button
+          title={t('Повторить')}
+          secondary
+          disabled={notifications.busy}
+          onPress={() => {
+            void notifications.refresh();
+          }}
+        />
+      ) : null}
+      {notifications.denied ? (
+        <Button
+          title={t('Открыть настройки устройства')}
+          secondary
+          onPress={() => {
+            void notifications.openSettings();
+          }}
+        />
+      ) : null}
       <NavRow
-        title="Конфиденциальность"
-        subtitle="Как будут обрабатываться согласия"
+        title={t('Конфиденциальность')}
+        subtitle={t('Как будут обрабатываться согласия')}
         onPress={() => props.navigate('M33')}
       />
     </Page>
   );
 }
 export function Rating(props: ScreenProps) {
+  useLocale();
   const [rating, setRating] = useState(0);
   return (
-    <Page props={props} title="Как всё прошло?">
+    <Page props={props} title={t('Как всё прошло?')}>
       <View style={s.ratingHero}>
         <Icon name="heart-outline" size={54} color={colors.accent} />
-        <Heading style={{ textAlign: 'center' }}>Было хрустяще?</Heading>
+        <Heading style={{ textAlign: 'center' }}>{t('Было хрустяще?')}</Heading>
         <Body muted style={{ textAlign: 'center' }}>
-          {props.preview
-            ? 'Оцените пример заказа №083'
-            : 'Отзыв появится здесь после получения заказа'}
+          {localize(
+            props.preview
+              ? 'Оцените пример заказа №083'
+              : 'Отзыв появится здесь после получения заказа',
+          )}
         </Body>
       </View>
       <Row style={{ justifyContent: 'center', gap: 5 }}>
@@ -365,7 +443,7 @@ export function Rating(props: ScreenProps) {
             testID={`rating-${value}`}
             accessibilityRole="radio"
             accessibilityState={{ selected: rating === value, disabled: !props.preview }}
-            accessibilityLabel={`${value} из 5`}
+            accessibilityLabel={localize(t('{p0} из 5', { p0: value }))}
             disabled={!props.preview}
             onPress={() => setRating(value)}
             style={s.starButton}
@@ -382,30 +460,32 @@ export function Rating(props: ScreenProps) {
         defaultValue=""
         editable={props.preview}
         testID="rating-comment"
-        accessibilityLabel="Комментарий к оценке"
+        accessibilityLabel={t('Комментарий к оценке')}
         maxLength={2000}
         multiline
-        placeholder="Что особенно понравилось?"
+        placeholder={t('Что особенно понравилось?')}
         placeholderTextColor={colors.muted}
         textAlignVertical="top"
         style={[ui.input, { minHeight: 125 }]}
       />
-      <Button title="Отправка пока недоступна" disabled />
+      <Button title={t('Отправка пока недоступна')} disabled />
       <Notice>
-        Оценка в просмотре дизайна не отправляется. Реальный отзыв можно оставить только после
-        выданного заказа.
+        {t(
+          'Оценка в просмотре дизайна не отправляется. Реальный отзыв можно оставить только после выданного заказа.',
+        )}
       </Notice>
-      <Button title="Нужна помощь с заказом" secondary onPress={() => props.navigate('M31')} />
+      <Button title={t('Нужна помощь с заказом')} secondary onPress={() => props.navigate('M31')} />
     </Page>
   );
 }
 export function UnknownScreen(props: ScreenProps) {
+  useLocale();
   return (
     <Page props={props} title="Pick Chick">
       <Empty
-        title="Экран не найден"
-        detail="Вернитесь к меню и продолжите знакомство."
-        action={<Button title="В меню" onPress={() => props.navigate('M06')} />}
+        title={t('Экран не найден')}
+        detail={t('Вернитесь к меню и продолжите знакомство.')}
+        action={<Button title={t('В меню')} onPress={() => props.navigate('M06')} />}
       />
     </Page>
   );

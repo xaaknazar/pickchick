@@ -51,6 +51,22 @@ class NetworkIsolation(unittest.TestCase):
         self.assertIsInstance(handler.call_args.args[0],FixtureRoute)
         self.assertIs(handler.call_args.args[0].request,api.request)
 
+    def test_notification_config_default_and_explicit_fixture(self):
+        context, handler = Mock(), Mock()
+        route_fixture(context, '**/v1/**', handler)
+        callback = context.route.call_args.args[1]
+        config = request(API + '/v1/notifications/config')
+        callback(config)
+        self.assertEqual(config.fulfill.call_args.kwargs['json'],
+                         {'enabled': False, 'providers': [], 'consentVersion': 'notifications-v1'})
+        handler.assert_not_called()
+        with self.assertRaises(AssertionError):
+            callback(request(API + '/v1/notifications/config', 'POST'))
+        route_fixture(context, '**/v1/**', handler, notification_fixture=None)
+        context.route.call_args.args[1](request(API + '/v1/notifications/config'))
+        handler.assert_called_once()
+        self.assertIsInstance(handler.call_args.args[0], FixtureRoute)
+
     def test_default_context_blocks_network_and_service_workers(self):
         browser=Mock();context=isolated_context(browser,viewport={'width':393,'height':852})
         self.assertEqual(browser.new_context.call_args.kwargs['service_workers'],'block')

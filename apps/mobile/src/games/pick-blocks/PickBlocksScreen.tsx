@@ -1,3 +1,5 @@
+import { dateLocale } from '../../i18n/core';
+import { localize, t, useLocale } from '../../i18n';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { exitLabel, gameOrigin } from '../route-options';
@@ -56,7 +58,7 @@ function useGentleMotion() {
   }, []);
   return reduced;
 }
-const number = (value: number) => value.toLocaleString('ru-RU');
+const number = (value: number) => value.toLocaleString(dateLocale());
 const lineLabel = (count: number) =>
   count % 10 === 1 && count % 100 !== 11
     ? 'ряд'
@@ -75,37 +77,42 @@ function SolidButton({
   secondary?: boolean;
   testID?: string;
 }) {
-  return <ArcadeButton title={title} onPress={onPress} secondary={secondary} testID={testID} />;
+  useLocale();
+  return (
+    <ArcadeButton title={localize(title)} onPress={onPress} secondary={secondary} testID={testID} />
+  );
 }
 
 function Stats({ game, best }: { game: GameState; best: number }) {
+  useLocale();
   return (
     <View style={s.stats}>
       <View style={s.stat}>
-        <Text style={s.eyebrow}>СЧЁТ</Text>
+        <Text style={s.eyebrow}>{t('СЧЁТ')}</Text>
         <Text
           testID="blocks-score"
-          accessibilityLabel={`Счёт ${game.score}`}
+          accessibilityLabel={localize(t('Счёт {p0}', { p0: game.score }))}
           adjustsFontSizeToFit
           numberOfLines={1}
           style={s.score}
         >
-          {number(game.score)}
+          {localize(number(game.score))}
         </Text>
       </View>
       <View style={[s.stat, { alignItems: 'flex-end' }]}>
         <View style={s.bestLabel}>
           <Icon name="trophy-outline" size={12} color="#EFC080" />
-          <Text style={s.eyebrow}>РЕКОРД</Text>
+          <Text style={s.eyebrow}>{t('РЕКОРД')}</Text>
         </View>
         <Text testID="blocks-best" adjustsFontSizeToFit numberOfLines={1} style={s.best}>
-          {number(Math.max(best, game.score))}
+          {localize(number(Math.max(best, game.score)))}
         </Text>
       </View>
     </View>
   );
 }
 function NextPiece({ kind, small = false }: { kind: PieceKind | undefined; small?: boolean }) {
+  useLocale();
   if (!kind) return null;
   const shape = cells({ kind, rotation: 0, x: 0, y: 0 });
   const left = Math.min(...shape.map((p) => p.x)),
@@ -122,15 +129,16 @@ function NextPiece({ kind, small = false }: { kind: PieceKind | undefined; small
   );
 }
 function SideRail({ game, compact }: { game: GameState; compact: boolean }) {
+  useLocale();
   return (
     <View style={[s.rail, compact && { width: 68, gap: 8 }]}>
       <View
         style={[s.nextBox, compact && { paddingVertical: 8 }]}
         testID="blocks-next"
-        accessibilityLabel="Следующие фигуры"
+        accessibilityLabel={t('Следующие фигуры')}
       >
         <Text maxFontSizeMultiplier={1.3} style={s.railLabel}>
-          ДАЛЬШЕ
+          {t('ДАЛЬШЕ')}
         </Text>
         <View style={[s.nextShape, compact && { minHeight: 24, marginTop: 8 }]}>
           <NextPiece kind={game.next[0]} small={compact} />
@@ -143,18 +151,18 @@ function SideRail({ game, compact }: { game: GameState; compact: boolean }) {
       </View>
       <View style={s.railStat}>
         <Text maxFontSizeMultiplier={1.3} style={s.railLabel}>
-          УРОВЕНЬ
+          {t('УРОВЕНЬ')}
         </Text>
         <Text maxFontSizeMultiplier={1.3} style={s.railNumber}>
-          {game.level}
+          {localize(game.level)}
         </Text>
       </View>
       <View style={s.railStat}>
         <Text maxFontSizeMultiplier={1.3} style={s.railLabel}>
-          РЯДЫ
+          {t('РЯДЫ')}
         </Text>
         <Text testID="blocks-lines" maxFontSizeMultiplier={1.3} style={s.railNumber}>
-          {game.lines}
+          {localize(game.lines)}
         </Text>
         <View style={s.levelTrack}>
           <View style={[s.levelFill, { width: `${(game.lines % 10) * 10}%` }]} />
@@ -164,7 +172,11 @@ function SideRail({ game, compact }: { game: GameState; compact: boolean }) {
         <View style={s.railTip}>
           <Icon name="sparkles-outline" size={21} color="#FFD09E" />
           <Text style={s.tipText}>
-            Больше рядов{`\n`}за раз -{`\n`}больше очков
+            {t('Больше рядов')}
+            {localize(`\n`)}
+            {t('за раз -')}
+            {localize(`\n`)}
+            {t('больше очков')}
           </Text>
         </View>
       ) : null}
@@ -183,6 +195,7 @@ function FallingPiece({
   playing: boolean;
   reduced: boolean;
 }) {
+  useLocale();
   const piece = game.active;
   const frame = fallingFrame(game);
   const progress = useSharedValue(0);
@@ -236,6 +249,7 @@ function Board({
   controller: ReturnType<typeof usePickBlocks>;
   reduced: boolean;
 }) {
+  useLocale();
   const glow = useRef(new Animated.Value(0)).current;
   const live = useRef({ controller, cell });
   live.current = { controller, cell };
@@ -341,7 +355,9 @@ function Board({
         },
       ]}
       accessible
-      accessibilityLabel="Игровое поле. Касание - поворот, свайп - движение, вниз - ускорение, быстрый свайп вниз - сброс"
+      accessibilityLabel={t(
+        'Игровое поле. Касание - поворот, свайп - движение, вниз - ускорение, быстрый свайп вниз - сброс',
+      )}
       accessibilityActions={[
         { name: 'left', label: 'Сдвинуть влево' },
         { name: 'right', label: 'Сдвинуть вправо' },
@@ -464,9 +480,11 @@ function Board({
                   lineHeight: 26,
                 }}
               >
-                {game.lastClear.count === 4
-                  ? 'ИДЕАЛЬНО! 4 РЯДА'
-                  : `${game.lastClear.count} ${lineLabel(game.lastClear.count).toUpperCase()}!`}
+                {localize(
+                  game.lastClear.count === 4
+                    ? 'ИДЕАЛЬНО! 4 РЯДА'
+                    : `${game.lastClear.count} ${lineLabel(game.lastClear.count).toUpperCase()}!`,
+                )}
               </Text>
             </View>
           </Animated.View>
@@ -477,6 +495,7 @@ function Board({
 }
 
 export function PickBlocksScreen() {
+  useLocale();
   const controller = usePickBlocks();
   const { game, status, best } = controller;
   const router = useRouter(),
@@ -556,7 +575,7 @@ export function PickBlocksScreen() {
         <Pressable
           testID="blocks-exit"
           accessibilityRole="button"
-          accessibilityLabel="Вернуться назад"
+          accessibilityLabel={t('Вернуться назад')}
           onPress={exit}
           style={s.iconButton}
         >
@@ -571,7 +590,7 @@ export function PickBlocksScreen() {
         <Pressable
           testID="blocks-help"
           accessibilityRole="button"
-          accessibilityLabel="Как играть"
+          accessibilityLabel={t('Как играть')}
           onPress={openHelp}
           style={s.iconButton}
         >
@@ -581,7 +600,7 @@ export function PickBlocksScreen() {
           <Pressable
             testID="blocks-pause"
             accessibilityRole="button"
-            accessibilityLabel="Пауза"
+            accessibilityLabel={t('Пауза')}
             onPress={controller.pause}
             style={s.iconButton}
           >
@@ -592,13 +611,13 @@ export function PickBlocksScreen() {
       {status === 'loading' ? (
         <View style={s.loading}>
           <ActivityIndicator color={colors.accent} />
-          <Text style={s.body}>Собираем игровое поле…</Text>
+          <Text style={s.body}>{t('Собираем игровое поле…')}</Text>
         </View>
       ) : status === 'ready' ? (
         <ArcadeIntro
           cover={assets.pickBlocksCover}
-          title="Всё сложится."
-          subtitle="Найди идеальное место. Собери ряд. Поймай свой ритм."
+          title={t('Всё сложится.')}
+          subtitle={t('Найди идеальное место. Собери ряд. Поймай свой ритм.')}
           best={best}
           onStart={start}
           testID="blocks-start"
@@ -613,7 +632,7 @@ export function PickBlocksScreen() {
           ]}
         >
           <Pressable onPress={openHelp} accessibilityRole="button" style={s.helpLink}>
-            <Text style={s.helpLinkText}>Правила и управление</Text>
+            <Text style={s.helpLinkText}>{t('Правила и управление')}</Text>
           </Pressable>
         </ArcadeIntro>
       ) : game ? (
@@ -633,18 +652,22 @@ export function PickBlocksScreen() {
                 <SideRail game={game} compact={compact} />
               </>
             ) : (
-              <Text style={s.body}>Поверни телефон, чтобы открыть поле</Text>
+              <Text style={s.body}>{t('Поверни телефон, чтобы открыть поле')}</Text>
             )}
           </View>
           <View style={wide ? s.wideControls : s.portraitControls}>
             {wide ? <Stats game={game} best={best} /> : null}
             <View style={s.controlHint}>
               <View style={s.hintLine} />
-              <Text style={s.hintText}>ДО СЛЕДУЮЩЕГО УРОВНЯ: {10 - (game.lines % 10)}</Text>
+              <Text style={s.hintText}>
+                {t('ДО СЛЕДУЮЩЕГО УРОВНЯ: {p0}', { p0: 10 - (game.lines % 10) })}
+              </Text>
               <View style={s.hintLine} />
             </View>
             <Text testID="blocks-gesture-hint" style={s.gestureHint}>
-              Свайп - двигать · касание - поворот{`\n`}Вниз - ускорить · быстрый свайп вниз - сброс
+              {t('Свайп - двигать · касание - поворот')}
+              {localize(`\n`)}
+              {t('Вниз - ускорить · быстрый свайп вниз - сброс')}
             </Text>
           </View>
         </View>
@@ -656,7 +679,7 @@ export function PickBlocksScreen() {
           accessibilityRole="button"
         >
           <Icon name="alert-circle-outline" size={17} color="#FFD2AE" />
-          <Text style={s.storageText}>Игра пока не сохранилась. Повторить</Text>
+          <Text style={s.storageText}>{t('Игра пока не сохранилась. Повторить')}</Text>
         </Pressable>
       ) : null}
       <Modal
@@ -689,29 +712,34 @@ export function PickBlocksScreen() {
                 />
               </View>
               <Text style={s.modalTitle}>
-                {help
-                  ? 'Лови ритм.'
-                  : restart
-                    ? 'Начать заново?'
-                    : status === 'over'
-                      ? 'Вот это сборка!'
-                      : 'Выдохни.'}
+                {localize(
+                  help
+                    ? 'Лови ритм.'
+                    : restart
+                      ? 'Начать заново?'
+                      : status === 'over'
+                        ? 'Вот это сборка!'
+                        : 'Выдохни.',
+                )}
               </Text>
               <Text style={s.modalText}>
-                {help
-                  ? 'У каждой фигуры есть своё место.'
-                  : restart
-                    ? 'Текущая партия начнётся с нуля. Личный рекорд останется.'
-                    : status === 'over'
-                      ? 'Места больше нет. А новый пик - впереди.'
-                      : tooSmall
-                        ? 'Поверни телефон: полю нужно чуть больше места.'
-                        : 'Игра на паузе. Продолжим с того же места.'}
+                {localize(
+                  help
+                    ? 'У каждой фигуры есть своё место.'
+                    : restart
+                      ? 'Текущая партия начнётся с нуля. Личный рекорд останется.'
+                      : status === 'over'
+                        ? 'Места больше нет. А новый пик - впереди.'
+                        : tooSmall
+                          ? 'Поверни телефон: полю нужно чуть больше места.'
+                          : 'Игра на паузе. Продолжим с того же места.',
+                )}
               </Text>
               {controller.storageError ? (
                 <Text style={s.storageText}>
-                  Партия пока не сохранилась на телефоне. Можно продолжить игру или повторить
-                  сохранение.
+                  {t(
+                    'Партия пока не сохранилась на телефоне. Можно продолжить игру или повторить сохранение.',
+                  )}
                 </Text>
               ) : null}
               {help ? (
@@ -742,18 +770,19 @@ export function PickBlocksScreen() {
                           <Icon name={icon} size={23} color="#A9C8FF" />
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={s.ruleTitle}>{title}</Text>
-                          <Text style={s.ruleCopy}>{copy}</Text>
+                          <Text style={s.ruleTitle}>{localize(title)}</Text>
+                          <Text style={s.ruleCopy}>{localize(copy)}</Text>
                         </View>
                       </View>
                     ))}
                   </View>
                   <Text style={s.smallPrint}>
-                    Контур показывает, куда приземлится фигура. Рекорд хранится на этом телефоне.
-                    Игровые очки не переводятся в Чики.
+                    {t(
+                      'Контур показывает, куда приземлится фигура. Рекорд хранится на этом телефоне. Игровые очки не переводятся в Чики.',
+                    )}
                   </Text>
                   <SolidButton
-                    title="Понятно"
+                    title={t('Понятно')}
                     testID="blocks-help-close"
                     onPress={() => setHelp(false)}
                   />
@@ -761,55 +790,61 @@ export function PickBlocksScreen() {
               ) : restart ? (
                 <>
                   <SolidButton
-                    title="Да, новая игра"
+                    title={t('Да, новая игра')}
                     testID="blocks-restart-confirm"
                     onPress={start}
                   />
-                  <SolidButton title="Отмена" secondary onPress={() => setRestart(false)} />
+                  <SolidButton title={t('Отмена')} secondary onPress={() => setRestart(false)} />
                 </>
               ) : status === 'over' ? (
                 <>
                   <View style={s.resultScoreBox}>
-                    <Text style={s.eyebrow}>ТВОЙ РЕЗУЛЬТАТ</Text>
+                    <Text style={s.eyebrow}>{t('ТВОЙ РЕЗУЛЬТАТ')}</Text>
                     <Text
                       testID="blocks-result"
                       numberOfLines={1}
                       adjustsFontSizeToFit
                       style={s.resultScore}
                     >
-                      {number(game?.score ?? 0)}
+                      {localize(number(game?.score ?? 0))}
                     </Text>
                     <Text style={s.resultDetail}>
-                      {game?.lines ?? 0} {lineLabel(game?.lines ?? 0)} · уровень {game?.level ?? 1}
+                      {t('{p0} {p1} · уровень {p2}', {
+                        p0: game?.lines ?? 0,
+                        p1: localize(lineLabel(game?.lines ?? 0)),
+                        p2: game?.level ?? 1,
+                      })}
                     </Text>
                   </View>
                   <Text style={s.recordText}>
-                    Рекорд на телефоне: {number(Math.max(best, game?.score ?? 0))}
+                    {t('Рекорд на телефоне: {p0}', {
+                      p0: number(Math.max(best, game?.score ?? 0)),
+                    })}
                   </Text>
-                  <SolidButton title="Ещё одну!" testID="blocks-replay" onPress={start} />
-                  <SolidButton title={exitLabel(origin)} secondary onPress={exit} />
+                  <SolidButton title={t('Ещё одну!')} testID="blocks-replay" onPress={start} />
+                  <SolidButton title={localize(exitLabel(origin))} secondary onPress={exit} />
                 </>
               ) : (
                 <>
                   <View style={s.pauseScore}>
-                    <Text style={s.eyebrow}>ТЕКУЩИЙ СЧЁТ</Text>
-                    <Text style={s.pauseNumber}>{number(game?.score ?? 0)}</Text>
+                    <Text style={s.eyebrow}>{t('ТЕКУЩИЙ СЧЁТ')}</Text>
+                    <Text style={s.pauseNumber}>{localize(number(game?.score ?? 0))}</Text>
                   </View>
                   {!tooSmall ? (
                     <SolidButton
-                      title="Продолжить"
+                      title={t('Продолжить')}
                       testID="blocks-resume"
                       onPress={controller.resume}
                     />
                   ) : null}
-                  <SolidButton title="Как играть" secondary onPress={() => setHelp(true)} />
+                  <SolidButton title={t('Как играть')} secondary onPress={() => setHelp(true)} />
                   <Pressable
                     testID="blocks-restart"
                     accessibilityRole="button"
                     onPress={() => setRestart(true)}
                     style={s.helpLink}
                   >
-                    <Text style={s.helpLinkText}>Начать заново</Text>
+                    <Text style={s.helpLinkText}>{t('Начать заново')}</Text>
                   </Pressable>
                   <Pressable
                     testID="blocks-leave-paused"
@@ -817,7 +852,7 @@ export function PickBlocksScreen() {
                     onPress={exit}
                     style={s.helpLink}
                   >
-                    <Text style={s.helpLinkText}>{exitLabel(origin)}</Text>
+                    <Text style={s.helpLinkText}>{localize(exitLabel(origin))}</Text>
                   </Pressable>
                 </>
               )}

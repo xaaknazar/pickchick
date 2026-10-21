@@ -1,3 +1,4 @@
+import { t, localize, useLocale } from '../i18n';
 import { ProductMenuNotice } from '../components/ProductMenuNotice';
 import { PhotoProduct } from './PhotoProduct';
 import { hasPhotoPilot } from '../product-photo-selection';
@@ -29,14 +30,15 @@ import {
 import { colors, font } from '../theme';
 
 export function ProductConfiguration(props: ScreenProps) {
+  useLocale();
   const product = props.model.selectedProduct;
   if (!product)
     return (
-      <Page props={props} title="Блюдо">
+      <Page props={props} title={t('Блюдо')}>
         <Empty
-          title="Блюдо больше недоступно"
-          detail="Выберите другое блюдо в меню."
-          action={<Button title="В меню" onPress={() => props.navigate('M06')} />}
+          title={t('Блюдо больше недоступно')}
+          detail={t('Выберите другое блюдо в меню.')}
+          action={<Button title={t('В меню')} onPress={() => props.navigate('M06')} />}
         />
       </Page>
     );
@@ -49,6 +51,7 @@ export function ConfiguredProduct(
     onSave?(selections: Selection[], quantity: number): void;
   },
 ) {
+  useLocale();
   return hasPhotoPilot(props.product) ? (
     <PhotoProduct {...props} />
   ) : (
@@ -62,6 +65,7 @@ function LegacyConfiguredProduct(
     onSave?(selections: Selection[], quantity: number): void;
   },
 ) {
+  useLocale();
   const { product } = props;
   const insets = useSafeAreaInsets();
   const { fontScale, width, height } = useWindowDimensions();
@@ -95,7 +99,7 @@ function LegacyConfiguredProduct(
     : (existing?.quantity ?? 0) + quantity > 20
       ? 'В одном заказе можно до 20 одинаковых наборов.'
       : incompleteGroup
-        ? `Завершите выбор: ${incompleteGroup.title.toLowerCase()}.`
+        ? t('Завершите выбор: {p0}.', { p0: t(incompleteGroup.title).toLowerCase() })
         : !valid
           ? 'Проверьте выбранные добавки: часть вариантов недоступна.'
           : null;
@@ -145,22 +149,24 @@ function LegacyConfiguredProduct(
           )}
           <CloseButton
             testID="product-close"
-            label="Закрыть блюдо"
+            label={t('Закрыть блюдо')}
             onPress={props.goBack}
             style={[s.close, { top: insets.top + 8 }]}
           />
         </View>
         <View testID="product-content" style={s.body}>
           <ProductMenuNotice product={product} selections={selections} />
-          <Heading style={s.title}>{product.name}</Heading>
+          <Heading style={s.title}>{localize(product.name)}</Heading>
           <Body muted style={s.description}>
-            {product.description}
+            {localize(product.description)}
           </Body>
-          {serving ? <Caption>{serving}</Caption> : null}
+          {serving ? <Caption>{localize(serving)}</Caption> : null}
           {nutrition ? (
             <View testID="product-nutrition" style={s.nutrition}>
               <Caption style={{ width: '100%', fontFamily: font.bold }}>
-                КБЖУ · {nutrition.basis === 'per_serving' ? 'базовая порция' : 'на 100 г'}
+                {t('КБЖУ · {p0}', {
+                  p0: localize(nutrition.basis === 'per_serving' ? 'базовая порция' : 'на 100 г'),
+                })}
               </Caption>
               {[
                 [nutrition.energy_kcal, 'ккал'],
@@ -189,32 +195,35 @@ function LegacyConfiguredProduct(
                       color: index === 0 ? colors.accent : colors.text,
                     }}
                   >
-                    {Math.round(Number(value) * multiplier)}
+                    {localize(Math.round(Number(value) * multiplier))}
                   </Heading>
                   <Caption style={{ fontSize: 11.5, lineHeight: 17, textAlign: 'center' }}>
-                    {label}
+                    {localize(label)}
                   </Caption>
                 </View>
               ))}
             </View>
           ) : null}
           <NavRow
-            title="Подробнее о составе"
-            subtitle="Ингредиенты и пищевая ценность"
+            title={t('Подробнее о составе')}
+            subtitle={t('Ингредиенты и пищевая ценность')}
             icon="information-circle-outline"
             onPress={() => setDetails(!details)}
           />
           {details ? (
             <View style={s.info}>
-              <Body muted>{product.ingredients || product.description}</Body>
+              <Body muted>{localize(product.ingredients || product.description)}</Body>
               <Caption>
-                {product.allergens?.length
-                  ? `Аллергены: ${product.allergens.join(', ')}.`
-                  : 'Сведения об аллергенах ресторан ещё не подтвердил.'}
+                {localize(
+                  product.allergens?.length
+                    ? t('Аллергены: {p0}.', { p0: product.allergens.join(', ') })
+                    : 'Сведения об аллергенах ресторан ещё не подтвердил.',
+                )}
               </Caption>
               <Caption>
-                Описание и КБЖУ перенесены из макета. Пищевая ценность дополнительных опций не
-                включена.
+                {t(
+                  'Описание и КБЖУ перенесены из макета. Пищевая ценность дополнительных опций не включена.',
+                )}
               </Caption>
             </View>
           ) : null}
@@ -240,13 +249,18 @@ function LegacyConfiguredProduct(
               <View key={group.id} testID={`modifier-group-${group.id}`} style={s.group}>
                 <View style={{ gap: 4 }}>
                   <Heading small style={s.groupTitle}>
-                    {group.title}
+                    {localize(group.title)}
                   </Heading>
                   <Caption>
-                    {group.min === 0
-                      ? 'По желанию'
-                      : `Выберите ${group.min === group.max ? group.min : `${group.min}-${group.max}`}`}{' '}
-                    {!radio ? `· выбрано ${total}` : ''}
+                    {localize(
+                      group.min === 0
+                        ? 'По желанию'
+                        : t('Выберите {p0}', {
+                            p0: group.min === group.max ? group.min : `${group.min}-${group.max}`,
+                          }),
+                    )}
+                    {localize(' ')}
+                    {localize(!radio ? t('· выбрано {p0}', { p0: total }) : '')}
                   </Caption>
                   {radio && total > 0 ? (
                     <Caption
@@ -254,7 +268,7 @@ function LegacyConfiguredProduct(
                       style={s.selectionSummary}
                       accessibilityLiveRegion="polite"
                     >
-                      Выбрано: {selectedLabels.join(', ')}
+                      {t('Выбрано: {p0}', { p0: selectedLabels.join(', ') })}
                     </Caption>
                   ) : null}
                 </View>
@@ -263,7 +277,7 @@ function LegacyConfiguredProduct(
                     <Pressable
                       testID={`modifier-none-${group.id}`}
                       accessibilityRole="radio"
-                      accessibilityLabel={`${group.title}: не добавлять`}
+                      accessibilityLabel={localize(t('{p0}: не добавлять', { p0: t(group.title) }))}
                       aria-checked={total === 0}
                       accessibilityState={{ checked: total === 0 }}
                       onPress={() =>
@@ -282,7 +296,7 @@ function LegacyConfiguredProduct(
                         color={total === 0 ? colors.accent : colors.muted}
                         size={23}
                       />
-                      <Body style={s.optionName}>Не добавлять</Body>
+                      <Body style={s.optionName}>{t('Не добавлять')}</Body>
                     </Pressable>
                   ) : null}
                   {visible.map((option) => {
@@ -292,13 +306,15 @@ function LegacyConfiguredProduct(
                     const unavailable = option.available === false;
                     const label = (
                       <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-                        <Body style={s.optionName}>{option.label}</Body>
+                        <Body style={s.optionName}>{localize(option.label)}</Body>
                         <Caption>
-                          {unavailable
-                            ? 'Временно нет'
-                            : option.price_delta_minor === '0'
-                              ? 'Входит в стоимость'
-                              : `+${MinorMoney(option.price_delta_minor)}`}
+                          {localize(
+                            unavailable
+                              ? 'Временно нет'
+                              : option.price_delta_minor === '0'
+                                ? 'Входит в стоимость'
+                                : `+${MinorMoney(option.price_delta_minor)}`,
+                          )}
                         </Caption>
                       </View>
                     );
@@ -307,7 +323,9 @@ function LegacyConfiguredProduct(
                         key={option.id}
                         testID={`modifier-${group.id}-${option.id}`}
                         accessibilityRole="radio"
-                        accessibilityLabel={`${group.title}: ${option.label}, ${unavailable ? 'временно нет' : option.price_delta_minor === '0' ? 'входит в стоимость' : '+' + MinorMoney(option.price_delta_minor)}`}
+                        accessibilityLabel={localize(
+                          `${t(group.title)}: ${t(option.label)}, ${unavailable ? t('временно нет') : option.price_delta_minor === '0' ? t('входит в стоимость') : '+' + MinorMoney(option.price_delta_minor)}`,
+                        )}
                         aria-checked={!!selected}
                         accessibilityState={{ checked: !!selected, disabled: unavailable }}
                         disabled={unavailable}
@@ -325,15 +343,19 @@ function LegacyConfiguredProduct(
                           color={selected ? colors.accent : colors.muted}
                           size={23}
                         />
-                        <Body style={[s.optionName, { flex: 1, minWidth: 0 }]}>{option.label}</Body>
+                        <Body style={[s.optionName, { flex: 1, minWidth: 0 }]}>
+                          {localize(option.label)}
+                        </Body>
                         <Caption
                           style={{ maxWidth: fontScale > 1.3 ? '100%' : 100, textAlign: 'right' }}
                         >
-                          {unavailable
-                            ? 'Нет'
-                            : option.price_delta_minor === '0'
-                              ? 'Включено'
-                              : `+${MinorMoney(option.price_delta_minor)}`}
+                          {localize(
+                            unavailable
+                              ? 'Нет'
+                              : option.price_delta_minor === '0'
+                                ? 'Включено'
+                                : `+${MinorMoney(option.price_delta_minor)}`,
+                          )}
                         </Caption>
                       </Pressable>
                     ) : (
@@ -345,7 +367,7 @@ function LegacyConfiguredProduct(
                         <Row style={s.stepper}>
                           <IconButton
                             name="remove"
-                            label={`Убрать ${option.label}`}
+                            label={localize(t('Убрать {p0}', { p0: t(option.label) }))}
                             testID={`modifier-minus-${group.id}-${option.id}`}
                             disabled={selected === 0}
                             onPress={() => select(group, option.id, selected - 1)}
@@ -354,11 +376,11 @@ function LegacyConfiguredProduct(
                             testID={`modifier-count-${group.id}-${option.id}`}
                             style={s.quantity}
                           >
-                            {selected}
+                            {localize(selected)}
                           </Body>
                           <IconButton
                             name="add"
-                            label={`Добавить ${option.label}`}
+                            label={localize(t('Добавить {p0}', { p0: t(option.label) }))}
                             testID={`modifier-plus-${group.id}-${option.id}`}
                             disabled={
                               unavailable ||
@@ -374,11 +396,11 @@ function LegacyConfiguredProduct(
                 </View>
                 {group.id === 'drink' && group.options.length > 5 ? (
                   <Button
-                    title={
+                    title={localize(
                       expanded[group.id]
                         ? 'Свернуть'
-                        : `Показать все варианты (${group.options.length})`
-                    }
+                        : t('Показать все варианты ({p0})', { p0: group.options.length }),
+                    )}
                     testID={`modifier-expand-${group.id}`}
                     secondary
                     onPress={() => setExpanded({ ...expanded, [group.id]: !expanded[group.id] })}
@@ -396,29 +418,31 @@ function LegacyConfiguredProduct(
             accessibilityLiveRegion="polite"
             style={{ color: colors.warning }}
           >
-            {blockedReason}
+            {localize(blockedReason)}
           </Caption>
         ) : null}
         <Row style={{ gap: 10, flexWrap: fontScale > 1.4 || width < 360 ? 'wrap' : 'nowrap' }}>
           <Row style={s.stepper}>
             <IconButton
               name="remove"
-              label="Уменьшить количество"
+              label={t('Уменьшить количество')}
               disabled={quantity <= 1}
               onPress={() => setQuantity(quantity - 1)}
             />
             <Body testID="product-quantity" style={s.quantity}>
-              {quantity}
+              {localize(quantity)}
             </Body>
             <IconButton
               name="add"
-              label="Увеличить количество"
+              label={t('Увеличить количество')}
               disabled={quantity >= 20}
               onPress={() => setQuantity(quantity + 1)}
             />
           </Row>
           <Button
-            title={`${props.editing ? 'Сохранить' : 'Добавить'} · ${MinorMoney(BigInt(unitPrice) * BigInt(quantity))}`}
+            title={localize(
+              `${props.editing ? 'Сохранить' : 'Добавить'} · ${MinorMoney(BigInt(unitPrice) * BigInt(quantity))}`,
+            )}
             testID="product-add"
             style={{ flex: 1, minWidth: 170 }}
             disabled={!valid}

@@ -1,3 +1,5 @@
+import { useNotifications } from '../notifications/provider';
+import { t, localize, useLocale } from '../i18n';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -8,6 +10,8 @@ import { colors, font } from '../theme';
 
 // Inbox transport is not enabled yet. Do not invent messages or unread counts.
 export default function Notifications() {
+  useLocale();
+  const notifications = useNotifications();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<'orders' | 'personal'>('orders');
@@ -17,12 +21,12 @@ export default function Notifications() {
       <Row style={[s.header, { paddingTop: insets.top + 8 }]}>
         <IconButton
           name="chevron-back"
-          label="Назад в меню"
+          label={t('Назад в меню')}
           testID="notifications-back"
           onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/menu'))}
         />
         <Heading small style={s.title}>
-          Уведомления
+          {t('Уведомления')}
         </Heading>
       </Row>
       <ScrollView
@@ -44,34 +48,74 @@ export default function Notifications() {
               onPress={() => setTab(item.id)}
               style={[s.tab, tab === item.id && s.selectedTab]}
             >
-              <Body style={[s.tabText, tab === item.id && s.selectedText]}>{item.title}</Body>
+              <Body style={[s.tabText, tab === item.id && s.selectedText]}>
+                {localize(item.title)}
+              </Body>
             </MotionPressable>
           ))}
         </View>
-        <View testID={`notifications-empty-${tab}`} style={s.empty}>
-          <View style={s.icon}>
-            <Icon
-              name={orders ? 'notifications-outline' : 'gift-outline'}
-              size={36}
-              color={colors.accent}
+        {notifications.error ? (
+          <View style={{ gap: 12, marginVertical: 16 }}>
+            <Body>{t(notifications.error)}</Body>
+            <Button
+              title={t('Повторить')}
+              secondary
+              onPress={() => {
+                void notifications.refresh();
+              }}
             />
           </View>
-          <Heading small style={s.center}>
-            {orders ? 'Следим за вашим заказом' : 'Хорошие новости впереди'}
-          </Heading>
-          <Body muted style={s.center}>
-            {orders
-              ? 'Здесь появятся сообщения о ваших заказах. Пока их статус можно посмотреть в разделе «Заказы».'
-              : 'Здесь появятся ваши предложения, подарки и новости о Чиках. А пока загляните в события.'}
-          </Body>
-          <Button
-            title={orders ? 'Мои заказы' : 'Открыть события'}
-            secondary
-            testID="notifications-destination"
-            onPress={() => router.replace(orders ? '/(tabs)/orders' : '/(tabs)/events')}
-            style={s.action}
-          />
-        </View>
+        ) : null}
+        {orders && notifications.items.length ? (
+          notifications.items.map((item) => (
+            <MotionPressable
+              key={item.id}
+              testID={`notification-${item.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.title}. ${item.body}`}
+              onPress={() => {
+                void notifications.open(item);
+              }}
+              style={{
+                padding: 18,
+                marginVertical: 6,
+                borderRadius: 18,
+                backgroundColor: colors.raised,
+                gap: 8,
+              }}
+            >
+              <Heading small>{item.title}</Heading>
+              <Body muted>{item.body}</Body>
+            </MotionPressable>
+          ))
+        ) : (
+          <View testID={`notifications-empty-${tab}`} style={s.empty}>
+            <View style={s.icon}>
+              <Icon
+                name={orders ? 'notifications-outline' : 'gift-outline'}
+                size={36}
+                color={colors.accent}
+              />
+            </View>
+            <Heading small style={s.center}>
+              {localize(orders ? 'Следим за вашим заказом' : 'Хорошие новости впереди')}
+            </Heading>
+            <Body muted style={s.center}>
+              {localize(
+                orders
+                  ? 'Здесь появятся сообщения о ваших заказах. Пока их статус можно посмотреть в разделе «Заказы».'
+                  : 'Здесь появятся ваши предложения, подарки и новости о Чиках. А пока загляните в события.',
+              )}
+            </Body>
+            <Button
+              title={localize(orders ? 'Мои заказы' : 'Открыть события')}
+              secondary
+              testID="notifications-destination"
+              onPress={() => router.replace(orders ? '/(tabs)/orders' : '/(tabs)/events')}
+              style={s.action}
+            />
+          </View>
+        )}
       </ScrollView>
     </ScreenTransition>
   );

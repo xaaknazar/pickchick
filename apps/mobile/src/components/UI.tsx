@@ -1,3 +1,4 @@
+import { localize, t, useLocale } from '../i18n';
 import { MotionPressable as Pressable } from './Motion';
 import { useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -35,6 +36,7 @@ export function Icon({
   size?: number;
   color?: string;
 }) {
+  useLocale();
   return (
     <View
       pointerEvents="none"
@@ -66,6 +68,7 @@ export function TabIcon({
   name: 'menu' | 'events' | 'orders' | 'profile';
   color: string;
 }) {
+  useLocale();
   const paths = {
     menu: '<path d="M3 6h18M3 12h18M3 18h12"/>',
     events: '<rect x="3" y="5" width="18" height="16" rx="4"/><path d="M8 3v4M16 3v4M3 11h18"/>',
@@ -95,6 +98,7 @@ export function Body({
   style?: StyleProp<TextStyle>;
   testID?: string;
 }) {
+  useLocale();
   return (
     <Text testID={testID} style={[styles.body, muted && styles.muted, style]}>
       {children}
@@ -112,6 +116,7 @@ export function Heading({
   testID?: string;
   style?: StyleProp<TextStyle>;
 }) {
+  useLocale();
   return (
     <Text
       testID={testID}
@@ -123,6 +128,7 @@ export function Heading({
   );
 }
 export function Caption({ children, style, ...props }: TextProps) {
+  useLocale();
   return (
     <Text {...props} style={[styles.caption, style]}>
       {children}
@@ -130,6 +136,7 @@ export function Caption({ children, style, ...props }: TextProps) {
   );
 }
 export function Logo({ size = 40 }: { size?: number }) {
+  useLocale();
   return (
     <View style={[styles.logo, { width: size, height: size }]}>
       <Image
@@ -162,6 +169,7 @@ export function Button({
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
 }) {
+  useLocale();
   return (
     <Pressable
       feedback="scale"
@@ -169,7 +177,7 @@ export function Button({
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={localize(accessibilityLabel)}
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.button,
@@ -181,7 +189,7 @@ export function Button({
     >
       {icon ? <Icon name={icon} color={secondary ? colors.text : colors.orangeInk} /> : null}
       <Text style={[styles.buttonText, secondary && styles.secondaryButtonText, textStyle]}>
-        {title}
+        {localize(title)}
       </Text>
     </Pressable>
   );
@@ -203,10 +211,11 @@ export function IconButton({
   testID?: string;
   disabled?: boolean;
 }) {
+  useLocale();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={localize(label)}
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
@@ -234,11 +243,12 @@ export function CloseButton({
   testID?: string;
   style?: StyleProp<ViewStyle>;
 }) {
+  useLocale();
   return (
     <IconButton
       name="close"
       color={colors.text}
-      label={label}
+      label={localize(label)}
       onPress={onPress}
       testID={testID}
       style={[style, { backgroundColor: colors.surface, width: 48, height: 48, borderRadius: 24 }]}
@@ -246,9 +256,11 @@ export function CloseButton({
   );
 }
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  useLocale();
   return <View style={[styles.card, style]}>{children}</View>;
 }
 export function Row({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  useLocale();
   return <View style={[styles.row, style]}>{children}</View>;
 }
 export function Notice({
@@ -260,6 +272,7 @@ export function Notice({
   children: ReactNode;
   warning?: boolean;
 }) {
+  useLocale();
   return (
     <View style={[styles.notice, warning && styles.warning]}>
       <Icon
@@ -267,7 +280,7 @@ export function Notice({
         color={warning ? colors.warning : colors.text}
       />
       <View style={styles.flex}>
-        {title ? <Body style={styles.noticeTitle}>{title}</Body> : null}
+        {title ? <Body style={styles.noticeTitle}>{localize(title)}</Body> : null}
         <Body style={styles.noticeBody}>{children}</Body>
       </View>
     </View>
@@ -294,6 +307,7 @@ export function Page({
   footerStyle?: StyleProp<ViewStyle>;
   keyboardFooter?: ReactNode;
 }) {
+  useLocale();
   const insets = useSafeAreaInsets();
   const keyboardOffset = useContext(SheetKeyboardOffsetContext);
   const tabBarInset = useTabBarInset();
@@ -347,9 +361,11 @@ export function Page({
     >
       {header ?? (
         <Row style={styles.pageHeader}>
-          {noBack ? null : <IconButton name="chevron-back" label="Назад" onPress={props.goBack} />}
+          {noBack ? null : (
+            <IconButton name="chevron-back" label={t('Назад')} onPress={props.goBack} />
+          )}
           <Heading small style={styles.flex}>
-            {title}
+            {localize(title)}
           </Heading>
           <Logo size={34} />
         </Row>
@@ -410,6 +426,7 @@ export function BottomActions({
   pointerEvents?: 'auto' | 'box-none';
   style?: StyleProp<ViewStyle>;
 }) {
+  useLocale();
   const insets = useSafeAreaInsets();
   return (
     <View
@@ -439,6 +456,7 @@ export function NavRow({
   disabled?: boolean;
   testID?: string;
 }) {
+  useLocale();
   return (
     <Pressable
       feedback="scale"
@@ -450,8 +468,8 @@ export function NavRow({
       style={({ pressed }) => [styles.navRow, pressed && styles.pressed]}
     >
       <View style={styles.flex}>
-        <Body style={{ fontFamily: font.bold }}>{title}</Body>
-        {subtitle ? <Caption style={{ marginTop: 5 }}>{subtitle}</Caption> : null}
+        <Body style={{ fontFamily: font.bold }}>{localize(title)}</Body>
+        {subtitle ? <Caption style={{ marginTop: 5 }}>{localize(subtitle)}</Caption> : null}
       </View>
       <Icon name={disabled ? 'lock-closed-outline' : icon} color={colors.muted} />
     </Pressable>
@@ -468,30 +486,33 @@ export function Empty({
   detail: string;
   action?: ReactNode;
 }) {
+  useLocale();
   return (
     <View style={styles.empty}>
       <View style={styles.emptyIcon}>
         <Icon name={icon} size={32} color={colors.accent} />
       </View>
       <Heading small style={{ textAlign: 'center' }}>
-        {title}
+        {localize(title)}
       </Heading>
       <Body muted style={{ textAlign: 'center', maxWidth: 360, fontSize: 15, lineHeight: 23 }}>
-        {detail}
+        {localize(detail)}
       </Body>
       {action}
     </View>
   );
 }
 export function Loading({ title = 'Загружаем меню' }: { title?: string }) {
+  useLocale();
   return (
     <View style={styles.empty}>
       <ActivityIndicator size="large" color={colors.accent} />
-      <Body muted>{title}</Body>
+      <Body muted>{localize(title)}</Body>
     </View>
   );
 }
 export function Pill({ children }: { children: ReactNode }) {
+  useLocale();
   return (
     <View style={styles.pill}>
       <Caption style={{ color: colors.text, fontFamily: font.bold }}>{children}</Caption>
@@ -507,10 +528,11 @@ export function SummaryRow({
   value: string;
   strong?: boolean;
 }) {
+  useLocale();
   return (
     <Row style={styles.summaryRow}>
       <Body muted={!strong} style={styles.flex}>
-        {label}
+        {localize(label)}
       </Body>
       <Body
         style={[
@@ -518,7 +540,7 @@ export function SummaryRow({
           strong && { fontFamily: font.bold, fontSize: 22, lineHeight: 30 },
         ]}
       >
-        {value}
+        {localize(value)}
       </Body>
     </Row>
   );

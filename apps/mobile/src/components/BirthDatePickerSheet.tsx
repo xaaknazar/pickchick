@@ -1,3 +1,4 @@
+import { t, useLocale } from '../i18n';
 import { MotionPressable as Pressable } from './Motion';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -16,6 +17,7 @@ export function BirthDatePickerSheet({
   onConfirm(): void;
   confirmDisabled?: boolean;
 }) {
+  useLocale();
   const insets = useSafeAreaInsets();
   const sheet = useRef<View>(null);
   const cancel = useRef(onCancel);
@@ -65,7 +67,7 @@ export function BirthDatePickerSheet({
           accessibilityViewIsModal
           role="dialog"
           aria-modal
-          accessibilityLabel="Дата рождения"
+          accessibilityLabel={t('Дата рождения')}
           style={s.sheet}
         >
           <ScrollView
@@ -76,7 +78,7 @@ export function BirthDatePickerSheet({
           >
             <View style={s.header}>
               <Text accessibilityRole="header" style={s.title}>
-                Дата рождения
+                {t('Дата рождения')}
               </Text>
               <Pressable
                 testID="birthday-picker-cancel"
@@ -84,14 +86,14 @@ export function BirthDatePickerSheet({
                 onPress={onCancel}
                 style={({ pressed }) => [s.cancel, pressed && s.pressed]}
               >
-                <Text style={s.cancelText}>Отмена</Text>
+                <Text style={s.cancelText}>{t('Отмена')}</Text>
               </Pressable>
             </View>
             {children}
           </ScrollView>
           <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             <AuthButton
-              title="Готово"
+              title={t('Готово')}
               testID="birthday-picker-confirm"
               disabled={confirmDisabled}
               onPress={onConfirm}

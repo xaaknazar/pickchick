@@ -1,3 +1,4 @@
+import { t, localize, useLocale } from '../i18n';
 import { useEffect, useState, type ReactNode } from 'react';
 import { AppState, Platform, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { Image } from 'expo-image';
@@ -68,6 +69,7 @@ export async function openIn2Gis(mapUrl: string): Promise<void> {
 // The approved mockup's check: thinner than a filled badge, with round ends.
 const checkSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${colors.accent}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 12.5l4.5 4.5L18.5 8"/></svg>`;
 function SelectedCheck() {
+  useLocale();
   return (
     <Image
       testID="branch-selected-check"
@@ -89,6 +91,7 @@ export interface RestaurantPinData {
 }
 
 function RestaurantPin({ id, open }: { id: string; open: boolean }) {
+  useLocale();
   return (
     <View testID={`branch-pin-${id}`} style={s.pin}>
       <View style={s.pinShadow} />
@@ -114,6 +117,7 @@ export function RestaurantMap({
   pins: RestaurantPinData[];
   children?: ReactNode;
 }) {
+  useLocale();
   const [width, setWidth] = useState(mapMetadata.width);
   const height = RESTAURANT_MAP_HEIGHT;
   // The selected restaurant's pin is drawn last, above its neighbours.
@@ -157,11 +161,11 @@ export function RestaurantMap({
       <Pressable
         testID="map-attribution"
         accessibilityRole="link"
-        accessibilityLabel="Данные карты: участники OpenStreetMap"
+        accessibilityLabel={t('Данные карты: участники OpenStreetMap')}
         onPress={() => void Linking.openURL(OSM_COPYRIGHT).catch(() => {})}
         style={s.attribution}
       >
-        <Text style={s.attributionText}>{mapMetadata.attribution}</Text>
+        <Text style={s.attributionText}>{localize(mapMetadata.attribution)}</Text>
       </Pressable>
       {children}
     </View>
@@ -170,18 +174,19 @@ export function RestaurantMap({
 
 /** One city for now: the button opens a list with that single, selected item. */
 export function CityButton({ city, top }: { city: string; top: number }) {
+  useLocale();
   const [open, setOpen] = useState(false);
   return (
     <View style={[s.city, { top }]}>
       <Pressable
         testID="branches-city"
         accessibilityRole="button"
-        accessibilityLabel={`Город: ${city}`}
+        accessibilityLabel={localize(t('Город: {p0}', { p0: city }))}
         accessibilityState={{ expanded: open }}
         onPress={() => setOpen((value) => !value)}
         style={s.cityButton}
       >
-        <Text style={s.cityText}>{city}</Text>
+        <Text style={s.cityText}>{localize(city)}</Text>
         <Icon name={open ? 'chevron-up' : 'chevron-down'} size={14} color={colors.muted} />
       </Pressable>
       {open ? (
@@ -194,7 +199,7 @@ export function CityButton({ city, top }: { city: string; top: number }) {
             onPress={() => setOpen(false)}
             style={s.cityOption}
           >
-            <Text style={s.cityOptionText}>{city}</Text>
+            <Text style={s.cityOptionText}>{localize(city)}</Text>
             <Icon name="checkmark" size={20} color={colors.accent} />
           </Pressable>
         </View>
@@ -218,6 +223,7 @@ export function RestaurantCard({
   onSelect(): void;
   onOpenMap?: () => void;
 }) {
+  useLocale();
   const text = status ? hoursStatusText(status) : null;
   return (
     <View style={s.card}>
@@ -230,29 +236,31 @@ export function RestaurantCard({
         style={s.selectRow}
       >
         <View style={s.cardText}>
-          <Text style={s.name}>{branch.name}</Text>
+          <Text style={s.name}>{localize(branch.name)}</Text>
           {address ? (
             <Text style={s.address} numberOfLines={1}>
-              {address}
+              {localize(address)}
             </Text>
           ) : null}
           <Text testID={`branch-status-${branch.id}`} style={s.status}>
-            {text ? (
-              <>
-                <Text
-                  style={[
-                    s.statusState,
-                    { color: status?.open ? restaurantColors.open : restaurantColors.closed },
-                  ]}
-                >
-                  {text.state}
-                </Text>
-                {` · ${text.detail}`}
-              </>
-            ) : branch.ordering_enabled ? (
-              'Приём заказов доступен'
-            ) : (
-              'Заказы пока недоступны'
+            {localize(
+              text ? (
+                <>
+                  <Text
+                    style={[
+                      s.statusState,
+                      { color: status?.open ? restaurantColors.open : restaurantColors.closed },
+                    ]}
+                  >
+                    {localize(text.state)}
+                  </Text>
+                  {` · ${text.detail}`}
+                </>
+              ) : branch.ordering_enabled ? (
+                'Приём заказов доступен'
+              ) : (
+                'Заказы пока недоступны'
+              ),
             )}
           </Text>
         </View>
@@ -264,11 +272,11 @@ export function RestaurantCard({
           <Pressable
             testID={`branch-map-${branch.id}`}
             accessibilityRole="link"
-            accessibilityLabel={`Открыть ${branch.name} в 2ГИС`}
+            accessibilityLabel={localize(t('Открыть {p0} в 2ГИС', { p0: branch.name }))}
             onPress={onOpenMap}
             style={s.mapRow}
           >
-            <Text style={s.mapText}>Открыть в 2ГИС</Text>
+            <Text style={s.mapText}>{t('Открыть в 2ГИС')}</Text>
             <View style={s.external}>
               <Icon name="arrow-up" size={15} color={colors.accentText} />
             </View>

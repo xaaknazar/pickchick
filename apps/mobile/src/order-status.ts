@@ -1,3 +1,5 @@
+import { dateLocale } from './i18n/core.ts';
+import { t } from './i18n/core.ts';
 /** Read-only display data shared by TEST and bank-paid orders. No payment authority. */
 export interface OrderStatusData {
   order_id: string;
@@ -48,15 +50,15 @@ export function orderTimeLabel(order: OrderStatusData, now: number): string {
   if (order.state === 'paid') return 'Передаём заказ кухне';
   if (order.state === 'awaiting_test_payment') return 'Ожидаем подтверждения';
   if (order.state === 'ready' || order.state === 'fulfilled') {
-    const time = new Date(order.updated_at).toLocaleTimeString('ru-RU', {
+    const time = new Date(order.updated_at).toLocaleTimeString(dateLocale(), {
       timeZone: 'Asia/Almaty',
       hour: '2-digit',
       minute: '2-digit',
     });
-    return `${order.state === 'ready' ? 'Готов к выдаче' : 'Выдан'} в ${time}`;
+    return t('{p0} в {p1}', { p0: order.state === 'ready' ? 'Готов к выдаче' : 'Выдан', p1: time });
   }
   const minutes = Math.max(0, Math.floor((now - Date.parse(order.created_at)) / 60_000));
-  return minutes < 1 ? 'Заказ только что принят' : `С момента заказа: ${minutes} мин`;
+  return minutes < 1 ? 'Заказ только что принят' : t('С момента заказа: {p0} мин', { p0: minutes });
 }
 
 export type OrderScene = 'cooking' | 'assembly' | 'ready' | 'ready-takeaway';

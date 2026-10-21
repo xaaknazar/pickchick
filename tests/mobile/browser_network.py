@@ -19,6 +19,18 @@ def health(route):
     return True
 
 
+DISABLED_NOTIFICATIONS = {'enabled': False, 'providers': [], 'consentVersion': 'notifications-v1'}
+
+
+def notifications_config(route, fixture=DISABLED_NOTIFICATIONS):
+    """Only the new read-only config endpoint has a default; all mutations stay explicit."""
+    if fixture is None or route.request.url != API + '/v1/notifications/config':
+        return False
+    assert route.request.method == 'GET', 'Notification config must be read-only'
+    route.fulfill(status=200, json=fixture, headers={'Access-Control-Allow-Origin': '*'})
+    return True
+
+
 class FixtureRoute:
     """A fixture may fulfill external API requests, but cannot send them onward."""
     def __init__(self, route):
@@ -43,16 +55,16 @@ def isolated_context(browser, **kwargs):
     context = browser.new_context(**{**kwargs, 'service_workers': 'block'})
 
     def guard(route):
-        if not health(route):
+        if not health(route) and not notifications_config(route):
             FixtureRoute(route).continue_()
 
     context.route('**/*', guard)
     return context
 
 
-def route_fixture(context, pattern, handler):
-    """Retain each fixture's exact API assertions; health wins over broad patterns."""
+def route_fixture(context, pattern, handler, *, notification_fixture=DISABLED_NOTIFICATIONS):
+    """Exact API assertions; pass notification_fixture=None to exercise notification routes."""
     def guarded(route):
-        if not health(route):
+        if not health(route) and not notifications_config(route, notification_fixture):
             handler(FixtureRoute(route))
     context.route(pattern, guarded)

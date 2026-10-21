@@ -1,3 +1,4 @@
+import { localize, t, useLocale } from '../i18n';
 import { MotionPressable as Pressable, MotionModal as Modal } from './Motion';
 import { Image } from 'expo-image';
 import { assets } from '../assets';
@@ -13,6 +14,7 @@ export function paymentName(method: PaymentMethod) {
   return method === 'kaspi' ? 'Kaspi' : 'Банковская карта';
 }
 export function PaymentMark({ method, size = 34 }: { method: PaymentMethod; size?: number }) {
+  useLocale();
   return method === 'kaspi' ? (
     <Image
       source={assets.kaspi}
@@ -37,6 +39,7 @@ export function PaymentMark({ method, size = 34 }: { method: PaymentMethod; size
   );
 }
 export function PaymentChoice({ model }: { model: MobileModel }) {
+  useLocale();
   const [open, setOpen] = useState(false);
   const insets = useSafeAreaInsets();
   return (
@@ -44,15 +47,17 @@ export function PaymentChoice({ model }: { model: MobileModel }) {
       <Pressable
         testID="payment-method"
         accessibilityRole="button"
-        accessibilityLabel={`Способ оплаты: ${paymentName(model.paymentMethod)}, изменить`}
+        accessibilityLabel={localize(
+          t('Способ оплаты: {p0}, изменить', { p0: paymentName(model.paymentMethod) }),
+        )}
         onPress={() => setOpen(true)}
         style={s.trigger}
       >
-        <Caption style={{ fontSize: 11, lineHeight: 16 }}>Способ оплаты</Caption>
+        <Caption style={{ fontSize: 11, lineHeight: 16 }}>{t('Способ оплаты')}</Caption>
         <Row style={{ gap: 7 }}>
           <PaymentMark method={model.paymentMethod} size={22} />
           <Body style={{ fontFamily: font.bold, fontSize: 14, lineHeight: 21 }}>
-            {paymentName(model.paymentMethod)}
+            {localize(paymentName(model.paymentMethod))}
           </Body>
           <Icon name="chevron-up" size={16} />
         </Row>
@@ -61,7 +66,7 @@ export function PaymentChoice({ model }: { model: MobileModel }) {
         <View style={s.modal}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Закрыть способы оплаты"
+            accessibilityLabel={t('Закрыть способы оплаты')}
             style={StyleSheet.absoluteFill}
             onPress={() => setOpen(false)}
           />
@@ -74,15 +79,17 @@ export function PaymentChoice({ model }: { model: MobileModel }) {
               }}
             >
               <Row>
-                <CloseButton label="Закрыть способы оплаты" onPress={() => setOpen(false)} />
+                <CloseButton label={t('Закрыть способы оплаты')} onPress={() => setOpen(false)} />
                 <Heading small style={ui.flex}>
-                  Способ оплаты
+                  {t('Способ оплаты')}
                 </Heading>
               </Row>
               <Caption>
-                {orderSimulatorEnabled
-                  ? 'Оплата и чеки - в процессе подключения. Реквизиты не нужны.'
-                  : 'Выберите удобный способ. Онлайн-оплата скоро появится.'}
+                {localize(
+                  orderSimulatorEnabled
+                    ? 'Оплата и чеки - в процессе подключения. Реквизиты не нужны.'
+                    : 'Выберите удобный способ. Онлайн-оплата скоро появится.',
+                )}
               </Caption>
               {(['kaspi', 'card'] as const).map((method) => (
                 <Pressable
@@ -107,11 +114,13 @@ export function PaymentChoice({ model }: { model: MobileModel }) {
                 >
                   <PaymentMark method={method} size={38} />
                   <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-                    <Body style={{ fontFamily: font.bold }}>{paymentName(method)}</Body>
+                    <Body style={{ fontFamily: font.bold }}>{localize(paymentName(method))}</Body>
                     <Caption>
-                      {method === 'kaspi'
-                        ? 'Оплата в приложении Kaspi.kz'
-                        : 'Оплата банковской картой'}
+                      {localize(
+                        method === 'kaspi'
+                          ? 'Оплата в приложении Kaspi.kz'
+                          : 'Оплата банковской картой',
+                      )}
                     </Caption>
                   </View>
                   <Icon

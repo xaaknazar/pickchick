@@ -1,3 +1,4 @@
+import { t, localize, useLocale } from '../i18n';
 import { matchesPaidComboCart } from '../loyalty/combo-progress';
 import { PRICES_UPDATED } from '../cart-reprice';
 import { CatalogChangeNotice } from '../components/CatalogChangeNotice';
@@ -69,10 +70,12 @@ const root = '/v1/customer-checkout';
 
 /** One durable create command per customer. Never reissues a bank invoice on reconnect. */
 export function KaspiCheckoutScreen(props: ScreenProps) {
+  useLocale();
   const { account } = useAccount();
   return <KaspiCheckoutSession {...props} key={account?.customerId ?? 'guest'} />;
 }
 function KaspiCheckoutSession(props: ScreenProps) {
+  useLocale();
   const auth = useAccount(),
     customerId = auth.account?.customerId;
   const [config, setConfig] = useState<ReturnType<
@@ -283,7 +286,9 @@ function KaspiCheckoutSession(props: ScreenProps) {
           pending.current = null;
           if (props.screenId !== 'M19')
             setResumeNotice(
-              'Прошлый заказ не оплачен: счёт не отправлялся, деньги не списаны. Он остаётся в «Заказах».',
+              t(
+                'Прошлый заказ не оплачен: счёт не отправлялся, деньги не списаны. Он остаётся в «Заказах».',
+              ),
             );
         } else {
           await acceptRef.current(existing);
@@ -664,10 +669,12 @@ function KaspiCheckoutSession(props: ScreenProps) {
         <>
           {unsupportedComment ? (
             <View style={s.commentUnavailable}>
-              <Caption>Комментарий временно недоступен. Удалите его, чтобы оформить заказ.</Caption>
+              <Caption>
+                {t('Комментарий временно недоступен. Удалите его, чтобы оформить заказ.')}
+              </Caption>
               <Button
                 secondary
-                title="Удалить комментарий"
+                title={t('Удалить комментарий')}
                 onPress={() => props.model.setOrderComment('')}
               />
             </View>
@@ -681,16 +688,22 @@ function KaspiCheckoutSession(props: ScreenProps) {
         </>
         <Row style={s.total}>
           <Body style={s.totalLabel}>
-            Итого{' '}
-            <Caption>· {props.model.cart.reduce((n, line) => n + line.quantity, 0)} шт.</Caption>
+            {t('Итого')}
+            {localize(' ')}
+            <Caption>
+              · {localize(props.model.cart.reduce((n, line) => n + line.quantity, 0))}
+              {t('шт.')}
+            </Caption>
           </Body>
           <Body testID="kaspi-checkout-total" style={s.totalAmount}>
-            {money(total)}
+            {localize(money(total))}
           </Body>
         </Row>
         <CheckoutAction
           testID="kaspi-checkout-submit"
-          title={busy ? 'Оформляем заказ…' : total === '0' ? 'Заказать подарок' : 'Оплатить через'}
+          title={localize(
+            busy ? t('Оформляем заказ…') : total === '0' ? t('Заказать подарок') : 'Оплатить через',
+          )}
           kaspi={!busy && total !== '0'}
           onPress={() => void submit()}
           disabled={busy}
@@ -712,13 +725,13 @@ function KaspiCheckoutSession(props: ScreenProps) {
           connectionPaused || (error && pending.current) ? (
             // Without a saved intent nothing was ordered or billed: this is a connection retry.
             <Button
-              title={pending.current ? 'Проверить оплату' : 'Повторить попытку'}
+              title={localize(pending.current ? 'Проверить оплату' : t('Повторить попытку'))}
               onPress={() => (pending.current ? retry() : void submit())}
             />
           ) : undefined
         }
         onClose={pending.current ? () => void closeOrder() : undefined}
-        closeLabel={props.screenId === 'M19' ? 'К списку заказов' : 'Закрыть'}
+        closeLabel={props.screenId === 'M19' ? t('К списку заказов') : 'Закрыть'}
         // «Заказы» is a tab, not the checkout: its list is reachable at once (audit 2.4).
         closeDelayMs={props.screenId === 'M19' ? 0 : closeDelay(undefined, Date.now())}
       />
@@ -742,14 +755,14 @@ function KaspiCheckoutSession(props: ScreenProps) {
         extraAction={
           order.phase === 'ready_to_pay' && (!autoSends(order) || paymentPaused || !!error) ? (
             <Button
-              title={`Отправить счёт на ${money(order.totalMinor)}`}
+              title={localize(t('Отправить счёт на {p0}', { p0: money(order.totalMinor) }))}
               onPress={() => void pay()}
               disabled={busy}
             />
           ) : undefined
         }
         onClose={busy ? undefined : () => void closeOrder()}
-        closeLabel={props.screenId === 'M19' ? 'К списку заказов' : 'Закрыть'}
+        closeLabel={props.screenId === 'M19' ? t('К списку заказов') : 'Закрыть'}
         // The Orders tab is not a modal: going back to the list touches nothing (audit 2.4).
         closeDelayMs={
           props.screenId === 'M19' && closeDelay(order, Date.now()) !== null
@@ -801,7 +814,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
           afterItems={
             order.kitchenComment ? (
               <View testID="order-kitchen-comment" style={s.savedComment}>
-                <Caption>Комментарий к заказу</Caption>
+                <Caption>{t('Комментарий к заказу')}</Caption>
                 <Body>{order.kitchenComment}</Body>
               </View>
             ) : undefined
@@ -839,7 +852,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
   return (
     <Page
       props={props}
-      title={props.screenId === 'M19' ? 'Заказы' : 'Оформление'}
+      title={localize(props.screenId === 'M19' ? 'Заказы' : 'Оформление')}
       contentStyle={props.screenId === 'M19' ? ordersPageStyle.content : checkoutStyle.content}
       footerStyle={checkoutStyle.footer}
       footer={footer}
@@ -849,12 +862,15 @@ function KaspiCheckoutSession(props: ScreenProps) {
           <OrdersHeader />
         ) : (
           <CheckoutSheetHeader
-            title="Оформление"
+            title={t('Оформление')}
             testID="checkout-close"
             onBack={props.goBack}
             action={
               !loaded ? (
-                <ActivityIndicator color={colors.accent} accessibilityLabel="Проверяем ваш заказ" />
+                <ActivityIndicator
+                  color={colors.accent}
+                  accessibilityLabel={t('Проверяем ваш заказ')}
+                />
               ) : undefined
             }
             back
@@ -864,8 +880,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
     >
       {visibleError && (props.screenId === 'M19' || !busy) ? (
         <View style={s.warning} accessibilityLiveRegion="polite">
-          <Body>{visibleError}</Body>
-          <Button secondary title="Попробовать снова" onPress={retry} />
+          <Body>{localize(visibleError)}</Body>
+          <Button secondary title={t('Попробовать снова')} onPress={retry} />
         </View>
       ) : null}
       {resumeNotice && props.screenId !== 'M19' && !busy ? (
@@ -877,11 +893,11 @@ function KaspiCheckoutSession(props: ScreenProps) {
       (!loaded || (!!error && !visibleError && !historyNeedsRefresh && !history.length)) ? (
         <View style={s.loading}>
           <ActivityIndicator color={colors.accent} />
-          <Caption>Проверяем ваш заказ</Caption>
+          <Caption>{t('Проверяем ваш заказ')}</Caption>
         </View>
       ) : null}
       {props.screenId === 'M19' && historyNeedsRefresh ? (
-        <Button title="Показать заказы" secondary onPress={retry} />
+        <Button title={t('Показать заказы')} secondary onPress={retry} />
       ) : null}
       {props.screenId === 'M19' ? (
         <>
@@ -910,7 +926,9 @@ function KaspiCheckoutSession(props: ScreenProps) {
           restaurantName={config?.restaurant}
           details={
             quote && quote.totalMinor !== localTotal ? (
-              <Caption>Сумма обновлена по меню ресторана. Проверьте её перед оплатой.</Caption>
+              <Caption>
+                {t('Сумма обновлена по меню ресторана. Проверьте её перед оплатой.')}
+              </Caption>
             ) : undefined
           }
           paymentContent={
@@ -921,7 +939,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
                   <View style={s.flex}>
                     <Body style={{ fontFamily: font.medium, fontSize: 15 }}>Kaspi.kz</Body>
                     <Caption style={{ fontSize: 12, lineHeight: 18 }}>
-                      Счёт придёт на {maskedPhone(auth.account?.phone)}
+                      {t('Счёт придёт на {p0}', { p0: maskedPhone(auth.account?.phone) })}
                     </Caption>
                   </View>
                   <Icon name="checkmark-circle" color={colors.accent} size={22} />
@@ -929,16 +947,16 @@ function KaspiCheckoutSession(props: ScreenProps) {
                 <UpcomingPayments />
               </View>
               <Caption style={{ fontSize: 12, lineHeight: 18, marginHorizontal: 8 }}>
-                Фискальный чек пока не выпускается - Webkassa подключается.
+                {t('Фискальный чек пока не выпускается - Webkassa подключается.')}
               </Caption>
             </>
           }
         />
       ) : (
         <Empty
-          title="В корзине пока пусто"
-          detail="Выберите любимые блюда."
-          action={<Button title="В меню" onPress={() => props.navigate('M06')} />}
+          title={t('В корзине пока пусто')}
+          detail={t('Выберите любимые блюда.')}
+          action={<Button title={t('В меню')} onPress={() => props.navigate('M06')} />}
         />
       )}
     </Page>

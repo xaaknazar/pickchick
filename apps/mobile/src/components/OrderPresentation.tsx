@@ -1,3 +1,4 @@
+import { t, localize, useLocale } from '../i18n';
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Body, CloseButton, Heading, IconButton, Row } from './UI';
@@ -39,23 +40,24 @@ export function OrderHeader({
   back?: boolean;
   action?: ReactNode;
 }) {
+  useLocale();
   return (
     <Row style={orderUI.header}>
       <View style={orderUI.headerSide}>
         {back ? (
           <IconButton
             name="chevron-back"
-            label="Вернуться в корзину"
+            label={t('Вернуться в корзину')}
             testID={testID}
             onPress={onClose}
             style={orderUI.headerButton}
           />
         ) : (
-          <CloseButton label="Закрыть корзину" testID={testID} onPress={onClose} />
+          <CloseButton label={t('Закрыть корзину')} testID={testID} onPress={onClose} />
         )}
       </View>
       <Heading small style={orderUI.headerTitle}>
-        {title}
+        {localize(title)}
       </Heading>
       <View style={orderUI.headerSide}>{action}</View>
     </Row>
@@ -63,10 +65,11 @@ export function OrderHeader({
 }
 
 export function OrderTotal({ value }: { value: string }) {
+  useLocale();
   return (
     <Row style={orderUI.total}>
-      <Body style={orderUI.label}>Итого</Body>
-      <Body style={[orderUI.amount, { fontSize: 24, lineHeight: 32 }]}>{value}</Body>
+      <Body style={orderUI.label}>{t('Итого')}</Body>
+      <Body style={[orderUI.amount, { fontSize: 24, lineHeight: 32 }]}>{localize(value)}</Body>
     </Row>
   );
 }

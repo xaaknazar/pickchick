@@ -1,3 +1,4 @@
+import { t, useLocale } from '../i18n';
 import { useState } from 'react';
 import { Modal } from 'react-native';
 import type { CustomerCommerceOrder } from '@pickchick/contracts';
@@ -48,6 +49,7 @@ export function completedOrderFixture(props: ScreenProps): CustomerCommerceOrder
   };
 }
 export function CompletedOrderPreview(props: ScreenProps) {
+  useLocale();
   const [review, setReview] = useState<{ rating: number; comment: string | null } | null>(null);
   return (
     <CompletedOrderScreen
@@ -61,6 +63,7 @@ export function CompletedOrderPreview(props: ScreenProps) {
   );
 }
 export function OrderHistoryPreview(props: ScreenProps) {
+  useLocale();
   const [opened, setOpened] = useState(false);
   const [initialRating, setInitialRating] = useState<number | undefined>();
   const [review, setReview] = useState<{ rating: number; comment: string | null } | null>(null);
@@ -69,12 +72,12 @@ export function OrderHistoryPreview(props: ScreenProps) {
     <>
       <Page
         props={props}
-        title="Заказы"
+        title={t('Заказы')}
         noBack
         header={<OrdersHeader />}
         contentStyle={ordersPageStyle.content}
       >
-        <Caption>Пример завершённого заказа</Caption>
+        <Caption>{t('Пример завершённого заказа')}</Caption>
         <CommerceOrderList
           orders={[order]}
           products={props.model.products}

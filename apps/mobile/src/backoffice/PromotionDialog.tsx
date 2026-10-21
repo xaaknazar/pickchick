@@ -1,3 +1,4 @@
+import { localize, t, useLocale } from '../i18n';
 import { MotionModal as Modal } from '../components/Motion';
 import { ScrollView, View } from 'react-native';
 import { Image } from 'expo-image';
@@ -12,6 +13,7 @@ export function PromotionDialog({
   promotion: PublishedContent['promos'][number] | null;
   onClose(): void;
 }) {
+  useLocale();
   if (!promotion) return null;
   const key = promotion.image_asset_key;
   const file = key === 'logo' ? 'logo.png' : key === 'generic-drink' ? null : key + '.jpg';
@@ -26,11 +28,11 @@ export function PromotionDialog({
               contentFit="contain"
             />
           ) : null}
-          <Heading>{promotion.title.ru}</Heading>
-          <Body>{promotion.body.ru}</Body>
+          <Heading>{localize(promotion.title.ru)}</Heading>
+          <Body>{localize(promotion.body.ru)}</Body>
         </ScrollView>
         <View style={{ padding: 24 }}>
-          <Button title="Закрыть" onPress={onClose} />
+          <Button title={t('Закрыть')} onPress={onClose} />
         </View>
       </SafeAreaView>
     </Modal>

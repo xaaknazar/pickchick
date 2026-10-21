@@ -1,3 +1,4 @@
+import { t } from './i18n/core.ts';
 // Presentation only: whether ordering is accepted stays server-owned. These helpers
 // read the published hours from config/restaurant-locations.json for the M05 status.
 
@@ -70,11 +71,14 @@ export function hoursStatusText(status: RestaurantHoursStatus): { state: string;
   if (status.open)
     return {
       state: 'Открыто',
-      detail: status.closesAt ? `до ${status.closesAt}` : 'круглосуточно',
+      detail: status.closesAt ? t('до {p0}', { p0: status.closesAt }) : 'круглосуточно',
     };
   return {
     state: 'Закрыто',
-    detail: `откроется ${status.opensTomorrow ? 'завтра ' : ''}в ${status.opensAt}`,
+    detail: t('откроется {p0}в {p1}', {
+      p0: status.opensTomorrow ? 'завтра ' : '',
+      p1: status.opensAt,
+    }),
   };
 }
 

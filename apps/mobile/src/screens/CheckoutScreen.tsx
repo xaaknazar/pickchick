@@ -1,3 +1,4 @@
+import { t, localize, useLocale } from '../i18n';
 import { CheckoutSheetHeader, checkoutStyle } from '../components/CheckoutPresentation';
 import { useState, type ReactNode } from 'react';
 import { Keyboard, StyleSheet, TextInput, View } from 'react-native';
@@ -12,8 +13,14 @@ import { Body, Button, Caption, Empty, Icon, Page, Row } from '../components/UI'
 import { colors, font } from '../theme';
 
 export function CheckoutHeader({ props }: { props: ScreenProps }) {
+  useLocale();
   return (
-    <CheckoutSheetHeader title="Оформление" testID="checkout-close" onBack={props.goBack} back />
+    <CheckoutSheetHeader
+      title={t('Оформление')}
+      testID="checkout-close"
+      onBack={props.goBack}
+      back
+    />
   );
 }
 export function CheckoutDetails({
@@ -34,23 +41,28 @@ export function CheckoutDetails({
   commentEnabled?: boolean;
   commentEditable?: boolean;
 }) {
+  useLocale();
   const { model } = props;
   const [commentFocused, setCommentFocused] = useState(false);
   const location = restaurantLocation(model.branch?.id);
   return (
     <View style={s.layout}>
-      <Caption style={s.sectionLabel}>КАК ЗАБЕРЁТЕ</Caption>
+      <Caption style={s.sectionLabel}>{t('КАК ЗАБЕРЁТЕ')}</Caption>
       {lockedMode ? (
-        <Body>{lockedMode === 'takeaway' ? 'С собой' : 'В зале'}</Body>
+        <Body>{localize(lockedMode === 'takeaway' ? 'С собой' : 'В зале')}</Body>
       ) : (
-        <View style={s.modes} accessibilityRole="radiogroup" accessibilityLabel="Способ получения">
+        <View
+          style={s.modes}
+          accessibilityRole="radiogroup"
+          accessibilityLabel={t('Способ получения')}
+        >
           {(['dine_in', 'takeaway'] as const).map((mode) => {
             const selected = model.diningMode === mode;
             return (
               <MotionPressable
                 key={mode}
                 accessibilityRole="radio"
-                accessibilityLabel={mode === 'dine_in' ? 'В зале' : 'С собой'}
+                accessibilityLabel={localize(mode === 'dine_in' ? 'В зале' : 'С собой')}
                 aria-checked={selected}
                 accessibilityState={{ selected, checked: selected }}
                 onPress={() => model.setDiningMode(mode)}
@@ -66,9 +78,11 @@ export function CheckoutDetails({
                     <Icon name="checkmark" size={14} color={colors.orangeInk} />
                   </View>
                 ) : null}
-                <Body style={s.modeTitle}>{mode === 'dine_in' ? 'В зале' : 'С собой'}</Body>
+                <Body style={s.modeTitle}>
+                  {localize(mode === 'dine_in' ? 'В зале' : 'С собой')}
+                </Body>
                 <Caption style={[s.modeHint, selected && { color: '#FFC9A3' }]}>
-                  {mode === 'dine_in' ? 'Подадим на подносе' : 'Упакуем в пакет'}
+                  {localize(mode === 'dine_in' ? 'Подадим на подносе' : 'Упакуем в пакет')}
                 </Caption>
               </MotionPressable>
             );
@@ -80,21 +94,23 @@ export function CheckoutDetails({
           <Icon name="location-outline" color="#A3B4D6" size={20} />
           <View style={s.place}>
             <Body style={s.placeName}>
-              {restaurantName ?? location?.name ?? model.branch?.name ?? 'Ресторан PickChick'}
+              {localize(
+                restaurantName ?? location?.name ?? model.branch?.name ?? 'Ресторан PickChick',
+              )}
             </Body>
-            <Caption style={s.modeHint}>Выдача по номеру заказа</Caption>
+            <Caption style={s.modeHint}>{t('Выдача по номеру заказа')}</Caption>
           </View>
         </Row>
         {commentEnabled ? (
           <View style={s.commentRow}>
             <View style={s.commentHeading}>
               <Icon name="chatbubble-outline" size={20} color="#A3B4D6" />
-              <Body style={s.commentLabel}>Комментарий к заказу</Body>
+              <Body style={s.commentLabel}>{t('Комментарий к заказу')}</Body>
             </View>
             <TextInput
               testID="checkout-comment-input"
-              accessibilityLabel="Комментарий к заказу"
-              accessibilityHint="Необязательно, до 60 символов"
+              accessibilityLabel={t('Комментарий к заказу')}
+              accessibilityHint={t('Необязательно, до 60 символов')}
               value={model.orderComment}
               onChangeText={model.setOrderComment}
               editable={commentEditable}
@@ -107,7 +123,7 @@ export function CheckoutDetails({
               onSubmitEditing={Keyboard.dismiss}
               numberOfLines={3}
               textAlignVertical="top"
-              placeholder="Например, соус отдельно"
+              placeholder={t('Например, соус отдельно')}
               placeholderTextColor="#A3B4D6"
               style={[
                 s.commentInput,
@@ -116,12 +132,12 @@ export function CheckoutDetails({
               ]}
             />
             <Caption testID="checkout-comment-count" style={s.commentCount}>
-              {model.orderComment.length}/60
+              {localize(model.orderComment.length)}/60
             </Caption>
           </View>
         ) : null}
       </View>
-      <Caption style={[s.sectionLabel, { marginTop: 10 }]}>ОПЛАТА</Caption>
+      <Caption style={[s.sectionLabel, { marginTop: 10 }]}>{t('ОПЛАТА')}</Caption>
       {paymentContent ?? <CheckoutPayments />}
       {details ? <View style={s.section}>{details}</View> : null}
     </View>
@@ -129,11 +145,12 @@ export function CheckoutDetails({
 }
 
 export function Checkout(props: ScreenProps) {
+  useLocale();
   const total = cartTotal(props.model.cart);
   return (
     <Page
       props={props}
-      title="Оформление"
+      title={t('Оформление')}
       contentStyle={checkoutStyle.content}
       footerStyle={checkoutStyle.footer}
       keyboardFooter={<CheckoutKeyboardDone />}
@@ -144,7 +161,7 @@ export function Checkout(props: ScreenProps) {
             <OrderTotal value={money(total)} />
             <Button
               testID="checkout-pay-disabled"
-              title="Оформление скоро появится"
+              title={t('Оформление скоро появится')}
               disabled
               style={orderUI.action}
               textStyle={orderUI.actionText}
@@ -155,9 +172,9 @@ export function Checkout(props: ScreenProps) {
     >
       {!props.model.cart.length ? (
         <Empty
-          title="В корзине пока пусто"
-          detail="Выберите любимые блюда, чтобы оформить заказ."
-          action={<Button title="В меню" onPress={() => props.navigate('M06')} />}
+          title={t('В корзине пока пусто')}
+          detail={t('Выберите любимые блюда, чтобы оформить заказ.')}
+          action={<Button title={t('В меню')} onPress={() => props.navigate('M06')} />}
         />
       ) : (
         <CheckoutDetails props={props} commentEnabled={props.preview} />

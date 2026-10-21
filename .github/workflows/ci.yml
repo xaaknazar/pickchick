@@ -17,7 +17,8 @@ jobs:
   foundation_core:
     name: Foundation static checks and transaction invariants
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    # Baseline 068 takes 39 minutes; notification migration/fixtures add work to every DB run.
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -310,6 +311,7 @@ jobs:
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_orders_redesign.py kaspi
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 ORDERS_VIEWPORT=320x568 .local/design-venv/bin/python tests/mobile/browser_orders_redesign.py kaspi
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 TRACKER_MODE=kaspi .local/design-venv/bin/python tests/mobile/browser_tracker_redesign.py
+          CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_localization.py
       - name: Stop test infrastructure
         if: always()
         run: docker compose --env-file .env.example -f infra/local/compose.yaml down

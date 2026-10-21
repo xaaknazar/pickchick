@@ -1,3 +1,4 @@
+import { t, localize, useLocale } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -60,6 +61,7 @@ const art = [
   },
 ];
 export function AuthWelcome(props: ScreenProps) {
+  useLocale();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
@@ -112,13 +114,13 @@ export function AuthWelcome(props: ScreenProps) {
   return (
     <View testID="auth-welcome" style={s.page}>
       <View style={s.header}>
-        <CloseButton label="Закрыть вход" testID="auth-close" onPress={props.goBack} />
+        <CloseButton label={t('Закрыть вход')} testID="auth-close" onPress={props.goBack} />
         <Pressable
           accessibilityRole="button"
           onPress={() => props.navigate('M31')}
           style={s.support}
         >
-          <Text style={s.supportText}>Поддержка</Text>
+          <Text style={s.supportText}>{t('Поддержка')}</Text>
         </Pressable>
       </View>
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -187,12 +189,12 @@ export function AuthWelcome(props: ScreenProps) {
         </View>
         <View style={s.copy}>
           <Text accessibilityRole="header" style={s.title}>
-            Войдите в профиль
+            {t('Войдите в профиль')}
           </Text>
-          <Text style={s.subtitle}>{subtitle}</Text>
+          <Text style={s.subtitle}>{localize(subtitle)}</Text>
           <View style={s.cta}>
             <AuthButton
-              title="По номеру телефона"
+              title={t('По номеру телефона')}
               icon="phone-portrait-outline"
               testID="account-required-login"
               onPress={() =>
@@ -212,9 +214,11 @@ export function AuthWelcome(props: ScreenProps) {
             onPress={() => props.navigate('M33')}
             style={s.legalButton}
           >
-            <Text style={s.legal}>Правовые документы</Text>
+            <Text style={s.legal}>{t('Правовые документы')}</Text>
           </Pressable>
-          <Text style={s.version}>· Версия {Constants.expoConfig?.version ?? '0.1.0'}</Text>
+          <Text style={s.version}>
+            {t('· Версия {p0}', { p0: Constants.expoConfig?.version ?? '0.1.0' })}
+          </Text>
         </View>
       </ScrollView>
     </View>

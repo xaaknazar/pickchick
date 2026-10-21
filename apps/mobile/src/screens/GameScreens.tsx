@@ -1,3 +1,4 @@
+import { t, localize, useLocale } from '../i18n';
 import { ComboRewardCard } from '../components/ComboRewardCard';
 import { usePublishedContent } from '../backoffice/usePublishedContent';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -12,6 +13,7 @@ import { PickManCard } from '../games/pick-man/visuals';
 import { Body, Caption, Heading, Icon, Row, styles as ui, type IconName } from '../components/UI';
 
 export function Events(props: ScreenProps) {
+  useLocale();
   const published = usePublishedContent(props.model.branch?.id);
   const insets = useSafeAreaInsets();
   return (
@@ -27,9 +29,9 @@ export function Events(props: ScreenProps) {
           },
         ]}
       >
-        <Heading style={s.eventsTitle}>События</Heading>
+        <Heading style={s.eventsTitle}>{t('События')}</Heading>
         <Body muted style={s.eventsSubtitle}>
-          Афиша Pick Chick: игры, события и новые поводы заглянуть к нам.
+          {t('Афиша Pick Chick: игры, события и новые поводы заглянуть к нам.')}
         </Body>
 
         <View style={{ marginTop: 20 }}>
@@ -42,23 +44,25 @@ export function Events(props: ScreenProps) {
         </View>
 
         <Heading testID="events-games" style={s.eventSection}>
-          Игры
+          {t('Игры')}
         </Heading>
         <MagicSortCard />
         {FARM_ENABLED ? <PickFarmCard /> : null}
         {published.gameEnabled('pick-blocks') ? <PickBlocksCard /> : null}
         {published.gameEnabled('pick-man') ? <PickManCard /> : null}
-        <Heading style={s.eventSection}>Миссии</Heading>
+        <Heading style={s.eventSection}>{t('Миссии')}</Heading>
         <View style={s.missionCard}>
           <View style={s.missionIcon}>
             <Icon name="restaurant-outline" size={26} color={colors.accent} />
           </View>
           <View style={ui.flex}>
-            <Body style={s.upcomingTitle}>Найди свой любимый вкус</Body>
-            <Caption style={s.upcomingDetail}>Новые задания и вкусные открытия. Скоро.</Caption>
+            <Body style={s.upcomingTitle}>{t('Найди свой любимый вкус')}</Body>
+            <Caption style={s.upcomingDetail}>
+              {t('Новые задания и вкусные открытия. Скоро.')}
+            </Caption>
           </View>
         </View>
-        <Heading style={s.eventSection}>Скоро</Heading>
+        <Heading style={s.eventSection}>{t('Скоро')}</Heading>
         <View style={s.upcomingList}>
           {[
             ['gift-outline', 'События недели', 'Условия и награды готовятся'],
@@ -69,8 +73,8 @@ export function Events(props: ScreenProps) {
                 <Icon name={icon as IconName} size={22} color={colors.muted} />
               </View>
               <View style={ui.flex}>
-                <Body style={s.upcomingTitle}>{title}</Body>
-                <Caption style={s.upcomingDetail}>{detail}</Caption>
+                <Body style={s.upcomingTitle}>{localize(title)}</Body>
+                <Caption style={s.upcomingDetail}>{localize(detail)}</Caption>
               </View>
             </Row>
           ))}

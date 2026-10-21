@@ -1,3 +1,4 @@
+import { t, localize, useLocale } from '../i18n';
 import { useCallback, useRef, type ReactNode } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { View } from 'react-native';
@@ -15,6 +16,7 @@ export function AccountGate({
   destination: AccountDestination;
   children: ReactNode;
 }) {
+  useLocale();
   const account = useAccount();
   const router = useRouter();
   const prompted = useRef(false);
@@ -42,20 +44,24 @@ export function AccountGate({
       >
         {!account.ready ? (
           <>
-            <Loading title="Восстанавливаем аккаунт" />
+            <Loading title={t('Восстанавливаем аккаунт')} />
             <ProfileRestoreNotice restorationOnly />
           </>
         ) : (
           <>
-            <Heading>{game ? 'Войдите, чтобы играть' : 'Войдите, чтобы сделать заказ'}</Heading>
+            <Heading>
+              {localize(game ? 'Войдите, чтобы играть' : 'Войдите, чтобы сделать заказ')}
+            </Heading>
             <Body muted>
-              {game
-                ? 'Игры доступны после входа в аккаунт Pick Chick.'
-                : 'Войдите в свой аккаунт, чтобы продолжить. Ваша корзина сохранится.'}
+              {localize(
+                game
+                  ? 'Игры доступны после входа в аккаунт Pick Chick.'
+                  : 'Войдите в свой аккаунт, чтобы продолжить. Ваша корзина сохранится.',
+              )}
             </Body>
             <Button
               testID="account-required-reopen"
-              title="Войти в аккаунт"
+              title={t('Войти в аккаунт')}
               onPress={() =>
                 router.push({
                   pathname: '/auth',
@@ -66,7 +72,7 @@ export function AccountGate({
           </>
         )}
         <Button
-          title={game ? 'К событиям' : 'В меню'}
+          title={localize(game ? 'К событиям' : 'В меню')}
           secondary
           onPress={() => router.replace(game ? '/(tabs)/events' : '/(tabs)/menu')}
         />

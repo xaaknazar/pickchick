@@ -1,3 +1,4 @@
+import { t } from './i18n/core.ts';
 import { createCatalogRecovery } from './catalog-recovery.ts';
 import { watchRetryDelay } from './commerce-watch.ts';
 
@@ -71,6 +72,6 @@ export function checkoutReadError(
   if (code === 'NOT_READY') return 'Ресторан пока не готов принимать заказы. Корзина сохранена.';
   const recovery = retrying ? 'Проверяем связь автоматически.' : 'Повторите проверку.';
   return history
-    ? `Не удалось загрузить заказы. ${recovery}`
-    : `Не удалось загрузить оформление. Корзина сохранена. ${recovery}`;
+    ? t('Не удалось загрузить заказы. {p0}', { p0: recovery })
+    : t('Не удалось загрузить оформление. Корзина сохранена. {p0}', { p0: recovery });
 }

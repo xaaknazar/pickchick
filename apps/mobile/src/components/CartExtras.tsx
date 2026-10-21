@@ -1,3 +1,4 @@
+import { t, localize, useLocale } from '../i18n';
 import { UpcomingPayments, checkoutStyle } from './CheckoutPresentation';
 import { PaymentMark } from './PaymentChoice';
 import { useState } from 'react';
@@ -16,6 +17,7 @@ import { ProductPhoto, productPhoto } from './ProductPhoto';
 import { colors, font } from '../theme';
 
 export function CartRecommendations({ props }: { props: ScreenProps }) {
+  useLocale();
   const recommendations = cartRecommendations(props.model.cart, props.model.products);
   const [added, setAdded] = useState('');
   return (
@@ -35,7 +37,7 @@ export function CartRecommendations({ props }: { props: ScreenProps }) {
               },
             ]}
           >
-            Всегда кстати
+            {t('Всегда кстати')}
           </Heading>
           <ScrollView
             horizontal
@@ -51,25 +53,30 @@ export function CartRecommendations({ props }: { props: ScreenProps }) {
                   style={s.extraPhoto}
                   accessible={false}
                 />
-                <Body style={s.extraName}>{line.product.name}</Body>
+                <Body style={s.extraName}>{localize(line.product.name)}</Body>
                 <Caption numberOfLines={1} style={s.extraDetail}>
-                  {selectionDescription(line) || line.product.servingLabel}
+                  {localize(selectionDescription(line) || line.product.servingLabel)}
                 </Caption>
                 <View style={{ flex: 1 }} />
                 <MotionPressable
                   style={s.extraAdd}
                   accessibilityRole="button"
                   testID={`cart-recommend-${line.product.id}`}
-                  accessibilityLabel={`Добавить ${line.product.name}, ${money(lineUnitPrice(line))}`}
+                  accessibilityLabel={localize(
+                    t('Добавить {p0}, {p1}', {
+                      p0: t(line.product.name),
+                      p1: money(lineUnitPrice(line)),
+                    }),
+                  )}
                   onPress={() => {
                     setAdded(
                       props.model.appendCartLines([line])
-                        ? `${line.product.name} добавлен в корзину`
+                        ? t('{p0} добавлен в корзину', { p0: t(line.product.name) })
                         : 'Меню или корзина изменились. Попробуйте ещё раз.',
                     );
                   }}
                 >
-                  <Body style={s.extraPrice}>{money(lineUnitPrice(line))}</Body>
+                  <Body style={s.extraPrice}>{localize(money(lineUnitPrice(line)))}</Body>
                   <Icon name="add" size={19} color={colors.accent} />
                 </MotionPressable>
               </View>
@@ -79,7 +86,7 @@ export function CartRecommendations({ props }: { props: ScreenProps }) {
       ) : null}
       {added ? (
         <Caption accessibilityLiveRegion="polite" testID="cart-recommend-added">
-          {added}
+          {localize(added)}
         </Caption>
       ) : null}
     </View>
@@ -87,12 +94,13 @@ export function CartRecommendations({ props }: { props: ScreenProps }) {
 }
 
 export function CartOffers({ props }: { props: ScreenProps }) {
+  useLocale();
   const { content } = usePublishedContent(props.preview ? null : props.model.branch?.id);
   const [selected, setSelected] = useState<PublishedContent['promos'][number] | null>(null);
   return (
     <View style={{ gap: 14 }}>
       <Heading small style={orderUI.section}>
-        Акции
+        {t('Акции')}
       </Heading>
       <ComboRewardCard
         preview={props.preview}
@@ -111,14 +119,14 @@ export function CartOffers({ props }: { props: ScreenProps }) {
             <MotionPressable
               key={promo.id}
               accessibilityRole="button"
-              accessibilityLabel={`${promo.title.ru}, условия акции`}
+              accessibilityLabel={localize(t('{p0}, условия акции', { p0: t(promo.title.ru) }))}
               onPress={() => setSelected(promo)}
               style={s.promotion}
             >
               <Icon name="pricetag-outline" color={colors.accent} />
-              <Body style={{ fontFamily: font.bold }}>{promo.title.ru}</Body>
-              <Caption numberOfLines={3}>{promo.body.ru}</Caption>
-              <Body style={{ color: colors.accentText }}>Условия акции</Body>
+              <Body style={{ fontFamily: font.bold }}>{localize(promo.title.ru)}</Body>
+              <Caption numberOfLines={3}>{localize(promo.body.ru)}</Caption>
+              <Body style={{ color: colors.accentText }}>{t('Условия акции')}</Body>
             </MotionPressable>
           ))}
         </ScrollView>
@@ -130,6 +138,7 @@ export function CartOffers({ props }: { props: ScreenProps }) {
 
 /** No local discount or fictitious acceptance: redemption needs a server quote. */
 export function PromoCodeEntry() {
+  useLocale();
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState('');
   const [message, setMessage] = useState('');
@@ -138,7 +147,7 @@ export function PromoCodeEntry() {
       <Button
         secondary
         testID="cart-promo-open"
-        title={open ? 'Скрыть промокод' : 'Ввести промокод'}
+        title={localize(open ? 'Скрыть промокод' : 'Ввести промокод')}
         onPress={() => setOpen(!open)}
         style={{ borderRadius: 16 }}
         textStyle={orderUI.actionText}
@@ -146,18 +155,18 @@ export function PromoCodeEntry() {
       {open ? (
         <>
           <Caption style={orderUI.detail} nativeID="promo-label">
-            Промокод
+            {t('Промокод')}
           </Caption>
           <TextInput
             testID="cart-promo-input"
-            accessibilityLabel="Промокод"
+            accessibilityLabel={t('Промокод')}
             aria-labelledby="promo-label"
             value={code}
             onChangeText={(text) => {
               setCode(text.toUpperCase());
               setMessage('');
             }}
-            placeholder="Введите код"
+            placeholder={t('Введите код')}
             placeholderTextColor={colors.muted}
             autoCapitalize="characters"
             autoCorrect={false}
@@ -167,12 +176,12 @@ export function PromoCodeEntry() {
             onSubmitEditing={() => Keyboard.dismiss()}
           />
           <Caption style={orderUI.detail}>
-            Применение промокодов подключается. Скидка пока не учитывается в сумме заказа.
+            {t('Применение промокодов подключается. Скидка пока не учитывается в сумме заказа.')}
           </Caption>
           <Button
             secondary
             textStyle={orderUI.actionText}
-            title="Проверить промокод"
+            title={t('Проверить промокод')}
             testID="cart-promo-check"
             disabled={!code.trim()}
             onPress={() => {
@@ -186,7 +195,7 @@ export function PromoCodeEntry() {
               testID="cart-promo-result"
               accessibilityLiveRegion="polite"
             >
-              {message}
+              {localize(message)}
             </Caption>
           ) : null}
         </>
@@ -197,24 +206,25 @@ export function PromoCodeEntry() {
 
 /** Provider enrollment is still pending. No card details are collected. */
 export function CheckoutPayments() {
+  useLocale();
   return (
     <View style={{ gap: 10 }}>
       <View style={checkoutStyle.paymentPanel}>
         <View
           style={s.method}
           accessible
-          accessibilityLabel="Kaspi, подключается"
+          accessibilityLabel={t('Kaspi, подключается')}
           accessibilityState={{ disabled: true }}
         >
           <PaymentMark method="kaspi" size={36} />
           <View style={{ flex: 1 }}>
             <Body style={orderUI.label}>Kaspi.kz</Body>
-            <Caption>Подключается</Caption>
+            <Caption>{t('Подключается')}</Caption>
           </View>
         </View>
         <UpcomingPayments />
       </View>
-      <Caption style={orderUI.detail}>Оплата и чеки - в процессе подключения.</Caption>
+      <Caption style={orderUI.detail}>{t('Оплата и чеки - в процессе подключения.')}</Caption>
     </View>
   );
 }
