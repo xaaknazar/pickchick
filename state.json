@@ -6149,13 +6149,12 @@
         "infra/windows/update-runtime-1021.ps1",
         "tests/operations/windows-runtime-1021.test.mjs",
         "tests/operations/test_windows_runtime_1021.py",
-        "docs/operations/windows-runtime-2026-10-21.md",
         "tests/operations/windows-display-numbers.test.mjs",
         "@windows/cashier"
       ],
       "status": "active",
       "head": "0fb95c9f09031d93e38e3af2a0c4a1bcc81f591c",
-      "updatedAt": "2026-10-21T14:11:40.199Z",
+      "updatedAt": "2026-10-21T14:31:37.473Z",
       "summary": "PR270 обновлён shared27dd + тест5c07f4b1. Прежняя CI39608957981 упала только в QA S1: frozen clock раньше созданных попыток; отсчёт исправлен от max(created_at), проверки2/2 PASS. Новая полная CI39614210844. Backup020 восстановлена47таблиц. Новый архив5249e860 staged; установка не запускалась. @windows/cashier временно передан владельцем от photo-printer-recovery.",
       "nextAction": "Wait full exact CI and owner resource transfer; verified schema020 backup/restore; guarded inspect/apply; keep rewards/identity rotation off."
     },
@@ -6181,12 +6180,11 @@
       "branch": "codex/mobile-testflight21",
       "scopes": [
         "apps/mobile/app.json",
-        "docs/operations/mobile-testflight21.md",
         "@release/ios"
       ],
       "status": "active",
       "head": "410e5c74ea8d8d520a3a67a25cbcff57063db50e",
-      "updatedAt": "2026-10-21T14:29:56.153Z",
+      "updatedAt": "2026-10-21T14:31:37.469Z",
       "summary": "PR272 merge06e6a57d; CI39610138148 11/11. Подписанные archive/export/JS storefront проверены, upload0.2.0(21) успешен21.10 19:29Алматы. Apple показывает Обработка; доступность группе ещё не подтверждена. Серверный push OFF.",
       "nextAction": "Дождаться обработки Apple, добавить что тестировать и проверить существующую PickChick Internal; без внешних групп."
     },
@@ -6196,12 +6194,11 @@
       "branch": "codex/kitchen-package-1021",
       "scopes": [
         "infra/kitchen-portal/package.mjs",
-        "tests/kitchen-portal/package.test.mjs",
-        "docs/operations/kitchen-package-2026-10-21.md"
+        "tests/kitchen-portal/package.test.mjs"
       ],
       "status": "active",
       "head": "dc16d5efe5c00e4a3b6870db0293917e7fec8083",
-      "updatedAt": "2026-10-21T14:04:41.218Z",
+      "updatedAt": "2026-10-21T14:31:37.473Z",
       "summary": "PR273. Исправлен отсутствующий cloud.mjs в дистрибутиве. Изолированный packaged-startup 1/1, build PASS. Кандидат staged; старый портал восстановлен, ожидается полная CI."
     },
     {
@@ -6225,12 +6222,15 @@
         "docs/project-status.md",
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
-        "@vps/roadmap"
+        "@vps/roadmap",
+        "docs/operations/mobile-testflight21.md",
+        "docs/operations/windows-runtime-2026-10-21.md",
+        "docs/operations/kitchen-package-2026-10-21.md"
       ],
       "status": "active",
       "head": "1cde34c3d10c2f5c3d5c258c4cc23d4f343264b8",
-      "updatedAt": "2026-10-21T14:26:31.874Z",
-      "summary": "Запись проверенных фактов общего выпуска, без секретов и без подмены установки приёмкой. Получены три общих документа от своей задачи runtime."
+      "updatedAt": "2026-10-21T14:31:37.473Z",
+      "summary": "PR275: итоговые факты сервер/касса/iPhone; протоколы собственных задач переданы для единого завершения. Киоск и фотопринтер владелец отложил21.10. Чужие задачи сохранены."
     }
   ]
 }
