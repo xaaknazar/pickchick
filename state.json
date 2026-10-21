@@ -5139,7 +5139,6 @@
         "docs/operations/photo-printer-macos-recovery.md",
         "@mac/photo-printer",
         "tests/photo-printer/test_macos_recovery.py",
-        "@windows/cashier",
         "tools/photo-printer/windows",
         "tools/photo-printer/windows-usb.mjs",
         "tools/photo-printer/printer.mjs",
@@ -5151,8 +5150,8 @@
       ],
       "status": "active",
       "head": "4a4c9e7130910daa0b8798fd477168a31f03e042",
-      "updatedAt": "2026-10-21T07:38:28.249Z",
-      "summary": "PR260 /4a4c9e71: 41 local tests pass; photo CI pass, full CI pending. Real cashier at192.168.2.61 pinned SSH, 7 services healthy. USB helper compiled, installer syntax checked. Isolated Windows runtime renders ru/kk/en 576x718 without printing. Only staging prepared; service not installed. 21.10: владелец отдельно разрешил ручную ротацию действующего ключа кассы по edge-identity-rotation.md. Release-fixes временно использует только device identity и четыре транспортные службы; резерв photo-printer и его блокировки сохранены, принтер/кассовое приложение не изменяются. 21.10.2026 ручной ключ продлён: до20.11.2026 12:34:54 Алматы. Сверка до/после read-only, SHA host key совпал, identity ACL/file match,7служб running, edge ready, heartbeat12:37:37. Схема058 сохранена, runtime/кассовое приложение не обновлялись. Временный identity-доступ завершён, блокировка освобождена.",
+      "updatedAt": "2026-10-21T13:37:51.521Z",
+      "summary": "PR260 /4a4c9e71: 41 local tests pass; photo CI pass, full CI pending. Real cashier at192.168.2.61 pinned SSH, 7 services healthy. USB helper compiled, installer syntax checked. Isolated Windows runtime renders ru/kk/en 576x718 without printing. Only staging prepared; service not installed. 21.10: владелец отдельно разрешил ручную ротацию действующего ключа кассы по edge-identity-rotation.md. Release-fixes временно использует только device identity и четыре транспортные службы; резерв photo-printer и его блокировки сохранены, принтер/кассовое приложение не изменяются. 21.10.2026 ручной ключ продлён: до20.11.2026 12:34:54 Алматы. Сверка до/после read-only, SHA host key совпал, identity ACL/file match,7служб running, edge ready, heartbeat12:37:37. Схема058 сохранена, runtime/кассовое приложение не обновлялись. Временный identity-доступ завершён, блокировка освобождена. 21.10 owner explicitly transferred only @windows/cashier temporarily to windows-runtime-1021 for runtime release; printer task/files preserved; return after verification.",
       "nextAction": "Await physical USB move to cashier. Then exact hardware identity, full CI, TLS, metadata backup and disabled dedicated service install, short paper test, iPad pairing/reconnect acceptance. Mac manual bridge remains fallback. No LaunchAgent. No unknown replay. Private continuation in .local/photo-windows."
     },
     {
@@ -6155,12 +6154,13 @@
         "tests/operations/windows-runtime-1021.test.mjs",
         "tests/operations/test_windows_runtime_1021.py",
         "docs/operations/windows-runtime-2026-10-21.md",
-        "tests/operations/windows-display-numbers.test.mjs"
+        "tests/operations/windows-display-numbers.test.mjs",
+        "@windows/cashier"
       ],
       "status": "active",
       "head": "00cc393d80f184698769559af550471f2c717cdf",
-      "updatedAt": "2026-10-21T13:35:12.955Z",
-      "summary": "PR270: guarded020->023 + four native runtimes, no install. Build/lint, PostgreSQL2/2, Windows mock26/26 and four real XML read-only checks pass; immutable ZIP534f1f10. Full CI pending. @windows/cashier remains photo-printer-recovery; owner asked temporary handoff, no forced release.",
+      "updatedAt": "2026-10-21T13:37:51.524Z",
+      "summary": "PR270: guarded020->023 + four native runtimes, no install. Build/lint, PostgreSQL2/2, Windows mock26/26 and four real XML read-only checks pass; immutable ZIP534f1f10. Full CI pending. @windows/cashier remains photo-printer-recovery; owner asked temporary handoff, no forced release. Owner approved temporary cashier reservation21.10; return to photo-printer-recovery after verified release.",
       "nextAction": "Wait full exact CI and owner resource transfer; verified schema020 backup/restore; guarded inspect/apply; keep rewards/identity rotation off."
     },
     {
