@@ -6208,10 +6208,11 @@
       "scopes": [
         "packages/commerce-core/tests/kaspi-remote.postgres.test.mjs"
       ],
-      "status": "active",
+      "status": "done",
       "head": "5c07f4b1401781a9a8bae83f0500ff2766f70602",
-      "updatedAt": "2026-10-21T14:11:40.199Z",
-      "summary": "Детерминированный TTL теста очереди, 2/2 локально, published5c07f4b1. Включён в PR270 через merge, рабочая логика не меняется."
+      "updatedAt": "2026-10-21T17:05:01.689Z",
+      "summary": "Детерминированный тест TTL от фактического max(created_at), без ослабления проверок; 2/2 локально. Включён обычным merge в0fb95c9f, Foundation39614210844 11/11. PR274 автоматически отмечен merged после PR270 merge29ccd86a.",
+      "nextAction": "Рабочая банковская логика не менялась; использовать общий shared."
     },
     {
       "id": "release-results-1021",
