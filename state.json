@@ -6133,11 +6133,14 @@
         "packages/commerce-core/src/kiosk-kaspi-qr.ts",
         "packages/commerce-core/tests/kiosk-kaspi-qr.postgres.test.mjs",
         "tests/unit/kiosk-qr-bank-proof.test.mjs",
-        "docs/operations/kiosk-qr-bank-proof-2026-10-21.md"
+        "docs/operations/kiosk-qr-bank-proof-2026-10-21.md",
+        "infra/staging/release-kiosk-qr-worker.py",
+        "tests/operations/test_kiosk_qr_worker_release.py",
+        "@vps/kaspi"
       ],
       "status": "active",
       "head": "dba1c00404624fd27f506daf29274f0fe317782b",
-      "updatedAt": "2026-10-21T13:06:00.947Z"
+      "updatedAt": "2026-10-21T13:08:19.882Z"
     }
   ]
 }
