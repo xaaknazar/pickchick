@@ -6069,6 +6069,23 @@
       "updatedAt": "2026-10-21T08:52:45.558Z",
       "summary": "PR #264 https://github.com/xaaknazar/pickchick/pull/264; SHA 068dac41d157fa7ce15542d920004d2d7504491d опубликован, рабочее дерево чистое. Shared d15bde82 объединён с сохранением release-fixes. Foundation CI 39569126914 полностью зелёная 11/11: https://github.com/xaaknazar/pickchick/actions/runs/39569126914. 1399 строк RU/KK/EN и 4 события push, миграция 069 только подготовлена. Проверены mobile 392 Node + 59 Python, root 333, PostgreSQL 7/7, браузерная оплата/подарки/игры/локализация. Разрешённое продление ключа кассы завершено отдельно; других выпусков нет. Итоги и ограничения записаны в PR и документах.",
       "nextAction": "Ждать отдельного решения владельца на обычный merge PR #264. Резервы сохраняются до слияния. Нативная проверка push на iPhone, приёмка переводов и применение 069 - отдельные этапы. Не выпускать 204d318b до приёмки финансового Mac; не включать CUSTOMER_COMBO_REWARDS_ENABLED до нового FulfillmentWorker. Сервер, кассу, iPad, Apple и онлайн-пульт без отдельного разрешения не обновлять."
+    },
+    {
+      "id": "cloud-migrations-1021",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cloud-migrations-1021",
+      "scopes": [
+        "infra/staging/combo-rewards-owner.mjs",
+        "infra/staging/release-cloud-migrations-1021.py",
+        "tests/integration/combo-rewards-owner.test.mjs",
+        "tests/operations/test_cloud_migrations_1021.py",
+        "docs/operations/deployments/2026-10-21-cloud-migrations.md",
+        "@vps/api",
+        "@vps/postgres"
+      ],
+      "status": "active",
+      "head": "d15bde82a87a85f1f5c4004c7c3be3c76d0977a2",
+      "updatedAt": "2026-10-21T09:17:48.196Z"
     }
   ]
 }
