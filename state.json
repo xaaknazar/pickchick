@@ -6041,10 +6041,8 @@
         "apps/mobile/src/screens/GameScreens.tsx",
         "packages/contracts/openapi.json",
         "docs/01-technical-spec.md",
-        "docs/project-status.md",
         "apps/mobile/src/components/CartExtras.tsx",
         "apps/mobile/src/screens/KaspiCheckoutScreen.tsx",
-        "docs/roadmap/project.json",
         "apps/mobile/src/components/ComboRewardCard.tsx",
         "scripts/contracts.mjs",
         "apps/mobile/src/screens/ProfileScreen.tsx",
@@ -6060,14 +6058,12 @@
         "tests/mobile/test_browser_network.py",
         "tests/integration/release-fixes-owner.test.mjs",
         "db/cloud/migrations/069_cloud_customer_notifications.sql",
-        "docs/collaboration/handoff.md",
-        "docs/operations/release-fixes-2026-10-19/key-renewal-2026-10-21.md",
-        "docs/operations/release-fixes-2026-10-19/first-migration-step.md"
+        "docs/operations/release-fixes-2026-10-19/key-renewal-2026-10-21.md"
       ],
       "status": "available",
       "head": "068dac41d157fa7ce15542d920004d2d7504491d",
-      "updatedAt": "2026-10-21T08:52:45.558Z",
-      "summary": "PR #264 https://github.com/xaaknazar/pickchick/pull/264; SHA 068dac41d157fa7ce15542d920004d2d7504491d опубликован, рабочее дерево чистое. Shared d15bde82 объединён с сохранением release-fixes. Foundation CI 39569126914 полностью зелёная 11/11: https://github.com/xaaknazar/pickchick/actions/runs/39569126914. 1399 строк RU/KK/EN и 4 события push, миграция 069 только подготовлена. Проверены mobile 392 Node + 59 Python, root 333, PostgreSQL 7/7, браузерная оплата/подарки/игры/локализация. Разрешённое продление ключа кассы завершено отдельно; других выпусков нет. Итоги и ограничения записаны в PR и документах.",
+      "updatedAt": "2026-10-21T10:07:07.953Z",
+      "summary": "PR #264 https://github.com/xaaknazar/pickchick/pull/264; SHA 068dac41d157fa7ce15542d920004d2d7504491d опубликован, рабочее дерево чистое. Shared d15bde82 объединён с сохранением release-fixes. Foundation CI 39569126914 полностью зелёная 11/11: https://github.com/xaaknazar/pickchick/actions/runs/39569126914. 1399 строк RU/KK/EN и 4 события push, миграция 069 только подготовлена. Проверены mobile 392 Node + 59 Python, root 333, PostgreSQL 7/7, браузерная оплата/подарки/игры/локализация. Разрешённое продление ключа кассы завершено отдельно; других выпусков нет. Итоги и ограничения записаны в PR и документах. 21.10: четыре собственных общих документа переданы cloud-migrations-1021 для протокола отдельно разрешённых миграций; код/резервы переводов сохранены.",
       "nextAction": "Ждать отдельного решения владельца на обычный merge PR #264. Резервы сохраняются до слияния. Нативная проверка push на iPhone, приёмка переводов и применение 069 - отдельные этапы. Не выпускать 204d318b до приёмки финансового Mac; не включать CUSTOMER_COMBO_REWARDS_ENABLED до нового FulfillmentWorker. Сервер, кассу, iPad, Apple и онлайн-пульт без отдельного разрешения не обновлять."
     },
     {
@@ -6081,11 +6077,16 @@
         "tests/operations/test_cloud_migrations_1021.py",
         "docs/operations/deployments/2026-10-21-cloud-migrations.md",
         "@vps/api",
-        "@vps/postgres"
+        "@vps/postgres",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "docs/operations/release-fixes-2026-10-19/first-migration-step.md"
       ],
       "status": "active",
       "head": "8b6099d34707e0ce506f7c21cdab0b51305dd59f",
-      "updatedAt": "2026-10-21T09:35:55.957Z"
+      "updatedAt": "2026-10-21T10:07:07.956Z",
+      "summary": "Владелец разрешил первый этап выпуска. Схема060/064/066/068 применена из8b6099d3 после Foundation39577902492 11/11 и encrypted backup/isolated restore/rehearsal. Данные/runtime/flags сохранены; готовится протокол. Собственные общие документы согласованно переданы из available l10n; чужие задачи не изменены."
     }
   ]
 }
