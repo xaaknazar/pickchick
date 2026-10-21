@@ -287,10 +287,11 @@ edge 024. Номер 059 занят неслитой веткой push (`059_clo
 9. **Касса Windows** (ночное окно, службы остановлены, свежая проверенная копия базы):
    `infra/windows/display-numbers-upgrade-db.mjs inspect`, затем `apply` (edge 021 -> 022); новый
    edge runtime и FulfillmentWorker (права `edge-runtime-grants`, `fulfillmentWorkerGrants`);
-   новый POS (6.1, 6.2, `pinLength`). Edge 023: охраняемого инструмента обновления 022 -> 023 пока
-   нет (написать по образцу `display-numbers-upgrade-db.mjs`; 023 добавляет столбец в
-   `menu_sync_state`, снимок данных должен это учитывать); новый edge на 022 работает, fence
-   отвечает `unsupported`. Ключ кассы: проверить срок сейчас, продлить вручную по
+   новый POS (6.1, 6.2, `pinLength`). Edge 023: `infra/windows/restore-fence-upgrade-db.mjs
+inspect`, затем `apply` (022 -> 023, после 022, те же условия; снимок данных берёт столбцы до
+   023, проверяет, что записана только эпоха `initial`, и выдаёт EXECUTE на `edge_restore_fence`
+   ролям runtime и FulfillmentWorker; тест `tests/integration/windows-restore-fence.test.mjs`,
+   на кассе не запускался); новый edge на 022 работает, fence отвечает `unsupported`. Ключ кассы: проверить срок сейчас, продлить вручную по
    [edge-identity-rotation.md](../edge-identity-rotation.md); автопродление - флагами (облако,
    потом касса). Откат: прежний релиз edge работает на 022; перед откатом вернуть 4-значные PIN;
    старый POS не запускается с ключом `pinLength`. До этого шага не включать
@@ -306,7 +307,7 @@ kiosk-production --kiosk-photo-url https://<фотопринтер>:13440`. От
 ## Открыто после интеграции
 
 - Стоп комбо на самой кассе (выше).
-- Охраняемый owner-скрипт облачных миграций (шаг 1) написан 21.10, не запускался; инструмент edge 023 (шаг 9).
+- Охраняемый owner-скрипт облачных миграций (шаг 1) и инструмент edge 023 (шаг 9) написаны 21.10, не запускались.
 - `infra/windows/backup-native-service.mjs` знает проверенные схемы только до schema020;
   автоматической копии кассы по расписанию нет (6.4, владелец).
 - Electron-приёмка POS (`tests/pos-desktop/browser.test.mjs`) в контейнере не запускается:
