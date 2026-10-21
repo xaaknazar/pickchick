@@ -410,12 +410,17 @@ test('durable missing-routing rejection retains event; approved routing repair c
     await f.pool.query('UPDATE branch_config SET ordering_enabled=false WHERE id=$1', [
       f.scope.branchId,
     ]);
-    assert.equal((await f.tick()).error, 'LOCAL_NOT_READY');
-    assert.ok((await pending(f)).pending_cloud);
+    // Closed ordering refuses this one command; it is deferred, never kept as a branch-wide
+    // pending command (release fixes 19.10, audit 1.0), and stays durable in the cloud.
+    const refused = await f.tick();
+    assert.equal(refused.error, 'LOCAL_NOT_READY');
+    assert.equal(refused.state, 'deferred');
+    assert.equal((await pending(f)).pending_cloud, null);
     assert.equal(await f.counts(f.pool, 'fulfillment_reservations'), '0');
     await f.pool.query('UPDATE branch_config SET ordering_enabled=true WHERE id=$1', [
       f.scope.branchId,
     ]);
+    await expireCloud(f);
     assert.equal((await f.tick()).state, 'applied');
     assert.equal(await f.counts(f.pool, 'fulfillment_reservations'), '1');
   }));

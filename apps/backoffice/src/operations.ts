@@ -5,6 +5,7 @@ import {
   OperationsModel,
   StopsModel,
   object,
+  refundActions,
   type Data,
   type Entry,
   type StopDuration,
@@ -100,6 +101,11 @@ const labels: Record<string, string> = {
   repeat: 'Повторные гости',
   inactive_30d: 'Без заказов 30 дней',
   operator_recorded: 'Записано оператором',
+  PAID_AFTER_RESTAURANT_CANCEL: 'Оплачен после отмены рестораном, нужен возврат',
+  CAPTURE_EXCEEDS_INTENT: 'Оплачено больше суммы заказа',
+  REFUND_EXPOSURE_EXCEEDS_CAPTURE: 'Возвраты больше оплаты',
+  CAPTURE_WITH_ANOTHER_PENDING_ATTEMPT: 'Оплата при другой незавершённой попытке',
+  COMBO_REWARD_RECONCILIATION_REQUIRED: 'Нужна сверка подарка 7 + 1',
   g: 'г',
   ml: 'мл',
   pcs: 'шт',
@@ -122,6 +128,9 @@ const amount = (v: unknown) => {
     a = n < 0n ? -n : n;
   return `${n < 0n ? '-' : ''}${(a / 100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}${a % 100n ? ',' + (a % 100n).toString().padStart(2, '0') : ''} ₸`;
 };
+/** Kaspi operation of a recorded refund; manual registrations are stored as manual:<ref>. */
+const bankReference = (v: unknown) =>
+  typeof v === 'string' && v ? v.replace(/(^|, )manual:/g, '$1') : '-';
 function badge(value: unknown) {
   const n = el('span', 'op-badge', status(value));
   if (['unknown', 'failed', 'attention_required', 'revoked'].includes(String(value)))
@@ -1267,13 +1276,32 @@ export class OperationsView {
       ] as const)
         d.append(
           el('h3', '', title),
+          key === 'refunds'
+            ? table(
+                ['Операция', 'Сумма', 'Статус', 'Операция Kaspi'],
+                (data[key] as Data[]).map((r) => [
+                  String(r['id']).slice(0, 8),
+                  amount(r['amount_minor']),
+                  badge(r['state'] ?? 'succeeded'),
+                  bankReference(r['bank_reference']),
+                ]),
+              )
+            : table(
+                ['Операция', 'Сумма', 'Статус'],
+                (data[key] as Data[]).map((r) => [
+                  String(r['id']).slice(0, 8),
+                  amount(r['amount_minor']),
+                  badge(r['state'] ?? 'succeeded'),
+                ]),
+              ),
+        );
+      const issues = Array.isArray(data['issues']) ? (data['issues'] as Data[]) : [];
+      if (issues.length)
+        d.append(
+          el('h3', '', 'Сигналы сверки'),
           table(
-            ['Операция', 'Сумма', 'Статус'],
-            (data[key] as Data[]).map((r) => [
-              String(r['id']).slice(0, 8),
-              amount(r['amount_minor']),
-              badge(r['state'] ?? 'succeeded'),
-            ]),
+            ['Сигнал', 'Получен'],
+            issues.map((r) => [status(r['code']), date(r['created_at'])]),
           ),
         );
       d.append(
@@ -1307,101 +1335,184 @@ export class OperationsView {
             ),
           ),
         );
-        for (const capture of data['captures'] as Data[])
+        const captures = data['captures'] as Data[];
+        const refunds = data['refunds'] as Data[];
+        const { adapter, manual } = refundActions(data);
+        for (const capture of captures) {
+          const short = String(capture['id']).slice(0, 8);
+          if (adapter)
+            d.append(
+              button('Запросить возврат по оплате ' + short, () =>
+                this.refundDialog(id, o, capture, 'adapter'),
+              ),
+            );
+          else if (manual)
+            d.append(
+              button('Зарегистрировать ручной возврат по оплате ' + short, () =>
+                this.refundDialog(id, o, capture, 'manual'),
+              ),
+            );
+        }
+        if (captures.length && !adapter)
           d.append(
-            button('Запросить возврат по оплате ' + String(capture['id']).slice(0, 8), () => {
-              const refund = dialog(
-                'Возврат денег',
-                'Запрос уйдёт платёжному адаптеру. Результат будет показан после подтверждения; склад автоматически не восстанавливается.',
-              );
-              let value = '';
-              const returned = new Map<string, number>();
-              const snapshot = o['snapshot'] as Data | undefined;
-              const lines = Array.isArray(snapshot?.['lines']) ? (snapshot['lines'] as Data[]) : [];
-              const gift = snapshot?.['comboGift'] as Data | undefined;
-              refund.append(
-                note(
-                  'При возврате конкретных позиций укажите количество ниже. Отметки за комбо снимутся после подтверждения банка. Сумма рассчитывается по выбранным позициям.',
-                ),
-              );
-              const itemTotal = note('Позиции для возврата не выбраны.');
-              const updateTotal = () => {
-                const total = lines.reduce(
-                  (sum, line) =>
-                    sum +
-                    BigInt(String(line['unitPriceMinor'])) *
-                      BigInt(Math.max(0, returned.get(String(line['lineId'])) ?? 0)),
-                  0n,
-                );
-                itemTotal.textContent =
-                  total > 0n
-                    ? 'Возврат выбранных позиций: ' +
-                      (Number(total) / 100).toLocaleString('ru-RU') +
-                      ' ₸. Ручная сумма ниже не применяется.'
-                    : 'Позиции для возврата не выбраны.';
-              };
-              for (const line of lines) {
-                const lineId = String(line['lineId']);
-                const max = Number(line['quantity']) - (gift?.['lineId'] === lineId ? 1 : 0);
-                if (max > 0)
-                  refund.append(
-                    field(String(line['title']) + ' - вернуть, шт. (0-' + max + ')', '0', (v) => {
-                      const n = Number(v);
-                      returned.set(lineId, Number.isInteger(n) && n >= 0 ? n : -1);
-                      updateTotal();
-                    }),
-                  );
-              }
-              refund.append(itemTotal);
-              refund.append(
-                field('Сумма, ₸ (если позиции не выбраны)', value, (v) => {
-                  value = v;
-                }),
-              );
-              this.footer(
-                refund,
-                () => {
-                  const selected = [...returned]
-                    .filter(([, quantity]) => quantity !== 0)
-                    .map(([line_id, quantity]) => ({ line_id, quantity }));
-                  const itemAmount = selected.reduce(
-                    (sum, item) =>
-                      sum +
-                      BigInt(
-                        String(
-                          lines.find((line) => line['lineId'] === item.line_id)?.[
-                            'unitPriceMinor'
-                          ] ?? '0',
-                        ),
-                      ) *
-                        BigInt(item.quantity),
-                    0n,
-                  );
-                  const parts = value.replace(',', '.').match(/^(\d+)(?:\.(\d{1,2}))?$/);
-                  return {
-                    type: 'refund',
-                    id,
-                    capture_id: capture['id'],
-                    ...(selected.length ? { items: selected } : {}),
-                    amount_minor: selected.length
-                      ? itemAmount.toString()
-                      : parts
-                        ? (
-                            BigInt(parts[1]!) * 100n +
-                            BigInt((parts[2] ?? '').padEnd(2, '0'))
-                          ).toString()
-                        : value,
-                  };
-                },
-                'Запросить возврат',
-              );
-            }),
+            note(
+              manual
+                ? 'Возврат Kaspi делается вручную в Kaspi Pay. Сначала верните деньги гостю там, затем зарегистрируйте возврат здесь с номером операции Kaspi.'
+                : 'Возврат Kaspi делается вручную в Kaspi Pay. Регистрация ручного возврата в кабинете пока не включена: сообщите владельцу.',
+            ),
           );
+        for (const r of refunds.filter((v) =>
+          ['pending', 'unknown'].includes(String(v['state'])),
+        )) {
+          if (adapter || !manual) continue;
+          const short = String(r['id']).slice(0, 8);
+          d.append(
+            button('Подтвердить ручной возврат по запросу ' + short, () =>
+              this.refundDialog(id, o, { id: r['capture_id'] }, 'manual', r),
+            ),
+          );
+          if (r['state'] === 'pending')
+            d.append(
+              button('Отозвать запрос возврата ' + short, () =>
+                this.confirm(
+                  'Отозвать запрос возврата',
+                  'Подтвердите, что деньги гостю не возвращались. Запрос закроется без возврата, резерв суммы и отметок снимется.',
+                  { type: 'withdraw_refund', id, refund_id: r['id'] },
+                ),
+              ),
+            );
+        }
       }
     } catch (e) {
       const d = dialog('Не удалось открыть заказ', '');
       d.append(note(message(e)));
     }
+  }
+  /**
+   * Refund of one confirmed payment. 'adapter' sends a request to a bank refund adapter (only when
+   * the server reports one); 'manual' records a refund staff already made in Kaspi Pay, optionally
+   * settling an old pending request with its exact amount.
+   */
+  private refundDialog(
+    id: string,
+    o: Data,
+    capture: Data,
+    mode: 'adapter' | 'manual',
+    request?: Data,
+  ) {
+    const refund = dialog(
+      mode === 'manual' ? 'Ручной возврат Kaspi' : 'Возврат денег',
+      mode === 'manual'
+        ? 'Фиксирует возврат, уже сделанный в Kaspi Pay: сумма, номер операции Kaspi и причина. Деньги отсюда не отправляются. Склад автоматически не восстанавливается.'
+        : 'Запрос уйдёт платёжному адаптеру. Результат будет показан после подтверждения; склад автоматически не восстанавливается.',
+    );
+    let value = '';
+    let reference = '';
+    const returned = new Map<string, number>();
+    const snapshot = o['snapshot'] as Data | undefined;
+    const lines = Array.isArray(snapshot?.['lines']) ? (snapshot['lines'] as Data[]) : [];
+    const gift = snapshot?.['comboGift'] as Data | undefined;
+    if (request)
+      refund.append(
+        note(
+          'Подтверждение запроса ' +
+            String(request['id']).slice(0, 8) +
+            ' на ' +
+            amount(request['amount_minor']) +
+            '. Сумма и позиции берутся из запроса.',
+        ),
+      );
+    else {
+      refund.append(
+        note(
+          mode === 'manual'
+            ? 'При возврате конкретных позиций укажите количество ниже. Отметки за комбо снимутся сразу после регистрации. Сумма рассчитывается по выбранным позициям.'
+            : 'При возврате конкретных позиций укажите количество ниже. Отметки за комбо снимутся после подтверждения банка. Сумма рассчитывается по выбранным позициям.',
+        ),
+      );
+      const itemTotal = note('Позиции для возврата не выбраны.');
+      const updateTotal = () => {
+        const total = lines.reduce(
+          (sum, line) =>
+            sum +
+            BigInt(String(line['unitPriceMinor'])) *
+              BigInt(Math.max(0, returned.get(String(line['lineId'])) ?? 0)),
+          0n,
+        );
+        itemTotal.textContent =
+          total > 0n
+            ? 'Возврат выбранных позиций: ' +
+              (Number(total) / 100).toLocaleString('ru-RU') +
+              ' ₸. Ручная сумма ниже не применяется.'
+            : 'Позиции для возврата не выбраны.';
+      };
+      for (const line of lines) {
+        const lineId = String(line['lineId']);
+        const max = Number(line['quantity']) - (gift?.['lineId'] === lineId ? 1 : 0);
+        if (max > 0)
+          refund.append(
+            field(String(line['title']) + ' - вернуть, шт. (0-' + max + ')', '0', (v) => {
+              const n = Number(v);
+              returned.set(lineId, Number.isInteger(n) && n >= 0 ? n : -1);
+              updateTotal();
+            }),
+          );
+      }
+      refund.append(itemTotal);
+      refund.append(
+        field('Сумма, ₸ (если позиции не выбраны)', value, (v) => {
+          value = v;
+        }),
+      );
+    }
+    if (mode === 'manual')
+      refund.append(
+        field(
+          'Номер операции возврата в Kaspi Pay',
+          reference,
+          (v) => {
+            reference = v;
+          },
+          { required: true, max: 120 },
+        ),
+      );
+    this.footer(
+      refund,
+      () => {
+        const selected = [...returned]
+          .filter(([, quantity]) => quantity !== 0)
+          .map(([line_id, quantity]) => ({ line_id, quantity }));
+        const itemAmount = selected.reduce(
+          (sum, item) =>
+            sum +
+            BigInt(
+              String(
+                lines.find((line) => line['lineId'] === item.line_id)?.['unitPriceMinor'] ?? '0',
+              ),
+            ) *
+              BigInt(item.quantity),
+          0n,
+        );
+        const parts = value.replace(',', '.').match(/^(\d+)(?:\.(\d{1,2}))?$/);
+        const amountMinor = request
+          ? String(request['amount_minor'])
+          : selected.length
+            ? itemAmount.toString()
+            : parts
+              ? (BigInt(parts[1]!) * 100n + BigInt((parts[2] ?? '').padEnd(2, '0'))).toString()
+              : value;
+        return {
+          type: mode === 'manual' ? 'manual_refund' : 'refund',
+          id,
+          capture_id: capture['id'],
+          ...(selected.length && !request ? { items: selected } : {}),
+          amount_minor: amountMinor,
+          ...(mode === 'manual' ? { bank_reference: reference.trim() } : {}),
+          ...(request ? { refund_id: request['id'] } : {}),
+        };
+      },
+      mode === 'manual' ? 'Зарегистрировать возврат' : 'Запросить возврат',
+    );
   }
   render(page: string, content: HTMLElement) {
     const m = this.model,

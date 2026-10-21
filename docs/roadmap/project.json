@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-14",
+  "updatedAt": "2026-10-20",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -699,8 +699,8 @@
       "id": "platform-backup",
       "workstream": "platform",
       "title": "Восстановить тестовые резервные копии",
-      "summary": "Для staging и кассового foundation выполнены отдельные проверки восстановления. Это ещё не полная приёмка эксплуатации ресторана.",
-      "status": "done",
+      "summary": "Для staging и кассового foundation выполнены отдельные проверки восстановления. На VPS действует только ежедневный локальный зашифрованный дамп на том же сервере. Внешняя зашифрованная копия, PITR и учения восстановления реализованы и проверены локально 20.10 (аудит 5.2/7.4), не установлены.",
+      "status": "active",
       "owner": "development",
       "phase": "foundation",
       "dependsOn": ["platform-foundation"],
@@ -712,12 +712,16 @@
         {
           "label": "Подтверждённое состояние проекта",
           "path": "docs/project-status.md"
+        },
+        {
+          "label": "Внешняя копия, PITR и учения",
+          "path": "docs/operations/backup-offsite.md"
         }
       ],
       "acceptance": [
         "В протоколах зафиксированы версии и фактическое восстановление тестовых данных."
       ],
-      "nextAction": "Повторить drill для итогового cloud/edge релиза с измерением RPO/RTO.",
+      "nextAction": "Владельцу выбрать независимое S3-совместимое хранилище; включить внешнюю копию и провести учение восстановления с измерением RPO/RTO; PITR - отдельным решением.",
       "checks": {
         "implemented": true,
         "verified": true,
@@ -795,8 +799,8 @@
       "id": "platform-monitoring",
       "workstream": "platform",
       "title": "Наблюдаемость и ежедневная эксплуатация",
-      "summary": "Нужны оповещения по заказам, unknown-операциям, outbox, дискам, backup и свежести служебных заданий; роли on-call ещё не приняты.",
-      "status": "planned",
+      "summary": "Read-only watchdog на VPS (systemd timer, роль pickchick_watchdog, Telegram или shadow mode) реализован и проверен локально 20.10 в выпуске исправлений аудита 19.10: Kaspi-сессия и очереди оплат, передача на кухню, заказы на разборе, коды входа клиентов, gateway, пульс и ключ кассы, копии, PITR, диск. На VPS не установлен; роли on-call не приняты.",
+      "status": "active",
       "owner": "joint",
       "phase": "acceptance",
       "dependsOn": ["platform-pilot-deploy"],
@@ -812,16 +816,24 @@
         {
           "label": "Roadmap и сценарии AC-01-41",
           "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Watchdog: проверки, права, включение",
+          "path": "docs/operations/ops-watchdog.md"
+        },
+        {
+          "label": "Исправления аудита 19.10: сводка и план выпуска",
+          "path": "docs/operations/release-fixes-2026-10-19/README.md"
         }
       ],
       "acceptance": [
         "Контрольная неисправность создаёт понятный сигнал ответственному.",
         "Задокументированы SLO, секреты, ротация, восстановление и порядок эскалации."
       ],
-      "nextAction": "Подключить метрики и проверить оповещения на выделенном стенде.",
+      "nextAction": "Установить по ops-watchdog.md после выпуска API: роль, сутки shadow mode, затем Telegram-бот владельца; проверить контрольную неисправность.",
       "checks": {
-        "implemented": false,
-        "verified": false,
+        "implemented": true,
+        "verified": true,
         "deployed": false,
         "accepted": false
       }
@@ -1168,6 +1180,10 @@
         {
           "label": "Комментарий клиента при оформлении",
           "path": "docs/operations/checkout-order-comment.md"
+        },
+        {
+          "label": "Все подтверждённые клиенты: установленный выпуск",
+          "path": "docs/operations/kaspi-live-activation.md"
         }
       ],
       "acceptance": [
@@ -1178,7 +1194,7 @@
       "checks": {
         "implemented": true,
         "verified": false,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     },
@@ -4737,6 +4753,42 @@
         "Физический iPhone и кухня принимают бесплатный заказ после согласованного серверного выпуска."
       ],
       "nextAction": "Отдельный согласованный выпуск из исходника с полной зелёной CI: зафиксировать время фактического запуска (прошлые покупки исключены по решению владельца), подготовить cloud060/API/edge/iOS с действующими резервами. Проверить допустимый фискальный режим подарочного заказа, совместить новые тексты с переводами/push, выполнить физическую приёмку. Доказательства CI и публикации только статуса в пульте - в PR #251; акция ещё не включена.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "release-fixes-1019",
+      "workstream": "launch",
+      "title": "Исправления аудита запуска 19.10",
+      "summary": "59 находок аудита 19.10 разобраны семью полосами и собраны в ветку codex/release-fixes-1019: платежи Kaspi, допуск на кухню и номера, касса и ключ кассы, вход и безопасность, киоск, приложение, мониторинг и копии. Реализовано и проверено локально 20.10 на свежей базе; не установлено на VPS, кассу, iPad и в App Store; приёмка владельцем не проводилась.",
+      "status": "active",
+      "owner": "joint",
+      "phase": "acceptance",
+      "dependsOn": ["platform-monitoring", "platform-backup"],
+      "evidence": [
+        {
+          "label": "Сводка, таблица находок и план выпуска",
+          "path": "docs/operations/release-fixes-2026-10-19/README.md"
+        },
+        {
+          "label": "Действия владельца",
+          "path": "docs/operations/release-fixes-2026-10-19/owner-actions.md"
+        },
+        {
+          "label": "Передача и проверки",
+          "path": "docs/collaboration/handoff.md"
+        }
+      ],
+      "acceptance": [
+        "Полная CI точного SHA ветки зелёная; PR рассмотрен.",
+        "Охраняемые выпуски по плану README выполнены, каждый с проверкой и откатом.",
+        "Владелец принял решения из owner-actions.md и проверил сценарии аудита на точке."
+      ],
+      "nextAction": "Push и PR с Mac, полная CI, затем охраняемые выпуски по плану README; решения владельца - owner-actions.md.",
       "checks": {
         "implemented": true,
         "verified": true,

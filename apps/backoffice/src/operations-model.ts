@@ -50,6 +50,17 @@ type Pending = {
   request: { request_id: string; reason: string; command: Data };
 };
 const KEY = 'pickchick.backoffice.operations.v1';
+/**
+ * Refund actions of a cloud order card. Without a bank refund adapter the old "request refund"
+ * button is hidden (nothing would execute it); managers record refunds made in Kaspi Pay when
+ * the server enables manual registration. Old servers send no capabilities: adapter is assumed
+ * off, so the button that never worked stays hidden there too.
+ */
+export function refundActions(detail: Data): { adapter: boolean; manual: boolean } {
+  const caps = detail['refund_capabilities'];
+  const value = caps && typeof caps === 'object' ? (caps as Data) : {};
+  return { adapter: value['adapter'] === true, manual: value['manual'] === true };
+}
 export function object(value: unknown): Data {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new ApiError('INVALID_RESPONSE');

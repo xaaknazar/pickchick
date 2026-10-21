@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { URLSearchParams } from 'node:url';
-import { OperationsModel } from '../../apps/backoffice/dist/operations-model.js';
+import { OperationsModel, refundActions } from '../../apps/backoffice/dist/operations-model.js';
 import { ApiError } from '../../apps/backoffice/dist/api.js';
 import { withCatalog, storage } from './helpers.mjs';
 test('unknown HTTP outcome survives reload with the exact body; no duplicate stock record or audit', () =>
@@ -195,4 +195,21 @@ test('calendar query preserves custom dates on refresh and clears stale data whe
   m.clear();
   assert.deepEqual(m.filters, {});
   assert.equal(m.period, 'day');
+});
+
+test('the refund button needs a server refund adapter; manual Kaspi registration is separate', () => {
+  // Old servers report nothing: the request button that nothing executed stays hidden.
+  assert.deepEqual(refundActions({ owner: 'cloud' }), { adapter: false, manual: false });
+  assert.deepEqual(refundActions({ refund_capabilities: { adapter: false, manual: true } }), {
+    adapter: false,
+    manual: true,
+  });
+  assert.deepEqual(refundActions({ refund_capabilities: { adapter: 'true', manual: 1 } }), {
+    adapter: false,
+    manual: false,
+  });
+  assert.deepEqual(refundActions({ refund_capabilities: { adapter: true, manual: false } }), {
+    adapter: true,
+    manual: false,
+  });
 });

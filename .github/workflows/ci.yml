@@ -47,7 +47,7 @@ jobs:
       - name: Verify commerce transactions and delivery invariants
         run: |
           pnpm test:commerce
-          node --env-file=.env --test --test-concurrency=1 tests/operations/windows-reserved-number.test.mjs tests/operations/windows-native-service-upgrade.test.mjs
+          node --env-file=.env --test --test-concurrency=1 tests/operations/windows-reserved-number.test.mjs tests/operations/windows-native-service-upgrade.test.mjs tests/operations/windows-display-numbers.test.mjs
           node --test tests/payments/tiptoppay-http.test.mjs tests/payments/kaspi-remote-http.test.mjs
           python3 -m unittest discover -s infra/domains -p 'test_*.py'
       - name: Verify Chiki ledger, reservations and refund debt
@@ -304,6 +304,8 @@ jobs:
           # Isolated Kaspi checkout fixture: no bank, no real customer or VPS requests.
           EXPO_PUBLIC_CUSTOMER_AUTH=server EXPO_PUBLIC_KASPI_CHECKOUT=1 EXPO_PUBLIC_UNPAID_TEST_ORDERS=1 EXPO_PUBLIC_PUBLISHED_CATALOG=0 pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/customer-auth-web
           .local/design-venv/bin/python tests/mobile/browser_kaspi_checkout.py
+          # Audit 19.10 (0.2/2.0, 2.1, 2.4, 2.5): the Kaspi checkout never traps the customer.
+          CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_checkout_traps.py
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_combo_rewards.py
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_orders_redesign.py kaspi
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 ORDERS_VIEWPORT=320x568 .local/design-venv/bin/python tests/mobile/browser_orders_redesign.py kaspi

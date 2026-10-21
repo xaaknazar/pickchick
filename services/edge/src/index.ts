@@ -13,6 +13,7 @@ import { TerminalAccessController } from './terminal-access-controller.js';
 import { StaffAuthController } from './staff-auth-controller.js';
 import { LocalOrdersController } from './orders-controller.js';
 import { FulfillmentController } from './fulfillment-controller.js';
+import { RestoreFenceOnStart } from './restore-fence.js';
 import { RemoteStopsLoop } from './remote-stops-loop.js';
 
 @Controller('edge/v1')
@@ -78,7 +79,11 @@ export async function createEdge(config: ServiceConfig = loadConfig('edge')) {
       TerminalAccessController,
       FulfillmentController,
     ],
-    providers: [{ provide: RESOURCE, useFactory: () => new Resources(config) }, RemoteStopsLoop],
+    providers: [
+      { provide: RESOURCE, useFactory: () => new Resources(config) },
+      RestoreFenceOnStart,
+      RemoteStopsLoop,
+    ],
   })
   class EdgeModule {}
   return createHttpApplication(EdgeModule);

@@ -12,14 +12,15 @@ export async function commercialKioskRequest(
   device?: { deviceId: string; key: string },
 ): Promise<unknown> {
   if (
-    !/^\/(?:enrollment\/check|config|catalog|availability|sessions(?:\/end)?|quotes|orders(?:\/[a-f0-9-]{36}(?:\/payment)?)?)$/.test(
+    !/^\/(?:enrollment\/check|staff\/verify|config|catalog|availability|sessions(?:\/end)?|quotes|orders(?:\/[a-f0-9-]{36}(?:\/payment)?)?)$/.test(
       path,
     )
   )
     throw new KioskError('INVALID_PATH');
   if (!device || !/^[a-f0-9-]{36}$/.test(device.deviceId) || !/^[a-f0-9]{64}$/.test(device.key))
     throw new KioskError('DEVICE_NOT_PROVISIONED');
-  if (path !== '/sessions' && path !== '/enrollment/check' && !token)
+  // Device-only requests: allocating a guest, the enrollment check and the staff code check.
+  if (!['/sessions', '/enrollment/check', '/staff/verify'].includes(path) && !token)
     throw new KioskError('GUEST_IDENTITY_UNAVAILABLE');
   return sendKioskRequest(
     path,

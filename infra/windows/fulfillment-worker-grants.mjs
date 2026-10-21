@@ -1,10 +1,16 @@
 /** Separate commercial edge transport role. No staff, POS or credential access.
  * remoteStops (edge schema019, transport protocol 4): fill the stop-command inbox, report
- * verdicts and read per-variant stop versions. It never writes local_stops. */
-export function fulfillmentWorkerGrants(role, schema = 'public', { remoteStops = false } = {}) {
+ * verdicts and read per-variant stop versions. It never writes local_stops.
+ * restoreFence (edge schema023): run the owner-rights restore fence on its first cycle. */
+export function fulfillmentWorkerGrants(
+  role,
+  schema = 'public',
+  { remoteStops = false, restoreFence = false } = {},
+) {
   for (const name of [role, schema])
     if (!/^[a-z][a-z0-9_]{0,62}$/.test(name)) throw new Error('Invalid role/schema');
   if (typeof remoteStops !== 'boolean') throw new Error('Invalid remote stop grant flag');
+  if (typeof restoreFence !== 'boolean') throw new Error('Invalid restore fence grant flag');
   const grant = (privilege, names) =>
     `GRANT ${privilege} ON ${names
       .split(',')
@@ -12,6 +18,9 @@ export function fulfillmentWorkerGrants(role, schema = 'public', { remoteStops =
       .join(',')} TO "${role}";`;
   return [
     `GRANT USAGE ON SCHEMA "${schema}" TO "${role}";`,
+    ...(restoreFence
+      ? [`GRANT EXECUTE ON FUNCTION "${schema}".edge_restore_fence(boolean) TO "${role}";`]
+      : []),
     grant(
       'SELECT',
       'cashier_report_outbox,schema_migrations,branch_config,fulfillment_config,fulfillment_routing,fulfillment_reservations,fulfillment_tasks,fulfillment_inbox,fulfillment_outbox,fulfillment_release_results,fulfillment_transport_state,fulfillment_transport_failures,fulfillment_transport_reverse_failures',
@@ -68,5 +77,12 @@ export function fulfillmentWorkerGrants(role, schema = 'public', { remoteStops =
       'USAGE',
       'cashier_report_outbox_sequence_seq,fulfillment_display_sequence,fulfillment_outbox_sequence_seq',
     ).replace(' ON ', ' ON SEQUENCE '),
+    displayNumberGrant(`"${schema}"`, `"${role}"`),
   ].join('\n');
+}
+/** Edge 022 display numbers (1-299 per shift): EXECUTE only, once the function exists. Before
+ * 022 this is a no-op and admissions keep the legacy sequence. */
+export function displayNumberGrant(namespace, target) {
+  const fn = `${namespace}.fulfillment_display_allocate(uuid)`;
+  return `DO $$ BEGIN IF to_regprocedure('${fn}') IS NOT NULL THEN EXECUTE 'GRANT EXECUTE ON FUNCTION ${fn} TO ${target}'; END IF; END $$;`;
 }

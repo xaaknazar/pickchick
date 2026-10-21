@@ -4,7 +4,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePathname, useRootNavigationState, useRouter, useGlobalSearchParams } from 'expo-router';
 import { useAccount } from '../useAccount';
 import { kaspiCheckoutEnabled } from '../commerce-checkout';
-import { pendingPaymentKey, parsePendingPayment } from '../payment-recovery';
+import {
+  pendingPaymentDismissed,
+  pendingPaymentKey,
+  parsePendingPayment,
+} from '../payment-recovery';
 
 /** Return to the original checkout after an OS/browser restart or a legacy sheet dismissal. */
 export function PaymentRecovery() {
@@ -34,7 +38,9 @@ export function PaymentRecovery() {
     let active = true;
     void AsyncStorage.getItem(pendingPaymentKey(customerId))
       .then((raw) => {
-        if (active && parsePendingPayment(raw)) router.push('/checkout');
+        // An intent the customer closed stays closed until the next app start (audit 2.0).
+        const draft = parsePendingPayment(raw);
+        if (active && draft && !pendingPaymentDismissed(draft)) router.push('/checkout');
       })
       .catch(() => {
         // Never discard an unreadable payment intent or create an order from this observer.

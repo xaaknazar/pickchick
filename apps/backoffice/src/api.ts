@@ -90,7 +90,7 @@ export function allowedPath(path: string): boolean {
   return (
     search === undefined &&
     new RegExp(
-      `^operations/branches/${UUID}/(?:commands|stops|orders/${UUID}|devices(?:/(?:inventory|pairing-codes|revoke|kitchen-password-reset(?:/events)?|${UUID}/(?:events|inventory-events)))?)$`,
+      `^operations/branches/${UUID}/(?:commands|stops|kiosk-payment-incidents|orders/${UUID}|devices(?:/(?:inventory|pairing-codes|revoke|kitchen-password-reset(?:/events)?|${UUID}/(?:events|inventory-events)))?)$`,
     ).test(pathname)
   );
 }
@@ -365,6 +365,14 @@ const reasons: Record<string, string> = {
   STOP_COMMAND_IN_PROGRESS:
     'По этой позиции уже есть команда, которая ждёт кассу. Дождитесь ответа и повторите.',
   STOP_FORBIDDEN: 'Нет права менять стоп-лист. Ставить на стоп может только управляющий точки.',
+  REFUND_ADAPTER_NOT_CONFIGURED:
+    'Возврат через банк из кабинета не подключён. Верните деньги в Kaspi Pay и зарегистрируйте ручной возврат.',
+  MANUAL_REFUNDS_DISABLED:
+    'Регистрация ручного возврата пока не включена на сервере. Сообщите владельцу.',
+  REFUND_REFERENCE_ALREADY_USED:
+    'Этот номер операции Kaspi уже зарегистрирован. Проверьте номер возврата в Kaspi Pay.',
+  REFUND_EXCEEDS_PAYMENT:
+    'Сумма больше оплаченной за вычетом уже возвращённого. Проверьте сумму возврата.',
 };
 export const reasonMessage = (reason: string | undefined) =>
   reason === undefined ? undefined : reasons[reason];

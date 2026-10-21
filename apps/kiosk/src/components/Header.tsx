@@ -21,7 +21,10 @@ export interface ScreenContext {
   direction?: 'forward' | 'back';
   /** The step shown before this one (`boot` before the first screen). */
   from?: KioskStep | 'boot';
-  /** Staff gesture: a long hold on the start screen logo (demo mode dialog). */
+  /**
+   * Opens the staff dialog (demo mode, service reset): a long hold on the start screen logo, or
+   * «Сотруднику» on the recovery screen when a service reset is available.
+   */
   onStaffHold?: () => void;
 }
 /** Single pilot point; the catalog carries only a branch id, not its display name. */

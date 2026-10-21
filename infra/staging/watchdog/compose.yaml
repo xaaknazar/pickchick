@@ -1,0 +1,52 @@
+# Started only by run-watchdog.py (`docker compose run --rm`), never `up`: one evaluation per
+# timer tick. Uses the exact CI-verified API image; no ports, no docker socket, read-only root.
+name: pickchick-watchdog
+services:
+  watchdog:
+    image: pickchick-api:${WATCHDOG_RELEASE_SHA:?Set verified release SHA}
+    # The operator's uid owns the 0600 env/facts files and the private state directory.
+    user: '${WATCHDOG_UID:?Set operator uid}:${WATCHDOG_GID:?Set operator gid}'
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    tmpfs: ['/tmp:size=8m,mode=1777']
+    mem_limit: 192m
+    cpus: 0.25
+    pids_limit: 32
+    restart: 'no'
+    entrypoint:
+      - node
+      - --env-file=/run/watchdog/watchdog.env
+      - infra/staging/watchdog/main.mjs
+      - --facts
+      - /run/watchdog/host-facts.json
+      - --state
+      - /var/lib/watchdog/state.json
+    command: []
+    volumes:
+      - type: bind
+        source: ${WATCHDOG_ENV_FILE:?Set protected env file}
+        target: /run/watchdog/watchdog.env
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${WATCHDOG_FACTS_FILE:?Set host facts file}
+        target: /run/watchdog/host-facts.json
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ${WATCHDOG_STATE_DIR:?Set private state directory}
+        target: /var/lib/watchdog
+        bind: { create_host_path: false }
+    # staging: the existing internal network (cloud-db, api). egress: Telegram only.
+    networks: [staging, egress]
+    logging:
+      driver: json-file
+      options: { max-size: '1m', max-file: '2' }
+networks:
+  staging:
+    external: true
+    name: ${WATCHDOG_STAGING_NETWORK:-pickchick-staging_private}
+  egress:
+    driver: bridge

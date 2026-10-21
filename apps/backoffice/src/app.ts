@@ -1,5 +1,7 @@
 import { DevicesModel } from './devices-model.js';
 import { DeviceAccessView } from './components/DeviceAccessView.js';
+import { KioskIncidentsModel } from './kiosk-incidents-model.js';
+import { KioskIncidentsView } from './components/KioskIncidentsView.js';
 import { OperationsModel, StopsModel } from './operations-model.js';
 import { WorkforceModel } from './workforce-model.js';
 import { WorkforceView } from './workforce.js';
@@ -52,6 +54,12 @@ function softRender() {
 }
 const devices = new DevicesModel((path, request) => model.operations(path, request), softRender);
 const deviceView = new DeviceAccessView(devices);
+// Audit 19.10, finding 4.3: kiosks stuck on an unknown QR payment, on the devices page.
+const incidents = new KioskIncidentsModel(
+  (path, request) => model.operations(path, request),
+  softRender,
+);
+const incidentView = new KioskIncidentsView(incidents);
 const stops = new StopsModel((path, request) => model.operations(path, request), softRender);
 const operationView = new OperationsView(
   operations,
@@ -101,6 +109,14 @@ function syncOperations() {
     (devices.actor !== model.actor.id || devices.branch !== branch)
   )
     void devices.load(model.actor.id, branch);
+  if (branch && (incidents.actor !== model.actor.id || incidents.branch !== branch))
+    incidents.clear();
+  if (
+    branch &&
+    page === 'devices' &&
+    (incidents.actor !== model.actor.id || incidents.branch !== branch)
+  )
+    void incidents.load(model.actor.id, branch);
   if (branch) void finance.scope(model.actor.id, branch);
   if (branch && (page === 'shifts' || workforce.actor))
     void workforce.scope(model.actor.id, branch);
@@ -120,6 +136,17 @@ setInterval(() => {
   )
     void devices.load(model.actor.id, branch);
 }, 3000);
+setInterval(() => {
+  const branch = model.state?.branch.id;
+  if (
+    page === 'devices' &&
+    model.actor &&
+    branch &&
+    !incidents.busy &&
+    document.visibilityState !== 'hidden'
+  )
+    void incidents.load(model.actor.id, branch);
+}, 30000);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') devices.hideCode();
 });
@@ -661,6 +688,7 @@ function render() {
   }
   if (page === 'devices') {
     deviceView.render(content);
+    incidentView.render(content);
     if (!devices.data) operationView.render('devices', content);
     return;
   }

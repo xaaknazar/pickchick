@@ -368,6 +368,22 @@ test('birthday and nickname are saved on the server, then restored from secure s
     code('INVALID_PROFILE'),
   );
 });
+test('gender is voluntary: omitted when never set, cleared explicitly when removed', async () => {
+  // Audit 7.7. Omitting an unset value keeps the request valid for servers before the change.
+  const f = fixture();
+  await f.login();
+  const patches = () =>
+    f.calls.filter((call) => call.path === '/v1/customers/me' && call.method === 'PATCH');
+  await f.core.saveProfile({ nickname: 'Без пола', birthDate: null, gender: null });
+  assert.deepEqual(patches().at(-1).body, { nickname: 'Без пола', birth_date: null });
+  assert.ok(f.core.customer.profile_completed_at);
+  await f.core.saveProfile({ nickname: 'Без пола', birthDate: null, gender: 'male' });
+  assert.equal(patches().at(-1).body.gender, 'male');
+  assert.equal(f.core.customer.gender, 'male');
+  await f.core.saveProfile({ nickname: 'Без пола', birthDate: null, gender: null });
+  assert.deepEqual(patches().at(-1).body, { nickname: 'Без пола', birth_date: null, gender: null });
+  assert.equal(f.core.customer.gender, null);
+});
 test('changed legal policy is rejected instead of silently accepting a version the user did not see', async () => {
   const f = fixture();
   await f.core.restore();
@@ -612,6 +628,53 @@ test('automatic request preserves one intent across restart and accepts actual W
   assert.equal(f.core.challenge.channel, 'whatsapp');
   assert.equal(f.core.challenge.code_length, 4);
 });
+test('Telegram-only login reports an undeliverable number honestly and lets a new request start', async () => {
+  // Audit 2.7: the gateway rejects a number without Telegram; the server answers 503 and the
+  // rejected request id can never succeed on replay.
+  for (const fallback of [false, true]) {
+    const f = fixture();
+    const base = f.io.request;
+    const bodies = [];
+    let reject = true;
+    f.io.request = async (path, method, body, token) => {
+      if (path === '/v1/auth/config')
+        return {
+          ...(await base(path, method, body, token)),
+          channel_selection: 'automatic',
+          channels: ['telegram'],
+          whatsapp_fallback_enabled: fallback,
+          delivery_consent_required: true,
+        };
+      if (path.endsWith('/otp/request')) {
+        bodies.push(structuredClone(body));
+        if (reject) throw new CustomerSessionError('SERVICE_UNAVAILABLE', 503, true);
+        return { ...(await base(path, method, body, token)), channel: 'telegram', code_length: 4 };
+      }
+      return base(path, method, body, token);
+    };
+    await f.core.restore();
+    await f.core.loadConfig();
+    if (!fallback) {
+      await assert.rejects(
+        f.core.requestCode(f.customer.phone, 'auto', 'fixture-v1'),
+        code('TELEGRAM_UNAVAILABLE'),
+      );
+      assert.equal(f.core.pendingOtp, false);
+      reject = false;
+      // After installing Telegram the next request is a new one, not a replay of the rejection.
+      await f.core.requestCode(f.customer.phone, 'auto', 'fixture-v1');
+      assert.notEqual(bodies[0].request_id, bodies[1].request_id);
+      assert.equal(f.core.challenge.channel, 'telegram');
+    } else {
+      // With WhatsApp fallback the outcome is not a missing Telegram: the exact retry is kept.
+      await assert.rejects(
+        f.core.requestCode(f.customer.phone, 'auto', 'fixture-v1'),
+        code('SERVICE_UNAVAILABLE'),
+      );
+      assert.equal(f.core.pendingOtp, true);
+    }
+  }
+});
 test('automatic request reports unknown delivery honestly and rejects unsupported channel replies', async () => {
   const f = fixture();
   const base = f.io.request;
@@ -812,10 +875,9 @@ test('four-digit Telegram code length persists across restart and legacy respons
   await f.core.verifyCode('0123', 'fixture-v1');
   await f.restart();
   assert.equal(f.core.customer.id, f.customer.id);
-  await assert.rejects(
-    f.core.saveProfile({ nickname: 'Имя', birthDate: null, gender: null }),
-    code('INVALID_PROFILE'),
-  );
+  // Gender is voluntary (audit 7.7): a profile without it saves.
+  await f.core.saveProfile({ nickname: 'Имя', birthDate: null, gender: null });
+  assert.equal(f.core.customer.nickname, 'Имя');
   const legacy = fixture();
   await legacy.core.restore();
   await legacy.core.requestCode(legacy.customer.phone);

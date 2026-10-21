@@ -17,6 +17,13 @@ const Accept = z.strictObject({
   note: z.string().trim().min(3).max(500),
   // Explicit operator acknowledgement: nothing is declared paid or failed.
   confirm: z.literal('payment_result_remains_unknown'),
+  /**
+   * Audit 19.10, finding 4.3: what the manager saw in Kaspi Pay, recorded with the incident and in
+   * the audit. It never changes money: a payment is confirmed only by the bank adapter, and a late
+   * bank result still attaches to this order (the cabinet tells staff how to serve the guest).
+   * Optional: the loopback operator script sends none.
+   */
+  kaspi_check: z.enum(['payment_found', 'payment_not_found']).optional(),
 });
 type Actor = { id: string; organization_id: string; role: 'manager' | 'analyst' };
 type Candidate = {
@@ -81,13 +88,14 @@ export class KioskPaymentIncidents {
   }
   async list(token: string, branch: string) {
     return transaction(this.pool, async (db) => {
-      await this.scope(db, token, branch, false);
+      const actor = await this.scope(db, token, branch, false);
       const candidates = (
         await db.query<Candidate>(CANDIDATES + ' ORDER BY o.created_at', [branch])
       ).rows;
       const accepted = (
         await db.query(
-          `SELECT h.order_id,h.attempt_id,h.reason,h.note,h.accepted_at,m.name accepted_by_name,a.state attempt_state
+          `SELECT h.order_id,h.attempt_id,h.reason,h.note,h.accepted_at,m.name accepted_by_name,a.state attempt_state,
+             h.observed->>'manager_kaspi_check' kaspi_check
            FROM commerce_kiosk_payment_incidents h JOIN catalog_managers m ON m.id=h.accepted_by
            JOIN commerce_payment_attempts a ON a.id=h.attempt_id
            WHERE h.branch_id=$1 ORDER BY h.accepted_at DESC LIMIT 100`,
@@ -96,6 +104,8 @@ export class KioskPaymentIncidents {
       ).rows;
       return {
         min_age_minutes: KIOSK_INCIDENT_MIN_AGE_MINUTES,
+        // The cabinet shows the decision only to the role allowed to take it.
+        role: actor.role,
         // Guest session and account ids stay server-side.
         candidates: candidates.map((r) => ({
           order_id: r.order_id,
@@ -155,6 +165,8 @@ export class KioskPaymentIncidents {
         has_operation_id: row.has_operation_id,
         issue_started_at: row.issue_started_at.toISOString(),
         total_minor: row.total_minor,
+        // Reported by the manager, not observed from the bank (see Accept.kaspi_check).
+        ...(req.kaspi_check ? { manager_kaspi_check: req.kaspi_check } : {}),
       };
       const incident = (
         await db.query(

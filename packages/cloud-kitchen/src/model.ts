@@ -118,7 +118,8 @@ export const SnapshotSchema = z
     displayName: z.string().max(14).optional(),
     kitchenComment: z.string().max(60).optional(),
     currency: z.literal('KZT'),
-    totalMinor: z.string().regex(/^[1-9][0-9]{0,15}$/),
+    // A 0 KZT order (combo gift) is paid in full; pricing has no line limit (audit 1.2).
+    totalMinor: z.string().regex(/^(0|[1-9][0-9]{0,15})$/),
     lines: z
       .array(
         z
@@ -132,8 +133,7 @@ export const SnapshotSchema = z
           })
           .passthrough(),
       )
-      .min(1)
-      .max(200),
+      .min(1),
   })
   .passthrough();
 export type Routing = z.infer<typeof RoutingSchema>;

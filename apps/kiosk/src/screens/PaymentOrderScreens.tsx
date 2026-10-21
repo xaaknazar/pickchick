@@ -442,13 +442,27 @@ export function RecoveryScreen({ model, context }: { model: KioskModel; context:
         </Wrapper>
       </ScrollArea>
       <Footer tone="brand">
-        <Button
-          testID="kiosk-payment-retry"
-          label={t.refresh}
-          busy={model.busy}
-          onPress={() => void model.recover()}
-          fullWidth
-        />
+        <Wrapper dir="row" gap={14} align="center">
+          {/* Audit 19.10, finding 3.0: a money-safe service reset for staff (code required). */}
+          {model.staffResetAvailable && context.onStaffHold ? (
+            <Button
+              testID="kiosk-staff-service"
+              label={t.staffService}
+              tone="outline"
+              disabled={model.busy}
+              onPress={context.onStaffHold}
+            />
+          ) : null}
+          <Wrapper flex={1}>
+            <Button
+              testID="kiosk-payment-retry"
+              label={t.refresh}
+              busy={model.busy}
+              onPress={() => void model.recover()}
+              fullWidth
+            />
+          </Wrapper>
+        </Wrapper>
       </Footer>
     </ScreenSurface>
   );

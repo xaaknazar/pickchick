@@ -21,7 +21,7 @@ ROUTE = START + '''\t@kitchen_live {
 \thandle @kitchen_live {
 \t\theader X-PickChick-Data edge
 \t\treverse_proxy pickchick-kitchen-portal:4193 {
-\t\t\theader_up X-PickChick-Client-IP {remote_host}
+\t\t\theader_up X-PickChick-Client-IP {client_ip}
 \t\t\ttransport http {
 \t\t\t\tdial_timeout 2s
 \t\t\t\tresponse_header_timeout 30s

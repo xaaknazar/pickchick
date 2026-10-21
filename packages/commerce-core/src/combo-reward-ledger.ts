@@ -237,6 +237,26 @@ export async function reconcileComboRewards(db: DatabaseClient, orderId: string)
     ).rows[0]?.present
   )
     return false;
+  // An unpaid cancellation frees the gift once nothing can bill the order any more: confirmed by
+  // the edge, or no edge hold is left to release (cloud channel order, or the restaurant already
+  // released/cancelled the hold). Attempts are forbidden in the database once an intent exists.
+  const readable = (
+    await db.query<{ projection: boolean; cloud: boolean }>(
+      `SELECT CASE WHEN to_regclass('cloud_fulfillment_projection') IS NULL THEN false ELSE has_table_privilege('cloud_fulfillment_projection','SELECT') END projection,
+        CASE WHEN to_regclass('cloud_channel_orders') IS NULL THEN false ELSE has_table_privilege('cloud_channel_orders','SELECT') END cloud`,
+    )
+  ).rows[0]!;
+  const unheld = [
+    readable.projection
+      ? "EXISTS(SELECT 1 FROM cloud_fulfillment_projection f WHERE f.order_id=o.id AND f.state IN ('released','cancelled'))"
+      : null,
+    readable.cloud
+      ? '(o.admission_reservation_id IS NULL AND EXISTS(SELECT 1 FROM cloud_channel_orders x WHERE x.order_id=o.id))'
+      : null,
+  ].filter(Boolean);
+  const cancelled = unheld.length
+    ? `(c.state='cancelled' OR (c.state IN ('waiting_admission','needs_review') AND (${unheld.join(' OR ')})))`
+    : "c.state='cancelled'";
   const row = (
     await db.query<{
       customer_id: string | null;
@@ -261,7 +281,7 @@ export async function reconcileComboRewards(db: DatabaseClient, orderId: string)
     EXISTS(SELECT 1 FROM commerce_refunds WHERE order_id=o.id AND state IN ('pending','unknown')) pending_refund,
     EXISTS(SELECT 1 FROM commerce_payment_attempts WHERE order_id=o.id AND state='failed') failed,
     EXISTS(SELECT 1 FROM commerce_payment_attempts WHERE order_id=o.id AND state IN ('pending','unknown')) unresolved,
-    EXISTS(SELECT 1 FROM commerce_cancellation_intents WHERE order_id=o.id AND state='cancelled') cancelled
+    EXISTS(SELECT 1 FROM commerce_cancellation_intents c WHERE c.order_id=o.id AND ${cancelled}) cancelled
     FROM commerce_orders o JOIN combo_reward_programs p ON p.organization_id=o.organization_id AND p.branch_id=o.branch_id
     WHERE o.id=$1 AND o.snapshot->>'channel'='mobile' AND o.customer_id=o.principal_id`,
       [orderId],

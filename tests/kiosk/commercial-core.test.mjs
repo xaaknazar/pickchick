@@ -379,7 +379,7 @@ for (const interruption of ['end', 'detach', 'remove', 'allocate']) {
 }
 
 for (const uncertain of [false, true]) {
-  test(`expired guest keeps its ${uncertain ? 'uncertain intent' : 'pending order'} identity`, async () => {
+  test(`expired guest ${uncertain ? 'without an order id recovers its intent' : 'keeps its pending order identity'}`, async () => {
     const h = fixture();
     const c = await cart(h);
     if (uncertain) h.failPath = '/orders';
@@ -393,14 +393,28 @@ for (const uncertain of [false, true]) {
     };
     const restored = new CommercialKioskController(h.io);
     assert.equal(await restored.restore(), false);
-    assert.equal(h.rawSession, previousSession);
-    assert.equal(JSON.parse(h.rawFlow).guestId, previousFlow.guestId);
-    assert.deepEqual(JSON.parse(h.rawFlow).intent, previousFlow.intent);
-    assert.deepEqual(JSON.parse(h.rawFlow).order, previousFlow.order);
     assert.equal(
       h.calls.some((call) => call.path === '/sessions/end' || call.path === '/sessions'),
       false,
     );
+    if (uncertain) {
+      // Audit 19.10, finding 3.0: no order id was ever known, so no payment was requested and
+      // no money can exist. Keeping this intent looped on «Восстанавливаем заказ» for ever (a
+      // server before 19.10 refuses the expired guest with FORBIDDEN): the intent is dropped,
+      // the expired guest unbound and the guest may pay again under a new session.
+      assert.equal(JSON.parse(h.rawFlow).intent, null);
+      assert.equal(JSON.parse(h.rawFlow).guestId, null);
+      assert.deepEqual(JSON.parse(h.rawFlow).cart, previousFlow.cart);
+      assert.equal(h.rawSession, null);
+      assert.equal(restored.getSnapshot().recoveryRequired, false);
+      assert.equal(restored.getSnapshot().errorCode, 'RETRY_PAYMENT');
+      return;
+    }
+    // A known order may have a payment: its identity is kept for recovery.
+    assert.equal(h.rawSession, previousSession);
+    assert.equal(JSON.parse(h.rawFlow).guestId, previousFlow.guestId);
+    assert.deepEqual(JSON.parse(h.rawFlow).intent, previousFlow.intent);
+    assert.deepEqual(JSON.parse(h.rawFlow).order, previousFlow.order);
     assert.equal(await restored.newGuest(), false);
   });
 }

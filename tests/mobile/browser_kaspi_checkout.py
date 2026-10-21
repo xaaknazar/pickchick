@@ -31,7 +31,7 @@ with sync_playwright() as p:
     assert r.request.headers.get('accept')=='application/json'
     assert r.request.headers.get('authorization')=='Bearer '+envelope['tokens']['access_token']
    elif path.startswith('/v1/customer-checkout/') and not path.endswith('/availability'):
-    assert r.request.headers.get('accept')=='application/json; profile=pickchick.checkout-comments-v1, application/json; profile=pickchick.checkout-errors-v1'
+    assert r.request.headers.get('accept')=='application/json; profile=pickchick.checkout-comments-v1, application/json; profile=pickchick.checkout-errors-v1, application/json; profile=pickchick.checkout-errors-v2'
    data=None
    if path=='/v1/customers/me':data={'customer':customer}
    elif path=='/v1/customer-checkout/availability' and method=='GET':data={'enabled':True,'fresh':True,'signature':'a'*64,'products':[{'id':p['id'],'available':True,'stoppedOptions':[]} for p in CATALOG['products']]}

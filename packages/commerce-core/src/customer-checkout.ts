@@ -8,13 +8,15 @@ import {
   assertRestaurantOrderingOpen,
 } from './restaurant-hours.js';
 import {
+  AvailabilityError,
   branchAvailability,
   assertBranchItemsAvailable,
   snapshotAvailabilityItems,
 } from './availability.js';
 import { catalogMediaMap, storefrontPayload } from './catalog-media.js';
 import type { CatalogMediaMapOptions } from './catalog-media.js';
-import { localSelectionIds } from '@pickchick/menu-sync';
+import { catalogStopView } from '@pickchick/menu-sync';
+import type { StopRuleProduct } from '@pickchick/menu-sync';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { transaction, type DatabasePool } from '@pickchick/database';
@@ -42,10 +44,27 @@ export const CheckoutOptionsSchema = z.strictObject({
     .default('10000'),
   approvalReference: z.string().trim().min(3).max(250),
   hours: RestaurantHoursSchema.optional(),
+  /** CUSTOMER_KASPI_SALES_ENABLED (default true): false closes new mobile Kaspi payments. */
+  salesEnabled: z.boolean().optional(),
+  /** CUSTOMER_UNPAID_ORDER_TTL_MINUTES (default 30, 0 = off): never-billed orders expire. */
+  unpaidOrderTtlMinutes: z
+    .int()
+    .min(0)
+    .max(1440)
+    .refine((value) => value === 0 || value >= 5)
+    .optional(),
 });
 export type CheckoutOptions = z.infer<typeof CheckoutOptionsSchema>;
+/** Default TTL of a mobile order that was never sent to the bank (PM decision 19.10). */
+export const UNPAID_ORDER_TTL_MINUTES = 30;
+function booleanFlag(value: string | undefined, fallback: boolean) {
+  if (value === undefined || value === '') return fallback;
+  if (value !== 'true' && value !== 'false') throw new CommerceError('INVALID');
+  return value === 'true';
+}
 export function customerCheckoutOptions(env: NodeJS.ProcessEnv): CheckoutOptions | null {
   if (env.CUSTOMER_KASPI_PILOT_ENABLED !== 'true') return null;
+  const ttl = env.CUSTOMER_UNPAID_ORDER_TTL_MINUTES;
   return parse(CheckoutOptionsSchema, {
     organizationId: env.CUSTOMER_KASPI_ORGANIZATION_ID,
     branchId: env.CUSTOMER_KASPI_BRANCH_ID,
@@ -58,8 +77,22 @@ export function customerCheckoutOptions(env: NodeJS.ProcessEnv): CheckoutOptions
     maxOrderMinor: env.CUSTOMER_KASPI_PILOT_MAX_MINOR ?? '10000',
     approvalReference: env.CUSTOMER_KASPI_FISCAL_DEFERRAL_REFERENCE,
     hours: restaurantHoursFromEnv(env),
+    salesEnabled: booleanFlag(env.CUSTOMER_KASPI_SALES_ENABLED, true),
+    unpaidOrderTtlMinutes:
+      ttl === undefined || ttl === ''
+        ? UNPAID_ORDER_TTL_MINUTES
+        : /^[0-9]{1,4}$/.test(ttl)
+          ? Number(ttl)
+          : Number.NaN,
   });
 }
+/** Codes stored as the reason of an automatic unpaid cancellation. */
+export type UnpaidCancellationReason =
+  | 'ITEM_STOPPED_BEFORE_PAYMENT'
+  | 'RESTAURANT_CLOSED_BEFORE_PAYMENT'
+  | 'ORDER_RELEASED_BEFORE_PAYMENT'
+  | 'SALES_DISABLED_BEFORE_PAYMENT'
+  | 'UNPAID_ORDER_EXPIRED';
 const QuoteInput = z.strictObject({
   giftItemIndex: z.int().min(0).max(49).optional(),
   key: z.uuid(),
@@ -185,35 +218,17 @@ export class CustomerCheckout {
     const row = (
       await this.pool.query<{
         version: number;
-        payload: {
-          products: {
-            id: string;
-            available: boolean;
-            modifier_groups: { id: string; options: { id: string; available: boolean }[] }[];
-          }[];
-        };
+        payload: { products: StopRuleProduct[] };
       }>(
         `SELECT p.version,p.payload FROM catalog_branch_heads h JOIN catalog_publications p ON p.branch_id=h.branch_id AND p.organization_id=h.organization_id AND p.version=h.published_version WHERE h.branch_id=$1`,
         [branchId],
       )
     ).rows[0];
-    const products = (row?.payload.products ?? []).map((p) => ({
-      id: p.id,
-      available:
-        p.available &&
-        !localSelectionIds(branchId, p.id, []).some((id) => stopped.has(id)) &&
-        !stopped.has(p.id),
-      stoppedOptions: p.modifier_groups.flatMap((g) =>
-        g.options
-          .filter(
-            (o) =>
-              !o.available ||
-              localSelectionIds(branchId, p.id, [{ group_id: g.id, option_id: o.id }])
-                .slice(1)
-                .some((id) => stopped.has(id)),
-          )
-          .map((o) => ({ groupId: g.id, optionId: o.id })),
-      ),
+    // Combo stop rule (PM decision 1, 19.10): same view as the kiosk and the cashier admission.
+    const products = catalogStopView(branchId, stopped, row?.payload.products ?? []).map((p) => ({
+      id: p.productId,
+      available: p.available,
+      stoppedOptions: p.stoppedOptions.map((o) => ({ groupId: o.group_id, optionId: o.option_id })),
     }));
     const value = {
       enabled: true,
@@ -253,7 +268,8 @@ export class CustomerCheckout {
     ).rows[0];
     if (!row) throw new CommerceError('NOT_READY');
     return {
-      enabled: row.ready,
+      // The owner's server switch answers the existing "payments unavailable" state.
+      enabled: row.ready && this.salesEnabled,
       orderCommentEnabled: true,
       branchId: scope.branchId,
       restaurant: row.name,
@@ -317,6 +333,12 @@ export class CustomerCheckout {
       );
       if (BigInt(priced.totalMinor) > BigInt(this.options!.maxOrderMinor))
         throw new CommerceError('NOT_READY');
+      // Priced lines name the products the options point to and the fixed combo components.
+      await assertBranchItemsAvailable(
+        this.pool,
+        scope.branchId,
+        snapshotAvailabilityItems(priced),
+      );
       const quote = await this.repository.issueQuote(
         scope,
         request.key,
@@ -363,6 +385,8 @@ export class CustomerCheckout {
       )
     ).rows[0];
     if (!quote) throw new CommerceError('NOT_FOUND');
+    // A switched-off sale opens no new order; a retry still recovers an existing one.
+    if (!quote.order_id && !this.salesEnabled) throw new CommerceError('NOT_READY');
     if (!quote.order_id) assertRestaurantOrderingOpen(this.options!.hours, this.now());
     // A quote issued before a limit reduction must not authorize a larger new charge.
     if (!quote.order_id && BigInt(quote.total_minor) > BigInt(this.options!.maxOrderMinor))
@@ -391,23 +415,93 @@ export class CustomerCheckout {
       BigInt(current.money.captured) > 0n
     )
       return this.read(customerId, orderId);
-    assertRestaurantOrderingOpen(this.options!.hours, this.now());
-    await assertBranchItemsAvailable(
-      this.pool,
-      scope.branchId,
-      snapshotAvailabilityItems(current.snapshot),
-    );
-    // A single stable command per order. Unknown responses never create a fresh attempt.
-    await (this.options!.headGuardEnabled
-      ? this.repository.startMobilePaymentAttempt(scope, keyFor(orderId), {
-          orderId,
-          providerAccountId: this.options!.paymentAccountId,
-        })
-      : this.repository.startPaymentAttempt(scope, keyFor(orderId), {
-          orderId,
-          providerAccountId: this.options!.paymentAccountId,
-        }));
+    try {
+      if (!this.salesEnabled) throw new CommerceError('NOT_READY');
+      assertRestaurantOrderingOpen(this.options!.hours, this.now());
+      await assertBranchItemsAvailable(
+        this.pool,
+        scope.branchId,
+        snapshotAvailabilityItems(current.snapshot),
+      );
+      // A single stable command per order. Unknown responses never create a fresh attempt.
+      await (this.options!.headGuardEnabled
+        ? this.repository.startMobilePaymentAttempt(scope, keyFor(orderId), {
+            orderId,
+            providerAccountId: this.options!.paymentAccountId,
+          })
+        : this.repository.startPaymentAttempt(scope, keyFor(orderId), {
+            orderId,
+            providerAccountId: this.options!.paymentAccountId,
+          }));
+    } catch (error) {
+      // An order the server can never bill is cancelled unpaid (gift hold released), so a later
+      // GET shows it ended. The original error is kept: installed builds behave as before.
+      const reason = await this.refusalReason(error, orderId);
+      if (reason)
+        await this.repository.abandonUnpaidOrder(scope, orderId, reason).catch(() => false);
+      throw error;
+    }
     return this.read(customerId, orderId);
+  }
+  private get salesEnabled() {
+    return this.options?.salesEnabled !== false;
+  }
+  /** Persistent refusals only; a stale heartbeat or offline cashier keeps the order payable. */
+  private async refusalReason(
+    error: unknown,
+    orderId: string,
+  ): Promise<UnpaidCancellationReason | null> {
+    if (error instanceof AvailabilityError)
+      return error.code === 'ITEM_STOPPED' ? 'ITEM_STOPPED_BEFORE_PAYMENT' : null;
+    if (!(error instanceof CommerceError) || error instanceof MenuChangedError) return null;
+    if (error.code === 'RESTAURANT_CLOSED') return 'RESTAURANT_CLOSED_BEFORE_PAYMENT';
+    if (error.code !== 'NOT_READY') return null;
+    if (!this.salesEnabled) return 'SALES_DISABLED_BEFORE_PAYMENT';
+    const released = await this.pool.query(
+      "SELECT 1 FROM cloud_fulfillment_projection WHERE order_id=$1 AND state IN ('released','cancelled','cancel_requested')",
+      [orderId],
+    );
+    return released.rowCount ? 'ORDER_RELEASED_BEFORE_PAYMENT' : null;
+  }
+  /**
+   * TTL sweep: a mobile order never sent to the bank within the TTL is cancelled unpaid, which
+   * also releases a held combo gift and the restaurant's held admission. Returns the count.
+   */
+  async expireUnpaid(limit = 20): Promise<number> {
+    const ttl = this.options?.unpaidOrderTtlMinutes ?? UNPAID_ORDER_TTL_MINUTES;
+    if (!this.options || ttl === 0) return 0;
+    const cutoff = new Date(this.now().getTime() - ttl * 60_000);
+    const rows = await this.pool.query<{ id: string; principal_id: string }>(
+      `SELECT o.id,o.principal_id FROM commerce_orders o
+       WHERE o.organization_id=$1 AND o.branch_id=$2 AND o.snapshot->>'channel'='mobile'
+         AND o.customer_id IS NOT NULL AND o.customer_id=o.principal_id
+         AND o.state IN ('awaiting_payment','awaiting_admission') AND o.total_minor>0
+         AND NOT o.attention_required AND o.kitchen_effect_id IS NULL AND o.created_at<$3
+         AND NOT EXISTS(SELECT 1 FROM commerce_payment_attempts a WHERE a.order_id=o.id)
+         AND NOT EXISTS(SELECT 1 FROM commerce_captures c WHERE c.order_id=o.id)
+         AND NOT EXISTS(SELECT 1 FROM commerce_cancellation_intents i WHERE i.order_id=o.id)
+       ORDER BY o.created_at,o.id LIMIT $4`,
+      [this.options.organizationId, this.options.branchId, cutoff, limit],
+    );
+    let expired = 0,
+      failed = 0;
+    for (const row of rows.rows) {
+      const scope = {
+        organizationId: this.options.organizationId,
+        branchId: this.options.branchId,
+        principalId: row.principal_id,
+        role: 'sales' as const,
+      };
+      // One order (lock timeout, missing grant) must not hold back the rest of the batch.
+      try {
+        if (await this.repository.abandonUnpaidOrder(scope, row.id, 'UNPAID_ORDER_EXPIRED'))
+          expired++;
+      } catch {
+        failed++;
+      }
+    }
+    if (failed && !expired) throw new CommerceError('NOT_READY');
+    return expired;
   }
   async listFeedback(customerId: string) {
     const scope = await this.scope(customerId);
@@ -557,11 +651,12 @@ export class CustomerCheckout {
     const scope = await this.scope(customerId);
     await this.assertMobileOrder(scope, orderId);
     const view = await readCheckoutOrder(this.pool, this.repository, scope, orderId);
+    // Any unpaid cancellation (menu change, refusal at payment, TTL, manager) ends the order for
+    // the customer: 'failed' is the phase installed builds already treat as final.
     if (
-      this.options!.headGuardEnabled &&
       (
         await this.pool.query(
-          `SELECT 1 FROM commerce_cancellation_intents i WHERE i.order_id=$1 AND i.reason='CATALOG_CHANGED_BEFORE_PAYMENT'
+          `SELECT 1 FROM commerce_cancellation_intents i WHERE i.order_id=$1
        AND NOT EXISTS(SELECT 1 FROM commerce_payment_attempts WHERE order_id=i.order_id)
        AND NOT EXISTS(SELECT 1 FROM commerce_captures WHERE order_id=i.order_id)`,
           [orderId],

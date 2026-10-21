@@ -42,6 +42,26 @@ for (const failure of ['not-ready', '503', 'network', '401', '429']) {
     assert.equal(writes, failure === 'not-ready' ? 0 : 1);
   });
 }
+test('a PIN lock after wrong attempts tells how many minutes to wait (6.5)', async () => {
+  for (const [retryAfter, message] of [
+    ['600', /временно заблокирован.*через 10 мин\./],
+    ['30', /Подождите минуту/],
+    [null, /Подождите минуту/],
+  ])
+    await assert.rejects(
+      requestPinCredential('000000', 'synthetic-terminal', {
+        pause: noPause,
+        fetchImpl: async (path) =>
+          path === '/health/ready'
+            ? ready()
+            : new Response('', {
+                status: 429,
+                headers: retryAfter ? { 'Retry-After': retryAfter } : {},
+              }),
+      }),
+      message,
+    );
+});
 test('native readiness proxy allows only fixed local GET', async () => {
   const { createProtocolHandler, APP_URL } = await import('../../apps/pos-desktop/protocol.mjs');
   const calls = [];
@@ -90,5 +110,24 @@ test('web readiness proxy uses configured loopback Edge and rejects POST', async
       new Promise((resolve) => pos.close(resolve)),
       new Promise((resolve) => edge.close(resolve)),
     ]);
+  }
+});
+test('web POS publishes the configured PIN length and rejects anything but 4 or 6 (6.5)', async () => {
+  const { createPosServer } = await import('../../apps/pos/server.mjs');
+  assert.throws(() => createPosServer({ pinLength: 5 }), /PIN length/);
+  for (const [options, expected] of [
+    [{}, undefined],
+    [{ pinLength: 6 }, 6],
+  ]) {
+    const pos = createPosServer({ edgePort: 9, ...options });
+    await new Promise((resolve) => pos.listen(0, '127.0.0.1', resolve));
+    try {
+      const config = await (
+        await fetch(`http://127.0.0.1:${pos.address().port}/config.json`)
+      ).json();
+      assert.equal(config.pinLength, expected);
+    } finally {
+      await new Promise((resolve) => pos.close(resolve));
+    }
   }
 });

@@ -20,6 +20,16 @@ ADDITIONS = {'test_order_numbers': ['shift_id'], 'identity_otp_challenges':
              ['delivery_channel','delivery_provider','delivery_reference','delivery_consent_version']}
 AUTH_FILE = REMOTE+'/secrets/customer-auth.env'
 VERSION = 'pilot-2026-09-26'
+# Optional, validated settings of the 19.10 audit fixes (identity limits, App Review account).
+# Anything else (for example a TEST_PHONE bypass) is still refused.
+OPTIONAL_AUTH = {
+    'CUSTOMER_AUTH_NEW_PHONE_BUDGET_PERCENT': '[1-9][0-9]?|100',
+    'CUSTOMER_AUTH_SESSION_MAX_DAYS': '[1-9][0-9]{0,2}',
+    'CUSTOMER_AUTH_SESSION_IDLE_DAYS': '[1-9][0-9]{0,2}',
+    'CUSTOMER_REVIEW_ACCOUNT_ENABLED': 'true|false',
+    'CUSTOMER_REVIEW_ACCOUNT_PHONE': r'\+77[0-9]{9}',
+    'CUSTOMER_REVIEW_ACCOUNT_CODE_SHA256': '[a-f0-9]{64}',
+}
 
 
 def auth_environment(raw):
@@ -33,7 +43,13 @@ def auth_environment(raw):
     keys = [env.get('CUSTOMER_AUTH_'+k+'_KEY','') for k in ['LOOKUP','OTP','PII','RECEIPT']]
     require(len(set(keys))==4 and all(re.fullmatch('[a-f0-9]{64}',k) and len(set(bytes.fromhex(k)))>=16 for k in keys),'Independent identity keys required')
     require(re.fullmatch('[A-Za-z0-9_.:-]{16,4096}',env.get('TELEGRAM_GATEWAY_TOKEN','')),'Telegram secret missing')
-    require(set(env)==set(required)|{'CUSTOMER_AUTH_'+k+'_KEY' for k in ['LOOKUP','OTP','PII','RECEIPT']}|{'TELEGRAM_GATEWAY_TOKEN'},'Unexpected secret-file field')
+    base = set(required)|{'CUSTOMER_AUTH_'+k+'_KEY' for k in ['LOOKUP','OTP','PII','RECEIPT']}|{'TELEGRAM_GATEWAY_TOKEN'}
+    extra = set(env)-base
+    require(base<=set(env) and extra<=set(OPTIONAL_AUTH) and
+            all(re.fullmatch(OPTIONAL_AUTH[k],env[k]) for k in extra),'Unexpected secret-file field')
+    require(env.get('CUSTOMER_REVIEW_ACCOUNT_ENABLED')!='true' or
+            {'CUSTOMER_REVIEW_ACCOUNT_PHONE','CUSTOMER_REVIEW_ACCOUNT_CODE_SHA256'}<=set(env),
+            'Review account needs its phone and code digest')
     return env
 
 

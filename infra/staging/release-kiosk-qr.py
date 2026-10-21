@@ -93,6 +93,10 @@ def validate_environment(value):
             1<=len(value['KIOSK_CHECKOUT_TAX_CODE'].strip())<=32, 'Explicit fiscal binding required')
     policy=value['KIOSK_CHECKOUT_FISCAL_POLICY']
     require(policy in ['required','deferred_pilot'],'Explicit fiscal policy required')
+    # No fiscal adapter consumes fiscal.submit_requested yet: in 'required' mode a paid kiosk
+    # order waits for a receipt forever and never reaches the kitchen (audit 19.10, 7.2).
+    require(policy!='required','Fiscal policy required is refused until a fiscal adapter (Webkassa) is installed and accepted: '
+            'paid kiosk orders would never reach the kitchen. Use deferred_pilot with the owner approval reference')
     if policy=='required':
         require(re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',value.get('KIOSK_CHECKOUT_FISCAL_ACCOUNT_ID','')),'Required fiscal account missing')
     require(all(re.fullmatch(r'[A-Za-z0-9 _.:/+-]+',v) for v in value.values()),'Unsupported private environment characters')

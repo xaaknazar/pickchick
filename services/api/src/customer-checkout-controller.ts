@@ -7,6 +7,8 @@ import {
   HttpCode,
   HttpException,
   Inject,
+  type OnModuleDestroy,
+  type OnModuleInit,
   Param,
   Post,
   Query,
@@ -26,17 +28,33 @@ import {
   CommerceError,
   MenuChangedError,
   CustomerCheckout,
+  checkoutOrderMark,
+  checkoutWatchCloudTables,
+  watchCheckoutOrder,
   customerCheckoutOptions,
   comboProgramOptions,
   pollAvailability,
 } from '@pickchick/commerce-core';
 import { catalogMediaOptions } from '@pickchick/catalog-admin';
 import { checkoutRepresentation } from './customer-checkout-response.js';
-import { RESOURCE, Resources } from '@pickchick/platform';
+import { LongPollRoute, longPollMayWait, RESOURCE, Resources } from '@pickchick/platform';
 
 @Controller('v1/customer-checkout')
-export class CustomerCheckoutController {
+export class CustomerCheckoutController implements OnModuleInit, OnModuleDestroy {
   private readonly checkout: CustomerCheckout;
+  private unpaidSweep: ReturnType<typeof setInterval> | undefined;
+  private sweeping = false;
+  private readonly pool: Resources['pool'];
+  /** Whether the cloud kitchen tables are readable (schema 054/056 and grants); rechecked each minute. */
+  private cloudTables: { readable: boolean; at: number } | null = null;
+  private async watchCloudTables() {
+    if (!this.cloudTables || Date.now() - this.cloudTables.at > 60_000)
+      this.cloudTables = {
+        readable: await checkoutWatchCloudTables(this.pool),
+        at: Date.now(),
+      };
+    return this.cloudTables.readable;
+  }
   private readonly mediaEnabled: boolean;
   private availabilityCache: {
     revision: number;
@@ -85,6 +103,7 @@ export class CustomerCheckoutController {
     @Inject(RESOURCE) resources: Resources,
     @Inject(CatalogPublicationListener) private readonly publications: CatalogPublicationListener,
   ) {
+    this.pool = resources.pool;
     this.checkout = new CustomerCheckout(
       resources.pool,
       customerCheckoutOptions(process.env),
@@ -93,10 +112,32 @@ export class CustomerCheckoutController {
     );
     this.mediaEnabled = catalogMediaOptions(process.env).mediaEnabled;
   }
+  /** Finding 2.1: never-billed mobile orders expire after CUSTOMER_UNPAID_ORDER_TTL_MINUTES. */
+  onModuleInit() {
+    this.unpaidSweep = setInterval(() => void this.sweepUnpaid(), 60_000);
+    this.unpaidSweep.unref();
+  }
+  onModuleDestroy() {
+    clearInterval(this.unpaidSweep);
+  }
+  private async sweepUnpaid() {
+    if (this.sweeping) return;
+    this.sweeping = true;
+    try {
+      const expired = await this.checkout.expireUnpaid();
+      if (expired)
+        console.log(JSON.stringify({ event: 'customer_unpaid_orders_expired', expired }));
+    } catch {
+      console.error(JSON.stringify({ event: 'customer_unpaid_orders_expiry_failed' }));
+    } finally {
+      this.sweeping = false;
+    }
+  }
   private async execute<T>(
     authorization: string | undefined,
     run: (customerId: string) => Promise<T>,
     accept?: string,
+    money = false,
   ) {
     const precise = accept
       ?.split(',')
@@ -105,6 +146,10 @@ export class CustomerCheckoutController {
     if (!token) throw new HttpException({ code: 'UNAUTHORIZED' }, 401);
     try {
       const { customer } = await this.identity.me(token);
+      // App Review account: browse, quote and delete itself, never an order, invoice or kitchen.
+      // Installed apps already show FORBIDDEN as "Оплата Kaspi ещё не открыта для вашего аккаунта".
+      if (money && this.identity.isReviewCustomer(customer))
+        throw new HttpException({ code: 'FORBIDDEN' }, 403);
       return await run(customer.id);
     } catch (error) {
       if (error instanceof CustomerIdentityError)
@@ -242,6 +287,7 @@ export class CustomerCheckoutController {
       auth,
       async (id) => checkoutRepresentation(await this.checkout.create(id, body), accept),
       accept,
+      true,
     );
   }
   @Get('orders') list(@Headers('authorization') auth?: string, @Headers('accept') accept?: string) {
@@ -258,6 +304,7 @@ export class CustomerCheckoutController {
       auth,
       async (id) => checkoutRepresentation(await this.checkout.pay(id, orderId), accept),
       accept,
+      true,
     );
   }
   @Get('feedback') listFeedback(
@@ -291,7 +338,9 @@ export class CustomerCheckoutController {
       checkoutRepresentation(await this.checkout.read(id, orderId), accept),
     );
   }
-  @Get('orders/:orderId/watch') watch(
+  @Get('orders/:orderId/watch')
+  @LongPollRoute()
+  watch(
     @Param('orderId') orderId: string,
     @Query('after') after: string,
     @Res({ passthrough: true }) response: ServerResponse,
@@ -301,19 +350,27 @@ export class CustomerCheckoutController {
     response.setHeader('Cache-Control', 'no-store');
     return this.execute(auth, async (id) => {
       if (!/^[a-f0-9]{64}$/.test(after ?? '')) throw new CommerceError('INVALID');
-      const deadline = Date.now() + 20000;
+      // Admission overflow: one read of the current order, the same answer as a timed-out wait.
+      const deadline = Date.now() + (longPollMayWait(response.req) ? 20000 : 0);
       let disconnected = false;
       const onClose = () => {
         disconnected = true;
       };
       response.once('close', onClose);
       try {
-        let order = await this.checkout.read(id, orderId);
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId))
+          throw new CommerceError('INVALID');
+        const cloud = await this.watchCloudTables();
         // Long poll reads local projections only; never calls Kaspi or creates invoices.
-        while (!disconnected && order.revision === after && Date.now() < deadline) {
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          order = await this.checkout.read(id, orderId);
-        }
+        // Audit 2.8: one full (ownership-checked) read, then a one-statement change mark each
+        // second; the full read and its row lock repeat only when the mark moves.
+        const order = await watchCheckoutOrder({
+          after,
+          deadline,
+          stopped: () => disconnected,
+          mark: () => checkoutOrderMark(this.pool, orderId, cloud),
+          read: () => this.checkout.read(id, orderId),
+        });
         return checkoutRepresentation(order, accept);
       } finally {
         response.off('close', onClose);

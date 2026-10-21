@@ -226,7 +226,8 @@ test('a stale revision does not replace stop_states or stopped_ids', () =>
     const variant = await activeMenu(f.pool, f.scope.branchId);
     await workerRole(f, true, async (_pool, tick) => {
       await tick({ protocolVersion: 4 });
-      await f.cloud.query('UPDATE cloud_branch_availability SET revision=9000000000');
+      // Above any revision the edge sends (clock based since release fixes 19.10).
+      await f.cloud.query('UPDATE cloud_branch_availability SET revision=9000000000000000000');
       await f.pool.query(
         "INSERT INTO local_stops(branch_id,variant_id,stopped,version,reason) VALUES($1,$2,true,1,'Cashier stop')",
         [f.scope.branchId, variant],

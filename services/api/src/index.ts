@@ -1,4 +1,5 @@
 import { CatalogPublicationListener } from './catalog-publication-listener.js';
+import { capabilities } from './capabilities.js';
 import { FarmController } from './farm-controller.js';
 import { Workforce } from '@pickchick/backoffice-core/workforce';
 import { WorkforceController, WORKFORCE } from './workforce-controller.js';
@@ -28,14 +29,10 @@ import {
   Query,
 } from '@nestjs/common';
 import { acknowledgeMenu, pullMenu, SyncError } from '@pickchick/menu-sync';
-import {
-  BranchSchema,
-  CapabilitiesSchema,
-  MenuSnapshotSchema,
-  UuidSchema,
-} from '@pickchick/contracts';
+import { BranchSchema, MenuSnapshotSchema, UuidSchema } from '@pickchick/contracts';
 import {
   createHttpApplication,
+  EdgeDeviceRoute,
   HealthController,
   loadConfig,
   RESOURCE,
@@ -88,8 +85,10 @@ import {
   CloudKitchenBackoffice,
   KitchenScreens,
   cloudKitchenBackofficeOptions,
+  cloudKitchenStaleReadySeconds,
 } from '@pickchick/backoffice-core/cloud-kitchen';
-import { useCloudKitchenAdmission } from '@pickchick/commerce-core';
+import { reviewOrderInTransaction, useCloudKitchenAdmission } from '@pickchick/commerce-core';
+import { EdgeIdentityController } from './edge-identity-controller.js';
 
 @Controller('v1/capabilities')
 class CapabilitiesController {
@@ -97,30 +96,7 @@ class CapabilitiesController {
 
   @Get()
   get() {
-    return CapabilitiesSchema.parse({
-      schema_version: 1,
-      environment: this.resources.config.environment,
-      data_mode: this.resources.config.customerAuthEnabled ? 'pilot' : 'synthetic',
-      ordering_enabled: false,
-      features: {
-        phone_auth: this.resources.config.customerAuthEnabled === true,
-        checkout: false,
-        payments: false,
-        fiscal: false,
-        loyalty: false,
-        test_order_flow: this.resources.config.testOrderFlowEnabled === true,
-        unpaid_test_orders: this.resources.config.testOrderFlowEnabled === true,
-      },
-      notice: this.resources.config.customerAuthEnabled
-        ? {
-            ru: 'Заказы в ресторане доступны без оплаты. Оплата и чеки в процессе подключения.',
-            kk: 'Мейрамханаға тапсырыстар төлемсіз қолжетімді. Төлем мен чектер қосылуда.',
-          }
-        : {
-            ru: 'Тестовый стенд PickChick. Доступен только синтетический TEST-сценарий при включённом тестовом режиме. Реальные заказы, SMS, платежи и чеки недоступны.',
-            kk: 'PickChick сынақ ортасы. Сынақ режимі қосылғанда тек синтетикалық TEST сценарийі қолжетімді. Нақты тапсырыстар, SMS, төлемдер мен чектер қолжетімсіз.',
-          },
-    });
+    return capabilities(this.resources.config);
   }
 }
 
@@ -162,6 +138,7 @@ function edgeMenuState(query: Record<string, unknown>) {
 }
 
 @Controller('internal/v1/edge/sync')
+@EdgeDeviceRoute()
 class MenuSyncController {
   constructor(@Inject(RESOURCE) private readonly resources: Resources) {}
 
@@ -223,7 +200,12 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
           provide: CLOUD_KITCHEN,
           inject: [RESOURCE],
           useFactory: (resources: Resources) => {
-            const kitchen = new CloudKitchen(resources.pool);
+            // Release fixes 19.10: catch-up failures go to commerce review; stale ready
+            // orders and refunded orders free their display numbers.
+            const kitchen = new CloudKitchen(resources.pool, {
+              review: reviewOrderInTransaction,
+              staleReadySeconds: cloudKitchenStaleReadySeconds(process.env),
+            });
             // Paid cloud channel orders are admitted inside the capture transaction.
             useCloudKitchenAdmission(kitchen);
             return kitchen;
@@ -282,6 +264,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       PosOrderSyncController,
       ...(kitchenApi.enabled ? [CloudKitchenController] : []),
       ...(kitchenBackoffice.cloudKitchenEnabled ? [CloudKitchenBackofficeController] : []),
+      EdgeIdentityController,
       ...(config.testOrderFlowEnabled ? [TestOrderController] : []),
     ],
     providers: [
