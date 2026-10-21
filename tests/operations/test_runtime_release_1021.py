@@ -22,6 +22,11 @@ def receipt(**kw):
 
 
 class Guards(unittest.TestCase):
+    def test_rehearsal_does_not_accept_non_synthetic_passwords(self):
+        for password in ('', 'short', 'a'*63, 'g'*64):
+            with self.assertRaises(r.market.GuardFailure):
+                r.rehearsal_environment({}, password, 'b'*64, 'c'*40)
+
     def test_only_reviewed_support_delta(self):
         r.check_delta(r.SUPPORT)
         for path in ['services/api/src/main.ts','db/cloud/migrations/069_cloud_customer_notifications.sql','infra/staging/release-market.py']:
