@@ -25,6 +25,7 @@ ACCEPTED = '1633bf79de64fb746ae302d52f9f8e5a769f2f9b'
 # Inherited prepare/rollback use their module's pin; this private import does not change old tools.
 live.BASELINE = BASELINE
 SUPPORT = {'infra/staging/release-runtime-1021.py', 'tests/operations/test_runtime_release_1021.py',
+           'tests/unit/runtime-release-1021.test.mjs',
            'docs/operations/deployments/2026-10-21-runtime-release.md',
            'docs/operations/reviews/finance-204d318b-2026-10-21.md',
            'docs/project-status.md', 'docs/roadmap/project.json', 'docs/collaboration/handoff.md'}
