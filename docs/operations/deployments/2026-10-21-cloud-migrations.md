@@ -72,7 +72,8 @@ apply повторно. Локальный apply-attempt запрещает сл
 - Четыре PostgreSQL-сценария:058 ->060 ->068, сохранность/права/пустые таблицы,
   read-only inspect, rollback, replay, неверная база/SQL/constraints/флаг,
   неожиданные default grants. Все прошли, пропусков нет.
-- Семь Python-проверок: flags/source/backup/CI, явный apply, отказ до live
-  миграции при проваленном восстановлении, закреплённый образ/mounts.
+- Восемь Python-проверок: flags/source/backup/CI, явный apply, отказ до live
+  миграции при проваленном восстановлении/изменении инструментов после backup,
+  закреплённый образ/mounts.
 - Полная Foundation CI, результат backup/restore и live apply будут записаны
   после фактического завершения. На этом checkpoint схема ещё не применялась.

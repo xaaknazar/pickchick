@@ -140,6 +140,7 @@ class Release(base.Release):
             return self.plan('apply', {'backup_restore_rehearsal_required': True, 'runtime_changes': False})
         require(not (self.private/'apply-attempt.json').exists(), 'Apply dispatched already; inspect outcome before retry')
         backup = self.backup_restore(proof['acl'])
+        require(self.artifacts() == proof['artifacts'], 'Migration tools changed during backup')
         require(self.runtime() == proof['before'] and self.acl() == proof['acl'] and self.ledger() == self.expected_ledger(), 'Baseline drift during backup')
         self.save('apply-attempt.json', {'sha': self.sha, 'backup_sha256': backup['sha256'], 'at': time.time()})
         self.owner('inspect-060')

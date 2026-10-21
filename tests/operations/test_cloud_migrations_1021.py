@@ -43,6 +43,18 @@ class Guards(unittest.TestCase):
             with self.assertRaises(m.market.GuardFailure):r.apply()
             self.assertEqual(calls,[])
             self.assertFalse((r.private/'apply-attempt.json').exists())
+    def test_artifact_drift_after_backup_prevents_live_apply(self):
+        with tempfile.TemporaryDirectory() as d:
+            r=m.Release.__new__(m.Release);r.sha='a'*40;r.private=Path(d);r.args=SimpleNamespace(apply=True)
+            proof={'sha':r.sha,'artifacts':'verified','before':{},'acl':[]}
+            (r.private/'prepared.json').write_text(json.dumps(proof))
+            artifacts=iter(['verified','changed'])
+            r.artifacts=lambda:next(artifacts);r.runtime=lambda:{};r.acl=lambda:[]
+            r.ledger=lambda:['058'];r.expected_ledger=lambda:['058']
+            calls=[];r.owner=lambda action:calls.append(action);r.backup_restore=lambda acl:{'sha256':'backup'}
+            with self.assertRaisesRegex(m.market.GuardFailure,'tools changed'):r.apply()
+            self.assertEqual(calls,[])
+            self.assertFalse((r.private/'apply-attempt.json').exists())
     def test_ci_refuses_failed_or_incomplete_jobs(self):
         sha='a'*40
         proof={'run':{'head_sha':sha,'status':'completed','conclusion':'success','path':'.github/workflows/ci.yml','head_repository':{'full_name':'xaaknazar/pickchick'}},'jobs':{'total_count':1,'jobs':[{'name':'guard','head_sha':sha,'status':'completed','conclusion':'success'}]}}
