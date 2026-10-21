@@ -6151,11 +6151,11 @@
         "tests/operations/test_windows_runtime_1021.py",
         "tests/operations/windows-display-numbers.test.mjs"
       ],
-      "status": "active",
+      "status": "available",
       "head": "0fb95c9f09031d93e38e3af2a0c4a1bcc81f591c",
-      "updatedAt": "2026-10-21T17:27:36.609Z",
-      "summary": "PR270 merge29ccd86a; Foundation39614210844 11/11. Backup020/restore47таблиц PASS, пакет5249e860 и CI proof67d6592a staged. Inspect остановлен до исполнения из-за PowerShell execution policy; затем Mac оказался в другой сети, SSH192.168.2.61 timeout. Apply НЕ запускался, схема/службы прежние. Владелец ожидает вопрос о сети.",
-      "nextAction": "После возвращения связи проверить host key/политики/хеши/свежесть копии<=6ч, inspect/apply и7служб/schema023/heartbeat. Не объявлять кассу обновлённой. @windows/cashier вернуть photo-printer-recovery после установки либо явного переноса владельцем."
+      "updatedAt": "2026-10-21T17:31:51.632Z",
+      "summary": "Владелец21.10 явно отложил установку: «Кассу установим позже». PR270 merge29ccd86a, source0fb95c9f, Foundation39614210844 11/11. Пакет5249e860 и CI proof staged, backup020/restore47таблиц PASS. Inspect остановился до исполнения на PowerShell policy, затем Mac ушёл в другую сеть. Apply НЕ запускался. @windows/cashier возвращён photo-printer-recovery; её задача и файлы сохранены.",
+      "nextAction": "Возобновить установку позже по поручению владельца: claim/резерв устройства, host key, актуальный адрес, проверка политик и хеша установщика, новая копия/restore если старше6ч, inspect затем apply и7служб/schema023/heartbeat. Локальный process-only RemoteSigned launcher подготовлен, системные политики не менялись. Акция OFF."
     },
     {
       "id": "kaspi-runtime-1021",
