@@ -6229,11 +6229,11 @@
         "docs/operations/kitchen-package-2026-10-21.md",
         "@vps/public-https"
       ],
-      "status": "active",
+      "status": "done",
       "head": "6e74a71043b9f0054039ea1c37c56e9900caddf9",
-      "updatedAt": "2026-10-21T17:31:59.248Z",
-      "summary": "PR275 source6e74a710. Сервер/API/кабинет/workers/кухня установлены, TestFlight21 доступен PickChick Internal. Windows0fb прошёл11/11 и PR270 merged, но apply не запускался. Владелец явно отложил кассу21.10: «Кассу установим позже». @windows/cashier возвращён photo-printer-recovery, windows-runtime передан через handoff. Киоск также отложен. 7/7 roadmap и format/diff/secret checks PASS; Foundation39640870984 идёт.",
-      "nextAction": "Полная CI6e74a710, обычный merge275, защищённая публикация roadmap с сохранением заметок и фиксация фактического результата в журнале. Кассу и киоск продолжать только после нового поручения владельца."
+      "updatedAt": "2026-10-21T17:37:15.642Z",
+      "summary": "PR275 merged4cc11e052849f792b98062fe8688abe7bb03da09, source6e74a71043b9f0054039ea1c37c56e9900caddf9. Foundation39640870984 прошла11/11; оба Project roadmap и Photo printer workflows success. Онлайн-пульт опубликован21.10 в22:36Алматы, /roadmap/health200 подтверждает source6e74a710, APIhealth200, кухняsource dc16d5ef edgeConnected=true. Архив695f3aa7214a9f0c01f89f877a1bc12715a6fb983ec157b6fc69489d82819dd5; gateway12df3dff595d5aff701e27ae862458f18955e959e70049976abe6cde3103198b. Копия заметок сохранена, ключ команды сохранён,20соседних контейнеров без изменений. Сервер/API/кабинет/оба worker/кухня выпущены; TestFlight0.2.0(21) доступен PickChick Internal,2прежних тестировщика. Касса и киоск явно отложены владельцем, Windows apply НЕ запускался, @windows/cashier возвращён photo-printer-recovery. Акция, push на сервере, ручные возвраты и авторотация OFF.",
+      "nextAction": "Владелец может обновить PickChick0.2.0(21) в TestFlight и провести приёмку. Кассу возобновлять только по новому поручению: claim/проверенный host key/политики/свежая копия и restore/inspect/apply; киоск и фотопринтер позже. Публичный App Store не опубликован. Внешние зависимости watchdog/offsite/фискализация/юридические требования остаются отдельными этапами."
     }
   ]
 }
