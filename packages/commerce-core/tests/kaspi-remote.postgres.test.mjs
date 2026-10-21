@@ -1755,8 +1755,16 @@ test('QA S1: more blocked attempts than one tick serves never starve a later rea
     await f.releaseLeases();
     assert.equal((await worker.tick()).submitted, 1);
     assert.equal((await f.invoice(late.attempt.attemptId))?.state, 'issued');
-    // Past the maximum age every blocked attempt fails; the stop lifting later sends nothing.
-    f.advance(601_000);
+    // The injected worker clock starts before the DB creates these attempts. On a slower
+    // runner setup can exceed one second, so expire relative to the newest DB timestamp,
+    // not the fixture start. All twelve must be older than the real ten-minute threshold.
+    const latestBlocked = (
+      await f.pool.query(
+        'SELECT max(created_at) AS latest FROM commerce_payment_attempts WHERE id=ANY($1::uuid[])',
+        [blocked.map((item) => item.attempt.attemptId)],
+      )
+    ).rows[0].latest;
+    f.advance(latestBlocked.getTime() - f.now() + 601_000);
     await f.releaseLeases();
     let notSent = 0;
     for (let round = 0; round < 3; round++) notSent += (await worker.tick()).notSent;
