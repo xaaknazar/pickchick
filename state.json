@@ -5852,7 +5852,7 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-cart-lines-api-1013",
       "head": "79cd0625159c8ad331812952aa50e30e5f82701b",
-      "status": "active",
+      "status": "done",
       "scopes": [
         "packages/commerce-core/src/kiosk-checkout.ts",
         "packages/catalog-pricing/src/model.ts",
@@ -5868,9 +5868,9 @@
         "packages/commerce-core/src/model.ts",
         "packages/edge-fulfillment/src/model.ts"
       ],
-      "updatedAt": "2026-10-21T10:18:19.853Z",
-      "summary": "Shared d15bde82 явно объединён; оба конфликта взяты из release-fixes, production guard сохранён. Runtime-diff с shared отсутствует, согласована история. PR263: https://github.com/xaaknazar/pickchick/pull/263; SHA79cd0625159c8ad331812952aa50e30e5f82701b; Foundation CI39566976077 полностью зелёная 11/11. Ничего не выпущено. Владелец разрешил merge; подтверждены чистый опубликованный checkpoint и его включение в shared. Собственная запись возобновлена только для штатного finish.",
-      "nextAction": "Ждать отдельного разрешения владельца на merge PR263 обычным merge; сервер/кассу/миграции не выпускать. Резервы сохраняются до включения коммита в shared."
+      "updatedAt": "2026-10-21T10:18:24.916Z",
+      "summary": "По разрешению владельца PR #263 слит обычным merge 8ddbea837526f0608652ad0c22ee4388aa1d5259; Foundation CI 39566976077 прошла 11/11. Чистый опубликованный 79cd0625159c8ad331812952aa50e30e5f82701b включён в shared; резервы этого этапа освобождены штатным finish. Выпуска runtime и Apple нет.",
+      "nextAction": "История cart-lines согласована с release-fixes. Следующий runtime выпуск только после финансовой приёмки 204d318b и проверки актуальных профилей."
     },
     {
       "id": "mobile-l10n-push-1014",
