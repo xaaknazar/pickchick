@@ -6158,8 +6158,10 @@
         "tests/operations/windows-display-numbers.test.mjs"
       ],
       "status": "active",
-      "head": "d6085655fd630fc43e7b7775c1e8d377fe49dccc",
-      "updatedAt": "2026-10-21T13:18:27.179Z"
+      "head": "00cc393d80f184698769559af550471f2c717cdf",
+      "updatedAt": "2026-10-21T13:35:12.955Z",
+      "summary": "PR270: guarded020->023 + four native runtimes, no install. Build/lint, PostgreSQL2/2, Windows mock26/26 and four real XML read-only checks pass; immutable ZIP534f1f10. Full CI pending. @windows/cashier remains photo-printer-recovery; owner asked temporary handoff, no forced release.",
+      "nextAction": "Wait full exact CI and owner resource transfer; verified schema020 backup/restore; guarded inspect/apply; keep rewards/identity rotation off."
     }
   ]
 }
