@@ -54,6 +54,14 @@ def check_capabilities(before, after):
             'Missing translated capability notice')
 
 
+def rehearsal_environment(env, password, redis_password, sha):
+    """Keep the staging URL contract; both hostnames resolve inside network:none."""
+    require(all(re.fullmatch('[a-f0-9]{64}', p) for p in (password, redis_password)),
+            'Synthetic rehearsal credentials required')
+    return {**env, 'CLOUD_DATABASE_URL':'postgresql://pickchick_app:'+password+'@cloud-db:5432/'+market.DB,
+            'REDIS_URL':'redis://default:'+redis_password+'@redis-cache:6379/0', 'RELEASE_SHA':sha}
+
+
 class Release(live.Release):
     def __init__(self, args):
         live.check_pins(args)
@@ -179,6 +187,11 @@ sha256sum {dump} > {dump}.sha256
     name = 'pickchick-runtime-rehearsal-'+suffix
     try:
         drill.run_container(name, drill.IMAGE)
+        # Containers sharing this network also inherit its hosts file. Keep the
+        # production hostname validation, with no external route or DNS lookup.
+        subprocess.run(['docker','exec',name,'sh','-c',
+                        "printf '\\n127.0.0.1 cloud-db redis-cache\\n' >> /etc/hosts"],
+                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         drill.wait_ready(name)
         restore = subprocess.Popen(['docker','exec','-i',name,'pg_restore','-U','postgres','-d',market.DB,'--exit-on-error','--no-owner','--no-acl'], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         decrypted = identity.decrypt(dump, restore.stdin)
@@ -198,13 +211,14 @@ sha256sum {dump} > {dump}.sha256
         require(runtime['Mounts'] == [], 'Unreviewed runtime mounts')
         env = dict(v.split('=',1) for v in runtime['Config']['Env'])
         check_flags({k:digest(v.encode()) for k,v in env.items()})
-        env.update(CLOUD_DATABASE_URL='postgresql://pickchick_app:'+password+'@127.0.0.1:5432/'+market.DB,
-                   REDIS_URL='redis://127.0.0.1:6379', RELEASE_SHA=config['sha'])
+        redis_password = secrets.token_hex(32)
+        env = rehearsal_environment(env, password, redis_password, config['sha'])
         redis_image = subprocess.check_output(['docker','inspect','--format','{{.Image}}','pickchick-staging-redis-cache-1'], text=True).strip()
         require(re.fullmatch('sha256:[a-f0-9]{64}', redis_image), 'Redis image not immutable')
         common = ['docker','run','-d','--network','container:'+name,'--read-only','--cap-drop','ALL',
                   '--security-opt','no-new-privileges:true','--memory','512m','--cpus','1','--pids-limit','128']
-        subprocess.run(common+['--name',name+'-redis',redis_image,'redis-server','--save','','--appendonly','no'],
+        subprocess.run(common+['--name',name+'-redis',redis_image,'redis-server','--save','','--appendonly','no',
+                               '--requirepass',redis_password],
                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
         command = common+['--name',name+'-api']
         for key in sorted(env): command += ['-e',key]

@@ -2,7 +2,10 @@
 import contextlib
 import importlib.util
 import io
+import json
+import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 from types import SimpleNamespace
@@ -22,6 +25,18 @@ def receipt(**kw):
 
 
 class Guards(unittest.TestCase):
+    def test_rehearsal_passes_real_staging_config_validator(self):
+        env = r.rehearsal_environment({'APP_ENV':'staging'}, 'a'*64, 'b'*64, 'c'*40)
+        program = "import {loadConfig} from './packages/platform/dist/config.js';const c=loadConfig('api');console.log(JSON.stringify({environment:c.environment,database:new URL(c.databaseUrl).hostname,redis:new URL(c.redisUrl).hostname}));"
+        result = subprocess.run(['node','--input-type=module','-e',program], cwd=ROOT,
+                                env={**os.environ,**env}, check=True, capture_output=True, text=True)
+        self.assertEqual(json.loads(result.stdout), {'environment':'staging','database':'cloud-db','redis':'redis-cache'})
+
+    def test_rehearsal_does_not_accept_non_synthetic_passwords(self):
+        for password in ('', 'short', 'a'*63, 'g'*64):
+            with self.assertRaises(r.market.GuardFailure):
+                r.rehearsal_environment({}, password, 'b'*64, 'c'*40)
+
     def test_only_reviewed_support_delta(self):
         r.check_delta(r.SUPPORT)
         for path in ['services/api/src/main.ts','db/cloud/migrations/069_cloud_customer_notifications.sql','infra/staging/release-market.py']:
