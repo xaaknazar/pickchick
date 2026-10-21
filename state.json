@@ -6046,11 +6046,15 @@
         "docs/operations/release-fixes-2026-10-19/release-plan-2026-10-21.md",
         "docs/operations/release-fixes-2026-10-19/verification-2026-10-21.md",
         "tests/mobile/browser_menu_recovery.py",
-        "tests/mobile/browser_demo_account.py"
+        "tests/mobile/browser_demo_account.py",
+        "apps/operations/package.json",
+        "pnpm-lock.yaml",
+        "docs/operations/release-fixes-2026-10-19/key-renewal-2026-10-21.md",
+        "docs/operations/release-fixes-2026-10-19/first-migration-step.md"
       ],
-      "status": "available",
+      "status": "active",
       "head": "f8ca55d06b4d666591e84941807a37ee43364794",
-      "updatedAt": "2026-10-21T06:58:01.842Z",
+      "updatedAt": "2026-10-21T07:21:33.506Z",
       "summary": "PR262 опубликован, f8ca55d06b4d666591e84941807a37ee43364794. Исправлены browser menu/account и параллельные transport fixtures. Foundation 39554147659: 9 jobs success; все функциональные шаги core прошли, только audit Vite GHSA-587h-7wmj-h5pm и итоговый gate failure. Тот же audit exit1 воспроизведён на чистом shared4dde5b34 с Node24.16/pnpm11.19 и идентичными lock/script SHA256; доказательство в PR. Закрыты четыре собственных слитых резерва; 37 пересечений активных задач сохранены, занято277 областей. Протоколы claims/release-plan/verification в GitHub. Ничего не выпускалось и не сливалось.",
       "nextAction": "Ждать отдельного да владельца на merge PR262, только обычный merge без squash. До выпуска исправить общую зависимость Vite apps/operations и получить полную зелёную CI; security gate не обходить. После разрешённого merge: l10n094afaf6, 10 конфликтов mobile/contracts с сохранением release-поведения, kk/en, исправить CI39552778206 (формат roadmap, fixtures notifications/config, open-cart и текстовые ожидания), tests/CI/PR. Cart-lines6870af1d: два конфликта doc/device-presence, версии release-fixes, tests/CI/PR. Ключ кассы до30.10.2026 19:06:41 Алматы; ручная ротация подготовлена, требует отдельного да. Cloud060 отсутствует, текущая схема058; guarded058->060, порядок059 и совместимые API/Windows backup/runtime операторы ещё требуются. Финансы204d318b принимает финансовый Mac. CUSTOMER_COMBO_REWARDS_ENABLED не включать до нового FulfillmentWorker. VPS/касса/iPad/Apple/миграции/онлайн-пульт только по отдельному разрешению на каждый шаг; реальные платежи/QR не создавать."
     }
