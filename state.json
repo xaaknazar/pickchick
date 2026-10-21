@@ -6116,11 +6116,14 @@
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
         "@vps/api",
-        "@vps/postgres"
+        "@vps/postgres",
+        "@vps/backoffice",
+        "@vps/kitchen",
+        "@vps/public-https"
       ],
       "status": "active",
-      "head": "1633bf79de64fb746ae302d52f9f8e5a769f2f9b",
-      "updatedAt": "2026-10-21T12:13:43.687Z"
+      "head": "59f0c0d98a6d0667c3b2ae8d8bbb0b1b6b7f41c1",
+      "updatedAt": "2026-10-21T12:26:49.846Z"
     }
   ]
 }
