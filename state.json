@@ -6231,9 +6231,9 @@
       ],
       "status": "active",
       "head": "6e74a71043b9f0054039ea1c37c56e9900caddf9",
-      "updatedAt": "2026-10-21T17:07:54.139Z",
-      "summary": "PR275 updated6e74a710. Сервер/API/кабинет/workers/кухня установлены, TestFlight21 доступен PickChick Internal. Windows0fb прошёл11/11 и PR270 merged, но apply не начался: политика запуска и затем переход Mac в другую сеть. Киоск отложен владельцем. 7/7 roadmap, format/diff/secret checks PASS. Foundation39640870984 идёт.",
-      "nextAction": "Дождаться полной CI6e74a710, обычный merge275 и защищённая публикация roadmap с сохранением заметок. @vps/roadmap/@vps/public-https закреплены. Windows отдельная задача ждёт ответа владельца о сети."
+      "updatedAt": "2026-10-21T17:31:59.248Z",
+      "summary": "PR275 source6e74a710. Сервер/API/кабинет/workers/кухня установлены, TestFlight21 доступен PickChick Internal. Windows0fb прошёл11/11 и PR270 merged, но apply не запускался. Владелец явно отложил кассу21.10: «Кассу установим позже». @windows/cashier возвращён photo-printer-recovery, windows-runtime передан через handoff. Киоск также отложен. 7/7 roadmap и format/diff/secret checks PASS; Foundation39640870984 идёт.",
+      "nextAction": "Полная CI6e74a710, обычный merge275, защищённая публикация roadmap с сохранением заметок и фиксация фактического результата в журнале. Кассу и киоск продолжать только после нового поручения владельца."
     }
   ]
 }
