@@ -202,7 +202,8 @@ export class DemoAccountCore {
     if (!this.account) throw new DemoLoginError('no_account');
     const now = this.io.now();
     const details = normalizeProfileDetails(input, now);
-    if (!details || details.gender === null || !Number.isSafeInteger(now) || now <= 0)
+    // Every profile field is voluntary, gender included (audit 7.7).
+    if (!details || !Number.isSafeInteger(now) || now <= 0)
       throw new DemoLoginError('invalid_profile');
     const next: DemoAccount = { ...this.account, profile: { ...details, completedAt: now } };
     // The complete account is one storage write. Failure leaves the prior in-memory

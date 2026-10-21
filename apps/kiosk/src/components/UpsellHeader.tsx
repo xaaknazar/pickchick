@@ -21,7 +21,6 @@ export function UpsellHeader({
   title,
   subtitle,
   onBack,
-  onHelp,
 }: {
   locale: Locale;
   setLocale: (locale: Locale) => void;
@@ -34,7 +33,6 @@ export function UpsellHeader({
   const safe = useSafeAreaInsets();
   const t = copy(locale);
   const back = usePress(0.96);
-  const help = usePress(0.92);
   const control = Math.max(48, px(64));
   return (
     <View
@@ -108,31 +106,6 @@ export function UpsellHeader({
           ) : null}
         </View>
         <Language locale={locale} onChange={setLocale} tone="glass" />
-        <Animated.View style={{ transform: [{ scale: help.scale }] }}>
-          <GlassPanel shape="circle">
-            <Pressable
-              testID="kiosk-upsell-help"
-              accessibilityRole="button"
-              accessibilityLabel={t.help}
-              onPress={onHelp}
-              onPressIn={help.onPressIn}
-              onPressOut={help.onPressOut}
-              style={{
-                width: control,
-                height: control,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text
-                {...fixedText}
-                style={{ fontFamily: fonts.black, fontSize: px(24), color: colors.white }}
-              >
-                ?
-              </Text>
-            </Pressable>
-          </GlassPanel>
-        </Animated.View>
       </View>
     </View>
   );

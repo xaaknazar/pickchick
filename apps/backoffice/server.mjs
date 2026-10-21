@@ -96,6 +96,15 @@ export const allowed = (method, path) => {
   if (method === 'GET' && new RegExp(`^/v1/admin/backoffice/branches/${UUID}$`, 'i').test(pathname))
     return reportQuery(search ?? '');
   if (search !== undefined) return false;
+  // Audit 19.10, finding 4.3: kiosk payment incidents (list for manager/analyst, accept for the
+  // branch manager only; the API keeps the role check, the 15-minute guard and the audit).
+  if (
+    (method === 'GET' || method === 'POST') &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/kiosk-payment-incidents$`, 'i').test(
+      pathname,
+    )
+  )
+    return true;
   if (
     method === 'GET' &&
     new RegExp(
@@ -153,6 +162,8 @@ const assets = new Map([
     'inventory-model',
     'devices-model',
     'components/DeviceAccessView',
+    'kiosk-incidents-model',
+    'components/KioskIncidentsView',
     'finance',
     'finance-model',
     'workforce',

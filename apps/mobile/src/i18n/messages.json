@@ -7996,5 +7996,335 @@
     "kk": "Құрылғы баптауларын ашу",
     "en": "Open device settings",
     "context": "notifications"
+  },
+  {
+    "ru": "Позвонить в поддержку",
+    "kk": "Қолдау қызметіне қоңырау шалу",
+    "en": "Call support"
+  },
+  {
+    "ru": "Ресторан проверяет этот заказ: его могли отменить или оформить возврат. Новый заказ можно сделать сразу. Если деньги списались, а заказ не выдан, свяжитесь с поддержкой.",
+    "kk": "Мейрамхана бұл тапсырысты тексеріп жатыр: ол жойылған немесе оған қайтарым рәсімделген болуы мүмкін. Жаңа тапсырысты бірден бере аласыз. Ақша шегеріліп, тапсырыс берілмесе, қолдау қызметіне хабарласыңыз.",
+    "en": "The restaurant is reviewing this order: it may have been cancelled or refunded. You can place a new order now. If you were charged but did not receive your order, contact support."
+  },
+  {
+    "ru": "Ресторан не смог принять этот заказ. Счёт не отправлен, деньги не списаны. Проверьте корзину и оформите заказ снова.",
+    "kk": "Мейрамхана бұл тапсырысты қабылдай алмады. Төлем шоты жіберілмеді, ақша шегерілмеді. Себетті тексеріп, қайта тапсырыс беріңіз.",
+    "en": "The restaurant could not accept this order. No payment request was sent and you were not charged. Check your basket and place the order again."
+  },
+  {
+    "ru": "Подарок сейчас недоступен. Вернитесь в корзину, обновите отметки или снимите галочку акции.",
+    "kk": "Сыйлық қазір қолжетімсіз. Себетке оралып, белгілер санын жаңартыңыз немесе акция белгісін алып тастаңыз.",
+    "en": "This gift is currently unavailable. Return to your basket to refresh your stamps or turn off the offer."
+  },
+  {
+    "ru": "Использовать подарочный Pick Combo",
+    "kk": "Сыйлық Pick Combo-ны пайдалану",
+    "en": "Use your free Pick Combo"
+  },
+  {
+    "ru": "Pick Combo в подарок",
+    "kk": "Pick Combo сыйлыққа",
+    "en": "Free Pick Combo"
+  },
+  {
+    "ru": "Акция применена к одному комбо",
+    "kk": "Акция бір комбоға қолданылды",
+    "en": "Offer applied to one combo"
+  },
+  {
+    "ru": "Использовать подарок в этом заказе",
+    "kk": "Сыйлықты осы тапсырыста пайдалану",
+    "en": "Use your gift in this order"
+  },
+  {
+    "ru": "Базовый Pick Combo бесплатно. Платные добавки оплачиваются отдельно. Состав можно изменить в карточке комбо.",
+    "kk": "Негізгі Pick Combo тегін. Ақылы қоспалар бөлек төленеді. Құрамын комбо карточкасынан өзгерте аласыз.",
+    "en": "The base Pick Combo is free. Paid extras are charged separately. You can change the contents on the combo page."
+  },
+  {
+    "ru": "Обновляем доступность подарка. Можно снять галочку и сохранить его на потом.",
+    "kk": "Сыйлықтың қолжетімділігін жаңартып жатырмыз. Белгіні алып тастап, сыйлықты кейінге сақтай аласыз.",
+    "en": "Checking gift availability. You can turn this off and save your gift for later."
+  },
+  {
+    "ru": "Покупайте любое комбо",
+    "kk": "Кез келген комбо сатып алыңыз",
+    "en": "Buy any combo"
+  },
+  {
+    "ru": "После подтверждённой оплаты каждое комбо даёт одну отметку. Два комбо в заказе - две отметки.",
+    "kk": "Төлем расталғаннан кейін әр комбо үшін бір белгі беріледі. Бір тапсырыста екі комбо болса, екі белгі беріледі.",
+    "en": "Each combo earns one stamp after payment is confirmed. Two combos in an order earn two stamps."
+  },
+  {
+    "ru": "Заберите Pick Combo в подарок",
+    "kk": "Pick Combo-ны сыйлыққа алыңыз",
+    "en": "Claim your free Pick Combo"
+  },
+  {
+    "ru": "После семи отметок подарок появится в профиле и корзине. Включите «Использовать подарок». Остаток покупок переносится на следующий круг.",
+    "kk": "Жеті белгіден кейін сыйлық профильде және себетте пайда болады. «Сыйлықты пайдалану» опциясын қосыңыз. Артық сатып алулар келесі айналымға өтеді.",
+    "en": "After seven stamps, your gift appears in your profile and basket. Turn on “Use gift”. Extra purchases count towards the next round."
+  },
+  {
+    "ru": "Возвраты учитываются",
+    "kk": "Қайтарымдар ескеріледі",
+    "en": "Refunds are counted"
+  },
+  {
+    "ru": "Возврат комбо снимает соответствующую отметку. Неиспользованный подарок станет недоступен, если отметок недостаточно. Если подарок уже использован, сотрудник проверит ситуацию.",
+    "kk": "Комбо қайтарылса, оның белгісі алынып тасталады. Белгілер жеткіліксіз болса, пайдаланылмаған сыйлық қолжетімсіз болады. Сыйлық пайдаланылып қойса, қызметкер жағдайды тексереді.",
+    "en": "Refunding a combo removes its stamp. An unused gift becomes unavailable if there are not enough stamps. If the gift has already been used, a staff member will review it."
+  },
+  {
+    "ru": "Отличный выбор! Ждём оплату в Kaspi",
+    "kk": "Керемет таңдау! Kaspi төлемін күтіп отырмыз",
+    "en": "Great choice! Waiting for your Kaspi payment"
+  },
+  {
+    "ru": "Если вопрос не решится, обратитесь к сотруднику ресторана и назовите сумму и время заказа.",
+    "kk": "Мәселе шешілмесе, мейрамхана қызметкеріне хабарласып, тапсырыс сомасы мен уақытын айтыңыз.",
+    "en": "If the issue persists, tell a restaurant staff member the order amount and time."
+  },
+  {
+    "ru": "Не удалось открыть контакт:",
+    "kk": "Байланыс дерегін ашу мүмкін болмады:",
+    "en": "Could not open the contact:"
+  },
+  {
+    "ru": "Проверяем отметки после возврата",
+    "kk": "Қайтарымнан кейінгі белгілерді тексеріп жатырмыз",
+    "en": "Checking stamps after a refund"
+  },
+  {
+    "ru": "Подарок в оформляемом заказе",
+    "kk": "Сыйлық рәсімделіп жатқан тапсырыста",
+    "en": "Gift included in your current checkout"
+  },
+  {
+    "ru": "Одна отметка за каждое оплаченное комбо. За семь отметок - Pick Combo в подарок. Возврат комбо снимает его отметку.",
+    "kk": "Әр төленген комбо үшін бір белгі беріледі. Жеті белгі үшін Pick Combo сыйлыққа беріледі. Комбо қайтарылса, оның белгісі алынады.",
+    "en": "Earn one stamp for each paid combo. Seven stamps earn a free Pick Combo. Refunding a combo removes its stamp."
+  },
+  {
+    "ru": "Использовать подарок",
+    "kk": "Сыйлықты пайдалану",
+    "en": "Use gift"
+  },
+  {
+    "ru": "Укажите телефон, чтобы войти в профиль",
+    "kk": "Профильге кіру үшін телефон нөміріңізді енгізіңіз",
+    "en": "Enter your phone number to sign in"
+  },
+  {
+    "ru": "и даю согласие на обработку данных и передачу номера и кода в Telegram или WhatsApp для входа.",
+    "kk": "және деректерімді өңдеуге, кіру үшін нөмірім мен кодымды Telegram немесе WhatsApp-қа жіберуге келісім беремін.",
+    "en": "and consent to my data being processed and my phone number and code being sent to Telegram or WhatsApp for sign-in."
+  },
+  {
+    "ru": "и даю согласие на обработку данных и передачу номера и кода Telegram для входа.",
+    "kk": "және деректерімді өңдеуге, кіру үшін нөмірім мен кодымды Telegram-ға жіберуге келісім беремін.",
+    "en": "and consent to my data being processed and my phone number and code being sent to Telegram for sign-in."
+  },
+  {
+    "ru": "Сотрудник ресторана поможет оформить заказ на месте.",
+    "kk": "Мейрамхана қызметкері сол жерде тапсырыс беруге көмектеседі.",
+    "en": "A restaurant staff member can help you place your order in person."
+  },
+  {
+    "ru": "Прошлый заказ не оплачен: счёт не отправлялся, деньги не списаны. Он остаётся в «Заказах».",
+    "kk": "Алдыңғы тапсырыс төленбеген: төлем шоты жіберілмеді, ақша шегерілмеді. Ол «Тапсырыстар» бөлімінде сақталады.",
+    "en": "The previous order is unpaid: no payment request was sent and you were not charged. It remains in Orders."
+  },
+  {
+    "ru": "Оформляем заказ…",
+    "kk": "Тапсырысты рәсімдеп жатырмыз…",
+    "en": "Placing your order…"
+  },
+  {
+    "ru": "Заказать подарок",
+    "kk": "Сыйлыққа тапсырыс беру",
+    "en": "Order your gift"
+  },
+  {
+    "ru": "Повторить попытку",
+    "kk": "Қайталап көру",
+    "en": "Try again"
+  },
+  {
+    "ru": "К списку заказов",
+    "kk": "Тапсырыстар тізіміне",
+    "en": "Back to orders"
+  },
+  {
+    "ru": "Вопрос по заказу или оплате? Назовите сумму и время заказа, так мы быстрее его найдём. Не сообщайте коды входа и данные карты.",
+    "kk": "Тапсырыс немесе төлем туралы сұрағыңыз бар ма? Тапсырыс сомасы мен уақытын айтыңыз, сонда оны тезірек табамыз. Кіру кодтары мен карта деректерін айтпаңыз.",
+    "en": "Have a question about your order or payment? Tell us the order amount and time so we can find it faster. Do not share sign-in codes or card details."
+  },
+  {
+    "ru": "Вопросы по заказу и оплате",
+    "kk": "Тапсырыс пен төлем туралы сұрақтар",
+    "en": "Order and payment questions"
+  },
+  {
+    "ru": "Пока поддержка работает в ресторане: обратитесь к сотруднику на кассе.",
+    "kk": "Әзірге қолдау мейрамханада көрсетіледі: кассадағы қызметкерге хабарласыңыз.",
+    "en": "For now, support is available in the restaurant. Please speak to a staff member at the till."
+  },
+  {
+    "ru": "ПОЛ · ПО ЖЕЛАНИЮ",
+    "kk": "ЖЫНЫСЫ · МІНДЕТТІ ЕМЕС",
+    "en": "GENDER · OPTIONAL"
+  },
+  {
+    "ru": "Не указывать пол",
+    "kk": "Жынысты көрсетпеу",
+    "en": "Prefer not to say"
+  },
+  {
+    "ru": "Не удалось отправить код в Telegram на этот номер. Сейчас вход работает только через Telegram: установите Telegram на этот номер и попробуйте снова. Если Telegram нет, обратитесь в поддержку.",
+    "kk": "Бұл нөмірге Telegram арқылы код жіберу мүмкін болмады. Қазір тек Telegram арқылы кіруге болады: осы нөмірмен Telegram-ға тіркеліп, қайта көріңіз. Telegram болмаса, қолдау қызметіне хабарласыңыз.",
+    "en": "We could not send a Telegram code to this number. Sign-in currently requires Telegram: set it up with this number and try again. If you do not have Telegram, contact support."
+  },
+  {
+    "ru": "Куплено комбо: {p0}",
+    "kk": "Сатып алынған комбо: {p0}",
+    "en": "Combos purchased: {p0}"
+  },
+  {
+    "ru": "Pick Combo в подарок доступен",
+    "kk": "Pick Combo сыйлығы қолжетімді",
+    "en": "Your free Pick Combo is available"
+  },
+  {
+    "ru": "Доступно подарков Pick Combo: {p0}",
+    "kk": "Қолжетімді Pick Combo сыйлықтары: {p0}",
+    "en": "Free Pick Combos available: {p0}"
+  },
+  {
+    "ru": "Ещё {p0} комбо до подарка",
+    "kk": "Сыйлыққа дейін тағы {p0} комбо",
+    "en": "{p0} more combos until your gift"
+  },
+  {
+    "ru": "{p0} поз. · {p1}",
+    "kk": "{p0} позиция · {p1}",
+    "en": "{p0} items · {p1}"
+  },
+  {
+    "ru": "Ходы: {p0}",
+    "kk": "Жүріс: {p0}",
+    "en": "Moves: {p0}"
+  },
+  {
+    "ru": "Рекорд: {p0}",
+    "kk": "Рекорд: {p0}",
+    "en": "Best: {p0}"
+  },
+  {
+    "ru": "УРОВЕНЬ {p0}",
+    "kk": "ДЕҢГЕЙ {p0}",
+    "en": "LEVEL {p0}"
+  },
+  {
+    "ru": "Не удалось открыть контакт: {p0}",
+    "kk": "Байланыс дерегін ашу мүмкін болмады: {p0}",
+    "en": "Could not open the contact: {p0}"
+  },
+  {
+    "ru": "· Версия {p0}",
+    "kk": "· {p0} нұсқасы",
+    "en": "· Version {p0}"
+  },
+  {
+    "ru": "Повторить заказ №{p0}",
+    "kk": "№{p0} тапсырысты қайталау",
+    "en": "Repeat order #{p0}"
+  },
+  {
+    "ru": "Было {p0}. Сейчас {p1}.",
+    "kk": "Бұрын {p0}. Қазір {p1}.",
+    "en": "Was {p0}. Now {p1}."
+  },
+  {
+    "ru": "Ваш рекорд: {p0}",
+    "kk": "Үздік нәтижең: {p0}",
+    "en": "Your best: {p0}"
+  },
+  {
+    "ru": "ДО СЛЕДУЮЩЕГО УРОВНЯ: {p0}",
+    "kk": "КЕЛЕСІ ДЕҢГЕЙГЕ ДЕЙІН: {p0}",
+    "en": "TO THE NEXT LEVEL: {p0}"
+  },
+  {
+    "ru": "{p0} {p1} · уровень {p2}",
+    "kk": "{p0} {p1} · деңгей {p2}",
+    "en": "{p0} {p1} · level {p2}"
+  },
+  {
+    "ru": "Рекорд на телефоне: {p0}",
+    "kk": "Телефондағы рекорд: {p0}",
+    "en": "Best on this phone: {p0}"
+  },
+  {
+    "ru": "Рекорд {p0} · серия {p1}",
+    "kk": "Рекорд {p0} · серия {p1}",
+    "en": "Best {p0} · streak {p1}"
+  },
+  {
+    "ru": "Рекорд {p0}",
+    "kk": "Рекорд {p0}",
+    "en": "Best {p0}"
+  },
+  {
+    "ru": "Предлагаем возвращать {p0}% Чиками, считать 1 Чик равным 1 ₸ и разрешить оплачивать Чиками до {p1}% подходящих позиций заказа.",
+    "kk": "{p0}% Чикпен қайтаруды, 1 Чикті 1 ₸ деп есептеуді және тапсырыстың тиісті позицияларының {p1}%-ына дейін Чикпен төлеуге рұқсат беруді ұсынамыз.",
+    "en": "We propose returning {p0}% in Chiki, valuing 1 Chik at 1 ₸ and allowing Chiki to cover up to {p1}% of eligible order items."
+  },
+  {
+    "ru": "Код для локального просмотра: {p0}",
+    "kk": "Жергілікті қарауға арналған код: {p0}",
+    "en": "Local preview code: {p0}"
+  },
+  {
+    "ru": "Ваша оценка: {p0}",
+    "kk": "Сіздің бағаңыз: {p0}",
+    "en": "Your rating: {p0}"
+  },
+  {
+    "ru": "Прежде чем создавать другой заказ, нужно уточнить результат проверки заказа {p0}. Новая корзина остаётся на устройстве.",
+    "kk": "Басқа тапсырыс бермес бұрын {p0} тапсырысының тексеру нәтижесін нақтылау қажет. Жаңа себет құрылғыда сақталады.",
+    "en": "Before placing another order, confirm the result for order {p0}. Your new basket stays on this device."
+  },
+  {
+    "ru": "Счёт придёт на {p0}",
+    "kk": "Төлем шоты {p0} нөміріне келеді",
+    "en": "The payment request will be sent to {p0}"
+  },
+  {
+    "ru": "Выбрано {p0} из {p1}",
+    "kk": "{p1} ішінен {p0} таңдалды",
+    "en": "Selected {p0} of {p1}"
+  },
+  {
+    "ru": "{p0} {p1} из {p2}",
+    "kk": "{p0}: {p2} ішінен {p1}",
+    "en": "{p0} {p1} of {p2}"
+  },
+  {
+    "ru": "КБЖУ · {p0}",
+    "kk": "Құнарлылық · {p0}",
+    "en": "Nutrition · {p0}"
+  },
+  {
+    "ru": "Выбрано: {p0}",
+    "kk": "Таңдалды: {p0}",
+    "en": "Selected: {p0}"
+  },
+  {
+    "ru": "Документы Pick Chick · версия {p0}",
+    "kk": "Pick Chick құжаттары · {p0} нұсқасы",
+    "en": "Pick Chick documents · version {p0}"
   }
 ]

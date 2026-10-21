@@ -8,7 +8,8 @@ class GatewayTests(unittest.TestCase):
   source='site {\n\t@operations {\n\t\tmethod GET HEAD\n\t\tpath /kiosk /kitchen/prep /kitchen/assembly /display /manager\n\t}\n\thandle @operations { root * /srv/public/operations }\n\t@other { path /roadmap/* }\n}'
   after=d.add_route(source)
   self.assertIn('path /kiosk /manager',after)
-  self.assertIn('header_up X-PickChick-Client-IP {remote_host}',after)
+  self.assertIn('header_up X-PickChick-Client-IP {client_ip}',after)
+  self.assertNotIn('{remote_host}',after)
   self.assertIn('@other { path /roadmap/* }',after)
   with self.assertRaises(RuntimeError):d.add_route(after)
   with self.assertRaises(RuntimeError):d.add_route(source.replace('/display','/changed'))

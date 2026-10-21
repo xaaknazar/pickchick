@@ -78,8 +78,7 @@ export function RepeatOrder({
                 <Row>
                   <CloseButton label={t('Закрыть повтор заказа')} onPress={close} />
                   <Heading small style={{ flex: 1 }}>
-                    {t('Повторить заказ №')}
-                    {localize(order.number)}
+                    {t('Повторить заказ №{p0}', { p0: order.number })}
                   </Heading>
                 </Row>
                 <ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 12 }}>

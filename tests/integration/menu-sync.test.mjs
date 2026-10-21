@@ -16,6 +16,7 @@ import {
   revokeDevice,
   syncMenuOnce,
   hashJson,
+  fenceRestoredEdge,
 } from '@pickchick/menu-sync';
 import { withSyncDatabases, running, authFor, headersFor, request } from '../helpers/sync.mjs';
 
@@ -920,5 +921,54 @@ test('least-privilege runtime records edge state and verdicts but cannot rewrite
       await cloud.pool.query(`DROP OWNED BY ${role}`);
       await cloud.admin.query(`DROP ROLE ${role}`);
     }
+  });
+});
+
+test('a restored edge skips forward once to the oldest unacknowledged release, never back (6.4)', async () => {
+  await withSyncDatabases(async ({ cloud, edge, device, branch, menu }) => {
+    const identity = await provisionDevice(cloud.pool, device);
+    const auth = authFor(identity);
+    const ackOf = (event) => ({
+      event_id: event.event_id,
+      producer_id: event.producer_id,
+      producer_sequence: event.producer_sequence,
+      branch_id: branch,
+      release_id: event.aggregate_id,
+      checksum: event.payload.checksum,
+    });
+    const first = await publishMenu(cloud.pool, menu(1));
+    await acknowledgeMenu(cloud.pool, auth, await applyMenu(edge.pool, branch, first));
+    // The lost timeline applied and acknowledged release 2; the restored edge never saw it.
+    const lost = await publishMenu(cloud.pool, menu(2));
+    await acknowledgeMenu(cloud.pool, auth, ackOf(lost));
+    const third = await publishMenu(cloud.pool, menu(3));
+    assert.equal((await pullMenu(cloud.pool, auth)).event.event_id, third.event_id);
+    await assert.rejects(applyMenu(edge.pool, branch, third), isConflict);
+
+    await edge.pool.query(
+      `INSERT INTO edge_database_epochs(epoch,system_identifier,database_oid,reason,sequence_gap)
+       SELECT max(epoch)+1, 1, 1, 'initial', 0 FROM edge_database_epochs`,
+    );
+    assert.equal((await fenceRestoredEdge(edge.pool)).state, 'restore');
+    const ack = await applyMenu(edge.pool, branch, third);
+    assert.equal(ack.result, undefined, 'applied');
+    await acknowledgeMenu(cloud.pool, auth, ack);
+    assert.equal(
+      (await cloud.pool.query('SELECT release_id FROM branch_menu_activations')).rows[0].release_id,
+      third.aggregate_id,
+    );
+    assert.equal(
+      (await edge.pool.query('SELECT release_id FROM active_menu')).rows[0].release_id,
+      third.aggregate_id,
+    );
+    // Strict again: the next release applies in order, a later gap is still refused.
+    await applyMenu(edge.pool, branch, await publishMenu(cloud.pool, menu(4)));
+    await publishMenu(cloud.pool, menu(5));
+    const sixth = await publishMenu(cloud.pool, menu(6));
+    await assert.rejects(applyMenu(edge.pool, branch, sixth), isConflict);
+    assert.equal(
+      (await edge.pool.query('SELECT last_sequence FROM menu_sync_state')).rows[0].last_sequence,
+      '4',
+    );
   });
 });

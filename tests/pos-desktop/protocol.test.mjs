@@ -478,3 +478,107 @@ test('published hash photos come from the configured edge only after SHA-256 and
     },
   );
 });
+
+test('a wrong or foreign PIN in the close-shift dialog keeps the cashier journal (6.2)', async () => {
+  const { createJournalStore } = await import(pathToFileURL(desktopFile('journal.mjs')).href);
+  const id = (last) => `10000000-0000-4000-8000-${String(last).padStart(12, '0')}`;
+  const cashier = {
+    session_id: id(1),
+    staff_id: id(2),
+    terminal_id: ID,
+    branch_id: id(4),
+    role: 'cashier',
+    expires_at: new Date(Date.now() + 3600000).toISOString(),
+  };
+  const other = { ...cashier, session_id: id(11), staff_id: id(12) };
+  const scope = `${cashier.branch_id}.${cashier.staff_id}.${cashier.terminal_id}`;
+  const key = `pickchick.pos.journal.v1.${scope}`;
+  const journal = (quantity) =>
+    JSON.stringify({
+      version: 1,
+      scope,
+      draft: {
+        release_id: id(5),
+        service_mode: 'takeaway',
+        items: [{ variant_id: id(6), quantity }],
+      },
+      pending: null,
+      known: [],
+      selected: null,
+    });
+  const directory = await mkdtemp(join(tmpdir(), 'pickchick-pin-journal-'));
+  const store = createJournalStore({ directory });
+  let answer;
+  try {
+    await fixture(
+      async (handler) => {
+        const call = (path, sessionId, method = 'POST') =>
+          handler(
+            request(path, {
+              method,
+              headers: {
+                ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
+                ...(sessionId
+                  ? { Authorization: `Bearer ${'b'.repeat(64)}`, 'X-Staff-Session-Id': sessionId }
+                  : {}),
+              },
+              ...(method === 'POST' ? { body: '{}' } : {}),
+            }),
+          );
+        answer = () => new Response(JSON.stringify(cashier), { status: 200 });
+        assert.equal((await call('/edge/v1/session', cashier.session_id, 'GET')).status, 200);
+        store.setItem(key, journal(1));
+
+        // Wrong PIN: 401 on the isolated PIN check.
+        answer = () => new Response('{"code":"UNAUTHORIZED"}', { status: 401 });
+        assert.equal((await call('/edge/v1/staff/pin')).status, 401);
+        store.setItem(key, journal(2));
+
+        // Another cashier's PIN: credential issued, then logged out with its own session.
+        answer = () => new Response(JSON.stringify({ ...other, token: 'c'.repeat(64) }));
+        assert.equal((await call('/edge/v1/staff/pin')).status, 200);
+        answer = () => new Response(null, { status: 204 });
+        assert.equal((await call('/edge/v1/staff/logout', other.session_id)).status, 204);
+        answer = () => new Response('{"code":"UNAUTHORIZED"}', { status: 401 });
+        assert.equal((await call('/edge/v1/session', other.session_id, 'GET')).status, 401);
+        assert.throws(() => store.setItem(key, journal(3)), 'GET /session always re-checks');
+        answer = () => new Response(JSON.stringify(cashier), { status: 200 });
+        assert.equal((await call('/edge/v1/session', cashier.session_id, 'GET')).status, 200);
+        answer = () => new Response('{"code":"FORBIDDEN"}', { status: 403 });
+        assert.equal((await call('/edge/v1/ordering/close', other.session_id)).status, 403);
+        store.setItem(key, journal(3));
+        assert.equal(JSON.parse(store.getItem(key)).draft.items[0].quantity, 3);
+
+        // The cashier's own session ending still revokes the journal at once.
+        answer = () => new Response('{"code":"UNAUTHORIZED"}', { status: 401 });
+        assert.equal((await call('/edge/v1/orders', cashier.session_id, 'GET')).status, 401);
+        assert.throws(() => store.setItem(key, journal(4)));
+        answer = () => new Response(JSON.stringify(cashier), { status: 200 });
+        await call('/edge/v1/session', cashier.session_id, 'GET');
+        store.setItem(key, journal(4));
+        answer = () => new Response(null, { status: 204 });
+        assert.equal((await call('/edge/v1/staff/logout', cashier.session_id)).status, 204);
+        assert.throws(() => store.setItem(key, journal(5)));
+        answer = () => new Response(JSON.stringify(cashier), { status: 200 });
+        await call('/edge/v1/session', cashier.session_id, 'GET');
+        answer = () => new Response('{"code":"AUTH_RATE_LIMITED"}', { status: 429 });
+        await call('/edge/v1/staff/login');
+        assert.throws(() => store.setItem(key, journal(5)), 'password login still revokes');
+      },
+      {
+        config: { terminalId: ID },
+        onSession: (value, sessionId) => store.setSession(value, sessionId),
+        fetchImpl: async () => answer(),
+      },
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('terminal config accepts a 6-digit PIN pad only as an explicit 4 or 6 (6.5)', () => {
+  assert.equal(validateConfig({}).pinLength, undefined);
+  assert.equal(validateConfig({ pinLength: 6 }).pinLength, 6);
+  assert.equal(validateConfig({ pinLength: 4 }).pinLength, 4);
+  for (const pinLength of [5, 8, '6', null, 0]) assert.throws(() => validateConfig({ pinLength }));
+});

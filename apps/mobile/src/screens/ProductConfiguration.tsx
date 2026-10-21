@@ -164,8 +164,9 @@ function LegacyConfiguredProduct(
           {nutrition ? (
             <View testID="product-nutrition" style={s.nutrition}>
               <Caption style={{ width: '100%', fontFamily: font.bold }}>
-                {t('КБЖУ ·')}
-                {localize(nutrition.basis === 'per_serving' ? 'базовая порция' : 'на 100 г')}
+                {t('КБЖУ · {p0}', {
+                  p0: localize(nutrition.basis === 'per_serving' ? 'базовая порция' : 'на 100 г'),
+                })}
               </Caption>
               {[
                 [nutrition.energy_kcal, 'ккал'],
@@ -267,8 +268,7 @@ function LegacyConfiguredProduct(
                       style={s.selectionSummary}
                       accessibilityLiveRegion="polite"
                     >
-                      {t('Выбрано:')}
-                      {localize(selectedLabels.join(', '))}
+                      {t('Выбрано: {p0}', { p0: selectedLabels.join(', ') })}
                     </Caption>
                   ) : null}
                 </View>

@@ -1,4 +1,5 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config';
+import { resolveBuildConfig } from './src/build-config.ts';
 
 export default function mobileConfig({ config }: ConfigContext): ExpoConfig {
   if (!config.name || !config.slug) {
@@ -9,9 +10,16 @@ export default function mobileConfig({ config }: ConfigContext): ExpoConfig {
     throw new Error('PICKCHICK_APP_VARIANT must be release or development');
   }
   const development = variant === 'development';
+  // Same inputs the JS bundle inlines (src/build-config.ts); an invalid value fails the build.
+  const backend = resolveBuildConfig({
+    environment: process.env.EXPO_PUBLIC_PICKCHICK_ENV || undefined,
+    apiUrl: process.env.EXPO_PUBLIC_API_URL || undefined,
+    supportUrl: process.env.EXPO_PUBLIC_SUPPORT_URL || undefined,
+  });
 
   return {
     ...config,
+    extra: { ...config.extra, environment: backend.environment, apiUrl: backend.apiUrl },
     // Native binary supports landscape; stack routes keep the rest of the app portrait.
     orientation: 'default',
     name: development ? 'PickChick Dev' : config.name,

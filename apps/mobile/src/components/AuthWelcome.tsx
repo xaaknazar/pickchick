@@ -217,8 +217,7 @@ export function AuthWelcome(props: ScreenProps) {
             <Text style={s.legal}>{t('Правовые документы')}</Text>
           </Pressable>
           <Text style={s.version}>
-            {t('· Версия')}
-            {localize(Constants.expoConfig?.version ?? '0.1.0')}
+            {t('· Версия {p0}', { p0: Constants.expoConfig?.version ?? '0.1.0' })}
           </Text>
         </View>
       </ScrollView>

@@ -387,10 +387,7 @@ export function PhotoProduct(props: Props) {
                   <Text style={s.sectionTitle}>{localize(group.title)}</Text>
                   {group.max > 1 ? (
                     <Text style={s.choiceLabel}>
-                      {t('Выбрано')}
-                      {localize(total)}
-                      {t('из')}
-                      {localize(group.max)}
+                      {t('Выбрано {p0} из {p1}', { p0: total, p1: group.max })}
                     </Text>
                   ) : null}
                   {group.options.map((option) => {
@@ -501,9 +498,11 @@ export function PhotoProduct(props: Props) {
                     <OptionImage id={optionId} size={82} />
                     <View style={{ flex: 1, gap: 3 }}>
                       <Text style={s.choiceLabel}>
-                        {localize(group.id === 'drink' ? 'Напиток' : 'Соус')} {localize(index + 1)}
-                        {t('из')}
-                        {localize(group.min)}
+                        {t('{p0} {p1} из {p2}', {
+                          p0: localize(group.id === 'drink' ? 'Напиток' : 'Соус'),
+                          p1: index + 1,
+                          p2: group.min,
+                        })}
                       </Text>
                       <Text style={s.choiceName}>{localize(option?.label ?? 'Выберите')}</Text>
                       {option ? (

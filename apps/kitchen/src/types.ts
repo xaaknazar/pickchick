@@ -230,8 +230,16 @@ export function displayPage(v: unknown) {
       state: choice(i.state, ['preparing', 'ready']),
     };
   });
-  unique(items.map((i) => i.number));
-  return { items, next: o.nextAfterNumber === null ? null : number(o.nextAfterNumber) };
+  // Two live orders may share a number (release fixes 19.10, audit 1.4): never refuse the page,
+  // only exact repeats are dropped.
+  const seen = new Set<string>();
+  const distinct = items.filter((i) => {
+    const key = i.number + ':' + i.state + ':' + (i.name ?? '');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return { items: distinct, next: o.nextAfterNumber === null ? null : number(o.nextAfterNumber) };
 }
 export function action(v: unknown): Action {
   const a = record(v),

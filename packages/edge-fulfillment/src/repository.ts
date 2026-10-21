@@ -1,4 +1,4 @@
-import { effectiveLocalStops, localSelectionIds } from '@pickchick/local-orders';
+import { effectiveLocalStops, lineStopIds } from '@pickchick/local-orders';
 import { ReleaseCommandSchema, ReleaseResultSchema } from './model.js';
 import type { ReleaseResult } from './model.js';
 import { randomUUID } from 'node:crypto';
@@ -35,7 +35,7 @@ import {
   replayDecision,
 } from '@pickchick/fulfillment-state';
 import type { Decision, Step, TaskSnapshot } from '@pickchick/fulfillment-state';
-import { view, emit, advance } from './records.js';
+import { view, emit, advance, allocateDisplayNumber } from './records.js';
 import type { Reservation, Task, State } from './records.js';
 const fail = (code: ConstructorParameters<typeof FulfillmentError>[0]): never => {
   throw new FulfillmentError(code);
@@ -162,15 +162,18 @@ export class EdgeFulfillment {
           ).rows[0];
           if (!branch?.ordering_enabled) fail('NOT_READY');
           const stopped = new Set(await effectiveLocalStops(client, scope.branchId));
+          // Same combo stop rule as kiosk and mobile: chosen options, the products they point
+          // to and the fixed components of a combo stop the line too.
           for (const line of p.snapshot.lines) {
-            const ids = localSelectionIds(
-              scope.branchId,
-              line.productId,
-              (line.selectedDetails?.modifiers ?? []).map((m) => ({
+            const ids = lineStopIds(scope.branchId, {
+              productId: line.productId,
+              selections: (line.selectedDetails?.modifiers ?? []).map((m) => ({
                 group_id: m.groupId,
                 option_id: m.optionId,
+                linked_product_id: m.linkedProductId,
               })),
-            );
+              componentIds: (line.selectedDetails?.components ?? []).map((c) => c.productId),
+            });
             if (ids.some((id) => stopped.has(id)) || stopped.has(line.productId))
               throw new FulfillmentError('NOT_READY', 'ITEM_STOPPED');
           }
@@ -194,9 +197,11 @@ export class EdgeFulfillment {
             ).rowCount
           )
             fail('CONFLICT');
+          // Reserved before payment; all numbers taken leaves a legacy unnumbered hold.
+          const number = await allocateDisplayNumber(client, scope.branchId);
           row = (
             await client.query<Reservation>(
-              `INSERT INTO fulfillment_reservations(order_id,branch_id,reservation_id,quote_id,quote_hash,owner_hash,commercial_owner,fulfillment_owner,device_id,snapshot,routing_version,task_plan,assembly_station_id,state,display_number,business_day) VALUES($1,$2,$3,$4,$5,$6,'cloud','edge',$7,$8,$9,$10,$11,'held',nextval('fulfillment_display_sequence'),(clock_timestamp() AT TIME ZONE 'Asia/Almaty')::date) RETURNING *`,
+              `INSERT INTO fulfillment_reservations(order_id,branch_id,reservation_id,quote_id,quote_hash,owner_hash,commercial_owner,fulfillment_owner,device_id,snapshot,routing_version,task_plan,assembly_station_id,state,display_number,business_day) VALUES($1,$2,$3,$4,$5,$6,'cloud','edge',$7,$8,$9,$10,$11,'held',$12::bigint,CASE WHEN $12::bigint IS NULL THEN NULL ELSE (clock_timestamp() AT TIME ZONE 'Asia/Almaty')::date END) RETURNING *`,
               [
                 p.orderId,
                 scope.branchId,
@@ -209,6 +214,7 @@ export class EdgeFulfillment {
                 routing.version,
                 JSON.stringify(plan),
                 routing.assemblyStationId,
+                number,
               ],
             )
           ).rows[0]!;
@@ -234,10 +240,13 @@ export class EdgeFulfillment {
               fail('CONFLICT');
             // A second transport event ID still cannot create a second execution.
           } else {
+            const number =
+              row.display_number ?? (await allocateDisplayNumber(client, row.branch_id));
+            if (number === null) fail('NOT_READY');
             row = (
               await client.query<Reservation>(
-                `UPDATE fulfillment_reservations SET state='accepted',version=version+1,display_number=COALESCE(display_number,nextval('fulfillment_display_sequence')),business_day=COALESCE(business_day,(clock_timestamp() AT TIME ZONE 'Asia/Almaty')::date),authorized_event_id=$2,updated_at=clock_timestamp() WHERE order_id=$1 RETURNING *`,
-                [row.order_id, command.eventId],
+                `UPDATE fulfillment_reservations SET state='accepted',version=version+1,display_number=COALESCE(display_number,$3::bigint),business_day=COALESCE(business_day,(clock_timestamp() AT TIME ZONE 'Asia/Almaty')::date),authorized_event_id=$2,updated_at=clock_timestamp() WHERE order_id=$1 RETURNING *`,
+                [row.order_id, command.eventId, number],
               )
             ).rows[0]!;
             await client.query(
@@ -597,7 +606,10 @@ export class EdgeFulfillment {
     );
     const rows = (
       await this.pool.query<{ display_number: string; state: State; display_name: string }>(
-        `SELECT display_number,state,left(coalesce(snapshot->>'displayName',''),14) AS display_name FROM fulfillment_reservations WHERE branch_id=$1 AND state IN ('accepted','in_production','ready') AND display_number>$2::bigint ORDER BY display_number LIMIT $3`,
+        // An order no longer live for edge 022 numbering (untouched for 12 hours, or 'ready' for
+        // 3 hours) is off the board: its number may already belong to a new order, and the
+        // board never shows one number twice.
+        `SELECT display_number,state,left(coalesce(snapshot->>'displayName',''),14) AS display_name FROM fulfillment_reservations WHERE branch_id=$1 AND state IN ('accepted','in_production','ready') AND updated_at>clock_timestamp()-CASE WHEN state='ready' THEN interval '3 hours' ELSE interval '12 hours' END AND display_number>$2::bigint ORDER BY display_number LIMIT $3`,
         [branchId, q.afterNumber, q.limit + 1],
       )
     ).rows;

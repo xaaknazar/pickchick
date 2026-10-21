@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-14",
+  "updatedAt": "2026-10-21",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -75,6 +75,7 @@
     "docs/operations/unified-menu-installation-2026-10-09.md",
     "docs/operations/workforce.md",
     "docs/operations/cabinet-entry.md",
+    "docs/operations/mobile-combo-rewards.md",
     "docs/operations/mobile-l10n-push-2026-10-14.md"
   ],
   "workstreams": [
@@ -188,64 +189,43 @@
     {
       "id": "discovery",
       "title": "Обследование и решения",
-      "weeks": [
-        1,
-        2
-      ],
+      "weeks": [1, 2],
       "summary": "Подтвердить процессы, доступы, оборудование и возможности поставщиков. Gate A ещё открыт."
     },
     {
       "id": "foundation",
       "title": "Основа системы",
-      "weeks": [
-        3,
-        4
-      ],
+      "weeks": [3, 4],
       "summary": "Общий каталог, ядро заказа, права и первый сквозной путь. Gate B требует приёмки."
     },
     {
       "id": "integration",
       "title": "Интеграции и автономность",
-      "weeks": [
-        5,
-        8
-      ],
+      "weeks": [5, 8],
       "summary": "Оплаты, чеки, каналы заказов и работа точки без WAN. Gate C ещё открыт."
     },
     {
       "id": "product",
       "title": "Полный продукт",
-      "weeks": [
-        9,
-        12
-      ],
+      "weeks": [9, 12],
       "summary": "Бэк-офис, склад, Чики, игра, коммуникации и кандидат релиза. Gate D ещё открыт."
     },
     {
       "id": "acceptance",
       "title": "Проверка и обучение",
-      "weeks": [
-        13,
-        14
-      ],
+      "weeks": [13, 14],
       "summary": "Нагрузка, восстановление, приёмка сотрудниками и подготовка пилота. Gate E ещё открыт."
     },
     {
       "id": "launch",
       "title": "Пилот и внедрение",
-      "weeks": [
-        15,
-        16
-      ],
+      "weeks": [15, 16],
       "summary": "Контролируемое переключение, реальные смены и передача. Gate F ещё открыт."
     },
     {
       "id": "growth",
       "title": "После основного запуска",
-      "weeks": [
-        17,
-        52
-      ],
+      "weeks": [17, 52],
       "summary": "Предложенные дальнейшие итерации; состав и календарь согласуются отдельно."
     }
   ],
@@ -366,9 +346,7 @@
           "path": "docs/project-status.md"
         }
       ],
-      "acceptance": [
-        "Объём и сценарии AC-01-41 записаны в репозитории."
-      ],
+      "acceptance": ["Объём и сценарии AC-01-41 записаны в репозитории."],
       "nextAction": "Согласовать T0, принимающих лиц и актуальную оценку интеграций.",
       "checks": {
         "implemented": true,
@@ -385,9 +363,7 @@
       "status": "done",
       "owner": "development",
       "phase": "foundation",
-      "dependsOn": [
-        "project-scope"
-      ],
+      "dependsOn": ["project-scope"],
       "evidence": [
         {
           "label": "Устройство пульта и работа команды",
@@ -442,9 +418,7 @@
           "path": "docs/project-status.md"
         }
       ],
-      "acceptance": [
-        "У каждого внешнего канала указаны требуемые решения и официальный источник."
-      ],
+      "acceptance": ["У каждого внешнего канала указаны требуемые решения и официальный источник."],
       "nextAction": "Заказчик назначает владельцев договоров и передаёт ответы поставщиков.",
       "checks": {
         "implemented": true,
@@ -461,9 +435,7 @@
       "status": "blocked",
       "owner": "customer",
       "phase": "discovery",
-      "dependsOn": [
-        "project-scope"
-      ],
+      "dependsOn": ["project-scope"],
       "evidence": [
         {
           "label": "Roadmap и сценарии AC-01-41",
@@ -506,9 +478,7 @@
           "path": "docs/operations/iiko-web-audit-2026-09-23.md"
         }
       ],
-      "acceptance": [
-        "Доступны разрешённые разделы и известны ограничения прав/версии."
-      ],
+      "acceptance": ["Доступны разрешённые разделы и известны ограничения прав/версии."],
       "nextAction": "Использовать подтверждённый веб-доступ для экспорта; отдельно получить доступ к кассе и полным техкартам.",
       "checks": {
         "implemented": true,
@@ -526,9 +496,7 @@
       "status": "active",
       "owner": "joint",
       "phase": "discovery",
-      "dependsOn": [
-        "iiko-access"
-      ],
+      "dependsOn": ["iiko-access"],
       "evidence": [
         {
           "label": "План обследования и перехода с iiko",
@@ -567,11 +535,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "product",
-      "dependsOn": [
-        "iiko-audit",
-        "catalog-unified",
-        "inventory-norms"
-      ],
+      "dependsOn": ["iiko-audit", "catalog-unified", "inventory-norms"],
       "evidence": [
         {
           "label": "План обследования и перехода с iiko",
@@ -655,9 +619,7 @@
           "path": "docs/operations/staging-vps.md"
         }
       ],
-      "acceptance": [
-        "Схемы и миграции проверяются, доступ ограничен точкой и ролью."
-      ],
+      "acceptance": ["Схемы и миграции проверяются, доступ ограничен точкой и ролью."],
       "nextAction": "Развивать ядро через совместимые миграции и проверяемые релизы.",
       "checks": {
         "implemented": true,
@@ -674,9 +636,7 @@
       "status": "done",
       "owner": "development",
       "phase": "foundation",
-      "dependsOn": [
-        "platform-foundation"
-      ],
+      "dependsOn": ["platform-foundation"],
       "evidence": [
         {
           "label": "Обзор, сообщение владельца и порядок продолжения - 25 сентября",
@@ -716,9 +676,7 @@
       "status": "done",
       "owner": "development",
       "phase": "foundation",
-      "dependsOn": [
-        "platform-foundation"
-      ],
+      "dependsOn": ["platform-foundation"],
       "evidence": [
         {
           "label": "fulfillment transport",
@@ -729,9 +687,7 @@
           "path": "docs/operations/pos-kitchen-sync.md"
         }
       ],
-      "acceptance": [
-        "Повтор, потеря ACK и рестарт не дублируют заказ или кухонный эффект."
-      ],
+      "acceptance": ["Повтор, потеря ACK и рестарт не дублируют заказ или кухонный эффект."],
       "nextAction": "Установить проверенный transport на ресторанном оборудовании.",
       "checks": {
         "implemented": true,
@@ -744,13 +700,11 @@
       "id": "platform-backup",
       "workstream": "platform",
       "title": "Восстановить тестовые резервные копии",
-      "summary": "Для staging и кассового foundation выполнены отдельные проверки восстановления. Это ещё не полная приёмка эксплуатации ресторана.",
-      "status": "done",
+      "summary": "Для staging и кассового foundation выполнены отдельные проверки восстановления. На VPS действует только ежедневный локальный зашифрованный дамп на том же сервере. Внешняя зашифрованная копия, PITR и учения восстановления реализованы и проверены локально 20.10 (аудит 5.2/7.4), не установлены.",
+      "status": "active",
       "owner": "development",
       "phase": "foundation",
-      "dependsOn": [
-        "platform-foundation"
-      ],
+      "dependsOn": ["platform-foundation"],
       "evidence": [
         {
           "label": "2026 09 07 market foundations",
@@ -759,12 +713,16 @@
         {
           "label": "Подтверждённое состояние проекта",
           "path": "docs/project-status.md"
+        },
+        {
+          "label": "Внешняя копия, PITR и учения",
+          "path": "docs/operations/backup-offsite.md"
         }
       ],
       "acceptance": [
         "В протоколах зафиксированы версии и фактическое восстановление тестовых данных."
       ],
-      "nextAction": "Повторить drill для итогового cloud/edge релиза с измерением RPO/RTO.",
+      "nextAction": "Владельцу выбрать независимое S3-совместимое хранилище; включить внешнюю копию и провести учение восстановления с измерением RPO/RTO; PITR - отдельным решением.",
       "checks": {
         "implemented": true,
         "verified": true,
@@ -780,9 +738,7 @@
       "status": "done",
       "owner": "development",
       "phase": "foundation",
-      "dependsOn": [
-        "platform-durable-sync"
-      ],
+      "dependsOn": ["platform-durable-sync"],
       "evidence": [
         {
           "label": "Отчёт SQL/domain нагрузки",
@@ -813,11 +769,7 @@
       "status": "paused",
       "owner": "development",
       "phase": "integration",
-      "dependsOn": [
-        "pos-design",
-        "pos-upgrade",
-        "platform-durable-sync"
-      ],
+      "dependsOn": ["pos-design", "pos-upgrade", "platform-durable-sync"],
       "evidence": [
         {
           "label": "Проверенный план обновления VPS",
@@ -848,13 +800,11 @@
       "id": "platform-monitoring",
       "workstream": "platform",
       "title": "Наблюдаемость и ежедневная эксплуатация",
-      "summary": "Нужны оповещения по заказам, unknown-операциям, outbox, дискам, backup и свежести служебных заданий; роли on-call ещё не приняты.",
-      "status": "planned",
+      "summary": "Read-only watchdog на VPS (systemd timer, роль pickchick_watchdog, Telegram или shadow mode) реализован и проверен локально 20.10 в выпуске исправлений аудита 19.10: Kaspi-сессия и очереди оплат, передача на кухню, заказы на разборе, коды входа клиентов, gateway, пульс и ключ кассы, копии, PITR, диск. На VPS не установлен; роли on-call не приняты.",
+      "status": "active",
       "owner": "joint",
       "phase": "acceptance",
-      "dependsOn": [
-        "platform-pilot-deploy"
-      ],
+      "dependsOn": ["platform-pilot-deploy"],
       "evidence": [
         {
           "label": "03 offline and reliability",
@@ -867,16 +817,24 @@
         {
           "label": "Roadmap и сценарии AC-01-41",
           "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Watchdog: проверки, права, включение",
+          "path": "docs/operations/ops-watchdog.md"
+        },
+        {
+          "label": "Исправления аудита 19.10: сводка и план выпуска",
+          "path": "docs/operations/release-fixes-2026-10-19/README.md"
         }
       ],
       "acceptance": [
         "Контрольная неисправность создаёт понятный сигнал ответственному.",
         "Задокументированы SLO, секреты, ротация, восстановление и порядок эскалации."
       ],
-      "nextAction": "Подключить метрики и проверить оповещения на выделенном стенде.",
+      "nextAction": "Установить по ops-watchdog.md после выпуска API: роль, сутки shadow mode, затем Telegram-бот владельца; проверить контрольную неисправность.",
       "checks": {
-        "implemented": false,
-        "verified": false,
+        "implemented": true,
+        "verified": true,
         "deployed": false,
         "accepted": false
       }
@@ -889,9 +847,7 @@
       "status": "done",
       "owner": "development",
       "phase": "integration",
-      "dependsOn": [
-        "platform-foundation"
-      ],
+      "dependsOn": ["platform-foundation"],
       "evidence": [
         {
           "label": "Проверки входа и сессий",
@@ -932,9 +888,7 @@
           "path": "docs/project-status.md"
         }
       ],
-      "acceptance": [
-        "Аккаунт доступен из серверного контура без раскрытия ключа."
-      ],
+      "acceptance": ["Аккаунт доступен из серверного контура без раскрытия ключа."],
       "nextAction": "Утвердить отправителя, шаблон и лимит, затем проверить доставку.",
       "checks": {
         "implemented": true,
@@ -951,10 +905,7 @@
       "status": "blocked",
       "owner": "joint",
       "phase": "integration",
-      "dependsOn": [
-        "identity-core",
-        "identity-sms-account"
-      ],
+      "dependsOn": ["identity-core", "identity-sms-account"],
       "evidence": [
         {
           "label": "Проверки входа и сессий",
@@ -986,9 +937,7 @@
       "status": "active",
       "owner": "joint",
       "phase": "product",
-      "dependsOn": [
-        "identity-core"
-      ],
+      "dependsOn": ["identity-core"],
       "evidence": [
         {
           "label": "Проверки входа и сессий",
@@ -1152,9 +1101,7 @@
           "path": "docs/operations/mobile-native16.md"
         }
       ],
-      "acceptance": [
-        "Базовая сборка доступна во внутреннем тестировании на iPhone."
-      ],
+      "acceptance": ["Базовая сборка доступна во внутреннем тестировании на iPhone."],
       "nextAction": "Обновить iPhone через TestFlight поверх приложения; проверить опубликованное меню, корзину и восстановление сети без нового реального заказа.",
       "checks": {
         "implemented": true,
@@ -1171,9 +1118,7 @@
       "status": "active",
       "owner": "joint",
       "phase": "integration",
-      "dependsOn": [
-        "mobile-design"
-      ],
+      "dependsOn": ["mobile-design"],
       "evidence": [
         {
           "label": "Реализация, выпуск и публичный цикл",
@@ -1236,6 +1181,10 @@
         {
           "label": "Комментарий клиента при оформлении",
           "path": "docs/operations/checkout-order-comment.md"
+        },
+        {
+          "label": "Все подтверждённые клиенты: установленный выпуск",
+          "path": "docs/operations/kaspi-live-activation.md"
         }
       ],
       "acceptance": [
@@ -1246,7 +1195,7 @@
       "checks": {
         "implemented": true,
         "verified": false,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     },
@@ -1258,9 +1207,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "acceptance",
-      "dependsOn": [
-        "mobile-live-checkout"
-      ],
+      "dependsOn": ["mobile-live-checkout"],
       "evidence": [
         {
           "label": "Roadmap и сценарии AC-01-41",
@@ -1306,9 +1253,7 @@
           "path": "docs/operations/pos-cashier-upgrade-2026-09-15.md"
         }
       ],
-      "acceptance": [
-        "Ограничения модификаторов и денежный расчёт проверены на сервере."
-      ],
+      "acceptance": ["Ограничения модификаторов и денежный расчёт проверены на сервере."],
       "nextAction": "Сопоставить подготовленный каталог с действующим рестораном.",
       "checks": {
         "implemented": true,
@@ -1325,9 +1270,7 @@
       "status": "active",
       "owner": "joint",
       "phase": "discovery",
-      "dependsOn": [
-        "iiko-audit"
-      ],
+      "dependsOn": ["iiko-audit"],
       "evidence": [
         {
           "label": "План обследования и перехода с iiko",
@@ -1374,10 +1317,7 @@
       "status": "active",
       "owner": "development",
       "phase": "foundation",
-      "dependsOn": [
-        "catalog-editor",
-        "catalog-approved-data"
-      ],
+      "dependsOn": ["catalog-editor", "catalog-approved-data"],
       "evidence": [
         {
           "label": "Возможности и пробелы бэк-офиса",
@@ -1448,10 +1388,7 @@
       "status": "active",
       "owner": "development",
       "phase": "integration",
-      "dependsOn": [
-        "catalog-unified",
-        "inventory-norms"
-      ],
+      "dependsOn": ["catalog-unified", "inventory-norms"],
       "evidence": [
         {
           "label": "catalog pricing",
@@ -1474,9 +1411,7 @@
           "path": "docs/operations/deployments/2026-10-13-existing-stops.md"
         }
       ],
-      "acceptance": [
-        "AC-03: последняя порция достаётся одному заказу до открытия оплаты."
-      ],
+      "acceptance": ["AC-03: последняя порция достаётся одному заказу до открытия оплаты."],
       "nextAction": "Подтвердить стоп-лист на физическом iPhone; отдельно связать нормы и резервирование последней порции (AC-03).",
       "checks": {
         "implemented": true,
@@ -1605,9 +1540,7 @@
       "status": "done",
       "owner": "development",
       "phase": "integration",
-      "dependsOn": [
-        "platform-durable-sync"
-      ],
+      "dependsOn": ["platform-durable-sync"],
       "evidence": [
         {
           "label": "Подтверждённое состояние проекта",
@@ -1638,11 +1571,7 @@
       "status": "active",
       "owner": "development",
       "phase": "integration",
-      "dependsOn": [
-        "pos-design",
-        "pos-client-upgrade",
-        "pos-foundation-installed"
-      ],
+      "dependsOn": ["pos-design", "pos-client-upgrade", "pos-foundation-installed"],
       "evidence": [
         {
           "label": "Физическая установка POS0.4.3 и edge014",
@@ -1725,9 +1654,7 @@
       "status": "done",
       "owner": "development",
       "phase": "foundation",
-      "dependsOn": [
-        "platform-foundation"
-      ],
+      "dependsOn": ["platform-foundation"],
       "evidence": [
         {
           "label": "Локальная кухня: протокол и проверки",
@@ -1738,9 +1665,7 @@
           "path": "docs/project-status.md"
         }
       ],
-      "acceptance": [
-        "AC-12/13: повтор «Готово» и гонки переходов защищены версиями."
-      ],
+      "acceptance": ["AC-12/13: повтор «Готово» и гонки переходов защищены версиями."],
       "nextAction": "Подключить утверждённые маршруты действующего меню.",
       "checks": {
         "implemented": true,
@@ -1757,9 +1682,7 @@
       "status": "done",
       "owner": "development",
       "phase": "integration",
-      "dependsOn": [
-        "kitchen-routing"
-      ],
+      "dependsOn": ["kitchen-routing"],
       "evidence": [
         {
           "label": "Касса по макету и локальный пилот",
@@ -1786,9 +1709,7 @@
           "path": "docs/operations/kitchen-ticket-flow.md"
         }
       ],
-      "acceptance": [
-        "TLS/роли, переключение станций и настоящий logout проверены на стенде."
-      ],
+      "acceptance": ["TLS/роли, переключение станций и настоящий logout проверены на стенде."],
       "nextAction": "Получить полный зелёный CI, обновить edge/клиент согласованно, принять один чек на физической кассе/кухне и LED без WAN.",
       "checks": {
         "implemented": true,
@@ -1805,10 +1726,7 @@
       "status": "active",
       "owner": "development",
       "phase": "integration",
-      "dependsOn": [
-        "pos-upgrade",
-        "kitchen-client"
-      ],
+      "dependsOn": ["pos-upgrade", "kitchen-client"],
       "evidence": [
         {
           "label": "Порядок локального пилота",
@@ -1843,10 +1761,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "acceptance",
-      "dependsOn": [
-        "kitchen-install",
-        "catalog-availability"
-      ],
+      "dependsOn": ["kitchen-install", "catalog-availability"],
       "evidence": [
         {
           "label": "Roadmap и сценарии AC-01-41",
@@ -1892,9 +1807,7 @@
           "path": "docs/operations/deployments/2026-09-22-kitchen-live-link.md"
         }
       ],
-      "acceptance": [
-        "На гостевом экране только допустимые номера и статусы."
-      ],
+      "acceptance": ["На гостевом экране только допустимые номера и статусы."],
       "nextAction": "Подключить физический экран и проверить читаемость в зале.",
       "checks": {
         "implemented": true,
@@ -1911,10 +1824,7 @@
       "status": "blocked",
       "owner": "joint",
       "phase": "integration",
-      "dependsOn": [
-        "kitchen-install",
-        "display-ui"
-      ],
+      "dependsOn": ["kitchen-install", "display-ui"],
       "evidence": [
         {
           "label": "Порядок локального пилота",
@@ -1953,9 +1863,7 @@
           "path": "docs/project-status.md"
         }
       ],
-      "acceptance": [
-        "Внутренняя сборка доступна для проверки на iPad."
-      ],
+      "acceptance": ["Внутренняя сборка доступна для проверки на iPad."],
       "nextAction": "Связать киоск с реальным локальным checkout и терминалом.",
       "checks": {
         "implemented": true,
@@ -1972,9 +1880,7 @@
       "status": "active",
       "owner": "development",
       "phase": "foundation",
-      "dependsOn": [
-        "kiosk-client"
-      ],
+      "dependsOn": ["kiosk-client"],
       "evidence": [
         {
           "label": "Задание и макеты владельца",
@@ -2010,9 +1916,7 @@
       "status": "active",
       "owner": "development",
       "phase": "foundation",
-      "dependsOn": [
-        "kiosk-redesign-1013"
-      ],
+      "dependsOn": ["kiosk-redesign-1013"],
       "evidence": [
         {
           "label": "Исправления переходов и проверки",
@@ -2040,9 +1944,7 @@
       "status": "active",
       "owner": "development",
       "phase": "foundation",
-      "dependsOn": [
-        "kiosk-motion-1013"
-      ],
+      "dependsOn": ["kiosk-motion-1013"],
       "evidence": [
         {
           "label": "Задание и макеты владельца",
@@ -2079,9 +1981,7 @@
       "status": "blocked",
       "owner": "development",
       "phase": "integration",
-      "dependsOn": [
-        "kiosk-motion-1013"
-      ],
+      "dependsOn": ["kiosk-motion-1013"],
       "evidence": [
         {
           "label": "Пределы отмены, демо и проверки",
@@ -2109,10 +2009,7 @@
       "status": "blocked",
       "owner": "joint",
       "phase": "integration",
-      "dependsOn": [
-        "payments-provider-approval",
-        "kiosk-client"
-      ],
+      "dependsOn": ["payments-provider-approval", "kiosk-client"],
       "evidence": [
         {
           "label": "Что требуется от заказчика",
@@ -2143,11 +2040,7 @@
       "status": "active",
       "owner": "development",
       "phase": "integration",
-      "dependsOn": [
-        "kiosk-terminal",
-        "catalog-unified",
-        "fiscal-adapter"
-      ],
+      "dependsOn": ["kiosk-terminal", "catalog-unified", "fiscal-adapter"],
       "evidence": [
         {
           "label": "Roadmap и сценарии AC-01-41",
@@ -2162,9 +2055,7 @@
           "path": "docs/operations/commercial-channels.md"
         }
       ],
-      "acceptance": [
-        "AC-20/21: чужой телефон не раскрывает кошелёк, idle не теряет платёж."
-      ],
+      "acceptance": ["AC-20/21: чужой телефон не раскрывает кошелёк, idle не теряет платёж."],
       "nextAction": "Установить backend и доверенный native enrollment, проверить idle/restore/privacy на iPad и реальный контрольный заказ.",
       "checks": {
         "implemented": true,
@@ -2181,9 +2072,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "acceptance",
-      "dependsOn": [
-        "kiosk-privacy"
-      ],
+      "dependsOn": ["kiosk-privacy"],
       "evidence": [
         {
           "label": "ipad kiosk lockdown",
@@ -2214,9 +2103,7 @@
       "status": "done",
       "owner": "development",
       "phase": "foundation",
-      "dependsOn": [
-        "platform-foundation"
-      ],
+      "dependsOn": ["platform-foundation"],
       "evidence": [
         {
           "label": "Коммерческое ядро и проверки",
@@ -2285,10 +2172,7 @@
       "status": "blocked",
       "owner": "joint",
       "phase": "integration",
-      "dependsOn": [
-        "payments-core",
-        "payments-provider-approval"
-      ],
+      "dependsOn": ["payments-core", "payments-provider-approval"],
       "evidence": [
         {
           "label": "Что требуется от заказчика",
@@ -2323,10 +2207,7 @@
       "status": "active",
       "owner": "joint",
       "phase": "integration",
-      "dependsOn": [
-        "payments-core",
-        "payments-provider-approval"
-      ],
+      "dependsOn": ["payments-core", "payments-provider-approval"],
       "evidence": [
         {
           "label": "Что требуется от заказчика",
@@ -2397,10 +2278,7 @@
       "status": "blocked",
       "owner": "joint",
       "phase": "integration",
-      "dependsOn": [
-        "payments-core",
-        "payments-provider-approval"
-      ],
+      "dependsOn": ["payments-core", "payments-provider-approval"],
       "evidence": [
         {
           "label": "План обследования и перехода с iiko",
@@ -2434,10 +2312,7 @@
       "status": "blocked",
       "owner": "joint",
       "phase": "integration",
-      "dependsOn": [
-        "payments-core",
-        "payments-provider-approval"
-      ],
+      "dependsOn": ["payments-core", "payments-provider-approval"],
       "evidence": [
         {
           "label": "План обследования и перехода с iiko",
@@ -2512,9 +2387,7 @@
       "status": "blocked",
       "owner": "joint",
       "phase": "discovery",
-      "dependsOn": [
-        "iiko-audit"
-      ],
+      "dependsOn": ["iiko-audit"],
       "evidence": [
         {
           "label": "Что требуется от заказчика",
@@ -2557,10 +2430,7 @@
       "status": "blocked",
       "owner": "development",
       "phase": "integration",
-      "dependsOn": [
-        "fiscal-choice",
-        "payments-core"
-      ],
+      "dependsOn": ["fiscal-choice", "payments-core"],
       "evidence": [
         {
           "label": "Коммерческое ядро и проверки",
@@ -2607,9 +2477,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "integration",
-      "dependsOn": [
-        "fiscal-adapter"
-      ],
+      "dependsOn": ["fiscal-adapter"],
       "evidence": [
         {
           "label": "Roadmap и сценарии AC-01-41",
@@ -2644,10 +2512,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "launch",
-      "dependsOn": [
-        "fiscal-offline",
-        "pos-paid-sales"
-      ],
+      "dependsOn": ["fiscal-offline", "pos-paid-sales"],
       "evidence": [
         {
           "label": "Что требуется от заказчика",
@@ -2701,9 +2566,7 @@
           "path": "docs/operations/director-console.md"
         }
       ],
-      "acceptance": [
-        "Реальные browser/HTTP/DB проверки покрывают права, повторы и все разделы."
-      ],
+      "acceptance": ["Реальные browser/HTTP/DB проверки покрывают права, повторы и все разделы."],
       "nextAction": "Принять кабинет с владельцем; обновить worker моноблока для реальной истории кассовых смен. Затем включать единый каталог отдельным совместимым выпуском.",
       "checks": {
         "implemented": true,
@@ -2720,10 +2583,7 @@
       "status": "planned",
       "owner": "development",
       "phase": "product",
-      "dependsOn": [
-        "backoffice-ui-core",
-        "catalog-unified"
-      ],
+      "dependsOn": ["backoffice-ui-core", "catalog-unified"],
       "evidence": [
         {
           "label": "Возможности и пробелы бэк-офиса",
@@ -2749,11 +2609,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "product",
-      "dependsOn": [
-        "backoffice-ui-core",
-        "backoffice-config-delivery",
-        "platform-pilot-deploy"
-      ],
+      "dependsOn": ["backoffice-ui-core", "backoffice-config-delivery", "platform-pilot-deploy"],
       "evidence": [
         {
           "label": "Возможности и пробелы бэк-офиса",
@@ -2819,10 +2675,7 @@
       "status": "blocked",
       "owner": "joint",
       "phase": "product",
-      "dependsOn": [
-        "inventory-documents",
-        "iiko-audit"
-      ],
+      "dependsOn": ["inventory-documents", "iiko-audit"],
       "evidence": [
         {
           "label": "Возможности и пробелы бэк-офиса",
@@ -2857,10 +2710,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "product",
-      "dependsOn": [
-        "inventory-norms",
-        "iiko-audit"
-      ],
+      "dependsOn": ["inventory-norms", "iiko-audit"],
       "evidence": [
         {
           "label": "Возможности и пробелы бэк-офиса",
@@ -2921,11 +2771,7 @@
       "status": "active",
       "owner": "joint",
       "phase": "integration",
-      "dependsOn": [
-        "team-passwords",
-        "iiko-audit",
-        "pos-client-upgrade"
-      ],
+      "dependsOn": ["team-passwords", "iiko-audit", "pos-client-upgrade"],
       "evidence": [
         {
           "label": "Возможности и пробелы бэк-офиса",
@@ -2990,11 +2836,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "product",
-      "dependsOn": [
-        "analytics-core",
-        "payments-reconcile",
-        "inventory-norms"
-      ],
+      "dependsOn": ["analytics-core", "payments-reconcile", "inventory-norms"],
       "evidence": [
         {
           "label": "Возможности и пробелы бэк-офиса",
@@ -3135,11 +2977,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "acceptance",
-      "dependsOn": [
-        "loyalty-integration",
-        "kiosk-privacy",
-        "mobile-live-checkout"
-      ],
+      "dependsOn": ["loyalty-integration", "kiosk-privacy", "mobile-live-checkout"],
       "evidence": [
         {
           "label": "Ядро и границы программы Чиков",
@@ -3220,10 +3058,7 @@
       "status": "planned",
       "owner": "development",
       "phase": "product",
-      "dependsOn": [
-        "games-local",
-        "loyalty-integration"
-      ],
+      "dependsOn": ["games-local", "loyalty-integration"],
       "evidence": [
         {
           "label": "Возможности и пробелы бэк-офиса",
@@ -3253,10 +3088,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "product",
-      "dependsOn": [
-        "games-server",
-        "loyalty-rules"
-      ],
+      "dependsOn": ["games-server", "loyalty-rules"],
       "evidence": [
         {
           "label": "Roadmap и сценарии AC-01-41",
@@ -3314,48 +3146,6 @@
       }
     },
     {
-      "id": "crm-push",
-      "workstream": "crm",
-      "title": "Отправлять push с согласиями и лимитами",
-      "summary": "Подготовлены транзакционные APNs/FCM, lifecycle токенов, отдельные согласия, inbox и durable worker. Локальная PostgreSQL проверяет дедупликацию, отзыв согласия и сеанса. Реальная доставка, маркетинговые кампании и частотные лимиты ещё не приняты.",
-      "status": "active",
-      "owner": "development",
-      "phase": "product",
-      "dependsOn": [
-        "crm-content",
-        "identity-privacy"
-      ],
-      "evidence": [
-        {
-          "label": "Возможности и пробелы бэк-офиса",
-          "path": "docs/operations/backoffice-operations.md"
-        },
-        {
-          "label": "Roadmap и сценарии AC-01-41",
-          "path": "docs/04-roadmap.md"
-        },
-        {
-          "label": "Колокольчик в главном меню - 23 сентября 2026",
-          "path": "docs/operations/mobile-menu-notifications.md"
-        },
-        {
-          "label": "Подготовка RU/KK/EN и push от 14 октября",
-          "path": "docs/operations/mobile-l10n-push-2026-10-14.md"
-        }
-      ],
-      "acceptance": [
-        "Тестовая кампания доходит до разрешённых устройств один раз.",
-        "Отзыв согласия исключает гостя из новых кампаний."
-      ],
-      "nextAction": "Подключить provider tokens, worker и ограниченную тестовую кампанию.",
-      "checks": {
-        "implemented": false,
-        "verified": false,
-        "deployed": false,
-        "accepted": false
-      }
-    },
-    {
       "id": "crm-service",
       "workstream": "crm",
       "title": "Довести поддержку гостей и внешние отзывы",
@@ -3363,10 +3153,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "product",
-      "dependsOn": [
-        "crm-content",
-        "iiko-audit"
-      ],
+      "dependsOn": ["crm-content", "iiko-audit"],
       "evidence": [
         {
           "label": "Возможности и пробелы бэк-офиса",
@@ -3397,9 +3184,7 @@
       "status": "blocked",
       "owner": "joint",
       "phase": "discovery",
-      "dependsOn": [
-        "iiko-access"
-      ],
+      "dependsOn": ["iiko-access"],
       "evidence": [
         {
           "label": "План обследования и перехода с iiko",
@@ -3410,9 +3195,7 @@
           "path": "docs/operations/customer-integration-request-2026-09-16.md"
         }
       ],
-      "acceptance": [
-        "Текущий владелец заказа и контрактные ограничения документированы."
-      ],
+      "acceptance": ["Текущий владелец заказа и контрактные ограничения документированы."],
       "nextAction": "Обследовать iiko и получить ответ действующего менеджера Яндекса.",
       "checks": {
         "implemented": false,
@@ -3430,12 +3213,7 @@
       "status": "planned",
       "owner": "development",
       "phase": "integration",
-      "dependsOn": [
-        "yandex-discovery",
-        "catalog-unified",
-        "payments-core",
-        "kitchen-routing"
-      ],
+      "dependsOn": ["yandex-discovery", "catalog-unified", "payments-core", "kitchen-routing"],
       "evidence": [
         {
           "label": "План обследования и перехода с iiko",
@@ -3450,9 +3228,7 @@
           "path": "docs/operations/customer-integration-request-2026-09-16.md"
         }
       ],
-      "acceptance": [
-        "AC-23: new/duplicate/cancel/change/status retry дают один внешний заказ."
-      ],
+      "acceptance": ["AC-23: new/duplicate/cancel/change/status retry дают один внешний заказ."],
       "nextAction": "Реализовать контрактные проверки и воспроизведение обезличенных заказов.",
       "checks": {
         "implemented": false,
@@ -3469,10 +3245,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "launch",
-      "dependsOn": [
-        "yandex-adapter",
-        "launch-uat"
-      ],
+      "dependsOn": ["yandex-adapter", "launch-uat"],
       "evidence": [
         {
           "label": "План обследования и перехода с iiko",
@@ -3503,12 +3276,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "acceptance",
-      "dependsOn": [
-        "platform-pilot-deploy",
-        "kitchen-install",
-        "kiosk-privacy",
-        "fiscal-offline"
-      ],
+      "dependsOn": ["platform-pilot-deploy", "kitchen-install", "kiosk-privacy", "fiscal-offline"],
       "evidence": [
         {
           "label": "Roadmap и сценарии AC-01-41",
@@ -3591,10 +3359,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "product",
-      "dependsOn": [
-        "mobile-device-acceptance",
-        "identity-privacy"
-      ],
+      "dependsOn": ["mobile-device-acceptance", "identity-privacy"],
       "evidence": [
         {
           "label": "mobile testflight",
@@ -3674,11 +3439,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "launch",
-      "dependsOn": [
-        "iiko-cutover",
-        "launch-stores",
-        "crm-push"
-      ],
+      "dependsOn": ["iiko-cutover", "launch-stores", "crm-push"],
       "evidence": [
         {
           "label": "Roadmap и сценарии AC-01-41",
@@ -3713,9 +3474,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "launch",
-      "dependsOn": [
-        "launch-pilot"
-      ],
+      "dependsOn": ["launch-pilot"],
       "evidence": [
         {
           "label": "Roadmap и сценарии AC-01-41",
@@ -3750,9 +3509,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "growth",
-      "dependsOn": [
-        "launch-handover"
-      ],
+      "dependsOn": ["launch-handover"],
       "evidence": [
         {
           "label": "Roadmap и сценарии AC-01-41",
@@ -3763,9 +3520,7 @@
           "path": "docs/01-technical-spec.md"
         }
       ],
-      "acceptance": [
-        "Приоритеты опираются на метрики и отдельное согласование ресурсов/сроков."
-      ],
+      "acceptance": ["Приоритеты опираются на метрики и отдельное согласование ресурсов/сроков."],
       "nextAction": "После стабильного пилота принять следующий квартальный план.",
       "checks": {
         "implemented": false,
@@ -3782,9 +3537,7 @@
       "status": "done",
       "owner": "development",
       "phase": "integration",
-      "dependsOn": [
-        "identity-core"
-      ],
+      "dependsOn": ["identity-core"],
       "evidence": [
         {
           "label": "WhatsApp: подключение, границы и проверки",
@@ -3837,10 +3590,7 @@
       "status": "blocked",
       "owner": "joint",
       "phase": "integration",
-      "dependsOn": [
-        "identity-whatsapp-transport",
-        "identity-whatsapp-account"
-      ],
+      "dependsOn": ["identity-whatsapp-transport", "identity-whatsapp-account"],
       "evidence": [
         {
           "label": "WhatsApp: подключение, границы и проверки",
@@ -3872,9 +3622,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "product",
-      "dependsOn": [
-        "loyalty-rules"
-      ],
+      "dependsOn": ["loyalty-rules"],
       "evidence": [
         {
           "label": "Предложение для утверждения",
@@ -3909,9 +3657,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "product",
-      "dependsOn": [
-        "loyalty-rules"
-      ],
+      "dependsOn": ["loyalty-rules"],
       "evidence": [
         {
           "label": "Предложение для утверждения",
@@ -3938,9 +3684,7 @@
       "status": "planned",
       "owner": "joint",
       "phase": "product",
-      "dependsOn": [
-        "loyalty-rules"
-      ],
+      "dependsOn": ["loyalty-rules"],
       "evidence": [
         {
           "label": "Предложение для утверждения",
@@ -3967,9 +3711,7 @@
       "status": "active",
       "owner": "development",
       "phase": "integration",
-      "dependsOn": [
-        "mobile-unpaid-test"
-      ],
+      "dependsOn": ["mobile-unpaid-test"],
       "evidence": [
         {
           "label": "Протокол событий и выпуска",
@@ -4004,9 +3746,7 @@
       "status": "active",
       "owner": "development",
       "phase": "integration",
-      "dependsOn": [
-        "mobile-unpaid-test"
-      ],
+      "dependsOn": ["mobile-unpaid-test"],
       "evidence": [
         {
           "label": "Новое правило, проверки и границы",
@@ -4054,9 +3794,7 @@
       "status": "active",
       "owner": "development",
       "phase": "integration",
-      "dependsOn": [
-        "mobile-unpaid-test"
-      ],
+      "dependsOn": ["mobile-unpaid-test"],
       "evidence": [
         {
           "label": "Область и проверки",
@@ -4091,9 +3829,7 @@
       "status": "active",
       "owner": "development",
       "phase": "product",
-      "dependsOn": [
-        "mobile-design"
-      ],
+      "dependsOn": ["mobile-design"],
       "evidence": [
         {
           "label": "Реализация, проверки и границы",
@@ -4125,9 +3861,7 @@
       "status": "active",
       "owner": "development",
       "phase": "product",
-      "dependsOn": [
-        "mobile-unpaid-test"
-      ],
+      "dependsOn": ["mobile-unpaid-test"],
       "evidence": [
         {
           "label": "Панель статуса с персонажем: реализация, CUA и границы",
@@ -4163,9 +3897,7 @@
       "status": "active",
       "owner": "development",
       "phase": "product",
-      "dependsOn": [
-        "mobile-orders-feedback"
-      ],
+      "dependsOn": ["mobile-orders-feedback"],
       "evidence": [
         {
           "label": "Задание и макеты владельца",
@@ -4197,9 +3929,7 @@
       "status": "done",
       "owner": "development",
       "phase": "integration",
-      "dependsOn": [
-        "identity-core"
-      ],
+      "dependsOn": ["identity-core"],
       "evidence": [
         {
           "label": "Telegram: реализация, доставка и выпуск",
@@ -4237,10 +3967,7 @@
       "status": "active",
       "owner": "joint",
       "phase": "integration",
-      "dependsOn": [
-        "identity-telegram-login",
-        "identity-privacy"
-      ],
+      "dependsOn": ["identity-telegram-login", "identity-privacy"],
       "evidence": [
         {
           "label": "Telegram: реализация, доставка и выпуск",
@@ -4282,9 +4009,7 @@
       "status": "active",
       "owner": "development",
       "phase": "integration",
-      "dependsOn": [
-        "identity-core"
-      ],
+      "dependsOn": ["identity-core"],
       "evidence": [
         {
           "label": "Журнал, API, проверки и границы установки",
@@ -4312,9 +4037,7 @@
       "status": "active",
       "owner": "joint",
       "phase": "product",
-      "dependsOn": [
-        "mobile-design"
-      ],
+      "dependsOn": ["mobile-design"],
       "evidence": [
         {
           "label": "Реализация и проверки пяти сценариев",
@@ -4359,9 +4082,7 @@
       "status": "active",
       "owner": "development",
       "phase": "integration",
-      "dependsOn": [
-        "payments-core"
-      ],
+      "dependsOn": ["payments-core"],
       "evidence": [
         {
           "label": "TipTopPay: код, DNS и проверка доступа без списания - 28 сентября",
@@ -4388,9 +4109,7 @@
       "status": "active",
       "owner": "development",
       "phase": "integration",
-      "dependsOn": [
-        "platform-foundation"
-      ],
+      "dependsOn": ["platform-foundation"],
       "evidence": [
         {
           "label": "Подготовка, проверки и журнал выпуска",
@@ -4418,10 +4137,7 @@
       "status": "active",
       "owner": "joint",
       "phase": "product",
-      "dependsOn": [
-        "identity-core",
-        "mobile-design"
-      ],
+      "dependsOn": ["identity-core", "mobile-design"],
       "evidence": [
         {
           "label": "Источник, реализация и проверенные снимки",
@@ -4449,9 +4165,7 @@
       "status": "done",
       "owner": "joint",
       "phase": "integration",
-      "dependsOn": [
-        "identity-core"
-      ],
+      "dependsOn": ["identity-core"],
       "evidence": [
         {
           "label": "Установка Telegram-входа на VPS",
@@ -4482,9 +4196,7 @@
       "status": "active",
       "owner": "joint",
       "phase": "integration",
-      "dependsOn": [
-        "mobile-design"
-      ],
+      "dependsOn": ["mobile-design"],
       "evidence": [
         {
           "label": "Перенос, проверки и ограничения",
@@ -4548,9 +4260,7 @@
       "status": "active",
       "owner": "development",
       "phase": "product",
-      "dependsOn": [
-        "games-local"
-      ],
+      "dependsOn": ["games-local"],
       "evidence": [
         {
           "label": "Реализация, проверки и включение",
@@ -4591,9 +4301,7 @@
       "status": "active",
       "owner": "development",
       "phase": "product",
-      "dependsOn": [
-        "games-local"
-      ],
+      "dependsOn": ["games-local"],
       "evidence": [
         {
           "label": "Механика, визуальный источник и проверки",
@@ -4626,9 +4334,7 @@
       "status": "active",
       "owner": "development",
       "phase": "product",
-      "dependsOn": [
-        "pick-farm-prototype"
-      ],
+      "dependsOn": ["pick-farm-prototype"],
       "evidence": [
         {
           "label": "Реализация, проверки, ограничения и выпуск",
@@ -4712,9 +4418,7 @@
           "path": "docs/operations/kiosk-build11-installation.md"
         }
       ],
-      "acceptance": [
-        "Получить ручное подтверждение прокрутки и видимой кнопки на iPad."
-      ],
+      "acceptance": ["Получить ручное подтверждение прокрутки и видимой кнопки на iPad."],
       "nextAction": "Получить ручное подтверждение прокрутки и видимой кнопки на iPad.",
       "checks": {
         "implemented": true,
@@ -4738,9 +4442,7 @@
           "path": "docs/operations/kitchen-portal-kiosk-parser-2026-10-09.md"
         }
       ],
-      "acceptance": [
-        "Работать с существующей очередью; новые Devices выпускать отдельно."
-      ],
+      "acceptance": ["Работать с существующей очередью; новые Devices выпускать отдельно."],
       "nextAction": "Восстановить связь кассы и проверить edgeConnected; не повторять установленный parser fix. Новые Devices выпускать отдельно.",
       "checks": {
         "implemented": true,
@@ -4753,7 +4455,7 @@
       "id": "manager-device-access",
       "workstream": "backoffice",
       "title": "Подключать экраны и восстанавливать пароль из кабинета управляющего",
-      "summary": "Кабинет 4caca195, API 5b6f846b/cloud058 и маршрут heartbeat установлены; обе полные CI 11/11, backup/restore и сохранность данных проверены. Карточки и история доступны, pairing выключен. На Windows committed020; старый runtime и службы работают. После рестарта туннеля не сохранился Prepare receipt; подготовлено read-only продолжение без повторной миграции. Edge021, worker, pairing и нативный heartbeat киоска ещё не выпущены.",
+      "summary": "Кабинет 4caca195, API 5b6f846b/cloud058, Windows runtime 5b6f846b/schema020 и KitchenLink установлены. Recovery, Switch и Activate завершены 14 октября; backup020 восстановлена отдельно, сверены 47 таблиц. Mailbox worker работает автоматически, pairing включён на cloud, Windows и портале. Полные CI операторов 11/11; данные, ключи и настройки сохранены. Физическая привязка экранов, cloud delivery и приёмка ещё не подтверждены. Edge021 и проверка heartbeat остаются отдельно.",
       "status": "active",
       "owner": "development",
       "phase": "product",
@@ -4778,6 +4480,10 @@
         {
           "label": "Центр устройств, проверка связи и порядок выпуска",
           "path": "docs/operations/device-center.md"
+        },
+        {
+          "label": "Фактический выпуск и включение pairing 14 октября",
+          "path": "docs/operations/deployments/2026-10-13-device-center.md"
         }
       ],
       "acceptance": [
@@ -4786,11 +4492,11 @@
         "Существующие заказы, оплаты, ключи киоска и табели сохранены.",
         "Потеря связи и возврат приложения корректно отображаются; физическая приёмка отдельно."
       ],
-      "nextAction": "Проверить и выполнить продолжение с фактической schema020, переключить runtime, установить worker и KitchenLink. После освобождения API вторым Mac включить pairing с реальными cloud/windows proofs. Отдельно выпустить edge021 и нативный heartbeat киоска; принять физические экраны.",
+      "nextAction": "Проверить на физических экранах привязку кодом, назначение станции, доставку и отзыв. Отдельно согласовать выпуск edge021 и проверить heartbeat нативного киоска; получить приёмку владельца.",
       "checks": {
         "implemented": true,
         "verified": true,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     },
@@ -4802,9 +4508,7 @@
       "status": "active",
       "owner": "development",
       "phase": "product",
-      "dependsOn": [
-        "backoffice-ui-core"
-      ],
+      "dependsOn": ["backoffice-ui-core"],
       "evidence": [
         {
           "label": "Вход и навигация: проверки и выпуск",
@@ -4831,9 +4535,7 @@
       "status": "active",
       "owner": "development",
       "phase": "product",
-      "dependsOn": [
-        "backoffice-ui-core"
-      ],
+      "dependsOn": ["backoffice-ui-core"],
       "evidence": [
         {
           "label": "Фильтры, должности и проверки",
@@ -4860,9 +4562,7 @@
       "status": "active",
       "owner": "development",
       "phase": "product",
-      "dependsOn": [
-        "mobile-redesign-1012"
-      ],
+      "dependsOn": ["mobile-redesign-1012"],
       "evidence": [
         {
           "label": "Объединение и проверки",
@@ -4894,10 +4594,7 @@
       "status": "active",
       "owner": "joint",
       "phase": "integration",
-      "dependsOn": [
-        "backoffice-ui-core",
-        "catalog-editor"
-      ],
+      "dependsOn": ["backoffice-ui-core", "catalog-editor"],
       "evidence": [
         {
           "label": "Включение online STOP/UNSTOP 13 октября",
@@ -4917,16 +4614,210 @@
       }
     },
     {
-      "id": "mobile-l10n-push-1014",
+      "id": "kiosk-owner-polish-1013",
+      "workstream": "kiosk",
+      "title": "Доработки киоска после проверки 17",
+      "summary": "Build 21 из deb62522 установлен по USB поверх 20 без удаления данных и запущен. На допах фото/названия/цены опущены на 16 дизайн-пунктов, кнопки количества сохранены. Piko показывает одну упаковку и фото выбранного вкуса. По отдельному разрешению владельца опубликован catalog11/draft24 с яблоком/апельсином без изменения цен; касса подтвердила menu8 applied, Piko остаётся 590 ₸. Проверка копии фактического меню на трёх iPad прошла. 224 unit tests, typecheck/lint, 7 браузерных сценариев допов, полная Foundation CI 11/11, UI/axe и roadmap CI успешны. Нативная проверка 21: 1/1, 0 ошибок/пропусков, 15 снимков; киоск оставлен на заставке вне демо. Фото, стеклянные действия, нейтральный QR и единственная «К оплате» сохранены. Банковский механизм не менялся, реальных оплат не проводили. Сервер/кухня для больших заказов и приёмка владельцем остаются отдельно.",
+      "status": "active",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": ["kiosk-client"],
+      "evidence": [
+        {
+          "label": "Установка, проверки, снимки и ограничения",
+          "path": "docs/operations/kiosk-owner-polish-2026-10-13.md"
+        },
+        {
+          "label": "Фото, стекло, QR и проверки 14 октября",
+          "path": "docs/operations/kiosk-glass-polish-2026-10-14.md"
+        },
+        {
+          "label": "Полная CI установленного кода: 11/11",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/38530154916"
+        },
+        {
+          "label": "Полная CI установленной сборки 20: 11/11",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/38536178374"
+        },
+        {
+          "label": "Полная CI установленной сборки 21: 11/11",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/38541949577"
+        }
+      ],
+      "acceptance": [
+        "Физический iPad: язык, режим, допы, фото и QR-only.",
+        "Большой заказ проходит сервер и кухню без ограничения числа строк.",
+        "Владелец принял изменения."
+      ],
+      "nextAction": "Приёмка владельцем установленной 21: расположение допов, фото и выбор вкуса Piko. Серверный/Windows выпуск больших заказов готовить отдельно от текущего device-center baseline; прежние пакеты не применять автоматически.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-testflight20",
       "workstream": "mobile",
-      "title": "Подготовить RU/KK/EN и уведомления о заказах",
-      "summary": "1333 текста интерфейса и 4 события push переведены на RU/KK/EN. Выбор языка сохраняется без сброса оплаты/корзины. Локальные сборка, типы, lint, мобильные и PostgreSQL-проверки прошли; браузер 393×852 и 320×568. APNs/FCM и физический iPhone ещё не приняты, CI ожидается.",
+      "title": "iOS build 20: восстановление оплаты и неподвижные игры",
+      "summary": "PR246 и PR248 включены в чистый source eaa21d08. Foundation CI 11/11, 363 Node + 50 Python, archive/export/upload и проверка подписи/JS успешны. Apple обработала 0.2.0 (20); PickChick Internal показывает «Тестируется», те же два тестировщика. Storefront сохранён; сервер, касса, каталог и цены не менялись. Физическая приёмка ожидается.",
       "status": "active",
       "owner": "development",
       "phase": "product",
-      "dependsOn": [
-        "identity-core"
+      "dependsOn": ["mobile-testflight19"],
+      "evidence": [
+        {
+          "label": "TestFlight 20: исходник, CI, подпись и доступность в Apple",
+          "path": "docs/operations/mobile-testflight20.md"
+        },
+        {
+          "label": "Поведение оплаты и ограничения отмены",
+          "path": "docs/operations/mobile-payment-recovery.md"
+        },
+        {
+          "label": "Игры из заказа и физический чек-лист",
+          "path": "docs/operations/order-game-gestures.md"
+        }
       ],
+      "acceptance": [
+        "Точный исходник выпуска содержит оба исправления и прошёл полную CI.",
+        "Подписанная 0.2.0 (20) обработана Apple и доступна PickChick Internal.",
+        "Владелец проверил оплату и игры на iPhone."
+      ],
+      "nextAction": "Нажать «Обновить» в TestFlight и пройти чек-лист. Факт доставки не подменяет физическую установку и приёмку.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-combo-rewards",
+      "workstream": "loyalty",
+      "title": "Комбо 7 + 1: отметки, подарок и возвраты",
+      "summary": "По решению владельца любое оплаченное комбо даёт отметку, подарок - Pick Combo. Подготовлены PostgreSQL-журнал, профиль, корзина, защита от повторного погашения и пересчёт после подтверждённого возврата. Проверены 12 новых PostgreSQL-сценариев и интерфейс 393×852/320×568. На сервере и iPhone пока не включено.",
+      "status": "active",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["identity-core", "payments-core", "kitchen-routing"],
+      "evidence": [
+        {
+          "label": "Правила, проверки и условия включения",
+          "path": "docs/operations/mobile-combo-rewards.md"
+        },
+        {
+          "label": "PR #251",
+          "url": "https://github.com/xaaknazar/pickchick/pull/251"
+        }
+      ],
+      "acceptance": [
+        "Каждая оплаченная единица комбо даёт ровно одну отметку; повтор банка не начисляет ещё раз.",
+        "Один подарок нельзя одновременно потратить с двух устройств; неизвестная оплата сохраняет резерв.",
+        "Подтверждённый возврат снимает соответствующие отметки и отзывает неподкреплённый подарок. Использованный подарок требует сверки без автоматического списания денег.",
+        "Физический iPhone и кухня принимают бесплатный заказ после согласованного серверного выпуска."
+      ],
+      "nextAction": "Отдельный согласованный выпуск из исходника с полной зелёной CI: зафиксировать время фактического запуска (прошлые покупки исключены по решению владельца), подготовить cloud060/API/edge/iOS с действующими резервами. Проверить допустимый фискальный режим подарочного заказа, совместить новые тексты с переводами/push, выполнить физическую приёмку. Доказательства CI и публикации только статуса в пульте - в PR #251; акция ещё не включена.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "release-fixes-1019",
+      "workstream": "launch",
+      "title": "Исправления аудита запуска 19.10",
+      "summary": "59 находок аудита 19.10 разобраны семью полосами и собраны в ветку codex/release-fixes-1019: платежи Kaspi, допуск на кухню и номера, касса и ключ кассы, вход и безопасность, киоск, приложение, мониторинг и копии. Реализовано и проверено локально 20.10 на свежей базе; не установлено на VPS, кассу, iPad и в App Store; приёмка владельцем не проводилась. 21.10: PR262 слит обычным merge d15bde82 после полной Foundation CI 11/11. Отдельно разрешённая ручная ротация ключа кассы выполнена до 20.11.2026 12:34:54 Алматы; runtime и миграции не выпускались.",
+      "status": "active",
+      "owner": "joint",
+      "phase": "acceptance",
+      "dependsOn": ["platform-monitoring", "platform-backup"],
+      "evidence": [
+        {
+          "label": "Сводка, таблица находок и план выпуска",
+          "path": "docs/operations/release-fixes-2026-10-19/README.md"
+        },
+        {
+          "label": "Действия владельца",
+          "path": "docs/operations/release-fixes-2026-10-19/owner-actions.md"
+        },
+        {
+          "label": "Передача и проверки",
+          "path": "docs/collaboration/handoff.md"
+        },
+        {
+          "label": "Ручное продление ключа кассы 21 октября",
+          "path": "docs/operations/release-fixes-2026-10-19/key-renewal-2026-10-21.md"
+        },
+        {
+          "label": "План первого шага миграций, не выполнен",
+          "path": "docs/operations/release-fixes-2026-10-19/first-migration-step.md"
+        }
+      ],
+      "acceptance": [
+        "Полная CI точного SHA ветки зелёная; PR рассмотрен.",
+        "Охраняемые выпуски по плану README выполнены, каждый с проверкой и откатом.",
+        "Владелец принял решения из owner-actions.md и проверил сценарии аудита на точке."
+      ],
+      "nextAction": "Отдельно согласовать первый шаг 060, затем064/066/068 после подготовки охраняемого оператора и backup/restore. 204d318b ждёт финансовый Mac; акцию не включать до нового FulfillmentWorker.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "crm-push",
+      "workstream": "crm",
+      "title": "Отправлять push с согласиями и лимитами",
+      "summary": "Подготовлены транзакционные APNs/FCM, lifecycle токенов, отдельные согласия, inbox и durable worker. Локальная PostgreSQL проверяет дедупликацию, отзыв согласия и сеанса. Реальная доставка, маркетинговые кампании и частотные лимиты ещё не приняты.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["crm-content", "identity-privacy"],
+      "evidence": [
+        {
+          "label": "Возможности и пробелы бэк-офиса",
+          "path": "docs/operations/backoffice-operations.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Колокольчик в главном меню - 23 сентября 2026",
+          "path": "docs/operations/mobile-menu-notifications.md"
+        },
+        {
+          "label": "Подготовка RU/KK/EN и push от 14 октября",
+          "path": "docs/operations/mobile-l10n-push-2026-10-14.md"
+        }
+      ],
+      "acceptance": [
+        "Тестовая кампания доходит до разрешённых устройств один раз.",
+        "Отзыв согласия исключает гостя из новых кампаний."
+      ],
+      "nextAction": "Подключить provider tokens, worker и ограниченную тестовую кампанию.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-l10n-push-1014",
+      "workstream": "mobile",
+      "title": "Подготовить RU/KK/EN и уведомления о заказах",
+      "summary": "1399 UI-строк и 4 события push на RU/KK/EN. Объединён shared d15bde82 с исправлениями аудита; новые сообщения оплаты, подарков и возвратов переведены. Миграция push перенумерована в069. Проверки объединённой ветки идут; нативная доставка APNs/FCM и физическая приёмка не выполнены.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["identity-core"],
       "evidence": [
         {
           "label": "Переводы рядом, с поиском",

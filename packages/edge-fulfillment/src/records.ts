@@ -94,3 +94,30 @@ export async function advance(
   await emit(client, next, type, extra);
   return next;
 }
+
+/**
+ * Next display number of the branch (release fixes 19.10, audit 1.4). With edge 022 and the
+ * EXECUTE grant: 1-299, again from 1 at every opened cash shift (or Almaty day), never a number
+ * a live order holds; null when all 299 are held (the caller refuses the admission). Before 022,
+ * or for a role without the grant, the old global sequence keeps the edge working as before.
+ */
+export async function allocateDisplayNumber(
+  client: DatabaseClient,
+  branchId: string,
+): Promise<string | null> {
+  const ready = (
+    await client.query<{ ready: boolean }>(
+      `SELECT CASE WHEN to_regprocedure('fulfillment_display_allocate(uuid)') IS NULL THEN false
+       ELSE has_function_privilege('fulfillment_display_allocate(uuid)','EXECUTE') END AS ready`,
+    )
+  ).rows[0]!.ready;
+  const row = (
+    await client.query<{ n: string | null }>(
+      ready
+        ? 'SELECT fulfillment_display_allocate($1)::text AS n'
+        : "SELECT nextval('fulfillment_display_sequence')::text AS n",
+      ready ? [branchId] : [],
+    )
+  ).rows[0]!;
+  return row.n;
+}

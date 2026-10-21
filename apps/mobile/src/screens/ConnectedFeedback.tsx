@@ -161,8 +161,7 @@ function FeedbackForm(props: ScreenProps) {
     >
       <View style={s.context}>
         <Heading small style={orderUI.title}>
-          {t('Заказ №')}
-          {localize(order?.number ?? '')}
+          {t('Заказ №{p0}', { p0: order?.number ?? '' })}
         </Heading>
         <Caption style={orderUI.detail}>
           {localize(
@@ -196,8 +195,7 @@ function FeedbackForm(props: ScreenProps) {
             {t('Спасибо за отзыв')}
           </Heading>
           <Body style={orderUI.label}>
-            {t('Ваша оценка:')}
-            {localize(review.stars)}
+            {t('Ваша оценка: {p0}', { p0: review.stars })}
             {t('из 5')}
           </Body>
           {review.text ? <Body>{review.text}</Body> : null}

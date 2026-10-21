@@ -76,8 +76,7 @@ export const PublishedCatalogQuoteSchema = PricedCatalogQuoteSchema.extend({
   taxBinding: TaxBindingSchema,
   lines: z
     .array(PricedCatalogLineSchema.extend({ taxCode: z.string().trim().min(1).max(32) }))
-    .min(1)
-    .max(200),
+    .min(1),
 });
 export const PricedQuoteSchema = z.union([
   FoundationPricedQuoteSchema,
@@ -163,11 +162,46 @@ export const PaymentObservationSchema = z.discriminatedUnion('outcome', [
   }),
 ]);
 export const RefundRequestSchema = z.strictObject({
+  items: z
+    .array(z.strictObject({ lineId: uuid, quantity: z.int().min(1).max(1000) }))
+    .min(1)
+    .max(200)
+    .optional(),
   orderId: uuid,
   captureId: uuid,
   amountMinor: positive,
   reason: z.string().min(3).max(500),
   fulfillmentPolicy: z.enum(['not_dispatched', 'manager_reviewed']).default('not_dispatched'),
+});
+/** Kaspi Pay operation number (or another bank reference) of a refund made by hand. */
+export const BankReferenceSchema = z
+  .string()
+  .trim()
+  .min(3)
+  .max(120)
+  .regex(/^[\p{L}\p{N}][\p{L}\p{N} ._:/#№-]*$/u);
+/**
+ * Manager records a refund that staff already made by hand in Kaspi Pay (no refund adapter
+ * exists). `refundId` resolves an old pending request with the same amount instead of a new one.
+ */
+export const ManualRefundSchema = z.strictObject({
+  items: z
+    .array(z.strictObject({ lineId: uuid, quantity: z.int().min(1).max(1000) }))
+    .min(1)
+    .max(200)
+    .optional(),
+  orderId: uuid,
+  captureId: uuid,
+  amountMinor: positive,
+  bankReference: BankReferenceSchema,
+  reason: z.string().trim().min(3).max(500),
+  refundId: uuid.optional(),
+});
+/** Withdraw a refund request that no adapter ever sent: no money moved. */
+export const RefundWithdrawalSchema = z.strictObject({
+  orderId: uuid,
+  refundId: uuid,
+  reason: z.string().trim().min(3).max(500),
 });
 export const RefundObservationSchema = z.discriminatedUnion('outcome', [
   z.strictObject({

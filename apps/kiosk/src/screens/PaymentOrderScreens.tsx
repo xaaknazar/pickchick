@@ -142,7 +142,7 @@ export function PaymentScreen({
             <Wrapper align="center" gap={model.demo ? 10 : 22}>
               <QrPlate
                 payload={qrPayload}
-                label={model.demo ? t.demoQr : 'Kaspi QR'}
+                label={model.demo ? t.demoQr : t.payKaspiQR}
                 message={qrExpired ? pc.qrExpired : pc.qrPreparing}
                 expired={qrExpired}
                 demoWarning={model.demo ? t.demoQr : null}
@@ -163,7 +163,7 @@ export function PaymentScreen({
           onRestart={() => onStartOver?.()}
           // The live QR bridge has no cancellation: staff is the way out besides starting over.
           // Only the isolated demo previews a cancellation of its unpaid QR.
-          actionLabel={canCancelDemo ? t.cancelPayment : pc.callStaff}
+          actionLabel={canCancelDemo ? t.cancelPayment : undefined}
           onAction={canCancelDemo ? context.onCancel : context.onHelp}
         />
       </ScreenSurface>
@@ -217,7 +217,7 @@ export function PaymentScreen({
                 : model.paymentMethod !== 'card'
                   ? invoice
                     ? 'Kaspi - ' + t.invoiceMethod
-                    : 'Kaspi QR'
+                    : t.payKaspiQR
                   : t.card
             }
             message={message}
@@ -255,13 +255,15 @@ export function PaymentScreen({
         {/* A true cancellation preview exists only in the isolated demo transport.
             The live QR bridge has no cancellation endpoint; staff remains its way out. */}
         <Wrapper dir="row" gap={14} align="center">
-          <Button
-            label={canCancelDemo ? t.cancelPayment : model.commercial ? t.callStaff : t.cancel}
-            tone="outline"
-            testID="kiosk-payment-cancel"
-            disabled={model.busy}
-            onPress={canCancelDemo || !model.commercial ? context.onCancel : context.onHelp}
-          />
+          {canCancelDemo || !model.commercial ? (
+            <Button
+              label={canCancelDemo ? t.cancelPayment : t.cancel}
+              tone="outline"
+              testID="kiosk-payment-cancel"
+              disabled={model.busy}
+              onPress={context.onCancel}
+            />
+          ) : null}
           <Wrapper flex={1}>
             {kaspiQr ? (
               <Button
@@ -415,7 +417,6 @@ export function OrderScreen({ model, context }: { model: KioskModel; context: Sc
               />
             )}
           </Wrapper>
-          <Button label={t.help} tone="inverse" onPress={context.onHelp} />
         </Wrapper>
       </Footer>
     </ScreenSurface>
@@ -438,17 +439,30 @@ export function RecoveryScreen({ model, context }: { model: KioskModel; context:
               {model.order?.payment_state === 'simulated_unknown' ? t.unknownBody : t.restoreBody}
             </Body>
           </Wrapper>
-          <Button label={t.help} tone="outline" size="compact" onPress={context.onHelp} />
         </Wrapper>
       </ScrollArea>
       <Footer tone="brand">
-        <Button
-          testID="kiosk-payment-retry"
-          label={t.refresh}
-          busy={model.busy}
-          onPress={() => void model.recover()}
-          fullWidth
-        />
+        <Wrapper dir="row" gap={14} align="center">
+          {/* Audit 19.10, finding 3.0: a money-safe service reset for staff (code required). */}
+          {model.staffResetAvailable && context.onStaffHold ? (
+            <Button
+              testID="kiosk-staff-service"
+              label={t.staffService}
+              tone="outline"
+              disabled={model.busy}
+              onPress={context.onStaffHold}
+            />
+          ) : null}
+          <Wrapper flex={1}>
+            <Button
+              testID="kiosk-payment-retry"
+              label={t.refresh}
+              busy={model.busy}
+              onPress={() => void model.recover()}
+              fullWidth
+            />
+          </Wrapper>
+        </Wrapper>
       </Footer>
     </ScreenSurface>
   );

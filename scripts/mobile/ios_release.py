@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import plistlib
 import re
+import secrets
 import shlex
 import subprocess
 import sys
@@ -40,9 +41,15 @@ CATALOG_PILOT_FLAGS = PUBLISHED_CATALOG_FLAGS
 # published catalog without the farm; published-catalog stays for already recorded archives.
 STOREFRONT_FLAGS = {**CUSTOMER_PILOT_FLAGS, "EXPO_PUBLIC_PUBLISHED_CATALOG": "1", "EXPO_PUBLIC_PICK_FARM": "0"}
 DEFAULT_MOBILE_PROFILE = "storefront"
+# Audit 2.2/7.3: the public App Store build uses the owned domain (apps/mobile/src/build-config.ts).
+# Every other profile pins staging, whatever the invoking shell exports.
+STAGING_API_URL = "https://pickchick.185.129.51.103.nip.io"
+PRODUCTION_API_URL = "https://api.pickchick.kz"
+PRODUCTION_FLAGS = {**STOREFRONT_FLAGS, "EXPO_PUBLIC_PICKCHICK_ENV": "production"}
 # Older names of the same flag set; archives recorded under an alias stay deliverable.
 PROFILE_ALIASES = {"catalog-pilot": "published-catalog"}
-MOBILE_PROFILES = ("customer-pilot", "farm-pilot", "published-catalog", DEFAULT_MOBILE_PROFILE, *PROFILE_ALIASES)
+MOBILE_PROFILES = ("customer-pilot", "farm-pilot", "published-catalog", DEFAULT_MOBILE_PROFILE,
+                   "production", *PROFILE_ALIASES)
 # Archives made before the catalog source was pinned recorded these exact flag sets; their
 # bundles were built when an unset flag still meant the legacy catalog.
 HISTORICAL_PROFILE_FLAGS = {
@@ -51,6 +58,70 @@ HISTORICAL_PROFILE_FLAGS = {
     "farm-pilot": {key: value for key, value in FARM_PILOT_FLAGS.items()
                    if key != "EXPO_PUBLIC_PUBLISHED_CATALOG"},
 }
+# Kiosk releases (audit 19.10, findings 3.5 and 7.3). The kiosk JS bundle selects the commercial
+# controller, the API origin and the photo printer origin from public build values; a forgotten
+# value used to ship the TEST controller or lose printing. Every new kiosk archive pins them.
+KIOSK_API_URLS = {
+    "kiosk-production": "https://api.pickchick.kz",
+    "kiosk-staging": "https://pickchick.185.129.51.103.nip.io",
+}
+KIOSK_PROFILES = tuple(KIOSK_API_URLS)
+KIOSK_FLAG_KEYS = ("EXPO_PUBLIC_KIOSK_COMMERCIAL", "EXPO_PUBLIC_KIOSK_BUILD_PROFILE",
+                   "EXPO_PUBLIC_KIOSK_API_URL", "EXPO_PUBLIC_KIOSK_PHOTO_URL",
+                   "EXPO_PUBLIC_KIOSK_PHOTO_MAC_PREVIEW", "EXPO_PUBLIC_KIOSK_RELEASE_ID")
+# Placeholder and loopback hosts never reach a restaurant iPad.
+TEST_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0", "example.com", "example.org",
+              "example.net"}
+TEST_SUFFIXES = (".example", ".test", ".invalid", ".localhost", ".example.com", ".example.org",
+                 ".example.net")
+
+
+def checked_photo_url(value):
+    """The photo printer origin of the restaurant: https, a real host, no path or credentials."""
+    try:
+        parsed = urlsplit(value or "")
+        host = (parsed.hostname or "").lower()
+        port = parsed.port
+    except ValueError:
+        fail("--kiosk-photo-url must be the HTTPS origin of the restaurant photo printer service.")
+    if (parsed.scheme != "https" or not host or parsed.username or parsed.password
+            or parsed.query or parsed.fragment or parsed.path not in {"", "/"}):
+        fail("--kiosk-photo-url must be the HTTPS origin of the restaurant photo printer service.")
+    if host in TEST_HOSTS or host.endswith(TEST_SUFFIXES) or host.startswith("127."):
+        fail("--kiosk-photo-url names a test or loopback host; use the restaurant printer host.")
+    return f"https://{host}" + (f":{port}" if port else "")
+
+
+def kiosk_profile_flags(feature_profile, photo_url, release_id):
+    """Exact public values of a kiosk archive (commercial controller, API, photo, release id)."""
+    if feature_profile not in KIOSK_API_URLS:
+        fail("Kiosk archives require --feature-profile kiosk-production or kiosk-staging.")
+    if not re.fullmatch(r"pk-[0-9a-f]{16}", release_id or ""):
+        fail("Kiosk release id is invalid.")
+    return {
+        "EXPO_PUBLIC_KIOSK_COMMERCIAL": "1",
+        "EXPO_PUBLIC_KIOSK_BUILD_PROFILE":
+            "production" if feature_profile == "kiosk-production" else "staging",
+        "EXPO_PUBLIC_KIOSK_API_URL": KIOSK_API_URLS[feature_profile],
+        "EXPO_PUBLIC_KIOSK_PHOTO_URL": checked_photo_url(photo_url),
+        "EXPO_PUBLIC_KIOSK_PHOTO_MAC_PREVIEW": "0",
+        "EXPO_PUBLIC_KIOSK_RELEASE_ID": release_id,
+    }
+
+
+def verify_kiosk_bundle(app, flags):
+    """The archived JS bundle must carry this release's pinned values, not the shell's."""
+    bundle = (app / "main.jsbundle").read_bytes()
+    required = {
+        "commercial kiosk checkout API": b"/v1/kiosk-checkout",
+        "release id (pinned values reached the bundle)": flags["EXPO_PUBLIC_KIOSK_RELEASE_ID"].encode(),
+        "photo printer origin": flags["EXPO_PUBLIC_KIOSK_PHOTO_URL"].encode(),
+        "API origin": flags["EXPO_PUBLIC_KIOSK_API_URL"].encode(),
+    }
+    missing = [label for label, value in required.items() if value not in bundle]
+    if missing:
+        fail("The kiosk bundle does not contain the pinned release values: " + ", ".join(missing)
+             + ". Check EXPO_NO_CLIENT_ENV_VARS and the Metro cache; nothing was uploaded.")
 
 
 def select_app(name):
@@ -398,34 +469,69 @@ def default_feature_profile(app):
 def feature_profile_flags(feature_profile):
     """Return an independent allowlisted flag snapshot for release metadata."""
     profiles = {"customer-pilot": CUSTOMER_PILOT_FLAGS, "farm-pilot": FARM_PILOT_FLAGS,
-                "published-catalog": PUBLISHED_CATALOG_FLAGS, DEFAULT_MOBILE_PROFILE: STOREFRONT_FLAGS}
+                "published-catalog": PUBLISHED_CATALOG_FLAGS, DEFAULT_MOBILE_PROFILE: STOREFRONT_FLAGS,
+                "production": PRODUCTION_FLAGS}
     feature_profile = canonical_profile(feature_profile)
-    if feature_profile == "legacy":
+    if feature_profile == "legacy" or feature_profile in KIOSK_PROFILES:
         return None
     if feature_profile not in profiles:
         fail("Unknown release feature profile.")
     return dict(profiles[feature_profile])
 
 
-def archive_environment(feature_profile, source=None):
+def profile_backend(feature_profile):
+    """(environment, API origin) that a pinned mobile profile compiles into the JS bundle."""
+    flags = feature_profile_flags(feature_profile) or {}
+    environment = flags.get("EXPO_PUBLIC_PICKCHICK_ENV", "staging")
+    return environment, PRODUCTION_API_URL if environment == "production" else STAGING_API_URL
+
+
+def archive_environment(feature_profile, source=None, kiosk_flags=None):
     """Pin the JS bundle switches independently of the invoking shell and dotenv."""
-    flags = feature_profile_flags(feature_profile)
+    flags = kiosk_flags if feature_profile in KIOSK_PROFILES else feature_profile_flags(feature_profile)
+    if feature_profile in KIOSK_PROFILES and (
+            not kiosk_flags or tuple(sorted(kiosk_flags)) != tuple(sorted(KIOSK_FLAG_KEYS))):
+        fail("Kiosk archives require their exact pinned public values.")
     if flags is None:
         return None
     source = os.environ if source is None else source
     if "EXPO_NO_CLIENT_ENV_VARS" in source:
         fail("EXPO_NO_CLIENT_ENV_VARS prevents the pilot flags from reaching the JS bundle.")
     env = dict(source)
+    # The backend is part of the profile: no shell override of the API host reaches an archive.
+    env.pop("EXPO_PUBLIC_API_URL", None)
+    if feature_profile not in KIOSK_PROFILES:
+        # Mobile switch only; a kiosk bundle reads its pinned EXPO_PUBLIC_KIOSK_* values.
+        env["EXPO_PUBLIC_PICKCHICK_ENV"] = profile_backend(feature_profile)[0]
     env.update(flags)
     env["PICKCHICK_APP_VARIANT"] = "release"
     env["EXPO_NO_DOTENV"] = "1"
     return env
 
 
+def legacy_backend_guard(app, source=None):
+    """A legacy mobile archive inherits the shell, and its metadata records the staging host.
+
+    Refuse a shell that would compile another backend into that bundle (review of audit 2.2).
+    """
+    source = os.environ if source is None else source
+    if app == "mobile" and (source.get("EXPO_PUBLIC_API_URL")
+                            or source.get("EXPO_PUBLIC_PICKCHICK_ENV", "") not in ("", "staging")):
+        fail("The legacy profile archives the staging backend only. Unset EXPO_PUBLIC_API_URL and "
+             "EXPO_PUBLIC_PICKCHICK_ENV, or choose a pinned profile such as production.")
+
+
 def verify_feature_profile(metadata, requested):
     archived = metadata.get("featureProfile", "legacy")
     if canonical_profile(archived) != canonical_profile(requested):
         fail("The requested feature profile differs from the archived release.")
+    if archived in KIOSK_PROFILES:
+        embedded = metadata.get("embeddedPublicEnv") or {}
+        expected = kiosk_profile_flags(archived, embedded.get("EXPO_PUBLIC_KIOSK_PHOTO_URL"),
+                                       embedded.get("EXPO_PUBLIC_KIOSK_RELEASE_ID"))
+        if embedded != expected or metadata.get("kioskBundleVerified") is not True:
+            fail(f"The archived {archived} kiosk values are missing, differ or were not verified.")
+        return
     flags = feature_profile_flags(archived)
     historical = HISTORICAL_PROFILE_FLAGS.get(canonical_profile(archived))
     embedded = metadata.get("embeddedPublicEnv")
@@ -488,9 +594,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("phase", choices=["doctor", "archive", "export", "upload"])
     parser.add_argument("--app", choices=["mobile", "kiosk"], default="mobile")
-    parser.add_argument("--feature-profile", choices=["legacy", *MOBILE_PROFILES], default=None,
-                        help="JS feature set; mobile defaults to published-catalog "
-                             "(catalog-pilot is an alias), the kiosk to legacy")
+    parser.add_argument("--feature-profile", choices=["legacy", *MOBILE_PROFILES, *KIOSK_PROFILES],
+                        default=None,
+                        help="JS feature set; mobile defaults to storefront (catalog-pilot is an "
+                             "alias). A new kiosk archive needs kiosk-production or kiosk-staging; "
+                             "kiosk export/upload default to the archived profile")
+    parser.add_argument("--kiosk-photo-url",
+                        help="HTTPS origin of the restaurant photo printer service (kiosk archive)")
     parser.add_argument("--workspace")
     parser.add_argument("--scheme")
     parser.add_argument("--release", default="first-testflight")
@@ -503,10 +613,19 @@ def main():
     parser.add_argument("--keychain-password-file", help="Optional private hex password file to unlock only the dedicated keychain")
     args = parser.parse_args()
     select_app(args.app)
-    if args.feature_profile is None:
+    if args.feature_profile is None and args.app == "kiosk" and args.phase == "archive":
+        fail("Kiosk archives require --feature-profile kiosk-production or kiosk-staging "
+             "and --kiosk-photo-url; the legacy shell environment is no longer accepted.")
+    if args.feature_profile is None and args.app != "kiosk":
         args.feature_profile = default_feature_profile(args.app)
     if args.feature_profile in MOBILE_PROFILES and args.app != "mobile":
         fail("Pilot feature profiles are available only for the mobile app.")
+    if args.feature_profile in KIOSK_PROFILES and args.app != "kiosk":
+        fail("Kiosk feature profiles are available only for the kiosk app.")
+    if args.app == "kiosk" and args.phase == "archive" and args.feature_profile not in KIOSK_PROFILES:
+        fail("New kiosk archives require --feature-profile kiosk-production or kiosk-staging.")
+    if args.kiosk_photo_url and not (args.app == "kiosk" and args.phase == "archive"):
+        fail("--kiosk-photo-url applies only to a kiosk archive.")
     args.workspace = args.workspace or str(ROOT / f"apps/{APP_DIRECTORY}/ios/{APP_TARGET}.xcworkspace")
     args.scheme = args.scheme or APP_TARGET
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", args.release):
@@ -541,7 +660,12 @@ def perform_phase(args, signing, artifacts):
     metadata_path = output / "release.json"
 
     if args.phase == "archive":
-        bundle_env = archive_environment(args.feature_profile)
+        kiosk_flags = (kiosk_profile_flags(args.feature_profile, args.kiosk_photo_url,
+                                           "pk-" + secrets.token_hex(8))
+                       if APP_DIRECTORY == "kiosk" else None)
+        bundle_env = archive_environment(args.feature_profile, kiosk_flags=kiosk_flags)
+        if bundle_env is None:
+            legacy_backend_guard(APP_DIRECTORY)
         config = json.loads((ROOT / f"apps/{APP_DIRECTORY}/app.json").read_text())["expo"]
         if (config.get("ios", {}).get("bundleIdentifier") != BUNDLE
                 or config.get("ios", {}).get("appleTeamId") != TEAM):
@@ -553,7 +677,16 @@ def perform_phase(args, signing, artifacts):
             fail("Kiosk releases require iPad-only and internal TestFlight configuration.")
         if extra.get("environment") != "staging" or extra.get("customerOperationsEnabled") is not False:
             fail("This first TestFlight release requires staging and disabled customer operations.")
-        api_url = checked_api_url(extra.get("apiUrl", ""))
+        if kiosk_flags:
+            # Kiosk archives pin their own API origin (EXPO_PUBLIC_KIOSK_API_URL, audit 3.5/7.3).
+            environment = kiosk_flags["EXPO_PUBLIC_KIOSK_BUILD_PROFILE"]
+            api_url = kiosk_flags["EXPO_PUBLIC_KIOSK_API_URL"]
+        elif APP_DIRECTORY == "mobile" and bundle_env is not None:
+            # app.json keeps the staging defaults; the pinned profile selects the bundle's backend.
+            environment, api_url = profile_backend(args.feature_profile)
+            api_url = checked_api_url(api_url)
+        else:
+            environment, api_url = "staging", checked_api_url(extra.get("apiUrl", ""))
         if archive.exists() or metadata_path.exists():
             fail("Release artifacts already exist. Use a new --release label; no archive is overwritten.")
         with ExitStack() as stack:
@@ -567,10 +700,13 @@ def perform_phase(args, signing, artifacts):
                 fail("CURRENT_PROJECT_VERSION is missing. Assign the PickChick build number first.")
             metadata = {"createdAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                         "team": TEAM, "bundleIdentifier": BUNDLE, "apiUrl": api_url,
+                        "environment": environment,
+                        "supportUrl": (bundle_env or {}).get("EXPO_PUBLIC_SUPPORT_URL") or None,
                         "app": APP_DIRECTORY, "testFlightInternalTestingOnly": INTERNAL_ONLY,
                         "version": version, "build": build,
                         "featureProfile": canonical_profile(args.feature_profile),
-                        "embeddedPublicEnv": (feature_profile_flags(args.feature_profile) or {}),
+                        "embeddedPublicEnv": (kiosk_flags or feature_profile_flags(args.feature_profile)
+                                              or {}),
                         "gitSha": local_command(["git", "rev-parse", "HEAD"]).strip(),
                         "dirty": bool(local_command(["git", "status", "--porcelain"]).strip()),
                         "archiveStatus": "started", "signing": public_signing(signing)}
@@ -579,8 +715,12 @@ def perform_phase(args, signing, artifacts):
                       output / "archive.log", env=bundle_env)
             app, app_info = archive_app(archive)
             verify_archived_profile(app, signing)
+            if kiosk_flags:
+                verify_kiosk_bundle(app, kiosk_flags)
         metadata.update(archiveStatus="complete", version=app_info.get("CFBundleShortVersionString"),
                         build=app_info.get("CFBundleVersion"))
+        if kiosk_flags:
+            metadata["kioskBundleVerified"] = True
         if signing:
             metadata["temporarySigningSettingsRestored"] = True
         write_private_json(metadata_path, metadata)
@@ -595,7 +735,12 @@ def perform_phase(args, signing, artifacts):
     if (metadata.get("archiveStatus") != "complete" or metadata.get("team") != TEAM
             or metadata.get("bundleIdentifier") != BUNDLE):
         fail("Release metadata does not match a completed PickChick archive.")
+    if args.feature_profile is None:
+        # Kiosk export/upload: the archived profile (verified below), legacy for older archives.
+        args.feature_profile = metadata.get("featureProfile", "legacy")
     verify_feature_profile(metadata, args.feature_profile)
+    if metadata.get("featureProfile") in KIOSK_PROFILES:
+        verify_kiosk_bundle(app, metadata["embeddedPublicEnv"])
     if metadata.get("signing", {"style": "automatic"}) != public_signing(signing):
         fail("Use the same immutable signing profile and certificate that created this release.")
     verify_archived_profile(app, signing)

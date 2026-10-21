@@ -283,9 +283,10 @@ export function OrderStatusView({
                 {t('Ваш заказ')}
               </Text>
               <Caption style={s.orderSummary}>
-                {localize(order.snapshot.lines.length)}
-                {t('поз. ·')}
-                {localize(money(order.snapshot.total_minor))}
+                {t('{p0} поз. · {p1}', {
+                  p0: order.snapshot.lines.length,
+                  p1: money(order.snapshot.total_minor),
+                })}
               </Caption>
             </Row>
             {lineRows}

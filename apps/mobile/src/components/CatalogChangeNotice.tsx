@@ -20,10 +20,7 @@ export function CatalogChangeNotice({
       </Notice>
       {totals && totals.oldTotal !== totals.newTotal ? (
         <Caption>
-          {t('Было')}
-          {localize(money(totals.oldTotal))}
-          {t('. Сейчас')}
-          {localize(money(totals.newTotal))}.
+          {t('Было {p0}. Сейчас {p1}.', { p0: money(totals.oldTotal), p1: money(totals.newTotal) })}
         </Caption>
       ) : null}
       {onDismiss ? (

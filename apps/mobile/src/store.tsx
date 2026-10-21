@@ -1,4 +1,5 @@
 import { setAppLocale } from './i18n/core';
+import { useComboRewards } from './loyalty/useComboRewards';
 import { restoreLegacyPublishedCart, publishedCartStorageRelease } from './published-catalog';
 import { repriceCart, PRICES_UPDATED } from './cart-reprice';
 import type { CatalogMediaMap, CatalogMobileStorefront } from '@pickchick/catalog-admin/contracts';
@@ -76,6 +77,8 @@ function useCartState() {
 }
 
 export function MobileProvider({ children }: { children: ReactNode }) {
+  const combo = useComboRewards();
+  const [giftChoice, setGiftChoice] = useState<string | null>(null);
   const [catalogMode, setMode] = useState<CatalogMode>('server');
   const [diningMode, setDiningMode] = useState<DiningMode>('takeaway');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('kaspi');
@@ -430,7 +433,56 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   };
 
   const catalogUpdatePending = cart.some((line) => Boolean(line.issue));
+  useEffect(() => setGiftChoice(null), [combo.customerId, branch?.id]);
+  useEffect(() => {
+    if (!cart.length) setGiftChoice(null);
+  }, [cart.length]);
+  const giftSelected = !!combo.customerId && giftChoice === combo.customerId;
+  const giftItemIndex = giftSelected
+    ? cart.findIndex((line) => line.product.id === 'pick-combo')
+    : -1;
+  const giftDiscount =
+    giftItemIndex >= 0 &&
+    combo.progress.status === 'ready' &&
+    !!combo.progress.commercial?.availableGifts &&
+    !combo.progress.commercial.reconciliationRequired
+      ? cart[giftItemIndex]!.product.priceMinor
+      : '0';
   const model: MobileModel = {
+    comboRewards: combo.enabled
+      ? {
+          progress: combo.progress,
+          selected: giftSelected,
+          giftItemIndex: giftSelected && giftItemIndex >= 0 ? giftItemIndex : undefined,
+          discountMinor: giftDiscount,
+          refresh: combo.refresh,
+          select(value) {
+            if (!value) {
+              setGiftChoice(null);
+              return;
+            }
+            if (
+              !combo.customerId ||
+              combo.progress.status !== 'ready' ||
+              !combo.progress.commercial?.availableGifts ||
+              combo.progress.commercial.reconciliationRequired
+            )
+              return;
+            const product = products.find((p) => p.id === 'pick-combo' && p.available !== false);
+            if (!product) return;
+            if (!cart.some((line) => line.product.id === 'pick-combo')) {
+              const next = mergeCartLines(
+                cart,
+                [{ product, quantity: 1, selections: defaultSelections(product) }],
+                products,
+              );
+              if (!next) return;
+              setCart(next);
+            }
+            setGiftChoice(combo.customerId);
+          },
+        }
+      : undefined,
     catalogUpdateNotice,
     catalogUpdatePending,
     catalogPending:

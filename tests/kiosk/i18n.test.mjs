@@ -90,15 +90,15 @@ test('relabelling keeps availability, prices and photos and only swaps texts', (
 });
 
 test('payment wording follows the approved v3 prototype (T.payWith, T.step1-3)', () => {
-  assert.equal(copy('en').payKaspiQR, 'Pay with Kaspi QR');
-  assert.equal(copy('ru').payKaspiQR, 'Оплата через Kaspi QR');
-  assert.equal(copy('en').qrStep1, 'Open the Kaspi.kz app');
-  assert.equal(copy('en').qrStep2, 'Tap «Kaspi QR»');
+  assert.equal(copy('en').payKaspiQR, 'Pay by QR');
+  assert.equal(copy('ru').payKaspiQR, 'Оплата по QR');
+  assert.equal(copy('en').qrStep1, 'Open your banking app');
+  assert.equal(copy('en').qrStep2, 'Choose Pay by QR');
   assert.equal(copy('en').qrStep3, 'Point the camera at the code');
-  assert.equal(copy('ru').qrStep1, 'Откройте приложение Kaspi.kz');
-  assert.equal(copy('ru').qrStep2, 'Нажмите «Kaspi QR»');
-  assert.equal(copy('kk').qrStep1, 'Kaspi.kz қосымшасын ашыңыз');
-  assert.equal(copy('kk').qrStep2, '«Kaspi QR» басыңыз');
+  assert.equal(copy('ru').qrStep1, 'Откройте приложение банка');
+  assert.equal(copy('ru').qrStep2, 'Выберите оплату по QR');
+  assert.equal(copy('kk').qrStep1, 'Банк қосымшасын ашыңыз');
+  assert.equal(copy('kk').qrStep2, 'QR арқылы төлеуді таңдаңыз');
 });
 
 test('guest components take their text from the dictionary, not from a ru/kk branch', async () => {

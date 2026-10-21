@@ -1,3 +1,4 @@
+import { glassSurface } from './glassSurface';
 import { useRef, useState } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import { Image } from 'expo-image';
@@ -6,7 +7,13 @@ import { money } from '../cart';
 import type { KioskProduct } from '../model';
 import { copy, displayCopy, type Locale } from '../i18n';
 import { fitTitle, type BadgeKind, type CardSize } from '../menu-presentation';
-import { cardBackgroundRatio, cardBackgrounds, productArtworkId, productPhoto } from '../assets';
+import {
+  cardBackgroundRatio,
+  cardBackgrounds,
+  heroPhoto,
+  productArtworkId,
+  productPhoto,
+} from '../assets';
 import { colors, fonts, redesign, useMetrics } from '../theme';
 import { Badge } from './Badge';
 import { usePopIn, usePress, useTimingTo } from './motion';
@@ -71,7 +78,8 @@ export function ProductCard({
   const zoom = useTimingTo(pressed && !reduced ? 1 : 0, 500, 'ease');
   const ring = useTimingTo(pressed ? 1 : 0, 150, 'css');
   const imageId = productArtworkId(product);
-  const shot = productPhoto(imageId);
+  const largePick = product.id === 'pick-combo';
+  const shot = largePick ? heroPhoto(imageId) : productPhoto(imageId);
   // A published photo on a coloured backdrop keeps that backdrop instead of multiplying.
   const blend = !shot || lightTile(shot.tile);
   const unavailable = product.available === false;
@@ -112,22 +120,21 @@ export function ProductCard({
         ...(wide ? { width: `${WIDE_PHOTO * 100}%` as const, height: '100%' } : { flex: 1 }),
         minHeight: 0,
         overflow: 'hidden',
-        backgroundColor: blend ? redesign.cream : shot.tile,
-        paddingTop: px(wide ? 18 : 20),
-        paddingBottom: px(wide ? 18 : 4),
-        paddingHorizontal: px(wide ? 18 : 14),
+        backgroundColor: shot?.cutout ? 'transparent' : blend ? colors.white : shot?.tile,
+        paddingTop: px(largePick ? 4 : wide ? 18 : 20),
+        paddingBottom: px(largePick ? 0 : wide ? 18 : 4),
+        paddingHorizontal: px(largePick ? 6 : wide ? 18 : 14),
       }}
     >
-      {blend ? <Illustration index={index} part={wide ? WIDE_PHOTO : 1} /> : null}
       <Animated.View
         style={{
           flex: 1,
-          mixBlendMode: blend ? 'multiply' : 'normal',
+          zIndex: 1,
           opacity: unavailable ? 0.45 : 1,
           transform: [{ scale: zoom.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }) }],
         }}
       >
-        <PhotoImage imageId={imageId} />
+        <PhotoImage imageId={imageId} variant={largePick ? 'hero' : 'card'} />
       </Animated.View>
     </View>
   );
@@ -287,7 +294,7 @@ export function ProductCard({
                 width: plus,
                 height: plus,
                 borderRadius: plus / 2,
-                backgroundColor: redesign.cta,
+                ...glassSurface('accent'),
                 alignItems: 'center',
                 justifyContent: 'center',
                 opacity: blocked ? 0.4 : 1,

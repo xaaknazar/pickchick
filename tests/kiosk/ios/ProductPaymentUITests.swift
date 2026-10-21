@@ -49,9 +49,10 @@ final class InstalledUITests: XCTestCase {
         tap("kiosk-menu-checkout", app)
         tap("kiosk-upsell-plus-sauce", app)
         capture("17-upsell-added", app)
-        tap("kiosk-upsell-skip", app)
+        XCTAssertFalse(element("kiosk-upsell-skip", app).exists)
+        tap("kiosk-upsell-continue", app)
         XCTAssertTrue(element("kiosk-demo-badge", app).exists)
-        capture("17-payment-method-after-skip", app)
+        capture("17-payment-method-after-continue", app)
         tap("kiosk-payment-method-kaspi", app)
         // All checkout calls below are gated by the isolated in-memory demo badge.
         XCTAssertTrue(element("kiosk-demo-badge", app).exists)

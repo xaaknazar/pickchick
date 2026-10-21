@@ -1,0 +1,77 @@
+name: Photo printer invariants
+on:
+  push:
+    branches: [main, 'codex/**']
+    paths:
+      [
+        'tools/photo-printer/**',
+        'tests/photo-printer/**',
+        'apps/kiosk/**',
+        'pnpm-lock.yaml',
+        '.github/workflows/photo-printer.yml',
+      ]
+  pull_request:
+    branches: [main, 'codex/shared-development']
+permissions:
+  contents: read
+jobs:
+  photo_printer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - run: npm install --global pnpm@11.19.0
+      - run: pnpm --dir tools/photo-printer install --ignore-workspace --frozen-lockfile --ignore-scripts
+      - run: node --test tests/photo-printer/*.test.mjs
+  photo_ui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Build isolated kiosk
+        run: |
+          npm install --global pnpm@11.19.0
+          pnpm install --frozen-lockfile
+          pnpm --dir tools/photo-printer install --ignore-workspace --frozen-lockfile --ignore-scripts
+          pnpm --filter @pickchick/kiosk... build
+          EXPO_PUBLIC_KIOSK_COMMERCIAL=0 pnpm --filter @pickchick/kiosk exec expo export --platform web
+      - name: Install browser tools
+        run: |
+          python3 -m venv .local/design-venv
+          .local/design-venv/bin/pip install -r tests/design/requirements.txt
+          .local/design-venv/bin/python -m playwright install --with-deps chromium
+      - name: Verify camera flow with synthetic images and isolated order fixtures
+        run: |
+          python3 -m http.server 4187 --bind 127.0.0.1 --directory apps/kiosk/dist > .local/photo-preview.log 2>&1 &
+          photo_pid=$!
+          trap 'kill "$photo_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4187/ > /dev/null; then break; fi
+            sleep 1
+          done
+          KIOSK_UI_URL=http://127.0.0.1:4187 .local/design-venv/bin/python tests/photo-printer/browser_photo.py
+      - name: Verify isolated Mac photo entry without hardware
+        run: |
+          node tools/photo-printer/build-mac-preview.mjs
+          .local/design-venv/bin/python tests/photo-printer/browser_mac.py
+      - name: Keep synthetic UI evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: photo-booth-ui
+          path: |
+            .local/photo-browser
+            .local/photo-mac-check
+          retention-days: 7

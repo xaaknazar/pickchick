@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpException,
   Inject,
+  Optional,
   Param,
   Post,
   Query,
@@ -16,6 +17,7 @@ import type { ServerResponse } from 'node:http';
 import { TestOrderEvents } from './test-order-events.js';
 import { TestOrderWatchSchema, sameTestOrderVersions } from '@pickchick/test-order-flow';
 import { RESOURCE, Resources } from '@pickchick/platform';
+import { CUSTOMER_IDENTITY, CustomerIdentity } from '@pickchick/customer-identity';
 import {
   TestFlowError,
   TestOrderFlow,
@@ -28,8 +30,26 @@ import {
 export class TestOrderController {
   private readonly events: TestOrderEvents;
   private readonly watchers = new Map<string, number>();
-  constructor(@Inject(RESOURCE) private readonly resources: Resources) {
+  constructor(
+    @Inject(RESOURCE) private readonly resources: Resources,
+    @Optional()
+    @Inject(CUSTOMER_IDENTITY)
+    private readonly identity?: CustomerIdentity,
+  ) {
     this.events = new TestOrderEvents(resources.config.databaseUrl);
+  }
+  /** The App Review account never gets a TEST actor, so it cannot place TEST kitchen orders. */
+  private async refuseReviewAccount(auth?: string) {
+    const token = this.token(auth);
+    if (!this.identity || !token) return;
+    let customer;
+    try {
+      ({ customer } = await this.identity.me(token));
+    } catch {
+      return; // Not a customer identity token: the TEST flow decides as before.
+    }
+    if (this.identity.isReviewCustomer(customer))
+      throw new HttpException({ code: 'FORBIDDEN' }, 403);
   }
   async onModuleDestroy() {
     await this.events.close();
@@ -161,7 +181,10 @@ export class TestOrderController {
     @Query('number_format') numberFormat?: string,
   ) {
     return this.execute(
-      (flow) => flow.issueSession(body, this.token(auth)),
+      async (flow) => {
+        await this.refuseReviewAccount(auth);
+        return flow.issueSession(body, this.token(auth));
+      },
       representation,
       numberFormat,
     );
@@ -173,7 +196,10 @@ export class TestOrderController {
     @Query('number_format') numberFormat?: string,
   ) {
     return this.execute(
-      (flow) => flow.continueSession(this.token(auth), body),
+      async (flow) => {
+        await this.refuseReviewAccount(auth);
+        return flow.continueSession(this.token(auth), body);
+      },
       representation,
       numberFormat,
     );

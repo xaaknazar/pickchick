@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { DatabasePool } from '@pickchick/database';
-import { localSelectionIds } from '@pickchick/menu-sync';
+import { lineStopIds } from '@pickchick/menu-sync';
 
 export class AvailabilityError extends Error {
   constructor(readonly code: 'ITEM_STOPPED' | 'AVAILABILITY_STALE' | 'KITCHEN_OFFLINE') {
@@ -26,12 +26,15 @@ async function pendingRemoteStops(pool: Pick<DatabasePool, 'query'>, branchId: s
     )
   ).rows.map((r) => r.variant_id);
 }
-/** An offline restaurant must not acquire a new mobile payment. Keep last known stops visible. */
+/** An offline restaurant must not acquire a new mobile payment. Keep last known stops visible.
+ * A cashier that closed ordering (cloud064, reported by the edge) refuses every new admission,
+ * so it is not fresh either: kiosk and mobile stop selling with it. */
 async function edgeBranchAvailability(pool: Pick<DatabasePool, 'query'>, branchId: string) {
   const row = (
     await pool.query<{ stopped_ids: string[]; fresh: boolean }>(
       `SELECT a.stopped_ids,
-    (a.observed_at > clock_timestamp()-interval '30 seconds') fresh
+    (a.observed_at > clock_timestamp()-interval '30 seconds'
+      AND NOT coalesce((to_jsonb(a)->>'ordering_closed')::boolean,false)) fresh
     FROM cloud_branch_availability a JOIN fulfillment_transport_bindings b ON b.branch_id=a.branch_id AND b.device_id=a.device_id AND b.active
     JOIN devices d ON d.id=b.device_id AND d.status='active' WHERE a.branch_id=$1`,
       [branchId],
@@ -132,18 +135,25 @@ export async function branchAvailability(pool: Pick<DatabasePool, 'query'>, bran
     ? cloudChannelAvailability(pool, branchId)
     : edgeBranchAvailability(pool, branchId);
 }
+/** One line to sell: catalog product, chosen options (with the product an option points to) and,
+ * once priced, its fixed components. Lines without them are checked by product and options. */
+export interface AvailabilityItem {
+  productId: string;
+  selections: { group_id: string; option_id: string; linked_product_id?: string | null }[];
+  componentIds?: readonly string[];
+}
 export async function assertBranchItemsAvailable(
   pool: Pick<DatabasePool, 'query'>,
   branchId: string,
-  items: { productId: string; selections: { group_id: string; option_id: string }[] }[],
+  items: AvailabilityItem[],
 ) {
   const state = await branchAvailability(pool, branchId);
   const stopped = new Set(state.stoppedIds);
+  // Combo stop rule (PM decision 1, 19.10): the same lineStopIds the cashier admission uses.
   if (
     items.some(
       (item) =>
-        stopped.has(item.productId) ||
-        localSelectionIds(branchId, item.productId, item.selections).some((id) => stopped.has(id)),
+        stopped.has(item.productId) || lineStopIds(branchId, item).some((id) => stopped.has(id)),
     )
   )
     throw new AvailabilityError('ITEM_STOPPED');
@@ -153,14 +163,23 @@ export async function assertBranchItemsAvailable(
     );
 }
 
-export function snapshotAvailabilityItems(input: unknown) {
+export function snapshotAvailabilityItems(input: unknown): AvailabilityItem[] {
   const snapshot = z
     .object({
       lines: z.array(
         z.object({
           productId: z.string(),
           selectedDetails: z
-            .object({ modifiers: z.array(z.object({ groupId: z.string(), optionId: z.string() })) })
+            .object({
+              modifiers: z.array(
+                z.object({
+                  groupId: z.string(),
+                  optionId: z.string(),
+                  linkedProductId: z.string().nullable().optional(),
+                }),
+              ),
+              components: z.array(z.object({ productId: z.string() })).optional(),
+            })
             .optional(),
         }),
       ),
@@ -171,6 +190,8 @@ export function snapshotAvailabilityItems(input: unknown) {
     selections: (line.selectedDetails?.modifiers ?? []).map((m) => ({
       group_id: m.groupId,
       option_id: m.optionId,
+      linked_product_id: m.linkedProductId ?? null,
     })),
+    componentIds: (line.selectedDetails?.components ?? []).map((c) => c.productId),
   }));
 }

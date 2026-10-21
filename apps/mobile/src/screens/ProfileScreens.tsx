@@ -7,6 +7,7 @@ import { Alert, Platform, ScrollView, StyleSheet, Switch, TextInput, View } from
 import { colors } from '../theme';
 import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
+import { SupportContact } from '../components/SupportContact';
 export { Phone, Otp } from './AuthScreens';
 export { Onboarding } from './RegistrationScreen';
 import {
@@ -26,15 +27,16 @@ import {
 
 export { Profile } from './ProfileScreen';
 
+// App Store audit 14.10: the screen offered a draft form that sent nothing. It now shows the
+// build's real contact (EXPO_PUBLIC_SUPPORT_URL) or sends the customer to the restaurant staff.
 export function Support(props: ScreenProps) {
   useLocale();
-  const [message, setMessage] = useState('');
   return (
     <Page props={props} title={t('Помощь')}>
       <Heading>{t('Мы рядом')}</Heading>
       <Body muted>
         {t(
-          'Расскажите, что случилось. После подключения поддержки обращение будет связано с вашим заказом.',
+          'Вопрос по заказу или оплате? Назовите сумму и время заказа, так мы быстрее его найдём. Не сообщайте коды входа и данные карты.',
         )}
       </Body>
       <Card>
@@ -44,30 +46,13 @@ export function Support(props: ScreenProps) {
           </View>
           <View style={ui.flex}>
             <Heading small>{t('Поддержка Pick Chick')}</Heading>
-            <Caption>{t('Отправка сообщений скоро появится')}</Caption>
+            <Caption>{t('Вопросы по заказу и оплате')}</Caption>
           </View>
         </Row>
       </Card>
-      <Caption>{t('СООБЩЕНИЕ · ЛОКАЛЬНЫЙ ЧЕРНОВИК')}</Caption>
-      <TextInput
-        testID="support-draft"
-        accessibilityLabel={t('Черновик сообщения, отправка недоступна')}
-        defaultValue=""
-        onChangeText={setMessage}
-        multiline
-        maxLength={2000}
-        textAlignVertical="top"
-        placeholder={t('Опишите ситуацию. Не указывайте пароли и данные карты.')}
-        placeholderTextColor={colors.muted}
-        style={[ui.input, { minHeight: 148 }]}
+      <SupportContact
+        fallback={t('Пока поддержка работает в ресторане: обратитесь к сотруднику на кассе.')}
       />
-      <Caption style={{ textAlign: 'right' }}>{localize(message.length)}/2000</Caption>
-      <Button title={t('Отправка пока недоступна')} disabled />
-      <Notice>
-        {t(
-          'Этот текст никуда не отправляется и исчезнет после закрытия экрана. Для вопроса о покупке обратитесь к сотруднику ресторана.',
-        )}
-      </Notice>
       <NavRow
         title={t('Неясен результат оплаты?')}
         subtitle={t('Не оплачивайте тот же заказ повторно')}
@@ -256,8 +241,7 @@ export function Legal(props: ScreenProps) {
         {account.legal ? (
           <>
             <Body muted>
-              {t('Документы Pick Chick · версия')}
-              {localize(account.legal.version)}
+              {t('Документы Pick Chick · версия {p0}', { p0: account.legal.version })}
             </Body>
             {[
               { title: 'Условия заказа', url: account.legal.termsUrl },

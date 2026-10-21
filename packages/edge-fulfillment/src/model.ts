@@ -119,7 +119,7 @@ export const SnapshotSchema = z
     displayName: z.string().max(14).optional(),
     kitchenComment: z.string().max(60).optional(),
     currency: z.literal('KZT'),
-    totalMinor: z.string().regex(/^[1-9][0-9]{0,15}$/),
+    totalMinor: z.string().regex(/^(0|[1-9][0-9]{0,15})$/),
     lines: z
       .array(
         z
@@ -133,8 +133,7 @@ export const SnapshotSchema = z
           })
           .passthrough(),
       )
-      .min(1)
-      .max(200),
+      .min(1),
   })
   .passthrough();
 export const AdmissionPayloadSchema = z.strictObject({

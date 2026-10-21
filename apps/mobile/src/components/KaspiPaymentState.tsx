@@ -22,6 +22,9 @@ import { useReducedMotion } from './Motion';
 import { colors, font } from '../theme';
 import { checkoutStyle } from './CheckoutPresentation';
 import { useTabBarInset } from './tab-bar-inset';
+import { SupportContact } from './SupportContact';
+
+const BANK_PHASES: readonly string[] = ['sending', 'awaiting_payment', 'checking'];
 
 export function KaspiPaymentState({
   order,
@@ -32,6 +35,10 @@ export function KaspiPaymentState({
   notice,
   extraAction,
   canReturnToCheckout = true,
+  onClose,
+  closeLabel = 'Закрыть',
+  closeDelayMs = null,
+  support = false,
 }: {
   order?: CustomerCommerceOrder;
   paid?: boolean;
@@ -41,8 +48,27 @@ export function KaspiPaymentState({
   notice?: React.ReactNode;
   extraAction?: React.ReactNode;
   canReturnToCheckout?: boolean;
+  /** Leaves this screen without touching the order or the bank (audit 0.2 / 2.0 / 2.4). */
+  onClose?: () => void;
+  closeLabel?: string;
+  /** 0: offer close at once; >0: after this wait (the bank may still answer); null: never. */
+  closeDelayMs?: number | null;
+  /** Show the support contact at once (a bank wait the app can no longer settle). */
+  support?: boolean;
 }) {
   useLocale();
+  const closable = Boolean(onClose);
+  const [closeReady, setCloseReady] = useState(closeDelayMs === 0);
+  useEffect(() => {
+    if (!closable || closeDelayMs === null) {
+      setCloseReady(false);
+      return;
+    }
+    setCloseReady(closeDelayMs === 0);
+    if (closeDelayMs === 0) return;
+    const timer = setTimeout(() => setCloseReady(true), closeDelayMs);
+    return () => clearTimeout(timer);
+  }, [closable, closeDelayMs, order?.orderId, order?.phase]);
   const reduced = useReducedMotion();
   const tabBarInset = useTabBarInset();
   const { height } = useWindowDimensions();
@@ -330,7 +356,19 @@ export function KaspiPaymentState({
                 onPress={() => setCancelHelp((value) => !value)}
               />
             ) : null}
-            {order ? (
+            {support || phase === 'attention' || (closeReady && closeDelayMs !== 0) ? (
+              <SupportContact buttonStyle={s.button} textStyle={s.small} />
+            ) : null}
+            {closeReady ? (
+              <Button
+                title={closeLabel}
+                testID="kaspi-close-order"
+                secondary
+                style={s.button}
+                onPress={onClose}
+              />
+            ) : null}
+            {order && BANK_PHASES.includes(phase) ? (
               <Caption style={s.small}>{t('Статус обновится после ответа банка')}</Caption>
             ) : null}
           </>

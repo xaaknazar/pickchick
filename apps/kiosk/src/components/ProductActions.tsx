@@ -1,3 +1,4 @@
+import { glassSurface } from './glassSurface';
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -176,7 +177,7 @@ export function ProductActions({
                   height,
                   borderRadius: height / 2,
                   // Design orange under white text (owner decision 2026-10-10).
-                  backgroundColor: colors.orangeCta,
+                  ...glassSurface('accent'),
                   shadowColor: colors.orange,
                   shadowOpacity: disabled ? 0 : 0.35,
                   shadowRadius: 26,

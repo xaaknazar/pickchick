@@ -4,6 +4,8 @@ export type PendingPayment = {
   signature: string;
   orderId?: string;
   sendInvoice?: boolean;
+  /** Epoch ms of the customer's tap. Absent in drafts written by build 20 and earlier. */
+  createdAt?: number;
 };
 
 export const pendingPaymentKey = (customerId: string | undefined) =>
@@ -24,8 +26,22 @@ export function parsePendingPayment(raw: string | null): PendingPayment | null {
     typeof draft.signature !== 'string' ||
     (draft.orderId !== undefined &&
       (typeof draft.orderId !== 'string' || !uuid.test(draft.orderId))) ||
-    (draft.sendInvoice !== undefined && typeof draft.sendInvoice !== 'boolean')
+    (draft.sendInvoice !== undefined && typeof draft.sendInvoice !== 'boolean') ||
+    (draft.createdAt !== undefined &&
+      (!Number.isSafeInteger(draft.createdAt) || (draft.createdAt as number) <= 0))
   )
     throw new Error('INVALID_PENDING');
   return draft as PendingPayment;
+}
+
+/**
+ * Intents the customer closed in this app session (audit 2.0). PaymentRecovery does not push
+ * them back onto the screen; the next app start offers the recovery once more.
+ */
+const dismissed = new Set<string>();
+export function dismissPendingPayment(key: string) {
+  dismissed.add(key);
+}
+export function pendingPaymentDismissed(draft: PendingPayment | null): boolean {
+  return !!draft && dismissed.has(draft.key);
 }

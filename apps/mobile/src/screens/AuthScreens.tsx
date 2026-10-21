@@ -15,8 +15,9 @@ import { Icon } from '../components/UI';
 import { DEMO_LOGIN_CODE, formatDemoPhone, normalizeDemoPhone } from '../demo-account';
 import type { ScreenProps } from '../model';
 import { colors, font } from '../theme';
-import { useAccount } from '../useAccount';
+import { TELEGRAM_REQUIRED_MESSAGE, useAccount } from '../useAccount';
 import { useAuthFlow } from '../auth-flow';
+import { SupportContact } from '../components/SupportContact';
 
 function DemoNote() {
   useLocale();
@@ -29,8 +30,7 @@ function DemoNote() {
     ) : null;
   return (
     <Text style={s.hint}>
-      {t('Код для локального просмотра:')}
-      {localize(DEMO_LOGIN_CODE)}
+      {t('Код для локального просмотра: {p0}', { p0: DEMO_LOGIN_CODE })}
       {t('. Сообщения не отправляются.')}
     </Text>
   );
@@ -176,9 +176,9 @@ export function Phone(props: ScreenProps) {
           {localize(
             account.mode === 'demo'
               ? 'Предпросмотр входа'
-              : channel === 'auto'
+              : channel === 'auto' && account.whatsappFallbackEnabled
                 ? 'Отправим код в доступный мессенджер'
-                : channel === 'telegram'
+                : channel === 'auto' || channel === 'telegram'
                   ? 'Пришлём код в Telegram'
                   : 'Подтверждение номера пока недоступно',
           )}
@@ -202,6 +202,12 @@ export function Phone(props: ScreenProps) {
         <Text testID="demo-auth-error" accessibilityRole="alert" style={s.error}>
           {localize(account.error)}
         </Text>
+      ) : null}
+      {submitted && account.error === TELEGRAM_REQUIRED_MESSAGE ? (
+        <SupportContact
+          fallback={t('Сотрудник ресторана поможет оформить заказ на месте.')}
+          textStyle={s.hint}
+        />
       ) : null}
       {account.pendingOtp ? (
         <Pressable

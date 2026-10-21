@@ -256,9 +256,10 @@ export function ConnectedCheckout(props: ScreenProps) {
       ) : null}
       {unknown ? (
         <Notice warning>
-          {t('Прежде чем создавать другой заказ, нужно уточнить результат проверки')}
-          {localize(unknown.number)}
-          {t('. Новая корзина остаётся на устройстве.')}
+          {t(
+            'Прежде чем создавать другой заказ, нужно уточнить результат проверки заказа {p0}. Новая корзина остаётся на устройстве.',
+            { p0: unknown.number },
+          )}
         </Notice>
       ) : null}
       {unpaidTestOrdersEnabled && !pending ? (

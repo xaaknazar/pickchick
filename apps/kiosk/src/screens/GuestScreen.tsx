@@ -11,6 +11,7 @@ import { OrderScreen, PaymentScreen, RecoveryScreen } from '../screens/PaymentOr
 import { BootState } from '../components/BootState';
 import { Notice } from '../components/Notice';
 import { DemoBadge } from '../components/DemoBadge';
+import { StaffPinField } from '../components/StaffPinField';
 import { guestErrorText } from '../guestError';
 import { paymentCopy } from '../paymentCopy';
 import { ScreenTransition } from '../components/ScreenTransition';
@@ -40,8 +41,11 @@ export function GuestScreen() {
   const [cancel, setCancel] = useState(false);
   // «Начать заново?» on the Kaspi QR (owner decision 2026-10-13).
   const [restartAsk, setRestartAsk] = useState(false);
-  // Staff demo mode dialog (long hold on the start screen logo).
+  // Staff dialog (long hold on the start screen logo, «Сотруднику» on the recovery screen): demo
+  // mode and the service reset, both behind the staff code (audit 19.10, findings 3.0/3.1/3.4).
   const [demoAsk, setDemoAsk] = useState(false);
+  // Staff code typed in the staff or restart dialog; cleared whenever a dialog closes.
+  const [pin, setPin] = useState('');
   const t = copy(locale);
   const upsellMemory = useRef<UpsellMemory>({ base: null });
   const menuMemory = useRef<MenuMemory>({ category: 'combo', offsets: {} });
@@ -67,6 +71,7 @@ export function GuestScreen() {
     if (previousStep.current === 'payment' && liveModel.step !== 'payment') {
       setCancel(false);
       setRestartAsk(false);
+      setPin('');
     }
     if (liveModel.step === 'start' && previousStep.current !== 'start') {
       upsellMemory.current = { base: null };
@@ -75,6 +80,7 @@ export function GuestScreen() {
       setCancel(false);
       setRestartAsk(false);
       setHelp(false);
+      setPin('');
     }
     previousStep.current = liveModel.step;
   }, [liveModel.step]);
@@ -114,11 +120,27 @@ export function GuestScreen() {
     },
     onHelp: () => setHelp(true),
     onCancel: () => setCancel(true),
-    onStaffHold: model.setDemo ? () => setDemoAsk(true) : undefined,
+    onStaffHold: model.setDemo || model.staffReset ? () => setDemoAsk(true) : undefined,
     direction: arrival.current.direction,
     from: arrival.current.from,
   };
   const closeCancel = () => setCancel(false);
+  const clearStaffError = model.clearStaffError;
+  const closeStaff = () => {
+    setDemoAsk(false);
+    setPin('');
+    clearStaffError?.();
+  };
+  const closeRestart = () => {
+    setRestartAsk(false);
+    setPin('');
+    clearStaffError?.();
+  };
+  // The demo is entered only from the idle start screen; the service reset only when offered.
+  const canDemo =
+    !!model.setDemo && model.step === 'start' && !model.order && !model.recoveryRequired;
+  const canReset = !!model.staffReset && !!model.staffResetAvailable;
+  const pinReady = !model.staffPinRequired || pin.length >= 4;
   const paying = model.step === 'payment';
   const demoCancelPayment =
     paying &&
@@ -240,26 +262,72 @@ export function GuestScreen() {
         />
       ) : null}
       {model.demo ? <DemoBadge locale={locale} onExit={() => model.setDemo?.(false)} /> : null}
-      <Dialog
-        visible={demoAsk && !warning}
-        onClose={() => setDemoAsk(false)}
-        testID="kiosk-demo-dialog"
-      >
-        <Heading size="title">{model.demo ? t.demoExitTitle : t.demoEnterTitle}</Heading>
-        <Body>{model.demo ? t.demoExitBody : t.demoEnterBody}</Body>
-        <Button
-          label={model.demo ? t.demoTurnOff : t.demoTurnOn}
-          testID="kiosk-demo-confirm"
-          onPress={() => {
-            setDemoAsk(false);
-            model.setDemo?.(!model.demo);
-          }}
-        />
+      <Dialog visible={demoAsk && !warning} onClose={closeStaff} testID="kiosk-demo-dialog">
+        {model.demo ? (
+          <>
+            <Heading size="title">{t.demoExitTitle}</Heading>
+            <Body>{t.demoExitBody}</Body>
+            <Button
+              label={t.demoTurnOff}
+              testID="kiosk-demo-confirm"
+              onPress={() => {
+                closeStaff();
+                void model.setDemo?.(false);
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <Heading size="title">
+              {model.staffPinRequired ? t.staffTitle : t.demoEnterTitle}
+            </Heading>
+            <Body>{model.staffPinRequired ? t.staffBody : t.demoEnterBody}</Body>
+            {canReset ? <Body tone="muted">{t.staffResetBody}</Body> : null}
+            {model.staffPinRequired ? (
+              <StaffPinField
+                value={pin}
+                onChange={setPin}
+                locale={locale}
+                error={model.staffPinError}
+                busy={model.busy}
+              />
+            ) : null}
+            {canDemo ? (
+              <Button
+                label={model.staffPinRequired ? t.staffDemo : t.demoTurnOn}
+                testID="kiosk-demo-confirm"
+                busy={model.busy}
+                disabled={!pinReady}
+                onPress={() =>
+                  void model.setDemo?.(true, pin).then((on) => {
+                    if (on) closeStaff();
+                    else setPin('');
+                  })
+                }
+              />
+            ) : null}
+            {canReset ? (
+              <Button
+                label={t.staffReset}
+                tone="secondary"
+                testID="kiosk-staff-reset"
+                busy={model.busy}
+                disabled={!pinReady}
+                onPress={() =>
+                  void model.staffReset?.(pin).then((done) => {
+                    if (done) closeStaff();
+                    else setPin('');
+                  })
+                }
+              />
+            ) : null}
+          </>
+        )}
         <Button
           label={t.demoCancel}
           tone="secondary"
           testID="kiosk-demo-dismiss"
-          onPress={() => setDemoAsk(false)}
+          onPress={closeStaff}
         />
       </Dialog>
       <Dialog visible={help && !warning} onClose={() => setHelp(false)} testID="kiosk-help">
@@ -293,43 +361,56 @@ export function GuestScreen() {
           testID="kiosk-cancel-dismiss"
           onPress={closeCancel}
         />
-        <Button
-          label={
-            demoCancelPayment
-              ? t.cancelPayment
-              : noCancel
-                ? t.callStaff
-                : unresolved
-                  ? t.help
-                  : t.yesCancel
-          }
-          tone="secondary"
-          testID="kiosk-cancel-confirm"
-          busy={model.busy}
-          onPress={() => void confirmCancel()}
-        />
+        {demoCancelPayment || (!noCancel && !unresolved) ? (
+          <Button
+            label={demoCancelPayment ? t.cancelPayment : t.yesCancel}
+            tone="secondary"
+            testID="kiosk-cancel-confirm"
+            busy={model.busy}
+            onPress={() => void confirmCancel()}
+          />
+        ) : null}
       </Dialog>
       {/* Owner decision 2026-10-13: the guest gives up at the QR and the kiosk starts over. The
           QR is not revoked; a late payment is still captured by the server (staff, as before).
           Shown only while the controller allows it. */}
       <Dialog
         visible={restartAsk && !!model.canStartOver && !warning}
-        onClose={() => setRestartAsk(false)}
+        onClose={closeRestart}
         testID="kiosk-restart-dialog"
       >
         <Heading size="title">{paymentCopy(locale).startOverTitle}</Heading>
-        <Body>{paymentCopy(locale).startOverBody}</Body>
+        <Body>
+          {model.startOverNeedsStaff
+            ? paymentCopy(locale).startOverStaffBody
+            : paymentCopy(locale).startOverBody}
+        </Body>
+        {/* Audit 19.10, finding 3.3: a QR shown for a while may be scanned; staff decides. */}
+        {model.startOverNeedsStaff ? (
+          <StaffPinField
+            value={pin}
+            onChange={setPin}
+            locale={locale}
+            error={model.staffPinError}
+            busy={model.busy}
+          />
+        ) : null}
         <Button
           label={paymentCopy(locale).backToPayment}
           testID="kiosk-restart-dismiss"
-          onPress={() => setRestartAsk(false)}
+          onPress={closeRestart}
         />
         <Button
           label={paymentCopy(locale).startOver}
           tone="secondary"
           testID="kiosk-restart-confirm"
           busy={model.busy}
-          onPress={() => void model.startOver?.()}
+          disabled={!!model.startOverNeedsStaff && pin.length < 4}
+          onPress={() =>
+            void model.startOver?.(model.startOverNeedsStaff ? pin : undefined).then((done) => {
+              if (done) setPin('');
+            })
+          }
         />
       </Dialog>
       <Dialog visible={idleShown} onClose={model.stay} testID="kiosk-idle-dialog">

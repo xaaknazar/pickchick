@@ -409,12 +409,10 @@ export function MagicSortScreen() {
           <Text style={s.title}>MAGIC SORT</Text>
           <View style={s.stats}>
             <Text testID="magic-sort-moves" style={s.caption}>
-              {t('Ходы:')}
-              {localize(model.game?.history.length ?? 0)}
+              {t('Ходы: {p0}', { p0: model.game?.history.length ?? 0 })}
             </Text>
             <Text testID="magic-sort-record" style={s.caption}>
-              {t('Рекорд:')}
-              {localize(model.record ?? '-')}
+              {t('Рекорд: {p0}', { p0: model.record ?? '-' })}
             </Text>
           </View>
         </View>
@@ -753,8 +751,7 @@ export function MagicSortScreen() {
             {won && !panel && (
               <View style={s.resultRow}>
                 <Text testID="magic-sort-best" style={s.resultLabel}>
-                  {t('Ваш рекорд:')}
-                  {localize(model.result ? moves(model.result.best) : '-')}
+                  {t('Ваш рекорд: {p0}', { p0: model.result ? moves(model.result.best) : '-' })}
                 </Text>
                 {model.result?.isNew && (
                   <View testID="magic-sort-new-record" style={s.badge}>

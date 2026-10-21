@@ -37,7 +37,7 @@ export function Events(props: ScreenProps) {
         <View style={{ marginTop: 20 }}>
           <ComboRewardCard
             preview={props.preview}
-            progress={props.model.testFlow.comboProgress}
+            progress={props.model.comboRewards?.progress ?? props.model.testFlow.comboProgress}
             testID="events-combo-reward"
             onMenu={() => props.navigate('M06')}
           />

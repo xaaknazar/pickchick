@@ -171,3 +171,45 @@ test('failed and expired pairing appear among attention states', async () => {
     'warning',
   );
 });
+
+test('edge key expiry warns 7 days ahead without any rotation flag', async () => {
+  const { deviceConnection } = await import('../../apps/backoffice/dist/devices-model.js');
+  const now = Date.parse('2026-10-20T09:00:00Z'),
+    day = 86_400_000,
+    edge = {
+      kind: 'edge',
+      status: 'active',
+      mode: null,
+      last_seen_at: new Date(now).toISOString(),
+      key_expires_at: new Date(now + 20 * day).toISOString(),
+    };
+  assert.equal(deviceConnection(edge, now).label, 'Касса на связи');
+  const soon = deviceConnection(
+    { ...edge, key_expires_at: new Date(now + 6.5 * day).toISOString() },
+    now,
+  );
+  assert.equal(soon.tone, 'warning');
+  assert.equal(soon.label, 'Ключ истекает через 6 дн.');
+  assert.match(soon.detail, /приложени/);
+  assert.equal(
+    deviceConnection({ ...edge, key_expires_at: new Date(now + 7 * day).toISOString() }, now).tone,
+    'warning',
+  );
+  assert.equal(
+    deviceConnection({ ...edge, key_expires_at: new Date(now + 3 * 3600_000).toISOString() }, now)
+      .label,
+    'Ключ истекает сегодня',
+  );
+  assert.equal(
+    deviceConnection({ ...edge, key_expires_at: new Date(now - 1).toISOString() }, now).label,
+    'Истёк ключ',
+  );
+  assert.equal(
+    deviceConnection(
+      { ...edge, status: 'revoked', key_expires_at: new Date(now + day).toISOString() },
+      now,
+    ).label,
+    'Доступ отключён',
+  );
+  for (const text of [soon.label, soon.detail]) assert.doesNotMatch(text, /[–—]/);
+});

@@ -3,7 +3,7 @@ import { OrderError, audit } from '@pickchick/local-orders';
 import type { LocalOrderExecutionPort } from '@pickchick/local-orders';
 import { digest, parse, RoutingSchema, taskPlan, FulfillmentError } from './model.js';
 import type { Snapshot } from './model.js';
-import { emit } from './records.js';
+import { emit, allocateDisplayNumber } from './records.js';
 import type { Reservation } from './records.js';
 
 /** Server wiring only; the POS request cannot grant itself this capability.
@@ -73,6 +73,9 @@ export function localUnpaidExecution(host: {
         throw error;
       }
       const quoteHash = digest(order.quote);
+      // Cashier numbers 1-299 from the first order of each shift (edge 022).
+      const number = await allocateDisplayNumber(client, order.branchId);
+      if (number === null) throw new OrderError('KITCHEN_UNAVAILABLE');
       const row = (
         await client.query<Reservation>(
           `INSERT INTO fulfillment_reservations(order_id,branch_id,reservation_id,quote_id,
@@ -80,7 +83,7 @@ export function localUnpaidExecution(host: {
           routing_version,task_plan,assembly_station_id,state,display_number,business_day,
           authorized_event_id,admission_kind,local_order_id,authorized_by_staff_id)
          VALUES($1,$2,$3,$4,$5,$6,'edge_pos','edge',$7,$8,$9,$10,$11,'accepted',
-           nextval('fulfillment_display_sequence'),(clock_timestamp() AT TIME ZONE 'Asia/Almaty')::date,
+           $14::bigint,(clock_timestamp() AT TIME ZONE 'Asia/Almaty')::date,
            $12,'unpaid_service',$1,$13) RETURNING *`,
           [
             order.orderId,
@@ -104,6 +107,7 @@ export function localUnpaidExecution(host: {
             routing.assemblyStationId,
             commandId,
             actor.staff_id,
+            number,
           ],
         )
       ).rows[0]!;

@@ -99,6 +99,15 @@ export interface MobileModel {
   selectedProduct: Product | null;
   nickname: string;
   testFlow: TestFlowModel;
+  comboRewards?: {
+    progress: import('./loyalty/combo-progress').ComboProgressState;
+    selected: boolean;
+    giftItemIndex: number | undefined;
+    discountMinor: string;
+    select(value: boolean): void;
+    refresh(): void;
+  };
+
   practiceScore: number | null;
   setPracticeScore(value: number | null): void;
   setNickname(value: string): void;

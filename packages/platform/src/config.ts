@@ -11,6 +11,16 @@ export interface ServiceConfig {
   port: number;
   databasePoolMax?: number;
   httpMaxInFlight?: number;
+  /** Long-polls that may wait for a change; separate from ordinary requests. */
+  httpMaxLongPoll?: number;
+  /** Long-polls per client address; enforced only when enabled and with TRUSTED_PROXY_IPS. */
+  httpMaxLongPollPerIp?: number;
+  /** HTTP_LONG_POLL_PER_IP_ENABLED: new 429 path for shared addresses, off by default. */
+  httpLongPollPerIpEnabled?: boolean;
+  /** Reserved for device-authenticated `/internal/v1/edge/*` transport. */
+  httpMaxEdgeInFlight?: number;
+  /** Pause before an overflow long-poll answers with the current state. */
+  httpLongPollOverflowDelayMs?: number;
   customerAuthEnabled?: boolean;
   catalogAdminEnabled?: boolean;
   backofficeEnabled?: boolean;
@@ -22,11 +32,19 @@ export interface ServiceConfig {
   posOrderSyncEnabled?: boolean;
   /** Edge service applies back-office stop commands from its inbox (edge schema019). */
   remoteStopsEnabled?: boolean;
+  /** Cloud accepts device-initiated identity renewal (cloud066, edge-identity-rotation.md). */
+  edgeIdentityRotationEnabled?: boolean;
 }
 
-function boundedInteger(env: NodeJS.ProcessEnv, name: string, fallback: number, max: number) {
+function boundedInteger(
+  env: NodeJS.ProcessEnv,
+  name: string,
+  fallback: number,
+  max: number,
+  min = 1,
+) {
   const value = env[name] ?? String(fallback);
-  if (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > max)
+  if (!/^\d+$/.test(value) || Number(value) < min || Number(value) > max)
     throw new Error(`Invalid configuration: ${name}`);
   return Number(value);
 }
@@ -131,12 +149,22 @@ export function loadConfig(
   const remoteStops = env.EDGE_REMOTE_STOPS_ENABLED ?? 'false';
   if (!['true', 'false'].includes(remoteStops) || (remoteStops === 'true' && service !== 'edge'))
     throw new Error('EDGE_REMOTE_STOPS_ENABLED configuration invalid');
+  const identityRotation = env.CLOUD_EDGE_IDENTITY_ROTATION_ENABLED ?? 'false';
+  if (
+    !['true', 'false'].includes(identityRotation) ||
+    (identityRotation === 'true' && service !== 'api')
+  )
+    throw new Error('CLOUD_EDGE_IDENTITY_ROTATION_ENABLED configuration invalid');
   const proxyIps = env.TRUSTED_PROXY_IPS?.split(',').map((ip) => ip.trim());
   if (
     proxyIps &&
     (proxyIps.length > 8 || proxyIps.some((ip) => !isIP(ip) || ['0.0.0.0', '::'].includes(ip)))
   )
     throw new Error('TRUSTED_PROXY_IPS requires explicit proxy IP addresses');
+  // Without trusted hops every client shares the gateway address: a per-IP cap would be global.
+  const perIp = env.HTTP_LONG_POLL_PER_IP_ENABLED ?? 'false';
+  if (!['true', 'false'].includes(perIp) || (perIp === 'true' && !proxyIps))
+    throw new Error('HTTP_LONG_POLL_PER_IP_ENABLED is invalid or lacks TRUSTED_PROXY_IPS');
   const key = service === 'api' ? 'CLOUD_DATABASE_URL' : 'EDGE_DATABASE_URL';
   const databaseUrl =
     environment === 'staging'
@@ -159,6 +187,18 @@ export function loadConfig(
     testOrderFlowEnabled: testOrderFlow === 'true',
     databasePoolMax: boundedInteger(env, 'DB_POOL_MAX', 5, 64),
     httpMaxInFlight: boundedInteger(env, 'HTTP_MAX_IN_FLIGHT', 32, 1024),
+    httpMaxLongPoll: boundedInteger(env, 'HTTP_MAX_LONG_POLL', 64, 1024),
+    httpMaxLongPollPerIp: boundedInteger(env, 'HTTP_MAX_LONG_POLL_PER_IP', 16, 1024),
+    ...(perIp === 'true' ? { httpLongPollPerIpEnabled: true } : {}),
+    httpMaxEdgeInFlight: boundedInteger(env, 'HTTP_MAX_EDGE_IN_FLIGHT', 16, 256),
+    // Below one second installed clients would turn overflow answers into a busy loop.
+    httpLongPollOverflowDelayMs: boundedInteger(
+      env,
+      'HTTP_LONG_POLL_OVERFLOW_DELAY_MS',
+      5000,
+      20_000,
+      1000,
+    ),
     ...(customerAuth === 'true' ? { customerAuthEnabled: true } : {}),
     ...(backoffice === 'true' ? { backofficeEnabled: true } : {}),
     ...(workforce === 'true' ? { workforceEnabled: true } : {}),
@@ -171,6 +211,7 @@ export function loadConfig(
     ...(posSync ? { posOrderSyncEnabled: true } : {}),
     ...(posSync && service === 'edge' ? { edgeDeviceId: env.EDGE_DEVICE_ID! } : {}),
     ...(remoteStops === 'true' ? { remoteStopsEnabled: true } : {}),
+    ...(identityRotation === 'true' ? { edgeIdentityRotationEnabled: true } : {}),
   };
   if (service === 'edge') {
     const branch = UuidSchema.safeParse(required(env, 'EDGE_BRANCH_ID'));

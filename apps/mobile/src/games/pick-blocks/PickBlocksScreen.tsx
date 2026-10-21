@@ -660,8 +660,7 @@ export function PickBlocksScreen() {
             <View style={s.controlHint}>
               <View style={s.hintLine} />
               <Text style={s.hintText}>
-                {t('ДО СЛЕДУЮЩЕГО УРОВНЯ:')}
-                {localize(10 - (game.lines % 10))}
+                {t('ДО СЛЕДУЮЩЕГО УРОВНЯ: {p0}', { p0: 10 - (game.lines % 10) })}
               </Text>
               <View style={s.hintLine} />
             </View>
@@ -810,14 +809,17 @@ export function PickBlocksScreen() {
                       {localize(number(game?.score ?? 0))}
                     </Text>
                     <Text style={s.resultDetail}>
-                      {localize(game?.lines ?? 0)} {localize(lineLabel(game?.lines ?? 0))}
-                      {t('· уровень')}
-                      {localize(game?.level ?? 1)}
+                      {t('{p0} {p1} · уровень {p2}', {
+                        p0: game?.lines ?? 0,
+                        p1: localize(lineLabel(game?.lines ?? 0)),
+                        p2: game?.level ?? 1,
+                      })}
                     </Text>
                   </View>
                   <Text style={s.recordText}>
-                    {t('Рекорд на телефоне:')}
-                    {localize(number(Math.max(best, game?.score ?? 0)))}
+                    {t('Рекорд на телефоне: {p0}', {
+                      p0: number(Math.max(best, game?.score ?? 0)),
+                    })}
                   </Text>
                   <SolidButton title={t('Ещё одну!')} testID="blocks-replay" onPress={start} />
                   <SolidButton title={localize(exitLabel(origin))} secondary onPress={exit} />

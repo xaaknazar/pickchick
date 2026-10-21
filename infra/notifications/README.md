@@ -7,7 +7,7 @@
 ## Сервер
 
 1. Зарезервировать ресурсы согласно AGENTS.md, проверить полный CI и штатный
-   backup/restore. Применить cloud059 после сверки номера миграции со свежим shared.
+   backup/restore. Применить cloud069 после принятой схемы068 и сверки номера со свежим shared.
 2. Использовать действующий серверный customer-auth и checkout read configuration.
    `CUSTOMER_AUTH_ENABLED=true`; `CUSTOMER_PUSH_ENABLED=1` только после настройки.
 3. `CUSTOMER_PUSH_ENCRYPTION_KEY_FILE`: файл с отдельным случайным 32-байтовым ключом

@@ -65,7 +65,7 @@ export function Onboarding(props: ScreenProps) {
     Boolean(demo.account) &&
     !props.preview &&
     !dateError &&
-    gender !== null &&
+    // Gender is voluntary, as the personal-data documents say (audit 7.7).
     nameLength <= 32;
   const editing = profile?.completedAt !== null && profile?.completedAt !== undefined;
   const openPicker = () => {
@@ -194,7 +194,7 @@ export function Onboarding(props: ScreenProps) {
       ) : null}
 
       <View style={s.field}>
-        <Caption style={s.label}>{t('ПОЛ · ОБЯЗАТЕЛЬНО')}</Caption>
+        <Caption style={s.label}>{t('ПОЛ · ПО ЖЕЛАНИЮ')}</Caption>
         <View style={[s.genderRow, fontScale > 1.3 && { flexDirection: 'column' }]}>
           {(
             [
@@ -221,6 +221,17 @@ export function Onboarding(props: ScreenProps) {
           ))}
         </View>
       </View>
+      {gender !== null ? (
+        <Pressable
+          testID="profile-gender-clear"
+          accessibilityRole="button"
+          disabled={demo.busy}
+          onPress={() => setGender(null)}
+          style={s.later}
+        >
+          <Body style={s.clearText}>{t('Не указывать пол')}</Body>
+        </Pressable>
+      ) : null}
 
       {!demo.account && demo.ready ? (
         <Pressable accessibilityRole="button" onPress={() => props.navigate('M02')} style={s.later}>

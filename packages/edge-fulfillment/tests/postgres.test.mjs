@@ -9,6 +9,34 @@ import { createPool } from '@pickchick/database';
 import { EdgeFulfillment, provisionFulfillment, digest } from '../dist/index.js';
 import { fixture, errorCode } from './fixture.mjs';
 
+test('kiosk admission and kitchen persistence retain all 201 configurations', () =>
+  fixture(async (f) => {
+    const command = f.admission();
+    const snapshot = command.payload.snapshot;
+    snapshot.channel = 'kiosk';
+    snapshot.lines = Array.from({ length: 201 }, (_, i) => ({
+      ...snapshot.lines[0],
+      lineId: randomUUID(),
+      description: `Synthetic configuration ${i}`,
+    }));
+    snapshot.totalMinor = String(201 * 349000);
+    command.payload.quoteDigest = digest(snapshot);
+    const reserved = await f.repo.acceptCloud(f.scope, command);
+    assert.equal(reserved.state, 'held');
+    assert.equal(await f.count('fulfillment_tasks'), 0);
+    const duplicate = await f.repo.acceptCloud(f.scope, command);
+    assert.equal(duplicate.reservationId, reserved.reservationId);
+    // Only a synthetic trusted cloud command in an isolated local fixture;
+    // no bank call or financial capture is involved.
+    const authorization = f.authorize(command, reserved);
+    const order = await f.repo.acceptCloud(f.scope, authorization);
+    await f.repo.acceptCloud(f.scope, authorization);
+    const view = await f.read(order.orderId);
+    assert.equal(view.tasks.length, 201);
+    assert.equal(new Set(view.tasks.map((task) => task.details.lineId)).size, 201);
+    assert.equal(await f.count('fulfillment_tasks'), 201);
+  }));
+
 test('durable admission deduplicates concurrent deliveries; hash/quote/owner changes fail', () =>
   fixture(async (f) => {
     const c = f.admission(true);
@@ -412,6 +440,9 @@ test('outbox competing leases and expired acknowledgements recover without mutat
 
 test('1000 resident orders: bounded concurrent replay, paginated KDS/LED and restart without duplicate tickets', () =>
   fixture(async (f) => {
+    // Storage and pagination capacity, not numbering: 1000 live orders exceed the cashier range
+    // 1-299 of edge 022 (display-numbers.test.mjs), so this run uses the legacy sequence.
+    await f.pool.query('DROP FUNCTION fulfillment_display_allocate(uuid)');
     const count = 1000,
       commands = Array.from({ length: count }, () => f.admission(true));
     let next = 0;

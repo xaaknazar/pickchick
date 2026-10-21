@@ -527,3 +527,97 @@ test('corrections are atomic revisions with complete cross-period history and st
       /FORBIDDEN/,
     );
   }));
+
+test('month close is cumulative: earlier open months cannot change a closed month', () =>
+  withSyncDatabases(async (c) => {
+    // Audit 4.4: September closed while August stayed open. Its opening balance is the sum of
+    // everything before it, so a later August posting or account must not change it.
+    const manager = await provisionCatalogManager(c.cloud.pool, {
+      organization_id: c.org,
+      name: 'Synthetic accountant',
+      branch_ids: [c.branch],
+    });
+    await grantBackoffice(c.cloud.pool, manager.actor_id, c.branch, 'manager');
+    const f = new Finance(c.cloud.pool, true);
+    const post = (command, reason = 'Synthetic close') =>
+      f.command(manager.token, c.branch, { request_id: randomUUID(), reason, command });
+    const september = { start_date: '2026-09-01', end_date: '2026-09-30' };
+    const cash = randomUUID();
+    await post({
+      type: 'account',
+      id: cash,
+      name: 'Synthetic cash',
+      kind: 'cash',
+      opening_date: '2026-07-01',
+      opening_minor: '500000',
+    });
+    const expense = (cash_date, patch = {}) => ({
+      type: 'entry',
+      entry: {
+        id: randomUUID(),
+        kind: 'expense',
+        amount_minor: '100000',
+        cash_date,
+        recognition_date: cash_date,
+        account_id: cash,
+        to_account_id: null,
+        category_id: 'rent',
+        center: 'restaurant',
+        counterparty: 'Synthetic',
+        reference: randomUUID(),
+        note: '',
+        ...patch,
+      },
+    });
+    const august = await post(expense('2026-08-10'));
+    await post(expense('2026-09-10'));
+    await post({ type: 'period', month: '2026-09-01', closed: true, expected_revision: 0 });
+    const closed = (await f.read(manager.token, c.branch, september)).accounts[0];
+    assert.deepEqual([closed.before_minor, closed.after_minor], ['400000', '300000']);
+    // August is still formally open, but every write dated on or before September is refused.
+    for (const command of [
+      expense('2026-08-20'),
+      expense('2026-06-30', { recognition_date: '2026-06-30' }),
+      { type: 'void', id: august.id },
+      {
+        type: 'account',
+        id: randomUUID(),
+        name: 'Late cash',
+        kind: 'cash',
+        opening_date: '2026-08-01',
+        opening_minor: '100000',
+      },
+    ])
+      await assert.rejects(post(command), /CONFLICT/, command.type);
+    // An accrual recognised in August but paid in October is refused as well.
+    await assert.rejects(
+      post({
+        type: 'entry',
+        entry: {
+          ...expense('2026-10-05').entry,
+          kind: 'accrual_expense',
+          cash_date: null,
+          account_id: null,
+          recognition_date: '2026-08-31',
+          category_id: 'depreciation',
+        },
+      }),
+      /CONFLICT/,
+    );
+    const after = (await f.read(manager.token, c.branch, september)).accounts[0];
+    assert.deepEqual([after.before_minor, after.after_minor], ['400000', '300000']);
+    // October stays open for current work.
+    await post(expense('2026-10-05'));
+    // Reopening runs backwards: September cannot reopen while October is closed.
+    await post({ type: 'period', month: '2026-10-01', closed: true, expected_revision: 0 });
+    await assert.rejects(
+      post({ type: 'period', month: '2026-09-01', closed: false, expected_revision: 1 }),
+      /CONFLICT/,
+    );
+    await post({ type: 'period', month: '2026-10-01', closed: false, expected_revision: 1 });
+    await post({ type: 'period', month: '2026-09-01', closed: false, expected_revision: 1 });
+    // After reopening, the August correction is accepted and audited as usual.
+    await post(expense('2026-08-20'));
+    const reopened = (await f.read(manager.token, c.branch, september)).accounts[0];
+    assert.equal(reopened.before_minor, '300000');
+  }));

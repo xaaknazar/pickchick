@@ -365,10 +365,7 @@ export function PickRunScreen(props: ScreenProps) {
                 {localize('♡'.repeat(3 - hud.lives))}
               </Text>
               <Text style={r.caption}>
-                {t('Рекорд')}
-                {localize(Math.max(best, hud.score))}
-                {t('· серия')}
-                {localize(hud.combo)}
+                {t('Рекорд {p0} · серия {p1}', { p0: Math.max(best, hud.score), p1: hud.combo })}
               </Text>
             </View>
             {!landscape ? field : null}
@@ -423,8 +420,7 @@ export function PickRunScreen(props: ScreenProps) {
                 <ArcadeMetric label={t('ЛУЧШАЯ СЕРИЯ')} value={hud.bestCombo} />
               </View>
               <Text style={r.caption}>
-                {t('Рекорд')}
-                {localize(best)}
+                {t('Рекорд {p0}', { p0: best })}
                 {t('· игровые очки без начисления Чиков')}
               </Text>
               <ArcadeButton

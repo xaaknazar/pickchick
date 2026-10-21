@@ -1,7 +1,9 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { isIP } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { createKitchenServer } from '../../apps/kitchen/server.mjs';
+import { terminalCookies } from '../../apps/kitchen/terminal-cookie.mjs';
 import {
   EdgeLink,
   HEADER_NAMES,
@@ -28,6 +30,26 @@ const security = {
   'Content-Security-Policy':
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
 };
+/** IPv6 clients share one budget per /64 (one subscriber); IPv4 per address. */
+function addressKey(value) {
+  const ip = value.startsWith('::ffff:') && isIP(value.slice(7)) === 4 ? value.slice(7) : value;
+  if (isIP(ip) !== 6) return ip;
+  const groups = (part) =>
+    part ? part.split(':').flatMap((g) => (g.includes('.') ? ['0', '0'] : [g])) : [];
+  const [head, tail] = ip.toLowerCase().split('%')[0].split('::');
+  const left = groups(head),
+    right = groups(tail);
+  const full =
+    tail === undefined
+      ? left
+      : [...left, ...Array(8 - left.length - right.length).fill('0'), ...right];
+  return (
+    full
+      .slice(0, 4)
+      .map((g) => parseInt(g, 16).toString(16))
+      .join(':') + '::/64'
+  );
+}
 function send(res, status, body) {
   res.writeHead(status, { ...security, 'Content-Type': 'application/json; charset=utf-8' });
   res.end(body === undefined ? undefined : JSON.stringify(body));
@@ -118,11 +140,37 @@ export async function createPortal({
     gateways[mode] = await listen(gateway);
   }
   // Limit unauthenticated traffic before it consumes the branch's relay capacity.
-  const buckets = new Map();
-  function rate(req, login) {
-    const ip = req.headers['x-pickchick-client-ip'] ?? req.socket.remoteAddress;
+  // The portal sits on an internal network that only the public gateway joins; the gateway
+  // sends the client it resolved through its trusted proxies ({client_ip}). Paired screens
+  // and terminals prove themselves with a cookie sealed by the portal key and get their own
+  // budget, so anonymous traffic (even from the same address) cannot stop the kitchen.
+  const terminalJars = terminalAccess
+    ? Object.fromEntries(
+        ['prep', 'assembly', 'display'].map((mode) => [
+          mode,
+          terminalCookies({ key, mode, path: `/kitchen-live/${mode}/`, secure: true }),
+        ]),
+      )
+    : null;
+  const anonymous = new Map(),
+    paired = new Map();
+  function client(req) {
+    const header = req.headers['x-pickchick-client-ip'];
+    const ip = typeof header === 'string' && isIP(header) ? header : req.socket.remoteAddress;
+    return 'ip:' + addressKey(String(ip));
+  }
+  function device(req, mode) {
+    if (!mode) return null;
+    const screen = screens?.[mode].read(req.headers.cookie);
+    if (screen && screen.branchId === cloudConfig.branchId) return 'screen:' + screen.screenId;
+    const terminal = terminalJars?.[mode].read(req.headers.cookie);
+    return terminal ? 'terminal:' + terminal.terminalId : null;
+  }
+  function rate(req, login, mode) {
+    const owner = device(req, mode);
+    const buckets = owner ? paired : anonymous;
     const now = Date.now(),
-      id = String(ip) + (login ? ':login' : ':read');
+      id = (owner ?? client(req)) + (login ? ':login' : ':read');
     for (const [k, v] of buckets) if (v.until <= now) buckets.delete(k);
     if (!buckets.has(id)) {
       if (buckets.size >= 2048) return false;
@@ -142,7 +190,7 @@ export async function createPortal({
       send(res, status, body);
     };
     const pair = rest === '/pair';
-    if (!rate(req, pair)) {
+    if (!rate(req, pair, mode)) {
       res.setHeader('Retry-After', '60');
       reply(429, errorBody('RATE_LIMITED'));
       return;
@@ -305,7 +353,7 @@ export async function createPortal({
       const login = pathOnGateway === '/edge/v1/staff/login';
       const pairing = pathOnGateway === '/edge/v1/terminals/pair';
       const reset = pathOnGateway === '/edge/v1/staff/password-reset';
-      if (!rate(req, login || pairing || reset)) {
+      if (!rate(req, login || pairing || reset, pages[path] ? null : mode)) {
         res.setHeader('Retry-After', '60');
         send(res, 429, { code: 'RATE_LIMITED' });
         return;

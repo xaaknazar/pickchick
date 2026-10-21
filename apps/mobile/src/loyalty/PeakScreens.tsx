@@ -108,8 +108,7 @@ function PeakDetails({ peak, close }: { peak: Peak | null; close(): void }) {
               <View style={s.sheetTop}>
                 <CloseButton testID="peak-close" label={t('Закрыть вершину')} onPress={close} />
                 <Text style={s.eyebrow}>
-                  {t('ВЕРШИНА')}
-                  {localize(peaks.indexOf(peak) + 1)}
+                  {t('ВЕРШИНА {p0}', { p0: peaks.indexOf(peak) + 1 })}
                   {t('ИЗ 6')}
                 </Text>
               </View>
@@ -260,11 +259,10 @@ function HowItWorks() {
             )}
           </Text>
           <Text style={s.copy}>
-            {t('Предлагаем возвращать')}
-            {localize(proposedProgram.earnPercent)}
-            {t('% Чиками, считать 1 Чик равным 1 ₸ и разрешить оплачивать Чиками до')}
-            {localize(proposedProgram.maxSpendPercent)}
-            {t('% подходящих позиций заказа.')}
+            {t(
+              'Предлагаем возвращать {p0}% Чиками, считать 1 Чик равным 1 ₸ и разрешить оплачивать Чиками до {p1}% подходящих позиций заказа.',
+              { p0: proposedProgram.earnPercent, p1: proposedProgram.maxSpendPercent },
+            )}
           </Text>
           <Text style={s.copy}>
             {t(

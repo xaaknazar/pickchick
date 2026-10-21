@@ -21,7 +21,10 @@ export interface ScreenContext {
   direction?: 'forward' | 'back';
   /** The step shown before this one (`boot` before the first screen). */
   from?: KioskStep | 'boot';
-  /** Staff gesture: a long hold on the start screen logo (demo mode dialog). */
+  /**
+   * Opens the staff dialog (demo mode, service reset): a long hold on the start screen logo, or
+   * «Сотруднику» on the recovery screen when a service reset is available.
+   */
   onStaffHold?: () => void;
 }
 /** Single pilot point; the catalog carries only a branch id, not its display name. */
@@ -42,7 +45,6 @@ export function Header({
   locale,
   setLocale,
   onCancel,
-  onHelp,
   back,
   backLabel,
   onClose,
@@ -55,7 +57,6 @@ export function Header({
   minimal = false,
   cancellable = true,
   centered = false,
-  helpPill = false,
 }: ScreenContext & {
   back?: () => void;
   /** Accessible name of the back pill or the close disc. */
@@ -229,30 +230,6 @@ export function Header({
                 {mode.toUpperCase()}
               </Text>
             </View>
-          ) : helpPill ? (
-            <Pressable
-              testID="kiosk-header-help"
-              accessibilityRole="button"
-              accessibilityLabel={t.help}
-              onPress={onHelp}
-              style={{
-                minHeight: Math.max(52, v(64)),
-                paddingHorizontal: v(24),
-                borderRadius: 999,
-                borderWidth: 2,
-                borderColor: 'rgba(255,255,255,.45)',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text
-                {...fixedText}
-                numberOfLines={1}
-                style={{ fontFamily: fonts.heavy, fontSize: v(18), color: colors.white }}
-              >
-                {t.help}
-              </Text>
-            </Pressable>
           ) : (
             <View />
           )}
@@ -405,7 +382,6 @@ export function Header({
         )}
         {!minimal ? (
           <>
-            <IconButton name="help-circle-outline" label={t.help} onPress={onHelp} tone="inverse" />
             {cancellable ? (
               <IconButton
                 name="close"

@@ -22,10 +22,82 @@ let activePasswordOperations = 0;
 
 export class StaffRateLimitError extends Error {
   readonly code = 'AUTH_RATE_LIMITED';
-  constructor() {
+  /** Seconds until a retry can succeed (HTTP Retry-After); the same for every PIN. */
+  constructor(readonly retryAfterSeconds = 60) {
     super('AUTH_RATE_LIMITED');
   }
 }
+
+/**
+ * PIN login backoff per terminal (finding 6.5). A PIN is also the login, so a wrong PIN cannot
+ * be attributed to a person and the per-staff lock never sees it. Each terminal gets a few free
+ * typos, then every further failure locks PIN login there for 30 s, doubling up to 15 min. A
+ * successful login does not forgive failures (an insider cannot interleave their own PIN); only
+ * half an hour without failures does. While locked every PIN, right or wrong, gets the same
+ * rate-limit answer without password work. State lives in the single edge process, like the
+ * concurrency guard above; restarting the edge service (Windows administrator) clears it.
+ */
+export const PIN_BACKOFF = Object.freeze({
+  freeFailures: 5,
+  baseLockMs: 30_000,
+  maxLockMs: 15 * 60_000,
+  decayMs: 30 * 60_000,
+  maxTerminals: 1000,
+});
+type PinBackoffPolicy = typeof PIN_BACKOFF;
+interface PinBackoffState {
+  failures: number;
+  lastFailureAt: number;
+  lockedUntil: number;
+}
+export class PinBackoff {
+  private readonly terminals = new Map<string, PinBackoffState>();
+  constructor(
+    private readonly now: () => number = Date.now,
+    readonly policy: PinBackoffPolicy = PIN_BACKOFF,
+  ) {}
+  private current(key: string) {
+    const state = this.terminals.get(key);
+    if (state && this.now() - state.lastFailureAt >= this.policy.decayMs) {
+      this.terminals.delete(key);
+      return undefined;
+    }
+    return state;
+  }
+  lockedMs(key: string) {
+    const state = this.current(key);
+    return state ? Math.max(0, state.lockedUntil - this.now()) : 0;
+  }
+  /** Records one failed PIN on a verified terminal and returns the lock it starts, if any. */
+  fail(key: string) {
+    const now = this.now(),
+      state = this.current(key) ?? { failures: 0, lastFailureAt: now, lockedUntil: 0 };
+    state.failures += 1;
+    state.lastFailureAt = now;
+    const over = state.failures - this.policy.freeFailures;
+    if (over >= 0)
+      state.lockedUntil =
+        now + Math.min(this.policy.maxLockMs, this.policy.baseLockMs * 2 ** Math.min(over, 20));
+    this.terminals.delete(key);
+    this.terminals.set(key, state);
+    while (this.terminals.size > this.policy.maxTerminals)
+      this.terminals.delete(this.terminals.keys().next().value!);
+    return { failures: state.failures, lockedMs: Math.max(0, state.lockedUntil - now) };
+  }
+  status(key: string) {
+    return { failures: this.current(key)?.failures ?? 0, lockedMs: this.lockedMs(key) };
+  }
+}
+const pinBackoff = new PinBackoff();
+const pinBackoffKey = (branchId: string, terminalId: string) =>
+  `${branchId.toLowerCase()}:${terminalId.toLowerCase()}`;
+/** Monitoring only: failures and remaining lock of one terminal (never a PIN or staff id). */
+export function pinBackoffStatus(branchId: string, terminalId: string) {
+  const status = pinBackoff.status(pinBackoffKey(branchId, terminalId));
+  return { failures: status.failures, lockedSeconds: Math.ceil(status.lockedMs / 1000) };
+}
+/** New and changed PINs may be 6 digits; existing 4-digit PINs keep working. */
+const PIN_FORMAT = /^(?:[0-9]{4}|[0-9]{6})$/;
 
 async function derive(password: string, salt: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -149,6 +221,10 @@ export async function loginStaff(
   if (!parsed.success || !UuidSchema.safeParse(branchId).success)
     throw new OrderError('UNAUTHORIZED');
   const { login, password, terminal_id: terminalId } = parsed.data;
+  const backoff = pinMode ? pinBackoffKey(branchId, terminalId) : null;
+  // A locked terminal answers every PIN alike, before any lookup or password work.
+  const lockedMs = backoff ? pinBackoff.lockedMs(backoff) : 0;
+  if (lockedMs > 0) throw new StaffRateLimitError(Math.ceil(lockedMs / 1000));
   // Reserve and commit before password work. Rejections/failures do not roll the counter back.
   if (!(await reserveAttempt(pool, branchId, terminalId))) throw new OrderError('UNAUTHORIZED');
   if (activePasswordOperations >= 2) throw new StaffRateLimitError();
@@ -250,7 +326,11 @@ export async function loginStaff(
         token,
       });
     });
-    if (!result) throw new OrderError('UNAUTHORIZED');
+    if (!result) {
+      // The terminal was verified active by reserveAttempt; unknown ids never create state.
+      if (backoff) pinBackoff.fail(backoff);
+      throw new OrderError('UNAUTHORIZED');
+    }
     return result;
   } finally {
     activePasswordOperations--;
@@ -290,7 +370,7 @@ export async function setStaffPin(
   pin: string,
   replace = false,
 ) {
-  if (!/^[0-9]{4}$/.test(pin)) throw new OrderError('INVALID_REQUEST');
+  if (typeof pin !== 'string' || !PIN_FORMAT.test(pin)) throw new OrderError('INVALID_REQUEST');
   await pool.query(
     'INSERT INTO local_pin_lookup_keys(branch_id,secret) VALUES($1,$2) ON CONFLICT DO NOTHING',
     [branchId, randomBytes(32).toString('hex')],
@@ -318,7 +398,7 @@ export async function loginStaffPin(
     !value ||
     Object.keys(value).some((k) => !['pin', 'terminal_id'].includes(k)) ||
     typeof value.pin !== 'string' ||
-    !/^[0-9]{4}$/.test(value.pin) ||
+    !PIN_FORMAT.test(value.pin) ||
     !UuidSchema.safeParse(value.terminal_id).success
   )
     throw new OrderError('UNAUTHORIZED');

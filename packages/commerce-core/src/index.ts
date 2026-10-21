@@ -1,9 +1,10 @@
 export * from './model.js';
-export { CommerceRepository } from './repository.js';
+export { CommerceRepository, reviewOrderInTransaction } from './repository.js';
 export * from './tiptoppay.js';
 export * from './kaspi-remote.js';
 
 export * from './customer-checkout.js';
+export * from './checkout-watch.js';
 export * from './availability.js';
 export * from './cloud-channel.js';
 export * from './catalog-media.js';
@@ -14,5 +15,8 @@ export * from './kiosk-sessions.js';
 export * from './kiosk-kaspi-qr.js';
 
 export * from './kiosk-enrollment.js';
+export * from './kiosk-staff.js';
 
 export { MenuChangedError } from './menu-changed.js';
+
+export { comboProgramOptions, type ComboProgramOptions } from './combo-reward-ledger.js';

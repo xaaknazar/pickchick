@@ -28,8 +28,7 @@ export const CartInputSchema = z.strictObject({
           .max(40),
       }),
     )
-    .min(1)
-    .max(200),
+    .min(1),
 });
 export const PricingScopeSchema = z.strictObject({
   organizationId: z.uuid(),
@@ -135,7 +134,7 @@ export const PricedCatalogQuoteSchema = z.strictObject({
   serviceMode: CartInputSchema.shape.service_mode,
   currency: z.literal('KZT'),
   ttlSeconds: z.literal(300),
-  lines: z.array(PricedCatalogLineSchema).min(1).max(200),
+  lines: z.array(PricedCatalogLineSchema).min(1),
   subtotalMinor: MinorSchema,
   discountMinor: z.literal('0'),
   totalMinor: MinorSchema,

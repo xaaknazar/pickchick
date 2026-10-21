@@ -13,6 +13,7 @@ import {
   Schemas as BackofficeRecords,
 } from '@pickchick/backoffice-core/model';
 import {
+  CustomerComboRewardsSchema,
   BranchSchema,
   CapabilitiesSchema,
   MenuSnapshotSchema,
@@ -837,6 +838,7 @@ Object.assign(openapi.paths, {
 });
 
 for (const [name, schema] of Object.entries({
+  CustomerComboRewardsSchema,
   CatalogStateSchema,
   CatalogBranchesSchema,
   CatalogPublicSchema,
@@ -908,6 +910,9 @@ Object.assign(openapi.paths, {
   },
   '/v1/admin/catalog/branches/{branchId}/publish': {
     post: catalogOperation('publishCatalogDraft', 'CatalogState', 'CatalogPublish'),
+  },
+  '/v1/customer-checkout/combo-rewards': {
+    get: customerOperation('getCustomerComboRewards', 'CustomerComboRewards', undefined, true),
   },
   '/v1/customer-checkout/catalog': {
     get: catalogOperation(

@@ -52,6 +52,9 @@ let lastRender = '',
   errorShown = '',
   menuNoticeShown = 0,
   filterDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Almaty' });
+// 4 by default; 6 once the operator re-enrolled every PIN of the branch (6.5).
+const pinLength = config.pinLength === 6 ? 6 : 4;
+reference.setState({ pinLength });
 const blocked = () => model.state.busy || model.state.pending || model.state.storageBlocked;
 function schedule() {
   if (!scheduled) {
@@ -220,9 +223,9 @@ function pinKeys(field, close = false) {
   return reference.keys(
     (d) => {
       if (signing || blocked()) return;
-      const value = reference.state[field] + d;
+      const value = (reference.state[field] + d).slice(0, pinLength);
       reference.setState({ [field]: value, pinErr: '' });
-      if (value.length === 4) void enterPin(value, close);
+      if (value.length === pinLength) void enterPin(value, close);
     },
     (all) => reference.setState({ [field]: all ? '' : reference.state[field].slice(0, -1) }),
     !close,

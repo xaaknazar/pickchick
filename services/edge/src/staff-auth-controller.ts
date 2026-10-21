@@ -20,7 +20,9 @@ import {
   OrderError,
   StaffRateLimitError,
   orderErrorStatus,
+  pinBackoffStatus,
 } from '@pickchick/local-orders';
+import { UuidSchema } from '@pickchick/contracts';
 
 @Controller('edge/v1/staff')
 export class StaffAuthController {
@@ -41,7 +43,7 @@ export class StaffAuthController {
       });
     } catch (error) {
       if (error instanceof StaffRateLimitError) {
-        response.setHeader('Retry-After', '60');
+        response.setHeader('Retry-After', String(error.retryAfterSeconds));
         throw new HttpException({ code: 'AUTH_RATE_LIMITED' }, 429);
       }
       if (error instanceof OrderError)
@@ -66,13 +68,31 @@ export class StaffAuthController {
       });
     } catch (error) {
       if (error instanceof StaffRateLimitError) {
-        response.setHeader('Retry-After', '60');
+        response.setHeader('Retry-After', String(error.retryAfterSeconds));
         throw new HttpException({ code: 'AUTH_RATE_LIMITED' }, 429);
       }
-      if (error instanceof OrderError)
+      if (error instanceof OrderError) {
+        if (error.code === 'UNAUTHORIZED') this.logPinFailure(body);
         throw new HttpException({ code: error.code }, orderErrorStatus[error.code]);
+      }
       throw new HttpException({ code: 'SERVICE_UNAVAILABLE' }, 503);
     }
+  }
+
+  /** Failed PIN attempts on a known terminal, for the operator log: never the PIN or a staff id. */
+  private logPinFailure(body: unknown) {
+    const terminal = (body as { terminal_id?: unknown } | null)?.terminal_id;
+    if (typeof terminal !== 'string' || !UuidSchema.safeParse(terminal).success) return;
+    const status = pinBackoffStatus(this.resources.config.branchId!, terminal);
+    if (!status.failures) return;
+    console.warn(
+      JSON.stringify({
+        event: 'staff_pin_failed',
+        terminal_id: terminal.toLowerCase(),
+        failures: status.failures,
+        locked_seconds: status.lockedSeconds,
+      }),
+    );
   }
 
   @Post('password-reset')

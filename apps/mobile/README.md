@@ -31,6 +31,22 @@ pnpm --filter @pickchick/mobile android
 Для TestFlight нужен встроенный Release bundle:
 [локальный выпуск](../../docs/operations/mobile-testflight.md).
 
+### Сервер сборки (staging / production)
+
+Адрес API выбирается при сборке (`src/build-config.ts`, тот же расчёт в `app.config.ts`):
+
+| Переменная                  | Значение                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------- |
+| `EXPO_PUBLIC_PICKCHICK_ENV` | `staging` (по умолчанию, `pickchick.185.129.51.103.nip.io`) или `production` (`api.pickchick.kz`) |
+| `EXPO_PUBLIC_API_URL`       | необязательная замена хоста, только `https://` без пути                                           |
+| `EXPO_PUBLIC_SUPPORT_URL`   | контакт поддержки: `https://…`, `tel:+7…` или `mailto:…`; пусто - без кнопки                      |
+
+Неверное значение останавливает сборку. Архив для App Store:
+`python3 scripts/mobile/ios_release.py archive --feature-profile production --release <метка>`
+(флаги storefront + `production`; `EXPO_PUBLIC_API_URL` из оболочки в архив не попадает).
+Все прежние профили, в том числе `storefront` по умолчанию, закреплены на staging.
+Юридические ссылки приходят с сервера (`/v1/auth/config`), их адрес задаётся на сервере.
+
 ```sh
 pnpm --filter @pickchick/mobile exec expo install --check
 pnpm --filter @pickchick/mobile typecheck

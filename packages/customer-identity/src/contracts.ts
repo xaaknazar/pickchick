@@ -79,7 +79,8 @@ export const CustomerPatchSchema = z
       )
       .optional(),
     birth_date: z.string().nullable().optional(),
-    gender: z.enum(['female', 'male']).optional(),
+    // Voluntary (audit 7.7): null clears a previously saved value.
+    gender: z.enum(['female', 'male']).nullable().optional(),
     marketing_opt_in: z.boolean().optional(),
   })
   .strict()

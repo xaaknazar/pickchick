@@ -48,8 +48,7 @@ export function OrderActions({
                 onPress={onClose}
               />
               <Heading small style={{ flex: 1 }}>
-                {t('Заказ №')}
-                {localize(number)}
+                {t('Заказ №{p0}', { p0: number })}
               </Heading>
             </Row>
             <View style={s.symbol}>

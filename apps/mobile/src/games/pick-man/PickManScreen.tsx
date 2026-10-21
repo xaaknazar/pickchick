@@ -528,10 +528,7 @@ export function PickManScreen() {
               </Text>
             </View>
             <View style={[s.statCard, compact && s.statCompact]}>
-              <Text style={s.caption}>
-                {t('УРОВЕНЬ')}
-                {localize(game.level)}
-              </Text>
+              <Text style={s.caption}>{t('УРОВЕНЬ {p0}', { p0: game.level })}</Text>
               <Text testID="pick-man-remaining" style={s.count}>
                 {localize(collected)} / {localize(FOOD_IDS.length)}
               </Text>

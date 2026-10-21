@@ -546,7 +546,6 @@ export function SummaryRow({
   );
 }
 export function MinorMoney(value: string | bigint): string {
-  useLocale();
   const minor = BigInt(value);
   const whole = minor / 100n;
   const fraction = minor % 100n;

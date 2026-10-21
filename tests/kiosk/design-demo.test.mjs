@@ -357,9 +357,15 @@ test('the 5 s logo hold opens the demo dialog; demo state lives only in memory',
   assert.match(welcome, /onLongPress=\{onLogoHold\}/);
   assert.match(read('screens/WelcomeMode.tsx'), /onLogoHold=\{context\.onStaffHold\}/);
   const guest = read('screens/GuestScreen.tsx');
-  assert.match(guest, /onStaffHold: model\.setDemo \? \(\) => setDemoAsk\(true\)/);
-  assert.match(guest, /model\.demo \? t\.demoExitTitle : t\.demoEnterTitle/);
-  assert.match(guest, /model\.setDemo\?\.\(!model\.demo\)/);
+  assert.match(
+    guest,
+    /onStaffHold: model\.setDemo \|\| model\.staffReset \? \(\) => setDemoAsk\(true\)/,
+  );
+  assert.match(guest, /t\.demoExitTitle/);
+  // Audit 19.10, finding 3.4: a commercial kiosk enters only with the staff code; exit needs none.
+  assert.match(guest, /model\.staffPinRequired \? t\.staffTitle : t\.demoEnterTitle/);
+  assert.match(guest, /model\.setDemo\?\.\(true, pin\)/);
+  assert.match(guest, /model\.setDemo\?\.\(false\)/);
   // The badge is shown on every screen while the demo is on, with its own exit.
   assert.match(
     guest,
@@ -370,7 +376,9 @@ test('the 5 s logo hold opens the demo dialog; demo state lives only in memory',
   const hook = read('useKioskController.ts');
   assert.match(hook, /useState<DemoKiosk \| null>\(null\)/);
   assert.doesNotMatch(hook, /demo[^\n]*(AsyncStorage|SecureStore|writeFlow)/i);
-  assert.match(hook, /current\.step !== 'start'/);
+  assert.match(hook, /current\.step === 'start'/);
+  assert.match(hook, /live\.verifyStaff\(pin/);
+  assert.match(hook, /demoIdleExpired\(demoActivity\.current, Date\.now\(\)\)/);
   assert.match(hook, /pay: demo \? demo\.pay : controller\.pay/);
 });
 
