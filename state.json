@@ -4422,11 +4422,11 @@
         "tests/integration/cloud-kitchen-release.test.mjs",
         "infra/staging/cloud-kitchen-setup-abay-plaza.json"
       ],
-      "status": "active",
-      "head": "13637290cfb45d76b0a4ad0f632d11e0e15b7785",
-      "updatedAt": "2026-10-10T20:07:55.965Z",
-      "summary": "Профиль release-cloud-kitchen.py + owner cloud-kitchen-release-owner.mjs + тесты (unittest 26, PG integration) + docs/operations/cloud-kitchen-release.md на 80ac5182, CI 38080436726 зелёная. Read-only prepare кандидата d87e3225 (--source-checkout) прошёл все live-пины, blocker: в кандидате нет owner-скрипта. На VPS ничего не применялось.",
-      "nextAction": "Свести shared + cloud-kitchen-ipad + cloud-kitchen-portal (финальный SHA) + этот профиль в один кандидат, зелёная CI, затем владелец: prepare/apply по docs/operations/cloud-kitchen-release.md с резервом @vps; при смене формата cloudKitchen в портале обновить ENABLE_PORTAL. Обновить project-status/roadmap (заняты inventory)."
+      "status": "done",
+      "head": "8891b329afed06b385675a0d7fce2f24580afa81",
+      "updatedAt": "2026-10-21T05:56:57.709Z",
+      "summary": "2026-10-21: по поручению владельца закрыт устаревший резерв кода: опубликованная ветка уже включена в shared4dde5b34, дерево чистое. Подготовленный выпуск этим завершением не применяется. Продолжение аудита и пересечения: PR262.",
+      "nextAction": "Выпуск cloud-kitchen остаётся отдельным согласованным шагом: заново занять ресурсы, проверить установленный baseline, CI и разрешение владельца. Ничего не установлено."
     },
     {
       "id": "mobile-luma-patterns",
