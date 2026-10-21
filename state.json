@@ -6112,11 +6112,11 @@
         "infra/staging/release-kiosk-qr-worker.py",
         "tests/operations/test_kiosk_qr_worker_release.py"
       ],
-      "status": "active",
+      "status": "done",
       "head": "2b73f0599f3a62ffb78ada9ef41e10a80817343e",
-      "updatedAt": "2026-10-21T13:58:10.368Z",
-      "summary": "PR269: сохраняется отображение QR create Amount0/absent из установленного135605e5, Processed без Amount подтверждается signed history/details с точным Id/суммой/Dynamic sale. Read-only существующая оплаченная операция совпала; новых QR/счетов/платежей нет. Build/lint/18 PostgreSQL/5 bank-proof/4 release guards/full pnpm test PASS. Оператор закреплён на установленныйdab3657b. Включён PR268 d6085655, полная CI идёт. QR runtime2b73 установлен; CI39605839823 11/11; PR269 merge27dd3586. Ресурс @vps/kaspi передан своей задаче kaspi-runtime-1021 для следующего обработчика.",
-      "nextAction": "После API268 и полной CI269 guarded one-worker release; сохранить session/env/bridge/API/DB и audit terminal-state fixes. До этого действующийworker не менять."
+      "updatedAt": "2026-10-21T14:28:11.124Z",
+      "summary": "PR269 merge27dd3586; CI39605839823 прошла11/11. QR worker2b73f059 установлен, образ0743948f7082d0103718a4a8effe6363692005cc1d5b6b713f12b03d44592641; сессия/окружение/соседи сохранены. Подтверждение суммы из существующей операции банка проверено read-only; новых QR/платежей нет.",
+      "nextAction": "Итоговый протокол PR275. Приёмка владельцем отдельно, не создавать контрольные платежи без разрешения."
     },
     {
       "id": "release-runtime-1021",
