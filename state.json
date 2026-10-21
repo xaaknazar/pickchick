@@ -6067,27 +6067,6 @@
       "nextAction": "Нативная проверка RU/KK/EN и push на iPhone, серверные credentials, защищённое применение 069 и выпуск API после финансовой приёмки 204d318b остаются отдельными этапами. Онлайн-пульт не опубликован."
     },
     {
-      "id": "cloud-migrations-1021",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/cloud-migrations-1021",
-      "scopes": [
-        "infra/staging/combo-rewards-owner.mjs",
-        "infra/staging/release-cloud-migrations-1021.py",
-        "tests/integration/combo-rewards-owner.test.mjs",
-        "tests/operations/test_cloud_migrations_1021.py",
-        "docs/operations/deployments/2026-10-21-cloud-migrations.md",
-        "docs/project-status.md",
-        "docs/roadmap/project.json",
-        "docs/collaboration/handoff.md",
-        "docs/operations/release-fixes-2026-10-19/first-migration-step.md"
-      ],
-      "status": "available",
-      "head": "800545812f4a17c378d72de35d6ab2623e6bf151",
-      "updatedAt": "2026-10-21T10:21:00.615Z",
-      "summary": "PR265: https://github.com/xaaknazar/pickchick/pull/265. Применён8b6099d3 после полной CI39577902492 11/11; протокол опубликован в800545812f4a17c378d72de35d6ab2623e6bf151, дерево чистое. Новая CI отчёта39583769817 ещё идёт. Cloud068, encrypted backup/restore/rehearsal, сохранность данных/runtime/flags и повторная readiness/heartbeat подтверждены. Серверные резервы освобождены, код и документы сохраняются до включения в shared. PR263/264 слиты обычным merge после CI и закрыты штатным finish.",
-      "nextAction": "Дождаться полной CI39583769817 и включить протокол/оператор PR265 в shared. Не повторять миграции058->068. Владелец подтвердил отсутствие финансовой приёмки204d318b: API отложен. Затем подготовить защищённый профиль для актуальной схемы;069 не применена, акция выключена до нового FulfillmentWorker. Онлайн-пульт и устройства не выпускать без соответствующего решения."
-    },
-    {
       "id": "finance-acceptance-1021",
       "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
       "branch": "codex/finance-acceptance-1021",
@@ -6103,6 +6082,27 @@
       "updatedAt": "2026-10-21T10:56:55.399Z",
       "summary": "Проверен 204d318b9d3a5a9503234a8a1e3ee912a618b72a на shared 94cdf79b. Вердикт: не принят по полному перечню критериев до принятия UI-правки: август ложно открыт при закрытом сентябре. Backend подтверждён на новом localhost PostgreSQL; pnpm build PASS; core test 5/5; test:integration 27/27 после настройки fixture URL; test:backoffice 126/126; UI red/green, typecheck/lint/format PASS. Исправление 75bde6ec34546f6b38a39708315ce39eacf79ace опубликовано в https://github.com/xaaknazar/pickchick/pull/266, не слито. Протокол: docs/operations/reviews/finance-204d318b-2026-10-21.md в этом SHA. Не было deploy/реальных данных/повторных серверных миграций. Все тестовые схемы очищены, локальный кластер остановлен.",
       "nextAction": "Рассмотреть PR266 и полную CI точного SHA; отдельно принять исправление UI и зафиксировать повторную финансовую приёмку перед следующим API-выпуском. Самостоятельный merge/deploy этой задаче запрещён. Обновить общий статус/roadmap/handoff в рамках резервов принимающего агента; чужие резервы не сняты. Не переносить 204d318b повторно и не повторять уже применённые серверные 060/064/066/068."
+    },
+    {
+      "id": "cloud-migrations-1021",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/cloud-migrations-1021",
+      "scopes": [
+        "infra/staging/combo-rewards-owner.mjs",
+        "infra/staging/release-cloud-migrations-1021.py",
+        "tests/integration/combo-rewards-owner.test.mjs",
+        "tests/operations/test_cloud_migrations_1021.py",
+        "docs/operations/deployments/2026-10-21-cloud-migrations.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "docs/operations/release-fixes-2026-10-19/first-migration-step.md"
+      ],
+      "status": "active",
+      "head": "800545812f4a17c378d72de35d6ab2623e6bf151",
+      "updatedAt": "2026-10-21T11:25:21.842Z",
+      "summary": "PR265: https://github.com/xaaknazar/pickchick/pull/265. Применён8b6099d3 после полной CI39577902492 11/11; протокол опубликован в800545812f4a17c378d72de35d6ab2623e6bf151, дерево чистое. Новая CI отчёта39583769817 ещё идёт. Cloud068, encrypted backup/restore/rehearsal, сохранность данных/runtime/flags и повторная readiness/heartbeat подтверждены. Серверные резервы освобождены, код и документы сохраняются до включения в shared. PR263/264 слиты обычным merge после CI и закрыты штатным finish.",
+      "nextAction": "Дождаться полной CI39583769817 и включить протокол/оператор PR265 в shared. Не повторять миграции058->068. Владелец подтвердил отсутствие финансовой приёмки204d318b: API отложен. Затем подготовить защищённый профиль для актуальной схемы;069 не применена, акция выключена до нового FulfillmentWorker. Онлайн-пульт и устройства не выпускать без соответствующего решения."
     }
   ]
 }
