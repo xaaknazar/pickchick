@@ -6110,13 +6110,12 @@
         "tests/unit/kiosk-qr-bank-proof.test.mjs",
         "docs/operations/kiosk-qr-bank-proof-2026-10-21.md",
         "infra/staging/release-kiosk-qr-worker.py",
-        "tests/operations/test_kiosk_qr_worker_release.py",
-        "@vps/kaspi"
+        "tests/operations/test_kiosk_qr_worker_release.py"
       ],
       "status": "active",
       "head": "2b73f0599f3a62ffb78ada9ef41e10a80817343e",
-      "updatedAt": "2026-10-21T13:13:11.019Z",
-      "summary": "PR269: сохраняется отображение QR create Amount0/absent из установленного135605e5, Processed без Amount подтверждается signed history/details с точным Id/суммой/Dynamic sale. Read-only существующая оплаченная операция совпала; новых QR/счетов/платежей нет. Build/lint/18 PostgreSQL/5 bank-proof/4 release guards/full pnpm test PASS. Оператор закреплён на установленныйdab3657b. Включён PR268 d6085655, полная CI идёт.",
+      "updatedAt": "2026-10-21T13:58:10.368Z",
+      "summary": "PR269: сохраняется отображение QR create Amount0/absent из установленного135605e5, Processed без Amount подтверждается signed history/details с точным Id/суммой/Dynamic sale. Read-only существующая оплаченная операция совпала; новых QR/счетов/платежей нет. Build/lint/18 PostgreSQL/5 bank-proof/4 release guards/full pnpm test PASS. Оператор закреплён на установленныйdab3657b. Включён PR268 d6085655, полная CI идёт. QR runtime2b73 установлен; CI39605839823 11/11; PR269 merge27dd3586. Ресурс @vps/kaspi передан своей задаче kaspi-runtime-1021 для следующего обработчика.",
       "nextAction": "После API268 и полной CI269 guarded one-worker release; сохранить session/env/bridge/API/DB и audit terminal-state fixes. До этого действующийworker не менять."
     },
     {
@@ -6170,11 +6169,13 @@
       "scopes": [
         "infra/staging/release-kaspi-runtime-1021.py",
         "tests/operations/test_kaspi_runtime_1021.py",
-        "docs/operations/kaspi-runtime-2026-10-21.md"
+        "docs/operations/kaspi-runtime-2026-10-21.md",
+        "@vps/kaspi"
       ],
       "status": "active",
-      "head": "2b73f0599f3a62ffb78ada9ef41e10a80817343e",
-      "updatedAt": "2026-10-21T13:35:50.811Z"
+      "head": "e0aed52d14eac200f10ff7d3408e07e27a836232",
+      "updatedAt": "2026-10-21T13:58:10.368Z",
+      "summary": "undefined Получен резерв от собственной завершённой установки QR; реальных счетов/QR не создавать."
     },
     {
       "id": "mobile-testflight21",
