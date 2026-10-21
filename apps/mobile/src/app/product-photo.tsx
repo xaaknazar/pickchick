@@ -1,3 +1,4 @@
+import { t, useLocale } from '../i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, View, Text } from 'react-native';
 import { useMobile } from '../store';
@@ -5,6 +6,7 @@ import { PhotoProduct } from '../screens/PhotoProduct';
 import { hasPhotoPilot } from '../product-photo-selection';
 import { Button } from '../components/UI';
 export default function ProductPhotoRoute() {
+  useLocale();
   const params = useLocalSearchParams<{ product?: string; preview?: string }>();
   const preview = params.preview === '1';
   const model = useMobile(preview);
@@ -22,7 +24,7 @@ export default function ProductPhotoRoute() {
     return (
       <View
         testID="photo-product-loading"
-        accessibilityLabel="Загружаем позицию"
+        accessibilityLabel={t('Загружаем позицию')}
         style={{ flex: 1, justifyContent: 'center', backgroundColor: '#04143A' }}
       >
         <ActivityIndicator color="white" />
@@ -39,8 +41,8 @@ export default function ProductPhotoRoute() {
           backgroundColor: '#04143A',
         }}
       >
-        <Text style={{ color: 'white', fontSize: 20 }}>Позиция пока недоступна</Text>
-        <Button title="Вернуться в меню" onPress={back} />
+        <Text style={{ color: 'white', fontSize: 20 }}>{t('Позиция пока недоступна')}</Text>
+        <Button title={t('Вернуться в меню')} onPress={back} />
       </View>
     );
   return (

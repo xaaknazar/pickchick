@@ -1,3 +1,4 @@
+import { t, localize, useLocale } from '../i18n';
 import { MediaPoster, MotionPressable as Pressable, useReducedMotion } from './Motion';
 import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
@@ -16,6 +17,7 @@ export function HeroVideo({
   shaded?: boolean;
   blendBottom?: boolean;
 }) {
+  useLocale();
   const overlay = blendBottom ? productGradient : shaded ? gradient : undefined;
   return Platform.OS === 'web' ? (
     <WebHeroVideo gradient={overlay} />
@@ -24,6 +26,7 @@ export function HeroVideo({
   );
 }
 function NativeHeroVideo({ gradient }: { gradient?: string }) {
+  useLocale();
   const reduced = useReducedMotion();
   const [firstFrame, setFirstFrame] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -97,6 +100,7 @@ function NativeHeroVideo({ gradient }: { gradient?: string }) {
   );
 }
 export function LoyaltyCard({ preview, onPress }: { preview: boolean; onPress: () => void }) {
+  useLocale();
   const [cardHeight, setCardHeight] = useState(84);
   // Source SVG peak y=44/240 remains 6px above the card at every text size.
   const skylineTop = -(44 * cardHeight + 6 * 240) / (240 - 44);
@@ -104,7 +108,7 @@ export function LoyaltyCard({ preview, onPress }: { preview: boolean; onPress: (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel="Открыть мои Чики"
+      accessibilityLabel={t('Открыть мои Чики')}
       testID="loyalty-card"
       onLayout={(event) => setCardHeight(event.nativeEvent.layout.height)}
       style={({ pressed }) => [brand.loyalty, pressed && ui.pressed]}
@@ -121,15 +125,15 @@ export function LoyaltyCard({ preview, onPress }: { preview: boolean; onPress: (
       />
       <View style={brand.ring}>
         <Body style={{ fontFamily: font.display, fontSize: 14, lineHeight: 18 }}>
-          {preview ? '66%' : 'Ч'}
+          {localize(preview ? '66%' : 'Ч')}
         </Body>
       </View>
       <View style={ui.flex}>
         <Heading small style={{ fontSize: 17, lineHeight: 22 }}>
-          {preview ? 'Фурманова · пример уровня' : 'Чики за любимый вкус'}
+          {localize(preview ? 'Фурманова · пример уровня' : 'Чики за любимый вкус')}
         </Heading>
         <Caption style={{ color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 3 }}>
-          {preview ? '6 вершин Алматы · пример пути' : '6 вершин Алматы · скоро'}
+          {localize(preview ? '6 вершин Алматы · пример пути' : '6 вершин Алматы · скоро')}
         </Caption>
       </View>
       <Icon name="chevron-forward" size={17} color={colors.muted} />
@@ -149,6 +153,7 @@ export function FeatureTile({
   onPress: () => void;
   orange?: boolean;
 }) {
+  useLocale();
   return (
     <Pressable
       accessibilityRole="button"
@@ -161,9 +166,9 @@ export function FeatureTile({
     >
       <Icon name={icon} color={orange ? colors.accent : '#92BCFF'} size={30} />
       <Heading small style={{ fontSize: 20, marginTop: 14 }}>
-        {title}
+        {localize(title)}
       </Heading>
-      <Caption>{subtitle}</Caption>
+      <Caption>{localize(subtitle)}</Caption>
     </Pressable>
   );
 }
@@ -174,6 +179,7 @@ export function DiningSelector({
   value: 'takeaway' | 'dine_in';
   onChange: (value: 'takeaway' | 'dine_in') => void;
 }) {
+  useLocale();
   return (
     <Row style={brand.segment}>
       {(
@@ -204,7 +210,7 @@ export function DiningSelector({
               color: value === option.value ? '#0047BB' : '#FFFFFFDD',
             }}
           >
-            {option.label}
+            {localize(option.label)}
           </Body>
         </Pressable>
       ))}

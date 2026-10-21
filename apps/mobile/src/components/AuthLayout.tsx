@@ -1,3 +1,4 @@
+import { localize, t, useLocale } from '../i18n';
 import { MotionPressable as Pressable } from './Motion';
 import { useEffect, useState, type ReactNode, type RefObject } from 'react';
 import {
@@ -62,6 +63,7 @@ export function AuthButton({
   testID?: string;
   icon?: 'phone-portrait-outline';
 }) {
+  useLocale();
   return (
     <Pressable
       testID={testID}
@@ -72,7 +74,7 @@ export function AuthButton({
       style={({ pressed }) => [s.button, disabled && s.disabled, pressed && !disabled && s.pressed]}
     >
       {icon ? <Icon name={icon} color="#251609" size={18} /> : null}
-      <Text style={[s.buttonText, disabled && { color: authColors.muted }]}>{title}</Text>
+      <Text style={[s.buttonText, disabled && { color: authColors.muted }]}>{localize(title)}</Text>
     </Pressable>
   );
 }
@@ -98,6 +100,7 @@ export function AuthLayout({
   scrollRef?: RefObject<ScrollView | null>;
   overlay?: ReactNode;
 }) {
+  useLocale();
   const insets = useSafeAreaInsets();
   const keyboardVisible = useAuthKeyboardVisible();
   const { height } = useWindowDimensions();
@@ -137,14 +140,14 @@ export function AuthLayout({
               {props.screenId === 'M03' ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Изменить номер"
+                  accessibilityLabel={t('Изменить номер')}
                   onPress={topAction?.onPress ?? props.goBack}
                   style={s.back}
                 >
                   <Icon name="chevron-back" size={24} color={authColors.text} />
                 </Pressable>
               ) : (
-                <CloseButton label="Закрыть вход" onPress={props.goBack} />
+                <CloseButton label={t('Закрыть вход')} onPress={props.goBack} />
               )}
             </View>
           ) : null}
@@ -156,12 +159,12 @@ export function AuthLayout({
               props.screenId === 'M04' && s.registrationTitle,
             ]}
           >
-            {title}
+            {localize(title)}
           </Text>
           {subtitle ? (
             <View style={s.subtitleContainer}>
               {typeof subtitle === 'string' || typeof subtitle === 'number' ? (
-                <Text style={s.subtitle}>{subtitle}</Text>
+                <Text style={s.subtitle}>{localize(subtitle)}</Text>
               ) : (
                 subtitle
               )}

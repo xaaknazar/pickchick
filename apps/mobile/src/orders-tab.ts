@@ -1,24 +1,10 @@
+import { t, dateLocale } from './i18n/core.ts';
 /**
  * Pure presentation helpers for the Orders tab (M19). They only arrange data the app
  * already holds; no network reads, payment decisions or order transitions live here.
  */
 
 export const ALMATY_TIME_ZONE = 'Asia/Almaty';
-const GENITIVE_MONTHS = [
-  'января',
-  'февраля',
-  'марта',
-  'апреля',
-  'мая',
-  'июня',
-  'июля',
-  'августа',
-  'сентября',
-  'октября',
-  'ноября',
-  'декабря',
-];
-
 // Same Intl approach as the profile and birth-date helpers: the restaurant calendar,
 // not the device time zone, decides which day an order belongs to.
 const dayFormat = new Intl.DateTimeFormat('en-CA', {
@@ -70,12 +56,16 @@ function shiftDay(key: string, days: number): string {
 /** «Сегодня», «Вчера», «2 октября» (with the year when it is not the current one). */
 export function historyDayLabel(key: string, now: number | Date = Date.now()): string {
   const today = almatyDayKey(now);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || !today) return 'Ранее';
-  if (key === today) return 'Сегодня';
-  if (key === shiftDay(today, -1)) return 'Вчера';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || !today) return t('Ранее');
+  if (key === today) return t('Сегодня');
+  if (key === shiftDay(today, -1)) return t('Вчера');
   const [year, month, day] = key.split('-').map(Number);
-  const label = `${day} ${GENITIVE_MONTHS[month! - 1]}`;
-  return year === Number(today.slice(0, 4)) ? label : `${label} ${year}`;
+  const monthName = new Intl.DateTimeFormat(dateLocale(), {
+    timeZone: ALMATY_TIME_ZONE,
+    day: 'numeric',
+    month: 'long',
+  }).format(new Date(Date.UTC(year!, month! - 1, day!, 12)));
+  return year === Number(today.slice(0, 4)) ? monthName : `${monthName} ${year}`;
 }
 
 export interface DayGroup<T> {
@@ -147,12 +137,12 @@ export interface OrderLineView {
 /** «Master Combo ×2, Pick Combo, Фингер Дуо». */
 export function itemsSummary(items: readonly OrderLineView[]): string {
   return items
-    .map((item) => (item.quantity > 1 ? `${item.title} ×${item.quantity}` : item.title))
+    .map((item) => (item.quantity > 1 ? `${t(item.title)} ×${item.quantity}` : t(item.title)))
     .join(', ');
 }
 
 export const serviceLabel = (mode: 'takeaway' | 'dine_in') =>
-  mode === 'takeaway' ? 'С собой' : 'В зале';
+  mode === 'takeaway' ? t('С собой') : t('В зале');
 
 /** «№ 12 · 12:32 · С собой»; three or more positions show the piece count instead. */
 export function historyMetaParts(order: {
@@ -165,7 +155,7 @@ export function historyMetaParts(order: {
   return [
     order.number ? `№ ${order.number}` : '',
     almatyClock(order.createdAt),
-    order.items.length >= 3 ? `${quantity} шт.` : serviceLabel(order.serviceMode),
+    order.items.length >= 3 ? t('{p0} шт.', { p0: quantity }) : serviceLabel(order.serviceMode),
   ].filter(Boolean);
 }
 
@@ -187,7 +177,8 @@ export function latestUnratedOrderId(orders: readonly RatingCandidate[]): string
   return latest?.id ?? null;
 }
 
-export const activeSectionTitle = (count: number) => (count > 1 ? `Сейчас · ${count}` : 'Сейчас');
+export const activeSectionTitle = (count: number) =>
+  count > 1 ? t('Сейчас · {p0}', { p0: count }) : 'Сейчас';
 
 export type ActiveKind = 'progress' | 'ready' | 'payment';
 export type CommercePhase =

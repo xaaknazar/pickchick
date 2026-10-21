@@ -1,3 +1,4 @@
+import { t } from '../../i18n/core.ts';
 /** Local practice only. Fixed-step world units keep difficulty equal on every screen. */
 export const RUN_WIDTH = 360;
 export const RUN_DURATION = 45_000;
@@ -87,7 +88,10 @@ function step(before: RunState): RunState {
     const points = 10 + Math.min(3, Math.floor(g.combo / 3)) * 5;
     g.score += points;
     g.event++;
-    g.notice = g.combo >= 3 ? `Серия ${g.combo} · +${points}` : `Вкусно! +${points}`;
+    g.notice =
+      g.combo >= 3
+        ? t('Серия {p0} · +{p1}', { p0: g.combo, p1: points })
+        : t('Вкусно! +{p0}', { p0: points });
   }
   if (!g.passed && g.x + 30 < 49) {
     g.passed = true;

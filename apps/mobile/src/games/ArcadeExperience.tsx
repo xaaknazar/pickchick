@@ -1,3 +1,5 @@
+import { dateLocale } from '../i18n/core';
+import { localize, t, useLocale } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
@@ -42,6 +44,7 @@ export function useArcadeMotion() {
   return reduced;
 }
 export function ArcadeBackdrop() {
+  useLocale();
   return (
     <View
       pointerEvents="none"
@@ -69,6 +72,7 @@ export function ArcadeButton({
   disabled?: boolean;
   icon?: IconName;
 }) {
+  useLocale();
   return (
     <Pressable
       testID={testID}
@@ -84,7 +88,7 @@ export function ArcadeButton({
       ]}
     >
       {icon ? <Icon name={icon} size={20} color={secondary ? arcade.white : '#24130A'} /> : null}
-      <Text style={[a.buttonLabel, secondary && { color: arcade.white }]}>{title}</Text>
+      <Text style={[a.buttonLabel, secondary && { color: arcade.white }]}>{localize(title)}</Text>
     </Pressable>
   );
 }
@@ -109,6 +113,7 @@ export function ArcadeIntro({
   disabled?: boolean;
   children?: React.ReactNode;
 }) {
+  useLocale();
   const shade = 'linear-gradient(180deg, rgba(7,15,33,0) 28%, rgba(7,15,33,0.98) 100%)';
   const gradient = (
     Platform.OS === 'web' ? { backgroundImage: shade } : { experimental_backgroundImage: shade }
@@ -129,14 +134,14 @@ export function ArcadeIntro({
             <Text style={a.editionText}>PICK CHICK ARCADE</Text>
           </View>
           <View style={a.heroCopy}>
-            <Text style={a.heroTitle}>{title}</Text>
-            <Text style={a.subtitle}>{subtitle}</Text>
+            <Text style={a.heroTitle}>{localize(title)}</Text>
+            <Text style={a.subtitle}>{localize(subtitle)}</Text>
           </View>
         </View>
         <View style={a.record}>
           <Icon name="trophy-outline" size={18} color={arcade.orange} />
-          <Text style={a.recordLabel}>Твой рекорд</Text>
-          <Text style={a.recordValue}>{best.toLocaleString('ru-RU')}</Text>
+          <Text style={a.recordLabel}>{t('Твой рекорд')}</Text>
+          <Text style={a.recordValue}>{localize(best.toLocaleString(dateLocale()))}</Text>
         </View>
         <View style={a.steps}>
           {steps.map(([icon, label, copy], i) => (
@@ -145,10 +150,10 @@ export function ArcadeIntro({
                 <Icon name={icon} size={22} color={arcade.orange} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={a.stepLabel}>{label}</Text>
-                <Text style={a.stepCopy}>{copy}</Text>
+                <Text style={a.stepLabel}>{localize(label)}</Text>
+                <Text style={a.stepCopy}>{localize(copy)}</Text>
               </View>
-              <Text style={a.stepNumber}>0{i + 1}</Text>
+              <Text style={a.stepNumber}>0{localize(i + 1)}</Text>
             </View>
           ))}
         </View>
@@ -156,13 +161,15 @@ export function ArcadeIntro({
       </ScrollView>
       <View style={a.footer}>
         <ArcadeButton
-          title="Поехали!"
+          title={t('Поехали!')}
           icon="play"
           testID={testID}
           disabled={disabled}
           onPress={onStart}
         />
-        <Text style={a.caption}>Личный рекорд на устройстве · очки без начисления Чиков</Text>
+        <Text style={a.caption}>
+          {t('Личный рекорд на устройстве · очки без начисления Чиков')}
+        </Text>
       </View>
     </View>
   );
@@ -179,6 +186,7 @@ export function ArcadeFeedback({
   reduced: boolean;
   danger?: boolean;
 }) {
+  useLocale();
   const value = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!text) return;
@@ -208,7 +216,7 @@ export function ArcadeFeedback({
       ]}
     >
       <View style={[a.feedbackPill, danger && { backgroundColor: '#7A3030' }]}>
-        <Text style={a.feedbackText}>{text}</Text>
+        <Text style={a.feedbackText}>{localize(text)}</Text>
       </View>
     </Animated.View>
   );
@@ -224,16 +232,17 @@ export function ArcadeMetric({
   accent?: boolean;
   testID?: string;
 }) {
+  useLocale();
   return (
     <View style={a.metric}>
-      <Text style={a.metricLabel}>{label}</Text>
+      <Text style={a.metricLabel}>{localize(label)}</Text>
       <Text
         testID={testID}
         numberOfLines={1}
         adjustsFontSizeToFit
         style={[a.metricValue, accent && { color: arcade.orange }]}
       >
-        {value}
+        {localize(value)}
       </Text>
     </View>
   );

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-20",
+  "updatedAt": "2026-10-21",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -75,7 +75,8 @@
     "docs/operations/unified-menu-installation-2026-10-09.md",
     "docs/operations/workforce.md",
     "docs/operations/cabinet-entry.md",
-    "docs/operations/mobile-combo-rewards.md"
+    "docs/operations/mobile-combo-rewards.md",
+    "docs/operations/mobile-l10n-push-2026-10-14.md"
   ],
   "workstreams": [
     {
@@ -3145,41 +3146,6 @@
       }
     },
     {
-      "id": "crm-push",
-      "workstream": "crm",
-      "title": "Отправлять push с согласиями и лимитами",
-      "summary": "APNs/FCM, lifecycle токенов, дедупликация, частотные лимиты и исключение opt-out ещё требуют интеграции.",
-      "status": "planned",
-      "owner": "development",
-      "phase": "product",
-      "dependsOn": ["crm-content", "identity-privacy"],
-      "evidence": [
-        {
-          "label": "Возможности и пробелы бэк-офиса",
-          "path": "docs/operations/backoffice-operations.md"
-        },
-        {
-          "label": "Roadmap и сценарии AC-01-41",
-          "path": "docs/04-roadmap.md"
-        },
-        {
-          "label": "Колокольчик в главном меню - 23 сентября 2026",
-          "path": "docs/operations/mobile-menu-notifications.md"
-        }
-      ],
-      "acceptance": [
-        "Тестовая кампания доходит до разрешённых устройств один раз.",
-        "Отзыв согласия исключает гостя из новых кампаний."
-      ],
-      "nextAction": "Подключить provider tokens, worker и ограниченную тестовую кампанию.",
-      "checks": {
-        "implemented": false,
-        "verified": false,
-        "deployed": false,
-        "accepted": false
-      }
-    },
-    {
       "id": "crm-service",
       "workstream": "crm",
       "title": "Довести поддержку гостей и внешние отзывы",
@@ -4764,7 +4730,7 @@
       "id": "release-fixes-1019",
       "workstream": "launch",
       "title": "Исправления аудита запуска 19.10",
-      "summary": "59 находок аудита 19.10 разобраны семью полосами и собраны в ветку codex/release-fixes-1019: платежи Kaspi, допуск на кухню и номера, касса и ключ кассы, вход и безопасность, киоск, приложение, мониторинг и копии. Реализовано и проверено локально 20.10 на свежей базе; не установлено на VPS, кассу, iPad и в App Store; приёмка владельцем не проводилась.",
+      "summary": "59 находок аудита 19.10 разобраны семью полосами и собраны в ветку codex/release-fixes-1019: платежи Kaspi, допуск на кухню и номера, касса и ключ кассы, вход и безопасность, киоск, приложение, мониторинг и копии. Реализовано и проверено локально 20.10 на свежей базе; не установлено на VPS, кассу, iPad и в App Store; приёмка владельцем не проводилась. 21.10: PR262 слит обычным merge d15bde82 после полной Foundation CI 11/11. Отдельно разрешённая ручная ротация ключа кассы выполнена до 20.11.2026 12:34:54 Алматы; runtime и миграции не выпускались.",
       "status": "active",
       "owner": "joint",
       "phase": "acceptance",
@@ -4781,6 +4747,14 @@
         {
           "label": "Передача и проверки",
           "path": "docs/collaboration/handoff.md"
+        },
+        {
+          "label": "Ручное продление ключа кассы 21 октября",
+          "path": "docs/operations/release-fixes-2026-10-19/key-renewal-2026-10-21.md"
+        },
+        {
+          "label": "План первого шага миграций, не выполнен",
+          "path": "docs/operations/release-fixes-2026-10-19/first-migration-step.md"
         }
       ],
       "acceptance": [
@@ -4788,10 +4762,85 @@
         "Охраняемые выпуски по плану README выполнены, каждый с проверкой и откатом.",
         "Владелец принял решения из owner-actions.md и проверил сценарии аудита на точке."
       ],
-      "nextAction": "Push и PR с Mac, полная CI, затем охраняемые выпуски по плану README; решения владельца - owner-actions.md.",
+      "nextAction": "Отдельно согласовать первый шаг 060, затем064/066/068 после подготовки охраняемого оператора и backup/restore. 204d318b ждёт финансовый Mac; акцию не включать до нового FulfillmentWorker.",
       "checks": {
         "implemented": true,
         "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "crm-push",
+      "workstream": "crm",
+      "title": "Отправлять push с согласиями и лимитами",
+      "summary": "Подготовлены транзакционные APNs/FCM, lifecycle токенов, отдельные согласия, inbox и durable worker. Локальная PostgreSQL проверяет дедупликацию, отзыв согласия и сеанса. Реальная доставка, маркетинговые кампании и частотные лимиты ещё не приняты.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["crm-content", "identity-privacy"],
+      "evidence": [
+        {
+          "label": "Возможности и пробелы бэк-офиса",
+          "path": "docs/operations/backoffice-operations.md"
+        },
+        {
+          "label": "Roadmap и сценарии AC-01-41",
+          "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Колокольчик в главном меню - 23 сентября 2026",
+          "path": "docs/operations/mobile-menu-notifications.md"
+        },
+        {
+          "label": "Подготовка RU/KK/EN и push от 14 октября",
+          "path": "docs/operations/mobile-l10n-push-2026-10-14.md"
+        }
+      ],
+      "acceptance": [
+        "Тестовая кампания доходит до разрешённых устройств один раз.",
+        "Отзыв согласия исключает гостя из новых кампаний."
+      ],
+      "nextAction": "Подключить provider tokens, worker и ограниченную тестовую кампанию.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-l10n-push-1014",
+      "workstream": "mobile",
+      "title": "Подготовить RU/KK/EN и уведомления о заказах",
+      "summary": "1399 UI-строк и 4 события push на RU/KK/EN. Объединён shared d15bde82 с исправлениями аудита; новые сообщения оплаты, подарков и возвратов переведены. Миграция push перенумерована в069. Проверки объединённой ветки идут; нативная доставка APNs/FCM и физическая приёмка не выполнены.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["identity-core"],
+      "evidence": [
+        {
+          "label": "Переводы рядом, с поиском",
+          "path": "docs/translations/mobile-ru-kk-en.html"
+        },
+        {
+          "label": "Проверки и границы выпуска",
+          "path": "docs/operations/mobile-l10n-push-2026-10-14.md"
+        },
+        {
+          "label": "Настройка APNs/FCM без секретов",
+          "path": "infra/notifications/README.md"
+        }
+      ],
+      "acceptance": [
+        "Выбор языка сохраняется, финансовое состояние и корзина не изменяются.",
+        "Русский, казахский и английский сопоставлены в одном документе.",
+        "Push проверен на физическом iPhone в foreground/background после настройки провайдера."
+      ],
+      "nextAction": "Зелёная CI, ревизия переводов владельцем, отдельная настройка APNs/FCM и новый нативный бинарник для приёмки. Не публиковать App Store автоматически.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
         "deployed": false,
         "accepted": false
       }

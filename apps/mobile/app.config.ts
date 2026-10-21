@@ -31,6 +31,9 @@ export default function mobileConfig({ config }: ConfigContext): ExpoConfig {
     },
     android: {
       ...config.android,
+      ...(process.env.PICKCHICK_GOOGLE_SERVICES_FILE
+        ? { googleServicesFile: process.env.PICKCHICK_GOOGLE_SERVICES_FILE }
+        : {}),
       package: development ? 'kz.pickchick.app.dev' : config.android?.package,
     },
     plugins: [

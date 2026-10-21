@@ -1,3 +1,4 @@
+import { t, localize, useLocale } from '../i18n';
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { MotionPressable } from './Motion';
@@ -21,25 +22,26 @@ export function CheckoutSheetHeader({
   back?: boolean;
   action?: ReactNode;
 }) {
+  useLocale();
   return (
     <View style={checkoutStyle.header}>
       <Row style={checkoutStyle.controls}>
         {back ? (
           <IconButton
             name="chevron-back"
-            label="Вернуться в корзину"
+            label={t('Вернуться в корзину')}
             onPress={onBack}
             testID={testID}
             style={checkoutStyle.control}
           />
         ) : (
-          <CloseButton label="Закрыть корзину" onPress={onBack} testID={testID} />
+          <CloseButton label={t('Закрыть корзину')} onPress={onBack} testID={testID} />
         )}
         {action}
       </Row>
       <Row style={checkoutStyle.titleRow}>
-        <Heading style={checkoutStyle.title}>{title}</Heading>
-        {subtitle ? <Caption style={checkoutStyle.branch}>{subtitle}</Caption> : null}
+        <Heading style={checkoutStyle.title}>{localize(title)}</Heading>
+        {subtitle ? <Caption style={checkoutStyle.branch}>{localize(subtitle)}</Caption> : null}
       </Row>
     </View>
   );
@@ -59,17 +61,20 @@ export function CheckoutAction({
   testID: string;
   kaspi?: boolean;
 }) {
+  useLocale();
   return (
     <MotionPressable
       accessibilityRole="button"
-      accessibilityLabel={`${title}${amount ? `, ${amount}` : ''}${kaspi ? ' Kaspi' : ''}`}
+      accessibilityLabel={localize(
+        `${title}${amount ? `, ${amount}` : ''}${kaspi ? ' Kaspi' : ''}`,
+      )}
       accessibilityState={{ disabled }}
       disabled={disabled}
       testID={testID}
       onPress={onPress}
       style={[checkoutStyle.action, disabled && { opacity: 0.45 }]}
     >
-      <Body style={checkoutStyle.actionText}>{title}</Body>
+      <Body style={checkoutStyle.actionText}>{localize(title)}</Body>
       {kaspi ? (
         <View style={checkoutStyle.kaspiWord}>
           <PaymentMark method="kaspi" size={26} />
@@ -77,12 +82,13 @@ export function CheckoutAction({
         </View>
       ) : null}
       {amount ? (
-        <Body style={[checkoutStyle.actionText, { marginLeft: 'auto' }]}>{amount}</Body>
+        <Body style={[checkoutStyle.actionText, { marginLeft: 'auto' }]}>{localize(amount)}</Body>
       ) : null}
     </MotionPressable>
   );
 }
 export function UpcomingPayments() {
+  useLocale();
   return (
     <>
       {(['Apple Pay', 'Банковская карта'] as const).map((label, i) => (
@@ -93,14 +99,14 @@ export function UpcomingPayments() {
           accessible
           accessibilityRole="button"
           aria-disabled
-          accessibilityLabel={`${label}, скоро`}
+          accessibilityLabel={localize(t('{p0}, скоро', { p0: label }))}
           accessibilityState={{ disabled: true }}
         >
           <View style={checkoutStyle.methodIcon}>
             <Icon name={i ? 'card-outline' : 'logo-apple'} size={21} color="#899BBC" />
           </View>
-          <Body style={checkoutStyle.upcomingName}>{label}</Body>
-          <Caption style={checkoutStyle.soon}>СКОРО</Caption>
+          <Body style={checkoutStyle.upcomingName}>{localize(label)}</Body>
+          <Caption style={checkoutStyle.soon}>{t('СКОРО')}</Caption>
         </View>
       ))}
     </>

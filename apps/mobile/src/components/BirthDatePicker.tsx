@@ -1,3 +1,5 @@
+import { dateLocale } from '../i18n/core';
+import { t, useLocale } from '../i18n';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
@@ -14,6 +16,7 @@ import {
 } from './birth-date-picker';
 
 function AndroidBirthDatePicker({ value, onConfirm, onCancel }: BirthDatePickerProps) {
+  useLocale();
   const callbacks = useRef({ onConfirm, onCancel });
   const [options] = useState(() => {
     const maximum = almatyToday();
@@ -76,6 +79,7 @@ function AndroidBirthDatePicker({ value, onConfirm, onCancel }: BirthDatePickerP
 }
 
 function IOSBirthDatePicker({ value, onConfirm, onCancel }: BirthDatePickerProps) {
+  useLocale();
   const [maximum] = useState(almatyToday);
   const [initialDate] = useState(() => birthDateAtLocalNoon(initialBirthDate(value, maximum)));
   const selected = useRef(birthDateFromNative(initialDate));
@@ -88,13 +92,13 @@ function IOSBirthDatePicker({ value, onConfirm, onCancel }: BirthDatePickerProps
     >
       <DateTimePicker
         testID="birthday-native-input"
-        accessibilityLabel="Дата рождения"
+        accessibilityLabel={t('Дата рождения')}
         // Native owns wheel movement. Echoing intermediate dates back through
         // Fabric can interrupt a fast scroll and reset it to an earlier day.
         value={initialDate}
         mode="date"
         display="spinner"
-        locale="ru-RU"
+        locale={dateLocale()}
         themeVariant="dark"
         textColor={authColors.text}
         minimumDate={birthDateAtLocalNoon(MINIMUM_BIRTH_DATE)}
@@ -110,6 +114,7 @@ function IOSBirthDatePicker({ value, onConfirm, onCancel }: BirthDatePickerProps
 }
 
 export default function BirthDatePicker(props: BirthDatePickerProps) {
+  useLocale();
   return Platform.OS === 'android' ? (
     <AndroidBirthDatePicker {...props} />
   ) : (

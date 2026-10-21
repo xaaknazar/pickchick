@@ -1,3 +1,4 @@
+import { localize, t, useLocale } from '../i18n';
 import { MotionPressable as Pressable } from '../components/Motion';
 import type { ReactNode } from 'react';
 import { useRouter } from 'expo-router';
@@ -28,6 +29,7 @@ function ProfileRow({
   testID?: string;
   last?: boolean;
 }) {
+  useLocale();
   return (
     <Pressable
       testID={testID}
@@ -41,23 +43,24 @@ function ProfileRow({
         <Icon name={icon} size={21} color="#B8D0FF" />
       </View>
       <View style={s.flex}>
-        <Text style={s.rowTitle}>{title}</Text>
+        <Text style={s.rowTitle}>{localize(title)}</Text>
         {value ? <Text style={s.rowValue}>{value}</Text> : null}
       </View>
       {onPress ? (
         <Icon name="chevron-forward" size={17} color={colors.muted} />
       ) : (
-        <Text style={s.soon}>Скоро</Text>
+        <Text style={s.soon}>{t('Скоро')}</Text>
       )}
     </Pressable>
   );
 }
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
+  useLocale();
   return (
     <View style={s.section}>
       <Text accessibilityRole="header" style={s.sectionTitle}>
-        {title}
+        {localize(title)}
       </Text>
       <View style={s.group}>{children}</View>
     </View>
@@ -65,6 +68,7 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export function Profile(props: ScreenProps) {
+  useLocale();
   const account = useAccount();
   const router = useRouter();
   const { fontScale } = useWindowDimensions();
@@ -89,11 +93,11 @@ export function Profile(props: ScreenProps) {
       >
         <View style={s.header}>
           <Text accessibilityRole="header" style={s.title}>
-            Профиль
+            {t('Профиль')}
           </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Настройки профиля"
+            accessibilityLabel={t('Настройки профиля')}
             onPress={() => props.navigate('M34')}
             style={({ pressed }) => [s.settings, pressed && s.pressed]}
           >
@@ -103,7 +107,7 @@ export function Profile(props: ScreenProps) {
 
         <View testID="profile-identity" style={s.identity}>
           {!account.ready ? (
-            <Loading title="Восстанавливаем профиль…" />
+            <Loading title={t('Восстанавливаем профиль…')} />
           ) : (
             <>
               <View style={[s.identityRow, fontScale > 1.4 && { flexWrap: 'wrap' }]}>
@@ -117,21 +121,23 @@ export function Profile(props: ScreenProps) {
                   />
                 </View>
                 <View style={s.flex}>
-                  <Text style={s.name}>{account.account ? name : 'Добро пожаловать'}</Text>
+                  <Text style={s.name}>{account.account ? name : t('Добро пожаловать')}</Text>
                   <Text style={s.subtitle}>
-                    {account.account
-                      ? formatDemoPhone(account.account.phone)
-                      : 'Без входа в аккаунт'}
+                    {localize(
+                      account.account
+                        ? formatDemoPhone(account.account.phone)
+                        : 'Без входа в аккаунт',
+                    )}
                   </Text>
                   {account.account?.kind === 'local_demo' ? (
-                    <Text style={s.demoLabel}>Профиль на устройстве</Text>
+                    <Text style={s.demoLabel}>{t('Профиль на устройстве')}</Text>
                   ) : null}
                 </View>
                 {account.account ? (
                   <Pressable
                     testID="profile-edit"
                     accessibilityRole="button"
-                    accessibilityLabel="Редактировать профиль"
+                    accessibilityLabel={t('Редактировать профиль')}
                     onPress={() => props.navigate('M04')}
                     style={({ pressed }) => [s.edit, pressed && s.pressed]}
                   >
@@ -142,7 +148,7 @@ export function Profile(props: ScreenProps) {
               {!account.account ? (
                 <>
                   <Text style={s.intro}>
-                    Войдите, чтобы оформить заказ и сохранить свои данные.
+                    {t('Войдите, чтобы оформить заказ и сохранить свои данные.')}
                   </Text>
                   <Pressable
                     testID="profile-sign-in"
@@ -152,7 +158,7 @@ export function Profile(props: ScreenProps) {
                     onPress={() => props.navigate('M02')}
                     style={({ pressed }) => [s.signIn, (pressed || account.busy) && s.pressed]}
                   >
-                    <Text style={s.signInLabel}>Войти по номеру</Text>
+                    <Text style={s.signInLabel}>{t('Войти по номеру')}</Text>
                     <Icon name="arrow-forward" size={20} color={colors.orangeInk} />
                   </Pressable>
                 </>
@@ -161,7 +167,7 @@ export function Profile(props: ScreenProps) {
           )}
           <ProfileRestoreNotice />
           {account.ready && account.error && account.mode === 'demo' ? (
-            <Text style={s.error}>{account.error}</Text>
+            <Text style={s.error}>{localize(account.error)}</Text>
           ) : null}
         </View>
 
@@ -192,8 +198,8 @@ export function Profile(props: ScreenProps) {
               style={({ pressed }) => [s.shortcut, pressed && s.pressed]}
             >
               <Icon name={item.icon} size={24} color="#BDD3FF" />
-              <Text style={s.shortcutTitle}>{item.title}</Text>
-              <Text style={s.shortcutDetail}>{item.detail}</Text>
+              <Text style={s.shortcutTitle}>{localize(item.title)}</Text>
+              <Text style={s.shortcutDetail}>{localize(item.detail)}</Text>
             </Pressable>
           ))}
         </View>
@@ -219,66 +225,66 @@ export function Profile(props: ScreenProps) {
             <Icon name="sparkles-outline" size={24} color={colors.accent} />
           </View>
           <View style={s.flex}>
-            <Text style={s.loyaltyTitle}>Мои Чики и уровни</Text>
-            <Text style={s.loyaltyCopy}>Твой путь к вершинам Алматы</Text>
+            <Text style={s.loyaltyTitle}>{t('Мои Чики и уровни')}</Text>
+            <Text style={s.loyaltyCopy}>{t('Твой путь к вершинам Алматы')}</Text>
           </View>
           <Icon name="chevron-forward" size={20} color={colors.muted} />
         </Pressable>
 
-        <Group title="Программа Чиков">
+        <Group title={t('Программа Чиков')}>
           <ProfileRow
-            title="Награды и миссии"
+            title={t('Награды и миссии')}
             icon="ribbon-outline"
             onPress={() => props.navigate('M25')}
           />
-          <ProfileRow title="Промокоды" icon="ticket-outline" last />
+          <ProfileRow title={t('Промокоды')} icon="ticket-outline" last />
         </Group>
 
-        <Group title="Аккаунт">
+        <Group title={t('Аккаунт')}>
           <ProfileRow
-            title="Мои данные"
+            title={t('Мои данные')}
             icon="person-outline"
-            value={account.account ? savedNickname || 'Добавить имя' : 'Войти в аккаунт'}
+            value={account.account ? savedNickname || t('Добавить имя') : t('Войти в аккаунт')}
             onPress={() => props.navigate(account.account ? 'M04' : 'M02')}
           />
           {account.account ? (
             <ProfileRow
-              title="Дата рождения"
+              title={t('Дата рождения')}
               icon="gift-outline"
-              value={formatBirthDate(account.account.profile.birthDate) || 'Добавить'}
+              value={formatBirthDate(account.account.profile.birthDate) || t('Добавить')}
               testID="profile-birthday"
               onPress={() => props.navigate('M04')}
             />
           ) : null}
           <ProfileRow
-            title="Уведомления"
+            title={t('Уведомления')}
             icon="notifications-outline"
-            value="Заказы и предложения для вас"
+            value={t('Заказы и предложения для вас')}
             testID="profile-notifications"
             onPress={() => router.push('/notifications')}
           />
           <ProfileRow
-            title="Язык"
+            title={t('Язык')}
             icon="globe-outline"
-            value={props.model.locale === 'kk' ? 'Қазақша' : 'Русский'}
+            value={{ kk: 'Қазақша', ru: 'Русский', en: 'English' }[props.model.locale]}
             onPress={() => props.navigate('M34')}
             last
           />
         </Group>
 
-        <Group title="О Pick Chick">
+        <Group title={t('О Pick Chick')}>
           <ProfileRow
-            title="Наши рестораны"
+            title={t('Наши рестораны')}
             icon="location-outline"
             onPress={() => props.navigate('M05')}
           />
           <ProfileRow
-            title="Условия и конфиденциальность"
+            title={t('Условия и конфиденциальность')}
             icon="document-text-outline"
             onPress={() => props.navigate('M33')}
           />
           <ProfileRow
-            title="Управление данными"
+            title={t('Управление данными')}
             icon="shield-checkmark-outline"
             onPress={() => props.navigate('M32')}
             last
@@ -287,7 +293,7 @@ export function Profile(props: ScreenProps) {
 
         {account.account ? (
           <Button
-            title="Выйти из профиля"
+            title={t('Выйти из профиля')}
             testID="demo-sign-out"
             secondary
             disabled={account.busy || !account.ready || props.preview}
@@ -303,7 +309,7 @@ export function Profile(props: ScreenProps) {
             }}
           />
         ) : null}
-        <Text style={s.version}>Pick Chick · приложение</Text>
+        <Text style={s.version}>{t('Pick Chick · приложение')}</Text>
       </ScrollView>
     </View>
   );

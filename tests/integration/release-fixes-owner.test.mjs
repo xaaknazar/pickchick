@@ -41,7 +41,7 @@ async function withRole(c, run) {
 }
 
 test('owner migration applies exactly 064/066/068 on schema060, keeps data and ACL, rejects replay', async () => {
-  const baseline = await copyMigrations('fixes-baseline060-', (f) => !MIGRATIONS.includes(f));
+  const baseline = await copyMigrations('fixes-baseline060-', (f) => +f.slice(0, 3) <= 60);
   const candidate = await copyMigrations('fixes-candidate068-', (f) => +f.slice(0, 3) <= 68);
   const future = await copyMigrations('fixes-future-', () => true);
   await writeFile(join(future, '069_cloud_future.sql'), 'SELECT 1;');
@@ -106,7 +106,7 @@ test('owner migration applies exactly 064/066/068 on schema060, keeps data and A
 
 test('owner migration refuses a ledger without 060 and grants nothing while customer login is off', async () => {
   const before060 = await copyMigrations('fixes-before060-', (f) => +f.slice(0, 3) <= 58);
-  const baseline = await copyMigrations('fixes-baseline060-', (f) => !MIGRATIONS.includes(f));
+  const baseline = await copyMigrations('fixes-baseline060-', (f) => +f.slice(0, 3) <= 60);
   const candidate = await copyMigrations('fixes-candidate068-', (f) => +f.slice(0, 3) <= 68);
   try {
     await withSyncDatabases(

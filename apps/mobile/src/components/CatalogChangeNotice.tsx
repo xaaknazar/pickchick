@@ -1,3 +1,4 @@
+import { t, localize, useLocale } from '../i18n';
 import { View } from 'react-native';
 import { Notice, Button, Caption } from './UI';
 import { money } from '../domain';
@@ -11,18 +12,19 @@ export function CatalogChangeNotice({
   totals?: { oldTotal: string; newTotal: string } | null;
   onDismiss?(): void;
 }) {
+  useLocale();
   return (
     <View testID="cart-prices-updated" accessibilityLiveRegion="polite">
-      <Notice title="Меню обновилось" warning>
-        {message}
+      <Notice title={t('Меню обновилось')} warning>
+        {localize(message)}
       </Notice>
       {totals && totals.oldTotal !== totals.newTotal ? (
         <Caption>
-          Было {money(totals.oldTotal)}. Сейчас {money(totals.newTotal)}.
+          {t('Было {p0}. Сейчас {p1}.', { p0: money(totals.oldTotal), p1: money(totals.newTotal) })}
         </Caption>
       ) : null}
       {onDismiss ? (
-        <Button title="Понятно" testID="catalog-update-apply" onPress={onDismiss} />
+        <Button title={t('Понятно')} testID="catalog-update-apply" onPress={onDismiss} />
       ) : null}
     </View>
   );

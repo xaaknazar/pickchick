@@ -1,3 +1,4 @@
+import { localize, t, useLocale } from '../i18n';
 import { ProductMenuNotice } from '../components/ProductMenuNotice';
 import { useEffect, useRef, useState } from 'react';
 import { retainSelections } from '../cart-reprice';
@@ -53,6 +54,7 @@ const blend = (
 ) as ViewStyle;
 
 export function PhotoProduct(props: Props) {
+  useLocale();
   const { product } = props;
   const insets = useSafeAreaInsets();
   const { width, height, fontScale } = useWindowDimensions();
@@ -179,8 +181,8 @@ export function PhotoProduct(props: Props) {
           }}
           accessible={false}
         />
-        <Text style={s.extraName}>{label}</Text>
-        <Text style={s.choiceLabel}>+{money(lineUnitPrice(line))}</Text>
+        <Text style={s.extraName}>{localize(label)}</Text>
+        <Text style={s.choiceLabel}>+{localize(money(lineUnitPrice(line)))}</Text>
         <View style={s.extraControls}>
           <Counter
             blue={blue}
@@ -241,8 +243,8 @@ export function PhotoProduct(props: Props) {
   const infoContent = (
     <View style={s.infoCopy}>
       <Text style={s.modalMuted}>
-        {servingLabel} ·{' '}
-        {product.nutrition?.basis === 'per_100_g' ? 'На 100 г' : 'На выбранную порцию'}
+        {localize(servingLabel)} ·{localize(' ')}
+        {localize(product.nutrition?.basis === 'per_100_g' ? 'На 100 г' : 'На выбранную порцию')}
       </Text>
       {product.nutrition ? (
         <View style={s.nutritionGrid}>
@@ -254,22 +256,26 @@ export function PhotoProduct(props: Props) {
           ].map(([value, label]) => (
             <View key={String(label)} style={s.nutrient}>
               <Text style={s.nutrientValue}>
-                {typeof value === 'number'
-                  ? Math.round(value * nutritionMultiplier * 10) / 10
-                  : value}
+                {localize(
+                  typeof value === 'number'
+                    ? Math.round(value * nutritionMultiplier * 10) / 10
+                    : value,
+                )}
               </Text>
-              <Text style={s.modalMuted}>{label}</Text>
+              <Text style={s.modalMuted}>{localize(label)}</Text>
             </View>
           ))}
         </View>
       ) : (
-        <Text style={s.modalMuted}>Данные уточняются.</Text>
+        <Text style={s.modalMuted}>{t('Данные уточняются.')}</Text>
       )}
-      <Text style={s.modalMuted}>Без учёта дополнительных опций.</Text>
+      <Text style={s.modalMuted}>{t('Без учёта дополнительных опций.')}</Text>
       <Text style={s.modalMuted}>
-        {product.allergens?.length
-          ? `Аллергены: ${product.allergens.join(', ')}`
-          : 'Уточните аллергены у сотрудников ресторана.'}
+        {localize(
+          product.allergens?.length
+            ? t('Аллергены: {p0}', { p0: product.allergens.join(', ') })
+            : 'Уточните аллергены у сотрудников ресторана.',
+        )}
       </Text>
     </View>
   );
@@ -297,7 +303,7 @@ export function PhotoProduct(props: Props) {
                 photo={hero}
                 style={[StyleSheet.absoluteFill, drinkCutout && { top: closeTop + 12, bottom: 12 }]}
                 contentFit="contain"
-                accessibilityLabel={title}
+                accessibilityLabel={localize(title)}
               />
             ) : (
               <View
@@ -307,7 +313,7 @@ export function PhotoProduct(props: Props) {
                 ]}
               >
                 <Icon name="image-outline" color="#65594F" size={48} />
-                <Text style={s.noPhoto}>Фото скоро</Text>
+                <Text style={s.noPhoto}>{t('Фото скоро')}</Text>
               </View>
             )}
             {drinkCutout ? null : (
@@ -323,7 +329,7 @@ export function PhotoProduct(props: Props) {
                 }
               >
                 <Icon name="options-outline" color="#8A3309" size={20} />
-                <Text style={s.photoActionText}>Настроить комбо</Text>
+                <Text style={s.photoActionText}>{t('Настроить комбо')}</Text>
               </Pressable>
             ) : null}
           </View>
@@ -335,13 +341,13 @@ export function PhotoProduct(props: Props) {
               onDismiss={() => setCompanionsChanged(false)}
             />
             <Text style={s.title} testID="photo-product-title">
-              {title}
+              {localize(title)}
             </Text>
-            <Text style={s.description}>{product.description}</Text>
+            <Text style={s.description}>{localize(product.description)}</Text>
             <View style={s.productMeta}>
               <Text style={s.serving}>
-                {servingLabel}
-                {product.category === 'На двоих' ? ' · На двоих' : ''}
+                {localize(servingLabel)}
+                {localize(product.category === 'На двоих' ? ' · На двоих' : '')}
               </Text>
               <Pressable
                 accessibilityRole="button"
@@ -350,7 +356,7 @@ export function PhotoProduct(props: Props) {
                 onPress={() => setInfo(true)}
               >
                 <Icon name="information-circle-outline" color={pageInk} size={16} />
-                <Text style={s.nutritionLabel}>Пищевая ценность</Text>
+                <Text style={s.nutritionLabel}>{t('Пищевая ценность')}</Text>
               </Pressable>
             </View>
           </View>
@@ -362,11 +368,13 @@ export function PhotoProduct(props: Props) {
           >
             {combo ? (
               <View style={{ gap: 6 }}>
-                <Text style={s.sectionTitle}>Ваше комбо</Text>
+                <Text style={s.sectionTitle}>{t('Ваше комбо')}</Text>
                 <Text style={s.choiceLabel}>
-                  {groups.length
-                    ? 'Включённые позиции уже выбраны. Можно заменить каждую отдельно.'
-                    : 'Настройте состав под себя.'}
+                  {localize(
+                    groups.length
+                      ? 'Включённые позиции уже выбраны. Можно заменить каждую отдельно.'
+                      : 'Настройте состав под себя.',
+                  )}
                 </Text>
               </View>
             ) : null}
@@ -376,10 +384,10 @@ export function PhotoProduct(props: Props) {
                 .reduce((n, v) => n + v.quantity, 0);
               return (
                 <View key={group.id} style={{ gap: 10 }}>
-                  <Text style={s.sectionTitle}>{group.title}</Text>
+                  <Text style={s.sectionTitle}>{localize(group.title)}</Text>
                   {group.max > 1 ? (
                     <Text style={s.choiceLabel}>
-                      Выбрано {total} из {group.max}
+                      {t('Выбрано {p0} из {p1}', { p0: total, p1: group.max })}
                     </Text>
                   ) : null}
                   {group.options.map((option) => {
@@ -413,13 +421,15 @@ export function PhotoProduct(props: Props) {
                         style={[s.choice, count > 0 && s.variantSelected]}
                       >
                         <View style={{ flex: 1, gap: 4 }}>
-                          <Text style={s.choiceName}>{option.label}</Text>
+                          <Text style={s.choiceName}>{localize(option.label)}</Text>
                           <Text style={s.choiceLabel}>
-                            {option.available === false
-                              ? 'Временно нет'
-                              : option.price_delta_minor === '0'
-                                ? 'Включено'
-                                : `+${money(option.price_delta_minor)}`}
+                            {localize(
+                              option.available === false
+                                ? 'Временно нет'
+                                : option.price_delta_minor === '0'
+                                  ? 'Включено'
+                                  : `+${money(option.price_delta_minor)}`,
+                            )}
                           </Text>
                         </View>
                         <Icon
@@ -432,9 +442,9 @@ export function PhotoProduct(props: Props) {
                       <View key={option.id} style={[s.choice, { flexWrap: 'wrap' }]}>
                         <OptionImage id={option.id} size={54} />
                         <View style={{ flex: 1 }}>
-                          <Text style={s.choiceName}>{option.label}</Text>
+                          <Text style={s.choiceName}>{localize(option.label)}</Text>
                           <Text style={s.choiceLabel}>
-                            {option.available === false ? 'Временно нет' : 'Включено'}
+                            {localize(option.available === false ? 'Временно нет' : 'Включено')}
                           </Text>
                         </View>
                         <View
@@ -472,7 +482,13 @@ export function PhotoProduct(props: Props) {
                     key={`${group.id}-${index}`}
                     style={s.choice}
                     accessibilityRole="button"
-                    accessibilityLabel={`Заменить ${group.id === 'drink' ? 'напиток' : 'соус'} ${index + 1}: ${option?.label ?? 'не выбран'}`}
+                    accessibilityLabel={localize(
+                      t('Заменить {p0} {p1}: {p2}', {
+                        p0: group.id === 'drink' ? 'напиток' : 'соус',
+                        p1: index + 1,
+                        p2: option?.label ?? 'не выбран',
+                      }),
+                    )}
                     testID={`photo-replace-${group.id}-${index}`}
                     onPress={() => {
                       setPicker({ group, index, chosen: optionId });
@@ -482,18 +498,24 @@ export function PhotoProduct(props: Props) {
                     <OptionImage id={optionId} size={82} />
                     <View style={{ flex: 1, gap: 3 }}>
                       <Text style={s.choiceLabel}>
-                        {group.id === 'drink' ? 'Напиток' : 'Соус'} {index + 1} из {group.min}
+                        {t('{p0} {p1} из {p2}', {
+                          p0: localize(group.id === 'drink' ? 'Напиток' : 'Соус'),
+                          p1: index + 1,
+                          p2: group.min,
+                        })}
                       </Text>
-                      <Text style={s.choiceName}>{option?.label ?? 'Выберите'}</Text>
+                      <Text style={s.choiceName}>{localize(option?.label ?? 'Выберите')}</Text>
                       {option ? (
                         <Text style={s.choiceLabel}>
-                          {option.price_delta_minor === '0'
-                            ? 'Входит в комбо'
-                            : `Доплата +${money(option.price_delta_minor)}`}
+                          {localize(
+                            option.price_delta_minor === '0'
+                              ? 'Входит в комбо'
+                              : t('Доплата +{p0}', { p0: money(option.price_delta_minor) }),
+                          )}
                         </Text>
                       ) : null}
                     </View>
-                    <Text style={s.replace}>Заменить</Text>
+                    <Text style={s.replace}>{t('Заменить')}</Text>
                   </Pressable>
                 );
               }),
@@ -501,7 +523,9 @@ export function PhotoProduct(props: Props) {
           </View>
           {extras ? (
             <View style={s.extrasSection}>
-              <Text style={[s.sectionTitle, { paddingHorizontal: 20 }]}>Добавить к комбо</Text>
+              <Text style={[s.sectionTitle, { paddingHorizontal: 20 }]}>
+                {t('Добавить к комбо')}
+              </Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -512,7 +536,7 @@ export function PhotoProduct(props: Props) {
                 snapToAlignment="start"
                 contentContainerStyle={s.extrasTrack}
                 testID="photo-extras-track"
-                accessibilityLabel="Дополнения к комбо, горизонтальный список"
+                accessibilityLabel={t('Дополнения к комбо, горизонтальный список')}
               >
                 {companions.filter((line) => line.product.id === 'burger').map(companionCard)}
                 {recommendedExtras(extras, selections).map((option) => {
@@ -537,9 +561,11 @@ export function PhotoProduct(props: Props) {
                       style={[s.extraCard, { width: extraWidth }, count > 0 && s.extraSelected]}
                     >
                       <OptionImage id={option.id} size={extraWidth - 24} height={104} extra />
-                      <Text style={s.extraName}>{option.label}</Text>
+                      <Text style={s.extraName}>{localize(option.label)}</Text>
                       <Text style={s.choiceLabel}>
-                        {unavailable ? 'Временно нет' : `+${money(option.price_delta_minor)}`}
+                        {localize(
+                          unavailable ? 'Временно нет' : `+${money(option.price_delta_minor)}`,
+                        )}
                       </Text>
                       <View style={s.extraControls}>
                         <Counter
@@ -565,7 +591,7 @@ export function PhotoProduct(props: Props) {
           ) : null}
           <View style={s.choices}>
             <View style={s.moreRow}>
-              <Text style={s.choiceName}>Количество</Text>
+              <Text style={s.choiceName}>{t('Количество')}</Text>
               <Counter
                 blue={blue}
                 value={quantity}
@@ -585,25 +611,29 @@ export function PhotoProduct(props: Props) {
         >
           {reason ? (
             <Text accessibilityLiveRegion="polite" style={s.reason}>
-              {reason}
+              {localize(reason)}
             </Text>
           ) : null}
           <Pressable
             testID="product-add"
             accessibilityRole="button"
-            accessibilityLabel={`${props.editing ? 'Сохранить' : 'Добавить в корзину'}: ${money(totalPrice)}`}
+            accessibilityLabel={localize(
+              `${props.editing ? 'Сохранить' : 'Добавить в корзину'}: ${money(totalPrice)}`,
+            )}
             accessibilityState={{ disabled: !!reason }}
             disabled={!!reason}
             style={[s.add, s.priceAction, !!reason && { opacity: 0.5 }]}
             onPress={() => save(selections)}
           >
             <Icon name={props.editing ? 'checkmark' : 'add'} color={priceButton.ink} size={27} />
-            <Text style={[s.addText, { color: priceButton.ink }]}>{money(totalPrice)}</Text>
+            <Text style={[s.addText, { color: priceButton.ink }]}>
+              {localize(money(totalPrice))}
+            </Text>
           </Pressable>
         </View>
         <CloseButton
           testID="product-close"
-          label="Закрыть блюдо"
+          label={t('Закрыть блюдо')}
           onPress={props.goBack}
           style={[s.close, { top: closeTop, left: 16 }]}
         />
@@ -628,12 +658,15 @@ export function PhotoProduct(props: Props) {
           >
             <Row style={s.modalHeader}>
               <CloseButton
-                label="Закрыть замену без сохранения"
+                label={t('Закрыть замену без сохранения')}
                 onPress={() => setPickerVisible(false)}
               />
               <Text style={s.modalTitle}>
-                {picker.group.id === 'drink' ? 'Напиток' : 'Соус'} {picker.index + 1} из{' '}
-                {picker.group.min}
+                {localize(picker.group.id === 'drink' ? 'Напиток' : 'Соус')}{' '}
+                {localize(picker.index + 1)}
+                {t('из')}
+                {localize(' ')}
+                {localize(picker.group.min)}
               </Text>
             </Row>
             <ScrollView contentContainerStyle={s.grid} showsVerticalScrollIndicator={false}>
@@ -653,7 +686,9 @@ export function PhotoProduct(props: Props) {
                     key={option.id}
                     testID={`photo-option-${option.id}`}
                     accessibilityRole="radio"
-                    accessibilityLabel={`${option.label}, ${option.price_delta_minor === '0' ? 'без доплаты' : '+' + money(option.price_delta_minor)}`}
+                    accessibilityLabel={localize(
+                      `${option.label}, ${option.price_delta_minor === '0' ? 'без доплаты' : '+' + money(option.price_delta_minor)}`,
+                    )}
                     accessibilityState={{ checked: chosen, disabled: unavailable }}
                     aria-checked={chosen}
                     disabled={unavailable}
@@ -667,14 +702,16 @@ export function PhotoProduct(props: Props) {
                   >
                     <OptionImage id={option.id} size={drinkPhotoSize} />
                     <Text style={[s.tileName, chosen && { color: colors.orangeInk }]}>
-                      {option.label}
+                      {localize(option.label)}
                     </Text>
                     <Text style={[s.tilePrice, chosen && { color: colors.orangeInk }]}>
-                      {unavailable
-                        ? 'Временно нет'
-                        : option.price_delta_minor === '0' && chosen
-                          ? 'В комбо'
-                          : `+${money(option.price_delta_minor)}`}
+                      {localize(
+                        unavailable
+                          ? 'Временно нет'
+                          : option.price_delta_minor === '0' && chosen
+                            ? 'В комбо'
+                            : `+${money(option.price_delta_minor)}`,
+                      )}
                     </Text>
                     {chosen ? (
                       <View style={s.check}>
@@ -691,22 +728,25 @@ export function PhotoProduct(props: Props) {
                   accessibilityLiveRegion="polite"
                   style={{ fontFamily: font.medium, color: colors.text, textAlign: 'center' }}
                 >
-                  Комбо с выбором ·{' '}
-                  {money(
-                    (
-                      BigInt(lineUnitPrice({ product, selections: replacement })) *
-                        BigInt(quantity) +
-                      selectedCompanions.reduce(
-                        (sum, line) => sum + BigInt(lineUnitPrice(line)) * BigInt(line.quantity),
-                        0n,
-                      )
-                    ).toString(),
+                  {t('Комбо с выбором ·')}
+                  {localize(' ')}
+                  {localize(
+                    money(
+                      (
+                        BigInt(lineUnitPrice({ product, selections: replacement })) *
+                          BigInt(quantity) +
+                        selectedCompanions.reduce(
+                          (sum, line) => sum + BigInt(lineUnitPrice(line)) * BigInt(line.quantity),
+                          0n,
+                        )
+                      ).toString(),
+                    ),
                   )}
                 </Text>
               ) : null}
               {replacementReason ? (
                 <Text accessibilityLiveRegion="polite" style={s.reason}>
-                  {replacementReason}
+                  {localize(replacementReason)}
                 </Text>
               ) : null}
               <Pressable
@@ -726,7 +766,7 @@ export function PhotoProduct(props: Props) {
                   }
                 }}
               >
-                <Text style={s.addText}>Готово</Text>
+                <Text style={s.addText}>{t('Готово')}</Text>
               </Pressable>
             </View>
           </View>
@@ -742,7 +782,7 @@ export function PhotoProduct(props: Props) {
           <Pressable
             style={StyleSheet.absoluteFill}
             accessibilityRole="button"
-            accessibilityLabel="Закрыть пищевую ценность"
+            accessibilityLabel={t('Закрыть пищевую ценность')}
             onPress={() => setInfo(false)}
           />
           <View
@@ -750,12 +790,15 @@ export function PhotoProduct(props: Props) {
             role="dialog"
             aria-modal
             accessibilityViewIsModal
-            accessibilityLabel="Пищевая ценность"
+            accessibilityLabel={t('Пищевая ценность')}
             testID="photo-nutrition-dialog"
           >
             <Row style={s.modalHeader}>
-              <CloseButton label="Закрыть окно пищевой ценности" onPress={() => setInfo(false)} />
-              <Text style={s.modalTitle}>Пищевая ценность</Text>
+              <CloseButton
+                label={t('Закрыть окно пищевой ценности')}
+                onPress={() => setInfo(false)}
+              />
+              <Text style={s.modalTitle}>{t('Пищевая ценность')}</Text>
             </Row>
             <ScrollView>{infoContent}</ScrollView>
           </View>
@@ -775,6 +818,7 @@ function OptionImage({
   extra?: boolean;
   height?: number;
 }) {
+  useLocale();
   const s = warmStyles;
   const source = id ? (extra ? extraPhotos[id] : optionPhotos[id]) : undefined;
   return (
@@ -789,7 +833,7 @@ function OptionImage({
       ) : (
         <>
           <Icon name="image-outline" color="#65594F" size={24} />
-          <Text style={s.noPhoto}>Фото скоро</Text>
+          <Text style={s.noPhoto}>{t('Фото скоро')}</Text>
         </>
       )}
     </View>
@@ -812,13 +856,14 @@ function Counter({
   plusDisabled: boolean;
   name: string;
 }) {
+  useLocale();
   const s = blue ? blueStyles : warmStyles;
   const counterInk = blue ? '#FFFFFF' : ink;
   return (
     <Row style={s.counter}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Уменьшить: ${name}`}
+        accessibilityLabel={localize(t('Уменьшить: {p0}', { p0: name }))}
         disabled={minusDisabled}
         accessibilityState={{ disabled: minusDisabled }}
         style={[s.countButton, minusDisabled && { opacity: 0.35 }]}
@@ -826,10 +871,10 @@ function Counter({
       >
         <Icon name="remove" color={counterInk} />
       </Pressable>
-      <Text style={s.count}>{value}</Text>
+      <Text style={s.count}>{localize(value)}</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Увеличить: ${name}`}
+        accessibilityLabel={localize(t('Увеличить: {p0}', { p0: name }))}
         disabled={plusDisabled}
         accessibilityState={{ disabled: plusDisabled }}
         style={[s.countButton, plusDisabled && { opacity: 0.35 }]}

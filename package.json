@@ -14,10 +14,10 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --test tests/unit/*.test.mjs",
+    "test": "node --test tests/unit/*.test.mjs tests/notifications/*.test.mjs",
     "test:mobile": "node --test tests/mobile/*.test.mjs && python3 -m unittest discover -s tests/mobile -p 'test_*.py'",
     "test:kiosk": "node --test tests/kiosk/*.test.mjs",
-    "test:integration": "node --env-file=.env --test --test-concurrency=1 tests/integration/*.test.mjs",
+    "test:integration": "node --env-file=.env --test --test-concurrency=1 tests/integration/*.test.mjs tests/notifications/*.test.mjs",
     "check": "pnpm build && pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm contracts:check && pnpm design:check",
     "contracts:generate": "node scripts/contracts.mjs",
     "contracts:check": "node scripts/contracts.mjs --check",
@@ -52,7 +52,8 @@
     "project:check": "node scripts/project-sync.mjs check",
     "project:sync": "node scripts/project-sync.mjs sync",
     "project:tasks": "node scripts/project-sync.mjs status",
-    "audit:release": "node scripts/dependency-audit.mjs"
+    "audit:release": "node scripts/dependency-audit.mjs",
+    "test:notifications": "node --test tests/notifications/*.test.mjs"
   },
   "dependencies": {
     "@pickchick/catalog-admin": "workspace:*",

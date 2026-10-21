@@ -1,3 +1,4 @@
+import { localize, t, useLocale } from '../i18n';
 import type { ReactNode } from 'react';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -25,12 +26,13 @@ export function ArcadeCard({
   onPress(): void;
   testID: string;
 }) {
+  useLocale();
   const height = useGameCardHeight();
   return (
     <Pressable
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={`Играть в ${name}. ${description}`}
+      accessibilityLabel={localize(t('Играть в {p0}. {p1}', { p0: name, p1: description }))}
       onPress={onPress}
       style={({ pressed }) => [s.card, { height }, pressed && { opacity: 0.88 }]}
     >
@@ -44,13 +46,13 @@ export function ArcadeCard({
       <View style={s.logo}>
         <Logo size={30} />
       </View>
-      <Text style={s.tag}>{subtitle}</Text>
+      <Text style={s.tag}>{localize(subtitle)}</Text>
       <View style={s.middle}>
         <View style={s.copy}>
           <Text testID={`${testID}-title`} style={s.title}>
-            {name.replace(' ', '\n')}
+            {localize(name.replace(' ', '\n'))}
           </Text>
-          <Text style={s.description}>{description}</Text>
+          <Text style={s.description}>{localize(description)}</Text>
         </View>
         <View
           pointerEvents="none"
@@ -63,10 +65,10 @@ export function ArcadeCard({
       </View>
       <View style={s.bottom}>
         <View style={s.play}>
-          <Text style={s.playText}>Играть</Text>
+          <Text style={s.playText}>{t('Играть')}</Text>
           <Icon name="arrow-forward" color="#241208" size={19} />
         </View>
-        <Text style={s.note}>Твой пик. Твой рекорд.</Text>
+        <Text style={s.note}>{t('Твой пик. Твой рекорд.')}</Text>
       </View>
     </Pressable>
   );

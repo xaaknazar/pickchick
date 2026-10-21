@@ -1,3 +1,4 @@
+import { localize, t, useLocale } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -55,6 +56,7 @@ export function KaspiPaymentState({
   /** Show the support contact at once (a bank wait the app can no longer settle). */
   support?: boolean;
 }) {
+  useLocale();
   const closable = Boolean(onClose);
   const [closeReady, setCloseReady] = useState(closeDelayMs === 0);
   useEffect(() => {
@@ -144,13 +146,15 @@ export function KaspiPaymentState({
         {notice}
         {!paid && !failed ? (
           <Heading style={s.title}>
-            {showCancelHelp
-              ? 'Отмена в Kaspi.kz'
-              : deadlineReached
-                ? 'Проверяем отмену счёта'
-                : waiting
-                  ? 'Отличный выбор!\nЖдём оплату в Kaspi'
-                  : paymentCopy[phase].title}
+            {localize(
+              showCancelHelp
+                ? 'Отмена в Kaspi.kz'
+                : deadlineReached
+                  ? 'Проверяем отмену счёта'
+                  : waiting
+                    ? 'Отличный выбор!\nЖдём оплату в Kaspi'
+                    : paymentCopy[phase].title,
+            )}
           </Heading>
         ) : null}
         {height >= 500 && !showCancelHelp ? (
@@ -224,7 +228,7 @@ export function KaspiPaymentState({
           </View>
         ) : null}
         {paid || failed ? (
-          <Heading style={s.title}>{paid ? 'Оплачено' : 'Счёт не оплачен'}</Heading>
+          <Heading style={s.title}>{localize(paid ? 'Оплачено' : 'Счёт не оплачен')}</Heading>
         ) : null}
         {!paid && !failed && !showCancelHelp && phase !== 'attention' ? (
           <ActivityIndicator color={colors.accent} style={{ marginBottom: 14 }} />
@@ -232,54 +236,69 @@ export function KaspiPaymentState({
         {showCancelHelp ? (
           <View testID="kaspi-cancel-help" style={s.cancelHelp} accessibilityLiveRegion="polite">
             <Caption style={s.detail}>
-              В Kaspi.kz найдите счёт PickChick в сообщениях об удалённой оплате и выберите
-              «Отклонить счёт». Вернитесь сюда. Когда банк подтвердит отмену, можно будет изменить
-              заказ.
+              {t(
+                'В Kaspi.kz найдите счёт PickChick в сообщениях об удалённой оплате и выберите «Отклонить счёт». Вернитесь сюда. Когда банк подтвердит отмену, можно будет изменить заказ.',
+              )}
             </Caption>
-            <Caption style={s.small}>Если вы уже оплатили, дождитесь статуса заказа.</Caption>
+            <Caption style={s.small}>
+              {t('Если вы уже оплатили, дождитесь статуса заказа.')}
+            </Caption>
           </View>
         ) : (
           <Caption style={s.detail} accessibilityLiveRegion="polite">
-            {paid
-              ? `${money(order?.totalMinor ?? '0')} · Kaspi`
-              : deadlineReached
-                ? 'Время оплаты истекло. Ждём подтверждение Kaspi. Если вы успели оплатить, заказ продолжится.'
-                : waiting
-                  ? `Подтвердите счёт на ${money(order?.totalMinor ?? '0')} в приложении Kaspi.kz. Обычно это быстро.`
-                  : paymentCopy[phase].detail}
+            {localize(
+              paid
+                ? `${money(order?.totalMinor ?? '0')} · Kaspi`
+                : deadlineReached
+                  ? 'Время оплаты истекло. Ждём подтверждение Kaspi. Если вы успели оплатить, заказ продолжится.'
+                  : waiting
+                    ? t('Подтвердите счёт на {p0} в приложении Kaspi.kz. Обычно это быстро.', {
+                        p0: money(order?.totalMinor ?? '0'),
+                      })
+                    : paymentCopy[phase].detail,
+            )}
           </Caption>
         )}
         {waiting && remaining !== null && remaining > 0 ? (
           <View
             style={s.deadline}
             testID="kaspi-invoice-countdown"
-            accessibilityLabel={`Осталось оплатить за ${Math.floor(remaining / 60)} минут ${remaining % 60} секунд`}
+            accessibilityLabel={localize(
+              t('Осталось оплатить за {p0} минут {p1} секунд', {
+                p0: Math.floor(remaining / 60),
+                p1: remaining % 60,
+              }),
+            )}
           >
-            <Caption style={s.small}>На оплату осталось</Caption>
+            <Caption style={s.small}>{t('На оплату осталось')}</Caption>
             <Body style={s.deadlineTime}>
-              {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
+              {localize(Math.floor(remaining / 60))}:
+              {localize(String(remaining % 60).padStart(2, '0'))}
             </Body>
           </View>
         ) : null}
         {paid ? (
           <View style={s.orderCard}>
             <View style={s.orderColumn}>
-              <Caption style={s.small}>Номер заказа</Caption>
+              <Caption style={s.small}>{t('Номер заказа')}</Caption>
               <Body testID="kaspi-paid-number" style={s.number}>
-                {order?.displayNumber ? `№ ${order?.displayNumber}` : 'Присваивается'}
+                {localize(order?.displayNumber ? `№ ${order?.displayNumber}` : 'Присваивается')}
               </Body>
             </View>
             <View style={s.divider} />
             <View style={s.orderColumn}>
-              <Caption style={s.small}>Как заберёте</Caption>
-              <Body style={s.mode}>{order?.serviceMode === 'dine_in' ? 'В зале' : 'С собой'}</Body>
+              <Caption style={s.small}>{t('Как заберёте')}</Caption>
+              <Body style={s.mode}>
+                {localize(order?.serviceMode === 'dine_in' ? 'В зале' : 'С собой')}
+              </Body>
             </View>
           </View>
         ) : null}
         {openError ? (
           <Caption style={s.detail}>
-            Не удалось открыть Kaspi.kz. Откройте приложение самостоятельно и найдите счёт от
-            PickChick.
+            {t(
+              'Не удалось открыть Kaspi.kz. Откройте приложение самостоятельно и найдите счёт от PickChick.',
+            )}
           </Caption>
         ) : null}
       </ScrollView>
@@ -290,10 +309,10 @@ export function KaspiPaymentState({
         {paid ? (
           <>
             <Caption style={s.detail}>
-              {phase === 'paid' ? 'Передаём заказ на кухню…' : 'Открываем статус заказа…'}
+              {localize(phase === 'paid' ? 'Передаём заказ на кухню…' : 'Открываем статус заказа…')}
             </Caption>
             <Button
-              title="Следить за заказом"
+              title={t('Следить за заказом')}
               testID="kaspi-track-order"
               onPress={onContinue}
               style={s.button}
@@ -302,22 +321,27 @@ export function KaspiPaymentState({
         ) : failed ? (
           <>
             <Button
-              title="Оплатить ещё раз"
+              title={t('Оплатить ещё раз')}
               testID="kaspi-retry-payment"
               onPress={onRetry}
               style={s.button}
             />
-            <Button title="Вернуться в корзину" secondary onPress={onCart} style={s.button} />
+            <Button title={t('Вернуться в корзину')} secondary onPress={onCart} style={s.button} />
           </>
         ) : (
           <>
             {extraAction}
             {!order && canReturnToCheckout ? (
-              <Button title="Вернуться к оформлению" secondary onPress={onCart} style={s.button} />
+              <Button
+                title={t('Вернуться к оформлению')}
+                secondary
+                onPress={onCart}
+                style={s.button}
+              />
             ) : null}
             {!deadlineReached && (waiting || phase === 'checking') ? (
               <Button
-                title="Открыть Kaspi.kz"
+                title={t('Открыть Kaspi.kz')}
                 testID="kaspi-open-app"
                 style={s.button}
                 onPress={openKaspi}
@@ -325,7 +349,7 @@ export function KaspiPaymentState({
             ) : null}
             {!deadlineReached && waiting ? (
               <Button
-                title={showCancelHelp ? 'Вернуться к оплате' : 'Отменить в Kaspi'}
+                title={localize(showCancelHelp ? 'Вернуться к оплате' : 'Отменить в Kaspi')}
                 testID="kaspi-cancel-instructions"
                 secondary
                 style={s.button}
@@ -345,7 +369,7 @@ export function KaspiPaymentState({
               />
             ) : null}
             {order && BANK_PHASES.includes(phase) ? (
-              <Caption style={s.small}>Статус обновится после ответа банка</Caption>
+              <Caption style={s.small}>{t('Статус обновится после ответа банка')}</Caption>
             ) : null}
           </>
         )}

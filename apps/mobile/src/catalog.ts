@@ -71,7 +71,7 @@ export const designProducts: Product[] = connectedProducts(testCompleteCatalog).
 export function serverProducts(menu: MenuSnapshot | null, locale: Locale): Product[] {
   return (menu?.items ?? []).map((item) => ({
     id: item.variant_id,
-    name: item.name[locale],
+    name: locale === 'en' ? item.name.ru : item.name[locale],
     priceMinor: item.price_minor,
     category: 'Меню',
     description: 'Позиция ресторана. Оформление пока недоступно.',

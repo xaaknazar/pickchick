@@ -79,7 +79,7 @@ test('brand colours keep WCAG AA for labels on glass, opaque and active pill', (
 test('tabs keep order, labels, gates and accessibility semantics', () => {
   const layout = read('app/(tabs)/_layout.tsx');
   assert.match(layout, /tabBar=\{\(props\) => <FloatingTabBar \{\.\.\.props\} \/>\}/);
-  const order = [...layout.matchAll(/name="(\w+)"[\s\S]*?title: '([^']+)'/g)].map((m) => [
+  const order = [...layout.matchAll(/name="(\w+)"[\s\S]*?title: (?:t\()?'([^']+)'/g)].map((m) => [
     m[1],
     m[2],
   ]);

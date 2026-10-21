@@ -1,3 +1,9 @@
+import {
+  CUSTOMER_NOTIFICATIONS,
+  CustomerNotifications,
+  pushOptions,
+} from '@pickchick/customer-notifications';
+import { CustomerNotificationsController } from './customer-notifications-controller.js';
 import { CatalogPublicationListener } from './catalog-publication-listener.js';
 import { capabilities } from './capabilities.js';
 import { FarmController } from './farm-controller.js';
@@ -252,6 +258,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       BranchesController,
       MenuSyncController,
       CustomerAuthController,
+      CustomerNotificationsController,
       CustomerCheckoutController,
       CatalogAdminController,
       CatalogMediaController,
@@ -271,6 +278,12 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       ...kitchenProviders,
       ...kitchenBackofficeProviders,
       CatalogPublicationListener,
+      {
+        provide: CUSTOMER_NOTIFICATIONS,
+        inject: [RESOURCE],
+        useFactory: (resources: Resources) =>
+          new CustomerNotifications(resources.pool, pushOptions(process.env)),
+      },
       {
         provide: WORKFORCE,
         inject: [RESOURCE],

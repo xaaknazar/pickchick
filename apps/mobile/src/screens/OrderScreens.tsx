@@ -1,3 +1,4 @@
+import { localize, t, useLocale } from '../i18n';
 import { OrderHistoryPreview } from './CompletedOrderPreview';
 import { OrdersEmpty, OrdersHeader, ordersPageStyle } from '../components/OrdersTab';
 import { Image } from 'expo-image';
@@ -35,12 +36,13 @@ import {
 } from '../components/UI';
 
 export function OrderUnavailable(props: ScreenProps, title: string) {
+  useLocale();
   return (
-    <Page props={props} title={title}>
+    <Page props={props} title={localize(title)}>
       <Empty
-        title="Здесь будут ваши заказы"
-        detail="История, статусы и чеки появятся после первого заказа."
-        action={<Button title="Посмотреть меню" onPress={() => props.navigate('M06')} />}
+        title={t('Здесь будут ваши заказы')}
+        detail={t('История, статусы и чеки появятся после первого заказа.')}
+        action={<Button title={t('Посмотреть меню')} onPress={() => props.navigate('M06')} />}
       />
     </Page>
   );
@@ -94,21 +96,24 @@ const paymentCopy: Record<
   },
 };
 export function PaymentStatus(props: ScreenProps) {
+  useLocale();
   const copy = paymentCopy[props.screenId] ?? paymentCopy.M14;
   if (!copy) return null;
   if (!props.preview)
     return (
-      <Page props={props} title={copy.title}>
+      <Page props={props} title={localize(copy.title)}>
         <Empty
           icon="card-outline"
-          title="Активного платежа нет"
-          detail="Оплата через Kaspi пока подключается. Вы не создавали платёж, деньги не списываются."
-          action={<Button title="В корзину" onPress={() => props.navigate('M09')} />}
+          title={t('Активного платежа нет')}
+          detail={t(
+            'Оплата через Kaspi пока подключается. Вы не создавали платёж, деньги не списываются.',
+          )}
+          action={<Button title={t('В корзину')} onPress={() => props.navigate('M09')} />}
         />
       </Page>
     );
   return (
-    <Page props={props} title={copy.title}>
+    <Page props={props} title={localize(copy.title)}>
       <View style={s.paymentHero}>
         <View style={s.statusDisc}>
           <Icon
@@ -117,56 +122,61 @@ export function PaymentStatus(props: ScreenProps) {
             color={props.screenId === 'M15' ? colors.danger : colors.accent}
           />
         </View>
-        <Heading style={{ textAlign: 'center' }}>{copy.heading}</Heading>
+        <Heading style={{ textAlign: 'center' }}>{localize(copy.heading)}</Heading>
         <Body muted style={{ textAlign: 'center' }}>
-          {copy.detail}
+          {localize(copy.detail)}
         </Body>
       </View>
       <Card>
         <Row>
           <Heading small style={ui.flex}>
-            Заказ №083
+            {t('Заказ №083')}
           </Heading>
-          <Pill>Пример</Pill>
+          <Pill>{t('Пример')}</Pill>
         </Row>
         {copy.steps.map(([label, value]) => (
-          <SummaryRow key={label} label={label} value={value} />
+          <SummaryRow key={label} label={localize(label)} value={value} />
         ))}
       </Card>
       {props.screenId === 'M13' || props.screenId === 'M14' ? (
         <Row style={{ justifyContent: 'center' }}>
           <ActivityIndicator color={colors.accent} />
-          <Caption>Пример ожидания серверного ответа</Caption>
+          <Caption>{t('Пример ожидания серверного ответа')}</Caption>
         </Row>
       ) : null}
-      <Notice warning>Это макет состояния. Банковская операция не выполнялась.</Notice>
-      <Button title="Нужна помощь" secondary onPress={() => props.navigate('M31')} />
+      <Notice warning>{t('Это макет состояния. Банковская операция не выполнялась.')}</Notice>
+      <Button title={t('Нужна помощь')} secondary onPress={() => props.navigate('M31')} />
       {props.screenId === 'M15' ? (
-        <Button title="Вернуться в корзину" onPress={() => props.navigate('M09')} />
+        <Button title={t('Вернуться в корзину')} onPress={() => props.navigate('M09')} />
       ) : null}
     </Page>
   );
 }
 export function Tracker(props: ScreenProps) {
+  useLocale();
   const { width, fontScale } = useWindowDimensions();
   const numberSize = Math.min(120, (width - 48) / (2.1 * fontScale));
   if (!props.preview) return OrderUnavailable(props, 'Ваш заказ');
   return (
-    <Page props={props} title="Ваш заказ">
+    <Page props={props} title={t('Ваш заказ')}>
       <Row>
-        <Body style={ui.flex}>Заказ принят</Body>
-        <Pill>С собой</Pill>
+        <Body style={ui.flex}>{t('Заказ принят')}</Body>
+        <Pill>{t('С собой')}</Pill>
       </Row>
-      <Heading style={s.trackerHeading}>Готовим{`\n`}для вас</Heading>
+      <Heading style={s.trackerHeading}>
+        {t('Готовим')}
+        {localize(`\n`)}
+        {t('для вас')}
+      </Heading>
       <Text
-        accessibilityLabel="Пример, заказ номер 083"
+        accessibilityLabel={t('Пример, заказ номер 083')}
         style={[s.trackerNumber, { fontSize: numberSize, lineHeight: numberSize * 1.16 }]}
         numberOfLines={1}
         adjustsFontSizeToFit
       >
         083
       </Text>
-      <Body muted>Ориентировочно ещё 6-9 минут · пример</Body>
+      <Body muted>{t('Ориентировочно ещё 6-9 минут · пример')}</Body>
       <Row style={s.progress}>
         <View style={s.progressDone} />
         <View style={s.progressDone} />
@@ -185,7 +195,7 @@ export function Tracker(props: ScreenProps) {
               color={active ? colors.accent : colors.muted}
             />
             <Body muted={!active} style={ui.flex}>
-              {label}
+              {localize(label)}
             </Body>
           </Row>
         ))}
@@ -194,18 +204,21 @@ export function Tracker(props: ScreenProps) {
         <Row>
           <Icon name="location-outline" color={colors.accent} />
           <View style={ui.flex}>
-            <Heading small>{props.model.branch?.name ?? 'Ресторан PickChick'}</Heading>
+            <Heading small>{localize(props.model.branch?.name ?? 'Ресторан PickChick')}</Heading>
             <Caption>
-              {restaurantLocation(props.model.branch?.id)?.address ?? 'Ресторан получения'}
+              {localize(
+                restaurantLocation(props.model.branch?.id)?.address ?? 'Ресторан получения',
+              )}
             </Caption>
           </View>
         </Row>
       </Card>
-      <Button title="Состав и чек" secondary onPress={() => props.navigate('M20')} />
+      <Button title={t('Состав и чек')} secondary onPress={() => props.navigate('M20')} />
     </Page>
   );
 }
 export function Ready(props: ScreenProps) {
+  useLocale();
   const insets = useSafeAreaInsets();
   const { width, fontScale } = useWindowDimensions();
   const numberSize = Math.min(160, (width - 48) / (2.1 * fontScale));
@@ -223,13 +236,13 @@ export function Ready(props: ScreenProps) {
       <ScrollView contentContainerStyle={s.readyContent}>
         <Row>
           <View style={ui.flex}>
-            <Heading style={s.readyTitle}>Готово!</Heading>
-            <Body style={s.readyText}>Забирайте на кассе</Body>
+            <Heading style={s.readyTitle}>{t('Готово!')}</Heading>
+            <Body style={s.readyText}>{t('Забирайте на кассе')}</Body>
           </View>
           <Logo size={48} />
         </Row>
         <Text
-          accessibilityLabel="Пример, заказ номер 083"
+          accessibilityLabel={t('Пример, заказ номер 083')}
           testID="ready-order-number"
           style={[s.readyNumber, { fontSize: numberSize, lineHeight: numberSize * 1.16 }]}
           adjustsFontSizeToFit
@@ -238,26 +251,27 @@ export function Ready(props: ScreenProps) {
           083
         </Text>
         <Body style={[s.readyText, { textAlign: 'center', fontFamily: font.bold }]}>
-          Ваш заказ ждёт на выдаче
+          {t('Ваш заказ ждёт на выдаче')}
         </Body>
         <Caption style={[s.readyText, { textAlign: 'center' }]}>
-          Макет статуса · реального заказа нет
+          {t('Макет статуса · реального заказа нет')}
         </Caption>
         <View style={ui.flex} />
-        <Button title="Состав и чек" secondary onPress={() => props.navigate('M20')} />
+        <Button title={t('Состав и чек')} secondary onPress={() => props.navigate('M20')} />
         <Caption style={[s.readyText, { textAlign: 'center', marginTop: 10 }]}>
-          {props.model.branch?.name ?? 'Ресторан PickChick'}
+          {localize(props.model.branch?.name ?? 'Ресторан PickChick')}
         </Caption>
       </ScrollView>
     </View>
   );
 }
 export function History(props: ScreenProps) {
+  useLocale();
   if (!props.preview)
     return (
       <Page
         props={props}
-        title="Заказы"
+        title={t('Заказы')}
         noBack
         header={<OrdersHeader />}
         contentStyle={ordersPageStyle.content}
@@ -268,82 +282,98 @@ export function History(props: ScreenProps) {
   return <OrderHistoryPreview {...props} />;
 }
 export function OrderDetail(props: ScreenProps) {
+  useLocale();
   if (!props.preview) return OrderUnavailable(props, 'Детали заказа');
   return (
-    <Page props={props} title="Заказ №083">
+    <Page props={props} title={t('Заказ №083')}>
       <Row>
-        <Heading style={ui.flex}>Ваш хрустящий{`\n`}выбор</Heading>
-        <Pill>Пример</Pill>
+        <Heading style={ui.flex}>
+          {t('Ваш хрустящий')}
+          {localize(`\n`)}
+          {t('выбор')}
+        </Heading>
+        <Pill>{t('Пример')}</Pill>
       </Row>
       <Card>
-        <SummaryRow label="Заказ" value="Готовится" />
-        <SummaryRow label="Оплата" value="Подтверждена" />
-        <SummaryRow label="Чек" value="Ожидается" />
-        <SummaryRow label="Получение" value="С собой" />
+        <SummaryRow label={t('Заказ')} value="Готовится" />
+        <SummaryRow label={t('Оплата')} value="Подтверждена" />
+        <SummaryRow label={t('Чек')} value="Ожидается" />
+        <SummaryRow label={t('Получение')} value="С собой" />
       </Card>
-      <Heading small>Состав заказа</Heading>
+      <Heading small>{t('Состав заказа')}</Heading>
       <Row>
         <Image source={assets.combo} style={s.historyImage} contentFit="cover" />
         <View style={ui.flex}>
           <Body style={{ fontFamily: font.bold }}>Pick Combo</Body>
-          <Caption>1 шт. · пример состава</Caption>
+          <Caption>{t('1 шт. · пример состава')}</Caption>
         </View>
         <Body>3 490 ₸</Body>
       </Row>
-      <SummaryRow label="Итого" value="3 490 ₸" strong />
+      <SummaryRow label={t('Итого')} value="3 490 ₸" strong />
       <NavRow
-        title="Электронный чек"
-        subtitle="Статус документа"
+        title={t('Электронный чек')}
+        subtitle={t('Статус документа')}
         icon="receipt-outline"
         onPress={() => props.navigate('M21')}
       />
       <NavRow
-        title="Отмена и возврат"
-        subtitle="Условия и состояние обращения"
+        title={t('Отмена и возврат')}
+        subtitle={t('Условия и состояние обращения')}
         onPress={() => props.navigate('M22')}
       />
       <NavRow
-        title="Помощь с заказом"
-        subtitle="Поддержка Pick Chick"
+        title={t('Помощь с заказом')}
+        subtitle={t('Поддержка Pick Chick')}
         onPress={() => props.navigate('M31')}
       />
-      <Button title="Оценить пример заказа" secondary onPress={() => props.navigate('M35')} />
+      <Button title={t('Оценить пример заказа')} secondary onPress={() => props.navigate('M35')} />
     </Page>
   );
 }
 export function Receipt(props: ScreenProps) {
+  useLocale();
   return (
-    <Page props={props} title="Электронный чек">
+    <Page props={props} title={t('Электронный чек')}>
       <View style={s.receiptPaper}>
         <Icon name="receipt-outline" color={colors.muted} size={42} />
         <Heading small style={s.receiptInk}>
-          {props.preview ? 'Чек ожидается' : 'Чека пока нет'}
+          {localize(props.preview ? 'Чек ожидается' : 'Чека пока нет')}
         </Heading>
         <View style={s.receiptRule} />
         <Body style={s.receiptInk}>
-          {props.preview ? 'Заказ №083 · пример' : 'Здесь появится документ после покупки'}
+          {localize(
+            props.preview ? 'Заказ №083 · пример' : 'Здесь появится документ после покупки',
+          )}
         </Body>
         <Caption style={{ textAlign: 'center', color: '#56647A' }}>
-          Документ, номер и QR появятся только после подтверждения ККМ.
+          {t('Документ, номер и QR появятся только после подтверждения ККМ.')}
         </Caption>
         <View style={s.receiptRule} />
         <Icon name="time-outline" color="#56647A" size={28} />
       </View>
       <Notice>
-        Сервис электронных чеков подключается. Приложение не создаёт имитацию фискального документа.
+        {t(
+          'Сервис электронных чеков подключается. Приложение не создаёт имитацию фискального документа.',
+        )}
       </Notice>
-      <Button title="Открыть чек" disabled />
-      <Button title="Помощь" secondary onPress={() => props.navigate('M31')} />
+      <Button title={t('Открыть чек')} disabled />
+      <Button title={t('Помощь')} secondary onPress={() => props.navigate('M31')} />
     </Page>
   );
 }
 export function Refund(props: ScreenProps) {
+  useLocale();
   return (
-    <Page props={props} title="Отмена и возврат">
-      <Heading>Поможем{`\n`}разобраться</Heading>
+    <Page props={props} title={t('Отмена и возврат')}>
+      <Heading>
+        {t('Поможем')}
+        {localize(`\n`)}
+        {t('разобраться')}
+      </Heading>
       <Body muted>
-        Возможность отмены зависит от состояния заказа. Возврат денег и возвратный чек проверяются
-        отдельно.
+        {t(
+          'Возможность отмены зависит от состояния заказа. Возврат денег и возвратный чек проверяются отдельно.',
+        )}
       </Body>
       <Card>
         {[
@@ -352,25 +382,32 @@ export function Refund(props: ScreenProps) {
           ['Возвратный чек', 'Нет документа'],
           ['Чики', 'Нет операции'],
         ].map(([label, value]) => (
-          <SummaryRow key={label} label={label ?? ''} value={value ?? ''} />
+          <SummaryRow key={label} label={localize(label ?? '')} value={value ?? ''} />
         ))}
       </Card>
-      <Button title="Запросить возврат" disabled />
+      <Button title={t('Запросить возврат')} disabled />
       <Notice warning>
-        Активного заказа и подключённого сервиса возвратов пока нет. Нажатие на экран не отменяет
-        покупку.
+        {t(
+          'Активного заказа и подключённого сервиса возвратов пока нет. Нажатие на экран не отменяет покупку.',
+        )}
       </Notice>
-      <Button title="Связаться с поддержкой" secondary onPress={() => props.navigate('M31')} />
+      <Button title={t('Связаться с поддержкой')} secondary onPress={() => props.navigate('M31')} />
     </Page>
   );
 }
 export function Wallet(props: ScreenProps) {
+  useLocale();
   return <PeakWallet {...props} />;
 }
 export function Ledger(props: ScreenProps) {
+  useLocale();
   return (
-    <Page props={props} title="История Чиков">
-      <Heading>Каждый Чик{`\n`}на своём месте</Heading>
+    <Page props={props} title={t('История Чиков')}>
+      <Heading>
+        {t('Каждый Чик')}
+        {localize(`\n`)}
+        {t('на своём месте')}
+      </Heading>
       {props.preview ? (
         <>
           {[
@@ -397,31 +434,32 @@ export function Ledger(props: ScreenProps) {
               <Row>
                 <Icon name={entry.icon as IconName} color={colors.accent} />
                 <View style={ui.flex}>
-                  <Body style={{ fontFamily: font.bold }}>{entry.title}</Body>
-                  <Caption>{entry.subtitle}</Caption>
+                  <Body style={{ fontFamily: font.bold }}>{localize(entry.title)}</Body>
+                  <Caption>{localize(entry.subtitle)}</Caption>
                 </View>
-                <Body style={{ fontFamily: font.bold }}>{entry.amount}</Body>
+                <Body style={{ fontFamily: font.bold }}>{localize(entry.amount)}</Body>
               </Row>
             </Card>
           ))}
-          <Notice>Все записи на этом экране - образцы для просмотра дизайна.</Notice>
+          <Notice>{t('Все записи на этом экране - образцы для просмотра дизайна.')}</Notice>
         </>
       ) : (
         <Empty
           icon="sparkles-outline"
-          title="История ещё впереди"
-          detail="Начисления, обмен и возвраты будут показаны здесь после запуска Чиков."
+          title={t('История ещё впереди')}
+          detail={t('Начисления, обмен и возвраты будут показаны здесь после запуска Чиков.')}
         />
       )}
       <NavRow
-        title="Как работают Чики"
-        subtitle="Правила программы"
+        title={t('Как работают Чики')}
+        subtitle={t('Правила программы')}
         onPress={() => props.navigate('M33')}
       />
     </Page>
   );
 }
 export function Rewards(props: ScreenProps) {
+  useLocale();
   return <PeakRewards {...props} />;
 }
 const s = StyleSheet.create({

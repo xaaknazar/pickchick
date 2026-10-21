@@ -1,3 +1,4 @@
+import { t, useLocale } from '../../i18n';
 import { useAccount } from '../../useAccount';
 import { Tabs, useRouter } from 'expo-router';
 import { useWindowDimensions } from 'react-native';
@@ -13,6 +14,7 @@ import { activeOrderCount, testActiveKind } from '../../orders-tab';
 // Floating capsule bar (Luma pattern, owner request 2026-10-11). Screens scroll under it
 // and reserve its height through TabBarInsetContext.
 export default function TabLayout() {
+  useLocale();
   const insets = useSafeAreaInsets();
   const account = useAccount();
   const router = useRouter();
@@ -54,7 +56,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="menu"
           options={{
-            title: 'Меню',
+            title: t('Меню'),
             tabBarButtonTestID: 'tab-menu',
           }}
         />
@@ -62,7 +64,7 @@ export default function TabLayout() {
           name="events"
           listeners={gate('M26')}
           options={{
-            title: 'События',
+            title: t('События'),
             tabBarButtonTestID: 'tab-events',
           }}
         />
@@ -70,7 +72,7 @@ export default function TabLayout() {
           name="orders"
           listeners={gate('M19')}
           options={{
-            title: 'Заказы',
+            title: t('Заказы'),
             tabBarButtonTestID: 'tab-orders',
             tabBarBadge: activeOrders > 0 ? activeOrders : undefined,
           }}
@@ -79,7 +81,7 @@ export default function TabLayout() {
           name="profile"
           listeners={gate('M30')}
           options={{
-            title: 'Профиль',
+            title: t('Профиль'),
             tabBarButtonTestID: 'tab-profile',
           }}
         />

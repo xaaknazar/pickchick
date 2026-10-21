@@ -1,3 +1,5 @@
+import { dateLocale } from '../i18n/core';
+import { t, localize, useLocale } from '../i18n';
 import { MotionPressable as Pressable, MotionModal as Modal } from '../components/Motion';
 import { useState } from 'react';
 import { Image } from 'expo-image';
@@ -26,18 +28,20 @@ const art = {
   molodezhny: require('../../assets/loyalty/molodezhny.svg'),
   talgar: require('../../assets/loyalty/talgar.svg'),
 };
-const number = (value: number) => value.toLocaleString('ru-RU');
+const number = (value: number) => value.toLocaleString(dateLocale());
 
 function ProposalLabel() {
+  useLocale();
   return (
     <View style={s.proposal}>
       <View style={s.dot} />
-      <Text style={s.proposalText}>СКОРО</Text>
+      <Text style={s.proposalText}>{t('СКОРО')}</Text>
     </View>
   );
 }
 
 function MountainHero({ preview }: { preview: boolean }) {
+  useLocale();
   const progress = ascentProgress(preview ? 540 : 0);
   return (
     <View testID="ascent-hero" style={s.hero}>
@@ -49,22 +53,32 @@ function MountainHero({ preview }: { preview: boolean }) {
       />
       <View style={s.heroCopy}>
         <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <Text style={s.eyebrow}>АЛМАТЫ · 6 ВЕРШИН</Text>
+          <Text style={s.eyebrow}>{t('АЛМАТЫ · 6 ВЕРШИН')}</Text>
           <ProposalLabel />
         </Row>
-        <Text style={s.heroTitle}>Твой вкус.{`\n`}Твои вершины.</Text>
-        <Text style={s.heroSubtitle}>Большой путь начинается{`\n`}с любимого заказа.</Text>
+        <Text style={s.heroTitle}>
+          {t('Твой вкус.')}
+          {localize(`\n`)}
+          {t('Твои вершины.')}
+        </Text>
+        <Text style={s.heroSubtitle}>
+          {t('Большой путь начинается')}
+          {localize(`\n`)}
+          {t('с любимого заказа.')}
+        </Text>
       </View>
       <View style={s.heroProgress}>
         <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
           <View style={{ flex: 1 }}>
             <Text style={s.heroProgressTitle}>
-              {preview ? 'Следом - Кумбель' : 'Первая вершина - Фурманова'}
+              {localize(preview ? 'Следом - Кумбель' : 'Первая вершина - Фурманова')}
             </Text>
             <Text style={s.heroProgressCopy}>
-              {preview
-                ? `${number(progress.remaining)} Чиков до следующего пика · пример`
-                : '300 заработанных Чиков до первого подарка'}
+              {localize(
+                preview
+                  ? t('{p0} Чиков до следующего пика · пример', { p0: number(progress.remaining) })
+                  : '300 заработанных Чиков до первого подарка',
+              )}
             </Text>
           </View>
           <Icon name="flag-outline" color={colors.accent} size={24} />
@@ -78,6 +92,7 @@ function MountainHero({ preview }: { preview: boolean }) {
 }
 
 function PeakDetails({ peak, close }: { peak: Peak | null; close(): void }) {
+  useLocale();
   const safe = useSafeAreaInsets();
   return (
     <Modal visible={peak !== null} transparent animationType="none" onRequestClose={close}>
@@ -91,8 +106,11 @@ function PeakDetails({ peak, close }: { peak: Peak | null; close(): void }) {
           {peak ? (
             <View testID="peak-details" style={s.sheet} accessibilityViewIsModal>
               <View style={s.sheetTop}>
-                <CloseButton testID="peak-close" label="Закрыть вершину" onPress={close} />
-                <Text style={s.eyebrow}>ВЕРШИНА {peaks.indexOf(peak) + 1} ИЗ 6</Text>
+                <CloseButton testID="peak-close" label={t('Закрыть вершину')} onPress={close} />
+                <Text style={s.eyebrow}>
+                  {t('ВЕРШИНА {p0}', { p0: peaks.indexOf(peak) + 1 })}
+                  {t('ИЗ 6')}
+                </Text>
               </View>
               <Image
                 source={art[peak.id]}
@@ -100,27 +118,31 @@ function PeakDetails({ peak, close }: { peak: Peak | null; close(): void }) {
                 contentFit="contain"
                 accessible={false}
               />
-              <Text style={s.sheetTitle}>{peak.name}</Text>
+              <Text style={s.sheetTitle}>{localize(peak.name)}</Text>
               <Body muted style={{ textAlign: 'center' }}>
-                {peak.mood}
+                {localize(peak.mood)}
               </Body>
-              <Text style={s.sheetPoints}>{number(peak.points)} Чиков за всё время</Text>
+              <Text style={s.sheetPoints}>
+                {localize(number(peak.points))}
+                {t('Чиков за всё время')}
+              </Text>
               <View style={s.giftPanel}>
                 <Icon name="gift-outline" color={colors.accent} size={28} />
                 <View style={{ flex: 1 }}>
-                  <Text style={s.giftTitle}>{peak.reward}</Text>
-                  <Text style={s.copy}>{peak.detail}</Text>
+                  <Text style={s.giftTitle}>{localize(peak.reward)}</Text>
+                  <Text style={s.copy}>{localize(peak.detail)}</Text>
                 </View>
               </View>
               <Text style={s.copy}>
-                Предлагаем дарить награду один раз при достижении вершины. После открытия -{' '}
-                {proposedProgram.giftDays} дней, чтобы использовать подарок. Тратить Чики для этого
-                не нужно.
+                {t('Предлагаем дарить награду один раз при достижении вершины. После открытия -')}
+                {localize(' ')}
+                {localize(proposedProgram.giftDays)}
+                {t('дней, чтобы использовать подарок. Тратить Чики для этого не нужно.')}
               </Text>
               <Text style={s.note}>
-                Готовим программу. Пороги, состав подарков и условия пока предварительные.
+                {t('Готовим программу. Пороги, состав подарков и условия пока предварительные.')}
               </Text>
-              <Button title="Понятно" onPress={close} />
+              <Button title={t('Понятно')} onPress={close} />
             </View>
           ) : null}
         </ScrollView>
@@ -130,13 +152,14 @@ function PeakDetails({ peak, close }: { peak: Peak | null; close(): void }) {
 }
 
 function MountainRoad({ preview }: { preview: boolean }) {
+  useLocale();
   const [selected, setSelected] = useState<Peak | null>(null);
   const progress = ascentProgress(preview ? 540 : 0);
   return (
     <View testID="mountain-road">
       <View style={s.roadHeading}>
-        <Heading style={s.sectionTitle}>Шесть вершин вкуса</Heading>
-        <Text style={s.note}>Каждый пик - новый подарок. Посмотри, что ждёт впереди.</Text>
+        <Heading style={s.sectionTitle}>{t('Шесть вершин вкуса')}</Heading>
+        <Text style={s.note}>{t('Каждый пик - новый подарок. Посмотри, что ждёт впереди.')}</Text>
       </View>
       <View style={s.road}>
         {peaks.map((peak, index) => {
@@ -153,7 +176,7 @@ function MountainRoad({ preview }: { preview: boolean }) {
                     <Icon name="checkmark" color={colors.orangeInk} size={20} />
                   ) : (
                     <Text style={[s.nodeText, next && { color: colors.accentText }]}>
-                      {index + 1}
+                      {localize(index + 1)}
                     </Text>
                   )}
                 </View>
@@ -161,7 +184,13 @@ function MountainRoad({ preview }: { preview: boolean }) {
               <Pressable
                 testID={`peak-${peak.id}`}
                 accessibilityRole="button"
-                accessibilityLabel={`${peak.name}, ${number(peak.points)} Чиков, ${peak.reward}. Подробнее`}
+                accessibilityLabel={localize(
+                  t('{p0}, {p1} Чиков, {p2}. Подробнее', {
+                    p0: t(peak.name),
+                    p1: number(peak.points),
+                    p2: peak.reward,
+                  }),
+                )}
                 onPress={() => setSelected(peak)}
                 style={({ pressed }) => [
                   s.peakCard,
@@ -171,7 +200,7 @@ function MountainRoad({ preview }: { preview: boolean }) {
               >
                 <View style={s.peakTop}>
                   <Text style={s.peakOverline}>
-                    {reached ? 'ОТКРЫТА · ПРИМЕР' : `ВЕРШИНА ${index + 1}`}
+                    {localize(reached ? 'ОТКРЫТА · ПРИМЕР' : t('ВЕРШИНА {p0}', { p0: index + 1 }))}
                   </Text>
                   <Image
                     testID={`peak-art-${peak.id}`}
@@ -181,11 +210,14 @@ function MountainRoad({ preview }: { preview: boolean }) {
                     accessible={false}
                   />
                 </View>
-                <Text style={s.peakName}>{peak.name}</Text>
-                <Text style={s.peakThreshold}>{number(peak.points)} Чиков</Text>
+                <Text style={s.peakName}>{localize(peak.name)}</Text>
+                <Text style={s.peakThreshold}>
+                  {localize(number(peak.points))}
+                  {t('Чиков')}
+                </Text>
                 <View style={s.rewardRow}>
                   <Icon name="gift-outline" size={18} color={colors.accent} />
-                  <Text style={s.rewardText}>{peak.reward}</Text>
+                  <Text style={s.rewardText}>{localize(peak.reward)}</Text>
                   <Icon name="chevron-forward" size={16} color={colors.muted} />
                 </View>
               </Pressable>
@@ -194,7 +226,7 @@ function MountainRoad({ preview }: { preview: boolean }) {
         })}
         <View style={s.finish}>
           <Icon name="sparkles-outline" color={colors.accent} size={20} />
-          <Text style={s.finishText}>Талгар - твоя вершина вкуса</Text>
+          <Text style={s.finishText}>{t('Талгар - твоя вершина вкуса')}</Text>
         </View>
       </View>
       <PeakDetails peak={selected} close={() => setSelected(null)} />
@@ -203,6 +235,7 @@ function MountainRoad({ preview }: { preview: boolean }) {
 }
 
 function HowItWorks() {
+  useLocale();
   const [open, setOpen] = useState(false);
   return (
     <View style={s.explainer}>
@@ -215,27 +248,31 @@ function HowItWorks() {
         style={s.explainerButton}
       >
         <Icon name="compass-outline" color={colors.accent} size={23} />
-        <Text style={s.explainerTitle}>Как устроено восхождение</Text>
+        <Text style={s.explainerTitle}>{t('Как устроено восхождение')}</Text>
         <Icon name={open ? 'chevron-up' : 'chevron-down'} color={colors.muted} size={20} />
       </Pressable>
       {open ? (
         <View testID="ascent-rules" style={s.explainerBody}>
           <Text style={s.copy}>
-            Чики за выданные заказы, проверенные игры и миссии пополняют баланс и прогресс. Уже
-            потраченные Чики продолжают учитываться для уровня.
+            {t(
+              'Чики за выданные заказы, проверенные игры и миссии пополняют баланс и прогресс. Уже потраченные Чики продолжают учитываться для уровня.',
+            )}
           </Text>
           <Text style={s.copy}>
-            Предлагаем возвращать {proposedProgram.earnPercent}% Чиками, считать 1 Чик равным 1 ₸ и
-            разрешить оплачивать Чиками до {proposedProgram.maxSpendPercent}% подходящих позиций
-            заказа.
+            {t(
+              'Предлагаем возвращать {p0}% Чиками, считать 1 Чик равным 1 ₸ и разрешить оплачивать Чиками до {p1}% подходящих позиций заказа.',
+              { p0: proposedProgram.earnPercent, p1: proposedProgram.maxSpendPercent },
+            )}
           </Text>
           <Text style={s.copy}>
-            Возврат заказа корректирует начисление и прогресс. Подарок за одну вершину выдаётся
-            только один раз. Высота реальной горы и порог Чиков - разные числа.
+            {t(
+              'Возврат заказа корректирует начисление и прогресс. Подарок за одну вершину выдаётся только один раз. Высота реальной горы и порог Чиков - разные числа.',
+            )}
           </Text>
           <Text style={s.note}>
-            Это предварительная программа. Сейчас начисления, подарки и прогресс ещё не
-            активированы.
+            {t(
+              'Это предварительная программа. Сейчас начисления, подарки и прогресс ещё не активированы.',
+            )}
           </Text>
         </View>
       ) : null}
@@ -244,43 +281,44 @@ function HowItWorks() {
 }
 
 export function PeakWallet(props: ScreenProps) {
+  useLocale();
   return (
-    <Page props={props} title="Мои Чики и вершины">
+    <Page props={props} title={t('Мои Чики и вершины')}>
       <MountainHero preview={props.preview} />
       <View style={s.balances}>
         <View style={s.balanceCell}>
-          <Text style={s.balanceLabel}>БАЛАНС ЧИКОВ</Text>
+          <Text style={s.balanceLabel}>{t('БАЛАНС ЧИКОВ')}</Text>
           <Text testID="peak-wallet-balance" style={s.balanceNumber}>
-            {props.preview ? '180' : '-'}
+            {localize(props.preview ? '180' : '-')}
           </Text>
-          <Text style={s.balanceHint}>Можно потратить</Text>
+          <Text style={s.balanceHint}>{t('Можно потратить')}</Text>
         </View>
         <View style={s.balanceCell}>
-          <Text style={s.balanceLabel}>ДЛЯ УРОВНЯ</Text>
+          <Text style={s.balanceLabel}>{t('ДЛЯ УРОВНЯ')}</Text>
           <Text
             testID="peak-earned-progress"
             style={[s.balanceNumber, { color: colors.accentText }]}
           >
-            {props.preview ? '540' : '-'}
+            {localize(props.preview ? '540' : '-')}
           </Text>
-          <Text style={s.balanceHint}>Всего заработано</Text>
+          <Text style={s.balanceHint}>{t('Всего заработано')}</Text>
         </View>
       </View>
       {props.preview ? (
         <Text style={s.note}>
-          Пример: 540 Чиков заработано, 360 потрачено. Вершина Фурманова остаётся открытой.
+          {t('Пример: 540 Чиков заработано, 360 потрачено. Вершина Фурманова остаётся открытой.')}
         </Text>
       ) : null}
       <MountainRoad preview={props.preview} />
       <NavRow
-        title="Миссии и подарки"
-        subtitle="Больше поводов подняться выше"
+        title={t('Миссии и подарки')}
+        subtitle={t('Больше поводов подняться выше')}
         onPress={() => props.navigate('M25')}
       />
       <HowItWorks />
       <NavRow
-        title="История Чиков"
-        subtitle="Начисления, списания и возвраты"
+        title={t('История Чиков')}
+        subtitle={t('Начисления, списания и возвраты')}
         onPress={() => props.navigate('M24')}
       />
     </Page>
@@ -288,12 +326,17 @@ export function PeakWallet(props: ScreenProps) {
 }
 
 export function PeakRewards(props: ScreenProps) {
+  useLocale();
   return (
-    <Page props={props} title="Миссии и подарки">
+    <Page props={props} title={t('Миссии и подарки')}>
       <View style={s.missionHero}>
         <ProposalLabel />
-        <Heading style={s.missionTitle}>Маленькие шаги.{`\n`}Большие вершины.</Heading>
-        <Body muted>Заказывай любимое, пробуй новое и находи время для игры.</Body>
+        <Heading style={s.missionTitle}>
+          {t('Маленькие шаги.')}
+          {localize(`\n`)}
+          {t('Большие вершины.')}
+        </Heading>
+        <Body muted>{t('Заказывай любимое, пробуй новое и находи время для игры.')}</Body>
       </View>
       <View style={s.comboGift}>
         <Image
@@ -302,15 +345,19 @@ export function PeakRewards(props: ScreenProps) {
           contentFit="contain"
           accessible={false}
         />
-        <Text style={s.eyebrow}>ПОДАРОК ВТОРОЙ ВЕРШИНЫ</Text>
-        <Text style={s.comboTitle}>Кумбель.{`\n`}Комбо за твой путь.</Text>
-        <Text style={s.copy}>
-          1 000 заработанных Чиков - и базовое комбо в подарок. Баланс останется с тобой.
+        <Text style={s.eyebrow}>{t('ПОДАРОК ВТОРОЙ ВЕРШИНЫ')}</Text>
+        <Text style={s.comboTitle}>
+          {t('Кумбель.')}
+          {localize(`\n`)}
+          {t('Комбо за твой путь.')}
         </Text>
-        <Text style={s.note}>Предварительные условия · подарок ещё не активен</Text>
-        <Button title="Посмотреть вершины" secondary onPress={() => props.navigate('M23')} />
+        <Text style={s.copy}>
+          {t('1 000 заработанных Чиков - и базовое комбо в подарок. Баланс останется с тобой.')}
+        </Text>
+        <Text style={s.note}>{t('Предварительные условия · подарок ещё не активен')}</Text>
+        <Button title={t('Посмотреть вершины')} secondary onPress={() => props.navigate('M23')} />
       </View>
-      <Heading style={s.sectionTitle}>Путь состоит из моментов</Heading>
+      <Heading style={s.sectionTitle}>{t('Путь состоит из моментов')}</Heading>
       {(
         [
           [
@@ -347,23 +394,24 @@ export function PeakRewards(props: ScreenProps) {
           <View style={s.missionIcon}>
             <Icon name={icon as IconName} size={24} color={colors.accent} />
           </View>
-          <Text style={s.giftTitle}>{title}</Text>
-          <Text style={s.copy}>{copy}</Text>
+          <Text style={s.giftTitle}>{localize(title)}</Text>
+          <Text style={s.copy}>{localize(copy)}</Text>
           {action && target ? (
             <Button
               testID={`ascent-mission-${index}`}
-              title={action}
+              title={localize(action)}
               secondary
               onPress={() => props.navigate(target)}
             />
           ) : (
-            <Text style={s.missionSoon}>Миссия появится после запуска</Text>
+            <Text style={s.missionSoon}>{t('Миссия появится после запуска')}</Text>
           )}
         </View>
       ))}
       <Text style={s.note}>
-        Предлагаем общий лимит 200 Чиков в месяц за игры и миссии. Уровни и подарки пока не
-        начисляются. Игровой счёт PICK BLOCKS не равен Чикам.
+        {t(
+          'Предлагаем общий лимит 200 Чиков в месяц за игры и миссии. Уровни и подарки пока не начисляются. Игровой счёт PICK BLOCKS не равен Чикам.',
+        )}
       </Text>
       <HowItWorks />
     </Page>

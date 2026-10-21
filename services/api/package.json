@@ -28,7 +28,8 @@
     "@pickchick/pos-order-sync": "workspace:*",
     "@pickchick/backoffice-core": "workspace:*",
     "@pickchick/farm-persistence": "workspace:*",
-    "sharp": "0.35.5"
+    "sharp": "0.35.5",
+    "@pickchick/customer-notifications": "workspace:*"
   },
   "devDependencies": {
     "typescript": "5.9.3",

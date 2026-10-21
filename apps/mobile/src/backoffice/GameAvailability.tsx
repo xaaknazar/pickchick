@@ -1,3 +1,4 @@
+import { t, useLocale } from '../i18n';
 import type { ReactNode } from 'react';
 import { useRouter } from 'expo-router';
 import { View } from 'react-native';
@@ -12,6 +13,7 @@ export function GameAvailability({
   template: 'pick-run' | 'pick-man' | 'pick-blocks';
   children: ReactNode;
 }) {
+  useLocale();
   const model = useMobile(),
     router = useRouter(),
     config = usePublishedContent(model.branch?.id);
@@ -22,9 +24,9 @@ export function GameAvailability({
         testID="game-unavailable"
         style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 20 }}
       >
-        <Heading>Игра пока недоступна</Heading>
-        <Body muted>Загляни позже - здесь появится новая игра.</Body>
-        <Button title="К событиям" onPress={() => router.replace('/(tabs)/events')} />
+        <Heading>{t('Игра пока недоступна')}</Heading>
+        <Body muted>{t('Загляни позже - здесь появится новая игра.')}</Body>
+        <Button title={t('К событиям')} onPress={() => router.replace('/(tabs)/events')} />
       </View>
     </SafeAreaView>
   );
