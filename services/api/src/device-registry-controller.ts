@@ -10,7 +10,7 @@ import {
   Param,
   Post,
 } from '@nestjs/common';
-import { RESOURCE, Resources } from '@pickchick/platform';
+import { EdgeDeviceRoute, RESOURCE, Resources } from '@pickchick/platform';
 import { BackofficeError } from '@pickchick/backoffice-core';
 import {
   DeviceRegistry,
@@ -150,6 +150,7 @@ export class DeviceRegistryController {
   }
 }
 @Controller('internal/v1/edge/devices')
+@EdgeDeviceRoute()
 export class DeviceAccessTransportController {
   constructor(@Inject(RESOURCE) private readonly resources: Resources) {}
   @Post('exchange')

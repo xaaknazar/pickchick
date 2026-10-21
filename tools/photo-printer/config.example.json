@@ -1,0 +1,12 @@
+{
+  "bind": "127.0.0.1",
+  "port": 13440,
+  "database": "C:/ProgramData/PickChickPhoto/jobs.sqlite",
+  "tlsCert": "C:/ProgramData/PickChickPhoto/tls/certificate.pem",
+  "tlsKey": "C:/ProgramData/PickChickPhoto/tls/private-key.pem",
+  "printerHost": "192.168.123.100",
+  "printerPort": 9100,
+  "width": 576,
+  "cut": false,
+  "protocolConfirmed": false
+}

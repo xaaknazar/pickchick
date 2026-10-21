@@ -10,6 +10,15 @@ import tarfile
 import tempfile
 
 
+def validate_build(dist, source, head):
+    project = json.loads((dist / 'project.json').read_text())
+    meta = project.get('meta') if isinstance(project, dict) else None
+    if not isinstance(meta, dict) or meta.get('sourceSha') != head:
+        raise ValueError('Roadmap build source differs from HEAD; rebuild apps/roadmap after committing')
+    if meta.get('dataHash') != hashlib.sha256(source.read_bytes()).hexdigest():
+        raise ValueError('Roadmap build data differs from docs/roadmap/project.json; rebuild apps/roadmap')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source-sha', required=True)
@@ -30,6 +39,10 @@ def main():
     for name in ['index.html', 'styles.css', 'app.js', 'project.json']:
         if not (dist / name).is_file():
             parser.error('Build apps/roadmap/dist before packaging')
+    try:
+        validate_build(dist, repo / 'docs/roadmap/project.json', head)
+    except (ValueError, OSError) as error:
+        parser.error(str(error))
     files += list(dist.rglob('*'))
     files += [p for p in (repo / 'infra/roadmap').iterdir() if p.suffix in ('.py', '.yaml', '.md')]
     manifest = {'source_sha': head, 'files': {}}

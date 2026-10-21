@@ -1,5 +1,6 @@
+import { useComboRewards } from './loyalty/useComboRewards';
 import { restoreLegacyPublishedCart, publishedCartStorageRelease } from './published-catalog';
-import { repriceCart, PRICES_UPDATED, MENU_UPDATED } from './cart-reprice';
+import { repriceCart, PRICES_UPDATED } from './cart-reprice';
 import type { CatalogMediaMap, CatalogMobileStorefront } from '@pickchick/catalog-admin/contracts';
 import { withAvailability, catalogAvailability } from './availability';
 import { useAvailability } from './useAvailability';
@@ -17,7 +18,8 @@ import {
   type ReactNode,
 } from 'react';
 import type { MenuSnapshot } from '@pickchick/contracts';
-import { isRetryableCatalogError, loadCatalog, loadCatalogMedia, loadTestCatalog } from './api';
+import { isRetryableCatalogError, loadCatalog, readCatalogMedia, loadTestCatalog } from './api';
+import { interimMedia } from './product-photo';
 import {
   PUBLISHED_CATALOG_REFRESH_MS,
   catalogRefreshTarget,
@@ -74,6 +76,8 @@ function useCartState() {
 }
 
 export function MobileProvider({ children }: { children: ReactNode }) {
+  const combo = useComboRewards();
+  const [giftChoice, setGiftChoice] = useState<string | null>(null);
   const [catalogMode, setMode] = useState<CatalogMode>('server');
   const [diningMode, setDiningMode] = useState<DiningMode>('takeaway');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('kaspi');
@@ -90,6 +94,9 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   );
   const [publication, setPublication] = useState<CatalogMobileStorefront | null>(null);
   const [media, setMedia] = useState<CatalogMediaMap | null>(null);
+  const [mediaReadVersion, setMediaReadVersion] = useState<number | null>(null);
+  const mediaRef = useRef(media);
+  mediaRef.current = media;
   const [menu, setMenu] = useState<MenuSnapshot | null>(null);
   const [unpaidAvailable, setUnpaidAvailable] = useState(false);
   const [connectedCatalog, setConnectedCatalog] = useState<TestCatalog | null>(null);
@@ -187,9 +194,13 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         );
         setMenu(result.menu);
         setPublication(result.publication);
-        setMedia((previous) =>
-          previous?.version === result.publication?.version ? previous : result.media,
-        );
+        // Media is read after the menu; meanwhile the previous photos stay on screen.
+        const nextMedia =
+          mediaRef.current?.version === result.publication?.version
+            ? mediaRef.current
+            : interimMedia(mediaRef.current, result.media);
+        mediaRef.current = nextMedia;
+        setMedia(nextMedia);
         setConnectedCatalog(testCatalog);
         setUnpaidAvailable(result.capabilities.features.unpaid_test_orders === true);
         if (restoration.current && modeRef.current === 'server') {
@@ -205,7 +216,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
                   ? publishedProducts(
                       restoration.current.publication ?? result.publication,
                       'ru',
-                      result.media,
+                      nextMedia,
                     )
                   : testCatalog
                     ? connectedProducts(testCatalog)
@@ -222,23 +233,19 @@ export function MobileProvider({ children }: { children: ReactNode }) {
           restoration.current = null;
         }
         if (result.publication && modeRef.current === 'server') {
-          const currentProducts = publishedProducts(result.publication, locale, result.media);
+          const currentProducts = publishedProducts(result.publication, locale, nextMedia);
           setCart((previous) => {
             const repriced = repriceCart(previous, currentProducts);
             const changes = repriced.changes;
             cartPublication.current = result.publication;
-            if (changes.priceChanged.length) {
+            // Owner decision: only the price notice is shown. Removed lines (a chosen option
+            // left the menu) and new prices both surface as a changed total.
+            if (changes.priceChanged.length || changes.oldTotal !== changes.newTotal) {
               setCatalogUpdateNotice(PRICES_UPDATED);
               setCartChanges((prior) => ({
                 oldTotal: prior?.oldTotal ?? changes.oldTotal,
                 newTotal: changes.newTotal,
               }));
-            } else if (
-              changes.optionsDropped.length ||
-              changes.needsChoice.length ||
-              changes.unavailable.length
-            ) {
-              setCatalogUpdateNotice(MENU_UPDATED);
             }
             return repriced.cart;
           });
@@ -272,11 +279,16 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!publication) return;
     const controller = new AbortController();
-    void loadCatalogMedia(publication.version, controller.signal).then((next) => {
-      if (!controller.signal.aborted) {
+    const version = publication.version;
+    void readCatalogMedia(version, controller.signal).then((next) => {
+      if (controller.signal.aborted) return;
+      setMediaReadVersion(version);
+      if (next) {
         setMedia(next);
         prefetchCatalogMedia(next);
-      }
+      } else
+        // A failed read keeps the interim photos of the previous publication, if any.
+        setMedia((previous) => previous ?? { version, products: {} });
     });
     return () => controller.abort();
   }, [publication?.branch.id, publication?.version]);
@@ -401,6 +413,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     setMenu(null);
     setPublication(null);
     setMedia(null);
+    setMediaReadVersion(null);
     cartPublication.current = null;
     setCatalogUpdateNotice(null);
     setCartChanges(null);
@@ -415,9 +428,63 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   };
 
   const catalogUpdatePending = cart.some((line) => Boolean(line.issue));
+  useEffect(() => setGiftChoice(null), [combo.customerId, branch?.id]);
+  useEffect(() => {
+    if (!cart.length) setGiftChoice(null);
+  }, [cart.length]);
+  const giftSelected = !!combo.customerId && giftChoice === combo.customerId;
+  const giftItemIndex = giftSelected
+    ? cart.findIndex((line) => line.product.id === 'pick-combo')
+    : -1;
+  const giftDiscount =
+    giftItemIndex >= 0 &&
+    combo.progress.status === 'ready' &&
+    !!combo.progress.commercial?.availableGifts &&
+    !combo.progress.commercial.reconciliationRequired
+      ? cart[giftItemIndex]!.product.priceMinor
+      : '0';
   const model: MobileModel = {
+    comboRewards: combo.enabled
+      ? {
+          progress: combo.progress,
+          selected: giftSelected,
+          giftItemIndex: giftSelected && giftItemIndex >= 0 ? giftItemIndex : undefined,
+          discountMinor: giftDiscount,
+          refresh: combo.refresh,
+          select(value) {
+            if (!value) {
+              setGiftChoice(null);
+              return;
+            }
+            if (
+              !combo.customerId ||
+              combo.progress.status !== 'ready' ||
+              !combo.progress.commercial?.availableGifts ||
+              combo.progress.commercial.reconciliationRequired
+            )
+              return;
+            const product = products.find((p) => p.id === 'pick-combo' && p.available !== false);
+            if (!product) return;
+            if (!cart.some((line) => line.product.id === 'pick-combo')) {
+              const next = mergeCartLines(
+                cart,
+                [{ product, quantity: 1, selections: defaultSelections(product) }],
+                products,
+              );
+              if (!next) return;
+              setCart(next);
+            }
+            setGiftChoice(combo.customerId);
+          },
+        }
+      : undefined,
     catalogUpdateNotice,
     catalogUpdatePending,
+    catalogPending:
+      catalogMode === 'server' &&
+      (publication
+        ? mediaReadVersion !== publication.version
+        : !menu && !connectedCatalog && connection.status === 'loading'),
     cartChanges: cartChanges ? { ...cartChanges, newTotal: cartTotal(cart) } : null,
     refreshCatalog: () => catalogRecovery.current?.refresh() ?? Promise.resolve(false),
     dismissCatalogUpdate: () => {

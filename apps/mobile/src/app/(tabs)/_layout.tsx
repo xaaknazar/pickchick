@@ -1,12 +1,17 @@
-import { useReducedMotion } from '../../components/Motion';
 import { useAccount } from '../../useAccount';
 import { Tabs, useRouter } from 'expo-router';
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TabIcon } from '../../components/UI';
+import { FloatingTabBar, TabBarInsetContext } from '../../components/FloatingTabBar';
+import { tabBarMetrics } from '../../tab-bar-metrics';
+import { useMobile } from '../../store';
+import { kaspiCheckoutEnabled } from '../../commerce-checkout';
+import { connectedTestOrdersEnabled } from '../../order-simulator';
+import { usePublishedActiveOrderCount } from '../../active-orders';
+import { activeOrderCount, testActiveKind } from '../../orders-tab';
 
-const activeColor = '#4A85F0';
-const inactiveColor = '#93A6C9';
+// Floating capsule bar (Luma pattern, owner request 2026-10-11). Screens scroll under it
+// and reserve its height through TabBarInsetContext.
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const account = useAccount();
@@ -19,76 +24,66 @@ export default function TabLayout() {
       }
     },
   });
-  const reduced = useReducedMotion();
   const { fontScale } = useWindowDimensions();
+  const inset = tabBarMetrics(insets, fontScale).inset;
+  // Orange counter of the «Сейчас» orders, from data the app already holds.
+  const model = useMobile();
+  const kaspiActive = usePublishedActiveOrderCount();
+  const activeOrders = !account.account
+    ? 0
+    : kaspiCheckoutEnabled
+      ? kaspiActive
+      : connectedTestOrdersEnabled
+        ? activeOrderCount(model.testFlow.orders, (order) => testActiveKind(order.state))
+        : 0;
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        animation: reduced ? 'none' : 'fade',
-        tabBarHideOnKeyboard: true,
-        tabBarActiveTintColor: activeColor,
-        tabBarInactiveTintColor: inactiveColor,
-        tabBarLabelPosition: 'below-icon',
-        tabBarStyle: {
-          backgroundColor: '#04143A',
-          borderTopColor: '#123068',
-          flexShrink: 0,
-          height: 44 + Math.ceil(16 * fontScale) + insets.bottom,
-        },
-        tabBarIconStyle: { width: 24, height: 24 },
-        tabBarLabelStyle: {
-          fontFamily: 'Manrope_600SemiBold',
-          fontSize: 11,
-          lineHeight: 16,
-          includeFontPadding: false,
-          textAlign: 'center',
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="menu"
-        options={{
-          title: 'Меню',
-          tabBarButtonTestID: 'tab-menu',
-          tabBarIcon: ({ focused }) => (
-            <TabIcon name="menu" color={focused ? activeColor : inactiveColor} />
-          ),
+    <TabBarInsetContext.Provider value={inset}>
+      <Tabs
+        tabBar={(props) => <FloatingTabBar {...props} />}
+        screenOptions={{
+          headerShown: false,
+          // No tab fade on purpose. expo-router 57's bottom-tab view derives a hidden tab's native
+          // attach state from the fade's animated value; on iOS a quick switch back can leave the
+          // returning tab detached and blank (expo/expo#49681, react-navigation#12755). Instant
+          // switching is also the standard iOS tab behaviour.
+          animation: 'none',
+          tabBarHideOnKeyboard: true,
+          sceneStyle: { backgroundColor: '#04143A' },
         }}
-      />
-      <Tabs.Screen
-        name="events"
-        listeners={gate('M26')}
-        options={{
-          title: 'События',
-          tabBarButtonTestID: 'tab-events',
-          tabBarIcon: ({ focused }) => (
-            <TabIcon name="events" color={focused ? activeColor : inactiveColor} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="orders"
-        listeners={gate('M19')}
-        options={{
-          title: 'Заказы',
-          tabBarButtonTestID: 'tab-orders',
-          tabBarIcon: ({ focused }) => (
-            <TabIcon name="orders" color={focused ? activeColor : inactiveColor} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        listeners={gate('M30')}
-        options={{
-          title: 'Профиль',
-          tabBarButtonTestID: 'tab-profile',
-          tabBarIcon: ({ focused }) => (
-            <TabIcon name="profile" color={focused ? activeColor : inactiveColor} />
-          ),
-        }}
-      />
-    </Tabs>
+      >
+        <Tabs.Screen
+          name="menu"
+          options={{
+            title: 'Меню',
+            tabBarButtonTestID: 'tab-menu',
+          }}
+        />
+        <Tabs.Screen
+          name="events"
+          listeners={gate('M26')}
+          options={{
+            title: 'События',
+            tabBarButtonTestID: 'tab-events',
+          }}
+        />
+        <Tabs.Screen
+          name="orders"
+          listeners={gate('M19')}
+          options={{
+            title: 'Заказы',
+            tabBarButtonTestID: 'tab-orders',
+            tabBarBadge: activeOrders > 0 ? activeOrders : undefined,
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          listeners={gate('M30')}
+          options={{
+            title: 'Профиль',
+            tabBarButtonTestID: 'tab-profile',
+          }}
+        />
+      </Tabs>
+    </TabBarInsetContext.Provider>
   );
 }

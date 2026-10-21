@@ -17,7 +17,7 @@
 }
 .wf-toolbar {
   display: grid;
-  grid-template-columns: minmax(10rem, 13rem) minmax(12rem, 22rem) auto;
+  grid-template-columns: minmax(8rem, 12rem) minmax(6rem, 7rem) minmax(12rem, 1fr) auto;
   align-items: end;
   gap: 1rem;
   padding: 1rem;
@@ -52,6 +52,18 @@
 }
 .wf-actions {
   margin: 1rem 0;
+  align-items: end;
+  gap: 12px;
+}
+.wf-range-buttons {
+  display: flex;
+  gap: 8px;
+}
+.wf-actions > .button,
+.wf-range-buttons .button,
+.wf-actions input,
+.wf-toolbar > .button {
+  min-height: 44px;
 }
 .wf-actions .field {
   margin: 0;
@@ -200,7 +212,10 @@
 }
 @media (max-width: 700px) {
   .wf-toolbar {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(6rem, 7rem);
+  }
+  .wf-toolbar > :nth-child(n + 3) {
+    grid-column: 1 / -1;
   }
   .wf-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -241,4 +256,137 @@
 }
 .workforce .wf-delete-confirm:hover {
   background: #821d1d;
+}
+
+.wf-month-grid {
+  max-height: 65vh;
+  scroll-padding-inline-start: 200px;
+}
+.wf-month-grid .wf-table th,
+.wf-month-grid .wf-table td {
+  min-width: 52px;
+  padding: 6px;
+  text-align: center;
+}
+.wf-month-grid .wf-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.wf-month-grid .wf-table th:first-child,
+.wf-month-grid .wf-table td:first-child {
+  position: sticky;
+  left: 0;
+  min-width: 180px;
+  max-width: 220px;
+  text-align: left;
+  background: #fff;
+  z-index: 1;
+}
+.wf-month-grid .wf-table th:first-child {
+  z-index: 3;
+  background: #f5f7fb;
+}
+.wf-person strong,
+.wf-person small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.wf-person small {
+  font-weight: 400;
+  margin-top: 4px;
+}
+.wf-day-cell {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #0047bb;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  padding: 4px;
+}
+.wf-day-cell:hover {
+  background: #edf3ff;
+  border-color: #b6c4d7;
+}
+.wf-day-cell.wf-draft {
+  background: #fff1e7;
+  color: #753700;
+}
+.wf-cell-note {
+  display: block;
+  font-size: 0.65rem;
+}
+.wf-pay-items {
+  grid-column: 1 / -1;
+}
+.wf-pay-item {
+  display: grid;
+  grid-template-columns: minmax(10rem, 2fr) minmax(8rem, 1fr) minmax(7rem, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-block: 12px;
+}
+.wf-pay-item .field {
+  margin: 0;
+}
+.wf-difference {
+  display: block;
+  color: #753700;
+}
+@media (max-width: 700px) {
+  .wf-pay-item {
+    grid-template-columns: 1fr;
+    border-bottom: 1px solid #d8e0ea;
+    padding-bottom: 16px;
+  }
+  .wf-month-grid .wf-table th:first-child,
+  .wf-month-grid .wf-table td:first-child {
+    min-width: 140px;
+    max-width: 140px;
+  }
+  .wf-month-grid {
+    scroll-padding-inline-start: 160px;
+  }
+}
+
+.wf-payroll-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.wf-payroll-table {
+  max-height: 65vh;
+  scroll-padding-inline-start: 180px;
+}
+.wf-payroll-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.wf-payroll-table td:first-child,
+.wf-payroll-table th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 160px;
+  max-width: 180px;
+  background: #fff;
+}
+.wf-payroll-table th:first-child {
+  z-index: 3;
+  background: #f5f7fb;
+}
+.wf-calculation {
+  margin-top: 24px;
+}
+.wf-calculation > summary {
+  font-weight: 600;
+  min-height: 44px;
+}
+@media (max-width: 700px) {
+  .wf-payroll-summary {
+    grid-template-columns: 1fr;
+  }
 }

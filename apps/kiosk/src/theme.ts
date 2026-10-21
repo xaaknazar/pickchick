@@ -17,10 +17,11 @@ export const colors = {
   night: '#061B4E',
   cream: '#FEF8F0',
   peach: '#FFF0E5',
-  // WCAG AA orange roles (owner decision 2026-10-08). Brand `orange` stays for
-  // fills, icons, halos and badges that carry no text.
-  /** Orange surface under large white text (>= 24 px): white is 3.56:1. */
-  orangeCta: '#E85A00',
+  // Orange roles. Owner decision 2026-10-10: calls to action and active controls use the
+  // design orange #FF6900 with white text (an approved exception to the WCAG AA contrast
+  // check, see tests/kiosk/browser_mobbin.py). Brand `orange` stays for fills, icons, halos.
+  /** CTA and active-control surface under white text: the design orange (owner decision). */
+  orangeCta: '#FF6900',
   /** Orange text on white/peach (5.4/4.85:1) and surfaces under small white text. */
   orangeInk: '#B84500',
   sky: '#EAF1FF',
@@ -33,6 +34,42 @@ export const colors = {
   onGlass: '#E6EDF9',
   /** Small orange-tinted accent text on brand blue (4.9:1 on #014FCE). */
   orangeOnBlue: '#FFCFA8',
+};
+/**
+ * Kiosk redesign 2026-10-13 (docs/design/kiosk-redesign-2026-10-13/README.md): owner-approved
+ * tokens for the start, menu (bento) and smart-upsell screens. Payment and order screens keep
+ * the v3 palette above.
+ */
+export const redesign = {
+  /** Screen background: radial 120% 60% at 75% 0%, #1E6BE6 → #0047BB 45% → #02297A. */
+  screen: ['#1E6BE6', '#0047BB', '#02297A'] as const,
+  cta: '#FF6900',
+  ctaShadow: 'rgba(255,105,0,.5)',
+  /** Start CTA glow: 0 16 48 rgba(255,105,0,.45). */
+  saluteShadow: 'rgba(255,105,0,.45)',
+  cardInk: '#15213A',
+  cardMuted: '#55617A',
+  cream: '#FEF8F0',
+  cardShadow: 'rgba(2,10,31,.25)',
+  /** Glass for every header control and the bottom panels. */
+  glass: 'rgba(14,22,48,.40)',
+  glassLine: 'rgba(255,255,255,.20)',
+  glassHighlight: 'rgba(255,255,255,.14)',
+  glassShadow: 'rgba(2,10,31,.18)',
+  /** Start screen: language switch and the Kaspi QR chip over the film. */
+  startGlass: 'rgba(2,10,31,0.55)',
+  startGlassLine: 'rgba(255,255,255,.18)',
+  startChip: 'rgba(2,10,31,.28)',
+  startChipLine: 'rgba(255,255,255,.2)',
+  /** «ХИТ» / «ХИТ НЕДЕЛИ» badge gradient (135deg). */
+  hit: ['#FF3B1F', '#D7141A'] as const,
+  newBadge: '#0047BB',
+  lemonadeBadge: '#FFC21A',
+  added: '#2E9E5B',
+  /** Darkening above the bottom panel, 220 tall. */
+  scrim: ['rgba(2,10,31,0)', 'rgba(2,10,31,.55)'] as const,
+  /** Salute particles. */
+  spark: ['#FFD166', '#FFFFFF', '#FF6900'] as const,
 };
 export const fonts = {
   body: 'GolosText_400Regular',

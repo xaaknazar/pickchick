@@ -1,3 +1,4 @@
+import { PaymentRecovery } from '../components/PaymentRecovery';
 import { colors } from '../theme';
 import { useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
@@ -14,6 +15,7 @@ import { Manrope_700Bold } from '@expo-google-fonts/manrope/700Bold';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { MobileProvider } from '../store';
 import { AccountProvider } from '../useAccount';
+import { ARCADE_SCREEN_OPTIONS } from '../games/route-options';
 
 // Keep the OS launch image until the matching React layer has laid out.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -54,6 +56,7 @@ function AppLayout() {
           <AccountProvider>
             <MobileProvider>
               <StatusBar style="light" />
+              <PaymentRecovery />
               <Stack
                 screenOptions={{
                   headerShown: false,
@@ -87,6 +90,10 @@ function AppLayout() {
                     contentStyle: { backgroundColor: 'transparent' },
                   }}
                 />
+                <Stack.Screen name="games/pick-blocks" options={ARCADE_SCREEN_OPTIONS} />
+                <Stack.Screen name="games/pick-man" options={ARCADE_SCREEN_OPTIONS} />
+                <Stack.Screen name="games/magic-sort" options={ARCADE_SCREEN_OPTIONS} />
+                <Stack.Screen name="games/pick-farm" options={ARCADE_SCREEN_OPTIONS} />
                 <Stack.Screen
                   name="cart"
                   options={{

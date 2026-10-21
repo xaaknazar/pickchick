@@ -5,7 +5,7 @@ import { Image } from 'expo-image';
 import { ComboRewardCard } from '../components/ComboRewardCard';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Icon, Loading, ReviewBadge, type IconName } from '../components/UI';
+import { Button, Icon, Loading, type IconName } from '../components/UI';
 import { ProfileRestoreNotice } from '../components/ProfileRestoreNotice';
 import { formatDemoPhone } from '../demo-account';
 import { formatBirthDate } from '../profile-details';
@@ -87,7 +87,6 @@ export function Profile(props: ScreenProps) {
           },
         ]}
       >
-        {props.preview ? <ReviewBadge /> : null}
         <View style={s.header}>
           <Text accessibilityRole="header" style={s.title}>
             Профиль
@@ -201,9 +200,13 @@ export function Profile(props: ScreenProps) {
 
         <ComboRewardCard
           preview={props.preview}
-          progress={props.model.testFlow.comboProgress}
+          progress={props.model.comboRewards?.progress ?? props.model.testFlow.comboProgress}
           testID="profile-combo-reward"
-          onMenu={() => props.navigate('M06')}
+          onMenu={() =>
+            props.navigate(
+              props.model.comboRewards?.progress.commercial?.availableGifts ? 'M09' : 'M06',
+            )
+          }
         />
 
         <Pressable

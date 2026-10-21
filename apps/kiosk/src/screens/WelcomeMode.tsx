@@ -1,13 +1,6 @@
 import type { KioskModel } from '../model';
 import { copy } from '../i18n';
-import {
-  Header,
-  pilotBranch,
-  ScreenSurface,
-  ScrollArea,
-  Wrapper,
-  type ScreenContext,
-} from '../components/UI';
+import { Header, pilotBranch, ScreenSurface, Wrapper, type ScreenContext } from '../components/UI';
 import { Hero } from '../components/Hero';
 import { WelcomeContent } from '../components/WelcomeContent';
 import { DiningModeCard, DiningModeTitle } from '../components/DiningModeCard';
@@ -24,6 +17,7 @@ export function WelcomeScreen({ model, context }: { model: KioskModel; context: 
         onLocale={context.setLocale}
         onStart={() => void model.start()}
         busy={model.busy}
+        onLogoHold={context.onStaffHold}
       />
     </ScreenSurface>
   );
@@ -43,7 +37,7 @@ export function ModeScreen({ model, context }: { model: KioskModel; context: Scr
         subtitle={pilotBranch}
         minimal
       />
-      <ScrollArea fill>
+      <Wrapper flex={1}>
         <DiningModeTitle>{t.modeTitle}</DiningModeTitle>
         <Wrapper flex={1} paddingX={60} paddingY={46} gap={30}>
           {(['dine_in', 'takeaway'] as const).map((mode) => (
@@ -56,7 +50,7 @@ export function ModeScreen({ model, context }: { model: KioskModel; context: Scr
             />
           ))}
         </Wrapper>
-      </ScrollArea>
+      </Wrapper>
     </ScreenSurface>
   );
 }

@@ -21,7 +21,23 @@ with sync_playwright() as p:
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), width
         if width < 801:
             page.get_by_test_id('navigation-toggle').click()
-            expect(page.get_by_test_id('nav-finance')).to_be_visible()
+        expect(page.get_by_text('Другие разделы', exact=True)).to_have_count(0)
+        links = page.locator('.navigation .nav-item')
+        expect(links).to_have_count(17)
+        for link in links.all():
+            expect(link).to_be_visible()
+        # The former last hidden section is reachable by keyboard and can scroll
+        # into view even on a short laptop display. No extra disclosure click.
+        audit = page.get_by_test_id('nav-audit')
+        audit.focus()
+        expect(audit).to_be_focused()
+        audit.scroll_into_view_if_needed()
+        expect(audit).to_be_in_viewport()
+        if width == 1440:
+            page.screenshot(path='/tmp/pickchick-cabinet-navigation-desktop.png', full_page=True)
+        if width == 393:
+            page.screenshot(path='/tmp/pickchick-cabinet-navigation-mobile.png', full_page=True)
+        if width < 801:
             page.get_by_test_id('navigation-toggle').click()
             expect(page.get_by_test_id('nav-finance')).not_to_be_visible()
         fields = page.locator('.finance-period-filter input, .finance-period-filter select, .finance-period-filter > button')

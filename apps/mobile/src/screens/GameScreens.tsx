@@ -9,16 +9,7 @@ import { PickFarmCard } from '../games/pick-farm/visuals';
 import { FARM_ENABLED } from '../games/pick-farm/api';
 import { MagicSortCard } from '../games/magic-sort/MagicSortCard';
 import { PickManCard } from '../games/pick-man/visuals';
-import {
-  Body,
-  Caption,
-  Heading,
-  Icon,
-  ReviewBadge,
-  Row,
-  styles as ui,
-  type IconName,
-} from '../components/UI';
+import { Body, Caption, Heading, Icon, Row, styles as ui, type IconName } from '../components/UI';
 
 export function Events(props: ScreenProps) {
   const published = usePublishedContent(props.model.branch?.id);
@@ -36,7 +27,6 @@ export function Events(props: ScreenProps) {
           },
         ]}
       >
-        {props.preview ? <ReviewBadge /> : null}
         <Heading style={s.eventsTitle}>События</Heading>
         <Body muted style={s.eventsSubtitle}>
           Афиша Pick Chick: игры, события и новые поводы заглянуть к нам.
@@ -45,7 +35,7 @@ export function Events(props: ScreenProps) {
         <View style={{ marginTop: 20 }}>
           <ComboRewardCard
             preview={props.preview}
-            progress={props.model.testFlow.comboProgress}
+            progress={props.model.comboRewards?.progress ?? props.model.testFlow.comboProgress}
             testID="events-combo-reward"
             onMenu={() => props.navigate('M06')}
           />

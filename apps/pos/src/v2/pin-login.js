@@ -32,7 +32,15 @@ export async function requestPinCredential(
     throw new Error(unavailable);
   }
   if (!response.ok) {
-    if (response.status === 429) throw new Error('Подождите минуту перед следующим входом');
+    if (response.status === 429) {
+      // After repeated wrong PINs the edge locks PIN login on this terminal for up to 15 min.
+      const seconds = Number(response.headers?.get?.('retry-after'));
+      if (Number.isInteger(seconds) && seconds > 60)
+        throw new Error(
+          `Вход по PIN временно заблокирован после неверных попыток. Повторите через ${Math.ceil(seconds / 60)} мин.`,
+        );
+      throw new Error('Подождите минуту перед следующим входом');
+    }
     if ([401, 403].includes(response.status))
       throw new Error('Неверный PIN или нет доступа к рабочему месту');
     throw new Error(unavailable);

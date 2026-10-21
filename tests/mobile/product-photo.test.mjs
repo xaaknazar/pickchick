@@ -3,8 +3,12 @@ import assert from 'node:assert/strict';
 import { setImmediate as flush } from 'node:timers/promises';
 import { CatalogMediaMapSchema } from '@pickchick/catalog-admin/contracts';
 import {
+  GENERIC_DRINK_KEY,
+  interimMedia,
   mediaForVersion,
   mediaPrefetchUris,
+  ownerDrinkPhotoIds,
+  ownerPhoto,
   remoteMediaSource,
   resolveProductPhoto,
   seedImageKey,
@@ -129,6 +133,65 @@ test('photo precedence is uploaded remote photo, then the bundled key photo, the
     ),
     { kind: 'logo', source: 'logo' },
   );
+});
+
+test('an owner drink photo applies to its id under the seed or generic drink key only', () => {
+  assert.equal(GENERIC_DRINK_KEY, 'generic-drink');
+  const owned = {
+    ...bundled,
+    owner: { water: 'owner:water', sprite: 'owner:sprite', piko: 'owner:piko' },
+    byId: { ...bundled.byId, water: 'menu:water' },
+    byKey: { ...bundled.byKey, 'i23.jpg': 'key:i23' },
+  };
+  const photo = (product, media) => resolveProductPhoto(product, media, 'card', owned, ORIGIN);
+  // Seeded: the owner photo beats the context retouch and the key photo.
+  assert.deepEqual(photo({ id: 'water', image: 'x', imageKey: 'i23.jpg' }), {
+    kind: 'id',
+    source: 'owner:water',
+  });
+  assert.deepEqual(photo({ id: 'piko', image: 'x', imageKey: 'generic-drink' }), {
+    kind: 'id',
+    source: 'owner:piko',
+  });
+  // Legacy TEST/design products without a published key.
+  assert.deepEqual(photo({ id: 'water', image: 'x' }), { kind: 'id', source: 'owner:water' });
+  // A drink the back-office adds later has no seed key and is published as generic-drink.
+  assert.equal(seedImageKey('sprite'), undefined);
+  assert.deepEqual(photo({ id: 'sprite', image: 'logo', imageKey: 'generic-drink' }), {
+    kind: 'id',
+    source: 'owner:sprite',
+  });
+  assert.deepEqual(photo({ id: 'water', image: 'x', imageKey: 'generic-drink' }), {
+    kind: 'id',
+    source: 'owner:water',
+  });
+  // Any other key is a back-office choice; ids without an owner photo stay on the logo.
+  assert.deepEqual(photo({ id: 'sprite', image: 'x', imageKey: 'i0.jpg' }), {
+    kind: 'key',
+    source: 'key:i0',
+  });
+  assert.deepEqual(photo({ id: 'water', image: 'x', imageKey: 'i7.jpg' }), {
+    kind: 'key',
+    source: 'key:i7',
+  });
+  assert.deepEqual(photo({ id: 'sprite-can', image: 'x', imageKey: 'generic-drink' }), {
+    kind: 'logo',
+    source: 'logo',
+  });
+  // An uploaded photo still wins, with the owner photo as its offline fallback.
+  const remote = photo({ id: 'sprite', image: 'x', imageKey: 'generic-drink' }, entry(sha('a')));
+  assert.equal(remote.kind, 'remote');
+  assert.deepEqual(remote.fallback, { kind: 'id', source: 'owner:sprite' });
+  // Own properties only, and no owner map at all keeps the previous behaviour.
+  assert.equal(ownerPhoto(owned.owner, 'toString', 'generic-drink'), undefined);
+  assert.equal(ownerPhoto(undefined, 'water', 'i23.jpg'), undefined);
+  // Owner drinks open the photo product page, also when the back-office adds them later.
+  for (const id of ownerDrinkPhotoIds) assert.equal(hasPhotoPilot({ id }), true, id);
+  for (const id of ['cola-zero-can', 'sprite-can', 'fanta-can', 'fuse-lemon'])
+    assert.equal(hasPhotoPilot({ id }), false, id);
+  // Bottle photos never stand in for cans.
+  for (const id of ['cola', 'cola-can', 'cola-zero-can', 'sprite-can', 'fanta-can'])
+    assert.equal(ownerDrinkPhotoIds.includes(id), false, id);
 });
 
 test('only immutable hash paths of the requested variant on an https API origin become remote', () => {
@@ -429,4 +492,20 @@ test('published catalogs are re-read every minute in the foreground; failures st
   h.recovery.setActive(true);
   await flush();
   assert.deepEqual(h.events.at(-2), ['loading', false]);
+});
+
+test('a new publication keeps the previous photos until its own media map is read', () => {
+  const hero = { hero: 'catalog/upload-only/hero.jpg' };
+  const previous = { version: 4, products: { 'upload-only': hero } };
+  const deferred = { version: 5, products: {} };
+  const interim = interimMedia(previous, deferred);
+  assert.equal(interim.version, 5);
+  assert.deepEqual(interim.products, previous.products);
+  assert.ok(
+    hasPhotoPilot({ id: 'upload-only', media: mediaForVersion(interim, 5)['upload-only'] }),
+  );
+  const loaded = { version: 5, products: { burger: hero } };
+  assert.equal(interimMedia(previous, loaded), loaded);
+  assert.equal(interimMedia(null, deferred), deferred);
+  assert.equal(interimMedia(previous, { version: 4, products: {} }).version, 4);
 });

@@ -68,7 +68,12 @@ async function main() {
     { windowsHide: true, timeout: 15000, maxBuffer: 4096 },
   );
   const pool = createPool(config.databaseUrl),
-    access = new TerminalAccess(pool, branchId, deviceId),
+    access = new TerminalAccess(
+      pool,
+      branchId,
+      deviceId,
+      process.env.EDGE_DEVICE_CENTER_ENABLED === 'true',
+    ),
     stop = new AbortController(),
     once = extra.includes('--once');
   for (const signal of ['SIGTERM', 'SIGINT']) process.once(signal, () => stop.abort());

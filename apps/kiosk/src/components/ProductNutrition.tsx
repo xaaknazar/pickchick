@@ -2,6 +2,7 @@ import { Text, View } from 'react-native';
 import type { KioskProduct } from '../model';
 import { copy, displayCopy, type Locale } from '../i18n';
 import { colors, fonts, useMetrics } from '../theme';
+import { fixedText } from './Body';
 /**
  * v3 nutrition on the blue product page. `facts` is the row of four white KBJU tiles,
  * `details` the basis, ingredients and allergens in white on blue; `all` shows both.
@@ -43,6 +44,7 @@ export function ProductNutrition({
         >
           {/* One text run, so assistive tech reads "1240 ккал" as a single caption. */}
           <Text
+            {...fixedText}
             numberOfLines={2}
             style={{
               fontFamily: fonts.heavy,
@@ -53,6 +55,7 @@ export function ProductNutrition({
           >
             {value}
             <Text
+              {...fixedText}
               style={{
                 fontFamily: fonts.body,
                 fontSize: Math.max(13, v(14)),
@@ -84,10 +87,11 @@ export function ProductNutrition({
         gap: v(10),
       }}
     >
-      <Text style={{ ...caption, fontFamily: fonts.medium }}>
+      <Text {...fixedText} style={{ ...caption, fontFamily: fonts.medium }}>
         {t.nutrition} · {n.basis === 'per_100_g' ? t.per100 : t.perServing} · {t.baseRecipe}
       </Text>
       <Text
+        {...fixedText}
         style={{
           fontFamily: fonts.body,
           fontSize: Math.max(16, v(18)),
@@ -95,10 +99,12 @@ export function ProductNutrition({
           color: colors.white,
         }}
       >
-        <Text style={{ fontFamily: fonts.bold }}>{t.ingredients}: </Text>
+        <Text {...fixedText} style={{ fontFamily: fonts.bold }}>
+          {t.ingredients}:{' '}
+        </Text>
         {displayCopy(product.ingredients)}
       </Text>
-      <Text style={caption}>
+      <Text {...fixedText} style={caption}>
         {product.allergens.length
           ? `${t.allergens}: ${product.allergens.join(', ')}`
           : t.unknownAllergens}

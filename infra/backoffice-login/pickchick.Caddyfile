@@ -24,6 +24,13 @@
 	}
 }
 pickchick.kz {
+	@cabinet_entry {
+		path /
+		method GET HEAD
+	}
+	handle @cabinet_entry {
+		redir * /backoffice/ 302
+	}
 	@office path /backoffice /backoffice/*
 	handle @office {
 		request_body {

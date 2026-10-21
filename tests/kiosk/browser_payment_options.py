@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 from playwright.sync_api import expect, sync_playwright
 
 class PaymentOptions(unittest.TestCase):
-    def test_qr_and_invoice_on_ipad_sizes(self):
+    def test_only_qr_on_ipad_sizes(self):
         url = os.environ.get('KIOSK_STORYBOOK_URL', 'http://127.0.0.1:6008')
         self.assertTrue(url.startswith('http://127.0.0.1:'))
         output = Path(os.environ.get('KIOSK_PAYMENT_OUTPUT', '.local/payment-browser'))
@@ -37,33 +37,10 @@ class PaymentOptions(unittest.TestCase):
                 submit = page.get_by_test_id('kiosk-review-create')
                 expect(submit).to_be_enabled()
                 expect(qr).to_have_attribute('aria-checked','true')
-                invoice.click()
-                expect(invoice).to_have_attribute('aria-checked','true')
-                phone = page.get_by_test_id('kiosk-invoice-phone')
-                expect(phone).to_be_visible()
-                phone.fill('+7 123')
-                expect(submit).to_be_disabled()
-                phone.fill('8 (701) 123-45-67')
-                expect(submit).to_be_enabled()
-                phone.scroll_into_view_if_needed()
-                rect = submit.bounding_box()
-                self.assertGreaterEqual(rect['x'],0)
-                self.assertLessEqual(rect['x'] + rect['width'],width)
-                self.assertLessEqual(rect['y'] + rect['height'],height)
-                self.assertLessEqual(page.evaluate('document.documentElement.scrollWidth'),width)
-                page.screenshot(path=str(output / f'invoice-review-{width}.png'))
-                submit.click()
-                expect(page.get_by_test_id('kiosk-screen-payment')).to_be_visible()
-                expect(page.get_by_text('Счёт отправлен.', exact=False)).to_be_visible()
+                expect(invoice).to_have_count(0)
                 expect(page.get_by_test_id('kiosk-invoice-phone')).to_have_count(0)
-                expect(page.get_by_text('8 (701) 123-45-67', exact=True)).to_have_count(0)
-                page.get_by_test_id('kiosk-payment-retry').click()
-                expect(page.get_by_text('Счёт отправлен.', exact=False)).to_be_visible()
-                page.screenshot(path=str(output / f'invoice-waiting-{width}.png'))
-                # Fresh fixture: primary QR path never requests a phone.
-                page.reload()
-                expect(submit).to_be_enabled()
-                expect(page.get_by_test_id('kiosk-invoice-phone')).to_have_count(0)
+                expect(page.get_by_text('10-13', exact=False).first).to_be_visible()
+                page.screenshot(path=str(output / f'qr-review-{width}.png'))
                 submit.click()
                 expect(page.get_by_test_id('kiosk-screen-payment')).to_be_visible()
                 expect(page.get_by_test_id('kiosk-payment-qr')).to_be_visible()
@@ -72,10 +49,14 @@ class PaymentOptions(unittest.TestCase):
                 page.screenshot(path=str(output / f'qr-waiting-{width}.png'))
                 self.assertEqual(errors,[])
                 self.assertEqual(external,[])
-                report.append({'width':width,'height':height,'invoice':True,'qr':True,'errors':errors,'external_requests':external})
+                report.append({'width':width,'height':height,'invoice':False,'qr':True,'errors':errors,'external_requests':external})
                 page.close()
             browser.close()
         (output / 'result.json').write_text(json.dumps({'synthetic':True,'checks':report},indent=2)+'\n')
+
+# Build 13 cloud kitchen checks share this Storybook run (the workflow file is held by another
+# task): unittest.main also runs the TestCase imported here.
+from browser_cloud_kitchen import CloudKitchen  # noqa: E402,F401
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

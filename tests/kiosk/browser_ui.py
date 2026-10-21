@@ -332,10 +332,10 @@ class KioskUI(unittest.TestCase):
             self.assertEqual(errors, [])
             self.assertEqual(fixture.unexpected, [], 'Unexpected requests were blocked')
 
-    def open(self, width=820, height=1180):
+    def open(self, width=820, height=1180, catalog=None):
         context = self.browser.new_context(viewport={'width': width, 'height': height},
                                            reduced_motion='reduce')
-        fixture = Fixture(self.catalog)
+        fixture = Fixture(catalog or self.catalog)
         context.route('**/*', fixture.route)
         page = context.new_page()
         errors = []
@@ -362,17 +362,22 @@ class KioskUI(unittest.TestCase):
         screen(page, 'upsell')
         if capture_name:
             capture(page, capture_name)
-        element(page, 'kiosk-upsell-continue').click()
+        # Redesign 2026-10-13: the order page left the path; «В заказе» on the upsell opens it.
+        element(page, 'kiosk-upsell-cart').click()
         screen(page, 'cart')
 
     def review(self, page):
-        self.cart(page)
-        element(page, 'kiosk-cart-checkout').click()
+        # «К оплате» on the smart upsell goes straight to payment: the simulator offers Kaspi
+        # and card, so the existing payment-method screen opens.
+        element(page, 'kiosk-menu-checkout').click()
+        screen(page, 'upsell')
+        element(page, 'kiosk-upsell-continue').click()
         screen(page, 'loyalty')
 
     def test_three_ipad_sizes_configuration_fixed_actions_and_reset(self):
         base = {('drink', 'cola-bottle', 1), ('sauce', 'pick', 1)}
-        custom = {('drink', 'lemonade', 1), ('sauce', 'pick', 1), ('extras', 'toast', 1)}
+        # Redesign 2026-10-13: the product card has no extras list (the smart upsell offers them).
+        custom = {('drink', 'lemonade', 1), ('sauce', 'pick', 1)}
         for width, height in [(768, 1024), (820, 1180), (1024, 1366)]:
             with self.subTest(width=width, height=height):
                 page, fixture = self.open(width, height)
@@ -396,7 +401,7 @@ class KioskUI(unittest.TestCase):
                 capture(page, f'mode-{width}.png')
                 element(page, 'kiosk-mode-takeaway').click()
                 screen(page, 'menu')
-                for category in ['combo', 'duo', 'sets', 'extras', 'combo']:
+                for category in ['combo', 'duo', 'sets', 'extras', 'drinks', 'combo']:
                     chip = element(page, 'kiosk-category-' + category)
                     chip.click()
                     assert_bounded(page, 'kiosk-category-' + category, width, height)
@@ -423,8 +428,7 @@ class KioskUI(unittest.TestCase):
                 expect(sheet).not_to_be_visible()
                 expect(element(page, 'kiosk-product-add')).to_contain_text('4 190')
                 element(page, 'kiosk-modifier-drink-lemonade').click()
-                element(page, 'kiosk-modifier-plus-extras-toast').click()
-                expect(element(page, 'kiosk-product-add')).to_contain_text('4 780')
+                expect(element(page, 'kiosk-product-add')).to_contain_text('4 390')
                 fixed_action(page, 'kiosk-product-add', 'kiosk-product-scroll', width, height)
                 capture(page, f'product-{width}.png')
                 element(page, 'kiosk-product-add').click()
@@ -436,20 +440,18 @@ class KioskUI(unittest.TestCase):
                 assert_bounded(page, 'kiosk-cart-checkout', width, height)
                 page.reload()
                 screen(page, 'menu')
-                self.cart(page)
-                element(page, 'kiosk-cart-checkout').click()
-                screen(page, 'loyalty')
-                element(page, 'kiosk-payment-method-card').click()
+                self.review(page)
+                expect(page.get_by_test_id('kiosk-payment-method-card')).to_have_count(0)
                 element(page, 'kiosk-review-create').click()
                 screen(page, 'payment')
                 self.assertEqual(len(fixture.orders), 1)
                 order = next(iter(fixture.orders.values()))
-                self.assertEqual(order['snapshot']['payment_method'], 'card')
+                self.assertEqual(order['snapshot']['payment_method'], 'kaspi')
                 self.assertEqual(order['snapshot']['service_mode'], 'takeaway')
                 self.assertEqual(len(order['snapshot']['lines']), 2)
                 self.assertEqual({frozenset(selection_set(line)) for line in order['snapshot']['lines']},
                                  {frozenset(base), frozenset(custom)})
-                self.assertEqual(order['snapshot']['total_minor'], '897000')
+                self.assertEqual(order['snapshot']['total_minor'], '858000')
                 capture(page, f'payment-{width}.png')
                 element(page, 'kiosk-payment-approve').click()
                 screen(page, 'order')
@@ -464,51 +466,64 @@ class KioskUI(unittest.TestCase):
                 self.assertEqual(len(fixture.orders), 1)
                 assert_no_overflow(page, width)
 
-    def test_compact_upsell_cards_add_to_cart_without_creating_order(self):
+    def test_smart_upsell_cards_add_to_cart_without_creating_order(self):
         page, fixture = self.open(1024, 1366)
         self.start(page)
         self.add(page)
         element(page, 'kiosk-menu-checkout').click()
         screen(page, 'upsell')
-        for product_id in self.catalog['upsell_product_ids']:
-            assert_bounded(page, 'kiosk-upsell-' + product_id, 1024, 1366)
+        # Fingers in the order: the burger on top, then the sauces and drinks rows.
+        for product_id in ['burger', 'sauce', 'sauce-hot', 'lemonade', 'iced-tea', 'cola']:
+            element(page, 'kiosk-upsell-' + product_id).scroll_into_view_if_needed()
+            expect(element(page, 'kiosk-upsell-' + product_id)).to_be_in_viewport()
         assert_bounded(page, 'kiosk-upsell-continue', 1024, 1366)
-        element(page, 'kiosk-upsell-toast').click()
+        element(page, 'kiosk-upsell-burger').click()
+        expect(element(page, 'kiosk-product-sheet')).to_be_visible()
+        element(page, 'kiosk-sheet-add').click()
         screen(page, 'upsell')
-        element(page, 'kiosk-upsell-continue').click()
+        element(page, 'kiosk-upsell-cart').click()
         screen(page, 'cart')
-        expect(element(page, 'kiosk-cart-line-toast-quantity')).to_have_text('1')
+        expect(element(page, 'kiosk-cart-line-burger-quantity')).to_have_text('1')
         cart = stored(page, FLOW_KEY)['cart']
         self.assertEqual(len(cart), 2)
-        self.assertEqual({line['productId'] for line in cart}, {'pick-combo', 'toast'})
+        self.assertEqual({line['productId'] for line in cart}, {'pick-combo', 'burger'})
         self.assertEqual(len(fixture.orders), 0)
         self.assertEqual(len(fixture.sessions), 0, 'Browse/upsell must not allocate an ordering identity')
         capture(page, 'cart-with-upsell.png')
 
     def test_menu_restores_category_and_offset_after_product_close(self):
-        page, fixture = self.open()
+        # A section long enough to scroll. Drinks and extras now open as a sheet over the menu
+        # (browser_redesign_sheet.py), so copies of the combos (which keep their product page)
+        # stand in for a long section here.
+        catalog = copy.deepcopy(self.catalog)
+        combos = [p for p in catalog['products'] if p['category'] == 'Комбо']
+        for number in range(1, 16):
+            base = combos[(number - 1) % len(combos)]
+            catalog['products'].append({**copy.deepcopy(base), 'id': f"{base['id']}-x{number}",
+                                        'name': f"{base['name']} #{number}"})
+        page, fixture = self.open(catalog=catalog)
         self.start(page)
-        selected = element(page, 'kiosk-category-extras')
+        selected = element(page, 'kiosk-category-combo')
         selected.click()
         expect(selected).to_have_attribute('aria-selected', 'true')
         scroller = element(page, 'kiosk-menu-scroll')
-        product = element(page, 'kiosk-product-piko')
+        product = element(page, 'kiosk-product-' + catalog['products'][-1]['id'])
         product.scroll_into_view_if_needed()
         # Use actual UI scrolling; do not seed navigation memory or storage.
-        capture(page, 'extras-before-product.png')
+        capture(page, 'combos-before-product.png')
         offset = scroller.evaluate('(e) => e.scrollTop')
         self.assertGreater(offset, 500, 'This must exercise a scrolled category')
         product.click()
         screen(page, 'product')
         element(page, 'kiosk-product-close').click()
         screen(page, 'menu')
-        expect(element(page, 'kiosk-category-extras')).to_have_attribute('aria-selected', 'true')
+        expect(element(page, 'kiosk-category-combo')).to_have_attribute('aria-selected', 'true')
         page.wait_for_function("""(offset) => Math.abs(
             document.querySelector('[data-testid="kiosk-menu-scroll"]').scrollTop - offset) <= 2""", arg=offset)
         self.assertTrue(product.is_visible())
         assert_bounded(page, 'kiosk-menu-checkout', 820, 1180)
         self.assertEqual(len(fixture.orders), 0)
-        capture(page, 'extras-restored-after-product.png')
+        capture(page, 'combos-restored-after-product.png')
 
     def test_lost_create_response_reconciles_committed_order_after_reload(self):
         page, fixture = self.open()

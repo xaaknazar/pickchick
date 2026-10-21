@@ -12,7 +12,7 @@ import {
   Res,
 } from '@nestjs/common';
 import type { ServerResponse } from 'node:http';
-import { RESOURCE, Resources } from '@pickchick/platform';
+import { LongPollRoute, longPollMayWait, RESOURCE, Resources } from '@pickchick/platform';
 import {
   AVAILABILITY_SIGNATURE_HEADER,
   AvailabilityAfterSchema,
@@ -25,7 +25,11 @@ import {
   KioskEnrollment,
   kioskEnrollmentKey,
   kioskCheckoutOptions,
+  kioskInvoiceAccountUnserved,
   kioskPiiKey,
+  KioskStaffPin,
+  KioskStaffPinError,
+  kioskStaffPinVerifier,
 } from '@pickchick/commerce-core';
 import type { KioskGuest } from '@pickchick/commerce-core';
 import { catalogMediaOptions } from '@pickchick/catalog-admin';
@@ -35,11 +39,17 @@ export class KioskCheckoutController {
   private readonly enrollment: KioskEnrollment | null;
   private readonly sessions: KioskSessions | null;
   private readonly checkout: KioskCheckout | null;
+  private readonly staff = new KioskStaffPin(kioskStaffPinVerifier(process.env));
   private readonly mediaEnabled = catalogMediaOptions(process.env).mediaEnabled;
   constructor(@Inject(RESOURCE) resources: Resources) {
     const options = kioskCheckoutOptions(process.env),
       key = kioskPiiKey(process.env);
     if (options && !key) throw new Error('KIOSK_CHECKOUT_PII_KEY required');
+    // The phone-invoice method is withheld (not offered) when no invoice worker serves it.
+    if (kioskInvoiceAccountUnserved(process.env))
+      console.error(
+        JSON.stringify({ event: 'kiosk_checkout', warning: 'kiosk_invoice_account_not_served' }),
+      );
     const enrollmentKey = kioskEnrollmentKey(process.env);
     this.enrollment =
       options && enrollmentKey
@@ -62,6 +72,11 @@ export class KioskCheckoutController {
     } catch (error) {
       if (error instanceof AvailabilityError)
         throw new HttpException({ code: error.code }, error.code === 'ITEM_STOPPED' ? 409 : 503);
+      if (error instanceof KioskStaffPinError)
+        throw new HttpException(
+          { code: error.code },
+          { INVALID: 400, UNAUTHORIZED: 401, RATE_LIMITED: 429, NOT_READY: 503 }[error.code],
+        );
       if (error instanceof CommerceError) {
         const codes = {
           INVALID: 400,
@@ -112,6 +127,23 @@ export class KioskCheckoutController {
       // Ordering and kitchen readiness do not prevent enrolling an authorized device.
       const config = await this.checkout!.config({ ...enrolled, sessionId: enrolled.deviceId });
       return { valid: true, branchId: config.branchId, restaurant: config.restaurant };
+    });
+  }
+  /**
+   * Staff code check for kiosk staff actions (audit 19.10: demo mode, «Начать заново» on a QR
+   * that may be scanned, service reset). Device credentials only; no guest is allocated and the
+   * answer carries nothing but the result. Off (NOT_READY) until KIOSK_STAFF_PIN_VERIFIER is set.
+   */
+  @Post('staff/verify') @HttpCode(200) staffVerify(
+    @Res({ passthrough: true }) res: ServerResponse,
+    @Body() body: unknown,
+    @Headers('x-kiosk-device') device?: string,
+    @Headers('x-kiosk-key') key?: string,
+  ) {
+    return this.execute(res, async () => {
+      const enrolled = await this.sessions!.validateDevice(device ?? '', key ?? '');
+      await this.staff.verify(enrolled.deviceId, body);
+      return { valid: true };
     });
   }
   @Post('sessions') @HttpCode(200) start(
@@ -171,9 +203,15 @@ export class KioskCheckoutController {
   /**
    * Without `after` this is the same single read as before. With `after` (the previous
    * X-Availability-Signature) it waits, re-reading every second for up to 25 s, until stops,
-   * freshness or the head catalog version change. The body shape never changes.
+   * freshness or the head catalog version change. The body shape never changes. When the
+   * long-poll budget is full, admission lets it read the current state once after a pause.
    */
-  @Get('availability') availability(
+  @Get('availability')
+  // The installed kiosk gateway route does not forward {client_ip}: request.ip is the front
+  // proxy for every kiosk. A kiosk wait starts only after enrolled-device auth, so the fleet
+  // bounds it; the per-IP cap would only pool all kiosks into one key.
+  @LongPollRoute('after', { perClient: false })
+  availability(
     @Res({ passthrough: true }) res: ServerResponse,
     @Query('after') after?: unknown,
     @Headers('x-kiosk-device') device?: string,
@@ -186,7 +224,7 @@ export class KioskCheckoutController {
       const guest = await this.guest(device, key, auth);
       const state = await pollAvailability(
         () => this.checkout!.availabilityState(guest),
-        after as string | undefined,
+        longPollMayWait(res.req) ? (after as string | undefined) : undefined,
         { cancelled: () => res.destroyed },
       );
       res.setHeader(CATALOG_VERSION_HEADER, String(state.catalogVersion));

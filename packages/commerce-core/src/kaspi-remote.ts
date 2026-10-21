@@ -1,3 +1,4 @@
+import { cloudChannelOrder } from './cloud-channel.js';
 import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { transaction } from '@pickchick/database';
@@ -37,7 +38,14 @@ export interface KaspiRemoteConfig {
   invoiceTtlSeconds: number;
   requestTimeoutMs: number;
   session: KaspiRemoteSession | null;
+  /**
+   * KASPI_REMOTE_PENDING_MAX_AGE_SECONDS (default 600): a payment attempt that was never sent
+   * to the bank within this age fails as invoice_not_sent. No invoice, no money.
+   */
+  pendingMaxAgeSeconds?: number;
 }
+/** Default maximum age of a never-sent attempt (PM decision 2026-10-19: 10 minutes). */
+export const KASPI_PENDING_MAX_AGE_SECONDS = 600;
 
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
@@ -58,7 +66,13 @@ export function kaspiRemoteConfig(env: NodeJS.ProcessEnv): KaspiRemoteConfig | n
   const secret = env.KASPI_BRIDGE_WEBHOOK_SECRET ?? '';
   const accountId = env.KASPI_REMOTE_ACCOUNT_ID ?? '';
   const ttl = Number(env.KASPI_INVOICE_TTL_SECONDS ?? '180');
+  const pendingMaxAge = Number(
+    env.KASPI_REMOTE_PENDING_MAX_AGE_SECONDS ?? String(KASPI_PENDING_MAX_AGE_SECONDS),
+  );
   if (
+    !Number.isInteger(pendingMaxAge) ||
+    pendingMaxAge < 60 ||
+    pendingMaxAge > 86_400 ||
     bridge.protocol !== 'http:' ||
     !LOOPBACK.has(bridge.hostname) ||
     bridge.username ||
@@ -92,6 +106,7 @@ export function kaspiRemoteConfig(env: NodeJS.ProcessEnv): KaspiRemoteConfig | n
     invoiceTtlSeconds: ttl,
     requestTimeoutMs: 15_000,
     session,
+    pendingMaxAgeSeconds: pendingMaxAge,
   };
 }
 
@@ -176,7 +191,21 @@ export type BridgeResult =
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 const SESSION_EVICTED = -101001;
 
-export class KaspiBridgeClient {
+/** Result of the read-only session probe. Never contains session values. */
+export type KaspiSessionStatus = 'active' | 'inactive' | 'unreachable' | 'missing';
+
+/** What the invoice worker needs from the bridge (KaspiBridgeClient or a test double). */
+export interface KaspiRemoteBridge {
+  checkSession(): Promise<boolean>;
+  /** Optional detailed probe; without it the worker falls back to checkSession(). */
+  sessionStatus?(): Promise<KaspiSessionStatus>;
+  createInvoice(phone: string, amountTenge: number, comment: string): Promise<BridgeResult>;
+  details(operationId: string): Promise<BridgeResult>;
+  cancel(operationId: string): Promise<BridgeResult>;
+  history(maxResult?: number): Promise<BridgeResult>;
+}
+
+export class KaspiBridgeClient implements KaspiRemoteBridge {
   constructor(
     private readonly config: Pick<KaspiRemoteConfig, 'bridgeUrl' | 'requestTimeoutMs' | 'session'>,
     private readonly fetcher: FetchLike = fetch,
@@ -184,8 +213,13 @@ export class KaspiBridgeClient {
 
   /** Read-only cashier authentication probe; never creates an invoice. */
   async checkSession(): Promise<boolean> {
+    return (await this.sessionStatus()) === 'active';
+  }
+
+  /** Same probe with a short reason for alerts: inactive session or unreachable bridge. */
+  async sessionStatus(): Promise<KaspiSessionStatus> {
     const session = this.config.session;
-    if (!session) return false;
+    if (!session) return 'missing';
     try {
       const response = await this.fetcher(this.config.bridgeUrl + '/api/session/check', {
         method: 'GET',
@@ -198,13 +232,17 @@ export class KaspiBridgeClient {
         redirect: 'error',
         signal: AbortSignal.timeout(Math.min(this.config.requestTimeoutMs, 10000)),
       });
-      if (!response.ok) return false;
+      if (response.status >= 500) return 'unreachable';
+      if (!response.ok) return 'inactive';
       const value: unknown = await response.json();
-      return (
-        typeof value === 'object' && value !== null && 'active' in value && value.active === true
-      );
+      return typeof value === 'object' &&
+        value !== null &&
+        'active' in value &&
+        value.active === true
+        ? 'active'
+        : 'inactive';
     } catch {
-      return false;
+      return 'unreachable';
     }
   }
 
@@ -432,15 +470,40 @@ interface InvoiceRow {
   cancel_requested_at: Date | null;
   organization_id: string;
   branch_id: string;
+  /** Edge admission state of the order; null for cloud channel orders. */
+  fulfillment_state: string | null;
 }
+/** Short machine reason of a bank-level problem. Never contains session values. */
+export type KaspiSessionReason =
+  'session_inactive' | 'session_missing' | 'bridge_unreachable' | 'session_rejected';
 export interface KaspiTickResult {
   submitted: number;
   checked: number;
   errors: number;
+  /** The cashier session is not usable (preflight failed or the bank rejected it). */
   sessionProblem: boolean;
+  sessionReason?: KaspiSessionReason;
+  /** A previously failing session probe succeeded in this tick. */
+  sessionRecovered?: boolean;
   /** Invoices whose existence is unknown for over 5 minutes: need manual check in Kaspi Pay. */
   unknownOverdue: number;
+  /** Submissions left for a later tick: this order or the bank is not ready yet. */
+  deferred: number;
+  /** Never-sent attempts failed definitively in this tick (no invoice was created). */
+  notSent: number;
+  /** Pending attempts of this account still waiting to be sent, and the oldest age in seconds. */
+  pendingUnsent: number;
+  oldestUnsentSeconds: number;
 }
+/** Order-level reasons stored in the inbox event id of a never-sent failure. */
+export type KaspiNotSentReason = 'invoice_not_sent' | 'order_not_held';
+const ORDER_RELEASED = ['released', 'cancelled', 'cancel_requested'];
+/** Seconds before an order-level deferral and a failed session probe are retried. */
+const ORDER_RETRY_SECONDS = 5;
+const SESSION_PROBE_RETRY_MS = 5_000;
+const SESSION_REJECTED_RETRY_MS = 30_000;
+/** Read-only re-probes while the session stays bad: 5 s, doubling up to once a minute. */
+const SESSION_PROBE_MAX_RETRY_MS = 60_000;
 
 const REFERENCE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const reference = () =>
@@ -448,19 +511,78 @@ const reference = () =>
     '',
   );
 const SELECT_ROW = `SELECT k.*,k.amount_minor::text amount_minor,k.paid_minor::text paid_minor,
-  p.organization_id,p.branch_id,o.customer_id FROM commerce_kaspi_invoices k
+  p.organization_id,p.branch_id,o.customer_id,
+  (SELECT f.state FROM cloud_fulfillment_projection f WHERE f.order_id=k.order_id) fulfillment_state
+  FROM commerce_kaspi_invoices k
   JOIN commerce_provider_accounts p ON p.id=k.account_id
   JOIN commerce_orders o ON o.id=k.order_id`;
+
+type SubmissionEvent = { id: string; attempt_id: string; token: string };
+type SubmitOutcome = 'done' | 'session' | 'deferred' | 'bank' | 'not_sent';
+
+/** A customer waiting longer than this for "Отправляем счёт" is an operational problem. */
+export const KASPI_UNSENT_ATTENTION_SECONDS = 120;
+/**
+ * Worker log signal for ops (TEAM interface pay -> ops): `kaspi_remote_attention` with
+ * `sessionProblem` and a short reason code, at most once per interval while a problem lasts,
+ * then exactly one recovery event. A change of the session state itself is never held back by
+ * the interval: a session lost during another alert, or a session restored while another problem
+ * remains, is reported at once (the watchdog closes the session alarm on `sessionProblem:false`).
+ * Contains only counts and codes: no phone, amount or session.
+ */
+export class KaspiAttention {
+  private alertedAt: number | null = null;
+  private alertedSession = false;
+  constructor(private readonly intervalMs = 5 * 60_000) {}
+  next(result: KaspiTickResult, now = Date.now()): Record<string, unknown> | null {
+    const reason = result.sessionProblem
+      ? (result.sessionReason ?? 'session_inactive')
+      : result.unknownOverdue > 0
+        ? 'unknown_overdue'
+        : result.oldestUnsentSeconds >= KASPI_UNSENT_ATTENTION_SECONDS
+          ? 'invoice_not_sent'
+          : result.errors > 0
+            ? 'worker_errors'
+            : null;
+    if (reason === null) {
+      if (this.alertedAt === null) return null;
+      this.alertedAt = null;
+      this.alertedSession = false;
+      return { event: 'kaspi_remote_attention', recovered: true, sessionProblem: false };
+    }
+    if (
+      this.alertedAt !== null &&
+      result.sessionProblem === this.alertedSession &&
+      now - this.alertedAt < this.intervalMs
+    )
+      return null;
+    this.alertedAt = now;
+    this.alertedSession = result.sessionProblem;
+    return {
+      event: 'kaspi_remote_attention',
+      sessionProblem: result.sessionProblem,
+      // Older log readers know this field; it means the same as sessionProblem.
+      sessionRejected: result.sessionProblem,
+      reason,
+      unknownOverdue: result.unknownOverdue,
+      errors: result.errors,
+      pendingUnsent: result.pendingUnsent,
+      oldestUnsentSeconds: result.oldestUnsentSeconds,
+    };
+  }
+}
 
 export class KaspiRemoteProcessor {
   private readonly repo: CommerceRepository;
   private readonly workerId = randomUUID();
-  private submissionsPaused = false;
-  private readinessRetryAt = 0;
+  /** Bank-level problem: no new invoice is sent until a session probe succeeds again. */
+  private sessionReason: KaspiSessionReason | null = null;
+  private sessionRetryAt = 0;
+  private failedProbes = 0;
   constructor(
     private readonly pool: DatabasePool,
     private readonly config: KaspiRemoteConfig,
-    private readonly client: KaspiBridgeClient,
+    private readonly client: KaspiRemoteBridge,
     private readonly phone: PhoneResolver,
     private readonly now: () => Date = () => new Date(),
     private readonly guestPhone?: (orderId: string) => Promise<string | null>,
@@ -468,30 +590,66 @@ export class KaspiRemoteProcessor {
     this.repo = new CommerceRepository(pool);
   }
 
-  /** One worker iteration: issue new invoices, then re-check due ones. */
+  private get pendingMaxAgeMs() {
+    return (this.config.pendingMaxAgeSeconds ?? KASPI_PENDING_MAX_AGE_SECONDS) * 1000;
+  }
+
+  /**
+   * One worker iteration: fail never-sent attempts past their maximum age, issue new invoices,
+   * then re-check due ones. An order that is not ready defers only itself; a bank-level problem
+   * (session) pauses new invoices until a session probe succeeds again.
+   */
   async tick(limit = 10): Promise<KaspiTickResult> {
     const result: KaspiTickResult = {
       submitted: 0,
       checked: 0,
       errors: 0,
-      sessionProblem: this.submissionsPaused,
+      sessionProblem: false,
       unknownOverdue: 0,
+      deferred: 0,
+      notSent: 0,
+      pendingUnsent: 0,
+      oldestUnsentSeconds: 0,
     };
-    // One broken item must not stall the rest; its lease expires and it is retried.
-    for (
-      let i = 0;
-      i < limit && !this.submissionsPaused && Date.now() >= this.readinessRetryAt;
-      i++
-    ) {
-      const [event] = await this.claimSubmissions(1);
+    // While the session is known bad, re-probe it on its own back-off (read-only, no invoice).
+    let sessionReady: boolean | undefined;
+    if (this.sessionReason && this.now().getTime() >= this.sessionRetryAt) {
+      const before = this.sessionReason;
+      sessionReady = await this.probeSession();
+      if (sessionReady && before) result.sessionRecovered = true;
+    }
+    // Expired never-sent attempts fail even while the bank is down: nothing was sent, no money.
+    for (const event of await this.claimSubmissions(limit, true)) {
+      try {
+        await this.failUnsent(event, 'invoice_not_sent');
+        result.notSent++;
+      } catch {
+        result.errors++;
+      }
+    }
+    const ensureSession = async () => {
+      if (sessionReady === undefined) {
+        const before = this.sessionReason;
+        sessionReady = await this.probeSession();
+        if (sessionReady && before) result.sessionRecovered = true;
+      }
+      return sessionReady;
+    };
+    for (let i = 0; i < limit && !this.sessionReason; i++) {
+      const [event] = await this.claimSubmissions(1, false);
       if (!event) break;
       try {
-        const submission = await this.submit(event);
-        if (submission === 'deferred') break;
-        if (submission === 'session') {
-          this.submissionsPaused = true;
-          result.sessionProblem = true;
+        const outcome = await this.submit(event, ensureSession);
+        if (outcome === 'deferred' || outcome === 'bank') {
+          result.deferred++;
+          if (outcome === 'bank') break;
+          continue;
         }
+        if (outcome === 'not_sent') {
+          result.notSent++;
+          continue;
+        }
+        if (outcome === 'session') this.sessionRejected();
       } catch {
         result.errors++;
       }
@@ -501,17 +659,68 @@ export class KaspiRemoteProcessor {
       const [row] = await this.claimDue(1);
       if (!row) break;
       try {
-        if ((await this.check(row)) === 'session') {
-          this.submissionsPaused = true;
-          result.sessionProblem = true;
-        }
+        if ((await this.check(row)) === 'session') this.sessionRejected();
       } catch {
         result.errors++;
       }
       result.checked++;
     }
     result.unknownOverdue = await this.unknownOverdue();
+    const unsent = await this.unsent();
+    result.pendingUnsent = unsent.count;
+    result.oldestUnsentSeconds = unsent.oldestSeconds;
+    result.sessionProblem = this.sessionReason !== null;
+    if (this.sessionReason) result.sessionReason = this.sessionReason;
     return result;
+  }
+
+  /** Read-only probe. Success clears a bank-level problem; failure backs off before the next. */
+  private async probeSession(): Promise<boolean> {
+    const status: KaspiSessionStatus = this.client.sessionStatus
+      ? await this.client.sessionStatus()
+      : (await this.client.checkSession())
+        ? 'active'
+        : 'inactive';
+    if (status === 'active') {
+      this.sessionReason = null;
+      this.sessionRetryAt = 0;
+      this.failedProbes = 0;
+      return true;
+    }
+    this.sessionReason =
+      status === 'unreachable'
+        ? 'bridge_unreachable'
+        : status === 'missing'
+          ? 'session_missing'
+          : 'session_inactive';
+    this.sessionRetryAt =
+      this.now().getTime() +
+      Math.min(SESSION_PROBE_RETRY_MS * 2 ** this.failedProbes, SESSION_PROBE_MAX_RETRY_MS);
+    this.failedProbes++;
+    return false;
+  }
+
+  /** The bank refused the session on a real call: pause new invoices, re-probe later. */
+  private sessionRejected() {
+    this.sessionReason = 'session_rejected';
+    this.sessionRetryAt = this.now().getTime() + SESSION_REJECTED_RETRY_MS;
+  }
+
+  private async unsent(): Promise<{ count: number; oldestSeconds: number }> {
+    const { rows } = await this.pool.query<{ count: number; oldest: Date | null }>(
+      `SELECT count(*)::int count,min(a.created_at) oldest FROM commerce_outbox e
+       JOIN commerce_payment_attempts a ON a.id=(e.payload->>'attemptId')::uuid AND a.order_id=e.order_id
+       WHERE e.event_type='payment.submit_requested' AND e.acknowledged_at IS NULL
+         AND (e.payload->>'accountId')::uuid=$1 AND a.account_id=$1 AND a.state='pending'`,
+      [this.config.accountId],
+    );
+    const oldest = rows[0]?.oldest;
+    return {
+      count: rows[0]?.count ?? 0,
+      oldestSeconds: oldest
+        ? Math.max(0, Math.floor((this.now().getTime() - oldest.getTime()) / 1000))
+        : 0,
+    };
   }
 
   private async unknownOverdue(): Promise<number> {
@@ -527,8 +736,14 @@ export class KaspiRemoteProcessor {
     return hintKaspiInvoice(this.pool, this.config.accountId, operationId);
   }
 
-  private async claimSubmissions(limit: number) {
+  /**
+   * Lease unsent submissions. `expired` selects only never-sent attempts older than the maximum
+   * age (any order or account state: they only fail). Otherwise the least-tried events go first,
+   * so a deferred attempt never holds back newer ready ones (no head-of-line blocking).
+   */
+  private async claimSubmissions(limit: number, expired: boolean): Promise<SubmissionEvent[]> {
     const token = randomUUID();
+    const cutoff = new Date(this.now().getTime() - this.pendingMaxAgeMs);
     const { rows } = await this.pool.query<{ id: string; attempt_id: string }>(
       `WITH selected AS (
         SELECT e.id FROM commerce_outbox e
@@ -537,15 +752,18 @@ export class KaspiRemoteProcessor {
         JOIN commerce_provider_accounts p ON p.id=a.account_id
         WHERE e.event_type='payment.submit_requested' AND e.acknowledged_at IS NULL
           AND (e.lease_until IS NULL OR e.lease_until<clock_timestamp())
-          AND p.id=$1 AND p.provider=$2 AND p.kind='payment' AND p.enabled
+          AND p.id=$1 AND p.provider=$2 AND p.kind='payment'
           AND (e.payload->>'accountId')::uuid=p.id AND a.state='pending'
-          AND NOT o.attention_required
-          AND NOT EXISTS(SELECT 1 FROM commerce_cancellation_intents i WHERE i.order_id=o.id)
-        ORDER BY e.sequence LIMIT $3 FOR UPDATE OF e SKIP LOCKED)
+          AND (CASE WHEN $6::boolean
+            THEN a.created_at<=$7::timestamptz
+              AND NOT EXISTS(SELECT 1 FROM commerce_kaspi_invoices k WHERE k.attempt_id=a.id)
+            ELSE p.enabled AND NOT o.attention_required
+              AND NOT EXISTS(SELECT 1 FROM commerce_cancellation_intents i WHERE i.order_id=o.id) END)
+        ORDER BY e.attempts,e.sequence LIMIT $3 FOR UPDATE OF e SKIP LOCKED)
       UPDATE commerce_outbox e SET lease_worker=$4,lease_token=$5,
         lease_until=clock_timestamp()+interval '120 seconds',attempts=attempts+1
       FROM selected s WHERE e.id=s.id RETURNING e.id,e.payload->>'attemptId' attempt_id`,
-      [this.config.accountId, KASPI_REMOTE_PROVIDER, limit, this.workerId, token],
+      [this.config.accountId, KASPI_REMOTE_PROVIDER, limit, this.workerId, token, expired, cutoff],
     );
     return rows.map((row) => ({ ...row, token }));
   }
@@ -558,31 +776,103 @@ export class KaspiRemoteProcessor {
     );
   }
 
-  private async deferSubmission(event: { id: string; token: string }) {
-    this.readinessRetryAt = Date.now() + 5000;
+  /** Defer only this submission; other ready orders keep being served in the same tick. */
+  private async deferSubmission<T extends 'deferred' | 'bank'>(
+    event: { id: string; token: string },
+    seconds: number,
+    outcome: T,
+  ): Promise<T> {
     await this.pool.query(
-      `UPDATE commerce_outbox SET lease_until=clock_timestamp()+interval '5 seconds'
+      `UPDATE commerce_outbox SET lease_until=clock_timestamp()+$4*interval '1 second'
        WHERE id=$1 AND lease_worker=$2 AND lease_token=$3`,
-      [event.id, this.workerId, event.token],
+      [event.id, this.workerId, event.token, seconds],
     );
-    return 'deferred' as const;
+    return outcome;
   }
 
-  private async submit(event: { id: string; attempt_id: string; token: string }) {
+  private expired(createdAt: Date) {
+    return createdAt.getTime() <= this.now().getTime() - this.pendingMaxAgeMs;
+  }
+
+  /**
+   * Definite failure of an attempt that was never sent to Kaspi (no invoice row exists). The
+   * reason is kept in the durable inbox event id; a held combo gift is released by the same
+   * ledger rule as any other failed payment.
+   */
+  private async failUnsent(event: SubmissionEvent, reason: KaspiNotSentReason) {
+    const row = (
+      await this.pool.query<{ organization_id: string; branch_id: string }>(
+        `SELECT p.organization_id,p.branch_id FROM commerce_payment_attempts a
+         JOIN commerce_provider_accounts p ON p.id=a.account_id
+         WHERE a.id=$1 AND a.account_id=$2 AND a.state='pending'
+           AND NOT EXISTS(SELECT 1 FROM commerce_kaspi_invoices k WHERE k.attempt_id=a.id)`,
+        [event.attempt_id, this.config.accountId],
+      )
+    ).rows[0];
+    if (row)
+      await this.repo.observePayment(
+        {
+          organizationId: row.organization_id,
+          branchId: row.branch_id,
+          accountId: this.config.accountId,
+        },
+        {
+          eventId: `kaspi-remote:${event.attempt_id}:not-sent:${reason}`,
+          attemptId: event.attempt_id,
+          outcome: 'failed',
+          occurredAt: this.now().toISOString(),
+        },
+      );
+    await this.acknowledge(event);
+  }
+
+  private async cloudChannelAttempt(attemptId: string) {
+    const order = (
+      await this.pool.query<{ order_id: string }>(
+        'SELECT order_id FROM commerce_payment_attempts WHERE id=$1',
+        [attemptId],
+      )
+    ).rows[0];
+    return order ? (await cloudChannelOrder(this.pool, order.order_id)) !== null : false;
+  }
+
+  private async itemsAvailable(source: { branch_id: string; snapshot: unknown }) {
+    try {
+      await assertBranchItemsAvailable(
+        this.pool,
+        source.branch_id,
+        snapshotAvailabilityItems(source.snapshot),
+      );
+      return true;
+    } catch (error) {
+      if (error instanceof AvailabilityError) return false;
+      throw error;
+    }
+  }
+
+  private async submit(
+    event: SubmissionEvent,
+    sessionReady: () => Promise<boolean>,
+  ): Promise<SubmitOutcome> {
     const existing = await this.row(event.attempt_id);
-    if (!existing && !(await this.client.checkSession())) return this.deferSubmission(event);
+    // A cloud channel order (ADR-0014 S4) has no edge reservation; it is ready without one.
+    const cloud = await this.cloudChannelAttempt(event.attempt_id);
     const source = (
       await this.pool.query<{
         snapshot: unknown;
         display_number: string | null;
         branch_id: string;
+        created_at: Date;
         ready: boolean;
+        released: boolean;
       }>(
-        `SELECT o.snapshot,o.branch_id,p.display_number::text,
+        `SELECT o.snapshot,o.branch_id,p.display_number::text,a.created_at,
          (b.ordering_enabled AND NOT o.attention_required AND t.active AND d.status='active'
-          AND p.state='held' AND p.device_id=o.admission_device_id
-          AND p.device_id=t.device_id AND p.reservation_id=o.admission_reservation_id
-          AND NOT EXISTS(SELECT 1 FROM commerce_cancellation_intents c WHERE c.order_id=o.id)) ready
+          AND ((p.state='held' AND p.device_id=o.admission_device_id
+          AND p.device_id=t.device_id AND p.reservation_id=o.admission_reservation_id)
+           OR ($3::boolean AND p.order_id IS NULL AND o.admission_reservation_id IS NULL))
+          AND NOT EXISTS(SELECT 1 FROM commerce_cancellation_intents c WHERE c.order_id=o.id)) ready,
+         COALESCE(p.state=ANY($4::text[]),false) released
        FROM commerce_payment_attempts a
        JOIN commerce_orders o ON o.id=a.order_id
        JOIN branches b ON b.id=o.branch_id
@@ -590,27 +880,34 @@ export class KaspiRemoteProcessor {
        LEFT JOIN devices d ON d.id=t.device_id
        LEFT JOIN cloud_fulfillment_projection p ON p.order_id=o.id
        WHERE a.id=$1 AND a.account_id=$2`,
-        [event.attempt_id, this.config.accountId],
+        [event.attempt_id, this.config.accountId, cloud, ORDER_RELEASED],
       )
     ).rows[0];
     if (!source) throw new KaspiRemoteError('INVALID');
     if (!existing) {
-      if (!source.ready) return this.deferSubmission(event);
-      try {
-        // Run after the bank probe: freshness can expire while checking Kaspi.
-        await assertBranchItemsAvailable(
-          this.pool,
-          source.branch_id,
-          snapshotAvailabilityItems(source.snapshot),
-        );
-      } catch (error) {
-        if (error instanceof AvailabilityError) return this.deferSubmission(event);
-        throw error;
+      // Never send an invoice for an abandoned attempt: past its maximum age it fails.
+      if (this.expired(source.created_at)) {
+        await this.failUnsent(event, 'invoice_not_sent');
+        return 'not_sent';
       }
+      // The restaurant released or cancelled the held order: it can never become payable.
+      if (source.released) {
+        await this.failUnsent(event, 'order_not_held');
+        return 'not_sent';
+      }
+      // Order-level readiness first: a blocked order defers itself without probing the bank.
+      if (!source.ready || !(await this.itemsAvailable(source)))
+        return this.deferSubmission(event, ORDER_RETRY_SECONDS, 'deferred');
+      if (!(await sessionReady()))
+        return this.deferSubmission(event, Math.ceil(SESSION_PROBE_RETRY_MS / 1000), 'bank');
+      // Re-check after the bank probe: freshness can expire while checking Kaspi.
+      if (!(await this.itemsAvailable(source)))
+        return this.deferSubmission(event, ORDER_RETRY_SECONDS, 'deferred');
     }
     const comment = kaspiInvoiceComment(source.display_number, source.snapshot);
     // Persist the exact message before sending. Recovery verifies bank metadata
-    // against this attempt rather than issuing another invoice.
+    // against this attempt rather than issuing another invoice. An attempt past its maximum
+    // age is never inserted, even if this worker was slow.
     const { rows } = await this.pool.query<{
       attempt_id: string;
       customer_id: string | null;
@@ -619,13 +916,24 @@ export class KaspiRemoteProcessor {
        SELECT a.id,a.order_id,a.account_id,a.intended_minor,'issuing',$3,$4
        FROM commerce_payment_attempts a
        WHERE a.id=$1 AND a.account_id=$2 AND a.state='pending' AND a.intended_minor%100=0
+         AND a.created_at>$5::timestamptz
        ON CONFLICT(attempt_id) DO NOTHING
        RETURNING attempt_id,(SELECT customer_id FROM commerce_orders WHERE id=order_id) customer_id`,
-      [event.attempt_id, this.config.accountId, reference(), comment],
+      [
+        event.attempt_id,
+        this.config.accountId,
+        reference(),
+        comment,
+        new Date(this.now().getTime() - this.pendingMaxAgeMs),
+      ],
     );
     const created = rows[0];
     if (!created) {
       const existing = await this.row(event.attempt_id);
+      if (!existing && this.expired(source.created_at)) {
+        await this.failUnsent(event, 'invoice_not_sent');
+        return 'not_sent';
+      }
       // Tiyn amounts cannot be invoiced in whole tenge: fail the attempt explicitly.
       if (!existing) await this.observeWithoutInvoice(event.attempt_id);
       await this.acknowledge(event);
@@ -723,37 +1031,45 @@ export class KaspiRemoteProcessor {
       const history = await this.client.history(200);
       if (history.kind === 'session') return this.later(row, 60, 'session');
       if (history.kind === 'ok') {
-        // A repeated human-readable message is ambiguous across attempts/shifts.
-        // Never guess, reissue, or credit another invoice in that case.
+        // The readable message repeats across days (order numbers restart, cloud orders have
+        // none). Only another attempt whose send window overlaps this one is ambiguous; never
+        // guess, reissue, or credit another invoice in that case.
+        const start = row.issue_started_at.getTime();
+        const sentInWindow = (record: Record<string, unknown>) => {
+          const rawDate = record.OrderRegDate;
+          const at =
+            typeof rawDate === 'string' &&
+            /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(rawDate)
+              ? Date.parse(rawDate)
+              : NaN;
+          return (
+            Number.isFinite(at) &&
+            at >= start - 5000 &&
+            at <= start + this.config.requestTimeoutMs + 5000
+          );
+        };
+        const overlap = this.config.requestTimeoutMs + 10_000;
         const uniqueComment =
           row.invoice_comment === null ||
           (
             await this.pool.query(
-              'SELECT 1 FROM commerce_kaspi_invoices WHERE account_id=$1 AND invoice_comment=$2 AND attempt_id<>$3 LIMIT 1',
-              [row.account_id, row.invoice_comment, row.attempt_id],
+              `SELECT 1 FROM commerce_kaspi_invoices WHERE account_id=$1 AND invoice_comment=$2 AND attempt_id<>$3
+               AND issue_started_at BETWEEN $4::timestamptz-$5*interval '1 millisecond'
+                 AND $4::timestamptz+$5*interval '1 millisecond' LIMIT 1`,
+              [row.account_id, row.invoice_comment, row.attempt_id, row.issue_started_at, overlap],
             )
           ).rowCount === 0;
         const matches = !uniqueComment
           ? []
           : row.invoice_comment === null
             ? findByReference(history.data, row.reference)
-            : findByInvoiceComment(history.data, row.invoice_comment);
+            : // Older bank records with the same text were sent at another time: not ours.
+              findByInvoiceComment(history.data, row.invoice_comment).filter(sentInWindow);
         const match = matches.length === 1 ? matches[0]! : null;
         const amount = match ? kaspiMinor(match.Amount) : null;
         let identityMatches = row.invoice_comment === null;
         if (match && row.invoice_comment !== null) {
-          const rawDate = match.OrderRegDate;
-          const at =
-            typeof rawDate === 'string' &&
-            /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(rawDate)
-              ? Date.parse(rawDate)
-              : NaN;
-          const start = row.issue_started_at.getTime();
-          if (
-            Number.isFinite(at) &&
-            at >= start - 5000 &&
-            at <= start + this.config.requestTimeoutMs + 5000
-          ) {
+          if (sentInWindow(match)) {
             const phone = row.customer_id
               ? await this.phone(row.customer_id).catch(() => null)
               : ((await this.guestPhone?.(row.order_id).catch(() => null)) ?? null);
@@ -810,8 +1126,13 @@ export class KaspiRemoteProcessor {
       [row.attempt_id, safeStatus(status), row.state, row.lease_token],
     );
     // A fast-food order must not wait for Kaspi's own long expiry: cancel once, then keep checking
-    // until Kaspi reports the cancellation (or a payment that raced it).
-    if (row.expires_at && this.now() >= row.expires_at && !row.cancel_requested_at) {
+    // until Kaspi reports the cancellation (or a payment that raced it). The same applies at once
+    // when the restaurant released or cancelled the held order while the invoice was open.
+    const restaurantCancelled = ORDER_RELEASED.includes(row.fulfillment_state ?? '');
+    if (
+      !row.cancel_requested_at &&
+      ((row.expires_at && this.now() >= row.expires_at) || restaurantCancelled)
+    ) {
       // Persist the intent BEFORE the network call. If the reply/process is lost,
       // the next worker only reads status; it must not send another cancellation.
       const claimed = await this.pool.query(

@@ -47,7 +47,7 @@ jobs:
       - name: Verify commerce transactions and delivery invariants
         run: |
           pnpm test:commerce
-          node --env-file=.env --test --test-concurrency=1 tests/operations/windows-reserved-number.test.mjs tests/operations/windows-native-service-upgrade.test.mjs
+          node --env-file=.env --test --test-concurrency=1 tests/operations/windows-reserved-number.test.mjs tests/operations/windows-native-service-upgrade.test.mjs tests/operations/windows-display-numbers.test.mjs
           node --test tests/payments/tiptoppay-http.test.mjs tests/payments/kaspi-remote-http.test.mjs
           python3 -m unittest discover -s infra/domains -p 'test_*.py'
       - name: Verify Chiki ledger, reservations and refund debt
@@ -240,6 +240,10 @@ jobs:
           run_regression .local/design-venv/bin/python tests/mobile/browser_profile.py
           run_regression .local/design-venv/bin/python tests/mobile/browser_complete_catalog.py
           run_regression .local/design-venv/bin/python tests/operations/layout_regression.py
+          run_regression .local/design-venv/bin/python tests/mobile/browser_tab_bar.py
+          run_regression .local/design-venv/bin/python tests/mobile/browser_restaurants_redesign.py
+          run_regression .local/design-venv/bin/python tests/mobile/browser_orders_redesign.py sim
+          run_regression .local/design-venv/bin/python tests/mobile/browser_tracker_redesign.py
           run_regression .local/design-venv/bin/python tests/mobile/browser_mockup_fidelity.py
           run_regression .local/design-venv/bin/python tests/mobile/browser_pick_blocks.py
           run_regression .local/design-venv/bin/python tests/mobile/browser_pick_man.py
@@ -300,6 +304,12 @@ jobs:
           # Isolated Kaspi checkout fixture: no bank, no real customer or VPS requests.
           EXPO_PUBLIC_CUSTOMER_AUTH=server EXPO_PUBLIC_KASPI_CHECKOUT=1 EXPO_PUBLIC_UNPAID_TEST_ORDERS=1 EXPO_PUBLIC_PUBLISHED_CATALOG=0 pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/customer-auth-web
           .local/design-venv/bin/python tests/mobile/browser_kaspi_checkout.py
+          # Audit 19.10 (0.2/2.0, 2.1, 2.4, 2.5): the Kaspi checkout never traps the customer.
+          CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_checkout_traps.py
+          CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_combo_rewards.py
+          CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_orders_redesign.py kaspi
+          CUSTOMER_AUTH_URL=http://127.0.0.1:4196 ORDERS_VIEWPORT=320x568 .local/design-venv/bin/python tests/mobile/browser_orders_redesign.py kaspi
+          CUSTOMER_AUTH_URL=http://127.0.0.1:4196 TRACKER_MODE=kaspi .local/design-venv/bin/python tests/mobile/browser_tracker_redesign.py
       - name: Stop test infrastructure
         if: always()
         run: docker compose --env-file .env.example -f infra/local/compose.yaml down
@@ -367,6 +377,14 @@ jobs:
           done
           .local/design-venv/bin/python tests/kiosk/browser_ui.py
           .local/design-venv/bin/python tests/kiosk/browser_payment_success.py
+          .local/design-venv/bin/python tests/kiosk/browser_redesign_start.py
+          .local/design-venv/bin/python tests/kiosk/browser_redesign_menu.py
+          .local/design-venv/bin/python tests/kiosk/browser_redesign_upsell.py
+          .local/design-venv/bin/python tests/kiosk/browser_redesign_product.py
+          .local/design-venv/bin/python tests/kiosk/browser_redesign_payment.py
+          .local/design-venv/bin/python tests/kiosk/browser_glass_polish.py
+          .local/design-venv/bin/python tests/kiosk/browser_design_demo.py
+          .local/design-venv/bin/python tests/kiosk/browser_welcome_cta.py
 
   staging:
     name: Private staging image and restricted database role

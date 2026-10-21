@@ -16,8 +16,13 @@ import {
   setStop,
   readStop,
   readStops,
+  provisionStaff,
+  PIN_BACKOFF,
+  pinBackoffStatus,
 } from '@pickchick/local-orders';
+import { createEdge } from '@pickchick/edge';
 import { withOrderDesk, staffAuth } from '../helpers/orders.mjs';
+import { running } from '../helpers/sync.mjs';
 const code = (name) => (error) => error.code === name;
 
 test('PIN is local, preserves password access and shared shift; unknown PINs are rate limited without credentials in storage', async () => {
@@ -63,7 +68,8 @@ test('PIN is local, preserves password access and shared shift; unknown PINs are
     await ctx.edge.pool.query(
       "UPDATE local_staff_login_limits SET window_started_at=clock_timestamp()-interval '2 minutes'",
     );
-    for (let i = 0; i < 10; i++)
+    // Per-terminal backoff (6.5): five unknown PINs, then even the right PIN waits.
+    for (let i = 0; i < PIN_BACKOFF.freeFailures; i++)
       await assert.rejects(
         loginStaffPin(ctx.edge.pool, ctx.branch, { ...body, pin: '9999' }),
         code('UNAUTHORIZED'),
@@ -74,6 +80,105 @@ test('PIN is local, preserves password access and shared shift; unknown PINs are
     );
     const audits = (await ctx.edge.pool.query('SELECT action FROM local_audit')).rows;
     assert.ok(audits.some((v) => v.action === 'staff.pin_login'));
+  });
+});
+
+test('PIN backoff is per terminal, never reveals a PIN, and new 6-digit PINs work beside 4-digit ones (6.5)', async () => {
+  await withOrderDesk(async (ctx) => {
+    // Retry-After carries the real remaining lock, the same for every PIN.
+    const limited = (error) =>
+      error.constructor.name === 'StaffRateLimitError' &&
+      error.retryAfterSeconds > 0 &&
+      error.retryAfterSeconds <= 30;
+    await setStaffPin(ctx.edge.pool, ctx.branch, staffAuth(ctx.cashier), '735190');
+    await setStaffPin(ctx.edge.pool, ctx.branch, staffAuth(ctx.manager), '2468');
+    for (const pin of ['12345', '1234567', '73519O', ''])
+      await assert.rejects(
+        setStaffPin(ctx.edge.pool, ctx.branch, staffAuth(ctx.cashier), pin, true),
+        code('INVALID_REQUEST'),
+      );
+    const terminal = ctx.cashier.terminal_id;
+    const cashier = await loginStaffPin(ctx.edge.pool, ctx.branch, {
+      pin: '735190',
+      terminal_id: terminal,
+    });
+    assert.equal(cashier.staff_id, ctx.cashier.staff_id);
+    const manager = await loginStaffPin(ctx.edge.pool, ctx.branch, {
+      pin: '2468',
+      terminal_id: terminal,
+    });
+    assert.equal(manager.role, 'shift_manager');
+    await assert.rejects(
+      loginStaffPin(ctx.edge.pool, ctx.branch, { pin: '7351', terminal_id: terminal }),
+      code('UNAUTHORIZED'),
+      'a 4-digit prefix of a 6-digit PIN is a different PIN',
+    );
+    // A successful own login does not reset the counter an attacker is building.
+    for (let i = 2; i < PIN_BACKOFF.freeFailures; i++)
+      await assert.rejects(
+        loginStaffPin(ctx.edge.pool, ctx.branch, { pin: '000000', terminal_id: terminal }),
+        code('UNAUTHORIZED'),
+      );
+    await loginStaffPin(ctx.edge.pool, ctx.branch, { pin: '735190', terminal_id: terminal });
+    assert.equal(pinBackoffStatus(ctx.branch, terminal).failures, PIN_BACKOFF.freeFailures - 1);
+    await assert.rejects(
+      loginStaffPin(ctx.edge.pool, ctx.branch, { pin: '111111', terminal_id: terminal }),
+      code('UNAUTHORIZED'),
+    );
+    const status = pinBackoffStatus(ctx.branch, terminal);
+    assert.equal(status.failures, PIN_BACKOFF.freeFailures);
+    assert.ok(status.lockedSeconds > 0 && status.lockedSeconds <= 30);
+    // While locked, a right PIN and a wrong PIN are indistinguishable and do no password work.
+    const before = (
+      await ctx.edge.pool.query(
+        'SELECT attempts FROM local_staff_login_limits WHERE terminal_id=$1',
+        [terminal],
+      )
+    ).rows[0].attempts;
+    for (const pin of ['735190', '2468', '999999'])
+      await assert.rejects(
+        loginStaffPin(ctx.edge.pool, ctx.branch, { pin, terminal_id: terminal }),
+        limited,
+      );
+    assert.equal(
+      (
+        await ctx.edge.pool.query(
+          'SELECT attempts FROM local_staff_login_limits WHERE terminal_id=$1',
+          [terminal],
+        )
+      ).rows[0].attempts,
+      before,
+    );
+    // Over HTTP the cashier sees the same 429 with the real remaining lock, not a fixed minute.
+    const edge = await running(createEdge, ctx.edge.config);
+    try {
+      const locked = await fetch(edge.url + '/edge/v1/staff/pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: '735190', terminal_id: terminal }),
+      });
+      assert.equal(locked.status, 429);
+      assert.equal((await locked.json()).code, 'AUTH_RATE_LIMITED');
+      const seconds = Number(locked.headers.get('retry-after'));
+      assert.ok(Number.isInteger(seconds) && seconds >= 1 && seconds <= 30);
+    } finally {
+      await edge.app.close();
+    }
+    // Another workplace of the same branch is not locked out.
+    const other = await provisionStaff(ctx.edge.pool, ctx.branch, ctx.setup('cashier'));
+    await setStaffPin(ctx.edge.pool, ctx.branch, staffAuth(other), '480215');
+    const elsewhere = await loginStaffPin(ctx.edge.pool, ctx.branch, {
+      pin: '2468',
+      terminal_id: other.terminal_id,
+    });
+    assert.equal(elsewhere.staff_id, ctx.manager.staff_id);
+    // Unknown terminals never create backoff state.
+    const unknown = randomUUID();
+    await assert.rejects(
+      loginStaffPin(ctx.edge.pool, ctx.branch, { pin: '000000', terminal_id: unknown }),
+      code('UNAUTHORIZED'),
+    );
+    assert.equal(pinBackoffStatus(ctx.branch, unknown).failures, 0);
   });
 });
 

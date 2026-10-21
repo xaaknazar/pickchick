@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { exitLabel, gameOrigin } from '../route-options';
 import {
   AccessibilityInfo,
   BackHandler,
@@ -342,6 +343,7 @@ export function PickManScreen() {
   const router = useRouter(),
     controller = usePickMan(),
     reduced = useReducedMotion();
+  const origin = gameOrigin(useLocalSearchParams<{ from?: string }>().from);
   const { width, height } = useWindowDimensions(),
     wide = width > height;
   const [region, setRegion] = useState({ width: 0, height: 0 });
@@ -378,7 +380,8 @@ export function PickManScreen() {
   const tooSmall = region.width > 0 && cell < 10;
   const close = useCallback(() => {
     controller.pause();
-    router.replace('/(tabs)/events');
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)/events');
   }, [controller.pause, router]);
   const openHelp = useCallback(() => {
     controller.pause();
@@ -445,7 +448,7 @@ export function PickManScreen() {
         <Pressable
           testID="pick-man-exit"
           accessibilityRole="button"
-          accessibilityLabel="К событиям"
+          accessibilityLabel={exitLabel(origin)}
           onPress={close}
           style={({ pressed }) => [s.icon, pressed && s.iconPressed]}
         >
@@ -688,7 +691,7 @@ export function PickManScreen() {
                           </>
                         ) : null}
                         <Pressable accessibilityRole="button" onPress={close} style={s.leave}>
-                          <Text style={s.small}>К событиям</Text>
+                          <Text style={s.small}>{exitLabel(origin)}</Text>
                         </Pressable>
                       </>
                     )}

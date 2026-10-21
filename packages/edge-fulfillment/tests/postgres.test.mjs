@@ -440,6 +440,9 @@ test('outbox competing leases and expired acknowledgements recover without mutat
 
 test('1000 resident orders: bounded concurrent replay, paginated KDS/LED and restart without duplicate tickets', () =>
   fixture(async (f) => {
+    // Storage and pagination capacity, not numbering: 1000 live orders exceed the cashier range
+    // 1-299 of edge 022 (display-numbers.test.mjs), so this run uses the legacy sequence.
+    await f.pool.query('DROP FUNCTION fulfillment_display_allocate(uuid)');
     const count = 1000,
       commands = Array.from({ length: count }, () => f.admission(true));
     let next = 0;

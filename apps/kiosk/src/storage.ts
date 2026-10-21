@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { kioskRequest } from './api';
+import { KioskError, kioskRequest } from './api';
 import {
   commercialKioskRead,
   commercialKioskRequest,
@@ -75,6 +75,19 @@ export function createCommercialKioskIO(): CommercialKioskIO {
       commercialKioskRequest(path, token, body, key, fetch, await credentials()),
     read: async (path, token, readOptions) =>
       commercialKioskRead(path, token, fetch, await credentials(), readOptions),
+    // Audit 19.10: the staff code is sent once for the server check and never stored.
+    verifyStaff: async (pin) => {
+      const answer = await commercialKioskRequest(
+        '/staff/verify',
+        undefined,
+        { pin },
+        undefined,
+        fetch,
+        await credentials(),
+      );
+      if (!answer || typeof answer !== 'object' || !('valid' in answer) || answer.valid !== true)
+        throw new KioskError('INVALID_RESPONSE');
+    },
     now: Date.now,
     uuid: () => Crypto.randomUUID(),
   };

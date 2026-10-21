@@ -4,6 +4,8 @@ import { colors, fonts, useMetrics } from '../theme';
 import { Icon } from './Icon';
 import { ease } from './motion';
 import { useMotionPreference } from './useMotionPreference';
+import { fixedText } from './Body';
+import { useAnnounce } from './announce';
 /** Prototype toast lifetime (`toastIn` 2400 ms, removed after 2500 ms). */
 const life = 2400;
 /**
@@ -29,6 +31,7 @@ export function Toast({
   const still = useRef(reduced);
   still.current = reduced;
   const [shown, setShown] = useState(!!trigger);
+  useAnnounce(trigger ? message : null, trigger);
   const progress = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!trigger) {
@@ -108,6 +111,7 @@ export function Toast({
           <Icon name="checkmark" tone="inverse" />
         </View>
         <Text
+          {...fixedText}
           numberOfLines={1}
           style={{
             flexShrink: 1,

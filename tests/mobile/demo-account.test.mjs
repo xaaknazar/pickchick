@@ -264,6 +264,15 @@ test('empty optional name and birthday can be completed and later edited without
   });
   assert(f.core.account.profile.completedAt > firstCompletedAt);
   assert(!f.raw().includes('1996-11-09'));
+  // Audit 7.7: gender is voluntary too, and a saved value can be removed.
+  f.tick(5000);
+  await f.core.saveProfile({ nickname: 'Имя', birthDate: null, gender: null });
+  assert.deepEqual(f.core.account.profile, {
+    nickname: 'Имя',
+    birthDate: null,
+    gender: null,
+    completedAt: f.io.now(),
+  });
 });
 
 test('save without an account or with invalid/unknown profile fields cannot touch storage', async () => {
@@ -524,16 +533,15 @@ test('a pending restoration blocks writes before it has determined whether an ac
   assert.equal(core.account.phone, phone);
 });
 
-test('profile completion requires gender, but new and legacy accounts remain readable', async () => {
+test('profile completion does not require gender; new and legacy accounts remain readable', async () => {
+  // Audit 7.7: the personal-data documents call every profile field voluntary.
   const f = fixture();
   f.core.requestCode(phone);
   assert.equal(f.core.challenge.codeLength, 4);
   await f.core.verifyCode(DEMO_LOGIN_CODE);
-  const previous = f.raw();
-  await assert.rejects(f.core.saveProfile({ nickname: 'Имя', birthDate: null, gender: null }), {
-    code: 'invalid_profile',
-  });
-  assert.equal(f.raw(), previous);
+  await f.core.saveProfile({ nickname: 'Имя', birthDate: null, gender: null });
+  assert.equal(f.core.account.profile.gender, null);
+  assert.ok(f.core.account.profile.completedAt);
   await f.core.saveProfile({ nickname: 'Имя', birthDate: null, gender: 'male' });
   assert.equal(f.core.account.profile.gender, 'male');
 });

@@ -94,6 +94,9 @@ longitude=76.861489, latitude=43.226626. Это выбранная владел�
    SQL-вставкой. Проверить удержание и последующую передачу заказа кухне.
 3. QR account provider=`kaspi-qr`, отдельный приватный worker и QR-enabled bridge.
    Для invoice указать `KIOSK_KASPI_INVOICE_ACCOUNT_ID` с provider=`kaspi-remote`.
+   Он должен совпадать с `KASPI_REMOTE_ACCOUNT_ID`: единственный worker счетов
+   обслуживает только этот аккаунт. При несовпадении API не предлагает оплату счётом
+   (только QR) и пишет в лог `kiosk_invoice_account_not_served` (исправление 19.10).
    Этот параметр сам по себе не обновляет worker и не разрешает реальную оплату.
    Существующие мобильные счета, ключи кассира и банковская сессия сохраняются.
 4. API: KIOSK_CHECKOUT_PAYMENT_METHOD=kaspi_qr; invoice account добавляется явно.

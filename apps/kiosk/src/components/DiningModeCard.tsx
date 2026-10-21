@@ -9,6 +9,7 @@ import { Icon } from './Icon';
 import { motion, useEnter, useLoop } from './motion';
 import { armReveal, trackRevealTile } from './reveal';
 import { useMotionPreference } from './useMotionPreference';
+import { ownerOrange } from './ownerOrange';
 /** v3 02 question above the dining choice, fading up on arrival. */
 export function DiningModeTitle({ children }: { children?: ReactNode }) {
   const { v } = useMetrics();
@@ -27,10 +28,15 @@ export function DiningModeTitle({ children }: { children?: ReactNode }) {
       <Text
         {...fixedText}
         accessibilityRole="header"
+        // One line in every locale (kk is the longest); shrink rather than wrap,
+        // so both dining cards keep the same height.
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
         style={{
           fontFamily: fonts.black,
-          fontSize: v(62),
-          lineHeight: v(68),
+          fontSize: v(56),
+          lineHeight: v(62),
           letterSpacing: -v(1),
           color: colors.white,
         }}
@@ -70,6 +76,9 @@ export function DiningModeCard({
   const glow = useLoop(4000, 0, true);
   const nudge = useLoop(1400, 0, true);
   const scale = useRef(new Animated.Value(1)).current;
+  // These cards fill most of the screen: a swipe can end inside the same
+  // Pressable. Treat movement as a cancelled tap even without a ScrollView.
+  const touch = useRef({ x: 0, y: 0, moved: false });
   // The tile's window rectangle seeds the zoom fill that opens the menu.
   const tile = useRef<View>(null);
   // Measure once the entrance has settled (and again after a resize), so even a
@@ -117,10 +126,38 @@ export function DiningModeCard({
     >
       <Pressable
         testID={'kiosk-mode-' + (here ? 'dine-in' : 'takeaway')}
+        {...(here ? {} : ownerOrange)}
         accessibilityRole="button"
         accessibilityState={{ disabled: busy }}
         disabled={busy}
+        onTouchStart={({ nativeEvent }) => {
+          touch.current = { x: nativeEvent.pageX, y: nativeEvent.pageY, moved: false };
+        }}
+        onTouchMove={({ nativeEvent }) => {
+          if (
+            Math.hypot(nativeEvent.pageX - touch.current.x, nativeEvent.pageY - touch.current.y) >
+            12
+          ) {
+            touch.current.moved = true;
+            press(false);
+          }
+        }}
+        onTouchEnd={() => {
+          const ended = touch.current;
+          // Pressability handles release synchronously; clear afterwards so a
+          // later accessibility activation is not affected by an earlier swipe.
+          setTimeout(() => {
+            if (touch.current === ended) ended.moved = false;
+          }, 0);
+        }}
+        onTouchCancel={() => {
+          touch.current.moved = false;
+        }}
         onPress={() => {
+          if (touch.current.moved) {
+            touch.current.moved = false;
+            return;
+          }
           armReveal(mode, tile.current);
           onSelect();
         }}
@@ -239,17 +276,6 @@ export function DiningModeCard({
             }}
           >
             {here ? t.here : t.togo}
-          </Text>
-          <Text
-            {...fixedText}
-            style={{
-              fontFamily: fonts.body,
-              fontSize: v(28),
-              lineHeight: v(34),
-              color: here ? 'rgba(255,255,255,.9)' : colors.white,
-            }}
-          >
-            {here ? t.hereSub : t.togoSub}
           </Text>
           <View
             style={{

@@ -55,6 +55,7 @@ def main():
     for path, method in [
         ('/internal/v1/edge/sync/pull', 'GET'),
         ('/internal/v1/edge/sync/ack', 'POST'),
+        ('/internal/v1/edge/identity/rotate', 'POST'),
         ('/health/ready', 'GET'),
         ('/health/metrics', 'GET'),
         ('/v1/branches', 'POST'),

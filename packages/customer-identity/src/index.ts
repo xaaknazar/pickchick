@@ -21,14 +21,74 @@ import {
 } from './contracts.js';
 import type { Customer, CustomerProfile, CustomerSession, OtpResponse } from './contracts.js';
 import type { CustomerIdentityOptions } from './config.js';
+import { reviewCodeDigest } from './config.js';
 import { digest, hmac, equalHash, encrypt, decrypt } from './crypto.js';
 export * from './contracts.js';
 export * from './config.js';
 export const CUSTOMER_IDENTITY = Symbol('CUSTOMER_IDENTITY');
 const ACCESS_MS = 15 * 60_000,
   CHALLENGE_MS = 3 * 60_000,
-  VERIFY_RECEIPT_MS = 24 * 60 * 60_000;
+  VERIFY_RECEIPT_MS = 24 * 60 * 60_000,
+  DAY_MS = 24 * 60 * 60_000,
+  // Concurrent refreshes of one device may present the just-rotated token for this long.
+  REUSE_GRACE_MS = 60_000,
+  // Rotated-away refresh hashes kept per live session for reuse detection.
+  RETIRED_REFRESH_KEPT = 64,
+  REVIEW_PROVIDER = 'review_account';
+/**
+ * Abuse limits (audit 19.10: 5.3, 2.6, 5.4). Installed apps still get 4-digit Telegram codes,
+ * so guessing is bounded per phone across challenges, durably (challenges are purged after
+ * 24 h). Requests that were never verified ("open") are limited per address and per /24
+ * (IPv6 /64 and /48), while verified logins behind a shared carrier address are not.
+ */
+export const OTP_LIMITS = {
+  attemptsFourDigit: 3,
+  attemptsSixDigit: 5,
+  phoneFailuresDay: 6,
+  phoneFailuresMonth: 12,
+  addressOpenHour: 20,
+  addressOpenDay: 60,
+  networkOpenHour: 60,
+  networkOpenDay: 200,
+  addressHour: 300,
+  addressDay: 2000,
+  addressFailuresDay: 40,
+} as const;
+const attemptsFor = (length: 4 | 6) =>
+  length === 4 ? OTP_LIMITS.attemptsFourDigit : OTP_LIMITS.attemptsSixDigit;
 type EnabledOptions = Extract<CustomerIdentityOptions, { enabled: true }>;
+export type IdentityEvent = Record<string, string | number | boolean>;
+const logEvent = (event: IdentityEvent) => console.warn(JSON.stringify(event));
+function ipv6Groups(value: string): string[] {
+  const groups = (part: string | undefined) =>
+    part
+      ? part.split(':').flatMap((g) => {
+          if (!g.includes('.')) return [g];
+          const [a = 0, b = 0, c = 0, d = 0] = g.split('.').map(Number);
+          return [((a << 8) | b).toString(16), ((c << 8) | d).toString(16)];
+        })
+      : [];
+  const [head, tail] = value.toLowerCase().split('%')[0]!.split('::');
+  const left = groups(head),
+    right = groups(tail);
+  const full =
+    tail === undefined
+      ? left
+      : [...left, ...Array<string>(8 - left.length - right.length).fill('0'), ...right];
+  return full.map((g) => parseInt(g, 16).toString(16));
+}
+/** A subscriber address (IPv4, or the IPv6 /64) and its network (/24, or the IPv6 /48). */
+export function clientNetworks(ip: string): { address: string; network: string } {
+  if (isIP(ip) === 4) {
+    const [a, b, c] = ip.split('.');
+    return { address: ip, network: `${a}.${b}.${c}.0/24` };
+  }
+  const groups = ipv6Groups(ip);
+  return {
+    address: groups.slice(0, 4).join(':') + '::/64',
+    network: groups.slice(0, 3).join(':') + '::/48',
+  };
+}
 interface CustomerRow {
   id: string;
   phone_lookup: string | null;
@@ -46,10 +106,13 @@ interface SessionRow {
   access_expires_at: Date;
   refresh_hash: string | null;
   generation: string;
+  created_at: Date;
+  refreshed_at: Date;
   revoked_at: Date | null;
 }
 interface ChallengeRow {
   delivery_channel: PhoneDeliveryChannel;
+  delivery_provider: string | null;
   requested_channel: 'sms' | 'telegram' | 'auto';
   delivery_consent_version: string | null;
   id: string;
@@ -84,7 +147,73 @@ export class CustomerIdentity {
     private readonly pool: DatabasePool,
     private readonly options: CustomerIdentityOptions,
     private readonly delivery: PhoneCodeDelivery,
+    private readonly events: (event: IdentityEvent) => void = logEvent,
   ) {}
+  private readonly deliveryAlerts = new Map<string, number>();
+  /**
+   * The provider refused the code for a reason that is not the recipient's (Gateway balance,
+   * token, configuration): nobody can sign in. At most one event per channel/reason in 5 min.
+   */
+  private deliveryAttention(channel: PhoneDeliveryChannel, reason: string) {
+    const key = `${channel}:${reason}`,
+      at = Date.now();
+    if ((this.deliveryAlerts.get(key) ?? -Infinity) > at - 5 * 60_000) return;
+    this.deliveryAlerts.set(key, at);
+    this.events({ event: 'customer_otp_delivery_attention', channel, reason });
+  }
+  /** The App Review phone (enabled or not) never pays or places TEST orders. */
+  isReviewCustomer(customer: Pick<Customer, 'phone'>): boolean {
+    return !!this.options.reviewAccount && customer.phone === this.options.reviewAccount.phone;
+  }
+  private reviewLogin(phone: string): string | null {
+    const review = this.options.reviewAccount;
+    return review?.enabled && review.codeDigest && review.phone === phone
+      ? review.codeDigest
+      : null;
+  }
+  /**
+   * Failed code checks for this phone across all its challenges (hour buckets, 30 days).
+   * A device that already held a session of this phone's customer is the owner's own device
+   * (its random device_id never leaves it), so guessing by others cannot lock the owner out
+   * of signing in again there, for example after the session lifetime ended. That device's
+   * own failures have the same limits, so a copied device_id gains no extra guesses.
+   */
+  private async phoneLocked(
+    db: DatabaseClient,
+    lookup: string,
+    deviceHash: string,
+    now: Date,
+  ): Promise<boolean> {
+    const row = (
+      await db.query<{ day: string; month: string; device_day: string; device_month: string }>(
+        `SELECT coalesce(sum(failures) FILTER (WHERE failure_hour>$2::timestamptz-interval '24 hours'),0)::text AS day,
+                coalesce(sum(failures),0)::text AS month,
+                coalesce(sum(failures) FILTER (WHERE device_hash=$3 AND failure_hour>$2::timestamptz-interval '24 hours'),0)::text AS device_day,
+                coalesce(sum(failures) FILTER (WHERE device_hash=$3),0)::text AS device_month
+         FROM identity_otp_failures WHERE phone_lookup=$1 AND failure_hour>$2::timestamptz-interval '30 days'`,
+        [lookup, now, deviceHash],
+      )
+    ).rows[0]!;
+    const over = (day: string, month: string) =>
+      Number(day) >= OTP_LIMITS.phoneFailuresDay || Number(month) >= OTP_LIMITS.phoneFailuresMonth;
+    if (!over(row.day, row.month)) return false;
+    if (over(row.device_day, row.device_month)) return true;
+    const known = await db.query(
+      `SELECT 1 FROM identity_sessions s JOIN identity_customers c ON c.id=s.customer_id
+       WHERE c.phone_lookup=$1 AND c.deleted_at IS NULL AND s.device_hash=$2 LIMIT 1`,
+      [lookup, deviceHash],
+    );
+    return known.rowCount === 0;
+  }
+  private sessionExpired(session: SessionRow, now: Date): boolean {
+    const config = this.options.enabled ? this.options : null;
+    const max = (config?.sessionMaxDays ?? 90) * DAY_MS,
+      idle = (config?.sessionIdleDays ?? 30) * DAY_MS;
+    return (
+      now.getTime() >= session.created_at.getTime() + max ||
+      now.getTime() >= session.refreshed_at.getTime() + idle
+    );
+  }
   config() {
     if (!this.options.enabled || phoneDeliveryChannels(this.delivery).length === 0)
       return { enabled: false, consent_version: null, terms_url: null, privacy_url: null };
@@ -150,12 +279,20 @@ export class CustomerIdentity {
       clientIp.startsWith('::ffff:') && isIP(clientIp.slice(7)) === 4
         ? clientIp.slice(7)
         : clientIp.toLowerCase();
+    const where = clientNetworks(ip);
     const phoneHash = hmac(config.lookupKey, 'phone', phone),
       deviceHash = hmac(config.lookupKey, 'device', body.device_id),
-      ipHash = hmac(config.lookupKey, 'ip', ip);
+      ipHash = hmac(config.lookupKey, 'ip', where.address),
+      netHash = hmac(config.lookupKey, 'ip-net', where.network);
     const id = randomUUID(),
       codeLength: 4 | 6 = channel === 'telegram' || channel === 'auto' ? 4 : 6,
       code = String(randomInt(0, 10 ** codeLength)).padStart(codeLength, '0');
+    // App Review: a fixed code (only its digest is configured), nothing is sent or budgeted.
+    const review = this.reviewLogin(phone);
+    const newPhoneCap = Math.max(
+      1,
+      Math.floor((config.dailySmsBudget * (config.newPhoneBudgetPercent ?? 80)) / 100),
+    );
     const reservation = await transaction(this.pool, async (db) => {
       // The budget lock serializes only this short reservation transaction, never the provider call.
       await db.query('SELECT pg_advisory_xact_lock(90827001)');
@@ -184,6 +321,8 @@ export class CustomerIdentity {
         if (replay.state === 'rejected') throw fail('SERVICE_UNAVAILABLE');
         return {
           replay: true,
+          refund: null,
+          attention: [] as IdentityEvent[],
           challenge_id: replay.id,
           code_length: replay.code_length,
           expires_at: iso(replay.expires_at),
@@ -206,6 +345,11 @@ export class CustomerIdentity {
           device_day: string;
           ip_hour: string;
           ip_day: string;
+          ip_open_hour: string;
+          ip_open_day: string;
+          net_open_hour: string;
+          net_open_day: string;
+          ip_failures: string;
           last_phone: Date | null;
           last_device: Date | null;
         }>(
@@ -216,46 +360,92 @@ export class CustomerIdentity {
           count(*) FILTER (WHERE device_hash=$2)::text AS device_day,
           count(*) FILTER (WHERE ip_hash=$3 AND created_at>$4)::text AS ip_hour,
           count(*) FILTER (WHERE ip_hash=$3)::text AS ip_day,
+          count(*) FILTER (WHERE ip_hash=$3 AND state<>'consumed' AND created_at>$4)::text AS ip_open_hour,
+          count(*) FILTER (WHERE ip_hash=$3 AND state<>'consumed')::text AS ip_open_day,
+          count(*) FILTER (WHERE ip_net_hash=$6 AND state<>'consumed' AND created_at>$4)::text AS net_open_hour,
+          count(*) FILTER (WHERE ip_net_hash=$6 AND state<>'consumed')::text AS net_open_day,
+          (coalesce(sum(attempts) FILTER (WHERE ip_hash=$3),0)
+            - count(*) FILTER (WHERE ip_hash=$3 AND state='consumed'))::text AS ip_failures,
           max(created_at) FILTER (WHERE phone_lookup=$1) AS last_phone,
           max(created_at) FILTER (WHERE device_hash=$2) AS last_device
-         FROM identity_otp_challenges WHERE created_at>$5 AND (phone_lookup=$1 OR device_hash=$2 OR ip_hash=$3)`,
-          [phoneHash, deviceHash, ipHash, hour, day],
+         FROM identity_otp_challenges
+         WHERE created_at>$5 AND (phone_lookup=$1 OR device_hash=$2 OR ip_hash=$3 OR ip_net_hash=$6)`,
+          [phoneHash, deviceHash, ipHash, hour, day, netHash],
         )
       ).rows[0]!;
+      const limits = OTP_LIMITS;
       if (
+        // Per phone first: a shared carrier address must not decide a real customer's login.
         Number(counts.phone_hour) >= 5 ||
         Number(counts.phone_day) >= 10 ||
+        (await this.phoneLocked(db, phoneHash, deviceHash, now)) ||
         Number(counts.device_hour) >= 10 ||
         Number(counts.device_day) >= 30 ||
-        Number(counts.ip_hour) >= 30 ||
-        Number(counts.ip_day) >= 100 ||
+        Number(counts.ip_open_hour) >= limits.addressOpenHour ||
+        Number(counts.ip_open_day) >= limits.addressOpenDay ||
+        Number(counts.net_open_hour) >= limits.networkOpenHour ||
+        Number(counts.net_open_day) >= limits.networkOpenDay ||
+        Number(counts.ip_hour) >= limits.addressHour ||
+        Number(counts.ip_day) >= limits.addressDay ||
+        Number(counts.ip_failures) >= limits.addressFailuresDay ||
         [counts.last_phone, counts.last_device].some(
           (last) => last && now.getTime() - last.getTime() < 60_000,
         )
       )
         throw fail('RATE_LIMITED');
-      const budget = await db.query(
-        `INSERT INTO identity_sms_daily_budget(budget_day,reservations) VALUES (($1::timestamptz AT TIME ZONE 'UTC')::date,1)
-         ON CONFLICT(budget_day) DO UPDATE SET reservations=identity_sms_daily_budget.reservations+1
-         WHERE identity_sms_daily_budget.reservations<$2 RETURNING reservations`,
-        [now, config.dailySmsBudget],
-      );
-      if (budget.rowCount !== 1) throw fail('RATE_LIMITED');
+      const attention: IdentityEvent[] = [];
+      let refund: { now: Date; newPhone: boolean } | null = null;
+      if (!review) {
+        // New phones may use only their share; returning customers keep the rest of the day.
+        const newPhone = !(
+          await db.query('SELECT 1 FROM identity_customers WHERE phone_lookup=$1', [phoneHash])
+        ).rowCount;
+        const budget = await db.query<{ reservations: number; new_phone_reservations: number }>(
+          `INSERT INTO identity_sms_daily_budget(budget_day,reservations,new_phone_reservations)
+           VALUES (($1::timestamptz AT TIME ZONE 'UTC')::date,1,$3)
+           ON CONFLICT(budget_day) DO UPDATE SET reservations=identity_sms_daily_budget.reservations+1,
+             new_phone_reservations=identity_sms_daily_budget.new_phone_reservations+$3
+           WHERE identity_sms_daily_budget.reservations<$2
+             AND ($3=0 OR identity_sms_daily_budget.new_phone_reservations<$4)
+           RETURNING reservations,new_phone_reservations`,
+          [now, config.dailySmsBudget, newPhone ? 1 : 0, newPhoneCap],
+        );
+        if (budget.rowCount !== 1) throw fail('RATE_LIMITED');
+        const used = budget.rows[0]!;
+        for (const percent of [50, 80, 100])
+          if (used.reservations === Math.ceil((config.dailySmsBudget * percent) / 100))
+            attention.push({
+              event: 'customer_otp_budget_attention',
+              pool: 'all',
+              percent,
+              budget: config.dailySmsBudget,
+            });
+        if (newPhone && newPhoneCap < config.dailySmsBudget)
+          for (const percent of [80, 100])
+            if (used.new_phone_reservations === Math.ceil((newPhoneCap * percent) / 100))
+              attention.push({
+                event: 'customer_otp_budget_attention',
+                pool: 'new_phones',
+                percent,
+                budget: newPhoneCap,
+              });
+        refund = { now, newPhone };
+      }
       await db.query(
         "UPDATE identity_otp_challenges SET state='superseded', code_hash=NULL,phone_cipher=NULL WHERE phone_lookup=$1 AND state IN ('reserved','submitted','unknown')",
         [phoneHash],
       );
       const expires = new Date(now.getTime() + CHALLENGE_MS);
       await db.query(
-        `INSERT INTO identity_otp_challenges(id,phone_lookup,phone_cipher,device_hash,ip_hash,code_hash,state,created_at,expires_at,request_id,delivery_channel,requested_channel,delivery_consent_version,code_length)
-         VALUES($1,$2,$3,$4,$5,$6,'reserved',$7,$8,$9,$10,$11,$12,$13)`,
+        `INSERT INTO identity_otp_challenges(id,phone_lookup,phone_cipher,device_hash,ip_hash,code_hash,state,created_at,expires_at,request_id,delivery_channel,requested_channel,delivery_consent_version,code_length,ip_net_hash,delivery_provider)
+         VALUES($1,$2,$3,$4,$5,$6,$14,$7,$8,$9,$10,$11,$12,$13,$15,$16)`,
         [
           id,
           phoneHash,
           encrypt(config.piiKey, `challenge:${id}`, phone),
           deviceHash,
           ipHash,
-          hmac(config.otpKey, `otp:${id}:${deviceHash}`, code),
+          hmac(config.otpKey, `otp:${id}:${deviceHash}`, review ?? code),
           now,
           expires,
           body.request_id,
@@ -263,18 +453,24 @@ export class CustomerIdentity {
           channel,
           body.delivery_consent.privacy_version,
           codeLength,
+          review ? 'submitted' : 'reserved',
+          netHash,
+          review ? REVIEW_PROVIDER : null,
         ],
       );
       return {
         replay: false,
+        refund,
+        attention,
         challenge_id: id,
         code_length: codeLength,
         expires_at: iso(expires),
         resend_at: iso(new Date(now.getTime() + 60_000)),
-        delivery_status: 'unknown' as const,
+        delivery_status: review ? ('submitted' as const) : ('unknown' as const),
         delivery_channel: channel === 'auto' ? ('telegram' as const) : channel,
       };
     });
+    for (const event of reservation.attention) this.events(event);
     const response = {
       ...(body.channel ? { channel: reservation.delivery_channel } : {}),
       challenge_id: reservation.challenge_id,
@@ -282,11 +478,14 @@ export class CustomerIdentity {
       expires_at: reservation.expires_at,
       resend_at: reservation.resend_at,
     };
-    if (reservation.replay) return { ...response, delivery_status: reservation.delivery_status };
+    if (reservation.replay || review)
+      return { ...response, delivery_status: reservation.delivery_status };
     // A crash/timeout here leaves a durable unknown reservation. It must never be dispatched again.
     let state: 'submitted' | 'unknown' | 'rejected';
     let actualChannel: PhoneDeliveryChannel = channel === 'auto' ? 'telegram' : channel;
     let submitted: Extract<PhoneCodeDeliveryResult, { kind: 'submitted' }> | undefined;
+    // Only a definite "this number cannot receive it" before any message went out is refunded.
+    let undeliverable = false;
     try {
       let result = await this.delivery.sendCode({ phoneE164: phone, code }, actualChannel);
       if (
@@ -316,6 +515,15 @@ export class CustomerIdentity {
         result = await this.delivery.sendCode({ phoneE164: phone, code }, actualChannel);
       }
       if (result.kind === 'submitted') submitted = result;
+      undeliverable =
+        result.kind === 'rejected' &&
+        ['recipient_unavailable', 'invalid_input'].includes(result.reason) &&
+        actualChannel === (channel === 'auto' ? 'telegram' : channel);
+      if (
+        result.kind === 'rejected' &&
+        (result.reason === 'channel_unavailable' || result.reason === 'provider_rejected')
+      )
+        this.deliveryAttention(actualChannel, result.reason);
       state =
         result.kind === 'submitted'
           ? 'submitted'
@@ -326,10 +534,32 @@ export class CustomerIdentity {
       if (error instanceof CustomerIdentityError) throw error;
       state = 'unknown';
     }
-    const finalization = await this.pool.query(
-      "UPDATE identity_otp_challenges SET state=$2,delivery_provider=$3,delivery_reference=$4,code_hash=CASE WHEN $2='rejected' THEN NULL ELSE code_hash END,phone_cipher=CASE WHEN $2='rejected' THEN NULL ELSE phone_cipher END WHERE id=$1 AND state='reserved' AND delivery_channel=$5",
-      [id, state, submitted?.provider ?? null, submitted?.messageId ?? null, actualChannel],
-    );
+    const refund = state === 'rejected' && undeliverable ? reservation.refund : null;
+    const finalization = await transaction(this.pool, async (db) => {
+      // Same lock order as the reservation (budget lock, then challenge rows): a refund can
+      // never deadlock with a new request for this phone that supersedes the challenge.
+      if (refund) await db.query('SELECT pg_advisory_xact_lock(90827001)');
+      const updated = await db.query(
+        "UPDATE identity_otp_challenges SET state=$2,delivery_provider=$3,delivery_reference=$4,code_hash=CASE WHEN $2='rejected' THEN NULL ELSE code_hash END,phone_cipher=CASE WHEN $2='rejected' THEN NULL ELSE phone_cipher END WHERE id=$1 AND state='reserved' AND delivery_channel=$5",
+        [id, state, submitted?.provider ?? null, submitted?.messageId ?? null, actualChannel],
+      );
+      if (updated.rowCount === 1 && refund) {
+        // Nothing was delivered or charged: the reservation returns to the day's budget.
+        // reservations>0 is a table invariant: the day's only reservation removes the row.
+        const removed = await db.query(
+          "DELETE FROM identity_sms_daily_budget WHERE budget_day=($1::timestamptz AT TIME ZONE 'UTC')::date AND reservations=1",
+          [refund.now],
+        );
+        if (removed.rowCount === 0)
+          await db.query(
+            `UPDATE identity_sms_daily_budget SET reservations=reservations-1,
+               new_phone_reservations=GREATEST(new_phone_reservations-$2,0)
+             WHERE budget_day=($1::timestamptz AT TIME ZONE 'UTC')::date AND reservations>1`,
+            [refund.now, refund.newPhone ? 1 : 0],
+          );
+      }
+      return updated;
+    });
     if (finalization.rowCount !== 1) throw fail('SERVICE_UNAVAILABLE');
     if (state === 'rejected') throw fail('SERVICE_UNAVAILABLE');
     return {
@@ -401,19 +631,36 @@ export class CustomerIdentity {
         if (
           !['reserved', 'submitted', 'unknown'].includes(challenge.state) ||
           challenge.expires_at <= now ||
-          challenge.attempts >= 5 ||
+          challenge.attempts >= attemptsFor(challenge.code_length) ||
           !challenge.code_hash
         )
           return fail('UNAUTHORIZED');
+        // Too many wrong codes for this phone across challenges: no further guess is evaluated.
+        if (await this.phoneLocked(db, challenge.phone_lookup, deviceHash, now))
+          return fail('RATE_LIMITED');
+        const review = challenge.delivery_provider === REVIEW_PROVIDER;
+        if (review && !this.options.reviewAccount?.enabled) return fail('UNAUTHORIZED');
         const correct = equalHash(
           challenge.code_hash,
-          hmac(config.otpKey, `otp:${challenge.id}:${deviceHash}`, body.code),
+          hmac(
+            config.otpKey,
+            `otp:${challenge.id}:${deviceHash}`,
+            review ? reviewCodeDigest(body.code) : body.code,
+          ),
         );
         // Return the error outside the transaction, preserving failed attempts across restart/races.
         await db.query('UPDATE identity_otp_challenges SET attempts=attempts+1 WHERE id=$1', [
           challenge.id,
         ]);
-        if (!correct) return fail('UNAUTHORIZED');
+        if (!correct) {
+          await db.query(
+            `INSERT INTO identity_otp_failures(phone_lookup,device_hash,failure_hour,failures)
+             VALUES($1,$3,date_trunc('hour',$2::timestamptz),1)
+             ON CONFLICT(phone_lookup,failure_hour,device_hash) DO UPDATE SET failures=identity_otp_failures.failures+1`,
+            [challenge.phone_lookup, now, challenge.device_hash],
+          );
+          return fail('UNAUTHORIZED');
+        }
         if (!challenge.phone_cipher) return fail('SERVICE_UNAVAILABLE');
         const phone = decrypt<string>(
           config.piiKey,
@@ -506,7 +753,8 @@ export class CustomerIdentity {
         const locator = (
           await db.query<{ id: string; phone_lookup: string }>(
             `SELECT s.id,c.phone_lookup FROM identity_sessions s JOIN identity_customers c ON c.id=s.customer_id
-         WHERE s.refresh_hash=$1 OR s.id=(SELECT session_id FROM identity_refresh_receipts WHERE previous_hash=$1)`,
+         WHERE s.refresh_hash=$1 OR s.id=(SELECT session_id FROM identity_refresh_receipts WHERE previous_hash=$1)
+           OR s.retired_refresh_hashes @> ARRAY[$1]::text[]`,
             [previousHash],
           )
         ).rows[0];
@@ -519,25 +767,35 @@ export class CustomerIdentity {
         ).rows[0]!;
         if (session.revoked_at || !equalHash(deviceHash, session.device_hash))
           return fail('UNAUTHORIZED');
+        const now = await this.now(db);
+        if (this.sessionExpired(session, now)) {
+          // Absolute lifetime or idle timeout: the app signs in again with a new code.
+          await this.revoke(db, session.id, now);
+          return fail('UNAUTHORIZED');
+        }
         const receipt = (
           await db.query<{
             previous_hash: string;
             request_id: string;
             successor_hash: string;
             response_cipher: string;
+            created_at: Date;
           }>('SELECT * FROM identity_refresh_receipts WHERE session_id=$1', [session.id])
         ).rows[0];
         if (previousHash !== session.refresh_hash) {
-          if (
-            !receipt ||
-            receipt.previous_hash !== previousHash ||
-            receipt.request_id !== body.request_id ||
-            receipt.successor_hash !== session.refresh_hash
-          )
+          const latest =
+            receipt?.previous_hash === previousHash &&
+            receipt.successor_hash === session.refresh_hash;
+          if (latest && receipt.request_id === body.request_id)
+            return CustomerSessionSchema.parse(
+              decrypt(config.receiptKey, `refresh:${session.id}`, receipt.response_cipher),
+            );
+          // A sibling request racing the rotation that just happened on this device.
+          if (latest && now.getTime() - receipt.created_at.getTime() < REUSE_GRACE_MS)
             return fail('CONFLICT');
-          return CustomerSessionSchema.parse(
-            decrypt(config.receiptKey, `refresh:${session.id}`, receipt.response_cipher),
-          );
+          // A rotated-away token used again: stolen or cloned. End the whole session.
+          await this.revoke(db, session.id, now);
+          return fail('UNAUTHORIZED');
         }
         // Request IDs identify a single rotation, even when the caller already has its successor.
         if (receipt?.request_id === body.request_id) return fail('CONFLICT');
@@ -546,8 +804,7 @@ export class CustomerIdentity {
             session.customer_id,
           ])
         ).rows[0]!;
-        const now = await this.now(db),
-          access = randomBytes(32).toString('hex'),
+        const access = randomBytes(32).toString('hex'),
           refresh = randomBytes(32).toString('hex'),
           expires = new Date(now.getTime() + ACCESS_MS);
         const response = {
@@ -558,8 +815,18 @@ export class CustomerIdentity {
           customer: this.customer(customer, config),
         };
         await db.query(
-          'UPDATE identity_sessions SET access_hash=$2,access_expires_at=$3,refresh_hash=$4,generation=generation+1,refreshed_at=$5 WHERE id=$1',
-          [session.id, digest(access), expires, digest(refresh), now],
+          `UPDATE identity_sessions SET access_hash=$2,access_expires_at=$3,refresh_hash=$4,generation=generation+1,refreshed_at=$5,
+             retired_refresh_hashes=(ARRAY[$6]::text[] || retired_refresh_hashes)[1:$7]
+           WHERE id=$1`,
+          [
+            session.id,
+            digest(access),
+            expires,
+            digest(refresh),
+            now,
+            previousHash,
+            RETIRED_REFRESH_KEPT,
+          ],
         );
         await db.query(
           `INSERT INTO identity_refresh_receipts(session_id,previous_hash,request_id,successor_hash,response_cipher,created_at) VALUES($1,$2,$3,$4,$5,$6)
@@ -642,7 +909,8 @@ export class CustomerIdentity {
           [
             customer.id,
             encrypt(config.piiKey, `profile:${customer.id}`, profile),
-            hasProfile && profile.gender !== null,
+            // Audit 7.7: every profile field is voluntary; saving the form completes it.
+            hasProfile,
             now,
           ],
         )
@@ -662,7 +930,7 @@ export class CustomerIdentity {
       [id],
     );
     await db.query(
-      'UPDATE identity_sessions SET revoked_at=COALESCE(revoked_at,$2),access_hash=NULL,refresh_hash=NULL WHERE id=$1',
+      "UPDATE identity_sessions SET revoked_at=COALESCE(revoked_at,$2),access_hash=NULL,refresh_hash=NULL,retired_refresh_hashes='{}' WHERE id=$1",
       [id, now],
     );
   }
@@ -743,6 +1011,9 @@ export class CustomerIdentity {
       await db.query(
         "DELETE FROM identity_sms_daily_budget WHERE budget_day<(clock_timestamp() AT TIME ZONE 'UTC')::date-7",
       );
+      await db.query(
+        "DELETE FROM identity_otp_failures WHERE failure_hour<clock_timestamp()-interval '31 days'",
+      );
     });
   }
 }
@@ -764,5 +1035,7 @@ export async function readCustomerPaymentPhone(
     )
   ).rows[0];
   if (!row || row.deleted_at || !row.phone_cipher) return null;
-  return decrypt<string>(options.piiKey, `phone:${customerId}`, row.phone_cipher);
+  const phone = decrypt<string>(options.piiKey, `phone:${customerId}`, row.phone_cipher);
+  // The App Review account never receives a Kaspi invoice, even if an attempt slipped through.
+  return options.reviewAccount?.phone === phone ? null : phone;
 }

@@ -1,0 +1,221 @@
+.device-center {
+  padding: 24px;
+}
+.device-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+.device-heading h2 {
+  margin: 0 0 8px;
+}
+.device-heading p {
+  margin: 0;
+}
+.device-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 260px);
+  gap: 16px;
+  margin: 24px 0;
+}
+.device-table-wrap {
+  overflow-x: auto;
+}
+.device-table {
+  min-width: 0;
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+.device-table th {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 12px;
+  background: var(--bg);
+}
+.device-table td {
+  min-width: 0;
+  padding: 18px 12px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+.device-table td:first-child {
+  width: 23%;
+}
+.device-table td:nth-child(2) {
+  width: 29%;
+}
+.device-table td:nth-child(3) {
+  width: 18%;
+}
+.device-table strong,
+.device-table td > span {
+  display: block;
+  margin-bottom: 6px;
+}
+.device-table .muted {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.device-table p {
+  margin: 8px 0 0;
+  max-width: 40ch;
+}
+.device-table .op-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+}
+.device-table .op-actions > .muted {
+  flex-basis: 100%;
+}
+.device-table th:nth-child(1) {
+  width: 23%;
+}
+.device-table th:nth-child(2) {
+  width: 29%;
+}
+.device-table th:nth-child(3) {
+  width: 18%;
+}
+.device-table th:nth-child(4) {
+  width: 30%;
+}
+.device-table .button {
+  min-height: 44px;
+}
+.device-status {
+  display: inline-block !important;
+  width: fit-content;
+  padding: 5px 9px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.device-status.good {
+  color: #165f44;
+  background: #e1f3e9;
+}
+.device-status.warning {
+  color: #724008;
+  background: #fff1da;
+}
+.device-status.neutral {
+  color: var(--muted);
+  background: var(--bg);
+}
+.device-code {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin: 20px 0;
+}
+.device-code code {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 20px;
+  margin: 16px 0;
+  user-select: all;
+}
+.device-code .button {
+  margin: 0 8px 0 0;
+}
+.device-help {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+  margin-top: 24px;
+}
+.device-help summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 8px 0;
+}
+.device-help .button {
+  margin: 8px 8px 0 0;
+}
+.device-empty {
+  padding: 32px 12px;
+  color: var(--muted);
+  text-align: center;
+}
+.device-footnote {
+  margin-top: 20px;
+  font-size: 13px;
+}
+@media (max-width: 800px) {
+  .device-center {
+    padding: 16px;
+  }
+  .device-heading {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .device-filters {
+    grid-template-columns: 1fr;
+  }
+  .device-table thead {
+    display: none;
+  }
+  .device-table,
+  .device-table tbody {
+    display: block;
+  }
+  .device-table tr {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    padding: 20px 0;
+  }
+  .device-table tr[hidden] {
+    display: none;
+  }
+  .device-table td,
+  .device-table td:first-child,
+  .device-table td:nth-child(2),
+  .device-table td:nth-child(3) {
+    display: block;
+    width: auto;
+    padding: 0;
+    border: 0;
+  }
+  .device-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+}
+
+.device-editor {
+  padding: 24px;
+  margin: 24px 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.device-editor h3 {
+  margin-top: 0;
+}
+.device-editor .field {
+  max-width: 600px;
+}
+.device-editor .op-actions {
+  flex-wrap: wrap;
+}
+.device-history-entry {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.device-editor .notice:empty,
+.device-dialog .notice:empty {
+  display: none;
+}

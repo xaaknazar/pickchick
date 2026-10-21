@@ -39,7 +39,23 @@ with sync_playwright() as pw:
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), width
         page.screenshot(path=str(out / f'finance-entry-{width}.png'), full_page=True)
     page.set_viewport_size({'width': 1440, 'height': 960})
-    page.get_by_text('Дополнительно: ОПиУ, контрагент, примечание', exact=True).click()
+    # A category redraw may precede the asynchronous native toggle event.
+    page.evaluate('''() => {
+        document.querySelector('.finance-extra summary').click();
+        const category = document.querySelector('[data-testid="finance-category"]');
+        category.value = 'utilities';
+        category.dispatchEvent(new Event('change', {bubbles: true}));
+    }''')
+    expect(page.get_by_test_id('finance-counterparty')).to_be_visible()
+    extra = page.locator('.finance-extra summary')
+    extra.focus()
+    page.keyboard.press('Enter')
+    expect(page.get_by_test_id('finance-counterparty')).not_to_be_visible()
+    page.get_by_test_id('finance-category').select_option('rent')
+    expect(page.get_by_test_id('finance-counterparty')).not_to_be_visible()
+    extra.focus()
+    page.keyboard.press('Space')
+    expect(page.get_by_test_id('finance-counterparty')).to_be_visible()
     page.get_by_test_id('finance-amount').fill('500,25')
     page.get_by_test_id('finance-cash-date').fill('2026-10-06')
     page.get_by_test_id('finance-recognition-date').fill('2026-09-30')

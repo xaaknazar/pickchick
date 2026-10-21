@@ -269,19 +269,19 @@ with sync_playwright() as p:
         expect(visible_element(page, 'account-required-login')).to_be_visible()
         assert stored_account(page) is None
 
-        # A new profile cannot complete without an explicit gender choice.
+        # Gender is optional: only an explicit save completes a new profile.
         visible_element(page, 'account-required-login').click()
         visible_element(page, 'phone-input').fill(PHONE)
         visible_element(page, 'request-otp').click()
         visible_element(page, 'otp-input').fill('1234')
         expect(visible_element(page, 'screen-M04')).to_be_visible()
-        expect(visible_element(page, 'nickname-save')).to_be_disabled()
+        expect(visible_element(page, 'nickname-save')).to_be_enabled()
         expect(visible_element(page, 'profile-fill-later')).to_have_count(0)
-        visible_element(page, 'profile-gender-male').click()
+        assert stored_account(page)['profile']['completedAt'] is None
         visible_element(page, 'nickname-save').click()
         expect(visible_element(page, 'screen-M30')).to_be_visible()
         after_skip = stored_account(page)
-        assert after_skip['profile']['gender'] == 'male'
+        assert after_skip['profile']['gender'] is None
         assert after_skip['profile']['completedAt'] is not None
         page.reload()
         expect(visible_element(page, 'screen-M30')).to_be_visible()
@@ -304,7 +304,7 @@ with sync_playwright() as p:
         checks.append({'viewport': f'{width}x{height}', 'login_restore_logout': True,
                        'wrong_code_rejected': True, 'birthday_saved_and_cleared': True,
                        'native_date_bounds_and_future_guard': True, 'date_picker_cancel': True,
-                       'required_gender': True,
+                       'optional_gender_persists': True,
                        'skip_and_cancel_preserve_profile': True, 'fixed_registration_actions': True,
                        'no_horizontal_overflow': True, 'preview_mutations_disabled': True,
                        'server_identity_preserved': True})

@@ -7,6 +7,9 @@ import { Icon } from './Icon';
 import { CartTotal } from './CartTotal';
 import { selectionSummary } from './selectionSummary';
 import { useEnter } from './motion';
+import { fixedText } from './Body';
+import { PhotoImage } from './PhotoImage';
+import { productArtworkId } from '../assets';
 /**
  * v3 order summary card on the blue review screen: white 30-pt card, one row per
  * line (name × qty, chosen options, line total), the total and the preparation time.
@@ -16,7 +19,6 @@ export function CheckoutSummary({
   total,
   valid,
   locale,
-  estimated,
 }: {
   lines: KioskCartLine[];
   total: string;
@@ -54,15 +56,22 @@ export function CheckoutSummary({
             key={line.lineId}
             style={{
               flexDirection: 'row',
-              alignItems: 'flex-start',
+              alignItems: 'center',
               gap: v(16),
               paddingBottom: v(16),
               borderBottomWidth: 1,
               borderColor: colors.border,
             }}
           >
+            <View
+              testID={'kiosk-review-photo-' + line.lineId}
+              style={{ width: v(76), height: v(76), borderRadius: v(16), overflow: 'hidden' }}
+            >
+              <PhotoImage imageId={productArtworkId(line.product)} variant="cart" />
+            </View>
             <View style={{ flex: 1, minWidth: 0, gap: v(4) }}>
               <Text
+                {...fixedText}
                 style={{
                   fontFamily: fonts.heavy,
                   fontSize: Math.max(18, v(20)),
@@ -74,6 +83,7 @@ export function CheckoutSummary({
               </Text>
               {summary ? (
                 <Text
+                  {...fixedText}
                   style={{
                     fontFamily: fonts.body,
                     fontSize: Math.max(15, v(15)),
@@ -86,6 +96,7 @@ export function CheckoutSummary({
               ) : null}
             </View>
             <Text
+              {...fixedText}
               style={{
                 fontFamily: fonts.black,
                 fontSize: Math.max(18, v(20)),
@@ -99,32 +110,31 @@ export function CheckoutSummary({
         );
       })}
       <CartTotal total={total} valid={valid} locale={locale} />
-      {estimated ? (
-        <View
+      <View
+        style={{
+          alignSelf: 'flex-start',
+          minHeight: v(40),
+          paddingLeft: v(12),
+          paddingRight: v(16),
+          borderRadius: 999,
+          backgroundColor: colors.sky,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: v(8),
+        }}
+      >
+        <Icon name="time-outline" size="small" tone="brand" />
+        <Text
+          {...fixedText}
           style={{
-            alignSelf: 'flex-start',
-            minHeight: v(40),
-            paddingLeft: v(12),
-            paddingRight: v(16),
-            borderRadius: 999,
-            backgroundColor: colors.sky,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: v(8),
+            fontFamily: fonts.medium,
+            fontSize: Math.max(15, v(15)),
+            color: colors.navy,
           }}
         >
-          <Icon name="time-outline" size="small" tone="brand" />
-          <Text
-            style={{
-              fontFamily: fonts.medium,
-              fontSize: Math.max(15, v(15)),
-              color: colors.navy,
-            }}
-          >
-            {t.preparation} {estimated.min}-{estimated.max} {t.minutes}
-          </Text>
-        </View>
-      ) : null}
+          {t.preparation} 10-13 {t.minutes}
+        </Text>
+      </View>
     </Animated.View>
   );
 }

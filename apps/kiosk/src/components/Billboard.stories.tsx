@@ -1,26 +1,35 @@
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
+import { View } from 'react-native';
 import { fn } from 'storybook/test';
 import { catalog } from '../stories/fixtures';
-import { Wrapper } from './Wrapper';
 import { Billboard } from './Billboard';
-const featured = catalog.products.find((p) => p.name === 'Master Combo') ?? catalog.products[0]!;
+const find = (id: string) => catalog.products.find((p) => p.id === id) ?? catalog.products[0]!;
 const meta = {
   title: 'Kiosk/Billboard',
   component: Billboard,
   decorators: [
     (Story) => (
-      <Wrapper padding={28} maxWidth={720}>
+      // Frame only: the menu grid gives the hit tile its full-width row.
+      <View style={{ width: 806, height: 350, padding: 0 }}>
         <Story />
-      </Wrapper>
+      </View>
     ),
   ],
-  args: { product: featured, locale: 'ru', onOpen: fn() },
+  args: {
+    product: find('master-combo'),
+    label: 'ХИТ НЕДЕЛИ',
+    locale: 'ru',
+    onOpen: fn(),
+    onAdd: fn(),
+  },
   tags: ['autodocs'],
 } satisfies Meta<typeof Billboard>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const Default: Story = {};
-export const Kazakh = { args: { locale: 'kk' } };
-/** The prototype carousel: Master Combo and 7 + 1 glide past every 7 s. */
-export const Carousel: Story = { args: { onPromo: fn(), onSlide: fn() } };
-export const PromoSlide: Story = { args: { onPromo: fn(), slide: 1 } };
+export const MasterCombo: Story = {};
+export const Lemonade: Story = { args: { product: find('lemonade'), label: 'ФИРМЕННЫЙ' } };
+export const Kazakh: Story = { args: { locale: 'kk', label: 'АПТА ХИТІ' } };
+export const InBag: Story = { args: { inCart: 2 } };
+export const SoldOut: Story = {
+  args: { product: { ...find('burger'), available: false }, label: 'ЛЮБИМЫЙ ДОП' },
+};

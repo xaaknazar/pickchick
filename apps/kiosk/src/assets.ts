@@ -23,10 +23,10 @@ export const assets = {
  * duo and set cards cycle through them by position (i % 4), anchored right-top at 190%.
  */
 export const cardBackgrounds: readonly number[] = [
-  require('../assets/v3/bg/bg1.webp'),
-  require('../assets/v3/bg/bg2.webp'),
-  require('../assets/v3/bg/bg3.webp'),
-  require('../assets/v3/bg/bg4.webp'),
+  require('../assets/v3/bg/bg1.svg'),
+  require('../assets/v3/bg/bg2.svg'),
+  require('../assets/v3/bg/bg3.svg'),
+  require('../assets/v3/bg/bg4.svg'),
 ];
 /** Width / height of the card illustrations. */
 export const cardBackgroundRatio = 667 / 1000;
@@ -35,78 +35,92 @@ const photo = (source: number, tile: string | null): Photo => ({
   tile: tile ?? '#FEF8F0',
   cutout: tile === null,
 });
+// Visible cup bounds (alpha >= 64), independent of each PNG's transparent padding.
+// Match the bundled source, so a future published photo keeps its own framing.
+const sauceBounds = new Map<Photo['source'], readonly [number, number, number, number]>([
+  [require('../assets/v3/hd/signature-60.png'), [0.03429, 0.10048, 0.93222, 0.81659]],
+  [require('../assets/v3/hd/sauce-hot.png'), [0.11085, 0.17703, 0.77193, 0.66906]],
+  [require('../assets/v3/hd/heinz-cheese.png'), [0.11324, 0.17783, 0.77352, 0.66667]],
+  [require('../assets/v3/hd/heinz-bbq.png'), [0.1244, 0.18182, 0.75199, 0.64833]],
+]);
+export const saucePhotoBounds = (source: Photo['source']) => sauceBounds.get(source);
 const cards: Record<string, Photo> = {
-  'i7.jpg': photo(require('../assets/v3/photos/pick-combo.webp'), '#FFFFFF'),
-  'i8.jpg': photo(require('../assets/v3/photos/master-combo.webp'), '#FFFFFF'),
-  'i9.jpg': photo(require('../assets/v3/photos/burger-combo.webp'), '#FFFFFF'),
-  'i10.jpg': photo(require('../assets/v3/photos/solo-combo.webp'), '#FEFEFE'),
-  'i11.jpg': photo(require('../assets/v3/photos/finger-duo.webp'), '#FFFFFF'),
-  'i12.jpg': photo(require('../assets/v3/photos/burger-duo.webp'), '#FFFFFF'),
-  'i13.jpg': photo(require('../assets/v3/photos/mix-duo.webp'), '#FEFEFE'),
-  'i14.jpg': photo(require('../assets/v3/photos/fingers-25.webp'), '#FFFFFF'),
-  'i15.jpg': photo(require('../assets/v3/photos/fingers-50.webp'), '#FEFEFE'),
-  'i16.jpg': photo(require('../assets/v3/photos/fingers-75.webp'), '#FEFEFD'),
-  'i17.jpg': photo(require('../assets/v3/photos/fingers-100.webp'), '#FFFFFF'),
+  'i7.jpg': photo(require('../assets/v3/hd/pick-combo.png'), null),
+  'i8.jpg': photo(require('../assets/v3/hd/master-combo.png'), null),
+  'i9.jpg': photo(require('../assets/v3/hd/burger-combo.png'), null),
+  'i10.jpg': photo(require('../assets/v3/hd/solo-combo.png'), null),
+  'i11.jpg': photo(require('../assets/v3/hd/finger-duo.png'), null),
+  'i12.jpg': photo(require('../assets/v3/hd/burger-duo.png'), null),
+  'i13.jpg': photo(require('../assets/v3/hd/mix-duo.png'), null),
+  'i14.jpg': photo(require('../assets/v3/hd/fingers-25.png'), null),
+  'i15.jpg': photo(require('../assets/v3/hd/fingers-50.png'), null),
+  'i16.jpg': photo(require('../assets/v3/hd/fingers-75.png'), null),
+  'i17.jpg': photo(require('../assets/v3/hd/fingers-100.png'), null),
   'i4.jpg': photo(require('../assets/v3/photos/fingers.webp'), null),
-  'i18.jpg': photo(require('../assets/v3/photos/sauce.webp'), '#FEFEFE'),
-  'i19.jpg': photo(require('../assets/v3/photos/sauce-hot.webp'), '#FEFEFE'),
-  'i5.jpg': photo(require('../assets/v3/photos/toast.webp'), '#FFFFFF'),
-  'i6.jpg': photo(require('../assets/v3/photos/coleslaw.webp'), '#FFFFFF'),
-  'i20.jpg': photo(require('../assets/v3/photos/wedges.webp'), '#FFFFFF'),
-  'shot.jpg': photo(require('../assets/v3/photos/burger.webp'), '#FEFEFE'),
-  'i0.jpg': photo(require('../assets/v3/photos/lemonade.webp'), '#FFFFFF'),
-  'i2.jpg': photo(require('../assets/v3/photos/cola.webp'), '#FFFFFF'),
+  'i18.jpg': photo(require('../assets/v3/hd/signature-60.png'), null),
+  'i19.jpg': photo(require('../assets/v3/hd/sauce-hot.png'), null),
+  'i5.jpg': photo(require('../assets/v3/hd/toast.png'), null),
+  'i6.jpg': photo(require('../assets/v3/options/coleslaw.webp'), null),
+  'i20.jpg': photo(require('../assets/v3/hd/wedges.png'), null),
+  'shot.jpg': photo(require('../assets/v3/hd/burger.png'), null),
+  'i0.jpg': photo(require('../assets/v3/options/lemonade.webp'), null),
+  'i2.jpg': photo(require('../assets/v3/options/cola-can.webp'), null),
   'i1.jpg': photo(require('../assets/v3/photos/fuse-peach.webp'), '#FFFFFF'),
-  'i22.jpg': photo(require('../assets/v3/photos/iced-tea.webp'), '#FFFFFF'),
+  'i22.jpg': photo(require('../assets/v3/options/iced-tea.webp'), null),
   'i23.jpg': photo(require('../assets/v3/photos/water.webp'), '#FFFFFF'),
   'generic-drink': photo(require('../assets/v3/photos/piko.webp'), '#FEF8F0'),
 };
 const heroes: Record<string, Photo> = {
-  'i7.jpg': photo(require('../assets/v3/hero/pick-combo.webp'), '#024ECA'),
-  'i8.jpg': photo(require('../assets/v3/hero/master-combo.jpg'), '#0050CC'),
-  'i9.jpg': photo(require('../assets/v3/hero/burger-combo.webp'), '#0054D6'),
-  'i10.jpg': photo(require('../assets/v3/hero/solo-combo.jpg'), '#0256D4'),
-  'i11.jpg': photo(require('../assets/v3/hero/finger-duo.jpg'), '#004DC8'),
-  'i12.jpg': photo(require('../assets/v3/hero/burger-duo.jpg'), '#004FCC'),
-  'i13.jpg': photo(require('../assets/v3/hero/mix-duo.jpg'), '#0051D4'),
-  'i14.jpg': photo(require('../assets/v3/hero/fingers-25.jpg'), '#0052D2'),
-  'i15.jpg': photo(require('../assets/v3/hero/fingers-50.jpg'), '#0050CB'),
-  'i16.jpg': photo(require('../assets/v3/hero/fingers-75.jpg'), '#015AD2'),
-  'i17.jpg': photo(require('../assets/v3/hero/fingers-100.jpg'), '#0051C8'),
-  'i18.jpg': photo(require('../assets/v3/hero/sauce.webp'), null),
-  'i19.jpg': photo(require('../assets/v3/hero/sauce-hot.webp'), null),
-  'i5.jpg': photo(require('../assets/v3/hero/toast.webp'), '#FEF8F1'),
-  'i6.jpg': photo(require('../assets/v3/hero/coleslaw.webp'), '#FEF9F2'),
-  'i20.jpg': photo(require('../assets/v3/hero/wedges.webp'), '#FEF9EF'),
-  'i0.jpg': photo(require('../assets/v3/hero/lemonade.webp'), '#FEFAF6'),
-  'i2.jpg': photo(require('../assets/v3/hero/cola.webp'), '#FEFAF4'),
+  'i7.jpg': photo(require('../assets/v3/hd/pick-combo.png'), null),
+  'i8.jpg': photo(require('../assets/v3/hd/master-combo.png'), null),
+  'i9.jpg': photo(require('../assets/v3/hd/burger-combo.png'), null),
+  'i10.jpg': photo(require('../assets/v3/hd/solo-combo.png'), null),
+  'i11.jpg': photo(require('../assets/v3/hd/finger-duo.png'), null),
+  'i12.jpg': photo(require('../assets/v3/hd/burger-duo.png'), null),
+  'i13.jpg': photo(require('../assets/v3/hd/mix-duo.png'), null),
+  'i14.jpg': photo(require('../assets/v3/hd/fingers-25.png'), null),
+  'i15.jpg': photo(require('../assets/v3/hd/fingers-50.png'), null),
+  'i16.jpg': photo(require('../assets/v3/hd/fingers-75.png'), null),
+  'i17.jpg': photo(require('../assets/v3/hd/fingers-100.png'), null),
+  'i18.jpg': photo(require('../assets/v3/hd/signature-60.png'), null),
+  'i19.jpg': photo(require('../assets/v3/hd/sauce-hot.png'), null),
+  'i5.jpg': photo(require('../assets/v3/hd/toast.png'), null),
+  'i6.jpg': photo(require('../assets/v3/options/coleslaw.webp'), null),
+  'i20.jpg': photo(require('../assets/v3/hd/wedges.png'), null),
+  'i0.jpg': photo(require('../assets/v3/options/lemonade.webp'), null),
+  'i2.jpg': photo(require('../assets/v3/options/cola-can.webp'), null),
   'i1.jpg': photo(require('../assets/v3/hero/fuse-peach.webp'), '#FEF8F1'),
-  'i22.jpg': photo(require('../assets/v3/hero/iced-tea.webp'), '#FEFAF1'),
+  'i22.jpg': photo(require('../assets/v3/options/iced-tea.webp'), null),
   'i23.jpg': photo(require('../assets/v3/hero/water.webp'), '#FEFCF5'),
 };
+// Lemonade, can, iced tea, water, Piko and coleslaw are HD cut-outs (scripts/kiosk/hd-cutout-photos.py).
 const options: Record<string, Photo> = {
+  cheese: photo(require('../assets/v3/hd/heinz-cheese.png'), null),
+  bbq: photo(require('../assets/v3/hd/heinz-bbq.png'), null),
+  'sauce-cheese': photo(require('../assets/v3/hd/heinz-cheese.png'), null),
+  'sauce-bbq': photo(require('../assets/v3/hd/heinz-bbq.png'), null),
   'cola-bottle': photo(require('../assets/v3/options/cola-bottle.webp'), null),
-  lemonade: photo(require('../assets/v3/options/lemonade.webp'), '#FEFAF6'),
+  lemonade: photo(require('../assets/v3/options/lemonade.webp'), null),
   'fuse-peach': photo(require('../assets/v3/options/fuse-peach.webp'), null),
-  'cola-can': photo(require('../assets/v3/options/cola-can.webp'), '#FEFAF4'),
+  'cola-can': photo(require('../assets/v3/options/cola-can.webp'), null),
   fanta: photo(require('../assets/v3/options/fanta.webp'), null),
   sprite: photo(require('../assets/v3/options/sprite.webp'), null),
   'cola-zero': photo(require('../assets/v3/options/cola-zero.webp'), null),
-  'iced-tea-sweet': photo(require('../assets/v3/options/iced-tea.webp'), '#FEFAF1'),
-  'iced-tea-unsweet': photo(require('../assets/v3/options/iced-tea.webp'), '#FEFAF1'),
+  'iced-tea-sweet': photo(require('../assets/v3/options/iced-tea.webp'), null),
+  'iced-tea-unsweet': photo(require('../assets/v3/options/iced-tea.webp'), null),
   'fuse-berry': photo(require('../assets/v3/options/fuse-berry.webp'), null),
   'fuse-watermelon': photo(require('../assets/v3/options/fuse-watermelon.webp'), null),
   'fuse-mango': photo(require('../assets/v3/options/fuse-mango.webp'), null),
-  water: photo(require('../assets/v3/options/water.webp'), '#FEFCF5'),
-  piko: photo(require('../assets/v3/options/piko.webp'), '#FEF8F0'),
-  pick: photo(require('../assets/v3/options/sauce-pick.webp'), null),
-  hot: photo(require('../assets/v3/options/sauce-hot.webp'), null),
+  water: photo(require('../assets/v3/options/water.webp'), null),
+  piko: photo(require('../assets/v3/options/piko.webp'), null),
+  pick: photo(require('../assets/v3/hd/signature-60.png'), null),
+  hot: photo(require('../assets/v3/hd/sauce-hot.png'), null),
   fingers: photo(require('../assets/v3/options/fingers.webp'), null),
-  sauce: photo(require('../assets/v3/options/sauce-pick.webp'), null),
-  'sauce-hot': photo(require('../assets/v3/options/sauce-hot.webp'), null),
-  toast: photo(require('../assets/v3/options/toast.webp'), '#FEF8F1'),
-  coleslaw: photo(require('../assets/v3/options/coleslaw.webp'), '#FEF9F2'),
-  wedges: photo(require('../assets/v3/options/wedges.webp'), '#FEF9EF'),
+  sauce: photo(require('../assets/v3/hd/signature-60.png'), null),
+  'sauce-hot': photo(require('../assets/v3/hd/sauce-hot.png'), null),
+  toast: photo(require('../assets/v3/hd/toast.png'), null),
+  coleslaw: photo(require('../assets/v3/options/coleslaw.webp'), null),
+  wedges: photo(require('../assets/v3/hd/wedges.png'), null),
 };
 // Preserve the owner's exact cropped photographs from the shared development branch.
 const drinkPhotos: Record<string, Photo> = {
@@ -120,10 +134,8 @@ const drinkPhotos: Record<string, Photo> = {
   'piko-apple': photo(require('../assets/drinks/piko-apple.png'), null),
   'piko-orange': photo(require('../assets/drinks/piko-orange.png'), null),
 };
-drinkPhotos.piko = {
-  ...drinkPhotos['piko-apple']!,
-  secondarySource: drinkPhotos['piko-orange']!.source,
-};
+// The generic Piko preview shows one pack; each named flavour keeps its own photo.
+drinkPhotos.piko = drinkPhotos['piko-apple']!;
 Object.assign(cards, {
   'i1.jpg': drinkPhotos['fuse-peach'],
   'i23.jpg': drinkPhotos.water,
@@ -147,7 +159,7 @@ export const productPhoto = (imageId: string): Photo | null => media.photo(image
 export const heroPhoto = (imageId: string): Photo | null => media.photo(imageId, 'hero');
 /** Modifier option artwork by option id (drinks, sauces, extras). */
 export const optionPhoto = (optionId: string): Photo | null => options[optionId] ?? null;
-/** Heinz sauces have no supplied photography; they keep a neutral colour mark. */
+/** Fallback brand mark if a future Heinz option has no artwork. */
 export const heinzColor = (optionId: string): string | null =>
   /cheese/.test(optionId) ? '#E7A51A' : /bbq/.test(optionId) ? '#7A2E12' : null;
 /** Word-mark colour that keeps WCAG AA on its Heinz mark (navy on the light mustard). */

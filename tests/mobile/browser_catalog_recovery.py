@@ -62,11 +62,12 @@ with sync_playwright() as p:
     page = context.new_page()
     page.goto(URL + '/screen/M19')
     history = page.get_by_test_id('screen-M19')
-    expect(history.get_by_text('Заказ №'+ORDER['number'], exact=True)).to_be_visible(timeout=15000)
+    card = history.get_by_test_id('history-order-' + ORDER['order_id'])
+    expect(card.get_by_text('№ ' + ORDER['number'], exact=True)).to_be_visible(timeout=15000)
     expect(history.get_by_text('Новое оформление недоступно', exact=True)).not_to_be_visible()
     assert ('GET', '/v1/test/orders') in requests
     assert not any(path.endswith('/sessions') for _, path in requests)
-    history.get_by_text('Заказ №'+ORDER['number'], exact=True).click()
+    card.click()
     details = page.get_by_test_id('screen-M20')
     expect(details.get_by_test_id('connected-order-number')).to_have_text(ORDER['number'])
     expect(details.get_by_text('Уточняем результат', exact=True)).to_be_visible()
@@ -93,7 +94,8 @@ with sync_playwright() as p:
     expect(page.get_by_text('Доступность пока не подтверждена', exact=True)).to_be_visible()
     mode['terminal'] = True
     page.goto(URL + '/screen/M19')
-    expect(page.get_by_text('Выдан', exact=True)).to_be_visible(timeout=10000)
+    expect(page.get_by_test_id('orders-history').get_by_test_id(
+        'history-order-' + ORDER['order_id'])).to_be_attached(timeout=10000)
     terminal_reads = len([path for _, path in requests if path == '/v1/test/orders'])
     # Observe actual scheduled network activity over more than two old poll periods.
     page.wait_for_timeout(7500)

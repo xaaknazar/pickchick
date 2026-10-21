@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-10T14:27:35.317Z",
+  "updatedAt": "2026-10-20",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -73,7 +73,9 @@
     "docs/operations/device-access-backoffice.md",
     "docs/operations/unified-menu-continuation.md",
     "docs/operations/unified-menu-installation-2026-10-09.md",
-    "docs/operations/workforce.md"
+    "docs/operations/workforce.md",
+    "docs/operations/cabinet-entry.md",
+    "docs/operations/mobile-combo-rewards.md"
   ],
   "workstreams": [
     {
@@ -697,8 +699,8 @@
       "id": "platform-backup",
       "workstream": "platform",
       "title": "Восстановить тестовые резервные копии",
-      "summary": "Для staging и кассового foundation выполнены отдельные проверки восстановления. Это ещё не полная приёмка эксплуатации ресторана.",
-      "status": "done",
+      "summary": "Для staging и кассового foundation выполнены отдельные проверки восстановления. На VPS действует только ежедневный локальный зашифрованный дамп на том же сервере. Внешняя зашифрованная копия, PITR и учения восстановления реализованы и проверены локально 20.10 (аудит 5.2/7.4), не установлены.",
+      "status": "active",
       "owner": "development",
       "phase": "foundation",
       "dependsOn": ["platform-foundation"],
@@ -710,12 +712,16 @@
         {
           "label": "Подтверждённое состояние проекта",
           "path": "docs/project-status.md"
+        },
+        {
+          "label": "Внешняя копия, PITR и учения",
+          "path": "docs/operations/backup-offsite.md"
         }
       ],
       "acceptance": [
         "В протоколах зафиксированы версии и фактическое восстановление тестовых данных."
       ],
-      "nextAction": "Повторить drill для итогового cloud/edge релиза с измерением RPO/RTO.",
+      "nextAction": "Владельцу выбрать независимое S3-совместимое хранилище; включить внешнюю копию и провести учение восстановления с измерением RPO/RTO; PITR - отдельным решением.",
       "checks": {
         "implemented": true,
         "verified": true,
@@ -793,8 +799,8 @@
       "id": "platform-monitoring",
       "workstream": "platform",
       "title": "Наблюдаемость и ежедневная эксплуатация",
-      "summary": "Нужны оповещения по заказам, unknown-операциям, outbox, дискам, backup и свежести служебных заданий; роли on-call ещё не приняты.",
-      "status": "planned",
+      "summary": "Read-only watchdog на VPS (systemd timer, роль pickchick_watchdog, Telegram или shadow mode) реализован и проверен локально 20.10 в выпуске исправлений аудита 19.10: Kaspi-сессия и очереди оплат, передача на кухню, заказы на разборе, коды входа клиентов, gateway, пульс и ключ кассы, копии, PITR, диск. На VPS не установлен; роли on-call не приняты.",
+      "status": "active",
       "owner": "joint",
       "phase": "acceptance",
       "dependsOn": ["platform-pilot-deploy"],
@@ -810,16 +816,24 @@
         {
           "label": "Roadmap и сценарии AC-01-41",
           "path": "docs/04-roadmap.md"
+        },
+        {
+          "label": "Watchdog: проверки, права, включение",
+          "path": "docs/operations/ops-watchdog.md"
+        },
+        {
+          "label": "Исправления аудита 19.10: сводка и план выпуска",
+          "path": "docs/operations/release-fixes-2026-10-19/README.md"
         }
       ],
       "acceptance": [
         "Контрольная неисправность создаёт понятный сигнал ответственному.",
         "Задокументированы SLO, секреты, ротация, восстановление и порядок эскалации."
       ],
-      "nextAction": "Подключить метрики и проверить оповещения на выделенном стенде.",
+      "nextAction": "Установить по ops-watchdog.md после выпуска API: роль, сутки shadow mode, затем Telegram-бот владельца; проверить контрольную неисправность.",
       "checks": {
-        "implemented": false,
-        "verified": false,
+        "implemented": true,
+        "verified": true,
         "deployed": false,
         "accepted": false
       }
@@ -1166,6 +1180,10 @@
         {
           "label": "Комментарий клиента при оформлении",
           "path": "docs/operations/checkout-order-comment.md"
+        },
+        {
+          "label": "Все подтверждённые клиенты: установленный выпуск",
+          "path": "docs/operations/kaspi-live-activation.md"
         }
       ],
       "acceptance": [
@@ -1176,7 +1194,7 @@
       "checks": {
         "implemented": true,
         "verified": false,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     },
@@ -1294,7 +1312,7 @@
       "id": "catalog-unified",
       "workstream": "catalog",
       "title": "Подключить единый каталог ко всем каналам",
-      "summary": "Публикация и паритет общего каталога реализованы. Read-only baseline 9 октября подтвердил Windows23/schema019, protocol4, menu-sync apply и включённые access-roles/edge-publication; API3bc/schema050 и native16 TestFlight установлены. Remote-stops/media-upload ещё выключены; приёмка всей цепочки не завершена. Последний portal health: edgeConnected=false.",
+      "summary": "Единый каталог опубликован, Windows edge23/schema019 работает в protocol4/menu-sync apply. 13 октября на API f01cb45f/schema052 и кассе включён online STOP/UNSTOP из кабинета; menu v7 и catalog v10 согласованы по hash/ACK. Media-upload и отдельный cloud-kitchen не активированы этим выпуском. Приёмка всей цепочки ещё не завершена.",
       "status": "active",
       "owner": "development",
       "phase": "foundation",
@@ -1339,13 +1357,21 @@
         {
           "label": "Guarded продолжение оставшихся флагов",
           "path": "docs/operations/unified-menu-continuation.md"
+        },
+        {
+          "label": "Проверка стоп-листа 12 октября и границы доступа",
+          "path": "docs/operations/filter-layout.md"
+        },
+        {
+          "label": "Включение online STOP/UNSTOP 13 октября",
+          "path": "docs/operations/deployments/2026-10-13-existing-stops.md"
         }
       ],
       "acceptance": [
         "AC-02/32: каждый канал использует совместимую опубликованную версию.",
         "Offline/несовместимый клиент не ломает текущую смену."
       ],
-      "nextAction": "Восстановить сеть и повторить свежую сверку меню/ACK; после отдельного Devices051/Windows020 выпуска включить remote-stops, затем media-upload по guarded continuation. Принять физические клиенты отдельно.",
+      "nextAction": "Принять STOP/UNSTOP на выбранном блюде во всех каналах; отдельно завершить оставшиеся функции общего каталога и cloud-kitchen.",
       "checks": {
         "implemented": true,
         "verified": false,
@@ -1357,7 +1383,7 @@
       "id": "catalog-availability",
       "workstream": "catalog",
       "title": "Стоп-листы и последняя порция",
-      "summary": "Стоп-лист кассы установлен в мобильном меню и серверных quote/pay/admission: API и edge e47702a, CI 6/6, свежий реальный стоп Pick Combo и UI 320/390 px проверены. Полный расчёт последней порции по нормам ещё не реализован.",
+      "summary": "Стоп-лист кассы учитывается в мобильном меню и quote/pay/admission. 13 октября включено управление STOP/UNSTOP из кабинета на API f01cb45f и edge23, готовность управляющего и кассы проверена. Приёмка на рабочем блюде отдельно. Полный расчёт последней порции по нормам ещё не реализован.",
       "status": "active",
       "owner": "development",
       "phase": "integration",
@@ -1378,6 +1404,10 @@
         {
           "label": "Стоп-лист кассы в мобильном меню",
           "path": "docs/operations/mobile-stop-list.md"
+        },
+        {
+          "label": "Включение online STOP/UNSTOP 13 октября",
+          "path": "docs/operations/deployments/2026-10-13-existing-stops.md"
         }
       ],
       "acceptance": ["AC-03: последняя порция достаётся одному заказу до открытия оплаты."],
@@ -1838,6 +1868,135 @@
         "implemented": true,
         "verified": true,
         "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "kiosk-redesign-1013",
+      "workstream": "kiosk",
+      "title": "Редизайн киоска: старт, меню-бенто, умные допы (13.10)",
+      "summary": "Редизайн 13.10: стеклянный язык, чип Kaspi QR, Салют, меню-бенто и умные допы. По разрешению владельца сохранены демо и смена KZ → RU → EN. 181 kiosk tests, 24 browser checks, typecheck/lint/format и полная CI исходника 3b9733af прошли. PR #238 включён в shared. Release 0.1.0 (15) доступен только в PickChick Kiosk Internal; владелец подтвердил видимость в TestFlight. Из того же архива выполнен экспорт для устройства: подпись и совпадение JS проверены. По кабелю 15 установлен поверх 13 без удаления приложения и сброса данных; device info apps подтвердил 15, запуск успешен. Визуальная приёмка ещё не подтверждена. Восемь сторонних frameworks без dSYM ограничивают crash-диагностику.",
+      "status": "active",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": ["kiosk-client"],
+      "evidence": [
+        {
+          "label": "Задание и макеты владельца",
+          "path": "docs/design/kiosk-redesign-2026-10-13/README.md"
+        },
+        {
+          "label": "Внедрение, проверки, снимки и отличия",
+          "path": "docs/operations/kiosk-redesign-2026-10-13.md"
+        },
+        {
+          "label": "CI, подпись, хеши, TestFlight и установка build 15 на iPad",
+          "path": "docs/operations/kiosk-build15-installation.md"
+        }
+      ],
+      "acceptance": [
+        "Старт, выбор зала, меню и допы совпадают с макетами на 1024×1366, 820×1180 и 744×1133 в RU/KZ/EN.",
+        "Из допов «К оплате» открывает существующий экран Kaspi QR; оплата и номер заказа не изменены.",
+        "Владелец принял сборку на iPad."
+      ],
+      "nextAction": "Пройти чек-лист установленной 0.1.0 (15) на физическом iPad и отдельно отметить приёмку. Опубликовать обновлённый пульт после проверки отчёта; реальные оплаты без разрешения владельца не выполнять.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "kiosk-motion-1013",
+      "workstream": "kiosk",
+      "title": "Плавные переходы киоска и кнопка под ценой",
+      "summary": "Меню открывается после цветной заливки; Выбрать под ценой; В зале / С собой, Dine in / Takeaway. Улучшены переходы, каскад и QR: код неподвижен, виден статус ожидания. В демо отмена возвращает сохранённую корзину, paid/unknown не отменяются. 188 kiosk tests и браузерные проверки прошли. CI f200906c успешна; дополнение QR проходит отдельные проверки, build 16 ещё не установлен.",
+      "status": "active",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": ["kiosk-redesign-1013"],
+      "evidence": [
+        {
+          "label": "Исправления переходов и проверки",
+          "path": "docs/operations/kiosk-motion-2026-10-13.md"
+        }
+      ],
+      "acceptance": [
+        "Меню не появляется перед заливкой после обоих вариантов заказа.",
+        "Кнопка Выбрать находится под ценой и доступна на трёх размерах iPad.",
+        "Владелец проверил плавность установленной сборки."
+      ],
+      "nextAction": "Завершить CI дополнения, собрать и установить build 16 поверх 15, проверить демо на iPad. Реальная отмена QR заблокирована отсутствием банковского метода; приёмку владельца отметить отдельно.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "kiosk-product-payment-1013",
+      "workstream": "kiosk",
+      "title": "Киоск: карточка товара, шторки, экран Kaspi QR и «Начать заново» (13.10)",
+      "summary": "Build 17 (f4f5dc99) установлен по кабелю поверх 16 без удаления данных. Прошли 228 kiosk tests, typecheck/lint/format, браузерные проверки и Storybook accessibility. Чек-лист на физическом iPad пройден в демо, снимки сохранены. Полная CI отражается в PR244; приёмка владельцем и реальные платежи не подтверждены.",
+      "status": "active",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": ["kiosk-motion-1013"],
+      "evidence": [
+        {
+          "label": "Задание и макеты владельца",
+          "path": "docs/design/kiosk-redesign-2026-10-13/product-and-payment.md"
+        },
+        {
+          "label": "Внедрение, проверки, снимки и отличия",
+          "path": "docs/operations/kiosk-product-payment-2026-10-13.md"
+        },
+        {
+          "label": "Build 17: установка, хеши и снимки физического iPad",
+          "path": "docs/operations/kiosk-build17-installation.md"
+        }
+      ],
+      "acceptance": [
+        "Карточка Pick Combo, шторки напитков, соуса и тоста и экран QR совпадают с макетами на трёх размерах iPad в RU/KZ/EN.",
+        "«Начать заново» возвращает на старт только пока QR ждёт оплаты; поздняя оплата засчитывается сервером.",
+        "После выбора языка на заставке видна одна подпись; «Без допов» убирает добавленные допы.",
+        "Владелец принял сборку на iPad."
+      ],
+      "nextAction": "Дождаться полной CI в PR244 и внести следующие замечания владельца: подпись на выбранном языке, неподвижный экран режима, корзина и допы, только QR, фото заказа и 10-13 минут. Сначала проверка на одном iPad; без TestFlight и реальных оплат.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "kiosk-qr-cancellation",
+      "workstream": "kiosk",
+      "title": "Отмена неоплаченного Kaspi QR с возвратом к заказу",
+      "summary": "Владелец выбрал отмену счёта с сохранением корзины. Дизайн и изолированный демо-сценарий подготовлены. Текущий QR-мост предоставляет только создание и проверку, банковской команды отмены нет. Скрытие QR и истечение таймера не считаются отменой.",
+      "status": "blocked",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["kiosk-motion-1013"],
+      "evidence": [
+        {
+          "label": "Пределы отмены, демо и проверки",
+          "path": "docs/operations/kiosk-motion-2026-10-13.md"
+        }
+      ],
+      "acceptance": [
+        "Подтверждён банковский контракт отмены именно QR, включая гонку с оплатой.",
+        "После банковского подтверждения отмены гость возвращается к сохранённой корзине.",
+        "Оплаченный или неизвестный платёж не отменяется и не теряется."
+      ],
+      "nextAction": "Получить подтверждённый контракт отмены QR для используемого провайдера, затем добавить серверную операцию и проверить гонки на фикстурах. Реальные финансовые пробы требуют отдельного разрешения владельца.",
+      "checks": {
+        "implemented": false,
+        "verified": false,
+        "deployed": false,
         "accepted": false
       }
     },
@@ -2476,7 +2635,7 @@
       "id": "inventory-documents",
       "workstream": "inventory",
       "title": "Реализовать базовые складские документы",
-      "summary": "Существующий PostgreSQL-учёт расширен интерфейсом: поиск/фильтры/CSV, точный ввод кг/л, проверка расхождений и стоимости до проведения, раскрытие движений документа. Локальные проверки прошли; CI и установка нового этапа ожидаются.",
+      "summary": "Установлен f01cb45f: вкладки/поиск/CSV, точные кг/л, проверка количества и стоимости перед проведением, раскрытие движений с автором. Полная Foundation CI 11/11, локально 94 backoffice tests; проверены backup/restore и чтение под CEO. Приёмка реальных документов ещё предстоит.",
       "status": "active",
       "owner": "development",
       "phase": "product",
@@ -2499,11 +2658,11 @@
         "Повтор/конфликт/ошибка аудита не создают двойного движения.",
         "История документа и закреплённая норма заказа не переписываются."
       ],
-      "nextAction": "Выпустить проверенный этап вместе с кадровыми исправлениями; затем принять ввод реальных документов и начальных остатков.",
+      "nextAction": "Принять ручные складские документы с бухгалтером; получить техкарты и сверить начальные остатки, затем несколько складов/партии/edge-владение.",
       "checks": {
         "implemented": true,
         "verified": true,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     },
@@ -2607,7 +2766,7 @@
       "id": "team-cash-discipline",
       "workstream": "team",
       "title": "Кассовая дисциплина и кадровые процессы",
-      "summary": "Обычные POS-смены и управленческий журнал существуют. 10 октября на pickchick.kz установлен ручной кадровый модуль: график, табель, сотрудники, ставки за час, KPI preview, CSV и аудит. Source 8468e3ae, Foundation CI 11/11, backup/restore, авторизованное чтение CEO и assets проверены. BioCheck USB ZKTeco не подключён, окончательная зарплатная ведомость и оставшаяся кассовая дисциплина не завершены. Подготовлено обновление удаления/редактирования с аудитом; 18 целевых тестов и браузер прошли, установка новой версии ещё не подтверждена.",
+      "summary": "Ручной кадровый раздел и исправление/удаление с историей установлены в f01cb45f. Полная CI 11/11, 94 backoffice tests, HTTPS и CEO чтение проверены. Окончательная зарплата и BioCheck остаются отдельными этапами.",
       "status": "active",
       "owner": "joint",
       "phase": "integration",
@@ -2634,11 +2793,11 @@
         "AC-30: закрытие не скрывает незавершённый заказ или расхождение.",
         "Матрица прав и требуемые кадровые/расчётные операции приняты."
       ],
-      "nextAction": "Пройти полную CI и установить workforce-edit. Затем приёмка удаления, исправлений и реальных графиков владельцем; BioCheck и окончательная зарплатная ведомость остаются отдельными этапами.",
+      "nextAction": "Принять удаление, исправления и реальные графики на установленной версии. BioCheck и окончательная зарплатная ведомость остаются отдельными этапами.",
       "checks": {
         "implemented": true,
-        "verified": false,
-        "deployed": false,
+        "verified": true,
+        "deployed": true,
         "accepted": false
       }
     },
@@ -3765,6 +3924,38 @@
       }
     },
     {
+      "id": "mobile-redesign-1012",
+      "workstream": "mobile",
+      "title": "Редизайн: рестораны, заказы и трекер (12.10)",
+      "summary": "По заданию владельца от 12.10 внедрены M05 «Наши рестораны» (статичная карта OSM, статус по Asia/Almaty, «Открыть в 2ГИС» через dgis://), M19 «Заказы» (Сейчас/История по дням, коллаж фото, отменённые, оценка, пустое состояние, счётчик) и низ трекера M17/M18 (компактный состав, карусель игр, плитки Чек/Поддержка). Только UI. Проверены test:mobile 352+50, typecheck, ESLint, Prettier и web 393×852 (16 browser-проверок). PR #233 включён в shared; новые browser-сценарии подключены к CI. Перекрытие кнопки Kaspi исправлено и проверено на 393×852 и 320×568. Полная CI f333d1b8 и объединённых исправлений 699c003f успешна, 11/11. Build 19 загружен и обработан Apple, статус «Тестируется» в PickChick Internal; приёмка iPhone отдельно.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["mobile-orders-feedback"],
+      "evidence": [
+        {
+          "label": "Задание и макеты владельца",
+          "path": "docs/design/mobile-redesign-2026-10-12/README.md"
+        },
+        {
+          "label": "Внедрение, проверки, снимки и отличия",
+          "path": "docs/operations/mobile-redesign-2026-10-12.md"
+        }
+      ],
+      "acceptance": [
+        "Экраны M05, M19, M17/M18 совпадают с макетами на 393×852 во всех состояниях из задания.",
+        "Запуск/вход, оплата и API не изменены; существующие testID сохранены.",
+        "Владелец принял сборку на физическом iPhone."
+      ],
+      "nextAction": "Владелец проходит чек-лист на физическом iPhone в TestFlight 0.2.0 (19).",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
       "id": "identity-telegram-login",
       "workstream": "identity",
       "title": "Подготовить Telegram-вход и ручной SMS-резерв",
@@ -4227,14 +4418,18 @@
         {
           "label": "Подтверждённая доставка native16",
           "path": "docs/operations/mobile-native16.md"
+        },
+        {
+          "label": "Исправления аудита 10 октября (ветка codex/mobile-live-fixes)",
+          "path": "docs/operations/mobile-live-fixes.md"
         }
       ],
       "acceptance": [
         "Публикация видна в открытом приложении до 3 секунд при доступной сети.",
-        "Корзина и доступные добавки сохраняются; новые цены требуют явного подтверждения.",
+        "Корзина и доступные добавки сохраняются; строка с исчезнувшей добавкой удаляется целиком; новые цены требуют явного подтверждения.",
         "Начатый платёж сохраняет исходную сумму."
       ],
-      "nextAction": "Обновить 16 через TestFlight и подтвердить актуализацию меню/корзины и восстановление сети на iPhone. Начатые платежи не повторять.",
+      "nextAction": "Влить codex/mobile-live-fixes после CI (гонка long-poll, heartbeat LISTEN, карточка без пересоздания, удаление строки с исчезнувшей добавкой), установить API и новую сборку TestFlight, затем подтвердить меню/корзину, фон и восстановление сети на iPhone. Начатые платежи не повторять.",
       "checks": {
         "implemented": true,
         "verified": true,
@@ -4294,7 +4489,7 @@
       "id": "manager-device-access",
       "workstream": "backoffice",
       "title": "Подключать экраны и восстанавливать пароль из кабинета управляющего",
-      "summary": "Код и guarded пакеты b31a59ba прошли полную Foundation CI 37945705803 11/11. Cloud051/Windows020/worker/portal/canonical BO ещё не установлены: SSH с Mac к VPS и кассе завершился timeout, kitchen health доступен с edgeConnected=false. Флаги новой процедуры не включались.",
+      "summary": "Кабинет 4caca195, API 5b6f846b/cloud058, Windows runtime 5b6f846b/schema020 и KitchenLink установлены. Recovery, Switch и Activate завершены 14 октября; backup020 восстановлена отдельно, сверены 47 таблиц. Mailbox worker работает автоматически, pairing включён на cloud, Windows и портале. Полные CI операторов 11/11; данные, ключи и настройки сохранены. Физическая привязка экранов, cloud delivery и приёмка ещё не подтверждены. Edge021 и проверка heartbeat остаются отдельно.",
       "status": "active",
       "owner": "development",
       "phase": "product",
@@ -4315,12 +4510,285 @@
         {
           "label": "Полная CI точного общего кандидата b31a59ba",
           "url": "https://github.com/xaaknazar/pickchick/actions/runs/37945705803"
+        },
+        {
+          "label": "Центр устройств, проверка связи и порядок выпуска",
+          "path": "docs/operations/device-center.md"
+        },
+        {
+          "label": "Фактический выпуск и включение pairing 14 октября",
+          "path": "docs/operations/deployments/2026-10-13-device-center.md"
         }
       ],
       "acceptance": [
-        "Последовательно выпустить cloud051, Windows020 и портал; подтвердить подключение экранов и восстановление пароля управляющим."
+        "Карточки и история доступны по ролям и точкам; телевизор USB не имеет ложного онлайн-статуса.",
+        "Привязка одноразовым кодом, отзыв и повторная привязка проверены на кассе и экранах.",
+        "Существующие заказы, оплаты, ключи киоска и табели сохранены.",
+        "Потеря связи и возврат приложения корректно отображаются; физическая приёмка отдельно."
       ],
-      "nextAction": "Восстановить доверенную связь, получить свежие runtime/схемы/pins и последовательно пройти cloud, Windows, worker/Ready, портал и canonical BO с backup/restore; отдельно принять pairing/reset.",
+      "nextAction": "Проверить на физических экранах привязку кодом, назначение станции, доставку и отзыв. Отдельно согласовать выпуск edge021 и проверить heartbeat нативного киоска; получить приёмку владельца.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "cabinet-entry",
+      "workstream": "backoffice",
+      "title": "Открывать кабинет с основного домена и показывать все разделы",
+      "summary": "Портал d379075b и root-правило 41720c55 установлены: pickchick.kz открывает вход, все доступные разделы показаны одним списком. Оба источника прошли Foundation CI 11/11; HTTPS redirect, защита доступа и 55 файлов проверены. API/БД сохранены.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["backoffice-ui-core"],
+      "evidence": [
+        {
+          "label": "Вход и навигация: проверки и выпуск",
+          "path": "docs/operations/cabinet-entry.md"
+        }
+      ],
+      "acceptance": [
+        "Основной домен открывает страницу входа без JSON-ошибки.",
+        "Все разрешённые разделы видны без «Других разделов», включая мобильное меню."
+      ],
+      "nextAction": "Владельцу проверить вход через основной адрес и удобство списка разделов.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "filter-layout",
+      "workstream": "backoffice",
+      "title": "Выровнять фильтры и упростить выбор месяца и должности",
+      "summary": "Установлен портал 661f84c2: выровненные панели Главной/Заказов/графика, списки месяца/года и должности. Foundation CI 11/11; 55 HTTPS-файлов, защита входа и соседние сервисы проверены. API/БД и учётные записи сохранены.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["backoffice-ui-core"],
+      "evidence": [
+        {
+          "label": "Фильтры, должности и проверки",
+          "path": "docs/operations/filter-layout.md"
+        }
+      ],
+      "acceptance": [
+        "Фильтры и кнопки выровнены на компьютере и телефоне.",
+        "Месяц, год и должность выбираются из списка; сохранённые значения не теряются."
+      ],
+      "nextAction": "Владельцу проверить фильтры на компьютере/телефоне и выбор должности при создании и изменении смены.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-testflight19",
+      "workstream": "mobile",
+      "title": "iOS build 19: редизайн и исправления",
+      "summary": "PR #233 и #234 включены в shared 699c003f после полной CI 11/11. Локально успешны typecheck/lint/format, 358 Node + 50 Python mobile, 244 unit и браузерные сценарии. 0.2.0 (19) собрана из чистого shared, подпись, JS и 10 фото напитков в архиве/IPA проверены. Apple обработала build 19, в группе PickChick Internal (два прежних тестировщика) статус «Тестируется», чек-лист сохранён. Установка 19 видна в Apple; приёмка владельцем ещё не подтверждена. Каталог и цены не публиковались.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["mobile-redesign-1012"],
+      "evidence": [
+        {
+          "label": "Объединение и проверки",
+          "path": "docs/operations/mobile-bugfix-2026-10-12.md"
+        },
+        {
+          "label": "Выпуск и чек-лист",
+          "path": "docs/operations/mobile-testflight19.md"
+        }
+      ],
+      "acceptance": [
+        "Полная CI обоих PR успешна; исходник архива включён в shared.",
+        "0.2.0 (19) обработана Apple и доступна внутренним тестировщикам.",
+        "Владелец проверил приложение на iPhone."
+      ],
+      "nextAction": "Владелец проходит чек-лист на iPhone; статус установленной сборки не подменяет приёмку.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "backoffice-remote-stops-live",
+      "workstream": "backoffice",
+      "title": "Управлять стоп-листом из кабинета управляющего",
+      "summary": "Online STOP/UNSTOP включён на существующих cloud052/edge019 без обновления runtime. Полная CI 11/11, readiness и права управляющего подтверждены, резервные копии и сохранность данных проверены. Рабочие блюда ради автоматического теста не изменялись.",
+      "status": "active",
+      "owner": "joint",
+      "phase": "integration",
+      "dependsOn": ["backoffice-ui-core", "catalog-editor"],
+      "evidence": [
+        {
+          "label": "Включение online STOP/UNSTOP 13 октября",
+          "path": "docs/operations/deployments/2026-10-13-existing-stops.md"
+        }
+      ],
+      "acceptance": [
+        "Управляющий ставит выбранную позицию на стоп и возвращает в продажу; касса подтверждает применение.",
+        "Статус согласован в кабинете, кассе, приложении и киоске; история действия сохраняется."
+      ],
+      "nextAction": "Владельцу принять STOP/UNSTOP на выбранном блюде.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "kiosk-owner-polish-1013",
+      "workstream": "kiosk",
+      "title": "Доработки киоска после проверки 17",
+      "summary": "Build 21 из deb62522 установлен по USB поверх 20 без удаления данных и запущен. На допах фото/названия/цены опущены на 16 дизайн-пунктов, кнопки количества сохранены. Piko показывает одну упаковку и фото выбранного вкуса. По отдельному разрешению владельца опубликован catalog11/draft24 с яблоком/апельсином без изменения цен; касса подтвердила menu8 applied, Piko остаётся 590 ₸. Проверка копии фактического меню на трёх iPad прошла. 224 unit tests, typecheck/lint, 7 браузерных сценариев допов, полная Foundation CI 11/11, UI/axe и roadmap CI успешны. Нативная проверка 21: 1/1, 0 ошибок/пропусков, 15 снимков; киоск оставлен на заставке вне демо. Фото, стеклянные действия, нейтральный QR и единственная «К оплате» сохранены. Банковский механизм не менялся, реальных оплат не проводили. Сервер/кухня для больших заказов и приёмка владельцем остаются отдельно.",
+      "status": "active",
+      "owner": "development",
+      "phase": "foundation",
+      "dependsOn": ["kiosk-client"],
+      "evidence": [
+        {
+          "label": "Установка, проверки, снимки и ограничения",
+          "path": "docs/operations/kiosk-owner-polish-2026-10-13.md"
+        },
+        {
+          "label": "Фото, стекло, QR и проверки 14 октября",
+          "path": "docs/operations/kiosk-glass-polish-2026-10-14.md"
+        },
+        {
+          "label": "Полная CI установленного кода: 11/11",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/38530154916"
+        },
+        {
+          "label": "Полная CI установленной сборки 20: 11/11",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/38536178374"
+        },
+        {
+          "label": "Полная CI установленной сборки 21: 11/11",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/38541949577"
+        }
+      ],
+      "acceptance": [
+        "Физический iPad: язык, режим, допы, фото и QR-only.",
+        "Большой заказ проходит сервер и кухню без ограничения числа строк.",
+        "Владелец принял изменения."
+      ],
+      "nextAction": "Приёмка владельцем установленной 21: расположение допов, фото и выбор вкуса Piko. Серверный/Windows выпуск больших заказов готовить отдельно от текущего device-center baseline; прежние пакеты не применять автоматически.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-testflight20",
+      "workstream": "mobile",
+      "title": "iOS build 20: восстановление оплаты и неподвижные игры",
+      "summary": "PR246 и PR248 включены в чистый source eaa21d08. Foundation CI 11/11, 363 Node + 50 Python, archive/export/upload и проверка подписи/JS успешны. Apple обработала 0.2.0 (20); PickChick Internal показывает «Тестируется», те же два тестировщика. Storefront сохранён; сервер, касса, каталог и цены не менялись. Физическая приёмка ожидается.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["mobile-testflight19"],
+      "evidence": [
+        {
+          "label": "TestFlight 20: исходник, CI, подпись и доступность в Apple",
+          "path": "docs/operations/mobile-testflight20.md"
+        },
+        {
+          "label": "Поведение оплаты и ограничения отмены",
+          "path": "docs/operations/mobile-payment-recovery.md"
+        },
+        {
+          "label": "Игры из заказа и физический чек-лист",
+          "path": "docs/operations/order-game-gestures.md"
+        }
+      ],
+      "acceptance": [
+        "Точный исходник выпуска содержит оба исправления и прошёл полную CI.",
+        "Подписанная 0.2.0 (20) обработана Apple и доступна PickChick Internal.",
+        "Владелец проверил оплату и игры на iPhone."
+      ],
+      "nextAction": "Нажать «Обновить» в TestFlight и пройти чек-лист. Факт доставки не подменяет физическую установку и приёмку.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-combo-rewards",
+      "workstream": "loyalty",
+      "title": "Комбо 7 + 1: отметки, подарок и возвраты",
+      "summary": "По решению владельца любое оплаченное комбо даёт отметку, подарок - Pick Combo. Подготовлены PostgreSQL-журнал, профиль, корзина, защита от повторного погашения и пересчёт после подтверждённого возврата. Проверены 12 новых PostgreSQL-сценариев и интерфейс 393×852/320×568. На сервере и iPhone пока не включено.",
+      "status": "active",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["identity-core", "payments-core", "kitchen-routing"],
+      "evidence": [
+        {
+          "label": "Правила, проверки и условия включения",
+          "path": "docs/operations/mobile-combo-rewards.md"
+        },
+        {
+          "label": "PR #251",
+          "url": "https://github.com/xaaknazar/pickchick/pull/251"
+        }
+      ],
+      "acceptance": [
+        "Каждая оплаченная единица комбо даёт ровно одну отметку; повтор банка не начисляет ещё раз.",
+        "Один подарок нельзя одновременно потратить с двух устройств; неизвестная оплата сохраняет резерв.",
+        "Подтверждённый возврат снимает соответствующие отметки и отзывает неподкреплённый подарок. Использованный подарок требует сверки без автоматического списания денег.",
+        "Физический iPhone и кухня принимают бесплатный заказ после согласованного серверного выпуска."
+      ],
+      "nextAction": "Отдельный согласованный выпуск из исходника с полной зелёной CI: зафиксировать время фактического запуска (прошлые покупки исключены по решению владельца), подготовить cloud060/API/edge/iOS с действующими резервами. Проверить допустимый фискальный режим подарочного заказа, совместить новые тексты с переводами/push, выполнить физическую приёмку. Доказательства CI и публикации только статуса в пульте - в PR #251; акция ещё не включена.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "release-fixes-1019",
+      "workstream": "launch",
+      "title": "Исправления аудита запуска 19.10",
+      "summary": "59 находок аудита 19.10 разобраны семью полосами и собраны в ветку codex/release-fixes-1019: платежи Kaspi, допуск на кухню и номера, касса и ключ кассы, вход и безопасность, киоск, приложение, мониторинг и копии. Реализовано и проверено локально 20.10 на свежей базе; не установлено на VPS, кассу, iPad и в App Store; приёмка владельцем не проводилась.",
+      "status": "active",
+      "owner": "joint",
+      "phase": "acceptance",
+      "dependsOn": ["platform-monitoring", "platform-backup"],
+      "evidence": [
+        {
+          "label": "Сводка, таблица находок и план выпуска",
+          "path": "docs/operations/release-fixes-2026-10-19/README.md"
+        },
+        {
+          "label": "Действия владельца",
+          "path": "docs/operations/release-fixes-2026-10-19/owner-actions.md"
+        },
+        {
+          "label": "Передача и проверки",
+          "path": "docs/collaboration/handoff.md"
+        }
+      ],
+      "acceptance": [
+        "Полная CI точного SHA ветки зелёная; PR рассмотрен.",
+        "Охраняемые выпуски по плану README выполнены, каждый с проверкой и откатом.",
+        "Владелец принял решения из owner-actions.md и проверил сценарии аудита на точке."
+      ],
+      "nextAction": "Push и PR с Mac, полная CI, затем охраняемые выпуски по плану README; решения владельца - owner-actions.md.",
       "checks": {
         "implemented": true,
         "verified": true,

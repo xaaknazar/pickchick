@@ -11,8 +11,18 @@ import { Body, Button, Caption, CloseButton, Heading, Notice, Row } from './UI';
 import { MotionModal } from './Motion';
 import { OrderSheet } from './OrderSheet';
 import { orderUI } from './OrderPresentation';
+import { RepeatLink } from './OrdersTab';
 
-export function RepeatOrder({ order, props }: { order: TestOrder; props: ScreenProps }) {
+export function RepeatOrder({
+  order,
+  props,
+  variant = 'button',
+}: {
+  order: TestOrder;
+  props: ScreenProps;
+  /** `link`: compact «↻ Повторить» for the orders list; the flow below is the same. */
+  variant?: 'button' | 'link';
+}) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
   const submitted = useRef(false);
@@ -24,19 +34,28 @@ export function RepeatOrder({ order, props }: { order: TestOrder; props: ScreenP
     (props.model.connection.status === 'online' && props.model.catalogMode === 'server');
   const limit = !mergeCartLines(props.model.cart, plan.lines, props.model.products);
   const blocked = !sameBranch || !online || !plan.lines.length || limit;
+  const start = () => {
+    submitted.current = false;
+    setError('');
+    setOpen(true);
+  };
   return (
     <>
-      <Button
-        secondary
-        icon="refresh-outline"
-        title="Повторить заказ"
-        testID={`repeat-order-${order.order_id}`}
-        onPress={() => {
-          submitted.current = false;
-          setError('');
-          setOpen(true);
-        }}
-      />
+      {variant === 'link' ? (
+        <RepeatLink
+          onPress={start}
+          testID={`repeat-order-${order.order_id}`}
+          number={order.number}
+        />
+      ) : (
+        <Button
+          secondary
+          icon="refresh-outline"
+          title="Повторить заказ"
+          testID={`repeat-order-${order.order_id}`}
+          onPress={start}
+        />
+      )}
       <MotionModal
         visible={open}
         transparent

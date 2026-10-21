@@ -88,7 +88,9 @@ class Fixture:
             data = copy.deepcopy(READS[path])
             data['products'] = 'invalid'
             route.fulfill(json=data, headers=headers)
-        elif mode == 'forbidden-feature':
+        elif mode == 'invalid-capabilities':
+            route.fulfill(json=[], headers=headers)
+        elif mode == 'live-features':
             data = copy.deepcopy(CAPABILITIES)
             data['features']['payments'] = True
             route.fulfill(json=data, headers=headers)
@@ -151,6 +153,14 @@ with sync_playwright() as playwright:
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.goto(URL + '/menu')
         return page
+
+    # Public capability flags do not authorize payments and must not block the menu.
+    compatible = Fixture('live-features')
+    compatible_page = open_menu(compatible)
+    online(compatible_page)
+    assert not compatible.violations, compatible.violations
+    compatible_page.context.close()
+    contexts.remove(compatible_page.context)
 
     # A server failure and a failed fourth GET both recover without a click,
     # navigation, reload, simulated online event, or a bundled-menu fallback.
@@ -235,7 +245,7 @@ with sync_playwright() as playwright:
     # Observe increasing jittered 2/5/15-second caps. Permanent protocol failures run
     # alongside it, so one observation window covers all non-retryable cases.
     permanent = []
-    for mode, path in [('403', '/v1/capabilities'), ('forbidden-feature', '/v1/capabilities'),
+    for mode, path in [('403', '/v1/capabilities'), ('invalid-capabilities', '/v1/capabilities'),
                        ('malformed-json', '/v1/capabilities'), ('schema', '/v1/test/catalog')]:
         fixture = Fixture(mode, path)
         failed = open_menu(fixture)
@@ -269,5 +279,7 @@ with sync_playwright() as playwright:
     print(json.dumps({'result': 'PASS', 'fixture_get_requests': count, 'real_orders_created': 0,
                       'checks': ['503 and transport auto recovery', '24 products retained after failure',
                                  'AppState background cancellation and foreground restart',
-                                 'continuous retries with capped jitter', 'schema, forbidden feature and 403 stay offline']},
+                                 'continuous retries with capped jitter',
+                                 'live capability flags do not block the menu or authorize payments',
+                                 'invalid capabilities, schema and 403 stay offline']},
                      ensure_ascii=False))

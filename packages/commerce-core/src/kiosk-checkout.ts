@@ -13,9 +13,12 @@ import type { CatalogMediaMapOptions } from './catalog-media.js';
 import { KioskSessions } from './kiosk-sessions.js';
 import { readKioskQrPayment } from './kiosk-kaspi-qr.js';
 import { readCheckoutOrder } from './order-view.js';
-import { localSelectionIds } from '@pickchick/menu-sync';
+import { catalogStopView } from '@pickchick/menu-sync';
 import {
+  AvailabilityError,
   branchAvailability,
+  branchChannelOwner,
+  cloudChannelAvailability,
   assertBranchItemsAvailable,
   snapshotAvailabilityItems,
 } from './availability.js';
@@ -45,7 +48,7 @@ export type KioskCheckoutOptions = z.infer<typeof Options>;
 /** Separate opt-in: a mobile pilot never enables unattended kiosk payments. */
 export function kioskCheckoutOptions(env: NodeJS.ProcessEnv): KioskCheckoutOptions | null {
   if (env.KIOSK_CHECKOUT_ENABLED !== 'true') return null;
-  return parse(Options, {
+  const options = parse(Options, {
     organizationId: env.KIOSK_CHECKOUT_ORGANIZATION_ID,
     branchId: env.KIOSK_CHECKOUT_BRANCH_ID,
     paymentAccountId:
@@ -61,6 +64,25 @@ export function kioskCheckoutOptions(env: NodeJS.ProcessEnv): KioskCheckoutOptio
     maxOrderMinor: env.KIOSK_CHECKOUT_MAX_MINOR ?? '10000',
     hours: restaurantHoursFromEnv(env),
   });
+  // The only phone-invoice worker serves KASPI_REMOTE_ACCOUNT_ID. Any other invoice account
+  // would leave the guest on "sending" forever, so that method is simply not offered.
+  if (
+    options.invoicePaymentAccountId !== undefined &&
+    options.invoicePaymentAccountId !== env.KASPI_REMOTE_ACCOUNT_ID
+  ) {
+    const { invoicePaymentAccountId, ...served } = options;
+    void invoicePaymentAccountId;
+    return served;
+  }
+  return options;
+}
+/** Startup diagnostics: the configured kiosk invoice account is not the worker's account. */
+export function kioskInvoiceAccountUnserved(env: NodeJS.ProcessEnv) {
+  return (
+    env.KIOSK_CHECKOUT_ENABLED === 'true' &&
+    !!env.KIOSK_KASPI_INVOICE_ACCOUNT_ID &&
+    env.KIOSK_KASPI_INVOICE_ACCOUNT_ID !== env.KASPI_REMOTE_ACCOUNT_ID
+  );
 }
 /** Used independently by the payment worker, even when new kiosk checkout is disabled. */
 export function kioskPiiKey(env: NodeJS.ProcessEnv): Buffer | null {
@@ -186,26 +208,10 @@ export class KioskCheckout {
       catalog = await this.catalog(guest);
     const state = await branchAvailability(this.pool, scope.branchId),
       stopped = new Set(state.stoppedIds);
+    // Combo stop rule (PM decision 1, 19.10); the body keeps its installed-build shape.
     const body = {
       fresh: state.fresh,
-      products: catalog.payload.products.map((product) => ({
-        productId: product.id,
-        available:
-          product.available &&
-          !stopped.has(product.id) &&
-          !localSelectionIds(scope.branchId, product.id, []).some((id) => stopped.has(id)),
-        stoppedOptions: product.modifier_groups.flatMap((group) =>
-          group.options
-            .filter(
-              (option) =>
-                !option.available ||
-                localSelectionIds(scope.branchId, product.id, [
-                  { group_id: group.id, option_id: option.id },
-                ]).some((id) => stopped.has(id)),
-            )
-            .map((option) => ({ group_id: group.id, option_id: option.id })),
-        ),
-      })),
+      products: catalogStopView(scope.branchId, stopped, catalog.payload.products),
     };
     return {
       body,
@@ -230,7 +236,9 @@ export class KioskCheckout {
        ($4::uuid IS NULL OR EXISTS(SELECT 1 FROM commerce_provider_accounts f WHERE f.id=$4 AND f.branch_id=b.id
        AND f.organization_id=b.organization_id AND f.legal_entity_id=b.legal_entity_id AND f.kind='fiscal' AND f.enabled))) ready,
        EXISTS(SELECT 1 FROM fulfillment_transport_bindings t JOIN devices d ON d.id=t.device_id
-       WHERE t.branch_id=b.id AND t.active AND d.status='active') kitchen
+       WHERE t.branch_id=b.id AND t.active AND d.status='active'
+       AND NOT EXISTS(SELECT 1 FROM cloud_branch_availability a WHERE a.branch_id=b.id
+        AND a.device_id=t.device_id AND coalesce((to_jsonb(a)->>'ordering_closed')::boolean,false))) kitchen
        FROM branches b LEFT JOIN catalog_branch_heads h ON h.branch_id=b.id AND h.organization_id=b.organization_id
        WHERE b.id=$1 AND b.organization_id=$2`,
         [
@@ -243,6 +251,12 @@ export class KioskCheckout {
       )
     ).rows[0];
     if (!row) throw new CommerceError('NOT_READY');
+    // ADR-0014: in mode 'cloud' the kitchen is the cloud kitchen gate (KITCHEN_OFFLINE: one prep
+    // and one assembly station polled within 30 s), not the cashier binding and device.
+    const cloud = (await branchChannelOwner(this.pool, scope.branchId)) === 'cloud';
+    const kitchen = cloud
+      ? (await cloudChannelAvailability(this.pool, scope.branchId)).fresh
+      : row.kitchen;
     // Same readiness as the mobile app: the back-office publication is the single menu
     // source for every channel, so no per-device menu ACK is required; the kitchen must be online.
     const primary = opt.paymentMethod ?? 'kaspi_invoice';
@@ -267,12 +281,20 @@ export class KioskCheckout {
       if (invoice.rowCount) paymentMethods.push('kaspi_invoice');
     }
     return {
-      enabled: paymentMethods.length > 0 && row.version !== null && row.kitchen,
+      enabled: paymentMethods.length > 0 && row.version !== null && kitchen,
       branchId: scope.branchId,
       restaurant: row.name,
       paymentMethod: primary,
       paymentMethods,
+      // Only in mode 'cloud' (edge answers keep their shape): lets the kiosk name the reason.
+      ...(cloud ? { kitchen: kitchen ? ('online' as const) : ('offline' as const) } : {}),
     };
+  }
+  /** Not ready: in mode 'cloud' a closed kitchen gate is KITCHEN_OFFLINE, otherwise NOT_READY. */
+  private notReady(config: { kitchen?: 'online' | 'offline' }) {
+    return config.kitchen === 'offline'
+      ? new AvailabilityError('KITCHEN_OFFLINE')
+      : new CommerceError('NOT_READY');
   }
   async quote(guest: KioskGuest, input: unknown) {
     const scope = this.scope(guest),
@@ -280,7 +302,8 @@ export class KioskCheckout {
       opt = this.options!;
     if (scope.branchId !== req.branchId) throw new CommerceError('FORBIDDEN');
     assertRestaurantOrderingOpen(opt.hours, this.now());
-    if (!(await this.config(guest)).enabled) throw new CommerceError('NOT_READY');
+    const config = await this.config(guest);
+    if (!config.enabled) throw this.notReady(config);
     const catalog = await this.catalog(guest);
     // Availability identifiers are catalog product ids, while the pricing port accepts SKU.
     const items = req.items.map((item) => {
@@ -318,6 +341,8 @@ export class KioskCheckout {
       BigInt(priced.totalMinor) % 100n !== 0n
     )
       throw new CommerceError('INVALID');
+    // Priced lines name the products the options point to and the fixed combo components.
+    await assertBranchItemsAvailable(this.pool, scope.branchId, snapshotAvailabilityItems(priced));
     const legal = (
       await this.pool.query<{ legal_entity_id: string }>(
         'SELECT legal_entity_id FROM branches WHERE id=$1',
@@ -358,9 +383,12 @@ export class KioskCheckout {
       if (prior.quote_id !== req.quoteId) throw new CommerceError('CONFLICT');
       return this.read(guest, prior.id);
     }
-    await this.sessions.assertActive(guest.sessionId);
+    // No order exists for this guest: an expired guest gets a definitive NOT_FOUND, never
+    // FORBIDDEN (see KioskSessions.assertActive).
+    await this.sessions.assertActive(guest.sessionId, { ifExpired: 'NOT_FOUND' });
     assertRestaurantOrderingOpen(opt.hours, this.now());
-    if (!(await this.config(guest)).enabled) throw new CommerceError('NOT_READY');
+    const config = await this.config(guest);
+    if (!config.enabled) throw this.notReady(config);
     const quote = await this.pool.query(
       "SELECT 1 FROM commerce_quotes WHERE id=$1 AND principal_id=$2 AND organization_id=$3 AND branch_id=$4 AND customer_id IS NULL AND snapshot->>'channel'='kiosk'",
       [req.quoteId, scope.principalId, scope.organizationId, scope.branchId],
@@ -418,8 +446,7 @@ export class KioskCheckout {
     if (method !== 'kaspi_qr') await this.sessions.assertActive(guest.sessionId);
     assertRestaurantOrderingOpen(this.options!.hours, this.now());
     const config = await this.config(guest);
-    if (!config.enabled || !config.paymentMethods.includes(method))
-      throw new CommerceError('NOT_READY');
+    if (!config.enabled || !config.paymentMethods.includes(method)) throw this.notReady(config);
     await assertBranchItemsAvailable(
       this.pool,
       scope.branchId,
@@ -484,7 +511,20 @@ export class KioskCheckout {
           orderId,
         ])
       ).rowCount;
-    const phase = handed ? 'failed' : shown;
+    // A paid QR order the cashier refused is a staff case (refund or a manual order). Installed
+    // builds would keep the guest and the device on 'attention'; 'failed' with a paid QR shows
+    // their staff-help screen ("ask a team member, do not pay again") instead of a number "-",
+    // then frees the kiosk. Device presentation only: the order stays on review for the manager.
+    const refused =
+      shown === 'attention' &&
+      payment.state === 'paid' &&
+      !!(
+        await this.pool.query(
+          "SELECT 1 FROM commerce_reconciliation_issues WHERE order_id=$1 AND code IN ('KITCHEN_ADMISSION_REFUSED','KITCHEN_ADMISSION_OVERDUE')",
+          [orderId],
+        )
+      ).rowCount;
+    const phase = handed || refused ? 'failed' : shown;
     // Existing QR-only native builds use a strict response schema. Keep their shape.
     return { ...order, phase, payment };
   }

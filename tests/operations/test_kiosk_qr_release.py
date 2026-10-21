@@ -41,10 +41,12 @@ class KioskEnrollmentRelease(unittest.TestCase):
             with patch.object(r.sys,'version_info',(3,12)):
                 with self.assertRaises(r.market.GuardFailure):r.Release(SimpleNamespace(**{**vars(args),'expected_gateway_sha256':'c'*64}))
 
-    def test_environment_worker_off_and_both_explicit_fiscal_modes(self):
+    def test_environment_worker_off_and_fiscal_required_refused_without_adapter(self):
         self.assertEqual(r.validate_environment(environment()),environment())
+        # Finding 7.2: no process consumes fiscal.submit_requested yet; in 'required' mode a paid
+        # kiosk order would never reach the kitchen. Refused with a clear reason.
         required={**environment(),'KIOSK_CHECKOUT_FISCAL_POLICY':'required','KIOSK_CHECKOUT_FISCAL_ACCOUNT_ID':'10000000-0000-4000-a000-000000000004'}
-        self.assertEqual(r.validate_environment(required),required)
+        with self.assertRaisesRegex(r.market.GuardFailure,'fiscal adapter'):r.validate_environment(required)
         for change in [{'KIOSK_KASPI_QR_ENABLED':'true'},{'KIOSK_CHECKOUT_PAYMENT_METHOD':'kaspi_invoice'},
             {'KIOSK_CHECKOUT_FISCAL_POLICY':'required'},{'KASPI_SESSION_TOKEN_SN':'secret'},
             {'KIOSK_CHECKOUT_PII_KEY':'bad'},{'KIOSK_CHECKOUT_MAX_MINOR':'0'},

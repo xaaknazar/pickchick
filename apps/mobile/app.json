@@ -10,11 +10,12 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "kz.pickchick.app",
-      "buildNumber": "16",
+      "buildNumber": "20",
       "appleTeamId": "DAJTP6MC3Q",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "CFBundleLocalizations": ["ru", "kk"]
+        "CFBundleLocalizations": ["ru", "kk"],
+        "LSApplicationQueriesSchemes": ["dgis"]
       }
     },
     "android": {

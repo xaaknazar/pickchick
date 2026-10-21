@@ -211,6 +211,11 @@ class StaffDisplay(unittest.TestCase):
     def test_role_gate_and_removed_navigation_on_every_staff_surface(self):
         for role in PATHS:
             with self.subTest(role=role):
+                # Earlier authenticated pages keep polling the shared fixture.
+                # Close them before measuring requests from this role's login.
+                for context in self.contexts:
+                    context.close()
+                self.contexts.clear()
                 page = self.open(role)
                 before = len(self.fixture.requests)
                 page.get_by_label('Ключ доступа', exact=True).fill('invalid')

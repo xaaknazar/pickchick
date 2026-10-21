@@ -11,10 +11,10 @@ export function startRuntime(
   every: Every = interval,
 ) {
   const stopPolling = every(() => {
-    if (model.state.actor && !model.state.busy) void model.refresh();
+    if ((model.state.actor || model.state.screenPaired) && !model.state.busy) void model.refresh();
   }, 5000);
   const stopRotation = every(() => {
-    if (model.state.actor && model.state.mode === 'display') rotate();
+    if ((model.state.actor || model.state.screenPaired) && model.state.mode === 'display') rotate();
   }, 8000);
   return () => {
     stopPolling();

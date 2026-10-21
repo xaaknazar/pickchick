@@ -1,4 +1,4 @@
-import { effectiveLocalStops, localSelectionIds } from '@pickchick/local-orders';
+import { effectiveLocalStops, lineStopIds } from '@pickchick/local-orders';
 import { ReleaseCommandSchema, ReleaseResultSchema } from './model.js';
 import type { ReleaseResult } from './model.js';
 import { randomUUID } from 'node:crypto';
@@ -22,11 +22,32 @@ import {
 } from './model.js';
 import type { TrustedCloud } from './model.js';
 
-import { view, emit, advance } from './records.js';
+import {
+  acceptsWork,
+  checkVersion,
+  commandShape,
+  guardConfirmCancel,
+  planCompleteStation,
+  planConfirmCancel,
+  planHandoff,
+  planReady,
+  planTask,
+  replayDecision,
+} from '@pickchick/fulfillment-state';
+import type { Decision, Step, TaskSnapshot } from '@pickchick/fulfillment-state';
+import { view, emit, advance, allocateDisplayNumber } from './records.js';
 import type { Reservation, Task, State } from './records.js';
 const fail = (code: ConstructorParameters<typeof FulfillmentError>[0]): never => {
   throw new FulfillmentError(code);
 };
+const decided = <T>(decision: Decision<T>): T =>
+  decision.ok ? decision.value : fail(decision.code);
+const snapshot = (task: Task): TaskSnapshot => ({
+  id: task.id,
+  stationId: task.station_id,
+  state: task.state,
+  version: task.version,
+});
 async function lock(client: DatabaseClient, key: string) {
   await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [key]);
 }
@@ -141,15 +162,18 @@ export class EdgeFulfillment {
           ).rows[0];
           if (!branch?.ordering_enabled) fail('NOT_READY');
           const stopped = new Set(await effectiveLocalStops(client, scope.branchId));
+          // Same combo stop rule as kiosk and mobile: chosen options, the products they point
+          // to and the fixed components of a combo stop the line too.
           for (const line of p.snapshot.lines) {
-            const ids = localSelectionIds(
-              scope.branchId,
-              line.productId,
-              (line.selectedDetails?.modifiers ?? []).map((m) => ({
+            const ids = lineStopIds(scope.branchId, {
+              productId: line.productId,
+              selections: (line.selectedDetails?.modifiers ?? []).map((m) => ({
                 group_id: m.groupId,
                 option_id: m.optionId,
+                linked_product_id: m.linkedProductId,
               })),
-            );
+              componentIds: (line.selectedDetails?.components ?? []).map((c) => c.productId),
+            });
             if (ids.some((id) => stopped.has(id)) || stopped.has(line.productId))
               throw new FulfillmentError('NOT_READY', 'ITEM_STOPPED');
           }
@@ -173,9 +197,11 @@ export class EdgeFulfillment {
             ).rowCount
           )
             fail('CONFLICT');
+          // Reserved before payment; all numbers taken leaves a legacy unnumbered hold.
+          const number = await allocateDisplayNumber(client, scope.branchId);
           row = (
             await client.query<Reservation>(
-              `INSERT INTO fulfillment_reservations(order_id,branch_id,reservation_id,quote_id,quote_hash,owner_hash,commercial_owner,fulfillment_owner,device_id,snapshot,routing_version,task_plan,assembly_station_id,state,display_number,business_day) VALUES($1,$2,$3,$4,$5,$6,'cloud','edge',$7,$8,$9,$10,$11,'held',nextval('fulfillment_display_sequence'),(clock_timestamp() AT TIME ZONE 'Asia/Almaty')::date) RETURNING *`,
+              `INSERT INTO fulfillment_reservations(order_id,branch_id,reservation_id,quote_id,quote_hash,owner_hash,commercial_owner,fulfillment_owner,device_id,snapshot,routing_version,task_plan,assembly_station_id,state,display_number,business_day) VALUES($1,$2,$3,$4,$5,$6,'cloud','edge',$7,$8,$9,$10,$11,'held',$12::bigint,CASE WHEN $12::bigint IS NULL THEN NULL ELSE (clock_timestamp() AT TIME ZONE 'Asia/Almaty')::date END) RETURNING *`,
               [
                 p.orderId,
                 scope.branchId,
@@ -188,6 +214,7 @@ export class EdgeFulfillment {
                 routing.version,
                 JSON.stringify(plan),
                 routing.assemblyStationId,
+                number,
               ],
             )
           ).rows[0]!;
@@ -213,10 +240,13 @@ export class EdgeFulfillment {
               fail('CONFLICT');
             // A second transport event ID still cannot create a second execution.
           } else {
+            const number =
+              row.display_number ?? (await allocateDisplayNumber(client, row.branch_id));
+            if (number === null) fail('NOT_READY');
             row = (
               await client.query<Reservation>(
-                `UPDATE fulfillment_reservations SET state='accepted',version=version+1,display_number=COALESCE(display_number,nextval('fulfillment_display_sequence')),business_day=COALESCE(business_day,(clock_timestamp() AT TIME ZONE 'Asia/Almaty')::date),authorized_event_id=$2,updated_at=clock_timestamp() WHERE order_id=$1 RETURNING *`,
-                [row.order_id, command.eventId],
+                `UPDATE fulfillment_reservations SET state='accepted',version=version+1,display_number=COALESCE(display_number,$3::bigint),business_day=COALESCE(business_day,(clock_timestamp() AT TIME ZONE 'Asia/Almaty')::date),authorized_event_id=$2,updated_at=clock_timestamp() WHERE order_id=$1 RETURNING *`,
+                [row.order_id, command.eventId, number],
               )
             ).rows[0]!;
             await client.query(
@@ -364,148 +394,108 @@ export class EdgeFulfillment {
           [branchId, staff.staff_id, command.commandId],
         )
       ).rows[0];
-      if (saved) {
-        if (saved.request_hash !== requestHash) fail('CONFLICT');
-        return saved.result;
-      }
+      const replay = replayDecision(saved?.request_hash, requestHash);
+      if (replay === 'conflict') fail('CONFLICT');
+      if (replay === 'replay') return saved!.result;
       let row = await order(client, branchId, command.orderId);
-      if (row.version !== command.expectedVersion) fail('CONFLICT');
-      if (command.action !== 'complete_station' && command.stationId) fail('INVALID');
-      if (command.action === 'complete_station') {
-        const stationId = command.stationId ?? fail('INVALID');
-        if (
-          !command.stationId ||
-          command.taskId ||
-          command.expectedTaskVersion ||
-          command.reason ||
-          command.inventoryDisposition
-        )
-          fail('INVALID');
-        await stationPermission(client, branchId, staff, stationId);
-        if (!['accepted', 'in_production'].includes(row.state)) fail('NOT_READY');
-        // The aggregate row is locked. All task changes, events, audit and the
-        // one command receipt commit together; no HTTP loop or partial ticket.
-        const all = await tasks(client, row);
-        const own = all.filter((task) => task.station_id === command.stationId);
-        const assembly = command.stationId === row.assembly_station_id;
-        if (!assembly && !own.length) fail('FORBIDDEN');
-        if (
-          assembly &&
-          (!all.length ||
-            all.some((task) => task.station_id !== command.stationId && task.state !== 'done'))
-        )
-          fail('NOT_READY');
-        if (own.some((task) => !['queued', 'in_progress', 'done'].includes(task.state)))
-          fail('NOT_READY');
-        if (!assembly && own.every((task) => task.state === 'done')) fail('NOT_READY');
-        for (const task of own) {
-          if (task.state === 'done') continue;
-          // Preserve DB transition guards and the existing event contract.
-          const states =
-            task.state === 'queued' ? (['in_progress', 'done'] as const) : (['done'] as const);
-          let taskVersion = task.version;
-          for (const state of states) {
+      decided(checkVersion(row.version, command.expectedVersion));
+      const shape = decided(commandShape(command));
+      // Each pure step is one aggregate version and one event; task steps also bump the task.
+      const apply = async (steps: Step[]) => {
+        for (const step of steps) {
+          if (step.kind === 'task') {
             await client.query(
               'UPDATE fulfillment_tasks SET state=$2,version=version+1,updated_at=clock_timestamp() WHERE id=$1',
-              [task.id, state],
+              [step.taskId, step.to],
             );
-            taskVersion++;
-            row = await advance(client, row, 'in_production', 'edge.task_changed', {
-              taskId: task.id,
-              taskVersion,
-              taskState: state,
-              stationId: task.station_id,
+            row = await advance(client, row, step.order, 'edge.task_changed', {
+              taskId: step.taskId,
+              taskVersion: step.taskVersion,
+              taskState: step.to,
+              stationId: step.stationId,
+              staffId: staff.staff_id,
+            });
+          } else if (step.event === 'ready') {
+            row = await advance(client, row, 'ready', 'edge.fulfillment_ready', {
+              staffId: staff.staff_id,
+            });
+          } else if (step.event === 'handed_over') {
+            row = await advance(client, row, 'handed_over', 'edge.fulfillment_handed_over', {
+              staffId: staff.staff_id,
+            });
+          } else {
+            row = (
+              await client.query<Reservation>(
+                `UPDATE fulfillment_reservations SET state='cancelled',version=version+1,cancellation_reason=$2,inventory_disposition=$3,updated_at=clock_timestamp() WHERE order_id=$1 RETURNING *`,
+                [row.order_id, command.reason, command.inventoryDisposition],
+              )
+            ).rows[0]!;
+            await emit(client, row, 'edge.fulfillment_cancelled', {
+              reason: command.reason,
+              inventoryDisposition: command.inventoryDisposition,
+              inventoryEffect: 'none',
               staffId: staff.staff_id,
             });
           }
         }
-        if (assembly)
-          row = await advance(client, row, 'ready', 'edge.fulfillment_ready', {
-            staffId: staff.staff_id,
-          });
-      } else if (['start_task', 'complete_task', 'confirm_stop'].includes(command.action)) {
-        if (!command.taskId || !command.expectedTaskVersion) fail('INVALID');
+      };
+      if (shape.kind === 'station') {
+        await stationPermission(client, branchId, staff, shape.stationId);
+        if (!acceptsWork(row.state)) fail('NOT_READY');
+        // The aggregate row is locked. All task changes, events, audit and the
+        // one command receipt commit together; no HTTP loop or partial ticket.
+        await apply(
+          decided(
+            planCompleteStation({
+              order: row.state,
+              assemblyStationId: row.assembly_station_id,
+              stationId: shape.stationId,
+              tasks: (await tasks(client, row)).map(snapshot),
+            }),
+          ),
+        );
+      } else if (shape.kind === 'task') {
         const task =
           (
             await client.query<Task>(
               'SELECT * FROM fulfillment_tasks WHERE id=$1 AND order_id=$2 AND branch_id=$3 FOR UPDATE',
-              [command.taskId, row.order_id, branchId],
+              [shape.taskId, row.order_id, branchId],
             )
           ).rows[0] ?? fail('NOT_FOUND');
         await stationPermission(client, branchId, staff, task.station_id);
-        if (task.version !== command.expectedTaskVersion) fail('CONFLICT');
-        let state: Task['state'];
-        if (command.action === 'confirm_stop') {
-          if (row.state !== 'cancel_requested' || task.state !== 'cancel_requested')
-            fail('NOT_READY');
-          state = 'cancelled';
-        } else {
-          if (!['accepted', 'in_production'].includes(row.state)) fail('NOT_READY');
-          if (command.action === 'start_task') {
-            if (task.state !== 'queued') fail('NOT_READY');
-            state = 'in_progress';
-          } else {
-            if (task.state !== 'in_progress') fail('NOT_READY');
-            state = 'done';
-          }
-        }
-        await client.query(
-          'UPDATE fulfillment_tasks SET state=$2,version=version+1,updated_at=clock_timestamp() WHERE id=$1',
-          [task.id, state],
+        await apply(
+          decided(
+            planTask({
+              action: shape.action,
+              order: row.state,
+              task: snapshot(task),
+              expectedTaskVersion: shape.expectedTaskVersion,
+            }),
+          ),
         );
-        row = await advance(
-          client,
-          row,
-          command.action === 'confirm_stop' ? 'cancel_requested' : 'in_production',
-          'edge.task_changed',
-          {
-            taskId: task.id,
-            taskVersion: task.version + 1,
-            taskState: state,
-            stationId: task.station_id,
-            staffId: staff.staff_id,
-          },
+      } else if (shape.action === 'confirm_cancel') {
+        const cancel = {
+          order: row.state,
+          manager: staff.role === 'shift_manager',
+          reason: command.reason,
+          inventoryDisposition: command.inventoryDisposition,
+        };
+        decided(guardConfirmCancel(cancel));
+        await apply(
+          decided(
+            planConfirmCancel({ ...cancel, tasks: (await tasks(client, row)).map(snapshot) }),
+          ),
         );
       } else {
-        if (command.taskId || command.expectedTaskVersion) fail('INVALID');
-        if (command.action === 'confirm_cancel') {
-          if (staff.role !== 'shift_manager') fail('FORBIDDEN');
-          if (row.state !== 'cancel_requested' || !command.reason || !command.inventoryDisposition)
-            fail('NOT_READY');
-          if (
-            (await tasks(client, row)).some((t) =>
-              ['queued', 'in_progress', 'cancel_requested'].includes(t.state),
-            )
-          )
-            fail('NOT_READY');
-          row = (
-            await client.query<Reservation>(
-              `UPDATE fulfillment_reservations SET state='cancelled',version=version+1,cancellation_reason=$2,inventory_disposition=$3,updated_at=clock_timestamp() WHERE order_id=$1 RETURNING *`,
-              [row.order_id, command.reason, command.inventoryDisposition],
-            )
-          ).rows[0]!;
-          await emit(client, row, 'edge.fulfillment_cancelled', {
-            reason: command.reason,
-            inventoryDisposition: command.inventoryDisposition,
-            inventoryEffect: 'none',
-            staffId: staff.staff_id,
-          });
-        } else {
-          await stationPermission(client, branchId, staff, row.assembly_station_id);
-          if (command.action === 'ready') {
-            if (!['accepted', 'in_production'].includes(row.state)) fail('NOT_READY');
-            const all = await tasks(client, row);
-            if (!all.length || all.some((t) => t.state !== 'done')) fail('NOT_READY');
-            row = await advance(client, row, 'ready', 'edge.fulfillment_ready', {
-              staffId: staff.staff_id,
-            });
-          } else {
-            if (row.state !== 'ready') fail('NOT_READY');
-            row = await advance(client, row, 'handed_over', 'edge.fulfillment_handed_over', {
-              staffId: staff.staff_id,
-            });
-          }
-        }
+        await stationPermission(client, branchId, staff, row.assembly_station_id);
+        if (shape.action === 'ready') {
+          if (!acceptsWork(row.state)) fail('NOT_READY');
+          await apply(
+            decided(
+              planReady({ order: row.state, tasks: (await tasks(client, row)).map(snapshot) }),
+            ),
+          );
+        } else await apply(decided(planHandoff({ order: row.state })));
       }
       await audit(client, branchId, staff.staff_id, 'fulfillment.' + command.action, row.order_id);
       const result = view(row);
@@ -616,7 +606,10 @@ export class EdgeFulfillment {
     );
     const rows = (
       await this.pool.query<{ display_number: string; state: State; display_name: string }>(
-        `SELECT display_number,state,left(coalesce(snapshot->>'displayName',''),14) AS display_name FROM fulfillment_reservations WHERE branch_id=$1 AND state IN ('accepted','in_production','ready') AND display_number>$2::bigint ORDER BY display_number LIMIT $3`,
+        // An order no longer live for edge 022 numbering (untouched for 12 hours, or 'ready' for
+        // 3 hours) is off the board: its number may already belong to a new order, and the
+        // board never shows one number twice.
+        `SELECT display_number,state,left(coalesce(snapshot->>'displayName',''),14) AS display_name FROM fulfillment_reservations WHERE branch_id=$1 AND state IN ('accepted','in_production','ready') AND updated_at>clock_timestamp()-CASE WHEN state='ready' THEN interval '3 hours' ELSE interval '12 hours' END AND display_number>$2::bigint ORDER BY display_number LIMIT $3`,
         [branchId, q.afterNumber, q.limit + 1],
       )
     ).rows;

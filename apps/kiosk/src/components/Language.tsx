@@ -1,51 +1,90 @@
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import {
+  Animated,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import { LOCALES, LOCALE_LABELS, type Locale } from '../i18n';
-import { colors, fonts, useMetrics } from '../theme';
+import { colors, fonts, redesign, useMetrics } from '../theme';
+import { GlassPanel } from './GlassPanel';
 import { useTimingTo } from './motion';
-type Tone = 'default' | 'inverse' | 'light' | 'menu';
+import { ownerOrange } from './ownerOrange';
+import { fixedText } from './Body';
+type Tone = 'default' | 'inverse' | 'light' | 'menu' | 'compact' | 'glass';
 /**
  * v3 language switch KZ / RU / EN. On the attract screen and the dining choice the active
  * language is a white capsule with navy text; in the menu header it is an orange capsule with
- * white text (prototype `lg.*BgO`). Switching crossfades the capsule and the label colour over
+ * white text (prototype `lg.*BgO`, owner decision 2026-10-10: design orange #FF6900). Headers of the
+ * order steps use the `compact` switch so their titles keep room. Switching crossfades the capsule and the label colour over
  * 200 ms, like the prototype's background/colour transition (instant under reduced motion).
  */
 export function Language({
   locale,
   onChange,
   tone = 'default',
+  surface,
 }: {
   locale: Locale;
   onChange: (locale: Locale) => void;
   /**
    * `default` sits on blue glass (dining choice, 306x60), `inverse` on photos (attract,
-   * 124x60 options), `menu` in the menu header (258x52, orange active), `light` on light surfaces.
+   * 124x60 options), `menu` in the menu header (62x44 options, orange active), `compact` in the
+   * order-step headers (56x44 options), `light` on light surfaces, `glass` in the redesigned
+   * menu header (2026-10-13: glass track, 70x52 options, orange active).
    */
   tone?: Tone;
+  /**
+   * Redesign 2026-10-13 track behind the options; the tone keeps the geometry. `start`: the
+   * attract screen's smoked glass, rgba(2,10,31,.55) with a 1 px light line and a 14 px
+   * backdrop blur on the web.
+   */
+  surface?: 'start';
 }) {
   const { v } = useMetrics();
+  if (tone === 'glass') return <GlassLanguage locale={locale} onChange={onChange} />;
   const film = tone === 'inverse';
   const light = tone === 'light';
   const menu = tone === 'menu';
+  const compact = tone === 'compact';
+  const startTrack: ViewStyle | null =
+    surface === 'start'
+      ? {
+          backgroundColor: redesign.startGlass,
+          borderWidth: 1,
+          borderColor: redesign.startGlassLine,
+          ...(Platform.OS === 'web'
+            ? ({
+                backdropFilter: 'blur(14px)',
+                WebkitBackdropFilter: 'blur(14px)',
+              } as unknown as ViewStyle)
+            : null),
+        }
+      : null;
   return (
     <View
+      {...(menu ? ownerOrange : {})}
       style={{
         flexDirection: 'row',
         // A crowded header shrinks the options (never below a 48 pt target) instead of
         // pushing the last language past the screen edge.
         flexShrink: 1,
         minWidth: 0,
-        padding: v(menu ? 4 : 5),
+        padding: v(menu || compact ? 4 : 5),
         borderRadius: 999,
         backgroundColor: film
           ? 'rgba(4,20,58,.42)'
-          : menu
+          : menu || compact
             ? 'rgba(4,20,58,.35)'
             : light
               ? colors.light
               : 'rgba(255,255,255,.12)',
-        borderWidth: film || menu ? 1 : 0,
+        borderWidth: film || menu || compact ? 1 : 0,
         borderColor: menu ? 'rgba(255,255,255,.2)' : colors.glassLine,
-        gap: v(menu ? 2 : 4),
+        gap: v(menu || compact ? 2 : 4),
+        ...startTrack,
       }}
     >
       {LOCALES.map((value) => (
@@ -75,17 +114,20 @@ function Option({
   const { v } = useMetrics();
   const film = tone === 'inverse';
   const menu = tone === 'menu';
+  const compact = tone === 'compact';
   const light = tone === 'light';
   const fill = useTimingTo(on ? 1 : 0, 200, 'css');
   const { short, name } = LOCALE_LABELS[value];
-  const text = { fontFamily: fonts.heavy, fontSize: v(film ? 20 : menu ? 14 : 17) };
+  const text = { fontFamily: fonts.heavy, fontSize: v(film ? 20 : menu || compact ? 14 : 17) };
   const size = film
     ? { width: v(124), height: v(60) }
     : menu
-      ? { width: v(82), height: v(44) }
-      : light
-        ? { width: v(64), height: v(50) }
-        : { width: v(96), height: v(50) };
+      ? { width: v(62), height: v(44) }
+      : compact
+        ? { width: v(56), height: v(44) }
+        : light
+          ? { width: v(64), height: v(50) }
+          : { width: v(96), height: v(50) };
   return (
     <Pressable
       testID={'kiosk-language-' + value}
@@ -111,13 +153,14 @@ function Option({
           StyleSheet.absoluteFill,
           {
             borderRadius: 999,
-            backgroundColor: menu ? colors.orangeInk : colors.white,
+            backgroundColor: menu ? colors.orangeCta : colors.white,
             opacity: fill,
           },
         ]}
       />
       <View pointerEvents="none">
         <Animated.Text
+          {...fixedText}
           style={{
             ...text,
             color: light ? colors.muted : colors.white,
@@ -127,6 +170,7 @@ function Option({
           {short}
         </Animated.Text>
         <Animated.Text
+          {...fixedText}
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
           aria-hidden
@@ -144,6 +188,76 @@ function Option({
           {short}
         </Animated.Text>
       </View>
+    </Pressable>
+  );
+}
+/**
+ * Redesign 2026-10-13 menu header (README section 3): KZ / RU / EN on the owner-approved glass,
+ * a 64 pt track with 70 x 52 options. The active option fades to the design orange (200 ms,
+ * instant under reduced motion); every label stays white. In a crowded header the options
+ * shrink, never below a 48 pt target.
+ */
+function GlassLanguage({
+  locale,
+  onChange,
+}: {
+  locale: Locale;
+  onChange: (locale: Locale) => void;
+}) {
+  const { px } = useMetrics();
+  return (
+    <View {...ownerOrange} style={{ flexShrink: 1, minWidth: 0 }}>
+      <GlassPanel>
+        <View style={{ flexDirection: 'row', flexShrink: 1, minWidth: 0, padding: px(6) }}>
+          {LOCALES.map((value) => (
+            <GlassOption
+              key={value}
+              value={value}
+              on={value === locale}
+              onPress={() => onChange(value)}
+            />
+          ))}
+        </View>
+      </GlassPanel>
+    </View>
+  );
+}
+function GlassOption({ value, on, onPress }: { value: Locale; on: boolean; onPress: () => void }) {
+  const { px } = useMetrics();
+  const fill = useTimingTo(on ? 1 : 0, 200, 'css');
+  const { short, name } = LOCALE_LABELS[value];
+  return (
+    <Pressable
+      testID={'kiosk-language-' + value}
+      accessibilityRole="button"
+      accessibilityLabel={name}
+      accessibilityState={{ selected: on }}
+      aria-pressed={on}
+      onPress={onPress}
+      style={{
+        width: Math.max(48, px(70)),
+        minWidth: 48,
+        flexShrink: 1,
+        height: Math.max(44, px(52)),
+        borderRadius: 999,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
+    >
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          { borderRadius: 999, backgroundColor: redesign.cta, opacity: fill },
+        ]}
+      />
+      <Text
+        {...fixedText}
+        numberOfLines={1}
+        style={{ fontFamily: fonts.heavy, fontSize: px(18), color: colors.white }}
+      >
+        {short}
+      </Text>
     </Pressable>
   );
 }

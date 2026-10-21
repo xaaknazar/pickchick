@@ -21,3 +21,8 @@ commercial release; generation is not proof of manufacturer label accuracy.
 copied unchanged from the owner's PickChick mockup archive for auth v3. They are
 supplied design assets, not newly generated product photography. Source/provenance:
 `docs/design/auth-sheet-v3.md`.
+
+12 October: the app no longer shows the generated cola-bottle, cola-zero, fanta,
+sprite, fuse-peach and fuse-mango cutouts. Those drinks use the owner's real
+photographs in `../drinks` (see its README). fuse-berry and fuse-watermelon have
+no owner photo yet and keep their cutouts. The unused files stay here as history.

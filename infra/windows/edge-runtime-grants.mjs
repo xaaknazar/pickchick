@@ -1,4 +1,5 @@
 import { transaction } from '@pickchick/database';
+import { displayNumberGrant } from './fulfillment-worker-grants.mjs';
 
 const posRead = [
   'schema_migrations',
@@ -39,7 +40,8 @@ function identifier(value) {
 }
 
 /** Pure SQL: caller must explicitly opt into applied schema016 with cashierReports,
- * applied schema018 with menuMedia and applied schema019 with remoteStops. */
+ * applied schema018 with menuMedia, applied schema019 with remoteStops and applied schema023
+ * with restoreFence. */
 export function edgeRuntimeGrantSql(
   role,
   {
@@ -48,6 +50,7 @@ export function edgeRuntimeGrantSql(
     cashierReports = false,
     remoteStops = false,
     menuMedia = false,
+    restoreFence = false,
   } = {},
 ) {
   const target = identifier(role),
@@ -56,7 +59,8 @@ export function edgeRuntimeGrantSql(
     typeof fulfillment !== 'boolean' ||
     typeof cashierReports !== 'boolean' ||
     typeof remoteStops !== 'boolean' ||
-    typeof menuMedia !== 'boolean'
+    typeof menuMedia !== 'boolean' ||
+    typeof restoreFence !== 'boolean'
   )
     throw new Error('Invalid runtime grant flag');
   const tables = (names) => names.map((name) => `${namespace}.${identifier(name)}`).join(', ');
@@ -73,6 +77,10 @@ export function edgeRuntimeGrantSql(
     grant('UPDATE(ordering_enabled, ordering_version)', ['branch_config']),
     // GET edge/v1/media serves photos the menu-sync worker cached; read-only for the runtime.
     ...(menuMedia ? [grant('SELECT', ['menu_media'])] : []),
+    // The edge service fences a restored database at start (owner-rights function, schema023).
+    ...(restoreFence
+      ? [`GRANT EXECUTE ON FUNCTION ${namespace}.edge_restore_fence(boolean) TO ${target};`]
+      : []),
     ...(cashierReports
       ? [
           grant('INSERT', ['cashier_report_outbox']),
@@ -129,6 +137,7 @@ export function edgeRuntimeGrantSql(
           ]),
           `GRANT USAGE ON SEQUENCE ${namespace}.fulfillment_display_sequence TO ${target};`,
           `GRANT USAGE ON SEQUENCE ${namespace}.fulfillment_outbox_sequence_seq TO ${target};`,
+          displayNumberGrant(namespace, target),
         ]
       : []),
   ].join('\n');
@@ -194,11 +203,26 @@ export async function applyEdgeRuntimeGrants(pool, role, options = {}) {
     if (media.applied !== media.cache) throw new Error('Menu publication migration objects differ');
     if (options.menuMedia !== undefined && options.menuMedia !== media.applied)
       throw new Error('Menu media grant flag differs from applied schema');
+    const fence = (
+      await client.query(
+        `SELECT EXISTS(SELECT 1 FROM ${namespace}.schema_migrations WHERE scope='edge' AND version='023_edge_restore_fence.sql') AS applied,
+       to_regprocedure($1) IS NOT NULL AS function`,
+        [`${namespace}.edge_restore_fence(boolean)`],
+      )
+    ).rows[0];
+    if (fence.applied !== fence.function) throw new Error('Restore fence migration objects differ');
+    if (options.restoreFence !== undefined && options.restoreFence !== fence.applied)
+      throw new Error('Restore fence grant flag differs from applied schema');
+    if (fence.function)
+      await client.query(
+        `REVOKE EXECUTE ON FUNCTION ${namespace}.edge_restore_fence(boolean) FROM ${target}`,
+      );
     const sql = edgeRuntimeGrantSql(role, {
       ...options,
       cashierReports: capability.applied,
       remoteStops: stops.applied,
       menuMedia: media.applied,
+      restoreFence: fence.applied,
     });
 
     // PUBLIC grants cannot be removed from just this role and would defeat the

@@ -45,6 +45,36 @@ await withSyncDatabases(async ({ cloud, org, branch }) => {
         branch,
         request({ type: 'save', kind, id: randomUUID(), expected_revision: 0, payload }),
       );
+    if (index === 2) {
+      await save('time', {
+        employee_id,
+        date: '2026-09-04',
+        status: 'approved',
+        attendance: 'worked',
+        intervals: [],
+        source_event_ids: [],
+        paid_duration_ms: 26402400,
+        note: 'Синтетические часы из табеля',
+        source: { sha256: 'a'.repeat(64), cell: 'График!G4', hours: '7.334' },
+      });
+      await save('payroll', {
+        employee_id,
+        month: '2026-09-01',
+        status: 'draft',
+        base_override_minor: '1700000',
+        note: 'Синтетическая ведомость',
+        items: [{ name: 'Аванс', effect: 'deduction', amount_minor: '100000' }],
+        source: {
+          sha256: 'a'.repeat(64),
+          sheet: 'Табель',
+          row: 4,
+          gross_minor: '1700000',
+          net_minor: '1600000',
+          cells: [{ cell: 'G4', label: 'База', value: '17000', formula: '=D4*E4' }],
+          issues: [],
+        },
+      });
+    }
     await save('rate', {
       employee_id,
       effective_date: '2026-09-01',

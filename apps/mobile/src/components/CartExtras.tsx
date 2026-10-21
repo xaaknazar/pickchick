@@ -96,7 +96,7 @@ export function CartOffers({ props }: { props: ScreenProps }) {
       </Heading>
       <ComboRewardCard
         preview={props.preview}
-        progress={props.model.testFlow.comboProgress}
+        progress={props.model.comboRewards?.progress ?? props.model.testFlow.comboProgress}
         compact
         testID="cart-combo-reward"
         onMenu={() => props.navigate('M06')}

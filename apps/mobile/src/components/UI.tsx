@@ -23,6 +23,7 @@ import { assets } from '../assets';
 import type { ScreenProps } from '../model';
 import { colors, font } from '../theme';
 import { SheetKeyboardOffsetContext } from './OrderSheet';
+import { useTabBarInset } from './tab-bar-inset';
 
 export type IconName = React.ComponentProps<typeof Ionicons>['name'];
 export function Icon({
@@ -272,16 +273,6 @@ export function Notice({
     </View>
   );
 }
-export function ReviewBadge() {
-  return (
-    <View style={styles.reviewBadge}>
-      <Icon name="color-palette-outline" size={16} color={colors.warning} />
-      <Caption style={{ color: colors.warning, flex: 1 }}>
-        Просмотр дизайна · пример, не операция
-      </Caption>
-    </View>
-  );
-}
 export function Page({
   props,
   title,
@@ -305,6 +296,7 @@ export function Page({
 }) {
   const insets = useSafeAreaInsets();
   const keyboardOffset = useContext(SheetKeyboardOffsetContext);
+  const tabBarInset = useTabBarInset();
   const [keyboardVisible, setKeyboardVisible] = useState(() => Keyboard.isVisible());
   const hasKeyboardFooter = keyboardFooter != null;
   const scrollRef = useRef<ScrollView>(null);
@@ -384,13 +376,17 @@ export function Page({
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {props.preview ? <ReviewBadge /> : null}
         {children}
       </ScrollView>
       {footer || editing ? (
         <BottomActions
           safeArea={!props.inTabLayout && !editing}
-          style={[footerStyle, editing && { paddingTop: 8, paddingBottom: 8 }]}
+          style={[
+            footerStyle,
+            // A tab screen footer sits above the floating tab bar instead of under it.
+            props.inTabLayout && !editing && tabBarInset > 0 && { marginBottom: tabBarInset },
+            editing && { paddingTop: 8, paddingBottom: 8 },
+          ]}
         >
           {editing ? keyboardFooter : footer}
         </BottomActions>
@@ -619,14 +615,6 @@ export const styles = StyleSheet.create({
   warning: { backgroundColor: colors.warningSurface },
   noticeTitle: { fontFamily: font.bold, marginBottom: 4 },
   noticeBody: { fontSize: 14, lineHeight: 22 },
-  reviewBadge: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-    backgroundColor: colors.warningSurface,
-    padding: 10,
-    borderRadius: 10,
-  },
   navRow: {
     minHeight: 72,
     flexDirection: 'row',

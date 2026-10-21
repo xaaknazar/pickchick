@@ -1,7 +1,6 @@
 import { ProductMenuNotice } from '../components/ProductMenuNotice';
 import { useEffect, useRef, useState } from 'react';
-import { retainSelections, MENU_UPDATED } from '../cart-reprice';
-import { CatalogChangeNotice } from '../components/CatalogChangeNotice';
+import { retainSelections } from '../cart-reprice';
 import {
   Platform,
   ScrollView,
@@ -27,7 +26,7 @@ import {
   photoCartLimit,
 } from '../product-photo-selection';
 import { optionPhotos, extraPhotos } from '../product-photo-assets';
-import { ProductPhoto, productPhoto } from '../components/ProductPhoto';
+import { ProductPhoto, isDrinkCutout, productPhoto } from '../components/ProductPhoto';
 import { MotionModal, MotionPressable as Pressable, useReducedMotion } from '../components/Motion';
 import { CloseButton, Icon, Row } from '../components/UI';
 import { colors, font } from '../theme';
@@ -69,7 +68,7 @@ export function PhotoProduct(props: Props) {
   const afterPickerDismiss = useRef<(() => void) | null>(null);
   const [info, setInfo] = useState(false);
   const [footerHeight, setFooterHeight] = useState(110);
-  const [compositionChanged, setCompositionChanged] = useState(false);
+  const [companionsChanged, setCompanionsChanged] = useState(false);
   const [companionCounts, setCompanionCounts] = useState<Record<string, number>>({});
   useEffect(() => {
     setSelections((previous) => retainSelections(product, previous));
@@ -114,7 +113,7 @@ export function PhotoProduct(props: Props) {
     setCompanionCounts((previous) => {
       if (Object.entries(previous).every(([id, count]) => count === 0 || available.has(id)))
         return previous;
-      setCompositionChanged(true);
+      setCompanionsChanged(true);
       return Object.fromEntries(Object.entries(previous).filter(([id]) => available.has(id)));
     });
   }, [product.id, props.model.products]);
@@ -234,6 +233,9 @@ export function PhotoProduct(props: Props) {
     optionPhotos.pick
       ? { kind: 'id' as const, source: optionPhotos.pick }
       : resolvedHero;
+  // A transparent bottle needs no backdrop blend: show it whole, clear of the close button.
+  const drinkCutout = isDrinkCutout(hero);
+  const closeTop = Math.max(0, insets.top - 16);
   const nutritionMultiplier =
     product.nutrition?.basis === 'per_serving' ? (chosenSize?.nutrition_multiplier ?? 1) : 1;
   const infoContent = (
@@ -293,7 +295,7 @@ export function PhotoProduct(props: Props) {
             {hero ? (
               <ProductPhoto
                 photo={hero}
-                style={StyleSheet.absoluteFill}
+                style={[StyleSheet.absoluteFill, drinkCutout && { top: closeTop + 12, bottom: 12 }]}
                 contentFit="contain"
                 accessibilityLabel={title}
               />
@@ -308,7 +310,9 @@ export function PhotoProduct(props: Props) {
                 <Text style={s.noPhoto}>Фото скоро</Text>
               </View>
             )}
-            <View pointerEvents="none" style={[s.blend, blue ? blueBlend : blend]} />
+            {drinkCutout ? null : (
+              <View pointerEvents="none" style={[s.blend, blue ? blueBlend : blend]} />
+            )}
             {combo ? (
               <Pressable
                 style={s.photoAction}
@@ -324,13 +328,12 @@ export function PhotoProduct(props: Props) {
             ) : null}
           </View>
           <View style={s.intro}>
-            <ProductMenuNotice product={product} selections={selections} />
-            {compositionChanged ? (
-              <CatalogChangeNotice
-                message={MENU_UPDATED}
-                onDismiss={() => setCompositionChanged(false)}
-              />
-            ) : null}
+            <ProductMenuNotice
+              product={product}
+              selections={selections}
+              totalChanged={companionsChanged}
+              onDismiss={() => setCompanionsChanged(false)}
+            />
             <Text style={s.title} testID="photo-product-title">
               {title}
             </Text>
@@ -602,7 +605,7 @@ export function PhotoProduct(props: Props) {
           testID="product-close"
           label="Закрыть блюдо"
           onPress={props.goBack}
-          style={[s.close, { top: Math.max(0, insets.top - 16), left: 16 }]}
+          style={[s.close, { top: closeTop, left: 16 }]}
         />
       </View>
       <MotionModal

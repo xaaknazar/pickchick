@@ -1,0 +1,92 @@
+// Presentation only: whether ordering is accepted stays server-owned. These helpers
+// read the published hours from config/restaurant-locations.json for the M05 status.
+
+export interface RestaurantHours {
+  opening_time?: string | null;
+  closing_time?: string | null;
+}
+
+export type RestaurantHoursStatus =
+  /** `closesAt` is null when the restaurant is open around the clock. */
+  | { open: true; closesAt: string | null }
+  | { open: false; opensAt: string; opensTomorrow: boolean };
+
+const DAY = 24 * 60;
+const CLOCK = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+/** "HH:MM" -> minutes after midnight; "00:00" is midnight. */
+export function clockMinutes(value: string | null | undefined): number | null {
+  const match = typeof value === 'string' ? CLOCK.exec(value) : null;
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+}
+
+/**
+ * Status at `minute` (0-1439, restaurant local time). A closing time at or before
+ * the opening time belongs to the next day: 10:00-00:00 closes at midnight and
+ * 10:00-02:00 stays open until 02:00. Equal times mean open around the clock.
+ */
+export function hoursStatusAtMinute(
+  openingTime: string,
+  closingTime: string,
+  minute: number,
+): RestaurantHoursStatus | null {
+  const opening = clockMinutes(openingTime);
+  const closing = clockMinutes(closingTime);
+  if (opening === null || closing === null || !(minute >= 0 && minute < DAY)) return null;
+  if (opening === closing) return { open: true, closesAt: null };
+  const overnight = closing < opening;
+  const open = overnight
+    ? minute >= opening || minute < closing
+    : minute >= opening && minute < closing;
+  if (open) return { open: true, closesAt: closingTime };
+  // Closed after a same-day closing time: the next opening is tomorrow.
+  return { open: false, opensAt: openingTime, opensTomorrow: !overnight && minute >= closing };
+}
+
+/** Minutes after midnight in Almaty, whatever the device time zone. */
+export function almatyMinuteOfDay(now: Date): number {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Almaty',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((item) => item.type === type)?.value ?? NaN);
+  // Some engines still print midnight as 24:00.
+  return (part('hour') % 24) * 60 + part('minute');
+}
+
+export function restaurantHoursStatus(
+  hours: RestaurantHours | null | undefined,
+  now: Date,
+): RestaurantHoursStatus | null {
+  if (!hours?.opening_time || !hours.closing_time) return null;
+  return hoursStatusAtMinute(hours.opening_time, hours.closing_time, almatyMinuteOfDay(now));
+}
+
+/** "Открыто" + " · до 00:00", or "Закрыто" + " · откроется в 10:00". */
+export function hoursStatusText(status: RestaurantHoursStatus): { state: string; detail: string } {
+  if (status.open)
+    return {
+      state: 'Открыто',
+      detail: status.closesAt ? `до ${status.closesAt}` : 'круглосуточно',
+    };
+  return {
+    state: 'Закрыто',
+    detail: `откроется ${status.opensTomorrow ? 'завтра ' : ''}в ${status.opensAt}`,
+  };
+}
+
+/** "1 ресторан", "2 ресторана", "5 ресторанов", "21 ресторан". */
+export function restaurantCountLabel(count: number): string {
+  const ones = count % 10;
+  const tens = count % 100;
+  const noun =
+    ones === 1 && tens !== 11
+      ? 'ресторан'
+      : ones >= 2 && ones <= 4 && (tens < 12 || tens > 14)
+        ? 'ресторана'
+        : 'ресторанов';
+  return `${count} ${noun}`;
+}

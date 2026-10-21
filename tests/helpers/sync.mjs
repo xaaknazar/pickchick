@@ -67,7 +67,15 @@ export async function withSyncDatabases(
   } finally {
     for (const instance of instances.reverse()) {
       await instance.pool.end();
-      await instance.admin.query(`DROP SCHEMA ${instance.schema} CASCADE`);
+      // Dropping a fully migrated schema can exceed the pool's 5 s statement timeout on a busy
+      // shared machine; that cleanup error used to replace the result of a passing test.
+      const cleanup = await instance.admin.connect();
+      try {
+        await cleanup.query('SET statement_timeout = 0');
+        await cleanup.query(`DROP SCHEMA ${instance.schema} CASCADE`);
+      } finally {
+        cleanup.release();
+      }
       await instance.admin.end();
     }
   }

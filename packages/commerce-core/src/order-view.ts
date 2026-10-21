@@ -1,6 +1,7 @@
 import type { DatabasePool } from '@pickchick/database';
 import { CommerceRepository } from './repository.js';
 import { digest, type CommerceScope } from './model.js';
+import { cloudChannelOrder, cloudKitchenProjection } from './cloud-channel.js';
 
 /** Shared presentation; repository verifies principal ownership before projections. */
 export async function readCheckoutOrder(
@@ -30,8 +31,10 @@ export async function readCheckoutOrder(
     ),
     pool.query<{ name: string }>('SELECT name FROM branches WHERE id=$1', [scope.branchId]),
   ]);
+  // Cloud channel order (ADR-0014): no edge projection, number and status come from the cloud kitchen.
+  const cloud = projection.rows[0] ? null : await cloudChannelOrder(pool, orderId);
   const bank = invoice.rows[0],
-    kitchen = projection.rows[0];
+    kitchen = projection.rows[0] ?? (cloud ? await cloudKitchenProjection(pool, orderId) : null);
   const paid = order.money.captured === order.totalMinor && order.money.refunded === '0';
   const phase =
     order.attentionRequired ||
@@ -96,5 +99,7 @@ export async function readCheckoutOrder(
         ) ?? [],
     })),
   };
+  // Cloud channel orders carry no receipt for now (deferred_no_receipt, cloud 056).
+  if (cloud) body.receipt = 'deferred';
   return { ...body, revision: digest(body) };
 }

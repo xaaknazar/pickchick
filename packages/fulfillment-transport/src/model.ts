@@ -48,6 +48,20 @@ export const StopCommandDeliverySchema = z.strictObject({
   actorLabel: z.string().min(1).max(100),
   issuedAt: z.iso.datetime(),
 });
+/** Deterministic local reasons why the cashier refused one cloud admission command. */
+export const AdmissionRefusalReasonSchema = z.enum([
+  'NOT_READY',
+  'ITEM_STOPPED',
+  'CONFLICT',
+  'INVALID',
+  'NOT_FOUND',
+  'ROUTING_MISSING',
+]);
+/** One refused admission command. Sent only when there is one: an old cloud rejects the field. */
+export const AdmissionRefusalSchema = z.strictObject({
+  eventId: uuid,
+  reason: AdmissionRefusalReasonSchema,
+});
 export const PullRequestSchema = z
   .strictObject({
     workerId: uuid,
@@ -56,10 +70,16 @@ export const PullRequestSchema = z
     availabilityOnly: z.literal(true).optional(),
     cashierReports: CashierReportsSchema.optional(),
     availability: z
-      .strictObject({ revision: sequence, stoppedIds: z.array(uuid).max(5000) })
+      .strictObject({
+        revision: sequence,
+        stoppedIds: z.array(uuid).max(5000),
+        // Sent only as false (the cashier closed ordering); absent means accepting, as before.
+        orderingEnabled: z.boolean().optional(),
+      })
       .optional(),
     stopStates: z.array(StopStateReportSchema).max(5000).optional(),
     stopReceipts: z.array(StopReceiptSchema).max(100).optional(),
+    admissionRefusals: z.array(AdmissionRefusalSchema).min(1).max(20).optional(),
   })
   .refine(
     (request) =>
@@ -185,6 +205,7 @@ export type PullRequest = z.infer<typeof PullRequestSchema>;
 export type StopStateReport = z.infer<typeof StopStateReportSchema>;
 export type StopReceipt = z.infer<typeof StopReceiptSchema>;
 export type StopCommandDelivery = z.infer<typeof StopCommandDeliverySchema>;
+export type AdmissionRefusal = z.infer<typeof AdmissionRefusalSchema>;
 
 export const ReleaseResultEventSchema = z
   .strictObject({

@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Animated, Easing, type EasingFunction } from 'react-native';
 import { useMotionPreference } from './useMotionPreference';
 
@@ -11,9 +19,12 @@ export const motion = {
   enter: 380,
   exit: 260,
   rise: 520,
-  stagger: 55,
-  spring: { stiffness: 260, damping: 22, mass: 1 },
+  stagger: 35,
+  spring: { stiffness: 260, damping: 28, mass: 1 },
 } as const;
+
+/** Hidden incoming screens wait; departing screens stop their decorative loops. */
+export const MotionReadyContext = createContext(true);
 
 /** Prototype `--ease`: cubic-bezier(.2,.8,.2,1). */
 export const ease = Easing.bezier(0.2, 0.8, 0.2, 1);
@@ -23,6 +34,10 @@ export const springOut = Easing.bezier(0.34, 1.56, 0.64, 1);
 export const easeIn = Easing.bezier(0.42, 0, 1, 1);
 export const easeOut = Easing.bezier(0, 0, 0.58, 1);
 export const cssEase = Easing.bezier(0.25, 0.1, 0.25, 1);
+/** CSS `ease-in-out`. */
+export const easeInOut = Easing.bezier(0.42, 0, 0.58, 1);
+/** Start CTA «Салют» particles: cubic-bezier(.15,.7,.3,1), a fast burst that glides out. */
+export const burst = Easing.bezier(0.15, 0.7, 0.3, 1);
 /** Product hero landing: cubic-bezier(.2,.9,.25,1.15), a slight overshoot. */
 export const settle = Easing.bezier(0.2, 0.9, 0.25, 1.15);
 
@@ -42,6 +57,7 @@ export const curve = (name: Curve) => curves[name];
 /** Mount entrance: 0 -> 1 once. Reduced motion jumps straight to 1. */
 export function useEnter(delay = 0, duration: number = motion.rise, shape: Curve = 'ease') {
   const reduced = useMotionPreference();
+  const ready = useContext(MotionReadyContext);
   const value = useRef(new Animated.Value(reduced ? 1 : 0)).current;
   useEffect(() => {
     if (reduced) {
@@ -49,6 +65,7 @@ export function useEnter(delay = 0, duration: number = motion.rise, shape: Curve
       value.setValue(1);
       return;
     }
+    if (!ready) return;
     const animation = Animated.timing(value, {
       toValue: 1,
       duration,
@@ -59,15 +76,14 @@ export function useEnter(delay = 0, duration: number = motion.rise, shape: Curve
     animation.start();
     return () => {
       animation.stop();
-      value.setValue(1);
     };
-  }, [delay, duration, reduced, shape, value]);
+  }, [delay, duration, ready, reduced, shape, value]);
   return value;
 }
 
 /** Staggered rise for repeated tiles; capped so long lists never wait. */
 export function useStagger(index: number, step: number = motion.stagger) {
-  return useEnter(Math.min(index, 8) * step, motion.rise);
+  return useEnter(Math.min(index, 5) * step, motion.rise);
 }
 
 /** Remainder of `easing` after the fraction `from` of its time has passed. */
@@ -85,15 +101,26 @@ const tail = (easing: EasingFunction, from: number): EasingFunction => {
  */
 export function useLoop(duration: number, delay = 0, bounce = false, phase = 0, shape?: Curve) {
   const reduced = useMotionPreference();
+  const ready = useContext(MotionReadyContext);
   const value = useRef(new Animated.Value(0)).current;
   useEffect(() => {
+    if (reduced) {
+      value.setValue(0);
+      return;
+    }
+    if (!ready) return;
     value.setValue(0);
-    if (reduced) return;
     const half = duration / 2;
     const swing = Easing.inOut(Easing.sin);
     const rise = shape ? curves[shape] : bounce ? swing : Easing.out(Easing.quad);
     const time = (toValue: number, ms: number, easing: EasingFunction) =>
-      Animated.timing(value, { toValue, duration: ms, easing, useNativeDriver: true });
+      Animated.timing(value, {
+        toValue,
+        duration: ms,
+        easing,
+        useNativeDriver: true,
+        isInteraction: false,
+      });
     const one = time(1, bounce ? half : duration, rise);
     const back = bounce ? time(0, half, swing) : time(0, 0, Easing.linear);
     const loop = Animated.loop(Animated.sequence([one, back]));
@@ -116,9 +143,8 @@ export function useLoop(duration: number, delay = 0, bounce = false, phase = 0, 
     return () => {
       clearTimeout(timer);
       animation.stop();
-      value.setValue(0);
     };
-  }, [bounce, delay, duration, phase, reduced, shape, value]);
+  }, [bounce, delay, duration, phase, ready, reduced, shape, value]);
   return value;
 }
 

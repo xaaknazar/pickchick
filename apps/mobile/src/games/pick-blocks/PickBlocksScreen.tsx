@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { exitLabel, gameOrigin } from '../route-options';
 import {
   AccessibilityInfo,
   BackHandler,
@@ -506,6 +507,7 @@ export function PickBlocksScreen() {
       return () => back.remove();
     }, [status, controller.pause]),
   );
+  const origin = gameOrigin(useLocalSearchParams<{ from?: string }>().from);
   const exit = () => {
     controller.pause();
     if (router.canGoBack()) router.back();
@@ -785,7 +787,7 @@ export function PickBlocksScreen() {
                     Рекорд на телефоне: {number(Math.max(best, game?.score ?? 0))}
                   </Text>
                   <SolidButton title="Ещё одну!" testID="blocks-replay" onPress={start} />
-                  <SolidButton title="К событиям" secondary onPress={exit} />
+                  <SolidButton title={exitLabel(origin)} secondary onPress={exit} />
                 </>
               ) : (
                 <>
@@ -815,7 +817,7 @@ export function PickBlocksScreen() {
                     onPress={exit}
                     style={s.helpLink}
                   >
-                    <Text style={s.helpLinkText}>К событиям</Text>
+                    <Text style={s.helpLinkText}>{exitLabel(origin)}</Text>
                   </Pressable>
                 </>
               )}

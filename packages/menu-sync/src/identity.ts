@@ -30,6 +30,16 @@ export async function provisionDevice(pool: DatabasePool, deviceId: string, rota
        RETURNING expires_at`,
       [deviceId, hashToken(token)],
     );
+    // Manual (re)provisioning always ends a device-rotation overlap (cloud066, if installed).
+    const overlap = await client.query(
+      `SELECT 1 FROM pg_attribute WHERE attrelid = 'device_credentials'::regclass
+         AND attname = 'previous_token_hash' AND NOT attisdropped`,
+    );
+    if (overlap.rowCount)
+      await client.query(
+        'UPDATE device_credentials SET previous_token_hash = NULL, previous_expires_at = NULL WHERE device_id = $1',
+        [deviceId],
+      );
     await client.query("UPDATE devices SET status = 'active' WHERE id = $1", [deviceId]);
     await client.query(
       'INSERT INTO device_audit(id, device_id, action, actor) VALUES ($1, $2, $3, $4)',
@@ -71,10 +81,14 @@ export async function authenticateDevice(
     throw new SyncError('UNAUTHORIZED');
   }
   // Shared locks serialize revocation/rotation against the entire pull/ack transaction.
+  // The credential replaced by a device rotation stays valid only until its bounded
+  // overlap (cloud066); manual provisioning clears it.
   const result = await client.query<{ branch_id: string }>(
     `SELECT d.branch_id FROM devices d JOIN device_credentials c ON c.device_id = d.id
-     WHERE d.id = $1 AND c.token_hash = $2 AND c.expires_at > clock_timestamp()
-       AND d.status = 'active' AND d.kind = 'edge' FOR SHARE OF d, c`,
+     WHERE d.id = $1 AND d.status = 'active' AND d.kind = 'edge'
+       AND ((c.token_hash = $2 AND c.expires_at > clock_timestamp())
+         OR (c.previous_token_hash = $2 AND c.previous_expires_at > clock_timestamp()))
+     FOR SHARE OF d, c`,
     [auth.deviceId, hashToken(auth.token)],
   );
   if (!result.rows[0]) throw new SyncError('UNAUTHORIZED');

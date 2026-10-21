@@ -1,4 +1,13 @@
-import { createContext, useCallback, useEffect, useRef, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import {
   BackHandler,
   Platform,
@@ -23,6 +32,19 @@ import { colors } from '../theme';
 // Keyboard events use window coordinates; children are laid out inside this sheet.
 export const SheetKeyboardOffsetContext = createContext(0);
 
+const SheetDismissalContext = createContext<(owner: symbol, blocked: boolean) => void>(() => {});
+
+/** The payment owns its dismissal lock; closing a sheet never cancels a bank invoice. */
+export function useSheetDismissalLock(blocked: boolean) {
+  const setBlocked = useContext(SheetDismissalContext);
+  const owner = useRef(Symbol('sheet-dismissal'));
+  useLayoutEffect(() => {
+    const token = owner.current;
+    setBlocked(token, blocked);
+    return () => setBlocked(token, false);
+  }, [blocked, setBlocked]);
+}
+
 /** One bounded surface; only the handle drags so scrolling a long cart never dismisses it. */
 export function OrderSheet({
   children,
@@ -32,6 +54,7 @@ export function OrderSheet({
   productHeight = false,
   auth = false,
   checkout = false,
+  onDismissBlockedChange,
 }: {
   children(close: () => void): ReactNode;
   name: string;
@@ -40,6 +63,7 @@ export function OrderSheet({
   productHeight?: boolean;
   auth?: boolean;
   checkout?: boolean;
+  onDismissBlockedChange?(blocked: boolean): void;
 }) {
   const { height, width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -60,8 +84,24 @@ export function OrderSheet({
   const closing = useSharedValue(false);
   const exiting = useRef(false);
   const dialog = useRef<View>(null);
+  const locks = useRef(new Set<symbol>());
+  const [blocked, setBlocked] = useState(false);
+  const blockDismissal = useCallback((owner: symbol, value: boolean) => {
+    if (value) locks.current.add(owner);
+    else locks.current.delete(owner);
+    setBlocked(locks.current.size > 0);
+  }, []);
+  useLayoutEffect(() => {
+    onDismissBlockedChange?.(blocked);
+    if (blocked) {
+      cancelAnimation(y);
+      exiting.current = false;
+      closing.value = false;
+      y.value = 0;
+    }
+  }, [blocked, onDismissBlockedChange, y, closing]);
   const close = useCallback(() => {
-    if (exiting.current) return;
+    if (exiting.current || locks.current.size) return;
     exiting.current = true;
     closing.value = true;
     y.value = withTiming(
@@ -119,6 +159,7 @@ export function OrderSheet({
     };
   }, [close]);
   const pan = Gesture.Pan()
+    .enabled(!blocked)
     .activeOffsetY([-10, 10])
     .onStart(() => {
       if (closing.value) return;
@@ -148,12 +189,14 @@ export function OrderSheet({
   return (
     <GestureHandlerRootView style={s.root}>
       <Animated.View style={[StyleSheet.absoluteFill, s.scrim, scrim]} />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Закрыть: ${name}`}
-        onPress={close}
-        style={StyleSheet.absoluteFill}
-      />
+      {!blocked ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Закрыть: ${name}`}
+          onPress={close}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
       <Animated.View
         ref={dialog}
         testID={auth ? 'auth-sheet' : 'order-sheet'}
@@ -169,7 +212,7 @@ export function OrderSheet({
           position,
         ]}
       >
-        {!auth ? (
+        {!auth && !blocked ? (
           <GestureDetector gesture={pan}>
             <View testID="sheet-handle" style={s.handleArea} accessible={false}>
               <View style={s.handle} />
@@ -177,7 +220,9 @@ export function OrderSheet({
           </GestureDetector>
         ) : null}
         <SheetKeyboardOffsetContext.Provider value={top}>
-          {children(close)}
+          <SheetDismissalContext.Provider value={blockDismissal}>
+            {children(close)}
+          </SheetDismissalContext.Provider>
         </SheetKeyboardOffsetContext.Provider>
       </Animated.View>
     </GestureHandlerRootView>

@@ -21,12 +21,15 @@ export function CartShortcut({
   onPress,
   safeArea = false,
   floating = false,
+  bottomOffset = 0,
   onHeightChange,
 }: {
   model: MobileModel;
   onPress: () => void;
   safeArea?: boolean;
   floating?: boolean;
+  /** Lifts the floating dock above the floating tab bar. */
+  bottomOffset?: number;
   onHeightChange?: (height: number) => void;
 }) {
   const count = model.cart.reduce((sum, line) => sum + line.quantity, 0);
@@ -79,7 +82,11 @@ export function CartShortcut({
       safeArea={safeArea}
       pointerEvents="box-none"
       onLayout={(event) => onHeightChange?.(Math.ceil(event.nativeEvent.layout.height))}
-      style={[s.dock, floating && s.floating]}
+      style={[
+        s.dock,
+        floating && s.floating,
+        floating && bottomOffset > 0 && { bottom: bottomOffset, paddingBottom: 10 },
+      ]}
     >
       <Pressable
         testID="open-cart"
@@ -100,9 +107,7 @@ export function CartShortcut({
         </View>
         <View style={[s.content, compact && s.contentCompact]}>
           <View style={s.labelRow}>
-            <Body style={s.label}>
-              {model.catalogUpdateNotice ? 'Цены и состав обновлены' : 'Корзина'}
-            </Body>
+            <Body style={s.label}>{model.catalogUpdateNotice ? 'Цены обновились' : 'Корзина'}</Body>
             <Animated.View
               testID="cart-count-feedback"
               style={[

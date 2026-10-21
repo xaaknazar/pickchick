@@ -22,6 +22,7 @@ import {
 } from '@pickchick/catalog-admin';
 import type { CatalogMediaFile } from '@pickchick/catalog-admin';
 import { SyncError } from '@pickchick/menu-sync';
+import { EdgeDeviceRoute } from '@pickchick/platform';
 import {
   CatalogReasonException,
   CatalogReasonFilter,
@@ -128,7 +129,9 @@ export class CatalogMediaController {
   }
 
   /** Private port only (not routed by the public gateway): the edge menu worker download. */
-  @Get('internal/v1/edge/media/:file') async edge(
+  @Get('internal/v1/edge/media/:file')
+  @EdgeDeviceRoute()
+  async edge(
     @Param('file') file: string,
     @Res() response: MediaResponse,
     @Headers('x-device-id') deviceId?: string,

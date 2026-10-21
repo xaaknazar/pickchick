@@ -12,7 +12,7 @@ function Rejects([scriptblock]$x,$m){$caught=$false;try{& $x|Out-Null}catch{$cau
 function Clone($x){$x|ConvertTo-Json -Depth 15|ConvertFrom-Json}
 $sha='a'*40;$archive='b'*64;$branch='11111111-1111-4111-8111-111111111111';$device='22222222-2222-4222-8222-222222222222'
 $files=@{};$installed=@{}
-foreach($f in Get-ChildItem (Join-Path $PSScriptRoot '../../db/edge/migrations') -Filter '*.sql'|Sort-Object Name){$key='db/edge/migrations/'+$f.Name;$hash=(Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLowerInvariant();$files[$key]=@{sha256=$hash};if($f.Name -lt '020'){$installed[$key]=$hash}}
+foreach($f in Get-ChildItem (Join-Path $PSScriptRoot '../../db/edge/migrations') -Filter '*.sql'|Where-Object {$_.Name -lt '021'}|Sort-Object Name){$key='db/edge/migrations/'+$f.Name;$hash=(Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLowerInvariant();$files[$key]=@{sha256=$hash};if($f.Name -lt '020'){$installed[$key]=$hash}}
 Check (@(Assert-DeviceMigrationSet $files $installed).Count -eq 20) 'Exact020 accepted'
 $bad=$files.Clone();$bad['db/edge/migrations/020_terminal_access.sql']=@{sha256='0'*64};Rejects {Assert-DeviceMigrationSet $bad $installed} 'Changed020 rejected'
 $bad=$files.Clone();$bad['db/edge/migrations/021_future.sql']=@{sha256='0'*64};Rejects {Assert-DeviceMigrationSet $bad $installed} 'Future schema rejected'

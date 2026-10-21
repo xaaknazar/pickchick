@@ -90,7 +90,7 @@ function fixture() {
           })),
         };
       if (path === '/sessions/end') {
-        if (h.endFail) throw new KioskError('NETWORK_UNCERTAIN');
+        if (h.endFail) throw new KioskError(h.endFail === true ? 'NETWORK_UNCERTAIN' : h.endFail);
         return { ended: true };
       }
       if (path === '/quotes') {
@@ -379,7 +379,7 @@ for (const interruption of ['end', 'detach', 'remove', 'allocate']) {
 }
 
 for (const uncertain of [false, true]) {
-  test(`expired guest keeps its ${uncertain ? 'uncertain intent' : 'pending order'} identity`, async () => {
+  test(`expired guest ${uncertain ? 'without an order id recovers its intent' : 'keeps its pending order identity'}`, async () => {
     const h = fixture();
     const c = await cart(h);
     if (uncertain) h.failPath = '/orders';
@@ -393,14 +393,28 @@ for (const uncertain of [false, true]) {
     };
     const restored = new CommercialKioskController(h.io);
     assert.equal(await restored.restore(), false);
-    assert.equal(h.rawSession, previousSession);
-    assert.equal(JSON.parse(h.rawFlow).guestId, previousFlow.guestId);
-    assert.deepEqual(JSON.parse(h.rawFlow).intent, previousFlow.intent);
-    assert.deepEqual(JSON.parse(h.rawFlow).order, previousFlow.order);
     assert.equal(
       h.calls.some((call) => call.path === '/sessions/end' || call.path === '/sessions'),
       false,
     );
+    if (uncertain) {
+      // Audit 19.10, finding 3.0: no order id was ever known, so no payment was requested and
+      // no money can exist. Keeping this intent looped on «Восстанавливаем заказ» for ever (a
+      // server before 19.10 refuses the expired guest with FORBIDDEN): the intent is dropped,
+      // the expired guest unbound and the guest may pay again under a new session.
+      assert.equal(JSON.parse(h.rawFlow).intent, null);
+      assert.equal(JSON.parse(h.rawFlow).guestId, null);
+      assert.deepEqual(JSON.parse(h.rawFlow).cart, previousFlow.cart);
+      assert.equal(h.rawSession, null);
+      assert.equal(restored.getSnapshot().recoveryRequired, false);
+      assert.equal(restored.getSnapshot().errorCode, 'RETRY_PAYMENT');
+      return;
+    }
+    // A known order may have a payment: its identity is kept for recovery.
+    assert.equal(h.rawSession, previousSession);
+    assert.equal(JSON.parse(h.rawFlow).guestId, previousFlow.guestId);
+    assert.deepEqual(JSON.parse(h.rawFlow).intent, previousFlow.intent);
+    assert.deepEqual(JSON.parse(h.rawFlow).order, previousFlow.order);
     assert.equal(await restored.newGuest(), false);
   });
 }
@@ -574,6 +588,29 @@ test('idle clears draft phone but preserves unresolved order; end network failur
   assert(h.rawSession);
   assert.equal(JSON.parse(h.rawFlow).resetPending, true);
 });
+test('reset unbinds a guest the server no longer knows (FORBIDDEN end) without getting stuck', async () => {
+  const h = fixture(),
+    c = await cart(h);
+  await c.beginPayment();
+  h.order = { ...h.order, phase: 'failed' };
+  await c.refresh();
+  // Restored database, deleted session row or disabled device: /sessions/end is refused.
+  h.endFail = 'FORBIDDEN';
+  assert.equal(await c.newGuest(), true);
+  assert.equal(h.rawSession, null);
+  const flow = JSON.parse(h.rawFlow);
+  assert.equal(flow.resetPending, false);
+  assert.equal(flow.guestId, null);
+  assert.equal(flow.order, null);
+  assert.equal(c.getSnapshot().step, 'start');
+  assert.equal(c.getSnapshot().invoicePhone, '');
+  // Other end failures still keep the identity for a retry.
+  h.endFail = 'NETWORK_UNCERTAIN';
+  const c2 = await cart(h);
+  assert.equal(await c2.newGuest(), false);
+  assert(h.rawSession);
+  assert.equal(JSON.parse(h.rawFlow).resetPending, true);
+});
 test('commercial HTTP requires device scope and guest; rejects test and customer endpoints', async () => {
   let calls = 0;
   const fetcher = async (url, options) => {
@@ -718,7 +755,7 @@ for (const code of [
   'AVAILABILITY_STALE',
   'RESTAURANT_CLOSED',
 ])
-  test(`definitive quote ${code} returns review, while order errors retain recovery`, async () => {
+  test(`definitive quote ${code} returns review; /orders keeps recovery only when an order may exist`, async () => {
     const h = fixture(),
       c = await cart(h);
     h.before = async (path) => {
@@ -737,8 +774,17 @@ for (const code of [
     };
     c.setInvoicePhone('+77011234567');
     assert.equal(await c.beginPayment(), false);
-    assert(JSON.parse(h.rawFlow).intent);
-    assert.equal(c.getSnapshot().recoveryRequired, true);
+    // POST /orders answers the guest's existing order before any check, so a definitive refusal
+    // proves there is none; CONFLICT (another quote's order) and INVALID keep recovery.
+    if (['INVALID', 'CONFLICT'].includes(code)) {
+      assert(JSON.parse(h.rawFlow).intent);
+      assert.equal(c.getSnapshot().recoveryRequired, true);
+    } else {
+      assert.equal(JSON.parse(h.rawFlow).intent, null);
+      assert.equal(c.getSnapshot().step, 'loyalty');
+      assert.equal(c.getSnapshot().recoveryRequired, false);
+      assert.equal(await c.newGuest(), true);
+    }
   });
 test('stale availability closes local quote and retains shopping draft for retry', async () => {
   const h = fixture(),

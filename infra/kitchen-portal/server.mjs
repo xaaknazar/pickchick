@@ -1,7 +1,9 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { isIP } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { createKitchenServer } from '../../apps/kitchen/server.mjs';
+import { terminalCookies } from '../../apps/kitchen/terminal-cookie.mjs';
 import {
   EdgeLink,
   HEADER_NAMES,
@@ -10,6 +12,15 @@ import {
   validReply,
   MAX_REPLY,
 } from './link.mjs';
+import {
+  CloudFailure,
+  CloudUpstream,
+  allowedCloud,
+  errorBody,
+  pairingCode,
+  screenCookies,
+  validateCloudConfig,
+} from './cloud.mjs';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const security = {
   'Cache-Control': 'no-store',
@@ -19,6 +30,26 @@ const security = {
   'Content-Security-Policy':
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
 };
+/** IPv6 clients share one budget per /64 (one subscriber); IPv4 per address. */
+function addressKey(value) {
+  const ip = value.startsWith('::ffff:') && isIP(value.slice(7)) === 4 ? value.slice(7) : value;
+  if (isIP(ip) !== 6) return ip;
+  const groups = (part) =>
+    part ? part.split(':').flatMap((g) => (g.includes('.') ? ['0', '0'] : [g])) : [];
+  const [head, tail] = ip.toLowerCase().split('%')[0].split('::');
+  const left = groups(head),
+    right = groups(tail);
+  const full =
+    tail === undefined
+      ? left
+      : [...left, ...Array(8 - left.length - right.length).fill('0'), ...right];
+  return (
+    full
+      .slice(0, 4)
+      .map((g) => parseInt(g, 16).toString(16))
+      .join(':') + '::/64'
+  );
+}
 function send(res, status, body) {
   res.writeHead(status, { ...security, 'Content-Type': 'application/json; charset=utf-8' });
   res.end(body === undefined ? undefined : JSON.stringify(body));
@@ -43,8 +74,15 @@ export async function createPortal({
   sourceSha = 'development',
   link = new EdgeLink(),
   terminalAccess = false,
+  cloudKitchen,
+  cloudFetch,
 }) {
   const url = new URL(origin);
+  // Default off: without `cloudKitchen.enabled` the portal is byte-for-byte the edge-only portal.
+  const cloudConfig = validateCloudConfig(cloudKitchen);
+  const cloud = cloudConfig
+    ? new CloudUpstream(cloudConfig, cloudFetch ? { fetchImpl: cloudFetch } : {})
+    : null;
   if (
     url.protocol !== 'https:' ||
     url.origin !== origin ||
@@ -54,6 +92,12 @@ export async function createPortal({
         new Set(Object.values(terminals)).size !== 3))
   )
     throw new Error('INVALID_PORTAL_CONFIG');
+  // One encrypted cloud screen cookie per page role (owner decision 5: screen, not cook).
+  const screens = cloud
+    ? Object.fromEntries(
+        ['prep', 'assembly', 'display'].map((mode) => [mode, screenCookies({ key, mode })]),
+      )
+    : null;
   const upstream = createServer(async (req, res) => {
     try {
       const body = await boundedBody(req, 16384);
@@ -96,17 +140,116 @@ export async function createPortal({
     gateways[mode] = await listen(gateway);
   }
   // Limit unauthenticated traffic before it consumes the branch's relay capacity.
-  const buckets = new Map();
-  function rate(req, login) {
-    const ip = req.headers['x-pickchick-client-ip'] ?? req.socket.remoteAddress;
+  // The portal sits on an internal network that only the public gateway joins; the gateway
+  // sends the client it resolved through its trusted proxies ({client_ip}). Paired screens
+  // and terminals prove themselves with a cookie sealed by the portal key and get their own
+  // budget, so anonymous traffic (even from the same address) cannot stop the kitchen.
+  const terminalJars = terminalAccess
+    ? Object.fromEntries(
+        ['prep', 'assembly', 'display'].map((mode) => [
+          mode,
+          terminalCookies({ key, mode, path: `/kitchen-live/${mode}/`, secure: true }),
+        ]),
+      )
+    : null;
+  const anonymous = new Map(),
+    paired = new Map();
+  function client(req) {
+    const header = req.headers['x-pickchick-client-ip'];
+    const ip = typeof header === 'string' && isIP(header) ? header : req.socket.remoteAddress;
+    return 'ip:' + addressKey(String(ip));
+  }
+  function device(req, mode) {
+    if (!mode) return null;
+    const screen = screens?.[mode].read(req.headers.cookie);
+    if (screen && screen.branchId === cloudConfig.branchId) return 'screen:' + screen.screenId;
+    const terminal = terminalJars?.[mode].read(req.headers.cookie);
+    return terminal ? 'terminal:' + terminal.terminalId : null;
+  }
+  function rate(req, login, mode) {
+    const owner = device(req, mode);
+    const buckets = owner ? paired : anonymous;
     const now = Date.now(),
-      id = String(ip) + (login ? ':login' : ':read');
+      id = (owner ?? client(req)) + (login ? ':login' : ':read');
     for (const [k, v] of buckets) if (v.until <= now) buckets.delete(k);
     if (!buckets.has(id)) {
       if (buckets.size >= 2048) return false;
       buckets.set(id, { until: now + 60000, count: 0 });
     }
     return ++buckets.get(id).count <= (login ? 12 : 360);
+  }
+  /**
+   * Cloud screen routes of one page role. No cook session and no cashier are involved: the
+   * cookie carries the (encrypted) screen key and the cloud authenticates it on every call, so
+   * a revoked or rotated screen gets 401 and its cookie is cleared at once.
+   */
+  async function serveCloud(req, res, mode, rest) {
+    const cookies = screens[mode];
+    const reply = (status, body, clear = false) => {
+      if (clear) res.setHeader('Set-Cookie', cookies.clear());
+      send(res, status, body);
+    };
+    const pair = rest === '/pair';
+    if (!rate(req, pair, mode)) {
+      res.setHeader('Retry-After', '60');
+      reply(429, errorBody('RATE_LIMITED'));
+      return;
+    }
+    const fulfillment = rest.startsWith('/v1/fulfillment/')
+      ? rest.slice('/v1/fulfillment'.length)
+      : null;
+    if (
+      !(pair && req.method === 'POST') &&
+      !(rest === '/session' && req.method === 'GET') &&
+      !(fulfillment && allowedCloud(req.method, fulfillment))
+    ) {
+      reply(404, errorBody('NOT_FOUND'));
+      return;
+    }
+    try {
+      let body;
+      if (req.method === 'POST') {
+        if (req.headers['content-type'] !== 'application/json')
+          throw new CloudFailure('INVALID_REQUEST');
+        body = (await boundedBody(req, pair ? 2048 : 16384)).toString('utf8');
+      } else if (req.headers['transfer-encoding'] || Number(req.headers['content-length'] ?? 0))
+        throw new CloudFailure('INVALID_REQUEST');
+      if (pair) {
+        const code = pairingCode(body);
+        if (!code) throw new CloudFailure('INVALID_REQUEST');
+        const paired = await cloud.pair(mode, code);
+        const info = await cloud.me(paired);
+        res.setHeader('Set-Cookie', cookies.seal(paired));
+        // The key stays in the HttpOnly cookie; the page only learns which screen it is.
+        reply(200, info);
+        return;
+      }
+      const screen = cookies.read(req.headers.cookie);
+      if (!screen || screen.branchId !== cloudConfig.branchId)
+        throw new CloudFailure('UNAUTHORIZED');
+      if (rest === '/session') {
+        reply(200, await cloud.me(screen));
+        return;
+      }
+      const idempotencyKey = req.headers['idempotency-key'];
+      reply(
+        200,
+        await cloud.handle(screen, req.method, fulfillment, {
+          body,
+          idempotencyKey: typeof idempotencyKey === 'string' ? idempotencyKey : undefined,
+        }),
+      );
+    } catch (error) {
+      const failure =
+        error instanceof CloudFailure
+          ? error
+          : new CloudFailure(
+              error?.message === 'BODY_LIMIT' ? 'INVALID_REQUEST' : 'SERVICE_UNAVAILABLE',
+            );
+      // A pairing that failed never touches an existing binding; a rejected key clears it.
+      const clear = !pair && failure.code === 'UNAUTHORIZED' && req.headers.cookie !== undefined;
+      reply(failure.status, errorBody(failure.code), clear);
+    }
   }
   const server = createServer(async (req, res) => {
     try {
@@ -116,7 +259,11 @@ export async function createPortal({
         return;
       }
       if (path === '/kitchen-live/health' && req.method === 'GET') {
-        send(res, 200, { sourceSha, edgeConnected: link.online });
+        send(res, 200, {
+          sourceSha,
+          edgeConnected: link.online,
+          ...(cloud ? { cloudConnected: cloud.online } : {}),
+        });
         return;
       }
       if (path.startsWith('/kitchen-link/')) {
@@ -166,6 +313,13 @@ export async function createPortal({
         send(res, 403, { code: 'FORBIDDEN' });
         return;
       }
+      const cloudMatch = cloud
+        ? /^\/kitchen-live\/(prep|assembly|display)\/cloud(\/[^#]*)$/.exec(path)
+        : null;
+      if (cloudMatch) {
+        await serveCloud(req, res, cloudMatch[1], cloudMatch[2]);
+        return;
+      }
       let mode, pathOnGateway;
       const pages = {
         '/kitchen/prep': 'prep',
@@ -179,7 +333,7 @@ export async function createPortal({
         mode = 'prep';
         pathOnGateway = path.slice('/kitchen-live/assets'.length);
         if (
-          !/^\/(?:[a-z0-9-]+\.(?:js|css|png)|components\/(?:(?:TerminalPairing|DisplayAccess|PasswordReset)\.js|PasswordReset\.css)|fonts\/[a-z0-9-]+\.woff2)$/.test(
+          !/^\/(?:[a-z0-9-]+\.(?:js|css|png)|components\/(?:(?:TerminalPairing|DisplayAccess|PasswordReset|StreamStatus|CloudPairing)\.js|PasswordReset\.css)|fonts\/[a-z0-9-]+\.woff2)$/.test(
             pathOnGateway,
           )
         ) {
@@ -199,7 +353,7 @@ export async function createPortal({
       const login = pathOnGateway === '/edge/v1/staff/login';
       const pairing = pathOnGateway === '/edge/v1/terminals/pair';
       const reset = pathOnGateway === '/edge/v1/staff/password-reset';
-      if (!rate(req, login || pairing || reset)) {
+      if (!rate(req, login || pairing || reset, pages[path] ? null : mode)) {
         res.setHeader('Retry-After', '60');
         send(res, 429, { code: 'RATE_LIMITED' });
         return;
@@ -230,6 +384,14 @@ export async function createPortal({
           return;
         }
       }
+      const edgeAction = /^\/edge\/v1\/fulfillment\/orders\/([0-9a-f-]{36})\/actions$/i.exec(
+        pathOnGateway,
+      );
+      // A cloud-owned order is acted on only through the cloud; never also by the cashier.
+      if (cloud && edgeAction && cloud.owners.has(edgeAction[1].toLowerCase())) {
+        send(res, 400, errorBody('INVALID_REQUEST'));
+        return;
+      }
       const body = await boundedBody(req, login || pairing || reset ? 2048 : 16384);
       const headers = Object.fromEntries(
         HEADER_NAMES.filter((k) => typeof req.headers[k] === 'string').map((k) => [
@@ -256,6 +418,17 @@ export async function createPortal({
       });
       const type = response.headers.get('content-type') ?? 'application/json';
       let payload = Buffer.from(await response.arrayBuffer()); // Gateway has its own bounded JSON/static allowlist.
+      if (cloud && pathOnGateway === '/config.json' && response.ok) {
+        // Only a flag: keys, API address and branch stay on the server.
+        payload = Buffer.from(
+          JSON.stringify({
+            ...JSON.parse(payload.toString('utf8')),
+            cloudKitchen: true,
+            // Decryptable cookie only; the page then asks /cloud/session, which the cloud checks.
+            cloudPaired: Boolean(screens[mode].read(req.headers.cookie)),
+          }),
+        );
+      }
       if (pathOnGateway === '/' || pathOnGateway === '/styles.css')
         payload = Buffer.from(
           payload
@@ -284,6 +457,7 @@ export async function createPortal({
   return {
     server,
     link,
+    cloud,
     async close() {
       link.close();
       await Promise.all([server, ...servers].map(stop));

@@ -1,3 +1,11 @@
+import {
+  priceComboGift,
+  assertComboGiftPayable,
+  reserveComboGift,
+  reconcileComboRewards,
+  recordComboRefundLines,
+  type ComboProgramOptions,
+} from './combo-reward-ledger.js';
 import { MenuChangedError } from './menu-changed.js';
 import { UnpaidCancellationRequestSchema, UnpaidCancellationViewSchema } from './model.js';
 import { randomUUID } from 'node:crypto';
@@ -16,6 +24,8 @@ import {
   AdmissionSchema,
   PaymentObservationSchema,
   RefundRequestSchema,
+  ManualRefundSchema,
+  RefundWithdrawalSchema,
   RefundObservationSchema,
   FiscalObservationSchema,
   UUIDSchema,
@@ -26,6 +36,14 @@ import {
   priceSnapshot,
 } from './model.js';
 import type { CommerceScope, TrustedProvider, TrustedEdge } from './model.js';
+import {
+  cloudChannelEpoch,
+  cloudChannelNumberFree,
+  cloudChannelOrder,
+  cloudKitchenAdmission,
+  registerCloudChannelOrder,
+} from './cloud-channel.js';
+import type { CloudChannelOrder } from './cloud-channel.js';
 
 type Boundary = { organizationId: string; branchId: string };
 interface OrderRow {
@@ -171,9 +189,12 @@ async function fiscalDocument(
   kind: 'sale' | 'refund',
   operationId: string,
   amount: string,
+  cloud?: CloudChannelOrder | null,
 ) {
   // Deferred pilots record real money, but never manufacture a fiscal receipt.
   if (row.fiscal_policy === 'deferred_pilot') return;
+  // Cloud channel orders carry no receipt for now (deferred_no_receipt, cloud 056).
+  if (cloud === undefined ? await cloudChannelOrder(client, row.id) : cloud) return;
   const sale =
     kind === 'refund'
       ? (
@@ -207,7 +228,67 @@ async function fiscalDocument(
     ],
   );
 }
+/**
+ * Cloud channel order paid in full: admit it into the cloud kitchen in this capture
+ * transaction. A failure never undoes the capture: the savepoint is rolled back and the kitchen
+ * feed retries (admitPendingPaid). If the branch left mode 'cloud' before payment completed,
+ * the order is put up for review instead (no kitchen owns it).
+ */
+async function admitCloudOrder(client: DatabaseClient, row: OrderRow) {
+  const port = cloudKitchenAdmission();
+  if (!port) return;
+  await client.query('SAVEPOINT cloud_kitchen_admission');
+  let outcome: string | null = null;
+  try {
+    outcome = (await port.admitCloudChannelOrderInTransaction(client, row.id)).outcome;
+    await client.query('RELEASE SAVEPOINT cloud_kitchen_admission');
+  } catch {
+    await client.query('ROLLBACK TO SAVEPOINT cloud_kitchen_admission');
+    await client.query('RELEASE SAVEPOINT cloud_kitchen_admission');
+  }
+  if (outcome === 'mode_changed')
+    await issue(client, row, 'cloud-mode-changed', 'CLOUD_MODE_CHANGED_BEFORE_ADMISSION', {});
+}
+/** Edge admission state, or null (cloud channel order, old schema or a role without access). */
+async function admissionState(client: DatabaseClient, orderId: string) {
+  const readable = (
+    await client.query<{ readable: boolean }>(
+      "SELECT CASE WHEN to_regclass('cloud_fulfillment_projection') IS NULL THEN false ELSE has_table_privilege('cloud_fulfillment_projection','SELECT') END AS readable",
+    )
+  ).rows[0]?.readable;
+  if (!readable) return null;
+  return (
+    (
+      await client.query<{ state: string }>(
+        'SELECT state FROM cloud_fulfillment_projection WHERE order_id=$1',
+        [orderId],
+      )
+    ).rows[0]?.state ?? null
+  );
+}
+/**
+ * Money arrived for an order the restaurant released or cancelled before its kitchen admission
+ * reached the cashier: the payment came after the cancellation, or the cashier cancelled the hold
+ * while the paid admission was still queued (for example while offline). The transport never
+ * delivers that admission, so the order is never cooked and a manager must refund it (0.4).
+ */
+async function paidAfterRestaurantCancel(client: DatabaseClient, row: OrderRow, captured: bigint) {
+  if (captured <= 0n) return false;
+  const state = await admissionState(client, row.id);
+  if (!['released', 'cancelled', 'cancel_requested'].includes(state ?? '')) return false;
+  if (!row.kitchen_effect_id) return true;
+  // An admission the cashier already applied makes this a cancellation of an accepted order.
+  return !(
+    await client.query(
+      'SELECT 1 FROM commerce_outbox WHERE id=$1 AND order_id=$2 AND acknowledged_at IS NOT NULL',
+      [row.kitchen_effect_id, row.id],
+    )
+  ).rowCount;
+}
 async function reconcile(client: DatabaseClient, row: OrderRow) {
+  if (await reconcileComboRewards(client, row.id))
+    await issue(client, row, 'combo-gift-conflict', 'COMBO_REWARD_RECONCILIATION_REQUIRED', {});
+  const cloud = await cloudChannelOrder(client, row.id);
   const money = await totals(client, row.id);
   const captured = BigInt(money.captured),
     total = BigInt(row.total_minor);
@@ -215,6 +296,10 @@ async function reconcile(client: DatabaseClient, row: OrderRow) {
     await issue(client, row, 'overcapture', 'CAPTURE_EXCEEDS_INTENT', {
       intendedMinor: row.total_minor,
     });
+  // Money arrived for an order the restaurant had already released or cancelled before it was
+  // sent to the kitchen: never cook it, show it to a manager for a refund.
+  if (await paidAfterRestaurantCancel(client, row, captured))
+    await issue(client, row, 'paid-after-restaurant-cancel', 'PAID_AFTER_RESTAURANT_CANCEL', {});
   if (BigInt(money.refunded) + BigInt(money.reserved) > captured)
     await issue(client, row, 'refund-exposure', 'REFUND_EXPOSURE_EXCEEDS_CAPTURE', {});
   const attempts = (
@@ -239,7 +324,8 @@ async function reconcile(client: DatabaseClient, row: OrderRow) {
     row.id,
     paymentState,
   ]);
-  if (captured >= total) await fiscalDocument(client, row, 'sale', row.id, row.total_minor);
+  if (captured >= total && total > 0n)
+    await fiscalDocument(client, row, 'sale', row.id, row.total_minor, cloud);
   const documents = (
     await client.query<FiscalRow>('SELECT * FROM commerce_fiscal_documents WHERE order_id=$1', [
       row.id,
@@ -287,11 +373,22 @@ async function reconcile(client: DatabaseClient, row: OrderRow) {
     );
     row.kitchen_effect_id = effectId;
   }
+  // Cloud channel orders have no edge reservation; the cloud kitchen admits them instead.
+  if (
+    cloud &&
+    captured === total &&
+    !row.attention_required &&
+    BigInt(money.refunded) === 0n &&
+    BigInt(money.reserved) === 0n &&
+    !(await client.query('SELECT 1 FROM commerce_cancellation_intents WHERE order_id=$1', [row.id]))
+      .rowCount
+  )
+    await admitCloudOrder(client, row);
   const state = row.attention_required
     ? 'attention_required'
     : captured >= total
       ? 'paid_pending_acceptance'
-      : row.admission_reservation_id
+      : row.admission_reservation_id || cloud
         ? 'awaiting_payment'
         : 'awaiting_admission';
   await client.query(
@@ -308,6 +405,26 @@ async function reconcile(client: DatabaseClient, row: OrderRow) {
     attentionRequired: row.attention_required,
     kitchenEffectId: row.kitchen_effect_id,
   };
+}
+
+/**
+ * Puts one order up for a manager's review from a process other than its payment transaction
+ * (the cloud kitchen catch-up admission). Takes the order lock, records the issue once per key
+ * and recomputes the order state, inside the caller's transaction.
+ */
+export async function reviewOrderInTransaction(
+  client: DatabaseClient,
+  orderId: string,
+  key: string,
+  code: string,
+  details: Record<string, unknown>,
+) {
+  const row = (
+    await client.query<OrderRow>('SELECT * FROM commerce_orders WHERE id=$1 FOR UPDATE', [orderId])
+  ).rows[0];
+  if (!row) throw new CommerceError('NOT_FOUND');
+  await issue(client, row, key, code, details);
+  return reconcile(client, row);
 }
 
 export class CommerceRepository {
@@ -379,133 +496,147 @@ export class CommerceRepository {
   }
 
   /** Internal pricing port: amounts MUST originate from a trusted pricing service. */
-  async issueQuote(scope: CommerceScope, key: string, input: unknown) {
+  async issueQuote(
+    scope: CommerceScope,
+    key: string,
+    input: unknown,
+    gift?: { lineIndex: number; options: ComboProgramOptions },
+  ) {
     const quote = priceSnapshot(input);
-    return this.command(scope, key, 'quote', quote, async (client, actor) => {
-      const branch = (
-        await client.query<{ legal_entity_id: string; ordering_enabled: boolean }>(
-          'SELECT legal_entity_id,ordering_enabled FROM branches WHERE id=$1',
-          [actor.branchId],
-        )
-      ).rows[0]!;
-      if ('catalogReference' in quote) {
-        const ref = quote.catalogReference;
-        if (!branch.ordering_enabled) throw new CommerceError('NOT_READY');
-        if (
-          ref.organizationId !== actor.organizationId ||
-          ref.branchId !== actor.branchId ||
-          quote.taxBinding.legalEntityId !== branch.legal_entity_id
-        )
-          throw new CommerceError('FORBIDDEN');
-        // Publication takes FOR UPDATE on the same mutable head. Minimal runtime
-        // UPDATE(lock_anchor) permits this lock, without permission to publish.
-        const head = (
-          await client.query<{ published_version: number | null }>(
-            'SELECT published_version FROM catalog_branch_heads WHERE branch_id=$1 AND organization_id=$2 FOR SHARE',
-            [actor.branchId, actor.organizationId],
+    return this.command(
+      scope,
+      key,
+      'quote',
+      gift ? { quote, gift } : quote,
+      async (client, actor) => {
+        const branch = (
+          await client.query<{ legal_entity_id: string; ordering_enabled: boolean }>(
+            'SELECT legal_entity_id,ordering_enabled FROM branches WHERE id=$1',
+            [actor.branchId],
           )
-        ).rows[0];
-        if (!head) throw new CommerceError('NOT_FOUND');
-        if (head.published_version !== ref.version) throw new CommerceError('CONFLICT');
-        const publication = (
-          await client.query<{ payload: unknown; payload_hash: string; published_at: Date }>(
-            'SELECT payload,payload_hash,published_at FROM catalog_publications WHERE branch_id=$1 AND organization_id=$2 AND version=$3',
-            [actor.branchId, actor.organizationId, ref.version],
+        ).rows[0]!;
+        if ('catalogReference' in quote) {
+          const ref = quote.catalogReference;
+          if (!branch.ordering_enabled) throw new CommerceError('NOT_READY');
+          if (
+            ref.organizationId !== actor.organizationId ||
+            ref.branchId !== actor.branchId ||
+            quote.taxBinding.legalEntityId !== branch.legal_entity_id
           )
-        ).rows[0];
-        if (!publication) throw new CommerceError('NOT_FOUND');
-        if (
-          publication.payload_hash !== ref.payloadHash ||
-          publication.published_at.toISOString() !== ref.publishedAt
-        )
-          throw new CommerceError('CONFLICT');
-        const cart = {
-          catalog_version: ref.version,
-          service_mode: quote.serviceMode,
-          items: quote.lines.map((line) => ({
-            sku: line.sku,
-            quantity: line.quantity,
-            selections: line.selectedDetails.modifiers.map((option) => ({
-              group_id: option.groupId,
-              option_id: option.optionId,
-              quantity: option.quantity,
+            throw new CommerceError('FORBIDDEN');
+          // Publication takes FOR UPDATE on the same mutable head. Minimal runtime
+          // UPDATE(lock_anchor) permits this lock, without permission to publish.
+          const head = (
+            await client.query<{ published_version: number | null }>(
+              'SELECT published_version FROM catalog_branch_heads WHERE branch_id=$1 AND organization_id=$2 FOR SHARE',
+              [actor.branchId, actor.organizationId],
+            )
+          ).rows[0];
+          if (!head) throw new CommerceError('NOT_FOUND');
+          if (head.published_version !== ref.version) throw new CommerceError('CONFLICT');
+          const publication = (
+            await client.query<{ payload: unknown; payload_hash: string; published_at: Date }>(
+              'SELECT payload,payload_hash,published_at FROM catalog_publications WHERE branch_id=$1 AND organization_id=$2 AND version=$3',
+              [actor.branchId, actor.organizationId, ref.version],
+            )
+          ).rows[0];
+          if (!publication) throw new CommerceError('NOT_FOUND');
+          if (
+            publication.payload_hash !== ref.payloadHash ||
+            publication.published_at.toISOString() !== ref.publishedAt
+          )
+            throw new CommerceError('CONFLICT');
+          const cart = {
+            catalog_version: ref.version,
+            service_mode: quote.serviceMode,
+            items: quote.lines.map((line) => ({
+              sku: line.sku,
+              quantity: line.quantity,
+              selections: line.selectedDetails.modifiers.map((option) => ({
+                group_id: option.groupId,
+                option_id: option.optionId,
+                quantity: option.quantity,
+              })),
             })),
-          })),
-        };
-        let repriced;
-        try {
-          repriced = priceCatalogSnapshot(
-            {
-              reference: ref,
-              orderingEnabled: branch.ordering_enabled,
-              payload: publication.payload,
-            },
-            {
-              organizationId: actor.organizationId,
-              branchId: actor.branchId,
-              customerId: quote.customerId,
-              channel: quote.channel,
-            },
-            cart,
+          };
+          let repriced;
+          try {
+            repriced = priceCatalogSnapshot(
+              {
+                reference: ref,
+                orderingEnabled: branch.ordering_enabled,
+                payload: publication.payload,
+              },
+              {
+                organizationId: actor.organizationId,
+                branchId: actor.branchId,
+                customerId: quote.customerId,
+                channel: quote.channel,
+              },
+              cart,
+            );
+          } catch (error) {
+            if (error instanceof CatalogPricingError) throw new CommerceError('INVALID');
+            throw error;
+          }
+          // Prices, SKU/selection identity, components, allergens and nutrition
+          // must match the immutable PG publication, not just internally add up.
+          const comparable = {
+            ...quote,
+            lines: quote.lines.map(({ taxCode, ...line }) => {
+              void taxCode;
+              return line;
+            }),
+          };
+          const { taxBinding, kitchenComment, ...withoutTax } = comparable;
+          void taxBinding;
+          void kitchenComment;
+          if (digest(withoutTax) !== digest(repriced)) throw new CommerceError('INVALID');
+        } else {
+          const release = await client.query(
+            'SELECT 1 FROM menu_releases WHERE id=$1 AND branch_id=$2',
+            [quote.releaseId, actor.branchId],
           );
-        } catch (error) {
-          if (error instanceof CatalogPricingError) throw new CommerceError('INVALID');
-          throw error;
+          if (!release.rowCount) throw new CommerceError('NOT_FOUND');
         }
-        // Prices, SKU/selection identity, components, allergens and nutrition
-        // must match the immutable PG publication, not just internally add up.
-        const comparable = {
+        const originalSnapshot = {
           ...quote,
-          lines: quote.lines.map(({ taxCode, ...line }) => {
-            void taxCode;
-            return line;
-          }),
+          organizationId: actor.organizationId,
+          branchId: actor.branchId,
+          legalEntityId: branch.legal_entity_id,
         };
-        const { taxBinding, kitchenComment, ...withoutTax } = comparable;
-        void taxBinding;
-        void kitchenComment;
-        if (digest(withoutTax) !== digest(repriced)) throw new CommerceError('INVALID');
-      } else {
-        const release = await client.query(
-          'SELECT 1 FROM menu_releases WHERE id=$1 AND branch_id=$2',
-          [quote.releaseId, actor.branchId],
+        const snapshot = gift
+          ? await priceComboGift(client, actor, originalSnapshot, gift)
+          : originalSnapshot;
+        const id = randomUUID();
+        const result = await client.query<{ created_at: Date; expires_at: Date }>(
+          `INSERT INTO commerce_quotes(id,organization_id,branch_id,principal_id,customer_id,release_id,total_minor,currency,snapshot,digest,created_at,expires_at,catalog_version,catalog_payload_hash,catalog_published_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,statement_timestamp(),statement_timestamp()+$11*interval '1 second',$12,$13,$14) RETURNING created_at,expires_at`,
+          [
+            id,
+            actor.organizationId,
+            actor.branchId,
+            actor.principalId,
+            quote.customerId,
+            'releaseId' in quote ? quote.releaseId : null,
+            snapshot.totalMinor,
+            quote.currency,
+            snapshot,
+            digest(snapshot),
+            quote.ttlSeconds,
+            'catalogReference' in quote ? quote.catalogReference.version : null,
+            'catalogReference' in quote ? quote.catalogReference.payloadHash : null,
+            'catalogReference' in quote ? quote.catalogReference.publishedAt : null,
+          ],
         );
-        if (!release.rowCount) throw new CommerceError('NOT_FOUND');
-      }
-      const snapshot = {
-        ...quote,
-        organizationId: actor.organizationId,
-        branchId: actor.branchId,
-        legalEntityId: branch.legal_entity_id,
-      };
-      const id = randomUUID();
-      const result = await client.query<{ created_at: Date; expires_at: Date }>(
-        `INSERT INTO commerce_quotes(id,organization_id,branch_id,principal_id,customer_id,release_id,total_minor,currency,snapshot,digest,created_at,expires_at,catalog_version,catalog_payload_hash,catalog_published_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,statement_timestamp(),statement_timestamp()+$11*interval '1 second',$12,$13,$14) RETURNING created_at,expires_at`,
-        [
-          id,
-          actor.organizationId,
-          actor.branchId,
-          actor.principalId,
-          quote.customerId,
-          'releaseId' in quote ? quote.releaseId : null,
-          quote.totalMinor,
-          quote.currency,
+        return {
+          quoteId: id,
           snapshot,
-          digest(snapshot),
-          quote.ttlSeconds,
-          'catalogReference' in quote ? quote.catalogReference.version : null,
-          'catalogReference' in quote ? quote.catalogReference.payloadHash : null,
-          'catalogReference' in quote ? quote.catalogReference.publishedAt : null,
-        ],
-      );
-      return {
-        quoteId: id,
-        snapshot,
-        digest: digest(snapshot),
-        createdAt: result.rows[0]!.created_at.toISOString(),
-        expiresAt: result.rows[0]!.expires_at.toISOString(),
-      };
-    });
+          digest: digest(snapshot),
+          createdAt: result.rows[0]!.created_at.toISOString(),
+          expiresAt: result.rows[0]!.expires_at.toISOString(),
+        };
+      },
+    );
   }
   async createOrder(scope: CommerceScope, key: string, input: unknown) {
     return this.createOrderWithPolicy(scope, key, parse(CreateOrderSchema, input), null);
@@ -592,10 +723,32 @@ export class CommerceRepository {
           deferral,
         ],
       );
+      await reserveComboGift(client, actor, id, quote.snapshot);
       await client.query(
         'INSERT INTO commerce_payment_intents(id,order_id,intended_minor) VALUES($1,$2,$3)',
         [randomUUID(), id, quote.total_minor],
       );
+      // Branch in mode 'cloud': the cloud kitchen owns kiosk/mobile orders, the cashier is
+      // never asked for admission and payment opens at once (ADR-0014 S4).
+      const channel = quote.snapshot.channel;
+      const epoch =
+        channel === 'kiosk' || channel === 'mobile'
+          ? await cloudChannelEpoch(client, actor.branchId)
+          : null;
+      if (epoch !== null) {
+        await registerCloudChannelOrder(client, {
+          orderId: id,
+          branchId: actor.branchId,
+          channel: channel as 'kiosk' | 'mobile',
+          epoch,
+        });
+        await client.query(
+          "UPDATE commerce_orders SET state='awaiting_payment',version=version+1,updated_at=clock_timestamp() WHERE id=$1",
+          [id],
+        );
+        if (quote.total_minor === '0') await reconcile(client, await order(client, actor, id));
+        return { orderId: id, quoteId: quote.id };
+      }
       await emit(client, id, 'admission', 'edge.admission_requested', {
         orderId: id,
         branchId: actor.branchId,
@@ -641,6 +794,82 @@ export class CommerceRepository {
       );
     };
     return client ? apply(client) : transaction(this.pool, apply);
+  }
+  /**
+   * The bound cashier refused one cloud admission command (closed ordering, stopped item, lost
+   * reservation, conflict). Only the authenticated transport pull calls this, inside its
+   * transaction. A paid order becomes a manager case at once: the guest needs staff and
+   * possibly a refund, and an attention order is never delivered to the kitchen later on its
+   * own. An unpaid order is left alone: no money moved, the command is retried and payment
+   * stays gated by the cashier's availability. Repeated reports change nothing.
+   */
+  async recordAdmissionRefusal(
+    client: DatabaseClient,
+    edge: TrustedEdge,
+    refusal: { eventId: string; reason: string },
+  ): Promise<'ignored' | 'unpaid' | 'attention'> {
+    const found = (
+      await client.query<{ order_id: string; event_type: string }>(
+        `SELECT e.order_id,e.event_type FROM commerce_outbox e JOIN commerce_orders o ON o.id=e.order_id
+        WHERE e.id=$1 AND o.organization_id=$2 AND o.branch_id=$3 AND e.acknowledged_at IS NULL
+        AND e.event_type IN ('edge.admission_requested','edge.kitchen_admission_requested')
+        AND (o.admission_device_id IS NULL OR o.admission_device_id=$4)`,
+        [refusal.eventId, edge.organizationId, edge.branchId, edge.deviceId],
+      )
+    ).rows[0];
+    if (!found) return 'ignored';
+    const row = await order(client, edge, found.order_id);
+    if (row.attention_required) return 'attention';
+    const money = await totals(client, row.id);
+    if (BigInt(money.captured) < BigInt(row.total_minor)) return 'unpaid';
+    await issue(client, row, 'kitchen-admission-refused', 'KITCHEN_ADMISSION_REFUSED', {
+      reason: refusal.reason,
+      eventType: found.event_type,
+    });
+    await reconcile(client, row);
+    return 'attention';
+  }
+  /**
+   * Safety net for cashiers that cannot report a refusal (installed edge builds) or were offline:
+   * a paid order whose kitchen admission is still undelivered `minutes` after its payment is
+   * put up for review instead of being admitted late into a later kitchen queue (for example
+   * the next morning). Orders the kitchen already accepted are never touched. Called inside the
+   * authenticated transport pull transaction, before a command is selected for delivery.
+   */
+  async reviewOverdueAdmissions(
+    client: DatabaseClient,
+    edge: TrustedEdge,
+    minutes: number,
+    limit = 20,
+  ) {
+    if (!Number.isInteger(minutes) || minutes < 1) return 0;
+    const overdue = (id: string | null) =>
+      client.query<{ id: string }>(
+        `SELECT o.id FROM commerce_orders o
+        WHERE o.organization_id=$1 AND o.branch_id=$2 AND o.state='paid_pending_acceptance'
+        AND NOT o.attention_required AND (o.admission_device_id IS NULL OR o.admission_device_id=$3)
+        AND ($6::uuid IS NULL OR o.id=$6)
+        AND EXISTS(SELECT 1 FROM commerce_outbox e WHERE e.order_id=o.id AND e.acknowledged_at IS NULL
+          AND e.event_type IN ('edge.admission_requested','edge.kitchen_admission_requested'))
+        AND NOT EXISTS(SELECT 1 FROM cloud_fulfillment_projection p WHERE p.order_id=o.id
+          AND p.state NOT IN ('held','released'))
+        AND (SELECT max(c.received_at) FROM commerce_captures c WHERE c.order_id=o.id)
+          < clock_timestamp()-$4*interval '1 minute'
+        ORDER BY o.created_at,o.id LIMIT $5`,
+        [edge.organizationId, edge.branchId, edge.deviceId, minutes, limit, id],
+      );
+    let reviewed = 0;
+    for (const { id } of (await overdue(null)).rows) {
+      const row = await order(client, edge, id);
+      // Rechecked with a fresh snapshot after taking the order lock.
+      if (!(await overdue(id)).rowCount) continue;
+      await issue(client, row, 'kitchen-admission-overdue', 'KITCHEN_ADMISSION_OVERDUE', {
+        minutes,
+      });
+      await reconcile(client, row);
+      reviewed++;
+    }
+    return reviewed;
   }
   private async applyAdmission(
     client: DatabaseClient,
@@ -745,6 +974,51 @@ export class CommerceRepository {
     return this.cancellationView(client, actor, row.id);
   }
 
+  /**
+   * Trusted server port (no HTTP principal): durably cancel an unpaid order that can never be
+   * billed - refused at payment (stopped item, closed restaurant, released admission, sales
+   * switched off) or unpaid past its TTL. Same intent and edge release protocol as a manager
+   * cancellation, but it is a no-op once any payment history exists. Returns true when the order
+   * now carries an unpaid cancellation.
+   */
+  async abandonUnpaidOrder(scopeInput: CommerceScope, orderId: string, reason: string) {
+    const scope = parse(ScopeSchema, scopeInput);
+    parse(UUIDSchema, orderId);
+    parse(UnpaidCancellationRequestSchema, { orderId, reason });
+    return transaction(this.pool, async (client) => {
+      await boundary(client, scope);
+      const row = await order(client, scope, orderId);
+      if (
+        (
+          await client.query('SELECT 1 FROM commerce_cancellation_intents WHERE order_id=$1', [
+            row.id,
+          ])
+        ).rowCount
+      )
+        return true;
+      if (
+        row.kitchen_effect_id ||
+        row.attention_required ||
+        row.total_minor === '0' ||
+        (
+          await client.query(
+            `SELECT 1 FROM commerce_payment_attempts WHERE order_id=$1 UNION ALL SELECT 1 FROM commerce_captures WHERE order_id=$1 UNION ALL SELECT 1 FROM commerce_refunds WHERE order_id=$1 LIMIT 1`,
+            [row.id],
+          )
+        ).rowCount
+      )
+        return false;
+      await client.query(
+        "INSERT INTO commerce_cancellation_intents(id,order_id,organization_id,branch_id,requested_by,reason,state) VALUES($1,$2,$3,$4,$5,$6,'waiting_admission')",
+        [randomUUID(), row.id, scope.organizationId, scope.branchId, scope.principalId, reason],
+      );
+      await this.scheduleUnpaidCancellation(client, scope, row.id);
+      // Releases a held combo gift once nothing can bill this order any more.
+      await reconcile(client, await order(client, scope, row.id));
+      return true;
+    });
+  }
+
   /** Trusted mobile port: published prices and first attempt are serialized with publication. */
   async startMobilePaymentAttempt(scopeInput: CommerceScope, key: string, input: unknown) {
     const scope = parse(ScopeSchema, scopeInput),
@@ -829,6 +1103,19 @@ export class CommerceRepository {
   /** Called inside authenticated admission/projection TX; never across HTTP. */
   async scheduleUnpaidCancellation(client: DatabaseClient, scope: Boundary, orderId: string) {
     const row = await order(client, scope, orderId);
+    // The cashier released or cancelled a hold whose payment already arrived (the admission was
+    // still queued): put it up for a refund now instead of leaving a paid order silently uncooked.
+    if (
+      !row.attention_required &&
+      (await paidAfterRestaurantCancel(
+        client,
+        row,
+        BigInt((await totals(client, row.id)).captured),
+      ))
+    ) {
+      await issue(client, row, 'paid-after-restaurant-cancel', 'PAID_AFTER_RESTAURANT_CANCEL', {});
+      await reconcile(client, row);
+    }
     const intent = (
       await client.query(
         'SELECT * FROM commerce_cancellation_intents WHERE order_id=$1 FOR UPDATE',
@@ -940,14 +1227,25 @@ export class CommerceRepository {
           ).rowCount
         )
           throw new CommerceError('NOT_READY');
+        // A cloud channel order needs its branch still in mode 'cloud' and a free display
+        // number; the cashier and its reservation play no part (ADR-0014 S4).
+        const cloud = await cloudChannelOrder(client, row.id);
+        if (
+          cloud &&
+          ((await cloudChannelEpoch(client, row.branch_id)) === null ||
+            !(await cloudChannelNumberFree(client, row.branch_id, cloud.channel)))
+        )
+          throw new CommerceError('NOT_READY');
         // A transport-owned admission may have been released/cancelled by its edge.
         // The order lock serializes this decision with incoming fulfillment facts.
-        const transport = (
-          await client.query<{ device_id: string; active: boolean }>(
-            'SELECT device_id,active FROM fulfillment_transport_bindings WHERE branch_id=$1 FOR SHARE',
-            [actor.branchId],
-          )
-        ).rows[0];
+        const transport = cloud
+          ? undefined
+          : (
+              await client.query<{ device_id: string; active: boolean }>(
+                'SELECT device_id,active FROM fulfillment_transport_bindings WHERE branch_id=$1 FOR SHARE',
+                [actor.branchId],
+              )
+            ).rows[0];
         if (transport) {
           if (!transport.active) throw new CommerceError('NOT_READY');
           const admission = (
@@ -974,7 +1272,7 @@ export class CommerceRepository {
           true,
           row.snapshot.legalEntityId,
         );
-        if ((!row.admission_reservation_id && !kioskQr) || row.attention_required)
+        if ((!row.admission_reservation_id && !kioskQr && !cloud) || row.attention_required)
           throw new CommerceError('NOT_READY');
         const money = await totals(client, row.id);
         if (BigInt(money.captured) > 0n) throw new CommerceError('NOT_READY');
@@ -987,6 +1285,7 @@ export class CommerceRepository {
           ).rowCount
         )
           throw new CommerceError('NOT_READY');
+        await assertComboGiftPayable(client, row.id, row.snapshot);
         const intent = (
           await client.query<{ id: string }>(
             'SELECT id FROM commerce_payment_intents WHERE order_id=$1',
@@ -1190,6 +1489,7 @@ export class CommerceRepository {
             request.fulfillmentPolicy,
           ],
         );
+        await recordComboRefundLines(client, row.id, id, request.amountMinor, request.items);
         await emit(client, row.id, 'refund:' + id, 'refund.submit_requested', {
           refundId: id,
           orderId: row.id,
@@ -1205,6 +1505,179 @@ export class CommerceRepository {
           amountMinor: request.amountMinor,
           state: 'pending',
         };
+      },
+      true,
+      db,
+    );
+  }
+  /**
+   * Manager-only: record a refund staff already made by hand in Kaspi Pay (no refund adapter
+   * exists). The Kaspi operation reference is the effect's operation id, so one bank refund is
+   * recorded once. The refund is completed in the ledger at once; combo stamps/gifts follow the
+   * same confirmed-refund rules as an adapter refund. No bank call is made.
+   */
+  async registerManualRefund(
+    scope: CommerceScope,
+    key: string,
+    input: unknown,
+    db?: DatabaseClient,
+  ) {
+    const request = parse(ManualRefundSchema, input);
+    const operationId = 'manual:' + request.bankReference.replace(/\s+/gu, ' ');
+    return this.command(
+      scope,
+      key,
+      'manual_refund',
+      request,
+      async (client, actor) => {
+        const row = await order(client, actor, request.orderId);
+        const capture = (
+          await client.query<{ id: string; account_id: string; amount_minor: string }>(
+            'SELECT id,account_id,amount_minor::text FROM commerce_captures WHERE id=$1 AND order_id=$2',
+            [request.captureId, row.id],
+          )
+        ).rows[0];
+        if (!capture) throw new CommerceError('NOT_FOUND');
+        // Staff may refund after the account was disabled; the scope must still match.
+        await account(
+          client,
+          actor,
+          capture.account_id,
+          'payment',
+          false,
+          row.snapshot.legalEntityId,
+        );
+        if (
+          (
+            await client.query(
+              'SELECT 1 FROM commerce_refund_effects WHERE account_id=$1 AND operation_id=$2',
+              [capture.account_id, operationId],
+            )
+          ).rowCount
+        )
+          throw new CommerceError('CONFLICT');
+        let refundId: string;
+        if (request.refundId) {
+          // Resolve a request left pending by the old adapter button: same amount, same lines.
+          if (request.items) throw new CommerceError('INVALID');
+          const refund = (
+            await client.query<RefundRow>(
+              'SELECT * FROM commerce_refunds WHERE id=$1 AND order_id=$2 AND capture_id=$3 FOR UPDATE',
+              [request.refundId, row.id, capture.id],
+            )
+          ).rows[0];
+          if (!refund) throw new CommerceError('NOT_FOUND');
+          if (refund.state !== 'pending' && refund.state !== 'unknown')
+            throw new CommerceError('CONFLICT');
+          if (refund.amount_minor !== request.amountMinor) throw new CommerceError('INVALID');
+          refundId = refund.id;
+        } else {
+          const balance = (
+            await client.query<{ refunded: string; reserved: string }>(
+              `SELECT
+          COALESCE((SELECT SUM(e.amount_minor) FROM commerce_refund_effects e JOIN commerce_refunds r ON r.id=e.refund_id WHERE r.capture_id=$1),0)::text refunded,
+          COALESCE((SELECT SUM(amount_minor) FROM commerce_refunds WHERE capture_id=$1 AND state IN ('pending','unknown')),0)::text reserved`,
+              [capture.id],
+            )
+          ).rows[0]!;
+          if (
+            BigInt(request.amountMinor) + BigInt(balance.refunded) + BigInt(balance.reserved) >
+            BigInt(capture.amount_minor)
+          )
+            throw new CommerceError('REFUND_LIMIT');
+          refundId = randomUUID();
+          await client.query(
+            "INSERT INTO commerce_refunds(id,order_id,capture_id,account_id,principal_id,amount_minor,reason,fulfillment_policy) VALUES($1,$2,$3,$4,$5,$6,$7,'manager_reviewed')",
+            [
+              refundId,
+              row.id,
+              capture.id,
+              capture.account_id,
+              actor.principalId,
+              request.amountMinor,
+              request.reason,
+            ],
+          );
+          await recordComboRefundLines(
+            client,
+            row.id,
+            refundId,
+            request.amountMinor,
+            request.items,
+          );
+        }
+        const effectId = randomUUID();
+        await client.query(
+          'INSERT INTO commerce_refund_effects(id,refund_id,order_id,account_id,operation_id,amount_minor,occurred_at) VALUES($1,$2,$3,$4,$5,$6,clock_timestamp())',
+          [effectId, refundId, row.id, capture.account_id, operationId, request.amountMinor],
+        );
+        await client.query("UPDATE commerce_refunds SET state='succeeded' WHERE id=$1", [refundId]);
+        const hasSale = (
+          await client.query(
+            "SELECT 1 FROM commerce_fiscal_documents WHERE order_id=$1 AND kind='sale'",
+            [row.id],
+          )
+        ).rowCount;
+        // Receipt-less pilots never had a sale receipt, so no refund receipt is owed either.
+        if (hasSale) await fiscalDocument(client, row, 'refund', effectId, request.amountMinor);
+        else if (row.fiscal_policy === 'required' && !(await cloudChannelOrder(client, row.id)))
+          await issue(client, row, 'refund-no-sale:' + refundId, 'REFUND_WITHOUT_SALE_DOCUMENT', {
+            refundId,
+          });
+        await emit(client, row.id, 'refund-recorded:' + effectId, 'refund.effect_recorded', {
+          orderId: row.id,
+          refundId,
+          effectId,
+          amountMinor: request.amountMinor,
+          manual: true,
+        });
+        await reconcile(client, row);
+        return {
+          refundId,
+          orderId: row.id,
+          amountMinor: request.amountMinor,
+          state: 'succeeded' as const,
+          bankReference: request.bankReference,
+        };
+      },
+      true,
+      db,
+    );
+  }
+  /** Manager-only: withdraw a refund request no adapter ever sent (no money moved). */
+  async withdrawRefundRequest(
+    scope: CommerceScope,
+    key: string,
+    input: unknown,
+    db?: DatabaseClient,
+  ) {
+    const request = parse(RefundWithdrawalSchema, input);
+    return this.command(
+      scope,
+      key,
+      'refund_withdrawal',
+      request,
+      async (client, actor) => {
+        const row = await order(client, actor, request.orderId);
+        const refund = (
+          await client.query<RefundRow>(
+            'SELECT * FROM commerce_refunds WHERE id=$1 AND order_id=$2 FOR UPDATE',
+            [request.refundId, row.id],
+          )
+        ).rows[0];
+        if (!refund) throw new CommerceError('NOT_FOUND');
+        if (
+          refund.state !== 'pending' ||
+          (
+            await client.query('SELECT 1 FROM commerce_refund_effects WHERE refund_id=$1', [
+              refund.id,
+            ])
+          ).rowCount
+        )
+          throw new CommerceError('CONFLICT');
+        await client.query("UPDATE commerce_refunds SET state='failed' WHERE id=$1", [refund.id]);
+        await reconcile(client, row);
+        return { refundId: refund.id, orderId: row.id, state: 'failed' as const };
       },
       true,
       db,

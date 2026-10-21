@@ -164,6 +164,14 @@ test('kiosk follows the back-office publication like mobile and needs only an on
   await fixture(async (f) => {
     // No per-device menu ACK: the published catalog is the single source for every channel.
     assert.equal((await f.checkout.config(f.who)).enabled, true);
+    // Mode 'edge' (default) keeps its exact answer: no cloud kitchen field (ADR-0014).
+    assert.deepEqual(Object.keys(await f.checkout.config(f.who)).sort(), [
+      'branchId',
+      'enabled',
+      'paymentMethod',
+      'paymentMethods',
+      'restaurant',
+    ]);
     const quote = await f.checkout.quote(f.who, f.cart());
     assert.equal(quote.totalMinor, '11000');
     const row = (
@@ -505,7 +513,70 @@ test('ended or expired guests cannot create a new order or payment', async () =>
       (await f.pool.query('SELECT count(*)::int n FROM commerce_payment_attempts')).rows[0].n,
       0,
     );
+    // The existing order is still returned to its guest (lost-response replay).
+    const replay = await f.checkout.create(f.who, { key: randomUUID(), quoteId: q.quoteId });
+    assert.equal(replay.orderId, order.orderId);
+    // Review 19.10, finding 3.0 (invoice variant): the expired guest can still read its order, and
+    // the read proves no payment exists (the kiosk then gives the order up instead of looping).
+    const read = await f.checkout.read(f.who, order.orderId);
+    assert.ok(['ready_to_pay', 'awaiting_restaurant'].includes(read.phase), read.phase);
+    assert.equal(read.paymentMethod, undefined);
+    assert.equal(read.payment, undefined);
+    // Nothing can be paid for it any more, so the guest may be ended (finding 3.7).
+    await f.sessions.end(f.who.sessionId);
   });
+});
+// Audit 19.10, finding 3.0: a retried POST /orders after the guest's TTL used to answer
+// FORBIDDEN, which every installed kiosk keeps on the recovery screen for ever. NOT_FOUND (404)
+// is definitive for every installed kiosk; EXPIRED would reach it as CONFLICT.
+test('an expired guest without an order gets NOT_FOUND on create; ended or disabled stay FORBIDDEN', async () => {
+  await fixture(async (f) => {
+    await f.ack();
+    const q = await f.checkout.quote(f.who, f.cart());
+    await f.pool.query(
+      "UPDATE kiosk_sessions SET created_at=clock_timestamp()-interval '2 hours',expires_at=clock_timestamp()-interval '1 hour' WHERE id=$1",
+      [f.who.sessionId],
+    );
+    await assert.rejects(f.checkout.create(f.who, { key: randomUUID(), quoteId: q.quoteId }), {
+      code: 'NOT_FOUND',
+    });
+    assert.equal((await f.pool.query('SELECT count(*)::int n FROM commerce_orders')).rows[0].n, 0);
+    await f.pool.query('UPDATE kiosk_devices SET active=false');
+    await assert.rejects(f.checkout.create(f.who, { key: randomUUID(), quoteId: q.quoteId }), {
+      code: 'FORBIDDEN',
+    });
+    await f.pool.query('UPDATE kiosk_devices SET active=true');
+    await f.sessions.end(f.who.sessionId);
+    await assert.rejects(f.checkout.create(f.who, { key: randomUUID(), quoteId: q.quoteId }), {
+      code: 'FORBIDDEN',
+    });
+    assert.equal((await f.pool.query('SELECT count(*)::int n FROM commerce_orders')).rows[0].n, 0);
+  });
+});
+// Audit 19.10, finding 3.7: the first payment of an order was refused (stop, closing time,
+// kitchen) and the kiosk gave up that guest. Its session may be ended at once; afterwards no
+// payment attempt can start for that order.
+test('a guest whose order never reached payment can be ended, and then cannot pay it', async () => {
+  await fixture(async (f) => {
+    await f.ack();
+    const q = await f.checkout.quote(f.who, f.cart());
+    const order = await f.checkout.create(f.who, { key: randomUUID(), quoteId: q.quoteId });
+    await f.sessions.end(f.who.sessionId);
+    await f.sessions.end(f.who.sessionId);
+    await assert.rejects(f.checkout.pay(f.who, order.orderId, { method: 'kaspi_qr' }), {
+      code: 'FORBIDDEN',
+    });
+    assert.equal(
+      (await f.pool.query('SELECT count(*)::int n FROM commerce_payment_attempts')).rows[0].n,
+      0,
+    );
+    // A guest whose order has an open attempt is still refused.
+    const next = await f.guest();
+    const q2 = await f.checkout.quote(next, f.cart());
+    const second = await f.checkout.create(next, { key: randomUUID(), quoteId: q2.quoteId });
+    await f.checkout.pay(next, second.orderId, { method: 'kaspi_qr' });
+    await assert.rejects(f.sessions.end(next.sessionId), { code: 'CONFLICT' });
+  }, 'kaspi_qr');
 });
 test('independent API instances serialize ending a guest against order creation', async () => {
   await fixture(async (f) => {
@@ -516,12 +587,21 @@ test('independent API instances serialize ending a guest against order creation'
       f.checkout.create(f.who, { key: randomUUID(), quoteId: quote.quoteId }),
       other.end(f.who.sessionId),
     ]);
-    assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
+    // An order that never reached payment no longer holds its guest (finding 3.7), so the end
+    // always succeeds; the invariant is the order: never an order created after the end.
+    assert.equal(results[1].status, 'fulfilled');
     const ended = (
       await f.pool.query('SELECT ended_at FROM kiosk_sessions WHERE id=$1', [f.who.sessionId])
     ).rows[0].ended_at;
-    const orders = (await f.pool.query('SELECT count(*)::int n FROM commerce_orders')).rows[0].n;
-    assert.equal(orders, ended ? 0 : 1);
+    assert.ok(ended);
+    const orders = (await f.pool.query('SELECT created_at FROM commerce_orders')).rows;
+    if (results[0].status === 'fulfilled') {
+      assert.equal(orders.length, 1);
+      assert.ok(orders[0].created_at < ended);
+    } else {
+      assert.equal(results[0].reason.code, 'FORBIDDEN');
+      assert.equal(orders.length, 0);
+    }
   });
 });
 test('unavailable QR account still permits explicitly configured invoice; wrong provider is rejected', async () => {

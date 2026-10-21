@@ -71,14 +71,19 @@ class SafeExceptionFilter implements ExceptionFilter {
         ? ErrorSchema.shape.code.safeParse(details.code)
         : null;
     const accept = request.headers.accept;
-    const preciseCheckout =
-      typeof accept === 'string' &&
-      accept
-        .split(',')
-        .some((part) => part.trim() === 'application/json; profile=pickchick.checkout-errors-v1');
+    const profiles = new Set(
+      typeof accept === 'string' ? accept.split(',').map((part) => part.trim()) : [],
+    );
+    const preciseCheckout = profiles.has('application/json; profile=pickchick.checkout-errors-v1');
+    // KITCHEN_OFFLINE joined the contract after mobile build 20 shipped with v1: that bundle
+    // validates error bodies against its own enum, so only v2 clients receive the new code.
+    const kitchenOfflineAware = profiles.has(
+      'application/json; profile=pickchick.checkout-errors-v2',
+    );
     const proposed = declared?.success ? declared.data : defaultCode;
     const code =
-      !preciseCheckout && ['RESTAURANT_CLOSED', 'AVAILABILITY_STALE'].includes(proposed)
+      (proposed === 'KITCHEN_OFFLINE' && !kitchenOfflineAware) ||
+      (!preciseCheckout && ['RESTAURANT_CLOSED', 'AVAILABILITY_STALE'].includes(proposed))
         ? defaultCode
         : proposed;
     const traceId = request.traceId ?? randomUUID();
@@ -112,15 +117,43 @@ export class HealthController {
       pickchick_http_in_flight: admission.active,
       pickchick_readiness_in_flight: admission.probes,
       pickchick_order_watches_in_flight: admission.watches,
+      pickchick_catalog_watches_in_flight: admission.catalogWatches,
       pickchick_http_admission_limit: admission.limit,
       pickchick_http_rejected_total: admission.rejected,
       pickchick_http_completed_total: admission.completed,
+      pickchick_http_long_poll_in_flight: admission.longPolls,
+      pickchick_http_long_poll_limit: admission.longPollLimit,
+      pickchick_http_long_poll_paced_in_flight: admission.paced,
+      pickchick_http_long_poll_paced_total: admission.pacedTotal,
+      pickchick_http_long_poll_client_rejected_total: admission.clientRejected,
+      pickchick_http_long_poll_clients: admission.longPollClients,
+      pickchick_http_edge_in_flight: admission.edge,
+      pickchick_http_edge_borrowed_in_flight: admission.edgeBorrowed,
+      pickchick_http_edge_limit: admission.edgeLimit,
       pickchick_db_pool_total: pool.totalCount,
       pickchick_db_pool_idle: pool.idleCount,
       pickchick_db_pool_waiting: pool.waitingCount,
       pickchick_process_heap_bytes: process.memoryUsage().heapUsed,
     };
-    return Object.entries(values)
+    // Cloud only, from the last readiness probe (never a query here): alert well before the
+    // earliest active edge credential expires (docs/operations/edge-identity-rotation.md).
+    const identity = this.resources.edgeIdentityExpiry;
+    const expiry: Record<string, number> = identity
+      ? {
+          pickchick_edge_identity_active_devices: identity.activeDevices,
+          ...(identity.minSecondsRemaining === null
+            ? {}
+            : {
+                pickchick_edge_identity_min_days_remaining:
+                  Math.floor((identity.minSecondsRemaining / 86400) * 100) / 100,
+              }),
+          pickchick_edge_identity_observed_age_seconds: Math.max(
+            0,
+            Math.round((Date.now() - identity.observedAt) / 1000),
+          ),
+        }
+      : {};
+    return Object.entries({ ...values, ...expiry })
       .map(
         ([name, value]) =>
           `# TYPE ${name} ${name.endsWith('_total') && name.includes('http_') ? 'counter' : 'gauge'}\n${name} ${value}\n`,

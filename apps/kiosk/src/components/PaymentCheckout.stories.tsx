@@ -134,6 +134,7 @@ function renderCheckout({ locale }: { locale: Locale }) {
     goMode: c.goMode,
     goMenu: c.goMenu,
     openProduct: c.openProduct,
+    closeProduct: c.closeProduct,
     openUpsell: c.openUpsell,
     openCart: c.openCart,
     goLoyalty: c.goLoyalty,
@@ -149,12 +150,14 @@ function renderCheckout({ locale }: { locale: Locale }) {
     newGuest: c.newGuest,
     touch: c.touch,
     stay: c.stay,
+    startOver: c.startOver,
   };
   const context = { locale, setLocale: () => {}, onHelp: () => {}, onCancel: () => {} };
   return !state.ready ? (
     <BootState />
   ) : state.step === 'payment' ? (
-    <PaymentScreen model={model} context={context} />
+    // «Начать заново» without its dialog: the story starts over at once.
+    <PaymentScreen model={model} context={context} onStartOver={() => void c.startOver()} />
   ) : state.step === 'recovery' ? (
     <RecoveryScreen model={model} context={context} />
   ) : (

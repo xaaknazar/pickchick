@@ -7663,6 +7663,102 @@
         }
       }
     },
+    "/v1/customer-checkout/combo-rewards": {
+      "get": {
+        "operationId": "getCustomerComboRewards",
+        "tags": [
+          "Customer identity"
+        ],
+        "security": [
+          {
+            "customerBearer": []
+          }
+        ],
+        "description": "Separate from synthetic TEST ordering. Disabled by default. Responses are no-store; keys and OTP never appear in logs. Persist device/request UUIDs before mutation, and repeat exact input after an unknown response.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerComboRewards"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or changed consent version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unverified code or revoked/expired access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicting or consumed command",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Durable OTP or SMS budget limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Identity disabled or provider unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/customer-checkout/catalog": {
       "get": {
         "operationId": "readMobilePublishedCatalog",
@@ -12171,6 +12267,7 @@
               "AVAILABILITY_STALE",
               "BRANCH_UNAVAILABLE",
               "ITEM_STOPPED",
+              "KITCHEN_OFFLINE",
               "CASH_SHIFT_REQUIRED",
               "SHIFT_CLOSED",
               "CONFLICT",
@@ -13324,7 +13421,7 @@
         "properties": {
           "pin": {
             "type": "string",
-            "pattern": "^[0-9]{4}$"
+            "pattern": "^(?:[0-9]{4}|[0-9]{6})$"
           },
           "terminal_id": {
             "type": "string",
@@ -15443,7 +15540,6 @@
               },
               "items": {
                 "minItems": 1,
-                "maxItems": 11,
                 "type": "array",
                 "items": {
                   "type": "object",
@@ -15498,7 +15594,6 @@
               },
               "items": {
                 "minItems": 1,
-                "maxItems": 11,
                 "type": "array",
                 "items": {
                   "type": "object",
@@ -16007,7 +16102,6 @@
           },
           "items": {
             "minItems": 1,
-            "maxItems": 11,
             "type": "array",
             "items": {
               "type": "object",
@@ -16746,7 +16840,6 @@
           },
           "lines": {
             "minItems": 1,
-            "maxItems": 11,
             "type": "array",
             "items": {
               "type": "object",
@@ -17366,7 +17459,6 @@
                         },
                         "lines": {
                           "minItems": 1,
-                          "maxItems": 11,
                           "type": "array",
                           "items": {
                             "type": "object",
@@ -17492,7 +17584,6 @@
                         },
                         "lines": {
                           "minItems": 1,
-                          "maxItems": 11,
                           "type": "array",
                           "items": {
                             "type": "object",
@@ -17930,7 +18021,6 @@
                         },
                         "lines": {
                           "minItems": 1,
-                          "maxItems": 11,
                           "type": "array",
                           "items": {
                             "type": "object",
@@ -18056,7 +18146,6 @@
                         },
                         "lines": {
                           "minItems": 1,
-                          "maxItems": 11,
                           "type": "array",
                           "items": {
                             "type": "object",
@@ -18387,7 +18476,6 @@
           },
           "items": {
             "minItems": 1,
-            "maxItems": 11,
             "type": "array",
             "items": {
               "type": "object",
@@ -18542,7 +18630,6 @@
           },
           "lines": {
             "minItems": 1,
-            "maxItems": 11,
             "type": "array",
             "items": {
               "type": "object",
@@ -18908,7 +18995,6 @@
                   },
                   "lines": {
                     "minItems": 1,
-                    "maxItems": 11,
                     "type": "array",
                     "items": {
                       "type": "object",
@@ -19034,7 +19120,6 @@
                   },
                   "lines": {
                     "minItems": 1,
-                    "maxItems": 11,
                     "type": "array",
                     "items": {
                       "type": "object",
@@ -19493,7 +19578,6 @@
                         },
                         "lines": {
                           "minItems": 1,
-                          "maxItems": 11,
                           "type": "array",
                           "items": {
                             "type": "object",
@@ -19619,7 +19703,6 @@
                         },
                         "lines": {
                           "minItems": 1,
-                          "maxItems": 11,
                           "type": "array",
                           "items": {
                             "type": "object",
@@ -20037,7 +20120,6 @@
               },
               "lines": {
                 "minItems": 1,
-                "maxItems": 11,
                 "type": "array",
                 "items": {
                   "type": "object",
@@ -20163,7 +20245,6 @@
               },
               "lines": {
                 "minItems": 1,
-                "maxItems": 11,
                 "type": "array",
                 "items": {
                   "type": "object",
@@ -20897,10 +20978,17 @@
             ]
           },
           "gender": {
-            "type": "string",
-            "enum": [
-              "female",
-              "male"
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "female",
+                  "male"
+                ]
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "marketing_opt_in": {
@@ -21174,6 +21262,100 @@
             "format": "uri"
           }
         }
+      },
+      "CustomerComboRewards": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "const": false
+              }
+            },
+            "required": [
+              "enabled"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "const": true
+              },
+              "programId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "giftProductId": {
+                "type": "string",
+                "const": "pick-combo"
+              },
+              "earnedUnits": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "completedCycles": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "currentStamps": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6
+              },
+              "availableGifts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "usedGifts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "reservedGifts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "reconciliationRequired": {
+                "type": "boolean"
+              },
+              "visibleStamps": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 7
+              },
+              "remainingToNextGift": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 7
+              }
+            },
+            "required": [
+              "enabled",
+              "programId",
+              "giftProductId",
+              "earnedUnits",
+              "completedCycles",
+              "currentStamps",
+              "availableGifts",
+              "usedGifts",
+              "reservedGifts",
+              "reconciliationRequired",
+              "visibleStamps",
+              "remainingToNextGift"
+            ],
+            "additionalProperties": false
+          }
+        ]
       },
       "CatalogState": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -25832,6 +26014,9 @@
                   "format": "uuid",
                   "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                 }
+              },
+              "orderingEnabled": {
+                "type": "boolean"
               }
             },
             "required": [
@@ -25931,6 +26116,37 @@
                 "commandId",
                 "result",
                 "version"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "admissionRefusals": {
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "eventId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "NOT_READY",
+                    "ITEM_STOPPED",
+                    "CONFLICT",
+                    "INVALID",
+                    "NOT_FOUND",
+                    "ROUTING_MISSING"
+                  ]
+                }
+              },
+              "required": [
+                "eventId",
+                "reason"
               ],
               "additionalProperties": false
             }
@@ -26060,7 +26276,7 @@
                                   },
                                   "totalMinor": {
                                     "type": "string",
-                                    "pattern": "^[1-9][0-9]{0,15}$"
+                                    "pattern": "^(0|[1-9][0-9]{0,15})$"
                                   },
                                   "lines": {
                                     "minItems": 1,
@@ -26383,7 +26599,7 @@
                                   },
                                   "totalMinor": {
                                     "type": "string",
-                                    "pattern": "^[1-9][0-9]{0,15}$"
+                                    "pattern": "^(0|[1-9][0-9]{0,15})$"
                                   },
                                   "lines": {
                                     "minItems": 1,
@@ -28253,6 +28469,31 @@
                   "amount_minor": {
                     "type": "string",
                     "pattern": "^(0|[1-9][0-9]{0,14})$"
+                  },
+                  "items": {
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "line_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "quantity": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000
+                        }
+                      },
+                      "required": [
+                        "line_id",
+                        "quantity"
+                      ],
+                      "additionalProperties": false
+                    }
                   }
                 },
                 "required": [
@@ -28260,6 +28501,98 @@
                   "id",
                   "capture_id",
                   "amount_minor"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "manual_refund"
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "capture_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "amount_minor": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]{0,14})$"
+                  },
+                  "bank_reference": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 120,
+                    "pattern": "^[\\p{L}\\p{N}][\\p{L}\\p{N} ._:/#№-]*$"
+                  },
+                  "refund_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "items": {
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "line_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "quantity": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000
+                        }
+                      },
+                      "required": [
+                        "line_id",
+                        "quantity"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "type",
+                  "id",
+                  "capture_id",
+                  "amount_minor",
+                  "bank_reference"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "withdraw_refund"
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "refund_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "type",
+                  "id",
+                  "refund_id"
                 ],
                 "additionalProperties": false
               }

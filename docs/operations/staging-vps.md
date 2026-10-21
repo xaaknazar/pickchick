@@ -74,7 +74,8 @@ readiness, закрытый приём заказов, 401 без авториз
 ## Копии и восстановление
 
 `infra/staging/backup.sh`: pg_dump custom без owner/ACL → age public-key encryption
-→ atomic rename + SHA256; хранение 7 дней. Timer: 02:15 UTC ежедневно с jitter
+→ atomic rename + SHA256 + зашифрованный манифест числа строк; хранение 7 дней;
+статус последнего запуска в `backups/backup-status.json`. Timer: 02:15 UTC ежедневно с jitter
 до 5 минут. `systemctl status pickchick-backup.timer` и
 `journalctl -u pickchick-backup.service` проверяют расписание и результат.
 Не путать статус timer с успешным выполнением последней копии.
@@ -91,9 +92,11 @@ readiness, закрытый приём заказов, 401 без авториз
 поверх рабочей БД. Private key подавать через SSH stdin в `age --identity /dev/stdin`,
 не записывая его на VPS. Точные результаты первого drill записываются в deployment record.
 
-Копии на том же VPS не переживут потерю VPS. Независимое хранилище в Казахстане
-ещё не предоставлено; remote backup, внешние алерты, WAL/PITR, HA и production
-RPO/RTO не настроены. Этот стенд нельзя использовать для реальных клиентов.
+Копии на том же VPS не переживут потерю VPS. С 20.10.2026 в коде есть выключенные по
+умолчанию внешняя зашифрованная копия в S3-совместимое хранилище, PITR (архивация WAL),
+учения `restore-drill.py`, файл статуса для watchdog и `OnFailure=`:
+[backup-offsite.md](backup-offsite.md). Независимое хранилище в Казахстане ещё не
+предоставлено, поэтому на VPS это не включено; HA и production RPO/RTO не доказаны.
 
 ## Откат и обслуживание
 

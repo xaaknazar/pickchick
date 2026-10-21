@@ -819,18 +819,17 @@ export class PosController {
         await this.refreshData();
         await this.readOperations();
       }
-      const shiftConflict =
-        error instanceof ApiError &&
-        error.code === 'CONFLICT' &&
-        error.status === 409 &&
-        (p.kind === 'shift_open' || p.kind === 'shift_close' || p.kind === 'shift_move');
-      if (shiftConflict) {
-        // The server rejected this command. A committed same-key replay returns success instead.
+      if (error instanceof ApiError && error.code === 'CONFLICT' && error.status === 409) {
+        // The edge stores a command result only when it commits, and a committed same-key
+        // replay returns that result. A 409 CONFLICT for this key is therefore a final
+        // rejection (stale version, consumed quote, changed shift) that a retry repeats forever.
         // Persist resolution before reading the new state; uncertain responses remain pending.
         this.save({ ...j, pending: null });
-        this.state.operationsAvailable = false;
-        this.state.shift = null;
-        await this.readOperations();
+        this.state.quote = null;
+        // A create is rejected when its quote is already an order (made on this terminal with
+        // another key): show that order instead of leaving the same cart to be sold twice.
+        if (p.kind === 'create' && (await this.adoptQuotedOrder(p))) return;
+        await this.reconcileRejected(p);
       }
       if (
         error instanceof ApiError &&
@@ -918,6 +917,45 @@ export class PosController {
       await this.refreshData();
       await this.readOperations();
     }
+  }
+  /** Selects the order a rejected create's quote already became; false if there is none. */
+  private async adoptQuotedOrder(p: Pending) {
+    await this.readOperations();
+    const found = this.state.orders.find((o) => o.quote_id === p.body.quote_id),
+      j = this.journal;
+    if (!found || !j || found.branch_id !== this.state.actor?.branch_id) return false;
+    this.save({
+      ...j,
+      selected: found.order_id,
+      known: [found.order_id, ...j.known.filter((id) => id !== found.order_id)].slice(0, 100),
+      draft: null,
+    });
+    this.state.order = found;
+    return true;
+  }
+  /** Best-effort re-read of whatever a rejected command targeted; the CONFLICT stays visible. */
+  private async reconcileRejected(p: Pending) {
+    if (p.kind === 'shift_open' || p.kind === 'shift_close' || p.kind === 'shift_move') {
+      this.state.operationsAvailable = false;
+      this.state.shift = null;
+    }
+    try {
+      if (p.kind === 'cancel') await this.readOrder(p.path.split('/')[1]!);
+      if (p.kind === 'stop') {
+        const id = parse.uuid(p.body.variant_id);
+        const s = parse.stop(await this.request(`availability/stops/${id}`));
+        if (s.variant_id !== id) throw new Error('INVALID_RESPONSE');
+        this.state.stops.set(id, s);
+      }
+      if (p.kind === 'ordering') {
+        const o = parse.ordering(await this.request('ordering'));
+        if (o.branch_id !== this.state.actor?.branch_id) throw new Error('WRONG_BRANCH');
+        this.state.ordering = o;
+      }
+    } catch {
+      // A failed refresh leaves the previous view; the next poll or manual refresh corrects it.
+    }
+    await this.readOperations();
   }
   private async readOrder(id: string) {
     const o = parse.order(await this.request(`orders/${parse.uuid(id)}`));

@@ -104,10 +104,14 @@ async function exchangeStopCommands(
         ['applied', 'conflict'].includes(receipt.result) ? receipt.version : null,
       ],
     );
+  // A durable back-office unstop (cloud055 delivery_policy 'until_reconnect') never lapses here:
+  // it waits for this cashier and gets its verdict from the edge. Read through to_jsonb so the
+  // transport keeps working on a schema before 055.
   await client.query(
     `UPDATE cloud_stop_commands SET state='expired',resolved_at=clock_timestamp()
     WHERE branch_id=$1 AND ((state='pending' AND expires_at<=clock_timestamp())
-      OR (state='delivered' AND expires_at+$2*interval '1 second'<=clock_timestamp()))`,
+      OR (state='delivered' AND expires_at+$2*interval '1 second'<=clock_timestamp()))
+      AND coalesce(to_jsonb(cloud_stop_commands)->>'delivery_policy','ttl')='ttl'`,
     [b.branch_id, STOP_VERDICT_GRACE_SECONDS],
   );
   const rows = (
@@ -123,7 +127,7 @@ async function exchangeStopCommands(
     }>(
       `WITH selected AS (
         SELECT id FROM cloud_stop_commands WHERE organization_id=$1 AND branch_id=$2
-        AND expires_at>clock_timestamp()
+        AND (expires_at>clock_timestamp() OR to_jsonb(cloud_stop_commands)->>'delivery_policy'='until_reconnect')
         AND (state='pending' OR (state='delivered' AND delivered_at<=clock_timestamp()-$3*interval '1 second'))
         ORDER BY created_at,id LIMIT 50 FOR UPDATE SKIP LOCKED)
       UPDATE cloud_stop_commands c SET state='delivered',delivered_at=clock_timestamp()
@@ -146,10 +150,50 @@ async function exchangeStopCommands(
     }));
 }
 
+/** cloud064 stores the cashier's closed ordering; checked once per pool after it exists. */
+const orderingColumns = new WeakMap<DatabasePool, true>();
+async function orderingStateStored(pool: DatabasePool, client: DatabaseClient) {
+  if (orderingColumns.has(pool)) return true;
+  const stored =
+    (
+      await client.query(
+        `SELECT 1 FROM pg_attribute WHERE attrelid=to_regclass('cloud_branch_availability')
+        AND attname='ordering_closed' AND NOT attisdropped`,
+      )
+    ).rowCount === 1;
+  if (stored) orderingColumns.set(pool, true);
+  return stored;
+}
+
+export interface PullOptions {
+  /** Paid orders still not admitted this long after payment go to review (0 = off). */
+  admissionReviewMinutes?: number;
+  /** At most one overdue check per branch and process in this interval. */
+  reviewIntervalMs?: number;
+}
+export const DEFAULT_ADMISSION_REVIEW_MINUTES = 15;
+/** FULFILLMENT_ADMISSION_REVIEW_MINUTES: whole minutes 0-1440, default 15, 0 turns it off. */
+export function fulfillmentPullOptions(env: NodeJS.ProcessEnv): PullOptions {
+  const raw = env.FULFILLMENT_ADMISSION_REVIEW_MINUTES;
+  if (raw === undefined || raw === '')
+    return { admissionReviewMinutes: DEFAULT_ADMISSION_REVIEW_MINUTES };
+  if (!/^\d{1,4}$/.test(raw) || Number(raw) > 1440)
+    throw new Error('FULFILLMENT_ADMISSION_REVIEW_MINUTES must be 0-1440');
+  return { admissionReviewMinutes: Number(raw) };
+}
+const lastReview = new Map<string, number>();
+
 /** One delivery per call. A bank/fiscal worker cannot claim this branch's commands. */
-export async function pullFulfillment(pool: DatabasePool, auth: DeviceAuth, input: unknown) {
+export async function pullFulfillment(
+  pool: DatabasePool,
+  auth: DeviceAuth,
+  input: unknown,
+  options: PullOptions = {},
+) {
   const request = parse(PullRequestSchema, input),
     identity = { ...auth };
+  const reviewMinutes = options.admissionReviewMinutes ?? DEFAULT_ADMISSION_REVIEW_MINUTES,
+    reviewInterval = options.reviewIntervalMs ?? 30_000;
   return transaction(pool, async (client) => {
     const b = await binding(client, identity),
       token = randomUUID();
@@ -175,27 +219,36 @@ export async function pullFulfillment(pool: DatabasePool, auth: DeviceAuth, inpu
       : undefined;
     if (request.availability) {
       const ids = [...new Set(request.availability.stoppedIds)].sort();
+      const values: unknown[] = [b.branch_id, b.device_id, request.availability.revision, ids],
+        columns = ['branch_id', 'device_id', 'revision', 'stopped_ids'],
+        params = ['$1', '$2', '$3', '$4::uuid[]'],
+        updates = ['device_id', 'revision', 'stopped_ids'];
+      const add = (column: string, cast: string, value: unknown) => {
+        values.push(value);
+        columns.push(column);
+        params.push(`$${values.length}::${cast}`);
+        updates.push(column);
+      };
       if (stopProtocol)
-        await client.query(
-          `INSERT INTO cloud_branch_availability(branch_id,device_id,revision,stopped_ids,stop_states) VALUES($1,$2,$3,$4::uuid[],$5::jsonb)
-          ON CONFLICT(branch_id) DO UPDATE SET revision=EXCLUDED.revision,stopped_ids=EXCLUDED.stopped_ids,stop_states=EXCLUDED.stop_states,observed_at=clock_timestamp()
-          WHERE cloud_branch_availability.device_id=EXCLUDED.device_id AND cloud_branch_availability.revision<EXCLUDED.revision`,
-          [
-            b.branch_id,
-            b.device_id,
-            request.availability.revision,
-            ids,
-            request.stopStates ? JSON.stringify(request.stopStates) : null,
-          ],
-        );
-      else
-        await client.query(
-          `INSERT INTO cloud_branch_availability(branch_id,device_id,revision,stopped_ids) VALUES($1,$2,$3,$4::uuid[])
-        ON CONFLICT(branch_id) DO UPDATE SET revision=EXCLUDED.revision,stopped_ids=EXCLUDED.stopped_ids,observed_at=clock_timestamp()
-        WHERE cloud_branch_availability.device_id=EXCLUDED.device_id AND cloud_branch_availability.revision<EXCLUDED.revision`,
-          [b.branch_id, b.device_id, request.availability.revision, ids],
-        );
+        add('stop_states', 'jsonb', request.stopStates ? JSON.stringify(request.stopStates) : null);
+      // cloud064; an edge that does not report the field is accepting, exactly as before.
+      if (await orderingStateStored(pool, client))
+        add('ordering_closed', 'boolean', request.availability.orderingEnabled === false);
+      // Only the bound device gets here (binding above). A new revision replaces the old one;
+      // a replacement device replaces the previous device's row, whatever its counter was.
+      await client.query(
+        `INSERT INTO cloud_branch_availability(${columns.join(',')}) VALUES(${params.join(',')})
+        ON CONFLICT(branch_id) DO UPDATE SET ${updates.map((c) => `${c}=EXCLUDED.${c}`).join(',')},observed_at=clock_timestamp()
+        WHERE cloud_branch_availability.device_id<>EXCLUDED.device_id OR cloud_branch_availability.revision<EXCLUDED.revision`,
+        values,
+      );
     }
+    // Refused admissions first: a paid order the cashier refused becomes a manager case and is
+    // not selected for delivery below.
+    const commerce = new CommerceRepository(pool),
+      edge = { organizationId: b.organization_id, branchId: b.branch_id, deviceId: b.device_id };
+    for (const refusal of request.admissionRefusals ?? [])
+      await commerce.recordAdmissionRefusal(client, edge, refusal);
     if (request.availabilityOnly) {
       if (!request.availability) fail('INVALID_REQUEST');
       return parse(PullResponseSchema, {
@@ -205,6 +258,21 @@ export async function pullFulfillment(pool: DatabasePool, auth: DeviceAuth, inpu
         ...(cashierReportReceipt ? { cashierReportReceipt } : {}),
         ...(stopCommands ? { stopCommands } : {}),
       });
+    }
+    // A paid order this cashier still has not admitted long after payment goes to review rather
+    // than into a later kitchen queue. Checked right before a command is chosen for delivery.
+    const now = Date.now();
+    if (reviewMinutes > 0 && now - (lastReview.get(b.branch_id) ?? -Infinity) >= reviewInterval) {
+      lastReview.set(b.branch_id, now);
+      // The check never takes the delivery down with it.
+      await client.query('SAVEPOINT admission_review');
+      try {
+        await commerce.reviewOverdueAdmissions(client, edge, reviewMinutes);
+        await client.query('RELEASE SAVEPOINT admission_review');
+      } catch {
+        await client.query('ROLLBACK TO SAVEPOINT admission_review');
+        console.error(JSON.stringify({ event: 'fulfillment_admission_review_failed' }));
+      }
     }
     const result = await client.query<{ id: string; event_type: string; payload: unknown }>(
       `WITH selected AS (
@@ -229,7 +297,7 @@ export async function pullFulfillment(pool: DatabasePool, auth: DeviceAuth, inpu
          AND COALESCE((SELECT SUM(amount_minor) FROM commerce_captures c WHERE c.order_id=o.id),0)=o.total_minor
          AND (o.fiscal_policy='deferred_pilot' OR EXISTS(SELECT 1 FROM commerce_fiscal_documents f WHERE f.order_id=o.id AND f.kind='sale' AND f.state='issued'))
        ))
-       ORDER BY e.attempts,e.sequence LIMIT 1 FOR UPDATE OF e,o SKIP LOCKED)
+       ORDER BY (e.event_type='edge.admission_requested'),e.attempts,e.sequence LIMIT 1 FOR UPDATE OF e,o SKIP LOCKED)
        UPDATE commerce_outbox e SET lease_worker=$4,lease_token=$5,lease_until=clock_timestamp()+$6*interval '1 second',attempts=attempts+1
        FROM selected s WHERE e.id=s.id RETURNING e.id,e.event_type,e.payload`,
       [

@@ -77,6 +77,7 @@ export class TerminalAccess {
     private readonly pool: DatabasePool,
     readonly branchId: string,
     readonly edgeDeviceId: string,
+    readonly presenceEnabled = false,
   ) {
     if (!UuidSchema.safeParse(branchId).success || !UuidSchema.safeParse(edgeDeviceId).success)
       throw new OrderError('INVALID_REQUEST');
@@ -250,8 +251,28 @@ export class TerminalAccess {
         auth.id,
         this.branchId,
       ]);
-      return authenticateTerminal(db, this.branchId, auth);
+      const session = await authenticateTerminal(db, this.branchId, auth);
+      if (this.presenceEnabled)
+        await db.query(
+          `INSERT INTO terminal_presence(terminal_id,generation)
+        VALUES($1,$2) ON CONFLICT(terminal_id) DO UPDATE SET generation=excluded.generation,observed_at=clock_timestamp()`,
+          [session.terminalId, session.generation],
+        );
+      return session;
     });
+  }
+  async observations() {
+    if (!this.presenceEnabled) return [];
+    return (
+      await this.pool.query(
+        `SELECT p.terminal_id AS "terminalId",p.generation,
+      greatest(0,ceil(extract(epoch FROM clock_timestamp()-p.observed_at)*1000))::integer AS "ageMs"
+      FROM terminal_presence p JOIN terminal_access_registry r ON r.terminal_id=p.terminal_id AND r.generation=p.generation
+      WHERE r.branch_id=$1 AND r.edge_device_id=$2 AND r.state='paired'
+      AND p.observed_at>clock_timestamp()-interval '24 hours' ORDER BY p.observed_at DESC LIMIT 200`,
+        [this.branchId, this.edgeDeviceId],
+      )
+    ).rows;
   }
   async receipts(): Promise<DeviceAccessReceipt[]> {
     return transaction(this.pool, async (db) => {
@@ -319,7 +340,12 @@ export async function exchangeTerminalAccess(
       'X-Device-ID': identity.device_id,
       Authorization: 'Bearer ' + identity.token,
     },
-    body: JSON.stringify({ protocolVersion: 1, receipts, resetReceipts }),
+    body: JSON.stringify({
+      protocolVersion: 1,
+      receipts,
+      resetReceipts,
+      ...(repository.presenceEnabled ? { observations: await repository.observations() } : {}),
+    }),
   });
   if (
     !response.ok ||

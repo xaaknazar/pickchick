@@ -1,0 +1,12 @@
+{
+  "bind": "127.0.0.1",
+  "port": 13440,
+  "database": ".local/photo-ipad/jobs.sqlite",
+  "tlsCert": ".local/photo-ipad/tls/certificate.pem",
+  "tlsKey": ".local/photo-ipad/tls/private-key.pem",
+  "transport": "mac-usb",
+  "usbUri": "usb://REPLACE/POS-80?serial=REPLACE",
+  "width": 576,
+  "cut": false,
+  "protocolConfirmed": false
+}
