@@ -5167,11 +5167,11 @@
         "apps/mobile/src/screens/CatalogScreens.tsx",
         "apps/mobile/src/commerce-checkout.ts"
       ],
-      "status": "active",
-      "head": "47efd26963c16cc734d9ce98c98cbf04815e98d6",
-      "updatedAt": "2026-10-17T06:26:49.997Z",
-      "summary": " 14 октября: по прямому поручению владельца выпуск iPhone с PR246/248 выполняется этим же Mac; app.json/status/roadmap временно переданы mobile-payment-recovery. Незавершённые переводы сохранены в отдельной рабочей копии, в выпуск не входят. 14 октября: временные app.json/status/roadmap возвращены после завершения mobile-payment-recovery/TestFlight20. Локальные незавершённые изменения сохранены; обычный claim отказался из-за нового shared, поэтому восстановление ранее переданных областей оформлено guard/CAS штатного ProjectSync без изменения рабочих файлов. 14 октября: владелец разрешил передать kiosk-photo точку входа, новые компоненты фотокабины, app.json/package.json киоска и общий pnpm-lock.yaml. Остальные изменения сохраняются; широкие component/screen scopes разложены на существующие файлы, переданные пути не менять до возврата. 2026-10-17: после PR251/shared76902fa4 и подтверждённой публикации только roadmap возвращены временные области: apps/mobile/src/commerce-presentation.ts, apps/mobile/src/model.ts, packages/contracts/src/index.ts, apps/mobile/src/screens/GameScreens.tsx, packages/contracts/openapi.json, docs/01-technical-spec.md, docs/project-status.md, apps/mobile/src/components/CartExtras.tsx, apps/mobile/src/screens/KaspiCheckoutScreen.tsx, docs/roadmap/project.json, apps/mobile/src/components/ComboRewardCard.tsx, scripts/contracts.mjs, apps/mobile/src/screens/ProfileScreen.tsx, apps/mobile/src/domain.ts, apps/mobile/src/store.tsx, apps/mobile/src/loyalty/combo-progress.ts, apps/mobile/src/screens/CatalogScreens.tsx, apps/mobile/src/commerce-checkout.ts. Изменения/проверки: https://github.com/xaaknazar/pickchick/pull/251#issuecomment-6230666927. Перед изменениями получить и явно объединить свежий shared; рабочие копии не менялись.",
-      "nextAction": "Перед продолжением переводов/push сохранить checkpoint и явно интегрировать shared0aa873c541e70d11c3b015a8e758df7b633c350a, сохраняя build20 и исправления оплаты/игр. Завершить локальные проверки, документ RU/KK/EN и отдельный PR. Переводы/push не входят в доступную TestFlight 0.2.0 (20)."
+      "status": "available",
+      "head": "094afaf6b36cfa0164ce38073f88baf28795a82d",
+      "updatedAt": "2026-10-21T06:02:36.027Z",
+      "summary": "2026-10-21: собственные правки сверены byte-for-byte с checkpoint-before-release, сохранены и опубликованы в094afaf6. 368 Node + 50 Python mobile, typecheck, translations --check и secret/diff checks прошли. Чистое дерево, remoteSHA совпал. PR262 ещё не слит; прежние оплаты/полноэкранные игры сохранены.",
+      "nextAction": "Не снимать области. После отдельного да владельца и merge PR262 в shared принять задачу, merge shared в эту ветку без squash/force, решить10 конфликтов с логикой release-fixes и переводами kk/en, повторить test:mobile/CI и открыть PR. До этого никаких выпусков."
     },
     {
       "id": "mobile-payment-recovery",
