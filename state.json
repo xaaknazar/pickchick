@@ -6154,9 +6154,9 @@
         "@windows/cashier"
       ],
       "status": "active",
-      "head": "00cc393d80f184698769559af550471f2c717cdf",
-      "updatedAt": "2026-10-21T13:37:51.524Z",
-      "summary": "PR270: guarded020->023 + four native runtimes, no install. Build/lint, PostgreSQL2/2, Windows mock26/26 and four real XML read-only checks pass; immutable ZIP534f1f10. Full CI pending. @windows/cashier remains photo-printer-recovery; owner asked temporary handoff, no forced release. Owner approved temporary cashier reservation21.10; return to photo-printer-recovery after verified release.",
+      "head": "0fb95c9f09031d93e38e3af2a0c4a1bcc81f591c",
+      "updatedAt": "2026-10-21T14:11:40.199Z",
+      "summary": "PR270 обновлён shared27dd + тест5c07f4b1. Прежняя CI39608957981 упала только в QA S1: frozen clock раньше созданных попыток; отсчёт исправлен от max(created_at), проверки2/2 PASS. Новая полная CI39614210844. Backup020 восстановлена47таблиц. Новый архив5249e860 staged; установка не запускалась. @windows/cashier временно передан владельцем от photo-printer-recovery.",
       "nextAction": "Wait full exact CI and owner resource transfer; verified schema020 backup/restore; guarded inspect/apply; keep rewards/identity rotation off."
     },
     {
@@ -6225,8 +6225,9 @@
         "packages/commerce-core/tests/kaspi-remote.postgres.test.mjs"
       ],
       "status": "active",
-      "head": "27dd35860cca89d4591d40aca1b0bfeb26eae115",
-      "updatedAt": "2026-10-21T14:06:42.283Z"
+      "head": "5c07f4b1401781a9a8bae83f0500ff2766f70602",
+      "updatedAt": "2026-10-21T14:11:40.199Z",
+      "summary": "Детерминированный TTL теста очереди, 2/2 локально, published5c07f4b1. Включён в PR270 через merge, рабочая логика не меняется."
     }
   ]
 }
