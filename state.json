@@ -6181,11 +6181,11 @@
         "apps/mobile/app.json",
         "@release/ios"
       ],
-      "status": "active",
+      "status": "done",
       "head": "410e5c74ea8d8d520a3a67a25cbcff57063db50e",
-      "updatedAt": "2026-10-21T14:31:37.469Z",
-      "summary": "PR272 merge06e6a57d; CI39610138148 11/11. Подписанные archive/export/JS storefront проверены, upload0.2.0(21) успешен21.10 19:29Алматы. Apple показывает Обработка; доступность группе ещё не подтверждена. Серверный push OFF.",
-      "nextAction": "Дождаться обработки Apple, добавить что тестировать и проверить существующую PickChick Internal; без внешних групп."
+      "updatedAt": "2026-10-21T14:36:23.448Z",
+      "summary": "PickChick0.2.0(21) source410e5c74; PR272 merge06e6a57d; Foundation39610138148 11/11. Archive/export/codesign/встроенный JS storefront PASS. Upload19:29Алматы, обработка завершена,19:35 существующая PickChick Internal2тестировщика показывает Тестируется. Что тестировать сохранено; внешние группы/новые тестировщики не добавлены.",
+      "nextAction": "Можно обновить iPhone в TestFlight. Физическая приёмка владельцем отдельно. Финальный протокол передан собственной release-results-1021/PR275. Server push OFF, App Store не опубликован."
     },
     {
       "id": "kitchen-package-1021",
