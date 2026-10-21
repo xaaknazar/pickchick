@@ -6115,8 +6115,10 @@
         "@vps/kaspi"
       ],
       "status": "active",
-      "head": "dba1c00404624fd27f506daf29274f0fe317782b",
-      "updatedAt": "2026-10-21T13:08:19.882Z"
+      "head": "2b73f0599f3a62ffb78ada9ef41e10a80817343e",
+      "updatedAt": "2026-10-21T13:13:11.019Z",
+      "summary": "PR269: сохраняется отображение QR create Amount0/absent из установленного135605e5, Processed без Amount подтверждается signed history/details с точным Id/суммой/Dynamic sale. Read-only существующая оплаченная операция совпала; новых QR/счетов/платежей нет. Build/lint/18 PostgreSQL/5 bank-proof/4 release guards/full pnpm test PASS. Оператор закреплён на установленныйdab3657b. Включён PR268 d6085655, полная CI идёт.",
+      "nextAction": "После API268 и полной CI269 guarded one-worker release; сохранить session/env/bridge/API/DB и audit terminal-state fixes. До этого действующийworker не менять."
     },
     {
       "id": "release-runtime-1021",
