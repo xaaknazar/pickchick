@@ -1,14 +1,51 @@
 import { privateIPv4, sendRaster } from './transport.mjs';
 import { sendMacUsb, usbPrinters, validUsbUri } from './mac-usb.mjs';
+import {
+  sendWindowsUsb,
+  windowsUsbPrinters,
+  validWindowsHelper,
+  validWindowsUsbPath,
+} from './windows-usb.mjs';
 
 /** Operator configuration only. HTTP clients cannot select or change the destination. */
 export async function createPrintTransport(
   config,
-  { platform = process.platform, discover = usbPrinters, usb = sendMacUsb, tcp = sendRaster } = {},
+  {
+    platform = process.platform,
+    discover = usbPrinters,
+    usb = sendMacUsb,
+    tcp = sendRaster,
+    discoverWindows = windowsUsbPrinters,
+    windowsUsb = sendWindowsUsb,
+  } = {},
 ) {
   const kind = config.transport ?? 'tcp';
-  if (!['tcp', 'mac-usb'].includes(kind)) throw Error('Unsupported photo printer transport.');
+  if (!['tcp', 'mac-usb', 'windows-usb'].includes(kind))
+    throw Error('Unsupported photo printer transport.');
   const enabled = config.protocolConfirmed === true;
+  if (kind === 'windows-usb') {
+    if (
+      platform !== 'win32' ||
+      !validWindowsHelper(config.windowsUsbHelper) ||
+      !validWindowsUsbPath(config.windowsUsbPath)
+    )
+      throw Error('Windows USB requires a pinned helper and exact discovered USB interface.');
+    if (
+      config.usbUri !== undefined ||
+      config.printerHost !== undefined ||
+      config.printerPort !== undefined
+    )
+      throw Error('Choose only one photo printer transport.');
+    // Keep HTTPS alive while unplugged; the kiosk can observe reconnect without a new pairing.
+    const send = enabled
+      ? (bytes) => windowsUsb(config.windowsUsbHelper, config.windowsUsbPath, bytes)
+      : async () => 'failed';
+    send.ready = async () =>
+      enabled && (await discoverWindows(config.windowsUsbHelper)).includes(config.windowsUsbPath);
+    return send;
+  }
+  if (config.windowsUsbHelper !== undefined || config.windowsUsbPath !== undefined)
+    throw Error('Choose only one photo printer transport.');
   if (kind === 'mac-usb') {
     if (platform !== 'darwin' || !validUsbUri(config.usbUri))
       throw Error('Mac USB requires macOS and an exact discovered ESC/POS USB URI.');

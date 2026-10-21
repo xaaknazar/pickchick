@@ -74,8 +74,17 @@ export class PhotoService {
       throw new PhotoError('UNAUTHORIZED', 401);
     return device;
   }
-  status() {
-    return { printingEnabled: this.enabled, width: this.width, confirmation: 'transport-only' };
+  async status() {
+    let available = this.enabled;
+    // Do not try to open an exclusively held USB handle during an active print.
+    if (available && !this.printing && this.send.ready) {
+      try {
+        available = (await this.send.ready()) === true;
+      } catch {
+        available = false;
+      }
+    }
+    return { printingEnabled: available, width: this.width, confirmation: 'transport-only' };
   }
   forget(id) {
     const p = this.previews.get(id);
@@ -238,7 +247,7 @@ export function handler(service, allowedOrigins = []) {
         return;
       }
       const device = service.authenticate(request.headers.authorization?.replace(/^Bearer /, ''));
-      if (path === '/v1/status' && request.method === 'GET') reply(200, service.status());
+      if (path === '/v1/status' && request.method === 'GET') reply(200, await service.status());
       else if (path === '/v1/previews' && request.method === 'POST') {
         const b = await body(request);
         reply(200, await service.preview(device, b.image, b.locale));
