@@ -6162,6 +6162,19 @@
       "updatedAt": "2026-10-21T13:35:12.955Z",
       "summary": "PR270: guarded020->023 + four native runtimes, no install. Build/lint, PostgreSQL2/2, Windows mock26/26 and four real XML read-only checks pass; immutable ZIP534f1f10. Full CI pending. @windows/cashier remains photo-printer-recovery; owner asked temporary handoff, no forced release.",
       "nextAction": "Wait full exact CI and owner resource transfer; verified schema020 backup/restore; guarded inspect/apply; keep rewards/identity rotation off."
+    },
+    {
+      "id": "kaspi-runtime-1021",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kaspi-runtime-1021",
+      "scopes": [
+        "infra/staging/release-kaspi-runtime-1021.py",
+        "tests/operations/test_kaspi_runtime_1021.py",
+        "docs/operations/kaspi-runtime-2026-10-21.md"
+      ],
+      "status": "active",
+      "head": "2b73f0599f3a62ffb78ada9ef41e10a80817343e",
+      "updatedAt": "2026-10-21T13:35:50.811Z"
     }
   ]
 }
