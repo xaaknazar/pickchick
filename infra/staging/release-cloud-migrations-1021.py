@@ -23,7 +23,7 @@ market, require, digest, quote, REMOTE = base.market, base.require, base.digest,
 ACCEPTED = 'd15bde82a87a85f1f5c4004c7c3be3c76d0977a2'
 BASELINE = '5b6f846b80785f915e9f8dd7d45fa72fd4bc13ee'
 MIGRATIONS = ('060_cloud_combo_rewards.sql', '064_cloud_cashier_ordering_state.sql', '066_cloud_edge_identity_rotation.sql', '068_cloud_identity_abuse_limits.sql')
-SUPPORT = {'infra/staging/combo-rewards-owner.mjs', 'infra/staging/release-cloud-migrations-1021.py', 'tests/integration/combo-rewards-owner.test.mjs', 'tests/operations/test_cloud_migrations_1021.py', 'docs/operations/deployments/2026-10-21-cloud-migrations.md'}
+SUPPORT = {'docs/project-status.md', 'docs/roadmap/project.json', 'docs/collaboration/handoff.md', 'docs/operations/release-fixes-2026-10-19/first-migration-step.md', 'infra/staging/combo-rewards-owner.mjs', 'infra/staging/release-cloud-migrations-1021.py', 'tests/integration/combo-rewards-owner.test.mjs', 'tests/operations/test_cloud_migrations_1021.py', 'docs/operations/deployments/2026-10-21-cloud-migrations.md'}
 FLAGS = ('CUSTOMER_COMBO_REWARDS_ENABLED', 'CLOUD_EDGE_IDENTITY_ROTATION_ENABLED')
 
 
@@ -159,7 +159,7 @@ class Release(base.Release):
         require({tuple(base.acl_key(r)) for r in actual} == before | expected and all(not r['grantable'] for r in actual), 'Unexpected final privileges')
         require(self.runtime() == proof['before'], 'Runtime/flags/pointers changed')
         self.save('applied.json', {'sha': self.sha, 'schema': 68, 'migrations': list(MIGRATIONS), 'runtime_unchanged': True, 'flags_disabled': True, 'backup_sha256': backup['sha256'], 'at': time.time()})
-        self.plan('applied', {'schema': 68, 'runtime_unchanged': True, 'flags_disabled': True})
+        print(json.dumps({'phase': 'applied', 'applied': True, 'schema': 68, 'runtime_unchanged': True, 'flags_disabled': True}))
 
     def run(self):
         self.source_checks()
