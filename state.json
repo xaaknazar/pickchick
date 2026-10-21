@@ -6006,11 +6006,15 @@
         "tests/unit/ops-watchdog.test.mjs",
         "tests/unit/staff-passwords.test.mjs",
         "tests/unit/watchdog-grants.test.mjs",
-        "tests/unit/watchdog-interfaces.test.mjs"
+        "tests/unit/watchdog-interfaces.test.mjs",
+        "infra/staging/release-fixes-1019-owner.mjs",
+        "tests/integration/release-fixes-owner.test.mjs",
+        "infra/windows/restore-fence-upgrade-db.mjs",
+        "tests/integration/windows-restore-fence.test.mjs"
       ],
       "status": "active",
-      "head": "7b9d9c20782c03e03ffce1c52471d6055644ce4e",
-      "updatedAt": "2026-10-21T05:26:58.818Z"
+      "head": "8d4edb748f7949e6bdc134e1e668005c7c01ade0",
+      "updatedAt": "2026-10-21T05:34:30.683Z"
     }
   ]
 }
