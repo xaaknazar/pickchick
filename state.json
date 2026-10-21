@@ -6102,6 +6102,25 @@
       "updatedAt": "2026-10-21T11:26:02.003Z",
       "summary": "PR265 https://github.com/xaaknazar/pickchick/pull/265 слит по продолжению владельца обычным merge c05b7e2d7088a1ec46cbda06c7f7478addf4f7ad. Полная Foundation CI39583769817 точного80054581 прошла11/11. Протокол и защищённый оператор в shared; cloud060/064/066/068 уже применены из8b6099d3, повторно не запускались. Серверные резервы освобождены ранее, код/документы освобождены штатным finish.",
       "nextAction": "Финансовый Mac проверил backend204d318b, но полная приёмка НЕ пройдена: UI неверно показывал ранние периоды открытыми. Исправление75bde6ec в PR266, CI39588230642 ещё идёт. Требуются принятие UI, полная CI совместного SHA и повторная фиксация финансовой приёмки; до этого API не выпускать. Cloud069 не применена; акция и автопродление выключены."
+    },
+    {
+      "id": "release-runtime-1021",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/release-runtime-1021",
+      "scopes": [
+        "infra/staging/release-runtime-1021.py",
+        "tests/operations/test_runtime_release_1021.py",
+        "docs/operations/deployments/2026-10-21-runtime-release.md",
+        "docs/operations/reviews/finance-204d318b-2026-10-21.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@vps/api",
+        "@vps/postgres"
+      ],
+      "status": "active",
+      "head": "1633bf79de64fb746ae302d52f9f8e5a769f2f9b",
+      "updatedAt": "2026-10-21T12:13:43.687Z"
     }
   ]
 }
