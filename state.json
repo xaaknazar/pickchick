@@ -6102,30 +6102,6 @@
       "nextAction": "Финансовый Mac проверил backend204d318b, но полная приёмка НЕ пройдена: UI неверно показывал ранние периоды открытыми. Исправление75bde6ec в PR266, CI39588230642 ещё идёт. Требуются принятие UI, полная CI совместного SHA и повторная фиксация финансовой приёмки; до этого API не выпускать. Cloud069 не применена; акция и автопродление выключены."
     },
     {
-      "id": "release-runtime-1021",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/release-runtime-1021",
-      "scopes": [
-        "infra/staging/release-runtime-1021.py",
-        "tests/operations/test_runtime_release_1021.py",
-        "docs/operations/deployments/2026-10-21-runtime-release.md",
-        "docs/operations/reviews/finance-204d318b-2026-10-21.md",
-        "docs/project-status.md",
-        "docs/roadmap/project.json",
-        "docs/collaboration/handoff.md",
-        "@vps/api",
-        "@vps/postgres",
-        "@vps/backoffice",
-        "@vps/kitchen",
-        "@vps/public-https"
-      ],
-      "status": "active",
-      "head": "59f0c0d98a6d0667c3b2ae8d8bbb0b1b6b7f41c1",
-      "updatedAt": "2026-10-21T12:45:39.186Z",
-      "summary": "По поручению владельца финансовая приёмка завершена вместо финансового Mac: shared1633bf79 CI39593263845 11/11, повторные финансовая/браузерная 2/2 и полный backoffice126/126. PR267 head59f0c0d9: защищённый API-only профиль schema068; CI39599253705 идёт. Прежний API ещё работает. Пакеты кабинета, кухни и Windows подготовлены. Read-only обнаружено: касса фактически schema020, все7служб running. Последний уже оплаченный QR: банк вернул Processed с совпадающим Id, но без Amount; история счётов не содержит эту операцию. Новых QR/счетов/платежей нет. Новый QR worker пока не выпускать: он несовместим с этим подтверждённым ответом; действующий сохранён.",
-      "nextAction": "Дождаться полной CI267, guarded prepare/backup/isolated API startup/apply. Затем кабинет/кухня/gateway с актуальными pins. Для кассы нужен проверенный путь020->021->022->023 и сохранение резерва photo-printer-recovery; пока не изменялась. Apple запросила вход, вопрос владельцу открыт. Акцию не включать до нового FulfillmentWorker; push069 не применяется."
-    },
-    {
       "id": "qr-bank-proof-1021",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/qr-bank-proof-1021",
@@ -6141,6 +6117,31 @@
       "status": "active",
       "head": "dba1c00404624fd27f506daf29274f0fe317782b",
       "updatedAt": "2026-10-21T13:08:19.882Z"
+    },
+    {
+      "id": "release-runtime-1021",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/release-runtime-1021",
+      "scopes": [
+        "infra/staging/release-runtime-1021.py",
+        "tests/operations/test_runtime_release_1021.py",
+        "docs/operations/deployments/2026-10-21-runtime-release.md",
+        "docs/operations/reviews/finance-204d318b-2026-10-21.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "docs/collaboration/handoff.md",
+        "@vps/api",
+        "@vps/postgres",
+        "@vps/backoffice",
+        "@vps/kitchen",
+        "@vps/public-https",
+        "tests/unit/runtime-release-1021.test.mjs"
+      ],
+      "status": "active",
+      "head": "90d48603d15f7f8e039a3555b8a37e635e23d264",
+      "updatedAt": "2026-10-21T13:10:05.042Z",
+      "summary": "По поручению владельца финансовая приёмка завершена вместо финансового Mac: shared1633bf79 CI39593263845 11/11, повторные финансовая/браузерная 2/2 и полный backoffice126/126. PR267 head59f0c0d9: защищённый API-only профиль schema068; CI39599253705 идёт. Прежний API ещё работает. Пакеты кабинета, кухни и Windows подготовлены. Read-only обнаружено: касса фактически schema020, все7служб running. Последний уже оплаченный QR: банк вернул Processed с совпадающим Id, но без Amount; история счётов не содержит эту операцию. Новых QR/счетов/платежей нет. Новый QR worker пока не выпускать: он несовместим с этим подтверждённым ответом; действующий сохранён.",
+      "nextAction": "Дождаться полной CI267, guarded prepare/backup/isolated API startup/apply. Затем кабинет/кухня/gateway с актуальными pins. Для кассы нужен проверенный путь020->021->022->023 и сохранение резерва photo-printer-recovery; пока не изменялась. Apple запросила вход, вопрос владельцу открыт. Акцию не включать до нового FulfillmentWorker; push069 не применяется."
     }
   ]
 }
