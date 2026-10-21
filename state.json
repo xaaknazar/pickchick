@@ -5146,12 +5146,13 @@
         "docs/operations/photo-printer-windows.md",
         "tools/photo-printer/server.mjs",
         "tools/photo-printer/service.mjs",
-        "tests/photo-printer/service.test.mjs"
+        "tests/photo-printer/service.test.mjs",
+        "@windows/cashier"
       ],
       "status": "active",
       "head": "4a4c9e7130910daa0b8798fd477168a31f03e042",
-      "updatedAt": "2026-10-21T13:37:51.521Z",
-      "summary": "PR260 /4a4c9e71: 41 local tests pass; photo CI pass, full CI pending. Real cashier at192.168.2.61 pinned SSH, 7 services healthy. USB helper compiled, installer syntax checked. Isolated Windows runtime renders ru/kk/en 576x718 without printing. Only staging prepared; service not installed. 21.10: владелец отдельно разрешил ручную ротацию действующего ключа кассы по edge-identity-rotation.md. Release-fixes временно использует только device identity и четыре транспортные службы; резерв photo-printer и его блокировки сохранены, принтер/кассовое приложение не изменяются. 21.10.2026 ручной ключ продлён: до20.11.2026 12:34:54 Алматы. Сверка до/после read-only, SHA host key совпал, identity ACL/file match,7служб running, edge ready, heartbeat12:37:37. Схема058 сохранена, runtime/кассовое приложение не обновлялись. Временный identity-доступ завершён, блокировка освобождена. 21.10 owner explicitly transferred only @windows/cashier temporarily to windows-runtime-1021 for runtime release; printer task/files preserved; return after verification.",
+      "updatedAt": "2026-10-21T17:27:36.612Z",
+      "summary": "PR260 /4a4c9e71: 41 local tests pass; photo CI pass, full CI pending. Real cashier at192.168.2.61 pinned SSH, 7 services healthy. USB helper compiled, installer syntax checked. Isolated Windows runtime renders ru/kk/en 576x718 without printing. Only staging prepared; service not installed. 21.10: владелец отдельно разрешил ручную ротацию действующего ключа кассы по edge-identity-rotation.md. Release-fixes временно использует только device identity и четыре транспортные службы; резерв photo-printer и его блокировки сохранены, принтер/кассовое приложение не изменяются. 21.10.2026 ручной ключ продлён: до20.11.2026 12:34:54 Алматы. Сверка до/после read-only, SHA host key совпал, identity ACL/file match,7служб running, edge ready, heartbeat12:37:37. Схема058 сохранена, runtime/кассовое приложение не обновлялись. Временный identity-доступ завершён, блокировка освобождена. 21.10 owner explicitly transferred only @windows/cashier temporarily to windows-runtime-1021 for runtime release; printer task/files preserved; return after verification. 21.10: @windows/cashier возвращён после решения владельца «Кассу установим позже». Runtime apply не запускался, прежние службы/schema020 сохранены; подготовленный пакет не устанавливать в рамках задачи принтера.",
       "nextAction": "Await physical USB move to cashier. Then exact hardware identity, full CI, TLS, metadata backup and disabled dedicated service install, short paper test, iPad pairing/reconnect acceptance. Mac manual bridge remains fallback. No LaunchAgent. No unknown replay. Private continuation in .local/photo-windows."
     },
     {
@@ -6148,12 +6149,11 @@
         "infra/windows/update-runtime-1021.ps1",
         "tests/operations/windows-runtime-1021.test.mjs",
         "tests/operations/test_windows_runtime_1021.py",
-        "tests/operations/windows-display-numbers.test.mjs",
-        "@windows/cashier"
+        "tests/operations/windows-display-numbers.test.mjs"
       ],
       "status": "active",
       "head": "0fb95c9f09031d93e38e3af2a0c4a1bcc81f591c",
-      "updatedAt": "2026-10-21T17:05:28.923Z",
+      "updatedAt": "2026-10-21T17:27:36.609Z",
       "summary": "PR270 merge29ccd86a; Foundation39614210844 11/11. Backup020/restore47таблиц PASS, пакет5249e860 и CI proof67d6592a staged. Inspect остановлен до исполнения из-за PowerShell execution policy; затем Mac оказался в другой сети, SSH192.168.2.61 timeout. Apply НЕ запускался, схема/службы прежние. Владелец ожидает вопрос о сети.",
       "nextAction": "После возвращения связи проверить host key/политики/хеши/свежесть копии<=6ч, inspect/apply и7служб/schema023/heartbeat. Не объявлять кассу обновлённой. @windows/cashier вернуть photo-printer-recovery после установки либо явного переноса владельцем."
     },
