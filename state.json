@@ -6186,8 +6186,9 @@
       ],
       "status": "active",
       "head": "410e5c74ea8d8d520a3a67a25cbcff57063db50e",
-      "updatedAt": "2026-10-21T14:04:41.216Z",
-      "summary": "PR272, Apple21 свободен, storefront, локальные тесты PASS. Профиль обновлён с прежним сертификатом для push; повторный archive идёт. Upload только после полной CI; серверный push OFF."
+      "updatedAt": "2026-10-21T14:29:56.153Z",
+      "summary": "PR272 merge06e6a57d; CI39610138148 11/11. Подписанные archive/export/JS storefront проверены, upload0.2.0(21) успешен21.10 19:29Алматы. Apple показывает Обработка; доступность группе ещё не подтверждена. Серверный push OFF.",
+      "nextAction": "Дождаться обработки Apple, добавить что тестировать и проверить существующую PickChick Internal; без внешних групп."
     },
     {
       "id": "kitchen-package-1021",
