@@ -6175,6 +6175,19 @@
       "status": "active",
       "head": "2b73f0599f3a62ffb78ada9ef41e10a80817343e",
       "updatedAt": "2026-10-21T13:35:50.811Z"
+    },
+    {
+      "id": "mobile-testflight21",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-testflight21",
+      "scopes": [
+        "apps/mobile/app.json",
+        "docs/operations/mobile-testflight21.md",
+        "@release/ios"
+      ],
+      "status": "active",
+      "head": "d6085655fd630fc43e7b7775c1e8d377fe49dccc",
+      "updatedAt": "2026-10-21T13:40:09.299Z"
     }
   ]
 }
