@@ -6216,6 +6216,17 @@
       "head": "27dd35860cca89d4591d40aca1b0bfeb26eae115",
       "updatedAt": "2026-10-21T14:03:13.727Z",
       "summary": "Запись проверенных фактов общего выпуска, без секретов и без подмены установки приёмкой. Получены три общих документа от своей задачи runtime."
+    },
+    {
+      "id": "kaspi-queue-test-1021",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kaspi-queue-test-1021",
+      "scopes": [
+        "packages/commerce-core/tests/kaspi-remote.postgres.test.mjs"
+      ],
+      "status": "active",
+      "head": "27dd35860cca89d4591d40aca1b0bfeb26eae115",
+      "updatedAt": "2026-10-21T14:06:42.283Z"
     }
   ]
 }
