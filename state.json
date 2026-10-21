@@ -6154,11 +6154,12 @@
         "infra/windows/update-runtime-1021.ps1",
         "tests/operations/windows-runtime-1021.test.mjs",
         "tests/operations/test_windows_runtime_1021.py",
-        "docs/operations/windows-runtime-2026-10-21.md"
+        "docs/operations/windows-runtime-2026-10-21.md",
+        "tests/operations/windows-display-numbers.test.mjs"
       ],
       "status": "active",
       "head": "d6085655fd630fc43e7b7775c1e8d377fe49dccc",
-      "updatedAt": "2026-10-21T13:15:51.893Z"
+      "updatedAt": "2026-10-21T13:18:27.179Z"
     }
   ]
 }
