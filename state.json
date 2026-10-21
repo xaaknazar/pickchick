@@ -5852,7 +5852,7 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-cart-lines-api-1013",
       "head": "79cd0625159c8ad331812952aa50e30e5f82701b",
-      "status": "active",
+      "status": "available",
       "scopes": [
         "packages/commerce-core/src/kiosk-checkout.ts",
         "packages/catalog-pricing/src/model.ts",
@@ -5868,9 +5868,9 @@
         "packages/commerce-core/src/model.ts",
         "packages/edge-fulfillment/src/model.ts"
       ],
-      "updatedAt": "2026-10-21T08:07:46.976Z",
-      "summary": "API6870 CI11/11 and immutable prepare passed; running API still5b6f/schema058. Windows62f CI11/11, protected schema020 backup/restore passed; runtime staged, installer not started because Mac left cashier subnet. Owner authorized Windows transfer/restart worker only. API apply intentionally follows compatible receiver.\n2026-10-14: владелец подтвердил «Да, работа остановлена — передать кассу». @windows/cashier возвращён device-center для recovery020 и подключения экранов. SSH и health/ready200 проверены, Edge/worker пока23fb; schema020 уже committed. Сохранить staged62f и не перезаписывать изменения другого выпуска. После Devices сверить новый Edge baseline перед запуском worker-only обновления киоска. 2026-10-17: после PR251/shared76902fa4 и подтверждённой публикации только roadmap возвращены временные области: packages/commerce-core/src/model.ts, packages/edge-fulfillment/src/model.ts. Изменения/проверки: https://github.com/xaaknazar/pickchick/pull/251#issuecomment-6230666927. Перед изменениями получить и явно объединить свежий shared; рабочие копии не менялись. Решение владельца 21.10.2026: разрешён обычный merge PR262 после полной зелёной Foundation CI, включая 37 путей пересечения активных claims. Это не закрывает данную задачу и не разрешает выпуск. Свою ветку интегрировать с новым shared; чужие текущие правки сохранить.\n21.10.2026: по прямому разрешению владельца PR262 с пересечениями активных claims включён обычным merge d15bde82 в shared после полной Foundation CI 39561964524 (11/11). Перед продолжением явно объединить этот shared; резерв и незавершённая работа сохранены.",
-      "nextAction": "Restore Mac connection to cashier LAN; retry pinned SSH; fresh guards, worker-only install then API encrypted backup/restore and apply; publish final roadmap and return temporary reservations."
+      "updatedAt": "2026-10-21T08:46:04.516Z",
+      "summary": "Shared d15bde82 явно объединён; оба конфликта взяты из release-fixes, production guard сохранён. Runtime-diff с shared отсутствует, согласована история. PR263: https://github.com/xaaknazar/pickchick/pull/263; SHA79cd0625159c8ad331812952aa50e30e5f82701b; Foundation CI39566976077 полностью зелёная 11/11. Ничего не выпущено.",
+      "nextAction": "Ждать отдельного разрешения владельца на merge PR263 обычным merge; сервер/кассу/миграции не выпускать. Резервы сохраняются до включения коммита в shared."
     },
     {
       "id": "mobile-l10n-push-1014",
