@@ -6076,17 +6076,15 @@
         "tests/integration/combo-rewards-owner.test.mjs",
         "tests/operations/test_cloud_migrations_1021.py",
         "docs/operations/deployments/2026-10-21-cloud-migrations.md",
-        "@vps/api",
-        "@vps/postgres",
         "docs/project-status.md",
         "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
         "docs/operations/release-fixes-2026-10-19/first-migration-step.md"
       ],
       "status": "active",
-      "head": "8b6099d34707e0ce506f7c21cdab0b51305dd59f",
-      "updatedAt": "2026-10-21T10:07:07.956Z",
-      "summary": "Владелец разрешил первый этап выпуска. Схема060/064/066/068 применена из8b6099d3 после Foundation39577902492 11/11 и encrypted backup/isolated restore/rehearsal. Данные/runtime/flags сохранены; готовится протокол. Собственные общие документы согласованно переданы из available l10n; чужие задачи не изменены."
+      "head": "800545812f4a17c378d72de35d6ab2623e6bf151",
+      "updatedAt": "2026-10-21T10:20:55.572Z",
+      "summary": "Первый этап установлен: cloud060/064/066/068 из8b6099d3, CI39577902492 11/11. Зашифрованные backup/restore и rehearsal подтверждены. Повторная проверка: API ready, активная привязанная касса heartbeat1с, ключ20.11.2026. Runtime/flags сохранены; lock и тестовый clone удалены. Серверные резервы освобождены после публикации протокола80054581. PR263/264 слиты и их собственные задачи завершены штатно. Финансовая приёмка204d318b ещё не подтверждена владельцем."
     }
   ]
 }
