@@ -5730,7 +5730,7 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/kiosk-owner-polish-1013",
       "head": "4dde5b34f116461ceeec556da961028604de65f6",
-      "status": "active",
+      "status": "done",
       "scopes": [
         "apps/kiosk/.storybook",
         "apps/kiosk/App.tsx",
@@ -6012,9 +6012,9 @@
         "@vps/roadmap",
         ".github/workflows/ci.yml"
       ],
-      "updatedAt": "2026-10-21T05:58:02.793Z",
-      "summary": "Build21 deb62522 установлен по USB поверх20, strict codesign/хеши/версия/запуск подтверждены. Полная CI установленного исходника11/11; native demo1/1, 0 ошибок/пропусков,15 снимков, заставка вне демо. Допы опущены16pt; Piko яблоко/апельсин catalog11/draft24 опубликованы по разрешению владельца без изменения цен, edge menu8 applied. Документы и пульт54348f9d опубликованы, health совпал, бизнес-сервисы неизменны. PR245 обновлён; его последний commit только документы/снимки. 14 октября: владелец явно подтвердил передачу @release/ios задаче mobile-payment-recovery; остальные области сохранены. 2026-10-14: владелец прямо разрешил временную передачу для переводов RU/KK/EN и push задаче mobile-l10n-push-1014: packages/contracts/openapi.json, docs/project-status.md, docs/roadmap/project.json. Текущие изменения сохраняются, остальные области остаются за исходной задачей. 14 октября: владелец разрешил передать kiosk-photo точку входа, новые компоненты фотокабины, app.json/package.json киоска и общий pnpm-lock.yaml. Остальные изменения сохраняются; широкие component/screen scopes разложены на существующие файлы, переданные пути не менять до возврата. 14 октября: по разрешённой передаче точки входа и уточнению владельца фотокабина переносится исключительно на заставку; WelcomeContent.tsx и WelcomeMode.tsx переданы kiosk-photo. Временная передача ci.yml mobile-combo-rewards по разрешению владельца на пересечения для акции 7+1; существующие kiosk jobs сохраняются. Владелец 14 октября разрешил временную передачу roadmap/public-https mobile-combo-rewards только для публикации статуса. 2026-10-17: после PR251/shared76902fa4 и подтверждённой публикации только roadmap возвращены временные области: @vps/public-https, @vps/roadmap, .github/workflows/ci.yml. Изменения/проверки: https://github.com/xaaknazar/pickchick/pull/251#issuecomment-6230666927. Перед изменениями получить и явно объединить свежий shared; рабочие копии не менялись.",
-      "nextAction": "Приёмка владельцем build21; дождаться CI документационного checkpoint54348f9d перед включением PR245 в shared. Сервер/Windows больших заказов отдельно от текущего device-center baseline; прежние пакеты не применять. TestFlight и реальные счета/QR/оплаты не выполнять без прямого поручения. Photo menu entry paths and iPad reserved for photo-alex under owner authorization to transfer photo entry files and install on this Mac; other design scopes retained."
+      "updatedAt": "2026-10-21T05:58:07.766Z",
+      "summary": "2026-10-21: по поручению владельца завершён устаревший резерв кода. Ветка уже объединена; чистый checkpoint синхронизирован с shared4dde5b34 без новых изменений кода. Контекст сохранён в истории и PR262.",
+      "nextAction": "Неустановленные компоненты и приёмка остаются отдельными шагами с новым claim и разрешением владельца. Этот finish ничего не выпускает."
     }
   ]
 }
