@@ -1,4 +1,5 @@
 // Release fixes 2026-10-19 (audit 1.4): reviewed edge021 -> 022 upgrade on the Windows cashier.
+import './windows-runtime-1021.test.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { mkdtemp, readdir, copyFile, rm, mkdir } from 'node:fs/promises';
