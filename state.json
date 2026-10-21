@@ -5366,8 +5366,8 @@
       ],
       "status": "active",
       "head": "4a4c9e7130910daa0b8798fd477168a31f03e042",
-      "updatedAt": "2026-10-16T12:23:50.950Z",
-      "summary": "PR260 /4a4c9e71: 41 local tests pass; photo CI pass, full CI pending. Real cashier at192.168.2.61 pinned SSH, 7 services healthy. USB helper compiled, installer syntax checked. Isolated Windows runtime renders ru/kk/en 576x718 without printing. Only staging prepared; service not installed.",
+      "updatedAt": "2026-10-21T07:30:33.640Z",
+      "summary": "PR260 /4a4c9e71: 41 local tests pass; photo CI pass, full CI pending. Real cashier at192.168.2.61 pinned SSH, 7 services healthy. USB helper compiled, installer syntax checked. Isolated Windows runtime renders ru/kk/en 576x718 without printing. Only staging prepared; service not installed. 21.10: владелец отдельно разрешил ручную ротацию действующего ключа кассы по edge-identity-rotation.md. Release-fixes временно использует только device identity и четыре транспортные службы; резерв photo-printer и его блокировки сохранены, принтер/кассовое приложение не изменяются.",
       "nextAction": "Await physical USB move to cashier. Then exact hardware identity, full CI, TLS, metadata backup and disabled dedicated service install, short paper test, iPad pairing/reconnect acceptance. Mac manual bridge remains fallback. No LaunchAgent. No unknown replay. Private continuation in .local/photo-windows."
     },
     {
@@ -6052,12 +6052,14 @@
         "apps/operations/package.json",
         "pnpm-lock.yaml",
         "docs/operations/release-fixes-2026-10-19/key-renewal-2026-10-21.md",
-        "docs/operations/release-fixes-2026-10-19/first-migration-step.md"
+        "docs/operations/release-fixes-2026-10-19/first-migration-step.md",
+        "@vps/postgres",
+        "@windows/cashier/identity"
       ],
       "status": "active",
       "head": "f8ca55d06b4d666591e84941807a37ee43364794",
-      "updatedAt": "2026-10-21T07:21:33.506Z",
-      "summary": "PR262 опубликован, f8ca55d06b4d666591e84941807a37ee43364794. Исправлены browser menu/account и параллельные transport fixtures. Foundation 39554147659: 9 jobs success; все функциональные шаги core прошли, только audit Vite GHSA-587h-7wmj-h5pm и итоговый gate failure. Тот же audit exit1 воспроизведён на чистом shared4dde5b34 с Node24.16/pnpm11.19 и идентичными lock/script SHA256; доказательство в PR. Закрыты четыре собственных слитых резерва; 37 пересечений активных задач сохранены, занято277 областей. Протоколы claims/release-plan/verification в GitHub. Ничего не выпускалось и не сливалось.",
+      "updatedAt": "2026-10-21T07:30:33.640Z",
+      "summary": "PR262 опубликован, f8ca55d06b4d666591e84941807a37ee43364794. Исправлены browser menu/account и параллельные transport fixtures. Foundation 39554147659: 9 jobs success; все функциональные шаги core прошли, только audit Vite GHSA-587h-7wmj-h5pm и итоговый gate failure. Тот же audit exit1 воспроизведён на чистом shared4dde5b34 с Node24.16/pnpm11.19 и идентичными lock/script SHA256; доказательство в PR. Закрыты четыре собственных слитых резерва; 37 пересечений активных задач сохранены, занято277 областей. Протоколы claims/release-plan/verification в GitHub. Ничего не выпускалось и не сливалось. Ручная ротация разрешена владельцем21.10; @windows/cashier/identity используется совместно с неизменным резервом photo-printer, только на время этой операции. Деплой запрещён.",
       "nextAction": "Ждать отдельного да владельца на merge PR262, только обычный merge без squash. До выпуска исправить общую зависимость Vite apps/operations и получить полную зелёную CI; security gate не обходить. После разрешённого merge: l10n094afaf6, 10 конфликтов mobile/contracts с сохранением release-поведения, kk/en, исправить CI39552778206 (формат roadmap, fixtures notifications/config, open-cart и текстовые ожидания), tests/CI/PR. Cart-lines6870af1d: два конфликта doc/device-presence, версии release-fixes, tests/CI/PR. Ключ кассы до30.10.2026 19:06:41 Алматы; ручная ротация подготовлена, требует отдельного да. Cloud060 отсутствует, текущая схема058; guarded058->060, порядок059 и совместимые API/Windows backup/runtime операторы ещё требуются. Финансы204d318b принимает финансовый Mac. CUSTOMER_COMBO_REWARDS_ENABLED не включать до нового FulfillmentWorker. VPS/касса/iPad/Apple/миграции/онлайн-пульт только по отдельному разрешению на каждый шаг; реальные платежи/QR не создавать."
     }
   ]
