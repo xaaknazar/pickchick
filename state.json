@@ -6086,6 +6086,18 @@
       "updatedAt": "2026-10-21T10:21:00.615Z",
       "summary": "PR265: https://github.com/xaaknazar/pickchick/pull/265. Применён8b6099d3 после полной CI39577902492 11/11; протокол опубликован в800545812f4a17c378d72de35d6ab2623e6bf151, дерево чистое. Новая CI отчёта39583769817 ещё идёт. Cloud068, encrypted backup/restore/rehearsal, сохранность данных/runtime/flags и повторная readiness/heartbeat подтверждены. Серверные резервы освобождены, код и документы сохраняются до включения в shared. PR263/264 слиты обычным merge после CI и закрыты штатным finish.",
       "nextAction": "Дождаться полной CI39583769817 и включить протокол/оператор PR265 в shared. Не повторять миграции058->068. Владелец подтвердил отсутствие финансовой приёмки204d318b: API отложен. Затем подготовить защищённый профиль для актуальной схемы;069 не применена, акция выключена до нового FulfillmentWorker. Онлайн-пульт и устройства не выпускать без соответствующего решения."
+    },
+    {
+      "id": "finance-acceptance-1021",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/finance-acceptance-1021",
+      "scopes": [
+        "docs/operations/reviews/finance-204d318b-2026-10-21.md",
+        "tests/backoffice/finance-period-acceptance.test.mjs"
+      ],
+      "status": "active",
+      "head": "94cdf79b08f73870b7220da04f8ee0366b3b2e82",
+      "updatedAt": "2026-10-21T10:49:12.223Z"
     }
   ]
 }
