@@ -1314,12 +1314,24 @@ export class FinanceView {
     if (!this.periodDraft.month) this.periodDraft.month = m.start.slice(0, 7) + '-01';
     const month = this.periodDraft.month;
     const state = d.periods.find((p) => p.month === month);
+    const lastClosed = d.periods
+      .filter((p) => p.closed)
+      .map((p) => p.month)
+      .sort()
+      .at(-1);
+    const inheritedLock = !!lastClosed && month < lastClosed;
+    const status = (value: string, closed: boolean) =>
+      closed
+        ? 'закрыт'
+        : lastClosed && value < lastClosed
+          ? `заблокирован закрытием ${lastClosed.slice(0, 7)}`
+          : 'открыт';
     period.append(
       el('h2', '', 'Закрытие месяца'),
       el(
         'p',
         'muted',
-        'Закрытый месяц защищён от новых проводок и отмен. Повторное открытие требует причины и сохраняется в аудите.',
+        'Закрытие защищает выбранный месяц и все более ранние: нельзя добавлять, исправлять и отменять операции или открывать счета задним числом. Проверяются дата движения денег и дата признания дохода или расхода.',
       ),
       field(
         'Месяц',
@@ -1340,6 +1352,14 @@ export class FinanceView {
         },
       ),
     );
+    if (lastClosed)
+      period.append(
+        el(
+          'p',
+          'notice',
+          `Для исправлений открывайте периоды в обратном порядке, начиная с последнего закрытого месяца: ${lastClosed.slice(0, 7)}. Более ранние месяцы заблокированы, даже если отдельно не закрывались. Открытие требует причины и сохраняется в аудите.`,
+        ),
+      );
     const change = (closed: boolean) => {
       if (!/^\d{4}-\d{2}-01$/.test(month) || this.periodDraft.reason.trim().length < 3) {
         m.error = 'Выберите месяц и укажите причину, минимум 3 символа.';
@@ -1352,15 +1372,17 @@ export class FinanceView {
         this.periodDraft.reason,
       );
     };
+    const reopen = this.act('Открыть для исправлений', () => change(false));
+    reopen.disabled ||= inheritedLock || !state?.closed;
     period.append(
-      el('p', '', `Статус ${month.slice(0, 7)}: ${state?.closed ? 'закрыт' : 'открыт'}`),
+      el('p', '', `Статус ${month.slice(0, 7)}: ${status(month, state?.closed ?? false)}`),
       this.act('Закрыть месяц', () => change(true)),
-      this.act('Открыть для исправлений', () => change(false)),
+      reopen,
       table(
         ['Месяц', 'Статус', 'Версия'],
         d.periods.map((p) => [
           p.month.slice(0, 7),
-          p.closed ? 'Закрыт' : 'Открыт',
+          status(p.month, p.closed).replace(/^./, (letter) => letter.toUpperCase()),
           String(p.revision),
         ]),
       ),
