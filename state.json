@@ -6153,9 +6153,9 @@
       ],
       "status": "active",
       "head": "0fb95c9f09031d93e38e3af2a0c4a1bcc81f591c",
-      "updatedAt": "2026-10-21T14:31:37.473Z",
-      "summary": "PR270 обновлён shared27dd + тест5c07f4b1. Прежняя CI39608957981 упала только в QA S1: frozen clock раньше созданных попыток; отсчёт исправлен от max(created_at), проверки2/2 PASS. Новая полная CI39614210844. Backup020 восстановлена47таблиц. Новый архив5249e860 staged; установка не запускалась. @windows/cashier временно передан владельцем от photo-printer-recovery.",
-      "nextAction": "Wait full exact CI and owner resource transfer; verified schema020 backup/restore; guarded inspect/apply; keep rewards/identity rotation off."
+      "updatedAt": "2026-10-21T17:05:28.923Z",
+      "summary": "PR270 merge29ccd86a; Foundation39614210844 11/11. Backup020/restore47таблиц PASS, пакет5249e860 и CI proof67d6592a staged. Inspect остановлен до исполнения из-за PowerShell execution policy; затем Mac оказался в другой сети, SSH192.168.2.61 timeout. Apply НЕ запускался, схема/службы прежние. Владелец ожидает вопрос о сети.",
+      "nextAction": "После возвращения связи проверить host key/политики/хеши/свежесть копии<=6ч, inspect/apply и7служб/schema023/heartbeat. Не объявлять кассу обновлённой. @windows/cashier вернуть photo-printer-recovery после установки либо явного переноса владельцем."
     },
     {
       "id": "kaspi-runtime-1021",
