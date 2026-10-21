@@ -6230,9 +6230,10 @@
         "@vps/public-https"
       ],
       "status": "active",
-      "head": "1cde34c3d10c2f5c3d5c258c4cc23d4f343264b8",
-      "updatedAt": "2026-10-21T14:36:11.919Z",
-      "summary": "PR275: итоговые факты сервер/касса/iPhone; протоколы собственных задач переданы для единого завершения. Киоск и фотопринтер владелец отложил21.10. Чужие задачи сохранены."
+      "head": "6e74a71043b9f0054039ea1c37c56e9900caddf9",
+      "updatedAt": "2026-10-21T17:07:54.139Z",
+      "summary": "PR275 updated6e74a710. Сервер/API/кабинет/workers/кухня установлены, TestFlight21 доступен PickChick Internal. Windows0fb прошёл11/11 и PR270 merged, но apply не начался: политика запуска и затем переход Mac в другую сеть. Киоск отложен владельцем. 7/7 roadmap, format/diff/secret checks PASS. Foundation39640870984 идёт.",
+      "nextAction": "Дождаться полной CI6e74a710, обычный merge275 и защищённая публикация roadmap с сохранением заметок. @vps/roadmap/@vps/public-https закреплены. Windows отдельная задача ждёт ответа владельца о сети."
     }
   ]
 }
