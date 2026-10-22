@@ -1,0 +1,291 @@
+@import url('/design/prototype/reference-fonts.css');
+:root {
+  color-scheme: dark;
+  --bg: #04143a;
+  --panel: #0a2050;
+  --ink: #f2f6ff;
+  --muted: #b2c3e2;
+  --accent: #ff8a3d;
+  --line: #29436d;
+  --focus: #ffd6b5;
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  scroll-padding-top: 24px;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font:
+    17px/1.65 Manrope,
+    system-ui,
+    sans-serif;
+}
+a {
+  color: inherit;
+  text-underline-offset: 0.24em;
+}
+a,
+summary {
+  touch-action: manipulation;
+}
+a:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 6px;
+  border-radius: 4px;
+}
+::selection {
+  background: var(--accent);
+  color: var(--bg);
+}
+header,
+main,
+footer {
+  max-width: 1120px;
+  margin: auto;
+  padding-inline: 32px;
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-top: 28px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  font:
+    700 30px/1 Jost,
+    system-ui,
+    sans-serif;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+}
+.brand span {
+  color: var(--accent);
+}
+nav {
+  display: flex;
+  gap: 8px;
+}
+nav a {
+  display: grid;
+  place-items: center;
+  min-width: 48px;
+  min-height: 44px;
+  text-decoration: none;
+  border-radius: 24px;
+  color: var(--muted);
+}
+nav [aria-current] {
+  background: var(--ink);
+  color: var(--bg);
+  font-weight: 700;
+}
+.skip {
+  position: absolute;
+  top: 8px;
+  left: 16px;
+  padding: 10px;
+  background: var(--ink);
+  color: var(--bg);
+  transform: translateY(-200%);
+}
+.skip:focus {
+  transform: none;
+}
+main {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1.4fr);
+  gap: 72px;
+  padding-top: 64px;
+  padding-bottom: 72px;
+}
+h1,
+h2 {
+  font-family: Jost, system-ui, sans-serif;
+  line-height: 1.12;
+  text-wrap: balance;
+}
+h1 {
+  font-size: clamp(36px, 4.8vw, 56px);
+  letter-spacing: -0.025em;
+  margin: 0 0 20px;
+}
+h2 {
+  font-size: 28px;
+  margin: 0 0 20px;
+}
+.intro {
+  font-size: 20px;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: 0 0 32px;
+}
+.contact {
+  margin-top: 40px;
+}
+.contact h2 {
+  font-size: 21px;
+}
+.call {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 15px 20px;
+  min-height: 54px;
+  background: var(--accent);
+  color: var(--bg);
+  border-radius: 28px;
+  font-weight: 800;
+  text-decoration: none;
+  text-align: center;
+}
+.call:hover {
+  background: #ffa568;
+}
+.phone {
+  display: block;
+  margin-top: 12px;
+  text-align: center;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.address {
+  margin: 28px 0 8px;
+}
+.map {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--accent);
+}
+details {
+  border-top: 1px solid var(--line);
+  padding: 22px 0;
+}
+details:last-of-type {
+  border-bottom: 1px solid var(--line);
+}
+summary {
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 44px;
+  line-height: 1.5;
+  padding-right: 8px;
+}
+summary::marker {
+  color: var(--accent);
+}
+details p {
+  margin: 12px 0 0;
+  color: var(--muted);
+  max-width: 65ch;
+}
+.prepare {
+  margin: 28px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+  max-width: 65ch;
+}
+footer {
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+  padding-bottom: 28px;
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  color: var(--muted);
+  font-size: 14px;
+}
+footer div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+@media (max-width: 760px) {
+  header,
+  main,
+  footer {
+    padding-inline: 22px;
+  }
+  header {
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+  .brand {
+    font-size: 26px;
+  }
+  main {
+    grid-template-columns: 1fr;
+    gap: 44px;
+    padding-top: 38px;
+    padding-bottom: 40px;
+  }
+  h1 {
+    font-size: 42px;
+    max-width: 14ch;
+  }
+  .intro {
+    font-size: 18px;
+    max-width: 30ch;
+  }
+  .contact {
+    margin-top: 28px;
+  }
+  .contact h2 {
+    display: none;
+  }
+  .call {
+    max-width: 420px;
+  }
+  .phone {
+    text-align: left;
+    margin-top: 14px;
+  }
+  .address {
+    margin-top: 22px;
+  }
+  h2 {
+    font-size: 26px;
+  }
+  details {
+    padding: 18px 0;
+  }
+  footer {
+    display: block;
+  }
+  footer div {
+    margin-top: 12px;
+    gap: 16px;
+  }
+}
+@media (max-width: 360px) {
+  header,
+  main,
+  footer {
+    padding-inline: 16px;
+  }
+  .brand {
+    font-size: 23px;
+  }
+  nav {
+    gap: 2px;
+  }
+  nav a {
+    min-width: 44px;
+  }
+  h1 {
+    font-size: 36px;
+  }
+}

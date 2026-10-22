@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-21",
+  "updatedAt": "2026-10-22",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -4926,6 +4926,34 @@
         "implemented": true,
         "verified": true,
         "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-appstore-1022",
+      "workstream": "mobile",
+      "title": "Оформить карточку App Store и доступ Apple",
+      "summary": "RU/en-GB, категория, подзаголовки и ручной выпуск внесены в Apple. Подготовлены защищённая настройка отдельного review-входа и страница поддержки RU/KK/EN. Серверная активация и публикация ожидают полной CI; отправка App Review не выполняется. Цены и текущая оплата сохраняются.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["mobile-testflight21"],
+      "evidence": [
+        {
+          "label": "Карточка, вход, ограничения и протокол",
+          "path": "docs/operations/mobile-appstore-2026-10-22/README.md"
+        }
+      ],
+      "acceptance": [
+        "Карточка, реальные скриншоты и сведения о данных проверены.",
+        "Проверяющий Apple входит без внешней доставки кода; реальные платежи недоступны этому аккаунту.",
+        "Полный сценарий проверки и окончательный бинарник отдельно приняты до отправки."
+      ],
+      "nextAction": "Завершить CI и защищённую публикацию поддержки, проверить отдельный вход, заполнить оставшиеся поля Apple. Не отправлять приложение на проверку.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": false,
         "accepted": false
       }
     }

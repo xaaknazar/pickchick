@@ -1,0 +1,98 @@
+{
+  "ru": {
+    "title": "Поддержка PickChick",
+    "intro": "Поможем с заказом, оплатой и аккаунтом.",
+    "call": "Позвонить в ресторан",
+    "contact": "Связаться с нами",
+    "address": "Алматы, 4-й микрорайон, 10Б",
+    "map": "Открыть в 2ГИС",
+    "help": "Ответы на частые вопросы",
+    "questions": [
+      [
+        "Деньги списались, а статус не изменился",
+        "Вернитесь в приложение и откройте заказ во вкладке «Заказы». Если подтверждение ещё не пришло, не оплачивайте повторно. Свяжитесь с рестораном: назовите номер заказа, время и сумму платежа."
+      ],
+      [
+        "Нужно изменить заказ или вернуть оплату",
+        "Позвоните в ресторан. Сотрудник проверит заказ и поможет с обращением. Возврат оформляется рестораном через используемый платёжный сервис; закрытие окна оплаты и удаление приложения не отменяют банковский платёж."
+      ],
+      [
+        "Не приходит код входа",
+        "Проверьте номер телефона и выбранный способ получения кода. Если выбран Telegram, проверьте сообщения в Telegram для этого номера. Дождитесь окончания таймера перед повторным запросом. Меню можно посмотреть без входа."
+      ],
+      [
+        "Как удалить аккаунт",
+        "Откройте «Профиль», перейдите в настройки аккаунта и выберите «Удалить аккаунт». Если войти не получается, свяжитесь с рестораном. Удаление профиля не является возвратом оплаты; сведения, необходимые для учёта заказов и исполнения обязательств, обрабатываются согласно политике конфиденциальности."
+      ]
+    ],
+    "prepare": "Для обращения подготовьте номер заказа, время и описание проблемы. Пароль банка, PIN, CVV и коды входа сообщать не нужно.",
+    "privacy": "Конфиденциальность",
+    "terms": "Условия использования",
+    "language": "Язык страницы",
+    "skip": "Перейти к ответам"
+  },
+  "kk": {
+    "title": "PickChick қолдау қызметі",
+    "intro": "Тапсырыс, төлем және аккаунт бойынша көмектесеміз.",
+    "call": "Мейрамханаға қоңырау шалу",
+    "contact": "Бізбен байланысу",
+    "address": "Алматы, 4-ші шағын аудан, 10Б",
+    "map": "2ГИС-те ашу",
+    "help": "Жиі қойылатын сұрақтар",
+    "questions": [
+      [
+        "Ақша есептен шығарылды, бірақ мәртебе өзгермеді",
+        "Қосымшаға оралып, «Тапсырыстар» бөлімінен тапсырысты ашыңыз. Растау әлі келмесе, қайта төлем жасамаңыз. Мейрамханаға хабарласып, тапсырыс нөмірін, төлем уақытын және сомасын айтыңыз."
+      ],
+      [
+        "Тапсырысты өзгерту немесе ақшаны қайтару керек",
+        "Мейрамханаға қоңырау шалыңыз. Қызметкер тапсырысты тексеріп, өтінішіңізді қарауға көмектеседі. Ақшаны қайтаруды мейрамхана пайдаланылатын төлем сервисі арқылы рәсімдейді. Төлем терезесін жабу немесе қосымшаны жою банк төлемін тоқтатпайды."
+      ],
+      [
+        "Кіру коды келмейді",
+        "Телефон нөмірін және кодты алу тәсілін тексеріңіз. Telegram таңдалса, осы нөмірге тіркелген Telegram хабарламаларын қараңыз. Кодты қайта сұрамас бұрын таймердің аяқталуын күтіңіз. Мәзірді аккаунтқа кірмей-ақ көруге болады."
+      ],
+      [
+        "Аккаунтты қалай жоюға болады",
+        "«Профиль» бөлімін ашып, аккаунт баптауларына өтіңіз де, «Аккаунтты жою» тармағын таңдаңыз. Кіру мүмкін болмаса, мейрамханаға хабарласыңыз. Профильді жою төлемді қайтармайды. Тапсырыстарды есепке алу және міндеттемелерді орындау үшін қажетті мәліметтер құпиялылық саясатына сәйкес өңделеді."
+      ]
+    ],
+    "prepare": "Хабарласар алдында тапсырыс нөмірін, уақытын және мәселенің сипаттамасын дайындаңыз. Банк құпиясөзін, PIN, CVV немесе кіру кодтарын айтпаңыз.",
+    "privacy": "Құпиялылық",
+    "terms": "Пайдалану шарттары",
+    "language": "Бет тілі",
+    "skip": "Жауаптарға өту"
+  },
+  "en": {
+    "title": "PickChick support",
+    "intro": "Help with your order, payment and account.",
+    "call": "Call the restaurant",
+    "contact": "Get in touch",
+    "address": "Almaty, 4th microdistrict, 10B",
+    "map": "Open in 2GIS",
+    "help": "Frequently asked questions",
+    "questions": [
+      [
+        "I was charged, but my order status has not changed",
+        "Return to the app and open your order in the Orders tab. If confirmation is still pending, do not pay again. Contact the restaurant with your order number, payment time and amount."
+      ],
+      [
+        "I need to change my order or request a refund",
+        "Call the restaurant. A member of staff will check your order and help with your request. The restaurant processes refunds through its payment service. Closing the payment window or deleting the app does not cancel a bank payment."
+      ],
+      [
+        "My sign-in code has not arrived",
+        "Check your phone number and the selected delivery method. If you selected Telegram, check Telegram messages for that number. Wait for the timer to finish before requesting another code. You can browse the menu without signing in."
+      ],
+      [
+        "How do I delete my account?",
+        "Open Profile, go to account settings and choose Delete account. If you cannot sign in, contact the restaurant. Deleting a profile does not refund a payment. Information needed for order records and existing obligations is handled according to our privacy policy."
+      ]
+    ],
+    "prepare": "Have your order number, time and a description of the issue ready. Do not share your bank password, PIN, CVV or sign-in codes.",
+    "privacy": "Privacy policy",
+    "terms": "Terms of use",
+    "language": "Page language",
+    "skip": "Skip to answers"
+  }
+}
