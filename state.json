@@ -6258,11 +6258,12 @@
         "apps/mobile/package.json",
         "apps/kiosk/package.json",
         "apps/operations-storybook/package.json",
-        "pnpm-lock.yaml"
+        "pnpm-lock.yaml",
+        "@release/ios"
       ],
       "status": "active",
-      "head": "23860557a0a76e85d45457b955957ecb2db14960",
-      "updatedAt": "2026-10-22T07:42:55.546Z",
+      "head": "db6e0345debcf9f7b412f7586b98d235554e37e7",
+      "updatedAt": "2026-10-22T08:41:11.058Z",
       "summary": "23860557 остаётся чистым опубликованным checkpoint PR276. 22.10 исправленные контакты App Review сохранены в Apple, после reload имена подтверждены; значения не опубликованы. Владелец прислал данные, но владение выделенным review-номером пока не подтвердил; уточнение задано, enable не выполнен. Read-only preflight23860557 PASS, customer_collision=false. Apple отклонила сохранение URL политики общей ошибкой: App Privacy draft не опубликован, текущее сохранение URL не подтверждено. Source archives23860557 переданы и хеши проверены. API/public pointers прежние, чужой lock отсутствует. e145 CI отменена новым checkpoint; текущая Foundation39738134774 ещё выполняется, девять отдельных jobs PASS.",
       "nextAction": "Дождаться полной CI39738134774 точного23860557; не посылать новый code/docs commit до завершения, чтобы не отменить CI. Поддержка inspect/apply из23860557, затем URL Apple. Review enable только после подтверждения владельцем принадлежащего ему выделенного номера; вопрос pending. Разобрать ошибку Apple сохранения privacy URL, затем отдельное юридическое подтверждение. Обновить README/status/roadmap итогами после фактического применения. Никаких заказов/платежей/QR, merge shared, нового бинарника или App Review submit. PR276 содержит актуальный внешний статус."
     }
