@@ -6247,11 +6247,13 @@
         "@apple/appstore",
         "@vps/api",
         "@vps/roadmap",
-        "@vps/public-https"
+        "@vps/public-https",
+        "infra/staging/app-review-access.py",
+        "tests/operations/test_app_review_access.py"
       ],
       "status": "active",
       "head": "4cc11e052849f792b98062fe8688abe7bb03da09",
-      "updatedAt": "2026-10-22T05:28:02.307Z"
+      "updatedAt": "2026-10-22T05:34:35.974Z"
     }
   ]
 }
