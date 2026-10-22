@@ -6249,11 +6249,14 @@
         "@vps/roadmap",
         "@vps/public-https",
         "infra/staging/app-review-access.py",
-        "tests/operations/test_app_review_access.py"
+        "tests/operations/test_app_review_access.py",
+        "infra/public-staging/support",
+        "infra/public-staging/support-page-release.py",
+        "tests/operations/test_support_page_release.py"
       ],
       "status": "active",
       "head": "4cc11e052849f792b98062fe8688abe7bb03da09",
-      "updatedAt": "2026-10-22T05:34:35.974Z"
+      "updatedAt": "2026-10-22T06:00:44.790Z"
     }
   ]
 }
