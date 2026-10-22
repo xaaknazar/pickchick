@@ -6290,9 +6290,9 @@
         "tests/mobile/browser_orders_redesign.py",
         "tests/mobile/browser_published_catalog.py"
       ],
-      "status": "available",
+      "status": "active",
       "head": "10c0eaa41450667f987fc5d98ba62639687b365d",
-      "updatedAt": "2026-10-22T13:00:53.411Z",
+      "updatedAt": "2026-10-22T13:18:09.987Z",
       "summary": "Build23 processed and Testing in PickChick Internal2; legal/API c3a0 published after Foundation11/11, backup/restore and review-login PASS. Protocol10c0eaa4 pushed. App Review attempt blocked by Apple content-rights declaration; owner confirmation requested. No real payments.",
       "nextAction": "After owner confirms content rights, complete Apple submission with build23; manual public release preserved. PR276 not merged; online roadmap still previous source."
     }
