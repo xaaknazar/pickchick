@@ -6290,11 +6290,11 @@
         "tests/mobile/browser_orders_redesign.py",
         "tests/mobile/browser_published_catalog.py"
       ],
-      "status": "active",
-      "head": "c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da",
-      "updatedAt": "2026-10-22T11:58:30.566Z",
-      "summary": "c3a0fbee опубликован в PR276. Передача единственного теста browser_published_catalog согласована владельцем, выполнена; полный opt-in сценарий PASS (2 quotes, orders/attempts/outbox пусты). Native Release23 simulator подписан Xcode, ошибка Keychain исчезла; guest game штатно требует вход. CI39774362378 идёт; юридические страницы/API/build23/App Review ещё не опубликованы.",
-      "nextAction": "Ждём ответ владельца о передаче одного tests/mobile/browser_published_catalog.py от mobile-luma-patterns; подготовлен однострочный fixture patch в .local/appstore-1022/published-catalog-consent.patch, занятый файл не изменён. После согласования claim, тест, push/полная CI; затем legal-update.py и appstore-legal-release.py по протоколу с backup/restore. Проверить авторизованный native, подписать/загрузить23, обновить review notes/бинарник. Не считать демо реальной оплатой. См. docs/operations/mobile-appstore-2026-10-22/legal-and-review-demo.md."
+      "status": "available",
+      "head": "10c0eaa41450667f987fc5d98ba62639687b365d",
+      "updatedAt": "2026-10-22T13:00:53.411Z",
+      "summary": "Build23 processed and Testing in PickChick Internal2; legal/API c3a0 published after Foundation11/11, backup/restore and review-login PASS. Protocol10c0eaa4 pushed. App Review attempt blocked by Apple content-rights declaration; owner confirmation requested. No real payments.",
+      "nextAction": "After owner confirms content rights, complete Apple submission with build23; manual public release preserved. PR276 not merged; online roadmap still previous source."
     }
   ]
 }
