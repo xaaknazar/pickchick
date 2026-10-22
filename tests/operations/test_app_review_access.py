@@ -68,6 +68,17 @@ class ReviewAccessTests(unittest.TestCase):
         self.assertEqual(encoded['ports'], [3100])
         self.assertEqual(source['environment']['EXISTING'], 'prefix${NOT_AN_ENV}suffix$')
 
+    def test_installed_oci_revision_without_optional_environment_marker(self):
+        sha = 'a'*40
+        container = {'Config': {'Labels': {'org.opencontainers.image.revision': sha}}}
+        m.verify_revision(container, {}, sha)
+        m.verify_revision(container, {'RELEASE_SHA': sha}, sha)
+        for state, env in (({'Config': {'Labels': {}}}, {}),
+                           (container, {'RELEASE_SHA': 'b'*40}),
+                           ({'Config': {'Labels': {'org.opencontainers.image.revision': 'b'*40}}}, {})):
+            with self.assertRaises(m.Refused):
+                m.verify_revision(state, env, sha)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -76,6 +76,13 @@ def verify_environment(before, after, wanted):
     require({k: after.get(k) for k in KEYS} == wanted, 'Runtime review configuration differs')
 
 
+def verify_revision(container, environment, expected):
+    # The installed API records source in the OCI revision label, not RELEASE_SHA.
+    require(container['Config'].get('Labels', {}).get('org.opencontainers.image.revision') == expected,
+            'Running source differs')
+    require(environment.get('RELEASE_SHA', expected) == expected, 'Runtime source marker conflicts')
+
+
 def compose_literals(value):
     """A resolved Compose model may contain literal dollars in existing secrets."""
     if isinstance(value, str):
@@ -159,7 +166,7 @@ def main(a):
     before, before_env = snapshot(private_run)
     require(before['Image'] == a.expected_image and before['State']['Health']['Status'] == 'healthy',
             'API image or readiness changed')
-    require(before_env.get('RELEASE_SHA') == a.expected_api_sha, 'Running source differs')
+    verify_revision(before, before_env, a.expected_api_sha)
     require(before_env.get('CUSTOMER_AUTH_ENABLED') == 'true', 'Customer identity is not enabled')
     config = json.loads(private_run(command + ['config', '--format', 'json']))
     updated = candidate(config, wanted)
@@ -201,6 +208,7 @@ def main(a):
     r.save(journal/'attempt.json', {**outcome, 'compose_after_sha256': r.digest(compose)})
     private_run(command + ['up', '-d', '--no-deps', '--wait', '--wait-timeout', '120', 'api'], timeout=180)
     after, after_env = snapshot(private_run)
+    verify_revision(after, after_env, a.expected_api_sha)
     require(after['Image'] == before['Image'] and after['State']['Health']['Status'] == 'healthy', 'Image or health differs')
     verify_environment(before_env, after_env, wanted)
     for key in ('Cmd', 'Entrypoint', 'User', 'WorkingDir'):
