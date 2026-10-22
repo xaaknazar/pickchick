@@ -241,3 +241,8 @@ Read-only сверка политики: необязательные имя, д
 - [Возрастные определения](https://developer.apple.com/help/app-store-connect/reference/app-information/age-ratings-values-and-definitions/)
 - [App Privacy](https://developer.apple.com/app-store/app-privacy-details/)
 - [Готовность к проверке](https://developer.apple.com/help/app-review/before-submitting-for-review/complete-review)
+
+Последнее уточнение владельца: уменьшить логотип на синем фоне. Финальный
+вариант для build22 занимает около71% ширины, больше первоначальных47%,
+но меньше предварительных84%. PNG1024×1024 RGB без alpha. Предварительная
+нативная проверка84% не подменяет проверку финальной иконки; TestFlight разрешён.
