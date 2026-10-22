@@ -67,6 +67,15 @@ export const OtpVerifySchema = z
 export const RefreshRequestSchema = z
   .object({ refresh_token: Token, device_id: Uuid, request_id: Uuid })
   .strict();
+export const CustomerLegalSchema = z
+  .object({
+    version: z.string().min(1).max(100),
+    terms_url: z.url(),
+    privacy_url: z.url(),
+    accepted: z.boolean(),
+  })
+  .strict();
+export type CustomerLegal = z.infer<typeof CustomerLegalSchema>;
 export const CustomerPatchSchema = z
   .object({
     nickname: z
@@ -82,6 +91,14 @@ export const CustomerPatchSchema = z
     // Voluntary (audit 7.7): null clears a previously saved value.
     gender: z.enum(['female', 'male']).nullable().optional(),
     marketing_opt_in: z.boolean().optional(),
+    legal_consents: z
+      .object({
+        terms_version: z.string().min(1).max(100),
+        privacy_version: z.string().min(1).max(100),
+        accepted: z.literal(true),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .refine((v) => Object.keys(v).length > 0);

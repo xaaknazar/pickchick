@@ -1,0 +1,31 @@
+{
+  "appId": "6809208492",
+  "bundleId": "kz.pickchick.app",
+  "sourceSha": "410e5c74ea8d8d520a3a67a25cbcff57063db50e",
+  "category": "FOOD_AND_DRINK",
+  "copyright": "2026 PICK CHICK ALA AP",
+  "releaseMode": "MANUAL",
+  "localizations": {
+    "ru": {
+      "name": "PickChick",
+      "subtitle": "Меню, комбо и мини-игры",
+      "promotionalText": "Любимые блюда PickChick под рукой: выбирайте комбо, добавляйте напитки и соусы, находите ресторан и играйте в мини-игры.",
+      "description": "PickChick - приложение ресторана с куриными блюдами и комбо в Алматы.\n\nВЫБИРАЙТЕ ПО ВКУСУ\nСмотрите фотографии блюд, состав и доступные варианты. Собирайте своё комбо, выбирайте напитки и соусы, меняйте количество и проверяйте итог в корзине.\n\nРЕСТОРАН РЯДОМ\nУзнайте адрес и часы работы PickChick. Откройте расположение ресторана в 2ГИС и спланируйте визит.\n\nМИНИ-ИГРЫ\nСделайте паузу с Pick Blocks, Pick Run, Pick Man и Magic Sort. Игры открываются на весь экран.\n\nНА ВАШЕМ ЯЗЫКЕ\nИнтерфейс доступен на казахском, русском и английском. Выбранный язык сохраняется.\n\nВАШ ПРОФИЛЬ\nУправляйте данными профиля и просматривайте свои заказы. Пол и дата рождения указываются по желанию. Удаление аккаунта доступно в приложении.\n\nМеню, цены, наличие блюд и доступность оформления показываются в приложении. Обслуживание доступно в ресторане PickChick в Алматы. Для входа используется номер телефона и код через Telegram.",
+      "keywords": "курица,комбо,бургеры,меню,Алматы,еда"
+    },
+    "en-GB": {
+      "name": "PickChick",
+      "subtitle": "Chicken, combos & mini-games",
+      "promotionalText": "Explore PickChick chicken and combos, choose your drinks and sauces, find the restaurant and enjoy quick mini-games.",
+      "description": "PickChick is your companion to our chicken restaurant in Almaty, Kazakhstan.\n\nMAKE IT YOUR COMBO\nExplore food photos, ingredients and available options. Choose drinks and sauces, adjust quantities and review your basket total.\n\nFIND PICKCHICK\nCheck the restaurant address and opening hours. Open its location in 2GIS to plan your visit.\n\nPLAY A QUICK GAME\nTake a break with Pick Blocks, Pick Run, Pick Man and Magic Sort. Mini-games open in full screen.\n\nCHOOSE YOUR LANGUAGE\nUse the app in Kazakh, Russian or English. Your language preference is saved.\n\nYOUR PROFILE\nManage your profile and view your orders. Gender and date of birth are optional. You can delete your account in the app.\n\nThe app shows current menu prices, item availability and ordering availability. Restaurant service is available in Almaty. Sign-in uses a phone number and a verification code delivered through Telegram.",
+      "keywords": "chicken,combos,burgers,food,menu,restaurant,Almaty,minigames"
+    },
+    "en-US": {
+      "name": "PickChick",
+      "subtitle": "Chicken, combos & mini-games",
+      "promotionalText": "Explore PickChick chicken and combos, choose your drinks and sauces, find the restaurant and enjoy quick mini-games.",
+      "description": "PickChick is your companion to our chicken restaurant in Almaty, Kazakhstan.\n\nMAKE IT YOUR COMBO\nExplore food photos, ingredients and available options. Choose drinks and sauces, adjust quantities and review your basket total.\n\nFIND PICKCHICK\nCheck the restaurant address and opening hours. Open its location in 2GIS to plan your visit.\n\nPLAY A QUICK GAME\nTake a break with Pick Blocks, Pick Run, Pick Man and Magic Sort. Mini-games open in full screen.\n\nCHOOSE YOUR LANGUAGE\nUse the app in Kazakh, Russian or English. Your language preference is saved.\n\nYOUR PROFILE\nManage your profile and view your orders. Gender and date of birth are optional. You can delete your account in the app.\n\nThe app shows current menu prices, item availability and ordering availability. Restaurant service is available in Almaty. Sign-in uses a phone number and a verification code delivered through Telegram.",
+      "keywords": "chicken,combos,burgers,food,menu,restaurant,Almaty,minigames"
+    }
+  }
+}

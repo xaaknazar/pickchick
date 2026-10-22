@@ -304,6 +304,8 @@ jobs:
           .local/design-venv/bin/python tests/mobile/browser_customer_account.py
           # Isolated Kaspi checkout fixture: no bank, no real customer or VPS requests.
           EXPO_PUBLIC_CUSTOMER_AUTH=server EXPO_PUBLIC_KASPI_CHECKOUT=1 EXPO_PUBLIC_UNPAID_TEST_ORDERS=1 EXPO_PUBLIC_PUBLISHED_CATALOG=0 pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/customer-auth-web
+          MOBILE_REVIEW_DEMO_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_review_demo.py
+          CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_checkout_legal.py
           .local/design-venv/bin/python tests/mobile/browser_kaspi_checkout.py
           # Audit 19.10 (0.2/2.0, 2.1, 2.4, 2.5): the Kaspi checkout never traps the customer.
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_checkout_traps.py
@@ -345,7 +347,8 @@ jobs:
   kiosk:
     name: iPad kiosk state, bundles and browser recovery
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # Browser dependency downloads can take 9 minutes; retain time for all regressions.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:

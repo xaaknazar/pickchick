@@ -1,3 +1,5 @@
+import { useCheckoutLegal } from '../components/CheckoutLegal';
+import { needsCheckoutConsent } from '../checkout-legal';
 import { t, localize, useLocale } from '../i18n';
 import { matchesPaidComboCart } from '../loyalty/combo-progress';
 import { PRICES_UPDATED } from '../cart-reprice';
@@ -72,9 +74,20 @@ const root = '/v1/customer-checkout';
 export function KaspiCheckoutScreen(props: ScreenProps) {
   useLocale();
   const { account } = useAccount();
-  return <KaspiCheckoutSession {...props} key={account?.customerId ?? 'guest'} />;
+  return <LegalCheckoutSession {...props} key={account?.customerId ?? 'guest'} />;
 }
-function KaspiCheckoutSession(props: ScreenProps) {
+function LegalCheckoutSession(props: ScreenProps) {
+  const legal = useCheckoutLegal();
+  return (
+    <>
+      <KaspiCheckoutSession {...props} authorizeLegal={legal.authorize} />
+      {legal.dialog}
+    </>
+  );
+}
+function KaspiCheckoutSession(
+  props: ScreenProps & { authorizeLegal: (signal?: AbortSignal) => Promise<void> },
+) {
   useLocale();
   const auth = useAccount(),
     customerId = auth.account?.customerId;
@@ -143,13 +156,14 @@ function KaspiCheckoutSession(props: ScreenProps) {
     draftOwns(pending.current, target.orderId) && draftCanAutoSend(pending.current, Date.now());
   const access = auth.withOrderAccess;
   const request = useCallback(
-    (path: string, method: 'GET' | 'POST' = 'GET', body?: unknown, signal?: AbortSignal) => {
+    async (path: string, method: 'GET' | 'POST' = 'GET', body?: unknown, signal?: AbortSignal) => {
       if (!customerId || !access) return Promise.reject(new Error('UNAUTHORIZED'));
+      if (needsCheckoutConsent(path, method)) await props.authorizeLegal(signal);
       return access(customerId, (token) =>
         commerceRequest(`${root}${path}`, method, body, token, signal),
       );
     },
-    [customerId, access],
+    [customerId, access, props.authorizeLegal],
   );
   const accept = useCallback(
     async (value: unknown, adopt = true) => {
@@ -437,8 +451,16 @@ function KaspiCheckoutSession(props: ScreenProps) {
   }, [displayedCartTotal]);
   const submit = async () => {
     if (lock.current || !cart.current.length) return;
-    const acceptedTotal = quote?.totalMinor ?? localTotal;
     lock.current = true;
+    setBusy(true);
+    try {
+      await props.authorizeLegal();
+    } catch {
+      lock.current = false;
+      setBusy(false);
+      return;
+    }
+    const acceptedTotal = quote?.totalMinor ?? localTotal;
     bootstrap.current?.abort();
     const controller = new AbortController();
     preparation.current = controller;
@@ -570,6 +592,14 @@ function KaspiCheckoutSession(props: ScreenProps) {
     if (lock.current || !order) return;
     lock.current = true;
     setBusy(true);
+    try {
+      await props.authorizeLegal();
+    } catch {
+      lock.current = false;
+      setBusy(false);
+      setPaymentPaused(true);
+      return;
+    }
     setPaymentPaused(false);
     setError(null);
     const controller = new AbortController();
@@ -611,7 +641,15 @@ function KaspiCheckoutSession(props: ScreenProps) {
       lock.current = false;
       setBusy(false);
     }
-  }, [order, request, accept, refreshChangedMenu, key, props.model.refreshCatalog]);
+  }, [
+    order,
+    request,
+    accept,
+    refreshChangedMenu,
+    key,
+    props.model.refreshCatalog,
+    props.authorizeLegal,
+  ]);
   useEffect(() => {
     // Explicit consent is persisted before order creation. Admission can arrive later.
     // Existing pre-consent drafts retain the manual action; no charge on a passive history visit.

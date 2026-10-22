@@ -33,7 +33,7 @@ with sync_playwright() as p:
    elif path.startswith('/v1/customer-checkout/') and not path.endswith('/availability'):
     assert r.request.headers.get('accept')=='application/json; profile=pickchick.checkout-comments-v1, application/json; profile=pickchick.checkout-errors-v1, application/json; profile=pickchick.checkout-errors-v2'
    data=None
-   if path=='/v1/customers/me':data={'customer':customer}
+   if path=='/v1/customers/me':data={'customer':customer,'legal':{'version':'fixture-v1','terms_url':'https://example.test/terms','privacy_url':'https://example.test/privacy','accepted':True}}
    elif path=='/v1/customer-checkout/availability' and method=='GET':data={'enabled':True,'fresh':True,'signature':'a'*64,'products':[{'id':p['id'],'available':True,'stoppedOptions':[]} for p in CATALOG['products']]}
    elif path=='/v1/auth/config':data={'enabled':True,'delivery_consent_required':True,'consent_version':'fixture-v1','terms_url':'https://example.test/terms','privacy_url':'https://example.test/privacy'}
    elif path=='/v1/capabilities':data={'schema_version':1,'environment':'staging','data_mode':'pilot','ordering_enabled':False,'features':{'phone_auth':True,'test_order_flow':True,**{k:False for k in ['payments','fiscal','checkout','loyalty']}}}
