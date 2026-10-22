@@ -6287,11 +6287,12 @@
         ".github/workflows/ci.yml",
         "@vps/postgres",
         "tests/mobile/browser_combo_rewards.py",
-        "tests/mobile/browser_orders_redesign.py"
+        "tests/mobile/browser_orders_redesign.py",
+        "tests/mobile/browser_published_catalog.py"
       ],
       "status": "active",
       "head": "1a23fd12a0bc34aeeacba3f79cc89f74c732d116",
-      "updatedAt": "2026-10-22T11:44:31.726Z",
+      "updatedAt": "2026-10-22T11:44:42.145Z",
       "summary": "Владелец подтвердил storefront-2026-10-22 и отдельное согласие. Код и протокол опубликованы: 0ceff4c6, checkpoint 1a23fd12, PR276. Mobile397+59, identity56, Kaspi browser4размера/traps, demoRU/KK/EN, consent320/393 PASS. Native sim0.2.0(23) собран/запущен; игра в гостевом симуляторе показала ошибку чтения доступа, авторизованный нативный путь ещё не принят. Новые условия/API/build23/App Review не опубликованы; цены/банк/касса без изменений. Полная CI ещё не подтверждена.",
       "nextAction": "Ждём ответ владельца о передаче одного tests/mobile/browser_published_catalog.py от mobile-luma-patterns; подготовлен однострочный fixture patch в .local/appstore-1022/published-catalog-consent.patch, занятый файл не изменён. После согласования claim, тест, push/полная CI; затем legal-update.py и appstore-legal-release.py по протоколу с backup/restore. Проверить авторизованный native, подписать/загрузить23, обновить review notes/бинарник. Не считать демо реальной оплатой. См. docs/operations/mobile-appstore-2026-10-22/legal-and-review-demo.md."
     }
