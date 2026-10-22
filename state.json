@@ -6252,11 +6252,13 @@
         "tests/operations/test_app_review_access.py",
         "infra/public-staging/support",
         "infra/public-staging/support-page-release.py",
-        "tests/operations/test_support_page_release.py"
+        "tests/operations/test_support_page_release.py",
+        "apps/mobile/app.json",
+        "apps/mobile/assets/app-icon.png"
       ],
       "status": "active",
-      "head": "4cc11e052849f792b98062fe8688abe7bb03da09",
-      "updatedAt": "2026-10-22T06:00:44.790Z"
+      "head": "955934cdd99f49b4645d64a0d423f0b7546c0f20",
+      "updatedAt": "2026-10-22T06:33:55.999Z"
     }
   ]
 }
