@@ -8,9 +8,9 @@
     "build:storybook": "pnpm --filter @pickchick/backoffice --filter @pickchick/kitchen build && storybook build --output-dir dist"
   },
   "devDependencies": {
-    "@storybook/addon-a11y": "10.6.1",
-    "@storybook/html-vite": "10.6.1",
-    "storybook": "10.6.1",
+    "@storybook/addon-a11y": "10.6.2",
+    "@storybook/html-vite": "10.6.2",
+    "storybook": "10.6.2",
     "vite": "8.3.3"
   }
 }
