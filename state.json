@@ -4354,7 +4354,6 @@
         "tests/mobile/browser_luma_patterns.py",
         "tests/mobile/browser_profile.py",
         "tests/mobile/browser_catalog_price_migration.py",
-        "tests/mobile/browser_published_catalog.py",
         "tests/mobile/browser_orders.py",
         "tests/mobile/browser_live_menu_update.py",
         "packages/test-order-flow/src/index.ts",
@@ -4365,9 +4364,9 @@
       ],
       "status": "active",
       "head": "10efb68232a58b35ee5076b0f67eb8e6d0cf3b5b",
-      "updatedAt": "2026-10-14T10:34:54.407Z",
+      "updatedAt": "2026-10-22T11:44:36.744Z",
       "nextAction": "2026-10-12: по прямому подтверждению владельца в чате переданы задаче mobile-redesign-1012 только следующие файлы: apps/mobile/src/components/RepeatOrder.tsx, apps/mobile/src/screens/ConnectedOrderScreens.tsx, apps/mobile/src/screens/OrderStatusScreen.tsx, tests/mobile/ios/SmokeTests.swift. Остальные резервы, рабочая ветка и checkpoint сохранены.\n2026-10-12: по прямому заданию владельца интегрировать mobile-bugfix-1012 со свежим shared и редизайном переданы только apps/mobile/src/screens/ProfileScreen.tsx, apps/mobile/src/screens/PhotoProduct.tsx. Сохранены ветка, checkpoint и остальные резервы.",
-      "summary": " 2026-10-14: владелец прямо разрешил временную передачу для переводов RU/KK/EN и push задаче mobile-l10n-push-1014: apps/mobile/src/components/CatalogChangeNotice.tsx, apps/mobile/src/screens/ProductConfiguration.tsx, apps/mobile/src/store.tsx, docs/01-technical-spec.md. Текущие изменения сохраняются, остальные области остаются за исходной задачей."
+      "summary": " 2026-10-14: владелец прямо разрешил временную передачу для переводов RU/KK/EN и push задаче mobile-l10n-push-1014: apps/mobile/src/components/CatalogChangeNotice.tsx, apps/mobile/src/screens/ProductConfiguration.tsx, apps/mobile/src/store.tsx, docs/01-technical-spec.md. Текущие изменения сохраняются, остальные области остаются за исходной задачей. 2026-10-22: владелец разрешил временно передать только tests/mobile/browser_published_catalog.py задаче mobile-appstore-1022 для актуального согласия в синтетическом ответе профиля. Остальные области и изменения сохранены."
     },
     {
       "id": "mobile-testflight18",
