@@ -279,7 +279,7 @@ def kaspi_flow(browser):
         if state['teardown']:
             r.abort(); return
         path = urlparse(r.request.url).path; method = r.request.method
-        if path == '/v1/customers/me': data = {'customer': customer}
+        if path == '/v1/customers/me': data = {'customer': customer, 'legal': {'version':'fixture-v1','terms_url':'https://example.test/terms','privacy_url':'https://example.test/privacy','accepted':True}}
         elif path == '/v1/auth/config': data = {'enabled': True, 'delivery_consent_required': True, 'consent_version': 'fixture-v1', 'terms_url': 'https://example.test/terms', 'privacy_url': 'https://example.test/privacy'}
         elif path == '/v1/capabilities': data = {**CAPABILITIES, 'data_mode': 'pilot', 'features': {**CAPABILITIES['features'], 'phone_auth': True}}
         elif path == '/v1/branches': data = BRANCHES

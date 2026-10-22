@@ -145,11 +145,13 @@ export class CustomerCheckoutController implements OnModuleInit, OnModuleDestroy
     const token = authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
     if (!token) throw new HttpException({ code: 'UNAUTHORIZED' }, 401);
     try {
-      const { customer } = await this.identity.me(token);
+      const { customer, legal } = await this.identity.me(token);
       // App Review account: browse, quote and delete itself, never an order, invoice or kitchen.
       // Installed apps already show FORBIDDEN as "Оплата Kaspi ещё не открыта для вашего аккаунта".
       if (money && this.identity.isReviewCustomer(customer))
         throw new HttpException({ code: 'FORBIDDEN' }, 403);
+      // Reads and recovery remain available. Never create a new order/invoice on pilot consent.
+      if (money && !legal.accepted) throw new HttpException({ code: 'CONFLICT' }, 409);
       return await run(customer.id);
     } catch (error) {
       if (error instanceof CustomerIdentityError)

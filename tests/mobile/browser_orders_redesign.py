@@ -303,7 +303,7 @@ def run_kaspi(browser):
                 held.append(route)
                 return
             if path == '/v1/customers/me':
-                data = {'customer': customer}
+                data = {'customer': customer, 'legal': {'version':'fixture-v1','terms_url':'https://example.test/terms','privacy_url':'https://example.test/privacy','accepted':True}}
             elif path == '/v1/customer-checkout/availability':
                 data = {'enabled': True, 'fresh': True, 'signature': 'a' * 64,
                         'products': [{'id': p['id'], 'available': True, 'stoppedOptions': []} for p in CAT['products']]}

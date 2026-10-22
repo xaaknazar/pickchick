@@ -2,6 +2,7 @@ import { useNotifications } from '../notifications/provider';
 import { t, localize, useLocale } from '../i18n';
 import { MotionPressable as Pressable, MotionModal as Modal } from '../components/Motion';
 import { useState } from 'react';
+import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { Alert, Platform, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { colors } from '../theme';
@@ -324,6 +325,7 @@ export function Legal(props: ScreenProps) {
   );
 }
 export function Settings(props: ScreenProps) {
+  const router = useRouter();
   const notifications = useNotifications();
   useLocale();
   return (
@@ -416,6 +418,11 @@ export function Settings(props: ScreenProps) {
         title={t('Конфиденциальность')}
         subtitle={t('Как будут обрабатываться согласия')}
         onPress={() => props.navigate('M33')}
+      />
+      <NavRow
+        title={t('Как проходит заказ')}
+        subtitle={t('Демонстрация - без оплаты')}
+        onPress={() => router.push('/demo-order')}
       />
     </Page>
   );

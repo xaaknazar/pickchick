@@ -1,3 +1,4 @@
+import { CustomerCheckoutController } from '../../services/api/dist/customer-checkout-controller.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -1645,4 +1646,85 @@ test('four-digit Telegram challenge survives restart, enforces attempt budget an
       restart.patchMe(session.access_token, { gender: 'other' }),
       error('INVALID_REQUEST'),
     );
+  }));
+
+test('updated legal terms require explicit current acceptance, preserve history and marketing, and deduplicate concurrent retries', async () =>
+  fixture(async (ctx) => {
+    const { session } = await ctx.login();
+    const token = session.access_token;
+    const before = (
+      await ctx.pool.query('SELECT * FROM identity_consents WHERE customer_id=$1 ORDER BY id', [
+        session.customer.id,
+      ])
+    ).rows;
+    const upgraded = ctx.make({ consentVersion: 'synthetic-storefront-v2' });
+    assert.equal((await ctx.identity.me(token)).legal.accepted, true);
+    assert.equal((await upgraded.me(token)).legal.accepted, false);
+    const controller = new CustomerCheckoutController(
+      upgraded,
+      { pool: ctx.pool },
+      { revision: 0 },
+    );
+    let commands = 0;
+    const command = async () => {
+      commands++;
+      return 'synthetic';
+    };
+    await assert.rejects(
+      controller.execute('Bearer ' + token, command, undefined, true),
+      (e) => e.getStatus() === 409,
+    );
+    assert.equal(commands, 0);
+    assert.equal(await controller.execute('Bearer ' + token, async () => 'read'), 'read');
+    await upgraded.patchMe(token, { nickname: 'Synthetic' });
+    assert.equal((await upgraded.me(token)).legal.accepted, false);
+    await assert.rejects(
+      upgraded.patchMe(token, {
+        legal_consents: { terms_version: version, privacy_version: version, accepted: true },
+      }),
+      error('CONFLICT'),
+    );
+    await assert.rejects(
+      upgraded.patchMe(token, {
+        legal_consents: {
+          terms_version: 'synthetic-storefront-v2',
+          privacy_version: 'synthetic-storefront-v2',
+          accepted: false,
+        },
+      }),
+      error('INVALID_REQUEST'),
+    );
+    const input = {
+      legal_consents: {
+        terms_version: 'synthetic-storefront-v2',
+        privacy_version: 'synthetic-storefront-v2',
+        accepted: true,
+      },
+    };
+    const results = await Promise.all([
+      upgraded.patchMe(token, input),
+      upgraded.patchMe(token, input),
+    ]);
+    assert.ok(results.every((value) => value.legal.accepted));
+    assert.equal(
+      await controller.execute('Bearer ' + token, command, undefined, true),
+      'synthetic',
+    );
+    assert.equal(commands, 1);
+    const after = (
+      await ctx.pool.query('SELECT * FROM identity_consents WHERE customer_id=$1 ORDER BY id', [
+        session.customer.id,
+      ])
+    ).rows;
+    assert.deepEqual(
+      after.filter((row) => row.version === version),
+      before,
+    );
+    const added = after.filter((row) => row.version === 'synthetic-storefront-v2');
+    assert.equal(added.length, 2);
+    assert.deepEqual(added.map((row) => row.kind).sort(), ['privacy', 'terms']);
+    const future = ctx.make({ consentVersion: 'synthetic-storefront-v3' });
+    assert.equal((await future.me(token)).legal.accepted, false);
+    await upgraded.logout(token);
+    await assert.rejects(upgraded.patchMe(token, input), error('UNAUTHORIZED'));
   }));
