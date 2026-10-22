@@ -6256,9 +6256,11 @@
         "apps/mobile/app.json",
         "apps/mobile/assets/app-icon.png"
       ],
-      "status": "active",
-      "head": "955934cdd99f49b4645d64a0d423f0b7546c0f20",
-      "updatedAt": "2026-10-22T06:33:55.999Z"
+      "status": "available",
+      "head": "23860557a0a76e85d45457b955957ecb2db14960",
+      "updatedAt": "2026-10-22T07:06:20.331Z",
+      "summary": "23860557 опубликован в PR276: увеличенная иконка iOS1024, шесть настоящих скриншотов в Apple, RU/en-GB, бесплатный Казахстан, App Privacy draft. 13 адресных проверок PASS, Expo icon/config и форматирование PASS. e145db01 Foundation CI ещё выполняется; support/reviewer apply не запускались. Реальных заказов/оплат/QR, App Review submit и нового бинарника нет.",
+      "nextAction": "Продолжить с опубликованного checkpoint. Дождаться CI e145db01, поддержка inspect/apply из подготовленного точного архива. Reviewer enable только после исправления приватных контактов и подтверждения владения номером; вопрос владельцу задан. Сохранить Support URL и контакты Apple; юридическое подтверждение App Privacy, итоговый бинарник с новой иконкой, полный сценарий Apple отдельно. Online roadmap ещё прежний. Shared merge без отдельного согласования не делать."
     }
   ]
 }
