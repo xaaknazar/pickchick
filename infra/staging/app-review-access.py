@@ -83,17 +83,6 @@ def verify_revision(container, environment, expected):
     require(environment.get('RELEASE_SHA', expected) == expected, 'Runtime source marker conflicts')
 
 
-def compose_literals(value):
-    """A resolved Compose model may contain literal dollars in existing secrets."""
-    if isinstance(value, str):
-        return value.replace('$', '$$')
-    if isinstance(value, list):
-        return [compose_literals(v) for v in value]
-    if isinstance(value, dict):
-        return {k: compose_literals(v) for k, v in value.items()}
-    return value
-
-
 def verify_manifest(root, expected):
     m = json.loads((root/'app-review-source.json').read_text())
     require(m.get('source_sha') == expected, 'Source manifest differs')
@@ -201,7 +190,9 @@ def main(a):
                                           data=json.dumps(wanted)))
     require(collision_now == collision, 'Customer state changed during preflight')
     temporary = compose.with_name('.review-'+owner['id']+'.json')
-    r.save(temporary, compose_literals(updated))
+    # `compose config --format json` already preserves escaped dollar literals.
+    # Escaping them again changes health checks and potentially existing secrets.
+    r.save(temporary, updated)
     resolved = json.loads(private_run(command[:-1]+[str(temporary), 'config', '--format', 'json']))
     require(resolved == updated, 'Compose round-trip changed resolved configuration')
     temporary.replace(compose)

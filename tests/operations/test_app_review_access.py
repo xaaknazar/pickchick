@@ -1,7 +1,10 @@
 """Reject accidental customer takeover and non-review runtime changes."""
 import copy
 import importlib.util
+import json
 from pathlib import Path
+import shutil
+import subprocess
 import unittest
 
 spec = importlib.util.spec_from_file_location('app_review_access', Path(__file__).resolve().parents[2]/'infra/staging/app-review-access.py')
@@ -61,12 +64,21 @@ class ReviewAccessTests(unittest.TestCase):
             with self.assertRaises(m.Refused):
                 m.verify_environment({}, changed, wanted)
 
-    def test_existing_dollar_values_are_literal_on_compose_reload(self):
-        source = {'environment': {'EXISTING': 'prefix${NOT_AN_ENV}suffix$'}, 'ports': [3100]}
-        encoded = m.compose_literals(source)
-        self.assertEqual(encoded['environment']['EXISTING'], 'prefix$${NOT_AN_ENV}suffix$$')
-        self.assertEqual(encoded['ports'], [3100])
-        self.assertEqual(source['environment']['EXISTING'], 'prefix${NOT_AN_ENV}suffix$')
+    @unittest.skipUnless(shutil.which('docker'), 'Docker Compose CLI is required')
+    def test_resolved_compose_dollars_survive_review_patch_and_reload(self):
+        # `config` needs no daemon and starts no containers. Synthetic values only.
+        def resolve(config):
+            result = subprocess.run(['docker', 'compose', '-f', '-', 'config', '--format', 'json'],
+                                    input=json.dumps(config), capture_output=True, text=True, check=True)
+            return json.loads(result.stdout)
+        literal = 'prefix$${PICKCHICK_SYNTHETIC_UNSET}suffix$$'
+        original = resolve({'name': 'review-literal-regression', 'services': {
+            'api': {'image': 'alpine:3', 'environment': {'EXISTING': literal}},
+            'redis-cache': {'image': 'redis:7', 'healthcheck': {
+                'test': ['CMD-SHELL', 'echo '+literal]}}}})
+        updated = m.candidate(original, m.desired(self.private, 'enable'))
+        self.assertEqual(resolve(updated), updated)
+        self.assertEqual(updated['services']['redis-cache'], original['services']['redis-cache'])
 
     def test_installed_oci_revision_without_optional_environment_marker(self):
         sha = 'a'*40
