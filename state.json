@@ -6261,9 +6261,9 @@
         "pnpm-lock.yaml",
         "@release/ios"
       ],
-      "status": "available",
+      "status": "active",
       "head": "b71d55916100b6ef8688635d190c56326add5440",
-      "updatedAt": "2026-10-22T09:22:30.028Z",
+      "updatedAt": "2026-10-22T09:22:35.157Z",
       "summary": "b71d5591 опубликован в PR276. Владелец выбрал последний показанный вариант иконки, ресурс сохранён без дальнейшего точного масштабирования. Build22 archive/export/codesign PASS, JS повторно скомпилирован Hermes и совпал побайтно; storefront сохранён. Финальный Release симулятора установлен, меню/домашний значок проверены. Foundation39752745990: 9 отдельных jobs success, последний общий набор выполняется, ошибок нет. Поддержка RU/KK/EN из97 уже опубликована, Support URL и App Privacy сохранены Apple. Review-вход ещё выключен; исправленный оператор и read-only preflight b71 PASS.",
       "nextAction": "Продолжает этот Mac. Не менять исходный SHA до завершения CI/загрузки. После полной Foundation11/11: сохранить точное evidence; review enable/проверка входа только guard-оператором b71; upload готового0.2.0(22), обработка Apple и PickChick Internal. Не создавать оплат/QR/счетов, не менять цены/каталог, не отправлять App Review, не сливать PR276 без отдельного разрешения. Затем итоговые docs/status/roadmap."
     }
