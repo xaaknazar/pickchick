@@ -51,12 +51,21 @@
     "revoked_session_confirmed": true
   },
   "apple_processing": "processed",
-  "app_review_submitted": false,
+  "app_review_submitted": true,
   "apple_build_id": "067da3fb-c749-4c29-b8ed-4ff491fa2281",
   "internal_group": {
     "name": "PickChick Internal",
     "testers": 2,
     "status": "Testing"
   },
-  "app_review_blocker": "Owner confirmation of content rights requested by Apple"
+  "app_review": {
+    "submission_id": "99775be3-3644-4d17-8e4f-ab4dfe3e53ca",
+    "status": "WAITING_FOR_REVIEW",
+    "submitted_at_local": "2026-10-22T18:20:00+05:00",
+    "version_record": "1.0",
+    "binary": "0.2.0 (23)",
+    "url": "https://appstoreconnect.apple.com/apps/6809208492/distribution/reviewsubmissions/details/99775be3-3644-4d17-8e4f-ab4dfe3e53ca",
+    "content_rights_owner_confirmed": true,
+    "public_release": "manual, not released"
+  }
 }

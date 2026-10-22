@@ -1,3 +1,13 @@
+## 22.10.2026 - PickChick отправлен на App Review
+
+В18:20 Алматы Apple приняла заявку99775be3-3644-4d17-8e4f-ab4dfe3e53ca:
+карточка iOS1.0, бинарник0.2.0(23), статус «Ожидание проверки».
+Владелец подтвердил права на материалы; заявление сохранено. Инструкция и
+выделенный вход Apple подготовлены. Публичный выпуск остаётся ручным и ещё
+не выполнен. TestFlight23 доступна PickChick Internal. Реальных платежей нет.
+[Заявка Apple](https://appstoreconnect.apple.com/apps/6809208492/distribution/reviewsubmissions/details/99775be3-3644-4d17-8e4f-ab4dfe3e53ca); [протокол23](../operations/mobile-appstore-2026-10-22/build23.md).
+Онлайн-пульт пока прежний; PR276 не объединён.
+
 ## 22.10.2026 - build23 доступна; отправка Apple ждёт прав на контент
 
 Из c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da после Foundation CI11/11 опубликованы
