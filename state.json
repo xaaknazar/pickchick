@@ -6292,8 +6292,8 @@
       ],
       "status": "active",
       "head": "c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da",
-      "updatedAt": "2026-10-22T11:58:26.548Z",
-      "summary": "Владелец подтвердил storefront-2026-10-22 и отдельное согласие. Код и протокол опубликованы: 0ceff4c6, checkpoint 1a23fd12, PR276. Mobile397+59, identity56, Kaspi browser4размера/traps, demoRU/KK/EN, consent320/393 PASS. Native sim0.2.0(23) собран/запущен; игра в гостевом симуляторе показала ошибку чтения доступа, авторизованный нативный путь ещё не принят. Новые условия/API/build23/App Review не опубликованы; цены/банк/касса без изменений. Полная CI ещё не подтверждена.",
+      "updatedAt": "2026-10-22T11:58:30.566Z",
+      "summary": "c3a0fbee опубликован в PR276. Передача единственного теста browser_published_catalog согласована владельцем, выполнена; полный opt-in сценарий PASS (2 quotes, orders/attempts/outbox пусты). Native Release23 simulator подписан Xcode, ошибка Keychain исчезла; guest game штатно требует вход. CI39774362378 идёт; юридические страницы/API/build23/App Review ещё не опубликованы.",
       "nextAction": "Ждём ответ владельца о передаче одного tests/mobile/browser_published_catalog.py от mobile-luma-patterns; подготовлен однострочный fixture patch в .local/appstore-1022/published-catalog-consent.patch, занятый файл не изменён. После согласования claim, тест, push/полная CI; затем legal-update.py и appstore-legal-release.py по протоколу с backup/restore. Проверить авторизованный native, подписать/загрузить23, обновить review notes/бинарник. Не считать демо реальной оплатой. См. docs/operations/mobile-appstore-2026-10-22/legal-and-review-demo.md."
     }
   ]
