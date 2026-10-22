@@ -1,0 +1,62 @@
+{
+  "source_sha": "c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da",
+  "ci_url": "https://github.com/xaaknazar/pickchick/actions/runs/39774362378",
+  "ci_jobs_passed": 11,
+  "legal": {
+    "source_sha": "c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da",
+    "validated": true,
+    "applied": true,
+    "legal_version": "storefront-2026-10-22",
+    "effective_date": "2026-10-22",
+    "operator_preserved": true,
+    "neighbors_preserved": true,
+    "unrelated_assets_preserved": true,
+    "gateway_sha256": "c603c640458f791ad0c19430ab3fd1e344dcc9f1448fbf99357524368e5fa520",
+    "files": {
+      "legal/terms.html": "e642f2099313804e73829aa6bd757846b77c8bbcd56d2f6a59958b97cda92a08",
+      "legal/privacy.html": "0fdf0a075e7b53a58210f8840e1bb98a0b209f3e81964026019001bf31b74467"
+    }
+  },
+  "api": {
+    "image": "sha256:063076dbe2033aefc0128a8ac9ed67f38d7a98e3e295e125c9e0b1876e6b6729",
+    "backup_sha256": "29280501102d80122b597785f0160445f179a21ef0538cff068e89436fb40fae",
+    "schema": 68,
+    "legal_version": "storefront-2026-10-22",
+    "optional_flags_acl_neighbors_unchanged": true,
+    "applied_at": 1792673061.596956
+  },
+  "ios": {
+    "source_sha": "c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da",
+    "version": "0.2.0",
+    "build": "23",
+    "bundle_id": "kz.pickchick.app",
+    "signature": "verified",
+    "ipa_sha256": "0a89be889afeaca3ebfd2c0b64a662c828c55e5d2a6e19a22da565ef95bc9404",
+    "js_sha256": "32d88e4a597f32776445492fca3fd7ab199b6fac82cf86c8693745f71e54b7f5",
+    "embedded_markers": {
+      "Демонстрация - без оплаты": true,
+      "storefront": true,
+      "checkout-legal-accept": true,
+      "review-demo": true,
+      "https://pickchick.185.129.51.103.nip.io": true
+    }
+  },
+  "review_login": {
+    "login_pass": true,
+    "profile_pass": true,
+    "current_legal_accepted": true,
+    "marketing_opt_in": false,
+    "order_payment_endpoints_called": false,
+    "logout_pass": true,
+    "revoked_session_confirmed": true
+  },
+  "apple_processing": "processed",
+  "app_review_submitted": false,
+  "apple_build_id": "067da3fb-c749-4c29-b8ed-4ff491fa2281",
+  "internal_group": {
+    "name": "PickChick Internal",
+    "testers": 2,
+    "status": "Testing"
+  },
+  "app_review_blocker": "Owner confirmation of content rights requested by Apple"
+}
