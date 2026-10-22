@@ -8,6 +8,7 @@
     "scheme": "pickchick",
     "userInterfaceStyle": "dark",
     "ios": {
+      "icon": "./assets/app-icon.png",
       "supportsTablet": false,
       "bundleIdentifier": "kz.pickchick.app",
       "buildNumber": "21",
