@@ -12,6 +12,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -112,8 +113,11 @@ class EdgeBackupInstallerTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which('pwsh') or shutil.which('powershell'), 'PowerShell is not installed')
     def test_emitted_powershell_checks_pass(self):
         shell = shutil.which('pwsh') or shutil.which('powershell')
-        result = subprocess.run([shell, '-NoProfile', '-NonInteractive', '-Command', '-'],
-                                input=powershell_tests(), text=True, capture_output=True, timeout=120)
+        with tempfile.TemporaryDirectory() as directory:
+            script = Path(directory) / 'edge-backup-checks.ps1'
+            script.write_text(powershell_tests() + '\n', encoding='utf-8')
+            result = subprocess.run([shell, '-NoProfile', '-NonInteractive', '-File', str(script)],
+                                    text=True, capture_output=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertRegex(result.stdout, r'edge-backup: [0-9]+ checks passed')
 
