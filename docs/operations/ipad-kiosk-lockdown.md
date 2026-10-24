@@ -83,7 +83,7 @@ Apple или выбранный внешний MDM должен поддержа
 сами по себе не отключают системный Home/App Switcher.
 [Apple: Single App Mode](https://support.apple.com/guide/apple-configurator-mac/set-single-app-mode-cadbf9c172/mac).
 
-Подготовлен [профиль для iPad](../../infra/ipad/pickchick-kiosk.mobileconfig).
+Подготовлен [шаблон профиля для iPad](../../infra/ipad/pickchick-kiosk-applock.template.mobileconfig).
 Он содержит только `com.apple.app.lock` для `kz.pickchick.kiosk`: касание разрешено,
 автоблокировка и кнопка сна отключены, ориентация фиксирована; VoiceOver/Zoom
 доступны. Профиль не содержит паролей, Wi-Fi или ключей API. Администратор
