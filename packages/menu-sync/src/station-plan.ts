@@ -316,8 +316,12 @@ const processRefused = new Set<string>();
 const httpStatus = (error: unknown) =>
   error instanceof Error ? Number(/^Sync HTTP (\d{3})$/.exec(error.message)?.[1] ?? 0) : 0;
 
+/**
+ * The plan schema bounds a plan to about 2.1 MB (100 stations x 100 product ids x 200
+ * characters); the same 3 MB response bound as the menu pull keeps every valid plan deliverable.
+ */
 async function requestJson(origin: string, path: string, identity: DeviceIdentity, body: unknown) {
-  const bytes = await deviceRequest(origin, path, identity, { body, maxBytes: 1_000_000 });
+  const bytes = await deviceRequest(origin, path, identity, { body, maxBytes: 3_000_000 });
   return JSON.parse(bytes.toString('utf8')) as unknown;
 }
 
