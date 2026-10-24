@@ -41,6 +41,8 @@ export type Snapshot = {
   catalog_audit: Data[];
   documents: Data[];
   publications: Data[];
+  /** Station plan delivery to the cashier (absent from servers before stage 2). */
+  station_plan?: unknown;
   capabilities: Data;
 };
 export type OperationalApi = (path: string, request?: Request) => Promise<unknown>;
@@ -529,4 +531,183 @@ export class StopsModel {
     void this.load(this.actor, branch);
     return true;
   }
+}
+
+/** One plan version as the server reports it (cloud070). */
+export type StationPlanVersion = {
+  id: string;
+  version: number;
+  published_at: string;
+  stations: number;
+  state: 'published' | 'delivered' | 'applied' | 'rejected' | 'superseded';
+  delivered_at: string | null;
+  deliveries: number;
+  reason: string | null;
+  station_id: string | null;
+  station_name: string | null;
+  answered_at: string | null;
+};
+export type EdgeKitchenStation = { id: string; kind: 'prep' | 'assembly'; name: string };
+export type StationPlanStatus = {
+  enabled: boolean;
+  available: boolean;
+  latest: StationPlanVersion | null;
+  applied: { id: string; version: number; applied_at: string } | null;
+  edge: {
+    active_plan_id: string | null;
+    active_version: number | null;
+    stations: EdgeKitchenStation[];
+    observed_at: string;
+  } | null;
+  plans: StationPlanVersion[];
+};
+const PLAN_STATES = ['published', 'delivered', 'applied', 'rejected', 'superseded'];
+const positive = (v: unknown) => Number.isInteger(v) && (v as number) > 0;
+const nullableText = (v: unknown) => v === null || typeof v === 'string';
+function planVersion(value: unknown): StationPlanVersion {
+  const o = object(value);
+  if (
+    typeof o['id'] !== 'string' ||
+    !positive(o['version']) ||
+    typeof o['published_at'] !== 'string' ||
+    !Number.isInteger(o['stations']) ||
+    !PLAN_STATES.includes(String(o['state'])) ||
+    !nullableText(o['delivered_at']) ||
+    !Number.isInteger(o['deliveries']) ||
+    !nullableText(o['reason']) ||
+    !nullableText(o['station_id']) ||
+    !nullableText(o['station_name']) ||
+    !nullableText(o['answered_at'])
+  )
+    throw new ApiError('INVALID_RESPONSE');
+  return o as StationPlanVersion;
+}
+/**
+ * Station plan delivery state of the snapshot. null for a server that does not report it yet
+ * (the cabinet then shows the station list as before); a malformed report is rejected.
+ */
+export function stationPlanStatus(value: unknown): StationPlanStatus | null {
+  if (value === undefined || value === null) return null;
+  const o = object(value);
+  if (typeof o['enabled'] !== 'boolean' || typeof o['available'] !== 'boolean')
+    throw new ApiError('INVALID_RESPONSE');
+  if (!Array.isArray(o['plans'])) throw new ApiError('INVALID_RESPONSE');
+  const plans = (o['plans'] as unknown[]).map(planVersion);
+  const latest = o['latest'] === null ? null : planVersion(o['latest']);
+  let applied: StationPlanStatus['applied'] = null;
+  if (o['applied'] !== null) {
+    const a = object(o['applied']);
+    if (
+      typeof a['id'] !== 'string' ||
+      !positive(a['version']) ||
+      typeof a['applied_at'] !== 'string'
+    )
+      throw new ApiError('INVALID_RESPONSE');
+    applied = a as StationPlanStatus['applied'];
+  }
+  let edge: StationPlanStatus['edge'] = null;
+  if (o['edge'] !== null) {
+    const e = object(o['edge']);
+    if (
+      !nullableText(e['active_plan_id']) ||
+      !(e['active_version'] === null || positive(e['active_version'])) ||
+      typeof e['observed_at'] !== 'string' ||
+      !Array.isArray(e['stations'])
+    )
+      throw new ApiError('INVALID_RESPONSE');
+    for (const raw of e['stations'] as unknown[]) {
+      const station = object(raw);
+      if (
+        typeof station['id'] !== 'string' ||
+        !['prep', 'assembly'].includes(String(station['kind'])) ||
+        typeof station['name'] !== 'string'
+      )
+        throw new ApiError('INVALID_RESPONSE');
+    }
+    edge = e as StationPlanStatus['edge'];
+  }
+  return { enabled: o['enabled'], available: o['available'], latest, applied, edge, plans };
+}
+export const STATION_PLAN_STATE_LABELS: Record<StationPlanVersion['state'], string> = {
+  published: 'Опубликовано в облаке, касса ещё не получила',
+  delivered: 'Касса получила, ждём подтверждения',
+  applied: 'Применено на кассе',
+  rejected: 'Касса отклонила',
+  superseded: 'Заменено более новой версией',
+};
+const STATION_PLAN_REASONS: Record<string, string> = {
+  SCHEMA_UNSUPPORTED: 'касса не поддерживает этот формат плана, нужно обновить кассу',
+  INVALID_PLAN:
+    'план некорректен: две активные станции привязаны к одной станции кухни или данные повреждены',
+  VERSION_NOT_NEWER: 'на кассе уже действует такая же или более новая версия',
+  UNKNOWN_STATION: 'станция кухни не найдена на кассе',
+  STATION_KIND_MISMATCH: 'роль станции не совпадает с типом станции кухни на кассе',
+};
+/** Reason of a rejected version in plain Russian; unknown codes from a newer cashier stay codes. */
+export function stationPlanReason(version: Pick<StationPlanVersion, 'reason' | 'station_name'>) {
+  if (!version.reason) return '';
+  const text = STATION_PLAN_REASONS[version.reason] ?? version.reason;
+  return version.station_name ? `${text} (станция «${version.station_name}»)` : text;
+}
+export type StationPlanSummary = {
+  tone: 'off' | 'wait' | 'good' | 'bad';
+  title: string;
+  detail: string;
+  /** Newest version the cashier confirmed: its applied receipt or the plan it reports active. */
+  edgeVersion: number | null;
+  /** Managers may send the plan again only while delivery is on. */
+  canDeliver: boolean;
+};
+/** What the cabinet says about the plan: the edge-confirmed version, never only the cloud one. */
+export function stationPlanSummary(status: StationPlanStatus): StationPlanSummary {
+  // A receipt proves the apply at once; the edge report catches up on its next pull.
+  const confirmedVersions = [status.edge?.active_version, status.applied?.version].filter(
+    (v): v is number => typeof v === 'number',
+  );
+  const edgeVersion = confirmedVersions.length ? Math.max(...confirmedVersions) : null;
+  const confirmed =
+    edgeVersion === null
+      ? 'Касса ещё не подтвердила ни одной версии плана.'
+      : `На кассе действует версия ${edgeVersion}.`;
+  if (!status.available)
+    return {
+      tone: 'off',
+      title: 'Доставка плана на кассу не установлена на сервере',
+      detail: 'Отметка «Опубликовано» означает только версию в облаке.',
+      edgeVersion: null,
+      canDeliver: false,
+    };
+  if (!status.enabled)
+    return {
+      tone: 'off',
+      title: 'Доставка плана на кассу выключена',
+      detail: `Отметка «Опубликовано» означает только версию в облаке. ${confirmed}`,
+      edgeVersion,
+      canDeliver: false,
+    };
+  const latest = status.latest;
+  if (!latest)
+    return {
+      tone: 'wait',
+      title: 'План ещё не отправлялся на кассу',
+      detail: `Опубликуйте станцию или отправьте текущий план. ${confirmed}`,
+      edgeVersion,
+      canDeliver: true,
+    };
+  const title = `Версия ${latest.version}: ${STATION_PLAN_STATE_LABELS[latest.state].toLowerCase()}`;
+  if (latest.state === 'rejected')
+    return {
+      tone: 'bad',
+      title,
+      detail: `Причина: ${stationPlanReason(latest)}. Предыдущий план остаётся на кассе. ${confirmed}`,
+      edgeVersion,
+      canDeliver: true,
+    };
+  return {
+    tone: latest.state === 'applied' && edgeVersion === latest.version ? 'good' : 'wait',
+    title,
+    detail: confirmed,
+    edgeVersion,
+    canDeliver: true,
+  };
 }

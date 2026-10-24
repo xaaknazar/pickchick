@@ -4,13 +4,18 @@ import { message } from './api.js';
 import {
   OperationsModel,
   StopsModel,
+  STATION_PLAN_STATE_LABELS,
   object,
   refundActions,
+  stationPlanReason,
+  stationPlanStatus,
+  stationPlanSummary,
   type Data,
   type Entry,
   type StopDuration,
   type StopItem,
   type StopList,
+  type StationPlanStatus,
 } from './operations-model.js';
 
 export const sections = [
@@ -848,6 +853,7 @@ export class OperationsView {
         },
         { key: 'target_seconds', label: 'Норма, секунд', type: 'number' },
         { key: 'active', label: 'Активна', type: 'boolean' },
+        ...this.edgeStationField(p),
       );
     if (kind === 'employee')
       fields.push(
@@ -1040,7 +1046,9 @@ export class OperationsView {
     if (kind === 'station')
       d.append(
         note(
-          'Публикация сохраняет план. Применение на локальной кухне требует подтверждения устройства.',
+          this.stationPlan()?.enabled
+            ? 'Публикация создаёт новую версию плана для кассы. Применённой она считается только после подтверждения кассы, статус - на странице станций.'
+            : 'Публикация сохраняет план. Применение на локальной кухне требует подтверждения устройства.',
         ),
       );
     this.footer(d, () => ({
@@ -1050,6 +1058,99 @@ export class OperationsView {
       expected_revision: record?.revision ?? 0,
       payload: p,
     }));
+  }
+  /**
+   * Binding of a back-office station to a kitchen station the cashier reported. Shown only when
+   * the server delivers plans and the cashier reported its stations, so older servers never
+   * receive the new field. Only prep and assembly stations exist in the cashier kitchen.
+   */
+  private edgeStationField(p: Data): F[] {
+    const plan = this.stationPlan();
+    const stations = plan?.available ? (plan.edge?.stations ?? []) : [];
+    if (!stations.length) return [];
+    const options = stations.map((s) => ({
+      value: s.id,
+      label: `${s.name} (${status(s.kind)})`,
+    }));
+    const current = p['edge_station_id'];
+    if (typeof current === 'string' && !options.some((o) => o.value === current))
+      options.push({ value: current, label: 'Станция, которой больше нет на кассе' });
+    return [
+      {
+        key: 'edge_station_id',
+        label: 'Станция кухни на кассе (только приготовление и сборка)',
+        type: 'select',
+        options,
+        nullable: true,
+      },
+    ];
+  }
+  /** Station plan delivery state; null for a server that does not report it (old API). */
+  private stationPlan(): StationPlanStatus | null {
+    try {
+      return stationPlanStatus(this.model.data?.station_plan);
+    } catch {
+      return null;
+    }
+  }
+  private stationPlanPanel(plan: StationPlanStatus) {
+    const summary = stationPlanSummary(plan);
+    const writable = this.model.data?.role === 'manager' && summary.canDeliver;
+    const p = panel(
+      'Доставка плана на кассу',
+      'Версия, которую подтвердила касса, а не только публикация в облаке.',
+      writable
+        ? [
+            button(
+              'Отправить план на кассу',
+              () =>
+                this.confirm(
+                  'Отправить план на кассу',
+                  'Касса получит текущий опубликованный состав станций новой версией. Если план не изменился и касса его не отклоняла, новая версия не создаётся.',
+                  { type: 'deliver_station_plan' },
+                ),
+              'button subtle',
+              'station-plan-deliver',
+            ),
+          ]
+        : [],
+    );
+    p.dataset.testid = 'station-plan-panel';
+    const latest = plan.latest;
+    p.append(
+      stats([
+        latest
+          ? ['Последняя версия в облаке', String(latest.version), date(latest.published_at)]
+          : ['Последняя версия в облаке', '-'],
+        [
+          'Подтверждено кассой',
+          summary.edgeVersion === null ? '-' : String(summary.edgeVersion),
+          plan.edge
+            ? 'Касса на связи: ' + date(plan.edge.observed_at)
+            : 'Касса ещё не выходила на связь',
+        ],
+      ]),
+      notice(
+        `${summary.title}. ${summary.detail}`,
+        summary.tone === 'bad' ? 'station-plan error bad' : 'station-plan',
+        'station-plan-state',
+      ),
+    );
+    if (plan.plans.length)
+      p.append(
+        table(
+          ['Версия', 'Опубликована', 'Станций', 'Состояние', 'Причина', 'Ответ кассы'],
+          plan.plans.map((v) => [
+            String(v.version),
+            date(v.published_at),
+            String(v.stations),
+            STATION_PLAN_STATE_LABELS[v.state],
+            stationPlanReason(v) || '-',
+            date(v.answered_at),
+          ]),
+        ),
+      );
+    return p;
   }
   private confirm(title: string, detail: string, command: Data) {
     const d = dialog(title, detail);
@@ -1973,6 +2074,8 @@ export class OperationsView {
           'Изменение плана не меняет маршруты уже принятых заказов.',
         ),
       );
+      const plan = this.stationPlan();
+      if (plan) content.append(this.stationPlanPanel(plan));
       const p = panel(
         'Наблюдаемые заказы кухни',
         'Последнее подтверждённое состояние из обмена с локальной точкой.',
