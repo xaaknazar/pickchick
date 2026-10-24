@@ -59,6 +59,25 @@ export async function maintenanceLease(path) {
   return { release: () => handle.close() };
 }
 
+/**
+ * Health record for an unreadable configuration. It keeps the owner's report choice and limit
+ * from the previous record, so a broken file still reaches monitoring.
+ */
+export function configFailureStatus(previous, at = new Date()) {
+  const limit = previous?.maxAgeMinutes;
+  return backupStatus({
+    state: 'failed',
+    error: 'CONFIG_INVALID',
+    startedAt: at,
+    finishedAt: at,
+    previous,
+    config: {
+      maxAgeMinutes: Number.isInteger(limit) && limit >= 60 && limit <= 4320 ? limit : 120,
+      reportInHeartbeat: previous?.reportInHeartbeat === true,
+    },
+  });
+}
+
 async function readConfig(path) {
   try {
     const info = await lstat(path);
@@ -82,14 +101,7 @@ async function main() {
   } catch {
     // Still leave a health record: Inspect and the heartbeat must see a broken configuration.
     const at = new Date();
-    const status = backupStatus({
-      state: 'failed',
-      error: 'CONFIG_INVALID',
-      startedAt: at,
-      finishedAt: at,
-      previous: await readBackupStatus(layout.statusFile),
-      config: { maxAgeMinutes: 120, reportInHeartbeat: false },
-    });
+    const status = configFailureStatus(await readBackupStatus(layout.statusFile), at);
     await writeFileAtomic(layout.statusFile, JSON.stringify(status, null, 2) + '\n').catch(
       () => undefined,
     );

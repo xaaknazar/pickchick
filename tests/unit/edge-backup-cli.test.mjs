@@ -211,3 +211,31 @@ test('restore CLI lists, verifies and decrypts a copy on any operator machine', 
     await assert.rejects(run('decrypt', join(copies, name), keyFile, out));
   });
 });
+
+test('a broken task configuration still reports, with the previous report choice and limit', async () => {
+  const { configFailureStatus } = await import('../../infra/windows/edge-backup-task.mjs');
+  const at = new Date('2026-10-24T12:00:00.000Z');
+  const previous = {
+    format: 'pickchick-edge-backup-status-v1',
+    lastSuccessAt: '2026-10-24T09:00:00.000Z',
+    maxAgeMinutes: 180,
+    reportInHeartbeat: true,
+  };
+  const status = configFailureStatus(previous, at);
+  assert.deepEqual(
+    [
+      status.state,
+      status.error,
+      status.lastSuccessAt,
+      status.maxAgeMinutes,
+      status.reportInHeartbeat,
+    ],
+    ['failed', 'CONFIG_INVALID', '2026-10-24T09:00:00.000Z', 180, true],
+  );
+  const fresh = configFailureStatus(null, at);
+  assert.deepEqual(
+    [fresh.maxAgeMinutes, fresh.reportInHeartbeat, fresh.lastSuccessAt],
+    [120, false, null],
+  );
+  assert.equal(configFailureStatus({ ...previous, maxAgeMinutes: 5 }, at).maxAgeMinutes, 120);
+});
