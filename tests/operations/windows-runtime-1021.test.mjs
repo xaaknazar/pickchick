@@ -16,8 +16,9 @@ test('runtime020->023 is atomic, preserves rows and old ACL, grants only new cap
   try {
     await mkdir(installed, { recursive: true });
     await mkdir(migrations, { recursive: true });
-    for (const n of (await readdir(join(root, 'db/edge/migrations'))).filter((n) =>
-      n.endsWith('.sql'),
+    // The 1021 runtime is exactly schema023; later migrations (024+) ship with later releases.
+    for (const n of (await readdir(join(root, 'db/edge/migrations'))).filter(
+      (n) => n.endsWith('.sql') && n < '024',
     )) {
       await copyFile(join(root, 'db/edge/migrations', n), join(migrations, n));
       if (n < '021') await copyFile(join(root, 'db/edge/migrations', n), join(installed, n));
