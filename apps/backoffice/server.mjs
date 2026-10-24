@@ -93,6 +93,27 @@ export const allowed = (method, path) => {
     new RegExp(`^/v1/admin/backoffice/branches/${UUID}/finance/commands$`, 'i').test(pathname)
   )
     return true;
+  // Stage 2, lane rec: daily payment reconciliation (one business day per read).
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/reconciliation$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    return (
+      [...q.keys()].length === 1 &&
+      q.getAll('day').length === 1 &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('day') ?? '')
+    );
+  }
+  if (
+    method === 'POST' &&
+    search === undefined &&
+    new RegExp(
+      `^/v1/admin/backoffice/branches/${UUID}/reconciliation/(?:preview|commands)$`,
+      'i',
+    ).test(pathname)
+  )
+    return true;
   if (method === 'GET' && new RegExp(`^/v1/admin/backoffice/branches/${UUID}$`, 'i').test(pathname))
     return reportQuery(search ?? '');
   if (search !== undefined) return false;
@@ -367,9 +388,11 @@ export function createBackofficeServer({
           });
           const chunks = [];
           let size = 0;
+          // A reconciliation day lists every matched operation for the accountant's export.
+          const limit = /\/reconciliation\?/.test(path) ? 4 * 1024 * 1024 : 1024 * 1024;
           for await (const chunk of response.body ?? []) {
             size += chunk.length;
-            if (size > 1024 * 1024) {
+            if (size > limit) {
               send(502, { code: 'INVALID_RESPONSE' });
               return;
             }
