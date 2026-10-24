@@ -5,6 +5,7 @@ import { customerAuthGrants } from './customer-auth-grants.mjs';
 import { workforceGrants } from './workforce-grants.mjs';
 import { backofficeGrants } from './backoffice-grants.mjs';
 import { manualRefundGrants } from './manual-refund-grants.mjs';
+import { reconciliationGrants } from './reconciliation-grants.mjs';
 import { backofficeStopGrants } from './backoffice-stop-grants.mjs';
 import { catalogAdminGrants } from './catalog-admin-grants.mjs';
 import { catalogAccessGrants, edgeMenuStateGrants } from './catalog-edge-grants.mjs';
@@ -122,6 +123,14 @@ async function provision() {
       // Validate the complete owner/branch policy before enabling checkout privileges.
       await client.query(
         customerCheckoutGrants('pickchick_app', customerCheckoutOptions(process.env) !== null),
+      );
+      // After the checkout helper, which revokes table privileges on commerce_kaspi_invoices.
+      await client.query(
+        reconciliationGrants(
+          'pickchick_app',
+          config.backofficeEnabled === true &&
+            process.env.BACKOFFICE_RECONCILIATION_ENABLED === 'true',
+        ),
       );
       // Last: the transport helper above revokes every refund privilege from the shared role.
       await client.query(
