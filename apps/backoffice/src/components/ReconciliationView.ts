@@ -27,6 +27,8 @@ import {
  */
 type Filter = 'open' | 'differences' | 'matched' | 'all';
 const ROWS_SHOWN = 300;
+/** Below the proxy's 300 KB JSON limit, leaving room for the mapping and the request envelope. */
+const UPLOAD_MAX_BYTES = 280 * 1024;
 const short = (id: string | null | undefined) => (id ? id.slice(0, 8) : '-');
 const time = (iso: string | null | undefined) => almatyTime(iso).slice(5, 16) || '-';
 const ISSUES: Record<string, string> = {
@@ -781,8 +783,11 @@ export class ReconciliationView {
       if (!f) return;
       void f.arrayBuffer().then((bytes) => {
         const content = decodeStatement(bytes, this.draft.encoding);
-        if (content.length > d.limits.statement_max_chars) {
-          this.localError = `Файл больше ${d.limits.statement_max_chars} символов: разделите выписку на части.`;
+        // The private proxy accepts JSON bodies up to 300 KB; Cyrillic text takes 2 bytes a letter.
+        const size = new Blob([JSON.stringify(content)]).size;
+        if (content.length > d.limits.statement_max_chars || size > UPLOAD_MAX_BYTES) {
+          this.localError =
+            'Файл слишком большой для одной загрузки: разделите выписку на части (например, по дням).';
           this.file = null;
         } else {
           this.localError = '';
