@@ -192,6 +192,12 @@ export const ErrorSchema = z.strictObject({
     // that list the checkout-errors-v2 profile: older bundles reject unknown codes.
     'KITCHEN_OFFLINE',
     'CASH_SHIFT_REQUIRED',
+    // Cashier edge only (local-orders): the POS explains each one; without them in this list the
+    // error filter answered a bare CONFLICT (offline stand finding, 24.10). Cloud routes never
+    // send them, so the app and kiosk bundles see no new code.
+    'SERVICE_MODE_DISABLED',
+    'KITCHEN_UNAVAILABLE',
+    'ORDER_IN_PRODUCTION',
     'SHIFT_CLOSED',
     'CONFLICT',
     'INSUFFICIENT_STOCK',
