@@ -1,4 +1,6 @@
 import { InventoryView, inventoryEditor } from './inventory.js';
+import { ReconciliationView } from './components/ReconciliationView.js';
+import { ReconciliationModel } from './reconciliation-model.js';
 import { element as el, button, field, select, check } from './dom.js';
 import { message } from './api.js';
 import {
@@ -1615,9 +1617,28 @@ export class OperationsView {
       mode === 'manual' ? 'Зарегистрировать возврат' : 'Запросить возврат',
     );
   }
+  /** Stage 2, lane rec: daily reconciliation on top of «Оплаты и чеки»; hidden while off. */
+  private reconciliation: ReconciliationView | null = null;
+  private renderReconciliation(content: HTMLElement) {
+    if (!this.model.actor || !this.model.branch) return;
+    if (!this.reconciliation) {
+      let store: Storage;
+      try {
+        store = window.sessionStorage;
+      } catch {
+        return;
+      }
+      this.reconciliation = new ReconciliationView(
+        new ReconciliationModel(this.model.api, store, this.model.changed),
+      );
+    }
+    this.reconciliation.sync(this.model.actor, this.model.branch);
+    this.reconciliation.render(content);
+  }
   render(page: string, content: HTMLElement) {
     const m = this.model,
       d = m.data;
+    if (page === 'finance') this.renderReconciliation(content);
     if (page === 'stoplist' && this.stops?.data) {
       this.renderStops(content, this.stops.data);
       return;

@@ -31,13 +31,17 @@
     "./cloud-kitchen": {
       "types": "./dist/cloud-kitchen.d.ts",
       "default": "./dist/cloud-kitchen.js"
+    },
+    "./reconciliation": {
+      "types": "./dist/reconciliation.d.ts",
+      "default": "./dist/reconciliation.js"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test tests/unit.test.mjs",
-    "test:integration": "node --env-file=../../.env --test --test-concurrency=1 tests/postgres.test.mjs tests/commerce.test.mjs tests/grants.test.mjs tests/stops.test.mjs tests/kiosk-incidents.test.mjs"
+    "test": "node --test tests/unit.test.mjs tests/reconciliation-unit.test.mjs",
+    "test:integration": "node --env-file=../../.env --test --test-concurrency=1 tests/postgres.test.mjs tests/commerce.test.mjs tests/grants.test.mjs tests/stops.test.mjs tests/kiosk-incidents.test.mjs tests/reconciliation.test.mjs"
   },
   "dependencies": {
     "@pickchick/database": "workspace:*",
