@@ -34,8 +34,19 @@ import {
   HttpException,
   Query,
 } from '@nestjs/common';
-import { acknowledgeMenu, pullMenu, SyncError } from '@pickchick/menu-sync';
-import { BranchSchema, MenuSnapshotSchema, UuidSchema } from '@pickchick/contracts';
+import {
+  acknowledgeMenu,
+  edgeMenuFeatures,
+  pullMenu,
+  SyncError,
+  withoutComboStopLinks,
+} from '@pickchick/menu-sync';
+import {
+  BranchSchema,
+  EDGE_MENU_FEATURES_QUERY_KEY,
+  MenuSnapshotSchema,
+  UuidSchema,
+} from '@pickchick/contracts';
 import {
   createHttpApplication,
   EdgeDeviceRoute,
@@ -129,13 +140,15 @@ class BranchesController {
       [id.data],
     );
     if (!rows[0]) throw new NotFoundException();
-    return MenuSnapshotSchema.parse(rows[0].payload);
+    // Public read-only menu: the cashier-only combo stop fields stay off this route.
+    return withoutComboStopLinks(MenuSnapshotSchema.parse(rows[0].payload));
   }
 }
 
 /**
  * Optional edge-reported active menu (EdgeMenuStateQuerySchema, validated by pullMenu).
  * Other query keys stay ignored as before; a partial or malformed pair is a 400 with no echo.
+ * `menu_features` is read on its own (edgeMenuFeatures) and never fails a pull.
  */
 function edgeMenuState(query: Record<string, unknown>) {
   const { active_release_id: releaseId, active_version: version } = query;
@@ -160,7 +173,9 @@ class MenuSyncController {
     };
     try {
       return body === undefined
-        ? await pullMenu(this.resources.pool, auth, edgeMenuState(query))
+        ? await pullMenu(this.resources.pool, auth, edgeMenuState(query), {
+            features: edgeMenuFeatures(query[EDGE_MENU_FEATURES_QUERY_KEY]),
+          })
         : await acknowledgeMenu(this.resources.pool, auth, body);
     } catch (error) {
       if (error instanceof SyncError) {
