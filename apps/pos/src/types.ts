@@ -125,7 +125,8 @@ export function stopReasonText(view: Pick<ItemStopView, 'reason'>): string {
     return reason.name
       ? `Комбо недоступно: «${reason.name}» в стоп-листе`
       : 'Комбо недоступно: часть состава в стоп-листе';
-  return `Комбо недоступно: нет доступных вариантов в группе «${reason.name}»`;
+  // A required choice can belong to a plain item too (sauce size), so the text names no combo.
+  return `Недоступно: нет доступных вариантов в группе «${reason.name}»`;
 }
 export const isUuid = (value: unknown): value is string =>
   typeof value === 'string' &&

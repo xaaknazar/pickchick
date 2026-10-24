@@ -283,6 +283,17 @@ test('POS screen shows why a combo or an option is out and does not add it', asy
       await pos.calculate();
       assert.equal(pos.state.error, null);
       assert.equal(pos.state.quote.release_id, menu.release_id);
+      // Review: every sauce of burger-combo out (bbq is published unavailable). The reason names
+      // the group, not a combo part, since a plain item (sauce size) can hit the same rule.
+      for (const id of ['pick', 'hot', 'cheese']) await stop(option('burger-combo', 'sauce', id));
+      await pos.refreshStops();
+      const noSauce = itemStopView(pos.state.menu, item('burger-combo'), pos.state.stops);
+      assert.equal(noSauce.available, false);
+      assert.match(stopReasonText(noSauce), /^Недоступно: нет доступных вариантов в группе «/);
+      pos.configure(item('burger-combo').variant_id, [], 1);
+      assert.equal(pos.state.error.message, 'CHOICE_STOPPED');
+      assert.match(errorMessage(pos.state.error), /обязательного выбора в стоп-листе/);
+      assert.equal(pos.state.draft.items.length, 1);
     } finally {
       await server.app.close();
     }

@@ -607,7 +607,9 @@ export class PosController {
   /** Combo stop rule before a line is added or grows; the edge re-checks quote and order. */
   private assertComboOnSale(item: Item) {
     const view = parse.itemStopView(this.state.menu!, item, this.state.stops);
-    if (view.reason && view.reason.kind !== 'item') throw new Error('COMBO_STOPPED');
+    if (view.reason?.kind === 'component') throw new Error('COMBO_STOPPED');
+    // Also a plain item with a required choice (sauce size), so not worded as a combo.
+    if (view.reason?.kind === 'group') throw new Error('CHOICE_STOPPED');
   }
   private assertOptionsOnSale(item: Item, selected: readonly Selection[]) {
     const view = parse.itemStopView(this.state.menu!, item, this.state.stops);
