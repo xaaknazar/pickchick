@@ -113,5 +113,10 @@
     "version": "023_edge_restore_fence.sql",
     "checksum": "c7c2ceb967aa08e31b24792678a50f67766e3c622add8c2479bc099087673870",
     "scope": "edge"
+  },
+  {
+    "version": "024_edge_station_plans.sql",
+    "checksum": "cd3cbf65792a760a53267784c0f6c88f1178f4a9d24135decad47d89a123064a",
+    "scope": "edge"
   }
 ]

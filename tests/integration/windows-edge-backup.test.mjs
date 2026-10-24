@@ -40,6 +40,12 @@ const pinned = JSON.parse(
   await readFile(new URL('../../infra/windows/native-edge-backup-ledger.json', import.meta.url)),
 );
 const realTools = process.env.EDGE_BACKUP_TEST_PG_BIN;
+/** The test database carries every repo edge migration; the pinned ledger must review them all. */
+const EDGE_MIGRATIONS = (
+  await readdir(new URL('../../db/edge/migrations/', import.meta.url))
+).filter((name) => name.endsWith('.sql')).length;
+const SCHEMA = 'schema' + String(EDGE_MIGRATIONS).padStart(3, '0');
+const FUTURE = String(EDGE_MIGRATIONS + 1).padStart(3, '0') + '_edge_future.sql';
 
 async function dropRole(admin) {
   const client = await admin.connect();
@@ -242,11 +248,11 @@ test('backup role reads every edge table through pg_read_all_data and can change
             pinned,
             schema: ns,
           }),
-          { schema: 'schema023', timeZone: 'Asia/Almaty' },
+          { schema: SCHEMA, timeZone: 'Asia/Almaty' },
         );
         assert.equal(
           (await backup.query(`SELECT count(*)::int AS n FROM ${ns}.schema_migrations`)).rows[0].n,
-          23,
+          EDGE_MIGRATIONS,
         );
         for (const sql of [
           `INSERT INTO ${ns}.branch_config(id,code,name,timezone) VALUES(gen_random_uuid(),'X','X','UTC')`,
@@ -385,7 +391,7 @@ test('a run stores one encrypted, verified copy of exactly the snapshot it check
     );
     assert.equal(exitCode, 0);
     assert.equal(result.state, 'ok', JSON.stringify(result));
-    assert.equal(result.schema, 'schema023');
+    assert.equal(result.schema, SCHEMA);
     assert.equal(result.copies, 1);
     assert.equal(result.keyId, fixture.keyId);
     assert.deepEqual(await status(fixture), result);
@@ -419,9 +425,9 @@ test('a run stores one encrypted, verified copy of exactly the snapshot it check
     // exclude the row written after the snapshot.
     assert.deepEqual(read.meta.tableCounts, content.counts);
     assert.equal(Number(read.meta.tableCounts.local_staff) + 1, Number(liveRows));
-    assert.equal(read.meta.schema, 'schema023');
+    assert.equal(read.meta.schema, SCHEMA);
     assert.equal(read.meta.branchId, f.branch);
-    assert.equal(read.meta.ledger.length, 23);
+    assert.equal(read.meta.ledger.length, EDGE_MIGRATIONS);
     // The restore runbook's comparison sees exactly the row written after the snapshot.
     const live = await connectAs(f.edge.config.databaseUrl, BACKUP_ROLE, fixture.password);
     try {
@@ -587,12 +593,12 @@ test('refused runs keep the last success, write nothing to the destination and c
     assert.equal(result.exitCode, 0);
     // An unreviewed later migration stops the backup before pg_dump runs.
     await f.edge.pool.query(
-      "INSERT INTO schema_migrations(version,checksum,scope) VALUES('024_edge_future.sql',$1,'edge')",
-      ['c'.repeat(64)],
+      'INSERT INTO schema_migrations(version,checksum,scope) VALUES($1,$2,$3)',
+      [FUTURE, 'c'.repeat(64), 'edge'],
     );
     result = await refused({}, {}, 'UNREVIEWED_SCHEMA');
     assert.equal(result.calls.length, 0);
-    await f.edge.pool.query("DELETE FROM schema_migrations WHERE version='024_edge_future.sql'");
+    await f.edge.pool.query('DELETE FROM schema_migrations WHERE version=$1', [FUTURE]);
     // A wrong password or a broken key file never reaches pg_dump either.
     const credential = JSON.parse(await readFile(fixture.layout.credentialFile, 'utf8'));
     await writeFile(

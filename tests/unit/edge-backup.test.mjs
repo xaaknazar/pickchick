@@ -34,12 +34,13 @@ const code = (expected) => (error) => error instanceof EdgeBackupError && error.
 const rows = (count) =>
   pinned.slice(0, count).map(({ version, checksum, scope }) => ({ version, checksum, scope }));
 
-test('only the reviewed edge schemas 020-023 are backed up; anything else is refused', () => {
+test('only the reviewed edge schemas 020-024 are backed up; anything else is refused', () => {
   assert.deepEqual(EDGE_BACKUP_SCHEMAS, {
     schema020: 20,
     schema021: 21,
     schema022: 22,
     schema023: 23,
+    schema024: 24,
   });
   for (const [name, length] of Object.entries(EDGE_BACKUP_SCHEMAS))
     assert.equal(verifiedSchema(rows(length), pinned), name);
@@ -51,12 +52,15 @@ test('only the reviewed edge schemas 020-023 are backed up; anything else is ref
     ),
     'schema023',
   );
-  const future = { version: '024_edge_future.sql', checksum: 'a'.repeat(64), scope: 'edge' };
+  const future = { version: '025_edge_future.sql', checksum: 'a'.repeat(64), scope: 'edge' };
   for (const ledger of [
     rows(19),
     rows(14),
     [],
-    [...rows(23), future],
+    [...rows(24), future],
+    // 024 is reviewed by its exact file bytes: another 024 is not schema024.
+    rows(23).concat([{ ...pinned[23], checksum: 'd'.repeat(64) }]),
+    rows(23).concat([{ ...pinned[23], version: '024_edge_other.sql' }]),
     rows(22).concat([{ ...pinned[22], checksum: 'b'.repeat(64) }]),
     rows(21).map((row, index) => (index === 4 ? { ...row, checksum: 'c'.repeat(64) } : row)),
     rows(20).map((row, index) => (index === 7 ? { ...row, version: '008_other.sql' } : row)),
@@ -69,6 +73,7 @@ test('only the reviewed edge schemas 020-023 are backed up; anything else is ref
     assert.throws(() => verifiedSchema(ledger, pinned), code('UNREVIEWED_SCHEMA'));
   for (const tampered of [
     pinned.slice(0, 22),
+    pinned.slice(0, 23),
     pinned.map((row, index) => (index === 5 ? { ...row, checksum: 'X'.repeat(64) } : row)),
     pinned.map((row, index) => (index === 5 ? { ...row, scope: 'cloud' } : row)),
     pinned.map((row, index) => (index === 5 ? pinned[6] : row)),
@@ -77,6 +82,22 @@ test('only the reviewed edge schemas 020-023 are backed up; anything else is ref
     assert.throws(() => verifiedSchema(rows(20), tampered), code('TOOL_INVALID'));
 });
 
+test('schema024 (stage 2 station plans) is reviewed by the exact bytes of the edge 024 migration', async () => {
+  const name = '024_edge_station_plans.sql';
+  const bytes = await readFile(new URL('../../db/edge/migrations/' + name, import.meta.url));
+  assert.deepEqual(pinned[23], {
+    version: name,
+    checksum: createHash('sha256').update(bytes).digest('hex'),
+    scope: 'edge',
+  });
+  // The guarded 023 -> 024 upgrade applies exactly this file, so a cashier after it is backed up.
+  const { STATION_PLAN_MIGRATION } =
+    await import('../../infra/windows/station-plan-upgrade-db.mjs');
+  assert.equal(STATION_PLAN_MIGRATION, name);
+  assert.equal(verifiedSchema(rows(24), pinned), 'schema024');
+  // The pending runtime release (schema023) is still accepted by the same tool.
+  assert.equal(verifiedSchema(rows(23), pinned), 'schema023');
+});
 const config = {
   format: 'pickchick-edge-backup-config-v1',
   branchId,
@@ -418,7 +439,7 @@ test('copy listing only accepts complete copies of this branch and old leftovers
     // that copy may hold the newest data, so it is neither a copy nor a leftover here.
     const newer = name('2026-10-20T09:17:00Z', '0000000b');
     await writeFile(join(dir, newer), 'x');
-    await writeFile(join(dir, newer + '.json'), sidecar(newer, 1, { schema: 'schema024' }));
+    await writeFile(join(dir, newer + '.json'), sidecar(newer, 1, { schema: 'schema025' }));
     const damaged = name('2026-10-20T08:17:00Z', '0000000c');
     await writeFile(join(dir, damaged), 'x');
     await writeFile(join(dir, damaged + '.json'), '{"format":');

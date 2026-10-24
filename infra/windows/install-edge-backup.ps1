@@ -32,11 +32,11 @@ $ErrorActionPreference = 'Stop'
 
 # Reviewed tool bytes (tests/operations/test_windows_edge_backup.py keeps these equal to the repo).
 $script:toolPins = [ordered]@{
-    'edge-backup-lib.mjs'            = '51cfd1e10cffd93e88ae92a6826f4bbdd7133d3897b1daea12048554bb2a9165'
+    'edge-backup-lib.mjs'            = '6bf18f3d55733b96cc6d51990b627322146d61fcefdfbbe92a58794cea660c86'
     'edge-backup-restore.mjs'        = 'dfc0c798c4190253f0fdf3d0b23347237c30efbb138e543e4c94ec5d5bafc08d'
     'edge-backup-setup.mjs'          = 'bd61834cf87cd5462d4b7f3ae9c7eff8d333fe324bccef7812301e48472bdabe'
     'edge-backup-task.mjs'           = 'c1ec995611196dc0aec8aed8f608e7e3c92caa680487c36c42ad70fb7e9c5ead'
-    'native-edge-backup-ledger.json' = '6fff20890da53a34e78375bede6d9ae582becfe9824b00a8d5614c5fd5bdde6c'
+    'native-edge-backup-ledger.json' = '5405e162febd4207c4b2a4907d78bf61dfc82ce57edf0d14c6fdcf4a3064bb1c'
 }
 $script:trusted = @('S-1-5-18', 'S-1-5-32-544')
 $taskPath = '\PickChick\'

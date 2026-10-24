@@ -80,8 +80,9 @@ export const SERVICE_BACKUP_SCHEMAS = Object.freeze({
   schema021: 21,
   schema022: 22,
   schema023: 23,
+  schema024: 24,
 });
-const PINNED_LEDGER_LENGTH = 23;
+const PINNED_LEDGER_LENGTH = 24;
 
 /** The exact expected ledger for a mode, after validating the shape of the pinned file. */
 export function expectedServiceLedger(pinned, ledgerMode = 'schema014') {
