@@ -1577,3 +1577,73 @@ test('shadow mode (Telegram off) prints alerts and keeps de-dup state', async ()
   assert.equal(h.printed.filter((record) => record.event === 'watchdog_message').length, 1);
   assert.deepEqual(h.sent, []);
 });
+
+// Stage 2 (ebk): cashier backup attention relayed by the API from the cashier heartbeat.
+test('cashier backup attention: stale copy warns, a day without a copy is critical, silence clears', () => {
+  const at = (minutes) => iso(NOW - minutes * MIN);
+  const branch = '7a6f6d98-395d-4462-b5e4-b0364a4a8ec1';
+  const event = (minutes, extra) => ({
+    at: at(minutes),
+    event: 'edge_backup_attention',
+    branchId: branch,
+    state: 'stale',
+    ageMinutes: 185,
+    maxAgeMinutes: 120,
+    error: null,
+    ...extra,
+  });
+  const facts = (edgeBackup) => hostFacts({ edgeBackupCollected: true, edgeBackup });
+  const quiet = find(run({ host: facts([]) }), 'edge.backup');
+  assert.deepEqual([quiet.status, quiet.source], ['ok', 'logs']);
+  const stale = find(
+    run({
+      host: facts([event(6), event(2, { state: 'failed', error: 'DESTINATION_UNAVAILABLE' })]),
+    }),
+    'edge.backup',
+  );
+  assert.deepEqual([stale.status, stale.severity], ['fail', 'warning']);
+  assert.match(stale.detail, /7a6f6d98/);
+  assert.match(stale.detail, /3 ч 5 мин/);
+  assert.match(stale.detail, /второе место \(диск или NAS\) недоступно/);
+  assert.match(stale.detail, /install-edge-backup\.ps1 -Mode Inspect/);
+  for (const extra of [{ ageMinutes: null, error: 'UNREVIEWED_SCHEMA' }, { ageMinutes: 1440 }]) {
+    const critical = find(run({ host: facts([event(1, extra)]) }), 'edge.backup');
+    assert.deepEqual([critical.status, critical.severity], ['fail', 'critical']);
+  }
+  assert.match(
+    find(
+      run({ host: facts([event(1, { ageMinutes: null, error: 'UNREVIEWED_SCHEMA' })]) }),
+      'edge.backup',
+    ).detail,
+    /успешной копии ещё не было/,
+  );
+  // Malformed entries are dropped by the host-facts whitelist; never echoed.
+  const dropped = find(
+    run({
+      host: facts([
+        event(1, { branchId: 'C:\\secret' }),
+        event(1, { error: 'password=1' }),
+        event(1, { state: 'ok' }),
+        event(1, { ageMinutes: -1 }),
+        event(1, { maxAgeMinutes: 10 }),
+      ]),
+    }),
+    'edge.backup',
+  );
+  assert.equal(dropped.status, 'ok');
+  // Not collected (API logs not read) or unreadable logs: no verdict at all.
+  assert.equal(find(run({ host: hostFacts() }), 'edge.backup'), undefined);
+  assert.equal(
+    find(
+      run({
+        host: hostFacts({
+          edgeBackupCollected: true,
+          edgeBackup: [],
+          collectorErrors: ['logs_unavailable'],
+        }),
+      }),
+      'edge.backup',
+    ),
+    undefined,
+  );
+});

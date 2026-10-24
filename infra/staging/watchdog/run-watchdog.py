@@ -4,7 +4,8 @@
 1. Collects read-only host facts: `docker inspect`/`docker logs` of the three Kaspi
    containers (only whitelisted fields of the workers' own JSON event lines), the customer
    login code events of the API container (sec lane: budget and delivery attention, no
-   phones), disk usage and the encrypted backup listing. Optionally (off by default) runs
+   phones) and the cashier backup attention it relays (ebk lane: branch, minutes, error code),
+   disk usage and the encrypted backup listing. Optionally (off by default) runs
    the existing bridge `session-check.mjs` at most every N >= 6 hours and the gateway's own
    read-only `client-ip-gateway.py --check` (sec lane, trusted proxy and client address).
 2. Runs the pinned watchdog container (`docker compose run --rm`) that evaluates the
@@ -49,6 +50,11 @@ IDENTITY_POOLS = {'all', 'new_phones'}
 IDENTITY_PERCENTS = {50, 80, 100}
 IDENTITY_CHANNELS = {'sms', 'telegram', 'whatsapp'}
 IDENTITY_DELIVERY_REASONS = {'channel_unavailable', 'provider_rejected'}
+# Cashier backup attention relayed by the API from the cashier heartbeat (stage 2, ebk lane).
+EDGE_BACKUP_EVENT = 'edge_backup_attention'
+EDGE_BACKUP_STATES = {'stale', 'failed'}
+BRANCH_ID = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}')
+BACKUP_ERROR = re.compile(r'[A-Z][A-Z_]{1,40}')
 # client-ip-gateway.py --check problem codes (sec lane, audit 5.0/5.6).
 GATEWAY_PROBLEMS = {'outer_proxy_address_unknown', 'trusted_proxies_unreadable', 'outer_proxy_not_trusted',
                     'kitchen_route_forwards_proxy_hop'}
@@ -223,6 +229,27 @@ def sanitize_identity_line(line):
             and raw.get('reason') in IDENTITY_DELIVERY_REASONS):
         return {'at': at, 'event': IDENTITY_DELIVERY_EVENT, 'channel': raw['channel'], 'reason': raw['reason']}
     return None
+
+
+def sanitize_edge_backup_line(line):
+    """Cashier backup attention (ebk lane): branch, state, minutes and an error code only."""
+    match = LOG_LINE.match(line.strip())
+    if not match or len(line) > 4096:
+        return None
+    try:
+        raw = json.loads(match.group(2))
+    except ValueError:
+        return None
+    if not isinstance(raw, dict) or raw.get('event') != EDGE_BACKUP_EVENT:
+        return None
+    branch, age, limit, error = raw.get('branchId'), raw.get('ageMinutes'), raw.get('maxAgeMinutes'), raw.get('error')
+    minutes = lambda value, low, high: isinstance(value, int) and not isinstance(value, bool) and low <= value <= high
+    if (not isinstance(branch, str) or not BRANCH_ID.fullmatch(branch) or raw.get('state') not in EDGE_BACKUP_STATES
+            or not (age is None or minutes(age, 0, 5_256_000)) or not minutes(limit, 60, 4320)
+            or not (error is None or (isinstance(error, str) and BACKUP_ERROR.fullmatch(error)))):
+        return None
+    return {'at': match.group(1) + 'Z', 'event': EDGE_BACKUP_EVENT, 'branchId': branch, 'state': raw['state'],
+            'ageMinutes': age, 'maxAgeMinutes': limit, 'error': error}
 
 
 def utc_day(seconds):
@@ -457,6 +484,7 @@ def collect(settings, run=subprocess.run, now=time.time, state_dir=HOME / 'state
         except (OSError, subprocess.TimeoutExpired):
             errors.append('logs_unavailable')
     identity_delivery, identity_budget, identity_collected = [], None, False
+    edge_backup, edge_backup_collected = [], False
     if docker_ok and settings.get('api'):
         try:
             result = docker(run, 'logs', '--since', str(settings['window']) + 's', '--timestamps',
@@ -470,6 +498,9 @@ def collect(settings, run=subprocess.run, now=time.time, state_dir=HOME / 'state
                 identity_budget = remember_budget(
                     [item for item in parsed if item['event'] == IDENTITY_BUDGET_EVENT], now, state_dir)
                 identity_collected = True
+                edge_backup = sorted((item for item in map(sanitize_edge_backup_line, lines) if item),
+                                     key=lambda item: item['at'])[-50:]
+                edge_backup_collected = True
         except (OSError, subprocess.TimeoutExpired):
             errors.append('logs_unavailable')
     gateway = gateway_check(release, run, now) if settings.get('gateway_check') and release else None
@@ -489,6 +520,8 @@ def collect(settings, run=subprocess.run, now=time.time, state_dir=HOME / 'state
         'identityDelivery': identity_delivery,
         'identityBudget': identity_budget,
         'identityCollected': identity_collected,
+        'edgeBackup': edge_backup,
+        'edgeBackupCollected': edge_backup_collected,
         'gatewayClientIp': gateway,
         'disks': disk_usage(settings['disks']),
         'backups': list_backups(settings['backups']),

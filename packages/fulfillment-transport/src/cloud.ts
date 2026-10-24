@@ -194,11 +194,22 @@ const lastReview = new Map<string, number>();
  */
 export const EDGE_BACKUP_LOG_INTERVAL_MS = 4 * 60_000;
 const backupLogged = new Map<string, number>();
+/** The exact log record the watchdog parses (infra/staging/watchdog/run-watchdog.py). */
+export function edgeBackupAttentionLine(branchId: string, attention: EdgeBackupAttention) {
+  return {
+    event: 'edge_backup_attention' as const,
+    branchId,
+    state: attention.state,
+    ageMinutes: attention.ageMinutes,
+    maxAgeMinutes: attention.maxAgeMinutes,
+    error: attention.error,
+  };
+}
 function reportBackupAttention(branchId: string, attention: EdgeBackupAttention) {
   const now = Date.now();
   if (now - (backupLogged.get(branchId) ?? -Infinity) < EDGE_BACKUP_LOG_INTERVAL_MS) return;
   backupLogged.set(branchId, now);
-  console.error(JSON.stringify({ event: 'edge_backup_attention', branchId, ...attention }));
+  console.error(JSON.stringify(edgeBackupAttentionLine(branchId, attention)));
 }
 
 /** One delivery per call. A bank/fiscal worker cannot claim this branch's commands. */

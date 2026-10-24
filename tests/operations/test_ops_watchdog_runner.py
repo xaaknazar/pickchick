@@ -264,6 +264,35 @@ class HostFacts(unittest.TestCase):
             with self.subTest(text=text[:70]):
                 self.assertIsNone(runner.sanitize_identity_line(text))
 
+    def test_cashier_backup_attention_from_api_logs(self):
+        stamp = lambda seconds: datetime.fromtimestamp(NOW - seconds, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        branch = '7a6f6d98-395d-4462-b5e4-b0364a4a8ec1'
+        failed = ('{"event":"edge_backup_attention","branchId":"' + branch + '","state":"failed",'
+                  '"ageMinutes":185,"maxAgeMinutes":120,"error":"DESTINATION_UNAVAILABLE"}')
+        never = ('{"event":"edge_backup_attention","branchId":"' + branch + '","state":"stale",'
+                 '"ageMinutes":null,"maxAgeMinutes":120,"error":null,"path":"D:\\\\secret"}')
+        logs = {'pickchick-staging-api-1': ('', '\n'.join([stamp(400) + ' ' + failed, stamp(100) + ' ' + never]) + '\n')}
+        with tempfile.TemporaryDirectory() as name:
+            facts = runner.collect(settings(WATCHDOG_DISK_PATHS='/'), run=FakeDocker(logs=logs),
+                                   now=lambda: NOW, state_dir=Path(name))
+        self.assertTrue(facts['edgeBackupCollected'])
+        self.assertEqual(facts['edgeBackup'], [
+            {'at': stamp(400), 'event': 'edge_backup_attention', 'branchId': branch, 'state': 'failed',
+             'ageMinutes': 185, 'maxAgeMinutes': 120, 'error': 'DESTINATION_UNAVAILABLE'},
+            {'at': stamp(100), 'event': 'edge_backup_attention', 'branchId': branch, 'state': 'stale',
+             'ageMinutes': None, 'maxAgeMinutes': 120, 'error': None}])
+        self.assertNotIn('secret', json.dumps(facts))
+        for text in [failed.replace(branch, 'not-a-branch'), failed.replace('"failed"', '"ok"'),
+                     failed.replace('185', '-1'), failed.replace('185', 'true'), failed.replace('185', '"185"'),
+                     failed.replace('"maxAgeMinutes":120', '"maxAgeMinutes":10'),
+                     failed.replace('DESTINATION_UNAVAILABLE', 'disk D: password=1'),
+                     failed.replace(',"maxAgeMinutes":120', '')]:
+            with self.subTest(text=text[60:120]):
+                self.assertIsNone(runner.sanitize_edge_backup_line(stamp(1) + ' ' + text))
+        off = runner.collect(settings(WATCHDOG_DISK_PATHS='/', WATCHDOG_API_CONTAINER='-'),
+                             run=FakeDocker(logs=logs), now=lambda: NOW, state_dir=Path('/nonexistent'))
+        self.assertEqual((off['edgeBackupCollected'], off['edgeBackup']), (False, []))
+
     def test_api_login_code_events_and_the_daily_budget_memory(self):
         day = runner.utc_day(NOW)
         stamp = lambda seconds: datetime.fromtimestamp(NOW - seconds, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
