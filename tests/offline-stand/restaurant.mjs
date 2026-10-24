@@ -567,10 +567,11 @@ export class Restaurant {
   async kioskOrder({ items = ['BURGER', 'FRIES'] } = {}) {
     const { sessions, kiosk } = await this.commerce();
     const s = this.stand;
+    let who = null;
     try {
       const token = randomBytes(32).toString('hex');
       await sessions.start(s.ids.kiosk, s.kioskKey, { sessionId: randomUUID(), token });
-      const who = await sessions.authenticate(s.ids.kiosk, s.kioskKey, token);
+      who = await sessions.authenticate(s.ids.kiosk, s.kioskKey, token);
       const quote = await kiosk.quote(who, {
         key: randomUUID(),
         branchId: s.ids.branch,
@@ -585,6 +586,8 @@ export class Restaurant {
       return entry;
     } catch (error) {
       this.refused(this.counters.kiosk_refused, error);
+      // The guest saw the refusal and left: the iPad ends the guest session (at most ten open).
+      if (who) await sessions.end(who.sessionId).catch(() => {});
       return null;
     }
   }

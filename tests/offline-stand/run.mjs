@@ -25,7 +25,7 @@ import { Restaurant } from './restaurant.mjs';
 import { Traffic } from './traffic.mjs';
 import { Context, SCENARIOS, SCENARIO_ORDER } from './scenarios.mjs';
 import { pendingWork, backlogMark } from './checks.mjs';
-import { distinguishable } from './staff-view.mjs';
+import { distinguishable, LABELS } from './staff-view.mjs';
 import { seededRandom } from './fault-proxy.mjs';
 import { renderMarkdown } from './report.mjs';
 
@@ -173,6 +173,7 @@ async function soak(ctx, report) {
   const notes = { samples: [] };
   stand.wan.set(profile.wanFault);
   const started = Date.now();
+  const before = { pos_sales: r.counters.pos_sales, kitchen_actions: r.counters.kitchen_actions };
   let nextShift = started + profile.shiftEveryMs,
     nextStaff = started + profile.staffEveryMs,
     restarted = false;
@@ -217,18 +218,32 @@ async function soak(ctx, report) {
   stand.wan.set('up');
   converge.seconds = Math.round((Date.now() - reconnect) / 100) / 10;
   notes.convergence_seconds = converge.seconds;
-  const kept = notes.samples.every(
-    (s, i) => i === 0 || s.pos_sales >= notes.samples[i - 1].pos_sales,
-  );
+  // Every interval has new sales and kitchen work, not only the run as a whole.
+  const idle = notes.samples.filter((s, i) => {
+    const previous = i === 0 ? before : notes.samples[i - 1];
+    return s.pos_sales <= previous.pos_sales || s.kitchen_actions <= previous.kitchen_actions;
+  });
+  const unseen = notes.samples.filter((s) => s.pos !== LABELS.posWanDown);
   return {
     notes,
     checks: [
       {
         id: 'soak_kept_working',
         title: 'Касса и кухня работали всё время без интернета',
-        ok: kept && r.counters.pos_sales > 0 && r.counters.kitchen_actions > 0,
+        ok: notes.samples.length > 0 && idle.length === 0,
         expected: 'продажи и кухня в каждом интервале',
-        actual: { pos_sales: r.counters.pos_sales, kitchen_actions: r.counters.kitchen_actions },
+        actual: {
+          pos_sales: r.counters.pos_sales - before.pos_sales,
+          kitchen_actions: r.counters.kitchen_actions - before.kitchen_actions,
+          idle_intervals: idle.map((s) => s.minute),
+        },
+      },
+      {
+        id: 'soak_staff_saw_no_internet',
+        title: 'Касса всё время показывала «нет интернета», а не «нет связи с кассой»',
+        ok: notes.samples.length > 0 && unseen.length === 0,
+        expected: LABELS.posWanDown,
+        actual: unseen.map((s) => ({ minute: s.minute, pos: s.pos })),
       },
       {
         id: 'soak_converged',
