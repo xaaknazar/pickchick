@@ -39,6 +39,31 @@ function identifier(value) {
   return '"' + value + '"';
 }
 
+/**
+ * Command line of scripts/edge-runtime-grants.mjs: `<role> [--fulfillment] [--cloud-link]`.
+ * Each option at most once, in any order; anything else is refused. The grants are a reset, so
+ * an installer that re-applies them without --cloud-link removes the cloud-link column grant.
+ */
+export function runtimeGrantCliOptions(args) {
+  const [role, ...flags] = args;
+  const known = ['--fulfillment', '--cloud-link'];
+  if (
+    typeof role !== 'string' ||
+    !role ||
+    role.startsWith('--') ||
+    flags.some((flag) => !known.includes(flag)) ||
+    new Set(flags).size !== flags.length
+  )
+    throw new Error('Usage: edge-runtime-grants.mjs <role> [--fulfillment] [--cloud-link]');
+  return {
+    role,
+    options: {
+      fulfillment: flags.includes('--fulfillment'),
+      cloudLink: flags.includes('--cloud-link'),
+    },
+  };
+}
+
 /** Pure SQL: caller must explicitly opt into applied schema016 with cashierReports,
  * applied schema018 with menuMedia, applied schema019 with remoteStops and applied schema023
  * with restoreFence. cloudLink (default off) lets the POS show the internet state: two columns
@@ -278,6 +303,11 @@ export async function applyEdgeRuntimeGrants(pool, role, options = {}) {
     ]);
     if (create.rows[0].permitted)
       throw new Error('Public schema CREATE must be removed before runtime grants');
-    return { role, schema, fulfillment: options.fulfillment ?? false };
+    return {
+      role,
+      schema,
+      fulfillment: options.fulfillment ?? false,
+      cloudLink: options.cloudLink ?? false,
+    };
   });
 }

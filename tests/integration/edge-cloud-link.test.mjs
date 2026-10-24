@@ -10,6 +10,7 @@ import { fixture } from '../../packages/edge-fulfillment/tests/fixture.mjs';
 import {
   applyEdgeRuntimeGrants,
   edgeRuntimeGrantSql,
+  runtimeGrantCliOptions,
 } from '../../infra/windows/edge-runtime-grants.mjs';
 import { createEdge } from '../../services/edge/dist/index.js';
 
@@ -147,4 +148,28 @@ test('runtime grant SQL: cloud link is opt-in and column limited', () => {
   );
   assert.doesNotMatch(edgeRuntimeGrantSql('edge_runtime', {}), /fulfillment_transport_state/);
   assert.throws(() => edgeRuntimeGrantSql('edge_runtime', { cloudLink: 'yes' }));
+});
+
+test('runtime grant command line: --cloud-link is the only way to opt in, typos are refused', () => {
+  const role = 'pickchick_edge_runtime';
+  assert.deepEqual(runtimeGrantCliOptions([role]), {
+    role,
+    options: { fulfillment: false, cloudLink: false },
+  });
+  assert.deepEqual(runtimeGrantCliOptions([role, '--cloud-link', '--fulfillment']), {
+    role,
+    options: { fulfillment: true, cloudLink: true },
+  });
+  assert.deepEqual(runtimeGrantCliOptions([role, '--cloud-link']).options, {
+    fulfillment: false,
+    cloudLink: true,
+  });
+  for (const args of [
+    [],
+    ['--cloud-link'],
+    [role, '--cloudLink'],
+    [role, '--cloud-link', '--cloud-link'],
+    [role, '--fulfillment', 'extra'],
+  ])
+    assert.throws(() => runtimeGrantCliOptions(args));
 });
