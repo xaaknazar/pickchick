@@ -256,6 +256,20 @@ test('runner options: profiles, durations and refused input', () => {
     profileFor(parseArgs(['--mode', 'backlog', '--events', '10000'])).backlogEvents,
     10000,
   );
+  const short = profileFor(
+    parseArgs([
+      '--mode',
+      'soak',
+      '--duration',
+      '30m',
+      '--sample-every',
+      '2m',
+      '--shift-every',
+      '10m',
+    ]),
+  );
+  assert.deepEqual([short.checkEveryMs, short.shiftEveryMs], [120000, 600000]);
+  assert.equal(parseArgs(['--', '--mode', 'soak']).mode, 'soak');
   for (const bad of [
     ['--mode', 'production'],
     ['--events', '-1'],

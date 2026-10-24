@@ -49,13 +49,15 @@ export class Traffic {
       } catch (error) {
         this.record(name, error);
       }
+      // Long waits (a channel switched off) end at once when the traffic stops.
       const wait = Math.max(50, intervalMs() - (Date.now() - started));
-      await sleep(wait);
+      await sleep(wait, undefined, { signal: this.halt.signal }).catch(() => {});
     }
   }
   start() {
     if (this.running) return;
     this.running = true;
+    this.halt = new AbortController();
     const r = this.r,
       rates = this.rates;
     const jitter = (ms) => ms * (0.5 + r.random());
@@ -93,6 +95,7 @@ export class Traffic {
   }
   async stop() {
     this.running = false;
+    this.halt?.abort();
     await Promise.all(this.loops);
     await Promise.allSettled([...this.journeys]);
     this.loops = [];

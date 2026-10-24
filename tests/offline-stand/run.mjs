@@ -7,6 +7,8 @@
  *
  * Options: --scenarios a,b  --seed N  --output DIR (default .local/offline-stand/<run>)
  *          --keep (keep the run schemas)  --no-docker (skip the restore drill)
+ *          --cleanup (drop every offstand_* schema left by a killed run; no stand may run)
+ *          soak only: --sample-every 10m  --shift-every 4h  --relogin-every 1h
  * Databases: CLOUD_DATABASE_URL / EDGE_DATABASE_URL (local only); the restore drill restores the
  * edge copy into OFFLINE_STAND_RESTORE_DATABASE_URL (default: pickchick_edge on the cloud server).
  * Writes report.json and report.md (Russian); exit code 1 when any check failed.
@@ -18,7 +20,7 @@ import { resolve, relative } from 'node:path';
 import { promisify } from 'node:util';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { cpus, totalmem } from 'node:os';
-import { Stand, root } from './stand.mjs';
+import { Stand, root, checkedAdminUrl, SCHEMA_PATTERN } from './stand.mjs';
 import { Restaurant } from './restaurant.mjs';
 import { Traffic } from './traffic.mjs';
 import { Context, SCENARIOS, SCENARIO_ORDER } from './scenarios.mjs';
@@ -92,7 +94,8 @@ export const PROFILES = {
     convergeLimitS: 60 * 60,
     chaos: CHAOS,
     reconnectChaos: FLAKY,
-    rates: { posPerMinute: 600, channelPerMinute: 0, kitchenEveryMs: 500, kitchenShare: 1 },
+    // Normal restaurant pace; the accumulation phase itself sells and cooks as fast as it can.
+    rates: { posPerMinute: 3, channelPerMinute: 0, kitchenEveryMs: 2000 },
   },
 };
 
@@ -110,8 +113,12 @@ export function parseArgs(argv) {
         return argv[++i];
       };
     if (arg === '--') continue;
+    else if (arg === '--cleanup') options.cleanup = true;
     else if (arg === '--mode') options.mode = value();
     else if (arg === '--duration') options.durationMs = parseDuration(value());
+    else if (arg === '--sample-every') options.checkEveryMs = parseDuration(value());
+    else if (arg === '--shift-every') options.shiftEveryMs = parseDuration(value());
+    else if (arg === '--relogin-every') options.staffEveryMs = parseDuration(value());
     else if (arg === '--events') options.events = Number(value());
     else if (arg === '--scenarios') options.scenarios = value().split(',');
     else if (arg === '--seed') options.seed = Number(value());
@@ -137,6 +144,9 @@ export function profileFor(options) {
   return {
     ...base,
     ...(options.durationMs ? { durationMs: options.durationMs } : {}),
+    ...(options.checkEveryMs ? { checkEveryMs: options.checkEveryMs } : {}),
+    ...(options.shiftEveryMs ? { shiftEveryMs: options.shiftEveryMs } : {}),
+    ...(options.staffEveryMs ? { staffEveryMs: options.staffEveryMs } : {}),
     ...(options.events ? { backlogEvents: options.events } : {}),
     rates: { ...base.rates, ...(options.rate ? { posPerMinute: options.rate } : {}) },
     noDocker: options.noDocker,
@@ -235,11 +245,7 @@ async function soak(ctx, report) {
 async function backlog(ctx) {
   const { stand, traffic, profile } = ctx;
   const saved = { ...traffic.rates };
-  Object.assign(traffic.rates, {
-    posPerMinute: Math.max(saved.posPerMinute, 120),
-    kitchenEveryMs: 500,
-    kitchenShare: 1,
-  });
+  Object.assign(traffic.rates, { posPerMinute: 600, kitchenEveryMs: 500, kitchenShare: 1 });
   stand.wan.set('down');
   const started = Date.now();
   let pending = await pendingWork(stand);
@@ -295,14 +301,48 @@ async function backlog(ctx) {
   };
 }
 
+/** After a hard kill (SIGKILL) the schemas of that run stay behind; Ctrl-C cleans up itself. */
+async function cleanup() {
+  const { createPool } = await import('@pickchick/database');
+  const dropped = [];
+  for (const [kind, raw] of [
+    ['cloud', process.env.CLOUD_DATABASE_URL],
+    ['edge', process.env.EDGE_DATABASE_URL],
+    ['restore', defaultRestoreUrl()],
+  ]) {
+    const pool = createPool(checkedAdminUrl(raw, kind).toString(), 1);
+    try {
+      const names = (
+        await pool.query("SELECT nspname FROM pg_namespace WHERE nspname LIKE 'offstand\\_%'")
+      ).rows.map((r) => r.nspname);
+      for (const name of names.filter((n) => SCHEMA_PATTERN.test(n))) {
+        await pool.query(`DROP SCHEMA ${name} CASCADE`);
+        dropped.push(`${kind}:${name}`);
+      }
+    } catch (error) {
+      if (error.code !== '3D000') throw error; // the restore database was never created
+    } finally {
+      await pool.end();
+    }
+  }
+  console.log(JSON.stringify({ cleanup: dropped }));
+  return { status: 'passed', dropped };
+}
+
 export async function main(argv = process.argv.slice(2)) {
   const options = parseArgs(argv);
+  if (options.cleanup) return cleanup();
   const profile = profileFor(options);
   const abort = new AbortController();
   profile.signal = abort.signal;
-  const onSignal = () => abort.abort();
-  process.once('SIGINT', onSignal);
-  process.once('SIGTERM', onSignal);
+  // Stay installed until cleanup ends: a second Ctrl-C must not kill the run before it stops its
+  // processes and drops its schemas (SIGKILL remains the hard stop; then use --cleanup).
+  const onSignal = () => {
+    if (abort.signal.aborted) console.error(JSON.stringify({ event: 'stopping_cleanup_running' }));
+    abort.abort();
+  };
+  process.on('SIGINT', onSignal);
+  process.on('SIGTERM', onSignal);
   const runId = `${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}-${randomBytes(3).toString('hex')}`;
   const out = resolve(root, options.output ?? `.local/offline-stand/${runId}`);
   if (relative(root, out).startsWith('..'))

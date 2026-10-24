@@ -62,7 +62,7 @@ export class Context {
     for (;;) {
       if (await backlogDelivered(this.stand, mark))
         return { seconds: round((Date.now() - started) / 1000), converged: true };
-      if (Date.now() - started > timeoutMs)
+      if (Date.now() - started > timeoutMs || this.profile.signal?.aborted)
         return { seconds: round((Date.now() - started) / 1000), converged: false };
       await sleep(500);
     }
@@ -76,7 +76,12 @@ export class Context {
       pending = await pendingWork(this.stand);
       fresh = await this.stand.cloudAvailabilityFresh();
       stops = await stopsConverged(this.stand);
-      if ((drained(pending) && fresh && stops) || Date.now() - started > timeoutMs) break;
+      if (
+        (drained(pending) && fresh && stops) ||
+        Date.now() - started > timeoutMs ||
+        this.profile.signal?.aborted
+      )
+        break;
       await sleep(1000);
     }
     return {
