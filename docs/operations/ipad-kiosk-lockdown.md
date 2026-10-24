@@ -30,7 +30,7 @@ iPad» означает: документация этого не обещает
 | Configurator: Actions > Advanced > Start Single App Mode, выбор приложения, Options, Apply                                                                                                                                                                                                                  | [Set Single App Mode](https://support.apple.com/guide/apple-configurator-mac/set-single-app-mode-cadbf9c172/mac)                                                                           | документация                                                                        |
 | Configurator: профиль добавляется перетаскиванием или Add > Profiles; на supervised iPad без действий на устройстве; удаление - Actions > Remove > Profiles                                                                                                                                                 | [Add or remove configuration profiles](https://support.apple.com/guide/apple-configurator-mac/add-or-remove-configuration-profiles-cadb67fcd4f/mac)                                        | документация                                                                        |
 | Встроенное управление устройствами Apple Business позволяет загрузить собственный `.mobileconfig` («Custom configuration», до 1 МБ)                                                                                                                                                                         | [Custom configuration](https://support.apple.com/en-gb/guide/business/axmcf4de99c4/web)                                                                                                    | документация; принимает ли встроенный сервис именно AppLock - не указано, проверить |
-| Гид-доступ: «Настройки» > «Универсальный доступ» > «Гид-доступ», запуск тройным нажатием верхней кнопки, выход только с кодом/Face ID/Touch ID                                                                                                                                                              | [Use Guided Access](https://support.apple.com/en-us/111795)                                                                                                                                | документация                                                                        |
+| Гид-доступ: «Настройки» > «Универсальный доступ» > «Гид-доступ», запуск тройным нажатием верхней кнопки (на iPad с кнопкой «Домой» - этой кнопки), выход только с кодом/Face ID/Touch ID                                                                                                                    | [Use Guided Access](https://support.apple.com/en-us/111795)                                                                                                                                | документация                                                                        |
 
 Что код приложения сделать не может: React Native и Expo SDK 57 не дают JavaScript-доступа к
 `UIAccessibilityIsGuidedAccessEnabled` или к статусу управляемой конфигурации, поэтому киоск не
@@ -89,9 +89,9 @@ plutil -lint .local/ipad/pickchick-kiosk-applock.mobileconfig
 ## Гид-доступ - только временно
 
 Для проверки без supervision: «Настройки» > «Универсальный доступ» > «Гид-доступ», включить,
-задать отдельный код; открыть киоск и трижды нажать верхнюю кнопку. Выход требует кода (или
-Face ID/Touch ID, если их разрешили - для ресторанного iPad не разрешать). Гид-доступ не
-заменяет приёмку AppLock.
+задать отдельный код; открыть киоск и трижды нажать верхнюю кнопку (на iPad с кнопкой «Домой» -
+её). Выход требует кода (или Face ID/Touch ID, если их разрешили - для ресторанного iPad не
+разрешать). Гид-доступ не заменяет приёмку AppLock.
 
 ## Защита на стороне приложения (без native-модулей)
 
