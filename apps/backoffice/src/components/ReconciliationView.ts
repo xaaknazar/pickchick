@@ -521,6 +521,10 @@ export class ReconciliationView {
           error.textContent = 'Для «Решено» и «Принято» напишите пояснение (от 3 символов).';
           return;
         }
+        if (state.status !== 'open' && !state.assignee) {
+          error.textContent = 'Назначьте ответственного.';
+          return;
+        }
         save.disabled = true;
         void m
           .send(

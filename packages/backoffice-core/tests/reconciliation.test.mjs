@@ -333,6 +333,11 @@ test('double payment, late bank operation, partial refund, duplicate import and 
     await assert.rejects(decide(accountant, lateRow, { comment: '' }), {
       code: 'INVALID_REQUEST',
     });
+    // A difference in work, resolved or accepted always names a responsible person.
+    await assert.rejects(decide(accountant, lateRow, { assignee_id: null }), {
+      code: 'INVALID_REQUEST',
+      detail: 'ASSIGNEE_REQUIRED',
+    });
     // Assigned first (in progress), then resolved with the exact revision.
     await decide(accountant, lateRow, { status: 'in_progress', comment: '' });
     await assert.rejects(decide(accountant, lateRow), {

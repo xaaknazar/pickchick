@@ -52,6 +52,7 @@ export type ReconciliationReason =
   | 'TOTAL_EXISTS'
   | 'REVISION_CHANGED'
   | 'ASSIGNEE_UNKNOWN'
+  | 'ASSIGNEE_REQUIRED'
   | 'PROFILE_NAME_TAKEN';
 /** BackofficeError with a reconciliation reason, like CloudStopError. */
 export class ReconciliationError extends BackofficeError {
@@ -1034,6 +1035,8 @@ export class Reconciliation {
           fail('CONFLICT', 'REVISION_CHANGED');
         if (assignee !== null && !people.some((p) => p.id === assignee))
           fail('INVALID_REQUEST', 'ASSIGNEE_UNKNOWN');
+        // AC-35: a difference in work, resolved or accepted always has a responsible person.
+        if (status !== 'open' && assignee === null) fail('INVALID_REQUEST', 'ASSIGNEE_REQUIRED');
         if (['resolved', 'accepted'].includes(status) && comment.trim().length < 3)
           fail('INVALID_REQUEST');
         await db.query(
