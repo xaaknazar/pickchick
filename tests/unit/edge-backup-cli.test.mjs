@@ -239,3 +239,16 @@ test('a broken task configuration still reports, with the previous report choice
   );
   assert.equal(configFailureStatus({ ...previous, maxAgeMinutes: 5 }, at).maxAgeMinutes, 120);
 });
+
+test('a missing foundation driver or ledger stops the task as TOOL_INVALID', async () => {
+  const { loadBackupTools } = await import('../../infra/windows/edge-backup-task.mjs');
+  await withDirectory(async (dir) => {
+    // The configured foundation folder has no pg driver (for example a renamed release).
+    await assert.rejects(loadBackupTools({ ...config, toolsRoot: dir }), code('TOOL_INVALID'));
+    await writeFile(join(dir, 'ledger.json'), '{"not":"a ledger"}');
+    await assert.rejects(
+      loadBackupTools(config, new URL('file://' + join(dir, 'ledger.json'))),
+      code('TOOL_INVALID'),
+    );
+  });
+});

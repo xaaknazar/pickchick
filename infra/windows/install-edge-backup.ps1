@@ -35,7 +35,7 @@ $script:toolPins = [ordered]@{
     'edge-backup-lib.mjs'            = '3d931b57735c139cc2caf35fa054eca7afc5db67fdb03293c30c357fcbbb8f75'
     'edge-backup-restore.mjs'        = 'dfc0c798c4190253f0fdf3d0b23347237c30efbb138e543e4c94ec5d5bafc08d'
     'edge-backup-setup.mjs'          = 'bd61834cf87cd5462d4b7f3ae9c7eff8d333fe324bccef7812301e48472bdabe'
-    'edge-backup-task.mjs'           = '37fc95eae181fa332d0e61cca7519fc5ea1ced175f84116a78a7fac7a6a63d8c'
+    'edge-backup-task.mjs'           = 'c1ec995611196dc0aec8aed8f608e7e3c92caa680487c36c42ad70fb7e9c5ead'
     'native-edge-backup-ledger.json' = '6fff20890da53a34e78375bede6d9ae582becfe9824b00a8d5614c5fd5bdde6c'
 }
 $script:trusted = @('S-1-5-18', 'S-1-5-32-544')

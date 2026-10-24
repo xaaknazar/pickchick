@@ -88,6 +88,33 @@ async function readConfig(path) {
   }
 }
 
+/**
+ * The pinned ledger next to this file and the pg driver of the protected foundation tools (the
+ * same one the operator backup uses). Anything missing, for example a foundation release folder
+ * that was renamed, is TOOL_INVALID.
+ */
+export async function loadBackupTools(
+  config,
+  ledgerUrl = new URL('./native-edge-backup-ledger.json', import.meta.url),
+) {
+  try {
+    const pinned = JSON.parse(await readFile(ledgerUrl, 'utf8'));
+    const { Client } = createRequire(win32.join(config.toolsRoot, 'package.json'))('pg');
+    if (!Array.isArray(pinned) || typeof Client !== 'function') throw new Error('tools');
+    return { pinned, Client };
+  } catch {
+    throw new EdgeBackupError('TOOL_INVALID');
+  }
+}
+
+/** Health record and log line of a run that stopped before it started (codes only). */
+async function recordStartFailure(layout, status) {
+  await writeFileAtomic(layout.statusFile, JSON.stringify(status, null, 2) + '\n').catch(
+    () => undefined,
+  );
+  await appendBackupLog(layout.logFile, backupLogEntry(status, new Date())).catch(() => undefined);
+}
+
 async function main() {
   if (process.platform !== 'win32') throw new Error('Windows scheduled task invocation required');
   const [configPath, ...extra] = process.argv.slice(2);
@@ -100,20 +127,33 @@ async function main() {
     if (config.stateRoot !== stateRoot) throw new EdgeBackupError('CONFIG_INVALID');
   } catch {
     // Still leave a health record: Inspect and the heartbeat must see a broken configuration.
-    const at = new Date();
-    const status = configFailureStatus(await readBackupStatus(layout.statusFile), at);
-    await writeFileAtomic(layout.statusFile, JSON.stringify(status, null, 2) + '\n').catch(
-      () => undefined,
+    await recordStartFailure(
+      layout,
+      configFailureStatus(await readBackupStatus(layout.statusFile)),
     );
-    await appendBackupLog(layout.logFile, backupLogEntry(status, at)).catch(() => undefined);
     process.exitCode = 1;
     return;
   }
-  const pinned = JSON.parse(
-    await readFile(new URL('./native-edge-backup-ledger.json', import.meta.url), 'utf8'),
-  );
-  // The pg driver of the protected foundation tools (the same one the operator backup uses).
-  const { Client } = createRequire(win32.join(config.toolsRoot, 'package.json'))('pg');
+  let pinned;
+  let Client;
+  try {
+    ({ pinned, Client } = await loadBackupTools(config));
+  } catch {
+    const at = new Date();
+    await recordStartFailure(
+      layout,
+      backupStatus({
+        state: 'failed',
+        error: 'TOOL_INVALID',
+        startedAt: at,
+        finishedAt: at,
+        previous: await readBackupStatus(layout.statusFile),
+        config,
+      }),
+    );
+    process.exitCode = 1;
+    return;
+  }
   const { exitCode } = await runEdgeBackup(
     { config, layout, pinned, database: EDGE_DATABASE },
     {
