@@ -93,19 +93,12 @@ export function assertFreshBackup(manifest, { branchId, ledger, now = new Date()
 }
 
 /** Service environment for the worker. Mode starts off; the operator changes only that line. */
-export function menuSyncEnvText({
-  password,
-  branchId,
-  deviceId,
-  mode = 'off',
-  stationPlanMode = 'off',
-}) {
+export function menuSyncEnvText({ password, branchId, deviceId, mode = 'off' }) {
   if (
     !/^[a-f0-9]{64}$/.test(password ?? '') ||
     !uuid.test(branchId ?? '') ||
     !uuid.test(deviceId ?? '') ||
-    !['off', 'report', 'apply'].includes(mode) ||
-    !['off', 'report', 'apply'].includes(stationPlanMode)
+    !['off', 'report', 'apply'].includes(mode)
   )
     throw new Error('Invalid menu sync environment input');
   return [
@@ -114,29 +107,21 @@ export function menuSyncEnvText({
     `EDGE_DEVICE_ID=${deviceId}`,
     'EDGE_MENU_SYNC_CLOUD_ORIGIN=http://127.0.0.1:43100',
     `EDGE_MENU_SYNC_MODE=${mode}`,
-    // Station plans (edge schema024): written only when switched on, so files written before
-    // stay byte-identical and are still accepted.
-    ...(stationPlanMode === 'off' ? [] : [`EDGE_STATION_PLAN_SYNC_MODE=${stationPlanMode}`]),
     `EDGE_DATABASE_URL=postgresql://${MENU_SYNC_ROLE}:${password}@127.0.0.1:55433/pickchick_edge`,
     '',
   ].join('\n');
 }
 
-/** Accepts only a file this helper wrote (any modes); returns its password and modes. */
+/** Accepts only a file this helper wrote (any mode); returns its password and mode. */
 export function parseMenuSyncEnv(text, { branchId, deviceId }) {
   const mode = /^EDGE_MENU_SYNC_MODE=(off|report|apply)$/m.exec(text)?.[1];
-  const stationPlanMode = /^EDGE_STATION_PLAN_SYNC_MODE=(report|apply)$/m.exec(text)?.[1] ?? 'off';
   const password = new RegExp(
     `^EDGE_DATABASE_URL=postgresql://${MENU_SYNC_ROLE}:([a-f0-9]{64})@127\\.0\\.0\\.1:55433/pickchick_edge$`,
     'm',
   ).exec(text)?.[1];
-  if (
-    !mode ||
-    !password ||
-    text !== menuSyncEnvText({ password, branchId, deviceId, mode, stationPlanMode })
-  )
+  if (!mode || !password || text !== menuSyncEnvText({ password, branchId, deviceId, mode }))
     throw new Error('Existing menu sync environment differs; it was not overwritten');
-  return stationPlanMode === 'off' ? { password, mode } : { password, mode, stationPlanMode };
+  return { password, mode };
 }
 
 /** Pre-hashed SCRAM verifier: the plaintext password never reaches PostgreSQL. */

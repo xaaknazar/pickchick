@@ -11,7 +11,6 @@ import {
   stationPlanSyncMode,
   validateWorkerConfig,
 } from '../../infra/windows/native-menu-sync-worker.mjs';
-import { menuSyncEnvText, parseMenuSyncEnv } from '../../infra/windows/menu-sync-upgrade-db.mjs';
 import { SyncError } from '../../packages/menu-sync/dist/index.js';
 
 const branchId = randomUUID(),
@@ -227,34 +226,12 @@ test('a missing schema018 is reported and retried before any sync', async () => 
   ]);
 });
 
-test('station plan mode defaults off and is written to menu-sync.env only when on', () => {
-  assert.equal(stationPlanSyncMode({}), 'off');
-  for (const mode of ['off', 'report', 'apply'])
+test('station plan mode defaults to the database switch and accepts only known values', () => {
+  assert.equal(stationPlanSyncMode({}), 'auto');
+  for (const mode of ['auto', 'off', 'report', 'apply'])
     assert.equal(stationPlanSyncMode({ EDGE_STATION_PLAN_SYNC_MODE: mode }), mode);
   for (const mode of ['', 'true', 'APPLY', 'on'])
     assert.throws(() => stationPlanSyncMode({ EDGE_STATION_PLAN_SYNC_MODE: mode }));
-  const input = { password: '1'.repeat(64), branchId, deviceId, mode: 'apply' };
-  const off = menuSyncEnvText(input);
-  assert.doesNotMatch(off, /STATION_PLAN/);
-  assert.equal(off, menuSyncEnvText({ ...input, stationPlanMode: 'off' }));
-  const on = menuSyncEnvText({ ...input, stationPlanMode: 'apply' });
-  assert.match(on, /^EDGE_MENU_SYNC_MODE=apply\nEDGE_STATION_PLAN_SYNC_MODE=apply\n/m);
-  assert.deepEqual(parseMenuSyncEnv(on, { branchId, deviceId }), {
-    password: input.password,
-    mode: 'apply',
-    stationPlanMode: 'apply',
-  });
-  assert.deepEqual(parseMenuSyncEnv(off, { branchId, deviceId }), {
-    password: input.password,
-    mode: 'apply',
-  });
-  for (const changed of [
-    on.replace('EDGE_STATION_PLAN_SYNC_MODE=apply', 'EDGE_STATION_PLAN_SYNC_MODE=on'),
-    off + 'EDGE_STATION_PLAN_SYNC_MODE=off\n',
-    on + 'EDGE_STATION_PLAN_SYNC_MODE=report\n',
-  ])
-    assert.throws(() => parseMenuSyncEnv(changed, { branchId, deviceId }), /not overwritten/);
-  assert.throws(() => menuSyncEnvText({ ...input, stationPlanMode: 'on' }));
 });
 
 /** Harness with a clock that advances by every wait, and scripted station plan results. */
@@ -328,6 +305,29 @@ test('station plan steps run on their own schedule and their failures never slow
   ]);
   assert.ok(!JSON.stringify(h.logs).includes(token));
   assert.equal(h.logs.filter((entry) => entry.event === 'menu_sync_failed').length, 0);
+});
+
+test('auto mode applies once the database grants the rights, and stays quiet before', async () => {
+  const h = stationHarness(
+    Array.from({ length: 40 }, () => ({ state: 'idle' })),
+    [{ state: 'grants_missing' }, { state: 'applied', version: 2 }],
+    'auto',
+  );
+  await runMenuSyncLoop({ ...h.options, mode: 'apply' });
+  assert.ok(h.planCalls.every((call) => call.mode === 'apply'));
+  // A missing schema024 or missing rights is checked again once a minute, logged once.
+  assert.deepEqual(
+    h.planCalls.slice(0, 3).map((call) => call.at),
+    [0, 60000, 62000],
+  );
+  assert.deepEqual(h.logs.filter((entry) => entry.event.startsWith('station_plan')).slice(0, 2), [
+    { event: 'station_plan_sync', mode: 'apply', state: 'grants_missing' },
+    { event: 'station_plan_sync', mode: 'apply', state: 'applied', version: 2 },
+  ]);
+  // With the menu off, auto stays silent (only an explicit mode reports it is disabled).
+  const off = stationHarness([], [], 'auto');
+  await runMenuSyncLoop({ ...off.options, mode: 'off', once: true });
+  assert.deepEqual(off.logs, [{ event: 'menu_sync_disabled', mode: 'off' }]);
 });
 
 test('once mode runs one station plan step and reports its failure in the exit code', async () => {

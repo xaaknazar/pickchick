@@ -31,14 +31,18 @@ export function menuSyncMode(env = process.env) {
 
 /**
  * Station plans (edge schema024, stage 2 lane cfg) ride in the same worker and role.
- * off (default): never touched. report: reports the active plan and the local kitchen stations
- *   and sends stored receipts, but applies nothing. apply: applies delivered plans.
+ * auto (default, variable absent): the database is the switch. The step runs only after the
+ *   guarded 024 upgrade granted this role its station plan rights; before that it never
+ *   contacts the cloud. The reviewed installer pins menu-sync.env, so the Windows cashier uses
+ *   this default; the cloud flag BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED decides deliveries.
+ * off: never touched. report: reports the active plan and the local kitchen stations and sends
+ *   stored receipts, but applies nothing. apply: applies delivered plans.
  * Requires EDGE_MENU_SYNC_MODE other than off; it never changes the menu loop.
  */
 export function stationPlanSyncMode(env = process.env) {
-  const value = env.EDGE_STATION_PLAN_SYNC_MODE ?? 'off';
-  if (!['off', 'report', 'apply'].includes(value))
-    throw new Error('EDGE_STATION_PLAN_SYNC_MODE must be off, report or apply');
+  const value = env.EDGE_STATION_PLAN_SYNC_MODE ?? 'auto';
+  if (!['auto', 'off', 'report', 'apply'].includes(value))
+    throw new Error('EDGE_STATION_PLAN_SYNC_MODE must be auto, off, report or apply');
   return value;
 }
 /** A station plan check while idle; the cloud or schema024 rights missing: once a minute. */
@@ -163,20 +167,27 @@ export async function runMenuSyncLoop({
       if (error.name !== 'AbortError') throw error;
     }),
   random = Math.random,
-  // { mode: 'off'|'report'|'apply', sync({ mode }) } for station plans; absent means off.
+  // { mode: 'auto'|'off'|'report'|'apply', sync({ mode }) } for station plans; absent means off.
   stationPlans,
   now = Date.now,
 }) {
   if (mode === 'off') {
     log({ event: 'menu_sync_disabled', mode });
-    if (stationPlans && stationPlans.mode !== 'off')
+    if (stationPlans && ['report', 'apply'].includes(stationPlans.mode))
       log({ event: 'station_plan_sync_disabled', reason: 'MENU_SYNC_OFF' });
     if (!once) while (!signal.aborted) await wait(60000);
     return { exitCode: 0 };
   }
+  // auto applies plans; syncStationPlanOnce itself answers schema_missing/grants_missing locally.
   const stationStep =
     stationPlans && stationPlans.mode !== 'off'
-      ? stationPlanStepper({ ...stationPlans, log, now, random })
+      ? stationPlanStepper({
+          ...stationPlans,
+          mode: stationPlans.mode === 'auto' ? 'apply' : stationPlans.mode,
+          log,
+          now,
+          random,
+        })
       : null;
   let failures = 0,
     held = null,
