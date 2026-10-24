@@ -22,7 +22,7 @@ export interface CatalogMenuPayload {
     kind: 'item' | 'combo' | 'set';
     description: { ru: string; kk: string };
     prep_required: boolean;
-    combo_components: readonly unknown[];
+    combo_components: readonly { product_id: string }[];
     kitchen_route?: 'prep' | 'assembly_item' | undefined;
     image?: { sha256: string } | undefined;
     category_id: string;
@@ -51,6 +51,69 @@ export interface CatalogMenuPayload {
   }[];
 }
 
+export interface CatalogProjectionOptions {
+  /**
+   * Cashier combo stop fields (stage 2, CATALOG_EDGE_COMBO_STOPS_ENABLED, default off): fixed
+   * components as combo_component_variant_ids and option links as linked_variant_id. Off, the
+   * projection is byte-identical to the one installed edges accept (same checksum).
+   */
+  comboStops?: boolean;
+}
+
+/** Deepest fixed-component level the combo stop rule follows (catalogStopView: depth 1..5). */
+const COMPONENT_LEVELS = 5;
+/** Fixed components of a product, nested combos flattened level by level, each id once. */
+function fixedComponentIds(
+  products: ReadonlyMap<string, CatalogMenuPayload['products'][number]>,
+  productId: string,
+): string[] {
+  const seen = new Set<string>([productId]);
+  const result: string[] = [];
+  let level = [productId];
+  for (let depth = 1; depth <= COMPONENT_LEVELS && level.length; depth++) {
+    const next: string[] = [];
+    for (const id of level)
+      for (const { product_id: childId } of products.get(id)?.combo_components ?? []) {
+        if (seen.has(childId)) continue;
+        seen.add(childId);
+        result.push(childId);
+        next.push(childId);
+      }
+    level = next;
+  }
+  return result;
+}
+
+/**
+ * The publication exactly as installed edges and clients know it: the cashier combo stop fields
+ * removed. Returns the same object when there is nothing to remove (byte-identical replies).
+ */
+export function withoutComboStopLinks(menu: MenuSnapshot): MenuSnapshot {
+  const marked = menu.items.some(
+    (item) =>
+      item.combo_component_variant_ids !== undefined ||
+      item.modifier_groups?.some((g) => g.options.some((o) => o.linked_variant_id !== undefined)),
+  );
+  if (!marked) return menu;
+  return {
+    ...menu,
+    items: menu.items.map((item) => {
+      const copy = { ...item };
+      delete copy.combo_component_variant_ids;
+      if (copy.modifier_groups)
+        copy.modifier_groups = copy.modifier_groups.map((group) => ({
+          ...group,
+          options: group.options.map((option) => {
+            const plain = { ...option };
+            delete plain.linked_variant_id;
+            return plain;
+          }),
+        }));
+      return copy;
+    }),
+  };
+}
+
 /**
  * Shares identities with installed POS v1/v2 and the availability projection.
  * Unified-menu fields are optional additions; legacy ids, prices and option ids are unchanged.
@@ -61,6 +124,7 @@ export function projectCatalogMenu(
   version: number,
   publishedAt: string,
   releaseId = randomUUID(),
+  options: CatalogProjectionOptions = {},
 ): MenuSnapshot {
   if (payload.products.some((p) => Object.keys(p.channel_prices_minor ?? {}).length))
     throw new CatalogProjectionError('CHANNEL_PRICES_NOT_SUPPORTED');
@@ -102,6 +166,19 @@ export function projectCatalogMenu(
   const order = new Map(payload.products.map((product, index) => [product.id, index]));
   const included = payload.products.filter((p) => p.available);
   const categoriesComplete = included.every((p) => categories.has(categoryId(p)));
+  // Same identities and links as catalogStopView, over every catalog product (published or not).
+  const byId = new Map(payload.products.map((product) => [product.id, product]));
+  const stopVariant = (productId: string) => localCatalogId(branchId, 'base-preview', productId);
+  const components = (productId: string) => {
+    if (!options.comboStops) return {};
+    const ids = fixedComponentIds(byId, productId);
+    return ids.length ? { combo_component_variant_ids: ids.map(stopVariant) } : {};
+  };
+  const link = (option: { id: string; linked_product_id: string | null }) => {
+    if (!options.comboStops) return {};
+    const linked = option.linked_product_id ?? (byId.has(option.id) ? option.id : null);
+    return linked === null ? {} : { linked_variant_id: stopVariant(linked) };
+  };
   return MenuSnapshotSchema.parse({
     schema_version: 1,
     branch_id: branchId,
@@ -156,9 +233,11 @@ export function projectCatalogMenu(
               default_quantity: enabled ? option.default_quantity : 0,
               max_quantity: option.max_quantity,
               available: enabled,
+              ...link(option),
             };
           }),
         })),
+        ...components(product.id),
       };
     }),
   });
