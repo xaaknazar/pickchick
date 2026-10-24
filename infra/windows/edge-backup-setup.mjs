@@ -434,7 +434,14 @@ async function main() {
           keyExists: !key.created,
           keyId: key.keyId,
           credentialExists: credential.existed,
-          schema: verifiedSchema(ledger, pinned),
+          // Install refuses an unreviewed schema; the plan names it instead of failing.
+          schema: (() => {
+            try {
+              return verifiedSchema(ledger, pinned);
+            } catch {
+              return 'UNREVIEWED';
+            }
+          })(),
           destination: config.destination,
           retention: config.retention,
           timeZone: config.timeZone,

@@ -34,7 +34,7 @@ $ErrorActionPreference = 'Stop'
 $script:toolPins = [ordered]@{
     'edge-backup-lib.mjs'            = 'f43324df113970da6de108cb339ceb3d626c151fd4bd3eb3e5adeb76329a9b90'
     'edge-backup-restore.mjs'        = 'dfc0c798c4190253f0fdf3d0b23347237c30efbb138e543e4c94ec5d5bafc08d'
-    'edge-backup-setup.mjs'          = '27c34d87eff44f703cae371a8074cb6676e4cf9220364b926f15e588ec7f5b44'
+    'edge-backup-setup.mjs'          = '7772a96330cbf861656a3a6f8c2c0235c8117767e980a560ea74cc68aeb4959f'
     'edge-backup-task.mjs'           = '37fc95eae181fa332d0e61cca7519fc5ea1ced175f84116a78a7fac7a6a63d8c'
     'native-edge-backup-ledger.json' = '6fff20890da53a34e78375bede6d9ae582becfe9824b00a8d5614c5fd5bdde6c'
 }
