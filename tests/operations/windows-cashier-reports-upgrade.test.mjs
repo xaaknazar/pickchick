@@ -45,7 +45,7 @@ test('cashier upgrade pins 001-016 by name and checksum and tolerates later cand
       checksum,
     }));
     assert.deepEqual(reviewedCashierLedger(pinned), reviewed);
-    // The repo app folder already carries later reviewed migrations (017-019).
+    // The repo app folder already carries later reviewed migrations (017-023).
     const repo = await readCashierReportMigrations(repoRoot);
     assert.deepEqual(repo.expected, reviewed);
     assert.equal(
@@ -53,7 +53,7 @@ test('cashier upgrade pins 001-016 by name and checksum and tolerates later cand
       await readFile(join(repoRoot, 'db/edge/migrations/016_edge_cashier_reports.sql'), 'utf8'),
     );
     const future = await readCashierReportMigrations(
-      await candidate(join(roots, 'future'), { '020_edge_future.sql': UNREVIEWED_FUTURE }),
+      await candidate(join(roots, 'future'), { '024_edge_future.sql': UNREVIEWED_FUTURE }),
     );
     assert.deepEqual(future.expected, reviewed);
     assert.ok(!future.migrationSql.includes('unreviewed'));
@@ -68,8 +68,8 @@ test('cashier upgrade pins 001-016 by name and checksum and tolerates later cand
       },
       only015: Object.fromEntries(pinned.slice(15).map(({ version }) => [version, null])),
       gap: { '017_edge_kiosk_prepaid.sql': null },
-      badLaterName: { '020-future.sql': UNREVIEWED_FUTURE },
-      skippedLater: { '021_edge_future.sql': UNREVIEWED_FUTURE },
+      badLaterName: { '024-future.sql': UNREVIEWED_FUTURE },
+      skippedLater: { '025_edge_future.sql': UNREVIEWED_FUTURE },
     }))
       await assert.rejects(
         readCashierReportMigrations(await candidate(join(roots, name), change)),
@@ -92,9 +92,9 @@ test('cashier upgrade pins 001-016 by name and checksum and tolerates later cand
 test('cashier schema upgrade preserves prior data, resumes without duplicate backfill and retains minimal roles', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'pickchick-cashier-upgrade-'));
   try {
-    // Newer candidate: every repo migration (001-019) plus a later file that fails if executed.
+    // Newer candidate: every repo migration (001-023) plus a later file that fails if executed.
     const appRoot = await candidate(join(dir, 'candidate'), {
-      '020_edge_future.sql': UNREVIEWED_FUTURE,
+      '024_edge_future.sql': UNREVIEWED_FUTURE,
     });
     for (const name of (await readdir(join(repoRoot, 'db/edge/migrations'))).filter(
       (n) => n.endsWith('.sql') && n < '016',
