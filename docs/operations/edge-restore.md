@@ -60,13 +60,30 @@ Windows-кассе процедура не выполнялась; перед п
 
 1. Остановить все службы кассы: `PickChickEdge`, `PickChickFulfillmentWorker`,
    `PickChickMenuSyncWorker`, `PickChickDeviceAccessWorker`, `PickChickPosSync` (если
-   установлены) и `PickChickKitchenLink`.
+   установлены) и `PickChickKitchenLink`. Приостановить автоматическую копию:
+   `Disable-ScheduledTask -TaskPath '\PickChick\' -TaskName PickChickEdgeBackup`.
 2. Повреждённую базу не удалять: переименовать (`ALTER DATABASE pickchick_edge RENAME TO
 pickchick_edge_broken_<дата>`) от владельца кластера.
 3. Создать новую `pickchick_edge` с тем же владельцем и восстановить последний
    проверенный дамп (`pg_restore --exit-on-error --single-transaction`), затем заново
    применить права ролей штатными скриптами (`edge-runtime-grants`, роли воркеров).
    Новая база имеет новый OID, поэтому fence сработает сам.
+   Копия из автоматического бэкапа ([infra/windows/edge-backup.md](../../infra/windows/edge-backup.md))
+   зашифрована; ключ - у владельца и в `C:\ProgramData\PickChick\EdgeBackup\private\backup-key.json`.
+   Инструмент `edge-backup-restore.mjs` (из папки поставки или
+   `C:\Program Files\PickChick\EdgeBackup\tool-<id>`) пишет только новые файлы:
+   - `node edge-backup-restore.mjs list <папка копий> <id точки>` - готовые копии, новые
+     первыми (схема, `keyId`, время UTC);
+   - `node edge-backup-restore.mjs decrypt <копия.pcbak> <ключ.json> <новый файл.dump>` -
+     проверяет подлинность каждого байта и SHA-256, пишет дамп и `<дамп>.meta.json`
+     (журнал миграций, точка, число строк каждой таблицы); при любой ошибке файлов нет.
+     Расшифрованный дамп хранить только в защищённой папке и удалить после восстановления;
+   - после `pg_restore` и до запуска служб:
+     `EDGE_DATABASE_URL=<владелец новой базы> node edge-backup-restore.mjs compare <дамп>.meta.json <EdgeTools\edge-0186902>`
+     должен вывести `"matches":true` (тот же журнал миграций, точка и число строк);
+   - после шага 5 повторить `install-edge-backup.ps1 -Mode Install` с прежними
+     параметрами: новой базе нужно право CONNECT роли копии, задача регистрируется
+     заново включённой (отдельный `Enable-ScheduledTask` не нужен).
 4. Запустить только `PickChickEdge` и проверить в её логе строку
    `{"event":"edge_restore_fenced","state":"restore",...}` или запросом
    `SELECT epoch, reason, sequence_gap FROM edge_database_epochs ORDER BY epoch DESC LIMIT 1`
@@ -104,13 +121,15 @@ pickchick_edge_broken_<дата>`) от владельца кластера.
 
 ## Бэкапы
 
-Сейчас бэкап делается вручную (`infra/windows/backup-native-edge.ps1`,
-`backup-native-service.mjs`) и хранится на том же диске
-(`C:\ProgramData\PickChick\Backups`). Автоматический бэкап по расписанию во второе место
-в этой полосе не реализован: существующий инструмент привязан к SID оператора и
-пиннингу схемы до 020, а запуск по расписанию от SYSTEM требует отдельной роли и
-защищённых учётных данных, которые нельзя проверить без Windows. Решение и место
-хранения - за владельцем (см. `docs/operations/release-fixes-2026-10-19/pos.md`).
+Автоматическая копия по расписанию (этап 2, 24.10): задача SYSTEM каждый час шифрует
+проверенную копию во второе место (второй диск или NAS), хранит 48 часовых и 14 дневных
+копий, ведёт запись о здоровье и по желанию владельца сообщает о просроченной копии в
+пульсе кассы для watchdog - [infra/windows/edge-backup.md](../../infra/windows/edge-backup.md).
+Код готов, на кассе не установлено: место хранения и окно - за владельцем.
+
+Ручная копия с репетицией восстановления (`infra/windows/backup-native-edge.ps1`,
+`backup-native-service.mjs`, теперь для схем 014-023) остаётся для выпусков и хранится на
+том же диске (`C:\ProgramData\PickChick\Backups`).
 
 ## Проверки
 
@@ -127,5 +146,9 @@ pickchick_edge_broken_<дата>`) от владельца кластера.
 - `tests/integration/menu-sync.test.mjs`: восстановленная касса один раз перескакивает
   на самую раннюю неподтверждённую публикацию, затем порядок строгий.
 - `tests/unit/edge-restore-fence.test.mjs`: права и свойства миграции.
+- `tests/integration/windows-edge-backup.test.mjs`: копия ролью только для чтения через
+  экспортированный снимок, шифрование и проверка, хранение, отказы; с настоящими
+  `pg_dump`/`pg_restore` 18 (`EDGE_BACKUP_TEST_PG_BIN`) - полное восстановление копии в
+  новую базу и `compare` без расхождений.
 - Не проверено: реальное восстановление на Windows, права после штатных скриптов
   выпуска, файловое восстановление.
