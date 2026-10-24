@@ -355,8 +355,12 @@ test('the Russian report lists results, failed checks and the staff view', () =>
       reordered: 1,
     },
     restarts: { edge: 1 },
+    actors: {
+      counters: { pos_refused: { KITCHEN_UNAVAILABLE: 2 }, mobile_refused: {}, kiosk_refused: {} },
+    },
   });
   assert.match(md, /НЕ ПРОЙДЕН/);
+  assert.match(md, /касса \{"KITCHEN_UNAVAILABLE":2\}/);
   assert.match(md, /Проверка \/ с чертой/);
   assert.match(md, /\*\*не различимы\*\*/);
   assert.match(md, /без связи 75 с/);

@@ -417,6 +417,8 @@ export async function main(argv = process.argv.slice(2)) {
         }
         // Compare the ledgers only when nothing moves: traffic stopped, queues drained.
         await traffic.stop();
+        // A QR the bank paid in the last moment is recorded as paid before comparing.
+        await restaurant.kioskBankPass();
         const converge = await ctx.converge();
         const verified = await ctx.verify(result.context);
         Object.assign(entry, {

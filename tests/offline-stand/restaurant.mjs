@@ -26,6 +26,14 @@ export class ActorError extends Error {
   }
 }
 const NETWORK = new Set(['NETWORK', 'TIMEOUT']);
+/** Domain refusals the cashier explains on screen (apps/pos/src/api.ts); never a stand failure. */
+const EXPECTED_REFUSALS = [
+  'KITCHEN_UNAVAILABLE',
+  'ITEM_STOPPED',
+  'MENU_CHANGED',
+  'QUOTE_EXPIRED',
+  'BRANCH_UNAVAILABLE',
+];
 export const isNetwork = (error) => error instanceof ActorError && NETWORK.has(error.code);
 
 async function call(origin, path, { method = 'GET', headers = {}, body, timeoutMs = 8000 } = {}) {
@@ -104,7 +112,12 @@ export class Restaurant {
           headers: this.staffHeaders(actor, method === 'POST' ? { 'Idempotency-Key': key } : {}),
         });
       } catch (error) {
-        if (!(isNetwork(error) || error.status >= 500) || attempt >= attempts) throw error;
+        if (!(isNetwork(error) || error.status >= 500) || attempt >= attempts) {
+          // Which POS command failed, without ids: 'POST orders/:id/cancel'.
+          error.path = `${method} ${path.replace(/[0-9a-f-]{36}/g, ':id')}`;
+          error.attempt = attempt;
+          throw error;
+        }
         this.counters.pos_retries++;
         await sleep(1000);
       }
@@ -159,14 +172,23 @@ export class Restaurant {
         items,
       });
     } catch (error) {
-      this.counters.pos_refused[error.code] = (this.counters.pos_refused[error.code] ?? 0) + 1;
+      this.refused(this.counters.pos_refused, error);
       if (error.code === 'MENU_CHANGED') this.menu = null;
       return null;
     }
-    const order = await this.pos('POST', 'orders', {
-      quote_id: quote.quote_id,
-      kitchen_admission: 'unpaid',
-    });
+    let order;
+    try {
+      order = await this.pos('POST', 'orders', {
+        quote_id: quote.quote_id,
+        kitchen_admission: 'unpaid',
+      });
+    } catch (error) {
+      // The cashier shows the reason and sells nothing (for example all 299 live numbers are
+      // taken). Unknown codes and bare CONFLICT stay failures of the scenario.
+      if (!EXPECTED_REFUSALS.includes(error.code)) throw error;
+      this.refused(this.counters.pos_refused, error);
+      return null;
+    }
     this.counters.pos_sales++;
     const entry = {
       orderId: order.order_id,
@@ -179,10 +201,17 @@ export class Restaurant {
     return entry;
   }
   async posCancel(entry) {
-    await this.pos('POST', `orders/${entry.orderId}/cancel`, {
-      expected_version: 1,
-      reason: 'Стенд: гость передумал',
-    });
+    try {
+      await this.pos('POST', `orders/${entry.orderId}/cancel`, {
+        expected_version: 1,
+        reason: 'Стенд: гость передумал',
+      });
+    } catch (error) {
+      // The kitchen already started it: the cashier may not cancel any more.
+      if (error.code !== 'ORDER_IN_PRODUCTION') throw error;
+      this.refused(this.counters.pos_refused, error);
+      return;
+    }
     entry.cancelled = true;
     this.counters.pos_cancels++;
   }

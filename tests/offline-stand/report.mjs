@@ -122,6 +122,14 @@ export function renderMarkdown(report) {
       `- События синхронизации касса <-> облако: ${v.total_sync_events} (заказы кассы ${v.pos_events}, кухня кассы ${v.kitchen_events_pos}, кухня киоска/приложения ${v.kitchen_events_channel}, команды облака ${v.cloud_commands_applied}, отчёты смен ${v.cashier_report_events}).`,
     );
   }
+  const counters = report.actors?.counters;
+  if (counters)
+    lines.push(
+      '',
+      'Отказы с понятной причиной (персонал или гость видит текст, продажи нет): ' +
+        `касса ${json(counters.pos_refused)}, приложение ${json(counters.mobile_refused)}, ` +
+        `киоск ${json(counters.kiosk_refused)}.`,
+    );
   if (report.wan_faults)
     lines.push(
       '',

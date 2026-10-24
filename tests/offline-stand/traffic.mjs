@@ -38,6 +38,7 @@ export class Traffic {
       this.errors.push({
         where,
         code: error?.code ?? error?.name ?? 'ERROR',
+        ...(error?.path ? { path: error.path, attempt: error.attempt } : {}),
         message: String(error?.message ?? error).slice(0, 200),
       });
   }
