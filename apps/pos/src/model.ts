@@ -9,6 +9,7 @@ import type {
   Stop,
   Ordering,
   CashShift,
+  Item,
   Selection,
 } from './types.js';
 import { ApiError, passwordTransport, type PasswordTransport, type Transport } from './api.js';
@@ -603,6 +604,16 @@ export class PosController {
     }
     return true;
   }
+  /** Combo stop rule before a line is added or grows; the edge re-checks quote and order. */
+  private assertComboOnSale(item: Item) {
+    const view = parse.itemStopView(this.state.menu!, item, this.state.stops);
+    if (view.reason && view.reason.kind !== 'item') throw new Error('COMBO_STOPPED');
+  }
+  private assertOptionsOnSale(item: Item, selected: readonly Selection[]) {
+    const view = parse.itemStopView(this.state.menu!, item, this.state.stops);
+    if (selected.some((s) => view.stoppedOptions.has(s.option_id)))
+      throw new Error('OPTION_STOPPED');
+  }
   quantity(id: string, count: number) {
     if (!this.editable() || !this.journal?.draft || !this.state.menu) return;
     try {
@@ -613,7 +624,9 @@ export class PosController {
       const old = existing?.quantity ?? 0;
       if (count > old && (!item || this.state.stops.get(variant)?.stopped !== false))
         throw new Error('ITEM_STOPPED');
+      if (count > old && item) this.assertComboOnSale(item);
       if (count && item) parse.validateSelections(item, existing?.modifiers ?? []);
+      if (count > old && item) this.assertOptionsOnSale(item, existing?.modifiers ?? []);
       const items = this.journal.draft.items.flatMap((i) =>
         parse.lineKey(i) === id ? (count ? [{ ...i, quantity: count }] : []) : [i],
       );
@@ -637,7 +650,9 @@ export class PosController {
       const item = this.state.menu.items.find((i) => i.variant_id === variantId);
       if (!item || this.state.stops.get(variantId)?.stopped !== false)
         throw new Error('ITEM_STOPPED');
+      this.assertComboOnSale(item);
       const selected = parse.validateSelections(item, modifiers);
+      this.assertOptionsOnSale(item, selected);
       const next = {
         variant_id: variantId,
         quantity,
