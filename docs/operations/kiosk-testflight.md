@@ -142,3 +142,6 @@ Bundle ID, Team, App Store type, certificate и expiry проверены releas
 TestFlight ограничен сроком сборки; постоянный ресторанный выпуск и MDM —
 отдельная приёмка. Внутренняя группа ограничивает аккаунты, а разрешение только
 конкретным iPad требует управления устройствами и отдельной серверной активации.
+Варианты постоянной выдачи (unlisted App Store, Custom App, ad hoc) с фактами Apple о
+Казахстане - в [ipad-kiosk-distribution.md](ipad-kiosk-distribution.md), подготовка iPad на
+месте - в [ipad-kiosk-onsite-runbook.md](ipad-kiosk-onsite-runbook.md).
