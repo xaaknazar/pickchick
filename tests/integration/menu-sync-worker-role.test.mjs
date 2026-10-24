@@ -373,9 +373,11 @@ test('the restricted role pulls, holds, downloads photos, derives routing, appli
       const sync = (applyEvents) => syncMenuOnce(worker, branch, origin, identity, { applyEvents });
       // Report mode: the active v2 is reported, the delivered v3 is held untouched.
       assert.deepEqual(await sync(false), { state: 'held', release_id: v3.release_id, version: 3 });
+      // Report mode also advertises the menu features this runtime applies (stage 2, pcs).
       assert.deepEqual(Object.fromEntries(new URLSearchParams(requests[0].query)), {
         active_release_id: local.release_id,
         active_version: '2',
+        menu_features: 'combo_stops',
       });
       assert.equal(requests.length, 1);
       assert.equal(acks.length, 0);
