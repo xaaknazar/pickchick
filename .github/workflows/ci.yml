@@ -386,6 +386,7 @@ jobs:
           .local/design-venv/bin/python tests/kiosk/browser_redesign_payment.py
           .local/design-venv/bin/python tests/kiosk/browser_glass_polish.py
           .local/design-venv/bin/python tests/kiosk/browser_design_demo.py
+          .local/design-venv/bin/python tests/kiosk/browser_staff_health.py
           .local/design-venv/bin/python tests/kiosk/browser_welcome_cta.py
 
   staging:
