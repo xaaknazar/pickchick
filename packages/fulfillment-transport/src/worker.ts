@@ -8,12 +8,18 @@ import type { DatabasePool } from '@pickchick/database';
 import { EdgeFulfillment, FulfillmentError, digest } from '@pickchick/edge-fulfillment';
 import {
   DeliverySchema,
+  EdgeBackupAttentionSchema,
   TransportEdgeEventSchema,
   PullResponseSchema,
   TransportReceiptSchema,
   TransportScopeSchema,
 } from './model.js';
-import type { AdmissionRefusal, StopReceipt, StopStateReport } from './model.js';
+import type {
+  AdmissionRefusal,
+  EdgeBackupAttention,
+  StopReceipt,
+  StopStateReport,
+} from './model.js';
 import { cloudTransportOrigin, transportRequest, TransportHttpError } from './http.js';
 import type { TransportIo } from './http.js';
 
@@ -24,6 +30,11 @@ export interface FulfillmentWorkerOptions {
   identity: unknown;
   /** 4 adds back-office stop commands (edge schema019 and worker grants required). Default 2. */
   protocolVersion?: 2 | 4;
+  /**
+   * Cashier backup attention from the local health record of the scheduled backup (only while
+   * the last verified copy is too old). Absent or malformed: the heartbeat is unchanged.
+   */
+  edgeBackup?: EdgeBackupAttention | null;
 }
 /** Bounded per-pull stop report; the request body is capped at 64 KiB. Stopped rows go first. */
 export const STOP_STATE_REPORT_LIMIT = 250;
@@ -149,6 +160,15 @@ function withoutExtensions(body: PullBody): PullBody {
 }
 const hasExtensions = (body: PullBody) =>
   body.admissionRefusals !== undefined || body.availability?.orderingEnabled !== undefined;
+/**
+ * The backup attention field (stage 2) has its own fallback: a cloud that rejects it gets the
+ * same request without it at once, with the older fields above kept, and is not asked again for
+ * an hour. So it can never switch off the closed-ordering signal of an older cloud.
+ */
+const BACKUP_RETRY_MS = 60 * 60_000;
+const backupRefused = new Map<string, number>();
+const backupAllowed = (origin: string) =>
+  Date.now() - (backupRefused.get(origin) ?? -Infinity) >= BACKUP_RETRY_MS;
 
 /**
  * Runner side of the kitchen admission health interface (PM, 19.10): one JSON line
@@ -257,6 +277,9 @@ export async function syncFulfillmentOnce(
   ).rows[0];
   if (!local || local.device_id !== identity.device_id)
     return { state: 'blocked' as const, error: 'SCOPE_MISMATCH' as const };
+  // A malformed local health record is ignored: it must never stop the order loop.
+  const backupRecord = EdgeBackupAttentionSchema.safeParse(options.edgeBackup);
+  const edgeBackup = backupRecord.success ? backupRecord.data : undefined;
   const scope = TransportScopeSchema.parse({
     organizationId: local.organization_id,
     branchId,
@@ -347,21 +370,30 @@ export async function syncFulfillmentOnce(
           [branchId, receipts.map((r) => r.commandId)],
         );
     });
-  const send = async (body: PullBody) => {
+  const send = async (body: PullBody): Promise<unknown> => {
     try {
       return await transportRequest(origin, 'pull', identity, body, io);
     } catch (error) {
       if (
-        !hasExtensions(body) ||
         !(error instanceof TransportHttpError) ||
         error.code !== 'HTTP_REJECTED' ||
         error.status !== 400
       )
         throw error;
+      if (body.edgeBackup !== undefined) {
+        backupRefused.set(origin, Date.now());
+        const { edgeBackup, ...older } = body;
+        void edgeBackup;
+        return send(older);
+      }
+      if (!hasExtensions(body)) throw error;
       extensionsRefused.set(origin, Date.now());
       return transportRequest(origin, 'pull', identity, withoutExtensions(body), io);
     }
   };
+  // Sent only while there is something to say, and only to a cloud that accepted it.
+  const backup = () =>
+    edgeBackup && backupAllowed(origin) ? { edgeBackup } : ({} as Record<string, never>);
   /** Heartbeat pull. Protocol 4 carries stop receipts/states out and stop commands in; an old
    * cloud that rejects protocol 4 gets the protocol-2 request instead, in the same turn. */
   const pull = async (body: {
@@ -373,7 +405,7 @@ export async function syncFulfillmentOnce(
     if (remoteStops === 'active') {
       try {
         const response = PullResponseSchema.parse(
-          await send({ ...base, protocolVersion: 4, ...beat }),
+          await send({ ...base, protocolVersion: 4, ...beat, ...backup() }),
         );
         if (!response.stopCommands) throw new TransportHttpError('INVALID_RESPONSE');
         await stopInbound(response, 'stopReceipts' in beat ? (beat.stopReceipts ?? []) : []);
@@ -389,7 +421,7 @@ export async function syncFulfillmentOnce(
       }
     }
     const response = PullResponseSchema.parse(
-      await send({ ...base, availability: beat.availability }),
+      await send({ ...base, availability: beat.availability, ...backup() }),
     );
     if (response.stopCommands) throw new TransportHttpError('INVALID_RESPONSE');
     return response;

@@ -62,6 +62,20 @@ export const AdmissionRefusalSchema = z.strictObject({
   eventId: uuid,
   reason: AdmissionRefusalReasonSchema,
 });
+/**
+ * Cashier database backup attention (infra/windows/edge-backup.md): sent only while the last
+ * verified copy is older than its limit (or never happened), with the last run's error code.
+ * Codes only; never paths or details. An older cloud rejects the field and the worker drops it.
+ */
+export const EdgeBackupAttentionSchema = z.strictObject({
+  state: z.enum(['stale', 'failed']),
+  ageMinutes: z.int().min(0).max(5_256_000).nullable(),
+  maxAgeMinutes: z.int().min(60).max(4320),
+  error: z
+    .string()
+    .regex(/^[A-Z][A-Z_]{1,40}$/)
+    .nullable(),
+});
 export const PullRequestSchema = z
   .strictObject({
     workerId: uuid,
@@ -80,6 +94,7 @@ export const PullRequestSchema = z
     stopStates: z.array(StopStateReportSchema).max(5000).optional(),
     stopReceipts: z.array(StopReceiptSchema).max(100).optional(),
     admissionRefusals: z.array(AdmissionRefusalSchema).min(1).max(20).optional(),
+    edgeBackup: EdgeBackupAttentionSchema.optional(),
   })
   .refine(
     (request) =>
@@ -206,6 +221,7 @@ export type StopStateReport = z.infer<typeof StopStateReportSchema>;
 export type StopReceipt = z.infer<typeof StopReceiptSchema>;
 export type StopCommandDelivery = z.infer<typeof StopCommandDeliverySchema>;
 export type AdmissionRefusal = z.infer<typeof AdmissionRefusalSchema>;
+export type EdgeBackupAttention = z.infer<typeof EdgeBackupAttentionSchema>;
 
 export const ReleaseResultEventSchema = z
   .strictObject({

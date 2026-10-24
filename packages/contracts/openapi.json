@@ -26858,6 +26858,53 @@
               ],
               "additionalProperties": false
             }
+          },
+          "edgeBackup": {
+            "type": "object",
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "stale",
+                  "failed"
+                ]
+              },
+              "ageMinutes": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5256000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "maxAgeMinutes": {
+                "type": "integer",
+                "minimum": 60,
+                "maximum": 4320
+              },
+              "error": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z_]{1,40}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "state",
+              "ageMinutes",
+              "maxAgeMinutes",
+              "error"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
