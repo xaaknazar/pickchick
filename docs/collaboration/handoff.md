@@ -1,3 +1,29 @@
+## 24-25.10.2026 - этап 2: интеграция `codex/stage2-1024`
+
+Слиты без fast-forward pcs `031c2d97`, cfg `7dbb388d`, ebk `d080ab9e`, rec `49abd430`,
+kln `70cdaa24`, off `10bdf452` на shared `4cc11e05`; конфликты только `.env.example` и
+`tests/backoffice/helpers.mjs` (обе стороны). Интеграционные коммиты: запись 024 в ledger копии
+кассы (`05b3f03a`), owner-шаг cloud 070/071 и права флагов `infra/staging/stage2-cloud-owner.mjs`
+(`683ecaf6`), `infra/windows/cloud-link-grant.mjs` вместо сброса прав (`f0a22928`), тест
+протоколов кассы вместе (`c44d6c2c`). Ничего не установлено и не отправлено (push не делался).
+
+Следующему исполнителю (выпускающий Mac):
+
+- Не пересобирать кандидата runtime 1021 из этой ветки: `runtime-schema-1021.mjs` требует ровно
+  23 миграции edge, здесь 24.
+- Облако: 069 на VPS нет. `stage2-cloud-owner.mjs inspect` покажет `requires069`; `deploy`
+  откажет до решения владельца (свой выпуск 069 или `deploy --with-069`).
+- Для выпуска API этапа 2 (флаги выключены) и runtime кассы этапа 2 охраняемых скриптов ещё нет;
+  образцы - `release-runtime-1021.py` и `update-runtime-1021.ps1`. Порядок и откаты - в
+  [сводке этапа 2](../operations/stage2-2026-10-24/README.md).
+- На живой кассе право cloud-link выдавать только `cloud-link-grant.mjs`, не
+  `edge-runtime-grants.mjs --cloud-link` (сбросит права терминалов и присутствия).
+- Три установщика из замечания ревью off (`install-native-services.ps1`,
+  `update-native-service.ps1`, `update-native-preview.ps1`) намеренно не менялись: исторические
+  архивы, закреплены в 13 скриптах; тест следит за этим.
+- Проверки: таблица «Проверки интеграции» в [сводке](../operations/stage2-2026-10-24/README.md).
+  Известные падения среды (kitchen-lan TLS 403, Electron) есть и на `4cc11e05`.
+
 ## 21.10.2026 - финансовая приёмка завершена, сервер обновлён
 
 По поручению владельца финансовая приёмка завершена на выпускающем Mac.

@@ -272,3 +272,10 @@
 | `pnpm contracts:check`                                               | схемы и контракты совпадают                                                  |
 | `python3 -m unittest discover -s tests/operations`                   | 521 OK (10 пропущены)                                                        |
 | typecheck 10 пакетов, eslint и prettier всех затронутых файлов       | без ошибок                                                                   |
+
+## Интеграция (24-25.10)
+
+Слито в `codex/stage2-1024`. Шаг выпуска флага `CATALOG_EDGE_COMBO_STOPS_ENABLED` и порядок
+относительно других флагов - в [сводке](README.md) («Порядок выпуска», шаги 2 и 4);
+совместная работа `menu_features` с планом станций и полем пульса проверена тестом
+`tests/integration/stage2-cross-lane.test.mjs`.

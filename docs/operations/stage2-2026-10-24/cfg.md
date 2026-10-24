@@ -255,3 +255,11 @@ iPad; приёмка владельцем не проводилась.
   PowerShell нет). Windows-тесты на PostgreSQL (reserved-number, native-service-upgrade,
   display-numbers, runtime-1021) - 7/7.
 - Не проверено: Windows-касса и PowerShell, копия production-базы, production compose.
+
+## Интеграция (24-25.10)
+
+Слито в `codex/stage2-1024`. Сделано из «Что не проверено»: owner-шаг cloud 070 (вместе с 071)
+и права флага - `infra/staging/stage2-cloud-owner.mjs` (069 на сервере не применена: 070/071
+после неё или явным `--with-069`); копия кассы и ручная копия принимают schema024 (запись 024
+в `native-edge-backup-ledger.json`). Кандидата runtime 1021 по-прежнему собирать из коммита
+релиза. Подробно - [сводка](README.md).

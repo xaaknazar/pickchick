@@ -241,3 +241,8 @@ tests/integration/kiosk-staff-and-expiry.test.mjs` - 9/9 (настоящий API
   просмотрен;
 - eslint затронутых `.ts/.tsx/.mjs` и prettier затронутых файлов - без замечаний.
 - Python-тесты выпуска не запускались: `ios_release.py` не менялся.
+
+## Интеграция (24-25.10)
+
+Слито в `codex/stage2-1024` без конфликтов; строка `browser_staff_health.py` в kiosk job CI
+сохранена. Место в общем порядке выпуска - [сводка](README.md), шаг 5.
