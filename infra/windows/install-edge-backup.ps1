@@ -83,6 +83,15 @@ function Initialize-ProtectedDirectory([string]$Path, [switch]$ServiceRead) {
     [IO.Directory]::CreateDirectory($Path, (New-ProtectedAcl -Directory -ServiceRead:$ServiceRead)) | Out-Null
     Assert-ProtectedAcl $Path -ServiceRead:$ServiceRead
 }
+<# A local destination gets the protected ACL. An existing folder is accepted when it already
+   has it, or when it is still empty (for example created by the owner); never otherwise. #>
+function Initialize-Destination([string]$Path) {
+    if ((Test-Path -LiteralPath $Path -PathType Container) -and -not @(Get-ChildItem -LiteralPath $Path -Force).Count) {
+        Assert-NoReparsePoint $Path
+        Set-Acl -LiteralPath $Path -AclObject (New-ProtectedAcl -Directory)
+    }
+    Initialize-ProtectedDirectory $Path
+}
 function Protect-File([string]$Path) {
     Set-Acl -LiteralPath $Path -AclObject (New-ProtectedAcl)
     Assert-ProtectedAcl $Path
@@ -187,11 +196,14 @@ if ($Mode -eq 'Inspect') {
     return
 }
 
-foreach ($path in @($script:nodeExe, (Join-Path $pgBin 'pg_dump.exe'), (Join-Path $pgBin 'pg_restore.exe'), (Join-Path $toolsRoot 'private\foundation-state.json'), (Join-Path $toolsRoot 'private\foundation-credentials.json'), (Join-Path $toolsRoot 'package.json'))) {
-    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw 'Native foundation, Node or PostgreSQL tools are missing.' }
-}
-foreach ($name in $script:toolPins.Keys) {
-    if ((Get-Sha256 (Join-Path $PSScriptRoot $name)) -cne $script:toolPins[$name]) { throw 'Delivered backup tool differs from the reviewed bytes.' }
+# Removing only the task needs nothing else; Install and role removal run the pinned helper.
+if ($Mode -eq 'Install' -or $RemoveDatabaseRole) {
+    foreach ($path in @($script:nodeExe, (Join-Path $pgBin 'pg_dump.exe'), (Join-Path $pgBin 'pg_restore.exe'), (Join-Path $toolsRoot 'private\foundation-state.json'), (Join-Path $toolsRoot 'private\foundation-credentials.json'), (Join-Path $toolsRoot 'package.json'))) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw 'Native foundation, Node or PostgreSQL tools are missing.' }
+    }
+    foreach ($name in $script:toolPins.Keys) {
+        if ((Get-Sha256 (Join-Path $PSScriptRoot $name)) -cne $script:toolPins[$name]) { throw 'Delivered backup tool differs from the reviewed bytes.' }
+    }
 }
 
 if ($Mode -eq 'Uninstall') {
@@ -243,7 +255,7 @@ foreach ($name in @('private', 'staging', 'logs')) { Initialize-ProtectedDirecto
 # The fulfillment worker (LocalService) may read only the health record, for the optional heartbeat.
 Initialize-ProtectedDirectory (Join-Path $stateRoot 'health') -ServiceRead
 Initialize-ProtectedDirectory (Join-Path $programRoot 'EdgeBackup')
-if ($kind -eq 'disk') { Initialize-ProtectedDirectory $Destination }
+if ($kind -eq 'disk') { Initialize-Destination $Destination }
 Copy-VerifiedTools $toolRoot
 $result = Invoke-BackupNode $toolRoot (@('install') + $setupArguments)
 foreach ($name in @('backup-key.json', 'backup-db.json', 'edge-backup.json')) { Protect-File (Join-Path $privateRoot $name) }

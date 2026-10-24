@@ -27,7 +27,7 @@ TOOLS = [
     'native-edge-backup-ledger.json',
 ]
 MUTATING = re.compile(
-    r'Initialize-ProtectedDirectory|Copy-VerifiedTools|Protect-File|Set-Acl|Register-ScheduledTask|'
+    r'Initialize-ProtectedDirectory|Initialize-Destination|Copy-VerifiedTools|Protect-File|Set-Acl|Register-ScheduledTask|'
     r'Unregister-ScheduledTask|Start-ScheduledTask|Remove-Item|New-Item|\[IO\.File\]::Copy|'
     r"Invoke-BackupNode \$toolRoot")
 
