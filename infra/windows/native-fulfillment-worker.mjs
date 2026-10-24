@@ -93,6 +93,12 @@ export function backupAttention(status, now = Date.now()) {
         : null,
   };
 }
+/**
+ * A cashier switched off overnight starts with a copy many hours old; the backup task runs 10
+ * minutes after start-up. The worker (started with Windows) reports nothing during this grace,
+ * so a normal morning is not an alarm and a failing start-up copy still is.
+ */
+export const BACKUP_ATTENTION_GRACE_SECONDS = 30 * 60;
 /** Reads the health record (absent before the backup is installed). Never throws. */
 export async function readBackupAttention(path, now = Date.now()) {
   try {
@@ -175,7 +181,10 @@ async function main() {
           identityReport = report.key;
           console.log(JSON.stringify(report.entry));
         }
-        const edgeBackup = await readBackupAttention(backupHealth);
+        const edgeBackup =
+          process.uptime() >= BACKUP_ATTENTION_GRACE_SECONDS
+            ? await readBackupAttention(backupHealth)
+            : null;
         const result = await sync.syncFulfillmentOnce(pool, {
           enabled: true,
           branchId,

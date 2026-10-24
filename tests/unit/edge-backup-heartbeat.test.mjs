@@ -6,6 +6,7 @@ import test from 'node:test';
 import { EdgeBackupAttentionSchema } from '@pickchick/fulfillment-transport';
 import { backupStatus } from '../../infra/windows/edge-backup-lib.mjs';
 import {
+  BACKUP_ATTENTION_GRACE_SECONDS,
   backupAttention,
   readBackupAttention,
 } from '../../infra/windows/native-fulfillment-worker.mjs';
@@ -128,4 +129,20 @@ test('the health record is read defensively from its fixed file', async () => {
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test('after start-up the worker waits for the start-up copy before reporting', async () => {
+  // The task runs 10 minutes after start-up; the grace leaves time for that copy to finish.
+  assert.equal(BACKUP_ATTENTION_GRACE_SECONDS, 1800);
+  const source = await (
+    await import('node:fs/promises')
+  ).readFile(new URL('../../infra/windows/native-fulfillment-worker.mjs', import.meta.url), 'utf8');
+  assert.match(
+    source,
+    /process\.uptime\(\) >= BACKUP_ATTENTION_GRACE_SECONDS\s*\?\s*await readBackupAttention\(backupHealth\)\s*:\s*null/,
+  );
+  const installer = await (
+    await import('node:fs/promises')
+  ).readFile(new URL('../../infra/windows/install-edge-backup.ps1', import.meta.url), 'utf8');
+  assert.match(installer, /\$startup\.Delay = 'PT10M'/);
 });
