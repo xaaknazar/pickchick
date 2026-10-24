@@ -32,6 +32,16 @@ export async function readCloudLink(
   });
   let row: { last_success_at: Date | null; fresh: boolean; now: Date } | undefined;
   try {
+    // Ask first instead of failing: without the opt-in grant (the default) a refused SELECT on
+    // every POS poll would write a permission error into the cashier's PostgreSQL log.
+    const readable = (
+      await pool.query<{ readable: boolean | null }>(
+        `SELECT has_column_privilege(t, 'branch_id', 'SELECT')
+        AND has_column_privilege(t, 'last_success_at', 'SELECT') AS readable
+        FROM (SELECT to_regclass('fulfillment_transport_state') AS t) s`,
+      )
+    ).rows[0]?.readable;
+    if (readable !== true) return unknown;
     row = (
       await pool.query<{ last_success_at: Date | null; fresh: boolean; now: Date }>(
         `SELECT last_success_at, clock_timestamp() AS now,
@@ -41,7 +51,7 @@ export async function readCloudLink(
       )
     ).rows[0];
   } catch (error) {
-    // 42501: no column grant for this runtime role; 42P01: schema without the transport.
+    // 42501/42P01: grant revoked or table gone between the two statements; same answer.
     const code = (error as { code?: unknown } | null)?.code;
     if (code === '42501' || code === '42P01') return unknown;
     throw error;

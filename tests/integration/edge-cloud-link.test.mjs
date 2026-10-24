@@ -103,10 +103,22 @@ test('least-privileged edge runtime: unknown without the opt-in grant, the real 
       [ctx.scope.branchId],
     );
     await runtime(ctx, {}, async (pool) => {
+      // The default (no grant) is answered without a refused statement: no permission error
+      // in the cashier's PostgreSQL log on every POS poll.
+      const refused = [];
+      const watched = {
+        connect: () => pool.connect(),
+        query: (...args) =>
+          pool.query(...args).catch((error) => {
+            refused.push(error.code);
+            throw error;
+          }),
+      };
       assert.equal(
-        (await readCloudLink(pool, ctx.scope.branchId, ctx.cashier.auth)).state,
+        (await readCloudLink(watched, ctx.scope.branchId, ctx.cashier.auth)).state,
         'unknown',
       );
+      assert.deepEqual(refused, []);
     });
     await runtime(ctx, { cloudLink: true }, async (pool) => {
       assert.equal(
