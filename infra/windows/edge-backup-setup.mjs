@@ -411,9 +411,7 @@ async function main() {
       await readFile(new URL('./native-edge-backup-ledger.json', import.meta.url), 'utf8'),
     );
     const layout = backupLayout(args.stateRoot);
-    const roleExists = Boolean(await readBackupRole(admin));
-    const key = await prepareKey(layout.keyFile, { dryRun });
-    const credential = await prepareCredential(layout.credentialFile, { roleExists, dryRun });
+    // The configuration is validated before any key or password file is created.
     const zone = (
       await admin.query('SELECT timezone FROM branch_config WHERE id=$1', [args.branchId])
     ).rows[0]?.timezone;
@@ -422,6 +420,9 @@ async function main() {
       systemIdentifier: foundation.systemIdentifier,
       timeZone: zone,
     });
+    const roleExists = Boolean(await readBackupRole(admin));
+    const key = await prepareKey(layout.keyFile, { dryRun });
+    const credential = await prepareCredential(layout.credentialFile, { roleExists, dryRun });
     if (dryRun) {
       const ledger = (
         await admin.query('SELECT version,checksum,scope FROM schema_migrations ORDER BY version')
