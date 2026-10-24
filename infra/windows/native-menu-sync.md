@@ -64,6 +64,23 @@ The edge runtime (`pickchick_edge_runtime`) receives `SELECT` on `menu_media`
 only, for `GET /edge/v1/media/<sha>.webp`. `applyEdgeRuntimeGrants` includes it
 automatically once migration 018 is in the ledger.
 
+### Station plans (edge schema024, stage 2)
+
+The same service and role also apply back-office station plans
+(`packages/menu-sync/src/station-plan.ts`). `EDGE_STATION_PLAN_SYNC_MODE` is
+**not** written to `menu-sync.env` (the reviewed installer pins that file); the
+default `auto` makes the database the switch: before
+`station-plan-upgrade-db.mjs` applied schema024 and granted the role
+`SELECT/INSERT` on `station_plan_snapshots`, `station_plan_active`,
+`station_plan_receipts`, `UPDATE(plan_id, version, activated_at)` on
+`station_plan_active` and `UPDATE(reported_at)` on `station_plan_receipts`, the
+step never contacts the cloud and logs `schema_missing`/`grants_missing` once.
+Afterwards it pulls `/internal/v1/edge/station-plans/pull` (404 while the cloud
+flag `BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED` is off), applies or rejects the
+newest plan and reports the receipt. Its failures never change the menu loop.
+`menu-sync-upgrade-db.mjs` keeps these rights when it runs again after 024.
+Details: `docs/operations/stage2-2026-10-24/cfg.md`.
+
 ## Prerequisites
 
 1. Cloud first: the VPS runs the unified-menu API (WP-A/WP-B, cloud migration

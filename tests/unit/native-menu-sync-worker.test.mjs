@@ -8,6 +8,7 @@ import {
   menuSyncMode,
   menuSyncRetryDelay,
   runMenuSyncLoop,
+  stationPlanSyncMode,
   validateWorkerConfig,
 } from '../../infra/windows/native-menu-sync-worker.mjs';
 import { SyncError } from '../../packages/menu-sync/dist/index.js';
@@ -223,4 +224,124 @@ test('a missing schema018 is reported and retried before any sync', async () => 
   assert.deepEqual(single.logs, [
     { event: 'menu_sync_failed', code: 'UNAUTHORIZED', failures: 1, retrying: false },
   ]);
+});
+
+test('station plan mode defaults to the database switch and accepts only known values', () => {
+  assert.equal(stationPlanSyncMode({}), 'auto');
+  for (const mode of ['auto', 'off', 'report', 'apply'])
+    assert.equal(stationPlanSyncMode({ EDGE_STATION_PLAN_SYNC_MODE: mode }), mode);
+  for (const mode of ['', 'true', 'APPLY', 'on'])
+    assert.throws(() => stationPlanSyncMode({ EDGE_STATION_PLAN_SYNC_MODE: mode }));
+});
+
+/** Harness with a clock that advances by every wait, and scripted station plan results. */
+function stationHarness(menuResults, planResults, mode = 'apply') {
+  const h = harness(menuResults);
+  let clock = 0;
+  const planCalls = [];
+  const wait = h.options.wait;
+  h.options.wait = async (ms) => {
+    clock += ms;
+    await wait(ms);
+  };
+  h.options.now = () => clock;
+  h.options.stationPlans = {
+    mode,
+    sync: async (options) => {
+      planCalls.push({ ...options, at: clock });
+      const next = planResults.shift() ?? { state: 'idle' };
+      if (next instanceof Error) throw next;
+      return next;
+    },
+  };
+  return { ...h, planCalls };
+}
+
+test('station plans need menu sync on and never touch the menu loop when off', async () => {
+  const h = stationHarness([], []);
+  h.options.stationPlans.sync = () => assert.fail('station plans must not run');
+  await runMenuSyncLoop({ ...h.options, mode: 'off', once: true });
+  assert.deepEqual(h.logs, [
+    { event: 'menu_sync_disabled', mode: 'off' },
+    { event: 'station_plan_sync_disabled', reason: 'MENU_SYNC_OFF' },
+  ]);
+  const off = stationHarness([{ state: 'idle' }, { state: 'idle' }], [], 'off');
+  off.options.stationPlans.sync = () => assert.fail('station plans must not run');
+  await runMenuSyncLoop({ ...off.options, mode: 'apply' });
+  assert.deepEqual(off.waits, [2000, 2000]);
+});
+
+test('station plan steps run on their own schedule and their failures never slow the menu', async () => {
+  const token = 'd'.repeat(64);
+  const idle = { state: 'idle' };
+  const h = stationHarness(
+    Array.from({ length: 12 }, () => ({ ...idle })),
+    [
+      { state: 'applied', version: 1 },
+      { state: 'reported', version: 1 },
+      { state: 'idle' },
+      new Error(`Sync HTTP 500 Bearer ${token}`),
+      { state: 'unavailable' },
+      { state: 'unavailable' },
+    ],
+  );
+  await runMenuSyncLoop({ ...h.options, mode: 'apply' });
+  // The menu keeps its 2 s idle cadence whatever the station plan step does.
+  assert.ok(h.waits.every((ms) => ms === 2000));
+  assert.ok(h.calls.every((call) => call.applyEvents === true));
+  assert.ok(h.planCalls.every((call) => call.mode === 'apply'));
+  // Moving plans continue at once; idle waits 10 s; a failure backs off; unavailable 60 s.
+  assert.deepEqual(
+    h.planCalls.map((call) => call.at),
+    [0, 2000, 4000, 14000, 16000],
+  );
+  const plans = h.logs.filter((entry) => entry.event.startsWith('station_plan'));
+  assert.deepEqual(plans, [
+    { event: 'station_plan_sync', mode: 'apply', state: 'applied', version: 1 },
+    { event: 'station_plan_sync', mode: 'apply', state: 'reported', version: 1 },
+    { event: 'station_plan_sync', mode: 'apply', state: 'idle' },
+    { event: 'station_plan_sync_failed', code: 'UNEXPECTED', failures: 1 },
+    { event: 'station_plan_sync', mode: 'apply', state: 'unavailable' },
+  ]);
+  assert.ok(!JSON.stringify(h.logs).includes(token));
+  assert.equal(h.logs.filter((entry) => entry.event === 'menu_sync_failed').length, 0);
+});
+
+test('auto mode applies once the database grants the rights, and stays quiet before', async () => {
+  const h = stationHarness(
+    Array.from({ length: 40 }, () => ({ state: 'idle' })),
+    [{ state: 'grants_missing' }, { state: 'applied', version: 2 }],
+    'auto',
+  );
+  await runMenuSyncLoop({ ...h.options, mode: 'apply' });
+  assert.ok(h.planCalls.every((call) => call.mode === 'apply'));
+  // A missing schema024 or missing rights is checked again once a minute, logged once.
+  assert.deepEqual(
+    h.planCalls.slice(0, 3).map((call) => call.at),
+    [0, 60000, 62000],
+  );
+  assert.deepEqual(h.logs.filter((entry) => entry.event.startsWith('station_plan')).slice(0, 2), [
+    { event: 'station_plan_sync', mode: 'apply', state: 'grants_missing' },
+    { event: 'station_plan_sync', mode: 'apply', state: 'applied', version: 2 },
+  ]);
+  // With the menu off, auto stays silent (only an explicit mode reports it is disabled).
+  const off = stationHarness([], [], 'auto');
+  await runMenuSyncLoop({ ...off.options, mode: 'off', once: true });
+  assert.deepEqual(off.logs, [{ event: 'menu_sync_disabled', mode: 'off' }]);
+});
+
+test('once mode runs one station plan step and reports its failure in the exit code', async () => {
+  const ok = stationHarness([{ state: 'idle' }], [{ state: 'idle' }], 'report');
+  assert.deepEqual(await runMenuSyncLoop({ ...ok.options, mode: 'apply', once: true }), {
+    exitCode: 0,
+  });
+  assert.deepEqual(
+    ok.planCalls.map((call) => call.mode),
+    ['report'],
+  );
+  assert.deepEqual(ok.logs.at(-1), { event: 'station_plan_sync', mode: 'report', state: 'idle' });
+  const failed = stationHarness([{ state: 'idle' }], [new Error('Sync HTTP 503')]);
+  assert.deepEqual(await runMenuSyncLoop({ ...failed.options, mode: 'apply', once: true }), {
+    exitCode: 1,
+  });
 });

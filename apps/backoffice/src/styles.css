@@ -1075,6 +1075,9 @@ td:nth-child(5) {
   font-size: 12px;
   margin-top: 5px;
 }
+.op-panel .notice.station-plan {
+  margin: 14px 0;
+}
 .op-table {
   width: 100%;
   border-collapse: collapse;

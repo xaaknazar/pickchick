@@ -163,6 +163,23 @@ export class Resources implements OnApplicationShutdown {
               );
               if (!grant.rows[0]?.ok) throw new Error('Backoffice write grant unavailable');
             }
+            // Station plan delivery (stage 2): cloud070 and its write grants, only when enabled.
+            const stationPlans = process.env['BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED'] ?? 'false';
+            if (!['true', 'false'].includes(stationPlans))
+              throw new Error('Invalid station plan delivery flag');
+            if (stationPlans === 'true') {
+              const ledger = await this.pool.query(
+                "SELECT 1 FROM schema_migrations WHERE scope='cloud' AND version='070_cloud_station_plans.sql'",
+              );
+              if (ledger.rowCount !== 1) throw new Error('Station plan schema unavailable');
+              const rights = await this.pool.query(
+                `SELECT bool_and(has_table_privilege(current_user,t,'SELECT,INSERT')) AND
+                  has_column_privilege(current_user,'bo_station_plan_deliveries','deliveries','UPDATE') AND
+                  has_column_privilege(current_user,'bo_station_plan_edge_state','active_version','UPDATE') ok
+                  FROM unnest(ARRAY['bo_station_plans','bo_station_plan_deliveries','bo_station_plan_receipts','bo_station_plan_edge_state']) t`,
+              );
+              if (!rights.rows[0]?.ok) throw new Error('Station plan grants unavailable');
+            }
           }
           if (this.config.testOrderFlowEnabled) {
             for (const migration of [

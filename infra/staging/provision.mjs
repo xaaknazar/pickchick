@@ -6,6 +6,7 @@ import { workforceGrants } from './workforce-grants.mjs';
 import { backofficeGrants } from './backoffice-grants.mjs';
 import { manualRefundGrants } from './manual-refund-grants.mjs';
 import { backofficeStopGrants } from './backoffice-stop-grants.mjs';
+import { stationPlanGrants } from './station-plan-grants.mjs';
 import { catalogAdminGrants } from './catalog-admin-grants.mjs';
 import { catalogAccessGrants, edgeMenuStateGrants } from './catalog-edge-grants.mjs';
 import { catalogAssetGrants } from './catalog-asset-grants.mjs';
@@ -118,6 +119,12 @@ async function provision() {
           config.backofficeEnabled === true &&
             process.env.BACKOFFICE_REMOTE_STOPS_ENABLED === 'true',
         ),
+      );
+      await client.query(
+        stationPlanGrants('pickchick_app', {
+          backoffice: config.backofficeEnabled === true,
+          delivery: process.env.BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED === 'true',
+        }),
       );
       // Validate the complete owner/branch policy before enabling checkout privileges.
       await client.query(

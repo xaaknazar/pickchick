@@ -29,6 +29,26 @@ export function menuSyncMode(env = process.env) {
   return value;
 }
 
+/**
+ * Station plans (edge schema024, stage 2 lane cfg) ride in the same worker and role.
+ * auto (default, variable absent): the database is the switch. The step runs only after the
+ *   guarded 024 upgrade granted this role its station plan rights; before that it never
+ *   contacts the cloud. The reviewed installer pins menu-sync.env, so the Windows cashier uses
+ *   this default; the cloud flag BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED decides deliveries.
+ * off: never touched. report: reports the active plan and the local kitchen stations and sends
+ *   stored receipts, but applies nothing. apply: applies delivered plans.
+ * Requires EDGE_MENU_SYNC_MODE other than off; it never changes the menu loop.
+ */
+export function stationPlanSyncMode(env = process.env) {
+  const value = env.EDGE_STATION_PLAN_SYNC_MODE ?? 'auto';
+  if (!['auto', 'off', 'report', 'apply'].includes(value))
+    throw new Error('EDGE_STATION_PLAN_SYNC_MODE must be auto, off, report or apply');
+  return value;
+}
+/** A station plan check while idle; the cloud or schema024 rights missing: once a minute. */
+export const STATION_PLAN_IDLE_MS = 10000;
+export const STATION_PLAN_UNAVAILABLE_MS = 60000;
+
 /** 2 s between idle polls; exponential backoff capped at 60 s after failures. */
 export function menuSyncRetryDelay(failures, random = Math.random) {
   if (!Number.isInteger(failures) || failures < 0) throw new Error('Invalid failure count');
@@ -92,6 +112,43 @@ export function failureCode(error) {
 }
 
 /**
+ * One station plan step, isolated from the menu loop: its results and failures never change
+ * the menu failure count, wait or exit code. Moving plans/receipts continue at once, idle waits
+ * 10 s, a missing cloud route or schema024 waits 60 s, failures back off like the menu.
+ * Quiet states are logged only when they change. Returns false when the step failed.
+ */
+function stationPlanStepper({ mode, sync, log, now, random }) {
+  let nextAt = 0,
+    failures = 0,
+    quiet = null;
+  return async (force) => {
+    if (!force && now() < nextAt) return true;
+    try {
+      const result = await sync({ mode });
+      failures = 0;
+      if (['applied', 'rejected', 'reported'].includes(result.state)) {
+        quiet = null;
+        nextAt = 0;
+        log({ event: 'station_plan_sync', mode, ...result });
+      } else {
+        if (force || result.state !== quiet)
+          log({ event: 'station_plan_sync', mode, state: result.state });
+        quiet = result.state;
+        nextAt =
+          now() + (result.state === 'idle' ? STATION_PLAN_IDLE_MS : STATION_PLAN_UNAVAILABLE_MS);
+      }
+      return true;
+    } catch (error) {
+      failures = Math.min(6, failures + 1);
+      quiet = null;
+      nextAt = now() + menuSyncRetryDelay(failures, random);
+      log({ event: 'station_plan_sync_failed', code: failureCode(error), failures });
+      return false;
+    }
+  };
+}
+
+/**
  * Service loop with injected effects so it is testable off Windows.
  * - mode off: logs once and waits for the stop signal; no request, no database access.
  * - otherwise: checks schema018 first, then loops syncMenuOnce. Applied/acknowledged/rejected
@@ -110,12 +167,28 @@ export async function runMenuSyncLoop({
       if (error.name !== 'AbortError') throw error;
     }),
   random = Math.random,
+  // { mode: 'auto'|'off'|'report'|'apply', sync({ mode }) } for station plans; absent means off.
+  stationPlans,
+  now = Date.now,
 }) {
   if (mode === 'off') {
     log({ event: 'menu_sync_disabled', mode });
+    if (stationPlans && ['report', 'apply'].includes(stationPlans.mode))
+      log({ event: 'station_plan_sync_disabled', reason: 'MENU_SYNC_OFF' });
     if (!once) while (!signal.aborted) await wait(60000);
     return { exitCode: 0 };
   }
+  // auto applies plans; syncStationPlanOnce itself answers schema_missing/grants_missing locally.
+  const stationStep =
+    stationPlans && stationPlans.mode !== 'off'
+      ? stationPlanStepper({
+          ...stationPlans,
+          mode: stationPlans.mode === 'auto' ? 'apply' : stationPlans.mode,
+          log,
+          now,
+          random,
+        })
+      : null;
   let failures = 0,
     held = null,
     ready = false,
@@ -158,6 +231,7 @@ export async function runMenuSyncLoop({
       log({ event: 'menu_sync_failed', code: failureCode(error), failures, retrying: !once });
       if (once) exitCode = 1;
     }
+    if (stationStep && !drain && !(await stationStep(once)) && once) exitCode = 1;
     if (once || signal.aborted) break;
     if (!drain) await wait(menuSyncRetryDelay(failures, random));
   } while (!signal.aborted);
@@ -186,6 +260,7 @@ async function main() {
     importPackage('@pickchick/menu-sync'),
   ]);
   const mode = menuSyncMode(),
+    stationMode = stationPlanSyncMode(),
     config = loadConfig('edge'),
     origin = process.env.EDGE_MENU_SYNC_CLOUD_ORIGIN;
   validateWorkerConfig(config, process.env, origin, branchId, deviceId);
@@ -194,7 +269,15 @@ async function main() {
   for (const signal of ['SIGTERM', 'SIGINT']) process.once(signal, () => stop.abort());
   const log = (entry) => console.log(JSON.stringify(entry));
   if (mode === 'off') {
-    process.exitCode = (await runMenuSyncLoop({ mode, once, signal: stop.signal, log })).exitCode;
+    process.exitCode = (
+      await runMenuSyncLoop({
+        mode,
+        once,
+        signal: stop.signal,
+        log,
+        stationPlans: { mode: stationMode },
+      })
+    ).exitCode;
     return;
   }
   // Same protected device identity as the fulfillment worker; ACL checked before reading.
@@ -236,6 +319,17 @@ async function main() {
           await readWindowsIdentity(identityPath, DeviceIdentitySchema, branchId, deviceId),
           { mediaAttempts, applyEvents },
         ),
+      stationPlans: {
+        mode: stationMode,
+        sync: async ({ mode: planMode }) =>
+          sync.syncStationPlanOnce(
+            pool,
+            branchId,
+            origin,
+            await readWindowsIdentity(identityPath, DeviceIdentitySchema, branchId, deviceId),
+            { mode: planMode },
+          ),
+      },
     });
     process.exitCode = exitCode;
   } finally {

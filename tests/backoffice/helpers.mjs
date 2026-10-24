@@ -40,10 +40,11 @@ export const storage = () => {
 };
 /**
  * Real catalog/back-office API behind the operator proxy. `media` mounts the photo upload and
- * media routes (CATALOG_MEDIA_UPLOAD_ENABLED); `remoteStops` turns on back-office stop commands.
+ * media routes (CATALOG_MEDIA_UPLOAD_ENABLED); `remoteStops` turns on back-office stop commands;
+ * `stationPlans` turns on station plan delivery to the cashier edge.
  */
 export async function withCatalog(run, options = {}) {
-  const { media = false, remoteStops = false, ...serverOptions } = options;
+  const { media = false, remoteStops = false, stationPlans = false, ...serverOptions } = options;
   await withSyncDatabases(async (context) => {
     const { cloud, org, branch } = context,
       service = new CatalogAdmin(cloud.pool, { enabled: true }),
@@ -52,7 +53,10 @@ export async function withCatalog(run, options = {}) {
         name: 'Синтетический управляющий',
         branch_ids: [branch],
       });
-    const backoffice = new Backoffice(cloud.pool, true, { remoteStopsEnabled: remoteStops });
+    const backoffice = new Backoffice(cloud.pool, true, {
+      remoteStopsEnabled: remoteStops,
+      stationPlanDeliveryEnabled: stationPlans,
+    });
     await grantBackoffice(cloud.pool, manager.actor_id, branch, 'manager');
     class CatalogModule {}
     Module({

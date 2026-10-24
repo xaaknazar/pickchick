@@ -54,6 +54,10 @@ import {
   FulfillmentStationsSchema,
   FulfillmentDisplaySchema,
   FulfillmentActionSchema,
+  StationPlanPullRequestSchema,
+  StationPlanPullResponseSchema,
+  StationPlanReceiptSchema,
+  StationPlanReceiptResultSchema,
   jsonSchema,
 } from '@pickchick/contracts';
 import {
@@ -1119,6 +1123,52 @@ openapi.paths['/internal/v1/edge/pos-orders/events'] = {
     },
   },
 };
+
+// Station plans for the cashier edge (cloud070, stage 2 lane cfg).
+Object.assign(openapi.components.schemas, {
+  StationPlanPullRequest: jsonSchema(StationPlanPullRequestSchema),
+  StationPlanPullResponse: jsonSchema(StationPlanPullResponseSchema),
+  StationPlanReceipt: jsonSchema(StationPlanReceiptSchema),
+  StationPlanReceiptResult: jsonSchema(StationPlanReceiptResultSchema),
+});
+for (const [path, operationId, input, result, description] of [
+  [
+    'pull',
+    'pullStationPlan',
+    'StationPlanPullRequest',
+    'StationPlanPullResponse',
+    'Records the plan the authenticated edge serves and its local kitchen stations, then returns the newest station plan of its branch unless the edge already answered for it (null otherwise). Repeated delivery is expected; report_only never hands out a plan.',
+  ],
+  [
+    'receipt',
+    'recordStationPlanReceipt',
+    'StationPlanReceipt',
+    'StationPlanReceiptResult',
+    'Edge verdict after its durable local commit: applied, or rejected with a reason while the previous plan stays active. Version and checksum must match; an identical repeat returns the same answer, a different verdict for the same plan conflicts.',
+  ],
+])
+  openapi.paths['/internal/v1/edge/station-plans/' + path] = {
+    post: {
+      operationId,
+      description:
+        description +
+        ' Disabled by default (BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED), private transport only; not routed by the public gateway.',
+      security: [{ deviceBearer: [], deviceId: [] }],
+      requestBody: {
+        required: true,
+        content: { 'application/json': { schema: { $ref: '#/components/schemas/' + input } } },
+      },
+      responses: {
+        200: response(result),
+        400: response('Error', 'Invalid request'),
+        401: response('Error', 'Invalid, expired or revoked device'),
+        404: response('Error', 'Disabled, or plan outside the device branch'),
+        409: response('Error', 'Version, checksum or verdict conflict'),
+        413: response('Error', 'Request body exceeds HTTP limit'),
+        500: response('Error', 'Internal error'),
+      },
+    },
+  };
 
 // Branch-scoped operational API. Record payloads are validated by the command discriminator.
 openapi.components.schemas.BackofficeRequest = jsonSchema(BackofficeRequest);

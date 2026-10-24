@@ -15,6 +15,8 @@ export const BackofficeErrorReasonSchema = z.enum([
   'MANUAL_REFUNDS_DISABLED',
   'REFUND_REFERENCE_ALREADY_USED',
   'REFUND_EXCEEDS_PAYMENT',
+  'STATION_PLAN_DELIVERY_DISABLED',
+  'STATION_PLAN_EMPTY',
 ]);
 export type BackofficeErrorReason = z.infer<typeof BackofficeErrorReasonSchema>;
 export class BackofficeError extends Error {
@@ -131,6 +133,11 @@ export const Station = z.strictObject({
   name: text,
   role: z.enum(['prep', 'assembly', 'drinks', 'handoff']),
   device_id: id.nullable(),
+  /**
+   * Local kitchen station of the cashier edge (fulfillment_stations.id), reported by the edge.
+   * Optional: records saved before station plan delivery keep their exact payload.
+   */
+  edge_station_id: id.nullable().optional(),
   active: z.boolean(),
   product_ids: z.array(text).max(100),
   target_seconds: z.number().int().min(1).max(3600),
@@ -260,6 +267,12 @@ export const Command = z.discriminatedUnion('type', [
   }),
   /** Withdraw a refund request created by the old adapter button that nothing ever sent. */
   z.strictObject({ type: z.literal('withdraw_refund'), id, refund_id: id }),
+  /**
+   * Send the current published station plan to the cashier edge again
+   * (BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED): first delivery after the flag is switched on,
+   * or a retry after the edge rejected the previous version.
+   */
+  z.strictObject({ type: z.literal('deliver_station_plan') }),
 ]);
 export const Request = z.strictObject({
   request_id: id,
