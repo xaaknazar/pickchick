@@ -13,4 +13,5 @@ export {
 } from '@pickchick/menu-sync';
 export type { EdgeRestoreFence, EdgeRestoreState } from '@pickchick/menu-sync';
 export * from './terminal-access.js';
+export * from './cloud-link.js';
 export * from './kitchen-password-reset.js';

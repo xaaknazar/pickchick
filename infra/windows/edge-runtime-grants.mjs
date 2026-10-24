@@ -41,7 +41,8 @@ function identifier(value) {
 
 /** Pure SQL: caller must explicitly opt into applied schema016 with cashierReports,
  * applied schema018 with menuMedia, applied schema019 with remoteStops and applied schema023
- * with restoreFence. */
+ * with restoreFence. cloudLink (default off) lets the POS show the internet state: two columns
+ * of the transport heartbeat, nothing about pending commands or leases. */
 export function edgeRuntimeGrantSql(
   role,
   {
@@ -51,6 +52,7 @@ export function edgeRuntimeGrantSql(
     remoteStops = false,
     menuMedia = false,
     restoreFence = false,
+    cloudLink = false,
   } = {},
 ) {
   const target = identifier(role),
@@ -60,7 +62,8 @@ export function edgeRuntimeGrantSql(
     typeof cashierReports !== 'boolean' ||
     typeof remoteStops !== 'boolean' ||
     typeof menuMedia !== 'boolean' ||
-    typeof restoreFence !== 'boolean'
+    typeof restoreFence !== 'boolean' ||
+    typeof cloudLink !== 'boolean'
   )
     throw new Error('Invalid runtime grant flag');
   const tables = (names) => names.map((name) => `${namespace}.${identifier(name)}`).join(', ');
@@ -75,6 +78,10 @@ export function edgeRuntimeGrantSql(
     grant('UPDATE(window_started_at, attempts)', ['local_staff_login_limits']),
     grant('UPDATE(lock_anchor)', ['local_staff', 'local_terminals', 'staff_sessions']),
     grant('UPDATE(ordering_enabled, ordering_version)', ['branch_config']),
+    // GET edge/v1/cloud-link: last answered cloud pull, for the POS internet line.
+    ...(cloudLink
+      ? [grant('SELECT(branch_id, last_success_at)', ['fulfillment_transport_state'])]
+      : []),
     // GET edge/v1/media serves photos the menu-sync worker cached; read-only for the runtime.
     ...(menuMedia ? [grant('SELECT', ['menu_media'])] : []),
     // The edge service fences a restored database at start (owner-rights function, schema023).

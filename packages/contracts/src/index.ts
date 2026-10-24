@@ -453,6 +453,17 @@ export const StopStateSchema = z.strictObject({
   version: z.number().int().nonnegative().max(2147483647),
 });
 export const StopListSchema = z.strictObject({ stops: z.array(StopStateSchema).max(10000) });
+/**
+ * GET edge/v1/cloud-link: the cashier edge's last confirmed contact with the cloud (WAN), taken
+ * from the fulfillment transport heartbeat. 'unknown': no transport on this edge yet or the
+ * runtime role lacks the opt-in grant; installed clients that never ask are unaffected.
+ */
+export const EdgeCloudLinkSchema = z.strictObject({
+  state: z.enum(['online', 'offline', 'unknown']),
+  last_contact_at: z.iso.datetime().nullable(),
+  checked_at: z.iso.datetime(),
+});
+export type EdgeCloudLink = z.infer<typeof EdgeCloudLinkSchema>;
 export type StaffSession = z.infer<typeof StaffSessionSchema>;
 export type StaffCredential = z.infer<typeof StaffCredentialSchema>;
 export type StaffRole = z.infer<typeof StaffRoleSchema>;

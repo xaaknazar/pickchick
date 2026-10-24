@@ -31,6 +31,7 @@ import {
   StaffPinLoginSchema,
   CashMovementInputSchema,
   StopListSchema,
+  EdgeCloudLinkSchema,
   CartSchema,
   QuoteSchema,
   LocalOrderSchema,
@@ -333,6 +334,7 @@ const openapi = {
       }),
     },
     '/edge/v1/cash-shifts/current': staffOperation('get', 'currentCashShift', 'CashShiftCurrent'),
+    '/edge/v1/cloud-link': staffOperation('get', 'readCloudLink', 'EdgeCloudLink'),
     '/edge/v1/cash-shifts/{shiftId}': staffOperation(
       'get',
       'readCashShift',
@@ -484,6 +486,7 @@ const openapi = {
       StaffPinLogin: jsonSchema(StaffPinLoginSchema),
       CashMovementInput: jsonSchema(CashMovementInputSchema),
       StopList: jsonSchema(StopListSchema),
+      EdgeCloudLink: jsonSchema(EdgeCloudLinkSchema),
       Cart: jsonSchema(CartSchema),
       Quote: jsonSchema(QuoteSchema),
       LocalOrder: jsonSchema(LocalOrderSchema),
