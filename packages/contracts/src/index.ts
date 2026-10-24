@@ -535,5 +535,6 @@ export * from './customer-commerce.js';
 
 export * from './device-access.js';
 export * from './notifications.js';
+export * from './station-plans.js';
 
 export * from './combo-rewards.js';
