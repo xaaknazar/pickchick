@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { createApi } from '@pickchick/api';
+import { createPool } from '@pickchick/database';
 import {
   applyStationPlan,
   hashJson,
@@ -21,8 +22,11 @@ import {
   Backoffice,
   grantBackoffice,
   pullStationPlan,
+  readStationPlanStatus,
   recordStationPlanReceipt,
 } from '../../packages/backoffice-core/dist/index.js';
+import { backofficeGrants } from '../../infra/staging/backoffice-grants.mjs';
+import { stationPlanGrants } from '../../infra/staging/station-plan-grants.mjs';
 import { withSyncDatabases, running, authFor, headersFor, request } from '../helpers/sync.mjs';
 
 const FLAG = 'BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED';
@@ -192,6 +196,9 @@ test('a station publication reaches the edge over HTTP, applies atomically and t
         assert.deepEqual(await syncMenuOnce(c.edge.pool, c.branch, api.url, c.identity), {
           state: 'idle',
         });
+        const ready = await request(`${api.url}/health/ready`);
+        assert.equal(ready.status, 200, 'cloud070 and its rights are checked when enabled');
+        await ready.body?.cancel();
 
         // HTTP boundary: device authentication and bounded bodies.
         const pullUrl = `${api.url}/internal/v1/edge/station-plans/pull`;
@@ -545,6 +552,25 @@ test('old edges, older clouds and the disabled flag keep the previous behaviour'
         const snapshot = await new Backoffice(c.cloud.pool, true).read(manager.token, c.branch);
         assert.equal(snapshot.station_plan.available, false);
         assert.equal(snapshot.capabilities.edge_configuration_delivery, false);
+        // Switching the flag on before cloud070 keeps the API out of service (readiness).
+        for (const [flag, status] of [
+          [undefined, 200],
+          ['true', 503],
+        ])
+          await withEnv(flag, async () => {
+            const api = await running(createApi, {
+              ...c.cloud.config,
+              backofficeEnabled: true,
+              catalogAdminEnabled: true,
+            });
+            try {
+              const ready = await request(`${api.url}/health/ready`);
+              assert.equal(ready.status, status, `flag ${flag}`);
+              await ready.body?.cancel();
+            } finally {
+              await api.app.close();
+            }
+          });
       },
       { cloudMigrationDirectory },
     ),
@@ -592,4 +618,105 @@ test('plan, delivery, receipt and active-plan rows only move forward', () =>
     await assert.rejects(c.edge.pool.query('UPDATE station_plan_receipts SET reported_at=now()'), {
       code: '23514',
     });
+  }));
+
+test('restricted API role: station plan grants follow the back-office and delivery flags', () =>
+  setup(async (c) => {
+    const role = 'plan_runtime_' + randomUUID().replaceAll('-', '');
+    await c.cloud.admin.query(
+      `CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT`,
+    );
+    let pool;
+    try {
+      await c.cloud.pool.query(`GRANT USAGE ON SCHEMA ${c.cloud.schema} TO ${role}`);
+      await c.cloud.pool.query(backofficeGrants(role, true));
+      // provision.mjs base runtime grants used by device authentication.
+      await c.cloud.pool.query(`GRANT SELECT ON devices, device_credentials TO ${role};
+        GRANT UPDATE (id) ON devices TO ${role};
+        GRANT UPDATE (device_id) ON device_credentials TO ${role};`);
+      await c.cloud.pool.query(stationPlanGrants(role, { backoffice: true, delivery: true }));
+      const url = new URL(c.cloud.config.databaseUrl);
+      url.searchParams.set('options', `-c search_path=${c.cloud.schema} -c role=${role}`);
+      pool = createPool(url.toString());
+      const bo = new Backoffice(pool, true, { stationPlanDeliveryEnabled: true });
+      const command = (value) =>
+        bo.command(c.manager.token, c.branch, {
+          request_id: randomUUID(),
+          reason: 'Синтетическая проверка прав',
+          command: value,
+        });
+      const record = { id: randomUUID() };
+      const saved = await command({
+        type: 'save',
+        kind: 'station',
+        id: record.id,
+        expected_revision: 0,
+        payload: {
+          name: 'Фритюр',
+          role: 'prep',
+          device_id: null,
+          edge_station_id: c.prep,
+          active: true,
+          product_ids: [],
+          target_seconds: 120,
+        },
+      });
+      const published = await command({
+        type: 'publish',
+        kind: 'station',
+        id: record.id,
+        expected_revision: saved.revision,
+      });
+      assert.equal(published.station_plan.version, 1);
+      const report = await stationPlanReport(c.edge.pool, c.branch);
+      const { delivery } = await pullStationPlan(pool, c.auth, report);
+      const receipt = await applyStationPlan(c.edge.pool, c.branch, delivery);
+      await recordStationPlanReceipt(pool, c.auth, receipt);
+      assert.equal((await bo.read(c.manager.token, c.branch)).station_plan.latest.state, 'applied');
+      for (const sql of [
+        'UPDATE bo_station_plans SET version=2',
+        'DELETE FROM bo_station_plans',
+        'UPDATE bo_station_plan_receipts SET reason=NULL',
+        'DELETE FROM bo_station_plan_receipts',
+        'DELETE FROM bo_station_plan_deliveries',
+        'UPDATE bo_station_plan_deliveries SET plan_id=plan_id',
+      ])
+        await assert.rejects(pool.query(sql), { code: '42501' }, sql);
+
+      // Delivery off: the cabinet keeps the history, the edge routes cannot write.
+      await c.cloud.pool.query(stationPlanGrants(role, { backoffice: true, delivery: false }));
+      const history = (await new Backoffice(pool, true).read(c.manager.token, c.branch))
+        .station_plan;
+      assert.equal(history.available, true);
+      assert.equal(history.applied.version, 1);
+      await assert.rejects(pullStationPlan(pool, c.auth, report), { code: '42501' });
+      // Replaying an already recorded receipt only reads.
+      assert.equal((await recordStationPlanReceipt(pool, c.auth, receipt)).recorded, true);
+
+      // Back-office off: the section reads as unavailable instead of failing the cabinet.
+      await c.cloud.pool.query(stationPlanGrants(role, { backoffice: false, delivery: false }));
+      assert.equal((await readStationPlanStatus(pool, c.branch, false)).available, false);
+      for (const table of [
+        'bo_station_plans',
+        'bo_station_plan_deliveries',
+        'bo_station_plan_receipts',
+        'bo_station_plan_edge_state',
+      ])
+        assert.equal(
+          (
+            await c.cloud.pool.query(
+              "SELECT has_any_column_privilege($1,$2,'SELECT,INSERT,UPDATE') AS any",
+              [role, table],
+            )
+          ).rows[0].any,
+          false,
+          table,
+        );
+      assert.throws(() => stationPlanGrants('Bad-Role', { backoffice: true, delivery: true }));
+      assert.throws(() => stationPlanGrants(role, { backoffice: true }));
+    } finally {
+      await pool?.end();
+      await c.cloud.pool.query(`DROP OWNED BY ${role}`);
+      await c.cloud.admin.query(`DROP ROLE ${role}`);
+    }
   }));
