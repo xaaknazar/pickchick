@@ -17,7 +17,13 @@ import {
 import { fixtureMenu } from '@pickchick/test-fixtures';
 import { mockupCatalogDraft } from '../../packages/catalog-admin/dist/seed.js';
 import { catalogAdminOptions } from '../../packages/catalog-admin/dist/index.js';
-import { itemStopView, menu as parsePosMenu, stopReasonText } from '../../apps/pos/dist/types.js';
+import {
+  defaultSelections,
+  itemStopView,
+  menu as parsePosMenu,
+  optionChangeAllowed,
+  stopReasonText,
+} from '../../apps/pos/dist/types.js';
 
 const branch = '10000000-0000-4000-8000-000000000003';
 const release = '30000000-0000-4000-8000-000000000001';
@@ -237,6 +243,53 @@ test('POS view and cashier ids agree with the cloud rule for every single stop',
         }
     }
   }
+});
+
+test('POS choice sheet: a stopped default is not preselected; a stopped option is only reduced', () => {
+  const menu = parsePosMenu(
+    JSON.parse(
+      JSON.stringify(
+        projectCatalogMenu(ownerCatalog(), branch, 3, at, release, { comboStops: true }),
+      ),
+    ),
+  );
+  const master = menu.items.find((i) => i.source_id === 'master-combo');
+  const optionIn = (group, id) =>
+    master.modifier_groups
+      .flatMap((g) => g.options)
+      .find((o) => o.id === optionOf('master-combo', group, id));
+  const groupOf = (group, id) =>
+    master.modifier_groups.find((g) => g.options.includes(optionIn(group, id))).id;
+  const stopsOf = (ids) =>
+    new Map(ids.map((id) => [id, { variant_id: id, stopped: true, version: 1 }]));
+  // Nothing stopped: the published defaults (cola-bottle x1 and the 2-sauce default).
+  assert.deepEqual(defaultSelections(master, new Map()), [
+    {
+      group_id: groupOf('drink', 'cola-bottle'),
+      option_id: optionOf('master-combo', 'drink', 'cola-bottle'),
+      quantity: 1,
+    },
+    {
+      group_id: groupOf('sauce', 'pick'),
+      option_id: optionOf('master-combo', 'sauce', 'pick'),
+      quantity: 2,
+    },
+  ]);
+  // The cola product (linked) and the pick sauce (own stop) are out: neither is preselected, so
+  // the cashier picks other options instead of being stuck with a default the edge refuses.
+  const stops = stopsOf([variantOf('cola'), optionOf('master-combo', 'sauce', 'pick')]);
+  assert.deepEqual(defaultSelections(master, stops), []);
+  const pick = optionIn('sauce', 'pick');
+  const cola = optionIn('drink', 'cola-bottle');
+  // An older line may still hold a stopped option: reducing or removing it is allowed...
+  assert.equal(optionChangeAllowed(pick, stops, 2, 1), true);
+  assert.equal(optionChangeAllowed(pick, stops, 2, 0), true);
+  assert.equal(optionChangeAllowed(cola, stops, 1, 1), true);
+  // ...adding or increasing it is not.
+  assert.equal(optionChangeAllowed(pick, stops, 0, 1), false);
+  assert.equal(optionChangeAllowed(pick, stops, 1, 2), false);
+  assert.equal(optionChangeAllowed(cola, stops, 0, 1), false);
+  assert.equal(optionChangeAllowed(optionIn('sauce', 'hot'), stops, 0, 1), true);
 });
 
 test('POS menu parser keeps valid cashier fields and drops malformed ones', () => {

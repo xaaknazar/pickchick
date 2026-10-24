@@ -11,6 +11,8 @@ import {
   sortedItems,
   itemStopView,
   optionStopped,
+  optionChangeAllowed,
+  defaultSelections,
   stopReasonText,
 } from '../types.js';
 import { transport, errorMessage } from '../api.js';
@@ -121,13 +123,8 @@ function total() {
 }
 function openModifier(product, line) {
   modifier = product;
-  chosen =
-    line?.modifiers?.map((s) => ({ ...s })) ??
-    (product.modifier_groups ?? []).flatMap((g) =>
-      g.options
-        .filter((o) => o.default_quantity && o.available !== false)
-        .map((o) => ({ group_id: g.id, option_id: o.id, quantity: o.default_quantity })),
-    );
+  // A stopped default (its own stop or its product's) is not preselected.
+  chosen = line?.modifiers?.map((s) => ({ ...s })) ?? defaultSelections(product, model.state.stops);
   portions = line?.quantity ?? 1;
   previousKey = line ? lineKey(line) : null;
   reference.setState({
@@ -149,10 +146,11 @@ function openWizard(product) {
   reference.setState({ mod: null, wiz: { name: product.name.ru }, wizStep: 1 });
 }
 function changeOption(group, option, count) {
-  // Its own stop or the stop of the product it stands for (combo drink or sauce).
-  if (optionStopped(option, model.state.stops)) return;
   const existing = chosen.find((s) => s.group_id === group.id && s.option_id === option.id);
   const current = existing?.quantity ?? (existing ? 1 : 0);
+  // Its own stop or the stop of the product it stands for (combo drink or sauce) blocks adding
+  // it; reducing or removing it stays possible, so a multi-choice group never gets stuck.
+  if (!optionChangeAllowed(option, model.state.stops, current, count)) return;
   if (group.max_selected === 1) {
     chosen = chosen.filter((s) => s.group_id !== group.id);
     if (count) chosen.push({ group_id: group.id, option_id: option.id, quantity: 1 });

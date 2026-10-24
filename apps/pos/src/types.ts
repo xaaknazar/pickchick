@@ -64,6 +64,26 @@ export function optionStopped(option: ModifierOption, stops: ReadonlyMap<string,
     isStopped(stops, option.linked_variant_id)
   );
 }
+/** Preselected choices of a new line: default options that can be chosen now, never a stopped one. */
+export function defaultSelections(item: Item, stops: ReadonlyMap<string, Stop>): Selection[] {
+  return (item.modifier_groups ?? []).flatMap((g) =>
+    g.options
+      .filter((o) => o.default_quantity && !optionStopped(o, stops))
+      .map((o) => ({ group_id: g.id, option_id: o.id, quantity: o.default_quantity! })),
+  );
+}
+/**
+ * A stopped option cannot be added or increased, but it can always be reduced or removed: an
+ * older cart line may still hold it, and a multi-choice group would otherwise stay stuck.
+ */
+export function optionChangeAllowed(
+  option: ModifierOption,
+  stops: ReadonlyMap<string, Stop>,
+  current: number,
+  count: number,
+): boolean {
+  return count <= current || !optionStopped(option, stops);
+}
 /**
  * The cloud combo stop rule on the POS screen, from the active menu and the edge stop list: the
  * item's own stop, a stopped fixed component, or a required group with no option left. A menu
