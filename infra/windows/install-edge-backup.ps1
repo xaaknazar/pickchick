@@ -208,7 +208,8 @@ if ($Mode -eq 'Install' -or $RemoveDatabaseRole) {
 
 if ($Mode -eq 'Uninstall') {
     if ($RemoveDatabaseRole -and $BranchId -eq [guid]::Empty) { throw 'Removing the database role requires -BranchId.' }
-    $kept = @('archive key and configuration (' + $privateRoot + ')', 'logs and health record', 'every copy at the destination')
+    $kept = @('archive key and configuration (' + $privateRoot + ')', 'logs, with the health record moved into them', 'every copy at the destination')
+    $running = $task -and [string]$task.State -eq 'Running'
     if ($DryRun) {
         $role = $null
         if ($RemoveDatabaseRole) {
@@ -216,10 +217,15 @@ if ($Mode -eq 'Uninstall') {
             try { Copy-VerifiedTools $temporary; $role = Invoke-BackupNode $temporary @('plan-remove', $toolsRoot, $BranchId.ToString()) }
             finally { if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Recurse -Force } }
         }
-        [pscustomobject]@{ mode = 'uninstall'; dryRun = $true; changed = $false; removeTask = [bool]$task; removeDatabaseRole = [bool]$RemoveDatabaseRole; roleExists = if ($role) { $role.existed } else { $null }; kept = $kept } | ConvertTo-Json -Depth 4
+        [pscustomobject]@{ mode = 'uninstall'; dryRun = $true; changed = $false; removeTask = [bool]$task; taskRunning = [bool]$running; removeDatabaseRole = [bool]$RemoveDatabaseRole; roleExists = if ($role) { $role.existed } else { $null }; kept = $kept } | ConvertTo-Json -Depth 4
         return
     }
+    # A copy in progress finishes and cleans its staging first; nothing is changed here until then.
+    if ($running) { throw 'The backup task is running now; repeat Uninstall when Inspect shows it finished. Nothing was changed.' }
     if ($task) { Unregister-ScheduledTask -TaskPath $taskPath -TaskName $taskName -Confirm:$false }
+    # Without the task the record would only age: it moves into logs, so the optional heartbeat
+    # stops reporting a stale copy after a deliberate removal.
+    if (Test-Path -LiteralPath $statusPath -PathType Leaf) { Move-Item -LiteralPath $statusPath -Destination (Join-Path $stateRoot ('logs\status-uninstalled-' + [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ') + '.json')) -Force }
     $role = $null
     if ($RemoveDatabaseRole) {
         Initialize-ProtectedDirectory (Join-Path $programRoot 'EdgeBackup')

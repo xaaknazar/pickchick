@@ -28,7 +28,7 @@ TOOLS = [
 ]
 MUTATING = re.compile(
     r'Initialize-ProtectedDirectory|Initialize-Destination|Copy-VerifiedTools|Protect-File|Set-Acl|Register-ScheduledTask|'
-    r'Unregister-ScheduledTask|Start-ScheduledTask|Remove-Item|New-Item|\[IO\.File\]::Copy|'
+    r'Unregister-ScheduledTask|Start-ScheduledTask|Remove-Item|Move-Item|New-Item|\[IO\.File\]::Copy|'
     r"Invoke-BackupNode \$toolRoot")
 
 
@@ -104,6 +104,20 @@ class EdgeBackupInstallerTests(unittest.TestCase):
         self.assertEqual(sorted(set(removals)), ['$credential', '$temporary'])
         self.assertIn("$credential = Join-Path $privateRoot 'backup-db.json'", TEXT)
         self.assertNotIn('$Destination -Recurse', TEXT)
+
+    def test_uninstall_waits_for_a_running_copy_and_silences_the_health_record(self):
+        uninstall = section("if ($Mode -eq 'Uninstall') {", "\n# Install\n")
+        refuse = uninstall.index("if ($running) { throw")
+        self.assertLess(uninstall.index('    return\n    }'), refuse)
+        self.assertLess(refuse, uninstall.index('Unregister-ScheduledTask'))
+        # The record leaves health\ (the worker reads only that file) and is kept in logs.
+        move = re.search(r"Move-Item -LiteralPath \$statusPath -Destination \(Join-Path \$stateRoot "
+                         r"\('logs\\status-uninstalled-'", uninstall)
+        self.assertIsNotNone(move)
+        self.assertLess(uninstall.index('Unregister-ScheduledTask'), move.start())
+        worker = (WINDOWS / 'native-fulfillment-worker.mjs').read_text(encoding='utf-8')
+        self.assertIn("'EdgeBackup',\n    'health',\n    'status.json'", worker)
+        self.assertIn("$statusPath = Join-Path $stateRoot 'health\\status.json'", TEXT)
 
     def test_private_files_get_an_explicit_protected_acl(self):
         self.assertIn("foreach ($name in @('backup-key.json', 'backup-db.json', 'edge-backup.json')) "
