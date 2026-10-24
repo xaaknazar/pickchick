@@ -429,6 +429,36 @@ test('double payment, late bank operation, partial refund, duplicate import and 
       ),
       { code: 'CONFLICT', detail: 'DAY_CLOSED' },
     );
+    // An overlapping statement whose closed-day lines were imported before adds only the open day.
+    const overlapping = [
+      header,
+      '21.10.2026 13:00:10;700002;Покупка;QR;3 000,00',
+      '22.10.2026 09:00:00;700010;Покупка;QR;1 000,00',
+    ].join('\n');
+    const checked = await s.rec.preview(accountant.token, s.branch, {
+      mapping: kaspiMapping,
+      content: overlapping,
+    });
+    assert.deepEqual(
+      checked.days.map((x) => [x.day, x.lines, x.new_lines, x.closed]),
+      [
+        [D, 1, 0, true],
+        [NEXT, 1, 1, false],
+      ],
+    );
+    assert.equal(checked.already_imported, 1);
+    const added = await s.rec.command(
+      accountant.token,
+      s.branch,
+      s.req({
+        ...importKaspi.command,
+        id: randomUUID(),
+        file_name: 'kaspi-21-22.csv',
+        content: overlapping,
+      }),
+    );
+    assert.deepEqual([added.lines, added.already_imported, added.days], [1, 1, [NEXT]]);
+    assert.equal((await s.rec.read(manager.token, s.branch, { day: D })).drift, false);
     await assert.rejects(f.pool.query("UPDATE bo_rec_days SET reason='Forged'"), { code: '23514' });
     await assert.rejects(f.pool.query('DELETE FROM bo_rec_lines'), { code: '23514' });
     // A capture that arrives after closing does not change the frozen day but is reported.

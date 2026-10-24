@@ -219,7 +219,8 @@ export type Preview = {
   lines: number;
   already_imported: number;
   duplicate_import: string | null;
-  days: { day: string; lines: number; amount_minor: string; closed: boolean }[];
+  /** `new_lines`: lines the import would store (absent from an older API: treat as `lines`). */
+  days: { day: string; lines: number; new_lines?: number; amount_minor: string; closed: boolean }[];
   sample: {
     row_number: number;
     occurred_at: string;
@@ -581,6 +582,10 @@ const CODES: Record<string, string> = {
   PAYLOAD_TOO_LARGE: 'Файл слишком большой: разделите выписку на части.',
   SERVICE_UNAVAILABLE: 'Сверка временно недоступна. Повторите позже.',
 };
+/** A statement may be imported unless it would add lines to a closed day. */
+export function writesClosedDay(p: Preview) {
+  return p.days.some((x) => x.closed && (x.new_lines ?? x.lines) > 0);
+}
 export function explain(e: unknown) {
   if (e instanceof ApiError)
     return (

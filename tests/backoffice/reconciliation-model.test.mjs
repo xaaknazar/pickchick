@@ -11,6 +11,7 @@ import {
   parseSnapshot,
   signedMinor,
   tenge,
+  writesClosedDay,
 } from '../../apps/backoffice/dist/reconciliation-model.js';
 import { storage } from './helpers.mjs';
 
@@ -193,6 +194,14 @@ test('amount input, tenge formatting and statement decoding', () => {
   const cp1251 = new Uint8Array([0xc4, 0xe0, 0xf2, 0xe0, 0x3b, 0x31]);
   assert.equal(decodeStatement(cp1251.buffer, 'windows-1251'), 'Дата;1');
   assert.equal(decodeStatement(new Uint8Array(Buffer.from('Дата;1')).buffer, 'utf-8'), 'Дата;1');
+});
+
+test('a statement is refused only when it would add lines to a closed day', () => {
+  const day = (patch) => ({ day: DAY, lines: 2, amount_minor: '1000', closed: false, ...patch });
+  assert.equal(writesClosedDay({ days: [day({ closed: true, new_lines: 0 }), day({})] }), false);
+  assert.equal(writesClosedDay({ days: [day({ closed: true, new_lines: 1 })] }), true);
+  // An older API without new_lines: every line of a closed day counts.
+  assert.equal(writesClosedDay({ days: [day({ closed: true })] }), true);
 });
 
 test('mapping drafts: method values and refund values round-trip, wrong sources are refused', () => {

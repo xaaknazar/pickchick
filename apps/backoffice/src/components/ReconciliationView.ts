@@ -15,6 +15,7 @@ import {
   mappingFromDraft,
   signedMinor,
   tenge,
+  writesClosedDay,
   type MappingDraft,
   type RecRow,
   type RecSnapshot,
@@ -755,7 +756,7 @@ export class ReconciliationView {
       !preview ||
       !preview.valid ||
       !!preview.duplicate_import ||
-      preview.days.some((x) => x.closed) ||
+      writesClosedDay(preview) ||
       !this.file ||
       m.busy;
     box.append(
@@ -911,18 +912,24 @@ export class ReconciliationView {
       box.append(
         notice('Этот файл уже загружен. Сначала отмените прежнюю загрузку.', 'error', 'rec-dup'),
       );
-    if (p.days.some((x) => x.closed))
+    if (writesClosedDay(p))
       box.append(
         notice(
-          'В файле есть строки закрытых дней. Откройте эти дни заново или уберите строки из файла.',
+          'В файле есть новые строки закрытых дней. Откройте эти дни заново или уберите строки из файла.',
           'error',
           'rec-closed-days',
         ),
       );
     box.append(
       table(
-        ['День', 'Строк', 'Сумма', 'День закрыт'],
-        p.days.map((x) => [x.day, String(x.lines), tenge(x.amount_minor), x.closed ? 'да' : 'нет']),
+        ['День', 'Строк', 'Новых', 'Сумма', 'День закрыт'],
+        p.days.map((x) => [
+          x.day,
+          String(x.lines),
+          String(x.new_lines ?? x.lines),
+          tenge(x.amount_minor),
+          x.closed ? 'да' : 'нет',
+        ]),
         'Строк с операциями нет',
       ),
     );

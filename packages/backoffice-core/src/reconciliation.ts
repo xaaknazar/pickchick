@@ -676,6 +676,7 @@ export class Reconciliation {
       const parsed = parseStatement(p.content, p.mapping);
       const days = [...new Set(parsed.lines.map((l) => l.business_day))].sort();
       const closed = await this.closedDays(db, branch, days);
+      const fresh = await this.fresh(db, branch, p.mapping.source, parsed.lines);
       const sameFile = (
         await db.query(
           `SELECT i.id FROM bo_rec_imports i WHERE i.branch_id=$1 AND i.file_digest=$2
@@ -683,7 +684,6 @@ export class Reconciliation {
           [branch, parsed.digest],
         )
       ).rows[0];
-      const repeated = await this.repeated(db, branch, p.mapping.source, parsed.lines);
       return {
         digest: parsed.digest,
         rows: parsed.rows,
@@ -691,13 +691,15 @@ export class Reconciliation {
         errors: parsed.errors,
         skipped: parsed.skipped,
         lines: parsed.lines.length,
-        already_imported: repeated.size,
+        already_imported: parsed.lines.length - fresh.length,
         duplicate_import: sameFile?.id ?? null,
         days: days.map((d) => {
           const own = parsed.lines.filter((l) => l.business_day === d);
           return {
             day: d,
             lines: own.length,
+            // Lines this import would store; a closed day blocks the import only when > 0.
+            new_lines: fresh.filter((l) => l.business_day === d).length,
             amount_minor: String(own.reduce((a, l) => a + BigInt(l.amount_minor), 0n)),
             closed: closed.includes(d),
           };
@@ -705,6 +707,19 @@ export class Reconciliation {
         sample: parsed.lines.slice(0, 20),
       };
     });
+  }
+  /** Lines of a statement that are not stored yet (see `repeated`). */
+  private async fresh<
+    T extends { operation_id: string | null; amount_minor: string; occurred_at: string },
+  >(db: DatabaseClient, branch: string, source: Source, lines: T[]) {
+    const repeated = await this.repeated(db, branch, source, lines);
+    return lines.filter(
+      (l) =>
+        !(
+          l.operation_id &&
+          repeated.has(normalizeKey(l.operation_id) + '|' + l.amount_minor + '|' + l.occurred_at)
+        ),
+    );
   }
   /** Lines already stored from an earlier statement: same source, id, amount and time. */
   private async repeated(
@@ -860,16 +875,11 @@ export class Reconciliation {
         )
       )
         fail('CONFLICT', 'DUPLICATE_IMPORT');
-      const days = [...new Set(parsed.lines.map((l) => l.business_day))].sort();
+      // Overlapping statements: lines stored earlier are skipped, so only the days that get new
+      // lines must be open (a closed day never changes).
+      const fresh = await this.fresh(db, branch, c.mapping.source, parsed.lines);
+      const days = [...new Set(fresh.map((l) => l.business_day))].sort();
       await this.assertOpen(db, branch, days);
-      const repeated = await this.repeated(db, branch, c.mapping.source, parsed.lines);
-      const fresh = parsed.lines.filter(
-        (l) =>
-          !(
-            l.operation_id &&
-            repeated.has(normalizeKey(l.operation_id) + '|' + l.amount_minor + '|' + l.occurred_at)
-          ),
-      );
       await db.query(
         'INSERT INTO bo_rec_imports(id,branch_id,profile_id,mapping,source,file_name,file_digest,line_count,skipped_count,duplicate_count,actor_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
         [
