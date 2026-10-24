@@ -18,6 +18,7 @@ import {
   stat,
   statfs,
 } from 'node:fs/promises';
+import { uptime } from 'node:os';
 import { dirname, join, win32 } from 'node:path';
 
 /**
@@ -833,17 +834,26 @@ export async function appendBackupLog(path, entry) {
 
 // ---------------------------------------------------------------- one run
 
-const LOCK_STALE_MS = 3 * 3600_000;
+/**
+ * Task Scheduler ends a run after 50 minutes (install-edge-backup.ps1), so a lock older than this
+ * belongs to a run that was stopped or crashed. A lock written before the computer started (power
+ * cut during a copy) is stale at once, so the start-up copy is not skipped.
+ */
+export const LOCK_STALE_MS = 55 * 60_000;
 const FREE_SPACE_MARGIN = 64 * 1024 * 1024;
 
-async function acquireRunLock(path) {
+/** Exclusive run lock; `bootedAt` (ms) is the computer's start-up time. */
+export async function acquireRunLock(
+  path,
+  { now = Date.now(), bootedAt = now - uptime() * 1000 } = {},
+) {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       const handle = await open(path, 'wx', 0o600);
       try {
         await writeAll(
           handle,
-          Buffer.from(JSON.stringify({ pid: process.pid, at: new Date().toISOString() })),
+          Buffer.from(JSON.stringify({ pid: process.pid, at: new Date(now).toISOString() })),
         );
       } finally {
         await handle.close();
@@ -852,8 +862,7 @@ async function acquireRunLock(path) {
     } catch (error) {
       if (error.code !== 'EEXIST') fail('INTERNAL');
       const info = await lstat(path).catch(() => null);
-      // Task Scheduler stops a run after one hour, so an older lock is a crashed run.
-      if (info && Date.now() - info.mtimeMs < LOCK_STALE_MS) fail('LOCKED');
+      if (info && info.mtimeMs >= bootedAt && now - info.mtimeMs < LOCK_STALE_MS) fail('LOCKED');
       await rm(path, { force: true });
     }
   }

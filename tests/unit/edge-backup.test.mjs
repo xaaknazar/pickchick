@@ -8,6 +8,8 @@ import {
   ARCHIVE_EXTENSION,
   EDGE_BACKUP_SCHEMAS,
   EdgeBackupError,
+  LOCK_STALE_MS,
+  acquireRunLock,
   archiveName,
   backupExitCode,
   backupLayout,
@@ -499,4 +501,35 @@ test('status, log line and exit code expose only whitelisted facts', () => {
   assert.equal(backupExitCode('skipped'), 0);
   assert.equal(backupExitCode('failed'), 1);
   assert.equal(backupExitCode('anything'), 1);
+});
+
+test('the run lock skips a live run and takes over after the task limit or a restart', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'pickchick-edge-lock-'));
+  try {
+    const path = join(dir, 'run.lock');
+    const now = Date.now();
+    const bootedAt = now - 5 * 3600_000;
+    // The task limit (50 min) ends a run before its lock counts as stale.
+    assert.ok(LOCK_STALE_MS > 50 * 60_000 && LOCK_STALE_MS < 60 * 60_000);
+    await acquireRunLock(path, { now, bootedAt });
+    for (const later of [0, 60_000, LOCK_STALE_MS - 60_000])
+      await assert.rejects(acquireRunLock(path, { now: now + later, bootedAt }), code('LOCKED'));
+    // The next hourly run after a stopped or crashed run is not skipped.
+    const next = await acquireRunLock(path, { now: now + 60 * 60_000, bootedAt });
+    await next.release();
+    await assert.rejects(readFile(path), { code: 'ENOENT' });
+    // Power cut during a copy: a lock from before this start-up does not skip the start-up copy.
+    await writeFile(path, '{}');
+    const written = new Date(now - 20 * 60_000);
+    await utimes(path, written, written);
+    await assert.rejects(
+      acquireRunLock(path, { now, bootedAt: now - 30 * 60_000 }),
+      code('LOCKED'),
+    );
+    const restarted = await acquireRunLock(path, { now, bootedAt: now - 10 * 60_000 });
+    assert.equal(JSON.parse(await readFile(path, 'utf8')).pid, process.pid);
+    await restarted.release();
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

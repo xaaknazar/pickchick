@@ -93,8 +93,10 @@ class EdgeBackupInstallerTests(unittest.TestCase):
         # The task time limit ends a run long before the tool treats its lock as stale.
         limit = int(re.search(r'-ExecutionTimeLimit \(New-TimeSpan -Minutes (\d+)\)', TEXT).group(1))
         stale = (WINDOWS / 'edge-backup-lib.mjs').read_text(encoding='utf-8')
-        hours = int(re.search(r'const LOCK_STALE_MS = (\d+) \* 3600_000;', stale).group(1))
-        self.assertLess(limit, hours * 60)
+        minutes = int(re.search(r'const LOCK_STALE_MS = (\d+) \* 60_000;', stale).group(1))
+        self.assertLess(limit, minutes)
+        # ...but not later than the next hourly run, so one stopped run skips no further copy.
+        self.assertLess(minutes, 60)
         self.assertIn("schema = 'public'", stale)
 
     def test_uninstall_never_removes_the_key_configuration_or_copies(self):
