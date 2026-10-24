@@ -17,6 +17,7 @@ import {
 } from '../types.js';
 import { transport, errorMessage } from '../api.js';
 import { kitchenLabel, menuChangeText, orderNumber } from '../order-view.js';
+import { connectionLabel } from '../model.js';
 const root = document.getElementById('app');
 let config, template;
 try {
@@ -418,6 +419,8 @@ function draw() {
     'sayCashOut',
   ])
     v[key] = unavailable;
+  // Red: no connection to the cashier server; yellow: no internet, the cashier keeps working.
+  const connection = connectionLabel(m);
   Object.assign(v, {
     branchLabel: config.branchLabel ?? 'Локальная точка',
     dateLabel: date(),
@@ -428,12 +431,8 @@ function draw() {
     closePinKeys: pinKeys('closePin', true),
     pinError: signing ? 'Проверяем PIN...' : s.pinErr,
     staffHint: 'Личный PIN выдаёт управляющий. Проверка на локальном сервере.',
-    connLabel: !m.actor
-      ? 'Вход по личному PIN'
-      : m.operationsAvailable && !m.operationsError
-        ? 'Локальная сеть'
-        : 'Нет связи с кассой',
-    connDot: m.operationsAvailable && !m.operationsError ? 'var(--green)' : 'var(--red)',
+    connLabel: connection.label,
+    connDot: { ok: 'var(--green)', warn: '#F0C240', down: 'var(--red)' }[connection.tone],
     kkmLine: 'Оплата и фискальный чек не подключены',
     kkmDot: '#F0C240',
     kkmBg: '#FFF3C4',

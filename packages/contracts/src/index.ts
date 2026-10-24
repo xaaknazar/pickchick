@@ -211,6 +211,12 @@ export const ErrorSchema = z.strictObject({
     // that list the checkout-errors-v2 profile: older bundles reject unknown codes.
     'KITCHEN_OFFLINE',
     'CASH_SHIFT_REQUIRED',
+    // Cashier edge only (local-orders): the POS explains each one; without them in this list the
+    // error filter answered a bare CONFLICT (offline stand finding, 24.10). Cloud routes never
+    // send them, so the app and kiosk bundles see no new code.
+    'SERVICE_MODE_DISABLED',
+    'KITCHEN_UNAVAILABLE',
+    'ORDER_IN_PRODUCTION',
     'SHIFT_CLOSED',
     'CONFLICT',
     'INSUFFICIENT_STOCK',
@@ -481,6 +487,17 @@ export const StopStateSchema = z.strictObject({
   version: z.number().int().nonnegative().max(2147483647),
 });
 export const StopListSchema = z.strictObject({ stops: z.array(StopStateSchema).max(10000) });
+/**
+ * GET edge/v1/cloud-link: the cashier edge's last confirmed contact with the cloud (WAN), taken
+ * from the fulfillment transport heartbeat. 'unknown': no transport on this edge yet or the
+ * runtime role lacks the opt-in grant; installed clients that never ask are unaffected.
+ */
+export const EdgeCloudLinkSchema = z.strictObject({
+  state: z.enum(['online', 'offline', 'unknown']),
+  last_contact_at: z.iso.datetime().nullable(),
+  checked_at: z.iso.datetime(),
+});
+export type EdgeCloudLink = z.infer<typeof EdgeCloudLinkSchema>;
 export type StaffSession = z.infer<typeof StaffSessionSchema>;
 export type StaffCredential = z.infer<typeof StaffCredentialSchema>;
 export type StaffRole = z.infer<typeof StaffRoleSchema>;

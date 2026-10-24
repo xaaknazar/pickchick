@@ -90,6 +90,16 @@ with sync_playwright() as pw:
         page.set_viewport_size({'width':1920,'height':1080})
         page.get_by_role('button', name='Открыть смену', exact=True).click()
         expect(page.get_by_text('КОМБО', exact=True)).to_be_visible()
+        # Offline stand finding (24.10): "no internet" is shown apart from the cashier link.
+        no_internet = page.get_by_text('Нет интернета · касса работает', exact=True)
+        expect(no_internet).to_be_visible(timeout=20000)
+        for width, height in ((1366,768),(1024,768)):
+            page.set_viewport_size({'width':width, 'height':height})
+            expect(no_internet).to_be_visible()
+            box = no_internet.bounding_box()
+            assert box and box['x'] >= 0 and box['x'] + box['width'] <= width + 1, box
+            capture(page,f'header-no-internet-{width}.png')
+        page.set_viewport_size({'width':1920, 'height':1080})
         audit_touch_layout(page,output,'menu')
         page.get_by_role('button',name='НАПИТКИ',exact=True).tap()
         page.get_by_role('button',name='КОМБО',exact=True).tap()

@@ -10,6 +10,7 @@ import {
 } from '@pickchick/platform';
 import type { ServiceConfig } from '@pickchick/platform';
 import { TerminalAccessController } from './terminal-access-controller.js';
+import { CloudLinkController } from './cloud-link-controller.js';
 import { StaffAuthController } from './staff-auth-controller.js';
 import { LocalOrdersController } from './orders-controller.js';
 import { FulfillmentController } from './fulfillment-controller.js';
@@ -78,6 +79,7 @@ export async function createEdge(config: ServiceConfig = loadConfig('edge')) {
       StaffAuthController,
       TerminalAccessController,
       FulfillmentController,
+      CloudLinkController,
     ],
     providers: [
       { provide: RESOURCE, useFactory: () => new Resources(config) },

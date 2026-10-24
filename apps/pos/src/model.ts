@@ -11,6 +11,7 @@ import type {
   CashShift,
   Item,
   Selection,
+  EdgeCloudLink,
 } from './types.js';
 import { ApiError, passwordTransport, type PasswordTransport, type Transport } from './api.js';
 export type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -52,7 +53,27 @@ export type State = {
   operationsError: unknown;
   /** Last menu replacement seen by this session; `id` grows so a view shows each notice once. */
   menuChange: MenuChange | null;
+  /** The cashier edge's internet (cloud) link; null when unknown or not reported by the edge. */
+  cloudLink: EdgeCloudLink | null;
 };
+/** How often the header asks the edge about its cloud link (with the operations refresh). */
+export const CLOUD_LINK_POLL_MS = 10000;
+/** An edge that predates GET edge/v1/cloud-link (404) is asked again only after this pause. */
+const CLOUD_LINK_MISSING_MS = 10 * 60000;
+/**
+ * Header connection line (offline stand finding, stage 2): staff tell "no connection to the
+ * cashier server" (LAN, red) from "no internet" (WAN, yellow: selling and the kitchen go on).
+ */
+export function connectionLabel(
+  s: Pick<State, 'actor' | 'operationsAvailable' | 'operationsError' | 'cloudLink'>,
+): { label: string; tone: 'ok' | 'warn' | 'down' } {
+  const local = s.operationsAvailable && !s.operationsError;
+  if (!s.actor) return { label: 'Вход по личному PIN', tone: local ? 'ok' : 'down' };
+  if (!local) return { label: 'Нет связи с кассой', tone: 'down' };
+  if (s.cloudLink?.state === 'offline')
+    return { label: 'Нет интернета · касса работает', tone: 'warn' };
+  return { label: 'Локальная сеть', tone: 'ok' };
+}
 export type MenuChange = {
   id: number;
   release_id: string;
@@ -88,6 +109,7 @@ export class PosController {
     operationsAt: null,
     operationsError: null,
     menuChange: null,
+    cloudLink: null,
   };
   private menuChanges = 0;
   private credential: StaffCredential | null = null;
@@ -102,7 +124,10 @@ export class PosController {
     private newKey = () => crypto.randomUUID(),
     private lease?: (scope: string) => Promise<() => void>,
     private passwordApi: PasswordTransport = passwordTransport,
+    private now: () => number = () => Date.now(),
   ) {}
+  private cloudLinkAt = -Infinity;
+  private cloudLinkMissingUntil = -Infinity;
   subscribe(listener: () => void) {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -364,6 +389,7 @@ export class PosController {
       operationsAt: null,
       operationsError: null,
       menuChange: null,
+      cloudLink: null,
     };
     await this.refreshData();
     await this.readOperations();
@@ -405,6 +431,7 @@ export class PosController {
       operationsAt: null,
       operationsError: null,
       menuChange: null,
+      cloudLink: null,
     };
     this.emit();
   }
@@ -554,6 +581,28 @@ export class PosController {
   async refreshOperations() {
     if (this.state.busy || this.state.pending || !this.state.actor) return;
     await this.readOperations();
+    await this.refreshCloudLink();
+  }
+  /** Asked at most every CLOUD_LINK_POLL_MS; never blocks the operations view or selling. */
+  async refreshCloudLink() {
+    const now = this.now(),
+      credential = this.credential,
+      epoch = this.generation;
+    if (!credential || now - this.cloudLinkAt < CLOUD_LINK_POLL_MS) return;
+    if (now < this.cloudLinkMissingUntil) return;
+    this.cloudLinkAt = now;
+    let link: EdgeCloudLink | null = null;
+    try {
+      link = parse.cloudLink(await this.api('cloud-link', credential));
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404)
+        this.cloudLinkMissingUntil = now + CLOUD_LINK_MISSING_MS;
+    }
+    if (epoch !== this.generation) return;
+    if (!unchanged(this.state.cloudLink, link)) {
+      this.state.cloudLink = link;
+      this.emit();
+    }
   }
   async refreshStops() {
     const epoch = this.generation;

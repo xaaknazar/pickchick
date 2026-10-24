@@ -5,10 +5,12 @@ import type {
   MenuSnapshot,
   Quote,
   CashShift,
+  EdgeCloudLink,
   StaffCredential,
   StaffSession,
 } from '@pickchick/contracts';
 export type {
+  EdgeCloudLink,
   Cart,
   LocalOrder,
   MenuCategory,
@@ -701,6 +703,17 @@ export function shiftHistory(value: unknown): CashShift[] {
   if (!Array.isArray(result.shifts) || result.shifts.length > 50)
     throw new Error('INVALID_RESPONSE');
   return result.shifts.map(cashShift);
+}
+/** GET edge/v1/cloud-link (offline stand finding): the cashier's last cloud contact. */
+export function cloudLink(value: unknown): EdgeCloudLink {
+  const v = record(value);
+  if (v.state !== 'online' && v.state !== 'offline' && v.state !== 'unknown')
+    throw new Error('INVALID_RESPONSE');
+  return {
+    state: v.state,
+    last_contact_at: v.last_contact_at === null ? null : date(v.last_contact_at),
+    checked_at: date(v.checked_at),
+  };
 }
 export function currentShift(value: unknown): CashShift | null {
   const result = record(value);

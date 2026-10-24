@@ -1,0 +1,67 @@
+name: Offline stand
+
+# Manual only: the offline stand (docs/operations/offline-stand.md). The ci profile takes about
+# 15 minutes; soak and backlog runs are limited by the hosted runner's 6-hour job limit.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Profile: ci, soak or backlog'
+        required: true
+        default: ci
+        type: choice
+        options: [ci, soak, backlog]
+      options:
+        description: 'Extra options, e.g. --duration 2h, --events 10000, --scenarios a,b'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  offline_stand:
+    name: Offline stand (${{ inputs.mode }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Install pinned package manager
+        run: npm install --global pnpm@11.19.0
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Configure isolated local fixtures
+        run: cp .env.example .env
+      - name: Start isolated local databases and cache
+        run: pnpm infra:up
+      - name: Build
+        run: pnpm build
+      - name: Stand unit tests
+        run: pnpm test:offline-stand:unit
+      - name: Run the offline stand
+        env:
+          MODE: ${{ inputs.mode }}
+          OPTIONS: ${{ inputs.options }}
+        # OPTIONS is split into words on purpose (no eval): only stand options can be passed.
+        run: node --env-file=.env tests/offline-stand/run.mjs --mode "$MODE" $OPTIONS --output .local/offline-stand/run
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: offline-stand-${{ inputs.mode }}-${{ github.sha }}
+          path: |
+            .local/offline-stand/run/report.json
+            .local/offline-stand/run/report.md
+            .local/offline-stand/run/logs/
+          if-no-files-found: warn
+          include-hidden-files: true
+          retention-days: 14
+      - name: Stop test infrastructure
+        if: always()
+        run: docker compose --env-file .env.example -f infra/local/compose.yaml down
