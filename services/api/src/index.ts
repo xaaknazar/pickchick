@@ -72,6 +72,7 @@ import {
 } from './device-registry-controller.js';
 import { BackofficeController, BackofficeContentController } from './backoffice-controller.js';
 import { FulfillmentTransportController } from './fulfillment-transport-controller.js';
+import { StationPlanTransportController } from './station-plan-controller.js';
 import { PosOrderSyncController } from './pos-order-sync-controller.js';
 import {
   CLOUD_KITCHEN,
@@ -267,6 +268,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       DeviceRegistryController,
       KioskPresenceController,
       DeviceAccessTransportController,
+      StationPlanTransportController,
       FulfillmentTransportController,
       PosOrderSyncController,
       ...(kitchenApi.enabled ? [CloudKitchenController] : []),
