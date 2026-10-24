@@ -601,8 +601,9 @@ export function parseCopySidecar(value) {
 
 /**
  * Complete copies of this branch (archive plus matching sidecar), newest first, and leftovers of
- * interrupted runs older than six hours (temporary files, archives without a valid sidecar,
- * sidecars without an archive). Links, folders, other files and other branches are ignored.
+ * interrupted runs older than six hours (temporary files, archives without a sidecar or whose
+ * sidecar names another size, sidecars without an archive). Links, folders, other files, other
+ * branches and archives with a sidecar this version cannot read are ignored.
  */
 export async function listBackupCopies(dir, { branchId, now = new Date() }) {
   const prefix = `pickchick-edge-${branchId.slice(0, 8)}-`;
@@ -643,17 +644,18 @@ export async function listBackupCopies(dir, { branchId, now = new Date() }) {
     if (files.has(name + '.json')) {
       try {
         const sideInfo = await info(name + '.json');
-        if (sideInfo.isFile() && sideInfo.size <= MAX_SIDECAR) {
-          const value = parseCopySidecar(
-            JSON.parse(await readFile(join(dir, name + '.json'), 'utf8')),
-          );
-          // Another cashier whose branch id shares the 8-character prefix: never touched.
-          foreign = value.branchId !== branchId;
-          if (value.archive === name && !foreign && value.archiveBytes === archive.size)
-            sidecar = value;
-        }
+        if (!sideInfo.isFile() || sideInfo.size > MAX_SIDECAR) fail('VERIFY_FAILED');
+        const value = parseCopySidecar(
+          JSON.parse(await readFile(join(dir, name + '.json'), 'utf8')),
+        );
+        // Another cashier whose branch id shares the 8-character prefix: never touched.
+        foreign = value.branchId !== branchId;
+        if (value.archive === name && !foreign && value.archiveBytes === archive.size)
+          sidecar = value;
       } catch {
-        sidecar = null;
+        // A sidecar this version cannot read (a newer format or schema after a tool rollback,
+        // or damage): the copy may be the only one of newer data, so it is never removed here.
+        foreign = true;
       }
     }
     if (foreign) continue;

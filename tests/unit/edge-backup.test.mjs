@@ -414,6 +414,16 @@ test('copy listing only accepts complete copies of this branch and old leftovers
     for (const file of [twin, twin + '.json']) await utimes(join(dir, file), old, old);
     const linked = name('2026-10-22T09:17:00Z', '00000009');
     await symlink(join(dir, 'notes.txt'), join(dir, linked));
+    // A sidecar this version cannot read (newer schema after a tool rollback, or damaged):
+    // that copy may hold the newest data, so it is neither a copy nor a leftover here.
+    const newer = name('2026-10-20T09:17:00Z', '0000000b');
+    await writeFile(join(dir, newer), 'x');
+    await writeFile(join(dir, newer + '.json'), sidecar(newer, 1, { schema: 'schema024' }));
+    const damaged = name('2026-10-20T08:17:00Z', '0000000c');
+    await writeFile(join(dir, damaged), 'x');
+    await writeFile(join(dir, damaged + '.json'), '{"format":');
+    for (const file of [newer, newer + '.json', damaged, damaged + '.json'])
+      await utimes(join(dir, file), old, old);
     const listed = await listBackupCopies(dir, { branchId, now });
     assert.deepEqual(
       listed.copies.map((copy) => copy.name),
