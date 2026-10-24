@@ -101,10 +101,51 @@ test('the summary names the cloud publication and the edge-confirmed version sep
   // The receipt confirms at once, before the next edge report catches up.
   const applied = parsed({
     latest: version({ version: 3, state: 'applied' }),
-    applied: { id: 'p3', version: 3, applied_at: 'x' },
-    edge: { active_plan_id: 'p2', active_version: 2, stations: [], observed_at: 'x' },
+    applied: { id: 'p3', version: 3, applied_at: '2026-10-24T08:05:00.000Z' },
+    edge: {
+      active_plan_id: 'p2',
+      active_version: 2,
+      stations: [],
+      observed_at: '2026-10-24T08:04:50.000Z',
+    },
   });
   assert.deepEqual([applied.tone, applied.edgeVersion], ['good', 3]);
+  // A report made after the receipt wins: a cashier restored from a backup serves version 2.
+  const restored = parsed({
+    latest: version({ version: 3, state: 'applied' }),
+    applied: { id: 'p3', version: 3, applied_at: '2026-10-24T08:05:00.000Z' },
+    edge: {
+      active_plan_id: 'p2',
+      active_version: 2,
+      stations: [],
+      observed_at: '2026-10-24T09:00:00.000Z',
+    },
+  });
+  assert.deepEqual([restored.tone, restored.edgeVersion], ['bad', 2]);
+  assert.match(restored.detail, /^На кассе действует версия 2\. После подтверждения касса/);
+  const emptied = parsed({
+    latest: version({ version: 3, state: 'applied' }),
+    applied: { id: 'p3', version: 3, applied_at: '2026-10-24T08:05:00.000Z' },
+    edge: {
+      active_plan_id: null,
+      active_version: null,
+      stations: [],
+      observed_at: '2026-10-24T09:00:00.000Z',
+    },
+  });
+  assert.deepEqual([emptied.tone, emptied.edgeVersion], ['bad', null]);
+  // Reported and confirmed in either order, the same plan is good.
+  const caughtUp = parsed({
+    latest: version({ version: 3, state: 'applied' }),
+    applied: { id: 'p3', version: 3, applied_at: '2026-10-24T08:05:00.000Z' },
+    edge: {
+      active_plan_id: 'p3',
+      active_version: 3,
+      stations: [],
+      observed_at: '2026-10-24T08:05:10.000Z',
+    },
+  });
+  assert.deepEqual([caughtUp.tone, caughtUp.edgeVersion], ['good', 3]);
   const rejected = parsed({
     latest: version({
       version: 4,

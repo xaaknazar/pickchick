@@ -69,7 +69,11 @@ export interface StationPlanCreated {
 /**
  * Builds the next plan version from the published stations inside the caller's back-office
  * command transaction. With `reuse`, the newest plan is returned unchanged when it already has
- * exactly these stations and the edge did not reject it (a repeated "send again" is a no-op).
+ * exactly these stations, the edge did not reject it and the edge did not report another plan
+ * after confirming it (a repeated "send again" is a no-op). An edge whose database was restored
+ * from a backup, or a replaced cashier, reports an older plan or none after the receipt: then a
+ * new version is the only way to deliver the plan again, because pull never re-offers a plan
+ * that already has a receipt.
  * The version is above every cloud plan and above the version the edge reports as active.
  */
 export async function createStationPlanInTransaction(
@@ -86,27 +90,44 @@ export async function createStationPlanInTransaction(
   const stations = await publishedStations(db, input.branch);
   if (!stations.length) throw new BackofficeError('NOT_READY', 'STATION_PLAN_EMPTY');
   const latest = (
-    await db.query<{ id: string; version: number; stations: unknown; result: string | null }>(
-      `SELECT p.id,p.version,p.payload->'stations' AS stations,r.result FROM bo_station_plans p
-       LEFT JOIN bo_station_plan_receipts r ON r.plan_id=p.id
+    await db.query<{
+      id: string;
+      version: number;
+      stations: unknown;
+      result: string | null;
+      answered_at: Date | null;
+    }>(
+      `SELECT p.id,p.version,p.payload->'stations' AS stations,r.result,r.recorded_at AS answered_at
+       FROM bo_station_plans p LEFT JOIN bo_station_plan_receipts r ON r.plan_id=p.id
        WHERE p.branch_id=$1 ORDER BY p.version DESC LIMIT 1`,
       [input.branch],
     )
   ).rows[0];
+  const edge = (
+    await db.query<{
+      active_plan_id: string | null;
+      active_version: number | null;
+      observed_at: Date;
+    }>(
+      'SELECT active_plan_id,active_version,observed_at FROM bo_station_plan_edge_state WHERE branch_id=$1',
+      [input.branch],
+    )
+  ).rows[0];
+  const edgeLostLatest =
+    latest?.result === 'applied' &&
+    latest.answered_at !== null &&
+    edge !== undefined &&
+    edge.observed_at.getTime() > latest.answered_at.getTime() &&
+    edge.active_plan_id !== latest.id;
   if (
     input.reuse &&
     latest &&
     latest.result !== 'rejected' &&
+    !edgeLostLatest &&
     canonicalJson(latest.stations) === canonicalJson(stations)
   )
     return { id: latest.id, version: latest.version, created: false };
-  const floor =
-    (
-      await db.query<{ active_version: number | null }>(
-        'SELECT active_version FROM bo_station_plan_edge_state WHERE branch_id=$1',
-        [input.branch],
-      )
-    ).rows[0]?.active_version ?? 0;
+  const floor = edge?.active_version ?? 0;
   const version = Math.max(latest?.version ?? 0, floor) + 1;
   if (version > 2147483647) throw new BackofficeError('CONFLICT');
   const now = (await db.query<{ now: Date }>('SELECT clock_timestamp() AS now')).rows[0]!.now;
@@ -137,10 +158,13 @@ export async function createStationPlanInTransaction(
 }
 
 /**
- * Edge-reported state. Only the active edge of the branch can authenticate, so a report from
- * another device means the edge was replaced. The same device never lowers its version: a
- * delayed older request must not hide a newer plan (an edge database restored from backup is
- * shown with its higher version until it applies the next plan).
+ * Edge-reported state: an observation, never a command, and the latest report is what the edge
+ * serves now. Only the active edge of the branch can authenticate (a report from another device
+ * means the edge was replaced), its worker sends one request at a time and pulls are serialized
+ * by the branch plan lock, so reports are recorded in the order the edge made them. A lower or
+ * missing version is recorded as reported: an edge database restored from a backup or a new
+ * cashier must not be shown with a plan it no longer has, nor with a frozen contact time and
+ * station list.
  */
 async function recordEdgeState(
   db: Db,
@@ -153,9 +177,7 @@ async function recordEdgeState(
      VALUES($1,$2,$3,$4,$5,clock_timestamp())
      ON CONFLICT(branch_id) DO UPDATE SET device_id=EXCLUDED.device_id,
        active_plan_id=EXCLUDED.active_plan_id,active_version=EXCLUDED.active_version,
-       stations=EXCLUDED.stations,observed_at=EXCLUDED.observed_at
-     WHERE s.device_id<>EXCLUDED.device_id OR s.active_version IS NULL
-       OR EXCLUDED.active_version>=s.active_version`,
+       stations=EXCLUDED.stations,observed_at=greatest(s.observed_at,EXCLUDED.observed_at)`,
     [
       branch,
       device,

@@ -653,18 +653,30 @@ export type StationPlanSummary = {
   tone: 'off' | 'wait' | 'good' | 'bad';
   title: string;
   detail: string;
-  /** Newest version the cashier confirmed: its applied receipt or the plan it reports active. */
+  /**
+   * Version the cashier confirmed: its applied receipt or the plan it reports active, whichever
+   * the cloud recorded later.
+   */
   edgeVersion: number | null;
   /** Managers may send the plan again only while delivery is on. */
   canDeliver: boolean;
 };
+/**
+ * The newer evidence wins. A receipt proves the apply at once and the edge report catches up on
+ * its next pull; a report made after the receipt is what the cashier serves now (a cashier
+ * restored from a backup, or a replaced one, reports an older plan or none).
+ */
+function confirmedVersion(status: StationPlanStatus): number | null {
+  const reported = status.edge?.active_version ?? null;
+  const applied = status.applied;
+  if (!applied) return reported;
+  if (status.edge && Date.parse(status.edge.observed_at) > Date.parse(applied.applied_at))
+    return reported;
+  return Math.max(applied.version, reported ?? 0);
+}
 /** What the cabinet says about the plan: the edge-confirmed version, never only the cloud one. */
 export function stationPlanSummary(status: StationPlanStatus): StationPlanSummary {
-  // A receipt proves the apply at once; the edge report catches up on its next pull.
-  const confirmedVersions = [status.edge?.active_version, status.applied?.version].filter(
-    (v): v is number => typeof v === 'number',
-  );
-  const edgeVersion = confirmedVersions.length ? Math.max(...confirmedVersions) : null;
+  const edgeVersion = confirmedVersion(status);
   const confirmed =
     edgeVersion === null
       ? 'Касса ещё не подтвердила ни одной версии плана.'
@@ -703,8 +715,16 @@ export function stationPlanSummary(status: StationPlanStatus): StationPlanSummar
       edgeVersion,
       canDeliver: true,
     };
+  if (latest.state === 'applied' && edgeVersion !== latest.version)
+    return {
+      tone: 'bad',
+      title,
+      detail: `${confirmed} После подтверждения касса сообщила другой план (например, базу кассы восстановили из копии) - отправьте план на кассу ещё раз.`,
+      edgeVersion,
+      canDeliver: true,
+    };
   return {
-    tone: latest.state === 'applied' && edgeVersion === latest.version ? 'good' : 'wait',
+    tone: latest.state === 'applied' ? 'good' : 'wait',
     title,
     detail: confirmed,
     edgeVersion,

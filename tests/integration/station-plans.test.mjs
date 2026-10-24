@@ -446,6 +446,89 @@ test('replays are idempotent, a lost receipt response is resent and versions nev
     });
   }));
 
+test('a cashier restored from a backup is shown with the plan it serves and gets the plan again on request', () =>
+  setup(async (c) => {
+    await withEnv('true', async () => {
+      const api = await running(createApi, {
+        ...c.cloud.config,
+        backofficeEnabled: true,
+        catalogAdminEnabled: true,
+      });
+      try {
+        const sync = () => syncStationPlanOnce(c.edge.pool, c.branch, api.url, c.identity);
+        const fryer = await c.save(c.station());
+        const first = await c.publish(fryer);
+        assert.deepEqual(await sync(), { state: 'applied', version: 1 });
+        await c.save(fryer, { target_seconds: 300 });
+        const second = await c.publish(fryer);
+        assert.deepEqual(await sync(), { state: 'applied', version: 2 });
+        assert.deepEqual(await sync(), { state: 'idle' });
+        let status = await c.read();
+        assert.equal(status.edge.active_version, 2);
+        const contact = status.edge.observed_at;
+
+        // The edge database comes back from a backup taken after version 1 (owner restore).
+        const restore = await c.edge.pool.connect();
+        try {
+          await restore.query('BEGIN');
+          await restore.query('SET LOCAL session_replication_role = replica');
+          await restore.query(
+            'UPDATE station_plan_active SET plan_id=$1,version=1 WHERE branch_id=$2',
+            [first.station_plan.id, c.branch],
+          );
+          await restore.query('DELETE FROM station_plan_receipts WHERE plan_id=$1', [
+            second.station_plan.id,
+          ]);
+          await restore.query('DELETE FROM station_plan_snapshots WHERE plan_id=$1', [
+            second.station_plan.id,
+          ]);
+          await restore.query('COMMIT');
+        } finally {
+          restore.release();
+        }
+        // Version 2 already has a receipt, so pull does not offer it again; the report is the
+        // truth: the cabinet shows version 1, a fresh contact time and no false "applied 2".
+        assert.deepEqual(await sync(), { state: 'idle' });
+        status = await c.read();
+        assert.equal(status.latest.state, 'applied');
+        assert.equal(status.edge.active_version, 1);
+        assert.equal(status.edge.active_plan_id, first.station_plan.id);
+        assert.ok(Date.parse(status.edge.observed_at) > Date.parse(contact));
+        assert.ok(Date.parse(status.edge.observed_at) > Date.parse(status.applied.applied_at));
+        // "Send the plan again" is no longer a no-op: the next version reaches the cashier.
+        const again = await c.command({ type: 'deliver_station_plan' });
+        assert.equal(again.station_plan.created, true);
+        assert.equal(again.station_plan.version, 3);
+        assert.deepEqual(await sync(), { state: 'applied', version: 3 });
+        assert.deepEqual(await sync(), { state: 'idle' });
+        status = await c.read();
+        assert.equal(status.edge.active_version, 3);
+        assert.equal(status.applied.version, 3);
+        // Confirmed and reported again: sending once more creates nothing.
+        const noop = await c.command({ type: 'deliver_station_plan' });
+        assert.deepEqual(noop.station_plan, {
+          id: again.station_plan.id,
+          version: 3,
+          created: false,
+        });
+
+        // A cashier that lost every plan (new database, same device key) reports none.
+        await pullStationPlan(c.cloud.pool, c.auth, {
+          active: null,
+          stations: [],
+          report_only: true,
+        });
+        status = await c.read();
+        assert.equal(status.edge.active_version, null);
+        assert.deepEqual(status.edge.stations, []);
+        const fresh = await c.command({ type: 'deliver_station_plan' });
+        assert.deepEqual([fresh.station_plan.created, fresh.station_plan.version], [true, 4]);
+      } finally {
+        await api.app.close();
+      }
+    });
+  }));
+
 test('report mode records the edge state without handing out a plan', () =>
   setup(async (c) => {
     await withEnv('true', async () => {
