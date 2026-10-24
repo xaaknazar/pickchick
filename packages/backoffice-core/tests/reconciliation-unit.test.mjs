@@ -340,6 +340,41 @@ test('duplicate statement lines and double payments are flagged, never counted t
   assert.equal(twice.methods.find((m) => m.method === 'kaspi_qr').orders_paid, 1);
 });
 
+test('a refund line under the id of its payment is money out, not a repeated statement line', () => {
+  const order = id();
+  const capture = fact('kaspi_remote', 300000, '2026-10-24T05:00:00.000Z', {
+    order_id: order,
+    operation_id: 'kaspi:61',
+  });
+  const refund = fact('manual_refund', -50000, '2026-10-24T09:00:00.000Z', {
+    order_id: order,
+    operation_id: 'manual:KP-9',
+  });
+  const paid = line('kaspi', 300000, '2026-10-24T05:00:10.000Z', { operation_id: '61' });
+  const back = line('kaspi', -50000, '2026-10-24T09:30:00.000Z', { operation_id: '61' });
+  const again = line('kaspi', -50000, '2026-10-24T09:30:00.000Z', {
+    operation_id: '61',
+    import_id: 'import-2',
+  });
+  // Without a payment line the refund line must not settle the capture as "amount differs".
+  const alone = day({ facts: [capture], lines: [back] });
+  assert.equal(alone.rows.filter((r) => r.state === 'amount_differs').length, 0);
+  const report = day({ facts: [capture, refund], lines: [paid, back, again] });
+  const byLine = (l) => report.rows.find((r) => r.bank?.id === l.id);
+  assert.equal(byLine(paid).state, 'matched');
+  assert.deepEqual(
+    [byLine(back).state, byLine(back).amount_minor],
+    ['missing_in_pickchick', '-50000'],
+  );
+  assert.equal(byLine(again).state, 'duplicate');
+  const manual = report.rows.find((r) => r.key === 'int:' + refund.id);
+  assert.deepEqual([manual.state, manual.amount_minor], ['missing_in_bank', '50000']);
+  // The refund stays in the bank sum: across methods the differences still add up.
+  const total = report.methods.reduce((a, m) => a + BigInt(m.difference_minor ?? '0'), 0n);
+  assert.equal(total, sum(pairRows(report)));
+  assert.equal(total, 0n);
+});
+
 test('partial refund, no bank data, manual totals and the cashier cash discrepancy', () => {
   const order = id();
   const capture = fact('tiptoppay', 300000, '2026-10-24T05:00:00.000Z', {

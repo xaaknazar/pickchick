@@ -661,18 +661,22 @@ export function reconcileDay(input: ReconcileInput): DayReport {
   const paired = new Map<string, Line>();
   const state = new Map<string, LineState>();
   const seen = new Map<string, string>();
-  // A. Operation id / invoice reference. One fact pairs with one line; a repeated id is a duplicate.
+  // A. Operation id / invoice reference. One fact pairs with one line; a repeated id in the same
+  // direction is a duplicate. A statement may show a refund under the id of its payment (format
+  // not confirmed), so money out never duplicates or pairs with money in under one id.
+  const out = (v: bigint) => (v < 0n ? '-' : '+');
   for (const l of lines) {
     const keys = lineKeys(l);
     if (!keys.length) continue;
-    const dup = keys.map((k) => seen.get(l.source + '|' + k)).find(Boolean);
+    const tag = (k: string) => l.source + '|' + out(l.amount_minor) + '|' + k;
+    const dup = keys.map((k) => seen.get(tag(k))).find(Boolean);
     if (dup) {
       state.set(l.id, { kind: 'dup', of: dup });
       continue;
     }
-    for (const k of keys) seen.set(l.source + '|' + k, l.id);
+    for (const k of keys) seen.set(tag(k), l.id);
     const candidates = [...new Set(keys.flatMap((k) => byKey.get(l.source + '|' + k) ?? []))]
-      .filter((f) => !paired.has(f.id))
+      .filter((f) => !paired.has(f.id) && out(f.amount_minor) === out(l.amount_minor))
       .sort(
         (a, b) =>
           Number(l.method !== null && a.method !== l.method) -
