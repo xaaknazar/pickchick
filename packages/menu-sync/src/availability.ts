@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import type { MenuItem } from '@pickchick/contracts';
 import type { DatabaseClient, DatabasePool } from '@pickchick/database';
 
 /** Exact identity of the installed local POS catalog v1/v2, never a name match. */
@@ -55,6 +56,33 @@ export function lineStopIds(
     ...localSelectionIds(branchId, line.productId, line.selections),
     ...line.selections.map((s) => productStopId(branchId, s.linked_product_id ?? s.option_id)),
     ...(line.componentIds ?? []).map((id) => productStopId(branchId, id)),
+  ];
+}
+
+/**
+ * The same rule on the cashier (POS sale), read from the active edge menu: the item, each chosen
+ * option, the product each chosen option stands for (linked_variant_id) and every fixed
+ * component (combo_component_variant_ids). A menu without the optional fields gives exactly the
+ * ids the installed cashier checks: the item and the chosen options. A required group whose
+ * options are all stopped needs no extra check here: pricing demands a choice from it.
+ */
+export function menuLineStopIds(
+  item: Pick<MenuItem, 'variant_id' | 'modifier_groups' | 'combo_component_variant_ids'>,
+  selections: readonly { group_id: string; option_id: string }[],
+): string[] {
+  const options = new Map(
+    (item.modifier_groups ?? []).flatMap((group) =>
+      group.options.map((option) => [`${group.id}:${option.id}`, option] as const),
+    ),
+  );
+  return [
+    item.variant_id,
+    ...selections.map((s) => s.option_id),
+    ...selections.flatMap((s) => {
+      const linked = options.get(`${s.group_id}:${s.option_id}`)?.linked_variant_id;
+      return linked ? [linked] : [];
+    }),
+    ...(item.combo_component_variant_ids ?? []),
   ];
 }
 
