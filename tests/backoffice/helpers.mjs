@@ -6,6 +6,11 @@ import {
 import { FINANCE, Finance } from '../../packages/backoffice-core/dist/finance.js';
 import { FinanceController } from '../../services/api/dist/finance-controller.js';
 import {
+  RECONCILIATION,
+  Reconciliation,
+} from '../../packages/backoffice-core/dist/reconciliation.js';
+import { ReconciliationController } from '../../services/api/dist/reconciliation-controller.js';
+import {
   BackofficeController,
   BackofficeContentController,
 } from '../../services/api/dist/backoffice-controller.js';
@@ -40,10 +45,11 @@ export const storage = () => {
 };
 /**
  * Real catalog/back-office API behind the operator proxy. `media` mounts the photo upload and
- * media routes (CATALOG_MEDIA_UPLOAD_ENABLED); `remoteStops` turns on back-office stop commands.
+ * media routes (CATALOG_MEDIA_UPLOAD_ENABLED); `remoteStops` turns on back-office stop commands;
+ * `reconciliation` mounts the daily payment reconciliation (BACKOFFICE_RECONCILIATION_ENABLED).
  */
 export async function withCatalog(run, options = {}) {
-  const { media = false, remoteStops = false, ...serverOptions } = options;
+  const { media = false, remoteStops = false, reconciliation = false, ...serverOptions } = options;
   await withSyncDatabases(async (context) => {
     const { cloud, org, branch } = context,
       service = new CatalogAdmin(cloud.pool, { enabled: true }),
@@ -61,6 +67,7 @@ export async function withCatalog(run, options = {}) {
         BackofficeController,
         BackofficeContentController,
         FinanceController,
+        ...(reconciliation ? [ReconciliationController] : []),
         ...(media ? [CatalogMediaController] : []),
       ],
       providers: [
@@ -77,6 +84,7 @@ export async function withCatalog(run, options = {}) {
             ]
           : []),
         { provide: FINANCE, useValue: new Finance(cloud.pool, true) },
+        { provide: RECONCILIATION, useValue: new Reconciliation(cloud.pool, reconciliation) },
         { provide: CATALOG_ADMIN, useValue: service },
         { provide: BACKOFFICE, useValue: backoffice },
         {

@@ -108,9 +108,10 @@ export class OperationsModel {
   filters: ReportFilters = {};
   private generation = 0;
   constructor(
-    private api: OperationalApi,
+    /** Shared with the reconciliation section of the settlements page (same transport). */
+    readonly api: OperationalApi,
     private store: Storage,
-    private changed: () => void,
+    readonly changed: () => void,
   ) {}
   private key() {
     return KEY + ':' + this.actor;

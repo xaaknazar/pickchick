@@ -185,6 +185,8 @@ const assets = new Map([
     'components/DeviceAccessView',
     'kiosk-incidents-model',
     'components/KioskIncidentsView',
+    'reconciliation-model',
+    'components/ReconciliationView',
     'finance',
     'finance-model',
     'workforce',
