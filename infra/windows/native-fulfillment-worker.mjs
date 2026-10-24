@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { lstat, readFile } from 'node:fs/promises';
 
 export function fulfillmentRetryDelay(failures, random = Math.random) {
   // The same loop publishes the stop-list heartbeat, which expires after 30s.
@@ -62,6 +63,52 @@ export function identityExpiryReport(status, previous) {
     },
   };
 }
+/**
+ * Cashier backup attention for the heartbeat (infra/windows/edge-backup.md). Built from the
+ * health record of the scheduled backup task only when the owner enabled reporting at install
+ * time and the last verified copy is older than its limit (or never happened). Codes and minutes
+ * only. Returns null when there is nothing to report.
+ */
+export function backupAttention(status, now = Date.now()) {
+  if (
+    !status ||
+    typeof status !== 'object' ||
+    status.format !== 'pickchick-edge-backup-status-v1' ||
+    status.reportInHeartbeat !== true ||
+    !Number.isInteger(status.maxAgeMinutes) ||
+    status.maxAgeMinutes < 60 ||
+    status.maxAgeMinutes > 4320
+  )
+    return null;
+  const success = typeof status.lastSuccessAt === 'string' ? Date.parse(status.lastSuccessAt) : NaN;
+  const age = Number.isFinite(success) ? Math.max(0, Math.floor((now - success) / 60_000)) : null;
+  if (age !== null && age <= status.maxAgeMinutes) return null;
+  return {
+    state: status.state === 'failed' ? 'failed' : 'stale',
+    ageMinutes: age === null ? null : Math.min(age, 5_256_000),
+    maxAgeMinutes: status.maxAgeMinutes,
+    error:
+      typeof status.error === 'string' && /^[A-Z][A-Z_]{1,40}$/.test(status.error)
+        ? status.error
+        : null,
+  };
+}
+/**
+ * A cashier switched off overnight starts with a copy many hours old; the backup task runs 10
+ * minutes after start-up. The worker (started with Windows) reports nothing during this grace,
+ * so a normal morning is not an alarm and a failing start-up copy still is.
+ */
+export const BACKUP_ATTENTION_GRACE_SECONDS = 30 * 60;
+/** Reads the health record (absent before the backup is installed). Never throws. */
+export async function readBackupAttention(path, now = Date.now()) {
+  try {
+    const info = await lstat(path);
+    if (!info.isFile() || info.isSymbolicLink() || info.size > 8192) return null;
+    return backupAttention(JSON.parse(await readFile(path, 'utf8')), now);
+  } catch {
+    return null;
+  }
+}
 async function main() {
   const [identityPath, branchId, deviceId, ...extra] = process.argv.slice(2);
   if (
@@ -102,6 +149,14 @@ async function main() {
     ],
     { windowsHide: true, timeout: 15000, maxBuffer: 4096 },
   );
+  // Written by the SYSTEM backup task; this LocalService worker may only read it.
+  const backupHealth = join(
+    process.env.ProgramData ?? 'C:\\ProgramData',
+    'PickChick',
+    'EdgeBackup',
+    'health',
+    'status.json',
+  );
   const pool = createPool(config.databaseUrl),
     stop = new AbortController(),
     once = extra.includes('--once');
@@ -126,12 +181,17 @@ async function main() {
           identityReport = report.key;
           console.log(JSON.stringify(report.entry));
         }
+        const edgeBackup =
+          process.uptime() >= BACKUP_ATTENTION_GRACE_SECONDS
+            ? await readBackupAttention(backupHealth)
+            : null;
         const result = await sync.syncFulfillmentOnce(pool, {
           enabled: true,
           branchId,
           origin,
           identity,
           ...(protocolVersion === 4 ? { protocolVersion } : {}),
+          ...(edgeBackup ? { edgeBackup } : {}),
         });
         if (once || !['idle', 'busy', 'disabled'].includes(result.state))
           console.log(JSON.stringify({ event: 'fulfillment_transport', ...result }));

@@ -98,5 +98,20 @@
     "version": "020_terminal_access.sql",
     "checksum": "afeffbdd49c9dfaa5a3fea4be32b97aa99c45e6897f4ff0c220f9b89d02a24b6",
     "scope": "edge"
+  },
+  {
+    "version": "021_edge_device_presence.sql",
+    "checksum": "cf149dadc6f6606273d5b1f0b308ba69fba893cda79d522b1f842513b99758ed",
+    "scope": "edge"
+  },
+  {
+    "version": "022_edge_display_numbers.sql",
+    "checksum": "f3255e16b092762cf70a310f71d47af401b97521ede4e59609323f115a1f5273",
+    "scope": "edge"
+  },
+  {
+    "version": "023_edge_restore_fence.sql",
+    "checksum": "c7c2ceb967aa08e31b24792678a50f67766e3c622add8c2479bc099087673870",
+    "scope": "edge"
   }
 ]

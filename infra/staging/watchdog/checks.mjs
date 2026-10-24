@@ -374,6 +374,57 @@ export function otpDeliveryFinding(events, config) {
   );
 }
 
+/** Last run's error codes of the cashier backup task (infra/windows/edge-backup-lib.mjs). */
+const EDGE_BACKUP_ERRORS = Object.freeze({
+  DESTINATION_UNAVAILABLE: 'второе место (диск или NAS) недоступно',
+  DESTINATION_FULL: 'на втором месте нет свободного места',
+  DESTINATION_WRITE_FAILED: 'запись на второе место не удалась',
+  VERIFY_FAILED: 'проверка записанной копии не прошла',
+  UNREVIEWED_SCHEMA: 'схема базы кассы новее проверенной; нужна новая версия инструмента',
+  DATABASE_UNAVAILABLE: 'база кассы недоступна для роли копии',
+  CLUSTER_MISMATCH: 'другой кластер PostgreSQL',
+  BRANCH_MISMATCH: 'другая точка в базе',
+  DUMP_FAILED: 'pg_dump не завершился',
+  ARCHIVE_INCOMPLETE: 'в копии не хватает таблиц',
+  KEY_INVALID: 'файл ключа повреждён',
+  CREDENTIAL_INVALID: 'файл пароля роли повреждён',
+  CONFIG_INVALID: 'конфигурация задачи повреждена',
+  MAINTENANCE: 'идёт обслуживание кассы',
+});
+
+/**
+ * `edge_backup_attention` lines (ebk lane): the API relays from a cashier heartbeat that its
+ * last verified database copy is older than the limit. One check for all cashiers, so the end
+ * of the problem is a recovery, not a vanished check. A day without a copy is critical.
+ */
+export function edgeBackupFinding(events, config) {
+  const key = 'edge.backup';
+  const title = 'Резервная копия базы кассы';
+  if (!events.length) return ok(key, 'logs', title, 'сигналов о просроченной копии за окно нет');
+  const latest = new Map();
+  for (const event of events) latest.set(event.branchId, event);
+  const open = [...latest.values()];
+  const critical = open.some((event) => event.ageMinutes === null || event.ageMinutes >= 1440);
+  const parts = open.map((event) => {
+    const age =
+      event.ageMinutes === null
+        ? 'успешной копии ещё не было'
+        : `последняя проверенная копия ${duration(event.ageMinutes * 60_000)} назад (лимит ${event.maxAgeMinutes} мин)`;
+    const why = event.error
+      ? `; последняя попытка: ${EDGE_BACKUP_ERRORS[event.error] ?? event.error}`
+      : '';
+    return `точка ${event.branchId.slice(0, 8)}: ${age}${why}`;
+  });
+  return result(
+    key,
+    'logs',
+    title,
+    'fail',
+    critical ? 'critical' : 'warning',
+    `${clock(Date.parse(events[events.length - 1].at), config.timeZone)}: ${parts.join('; ')}. При отказе диска кассы данные после этой копии будут потеряны. На кассе: install-edge-backup.ps1 -Mode Inspect (infra/windows/edge-backup.md).`,
+  );
+}
+
 /**
  * `customer_otp_budget_attention` (sec lane), highest threshold of the current UTC day per pool.
  * The new-phone share (CUSTOMER_AUTH_NEW_PHONE_BUDGET_PERCENT) is visible only here; the whole
@@ -746,6 +797,8 @@ export function evaluate({ api, host, db, config, nowMs }) {
     findings.push(otpDeliveryFinding(facts.identityDelivery, config));
     findings.push(otpBudgetPoolFinding(facts.identityBudget, config));
   }
+  if (facts && !unavailable.has('logs') && facts.edgeBackupCollected)
+    findings.push(edgeBackupFinding(facts.edgeBackup, config));
   if (facts?.gatewayClientIp) findings.push(gatewayFinding(facts.gatewayClientIp, config));
   for (const role of Object.keys(WORKER_EVENTS)) {
     findings.push(

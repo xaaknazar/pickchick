@@ -16,7 +16,12 @@ import {
   EdgeEventSchema,
   ReleaseResultEventSchema,
 } from './model.js';
-import type { TransportScope, PullRequest, StopCommandDelivery } from './model.js';
+import type {
+  EdgeBackupAttention,
+  TransportScope,
+  PullRequest,
+  StopCommandDelivery,
+} from './model.js';
 
 interface Binding {
   organization_id: string;
@@ -182,6 +187,30 @@ export function fulfillmentPullOptions(env: NodeJS.ProcessEnv): PullOptions {
   return { admissionReviewMinutes: Number(raw) };
 }
 const lastReview = new Map<string, number>();
+/**
+ * Cashier backup attention (stage 2, audit 6.4): one `edge_backup_attention` line per branch and
+ * process every 4 minutes while the cashier reports it, so every watchdog log window (5-60
+ * minutes) contains it while the problem lasts and none after it ends. Codes and counts only.
+ */
+export const EDGE_BACKUP_LOG_INTERVAL_MS = 4 * 60_000;
+const backupLogged = new Map<string, number>();
+/** The exact log record the watchdog parses (infra/staging/watchdog/run-watchdog.py). */
+export function edgeBackupAttentionLine(branchId: string, attention: EdgeBackupAttention) {
+  return {
+    event: 'edge_backup_attention' as const,
+    branchId,
+    state: attention.state,
+    ageMinutes: attention.ageMinutes,
+    maxAgeMinutes: attention.maxAgeMinutes,
+    error: attention.error,
+  };
+}
+function reportBackupAttention(branchId: string, attention: EdgeBackupAttention) {
+  const now = Date.now();
+  if (now - (backupLogged.get(branchId) ?? -Infinity) < EDGE_BACKUP_LOG_INTERVAL_MS) return;
+  backupLogged.set(branchId, now);
+  console.error(JSON.stringify(edgeBackupAttentionLine(branchId, attention)));
+}
 
 /** One delivery per call. A bank/fiscal worker cannot claim this branch's commands. */
 export async function pullFulfillment(
@@ -197,6 +226,8 @@ export async function pullFulfillment(
   return transaction(pool, async (client) => {
     const b = await binding(client, identity),
       token = randomUUID();
+    // Only the bound device of the branch gets here (binding above).
+    if (request.edgeBackup) reportBackupAttention(b.branch_id, request.edgeBackup);
     // Protocol 4 is a superset of 3: cashier reports plus back-office stop commands.
     const stopProtocol = request.protocolVersion === 4,
       reportProtocol = request.protocolVersion === 3 || stopProtocol;
