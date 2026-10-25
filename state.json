@@ -6284,6 +6284,19 @@
       "nextAction": "Await Apple decision; no auto-publication or merge. PR276 open; online roadmap still previous snapshot. No real payments."
     },
     {
+      "id": "edge-grants-proposal-1024",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/edge-grants-proposal-1024",
+      "scopes": [
+        "docs/operations/edge-grants-live-proposal-2026-10-25.md"
+      ],
+      "status": "available",
+      "head": "c4eff0cd2d8c9f54cd243102e1dc864a7b1daf44",
+      "updatedAt": "2026-10-25T18:18:22.714Z",
+      "summary": "Предложение опубликовано отдельной веткой, код и права не изменены; вне PR277.",
+      "nextAction": "Отдельно реализовать запрет reset живой роли и PostgreSQL-тесты; никаких применений без владельца."
+    },
+    {
       "id": "stage2-1024",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/stage2-1024",
@@ -6465,24 +6478,12 @@
         "infra/staging/release-stage2-1024.py",
         "tests/operations/test_stage2_release_1024.py",
         "infra/windows/update-runtime-stage2-1024.ps1",
-        "tests/operations/test_windows_stage2_release.py"
+        "tests/operations/test_windows_stage2_release.py",
+        "docs/operations/stage2-2026-10-24/release-preparation.md"
       ],
       "status": "active",
-      "head": "549ef93e43065e56a6fa172da3ded49ff4c73ce0",
-      "updatedAt": "2026-10-25T18:08:12.080Z"
-    },
-    {
-      "id": "edge-grants-proposal-1024",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/edge-grants-proposal-1024",
-      "scopes": [
-        "docs/operations/edge-grants-live-proposal-2026-10-25.md"
-      ],
-      "status": "available",
-      "head": "c4eff0cd2d8c9f54cd243102e1dc864a7b1daf44",
-      "updatedAt": "2026-10-25T18:18:22.714Z",
-      "summary": "Предложение опубликовано отдельной веткой, код и права не изменены; вне PR277.",
-      "nextAction": "Отдельно реализовать запрет reset живой роли и PostgreSQL-тесты; никаких применений без владельца."
+      "head": "0923ab01e3391a682f68c389e16070a566ee9a6a",
+      "updatedAt": "2026-10-25T18:18:31.304Z"
     }
   ]
 }
