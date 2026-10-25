@@ -377,16 +377,23 @@ test('double payment, late bank operation, partial refund, duplicate import and 
       ),
       { code: 'CONFLICT', detail: 'DAY_NOT_FINISHED' },
     );
-    const closing = s.req({ type: 'close', day: D, expected_revision: 0 }, 'День сверен');
+    // Two people close at once: exactly one close wins. Which one is a race (QA 25.10: the
+    // history reason below was pinned to the accountant and failed when the manager won).
+    const reasons = ['День сверен', 'День сверен управляющим'];
     const closed = await Promise.allSettled([
-      s.rec.command(accountant.token, s.branch, closing),
+      s.rec.command(
+        accountant.token,
+        s.branch,
+        s.req({ type: 'close', day: D, expected_revision: 0 }, reasons[0]),
+      ),
       s.rec.command(
         manager.token,
         s.branch,
-        s.req({ type: 'close', day: D, expected_revision: 0 }),
+        s.req({ type: 'close', day: D, expected_revision: 0 }, reasons[1]),
       ),
     ]);
     assert.equal(closed.filter((x) => x.status === 'fulfilled').length, 1);
+    const closeReason = reasons[closed.findIndex((x) => x.status === 'fulfilled')];
     d = await s.rec.read(analyst.token, s.branch, { day: D });
     assert.equal(d.state, 'closed');
     assert.equal(d.revision, 1);
@@ -501,7 +508,7 @@ test('double payment, late bank operation, partial refund, duplicate import and 
         'open',
         2,
         [
-          ['close', 'День сверен'],
+          ['close', closeReason],
           ['reopen', 'Поздняя оплата Kaspi'],
         ],
       ],
