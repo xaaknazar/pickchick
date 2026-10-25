@@ -6478,11 +6478,13 @@
         "tests/operations/test_stage2_release_1024.py",
         "infra/windows/update-runtime-stage2-1024.ps1",
         "tests/operations/test_windows_stage2_release.py",
-        "docs/operations/stage2-2026-10-24/release-preparation.md"
+        "docs/operations/stage2-2026-10-24/release-preparation.md",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml"
       ],
       "status": "active",
-      "head": "0923ab01e3391a682f68c389e16070a566ee9a6a",
-      "updatedAt": "2026-10-25T18:18:31.304Z"
+      "head": "0d5e481d34700bbd380a0bb70f20ca06fd211fa9",
+      "updatedAt": "2026-10-25T19:14:25.868Z"
     }
   ]
 }
