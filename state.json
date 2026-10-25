@@ -6470,6 +6470,17 @@
       "status": "active",
       "head": "549ef93e43065e56a6fa172da3ded49ff4c73ce0",
       "updatedAt": "2026-10-25T18:08:12.080Z"
+    },
+    {
+      "id": "edge-grants-proposal-1024",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/edge-grants-proposal-1024",
+      "scopes": [
+        "docs/operations/edge-grants-live-proposal-2026-10-25.md"
+      ],
+      "status": "active",
+      "head": "4cc11e052849f792b98062fe8688abe7bb03da09",
+      "updatedAt": "2026-10-25T18:17:25.082Z"
     }
   ]
 }
