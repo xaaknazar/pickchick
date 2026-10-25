@@ -10,10 +10,24 @@ saveExact: true
 blockExoticSubdeps: true
 
 overrides:
+  # Security advisories 2026-10-23: patched upstream releases, no audit exemptions.
+  'body-parser@2.3.0': 2.4.0
+  'zod@4.5.4': 4.6.6
+  'zod@3.25.76': 4.6.6
+  'storybook@10.6.1': 10.6.2
+  '@storybook/addon-a11y@10.6.1': 10.6.2
+  '@storybook/addon-docs@10.6.1': 10.6.2
+  '@storybook/builder-vite@10.6.1': 10.6.2
+  '@storybook/html@10.6.1': 10.6.2
+  '@storybook/html-vite@10.6.1': 10.6.2
+  '@storybook/react@10.6.1': 10.6.2
+  '@storybook/react-dom-shim@10.6.1': 10.6.2
+  '@storybook/react-native-web-vite@10.6.1': 10.6.2
+  '@storybook/react-vite@10.6.1': 10.6.2
   # GHSA-pqg4-j6r4-53mv: reject line terminators after shell comment tokens.
   'shell-quote@<1.11.0': 1.11.0
   # Nest's upload dependency: upstream security fixes, without changing its API.
-  'multer@2.2.0': 2.3.0
+  'multer@2.2.0': 2.5.0
   # GHSA-qhr7-859c-m2p7 / GHSA-6j4f-fj2g-mc7p: bounded brace nesting.
   'brace-expansion@5.0.9': 5.0.11
   # GHSA-68fv-2mgg-jv7q: validate indexed source-map section offsets.
@@ -22,6 +36,13 @@ overrides:
   'proxy-addr@2.0.7': 2.0.8
   # GHSA-vc2v-76pw-4v95: destroy compression streams on premature close.
   'compression@1.8.1': 1.8.2
+
+# This Storybook adapter declares TS5 peers; keep its parser on TS5 without
+# downgrading the application's TS6 compiler or relaxing strict peer validation.
+packageExtensions:
+  '@storybook/react-native-web-vite@10.6.2':
+    dependencies:
+      typescript: 5.9.3
 
 patchedDependencies:
   node-forge@1.4.0: patches/node-forge@1.4.0.patch
