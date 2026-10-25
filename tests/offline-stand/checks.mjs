@@ -242,6 +242,25 @@ function check(id, title, ok, expected, actual, details) {
 const sample = (list, n = 5) => list.slice(0, n);
 
 /**
+ * Kiosk and app orders the restored cashier no longer knows: the cloud projection has them (the
+ * cashier admitted them after the backup), the restored reservations do not. Every state counts:
+ * an order admitted and handed over (or cancelled) on the lost timeline is lost by the restore as
+ * much as one still cooking (QA 25.10: only live states were listed, so a handed-over one failed
+ * `channel_orders_admitted_once` as "paid, not admitted"). `live` ones still wait in the cloud's
+ * kitchen view and need the manual check of edge-restore.md.
+ */
+export function channelOrdersLostByRestore(projection, restoredOrderIds) {
+  const lost = projection.filter((p) => !restoredOrderIds.has(p.order_id));
+  const states = {};
+  for (const p of lost) states[p.state] = (states[p.state] ?? 0) + 1;
+  return {
+    lost: lost.map((p) => p.order_id),
+    live: lost.filter((p) => LIVE.includes(p.state)).map((p) => p.order_id),
+    states,
+  };
+}
+
+/**
  * Pure comparison. `ledger` is what the actors were told; `context.lostPosOrders` lists POS
  * orders the edge lost in a restore drill (kept in the cloud as the lost timeline);
  * `context.pending` is pendingWork() after convergence.

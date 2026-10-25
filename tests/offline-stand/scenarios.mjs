@@ -19,6 +19,7 @@ import {
   backlogMark,
   backlogDelivered,
   stopsConverged,
+  channelOrdersLostByRestore,
 } from './checks.mjs';
 import { staffView, LABELS } from './staff-view.mjs';
 import { WORKERS, checkedAdminUrl, StandError } from './stand.mjs';
@@ -542,23 +543,29 @@ export const SCENARIOS = {
       ).rows[0];
       notes.fence = epoch;
       for (const name of WORKERS) await stand.start(name);
-      // Cloud-owned orders the cashier admitted after the backup: the cloud still shows them
-      // in the kitchen, the restored cashier has no ticket. A restore needs this list checked.
+      // Cloud-owned orders the cashier admitted after the backup, in any state: live ones the
+      // cloud still shows in the kitchen (the restored cashier has no ticket; a restore needs
+      // this list checked) and ones already handed over or cancelled on the lost timeline.
       const reservations = new Set(
         (await stand.edge.query('SELECT order_id FROM fulfillment_reservations')).rows.map(
           (x) => x.order_id,
         ),
       );
-      const orphaned = (
-        await stand.cloud.query(
-          "SELECT order_id,state FROM cloud_fulfillment_projection WHERE branch_id=$1 AND state IN ('held','accepted','in_production','ready')",
-          [stand.ids.branch],
-        )
-      ).rows.filter((p) => !reservations.has(p.order_id));
-      notes.channel_orders_lost_by_restore = orphaned.length;
+      const orphaned = channelOrdersLostByRestore(
+        (
+          await stand.cloud.query(
+            'SELECT order_id,state FROM cloud_fulfillment_projection WHERE branch_id=$1',
+            [stand.ids.branch],
+          )
+        ).rows,
+        reservations,
+      );
+      notes.channel_orders_lost_by_restore = orphaned.lost.length;
+      notes.channel_orders_lost_live = orphaned.live.length;
+      notes.channel_orders_lost_by_state = orphaned.states;
       // 4. The restaurant works again on the restored database.
       r.menu = null;
-      const lostChannel = new Set(orphaned.map((p) => p.order_id));
+      const lostChannel = new Set(orphaned.lost);
       traffic.start();
       await ctx.hold(profile.restoreAfterMs);
       // Orders live at backup time that also moved on the lost timeline: the restored cashier

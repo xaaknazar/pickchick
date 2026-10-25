@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { evaluate, volumes } from './checks.mjs';
+import { channelOrdersLostByRestore, evaluate, volumes } from './checks.mjs';
 import { LABELS, distinguishable } from './staff-view.mjs';
 import { parseArgs, parseDuration, profileFor, PROFILES } from './run.mjs';
 import { checkedAdminUrl, scopedUrl, standCatalog } from './stand.mjs';
@@ -365,4 +365,38 @@ test('the Russian report lists results, failed checks and the staff view', () =>
   assert.match(md, /\*\*не различимы\*\*/);
   assert.match(md, /без связи 75 с/);
   assert.match(md, /потеряно ответов после записи 2/);
+});
+
+test('QA: a kiosk order handed over on the lost timeline of a restore is a restore loss, not a missed admission', () => {
+  const { data, ledger } = world();
+  // The cloud saw the paid kiosk order admitted and handed over after the backup; the restored
+  // cashier no longer has its reservation.
+  data.cloud.projection.find((p) => p.order_id === id(11)).state = 'handed_over';
+  data.edge.reservations = data.edge.reservations.filter((r) => r.order_id !== id(11));
+  const restored = new Set(data.edge.reservations.map((r) => r.order_id));
+  // Listing only live states (before QA 25.10) left it as "paid, not admitted".
+  const liveOnly = data.cloud.projection
+    .filter((p) => ['held', 'accepted', 'in_production', 'ready'].includes(p.state))
+    .filter((p) => !restored.has(p.order_id))
+    .map((p) => p.order_id);
+  assert.ok(
+    failed(evaluate(data, ledger, { pending, lostChannelOrders: liveOnly })).includes(
+      'channel_orders_admitted_once',
+    ),
+  );
+  const lost = channelOrdersLostByRestore(data.cloud.projection, restored);
+  assert.deepEqual(lost, { lost: [id(11)], live: [], states: { handed_over: 1 } });
+  assert.ok(
+    !failed(evaluate(data, ledger, { pending, lostChannelOrders: lost.lost })).includes(
+      'channel_orders_admitted_once',
+    ),
+  );
+  // A live one is lost as well and listed for the manual kitchen check; an order the restored
+  // cashier still has is never excused.
+  data.cloud.projection.find((p) => p.order_id === id(11)).state = 'ready';
+  assert.deepEqual(channelOrdersLostByRestore(data.cloud.projection, restored).live, [id(11)]);
+  assert.deepEqual(
+    channelOrdersLostByRestore(data.cloud.projection, new Set([...restored, id(11)])).lost,
+    [],
+  );
 });
