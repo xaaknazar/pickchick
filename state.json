@@ -6480,11 +6480,12 @@
         "tests/operations/test_windows_stage2_release.py",
         "docs/operations/stage2-2026-10-24/release-preparation.md",
         "pnpm-workspace.yaml",
-        "pnpm-lock.yaml"
+        "pnpm-lock.yaml",
+        "tests/unit/stage2-security-dependencies.test.mjs"
       ],
       "status": "active",
       "head": "0d5e481d34700bbd380a0bb70f20ca06fd211fa9",
-      "updatedAt": "2026-10-25T19:14:25.868Z"
+      "updatedAt": "2026-10-25T19:14:39.260Z"
     }
   ]
 }
