@@ -6478,9 +6478,11 @@
       "scopes": [
         "docs/operations/edge-grants-live-proposal-2026-10-25.md"
       ],
-      "status": "active",
-      "head": "4cc11e052849f792b98062fe8688abe7bb03da09",
-      "updatedAt": "2026-10-25T18:17:25.082Z"
+      "status": "available",
+      "head": "c4eff0cd2d8c9f54cd243102e1dc864a7b1daf44",
+      "updatedAt": "2026-10-25T18:18:22.714Z",
+      "summary": "Предложение опубликовано отдельной веткой, код и права не изменены; вне PR277.",
+      "nextAction": "Отдельно реализовать запрет reset живой роли и PostgreSQL-тесты; никаких применений без владельца."
     }
   ]
 }
