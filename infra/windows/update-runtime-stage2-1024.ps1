@@ -118,6 +118,8 @@ function Wait-Stage2Backup([DateTime]$Since) {
 }
 
 $script:stage2Pins=@{
+ 'menu-sync-worker-grants.mjs'='d3073cabfb5fad023bc2af179214f91791d568f38daf38d40518634ca8040fc7'
+ 'native-edge-backup-ledger.json'='5405e162febd4207c4b2a4907d78bf61dfc82ce57edf0d14c6fdcf4a3064bb1c'
  'install-edge-backup.ps1'='44e16a305368056211b19c1d7a3c1aface4f42f2857598d7b850a4f586b1184f'
  'station-plan-upgrade-db.mjs'='817cf7d71c7fdca7d311a5d31fb139826ee67ce2d9eff12686754235bf5e607c'
  'cloud-link-grant.mjs'='5b3038025cbf15d5e052aa72c56b77d6f6c08f15f6026609df1a066df0dcc108'

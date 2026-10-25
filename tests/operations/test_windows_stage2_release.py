@@ -97,7 +97,7 @@ class RuntimeGuardTests(unittest.TestCase):
 
     def test_stage2_helpers_are_byte_pinned(self):
         pins = re.findall(r" '([^']+)'='([a-f0-9]{64})'", SOURCE.read_text())
-        self.assertEqual(len(pins), 3)
+        self.assertEqual(len(pins), 5)
         for name, digest in pins:
             self.assertEqual(hashlib.sha256((SOURCE.parent/name).read_bytes()).hexdigest(), digest)
 
