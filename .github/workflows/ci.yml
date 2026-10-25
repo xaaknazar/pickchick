@@ -37,6 +37,8 @@ jobs:
         run: pnpm infra:up
       - name: Build and static checks
         run: pnpm check
+      - name: Offline stand unit invariants
+        run: pnpm test:offline-stand:unit
       - name: Migrate and seed
         run: |
           pnpm db:migrate
@@ -48,7 +50,7 @@ jobs:
       - name: Verify commerce transactions and delivery invariants
         run: |
           pnpm test:commerce
-          node --env-file=.env --test --test-concurrency=1 tests/operations/windows-reserved-number.test.mjs tests/operations/windows-native-service-upgrade.test.mjs tests/operations/windows-display-numbers.test.mjs
+          node --env-file=.env --test --test-concurrency=1 tests/operations/windows-reserved-number.test.mjs tests/operations/windows-native-service-upgrade.test.mjs tests/operations/windows-display-numbers.test.mjs tests/operations/windows-runtime-1021.test.mjs
           node --test tests/payments/tiptoppay-http.test.mjs tests/payments/kaspi-remote-http.test.mjs
           python3 -m unittest discover -s infra/domains -p 'test_*.py'
       - name: Verify Chiki ledger, reservations and refund debt
