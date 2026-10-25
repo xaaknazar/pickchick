@@ -9,8 +9,17 @@ import {
   openKioskHealth,
 } from '../../apps/kiosk/src/kiosk-health.ts';
 import { startDevicePresence } from '../../apps/kiosk/src/device-presence.ts';
-import { KIOSK_PRODUCTION_API_URL, KIOSK_STAGING_API_URL } from '../../apps/kiosk/src/api.ts';
-import { LOCALES } from '../../apps/kiosk/src/i18n.ts';
+import {
+  KIOSK_PRODUCTION_API_URL,
+  KIOSK_STAGING_API_URL,
+  KioskError,
+} from '../../apps/kiosk/src/api.ts';
+import { LOCALES, copy } from '../../apps/kiosk/src/i18n.ts';
+import {
+  CommercialKioskController,
+  STAFF_PIN_ATTEMPTS,
+} from '../../apps/kiosk/src/commercial-controller.ts';
+import { fixture } from './commercial-fixture.mjs';
 
 const now = Date.parse('2026-10-24T09:00:00Z');
 const production = {
@@ -205,4 +214,31 @@ test('no presence attempt without device credentials, so no heartbeat is invente
     worker.stop();
     assert.deepEqual(results, []);
   }
+});
+
+// Stage 2 QA (cross-check of lane kln): a commercial kiosk whose server has no staff code
+// (KIOSK_STAFF_PIN_VERIFIER unset answers 503 NOT_READY). The health line stays closed, reads
+// no fact, says why under the code field and never locks the installer out.
+test('QA: with the staff code off on the server the health line stays closed and says why', async () => {
+  const h = fixture();
+  let checks = 0;
+  h.io.verifyStaff = async () => {
+    checks++;
+    throw new KioskError('NOT_READY', 503);
+  };
+  const live = new CommercialKioskController(h.io);
+  assert.equal(await live.restore(), true);
+  let reads = 0;
+  const facts = () => {
+    reads++;
+    return production;
+  };
+  for (let i = 0; i <= STAFF_PIN_ATTEMPTS; i++) {
+    assert.equal(await openKioskHealth({ verifyStaff: live.verifyStaff, facts }, '482915'), null);
+    assert.equal(live.getSnapshot().staffPinError, 'unavailable');
+  }
+  // Every attempt reached the server (no local lock), no fact was read.
+  assert.equal(checks, STAFF_PIN_ATTEMPTS + 1);
+  assert.equal(reads, 0);
+  for (const locale of LOCALES) assert.match(copy(locale).staffErr_unavailable, /\S/);
 });

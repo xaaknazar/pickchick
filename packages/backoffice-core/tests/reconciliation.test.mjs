@@ -741,3 +741,125 @@ test('restricted runtime role: reconciliation needs its own grant and never writ
       await f.admin.query(`DROP ROLE ${role}`);
     }
   }));
+
+// Stage 2 QA (cross-check of lane rec): one day with a manual Kaspi Pay refund and a bank
+// statement that repeats the refund line, is uploaded again byte for byte and re-exported with
+// another title row. Every tenge stays explained once, the day closes only after the repeat is
+// accepted, and the frozen report keeps the money of the day.
+test('QA: a manual refund and a duplicated statement never count twice and the day closes explained', () =>
+  fixture(async (f) => {
+    const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Almaty' }).format(new Date());
+    const dmy = today.split('-').reverse().join('.');
+    const s = await setup(f, { now: () => new Date(Date.now() + 2 * 86400000) });
+    const manager = await s.person('Synthetic manager', 'manager');
+    const accountant = await s.person('Synthetic accountant', 'analyst', true);
+    const paid = await s.pay('remote', new Date().toISOString(), 'kaspi:930001');
+    await new Backoffice(f.pool, true, { manualRefundsEnabled: true }).command(
+      manager.token,
+      s.branch,
+      {
+        request_id: randomUUID(),
+        reason: 'Synthetic manual refund',
+        command: {
+          type: 'manual_refund',
+          id: paid.orderId,
+          capture_id: paid.view.captures[0].id,
+          amount_minor: '50000',
+          bank_reference: 'kp-ref 930',
+        },
+      },
+    );
+    const statement = (title) =>
+      [
+        ...(title ? [title] : []),
+        header,
+        `${dmy} 00:00:01;930001;Покупка;Счёт;3 000,00`,
+        `${dmy} 00:00:02;KP-REF 930;Возврат;Счёт;500,00`,
+        // The bank repeats the refund line in the same statement.
+        `${dmy} 00:00:02;KP-REF  930;Возврат;Счёт;500,00`,
+      ].join('\n');
+    const upload = (content, extra = {}) =>
+      s.rec.command(
+        accountant.token,
+        s.branch,
+        s.req({
+          type: 'import',
+          id: randomUUID(),
+          profile_id: null,
+          mapping: { ...kaspiMapping, ...extra },
+          file_name: 'kaspi-qa.csv',
+          content,
+        }),
+      );
+    const first = await upload(statement());
+    assert.equal(first.lines, 3);
+    // Byte for byte again: refused as a duplicate import.
+    await assert.rejects(upload(statement()), { code: 'CONFLICT', detail: 'DUPLICATE_IMPORT' });
+    // Re-exported with a title row: nothing new is stored.
+    const again = await upload(statement('Выписка Kaspi Pay (синтетика)'), { skip_rows: 1 });
+    assert.deepEqual([again.lines, again.already_imported], [0, 3]);
+    let d = await s.rec.read(manager.token, s.branch, { day: today });
+    const rows = (pred) => d.report.rows.filter(pred);
+    const manual = rows((r) => r.method === 'manual_refund');
+    assert.deepEqual(
+      manual.map((r) => [r.state, r.rule, r.amount_minor]),
+      [['matched', 'operation_id', '0']],
+    );
+    assert.equal(rows((r) => r.state === 'matched' && r.method === 'kaspi_remote').length, 1);
+    const repeats = rows((r) => r.state === 'duplicate');
+    assert.deepEqual(
+      repeats.map((r) => [r.rule, r.amount_minor, r.bank_minor]),
+      [['duplicate_line', '0', '-50000']],
+    );
+    // Per method: expected = payments - refunds, the repeated line is not bank money.
+    const method = (key) => d.report.methods.find((m) => m.method === key);
+    assert.deepEqual(
+      [method('kaspi_remote').expected_minor, method('kaspi_remote').difference_minor],
+      ['300000', '0'],
+    );
+    assert.deepEqual(
+      [
+        method('manual_refund').expected_minor,
+        method('manual_refund').bank_minor,
+        method('manual_refund').difference_minor,
+      ],
+      ['-50000', '-50000', '0'],
+    );
+    // Every tenge of difference is explained by rows of its method.
+    for (const m of d.report.methods.filter((x) => x.difference_minor !== null))
+      assert.equal(
+        rows((r) => r.method === m.method)
+          .reduce((sum, r) => sum + BigInt(r.amount_minor), 0n)
+          .toString(),
+        m.difference_minor,
+        m.method,
+      );
+    // The repeat blocks closing until someone accepts it with a reason.
+    assert.equal(d.report.open_items, 1);
+    await assert.rejects(
+      s.rec.command(
+        manager.token,
+        s.branch,
+        s.req({ type: 'close', day: today, expected_revision: 0 }),
+      ),
+      { code: 'CONFLICT', detail: 'DIFFERENCES_OPEN' },
+    );
+    await s.rec.command(
+      accountant.token,
+      s.branch,
+      s.req({
+        type: 'accept',
+        day: today,
+        comment: 'Банк повторил строку возврата',
+        items: repeats.map((r) => ({ key: r.key, state: r.state, amount_minor: r.amount_minor })),
+      }),
+    );
+    await s.rec.command(
+      accountant.token,
+      s.branch,
+      s.req({ type: 'close', day: today, expected_revision: 0 }, 'День сверен (QA)'),
+    );
+    d = await s.rec.read(manager.token, s.branch, { day: today });
+    assert.deepEqual([d.state, d.drift, d.report.open_items], ['closed', false, 0]);
+    assert.equal(method('manual_refund').difference_minor, '0');
+  }));
