@@ -6448,11 +6448,28 @@
         "tests/unit/native-service-backup.test.mjs",
         "tests/unit/ops-watchdog.test.mjs",
         "tests/unit/pos-combo-stops.test.mjs",
-        "tests/unit/watchdog-interfaces.test.mjs"
+        "tests/unit/watchdog-interfaces.test.mjs",
+        "apps/backoffice/server.mjs",
+        "apps/backoffice/src/api.ts",
+        "apps/backoffice/src/styles.css",
+        "apps/kiosk/src/device-presence.ts",
+        "apps/kiosk/src/useKioskController.ts",
+        "packages/backoffice-core/package.json",
+        "tests/operations/windows-runtime-1021.test.mjs",
+        ".github/workflows/ci.yml",
+        "docs/collaboration/handoff.md",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "packages/contracts/openapi.json",
+        "scripts/contracts.mjs",
+        "infra/staging/release-stage2-1024.py",
+        "tests/operations/test_stage2_release_1024.py",
+        "infra/windows/update-runtime-stage2-1024.ps1",
+        "tests/operations/test_windows_stage2_release.py"
       ],
       "status": "active",
       "head": "549ef93e43065e56a6fa172da3ded49ff4c73ce0",
-      "updatedAt": "2026-10-25T18:06:51.049Z"
+      "updatedAt": "2026-10-25T18:08:12.080Z"
     }
   ]
 }
