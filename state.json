@@ -6489,6 +6489,20 @@
       "updatedAt": "2026-10-26T19:55:33.613Z",
       "summary": "PR277 merged by owner authorization on 2026-10-27 Almaty, merge21d2b886fa215f39a02ff673f2879879374d5b2b; source1159e98a, full Foundation CI40225419145 success11/11. Fifteen scoped transfers preserved. No deployments/migrations/flags/payments.",
       "nextAction": "Owner decisions and timed server window plan continue in stage2-window-1027. Every deployment step requires a separate yes; dates chosen by owner. Integrate deployed App Store API before release. Kiosk demo preparation and kitchen restore queue tracked separately."
+    },
+    {
+      "id": "stage2-window-1027",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/stage2-window-1027",
+      "scopes": [
+        "docs/operations/stage2-2026-10-24",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json"
+      ],
+      "status": "active",
+      "head": "21d2b886fa215f39a02ff673f2879879374d5b2b",
+      "updatedAt": "2026-10-26T19:56:03.511Z"
     }
   ]
 }
