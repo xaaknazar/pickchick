@@ -6247,7 +6247,6 @@
         "apps/mobile/package.json",
         "apps/kiosk/package.json",
         "apps/operations-storybook/package.json",
-        "@release/ios",
         "apps/mobile/src/review-demo.ts",
         "apps/mobile/src/app/demo-order.tsx",
         "apps/mobile/src/screens/ReviewDemoScreen.tsx",
@@ -6278,8 +6277,8 @@
       ],
       "status": "available",
       "head": "82ddc32651fa574172fe6015d959e2b7689a5efc",
-      "updatedAt": "2026-10-25T19:13:58.937Z",
-      "summary": "App Review submitted22Oct2026 18:20 Almaty; Apple Waiting for Review, submission99775be3-3644-4d17-8e4f-ab4dfe3e53ca, iOS1.0 binary0.2.0(23). Owner confirmed content rights. Protocol82ddc326 pushed. Internal TestFlight23 Testing. Public release still manual. Owner approved temporary transfer to stage2-1024 on 2026-10-25: .github/workflows/ci.yml, docs/collaboration/handoff.md, docs/project-status.md, docs/roadmap/project.json, packages/contracts/openapi.json, scripts/contracts.mjs. Other scopes and task preserved. 26.10.2026: владелец явно разрешил временную передачу pnpm-workspace.yaml и pnpm-lock.yaml задаче stage2-1024 для исправления security CI PR277. Остальные резервы и задача сохранены.",
+      "updatedAt": "2026-10-26T20:07:17.384Z",
+      "summary": "App Review submitted22Oct2026 18:20 Almaty; Apple Waiting for Review, submission99775be3-3644-4d17-8e4f-ab4dfe3e53ca, iOS1.0 binary0.2.0(23). Owner confirmed content rights. Protocol82ddc326 pushed. Internal TestFlight23 Testing. Public release still manual. Owner approved temporary transfer to stage2-1024 on 2026-10-25: .github/workflows/ci.yml, docs/collaboration/handoff.md, docs/project-status.md, docs/roadmap/project.json, packages/contracts/openapi.json, scripts/contracts.mjs. Other scopes and task preserved. 26.10.2026: владелец явно разрешил временную передачу pnpm-workspace.yaml и pnpm-lock.yaml задаче stage2-1024 для исправления security CI PR277. Остальные резервы и задача сохранены. 27.10.2026 владелец прямо разрешил временную передачу @release/ios в kiosk-apple-demo только для локальной сборки киоска, без загрузки Apple и установки iPad.",
       "nextAction": "Await Apple decision; no auto-publication or merge. PR276 open; online roadmap still previous snapshot. No real payments."
     },
     {
@@ -6530,11 +6529,13 @@
         "apps/kiosk/src/storage.ts",
         "apps/kiosk/src/screens/MenuScreen.tsx",
         ".github/workflows/kiosk-review.yml",
-        "apps/kiosk/src/screens/PaymentOrderScreens.tsx"
+        "apps/kiosk/src/screens/PaymentOrderScreens.tsx",
+        "@release/ios"
       ],
       "status": "active",
       "head": "21d2b886fa215f39a02ff673f2879879374d5b2b",
-      "updatedAt": "2026-10-26T20:05:49.222Z"
+      "updatedAt": "2026-10-26T20:07:17.384Z",
+      "summary": "27.10.2026 владелец прямо разрешил временную передачу @release/ios в kiosk-apple-demo только для локальной сборки киоска, без загрузки Apple и установки iPad."
     }
   ]
 }
