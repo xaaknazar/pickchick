@@ -1,0 +1,61 @@
+name: Kiosk Apple review isolation
+on:
+  push:
+    branches: ['codex/**']
+    paths:
+      [
+        'apps/kiosk/**',
+        'scripts/mobile/**',
+        'tests/kiosk/**',
+        'tests/mobile/test_kiosk_review_release.py',
+        '.github/workflows/kiosk-review.yml',
+      ]
+  pull_request:
+    paths:
+      [
+        'apps/kiosk/**',
+        'scripts/mobile/**',
+        'tests/kiosk/**',
+        'tests/mobile/test_kiosk_review_release.py',
+        '.github/workflows/kiosk-review.yml',
+      ]
+permissions:
+  contents: read
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - run: |
+          npm install --global pnpm@11.19.0
+          pnpm install --frozen-lockfile
+          pnpm --filter @pickchick/kiosk... build
+          pnpm test:kiosk
+          python3 -m unittest discover -s tests/mobile -p 'test_*release.py'
+      - name: Export commercial kiosk with synthetic review verifier
+        env:
+          EXPO_NO_DOTENV: '1'
+          EXPO_PUBLIC_KIOSK_COMMERCIAL: '1'
+          # SHA-256 of Synthetic-Review-Only; this is never a release credential.
+          EXPO_PUBLIC_KIOSK_REVIEW_CODE_SHA256: b3dd98f2246324c826a6c880ea4a820887f2eabb0f3401091a3324b8c2c9bb04
+        run: pnpm --filter @pickchick/kiosk exec expo export --platform web
+      - name: Verify review journey without any API or printer requests
+        run: |
+          python3 -m venv .local/review-venv
+          .local/review-venv/bin/pip install -r tests/design/requirements.txt
+          .local/review-venv/bin/python -m playwright install --with-deps chromium
+          PICKCHICK_PREVIEW_APP=kiosk node scripts/mobile/preview-server.mjs > .local/review-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4184/ > /dev/null; then break; fi
+            sleep 1
+          done
+          .local/review-venv/bin/python tests/kiosk/browser_review_access.py

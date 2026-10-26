@@ -151,7 +151,11 @@ export function PaymentScreen({
               <QrTimer expiresAt={qrPayload ? qr?.expiresAt : null} locale={context.locale} />
             </Wrapper>
             {demoOutcomes}
-            <QrStepTiles locale={context.locale} />
+            {model.demo ? (
+              <Body tone="onBlue">{t.demoQrHint}</Body>
+            ) : (
+              <QrStepTiles locale={context.locale} />
+            )}
           </Wrapper>
         </ScrollArea>
         <PaymentPanel

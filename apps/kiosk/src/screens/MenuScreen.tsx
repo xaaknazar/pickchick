@@ -100,11 +100,13 @@ export function MenuScreen({
           locale={context.locale}
           onSelect={select}
           footer={
-            <PhotoEntry
-              locale={context.locale}
-              onInteraction={model.touch}
-              disabled={model.busy || !!sheet || model.idleWarningSeconds !== null}
-            />
+            model.demo ? undefined : (
+              <PhotoEntry
+                locale={context.locale}
+                onInteraction={model.touch}
+                disabled={model.busy || !!sheet || model.idleWarningSeconds !== null}
+              />
+            )
           }
         />
         <MenuGrid

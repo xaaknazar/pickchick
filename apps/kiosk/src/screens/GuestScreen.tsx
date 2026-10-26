@@ -36,8 +36,8 @@ const directionOf = (from: KioskStep, to: KioskStep): 'forward' | 'back' =>
     : flow.indexOf(to) >= 0 && flow.indexOf(to) < flow.indexOf(from)
       ? 'back'
       : 'forward';
-export function GuestScreen() {
-  const liveModel = useKioskController();
+export function GuestScreen({ onReviewExit }: { onReviewExit?: () => void }) {
+  const liveModel = useKioskController(onReviewExit);
   const [locale, setLocale] = useState<Locale>('ru');
   const [help, setHelp] = useState(false);
   const [cancel, setCancel] = useState(false);
@@ -274,7 +274,7 @@ export function GuestScreen() {
         {model.demo ? (
           <>
             <Heading size="title">{t.demoExitTitle}</Heading>
-            <Body>{t.demoExitBody}</Body>
+            <Body>{onReviewExit ? t.demoReceipt : t.demoExitBody}</Body>
             <Button
               label={t.demoTurnOff}
               testID="kiosk-demo-confirm"

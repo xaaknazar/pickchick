@@ -94,8 +94,8 @@ export function createCommercialKioskIO(): CommercialKioskIO {
 }
 
 /** Trusted native enrollment: call from the operator setup flow, never from guest UI. */
-export async function commercialKioskEnrollmentPresent(): Promise<boolean> {
-  if (Platform.OS === 'web') return true;
+export async function commercialKioskEnrollmentPresent(reviewAvailable = false): Promise<boolean> {
+  if (Platform.OS === 'web') return !reviewAvailable;
   return !!(await SecureStore.getItemAsync(KIOSK_DEVICE_KEY));
 }
 
