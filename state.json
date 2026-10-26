@@ -6481,11 +6481,12 @@
         "docs/operations/stage2-2026-10-24/release-preparation.md",
         "pnpm-workspace.yaml",
         "pnpm-lock.yaml",
-        "tests/unit/stage2-security-dependencies.test.mjs"
+        "tests/unit/stage2-security-dependencies.test.mjs",
+        "docs/operations/stage2-2026-10-24"
       ],
-      "status": "available",
+      "status": "active",
       "head": "1159e98a213feed26b716fcd5d58eb13113d1b39",
-      "updatedAt": "2026-10-25T19:50:15.955Z",
+      "updatedAt": "2026-10-26T19:54:42.433Z",
       "summary": "PR #277, SHA 1159e98a213feed26b716fcd5d58eb13113d1b39: Foundation CI 11/11 success https://github.com/xaaknazar/pickchick/actions/runs/40225419145; all additional checks green. Seven branches published, clean worktree. API and Windows release scripts committed separately and tested; 15 owner-authorized path transfers recorded, original tasks retained. Separate grants proposal #278. No deployments, migrations, flags, real payments, roadmap publication or merge.",
       "nextAction": "Await owner approval for ordinary merge and owner-actions 1-11. Before any release integrate deployed App Store API c3a0fbee and refresh reviewed release pin after diff/CI; approve migration069 order and maintenance windows. Native POS/shell installation and on-site/8-hour acceptance remain pending. Keep claims reserved until merged; do not finish yet."
     }
