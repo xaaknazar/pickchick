@@ -6503,6 +6503,32 @@
       "status": "active",
       "head": "21d2b886fa215f39a02ff673f2879879374d5b2b",
       "updatedAt": "2026-10-26T19:56:03.511Z"
+    },
+    {
+      "id": "kiosk-apple-demo",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kiosk-apple-demo",
+      "scopes": [
+        "apps/kiosk/src/KioskApp.tsx",
+        "apps/kiosk/src/useKioskController.ts",
+        "apps/kiosk/src/screens/GuestScreen.tsx",
+        "apps/kiosk/src/screens/EnrollmentScreen.tsx",
+        "apps/kiosk/src/components/EnrollmentForm.tsx",
+        "apps/kiosk/src/components/EnrollmentForm.stories.tsx",
+        "apps/kiosk/src/components/ReviewAccess.tsx",
+        "apps/kiosk/src/components/ReviewAccess.stories.tsx",
+        "apps/kiosk/src/review-access.ts",
+        "apps/kiosk/app.json",
+        "scripts/mobile/ios_release.py",
+        "scripts/mobile/kiosk-review-code.py",
+        "tests/kiosk/review-access.test.mjs",
+        "tests/kiosk/browser_review_access.py",
+        "tests/mobile/test_kiosk_review_release.py",
+        "docs/operations/kiosk-apple-review-2026-10-27.md"
+      ],
+      "status": "active",
+      "head": "21d2b886fa215f39a02ff673f2879879374d5b2b",
+      "updatedAt": "2026-10-26T19:58:24.845Z"
     }
   ]
 }
