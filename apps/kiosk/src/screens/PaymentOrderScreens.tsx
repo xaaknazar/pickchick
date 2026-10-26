@@ -34,9 +34,12 @@ export function PaymentScreen({
   model,
   context,
   onStartOver,
+  review = false,
 }: {
   model: KioskModel;
   context: ScreenContext;
+  /** Apple review copy; ordinary staff demo keeps its existing training instructions. */
+  review?: boolean;
   /** Opens the «Начать заново?» confirmation (owner decision 2026-10-13). */
   onStartOver?: () => void;
 }) {
@@ -151,7 +154,7 @@ export function PaymentScreen({
               <QrTimer expiresAt={qrPayload ? qr?.expiresAt : null} locale={context.locale} />
             </Wrapper>
             {demoOutcomes}
-            {model.demo ? (
+            {review ? (
               <Body tone="onBlue">{t.demoQrHint}</Body>
             ) : (
               <QrStepTiles locale={context.locale} />

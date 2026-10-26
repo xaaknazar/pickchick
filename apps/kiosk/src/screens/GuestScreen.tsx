@@ -208,7 +208,14 @@ export function GuestScreen({ onReviewExit }: { onReviewExit?: () => void }) {
         screen = <ModeScreen model={model} context={context} />;
         break;
       case 'menu':
-        screen = <MenuScreen model={model} context={context} memory={menuMemory.current} />;
+        screen = (
+          <MenuScreen
+            model={model}
+            context={context}
+            memory={menuMemory.current}
+            review={!!onReviewExit}
+          />
+        );
         break;
       case 'product':
         screenKey = model.selectedProduct
@@ -222,7 +229,12 @@ export function GuestScreen({ onReviewExit }: { onReviewExit?: () => void }) {
             context={context}
           />
         ) : (
-          <MenuScreen model={model} context={context} memory={menuMemory.current} />
+          <MenuScreen
+            model={model}
+            context={context}
+            memory={menuMemory.current}
+            review={!!onReviewExit}
+          />
         );
         break;
       case 'upsell':
@@ -237,6 +249,7 @@ export function GuestScreen({ onReviewExit }: { onReviewExit?: () => void }) {
       case 'payment':
         screen = (
           <PaymentScreen
+            review={!!onReviewExit}
             model={model}
             context={context}
             onStartOver={() => {

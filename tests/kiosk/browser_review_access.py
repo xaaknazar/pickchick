@@ -90,6 +90,7 @@ class ReviewAccessTests(unittest.TestCase):
                 ui.element(page, 'kiosk-language-' + locale).click()
                 self.order(page)
                 expect(ui.element(page, 'kiosk-demo-qr-warning')).to_be_visible()
+                expect(page.get_by_test_id('kiosk-payment-steps')).to_have_count(0)
                 ui.capture(page, f'review-qr-{width}.png')
                 ui.element(page, 'kiosk-demo-paid').click()
                 ui.screen(page, 'order')
