@@ -6500,9 +6500,11 @@
         "docs/collaboration/handoff.md",
         "docs/roadmap/project.json"
       ],
-      "status": "active",
-      "head": "21d2b886fa215f39a02ff673f2879879374d5b2b",
-      "updatedAt": "2026-10-26T19:56:03.511Z"
+      "status": "available",
+      "head": "a6a7caafb4abdbcd4b8b6c362b084945c19737e0",
+      "updatedAt": "2026-10-26T20:02:21.875Z",
+      "summary": "Owner decisions27.10 and timed server window published in PR280, SHAa6a7caafb4abdbcd4b8b6c362b084945c19737e0. PR277 merged with explicit approval, merge21d2b886; source1159 CI40225419145 success11/11 reconfirmed. Roadmap tests7/7, formatting/diff checks passed. Queue restore issue279, kiosk demo preparation separate chat01a179c9-3426-7470-b0d2-6c3efc781daa. No installations/migrations/flags/payments/online roadmap.",
+      "nextAction": "Await owner dates and separate yes for every release step; no deployment ready until App Store API integration and reviewed candidate/full CI. PR280 documentation not authorized for merge. Preserve choices: DDL069+070+071, station delivery only, manual cash/SmartPOS totals, backup heartbeat after new cashier, unlisted kiosk/demo/no real invoices, full offline stand before each install. Prepare final pinned window packet after integration and read-only baseline."
     },
     {
       "id": "kiosk-apple-demo",
