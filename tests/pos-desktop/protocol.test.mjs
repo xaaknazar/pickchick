@@ -460,6 +460,13 @@ test('published hash photos come from the configured edge only after SHA-256 and
         (await handler(request('/edge/v1/menu/version', { method: 'POST', body: '{}' }))).status >=
           400,
       );
+      // The header's internet line (offline stand finding) is a fixed staff read as well.
+      assert.equal((await handler(request('/edge/v1/cloud-link'))).status, 200);
+      assert.equal(upstream.at(-1).url, 'http://127.0.0.1:3101/edge/v1/cloud-link');
+      assert.ok(
+        (await handler(request('/edge/v1/cloud-link', { method: 'POST', body: '{}' }))).status >=
+          400,
+      );
     },
     {
       fetchImpl: async (url, options) => {

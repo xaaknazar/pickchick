@@ -11,6 +11,12 @@ import { Workforce } from '@pickchick/backoffice-core/workforce';
 import { WorkforceController, WORKFORCE } from './workforce-controller.js';
 import { FinanceController } from './finance-controller.js';
 import { FINANCE, Finance } from '@pickchick/backoffice-core/finance';
+import {
+  RECONCILIATION,
+  Reconciliation,
+  reconciliationOptions,
+} from '@pickchick/backoffice-core/reconciliation';
+import { ReconciliationController } from './reconciliation-controller.js';
 import { KioskIncidentController } from './kiosk-incident-controller.js';
 import { KIOSK_INCIDENTS, KioskPaymentIncidents } from '@pickchick/backoffice-core/kiosk-incidents';
 import { FARM, FarmPersistence } from '@pickchick/farm-persistence';
@@ -34,8 +40,19 @@ import {
   HttpException,
   Query,
 } from '@nestjs/common';
-import { acknowledgeMenu, pullMenu, SyncError } from '@pickchick/menu-sync';
-import { BranchSchema, MenuSnapshotSchema, UuidSchema } from '@pickchick/contracts';
+import {
+  acknowledgeMenu,
+  edgeMenuFeatures,
+  pullMenu,
+  SyncError,
+  withoutComboStopLinks,
+} from '@pickchick/menu-sync';
+import {
+  BranchSchema,
+  EDGE_MENU_FEATURES_QUERY_KEY,
+  MenuSnapshotSchema,
+  UuidSchema,
+} from '@pickchick/contracts';
 import {
   createHttpApplication,
   EdgeDeviceRoute,
@@ -72,6 +89,7 @@ import {
 } from './device-registry-controller.js';
 import { BackofficeController, BackofficeContentController } from './backoffice-controller.js';
 import { FulfillmentTransportController } from './fulfillment-transport-controller.js';
+import { StationPlanTransportController } from './station-plan-controller.js';
 import { PosOrderSyncController } from './pos-order-sync-controller.js';
 import {
   CLOUD_KITCHEN,
@@ -129,13 +147,15 @@ class BranchesController {
       [id.data],
     );
     if (!rows[0]) throw new NotFoundException();
-    return MenuSnapshotSchema.parse(rows[0].payload);
+    // Public read-only menu: the cashier-only combo stop fields stay off this route.
+    return withoutComboStopLinks(MenuSnapshotSchema.parse(rows[0].payload));
   }
 }
 
 /**
  * Optional edge-reported active menu (EdgeMenuStateQuerySchema, validated by pullMenu).
  * Other query keys stay ignored as before; a partial or malformed pair is a 400 with no echo.
+ * `menu_features` is read on its own (edgeMenuFeatures) and never fails a pull.
  */
 function edgeMenuState(query: Record<string, unknown>) {
   const { active_release_id: releaseId, active_version: version } = query;
@@ -160,7 +180,9 @@ class MenuSyncController {
     };
     try {
       return body === undefined
-        ? await pullMenu(this.resources.pool, auth, edgeMenuState(query))
+        ? await pullMenu(this.resources.pool, auth, edgeMenuState(query), {
+            features: edgeMenuFeatures(query[EDGE_MENU_FEATURES_QUERY_KEY]),
+          })
         : await acknowledgeMenu(this.resources.pool, auth, body);
     } catch (error) {
       if (error instanceof SyncError) {
@@ -248,6 +270,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
     controllers: [
       WorkforceController,
       FinanceController,
+      ReconciliationController,
       KioskIncidentController,
       FarmController,
       KioskCheckoutController,
@@ -267,6 +290,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
       DeviceRegistryController,
       KioskPresenceController,
       DeviceAccessTransportController,
+      StationPlanTransportController,
       FulfillmentTransportController,
       PosOrderSyncController,
       ...(kitchenApi.enabled ? [CloudKitchenController] : []),
@@ -295,6 +319,16 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
         inject: [RESOURCE],
         useFactory: (resources: Resources) =>
           new Finance(resources.pool, config.backofficeEnabled === true),
+      },
+      {
+        provide: RECONCILIATION,
+        inject: [RESOURCE],
+        useFactory: (resources: Resources) =>
+          new Reconciliation(
+            resources.pool,
+            config.backofficeEnabled === true &&
+              reconciliationOptions(process.env).enabled === true,
+          ),
       },
       {
         provide: KIOSK_INCIDENTS,

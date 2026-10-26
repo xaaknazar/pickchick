@@ -5,6 +5,7 @@ import { join, resolve, win32, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   MENU_SYNC_ROLE,
+  STATION_PLAN_SCHEMA,
   assertMenuSyncPrivileges,
   menuSyncWorkerGrants,
   revokeMenuSyncPrivileges,
@@ -277,6 +278,9 @@ export async function upgradeMenuSync(
     if (ledger.length < 17 || ledgerText(ledger) !== ledgerText(expected.slice(0, ledger.length)))
       throw new Error('Edge migration ledger differs; schema017 from this release is required');
     const pending = ledger.length === 17;
+    // After edge schema024 the same role also applies station plans: re-running this phase
+    // keeps those privileges instead of silently dropping them.
+    const stationPlans = ledger.some((row) => row.version === STATION_PLAN_SCHEMA);
     const branches = (await client.query('SELECT id FROM branch_config')).rows;
     if (branches.length !== 1 || branches[0].id !== branchId) throw new Error('Branch differs');
     // The worker uses the fulfillment worker's device identity; routing needs its config.
@@ -332,9 +336,12 @@ export async function upgradeMenuSync(
         )} TO ${identifier(role)}`,
       );
       await revokeMenuSyncPrivileges(client, role, schema);
-      await client.query(menuSyncWorkerGrants(role, schema));
+      await client.query(menuSyncWorkerGrants(role, schema, { stationPlans }));
       await client.query(`GRANT SELECT ON ${ns}."menu_media" TO ${identifier(runtimeRole)}`);
-      await assertMenuSyncPrivileges(client, role, schema, { databaseDefaultsRevoked });
+      await assertMenuSyncPrivileges(client, role, schema, {
+        databaseDefaultsRevoked,
+        stationPlans,
+      });
       grantsVerified = true;
       // Only the worker's grants and the runtime's menu_media SELECT may change.
       const allowed = sorted([...otherAcl(aclBefore), `${runtimeRole}|menu_media||SELECT`]);
@@ -354,7 +361,10 @@ export async function upgradeMenuSync(
         throw new Error('Existing business rows or sequences changed');
     } else if (worker && !pending) {
       try {
-        await assertMenuSyncPrivileges(client, role, schema, { databaseDefaultsRevoked });
+        await assertMenuSyncPrivileges(client, role, schema, {
+          databaseDefaultsRevoked,
+          stationPlans,
+        });
         grantsVerified = true;
       } catch {
         grantsVerified = false;

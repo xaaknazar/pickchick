@@ -7,7 +7,7 @@ export const APP_ORIGIN = 'pickchick-pos://app';
 export const APP_URL = `${APP_ORIGIN}/`;
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
 const readPath = new RegExp(
-  `^/edge/v1/(session|menu|menu/version|ordering|orders|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?)$`,
+  `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?)$`,
   'i',
 );
 const writePath = new RegExp(

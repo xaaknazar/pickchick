@@ -102,22 +102,32 @@ test('BACKOFFICE_REMOTE_STOPS_ENABLED defaults off and accepts only true or fals
   assert.deepEqual(backofficeOptions({}), {
     remoteStopsEnabled: false,
     manualRefundsEnabled: false,
+    stationPlanDeliveryEnabled: false,
   });
   assert.deepEqual(backofficeOptions({ BACKOFFICE_REMOTE_STOPS_ENABLED: 'false' }), {
     remoteStopsEnabled: false,
     manualRefundsEnabled: false,
+    stationPlanDeliveryEnabled: false,
   });
   assert.deepEqual(backofficeOptions({ BACKOFFICE_REMOTE_STOPS_ENABLED: 'true' }), {
     remoteStopsEnabled: true,
     manualRefundsEnabled: false,
+    stationPlanDeliveryEnabled: false,
   });
   assert.equal(
     backofficeOptions({ BACKOFFICE_MANUAL_REFUNDS_ENABLED: 'true' }).manualRefundsEnabled,
     true,
   );
+  // Stage 2: station plan delivery to the cashier edge, default off as well.
+  assert.equal(
+    backofficeOptions({ BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED: 'true' })
+      .stationPlanDeliveryEnabled,
+    true,
+  );
   for (const value of ['1', 'TRUE', 'yes', '']) {
     assert.throws(() => backofficeOptions({ BACKOFFICE_REMOTE_STOPS_ENABLED: value }));
     assert.throws(() => backofficeOptions({ BACKOFFICE_MANUAL_REFUNDS_ENABLED: value }));
+    assert.throws(() => backofficeOptions({ BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED: value }));
   }
   assert.match(
     backofficeStopGrants('pickchick_app', false),

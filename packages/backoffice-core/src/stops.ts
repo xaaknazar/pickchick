@@ -21,6 +21,12 @@ export interface BackofficeOptions {
   manualRefundsEnabled?: boolean;
   /** A bank refund adapter consumes refund.submit_requested. None exists yet: never from env. */
   refundAdapterEnabled?: boolean;
+  /**
+   * BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED: a station publication becomes the next station
+   * plan version for the cashier edge (cloud070), and the edge pull/receipt routes answer.
+   * Default off; needs stationPlanGrants on the API role.
+   */
+  stationPlanDeliveryEnabled?: boolean;
 }
 function flag(env: Record<string, string | undefined>, name: string) {
   const value = env[name] ?? 'false';
@@ -33,6 +39,7 @@ export function backofficeOptions(
   return {
     remoteStopsEnabled: flag(env, 'BACKOFFICE_REMOTE_STOPS_ENABLED'),
     manualRefundsEnabled: flag(env, 'BACKOFFICE_MANUAL_REFUNDS_ENABLED'),
+    stationPlanDeliveryEnabled: flag(env, 'BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED'),
   };
 }
 export interface StopActor {

@@ -48,6 +48,12 @@ export const MenuModifierOptionSchema = z
     max_quantity: z.number().int().min(1).max(99).optional(),
     default_quantity: z.number().int().min(0).max(99).optional(),
     available: z.boolean().optional(),
+    /**
+     * Cashier combo stop rule (stage 2, optional): the menu variant of the product this option
+     * stands for (a combo drink or sauce). Its stop stops the option. Sent only to edges that
+     * advertise the combo_stops menu feature; installed edges parse strictly and never get it.
+     */
+    linked_variant_id: UuidSchema.optional(),
   })
   .refine(
     (option) =>
@@ -128,10 +134,23 @@ export const MenuItemSchema = z
     description: MenuDescriptionSchema.optional(),
     image: MenuItemImageSchema.optional(),
     kitchen: MenuItemKitchenSchema.optional(),
+    /**
+     * Cashier combo stop rule (stage 2, optional): menu variants of every fixed component,
+     * nested combos already flattened. A stop of any of them stops this combo. Never empty
+     * (one canonical form keeps checksums stable); same delivery rule as linked_variant_id.
+     */
+    combo_component_variant_ids: z.array(UuidSchema).min(1).max(100).optional(),
   })
   .refine(
     (item) => !item.image || item.image_url === item.image.url,
     'Published image must be the item image_url',
+  )
+  .refine(
+    (item) =>
+      !item.combo_component_variant_ids ||
+      (new Set(item.combo_component_variant_ids).size === item.combo_component_variant_ids.length &&
+        !item.combo_component_variant_ids.includes(item.variant_id)),
+    'Invalid combo components',
   );
 
 export const MenuCategorySchema = z.strictObject({
@@ -192,6 +211,12 @@ export const ErrorSchema = z.strictObject({
     // that list the checkout-errors-v2 profile: older bundles reject unknown codes.
     'KITCHEN_OFFLINE',
     'CASH_SHIFT_REQUIRED',
+    // Cashier edge only (local-orders): the POS explains each one; without them in this list the
+    // error filter answered a bare CONFLICT (offline stand finding, 24.10). Cloud routes never
+    // send them, so the app and kiosk bundles see no new code.
+    'SERVICE_MODE_DISABLED',
+    'KITCHEN_UNAVAILABLE',
+    'ORDER_IN_PRODUCTION',
     'SHIFT_CLOSED',
     'CONFLICT',
     'INSUFFICIENT_STOCK',
@@ -283,6 +308,15 @@ export const EdgeMenuStateQuerySchema = z.strictObject({
   active_release_id: UuidSchema,
   active_version: QueryInt.pipe(z.number().int().positive().max(2147483647)),
 });
+/**
+ * Optional menu features an edge menu worker understands, sent on every pull as the
+ * comma-separated query key `menu_features` (outside EdgeMenuStateQuerySchema). Installed clouds
+ * ignore unknown query keys and installed edges never send it; a cloud ignores values it does
+ * not know. combo_stops: the edge applies combo_component_variant_ids / linked_variant_id.
+ */
+export const EdgeMenuFeatureSchema = z.enum(['combo_stops']);
+export const EDGE_MENU_FEATURES_QUERY_KEY = 'menu_features';
+export type EdgeMenuFeature = z.infer<typeof EdgeMenuFeatureSchema>;
 export const AckReceiptSchema = z.strictObject({
   event_id: UuidSchema,
   acknowledged: z.literal(true),
@@ -453,6 +487,17 @@ export const StopStateSchema = z.strictObject({
   version: z.number().int().nonnegative().max(2147483647),
 });
 export const StopListSchema = z.strictObject({ stops: z.array(StopStateSchema).max(10000) });
+/**
+ * GET edge/v1/cloud-link: the cashier edge's last confirmed contact with the cloud (WAN), taken
+ * from the fulfillment transport heartbeat. 'unknown': no transport on this edge yet or the
+ * runtime role lacks the opt-in grant; installed clients that never ask are unaffected.
+ */
+export const EdgeCloudLinkSchema = z.strictObject({
+  state: z.enum(['online', 'offline', 'unknown']),
+  last_contact_at: z.iso.datetime().nullable(),
+  checked_at: z.iso.datetime(),
+});
+export type EdgeCloudLink = z.infer<typeof EdgeCloudLinkSchema>;
 export type StaffSession = z.infer<typeof StaffSessionSchema>;
 export type StaffCredential = z.infer<typeof StaffCredentialSchema>;
 export type StaffRole = z.infer<typeof StaffRoleSchema>;
@@ -535,5 +580,6 @@ export * from './customer-commerce.js';
 
 export * from './device-access.js';
 export * from './notifications.js';
+export * from './station-plans.js';
 
 export * from './combo-rewards.js';

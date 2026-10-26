@@ -3,9 +3,21 @@ import { photoFor } from './photos.js';
 import { ReferenceView } from './reference-view.js';
 import { TemplateView } from './template-engine.js';
 import { model, pinLogin } from './runtime.js';
-import { money, lineKey, linePrice, categoryLabels, sortedItems } from '../types.js';
+import {
+  money,
+  lineKey,
+  linePrice,
+  categoryLabels,
+  sortedItems,
+  itemStopView,
+  optionStopped,
+  optionChangeAllowed,
+  defaultSelections,
+  stopReasonText,
+} from '../types.js';
 import { transport, errorMessage } from '../api.js';
 import { kitchenLabel, menuChangeText, orderNumber } from '../order-view.js';
+import { connectionLabel } from '../model.js';
 const root = document.getElementById('app');
 let config, template;
 try {
@@ -112,13 +124,8 @@ function total() {
 }
 function openModifier(product, line) {
   modifier = product;
-  chosen =
-    line?.modifiers?.map((s) => ({ ...s })) ??
-    (product.modifier_groups ?? []).flatMap((g) =>
-      g.options
-        .filter((o) => o.default_quantity && o.available !== false)
-        .map((o) => ({ group_id: g.id, option_id: o.id, quantity: o.default_quantity })),
-    );
+  // A stopped default (its own stop or its product's) is not preselected.
+  chosen = line?.modifiers?.map((s) => ({ ...s })) ?? defaultSelections(product, model.state.stops);
   portions = line?.quantity ?? 1;
   previousKey = line ? lineKey(line) : null;
   reference.setState({
@@ -140,9 +147,11 @@ function openWizard(product) {
   reference.setState({ mod: null, wiz: { name: product.name.ru }, wizStep: 1 });
 }
 function changeOption(group, option, count) {
-  if (option.available === false || model.state.stops.get(option.id)?.stopped) return;
   const existing = chosen.find((s) => s.group_id === group.id && s.option_id === option.id);
   const current = existing?.quantity ?? (existing ? 1 : 0);
+  // Its own stop or the stop of the product it stands for (combo drink or sauce) blocks adding
+  // it; reducing or removing it stays possible, so a multi-choice group never gets stuck.
+  if (!optionChangeAllowed(option, model.state.stops, current, count)) return;
   if (group.max_selected === 1) {
     chosen = chosen.filter((s) => s.group_id !== group.id);
     if (count) chosen.push({ group_id: group.id, option_id: option.id, quantity: 1 });
@@ -160,7 +169,7 @@ function changeOption(group, option, count) {
 function optionValues(group) {
   return (group?.options ?? []).map((o) => {
     const n = chosen.find((s) => s.group_id === group.id && s.option_id === o.id)?.quantity ?? 0,
-      out = o.available === false || model.state.stops.get(o.id)?.stopped;
+      out = optionStopped(o, model.state.stops);
     return {
       multi: group.max_selected > 1,
       label: o.name.ru,
@@ -410,6 +419,8 @@ function draw() {
     'sayCashOut',
   ])
     v[key] = unavailable;
+  // Red: no connection to the cashier server; yellow: no internet, the cashier keeps working.
+  const connection = connectionLabel(m);
   Object.assign(v, {
     branchLabel: config.branchLabel ?? 'Локальная точка',
     dateLabel: date(),
@@ -420,12 +431,8 @@ function draw() {
     closePinKeys: pinKeys('closePin', true),
     pinError: signing ? 'Проверяем PIN...' : s.pinErr,
     staffHint: 'Личный PIN выдаёт управляющий. Проверка на локальном сервере.',
-    connLabel: !m.actor
-      ? 'Вход по личному PIN'
-      : m.operationsAvailable && !m.operationsError
-        ? 'Локальная сеть'
-        : 'Нет связи с кассой',
-    connDot: m.operationsAvailable && !m.operationsError ? 'var(--green)' : 'var(--red)',
+    connLabel: connection.label,
+    connDot: { ok: 'var(--green)', warn: '#F0C240', down: 'var(--red)' }[connection.tone],
     kkmLine: 'Оплата и фискальный чек не подключены',
     kkmDot: '#F0C240',
     kkmBg: '#FFF3C4',
@@ -623,8 +630,11 @@ function draw() {
     syncLabel: 'Локальный сервер · внешние каналы ещё не подключены',
   });
   v.tiles = (groups[s.cat] ?? []).map((p) => {
+    // Own stop (unknown counts as out), or the combo rule: a stopped fixed component or a
+    // required choice with nothing left (fields present only in menus for the new cashier).
     const stop = m.stops.get(p.variant),
-      out = stop?.stopped !== false;
+      combo = itemStopView(m.menu, p.product, m.stops),
+      out = stop?.stopped !== false || !combo.available;
     return {
       name: p.name,
       price: money(p.product.price_minor),
@@ -637,7 +647,7 @@ function draw() {
       canStop: false,
       tap: safe(() => {
         if (out) {
-          say('Позиция в стоп-листе или доступность ещё не подтверждена');
+          say(stopReasonText(combo) || 'Позиция в стоп-листе или доступность ещё не подтверждена');
           return;
         }
         if (p.party) openWizard(p.product);
@@ -662,7 +672,16 @@ function draw() {
         openModifier(item(row.line.variant_id), row.line);
       else reference.setState({ sel: row.key });
     },
-    warn: m.stops.get(s.cart[i].line.variant_id)?.stopped,
+    warn: (() => {
+      const row = s.cart[i].line,
+        product = item(row.variant_id);
+      if (m.stops.get(row.variant_id)?.stopped) return true;
+      if (!product || !m.menu) return false;
+      const view = itemStopView(m.menu, product, m.stops);
+      return (
+        !view.available || (row.modifiers ?? []).some((x) => view.stoppedOptions.has(x.option_id))
+      );
+    })(),
   }));
   if (modifier) {
     const gs = modifier.modifier_groups ?? [],
@@ -779,9 +798,7 @@ function draw() {
       })),
       wizFillPick: () => {
         if (!sauce) return;
-        const o = sauce.options.find(
-          (o) => o.default_quantity && !m.stops.get(o.id)?.stopped && o.available !== false,
-        );
+        const o = sauce.options.find((o) => o.default_quantity && !optionStopped(o, m.stops));
         if (!o) {
           say('Соус по умолчанию недоступен');
           return;

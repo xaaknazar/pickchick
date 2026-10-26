@@ -626,6 +626,21 @@ export class CommercialKioskController {
   private unsafe() {
     return this.current.resetPending || this.pending();
   }
+  /**
+   * A stored shopping draft (mode or cart, nothing sent for payment) whose last saved activity is
+   * older than the idle reset (90 + 15 s). Taps are kept in memory only, so after a relaunch the
+   * last saved change is the activity that counts.
+   */
+  private staleDraft() {
+    const c = this.current;
+    return (
+      !c.intent &&
+      !c.order &&
+      !c.resetPending &&
+      (c.mode !== null || c.cart.length > 0) &&
+      this.io.now() - c.lastActivityAt >= KIOSK_IDLE_MS + KIOSK_IDLE_GRACE_MS
+    );
+  }
   /** A payment may exist whose result is not final: only the recovery path may continue. */
   private pending() {
     return (
@@ -1236,6 +1251,11 @@ export class CommercialKioskController {
         // Ready before the network: a finished guest whose end fails offline leaves the start
         // screen usable, and polling finishes the reset when the network returns.
         this.ready = true;
+        // Stage 2 (lane kln): a relaunch (power loss, crash, update, AppLock relaunch) after the
+        // idle reset would have run never shows that draft again. It takes the idle reset path:
+        // the reset marker first, then the guest is ended (or later, offline).
+        if (this.staleDraft())
+          await this.save({ ...this.empty(), guestId: this.current.guestId, resetPending: true });
         if (this.current.resetPending) await this.finishReset();
       }
       try {

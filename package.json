@@ -53,7 +53,9 @@
     "project:sync": "node scripts/project-sync.mjs sync",
     "project:tasks": "node scripts/project-sync.mjs status",
     "audit:release": "node scripts/dependency-audit.mjs",
-    "test:notifications": "node --test tests/notifications/*.test.mjs"
+    "test:notifications": "node --test tests/notifications/*.test.mjs",
+    "test:offline-stand:unit": "node --test tests/offline-stand/*.test.mjs",
+    "test:offline-stand": "node --env-file=.env tests/offline-stand/run.mjs"
   },
   "dependencies": {
     "@pickchick/catalog-admin": "workspace:*",

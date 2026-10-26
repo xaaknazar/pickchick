@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { AppState } from 'react-native';
 import Constants from 'expo-constants';
 import { startDevicePresence } from './device-presence';
-import { KIOSK_API_URL, KIOSK_RELEASE_ID } from './api';
+import { KIOSK_API_URL, KIOSK_BUILD_PROFILE, KIOSK_RELEASE_ID } from './api';
+import { openKioskHealth, type KioskHeartbeat } from './kiosk-health';
 import * as Crypto from 'expo-crypto';
 import { prefetchCatalogMedia, rememberCatalogMedia } from './assets';
 import { startKioskPolling } from './polling';
@@ -83,6 +84,8 @@ export default function useKioskController(): KioskModel {
       () => AppState.currentState === 'active',
     );
   }, [demo]);
+  // Outcome of the last device presence request, for the staff health line only.
+  const heartbeat = useRef<KioskHeartbeat | null>(null);
   useEffect(() => {
     if (!commercialKioskEnabled) return;
     const io = createCommercialKioskIO();
@@ -90,6 +93,9 @@ export default function useKioskController(): KioskModel {
     const presence = startDevicePresence({
       readDevice: io.readDevice,
       origin: KIOSK_API_URL,
+      onResult: (result) => {
+        heartbeat.current = result;
+      },
       // The release id names the pinned build; the server keeps at most 60 characters.
       appVersion: [build, KIOSK_RELEASE_ID].filter(Boolean).join(' ').slice(0, 60),
       snapshot: () => {
@@ -108,6 +114,29 @@ export default function useKioskController(): KioskModel {
       subscription.remove();
     };
   }, [live, demo]);
+  // Stage 2 (lane kln): the staff health line, behind the server-checked staff code. It reads
+  // only build constants and the last presence outcome, never the device credentials.
+  const staffHealth = useCallback(
+    (pin?: string) =>
+      openKioskHealth(
+        {
+          verifyStaff: live instanceof CommercialKioskController ? live.verifyStaff : undefined,
+          facts: () => ({
+            version: Constants.expoConfig?.version ?? 'unknown',
+            build: Constants.expoConfig?.ios?.buildNumber ?? 'unknown',
+            releaseId: KIOSK_RELEASE_ID,
+            profile: KIOSK_BUILD_PROFILE,
+            apiOrigin: KIOSK_API_URL,
+            commercial: commercialKioskEnabled,
+            staffCode: live instanceof CommercialKioskController ? 'verified' : 'not-required',
+            heartbeat: heartbeat.current,
+            checkedAt: Date.now(),
+          }),
+        },
+        pin,
+      ),
+    [live],
+  );
   // Register the publication's photos before the screens render, then keep them on disk.
   const [, setMediaReady] = useState(0);
   useMemo(() => rememberCatalogMedia(state.catalog), [state.catalog]);
@@ -165,6 +194,8 @@ export default function useKioskController(): KioskModel {
     staffReset: controller instanceof CommercialKioskController ? controller.staffReset : undefined,
     clearStaffError:
       controller instanceof CommercialKioskController ? controller.clearStaff : undefined,
+    // Not in the demo: its staff dialog only leaves the demo.
+    staffHealth: demo ? undefined : staffHealth,
     // The simulator build keeps the plain hold; a commercial kiosk asks for the staff code.
     staffPinRequired: live instanceof CommercialKioskController,
     recover: controller.recover,

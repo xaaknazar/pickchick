@@ -169,6 +169,39 @@ export function identityDeliveryEvent(raw) {
   return { at: raw.at, event: raw.event, channel: raw.channel, reason: raw.reason };
 }
 
+const BRANCH_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const minutes = (value, low, high) => Number.isSafeInteger(value) && value >= low && value <= high;
+/**
+ * One `edge_backup_attention` line (ebk lane): the API relays that a cashier's last verified
+ * database copy is older than its limit. Branch, state, minutes and an error code only.
+ */
+export function edgeBackupEvent(raw) {
+  if (
+    !isObject(raw) ||
+    !iso(raw.at) ||
+    raw.event !== 'edge_backup_attention' ||
+    typeof raw.branchId !== 'string' ||
+    !BRANCH_ID.test(raw.branchId) ||
+    !['stale', 'failed'].includes(raw.state) ||
+    !(raw.ageMinutes === null || minutes(raw.ageMinutes, 0, 5_256_000)) ||
+    !minutes(raw.maxAgeMinutes, 60, 4320) ||
+    !(
+      raw.error === null ||
+      (typeof raw.error === 'string' && /^[A-Z][A-Z_]{1,40}$/.test(raw.error))
+    )
+  )
+    return null;
+  return {
+    at: raw.at,
+    event: raw.event,
+    branchId: raw.branchId,
+    state: raw.state,
+    ageMinutes: raw.ageMinutes,
+    maxAgeMinutes: raw.maxAgeMinutes,
+    error: raw.error,
+  };
+}
+
 /** Highest budget threshold per pool reported today (UTC day, kept by run-watchdog.py). */
 function identityBudget(raw) {
   if (
@@ -333,6 +366,11 @@ export function parseHostFacts(text, nowMs, maxAgeMs) {
         .map(identityDeliveryEvent)
         .filter(Boolean),
       identityBudget: identityBudget(raw.identityBudget),
+      edgeBackupCollected: raw.edgeBackupCollected === true,
+      edgeBackup: (Array.isArray(raw.edgeBackup) ? raw.edgeBackup : [])
+        .slice(-50)
+        .map(edgeBackupEvent)
+        .filter(Boolean),
       gatewayClientIp: gatewayCheck(raw.gatewayClientIp),
       disks: (Array.isArray(raw.disks) ? raw.disks.slice(0, 16) : []).map(disk).filter(Boolean),
       backups: backups(raw.backups),

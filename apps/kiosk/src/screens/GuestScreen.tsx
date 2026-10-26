@@ -12,6 +12,8 @@ import { BootState } from '../components/BootState';
 import { Notice } from '../components/Notice';
 import { DemoBadge } from '../components/DemoBadge';
 import { StaffPinField } from '../components/StaffPinField';
+import { KioskHealthList } from '../components/KioskHealthList';
+import { kioskHealthLines, type KioskHealthFacts } from '../kiosk-health';
 import { guestErrorText } from '../guestError';
 import { paymentCopy } from '../paymentCopy';
 import { ScreenTransition } from '../components/ScreenTransition';
@@ -46,6 +48,11 @@ export function GuestScreen() {
   const [demoAsk, setDemoAsk] = useState(false);
   // Staff code typed in the staff or restart dialog; cleared whenever a dialog closes.
   const [pin, setPin] = useState('');
+  // Stage 2: the kiosk health line shown in the staff dialog after the staff code.
+  const [health, setHealth] = useState<KioskHealthFacts | null>(null);
+  useEffect(() => {
+    if (!demoAsk) setHealth(null);
+  }, [demoAsk]);
   const t = copy(locale);
   const upsellMemory = useRef<UpsellMemory>({ base: null });
   const menuMemory = useRef<MenuMemory>({ category: 'combo', offsets: {} });
@@ -129,6 +136,7 @@ export function GuestScreen() {
   const closeStaff = () => {
     setDemoAsk(false);
     setPin('');
+    setHealth(null);
     clearStaffError?.();
   };
   const closeRestart = () => {
@@ -276,6 +284,12 @@ export function GuestScreen() {
               }}
             />
           </>
+        ) : health ? (
+          <>
+            <Heading size="title">{t.healthTitle}</Heading>
+            <Body tone="muted">{t.healthBody}</Body>
+            <KioskHealthList lines={kioskHealthLines(health, locale)} locale={locale} />
+          </>
         ) : (
           <>
             <Heading size="title">
@@ -321,10 +335,26 @@ export function GuestScreen() {
                 }
               />
             ) : null}
+            {model.staffHealth ? (
+              <Button
+                label={t.staffHealth}
+                tone="secondary"
+                testID="kiosk-staff-health"
+                busy={model.busy}
+                disabled={!pinReady}
+                onPress={() =>
+                  void model.staffHealth?.(pin).then((facts) => {
+                    // The code is never kept, whatever the answer.
+                    setPin('');
+                    if (facts) setHealth(facts);
+                  })
+                }
+              />
+            ) : null}
           </>
         )}
         <Button
-          label={t.demoCancel}
+          label={health && !model.demo ? t.close : t.demoCancel}
           tone="secondary"
           testID="kiosk-demo-dismiss"
           onPress={closeStaff}

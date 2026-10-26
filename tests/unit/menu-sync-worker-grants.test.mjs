@@ -5,7 +5,10 @@ import { fileURLToPath } from 'node:url';
 import {
   MENU_SYNC_PRIVILEGES,
   MENU_SYNC_ROLE,
+  STATION_PLAN_PRIVILEGES,
+  menuSyncPrivileges,
   menuSyncWorkerGrants,
+  stationPlanWorkerGrants,
 } from '../../infra/windows/menu-sync-worker-grants.mjs';
 import {
   MENU_SYNC_BACKUP_MAX_AGE_MS,
@@ -112,6 +115,67 @@ test('every table and column the menu worker code writes or reads is granted, an
     sql,
     /FROM fulfillment_config WHERE branch_id = \$1\$\{lock \? ' FOR UPDATE' : ''\}/,
   );
+});
+
+test('station plan rights are opt-in and cover exactly what station-plan.ts touches', () => {
+  const sql = source('station-plan.ts');
+  const read = new Set(),
+    inserted = new Set(),
+    updated = new Set();
+  for (const [, table] of sql.matchAll(/\b(?:FROM|JOIN) ([a-z_]+)\b/g)) read.add(table);
+  for (const match of sql.matchAll(
+    /INSERT INTO ([a-z_]+)[\s\S]*?(?:ON CONFLICT[^`]*?DO UPDATE SET ([^`]*?))?(?:RETURNING|`)/g,
+  )) {
+    inserted.add(match[1]);
+    for (const [, column] of (match[2] ?? '').matchAll(/([a-z_]+) = /g))
+      updated.add(`${match[1]}.${column}`);
+  }
+  for (const match of sql.matchAll(/\bUPDATE ([a-z_]+) SET ([^']*?) WHERE/g))
+    for (const [, column] of match[2].matchAll(/([a-z_]+) = /g))
+      updated.add(`${match[1]}.${column}`);
+  assert.deepEqual([...inserted].sort(), [
+    'station_plan_active',
+    'station_plan_receipts',
+    'station_plan_snapshots',
+  ]);
+  assert.deepEqual([...updated].sort(), [
+    'station_plan_active.activated_at',
+    'station_plan_active.plan_id',
+    'station_plan_active.version',
+    'station_plan_receipts.reported_at',
+  ]);
+  const all = menuSyncPrivileges({ stationPlans: true });
+  for (const table of read) assert.equal(all[table]?.select, true, table);
+  for (const table of inserted) assert.equal(all[table]?.insert, true, table);
+  for (const key of updated) {
+    const [table, column] = key.split('.');
+    assert.ok(all[table]?.update.includes(column), key);
+  }
+  for (const [table, privileges] of Object.entries(STATION_PLAN_PRIVILEGES)) {
+    assert.equal(MENU_SYNC_PRIVILEGES[table], undefined, table);
+    if (privileges.insert) assert.ok(inserted.has(table), table);
+    for (const column of privileges.update) assert.ok(updated.has(`${table}.${column}`), column);
+  }
+  // Branch row lock for the plan transaction uses the existing branch_config privilege.
+  assert.match(sql, /SELECT id FROM branch_config WHERE id = \$1 FOR UPDATE/);
+  // Default grants are byte-identical to the reviewed menu-only set.
+  assert.equal(menuSyncPrivileges(), MENU_SYNC_PRIVILEGES);
+  assert.doesNotMatch(menuSyncWorkerGrants(MENU_SYNC_ROLE), /station_plan/);
+  assert.match(
+    menuSyncWorkerGrants(MENU_SYNC_ROLE, 'public', { stationPlans: true }),
+    /"public"\."station_plan_receipts"/,
+  );
+  assert.equal(
+    stationPlanWorkerGrants(MENU_SYNC_ROLE),
+    [
+      'GRANT SELECT ON "public"."station_plan_snapshots", "public"."station_plan_active", "public"."station_plan_receipts" TO "pickchick_menu_sync";',
+      'GRANT INSERT ON "public"."station_plan_snapshots", "public"."station_plan_active", "public"."station_plan_receipts" TO "pickchick_menu_sync";',
+      'GRANT UPDATE("plan_id", "version", "activated_at") ON "public"."station_plan_active" TO "pickchick_menu_sync";',
+      'GRANT UPDATE("reported_at") ON "public"."station_plan_receipts" TO "pickchick_menu_sync";',
+    ].join('\n'),
+  );
+  assert.throws(() => menuSyncPrivileges({ stationPlans: 'true' }));
+  assert.throws(() => stationPlanWorkerGrants('role; DROP'));
 });
 
 test('edge runtime gets read-only photo cache access only when schema018 is applied', () => {

@@ -42,6 +42,12 @@ export interface CatalogAdminOptions {
   kioskBranchId?: string;
   /** bo_access_grants role check: analyst reads only, manager writes. Off by default. */
   enforceRoles?: boolean;
+  /**
+   * Stage 2 owner flag CATALOG_EDGE_COMBO_STOPS_ENABLED (default off): edge publications carry
+   * the cashier combo stop fields. The cloud still delivers them only to an edge that sends the
+   * combo_stops menu feature; turn on after the cashier runtime that applies them is installed.
+   */
+  edgeComboStops?: boolean;
 }
 export function catalogAdminOptions(
   env: Readonly<Record<string, string | undefined>> = {},
@@ -64,6 +70,9 @@ export function catalogAdminOptions(
     (edge === 'true' && !z.uuid().safeParse(edgeBranch).success)
   )
     throw new Error('CATALOG_EDGE_PUBLICATION_CONFIGURATION_INVALID');
+  const comboStops = env['CATALOG_EDGE_COMBO_STOPS_ENABLED'] ?? 'false';
+  if (!['true', 'false'].includes(comboStops))
+    throw new Error('CATALOG_EDGE_COMBO_STOPS_CONFIGURATION_INVALID');
   const roles = env['CATALOG_ACCESS_ROLES_ENABLED'] ?? 'false';
   if (!['true', 'false'].includes(roles))
     throw new Error('CATALOG_ACCESS_ROLES_CONFIGURATION_INVALID');
@@ -73,6 +82,7 @@ export function catalogAdminOptions(
   return {
     enabled: value === 'true',
     ...(edge === 'true' ? { edgePublicationBranchId: edgeBranch! } : {}),
+    ...(edge === 'true' && comboStops === 'true' ? { edgeComboStops: true } : {}),
     ...(mobile === 'true' ? { mobileStorefrontBranchId: branchId! } : {}),
     ...(z.uuid().safeParse(kioskBranch).success ? { kioskBranchId: kioskBranch! } : {}),
     ...(roles === 'true' ? { enforceRoles: true } : {}),
@@ -388,6 +398,8 @@ export class CatalogAdmin {
               branch.id,
               latest.version + 1,
               new Date().toISOString(),
+              undefined,
+              { comboStops: this.options.edgeComboStops === true },
             );
           } catch (error) {
             throw error instanceof CatalogProjectionError

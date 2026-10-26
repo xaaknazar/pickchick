@@ -17,6 +17,7 @@ import {
 import type { StaffSession, LocalOrder, Quote, MenuSnapshot } from '@pickchick/contracts';
 import { transaction } from '@pickchick/database';
 import type { DatabaseClient, DatabasePool } from '@pickchick/database';
+import { menuLineStopIds } from '@pickchick/menu-sync';
 import { authenticateStaff, requirePermission, audit } from './staff.js';
 import type { StaffAuth } from './staff.js';
 import { OrderError } from './errors.js';
@@ -94,6 +95,27 @@ async function checkStops(client: DatabaseClient, branchId: string, variants: st
   );
   if (stopped.rowCount) throw new OrderError('ITEM_STOPPED');
 }
+/**
+ * Stop ids of priced lines in the active menu (combo stop rule, PM decision 1). With the
+ * optional combo_component_variant_ids / linked_variant_id fields the fixed components and the
+ * products behind chosen options count too; an old menu gives the old ids (item and options).
+ */
+function cartStopIds(
+  menu: MenuSnapshot,
+  lines: readonly {
+    variant_id: string;
+    modifiers?: readonly { group_id: string; option_id: string }[] | undefined;
+  }[],
+) {
+  const items = new Map(menu.items.map((item) => [item.variant_id, item]));
+  return lines.flatMap((line) => {
+    const item = items.get(line.variant_id);
+    const selections = line.modifiers ?? [];
+    return item
+      ? menuLineStopIds(item, selections)
+      : [line.variant_id, ...selections.map((s) => s.option_id)];
+  });
+}
 
 export async function createQuote(
   pool: DatabasePool,
@@ -111,14 +133,7 @@ export async function createQuote(
     if (!branch.ordering_enabled) throw new OrderError('BRANCH_UNAVAILABLE');
     const menu = await activeMenu(client, branchId);
     const pricing = priceCart(menu, cart);
-    await checkStops(
-      client,
-      branchId,
-      cart.items.flatMap((item) => [
-        item.variant_id,
-        ...(item.modifiers ?? []).map((m) => m.option_id),
-      ]),
-    );
+    await checkStops(client, branchId, cartStopIds(menu, cart.items));
     const time = (await client.query('SELECT clock_timestamp() AS time')).rows[0].time as Date;
     const quote = QuoteSchema.parse({
       quote_id: randomUUID(),
@@ -298,14 +313,8 @@ export async function createLocalOrder(
       const menu = await activeMenu(client, branchId);
       if (menu.release_id !== row.release_id) throw new OrderError('MENU_CHANGED');
       const quote = QuoteSchema.parse(row.snapshot);
-      await checkStops(
-        client,
-        branchId,
-        quote.lines.flatMap((item) => [
-          item.variant_id,
-          ...(item.modifiers ?? []).map((m) => m.option_id),
-        ]),
-      );
+      // The quote was priced on this same release (MENU_CHANGED above), so its lines resolve.
+      await checkStops(client, branchId, cartStopIds(menu, quote.lines));
       const shift = await requireOpenCashShift(client, branchId, actor);
       const shiftTotal = (
         await client.query(
