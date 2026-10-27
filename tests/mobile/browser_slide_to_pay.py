@@ -10,8 +10,9 @@ with local fixtures only: no bank, no real customer, no VPS request.
   A  bar zones; a tap shows the hint only; hold shows «тяни для оплаты»; a swipe without the hold,
      a short drag and Enter on the handle send nothing (no /quotes, /orders or /payment request);
      the handle STRETCHES (owner 6a): its left edge stays at the bar's left edge, its width grows
-     with the finger, the method mark rides at its right end and the pill covers the hint; an
-     early release returns it to the base width
+     with the finger, the method mark rides at its right end (centred under the finger) and the
+     pill covers the hint; an early release returns it to the base width on a visible spring
+     (about 0.4 s, never narrower than the base width), at once with reduced motion
   B  a full drag fills the bar with the pill and creates exactly one quote, one order and one
      invoice; reload/back resend nothing
   C  a changed price stops before the order; only a second explicit press continues
@@ -30,10 +31,16 @@ with local fixtures only: no bank, no real customer, no VPS request.
   M  last used payment method (owner 6b): kept per account (no card data), set by a choice in
      «Способ оплаты» and by a payment sent; a method that is «скоро» today (Apple Pay, card) or a
      broken value falls back to Kaspi on the handle (mark + accessible name) and in the selector
+  N  a future build where Apple Pay and the card can be chosen before their own payment flow
+     exists (the served bundle is patched in this browser only): the handle, the selector and the
+     pay button follow the choice («Оплатить картой», not «Оплатить с Банковская карта»), but a
+     press or a slide stops with a visible message and sends nothing; «Выбрать Kaspi.kz» is only
+     a choice, and the next explicit press pays once with Kaspi
 """
 from browser_network import isolated_context, route_fixture
 import json
 import os
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -221,6 +228,33 @@ def mark_box(page, method='kaspi'):
     return page.locator('#cart-pay-mark-' + method).filter(visible=True).bounding_box()
 
 
+def watch_pill(page, ms=1500):
+    # The visible pill's width on every animation frame from now on (for the early release).
+    page.get_by_test_id('cart-pay-pill').filter(visible=True).evaluate('''(pill, ms) => {
+      const samples = window.__pillWidths = [];
+      const start = performance.now();
+      const tick = (now) => {
+        samples.push([now - start, pill.getBoundingClientRect().width]);
+        if (now - start < ms) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }''', ms)
+
+
+def release_curve(page, start, rest):
+    # How the pill returned from `start` to its base width: when it started to move, when it
+    # reached the base width (within half a point), the share still left 120 ms after it started,
+    # the narrowest width and whether it ever grew again on the way back.
+    samples = page.evaluate('window.__pillWidths')
+    moving = next(t for t, w in samples if w < start - 0.5)
+    settled = next(t for t, w in samples if w <= rest + 0.5)
+    left = next(w for t, w in samples if t >= moving + 120)
+    widths = [w for _, w in samples]
+    return {'moving': moving, 'settle_ms': settled - moving, 'left_at_120': (left - rest) / (start - rest),
+            'narrowest': min(widths), 'monotonic': all(b <= a + 0.25 for a, b in zip(widths, widths[1:])),
+            'frames': len(samples), 'start': start, 'rest': rest}
+
+
 def slide(page, fraction, hold=450, steps=12, release_at_end=True):
     handle, _, travel = geometry(page)
     x, y = handle['x'] + handle['width'] / 2, handle['y'] + handle['height'] / 2
@@ -288,7 +322,9 @@ def scenario_bar_and_short_drag(browser, width, height, reduced):
     # The handle starts at the bar's left edge; the Kaspi mark (the only method today) is centred.
     assert 0 < box['x'] - bar['x'] <= 8 and abs(rest['x'] - box['x']) <= 1, (box, bar, rest)
     mark = mark_box(page)
-    assert abs(mark['x'] + mark['width'] / 2 - (rest['x'] + rest['width'] / 2)) <= 2, (mark, rest)
+    # Centred on the pill (and the finger), also across the glass rim: within half a point.
+    assert abs(mark['x'] + mark['width'] / 2 - (rest['x'] + rest['width'] / 2)) <= 0.5, (mark, rest)
+    assert abs(mark['y'] + mark['height'] / 2 - (rest['y'] + rest['height'] / 2)) <= 0.5, (mark, rest)
     expect(page.locator('#cart-pay-mark-apple_pay, #cart-pay-mark-google_pay, #cart-pay-mark-card')).to_have_count(0)
     expect(handle).to_have_attribute('aria-label', 'Оплатить через Kaspi')
     assert bar['x'] >= 0 and bar['x'] + bar['width'] <= width and bar['y'] + bar['height'] <= tab['y'], (bar, tab)
@@ -353,21 +389,33 @@ def scenario_bar_and_short_drag(browser, width, height, reduced):
     assert abs(visible['width'] - (rest['width'] + travel * 0.5)) <= 3, (visible, rest, travel)
     assert abs(frame['width'] - visible['width']) <= 1, (frame, visible)
     mark = mark_box(page)
-    assert abs(mark['x'] + mark['width'] / 2 - finger) <= 3, (mark, finger)
+    assert abs(mark['x'] + mark['width'] / 2 - finger) <= 1, (mark, finger)
+    assert abs(mark['y'] + mark['height'] / 2 - y) <= 0.5, (mark, y)
     assert visible['x'] + visible['width'] - (mark['x'] + mark['width']) <= rest['width'] / 2, (mark, visible)
     hint_box = page.get_by_test_id('cart-pay-hint').bounding_box()
     assert visible['x'] + visible['width'] > hint_box['x'] + 20, ('the pill covers the hint', visible, hint_box)
     # The hint stays at full strength: the pill covers it, it does not fade away.
     assert opacity(page.get_by_test_id('cart-pay-hint')) > 0.95
     page.screenshot(path=str(OUT / f'mid-drag-{width}.png'))
+    stretched = visible['width']
+    watch_pill(page)
     page.mouse.up()
-    page.wait_for_timeout(900)
+    page.wait_for_timeout(1700)
     # Early release: back to the base width at the same left edge, nothing sent.
     frame, visible = pill(page)
     assert abs(frame['x'] - start) < 1 and abs(visible['width'] - rest['width']) < 1.5, (frame, visible, rest)
     assert abs(frame['width'] - box['width']) < 1.5, (frame, box)
     mark = mark_box(page)
-    assert abs(mark['x'] + mark['width'] / 2 - (rest['x'] + rest['width'] / 2)) <= 2, (mark, rest)
+    assert abs(mark['x'] + mark['width'] / 2 - (rest['x'] + rest['width'] / 2)) <= 0.5, (mark, rest)
+    # The way back (owner 6a): a visible spring that shrinks without ever going narrower than the
+    # base width or growing again, about 0.4 s; with reduced motion the width is set at once.
+    curve = release_curve(page, stretched, rest['width'])
+    print(f'early release {width}x{height} {reduced}: {curve}')
+    assert curve['monotonic'] and curve['narrowest'] >= rest['width'] - 0.5, curve
+    if reduced == 'reduce':
+        assert curve['settle_ms'] <= 50, curve
+    else:
+        assert 250 <= curve['settle_ms'] <= 1200 and curve['left_at_120'] >= 0.15, curve
     expect(page.get_by_test_id('cart-pay-hint')).to_have_count(0)
     assert opacity(page.get_by_test_id('cart-shortcut-total')) > 0.95
     # 80 % is still not enough.
@@ -825,8 +873,99 @@ def scenario_payment_method(browser):
     ctx.close()
 
 
+# Apple Pay and the card as a future build would list them: available, without their own flow yet.
+FUTURE_METHODS = re.compile(r"(\{id:'(apple_pay|card)',label:\w+\('\2'\),available:)!1\}")
+
+
+def text(locator):
+    # Visible words only: icon glyphs (the card mark is an icon font character) are left out.
+    return locator.evaluate("(e) => e.innerText.replace(/[\\uE000-\\uF8FF]/g, '').replace(/\\s+/g, ' ').trim()")
+
+
+def posts(state):
+    return [p for p in checkout_traffic(state) if not p.startswith('GET ')]
+
+
+def scenario_unconnected_method(browser, width, height):
+    # Owner 6b, before another method gets its own flow: the Kaspi cart has one flow (the Kaspi
+    # invoice). A future build may list Apple Pay or the card as available first; then the handle,
+    # «Способ оплаты» and the pay button follow the customer's choice, but a press or a slide must
+    # say that the method is not connected and send nothing, never do nothing silently.
+    state = new_state()
+    ctx, page = make_context(browser, state, width, height, 'reduce')
+    patched = []
+
+    def bundle(route):
+        response = route.fetch()
+        body, count = FUTURE_METHODS.subn(r'\1!0}', response.text())
+        patched.append(count)
+        route.fulfill(response=response, body=body)
+
+    # Through the guarded fixture: the bundle is fetched from the local preview server only.
+    route_fixture(ctx, '**/_expo/static/js/web/entry-*.js', bundle)
+    page.goto(URL + '/menu')
+    add(page)
+    expect(page.get_by_test_id('launch-reveal')).to_have_count(0)
+    assert patched and all(count == 2 for count in patched), ('Apple Pay and card made available', patched)
+    state['quote_total'] = minor(page.get_by_test_id('cart-shortcut-total').filter(visible=True).inner_text())
+    # A new customer still starts with Kaspi (the first available method).
+    handle = page.get_by_test_id('cart-pay-handle').filter(visible=True)
+    expect(handle).to_have_attribute('aria-label', 'Оплатить через Kaspi')
+    page.get_by_test_id('open-cart').click()
+    pay = pay_button(page)
+    expect(pay).to_be_enabled(timeout=15000)
+    # The card: chosen, remembered, and the button reads «Оплатить [card] картой».
+    page.get_by_test_id('cart-payment-method').click()
+    page.get_by_test_id('cart-payment-card').click()
+    expect(page.get_by_test_id('cart-payment-sheet')).to_have_count(0)
+    stored(page, METHOD_KEY, method='card', source='choice')
+    expect(page.get_by_test_id('cart-payment-method-name')).to_have_text('Банковская карта')
+    assert text(pay) == 'Оплатить картой', text(pay)
+    expect(pay).to_have_accessible_name('Оплатить картой, 4 190 ₸')
+    pay.click()
+    stop = page.get_by_test_id('cart-pay-method-stop')
+    expect(stop).to_contain_text('Этот способ оплаты пока не подключён. Заказ не оформлен, деньги не списаны.')
+    page.screenshot(path=str(OUT / f'method-not-connected-card-{width}.png'))
+    # The stop and the pay button stay on screen above the fold, also at 320 x 568.
+    assert stop.bounding_box()['y'] >= 0 and pay.bounding_box()['y'] + pay.bounding_box()['height'] <= height, (stop.bounding_box(), pay.bounding_box())
+    wait_quiet(page, 1500)
+    assert not posts(state) and state['patches'] == 0, (posts(state), state)
+    # Apple Pay: the handle shows its mark and name; a full slide opens the cart, which says the
+    # same instead of sending anything.
+    page.get_by_test_id('cart-payment-method').click()
+    page.get_by_test_id('cart-payment-apple_pay').click()
+    stored(page, METHOD_KEY, method='apple_pay', source='choice')
+    expect(stop).to_have_count(0)
+    assert text(pay) == 'Оплатить с Apple Pay', text(pay)
+    page.get_by_test_id('cart-close').click()
+    expect(page.get_by_test_id('cart-shortcut')).to_be_visible(timeout=10000)
+    expect(handle).to_have_attribute('aria-label', 'Оплатить через Apple Pay')
+    expect(page.locator('#cart-pay-mark-apple_pay').filter(visible=True)).to_be_visible()
+    slide(page, 1.0)
+    expect(page.get_by_test_id('screen-M09').get_by_test_id('cart-pay-method-stop')).to_be_visible(timeout=15000)
+    assert urlparse(page.url).path.rstrip('/') == '/cart' and 'slide=' in page.url, page.url
+    page.screenshot(path=str(OUT / f'method-not-connected-slide-{width}.png'))
+    wait_quiet(page)
+    assert not posts(state) and state['patches'] == 0, (posts(state), state)
+    # «Выбрать Kaspi.kz» is a choice, not a payment: nothing is sent until a new explicit press.
+    page.get_by_test_id('cart-pay-method-kaspi').click()
+    expect(page.get_by_test_id('cart-pay-method-stop')).to_have_count(0)
+    stored(page, METHOD_KEY, method='kaspi', source='choice')
+    assert text(pay) == 'Оплатить с Kaspi.kz', text(pay)
+    wait_quiet(page, 1500)
+    assert not posts(state), posts(state)
+    pay.click()
+    expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi', timeout=15000)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    stored(page, METHOD_KEY, method='kaspi', source='payment')
+    wait_quiet(page)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    release(state)
+    ctx.close()
+
+
 if __name__ == '__main__':
-    SELECTED = os.environ.get('SLIDE_TO_PAY', 'ABCDEFGHIJKLM').upper()
+    SELECTED = os.environ.get('SLIDE_TO_PAY', 'ABCDEFGHIJKLMN').upper()
     with sync_playwright() as p:
         browser = p.chromium.launch()
         if 'A' in SELECTED:
@@ -857,6 +996,9 @@ if __name__ == '__main__':
             scenario_tabs(browser, 320, 568)
         if 'M' in SELECTED:
             scenario_payment_method(browser)
+        if 'N' in SELECTED:
+            scenario_unconnected_method(browser, 393, 852)
+            scenario_unconnected_method(browser, 320, 568)
         browser.close()
     assert not errors, errors
     print('PASS slide to pay into the Kaspi cart (' + SELECTED + '): hold hint, the pill stretches from a fixed left '
@@ -866,4 +1008,5 @@ if __name__ == '__main__':
           'App Review account refused once, DEMO-1 without cart bar or mutations, gift total = invoice, '
           'hint fits in RU/KK/EN at 320 pt, an old unbilled intent does not block the slide, '
           'back to cart after a slide, the same bar above the three tabs and below the header, '
-          'none on the profile, one payment from События, last used payment method per account with Kaspi fallback')
+          'none on the profile, one payment from События, last used payment method per account with Kaspi fallback, '
+          'a method without its own flow stops with a message and sends nothing')
