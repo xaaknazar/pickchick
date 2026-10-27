@@ -31,6 +31,19 @@ pnpm --filter @pickchick/mobile android
 Для TestFlight нужен встроенный Release bundle:
 [локальный выпуск](../../docs/operations/mobile-testflight.md).
 
+### Стекло Apple (Liquid Glass)
+
+Круглые стеклянные кнопки, кнопка профиля и капсула корзины на iPhone с iOS 26 и новее
+рисуются системным стеклом Apple (`expo-glass-effect`, `GlassView`). На iOS ниже 26, Android
+и вебе - запасной вид (`expo-blur` / CSS-размытие), при «Понижении прозрачности» -
+непрозрачная заливка. Выбор поверхности - `src/glass.ts`, подробности -
+[линия glass](../../docs/operations/mobile-redesign-2026-10-27/glass.md).
+
+Сборка для настоящего стекла - **Xcode 26 или новее (iOS 26 SDK, Swift 6.2)**. Со старым
+Xcode модуль собирается без кода Liquid Glass, и приложение показывает запасной вид.
+Минимальная версия iOS приложения не меняется (16.4, как у ExpoModulesCore). Веб-превью и
+скриншоты Playwright показывают только запасной вид.
+
 ### Сервер сборки (staging / production)
 
 Адрес API выбирается при сборке (`src/build-config.ts`, тот же расчёт в `app.config.ts`):

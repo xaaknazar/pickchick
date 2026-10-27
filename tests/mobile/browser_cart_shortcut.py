@@ -76,6 +76,12 @@ with sync_playwright() as p:
             expect(page.get_by_test_id('cart-recent-photo-1')).to_have_count(0)
             # Not a Kaspi checkout build: no payment handle, the whole capsule opens the cart.
             expect(page.get_by_test_id('cart-pay-handle')).to_have_count(0)
+            # The bag pill lies on the handle's opaque base inside the capsule (on iOS 26 Apple's
+            # glass cannot sample the capsule's glass) and has the common light rim.
+            bag = page.get_by_test_id('cart-bag-pill')
+            expect(bag).to_be_visible()
+            expect(bag).to_have_css('background-color', 'rgb(7, 26, 68)')
+            expect(bag).to_have_css('border-top-color', 'rgba(255, 255, 255, 0.3)')
             capsule = page.get_by_test_id('cart-shortcut').bounding_box()
             assert abs(pill.bounding_box()['width'] - capsule['width']) <= 12, (pill.bounding_box(), capsule)
             footer = page.get_by_test_id('bottom-actions').filter(has=pill)
@@ -187,4 +193,5 @@ with sync_playwright() as p:
     browser.close()
 assert not errors, errors
 print('PASS: every tab / four sizes, transparent floating docks, total only, last three photos in add order '
-      '(persisted), no Kaspi handle outside the Kaspi build, navigation and empty cart')
+      '(persisted), no Kaspi handle outside the Kaspi build (the bag pill on its opaque base), navigation and '
+      'empty cart')

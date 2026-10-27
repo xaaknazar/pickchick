@@ -11,7 +11,10 @@ no bank, no real customer, no VPS request.
   - a guest is sent to sign-in (Kaspi reason, glass back on the code step) and back to the cart,
     nothing is ordered;
   - a burst of +/- taps re-reads the Kaspi session once (one GET /config, not one per tap);
-  - the menu hero video keeps playing under the cart sheet and pauses for tabs/full screens.
+  - the menu hero video keeps playing under the cart sheet and pauses for tabs/full screens;
+  - the glass (owner 28.10: Apple's style): iOS 26 draws Apple's Liquid Glass, this web build the
+    fallback - light rim, specular edge, thin veil over the blur - and an opaque fill when the
+    system reduces transparency.
 """
 from browser_network import isolated_context, route_fixture
 import json, os, subprocess
@@ -416,6 +419,99 @@ def product_glass(browser, width, height):
     close(ctx, state)
 
 
+def glass_parts(locator):
+    # The fallback glass of one control (the web build; iOS 26 draws Apple's Liquid Glass instead):
+    # its rim, blur layers, specular edge and the translucent or opaque fills inside it.
+    return locator.evaluate("""(el) => {
+      const styles = [el, ...el.querySelectorAll('*')].map((n) => getComputedStyle(n));
+      return {
+        rim: getComputedStyle(el).borderTopColor,
+        blur: styles.some((s) => (s.backdropFilter || s.webkitBackdropFilter || '').includes('blur')),
+        specular: styles.some((s) => s.boxShadow.includes('inset')),
+        fills: styles.map((s) => s.backgroundColor).filter((c) => c !== 'rgba(0, 0, 0, 0)'),
+      };
+    }""")
+
+
+def glass_look(browser, width, height):
+    # Owner 28.10.2026: Apple's glass style. The web fallback imitates Liquid Glass: a light rim, a
+    # specular inner edge, a thin veil over the blur; reduced transparency makes it opaque, live.
+    ctx, page, state = make_context(browser, width, height)
+    page.goto(URL + '/menu')
+    page.get_by_test_id('product-pick-combo').click(timeout=25000)
+    page.get_by_test_id('product-add').click()
+    bar = page.get_by_test_id('cart-shortcut').filter(visible=True)
+    expect(bar).to_be_visible()
+    profile = page.get_by_test_id('screen-M06').get_by_test_id('header-profile')
+    expect(profile.locator('#header-profile-avatar')).to_have_count(1)
+    parts = glass_parts(bar)
+    assert parts['blur'] and parts['specular'], parts
+    assert 'rgba(10, 32, 80, 0.8)' in parts['fills'] and parts['rim'] == 'rgba(255, 255, 255, 0.24)', parts
+    pill = page.get_by_test_id('cart-pay-pill').filter(visible=True)
+    # The handle's glass lies on its opaque base (#071A44), never on the capsule's glass (on iOS 26
+    # Apple's glass cannot sample glass); the header profile keeps its brighter 0.4 rim over the video.
+    for shape, rim in ((pill, 'rgba(255, 255, 255, 0.3)'), (profile, 'rgba(255, 255, 255, 0.4)')):
+        parts = glass_parts(shape)
+        assert parts['blur'] and parts['specular'] and parts['rim'] == rim, parts
+    assert glass_parts(pill)['fills'][0] == 'rgb(7, 26, 68)', glass_parts(pill)
+    assert blur_is_round(profile)
+    # The avatar sits inside the glass with a 3 pt ring of glass around it (Drinkit's profile).
+    outer, avatar = profile.bounding_box(), profile.locator('#header-profile-avatar').bounding_box()
+    assert abs(avatar['width'] - (outer['width'] - 6)) <= 0.5 and abs(avatar['height'] - avatar['width']) <= 0.5, (outer, avatar)
+    assert abs((avatar['x'] + avatar['width'] / 2) - (outer['x'] + outer['width'] / 2)) <= 0.5, (outer, avatar)
+    assert abs((avatar['y'] + avatar['height'] / 2) - (outer['y'] + outer['height'] / 2)) <= 0.5, (outer, avatar)
+    # The screenshot shows the menu from the top (opening the product scrolled it at 320 pt).
+    page.get_by_test_id('product-pick-combo').evaluate("""(el) => {
+      for (let n = el.parentElement; n; n = n.parentElement)
+        if (n.scrollHeight > n.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(n).overflowY)) {
+          n.scrollTop = 0;
+          return;
+        }
+    }""")
+    page.wait_for_timeout(600)
+    page.screenshot(path=str(OUT / f'menu-glass-{width}.png'))
+    page.get_by_test_id('open-cart').filter(visible=True).click()
+    expect(page.get_by_test_id('screen-M09')).to_be_visible()
+    expect(page.get_by_test_id('cart-pay')).to_be_enabled(timeout=15000)
+    controls = [page.get_by_test_id(i) for i in
+                ('cart-clear', 'cart-close', 'cart-minus-pick-combo', 'cart-plus-pick-combo')]
+    for control in controls:
+        parts = glass_parts(control)
+        assert parts['blur'] and parts['specular'] and parts['rim'] == 'rgba(255, 255, 255, 0.3)', parts
+        assert 'rgba(16, 36, 84, 0.26)' in parts['fills'], parts
+    page.wait_for_timeout(400)
+    page.screenshot(path=str(OUT / f'cart-glass-{width}.png'))
+    # The system asks for reduced transparency: no blur, an opaque fill, the rim stays.
+    cdp = ctx.new_cdp_session(page)
+    cdp.send('Emulation.setEmulatedMedia',
+             {'features': [{'name': 'prefers-reduced-transparency', 'value': 'reduce'}]})
+    page.wait_for_function("() => matchMedia('(prefers-reduced-transparency: reduce)').matches")
+    page.wait_for_function("""() => {
+      const el = document.querySelector('[data-testid="cart-close"]');
+      return el && ![el, ...el.querySelectorAll('*')].some((n) =>
+        (getComputedStyle(n).backdropFilter || '').includes('blur'));
+    }""")
+    for control in controls:
+        parts = glass_parts(control)
+        assert not parts['blur'] and 'rgb(18, 48, 104)' in parts['fills'], parts
+        assert parts['rim'] == 'rgba(255, 255, 255, 0.3)', parts
+    page.wait_for_timeout(300)
+    page.screenshot(path=str(OUT / f'cart-glass-solid-{width}.png'))
+    page.get_by_test_id('cart-close').click()
+    expect(page.get_by_test_id('screen-M09')).to_have_count(0)
+    parts = glass_parts(bar)
+    assert not parts['blur'] and 'rgb(10, 32, 80)' in parts['fills'], parts
+    # The handle and the profile keep their rims on the solid glass too (on iOS 26 the rim comes
+    # back with Reduce Transparency: it follows the surface, not a value fixed at launch).
+    for shape, rim in ((pill, 'rgba(255, 255, 255, 0.3)'), (profile, 'rgba(255, 255, 255, 0.4)')):
+        parts = glass_parts(shape)
+        assert not parts['blur'] and parts['rim'] == rim and 'rgb(18, 48, 104)' in parts['fills'], parts
+    page.wait_for_timeout(300)
+    page.screenshot(path=str(OUT / f'menu-glass-solid-{width}.png'))
+    assert not state['mutations'], state['mutations']
+    close(ctx, state)
+
+
 def guest(browser):
     ctx, page, state = make_context(browser, 393, 852, signed=False)
     add_combo_and_open_cart(page)
@@ -520,6 +616,7 @@ with sync_playwright() as p:
         cart_page(browser, width, height)
         three_items(browser, width, height)
         product_glass(browser, width, height)
+        glass_look(browser, width, height)
     guest(browser)
     hero_video(browser)
     browser.close()
@@ -528,4 +625,6 @@ print('PASS cart page 393/320: Drinkit top bar (red glass trash, pin + point, gl
       'one re-read per burst of edits, removed blocks/small print, comment, payment selector (Kaspi only, others '
       '«скоро»), one press = 1 quote + 1 order + 1 invoice, 3-item total, glass product close, guest -> sign-in '
       '(Kaspi reason, glass X and code-step back) -> cart, hero video plays under the cart and pauses for tab/full '
-      'screen/background, round blur layers (no square patch), waiting scene fits at 393 and 320 (also with large text)')
+      'screen/background, round blur layers (no square patch), waiting scene fits at 393 and 320 (also with large text), '
+      'Liquid Glass fallback (light rim, specular edge, thin veil; bar, handle on its opaque base, profile 0.4 rim and '
+      'ring around the avatar) and opaque glass with reduced transparency (rims kept)')

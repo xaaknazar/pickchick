@@ -10,7 +10,6 @@ import {
   Text,
   View,
   useWindowDimensions,
-  type ViewStyle,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
@@ -23,7 +22,8 @@ import Animated, {
 import { MotionPressable as Pressable, useReducedMotion } from './Motion';
 import { ProductPhoto, productPhoto, type ProductPhotoSource } from './ProductPhoto';
 import { KaspiSlideToPay, type SlidePhase } from './KaspiSlideToPay';
-import { GlassFill, glassRim } from './GlassButton';
+import { GlassFill, glassBarRim, useGlassBarStyle, useGlassRim } from './GlassButton';
+import { glass } from '../glass';
 import { cartTotal } from '../domain';
 import {
   cartBarLayout,
@@ -49,15 +49,8 @@ const OVERLAP = 16;
 /** Large text: the hint grows up to x1.4, then shrinks to fit (KK at 320 pt). */
 const HINT_MAX_SCALE = 1.4;
 const HINT_MIN_FIT = 0.7;
-const glass = 'rgba(10, 32, 80, 0.94)';
-// Same backdrop as the floating tab bar on the web build; native keeps the navy glass.
-const webGlass =
-  Platform.OS === 'web'
-    ? ({
-        backdropFilter: 'saturate(180%) blur(20px)',
-        WebkitBackdropFilter: 'saturate(180%) blur(20px)',
-      } as ViewStyle)
-    : null;
+/** The capsule is always ROW + 2 * PAD tall inside its rim (the cart button's minimum height). */
+const CAPSULE_RADIUS = (ROW + PAD * 2) / 2 + glassBarRim;
 
 /** A product without its own photo (or a restored unavailable line) gets a neutral circle. */
 function hasPhoto(photo: ProductPhotoSource) {
@@ -115,6 +108,8 @@ export function CartShortcut({
     payableTotalMinor(cartTotal(model.cart), model.comboRewards?.discountMinor),
   );
   const reduced = useReducedMotion();
+  const capsuleGlass = useGlassBarStyle();
+  const pillRim = useGlassRim();
   const { width, fontScale } = useWindowDimensions();
   const layout = cartBarLayout({ width, fontScale, totalLength: total.length });
   const recent = recentCartLines(model.cart, model.recentCartProductIds, layout.photos);
@@ -235,8 +230,10 @@ export function CartShortcut({
         <View
           testID="cart-shortcut"
           onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
-          style={[s.capsule, webGlass]}
+          style={[s.capsule, capsuleGlass]}
         >
+          {/* The capsule's glass (Apple's Liquid Glass on iOS 26), drawn below everything. */}
+          <GlassFill radius={CAPSULE_RADIUS} rim={glassBarRim} place="bar" body={false} />
           {/* Reading and focus order follow the picture: the hint, the payment handle, then the
               cart button. Nothing gets a zIndex, which would move the handle last on iOS. The
               handle is drawn after the hint, so its stretching pill covers the hint. */}
@@ -294,11 +291,12 @@ export function CartShortcut({
                 right now shows nothing on the left (Drinkit, owner 28.10.2026). */}
             {!payable ? (
               <View
+                testID="cart-bag-pill"
                 pointerEvents="none"
                 accessible={false}
                 accessibilityElementsHidden
                 importantForAccessibility="no-hide-descendants"
-                style={[s.bag, { width: layout.handleWidth }]}
+                style={[s.bag, pillRim, { width: layout.handleWidth }]}
               >
                 <GlassFill radius={ROW / 2} />
                 <Icon name="bag-handle-outline" size={24} color={brandColors.brandOrange} />
@@ -388,9 +386,7 @@ const s = StyleSheet.create({
     paddingHorizontal: PAD,
     flexDirection: 'row',
     alignItems: 'stretch',
-    backgroundColor: glass,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
+    // Body, rim and blur per surface: useGlassBarStyle (Liquid Glass, web blur, navy, solid).
     shadowColor: '#000000',
     shadowOpacity: 0.35,
     shadowOffset: { width: 0, height: 8 },
@@ -415,7 +411,8 @@ const s = StyleSheet.create({
     borderRadius: ROW / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    ...glassRim,
+    // The handle's opaque base: inside the capsule's glass, Apple's glass never lies on glass.
+    backgroundColor: glass.pillBase,
     flexShrink: 0,
   },
   middle: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center' },

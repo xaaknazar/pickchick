@@ -54,11 +54,16 @@ function HoursCaption({ model }: { model: HeaderScreen['model'] }) {
   );
 }
 
+/** Ring of glass around the avatar, as on Drinkit's profile button (owner 28.10.2026). */
+const AVATAR_RING = 3;
+const AVATAR = appHeaderMetrics.profileSize - AVATAR_RING * 2;
+
 /**
  * Round glass profile button (owner 27.10.2026: «улучши дизайн иконки профиля»). Signed in: the
- * profile card's avatar clipped to the circle with a thin light rim. Guest, or while the account
- * is restored: a filled person glyph on the glass. Never an unread mark (notifications live in
- * the profile). The press scales slightly (GlassButton).
+ * profile card's avatar clipped to a circle with a thin light rim, inside the glass. Guest, or
+ * while the account is restored: a filled person glyph on the glass. Never an unread mark
+ * (notifications live in the profile). The press is the glass's own (GlassButton: Apple's
+ * interactive Liquid Glass on iOS 26, a slight scale elsewhere).
  */
 function ProfileButton({ onPress }: { onPress(): void }) {
   useLocale();
@@ -72,8 +77,8 @@ function ProfileButton({ onPress }: { onPress(): void }) {
       label={t('Профиль')}
       size={size}
       iconSize={24}
+      place="header"
       onPress={onPress}
-      style={avatar ? s.avatarRim : s.guestRim}
     >
       {avatar ? (
         <View nativeID="header-profile-avatar" pointerEvents="none" style={s.avatarClip}>
@@ -167,18 +172,15 @@ const s = StyleSheet.create({
     color: '#FFFFFFDD',
     textAlign: 'left',
   },
-  // Thin light rim around the avatar; the guest glyph keeps a slightly brighter glass rim so the
-  // circle reads on the bright hero video and on the dark events/orders background.
-  avatarRim: { borderWidth: 1.5, borderColor: 'rgba(255, 255, 255, 0.78)' },
-  guestRim: { borderColor: 'rgba(255, 255, 255, 0.4)' },
+  // The avatar sits inside the glass with a ring of glass around it (Drinkit's profile button,
+  // owner 28.10) and keeps its own thin light rim (owner 27.10).
   avatarClip: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    borderRadius: appHeaderMetrics.profileSize / 2,
+    width: AVATAR,
+    height: AVATAR,
+    borderRadius: AVATAR / 2,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.7)',
     backgroundColor: colors.background,
   },
 });

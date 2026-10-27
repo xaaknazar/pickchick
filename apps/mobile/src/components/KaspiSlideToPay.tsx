@@ -14,7 +14,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { assets } from '../assets';
 import { paymentHandleLabel, type PaymentMethodId } from '../payment-method';
-import { GlassFill, glassRim } from './GlassButton';
+import { glass } from '../glass';
+import { GlassFill, glassRimWidth, useGlassRim } from './GlassButton';
 import { methodGlyph } from './PaymentChoice';
 import { Icon } from './UI';
 
@@ -38,7 +39,7 @@ export const SLIDE_RETURN_SPRING = {
   overshootClamping: true,
 } as const;
 /** The pill's glass rim: the mark is centred on the pill's outer edge, not inside the rim. */
-const RIM = glassRim.borderWidth;
+const RIM = glassRimWidth;
 
 /**
  * Round mark of the active payment method under the finger (owner 27.10.2026, item 6b): the
@@ -221,6 +222,7 @@ export function KaspiSlideToPay({
         } as object)
       : {};
   const mark = Math.min(34, height - 18);
+  const rim = useGlassRim();
   return (
     <GestureDetector gesture={gesture}>
       <Animated.View
@@ -244,12 +246,13 @@ export function KaspiSlideToPay({
           stretch,
         ]}
       >
-        {/* The same glass as every round button (27.10.2026) on a dark base, so the stretched
-            pill covers the hint instead of showing it through. */}
+        {/* The same glass as every round button (27.10.2026) on an opaque dark base: the
+            stretched pill covers the hint, and on iOS 26 its glass samples the base, not the
+            capsule's glass. */}
         <View
           testID="cart-pay-pill"
           pointerEvents="none"
-          style={[s.handle, { height, borderRadius: height / 2 }]}
+          style={[s.handle, rim, { height, borderRadius: height / 2 }]}
         >
           <GlassFill radius={height / 2} />
           <View style={[s.markSlot, { width, height, right: -RIM, top: -RIM }]}>
@@ -266,8 +269,7 @@ const s = StyleSheet.create({
   frame: { alignItems: 'stretch', justifyContent: 'center' },
   handle: {
     width: '100%',
-    backgroundColor: '#071A44',
-    ...glassRim,
+    backgroundColor: glass.pillBase,
     shadowColor: '#000000',
     shadowOpacity: 0.3,
     shadowOffset: { width: 0, height: 3 },
