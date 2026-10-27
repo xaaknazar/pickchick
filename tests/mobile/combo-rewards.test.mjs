@@ -154,6 +154,23 @@ test('the new app parses an API still on 7 + 1 and never draws more than six sta
   assert.equal(comboProgressView({ status: 'ready', data: null, commercial: completed }).count, 6);
 });
 
+// These mixed-version states are why the release order is fixed: API with 6 + 1 first,
+// then the 6 + 1 app, and only then the promotion is enabled (owner signs off the timing).
+test('release order gates: both mixed-version states would confuse customers if enabled early', () => {
+  // New app against an API still on 7 + 1: at 6 of 7 all six slots are checked while the
+  // title still asks for one more combo. Shipping the 6 + 1 API before the app prevents it.
+  const sixOfSeven = CustomerComboRewardsSchema.parse(response(oldApiProgress(6)));
+  const fresh = { status: 'ready', data: null, commercial: sixOfSeven };
+  assert.equal(comboProgressView(fresh).count, 6);
+  assert.equal(comboNextStep(fresh).title, 'Ещё 1 комбо до подарка');
+  // Installed build 21/23 (seven slots) against the 6 + 1 API: a gift is offered while only
+  // six of its seven slots are checked. Enable only after the 6 + 1 build is published.
+  const installed = installedBuildSchema.parse(response(progress(6)));
+  assert.equal(installed.availableGifts, 1);
+  assert.equal(installed.visibleStamps, 6);
+  assert.ok(installed.visibleStamps < 7);
+});
+
 test('negative, fractional and unsafe balances are never rendered as real progress', () => {
   for (const invalid of [-1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, '7', null]) {
     for (const field of ['earnedUnits', 'usedGifts', 'reservedGifts']) {

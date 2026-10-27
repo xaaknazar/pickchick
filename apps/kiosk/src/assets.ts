@@ -12,6 +12,7 @@ export const assets = {
   hero: require('../../../design/prototype/assets/mockup/hero.mp4'),
   poster: require('../../../design/prototype/assets/mockup/hero-poster.jpg'),
   billboard: require('../assets/v3/billboard-master.webp'),
+  // Unused: drawn for the old 7 + 1 rule (seven checks and a gift). Redraw for 6 + 1 first.
   billboardPromo: require('../assets/v3/billboard-7plus1.webp'),
   chefTray: require('../../mobile/assets/order-status/chef-ready.png'),
   chefBag: require('../../mobile/assets/order-status/chef-ready-takeaway.png'),
