@@ -272,14 +272,21 @@ final class SmokeTests: XCTestCase {
         app.buttons["Назад"].firstMatch.tap()
         app.buttons["Закрыть блюдо"].firstMatch.tap()
         // Owner 27.10.2026: the profile opens from the header and is a pushed screen.
-        tap("header-profile", in: app)
+        tapHeaderProfile(in: app)
         assertScreen("M30", in: app)
         attachScreenshot("Mockup-profile", of: app)
         tap("profile-back", in: app)
+        assertGone("screen-M30", in: app)
         assertScreen("M06", in: app)
         tap("tab-events", in: app)
         assertScreen("M26", in: app)
         attachScreenshot("Mockup-events", of: app)
+        // Menu and events are both mounted now, each with a header; the visible one opens it.
+        tapHeaderProfile(in: app)
+        assertScreen("M30", in: app)
+        tap("profile-back", in: app)
+        assertGone("screen-M30", in: app)
+        assertScreen("M26", in: app)
     }
 
     @MainActor
@@ -338,7 +345,7 @@ final class SmokeTests: XCTestCase {
         attachScreenshot("Registration-actions-above-keyboard", of: app)
         save.tap()
         assertScreen("M06", in: app)
-        tap("header-profile", in: app)
+        tapHeaderProfile(in: app)
         assertScreen("M30", in: app)
         XCTAssertTrue(app.staticTexts["Keyboard Profile"].exists)
         attachScreenshot("Keyboard-local-profile", of: app)
@@ -357,7 +364,7 @@ final class SmokeTests: XCTestCase {
         // The fixed demonstration code never sends SMS or authenticates this
         // synthetic phone with the ordering API. Exercise the live profile UI.
         let app = launchApp()
-        tap("header-profile", in: app)
+        tapHeaderProfile(in: app)
         if element("demo-sign-out", in: app).exists {
             tap("demo-sign-out", in: app)
         }
@@ -389,7 +396,7 @@ final class SmokeTests: XCTestCase {
         attachScreenshot("Registration-birthday-complete", of: app)
         tap("nickname-save", in: app)
         assertScreen("M06", in: app)
-        tap("header-profile", in: app)
+        tapHeaderProfile(in: app)
         assertScreen("M30", in: app)
         XCTAssertTrue(app.staticTexts["Native Demo"].exists)
         XCTAssertTrue(app.staticTexts["+7 700 000-00-00"].exists)
@@ -399,7 +406,7 @@ final class SmokeTests: XCTestCase {
         app.terminate()
         app.launch()
         assertScreen("M06", in: app)
-        tap("header-profile", in: app)
+        tapHeaderProfile(in: app)
         XCTAssertTrue(element("demo-sign-out", in: app).waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Native Demo"].exists)
         XCTAssertTrue(app.staticTexts["+7 700 000-00-00"].exists)
@@ -548,7 +555,7 @@ final class SmokeTests: XCTestCase {
 
     @MainActor
     private func beginDemoRegistration(in app: XCUIApplication) {
-        tap("header-profile", in: app)
+        tapHeaderProfile(in: app)
         if element("demo-sign-out", in: app).exists {
             tap("demo-sign-out", in: app)
         }
@@ -704,6 +711,34 @@ final class SmokeTests: XCTestCase {
         reveal(target, in: app)
         XCTAssertTrue(target.isEnabled, "Expected enabled control \(identifier)")
         target.tap()
+    }
+
+    // Visited tabs stay mounted, so each one can hold a header-profile; tap the one on screen.
+    @MainActor
+    private func tapHeaderProfile(in app: XCUIApplication) {
+        let buttons = app.descendants(matching: .any).matching(identifier: "header-profile")
+        XCTAssertTrue(buttons.firstMatch.waitForExistence(timeout: 10), "Missing header-profile")
+        var visible: XCUIElement?
+        let deadline = Date().addingTimeInterval(10)
+        repeat {
+            visible = buttons.allElementsBoundByIndex.first { $0.isHittable }
+            if visible == nil { RunLoop.current.run(until: Date().addingTimeInterval(0.2)) }
+        } while visible == nil && Date() < deadline
+        guard let target = visible else {
+            XCTFail("No visible header-profile among \(buttons.count) matches")
+            return
+        }
+        XCTAssertTrue(target.isEnabled, "Expected enabled control header-profile")
+        target.tap()
+    }
+
+    @MainActor
+    private func assertGone(_ identifier: String, in app: XCUIApplication,
+                            file: StaticString = #filePath, line: UInt = #line) {
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
+                                             object: element(identifier, in: app))
+        XCTAssertEqual(XCTWaiter.wait(for: [gone], timeout: 10), .completed,
+                       "Expected \(identifier) to close", file: file, line: line)
     }
 
     // Scroll the native container; no screen dimensions or pixel coordinates.
