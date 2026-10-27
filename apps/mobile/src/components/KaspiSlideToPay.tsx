@@ -10,6 +10,7 @@ import Animated, {
   useSharedValue,
   withSpring,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { assets } from '../assets';
 import { colors } from '../theme';
@@ -59,6 +60,7 @@ export function KaspiSlideToPay({
   height,
   reduced,
   style,
+  offset,
   onPhaseChange,
   onComplete,
   onOpenCheckout,
@@ -69,12 +71,15 @@ export function KaspiSlideToPay({
   height: number;
   reduced: boolean;
   style?: StyleProp<ViewStyle>;
+  /** Handle position in points, shared with the bar (the hint fades as the handle passes). */
+  offset?: SharedValue<number>;
   onPhaseChange: (phase: SlidePhase) => void;
   onComplete: () => void;
   onOpenCheckout: () => void;
 }) {
   useLocale();
-  const x = useSharedValue(0);
+  const own = useSharedValue(0);
+  const x = offset ?? own;
   const limit = useSharedValue(travel);
   const done = useSharedValue(false);
   const timers = useRef<{

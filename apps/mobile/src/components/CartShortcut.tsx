@@ -13,7 +13,13 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { MotionPressable as Pressable, useReducedMotion } from './Motion';
 import { ProductPhoto, productPhoto, type ProductPhotoSource } from './ProductPhoto';
 import { KaspiSlideToPay, type SlidePhase } from './KaspiSlideToPay';
@@ -110,6 +116,7 @@ export function CartShortcut({
     content.value = reduced ? target : withTiming(target, { duration: 140 });
   }, [phase, reduced, content]);
   const contentStyle = useAnimatedStyle(() => ({ opacity: content.value }));
+  const offset = useSharedValue(0);
   // Subtle added feedback: the newest photo settles in when the customer returns with more items.
   const feedback = useRef(new NativeAnimated.Value(0)).current;
   const previousCount = useRef(0);
@@ -165,9 +172,14 @@ export function CartShortcut({
       params: slide ? { [SLIDE_PAY_PARAM]: slidePayIntents.issue() } : {},
     });
   };
-  if (!count) return null;
   const photoStep = layout.photoSize - OVERLAP;
   const travel = Math.max(0, Math.floor(barWidth - PAD * 2 - layout.handleWidth - 2));
+  // The hint dims while the handle passes over it, so the overlap never looks broken.
+  const hintStyle = useAnimatedStyle(() => ({
+    opacity:
+      travel > 0 ? interpolate(offset.value, [0, travel * 0.6], [1, 0.15], Extrapolation.CLAMP) : 1,
+  }));
+  if (!count) return null;
   return (
     <BottomActions
       safeArea={safeArea}
@@ -271,9 +283,9 @@ export function CartShortcut({
             ) : null}
           </Pressable>
           {phase !== 'idle' ? (
-            <View
+            <Animated.View
               pointerEvents="none"
-              style={[s.hintBox, { left: PAD + layout.handleWidth + 8, right: PAD + 8 }]}
+              style={[s.hintBox, { left: PAD + layout.handleWidth + 8, right: PAD + 8 }, hintStyle]}
             >
               <Text
                 testID="cart-pay-hint"
@@ -286,7 +298,7 @@ export function CartShortcut({
               >
                 {t('тяни для оплаты')}
               </Text>
-            </View>
+            </Animated.View>
           ) : null}
           {payable ? (
             <KaspiSlideToPay
@@ -294,6 +306,7 @@ export function CartShortcut({
               width={layout.handleWidth}
               height={ROW}
               reduced={reduced}
+              offset={offset}
               style={s.handle}
               onPhaseChange={setPhase}
               onComplete={() => openCheckout(true)}

@@ -729,19 +729,19 @@
     "ru": "тяни для оплаты",
     "kk": "төлеу үшін сырғытыңыз",
     "en": "slide to pay",
-    "context": "apps/mobile/src/components/CartShortcut.tsx:287"
+    "context": "apps/mobile/src/components/CartShortcut.tsx:299"
   },
   {
     "ru": "Оплатить через Kaspi",
     "kk": "Kaspi арқылы төлеу",
     "en": "Pay with Kaspi",
-    "context": "apps/mobile/src/components/KaspiSlideToPay.tsx:174"
+    "context": "apps/mobile/src/components/KaspiSlideToPay.tsx:179"
   },
   {
     "ru": "Удерживайте и потяните вправо. Двойное касание откроет оформление заказа.",
     "kk": "Ұстап тұрып, оңға қарай сырғытыңыз. Екі рет түрту тапсырысты рәсімдеуді ашады.",
     "en": "Hold and slide to the right. Double-tap opens checkout.",
-    "context": "apps/mobile/src/components/KaspiSlideToPay.tsx:176"
+    "context": "apps/mobile/src/components/KaspiSlideToPay.tsx:181"
   },
   {
     "ru": "Меню обновилось",
