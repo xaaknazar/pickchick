@@ -30,6 +30,15 @@ no real customer, no VPS request. The fixture publishes the server's ordering ho
      caption fits at the normal size without truncation and, at the largest text, within the
      iOS shrink floor; banner and button at their largest text size neither overflow nor clip
      and keep their order; the connection reason is one line; no horizontal scroll
+  I  launch (QA 28.10): a reload with a saved cart while the server's first availability answer
+     is held. Closed at 09:30: no handle from the first frame, «откроемся в 10:00» in the header
+     and the red banner in the cart (the directory hours), ZERO checkout requests. Open at 12:00:
+     no handle and a grey «Проверяем…» without a banner until the answer, then the handle and a
+     slide that pays once
+  J  a server refusal for a closed restaurant (a phone clock a little behind at closing): once
+     the red banner shows, the old refusal panel with «Попробовать снова» is gone and does not
+     come back when the restaurant opens
+Everywhere the bar has no handle, the capsule hugs the total and the photos, centred (Drinkit).
 """
 from browser_network import isolated_context, route_fixture
 import hashlib
@@ -91,8 +100,8 @@ def new_state(**overrides):
     return {'paths': [], 'held': [], 'quotes': 0, 'creates': 0, 'payments': 0, 'config_reads': 0,
             'quote_total': '419000', 'phase': None, 'signed_in': True, 'clock': at('12:00:58.5'),
             'ordering_open': None, 'hours': True, 'hours_data': HOURS, 'enabled': True, 'fresh': True,
-            'stopped': set(),
-            'config_enabled': True, **overrides}
+            'stopped': set(), 'hold_availability': False, 'held_availability': [],
+            'refuse_quotes': None, 'config_enabled': True, **overrides}
 
 
 def availability(state):
@@ -162,6 +171,10 @@ def make_context(browser, state, width=393, height=852, reduced='reduce'):
                           'whatsapp_fallback_enabled': False, 'terms_url': 'https://example.test/terms',
                           'privacy_url': 'https://example.test/privacy'})
         if path == '/v1/customer-checkout/availability':
+            if state['hold_availability']:
+                # The server's first answer is slow (QA: held for 6 s at launch).
+                state['held_availability'].append(r)
+                return
             return ok(r, availability(state))
         if path == '/v1/capabilities':
             return ok(r, {'schema_version': 1, 'environment': 'staging', 'data_mode': 'pilot',
@@ -187,6 +200,8 @@ def make_context(browser, state, width=393, height=852, reduced='reduce'):
                           'fiscalPolicy': 'deferred_pilot', 'orderCommentEnabled': True})
         if path == '/v1/customer-checkout/quotes' and method == 'POST':
             state['quotes'] += 1
+            if state['refuse_quotes']:
+                return refusal(r, 409, state['refuse_quotes'])
             if not server_open(state['clock'], state['hours_data']) and state['ordering_open'] is not True:
                 return refusal(r, 409, 'RESTAURANT_CLOSED')
             return ok(r, {'quoteId': '40000000-0000-4000-8000-0000000000%02d' % (50 + state['quotes']),
@@ -233,9 +248,20 @@ def visibility(page, active):
 
 
 def release(state):
-    for held in state['held']:
+    for held in state['held'] + state['held_availability']:
         try:
             held.abort()
+        except Exception:
+            pass
+
+
+def answer_availability(state):
+    """The server's held availability answer arrives (the current state), and the next reads too."""
+    state['hold_availability'] = False
+    held, state['held_availability'] = state['held_availability'], []
+    for route in held:
+        try:
+            route.fulfill(status=200, json=availability(state), headers={'Access-Control-Allow-Origin': '*'})
         except Exception:
             pass
 
@@ -274,11 +300,28 @@ def expect_closed_bar(page, total='4 190 ₸'):
     # The cart button fills the whole capsule: the total is a big target, nothing on the left.
     assert button['x'] - box['x'] <= 6 and button['width'] >= box['width'] - 12, (button, box)
     assert box['x'] >= 0 and box['x'] + box['width'] <= page.viewport_size['width'], box
+    # The capsule itself hugs the total and the photos, centred (owner-drinkit-closed-menu.png,
+    # QA 28.10): no empty glass on the left, nothing of the menu shows through an empty part.
+    view = page.viewport_size['width']
+    assert abs(box['x'] + box['width'] / 2 - view / 2) <= 2, (box, view)
+    amount = visible(page, 'cart-shortcut-total').bounding_box()
+    newest = visible(page, 'cart-recent-photo-0').bounding_box()
+    assert amount['x'] - box['x'] <= 40, ('empty glass before the total', amount, box)
+    assert box['x'] + box['width'] - (newest['x'] + newest['width']) <= 12, (newest, box)
+    assert box['width'] <= min(view - 32, 440) - 60, ('the capsule did not shrink', box, view)
 
 
 def expect_open_bar(page, timeout=10000):
     expect(visible(page, 'cart-pay-handle')).to_have_count(1, timeout=timeout)
     expect(page.locator('#cart-pay-mark-kaspi').filter(visible=True)).to_have_count(1)
+    # With its handle the capsule spans the dock again (16 pt gutters, at most 440 pt).
+    width = min(page.viewport_size['width'] - 32, 440)
+    for _ in range(20):
+        box = visible(page, 'cart-shortcut').bounding_box()
+        if abs(box['width'] - width) <= 2:
+            break
+        page.wait_for_timeout(100)
+    assert abs(box['width'] - width) <= 2, (box, width)
 
 
 def open_cart(page):
@@ -556,6 +599,114 @@ def scenario_signed_out(browser):
     ctx.close()
 
 
+def reload_with_held_availability(page, state, total='4 190 ₸'):
+    """The app starts again with the saved cart; the server's first availability answer waits."""
+    state['hold_availability'] = True
+    page.reload()
+    expect(visible(page, 'cart-shortcut')).to_have_count(1, timeout=20000)
+    expect(page.get_by_test_id('launch-reveal')).to_have_count(0, timeout=20000)
+    if total:
+        expect(visible(page, 'cart-shortcut-total')).to_have_text(total)
+    assert state['held_availability'], 'the first availability read is held'
+
+
+def scenario_launch(browser):
+    # Closed at 09:30, a saved cart, the app starts again and the server answers late (QA: the
+    # handle showed for 6 s and a slide reached /quotes).
+    state = new_state(clock=at('09:30'))
+    ctx, page = make_context(browser, state)
+    page.goto(URL + '/menu')
+    add(page)
+    expect_closed_bar(page)
+    reload_with_held_availability(page, state)
+    since = len(state['paths'])
+    expect_closed_bar(page)
+    expect(visible(page, 'header-hours')).to_have_text('откроемся в 10:00')
+    # Still nothing a little later, on every tab, while the answer is held.
+    for route in ['events', 'menu']:
+        page.wait_for_timeout(1000)
+        page.get_by_test_id('tab-' + route).click()
+        expect_closed_bar(page)
+    page.wait_for_timeout(400)
+    page.screenshot(path=str(OUT / 'launch-closed-menu-393.png'))
+    open_cart(page)
+    _, pay = expect_cart_unavailable(page, 'откроемся в 10:00', 'Пока не работаем')
+    page.wait_for_timeout(400)
+    page.screenshot(path=str(OUT / 'launch-closed-cart-393.png'))
+    try_to_pay(page, pay)
+    close_cart(page)
+    assert state['held_availability'], 'the answer was still held'
+    assert not checkout_paths(state, since), checkout_paths(state, since)
+    # The server answers: closed, the same picture.
+    answer_availability(state)
+    page.wait_for_timeout(800)
+    expect_closed_bar(page)
+    assert not mutations(state), mutations(state)
+    release(state)
+    ctx.close()
+    # Open at 12:00: until the first answer nothing is payable, without a red reason.
+    state = new_state(clock=at('12:00:30'))
+    ctx, page = make_context(browser, state)
+    page.goto(URL + '/menu')
+    add(page)
+    expect_open_bar(page, 20000)
+    reload_with_held_availability(page, state)
+    since = len(state['paths'])
+    expect_closed_bar(page)
+    expect(visible(page, 'header-hours')).to_have_text('10:00-00:00')
+    open_cart(page)
+    cart = page.get_by_test_id('screen-M09')
+    pay = cart.get_by_test_id('cart-pay')
+    expect(pay).to_be_disabled()
+    expect(pay).to_have_text('Проверяем…')
+    expect(cart.get_by_test_id('cart-unavailable')).to_have_count(0)
+    page.wait_for_timeout(400)
+    page.screenshot(path=str(OUT / 'launch-checking-cart-393.png'))
+    try_to_pay(page, pay)
+    assert not checkout_paths(state, since), checkout_paths(state, since)
+    answer_availability(state)
+    expect_cart_payable(page)
+    close_cart(page)
+    expect_open_bar(page)
+    full_slide(page, state)
+    release(state)
+    ctx.close()
+
+
+def scenario_refusal_under_banner(browser):
+    # A phone a little behind at closing: the app still shows 23:59 and open, the server has
+    # closed and refuses the quote; its next availability answer says closed.
+    state = new_state(clock=at('23:59:20', day=27), ordering_open=True)
+    ctx, page = make_context(browser, state)
+    page.goto(URL + '/menu')
+    add(page)
+    expect_open_bar(page, 20000)
+    open_cart(page)
+    cart = page.get_by_test_id('screen-M09')
+    pay = expect_cart_payable(page)
+    state['refuse_quotes'] = 'RESTAURANT_CLOSED'
+    pay.click()
+    refused = 'Ресторан сейчас закрыт. Попробуйте оформить заказ в часы работы.'
+    expect(cart.get_by_text(refused)).to_be_visible(timeout=15000)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 0, 0), state
+    state['ordering_open'] = False
+    expect_cart_unavailable(page, 'откроемся в 10:00', 'Пока не работаем')
+    # One message: the red banner; no brown panel with a «Попробовать снова» that does nothing.
+    expect(cart.get_by_text(refused)).to_have_count(0)
+    expect(cart.get_by_role('button', name='Попробовать снова')).to_have_count(0)
+    page.wait_for_timeout(400)
+    page.screenshot(path=str(OUT / 'refusal-under-banner-393.png'))
+    # Open again (the server's answer): the banner goes and the old refusal does not come back.
+    state['ordering_open'] = True
+    state['refuse_quotes'] = None
+    expect_cart_payable(page)
+    page.wait_for_timeout(600)
+    expect(cart.get_by_text(refused)).to_have_count(0)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 0, 0), state
+    release(state)
+    ctx.close()
+
+
 def caption_fit(page):
     """The header caption at the normal text size and at the largest one it follows
     (maxFontSizeMultiplier 1.35): the full width of the text against the column it has."""
@@ -680,7 +831,7 @@ def scenario_languages(browser, width=320, height=568):
 
 
 if __name__ == '__main__':
-    SELECTED = os.environ.get('CART_UNAVAILABLE', 'ABCDEFGH').upper()
+    SELECTED = os.environ.get('CART_UNAVAILABLE', 'ABCDEFGHIJ').upper()
     with sync_playwright() as p:
         browser = p.chromium.launch()
         if 'A' in SELECTED:
@@ -700,6 +851,10 @@ if __name__ == '__main__':
             scenario_signed_out(browser)
         if 'H' in SELECTED:
             scenario_languages(browser)
+        if 'I' in SELECTED:
+            scenario_launch(browser)
+        if 'J' in SELECTED:
+            scenario_refusal_under_banner(browser)
         browser.close()
     assert not errors, errors
     print('PASS cart unavailable (' + SELECTED + '): closed by the hours = no handle on Меню/События/Заказы, '
@@ -707,4 +862,6 @@ if __name__ == '__main__':
           'zero quote/order/payment requests; 10:00 brings the handle back and a slide pays once; '
           'midnight closes on the minute (an open cart gets the banner), foreground reopens; server switch, '
           'no connection, stale stop list and stop list say why; a slide in progress is cancelled safely; '
-          'signed-out cart the same; RU/KK/EN fit at 320 pt with the largest text')
+          'signed-out cart the same; RU/KK/EN fit at 320 pt with the largest text; at launch nothing is '
+          'payable before the first availability answer; a refusal never shows under the banner; the '
+          'closed capsule hugs the total and the photos')

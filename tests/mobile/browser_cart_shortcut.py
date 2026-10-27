@@ -82,6 +82,15 @@ with sync_playwright() as p:
             expect(bag).to_be_visible()
             expect(bag).to_have_css('background-color', 'rgb(7, 26, 68)')
             expect(bag).to_have_css('border-top-color', 'rgba(255, 255, 255, 0.3)')
+            # Not inside the cart button, whose press dims its own content: Apple's glass under a
+            # translucent parent renders wrong (QA 28.10). It still sits at the capsule's left.
+            assert pill.locator('[data-testid="cart-bag-pill"]').count() == 0
+            bag_box = bag.bounding_box()
+            assert bag_box['x'] - page.get_by_test_id('cart-shortcut').bounding_box()['x'] <= 8, bag_box
+            assert pill.get_by_test_id('cart-shortcut-total').bounding_box()['x'] >= bag_box['x'] + bag_box['width'], bag_box
+            # Not the Kaspi checkout: the header keeps today's hours at any time of day, never the
+            # «откроемся в ...» of the payment decision (QA 28.10).
+            expect(page.get_by_test_id('screen-' + screen).get_by_test_id('header-hours')).to_have_text('10:00-00:00')
             capsule = page.get_by_test_id('cart-shortcut').bounding_box()
             assert abs(pill.bounding_box()['width'] - capsule['width']) <= 12, (pill.bounding_box(), capsule)
             footer = page.get_by_test_id('bottom-actions').filter(has=pill)
