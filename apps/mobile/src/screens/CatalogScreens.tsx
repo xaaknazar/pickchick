@@ -34,6 +34,7 @@ import { CartOffers, CartRecommendations } from '../components/CartExtras';
 import { mergeCartLines } from '../cart-actions';
 import { ConfiguredProduct } from './ProductConfiguration';
 import { CartShortcut } from '../components/CartShortcut';
+import { GlassButton } from '../components/GlassButton';
 import {
   CityButton,
   RestaurantCard,
@@ -159,15 +160,15 @@ export function Branches(props: ScreenProps) {
               : [],
           )}
         >
-          <Pressable
+          <GlassButton
             testID="branches-back"
-            accessibilityRole="button"
-            accessibilityLabel={t('Назад')}
+            name="chevron-back"
+            iconSize={26}
+            size={44}
+            label={t('Назад')}
             onPress={props.goBack}
             style={[s.mapBack, { top: controlsTop }]}
-          >
-            <Icon name="chevron-back" size={26} color={colors.text} />
-          </Pressable>
+          />
           <CityButton city={city} top={controlsTop} />
         </RestaurantMap>
         <View style={s.branchSheet}>
@@ -1078,16 +1079,8 @@ export { Checkout } from './CheckoutScreen';
 const s = StyleSheet.create({
   branchesPage: { flex: 1, minHeight: 0, backgroundColor: colors.background },
   branchesScroll: { flexGrow: 1 },
-  mapBack: {
-    position: 'absolute',
-    left: 16,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: restaurantColors.mapControl,
-  },
+  // Round glass back over the map (owner 27.10.2026: every round icon button is glass).
+  mapBack: { position: 'absolute', left: 16 },
   branchSheet: {
     flexGrow: 1,
     marginTop: -22,

@@ -105,6 +105,14 @@ def check_layout(page, state):
                     'branches-menu']:
         rect = box(page, test_id)
         assert rect['height'] >= 44 and rect['width'] >= 44, (test_id, rect)
+    # The back button over the map is the shared round glass button (owner 27.10.2026).
+    back = page.get_by_test_id('branches-back')
+    expect(back).to_have_accessible_name('Назад')
+    assert back.evaluate("""(el) => [el, ...el.querySelectorAll('*')].some((n) =>
+      (getComputedStyle(n).backdropFilter || getComputedStyle(n).webkitBackdropFilter || '').includes('blur'))"""), \
+        'branches-back is glass'
+    rect = box(page, 'branches-back')
+    assert abs(rect['width'] - rect['height']) < 1 and abs(rect['x'] - 16) < 1, rect
     button = box(page, 'branches-menu')
     assert abs(button['height'] - 54) < 1 and abs(button['x'] - 16) < 1, button
     assert button['y'] + button['height'] <= viewport['height'] - 16, button

@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ScreenProps } from '../model';
 import { CloseButton, Icon } from './UI';
+import { GlassButton } from './GlassButton';
 import { colors, font } from '../theme';
 import { ProfileRestoreNotice } from './ProfileRestoreNotice';
 
@@ -138,14 +139,14 @@ export function AuthLayout({
           {props.screenId !== 'M04' ? (
             <View style={s.topAction}>
               {props.screenId === 'M03' ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('Изменить номер')}
+                // Glass like the X on the other sign-in steps (owner 27.10.2026).
+                <GlassButton
+                  testID="auth-change-number"
+                  name="chevron-back"
+                  iconSize={24}
+                  label={t('Изменить номер')}
                   onPress={topAction?.onPress ?? props.goBack}
-                  style={s.back}
-                >
-                  <Icon name="chevron-back" size={24} color={authColors.text} />
-                </Pressable>
+                />
               ) : (
                 <CloseButton label={t('Закрыть вход')} onPress={props.goBack} />
               )}
@@ -202,16 +203,6 @@ const s = StyleSheet.create({
     paddingBottom: 2,
   },
   topAction: { minHeight: 48, marginLeft: -8, marginBottom: 16 },
-  back: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-  },
   topActionText: {
     fontFamily: font.medium,
     fontSize: 15,
