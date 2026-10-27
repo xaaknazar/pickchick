@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import {
   LIQUID_GLASS_MIN_IOS,
   glass,
@@ -13,6 +13,13 @@ import {
 
 // Owner 28.10.2026: «эти стеклянные иконки - это стиль Apple, нужно как у них делать в точности».
 // iOS 26+ draws Apple's own Liquid Glass; everything else keeps a fallback that must stay legible.
+
+const SRC = new URL('../../apps/mobile/src/', import.meta.url);
+const source = (file) => readFileSync(new URL(file, SRC), 'utf8');
+const sources = () =>
+  readdirSync(SRC, { recursive: true })
+    .map((file) => String(file).replaceAll('\\', '/'))
+    .filter((file) => /\.tsx?$/.test(file));
 
 const env = (overrides = {}) => ({
   platform: 'ios',
@@ -241,21 +248,25 @@ test('expo-glass-effect is pinned to the SDK 57 version and guarded in old binar
   assert.match(version, /^57\.\d+\.\d+$/, 'exact pin like expo-blur');
   assert.equal(version.split('.')[0], pkg.dependencies.expo.split('.')[0]);
   // A binary without the module (or iOS 26 betas without the API) must never reach GlassView.
-  const hook = readFileSync(
-    new URL('../../apps/mobile/src/components/useGlassSurface.ts', import.meta.url),
-    'utf8',
-  );
+  const hook = source('components/useGlassSurface.ts');
   assert.match(hook, /requireOptionalNativeModule\('ExpoGlassEffect'\) == null\) return false/);
   assert.match(hook, /isLiquidGlassAvailable\(\) && isGlassEffectAPIAvailable\(\)/);
-  const button = readFileSync(
-    new URL('../../apps/mobile/src/components/GlassButton.tsx', import.meta.url),
-    'utf8',
-  );
-  // GlassView is rendered only inside the `liquid` branches (GlassFill and GlassButton).
-  assert.equal([...button.matchAll(/<GlassView\b/g)].length, 2);
-  const blocks = button.split("if (surface === 'liquid') {");
-  assert.equal(blocks.length, 3);
-  assert.doesNotMatch(blocks[0], /<GlassView\b/);
-  for (const block of blocks.slice(1))
-    assert.match(block.slice(0, block.indexOf('\n  }\n')), /<GlassView\b/);
+  const button = source('components/GlassButton.tsx');
+  // GlassView is rendered only inside a `liquid` branch: each one follows a `surface ===
+  // 'liquid'` check in the same function (GlassFill, GlassButton), whatever their number.
+  const views = [...button.matchAll(/<GlassView\b/g)].map((match) => match.index);
+  assert.ok(views.length >= 1);
+  for (const at of views) {
+    const before = button.slice(0, at);
+    const check = before.lastIndexOf("surface === 'liquid'");
+    assert.ok(check > 0, `GlassView at ${at} without a liquid check`);
+    assert.doesNotMatch(before.slice(check), /\nexport function /, `GlassView at ${at}`);
+  }
+  // Only the glass layer imports the native module; screens use GlassButton / GlassFill.
+  for (const file of sources())
+    if (/from 'expo-glass-effect'/.test(source(file)))
+      assert.ok(
+        ['components/GlassButton.tsx', 'components/useGlassSurface.ts'].includes(file),
+        file,
+      );
 });
