@@ -8,6 +8,7 @@ import { restaurantLocation } from '../restaurant-location';
 import { colors, font } from '../theme';
 import { MotionPressable as Pressable } from './Motion';
 import { Icon, Logo } from './UI';
+import { useTapGate } from './useTapGuard';
 
 // Owner redesign 27.10.2026 (Drinkit pattern): one top header on Меню, События and Заказы.
 // Logo, restaurant point and hours on the left; the profile button at the far right.
@@ -44,6 +45,8 @@ export function AppHeaderBar({ screen }: { screen?: HeaderScreen }) {
   useLocale();
   const context = useContext(AppHeaderContext);
   const current = screen ?? context;
+  // A double tap opens the profile once; the second tap is ignored while the push runs.
+  const profileTap = useTapGate();
   if (!current) return null;
   const location = restaurantLocation(current.model.branch?.id);
   return (
@@ -69,7 +72,7 @@ export function AppHeaderBar({ screen }: { screen?: HeaderScreen }) {
         accessibilityLabel={t('Профиль')}
         feedback="scale"
         // A guest goes through the same auth gate the profile tab used (returnTo M30).
-        onPress={() => current.navigate('M30')}
+        onPress={() => profileTap.run(() => current.navigate('M30'))}
         style={({ pressed }) => [s.profile, webGlass, pressed && s.profilePressed]}
       >
         <Icon name="person-circle" size={40} color={colors.white} />

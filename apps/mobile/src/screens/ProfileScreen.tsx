@@ -14,6 +14,7 @@ import type { ScreenProps } from '../model';
 import { brandColors, colors, font } from '../theme';
 import { useAccount } from '../useAccount';
 import { useNotifications } from '../notifications/provider';
+import { useTapsSettled } from '../components/useTapGuard';
 import { appHeaderMetrics } from '../app-header-metrics';
 
 function ProfileRow({
@@ -95,10 +96,15 @@ export function Profile(props: ScreenProps) {
       ? account.account.profile.nickname
       : account.account?.profile.nickname || props.model.nickname;
   const name = savedNickname || 'Любитель хруста';
+  // Settings sits right under the header profile button: the second tap of a double tap that
+  // opened this screen must not press it (or back) while the push is still running.
+  const settled = useTapsSettled();
   return (
     <View testID="screen-M30" style={s.screen}>
       {/* Stack screen above the tabs (27.10.2026): fixed bar with back, title and settings. */}
-      <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
+      <View
+        style={[s.topBar, { paddingTop: insets.top + 8, pointerEvents: settled ? 'auto' : 'none' }]}
+      >
         <View style={s.header}>
           <Pressable
             testID="profile-back"
@@ -118,6 +124,7 @@ export function Profile(props: ScreenProps) {
             {t('Профиль')}
           </Text>
           <Pressable
+            testID="profile-settings"
             accessibilityRole="button"
             accessibilityLabel={t('Настройки профиля')}
             onPress={() => props.navigate('M34')}
