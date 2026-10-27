@@ -105,7 +105,7 @@ const labels: Record<string, string> = {
   CAPTURE_EXCEEDS_INTENT: 'Оплачено больше суммы заказа',
   REFUND_EXPOSURE_EXCEEDS_CAPTURE: 'Возвраты больше оплаты',
   CAPTURE_WITH_ANOTHER_PENDING_ATTEMPT: 'Оплата при другой незавершённой попытке',
-  COMBO_REWARD_RECONCILIATION_REQUIRED: 'Нужна сверка подарка 7 + 1',
+  COMBO_REWARD_RECONCILIATION_REQUIRED: 'Нужна сверка подарка 6 + 1',
   g: 'г',
   ml: 'мл',
   pcs: 'шт',
