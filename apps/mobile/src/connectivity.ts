@@ -11,13 +11,22 @@ NetInfo.configure({
 });
 
 /** Reconnect wakes public reads only. Never resumes an order or payment command. */
-export function subscribeCatalogConnectivity(recovery: { setActive(active: boolean): void }) {
+export function subscribeCatalogConnectivity(recovery: {
+  setActive(active: boolean): void;
+  /**
+   * The device's own network observation, apart from the foreground: a paused reader can still
+   * say «Нет связи» (owner 28.10.2026: no payment handle without a connection). Read-only.
+   */
+  setConnected?(connected: boolean): void;
+}) {
   let foreground = AppState.currentState !== 'background' && AppState.currentState !== 'inactive';
   let connected = true;
   let disposed = false;
   let revision = 0;
   const apply = () => {
-    if (!disposed) recovery.setActive(foreground && connected);
+    if (disposed) return;
+    recovery.setConnected?.(connected);
+    recovery.setActive(foreground && connected);
   };
   const app = AppState.addEventListener('change', (state) => {
     const next = state === 'active';
