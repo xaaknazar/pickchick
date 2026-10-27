@@ -14,6 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { assets } from '../assets';
 import { paymentHandleLabel, type PaymentMethodId } from '../payment-method';
+import { glass } from '../glass';
 import { GlassFill, glassRimWidth, useGlassRim } from './GlassButton';
 import { methodGlyph } from './PaymentChoice';
 import { Icon } from './UI';
@@ -240,8 +241,9 @@ export function KaspiSlideToPay({
           stretch,
         ]}
       >
-        {/* The same glass as every round button (27.10.2026) on a dark base, so the stretched
-            pill covers the hint instead of showing it through. */}
+        {/* The same glass as every round button (27.10.2026) on an opaque dark base: the
+            stretched pill covers the hint, and on iOS 26 its glass samples the base, not the
+            capsule's glass. */}
         <View
           testID="cart-pay-pill"
           pointerEvents="none"
@@ -262,7 +264,7 @@ const s = StyleSheet.create({
   frame: { alignItems: 'stretch', justifyContent: 'center' },
   handle: {
     width: '100%',
-    backgroundColor: '#071A44',
+    backgroundColor: glass.pillBase,
     shadowColor: '#000000',
     shadowOpacity: 0.3,
     shadowOffset: { width: 0, height: 3 },

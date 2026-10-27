@@ -296,14 +296,21 @@ test('expo-glass-effect is pinned to the SDK 57 version and guarded in old binar
       );
 });
 
-test('the pills take their rim from the surface drawn now', () => {
-  for (const [name, file] of [
-    ['handle', 'components/KaspiSlideToPay.tsx'],
-    ['bag pill', 'components/CartShortcut.tsx'],
+test('glass inside the capsule never samples glass; rims follow the live surface', () => {
+  // Apple's glass cannot sample other glass: the pay handle and the bag pill lie inside the
+  // capsule's glass, so each has the opaque base under its own glass (28.10 review).
+  assert.equal(alpha(glass.pillBase), 1);
+  const handle = source('components/KaspiSlideToPay.tsx');
+  const bar = source('components/CartShortcut.tsx');
+  for (const [name, text, style] of [
+    ['handle', handle, 'handle'],
+    ['bag pill', bar, 'bag'],
   ]) {
+    const block = text.slice(text.indexOf(`\n  ${style}: {`));
+    assert.match(block.slice(0, block.indexOf('\n  },')), /backgroundColor: glass\.pillBase/, name);
     // The rim colour comes from the surface drawn now (a hook), never from a value fixed once
     // per process: with Reduce Transparency on iOS 26 the solid glass shows its rim.
-    assert.match(source(file), /= useGlassRim\(\);/, name);
+    assert.match(text, /= useGlassRim\(\);/, name);
   }
   for (const file of sources())
     assert.doesNotMatch(source(file), /liquidGlassCapable|\bglassRim\b/, file);

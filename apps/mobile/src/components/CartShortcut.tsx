@@ -23,6 +23,7 @@ import { MotionPressable as Pressable, useReducedMotion } from './Motion';
 import { ProductPhoto, productPhoto, type ProductPhotoSource } from './ProductPhoto';
 import { KaspiSlideToPay, type SlidePhase } from './KaspiSlideToPay';
 import { GlassFill, glassBarRim, useGlassBarStyle, useGlassRim } from './GlassButton';
+import { glass } from '../glass';
 import { cartTotal } from '../domain';
 import {
   cartBarLayout,
@@ -254,6 +255,7 @@ export function CartShortcut({
           >
             {!payable ? (
               <View
+                testID="cart-bag-pill"
                 pointerEvents="none"
                 accessible={false}
                 accessibilityElementsHidden
@@ -371,6 +373,8 @@ const s = StyleSheet.create({
     borderRadius: ROW / 2,
     alignItems: 'center',
     justifyContent: 'center',
+    // The handle's opaque base: inside the capsule's glass, Apple's glass never lies on glass.
+    backgroundColor: glass.pillBase,
     flexShrink: 0,
   },
   middle: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center' },

@@ -55,7 +55,9 @@ export function useGlassRim(place: GlassPlace = 'pill'): ViewStyle {
  * and by glass shapes that are not buttons (the pay handle, the bag pill, the cart bar capsule),
  * so every glass control in the app looks the same.
  * - iOS 26+: Apple's Liquid Glass (`GlassView`, regular, dark), laid over the shape's rim (`rim`:
- *   the parent's border width, `glassRimWidth` unless the parent says otherwise).
+ *   the parent's border width, `glassRimWidth` unless the parent says otherwise). A glass shape
+ *   inside another glass shape (the pills in the capsule) needs an opaque base under it
+ *   (`glass.pillBase`): Apple's glass cannot sample other glass.
  * - Elsewhere: blur (expo-blur / CSS), a thin veil, a little lift, the sheen and the specular edge;
  *   `body={false}` leaves the body to the parent (the capsule paints its own) and adds the light.
  */

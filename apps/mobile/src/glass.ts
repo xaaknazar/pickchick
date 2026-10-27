@@ -120,6 +120,12 @@ export const glass = {
    * glyph's 0.4 rim from 27.10, kept for the fallback; Apple's glass draws its own edge).
    */
   headerRim: 'rgba(255, 255, 255, 0.4)',
+  /**
+   * Opaque base under the glass of the pills inside the cart bar (the pay handle, the bag pill):
+   * Apple's glass cannot sample other glass, so a pill's glass samples this base, never the
+   * capsule's glass; the stretched handle also covers the hint instead of showing it through.
+   */
+  pillBase: '#071A44',
   pressedVeil: 'rgba(255, 255, 255, 0.14)',
   /** Light from above and a faint glow along the bottom edge, as on Liquid Glass. */
   sheen:
