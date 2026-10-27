@@ -447,9 +447,13 @@ def glass_look(browser, width, height):
     parts = glass_parts(bar)
     assert parts['blur'] and parts['specular'], parts
     assert 'rgba(10, 32, 80, 0.8)' in parts['fills'] and parts['rim'] == 'rgba(255, 255, 255, 0.24)', parts
-    for shape in (page.get_by_test_id('cart-pay-pill').filter(visible=True), profile):
+    pill = page.get_by_test_id('cart-pay-pill').filter(visible=True)
+    # The handle's glass lies on its opaque base (#071A44), never on the capsule's glass (on iOS 26
+    # Apple's glass cannot sample glass); the header profile keeps its brighter 0.4 rim over the video.
+    for shape, rim in ((pill, 'rgba(255, 255, 255, 0.3)'), (profile, 'rgba(255, 255, 255, 0.4)')):
         parts = glass_parts(shape)
-        assert parts['blur'] and parts['specular'] and parts['rim'] == 'rgba(255, 255, 255, 0.3)', parts
+        assert parts['blur'] and parts['specular'] and parts['rim'] == rim, parts
+    assert glass_parts(pill)['fills'][0] == 'rgb(7, 26, 68)', glass_parts(pill)
     assert blur_is_round(profile)
     # The avatar sits inside the glass with a 3 pt ring of glass around it (Drinkit's profile).
     outer, avatar = profile.bounding_box(), profile.locator('#header-profile-avatar').bounding_box()
@@ -497,6 +501,11 @@ def glass_look(browser, width, height):
     expect(page.get_by_test_id('screen-M09')).to_have_count(0)
     parts = glass_parts(bar)
     assert not parts['blur'] and 'rgb(10, 32, 80)' in parts['fills'], parts
+    # The handle and the profile keep their rims on the solid glass too (on iOS 26 the rim comes
+    # back with Reduce Transparency: it follows the surface, not a value fixed at launch).
+    for shape, rim in ((pill, 'rgba(255, 255, 255, 0.3)'), (profile, 'rgba(255, 255, 255, 0.4)')):
+        parts = glass_parts(shape)
+        assert not parts['blur'] and parts['rim'] == rim and 'rgb(18, 48, 104)' in parts['fills'], parts
     page.wait_for_timeout(300)
     page.screenshot(path=str(OUT / f'menu-glass-solid-{width}.png'))
     assert not state['mutations'], state['mutations']
@@ -617,5 +626,5 @@ print('PASS cart page 393/320: Drinkit top bar (red glass trash, pin + point, gl
       '«скоро»), one press = 1 quote + 1 order + 1 invoice, 3-item total, glass product close, guest -> sign-in '
       '(Kaspi reason, glass X and code-step back) -> cart, hero video plays under the cart and pauses for tab/full '
       'screen/background, round blur layers (no square patch), waiting scene fits at 393 and 320 (also with large text), '
-      'Liquid Glass fallback (light rim, specular edge, thin veil; bar, handle, profile ring around the avatar) and '
-      'opaque glass with reduced transparency')
+      'Liquid Glass fallback (light rim, specular edge, thin veil; bar, handle on its opaque base, profile 0.4 rim and '
+      'ring around the avatar) and opaque glass with reduced transparency (rims kept)')

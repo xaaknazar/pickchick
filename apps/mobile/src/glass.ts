@@ -115,6 +115,11 @@ export const glass = {
   lift: 'rgba(255, 255, 255, 0.05)',
   /** The light rim (0.22 before 28.10). */
   rim: 'rgba(255, 255, 255, 0.3)',
+  /**
+   * The header profile's rim: brighter, so the circle reads on the bright hero video (the guest
+   * glyph's 0.4 rim from 27.10, kept for the fallback; Apple's glass draws its own edge).
+   */
+  headerRim: 'rgba(255, 255, 255, 0.4)',
   pressedVeil: 'rgba(255, 255, 255, 0.14)',
   /** Light from above and a faint glow along the bottom edge, as on Liquid Glass. */
   sheen:
@@ -150,7 +155,18 @@ export type GlassLayers = {
   pressFeedback: boolean;
 };
 
-export function glassLayers(surface: GlassSurface): GlassLayers {
+/**
+ * The rim colour of a glass shape for the surface drawn now (never fixed once per process: an
+ * iPhone with iOS 26 that turns on Reduce Transparency gets the solid glass, and its rim, live).
+ * Liquid Glass draws its own edge, so ours is transparent there and keeps only its width.
+ */
+export function glassRimColor(surface: GlassSurface, place: GlassPlace = 'button'): string {
+  if (surface === 'liquid') return 'transparent';
+  return place === 'header' ? glass.headerRim : glass.rim;
+}
+
+export function glassLayers(surface: GlassSurface, place: GlassPlace = 'button'): GlassLayers {
+  const rim = glassRimColor(surface, place);
   switch (surface) {
     case 'liquid':
       return {
@@ -158,7 +174,7 @@ export function glassLayers(surface: GlassSurface): GlassLayers {
         fill: null,
         lift: false,
         highlights: false,
-        rim: 'transparent',
+        rim,
         pressFeedback: false,
       };
     case 'blur':
@@ -167,7 +183,7 @@ export function glassLayers(surface: GlassSurface): GlassLayers {
         fill: glass.veil,
         lift: true,
         highlights: true,
-        rim: glass.rim,
+        rim,
         pressFeedback: true,
       };
     case 'tint':
@@ -178,7 +194,7 @@ export function glassLayers(surface: GlassSurface): GlassLayers {
         fill: glass.fallback,
         lift: false,
         highlights: true,
-        rim: glass.rim,
+        rim,
         pressFeedback: true,
       };
     case 'solid':
@@ -187,7 +203,7 @@ export function glassLayers(surface: GlassSurface): GlassLayers {
         fill: glass.solid,
         lift: false,
         highlights: true,
-        rim: glass.rim,
+        rim,
         pressFeedback: true,
       };
   }

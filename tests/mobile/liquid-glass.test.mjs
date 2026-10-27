@@ -6,6 +6,7 @@ import {
   glass,
   glassBarBody,
   glassLayers,
+  glassRimColor,
   glassSurface,
   iosMajorVersion,
   liquidGlassConfig,
@@ -119,6 +120,30 @@ test('Liquid Glass draws none of our imitation; each fallback has its own body',
   assert.equal(solid.lift, false);
   for (const surface of ['blur', 'tint', 'solid'])
     assert.equal(glassLayers(surface).rim, glass.rim);
+});
+
+test('the rim follows the surface drawn now, also on iOS 26 with Reduce Transparency', () => {
+  for (const place of ['button', 'header', 'pill', 'bar']) {
+    // Apple's glass draws its own edge.
+    assert.equal(glassRimColor('liquid', place), 'transparent', place);
+    assert.equal(glassLayers('liquid', place).rim, 'transparent', place);
+  }
+  // iOS 26 with Reduce Transparency: the solid glass, whose rim shows (the pay handle and the
+  // bag pill too, not only the buttons; 28.10 review).
+  const reduced = glassSurface(env({ reducedTransparency: true }));
+  assert.equal(reduced, 'solid');
+  assert.equal(glassRimColor(reduced, 'pill'), glass.rim);
+  assert.equal(glassRimColor(glassSurface(env()), 'pill'), 'transparent');
+  // The header profile over the bright hero video keeps its brighter rim (0.4, the guest rim of
+  // 27.10); every other place has the common one.
+  for (const surface of ['blur', 'tint', 'solid']) {
+    assert.equal(glassRimColor(surface, 'header'), glass.headerRim, surface);
+    assert.equal(glassLayers(surface, 'header').rim, glass.headerRim, surface);
+    for (const place of ['button', 'pill'])
+      assert.equal(glassRimColor(surface, place), glass.rim, `${surface} ${place}`);
+  }
+  assert.ok(alpha(glass.headerRim) > alpha(glass.rim));
+  assert.equal(alpha(glass.headerRim), 0.4);
 });
 
 // --- Colour maths (WCAG 2.1) -------------------------------------------------------------------
@@ -269,4 +294,17 @@ test('expo-glass-effect is pinned to the SDK 57 version and guarded in old binar
         ['components/GlassButton.tsx', 'components/useGlassSurface.ts'].includes(file),
         file,
       );
+});
+
+test('the pills take their rim from the surface drawn now', () => {
+  for (const [name, file] of [
+    ['handle', 'components/KaspiSlideToPay.tsx'],
+    ['bag pill', 'components/CartShortcut.tsx'],
+  ]) {
+    // The rim colour comes from the surface drawn now (a hook), never from a value fixed once
+    // per process: with Reduce Transparency on iOS 26 the solid glass shows its rim.
+    assert.match(source(file), /= useGlassRim\(\);/, name);
+  }
+  for (const file of sources())
+    assert.doesNotMatch(source(file), /liquidGlassCapable|\bglassRim\b/, file);
 });

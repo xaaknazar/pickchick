@@ -22,7 +22,7 @@ import Animated, {
 import { MotionPressable as Pressable, useReducedMotion } from './Motion';
 import { ProductPhoto, productPhoto, type ProductPhotoSource } from './ProductPhoto';
 import { KaspiSlideToPay, type SlidePhase } from './KaspiSlideToPay';
-import { GlassFill, glassBarRim, glassRim, useGlassBarStyle } from './GlassButton';
+import { GlassFill, glassBarRim, useGlassBarStyle, useGlassRim } from './GlassButton';
 import { cartTotal } from '../domain';
 import {
   cartBarLayout,
@@ -104,6 +104,7 @@ export function CartShortcut({
   );
   const reduced = useReducedMotion();
   const capsuleGlass = useGlassBarStyle();
+  const pillRim = useGlassRim();
   const { width, fontScale } = useWindowDimensions();
   const layout = cartBarLayout({ width, fontScale, totalLength: total.length });
   const recent = recentCartLines(model.cart, model.recentCartProductIds, layout.photos);
@@ -257,7 +258,7 @@ export function CartShortcut({
                 accessible={false}
                 accessibilityElementsHidden
                 importantForAccessibility="no-hide-descendants"
-                style={[s.bag, { width: layout.handleWidth }]}
+                style={[s.bag, pillRim, { width: layout.handleWidth }]}
               >
                 <GlassFill radius={ROW / 2} />
                 <Icon name="bag-handle-outline" size={24} color={brandColors.brandOrange} />
@@ -370,7 +371,6 @@ const s = StyleSheet.create({
     borderRadius: ROW / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    ...glassRim,
     flexShrink: 0,
   },
   middle: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center' },

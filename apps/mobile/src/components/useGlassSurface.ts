@@ -28,10 +28,6 @@ export const glassEnvironment: Omit<GlassEnvironment, 'reducedTransparency'> = {
   nativeBlur: Platform.OS === 'ios' && requireOptionalNativeModule('ExpoBlur') != null,
 };
 
-/** True when Apple's Liquid Glass draws the glass (unless transparency is reduced). */
-export const liquidGlassCapable =
-  glassSurface({ ...glassEnvironment, reducedTransparency: false }) === 'liquid';
-
 // One listener for the whole app (dozens of -/+ buttons in a long cart share it).
 let reducedTransparency = false;
 const listeners = new Set<() => void>();

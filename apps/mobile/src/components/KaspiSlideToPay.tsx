@@ -14,7 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { assets } from '../assets';
 import { paymentHandleLabel, type PaymentMethodId } from '../payment-method';
-import { GlassFill, glassRim } from './GlassButton';
+import { GlassFill, glassRimWidth, useGlassRim } from './GlassButton';
 import { methodGlyph } from './PaymentChoice';
 import { Icon } from './UI';
 
@@ -38,7 +38,7 @@ export const SLIDE_RETURN_SPRING = {
   overshootClamping: true,
 } as const;
 /** The pill's glass rim: the mark is centred on the pill's outer edge, not inside the rim. */
-const RIM = glassRim.borderWidth;
+const RIM = glassRimWidth;
 
 /**
  * Round mark of the active payment method under the finger (owner 27.10.2026, item 6b): the
@@ -216,6 +216,7 @@ export function KaspiSlideToPay({
         } as object)
       : {};
   const mark = Math.min(34, height - 18);
+  const rim = useGlassRim();
   return (
     <GestureDetector gesture={gesture}>
       <Animated.View
@@ -244,7 +245,7 @@ export function KaspiSlideToPay({
         <View
           testID="cart-pay-pill"
           pointerEvents="none"
-          style={[s.handle, { height, borderRadius: height / 2 }]}
+          style={[s.handle, rim, { height, borderRadius: height / 2 }]}
         >
           <GlassFill radius={height / 2} />
           <View style={[s.markSlot, { width, height, right: -RIM, top: -RIM }]}>
@@ -262,7 +263,6 @@ const s = StyleSheet.create({
   handle: {
     width: '100%',
     backgroundColor: '#071A44',
-    ...glassRim,
     shadowColor: '#000000',
     shadowOpacity: 0.3,
     shadowOffset: { width: 0, height: 3 },

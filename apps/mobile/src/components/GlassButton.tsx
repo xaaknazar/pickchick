@@ -18,15 +18,18 @@ import {
   glass,
   glassBarBody,
   glassLayers,
+  glassRimColor,
   glassSize,
   liquidGlassConfig,
   type GlassPlace,
 } from '../glass';
-import { liquidGlassCapable, useGlassSurface } from './useGlassSurface';
+import { useGlassSurface } from './useGlassSurface';
 
 export { useGlassSurface } from './useGlassSurface';
 
-const RIM = StyleSheet.hairlineWidth * 2;
+/** Width of the light rim of every glass shape (buttons, the pay handle, the bag pill). */
+export const glassRimWidth = StyleSheet.hairlineWidth * 2;
+const RIM = glassRimWidth;
 // Sheen and specular edge of the fallback glass (Liquid Glass draws its own light).
 const highlight = {
   ...(Platform.OS === 'web'
@@ -36,21 +39,23 @@ const highlight = {
 } as ViewStyle;
 
 /**
- * The light rim of every glass shape (buttons, the pay handle, the bag pill). On iOS 26 Apple's
- * glass draws its own edge, so the rim keeps its width (the layout and the handle's mark centring
- * do not move) and turns transparent; GlassFill then covers it.
+ * The light rim of a glass shape that is not a GlassButton (the pay handle, the bag pill), for
+ * the surface drawn now, like the buttons. Under Liquid Glass the rim keeps its width (the layout
+ * and the handle's mark centring do not move) and turns transparent: Apple's glass draws its own
+ * edge and GlassFill covers it. With Reduce Transparency (also on iOS 26) the solid glass shows
+ * the rim again, live.
  */
-export const glassRim = {
-  borderWidth: RIM,
-  borderColor: liquidGlassCapable ? 'transparent' : glass.rim,
-};
+export function useGlassRim(place: GlassPlace = 'pill'): ViewStyle {
+  const surface = useGlassSurface();
+  return { borderWidth: RIM, borderColor: glassRimColor(surface, place) };
+}
 
 /**
  * The glass itself, clipped to `radius` (the shape's outer radius). Shared by the round buttons
  * and by glass shapes that are not buttons (the pay handle, the bag pill, the cart bar capsule),
  * so every glass control in the app looks the same.
  * - iOS 26+: Apple's Liquid Glass (`GlassView`, regular, dark), laid over the shape's rim (`rim`:
- *   the parent's border width, `glassRim` unless the parent says otherwise).
+ *   the parent's border width, `glassRimWidth` unless the parent says otherwise).
  * - Elsewhere: blur (expo-blur / CSS), a thin veil, a little lift, the sheen and the specular edge;
  *   `body={false}` leaves the body to the parent (the capsule paints its own) and adds the light.
  */
@@ -233,7 +238,7 @@ export function GlassButton({
         s.button,
         s.fallbackButton,
         round,
-        { borderColor: glassLayers(surface).rim },
+        { borderColor: glassLayers(surface, place).rim },
         disabled && s.disabled,
         style,
         pressed && !reduced && s.pressed,
