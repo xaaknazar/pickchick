@@ -7,9 +7,9 @@ import { orderSimulatorEnabled } from './order-simulator';
 import {
   checkoutEnabledFor,
   checkoutSwitchSnapshot,
+  headerHoursNow,
   msUntilNextMinute,
   paymentAvailability,
-  restaurantHoursNow,
   subscribeCheckoutSwitch,
   type PaymentAvailability,
 } from './payment-availability';
@@ -59,10 +59,29 @@ export function useMinuteNow(): number {
   return useSyncExternalStore(subscribeClock, clockSnapshot, clockSnapshot);
 }
 
+type AvailabilityModel = Pick<
+  MobileModel,
+  | 'catalogMode'
+  | 'availabilityStatus'
+  | 'availabilityHours'
+  | 'availabilityKnown'
+  | 'branch'
+  | 'cart'
+>;
+
+/** The guarded Kaspi checkout applies to this model (cart-bar.ts slideToPayAvailable). */
+function usePaymentGuarded(model: Pick<MobileModel, 'catalogMode'>) {
+  const account = useAccount();
+  return slideToPayAvailable({
+    kaspiCheckout: kaspiCheckoutEnabled,
+    orderSimulator: orderSimulatorEnabled,
+    catalogMode: model.catalogMode,
+    accountMode: account.mode,
+  });
+}
+
 /** Can the signed-in (or guest) customer pay right now, and if not, why. See payment-availability.ts. */
-export function usePaymentAvailability(
-  model: Pick<MobileModel, 'catalogMode' | 'availabilityStatus' | 'availabilityHours' | 'cart'>,
-): PaymentAvailability {
+export function usePaymentAvailability(model: AvailabilityModel): PaymentAvailability {
   const account = useAccount();
   const now = useMinuteNow();
   const observed = useSyncExternalStore(
@@ -70,13 +89,10 @@ export function usePaymentAvailability(
     checkoutSwitchSnapshot,
     checkoutSwitchSnapshot,
   );
-  const guarded = slideToPayAvailable({
-    kaspiCheckout: kaspiCheckoutEnabled,
-    orderSimulator: orderSimulatorEnabled,
-    catalogMode: model.catalogMode,
-    accountMode: account.mode,
-  });
+  const guarded = usePaymentGuarded(model);
   const checkoutEnabled = checkoutEnabledFor(observed, account.account?.customerId);
+  // The directory's hours name the reason only before the server's first answer.
+  const directory = restaurantLocation(model.branch?.id);
   return useMemo(
     () =>
       paymentAvailability({
@@ -84,19 +100,42 @@ export function usePaymentAvailability(
         now,
         status: model.availabilityStatus,
         hours: model.availabilityHours,
+        known: model.availabilityKnown,
+        directory,
         checkoutEnabled,
         cart: model.cart,
       }),
-    [guarded, now, model.availabilityStatus, model.availabilityHours, checkoutEnabled, model.cart],
+    [
+      guarded,
+      now,
+      model.availabilityStatus,
+      model.availabilityHours,
+      model.availabilityKnown,
+      directory,
+      checkoutEnabled,
+      model.cart,
+    ],
   );
 }
 
-/** Hours and open/closed status for the header caption (server hours first, then the directory). */
-export function useRestaurantHoursNow(model: Pick<MobileModel, 'branch' | 'availabilityHours'>) {
+/**
+ * Hours and open/closed status for the header caption: «откроемся в 10:00» exactly when the
+ * payment decision says closed (Kaspi build), today's hours otherwise and in other builds.
+ */
+export function useRestaurantHoursNow(model: AvailabilityModel) {
   const now = useMinuteNow();
+  const guarded = usePaymentGuarded(model);
+  const availability = usePaymentAvailability(model);
   const location = restaurantLocation(model.branch?.id);
   return useMemo(
-    () => restaurantHoursNow({ published: model.availabilityHours, location, now }),
-    [model.availabilityHours, location, now],
+    () =>
+      headerHoursNow({
+        guarded,
+        availability,
+        published: model.availabilityHours,
+        location,
+        now,
+      }),
+    [guarded, availability, model.availabilityHours, location, now],
   );
 }

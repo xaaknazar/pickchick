@@ -853,7 +853,7 @@
   },
   {
     "ru": "Купи 6 комбо.",
-    "kk": "6 комбо сатып\u00a0ал.",
+    "kk": "6 комбо сатып ал.",
     "en": "Buy 6 combos.",
     "context": "apps/mobile/src/components/ComboRewardCard.tsx:64"
   },
@@ -8612,13 +8612,13 @@
   {
     "ru": "откроемся в {p0}",
     "kk": "Ашылу уақыты: {p0}",
-    "en": "opening at {p0}",
+    "en": "Opening at {p0}",
     "context": "apps/mobile/src/restaurant-hours.ts"
   },
   {
     "ru": "откроемся завтра в {p0}",
     "kk": "Ашылу уақыты: ертең {p0}",
-    "en": "opening tomorrow at {p0}",
+    "en": "Opening tomorrow at {p0}",
     "context": "apps/mobile/src/restaurant-hours.ts"
   },
   {
@@ -8661,6 +8661,12 @@
     "ru": "Нет связи с сервером",
     "kk": "Сервермен байланыс жоқ",
     "en": "No connection to the server",
+    "context": "apps/mobile/src/payment-availability.ts"
+  },
+  {
+    "ru": "Ресторан сейчас закрыт",
+    "kk": "Мейрамхана қазір жабық",
+    "en": "The restaurant is closed right now",
     "context": "apps/mobile/src/payment-availability.ts"
   }
 ]

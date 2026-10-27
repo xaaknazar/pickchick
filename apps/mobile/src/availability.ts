@@ -106,6 +106,8 @@ export function catalogAvailability(state: AvailabilityReadState, serverCatalog:
       status === undefined || status === 'disabled' ? undefined : status === 'current',
     availabilityStatus: status,
     availabilityHours: serverCatalog ? state.data?.hours : undefined,
+    // The long-poll has answered in this app run (its data stays while it re-reads).
+    availabilityKnown: serverCatalog ? state.data !== null : undefined,
   };
 }
 export function availabilityMessage(

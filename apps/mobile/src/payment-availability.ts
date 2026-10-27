@@ -23,10 +23,13 @@ import type { CartLine } from './model';
  *    (`status === 'closed'`), the server switch (`enabled: false`), connection and freshness;
  *  - the cart's own GET /config: `enabled: false` is the owner's server switch (NOT_READY);
  *  - the stop list applied to the basket (availability.ts).
- * The restaurant directory (config/restaurant-locations.json) is presentation only: it feeds the
- * header caption, never the payment decision, because a server without published hours accepts
- * orders at any time. The public capabilities `ordering_enabled` is a frozen v1 flag (always
- * false, services/api/src/capabilities.ts) and is deliberately not read.
+ * Until the long-poll has answered once in this app run (launch, QA 28.10) the restaurant's state
+ * is unknown: no payment at all, never a handle that the server would then refuse. In that
+ * window only, the restaurant directory (config/restaurant-locations.json, the hours the header
+ * already shows) names the reason «откроемся в 10:00»; once the server answers, its own hours
+ * and `orderingOpen` decide, because a server without published hours accepts orders at any
+ * time. The public capabilities `ordering_enabled` is a frozen v1 flag (always false,
+ * services/api/src/capabilities.ts) and is deliberately not read.
  */
 export type PaymentStop =
   /** `opensAt` is null when the server says closed without publishing its hours. */
@@ -38,7 +41,13 @@ export type PaymentStop =
   /** The restaurant's stop list is not fresh: the server would not admit an order. */
   | { kind: 'stale' }
   /** Basket lines on the stop list (or a selected option that ran out). */
-  | { kind: 'unavailable'; names: string[] };
+  | { kind: 'unavailable'; names: string[] }
+  /**
+   * The availability long-poll has not answered yet in this app run (the first read at launch):
+   * the restaurant may be closed or switched off, so nothing is offered until it answers
+   * (usually within a second). No banner, a grey «Проверяем…» button.
+   */
+  | { kind: 'checking' };
 
 export type PaymentAvailability = { canPay: true } | { canPay: false; stop: PaymentStop };
 
@@ -55,6 +64,13 @@ export interface PaymentAvailabilityInput {
   /** Public availability status (availability.ts) and the hours the server published with it. */
   status?: AvailabilityStatus;
   hours?: Availability['hours'];
+  /**
+   * The long-poll has answered at least once in this app run (its data is kept while it re-reads).
+   * Missing or false with a `checking` / `error` status: the restaurant's state is unknown.
+   */
+  known?: boolean;
+  /** The restaurant directory's hours (Almaty), read only while the state is unknown. */
+  directory?: RestaurantHours | null;
   /** The cart's last /config answer for this customer; false = the server switch is off. */
   checkoutEnabled?: boolean | null;
   cart: readonly CartLine[];
@@ -110,17 +126,31 @@ function serverClosedStop(input: Pick<PaymentAvailabilityInput, 'hours' | 'now'>
     : { kind: 'closed', opensAt: hours.openingTime, opensTomorrow: false };
 }
 
+/** No answer from the server yet in this app run: the first read, or a first read that failed. */
+export function availabilityUnknown(input: Pick<PaymentAvailabilityInput, 'status' | 'known'>) {
+  return (
+    !input.known &&
+    (input.status === undefined || input.status === 'checking' || input.status === 'error')
+  );
+}
+
 /**
  * The decision. Reasons in order of what the customer can do about them: a closed restaurant
  * (with the next opening), the server switch, the connection, the menu freshness, the basket.
- * `checking` (first read) and `error` (an unexpected answer) are not reasons: the server
- * decides at the explicit press, exactly as before.
+ * Nothing is payable before the server's first answer (QA 28.10: at launch a closed restaurant
+ * showed the handle for seconds and a slide reached /quotes); an unexpected answer (`error`: a
+ * captive portal page, a broken proxy) is no connection to the server. A re-read keeps the last
+ * answer (`known`), so the handle does not blink while the menu refreshes.
  */
 export function paymentAvailability(input: PaymentAvailabilityInput): PaymentAvailability {
   if (!input.guarded) return PAYMENT_AVAILABLE;
-  const hours = publishedHoursStatus(input.hours, input.now);
-  // Closed by the published hours at this minute, or by the server's own last answer (around the
-  // opening minute the server confirms within one long-poll; the stricter answer wins).
+  const unknown = availabilityUnknown(input);
+  const hours =
+    publishedHoursStatus(input.hours, input.now) ??
+    (unknown ? restaurantHoursStatus(input.directory, asDate(input.now)) : null);
+  // Closed by the published hours at this minute (by the directory before the first answer), or
+  // by the server's own last answer (around the opening minute the server confirms within one
+  // long-poll; the stricter answer wins).
   if (hours && !hours.open)
     return {
       canPay: false,
@@ -129,18 +159,24 @@ export function paymentAvailability(input: PaymentAvailabilityInput): PaymentAva
   if (input.status === 'closed') return { canPay: false, stop: serverClosedStop(input) };
   if (input.status === 'disabled' || input.checkoutEnabled === false)
     return { canPay: false, stop: { kind: 'switched_off' } };
-  if (input.status === 'offline') return { canPay: false, stop: { kind: 'offline' } };
+  if (input.status === 'offline' || input.status === 'error')
+    return { canPay: false, stop: { kind: 'offline' } };
   if (input.status === 'stale') return { canPay: false, stop: { kind: 'stale' } };
+  if (unknown) return { canPay: false, stop: { kind: 'checking' } };
   const names = unavailableCartNames(input.cart);
   if (names.length) return { canPay: false, stop: { kind: 'unavailable', names } };
   return PAYMENT_AVAILABLE;
 }
 
-/** The red banner of the cart (testID cart-unavailable): the reason, in the current language. */
-export function paymentStopMessage(stop: PaymentStop): string {
+/**
+ * The red banner of the cart (testID cart-unavailable): the reason, in the current language. One
+ * short line without a closing period, like Drinkit's. Null: no banner (the first read at launch
+ * is not a reason, the grey button says «Проверяем…»).
+ */
+export function paymentStopMessage(stop: PaymentStop): string | null {
   switch (stop.kind) {
     case 'closed':
-      if (!stop.opensAt) return t('Ресторан сейчас закрыт.');
+      if (!stop.opensAt) return t('Ресторан сейчас закрыт');
       return stop.opensTomorrow
         ? t('откроемся завтра в {p0}', { p0: stop.opensAt })
         : t('откроемся в {p0}', { p0: stop.opensAt });
@@ -154,6 +190,8 @@ export function paymentStopMessage(stop: PaymentStop): string {
       return t('Нет свежих данных от ресторана. Проверяем связь автоматически.');
     case 'unavailable':
       return t('Нет в наличии: {p0}', { p0: stop.names.map((name) => t(name)).join(', ') });
+    case 'checking':
+      return null;
   }
 }
 
@@ -171,6 +209,8 @@ export function paymentStopLabel(stop: PaymentStop): string {
       return t('Нет связи');
     case 'unavailable':
       return t('Проверьте корзину');
+    case 'checking':
+      return t('Проверяем…');
   }
 }
 
@@ -221,6 +261,32 @@ export function restaurantHoursNow(input: {
   };
 }
 
+/**
+ * The header caption's hours and state (QA 28.10): the header says «откроемся в 10:00» exactly
+ * when the payment decision is «closed», so the header and the cart bar never disagree (a server
+ * that publishes no hours takes orders at night: today's hours and the handle, not «откроемся»
+ * next to a handle). Builds without the guarded Kaspi checkout, the design catalogue and the
+ * demonstration show today's hours as before 28.10.
+ */
+export function headerHoursNow(input: {
+  guarded: boolean;
+  availability: PaymentAvailability;
+  published?: Availability['hours'];
+  location?: RestaurantHours | null;
+  now: Date | number;
+}): { hours: RestaurantHours | null; status: RestaurantHoursStatus | null } {
+  const shown = restaurantHoursNow(input);
+  const stop = input.availability.canPay ? null : input.availability.stop;
+  if (!input.guarded || stop?.kind !== 'closed') return { hours: shown.hours, status: null };
+  if (stop.opensAt)
+    return {
+      hours: shown.hours,
+      status: { open: false, opensAt: stop.opensAt, opensTomorrow: stop.opensTomorrow },
+    };
+  // Closed by the server without an opening time of its own: the directory's, if it says closed.
+  return shown.status && !shown.status.open ? shown : { hours: shown.hours, status: null };
+}
+
 /** The next minute boundary (+ a small margin), so a timer flips the state at 10:00 sharp. */
 export function msUntilNextMinute(nowMs: number): number {
   const into = ((nowMs % 60_000) + 60_000) % 60_000;
@@ -230,8 +296,8 @@ export function msUntilNextMinute(nowMs: number): number {
 /**
  * The cart's last /config answer per customer, so the cart bar (all tabs) knows the server
  * switch without another request: the cart reads /config whenever it opens and keeps reading
- * while the switch is off. Memory only; a new app run starts unknown (the bar shows the handle
- * and the cart, which reads /config, decides).
+ * while the switch is off. Memory only; a new app run starts unknown (once availability has
+ * answered, the bar shows the handle and the cart, which reads /config, decides).
  */
 export interface CheckoutSwitchObservation {
   customerId: string;

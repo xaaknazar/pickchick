@@ -78,6 +78,8 @@ export interface MobileModel {
   availabilityFresh?: boolean;
   availabilityStatus?: import('./availability').AvailabilityStatus;
   availabilityHours?: import('./availability').Availability['hours'];
+  /** The availability long-poll has answered at least once in this app run. */
+  availabilityKnown?: boolean;
   catalogUpdateNotice?: string | null;
   catalogUpdatePending?: boolean;
   /** The server menu (or the photos of its current publication) is still being read. */

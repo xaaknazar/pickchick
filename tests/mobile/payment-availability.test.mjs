@@ -8,6 +8,7 @@ import {
   bannerAnnouncement,
   checkoutEnabledFor,
   checkoutSwitchSnapshot,
+  headerHoursNow,
   joinSentences,
   msUntilNextMinute,
   noteCheckoutSwitch,
@@ -43,6 +44,8 @@ const line = (id, extra = {}, selections) => {
 };
 const basket = [line('pick-combo')];
 const HOURS = { openingTime: '10:00', closingTime: '00:00', timeZone: 'Asia/Almaty' };
+/** The restaurant directory's hours (config/restaurant-locations.json, Almaty). */
+const LOCATION = { opening_time: '10:00', closing_time: '00:00' };
 /** An instant at the given Almaty wall clock (UTC+5, no daylight saving). */
 const almaty = (clock, day = 28) => {
   const [h, m, s = 0] = clock.split(':').map(Number);
@@ -60,11 +63,51 @@ const decide = (extra = {}) =>
 
 test('an open restaurant with a fresh stop list and a sellable basket can pay', () => {
   assert.deepEqual(decide(), PAYMENT_AVAILABLE);
-  // The first read and an unexpected answer are not reasons: the server decides at the press.
-  for (const status of ['checking', 'error', undefined])
-    assert.deepEqual(decide({ status }), PAYMENT_AVAILABLE, String(status));
+  // A re-read (the menu refreshes) keeps the last answer: the handle does not blink.
+  assert.deepEqual(decide({ status: 'checking', known: true }), PAYMENT_AVAILABLE);
   // A server without published hours accepts orders at any time.
   assert.deepEqual(decide({ hours: undefined, now: almaty('03:00') }), PAYMENT_AVAILABLE);
+  assert.deepEqual(
+    decide({ hours: undefined, known: true, directory: LOCATION, now: almaty('03:00') }),
+    PAYMENT_AVAILABLE,
+    'the directory never closes what the server has answered open',
+  );
+});
+
+test('before the first availability answer nothing is payable (QA 28.10, launch)', () => {
+  // The app starts with a saved cart and the long-poll has not answered yet: no handle, no pay.
+  const launch = { status: 'checking', hours: undefined, known: false };
+  assert.deepEqual(decide(launch), { canPay: false, stop: { kind: 'checking' } });
+  assert.deepEqual(decide({ ...launch, status: undefined, known: undefined }).stop, {
+    kind: 'checking',
+  });
+  // Closed by the directory hours the header already shows: the same reason as the header.
+  assert.deepEqual(decide({ ...launch, directory: LOCATION, now: almaty('09:30') }).stop, {
+    kind: 'closed',
+    opensAt: '10:00',
+    opensTomorrow: false,
+  });
+  assert.deepEqual(decide({ ...launch, directory: LOCATION, now: almaty('12:00') }).stop, {
+    kind: 'checking',
+  });
+  // The first read fails with an unexpected answer (a captive portal page, a broken proxy): no
+  // connection to the server, still closed first by the directory.
+  assert.deepEqual(decide({ ...launch, status: 'error' }).stop, { kind: 'offline' });
+  assert.equal(
+    decide({ ...launch, status: 'error', directory: LOCATION, now: almaty('03:00') }).stop.kind,
+    'closed',
+  );
+  // An unexpected answer after earlier answers: the kept hours still close, then no connection.
+  assert.deepEqual(decide({ status: 'error', known: true }).stop, { kind: 'offline' });
+  assert.equal(decide({ status: 'error', known: true, now: almaty('09:00') }).stop.kind, 'closed');
+  // The switch the cart has seen and the phone's own offline state still say why.
+  assert.equal(decide({ ...launch, status: 'offline' }).stop.kind, 'offline');
+  assert.equal(decide({ ...launch, checkoutEnabled: false }).stop.kind, 'switched_off');
+  // No banner for the first read (it usually takes a second), a grey «Проверяем…».
+  assert.equal(paymentStopMessage({ kind: 'checking' }), null);
+  assert.equal(paymentStopLabel({ kind: 'checking' }), 'Проверяем…');
+  // Other builds keep their own flow.
+  assert.deepEqual(decide({ ...launch, guarded: false }), PAYMENT_AVAILABLE);
 });
 
 test('other builds, the design catalogue and the demonstration keep their own flow', () => {
@@ -125,7 +168,8 @@ test("the server's own «closed» wins over the device clock (opening minute, cl
   // Closed without published hours: the reason without a time.
   const bare = decide({ hours: undefined, status: 'closed' });
   assert.deepEqual(bare.stop, { kind: 'closed', opensAt: null, opensTomorrow: false });
-  assert.equal(paymentStopMessage(bare.stop), 'Ресторан сейчас закрыт.');
+  // One short line without a closing period, like every other reason (QA 28.10).
+  assert.equal(paymentStopMessage(bare.stop), 'Ресторан сейчас закрыт');
   // Hours open around the clock and the server still says closed: no opening time to promise.
   const always = { ...HOURS, openingTime: '00:00', closingTime: '00:00' };
   assert.deepEqual(decide({ hours: always, status: 'closed' }).stop, bare.stop);
@@ -244,6 +288,8 @@ test('banner and pay button texts in RU, KK and EN, plain hyphen only', () => {
     { kind: 'offline' },
     { kind: 'stale' },
     { kind: 'unavailable', names: ['Пик Комбо', 'Кола'] },
+    { kind: 'closed', opensAt: null, opensTomorrow: false },
+    { kind: 'checking' },
   ];
   assert.deepEqual(stops.map(paymentStopMessage), [
     'откроемся в 10:00',
@@ -253,6 +299,8 @@ test('banner and pay button texts in RU, KK and EN, plain hyphen only', () => {
     'Нет связи с сервером',
     'Нет свежих данных от ресторана. Проверяем связь автоматически.',
     'Нет в наличии: Пик Комбо, Кола',
+    'Ресторан сейчас закрыт',
+    null,
   ]);
   assert.deepEqual(stops.map(paymentStopLabel), [
     'Пока не работаем',
@@ -262,21 +310,31 @@ test('banner and pay button texts in RU, KK and EN, plain hyphen only', () => {
     // A stale restaurant stop list is not the customer's connection (review 28.10).
     'Оплата недоступна',
     'Проверьте корзину',
+    'Пока не работаем',
+    'Проверяем…',
   ]);
   const messages = JSON.parse(
     readFileSync(new URL('../../apps/mobile/src/i18n/messages.json', import.meta.url), 'utf8'),
   );
-  for (const locale of ['kk', 'en']) {
+  for (const locale of ['ru', 'kk', 'en']) {
     setAppLocale(locale);
     for (const stop of stops) {
       assert.notEqual(paymentStopLabel(stop), '', locale);
-      for (const text of [paymentStopMessage(stop), paymentStopLabel(stop)]) {
+      const reason = paymentStopMessage(stop);
+      for (const text of [reason, paymentStopLabel(stop)].filter((value) => value !== null)) {
         assert.doesNotMatch(text, /[—–]/, text);
         assert.doesNotMatch(text, /\{p\d\}/, text);
         // Translated: no Cyrillic left in the English text (product names come from the menu).
         if (locale === 'en' && stop.kind !== 'unavailable')
           assert.doesNotMatch(text, /[а-яё]/i, text);
+        // English UI text starts with a capital letter (QA 28.10: «opening at 10:00»); Russian
+        // keeps Drinkit's lower-case «откроемся».
+        if (locale === 'en') assert.match(text, /^\p{Lu}/u, text);
       }
+      // Short banner reasons end without a period (QA 28.10); only the two-sentence stale
+      // wording, shared with availability.ts, keeps its own.
+      if (reason && stop.kind !== 'stale')
+        assert.doesNotMatch(reason, /\.$/, `${locale} ${reason}`);
     }
     setAppLocale('ru');
   }
@@ -290,6 +348,8 @@ test('banner and pay button texts in RU, KK and EN, plain hyphen only', () => {
     'Нет связи',
     'Проверьте корзину',
     'Нет связи с сервером',
+    'Ресторан сейчас закрыт',
+    'Проверяем…',
   ]) {
     const entry = messages.find((message) => message.ru === ru);
     assert.ok(entry?.kk && entry.en, ru);
@@ -305,7 +365,14 @@ test('banner and pay button texts in RU, KK and EN, plain hyphen only', () => {
   );
   setAppLocale('en');
   assert.equal(paymentStopLabel(stops[0]), 'Closed for now');
-  assert.equal(paymentStopMessage(stops[0]), 'opening at 10:00');
+  assert.equal(paymentStopMessage(stops[0]), 'Opening at 10:00');
+  assert.equal(paymentStopMessage(stops[1]), 'Opening tomorrow at 09:00');
+  assert.equal(
+    headerHoursCaption(null, { open: false, opensAt: '10:00', opensTomorrow: false }),
+    'Opening at 10:00',
+  );
+  assert.equal(paymentStopMessage(stops[6]), 'The restaurant is closed right now');
+  assert.equal(paymentStopLabel(stops[7]), 'Checking…');
   assert.equal(paymentStopMessage(stops[3]), 'No connection to the server');
   setAppLocale('ru');
 });
@@ -344,6 +411,66 @@ test("header caption: today's hours while open, «откроемся в HH:MM» 
   assert.equal(headerHoursCaption({ closing_time: '22:00' }, null), 'до 22:00');
 });
 
+test('header caption follows the payment decision; other builds keep their hours', () => {
+  const caption = (input) => {
+    const { hours, status } = headerHoursNow({ location: LOCATION, ...input });
+    return headerHoursCaption(hours, status);
+  };
+  const night = almaty('03:00');
+  const at = (now, extra = {}) => ({ now, ...extra });
+  const closed = decide({ now: night });
+  assert.equal(
+    caption({ ...at(night), guarded: true, availability: closed, published: HOURS }),
+    'откроемся в 10:00',
+  );
+  // Builds without the Kaspi checkout (the simulator, the design catalogue): today's hours, as
+  // before 28.10 (QA 28.10), even at night.
+  assert.equal(
+    caption({ ...at(night), guarded: false, availability: PAYMENT_AVAILABLE }),
+    '10:00-00:00',
+  );
+  // A server that publishes no hours takes orders at night: the bar has its handle, so the header
+  // shows today's hours, never «откроемся» next to a handle (QA 28.10, owner question Q4).
+  const noHours = decide({ hours: undefined, known: true, directory: LOCATION, now: night });
+  assert.deepEqual(noHours, PAYMENT_AVAILABLE);
+  assert.equal(caption({ ...at(night), guarded: true, availability: noHours }), '10:00-00:00');
+  // Before the first answer at 09:30: closed by the directory, the header and the cart agree.
+  const launch = decide({
+    status: 'checking',
+    hours: undefined,
+    directory: LOCATION,
+    now: almaty('09:30'),
+  });
+  assert.equal(
+    caption({ ...at(almaty('09:30')), guarded: true, availability: launch }),
+    'откроемся в 10:00',
+  );
+  // The server's own «closed» against a phone clock still open: the header says it too.
+  const skew = decide({ now: almaty('23:59'), status: 'closed' });
+  assert.equal(
+    caption({ ...at(almaty('23:59')), guarded: true, availability: skew, published: HOURS }),
+    'откроемся в 10:00',
+  );
+  // Closed without an opening time of the server's own: the directory's when it says closed.
+  const bare = { canPay: false, stop: { kind: 'closed', opensAt: null, opensTomorrow: false } };
+  assert.equal(caption({ ...at(night), guarded: true, availability: bare }), 'откроемся в 10:00');
+  assert.equal(
+    caption({ ...at(almaty('12:00')), guarded: true, availability: bare }),
+    '10:00-00:00',
+  );
+  // Other reasons (no connection, the switch, the first read) keep today's hours.
+  for (const kind of ['offline', 'switched_off', 'checking', 'stale'])
+    assert.equal(
+      caption({
+        ...at(almaty('12:00')),
+        guarded: true,
+        availability: { canPay: false, stop: { kind } },
+      }),
+      '10:00-00:00',
+      kind,
+    );
+});
+
 test('the minute clock wakes right after the next minute boundary', () => {
   const at = almaty('09:59:59').getTime();
   assert.equal(msUntilNextMinute(at), 1_050);
@@ -351,7 +478,14 @@ test('the minute clock wakes right after the next minute boundary', () => {
   assert.ok(msUntilNextMinute(at + 999) > 0);
   const woke = new Date(at + msUntilNextMinute(at));
   assert.deepEqual(
-    paymentAvailability({ guarded: true, now: woke, hours: HOURS, cart: basket }),
+    paymentAvailability({
+      guarded: true,
+      now: woke,
+      status: 'current',
+      known: true,
+      hours: HOURS,
+      cart: basket,
+    }),
     PAYMENT_AVAILABLE,
   );
 });

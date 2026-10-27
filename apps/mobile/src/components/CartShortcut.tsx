@@ -124,6 +124,7 @@ export function CartShortcut({
   const availability = usePaymentAvailability(model);
   const handle = payable && availability.canPay;
   const stop = availability.canPay ? null : availability.stop;
+  const reason = stop ? paymentStopMessage(stop) : null;
   // The latest answer for a callback created in an earlier render (a gesture ending late).
   const canPayNow = useRef(availability.canPay);
   canPayNow.current = availability.canPay;
@@ -276,8 +277,8 @@ export function CartShortcut({
               t('Корзина, {p0} позиций, {p1}', { p0: count, p1: total }),
             )}
             accessibilityHint={
-              stop
-                ? joinSentences(localize(paymentStopMessage(stop)), t('Открыть состав заказа'))
+              reason
+                ? joinSentences(localize(reason), t('Открыть состав заказа'))
                 : t('Открыть состав заказа')
             }
             disabled={phase === 'drag'}

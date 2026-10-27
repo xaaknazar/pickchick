@@ -634,6 +634,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     availabilityFresh: undefined,
     availabilityStatus: undefined,
     availabilityHours: undefined,
+    availabilityKnown: undefined,
     testFlow: {
       ...testFlow,
       available: false,
