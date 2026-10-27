@@ -61,7 +61,12 @@ with sync_playwright() as p:
         expect(page.get_by_test_id('screen-M09')).not_to_be_visible()
         page.get_by_test_id('open-cart').click()
         expect(page.get_by_test_id('cart-checkout')).to_be_visible()
-        for route, screen in [('menu', 'M06'), ('events', 'M26'), ('orders', 'M19'), ('profile', 'M30')]:
+        # Owner 27.10.2026: three tabs (the profile moves to the header in lane hdr). The profile
+        # tab of the base build is still checked while it exists.
+        tabs = [('menu', 'M06'), ('events', 'M26'), ('orders', 'M19')]
+        if page.get_by_test_id('tab-profile').count():
+            tabs.append(('profile', 'M30'))
+        for route, screen in tabs:
             page.goto(URL + '/' + route)
             pill = page.get_by_test_id('open-cart')
             expect(pill).to_be_visible()
@@ -130,7 +135,7 @@ with sync_playwright() as p:
     frames = page.evaluate('window.cartMotionFrames')
     assert any(t not in ('none', 'matrix(1, 0, 0, 1, 0, 0)') for t in frames), frames
     page.emulate_media(reduced_motion='reduce')
-    page.get_by_test_id('tab-profile').click()
+    page.get_by_test_id('tab-orders').click()
     page.wait_for_timeout(100)
     for counter in page.get_by_test_id('cart-recent-feedback').all():
         assert counter.evaluate('(e) => getComputedStyle(e).transform') in ('none', 'matrix(1, 0, 0, 1, 0, 0)')
@@ -183,5 +188,5 @@ with sync_playwright() as p:
         context.close()
     browser.close()
 assert not errors, errors
-print('PASS: four tabs / four sizes, transparent floating docks, total only, last three photos in add order '
+print('PASS: every tab / four sizes, transparent floating docks, total only, last three photos in add order '
       '(persisted), no Kaspi handle outside the Kaspi build, navigation and empty cart')

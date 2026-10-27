@@ -11,6 +11,11 @@ with local fixtures only: no bank, no real customer, no VPS request.
   E  signed out: the slide opens the sign-in and then checkout without sending anything
   F  App Review account: the server refuses the order exactly as for a press, no retry, no invoice
   G  DEMO-1 demonstration: no cart bar or handle, no mutating request
+  H  combo gift selected: bar total = «Оформить заказ» = checkout total = quote; one order, one invoice
+  I  the hint «тяни для оплаты» fits at 320 pt in RU, KK and EN, also at the largest text size
+  J  an old unbilled intent without an order is still saved when checkout opens: the slide still
+     pays once (the press drops that intent), the old intent is never sent
+  K  «Вернуться в корзину» after a slide opens the cart, not the tab under checkout
 """
 from browser_network import isolated_context, route_fixture
 import json
@@ -28,13 +33,22 @@ OUT = ROOT / os.environ.get('SLIDE_TO_PAY_SHOTS', '.local/slide-to-pay')
 OUT.mkdir(parents=True, exist_ok=True)
 PHONE = '7' + '0' * 8 + '2'
 HINT = 'тяни для оплаты'
+# The hint in each language, from the catalogue the app uses.
+HINTS = next({lang: entry[lang] for lang in ('ru', 'kk', 'en')}
+             for entry in json.loads((ROOT / 'apps/mobile/src/i18n/messages.json').read_text())
+             if entry['ru'] == HINT)
+# CartShortcut: the hint grows with Dynamic Type up to x1.4 and may then shrink to 0.7 to fit.
+HINT_MAX_SCALE, HINT_MIN_FIT = 1.4, 0.7
+CUSTOMER_ID = customer['id']
+DRAFT_KEY = 'pickchick.commerce.pending.v1:' + CUSTOMER_ID
 errors = []
 
 
 def new_state(**overrides):
     return {'paths': [], 'held': [], 'quotes': 0, 'creates': 0, 'payments': 0, 'patches': 0,
             'legal': True, 'legal_version': 'fixture-v1', 'quote_total': '419000',
-            'forbid_orders': False, 'phase': None, 'signed_in': True, **overrides}
+            'forbid_orders': False, 'phase': None, 'signed_in': True, 'combo_earned': None,
+            'pay_result': 'awaiting_payment', 'quote_bodies': [], 'order_bodies': [], **overrides}
 
 
 def make_context(browser, state, width=393, height=852, reduced='reduce'):
@@ -111,7 +125,15 @@ def make_context(browser, state, width=393, height=852, reduced='reduce'):
         if path == '/v1/customer-checkout/config':
             return ok(r, {'enabled': True, 'branchId': BRANCH, 'restaurant': 'ТЦ Abay Plaza',
                           'fiscalPolicy': 'deferred_pilot', 'orderCommentEnabled': True})
+        if path == '/v1/customer-checkout/combo-rewards' and state['combo_earned'] is not None:
+            n = state['combo_earned']
+            return ok(r, {'enabled': True, 'programId': '40000000-0000-4000-8000-000000000010',
+                          'giftProductId': 'pick-combo', 'earnedUnits': n, 'completedCycles': n // 7,
+                          'currentStamps': n % 7, 'availableGifts': n // 7, 'usedGifts': 0,
+                          'reservedGifts': 0, 'reconciliationRequired': False,
+                          'visibleStamps': 7 if n == 7 else n % 7, 'remainingToNextGift': 7 - n % 7})
         if path == '/v1/customer-checkout/quotes' and method == 'POST':
+            state['quote_bodies'].append(body)
             state['quotes'] += 1
             return ok(r, {'quoteId': '40000000-0000-4000-8000-0000000000%02d' % (50 + state['quotes']),
                           'totalMinor': state['quote_total'], 'expiresAt': future,
@@ -119,6 +141,7 @@ def make_context(browser, state, width=393, height=852, reduced='reduce'):
         if path == '/v1/customer-checkout/orders' and method == 'GET':
             return ok(r, {'orders': [order(state['phase'])] if state['phase'] else []})
         if path == '/v1/customer-checkout/orders' and method == 'POST':
+            state['order_bodies'].append(body)
             state['creates'] += 1
             if state['forbid_orders']:
                 return refusal(r, 403, 'FORBIDDEN')
@@ -126,8 +149,8 @@ def make_context(browser, state, width=393, height=852, reduced='reduce'):
             return ok(r, order(state['phase']))
         if path.startswith('/v1/customer-checkout/orders/') and path.endswith('/payment'):
             state['payments'] += 1
-            state['phase'] = 'awaiting_payment'
-            return ok(r, order('awaiting_payment', revision=2))
+            state['phase'] = state['pay_result']
+            return ok(r, order(state['phase'], revision=2))
         if path.startswith('/v1/customer-checkout/orders/') and method == 'GET' and state['phase']:
             return ok(r, order(state['phase'], revision=2 if state['phase'] == 'awaiting_payment' else 1))
         r.abort()
@@ -190,6 +213,28 @@ def wait_quiet(page, ms=2500):
     page.wait_for_timeout(ms)
 
 
+def money_minor(text):
+    import re
+    found = re.findall(r'(\d[\d \u00a0\u202f]*(?:,\d+)?)\s?₸', text)
+    assert found, text
+    return minor(found[-1].replace('\u202f', ''))
+
+
+def hint_fits(page):
+    # The rendered hint at the normal size, and at the size iOS reaches with the largest text:
+    # x1.4 (maxFontSizeMultiplier), then shrunk to the minimum fit scale (adjustsFontSizeToFit).
+    return page.get_by_test_id('cart-pay-hint').evaluate('''(e, scale) => {
+      const fits = () => e.scrollWidth <= e.clientWidth + 1;
+      const size = parseFloat(getComputedStyle(e).fontSize);
+      const normal = fits();
+      e.style.fontSize = (size * scale) + 'px';
+      const large = fits();
+      const result = {normal, large, text: e.textContent, scroll: e.scrollWidth, client: e.clientWidth};
+      e.style.fontSize = '';
+      return result;
+    }''', HINT_MAX_SCALE * HINT_MIN_FIT)
+
+
 def scenario_bar_and_short_drag(browser, width, height, reduced):
     state = new_state()
     ctx, page = make_context(browser, state, width, height, reduced)
@@ -209,6 +254,19 @@ def scenario_bar_and_short_drag(browser, width, height, reduced):
     assert bar['x'] >= 0 and bar['x'] + bar['width'] <= width and bar['y'] + bar['height'] <= tab['y'], (bar, tab)
     assert travel > 120, travel
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+    # VoiceOver / keyboard order follows the picture: the Kaspi handle first, then the cart button.
+    # Its frame is level with the cart button (same top and height), the visible pill inside it.
+    cart_box = page.get_by_test_id('open-cart').bounding_box()
+    assert abs(box['y'] - cart_box['y']) <= 1 and abs(box['height'] - cart_box['height']) <= 1, (box, cart_box)
+    assert page.evaluate('''() => {
+      const handle = document.querySelector('[data-testid="cart-pay-handle"]');
+      const cart = document.querySelector('[data-testid="open-cart"]');
+      return !!(handle.compareDocumentPosition(cart) & Node.DOCUMENT_POSITION_FOLLOWING);
+    }''')
+    handle.focus()
+    page.keyboard.press('Tab')
+    assert page.evaluate('document.activeElement && document.activeElement.dataset.testid') == 'open-cart'
+    page.evaluate('document.activeElement.blur()')
     page.wait_for_timeout(300)
     page.screenshot(path=str(OUT / f'bar-1-item-{width}.png'))
     # A short tap shows the hint and nothing else.
@@ -225,6 +283,8 @@ def scenario_bar_and_short_drag(browser, width, height, reduced):
     # Hold: «тяни для оплаты», total and photos fade out.
     slide(page, 0.0, steps=1, release_at_end=False)
     expect(page.get_by_test_id('cart-pay-hint')).to_have_text(HINT)
+    fit = hint_fits(page)
+    assert fit['normal'] and fit['large'], fit
     page.wait_for_timeout(300)
     assert opacity(page.get_by_test_id('cart-shortcut-total')) < 0.05
     assert opacity(page.get_by_test_id('cart-recent-photo-0')) < 0.05
@@ -429,8 +489,124 @@ def scenario_review_demo(browser):
     ctx.close()
 
 
+def scenario_combo_gift(browser):
+    # The bar is a payment control: with a combo gift selected it shows the amount of «Оформить
+    # заказ» and of the invoice, not the full basket.
+    state = new_state(combo_earned=7)
+    ctx, page = make_context(browser, state, 393, 852, 'reduce')
+    page.goto(URL + '/menu')
+    add(page, 'burger')
+    full = minor(page.get_by_test_id('cart-shortcut-total').inner_text())
+    page.get_by_test_id('open-cart').click()
+    toggle = page.get_by_test_id('cart-use-combo-gift')
+    expect(toggle).to_have_attribute('aria-checked', 'false', timeout=25000)
+    toggle.scroll_into_view_if_needed()
+    toggle.click()
+    expect(toggle).to_have_attribute('aria-checked', 'true')
+    button = page.get_by_test_id('cart-checkout')
+    expect(button).to_be_enabled()
+    cart_amount = money_minor(button.inner_text())
+    page.get_by_test_id('cart-close').click()
+    expect(page.get_by_test_id('screen-M09')).not_to_be_visible()
+    bar = page.get_by_test_id('cart-shortcut-total')
+    expect(bar).to_be_visible()
+    bar_amount = minor(bar.inner_text())
+    # Burger 2 390 + gift Pick Combo 4 190 - gift 4 190: the bar shows 2 390, never 6 580.
+    assert bar_amount == cart_amount == '239000', (bar_amount, cart_amount, full)
+    page.screenshot(path=str(OUT / 'bar-gift-393.png'))
+    state['quote_total'] = bar_amount
+    slide(page, 1.0)
+    expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi', timeout=15000)
+    # The quote equals the amount the customer slid on, so the checkout did not stop for a price
+    # change: bar = cart button = checkout total = invoice.
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    assert state['quote_bodies'][0].get('giftItemIndex') is not None, state['quote_bodies']
+    wait_quiet(page)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    release(state)
+    ctx.close()
+
+
+def scenario_hint_languages(browser):
+    state = new_state()
+    ctx, page = make_context(browser, state, 320, 568, 'reduce')
+    page.goto(URL + '/menu')
+    add(page)
+    for lang in ['kk', 'en', 'ru']:
+        page.goto(URL + '/screen/M34')
+        page.get_by_test_id('language-' + lang).click()
+        expect(page.get_by_test_id('language-' + lang)).to_have_attribute('aria-checked', 'true')
+        page.goto(URL + '/menu')
+        expect(page.get_by_test_id('cart-pay-handle')).to_be_visible(timeout=25000)
+        expect(page.get_by_test_id('launch-reveal')).to_have_count(0, timeout=20000)
+        slide(page, 0.0, steps=1, release_at_end=False)
+        hint = page.get_by_test_id('cart-pay-hint')
+        expect(hint).to_have_text(HINTS[lang])
+        fit = hint_fits(page)
+        assert fit['normal'] and fit['large'], (lang, fit)
+        page.wait_for_timeout(200)
+        page.screenshot(path=str(OUT / f'hold-{lang}-320.png'))
+        page.mouse.up()
+        expect(hint).to_have_count(0)
+    assert not checkout_traffic(state), checkout_traffic(state)
+    release(state)
+    ctx.close()
+
+
+def scenario_stale_draft(browser):
+    # An intent saved long ago that never became an order (nothing billed) is still in storage
+    # when the slide opens checkout. The press itself drops such an intent, so the slide pays once
+    # and the old intent's key is never used.
+    state = new_state()
+    ctx, page = make_context(browser, state, 393, 852, 'reduce')
+    page.goto(URL + '/menu')
+    add(page)
+    old = {'key': '40000000-0000-4000-8000-0000000000e1', 'quoteId': '40000000-0000-4000-8000-0000000000e2',
+           'signature': '{"items":[]}', 'sendInvoice': True}
+    # Written after launch, as an intent closed earlier in this run stays (PaymentRecovery does
+    # not reopen it); createdAt is an hour old, so it may never send an invoice by itself.
+    page.evaluate('([key, draft]) => localStorage.setItem(key, JSON.stringify({...draft, createdAt: Date.now() - 3600000}))',
+                  [DRAFT_KEY, old])
+    slide(page, 1.0)
+    expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi', timeout=15000)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    assert all(body['key'] != old['key'] and body['quoteId'] != old['quoteId'] for body in state['order_bodies']), state['order_bodies']
+    saved = json.loads(page.evaluate('(key) => localStorage.getItem(key)', DRAFT_KEY))
+    assert saved['key'] != old['key'] and saved.get('orderId'), saved
+    wait_quiet(page)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    release(state)
+    ctx.close()
+
+
+def scenario_back_to_cart(browser):
+    # The slide opens checkout right over the tab. «Вернуться в корзину» must show the cart
+    # (in place of checkout), not the menu tab that lies under checkout.
+    state = new_state(pay_result='failed')
+    ctx, page = make_context(browser, state, 393, 852, 'reduce')
+    page.goto(URL + '/menu')
+    add(page)
+    slide(page, 1.0)
+    back = page.get_by_role('button', name='Вернуться в корзину', exact=True)
+    expect(back).to_be_visible(timeout=15000)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    back.click()
+    expect(page.get_by_test_id('cart-checkout')).to_be_visible(timeout=10000)
+    assert page.url.rstrip('/').endswith('/cart'), page.url
+    expect(page.get_by_test_id('kaspi-checkout-submit')).to_have_count(0)
+    page.screenshot(path=str(OUT / 'back-to-cart-after-slide-393.png'))
+    # Closing the cart returns to the menu with the bar; nothing was sent again.
+    page.get_by_test_id('cart-close').click()
+    expect(page.get_by_test_id('cart-shortcut')).to_be_visible(timeout=10000)
+    assert page.url.rstrip('/').endswith('/menu'), page.url
+    wait_quiet(page)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    release(state)
+    ctx.close()
+
+
 if __name__ == '__main__':
-    SELECTED = os.environ.get('SLIDE_TO_PAY', 'ABCDEFG').upper()
+    SELECTED = os.environ.get('SLIDE_TO_PAY', 'ABCDEFGHIJK').upper()
     with sync_playwright() as p:
         browser = p.chromium.launch()
         if 'A' in SELECTED:
@@ -448,9 +624,19 @@ if __name__ == '__main__':
             scenario_review_account(browser)
         if 'G' in SELECTED:
             scenario_review_demo(browser)
+        if 'H' in SELECTED:
+            scenario_combo_gift(browser)
+        if 'I' in SELECTED:
+            scenario_hint_languages(browser)
+        if 'J' in SELECTED:
+            scenario_stale_draft(browser)
+        if 'K' in SELECTED:
+            scenario_back_to_cart(browser)
         browser.close()
     assert not errors, errors
     print('PASS slide to pay (' + SELECTED + '): hold hint, tap/swipe/short drag/keyboard send nothing, '
           'full drag = one quote + one order + one invoice, reload/back resend nothing, price change and '
           'consent stop before the order, signed-out sign-in lands on checkout without sending, '
-          'App Review account refused once, DEMO-1 without cart bar or mutations')
+          'App Review account refused once, DEMO-1 without cart bar or mutations, gift total = invoice, '
+          'hint fits in RU/KK/EN at 320 pt, an old unbilled intent does not block the slide, '
+          'back to cart after a slide')
