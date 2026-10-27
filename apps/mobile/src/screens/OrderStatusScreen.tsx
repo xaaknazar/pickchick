@@ -16,6 +16,7 @@ import {
   type IconName,
 } from '../components/UI';
 import { MotionPressable } from '../components/Motion';
+import { GlassButton } from '../components/GlassButton';
 import { OrderActions } from '../components/OrderActions';
 import { RepeatOrder } from '../components/RepeatOrder';
 import { OrderChef } from '../components/OrderChef';
@@ -212,16 +213,14 @@ export function OrderStatusView({
               {localize(order.snapshot.service_mode === 'takeaway' ? 'С собой' : 'В зале')}
             </Caption>
           </View>
-          <MotionPressable
+          <GlassButton
             testID="order-more"
-            accessibilityRole="button"
-            accessibilityLabel={localize(more ? 'Закрыть действия заказа' : 'Действия заказа')}
-            accessibilityState={{ expanded: more }}
+            name="ellipsis-horizontal"
+            iconSize={25}
+            label={localize(more ? 'Закрыть действия заказа' : 'Действия заказа')}
+            expanded={more}
             onPress={() => setMore(!more)}
-            style={s.iconButton}
-          >
-            <Icon name="ellipsis-horizontal" size={25} />
-          </MotionPressable>
+          />
         </Row>
         <ScrollView
           testID="order-status-scroll"
@@ -395,14 +394,6 @@ function ActionTile({
 const s = StyleSheet.create({
   root: { flex: 1, minHeight: 0, backgroundColor: colors.background },
   header: { paddingHorizontal: 16, paddingBottom: 12, alignItems: 'center', gap: 12 },
-  iconButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.raised,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   location: { flex: 1, alignItems: 'center', gap: 2 },
   locationName: { fontFamily: font.medium, fontSize: 16, lineHeight: 22, textAlign: 'center' },
   mode: { fontSize: 12, color: colors.muted },

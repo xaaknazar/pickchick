@@ -1,12 +1,13 @@
 import { t, localize, useLocale } from '../i18n';
 import { MediaPoster, MotionPressable as Pressable, useReducedMotion } from './Motion';
-import { useCallback, useEffect, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { AppState, Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import { assets } from '../assets';
 import { WebHeroVideo } from './WebHeroVideo';
+import { useHeroHostVisible } from './useHeroHostVisible';
+import { heroShouldPlay } from '../hero-playback';
 import { colors, font } from '../theme';
 import { Body, Caption, Heading, Icon, Row, styles as ui } from './UI';
 
@@ -30,7 +31,8 @@ function NativeHeroVideo({ gradient }: { gradient?: string }) {
   const reduced = useReducedMotion();
   const [firstFrame, setFirstFrame] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [focused, setFocused] = useState(false);
+  // A sheet over the menu (cart, checkout) keeps the video playing; tabs/full screens pause it.
+  const visible = useHeroHostVisible();
   const [active, setActive] = useState(AppState.currentState === 'active');
   const player = useVideoPlayer(assets.hero, (video) => {
     video.loop = true;
@@ -49,18 +51,13 @@ function NativeHeroVideo({ gradient }: { gradient?: string }) {
     });
     return () => status.remove();
   }, [player]);
-  useFocusEffect(
-    useCallback(() => {
-      setFocused(true);
-      // useVideoPlayer releases the native object during unmount. Focus cleanup
-      // only changes state; calling pause here would access an already freed player.
-      return () => setFocused(false);
-    }, []),
-  );
+  // useVideoPlayer releases the native object during unmount. Visibility changes only
+  // update state; calling pause from a cleanup would access an already freed player.
   useEffect(() => {
-    if (!reduced && active && focused && !failed) player.play();
+    if (heroShouldPlay({ reducedMotion: reduced, appActive: active, failed, hostVisible: visible }))
+      player.play();
     else player.pause();
-  }, [player, reduced, active, focused, failed]);
+  }, [player, reduced, active, visible, failed]);
   return (
     <>
       <Image

@@ -30,6 +30,9 @@ threading.Thread(target=server.serve_forever, daemon=True).start()
 URL = f'http://127.0.0.1:{server.server_port}'
 errors = []
 commands = []
+# Kaspi build (27.10.2026): the cart is the checkout; its total is cart-total inside the cart screen
+# (the floating cart bar has its own cart-total). There is no «Оформить заказ» (cart-checkout) any more.
+CART_TOTAL = '[data-testid="screen-M09"] [data-testid="cart-total"]'
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
@@ -78,7 +81,9 @@ with sync_playwright() as p:
         expect(page.get_by_test_id('product-add')).to_contain_text('100 ₸')
         page.get_by_test_id('product-add').click()
         page.get_by_test_id('open-cart').click()
-        expect(page.get_by_test_id('cart-checkout')).to_contain_text('100 ₸')
+        expect(page.locator(CART_TOTAL)).to_contain_text('100 ₸')
+        expect(page.get_by_test_id('cart-checkout')).to_have_count(0)
+        expect(page.get_by_test_id('cart-pay')).to_contain_text('Kaspi.kz')
         expect(page.get_by_test_id('cart-recommend-toast')).to_contain_text('25 ₸')
         saved = page.evaluate('JSON.parse(localStorage.getItem("pickchick.mobile.preferences.v1"))')
         assert saved['publication']['version'] == 3
@@ -94,14 +99,14 @@ with sync_playwright() as p:
         page.evaluate('(saved)=>localStorage.setItem("pickchick.mobile.preferences.v1", JSON.stringify(saved))', saved)
         page.reload()
         expect(page.get_by_test_id('cart-prices-updated')).to_contain_text('Было 8 780 ₸. Сейчас 600 ₸.', timeout=15000)
-        expect(page.get_by_test_id('cart-checkout')).to_contain_text('600 ₸')
+        expect(page.locator(CART_TOTAL)).to_contain_text('600 ₸')
         expect(page.get_by_test_id('cart-quantity-pick-combo')).to_have_text('2')
         expect(page.get_by_test_id('cart-quantity-toast')).to_have_count(0)
         page.reload()
         expect(page.get_by_test_id('cart-prices-updated')).to_contain_text('Было 8 780 ₸. Сейчас 600 ₸.', timeout=15000)
         page.get_by_test_id('catalog-update-apply').click()
         expect(page.get_by_test_id('cart-prices-updated')).to_have_count(0)
-        expect(page.get_by_test_id('cart-checkout')).to_contain_text('600 ₸')
+        expect(page.locator(CART_TOTAL)).to_contain_text('600 ₸')
         assert page.evaluate('JSON.parse(localStorage.getItem("pickchick.mobile.preferences.v1")).lines[0].selections[0].option_id') == 'lemonade'
         # Foreground publication refresh keeps quantity/options and records the price change.
         state['publication']['version'] = 4
@@ -110,12 +115,12 @@ with sync_playwright() as p:
         page.evaluate('Object.defineProperty(document, "visibilityState", {configurable:true,get:()=>"hidden"});document.dispatchEvent(new Event("visibilitychange"))')
         page.evaluate('Object.defineProperty(document, "visibilityState", {configurable:true,get:()=>"visible"});document.dispatchEvent(new Event("visibilitychange"))')
         expect(page.get_by_test_id('cart-prices-updated')).to_contain_text('Было 600 ₸. Сейчас 800 ₸.', timeout=3000)
-        expect(page.get_by_test_id('cart-checkout')).to_contain_text('800 ₸')
+        expect(page.locator(CART_TOTAL)).to_contain_text('800 ₸')
         page.reload()
         expect(page.get_by_test_id('cart-prices-updated')).to_contain_text('Было 600 ₸. Сейчас 800 ₸.', timeout=15000)
-        expect(page.get_by_test_id('cart-checkout')).to_contain_text('800 ₸')
+        expect(page.locator(CART_TOTAL)).to_contain_text('800 ₸')
         page.get_by_test_id('catalog-update-apply').click()
-        expect(page.get_by_test_id('cart-checkout')).to_contain_text('800 ₸')
+        expect(page.locator(CART_TOTAL)).to_contain_text('800 ₸')
         context.close()
     browser.close()
 server.shutdown()

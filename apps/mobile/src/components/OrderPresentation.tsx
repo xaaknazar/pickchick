@@ -2,7 +2,7 @@ import { t, localize, useLocale } from '../i18n';
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Body, CloseButton, Heading, IconButton, Row } from './UI';
-import { colors, font } from '../theme';
+import { font } from '../theme';
 
 /** Scoped to the cart/checkout sheets; storefront display typography stays intact. */
 export const orderUI = StyleSheet.create({
@@ -23,7 +23,6 @@ export const orderUI = StyleSheet.create({
     letterSpacing: -0.2,
   },
   headerSide: { width: 48, alignItems: 'center' },
-  headerButton: { backgroundColor: colors.surface },
   total: { justifyContent: 'space-between', flexWrap: 'wrap', paddingVertical: 4, gap: 8 },
 });
 
@@ -50,7 +49,6 @@ export function OrderHeader({
             label={t('Вернуться в корзину')}
             testID={testID}
             onPress={onClose}
-            style={orderUI.headerButton}
           />
         ) : (
           <CloseButton label={t('Закрыть корзину')} testID={testID} onPress={onClose} />

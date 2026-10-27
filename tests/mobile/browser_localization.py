@@ -66,6 +66,20 @@ with sync_playwright() as p:
    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),('support',lang,width)
    page.screenshot(path=str(OUT/f'support-{lang}-{width}.png'),full_page=True)
    page.goto(URL+'/screen/M34');expect(page.get_by_text(title,exact=True)).to_be_visible(timeout=20000)
+  # Cart page (27.10.2026) in Kazakh and English: dining pill, payment method, total, pay button.
+  for lang,words in [('kk',('Мейрамханада','Алып кету','Төлем тәсілі','Барлығы','Kaspi.kz арқылы төлеу')),('en',('Dine in','Takeaway','Payment method','Total','Pay with Kaspi.kz'))]:
+   page.goto(URL+'/screen/M34');page.get_by_test_id('language-'+lang).click(timeout=20000)
+   page.goto(URL+'/menu');page.get_by_test_id('product-pick-combo').click(timeout=20000);page.get_by_test_id('product-add').click();page.get_by_test_id('open-cart').click()
+   cart=page.get_by_test_id('screen-M09');expect(cart).to_be_visible()
+   for radio in words[:2]:expect(cart.get_by_role('radio',name=radio,exact=True)).to_be_visible()
+   expect(page.get_by_test_id('cart-payment-method')).to_contain_text(words[2]);expect(cart.get_by_text(words[3],exact=True)).to_be_visible()
+   expect(page.get_by_test_id('cart-pay')).to_have_accessible_name(words[4]+', 4 190 ₸',timeout=15000)
+   # The visible button keeps the language's word order around the mark (KK: «Kaspi.kz арқылы төлеу»).
+   assert page.get_by_test_id('cart-pay').evaluate("(e)=>e.innerText.replace(/\\s+/g,' ').trim()")==words[4],lang
+   assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),('cart',lang,width)
+   page.screenshot(path=str(OUT/f'cart-{lang}-{width}.png'))
+   page.get_by_test_id('cart-clear').click();page.get_by_test_id('cart-clear-confirm').click();expect(page.get_by_test_id('cart-pay')).to_have_count(0)
+  page.goto(URL+'/screen/M34');expect(page.get_by_test_id('language-en')).to_be_visible(timeout=20000)
   page.get_by_test_id('language-en').click();page.goto(URL+'/menu');expect(page.get_by_test_id('floating-tab-bar')).to_be_visible(timeout=20000)
   expect(page.get_by_test_id('launch-reveal')).to_have_count(0,timeout=20000)
   expect(page.get_by_test_id('tab-menu')).to_contain_text('Menu');expect(page.get_by_test_id('tab-orders')).to_contain_text('Orders')
@@ -83,4 +97,4 @@ with sync_playwright() as p:
   ctx.close()
  browser.close()
 assert not errors,errors
-print('PASS: RU/KK/EN selection, persistence, three tabs, header profile, unread count only in the profile row, user nickname, web push gate at 393x852 and 320x568')
+print('PASS: RU/KK/EN selection, persistence, KK/EN cart page, three tabs, header profile, unread count only in the profile row, user nickname, web push gate at 393x852 and 320x568')

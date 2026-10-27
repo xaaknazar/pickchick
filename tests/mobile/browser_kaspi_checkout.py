@@ -20,7 +20,7 @@ with sync_playwright() as p:
  for width,height in [(320,568),(393,852),(768,1024),(852,393)]:
   context=isolated_context(browser,viewport={'width':width,'height':height},reduced_motion='reduce')
   context.add_init_script('sessionStorage.setItem("pickchick.customer.session.v1",'+json.dumps(json.dumps(envelope))+');')
-  state={'payment_blocked':True,'phase':'awaiting_restaurant','created':False,'paid':False,'drop':True,'keys':[],'payments':0,'quotes':0,'quote_keys':[],'quote_drop':True,'quote_total':'420000' if width==393 else '419000','revision':1,'held_routes':[],'teardown':False,'blocked':True,'comment':'','quote_comment':'','feedback':None,'feedback_posts':0,'feedback_drop':True,'config_reads':0,'config_offline':False,'expiry':(datetime.now(timezone.utc)+timedelta(minutes=3)).isoformat().replace('+00:00','Z')}
+  state={'payment_blocked':True,'phase':'awaiting_restaurant','created':False,'paid':False,'drop':True,'keys':[],'payments':0,'quotes':0,'quote_keys':[],'quote_drop':True,'quote_total':'420000' if width==393 else '419000','revision':1,'held_routes':[],'teardown':False,'blocked':True,'comment':'','quote_comment':'','feedback':None,'feedback_posts':0,'feedback_drop':True,'config_reads':0,'config_offline':False,'quote_modes':[],'handled':[],'expiry':(datetime.now(timezone.utc)+timedelta(minutes=3)).isoformat().replace('+00:00','Z')}
   def order():
    return {'orderId':ORDER,'revision':hex(state['revision'])[2:].zfill(64),'restaurant':'ТЦ Abay Plaza','branchId':BRANCH,'createdAt':'2026-09-30T00:00:00.000Z','updatedAt':'2026-09-30T00:01:00.000Z','kitchenStage':'assembly' if state['phase']=='preparing' else None,'displayNumber':'2' if state['paid'] else None,'totalMinor':'419000','serviceMode':'takeaway','kitchenComment':state['comment'] or None,'phase':state['phase'],'expiresAt':state['expiry'] if state['phase']=='awaiting_payment' else None,'receipt':'deferred','receiptUrl':None,'items':[{'productId':'pick-combo','title':'Pick Combo','quantity':1,'totalMinor':'419000','modifiers':['Coca-Cola 0,5 л','Фирменный соус']} ]}
   def route(r):
@@ -59,7 +59,7 @@ with sync_playwright() as p:
     data={'enabled':True,'branchId':'7a6f6d98-395d-4462-b5e4-b0364a4a8ec1','restaurant':'ТЦ Abay Plaza','fiscalPolicy':'deferred_pilot','orderCommentEnabled':True}
    elif path=='/v1/customer-checkout/quotes':
     assert page.get_by_test_id('kaspi-connecting').count()==1, 'Quotes must start inside the connecting scene'
-    state['quotes']+=1;state['quote_keys'].append(body['key'])
+    state['quotes']+=1;state['quote_keys'].append(body['key']);state['quote_modes'].append(body['serviceMode'])
     assert 'totalMinor' not in body
     assert body['branchId']=='7a6f6d98-395d-4462-b5e4-b0364a4a8ec1'
     state['quote_comment']=body.get('kitchenComment','')
@@ -88,12 +88,37 @@ with sync_playwright() as p:
    else:r.abort();return
    r.fulfill(json=data,headers={'Access-Control-Allow-Origin':'*'})
   route_fixture(context,'**/v1/**',route)
-  page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.goto(URL+'/menu')
+  page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
+  # Status watches: answer only the newest one the test has not answered yet, waiting for it under
+  # load (the app opens the next watch only after it has rendered the previous answer).
+  def held_watch():
+   for _ in range(300):
+    held=state.get('held')
+    if held is not None and id(held) not in state['handled']:return held
+    page.wait_for_timeout(50)
+   raise AssertionError('No fresh status watch')
+  def answer_watch(abort=False):
+   # Also settles a watch the previous document opened just before a navigation.
+   newest=held_watch()
+   for held in state['held_routes']:
+    if id(held) in state['handled']:continue
+    state['handled'].append(id(held))
+    try:
+     if abort:held.abort()
+     else:held.fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
+    except Exception:
+     if held is newest:raise
+   return newest
+  def navigate(action,*args):
+   # A navigation cancels the open watch; the reloaded app opens a new one.
+   state['handled'].extend(id(r) for r in state['held_routes']);action(*args)
+  page.goto(URL+'/menu')
   page.get_by_test_id('product-pick-combo').click(timeout=25000);page.get_by_test_id('product-add').click()
   page.get_by_test_id('open-cart').click()
   page.screenshot(path=str(OUT/f'cart-{width}.png'))
-  page.get_by_test_id('cart-checkout').click()
-  button=page.get_by_test_id('kaspi-checkout-submit')
+  # Kaspi build (27.10.2026): no separate checkout page, the cart pays.
+  expect(page.get_by_test_id('cart-checkout')).to_have_count(0)
+  button=page.get_by_test_id('cart-pay')
   expect(button).to_be_enabled()
   assert not state['keys'] and state['payments']==0 and state['quotes']==0
   # A definitive account rejection is only checked after explicit payment.
@@ -101,7 +126,7 @@ with sync_playwright() as p:
   expect(page.get_by_text('Оплата Kaspi ещё не открыта для вашего аккаунта.',exact=True)).to_be_visible()
   expect(button).to_be_enabled()
   assert not state['keys'] and state['payments']==0 and state['quotes']==0
-  total=page.get_by_test_id('kaspi-checkout-total')
+  total=page.get_by_test_id('screen-M09').get_by_test_id('cart-total')
   assert total.evaluate('(el) => parseFloat(getComputedStyle(el).lineHeight) >= parseFloat(getComputedStyle(el).fontSize) * 1.3')
   page.screenshot(path=str(OUT/f'blocked-{width}.png'))
   state['blocked']=False
@@ -110,8 +135,9 @@ with sync_playwright() as p:
   state['config_offline']=True
   button.click()
   expect(page.get_by_test_id('kaspi-connecting')).to_be_visible()
-  page.get_by_role('button',name='Вернуться к оформлению',exact=True).click()
-  expect(button).to_be_enabled()
+  page.get_by_role('button',name='Вернуться в корзину',exact=True).click()
+  # The full cart remounts after the payment scene; allow for a loaded shared CI box.
+  expect(button).to_be_enabled(timeout=15000)
   config_reads=state['config_reads']
   page.wait_for_timeout(2600)
   assert state['config_reads']==config_reads and state['quotes']==0 and not state['keys'] and state['payments']==0
@@ -123,13 +149,12 @@ with sync_playwright() as p:
   expect(comment).to_be_editable()
   comment.fill('Соус отдельно, пожалуйста')
   comment.blur()
-  page.get_by_test_id('checkout-close').click()
-  if width==393:
-   page.get_by_test_id('cart-close').click()
-   page.reload()
-   page.get_by_test_id('open-cart').click(timeout=20000)
-  page.get_by_test_id('cart-checkout').click()
+  page.get_by_test_id('cart-close').click()
+  expect(page.get_by_test_id('screen-M09')).to_have_count(0)
+  if width==393:page.reload()
+  page.get_by_test_id('open-cart').click(timeout=20000)
   expect(comment).to_have_value('Соус отдельно, пожалуйста')
+  expect(page.get_by_role('radio',name='В зале',exact=True)).to_have_attribute('aria-checked','true')
   expect(button).to_be_enabled(timeout=10000)
   comment.scroll_into_view_if_needed()
   page.screenshot(path=str(OUT/f'checkout-{width}.png'))
@@ -154,9 +179,11 @@ with sync_playwright() as p:
   resume.click()
   expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi',timeout=10000)
   # Once an invoice exists, neither backdrop/Escape nor the old drag affordance dismiss it.
-  sheet=page.get_by_role('dialog',name='Оформление',exact=True)
+  sheet=page.get_by_role('dialog',name='Корзина',exact=True)
   expect(sheet.get_by_test_id('sheet-handle')).to_have_count(0)
-  expect(page.get_by_role('button',name='Закрыть: Оформление',exact=True)).to_have_count(0)
+  expect(page.get_by_role('button',name='Закрыть: Корзина',exact=True)).to_have_count(0)
+  # The pill chose «В зале» before paying: every quote of this order carried it.
+  assert state['quote_modes'] and set(state['quote_modes'])=={'dine_in'},state['quote_modes']
   page.get_by_test_id('kaspi-open-app').focus();page.keyboard.press('Escape')
   expect(page.get_by_test_id('kaspi-waiting')).to_be_visible()
   page.mouse.click(width/2,2)
@@ -173,7 +200,7 @@ with sync_playwright() as p:
   expect(page.get_by_test_id('kaspi-cancel-help')).to_have_count(0)
   page.screenshot(path=str(OUT/f'invoice-{width}.png'))
   # OS restart / a legacy dismissed sheet: the saved identity reopens checkout from the menu.
-  page.goto(URL+'/menu')
+  navigate(page.goto,URL+'/menu')
   expect(page.get_by_test_id('kaspi-waiting')).to_be_visible(timeout=25000)
   assert page.url.endswith('/checkout')
   assert state['payments']==1 and len(state['keys'])==2, 'Recovery reads the saved order, no second create/pay'
@@ -184,15 +211,14 @@ with sync_playwright() as p:
   assert state['comment']=='Соус отдельно, пожалуйста',state
   # Lost status connection recovers without a tap or another bank payment command.
   page.wait_for_timeout(150)
-  previous_watch=state['held']
-  previous_watch.abort()
+  previous_watch=answer_watch(abort=True)
   expect(page.get_by_text('Связь прервалась. Восстанавливаем статус заказа автоматически.',exact=True)).to_have_count(0)
   page.wait_for_timeout(1500)
-  assert state['held'] is not previous_watch
+  assert held_watch() is not previous_watch
   assert state['payments']==1
   expect(page.get_by_test_id('kaspi-invoice-countdown')).to_be_visible()
   state['expiry']='2000-01-01T00:00:00Z';state['revision']+=1
-  state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
+  answer_watch()
   expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Проверяем отмену счёта')
   expect(page.get_by_test_id('kaspi-open-app')).to_have_count(0)
   expect(page.get_by_test_id('kaspi-retry-payment')).to_have_count(0)
@@ -200,11 +226,11 @@ with sync_playwright() as p:
   state['expiry']=(datetime.now(timezone.utc)+timedelta(minutes=3)).isoformat().replace('+00:00','Z')
   # An ambiguous bank response must never expose a second payment command.
   state['phase']='checking';state['revision']+=1
-  page.wait_for_timeout(100);state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
+  page.wait_for_timeout(100);answer_watch()
   expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Уточняем оплату')
   expect(page.get_by_test_id('kaspi-retry-payment')).to_have_count(0)
   state['phase']='failed';state['revision']+=1
-  page.wait_for_timeout(100);state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
+  page.wait_for_timeout(100);answer_watch()
   expect(page.get_by_test_id('kaspi-failed')).to_contain_text('Счёт не оплачен')
   page.screenshot(path=str(OUT/f'failed-{width}.png'))
   page.get_by_test_id('kaspi-retry-payment').click()
@@ -221,9 +247,9 @@ with sync_playwright() as p:
   page.wait_for_timeout(100)
   if width==393:
    # Paid while the application was closed: recover the same order and show confirmation.
-   page.goto(URL+'/menu')
+   navigate(page.goto,URL+'/menu')
   else:
-   state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
+   answer_watch()
   expect(page.get_by_test_id('kaspi-paid')).to_contain_text('Оплачено')
   page.screenshot(path=str(OUT/f'confirmation-{width}.png'))
   if width != 393:page.get_by_test_id('kaspi-track-order').click()
@@ -233,10 +259,10 @@ with sync_playwright() as p:
   expect(page.get_by_text('Соус отдельно, пожалуйста',exact=True)).to_be_visible()
   # A paid order survives connection loss with no warning or manual reconnect UI.
   def quiet_disconnect():
-   previous=state['held']; payment_count=state['payments']
-   previous.abort()
+   payment_count=state['payments']
+   previous=answer_watch(abort=True)
    page.wait_for_timeout(1600)
-   assert state['held'] is not previous, 'Status polling must resume automatically'
+   assert held_watch() is not previous, 'Status polling must resume automatically'
    for copy in ['Связь прервалась', 'Заказ сохранён', 'повторно оплачивать', 'Проверить соединение', 'Обновляем статусы заказов после восстановления связи']:
     expect(page.get_by_text(copy,exact=False)).to_have_count(0)
    expect(page.get_by_test_id('connected-order-number')).to_contain_text('№ 2')
@@ -247,13 +273,13 @@ with sync_playwright() as p:
   for phase,scene in [('preparing','assembly'),('ready','ready-takeaway')]:
    page.wait_for_timeout(150)
    state['phase']=phase;state['revision']+=1
-   state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
+   answer_watch()
    expect(page.get_by_test_id('order-chef-'+scene)).to_be_visible()
    quiet_disconnect()
   # Issued orders leave the tracker and load a separate server-backed review.
   page.wait_for_timeout(150)
   state['phase']='handed_over';state['revision']+=1
-  state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
+  answer_watch()
   completed=page.get_by_test_id('completed-order')
   expect(completed).to_be_visible()
   expect(page.get_by_test_id('completed-order-number')).to_contain_text('№ 2')
@@ -287,9 +313,9 @@ with sync_playwright() as p:
   page.screenshot(path=str(OUT/f'completed-review-{width}.png'))
   page.get_by_test_id('completed-order-close').click()
   expect(page.get_by_test_id('screen-M12')).not_to_be_visible()
-  page.goto(URL+'/orders')
+  navigate(page.goto,URL+'/orders')
   history=page.get_by_test_id('order-history-'+ORDER)
-  expect(history).to_be_visible()
+  expect(history).to_be_visible(timeout=15000)
   expect(history).to_contain_text('Pick Combo')
   # A rated order shows its saved stars in the row and no longer asks «Как вам заказ?».
   expect(history).to_contain_text('★ 4')
@@ -315,8 +341,8 @@ with sync_playwright() as p:
   close.click()
   expect(page.get_by_test_id(f'order-history-open-{ORDER}')).to_be_visible()
   # Reload the app to prove history/detail rehydrate from HTTP, not the hook cache.
-  page.reload()
-  expect(history).to_contain_text('★ 5',timeout=10000)
+  navigate(page.reload)
+  expect(history).to_contain_text('★ 5',timeout=15000)
   expect(page.get_by_test_id(f'order-history-rate-{ORDER}-5')).to_have_count(0)
   page.get_by_test_id(f'order-history-open-{ORDER}').click()
   expect(page.get_by_test_id('completed-rating-5')).to_have_attribute('aria-checked','true')
@@ -329,12 +355,12 @@ with sync_playwright() as p:
   close.click()
   # A bank-confirmed unpaid cancellation disappears while the order list is open.
   state['phase']='awaiting_payment';state['paid']=False;state['revision']+=1
-  page.goto(URL+'/orders')
-  expect(page.get_by_test_id(f'order-history-open-{ORDER}')).to_be_visible()
+  navigate(page.goto,URL+'/orders')
+  expect(page.get_by_test_id(f'order-history-open-{ORDER}')).to_be_visible(timeout=15000)
   page.wait_for_timeout(150)
   state['phase']='failed';state['revision']+=1
-  state['held'].fulfill(json=order(),headers={'Access-Control-Allow-Origin':'*'})
-  expect(page.get_by_text('Фритюр уже горячий',exact=True)).to_be_visible()
+  answer_watch()
+  expect(page.get_by_text('Фритюр уже горячий',exact=True)).to_be_visible(timeout=15000)
   assert state['payments']==2
   state['teardown']=True
   for held in state['held_routes']:
