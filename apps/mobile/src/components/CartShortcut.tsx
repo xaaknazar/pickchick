@@ -185,7 +185,7 @@ export function CartShortcut({
           onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
           style={[s.capsule, webGlass]}
         >
-          {payable ? <View style={{ width: layout.handleWidth, height: ROW }} /> : null}
+          {payable ? <View style={{ width: layout.handleWidth }} /> : null}
           <Pressable
             testID="open-cart"
             accessibilityRole="button"
@@ -314,12 +314,14 @@ const s = StyleSheet.create({
   },
   floating: { position: 'absolute', bottom: 0, left: 0, right: 0 },
   root: { width: '100%', maxWidth: 440, alignSelf: 'center' },
+  // The cart button fills the capsule's full height (a larger target, and the dock keeps its
+  // distance to the tab bar); the handle and the photos sit inside with the same inset.
   capsule: {
     minHeight: ROW + PAD * 2,
     borderRadius: 999,
-    padding: PAD,
+    paddingHorizontal: PAD,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     backgroundColor: glass,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.14)',
@@ -332,7 +334,7 @@ const s = StyleSheet.create({
   open: {
     flex: 1,
     minWidth: 0,
-    minHeight: ROW,
+    minHeight: ROW + PAD * 2,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
