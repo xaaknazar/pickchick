@@ -8608,5 +8608,53 @@
     "kk": "Интернет байланысын тексеріп, қайталап көріңіз. Тапсырыс жіберілген жоқ.",
     "en": "Check your connection and try again. The order has not been sent.",
     "context": "apps/mobile/src/components/CheckoutLegal.tsx"
+  },
+  {
+    "ru": "откроемся в {p0}",
+    "kk": "{p0} ашыламыз",
+    "en": "opening at {p0}",
+    "context": "apps/mobile/src/restaurant-hours.ts"
+  },
+  {
+    "ru": "откроемся завтра в {p0}",
+    "kk": "ертең {p0} ашыламыз",
+    "en": "opening tomorrow at {p0}",
+    "context": "apps/mobile/src/restaurant-hours.ts"
+  },
+  {
+    "ru": "Оплата временно недоступна",
+    "kk": "Төлем уақытша қолжетімсіз",
+    "en": "Payment is temporarily unavailable",
+    "context": "apps/mobile/src/payment-availability.ts"
+  },
+  {
+    "ru": "Нет в наличии: {p0}",
+    "kk": "Қазір жоқ: {p0}",
+    "en": "Unavailable: {p0}",
+    "context": "apps/mobile/src/payment-availability.ts"
+  },
+  {
+    "ru": "Пока не работаем",
+    "kk": "Әзірге жабықпыз",
+    "en": "Closed for now",
+    "context": "apps/mobile/src/payment-availability.ts"
+  },
+  {
+    "ru": "Оплата недоступна",
+    "kk": "Төлем қолжетімсіз",
+    "en": "Payment unavailable",
+    "context": "apps/mobile/src/payment-availability.ts"
+  },
+  {
+    "ru": "Нет связи",
+    "kk": "Байланыс жоқ",
+    "en": "No connection",
+    "context": "apps/mobile/src/payment-availability.ts"
+  },
+  {
+    "ru": "Проверьте корзину",
+    "kk": "Себетті тексеріңіз",
+    "en": "Check your basket",
+    "context": "apps/mobile/src/payment-availability.ts"
   }
 ]

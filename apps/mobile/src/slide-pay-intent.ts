@@ -67,6 +67,11 @@ export interface SlidePayCheckout {
   /** An order is already shown on this screen. */
   order: boolean;
   cartLines: number;
+  /**
+   * Paying is not possible right now (payment-availability.ts: closed, server switch, connection,
+   * stop list). The cart shows the reason; the slide is dropped, never kept for later.
+   */
+  blocked?: boolean;
   now: number;
 }
 
@@ -84,7 +89,8 @@ export type SlidePayOutcome = 'wait' | 'dropped' | 'pressed';
 /**
  * One slide equals one press of «Оплатить через Kaspi». The intent waits, unconsumed, until the
  * saved intent is read and the customer is signed in. Then it is consumed, and the press runs
- * only on a free checkout: nothing running, no holding intent, no order on screen, a basket.
+ * only on a free checkout: nothing running, no holding intent, no order on screen, a basket,
+ * and a restaurant that can take the payment now.
  * Any other outcome drops it for good; the customer continues with the regular button.
  */
 export function runSlidePayIntent(
@@ -96,6 +102,7 @@ export function runSlidePayIntent(
   if (!raw || checkout.restoring || !checkout.signedIn) return 'wait';
   if (!intents.take(raw)) return 'dropped';
   if (
+    checkout.blocked ||
     checkout.busy ||
     checkout.order ||
     checkout.cartLines < 1 ||
