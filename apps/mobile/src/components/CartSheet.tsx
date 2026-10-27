@@ -13,7 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { DiningMode, MobileModel } from '../model';
 import { KASPI_PAY, brandSlotParts, cartPayTitle } from '../cart-payment';
-import { paymentMethodLabel, type PaymentMethodId } from '../payment-method';
+import { paymentMethodLabel, paymentPayAction, type PaymentMethodId } from '../payment-method';
 import { usePaymentMethod } from '../usePaymentMethod';
 import { MotionModal, MotionPressable } from './Motion';
 import { PaymentMark } from './PaymentChoice';
@@ -321,14 +321,18 @@ export function CartPaymentFooter({
   useLocale();
   const title = cartPayTitle({ busy, totalMinor });
   const branded = title === KASPI_PAY;
-  const name = localize(t(paymentMethodLabel(method)));
+  // «Оплатить с [mark] Kaspi.kz»; a card reads «Оплатить [card] картой» (paymentPayAction).
+  const action = paymentPayAction(method);
+  const name = localize(t(action.name));
   // The brand stands where the language puts it (KK: «[Kaspi.kz] арқылы төлеу»).
-  const words = branded ? brandSlotParts(t(KASPI_PAY)) : { before: localize(t(title)), after: '' };
+  const words = branded
+    ? brandSlotParts(t(action.template))
+    : { before: localize(t(title)), after: '' };
   const label = !branded
     ? t(title)
     : method === 'kaspi'
       ? t('Оплатить с Kaspi.kz, {p0}', { p0: totalText })
-      : `${t(KASPI_PAY, { p0: name })}, ${totalText}`;
+      : `${t(action.template, { p0: name })}, ${totalText}`;
   return (
     <>
       {notices}

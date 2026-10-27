@@ -61,6 +61,25 @@ export function paymentHandleLabel(method: PaymentMethodId): string {
   }[method];
 }
 
+/**
+ * The cart's pay button. The method's mark and name stand in the {p0} slot, so every language
+ * keeps its own word order: «Оплатить с [Kaspi] Kaspi.kz», «[Kaspi] Kaspi.kz арқылы төлеу». A
+ * bank card is not a brand name: «Оплатить [card] картой», never «Оплатить с Банковская карта».
+ */
+export function paymentPayAction(method: PaymentMethodId): { template: string; name: string } {
+  return method === 'card'
+    ? { template: 'Оплатить {p0}', name: 'картой' }
+    : { template: 'Оплатить с {p0}', name: paymentMethodLabel(method) };
+}
+
+/**
+ * The Kaspi cart has one payment flow: the Kaspi invoice. Another method that becomes available
+ * in `paymentMethods` before its own flow exists pays nothing; the cart then shows this instead
+ * of a silent pay button or slide (nothing is created or sent).
+ */
+export const PAYMENT_METHOD_NOT_CONNECTED =
+  'Этот способ оплаты пока не подключён. Заказ не оформлен, деньги не списаны. Выберите Kaspi.kz в «Способе оплаты».';
+
 export function isPaymentMethodId(value: unknown): value is PaymentMethodId {
   return typeof value === 'string' && (PAYMENT_METHOD_IDS as readonly string[]).includes(value);
 }

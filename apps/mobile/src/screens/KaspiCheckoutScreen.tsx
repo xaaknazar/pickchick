@@ -59,6 +59,7 @@ import {
 import { OrderSheet, useSheetDismissalLock } from '../components/OrderSheet';
 import { slidePayIntents, useSlidePayIntent } from '../useSlidePayIntent';
 import { rememberPaymentMethod, usePaymentMethod } from '../usePaymentMethod';
+import { PAYMENT_METHOD_NOT_CONNECTED } from '../payment-method';
 import { runSlidePayIntent } from '../slide-pay-intent';
 import { Body, Button, Caption, Page } from '../components/UI';
 import { cartTotal, cartLineKey, money } from '../domain';
@@ -125,6 +126,9 @@ function KaspiCheckoutSession(
   // The customer's active method (item 6b, 27.10.2026): the cart bar handle shows it and this
   // cart pays with it. Only Kaspi.kz is available today, so it is always Kaspi here.
   const payment = usePaymentMethod();
+  // A press or slide with a method this cart cannot pay with (no flow yet): said, never silent.
+  const [methodStop, setMethodStop] = useState(false);
+  useEffect(() => setMethodStop(false), [payment.method]);
   const [config, setConfig] = useState<ReturnType<
     typeof CustomerCheckoutConfigSchema.parse
   > | null>(null);
@@ -505,8 +509,15 @@ function KaspiCheckoutSession(
     if (!orderRef.current) setQuote(null);
   }, [displayedCartTotal]);
   const submit = async () => {
-    // This session sends Kaspi invoices only; another active method never sends one.
-    if (lock.current || !cart.current.length || payment.method !== 'kaspi') return;
+    if (lock.current || !cart.current.length) return;
+    // This session sends Kaspi invoices only; another active method never sends one. Until that
+    // method has its own flow, the press (or the slide) stops here with a visible message:
+    // nothing is created, quoted or sent.
+    if (payment.method !== 'kaspi') {
+      setMethodStop(true);
+      return;
+    }
+    setMethodStop(false);
     lock.current = true;
     setBusy(true);
     try {
@@ -795,6 +806,17 @@ function KaspiCheckoutSession(
       onPay={() => void submit()}
       notices={
         <>
+          {methodStop && payment.method !== 'kaspi' ? (
+            <View testID="cart-pay-method-stop" style={s.warning} accessibilityLiveRegion="polite">
+              <Body>{localize(t(PAYMENT_METHOD_NOT_CONNECTED))}</Body>
+              <Button
+                secondary
+                title={t('Выбрать Kaspi.kz')}
+                testID="cart-pay-method-kaspi"
+                onPress={() => payment.choose('kaspi')}
+              />
+            </View>
+          ) : null}
           {unsupportedComment ? (
             <View style={s.commentUnavailable}>
               <Caption>

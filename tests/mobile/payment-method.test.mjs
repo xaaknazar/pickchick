@@ -5,6 +5,7 @@ import {
   DEFAULT_PAYMENT_METHOD,
   LAST_PAYMENT_METHOD_PREFIX,
   PAYMENT_METHOD_IDS,
+  PAYMENT_METHOD_NOT_CONNECTED,
   activePaymentMethod,
   createPaymentMethodStore,
   lastPaymentMethodKey,
@@ -14,9 +15,14 @@ import {
   paymentMethodAvailable,
   paymentMethodLabel,
   paymentMethods,
+  paymentPayAction,
   serializeLastPaymentMethod,
 } from '../../apps/mobile/src/payment-method.ts';
-import { cartPaymentMethods } from '../../apps/mobile/src/cart-payment.ts';
+import {
+  KASPI_PAY,
+  brandSlotParts,
+  cartPaymentMethods,
+} from '../../apps/mobile/src/cart-payment.ts';
 import { translate } from '../../apps/mobile/src/i18n/core.ts';
 
 const A = '40000000-0000-4000-8000-0000000000a1';
@@ -276,4 +282,76 @@ test('the handle names its method in RU, KK and EN; the hint opens the cart with
     ...PAYMENT_METHOD_IDS.map(paymentHandleLabel),
   ])
     assert.ok(!/[\u2013\u2014]/.test(Object.values(has(ru)).join(' ')), ru);
+});
+
+test('the pay button reads naturally for every method in RU, KK and EN', () => {
+  const read = (method, locale) => {
+    const action = paymentPayAction(method);
+    return translate(action.template, locale, { p0: translate(action.name, locale) });
+  };
+  assert.deepEqual(
+    PAYMENT_METHOD_IDS.map((method) => read(method, 'ru')),
+    ['Оплатить с Kaspi.kz', 'Оплатить с Apple Pay', 'Оплатить с Google Pay', 'Оплатить картой'],
+  );
+  assert.deepEqual(
+    PAYMENT_METHOD_IDS.map((method) => read(method, 'kk')),
+    [
+      'Kaspi.kz арқылы төлеу',
+      'Apple Pay арқылы төлеу',
+      'Google Pay арқылы төлеу',
+      'Картамен төлеу',
+    ],
+  );
+  assert.deepEqual(
+    PAYMENT_METHOD_IDS.map((method) => read(method, 'en')),
+    ['Pay with Kaspi.kz', 'Pay with Apple Pay', 'Pay with Google Pay', 'Pay by card'],
+  );
+  // Brands keep the Kaspi template (the mark stands in its slot); a card is not a brand name.
+  for (const method of ['kaspi', 'apple_pay', 'google_pay'])
+    assert.equal(paymentPayAction(method).template, KASPI_PAY, method);
+  for (const locale of ['ru', 'kk', 'en']) {
+    const card = read('card', locale);
+    assert.ok(!/Банковская карта|Банк картасы|Bank card/.test(card), card);
+    // The card mark stands before «картой» in RU/EN and first in KK, like the Kaspi mark.
+    const parts = brandSlotParts(translate(paymentPayAction('card').template, locale));
+    assert.ok(parts.before || parts.after, locale);
+  }
+  // The footer builds its text and label from paymentPayAction, never «Оплатить с» + any name.
+  const sheet = readFileSync(
+    new URL('../../apps/mobile/src/components/CartSheet.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.ok(sheet.includes('paymentPayAction(method)'));
+  assert.ok(!sheet.includes('t(KASPI_PAY, { p0: name })'));
+});
+
+test('a method without its own payment flow stops with a message, nothing is sent', () => {
+  const messages = JSON.parse(
+    readFileSync(new URL('../../apps/mobile/src/i18n/messages.json', import.meta.url), 'utf8'),
+  );
+  for (const ru of [PAYMENT_METHOD_NOT_CONNECTED, 'Выбрать Kaspi.kz', 'Оплатить {p0}', 'картой']) {
+    const entry = messages.find((message) => message.ru === ru);
+    assert.ok(entry && entry.kk && entry.en, ru);
+    assert.ok(!/[\u2013\u2014]/.test(Object.values(entry).join(' ')), ru);
+  }
+  assert.equal(
+    translate(PAYMENT_METHOD_NOT_CONNECTED, 'en'),
+    'This payment method is not connected yet. No order was placed and you were not charged. Choose Kaspi.kz in Payment method.',
+  );
+  // The Kaspi cart: a press or a slide with another active method shows the stop and returns
+  // before consent, quote, order or invoice; choosing Kaspi there is a choice, not a payment.
+  const screen = readFileSync(
+    new URL('../../apps/mobile/src/screens/KaspiCheckoutScreen.tsx', import.meta.url),
+    'utf8',
+  );
+  const submit = screen.slice(screen.indexOf('const submit = async () => {'));
+  const stop = submit.indexOf("if (payment.method !== 'kaspi') {");
+  assert.ok(stop > 0);
+  const guard = submit.slice(stop, submit.indexOf('}', stop) + 1);
+  assert.ok(guard.includes('setMethodStop(true);') && guard.includes('return;'), guard);
+  for (const step of ['lock.current = true', 'props.authorizeLegal()', "'/quotes'", 'recover('])
+    assert.ok(submit.indexOf(step) > stop, step);
+  assert.ok(screen.includes('testID="cart-pay-method-stop"'));
+  assert.ok(screen.includes('t(PAYMENT_METHOD_NOT_CONNECTED)'));
+  assert.ok(screen.includes("onPress={() => payment.choose('kaspi')}"));
 });
