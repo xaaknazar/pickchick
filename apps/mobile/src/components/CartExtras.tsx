@@ -2,9 +2,9 @@ import { t, localize, useLocale } from '../i18n';
 import { UpcomingPayments, checkoutStyle } from './CheckoutPresentation';
 import { PaymentMark } from './PaymentChoice';
 import { useState } from 'react';
-import { Keyboard, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { MotionPressable } from './Motion';
-import { Body, Button, Caption, Heading, Icon } from './UI';
+import { Body, Caption, Heading, Icon } from './UI';
 import { ComboRewardCard } from './ComboRewardCard';
 import { usePublishedContent } from '../backoffice/usePublishedContent';
 import { PromotionDialog } from '../backoffice/PromotionDialog';
@@ -136,74 +136,6 @@ export function CartOffers({ props }: { props: ScreenProps }) {
   );
 }
 
-/** No local discount or fictitious acceptance: redemption needs a server quote. */
-export function PromoCodeEntry() {
-  useLocale();
-  const [open, setOpen] = useState(false);
-  const [code, setCode] = useState('');
-  const [message, setMessage] = useState('');
-  return (
-    <View style={{ gap: 12, paddingVertical: 12 }}>
-      <Button
-        secondary
-        testID="cart-promo-open"
-        title={localize(open ? 'Скрыть промокод' : 'Ввести промокод')}
-        onPress={() => setOpen(!open)}
-        style={{ borderRadius: 16 }}
-        textStyle={orderUI.actionText}
-      />
-      {open ? (
-        <>
-          <Caption style={orderUI.detail} nativeID="promo-label">
-            {t('Промокод')}
-          </Caption>
-          <TextInput
-            testID="cart-promo-input"
-            accessibilityLabel={t('Промокод')}
-            aria-labelledby="promo-label"
-            value={code}
-            onChangeText={(text) => {
-              setCode(text.toUpperCase());
-              setMessage('');
-            }}
-            placeholder={t('Введите код')}
-            placeholderTextColor={colors.muted}
-            autoCapitalize="characters"
-            autoCorrect={false}
-            maxLength={32}
-            style={s.input}
-            returnKeyType="done"
-            onSubmitEditing={() => Keyboard.dismiss()}
-          />
-          <Caption style={orderUI.detail}>
-            {t('Применение промокодов подключается. Скидка пока не учитывается в сумме заказа.')}
-          </Caption>
-          <Button
-            secondary
-            textStyle={orderUI.actionText}
-            title={t('Проверить промокод')}
-            testID="cart-promo-check"
-            disabled={!code.trim()}
-            onPress={() => {
-              Keyboard.dismiss();
-              setMessage('Промокод пока нельзя применить. Сумма заказа не изменилась.');
-            }}
-          />
-          {message ? (
-            <Caption
-              style={orderUI.detail}
-              testID="cart-promo-result"
-              accessibilityLiveRegion="polite"
-            >
-              {localize(message)}
-            </Caption>
-          ) : null}
-        </>
-      ) : null}
-    </View>
-  );
-}
-
 /** Provider enrollment is still pending. No card details are collected. */
 export function CheckoutPayments() {
   useLocale();
@@ -259,17 +191,6 @@ const s = StyleSheet.create({
     padding: 18,
     gap: 12,
     borderRadius: 16,
-    backgroundColor: colors.surface,
-  },
-  input: {
-    minHeight: 52,
-    borderWidth: 1,
-    borderColor: colors.muted,
-    borderRadius: 16,
-    padding: 14,
-    fontFamily: font.body,
-    fontSize: 16,
-    color: colors.text,
     backgroundColor: colors.surface,
   },
   methods: { gap: 8 },

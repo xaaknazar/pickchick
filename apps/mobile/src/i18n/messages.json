@@ -3990,6 +3990,12 @@
     "context": "apps/mobile/src/screens/CheckoutScreen.tsx:83"
   },
   {
+    "ru": "Заказ в ресторане {p0}",
+    "kk": "{p0} мейрамханасындағы тапсырыс",
+    "en": "Ordering at {p0}",
+    "context": "apps/mobile/src/components/CartSheet.tsx:52"
+  },
+  {
     "ru": "Выдача по номеру заказа",
     "kk": "Тапсырыс нөмірі бойынша беріледі",
     "en": "Collect using your order number",
@@ -4762,6 +4768,18 @@
     "kk": "Төлеу тәсілі",
     "en": "Pay with",
     "context": "apps/mobile/src/screens/KaspiCheckoutScreen.tsx:539"
+  },
+  {
+    "ru": "Оплатить с",
+    "kk": "Төлеу",
+    "en": "Pay with",
+    "context": "apps/mobile/src/cart-payment.ts:36"
+  },
+  {
+    "ru": "Оплатить с Kaspi.kz, {p0}",
+    "kk": "Kaspi.kz арқылы төлеу, {p0}",
+    "en": "Pay with Kaspi.kz, {p0}",
+    "context": "apps/mobile/src/components/CartSheet.tsx:296"
   },
   {
     "ru": "Проверить оплату",

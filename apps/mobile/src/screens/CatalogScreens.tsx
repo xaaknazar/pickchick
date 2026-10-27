@@ -1,18 +1,16 @@
 import { t, localize, useLocale } from '../i18n';
 import { ComboGiftChoice } from '../components/ComboGiftChoice';
 import { unavailableCartLine } from '../availability';
-import {
-  CheckoutSheetHeader,
-  CheckoutAction,
-  checkoutStyle,
-} from '../components/CheckoutPresentation';
+import { CheckoutAction, checkoutStyle } from '../components/CheckoutPresentation';
+import { CartTopBar, DiningModePill } from '../components/CartSheet';
+import { CheckoutKeyboardDone } from '../components/CheckoutKeyboard';
 import { ProductPhoto, productPhoto } from '../components/ProductPhoto';
 import { hasPhotoPilot } from '../product-photo-selection';
 import { useReducedMotion } from '../components/Motion';
 import { MotionPressable as Pressable, MotionModal } from '../components/Motion';
 import { usePublishedContent } from '../backoffice/usePublishedContent';
 import { PromotionDialog } from '../backoffice/PromotionDialog';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Animated, {
   runOnJS,
   interpolateColor,
@@ -32,7 +30,7 @@ import { cartLineKey, cartTotal, lineUnitPrice, selectionDescription } from '../
 import { CatalogChangeNotice } from '../components/CatalogChangeNotice';
 import { CartLinePrice } from '../components/CartLinePrice';
 import { OrderTotal, orderUI } from '../components/OrderPresentation';
-import { CartOffers, CartRecommendations, PromoCodeEntry } from '../components/CartExtras';
+import { CartOffers, CartRecommendations } from '../components/CartExtras';
 import { mergeCartLines } from '../cart-actions';
 import { ConfiguredProduct } from './ProductConfiguration';
 import { CartShortcut } from '../components/CartShortcut';
@@ -693,8 +691,19 @@ export {
   ProductConfiguration as ProductDetail,
   ProductConfiguration as Combo,
 } from './ProductConfiguration';
-export function Cart(props: ScreenProps) {
+/**
+ * Kaspi build: the cart is the checkout (owner 27.10.2026). The guarded Kaspi session passes
+ * its notices, the order comment and the payment footer; other builds keep «Оформить заказ».
+ */
+export type CartCheckout = {
+  restaurant?: string;
+  notices?: ReactNode;
+  comment?: ReactNode;
+  footer(blocked: boolean): ReactNode;
+};
+export function Cart(props: ScreenProps & { checkout?: CartCheckout }) {
   useLocale();
+  const { checkout } = props;
   const insets = useSafeAreaInsets();
   const [removed, setRemoved] = useState<CartLine[]>([]);
   useEffect(() => setRemoved([]), [props.model.branch?.id, props.model.catalogMode]);
@@ -704,59 +713,55 @@ export function Cart(props: ScreenProps) {
   const discount = props.model.comboRewards?.discountMinor ?? '0';
   const total = (BigInt(cartTotal(props.model.cart)) - BigInt(discount)).toString();
   const [editing, setEditing] = useState<CartLine | null>(null);
+  // Same rule as the old «Оформить заказ»: nothing to pay while the cart cannot be ordered.
+  const blocked =
+    (props.model.comboRewards?.selected &&
+      (props.model.comboRewards.giftItemIndex === undefined || discount === '0')) ||
+    props.model.catalogUpdatePending ||
+    props.model.cart.some((line) => line.product.available === false);
   return (
     <Page
       props={props}
       title={t('Корзина')}
       contentStyle={checkoutStyle.content}
-      footerStyle={checkoutStyle.cartFooter}
+      footerStyle={checkout ? checkoutStyle.footer : checkoutStyle.cartFooter}
+      keyboardFooter={checkout?.comment ? <CheckoutKeyboardDone /> : undefined}
       header={
-        <CheckoutSheetHeader
-          title={t('Корзина')}
-          subtitle={localize(
-            restaurantLocation(props.model.branch?.id)?.name ?? props.model.branch?.name,
-          )}
-          testID="cart-close"
-          onBack={props.goBack}
-          action={
-            <IconButton
-              style={checkoutStyle.control}
-              name="trash-outline"
-              label={t('Очистить корзину')}
-              testID="cart-clear"
-              disabled={!props.model.cart.length}
-              onPress={() =>
-                setClearSnapshot(
-                  props.model.cart.map((line) => ({
-                    id: cartLineKey(line),
-                    quantity: line.quantity,
-                  })),
-                )
-              }
-              color={colors.muted}
-            />
+        <CartTopBar
+          restaurant={
+            checkout?.restaurant ??
+            restaurantLocation(props.model.branch?.id)?.name ??
+            props.model.branch?.name
+          }
+          onClose={props.goBack}
+          clearDisabled={!props.model.cart.length}
+          onClear={() =>
+            setClearSnapshot(
+              props.model.cart.map((line) => ({
+                id: cartLineKey(line),
+                quantity: line.quantity,
+              })),
+            )
           }
         />
       }
       footer={
         props.model.cart.length ? (
-          <>
+          checkout ? (
+            checkout.footer(!!blocked)
+          ) : (
             <CheckoutAction
               title={t('Оформить заказ')}
-              disabled={
-                (props.model.comboRewards?.selected &&
-                  (props.model.comboRewards.giftItemIndex === undefined || discount === '0')) ||
-                props.model.catalogUpdatePending ||
-                props.model.cart.some((line) => line.product.available === false)
-              }
+              disabled={!!blocked}
               amount={MinorMoney(total)}
               onPress={() => props.navigate('M12')}
               testID="cart-checkout"
             />
-          </>
+          )
         ) : null
       }
     >
+      {checkout?.notices}
       {!props.model.cart.length ? <ComboGiftChoice props={props} /> : null}
       {props.model.catalogUpdateNotice ? (
         <CatalogChangeNotice
@@ -869,6 +874,7 @@ export function Cart(props: ScreenProps) {
         />
       ) : (
         <>
+          <DiningModePill value={props.model.diningMode} onChange={props.model.setDiningMode} />
           {props.model.catalogMode === 'design' ? (
             <Notice warning>
               {t('Это корзина из образцов дизайна. Заказ и оплата недоступны.')}
@@ -919,6 +925,7 @@ export function Cart(props: ScreenProps) {
                 >
                   <Row style={s.stepper}>
                     <IconButton
+                      size={44}
                       name="remove"
                       label={localize(
                         line.quantity === 1
@@ -947,6 +954,7 @@ export function Cart(props: ScreenProps) {
                       {localize(line.quantity)}
                     </Body>
                     <IconButton
+                      size={44}
                       name="add"
                       label={localize(t('Добавить ещё {p0}', { p0: t(line.product.name) }))}
                       testID={`cart-plus-${line.product.id}`}
@@ -965,36 +973,25 @@ export function Cart(props: ScreenProps) {
           ))}
           <ComboGiftChoice props={props} />
           <CartRecommendations props={props} />
-          <Button
-            title={t('Добавить ещё что-нибудь')}
-            testID="cart-add-more"
-            textStyle={orderUI.actionText}
-            secondary
-            icon="arrow-back"
-            onPress={() => props.navigate('M06')}
-          />
           <CartOffers props={props} />
-          <PromoCodeEntry />
-          <View style={{ gap: 12, paddingVertical: 8 }}>
-            <Heading small style={orderUI.section}>
-              {t('Детали')}
-            </Heading>
-            <SummaryRow
-              label={localize(
-                t('Блюда · {p0} шт.', {
-                  p0: props.model.cart.reduce((sum, line) => sum + line.quantity, 0),
-                }),
-              )}
-              value={MinorMoney(total)}
-            />
-            <OrderTotal value={MinorMoney(total)} />
-            <Caption style={orderUI.detail}>
-              {t('Чики за покупки появятся после подключения программы.')}
-            </Caption>
-          </View>
-          <Caption style={orderUI.detail}>
-            {t('Цены и наличие блюд проверим при оформлении.')}
-          </Caption>
+          {checkout ? (
+            checkout.comment
+          ) : (
+            <View style={{ gap: 12, paddingVertical: 8 }}>
+              <Heading small style={orderUI.section}>
+                {t('Детали')}
+              </Heading>
+              <SummaryRow
+                label={localize(
+                  t('Блюда · {p0} шт.', {
+                    p0: props.model.cart.reduce((sum, line) => sum + line.quantity, 0),
+                  }),
+                )}
+                value={MinorMoney(total)}
+              />
+              <OrderTotal value={MinorMoney(total)} />
+            </View>
+          )}
         </>
       )}
     </Page>
@@ -1365,7 +1362,8 @@ const s = StyleSheet.create({
   },
   upsell: { width: 130, borderRadius: 18, padding: 10, gap: 8, backgroundColor: colors.surface },
   cartImage: { width: 84, height: 84, borderRadius: 18, backgroundColor: '#FFF8EE' },
-  stepper: { backgroundColor: '#14306B', borderRadius: 24, alignSelf: 'flex-start', gap: 0 },
+  // Drinkit-like separate round glass -/+ (owner 27.10.2026).
+  stepper: { alignSelf: 'flex-start', gap: 6 },
   largeIcon: {
     width: 94,
     height: 94,
