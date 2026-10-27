@@ -1,4 +1,5 @@
 import { localize, useLocale } from '../i18n';
+import type { ReactNode } from 'react';
 import { requireOptionalNativeModule } from 'expo';
 import { BlurView } from 'expo-blur';
 import {
@@ -26,8 +27,37 @@ const sheen = (
 ) as ViewStyle;
 
 /**
- * One round glass icon button for the whole app (close, back, trash, quantity).
- * Owner 27.10.2026: translucent glass with the blur of what is behind and a soft light rim.
+ * The glass itself (blur of what is behind, brand veil, top sheen), clipped to `radius`. Shared
+ * by the round buttons and by glass shapes that are not buttons (the Kaspi handle of the cart
+ * bar), so every glass control in the app looks the same.
+ */
+export function GlassFill({ radius, pressed = false }: { radius: number; pressed?: boolean }) {
+  return (
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, s.clip, { borderRadius: radius }]}>
+      {surface === 'blur' ? (
+        <BlurView tint="dark" intensity={glass.blurIntensity} style={StyleSheet.absoluteFill} />
+      ) : null}
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: surface === 'blur' ? glass.veil : glass.fallback },
+        ]}
+      />
+      <View style={[StyleSheet.absoluteFill, sheen]} />
+      {pressed ? (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: glass.pressedVeil }]} />
+      ) : null}
+    </View>
+  );
+}
+
+/** The light rim of every glass control. */
+export const glassRim = { borderWidth: StyleSheet.hairlineWidth * 2, borderColor: glass.rim };
+
+/**
+ * One round glass icon button for the whole app (close, back, trash, quantity, the header
+ * profile). Owner 27.10.2026: translucent glass with the blur of what is behind and a soft rim.
+ * `children` replaces the icon (the profile avatar); the glass stays underneath.
  */
 export function GlassButton({
   name,
@@ -42,6 +72,7 @@ export function GlassButton({
   hitSlop,
   expanded,
   style,
+  children,
 }: {
   name: IconName;
   label: string;
@@ -57,6 +88,8 @@ export function GlassButton({
   /** For a control that opens a menu (order actions). */
   expanded?: boolean;
   style?: StyleProp<ViewStyle>;
+  /** Custom content centred on the glass in place of the icon. */
+  children?: ReactNode;
 }) {
   useLocale();
   const reduced = useReducedMotion();
@@ -82,37 +115,18 @@ export function GlassButton({
     >
       {({ pressed }) => (
         <>
-          <View
-            pointerEvents="none"
-            style={[StyleSheet.absoluteFill, s.clip, { borderRadius: side / 2 }]}
-          >
-            {surface === 'blur' ? (
-              <BlurView
-                tint="dark"
-                intensity={glass.blurIntensity}
-                style={StyleSheet.absoluteFill}
+          <GlassFill radius={side / 2} pressed={pressed && !disabled} />
+          {children ?? (
+            <View pointerEvents="none" style={{ width: iconSize, height: iconSize }}>
+              <Ionicons
+                name={name}
+                size={iconSize}
+                color={color ?? (tone === 'danger' ? glass.danger : glass.icon)}
+                allowFontScaling={false}
+                style={s.glyph}
               />
-            ) : null}
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: surface === 'blur' ? glass.veil : glass.fallback },
-              ]}
-            />
-            <View style={[StyleSheet.absoluteFill, sheen]} />
-            {pressed && !disabled ? (
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: glass.pressedVeil }]} />
-            ) : null}
-          </View>
-          <View pointerEvents="none" style={{ width: iconSize, height: iconSize }}>
-            <Ionicons
-              name={name}
-              size={iconSize}
-              color={color ?? (tone === 'danger' ? glass.danger : glass.icon)}
-              allowFontScaling={false}
-              style={s.glyph}
-            />
-          </View>
+            </View>
+          )}
         </>
       )}
     </MotionPressable>
@@ -124,8 +138,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-    borderWidth: StyleSheet.hairlineWidth * 2,
-    borderColor: glass.rim,
+    ...glassRim,
     backgroundColor: 'transparent',
     boxShadow: '0 6px 18px rgba(0, 8, 30, 0.28)',
   },

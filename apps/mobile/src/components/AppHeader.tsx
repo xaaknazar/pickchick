@@ -1,14 +1,20 @@
 import { createContext, useContext } from 'react';
-import { Platform, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { appHeaderMetrics } from '../app-header-metrics';
 import { localize, t, useLocale } from '../i18n';
 import type { ScreenProps } from '../model';
 import { restaurantLocation } from '../restaurant-location';
 import { colors, font } from '../theme';
+import { useAccount } from '../useAccount';
+import { GlassButton } from './GlassButton';
 import { MotionPressable as Pressable } from './Motion';
-import { Icon, Logo } from './UI';
+import { Logo } from './UI';
 import { useTapGate } from './useTapGuard';
+
+/** The same picture as the avatar of the profile card (ProfileScreen). */
+const profileAvatar = require('../../assets/profile/alex-avatar.png');
 
 // Owner redesign 27.10.2026 (Drinkit pattern): one top header on Меню, События and Заказы.
 // Logo, restaurant point and hours on the left; the profile button at the far right.
@@ -29,13 +35,40 @@ function hoursCaption(location: ReturnType<typeof restaurantLocation>) {
   return 'Часы уточняются';
 }
 
-const webGlass =
-  Platform.OS === 'web'
-    ? ({
-        backdropFilter: 'saturate(160%) blur(14px)',
-        WebkitBackdropFilter: 'saturate(160%) blur(14px)',
-      } as unknown as ViewStyle)
-    : null;
+/**
+ * Round glass profile button (owner 27.10.2026: «улучши дизайн иконки профиля»). Signed in: the
+ * profile card's avatar clipped to the circle with a thin light rim. Guest, or while the account
+ * is restored: a filled person glyph on the glass. Never an unread mark (notifications live in
+ * the profile). The press scales slightly (GlassButton).
+ */
+function ProfileButton({ onPress }: { onPress(): void }) {
+  useLocale();
+  const account = useAccount();
+  const size = appHeaderMetrics.profileSize;
+  const avatar = account.ready && !!account.account;
+  return (
+    <GlassButton
+      testID="header-profile"
+      name="person"
+      label={t('Профиль')}
+      size={size}
+      iconSize={24}
+      onPress={onPress}
+      style={avatar ? s.avatarRim : s.guestRim}
+    >
+      {avatar ? (
+        <View nativeID="header-profile-avatar" pointerEvents="none" style={s.avatarClip}>
+          <Image
+            source={profileAvatar}
+            contentFit="cover"
+            accessible={false}
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
+      ) : undefined}
+    </GlassButton>
+  );
+}
 
 /**
  * Header row: logo, restaurant picker (M05) and the round profile button. The row carries its
@@ -66,17 +99,8 @@ export function AppHeaderBar({ screen }: { screen?: HeaderScreen }) {
           {localize(hoursCaption(location))}
         </Text>
       </Pressable>
-      <Pressable
-        testID="header-profile"
-        accessibilityRole="button"
-        accessibilityLabel={t('Профиль')}
-        feedback="scale"
-        // A guest goes through the same auth gate the profile tab used (returnTo M30).
-        onPress={() => profileTap.run(() => current.navigate('M30'))}
-        style={({ pressed }) => [s.profile, webGlass, pressed && s.profilePressed]}
-      >
-        <Icon name="person-circle" size={40} color={colors.white} />
-      </Pressable>
+      {/* A guest goes through the same auth gate the profile tab used (returnTo M30). */}
+      <ProfileButton onPress={() => profileTap.run(() => current.navigate('M30'))} />
     </View>
   );
 }
@@ -107,7 +131,9 @@ const s = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     alignItems: 'flex-start',
-    minHeight: 48,
+    // As tall as the profile button, so the row (and the button) sit at the same height as the
+    // profile screen's top bar; still above the 44 pt target.
+    minHeight: appHeaderMetrics.profileSize,
     justifyContent: 'center',
   },
   title: {
@@ -124,18 +150,18 @@ const s = StyleSheet.create({
     color: '#FFFFFFDD',
     textAlign: 'left',
   },
-  // Drinkit-like round avatar button: white person disc inside a navy glass ring.
-  profile: {
-    width: appHeaderMetrics.profileSize,
-    height: appHeaderMetrics.profileSize,
+  // Thin light rim around the avatar; the guest glyph keeps a slightly brighter glass rim so the
+  // circle reads on the bright hero video and on the dark events/orders background.
+  avatarRim: { borderWidth: 1.5, borderColor: 'rgba(255, 255, 255, 0.78)' },
+  guestRim: { borderColor: 'rgba(255, 255, 255, 0.4)' },
+  avatarClip: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     borderRadius: appHeaderMetrics.profileSize / 2,
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0B2454D9',
-    borderWidth: 1,
-    borderColor: '#FFFFFF66',
-    boxShadow: '0 4px 14px rgba(0, 8, 30, 0.24)',
+    overflow: 'hidden',
+    backgroundColor: colors.background,
   },
-  profilePressed: { backgroundColor: '#23467CEB' },
 });

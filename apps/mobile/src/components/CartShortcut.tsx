@@ -23,6 +23,7 @@ import Animated, {
 import { MotionPressable as Pressable, useReducedMotion } from './Motion';
 import { ProductPhoto, productPhoto, type ProductPhotoSource } from './ProductPhoto';
 import { KaspiSlideToPay, type SlidePhase } from './KaspiSlideToPay';
+import { GlassFill, glassRim } from './GlassButton';
 import { cartTotal } from '../domain';
 import {
   cartBarLayout,
@@ -261,6 +262,7 @@ export function CartShortcut({
                 importantForAccessibility="no-hide-descendants"
                 style={[s.bag, { width: layout.handleWidth }]}
               >
+                <GlassFill radius={ROW / 2} />
                 <Icon name="bag-handle-outline" size={24} color={brandColors.brandOrange} />
               </View>
             ) : null}
@@ -367,12 +369,13 @@ const s = StyleSheet.create({
     borderRadius: 999,
   },
   openWhole: { gap: 10 },
+  // Non-payment builds: the same glass pill as the Kaspi handle, with the bag icon.
   bag: {
     height: ROW,
     borderRadius: ROW / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.background,
+    ...glassRim,
     flexShrink: 0,
   },
   middle: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center' },

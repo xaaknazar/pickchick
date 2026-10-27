@@ -135,7 +135,12 @@ with sync_playwright() as p:
         expect(page.get_by_test_id('product-pick-combo')).to_be_visible(timeout=20000)
         expect(page.get_by_test_id('tab-profile')).to_have_count(0)
         expect(page.get_by_test_id('screen-M06').get_by_test_id('header-restaurant')).to_be_visible()
-        page.get_by_test_id('screen-M06').get_by_test_id('header-profile').click()
+        # Guest: a filled person glyph on the round glass button, never the avatar (27.10.2026).
+        header = page.get_by_test_id('screen-M06').get_by_test_id('header-profile')
+        expect(header.locator('#header-profile-avatar')).to_have_count(0)
+        box = header.bounding_box()
+        assert 44 <= box['width'] <= 46.5 and abs(box['width'] - box['height']) <= 0.5, box
+        header.click()
         expect(visible(page, 'account-required-login')).to_be_visible()
         assert page.get_by_test_id('screen-M30').count() == 0
         page.screenshot(path=str(OUTPUT / f'guest-header-profile-{width}.png'))
@@ -145,7 +150,8 @@ with sync_playwright() as p:
         expect(visible(page, 'demo-sign-out')).to_be_visible()
         visible(page, 'profile-back').click()
         expect(visible(page, 'screen-M06')).to_be_visible()
-        # Signed in, the same button opens the profile directly.
+        # Signed in, the same button shows the profile avatar and opens the profile directly.
+        expect(header.locator('#header-profile-avatar')).to_have_count(1)
         page.get_by_test_id('screen-M06').get_by_test_id('header-profile').click()
         expect(visible(page, 'screen-M30')).to_be_visible()
         visible(page, 'demo-sign-out').click()

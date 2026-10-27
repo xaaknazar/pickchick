@@ -13,7 +13,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { assets } from '../assets';
-import { colors } from '../theme';
+import { GlassFill, glassRim } from './GlassButton';
 
 export type SlidePhase = 'idle' | 'hint' | 'drag';
 /** Press and hold before the handle follows the finger (owner: «зажать и тянуть»). */
@@ -194,7 +194,9 @@ export function KaspiSlideToPay({
           position,
         ]}
       >
+        {/* The same glass as every round button (27.10.2026), shaped as the handle pill. */}
         <View pointerEvents="none" style={[s.handle, { width, height, borderRadius: height / 2 }]}>
+          <GlassFill radius={height / 2} />
           <KaspiMark size={Math.min(34, height - 18)} />
         </View>
       </Animated.View>
@@ -208,9 +210,7 @@ const s = StyleSheet.create({
   handle: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.background,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
+    ...glassRim,
     shadowColor: '#000000',
     shadowOpacity: 0.3,
     shadowOffset: { width: 0, height: 3 },

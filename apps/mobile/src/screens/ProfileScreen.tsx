@@ -7,6 +7,7 @@ import { ComboRewardCard } from '../components/ComboRewardCard';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Icon, Loading, type IconName } from '../components/UI';
+import { GlassButton } from '../components/GlassButton';
 import { ProfileRestoreNotice } from '../components/ProfileRestoreNotice';
 import { formatDemoPhone } from '../demo-account';
 import { formatBirthDate } from '../profile-details';
@@ -106,15 +107,16 @@ export function Profile(props: ScreenProps) {
         style={[s.topBar, { paddingTop: insets.top + 8, pointerEvents: settled ? 'auto' : 'none' }]}
       >
         <View style={s.header}>
-          <Pressable
+          {/* Glass round buttons like every other round control (27.10.2026); the same size as
+              the header profile button, so settings sits exactly where that button was. */}
+          <GlassButton
             testID="profile-back"
-            accessibilityRole="button"
-            accessibilityLabel={t('Назад')}
+            name="chevron-back"
+            label={t('Назад')}
+            size={appHeaderMetrics.profileSize}
+            iconSize={24}
             onPress={props.goBack}
-            style={({ pressed }) => [s.settings, pressed && s.pressed]}
-          >
-            <Icon name="chevron-back" size={24} />
-          </Pressable>
+          />
           <Text
             accessibilityRole="header"
             style={s.title}
@@ -123,15 +125,14 @@ export function Profile(props: ScreenProps) {
           >
             {t('Профиль')}
           </Text>
-          <Pressable
+          <GlassButton
             testID="profile-settings"
-            accessibilityRole="button"
-            accessibilityLabel={t('Настройки профиля')}
+            name="settings-outline"
+            label={t('Настройки профиля')}
+            size={appHeaderMetrics.profileSize}
+            iconSize={23}
             onPress={() => props.navigate('M34')}
-            style={({ pressed }) => [s.settings, pressed && s.pressed]}
-          >
-            <Icon name="settings-outline" size={23} />
-          </Pressable>
+          />
         </View>
       </View>
       <ScrollView
@@ -387,16 +388,6 @@ const s = StyleSheet.create({
     fontSize: 30,
     lineHeight: 40,
     color: colors.white,
-  },
-  settings: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0B2454D9',
-    borderWidth: 1,
-    borderColor: '#FFFFFF40',
   },
   identity: {
     padding: 16,

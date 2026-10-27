@@ -7,8 +7,8 @@ export const appHeaderMetrics = {
   gutter: 18,
   /** One width cap for every tab (the same as the page header), centred on wider screens. */
   maxWidth: 760,
-  /** Round profile button, above the 44 pt minimum touch target. */
-  profileSize: 48,
+  /** Round glass profile button (owner 27.10.2026: 44-46 pt), above the 44 pt touch target. */
+  profileSize: 46,
   logoSize: 38,
   /** Text follows Dynamic Type up to this factor and keeps the row one line high. */
   maxFontScale: 1.35,

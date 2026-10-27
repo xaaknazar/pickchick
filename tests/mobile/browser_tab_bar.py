@@ -118,6 +118,11 @@ def assert_header(page, screen, width):
     expect(scope.get_by_test_id('header-restaurant')).to_be_visible()
     b = button.bounding_box()
     assert b['width'] >= 44 and b['height'] >= 44, b
+    # Owner 27.10.2026: a 44-46 pt round glass button; signed in it shows the profile avatar
+    # clipped to the circle (the guest glyph is checked in browser_account_required.py).
+    assert b['width'] <= 46.5 and abs(b['width'] - b['height']) <= 0.5, b
+    expect(button.locator('#header-profile-avatar')).to_have_count(1)
+    assert button.evaluate('(e) => parseFloat(getComputedStyle(e).borderTopLeftRadius)') >= b['width'] / 2 - 1
     assert abs(width - (b['x'] + b['width']) - 18) <= 1, (screen, b)
     assert b['y'] <= 24, (screen, b)
     # Owner answer: nothing about unread notifications outside the profile.
@@ -231,7 +236,8 @@ with sync_playwright() as p:
         page.goto(URL + '/menu')
         expect(page.get_by_test_id('product-pick-combo')).to_be_visible(timeout=20000)
         expect(page.get_by_test_id('launch-reveal')).to_have_count(0, timeout=10000)
-        expected = (width + 760) / 2 - 18 - 48
+        # Round glass profile button, 46 pt (owner 27.10.2026: 44-46 pt).
+        expected = (width + 760) / 2 - 18 - 46
         for route, screen, _ in TABS:
             page.get_by_test_id('tab-' + route).click()
             expect(page.get_by_test_id('screen-' + screen)).to_be_visible()
