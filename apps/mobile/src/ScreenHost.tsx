@@ -78,6 +78,8 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
       else if (returnTo === 'pick-blocks') router.dismissTo('/games/pick-blocks');
       else if (returnTo === 'pick-farm') router.dismissTo('/games/pick-farm');
       else if (returnTo === 'M12') router.dismissTo('/checkout');
+      // Kaspi build: the guest pressed «Оплатить» in the cart; back to the same cart, no auto-pay.
+      else if (returnTo === 'M09') router.dismissTo('/cart');
       else if (['M17', 'M18', 'M20'].includes(returnTo))
         router.dismissTo({ pathname: '/order-status', params: { id: returnTo } });
       else if (returnTo in tabRoutes)

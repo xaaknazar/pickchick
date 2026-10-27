@@ -7,19 +7,16 @@ import { CatalogChangeNotice } from '../components/CatalogChangeNotice';
 import { recoverCommerceRead, historyOrderNeedsWatch } from '../commerce-read-recovery';
 import { PAYMENT_COMMAND, paymentRefused, prepareCheckout } from '../checkout-preflight';
 import { KaspiPaymentState } from '../components/KaspiPaymentState';
-import {
-  CheckoutSheetHeader,
-  CheckoutAction,
-  UpcomingPayments,
-  checkoutStyle,
-} from '../components/CheckoutPresentation';
+import { CartOrderComment, CartPaymentFooter } from '../components/CartSheet';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, Linking, Modal, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { randomUUID } from 'expo-crypto';
 import type { CustomerCommerceOrder } from '@pickchick/contracts';
 import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
+import { accountCanAct } from '../account-access';
 import { CustomerSessionError } from '../customer-session';
 import { watchCommerceOrder, watchRetryDelay } from '../commerce-watch';
 import {
@@ -31,7 +28,6 @@ import {
   publishedCartVersion,
   cartSignature,
   normalizedOrderComment,
-  maskedPhone,
 } from '../commerce-checkout';
 import { OrderStatusView } from './OrderStatusScreen';
 import { CompletedOrderScreen } from './CompletedOrderScreen';
@@ -41,8 +37,7 @@ import { publishActiveOrderCount } from '../active-orders';
 import { commerceActiveKind } from '../orders-tab';
 import { useCommerceFeedback } from '../useCommerceFeedback';
 import { checkoutError, paymentReceived, commerceStatus } from '../commerce-presentation';
-import { CheckoutDetails } from './CheckoutScreen';
-import { CheckoutKeyboardDone } from '../components/CheckoutKeyboard';
+import { Cart } from './CatalogScreens';
 import {
   dismissPendingPayment,
   pendingPaymentDismissed,
@@ -61,14 +56,44 @@ import {
   supportAtOnce,
 } from '../checkout-resume';
 import { OrderSheet, useSheetDismissalLock } from '../components/OrderSheet';
-import { PaymentMark } from '../components/PaymentChoice';
-import { Body, Button, Caption, Empty, Icon, Page, Row } from '../components/UI';
+import { Body, Button, Caption, Page } from '../components/UI';
 import { cartTotal, cartLineKey, money } from '../domain';
-import { colors, font } from '../theme';
+import { colors } from '../theme';
 
 type Quote = ReturnType<typeof CustomerQuoteSchema.parse>;
 type Pending = PendingPayment;
 const root = '/v1/customer-checkout';
+
+/**
+ * Kaspi build cart (M09), owner 27.10.2026: there is no separate checkout page, the cart pays.
+ * A signed-in customer gets the guarded checkout session below; a guest sees the same cart and
+ * the pay button opens sign-in, which returns to the cart without sending anything by itself.
+ */
+export function KaspiCart(props: ScreenProps) {
+  useLocale();
+  const account = useAccount();
+  const router = useRouter();
+  if (accountCanAct(account)) return <KaspiCheckoutScreen {...props} />;
+  const discount = props.model.comboRewards?.discountMinor ?? '0';
+  const total = (BigInt(cartTotal(props.model.cart)) - BigInt(discount)).toString();
+  return (
+    <Cart
+      {...props}
+      checkout={{
+        comment: <CartOrderComment model={props.model} />,
+        footer: (blocked) => (
+          <CartPaymentFooter
+            totalMinor={total}
+            totalText={money(total)}
+            busy={false}
+            disabled={blocked || !account.ready}
+            onPay={() => router.push({ pathname: '/auth', params: { returnTo: 'M09' } })}
+          />
+        ),
+      }}
+    />
+  );
+}
 
 /** One durable create command per customer. Never reissues a bank invoice on reconnect. */
 export function KaspiCheckoutScreen(props: ScreenProps) {
@@ -136,9 +161,12 @@ function KaspiCheckoutSession(
   // Audit 2.0: only a running command, a pending intent or an order the bank may still charge
   // locks the sheet. Attention, refused and old unbilled orders never do; "close" always wins.
   const lockedAt = Date.now();
+  // The cart (27.10.2026) is not locked while it only reads storage: closing it then leaves any
+  // saved intent for PaymentRecovery, and it opens/edits without the lock jumping the sheet.
+  // A found intent, a running command or a chargeable order locks it as before.
   useSheetDismissalLock(
     !leaving &&
-      (restoring ||
+      ((restoring && props.screenId !== 'M09') ||
         busy ||
         connectionPaused ||
         paidMoment ||
@@ -286,7 +314,12 @@ function KaspiCheckoutSession(
         // An old intent that never became a known order: nothing was billed, nothing to send.
         await AsyncStorage.removeItem(key);
         pending.current = null;
-      } else if (draft && !(props.screenId === 'M19' && pendingPaymentDismissed(draft))) {
+      } else if (
+        draft &&
+        // «Заказы» and the cart (27.10.2026) do not reopen an intent the customer closed in this
+        // app run; the cart's pay button restores it first (submit), the checkout route at once.
+        !((props.screenId === 'M19' || props.screenId === 'M09') && pendingPaymentDismissed(draft))
+      ) {
         const existing = CustomerCommerceOrderSchema.parse(
           await prepareCheckout(() => recover(draft, controller.signal), controller.signal),
         );
@@ -701,9 +734,15 @@ function KaspiCheckoutSession(
     !!config &&
     config.orderCommentEnabled !== true &&
     !!normalizedOrderComment(props.model.orderComment);
-  const footer =
-    props.screenId !== 'M19' && props.model.cart.length ? (
-      <>
+  // The cart is the checkout (27.10.2026): its footer carries the guards' notices and pays.
+  const cartFooter = (blocked: boolean) => (
+    <CartPaymentFooter
+      totalMinor={total}
+      totalText={money(total)}
+      busy={busy}
+      disabled={busy || blocked}
+      onPay={() => void submit()}
+      notices={
         <>
           {unsupportedComment ? (
             <View style={s.commentUnavailable}>
@@ -724,34 +763,23 @@ function KaspiCheckoutSession(
             />
           ) : null}
         </>
-        <Row style={s.total}>
-          <Body style={s.totalLabel}>
-            {t('Итого')}
-            {localize(' ')}
-            <Caption>
-              · {localize(props.model.cart.reduce((n, line) => n + line.quantity, 0))}
-              {t('шт.')}
-            </Caption>
-          </Body>
-          <Body testID="kaspi-checkout-total" style={s.totalAmount}>
-            {localize(money(total))}
-          </Body>
-        </Row>
-        <CheckoutAction
-          testID="kaspi-checkout-submit"
-          title={localize(
-            busy ? t('Оформляем заказ…') : total === '0' ? t('Заказать подарок') : 'Оплатить через',
-          )}
-          kaspi={!busy && total !== '0'}
-          onPress={() => void submit()}
-          disabled={busy}
-        />
-      </>
-    ) : undefined;
+      }
+    />
+  );
+  // In the cart a stopped or failed payment returns to the cart view itself, not to a new sheet.
+  const backToCart = () => {
+    orderRef.current = null;
+    setOrder(null);
+    setQuote(null);
+    setError(null);
+    setLoaded(false);
+    setRefresh((c) => c + 1);
+  };
   if ((busy || connectionPaused || pending.current) && !order)
     return (
       <KaspiPaymentState
         canReturnToCheckout={!pending.current}
+        returnLabel={t('Вернуться в корзину')}
         onContinue={() => {}}
         onRetry={() => {}}
         onCart={() => {
@@ -780,15 +808,10 @@ function KaspiCheckoutSession(
         order={order}
         paid={paidMoment && paymentReceived(order.phase)}
         onContinue={() => setPaidMoment(false)}
-        onCart={() => props.navigate('M09')}
+        onCart={() => (props.screenId === 'M19' ? props.navigate('M09') : backToCart())}
         onRetry={() => {
           if (order.phase !== 'failed') return;
-          orderRef.current = null;
-          setOrder(null);
-          setQuote(null);
-          setError(null);
-          setLoaded(false);
-          setRefresh((c) => c + 1);
+          backToCart();
         }}
         extraAction={
           order.phase === 'ready_to_pay' && (!autoSends(order) || paymentPaused || !!error) ? (
@@ -868,7 +891,12 @@ function KaspiCheckoutSession(
           }}
         />
       );
-    if (props.inSheet) return status(props);
+    // A repeated order in the cart sheet shows that cart, not a second cart sheet on top.
+    const sheetProps: ScreenProps =
+      props.screenId === 'M19'
+        ? props
+        : { ...props, navigate: (next) => (next === 'M09' ? backToCart() : props.navigate(next)) };
+    if (props.inSheet) return status(sheetProps);
     const close = () => {
       orderRef.current = null;
       setOrder(null);
@@ -887,35 +915,8 @@ function KaspiCheckoutSession(
       </Modal>
     );
   }
-  return (
-    <Page
-      props={props}
-      title={localize(props.screenId === 'M19' ? 'Заказы' : 'Оформление')}
-      contentStyle={props.screenId === 'M19' ? ordersPageStyle.content : checkoutStyle.content}
-      footerStyle={checkoutStyle.footer}
-      footer={footer}
-      keyboardFooter={props.screenId === 'M12' ? <CheckoutKeyboardDone /> : undefined}
-      header={
-        props.screenId === 'M19' ? (
-          <OrdersHeader />
-        ) : (
-          <CheckoutSheetHeader
-            title={t('Оформление')}
-            testID="checkout-close"
-            onBack={props.goBack}
-            action={
-              !loaded ? (
-                <ActivityIndicator
-                  color={colors.accent}
-                  accessibilityLabel={t('Проверяем ваш заказ')}
-                />
-              ) : undefined
-            }
-            back
-          />
-        )
-      }
-    >
+  const notices = (
+    <>
       {visibleError && (props.screenId === 'M19' || !busy) ? (
         <View style={s.warning} accessibilityLiveRegion="polite">
           <Body>{localize(visibleError)}</Body>
@@ -927,76 +928,56 @@ function KaspiCheckoutSession(
           <Body>{resumeNotice}</Body>
         </View>
       ) : null}
-      {props.screenId === 'M19' &&
-      (!loaded || (!!error && !visibleError && !historyNeedsRefresh && !history.length)) ? (
+    </>
+  );
+  if (props.screenId !== 'M19')
+    return (
+      <Cart
+        {...props}
+        checkout={{
+          restaurant: config?.restaurant,
+          notices,
+          comment:
+            config?.orderCommentEnabled !== false ? (
+              <CartOrderComment model={props.model} editable={!busy} />
+            ) : undefined,
+          footer: cartFooter,
+        }}
+      />
+    );
+  return (
+    <Page
+      props={props}
+      title={t('Заказы')}
+      contentStyle={ordersPageStyle.content}
+      header={<OrdersHeader />}
+    >
+      {notices}
+      {!loaded || (!!error && !visibleError && !historyNeedsRefresh && !history.length) ? (
         <View style={s.loading}>
           <ActivityIndicator color={colors.accent} />
           <Caption>{t('Проверяем ваш заказ')}</Caption>
         </View>
       ) : null}
-      {props.screenId === 'M19' && historyNeedsRefresh ? (
+      {historyNeedsRefresh ? (
         <Button title={t('Показать заказы')} secondary onPress={retry} />
       ) : null}
-      {props.screenId === 'M19' ? (
-        <>
-          {!history.length && loaded && !error ? (
-            <OrdersEmpty onMenu={() => props.navigate('M06')} />
-          ) : null}
-          <CommerceOrderList
-            orders={history}
-            products={props.model.products}
-            ratings={reviews.ratings}
-            onOpen={(item) => {
-              setInitialRating(undefined);
-              setOrder(item);
-            }}
-            onRate={(item, stars) => {
-              setInitialRating(stars);
-              setOrder(item);
-            }}
-          />
-        </>
-      ) : props.model.cart.length ? (
-        <CheckoutDetails
-          props={props}
-          commentEnabled={config?.orderCommentEnabled !== false}
-          commentEditable={!busy}
-          restaurantName={config?.restaurant}
-          details={
-            quote && quote.totalMinor !== localTotal ? (
-              <Caption>
-                {t('Сумма обновлена по меню ресторана. Проверьте её перед оплатой.')}
-              </Caption>
-            ) : undefined
-          }
-          paymentContent={
-            <>
-              <View style={checkoutStyle.paymentPanel}>
-                <Row style={{ minHeight: 64, padding: 14, gap: 12 }}>
-                  <PaymentMark method="kaspi" size={36} />
-                  <View style={s.flex}>
-                    <Body style={{ fontFamily: font.medium, fontSize: 15 }}>Kaspi.kz</Body>
-                    <Caption style={{ fontSize: 12, lineHeight: 18 }}>
-                      {t('Счёт придёт на {p0}', { p0: maskedPhone(auth.account?.phone) })}
-                    </Caption>
-                  </View>
-                  <Icon name="checkmark-circle" color={colors.accent} size={22} />
-                </Row>
-                <UpcomingPayments />
-              </View>
-              <Caption style={{ fontSize: 12, lineHeight: 18, marginHorizontal: 8 }}>
-                {t('Фискальный чек пока не выпускается - Webkassa подключается.')}
-              </Caption>
-            </>
-          }
-        />
-      ) : (
-        <Empty
-          title={t('В корзине пока пусто')}
-          detail={t('Выберите любимые блюда.')}
-          action={<Button title={t('В меню')} onPress={() => props.navigate('M06')} />}
-        />
-      )}
+      {!history.length && loaded && !error ? (
+        <OrdersEmpty onMenu={() => props.navigate('M06')} />
+      ) : null}
+      <CommerceOrderList
+        orders={history}
+        products={props.model.products}
+        ratings={reviews.ratings}
+        onOpen={(item) => {
+          setInitialRating(undefined);
+          setOrder(item);
+        }}
+        onRate={(item, stars) => {
+          setInitialRating(stars);
+          setOrder(item);
+        }}
+      />
     </Page>
   );
 }
@@ -1004,10 +985,6 @@ function KaspiCheckoutSession(
 const s = StyleSheet.create({
   commentUnavailable: { gap: 8, paddingVertical: 4 },
   savedComment: { gap: 4, padding: 14, borderRadius: 16, backgroundColor: colors.surface },
-  total: { justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, paddingVertical: 4 },
-  totalLabel: { fontFamily: font.heading, fontSize: 20, lineHeight: 28 },
-  totalAmount: { fontFamily: font.heading, fontSize: 24, lineHeight: 34 },
-  flex: { flex: 1, minWidth: 0, gap: 3 },
   card: { gap: 12, padding: 18, borderRadius: 22, backgroundColor: colors.surface },
   loading: { padding: 24, alignItems: 'center', gap: 12 },
   warning: { padding: 16, gap: 12, borderRadius: 18, backgroundColor: colors.warningSurface },

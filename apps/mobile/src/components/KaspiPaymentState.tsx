@@ -35,6 +35,7 @@ export function KaspiPaymentState({
   notice,
   extraAction,
   canReturnToCheckout = true,
+  returnLabel = 'Вернуться к оформлению',
   onClose,
   closeLabel = 'Закрыть',
   closeDelayMs = null,
@@ -48,6 +49,8 @@ export function KaspiPaymentState({
   notice?: React.ReactNode;
   extraAction?: React.ReactNode;
   canReturnToCheckout?: boolean;
+  /** The Kaspi cart is the checkout (27.10.2026): «Вернуться в корзину». */
+  returnLabel?: string;
   /** Leaves this screen without touching the order or the bank (audit 0.2 / 2.0 / 2.4). */
   onClose?: () => void;
   closeLabel?: string;
@@ -332,12 +335,7 @@ export function KaspiPaymentState({
           <>
             {extraAction}
             {!order && canReturnToCheckout ? (
-              <Button
-                title={t('Вернуться к оформлению')}
-                secondary
-                onPress={onCart}
-                style={s.button}
-              />
+              <Button title={localize(returnLabel)} secondary onPress={onCart} style={s.button} />
             ) : null}
             {!deadlineReached && (waiting || phase === 'checking') ? (
               <Button
