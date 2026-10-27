@@ -62,7 +62,10 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
     }
     if (next === 'M09' || next === 'M12') {
       if (id === 'M12' && next === 'M09' && router.canGoBack()) {
-        router.back();
+        // Back to the cart below. Checkout opened from the cart bar lies right on a tab: there the
+        // cart takes its place (never a second sheet on top, never the tab instead of the cart).
+        if (preview) router.back();
+        else router.dismissTo('/cart');
         return;
       }
       router.push({
