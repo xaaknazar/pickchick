@@ -1,120 +1,112 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import {
+  appHeaderMetrics,
+  appHeaderProfileFrame,
+} from '../../apps/mobile/src/app-header-metrics.ts';
+import { createTapGate, pushSettleMs } from '../../apps/mobile/src/tap-guard.ts';
 
 // Owner redesign 27.10.2026 (Drinkit pattern): profile button in the top header on all three
 // tabs, three-tab bar, profile as a stack route, notifications only inside the profile.
-const read = (path) =>
-  readFileSync(new URL(`../../apps/mobile/src/${path}`, import.meta.url), 'utf8');
-const exists = (path) => existsSync(new URL(`../../apps/mobile/src/${path}`, import.meta.url));
+// Screen behaviour (positions on every tab, navigation, auth gate, double taps) is covered by
+// the browser tests: browser_tab_bar, browser_profile, browser_account_required,
+// browser_review_demo, browser_localization. Here: the shared rules, and the contracts that
+// those tests and the iOS smoke tests rely on, without pinning source text.
 
-test('one shared header: logo, restaurant picker and a round profile button, no bell', () => {
+const src = fileURLToPath(new URL('../../apps/mobile/src/', import.meta.url));
+const read = (path) => readFileSync(join(src, path), 'utf8');
+function sources(dir = src) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) return sources(path);
+    return /\.(ts|tsx)$/.test(entry.name) ? [path] : [];
+  });
+}
+
+test('the profile button keeps the right gutter and a 44 pt target on every width', () => {
+  for (const width of [320, 375, 393, 430, 680, appHeaderMetrics.maxWidth]) {
+    const frame = appHeaderProfileFrame(width);
+    assert.equal(width - frame.right, appHeaderMetrics.gutter, `phone ${width}`);
+    assert.ok(frame.width >= 44 && frame.x > width / 2, `phone ${width}`);
+  }
+  // Wider screens (tablet, desktop web): one centred row with one cap for every tab, so the
+  // button cannot jump when switching tabs.
+  for (const width of [834, 1024, 1366]) {
+    const frame = appHeaderProfileFrame(width);
+    assert.equal(frame.right, (width + appHeaderMetrics.maxWidth) / 2 - appHeaderMetrics.gutter);
+  }
+  assert.ok(appHeaderMetrics.maxFontScale > 1 && appHeaderMetrics.maxFontScale <= 1.5);
+});
+
+test('a double tap opens the profile once; the button works again after the push', () => {
+  let time = 1000;
+  const opened = [];
+  const gate = createTapGate(pushSettleMs, () => time);
+  const open = () => opened.push(time);
+  assert.equal(gate.run(open), true);
+  time += 120; // second tap of a double tap
+  assert.equal(gate.run(open), false);
+  time = 1000 + pushSettleMs - 1;
+  assert.equal(gate.run(open), false);
+  time = 1000 + pushSettleMs;
+  assert.equal(gate.run(open), true);
+  // Back on the tab before the window ends: focus re-arms the button at once.
+  time += 10;
+  gate.reset();
+  assert.equal(gate.run(open), true);
+  assert.deepEqual(opened, [1000, 1000 + pushSettleMs, 1010 + pushSettleMs]);
+  // Long enough for a double tap (second tap 100-300 ms later), short of a deliberate revisit.
+  assert.ok(pushSettleMs >= 300 && pushSettleMs <= 600);
+});
+
+test('header and the screens it opens use the shared guards; no unread mark on the header', () => {
   const header = read('components/AppHeader.tsx');
-  assert.match(header, /testID="header-profile"/);
-  assert.match(
-    header,
-    /testID="header-restaurant"[\s\S]*?onPress=\{\(\) => current\.navigate\('M05'\)\}/,
-  );
-  assert.match(header, /<Logo size=\{38\} \/>/);
-  // The profile button is the last control of the row, so it sits at the right gutter.
-  const row = header.slice(header.indexOf('testID="app-header-bar"'));
-  assert.ok(row.indexOf('header-restaurant') < row.indexOf('header-profile'));
-  const button = row.slice(
-    row.indexOf('testID="header-profile"'),
-    row.indexOf('</Pressable>', row.indexOf('testID="header-profile"')),
-  );
-  assert.match(button, /accessibilityRole="button"/);
-  assert.match(button, /accessibilityLabel=\{t\('Профиль'\)\}/);
-  assert.match(button, /onPress=\{\(\) => current\.navigate\('M30'\)\}/);
-  assert.match(header, /profile: \{\s*width: 48,\s*height: 48,\s*borderRadius: 24/);
+  assert.match(header, /useTapGate\(\)/);
+  assert.match(header, /app-header-metrics/);
+  // Opened under the finger: profile top bar (member), sign-in sheet and its header (guest).
+  for (const file of [
+    'screens/ProfileScreen.tsx',
+    'components/AuthWelcome.tsx',
+    'components/OrderSheet.tsx',
+  ])
+    assert.match(read(file), /useTapsSettled\(\)/, file);
   // Owner answer: nothing about unread notifications outside the profile.
-  const code = header.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
-  assert.doesNotMatch(code, /notification|unread|badge|readAt/i);
-  assert.match(header, /maxFontSizeMultiplier=\{appHeaderMaxFontScale\}/);
+  assert.doesNotMatch(header, /notifications\/|useNotifications|readAt/);
   assert.doesNotMatch(header, /[—–]/, 'plain hyphen only');
 });
 
-test('menu, events and orders render the same header; the bell is gone everywhere', () => {
-  const catalog = read('screens/CatalogScreens.tsx');
-  assert.match(catalog, /testID="storefront-header"[\s\S]*?<AppHeaderBar screen=\{props\} \/>/);
-  assert.doesNotMatch(catalog, /storefront-notifications|notifications-outline|'\/notifications'/);
-  // The collapsing storefront shell and sticky categories keep their measurements.
-  assert.match(catalog, /setCollapsedHeaderHeight\(/);
-  assert.match(catalog, /translateY: Math\.max\(headerHeight, categoryTop - scrollY\.value\)/);
-  const events = read('screens/GameScreens.tsx');
-  assert.match(events, /testID="screen-M26"[^]*?<AppHeader \/>[^]*?testID="scroll-M26"/);
-  assert.doesNotMatch(events, /paddingTop: insets\.top/, 'the header already pads the safe area');
-  const orders = read('components/OrdersTab.tsx');
-  const ordersHeader = orders.slice(orders.indexOf('export function OrdersHeader'));
-  assert.match(ordersHeader, /<AppHeader safeArea=\{false\}/);
-  assert.match(ordersHeader, /testID="orders-title"/);
-  // Every orders variant (simulator, Kaspi, empty, preview) uses OrdersHeader.
-  for (const file of [
-    'screens/OrderScreens.tsx',
-    'screens/ConnectedOrderScreens.tsx',
-    'screens/KaspiCheckoutScreen.tsx',
+test('contracts for the browser and iOS tests: test IDs, routes, no bell, no profile tab', () => {
+  const files = sources().map((path) => [path, readFileSync(path, 'utf8')]);
+  const ids = new Set(
+    files.flatMap(([, text]) => [...text.matchAll(/testID="([^"]+)"/g)].map((m) => m[1])),
+  );
+  for (const id of [
+    'app-header',
+    'app-header-bar',
+    'header-profile',
+    'header-restaurant',
+    'storefront-header',
+    'orders-title',
+    'profile-back',
+    'profile-settings',
+    'profile-notifications',
   ])
-    assert.match(read(file), /<OrdersHeader \/>/, file);
-  // The header reads the current screen without prop drilling.
-  assert.match(read('screens/MobileScreen.tsx'), /<AppHeaderContext\.Provider value=\{props\}>/);
+    assert.ok(ids.has(id), id);
+  // Removed by the redesign: the bell and the profile tab (and links to it).
+  for (const [path, text] of files)
+    assert.doesNotMatch(text, /storefront-notifications|tab-profile|\(tabs\)\/profile/, path);
+  // Exactly three tabs; the profile is a stack route at the old URL /profile.
+  const tabs = readdirSync(join(src, 'app/(tabs)'))
+    .filter((name) => !name.startsWith('_'))
+    .sort();
+  assert.deepEqual(tabs, ['events.tsx', 'menu.tsx', 'orders.tsx']);
+  assert.ok(existsSync(join(src, 'app/profile.tsx')));
 });
 
-test('profile is a stack route at /profile with back, reached from the header', () => {
-  assert.ok(!exists('app/(tabs)/profile.tsx'), 'no profile tab');
-  assert.match(read('app/profile.tsx'), /<ScreenHost id="M30" \/>/);
-  assert.match(
-    read('app/_layout.tsx'),
-    /<Stack\.Screen name="profile" options=\{\{ gestureEnabled: true \}\} \/>/,
-  );
-  const host = read('ScreenHost.tsx');
-  const tabs = host.slice(host.indexOf('const tabRoutes'), host.indexOf('} as const;'));
-  assert.doesNotMatch(tabs, /M30|profile/);
-  assert.match(host, /const profileRoute = '\/profile';/);
-  assert.match(
-    host,
-    /if \(id === 'M04'\) router\.dismissTo\(profileRoute\);\s*else router\.push\(profileRoute\);/,
-  );
-  assert.match(host, /else if \(returnTo === 'M30'\) router\.dismissTo\(profileRoute\);/);
-  assert.match(
-    host,
-    /id === 'M30' && next in tabRoutes\)\s*router\.dismissTo\(/,
-    'no second tab stack',
-  );
-  assert.match(host, /if \(id === 'M29'\) return <Redirect href=\{profileRoute\} \/>;/);
-  // Guests hit the same auth gate as the old tab: returnTo M30, then back to /profile.
-  assert.match(host, /!account\.account && requiresAccount\(next, false\)/);
-  assert.match(read('app/auth.tsx'), /destination === 'M30'\) router\.dismissTo\('\/profile'\)/);
-  const profile = read('screens/ProfileScreen.tsx');
-  assert.match(profile, /testID="profile-back"[\s\S]*?onPress=\{props\.goBack\}/);
-  for (const file of [
-    'ScreenHost.tsx',
-    'app/auth.tsx',
-    'screens/ReviewDemoScreen.tsx',
-    'app/notifications.tsx',
-  ])
-    assert.doesNotMatch(read(file), /\(tabs\)\/profile|tab-profile/, file);
-});
-
-test('notifications open from a row near the top of the profile and return to it', () => {
-  const profile = read('screens/ProfileScreen.tsx');
-  const row = profile.indexOf('testID="profile-notifications"');
-  assert.ok(row > 0 && profile.indexOf('testID="profile-notifications"', row + 1) === -1);
-  assert.ok(row < profile.indexOf("id: 'profile-orders'"), 'above the shortcuts');
-  assert.ok(row > profile.indexOf('testID="profile-identity"'), 'below the identity card');
-  assert.match(profile, /useNotifications\(\)\.items\.filter\(\(item\) => !item\.readAt\)\.length/);
-  assert.match(profile, /count=\{unread\}/);
-  assert.match(profile, /t\('Уведомления, непрочитанных: \{p0\}', \{ p0: unread \}\)/);
-  assert.match(profile, /router\.push\('\/notifications'\)/);
-  const screen = read('app/notifications.tsx');
-  assert.match(screen, /label=\{t\('Назад в профиль'\)\}/);
-  assert.match(
-    screen,
-    /router\.canGoBack\(\) \? router\.back\(\) : router\.replace\('\/profile'\)/,
-  );
-  assert.match(
-    screen,
-    /router\.dismissTo\(orders \? '\/\(tabs\)\/orders' : '\/\(tabs\)\/events'\)/,
-  );
+test('new header and profile strings are translated', () => {
   const messages = JSON.parse(read('i18n/messages.json'));
   for (const ru of ['Уведомления, непрочитанных: {p0}', 'Назад в профиль', 'Профиль']) {
     const entry = messages.find((message) => message.ru === ru);
@@ -122,8 +114,10 @@ test('notifications open from a row near the top of the profile and return to it
   }
 });
 
-test('iOS smoke tests open the profile from the header', () => {
+test('iOS smoke tests open the profile from the visible header', () => {
   const smoke = readFileSync(new URL('./ios/SmokeTests.swift', import.meta.url), 'utf8');
-  assert.doesNotMatch(smoke, /tab-profile/);
-  assert.match(smoke, /tap\("header-profile", in: app\)/);
+  assert.doesNotMatch(smoke, /"tab-profile"/);
+  assert.match(smoke, /"header-profile"/);
+  // Visited tabs stay mounted, so a plain firstMatch could pick a hidden tab's header.
+  assert.doesNotMatch(smoke, /tap\("header-profile"/);
 });
