@@ -366,6 +366,7 @@ function LegacyConfiguredProduct(
                         {label}
                         <Row style={s.stepper}>
                           <IconButton
+                            size={44}
                             name="remove"
                             label={localize(t('Убрать {p0}', { p0: t(option.label) }))}
                             testID={`modifier-minus-${group.id}-${option.id}`}
@@ -379,6 +380,7 @@ function LegacyConfiguredProduct(
                             {localize(selected)}
                           </Body>
                           <IconButton
+                            size={44}
                             name="add"
                             label={localize(t('Добавить {p0}', { p0: t(option.label) }))}
                             testID={`modifier-plus-${group.id}-${option.id}`}
@@ -424,6 +426,7 @@ function LegacyConfiguredProduct(
         <Row style={{ gap: 10, flexWrap: fontScale > 1.4 || width < 360 ? 'wrap' : 'nowrap' }}>
           <Row style={s.stepper}>
             <IconButton
+              size={44}
               name="remove"
               label={t('Уменьшить количество')}
               disabled={quantity <= 1}
@@ -433,6 +436,7 @@ function LegacyConfiguredProduct(
               {localize(quantity)}
             </Body>
             <IconButton
+              size={44}
               name="add"
               label={t('Увеличить количество')}
               disabled={quantity >= 20}
@@ -491,7 +495,8 @@ const s = StyleSheet.create({
   selected: { backgroundColor: colors.raised },
   selectionSummary: { color: colors.success, fontFamily: font.medium },
   optionName: { fontFamily: font.body, fontSize: 15, lineHeight: 22 },
-  stepper: { gap: 0, borderRadius: 22, backgroundColor: colors.raised },
+  // Separate round glass +/- like the owner's Drinkit reference (27.10.2026).
+  stepper: { gap: 6 },
   quantity: {
     minWidth: 20,
     textAlign: 'center',
