@@ -49,7 +49,8 @@ export const glassRim = {
  * The glass itself, clipped to `radius` (the shape's outer radius). Shared by the round buttons
  * and by glass shapes that are not buttons (the pay handle, the bag pill, the cart bar capsule),
  * so every glass control in the app looks the same.
- * - iOS 26+: Apple's Liquid Glass (`GlassView`, regular, dark), laid over the shape's rim.
+ * - iOS 26+: Apple's Liquid Glass (`GlassView`, regular, dark), laid over the shape's rim (`rim`:
+ *   the parent's border width, `glassRim` unless the parent says otherwise).
  * - Elsewhere: blur (expo-blur / CSS), a thin veil, a little lift, the sheen and the specular edge;
  *   `body={false}` leaves the body to the parent (the capsule paints its own) and adds the light.
  */
@@ -58,11 +59,13 @@ export function GlassFill({
   pressed = false,
   place = 'pill',
   body = true,
+  rim = RIM,
 }: {
   radius: number;
   pressed?: boolean;
   place?: GlassPlace;
   body?: boolean;
+  rim?: number;
 }) {
   const surface = useGlassSurface();
   if (surface === 'liquid') {
@@ -70,7 +73,14 @@ export function GlassFill({
       <GlassView
         pointerEvents="none"
         {...liquidGlassConfig(place)}
-        style={[s.liquid, { borderRadius: radius }]}
+        style={{
+          position: 'absolute',
+          top: -rim,
+          right: -rim,
+          bottom: -rim,
+          left: -rim,
+          borderRadius: radius,
+        }}
       />
     );
   }
@@ -103,6 +113,9 @@ export function GlassFill({
   );
 }
 
+/** The cart bar capsule's rim width (one hairline, as before 28.10: the bar keeps its size). */
+export const glassBarRim = StyleSheet.hairlineWidth;
+
 /**
  * The cart bar capsule's own body for the current surface: transparent under Liquid Glass (no
  * rim, no shadow of ours: Apple's glass has both), a CSS blur with a thinner veil on the web, the
@@ -113,7 +126,7 @@ export function useGlassBarStyle(): ViewStyle {
   const body = glassBarBody(surface, Platform.OS === 'web');
   return {
     backgroundColor: body.fill,
-    borderWidth: RIM,
+    borderWidth: glassBarRim,
     borderColor: body.rim,
     ...(surface === 'liquid' ? { shadowOpacity: 0, elevation: 0 } : null),
     ...(body.backdrop

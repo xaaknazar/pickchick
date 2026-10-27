@@ -22,7 +22,7 @@ import Animated, {
 import { MotionPressable as Pressable, useReducedMotion } from './Motion';
 import { ProductPhoto, productPhoto, type ProductPhotoSource } from './ProductPhoto';
 import { KaspiSlideToPay, type SlidePhase } from './KaspiSlideToPay';
-import { GlassFill, glassRim, useGlassBarStyle } from './GlassButton';
+import { GlassFill, glassBarRim, glassRim, useGlassBarStyle } from './GlassButton';
 import { cartTotal } from '../domain';
 import {
   cartBarLayout,
@@ -46,8 +46,8 @@ const OVERLAP = 16;
 /** Large text: the hint grows up to x1.4, then shrinks to fit (KK at 320 pt). */
 const HINT_MAX_SCALE = 1.4;
 const HINT_MIN_FIT = 0.7;
-/** The capsule is always ROW + 2 * PAD tall (the cart button's minimum height). */
-const CAPSULE_RADIUS = (ROW + PAD * 2) / 2;
+/** The capsule is always ROW + 2 * PAD tall inside its rim (the cart button's minimum height). */
+const CAPSULE_RADIUS = (ROW + PAD * 2) / 2 + glassBarRim;
 
 /** A product without its own photo (or a restored unavailable line) gets a neutral circle. */
 function hasPhoto(photo: ProductPhotoSource) {
@@ -204,7 +204,7 @@ export function CartShortcut({
           style={[s.capsule, capsuleGlass]}
         >
           {/* The capsule's glass (Apple's Liquid Glass on iOS 26), drawn below everything. */}
-          <GlassFill radius={CAPSULE_RADIUS} place="bar" body={false} />
+          <GlassFill radius={CAPSULE_RADIUS} rim={glassBarRim} place="bar" body={false} />
           {/* Reading and focus order follow the picture: the hint, the payment handle, then the
               cart button. Nothing gets a zIndex, which would move the handle last on iOS. The
               handle is drawn after the hint, so its stretching pill covers the hint. */}
