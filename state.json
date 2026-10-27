@@ -6532,10 +6532,11 @@
         "apps/kiosk/src/screens/PaymentOrderScreens.tsx",
         "@release/ios"
       ],
-      "status": "active",
-      "head": "21d2b886fa215f39a02ff673f2879879374d5b2b",
-      "updatedAt": "2026-10-26T20:07:17.384Z",
-      "summary": "27.10.2026 владелец прямо разрешил временную передачу @release/ios в kiosk-apple-demo только для локальной сборки киоска, без загрузки Apple и установки iPad."
+      "status": "available",
+      "head": "b10885f15d87cd1e602dd712bfe424a1fa879bcc",
+      "updatedAt": "2026-10-27T08:03:36.897Z",
+      "summary": "PR281: b10885f15d87cd1e602dd712bfe424a1fa879bcc published and clean. Apple review isolated demo with private local code, normal/staff demo preserved. Full Foundation CI40394938861 attempt2 success11/11; kiosk retry after Ubuntu package download timeout, no test weakening. Review isolation40394938953, UI library and photo invariants green. Local287 kiosk +47 release tests; browser review3 sizes/3 locales, normal/staff/QR/recovery checks. Xcode26.6 doctor, native project and existing signing inputs checked. No signed IPA: true private verifier and confirmed restaurant photo HTTPS origin missing. No Apple upload/submission/unlisted request, installs, server changes, flags, migrations or merge. Shared docs remain reserved; online roadmap unchanged.",
+      "nextAction": "Continue on this exact branch/source after owner enters review-only code privately outside Git and confirms current printer HTTPS origin. Owner already authorized @release/ios only for local kiosk archive/export; no new approval needed for those. Preserve bundle/signature, verify native24 and IPA, record proof privately and public nonsecret evidence in PR/protocol. All upload/submission/unlisted/install/merge steps still require separate owner authorization. Do not finish reservation until merged."
     }
   ]
 }
