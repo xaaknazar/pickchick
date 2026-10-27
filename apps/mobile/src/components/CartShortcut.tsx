@@ -38,7 +38,7 @@ import { useAccount } from '../useAccount';
 import { SLIDE_PAY_PARAM, slidePayIntents } from '../useSlidePayIntent';
 import { usePaymentMethod } from '../usePaymentMethod';
 import { usePaymentAvailability } from '../usePaymentAvailability';
-import { paymentStopMessage } from '../payment-availability';
+import { joinSentences, paymentStopMessage } from '../payment-availability';
 import type { CartLine, MobileModel } from '../model';
 import { brandColors, colors, font } from '../theme';
 import { BottomActions, Icon, MinorMoney } from './UI';
@@ -280,7 +280,7 @@ export function CartShortcut({
             )}
             accessibilityHint={
               stop
-                ? `${localize(paymentStopMessage(stop))}. ${t('Открыть состав заказа')}`
+                ? joinSentences(localize(paymentStopMessage(stop)), t('Открыть состав заказа'))
                 : t('Открыть состав заказа')
             }
             disabled={phase === 'drag'}

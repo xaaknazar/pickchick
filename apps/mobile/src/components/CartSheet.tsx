@@ -1,7 +1,9 @@
 import { localize, t, useLocale } from '../i18n';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
+  AccessibilityInfo,
   Keyboard,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +17,7 @@ import type { DiningMode, MobileModel } from '../model';
 import { KASPI_PAY, brandSlotParts, cartPayTitle } from '../cart-payment';
 import { paymentMethodLabel, paymentPayAction, type PaymentMethodId } from '../payment-method';
 import { usePaymentMethod } from '../usePaymentMethod';
+import { bannerAnnouncement } from '../payment-availability';
 import { MotionModal, MotionPressable } from './Motion';
 import { PaymentMark } from './PaymentChoice';
 import { Body, Caption, CloseButton, Heading, Icon, IconButton, type IconName } from './UI';
@@ -67,11 +70,22 @@ export function CartTopBar({
 /**
  * Why the cart cannot pay right now (owner 28.10.2026, Drinkit reference): a red rounded banner
  * right under the top bar with the reason and an (!) mark, e.g. «откроемся в 10:00». An alert for
- * screen readers; the pay button below is grey and disabled at the same time.
+ * screen readers; the pay button below is grey and disabled at the same time. `message` null
+ * renders nothing: the banner stays mounted with the cart, so a reason that appears or changes
+ * while the cart is open (00:00, the connection drops) is announced. Android reads it through
+ * the live region and the web through role alert; iOS VoiceOver has neither for a new view, so
+ * it gets an explicit announcement.
  */
-export function CartUnavailableBanner({ message }: { message: string }) {
+export function CartUnavailableBanner({ message }: { message: string | null }) {
   useLocale();
-  const text = localize(message);
+  const text = message ? localize(message) : null;
+  const shown = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const announce = bannerAnnouncement(shown.current, text);
+    shown.current = text;
+    if (announce && Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(announce);
+  }, [text]);
+  if (!text) return null;
   return (
     <View
       testID="cart-unavailable"

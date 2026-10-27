@@ -85,10 +85,12 @@ const root = '/v1/customer-checkout';
  * reason in a red banner under the top bar and a grey, disabled pay button with a short label.
  */
 function unavailableCart(availability: PaymentAvailability) {
-  if (availability.canPay) return { banner: null, label: null };
+  // The banner stays mounted (empty while paying is possible), so a reason that appears while
+  // the cart is open is announced to screen readers.
+  const stop = availability.canPay ? null : availability.stop;
   return {
-    banner: <CartUnavailableBanner message={paymentStopMessage(availability.stop)} />,
-    label: paymentStopLabel(availability.stop),
+    banner: <CartUnavailableBanner message={stop ? paymentStopMessage(stop) : null} />,
+    label: stop ? paymentStopLabel(stop) : null,
   };
 }
 

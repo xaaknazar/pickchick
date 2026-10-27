@@ -1,6 +1,7 @@
 import { t } from './i18n/core.ts';
 import { unavailableCartLine, type Availability, type AvailabilityStatus } from './availability.ts';
 import {
+  clockMinutes,
   hoursStatusAtMinute,
   restaurantHoursStatus,
   zonedMinuteOfDay,
@@ -84,6 +85,32 @@ export function unavailableCartNames(cart: readonly CartLine[]): string[] {
 }
 
 /**
+ * The server says closed while the phone's clock still reads its published hours as open: the two
+ * clocks disagree by a little. Nearer the opening (a phone a little ahead, or the opening minute
+ * before the server confirms it) the restaurant opens at today's opening time; nearer the closing
+ * (a phone a little behind) the restaurant has just closed, so the next opening is read at the
+ * closing minute: «завтра» for same-day hours like 09:00-21:00, the same day for 10:00-00:00.
+ * Hours open around the clock (or unreadable) give no time.
+ */
+function serverClosedStop(input: Pick<PaymentAvailabilityInput, 'hours' | 'now'>): PaymentStop {
+  const hours = input.hours;
+  const opening = clockMinutes(hours?.openingTime);
+  const closing = clockMinutes(hours?.closingTime);
+  if (!hours || opening === null || closing === null || opening === closing)
+    return { kind: 'closed', opensAt: null, opensTomorrow: false };
+  const minute = zonedMinuteOfDay(asDate(input.now), hours.timeZone);
+  const DAY = 24 * 60;
+  const sinceOpening = minute === null ? 0 : (minute - opening + DAY) % DAY;
+  const untilClosing = minute === null ? DAY : (closing - minute + DAY) % DAY;
+  if (sinceOpening <= untilClosing)
+    return { kind: 'closed', opensAt: hours.openingTime, opensTomorrow: false };
+  const atClosing = hoursStatusAtMinute(hours.openingTime, hours.closingTime, closing);
+  return atClosing && !atClosing.open
+    ? { kind: 'closed', opensAt: atClosing.opensAt, opensTomorrow: atClosing.opensTomorrow }
+    : { kind: 'closed', opensAt: hours.openingTime, opensTomorrow: false };
+}
+
+/**
  * The decision. Reasons in order of what the customer can do about them: a closed restaurant
  * (with the next opening), the server switch, the connection, the menu freshness, the basket.
  * `checking` (first read) and `error` (an unexpected answer) are not reasons: the server
@@ -99,11 +126,7 @@ export function paymentAvailability(input: PaymentAvailabilityInput): PaymentAva
       canPay: false,
       stop: { kind: 'closed', opensAt: hours.opensAt, opensTomorrow: hours.opensTomorrow },
     };
-  if (input.status === 'closed')
-    return {
-      canPay: false,
-      stop: { kind: 'closed', opensAt: input.hours?.openingTime ?? null, opensTomorrow: false },
-    };
+  if (input.status === 'closed') return { canPay: false, stop: serverClosedStop(input) };
   if (input.status === 'disabled' || input.checkoutEnabled === false)
     return { canPay: false, stop: { kind: 'switched_off' } };
   if (input.status === 'offline') return { canPay: false, stop: { kind: 'offline' } };
@@ -124,9 +147,9 @@ export function paymentStopMessage(stop: PaymentStop): string {
     case 'switched_off':
       return t('Оплата временно недоступна');
     case 'offline':
-      return t(
-        'Не удалось связаться с сервером. Проверьте интернет - связь проверяется автоматически.',
-      );
+      // One short line like Drinkit's banner; the longer connection advice stays where it
+      // already lived (availability.ts).
+      return t('Нет связи с сервером');
     case 'stale':
       return t('Нет свежих данных от ресторана. Проверяем связь автоматически.');
     case 'unavailable':
@@ -139,14 +162,37 @@ export function paymentStopLabel(stop: PaymentStop): string {
   switch (stop.kind) {
     case 'closed':
       return t('Пока не работаем');
+    // A stale restaurant stop list: the customer's phone may well be online, so the label names
+    // the payment, not the customer's connection.
     case 'switched_off':
+    case 'stale':
       return t('Оплата недоступна');
     case 'offline':
-    case 'stale':
       return t('Нет связи');
     case 'unavailable':
       return t('Проверьте корзину');
   }
+}
+
+/**
+ * Two sentences for one screen-reader hint («откроемся в 10:00. Открыть состав заказа»): the
+ * first loses its own closing mark so VoiceOver never reads «..».
+ */
+export function joinSentences(first: string, second: string): string {
+  const head = first.trim().replace(/[.!?…]+$/u, '');
+  return head ? `${head}. ${second}` : second;
+}
+
+/**
+ * What a screen reader should announce when the cart's reason banner changes while the cart is
+ * open (for example at 00:00): the new reason, once. Nothing on the first render (the reason is
+ * read with the screen) and nothing when the banner goes away.
+ */
+export function bannerAnnouncement(
+  previous: string | null | undefined,
+  next: string | null,
+): string | null {
+  return previous !== undefined && next && next !== previous ? next : null;
 }
 
 /**

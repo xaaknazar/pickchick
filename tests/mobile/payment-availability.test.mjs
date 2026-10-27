@@ -5,8 +5,10 @@ import { testCompleteCatalog } from '@pickchick/test-order-flow/complete-catalog
 import { setAppLocale } from '../../apps/mobile/src/i18n/core.ts';
 import {
   PAYMENT_AVAILABLE,
+  bannerAnnouncement,
   checkoutEnabledFor,
   checkoutSwitchSnapshot,
+  joinSentences,
   msUntilNextMinute,
   noteCheckoutSwitch,
   paymentAvailability,
@@ -18,6 +20,10 @@ import {
   unavailableCartNames,
 } from '../../apps/mobile/src/payment-availability.ts';
 import { headerHoursCaption, zonedMinuteOfDay } from '../../apps/mobile/src/restaurant-hours.ts';
+import {
+  appHeaderCaptionMinScale,
+  appHeaderMetrics,
+} from '../../apps/mobile/src/app-header-metrics.ts';
 import { defaultSelections } from '../../apps/mobile/src/domain.ts';
 
 // Owner 28.10.2026 (Drinkit reference): a closed restaurant or a payment that cannot go through
@@ -120,11 +126,48 @@ test("the server's own «closed» wins over the device clock (opening minute, cl
   const bare = decide({ hours: undefined, status: 'closed' });
   assert.deepEqual(bare.stop, { kind: 'closed', opensAt: null, opensTomorrow: false });
   assert.equal(paymentStopMessage(bare.stop), 'Ресторан сейчас закрыт.');
+  // Hours open around the clock and the server still says closed: no opening time to promise.
+  const always = { ...HOURS, openingTime: '00:00', closingTime: '00:00' };
+  assert.deepEqual(decide({ hours: always, status: 'closed' }).stop, bare.stop);
   // Unknown published zone: no local verdict, the server's status still counts.
   assert.equal(publishedHoursStatus({ ...HOURS, timeZone: 'Not/AZone' }, almaty('03:00')), null);
   assert.deepEqual(
     decide({ hours: { ...HOURS, timeZone: 'Not/AZone' }, now: almaty('03:00') }),
     PAYMENT_AVAILABLE,
+  );
+});
+
+test('server «closed» against a phone clock that still reads open: the nearer boundary', () => {
+  // A phone a little behind at 20:59 while the server has closed at 21:00 (same-day hours):
+  // the restaurant has just closed, so it opens tomorrow (review 28.10).
+  const day = { ...HOURS, openingTime: '09:00', closingTime: '21:00' };
+  assert.deepEqual(decide({ hours: day, now: almaty('20:59'), status: 'closed' }).stop, {
+    kind: 'closed',
+    opensAt: '09:00',
+    opensTomorrow: true,
+  });
+  // The same hours a little after the opening minute: the server opens today at 09:00.
+  assert.deepEqual(decide({ hours: day, now: almaty('09:01'), status: 'closed' }).stop, {
+    kind: 'closed',
+    opensAt: '09:00',
+    opensTomorrow: false,
+  });
+  // 10:00-00:00 at 23:59 on the phone: after midnight the opening is the same day.
+  assert.deepEqual(decide({ now: almaty('23:59'), status: 'closed' }).stop, {
+    kind: 'closed',
+    opensAt: '10:00',
+    opensTomorrow: false,
+  });
+  // Overnight 18:00-02:00 at 01:58 on the phone: it opens again at 18:00 the same day.
+  const night = { ...HOURS, openingTime: '18:00', closingTime: '02:00' };
+  assert.deepEqual(decide({ hours: night, now: almaty('01:58'), status: 'closed' }).stop, {
+    kind: 'closed',
+    opensAt: '18:00',
+    opensTomorrow: false,
+  });
+  assert.equal(
+    paymentStopMessage(decide({ hours: day, now: almaty('20:59'), status: 'closed' }).stop),
+    'откроемся завтра в 09:00',
   );
 });
 
@@ -206,7 +249,8 @@ test('banner and pay button texts in RU, KK and EN, plain hyphen only', () => {
     'откроемся в 10:00',
     'откроемся завтра в 09:00',
     'Оплата временно недоступна',
-    'Не удалось связаться с сервером. Проверьте интернет - связь проверяется автоматически.',
+    // One short line for the banner (review 28.10); the long advice stays in availability.ts.
+    'Нет связи с сервером',
     'Нет свежих данных от ресторана. Проверяем связь автоматически.',
     'Нет в наличии: Пик Комбо, Кола',
   ]);
@@ -215,7 +259,8 @@ test('banner and pay button texts in RU, KK and EN, plain hyphen only', () => {
     'Пока не работаем',
     'Оплата недоступна',
     'Нет связи',
-    'Нет связи',
+    // A stale restaurant stop list is not the customer's connection (review 28.10).
+    'Оплата недоступна',
     'Проверьте корзину',
   ]);
   const messages = JSON.parse(
@@ -244,14 +289,24 @@ test('banner and pay button texts in RU, KK and EN, plain hyphen only', () => {
     'Оплата недоступна',
     'Нет связи',
     'Проверьте корзину',
+    'Нет связи с сервером',
   ]) {
     const entry = messages.find((message) => message.ru === ru);
     assert.ok(entry?.kk && entry.en, ru);
   }
+  // Kazakh: a neutral form, no case suffix that would depend on the number (review 28.10).
   setAppLocale('kk');
-  assert.equal(paymentStopMessage(stops[0]), '10:00 ашыламыз');
+  assert.equal(paymentStopMessage(stops[0]), 'Ашылу уақыты: 10:00');
+  assert.equal(paymentStopMessage(stops[1]), 'Ашылу уақыты: ертең 09:00');
+  assert.equal(paymentStopMessage(stops[3]), 'Сервермен байланыс жоқ');
+  assert.equal(
+    headerHoursCaption(null, { open: false, opensAt: '7:30', opensTomorrow: false }),
+    'Ашылу уақыты: 7:30',
+  );
   setAppLocale('en');
   assert.equal(paymentStopLabel(stops[0]), 'Closed for now');
+  assert.equal(paymentStopMessage(stops[0]), 'opening at 10:00');
+  assert.equal(paymentStopMessage(stops[3]), 'No connection to the server');
   setAppLocale('ru');
 });
 
@@ -282,6 +337,10 @@ test("header caption: today's hours while open, «откроемся в HH:MM» 
   });
   assert.equal(headerHoursCaption(fallback.hours, fallback.status), '10:00-00:00');
   assert.equal(headerHoursCaption(null, null), 'Часы уточняются');
+  // At the largest text the caption shrinks on iOS instead of truncating, never below its normal
+  // size: what fits at the normal size (browser_cart_unavailable.py H, 320 pt) fits at every size.
+  assert.ok(appHeaderCaptionMinScale < 1);
+  assert.ok(Math.abs(appHeaderCaptionMinScale * appHeaderMetrics.maxFontScale - 1) < 1e-9);
   assert.equal(headerHoursCaption({ closing_time: '22:00' }, null), 'до 22:00');
 });
 
@@ -316,4 +375,34 @@ test('the server switch seen by the cart reaches the bar for the same customer o
   unsubscribe();
   noteCheckoutSwitch(a, false);
   assert.equal(calls, 2);
+});
+
+test('screen reader texts: one period between sentences, a changed reason announced once', () => {
+  const hint = 'Открыть состав заказа';
+  assert.equal(joinSentences('Ресторан сейчас закрыт.', hint), 'Ресторан сейчас закрыт. ' + hint);
+  assert.equal(
+    joinSentences('Нет свежих данных от ресторана. Проверяем связь автоматически.', hint),
+    'Нет свежих данных от ресторана. Проверяем связь автоматически. ' + hint,
+  );
+  assert.equal(joinSentences('откроемся в 10:00', hint), 'откроемся в 10:00. ' + hint);
+  assert.equal(joinSentences('Нет связи с сервером!  ', hint), 'Нет связи с сервером. ' + hint);
+  assert.equal(joinSentences('', hint), hint);
+  for (const stop of [
+    { kind: 'closed', opensAt: null, opensTomorrow: false },
+    { kind: 'offline' },
+    { kind: 'stale' },
+  ])
+    assert.doesNotMatch(joinSentences(paymentStopMessage(stop), hint), /\.\./);
+  // The banner mounts with the cart: its first reason is read with the screen, not announced.
+  assert.equal(bannerAnnouncement(undefined, 'откроемся в 10:00'), null);
+  assert.equal(bannerAnnouncement(undefined, null), null);
+  // 00:00 while the cart is open: the reason appears and is announced once.
+  assert.equal(bannerAnnouncement(null, 'откроемся в 10:00'), 'откроемся в 10:00');
+  assert.equal(bannerAnnouncement('откроемся в 10:00', 'откроемся в 10:00'), null);
+  assert.equal(
+    bannerAnnouncement('откроемся в 10:00', 'Нет связи с сервером'),
+    'Нет связи с сервером',
+  );
+  // Paying possible again: the banner goes away silently (the button speaks for itself).
+  assert.equal(bannerAnnouncement('Нет связи с сервером', null), null);
 });

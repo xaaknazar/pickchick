@@ -8611,13 +8611,13 @@
   },
   {
     "ru": "откроемся в {p0}",
-    "kk": "{p0} ашыламыз",
+    "kk": "Ашылу уақыты: {p0}",
     "en": "opening at {p0}",
     "context": "apps/mobile/src/restaurant-hours.ts"
   },
   {
     "ru": "откроемся завтра в {p0}",
-    "kk": "ертең {p0} ашыламыз",
+    "kk": "Ашылу уақыты: ертең {p0}",
     "en": "opening tomorrow at {p0}",
     "context": "apps/mobile/src/restaurant-hours.ts"
   },
@@ -8655,6 +8655,12 @@
     "ru": "Проверьте корзину",
     "kk": "Себетті тексеріңіз",
     "en": "Check your basket",
+    "context": "apps/mobile/src/payment-availability.ts"
+  },
+  {
+    "ru": "Нет связи с сервером",
+    "kk": "Сервермен байланыс жоқ",
+    "en": "No connection to the server",
     "context": "apps/mobile/src/payment-availability.ts"
   }
 ]
