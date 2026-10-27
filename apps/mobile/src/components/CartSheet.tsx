@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { DiningMode, MobileModel } from '../model';
@@ -78,6 +79,9 @@ export function DiningModePill({
   disabled?: boolean;
 }) {
   useLocale();
+  const { width, fontScale } = useWindowDimensions();
+  // 320 pt or large text: the words need the room (Kazakh «Мейрамханада»), icons step aside.
+  const icons = width >= 360 && fontScale <= 1.3;
   return (
     <View
       testID="cart-dining-mode"
@@ -99,10 +103,14 @@ export function DiningModePill({
             onPress={() => onChange(mode)}
             style={[s.segment, selected && s.segmentSelected]}
           >
-            <Icon name={icon} size={18} color={selected ? colors.white : colors.muted} />
+            {icons ? (
+              <Icon name={icon} size={18} color={selected ? colors.white : colors.muted} />
+            ) : null}
             <Text
               style={[s.segmentText, selected && s.segmentTextSelected]}
               numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
               maxFontSizeMultiplier={1.6}
             >
               {localize(label)}
@@ -372,7 +380,7 @@ const s = StyleSheet.create({
     minWidth: 0,
     minHeight: 44,
     borderRadius: 22,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
