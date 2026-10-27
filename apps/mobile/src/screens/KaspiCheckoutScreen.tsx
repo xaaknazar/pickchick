@@ -7,7 +7,11 @@ import { CatalogChangeNotice } from '../components/CatalogChangeNotice';
 import { recoverCommerceRead, historyOrderNeedsWatch } from '../commerce-read-recovery';
 import { PAYMENT_COMMAND, paymentRefused, prepareCheckout } from '../checkout-preflight';
 import { KaspiPaymentState } from '../components/KaspiPaymentState';
-import { CartOrderComment, CartPaymentFooter } from '../components/CartSheet';
+import {
+  CartOrderComment,
+  CartPaymentFooter,
+  CartUnavailableBanner,
+} from '../components/CartSheet';
 import { cartEditSettleMs } from '../cart-payment';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, Linking, Modal, StyleSheet, View } from 'react-native';
@@ -61,6 +65,13 @@ import { slidePayIntents, useSlidePayIntent } from '../useSlidePayIntent';
 import { rememberPaymentMethod, usePaymentMethod } from '../usePaymentMethod';
 import { PAYMENT_METHOD_NOT_CONNECTED } from '../payment-method';
 import { runSlidePayIntent } from '../slide-pay-intent';
+import {
+  noteCheckoutSwitch,
+  paymentStopLabel,
+  paymentStopMessage,
+  type PaymentAvailability,
+} from '../payment-availability';
+import { usePaymentAvailability } from '../usePaymentAvailability';
 import { Body, Button, Caption, Page } from '../components/UI';
 import { cartTotal, cartLineKey, money } from '../domain';
 import { colors } from '../theme';
@@ -68,6 +79,18 @@ import { colors } from '../theme';
 type Quote = ReturnType<typeof CustomerQuoteSchema.parse>;
 type Pending = PendingPayment;
 const root = '/v1/customer-checkout';
+
+/**
+ * Owner 28.10.2026 (Drinkit reference): when paying is not possible right now the cart shows the
+ * reason in a red banner under the top bar and a grey, disabled pay button with a short label.
+ */
+function unavailableCart(availability: PaymentAvailability) {
+  if (availability.canPay) return { banner: null, label: null };
+  return {
+    banner: <CartUnavailableBanner message={paymentStopMessage(availability.stop)} />,
+    label: paymentStopLabel(availability.stop),
+  };
+}
 
 /**
  * Kaspi build cart (M09), owner 27.10.2026: there is no separate checkout page, the cart pays.
@@ -79,20 +102,24 @@ export function KaspiCart(props: ScreenProps) {
   const account = useAccount();
   const router = useRouter();
   const payment = usePaymentMethod();
+  const availability = usePaymentAvailability(props.model);
   if (accountCanAct(account)) return <KaspiCheckoutScreen {...props} />;
   const discount = props.model.comboRewards?.discountMinor ?? '0';
   const total = (BigInt(cartTotal(props.model.cart)) - BigInt(discount)).toString();
+  const unavailable = unavailableCart(availability);
   return (
     <Cart
       {...props}
       checkout={{
+        banner: unavailable.banner,
         comment: <CartOrderComment model={props.model} />,
         footer: (blocked) => (
           <CartPaymentFooter
             totalMinor={total}
             totalText={money(total)}
             busy={false}
-            disabled={blocked || !account.ready}
+            disabled={blocked || !account.ready || !availability.canPay}
+            unavailable={unavailable.label}
             method={payment.method}
             onPay={() => router.push({ pathname: '/auth', params: { returnTo: 'M09' } })}
           />
@@ -126,6 +153,9 @@ function KaspiCheckoutSession(
   // The customer's active method (item 6b, 27.10.2026): the cart bar handle shows it and this
   // cart pays with it. Only Kaspi.kz is available today, so it is always Kaspi here.
   const payment = usePaymentMethod();
+  // Can this customer pay right now (owner 28.10.2026): closed, server switch, connection, stop
+  // list. Only hides or disables the payment; submit() keeps every server check of its own.
+  const availability = usePaymentAvailability(props.model);
   // A press or slide with a method this cart cannot pay with (no flow yet): said, never silent.
   const [methodStop, setMethodStop] = useState(false);
   useEffect(() => setMethodStop(false), [payment.method]);
@@ -293,6 +323,8 @@ function KaspiCheckoutSession(
           ? {
               accept: (value: unknown) => CustomerCheckoutConfigSchema.parse(value).enabled,
               onPending: () => {
+                // The owner's server switch is off: the cart and the cart bar say so (28.10).
+                if (active) noteCheckoutSwitch(customerId, false);
                 if (active && props.screenId === 'M19') {
                   setError(new Error('NOT_READY'));
                   setLoaded(true);
@@ -369,6 +401,7 @@ function KaspiCheckoutSession(
       if (props.screenId !== 'M19') {
         // Passive configuration only; price/admission checks belong to the explicit pay action.
         const setup = CustomerCheckoutConfigSchema.parse(await read('/config'));
+        if (active) noteCheckoutSwitch(customerId, setup.enabled);
         if (active && !controller.signal.aborted && !lock.current) setConfig(setup);
         return;
       }
@@ -587,6 +620,7 @@ function KaspiCheckoutSession(
         const value = CustomerCheckoutConfigSchema.parse(
           await request('/config', 'GET', undefined, controller.signal),
         );
+        noteCheckoutSwitch(customerId, value.enabled);
         if (!value.enabled) throw new CustomerSessionError('NOT_READY', 503, true);
         return value;
       });
@@ -674,6 +708,7 @@ function KaspiCheckoutSession(
         saved: pending.current,
         order: !!orderRef.current,
         cartLines: cart.current.length,
+        blocked: !availability.canPay,
         now: Date.now(),
       },
       () => void submitRef.current(),
@@ -796,14 +831,19 @@ function KaspiCheckoutSession(
     config.orderCommentEnabled !== true &&
     !!normalizedOrderComment(props.model.orderComment);
   // The cart is the checkout (27.10.2026): its footer carries the guards' notices and pays.
+  // Paying impossible right now (28.10.2026): a grey, disabled button with a short reason.
+  const unavailable = unavailableCart(availability);
   const cartFooter = (blocked: boolean) => (
     <CartPaymentFooter
       totalMinor={total}
       totalText={money(total)}
       busy={busy}
-      disabled={busy || blocked}
+      disabled={busy || blocked || !availability.canPay}
+      unavailable={busy ? null : unavailable.label}
       method={payment.method}
-      onPay={() => void submit()}
+      onPay={() => {
+        if (availability.canPay) void submit();
+      }}
       notices={
         <>
           {methodStop && payment.method !== 'kaspi' ? (
@@ -1008,6 +1048,7 @@ function KaspiCheckoutSession(
         {...props}
         checkout={{
           restaurant: config?.restaurant,
+          banner: unavailable.banner,
           notices,
           comment:
             config?.orderCommentEnabled !== false ? (

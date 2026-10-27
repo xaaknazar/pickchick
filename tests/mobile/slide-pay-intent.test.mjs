@@ -232,6 +232,8 @@ test('cart wiring: the slide only presses submit() of the Kaspi cart, never pay(
   assert.ok(block.includes('runSlidePayIntent(slidePayIntents,slideIntent,'), block);
   assert.ok(block.includes('()=>voidsubmitRef.current()'), block);
   assert.ok(block.includes('saved:pending.current'), block);
+  // A closed restaurant (or another stop) drops the slide (owner 28.10.2026).
+  assert.ok(block.includes('blocked:!availability.canPay'), block);
   assert.ok(!/pay\(|sendInvoice|AsyncStorage|\.take\(/.test(block), block);
   assert.equal(source.split('runSlidePayIntent(').length - 1, 1);
   assert.equal(source.split('slidePayIntents.take(').length - 1, 0);

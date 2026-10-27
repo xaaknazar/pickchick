@@ -6,6 +6,8 @@ import { appHeaderMetrics } from '../app-header-metrics';
 import { localize, t, useLocale } from '../i18n';
 import type { ScreenProps } from '../model';
 import { restaurantLocation } from '../restaurant-location';
+import { headerHoursCaption } from '../restaurant-hours';
+import { useRestaurantHoursNow } from '../usePaymentAvailability';
 import { colors, font } from '../theme';
 import { useAccount } from '../useAccount';
 import { GlassButton } from './GlassButton';
@@ -28,11 +30,24 @@ export const AppHeaderContext = createContext<HeaderScreen | null>(null);
 /** Text sizes stay readable at large Dynamic Type but keep the row one line high. */
 export const appHeaderMaxFontScale = appHeaderMetrics.maxFontScale;
 
-function hoursCaption(location: ReturnType<typeof restaurantLocation>) {
-  if (location?.opening_time && location.closing_time)
-    return `${location.opening_time}-${location.closing_time}`;
-  if (location?.closing_time) return t('до {p0}', { p0: location.closing_time });
-  return 'Часы уточняются';
+/**
+ * Hours under the restaurant name (owner 28.10.2026, Drinkit): today's hours while open,
+ * «откроемся в 10:00» while closed. The server's published ordering hours first, otherwise the
+ * restaurant directory; re-evaluated on the minute and on foreground.
+ */
+function HoursCaption({ model }: { model: HeaderScreen['model'] }) {
+  useLocale();
+  const { hours, status } = useRestaurantHoursNow(model);
+  return (
+    <Text
+      testID="header-hours"
+      style={s.caption}
+      numberOfLines={1}
+      maxFontSizeMultiplier={appHeaderMaxFontScale}
+    >
+      {localize(headerHoursCaption(hours, status))}
+    </Text>
+  );
 }
 
 /**
@@ -95,9 +110,7 @@ export function AppHeaderBar({ screen }: { screen?: HeaderScreen }) {
         <Text style={s.title} numberOfLines={1} maxFontSizeMultiplier={appHeaderMaxFontScale}>
           {localize(location?.name ?? current.model.branch?.name ?? 'Выбрать ресторан')}
         </Text>
-        <Text style={s.caption} numberOfLines={1} maxFontSizeMultiplier={appHeaderMaxFontScale}>
-          {localize(hoursCaption(location))}
-        </Text>
+        <HoursCaption model={current.model} />
       </Pressable>
       {/* A guest goes through the same auth gate the profile tab used (returnTo M30). */}
       <ProfileButton onPress={() => profileTap.run(() => current.navigate('M30'))} />

@@ -64,6 +64,32 @@ export function CartTopBar({
   );
 }
 
+/**
+ * Why the cart cannot pay right now (owner 28.10.2026, Drinkit reference): a red rounded banner
+ * right under the top bar with the reason and an (!) mark, e.g. «откроемся в 10:00». An alert for
+ * screen readers; the pay button below is grey and disabled at the same time.
+ */
+export function CartUnavailableBanner({ message }: { message: string }) {
+  useLocale();
+  const text = localize(message);
+  return (
+    <View
+      testID="cart-unavailable"
+      role="alert"
+      accessible
+      accessibilityRole="alert"
+      accessibilityLabel={text}
+      accessibilityLiveRegion="polite"
+      style={s.unavailable}
+    >
+      <Text style={s.unavailableText} maxFontSizeMultiplier={1.6}>
+        {text}
+      </Text>
+      <Icon name="alert-circle-outline" size={24} color={colors.white} />
+    </View>
+  );
+}
+
 const diningModes: { mode: DiningMode; label: string; icon: IconName }[] = [
   { mode: 'dine_in', label: 'В зале', icon: 'restaurant-outline' },
   { mode: 'takeaway', label: 'С собой', icon: 'bag-handle-outline' },
@@ -308,6 +334,7 @@ export function CartPaymentFooter({
   onPay,
   notices,
   method,
+  unavailable,
 }: {
   totalMinor: string;
   totalText: string;
@@ -317,6 +344,11 @@ export function CartPaymentFooter({
   notices?: ReactNode;
   /** The method the button pays with (the customer's active method, item 6b). */
   method: PaymentMethodId;
+  /**
+   * Paying is not possible right now (owner 28.10.2026): the button is grey, disabled and says
+   * why in a few words («Пока не работаем», «Оплата недоступна», «Нет связи»).
+   */
+  unavailable?: string | null;
 }) {
   useLocale();
   const title = cartPayTitle({ busy, totalMinor });
@@ -347,35 +379,57 @@ export function CartPaymentFooter({
           </Text>
         </View>
       </View>
-      <MotionPressable
-        testID="cart-pay"
-        feedback="scale"
-        accessibilityRole="button"
-        accessibilityLabel={localize(label)}
-        accessibilityState={{ disabled, busy }}
-        disabled={disabled}
-        onPress={onPay}
-        style={[s.pay, disabled && s.payDisabled]}
-      >
-        {words.before ? (
-          <Text style={s.payText} maxFontSizeMultiplier={1.5}>
-            {words.before}
+      {unavailable ? (
+        <MotionPressable
+          testID="cart-pay"
+          accessibilityRole="button"
+          accessibilityLabel={localize(unavailable)}
+          accessibilityState={{ disabled: true }}
+          aria-disabled
+          disabled
+          onPress={() => {}}
+          style={[s.pay, s.payUnavailable]}
+        >
+          <Text
+            testID="cart-pay-unavailable"
+            style={[s.payText, s.payUnavailableText]}
+            numberOfLines={2}
+            maxFontSizeMultiplier={1.5}
+          >
+            {localize(unavailable)}
           </Text>
-        ) : null}
-        {branded ? (
-          <View style={s.payBrand}>
-            <PaymentMark method={method} size={30} />
-            <Text style={[s.payText, s.payBrandText]} maxFontSizeMultiplier={1.5}>
-              {name}
+        </MotionPressable>
+      ) : (
+        <MotionPressable
+          testID="cart-pay"
+          feedback="scale"
+          accessibilityRole="button"
+          accessibilityLabel={localize(label)}
+          accessibilityState={{ disabled, busy }}
+          disabled={disabled}
+          onPress={onPay}
+          style={[s.pay, disabled && s.payDisabled]}
+        >
+          {words.before ? (
+            <Text style={s.payText} maxFontSizeMultiplier={1.5}>
+              {words.before}
             </Text>
-          </View>
-        ) : null}
-        {words.after ? (
-          <Text style={s.payText} maxFontSizeMultiplier={1.5}>
-            {words.after}
-          </Text>
-        ) : null}
-      </MotionPressable>
+          ) : null}
+          {branded ? (
+            <View style={s.payBrand}>
+              <PaymentMark method={method} size={30} />
+              <Text style={[s.payText, s.payBrandText]} maxFontSizeMultiplier={1.5}>
+                {name}
+              </Text>
+            </View>
+          ) : null}
+          {words.after ? (
+            <Text style={s.payText} maxFontSizeMultiplier={1.5}>
+              {words.after}
+            </Text>
+          ) : null}
+        </MotionPressable>
+      )}
     </>
   );
 }
@@ -515,6 +569,33 @@ const s = StyleSheet.create({
     rowGap: 4,
   },
   payDisabled: { opacity: 0.5 },
+  // Drinkit's «Пока не работаем»: a grey pill with grey text, clearly not a payment action.
+  payUnavailable: {
+    backgroundColor: '#FFFFFF24',
+    borderWidth: StyleSheet.hairlineWidth * 2,
+    borderColor: '#FFFFFF1F',
+  },
+  payUnavailableText: { color: '#FFFFFF8C', textAlign: 'center' },
+  unavailable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 48,
+    paddingVertical: 10,
+    paddingLeft: 20,
+    paddingRight: 14,
+    borderRadius: 24,
+    // Drinkit red, a shade deeper so white text keeps WCAG AA contrast (4.8:1).
+    backgroundColor: '#D92D20',
+  },
+  unavailableText: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: font.medium,
+    fontSize: 17,
+    lineHeight: 23,
+    color: colors.white,
+  },
   payText: { fontFamily: font.heading, fontSize: 19, lineHeight: 26, color: colors.background },
   payBrand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   payBrandText: { fontFamily: font.display },
