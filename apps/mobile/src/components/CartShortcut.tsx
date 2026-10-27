@@ -167,19 +167,20 @@ export function CartShortcut({
       };
     }, [count, reduced, feedback]),
   );
-  // Checkout as the cart's «Оформить заказ» opens it: guests sign in first and land on checkout
-  // without anything sent; a blocked basket opens the cart, where the reason is shown.
-  const openCheckout = (slide: boolean) => {
+  // The Kaspi cart is the checkout (27.10.2026): the slide opens the cart with payment, which
+  // takes the one-shot intent and presses its own «Оплатить» once. Guests sign in first and land
+  // on the cart without anything sent; a blocked basket opens the cart, where the reason is shown.
+  const openPayment = (slide: boolean) => {
     if (cartCheckoutBlocked(model)) {
       onPress();
       return;
     }
     if (!account.account) {
-      router.push({ pathname: '/auth', params: { returnTo: 'M12' } });
+      router.push({ pathname: '/auth', params: { returnTo: 'M09' } });
       return;
     }
     router.push({
-      pathname: '/checkout',
+      pathname: '/cart',
       params: slide ? { [SLIDE_PAY_PARAM]: slidePayIntents.issue() } : {},
     });
   };
@@ -237,8 +238,8 @@ export function CartShortcut({
               offset={offset}
               style={s.handle}
               onPhaseChange={setPhase}
-              onComplete={() => openCheckout(true)}
-              onOpenCheckout={() => openCheckout(false)}
+              onComplete={() => openPayment(true)}
+              onOpenCheckout={() => openPayment(false)}
             />
           ) : null}
           <Pressable

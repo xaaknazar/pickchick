@@ -1,6 +1,7 @@
 /**
- * Slide to pay (cart bar, 27.10.2026): a released Kaspi handle opens the guarded checkout with a
- * one-shot intent that equals one press of «Оплатить через Kaspi». The intent lives only in the
+ * Slide to pay (cart bar, 27.10.2026): a released Kaspi handle opens the guarded checkout - in
+ * the Kaspi build the cart with payment (M09) - with a one-shot intent that equals one press of
+ * its «Оплатить с Kaspi.kz». The intent lives only in the
  * memory of this app process, so a reload, an app restart, restored navigation state, a deep link,
  * back navigation or a remounted checkout can never replay it. It is taken at most once and only
  * while fresh; every other outcome leaves checkout waiting for an explicit press.

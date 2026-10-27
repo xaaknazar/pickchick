@@ -637,11 +637,12 @@ function KaspiCheckoutSession(
       setLoaded(true);
     }
   };
-  // Slide to pay from the cart bar: a fresh intent of this app process is taken once, after the
-  // saved intent is read, and equals one press of the button below. Nothing else runs on its own:
+  // Slide to pay from the cart bar: the bar opens the cart with payment (M09, 27.10.2026; there
+  // is no separate checkout page). A fresh intent of this app process is taken once, after the
+  // saved intent is read, and equals one press of «Оплатить» below. Nothing else runs on its own:
   // a holding intent, an order or a running command keeps the screen as it is, and any stop
   // (consent, prices, comment, gift, stop list, network) waits for a new explicit press.
-  const slideIntent = useSlidePayIntent(props.screenId === 'M12' && !props.preview);
+  const slideIntent = useSlidePayIntent(props.screenId === 'M09' && !props.preview);
   const submitRef = useRef(submit);
   submitRef.current = submit;
   useEffect(() => {

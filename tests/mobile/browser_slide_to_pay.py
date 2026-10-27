@@ -1,5 +1,9 @@
 """Slide to pay from the cart bar (owner request 27.10.2026) through the guarded Kaspi checkout.
 
+The Kaspi cart is the checkout (final integration 27.10.2026, no separate checkout page): the slide
+opens the cart with payment (/cart, M09), which takes the one-shot intent and presses its own
+«Оплатить с Kaspi.kz» (cart-pay) once.
+
 Runs against the customer-auth web export (EXPO_PUBLIC_CUSTOMER_AUTH=server,
 EXPO_PUBLIC_KASPI_CHECKOUT=1, EXPO_PUBLIC_UNPAID_TEST_ORDERS=1, EXPO_PUBLIC_PUBLISHED_CATALOG=0)
 with local fixtures only: no bank, no real customer, no VPS request.
@@ -8,14 +12,14 @@ with local fixtures only: no bank, no real customer, no VPS request.
   B  a full drag creates exactly one quote, one order and one invoice; reload/back resend nothing
   C  a changed price stops before the order; only a second explicit press continues
   D  consent: the dialog stops the slide, «Не сейчас» leaves the normal button, no retry
-  E  signed out: the slide opens the sign-in and then checkout without sending anything
+  E  signed out: the slide opens the sign-in and then the cart without sending anything
   F  App Review account: the server refuses the order exactly as for a press, no retry, no invoice
   G  DEMO-1 demonstration: no cart bar or handle, no mutating request
   H  combo gift selected: bar total = «Оформить заказ» = checkout total = quote; one order, one invoice
   I  the hint «тяни для оплаты» fits at 320 pt in RU, KK and EN, also at the largest text size
   J  an old unbilled intent without an order is still saved when checkout opens: the slide still
      pays once (the press drops that intent), the old intent is never sent
-  K  «Вернуться в корзину» after a slide opens the cart, not the tab under checkout
+  K  «Вернуться в корзину» after a failed payment from a slide shows the cart itself (one sheet)
   L  with the shared header and three tabs: on Меню, События and Заказы the bar with the Kaspi
      handle sits above the tab bar and below the header, the content ends above the bar, the
      profile stack screen shows no bar, and a full slide from События pays exactly once
@@ -131,10 +135,10 @@ def make_context(browser, state, width=393, height=852, reduced='reduce'):
         if path == '/v1/customer-checkout/combo-rewards' and state['combo_earned'] is not None:
             n = state['combo_earned']
             return ok(r, {'enabled': True, 'programId': '40000000-0000-4000-8000-000000000010',
-                          'giftProductId': 'pick-combo', 'earnedUnits': n, 'completedCycles': n // 7,
-                          'currentStamps': n % 7, 'availableGifts': n // 7, 'usedGifts': 0,
+                          'giftProductId': 'pick-combo', 'earnedUnits': n, 'completedCycles': n // 6,
+                          'currentStamps': n % 6, 'availableGifts': n // 6, 'usedGifts': 0,
                           'reservedGifts': 0, 'reconciliationRequired': False,
-                          'visibleStamps': 7 if n == 7 else n % 7, 'remainingToNextGift': 7 - n % 7})
+                          'visibleStamps': 6 if n == 6 else n % 6, 'remainingToNextGift': 6 - n % 6})
         if path == '/v1/customer-checkout/quotes' and method == 'POST':
             state['quote_bodies'].append(body)
             state['quotes'] += 1
@@ -213,15 +217,13 @@ def minor(text):
     return str(int(whole) * 100 + int((fraction or '0').ljust(2, '0')))
 
 
+def pay_button(page):
+    # The Kaspi cart's pay button; the cart bar has its own cart-total, the cart sheet is scoped.
+    return page.get_by_test_id('screen-M09').get_by_test_id('cart-pay')
+
+
 def wait_quiet(page, ms=2500):
     page.wait_for_timeout(ms)
-
-
-def money_minor(text):
-    import re
-    found = re.findall(r'(\d[\d \u00a0\u202f]*(?:,\d+)?)\s?₸', text)
-    assert found, text
-    return minor(found[-1].replace('\u202f', ''))
 
 
 def hint_fits(page):
@@ -309,10 +311,11 @@ def scenario_bar_and_short_drag(browser, width, height, reduced):
     slide(page, 0.8)
     page.wait_for_timeout(900)
     assert page.url.endswith('/menu'), page.url
-    # Keyboard / assistive activation opens checkout normally: nothing is sent by itself.
+    # Keyboard / assistive activation opens the cart with payment normally: nothing is sent.
     handle.focus()
     page.keyboard.press('Enter')
-    expect(page.get_by_test_id('kaspi-checkout-submit')).to_be_enabled(timeout=15000)
+    expect(pay_button(page)).to_be_enabled(timeout=15000)
+    assert urlparse(page.url).path.rstrip('/') == '/cart' and 'slide=' not in page.url, page.url
     wait_quiet(page)
     assert not checkout_traffic(state), checkout_traffic(state)
     assert state['quotes'] == state['creates'] == state['payments'] == 0, state
@@ -342,8 +345,8 @@ def scenario_full_slide(browser):
     assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
     wait_quiet(page)
     assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
-    # Reload of the same /checkout?slide=... and back navigation resend nothing.
-    assert '/checkout' in page.url and 'slide=' in page.url, page.url
+    # Reload of the same /cart?slide=... and back navigation resend nothing.
+    assert urlparse(page.url).path.rstrip('/') == '/cart' and 'slide=' in page.url, page.url
     page.reload()
     expect(page.get_by_test_id('kaspi-waiting')).to_be_visible(timeout=25000)
     wait_quiet(page)
@@ -365,21 +368,21 @@ def scenario_price_change(browser):
     page.screenshot(path=str(OUT / 'bar-1-item-320-kaspi.png'))
     slide(page, 1.0)
     expect(page.get_by_text('Цены обновились. Проверьте итоговую сумму перед оплатой', exact=True)).to_be_visible(timeout=15000)
-    button = page.get_by_test_id('kaspi-checkout-submit')
+    button = pay_button(page)
     expect(button).to_be_enabled()
     page.screenshot(path=str(OUT / 'checkout-price-changed-320.png'))
     wait_quiet(page)
     assert (state['quotes'], state['creates'], state['payments']) == (1, 0, 0), state
     # Reload with the same intent in the address: nothing runs again.
     page.reload()
-    expect(page.get_by_test_id('kaspi-checkout-submit')).to_be_enabled(timeout=25000)
+    expect(pay_button(page)).to_be_enabled(timeout=25000)
     wait_quiet(page)
     assert (state['quotes'], state['creates'], state['payments']) == (1, 0, 0), state
     # Only a new explicit press continues (the quote is re-read and confirmed by the press).
-    page.get_by_test_id('kaspi-checkout-submit').click()
+    pay_button(page).click()
     expect(page.get_by_text('Цены обновились. Проверьте итоговую сумму перед оплатой', exact=True)).to_be_visible(timeout=15000)
     assert state['creates'] == 0 and state['quotes'] == 2, state
-    page.get_by_test_id('kaspi-checkout-submit').click()
+    pay_button(page).click()
     expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi', timeout=15000)
     assert (state['quotes'], state['creates'], state['payments']) == (3, 1, 1), state
     release(state)
@@ -398,12 +401,12 @@ def scenario_consent(browser):
     page.screenshot(path=str(OUT / 'checkout-consent-393.png'))
     page.get_by_test_id('checkout-legal-close').click()
     expect(accept).to_have_count(0)
-    expect(page.get_by_test_id('kaspi-checkout-submit')).to_be_enabled()
+    expect(pay_button(page)).to_be_enabled()
     wait_quiet(page)
     expect(accept).to_have_count(0)
     assert (state['quotes'], state['creates'], state['payments'], state['patches']) == (0, 0, 0, 0), state
     # A new slide is a new explicit action: accept, then one quote, order and invoice.
-    page.get_by_test_id('checkout-close').click()
+    page.get_by_test_id('cart-close').click()
     expect(page.get_by_test_id('cart-shortcut')).to_be_visible(timeout=10000)
     page.wait_for_timeout(800)
     slide(page, 1.0)
@@ -422,14 +425,14 @@ def scenario_signed_out(browser):
     add(page)
     slide(page, 1.0)
     expect(page.get_by_test_id('auth-welcome').filter(visible=True)).to_be_visible(timeout=15000)
-    assert 'returnTo=M12' in page.url, page.url
+    assert 'returnTo=M09' in page.url, page.url
     page.get_by_test_id('account-required-login').filter(visible=True).click()
     page.get_by_test_id('phone-input').filter(visible=True).fill(PHONE)
     page.get_by_test_id('request-otp').filter(visible=True).click()
     page.get_by_test_id('otp-input').filter(visible=True).fill('9381')
-    button = page.get_by_test_id('kaspi-checkout-submit')
+    button = pay_button(page)
     expect(button).to_be_enabled(timeout=20000)
-    assert page.url.rstrip('/').endswith('/checkout'), page.url
+    assert urlparse(page.url).path.rstrip('/') == '/cart' and 'slide=' not in page.url, page.url
     wait_quiet(page)
     page.screenshot(path=str(OUT / 'signed-out-then-checkout-393.png'))
     assert not checkout_traffic(state) or all(p.startswith('GET ') for p in checkout_traffic(state)), checkout_traffic(state)
@@ -447,11 +450,10 @@ def review_flow(browser, via_slide):
         slide(page, 1.0)
     else:
         page.get_by_test_id('open-cart').click()
-        page.get_by_test_id('cart-checkout').click()
-        expect(page.get_by_test_id('kaspi-checkout-submit')).to_be_enabled(timeout=15000)
-        page.get_by_test_id('kaspi-checkout-submit').click()
+        expect(pay_button(page)).to_be_enabled(timeout=15000)
+        pay_button(page).click()
     wait_quiet(page, 4000)
-    sheet = page.get_by_role('dialog', name='Оформление', exact=True).inner_text()
+    sheet = page.get_by_role('dialog', name='Корзина', exact=True).inner_text()
     counts = (state['quotes'], state['creates'], state['payments'])
     page.screenshot(path=str(OUT / f'review-account-{"slide" if via_slide else "press"}-320.png'))
     wait_quiet(page)
@@ -494,9 +496,9 @@ def scenario_review_demo(browser):
 
 
 def scenario_combo_gift(browser):
-    # The bar is a payment control: with a combo gift selected it shows the amount of «Оформить
-    # заказ» and of the invoice, not the full basket.
-    state = new_state(combo_earned=7)
+    # The bar is a payment control: with a combo gift selected it shows the amount of the cart's
+    # «Итого» and of the invoice, not the full basket (promo 6 + 1 since 27.10.2026).
+    state = new_state(combo_earned=6)
     ctx, page = make_context(browser, state, 393, 852, 'reduce')
     page.goto(URL + '/menu')
     add(page, 'burger')
@@ -507,9 +509,8 @@ def scenario_combo_gift(browser):
     toggle.scroll_into_view_if_needed()
     toggle.click()
     expect(toggle).to_have_attribute('aria-checked', 'true')
-    button = page.get_by_test_id('cart-checkout')
-    expect(button).to_be_enabled()
-    cart_amount = money_minor(button.inner_text())
+    expect(pay_button(page)).to_be_enabled()
+    cart_amount = minor(page.get_by_test_id('screen-M09').get_by_test_id('cart-total').inner_text())
     page.get_by_test_id('cart-close').click()
     expect(page.get_by_test_id('screen-M09')).not_to_be_visible()
     bar = page.get_by_test_id('cart-shortcut-total')
@@ -521,8 +522,8 @@ def scenario_combo_gift(browser):
     state['quote_total'] = bar_amount
     slide(page, 1.0)
     expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi', timeout=15000)
-    # The quote equals the amount the customer slid on, so the checkout did not stop for a price
-    # change: bar = cart button = checkout total = invoice.
+    # The quote equals the amount the customer slid on, so the cart did not stop for a price
+    # change: bar = cart «Итого» = invoice.
     assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
     assert state['quote_bodies'][0].get('giftItemIndex') is not None, state['quote_bodies']
     wait_quiet(page)
@@ -584,25 +585,30 @@ def scenario_stale_draft(browser):
 
 
 def scenario_back_to_cart(browser):
-    # The slide opens checkout right over the tab. «Вернуться в корзину» must show the cart
-    # (in place of checkout), not the menu tab that lies under checkout.
+    # The slide opens the cart with payment right over the tab. After a failed payment
+    # «Вернуться в корзину» shows that cart itself again, never a second cart sheet or the tab.
     state = new_state(pay_result='failed')
     ctx, page = make_context(browser, state, 393, 852, 'reduce')
     page.goto(URL + '/menu')
     add(page)
     slide(page, 1.0)
-    back = page.get_by_role('button', name='Вернуться в корзину', exact=True)
-    expect(back).to_be_visible(timeout=15000)
+    # The connecting scene has its own «Вернуться в корзину» (abort before anything is sent), so
+    # wait for the failed payment scene before reading the counts.
+    failed = page.get_by_test_id('kaspi-failed')
+    expect(failed).to_be_visible(timeout=15000)
+    back = failed.get_by_role('button', name='Вернуться в корзину', exact=True)
+    expect(back).to_be_visible()
     assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
     back.click()
-    expect(page.get_by_test_id('cart-checkout')).to_be_visible(timeout=10000)
-    assert page.url.rstrip('/').endswith('/cart'), page.url
-    expect(page.get_by_test_id('kaspi-checkout-submit')).to_have_count(0)
+    expect(pay_button(page)).to_be_visible(timeout=10000)
+    assert urlparse(page.url).path.rstrip('/') == '/cart', page.url
+    expect(page.get_by_test_id('screen-M09')).to_have_count(1)
+    expect(back).to_have_count(0)
     page.screenshot(path=str(OUT / 'back-to-cart-after-slide-393.png'))
     # Closing the cart returns to the menu with the bar; nothing was sent again.
     page.get_by_test_id('cart-close').click()
     expect(page.get_by_test_id('cart-shortcut')).to_be_visible(timeout=10000)
-    assert page.url.rstrip('/').endswith('/menu'), page.url
+    assert urlparse(page.url).path.rstrip('/') == '/menu', page.url
     wait_quiet(page)
     assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
     release(state)
@@ -719,9 +725,9 @@ if __name__ == '__main__':
             scenario_tabs(browser, 320, 568)
         browser.close()
     assert not errors, errors
-    print('PASS slide to pay (' + SELECTED + '): hold hint, tap/swipe/short drag/keyboard send nothing, '
+    print('PASS slide to pay into the Kaspi cart (' + SELECTED + '): hold hint, tap/swipe/short drag/keyboard send nothing, '
           'full drag = one quote + one order + one invoice, reload/back resend nothing, price change and '
-          'consent stop before the order, signed-out sign-in lands on checkout without sending, '
+          'consent stop before the order, signed-out sign-in lands on the cart without sending, '
           'App Review account refused once, DEMO-1 without cart bar or mutations, gift total = invoice, '
           'hint fits in RU/KK/EN at 320 pt, an old unbilled intent does not block the slide, '
           'back to cart after a slide, the same bar above the three tabs and below the header, '

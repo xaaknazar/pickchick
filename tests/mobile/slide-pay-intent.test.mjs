@@ -196,7 +196,7 @@ test('a stale or foreign intent is dropped without a press', () => {
   assert.equal(presses, 0);
 });
 
-test('checkout wiring: the slide only presses submit(), never pay() or storage', () => {
+test('cart wiring: the slide only presses submit() of the Kaspi cart, never pay() or storage', () => {
   // Whitespace-insensitive, so reformatting does not break it; the behaviour itself is covered
   // above and end to end by browser_slide_to_pay.py (B, C, D, H).
   const source = readFileSync(
@@ -207,11 +207,27 @@ test('checkout wiring: the slide only presses submit(), never pay() or storage',
   const end = source.indexOf('constpay=useCallback(', start);
   assert.ok(start > 0 && end > start);
   const block = source.slice(start, end);
-  assert.ok(block.includes("useSlidePayIntent(props.screenId==='M12'&&!props.preview)"), block);
+  // The Kaspi cart is the checkout (27.10.2026): only the cart route (M09) takes an intent.
+  assert.ok(block.includes("useSlidePayIntent(props.screenId==='M09'&&!props.preview)"), block);
   assert.ok(block.includes('runSlidePayIntent(slidePayIntents,slideIntent,'), block);
   assert.ok(block.includes('()=>voidsubmitRef.current()'), block);
   assert.ok(block.includes('saved:pending.current'), block);
   assert.ok(!/pay\(|sendInvoice|AsyncStorage|\.take\(/.test(block), block);
   assert.equal(source.split('runSlidePayIntent(').length - 1, 1);
   assert.equal(source.split('slidePayIntents.take(').length - 1, 0);
+});
+
+test('the cart bar sends the slide to the cart with payment, guests to sign-in back to the cart', () => {
+  const source = readFileSync(
+    new URL('../../apps/mobile/src/components/CartShortcut.tsx', import.meta.url),
+    'utf8',
+  ).replace(/\s+/g, '');
+  const start = source.indexOf('constopenPayment=(slide:boolean)=>{');
+  const end = source.indexOf('};', start);
+  assert.ok(start > 0 && end > start);
+  const block = source.slice(start, end);
+  assert.ok(block.includes("params:{returnTo:'M09'}"), block);
+  assert.ok(block.includes("pathname:'/cart'"), block);
+  assert.ok(block.includes('slide?{[SLIDE_PAY_PARAM]:slidePayIntents.issue()}:{}'), block);
+  assert.ok(!block.includes('/checkout') && !block.includes("'M12'"), block);
 });
