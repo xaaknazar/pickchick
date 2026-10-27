@@ -42,6 +42,9 @@ import { BottomActions, Icon, MinorMoney } from './UI';
 const PAD = 5;
 const ROW = 54;
 const OVERLAP = 16;
+/** Large text: the hint grows up to x1.4, then shrinks to fit (KK at 320 pt). */
+const HINT_MAX_SCALE = 1.4;
+const HINT_MIN_FIT = 0.7;
 const glass = 'rgba(10, 32, 80, 0.94)';
 // Same backdrop as the floating tab bar on the web build; native keeps the navy glass.
 const webGlass =
@@ -119,8 +122,12 @@ export function CartShortcut({
     const target = phase === 'idle' ? 1 : 0;
     content.value = reduced ? target : withTiming(target, { duration: 140 });
   }, [phase, reduced, content]);
-  const contentStyle = useAnimatedStyle(() => ({ opacity: content.value }));
   const offset = useSharedValue(0);
+  // The handle is drawn below the cart button (it comes first for VoiceOver), so the total and the
+  // photos stay hidden until it is back home.
+  const contentStyle = useAnimatedStyle(() => ({
+    opacity: content.value * interpolate(offset.value, [0, 12], [1, 0], Extrapolation.CLAMP),
+  }));
   // Subtle added feedback: the newest photo settles in when the customer returns with more items.
   const feedback = useRef(new NativeAnimated.Value(0)).current;
   const previousCount = useRef(0);
@@ -201,7 +208,39 @@ export function CartShortcut({
           onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
           style={[s.capsule, webGlass]}
         >
-          {payable ? <View style={{ width: layout.handleWidth }} /> : null}
+          {/* Reading and focus order follow the picture: the hint, the Kaspi handle, then the
+              cart button. Nothing gets a zIndex, which would move the handle last on iOS. */}
+          {phase !== 'idle' ? (
+            <Animated.View
+              pointerEvents="none"
+              style={[s.hintBox, { left: PAD + layout.handleWidth + 8, right: PAD + 8 }, hintStyle]}
+            >
+              <Text
+                testID="cart-pay-hint"
+                accessibilityLiveRegion="polite"
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={HINT_MIN_FIT}
+                maxFontSizeMultiplier={HINT_MAX_SCALE}
+                style={s.hint}
+              >
+                {t('тяни для оплаты')}
+              </Text>
+            </Animated.View>
+          ) : null}
+          {payable ? (
+            <KaspiSlideToPay
+              travel={travel}
+              width={layout.handleWidth}
+              height={ROW}
+              reduced={reduced}
+              offset={offset}
+              style={s.handle}
+              onPhaseChange={setPhase}
+              onComplete={() => openCheckout(true)}
+              onOpenCheckout={() => openCheckout(false)}
+            />
+          ) : null}
           <Pressable
             testID="open-cart"
             accessibilityRole="button"
@@ -211,7 +250,7 @@ export function CartShortcut({
             accessibilityHint={t('Открыть состав заказа')}
             disabled={phase === 'drag'}
             onPress={onPress}
-            style={[s.open, !payable && s.openWhole]}
+            style={[s.open, payable ? { marginLeft: layout.handleWidth } : s.openWhole]}
           >
             {!payable ? (
               <View
@@ -286,37 +325,6 @@ export function CartShortcut({
               </Animated.View>
             ) : null}
           </Pressable>
-          {phase !== 'idle' ? (
-            <Animated.View
-              pointerEvents="none"
-              style={[s.hintBox, { left: PAD + layout.handleWidth + 8, right: PAD + 8 }, hintStyle]}
-            >
-              <Text
-                testID="cart-pay-hint"
-                accessibilityLiveRegion="polite"
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.75}
-                maxFontSizeMultiplier={1.4}
-                style={s.hint}
-              >
-                {t('тяни для оплаты')}
-              </Text>
-            </Animated.View>
-          ) : null}
-          {payable ? (
-            <KaspiSlideToPay
-              travel={travel}
-              width={layout.handleWidth}
-              height={ROW}
-              reduced={reduced}
-              offset={offset}
-              style={s.handle}
-              onPhaseChange={setPhase}
-              onComplete={() => openCheckout(true)}
-              onOpenCheckout={() => openCheckout(false)}
-            />
-          ) : null}
         </View>
       </GestureHandlerRootView>
     </BottomActions>
@@ -403,5 +411,6 @@ const s = StyleSheet.create({
     textAlign: 'center',
     includeFontPadding: false,
   },
-  handle: { position: 'absolute', left: PAD, top: PAD, zIndex: 2 },
+  // The touch and VoiceOver frame spans the capsule height, level with the cart button.
+  handle: { position: 'absolute', left: PAD, top: 0, bottom: 0 },
 });

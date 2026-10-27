@@ -68,6 +68,7 @@ export function KaspiSlideToPay({
   /** Distance the handle can move to the right, in points. */
   travel: number;
   width: number;
+  /** Height of the visible pill; the touch and VoiceOver frame is as tall as `style` makes it. */
   height: number;
   reduced: boolean;
   style?: StyleProp<ViewStyle>;
@@ -186,20 +187,24 @@ export function KaspiSlideToPay({
         }}
         {...keyboard}
         style={[
-          s.handle,
-          { width, height, borderRadius: height / 2 },
+          s.frame,
+          { width, minHeight: height, borderRadius: height / 2 },
           Platform.OS === 'web' && s.webHandle,
           style,
           position,
         ]}
       >
-        <KaspiMark size={Math.min(34, height - 18)} />
+        <View pointerEvents="none" style={[s.handle, { width, height, borderRadius: height / 2 }]}>
+          <KaspiMark size={Math.min(34, height - 18)} />
+        </View>
       </Animated.View>
     </GestureDetector>
   );
 }
 
 const s = StyleSheet.create({
+  // Transparent touch and VoiceOver frame; the visible pill is centred inside it.
+  frame: { alignItems: 'center', justifyContent: 'center' },
   handle: {
     alignItems: 'center',
     justifyContent: 'center',
