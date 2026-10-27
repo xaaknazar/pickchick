@@ -16,8 +16,9 @@ const tabRoutes = {
   M06: '/(tabs)/menu',
   M26: '/(tabs)/events',
   M19: '/(tabs)/orders',
-  M30: '/(tabs)/profile',
 } as const;
+/** Owner 27.10.2026: the profile is a stack screen above the tabs, opened from the header. */
+const profileRoute = '/profile';
 export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: boolean }) {
   useLocale();
   const [cartHeight, setCartHeight] = useState(100);
@@ -80,12 +81,23 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
       else if (returnTo === 'M12') router.dismissTo('/checkout');
       else if (['M17', 'M18', 'M20'].includes(returnTo))
         router.dismissTo({ pathname: '/order-status', params: { id: returnTo } });
+      else if (returnTo === 'M30') router.dismissTo(profileRoute);
       else if (returnTo in tabRoutes)
         router.dismissTo(tabRoutes[returnTo as keyof typeof tabRoutes]);
       else router.dismissTo({ pathname: '/screen/[id]', params: { id: returnTo } });
       return;
     }
-    if (!preview && next in tabRoutes) router.navigate(tabRoutes[next as keyof typeof tabRoutes]);
+    if (!preview && next === 'M30') {
+      // Header button pushes the profile; finishing its edit form (M04) returns to it.
+      if (id === 'M04') router.dismissTo(profileRoute);
+      else router.push(profileRoute);
+      return;
+    }
+    // The profile sits above the tab navigator: return to it instead of stacking new tabs.
+    if (!preview && id === 'M30' && next in tabRoutes)
+      router.dismissTo(tabRoutes[next as keyof typeof tabRoutes]);
+    else if (!preview && next in tabRoutes)
+      router.navigate(tabRoutes[next as keyof typeof tabRoutes]);
     else
       router.push({
         pathname: '/screen/[id]',
@@ -103,7 +115,7 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
       />
     );
   // Temporarily removed from the customer arcade by the owner. Old links return to events.
-  if (id === 'M29') return <Redirect href="/(tabs)/profile" />;
+  if (id === 'M29') return <Redirect href={profileRoute} />;
   if (id === 'M27' || id === 'M28') return <Redirect href="/(tabs)/events" />;
   const screen = (goBack = back) => (
     <MobileScreen

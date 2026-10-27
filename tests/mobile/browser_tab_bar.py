@@ -7,6 +7,7 @@ Usage: browser_tab_bar.py [--capture-only] [label]
 from browser_network import isolated_context, route_fixture
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -24,8 +25,8 @@ OUT.mkdir(parents=True, exist_ok=True)
 CAT = json.loads(subprocess.check_output(['node', '--input-type=module', '-e',
     "import {testCompleteCatalog} from './packages/test-order-flow/dist/complete-catalog.js';console.log(JSON.stringify(testCompleteCatalog))"], cwd=ROOT, text=True))
 BRANCH = CAT['branch_id']
-TABS = [('menu', 'M06', 'Меню'), ('events', 'M26', 'События'), ('orders', 'M19', 'Заказы'),
-        ('profile', 'M30', 'Профиль')]
+# Owner 27.10.2026: exactly three tabs; the profile opens from the top header.
+TABS = [('menu', 'M06', 'Меню'), ('events', 'M26', 'События'), ('orders', 'M19', 'Заказы')]
 errors = []
 
 
@@ -94,7 +95,37 @@ def assert_floating_bar(page, width, height, active):
     pill = page.get_by_test_id('tab-' + active + '-pill')
     expect(pill).to_be_visible()
     expect(page.locator('[data-testid$="-pill"][data-testid^="tab-"]')).to_have_count(1)
+    expect(page.get_by_test_id('tab-profile')).to_have_count(0)
+    expect(bar.get_by_role('tab')).to_have_count(3)
+    # Three balanced items: equal widths, even spacing, labels never clipped.
+    boxes = [page.get_by_test_id('tab-' + route).bounding_box() for route, _, _ in TABS]
+    assert max(b['width'] for b in boxes) - min(b['width'] for b in boxes) <= 1, boxes
+    assert abs((boxes[1]['x'] - boxes[0]['x']) - (boxes[2]['x'] - boxes[1]['x'])) <= 1, boxes
+    assert boxes[0]['width'] >= 88, boxes
+    for route, _, _ in TABS:
+        label = page.get_by_test_id('tab-' + route).get_by_text(dict((r, l) for r, _, l in TABS)[route], exact=True)
+        assert label.evaluate('(e) => e.scrollWidth <= e.clientWidth + 1'), route
     return box
+
+
+def assert_header(page, screen, width):
+    # Same header on every tab: logo, restaurant, hours; one round profile button at the right.
+    scope = page.get_by_test_id('screen-' + screen)
+    button = scope.get_by_test_id('header-profile')
+    expect(button).to_be_visible()
+    expect(button).to_have_attribute('role', 'button')
+    expect(button).to_have_accessible_name('Профиль')
+    expect(scope.get_by_test_id('header-restaurant')).to_be_visible()
+    b = button.bounding_box()
+    assert b['width'] >= 44 and b['height'] >= 44, b
+    assert abs(width - (b['x'] + b['width']) - 18) <= 1, (screen, b)
+    assert b['y'] <= 24, (screen, b)
+    # Owner answer: nothing about unread notifications outside the profile.
+    # (the icon glyph is the only text; no counter, dot or extra element).
+    assert not re.search(r'\w', button.evaluate('(e) => e.innerText'), re.UNICODE)
+    assert button.evaluate('(e) => e.querySelectorAll("[data-testid]").length') == 0
+    expect(page.get_by_test_id('storefront-notifications')).to_have_count(0)
+    return b
 
 
 with sync_playwright() as p:
@@ -124,7 +155,12 @@ with sync_playwright() as p:
         page.wait_for_timeout(400)
         page.screenshot(path=str(OUT / f'menu-photos-{width}.png'))
         if not CAPTURE_ONLY:
+            # The collapsed storefront header is opaque: no product button shows through it.
+            color = page.get_by_test_id('storefront-header').evaluate('(e) => getComputedStyle(e).backgroundColor')
+            channels = [float(v) for v in re.findall(r'[\d.]+', color)]
+            assert channels[:3] == [4, 20, 58] and channels[3:] in ([], [1.0]), color
             assert_floating_bar(page, width, height, 'menu')
+        header = None
         for route, screen, _ in TABS:
             page.get_by_test_id('tab-' + route).click()
             expect(page.get_by_test_id('screen-' + screen)).to_be_visible()
@@ -132,6 +168,16 @@ with sync_playwright() as p:
             page.screenshot(path=str(OUT / f'{route}-{width}.png'))
             if CAPTURE_ONLY:
                 continue
+            # The header does not move when switching tabs.
+            position = assert_header(page, screen, width)
+            assert header is None or abs(position['x'] - header['x']) <= 1 and abs(position['y'] - header['y']) <= 1
+            header = position
+            # As on the menu, the restaurant name opens the picker (M05); back returns to the tab.
+            page.get_by_test_id('screen-' + screen).get_by_test_id('header-restaurant').click()
+            expect(page.get_by_test_id('screen-M05')).to_be_visible()
+            page.get_by_test_id('branches-back').click()
+            expect(page.get_by_test_id('screen-' + screen)).to_be_visible()
+            expect(page.get_by_test_id('screen-M05')).to_have_count(0)
             box = assert_floating_bar(page, width, height, route)
             scroll_to_end(page, screen)
             assert last_content_bottom(page, screen) <= box['y'] + 1, (route, width)
@@ -155,10 +201,46 @@ with sync_playwright() as p:
                 assert 0 <= box['y'] - cart['y'] - cart['height'] <= 18, (route, cart, box)
                 scroll_to_end(page, screen)
                 assert last_content_bottom(page, screen) <= cart['y'] + 1, (route, width)
+            page.screenshot(path=str(OUT / f'orders-cart-{width}.png'))
+            # The profile is a stack screen: no tab bar and no cart dock above it.
+            page.get_by_test_id('screen-M19').get_by_test_id('header-profile').click()
+            expect(page.get_by_test_id('screen-M30')).to_be_visible()
+            expect(page.get_by_test_id('floating-tab-bar').filter(visible=True)).to_have_count(0)
+            expect(page.get_by_test_id('open-cart').filter(visible=True)).to_have_count(0)
+            scroll_to_end(page, 'M30')
+            assert last_content_bottom(page, 'M30') <= height + 1
             page.screenshot(path=str(OUT / f'profile-cart-{width}.png'))
-            page.get_by_test_id('open-cart').click()
+            page.get_by_test_id('profile-back').click()
+            expect(page.get_by_test_id('screen-M19')).to_be_visible()
+            expect(page.get_by_test_id('floating-tab-bar')).to_be_visible()
+            page.get_by_test_id('open-cart').filter(visible=True).click()
             expect(page.get_by_test_id('cart-checkout')).to_be_visible()
+        context.close()
+    if not CAPTURE_ONLY:
+        # Wider than a phone (tablet-size web): every tab shares one width cap (760, gutter 18),
+        # so the profile button does not jump between tabs and profile settings sits under it.
+        width, height = 1024, 768
+        context = isolated_context(browser, viewport={'width': width, 'height': height}, reduced_motion='reduce')
+        signed_in(context)
+        route_fixture(context, '**/v1/**', fixture)
+        page = context.new_page()
+        page.on('pageerror', lambda error: errors.append(str(error)))
+        page.goto(URL + '/menu')
+        expect(page.get_by_test_id('product-pick-combo')).to_be_visible(timeout=20000)
+        expect(page.get_by_test_id('launch-reveal')).to_have_count(0, timeout=10000)
+        expected = (width + 760) / 2 - 18 - 48
+        for route, screen, _ in TABS:
+            page.get_by_test_id('tab-' + route).click()
+            expect(page.get_by_test_id('screen-' + screen)).to_be_visible()
+            b = page.get_by_test_id('screen-' + screen).get_by_test_id('header-profile').bounding_box()
+            assert abs(b['x'] - expected) <= 1 and b['y'] <= 24, (route, b, expected)
+        page.screenshot(path=str(OUT / f'orders-{width}.png'))
+        page.get_by_test_id('screen-M19').get_by_test_id('header-profile').click()
+        expect(page.get_by_test_id('screen-M30')).to_be_visible()
+        settings = page.get_by_test_id('profile-settings').bounding_box()
+        assert abs(settings['x'] - expected) <= 1, (settings, expected)
         context.close()
     browser.close()
 assert errors == [], errors
-print('tab bar screenshots:', OUT)
+print('tab bar: 3 tabs, header profile at one spot on all tabs (320/393/1024), opaque collapsed menu header, '
+      'profile stack screen without bar/cart; screenshots:', OUT)

@@ -84,10 +84,16 @@ with sync_playwright() as p:
     # Owner update: loyalty precedes categories, which still pin below the header.
     header = page.get_by_test_id('storefront-header')
     branch = header.get_by_role('button', name='Выбрать ресторан', exact=True)
-    notifications = page.get_by_test_id('storefront-notifications')
+    # Owner 27.10.2026 (Drinkit pattern): the bell left the header; the profile button sits
+    # at the far right, aligned to the 18 pt page gutter.
+    expect(page.get_by_test_id('storefront-notifications')).to_have_count(0)
+    profile = header.get_by_test_id('header-profile')
     assert branch.evaluate('(e)=>getComputedStyle(e).alignItems') == 'flex-start'
-    assert notifications.bounding_box()['x'] > branch.bounding_box()['x'] + branch.bounding_box()['width']
-    assert notifications.bounding_box()['width'] >= 44 and notifications.bounding_box()['height'] >= 44
+    pb, bb = profile.bounding_box(), branch.bounding_box()
+    assert pb['x'] > bb['x'] + bb['width']
+    assert pb['width'] >= 44 and pb['height'] >= 44
+    assert abs(402 - pb['x'] - pb['width'] - 18) <= 1, pb
+    assert abs((pb['y'] + pb['height'] / 2) - (bb['y'] + bb['height'] / 2)) <= 2, (pb, bb)
     category = page.get_by_test_id('category-Комбо')
     expect(category).to_have_text('Комбо на одного')
     promo = page.get_by_test_id('hero-promotion').bounding_box()
@@ -97,9 +103,13 @@ with sync_playwright() as p:
     assert loyalty['y'] + loyalty['height'] < tab['y'], (tab, loyalty)
     assert category.evaluate('(e)=>getComputedStyle(e).backgroundColor') == 'rgba(0, 0, 0, 0)'
     page.screenshot(path=str(output / 'menu.png'))
-    notifications.click()
+    profile.click()
+    expect(page.get_by_test_id('screen-M30')).to_be_visible()
+    page.get_by_test_id('profile-notifications').click()
     expect(page.get_by_test_id('notifications-screen')).to_be_visible()
     page.get_by_test_id('notifications-back').click()
+    expect(page.get_by_test_id('screen-M30')).to_be_visible()
+    page.get_by_test_id('profile-back').click()
     expect(page.get_by_test_id('screen-M06')).to_be_visible()
     page.goto(url + '/menu')
     # Wait for the fixture catalog after navigation; before it arrives the hero
@@ -150,6 +160,13 @@ with sync_playwright() as p:
         page.goto(url + '/menu')
         last_category = page.get_by_test_id('category-Напитки')
         expect(last_category).to_be_visible()
+        # A long restaurant name truncates; the profile button keeps its place and size.
+        top = page.get_by_test_id('storefront-header')
+        pb = top.get_by_test_id('header-profile').bounding_box()
+        rb = top.get_by_test_id('header-restaurant').bounding_box()
+        assert abs(width - pb['x'] - pb['width'] - 18) <= 1 and pb['width'] >= 44, (width, pb)
+        assert rb['x'] + rb['width'] <= pb['x'] - 8, (rb, pb)
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         last_category.click()
         geometry = settled_catalog_geometry(page)
         chip, section = geometry['chip'], geometry['section']

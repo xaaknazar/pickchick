@@ -28,6 +28,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { motion, useReducedMotion } from './Motion';
+import { useTapsSettled } from './useTapGuard';
 import { colors } from '../theme';
 
 // Keyboard events use window coordinates; children are laid out inside this sheet.
@@ -44,6 +45,24 @@ export function useSheetDismissalLock(blocked: boolean) {
     setBlocked(token, blocked);
     return () => setBlocked(token, false);
   }, [blocked, setBlocked]);
+}
+
+/**
+ * Tap outside closes the sheet, but only once it has opened (sheetEnter is 360 ms): the second
+ * tap of a double tap on the header profile button lands here when a guest opens sign-in.
+ * Its own component, so arming it re-renders only the backdrop, never the sheet content.
+ */
+function SheetBackdrop({ label, onPress }: { label: string; onPress(): void }) {
+  const armed = useTapsSettled();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      disabled={!armed}
+      onPress={onPress}
+      style={StyleSheet.absoluteFill}
+    />
+  );
 }
 
 /** One bounded surface; only the handle drags so scrolling a long cart never dismisses it. */
@@ -192,12 +211,7 @@ export function OrderSheet({
     <GestureHandlerRootView style={s.root}>
       <Animated.View style={[StyleSheet.absoluteFill, s.scrim, scrim]} />
       {!blocked ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={localize(t('Закрыть: {p0}', { p0: name }))}
-          onPress={close}
-          style={StyleSheet.absoluteFill}
-        />
+        <SheetBackdrop label={localize(t('Закрыть: {p0}', { p0: name }))} onPress={close} />
       ) : null}
       <Animated.View
         ref={dialog}

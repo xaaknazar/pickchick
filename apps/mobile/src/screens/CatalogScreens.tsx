@@ -36,6 +36,7 @@ import { CartOffers, CartRecommendations, PromoCodeEntry } from '../components/C
 import { mergeCartLines } from '../cart-actions';
 import { ConfiguredProduct } from './ProductConfiguration';
 import { CartShortcut } from '../components/CartShortcut';
+import { AppHeaderBar } from '../components/AppHeader';
 import {
   CityButton,
   RestaurantCard,
@@ -341,7 +342,6 @@ export function Menu(props: ScreenProps) {
   const heroHeight = Math.round(
     Math.max(260, Math.min(width * 2 - 48, height < 700 ? height * 0.55 : height * 0.93 - 48, 852)),
   );
-  const location = restaurantLocation(props.model.branch?.id);
   const scroll = useRef<ScrollView>(null);
   const sectionY = useRef<Record<string, number>>({});
   const [category, setCategory] = useState('Комбо');
@@ -421,8 +421,9 @@ export function Menu(props: ScreenProps) {
       requestedCategory.value = -1;
     },
   });
+  // Opaque once collapsed: a translucent bar let product buttons show through behind the row.
   const headerStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(scrollY.value, [0, 120], ['#04143A00', '#04143AF5']),
+    backgroundColor: interpolateColor(scrollY.value, [0, 120], ['#04143A00', colors.background]),
   }));
   const stickyStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: Math.max(headerHeight, categoryTop - scrollY.value) }],
@@ -638,37 +639,7 @@ export function Menu(props: ScreenProps) {
             )
           }
         >
-          <Row style={{ gap: 12 }}>
-            <Logo size={38} />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('Выбрать ресторан')}
-              onPress={() => props.navigate('M05')}
-              style={s.branchTitle}
-            >
-              <Text style={s.brandTitle} numberOfLines={1}>
-                {localize(location?.name ?? props.model.branch?.name ?? 'Выбрать ресторан')}
-              </Text>
-              <Caption style={s.branchCaption}>
-                {localize(
-                  location?.opening_time && location.closing_time
-                    ? `${location.opening_time}-${location.closing_time}`
-                    : location?.closing_time
-                      ? t('до {p0}', { p0: location.closing_time })
-                      : 'Часы уточняются',
-                )}
-              </Caption>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('Уведомления')}
-              testID="storefront-notifications"
-              onPress={() => router.push('/notifications')}
-              style={({ pressed }) => [s.heroProfile, pressed && s.heroProfilePressed]}
-            >
-              <Icon name="notifications-outline" size={26} color={colors.white} />
-            </Pressable>
-          </Row>
+          <AppHeaderBar screen={props} />
         </View>
       </Animated.View>
       <Animated.View
@@ -1170,44 +1141,15 @@ const s = StyleSheet.create({
   dotActive: { width: 24, height: 4, borderRadius: 4, backgroundColor: colors.accent },
   dot: { width: 7, height: 4, borderRadius: 4, backgroundColor: '#7897CA' },
   hero: { backgroundColor: colors.background, overflow: 'hidden' },
+  // The shared header row (AppHeaderBar) carries the gutter and width cap of every tab.
   heroHeader: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 18,
     paddingBottom: 10,
     gap: 12,
     zIndex: 10,
-  },
-  heroHeaderCollapsed: {
-    backgroundColor: '#04143AF5',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  branchTitle: { flex: 1, alignItems: 'flex-start', minHeight: 48, justifyContent: 'center' },
-  brandTitle: {
-    fontFamily: font.medium,
-    fontSize: 17,
-    lineHeight: 23,
-    textAlign: 'left',
-    color: colors.white,
-  },
-  branchCaption: { fontSize: 13, lineHeight: 18, color: '#FFFFFFDD', textAlign: 'left' },
-  heroProfile: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0B2454D9',
-    borderWidth: 1,
-    borderColor: '#FFFFFF66',
-    boxShadow: '0 4px 14px rgba(0, 8, 30, 0.24)',
-  },
-  heroProfilePressed: {
-    backgroundColor: '#23467CEB',
-    transform: [{ scale: 0.96 }],
   },
   heroCaption: {
     position: 'absolute',

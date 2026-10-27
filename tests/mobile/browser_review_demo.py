@@ -61,8 +61,23 @@ with sync_playwright() as p:
         page.get_by_test_id('demo-start').click()
         expect(page.get_by_test_id('demo-approve')).to_be_visible()
         assert page.evaluate('(key)=>JSON.parse(localStorage.getItem(key)).lines',PREF)==before
+        # Owner 27.10.2026: logged-out browsing keeps the header; its profile button gates to auth.
+        page.goto(URL+'/menu')
+        expect(page.get_by_test_id('launch-reveal')).to_have_count(0,timeout=20000)
+        header=page.get_by_test_id('storefront-header')
+        expect(header.get_by_test_id('header-restaurant')).to_be_visible()
+        expect(page.get_by_test_id('storefront-notifications')).to_have_count(0)
+        expect(page.get_by_test_id('tab-profile')).to_have_count(0)
+        header.get_by_test_id('header-profile').click()
+        expect(page.get_by_test_id('account-required-login').filter(visible=True)).to_be_visible()
+        assert page.get_by_test_id('screen-M30').count()==0
+        page.get_by_test_id('auth-close').filter(visible=True).click()
+        expect(page.get_by_test_id('screen-M06')).to_be_visible()
+        assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+        page.screenshot(path=str(OUT/f'guest-menu-{lang}-{width}.png'))
+        assert page.evaluate('(key)=>JSON.parse(localStorage.getItem(key)).stage',KEY)=='payment'
         assert not mutations,mutations
         assert not errors,errors
         ctx.close()
     browser.close()
-print('Review demo: 320/393, kk/ru/en, decline/retry/success/ready/collection/reload/reset/basket preservation; no API mutations')
+print('Review demo: 320/393, kk/ru/en, decline/retry/success/ready/collection/reload/reset/basket preservation, guest header profile gate; no API mutations')

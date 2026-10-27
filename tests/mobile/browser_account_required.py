@@ -124,6 +124,33 @@ with sync_playwright() as p:
         expect(visible(page, 'otp-input')).to_be_visible()
         expect(visible(page, 'demo-auth-error')).to_have_count(0)
         context.close()
+    # Owner 27.10.2026: guests browse the menu with the header; its profile button keeps the
+    # old profile-tab gate (auth with returnTo M30) and lands on the profile stack screen.
+    for width, height in [(393, 852), (320, 568)]:
+        context = isolated_context(browser, viewport={'width': width, 'height': height}, reduced_motion='reduce')
+        route_fixture(context, '**/v1/**', route_api)
+        page = context.new_page()
+        page.on('pageerror', lambda error: errors.append(str(error)))
+        page.goto(URL + '/menu')
+        expect(page.get_by_test_id('product-pick-combo')).to_be_visible(timeout=20000)
+        expect(page.get_by_test_id('tab-profile')).to_have_count(0)
+        expect(page.get_by_test_id('screen-M06').get_by_test_id('header-restaurant')).to_be_visible()
+        page.get_by_test_id('screen-M06').get_by_test_id('header-profile').click()
+        expect(visible(page, 'account-required-login')).to_be_visible()
+        assert page.get_by_test_id('screen-M30').count() == 0
+        page.screenshot(path=str(OUTPUT / f'guest-header-profile-{width}.png'))
+        login(page)
+        expect(visible(page, 'screen-M30')).to_be_visible(timeout=20000)
+        assert urlparse(page.url).path == '/profile', page.url
+        expect(visible(page, 'demo-sign-out')).to_be_visible()
+        visible(page, 'profile-back').click()
+        expect(visible(page, 'screen-M06')).to_be_visible()
+        # Signed in, the same button opens the profile directly.
+        page.get_by_test_id('screen-M06').get_by_test_id('header-profile').click()
+        expect(visible(page, 'screen-M30')).to_be_visible()
+        visible(page, 'demo-sign-out').click()
+        expect(visible(page, 'account-required-login')).to_be_visible()
+        context.close()
     for destination, target in [('/games/pick-man', 'pick-man-start'), ('/games/pick-blocks', 'blocks-start'),
                                 ('/screen/M12', 'test-checkout-create')]:
         context = isolated_context(browser,viewport={'width': 393, 'height': 852}, reduced_motion='reduce')
