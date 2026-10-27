@@ -10,6 +10,7 @@ import {
   glassSurface,
   iosMajorVersion,
   liquidGlassConfig,
+  liquidGlyphOpacity,
 } from '../../apps/mobile/src/glass.ts';
 
 // Owner 28.10.2026: «эти стеклянные иконки - это стиль Apple, нужно как у них делать в точности».
@@ -95,6 +96,29 @@ test('regular dark glass everywhere; interactive only where the customer presses
   // The pay handle stretches under the finger (owner 6a); the capsule holds the dragged handle.
   assert.equal(liquidGlassConfig('pill').isInteractive, false);
   assert.equal(liquidGlassConfig('bar').isInteractive, false);
+});
+
+test('every press on Liquid Glass is visible, whatever the native interactive response does', () => {
+  // QA 28.10 (device risk): Apple's interactive glass answers touches that React Native's
+  // Pressable handles; if it does not fire on an iPhone, the glyph's own highlight still shows
+  // the press. The glass is never dimmed itself.
+  assert.equal(liquidGlyphOpacity({ disabled: false, pressed: false }), 1);
+  assert.ok(liquidGlyphOpacity({ disabled: false, pressed: true }) <= 0.75);
+  assert.equal(liquidGlyphOpacity({ disabled: true, pressed: false }), 0.45);
+  assert.equal(liquidGlyphOpacity({ disabled: true, pressed: true }), 0.45);
+  const button = source('components/GlassButton.tsx');
+  const branch = button.slice(button.indexOf("if (surface === 'liquid') {\n    // Apple"));
+  assert.match(
+    branch.slice(0, branch.indexOf('\n  }\n')),
+    /liquidGlyphOpacity\(\{ disabled, pressed \}\)/,
+  );
+  // The bag pill (builds without the Kaspi checkout) is not inside the cart button, whose press
+  // dims its own content: Apple's glass under a translucent parent renders wrong.
+  const bar = source('components/CartShortcut.tsx');
+  const bag = bar.indexOf('testID="cart-bag-pill"');
+  const open = bar.indexOf('testID="open-cart"');
+  assert.ok(bag > 0 && open > bag, 'the bag pill is drawn before, not inside, the cart button');
+  assert.doesNotMatch(bar.slice(open), /cart-bag-pill/);
 });
 
 test('Liquid Glass draws none of our imitation; each fallback has its own body', () => {

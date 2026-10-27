@@ -21,6 +21,7 @@ import {
   glassRimColor,
   glassSize,
   liquidGlassConfig,
+  liquidGlyphOpacity,
   type GlassPlace,
 } from '../glass';
 import { useGlassSurface } from './useGlassSurface';
@@ -210,9 +211,10 @@ export function GlassButton({
     hitSlop,
   } as const;
   if (surface === 'liquid') {
-    // Apple's own press response (scale, shine, flex) when the glass is interactive; no dimming of
-    // ours (an effect view under a translucent parent renders wrong). Disabled: the glass stays,
-    // the glyph dims. Reduced motion: no native flex, the glyph dims while pressed.
+    // Apple's own press response (scale, shine, flex) when the glass is interactive, and the
+    // glyph's highlight while pressed (liquidGlyphOpacity); the glass itself is never dimmed (an
+    // effect view under a translucent parent renders wrong). Disabled: the glass stays, the glyph
+    // dims. Reduced motion: no native flex, only the glyph's highlight.
     const config = liquidGlassConfig(place);
     return (
       <Pressable {...control} style={[s.button, s.liquidButton, round, style]}>
@@ -224,7 +226,7 @@ export function GlassButton({
           >
             <View
               pointerEvents="none"
-              style={[s.center, disabled ? s.disabledGlyph : pressed && reduced && s.pressedGlyph]}
+              style={[s.center, { opacity: liquidGlyphOpacity({ disabled, pressed }) }]}
             >
               {content}
             </View>
@@ -272,8 +274,6 @@ const s = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
   clip: { overflow: 'hidden' },
   disabled: { opacity: 0.45 },
-  disabledGlyph: { opacity: 0.45 },
-  pressedGlyph: { opacity: 0.7 },
   pressed: { transform: [{ scale: 0.95 }] },
   glyph: { includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center' },
 });

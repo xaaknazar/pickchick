@@ -227,6 +227,18 @@ export function glassBarBody(
   return { fill: glass.bar.fallback, backdrop: null, rim: glass.bar.rim };
 }
 
+/**
+ * The glyph (or the profile avatar) on Apple's Liquid Glass: dimmed while disabled, and while
+ * pressed, like UIKit's highlight of a button's content. The glass itself is never dimmed (an
+ * effect view under a translucent parent renders wrong). Apple's interactive glass adds its own
+ * scale, shine and flex on top; the dim keeps every press visible even if that response does not
+ * fire under React Native's touch handling (QA 28.10: check on an iPhone with iOS 26, build 24).
+ */
+export function liquidGlyphOpacity(state: { disabled: boolean; pressed: boolean }): number {
+  if (state.disabled) return 0.45;
+  return state.pressed ? 0.7 : 1;
+}
+
 /** The control never shrinks below the 44 pt target, whatever a caller passes. */
 export function glassSize(requested?: number): number {
   return Math.max(glass.minSize, Math.round(requested ?? glass.size));
