@@ -135,13 +135,17 @@ export function KaspiSlideToPay({
   useEffect(() => {
     base.value = width;
   }, [width, base]);
-  useEffect(
-    () => () => {
+  // Gone from the bar (owner 28.10.2026: paying became impossible under the finger): a gesture
+  // that still ends afterwards completes nothing.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
       clearTimeout(timers.current.hint);
       clearTimeout(timers.current.reset);
-    },
-    [],
-  );
+    };
+  }, []);
   const flashHint = useCallback(() => {
     clearTimeout(timers.current.hint);
     onPhaseChange('hint');
@@ -156,6 +160,7 @@ export function KaspiSlideToPay({
   const actions = useRef({ onComplete, onOpenCheckout });
   actions.current = { onComplete, onOpenCheckout };
   const complete = useCallback(() => {
+    if (!mounted.current) return;
     actions.current.onComplete();
     clearTimeout(timers.current.reset);
     // The cart sheet opens over the bar; the pill returns to its width underneath it.

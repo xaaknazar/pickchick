@@ -53,7 +53,17 @@ export function useAvailability(
         setState((previous) => ({ ...previous, status: retrying ? 'offline' : 'error' })),
     });
     setState((previous) => ({ ...previous, status: 'checking' }));
-    const unsubscribe = subscribeCatalogConnectivity(recovery);
+    const unsubscribe = subscribeCatalogConnectivity({
+      setActive: recovery.setActive,
+      // The phone itself reports no network: the paused long-poll cannot fail, so it says
+      // «offline» here; the next successful read (after reconnect) says «online» again.
+      setConnected: (connected) => {
+        if (!connected)
+          setState((previous) =>
+            previous.status === 'offline' ? previous : { ...previous, status: 'offline' },
+          );
+      },
+    });
     return () => {
       recovery.stop();
       unsubscribe();

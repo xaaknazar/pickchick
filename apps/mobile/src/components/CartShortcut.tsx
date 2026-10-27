@@ -37,6 +37,8 @@ import { orderSimulatorEnabled } from '../order-simulator';
 import { useAccount } from '../useAccount';
 import { SLIDE_PAY_PARAM, slidePayIntents } from '../useSlidePayIntent';
 import { usePaymentMethod } from '../usePaymentMethod';
+import { usePaymentAvailability } from '../usePaymentAvailability';
+import { joinSentences, paymentStopMessage } from '../payment-availability';
 import type { CartLine, MobileModel } from '../model';
 import { brandColors, colors, font } from '../theme';
 import { BottomActions, Icon, MinorMoney } from './UI';
@@ -83,7 +85,9 @@ function RecentPhoto({ line, size, index }: { line: CartLine; size: number; inde
 
 // Drinkit-style dock shared by the tabs and the standalone menu (owner request 27.10.2026):
 // the payment handle on the left (the customer's last used method, Kaspi today), the total only
-// in the middle, the last added items on the right.
+// in the middle, the last added items on the right. When paying is not possible right now
+// (owner 28.10.2026: closed, payments switched off, no connection, stop list) the bar has no
+// handle at all, only the total and the photos; a tap opens the cart with the reason.
 export function CartShortcut({
   model,
   onPress,
@@ -120,6 +124,14 @@ export function CartShortcut({
     catalogMode: model.catalogMode,
     accountMode: account.mode,
   });
+  // Can the customer pay right now (owner 28.10.2026)? Re-evaluated on the minute and on
+  // foreground, so the handle comes back at opening time.
+  const availability = usePaymentAvailability(model);
+  const handle = payable && availability.canPay;
+  const stop = availability.canPay ? null : availability.stop;
+  // The latest answer for a callback created in an earlier render (a gesture ending late).
+  const canPayNow = useRef(availability.canPay);
+  canPayNow.current = availability.canPay;
   const [barWidth, setBarWidth] = useState(0);
   const [phase, setPhase] = useState<SlidePhase>('idle');
   const content = useSharedValue(1);
@@ -128,10 +140,24 @@ export function CartShortcut({
     content.value = reduced ? target : withTiming(target, { duration: 140 });
   }, [phase, reduced, content]);
   const offset = useSharedValue(0);
+  // Whether the handle is on the bar, for the UI thread: without it, a stretch left over from
+  // a finger that was on the handle never hides the total and the photos.
+  const handleShown = useSharedValue(handle ? 1 : 0);
+  // The handle disappears (the restaurant closed, the connection dropped) while a finger may be
+  // on it: the gesture is gone with it and never completes; the hint and the stretched pill are
+  // reset so the total and the photos show again. Nothing is issued or sent.
+  useEffect(() => {
+    handleShown.value = handle ? 1 : 0;
+    if (handle) return;
+    offset.value = 0;
+    setPhase('idle');
+  }, [handle, offset, handleShown]);
   // The handle is drawn below the cart button (it comes first for VoiceOver), so the total and the
   // photos stay hidden until it is back home.
   const contentStyle = useAnimatedStyle(() => ({
-    opacity: content.value * interpolate(offset.value, [0, 12], [1, 0], Extrapolation.CLAMP),
+    opacity:
+      content.value *
+      (handleShown.value ? interpolate(offset.value, [0, 12], [1, 0], Extrapolation.CLAMP) : 1),
   }));
   // Subtle added feedback: the newest photo settles in when the customer returns with more items.
   const feedback = useRef(new NativeAnimated.Value(0)).current;
@@ -176,7 +202,8 @@ export function CartShortcut({
   // takes the one-shot intent and presses its own «Оплатить» once. Guests sign in first and land
   // on the cart without anything sent; a blocked basket opens the cart, where the reason is shown.
   const openPayment = (slide: boolean) => {
-    if (cartCheckoutBlocked(model)) {
+    // A slide released just as paying became impossible: the cart, without any intent.
+    if (cartCheckoutBlocked(model) || !canPayNow.current) {
       onPress();
       return;
     }
@@ -231,7 +258,7 @@ export function CartShortcut({
               </Text>
             </View>
           ) : null}
-          {payable ? (
+          {handle ? (
             <KaspiSlideToPay
               travel={travel}
               width={layout.handleWidth}
@@ -251,11 +278,20 @@ export function CartShortcut({
             accessibilityLabel={localize(
               t('Корзина, {p0} позиций, {p1}', { p0: count, p1: total }),
             )}
-            accessibilityHint={t('Открыть состав заказа')}
+            accessibilityHint={
+              stop
+                ? joinSentences(localize(paymentStopMessage(stop)), t('Открыть состав заказа'))
+                : t('Открыть состав заказа')
+            }
             disabled={phase === 'drag'}
             onPress={onPress}
-            style={[s.open, payable ? { marginLeft: layout.handleWidth } : s.openWhole]}
+            style={[
+              s.open,
+              handle ? { marginLeft: layout.handleWidth } : payable ? s.openClosed : s.openWhole,
+            ]}
           >
+            {/* Builds without the Kaspi checkout keep the bag pill; a Kaspi bar that cannot pay
+                right now shows nothing on the left (Drinkit, owner 28.10.2026). */}
             {!payable ? (
               <View
                 pointerEvents="none"
@@ -371,6 +407,8 @@ const s = StyleSheet.create({
     borderRadius: 999,
   },
   openWhole: { gap: 10 },
+  // No handle while paying is not possible: the total centred in the free space, photos right.
+  openClosed: { gap: 8, paddingLeft: 12 },
   // Non-payment builds: the same glass pill as the Kaspi handle, with the bag icon.
   bag: {
     height: ROW,

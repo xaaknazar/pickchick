@@ -23,6 +23,7 @@ function fixture(t) {
   let configuration;
   const pending = [];
   const active = [];
+  const connected = [];
   const native = {
     configure(value) {
       configuration = value;
@@ -65,12 +66,16 @@ function fixture(t) {
     setActive(value) {
       active.push(value);
     },
+    setConnected(value) {
+      connected.push(value);
+    },
   });
   t.after(unsubscribe);
   return {
     app: (state) => appListener(state),
     network: (state) => networkListener(state),
     active,
+    connected,
     pending,
     unsubscribe,
     configuration,
@@ -168,4 +173,24 @@ test('refresh rejection keeps the last observation and does not reject unhandled
   assert.equal(h.active.at(-1), false);
   h.network(online);
   assert.equal(h.active.at(-1), true);
+});
+
+test('the network observation reaches the reader apart from the foreground (owner 28.10)', async (t) => {
+  // A paused reader cannot fail, so it is told «no network» to say «Нет связи».
+  const h = fixture(t);
+  assert.equal(h.connected.at(-1), true);
+  h.app('background');
+  assert.equal(h.connected.at(-1), true, 'the background is not a lost connection');
+  assert.equal(h.active.at(-1), false);
+  h.app('active');
+  h.network(offline);
+  assert.equal(h.connected.at(-1), false);
+  assert.equal(h.active.at(-1), false);
+  h.network(online);
+  assert.equal(h.connected.at(-1), true);
+  assert.equal(h.active.at(-1), true);
+  h.unsubscribe();
+  const count = h.connected.length;
+  h.network(offline);
+  assert.equal(h.connected.length, count, 'nothing after cleanup');
 });

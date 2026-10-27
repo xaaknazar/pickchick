@@ -164,6 +164,26 @@ test('a running command, an order, a holding intent or an empty basket drop the 
   }
 });
 
+test('a restaurant that cannot take the payment now drops the slide for good (owner 28.10)', () => {
+  // Closed, server switch off, no connection or a stop-listed line (payment-availability.ts).
+  const result = slide({ ...free, blocked: true });
+  assert.deepEqual([result.outcome, result.presses], ['dropped', 0]);
+  // When the restaurant opens a minute later the old slide is not replayed: a new slide is needed.
+  assert.equal(
+    runSlidePayIntent(result.intents, result.raw, free, () => assert.fail('replayed')),
+    'dropped',
+  );
+  // While the saved intent is still read, a blocked checkout keeps the intent waiting as before.
+  const { intents } = registry(NOW);
+  const raw = intents.issue();
+  assert.equal(
+    runSlidePayIntent(intents, raw, { ...free, restoring: true, blocked: true }, () =>
+      assert.fail('pressed while restoring'),
+    ),
+    'wait',
+  );
+});
+
 test('an old intent that never became an order does not stop the slide (the press drops it)', () => {
   // Same rule as submit(): no orderId and no automatic invoice left = nothing holds the checkout.
   for (const saved of [
@@ -212,6 +232,8 @@ test('cart wiring: the slide only presses submit() of the Kaspi cart, never pay(
   assert.ok(block.includes('runSlidePayIntent(slidePayIntents,slideIntent,'), block);
   assert.ok(block.includes('()=>voidsubmitRef.current()'), block);
   assert.ok(block.includes('saved:pending.current'), block);
+  // A closed restaurant (or another stop) drops the slide (owner 28.10.2026).
+  assert.ok(block.includes('blocked:!availability.canPay'), block);
   assert.ok(!/pay\(|sendInvoice|AsyncStorage|\.take\(/.test(block), block);
   assert.equal(source.split('runSlidePayIntent(').length - 1, 1);
   assert.equal(source.split('slidePayIntents.take(').length - 1, 0);

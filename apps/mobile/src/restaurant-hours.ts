@@ -58,12 +58,52 @@ export function almatyMinuteOfDay(now: Date): number {
   return (part('hour') % 24) * 60 + part('minute');
 }
 
+/**
+ * Minutes after midnight in `timeZone` (the zone the server publishes with its ordering hours),
+ * whatever the device time zone; null for an unknown zone or an invalid date.
+ */
+export function zonedMinuteOfDay(now: Date, timeZone: string): number | null {
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(now);
+    const part = (type: Intl.DateTimeFormatPartTypes) =>
+      Number(parts.find((item) => item.type === type)?.value ?? NaN);
+    const minute = (part('hour') % 24) * 60 + part('minute');
+    return Number.isInteger(minute) && minute >= 0 && minute < DAY ? minute : null;
+  } catch {
+    return null;
+  }
+}
+
 export function restaurantHoursStatus(
   hours: RestaurantHours | null | undefined,
   now: Date,
 ): RestaurantHoursStatus | null {
   if (!hours?.opening_time || !hours.closing_time) return null;
   return hoursStatusAtMinute(hours.opening_time, hours.closing_time, almatyMinuteOfDay(now));
+}
+
+/**
+ * Header caption on Меню, События and Заказы (owner 28.10.2026, Drinkit): today's hours while
+ * the restaurant is open, «откроемся в 10:00» (or «откроемся завтра в 10:00») while it is closed.
+ * Presentation only; the RU source is localized by the caller.
+ */
+export function headerHoursCaption(
+  hours: RestaurantHours | null | undefined,
+  status: RestaurantHoursStatus | null,
+): string {
+  if (status && !status.open)
+    return status.opensTomorrow
+      ? t('откроемся завтра в {p0}', { p0: status.opensAt })
+      : t('откроемся в {p0}', { p0: status.opensAt });
+  if (hours?.opening_time && hours.closing_time)
+    return `${hours.opening_time}-${hours.closing_time}`;
+  if (hours?.closing_time) return t('до {p0}', { p0: hours.closing_time });
+  return 'Часы уточняются';
 }
 
 /** "Открыто" + " · до 00:00", or "Закрыто" + " · откроется в 10:00". */

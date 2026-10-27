@@ -14,6 +14,13 @@ export const appHeaderMetrics = {
   maxFontScale: 1.35,
 } as const;
 
+/**
+ * Floor of the iOS shrink-to-fit of the hours caption (owner 28.10.2026: «откроемся завтра в
+ * 10:00» on a 320 pt phone with the largest text): the caption shrinks back at most to its normal
+ * size, never below it, so a caption that fits at the normal text size fits at every size.
+ */
+export const appHeaderCaptionMinScale = 1 / appHeaderMetrics.maxFontScale;
+
 /** Horizontal frame of the profile button in a window `screenWidth` points wide. */
 export function appHeaderProfileFrame(screenWidth: number) {
   const row = Math.min(screenWidth, appHeaderMetrics.maxWidth);

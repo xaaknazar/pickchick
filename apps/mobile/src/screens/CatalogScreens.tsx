@@ -669,6 +669,11 @@ export {
  */
 export type CartCheckout = {
   restaurant?: string;
+  /**
+   * Why paying is not possible right now (owner 28.10.2026): the red banner right under the top
+   * bar, above «В зале / С собой». Shown only with a basket.
+   */
+  banner?: ReactNode;
   notices?: ReactNode;
   comment?: ReactNode;
   footer(blocked: boolean): ReactNode;
@@ -733,6 +738,7 @@ export function Cart(props: ScreenProps & { checkout?: CartCheckout }) {
         ) : null
       }
     >
+      {props.model.cart.length ? checkout?.banner : null}
       {checkout?.notices}
       {!props.model.cart.length ? <ComboGiftChoice props={props} /> : null}
       {props.model.catalogUpdateNotice ? (
