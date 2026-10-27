@@ -53,13 +53,15 @@ with sync_playwright() as p:
   toggle=page.get_by_test_id('cart-use-combo-gift')
   expect(toggle).to_have_attribute('aria-checked','false',timeout=25000)
   toggle.click();expect(toggle).to_have_attribute('aria-checked','true')
-  expect(page.get_by_test_id('cart-checkout')).to_be_enabled()
+  expect(page.get_by_test_id('cart-pay')).to_be_enabled()
   toggle.scroll_into_view_if_needed()
   page.screenshot(path=str(OUT/f'cart-{width}.png'))
   toggle.click();expect(toggle).to_have_attribute('aria-checked','false')
-  toggle.click();page.get_by_test_id('cart-checkout').click()
-  expect(page.get_by_test_id('kaspi-checkout-submit')).to_contain_text('Заказать подарок')
-  expect(page.get_by_test_id('kaspi-checkout-total')).to_contain_text('0')
+  # Kaspi build (27.10.2026): the gift-only total is paid from the cart itself.
+  toggle.click();expect(page.get_by_test_id('cart-checkout')).to_have_count(0)
+  expect(page.get_by_test_id('cart-pay')).to_contain_text('Заказать подарок')
+  expect(page.get_by_test_id('cart-pay')).not_to_contain_text('Kaspi')
+  expect(page.get_by_test_id('screen-M09').get_by_test_id('cart-total')).to_contain_text('0')
   page.screenshot(path=str(OUT/f'gift-checkout-{width}.png'))
   assert not state['writes'],state['writes']
   # A trusted refund reduces the server balance. No local stamp or gift survives a reload.

@@ -149,12 +149,14 @@ def draft_saved(page):
 
 
 def open_checkout(page):
+    # Kaspi build (27.10.2026): the cart is the checkout, its own button pays.
     page.goto(URL + '/menu')
     page.get_by_test_id('product-pick-combo').click(timeout=25000)
     page.get_by_test_id('product-add').click()
     page.get_by_test_id('open-cart').click()
-    page.get_by_test_id('cart-checkout').click()
-    button = page.get_by_test_id('kaspi-checkout-submit')
+    expect(page.get_by_test_id('screen-M09')).to_be_visible()
+    expect(page.get_by_test_id('cart-checkout')).to_have_count(0)
+    button = page.get_by_test_id('cart-pay')
     expect(button).to_be_enabled(timeout=15000)
     return button
 
@@ -247,8 +249,7 @@ def scenario_item_stopped(browser):
     # The next tap quotes the current cart instead of resuming the old unbilled order.
     state['stopped_quote'] = True
     page.get_by_test_id('open-cart').click()
-    page.get_by_test_id('cart-checkout').click()
-    button = page.get_by_test_id('kaspi-checkout-submit')
+    button = page.get_by_test_id('cart-pay')
     expect(button).to_be_enabled(timeout=15000)
     button.click()
     expect(page.get_by_text('Блюдо или выбранный вариант закончились', exact=False)).to_be_visible(timeout=15000)

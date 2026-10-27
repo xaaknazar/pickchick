@@ -45,6 +45,20 @@ with sync_playwright() as p:
   box=sheet.bounding_box(); assert box['y'] > 10 and box['y'] + box['height'] <= height+1, box
   expect(page.get_by_test_id('cart-checkout')).to_be_enabled()
   expect(page.get_by_test_id('cart-checkout')).to_contain_text('4 190')
+  # Owner 27.10.2026 (Drinkit): red glass trash left, pin + point centred, glass close right,
+  # no «Корзина» title; the dining pill under it; no add-more, promo or small print.
+  clear,point,shut=(page.get_by_test_id(i).bounding_box() for i in ('cart-clear','cart-restaurant','cart-close'))
+  assert clear['x']+clear['width']<=point['x'] and point['x']+point['width']<=shut['x'],(clear,point,shut)
+  assert abs(point['x']+point['width']/2-(box['x']+box['width']/2))<=2,(point,box)
+  expect(page.get_by_test_id('cart-restaurant')).to_contain_text('ТЦ Abay Plaza')
+  expect(cart.get_by_role('heading',name='Корзина',exact=True)).to_have_count(0)
+  pill=page.get_by_test_id('cart-dining-mode')
+  pill.get_by_role('radio',name='В зале',exact=True).click()
+  expect(pill.get_by_role('radio',name='В зале',exact=True)).to_have_attribute('aria-checked','true')
+  for gone in ['cart-add-more','cart-promo-open','cart-pay','cart-payment-method']:
+   expect(page.get_by_test_id(gone)).to_have_count(0)
+  for copy in ['Добавить ещё что-нибудь','Ввести промокод','Чики за покупки','Цены и наличие блюд проверим']:
+   expect(cart.get_by_text(copy,exact=False)).to_have_count(0)
   page.get_by_test_id('cart-plus-pick-combo').click();expect(page.get_by_test_id('cart-quantity-pick-combo')).to_have_text('2')
   page.get_by_test_id('cart-minus-pick-combo').click();expect(page.get_by_test_id('cart-quantity-pick-combo')).to_have_text('1')
   page.get_by_test_id('cart-minus-pick-combo').click()
@@ -73,15 +87,15 @@ with sync_playwright() as p:
   expect(page.get_by_test_id('cart-quantity-piko')).to_have_text('1')
   page.get_by_test_id('cart-minus-piko').click()
   page.get_by_test_id('cart-minus-burger').click()
-  page.get_by_test_id('cart-promo-open').click();page.get_by_test_id('cart-promo-input').fill('HELLO')
-  page.get_by_test_id('cart-promo-check').click();expect(page.get_by_test_id('cart-promo-result')).to_contain_text('не изменилась')
   expect(page.get_by_test_id('cart-checkout')).to_be_enabled()
   expect(page.get_by_test_id('cart-checkout')).to_contain_text('4 190')
   page.get_by_test_id('cart-checkout').click()
   checkout=page.get_by_test_id('screen-M12');expect(checkout).to_be_visible()
   expect(checkout.get_by_text('КАК ЗАБЕРЁТЕ',exact=True)).to_be_visible()
-  checkout.get_by_role('radio',name='В зале',exact=True).click()
+  # Builds without Kaspi checkout keep their checkout page; the cart pill already chose the mode.
   expect(checkout.get_by_role('radio',name='В зале',exact=True)).to_have_attribute('aria-checked','true')
+  checkout.get_by_role('radio',name='С собой',exact=True).click()
+  expect(checkout.get_by_role('radio',name='С собой',exact=True)).to_have_attribute('aria-checked','true')
   expect(checkout.get_by_test_id('checkout-apple-pay')).to_contain_text('СКОРО')
   expect(checkout.get_by_test_id('checkout-add-card')).to_have_attribute('aria-disabled','true')
   expect(checkout).not_to_contain_text('Доставка')
@@ -135,4 +149,4 @@ with sync_playwright() as p:
  browser.close()
 assert not errors,errors
 assert not violations,violations
-print('PASS: four viewports, sheet bounds, editing, quantity, promo, checkout, return and empty state')
+print('PASS: four viewports, sheet bounds, Drinkit top bar and dining pill, removed blocks, editing, quantity, checkout, return and empty state')
