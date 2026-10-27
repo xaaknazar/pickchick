@@ -1,3 +1,25 @@
+## 28.10.2026 - мобильный редизайн: правки по итогам независимой QA (закрыто и стекло)
+
+Ветка `codex/mobile-header-cart-1027`. QA нашла 7 пунктов, всё зависящее от кода исправлено с
+тестами. (1) Medium: при старте закрытое состояние ждало первый ответ `/availability`, ручка
+Kaspi была видна, свайп отправлял `POST /quotes`. Теперь `paymentAvailability` до первого
+ответа в этом запуске (`availabilityKnown`) не даёт платить: причина по часам справочника
+(«откроемся в 10:00»), иначе серая «Проверяем…» без плашки; `error` - «Нет связи с сервером».
+(2) Панель отказа `RESTAURANT_CLOSED` под красной плашкой скрыта и сбрасывается (только в
+корзине без заказа и намерения). (3) Часы на проде - вопрос 4 протокола: по записям выпуска
+2-3.10 заданы, перед сборкой 24 проверить GET; шапка теперь следует решению об оплате
+(`headerHoursNow`), с полосой не спорит. (4) Закрытая капсула короткая, по центру. (5) EN
+«Opening at ...», «Ресторан сейчас закрыт» без точки (словарь 1456). (6) Сборки без Kaspi:
+в шапке снова часы. (7) iOS 26: `liquidGlyphOpacity` - значок приглушается при нажатии;
+«сумка» вынесена из `open-cart`. PASS: `pnpm test:mobile` 485/485 и 59 Python, typecheck,
+lint, format, translations, design:check; Kaspi-экспорт (cart_unavailable A-J с новыми I -
+старт с задержанным ответом и J - отказ под плашкой, slide_to_pay A-N, cart_page,
+kaspi_checkout, checkout_traps, checkout_legal, localization, combo_rewards, review_demo,
+orders kaspi 393/320, tracker kaspi) и симулятор (cart_shortcut, tab_bar, profile и др.).
+Снимки 01-20 и листы пересняты. Дальше: GET часов на проде, сборка 24 Xcode 26+, на iPhone -
+отклик стекла и старт при медленной сети. Push не выполнялся.
+[Протокол](../operations/mobile-redesign-2026-10-27/README.md).
+
 ## 28.10.2026 - мобильный редизайн: полосы closed и glass слиты в интеграционную ветку
 
 Ветка `codex/mobile-header-cart-1027`: merge `--no-ff` `codex/mobile-closed-1028`
