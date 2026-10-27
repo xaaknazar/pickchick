@@ -98,10 +98,13 @@ export const glass = {
   minSize: 44,
   size: 48,
   /**
-   * expo-blur strength (iOS < 26, and the web: `blur(intensity * 0.2 px) saturate(180%)` over a
-   * dark tint). Raised with the thinner veil so a white glyph keeps 3:1 over a white backdrop.
+   * expo-blur strength (iOS < 26: UIBlurEffect `.dark` run to `intensity / 100`; the web:
+   * `blur(intensity * 0.2 px) saturate(180%)` over a dark tint). Raised with the thinner veil so
+   * a white glyph keeps 3:1 over a white backdrop on both: the native dark blur tints a little
+   * less than the web one at the same strength (by the model in liquid-glass.test.mjs, 46 gave
+   * about 2.9:1 natively, 52 gives about 3.2:1; not yet measured on an iPhone with iOS 18).
    */
-  blurIntensity: 46,
+  blurIntensity: 52,
   /** Over the blur: a thin navy veil (0.34 before 28.10), so more of what is behind shows. */
   veil: 'rgba(16, 36, 84, 0.26)',
   /** Without blur: denser fill so the glyph keeps its contrast on photos. */

@@ -158,12 +158,20 @@ function sheenAt(percent) {
   }
   return stops.at(-1)[1];
 }
-// expo-blur's dark tint on the web (getBackgroundColor: rgba(25,25,25, intensity/100 * 0.78)).
-const blurTint = [25, 25, 25, (glass.blurIntensity / 100) * 0.78];
+// The dark tint of the blur at `glass.blurIntensity`, on both platforms that draw the blur:
+// - web: expo-blur's getBackgroundColor, rgba(25,25,25, intensity/100 * 0.78);
+// - iOS < 26: expo-blur runs UIBlurEffect `.dark` to fractionComplete = intensity/100 on a linear
+//   UIViewPropertyAnimator; `.dark` tints with white 0.11 at alpha 0.73 (UIKit's private values,
+//   as reverse engineered, so an approximation: one look on an iPhone with iOS 18 is still due).
+//   It tints less than the web at the same strength, so the glyph has less contrast there.
+const blurTints = {
+  web: [25, 25, 25, (glass.blurIntensity / 100) * 0.78],
+  ios: [0.11 * 255, 0.11 * 255, 0.11 * 255, (glass.blurIntensity / 100) * 0.73],
+};
 const white = [255, 255, 255];
 const background = rgba('#04143A').slice(0, 3);
 
-function fallbackGlass(surface, behind) {
+function fallbackGlass(surface, behind, blurTint = blurTints.web) {
   const layers = glassLayers(surface);
   let color = behind;
   if (layers.blur) color = over(blurTint, color);
@@ -173,16 +181,27 @@ function fallbackGlass(surface, behind) {
 }
 
 test('the fallback glyph keeps 3:1 over a white backdrop (the brightest hero frame)', () => {
-  for (const surface of ['blur', 'tint', 'solid']) {
-    const behindGlyph = fallbackGlass(surface, white);
-    assert.ok(contrast(rgba(glass.icon), behindGlyph) >= 3, `${surface}: white glyph`);
+  for (const [platform, tint] of Object.entries(blurTints)) {
+    for (const surface of ['blur', 'tint', 'solid']) {
+      const behindGlyph = fallbackGlass(surface, white, tint);
+      const ratio = contrast(rgba(glass.icon), behindGlyph);
+      assert.ok(ratio >= 3, `${platform} ${surface}: white glyph ${ratio.toFixed(2)}:1`);
+    }
+    // The red trash keeps 3:1 on the glass over the dark sheet.
+    for (const surface of ['blur', 'tint', 'solid']) {
+      const ratio = contrast(rgba(glass.danger), fallbackGlass(surface, background, tint));
+      assert.ok(ratio >= 3, `${platform} ${surface}: red trash ${ratio.toFixed(2)}:1`);
+    }
   }
-  // The red trash keeps 3:1 on the glass over the dark sheet.
-  for (const surface of ['blur', 'tint', 'solid'])
-    assert.ok(
-      contrast(rgba(glass.danger), fallbackGlass(surface, background)) >= 3,
-      `${surface}: red trash`,
-    );
+  // The native dark blur is the weaker case: 46 (before the 28.10 review) fell below 3:1 there.
+  const at = (intensity) =>
+    contrast(white, fallbackGlass('blur', white, [28.05, 28.05, 28.05, (intensity / 100) * 0.73]));
+  assert.ok(at(46) < 3);
+  assert.ok(at(glass.blurIntensity) >= 3);
+  assert.ok(
+    contrast(white, fallbackGlass('blur', white, blurTints.ios)) <
+      contrast(white, fallbackGlass('blur', white, blurTints.web)),
+  );
 });
 
 test('closer to Liquid Glass: thinner veil, lighter rim, lifted over the dark background', () => {
