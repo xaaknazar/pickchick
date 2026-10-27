@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { DiningMode, MobileModel } from '../model';
-import { cartPaymentMethods, cartPayTitle } from '../cart-payment';
+import { KASPI_PAY, brandSlotParts, cartPaymentMethods, cartPayTitle } from '../cart-payment';
 import { MotionModal, MotionPressable } from './Motion';
 import { PaymentMark } from './PaymentChoice';
 import { Body, Caption, CloseButton, Heading, Icon, IconButton, type IconName } from './UI';
@@ -296,7 +296,9 @@ export function CartPaymentFooter({
 }) {
   useLocale();
   const title = cartPayTitle({ busy, totalMinor });
-  const kaspi = title === 'Оплатить с';
+  const kaspi = title === KASPI_PAY;
+  // The brand stands where the language puts it (KK: «[Kaspi.kz] арқылы төлеу»).
+  const words = kaspi ? brandSlotParts(t(KASPI_PAY)) : { before: localize(t(title)), after: '' };
   return (
     <>
       {notices}
@@ -323,9 +325,11 @@ export function CartPaymentFooter({
         onPress={onPay}
         style={[s.pay, disabled && s.payDisabled]}
       >
-        <Text style={s.payText} maxFontSizeMultiplier={1.5}>
-          {localize(t(title))}
-        </Text>
+        {words.before ? (
+          <Text style={s.payText} maxFontSizeMultiplier={1.5}>
+            {words.before}
+          </Text>
+        ) : null}
         {kaspi ? (
           <View style={s.payBrand}>
             <PaymentMark method="kaspi" size={30} />
@@ -333,6 +337,11 @@ export function CartPaymentFooter({
               Kaspi.kz
             </Text>
           </View>
+        ) : null}
+        {words.after ? (
+          <Text style={s.payText} maxFontSizeMultiplier={1.5}>
+            {words.after}
+          </Text>
         ) : null}
       </MotionPressable>
     </>

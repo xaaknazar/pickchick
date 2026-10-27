@@ -7,10 +7,14 @@ import {
   isSheetRoute,
 } from '../../apps/mobile/src/hero-playback.ts';
 import {
+  CART_EDIT_SETTLE_MS,
+  KASPI_PAY,
+  brandSlotParts,
+  cartEditSettleMs,
   cartPaymentMethods,
   cartPayTitle,
-  chooseCartPaymentMethod,
 } from '../../apps/mobile/src/cart-payment.ts';
+import { translate } from '../../apps/mobile/src/i18n/core.ts';
 import { glass, glassSize, glassSurface } from '../../apps/mobile/src/glass.ts';
 import { accountDestination, requiresAccount } from '../../apps/mobile/src/account-access.ts';
 
@@ -107,15 +111,39 @@ test('payment selector: only Kaspi.kz can be chosen, wallets and cards are «с�
     cartPaymentMethods('android').map((m) => m.label),
     ['Kaspi.kz', 'Google Pay', 'Банковская карта'],
   );
-  for (const next of ['apple_pay', 'google_pay', 'card', 'cash', ''])
-    assert.equal(chooseCartPaymentMethod('kaspi', next, 'ios'), 'kaspi');
-  assert.equal(chooseCartPaymentMethod('kaspi', 'kaspi', 'android'), 'kaspi');
+  // Only Kaspi.kz is available on every platform; the selector has nothing else to choose.
+  for (const platform of ['ios', 'android', 'web'])
+    assert.deepEqual(
+      cartPaymentMethods(platform)
+        .filter((m) => m.available)
+        .map((m) => m.id),
+      ['kaspi'],
+    );
 });
 
 test('pay button wording: busy, gift-only order and the Kaspi action', () => {
   assert.equal(cartPayTitle({ busy: true, totalMinor: '419000' }), 'Оформляем заказ…');
   assert.equal(cartPayTitle({ busy: false, totalMinor: '0' }), 'Заказать подарок');
-  assert.equal(cartPayTitle({ busy: false, totalMinor: '419000' }), 'Оплатить с');
+  assert.equal(cartPayTitle({ busy: false, totalMinor: '419000' }), KASPI_PAY);
+});
+
+test('pay button keeps each language word order around the Kaspi.kz mark', () => {
+  const words = (language) => brandSlotParts(translate(KASPI_PAY, language));
+  assert.deepEqual(words('ru'), { before: 'Оплатить с', after: '' });
+  // Kazakh: «[Kaspi.kz] арқылы төлеу», not «Төлеу [Kaspi.kz]».
+  assert.deepEqual(words('kk'), { before: '', after: 'арқылы төлеу' });
+  assert.deepEqual(words('en'), { before: 'Pay with', after: '' });
+  assert.deepEqual(brandSlotParts('Заказать подарок'), { before: 'Заказать подарок', after: '' });
+});
+
+test('a burst of cart edits re-reads the Kaspi session once, other screens at once', () => {
+  const a = '{"items":[1]}',
+    b = '{"items":[2]}';
+  assert.equal(cartEditSettleMs('M09', null, a), 0, 'opening the cart reads at once');
+  assert.equal(cartEditSettleMs('M09', a, a), 0, 'return, refresh, foreground: at once');
+  assert.equal(cartEditSettleMs('M09', a, b), CART_EDIT_SETTLE_MS);
+  assert.ok(CART_EDIT_SETTLE_MS > 0 && CART_EDIT_SETTLE_MS <= 500);
+  for (const screen of ['M12', 'M19']) assert.equal(cartEditSettleMs(screen, a, b), 0);
 });
 
 test('glass buttons blur where a blur exists and never shrink below 44 pt', () => {
@@ -139,7 +167,7 @@ test('new cart texts are translated to Kazakh and English', () => {
   const messages = JSON.parse(
     readFileSync(new URL('../../apps/mobile/src/i18n/messages.json', import.meta.url), 'utf8'),
   );
-  for (const ru of ['Оплатить с', 'Оплатить с Kaspi.kz, {p0}', 'Заказ в ресторане {p0}']) {
+  for (const ru of [KASPI_PAY, 'Оплатить с Kaspi.kz, {p0}', 'Заказ в ресторане {p0}']) {
     const entry = messages.find((message) => message.ru === ru);
     assert.ok(entry && entry.kk && entry.en, ru);
   }

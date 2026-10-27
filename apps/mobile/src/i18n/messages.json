@@ -4770,10 +4770,10 @@
     "context": "apps/mobile/src/screens/KaspiCheckoutScreen.tsx:539"
   },
   {
-    "ru": "Оплатить с",
-    "kk": "Төлеу",
-    "en": "Pay with",
-    "context": "apps/mobile/src/cart-payment.ts:36"
+    "ru": "Оплатить с {p0}",
+    "kk": "{p0} арқылы төлеу",
+    "en": "Pay with {p0}",
+    "context": "apps/mobile/src/cart-payment.ts:28"
   },
   {
     "ru": "Оплатить с Kaspi.kz, {p0}",

@@ -8,6 +8,7 @@ import { recoverCommerceRead, historyOrderNeedsWatch } from '../commerce-read-re
 import { PAYMENT_COMMAND, paymentRefused, prepareCheckout } from '../checkout-preflight';
 import { KaspiPaymentState } from '../components/KaspiPaymentState';
 import { CartOrderComment, CartPaymentFooter } from '../components/CartSheet';
+import { cartEditSettleMs } from '../cart-payment';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, Linking, Modal, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -151,6 +152,8 @@ function KaspiCheckoutSession(
   const giftDiscount = props.model.comboRewards?.discountMinor ?? '0';
   const localTotal = (BigInt(cartTotal(props.model.cart)) - BigInt(giftDiscount)).toString();
   const cartOnlySignature = cartSignature(props.model.cart, props.model.diningMode, '', giftIndex);
+  // Lines, modifiers, gift and «В зале / С собой»: what a cart edit changes.
+  const lastCartKey = useRef<string | null>(null);
   const comment = normalizedOrderComment(props.model.orderComment);
   const signature = cartSignature(props.model.cart, props.model.diningMode, comment, giftIndex);
   const signatureRef = useRef(signature);
@@ -263,6 +266,9 @@ function KaspiCheckoutSession(
   }, []);
 
   useEffect(() => {
+    // A burst of cart edits in the cart sheet re-reads once (27.10.2026); see cartEditSettleMs.
+    const settle = cartEditSettleMs(props.screenId, lastCartKey.current, cartOnlySignature);
+    lastCartKey.current = cartOnlySignature;
     if (!foreground || (orderRef.current && props.screenId !== 'M19')) return;
     let active = true;
     const controller = new AbortController();
@@ -299,8 +305,7 @@ function KaspiCheckoutSession(
           if (active) setError(null);
         },
       });
-    setLoaded(false);
-    setRestoring(true);
+    // The old quote and error belong to the old cart: dropped at once, also while settling.
     setError(null);
     setQuote(null);
     setOrder(null);
@@ -362,18 +367,27 @@ function KaspiCheckoutSession(
       if (!active) return;
       setHistory(orders);
     };
-    void run()
-      .catch((e) => {
-        if (active && !controller.signal.aborted) setError(e);
-      })
-      .finally(() => {
-        if (active) {
-          setLoaded(true);
-          setRestoring(false);
-        }
-      });
+    const start = () => {
+      // The pay button (submit) aborts a re-read that has not started yet.
+      if (!active || controller.signal.aborted) return;
+      setLoaded(false);
+      setRestoring(true);
+      void run()
+        .catch((e) => {
+          if (active && !controller.signal.aborted) setError(e);
+        })
+        .finally(() => {
+          if (active) {
+            setLoaded(true);
+            setRestoring(false);
+          }
+        });
+    };
+    const timer = settle ? setTimeout(start, settle) : null;
+    if (!timer) start();
     return () => {
       active = false;
+      if (timer) clearTimeout(timer);
       controller.abort();
     };
   }, [
@@ -756,11 +770,10 @@ function KaspiCheckoutSession(
               />
             </View>
           ) : null}
-          {priceNotice || props.model.catalogUpdateNotice ? (
-            <CatalogChangeNotice
-              message={priceNotice || props.model.catalogUpdateNotice!}
-              totals={props.model.cartChanges}
-            />
+          {/* The cart body already shows the menu update (with «Понятно»); the footer adds only
+              the quote's own price stop, never the same notice twice. */}
+          {priceNotice && priceNotice !== props.model.catalogUpdateNotice ? (
+            <CatalogChangeNotice message={priceNotice} totals={props.model.cartChanges} />
           ) : null}
         </>
       }

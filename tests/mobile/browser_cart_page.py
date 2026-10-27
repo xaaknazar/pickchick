@@ -8,7 +8,9 @@ no bank, no real customer, no VPS request.
   - removed: «Добавить ещё что-нибудь», promo code, small print after the total;
   - order comment at the bottom, payment selector (Kaspi.kz selected, others «скоро»);
   - one press of «Оплатить с Kaspi.kz» = one quote + one order + one invoice;
-  - a guest is sent to sign-in and back to the cart, nothing is ordered;
+  - a guest is sent to sign-in (Kaspi reason, glass back on the code step) and back to the cart,
+    nothing is ordered;
+  - a burst of +/- taps re-reads the Kaspi session once (one GET /config, not one per tap);
   - the menu hero video keeps playing under the cart sheet and pauses for tabs/full screens.
 """
 from browser_network import isolated_context, route_fixture
@@ -67,7 +69,8 @@ def order(phase):
 
 
 def make_context(browser, width, height, signed=True, motion='reduce', probe=False):
-    state = {'quotes': [], 'creates': 0, 'payments': 0, 'phase': 'ready_to_pay', 'held': [], 'mutations': []}
+    state = {'quotes': [], 'creates': 0, 'payments': 0, 'phase': 'ready_to_pay', 'held': [], 'mutations': [],
+             'config': 0, 'otp': 0}
     ctx = isolated_context(browser, viewport={'width': width, 'height': height}, reduced_motion=motion)
     if signed:
         ctx.add_init_script('sessionStorage.setItem("pickchick.customer.session.v1",'
@@ -94,6 +97,7 @@ def make_context(browser, width, height, signed=True, motion='reduce', probe=Fal
                     'products': [{'id': p['id'], 'available': True, 'stoppedOptions': []} for p in CATALOG['products']]}
         elif path == '/v1/auth/config':
             data = {'enabled': True, 'delivery_consent_required': True, 'consent_version': 'fixture-v1',
+                    'channels': ['telegram'], 'channel_selection': 'automatic',
                     'terms_url': 'https://example.test/terms', 'privacy_url': 'https://example.test/privacy'}
         elif path == '/v1/capabilities':
             data = {'schema_version': 1, 'environment': 'staging', 'data_mode': 'pilot', 'ordering_enabled': False,
@@ -111,7 +115,19 @@ def make_context(browser, width, height, signed=True, motion='reduce', probe=Fal
             data = {'schema_version': 1, 'branch_id': BRANCH, 'promos': [], 'games': []}
         elif path == '/v1/customer-checkout/feedback' and method == 'GET':
             data = {'feedback': []}
+        elif path == '/v1/auth/otp/request' and method == 'POST':
+            # Sign-in from the cart reaches the code step; no SMS, no account, no order.
+            state['otp'] += 1
+            now = datetime.now(timezone.utc)
+            r.fulfill(status=202, json={'challenge_id': '40000000-0000-4000-8000-000000000006',
+                                        'expires_at': (now + timedelta(minutes=3)).isoformat(),
+                                        'resend_at': (now + timedelta(minutes=1)).isoformat(),
+                                        'delivery_status': 'submitted', 'channel': 'telegram',
+                                        'code_length': 4},
+                      headers={'Access-Control-Allow-Origin': '*'})
+            return
         elif path == '/v1/customer-checkout/config':
+            state['config'] += 1
             data = {'enabled': True, 'branchId': BRANCH, 'restaurant': 'ТЦ Abay Plaza',
                     'fiscalPolicy': 'deferred_pilot', 'orderCommentEnabled': True}
         elif path == '/v1/customer-checkout/orders' and method == 'GET':
@@ -214,6 +230,18 @@ def cart_page(browser, width, height):
     expect(page.get_by_test_id('cart-quantity-pick-combo')).to_have_text('1')
     page.wait_for_timeout(400)
     assert page.evaluate('window.__handleGone') == 0, 'The sheet handle must not flicker on edits'
+    # A burst of taps (150 ms apart) re-reads the Kaspi session once after the last tap, not per tap.
+    page.wait_for_timeout(800)
+    reads = state['config']
+    page.get_by_test_id('cart-plus-pick-combo').evaluate(
+        '(el) => { el.click(); setTimeout(() => el.click(), 150); setTimeout(() => el.click(), 300); }')
+    expect(page.get_by_test_id('cart-quantity-pick-combo')).to_have_text('4')
+    page.wait_for_timeout(1500)
+    assert state['config'] - reads == 1, ('one passive re-read per burst', state['config'] - reads)
+    page.get_by_test_id('cart-minus-pick-combo').evaluate(
+        '(el) => { el.click(); setTimeout(() => el.click(), 150); setTimeout(() => el.click(), 300); }')
+    expect(page.get_by_test_id('cart-quantity-pick-combo')).to_have_text('1')
+    expect(pay).to_be_enabled()
     # Dining pill: «В зале / С собой», a radio pair inside one pill.
     pill = page.get_by_test_id('cart-dining-mode')
     dine = pill.get_by_role('radio', name='В зале', exact=True)
@@ -238,6 +266,7 @@ def cart_page(browser, width, height):
     expect(total).to_have_text('4 190 ₸')
     expect(pay).to_contain_text('Оплатить с')
     expect(pay).to_contain_text('Kaspi.kz')
+    assert pay.evaluate("(e) => e.innerText.replace(/\\s+/g, ' ').trim()") == 'Оплатить с Kaspi.kz'
     expect(pay).to_have_accessible_name('Оплатить с Kaspi.kz, 4 190 ₸')
     m, t, p = method.bounding_box(), total.bounding_box(), pay.bounding_box()
     assert m['x'] < t['x'] and m['y'] + m['height'] <= p['y'] and t['y'] + t['height'] <= p['y'], (m, t, p)
@@ -338,8 +367,31 @@ def guest(browser):
     pay.click()
     expect(page.get_by_test_id('auth-sheet')).to_be_visible(timeout=10000)
     assert 'returnTo=M09' in page.url, page.url
-    page.get_by_test_id('auth-close').filter(visible=True).click()
-    expect(page.get_by_test_id('screen-M09')).to_be_visible()
+    # Sign-in from the cart names the reason: order and pay with Kaspi.
+    expect(page.get_by_text('Чтобы оформить заказ и оплатить его через Kaspi', exact=True)
+           .filter(visible=True)).to_be_visible()
+    page.get_by_test_id('account-required-login').filter(visible=True).click()
+    phone = page.get_by_test_id('phone-input').filter(visible=True)
+    expect(phone).to_be_editable()
+    shut = page.get_by_role('button', name='Закрыть вход', exact=True).filter(visible=True)
+    assert has_blur(shut) and shut.bounding_box()['height'] >= 44, 'The sign-in X is glass'
+    phone.fill('7' + '0' * 8 + '1')
+    page.get_by_test_id('request-otp').filter(visible=True).click()
+    expect(page.get_by_test_id('screen-M03').filter(visible=True)).to_be_visible()
+    # The code step's «Изменить номер» is the same round glass button as the X on the other steps.
+    back = page.get_by_test_id('auth-change-number').filter(visible=True)
+    expect(back).to_have_accessible_name('Изменить номер')
+    box = back.bounding_box()
+    assert has_blur(back) and box['width'] >= 44 and abs(box['width'] - box['height']) < 1, box
+    assert glyph(back) == 'rgb(255, 255, 255)', glyph(back)
+    assert back.evaluate('(el) => getComputedStyle(el).borderTopLeftRadius') == f"{box['width'] / 2:g}px"
+    page.wait_for_timeout(300)
+    page.screenshot(path=str(OUT / 'otp-glass-393.png'))
+    back.click()
+    expect(page.get_by_test_id('phone-input').filter(visible=True)).to_be_editable()
+    page.get_by_role('button', name='Закрыть вход', exact=True).filter(visible=True).click()
+    expect(page.get_by_test_id('screen-M09')).to_be_visible(timeout=10000)
+    assert state['otp'] == 1, state['otp']
     assert not state['quotes'] and not state['creates'] and not state['payments'], state
     assert not state['mutations'], state['mutations']
     close(ctx, state)
@@ -415,6 +467,7 @@ with sync_playwright() as p:
     browser.close()
 assert not errors, errors
 print('PASS cart page 393/320: Drinkit top bar (red glass trash, pin + point, glass close), dining pill -> quote, '
-      'removed blocks/small print, comment, payment selector (Kaspi only, others «скоро»), one press = 1 quote + '
-      '1 order + 1 invoice, 3-item total, glass product close, guest -> sign-in -> cart, hero video plays under the '
-      'cart and pauses for tab/full screen/background')
+      'one re-read per burst of edits, removed blocks/small print, comment, payment selector (Kaspi only, others '
+      '«скоро»), one press = 1 quote + 1 order + 1 invoice, 3-item total, glass product close, guest -> sign-in '
+      '(Kaspi reason, glass X and code-step back) -> cart, hero video plays under the cart and pauses for tab/full '
+      'screen/background')

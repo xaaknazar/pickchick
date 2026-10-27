@@ -72,6 +72,8 @@ with sync_playwright() as p:
    for radio in words[:2]:expect(cart.get_by_role('radio',name=radio,exact=True)).to_be_visible()
    expect(page.get_by_test_id('cart-payment-method')).to_contain_text(words[2]);expect(cart.get_by_text(words[3],exact=True)).to_be_visible()
    expect(page.get_by_test_id('cart-pay')).to_have_accessible_name(words[4]+', 4 190 ₸',timeout=15000)
+   # The visible button keeps the language's word order around the mark (KK: «Kaspi.kz арқылы төлеу»).
+   assert page.get_by_test_id('cart-pay').evaluate("(e)=>e.innerText.replace(/\\s+/g,' ').trim()")==words[4],lang
    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),('cart',lang,width)
    page.screenshot(path=str(OUT/f'cart-{lang}-{width}.png'))
    page.get_by_test_id('cart-clear').click();page.get_by_test_id('cart-clear-confirm').click();expect(page.get_by_test_id('cart-pay')).to_have_count(0)
