@@ -2,7 +2,7 @@ import { createContext, useContext } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { appHeaderMetrics } from '../app-header-metrics';
+import { appHeaderCaptionMinScale, appHeaderMetrics } from '../app-header-metrics';
 import { localize, t, useLocale } from '../i18n';
 import type { ScreenProps } from '../model';
 import { restaurantLocation } from '../restaurant-location';
@@ -44,6 +44,10 @@ function HoursCaption({ model }: { model: HeaderScreen['model'] }) {
       style={s.caption}
       numberOfLines={1}
       maxFontSizeMultiplier={appHeaderMaxFontScale}
+      // iOS: «откроемся завтра в 10:00» (KK and EN are as long) shrinks instead of truncating at
+      // 320 pt with the largest text, never below its normal size.
+      adjustsFontSizeToFit
+      minimumFontScale={appHeaderCaptionMinScale}
     >
       {localize(headerHoursCaption(hours, status))}
     </Text>
