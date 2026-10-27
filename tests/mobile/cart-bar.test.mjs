@@ -8,10 +8,12 @@ import {
   cartCheckoutBlocked,
   noteCartAdditions,
   parseRecentProductIds,
+  payableTotalMinor,
   recentCartLines,
   slideToPayAvailable,
 } from '../../apps/mobile/src/cart-bar.ts';
 import {
+  cartTotal,
   defaultSelections,
   parsePreferences,
   updateQuantity,
@@ -200,4 +202,23 @@ test('a basket the cart would not check out opens the cart instead of checkout',
     }),
     false,
   );
+});
+
+test('the bar amount equals «Оформить заказ» and the invoice, gift discount included', () => {
+  let state = { cart: [], recent: [] };
+  for (const id of ['pick-combo', 'burger']) state = add(state, id);
+  const full = cartTotal(state.cart);
+  // Store: a selected gift takes the base Pick Combo price off; otherwise the discount is '0'.
+  const gift = product('pick-combo').priceMinor;
+  // Cart page (M09) and KaspiCheckoutScreen (localTotal, the quote check and so the invoice).
+  const checkout = (discount) => (BigInt(cartTotal(state.cart)) - BigInt(discount)).toString();
+  assert.equal(payableTotalMinor(full, gift), checkout(gift));
+  assert.equal(payableTotalMinor(full, gift), (BigInt(full) - BigInt(gift)).toString());
+  assert.notEqual(payableTotalMinor(full, gift), full);
+  assert.equal(payableTotalMinor(full, '0'), full);
+  // Builds without the combo programme have no comboRewards at all.
+  assert.equal(payableTotalMinor(full, undefined), full);
+  // Only the gift in the basket: the bar shows 0, like «Заказать подарок».
+  const only = cartTotal([{ product: product('pick-combo'), quantity: 1 }]);
+  assert.equal(payableTotalMinor(only, gift), '0');
 });

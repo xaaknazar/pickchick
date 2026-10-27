@@ -27,6 +27,7 @@ import { cartTotal } from '../domain';
 import {
   cartBarLayout,
   cartCheckoutBlocked,
+  payableTotalMinor,
   recentCartLines,
   slideToPayAvailable,
 } from '../cart-bar';
@@ -97,7 +98,10 @@ export function CartShortcut({
   const router = useRouter();
   const account = useAccount();
   const count = model.cart.reduce((sum, line) => sum + line.quantity, 0);
-  const total = MinorMoney(cartTotal(model.cart));
+  // The amount of «Оформить заказ» and of the invoice: a selected combo gift is taken off.
+  const total = MinorMoney(
+    payableTotalMinor(cartTotal(model.cart), model.comboRewards?.discountMinor),
+  );
   const reduced = useReducedMotion();
   const { width, fontScale } = useWindowDimensions();
   const layout = cartBarLayout({ width, fontScale, totalLength: total.length });

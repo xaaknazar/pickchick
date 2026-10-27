@@ -109,6 +109,15 @@ export function slideToPayAvailable(input: {
   );
 }
 
+/**
+ * The amount the bar shows, in minor units: the total of «Оформить заказ» on the cart page (M09)
+ * and of the Kaspi checkout (M12), with a selected combo gift already taken off. The bar is a
+ * payment control, so the customer never slides on another amount than the invoice.
+ */
+export function payableTotalMinor(cartTotalMinor: string, giftDiscountMinor = '0'): string {
+  return (BigInt(cartTotalMinor) - BigInt(giftDiscountMinor)).toString();
+}
+
 /** Same conditions that disable «Оформить заказ» on the cart page (M09). */
 export function cartCheckoutBlocked(model: {
   cart: readonly Pick<CartLine, 'product'>[];
