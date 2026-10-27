@@ -194,7 +194,7 @@
     </div>
     <main>
       <div class="intro">
-        <span class="pill">1399 фразы интерфейса</span><span class="pill">4 события заказа</span
+        <span class="pill">1438 фразы интерфейса</span><span class="pill">4 события заказа</span
         ><span class="pill">Казахский · кириллица</span>
       </div>
       <div class="table-wrap">
@@ -375,10 +375,26 @@
           "note": ""
         },
         {
+          "ru": "Назад в профиль",
+          "kk": "Профильге оралу",
+          "en": "Back to profile",
+          "context": "apps/mobile/src/app/notifications.tsx:notifications-back",
+          "section": "ui",
+          "note": ""
+        },
+        {
           "ru": "Уведомления",
           "kk": "Хабарландырулар",
           "en": "Notifications",
           "context": "apps/mobile/src/app/notifications.tsx:24",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Уведомления, непрочитанных: {p0}",
+          "kk": "Хабарландырулар, оқылмағаны: {p0}",
+          "en": "Notifications, unread: {p0}",
+          "context": "apps/mobile/src/screens/ProfileScreen.tsx:profile-notifications",
           "section": "ui",
           "note": ""
         },
@@ -1234,15 +1250,31 @@
           "ru": "Открыть состав заказа",
           "kk": "Тапсырыс құрамын ашу",
           "en": "View order items",
-          "context": "apps/mobile/src/components/CartShortcut.tsx:95",
+          "context": "apps/mobile/src/components/CartShortcut.tsx:250",
           "section": "ui",
           "note": ""
         },
         {
-          "ru": "Цены обновились",
-          "kk": "Бағалар жаңарды",
-          "en": "Prices updated",
-          "context": "apps/mobile/src/components/CartShortcut.tsx:110",
+          "ru": "тяни для оплаты",
+          "kk": "сырғытып төлеңіз",
+          "en": "slide to pay",
+          "context": "apps/mobile/src/components/CartShortcut.tsx:227",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Оплатить через Kaspi",
+          "kk": "Kaspi арқылы төлеу",
+          "en": "Pay with Kaspi",
+          "context": "apps/mobile/src/components/KaspiSlideToPay.tsx:180",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Удерживайте и потяните вправо. Двойное касание откроет оформление заказа.",
+          "kk": "Ұстап тұрып, оңға қарай сырғытыңыз. Екі рет түрту тапсырысты рәсімдеуді ашады.",
+          "en": "Hold and slide to the right. Double-tap opens checkout.",
+          "context": "apps/mobile/src/components/KaspiSlideToPay.tsx:182",
           "section": "ui",
           "note": ""
         },
@@ -5599,6 +5631,14 @@
           "note": ""
         },
         {
+          "ru": "Заказ в ресторане {p0}",
+          "kk": "{p0} мейрамханасындағы тапсырыс",
+          "en": "Ordering at {p0}",
+          "context": "apps/mobile/src/components/CartSheet.tsx:52",
+          "section": "ui",
+          "note": ""
+        },
+        {
           "ru": "Выдача по номеру заказа",
           "kk": "Тапсырыс нөмірі бойынша беріледі",
           "en": "Collect using your order number",
@@ -6627,6 +6667,22 @@
           "kk": "Төлеу тәсілі",
           "en": "Pay with",
           "context": "apps/mobile/src/screens/KaspiCheckoutScreen.tsx:539",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Оплатить с {p0}",
+          "kk": "{p0} арқылы төлеу",
+          "en": "Pay with {p0}",
+          "context": "apps/mobile/src/cart-payment.ts:28",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Оплатить с Kaspi.kz, {p0}",
+          "kk": "Kaspi.kz арқылы төлеу, {p0}",
+          "en": "Pay with Kaspi.kz, {p0}",
+          "context": "apps/mobile/src/components/CartSheet.tsx:296",
           "section": "ui",
           "note": ""
         },
@@ -9456,7 +9512,7 @@
         },
         {
           "ru": "Корзина, {p0} позиций, {p1}",
-          "context": "apps/mobile/src/components/CartShortcut.tsx:94",
+          "context": "apps/mobile/src/components/CartShortcut.tsx:248",
           "kk": "Себет: {p0} позиция, {p1}",
           "en": "Basket: {p0} items, {p1}",
           "section": "ui",
@@ -11401,6 +11457,262 @@
           "ru": "Документы Pick Chick · версия {p0}",
           "kk": "Pick Chick құжаттары · {p0} нұсқасы",
           "en": "Pick Chick documents · version {p0}",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Демонстрация - без оплаты",
+          "kk": "Көрсетілім - төлемсіз",
+          "en": "Demonstration - no payment",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Деньги не списываются. Заказ не поступает в ресторан.",
+          "kk": "Ақша алынбайды. Тапсырыс мейрамханаға жіберілмейді.",
+          "en": "No money is charged. No order is sent to the restaurant.",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Как проходит заказ",
+          "kk": "Тапсырыс қалай орындалады",
+          "en": "How ordering works",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Не удалось сохранить демонстрацию. Попробуйте ещё раз.",
+          "kk": "Көрсетілімді сақтау мүмкін болмады. Қайталап көріңіз.",
+          "en": "Could not save the demonstration. Please try again.",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Добавьте блюда в корзину. Здесь можно пройти учебный заказ с этим составом. Настоящая корзина сохранится.",
+          "kk": "Тағамдарды себетке қосыңыз. Мұнда сол құраммен сынақ тапсырысын орындап көруге болады. Негізгі себет өзгермейді.",
+          "en": "Add dishes to your basket, then try a demonstration order with those items here. Your real basket will stay unchanged.",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Начать демонстрацию",
+          "kk": "Көрсетілімді бастау",
+          "en": "Start demonstration",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Учебный заказ DEMO-1",
+          "kk": "Сынақ тапсырысы DEMO-1",
+          "en": "Demonstration order DEMO-1",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Демонстрация оплаты",
+          "kk": "Төлем көрсетілімі",
+          "en": "Payment demonstration",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Демонстрация отказа",
+          "kk": "Төлемнің қабылданбау көрсетілімі",
+          "en": "Declined payment demonstration",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Демонстрация приготовления",
+          "kk": "Дайындау көрсетілімі",
+          "en": "Preparation demonstration",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Демонстрация готовности",
+          "kk": "Дайын тапсырыс көрсетілімі",
+          "en": "Ready order demonstration",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Демонстрация выдачи",
+          "kk": "Тапсырысты беру көрсетілімі",
+          "en": "Collection demonstration",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Сумма только для примера. Банковского счёта и фискального чека нет.",
+          "kk": "Сома тек мысал ретінде көрсетілген. Банк шоты мен фискалдық чек жасалмайды.",
+          "en": "The amount is for demonstration only. No bank invoice or fiscal receipt is created.",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "В настоящем заказе результат подтверждает банк. Здесь выберите учебный результат сами.",
+          "kk": "Нақты тапсырыста нәтижені банк растайды. Мұнда сынақ нәтижесін өзіңіз таңдаңыз.",
+          "en": "For a real order, the bank confirms the result. Here, choose a simulated outcome.",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Показать успешную оплату",
+          "kk": "Сәтті төлемді көрсету",
+          "en": "Show successful payment",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Показать отказ оплаты",
+          "kk": "Қабылданбаған төлемді көрсету",
+          "en": "Show declined payment",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Учебная оплата отклонена. Можно повторить или вернуться в корзину.",
+          "kk": "Сынақ төлемі қабылданбады. Қайталап көруге немесе себетке оралуға болады.",
+          "en": "The simulated payment was declined. Try again or return to your basket.",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Так выглядит следующий этап после подтверждения оплаты. В этой демонстрации еду не готовят.",
+          "kk": "Бұл - төлем расталғаннан кейінгі кезең. Осы көрсетілімде тағам дайындалмайды.",
+          "en": "This is the next stage after payment confirmation. No food is prepared in this demonstration.",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Показать готовый заказ",
+          "kk": "Дайын тапсырысты көрсету",
+          "en": "Show ready order",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Играть в Magic Sort",
+          "kk": "Magic Sort ойнау",
+          "en": "Play Magic Sort",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "В настоящем заказе здесь можно идти к стойке за едой. Учебный заказ получать не нужно.",
+          "kk": "Нақты тапсырыс кезінде осы кезеңде тағамды алу үшін сөреге баруға болады. Сынақ тапсырысын алудың қажеті жоқ.",
+          "en": "For a real order, this is when you go to the counter. Do not collect a demonstration order.",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Показать выдачу",
+          "kk": "Тапсырыстың берілуін көрсету",
+          "en": "Show collection",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Демонстрация завершена. Покупка, чек и бонусы не создавались.",
+          "kk": "Көрсетілім аяқталды. Сатып алу, чек немесе бонустар жасалған жоқ.",
+          "en": "Demonstration complete. No purchase, receipt or rewards were created.",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Начать демонстрацию заново",
+          "kk": "Көрсетілімді қайта бастау",
+          "en": "Restart demonstration",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Закрыть демонстрацию",
+          "kk": "Көрсетілімді жабу",
+          "en": "Close demonstration",
+          "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Обновлённые условия",
+          "kk": "Жаңартылған шарттар",
+          "en": "Updated terms",
+          "context": "apps/mobile/src/components/CheckoutLegal.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Перед платным заказом прочитайте новые условия и политику конфиденциальности. Прежнее согласие на бесплатный пилот сохраняется в истории.",
+          "kk": "Ақылы тапсырыс бермес бұрын жаңа шарттар мен құпиялылық саясатын оқып шығыңыз. Тегін сынақ нұсқасына бұрын берген келісіміңіз тарихта сақталады.",
+          "en": "Before placing a paid order, read the updated terms and privacy policy. Your earlier consent to the free pilot remains on record.",
+          "context": "apps/mobile/src/components/CheckoutLegal.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Нажимая «Принимаю условия», вы принимаете эту редакцию условий и политики. Это не согласие на рекламу и не подтверждение банковского платежа.",
+          "kk": "«Шарттарды қабылдаймын» түймесін басу арқылы шарттар мен саясаттың осы нұсқасын қабылдайсыз. Бұл жарнамаға келісім беру немесе банктік төлемді растау емес.",
+          "en": "By tapping “Accept terms”, you accept this version of the terms and policy. This does not consent to advertising or confirm a bank payment.",
+          "context": "apps/mobile/src/components/CheckoutLegal.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Не удалось сохранить согласие. Попробуйте ещё раз.",
+          "kk": "Келісімді сақтау мүмкін болмады. Қайталап көріңіз.",
+          "en": "Could not save your consent. Please try again.",
+          "context": "apps/mobile/src/components/CheckoutLegal.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Принимаю условия",
+          "kk": "Шарттарды қабылдаймын",
+          "en": "Accept terms",
+          "context": "apps/mobile/src/components/CheckoutLegal.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Не удалось проверить условия",
+          "kk": "Шарттарды тексеру мүмкін болмады",
+          "en": "Could not check the terms",
+          "context": "apps/mobile/src/components/CheckoutLegal.tsx",
+          "section": "ui",
+          "note": ""
+        },
+        {
+          "ru": "Проверьте подключение и попробуйте ещё раз. Заказ не отправлен.",
+          "kk": "Интернет байланысын тексеріп, қайталап көріңіз. Тапсырыс жіберілген жоқ.",
+          "en": "Check your connection and try again. The order has not been sent.",
+          "context": "apps/mobile/src/components/CheckoutLegal.tsx",
           "section": "ui",
           "note": ""
         }
