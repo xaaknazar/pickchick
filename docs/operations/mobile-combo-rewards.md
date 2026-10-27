@@ -1,5 +1,9 @@
 # Мобильная акция «7 комбо + Pick Combo в подарок»
 
+> **27.10.2026 владелец изменил правило на 6 + 1** («Купи 6 комбо, 7-е в подарок»).
+> Ниже - история этапа 14.10 с прежним порогом семь. Действующий порог, совместимость
+> и порядок выпуска: [mobile-redesign-2026-10-27/promo.md](mobile-redesign-2026-10-27/promo.md).
+
 14 октября 2026. Задача/ветка `mobile-combo-rewards` / `codex/mobile-combo-rewards`,
 [PR #251](https://github.com/xaaknazar/pickchick/pull/251).
 База TestFlight 20: `0aa873c541e70d11c3b015a8e758df7b633c350a`;
