@@ -729,13 +729,25 @@
     "ru": "Открыть состав заказа",
     "kk": "Тапсырыс құрамын ашу",
     "en": "View order items",
-    "context": "apps/mobile/src/components/CartShortcut.tsx:95"
+    "context": "apps/mobile/src/components/CartShortcut.tsx:250"
   },
   {
-    "ru": "Цены обновились",
-    "kk": "Бағалар жаңарды",
-    "en": "Prices updated",
-    "context": "apps/mobile/src/components/CartShortcut.tsx:110"
+    "ru": "тяни для оплаты",
+    "kk": "сырғытып төлеңіз",
+    "en": "slide to pay",
+    "context": "apps/mobile/src/components/CartShortcut.tsx:227"
+  },
+  {
+    "ru": "Оплатить через Kaspi",
+    "kk": "Kaspi арқылы төлеу",
+    "en": "Pay with Kaspi",
+    "context": "apps/mobile/src/components/KaspiSlideToPay.tsx:180"
+  },
+  {
+    "ru": "Удерживайте и потяните вправо. Двойное касание откроет оформление заказа.",
+    "kk": "Ұстап тұрып, оңға қарай сырғытыңыз. Екі рет түрту тапсырысты рәсімдеуді ашады.",
+    "en": "Hold and slide to the right. Double-tap opens checkout.",
+    "context": "apps/mobile/src/components/KaspiSlideToPay.tsx:182"
   },
   {
     "ru": "Меню обновилось",
@@ -6895,7 +6907,7 @@
   },
   {
     "ru": "Корзина, {p0} позиций, {p1}",
-    "context": "apps/mobile/src/components/CartShortcut.tsx:94",
+    "context": "apps/mobile/src/components/CartShortcut.tsx:248",
     "kk": "Себет: {p0} позиция, {p1}",
     "en": "Basket: {p0} items, {p1}"
   },

@@ -307,6 +307,8 @@ jobs:
           MOBILE_REVIEW_DEMO_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_review_demo.py
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_checkout_legal.py
           .local/design-venv/bin/python tests/mobile/browser_kaspi_checkout.py
+          # Cart bar slide to pay: one-shot intent through the same guarded checkout.
+          CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_slide_to_pay.py
           # Audit 19.10 (0.2/2.0, 2.1, 2.4, 2.5): the Kaspi checkout never traps the customer.
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_checkout_traps.py
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_combo_rewards.py

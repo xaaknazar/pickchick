@@ -87,6 +87,8 @@ export interface MobileModel {
   dismissCatalogUpdate?(): void;
   products: Product[];
   cart: CartLine[];
+  /** Product ids of the latest add actions, newest first (cart bar photos). */
+  recentCartProductIds?: string[];
   catalogMode: CatalogMode;
   diningMode: DiningMode;
   orderComment: string;

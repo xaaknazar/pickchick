@@ -1,22 +1,86 @@
 import { localize, t, useLocale } from '../i18n';
-import { useCallback, useRef } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
-  Animated,
+  Animated as NativeAnimated,
   AppState,
   Easing,
   Platform,
   StyleSheet,
+  Text,
   View,
   useWindowDimensions,
+  type ViewStyle,
 } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { MotionPressable as Pressable, useReducedMotion } from './Motion';
+import { ProductPhoto, productPhoto, type ProductPhotoSource } from './ProductPhoto';
+import { KaspiSlideToPay, type SlidePhase } from './KaspiSlideToPay';
 import { cartTotal } from '../domain';
-import type { MobileModel } from '../model';
+import {
+  cartBarLayout,
+  cartCheckoutBlocked,
+  payableTotalMinor,
+  recentCartLines,
+  slideToPayAvailable,
+} from '../cart-bar';
+import { kaspiCheckoutEnabled } from '../commerce-checkout';
+import { orderSimulatorEnabled } from '../order-simulator';
+import { useAccount } from '../useAccount';
+import { SLIDE_PAY_PARAM, slidePayIntents } from '../useSlidePayIntent';
+import type { CartLine, MobileModel } from '../model';
 import { brandColors, colors, font } from '../theme';
-import { Body, BottomActions, Icon, MinorMoney } from './UI';
+import { BottomActions, Icon, MinorMoney } from './UI';
 
-// One transparent, measured dock shared by the four tabs and standalone menu.
+const PAD = 5;
+const ROW = 54;
+const OVERLAP = 16;
+/** Large text: the hint grows up to x1.4, then shrinks to fit (KK at 320 pt). */
+const HINT_MAX_SCALE = 1.4;
+const HINT_MIN_FIT = 0.7;
+const glass = 'rgba(10, 32, 80, 0.94)';
+// Same backdrop as the floating tab bar on the web build; native keeps the navy glass.
+const webGlass =
+  Platform.OS === 'web'
+    ? ({
+        backdropFilter: 'saturate(180%) blur(20px)',
+        WebkitBackdropFilter: 'saturate(180%) blur(20px)',
+      } as ViewStyle)
+    : null;
+
+/** A product without its own photo (or a restored unavailable line) gets a neutral circle. */
+function hasPhoto(photo: ProductPhotoSource) {
+  return photo.kind === 'remote' || (photo.kind !== 'logo' && !!photo.source);
+}
+
+function RecentPhoto({ line, size, index }: { line: CartLine; size: number; index: number }) {
+  const photo = productPhoto(line.product, 'thumb', 'menu');
+  return (
+    <View
+      testID={`cart-recent-photo-${index}`}
+      nativeID={`cart-recent-${line.product.id}`}
+      style={[s.photo, { width: size, height: size, borderRadius: size / 2 }]}
+    >
+      {hasPhoto(photo) ? (
+        <ProductPhoto photo={photo} style={StyleSheet.absoluteFill} contentFit="contain" />
+      ) : (
+        <View style={[StyleSheet.absoluteFill, s.placeholder]}>
+          <Icon name="fast-food-outline" size={Math.round(size * 0.45)} color={colors.muted} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+// Drinkit-style dock shared by the tabs and the standalone menu (owner request 27.10.2026):
+// Kaspi handle on the left, the total only in the middle, the last added items on the right.
 export function CartShortcut({
   model,
   onPress,
@@ -34,12 +98,38 @@ export function CartShortcut({
   onHeightChange?: (height: number) => void;
 }) {
   useLocale();
+  const router = useRouter();
+  const account = useAccount();
   const count = model.cart.reduce((sum, line) => sum + line.quantity, 0);
-  const total = cartTotal(model.cart);
+  // The amount of «Оформить заказ» and of the invoice: a selected combo gift is taken off.
+  const total = MinorMoney(
+    payableTotalMinor(cartTotal(model.cart), model.comboRewards?.discountMinor),
+  );
   const reduced = useReducedMotion();
-  const { fontScale } = useWindowDimensions();
-  const compact = fontScale > 1.25 || MinorMoney(total).length > 11;
-  const feedback = useRef(new Animated.Value(0)).current;
+  const { width, fontScale } = useWindowDimensions();
+  const layout = cartBarLayout({ width, fontScale, totalLength: total.length });
+  const recent = recentCartLines(model.cart, model.recentCartProductIds, layout.photos);
+  const payable = slideToPayAvailable({
+    kaspiCheckout: kaspiCheckoutEnabled,
+    orderSimulator: orderSimulatorEnabled,
+    catalogMode: model.catalogMode,
+    accountMode: account.mode,
+  });
+  const [barWidth, setBarWidth] = useState(0);
+  const [phase, setPhase] = useState<SlidePhase>('idle');
+  const content = useSharedValue(1);
+  useEffect(() => {
+    const target = phase === 'idle' ? 1 : 0;
+    content.value = reduced ? target : withTiming(target, { duration: 140 });
+  }, [phase, reduced, content]);
+  const offset = useSharedValue(0);
+  // The handle is drawn below the cart button (it comes first for VoiceOver), so the total and the
+  // photos stay hidden until it is back home.
+  const contentStyle = useAnimatedStyle(() => ({
+    opacity: content.value * interpolate(offset.value, [0, 12], [1, 0], Extrapolation.CLAMP),
+  }));
+  // Subtle added feedback: the newest photo settles in when the customer returns with more items.
+  const feedback = useRef(new NativeAnimated.Value(0)).current;
   const previousCount = useRef(0);
   useFocusEffect(
     useCallback(() => {
@@ -50,17 +140,16 @@ export function CartShortcut({
         feedback.setValue(0);
       };
       reset();
-      // Option 1: only the quantity responds; the tap target and amount stay still.
       if (added && !reduced && AppState.currentState === 'active') {
-        Animated.sequence([
-          Animated.timing(feedback, {
+        NativeAnimated.sequence([
+          NativeAnimated.timing(feedback, {
             toValue: 1,
             duration: 160,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: Platform.OS !== 'web',
             isInteraction: false,
           }),
-          Animated.timing(feedback, {
+          NativeAnimated.timing(feedback, {
             toValue: 0,
             duration: 240,
             easing: Easing.inOut(Easing.cubic),
@@ -78,6 +167,29 @@ export function CartShortcut({
       };
     }, [count, reduced, feedback]),
   );
+  // Checkout as the cart's «Оформить заказ» opens it: guests sign in first and land on checkout
+  // without anything sent; a blocked basket opens the cart, where the reason is shown.
+  const openCheckout = (slide: boolean) => {
+    if (cartCheckoutBlocked(model)) {
+      onPress();
+      return;
+    }
+    if (!account.account) {
+      router.push({ pathname: '/auth', params: { returnTo: 'M12' } });
+      return;
+    }
+    router.push({
+      pathname: '/checkout',
+      params: slide ? { [SLIDE_PAY_PARAM]: slidePayIntents.issue() } : {},
+    });
+  };
+  const photoStep = layout.photoSize - OVERLAP;
+  const travel = Math.max(0, Math.floor(barWidth - PAD * 2 - layout.handleWidth - 2));
+  // The hint dims while the handle passes over it, so the overlap never looks broken.
+  const hintStyle = useAnimatedStyle(() => ({
+    opacity:
+      travel > 0 ? interpolate(offset.value, [0, travel * 0.6], [1, 0.15], Extrapolation.CLAMP) : 1,
+  }));
   if (!count) return null;
   return (
     <BottomActions
@@ -90,111 +202,215 @@ export function CartShortcut({
         floating && bottomOffset > 0 && { bottom: bottomOffset, paddingBottom: 10 },
       ]}
     >
-      <Pressable
-        testID="open-cart"
-        accessibilityRole="button"
-        accessibilityLabel={localize(
-          t('Корзина, {p0} позиций, {p1}', { p0: count, p1: MinorMoney(total) }),
-        )}
-        accessibilityHint={t('Открыть состав заказа')}
-        onPress={onPress}
-        style={s.pill}
-      >
+      <GestureHandlerRootView style={s.root}>
         <View
-          pointerEvents="none"
-          accessible={false}
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-          style={s.bag}
+          testID="cart-shortcut"
+          onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
+          style={[s.capsule, webGlass]}
         >
-          <Icon name="bag-handle-outline" size={20} color={colors.orangeInk} />
-        </View>
-        <View style={[s.content, compact && s.contentCompact]}>
-          <View style={s.labelRow}>
-            <Body style={s.label}>
-              {localize(model.catalogUpdateNotice ? 'Цены обновились' : 'Корзина')}
-            </Body>
+          {/* Reading and focus order follow the picture: the hint, the Kaspi handle, then the
+              cart button. Nothing gets a zIndex, which would move the handle last on iOS. */}
+          {phase !== 'idle' ? (
             <Animated.View
-              testID="cart-count-feedback"
-              style={[
-                s.count,
-                {
-                  transform: [
-                    { scale: feedback.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] }) },
-                  ],
-                },
-              ]}
+              pointerEvents="none"
+              style={[s.hintBox, { left: PAD + layout.handleWidth + 8, right: PAD + 8 }, hintStyle]}
             >
-              <Body testID="cart-count" style={s.countText}>
-                {localize(count)}
-              </Body>
+              <Text
+                testID="cart-pay-hint"
+                accessibilityLiveRegion="polite"
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={HINT_MIN_FIT}
+                maxFontSizeMultiplier={HINT_MAX_SCALE}
+                style={s.hint}
+              >
+                {t('тяни для оплаты')}
+              </Text>
             </Animated.View>
-          </View>
-          <Body testID="cart-total" style={[s.total, compact && s.totalCompact]}>
-            {localize(MinorMoney(total))}
-          </Body>
+          ) : null}
+          {payable ? (
+            <KaspiSlideToPay
+              travel={travel}
+              width={layout.handleWidth}
+              height={ROW}
+              reduced={reduced}
+              offset={offset}
+              style={s.handle}
+              onPhaseChange={setPhase}
+              onComplete={() => openCheckout(true)}
+              onOpenCheckout={() => openCheckout(false)}
+            />
+          ) : null}
+          <Pressable
+            testID="open-cart"
+            accessibilityRole="button"
+            accessibilityLabel={localize(
+              t('Корзина, {p0} позиций, {p1}', { p0: count, p1: total }),
+            )}
+            accessibilityHint={t('Открыть состав заказа')}
+            disabled={phase === 'drag'}
+            onPress={onPress}
+            style={[s.open, payable ? { marginLeft: layout.handleWidth } : s.openWhole]}
+          >
+            {!payable ? (
+              <View
+                pointerEvents="none"
+                accessible={false}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={[s.bag, { width: layout.handleWidth }]}
+              >
+                <Icon name="bag-handle-outline" size={24} color={brandColors.brandOrange} />
+              </View>
+            ) : null}
+            <Animated.View
+              pointerEvents="none"
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={[s.middle, contentStyle]}
+            >
+              <View testID="cart-total" style={s.totalBox}>
+                <Text
+                  testID="cart-shortcut-total"
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                  maxFontSizeMultiplier={1.5}
+                  style={[
+                    s.total,
+                    { fontSize: layout.totalSize, lineHeight: Math.round(layout.totalSize * 1.3) },
+                  ]}
+                >
+                  {localize(total)}
+                </Text>
+              </View>
+            </Animated.View>
+            {recent.length ? (
+              <Animated.View
+                pointerEvents="none"
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={[
+                  s.photos,
+                  { width: layout.photoSize + (recent.length - 1) * photoStep },
+                  contentStyle,
+                ]}
+              >
+                {/* Older items first so the newest (index 0) is drawn on top at the right end. */}
+                {recent
+                  .map((line, index) => ({ line, index }))
+                  .reverse()
+                  .map(({ line, index }) => (
+                    <NativeAnimated.View
+                      key={line.product.id}
+                      testID={index === 0 ? 'cart-recent-feedback' : undefined}
+                      style={[
+                        s.photoSlot,
+                        { left: (recent.length - 1 - index) * photoStep },
+                        index === 0 && {
+                          transform: [
+                            {
+                              scale: feedback.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [1, 1.14],
+                              }),
+                            },
+                          ],
+                        },
+                      ]}
+                    >
+                      <RecentPhoto line={line} size={layout.photoSize} index={index} />
+                    </NativeAnimated.View>
+                  ))}
+              </Animated.View>
+            ) : null}
+          </Pressable>
         </View>
-        <View
-          pointerEvents="none"
-          accessible={false}
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-        >
-          <Icon name="arrow-forward" size={20} color={colors.white} />
-        </View>
-      </Pressable>
+      </GestureHandlerRootView>
     </BottomActions>
   );
 }
 const s = StyleSheet.create({
-  dock: { paddingTop: 10, borderTopWidth: 0, backgroundColor: 'transparent' },
+  dock: {
+    paddingTop: 10,
+    paddingHorizontal: 16,
+    borderTopWidth: 0,
+    backgroundColor: 'transparent',
+  },
   floating: { position: 'absolute', bottom: 0, left: 0, right: 0 },
-  pill: {
-    minHeight: 58,
-    borderRadius: 22,
-    backgroundColor: brandColors.brandBlue,
-    paddingVertical: 12,
-    paddingLeft: 16,
-    paddingRight: 16,
+  root: { width: '100%', maxWidth: 440, alignSelf: 'center' },
+  // The cart button fills the capsule's full height (a larger target, and the dock keeps its
+  // distance to the tab bar); the handle and the photos sit inside with the same inset.
+  capsule: {
+    minHeight: ROW + PAD * 2,
+    borderRadius: 999,
+    paddingHorizontal: PAD,
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    shadowColor: colors.background,
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 5 },
-    shadowRadius: 12,
-    elevation: 5,
+    alignItems: 'stretch',
+    backgroundColor: glass,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    shadowColor: '#000000',
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 18,
+    elevation: 12,
   },
-  bag: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: brandColors.brandOrange,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  content: {
+  open: {
     flex: 1,
     minWidth: 0,
+    minHeight: ROW + PAD * 2,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 8,
+    borderRadius: 999,
   },
-  contentCompact: { flexDirection: 'column', alignItems: 'flex-start', gap: 0 },
-  labelRow: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, flexWrap: 'wrap', gap: 6 },
-  label: { fontFamily: font.heading, fontSize: 16, lineHeight: 23, color: colors.white },
-  count: { minWidth: 12, alignItems: 'center', paddingHorizontal: 2 },
-  countText: { fontFamily: font.bold, fontSize: 12, lineHeight: 22, color: colors.text },
+  openWhole: { gap: 10 },
+  bag: {
+    height: ROW,
+    borderRadius: ROW / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+    flexShrink: 0,
+  },
+  middle: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center' },
+  totalBox: { maxWidth: '100%' },
   total: {
     fontFamily: font.display,
-    fontSize: 18,
-    lineHeight: 25,
     color: colors.white,
-    flexShrink: 1,
-    textAlign: 'right',
+    textAlign: 'center',
     fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
   },
-  totalCompact: { textAlign: 'left' },
+  photos: { height: ROW, flexShrink: 0, justifyContent: 'center' },
+  photoSlot: { position: 'absolute', top: 0, bottom: 0, justifyContent: 'center' },
+  photo: {
+    overflow: 'hidden',
+    backgroundColor: '#FFF8EE',
+    borderWidth: 2,
+    borderColor: '#0A2050',
+  },
+  placeholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.raised,
+  },
+  hintBox: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hint: {
+    fontFamily: font.heading,
+    fontSize: 18,
+    lineHeight: 24,
+    color: colors.white,
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
+  // The touch and VoiceOver frame spans the capsule height, level with the cart button.
+  handle: { position: 'absolute', left: PAD, top: 0, bottom: 0 },
 });
