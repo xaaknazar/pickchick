@@ -36,6 +36,7 @@ import { kaspiCheckoutEnabled } from '../commerce-checkout';
 import { orderSimulatorEnabled } from '../order-simulator';
 import { useAccount } from '../useAccount';
 import { SLIDE_PAY_PARAM, slidePayIntents } from '../useSlidePayIntent';
+import { usePaymentMethod } from '../usePaymentMethod';
 import type { CartLine, MobileModel } from '../model';
 import { brandColors, colors, font } from '../theme';
 import { BottomActions, Icon, MinorMoney } from './UI';
@@ -81,7 +82,8 @@ function RecentPhoto({ line, size, index }: { line: CartLine; size: number; inde
 }
 
 // Drinkit-style dock shared by the tabs and the standalone menu (owner request 27.10.2026):
-// Kaspi handle on the left, the total only in the middle, the last added items on the right.
+// the payment handle on the left (the customer's last used method, Kaspi today), the total only
+// in the middle, the last added items on the right.
 export function CartShortcut({
   model,
   onPress,
@@ -101,6 +103,8 @@ export function CartShortcut({
   useLocale();
   const router = useRouter();
   const account = useAccount();
+  // The handle shows the customer's last used payment method (owner 6b; Kaspi today).
+  const payment = usePaymentMethod();
   const count = model.cart.reduce((sum, line) => sum + line.quantity, 0);
   // The amount of «Оформить заказ» and of the invoice: a selected combo gift is taken off.
   const total = MinorMoney(
@@ -186,12 +190,8 @@ export function CartShortcut({
     });
   };
   const photoStep = layout.photoSize - OVERLAP;
+  // How far the handle pill can stretch: fully stretched it fills the capsule (owner 6a).
   const travel = Math.max(0, Math.floor(barWidth - PAD * 2 - layout.handleWidth - 2));
-  // The hint dims while the handle passes over it, so the overlap never looks broken.
-  const hintStyle = useAnimatedStyle(() => ({
-    opacity:
-      travel > 0 ? interpolate(offset.value, [0, travel * 0.6], [1, 0.15], Extrapolation.CLAMP) : 1,
-  }));
   if (!count) return null;
   return (
     <BottomActions
@@ -210,12 +210,13 @@ export function CartShortcut({
           onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
           style={[s.capsule, webGlass]}
         >
-          {/* Reading and focus order follow the picture: the hint, the Kaspi handle, then the
-              cart button. Nothing gets a zIndex, which would move the handle last on iOS. */}
+          {/* Reading and focus order follow the picture: the hint, the payment handle, then the
+              cart button. Nothing gets a zIndex, which would move the handle last on iOS. The
+              handle is drawn after the hint, so its stretching pill covers the hint. */}
           {phase !== 'idle' ? (
-            <Animated.View
+            <View
               pointerEvents="none"
-              style={[s.hintBox, { left: PAD + layout.handleWidth + 8, right: PAD + 8 }, hintStyle]}
+              style={[s.hintBox, { left: PAD + layout.handleWidth + 8, right: PAD + 8 }]}
             >
               <Text
                 testID="cart-pay-hint"
@@ -228,7 +229,7 @@ export function CartShortcut({
               >
                 {t('тяни для оплаты')}
               </Text>
-            </Animated.View>
+            </View>
           ) : null}
           {payable ? (
             <KaspiSlideToPay
@@ -236,6 +237,7 @@ export function CartShortcut({
               width={layout.handleWidth}
               height={ROW}
               reduced={reduced}
+              method={payment.method}
               offset={offset}
               style={s.handle}
               onPhaseChange={setPhase}

@@ -58,6 +58,7 @@ import {
 } from '../checkout-resume';
 import { OrderSheet, useSheetDismissalLock } from '../components/OrderSheet';
 import { slidePayIntents, useSlidePayIntent } from '../useSlidePayIntent';
+import { rememberPaymentMethod, usePaymentMethod } from '../usePaymentMethod';
 import { runSlidePayIntent } from '../slide-pay-intent';
 import { Body, Button, Caption, Page } from '../components/UI';
 import { cartTotal, cartLineKey, money } from '../domain';
@@ -76,6 +77,7 @@ export function KaspiCart(props: ScreenProps) {
   useLocale();
   const account = useAccount();
   const router = useRouter();
+  const payment = usePaymentMethod();
   if (accountCanAct(account)) return <KaspiCheckoutScreen {...props} />;
   const discount = props.model.comboRewards?.discountMinor ?? '0';
   const total = (BigInt(cartTotal(props.model.cart)) - BigInt(discount)).toString();
@@ -90,6 +92,7 @@ export function KaspiCart(props: ScreenProps) {
             totalText={money(total)}
             busy={false}
             disabled={blocked || !account.ready}
+            method={payment.method}
             onPay={() => router.push({ pathname: '/auth', params: { returnTo: 'M09' } })}
           />
         ),
@@ -119,6 +122,9 @@ function KaspiCheckoutSession(
   useLocale();
   const auth = useAccount(),
     customerId = auth.account?.customerId;
+  // The customer's active method (item 6b, 27.10.2026): the cart bar handle shows it and this
+  // cart pays with it. Only Kaspi.kz is available today, so it is always Kaspi here.
+  const payment = usePaymentMethod();
   const [config, setConfig] = useState<ReturnType<
     typeof CustomerCheckoutConfigSchema.parse
   > | null>(null);
@@ -499,7 +505,8 @@ function KaspiCheckoutSession(
     if (!orderRef.current) setQuote(null);
   }, [displayedCartTotal]);
   const submit = async () => {
-    if (lock.current || !cart.current.length) return;
+    // This session sends Kaspi invoices only; another active method never sends one.
+    if (lock.current || !cart.current.length || payment.method !== 'kaspi') return;
     lock.current = true;
     setBusy(true);
     try {
@@ -680,6 +687,8 @@ function KaspiCheckoutSession(
     const deadline = setTimeout(() => controller.abort('timeout'), 60_000);
     // Bounds "the bank may still answer" for this order even when it was created long ago.
     noteBankCommand(order.orderId, Date.now());
+    // The handle and «Способ оплаты» show the method of the last payment sent (item 6b).
+    rememberPaymentMethod(customerId, 'kaspi', 'payment');
     try {
       await accept(
         await prepareCheckout(
@@ -722,6 +731,7 @@ function KaspiCheckoutSession(
     key,
     props.model.refreshCatalog,
     props.authorizeLegal,
+    customerId,
   ]);
   useEffect(() => {
     // Explicit consent is persisted before order creation. Admission can arrive later.
@@ -781,6 +791,7 @@ function KaspiCheckoutSession(
       totalText={money(total)}
       busy={busy}
       disabled={busy || blocked}
+      method={payment.method}
       onPay={() => void submit()}
       notices={
         <>

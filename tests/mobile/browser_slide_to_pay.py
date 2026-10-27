@@ -8,8 +8,12 @@ Runs against the customer-auth web export (EXPO_PUBLIC_CUSTOMER_AUTH=server,
 EXPO_PUBLIC_KASPI_CHECKOUT=1, EXPO_PUBLIC_UNPAID_TEST_ORDERS=1, EXPO_PUBLIC_PUBLISHED_CATALOG=0)
 with local fixtures only: no bank, no real customer, no VPS request.
   A  bar zones; a tap shows the hint only; hold shows «тяни для оплаты»; a swipe without the hold,
-     a short drag and Enter on the handle send nothing (no /quotes, /orders or /payment request)
-  B  a full drag creates exactly one quote, one order and one invoice; reload/back resend nothing
+     a short drag and Enter on the handle send nothing (no /quotes, /orders or /payment request);
+     the handle STRETCHES (owner 6a): its left edge stays at the bar's left edge, its width grows
+     with the finger, the method mark rides at its right end and the pill covers the hint; an
+     early release returns it to the base width
+  B  a full drag fills the bar with the pill and creates exactly one quote, one order and one
+     invoice; reload/back resend nothing
   C  a changed price stops before the order; only a second explicit press continues
   D  consent: the dialog stops the slide, «Не сейчас» leaves the normal button, no retry
   E  signed out: the slide opens the sign-in and then the cart without sending anything
@@ -23,6 +27,9 @@ with local fixtures only: no bank, no real customer, no VPS request.
   L  with the shared header and three tabs: on Меню, События and Заказы the bar with the Kaspi
      handle sits above the tab bar and below the header, the content ends above the bar, the
      profile stack screen shows no bar, and a full slide from События pays exactly once
+  M  last used payment method (owner 6b): kept per account (no card data), set by a choice in
+     «Способ оплаты» and by a payment sent; a method that is «скоро» today (Apple Pay, card) or a
+     broken value falls back to Kaspi on the handle (mark + accessible name) and in the selector
 """
 from browser_network import isolated_context, route_fixture
 import json
@@ -48,6 +55,7 @@ HINTS = next({lang: entry[lang] for lang in ('ru', 'kk', 'en')}
 HINT_MAX_SCALE, HINT_MIN_FIT = 1.4, 0.7
 CUSTOMER_ID = customer['id']
 DRAFT_KEY = 'pickchick.commerce.pending.v1:' + CUSTOMER_ID
+METHOD_KEY = 'pickchick.payment.last-method.v1:' + CUSTOMER_ID
 errors = []
 
 
@@ -194,6 +202,25 @@ def geometry(page):
     return handle, bar, bar['width'] - 10 - handle['width']
 
 
+def pill(page):
+    # The handle's frame (touch and VoiceOver target) and the visible pill inside it.
+    return (page.get_by_test_id('cart-pay-handle').filter(visible=True).bounding_box(),
+            page.get_by_test_id('cart-pay-pill').filter(visible=True).bounding_box())
+
+
+def stored(page, key, **expected):
+    # AsyncStorage writes localStorage asynchronously on the web build: wait for the value.
+    page.wait_for_function('''([key, expected]) => {
+      const value = JSON.parse(localStorage.getItem(key) || 'null');
+      return !!value && Object.entries(expected).every(([name, want]) => value[name] === want);
+    }''', arg=[key, expected], timeout=5000)
+    return json.loads(page.evaluate('(key) => localStorage.getItem(key)', key))
+
+
+def mark_box(page, method='kaspi'):
+    return page.locator('#cart-pay-mark-' + method).filter(visible=True).bounding_box()
+
+
 def slide(page, fraction, hold=450, steps=12, release_at_end=True):
     handle, _, travel = geometry(page)
     x, y = handle['x'] + handle['width'] / 2, handle['y'] + handle['height'] / 2
@@ -255,8 +282,15 @@ def scenario_bar_and_short_drag(browser, width, height, reduced):
     expect(page.get_by_test_id('cart-recent-photo-0')).to_be_visible()
     expect(page.get_by_test_id('cart-recent-photo-1')).to_have_count(0)
     box, bar, travel = geometry(page)
+    _, rest = pill(page)
     tab = page.get_by_test_id('tab-menu').bounding_box()
     assert box['width'] >= 44 and box['height'] >= 44, box
+    # The handle starts at the bar's left edge; the Kaspi mark (the only method today) is centred.
+    assert 0 < box['x'] - bar['x'] <= 8 and abs(rest['x'] - box['x']) <= 1, (box, bar, rest)
+    mark = mark_box(page)
+    assert abs(mark['x'] + mark['width'] / 2 - (rest['x'] + rest['width'] / 2)) <= 2, (mark, rest)
+    expect(page.locator('#cart-pay-mark-apple_pay, #cart-pay-mark-google_pay, #cart-pay-mark-card')).to_have_count(0)
+    expect(handle).to_have_attribute('aria-label', 'Оплатить через Kaspi')
     assert bar['x'] >= 0 and bar['x'] + bar['width'] <= width and bar['y'] + bar['height'] <= tab['y'], (bar, tab)
     assert travel > 120, travel
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
@@ -280,11 +314,12 @@ def scenario_bar_and_short_drag(browser, width, height, reduced):
     expect(page.get_by_test_id('cart-pay-hint')).to_have_text(HINT)
     expect(page.get_by_test_id('cart-pay-hint')).to_have_count(0, timeout=4000)
     assert page.url.endswith('/menu'), page.url
-    # A swipe without the hold never moves the handle (and never pays).
+    # A swipe without the hold never stretches the handle (and never pays).
     start = box['x']
     slide(page, 1.0, hold=0)
     page.wait_for_timeout(400)
-    assert abs(page.get_by_test_id('cart-pay-handle').bounding_box()['x'] - start) < 2
+    after, _ = pill(page)
+    assert abs(after['x'] - start) < 1 and abs(after['width'] - box['width']) < 1, (after, box)
     assert page.url.endswith('/menu'), page.url
     # Hold: «тяни для оплаты», total and photos fade out.
     slide(page, 0.0, steps=1, release_at_end=False)
@@ -297,14 +332,42 @@ def scenario_bar_and_short_drag(browser, width, height, reduced):
     page.screenshot(path=str(OUT / f'hold-{width}.png'))
     page.mouse.up()
     expect(page.get_by_test_id('cart-pay-hint')).to_have_count(0)
-    # A short drag follows the finger, then springs back and does nothing.
-    slide(page, 0.5, release_at_end=False)
-    moved = page.get_by_test_id('cart-pay-handle').bounding_box()['x']
-    assert moved - start > travel * 0.4, (moved, start, travel)
+    # A short drag STRETCHES the pill (owner 6a): the left edge stays where it was, the width
+    # grows with the finger, the mark rides at the right end under the finger and the pill
+    # covers the start of «тяни для оплаты». It never just slides sideways.
+    x, y = box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
+    page.mouse.move(x, y)
+    page.mouse.down()
+    page.wait_for_timeout(450)
+    widths = []
+    for i in range(1, 13):
+        page.mouse.move(x + travel * 0.5 * i / 12, y)
+        page.wait_for_timeout(16)
+        if i % 4 == 0:
+            frame, visible = pill(page)
+            assert abs(frame['x'] - start) < 1 and abs(visible['x'] - start) < 1.5, (i, frame, visible, start)
+            widths.append(visible['width'])
+    assert widths == sorted(widths) and widths[0] > rest['width'] + 10, widths
+    frame, visible = pill(page)
+    finger = x + travel * 0.5
+    assert abs(visible['width'] - (rest['width'] + travel * 0.5)) <= 3, (visible, rest, travel)
+    assert abs(frame['width'] - visible['width']) <= 1, (frame, visible)
+    mark = mark_box(page)
+    assert abs(mark['x'] + mark['width'] / 2 - finger) <= 3, (mark, finger)
+    assert visible['x'] + visible['width'] - (mark['x'] + mark['width']) <= rest['width'] / 2, (mark, visible)
+    hint_box = page.get_by_test_id('cart-pay-hint').bounding_box()
+    assert visible['x'] + visible['width'] > hint_box['x'] + 20, ('the pill covers the hint', visible, hint_box)
+    # The hint stays at full strength: the pill covers it, it does not fade away.
+    assert opacity(page.get_by_test_id('cart-pay-hint')) > 0.95
     page.screenshot(path=str(OUT / f'mid-drag-{width}.png'))
     page.mouse.up()
     page.wait_for_timeout(900)
-    assert abs(page.get_by_test_id('cart-pay-handle').bounding_box()['x'] - start) < 2
+    # Early release: back to the base width at the same left edge, nothing sent.
+    frame, visible = pill(page)
+    assert abs(frame['x'] - start) < 1 and abs(visible['width'] - rest['width']) < 1.5, (frame, visible, rest)
+    assert abs(frame['width'] - box['width']) < 1.5, (frame, box)
+    mark = mark_box(page)
+    assert abs(mark['x'] + mark['width'] / 2 - (rest['x'] + rest['width'] / 2)) <= 2, (mark, rest)
     expect(page.get_by_test_id('cart-pay-hint')).to_have_count(0)
     assert opacity(page.get_by_test_id('cart-shortcut-total')) > 0.95
     # 80 % is still not enough.
@@ -337,12 +400,23 @@ def scenario_full_slide(browser):
     assert not checkout_traffic(state)
     # The server quote equals the total shown in the bar (no price change in this scenario).
     state['quote_total'] = minor(page.get_by_test_id('cart-shortcut-total').inner_text())
-    slide(page, 1.0)
+    start, bar_box = geometry(page)[0], geometry(page)[1]
+    slide(page, 1.0, release_at_end=False)
+    # At the end the pill fills the bar, still anchored at its left edge; nothing is sent yet.
+    frame, visible = pill(page)
+    assert abs(visible['x'] - start['x']) < 1.5, (visible, start)
+    assert visible['width'] >= bar_box['width'] - 10 - 3, (visible, bar_box)
+    assert visible['x'] + visible['width'] <= bar_box['x'] + bar_box['width'], (visible, bar_box)
+    page.screenshot(path=str(OUT / 'full-stretch-393.png'))
+    assert not checkout_traffic(state), checkout_traffic(state)
+    page.mouse.up()
     expect(page.get_by_test_id('kaspi-connecting').or_(page.get_by_test_id('kaspi-waiting'))).to_be_visible(timeout=10000)
     page.screenshot(path=str(OUT / 'checkout-after-slide-393.png'))
     expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi', timeout=15000)
     page.screenshot(path=str(OUT / 'checkout-invoice-after-slide-393.png'))
     assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    saved = stored(page, METHOD_KEY, method='kaspi', source='payment')
+    assert set(saved) == {'method', 'source', 'at'}, saved
     wait_quiet(page)
     assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
     # Reload of the same /cart?slide=... and back navigation resend nothing.
@@ -693,8 +767,66 @@ def scenario_tabs(browser, width, height):
     ctx.close()
 
 
+def scenario_payment_method(browser):
+    # Owner 6b: the handle shows the customer's last used payment method. Today only Kaspi.kz
+    # pays, so a saved Apple Pay or card (from a future build) and a broken value fall back to
+    # Kaspi; a choice in «Способ оплаты» and a payment sent are remembered per account.
+    state = new_state()
+    ctx, page = make_context(browser, state, 393, 852, 'reduce')
+    other = 'pickchick.payment.last-method.v1:40000000-0000-4000-8000-0000000000b2'
+    seeded = {'method': 'apple_pay', 'source': 'payment', 'at': 1761500000000}
+    ctx.add_init_script('if (!sessionStorage.getItem("method-seeded")) {'
+                        f'localStorage.setItem({json.dumps(METHOD_KEY)}, {json.dumps(json.dumps(seeded))});'
+                        f'localStorage.setItem({json.dumps(other)}, {json.dumps(json.dumps({**seeded, "method": "card"}))});'
+                        'sessionStorage.setItem("method-seeded", "1"); }')
+    page.goto(URL + '/menu')
+    add(page)
+    expect(page.get_by_test_id('launch-reveal')).to_have_count(0)
+    handle = page.get_by_test_id('cart-pay-handle').filter(visible=True)
+    expect(handle).to_have_attribute('aria-label', 'Оплатить через Kaspi')
+    expect(page.locator('#cart-pay-mark-kaspi')).to_be_visible()
+    expect(page.locator('#cart-pay-mark-apple_pay')).to_have_count(0)
+    # The fallback does not erase the saved value: once Apple Pay works it is shown again.
+    assert json.loads(page.evaluate('(key) => localStorage.getItem(key)', METHOD_KEY))['method'] == 'apple_pay'
+    # The cart's selector opens preselected with the same method.
+    page.get_by_test_id('open-cart').click()
+    method = page.get_by_test_id('cart-payment-method')
+    expect(method).to_contain_text('Kaspi.kz', timeout=15000)
+    expect(method).to_have_attribute('aria-label', 'Способ оплаты: Kaspi.kz, изменить')
+    method.click()
+    expect(page.get_by_test_id('cart-payment-kaspi')).to_have_attribute('aria-checked', 'true')
+    expect(page.get_by_test_id('cart-payment-apple_pay')).to_have_attribute('aria-checked', 'false')
+    # «Скоро» methods cannot be chosen, so nothing is remembered for them.
+    page.get_by_test_id('cart-payment-apple_pay').click(force=True)
+    assert json.loads(page.evaluate('(key) => localStorage.getItem(key)', METHOD_KEY))['source'] == 'payment'
+    page.get_by_test_id('cart-payment-kaspi').click()
+    expect(page.get_by_test_id('cart-payment-sheet')).to_have_count(0)
+    saved = stored(page, METHOD_KEY, method='kaspi', source='choice')
+    assert set(saved) == {'method', 'source', 'at'}, saved
+    # Another account's value on the same device is untouched.
+    assert json.loads(page.evaluate('(key) => localStorage.getItem(key)', other))['method'] == 'card'
+    assert not checkout_traffic(state) or all(p.startswith('GET ') for p in checkout_traffic(state)), checkout_traffic(state)
+    page.get_by_test_id('cart-close').click()
+    expect(page.get_by_test_id('cart-shortcut')).to_be_visible(timeout=10000)
+    # A broken saved value reads as a new customer: Kaspi, nothing thrown.
+    page.evaluate('(key) => localStorage.setItem(key, \'{"method":"card","pan":"0"}\')', METHOD_KEY)
+    page.reload()
+    expect(page.get_by_test_id('cart-pay-handle').filter(visible=True)).to_have_attribute('aria-label', 'Оплатить через Kaspi', timeout=25000)
+    expect(page.locator('#cart-pay-mark-kaspi')).to_be_visible()
+    page.screenshot(path=str(OUT / 'payment-method-fallback-393.png'))
+    # The slide pays with that method (Kaspi): one quote, one order, one invoice, then remembered.
+    expect(page.get_by_test_id('launch-reveal')).to_have_count(0, timeout=20000)
+    state['quote_total'] = minor(page.get_by_test_id('cart-shortcut-total').filter(visible=True).inner_text())
+    slide(page, 1.0)
+    expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi', timeout=15000)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    stored(page, METHOD_KEY, method='kaspi', source='payment')
+    release(state)
+    ctx.close()
+
+
 if __name__ == '__main__':
-    SELECTED = os.environ.get('SLIDE_TO_PAY', 'ABCDEFGHIJKL').upper()
+    SELECTED = os.environ.get('SLIDE_TO_PAY', 'ABCDEFGHIJKLM').upper()
     with sync_playwright() as p:
         browser = p.chromium.launch()
         if 'A' in SELECTED:
@@ -723,12 +855,15 @@ if __name__ == '__main__':
         if 'L' in SELECTED:
             scenario_tabs(browser, 393, 852)
             scenario_tabs(browser, 320, 568)
+        if 'M' in SELECTED:
+            scenario_payment_method(browser)
         browser.close()
     assert not errors, errors
-    print('PASS slide to pay into the Kaspi cart (' + SELECTED + '): hold hint, tap/swipe/short drag/keyboard send nothing, '
+    print('PASS slide to pay into the Kaspi cart (' + SELECTED + '): hold hint, the pill stretches from a fixed left '
+          'edge with the mark under the finger and shrinks back on an early release, tap/swipe/short drag/keyboard send nothing, '
           'full drag = one quote + one order + one invoice, reload/back resend nothing, price change and '
           'consent stop before the order, signed-out sign-in lands on the cart without sending, '
           'App Review account refused once, DEMO-1 without cart bar or mutations, gift total = invoice, '
           'hint fits in RU/KK/EN at 320 pt, an old unbilled intent does not block the slide, '
           'back to cart after a slide, the same bar above the three tabs and below the header, '
-          'none on the profile, one payment from События')
+          'none on the profile, one payment from События, last used payment method per account with Kaspi fallback')

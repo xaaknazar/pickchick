@@ -2,7 +2,6 @@ import { localize, t, useLocale } from '../i18n';
 import { useState, type ReactNode } from 'react';
 import {
   Keyboard,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,7 +12,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { DiningMode, MobileModel } from '../model';
-import { KASPI_PAY, brandSlotParts, cartPaymentMethods, cartPayTitle } from '../cart-payment';
+import { KASPI_PAY, brandSlotParts, cartPayTitle } from '../cart-payment';
+import { paymentMethodLabel, type PaymentMethodId } from '../payment-method';
+import { usePaymentMethod } from '../usePaymentMethod';
 import { MotionModal, MotionPressable } from './Motion';
 import { PaymentMark } from './PaymentChoice';
 import { Body, Caption, CloseButton, Heading, Icon, IconButton, type IconName } from './UI';
@@ -173,18 +174,24 @@ function methodIcon(id: string): IconName {
   return id === 'card' ? 'card-outline' : id === 'google_pay' ? 'logo-google' : 'logo-apple';
 }
 
-/** «Способ оплаты»: Kaspi.kz is selected; wallets and cards are listed as «скоро». */
+/**
+ * «Способ оплаты» (owner 27.10.2026, item 6b): opens preselected with the customer's last used
+ * method (the one the cart bar handle shows); choosing a method remembers it for the account.
+ * Only Kaspi.kz pays today; wallets and cards are listed as «скоро» and cannot be chosen.
+ */
 export function PaymentMethodSelector() {
   useLocale();
   const [open, setOpen] = useState(false);
   const insets = useSafeAreaInsets();
+  const payment = usePaymentMethod();
+  const name = localize(t(paymentMethodLabel(payment.method)));
   const close = () => setOpen(false);
   return (
     <>
       <MotionPressable
         testID="cart-payment-method"
         accessibilityRole="button"
-        accessibilityLabel={localize(t('Способ оплаты: {p0}, изменить', { p0: 'Kaspi.kz' }))}
+        accessibilityLabel={localize(t('Способ оплаты: {p0}, изменить', { p0: name }))}
         accessibilityState={{ expanded: open }}
         onPress={() => setOpen(true)}
         style={s.method}
@@ -193,9 +200,14 @@ export function PaymentMethodSelector() {
           {t('Способ оплаты')}
         </Caption>
         <View style={s.methodRow}>
-          <PaymentMark method="kaspi" size={24} />
-          <Text style={s.methodName} numberOfLines={1} maxFontSizeMultiplier={1.4}>
-            Kaspi.kz
+          <PaymentMark method={payment.method} size={24} />
+          <Text
+            testID="cart-payment-method-name"
+            style={s.methodName}
+            numberOfLines={1}
+            maxFontSizeMultiplier={1.4}
+          >
+            {name}
           </Text>
           <Icon name="chevron-down" size={18} color={colors.muted} />
         </View>
@@ -228,21 +240,29 @@ export function PaymentMethodSelector() {
                 />
               </View>
               <View accessibilityRole="radiogroup" style={s.options}>
-                {cartPaymentMethods(Platform.OS).map((method) =>
+                {payment.methods.map((method) =>
                   method.available ? (
                     <MotionPressable
                       key={method.id}
                       testID={`cart-payment-${method.id}`}
                       accessibilityRole="radio"
-                      accessibilityLabel={method.label}
-                      aria-checked
-                      accessibilityState={{ checked: true, selected: true }}
-                      onPress={close}
-                      style={[s.option, s.optionSelected]}
+                      accessibilityLabel={localize(t(method.label))}
+                      aria-checked={method.id === payment.method}
+                      accessibilityState={{
+                        checked: method.id === payment.method,
+                        selected: method.id === payment.method,
+                      }}
+                      onPress={() => {
+                        payment.choose(method.id);
+                        close();
+                      }}
+                      style={[s.option, method.id === payment.method && s.optionSelected]}
                     >
-                      <PaymentMark method="kaspi" size={36} />
-                      <Body style={s.optionName}>{method.label}</Body>
-                      <Icon name="checkmark-circle" size={24} color={colors.accent} />
+                      <PaymentMark method={method.id} size={36} />
+                      <Body style={s.optionName}>{localize(t(method.label))}</Body>
+                      {method.id === payment.method ? (
+                        <Icon name="checkmark-circle" size={24} color={colors.accent} />
+                      ) : null}
                     </MotionPressable>
                   ) : (
                     <View
@@ -277,7 +297,8 @@ export function PaymentMethodSelector() {
 
 /**
  * Footer of the cart in the Kaspi build: payment method and «Итого» side by side, then the
- * white «Оплатить с Kaspi.kz» button. Pressing it runs the guarded checkout submit.
+ * white «Оплатить с [mark] Kaspi.kz» button (the active method). Pressing it runs the guarded
+ * checkout submit.
  */
 export function CartPaymentFooter({
   totalMinor,
@@ -286,6 +307,7 @@ export function CartPaymentFooter({
   disabled,
   onPay,
   notices,
+  method,
 }: {
   totalMinor: string;
   totalText: string;
@@ -293,12 +315,20 @@ export function CartPaymentFooter({
   disabled: boolean;
   onPay(): void;
   notices?: ReactNode;
+  /** The method the button pays with (the customer's active method, item 6b). */
+  method: PaymentMethodId;
 }) {
   useLocale();
   const title = cartPayTitle({ busy, totalMinor });
-  const kaspi = title === KASPI_PAY;
+  const branded = title === KASPI_PAY;
+  const name = localize(t(paymentMethodLabel(method)));
   // The brand stands where the language puts it (KK: «[Kaspi.kz] арқылы төлеу»).
-  const words = kaspi ? brandSlotParts(t(KASPI_PAY)) : { before: localize(t(title)), after: '' };
+  const words = branded ? brandSlotParts(t(KASPI_PAY)) : { before: localize(t(title)), after: '' };
+  const label = !branded
+    ? t(title)
+    : method === 'kaspi'
+      ? t('Оплатить с Kaspi.kz, {p0}', { p0: totalText })
+      : `${t(KASPI_PAY, { p0: name })}, ${totalText}`;
   return (
     <>
       {notices}
@@ -317,9 +347,7 @@ export function CartPaymentFooter({
         testID="cart-pay"
         feedback="scale"
         accessibilityRole="button"
-        accessibilityLabel={localize(
-          kaspi ? t('Оплатить с Kaspi.kz, {p0}', { p0: totalText }) : t(title),
-        )}
+        accessibilityLabel={localize(label)}
         accessibilityState={{ disabled, busy }}
         disabled={disabled}
         onPress={onPay}
@@ -330,11 +358,11 @@ export function CartPaymentFooter({
             {words.before}
           </Text>
         ) : null}
-        {kaspi ? (
+        {branded ? (
           <View style={s.payBrand}>
-            <PaymentMark method="kaspi" size={30} />
+            <PaymentMark method={method} size={30} />
             <Text style={[s.payText, s.payBrandText]} maxFontSizeMultiplier={1.5}>
-              Kaspi.kz
+              {name}
             </Text>
           </View>
         ) : null}

@@ -13,7 +13,10 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { assets } from '../assets';
+import { paymentHandleLabel, type PaymentMethodId } from '../payment-method';
 import { GlassFill, glassRim } from './GlassButton';
+import { methodGlyph } from './PaymentChoice';
+import { Icon } from './UI';
 
 export type SlidePhase = 'idle' | 'hint' | 'drag';
 /** Press and hold before the handle follows the finger (owner: «зажать и тянуть»). */
@@ -23,56 +26,79 @@ export const SLIDE_COMPLETE_RATIO = 0.85;
 const HINT_MS = 1400;
 const RESET_MS = 700;
 
-/** The Kaspi disc fills the round mark; the asset keeps a white margin around it. */
-function KaspiMark({ size }: { size: number }) {
+/**
+ * Round mark of the active payment method under the finger (owner 27.10.2026, item 6b): the
+ * Kaspi disc, the Apple Pay / Google Pay glyph or a card. The Kaspi asset keeps a white margin
+ * around its disc, so it is drawn larger and clipped to the circle.
+ */
+function MethodMark({ method, size }: { method: PaymentMethodId; size: number }) {
   const image = Math.round(size * 1.36);
+  const glyph = method === 'kaspi' ? null : methodGlyph(method);
   return (
     // No pointer target inside the handle: a web <img> would start a native image drag (and a
-    // pointercancel) instead of moving the handle.
+    // pointercancel) instead of stretching the handle.
     <View
+      testID="cart-pay-mark"
+      nativeID={`cart-pay-mark-${method}`}
       pointerEvents="none"
-      style={[s.mark, { width: size, height: size, borderRadius: size / 2 }]}
+      style={[
+        s.mark,
+        { width: size, height: size, borderRadius: size / 2 },
+        glyph && [s.glyphMark, { backgroundColor: glyph.background }],
+      ]}
     >
-      <Image
-        source={assets.kaspi}
-        contentFit="contain"
-        accessible={false}
-        style={{
-          width: image,
-          height: image,
-          marginLeft: (size - image) / 2,
-          marginTop: (size - image) / 2,
-        }}
-      />
+      {glyph ? (
+        <Icon name={glyph.icon} size={Math.round(size * 0.58)} color={glyph.color} />
+      ) : (
+        <Image
+          source={assets.kaspi}
+          contentFit="contain"
+          accessible={false}
+          style={{
+            width: image,
+            height: image,
+            marginLeft: (size - image) / 2,
+            marginTop: (size - image) / 2,
+          }}
+        />
+      )}
     </View>
   );
 }
 
 /**
- * Kaspi handle of the cart bar. Hold it (~250 ms), drag it to the right end and release: the
- * parent opens the guarded checkout once. An early release springs back and does nothing; a short
- * tap only shows the hint. Screen readers get a button that opens checkout without sending
- * anything (the customer confirms there with the regular button).
+ * Payment handle of the cart bar (the file keeps its name; the method is the customer's active
+ * one, item 6b). Hold it (~250 ms) and drag to the right: the dark pill stays anchored at the
+ * bar's left edge and STRETCHES with the finger (owner 27.10.2026, item 6a, Drinkit-like), the
+ * method mark rides at its right end under the finger and the pill covers «тяни для оплаты».
+ * Released at the end, the pill fills the bar and the parent opens the cart with payment once.
+ * An early release shrinks it back (a spring; instantly with reduced motion) and does nothing;
+ * a short tap only shows the hint. Screen readers and the keyboard get a button that opens the
+ * cart with payment without sending anything (the customer confirms there with «Оплатить»).
  */
 export function KaspiSlideToPay({
   travel,
   width,
   height,
   reduced,
+  method,
   style,
   offset,
   onPhaseChange,
   onComplete,
   onOpenCheckout,
 }: {
-  /** Distance the handle can move to the right, in points. */
+  /** How far the pill can stretch to the right, in points. */
   travel: number;
+  /** Width of the pill at rest. */
   width: number;
   /** Height of the visible pill; the touch and VoiceOver frame is as tall as `style` makes it. */
   height: number;
   reduced: boolean;
+  /** The customer's active payment method: its mark and its name in the label. */
+  method: PaymentMethodId;
   style?: StyleProp<ViewStyle>;
-  /** Handle position in points, shared with the bar (the hint fades as the handle passes). */
+  /** How far the pill is stretched, in points, shared with the bar (content fades out). */
   offset?: SharedValue<number>;
   onPhaseChange: (phase: SlidePhase) => void;
   onComplete: () => void;
@@ -82,6 +108,7 @@ export function KaspiSlideToPay({
   const own = useSharedValue(0);
   const x = offset ?? own;
   const limit = useSharedValue(travel);
+  const base = useSharedValue(width);
   const done = useSharedValue(false);
   const timers = useRef<{
     hint?: ReturnType<typeof setTimeout>;
@@ -91,6 +118,9 @@ export function KaspiSlideToPay({
     limit.value = travel;
     if (x.value > travel) x.value = Math.max(0, travel);
   }, [travel, limit, x]);
+  useEffect(() => {
+    base.value = width;
+  }, [width, base]);
   useEffect(
     () => () => {
       clearTimeout(timers.current.hint);
@@ -114,7 +144,7 @@ export function KaspiSlideToPay({
   const complete = useCallback(() => {
     actions.current.onComplete();
     clearTimeout(timers.current.reset);
-    // The checkout sheet opens over the bar; the handle returns home underneath it.
+    // The cart sheet opens over the bar; the pill returns to its width underneath it.
     timers.current.reset = setTimeout(() => {
       x.value = 0;
       done.value = false;
@@ -134,19 +164,20 @@ export function KaspiSlideToPay({
       })
       .onUpdate((event) => {
         if (done.value) return;
-        // Horizontal only, clamped to the bar.
+        // The pill's right end follows the finger horizontally, clamped to the bar.
         x.value = Math.min(limit.value, Math.max(0, event.translationX));
       })
       .onEnd((_event, success) => {
         if (done.value) return;
         if (success && limit.value > 0 && x.value >= limit.value * SLIDE_COMPLETE_RATIO) {
           done.value = true;
+          // The pill fills the bar, then the payment starts (once).
           x.value = reduced ? limit.value : withTiming(limit.value, { duration: 120 });
           runOnJS(complete)();
         } else {
           x.value = reduced
             ? 0
-            : withSpring(0, { duration: 380, dampingRatio: 0.9, overshootClamping: true });
+            : withSpring(0, { duration: 420, dampingRatio: 0.72, overshootClamping: true });
           runOnJS(cancelDrag)();
         }
       });
@@ -158,8 +189,9 @@ export function KaspiSlideToPay({
       });
     return Gesture.Race(pan, tap);
   }, [enabled, reduced, x, limit, done, startDrag, cancelDrag, complete, flashHint]);
-  const position = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
-  // Keyboard on the web build: Enter/Space opens checkout like VoiceOver's double tap.
+  // Anchored at the left edge: only the width changes, never the position.
+  const stretch = useAnimatedStyle(() => ({ width: base.value + Math.max(0, x.value) }));
+  // Keyboard on the web build: Enter/Space opens the cart like VoiceOver's double tap.
   const keyboard =
     Platform.OS === 'web'
       ? ({
@@ -171,17 +203,18 @@ export function KaspiSlideToPay({
           },
         } as object)
       : {};
+  const mark = Math.min(34, height - 18);
   return (
     <GestureDetector gesture={gesture}>
       <Animated.View
         testID="cart-pay-handle"
         accessible
         accessibilityRole="button"
-        accessibilityLabel={t('Оплатить через Kaspi')}
+        accessibilityLabel={t(paymentHandleLabel(method))}
         accessibilityHint={localize(
-          t('Удерживайте и потяните вправо. Двойное касание откроет оформление заказа.'),
+          t('Удерживайте и потяните вправо. Двойное касание откроет корзину с оплатой.'),
         )}
-        accessibilityActions={[{ name: 'activate', label: t('Оформить заказ') }]}
+        accessibilityActions={[{ name: 'activate', label: t('Открыть корзину с оплатой') }]}
         onAccessibilityAction={(event) => {
           if (event.nativeEvent.actionName === 'activate') actions.current.onOpenCheckout();
         }}
@@ -191,13 +224,20 @@ export function KaspiSlideToPay({
           { width, minHeight: height, borderRadius: height / 2 },
           Platform.OS === 'web' && s.webHandle,
           style,
-          position,
+          stretch,
         ]}
       >
-        {/* The same glass as every round button (27.10.2026), shaped as the handle pill. */}
-        <View pointerEvents="none" style={[s.handle, { width, height, borderRadius: height / 2 }]}>
+        {/* The same glass as every round button (27.10.2026) on a dark base, so the stretched
+            pill covers the hint instead of showing it through. */}
+        <View
+          testID="cart-pay-pill"
+          pointerEvents="none"
+          style={[s.handle, { height, borderRadius: height / 2 }]}
+        >
           <GlassFill radius={height / 2} />
-          <KaspiMark size={Math.min(34, height - 18)} />
+          <View style={[s.markSlot, { width, height }]}>
+            <MethodMark method={method} size={mark} />
+          </View>
         </View>
       </Animated.View>
     </GestureDetector>
@@ -205,11 +245,11 @@ export function KaspiSlideToPay({
 }
 
 const s = StyleSheet.create({
-  // Transparent touch and VoiceOver frame; the visible pill is centred inside it.
-  frame: { alignItems: 'center', justifyContent: 'center' },
+  // Transparent touch and VoiceOver frame; the visible pill fills its width, centred vertically.
+  frame: { alignItems: 'stretch', justifyContent: 'center' },
   handle: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: '100%',
+    backgroundColor: '#071A44',
     ...glassRim,
     shadowColor: '#000000',
     shadowOpacity: 0.3,
@@ -219,5 +259,14 @@ const s = StyleSheet.create({
   },
   // No text selection or native scrolling while the handle is dragged with a mouse or pen.
   webHandle: { cursor: 'pointer', userSelect: 'none', touchAction: 'none' } as unknown as ViewStyle,
+  // The mark stays in the pill's right end: under the finger while it stretches.
+  markSlot: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  glyphMark: { alignItems: 'center', justifyContent: 'center' },
   mark: { overflow: 'hidden', backgroundColor: '#F14635' },
 });

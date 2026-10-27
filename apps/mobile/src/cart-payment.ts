@@ -1,25 +1,12 @@
 /**
- * Cart footer payment methods (owner 27.10.2026, Drinkit-style «Способ оплаты»).
- * Only Kaspi.kz pays today. Apple Pay / Google Pay and bank cards are shown as «скоро»: they
- * cannot be selected and never collect card data.
+ * Cart footer payment methods (owner 27.10.2026, Drinkit-style «Способ оплаты»). The list, the
+ * customer's last used method and its fallback live in payment-method.ts (item 6b).
  */
-export type CartPaymentMethodId = 'kaspi' | 'apple_pay' | 'google_pay' | 'card';
-export type CartPaymentMethod = {
-  id: CartPaymentMethodId;
-  /** Brand names stay as is; «Банковская карта» goes through t(). */
-  label: string;
-  available: boolean;
-};
-
-export function cartPaymentMethods(platform: string): CartPaymentMethod[] {
-  return [
-    { id: 'kaspi', label: 'Kaspi.kz', available: true },
-    platform === 'android'
-      ? { id: 'google_pay', label: 'Google Pay', available: false }
-      : { id: 'apple_pay', label: 'Apple Pay', available: false },
-    { id: 'card', label: 'Банковская карта', available: false },
-  ];
-}
+export {
+  paymentMethods as cartPaymentMethods,
+  type PaymentMethodId as CartPaymentMethodId,
+  type PaymentMethodOption as CartPaymentMethod,
+} from './payment-method.ts';
 
 /**
  * The Kaspi pay action. {p0} marks where the Kaspi.kz mark and name stand, so each language keeps
