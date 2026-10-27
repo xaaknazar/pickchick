@@ -1,3 +1,29 @@
+## 28.10.2026 - мобильный редизайн: полосы closed и glass слиты в интеграционную ветку
+
+Ветка `codex/mobile-header-cart-1027`: merge `--no-ff` `codex/mobile-closed-1028`
+(`8bf8f1d5` -> `c055b225`) и `codex/mobile-liquid-glass-1028` (`c9697aa7` -> `e81994ab`), без
+конфликтов, `pnpm install --frozen-lockfile` PASS. Closed: общее решение «можно ли платить
+сейчас» (`payment-availability.ts`, `usePaymentAvailability.ts`; часы и `orderingOpen`
+сервера, выключатель `/config`, нет связи, свежесть и стоп-лист; пересчёт по минуте и при
+возврате на экран) - полоса корзины без ручки, красная плашка `cart-unavailable` и серая
+недоступная `cart-pay` в корзине, «откроемся в HH:MM» в шапке; намерение свайпа в этом
+состоянии отбрасывается, `submit()` не менялся. Glass: `GlassView` (`expo-glass-effect`
+57.0.4) на iOS 26+ для `GlassButton`/`GlassFill`, кнопки профиля, капсулы и пилюль полосы;
+выбор поверхности `glassSurface()` (liquid / blur / tint / solid), запасной вид ближе к
+Liquid Glass, «Понижение прозрачности» - solid. Шов: закрытая полоса - та же стеклянная
+капсула; правок кода после слияния не понадобилось. PASS: `pnpm test:mobile` 482/482 и 59
+Python, typecheck, lint, format, translations (1455), design:check; Kaspi-экспорт
+(slide_to_pay A-N, cart_page, cart_unavailable A-H, kaspi_checkout, checkout_traps,
+checkout_legal, combo_rewards, review_demo, localization, orders_redesign kaspi 393/320,
+tracker kaspi) и экспорт симулятора (tab_bar, profile, cart_shortcut, account_required,
+menu_recovery, cart_sheet и остальные из протокола). Снимки владельца пересняты, добавлены
+`17-closed-menu-bar` и `18-closed-cart`. `owner-all.md` дополнен пунктами 17 и 18.
+Дальше: сборка 24 Xcode 26+ (новые поды ExpoBlur, ExpoGlassEffect; без
+`UIDesignRequiresCompatibility`), на iPhone с iOS 26 первым делом - видимый системный отклик
+нажатия стекла, затем закрытое состояние и VoiceOver; подтвердить часы заказов на проде;
+проверка казахских текстов носителем. Push не выполнялся.
+[Протокол](../operations/mobile-redesign-2026-10-27/README.md).
+
 ## 27.10.2026 - итоговая интеграция редизайна мобильного приложения (четыре полосы)
 
 Ветка `codex/mobile-header-cart-1027` от `82ddc326` (сборка 23, PR #276 не объединён):
