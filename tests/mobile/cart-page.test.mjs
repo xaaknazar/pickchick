@@ -147,11 +147,19 @@ test('a burst of cart edits re-reads the Kaspi session once, other screens at on
 });
 
 test('glass buttons blur where a blur exists and never shrink below 44 pt', () => {
-  assert.equal(glassSurface('web', false), 'blur');
-  assert.equal(glassSurface('ios', true), 'blur');
+  // Older iOS (no Liquid Glass); the full decision is in liquid-glass.test.mjs.
+  const env = (platform, nativeBlur) => ({
+    platform,
+    osVersion: platform === 'ios' ? '18.6' : 34,
+    liquidGlass: false,
+    nativeBlur,
+    reducedTransparency: false,
+  });
+  assert.equal(glassSurface(env('web', false)), 'blur');
+  assert.equal(glassSurface(env('ios', true)), 'blur');
   // A binary built before expo-blur, and Android: tinted fill with a rim, no crash.
-  assert.equal(glassSurface('ios', false), 'tint');
-  assert.equal(glassSurface('android', true), 'tint');
+  assert.equal(glassSurface(env('ios', false)), 'tint');
+  assert.equal(glassSurface(env('android', true)), 'tint');
   assert.equal(glassSize(), 48);
   assert.equal(glassSize(30), 44);
   assert.equal(glassSize(52), 52);
