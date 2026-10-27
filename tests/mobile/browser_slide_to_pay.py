@@ -16,6 +16,9 @@ with local fixtures only: no bank, no real customer, no VPS request.
   J  an old unbilled intent without an order is still saved when checkout opens: the slide still
      pays once (the press drops that intent), the old intent is never sent
   K  «Вернуться в корзину» after a slide opens the cart, not the tab under checkout
+  L  with the shared header and three tabs: on Меню, События and Заказы the bar with the Kaspi
+     handle sits above the tab bar and below the header, the content ends above the bar, the
+     profile stack screen shows no bar, and a full slide from События pays exactly once
 """
 from browser_network import isolated_context, route_fixture
 import json
@@ -181,8 +184,9 @@ def add(page, product='pick-combo'):
 
 
 def geometry(page):
-    handle = page.get_by_test_id('cart-pay-handle').bounding_box()
-    bar = page.get_by_test_id('cart-shortcut').bounding_box()
+    # Hidden tab screens stay mounted on web: measure the bar the customer sees.
+    handle = page.get_by_test_id('cart-pay-handle').filter(visible=True).bounding_box()
+    bar = page.get_by_test_id('cart-shortcut').filter(visible=True).bounding_box()
     return handle, bar, bar['width'] - 10 - handle['width']
 
 
@@ -605,8 +609,86 @@ def scenario_back_to_cart(browser):
     ctx.close()
 
 
+def content_bottom(page, screen):
+    # Bottom edge of the last laid-out block of a tab once its list is fully scrolled.
+    scroll = page.get_by_test_id('scroll-' + screen)
+    scroll.evaluate('(e) => { e.scrollTop = e.scrollHeight; }')
+    page.wait_for_timeout(300)
+    return scroll.evaluate('''(e) => {
+      let bottom = 0;
+      for (const child of e.firstElementChild.children) {
+        const r = child.getBoundingClientRect();
+        if (r.height > 0) bottom = Math.max(bottom, r.bottom);
+      }
+      return bottom;
+    }''')
+
+
+def scenario_tabs(browser, width, height):
+    # Integration of the header lane (shared header, three tabs, profile as a stack screen) with
+    # the cart bar: the same bar and Kaspi handle on every tab, never under the header, never
+    # over the content end, never on the profile; the slide works from a tab other than the menu.
+    state = new_state()
+    ctx, page = make_context(browser, state, width, height, 'reduce')
+    page.goto(URL + '/menu')
+    add(page)
+    expect(page.get_by_test_id('launch-reveal')).to_have_count(0)
+    expect(page.get_by_test_id('tab-profile')).to_have_count(0)
+    for route, screen in [('menu', 'M06'), ('events', 'M26'), ('orders', 'M19')]:
+        page.get_by_test_id('tab-' + route).click()
+        scope = page.get_by_test_id('screen-' + screen)
+        expect(scope).to_be_visible()
+        expect(scope.get_by_test_id('header-profile')).to_be_visible()
+        expect(page.get_by_test_id('cart-shortcut').filter(visible=True)).to_have_count(1)
+        expect(page.get_by_test_id('cart-pay-handle').filter(visible=True)).to_have_count(1)
+        expect(page.get_by_test_id('cart-shortcut-total').filter(visible=True)).to_have_text('4 190 ₸')
+        handle, bar, travel = geometry(page)
+        tabs = page.get_by_test_id('floating-tab-bar').bounding_box()
+        head = scope.get_by_test_id('app-header-bar').bounding_box()
+        assert 0 <= tabs['y'] - (bar['y'] + bar['height']) <= 18, (route, bar, tabs)
+        assert head['y'] + head['height'] <= bar['y'], (route, head, bar)
+        assert bar['x'] >= 0 and bar['x'] + bar['width'] <= width, (route, bar)
+        assert handle['width'] >= 44 and handle['height'] >= 44 and travel > 120, (route, handle, travel)
+        # The bar's measured height is reserved: the end of the tab content stays above it.
+        assert content_bottom(page, screen) <= bar['y'] + 1, (route, width)
+        head = scope.get_by_test_id('app-header-bar').bounding_box()
+        assert head['y'] + head['height'] <= bar['y'], (route, head, bar)
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+        page.screenshot(path=str(OUT / f'tab-{route}-{width}.png'))
+    # Hold on another tab: the same hint, nothing sent.
+    page.get_by_test_id('tab-events').click()
+    expect(page.get_by_test_id('screen-M26')).to_be_visible()
+    slide(page, 0.0, steps=1, release_at_end=False)
+    expect(page.get_by_test_id('cart-pay-hint').filter(visible=True)).to_have_text(HINT)
+    page.mouse.up()
+    expect(page.get_by_test_id('cart-pay-hint')).to_have_count(0)
+    # The profile is a stack screen above the tabs: no bar, no handle, no tab bar.
+    page.get_by_test_id('screen-M26').get_by_test_id('header-profile').click()
+    expect(page.get_by_test_id('screen-M30')).to_be_visible(timeout=15000)
+    page.wait_for_timeout(500)
+    expect(page.get_by_test_id('cart-shortcut').filter(visible=True)).to_have_count(0)
+    expect(page.get_by_test_id('cart-pay-handle').filter(visible=True)).to_have_count(0)
+    expect(page.get_by_test_id('floating-tab-bar').filter(visible=True)).to_have_count(0)
+    page.get_by_test_id('profile-back').click()
+    expect(page.get_by_test_id('screen-M26')).to_be_visible()
+    expect(page.get_by_test_id('cart-pay-handle').filter(visible=True)).to_have_count(1)
+    wait_quiet(page, 800)
+    # Заказы reads the order list (GET); nothing was quoted, created or billed.
+    sent = [path for path in checkout_traffic(state) if not path.startswith('GET ')]
+    assert not sent and (state['quotes'], state['creates'], state['payments']) == (0, 0, 0), (sent, state)
+    # A full slide from События: one quote, one order, one invoice, as from the menu.
+    state['quote_total'] = minor(page.get_by_test_id('cart-shortcut-total').filter(visible=True).inner_text())
+    slide(page, 1.0)
+    expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi', timeout=15000)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    wait_quiet(page)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    release(state)
+    ctx.close()
+
+
 if __name__ == '__main__':
-    SELECTED = os.environ.get('SLIDE_TO_PAY', 'ABCDEFGHIJK').upper()
+    SELECTED = os.environ.get('SLIDE_TO_PAY', 'ABCDEFGHIJKL').upper()
     with sync_playwright() as p:
         browser = p.chromium.launch()
         if 'A' in SELECTED:
@@ -632,6 +714,9 @@ if __name__ == '__main__':
             scenario_stale_draft(browser)
         if 'K' in SELECTED:
             scenario_back_to_cart(browser)
+        if 'L' in SELECTED:
+            scenario_tabs(browser, 393, 852)
+            scenario_tabs(browser, 320, 568)
         browser.close()
     assert not errors, errors
     print('PASS slide to pay (' + SELECTED + '): hold hint, tap/swipe/short drag/keyboard send nothing, '
@@ -639,4 +724,5 @@ if __name__ == '__main__':
           'consent stop before the order, signed-out sign-in lands on checkout without sending, '
           'App Review account refused once, DEMO-1 without cart bar or mutations, gift total = invoice, '
           'hint fits in RU/KK/EN at 320 pt, an old unbilled intent does not block the slide, '
-          'back to cart after a slide')
+          'back to cart after a slide, the same bar above the three tabs and below the header, '
+          'none on the profile, one payment from События')

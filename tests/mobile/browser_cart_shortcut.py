@@ -85,6 +85,9 @@ with sync_playwright() as p:
             box = pill.bounding_box()
             tab = page.get_by_test_id('tab-' + route).bounding_box()
             assert box['height'] >= 48 and box['y'] + box['height'] <= tab['y'], (box, tab)
+            # The shared header (logo, restaurant, profile) stays clear of the bar, also landscape.
+            head = page.get_by_test_id('screen-' + screen).get_by_test_id('app-header-bar').bounding_box()
+            assert head['y'] + head['height'] <= box['y'], (route, width, head, box)
             assert box['x'] >= 0 and box['x'] + box['width'] <= width
             for tid in ['cart-shortcut-total']:
                 assert page.get_by_test_id(tid).evaluate('(e) => e.scrollWidth <= e.clientWidth + 1'), tid

@@ -201,6 +201,9 @@ with sync_playwright() as p:
                 assert 0 <= box['y'] - cart['y'] - cart['height'] <= 18, (route, cart, box)
                 scroll_to_end(page, screen)
                 assert last_content_bottom(page, screen) <= cart['y'] + 1, (route, width)
+                # The shared header never reaches the cart bar, also with the list scrolled.
+                head = page.get_by_test_id('screen-' + screen).get_by_test_id('app-header-bar').bounding_box()
+                assert head['y'] + head['height'] <= cart['y'], (route, head, cart)
             page.screenshot(path=str(OUT / f'orders-cart-{width}.png'))
             # The profile is a stack screen: no tab bar and no cart dock above it.
             page.get_by_test_id('screen-M19').get_by_test_id('header-profile').click()
