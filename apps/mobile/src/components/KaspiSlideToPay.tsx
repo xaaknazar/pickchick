@@ -25,6 +25,20 @@ export const SLIDE_HOLD_MS = 250;
 export const SLIDE_COMPLETE_RATIO = 0.85;
 const HINT_MS = 1400;
 const RESET_MS = 700;
+/**
+ * Early release: the pill shrinks back on a critically damped spring (owner 6a): fast at first,
+ * then slowing down, about 0.4 s to the base width (370-400 ms in Chromium at 393 and 320 pt),
+ * never narrower than the base width. An underdamped spring with overshoot clamping would stop
+ * the first time it reaches the base width (about 150 ms, a snap rather than a spring). Reduced
+ * motion: no spring, the width is set at once.
+ */
+export const SLIDE_RETURN_SPRING = {
+  duration: 420,
+  dampingRatio: 1,
+  overshootClamping: true,
+} as const;
+/** The pill's glass rim: the mark is centred on the pill's outer edge, not inside the rim. */
+const RIM = glassRim.borderWidth;
 
 /**
  * Round mark of the active payment method under the finger (owner 27.10.2026, item 6b): the
@@ -175,9 +189,7 @@ export function KaspiSlideToPay({
           x.value = reduced ? limit.value : withTiming(limit.value, { duration: 120 });
           runOnJS(complete)();
         } else {
-          x.value = reduced
-            ? 0
-            : withSpring(0, { duration: 420, dampingRatio: 0.72, overshootClamping: true });
+          x.value = reduced ? 0 : withSpring(0, SLIDE_RETURN_SPRING);
           runOnJS(cancelDrag)();
         }
       });
@@ -235,7 +247,7 @@ export function KaspiSlideToPay({
           style={[s.handle, { height, borderRadius: height / 2 }]}
         >
           <GlassFill radius={height / 2} />
-          <View style={[s.markSlot, { width, height }]}>
+          <View style={[s.markSlot, { width, height, right: -RIM, top: -RIM }]}>
             <MethodMark method={method} size={mark} />
           </View>
         </View>
@@ -259,11 +271,10 @@ const s = StyleSheet.create({
   },
   // No text selection or native scrolling while the handle is dragged with a mouse or pen.
   webHandle: { cursor: 'pointer', userSelect: 'none', touchAction: 'none' } as unknown as ViewStyle,
-  // The mark stays in the pill's right end: under the finger while it stretches.
+  // The mark stays in the pill's right end: under the finger while it stretches. The slot is
+  // laid over the rim (right/top -RIM), so the mark is centred on the pill and the finger.
   markSlot: {
     position: 'absolute',
-    right: 0,
-    top: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
