@@ -30,6 +30,12 @@ with sync_playwright() as p:
         route_fixture(context,'**/v1/**', intercept)
         page = context.new_page()
         page.on('pageerror', lambda error: errors.append(str(error)))
+        # Owner 27.10.2026: a guest's header profile button opens the same auth gate.
+        page.goto(URL + '/menu')
+        page.get_by_test_id('screen-M06').get_by_test_id('header-profile').click()
+        expect(page.get_by_test_id('account-required-login').filter(visible=True)).to_be_visible()
+        expect(page.get_by_test_id('screen-M30')).to_have_count(0)
+        # Old links to /profile still open the (gated) profile.
         page.goto(URL + '/profile')
         login = page.get_by_test_id('account-required-login').filter(visible=True)
         expect(login).to_be_visible()
@@ -47,8 +53,44 @@ with sync_playwright() as p:
         assert identity.get_by_text(LONG_NAME, exact=True).evaluate('(e) => e.scrollWidth <= e.clientWidth + 1')
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         page.screenshot(path=str(OUTPUT / f'member-long-{width}.png'))
+        # The profile is a stack screen opened from the header; notifications live inside it.
+        page.goto(URL + '/menu')
+        page.get_by_test_id('screen-M06').get_by_test_id('header-profile').click()
+        expect(page.get_by_test_id('screen-M30')).to_be_visible()
+        assert urlparse(page.url).path == '/profile', page.url
+        expect(page.get_by_test_id('floating-tab-bar').filter(visible=True)).to_have_count(0)
+        row = page.get_by_test_id('profile-notifications')
+        expect(row).to_be_visible()
+        expect(row).to_contain_text('Уведомления')
+        expect(page.get_by_test_id('profile-notifications-count')).to_have_count(0)
+        box = row.bounding_box()
+        assert box['y'] < page.get_by_test_id('profile-orders').bounding_box()['y'], box
+        assert box['y'] + box['height'] <= height and box['height'] >= 44, box
+        back = page.get_by_test_id('profile-back')
+        assert back.bounding_box()['width'] >= 44 and back.bounding_box()['height'] >= 44
+        expect(back).to_have_accessible_name('Назад')
+        page.screenshot(path=str(OUTPUT / f'header-entry-{width}.png'))
+        row.click()
+        expect(page.get_by_test_id('notifications-screen')).to_be_visible()
+        expect(page.get_by_test_id('notifications-back')).to_have_accessible_name('Назад в профиль')
+        page.get_by_test_id('notifications-back').click()
+        expect(page.get_by_test_id('screen-M30')).to_be_visible()
+        assert urlparse(page.url).path == '/profile', page.url
+        back.click()
+        expect(page.get_by_test_id('screen-M06')).to_be_visible()
+        expect(page.get_by_test_id('screen-M30')).to_have_count(0)
+        assert urlparse(page.url).path == '/menu', page.url
+        page.get_by_test_id('screen-M06').get_by_test_id('header-profile').click()
+        expect(page.get_by_test_id('screen-M30')).to_be_visible()
         page.get_by_test_id('profile-edit').click()
         expect(page.get_by_test_id('nickname-input').filter(visible=True)).to_have_value(LONG_NAME)
+        # Saving the edit returns to the same profile screen, not a second copy of it.
+        page.get_by_test_id('nickname-save').filter(visible=True).click()
+        expect(page.get_by_test_id('screen-M30')).to_be_visible()
+        expect(page.get_by_test_id('screen-M30')).to_have_count(1)
+        page.get_by_test_id('profile-back').click()
+        expect(page.get_by_test_id('screen-M06')).to_be_visible()
+        expect(page.get_by_test_id('screen-M30')).to_have_count(0)
         page.goto(URL + '/profile')
         page.get_by_test_id('scroll-M30').evaluate('(e) => e.scrollTop = e.scrollHeight')
         page.screenshot(path=str(OUTPUT / f'settings-{width}.png'))
@@ -72,4 +114,4 @@ with sync_playwright() as p:
     expect(page.get_by_test_id('profile-sign-in')).to_have_count(0)
     expect(page.get_by_test_id('profile-restore-retry')).to_be_visible()
     browser.close()
-print('Profile guest/member layouts, long names, navigation, logout and unreadable-account recovery passed at 320/393; no API mutations')
+print('Profile guest/member layouts, header entry and auth gate, notifications row and back, long names, navigation, logout and unreadable-account recovery passed at 320/393; no API mutations')

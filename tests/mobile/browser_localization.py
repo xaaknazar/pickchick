@@ -12,6 +12,8 @@ CAT=json.loads(subprocess.check_output(['node','--input-type=module','-e',"impor
 BRANCH=CAT['branch_id'];CUSTOMER='40000000-0000-4000-8000-000000000001'
 customer={'id':CUSTOMER,'phone':'+77000000000','nickname':'Меню','birth_date':None,'gender':None,'profile_completed_at':None,'created_at':'2026-09-07T10:00:00.000Z'}
 envelope={'version':1,'device_id':'40000000-0000-4000-8000-000000000004','tokens':{'access_token':'a'*64,'refresh_token':'b'*64,'access_expires_at':'2099-01-01T00:00:00.000Z','session_id':'40000000-0000-4000-8000-000000000002','customer':customer},'challenge':None,'otp_request':None,'verify_intent':None,'refresh_request_id':None,'closing':None}
+# One unread inbox item: its count is shown only inside the profile row, never on the header.
+UNREAD={'id':'40000000-0000-4000-8000-000000000007','orderId':'40000000-0000-4000-8000-000000000008','kind':'ready','title':'Заказ готов','body':'Заберите заказ на выдаче.','createdAt':'2026-10-27T10:00:00.000Z','readAt':None}
 errors=[]
 with sync_playwright() as p:
  browser=p.chromium.launch()
@@ -29,7 +31,7 @@ with sync_playwright() as p:
     if method=='PATCH':
      body=route.request.post_data_json;assert set(body)=={'locale'},body;preferences.update(body);mutations.append(body)
     data=preferences.copy()
-   elif path=='/v1/customers/me/notifications':data={'items':[]}
+   elif path=='/v1/customers/me/notifications':data={'items':[UNREAD]}
    elif path=='/v1/capabilities':data={'schema_version':1,'environment':'staging','data_mode':'pilot','ordering_enabled':False,'features':{'phone_auth':True,'test_order_flow':True,**{k:False for k in ['payments','fiscal','checkout','loyalty']}}}
    elif path=='/v1/branches':data={'branches':[{'id':BRANCH,'code':'TEST','name':'ТЦ Abay Plaza','timezone':'Asia/Almaty','ordering_enabled':False}]}
    elif path==f'/v1/branches/{BRANCH}/menu':data={'schema_version':1,'branch_id':BRANCH,'release_id':'40000000-0000-4000-8000-000000000005','version':1,'published_at':'2026-09-07T00:00:00Z','items':[]}
@@ -68,10 +70,17 @@ with sync_playwright() as p:
   expect(page.get_by_test_id('launch-reveal')).to_have_count(0,timeout=20000)
   expect(page.get_by_test_id('tab-menu')).to_contain_text('Menu');expect(page.get_by_test_id('tab-orders')).to_contain_text('Orders')
   page.screenshot(path=str(OUT/f'menu-en-{width}.png'),full_page=True)
-  page.get_by_test_id('tab-profile').click();expect(page.get_by_text('Меню',exact=True).first).to_be_visible()
+  expect(page.get_by_test_id('tab-profile')).to_have_count(0);expect(page.get_by_test_id('floating-tab-bar').get_by_role('tab')).to_have_count(3)
+  header=page.get_by_test_id('screen-M06').get_by_test_id('header-profile');expect(header).to_have_accessible_name('Profile')
+  header.click();expect(page.get_by_test_id('screen-M30')).to_be_visible();expect(page.get_by_text('Меню',exact=True).first).to_be_visible()
+  expect(page.get_by_test_id('profile-back')).to_have_accessible_name('Back');expect(page.get_by_test_id('profile-notifications')).to_contain_text('Notifications')
+  expect(page.get_by_test_id('profile-notifications-count')).to_have_text('1');expect(page.get_by_test_id('profile-notifications')).to_have_accessible_name('Notifications, unread: 1')
+  assert not header.evaluate('(e)=>/\\d/.test(e.innerText)||e.querySelectorAll("[data-testid]").length>0')
   page.screenshot(path=str(OUT/f'profile-en-{width}.png'),full_page=True)
+  page.get_by_test_id('profile-notifications').click();expect(page.get_by_test_id('notifications-back')).to_have_accessible_name('Back to profile')
+  page.get_by_test_id('notifications-back').click();expect(page.get_by_test_id('screen-M30')).to_be_visible()
   assert all(set(x)=={'locale'}for x in mutations)
   ctx.close()
  browser.close()
 assert not errors,errors
-print('PASS: RU/KK/EN selection, persistence, tabs, user nickname, web push gate at 393x852 and 320x568')
+print('PASS: RU/KK/EN selection, persistence, three tabs, header profile, unread count only in the profile row, user nickname, web push gate at 393x852 and 320x568')

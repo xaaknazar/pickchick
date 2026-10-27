@@ -104,7 +104,9 @@ class MobileLayout(unittest.TestCase):
                 self.assertGreaterEqual(tab['y'] - cart['y'] - cart['height'], 0)
                 self.assertLessEqual(tab['y'] - cart['y'] - cart['height'], 18)
                 self.assertEqual(page.get_by_test_id('open-design-review').count(), 0)
-                for label in ['Меню', 'События', 'Заказы', 'Профиль']:
+                # Owner 27.10.2026: three tabs; the profile opens from the top header.
+                self.assertEqual(page.get_by_test_id('tab-profile').count(), 0)
+                for label in ['Меню', 'События', 'Заказы']:
                     bounds = page.get_by_text(label, exact=True).last.bounding_box()
                     self.assertGreaterEqual(bounds['height'], 16)
                     self.assertLessEqual(bounds['y'] + bounds['height'], height)
@@ -113,12 +115,18 @@ class MobileLayout(unittest.TestCase):
                 if (width, height) == (390, 844):
                     Path('.local/layout-audit').mkdir(parents=True, exist_ok=True)
                     page.screenshot(path='.local/layout-audit/mobile-cart-after.png')
-            for tab, screen in [('orders', 'M19'), ('events', 'M26'), ('profile', 'M30')]:
+            for tab, screen in [('orders', 'M19'), ('events', 'M26')]:
                 page.get_by_test_id('tab-' + tab).click()
                 expect(page.get_by_test_id('screen-' + screen)).to_be_visible()
                 self.fixed(page, 'tab-' + tab, 'scroll-' + screen, 390, bottom_gap=17)
                 self.fixed(page, 'open-cart', 'scroll-' + screen, 390)
                 self.assertEqual(page.get_by_test_id('open-cart').count(), 1)
+                # The shared header stays fixed above the scrolling content.
+                header = page.get_by_test_id('screen-' + screen).get_by_test_id('header-profile')
+                before = header.bounding_box()
+                page.get_by_test_id('scroll-' + screen).evaluate('(e)=>{e.scrollTop=e.scrollHeight}')
+                self.assertAlmostEqual(header.bounding_box()['y'], before['y'], delta=1)
+                self.assertGreaterEqual(header.bounding_box()['height'], 44)
             self.assertEqual(errors, [])
             browser.close()
 
