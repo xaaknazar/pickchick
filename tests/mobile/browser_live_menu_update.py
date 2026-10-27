@@ -28,8 +28,12 @@ envelope = {'version': 1, 'device_id': '40000000-0000-4000-8000-000000000004',
 WATCH = ('(() => { const bad = ' + json.dumps(FORBIDDEN_TEXT, ensure_ascii=False) + ';'
          ' window.__seen = []; setInterval(() => { const t = document.body ? document.body.innerText : "";'
          ' for (const s of bad) if (t.includes(s) && !window.__seen.includes(s)) window.__seen.push(s); }, 25); })();')
-HAS = ('([id, text]) => { const n = id ? document.querySelector(`[data-testid="${id}"]`) : document.body;'
-       ' return !!n && n.innerText.replace(/\\s/g, " ").includes(text); }')
+# A test id, or a CSS selector when it starts with «[» (the cart total is scoped to the cart screen).
+HAS = ('([id, text]) => { const n = id ? document.querySelector(id.startsWith("[") ? id : `[data-testid="${id}"]`)'
+       ' : document.body; return !!n && n.innerText.replace(/\\s/g, " ").includes(text); }')
+# Kaspi build (27.10.2026): the cart is the checkout; its total is cart-total inside the cart screen
+# (the floating cart bar has its own cart-total).
+CART_TOTAL = '[data-testid="screen-M09"] [data-testid="cart-total"]'
 HIDE = ('Object.defineProperty(document, "visibilityState", {configurable: true, get: () => "%s"});'
         'document.dispatchEvent(new Event("visibilitychange"))')
 errors = []; commands = []; offline = set(); results = {}
@@ -42,6 +46,10 @@ def api(context):
         if id(context) in offline:
             return r.abort('internetdisconnected')
         parsed = urlparse(r.request.url); path = parsed.path
+        # Store-level combo rewards read (since 14.10.2026), not served by the catalog fixture:
+        # answered here as disabled, like browser_published_catalog.py, so it is not «refused».
+        if path == '/v1/customer-checkout/combo-rewards' and r.request.method == 'GET':
+            return r.fulfill(json={'enabled': False}, headers={'Access-Control-Allow-Origin': '*'})
         if path.startswith('/v1/customer-checkout/'):
             if r.request.method != 'GET':
                 commands.append(r.request.method + ' ' + path)
@@ -110,7 +118,7 @@ with sync_playwright() as p:
     cart.get_by_test_id('product-add').click()
     cart.get_by_test_id('product-side').click(); cart.get_by_test_id('product-add').click()
     cart.get_by_test_id('open-cart').click()
-    expect(cart.get_by_test_id('cart-checkout')).to_contain_text('5 650,02')
+    expect(cart.locator(CART_TOTAL)).to_contain_text('5 650,02')
     expect(cart.get_by_test_id('cart-quantity-burger')).to_have_text('2')
     card.screenshot(path=str(OUT / 'live-card-before.png')); cart.screenshot(path=str(OUT / 'live-cart-before.png'))
     request = card_context.request
@@ -120,7 +128,7 @@ with sync_playwright() as p:
     started, version = publish(request, 'price=265001')
     within('publish.card_total', card, 'product-add', '5 600,02', started)
     within('publish.card_notice', card, None, NOTICE, started)
-    within('publish.cart_total', cart, 'cart-checkout', '5 850,02', started)
+    within('publish.cart_total', cart, CART_TOTAL, '5 850,02', started)
     within('publish.cart_notice', cart, 'cart-prices-updated', NOTICE, started)
     # The card was not remounted: quantity and the chosen extra survive.
     expect(card.get_by_test_id('product-add')).to_contain_text('5 600,02')
@@ -133,15 +141,15 @@ with sync_playwright() as p:
     within('background.card_total', card, 'product-add', '5 800,02', started)
     time.sleep(1.0)
     returned = time.monotonic(); cart.evaluate(HIDE % 'visible')
-    within('background.cart_after_return', cart, 'cart-checkout', '6 050,02', returned)
+    within('background.cart_after_return', cart, CART_TOTAL, '6 050,02', returned)
 
     # 3. Network loss and recovery: the offline cart catches up after reconnecting.
     offline.add(id(cart_context)); cart_context.set_offline(True); time.sleep(1.0)
     started, version = publish(request, 'price=285001')
     within('offline.card_total', card, 'product-add', '6 000,02', started)
-    assert cart.evaluate(HAS, ['cart-checkout', '6 050,02']), 'offline cart keeps the last known total'
+    assert cart.evaluate(HAS, [CART_TOTAL, '6 050,02']), 'offline cart keeps the last known total'
     reconnected = time.monotonic(); offline.discard(id(cart_context)); cart_context.set_offline(False)
-    within('offline.cart_after_online', cart, 'cart-checkout', '6 250,02', reconnected, limit=6.0)
+    within('offline.cart_after_online', cart, CART_TOTAL, '6 250,02', reconnected, limit=6.0)
 
     # 4. The chosen option leaves the menu: the cart line is removed entirely, only the price
     #    notice is shown; the open card keeps its quantity without the vanished option.
@@ -149,7 +157,7 @@ with sync_playwright() as p:
     cart.wait_for_function('() => !document.querySelector(\'[data-testid="cart-quantity-burger"]\')',
                            polling=50, timeout=LIMIT * 1000)
     results['drop_option.cart_line_removed'] = round(time.monotonic() - started, 3)
-    within('drop_option.cart_total', cart, 'cart-checkout', '250 ₸', started)
+    within('drop_option.cart_total', cart, CART_TOTAL, '250 ₸', started)
     expect(cart.get_by_test_id('cart-quantity-side')).to_have_text('1')
     expect(cart.get_by_test_id('cart-prices-updated')).to_contain_text(NOTICE)
     within('drop_option.card_total', card, 'product-add', '5 700,02', started)
