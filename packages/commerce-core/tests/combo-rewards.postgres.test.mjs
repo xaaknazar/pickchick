@@ -190,7 +190,7 @@ async function fixture(run, options = {}) {
 
 const options = {
   startsAt: '2026-01-01T00:00:00.000Z',
-  approvalReference: 'synthetic-owner-seven-plus-one',
+  approvalReference: 'synthetic-owner-six-plus-one',
 };
 async function programme(f, config = options) {
   const payload = catalogPayload();
@@ -269,10 +269,10 @@ async function programme(f, config = options) {
   };
   return { repo, quote, create, admit, buy, progress };
 }
-test('commercial 7+1: paid quantities, duplicate bank events, concurrent redemption and zero-total gift', () =>
+test('commercial 6+1: paid quantities, duplicate bank events, concurrent redemption and zero-total gift', () =>
   fixture(async (f) => {
     const p = await programme(f);
-    const unpaid = await p.quote(7);
+    const unpaid = await p.quote(6);
     await p.create(unpaid);
     assert.equal((await p.progress()).earnedUnits, 0);
     const a = await p.buy(2);
@@ -280,8 +280,12 @@ test('commercial 7+1: paid quantities, duplicate bank events, concurrent redempt
     await p.repo.observePayment(f.provider, a.confirmation);
     await p.repo.observePayment(f.provider, { ...a.confirmation, eventId: randomUUID() });
     assert.equal((await p.progress()).earnedUnits, 2);
-    await p.buy(5);
+    await p.buy(3);
+    assert.equal((await p.progress()).availableGifts, 0);
+    assert.equal((await p.progress()).remainingToNextGift, 1);
+    await p.buy(1);
     assert.equal((await p.progress()).availableGifts, 1);
+    assert.equal((await p.progress()).visibleStamps, 6);
     const q1 = await p.quote(1, true),
       q2 = await p.quote(1, true);
     assert.equal(q1.snapshot.totalMinor, '0');
@@ -296,7 +300,7 @@ test('commercial 7+1: paid quantities, duplicate bank events, concurrent redempt
     assert.equal(state.attempts.length, 0);
     assert.equal(state.captures.length, 0);
     assert.equal((await p.progress()).usedGifts, 1);
-    assert.equal((await p.progress()).earnedUnits, 7);
+    assert.equal((await p.progress()).earnedUnits, 6);
     assert.equal((await p.progress()).availableGifts, 0);
     assert.ok(state.kitchenEffectId);
   }));
@@ -304,7 +308,7 @@ test('refund one of two combos removes one stamp only after bank confirmation; d
   fixture(async (f) => {
     const p = await programme(f),
       two = await p.buy(2);
-    await p.buy(5);
+    await p.buy(4);
     const request = await p.repo.requestRefund(f.manager, randomUUID(), {
       orderId: two.o.orderId,
       captureId: two.capture.id,
@@ -313,7 +317,7 @@ test('refund one of two combos removes one stamp only after bank confirmation; d
       fulfillmentPolicy: 'manager_reviewed',
       items: [{ lineId: two.q.snapshot.lines[0].lineId, quantity: 1 }],
     });
-    assert.equal((await p.progress()).earnedUnits, 7);
+    assert.equal((await p.progress()).earnedUnits, 6);
     assert.equal((await p.progress()).availableGifts, 0); // pending refund freezes redemption
     const confirmed = {
       eventId: randomUUID(),
@@ -324,11 +328,11 @@ test('refund one of two combos removes one stamp only after bank confirmation; d
       occurredAt: now(),
     };
     await p.repo.observeRefund(f.provider, confirmed);
-    assert.equal((await p.progress()).earnedUnits, 6);
-    assert.equal((await p.progress()).visibleStamps, 6);
+    assert.equal((await p.progress()).earnedUnits, 5);
+    assert.equal((await p.progress()).visibleStamps, 5);
     assert.equal((await p.progress()).availableGifts, 0);
     await p.repo.observeRefund(f.provider, { ...confirmed, eventId: randomUUID() });
-    assert.equal((await p.progress()).earnedUnits, 6);
+    assert.equal((await p.progress()).earnedUnits, 5);
     await assert.rejects(
       p.repo.requestRefund(f.manager, randomUUID(), {
         orderId: two.o.orderId,
@@ -343,7 +347,7 @@ test('refund one of two combos removes one stamp only after bank confirmation; d
 test('an unpaid gift order the restaurant already released frees the gift when it is abandoned', () =>
   fixture(async (f) => {
     const p = await programme(f);
-    await p.buy(7);
+    await p.buy(6);
     const paid = await p.buy(1);
     const q = await p.quote(1, true, true);
     assert.equal(q.snapshot.totalMinor, '1000');
@@ -402,7 +406,7 @@ test('a manual Kaspi Pay refund removes the returned stamp; a withdrawn request 
   fixture(async (f) => {
     const p = await programme(f),
       two = await p.buy(2);
-    await p.buy(5);
+    await p.buy(4);
     assert.equal((await p.progress()).availableGifts, 1);
     // An old adapter request stays pending and freezes the gift until it is withdrawn.
     const pending = await p.repo.requestRefund(f.manager, randomUUID(), {
@@ -420,7 +424,7 @@ test('a manual Kaspi Pay refund removes the returned stamp; a withdrawn request 
       reason: 'Synthetic: no money was returned',
     });
     assert.equal((await p.progress()).availableGifts, 1);
-    assert.equal((await p.progress()).earnedUnits, 7);
+    assert.equal((await p.progress()).earnedUnits, 6);
     const manual = await p.repo.registerManualRefund(f.manager, randomUUID(), {
       orderId: two.o.orderId,
       captureId: two.capture.id,
@@ -431,7 +435,7 @@ test('a manual Kaspi Pay refund removes the returned stamp; a withdrawn request 
     });
     assert.equal(manual.state, 'succeeded');
     const progress = await p.progress();
-    assert.equal(progress.earnedUnits, 6);
+    assert.equal(progress.earnedUnits, 5);
     assert.equal(progress.availableGifts, 0);
     const order = await p.repo.readOrder(f.scope, two.o.orderId);
     assert.equal(order.money.refunded, '10000');
@@ -451,7 +455,7 @@ test('a manual Kaspi Pay refund removes the returned stamp; a withdrawn request 
 test('gift hold survives unknown payment; terminal failure releases it', () =>
   fixture(async (f) => {
     const p = await programme(f);
-    await p.buy(7);
+    await p.buy(6);
     const q = await p.quote(1, true, true);
     assert.equal(q.snapshot.totalMinor, '1000');
     const o = await p.create(q);
@@ -477,14 +481,14 @@ test('gift hold survives unknown payment; terminal failure releases it', () =>
 test('full refund revokes earned stamps, including after a gift was consumed; no automatic money charge', () =>
   fixture(async (f) => {
     const p = await programme(f),
-      purchase = await p.buy(7),
+      purchase = await p.buy(6),
       q = await p.quote(1, true),
       o = await p.create(q);
     await p.admit(q, o);
     const refund = await p.repo.requestRefund(f.manager, randomUUID(), {
       orderId: purchase.o.orderId,
       captureId: purchase.capture.id,
-      amountMinor: '70000',
+      amountMinor: '60000',
       reason: 'Synthetic full return',
       fulfillmentPolicy: 'manager_reviewed',
     });
@@ -493,7 +497,7 @@ test('full refund revokes earned stamps, including after a gift was consumed; no
       refundId: refund.refundId,
       outcome: 'succeeded',
       operationId: randomUUID(),
-      amountMinor: '70000',
+      amountMinor: '60000',
       occurredAt: now(),
     });
     const progress = await p.progress();
@@ -507,7 +511,7 @@ test('disabled programme, another account and unconfirmed orders cannot grant a 
   fixture(async (f) => {
     assert.deepEqual(await customerComboProgress(f.pool, f.scope, null), { enabled: false });
     const p = await programme(f);
-    await p.buy(7);
+    await p.buy(6);
     const other = { ...f.scope, principalId: randomUUID() };
     assert.equal((await customerComboProgress(f.pool, other, options)).availableGifts, 0);
     const q = await p.quote(1, true);
@@ -517,7 +521,7 @@ test('disabled programme, another account and unconfirmed orders cannot grant a 
 test('paid upgrades consume one gift without earning an extra stamp', () =>
   fixture(async (f) => {
     const p = await programme(f);
-    await p.buy(7);
+    await p.buy(6);
     const q = await p.quote(1, true, true),
       o = await p.create(q);
     await p.admit(q, o);
@@ -527,21 +531,21 @@ test('paid upgrades consume one gift without earning an extra stamp', () =>
     });
     await p.repo.observePayment(f.provider, observation(a));
     const progress = await p.progress();
-    assert.equal(progress.earnedUnits, 7);
+    assert.equal(progress.earnedUnits, 6);
     assert.equal(progress.usedGifts, 1);
     assert.equal(progress.availableGifts, 0);
   }));
 test('payment received before programme start never earns commercial stamps', () =>
   fixture(async (f) => {
     const p = await programme(f, { ...options, startsAt: '2099-01-01T00:00:00.000Z' });
-    await p.buy(7);
+    await p.buy(6);
     assert.equal((await p.progress()).earnedUnits, 0);
     await assert.rejects(p.quote(1, true));
   }));
 test('unallocated partial refund requires review instead of inventing which combo was returned', () =>
   fixture(async (f) => {
     const p = await programme(f),
-      purchase = await p.buy(7);
+      purchase = await p.buy(6);
     const request = await p.repo.requestRefund(f.manager, randomUUID(), {
       orderId: purchase.o.orderId,
       captureId: purchase.capture.id,
@@ -558,7 +562,7 @@ test('unallocated partial refund requires review instead of inventing which comb
       occurredAt: now(),
     });
     const progress = await p.progress();
-    assert.equal(progress.earnedUnits, 7);
+    assert.equal(progress.earnedUnits, 6);
     assert.equal(progress.availableGifts, 0);
     assert.equal(progress.reconciliationRequired, true);
   }));
@@ -614,7 +618,7 @@ for (const cancelGift of [false, true])
               accountId: f.payment,
             },
           });
-          const paidQuote = await p.quote(7),
+          const paidQuote = await p.quote(6),
             paidOrder = await p.create(paidQuote);
           const paidDelivery = (await f.pull()).event;
           await f.edge.repo.acceptCloud(f.edge.scope, paidDelivery.command);
@@ -685,7 +689,7 @@ for (const cancelGift of [false, true])
 test('runtime grants allow progress reads but cannot rewrite immutable reward audit', () =>
   fixture(async (f) => {
     const p = await programme(f);
-    await p.buy(7);
+    await p.buy(6);
     const role = 'combo_test_' + randomUUID().replaceAll('-', '');
     await f.admin.query('CREATE ROLE ' + role);
     let limited;

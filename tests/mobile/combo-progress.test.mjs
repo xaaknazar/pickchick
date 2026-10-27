@@ -5,6 +5,7 @@ import {
   comboNextStep,
   comboProgressView,
 } from '../../apps/mobile/src/loyalty/combo-progress.ts';
+import { COMBO_REWARD_THRESHOLD } from '../../packages/commerce-core/src/combo-rewards.ts';
 
 // The practice server contract (test builds only) still counts rounds of 7.
 const progress = (total) => ({
@@ -21,8 +22,9 @@ const progress = (total) => ({
     redeemable: false,
   },
 });
-test('the card has six stamp slots and the gift (6 + 1)', () => {
+test('the card has as many stamp slots as the server rule needs paid combos (6 + 1)', () => {
   assert.equal(COMBO_STAMP_SLOTS, 6);
+  assert.equal(COMBO_REWARD_THRESHOLD, COMBO_STAMP_SLOTS);
 });
 test('combo progress never presents unknown, signed-out or failed data as zero', () => {
   for (const status of ['signed_out', 'loading', 'error'])

@@ -1,9 +1,19 @@
 /**
- * Arithmetic for the owner's seven purchased combos + one gift programme.
+ * Arithmetic for the owner's six purchased combos + one gift programme
+ * («Купи 6 комбо, 7-е в подарок», owner decision 27.10.2026; was 7 + 1).
  * Inputs must come from the commercial PostgreSQL ledger, never client claims
  * or the existing practice counter. This module does not grant or spend gifts.
+ *
+ * The rule changed before the programme was ever enabled, so no stored balance was
+ * earned under the old threshold. The ledger keeps its historical programme
+ * identifier `seven-paid-combos-v1` (fixed by the applied migration 060); it names
+ * the schema row, not the threshold. Never change this threshold again once a
+ * programme has started: every balance is recomputed from it on each read.
+ *
+ * Installed apps (builds 21/23) parse the response with currentStamps <= 6,
+ * visibleStamps <= 7 and remainingToNextGift <= 7; threshold 6 stays inside them.
  */
-export const COMBO_REWARD_THRESHOLD = 7;
+export const COMBO_REWARD_THRESHOLD = 6;
 
 export interface ComboRewardBalance {
   /** Qualifying purchased units after confirmed reversals, not order count. */
