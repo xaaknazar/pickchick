@@ -1,16 +1,19 @@
-## 27.10.2026 - интеграция редизайна мобильного приложения (шапка + полоса корзины)
+## 27.10.2026 - итоговая интеграция редизайна мобильного приложения (четыре полосы)
 
 Ветка `codex/mobile-header-cart-1027` от `82ddc326` (сборка 23, PR #276 не объединён):
-merge `--no-ff` полос `codex/mobile-header-1027` (шапка, три вкладки, профиль поверх
-вкладок, уведомления в профиле) и `codex/mobile-cartbar-1027` (полоса корзины, «тяни для
-оплаты»). Один конфликт в тесте `browser_cart_shortcut.py`; швы (полоса над тремя
-вкладками, шапка не перекрывает полосу, на профиле полосы нет, резерв высоты на вкладках)
-проверены новыми браузерными проверками. Локально PASS: mobile 423 + 59, typecheck, lint,
-format, design/contracts check, все мобильные браузерные тесты CI и `browser_slide_to_pay.py`
-A-L; `browser_mockup_fidelity.py` (H.264) и `browser_published_photos.py` (гонка в тесте)
-падают так же на 82ddc326. Push не выполнялся, TestFlight не собирался.
-Дальше: объединить полосы page и promo (`final-int.md`), перегенерировать
-`docs/translations`, после PR #276 - сборка 24 и проверка на iPhone (жесты, VoiceOver).
+merge `--no-ff` полос hdr (`codex/mobile-header-1027`), cart (`codex/mobile-cartbar-1027`),
+page (`codex/mobile-cartpage-1027`: корзина-оформление, `GlassButton` с `expo-blur`, видео
+под листами) и promo (`codex/combo-6plus1-1027`: акция 6 + 1). Конфликты только в импортах
+`KaspiCheckoutScreen`/`CatalogScreens` и строке теста локализации. Швы: свайп открывает
+корзину с оплатой (`/cart`, M09) и один раз нажимает её `submit()`; гость - вход с
+`returnTo=M09`; кнопка профиля 46 pt на `GlassButton` (аватар у вошедшего, силуэт у гостя),
+стеклянные «назад»/«настройки» профиля и ручка Kaspi; карточка 6 + 1 в «Акциях» корзины;
+словарь переводов перегенерирован. Локально PASS: unit/статические проверки, commerce-core,
+киоск, все мобильные браузерные тесты CI, `browser_slide_to_pay.py` A-L и
+`browser_cart_page.py`; `browser_mockup_fidelity.py` (H.264) и `browser_published_photos.py`
+(гонка в тесте) падают так же на 82ddc326. Push не выполнялся, TestFlight не собирался.
+Дальше: после PR #276 - сборка 24 (новый нативный модуль `expo-blur`), проверка на iPhone
+(жесты, размытие, VoiceOver), выпуск API с правилом 6 + 1 до включения акции.
 [Протокол](../operations/mobile-redesign-2026-10-27/README.md).
 
 ## 22.10.2026 - PickChick отправлен на App Review
