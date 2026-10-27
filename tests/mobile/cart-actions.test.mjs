@@ -152,21 +152,27 @@ test('recommendations use published availability and never offer an invalid defa
   );
   assert.ok(!cartRecommendations([duo], unavailable).some((l) => l.product.id === 'fingers'));
 });
-test('7+1 next step distinguishes unknown balance, example and non-redeemable practice completion', () => {
+test('6+1 next step distinguishes unknown balance, example and non-redeemable practice completion', () => {
   assert.match(comboNextStep().title, /Войдите/);
-  assert.match(comboNextStep(undefined, true).title, /4 комбо/);
-  for (const current of [0, 1, 6]) {
+  assert.match(comboNextStep(undefined, true).title, /3 комбо/);
+  for (const units of [0, 1, 5]) {
     const state = {
       status: 'ready',
-      data: { mode: 'practice', current_stamps: current, completed_cycles: 0 },
+      data: {
+        mode: 'practice',
+        earned_units: units,
+        current_stamps: units % 7,
+        completed_cycles: 0,
+      },
     };
-    assert.match(comboNextStep(state).title, new RegExp(String(7 - current)));
+    assert.match(comboNextStep(state).title, new RegExp(`Ещё ${6 - units} комбо`));
     assert.match(comboNextStep(state).detail, /не даёт право/);
   }
   const complete = comboNextStep({
     status: 'ready',
-    data: { mode: 'practice', current_stamps: 0, completed_cycles: 1 },
+    data: { mode: 'practice', earned_units: 6, current_stamps: 6, completed_cycles: 0 },
   });
   assert.match(complete.title, /Пробный круг собран/);
+  assert.match(complete.detail, /^6 из 6\./);
   assert.notEqual(complete.action, 'Получить подарок');
 });

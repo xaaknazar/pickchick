@@ -780,15 +780,15 @@
     "context": "apps/mobile/src/components/CheckoutPresentation.tsx:103"
   },
   {
-    "ru": "Купи 7 комбо.",
-    "kk": "7 комбо сатып ал.",
-    "en": "Buy 7 combos.",
+    "ru": "Купи 6 комбо.",
+    "kk": "6 комбо сатып ал.",
+    "en": "Buy 6 combos.",
     "context": "apps/mobile/src/components/ComboRewardCard.tsx:64"
   },
   {
-    "ru": "8-е - в подарок!",
-    "kk": "8-шісі - сыйлық!",
-    "en": "Get the 8th free!",
+    "ru": "7-е - в подарок!",
+    "kk": "7-шісі - сыйлық!",
+    "en": "Get the 7th free!",
     "context": "apps/mobile/src/components/ComboRewardCard.tsx:65"
   },
   {
@@ -798,9 +798,9 @@
     "context": "apps/mobile/src/components/ComboRewardCard.tsx:127"
   },
   {
-    "ru": "Твоё восьмое комбо",
-    "kk": "Сенің сегізінші комбоң",
-    "en": "Your eighth combo",
+    "ru": "Твоё седьмое комбо",
+    "kk": "Сенің жетінші комбоң",
+    "en": "Your seventh combo",
     "context": "apps/mobile/src/components/ComboRewardCard.tsx:131"
   },
   {
@@ -810,9 +810,9 @@
     "context": "apps/mobile/src/components/ComboRewardCard.tsx:142"
   },
   {
-    "ru": "За семь комбо - восьмое в подарок. Акция действует на точке.",
-    "kk": "Жеті комбо алсаңыз, сегізіншісі сыйлыққа беріледі. Акция мейрамханада өтеді.",
-    "en": "Buy seven combos and get the eighth free. This offer is available at the restaurant.",
+    "ru": "За шесть комбо - седьмое в подарок. Акция действует на точке.",
+    "kk": "Алты комбо алсаңыз, жетіншісі сыйлыққа беріледі. Акция мейрамханада өтеді.",
+    "en": "Buy six combos and get the seventh free. This offer is available at the restaurant.",
     "context": "apps/mobile/src/components/ComboRewardCard.tsx:143"
   },
   {
@@ -2898,9 +2898,9 @@
     "context": "apps/mobile/src/loyalty/PeakScreens.tsx:364"
   },
   {
-    "ru": "Пример: 3 из 7 комбо",
-    "kk": "Мысал: 7 комбоның 3-еуі",
-    "en": "Example: 3 of 7 combos",
+    "ru": "Пример: 3 из 6 комбо",
+    "kk": "Мысал: 6 комбоның 3-еуі",
+    "en": "Example: 3 of 6 combos",
     "context": "apps/mobile/src/loyalty/combo-progress.ts:9"
   },
   {
@@ -2928,9 +2928,9 @@
     "context": "apps/mobile/src/loyalty/combo-progress.ts:15"
   },
   {
-    "ru": "Ещё 4 комбо до подарка",
-    "kk": "Сыйлыққа дейін тағы 4 комбо",
-    "en": "4 more combos to your gift",
+    "ru": "Ещё 3 комбо до подарка",
+    "kk": "Сыйлыққа дейін тағы 3 комбо",
+    "en": "3 more combos to your gift",
     "context": "apps/mobile/src/loyalty/combo-progress.ts:25"
   },
   {
@@ -2958,9 +2958,9 @@
     "context": "apps/mobile/src/loyalty/combo-progress.ts:39"
   },
   {
-    "ru": "7 из 7. Следующее подходящее комбо начнёт новый пробный круг. Подарок пока оформляется только по правилам акции на кассе.",
-    "kk": "7-ден 7. Келесі сәйкес комбо жаңа сынақ айналымын бастайды. Сыйлық әзірге кассадағы акция ережелері бойынша ғана беріледі.",
-    "en": "7 of 7. The next qualifying combo starts a new trial round. Gifts are currently handled only under the offer rules at the till.",
+    "ru": "6 из 6. Следующее подходящее комбо начнёт новый пробный круг. Подарок пока оформляется только по правилам акции на кассе.",
+    "kk": "6-дан 6. Келесі сәйкес комбо жаңа сынақ айналымын бастайды. Сыйлық әзірге кассадағы акция ережелері бойынша ғана беріледі.",
+    "en": "6 of 6. The next qualifying combo starts a new trial round. Gifts are currently handled only under the offer rules at the till.",
     "context": "apps/mobile/src/loyalty/combo-progress.ts:42"
   },
   {
@@ -6894,10 +6894,10 @@
     "en": "{p0}, coming soon"
   },
   {
-    "ru": "Комбо-бонус. Купи 7 комбо, 8-е в подарок. {p0}. Условия акции",
+    "ru": "Комбо-бонус. Купи 6 комбо, 7-е в подарок. {p0}. Условия акции",
     "context": "apps/mobile/src/components/ComboRewardCard.tsx:38",
-    "kk": "Комбо-бонус. 7 комбо сатып ал, 8-шісі сыйлыққа. {p0}. Акция шарттары",
-    "en": "Combo bonus. Buy 7 combos, get the 8th free. {p0}. Offer terms"
+    "kk": "Комбо-бонус. 6 комбо сатып ал, 7-шісі сыйлыққа. {p0}. Акция шарттары",
+    "en": "Combo bonus. Buy 6 combos, get the 7th free. {p0}. Offer terms"
   },
   {
     "ru": "Сейчас показан отдельный пробный счётчик без права на подарок. После выдачи Solo, Burger, Pick или Master Combo сервер добавляет одну отметку за каждое комбо. Сеты на двоих, напитки и допы не учитываются. Завершено пробных кругов: {p0}. Остаток переносится. Бумажные отметки остаются у кассира.",
@@ -7098,10 +7098,10 @@
     "en": "PEAK {p0}"
   },
   {
-    "ru": "Пробные отметки: {p0} из 7",
+    "ru": "Пробные отметки: {p0} из 6",
     "context": "apps/mobile/src/loyalty/combo-progress.ts:18",
-    "kk": "Сынақ белгілері: 7-ден {p0}",
-    "en": "Trial stamps: {p0} of 7"
+    "kk": "Сынақ белгілері: 6-дан {p0}",
+    "en": "Trial stamps: {p0} of 6"
   },
   {
     "ru": "Ещё {p0} комбо до полного круга",
@@ -8063,9 +8063,9 @@
     "en": "Claim your free Pick Combo"
   },
   {
-    "ru": "После семи отметок подарок появится в профиле и корзине. Включите «Использовать подарок». Остаток покупок переносится на следующий круг.",
-    "kk": "Жеті белгіден кейін сыйлық профильде және себетте пайда болады. «Сыйлықты пайдалану» опциясын қосыңыз. Артық сатып алулар келесі айналымға өтеді.",
-    "en": "After seven stamps, your gift appears in your profile and basket. Turn on “Use gift”. Extra purchases count towards the next round."
+    "ru": "После шести отметок подарок появится в профиле и корзине. Включите «Использовать подарок». Остаток покупок переносится на следующий круг.",
+    "kk": "Алты белгіден кейін сыйлық профильде және себетте пайда болады. «Сыйлықты пайдалану» опциясын қосыңыз. Артық сатып алулар келесі айналымға өтеді.",
+    "en": "After six stamps, your gift appears in your profile and basket. Turn on “Use gift”. Extra purchases count towards the next round."
   },
   {
     "ru": "Возвраты учитываются",
@@ -8103,9 +8103,9 @@
     "en": "Gift included in your current checkout"
   },
   {
-    "ru": "Одна отметка за каждое оплаченное комбо. За семь отметок - Pick Combo в подарок. Возврат комбо снимает его отметку.",
-    "kk": "Әр төленген комбо үшін бір белгі беріледі. Жеті белгі үшін Pick Combo сыйлыққа беріледі. Комбо қайтарылса, оның белгісі алынады.",
-    "en": "Earn one stamp for each paid combo. Seven stamps earn a free Pick Combo. Refunding a combo removes its stamp."
+    "ru": "Одна отметка за каждое оплаченное комбо. За шесть отметок - Pick Combo в подарок. Возврат комбо снимает его отметку.",
+    "kk": "Әр төленген комбо үшін бір белгі беріледі. Алты белгі үшін Pick Combo сыйлыққа беріледі. Комбо қайтарылса, оның белгісі алынады.",
+    "en": "Earn one stamp for each paid combo. Six stamps earn a free Pick Combo. Refunding a combo removes its stamp."
   },
   {
     "ru": "Использовать подарок",
