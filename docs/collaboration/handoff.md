@@ -1,3 +1,18 @@
+## 27.10.2026 - интеграция редизайна мобильного приложения (шапка + полоса корзины)
+
+Ветка `codex/mobile-header-cart-1027` от `82ddc326` (сборка 23, PR #276 не объединён):
+merge `--no-ff` полос `codex/mobile-header-1027` (шапка, три вкладки, профиль поверх
+вкладок, уведомления в профиле) и `codex/mobile-cartbar-1027` (полоса корзины, «тяни для
+оплаты»). Один конфликт в тесте `browser_cart_shortcut.py`; швы (полоса над тремя
+вкладками, шапка не перекрывает полосу, на профиле полосы нет, резерв высоты на вкладках)
+проверены новыми браузерными проверками. Локально PASS: mobile 423 + 59, typecheck, lint,
+format, design/contracts check, все мобильные браузерные тесты CI и `browser_slide_to_pay.py`
+A-L; `browser_mockup_fidelity.py` (H.264) и `browser_published_photos.py` (гонка в тесте)
+падают так же на 82ddc326. Push не выполнялся, TestFlight не собирался.
+Дальше: объединить полосы page и promo (`final-int.md`), перегенерировать
+`docs/translations`, после PR #276 - сборка 24 и проверка на iPhone (жесты, VoiceOver).
+[Протокол](../operations/mobile-redesign-2026-10-27/README.md).
+
 ## 22.10.2026 - PickChick отправлен на App Review
 
 В18:20 Алматы Apple приняла заявку99775be3-3644-4d17-8e4f-ab4dfe3e53ca:
