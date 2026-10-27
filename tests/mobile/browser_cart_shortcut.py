@@ -1,7 +1,13 @@
-"""Launch continuity and reordered storefront on local, read-only synthetic data."""
+"""Launch continuity and the Drinkit-style cart bar on local, read-only synthetic data.
+
+Simulator export (no Kaspi checkout, local demo account): the bar shows the total only and the
+photos of the last added items; the whole capsule opens the cart and has no Kaspi handle. The Kaspi
+handle and slide to pay are covered by browser_slide_to_pay.py on the customer-auth export.
+"""
 from browser_network import isolated_context, route_fixture
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 from urllib.parse import urlparse
@@ -61,7 +67,17 @@ with sync_playwright() as p:
             expect(pill).to_be_visible()
             expect(page.get_by_test_id('launch-reveal')).to_have_count(0)
             expect(pill).to_contain_text('4 190')
-            expect(page.get_by_test_id('cart-count')).to_have_text('1')
+            # Total only (owner): no count, label or time; photos of the last items on the right.
+            expect(page.get_by_test_id('cart-shortcut-total')).to_have_text('4 190 ₸')
+            # Icon glyphs (private use characters) aside, the total is the only text.
+            assert re.sub(r'[\ue000-\uf8ff\s]', '', pill.inner_text()) == '4190₸', pill.inner_text()
+            expect(page.get_by_test_id('cart-count')).to_have_count(0)
+            expect(page.get_by_test_id('cart-recent-photo-0')).to_be_visible()
+            expect(page.get_by_test_id('cart-recent-photo-1')).to_have_count(0)
+            # Not a Kaspi checkout build: no payment handle, the whole capsule opens the cart.
+            expect(page.get_by_test_id('cart-pay-handle')).to_have_count(0)
+            capsule = page.get_by_test_id('cart-shortcut').bounding_box()
+            assert abs(pill.bounding_box()['width'] - capsule['width']) <= 12, (pill.bounding_box(), capsule)
             footer = page.get_by_test_id('bottom-actions').filter(has=pill)
             expect(footer).to_have_css('background-color', 'rgba(0, 0, 0, 0)')
             expect(footer).to_have_css('position', 'absolute')
@@ -70,7 +86,7 @@ with sync_playwright() as p:
             tab = page.get_by_test_id('tab-' + route).bounding_box()
             assert box['height'] >= 48 and box['y'] + box['height'] <= tab['y'], (box, tab)
             assert box['x'] >= 0 and box['x'] + box['width'] <= width
-            for tid in ['cart-total', 'cart-count']:
+            for tid in ['cart-shortcut-total']:
                 assert page.get_by_test_id(tid).evaluate('(e) => e.scrollWidth <= e.clientWidth + 1'), tid
             scroll = page.get_by_test_id('scroll-' + screen)
             if scroll.count():
@@ -104,7 +120,7 @@ with sync_playwright() as p:
       window.cartMotionFrames = [];
       const start = performance.now();
       function tick() {
-        document.querySelectorAll('[data-testid="cart-count-feedback"]').forEach(e => window.cartMotionFrames.push(getComputedStyle(e).transform));
+        document.querySelectorAll('[data-testid="cart-recent-feedback"]').forEach(e => window.cartMotionFrames.push(getComputedStyle(e).transform));
         if (performance.now() - start < 650) requestAnimationFrame(tick);
       }
       requestAnimationFrame(tick);
@@ -116,9 +132,56 @@ with sync_playwright() as p:
     page.emulate_media(reduced_motion='reduce')
     page.get_by_test_id('tab-profile').click()
     page.wait_for_timeout(100)
-    for counter in page.get_by_test_id('cart-count-feedback').all():
+    for counter in page.get_by_test_id('cart-recent-feedback').all():
         assert counter.evaluate('(e) => getComputedStyle(e).transform') in ('none', 'matrix(1, 0, 0, 1, 0, 0)')
     context.close()
+    # Last added items: up to three photos, newest first; adding again makes a product the newest.
+    for width, height in [(393, 852), (320, 568)]:
+        context = isolated_context(browser, viewport={'width': width, 'height': height}, reduced_motion='reduce')
+        signed_in(context)
+        route_fixture(context, '**/v1/**', fixture)
+        page = context.new_page()
+        page.on('pageerror', lambda error: errors.append(str(error)))
+        page.goto(URL + '/menu')
+        expect(page.get_by_test_id('launch-reveal')).to_have_count(0, timeout=20000)
+
+        def add(product):
+            page.get_by_test_id('product-' + product).click(timeout=20000)
+            page.get_by_test_id('product-add').click()
+            expect(page.get_by_test_id('screen-M09')).not_to_be_visible()
+
+        def photos():
+            return [page.get_by_test_id(f'cart-recent-photo-{i}').get_attribute('id')
+                    for i in range(page.locator('[data-testid^="cart-recent-photo-"]').count())]
+
+        for product in ['pick-combo', 'burger', 'wedges', 'coleslaw']:
+            add(product)
+        expect(page.get_by_test_id('cart-recent-photo-2')).to_be_visible()
+        assert photos() == ['cart-recent-coleslaw', 'cart-recent-wedges', 'cart-recent-burger'], photos()
+        page.wait_for_timeout(300)
+        page.screenshot(path=str(OUT / f'four-items-{width}.png'))
+        # Newest photo is drawn on top at the right end; all photos stay inside the bar.
+        bar = page.get_by_test_id('cart-shortcut').bounding_box()
+        boxes = [page.get_by_test_id(f'cart-recent-photo-{i}').bounding_box() for i in range(3)]
+        assert boxes[0]['x'] > boxes[1]['x'] > boxes[2]['x'], boxes
+        assert all(b['x'] >= bar['x'] and b['x'] + b['width'] <= bar['x'] + bar['width'] for b in boxes)
+        total = page.get_by_test_id('cart-shortcut-total')
+        assert total.evaluate('(e) => e.scrollWidth <= e.clientWidth + 1')
+        add('pick-combo')
+        assert photos() == ['cart-recent-pick-combo', 'cart-recent-coleslaw', 'cart-recent-wedges'], photos()
+        # The order is kept with the saved basket.
+        page.reload()
+        expect(page.get_by_test_id('cart-recent-photo-2')).to_be_visible(timeout=20000)
+        assert photos() == ['cart-recent-pick-combo', 'cart-recent-coleslaw', 'cart-recent-wedges'], photos()
+        # Tapping the photos or the total opens the cart (they are decorative parts of one button).
+        for zone in ['cart-recent-photo-0', 'cart-shortcut-total']:
+            box = page.get_by_test_id(zone).bounding_box()
+            page.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+            expect(page.get_by_test_id('cart-checkout')).to_be_visible()
+            page.get_by_test_id('cart-close').click()
+            expect(page.get_by_test_id('screen-M09')).not_to_be_visible()
+        context.close()
     browser.close()
 assert not errors, errors
-print('PASS: four tabs / four sizes, transparent floating docks, readable count and amount, navigation and empty cart')
+print('PASS: four tabs / four sizes, transparent floating docks, total only, last three photos in add order '
+      '(persisted), no Kaspi handle outside the Kaspi build, navigation and empty cart')
