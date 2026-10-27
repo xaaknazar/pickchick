@@ -421,8 +421,9 @@ export function Menu(props: ScreenProps) {
       requestedCategory.value = -1;
     },
   });
+  // Opaque once collapsed: a translucent bar let product buttons show through behind the row.
   const headerStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(scrollY.value, [0, 120], ['#04143A00', '#04143AF5']),
+    backgroundColor: interpolateColor(scrollY.value, [0, 120], ['#04143A00', colors.background]),
   }));
   const stickyStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: Math.max(headerHeight, categoryTop - scrollY.value) }],
@@ -1149,11 +1150,6 @@ const s = StyleSheet.create({
     paddingBottom: 10,
     gap: 12,
     zIndex: 10,
-  },
-  heroHeaderCollapsed: {
-    backgroundColor: '#04143AF5',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
   },
   heroCaption: {
     position: 'absolute',
