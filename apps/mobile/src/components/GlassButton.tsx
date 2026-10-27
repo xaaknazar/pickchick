@@ -32,20 +32,30 @@ const sheen = (
  * bar), so every glass control in the app looks the same.
  */
 export function GlassFill({ radius, pressed = false }: { radius: number; pressed?: boolean }) {
+  // Every layer carries the radius itself (QA 27.10, item 13): the parent's clip alone does not
+  // shape a backdrop blur (CSS backdrop-filter ignores an ancestor's rounded overflow, and
+  // UIVisualEffectView needs its own corner clip), which showed a square patch around round
+  // buttons inside the cart sheet.
+  const round = { borderRadius: radius };
   return (
-    <View pointerEvents="none" style={[StyleSheet.absoluteFill, s.clip, { borderRadius: radius }]}>
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, s.clip, round]}>
       {surface === 'blur' ? (
-        <BlurView tint="dark" intensity={glass.blurIntensity} style={StyleSheet.absoluteFill} />
+        <BlurView
+          tint="dark"
+          intensity={glass.blurIntensity}
+          style={[StyleSheet.absoluteFill, s.clip, round]}
+        />
       ) : null}
       <View
         style={[
           StyleSheet.absoluteFill,
+          round,
           { backgroundColor: surface === 'blur' ? glass.veil : glass.fallback },
         ]}
       />
-      <View style={[StyleSheet.absoluteFill, sheen]} />
+      <View style={[StyleSheet.absoluteFill, round, sheen]} />
       {pressed ? (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: glass.pressedVeil }]} />
+        <View style={[StyleSheet.absoluteFill, round, { backgroundColor: glass.pressedVeil }]} />
       ) : null}
     </View>
   );

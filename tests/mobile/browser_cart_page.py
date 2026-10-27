@@ -193,6 +193,59 @@ def has_blur(locator):
     })""")
 
 
+def blur_is_round(locator):
+    # QA 27.10 (item 13): the blur layer itself is rounded like its button. A backdrop blur is not
+    # shaped by an ancestor's rounded clip, which showed a square tinted patch in the cart sheet.
+    return locator.evaluate("""(el) => {
+      const side = el.getBoundingClientRect().width;
+      const layers = [el, ...el.querySelectorAll('*')].filter((n) => {
+        const style = getComputedStyle(n);
+        return (style.backdropFilter || style.webkitBackdropFilter || '').includes('blur');
+      });
+      return layers.length > 0 && layers.every((n) => {
+        const style = getComputedStyle(n);
+        return ['borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius']
+          .every((corner) => parseFloat(style[corner]) >= side / 2 - 1) && style.overflow === 'hidden';
+      });
+    }""")
+
+
+def waiting_fits(page, width):
+    # QA 27.10 (items 11/16): the whole waiting scene sits above the pinned buttons, at 393 and at
+    # 320 x 568: title, scene, spinner, the amount line and the countdown are not cut or covered.
+    waiting = page.get_by_test_id('kaspi-waiting')
+    scroll = waiting.get_by_test_id('kaspi-state-scroll').bounding_box()
+    footer = waiting.get_by_test_id('bottom-actions').bounding_box()
+    assert scroll['y'] + scroll['height'] <= footer['y'] + 1, (scroll, footer)
+    expect(waiting.get_by_test_id('kaspi-state-detail')).to_contain_text('4 190 ₸')
+    for test_id in ('kaspi-state-spinner', 'kaspi-state-detail', 'kaspi-invoice-countdown'):
+        box = waiting.get_by_test_id(test_id).bounding_box()
+        assert box and scroll['y'] - 1 <= box['y'] and box['y'] + box['height'] <= footer['y'] + 1, (width, test_id, box, scroll, footer)
+    if width > 360:
+        return
+    # Large text (the web build reports fontScale 1): grow every text of the scene by x1.3. The
+    # content may scroll then, but it stays above the buttons and every line can be reached.
+    waiting.get_by_test_id('kaspi-state-scroll').evaluate("""(e) => {
+      for (const node of e.querySelectorAll('*')) {
+        const style = getComputedStyle(node);
+        if (node.childNodes.length && [...node.childNodes].some((c) => c.nodeType === 3 && c.textContent.trim())) {
+          node.style.fontSize = parseFloat(style.fontSize) * 1.3 + 'px';
+          if (style.lineHeight !== 'normal') node.style.lineHeight = parseFloat(style.lineHeight) * 1.3 + 'px';
+        }
+      }
+    }""")
+    page.wait_for_timeout(200)
+    scroll = waiting.get_by_test_id('kaspi-state-scroll').bounding_box()
+    footer = waiting.get_by_test_id('bottom-actions').bounding_box()
+    assert scroll['y'] + scroll['height'] <= footer['y'] + 1, (scroll, footer)
+    for test_id in ('kaspi-state-detail', 'kaspi-invoice-countdown'):
+        target = waiting.get_by_test_id(test_id)
+        target.evaluate("(e) => e.scrollIntoView({block: 'nearest'})")
+        box = target.bounding_box()
+        assert scroll['y'] - 1 <= box['y'] and box['y'] + box['height'] <= scroll['y'] + scroll['height'] + 1, (test_id, box, scroll)
+    page.screenshot(path=str(OUT / f'after-pay-large-text-{width}.png'))
+
+
 def cart_page(browser, width, height):
     ctx, page, state = make_context(browser, width, height)
     add_combo_and_open_cart(page)
@@ -213,8 +266,11 @@ def cart_page(browser, width, height):
     assert glyph(clear) == 'rgb(255, 107, 94)', glyph(clear)
     assert glyph(shut) == 'rgb(255, 255, 255)', glyph(shut)
     assert has_blur(clear) and has_blur(shut), 'Glass buttons blur what is behind them'
+    assert blur_is_round(clear) and blur_is_round(shut), 'No square blur patch around the round buttons'
     for minus in (page.get_by_test_id('cart-minus-pick-combo'), page.get_by_test_id('cart-plus-pick-combo')):
         assert has_blur(minus) and minus.bounding_box()['height'] >= 44
+        assert blur_is_round(minus), 'No square blur patch around -/+'
+
     # Editing the cart never locks the sheet: the drag handle stays (no 28 px jump per tap).
     expect(sheet.get_by_test_id('sheet-handle')).to_be_visible()
     page.evaluate("""() => {
@@ -320,6 +376,7 @@ def cart_page(browser, width, height):
     assert quote['serviceMode'] == 'dine_in' and quote.get('kitchenComment') == 'Без лука', quote
     expect(sheet.get_by_test_id('sheet-handle')).to_have_count(0)
     page.screenshot(path=str(OUT / f'after-pay-{width}.png'))
+    waiting_fits(page, width)
     close(ctx, state)
 
 
@@ -353,6 +410,7 @@ def product_glass(browser, width, height):
     close_button = page.get_by_test_id('product-close')
     expect(close_button).to_be_visible()
     assert has_blur(close_button) and close_button.bounding_box()['height'] >= 44
+    assert blur_is_round(close_button)
     page.wait_for_timeout(500)
     page.screenshot(path=str(OUT / f'product-glass-{width}.png'))
     close(ctx, state)
@@ -470,4 +528,4 @@ print('PASS cart page 393/320: Drinkit top bar (red glass trash, pin + point, gl
       'one re-read per burst of edits, removed blocks/small print, comment, payment selector (Kaspi only, others '
       '«скоро»), one press = 1 quote + 1 order + 1 invoice, 3-item total, glass product close, guest -> sign-in '
       '(Kaspi reason, glass X and code-step back) -> cart, hero video plays under the cart and pauses for tab/full '
-      'screen/background')
+      'screen/background, round blur layers (no square patch), waiting scene fits at 393 and 320 (also with large text)')
