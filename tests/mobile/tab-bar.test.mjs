@@ -1,10 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import {
   tabBarMetrics,
   tabBarPalette,
+  tabBarTabCount,
+  tabItemWidth,
   tabLabelMaxScale,
+  tabLabelMinFit,
+  tabLabelSize,
 } from '../../apps/mobile/src/tab-bar-metrics.ts';
 
 const read = (path) =>
@@ -83,13 +87,19 @@ test('tabs keep order, labels, gates and accessibility semantics', () => {
     m[1],
     m[2],
   ]);
+  // Owner 27.10.2026: exactly three tabs; the profile opens from the top header.
   assert.deepEqual(order, [
     ['menu', 'Меню'],
     ['events', 'События'],
     ['orders', 'Заказы'],
-    ['profile', 'Профиль'],
   ]);
-  assert.equal((layout.match(/listeners=\{gate\(/g) ?? []).length, 3);
+  assert.equal(order.length, tabBarTabCount);
+  assert.doesNotMatch(layout, /tab-profile|name="profile"/);
+  assert.equal((layout.match(/listeners=\{gate\(/g) ?? []).length, 2);
+  assert.match(layout, /name="events"\s+listeners=\{gate\('M26'\)\}/);
+  assert.match(layout, /name="orders"\s+listeners=\{gate\('M19'\)\}/);
+  assert.match(layout, /tabBarBadge: activeOrders > 0 \? activeOrders : undefined/);
+  assert.ok(!existsSync(new URL('../../apps/mobile/src/app/(tabs)/profile.tsx', import.meta.url)));
   const bar = read('components/FloatingTabBar.tsx');
   assert.match(bar, /accessibilityRole="tablist"/);
   assert.match(bar, /accessibilityRole="tab"/);
@@ -99,6 +109,30 @@ test('tabs keep order, labels, gates and accessibility semantics', () => {
   assert.match(bar, /prefers-reduced-transparency/);
   assert.match(bar, /if \(keyboardVisible\) return null/);
   assert.doesNotMatch(bar, /—/, 'plain hyphen in UI texts');
+});
+
+test('three tabs share the capsule evenly with room for the label at 320 and 393 pt', () => {
+  // Label widths in em, measured in Chromium with Manrope 600 (12 px). Widest: kk «Тапсырыстар».
+  const labels = { Меню: 2.9, События: 4.35, Заказы: 3.53, Оқиғалар: 4.58, Тапсырыстар: 6.56 };
+  const widest = Math.max(...Object.values(labels));
+  const room = (screen, scale) => tabItemWidth(screen, tabBarMetrics({ bottom: 34 }, scale)) - 8;
+  for (const scale of [1, tabLabelMaxScale, 3.1]) {
+    assert.ok(room(320, scale) + 8 >= 88, `320 pt item at scale ${scale}`);
+    const regular = room(393, scale) + 8;
+    assert.ok(regular >= 110 && regular <= 125, `393 pt item: ${regular}`);
+  }
+  const size = (scale) => tabLabelSize * Math.min(scale, tabLabelMaxScale) * widest;
+  assert.ok(size(1) <= room(320, 1), 'every label fits at 320 pt with default text');
+  assert.ok(size(tabLabelMaxScale) <= room(393, tabLabelMaxScale), 'largest text fits at 393 pt');
+  assert.ok(
+    size(tabLabelMaxScale) * tabLabelMinFit <= room(320, tabLabelMaxScale),
+    'largest text at 320 pt fits after the iOS shrink-to-fit',
+  );
+  const bar = read('components/FloatingTabBar.tsx');
+  assert.equal(tabLabelSize, 12);
+  assert.match(bar, /fontSize: tabLabelSize/);
+  assert.match(bar, /adjustsFontSizeToFit\s+minimumFontScale=\{tabLabelMinFit\}/);
+  assert.doesNotMatch(bar, /'profile'/);
 });
 
 test('tab screens and the cart dock reserve the floating bar height', () => {

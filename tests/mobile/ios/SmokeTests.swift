@@ -271,9 +271,12 @@ final class SmokeTests: XCTestCase {
         attachScreenshot("Mockup-cart", of: app)
         app.buttons["Назад"].firstMatch.tap()
         app.buttons["Закрыть блюдо"].firstMatch.tap()
-        tap("tab-profile", in: app)
+        // Owner 27.10.2026: the profile opens from the header and is a pushed screen.
+        tap("header-profile", in: app)
         assertScreen("M30", in: app)
         attachScreenshot("Mockup-profile", of: app)
+        tap("profile-back", in: app)
+        assertScreen("M06", in: app)
         tap("tab-events", in: app)
         assertScreen("M26", in: app)
         attachScreenshot("Mockup-events", of: app)
@@ -335,7 +338,7 @@ final class SmokeTests: XCTestCase {
         attachScreenshot("Registration-actions-above-keyboard", of: app)
         save.tap()
         assertScreen("M06", in: app)
-        tap("tab-profile", in: app)
+        tap("header-profile", in: app)
         assertScreen("M30", in: app)
         XCTAssertTrue(app.staticTexts["Keyboard Profile"].exists)
         attachScreenshot("Keyboard-local-profile", of: app)
@@ -354,7 +357,7 @@ final class SmokeTests: XCTestCase {
         // The fixed demonstration code never sends SMS or authenticates this
         // synthetic phone with the ordering API. Exercise the live profile UI.
         let app = launchApp()
-        tap("tab-profile", in: app)
+        tap("header-profile", in: app)
         if element("demo-sign-out", in: app).exists {
             tap("demo-sign-out", in: app)
         }
@@ -386,7 +389,7 @@ final class SmokeTests: XCTestCase {
         attachScreenshot("Registration-birthday-complete", of: app)
         tap("nickname-save", in: app)
         assertScreen("M06", in: app)
-        tap("tab-profile", in: app)
+        tap("header-profile", in: app)
         assertScreen("M30", in: app)
         XCTAssertTrue(app.staticTexts["Native Demo"].exists)
         XCTAssertTrue(app.staticTexts["+7 700 000-00-00"].exists)
@@ -396,7 +399,7 @@ final class SmokeTests: XCTestCase {
         app.terminate()
         app.launch()
         assertScreen("M06", in: app)
-        tap("tab-profile", in: app)
+        tap("header-profile", in: app)
         XCTAssertTrue(element("demo-sign-out", in: app).waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Native Demo"].exists)
         XCTAssertTrue(app.staticTexts["+7 700 000-00-00"].exists)
@@ -545,7 +548,7 @@ final class SmokeTests: XCTestCase {
 
     @MainActor
     private func beginDemoRegistration(in app: XCUIApplication) {
-        tap("tab-profile", in: app)
+        tap("header-profile", in: app)
         if element("demo-sign-out", in: app).exists {
             tap("demo-sign-out", in: app)
         }

@@ -61,7 +61,7 @@ export default function Auth() {
     }
     Keyboard.dismiss();
     if (destination === 'M12') router.dismissTo('/checkout');
-    else if (destination === 'M30') router.dismissTo('/(tabs)/profile');
+    else if (destination === 'M30') router.dismissTo('/profile');
     else if (destination === 'M26') router.dismissTo('/(tabs)/events');
     else if (destination === 'M19') router.dismissTo('/(tabs)/orders');
     else if (destination === 'pick-man') router.dismissTo('/games/pick-man');

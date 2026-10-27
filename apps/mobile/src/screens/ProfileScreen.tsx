@@ -13,6 +13,7 @@ import { formatBirthDate } from '../profile-details';
 import type { ScreenProps } from '../model';
 import { brandColors, colors, font } from '../theme';
 import { useAccount } from '../useAccount';
+import { useNotifications } from '../notifications/provider';
 
 function ProfileRow({
   title,
@@ -21,6 +22,8 @@ function ProfileRow({
   onPress,
   testID,
   last = false,
+  count = 0,
+  accessibilityLabel,
 }: {
   title: string;
   icon: IconName;
@@ -28,12 +31,16 @@ function ProfileRow({
   onPress?: () => void;
   testID?: string;
   last?: boolean;
+  /** Unread counter shown inside the row (notifications); hidden at zero. */
+  count?: number;
+  accessibilityLabel?: string;
 }) {
   useLocale();
   return (
     <Pressable
       testID={testID}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled: !onPress }}
       disabled={!onPress}
       onPress={onPress}
@@ -46,6 +53,13 @@ function ProfileRow({
         <Text style={s.rowTitle}>{localize(title)}</Text>
         {value ? <Text style={s.rowValue}>{value}</Text> : null}
       </View>
+      {count > 0 ? (
+        <View testID={testID ? `${testID}-count` : undefined} style={s.count}>
+          <Text style={s.countText} maxFontSizeMultiplier={1.3} numberOfLines={1}>
+            {count > 99 ? '99+' : String(count)}
+          </Text>
+        </View>
+      ) : null}
       {onPress ? (
         <Icon name="chevron-forward" size={17} color={colors.muted} />
       ) : (
@@ -73,6 +87,8 @@ export function Profile(props: ScreenProps) {
   const router = useRouter();
   const { fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  // Owner 27.10.2026: unread notifications are shown only here, never on the header button.
+  const unread = useNotifications().items.filter((item) => !item.readAt).length;
   const savedNickname =
     account.account?.profile.completedAt != null
       ? account.account.profile.nickname
@@ -80,19 +96,24 @@ export function Profile(props: ScreenProps) {
   const name = savedNickname || 'Любитель хруста';
   return (
     <View testID="screen-M30" style={s.screen}>
-      <ScrollView
-        testID="scroll-M30"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          s.content,
-          {
-            paddingTop: insets.top + 10,
-            paddingBottom: Math.max(28, insets.bottom + 16, (props.cartBottomInset ?? 0) + 16),
-          },
-        ]}
-      >
+      {/* Stack screen above the tabs (27.10.2026): fixed bar with back, title and settings. */}
+      <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
         <View style={s.header}>
-          <Text accessibilityRole="header" style={s.title}>
+          <Pressable
+            testID="profile-back"
+            accessibilityRole="button"
+            accessibilityLabel={t('Назад')}
+            onPress={props.goBack}
+            style={({ pressed }) => [s.settings, pressed && s.pressed]}
+          >
+            <Icon name="chevron-back" size={24} />
+          </Pressable>
+          <Text
+            accessibilityRole="header"
+            style={s.title}
+            numberOfLines={1}
+            maxFontSizeMultiplier={1.3}
+          >
             {t('Профиль')}
           </Text>
           <Pressable
@@ -104,7 +125,19 @@ export function Profile(props: ScreenProps) {
             <Icon name="settings-outline" size={23} />
           </Pressable>
         </View>
-
+      </View>
+      <ScrollView
+        testID="scroll-M30"
+        style={s.scroll}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          s.content,
+          {
+            paddingTop: 6,
+            paddingBottom: Math.max(28, insets.bottom + 16, (props.cartBottomInset ?? 0) + 16),
+          },
+        ]}
+      >
         <View testID="profile-identity" style={s.identity}>
           {!account.ready ? (
             <Loading title={t('Восстанавливаем профиль…')} />
@@ -169,6 +202,21 @@ export function Profile(props: ScreenProps) {
           {account.ready && account.error && account.mode === 'demo' ? (
             <Text style={s.error}>{localize(account.error)}</Text>
           ) : null}
+        </View>
+
+        <View style={s.group}>
+          <ProfileRow
+            title={t('Уведомления')}
+            icon="notifications-outline"
+            value={t('Заказы и предложения для вас')}
+            testID="profile-notifications"
+            count={unread}
+            accessibilityLabel={
+              unread > 0 ? t('Уведомления, непрочитанных: {p0}', { p0: unread }) : t('Уведомления')
+            }
+            onPress={() => router.push('/notifications')}
+            last
+          />
         </View>
 
         <View style={[s.shortcuts, fontScale > 1.4 && { flexDirection: 'column' }]}>
@@ -257,13 +305,6 @@ export function Profile(props: ScreenProps) {
             />
           ) : null}
           <ProfileRow
-            title={t('Уведомления')}
-            icon="notifications-outline"
-            value={t('Заказы и предложения для вас')}
-            testID="profile-notifications"
-            onPress={() => router.push('/notifications')}
-          />
-          <ProfileRow
             title={t('Язык')}
             icon="globe-outline"
             value={{ kk: 'Қазақша', ru: 'Русский', en: 'English' }[props.model.locale]}
@@ -317,10 +358,27 @@ export function Profile(props: ScreenProps) {
 
 const s = StyleSheet.create({
   screen: { flex: 1, minHeight: 0, backgroundColor: colors.background },
+  topBar: { flexShrink: 0, paddingBottom: 10, backgroundColor: colors.background },
+  scroll: { flex: 1, minHeight: 0 },
   content: { paddingHorizontal: 18, gap: 20, width: '100%', maxWidth: 680, alignSelf: 'center' },
   flex: { flex: 1, minWidth: 0 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
-  title: { fontFamily: font.display, fontSize: 32, lineHeight: 42, color: colors.white },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
+    maxWidth: 680,
+    alignSelf: 'center',
+    paddingHorizontal: 18,
+  },
+  title: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: font.display,
+    fontSize: 30,
+    lineHeight: 40,
+    color: colors.white,
+  },
   settings: {
     width: 48,
     height: 48,
@@ -457,6 +515,22 @@ const s = StyleSheet.create({
   rowTitle: { fontFamily: font.medium, fontSize: 15, lineHeight: 22, color: colors.white },
   rowValue: { fontFamily: font.body, fontSize: 13, lineHeight: 20, color: '#B6C4DD', marginTop: 3 },
   soon: { fontFamily: font.medium, fontSize: 11, lineHeight: 18, color: '#B6C4DD' },
+  count: {
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    paddingHorizontal: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accent,
+  },
+  countText: {
+    fontFamily: font.bold,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.orangeInk,
+    includeFontPadding: false,
+  },
   signOut: { borderRadius: 16, marginTop: 4 },
   version: {
     fontFamily: font.body,

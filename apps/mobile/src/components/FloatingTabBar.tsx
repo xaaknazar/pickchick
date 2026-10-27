@@ -14,9 +14,16 @@ import type { BottomTabBarProps } from 'expo-router/tabs';
 import { MotionPressable as Pressable } from './Motion';
 import { TabIcon } from './UI';
 import { colors, font } from '../theme';
-import { tabBarMetrics, tabBarPalette as palette, tabLabelMaxScale } from '../tab-bar-metrics';
+import {
+  tabBarMetrics,
+  tabBarPalette as palette,
+  tabLabelMaxScale,
+  tabLabelMinFit,
+  tabLabelSize,
+} from '../tab-bar-metrics';
 
-type TabName = 'menu' | 'events' | 'orders' | 'profile';
+// Owner 27.10.2026: three tabs; the profile opens from the top header.
+type TabName = 'menu' | 'events' | 'orders';
 
 export { TabBarInsetContext, useTabBarInset } from './tab-bar-inset';
 
@@ -161,6 +168,10 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
               <Text
                 numberOfLines={1}
                 maxFontSizeMultiplier={tabLabelMaxScale}
+                // iOS: the longest label (kk «Тапсырыстар») shrinks instead of truncating at
+                // 320 pt with the largest supported text size.
+                adjustsFontSizeToFit
+                minimumFontScale={tabLabelMinFit}
                 style={[s.label, { color }, focused && s.labelActive]}
               >
                 {localize(label)}
@@ -210,7 +221,7 @@ const s = StyleSheet.create({
   },
   label: {
     fontFamily: font.medium,
-    fontSize: 11,
+    fontSize: tabLabelSize,
     lineHeight: 16,
     includeFontPadding: false,
     textAlign: 'center',

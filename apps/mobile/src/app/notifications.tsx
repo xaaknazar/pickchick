@@ -9,6 +9,7 @@ import { Body, Button, Heading, Icon, IconButton, Row } from '../components/UI';
 import { colors, font } from '../theme';
 
 // Inbox transport is not enabled yet. Do not invent messages or unread counts.
+// Owner 27.10.2026: opened from the profile row «Уведомления»; back returns to the profile.
 export default function Notifications() {
   useLocale();
   const notifications = useNotifications();
@@ -21,9 +22,9 @@ export default function Notifications() {
       <Row style={[s.header, { paddingTop: insets.top + 8 }]}>
         <IconButton
           name="chevron-back"
-          label={t('Назад в меню')}
+          label={t('Назад в профиль')}
           testID="notifications-back"
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/menu'))}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/profile'))}
         />
         <Heading small style={s.title}>
           {t('Уведомления')}
@@ -111,7 +112,8 @@ export default function Notifications() {
               title={localize(orders ? 'Мои заказы' : 'Открыть события')}
               secondary
               testID="notifications-destination"
-              onPress={() => router.replace(orders ? '/(tabs)/orders' : '/(tabs)/events')}
+              // Back to the existing tabs (below the profile) instead of stacking a second set.
+              onPress={() => router.dismissTo(orders ? '/(tabs)/orders' : '/(tabs)/events')}
               style={s.action}
             />
           </View>

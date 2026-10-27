@@ -80,7 +80,7 @@ export default function ReviewDemoScreen() {
   const advance = (action: DemoAction) => {
     if (order) void save(advanceDemoOrder(order, action));
   };
-  const back = () => (router.canGoBack() ? router.back() : router.replace('/(tabs)/profile'));
+  const back = () => (router.canGoBack() ? router.back() : router.replace('/profile'));
   const notice = (
     <View style={s.notice}>
       <Body>{t('Демонстрация - без оплаты')}</Body>
@@ -94,7 +94,7 @@ export default function ReviewDemoScreen() {
       goBack: back,
       preview: true,
       inSheet: true,
-      navigate: () => router.push('/(tabs)/profile'),
+      navigate: () => router.push('/profile'),
     };
     return (
       <View style={[s.root, { paddingTop: insets.top }]} testID="review-demo">

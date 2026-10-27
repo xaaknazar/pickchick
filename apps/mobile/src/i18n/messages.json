@@ -72,10 +72,22 @@
     "context": "apps/mobile/src/app/notifications.tsx:20"
   },
   {
+    "ru": "Назад в профиль",
+    "kk": "Профильге оралу",
+    "en": "Back to profile",
+    "context": "apps/mobile/src/app/notifications.tsx:notifications-back"
+  },
+  {
     "ru": "Уведомления",
     "kk": "Хабарландырулар",
     "en": "Notifications",
     "context": "apps/mobile/src/app/notifications.tsx:24"
+  },
+  {
+    "ru": "Уведомления, непрочитанных: {p0}",
+    "kk": "Хабарландырулар, оқылмағаны: {p0}",
+    "en": "Notifications, unread: {p0}",
+    "context": "apps/mobile/src/screens/ProfileScreen.tsx:profile-notifications"
   },
   {
     "ru": "Для вас",
