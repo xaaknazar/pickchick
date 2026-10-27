@@ -155,6 +155,10 @@ with sync_playwright() as p:
         page.wait_for_timeout(400)
         page.screenshot(path=str(OUT / f'menu-photos-{width}.png'))
         if not CAPTURE_ONLY:
+            # The collapsed storefront header is opaque: no product button shows through it.
+            color = page.get_by_test_id('storefront-header').evaluate('(e) => getComputedStyle(e).backgroundColor')
+            channels = [float(v) for v in re.findall(r'[\d.]+', color)]
+            assert channels[:3] == [4, 20, 58] and channels[3:] in ([], [1.0]), color
             assert_floating_bar(page, width, height, 'menu')
         header = None
         for route, screen, _ in TABS:
@@ -212,6 +216,31 @@ with sync_playwright() as p:
             page.get_by_test_id('open-cart').filter(visible=True).click()
             expect(page.get_by_test_id('cart-checkout')).to_be_visible()
         context.close()
+    if not CAPTURE_ONLY:
+        # Wider than a phone (tablet-size web): every tab shares one width cap (760, gutter 18),
+        # so the profile button does not jump between tabs and profile settings sits under it.
+        width, height = 1024, 768
+        context = isolated_context(browser, viewport={'width': width, 'height': height}, reduced_motion='reduce')
+        signed_in(context)
+        route_fixture(context, '**/v1/**', fixture)
+        page = context.new_page()
+        page.on('pageerror', lambda error: errors.append(str(error)))
+        page.goto(URL + '/menu')
+        expect(page.get_by_test_id('product-pick-combo')).to_be_visible(timeout=20000)
+        expect(page.get_by_test_id('launch-reveal')).to_have_count(0, timeout=10000)
+        expected = (width + 760) / 2 - 18 - 48
+        for route, screen, _ in TABS:
+            page.get_by_test_id('tab-' + route).click()
+            expect(page.get_by_test_id('screen-' + screen)).to_be_visible()
+            b = page.get_by_test_id('screen-' + screen).get_by_test_id('header-profile').bounding_box()
+            assert abs(b['x'] - expected) <= 1 and b['y'] <= 24, (route, b, expected)
+        page.screenshot(path=str(OUT / f'orders-{width}.png'))
+        page.get_by_test_id('screen-M19').get_by_test_id('header-profile').click()
+        expect(page.get_by_test_id('screen-M30')).to_be_visible()
+        settings = page.get_by_test_id('profile-settings').bounding_box()
+        assert abs(settings['x'] - expected) <= 1, (settings, expected)
+        context.close()
     browser.close()
 assert errors == [], errors
-print('tab bar: 3 tabs, header profile on all tabs, profile stack screen without bar/cart; screenshots:', OUT)
+print('tab bar: 3 tabs, header profile at one spot on all tabs (320/393/1024), opaque collapsed menu header, '
+      'profile stack screen without bar/cart; screenshots:', OUT)

@@ -35,6 +35,14 @@ with sync_playwright() as p:
         page.get_by_test_id('screen-M06').get_by_test_id('header-profile').click()
         expect(page.get_by_test_id('account-required-login').filter(visible=True)).to_be_visible()
         expect(page.get_by_test_id('screen-M30')).to_have_count(0)
+        # A double tap opens the sign-in sheet once; the second tap lands on its backdrop (or,
+        # on notched phones, «Поддержка») while it slides in and must not close or leave it.
+        page.goto(URL + '/menu')
+        page.get_by_test_id('screen-M06').get_by_test_id('header-profile').dblclick()
+        page.wait_for_timeout(700)
+        expect(page.get_by_test_id('account-required-login').filter(visible=True)).to_be_visible()
+        expect(page.get_by_test_id('auth-sheet')).to_have_count(1)
+        assert urlparse(page.url).path == '/auth', page.url
         # Old links to /profile still open the (gated) profile.
         page.goto(URL + '/profile')
         login = page.get_by_test_id('account-required-login').filter(visible=True)
@@ -91,6 +99,32 @@ with sync_playwright() as p:
         page.get_by_test_id('profile-back').click()
         expect(page.get_by_test_id('screen-M06')).to_be_visible()
         expect(page.get_by_test_id('screen-M30')).to_have_count(0)
+        # A double tap on the header opens the profile once on every tab. The settings button
+        # sits right under the header button, so the second tap must not press it.
+        for route, screen in [('menu', 'M06'), ('events', 'M26'), ('orders', 'M19')]:
+            page.goto(URL + '/' + route)
+            header = page.get_by_test_id('screen-' + screen).get_by_test_id('header-profile')
+            expect(header).to_be_visible(timeout=20000)
+            under = header.bounding_box()
+            header.dblclick()
+            expect(page.get_by_test_id('screen-M30')).to_be_visible()
+            page.wait_for_timeout(700)
+            assert urlparse(page.url).path == '/profile', (route, page.url)
+            expect(page.get_by_test_id('screen-M34')).to_have_count(0)
+            expect(page.get_by_test_id('screen-M30')).to_have_count(1)
+            settings = page.get_by_test_id('profile-settings').bounding_box()
+            assert abs(settings['x'] - under['x']) <= 1 and abs(settings['y'] - under['y']) <= 1, (settings, under)
+            if route == 'menu':
+                # Once the push has settled, settings works as before.
+                page.get_by_test_id('profile-settings').click()
+                expect(page.get_by_test_id('screen-M34')).to_be_visible()
+                page.go_back()
+                expect(page.get_by_test_id('screen-M30')).to_be_visible()
+            # One profile on the stack: a single back returns to the tab.
+            page.get_by_test_id('profile-back').click()
+            expect(page.get_by_test_id('screen-M30')).to_have_count(0)
+            expect(page.get_by_test_id('screen-' + screen)).to_be_visible()
+            assert urlparse(page.url).path == '/' + route, (route, page.url)
         page.goto(URL + '/profile')
         page.get_by_test_id('scroll-M30').evaluate('(e) => e.scrollTop = e.scrollHeight')
         page.screenshot(path=str(OUTPUT / f'settings-{width}.png'))
@@ -114,4 +148,6 @@ with sync_playwright() as p:
     expect(page.get_by_test_id('profile-sign-in')).to_have_count(0)
     expect(page.get_by_test_id('profile-restore-retry')).to_be_visible()
     browser.close()
-print('Profile guest/member layouts, header entry and auth gate, notifications row and back, long names, navigation, logout and unreadable-account recovery passed at 320/393; no API mutations')
+print('Profile guest/member layouts, header entry and auth gate, double tap on every tab (one profile, no settings, '
+      'sign-in stays open), notifications row and back, long names, navigation, logout and unreadable-account '
+      'recovery passed at 320/393; no API mutations')
