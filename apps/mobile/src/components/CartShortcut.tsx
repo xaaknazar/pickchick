@@ -46,6 +46,8 @@ import { BottomActions, Icon, MinorMoney } from './UI';
 const PAD = 5;
 const ROW = 54;
 const OVERLAP = 16;
+/** Between the bag pill (builds without the Kaspi checkout) and the total. */
+const BAG_GAP = 10;
 /** Large text: the hint grows up to x1.4, then shrinks to fit (KK at 320 pt). */
 const HINT_MAX_SCALE = 1.4;
 const HINT_MIN_FIT = 0.7;
@@ -123,6 +125,9 @@ export function CartShortcut({
   // foreground, so the handle comes back at opening time.
   const availability = usePaymentAvailability(model);
   const handle = payable && availability.canPay;
+  // A Kaspi bar that cannot pay right now: no handle, and the capsule itself shrinks to the total
+  // and the photos, centred, with no empty glass on the left (Drinkit at night, owner 28.10).
+  const closed = payable && !handle;
   const stop = availability.canPay ? null : availability.stop;
   const reason = stop ? paymentStopMessage(stop) : null;
   // The latest answer for a callback created in an earlier render (a gesture ending late).
@@ -231,7 +236,7 @@ export function CartShortcut({
         <View
           testID="cart-shortcut"
           onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
-          style={[s.capsule, capsuleGlass]}
+          style={[s.capsule, capsuleGlass, closed && s.capsuleClosed]}
         >
           {/* The capsule's glass (Apple's Liquid Glass on iOS 26), drawn below everything. */}
           <GlassFill radius={CAPSULE_RADIUS} rim={glassBarRim} place="bar" body={false} />
@@ -254,6 +259,22 @@ export function CartShortcut({
               >
                 {t('тяни для оплаты')}
               </Text>
+            </View>
+          ) : null}
+          {/* Builds without the Kaspi checkout keep the bag pill where the handle would be. It is
+              not inside the cart button: the button's press dimming would put Apple's glass under
+              a translucent parent, which renders wrong (QA 28.10). */}
+          {!payable ? (
+            <View
+              testID="cart-bag-pill"
+              pointerEvents="none"
+              accessible={false}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={[s.bag, pillRim, { width: layout.handleWidth }]}
+            >
+              <GlassFill radius={ROW / 2} />
+              <Icon name="bag-handle-outline" size={24} color={brandColors.brandOrange} />
             </View>
           ) : null}
           {handle ? (
@@ -285,29 +306,21 @@ export function CartShortcut({
             onPress={onPress}
             style={[
               s.open,
-              handle ? { marginLeft: layout.handleWidth } : payable ? s.openClosed : s.openWhole,
+              closed
+                ? s.openClosed
+                : [
+                    s.fill,
+                    handle
+                      ? { marginLeft: layout.handleWidth }
+                      : { paddingLeft: layout.handleWidth + BAG_GAP, gap: BAG_GAP },
+                  ],
             ]}
           >
-            {/* Builds without the Kaspi checkout keep the bag pill; a Kaspi bar that cannot pay
-                right now shows nothing on the left (Drinkit, owner 28.10.2026). */}
-            {!payable ? (
-              <View
-                testID="cart-bag-pill"
-                pointerEvents="none"
-                accessible={false}
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-                style={[s.bag, pillRim, { width: layout.handleWidth }]}
-              >
-                <GlassFill radius={ROW / 2} />
-                <Icon name="bag-handle-outline" size={24} color={brandColors.brandOrange} />
-              </View>
-            ) : null}
             <Animated.View
               pointerEvents="none"
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
-              style={[s.middle, contentStyle]}
+              style={[s.middle, closed ? s.middleClosed : s.fill, contentStyle]}
             >
               <View testID="cart-total" style={s.totalBox}>
                 <Text
@@ -394,8 +407,9 @@ const s = StyleSheet.create({
     shadowRadius: 18,
     elevation: 12,
   },
+  // No handle while paying is not possible: the capsule hugs its content, centred in the dock.
+  capsuleClosed: { alignSelf: 'center', maxWidth: '100%' },
   open: {
-    flex: 1,
     minWidth: 0,
     minHeight: ROW + PAD * 2,
     flexDirection: 'row',
@@ -403,20 +417,24 @@ const s = StyleSheet.create({
     gap: 8,
     borderRadius: 999,
   },
-  openWhole: { gap: 10 },
-  // No handle while paying is not possible: the total centred in the free space, photos right.
-  openClosed: { gap: 8, paddingLeft: 12 },
-  // Non-payment builds: the same glass pill as the Kaspi handle, with the bag icon.
+  fill: { flex: 1 },
+  // The total and the photos only (Drinkit): a little air before the total, none after the photos.
+  openClosed: { flexShrink: 1, gap: 16, paddingLeft: 22 },
+  // Non-payment builds: the same glass pill as the Kaspi handle, with the bag icon, where the
+  // handle sits.
   bag: {
+    position: 'absolute',
+    left: PAD,
+    top: PAD,
     height: ROW,
     borderRadius: ROW / 2,
     alignItems: 'center',
     justifyContent: 'center',
     // The handle's opaque base: inside the capsule's glass, Apple's glass never lies on glass.
     backgroundColor: glass.pillBase,
-    flexShrink: 0,
   },
-  middle: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center' },
+  middle: { minWidth: 0, alignItems: 'center', justifyContent: 'center' },
+  middleClosed: { flexShrink: 1 },
   totalBox: { maxWidth: '100%' },
   total: {
     fontFamily: font.display,
