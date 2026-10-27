@@ -4,7 +4,10 @@ import { readFileSync } from 'node:fs';
 import {
   SLIDE_PAY_INTENT_TTL_MS,
   createSlidePayIntents,
+  runSlidePayIntent,
+  savedIntentHoldsCheckout,
 } from '../../apps/mobile/src/slide-pay-intent.ts';
+import { AUTO_SEND_WINDOW_MS } from '../../apps/mobile/src/checkout-resume.ts';
 
 function registry(start = Date.parse('2026-10-27T10:00:00Z')) {
   let now = start;
@@ -76,25 +79,139 @@ test('two slides are independent, each once', () => {
   assert.equal(intents.take(a) || intents.take(b), false);
 });
 
-test('checkout takes the intent after the saved intent is read and only calls submit()', () => {
-  // Static guard on the wiring: the intent replaces one press of «Оплатить через Kaspi» and never
-  // calls pay() (the invoice step) or bypasses the restored intent, order or running command.
+const NOW = Date.parse('2026-10-27T10:00:00Z');
+const free = {
+  restoring: false,
+  signedIn: true,
+  busy: false,
+  saved: null,
+  order: false,
+  cartLines: 1,
+  now: NOW,
+};
+const draft = (extra) => ({
+  key: '00000000-0000-4000-8000-0000000000a1',
+  quoteId: '00000000-0000-4000-8000-0000000000a2',
+  signature: '{}',
+  sendInvoice: true,
+  ...extra,
+});
+
+function slide(checkout, intents = registry(NOW).intents, raw = intents.issue()) {
+  let presses = 0;
+  const outcome = runSlidePayIntent(intents, raw, checkout, () => presses++);
+  return { outcome, presses, intents, raw };
+}
+
+test('a slide on a free checkout is one press, never a second one', () => {
+  const first = slide(free);
+  assert.deepEqual([first.outcome, first.presses], ['pressed', 1]);
+  // Re-render, remount, back/forward with the same route parameter: nothing runs again.
+  for (let i = 0; i < 3; i++) {
+    let presses = 0;
+    assert.equal(
+      runSlidePayIntent(first.intents, first.raw, free, () => presses++),
+      'dropped',
+    );
+    assert.equal(presses, 0);
+  }
+  assert.equal(
+    runSlidePayIntent(first.intents, null, free, () => assert.fail('no intent')),
+    'wait',
+  );
+});
+
+test('the intent waits, unconsumed, for the saved intent and the sign-in', () => {
+  const { intents } = registry(NOW);
+  const raw = intents.issue();
+  for (const checkout of [
+    { ...free, restoring: true },
+    { ...free, signedIn: false },
+  ]) {
+    assert.equal(
+      runSlidePayIntent(intents, raw, checkout, () => assert.fail('pressed too early')),
+      'wait',
+    );
+  }
+  let presses = 0;
+  assert.equal(
+    runSlidePayIntent(intents, raw, free, () => presses++),
+    'pressed',
+  );
+  assert.equal(presses, 1);
+});
+
+test('a running command, an order, a holding intent or an empty basket drop the slide for good', () => {
+  for (const checkout of [
+    { ...free, busy: true },
+    { ...free, order: true },
+    { ...free, cartLines: 0 },
+    // A fresh saved intent (its create command may be in flight) or one that knows its order.
+    { ...free, saved: draft({ createdAt: NOW - 1_000 }) },
+    { ...free, saved: draft({ orderId: '00000000-0000-4000-8000-0000000000a3' }) },
+    {
+      ...free,
+      saved: draft({ orderId: '00000000-0000-4000-8000-0000000000a3', createdAt: NOW - 3_600_000 }),
+    },
+  ]) {
+    const result = slide(checkout);
+    assert.deepEqual([result.outcome, result.presses], ['dropped', 0], JSON.stringify(checkout));
+    // Consumed: the same intent never runs later, even when the checkout becomes free.
+    assert.equal(
+      runSlidePayIntent(result.intents, result.raw, free, () => assert.fail('replayed')),
+      'dropped',
+    );
+  }
+});
+
+test('an old intent that never became an order does not stop the slide (the press drops it)', () => {
+  // Same rule as submit(): no orderId and no automatic invoice left = nothing holds the checkout.
+  for (const saved of [
+    draft({ createdAt: NOW - AUTO_SEND_WINDOW_MS - 1 }),
+    draft({ createdAt: undefined }),
+    draft({ sendInvoice: false, createdAt: NOW - 1_000 }),
+    draft({ createdAt: NOW + 60_000 }),
+  ]) {
+    assert.equal(savedIntentHoldsCheckout(saved, NOW), false, JSON.stringify(saved));
+    const result = slide({ ...free, saved });
+    assert.deepEqual([result.outcome, result.presses], ['pressed', 1], JSON.stringify(saved));
+  }
+  assert.equal(savedIntentHoldsCheckout(null, NOW), false);
+  assert.equal(savedIntentHoldsCheckout(draft({ createdAt: NOW - 1_000 }), NOW), true);
+});
+
+test('a stale or foreign intent is dropped without a press', () => {
+  const { intents, advance } = registry(NOW);
+  const raw = intents.issue();
+  advance(SLIDE_PAY_INTENT_TTL_MS + 1);
+  let presses = 0;
+  assert.equal(
+    runSlidePayIntent(intents, raw, free, () => presses++),
+    'dropped',
+  );
+  assert.equal(
+    runSlidePayIntent(registry(NOW).intents, raw, free, () => presses++),
+    'dropped',
+  );
+  assert.equal(presses, 0);
+});
+
+test('checkout wiring: the slide only presses submit(), never pay() or storage', () => {
+  // Whitespace-insensitive, so reformatting does not break it; the behaviour itself is covered
+  // above and end to end by browser_slide_to_pay.py (B, C, D, H).
   const source = readFileSync(
     new URL('../../apps/mobile/src/screens/KaspiCheckoutScreen.tsx', import.meta.url),
     'utf8',
-  );
-  const start = source.indexOf('const slideIntent = useSlidePayIntent(');
-  const end = source.indexOf('const pay = useCallback(', start);
+  ).replace(/\s+/g, '');
+  const start = source.indexOf('constslideIntent=useSlidePayIntent(');
+  const end = source.indexOf('constpay=useCallback(', start);
   assert.ok(start > 0 && end > start);
   const block = source.slice(start, end);
-  assert.match(block, /useSlidePayIntent\(props\.screenId === 'M12' && !props\.preview\)/);
-  assert.match(block, /if \(!slideIntent \|\| restoring \|\| !customerId\) return;/);
-  assert.match(block, /if \(!slidePayIntents\.take\(slideIntent\)\) return;/);
-  assert.match(
-    block,
-    /if \(lock\.current \|\| pending\.current \|\| orderRef\.current \|\| !cart\.current\.length\) return;/,
-  );
-  assert.match(block, /void submitRef\.current\(\);/);
-  assert.doesNotMatch(block, /pay\(|sendInvoice|AsyncStorage/);
-  assert.equal(source.match(/slidePayIntents\.take\(/g)?.length, 1);
+  assert.ok(block.includes("useSlidePayIntent(props.screenId==='M12'&&!props.preview)"), block);
+  assert.ok(block.includes('runSlidePayIntent(slidePayIntents,slideIntent,'), block);
+  assert.ok(block.includes('()=>voidsubmitRef.current()'), block);
+  assert.ok(block.includes('saved:pending.current'), block);
+  assert.ok(!/pay\(|sendInvoice|AsyncStorage|\.take\(/.test(block), block);
+  assert.equal(source.split('runSlidePayIntent(').length - 1, 1);
+  assert.equal(source.split('slidePayIntents.take(').length - 1, 0);
 });

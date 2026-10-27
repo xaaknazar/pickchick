@@ -5,6 +5,9 @@
  * back navigation or a remounted checkout can never replay it. It is taken at most once and only
  * while fresh; every other outcome leaves checkout waiting for an explicit press.
  */
+import { draftCanAutoSend } from './checkout-resume.ts';
+import type { PendingPayment } from './payment-recovery.ts';
+
 export const SLIDE_PAY_INTENT_TTL_MS = 30_000;
 /** A clock moved backwards by more than this invalidates the intent instead of extending it. */
 const CLOCK_SKEW_MS = 2_000;
@@ -49,4 +52,55 @@ export function createSlidePayIntents(options: {
       return now - at <= ttl && at - now <= CLOCK_SKEW_MS;
     },
   };
+}
+
+/** What the Kaspi checkout knows when a slide intent arrives. */
+export interface SlidePayCheckout {
+  /** The saved payment intent is still being read from storage. */
+  restoring: boolean;
+  signedIn: boolean;
+  /** A create or payment command of this screen is running. */
+  busy: boolean;
+  /** The saved payment intent read by this screen, if any. */
+  saved: PendingPayment | null;
+  /** An order is already shown on this screen. */
+  order: boolean;
+  cartLines: number;
+  now: number;
+}
+
+/**
+ * A saved intent holds the checkout when it knows its order or may still send its own invoice.
+ * The same rule as the press itself (submit): an older intent that never became a known order is
+ * dropped by the press, so it does not stop a slide either (audit 0.2 / 2.1).
+ */
+export function savedIntentHoldsCheckout(saved: PendingPayment | null, now: number): boolean {
+  return !!saved && (!!saved.orderId || draftCanAutoSend(saved, now));
+}
+
+export type SlidePayOutcome = 'wait' | 'dropped' | 'pressed';
+
+/**
+ * One slide equals one press of «Оплатить через Kaspi». The intent waits, unconsumed, until the
+ * saved intent is read and the customer is signed in. Then it is consumed, and the press runs
+ * only on a free checkout: nothing running, no holding intent, no order on screen, a basket.
+ * Any other outcome drops it for good; the customer continues with the regular button.
+ */
+export function runSlidePayIntent(
+  intents: SlidePayIntents,
+  raw: string | null,
+  checkout: SlidePayCheckout,
+  press: () => void,
+): SlidePayOutcome {
+  if (!raw || checkout.restoring || !checkout.signedIn) return 'wait';
+  if (!intents.take(raw)) return 'dropped';
+  if (
+    checkout.busy ||
+    checkout.order ||
+    checkout.cartLines < 1 ||
+    savedIntentHoldsCheckout(checkout.saved, checkout.now)
+  )
+    return 'dropped';
+  press();
+  return 'pressed';
 }

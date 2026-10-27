@@ -62,6 +62,7 @@ import {
 } from '../checkout-resume';
 import { OrderSheet, useSheetDismissalLock } from '../components/OrderSheet';
 import { slidePayIntents, useSlidePayIntent } from '../useSlidePayIntent';
+import { runSlidePayIntent } from '../slide-pay-intent';
 import { PaymentMark } from '../components/PaymentChoice';
 import { Body, Button, Caption, Empty, Icon, Page, Row } from '../components/UI';
 import { cartTotal, cartLineKey, money } from '../domain';
@@ -591,16 +592,26 @@ function KaspiCheckoutSession(
   };
   // Slide to pay from the cart bar: a fresh intent of this app process is taken once, after the
   // saved intent is read, and equals one press of the button below. Nothing else runs on its own:
-  // an earlier intent, order or running command keeps the screen as it is, and any stop (consent,
-  // prices, comment, gift, stop list, network) waits for a new explicit press.
+  // a holding intent, an order or a running command keeps the screen as it is, and any stop
+  // (consent, prices, comment, gift, stop list, network) waits for a new explicit press.
   const slideIntent = useSlidePayIntent(props.screenId === 'M12' && !props.preview);
   const submitRef = useRef(submit);
   submitRef.current = submit;
   useEffect(() => {
-    if (!slideIntent || restoring || !customerId) return;
-    if (!slidePayIntents.take(slideIntent)) return;
-    if (lock.current || pending.current || orderRef.current || !cart.current.length) return;
-    void submitRef.current();
+    runSlidePayIntent(
+      slidePayIntents,
+      slideIntent,
+      {
+        restoring,
+        signedIn: !!customerId,
+        busy: lock.current,
+        saved: pending.current,
+        order: !!orderRef.current,
+        cartLines: cart.current.length,
+        now: Date.now(),
+      },
+      () => void submitRef.current(),
+    );
   }, [slideIntent, restoring, customerId]);
   const pay = useCallback(async () => {
     if (lock.current || !order) return;
