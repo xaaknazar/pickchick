@@ -58,11 +58,11 @@ const chefScenes: Record<OrderScene, number> = {
 export function OrdersHeader() {
   useLocale();
   // Owner 27.10.2026: the shared top header (logo, restaurant, profile) above the tab title.
-  // Page already pads the safe area; the logo now lives in the header row. Same gutter as
-  // the menu and events headers, so the profile button does not shift between tabs.
+  // Page already pads the safe area; the logo now lives in the header row, which keeps the
+  // same gutter and width on every tab, so the profile button does not shift between tabs.
   return (
     <View>
-      <AppHeader safeArea={false} maxWidth={760} />
+      <AppHeader safeArea={false} />
       <View style={s.header}>
         <Text accessibilityRole="header" style={s.title} testID="orders-title">
           {t('Заказы')}

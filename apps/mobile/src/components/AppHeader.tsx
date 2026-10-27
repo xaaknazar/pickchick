@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 import { Platform, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { appHeaderMetrics } from '../app-header-metrics';
 import { localize, t, useLocale } from '../i18n';
 import type { ScreenProps } from '../model';
 import { restaurantLocation } from '../restaurant-location';
@@ -18,7 +19,7 @@ type HeaderScreen = Pick<ScreenProps, 'model' | 'navigate' | 'preview'>;
 export const AppHeaderContext = createContext<HeaderScreen | null>(null);
 
 /** Text sizes stay readable at large Dynamic Type but keep the row one line high. */
-export const appHeaderMaxFontScale = 1.35;
+export const appHeaderMaxFontScale = appHeaderMetrics.maxFontScale;
 
 function hoursCaption(location: ReturnType<typeof restaurantLocation>) {
   if (location?.opening_time && location.closing_time)
@@ -35,7 +36,10 @@ const webGlass =
       } as unknown as ViewStyle)
     : null;
 
-/** Header row: logo, restaurant picker (M05) and the round profile button. */
+/**
+ * Header row: logo, restaurant picker (M05) and the round profile button. The row carries its
+ * own gutter and width cap, so the button sits at the same point on every tab.
+ */
 export function AppHeaderBar({ screen }: { screen?: HeaderScreen }) {
   useLocale();
   const context = useContext(AppHeaderContext);
@@ -44,7 +48,7 @@ export function AppHeaderBar({ screen }: { screen?: HeaderScreen }) {
   const location = restaurantLocation(current.model.branch?.id);
   return (
     <View testID="app-header-bar" style={s.row}>
-      <Logo size={38} />
+      <Logo size={appHeaderMetrics.logoSize} />
       <Pressable
         testID="header-restaurant"
         accessibilityRole="button"
@@ -75,30 +79,27 @@ export function AppHeaderBar({ screen }: { screen?: HeaderScreen }) {
 }
 
 /** Fixed header for the События and Заказы tabs; the menu keeps its own collapsing shell. */
-export function AppHeader({
-  safeArea = true,
-  gutter = 18,
-  maxWidth = 680,
-}: {
-  safeArea?: boolean;
-  gutter?: number;
-  maxWidth?: number;
-}) {
+export function AppHeader({ safeArea = true }: { safeArea?: boolean }) {
   useLocale();
   const insets = useSafeAreaInsets();
   return (
     <View testID="app-header" style={[s.shell, { paddingTop: (safeArea ? insets.top : 0) + 8 }]}>
-      <View style={[s.inner, { maxWidth, paddingHorizontal: gutter }]}>
-        <AppHeaderBar />
-      </View>
+      <AppHeaderBar />
     </View>
   );
 }
 
 const s = StyleSheet.create({
   shell: { flexShrink: 0, paddingBottom: 10, backgroundColor: colors.background, zIndex: 2 },
-  inner: { width: '100%', alignSelf: 'center' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  row: {
+    width: '100%',
+    maxWidth: appHeaderMetrics.maxWidth,
+    alignSelf: 'center',
+    paddingHorizontal: appHeaderMetrics.gutter,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   branch: {
     flex: 1,
     minWidth: 0,
@@ -122,9 +123,9 @@ const s = StyleSheet.create({
   },
   // Drinkit-like round avatar button: white person disc inside a navy glass ring.
   profile: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: appHeaderMetrics.profileSize,
+    height: appHeaderMetrics.profileSize,
+    borderRadius: appHeaderMetrics.profileSize / 2,
     flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',

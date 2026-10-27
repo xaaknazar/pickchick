@@ -14,6 +14,7 @@ import type { ScreenProps } from '../model';
 import { brandColors, colors, font } from '../theme';
 import { useAccount } from '../useAccount';
 import { useNotifications } from '../notifications/provider';
+import { appHeaderMetrics } from '../app-header-metrics';
 
 function ProfileRow({
   title,
@@ -362,14 +363,15 @@ const s = StyleSheet.create({
   scroll: { flex: 1, minHeight: 0 },
   content: { paddingHorizontal: 18, gap: 20, width: '100%', maxWidth: 680, alignSelf: 'center' },
   flex: { flex: 1, minWidth: 0 },
+  // Same frame as the tab header row, so back and settings line up with it on every width.
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     width: '100%',
-    maxWidth: 680,
+    maxWidth: appHeaderMetrics.maxWidth,
     alignSelf: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: appHeaderMetrics.gutter,
   },
   title: {
     flex: 1,

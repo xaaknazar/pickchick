@@ -1140,12 +1140,12 @@ const s = StyleSheet.create({
   dotActive: { width: 24, height: 4, borderRadius: 4, backgroundColor: colors.accent },
   dot: { width: 7, height: 4, borderRadius: 4, backgroundColor: '#7897CA' },
   hero: { backgroundColor: colors.background, overflow: 'hidden' },
+  // The shared header row (AppHeaderBar) carries the gutter and width cap of every tab.
   heroHeader: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 18,
     paddingBottom: 10,
     gap: 12,
     zIndex: 10,
