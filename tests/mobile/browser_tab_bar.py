@@ -168,6 +168,12 @@ with sync_playwright() as p:
             position = assert_header(page, screen, width)
             assert header is None or abs(position['x'] - header['x']) <= 1 and abs(position['y'] - header['y']) <= 1
             header = position
+            # As on the menu, the restaurant name opens the picker (M05); back returns to the tab.
+            page.get_by_test_id('screen-' + screen).get_by_test_id('header-restaurant').click()
+            expect(page.get_by_test_id('screen-M05')).to_be_visible()
+            page.get_by_test_id('branches-back').click()
+            expect(page.get_by_test_id('screen-' + screen)).to_be_visible()
+            expect(page.get_by_test_id('screen-M05')).to_have_count(0)
             box = assert_floating_bar(page, width, height, route)
             scroll_to_end(page, screen)
             assert last_content_bottom(page, screen) <= box['y'] + 1, (route, width)
