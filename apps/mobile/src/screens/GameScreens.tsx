@@ -10,6 +10,7 @@ import { PickFarmCard } from '../games/pick-farm/visuals';
 import { FARM_ENABLED } from '../games/pick-farm/api';
 import { MagicSortCard } from '../games/magic-sort/MagicSortCard';
 import { PickManCard } from '../games/pick-man/visuals';
+import { AppHeader } from '../components/AppHeader';
 import { Body, Caption, Heading, Icon, Row, styles as ui, type IconName } from '../components/UI';
 
 export function Events(props: ScreenProps) {
@@ -18,13 +19,16 @@ export function Events(props: ScreenProps) {
   const insets = useSafeAreaInsets();
   return (
     <View testID="screen-M26" style={s.eventsPage}>
+      {/* Owner 27.10.2026: the same top header as the menu (logo, restaurant, profile). */}
+      <AppHeader />
       <ScrollView
         testID="scroll-M26"
+        style={s.eventsScroll}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           s.eventsContent,
           {
-            paddingTop: insets.top + 6,
+            paddingTop: 4,
             paddingBottom: Math.max(28, insets.bottom + 16, (props.cartBottomInset ?? 0) + 16),
           },
         ]}
@@ -87,6 +91,7 @@ export { PickRunScreen as Game } from '../games/pick-run/PickRunScreen';
 export { PickRunResult as GameResult } from '../games/pick-run/PickRunScreen';
 const s = StyleSheet.create({
   eventsPage: { flex: 1, minHeight: 0, backgroundColor: colors.background },
+  eventsScroll: { flex: 1, minHeight: 0 },
   eventsContent: { paddingHorizontal: 18, width: '100%', maxWidth: 680, alignSelf: 'center' },
   eventsTitle: { fontFamily: font.display, fontSize: 34, lineHeight: 41, letterSpacing: -0.68 },
   eventsSubtitle: { fontSize: 14, lineHeight: 21, marginTop: 6 },

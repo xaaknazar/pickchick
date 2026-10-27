@@ -33,7 +33,8 @@ import {
 import { colors, font } from '../theme';
 import { MotionPressable } from './Motion';
 import { ProductPhoto, productPhoto } from './ProductPhoto';
-import { Button, Icon, Logo } from './UI';
+import { AppHeader } from './AppHeader';
+import { Button, Icon } from './UI';
 
 /** Orders-tab colours from the approved brief (2026-10-12) that the theme does not name yet. */
 export const ordersPalette = {
@@ -56,12 +57,17 @@ const chefScenes: Record<OrderScene, number> = {
 
 export function OrdersHeader() {
   useLocale();
+  // Owner 27.10.2026: the shared top header (logo, restaurant, profile) above the tab title.
+  // Page already pads the safe area; the logo now lives in the header row. Same gutter as
+  // the menu and events headers, so the profile button does not shift between tabs.
   return (
-    <View style={s.header}>
-      <Text accessibilityRole="header" style={s.title} testID="orders-title">
-        {t('Заказы')}
-      </Text>
-      <Logo size={40} />
+    <View>
+      <AppHeader safeArea={false} maxWidth={760} />
+      <View style={s.header}>
+        <Text accessibilityRole="header" style={s.title} testID="orders-title">
+          {t('Заказы')}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -718,8 +724,8 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
+    paddingTop: 2,
+    paddingBottom: 12,
   },
   title: {
     flex: 1,
