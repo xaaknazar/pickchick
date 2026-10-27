@@ -823,6 +823,16 @@ function KaspiCheckoutSession(
     // The sheet lock is released in this render; close the sheet afterwards.
     if (leaving) props.goBack?.();
   }, [leaving]);
+  // The red banner says why paying is impossible right now (owner 28.10): an earlier refusal of
+  // the server (RESTAURANT_CLOSED after a phone clock a little behind at closing) is not shown
+  // under it with a «Попробовать снова» that does nothing, and does not come back when the
+  // restaurant opens (QA 28.10). Only the cart itself: an order on screen, a saved intent or a
+  // running command keep their failure for the payment guards.
+  useEffect(() => {
+    if (props.screenId === 'M19' || availability.canPay || !error) return;
+    if (orderRef.current || pending.current || lock.current) return;
+    setError(null);
+  }, [availability.canPay, error, props.screenId]);
   const total = quote ? quote.totalMinor : localTotal;
   // Keep the failure itself for payment/recovery guards; transient failures have no UI copy.
   const visibleError = error ? checkoutError(error) : '';
@@ -1031,7 +1041,7 @@ function KaspiCheckoutSession(
   }
   const notices = (
     <>
-      {visibleError && (props.screenId === 'M19' || !busy) ? (
+      {visibleError && (props.screenId === 'M19' || (!busy && availability.canPay)) ? (
         <View style={s.warning} accessibilityLiveRegion="polite">
           <Body>{localize(visibleError)}</Body>
           <Button secondary title={t('Попробовать снова')} onPress={retry} />
