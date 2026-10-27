@@ -27,8 +27,8 @@ export const glass = {
   sheen:
     'linear-gradient(180deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.05) 48%, rgba(255,255,255,0) 100%)',
   icon: '#FFFFFF',
-  /** Drinkit-like red trash; 4.5:1+ on the navy glass. */
-  danger: '#FF6B5E',
+  /** Drinkit-like red trash (iOS system red, owner 27.10); >= 3:1 on the navy glass (WCAG non-text). */
+  danger: '#FF3B30',
 } as const;
 
 /** The control never shrinks below the 44 pt target, whatever a caller passes. */

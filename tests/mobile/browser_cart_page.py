@@ -263,7 +263,7 @@ def cart_page(browser, width, height):
     assert abs((a['y'] + a['height'] / 2) - (c['y'] + c['height'] / 2)) <= 1, (a, c)
     for box in (a, c):
         assert box['width'] >= 44 and box['height'] >= 44, box
-    assert glyph(clear) == 'rgb(255, 107, 94)', glyph(clear)
+    assert glyph(clear) == 'rgb(255, 59, 48)', glyph(clear)
     assert glyph(shut) == 'rgb(255, 255, 255)', glyph(shut)
     assert has_blur(clear) and has_blur(shut), 'Glass buttons blur what is behind them'
     assert blur_is_round(clear) and blur_is_round(shut), 'No square blur patch around the round buttons'
