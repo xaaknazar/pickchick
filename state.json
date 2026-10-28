@@ -6687,11 +6687,12 @@
         "tests/mobile/availability-auto-recovery.test.mjs",
         "tests/mobile/availability-reader.test.mjs",
         "apps/mobile/src/availability-reader.ts",
-        "tests/mobile/ios/CartFixesTests.swift"
+        "tests/mobile/ios/CartFixesTests.swift",
+        "@ios/simulator"
       ],
       "status": "active",
       "head": "c46a95b23b8c7ebf98074557a2658fc6da58e3b4",
-      "updatedAt": "2026-10-28T05:34:53.563Z"
+      "updatedAt": "2026-10-28T05:38:07.231Z"
     }
   ]
 }
