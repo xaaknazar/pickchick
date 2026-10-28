@@ -1048,6 +1048,8 @@ function KaspiCheckoutSession(
         // restaurant's wait: after 20 s it says so, with the way back (it retries by itself).
         intentKey={pending.current && !pending.current.orderId ? pending.current.key : undefined}
         stuckReturnLabel={stuckReturnLabel}
+        // «Заказы» with a cart: the buttons stay above the cart bar docked on the tab bar.
+        bottomInset={props.cartBottomInset}
       />
     );
   if (order && (!paymentReceived(order.phase) || paidMoment))
@@ -1097,6 +1099,7 @@ function KaspiCheckoutSession(
         // «sending»; the wait of the intent that created this order goes on (waitSince).
         paymentCommand={commandFor === order.orderId}
         intentKey={draftOwns(pending.current, order.orderId) ? pending.current.key : undefined}
+        bottomInset={props.cartBottomInset}
       />
     );
   if (order && paymentReceived(order.phase)) {

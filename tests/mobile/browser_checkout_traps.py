@@ -19,6 +19,9 @@ no bank, no real customer, no VPS request.
      подтверждает заказ» with «Проверить ещё раз» (one read) and «Вернуться в корзину»; back in the
      cart its intent is gone, a restart reopens and sends nothing; a changed cart paid again is a
      new order and only that order is billed - the old unbilled order never is.
+  G  integration 28.10: the Orders tab payment view while the cart has lines. The cart bar is
+     docked on the tab bar (lane bar); the payment buttons (lane esc) sit above it, each one the
+     top element at its own centre, and the way back to the list still works.
 """
 from browser_network import isolated_context, route_fixture
 import json, os, subprocess
@@ -499,9 +502,48 @@ def scenario_kitchen_offline(browser):
     ctx.close()
 
 
+def scenario_orders_with_cart(browser, width, height):
+    """G: an invoice opened from «Заказы» while the cart has lines: nothing hides under the cart bar."""
+    state = fresh_state()
+
+    def handler(r, path, method, body):
+        if path == '/v1/customer-checkout/orders' and method == 'GET':
+            return fulfill(r, {'orders': [order('awaiting_payment', INVOICED)]})
+        return False
+
+    ctx, page = context(browser, state, handler, width=width, height=height)
+    page.goto(URL + '/menu')
+    page.get_by_test_id('product-pick-combo').click(timeout=25000)
+    page.get_by_test_id('product-add').click()
+    expect(page.get_by_test_id('open-cart')).to_be_visible(timeout=10000)
+    page.get_by_test_id('tab-orders').click()
+    page.get_by_test_id('order-history-pay-' + INVOICED).click(timeout=25000)
+    expect(page.get_by_test_id('kaspi-open-app')).to_be_visible(timeout=10000)
+    expect(page.get_by_test_id('open-cart')).to_be_visible()
+    expect(page.get_by_test_id('kaspi-state-close')).to_be_visible()
+    page.wait_for_timeout(800)
+    dock = page.get_by_test_id('tab-cart-dock').bounding_box()
+    assert dock and dock['height'] > 40, dock
+    for test_id in ['kaspi-open-app', 'kaspi-cancel-instructions', 'kaspi-close-order']:
+        box = page.get_by_test_id(test_id).bounding_box()
+        assert box and box['height'] >= 44 and box['y'] >= 0, (test_id, box)
+        assert box['y'] + box['height'] <= dock['y'] + 1, ('under the cart bar', test_id, box, dock)
+        on_top = page.evaluate(
+            '([x, y, id]) => !!document.elementFromPoint(x, y)?.closest(`[data-testid="${id}"]`)',
+            [box['x'] + box['width'] / 2, box['y'] + box['height'] / 2, test_id])
+        assert on_top, ('covered', test_id, box, dock)
+    page.screenshot(path=str(OUT / f'G-orders-pay-with-cart-{width}.png'))
+    page.get_by_test_id('kaspi-close-order').click()
+    expect(page.get_by_test_id('order-history-open-' + INVOICED)).to_be_visible(timeout=10000)
+    expect(page.get_by_test_id('open-cart')).to_be_visible()
+    assert state['payments'] == 0 and state['creates'] == 0, state
+    release(state)
+    ctx.close()
+
+
 if __name__ == '__main__':
     # CHECKOUT_TRAPS=E runs a subset while iterating; the default runs every scenario.
-    SELECTED = os.environ.get('CHECKOUT_TRAPS', 'ABCDEF').upper()
+    SELECTED = os.environ.get('CHECKOUT_TRAPS', 'ABCDEFG').upper()
     with sync_playwright() as p:
         browser = p.chromium.launch()
         if 'A' in SELECTED:
@@ -518,13 +560,17 @@ if __name__ == '__main__':
         if 'F' in SELECTED:
             for width, height in [(393, 852), (320, 568)]:
                 scenario_stuck_admission(browser, width, height)
+        if 'G' in SELECTED:
+            for width, height in [(393, 852), (320, 568)]:
+                scenario_orders_with_cart(browser, width, height)
         browser.close()
     assert not errors, errors
-    if SELECTED != 'ABCDEF':
+    if SELECTED != 'ABCDEFG':
         print('PASS checkout traps (subset ' + SELECTED + ')')
         raise SystemExit(0)
     print('PASS checkout traps: attention intent closes and stays closed, refused payment returns to the cart '
           'without resend, Orders tab returns to the list (also with a live intent, no foreign auto-invoice), '
           'kitchen offline is reported at once, the glass X leaves every payment screen at once '
           '(asking first while the bank may act), a restaurant that never admits the order is said '
-          'after 20 s and its old unbilled order is never billed')
+          'after 20 s and its old unbilled order is never billed, and the Orders tab payment buttons '
+          'stay above the docked cart bar')

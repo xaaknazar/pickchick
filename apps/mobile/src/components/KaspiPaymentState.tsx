@@ -58,6 +58,7 @@ export function KaspiPaymentState({
   safeTop = false,
   paymentCommand = false,
   intentKey,
+  bottomInset = 0,
 }: {
   order?: CustomerCommerceOrder;
   paid?: boolean;
@@ -102,6 +103,12 @@ export function KaspiPaymentState({
    * goes on, waitSince).
    */
   intentKey?: string;
+  /**
+   * Space a tab screen keeps free at the bottom (ScreenHost cartBottomInset): the tab bar plus
+   * the cart bar docked on it while the cart has lines. On «Заказы» the buttons sit above both,
+   * never under the cart bar (integration 28.10.2026). Outside the tabs it is 0.
+   */
+  bottomInset?: number;
 }) {
   useLocale();
   const closable = Boolean(onClose);
@@ -119,6 +126,7 @@ export function KaspiPaymentState({
   const reduced = useReducedMotion();
   const insets = useSafeAreaInsets();
   const tabBarInset = useTabBarInset();
+  const footerInset = tabBarInset > 0 ? Math.max(tabBarInset, bottomInset) : 0;
   const { height, fontScale } = useWindowDimensions();
   const compact = height < 700;
   // 320 x 568 class screens (QA 27.10, items 11/16): a smaller title, scene and gaps, so the
@@ -492,8 +500,8 @@ export function KaspiPaymentState({
         ) : null}
       </ScrollView>
       <BottomActions
-        safeArea={tabBarInset === 0}
-        style={[checkoutStyle.cartFooter, { marginBottom: tabBarInset }]}
+        safeArea={footerInset === 0}
+        style={[checkoutStyle.cartFooter, { marginBottom: footerInset }]}
       >
         {paid ? (
           <>
