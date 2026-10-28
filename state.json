@@ -6691,9 +6691,11 @@
         "@ios/simulator",
         "docs/operations/mobile-cart-fixes-2026-10-28"
       ],
-      "status": "active",
-      "head": "a6503742ac3d48a9db9362a1885b6f06f57289f6",
-      "updatedAt": "2026-10-28T05:47:47.451Z"
+      "status": "done",
+      "head": "d99c183ad8ae86f9220151b3fe2efafdab4d3490",
+      "updatedAt": "2026-10-28T05:49:52.313Z",
+      "summary": "PR284 merged into shared at 2611d307: four mobile fixes; 490 Node + 59 Python, browser cart and swipe A-N, iOS 26.5 Simulator Release PASS. Evidence d99c183a. Full Foundation CI pending; no TestFlight or VPS release.",
+      "nextAction": "Review full CI before the next TestFlight; physical iPhone acceptance remains pending."
     }
   ]
 }
