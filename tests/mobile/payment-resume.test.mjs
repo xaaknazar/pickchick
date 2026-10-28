@@ -8,6 +8,10 @@ import {
 import {
   closePendingPayment,
   parsePendingPayment,
+  pendingPaymentOfThisRun,
+  pendingPaymentShownOnly,
+  reopenPendingPayment,
+  showPendingPayment,
 } from '../../apps/mobile/src/payment-recovery.ts';
 import { PAYMENT_RESUME_TITLE, paymentLaunch } from '../../apps/mobile/src/payment-resume.ts';
 import { setAppLocale, t } from '../../apps/mobile/src/i18n/core.ts';
@@ -36,6 +40,7 @@ const order = (phase, changes = {}) => ({
   expiresAt: null,
   ...changes,
 });
+const nothing = () => ({ remove: false, banner: null, read: false });
 const read = (path) =>
   readFileSync(new URL(`../../apps/mobile/src/${path}`, import.meta.url), 'utf8');
 const squash = (value) => value.replace(/\s+/g, '');
@@ -139,6 +144,49 @@ test('a closed intent stays closed after a restart: no banner, only the tidy-up'
     assert.equal(paymentLaunch(restarted, order(phase), now).remove, true, phase);
 });
 
+test('after the TestFlight 27 update, an intent closed by the X of TestFlight 26 is not offered', () => {
+  // TestFlight 26 wrote only `sendInvoice: false` (no closedAt) on X. Within its bank window it
+  // must not reappear as «Проверяем оплату заказа» / «Заказ ждёт оплаты в Kaspi» (review 28.10).
+  const stored = parsePendingPayment(JSON.stringify({ ...intent(), sendInvoice: false }));
+  for (const phase of ['sending', 'awaiting_payment', 'checking'])
+    assert.deepEqual(paymentLaunch(stored, order(phase), now), nothing(), phase);
+  // Still read once to tidy it up when its order is final.
+  assert.equal(paymentLaunch(stored, undefined, now).read, true);
+  assert.equal(paymentLaunch(stored, order('paid'), now).remove, true);
+  // Opened again by a pay tap of TestFlight 27 (reopenedAt): offered after a restart again.
+  const reopened = parsePendingPayment(JSON.stringify(reopenPendingPayment(stored, now)));
+  assert.equal(paymentLaunch(reopened, order('awaiting_payment'), now).banner, 'kaspi');
+});
+
+test('«Открыть заказ» only shows the order: its invoice waits for an explicit tap', () => {
+  // Review 28.10.2026: a fresh unbilled intent («Оплата заказа не завершена») opened from the
+  // banner used to send POST /payment by itself on the recovery screen.
+  const draft = intent();
+  assert.equal(pendingPaymentOfThisRun(draft), false, 'an earlier run: no screen restores it');
+  showPendingPayment(draft.key);
+  assert.equal(pendingPaymentOfThisRun(draft), true, 'the recovery screen may show it');
+  assert.equal(pendingPaymentShownOnly(draft), true, 'but never sends its invoice');
+  // The next explicit pay tap (submit) is a payment: it may send as the tap asks.
+  assert.equal(reopenPendingPayment(draft, now), draft);
+  assert.equal(pendingPaymentShownOnly(draft), false);
+  assert.equal(pendingPaymentOfThisRun(draft), true);
+  const screen = squash(read('screens/KaspiCheckoutScreen.tsx'));
+  assert.ok(
+    screen.includes(
+      'draftOwns(pending.current,target.orderId)&&draftCanAutoSend(pending.current,Date.now())&&!pendingPaymentShownOnly(pending.current);',
+    ),
+  );
+  // The «Отправить счёт на ...» button is there whenever the order does not send by itself.
+  assert.ok(
+    screen.includes("order.phase==='ready_to_pay'&&commandFor!==order.orderId&&(!autoSends(order)"),
+  );
+  assert.ok(
+    squash(read('components/PaymentResumeBanner.tsx')).includes(
+      "showPendingPayment(resume.key);router.push('/checkout');",
+    ),
+  );
+});
+
 test('banner wording in RU, KK and EN, plain hyphen, never «Отправляем счёт»', () => {
   const messages = JSON.parse(
     readFileSync(new URL('../../apps/mobile/src/i18n/messages.json', import.meta.url), 'utf8'),
@@ -153,6 +201,7 @@ test('banner wording in RU, KK and EN, plain hyphen, never «Отправляе�
     assert.doesNotMatch(title, /Отправляем|Отправляется/);
   setAppLocale('en');
   assert.equal(t(PAYMENT_RESUME_TITLE.kaspi), 'Your order is waiting for payment in Kaspi');
+  assert.equal(t(PAYMENT_RESUME_TITLE.unfinished), 'Order payment not completed');
   setAppLocale('kk');
   assert.equal(t(PAYMENT_RESUME_TITLE.checking), 'Тапсырыс төлемін тексеріп жатырмыз');
   setAppLocale('ru');
@@ -171,22 +220,33 @@ test('the start never navigates to a payment screen and never sends anything', (
   // A paid order takes its lines out of the restored cart, as its payment screen does.
   assert.ok(squash(recovery).includes('if(paid&&!settled)'));
   assert.ok(squash(recovery).includes('matchesPaidComboCart(draft.signature,signature)'));
+  // Paid while the app was closed: the «Заказы» counter shows at once (one GET of the list).
+  assert.ok(
+    squash(recovery).includes('if(order)voidcountActiveOrders(order).catch(()=>undefined);'),
+  );
+  assert.match(recovery, /commerceRequest\('\/v1\/customer-checkout\/orders', 'GET'/);
+  assert.ok(squash(recovery).includes('publishActiveOrderFloor(1)'));
+  // A closed intent is read once per close: reopened by a pay tap and open, it is read again.
+  assert.ok(
+    squash(recovery).includes('!(pendingPaymentClosed(draft)&&tidied.current.has(tidyKey(draft)))'),
+  );
   assert.match(read('app/_layout.tsx'), /<PaymentRecovery \/>/);
   // The menu's tab is the start route.
   assert.match(read('app/index.tsx'), /<Redirect href="\/\(tabs\)\/menu" \/>/);
 });
 
-test('the cart and «Заказы» never take over with an intent of an earlier run or a closed one', () => {
+test('no screen takes over with an intent of an earlier run or a closed one', () => {
   const screen = squash(read('screens/KaspiCheckoutScreen.tsx'));
-  assert.ok(
-    screen.includes(
-      "!pendingPaymentClosed(draft)&&((props.screenId!=='M19'&&props.screenId!=='M09')||pendingPaymentOfThisRun(draft))",
-    ),
-  );
+  // Not the cart, «Заказы», the checkout or the order status, also opened directly (review
+  // 28.10.2026: /order-status?id=M20 and /checkout restored any open intent of an earlier run).
+  assert.ok(screen.includes('!pendingPaymentClosed(draft)&&pendingPaymentOfThisRun(draft))'));
+  assert.doesNotMatch(screen, /props\.screenId!=='M09'\)\|\|pendingPaymentOfThisRun/);
+  // Showing an intent never adopts it: only a pay tap or the banner's «Открыть заказ» does.
+  assert.equal(screen.split('adoptPendingPayment(').length - 1, 1);
   // X keeps the intent closed in storage (not only in memory), the next pay tap reopens it.
   assert.ok(screen.includes('constkept=closePendingPayment(draft,Date.now());'));
   assert.ok(screen.includes('saved=AsyncStorage.setItem(key,JSON.stringify(kept));'));
-  assert.ok(screen.includes('constdraft=reopenPendingPayment(saved);'));
+  assert.ok(screen.includes('constdraft=reopenPendingPayment(saved,Date.now());'));
   assert.ok(screen.includes('adoptPendingPayment(draft.key);setIntentSaved(draft.key);'));
   assert.doesNotMatch(screen, /pendingPaymentDismissed/);
 });
@@ -196,7 +256,7 @@ test('the banner sits in the dock above the cart bar on the menu only, with a11y
   for (const id of ['payment-resume-banner', 'payment-resume-open', 'payment-resume-close'])
     assert.ok(banner.includes(`testID="${id}"`), id);
   assert.equal(banner.split('accessibilityRole="button"').length - 1, 2);
-  assert.ok(squash(banner).includes("adoptPendingPayment(resume.key);router.push('/checkout');"));
+  assert.ok(squash(banner).includes("showPendingPayment(resume.key);router.push('/checkout');"));
   assert.ok(squash(banner).includes('onPress={()=>voidhidePaymentResume(resume)}'));
   assert.ok(squash(banner).includes('width:44,minHeight:44'));
   const dock = squash(read('components/TabCartDock.tsx'));

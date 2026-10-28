@@ -63,6 +63,7 @@ import {
   pendingPaymentClosed,
   pendingPaymentKey,
   pendingPaymentOfThisRun,
+  pendingPaymentShownOnly,
   parsePendingPayment,
   reopenPendingPayment,
   type PendingPayment,
@@ -263,9 +264,12 @@ function KaspiCheckoutSession(
         Boolean(order && liveBankAction(order, lockedAt))),
   );
   // Only the order created by the saved intent may send its invoice without a new tap; an older
-  // unpaid order opened from «Заказы» always waits for «Отправить счёт».
+  // unpaid order opened from «Заказы» always waits for «Отправить счёт». So does an order the
+  // menu's banner opened («Открыть заказ», review 28.10.2026): opening never sends the invoice.
   const autoSends = (target: CustomerCommerceOrder) =>
-    draftOwns(pending.current, target.orderId) && draftCanAutoSend(pending.current, Date.now());
+    draftOwns(pending.current, target.orderId) &&
+    draftCanAutoSend(pending.current, Date.now()) &&
+    !pendingPaymentShownOnly(pending.current);
   const access = auth.withOrderAccess;
   const request = useCallback(
     async (path: string, method: 'GET' | 'POST' = 'GET', body?: unknown, signal?: AbortSignal) => {
@@ -406,14 +410,14 @@ function KaspiCheckoutSession(
       } else if (
         draft &&
         // Owner 28.10.2026 (TestFlight 26): an intent the customer closed never opens by itself,
-        // also after a restart (closedAt); the pay button restores it first (submit). The cart and
-        // «Заказы» never take over with an intent of an earlier app run either: the app opens on
-        // the menu, which offers it (PaymentResumeBanner). The recovery screen (opened from that
-        // banner) and an intent of this run come back as before.
+        // also after a restart (closedAt); the pay button restores it first (submit). No screen
+        // takes over with an intent of an earlier app run either, also a route opened directly
+        // (/checkout, /order-status; review 28.10): the app opens on the menu, which offers it
+        // (PaymentResumeBanner). Only an intent of this run comes back: a pay tap of this run, or
+        // the banner's «Открыть заказ», which opens the recovery screen (M12).
         !pendingPaymentClosed(draft) &&
-        ((props.screenId !== 'M19' && props.screenId !== 'M09') || pendingPaymentOfThisRun(draft))
+        pendingPaymentOfThisRun(draft)
       ) {
-        adoptPendingPayment(draft.key);
         const existing = CustomerCommerceOrderSchema.parse(
           await prepareCheckout(() => recover(draft, controller.signal), controller.signal),
         );
@@ -440,9 +444,9 @@ function KaspiCheckoutSession(
           setOrder(null);
         }
       } else if (draft) {
-        // Closed, or saved by an earlier run (audit 2.4, owner 28.10.2026): the cart shows the
-        // cart and «Заказы» its list, not the intent. The intent stays saved for the next pay tap
-        // (submit restores it first) and the menu's banner; no other order touches it here.
+        // Closed, or saved by an earlier run (audit 2.4, owner 28.10.2026): the cart and the
+        // checkout show the cart, «Заказы» its list, not the intent. It stays saved for the next
+        // pay tap (submit restores it first) and the menu's banner; no other order touches it.
         pending.current = null;
       }
       if (props.screenId !== 'M19') {
@@ -634,7 +638,8 @@ function KaspiCheckoutSession(
           // An explicit tap (owner 28.10.2026): the intent is this run's again, and a closed one
           // is open again, so a restart while it waits in Kaspi offers it on the menu. A closed
           // one keeps its automatic invoice withdrawn; nothing new is created while it may bill.
-          const draft = reopenPendingPayment(saved);
+          // Opened by the banner before, it may now send its invoice as the tap asks (review).
+          const draft = reopenPendingPayment(saved, Date.now());
           if (draft !== saved)
             await AsyncStorage.setItem(key, JSON.stringify(draft)).catch(() => undefined);
           pending.current = draft;

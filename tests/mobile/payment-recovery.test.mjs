@@ -35,6 +35,14 @@ test('drafts of earlier builds and closed drafts of this build both parse (owner
       () => parsePendingPayment(JSON.stringify({ ...old, closedAt })),
       String(closedAt),
     );
+  // Opened again by a pay tap (review 28.10.2026): the time of that tap.
+  const reopened = { ...old, sendInvoice: false, reopenedAt: 1793180090000 };
+  assert.deepEqual(parsePendingPayment(JSON.stringify(reopened)), reopened);
+  for (const reopenedAt of ['1793180090000', 0, -5, 1.5, null, false])
+    assert.throws(
+      () => parsePendingPayment(JSON.stringify({ ...old, reopenedAt })),
+      String(reopenedAt),
+    );
 });
 test('corrupt storage cannot become a fresh order or inject an order URL', () => {
   for (const value of [

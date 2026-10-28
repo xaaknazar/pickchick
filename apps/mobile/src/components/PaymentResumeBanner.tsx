@@ -6,7 +6,7 @@ import { GlassFill, glassBarRim, useGlassBarStyle } from './GlassButton';
 import { Icon } from './UI';
 import { colors, font } from '../theme';
 import { tabCartGap } from '../tab-bar-metrics';
-import { adoptPendingPayment } from '../payment-recovery';
+import { showPendingPayment } from '../payment-recovery';
 import { PAYMENT_RESUME_TITLE } from '../payment-resume';
 import { hidePaymentResume, usePaymentResume } from './PaymentRecovery';
 
@@ -18,8 +18,8 @@ const MAX_SCALE = 1.4;
  * Owner 28.10.2026 (TestFlight 26): the app always opens on the menu, never on a payment screen.
  * A payment of an earlier run that the bank may still act on, and that the customer did not
  * close, is offered here instead: a small glass banner in the dock above the cart bar, on the
- * menu only. «Открыть заказ» opens its payment state (the recovery screen, /checkout); the X
- * hides it for good (the same «closed» as the X of the payment screen). Nothing is sent.
+ * menu only. «Открыть заказ» opens its payment state (the recovery screen, /checkout) without
+ * sending anything; the X hides it for good (the same «closed» as the X of the payment screen).
  */
 export function PaymentResumeBanner({ cartBelow }: { cartBelow: boolean }) {
   useLocale();
@@ -38,8 +38,10 @@ export function PaymentResumeBanner({ cartBelow }: { cartBelow: boolean }) {
           accessibilityLabel={title}
           accessibilityHint={t('Открыть заказ')}
           onPress={() => {
-            // An explicit open: from now on this run treats the intent as its own.
-            adoptPendingPayment(resume.key);
+            // An explicit open: this run may show the intent's order (the recovery screen
+            // restores it), but opening never sends its invoice: an unbilled order waits for
+            // «Отправить счёт» (review 28.10.2026: the button says «Открыть заказ», not «Оплатить»).
+            showPendingPayment(resume.key);
             router.push('/checkout');
           }}
           style={s.open}

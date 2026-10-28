@@ -154,11 +154,53 @@ test('drafts record their time; a customer close is remembered, also after a res
   assert.equal(draftCanAutoSend(restarted, now + 2_000), false, 'no automatic invoice');
   // Closing again keeps the first time; an explicit pay tap reopens it (no auto invoice back).
   assert.equal(closePendingPayment(restarted, now + 9_000).closedAt, now + 1_000);
-  const reopened = reopenPendingPayment(restarted);
+  const reopened = reopenPendingPayment(restarted, now + 10_000);
   assert.equal(pendingPaymentClosed(reopened), false);
   assert.equal(reopened.closedAt, undefined);
   assert.equal(reopened.sendInvoice, false);
-  assert.equal(reopenPendingPayment(reopened), reopened, 'an open intent is not rewritten');
+  assert.equal(reopened.reopenedAt, now + 10_000);
+  assert.equal(pendingPaymentClosed(parsePendingPayment(JSON.stringify(reopened))), false);
+  assert.equal(
+    reopenPendingPayment(reopened, now + 20_000),
+    reopened,
+    'an open intent is not rewritten',
+  );
+  // Closed again: closed by its new time, the reopen time goes.
+  const again = closePendingPayment(reopened, now + 30_000);
+  assert.equal(again.closedAt, now + 30_000);
+  assert.equal('reopenedAt' in again, false);
+});
+
+test('an intent closed by the X of TestFlight 26 stays closed after the update (review 28.10)', () => {
+  // TestFlight 26 wrote only `sendInvoice: false` on X (no closedAt): read by TestFlight 27 in a
+  // new run (nothing in memory) it is closed, not offered again.
+  const legacy = {
+    ...draft,
+    key: '40000000-0000-4000-8000-0000000000c2',
+    orderId: '40000000-0000-4000-8000-000000000006',
+    sendInvoice: false,
+    createdAt: now - 60_000,
+  };
+  const restarted = parsePendingPayment(JSON.stringify(legacy));
+  assert.equal(pendingPaymentClosed(restarted), true);
+  // An open intent of this build (a fresh tap) and a build-20 draft without the flag are open.
+  assert.equal(
+    pendingPaymentClosed({
+      ...legacy,
+      key: '40000000-0000-4000-8000-0000000000c3',
+      sendInvoice: true,
+    }),
+    false,
+  );
+  const build20 = { ...legacy, key: '40000000-0000-4000-8000-0000000000c4' };
+  delete build20.sendInvoice;
+  assert.equal(pendingPaymentClosed(build20), false);
+  // The next explicit pay tap opens it again, without its automatic invoice.
+  const reopened = reopenPendingPayment(restarted, now);
+  assert.notEqual(reopened, restarted);
+  assert.deepEqual(reopened, { ...legacy, reopenedAt: now });
+  assert.equal(pendingPaymentClosed(reopened), false);
+  assert.equal(draftCanAutoSend(reopened, now), false);
 });
 
 test('an invoice requested now for an older unpaid order still holds a new checkout', () => {
