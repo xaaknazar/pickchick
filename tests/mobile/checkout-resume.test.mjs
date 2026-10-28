@@ -15,9 +15,11 @@ import {
   liveBankAction,
   noteBankCommand,
   paymentStuck,
+  paymentWaitPhase,
   resumableOrder,
   staleBankAction,
   supportAtOnce,
+  waitSince,
 } from '../../apps/mobile/src/checkout-resume.ts';
 import {
   dismissPendingPayment,
@@ -229,6 +231,57 @@ test('a sending or restaurant wait says it is stuck after 20 s, on the phone clo
   // A clock moved backwards never claims a stuck wait.
   assert.equal(paymentStuck('sending', now, now - 60_000), null);
   assert.equal(paymentStuck('sending', now, Number.NaN), null);
+});
+
+test('a running payment command waits as «sending», a create command as the restaurant', () => {
+  // Review 28.10.2026: POST /payment may run up to 60 s while the order still reads ready_to_pay,
+  // and POST /orders may retry NOT_READY up to 60 s on the connecting scene.
+  assert.equal(paymentWaitPhase('ready_to_pay', { commandRunning: true }), 'sending');
+  assert.equal(paymentWaitPhase('ready_to_pay'), 'ready_to_pay');
+  assert.equal(paymentWaitPhase(undefined, { creating: true }), 'awaiting_restaurant');
+  // A connecting scene without a create command (a quote, a known order being read) has none.
+  assert.equal(paymentWaitPhase(undefined), undefined);
+  assert.equal(paymentWaitPhase(undefined, { commandRunning: true }), undefined);
+  // The order's own phase wins everywhere else, also while a command still runs.
+  for (const phase of ['sending', 'awaiting_payment', 'checking', 'failed', 'paid', 'attention'])
+    assert.equal(paymentWaitPhase(phase, { commandRunning: true, creating: true }), phase);
+  assert.equal(
+    paymentStuck(paymentWaitPhase('ready_to_pay', { commandRunning: true }), now, now + 20_000),
+    'bank',
+  );
+  assert.equal(
+    paymentStuck(paymentWaitPhase(undefined, { creating: true }), now, now + 20_000),
+    'restaurant',
+  );
+});
+
+test('a wait keeps its first time in this app run, per order and phase, on the phone clock', () => {
+  // Review 28.10.2026: X, then «Оплатить» again reopens an order that has been «sending» for
+  // minutes: the honest text comes at once instead of after another 20 s.
+  const id = 'wait-order-1';
+  assert.equal(waitSince(id, 'sending', now), now);
+  assert.equal(waitSince(id, 'sending', now + 5 * 60_000), now);
+  assert.equal(
+    paymentStuck('sending', waitSince(id, 'sending', now + 5 * 60_000), now + 5 * 60_000),
+    'bank',
+  );
+  // Another phase of the same order starts again; so does a clock that moved backwards.
+  assert.equal(waitSince(id, 'awaiting_payment', now + 6 * 60_000), now + 6 * 60_000);
+  assert.equal(waitSince(id, 'sending', now + 7 * 60_000), now + 7 * 60_000);
+  assert.equal(waitSince(id, 'sending', now + 60_000), now + 60_000);
+  // Another order has its own wait.
+  assert.equal(waitSince('wait-order-2', 'sending', now + 8 * 60_000), now + 8 * 60_000);
+  // A create intent hands its restaurant wait to the order it became, never another phase.
+  assert.equal(waitSince('intent:k1', 'awaiting_restaurant', now), now);
+  assert.equal(waitSince('wait-order-3', 'awaiting_restaurant', now + 30_000, 'intent:k1'), now);
+  assert.equal(waitSince('wait-order-4', 'sending', now + 30_000, 'intent:k1'), now + 30_000);
+  assert.equal(
+    waitSince('wait-order-5', 'awaiting_restaurant', now + 30_000, 'intent:none'),
+    now + 30_000,
+  );
+  // Memory stays small: old waits are forgotten (and then start again).
+  for (let i = 0; i < 40; i += 1) waitSince(`wait-filler-${i}`, 'sending', now);
+  assert.equal(waitSince(id, 'sending', now + 9 * 60_000), now + 9 * 60_000);
 });
 
 test('the X asks first only while the bank may still act for this order', () => {

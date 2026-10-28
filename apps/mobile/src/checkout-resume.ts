@@ -118,10 +118,10 @@ export const STUCK_NOTICE_MS = 20_000;
 export type PaymentStuck = 'bank' | 'restaurant';
 
 /**
- * Why a payment screen is stuck, measured from the moment this screen saw the order enter its
- * phase (`since`, the phone's clock; the order's own times may come from another clock):
- * «bank» while the invoice is still being sent to Kaspi, «restaurant» while the restaurant has
- * not admitted the order. Every other phase has its own actions (Kaspi.kz, retry, the cart).
+ * Why a payment screen is stuck, measured from the moment this app run first saw the wait in its
+ * phase (`since`, waitSince, the phone's clock; `phase` from paymentWaitPhase): «bank» while the
+ * invoice is still being sent to Kaspi, «restaurant» while the restaurant has not admitted the
+ * order. Every other phase has its own actions (Kaspi.kz, retry, the cart).
  */
 export function paymentStuck(
   phase: Order['phase'] | undefined,
@@ -130,6 +130,46 @@ export function paymentStuck(
 ): PaymentStuck | null {
   if (!(now - since >= STUCK_NOTICE_MS)) return null;
   return phase === 'sending' ? 'bank' : phase === 'awaiting_restaurant' ? 'restaurant' : null;
+}
+
+/**
+ * The phase a payment screen shows and waits as (owner 28.10.2026, review): the order's own,
+ * except two waits the order phase does not tell:
+ * - this screen's payment command (POST /payment) still runs on «ready_to_pay»: the invoice is
+ *   being sent, so the screen says «Отправляем счёт» and a long wait is the bank's;
+ * - the connecting scene of a create command (a saved intent without its order yet, POST /orders
+ *   retrying): the restaurant has not taken the order and nothing can be billed, the restaurant's
+ *   wait. A connecting scene without one (quote, a known order being read) has no phase.
+ */
+export function paymentWaitPhase(
+  phase: Order['phase'] | undefined,
+  context: { commandRunning?: boolean; creating?: boolean } = {},
+): Order['phase'] | undefined {
+  if (phase === undefined) return context.creating ? 'awaiting_restaurant' : undefined;
+  return phase === 'ready_to_pay' && context.commandRunning ? 'sending' : phase;
+}
+
+/** Waits remembered in this app run: the last few orders (and create intents) are enough. */
+const WAITS_KEPT = 32;
+const waits = new Map<string, { phase: string; since: number }>();
+
+/**
+ * When this app run first saw a payment wait (`id`: an order, or a create intent on the
+ * connecting scene) in this phase, on the phone clock (the order's own times may come from
+ * another clock). An order reopened later (X, then «Оплатить» again) keeps its first time, so a
+ * «sending» that has lasted for minutes says so at once instead of «Подождите немного» for another
+ * 20 s. A new phase starts again; `from` hands over the wait of the create intent that became this
+ * order. A clock that moved backwards starts again from now.
+ */
+export function waitSince(id: string, phase: string, now: number, from?: string): number {
+  const seen = waits.get(id);
+  if (seen?.phase === phase && seen.since <= now) return seen.since;
+  const handed = from === undefined ? undefined : waits.get(from);
+  const since = handed?.phase === phase && handed.since <= now ? handed.since : now;
+  waits.delete(id);
+  waits.set(id, { phase, since });
+  if (waits.size > WAITS_KEPT) waits.delete(waits.keys().next().value as string);
+  return since;
 }
 
 /**
