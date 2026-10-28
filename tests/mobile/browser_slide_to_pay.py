@@ -930,6 +930,12 @@ def scenario_stuck_sending(browser, width, height):
     slide(page, 1.0)
     scene = page.get_by_test_id('kaspi-waiting')
     expect(scene).to_contain_text('Отправляем счёт', timeout=15000)
+    # «Отправляем счёт» is shown as soon as the payment command starts (review 28.10), before its
+    # POST /payment reaches the fixture: wait for that one request instead of racing it.
+    for _ in range(100):
+        if state['payments']:
+            break
+        page.wait_for_timeout(100)
     assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
     # The X is there at once, top right; the bottom «Закрыть» still waits as before (90 s).
     close = close_box_ok(page, width, height)
