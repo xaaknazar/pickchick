@@ -8744,7 +8744,7 @@
   {
     "ru": "Оплата заказа не завершена",
     "kk": "Тапсырыс төлемі аяқталмады",
-    "en": "Your order payment is not finished",
+    "en": "Order payment not completed",
     "context": "apps/mobile/src/payment-resume.ts"
   },
   {
