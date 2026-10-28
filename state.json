@@ -6716,6 +6716,23 @@
       "updatedAt": "2026-10-28T05:59:25.273Z",
       "summary": "PR285 merged b305a5cd. iOS 0.2.0 (25) archive and IPA complete from clean a0af08b4, strict exported IPA signature/version/entitlements verified; flags unchanged from24. Evidence89f7a3da. No upload, full CI pending.",
       "nextAction": "After full CI succeeds, upload existing mobile-cart-fixes-20261028-25 archive to TestFlight and assign PickChick Internal; physical acceptance pending."
+    },
+    {
+      "id": "mobile-publish25",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-publish25",
+      "scopes": [
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/operations/mobile-testflight25.md",
+        "docs/operations/mobile-testflight25-evidence.json",
+        "@release/ios",
+        "@apple/appstore"
+      ],
+      "status": "active",
+      "head": "b305a5cd201fdca90ecd89fbc644e70d77aa9146",
+      "updatedAt": "2026-10-28T06:07:27.967Z"
     }
   ]
 }
