@@ -82,6 +82,34 @@ export const stuckCopy: Record<PaymentStuck, { title: string; detail: string }> 
 };
 
 /**
+ * Independent QA 28.10 (owner-all item 19, its product boundary): while the bank may still act on
+ * an earlier order, a pay tap reopens that order instead of creating a new one (submit restores
+ * the intent, then GET /orders resumes an order at the bank). A cart changed since then (another
+ * total) used to see «Отправляем счёт» and «Kaspi отвечает дольше обычного» with nothing saying
+ * it was the earlier order or its amount; the amount appeared only with the invoice. The reopened
+ * screen now says so at once. RU source with the order's amount, translated with t() at render.
+ */
+export const EARLIER_ORDER_NOTICE =
+  'Это ваш прошлый заказ на {p0}. Пока Kaspi обрабатывает его счёт, новый заказ не создаётся - так вы не оплатите дважды. Корзина сохранена.';
+
+/**
+ * Whether a reopened order gets EARLIER_ORDER_NOTICE: only while the bank may act on it (sending,
+ * awaiting_payment, checking: the boundary itself) and only when the cart now differs from it
+ * (lines and another total). The same cart reopened is simply the same order: no notice.
+ */
+export function earlierOrderNotice(
+  reopened: Pick<CustomerCommerceOrder, 'phase' | 'totalMinor'> | null | undefined,
+  cart: { lines: number; totalMinor: string },
+): boolean {
+  return (
+    !!reopened &&
+    ['sending', 'awaiting_payment', 'checking'].includes(reopened.phase) &&
+    cart.lines > 0 &&
+    String(reopened.totalMinor) !== String(cart.totalMinor)
+  );
+}
+
+/**
  * «Закрыть оплату?» before the X leaves a payment the bank may still act on (closeNeedsConfirm).
  * What the code guarantees (KaspiCheckoutScreen closeOrder / submit): the order is not cancelled
  * at the bank; its intent stays saved without an automatic invoice; while the bank may still act

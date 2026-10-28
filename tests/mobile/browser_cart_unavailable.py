@@ -49,6 +49,12 @@ no real customer, no VPS request. The fixture publishes the server's ordering ho
   N  an answer the reader will not retry (a captive-portal page instead of JSON) is final: the
      banner at once, not after five seconds; zero checkout requests; back in the foreground the
      reader asks again and the cart is payable
+  O  (independent QA 28.10) one failed read cycle, then the customer leaves for Kaspi.kz within
+     five seconds and stays away for eight: on the return, whether the first read fails or is
+     slow, the cart never shows «Нет связи с сервером» or «Нет связи» and the bar on Меню never
+     loses its handle (the five seconds and «a second failure in a row» count only while reads
+     run); a server that stays gone after the return is still shown after the second failed
+     read, not at once, and payable again once it answers; zero checkout requests
 Everywhere the bar has no handle, the capsule hugs the total and the photos, centred (Drinkit).
 """
 from browser_network import isolated_context, route_fixture
@@ -1049,8 +1055,105 @@ def scenario_phone_offline_now(browser):
     ctx.close()
 
 
+def fail_one_cycle(page, state):
+    """The next long-poll drops and its confirmation snapshot (0.4 s later) drops too."""
+    base = state['failed_availability']
+    state['fail_availability'] = 2
+    for _ in range(60):
+        if state['failed_availability'] >= base + 2:
+            break
+        page.wait_for_timeout(50)
+    assert state['failed_availability'] >= base + 2, state['failed_availability']
+
+
+def scenario_resume_after_drop(browser):
+    """O: a dropped read just before the app goes to the background never flashes on the return."""
+    state = new_state()
+    ctx, page = make_context(browser, state)
+    page.goto(URL + '/menu')
+    add(page)
+    expect_open_bar(page, 20000)
+    open_cart(page)
+    expect_cart_payable(page)
+    page.evaluate(WATCH)
+    cart = page.get_by_test_id('screen-M09')
+    # 1. The first read after the return fails too (iOS «connection lost» right after resume).
+    fail_one_cycle(page, state)
+    page.wait_for_timeout(300)
+    expect(cart.get_by_test_id('cart-unavailable')).to_have_count(0)
+    visibility(page, False)
+    pump(page, state, 8000)
+    state['fail_availability'] = 1
+    visibility(page, True)
+    page.wait_for_timeout(300)
+    page.screenshot(path=str(OUT / 'resume-after-drop-cart-393.png'))
+    pump(page, state, 3700)
+    expect_cart_payable(page)
+    # 2. The first read after the return is slow (answers after 1.2 s).
+    fail_one_cycle(page, state)
+    page.wait_for_timeout(300)
+    visibility(page, False)
+    pump(page, state, 8000)
+    state['slow_availability'] = 1
+    visibility(page, True)
+    pump(page, state, 3000, slow=1.2)
+    expect_cart_payable(page)
+    events = watched(page)
+    banners = [e for e in events if e[1] == 'banner' and e[2]]
+    stops = [e for e in events if e[1] == 'pay' and e[2] in STOP_LABELS]
+    assert not banners and not stops, (banners, stops, events)
+    # 3. The server really is gone after the return: shown after the second failed read in a row
+    # (about two seconds), not at once, and payable again once it answers.
+    fail_one_cycle(page, state)
+    page.wait_for_timeout(300)
+    visibility(page, False)
+    pump(page, state, 6000)
+    state['fail_availability'] = 10 ** 6
+    visibility(page, True)
+    back = time.monotonic()
+    page.wait_for_timeout(1000)
+    expect(cart.get_by_test_id('cart-unavailable')).to_have_count(0)
+    expect(cart.get_by_test_id('cart-pay')).to_be_enabled()
+    _, pay = expect_cart_unavailable(page, CONNECTION, 'Нет связи')
+    shown = time.monotonic() - back
+    assert 1.0 <= shown <= 8, shown
+    try_to_pay(page, pay)
+    state['fail_availability'] = 0
+    expect_cart_payable(page)
+    assert not mutations(state), mutations(state)
+    release(state)
+    ctx.close()
+    # 4. The bar on Меню at 320 pt: the handle stays through the drop, the background and a slow
+    # first read after the return.
+    state = new_state()
+    ctx, page = make_context(browser, state, width=320, height=568)
+    page.goto(URL + '/menu')
+    add(page)
+    expect_open_bar(page, 20000)
+    page.evaluate(WATCH)
+    fail_one_cycle(page, state)
+    page.wait_for_timeout(300)
+    assert visible(page, 'cart-pay-handle').count() == 1
+    visibility(page, False)
+    pump(page, state, 8000)
+    state['slow_availability'] = 1
+    visibility(page, True)
+    page.wait_for_timeout(250)
+    assert visible(page, 'cart-pay-handle').count() == 1, 'the handle left the bar on the return'
+    page.screenshot(path=str(OUT / 'resume-after-drop-menu-320.png'))
+    pump(page, state, 2500, slow=1.2)
+    expect_open_bar(page)
+    lost = [e for e in watched(page) if e[1] == 'handle' and e[2] != 1]
+    assert not lost, (lost, watched(page))
+    assert not mutations(state), mutations(state)
+    print('O resume after a drop: no banner, no «Нет связи», handle kept (first read failing or slow); '
+          'a server gone after the return shown after %.1f s' % shown)
+    release(state)
+    ctx.close()
+
+
 if __name__ == '__main__':
-    SELECTED = os.environ.get('CART_UNAVAILABLE', 'ABCDEFGHIJKLMN').upper()
+    SELECTED = os.environ.get('CART_UNAVAILABLE', 'ABCDEFGHIJKLMNO').upper()
     with sync_playwright() as p:
         browser = p.chromium.launch()
         if 'A' in SELECTED:
@@ -1082,6 +1185,8 @@ if __name__ == '__main__':
             scenario_phone_offline_now(browser)
         if 'N' in SELECTED:
             scenario_unusable_answer(browser)
+        if 'O' in SELECTED:
+            scenario_resume_after_drop(browser)
         browser.close()
     assert not errors, errors
     print('PASS cart unavailable (' + SELECTED + '): closed by the hours = no handle on Меню/События/Заказы, '
@@ -1094,4 +1199,5 @@ if __name__ == '__main__':
           'closed capsule hugs the total and the photos; single failed or slow reads while the cart '
           'opens and closes never flash «Нет связи с сервером» or hide the handle, a server that '
           'stays gone is shown after the second failed read, a phone without network and an answer that is '
-          'never retried (a captive portal) at once')
+          'never retried (a captive portal) at once; a drop just before the app goes to the background never '
+          'flashes it on the return')

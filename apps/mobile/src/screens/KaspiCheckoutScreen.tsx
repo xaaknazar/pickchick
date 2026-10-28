@@ -14,7 +14,15 @@ import {
 } from '../components/CartSheet';
 import { cartEditSettleMs } from '../cart-payment';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Linking, Modal, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  AppState,
+  Linking,
+  Modal,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { randomUUID } from 'expo-crypto';
@@ -41,7 +49,13 @@ import { OrdersEmpty, OrdersHeader, ordersPageStyle } from '../components/Orders
 import { publishActiveOrderCount } from '../active-orders';
 import { commerceActiveKind } from '../orders-tab';
 import { useCommerceFeedback } from '../useCommerceFeedback';
-import { checkoutError, paymentReceived, commerceStatus } from '../commerce-presentation';
+import {
+  EARLIER_ORDER_NOTICE,
+  checkoutError,
+  commerceStatus,
+  earlierOrderNotice,
+  paymentReceived,
+} from '../commerce-presentation';
 import { Cart } from './CatalogScreens';
 import {
   dismissPendingPayment,
@@ -160,6 +174,8 @@ function KaspiCheckoutSession(
   // Can this customer pay right now (owner 28.10.2026): closed, server switch, connection, stop
   // list. Only hides or disables the payment; submit() keeps every server check of its own.
   const availability = usePaymentAvailability(props.model);
+  // 320 x 568 class screens (KaspiPaymentState «tight»): the earlier-order notice is smaller.
+  const tightScreen = useWindowDimensions().height < 620;
   // A press or slide with a method this cart cannot pay with (no flow yet): said, never silent.
   const [methodStop, setMethodStop] = useState(false);
   useEffect(() => setMethodStop(false), [payment.method]);
@@ -220,6 +236,9 @@ function KaspiCheckoutSession(
   const key = pendingPaymentKey(customerId);
   const [leaving, setLeaving] = useState(false);
   const [resumeNotice, setResumeNotice] = useState('');
+  // An earlier order the pay tap (or the cart's own restore) reopened instead of a new one: while
+  // the bank may act on it and the cart differs, its screen says so (QA 28.10, item 19).
+  const [reopened, setReopened] = useState<string | null>(null);
   // Audit 2.0: only a running command, a pending intent or an order the bank may still charge
   // locks the sheet. Attention, refused and old unbilled orders never do; "close" always wins.
   const lockedAt = Date.now();
@@ -370,6 +389,7 @@ function KaspiCheckoutSession(
     setError(null);
     setQuote(null);
     setOrder(null);
+    setReopened(null);
     const run = async () => {
       const raw = await AsyncStorage.getItem(key);
       const draft = parsePendingPayment(raw);
@@ -404,6 +424,7 @@ function KaspiCheckoutSession(
               ),
             );
         } else {
+          if (props.screenId !== 'M19') setReopened(existing.orderId);
           await acceptRef.current(existing);
           if (props.screenId !== 'M19' || !['failed', 'attention'].includes(existing.phase)) return;
           // The Orders tab shows a settled order in its list, not as a payment screen.
@@ -592,6 +613,7 @@ function KaspiCheckoutSession(
     setError(null);
     setPriceNotice('');
     setResumeNotice('');
+    setReopened(null);
     const prepared = <T,>(operation: () => Promise<T>) =>
       prepareCheckout(operation, controller.signal);
     try {
@@ -610,6 +632,7 @@ function KaspiCheckoutSession(
             paymentReceived(previous.phase) ||
             previous.phase === 'failed'
           ) {
+            setReopened(previous.orderId);
             await accept(previous);
             return;
           }
@@ -628,6 +651,7 @@ function KaspiCheckoutSession(
         Date.now(),
       );
       if (existing) {
+        setReopened(existing.orderId);
         await accept(existing);
         return;
       }
@@ -1057,6 +1081,23 @@ function KaspiCheckoutSession(
       <KaspiPaymentState
         order={order}
         paid={paidMoment && paymentReceived(order.phase)}
+        notice={
+          // QA 28.10 (item 19): a pay tap that reopened an earlier order at the bank, while the
+          // cart now differs from it, says at once which order this is and why no new one.
+          props.screenId !== 'M19' &&
+          reopened === order.orderId &&
+          earlierOrderNotice(order, { lines: props.model.cart.length, totalMinor: localTotal }) ? (
+            <View
+              testID="kaspi-earlier-order"
+              style={[s.earlier, tightScreen && s.tightEarlier]}
+              accessibilityLiveRegion="polite"
+            >
+              <Caption style={[s.earlierText, tightScreen && s.tightEarlierText]}>
+                {t(EARLIER_ORDER_NOTICE, { p0: money(order.totalMinor) })}
+              </Caption>
+            </View>
+          ) : undefined
+        }
         onContinue={() => setPaidMoment(false)}
         onCart={() => (props.screenId === 'M19' ? props.navigate('M09') : backToCart())}
         onRetry={() => {
@@ -1256,4 +1297,17 @@ const s = StyleSheet.create({
   card: { gap: 12, padding: 18, borderRadius: 22, backgroundColor: colors.surface },
   loading: { padding: 24, alignItems: 'center', gap: 12 },
   warning: { padding: 16, gap: 12, borderRadius: 18, backgroundColor: colors.warningSurface },
+  // On the dark payment scene, like its order card (KaspiPaymentState orderCard).
+  earlier: {
+    width: '100%',
+    maxWidth: 360,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 18,
+    backgroundColor: '#0B2255',
+  },
+  earlierText: { color: '#DCE6FA', fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  tightEarlier: { paddingVertical: 8, paddingHorizontal: 12, marginBottom: 6 },
+  tightEarlierText: { fontSize: 13, lineHeight: 18 },
 });
