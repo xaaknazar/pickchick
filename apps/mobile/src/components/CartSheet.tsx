@@ -149,9 +149,6 @@ export function DiningModePill({
             ) : null}
             <Text
               style={[s.segmentText, selected && s.segmentTextSelected]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.75}
               maxFontSizeMultiplier={1.6}
             >
               {localize(label)}
@@ -487,7 +484,8 @@ const s = StyleSheet.create({
   segment: {
     flex: 1,
     minWidth: 0,
-    minHeight: 44,
+    minHeight: 48,
+    paddingVertical: 10,
     borderRadius: 22,
     paddingHorizontal: 8,
     flexDirection: 'row',
@@ -501,8 +499,9 @@ const s = StyleSheet.create({
   segmentText: {
     flexShrink: 1,
     fontFamily: font.medium,
-    fontSize: 15,
-    lineHeight: 21,
+    fontSize: 17,
+    lineHeight: 24,
+    textAlign: 'center',
     color: colors.muted,
   },
   segmentTextSelected: { color: colors.white },

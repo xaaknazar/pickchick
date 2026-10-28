@@ -194,3 +194,24 @@ test('the network observation reaches the reader apart from the foreground (owne
   h.network(offline);
   assert.equal(h.connected.length, count, 'nothing after cleanup');
 });
+
+test('a negative internet probe cannot veto successful API reads on a connected interface', (t) => {
+  const h = fixture(t);
+  for (const reachable of [true, false, null, false, true]) {
+    h.network({ isConnected: true, isInternetReachable: reachable });
+    assert.equal(h.active.at(-1), true);
+    assert.equal(h.connected.at(-1), true);
+  }
+  h.network(offline);
+  assert.equal(h.active.at(-1), false, 'a definite interface disconnect still pauses reads');
+});
+
+test('foreground keeps reads alive when only the reachability probe is negative', async (t) => {
+  const h = fixture(t);
+  h.app('background');
+  h.app('active');
+  h.pending[0].resolve({ isConnected: true, isInternetReachable: false });
+  await flush();
+  assert.equal(h.active.at(-1), true);
+  assert.equal(h.connected.at(-1), true);
+});

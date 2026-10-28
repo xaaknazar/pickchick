@@ -274,6 +274,16 @@ def cart_page(browser, width, height):
         assert has_blur(minus) and minus.bounding_box()['height'] >= 44
         assert blur_is_round(minus), 'No square blur patch around -/+'
 
+    # Text remains readable and keeps the same size after selection/layout changes.
+    for mode in ('dine_in', 'takeaway', 'dine_in', 'takeaway'):
+        control = page.get_by_test_id('cart-dining-' + mode)
+        control.click()
+        typography = control.evaluate("""e => [...e.querySelectorAll('*')]
+          .filter(n => [...n.childNodes].some(c => c.nodeType === 3 && c.textContent.trim()))
+          .map(n => parseFloat(getComputedStyle(n).fontSize))""")
+        assert 17 in typography, typography
+        assert control.bounding_box()['height'] >= 48
+
     # Editing the cart never locks the sheet: the drag handle stays (no 28 px jump per tap).
     expect(sheet.get_by_test_id('sheet-handle')).to_be_visible()
     page.evaluate("""() => {

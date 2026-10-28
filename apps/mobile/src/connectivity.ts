@@ -40,8 +40,7 @@ export function subscribeCatalogConnectivity(recovery: {
       void NetInfo.refresh().then(
         (networkState) => {
           if (disposed || !foreground || revision !== requestedRevision) return;
-          connected =
-            networkState.isConnected !== false && networkState.isInternetReachable !== false;
+          connected = networkState.isConnected !== false;
           apply();
         },
         () => {
@@ -53,7 +52,10 @@ export function subscribeCatalogConnectivity(recovery: {
   const network = NetInfo.addEventListener((state) => {
     if (disposed) return;
     revision++;
-    connected = state.isConnected !== false && state.isInternetReachable !== false;
+    // Reachability is a separate, sometimes stale OS/probe opinion, not the API result.
+    // Keep public reads running while a network interface exists; their responses decide
+    // server availability. A definite interface disconnect still pauses reads immediately.
+    connected = state.isConnected !== false;
     apply();
   });
   apply();
