@@ -6659,6 +6659,35 @@
       "updatedAt": "2026-10-28T05:24:22.192Z",
       "summary": "PR282 and PR283 merged. Mobile 0.2.0(24) from 17b7356b built/signed/exported/uploaded; Apple processed and assigned to PickChick Internal (2 testers), notes saved. Owner explicitly waived additional tests; no physical device. Hours GET confirmed; no financial mutations or server changes.",
       "nextAction": "Owner reviews TestFlight24. App Review24, API6+1 deployment and campaign activation each require separate authorization. Online roadmap not deployed; CI was not awaited under owner waiver."
+    },
+    {
+      "id": "mobile-cart-fixes-1028",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-cart-fixes-1028",
+      "scopes": [
+        "apps/mobile/src/components/CartShortcut.tsx",
+        "apps/mobile/src/components/KaspiSlideToPay.tsx",
+        "apps/mobile/src/components/CartSheet.tsx",
+        "apps/mobile/src/cart-bar.ts",
+        "apps/mobile/src/connectivity.ts",
+        "apps/mobile/src/useAvailability.ts",
+        "apps/mobile/src/availability-recovery.ts",
+        "tests/mobile/connectivity.test.mjs",
+        "tests/mobile/cart-bar.test.mjs",
+        "tests/mobile/cart-page.test.mjs",
+        "tests/mobile/slide-pay-intent.test.mjs",
+        "tests/mobile/browser_slide_to_pay.py",
+        "tests/mobile/browser_cart_page.py",
+        "tests/mobile/availability.test.mjs",
+        "tests/mobile/availability-poll.test.mjs",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/operations/mobile-cart-fixes-2026-10-28.md"
+      ],
+      "status": "active",
+      "head": "c46a95b23b8c7ebf98074557a2658fc6da58e3b4",
+      "updatedAt": "2026-10-28T05:33:45.259Z"
     }
   ]
 }
