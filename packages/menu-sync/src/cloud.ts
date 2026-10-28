@@ -1,17 +1,48 @@
 import { randomUUID } from 'node:crypto';
 import {
+  EdgeMenuFeatureSchema,
   EdgeMenuStateQuerySchema,
   MenuAckSchema,
   MenuPublishedSchema,
   MenuSnapshotSchema,
   menuAckResult,
 } from '@pickchick/contracts';
-import type { EdgeMenuStateQuery, MenuPublished } from '@pickchick/contracts';
+import type { EdgeMenuFeature, EdgeMenuStateQuery, MenuPublished } from '@pickchick/contracts';
 import { transaction } from '@pickchick/database';
 import type { DatabaseClient, DatabasePool } from '@pickchick/database';
 import { authenticateDevice } from './identity.js';
 import type { DeviceAuth } from './identity.js';
 import { canonicalJson, hashJson, SyncError } from './common.js';
+import { withoutComboStopLinks } from './catalog-projection.js';
+
+/**
+ * Menu features from the edge's `menu_features` query value. Lenient on purpose: unknown or
+ * future values are ignored and anything malformed means "none", never an error, so a newer
+ * edge keeps working against this cloud.
+ */
+export function edgeMenuFeatures(value: unknown): EdgeMenuFeature[] {
+  if (typeof value !== 'string' || value.length > 200) return [];
+  return [
+    ...new Set(
+      value.split(',').flatMap((part) => {
+        const parsed = EdgeMenuFeatureSchema.safeParse(part);
+        return parsed.success ? [parsed.data] : [];
+      }),
+    ),
+  ];
+}
+
+/**
+ * Delivery form of a stored publication. An edge without the combo_stops feature (the installed
+ * edge parses the menu strictly) gets the publication without the cashier fields and the
+ * checksum of exactly that menu; an unmarked publication is returned unchanged.
+ */
+function deliveredForm(event: MenuPublished, features: readonly string[]): MenuPublished {
+  if (features.includes('combo_stops')) return event;
+  const menu = withoutComboStopLinks(event.payload.menu);
+  if (menu === event.payload.menu) return event;
+  return MenuPublishedSchema.parse({ ...event, payload: { menu, checksum: hashJson(menu) } });
+}
 
 const eventColumns = `event_id, producer_id, producer_sequence, branch_id, aggregate_type,
   aggregate_id, aggregate_version, schema_version, event_type, payload, occurred_at, correlation_id, causation_id`;
@@ -168,7 +199,17 @@ async function recordEdgeMenuState(
   );
 }
 
-export async function pullMenu(pool: DatabasePool, auth: DeviceAuth, state?: unknown) {
+export interface PullMenuOptions {
+  /** Features the pulling edge advertised (edgeMenuFeatures); none for an installed edge. */
+  features?: readonly string[];
+}
+
+export async function pullMenu(
+  pool: DatabasePool,
+  auth: DeviceAuth,
+  state?: unknown,
+  options: PullMenuOptions = {},
+) {
   let reported: EdgeMenuStateQuery | undefined;
   if (state !== undefined) {
     const parsed = EdgeMenuStateQuerySchema.safeParse(state);
@@ -190,7 +231,7 @@ export async function pullMenu(pool: DatabasePool, auth: DeviceAuth, state?: unk
     await client.query('UPDATE outbox_events SET attempts = attempts + 1 WHERE event_id = $1', [
       eventId,
     ]);
-    return { event: await readEvent(client, eventId) };
+    return { event: deliveredForm(await readEvent(client, eventId), options.features ?? []) };
   });
 }
 
@@ -209,11 +250,14 @@ export async function acknowledgeMenu(pool: DatabasePool, auth: DeviceAuth, inpu
     );
     if (!row.rows[0]) throw new SyncError('NOT_FOUND');
     const event = await readEvent(client, ack.event_id);
+    // The edge acknowledges the exact form it was given: the stored publication, or for an edge
+    // without the combo_stops feature the same publication without the cashier fields.
     if (
       ack.producer_id !== event.producer_id ||
       ack.producer_sequence !== event.producer_sequence ||
       ack.release_id !== event.aggregate_id ||
-      ack.checksum !== event.payload.checksum
+      (ack.checksum !== event.payload.checksum &&
+        ack.checksum !== deliveredForm(event, []).payload.checksum)
     )
       throw new SyncError('CONFLICT');
     const previous = await client.query(

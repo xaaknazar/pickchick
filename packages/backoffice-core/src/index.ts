@@ -22,8 +22,10 @@ import {
   requestStopInTransaction,
   type BackofficeOptions,
 } from './stops.js';
+import { createStationPlanInTransaction, readStationPlanStatus } from './station-plans.js';
 export * from './model.js';
 export * from './stops.js';
+export * from './station-plans.js';
 export const BACKOFFICE = Symbol('BACKOFFICE');
 type Actor = { id: string; organization_id: string; role: 'manager' | 'analyst' };
 type Row = {
@@ -310,6 +312,12 @@ export class Backoffice {
       const publications = await rows(
         `SELECT DISTINCT ON(kind,record_id) id,kind,record_id,revision,published_at,payload FROM bo_publications WHERE branch_id=$1 ORDER BY kind,record_id,revision DESC`,
       );
+      // Station plan delivery: what the cashier edge confirmed, not only the cloud publication.
+      const stationPlan = await readStationPlanStatus(
+        db,
+        branch,
+        this.options.stationPlanDeliveryEnabled === true,
+      );
       return {
         schema_version: 1,
         branch_id: branch,
@@ -372,6 +380,7 @@ export class Backoffice {
         catalog_audit,
         documents,
         publications,
+        station_plan: stationPlan,
         limits: {
           cashier_orders: 200,
           cashier_shifts: 200,
@@ -397,7 +406,7 @@ export class Backoffice {
           push_delivery: false,
           external_reviews: false,
           fiscal_shift: false,
-          edge_configuration_delivery: false,
+          edge_configuration_delivery: stationPlan.enabled && stationPlan.available,
         },
       };
     });
@@ -633,6 +642,32 @@ export class Backoffice {
             'INSERT INTO bo_delivery_outbox(id,branch_id,kind,payload) VALUES($1,$2,$3,$4)',
             [publication, branch, c.kind, row.payload],
           );
+          // The new station revision reaches the cashier edge as the next plan version.
+          if (c.kind === 'station' && this.options.stationPlanDeliveryEnabled) {
+            const plan = await createStationPlanInTransaction(db, {
+              branch,
+              organization: actor.organization_id,
+              actor: actor.id,
+              publication,
+              reuse: false,
+            });
+            result = {
+              ...(result as Record<string, unknown>),
+              station_plan: { id: plan.id, version: plan.version },
+            };
+          }
+        } else if (c.type === 'deliver_station_plan') {
+          if (!this.options.stationPlanDeliveryEnabled)
+            throw new ErrorCode('NOT_READY', 'STATION_PLAN_DELIVERY_DISABLED');
+          const plan = await createStationPlanInTransaction(db, {
+            branch,
+            organization: actor.organization_id,
+            actor: actor.id,
+            publication: null,
+            reuse: true,
+          });
+          entity = plan.id;
+          result = { station_plan: plan };
         } else if (c.type === 'stock') {
           result = await this.stock(db, branch, actor, req.reason, c.kind, c.reference, c.lines);
           entity = (result as { id: string }).id;
@@ -888,6 +923,8 @@ export class Backoffice {
     }
     if (kind === 'station') {
       const p = parse(Schemas.station, payload);
+      // The cashier kitchen has only prep and assembly stations to bind to.
+      if (p.edge_station_id && !['prep', 'assembly'].includes(p.role)) fail('INVALID_REQUEST');
       if (
         p.device_id &&
         !(

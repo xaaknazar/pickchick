@@ -4,7 +4,13 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { KaspiAttention } from '../../packages/commerce-core/dist/index.js';
 import { CustomerIdentity } from '../../packages/customer-identity/dist/index.js';
-import { TransportAttention } from '../../packages/fulfillment-transport/dist/index.js';
+import {
+  EdgeBackupAttentionSchema,
+  TransportAttention,
+  edgeBackupAttentionLine,
+} from '../../packages/fulfillment-transport/dist/index.js';
+import { backupStatus } from '../../infra/windows/edge-backup-lib.mjs';
+import { backupAttention } from '../../infra/windows/native-fulfillment-worker.mjs';
 import { evaluate } from '../../infra/staging/watchdog/checks.mjs';
 import { loadWatchdogConfig } from '../../infra/staging/watchdog/config.mjs';
 import { parseHostFacts } from '../../infra/staging/watchdog/host-facts.mjs';
@@ -30,6 +36,7 @@ print(json.dumps({
   'worker': [x for x in (runner.sanitize_worker_line('kaspi-remote-worker', l) for l in data['worker']) if x],
   'fulfillment': [x for x in map(runner.sanitize_fulfillment_line, data['fulfillment']) if x],
   'identity': [x for x in map(runner.sanitize_identity_line, data['identity']) if x],
+  'edge': [x for x in map(runner.sanitize_edge_backup_line, data.get('edge', [])) if x],
 }))`;
   const result = spawnSync('python3', ['-I', '-c', program, runner], {
     input: JSON.stringify(lines),
@@ -153,4 +160,76 @@ test('worker attention lines of the merged lanes open the watchdog alerts', () =
     recovered: true,
   });
   assert.deepEqual(recovered.fulfillment[1].recovered, true);
+});
+
+// Stage 2 (ebk): cashier backup health record -> heartbeat field -> API log line -> alert.
+test('a stale cashier backup travels from the health record to the watchdog alert', () => {
+  const branch = '7a6f6d98-395d-4462-b5e4-b0364a4a8ec1';
+  const status = backupStatus({
+    state: 'failed',
+    error: 'DESTINATION_UNAVAILABLE',
+    startedAt: new Date(NOW - 5 * 60_000),
+    finishedAt: new Date(NOW - 4 * 60_000),
+    previous: { lastSuccessAt: new Date(NOW - 185 * 60_000).toISOString() },
+    config: { maxAgeMinutes: 120, reportInHeartbeat: true },
+  });
+  const attention = EdgeBackupAttentionSchema.parse(backupAttention(status, NOW));
+  const sanitized = collect({
+    worker: [],
+    fulfillment: [],
+    identity: [],
+    edge: [line(2, edgeBackupAttentionLine(branch, attention))],
+  });
+  assert.deepEqual(sanitized.edge, [
+    {
+      at: stamp(2).replace(/\.\d+Z$/, 'Z'),
+      event: 'edge_backup_attention',
+      branchId: branch,
+      state: 'failed',
+      ageMinutes: 185,
+      maxAgeMinutes: 120,
+      error: 'DESTINATION_UNAVAILABLE',
+    },
+  ]);
+  const config = loadWatchdogConfig({
+    WATCHDOG_DB_PASSWORD: '0123456789abcdef'.repeat(4),
+    WATCHDOG_TIMEZONE: 'UTC',
+  });
+  const facts = (edgeBackup) =>
+    parseHostFacts(
+      JSON.stringify({
+        version: 1,
+        collectedAt: stamp(1),
+        logWindowSeconds: 600,
+        collectorErrors: [],
+        containers: {},
+        workerEvents: { 'kaspi-remote-worker': [], 'kiosk-qr-worker': [] },
+        edgeBackupCollected: true,
+        edgeBackup,
+        disks: [],
+        backups: { files: [] },
+      }),
+      NOW,
+      15 * 60_000,
+    );
+  const verdict = (host) =>
+    evaluate({
+      api: { ok: true, status: 200, error: null, dependencies: null },
+      host,
+      db: { ok: false, code: 'connection_failed' },
+      config,
+      nowMs: NOW,
+    }).findings.find((item) => item.key === 'edge.backup');
+  const open = verdict(facts(sanitized.edge));
+  assert.deepEqual([open.status, open.severity], ['fail', 'warning']);
+  assert.match(open.detail, /3 ч 5 мин/);
+  // A fresh copy: the worker sends nothing, the API logs nothing, the alert recovers.
+  const fresh = backupStatus({
+    state: 'ok',
+    startedAt: new Date(NOW - 60_000),
+    finishedAt: new Date(NOW - 30_000),
+    config: { maxAgeMinutes: 120, reportInHeartbeat: true },
+  });
+  assert.equal(backupAttention(fresh, NOW), null);
+  assert.equal(verdict(facts([])).status, 'ok');
 });

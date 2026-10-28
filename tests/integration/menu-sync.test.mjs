@@ -445,11 +445,15 @@ test('bootstrap: local v2 with an empty cursor reports v2 on pull, then applies 
       assert.deepEqual(await syncMenuOnce(edge.pool, branch, fake.url, identity), {
         state: 'idle',
       });
-      assert.equal(fake.requests[0].query, '');
+      // No active menu yet: only the menu features this runtime applies (stage 2, pcs).
+      assert.equal(fake.requests[0].query, '?menu_features=combo_stops');
       const local = menu(2);
       await seedLocalMenu(edge, local);
       await syncMenuOnce(edge.pool, branch, fake.url, identity);
-      const reported = Object.fromEntries(new URLSearchParams(fake.requests[1].query));
+      const { menu_features: features, ...reported } = Object.fromEntries(
+        new URLSearchParams(fake.requests[1].query),
+      );
+      assert.equal(features, 'combo_stops');
       assert.deepEqual(reported, { active_release_id: local.release_id, active_version: '2' });
       assert.deepEqual(EdgeMenuStateQuerySchema.parse(reported), {
         active_release_id: local.release_id,

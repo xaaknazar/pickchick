@@ -16,8 +16,9 @@ test('runtime020->023 is atomic, preserves rows and old ACL, grants only new cap
   try {
     await mkdir(installed, { recursive: true });
     await mkdir(migrations, { recursive: true });
-    for (const n of (await readdir(join(root, 'db/edge/migrations'))).filter((n) =>
-      n.endsWith('.sql'),
+    // The 1021 runtime is exactly schema023; later migrations (024+) ship with later releases.
+    for (const n of (await readdir(join(root, 'db/edge/migrations'))).filter(
+      (n) => n.endsWith('.sql') && n < '024',
     )) {
       await copyFile(join(root, 'db/edge/migrations', n), join(migrations, n));
       if (n < '021') await copyFile(join(root, 'db/edge/migrations', n), join(installed, n));
@@ -41,6 +42,10 @@ test('runtime020->023 is atomic, preserves rows and old ACL, grants only new cap
         try {
           for (const role of [runtimeRole, workerRole, deviceRole])
             await c.query(`CREATE ROLE ${role}`);
+          // Stage 2: a cloud-link grant (cloud-link-grant.mjs) given before is kept, never reset.
+          await c.query(
+            `GRANT SELECT(branch_id,last_success_at) ON fulfillment_transport_state TO ${runtimeRole}`,
+          );
           const before = await upgradeRuntimeSchema(c, options);
           assert.equal(before.migrations, 20);
           await assert.rejects(
@@ -97,6 +102,15 @@ test('runtime020->023 is atomic, preserves rows and old ACL, grants only new cap
                 ).rows[0].allowed,
                 true,
               );
+          assert.equal(
+            (
+              await c.query(
+                "SELECT has_column_privilege($1,'fulfillment_transport_state','last_success_at','SELECT') ok",
+                [runtimeRole],
+              )
+            ).rows[0].ok,
+            true,
+          );
           assert.equal(
             (await c.query('SELECT state FROM edge_restore_fence()')).rows[0].state,
             'current',

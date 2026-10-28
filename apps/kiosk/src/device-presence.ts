@@ -9,6 +9,12 @@ export function startDevicePresence(io: {
   appVersion: string;
   origin: string;
   fetcher?: typeof fetch;
+  /**
+   * Outcome of each request that was sent (stage 2, staff health line): the HTTP status, or null
+   * when no answer arrived. Never called without device credentials; it cannot stop presence.
+   */
+  onResult?(result: { at: number; status: number | null }): void;
+  now?(): number;
 }) {
   const origin = new URL(io.origin);
   if (
@@ -20,9 +26,17 @@ export function startDevicePresence(io: {
     throw new Error('Invalid telemetry origin');
   let stopped = false,
     busy = false;
+  const report = (status: number | null) => {
+    try {
+      io.onResult?.({ at: (io.now ?? Date.now)(), status });
+    } catch {
+      /* An observer failure must not interrupt presence. */
+    }
+  };
   const send = async () => {
     if (stopped || busy) return;
     busy = true;
+    let sent = false;
     try {
       const raw = await io.readDevice();
       if (stopped || !raw || raw.length > 1000) return;
@@ -34,19 +48,26 @@ export function startDevicePresence(io: {
         !/^[a-f0-9]{64}$/.test(d.key)
       )
         return;
-      await (io.fetcher ?? fetch)(origin.origin + '/v1/kiosk-checkout/device-presence', {
-        method: 'POST',
-        redirect: 'error',
-        signal: AbortSignal.timeout(8000),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Kiosk-Device': d.deviceId,
-          'X-Kiosk-Key': d.key,
+      const body = JSON.stringify({ appVersion: io.appVersion, ...io.snapshot() });
+      sent = true;
+      const response = await (io.fetcher ?? fetch)(
+        origin.origin + '/v1/kiosk-checkout/device-presence',
+        {
+          method: 'POST',
+          redirect: 'error',
+          signal: AbortSignal.timeout(8000),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Kiosk-Device': d.deviceId,
+            'X-Kiosk-Key': d.key,
+          },
+          body,
         },
-        body: JSON.stringify({ appVersion: io.appVersion, ...io.snapshot() }),
-      });
+      );
+      report(typeof response?.status === 'number' ? response.status : null);
     } catch {
       /* Telemetry failure must not interrupt a guest or expose credentials. */
+      if (sent) report(null);
     } finally {
       busy = false;
     }

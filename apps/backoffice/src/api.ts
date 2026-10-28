@@ -86,6 +86,19 @@ export function allowedPath(path: string): boolean {
     new RegExp(`^operations/branches/${UUID}/finance/commands$`).test(pathname)
   )
     return true;
+  if (new RegExp(`^operations/branches/${UUID}/reconciliation$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    return (
+      [...q.keys()].length === 1 &&
+      q.getAll('day').length === 1 &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('day') ?? '')
+    );
+  }
+  if (
+    search === undefined &&
+    new RegExp(`^operations/branches/${UUID}/reconciliation/(?:preview|commands)$`).test(pathname)
+  )
+    return true;
   if (new RegExp(`^operations/branches/${UUID}$`).test(pathname)) return reportQuery(search ?? '');
   return (
     search === undefined &&

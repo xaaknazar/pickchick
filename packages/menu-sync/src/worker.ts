@@ -1,12 +1,13 @@
 import {
   AckReceiptSchema,
   DeviceIdentitySchema,
+  EDGE_MENU_FEATURES_QUERY_KEY,
   MenuAckSchema,
   MenuPublishedSchema,
   MenuPullSchema,
   menuAckResult,
 } from '@pickchick/contracts';
-import type { DeviceIdentity, MenuRejectReason } from '@pickchick/contracts';
+import type { DeviceIdentity, EdgeMenuFeature, MenuRejectReason } from '@pickchick/contracts';
 import type { DatabasePool } from '@pickchick/database';
 import { applyMenu, readActiveMenuState } from './edge.js';
 import { SyncError } from './common.js';
@@ -19,6 +20,13 @@ import {
 } from './media.js';
 
 export { localCloudOrigin } from './device-http.js';
+
+/**
+ * Menu features this edge runtime applies, advertised on every pull. combo_stops: local-orders
+ * and the POS screen use combo_component_variant_ids / linked_variant_id (stage 2). The cloud
+ * sends those fields only to an edge that lists the feature; installed clouds ignore the key.
+ */
+export const EDGE_MENU_FEATURES: readonly EdgeMenuFeature[] = ['combo_stops'];
 
 /** Download attempts for a publication's photos before it is rejected as MEDIA_UNAVAILABLE. */
 export const MENU_MEDIA_ATTEMPTS = 3;
@@ -105,14 +113,15 @@ export async function syncMenuOnce(
     return true;
   }
   if (await sendPendingAck()) return { state: 'acknowledged' };
-  // Report the active menu so the cloud publishes a strictly newer version (bootstrap).
+  // Report the active menu so the cloud publishes a strictly newer version (bootstrap), and the
+  // menu features this runtime applies.
   const active = await readActiveMenuState(pool, branchId);
-  const query = active
-    ? `?${new URLSearchParams({
-        active_release_id: active.release_id,
-        active_version: String(active.version),
-      })}`
-    : '';
+  const query = `?${new URLSearchParams({
+    ...(active
+      ? { active_release_id: active.release_id, active_version: String(active.version) }
+      : {}),
+    [EDGE_MENU_FEATURES_QUERY_KEY]: EDGE_MENU_FEATURES.join(','),
+  })}`;
   const event = pulledEvent(
     await requestJson(origin, `/internal/v1/edge/sync/pull${query}`, identity),
   );

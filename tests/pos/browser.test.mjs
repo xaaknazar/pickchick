@@ -105,6 +105,12 @@ test('designer POS: real PIN, shared shifts, draft recovery, WAN isolation, lost
     await grantStation(ctx.edge.pool, ctx.branch, cook.staff_id, prep);
     await grantStation(ctx.edge.pool, ctx.branch, cook.staff_id, assembly);
     await ctx.edge.pool.query("UPDATE branch_config SET pos_service_mode='unpaid_service'");
+    // WAN is unavailable throughout: the cashier's last cloud answer was an hour ago, so the
+    // header must say "no internet" (offline stand finding 24.10).
+    await ctx.edge.pool.query(
+      "INSERT INTO fulfillment_transport_state(branch_id,last_success_at) VALUES($1,clock_timestamp()-interval '1 hour')",
+      [ctx.branch],
+    );
     const edge = await running(createEdge, {
       ...ctx.edge.config,
       edgeFulfillmentEnabled: true,

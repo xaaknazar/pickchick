@@ -305,12 +305,23 @@ test('catalog retry after restart restores the shopping draft without payment re
   assert.equal(c.getSnapshot().cart.length, original.getSnapshot().cart.length);
 });
 
+/**
+ * The guest session (allocated on the start screen, so it may be close to its TTL) expires while
+ * the guest is still shopping: the draft itself is fresh. A draft left idle past the reset is
+ * cleared on relaunch instead (relaunch-idle.test.mjs, stage 2 lane kln).
+ */
+function expireSessionDuringDraft(h) {
+  const session = JSON.parse(h.rawSession);
+  h.rawSession = JSON.stringify({ ...session, expiresAt: new Date(h.clock + 1000).toISOString() });
+  h.clock += 1000;
+}
+
 test('expired guest is ended and renewed while restoring the same unsubmitted draft', async () => {
   const h = fixture();
   await cart(h);
   const previousSession = JSON.parse(h.rawSession);
   const previousFlow = JSON.parse(h.rawFlow);
-  h.clock = Date.parse(previousSession.expiresAt);
+  expireSessionDuringDraft(h);
   h.calls = [];
   const c = new CommercialKioskController(h.io);
   assert.equal(await c.restore(), true);
@@ -337,7 +348,7 @@ for (const interruption of ['end', 'detach', 'remove', 'allocate']) {
     await cart(h);
     const previousSession = JSON.parse(h.rawSession);
     const draft = JSON.parse(h.rawFlow).cart;
-    h.clock = Date.parse(previousSession.expiresAt);
+    expireSessionDuringDraft(h);
     const originalWrite = h.io.writeFlow;
     const originalRemove = h.io.removeSession;
     h.endFail = interruption === 'end';

@@ -1,4 +1,5 @@
 import type { Locale } from './i18n';
+import type { KioskHealthFacts } from './kiosk-health';
 import type { TestCompleteCatalog, TestSelection } from '@pickchick/test-order-flow/contracts';
 
 /** Uploaded photo of a published product (catalog media map); image_id stays the bundled key. */
@@ -176,6 +177,11 @@ export interface KioskModel extends KioskState {
   staffReset?(pin: string): Promise<boolean>;
   /** Clears the last staff code error (the dialog closed). */
   clearStaffError?(): void;
+  /**
+   * Staff-only kiosk health line (stage 2): the facts of this build once the server accepts the
+   * staff code (commercial kiosk; the simulator has none), null when the code was refused.
+   */
+  staffHealth?(pin?: string): Promise<KioskHealthFacts | null>;
   recover(): Promise<boolean>;
   refresh(): Promise<boolean | void>;
   newGuest(): Promise<boolean>;

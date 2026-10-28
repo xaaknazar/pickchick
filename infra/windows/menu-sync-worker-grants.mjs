@@ -26,25 +26,69 @@ export const MENU_SYNC_PRIVILEGES = Object.freeze({
   fulfillment_stations: { select: true, insert: false, update: [] },
 });
 
+/**
+ * Edge schema024 station plans (stage 2, lane cfg), applied by the same worker when
+ * EDGE_STATION_PLAN_SYNC_MODE is report/apply (packages/menu-sync station-plan.ts). Opt-in: an
+ * edge before schema024 has none of these relations, and the role must not hold them then.
+ * The plan reads fulfillment_stations, which MENU_SYNC_PRIVILEGES already allows.
+ */
+export const STATION_PLAN_SCHEMA = '024_edge_station_plans.sql';
+export const STATION_PLAN_PRIVILEGES = Object.freeze({
+  station_plan_snapshots: { select: true, insert: true, update: [] },
+  // INSERT ... ON CONFLICT DO UPDATE SET plan_id, version, activated_at (trigger: only newer).
+  station_plan_active: {
+    select: true,
+    insert: true,
+    update: ['plan_id', 'version', 'activated_at'],
+  },
+  station_plan_receipts: { select: true, insert: true, update: ['reported_at'] },
+});
+
+/** Reviewed privilege set of the role; with stationPlans after edge schema024. */
+export function menuSyncPrivileges({ stationPlans = false } = {}) {
+  if (typeof stationPlans !== 'boolean') throw new Error('Invalid menu sync grant option');
+  return stationPlans
+    ? Object.freeze({ ...MENU_SYNC_PRIVILEGES, ...STATION_PLAN_PRIVILEGES })
+    : MENU_SYNC_PRIVILEGES;
+}
+
 function identifier(value) {
   if (typeof value !== 'string' || !/^[a-z][a-z0-9_]{0,62}$/.test(value))
     throw new Error('Invalid menu sync grant identifier');
   return '"' + value + '"';
 }
 
-/** Pure SQL for an already reset, dedicated role. Requires applied edge schema018. */
-export function menuSyncWorkerGrants(role = MENU_SYNC_ROLE, schema = 'public') {
+/**
+ * Pure SQL for an already reset, dedicated role. Requires applied edge schema018, and schema024
+ * with `stationPlans`.
+ */
+export function menuSyncWorkerGrants(
+  role = MENU_SYNC_ROLE,
+  schema = 'public',
+  { stationPlans = false } = {},
+) {
   const target = identifier(role),
     namespace = identifier(schema);
+  return [
+    `GRANT USAGE ON SCHEMA ${namespace} TO ${target};`,
+    ...grantLines(menuSyncPrivileges({ stationPlans }), target, namespace),
+  ].join('\n');
+}
+
+/** Only the schema024 additions, for the guarded 023 -> 024 upgrade of an installed role. */
+export function stationPlanWorkerGrants(role = MENU_SYNC_ROLE, schema = 'public') {
+  return grantLines(STATION_PLAN_PRIVILEGES, identifier(role), identifier(schema)).join('\n');
+}
+
+function grantLines(privilegeMap, target, namespace) {
   const relation = (name) => `${namespace}.${identifier(name)}`;
-  const entries = Object.entries(MENU_SYNC_PRIVILEGES);
+  const entries = Object.entries(privilegeMap);
   const tables = (predicate) =>
     entries
       .filter(([, privileges]) => predicate(privileges))
       .map(([name]) => relation(name))
       .join(', ');
   return [
-    `GRANT USAGE ON SCHEMA ${namespace} TO ${target};`,
     `GRANT SELECT ON ${tables((p) => p.select)} TO ${target};`,
     `GRANT INSERT ON ${tables((p) => p.insert)} TO ${target};`,
     ...entries
@@ -53,7 +97,7 @@ export function menuSyncWorkerGrants(role = MENU_SYNC_ROLE, schema = 'public') {
         ([name, privileges]) =>
           `GRANT UPDATE(${privileges.update.map(identifier).join(', ')}) ON ${relation(name)} TO ${target};`,
       ),
-  ].join('\n');
+  ];
 }
 
 /** Removes every table, column, sequence and schema privilege the role holds in this schema. */
@@ -97,10 +141,12 @@ export async function assertMenuSyncPrivileges(
   schema = 'public',
   // The native foundation revokes PUBLIC CREATE/TEMP on pickchick_edge; shared development
   // databases keep the PostgreSQL defaults, so isolated tests opt out of that one check.
-  { databaseDefaultsRevoked = true } = {},
+  // stationPlans: the role also holds the schema024 station plan privileges (and nothing else).
+  { databaseDefaultsRevoked = true, stationPlans = false } = {},
 ) {
   identifier(role);
   identifier(schema);
+  const privileges = menuSyncPrivileges({ stationPlans });
   const relations = (
     await client.query(
       `SELECT c.oid,c.relname,
@@ -113,11 +159,11 @@ export async function assertMenuSyncPrivileges(
       [role, schema],
     )
   ).rows;
-  for (const name of Object.keys(MENU_SYNC_PRIVILEGES))
+  for (const name of Object.keys(privileges))
     if (!relations.some((relation) => relation.relname === name))
       throw new Error('Menu sync schema018 relation missing');
   for (const relation of relations) {
-    const expected = MENU_SYNC_PRIVILEGES[relation.relname];
+    const expected = privileges[relation.relname];
     if (
       relation.other ||
       relation.sel !== Boolean(expected?.select) ||
@@ -162,5 +208,5 @@ export async function assertMenuSyncPrivileges(
     )
   ).rows[0];
   if (Object.values(extra).some(Boolean)) throw new Error('Menu sync role exceeds reviewed rights');
-  return { role, schema, tables: Object.keys(MENU_SYNC_PRIVILEGES).length, verified: true };
+  return { role, schema, tables: Object.keys(privileges).length, verified: true };
 }

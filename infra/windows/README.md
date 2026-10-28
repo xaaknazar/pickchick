@@ -11,6 +11,8 @@ the fresh database and installs PostgreSQL/edge Windows services with protected
 credentials. Restaurant provisioning and device tunnels remain separate.
 A separate [protected local backup and restore rehearsal](native-backup.md) can
 verify the installed cashier database without overwriting any existing database.
+The [scheduled encrypted backup to a second disk or NAS](edge-backup.md) runs hourly as
+SYSTEM and keeps 48 hourly and 14 daily verified copies.
 
 ## Database installation
 

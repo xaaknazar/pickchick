@@ -203,6 +203,16 @@ export async function createHttpApplication(
       ) &&
       /^application\/json(?:;|$)/i.test(request.headers['content-type'] ?? ''),
   });
+  // Daily reconciliation statement uploads (CSV text up to 200 000 characters in JSON).
+  app.useBodyParser('json', {
+    limit: 320 * 1024,
+    type: (request: IncomingMessage) =>
+      request.method === 'POST' &&
+      /^\/v1\/admin\/backoffice\/branches\/[a-f0-9-]{36}\/reconciliation\/(?:preview|commands)\/?$/.test(
+        request.url?.split('?')[0] ?? '',
+      ) &&
+      /^application\/json(?:;|$)/i.test(request.headers['content-type'] ?? ''),
+  });
   if (app.get<Resources>(RESOURCE).config.service === 'edge')
     app.useBodyParser('json', {
       limit: 16 * 1024,

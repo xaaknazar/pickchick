@@ -5,10 +5,12 @@ import type {
   MenuSnapshot,
   Quote,
   CashShift,
+  EdgeCloudLink,
   StaffCredential,
   StaffSession,
 } from '@pickchick/contracts';
 export type {
+  EdgeCloudLink,
   Cart,
   LocalOrder,
   MenuCategory,
@@ -44,6 +46,90 @@ export type Ordering = {
   pos_service_mode?: 'payment_required' | 'unpaid_service';
 };
 export type Stop = { variant_id: string; stopped: boolean; version: number };
+export type ModifierOption = ModifierGroup['options'][number];
+/** Why an item cannot be sold now (combo stop rule, PM decision 1); null when it can. */
+export type StopReason =
+  { kind: 'item' } | { kind: 'component'; name: string | null } | { kind: 'group'; name: string };
+export type ItemStopView = {
+  available: boolean;
+  reason: StopReason | null;
+  /** Options that cannot be chosen: unavailable, stopped, or their product stopped. */
+  stoppedOptions: Set<string>;
+};
+const isStopped = (stops: ReadonlyMap<string, Stop>, id: string | undefined) =>
+  id !== undefined && stops.get(id)?.stopped === true;
+/** An option cannot be chosen when unavailable, stopped, or the product it stands for is stopped. */
+export function optionStopped(option: ModifierOption, stops: ReadonlyMap<string, Stop>): boolean {
+  return (
+    option.available === false ||
+    isStopped(stops, option.id) ||
+    isStopped(stops, option.linked_variant_id)
+  );
+}
+/** Preselected choices of a new line: default options that can be chosen now, never a stopped one. */
+export function defaultSelections(item: Item, stops: ReadonlyMap<string, Stop>): Selection[] {
+  return (item.modifier_groups ?? []).flatMap((g) =>
+    g.options
+      .filter((o) => o.default_quantity && !optionStopped(o, stops))
+      .map((o) => ({ group_id: g.id, option_id: o.id, quantity: o.default_quantity! })),
+  );
+}
+/**
+ * A stopped option cannot be added or increased, but it can always be reduced or removed: an
+ * older cart line may still hold it, and a multi-choice group would otherwise stay stuck.
+ */
+export function optionChangeAllowed(
+  option: ModifierOption,
+  stops: ReadonlyMap<string, Stop>,
+  current: number,
+  count: number,
+): boolean {
+  return count <= current || !optionStopped(option, stops);
+}
+/**
+ * The cloud combo stop rule on the POS screen, from the active menu and the edge stop list: the
+ * item's own stop, a stopped fixed component, or a required group with no option left. A menu
+ * without the optional fields has no components or links, so only own stops count. The edge
+ * re-checks every quote and order; this view only explains and blocks early.
+ */
+export function itemStopView(
+  m: MenuSnapshot,
+  item: Item,
+  stops: ReadonlyMap<string, Stop>,
+): ItemStopView {
+  const stoppedOptions = new Set(
+    (item.modifier_groups ?? []).flatMap((g) =>
+      g.options.filter((o) => optionStopped(o, stops)).map((o) => o.id),
+    ),
+  );
+  const component = (item.combo_component_variant_ids ?? []).find((id) => isStopped(stops, id));
+  const dead = (item.modifier_groups ?? []).find(
+    (g) => g.min_selected > 0 && g.options.every((o) => stoppedOptions.has(o.id)),
+  );
+  const reason: StopReason | null = isStopped(stops, item.variant_id)
+    ? { kind: 'item' }
+    : component !== undefined
+      ? {
+          kind: 'component',
+          name: m.items.find((i) => i.variant_id === component)?.name.ru ?? null,
+        }
+      : dead
+        ? { kind: 'group', name: dead.name.ru }
+        : null;
+  return { available: reason === null, reason, stoppedOptions };
+}
+/** Short cashier message for an unavailable item; empty when it can be sold. */
+export function stopReasonText(view: Pick<ItemStopView, 'reason'>): string {
+  const reason = view.reason;
+  if (!reason) return '';
+  if (reason.kind === 'item') return 'Позиция в стоп-листе';
+  if (reason.kind === 'component')
+    return reason.name
+      ? `Комбо недоступно: «${reason.name}» в стоп-листе`
+      : 'Комбо недоступно: часть состава в стоп-листе';
+  // A required choice can belong to a plain item too (sauce size), so the text names no combo.
+  return `Недоступно: нет доступных вариантов в группе «${reason.name}»`;
+}
 export const isUuid = (value: unknown): value is string =>
   typeof value === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -128,6 +214,8 @@ function modifierGroups(value: unknown): ModifierGroup[] {
           ? {}
           : { default_quantity: integer(o.default_quantity, 0, max) }),
         ...(o.available === undefined ? {} : { available: o.available }),
+        // Optional cashier combo stop field: kept only when well-formed, never trusted otherwise.
+        ...(isUuid(o.linked_variant_id) ? { linked_variant_id: o.linked_variant_id } : {}),
       };
     });
     const min_selected = integer(g.min_selected, 0, 99),
@@ -207,9 +295,21 @@ const sortOrder = (value: unknown) =>
   typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 100000
     ? value
     : undefined;
+/** Fixed components of a combo (stage 2): unique UUIDs, never the item itself, else dropped. */
+function componentIds(value: unknown, variantId: string): string[] | undefined {
+  if (!Array.isArray(value) || !value.length || value.length > 100) return undefined;
+  if (!value.every(isUuid) || value.includes(variantId) || new Set(value).size !== value.length)
+    return undefined;
+  return value;
+}
 /** Unified-menu fields are optional extras: a malformed extra is dropped, never trusted. */
 function optionalItemFields(i: Record<string, unknown>, imageUrl: string | undefined) {
-  const result: Pick<Item, 'source_id' | 'sort_order' | 'kind' | 'image'> = {};
+  const result: Pick<
+    Item,
+    'source_id' | 'sort_order' | 'kind' | 'image' | 'combo_component_variant_ids'
+  > = {};
+  const components = componentIds(i.combo_component_variant_ids, String(i.variant_id));
+  if (components) result.combo_component_variant_ids = components;
   if (typeof i.source_id === 'string' && SOURCE_ID.test(i.source_id))
     result.source_id = i.source_id;
   const order = sortOrder(i.sort_order);
@@ -603,6 +703,17 @@ export function shiftHistory(value: unknown): CashShift[] {
   if (!Array.isArray(result.shifts) || result.shifts.length > 50)
     throw new Error('INVALID_RESPONSE');
   return result.shifts.map(cashShift);
+}
+/** GET edge/v1/cloud-link (offline stand finding): the cashier's last cloud contact. */
+export function cloudLink(value: unknown): EdgeCloudLink {
+  const v = record(value);
+  if (v.state !== 'online' && v.state !== 'offline' && v.state !== 'unknown')
+    throw new Error('INVALID_RESPONSE');
+  return {
+    state: v.state,
+    last_contact_at: v.last_contact_at === null ? null : date(v.last_contact_at),
+    checked_at: date(v.checked_at),
+  };
 }
 export function currentShift(value: unknown): CashShift | null {
   const result = record(value);
