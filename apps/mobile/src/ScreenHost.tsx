@@ -2,14 +2,14 @@ import { t, useLocale } from './i18n';
 import { OrderSheet } from './components/OrderSheet';
 import { useCallback, useState } from 'react';
 import { ScreenTransition } from './components/Motion';
-import { Stack, Redirect, useLocalSearchParams, useRouter, useSegments } from 'expo-router';
+import { Stack, Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useAccount } from './useAccount';
 import { accountDestination, requiresAccount } from './account-access';
 import { Pressable, Text } from 'react-native';
 import type { ScreenId } from './model';
 import { useMobile } from './store';
-import { CartShortcut } from './components/CartShortcut';
-import { useTabBarInset } from './components/tab-bar-inset';
+import { useTabBarInset, useTabCartDockHeight } from './components/tab-bar-inset';
+import { tabContentInset } from './tab-bar-metrics';
 import { MobileScreen } from './screens/MobileScreen';
 
 const tabRoutes = {
@@ -21,20 +21,22 @@ const tabRoutes = {
 const profileRoute = '/profile';
 export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: boolean }) {
   useLocale();
-  const [cartHeight, setCartHeight] = useState(100);
   const [dismissBlocked, setDismissBlocked] = useState(false);
   const router = useRouter();
-  const segments = useSegments();
   const params = useLocalSearchParams();
   const returnTo = accountDestination(params.returnTo);
   const model = useMobile(preview);
   const account = useAccount();
-  // The floating tab bar overlays the screen; content and the cart dock stay above it.
+  // The floating tab bar and the cart bar docked on it (owner 28.10.2026: drawn by the tab bar
+  // itself, components/TabCartDock) overlay the tab screens; their content stays above both.
   const tabBarInset = useTabBarInset();
-  const activeTab =
-    segments[0] === '(tabs)' &&
-    id in tabRoutes &&
-    tabRoutes[id as keyof typeof tabRoutes] === `/${segments.join('/')}`;
+  const cartDockHeight = useTabCartDockHeight();
+  // Rendered inside the tab layout (outside it the inset is 0). Not «a tab is focused»: with the
+  // cart, sign-in or an order status open over a tab, the tab below is still in the tab layout.
+  // Before 28.10 a focused route above the tabs made the menu draw a second, standalone cart bar
+  // at the very bottom of the screen, under the tab bar, and moved footers behind it too.
+  const inTabs = tabBarInset > 0;
+  const tabScreen = id in tabRoutes && inTabs;
   const statusSheet = ['M17', 'M18', 'M20'].includes(id);
   const inSheet = id === 'M09' || id === 'M12' || statusSheet;
   const back = useCallback(
@@ -130,8 +132,10 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
       goBack={goBack}
       inSheet={inSheet}
       preview={preview}
-      cartBottomInset={activeTab ? tabBarInset + (model.cart.length ? cartHeight : 0) : 0}
-      inTabLayout={segments[0] === '(tabs)'}
+      cartBottomInset={
+        tabScreen ? tabContentInset(tabBarInset, cartDockHeight, model.cart.length) : 0
+      }
+      inTabLayout={inTabs}
     />
   );
   if (inSheet)
@@ -152,15 +156,6 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
   return (
     <ScreenTransition style={{ flex: 1, minHeight: 0, backgroundColor: '#04143A' }}>
       {screen()}
-      {activeTab ? (
-        <CartShortcut
-          model={model}
-          onPress={() => navigate('M09')}
-          floating
-          bottomOffset={tabBarInset}
-          onHeightChange={setCartHeight}
-        />
-      ) : null}
       {preview ? (
         <Pressable
           testID="close-design-preview"

@@ -1,8 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { subscribeCatalogConnectivity } from './connectivity';
 import { API_URL } from './api';
-import { parseAvailability, type AvailabilityReadState } from './availability';
+import { parseAvailability, type Availability, type AvailabilityReadState } from './availability';
 import { AvailabilityRequestError, createAvailabilityRecovery } from './availability-recovery';
+import {
+  CONNECTION_OK,
+  createConnectionTracker,
+  shownAvailabilityState,
+  type ConnectionTrack,
+} from './availability-connection';
 import { parseCatalogVersionHeader } from './catalog-recovery';
 
 /** Long poll never mutates a basket, creates an order or sends a payment command. */
@@ -10,11 +16,20 @@ export function useAvailability(
   enabled: boolean,
   refresh = 0,
 ): AvailabilityReadState & { catalogVersion: number | null } {
-  const [state, setState] = useState<AvailabilityReadState>({ data: null, status: 'checking' });
+  // The last answer of the server in this app run. It stays while the reader re-reads or retries
+  // (stale-while-revalidate): a single dropped request never hides the payment handle or shows
+  // «Нет связи с сервером» (owner 28.10.2026). See availability-connection.ts.
+  const [data, setData] = useState<Availability | null>(null);
+  const [track, setTrack] = useState<ConnectionTrack>(CONNECTION_OK);
+  const trackRef = useRef(track);
+  trackRef.current = track;
   // Head publication version reported by the server (X-Catalog-Version); only ever grows.
   const [catalogVersion, setCatalogVersion] = useState<number | null>(null);
   useEffect(() => {
     if (!enabled) return;
+    // A restart (refresh) keeps a problem already shown until the server answers, and a failure
+    // still pending keeps its start, so its five seconds are not counted from zero again.
+    const connection = createConnectionTracker({ initial: trackRef.current, onChange: setTrack });
     const recovery = createAvailabilityRecovery({
       read: async (signal, signature) => {
         const controller = new AbortController();
@@ -48,28 +63,29 @@ export function useAvailability(
           signal.removeEventListener('abort', abort);
         }
       },
-      onChecking: () =>
-        setState((previous) => (previous.data ? previous : { ...previous, status: 'checking' })),
-      onSuccess: (data) => setState({ data, status: 'online' }),
-      onFailure: (_error, retrying) =>
-        setState((previous) => ({ ...previous, status: retrying ? 'offline' : 'error' })),
+      // A re-read keeps the last answer; before the first one the state is «checking» anyway.
+      onChecking: () => {},
+      onSuccess: (value) => {
+        setData(value);
+        connection.succeeded();
+      },
+      // A failed cycle counts; a retried failure is shown only once it persists (a second failure
+      // in a row or five seconds), never for a single dropped request. A failure the reader does
+      // not retry (an HTTP refusal, a broken body) is final and shown at once.
+      onFailure: (_error, retrying) => connection.failed(retrying ? 'offline' : 'error'),
     });
-    setState((previous) => ({ ...previous, status: 'checking' }));
     const unsubscribe = subscribeCatalogConnectivity({
       setActive: recovery.setActive,
       // The phone itself reports no network: the paused long-poll cannot fail, so it says
-      // «offline» here; the next successful read (after reconnect) says «online» again.
-      setConnected: (connected) => {
-        if (!connected)
-          setState((previous) =>
-            previous.status === 'offline' ? previous : { ...previous, status: 'offline' },
-          );
-      },
+      // «offline» here at once; the next successful read (after reconnect) says «online» again.
+      setConnected: connection.network,
     });
     return () => {
       recovery.stop();
       unsubscribe();
+      connection.stop();
     };
   }, [enabled, refresh]);
+  const state = useMemo(() => shownAvailabilityState(data, track), [data, track]);
   return useMemo(() => ({ ...state, catalogVersion }), [state, catalogVersion]);
 }

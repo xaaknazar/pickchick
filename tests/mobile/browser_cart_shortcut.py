@@ -23,6 +23,17 @@ CAT = json.loads(subprocess.check_output(['node', '--input-type=module', '-e',
     "import {testCompleteCatalog} from './packages/test-order-flow/dist/complete-catalog.js';console.log(JSON.stringify(testCompleteCatalog))"], cwd=ROOT, text=True))
 BRANCH = CAT['branch_id']
 errors = []
+IDENTITY = ('none', 'matrix(1, 0, 0, 1, 0, 0)')
+# Records the transform of the newest photo (its «added» feedback) for `ms` milliseconds.
+RECORD_FEEDBACK = """(ms) => {
+  window.cartMotionFrames = [];
+  const start = performance.now();
+  function tick() {
+    document.querySelectorAll('[data-testid="cart-recent-feedback"]').forEach(e => window.cartMotionFrames.push(getComputedStyle(e).transform));
+    if (performance.now() - start < ms) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}"""
 
 
 def fixture(route):
@@ -95,7 +106,9 @@ with sync_playwright() as p:
             assert abs(pill.bounding_box()['width'] - capsule['width']) <= 12, (pill.bounding_box(), capsule)
             footer = page.get_by_test_id('bottom-actions').filter(has=pill)
             expect(footer).to_have_css('background-color', 'rgba(0, 0, 0, 0)')
-            expect(footer).to_have_css('position', 'absolute')
+            # Owner 28.10.2026: the tab bar draws the bar in its own layer, stacked on the tab
+            # capsule (never under it); see browser_cart_layer.py.
+            expect(page.get_by_test_id('tab-cart-dock').filter(has=pill)).to_have_count(1)
             expect(footer).to_have_css('pointer-events', 'none')
             box = pill.bounding_box()
             tab = page.get_by_test_id('tab-' + route).bounding_box()
@@ -134,24 +147,32 @@ with sync_playwright() as p:
     page.goto(URL + "/menu")
     expect(page.get_by_test_id("launch-reveal")).to_have_count(0)
     expect(page.get_by_test_id('open-cart')).to_be_visible()
-    page.evaluate("""() => {
-      window.cartMotionFrames = [];
-      const start = performance.now();
-      function tick() {
-        document.querySelectorAll('[data-testid="cart-recent-feedback"]').forEach(e => window.cartMotionFrames.push(getComputedStyle(e).transform));
-        if (performance.now() - start < 650) requestAnimationFrame(tick);
-      }
-      requestAnimationFrame(tick);
-    }""")
-    page.get_by_test_id('tab-events').click()
+    page.wait_for_timeout(700)
+    # Back from the cart with the same items: the tab bar draws its bar again, but nothing was
+    # added, so the newest photo does not replay its feedback (tech lead 28.10.2026: the bar
+    # unmounts under the cart sheet; the count it last showed is kept by the tab bar).
+    page.get_by_test_id('open-cart').click()
+    expect(page.get_by_test_id('cart-checkout')).to_be_visible()
+    page.evaluate(RECORD_FEEDBACK, 2000)
+    page.get_by_test_id('cart-close').click()
+    expect(page.get_by_test_id('screen-M09')).not_to_be_visible()
+    expect(page.get_by_test_id('open-cart')).to_be_visible()
+    page.wait_for_timeout(2100)
+    frames = page.evaluate('window.cartMotionFrames')
+    assert frames and all(t in IDENTITY for t in frames), frames
+    # The customer comes back from a product with one more item: the newest photo settles in.
+    # (Owner 28.10.2026: the tab bar draws the one bar, so a plain tab switch no longer replays it.)
+    page.get_by_test_id('product-pick-combo').click()
+    page.get_by_test_id('product-add').click()
+    page.evaluate(RECORD_FEEDBACK, 650)
     page.wait_for_timeout(700)
     frames = page.evaluate('window.cartMotionFrames')
-    assert any(t not in ('none', 'matrix(1, 0, 0, 1, 0, 0)') for t in frames), frames
+    assert any(t not in IDENTITY for t in frames), frames
     page.emulate_media(reduced_motion='reduce')
     page.get_by_test_id('tab-orders').click()
     page.wait_for_timeout(100)
     for counter in page.get_by_test_id('cart-recent-feedback').all():
-        assert counter.evaluate('(e) => getComputedStyle(e).transform') in ('none', 'matrix(1, 0, 0, 1, 0, 0)')
+        assert counter.evaluate('(e) => getComputedStyle(e).transform') in IDENTITY
     context.close()
     # Last added items: up to three photos, newest first; adding again makes a product the newest.
     for width, height in [(393, 852), (320, 568)]:

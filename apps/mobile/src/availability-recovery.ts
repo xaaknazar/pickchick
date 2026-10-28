@@ -9,6 +9,32 @@ export class AvailabilityRequestError extends Error {
   }
 }
 
+/**
+ * The pause before the confirmation snapshot of a dropped long-poll (owner 28.10.2026). Sent at
+ * once, the snapshot usually went over the same dead connection (a keep-alive socket the carrier or
+ * a proxy had just closed, a radio still waking up) and failed with it, so one drop still cost a
+ * whole failed read cycle. A short pause lets the client open a fresh connection, and most single
+ * drops recover inside the cycle. Short enough that a real outage is reported about as fast.
+ */
+export const CONFIRMATION_DELAY_MS = 400;
+
+/** Waits `ms`, or less when `signal` aborts (the app went to the background, the reader stopped). */
+function pause(ms: number, signal: AbortSignal) {
+  return new Promise<void>((resolve) => {
+    if (ms <= 0 || signal.aborted) {
+      resolve();
+      return;
+    }
+    const done = () => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    signal.addEventListener('abort', done, { once: true });
+  });
+}
+
 /** Each successful public read renews the stop list. Only reads enter this loop. */
 export function createAvailabilityRecovery(options: {
   read(signal: AbortSignal, signature: string): Promise<Availability>;
@@ -16,6 +42,8 @@ export function createAvailabilityRecovery(options: {
   onSuccess(value: Availability): void;
   onFailure(error: unknown, retrying: boolean): void;
   random?: () => number;
+  /** The pause before the confirmation snapshot: CONFIRMATION_DELAY_MS unless a test says. */
+  confirmationDelayMs?: number;
 }) {
   let signature = '';
   const retryable = (error: unknown) =>
@@ -28,8 +56,8 @@ export function createAvailabilityRecovery(options: {
         return await options.read(signal, signature);
       } catch (error) {
         // A proxy/radio can drop an idle long poll while ordinary GETs still work.
-        // Confirm with one immediate snapshot before announcing an outage. Never retry
-        // malformed data, HTTP rejections/rate limits, lifecycle aborts or payment commands.
+        // Confirm with one snapshot, after a short pause, before announcing an outage. Never
+        // retry malformed data, HTTP rejections/rate limits, lifecycle aborts or payment commands.
         if (
           !signature ||
           signal.aborted ||
@@ -38,6 +66,9 @@ export function createAvailabilityRecovery(options: {
         )
           throw error;
         signature = '';
+        await pause(options.confirmationDelayMs ?? CONFIRMATION_DELAY_MS, signal);
+        // Sent to the background or stopped during the pause: no request at all.
+        if (signal.aborted) throw error;
         return options.read(signal, '');
       }
     },
