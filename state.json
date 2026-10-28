@@ -6790,11 +6790,13 @@
         "apps/mobile/app.json",
         "docs/operations/mobile-testflight26.md",
         "@release/ios",
-        "docs/roadmap/project.json"
+        "docs/roadmap/project.json",
+        "@ios/simulator",
+        "@apple/appstore"
       ],
       "status": "active",
-      "head": "91596538ffaf643ad3358889b53e194dda71cd01",
-      "updatedAt": "2026-10-28T09:30:15.691Z"
+      "head": "17491400a4b408421fb7d70077bb5f742bc22a34",
+      "updatedAt": "2026-10-28T09:44:21.830Z"
     }
   ]
 }
