@@ -39,13 +39,16 @@ no real customer, no VPS request. The fixture publishes the server's ordering ho
      the red banner shows, the old refusal panel with «Попробовать снова» is gone and does not
      come back when the restaurant opens
   K  (TestFlight 25, owner 28.10) the cart opened and closed 10 times while single availability
-     reads fail (a dropped long-poll and its confirmation snapshot) or answer slowly: the red
+     reads fail (a dropped long-poll alone, or with its confirmation snapshot) or answer slowly: the red
      «Нет связи с сервером» never shows, the pay button never says «Нет связи» and the handle
      never leaves the bar
   L  the server really is gone (every read fails): no banner for the first failed read, the
-     banner and «Нет связи» after the second one in a row (about two seconds), no handle; the
+     banner and «Нет связи» after the second one in a row (about 2.5 s), no handle; the
      server back: payable again without a reload; zero checkout requests meanwhile
   M  the phone itself reports no network while the cart is open: the banner at once
+  N  an answer the reader will not retry (a captive-portal page instead of JSON) is final: the
+     banner at once, not after five seconds; zero checkout requests; back in the foreground the
+     reader asks again and the cart is payable
 Everywhere the bar has no handle, the capsule hugs the total and the photos, centred (Drinkit).
 """
 from browser_network import isolated_context, route_fixture
@@ -113,7 +116,9 @@ def new_state(**overrides):
             'refuse_quotes': None, 'config_enabled': True,
             # K/L: the next N availability reads fail at the transport; slow ones answer late.
             'fail_availability': 0, 'failed_availability': 0, 'slow_availability': 0,
-            'slow_held': [], **overrides}
+            'slow_held': [],
+            # N: the next N availability reads get a captive-portal page (HTML, HTTP 200).
+            'portal_availability': 0, **overrides}
 
 
 def availability(state):
@@ -189,6 +194,12 @@ def make_context(browser, state, width=393, height=852, reduced='reduce'):
                 state['fail_availability'] -= 1
                 state['failed_availability'] += 1
                 return r.abort('connectionreset')
+            if state['portal_availability']:
+                # A Wi-Fi login page answers instead of the server: not JSON, never retried.
+                state['portal_availability'] -= 1
+                return r.fulfill(status=200, content_type='text/html',
+                                 body='<html><body>Wi-Fi login</body></html>',
+                                 headers={'Access-Control-Allow-Origin': '*'})
             if state['slow_availability']:
                 state['slow_availability'] -= 1
                 state['slow_held'].append((time.monotonic(), r))
@@ -915,9 +926,12 @@ def scenario_transient_reads(browser):
     expect_open_bar(page, 20000)
     page.evaluate(WATCH)
     for i in range(10):
-        # Every other visit one read cycle fails right as the cart opens (the long-poll and its
-        # confirmation snapshot both dropped); the other visits get slow answers.
-        if i % 2 == 0:
+        # Right as the cart opens: the long-poll alone drops (its confirmation snapshot, sent after
+        # a short pause, answers), or the long-poll and the snapshot both drop (a whole failed
+        # cycle), or the answers are slow.
+        if i % 3 == 0:
+            state['fail_availability'] = 1
+        elif i % 3 == 1:
             state['fail_availability'] = 2
         else:
             state['slow_availability'] = 2
@@ -956,7 +970,8 @@ def scenario_server_gone(browser):
     since = len(state['paths'])
     state['fail_availability'] = 10 ** 6
     armed = time.monotonic()
-    # The first cycle fails within a few hundred ms; its retry comes about two seconds later.
+    # The first cycle (the long-poll, then its snapshot 0.4 s later) fails within about half a
+    # second; its retry comes about two seconds later.
     page.wait_for_timeout(1200)
     assert state['failed_availability'] >= 2, state['failed_availability']
     cart = page.get_by_test_id('screen-M09')
@@ -977,6 +992,37 @@ def scenario_server_gone(browser):
     expect_cart_payable(page)
     assert not mutations(state), mutations(state)
     print('L persistent: banner after %.1f s, failed reads %d' % (shown, state['failed_availability']))
+    release(state)
+    ctx.close()
+
+
+def scenario_unusable_answer(browser):
+    """N: a captive-portal page instead of JSON: final (never retried), so the banner at once."""
+    state = new_state()
+    ctx, page = make_context(browser, state)
+    page.goto(URL + '/menu')
+    add(page)
+    expect_open_bar(page, 20000)
+    open_cart(page)
+    expect_cart_payable(page)
+    since = len(state['paths'])
+    state['portal_availability'] = 1
+    armed = time.monotonic()
+    expect(page.get_by_test_id('screen-M09').get_by_test_id('cart-unavailable')).to_be_visible(timeout=4000)
+    shown = time.monotonic() - armed
+    # The next read comes within about 100 ms; before 28.10 review the tracker waited five seconds.
+    assert shown < 2.5, shown
+    _, pay = expect_cart_unavailable(page, CONNECTION, 'Нет связи')
+    try_to_pay(page, pay)
+    assert not checkout_paths(state, since), checkout_paths(state, since)
+    page.screenshot(path=str(OUT / 'unusable-answer-cart-393.png'))
+    # Never retried by itself; the app coming back to the foreground asks again.
+    visibility(page, False)
+    page.wait_for_timeout(300)
+    visibility(page, True)
+    expect_cart_payable(page)
+    assert not mutations(state), mutations(state)
+    print('N unusable answer: banner after %.2f s' % shown)
     release(state)
     ctx.close()
 
@@ -1004,7 +1050,7 @@ def scenario_phone_offline_now(browser):
 
 
 if __name__ == '__main__':
-    SELECTED = os.environ.get('CART_UNAVAILABLE', 'ABCDEFGHIJKLM').upper()
+    SELECTED = os.environ.get('CART_UNAVAILABLE', 'ABCDEFGHIJKLMN').upper()
     with sync_playwright() as p:
         browser = p.chromium.launch()
         if 'A' in SELECTED:
@@ -1034,6 +1080,8 @@ if __name__ == '__main__':
             scenario_server_gone(browser)
         if 'M' in SELECTED:
             scenario_phone_offline_now(browser)
+        if 'N' in SELECTED:
+            scenario_unusable_answer(browser)
         browser.close()
     assert not errors, errors
     print('PASS cart unavailable (' + SELECTED + '): closed by the hours = no handle on Меню/События/Заказы, '
@@ -1045,4 +1093,5 @@ if __name__ == '__main__':
           'payable before the first availability answer; a refusal never shows under the banner; the '
           'closed capsule hugs the total and the photos; single failed or slow reads while the cart '
           'opens and closes never flash «Нет связи с сервером» or hide the handle, a server that '
-          'stays gone is shown after the second failed read, a phone without network at once')
+          'stays gone is shown after the second failed read, a phone without network and an answer that is '
+          'never retried (a captive portal) at once')
