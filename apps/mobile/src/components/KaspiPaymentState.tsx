@@ -12,9 +12,11 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { CustomerCommerceOrder } from '@pickchick/contracts';
 import { assets } from '../assets';
-import { invoiceSecondsRemaining, paymentCopy } from '../commerce-presentation';
+import { STUCK_NOTICE_MS, paymentStuck } from '../checkout-resume';
+import { invoiceSecondsRemaining, paymentCopy, stuckCopy } from '../commerce-presentation';
 import { money } from '../domain';
 import { Body, Button, Caption, Heading, Icon, BottomActions } from './UI';
 import { PaymentMark } from './PaymentChoice';
@@ -23,8 +25,12 @@ import { colors, font } from '../theme';
 import { checkoutStyle } from './CheckoutPresentation';
 import { useTabBarInset } from './tab-bar-inset';
 import { SupportContact } from './SupportContact';
+import { GlassButton } from './GlassButton';
+import { PaymentCloseConfirm } from './PaymentCloseConfirm';
 
 const BANK_PHASES: readonly string[] = ['sending', 'awaiting_payment', 'checking'];
+/** The smallest share of its size the scene may shrink to so the words fit (owner 28.10.2026). */
+const SCENE_MIN_FIT = 0.5;
 
 export function KaspiPaymentState({
   order,
@@ -40,6 +46,13 @@ export function KaspiPaymentState({
   closeLabel = 'Закрыть',
   closeDelayMs = null,
   support = false,
+  onDismiss,
+  dismissLabel = 'Закрыть оплату',
+  dismissNeedsConfirm,
+  onRecheck,
+  rechecking = false,
+  stuckReturnLabel = null,
+  safeTop = false,
 }: {
   order?: CustomerCommerceOrder;
   paid?: boolean;
@@ -58,6 +71,21 @@ export function KaspiPaymentState({
   closeDelayMs?: number | null;
   /** Show the support contact at once (a bank wait the app can no longer settle). */
   support?: boolean;
+  /**
+   * Owner 28.10.2026 (TestFlight 25): the glass X at the top right, there at once on every
+   * payment state: back to the cart (or the Orders list). Safe close semantics are the parent's.
+   */
+  onDismiss?: () => void;
+  dismissLabel?: string;
+  /** Asked at the press: the bank may still act, so «Закрыть оплату?» comes first. */
+  dismissNeedsConfirm?: () => boolean;
+  /** «Проверить ещё раз» of a stuck «sending» or restaurant wait: a read-only check. */
+  onRecheck?: () => void;
+  rechecking?: boolean;
+  /** The way back offered by a stuck screen («Вернуться в корзину»); null: none of its own. */
+  stuckReturnLabel?: string | null;
+  /** Not inside a sheet («Заказы»): the X keeps clear of the status bar. */
+  safeTop?: boolean;
 }) {
   useLocale();
   const closable = Boolean(onClose);
@@ -73,6 +101,7 @@ export function KaspiPaymentState({
     return () => clearTimeout(timer);
   }, [closable, closeDelayMs, order?.orderId, order?.phase]);
   const reduced = useReducedMotion();
+  const insets = useSafeAreaInsets();
   const tabBarInset = useTabBarInset();
   const { height, fontScale } = useWindowDimensions();
   const compact = height < 700;
@@ -99,6 +128,36 @@ export function KaspiPaymentState({
   const remaining = invoiceSecondsRemaining(order?.expiresAt ?? null, now);
   const deadlineReached = (waiting || phase === 'checking') && remaining === 0;
   const showCancelHelp = cancelHelp && waiting && !paid && !deadlineReached;
+  // Owner 28.10.2026: «Отправляем счёт» or «Связываемся с рестораном» that has not moved for 20 s
+  // says so honestly and offers its actions. Measured on this screen from the phase it shows.
+  const stuckPhase = order && !paid ? phase : undefined;
+  const stuckKey = `${order?.orderId ?? ''}:${stuckPhase ?? ''}`;
+  const [stuckClock, setStuckClock] = useState(() => {
+    const at = Date.now();
+    return { key: stuckKey, since: at, now: at };
+  });
+  useEffect(() => {
+    const since = Date.now();
+    setStuckClock({ key: stuckKey, since, now: since });
+    if (stuckPhase !== 'sending' && stuckPhase !== 'awaiting_restaurant') return;
+    const timer = setTimeout(
+      () => setStuckClock({ key: stuckKey, since, now: Date.now() }),
+      STUCK_NOTICE_MS + 50,
+    );
+    return () => clearTimeout(timer);
+  }, [stuckKey]);
+  const stuck =
+    stuckClock.key === stuckKey ? paymentStuck(stuckPhase, stuckClock.since, stuckClock.now) : null;
+  const [confirming, setConfirming] = useState(false);
+  const dismissible = Boolean(onDismiss);
+  useEffect(() => {
+    if (!dismissible) setConfirming(false);
+  }, [dismissible]);
+  const requestDismiss = () => {
+    if (!onDismiss) return;
+    if (dismissNeedsConfirm?.()) setConfirming(true);
+    else onDismiss();
+  };
   useEffect(() => {
     if ((!waiting && phase !== 'checking') || !foreground || !order?.expiresAt) return;
     setNow(Date.now());
@@ -140,6 +199,35 @@ export function KaspiPaymentState({
       pulse.setValue(0);
     };
   }, [reduced, foreground, paid, failed, pulse]);
+  // The X row takes the top of the screen (owner 28.10.2026). When the words, the amount, the
+  // countdown and the pinned buttons do not fit with the full scene, the decorative scene shrinks
+  // to fit (never the words or the buttons), down to SCENE_MIN_FIT of its size; beyond that the
+  // content scrolls as before. It only shrinks within one state, so it never oscillates.
+  const fitKey = [order?.orderId, phase, paid, showCancelHelp, stuck, height, fontScale].join(':');
+  const [fit, setFit] = useState({ key: fitKey, factor: 1 });
+  const factor = fit.key === fitKey ? fit.factor : 1;
+  const measured = useRef({ view: 0, content: 0 });
+  const visualHeight = tight ? 104 : compact || paid || failed ? 170 : 290;
+  const visualMargin = tight ? 6 : compact ? 12 : paid || failed ? 20 : 28;
+  const sceneScale = tight ? 0.36 : compact ? 0.58 : 1;
+  const refit = () => {
+    const { view, content } = measured.current;
+    const overflow = content - view;
+    if (!view || overflow <= 1 || textFirst || height < 500 || showCancelHelp) return;
+    const block = visualHeight + 2 * visualMargin;
+    const next = Math.max(SCENE_MIN_FIT, (block * factor - overflow - 2) / block);
+    if (next < factor - 0.005) setFit({ key: fitKey, factor: next });
+  };
+  const fitted =
+    factor < 1
+      ? {
+          visual: {
+            height: Math.round(visualHeight * factor),
+            marginVertical: Math.round(visualMargin * factor),
+          },
+          scene: { transform: [{ scale: sceneScale * factor }] },
+        }
+      : null;
   const scene =
     height >= 500 && !showCancelHelp ? (
       <View
@@ -148,10 +236,11 @@ export function KaspiPaymentState({
           (paid || failed) && s.resultVisual,
           compact && s.compactVisual,
           tight && s.tightVisual,
+          fitted?.visual,
         ]}
         accessible={false}
       >
-        <View style={[s.scene, compact && s.compactScene, tight && s.tightScene]}>
+        <View style={[s.scene, compact && s.compactScene, tight && s.tightScene, fitted?.scene]}>
           {paid || failed ? (
             <View style={[s.resultMark, paid ? s.success : s.failure]}>
               <Icon
@@ -229,10 +318,32 @@ export function KaspiPaymentState({
               : 'kaspi-waiting'
       }
     >
+      {onDismiss ? (
+        <View style={[s.topBar, tight && s.tightTopBar, safeTop && { paddingTop: insets.top + 8 }]}>
+          <GlassButton
+            name="close"
+            label={dismissLabel}
+            onPress={requestDismiss}
+            testID="kaspi-state-close"
+          />
+        </View>
+      ) : null}
       <ScrollView
         testID="kaspi-state-scroll"
-        contentContainerStyle={[s.content, tight && s.tightContent]}
+        contentContainerStyle={[
+          s.content,
+          tight && s.tightContent,
+          onDismiss && (tight ? s.tightContentUnderBar : s.contentUnderBar),
+        ]}
         showsVerticalScrollIndicator={false}
+        onLayout={(event) => {
+          measured.current.view = event.nativeEvent.layout.height;
+          refit();
+        }}
+        onContentSizeChange={(_, contentHeight) => {
+          measured.current.content = contentHeight;
+          refit();
+        }}
       >
         {notice}
         {!paid && !failed ? (
@@ -244,7 +355,9 @@ export function KaspiPaymentState({
                   ? 'Проверяем отмену счёта'
                   : waiting
                     ? 'Отличный выбор!\nЖдём оплату в Kaspi'
-                    : paymentCopy[phase].title,
+                    : stuck
+                      ? stuckCopy[stuck].title
+                      : paymentCopy[phase].title,
             )}
           </Heading>
         ) : null}
@@ -287,7 +400,9 @@ export function KaspiPaymentState({
                     ? t('Подтвердите счёт на {p0} в приложении Kaspi.kz. Обычно это быстро.', {
                         p0: money(order?.totalMinor ?? '0'),
                       })
-                    : paymentCopy[phase].detail,
+                    : stuck
+                      ? stuckCopy[stuck].detail
+                      : paymentCopy[phase].detail,
             )}
           </Caption>
         )}
@@ -367,6 +482,26 @@ export function KaspiPaymentState({
             {!order && canReturnToCheckout ? (
               <Button title={localize(returnLabel)} secondary onPress={onCart} style={button} />
             ) : null}
+            {stuck ? (
+              <>
+                <Button
+                  title={t('Проверить ещё раз')}
+                  testID="kaspi-stuck-recheck"
+                  disabled={rechecking || !onRecheck}
+                  onPress={onRecheck}
+                  style={button}
+                />
+                {stuckReturnLabel && onDismiss ? (
+                  <Button
+                    title={localize(stuckReturnLabel)}
+                    testID="kaspi-stuck-cart"
+                    secondary
+                    onPress={requestDismiss}
+                    style={button}
+                  />
+                ) : null}
+              </>
+            ) : null}
             {!deadlineReached && (waiting || phase === 'checking') ? (
               <Button
                 title={t('Открыть Kaspi.kz')}
@@ -387,7 +522,8 @@ export function KaspiPaymentState({
             {support || phase === 'attention' || (closeReady && closeDelayMs !== 0) ? (
               <SupportContact buttonStyle={button} textStyle={s.small} />
             ) : null}
-            {closeReady ? (
+            {/* A stuck screen's own way back replaces it (the X stays). */}
+            {closeReady && !(stuck && stuckReturnLabel && onDismiss) ? (
               <Button
                 title={closeLabel}
                 testID="kaspi-close-order"
@@ -402,6 +538,15 @@ export function KaspiPaymentState({
           </>
         )}
       </BottomActions>
+      <PaymentCloseConfirm
+        visible={confirming && dismissible}
+        phase={order?.phase}
+        onStay={() => setConfirming(false)}
+        onClose={() => {
+          setConfirming(false);
+          onDismiss?.();
+        }}
+      />
     </View>
   );
 }
@@ -415,6 +560,17 @@ const s = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   root: { flex: 1, backgroundColor: colors.background },
+  // The X sits where the cart's own X is (CartTopBar): right, 16 pt from the edge.
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
+  },
+  tightTopBar: { paddingTop: 6 },
   content: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -502,6 +658,9 @@ const s = StyleSheet.create({
   spinner: { marginBottom: 14 },
   // 320 x 568 class screens (height < 620).
   tightContent: { paddingVertical: 12 },
+  // The X row above already keeps the content off the top edge.
+  contentUnderBar: { paddingTop: 8 },
+  tightContentUnderBar: { paddingTop: 0 },
   tightTitle: { fontSize: 24, lineHeight: 30, letterSpacing: -0.3 },
   tightVisual: { height: 104, marginVertical: 6 },
   tightScene: { transform: [{ scale: 0.36 }] },

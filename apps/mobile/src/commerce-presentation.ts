@@ -1,4 +1,5 @@
 import type { OrderStatusData } from './order-status';
+import type { PaymentStuck } from './checkout-resume';
 import type { CustomerCommerceOrder } from '@pickchick/contracts';
 export const paymentCopy: Record<
   CustomerCommerceOrder['phase'],
@@ -63,6 +64,41 @@ export const paymentCopy: Record<
 };
 export const paymentReceived = (phase: CustomerCommerceOrder['phase']) =>
   ['paid', 'preparing', 'ready', 'handed_over'].includes(phase);
+
+/**
+ * Owner 28.10.2026 (TestFlight 25): a payment screen stuck for 20 s (checkout-resume.ts
+ * paymentStuck) says honestly what is happening instead of «Подождите немного».
+ */
+export const stuckCopy: Record<PaymentStuck, { title: string; detail: string }> = {
+  bank: {
+    title: 'Kaspi отвечает дольше обычного',
+    detail:
+      'Счёт ещё не пришёл в Kaspi. Если он всё же придёт, его можно оплатить - заказ появится в «Заказах».',
+  },
+  restaurant: {
+    title: 'Ресторан не подтверждает заказ',
+    detail: 'Ресторан пока не ответил. Счёт не выставлен, деньги не списаны.',
+  },
+};
+
+/**
+ * «Закрыть оплату?» before the X leaves a payment the bank may still act on (closeNeedsConfirm).
+ * What the code guarantees (KaspiCheckoutScreen closeOrder / submit): the order is not cancelled
+ * at the bank; its intent stays saved without an automatic invoice; while the bank may still act
+ * for it, the next «Оплатить» first reopens this same order (submit restores the intent, then
+ * GET /orders resumes any order still at the bank) instead of creating a second order and invoice.
+ */
+export function closePaymentCopy(phase?: CustomerCommerceOrder['phase']) {
+  const invoiced = phase === 'awaiting_payment' || phase === 'checking';
+  return {
+    title: 'Закрыть оплату?',
+    detail: invoiced
+      ? 'Счёт уже в Kaspi. Если вы его оплатите, заказ появится в «Заказах». Повторная оплата откроет этот же заказ - второй счёт не создаётся.'
+      : 'Если счёт всё же придёт в Kaspi и вы его оплатите, заказ появится в «Заказах». Повторная оплата откроет этот же заказ - второй счёт не создаётся.',
+    close: 'Закрыть',
+    stay: 'Остаться',
+  };
+}
 export function checkoutError(error: unknown) {
   const code = error instanceof Error ? error.message : '';
   if (code === 'CATALOG_UPGRADE_REQUIRED')
