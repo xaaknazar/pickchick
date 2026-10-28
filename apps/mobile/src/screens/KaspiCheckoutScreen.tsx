@@ -182,6 +182,8 @@ function KaspiCheckoutSession(
   const preparation = useRef<AbortController | null>(null);
   // The order whose payment command (POST /payment) this screen is sending right now.
   const payingOrder = useRef<string | null>(null);
+  // The order watch, stopped at once by closeOrder so a late answer never reopens a closed screen.
+  const orderWatch = useRef<AbortController | null>(null);
   // «Проверить ещё раз» on a stuck payment screen: its read, and a fresh watch after it.
   const recheckRun = useRef<AbortController | null>(null);
   useEffect(() => () => recheckRun.current?.abort(), []);
@@ -462,6 +464,7 @@ function KaspiCheckoutSession(
     if (!order || !foreground || ['failed', 'handed_over', 'attention'].includes(order.phase))
       return;
     const controller = new AbortController();
+    orderWatch.current = controller;
     void watchCommerceOrder({
       signal: controller.signal,
       read: (signal) =>
@@ -474,7 +477,10 @@ function KaspiCheckoutSession(
       onError: () => {},
       onRecovered: () => {},
     });
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      if (orderWatch.current === controller) orderWatch.current = null;
+    };
     // watchRun: «Проверить ещё раз» starts a fresh watch after its own read.
   }, [request, order?.orderId, order?.revision, order?.phase, foreground, watchRun]);
   useEffect(() => {
@@ -848,19 +854,28 @@ function KaspiCheckoutSession(
       Date.now(),
       !!current && payingOrder.current === current.orderId,
     );
+    // Review 28.10.2026: first, synchronously, stop everything that could still adopt an answer
+    // (the running command, the start's recovery of the intent, «Проверить ещё раз», the order
+    // watch) and settle the intent in memory; only then write storage. A POST /orders or watch
+    // answer landing during that write can then never write the intent back or send its invoice
+    // (prepareCheckout drops an aborted answer). Every way out below reads again or leaves.
+    preparation.current?.abort('user');
+    bootstrap.current?.abort();
+    recheckRun.current?.abort();
+    orderWatch.current?.abort();
+    let saved: Promise<void> | null = null;
     if (intent === 'remove') {
-      await AsyncStorage.removeItem(key).catch(() => undefined);
       pending.current = null;
+      saved = AsyncStorage.removeItem(key);
     } else if (intent === 'keep' && draft) {
       dismissPendingPayment(draft.key);
       if (draft.sendInvoice !== false) {
         const kept: Pending = { ...draft, sendInvoice: false };
         pending.current = kept;
-        await AsyncStorage.setItem(key, JSON.stringify(kept)).catch(() => undefined);
+        saved = AsyncStorage.setItem(key, JSON.stringify(kept));
       }
     }
-    preparation.current?.abort('user');
-    recheckRun.current?.abort();
+    await saved?.catch(() => undefined);
     if (props.screenId === 'M19') {
       orderRef.current = null;
       setOrder(null);
