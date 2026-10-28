@@ -1198,6 +1198,9 @@ def scenario_unconnected_method(browser, width, height):
     expect(page.get_by_test_id('cart-shortcut')).to_be_visible(timeout=10000)
     expect(handle).to_have_attribute('aria-label', 'Оплатить через Apple Pay')
     expect(page.locator('#cart-pay-mark-apple_pay').filter(visible=True)).to_be_visible()
+    # The dock is visible before the closing modal finishes moving it into place.
+    # Wait for stable, hittable geometry before sending raw mouse coordinates.
+    handle.hover()
     slide(page, 1.0)
     expect(page.get_by_test_id('screen-M09').get_by_test_id('cart-pay-method-stop')).to_be_visible(timeout=15000)
     assert urlparse(page.url).path.rstrip('/') == '/cart' and 'slide=' in page.url, page.url
