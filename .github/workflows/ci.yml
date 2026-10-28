@@ -244,6 +244,8 @@ jobs:
           run_regression .local/design-venv/bin/python tests/mobile/browser_complete_catalog.py
           run_regression .local/design-venv/bin/python tests/operations/layout_regression.py
           run_regression .local/design-venv/bin/python tests/mobile/browser_tab_bar.py
+          # Owner 28.10.2026: the cart bar always sits above the tab bar and takes its own taps.
+          run_regression env CART_LAYER=sim MOBILE_RECOVERY_URL=http://127.0.0.1:4182 .local/design-venv/bin/python tests/mobile/browser_cart_layer.py
           run_regression .local/design-venv/bin/python tests/mobile/browser_restaurants_redesign.py
           run_regression .local/design-venv/bin/python tests/mobile/browser_orders_redesign.py sim
           run_regression .local/design-venv/bin/python tests/mobile/browser_tracker_redesign.py
@@ -313,6 +315,8 @@ jobs:
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_slide_to_pay.py
           # Owner 28.10.2026: closed / payment impossible = no handle, red reason in the cart, zero orders.
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_cart_unavailable.py
+          # Owner 28.10.2026: quick pay is drawn by the tab bar, above it, on every tab and state.
+          CART_LAYER=kaspi CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_cart_layer.py
           # Audit 19.10 (0.2/2.0, 2.1, 2.4, 2.5): the Kaspi checkout never traps the customer.
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_checkout_traps.py
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_combo_rewards.py

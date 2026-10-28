@@ -95,7 +95,9 @@ with sync_playwright() as p:
             assert abs(pill.bounding_box()['width'] - capsule['width']) <= 12, (pill.bounding_box(), capsule)
             footer = page.get_by_test_id('bottom-actions').filter(has=pill)
             expect(footer).to_have_css('background-color', 'rgba(0, 0, 0, 0)')
-            expect(footer).to_have_css('position', 'absolute')
+            # Owner 28.10.2026: the tab bar draws the bar in its own layer, stacked on the tab
+            # capsule (never under it); see browser_cart_layer.py.
+            expect(page.get_by_test_id('tab-cart-dock').filter(has=pill)).to_have_count(1)
             expect(footer).to_have_css('pointer-events', 'none')
             box = pill.bounding_box()
             tab = page.get_by_test_id('tab-' + route).bounding_box()
@@ -134,6 +136,11 @@ with sync_playwright() as p:
     page.goto(URL + "/menu")
     expect(page.get_by_test_id("launch-reveal")).to_have_count(0)
     expect(page.get_by_test_id('open-cart')).to_be_visible()
+    page.wait_for_timeout(700)
+    # The customer comes back from a product with one more item: the newest photo settles in.
+    # (Owner 28.10.2026: the tab bar draws the one bar, so a plain tab switch no longer replays it.)
+    page.get_by_test_id('product-pick-combo').click()
+    page.get_by_test_id('product-add').click()
     page.evaluate("""() => {
       window.cartMotionFrames = [];
       const start = performance.now();
@@ -143,7 +150,6 @@ with sync_playwright() as p:
       }
       requestAnimationFrame(tick);
     }""")
-    page.get_by_test_id('tab-events').click()
     page.wait_for_timeout(700)
     frames = page.evaluate('window.cartMotionFrames')
     assert any(t not in ('none', 'matrix(1, 0, 0, 1, 0, 0)') for t in frames), frames
