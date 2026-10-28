@@ -6683,11 +6683,15 @@
         "docs/project-status.md",
         "docs/collaboration/handoff.md",
         "docs/roadmap/project.json",
-        "docs/operations/mobile-cart-fixes-2026-10-28.md"
+        "docs/operations/mobile-cart-fixes-2026-10-28.md",
+        "tests/mobile/availability-auto-recovery.test.mjs",
+        "tests/mobile/availability-reader.test.mjs",
+        "apps/mobile/src/availability-reader.ts",
+        "tests/mobile/ios/CartFixesTests.swift"
       ],
       "status": "active",
       "head": "c46a95b23b8c7ebf98074557a2658fc6da58e3b4",
-      "updatedAt": "2026-10-28T05:33:45.259Z"
+      "updatedAt": "2026-10-28T05:34:53.563Z"
     }
   ]
 }
