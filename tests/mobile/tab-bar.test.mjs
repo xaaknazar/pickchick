@@ -18,6 +18,41 @@ import {
 const read = (path) =>
   readFileSync(new URL(`../../apps/mobile/src/${path}`, import.meta.url), 'utf8');
 
+/**
+ * Source shape that survives reformatting (tech lead 28.10.2026): Prettier may break props onto
+ * lines, wrap JSX in parentheses or add trailing commas. None of that changes the code, so the
+ * source and the expected snippet are compared without any of it.
+ */
+const squash = (code) =>
+  code
+    .replace(/\s+/g, '')
+    .replace(/,(?=[)\]}])/g, '')
+    .replace(/\(</g, '<')
+    .replace(/>\)/g, '>');
+function assertHas(code, snippet, message) {
+  assert.ok(squash(code).includes(squash(snippet)), message ?? `source has: ${snippet}`);
+}
+const before = (code, first, second) => {
+  const a = squash(code).indexOf(squash(first));
+  const b = squash(code).indexOf(squash(second));
+  return a >= 0 && b > a;
+};
+
+test('source checks ignore formatting, not code', () => {
+  const formatted = `tabBar={(props) => (
+    <FloatingTabBar
+      {...props}
+      onTabBarHeight={setTabBarHeight}
+    />
+  )}`;
+  assertHas(
+    formatted,
+    'tabBar={(props) => <FloatingTabBar {...props} onTabBarHeight={setTabBarHeight} />}',
+  );
+  assertHas('f({ a: 1, b: 2, })', 'f({ a: 1, b: 2 })');
+  assert.ok(!squash(formatted).includes(squash('onTabBarHeight={setCartDockHeight}')));
+});
+
 function rgb(color) {
   const hex = color.match(/^#([0-9a-f]{6})$/i);
   if (hex) return [0, 2, 4].map((i) => parseInt(hex[1].slice(i, i + 2), 16)).concat(1);
@@ -86,10 +121,9 @@ test('brand colours keep WCAG AA for labels on glass, opaque and active pill', (
 
 test('tabs keep order, labels, gates and accessibility semantics', () => {
   const layout = read('app/(tabs)/_layout.tsx');
-  assert.match(
-    layout,
-    /tabBar=\{\(props\) => \(\s*<FloatingTabBar\s+\{\.\.\.props\}\s+onTabBarHeight=\{setTabBarHeight\}\s+onCartDockHeight=\{setCartDockHeight\}\s*\/>\s*\)\}/,
-  );
+  assertHas(layout, 'tabBar={(props) => <FloatingTabBar {...props}');
+  assertHas(layout, 'onTabBarHeight={setTabBarHeight}');
+  assertHas(layout, 'onCartDockHeight={setCartDockHeight}');
   const order = [...layout.matchAll(/name="(\w+)"[\s\S]*?title: (?:t\()?'([^']+)'/g)].map((m) => [
     m[1],
     m[2],
@@ -144,14 +178,12 @@ test('three tabs share the capsule evenly with room for the label at 320 and 393
 
 test('tab screens reserve the measured tab bar and the cart bar docked on it', () => {
   const host = read('ScreenHost.tsx');
-  assert.match(
+  assertHas(
     host,
-    /tabScreen \? tabContentInset\(tabBarInset, cartDockHeight, model\.cart\.length\) : 0/,
+    'tabScreen ? tabContentInset(tabBarInset, cartDockHeight, model.cart.length) : 0',
   );
-  assert.match(
-    host,
-    /const inTabs = tabBarInset > 0;\s+const tabScreen = id in tabRoutes && inTabs;/,
-  );
+  assertHas(host, 'const inTabs = tabBarInset > 0;');
+  assertHas(host, 'const tabScreen = id in tabRoutes && inTabs;');
   assert.match(read('components/UI.tsx'), /props\.inTabLayout && !editing && tabBarInset > 0/);
   // Before the first layout the formula holds; a taller measured bar wins, a shorter never.
   const metrics = tabBarMetrics({ bottom: 34 });
@@ -176,29 +208,43 @@ test('the cart bar is docked in the tab bar layer, on top of the tab capsule (ow
   const dock = bar.indexOf('<TabCartDock');
   const capsule = bar.indexOf('testID="floating-tab-bar"');
   assert.ok(dock > 0 && capsule > dock, 'the dock is laid out above the capsule, in one column');
-  assert.match(bar, /host: \{ position: 'absolute', left: 0, right: 0, alignItems: 'stretch' \}/);
-  assert.match(
-    bar,
-    /onLayout=\{\(event\) => onTabBarHeight\?\.\(event\.nativeEvent\.layout\.height\)\}/,
-  );
+  assertHas(bar, "host: { position: 'absolute', left: 0, right: 0, alignItems: 'stretch' }");
+  assertHas(bar, 'onLayout={(event) => onTabBarHeight?.(event.nativeEvent.layout.height)}');
   const host = read('ScreenHost.tsx');
   assert.doesNotMatch(host, /CartShortcut|bottomOffset/, 'tab screens no longer draw the bar');
   const shortcut = read('components/CartShortcut.tsx');
   assert.doesNotMatch(shortcut, /bottomOffset/);
-  assert.match(shortcut, /aboveTabBar: \{ paddingBottom: tabCartGap \}/);
+  assertHas(shortcut, 'aboveTabBar: { paddingBottom: tabCartGap }');
   assert.equal(tabCartGap, 10);
   const docked = read('components/TabCartDock.tsx');
   assert.match(docked, /<CartShortcut[\s\S]*aboveTabBar/);
-  assert.match(docked, /pointerEvents="box-none"/);
-  assert.match(docked, /pathname: '\/cart'/);
+  assertHas(docked, 'pointerEvents="box-none"');
+  assertHas(docked, "pathname: '/cart'");
   // Under a sheet (cart, sign-in, order status) the bar is not drawn, as before; its last height
   // stays so the content below does not jump.
-  assert.match(docked, /const focused = useIsFocused\(\);/);
-  assert.match(docked, /if \(focused\) onHeightChange/);
+  assertHas(docked, 'const focused = useIsFocused();');
+  assertHas(docked, 'if (focused) onHeightChange');
   // «In the tab layout» means rendered inside it, not «a tab is focused»: with a sheet open over
   // a tab, the menu below drew a second, standalone bar under the tab bar (before 28.10).
-  assert.match(host, /inTabLayout=\{inTabs\}/);
-  assert.doesNotMatch(host, /segments\[0\] === '\(tabs\)'/);
+  assertHas(host, 'inTabLayout={inTabs}');
+  assert.ok(!squash(host).includes(squash("segments[0] === '(tabs)'")));
   // The standalone menu (outside the tabs) keeps its own floating bar.
-  assert.match(read('screens/CatalogScreens.tsx'), /!props\.inTabLayout \? \(\s*<CartShortcut/);
+  assertHas(read('screens/CatalogScreens.tsx'), '!props.inTabLayout ? <CartShortcut');
+});
+
+test('coming back to the docked bar is not «an item was added» (tech lead 28.10)', () => {
+  // The bar unmounts under a sheet and under the keyboard; the count it last showed is kept by
+  // the tab bar, which outlives it, so a remount without a new item does not replay the feedback.
+  const bar = read('components/FloatingTabBar.tsx');
+  assertHas(bar, 'const seenCartCount = useRef(0);');
+  assertHas(bar, 'seenCount={seenCartCount}');
+  assert.ok(
+    before(bar, 'const seenCartCount = useRef(0);', 'if (keyboardVisible) return null'),
+    'a hook before the early return',
+  );
+  assertHas(read('components/TabCartDock.tsx'), 'seenCount={seenCount}');
+  const shortcut = read('components/CartShortcut.tsx');
+  assertHas(shortcut, 'const previousCount = seenCount ?? ownSeenCount;');
+  assertHas(shortcut, 'const added = count > previousCount.current;');
+  assertHas(shortcut, 'previousCount.current = count;');
 });
