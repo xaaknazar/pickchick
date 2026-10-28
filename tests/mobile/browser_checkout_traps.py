@@ -12,7 +12,13 @@ no bank, no real customer, no VPS request.
      offer the support contact at once.
   D  kitchen offline at the quote: the honest message at once, no minute of spinner.
   E  invoice in Kaspi + saved intent: closing reaches the Orders list, an older unpaid order
-     opened there neither sends its invoice by itself nor takes over the intent.
+     opened there neither sends its invoice by itself nor takes over the intent; the glass X is
+     there at once and asks first (the bank may still act).
+  F  owner 28.10 (TestFlight 25), stuck before admission: the restaurant never admits the order.
+     The glass X is there at once (no question: nothing was billed); after 20 s «Ресторан не
+     подтверждает заказ» with «Проверить ещё раз» (one read) and «Вернуться в корзину»; back in the
+     cart its intent is gone, a restart reopens and sends nothing; a changed cart paid again is a
+     new order and only that order is billed - the old unbilled order never is.
 """
 from browser_network import isolated_context, route_fixture
 import json, os, subprocess
@@ -24,7 +30,7 @@ from playwright.sync_api import sync_playwright, expect
 ROOT = Path(__file__).resolve().parents[2]
 URL = os.environ.get('CUSTOMER_AUTH_URL', 'http://127.0.0.1:4196').rstrip('/')
 assert urlparse(URL).hostname in ('127.0.0.1', 'localhost')
-OUT = ROOT / '.local/checkout-traps'
+OUT = ROOT / os.environ.get('CHECKOUT_TRAPS_SHOTS', '.local/checkout-traps')
 OUT.mkdir(parents=True, exist_ok=True)
 CATALOG = json.loads(subprocess.check_output(['node', '--input-type=module', '-e',
     "import {testCompleteCatalog} from './packages/test-order-flow/dist/complete-catalog.js'; console.log(JSON.stringify(testCompleteCatalog))"],
@@ -34,6 +40,7 @@ CUSTOMER = '40000000-0000-4000-8000-000000000001'
 ORDER = '40000000-0000-4000-8000-000000000003'
 STALE = '40000000-0000-4000-8000-000000000033'
 SILENT = '40000000-0000-4000-8000-000000000043'
+SECOND = '40000000-0000-4000-8000-000000000053'
 UNPAID = '40000000-0000-4000-8000-000000000013'
 INVOICED = '40000000-0000-4000-8000-000000000023'
 DRAFT_KEY = 'pickchick.commerce.pending.v1:' + CUSTOMER
@@ -290,6 +297,18 @@ def scenario_orders(browser):
     expect(page.get_by_test_id('kaspi-open-app')).to_be_visible(timeout=10000)
     page.get_by_test_id('kaspi-close-order').click()
     expect(page.get_by_test_id('order-history-open-' + INVOICED)).to_be_visible(timeout=10000)
+    # Owner 28.10: the same glass X, top right, also returns to the list at once (no question:
+    # «Заказы» touches nothing, as its «К списку заказов»).
+    page.get_by_test_id('order-history-pay-' + INVOICED).click()
+    expect(page.get_by_test_id('kaspi-open-app')).to_be_visible(timeout=10000)
+    close = page.get_by_test_id('kaspi-state-close')
+    expect(close).to_have_attribute('aria-label', 'К списку заказов')
+    box = close.bounding_box()
+    assert box['width'] >= 44 and box['y'] >= 0 and box['x'] + box['width'] <= 393 - 14, box
+    page.screenshot(path=str(OUT / 'C-orders-x.png'))
+    close.click()
+    expect(page.get_by_test_id('kaspi-close-dialog')).to_have_count(0)
+    expect(page.get_by_test_id('order-history-open-' + INVOICED)).to_be_visible(timeout=10000)
     # An ambiguous bank result has no pay button; the row itself opens it.
     page.get_by_test_id('order-history-open-' + STALE).click()
     expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Уточняем оплату', timeout=10000)
@@ -336,8 +355,15 @@ def scenario_orders_with_live_intent(browser):
     sheet = page.get_by_test_id('order-sheet')
     expect(sheet.get_by_test_id('kaspi-open-app')).to_be_visible(timeout=25000)
     assert page.url.endswith('/checkout'), page.url
-    # The bank may still charge this invoice: the checkout waits before offering to close.
+    # The bank may still charge this invoice: the bottom «Закрыть» waits before it is offered.
     expect(sheet.get_by_test_id('kaspi-close-order')).to_have_count(0)
+    # Owner 28.10: the glass X is there at once and asks first; «Остаться» keeps the screen.
+    sheet.get_by_test_id('kaspi-state-close').click()
+    dialog = page.get_by_test_id('kaspi-close-dialog')
+    expect(dialog).to_contain_text('Счёт уже в Kaspi')
+    page.get_by_test_id('kaspi-close-stay').click()
+    expect(dialog).to_have_count(0)
+    expect(sheet.get_by_test_id('kaspi-open-app')).to_be_visible()
     page.clock.fast_forward(91_000)
     sheet.get_by_test_id('kaspi-close-order').click(timeout=10000)
     expect(page.get_by_test_id('order-sheet')).to_have_count(0, timeout=10000)
@@ -358,6 +384,94 @@ def scenario_orders_with_live_intent(browser):
     expect(page.get_by_test_id('order-history-pay-' + UNPAID)).to_be_visible(timeout=10000)
     assert json.loads(draft_saved(page))['orderId'] == INVOICED, 'the intent still names its own order'
     assert state['payments'] == 0 and state['creates'] == 0, state
+    release(state)
+    ctx.close()
+
+
+def scenario_stuck_admission(browser, width, height):
+    """F: the restaurant never admits the order (mobile orders wait for the cashier hold)."""
+    state = fresh_state()
+    state.update({'admit': False, 'phases': {}, 'paid': [], 'bodies': [], 'reads': 0})
+
+    def handler(r, path, method, body):
+        if path == '/v1/customer-checkout/quotes' and method == 'POST':
+            state['bodies'].append(body)
+            units = sum(item['quantity'] for item in body['items'])
+            return fulfill(r, {'quoteId': '40000000-0000-4000-8000-0000000000%02d' % (60 + state['quotes']),
+                               'totalMinor': str(419000 * units), 'expiresAt': future,
+                               'serviceMode': body['serviceMode'], 'kitchenComment': None})
+        if path == '/v1/customer-checkout/orders' and method == 'POST':
+            order_id = ORDER if state['creates'] == 1 else SECOND
+            state['phases'][order_id] = 'ready_to_pay' if state['admit'] else 'awaiting_restaurant'
+            return fulfill(r, order(state['phases'][order_id], order_id))
+        if path == '/v1/customer-checkout/orders' and method == 'GET':
+            return fulfill(r, {'orders': [order(phase, oid) for oid, phase in state['phases'].items()]})
+        for oid, phase in list(state['phases'].items()):
+            if path == f'/v1/customer-checkout/orders/{oid}' and method == 'GET':
+                state['reads'] += 1
+                return fulfill(r, order(phase, oid))
+            if path == f'/v1/customer-checkout/orders/{oid}/payment':
+                state['paid'].append(oid)
+                state['phases'][oid] = 'awaiting_payment'
+                return fulfill(r, order('awaiting_payment', oid, 2))
+        return False
+
+    ctx, page = context(browser, state, handler, width=width, height=height)
+    button = open_checkout(page)
+    button.click()
+    scene = page.get_by_test_id('kaspi-waiting')
+    expect(scene).to_contain_text('Связываемся с рестораном', timeout=15000)
+    close = page.get_by_test_id('kaspi-state-close')
+    expect(close).to_be_visible()
+    box = close.bounding_box()
+    assert box['width'] >= 44 and box['height'] >= 44 and box['x'] + box['width'] <= width - 14, box
+    page.wait_for_function('(key) => JSON.parse(localStorage.getItem(key) || "{}").orderId', arg=DRAFT_KEY)
+    page.screenshot(path=str(OUT / f'F-admission-x-{width}.png'))
+    # 20 s without the restaurant: an honest title and its actions; the X stays.
+    page.wait_for_timeout(15_000)
+    expect(scene).to_contain_text('Связываемся с рестораном')
+    expect(scene).to_contain_text('Ресторан не подтверждает заказ', timeout=10_000)
+    expect(scene.get_by_test_id('kaspi-state-detail')).to_contain_text('Счёт не выставлен, деньги не списаны')
+    recheck = page.get_by_test_id('kaspi-stuck-recheck')
+    back = page.get_by_test_id('kaspi-stuck-cart')
+    expect(recheck).to_be_visible()
+    expect(back).to_have_text('Вернуться в корзину')
+    expect(page.get_by_test_id('kaspi-close-order')).to_have_count(0)
+    expect(close).to_be_visible()
+    page.screenshot(path=str(OUT / f'F-admission-stuck-{width}.png'))
+    reads = state['reads']
+    recheck.click()
+    for _ in range(40):
+        if state['reads'] > reads:
+            break
+        page.wait_for_timeout(100)
+    assert state['reads'] == reads + 1, state
+    # Nothing was billed: no question, straight back to the cart with its line; the intent goes.
+    back.click()
+    expect(page.get_by_test_id('kaspi-close-dialog')).to_have_count(0)
+    expect(button).to_be_enabled(timeout=10000)
+    expect(page.get_by_test_id('kaspi-waiting')).to_have_count(0)
+    expect(page.get_by_test_id('cart-quantity-pick-combo')).to_have_text('1')
+    page.wait_for_function('(key) => localStorage.getItem(key) === null', arg=DRAFT_KEY)
+    assert state['creates'] == 1 and state['payments'] == 0, state
+    # A restart on the cart reopens nothing and sends nothing.
+    page.reload()
+    expect(page.get_by_test_id('cart-pay')).to_be_enabled(timeout=25000)
+    page.wait_for_timeout(2500)
+    expect(page.get_by_test_id('kaspi-waiting')).to_have_count(0)
+    assert state['creates'] == 1 and state['payments'] == 0, state
+    # The customer changes the cart and pays again; now the restaurant admits at once. The new
+    # cart is a new order and only that order is billed; the old unbilled order never is.
+    state['admit'] = True
+    page.get_by_test_id('cart-plus-pick-combo').click()
+    expect(page.get_by_test_id('cart-quantity-pick-combo')).to_have_text('2')
+    pay = page.get_by_test_id('cart-pay')
+    expect(pay).to_be_enabled(timeout=15000)
+    pay.click()
+    expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi', timeout=15000)
+    page.wait_for_timeout(2500)
+    assert state['creates'] == 2 and state['paid'] == [SECOND], state
+    assert state['bodies'][-1]['items'][0]['quantity'] == 2, state['bodies']
     release(state)
     ctx.close()
 
@@ -387,7 +501,7 @@ def scenario_kitchen_offline(browser):
 
 if __name__ == '__main__':
     # CHECKOUT_TRAPS=E runs a subset while iterating; the default runs every scenario.
-    SELECTED = os.environ.get('CHECKOUT_TRAPS', 'ABCDE').upper()
+    SELECTED = os.environ.get('CHECKOUT_TRAPS', 'ABCDEF').upper()
     with sync_playwright() as p:
         browser = p.chromium.launch()
         if 'A' in SELECTED:
@@ -401,11 +515,16 @@ if __name__ == '__main__':
             scenario_orders_with_live_intent(browser)
         if 'D' in SELECTED:
             scenario_kitchen_offline(browser)
+        if 'F' in SELECTED:
+            for width, height in [(393, 852), (320, 568)]:
+                scenario_stuck_admission(browser, width, height)
         browser.close()
     assert not errors, errors
-    if SELECTED != 'ABCDE':
+    if SELECTED != 'ABCDEF':
         print('PASS checkout traps (subset ' + SELECTED + ')')
         raise SystemExit(0)
     print('PASS checkout traps: attention intent closes and stays closed, refused payment returns to the cart '
           'without resend, Orders tab returns to the list (also with a live intent, no foreign auto-invoice), '
-          'kitchen offline is reported at once')
+          'kitchen offline is reported at once, the glass X leaves every payment screen at once '
+          '(asking first while the bank may act), a restaurant that never admits the order is said '
+          'after 20 s and its old unbilled order is never billed')

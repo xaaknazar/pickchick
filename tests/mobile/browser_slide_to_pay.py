@@ -36,6 +36,19 @@ with local fixtures only: no bank, no real customer, no VPS request.
      pay button follow the choice («Оплатить картой», not «Оплатить с Банковская карта»), but a
      press or a slide stops with a visible message and sends nothing; «Выбрать Kaspi.kz» is only
      a choice, and the next explicit press pays once with Kaspi
+  O  owner 28.10 (TestFlight 25): the server keeps answering «sending» after a slide: the glass X
+     is there at once at the top right; after 20 s «Kaspi отвечает дольше обычного» with
+     «Проверить ещё раз» (one read, nothing sent) and «Вернуться в корзину»; closing asks first,
+     returns to the cart with its lines and keeps the intent without its automatic invoice; a
+     changed cart paid again reopens the same order (no new quote, order or payment command) and
+     says at once that it is stuck (the first time of the wait is kept); a restart after closing
+     sends nothing
+  P  review 28.10: the request itself hangs. POST /payment held: «Отправляем счёт» (not «Ресторан
+     принял заказ») with the X at once, «Kaspi отвечает дольше обычного» after 20 s, the X asks,
+     closing keeps the order id without the automatic invoice, paying again reopens the same order
+     (1 quote, 1 order, 1 payment command) and is stuck at once. POST /orders held: the X at once,
+     «Ресторан не подтверждает заказ» after 20 s with «Вернуться в корзину» (no check of its own),
+     closing asks nothing and removes the intent, a restart sends nothing
 """
 from browser_network import isolated_context, route_fixture
 import json
@@ -889,6 +902,241 @@ def posts(state):
     return [p for p in checkout_traffic(state) if not p.startswith('GET ')]
 
 
+def close_box_ok(page, width, height):
+    # The glass X of a payment screen: top right, a 44 pt target, the top element at its centre.
+    close = page.get_by_test_id('kaspi-state-close')
+    expect(close).to_be_visible()
+    box = close.bounding_box()
+    sheet = page.get_by_test_id('order-sheet').bounding_box()
+    assert box['width'] >= 44 and box['height'] >= 44, box
+    assert width - 16 - box['width'] - 2 <= box['x'] and box['x'] + box['width'] <= width - 14, (box, width)
+    assert sheet['y'] <= box['y'] <= sheet['y'] + 24, (box, sheet)
+    hit = page.evaluate('([x, y]) => !!document.elementFromPoint(x, y)?.closest("[data-testid=kaspi-state-close]")',
+                        [box['x'] + box['width'] / 2, box['y'] + box['height'] / 2])
+    assert hit, 'the X is the top element at its centre'
+    return close
+
+
+def scenario_stuck_sending(browser, width, height):
+    # Owner 28.10.2026 (TestFlight 25): the slide reached «Отправляем счёт», the invoice never
+    # came and the screen had nothing to press. The server here keeps answering «sending».
+    state = new_state(pay_result='sending')
+    ctx, page = make_context(browser, state, width, height, 'reduce')
+    # Real time: an installed fake clock makes the web build drop some drags of the handle.
+    page.goto(URL + '/menu')
+    add(page)
+    expect(page.get_by_test_id('launch-reveal')).to_have_count(0)
+    expect(page.get_by_test_id('cart-pay-handle').filter(visible=True)).to_be_visible(timeout=15000)
+    slide(page, 1.0)
+    scene = page.get_by_test_id('kaspi-waiting')
+    expect(scene).to_contain_text('Отправляем счёт', timeout=15000)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    # The X is there at once, top right; the bottom «Закрыть» still waits as before (90 s).
+    close = close_box_ok(page, width, height)
+    expect(page.get_by_test_id('kaspi-close-order')).to_have_count(0)
+    expect(page.get_by_test_id('kaspi-stuck-recheck')).to_have_count(0)
+    page.screenshot(path=str(OUT / f'esc-sending-x-{width}.png'))
+    # 20 s without news: an honest title and its actions instead of «Подождите немного».
+    page.wait_for_timeout(15_000)
+    expect(scene).to_contain_text('Отправляем счёт')
+    expect(scene).to_contain_text('Kaspi отвечает дольше обычного', timeout=10_000)
+    expect(scene.get_by_test_id('kaspi-state-detail')).to_contain_text('Счёт ещё не пришёл в Kaspi')
+    recheck = page.get_by_test_id('kaspi-stuck-recheck')
+    back = page.get_by_test_id('kaspi-stuck-cart')
+    expect(recheck).to_be_visible()
+    expect(back).to_have_text('Вернуться в корзину')
+    expect(close).to_be_visible()
+    footer = scene.get_by_test_id('bottom-actions').bounding_box()
+    for control in (recheck, back):
+        box = control.bounding_box()
+        assert box['height'] >= 44 and box['y'] + box['height'] <= height + 1, (box, height)
+        assert footer['y'] - 1 <= box['y'], (box, footer)
+    page.screenshot(path=str(OUT / f'esc-sending-stuck-{width}.png'))
+    # «Проверить ещё раз» only reads the order: no quote, order or payment command.
+    read = 'GET /v1/customer-checkout/orders/' + order('sending')['orderId']
+    reads = state['paths'].count(read)
+    recheck.click()
+    for _ in range(40):
+        if state['paths'].count(read) > reads:
+            break
+        page.wait_for_timeout(100)
+    assert state['paths'].count(read) == reads + 1, state['paths'][-6:]
+    assert not posts(state)[3:], posts(state)
+    expect(scene).to_contain_text('Kaspi отвечает дольше обычного')
+    # The bank may still act: «Закрыть оплату?» first; «Остаться» keeps the screen.
+    back.click()
+    dialog = page.get_by_test_id('kaspi-close-dialog')
+    expect(dialog).to_be_visible()
+    expect(dialog).to_contain_text('Закрыть оплату?')
+    expect(dialog).to_contain_text('Повторная оплата откроет этот же заказ - второй счёт не создаётся.')
+    page.screenshot(path=str(OUT / f'esc-confirm-{width}.png'))
+    page.get_by_test_id('kaspi-close-stay').click()
+    expect(dialog).to_have_count(0)
+    expect(scene).to_be_visible()
+    close.click()
+    expect(dialog).to_be_visible()
+    page.get_by_test_id('kaspi-close-confirm').click()
+    # Back in the cart itself (one sheet, the same /cart), with its lines; nothing was cancelled.
+    expect(pay_button(page)).to_be_enabled(timeout=10000)
+    expect(page.get_by_test_id('kaspi-waiting')).to_have_count(0)
+    expect(page.get_by_test_id('screen-M09')).to_have_count(1)
+    expect(page.get_by_test_id('cart-quantity-pick-combo')).to_have_text('1')
+    assert urlparse(page.url).path.rstrip('/') == '/cart', page.url
+    saved = stored(page, DRAFT_KEY, orderId=order('sending')['orderId'], sendInvoice=False)
+    assert saved['orderId'] == order('sending')['orderId'], saved
+    page.screenshot(path=str(OUT / f'esc-back-in-cart-{width}.png'))
+    wait_quiet(page)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    # The cart can change; paying again reopens the same order at the bank: no new quote, order
+    # or payment command for it.
+    page.get_by_test_id('cart-plus-pick-combo').click()
+    expect(page.get_by_test_id('cart-quantity-pick-combo')).to_have_text('2')
+    expect(pay_button(page)).to_be_enabled(timeout=10000)
+    pay_button(page).click()
+    # The order has been «sending» for more than 20 s in this app run: it says so at once
+    # (review 28.10: the first time of a wait is kept per order, on the phone clock).
+    expect(scene).to_contain_text('Kaspi отвечает дольше обычного', timeout=5000)
+    wait_quiet(page)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    # Closed again and the app restarted on the cart: the order comes back for recovery, nothing
+    # is sent again.
+    page.get_by_test_id('kaspi-state-close').click()
+    page.get_by_test_id('kaspi-close-confirm').click()
+    expect(pay_button(page)).to_be_visible(timeout=10000)
+    page.reload()
+    expect(page.get_by_test_id('kaspi-waiting').or_(pay_button(page))).to_be_visible(timeout=25000)
+    wait_quiet(page)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    release(state)
+    ctx.close()
+
+
+def held(page, routes):
+    # Wait until the fixture holds the request (the app sent it and waits for the answer).
+    for _ in range(150):
+        if routes:
+            return
+        page.wait_for_timeout(100)
+    raise AssertionError('the request was never sent')
+
+
+def scenario_held_payment(browser, width, height):
+    # Review 28.10.2026: the server took the payment command (the order is «sending») but its
+    # answer hangs; prepareCheckout keeps it up to 60 s. The screen must not read «Ресторан принял
+    # заказ / Можно отправить счёт» meanwhile, and the X must work at once.
+    state = new_state(pay_result='sending')
+    ctx, page = make_context(browser, state, width, height, 'reduce')
+    routes = []
+
+    def hold(route):
+        state['paths'].append('HELD ' + route.request.method + ' ' + urlparse(route.request.url).path)
+        state['payments'] += 1
+        state['phase'] = 'sending'
+        routes.append(route)
+
+    route_fixture(ctx, '**/v1/customer-checkout/orders/*/payment', hold)
+    page.goto(URL + '/menu')
+    add(page)
+    expect(page.get_by_test_id('launch-reveal')).to_have_count(0)
+    expect(page.get_by_test_id('cart-pay-handle').filter(visible=True)).to_be_visible(timeout=15000)
+    slide(page, 1.0)
+    held(page, routes)
+    scene = page.get_by_test_id('kaspi-waiting')
+    expect(scene).to_contain_text('Отправляем счёт', timeout=5000)
+    expect(scene).not_to_contain_text('Ресторан принял заказ')
+    expect(page.get_by_role('button', name='Отправить счёт на', exact=False)).to_have_count(0)
+    close = close_box_ok(page, width, height)
+    page.screenshot(path=str(OUT / f'esc-held-payment-x-{width}.png'))
+    # 20 s of a running command is the bank's wait: the honest text and its actions.
+    expect(scene).to_contain_text('Kaspi отвечает дольше обычного', timeout=25_000)
+    expect(scene.get_by_test_id('kaspi-state-detail')).to_contain_text('Счёт ещё не пришёл в Kaspi')
+    expect(page.get_by_test_id('kaspi-stuck-recheck')).to_be_visible()
+    expect(page.get_by_test_id('kaspi-stuck-cart')).to_have_text('Вернуться в корзину')
+    page.screenshot(path=str(OUT / f'esc-held-payment-stuck-{width}.png'))
+    # The bank may act: the X asks first; closing keeps the order without its automatic invoice.
+    close.click()
+    dialog = page.get_by_test_id('kaspi-close-dialog')
+    expect(dialog).to_contain_text('Закрыть оплату?')
+    expect(dialog).to_contain_text('Если счёт всё же придёт в Kaspi')
+    page.get_by_test_id('kaspi-close-confirm').click()
+    expect(pay_button(page)).to_be_enabled(timeout=10000)
+    expect(scene).to_have_count(0)
+    expect(page.get_by_test_id('cart-quantity-pick-combo')).to_have_text('1')
+    saved = stored(page, DRAFT_KEY, orderId=order('sending')['orderId'], sendInvoice=False)
+    assert saved['orderId'] == order('sending')['orderId'], saved
+    wait_quiet(page)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    # Paying again reopens the same order, nothing new is created or sent, and it is stuck at once.
+    pay_button(page).click()
+    expect(scene).to_contain_text('Kaspi отвечает дольше обычного', timeout=5000)
+    wait_quiet(page)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    for route in routes:
+        try:
+            route.abort()
+        except Exception:
+            pass
+    release(state)
+    ctx.close()
+
+
+def scenario_held_create(browser, width, height, via_x):
+    # Review 28.10.2026: the create command (POST /orders) hangs (on a real phone NOT_READY is
+    # retried up to 60 s). Nothing was ordered for sure and no payment was sent: the X closes at
+    # once without a question and the intent goes; 20 s say who is waiting.
+    state = new_state()
+    ctx, page = make_context(browser, state, width, height, 'reduce')
+    routes = []
+
+    def hold(route):
+        if route.request.method != 'POST':
+            return route.fallback()
+        state['paths'].append('HELD POST /orders')
+        state['creates'] += 1
+        routes.append(route)
+
+    route_fixture(ctx, '**/v1/customer-checkout/orders', hold)
+    page.goto(URL + '/menu')
+    add(page)
+    expect(page.get_by_test_id('launch-reveal')).to_have_count(0)
+    expect(page.get_by_test_id('cart-pay-handle').filter(visible=True)).to_be_visible(timeout=15000)
+    slide(page, 1.0)
+    held(page, routes)
+    scene = page.get_by_test_id('kaspi-connecting')
+    expect(scene).to_contain_text('Связываемся с рестораном', timeout=5000)
+    close = close_box_ok(page, width, height)
+    stored(page, DRAFT_KEY, sendInvoice=True)
+    page.screenshot(path=str(OUT / f'esc-held-create-x-{width}.png'))
+    expect(scene).to_contain_text('Ресторан не подтверждает заказ', timeout=25_000)
+    expect(scene.get_by_test_id('kaspi-state-detail')).to_contain_text('Счёт не выставлен, деньги не списаны')
+    back = page.get_by_test_id('kaspi-stuck-cart')
+    expect(back).to_have_text('Вернуться в корзину')
+    # The create command retries by itself: no «Проверить ещё раз» of its own.
+    expect(page.get_by_test_id('kaspi-stuck-recheck')).to_have_count(0)
+    page.screenshot(path=str(OUT / f'esc-held-create-stuck-{width}.png'))
+    (close if via_x else back).click()
+    expect(page.get_by_test_id('kaspi-close-dialog')).to_have_count(0)
+    expect(pay_button(page)).to_be_enabled(timeout=10000)
+    expect(scene).to_have_count(0)
+    expect(page.get_by_test_id('cart-quantity-pick-combo')).to_have_text('1')
+    page.wait_for_function('(key) => localStorage.getItem(key) === null', arg=DRAFT_KEY, timeout=5000)
+    wait_quiet(page)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 0), state
+    # A restart on the cart reopens nothing and sends nothing.
+    page.reload()
+    expect(pay_button(page)).to_be_visible(timeout=25000)
+    wait_quiet(page)
+    expect(page.get_by_test_id('kaspi-connecting')).to_have_count(0)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 0), state
+    for route in routes:
+        try:
+            route.abort()
+        except Exception:
+            pass
+    release(state)
+    ctx.close()
+
+
 def scenario_unconnected_method(browser, width, height):
     # Owner 6b, before another method gets its own flow: the Kaspi cart has one flow (the Kaspi
     # invoice). A future build may list Apple Pay or the card as available first; then the handle,
@@ -968,7 +1216,7 @@ def scenario_unconnected_method(browser, width, height):
 
 
 if __name__ == '__main__':
-    SELECTED = os.environ.get('SLIDE_TO_PAY', 'ABCDEFGHIJKLMN').upper()
+    SELECTED = os.environ.get('SLIDE_TO_PAY', 'ABCDEFGHIJKLMNOP').upper()
     with sync_playwright() as p:
         browser = p.chromium.launch()
         if 'A' in SELECTED:
@@ -1002,6 +1250,14 @@ if __name__ == '__main__':
         if 'N' in SELECTED:
             scenario_unconnected_method(browser, 393, 852)
             scenario_unconnected_method(browser, 320, 568)
+        if 'O' in SELECTED:
+            scenario_stuck_sending(browser, 393, 852)
+            scenario_stuck_sending(browser, 320, 568)
+        if 'P' in SELECTED:
+            scenario_held_payment(browser, 393, 852)
+            scenario_held_payment(browser, 320, 568)
+            scenario_held_create(browser, 393, 852, via_x=False)
+            scenario_held_create(browser, 320, 568, via_x=True)
         browser.close()
     assert not errors, errors
     print('PASS slide to pay into the Kaspi cart (' + SELECTED + '): hold hint, the pill stretches from a fixed left '
@@ -1012,4 +1268,7 @@ if __name__ == '__main__':
           'hint fits in RU/KK/EN at 320 pt, an old unbilled intent does not block the slide, '
           'back to cart after a slide, the same bar above the three tabs and below the header, '
           'none on the profile, one payment from События, last used payment method per account with Kaspi fallback, '
-          'a method without its own flow stops with a message and sends nothing')
+          'a method without its own flow stops with a message and sends nothing, '
+          'a stuck «sending» has the X at once, an honest text after 20 s, asks before closing, '
+          'returns to the cart and pays again without a second order or payment command, '
+          'a held payment command reads «Отправляем счёт» and a held create command is the restaurant\'s wait')

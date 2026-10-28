@@ -6,8 +6,12 @@ import {
   paymentCopy,
   checkoutError,
   commerceStatus,
+  closePaymentCopy,
+  stuckCopy,
 } from '../../apps/mobile/src/commerce-presentation.ts';
 import { CustomerCommerceOrderSchema } from '../../packages/contracts/dist/index.js';
+import { readFileSync } from 'node:fs';
+import { setAppLocale, t } from '../../apps/mobile/src/i18n/core.ts';
 
 test('uncertain, failed and sent invoices never render as received money', () => {
   for (const phase of [
@@ -163,4 +167,44 @@ test('authoritative closure explains hours without claiming a saved or confirmed
   const message = checkoutError(new Error('RESTAURANT_CLOSED'));
   assert.match(message, /Ресторан сейчас закрыт/);
   assert.doesNotMatch(message, /Связь прервалась|Заказ сохранён|оплачивать не нужно/);
+});
+
+test('a stuck payment and «Закрыть оплату?» speak honestly in RU, KK and EN', () => {
+  // Owner 28.10.2026 (TestFlight 25): the X of a payment screen and the 20 s stuck notice.
+  const messages = JSON.parse(
+    readFileSync(new URL('../../apps/mobile/src/i18n/messages.json', import.meta.url), 'utf8'),
+  );
+  assert.equal(stuckCopy.bank.title, 'Kaspi отвечает дольше обычного');
+  assert.equal(stuckCopy.restaurant.title, 'Ресторан не подтверждает заказ');
+  // Before admission nothing was billed; while sending the invoice may still arrive.
+  assert.match(stuckCopy.restaurant.detail, /Счёт не выставлен, деньги не списаны/);
+  assert.match(stuckCopy.bank.detail, /ещё не пришёл/);
+  const sending = closePaymentCopy('sending');
+  const invoiced = closePaymentCopy('awaiting_payment');
+  assert.equal(sending.title, 'Закрыть оплату?');
+  assert.deepEqual([sending.close, sending.stay], ['Закрыть', 'Остаться']);
+  assert.equal(closePaymentCopy('checking').detail, invoiced.detail);
+  assert.equal(closePaymentCopy(undefined).detail, sending.detail);
+  assert.match(invoiced.detail, /^Счёт уже в Kaspi/);
+  // What submit() guarantees: the same order is reopened, no second invoice is created.
+  for (const copy of [sending, invoiced])
+    assert.match(copy.detail, /Повторная оплата откроет этот же заказ - второй счёт не создаётся/);
+  const texts = [
+    ...Object.values(stuckCopy).flatMap((copy) => [copy.title, copy.detail]),
+    ...[sending, invoiced].flatMap((copy) => [copy.title, copy.detail, copy.close, copy.stay]),
+    'Закрыть оплату',
+    'Проверить ещё раз',
+    'Вернуться в корзину',
+    'К списку заказов',
+  ];
+  for (const ru of texts) {
+    const entry = messages.find((message) => message.ru === ru);
+    assert.ok(entry?.kk && entry.en, ru);
+    for (const text of [entry.ru, entry.kk, entry.en]) assert.doesNotMatch(text, /[—–]/, text);
+    setAppLocale('en');
+    assert.doesNotMatch(t(ru), /[а-яё]/i, ru);
+    setAppLocale('kk');
+    assert.notEqual(t(ru), ru, ru);
+    setAppLocale('ru');
+  }
 });
