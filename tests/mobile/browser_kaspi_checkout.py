@@ -199,8 +199,13 @@ with sync_playwright() as p:
   page.get_by_test_id('kaspi-cancel-instructions').click()
   expect(page.get_by_test_id('kaspi-cancel-help')).to_have_count(0)
   page.screenshot(path=str(OUT/f'invoice-{width}.png'))
-  # OS restart / a legacy dismissed sheet: the saved identity reopens checkout from the menu.
+  # OS restart (owner 28.10.2026): the app opens on the menu, never on the payment screen; the
+  # saved identity is offered by the banner, which reopens the same order (read only).
   navigate(page.goto,URL+'/menu')
+  resume=page.get_by_test_id('payment-resume-banner').filter(visible=True)
+  expect(resume).to_contain_text('Заказ ждёт оплаты в Kaspi',timeout=25000)
+  assert page.url.endswith('/menu') and page.get_by_test_id('kaspi-waiting').count()==0, page.url
+  page.get_by_test_id('payment-resume-open').filter(visible=True).click()
   expect(page.get_by_test_id('kaspi-waiting')).to_be_visible(timeout=25000)
   assert page.url.endswith('/checkout')
   assert state['payments']==1 and len(state['keys'])==2, 'Recovery reads the saved order, no second create/pay'
@@ -246,13 +251,21 @@ with sync_playwright() as p:
   state['phase']='paid';state['paid']=True;state['revision']+=1
   page.wait_for_timeout(100)
   if width==393:
-   # Paid while the application was closed: recover the same order and show confirmation.
+   # Paid while the application was closed (owner 28.10.2026): the app opens on the menu with no
+   # banner, the paid intent is tidied up and its lines leave the cart; the order is in «Заказы».
    navigate(page.goto,URL+'/menu')
+   page.wait_for_function('(key) => localStorage.getItem(key) === null',arg='pickchick.commerce.pending.v1:'+CUSTOMER,timeout=25000)
+   assert page.url.endswith('/menu') and page.get_by_test_id('kaspi-waiting').count()==0, page.url
+   expect(page.get_by_test_id('payment-resume-banner')).to_have_count(0)
+   expect(page.get_by_test_id('cart-shortcut').filter(visible=True)).to_have_count(0,timeout=10000)
+   page.screenshot(path=str(OUT/f'paid-while-closed-{width}.png'))
+   page.get_by_test_id('tab-orders').click()
+   page.get_by_test_id(f'order-history-open-{ORDER}').click(timeout=15000)
   else:
    answer_watch()
-  expect(page.get_by_test_id('kaspi-paid')).to_contain_text('Оплачено')
-  page.screenshot(path=str(OUT/f'confirmation-{width}.png'))
-  if width != 393:page.get_by_test_id('kaspi-track-order').click()
+   expect(page.get_by_test_id('kaspi-paid')).to_contain_text('Оплачено')
+   page.screenshot(path=str(OUT/f'confirmation-{width}.png'))
+   page.get_by_test_id('kaspi-track-order').click()
   expect(page.get_by_text('Оплата получена',exact=True)).to_be_visible()
   expect(page.get_by_test_id('connected-order-number')).to_contain_text('№ 2')
   expect(page.get_by_test_id('order-chef-cooking')).to_be_visible()

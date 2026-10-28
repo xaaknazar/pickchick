@@ -14,7 +14,8 @@ with local fixtures only: no bank, no real customer, no VPS request.
      pill covers the hint; an early release returns it to the base width on a visible spring
      (about 0.4 s, never narrower than the base width), at once with reduced motion
   B  a full drag fills the bar with the pill and creates exactly one quote, one order and one
-     invoice; reload/back resend nothing
+     invoice; reload/back resend nothing (owner 28.10.2026: a reload on the cart route shows the
+     cart, never the payment state of the earlier run)
   C  a changed price stops before the order; only a second explicit press continues
   D  consent: the dialog stops the slide, «Не сейчас» leaves the normal button, no retry
   E  signed out: the slide opens the sign-in and then the cart without sending anything
@@ -43,7 +44,7 @@ with local fixtures only: no bank, no real customer, no VPS request.
      changed cart paid again reopens the same order (no new quote, order or payment command) and
      says at once that it is stuck (the first time of the wait is kept) and, above the title, that
      it is the earlier order of 4 190 ₸ while the cart says 8 380 ₸ (QA 28.10, item 19); a restart
-     after closing sends nothing
+     after closing shows the cart, not the payment state, and sends nothing
   P  review 28.10: the request itself hangs. POST /payment held: «Отправляем счёт» (not «Ресторан
      принял заказ») with the X at once, «Kaspi отвечает дольше обычного» after 20 s, the X asks,
      closing keeps the order id without the automatic invoice, paying again reopens the same order
@@ -485,11 +486,14 @@ def scenario_full_slide(browser):
     assert set(saved) == {'method', 'source', 'at'}, saved
     wait_quiet(page)
     assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
-    # Reload of the same /cart?slide=... and back navigation resend nothing.
+    # Reload of the same /cart?slide=... and back navigation resend nothing. Owner 28.10.2026: a
+    # restart never lands on the payment state of the earlier run; the cart is the cart (the
+    # menu offers the payment, browser_launch_resume.py).
     assert urlparse(page.url).path.rstrip('/') == '/cart' and 'slide=' in page.url, page.url
     page.reload()
-    expect(page.get_by_test_id('kaspi-waiting')).to_be_visible(timeout=25000)
+    expect(pay_button(page)).to_be_visible(timeout=25000)
     wait_quiet(page)
+    expect(page.get_by_test_id('kaspi-waiting')).to_have_count(0)
     assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
     page.go_back()
     wait_quiet(page)
@@ -708,8 +712,8 @@ def scenario_stale_draft(browser):
     add(page)
     old = {'key': '40000000-0000-4000-8000-0000000000e1', 'quoteId': '40000000-0000-4000-8000-0000000000e2',
            'signature': '{"items":[]}', 'sendInvoice': True}
-    # Written after launch, as an intent closed earlier in this run stays (PaymentRecovery does
-    # not reopen it); createdAt is an hour old, so it may never send an invoice by itself.
+    # Written after launch (the start tidies such an intent up itself); createdAt is an hour old,
+    # so it may never send an invoice by itself.
     page.evaluate('([key, draft]) => localStorage.setItem(key, JSON.stringify({...draft, createdAt: Date.now() - 3600000}))',
                   [DRAFT_KEY, old])
     slide(page, 1.0)
@@ -1025,17 +1029,16 @@ def scenario_stuck_sending(browser, width, height):
     page.screenshot(path=str(OUT / f'esc-earlier-order-{width}.png'))
     wait_quiet(page)
     assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
-    # Closed again and the app restarted on the cart: the order comes back for recovery, nothing
-    # is sent again.
+    # Closed again and the app restarted on the cart (owner 28.10.2026, TestFlight 26): the
+    # closed payment stays closed - the cart, not «Отправляем счёт» - and nothing is sent again.
     page.get_by_test_id('kaspi-state-close').click()
     page.get_by_test_id('kaspi-close-confirm').click()
     expect(pay_button(page)).to_be_visible(timeout=10000)
+    stored(page, DRAFT_KEY, orderId=order('sending')['orderId'], sendInvoice=False)
     page.reload()
-    expect(page.get_by_test_id('kaspi-waiting').or_(pay_button(page))).to_be_visible(timeout=25000)
+    expect(pay_button(page)).to_be_enabled(timeout=25000)
     wait_quiet(page)
-    if page.get_by_test_id('kaspi-waiting').count():
-        # Restored on the 2-combo cart after the restart: the same explanation.
-        expect(page.get_by_test_id('kaspi-earlier-order')).to_contain_text('4 190 ₸')
+    expect(page.get_by_test_id('kaspi-waiting')).to_have_count(0)
     assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
     release(state)
     ctx.close()
