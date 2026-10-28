@@ -5101,7 +5101,7 @@
       "id": "mobile-cart-fixes-1028",
       "workstream": "launch",
       "title": "Исправления корзины и связи после TestFlight 24",
-      "summary": "Исправления PR284 включены в общий срез. Локальные, браузерные и iOS Simulator проверки прошли. Сборка 25: архив и IPA готовы, подпись проверена. В TestFlight не загружена, полная CI выполняется.",
+      "summary": "Исправления PR284 включены в общий срез. Локальные, браузерные и iOS Simulator проверки прошли. Сборка 25 обработана Apple и назначена PickChick Internal (2 тестировщика). Полная повторная CI выполняется, физическая приёмка не выполнена.",
       "status": "active",
       "owner": "development",
       "phase": "integration",
@@ -5118,17 +5118,21 @@
         {
           "label": "Сборка 25: подготовка и доставка",
           "path": "docs/operations/mobile-testflight25.md"
+        },
+        {
+          "label": "TestFlight 0.2.0 (25), PickChick Internal",
+          "url": "https://appstoreconnect.apple.com/teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/apps/6809208492/testflight/ios/afac23b6-65e8-4f02-b9f1-95665601b240"
         }
       ],
       "acceptance": [
         "На iPhone нет ложного мигания связи при доступном API.",
         "Корзина компактна, текст стабилен, свайп работает без предварительного удержания."
       ],
-      "nextAction": "После успешной полной CI загрузить готовую сборку 25 в TestFlight; физическая приёмка отдельно.",
+      "nextAction": "Владельцу обновить приложение в TestFlight и проверить четыре исправления на iPhone; отдельно проверить итог полной CI.",
       "checks": {
         "implemented": true,
         "verified": true,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     }

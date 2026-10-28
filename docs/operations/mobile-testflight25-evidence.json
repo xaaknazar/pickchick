@@ -15,13 +15,38 @@
   },
   "jsSha256": "a1d4090b912c070f601bccebfb0c709639e9b72cd0657b0d42520434bb186ea1",
   "ipaSignatureVerified": true,
-  "deliveryStatus": "not-uploaded",
-  "testFlight": "not-assigned",
+  "deliveryStatus": "submitted",
+  "testFlight": {
+    "status": "processed-and-assigned",
+    "buildId": "afac23b6-65e8-4f02-b9f1-95665601b240",
+    "url": "https://appstoreconnect.apple.com/teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/apps/6809208492/testflight/ios/afac23b6-65e8-4f02-b9f1-95665601b240",
+    "group": "PickChick Internal",
+    "groupType": "internal",
+    "testers": 2,
+    "releaseNotesSaved": true,
+    "confirmedAt": "2026-10-28T06:24:49.689676+00:00"
+  },
   "physicalAcceptance": "not-performed",
   "ci": {
     "statusAtObservation": "in_progress",
-    "sourceRun": "https://github.com/xaaknazar/pickchick/actions/runs/40640614174"
+    "run": "https://github.com/xaaknazar/pickchick/actions/runs/40642691003",
+    "sha": "fc71c2269748a90f6fed84bfb079c45567267b97",
+    "previousFailure": {
+      "run": "https://github.com/xaaknazar/pickchick/actions/runs/40641131918",
+      "job": 122659438397,
+      "reason": "browser_cart_unavailable expected old width 361 instead of owner-requested 320",
+      "fix": "PR286 updates dimensions and waits for modal pointer release",
+      "localRegression": "A-J PASS"
+    },
+    "fullSuccessConfirmed": false
   },
   "serverDeployment": "not-performed",
-  "appReview": "not-performed"
+  "appReview": "not-performed",
+  "publicationDecision": {
+    "request": "публикуй 25 сборкуе",
+    "date": "2026-10-28",
+    "context": "Owner requested publication after being told full CI was still running. Upload proceeded after local A-J passed, with incomplete CI disclosed."
+  },
+  "uploadWarnings": "Missing dSYM files for third-party frameworks; upload succeeded, symbolication coverage limited",
+  "publicationProof": "docs/operations/mobile-testflight25.png"
 }
