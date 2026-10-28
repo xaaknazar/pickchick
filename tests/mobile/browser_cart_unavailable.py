@@ -333,6 +333,9 @@ def open_cart(page):
 def close_cart(page):
     page.get_by_test_id('screen-M09').get_by_test_id('cart-close').click()
     expect(page.get_by_test_id('screen-M09')).to_have_count(0, timeout=10000)
+    # The next immediate drag must start after the closing modal releases pointer events.
+    # Hover waits for the underlying dock to become stable and receive events, without paying.
+    visible(page, 'open-cart').hover()
 
 
 def expect_cart_unavailable(page, message, label):
