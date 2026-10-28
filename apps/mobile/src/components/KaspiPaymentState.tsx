@@ -277,8 +277,11 @@ export function KaspiPaymentState({
           scene: { transform: [{ scale: sceneScale * factor }] },
         }
       : null;
+  // A notice above the title (a reopened earlier order, QA 28.10) on a 320 x 568 class screen:
+  // the words come first, so the decorative scene gives way and the detail stays above the
+  // buttons instead of scrolling under them.
   const scene =
-    height >= 500 && !showCancelHelp ? (
+    height >= 500 && !showCancelHelp && !(tight && notice) ? (
       <View
         style={[
           s.visual,
