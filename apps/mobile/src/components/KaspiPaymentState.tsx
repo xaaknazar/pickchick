@@ -1,11 +1,13 @@
 import { localize, t, useLocale } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   Animated,
   AppState,
   Easing,
   Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   View,
@@ -15,7 +17,8 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { CustomerCommerceOrder } from '@pickchick/contracts';
 import { assets } from '../assets';
-import { STUCK_NOTICE_MS, paymentStuck } from '../checkout-resume';
+import { STUCK_NOTICE_MS, paymentStuck, paymentWaitPhase, waitSince } from '../checkout-resume';
+import { bannerAnnouncement } from '../payment-availability';
 import { invoiceSecondsRemaining, paymentCopy, stuckCopy } from '../commerce-presentation';
 import { money } from '../domain';
 import { Body, Button, Caption, Heading, Icon, BottomActions } from './UI';
@@ -53,6 +56,8 @@ export function KaspiPaymentState({
   rechecking = false,
   stuckReturnLabel = null,
   safeTop = false,
+  paymentCommand = false,
+  intentKey,
 }: {
   order?: CustomerCommerceOrder;
   paid?: boolean;
@@ -86,6 +91,17 @@ export function KaspiPaymentState({
   stuckReturnLabel?: string | null;
   /** Not inside a sheet («Заказы»): the X keeps clear of the status bar. */
   safeTop?: boolean;
+  /**
+   * This screen's payment command (POST /payment) for the order still runs: «ready_to_pay» is
+   * shown and waits as «Отправляем счёт» (paymentWaitPhase).
+   */
+  paymentCommand?: boolean;
+  /**
+   * The saved intent behind this screen: on the connecting scene, a create command still waiting
+   * for its order (the restaurant's wait); on an order, the intent that created it (its wait
+   * goes on, waitSince).
+   */
+  intentKey?: string;
 }) {
   useLocale();
   const closable = Boolean(onClose);
@@ -121,7 +137,13 @@ export function KaspiPaymentState({
     void Linking.openURL('https://kaspi.kz').catch(() => setOpenError(true));
   };
   const pulse = useRef(new Animated.Value(0)).current;
-  const phase = order?.phase ?? 'awaiting_restaurant';
+  // Review 28.10.2026: a running payment command reads «Отправляем счёт», a create command that
+  // waits for its order counts as the restaurant's wait.
+  const shown = paymentWaitPhase(order?.phase, {
+    commandRunning: paymentCommand,
+    creating: !order && !!intentKey,
+  });
+  const phase = shown ?? 'awaiting_restaurant';
   const failed = phase === 'failed';
   const waiting = phase === 'awaiting_payment';
   const [now, setNow] = useState(Date.now);
@@ -129,25 +151,44 @@ export function KaspiPaymentState({
   const deadlineReached = (waiting || phase === 'checking') && remaining === 0;
   const showCancelHelp = cancelHelp && waiting && !paid && !deadlineReached;
   // Owner 28.10.2026: «Отправляем счёт» or «Связываемся с рестораном» that has not moved for 20 s
-  // says so honestly and offers its actions. Measured on this screen from the phase it shows.
-  const stuckPhase = order && !paid ? phase : undefined;
-  const stuckKey = `${order?.orderId ?? ''}:${stuckPhase ?? ''}`;
+  // says so honestly and offers its actions. Measured from the first time this app run saw the
+  // wait in this phase (waitSince): a reopened order does not start from 0 again.
+  const waitId = order ? order.orderId : intentKey ? `intent:${intentKey}` : undefined;
+  const waitFrom = order && intentKey ? `intent:${intentKey}` : undefined;
+  const stuckPhase = waitId && !paid ? shown : undefined;
+  const stuckKey = `${waitId ?? ''}:${stuckPhase ?? ''}`;
+  const waitStart = (at: number) =>
+    waitId && stuckPhase ? waitSince(waitId, stuckPhase, at, waitFrom) : at;
   const [stuckClock, setStuckClock] = useState(() => {
     const at = Date.now();
-    return { key: stuckKey, since: at, now: at };
+    return { key: stuckKey, since: waitStart(at), now: at };
   });
   useEffect(() => {
-    const since = Date.now();
-    setStuckClock({ key: stuckKey, since, now: since });
+    const at = Date.now();
+    const since = waitStart(at);
+    setStuckClock({ key: stuckKey, since, now: at });
     if (stuckPhase !== 'sending' && stuckPhase !== 'awaiting_restaurant') return;
+    const left = since + STUCK_NOTICE_MS - at;
+    if (left <= 0) return;
     const timer = setTimeout(
       () => setStuckClock({ key: stuckKey, since, now: Date.now() }),
-      STUCK_NOTICE_MS + 50,
+      left + 50,
     );
     return () => clearTimeout(timer);
   }, [stuckKey]);
   const stuck =
     stuckClock.key === stuckKey ? paymentStuck(stuckPhase, stuckClock.since, stuckClock.now) : null;
+  // VoiceOver has no live region (review 28.10.2026): the new title and text are announced on iOS
+  // when the screen turns stuck; Android reads the detail through its live region.
+  const stuckSaid = stuck
+    ? `${localize(stuckCopy[stuck].title)}. ${localize(stuckCopy[stuck].detail)}`
+    : null;
+  const stuckShown = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const announce = bannerAnnouncement(stuckShown.current, stuckSaid);
+    stuckShown.current = stuckSaid;
+    if (announce && Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(announce);
+  }, [stuckSaid]);
   const [confirming, setConfirming] = useState(false);
   const dismissible = Boolean(onDismiss);
   useEffect(() => {
@@ -484,13 +525,16 @@ export function KaspiPaymentState({
             ) : null}
             {stuck ? (
               <>
-                <Button
-                  title={t('Проверить ещё раз')}
-                  testID="kaspi-stuck-recheck"
-                  disabled={rechecking || !onRecheck}
-                  onPress={onRecheck}
-                  style={button}
-                />
+                {/* A create command still running retries by itself: no check of its own. */}
+                {onRecheck ? (
+                  <Button
+                    title={t('Проверить ещё раз')}
+                    testID="kaspi-stuck-recheck"
+                    disabled={rechecking}
+                    onPress={onRecheck}
+                    style={button}
+                  />
+                ) : null}
                 {stuckReturnLabel && onDismiss ? (
                   <Button
                     title={localize(stuckReturnLabel)}
@@ -540,7 +584,7 @@ export function KaspiPaymentState({
       </BottomActions>
       <PaymentCloseConfirm
         visible={confirming && dismissible}
-        phase={order?.phase}
+        phase={shown}
         onStay={() => setConfirming(false)}
         onClose={() => {
           setConfirming(false);

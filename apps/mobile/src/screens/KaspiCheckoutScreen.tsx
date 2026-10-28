@@ -180,8 +180,12 @@ function KaspiCheckoutSession(
   const [connectionPaused, setConnectionPaused] = useState(false);
   const [paymentPaused, setPaymentPaused] = useState(false);
   const preparation = useRef<AbortController | null>(null);
-  // The order whose payment command (POST /payment) this screen is sending right now.
+  // The order whose payment command (POST /payment) this screen is sending right now; the state
+  // twin re-renders it as «Отправляем счёт» while the command runs (review 28.10.2026).
   const payingOrder = useRef<string | null>(null);
+  const [commandFor, setCommandFor] = useState<string | null>(null);
+  // Re-renders the connecting scene once a create intent is saved: its wait is the restaurant's.
+  const [, setIntentSaved] = useState<string | null>(null);
   // The order watch, stopped at once by closeOrder so a late answer never reopens a closed screen.
   const orderWatch = useRef<AbortController | null>(null);
   // «Проверить ещё раз» on a stuck payment screen: its read, and a fresh watch after it.
@@ -687,6 +691,7 @@ function KaspiCheckoutSession(
         throw new Error('CHECKOUT_STORAGE');
       });
       pending.current = draft;
+      setIntentSaved(draft.key);
       await accept(await prepared(() => recover(draft, controller.signal)));
     } catch (e) {
       // Transport failures stay on the connecting scene; only a final actionable outcome returns.
@@ -703,6 +708,7 @@ function KaspiCheckoutSession(
       clearTimeout(deadline);
       if (preparation.current === controller) preparation.current = null;
       lock.current = false;
+      setIntentSaved(null);
       setBusy(false);
       setLoaded(true);
     }
@@ -756,6 +762,7 @@ function KaspiCheckoutSession(
     // While this command runs the bank may act even if the screen still shows ready_to_pay: the X
     // asks first and keeps the intent (closedIntent).
     payingOrder.current = order.orderId;
+    setCommandFor(order.orderId);
     try {
       await accept(
         await prepareCheckout(
@@ -788,6 +795,7 @@ function KaspiCheckoutSession(
       clearTimeout(deadline);
       if (preparation.current === controller) preparation.current = null;
       payingOrder.current = null;
+      setCommandFor(null);
       lock.current = false;
       setBusy(false);
     }
@@ -913,6 +921,13 @@ function KaspiCheckoutSession(
     void closeOrder(props.screenId === 'M09' ? 'cart' : 'leave');
   };
   const dismissLabel = props.screenId === 'M19' ? t('К списку заказов') : t('Закрыть оплату');
+  // «Заказы» keeps its own «К списку заказов» below; the cart offers the way back to it.
+  const stuckReturnLabel =
+    props.screenId === 'M19'
+      ? null
+      : props.screenId === 'M09'
+        ? t('Вернуться в корзину')
+        : t('Закрыть');
   const dismissNeedsConfirm = () =>
     props.screenId !== 'M19' &&
     closeNeedsConfirm(order ?? undefined, Date.now(), {
@@ -1029,6 +1044,10 @@ function KaspiCheckoutSession(
         dismissLabel={dismissLabel}
         dismissNeedsConfirm={dismissNeedsConfirm}
         safeTop={!props.inSheet}
+        // Review 28.10.2026: a create command (POST /orders, NOT_READY retried up to 60 s) is the
+        // restaurant's wait: after 20 s it says so, with the way back (it retries by itself).
+        intentKey={pending.current && !pending.current.orderId ? pending.current.key : undefined}
+        stuckReturnLabel={stuckReturnLabel}
       />
     );
   if (order && (!paymentReceived(order.phase) || paidMoment))
@@ -1043,7 +1062,10 @@ function KaspiCheckoutSession(
           backToCart();
         }}
         extraAction={
-          order.phase === 'ready_to_pay' && (!autoSends(order) || paymentPaused || !!error) ? (
+          // While its command runs the screen reads «Отправляем счёт»: no second «Отправить счёт».
+          order.phase === 'ready_to_pay' &&
+          commandFor !== order.orderId &&
+          (!autoSends(order) || paymentPaused || !!error) ? (
             <Button
               title={localize(t('Отправить счёт на {p0}', { p0: money(order.totalMinor) }))}
               onPress={() => void pay()}
@@ -1070,14 +1092,11 @@ function KaspiCheckoutSession(
         safeTop={!props.inSheet}
         onRecheck={() => void recheck()}
         rechecking={rechecking}
-        // «Заказы» keeps its own «К списку заказов» below; the cart offers the way back to it.
-        stuckReturnLabel={
-          props.screenId === 'M19'
-            ? null
-            : props.screenId === 'M09'
-              ? t('Вернуться в корзину')
-              : t('Закрыть')
-        }
+        stuckReturnLabel={stuckReturnLabel}
+        // Review 28.10.2026: POST /payment still running (up to 60 s) is shown and waits as
+        // «sending»; the wait of the intent that created this order goes on (waitSince).
+        paymentCommand={commandFor === order.orderId}
+        intentKey={draftOwns(pending.current, order.orderId) ? pending.current.key : undefined}
       />
     );
   if (order && paymentReceived(order.phase)) {
