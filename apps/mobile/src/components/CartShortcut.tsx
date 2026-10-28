@@ -41,6 +41,7 @@ import { usePaymentAvailability } from '../usePaymentAvailability';
 import { joinSentences, paymentStopMessage } from '../payment-availability';
 import type { CartLine, MobileModel } from '../model';
 import { brandColors, colors, font } from '../theme';
+import { tabCartGap } from '../tab-bar-metrics';
 import { BottomActions, Icon, MinorMoney } from './UI';
 
 const PAD = 5;
@@ -88,15 +89,18 @@ export function CartShortcut({
   onPress,
   safeArea = false,
   floating = false,
-  bottomOffset = 0,
+  aboveTabBar = false,
   onHeightChange,
 }: {
   model: MobileModel;
   onPress: () => void;
   safeArea?: boolean;
   floating?: boolean;
-  /** Lifts the floating dock above the floating tab bar. */
-  bottomOffset?: number;
+  /**
+   * Docked in the tab bar's own layer, right on top of the tab capsule (TabCartDock, owner
+   * 28.10.2026): never under the tab bar, a fixed gap to it.
+   */
+  aboveTabBar?: boolean;
   onHeightChange?: (height: number) => void;
 }) {
   useLocale();
@@ -226,11 +230,7 @@ export function CartShortcut({
       safeArea={safeArea}
       pointerEvents="box-none"
       onLayout={(event) => onHeightChange?.(Math.ceil(event.nativeEvent.layout.height))}
-      style={[
-        s.dock,
-        floating && s.floating,
-        floating && bottomOffset > 0 && { bottom: bottomOffset, paddingBottom: 10 },
-      ]}
+      style={[s.dock, floating && s.floating, aboveTabBar && s.aboveTabBar]}
     >
       <GestureHandlerRootView style={s.root}>
         <View
@@ -391,6 +391,8 @@ const s = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   floating: { position: 'absolute', bottom: 0, left: 0, right: 0 },
+  // In the tab bar's layer the dock is laid out right above the tab capsule: this is the gap.
+  aboveTabBar: { paddingBottom: tabCartGap },
   root: { width: '100%', maxWidth: 320, alignSelf: 'center' },
   // The cart button fills the capsule's full height (a larger target, and the dock keeps its
   // distance to the tab bar); the handle and the photos sit inside with the same inset.

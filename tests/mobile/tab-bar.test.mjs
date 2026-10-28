@@ -2,8 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import {
+  measuredTabBarInset,
   tabBarMetrics,
   tabBarPalette,
+  tabCartDockEstimate,
+  tabCartGap,
+  tabContentInset,
   tabBarTabCount,
   tabItemWidth,
   tabLabelMaxScale,
@@ -82,7 +86,10 @@ test('brand colours keep WCAG AA for labels on glass, opaque and active pill', (
 
 test('tabs keep order, labels, gates and accessibility semantics', () => {
   const layout = read('app/(tabs)/_layout.tsx');
-  assert.match(layout, /tabBar=\{\(props\) => <FloatingTabBar \{\.\.\.props\} \/>\}/);
+  assert.match(
+    layout,
+    /tabBar=\{\(props\) => \(\s*<FloatingTabBar\s+\{\.\.\.props\}\s+onTabBarHeight=\{setTabBarHeight\}\s+onCartDockHeight=\{setCartDockHeight\}\s*\/>\s*\)\}/,
+  );
   const order = [...layout.matchAll(/name="(\w+)"[\s\S]*?title: (?:t\()?'([^']+)'/g)].map((m) => [
     m[1],
     m[2],
@@ -135,9 +142,63 @@ test('three tabs share the capsule evenly with room for the label at 320 and 393
   assert.doesNotMatch(bar, /'profile'/);
 });
 
-test('tab screens and the cart dock reserve the floating bar height', () => {
+test('tab screens reserve the measured tab bar and the cart bar docked on it', () => {
   const host = read('ScreenHost.tsx');
-  assert.match(host, /activeTab \? tabBarInset \+ \(model\.cart\.length \? cartHeight : 0\) : 0/);
-  assert.match(host, /bottomOffset=\{tabBarInset\}/);
+  assert.match(
+    host,
+    /tabScreen \? tabContentInset\(tabBarInset, cartDockHeight, model\.cart\.length\) : 0/,
+  );
+  assert.match(
+    host,
+    /const inTabs = tabBarInset > 0;\s+const tabScreen = id in tabRoutes && inTabs;/,
+  );
   assert.match(read('components/UI.tsx'), /props\.inTabLayout && !editing && tabBarInset > 0/);
+  // Before the first layout the formula holds; a taller measured bar wins, a shorter never.
+  const metrics = tabBarMetrics({ bottom: 34 });
+  assert.equal(measuredTabBarInset(metrics, 0), metrics.inset);
+  assert.equal(measuredTabBarInset(metrics, null), metrics.inset);
+  assert.equal(
+    measuredTabBarInset(metrics, metrics.height + 15.2),
+    metrics.bottom + metrics.height + 16,
+  );
+  assert.equal(measuredTabBarInset(metrics, metrics.height - 10), metrics.inset);
+  // The cart bar's measured height while the cart has lines (the estimate until measured).
+  assert.equal(tabContentInset(84, 92.4, 2), 84 + 93);
+  assert.equal(tabContentInset(84, 0, 1), 84 + tabCartDockEstimate);
+  assert.equal(tabContentInset(84, null, 1), 84 + tabCartDockEstimate);
+  assert.equal(tabContentInset(84, 92, 0), 84);
+});
+
+test('the cart bar is docked in the tab bar layer, on top of the tab capsule (owner 28.10)', () => {
+  // TestFlight 25: «быстрая оплата застревает за иконками». Each tab screen drew the bar at a
+  // computed bottom in the screen layer, which lies under the tab bar. Now the tab bar draws it.
+  const bar = read('components/FloatingTabBar.tsx');
+  const dock = bar.indexOf('<TabCartDock');
+  const capsule = bar.indexOf('testID="floating-tab-bar"');
+  assert.ok(dock > 0 && capsule > dock, 'the dock is laid out above the capsule, in one column');
+  assert.match(bar, /host: \{ position: 'absolute', left: 0, right: 0, alignItems: 'stretch' \}/);
+  assert.match(
+    bar,
+    /onLayout=\{\(event\) => onTabBarHeight\?\.\(event\.nativeEvent\.layout\.height\)\}/,
+  );
+  const host = read('ScreenHost.tsx');
+  assert.doesNotMatch(host, /CartShortcut|bottomOffset/, 'tab screens no longer draw the bar');
+  const shortcut = read('components/CartShortcut.tsx');
+  assert.doesNotMatch(shortcut, /bottomOffset/);
+  assert.match(shortcut, /aboveTabBar: \{ paddingBottom: tabCartGap \}/);
+  assert.equal(tabCartGap, 10);
+  const docked = read('components/TabCartDock.tsx');
+  assert.match(docked, /<CartShortcut[\s\S]*aboveTabBar/);
+  assert.match(docked, /pointerEvents="box-none"/);
+  assert.match(docked, /pathname: '\/cart'/);
+  // Under a sheet (cart, sign-in, order status) the bar is not drawn, as before; its last height
+  // stays so the content below does not jump.
+  assert.match(docked, /const focused = useIsFocused\(\);/);
+  assert.match(docked, /if \(focused\) onHeightChange/);
+  // «In the tab layout» means rendered inside it, not «a tab is focused»: with a sheet open over
+  // a tab, the menu below drew a second, standalone bar under the tab bar (before 28.10).
+  assert.match(host, /inTabLayout=\{inTabs\}/);
+  assert.doesNotMatch(host, /segments\[0\] === '\(tabs\)'/);
+  // The standalone menu (outside the tabs) keeps its own floating bar.
+  assert.match(read('screens/CatalogScreens.tsx'), /!props\.inTabLayout \? \(\s*<CartShortcut/);
 });
