@@ -22,6 +22,7 @@ import { colors, font } from '../theme';
 import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
 import { useAuthFlow } from '../auth-flow';
+import { useTapsSettled } from './useTapGuard';
 
 const art = [
   {
@@ -67,6 +68,9 @@ export function AuthWelcome(props: ScreenProps) {
   const reduced = useReducedMotion();
   const flow = useAuthFlow();
   const account = useAccount();
+  // On notched iPhones «Поддержка» slides in under the header profile button that opened this
+  // sheet for a guest; the second tap of a double tap must not press it (or close).
+  const settled = useTapsSettled();
   const [active, setActive] = useState(AppState.currentState === 'active');
   const phase = useRef(new Animated.Value(0)).current;
   const scale = Math.min(1, (width - 16) / 393, Math.max(0.56, (height - 290) / 560));
@@ -104,7 +108,8 @@ export function AuthWelcome(props: ScreenProps) {
     flow?.destination === 'pick-blocks' ||
     flow?.destination === 'M26';
   const subtitle =
-    flow?.destination === 'M12'
+    // The Kaspi cart (M09) pays since 27.10.2026; /checkout (M12) shows the same cart.
+    flow?.destination === 'M12' || flow?.destination === 'M09'
       ? 'Чтобы оформить заказ и оплатить его через Kaspi'
       : game
         ? 'Чтобы играть в игры и участвовать в событиях'
@@ -113,7 +118,7 @@ export function AuthWelcome(props: ScreenProps) {
     'radial-gradient(circle, rgba(0,71,187,0.9) 0%, rgba(0,71,187,0.3) 38%, rgba(4,20,58,0) 68%)';
   return (
     <View testID="auth-welcome" style={s.page}>
-      <View style={s.header}>
+      <View style={[s.header, { pointerEvents: settled ? 'auto' : 'none' }]}>
         <CloseButton label={t('Закрыть вход')} testID="auth-close" onPress={props.goBack} />
         <Pressable
           accessibilityRole="button"

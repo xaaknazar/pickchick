@@ -1,22 +1,88 @@
 import { localize, t, useLocale } from '../i18n';
-import { useCallback, useRef } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
-  Animated,
+  Animated as NativeAnimated,
   AppState,
   Easing,
   Platform,
   StyleSheet,
+  Text,
   View,
   useWindowDimensions,
 } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { MotionPressable as Pressable, useReducedMotion } from './Motion';
+import { ProductPhoto, productPhoto, type ProductPhotoSource } from './ProductPhoto';
+import { KaspiSlideToPay, type SlidePhase } from './KaspiSlideToPay';
+import { GlassFill, glassBarRim, useGlassBarStyle, useGlassRim } from './GlassButton';
+import { glass } from '../glass';
 import { cartTotal } from '../domain';
-import type { MobileModel } from '../model';
+import {
+  cartBarLayout,
+  cartCheckoutBlocked,
+  payableTotalMinor,
+  recentCartLines,
+  slideToPayAvailable,
+} from '../cart-bar';
+import { kaspiCheckoutEnabled } from '../commerce-checkout';
+import { orderSimulatorEnabled } from '../order-simulator';
+import { useAccount } from '../useAccount';
+import { SLIDE_PAY_PARAM, slidePayIntents } from '../useSlidePayIntent';
+import { usePaymentMethod } from '../usePaymentMethod';
+import { usePaymentAvailability } from '../usePaymentAvailability';
+import { joinSentences, paymentStopMessage } from '../payment-availability';
+import type { CartLine, MobileModel } from '../model';
 import { brandColors, colors, font } from '../theme';
-import { Body, BottomActions, Icon, MinorMoney } from './UI';
+import { BottomActions, Icon, MinorMoney } from './UI';
 
-// One transparent, measured dock shared by the four tabs and standalone menu.
+const PAD = 5;
+const ROW = 54;
+const OVERLAP = 16;
+/** Between the bag pill (builds without the Kaspi checkout) and the total. */
+const BAG_GAP = 10;
+/** Large text: the hint grows up to x1.4, then shrinks to fit (KK at 320 pt). */
+const HINT_MAX_SCALE = 1.4;
+const HINT_MIN_FIT = 0.7;
+/** The capsule is always ROW + 2 * PAD tall inside its rim (the cart button's minimum height). */
+const CAPSULE_RADIUS = (ROW + PAD * 2) / 2 + glassBarRim;
+
+/** A product without its own photo (or a restored unavailable line) gets a neutral circle. */
+function hasPhoto(photo: ProductPhotoSource) {
+  return photo.kind === 'remote' || (photo.kind !== 'logo' && !!photo.source);
+}
+
+function RecentPhoto({ line, size, index }: { line: CartLine; size: number; index: number }) {
+  const photo = productPhoto(line.product, 'thumb', 'menu');
+  return (
+    <View
+      testID={`cart-recent-photo-${index}`}
+      nativeID={`cart-recent-${line.product.id}`}
+      style={[s.photo, { width: size, height: size, borderRadius: size / 2 }]}
+    >
+      {hasPhoto(photo) ? (
+        <ProductPhoto photo={photo} style={StyleSheet.absoluteFill} contentFit="contain" />
+      ) : (
+        <View style={[StyleSheet.absoluteFill, s.placeholder]}>
+          <Icon name="fast-food-outline" size={Math.round(size * 0.45)} color={colors.muted} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+// Drinkit-style dock shared by the tabs and the standalone menu (owner request 27.10.2026):
+// the payment handle on the left (the customer's last used method, Kaspi today), the total only
+// in the middle, the last added items on the right. When paying is not possible right now
+// (owner 28.10.2026: closed, payments switched off, no connection, stop list) the bar has no
+// handle at all, only the total and the photos; a tap opens the cart with the reason.
 export function CartShortcut({
   model,
   onPress,
@@ -34,12 +100,68 @@ export function CartShortcut({
   onHeightChange?: (height: number) => void;
 }) {
   useLocale();
+  const router = useRouter();
+  const account = useAccount();
+  // The handle shows the customer's last used payment method (owner 6b; Kaspi today).
+  const payment = usePaymentMethod();
   const count = model.cart.reduce((sum, line) => sum + line.quantity, 0);
-  const total = cartTotal(model.cart);
+  // The amount of «Оформить заказ» and of the invoice: a selected combo gift is taken off.
+  const total = MinorMoney(
+    payableTotalMinor(cartTotal(model.cart), model.comboRewards?.discountMinor),
+  );
   const reduced = useReducedMotion();
-  const { fontScale } = useWindowDimensions();
-  const compact = fontScale > 1.25 || MinorMoney(total).length > 11;
-  const feedback = useRef(new Animated.Value(0)).current;
+  const capsuleGlass = useGlassBarStyle();
+  const pillRim = useGlassRim();
+  const { width, fontScale } = useWindowDimensions();
+  const layout = cartBarLayout({ width, fontScale, totalLength: total.length });
+  const recent = recentCartLines(model.cart, model.recentCartProductIds, layout.photos);
+  const payable = slideToPayAvailable({
+    kaspiCheckout: kaspiCheckoutEnabled,
+    orderSimulator: orderSimulatorEnabled,
+    catalogMode: model.catalogMode,
+    accountMode: account.mode,
+  });
+  // Can the customer pay right now (owner 28.10.2026)? Re-evaluated on the minute and on
+  // foreground, so the handle comes back at opening time.
+  const availability = usePaymentAvailability(model);
+  const handle = payable && availability.canPay;
+  // A Kaspi bar that cannot pay right now: no handle, and the capsule itself shrinks to the total
+  // and the photos, centred, with no empty glass on the left (Drinkit at night, owner 28.10).
+  const closed = payable && !handle;
+  const stop = availability.canPay ? null : availability.stop;
+  const reason = stop ? paymentStopMessage(stop) : null;
+  // The latest answer for a callback created in an earlier render (a gesture ending late).
+  const canPayNow = useRef(availability.canPay);
+  canPayNow.current = availability.canPay;
+  const [barWidth, setBarWidth] = useState(0);
+  const [phase, setPhase] = useState<SlidePhase>('idle');
+  const content = useSharedValue(1);
+  useEffect(() => {
+    const target = phase === 'idle' ? 1 : 0;
+    content.value = reduced ? target : withTiming(target, { duration: 140 });
+  }, [phase, reduced, content]);
+  const offset = useSharedValue(0);
+  // Whether the handle is on the bar, for the UI thread: without it, a stretch left over from
+  // a finger that was on the handle never hides the total and the photos.
+  const handleShown = useSharedValue(handle ? 1 : 0);
+  // The handle disappears (the restaurant closed, the connection dropped) while a finger may be
+  // on it: the gesture is gone with it and never completes; the hint and the stretched pill are
+  // reset so the total and the photos show again. Nothing is issued or sent.
+  useEffect(() => {
+    handleShown.value = handle ? 1 : 0;
+    if (handle) return;
+    offset.value = 0;
+    setPhase('idle');
+  }, [handle, offset, handleShown]);
+  // The handle is drawn below the cart button (it comes first for VoiceOver), so the total and the
+  // photos stay hidden until it is back home.
+  const contentStyle = useAnimatedStyle(() => ({
+    opacity:
+      content.value *
+      (handleShown.value ? interpolate(offset.value, [0, 12], [1, 0], Extrapolation.CLAMP) : 1),
+  }));
+  // Subtle added feedback: the newest photo settles in when the customer returns with more items.
+  const feedback = useRef(new NativeAnimated.Value(0)).current;
   const previousCount = useRef(0);
   useFocusEffect(
     useCallback(() => {
@@ -50,17 +172,16 @@ export function CartShortcut({
         feedback.setValue(0);
       };
       reset();
-      // Option 1: only the quantity responds; the tap target and amount stay still.
       if (added && !reduced && AppState.currentState === 'active') {
-        Animated.sequence([
-          Animated.timing(feedback, {
+        NativeAnimated.sequence([
+          NativeAnimated.timing(feedback, {
             toValue: 1,
             duration: 160,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: Platform.OS !== 'web',
             isInteraction: false,
           }),
-          Animated.timing(feedback, {
+          NativeAnimated.timing(feedback, {
             toValue: 0,
             duration: 240,
             easing: Easing.inOut(Easing.cubic),
@@ -78,6 +199,27 @@ export function CartShortcut({
       };
     }, [count, reduced, feedback]),
   );
+  // The Kaspi cart is the checkout (27.10.2026): the slide opens the cart with payment, which
+  // takes the one-shot intent and presses its own «Оплатить» once. Guests sign in first and land
+  // on the cart without anything sent; a blocked basket opens the cart, where the reason is shown.
+  const openPayment = (slide: boolean) => {
+    // A slide released just as paying became impossible: the cart, without any intent.
+    if (cartCheckoutBlocked(model) || !canPayNow.current) {
+      onPress();
+      return;
+    }
+    if (!account.account) {
+      router.push({ pathname: '/auth', params: { returnTo: 'M09' } });
+      return;
+    }
+    router.push({
+      pathname: '/cart',
+      params: slide ? { [SLIDE_PAY_PARAM]: slidePayIntents.issue() } : {},
+    });
+  };
+  const photoStep = layout.photoSize - OVERLAP;
+  // How far the handle pill can stretch: fully stretched it fills the capsule (owner 6a).
+  const travel = Math.max(0, Math.floor(barWidth - PAD * 2 - layout.handleWidth - 2));
   if (!count) return null;
   return (
     <BottomActions
@@ -90,111 +232,245 @@ export function CartShortcut({
         floating && bottomOffset > 0 && { bottom: bottomOffset, paddingBottom: 10 },
       ]}
     >
-      <Pressable
-        testID="open-cart"
-        accessibilityRole="button"
-        accessibilityLabel={localize(
-          t('Корзина, {p0} позиций, {p1}', { p0: count, p1: MinorMoney(total) }),
-        )}
-        accessibilityHint={t('Открыть состав заказа')}
-        onPress={onPress}
-        style={s.pill}
-      >
+      <GestureHandlerRootView style={s.root}>
         <View
-          pointerEvents="none"
-          accessible={false}
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-          style={s.bag}
+          testID="cart-shortcut"
+          onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
+          style={[s.capsule, capsuleGlass, closed && s.capsuleClosed]}
         >
-          <Icon name="bag-handle-outline" size={20} color={colors.orangeInk} />
-        </View>
-        <View style={[s.content, compact && s.contentCompact]}>
-          <View style={s.labelRow}>
-            <Body style={s.label}>
-              {localize(model.catalogUpdateNotice ? 'Цены обновились' : 'Корзина')}
-            </Body>
-            <Animated.View
-              testID="cart-count-feedback"
-              style={[
-                s.count,
-                {
-                  transform: [
-                    { scale: feedback.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] }) },
-                  ],
-                },
-              ]}
+          {/* The capsule's glass (Apple's Liquid Glass on iOS 26), drawn below everything. */}
+          <GlassFill radius={CAPSULE_RADIUS} rim={glassBarRim} place="bar" body={false} />
+          {/* Reading and focus order follow the picture: the hint, the payment handle, then the
+              cart button. Nothing gets a zIndex, which would move the handle last on iOS. The
+              handle is drawn after the hint, so its stretching pill covers the hint. */}
+          {phase !== 'idle' ? (
+            <View
+              pointerEvents="none"
+              style={[s.hintBox, { left: PAD + layout.handleWidth + 8, right: PAD + 8 }]}
             >
-              <Body testID="cart-count" style={s.countText}>
-                {localize(count)}
-              </Body>
+              <Text
+                testID="cart-pay-hint"
+                accessibilityLiveRegion="polite"
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={HINT_MIN_FIT}
+                maxFontSizeMultiplier={HINT_MAX_SCALE}
+                style={s.hint}
+              >
+                {t('тяни для оплаты')}
+              </Text>
+            </View>
+          ) : null}
+          {/* Builds without the Kaspi checkout keep the bag pill where the handle would be. It is
+              not inside the cart button: the button's press dimming would put Apple's glass under
+              a translucent parent, which renders wrong (QA 28.10). */}
+          {!payable ? (
+            <View
+              testID="cart-bag-pill"
+              pointerEvents="none"
+              accessible={false}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={[s.bag, pillRim, { width: layout.handleWidth }]}
+            >
+              <GlassFill radius={ROW / 2} />
+              <Icon name="bag-handle-outline" size={24} color={brandColors.brandOrange} />
+            </View>
+          ) : null}
+          {handle ? (
+            <KaspiSlideToPay
+              travel={travel}
+              width={layout.handleWidth}
+              height={ROW}
+              reduced={reduced}
+              method={payment.method}
+              offset={offset}
+              style={s.handle}
+              onPhaseChange={setPhase}
+              onComplete={() => openPayment(true)}
+              onOpenCheckout={() => openPayment(false)}
+            />
+          ) : null}
+          <Pressable
+            testID="open-cart"
+            accessibilityRole="button"
+            accessibilityLabel={localize(
+              t('Корзина, {p0} позиций, {p1}', { p0: count, p1: total }),
+            )}
+            accessibilityHint={
+              reason
+                ? joinSentences(localize(reason), t('Открыть состав заказа'))
+                : t('Открыть состав заказа')
+            }
+            disabled={phase === 'drag'}
+            onPress={onPress}
+            style={[
+              s.open,
+              closed
+                ? s.openClosed
+                : [
+                    s.fill,
+                    handle
+                      ? { marginLeft: layout.handleWidth }
+                      : { paddingLeft: layout.handleWidth + BAG_GAP, gap: BAG_GAP },
+                  ],
+            ]}
+          >
+            <Animated.View
+              pointerEvents="none"
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={[s.middle, closed ? s.middleClosed : s.fill, contentStyle]}
+            >
+              <View testID="cart-total" style={s.totalBox}>
+                <Text
+                  testID="cart-shortcut-total"
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                  maxFontSizeMultiplier={1.5}
+                  style={[
+                    s.total,
+                    { fontSize: layout.totalSize, lineHeight: Math.round(layout.totalSize * 1.3) },
+                  ]}
+                >
+                  {localize(total)}
+                </Text>
+              </View>
             </Animated.View>
-          </View>
-          <Body testID="cart-total" style={[s.total, compact && s.totalCompact]}>
-            {localize(MinorMoney(total))}
-          </Body>
+            {recent.length ? (
+              <Animated.View
+                pointerEvents="none"
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={[
+                  s.photos,
+                  { width: layout.photoSize + (recent.length - 1) * photoStep },
+                  contentStyle,
+                ]}
+              >
+                {/* Older items first so the newest (index 0) is drawn on top at the right end. */}
+                {recent
+                  .map((line, index) => ({ line, index }))
+                  .reverse()
+                  .map(({ line, index }) => (
+                    <NativeAnimated.View
+                      key={line.product.id}
+                      testID={index === 0 ? 'cart-recent-feedback' : undefined}
+                      style={[
+                        s.photoSlot,
+                        { left: (recent.length - 1 - index) * photoStep },
+                        index === 0 && {
+                          transform: [
+                            {
+                              scale: feedback.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [1, 1.14],
+                              }),
+                            },
+                          ],
+                        },
+                      ]}
+                    >
+                      <RecentPhoto line={line} size={layout.photoSize} index={index} />
+                    </NativeAnimated.View>
+                  ))}
+              </Animated.View>
+            ) : null}
+          </Pressable>
         </View>
-        <View
-          pointerEvents="none"
-          accessible={false}
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-        >
-          <Icon name="arrow-forward" size={20} color={colors.white} />
-        </View>
-      </Pressable>
+      </GestureHandlerRootView>
     </BottomActions>
   );
 }
 const s = StyleSheet.create({
-  dock: { paddingTop: 10, borderTopWidth: 0, backgroundColor: 'transparent' },
+  dock: {
+    paddingTop: 10,
+    paddingHorizontal: 16,
+    borderTopWidth: 0,
+    backgroundColor: 'transparent',
+  },
   floating: { position: 'absolute', bottom: 0, left: 0, right: 0 },
-  pill: {
-    minHeight: 58,
-    borderRadius: 22,
-    backgroundColor: brandColors.brandBlue,
-    paddingVertical: 12,
-    paddingLeft: 16,
-    paddingRight: 16,
+  root: { width: '100%', maxWidth: 440, alignSelf: 'center' },
+  // The cart button fills the capsule's full height (a larger target, and the dock keeps its
+  // distance to the tab bar); the handle and the photos sit inside with the same inset.
+  capsule: {
+    minHeight: ROW + PAD * 2,
+    borderRadius: 999,
+    paddingHorizontal: PAD,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    // Body, rim and blur per surface: useGlassBarStyle (Liquid Glass, web blur, navy, solid).
+    shadowColor: '#000000',
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 18,
+    elevation: 12,
+  },
+  // No handle while paying is not possible: the capsule hugs its content, centred in the dock.
+  capsuleClosed: { alignSelf: 'center', maxWidth: '100%' },
+  open: {
+    minWidth: 0,
+    minHeight: ROW + PAD * 2,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    shadowColor: colors.background,
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 5 },
-    shadowRadius: 12,
-    elevation: 5,
+    gap: 8,
+    borderRadius: 999,
   },
+  fill: { flex: 1 },
+  // The total and the photos only (Drinkit): a little air before the total, none after the photos.
+  openClosed: { flexShrink: 1, gap: 16, paddingLeft: 22 },
+  // Non-payment builds: the same glass pill as the Kaspi handle, with the bag icon, where the
+  // handle sits.
   bag: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: brandColors.brandOrange,
+    position: 'absolute',
+    left: PAD,
+    top: PAD,
+    height: ROW,
+    borderRadius: ROW / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0,
+    // The handle's opaque base: inside the capsule's glass, Apple's glass never lies on glass.
+    backgroundColor: glass.pillBase,
   },
-  content: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  contentCompact: { flexDirection: 'column', alignItems: 'flex-start', gap: 0 },
-  labelRow: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, flexWrap: 'wrap', gap: 6 },
-  label: { fontFamily: font.heading, fontSize: 16, lineHeight: 23, color: colors.white },
-  count: { minWidth: 12, alignItems: 'center', paddingHorizontal: 2 },
-  countText: { fontFamily: font.bold, fontSize: 12, lineHeight: 22, color: colors.text },
+  middle: { minWidth: 0, alignItems: 'center', justifyContent: 'center' },
+  middleClosed: { flexShrink: 1 },
+  totalBox: { maxWidth: '100%' },
   total: {
     fontFamily: font.display,
-    fontSize: 18,
-    lineHeight: 25,
     color: colors.white,
-    flexShrink: 1,
-    textAlign: 'right',
+    textAlign: 'center',
     fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
   },
-  totalCompact: { textAlign: 'left' },
+  photos: { height: ROW, flexShrink: 0, justifyContent: 'center' },
+  photoSlot: { position: 'absolute', top: 0, bottom: 0, justifyContent: 'center' },
+  photo: {
+    overflow: 'hidden',
+    backgroundColor: '#FFF8EE',
+    borderWidth: 2,
+    borderColor: '#0A2050',
+  },
+  placeholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.raised,
+  },
+  hintBox: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hint: {
+    fontFamily: font.heading,
+    fontSize: 18,
+    lineHeight: 24,
+    color: colors.white,
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
+  // The touch and VoiceOver frame spans the capsule height, level with the cart button.
+  handle: { position: 'absolute', left: PAD, top: 0, bottom: 0 },
 });

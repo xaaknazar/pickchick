@@ -87,6 +87,7 @@ import {
   CustomerSchema,
   CustomerSessionSchema,
   CustomerPatchSchema,
+  CustomerLegalSchema,
   OtpRequestSchema,
   OtpVerifySchema,
   OtpResponseSchema,
@@ -765,7 +766,10 @@ Object.assign(openapi.components.schemas, {
     type: 'object',
     additionalProperties: false,
     required: ['customer'],
-    properties: { customer: { $ref: '#/components/schemas/Customer' } },
+    properties: {
+      customer: { $ref: '#/components/schemas/Customer' },
+      legal: jsonSchema(CustomerLegalSchema),
+    },
   },
   CustomerOk: {
     type: 'object',

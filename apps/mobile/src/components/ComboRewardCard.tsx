@@ -3,14 +3,20 @@ import { useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, font } from '../theme';
+import { colors, font, restaurantColors } from '../theme';
 import { MotionModal, MotionPressable } from './Motion';
 import { Body, Button, Heading, Icon, CloseButton } from './UI';
 import {
+  COMBO_STAMP_SLOTS,
   comboProgressView,
   comboNextStep,
+  practiceRound,
   type ComboProgressState,
 } from '../loyalty/combo-progress';
+
+// Owner 27.10.2026: a collected stamp keeps the calm slot background; only the
+// checkmark (and a thin rim) is green. The same green marks «open» restaurants.
+const STAMP_GREEN = restaurantColors.open;
 
 // Account-scoped server progress. Unknown data never becomes an invented zero balance.
 export function ComboRewardCard({
@@ -38,7 +44,9 @@ export function ComboRewardCard({
         testID={`${testID}-details`}
         accessibilityRole="button"
         accessibilityLabel={localize(
-          t('Комбо-бонус. Купи 7 комбо, 8-е в подарок. {p0}. Условия акции', { p0: progressText }),
+          t('Комбо-бонус. Купи 6 комбо, 7-е в подарок. {p0}. Условия акции', {
+            p0: localize(progressText),
+          }),
         )}
         onPress={() => setOpen(true)}
         style={[s.ticket, compact && { minHeight: 136 }]}
@@ -66,9 +74,9 @@ export function ComboRewardCard({
         />
         <View style={[s.offer, compact && s.offerCompact]}>
           <Text accessibilityRole="header" style={[s.title, compact && s.titleCompact]}>
-            {t('Купи 7 комбо.')}
+            {t('Купи 6 комбо.')}
             {localize(`\n`)}
-            {t('8-е - в подарок!')}
+            {t('7-е - в подарок!')}
           </Text>
           <View style={s.progress}>
             <View
@@ -78,20 +86,25 @@ export function ComboRewardCard({
               importantForAccessibility="no-hide-descendants"
               aria-hidden
             >
-              {Array.from({ length: 8 }, (_, index) => {
-                const earned = count !== null && index < count;
+              {Array.from({ length: COMBO_STAMP_SLOTS + 1 }, (_, index) => {
+                const gift = index === COMBO_STAMP_SLOTS;
+                const earned = !gift && count !== null && index < count;
                 return (
                   <View
                     key={index}
                     testID={`${testID}-stamp-${index + 1}`}
-                    style={[s.stamp, earned && s.earned, index === 7 && s.gift]}
+                    style={[s.stamp, earned && s.earned, gift && s.gift]}
                   >
                     {earned ? (
-                      <Icon name="checkmark-circle" size={22} color="#073E2D" />
-                    ) : index === 7 ? (
+                      <View testID={`${testID}-stamp-${index + 1}-check`}>
+                        <Icon name="checkmark-sharp" size={20} color={STAMP_GREEN} />
+                      </View>
+                    ) : gift ? (
                       <Icon name="gift-outline" size={17} color="#FFE2C3" />
                     ) : (
-                      <Text style={s.stampNumber}>{localize(index + 1)}</Text>
+                      <Text style={s.stampNumber} maxFontSizeMultiplier={1.3}>
+                        {localize(index + 1)}
+                      </Text>
                     )}
                   </View>
                 );
@@ -135,7 +148,7 @@ export function ComboRewardCard({
                 onPress={() => setOpen(false)}
               />
               <Heading small style={{ flex: 1 }}>
-                {t('Твоё восьмое комбо')}
+                {t('Твоё седьмое комбо')}
               </Heading>
             </View>
             <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={s.rules}>
@@ -156,7 +169,7 @@ export function ComboRewardCard({
                       '2',
                       t('Заберите Pick Combo в подарок'),
                       t(
-                        'После семи отметок подарок появится в профиле и корзине. Включите «Использовать подарок». Остаток покупок переносится на следующий круг.',
+                        'После шести отметок подарок появится в профиле и корзине. Включите «Использовать подарок». Остаток покупок переносится на следующий круг.',
                       ),
                     ],
                     [
@@ -171,7 +184,7 @@ export function ComboRewardCard({
                     [
                       '1',
                       'Покупайте комбо',
-                      'За семь комбо - восьмое в подарок. Акция действует на точке.',
+                      'За шесть комбо - седьмое в подарок. Акция действует на точке.',
                     ],
                     [
                       '2',
@@ -184,7 +197,7 @@ export function ComboRewardCard({
                       progress?.data?.mode === 'practice'
                         ? t(
                             'Сейчас показан отдельный пробный счётчик без права на подарок. После выдачи Solo, Burger, Pick или Master Combo сервер добавляет одну отметку за каждое комбо. Сеты на двоих, напитки и допы не учитываются. Завершено пробных кругов: {p0}. Остаток переносится. Бумажные отметки остаются у кассира.',
-                            { p0: progress.data.completed_cycles },
+                            { p0: practiceRound(progress.data.earned_units).rounds },
                           )
                         : 'Личные отметки загружаются после входа. При отсутствии связи счётчик не обнуляется. Бумажные отметки и право на подарок пока учитываются на кассе.',
                     ],
@@ -234,7 +247,7 @@ const s = StyleSheet.create({
   stamps: { flexDirection: 'row', gap: 6 },
   stamp: {
     flex: 1,
-    height: 30,
+    minHeight: 30,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -242,7 +255,8 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#738699',
   },
-  earned: { backgroundColor: colors.success, borderColor: colors.success },
+  // Same fill as an empty slot; the green check and rim carry the state.
+  earned: { borderColor: STAMP_GREEN },
   gift: { backgroundColor: '#163755', borderColor: '#FFE2C3' },
   stampNumber: { fontFamily: font.bold, fontSize: 13, lineHeight: 18, color: '#E3EDF7' },
   details: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },

@@ -9,7 +9,9 @@ import {
   kioskCheckoutOptions,
   qrStatusOutcome,
   KIOSK_QR_PENDING_GRACE_MS,
+  comboProgramOptions,
 } from '../dist/index.js';
+import { COMBO_REWARD_THRESHOLD } from '../dist/combo-rewards.js';
 import { catalogPayload, pricePublication } from './catalog-fixture.mjs';
 import { catalogPayloadHash } from '@pickchick/catalog-pricing';
 
@@ -266,4 +268,34 @@ test('kiosk QR status: an empty identity is anonymous, a named foreign one stays
   }
   assert.equal(outcome({ Status: 'Processed', Id: 123, Amount: 100 }, late), 'paid');
   assert.equal(outcome({ Status: 'QrTokenDiscarded', Id: 123 }, late), 'failed');
+});
+
+test('combo promotion (6 + 1) stays off until it is explicitly enabled with a date and approval', () => {
+  // Release order 27.10.2026: API with 6 + 1, then the 6 + 1 app, then this switch.
+  assert.equal(COMBO_REWARD_THRESHOLD, 6);
+  for (const value of [undefined, '', 'false', '1', 'TRUE', 'yes', ' true'])
+    assert.equal(
+      comboProgramOptions({
+        CUSTOMER_COMBO_REWARDS_ENABLED: value,
+        CUSTOMER_COMBO_REWARDS_STARTS_AT: '2026-11-01T00:00:00+05:00',
+        CUSTOMER_COMBO_REWARDS_APPROVAL_REFERENCE: 'owner decision',
+      }),
+      null,
+      String(value),
+    );
+  assert.throws(() => comboProgramOptions({ CUSTOMER_COMBO_REWARDS_ENABLED: 'true' }));
+  assert.throws(() =>
+    comboProgramOptions({
+      CUSTOMER_COMBO_REWARDS_ENABLED: 'true',
+      CUSTOMER_COMBO_REWARDS_STARTS_AT: '2026-11-01T00:00:00+05:00',
+    }),
+  );
+  assert.deepEqual(
+    comboProgramOptions({
+      CUSTOMER_COMBO_REWARDS_ENABLED: 'true',
+      CUSTOMER_COMBO_REWARDS_STARTS_AT: '2026-11-01T00:00:00+05:00',
+      CUSTOMER_COMBO_REWARDS_APPROVAL_REFERENCE: 'owner decision',
+    }),
+    { startsAt: '2026-11-01T00:00:00+05:00', approvalReference: 'owner decision' },
+  );
 });

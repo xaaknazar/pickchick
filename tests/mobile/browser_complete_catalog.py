@@ -267,7 +267,8 @@ with sync_playwright() as p:
         cart.get_by_test_id('cart-minus-pick-combo').first.click()
         page.wait_for_function('(key) => JSON.parse(localStorage.getItem(key)).lines[0].quantity === 1', arg=PREFERENCES)
         expect(cart.get_by_text('Акции', exact=True)).to_be_visible()
-        expect(cart.get_by_test_id('cart-promo-open')).to_be_visible()
+        # Owner 27.10.2026: the promo code block left the cart.
+        expect(cart.get_by_test_id('cart-promo-open')).to_have_count(0)
         assert cart.get_by_text('Тестовый контур', exact=False).count() == 0
         page.get_by_test_id('scroll-M09').evaluate('(e) => { e.scrollTop = 0; }')
         page.screenshot(path=str(OUTPUT / f'cart-{width}.png'))

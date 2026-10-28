@@ -1,0 +1,56 @@
+{
+  "source_sha": "410e5c74ea8d8d520a3a67a25cbcff57063db50e",
+  "build": "0.2.0 (21)",
+  "profile": "storefront",
+  "capture": "iOS 26.5 Release simulator; native Save Screen export; no visual edits",
+  "screens": [
+    {
+      "file": "ru/01-menu.png",
+      "sha256": "c85aee6a6d0ffdab753d907ac175bfae741e17e49a1f8879371f7b7aa55ff647",
+      "width": 1320,
+      "height": 2868,
+      "locale": "ru",
+      "uploaded_to_apple": true
+    },
+    {
+      "file": "ru/02-pick-combo.png",
+      "sha256": "feea66331d12d4e39453c0ae0b7da930d95320e7d8d24b0097717f94dae4aaff",
+      "width": 1320,
+      "height": 2868,
+      "locale": "ru",
+      "uploaded_to_apple": true
+    },
+    {
+      "file": "ru/03-restaurants.png",
+      "sha256": "1327fad4d5b1c95cb786cf0c4b7a263ce7404803a6ae047cd4a50cadf3b9b44b",
+      "width": 1320,
+      "height": 2868,
+      "locale": "ru",
+      "uploaded_to_apple": true
+    },
+    {
+      "file": "ru-medium/01-menu.png",
+      "sha256": "1f7a0b5e3107ff15ff265690dd7bd81bc34f3f3159971792a7769210ce7411d1",
+      "width": 1206,
+      "height": 2622,
+      "locale": "ru",
+      "uploaded_to_apple": true
+    },
+    {
+      "file": "ru-medium/02-pick-combo.png",
+      "sha256": "8a909935df74d83b78996b00bf146ce5ef99d037dec08f9abc823e27a4919538",
+      "width": 1206,
+      "height": 2622,
+      "locale": "ru",
+      "uploaded_to_apple": true
+    },
+    {
+      "file": "ru-medium/03-restaurants.png",
+      "sha256": "b1dc7795d2549eb20a9ae74f5e7dbe3b13db32c67fd40ca96df7577031a614c1",
+      "width": 1206,
+      "height": 2622,
+      "locale": "ru",
+      "uploaded_to_apple": true
+    }
+  ]
+}

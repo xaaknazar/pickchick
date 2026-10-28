@@ -24,6 +24,7 @@ import { assets } from '../assets';
 import type { ScreenProps } from '../model';
 import { colors, font } from '../theme';
 import { SheetKeyboardOffsetContext } from './OrderSheet';
+import { GlassButton } from './GlassButton';
 import { useTabBarInset } from './tab-bar-inset';
 
 export type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -194,6 +195,7 @@ export function Button({
     </Pressable>
   );
 }
+/** Every round icon control is the shared glass button (owner 27.10.2026). */
 export function IconButton({
   name,
   color,
@@ -202,6 +204,8 @@ export function IconButton({
   style,
   testID,
   disabled = false,
+  tone,
+  size,
 }: {
   name: IconName;
   color?: string;
@@ -210,25 +214,22 @@ export function IconButton({
   style?: StyleProp<ViewStyle>;
   testID?: string;
   disabled?: boolean;
+  tone?: 'default' | 'danger';
+  size?: number;
 }) {
   useLocale();
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={localize(label)}
-      accessibilityState={{ disabled }}
-      disabled={disabled}
+    <GlassButton
+      name={name}
+      color={color}
+      label={label}
       onPress={onPress}
       testID={testID}
-      style={({ pressed }) => [
-        styles.iconButton,
-        disabled && styles.disabled,
-        pressed && !disabled && styles.pressed,
-        style,
-      ]}
-    >
-      <Icon name={name} color={color} />
-    </Pressable>
+      disabled={disabled}
+      tone={tone}
+      size={size}
+      style={style}
+    />
   );
 }
 /** Cart-style close control shared by every sheet and product screen. */
@@ -244,16 +245,7 @@ export function CloseButton({
   style?: StyleProp<ViewStyle>;
 }) {
   useLocale();
-  return (
-    <IconButton
-      name="close"
-      color={colors.text}
-      label={localize(label)}
-      onPress={onPress}
-      testID={testID}
-      style={[style, { backgroundColor: colors.surface, width: 48, height: 48, borderRadius: 24 }]}
-    />
-  );
+  return <GlassButton name="close" label={label} onPress={onPress} testID={testID} style={style} />;
 }
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   useLocale();
@@ -619,13 +611,6 @@ export const styles = StyleSheet.create({
   secondaryButtonText: { color: colors.text },
   disabled: { opacity: 0.5 },
   pressed: { opacity: 0.72 },
-  iconButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   notice: {
     borderRadius: 16,
     padding: 16,

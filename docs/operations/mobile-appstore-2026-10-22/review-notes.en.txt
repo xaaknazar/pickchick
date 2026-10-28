@@ -1,0 +1,16 @@
+PickChick is a restaurant app for one location in Almaty, Kazakhstan. The interface is available in Kazakh, Russian and English. Pick Farm, push delivery and the 7+1 reward programme are not enabled in this release.
+
+SIGN-IN FOR APP REVIEW
+Open Profile, choose Sign in, enter the dedicated phone number provided in the Username field and accept the terms. On the code screen, enter the four-digit code provided in the Password field. No SMS or Telegram message is sent to this dedicated review number; you do not need access to our phone or Telegram account. Other customer accounts continue to use the normal verification flow.
+
+REVIEW ACCOUNT LIMITATIONS
+This account can browse the menu, customise combos, build a basket, see the quoted total, use mini-games, edit its profile and delete its account. Creating orders and initiating payments are blocked for this account. No review order is delivered to the restaurant kitchen and no bank invoice is created. We disclose these restrictions explicitly; this account does not demonstrate the full paid-order journey.
+
+PAYMENTS FOR CUSTOMERS
+The current storefront build includes Kaspi payments for eligible customers in Kazakhstan. We are retaining that configuration during preparation. Prices shown in the app are the restaurant's current published prices and have not been changed for App Review.
+
+ACCOUNT DELETION
+Open Profile, open the account settings and choose Delete account. The review login can be used again to create a fresh review profile. Deleting an account does not initiate a bank refund.
+
+RELEASE STATUS
+The App Store product page is a draft. We will select a compatible final build and confirm the complete review flow before submission. Please use the App Review contact fields for questions.

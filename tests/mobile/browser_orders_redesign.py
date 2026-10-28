@@ -203,6 +203,12 @@ def check_layout(page, name):
     for el in page.locator('[data-testid*="-rate-"]').all():
         box = el.bounding_box()
         assert box and box['height'] >= 44 and box['width'] >= 40, (name, box)
+    # Empty state under the shared top header (27.10.2026): «Открыть меню» is fully visible
+    # above the floating tab bar on first view, also at 320x568.
+    cta = page.get_by_test_id('orders-open-menu')
+    if cta.count():
+        box, bar = cta.bounding_box(), page.get_by_test_id('floating-tab-bar').bounding_box()
+        assert box['y'] + box['height'] <= bar['y'], (name, box, bar)
 
 
 def run_sim(browser):
@@ -303,7 +309,7 @@ def run_kaspi(browser):
                 held.append(route)
                 return
             if path == '/v1/customers/me':
-                data = {'customer': customer}
+                data = {'customer': customer, 'legal': {'version':'fixture-v1','terms_url':'https://example.test/terms','privacy_url':'https://example.test/privacy','accepted':True}}
             elif path == '/v1/customer-checkout/availability':
                 data = {'enabled': True, 'fresh': True, 'signature': 'a' * 64,
                         'products': [{'id': p['id'], 'available': True, 'stoppedOptions': []} for p in CAT['products']]}

@@ -28,6 +28,8 @@ export function accountDestination(value: unknown): AccountDestination | null {
   return typeof value === 'string' &&
     (value === 'M30' ||
       value === 'M26' ||
+      // The Kaspi cart pays (27.10.2026); browsing the cart itself never requires an account.
+      value === 'M09' ||
       value === 'pick-man' ||
       value === 'pick-farm' ||
       value === 'magic-sort' ||

@@ -32,7 +32,6 @@ export function CheckoutSheetHeader({
             label={t('Вернуться в корзину')}
             onPress={onBack}
             testID={testID}
-            style={checkoutStyle.control}
           />
         ) : (
           <CloseButton label={t('Закрыть корзину')} onPress={onBack} testID={testID} />

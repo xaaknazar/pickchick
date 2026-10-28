@@ -111,7 +111,9 @@ with sync_playwright() as p:
         page = context.new_page()
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.goto(URL + '/menu')
-        visible(page, 'tab-profile').click()
+        # Owner 27.10.2026: the profile button lives in the top header (no profile tab).
+        expect(page.get_by_test_id('tab-profile')).to_have_count(0)
+        visible(page, 'header-profile').click()
         expect(visible(page, 'auth-welcome')).to_be_visible()
         visible(page, 'auth-close').click(trial=True)
         page.screenshot(path=str(OUTPUT / f'welcome-{width}.png'))
@@ -198,6 +200,8 @@ with sync_playwright() as p:
         page.screenshot(path=str(OUTPUT / f'registration-{width}.png'))
         visible(page, 'nickname-save').click()
         expect(visible(page, 'screen-M30')).to_be_visible()
+        assert urlparse(page.url).path == '/profile', page.url
+        expect(visible(page, 'profile-back')).to_be_visible()
         stored = json.loads(page.evaluate('(key) => sessionStorage.getItem(key)', KEY))
         assert stored['tokens']['customer']['nickname'] == 'Проверка аккаунта'
         assert stored['tokens']['customer']['birth_date'] == '2000-02-29'

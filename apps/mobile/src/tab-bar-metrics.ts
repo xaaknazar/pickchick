@@ -17,6 +17,15 @@ export const tabBarPalette = {
 /** Labels follow Dynamic Type up to this factor; the bar must stay compact. */
 export const tabLabelMaxScale = 1.3;
 
+/** Owner 27.10.2026: Меню, События, Заказы. The profile moved to the top header. */
+export const tabBarTabCount = 3;
+
+/** Base label size: three tabs leave room for 12pt (11pt with four). Line height stays 16. */
+export const tabLabelSize = 12;
+
+/** iOS may shrink a label to this share of its size before truncating it. */
+export const tabLabelMinFit = 0.8;
+
 export type TabBarMetrics = {
   /** Distance from the bottom edge of the screen to the bottom of the capsule. */
   bottom: number;
@@ -44,4 +53,14 @@ export function tabBarMetrics(
   const bottom = insets.bottom > 0 ? Math.max(12, insets.bottom - 14) : 12;
   const side = 16 + Math.max(insets.left ?? 0, insets.right ?? 0);
   return { bottom, side, maxWidth: 440, padding, itemHeight, height, inset: bottom + height };
+}
+
+/** Width of one tab: the items share the capsule evenly (flex: 1 in FloatingTabBar). */
+export function tabItemWidth(
+  screenWidth: number,
+  metrics: Pick<TabBarMetrics, 'side' | 'maxWidth' | 'padding'>,
+  count = tabBarTabCount,
+): number {
+  const bar = Math.min(metrics.maxWidth, screenWidth - metrics.side * 2);
+  return (bar - metrics.padding * 2) / count;
 }

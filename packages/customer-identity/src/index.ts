@@ -19,7 +19,13 @@ import {
   isValidCustomerBirthDate,
   parseInput,
 } from './contracts.js';
-import type { Customer, CustomerProfile, CustomerSession, OtpResponse } from './contracts.js';
+import type {
+  Customer,
+  CustomerLegal,
+  CustomerProfile,
+  CustomerSession,
+  OtpResponse,
+} from './contracts.js';
 import type { CustomerIdentityOptions } from './config.js';
 import { reviewCodeDigest } from './config.js';
 import { digest, hmac, equalHash, encrypt, decrypt } from './crypto.js';
@@ -878,13 +884,44 @@ export class CustomerIdentity {
     if (!customer) throw fail('UNAUTHORIZED');
     return { session, customer };
   }
-  async me(accessToken: string): Promise<{ customer: Customer }> {
-    const config = this.enabled();
-    return transaction(this.pool, async (db) => ({
-      customer: this.customer((await this.authorized(db, accessToken)).customer, config),
-    }));
+  private async legal(
+    db: DatabaseClient,
+    customerId: string,
+    config: EnabledOptions,
+  ): Promise<CustomerLegal> {
+    const rows = (
+      await db.query<{ kind: string; version: string; accepted: boolean }>(
+        `SELECT DISTINCT ON(kind) kind,version,accepted FROM identity_consents
+       WHERE customer_id=$1 AND kind IN ('terms','privacy')
+       ORDER BY kind,recorded_at DESC,id DESC`,
+        [customerId],
+      )
+    ).rows;
+    return {
+      version: config.consentVersion,
+      terms_url: config.termsUrl,
+      privacy_url: config.privacyUrl,
+      accepted: ['terms', 'privacy'].every((kind) =>
+        rows.some(
+          (row) => row.kind === kind && row.version === config.consentVersion && row.accepted,
+        ),
+      ),
+    };
   }
-  async patchMe(accessToken: string, input: unknown): Promise<{ customer: Customer }> {
+  async me(accessToken: string): Promise<{ customer: Customer; legal: CustomerLegal }> {
+    const config = this.enabled();
+    return transaction(this.pool, async (db) => {
+      const { customer } = await this.authorized(db, accessToken);
+      return {
+        customer: this.customer(customer, config),
+        legal: await this.legal(db, customer.id, config),
+      };
+    });
+  }
+  async patchMe(
+    accessToken: string,
+    input: unknown,
+  ): Promise<{ customer: Customer; legal: CustomerLegal }> {
     const config = this.enabled(),
       body = parseInput(CustomerPatchSchema, input);
     return transaction(this.pool, async (db) => {
@@ -895,6 +932,21 @@ export class CustomerIdentity {
         !isValidCustomerBirthDate(body.birth_date, now.getTime())
       )
         throw fail('INVALID_REQUEST');
+      if (body.legal_consents) {
+        if (
+          body.legal_consents.terms_version !== config.consentVersion ||
+          body.legal_consents.privacy_version !== config.consentVersion
+        )
+          throw fail('CONFLICT');
+        // The customer/phone lock serializes retries. Append only; retain earlier consent evidence.
+        if (!(await this.legal(db, customer.id, config)).accepted) {
+          for (const kind of ['terms', 'privacy'])
+            await db.query(
+              'INSERT INTO identity_consents(id,customer_id,kind,version,accepted,recorded_at) VALUES($1,$2,$3,$4,true,$5)',
+              [randomUUID(), customer.id, kind, config.consentVersion, now],
+            );
+        }
+      }
       const profile = decrypt<CustomerProfile>(
         config.piiKey,
         `profile:${customer.id}`,
@@ -920,7 +972,10 @@ export class CustomerIdentity {
           "INSERT INTO identity_consents(id,customer_id,kind,version,accepted,recorded_at) VALUES($1,$2,'marketing',$3,$4,$5)",
           [randomUUID(), customer.id, config.consentVersion, body.marketing_opt_in, now],
         );
-      return { customer: this.customer(updated, config) };
+      return {
+        customer: this.customer(updated, config),
+        legal: await this.legal(db, customer.id, config),
+      };
     });
   }
   private async revoke(db: DatabaseClient, id: string, now: Date) {

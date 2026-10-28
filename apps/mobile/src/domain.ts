@@ -3,6 +3,7 @@ import {
   type CatalogMobileStorefront,
 } from '@pickchick/catalog-admin/contracts';
 import { testLineId, TestSelectionSchema } from '@pickchick/test-order-flow/contracts';
+import { parseRecentProductIds } from './cart-bar.ts';
 import type { CartLine, CatalogMode, Product, Selection, PaymentMethod } from './model';
 
 export const MAX_ITEM_QUANTITY = 20;
@@ -210,6 +211,8 @@ export interface SavedPreferences {
   branchId: string | null;
   releaseId: string | null;
   publication?: CatalogMobileStorefront;
+  /** Cart bar photos: product ids, newest add first (optional; older saves have none). */
+  recentProductIds?: string[];
   lines: {
     id: string;
     key?: string;
@@ -278,6 +281,12 @@ export function parsePreferences(raw: string | null): SavedPreferences | null {
       )
         return null;
       ids.add(line.key ?? line.id + '|' + selectionKey(line.selections));
+    }
+    // Presentation only: an unreadable recency list is dropped, the basket is still restored.
+    if (p.recentProductIds !== undefined) {
+      const recent = parseRecentProductIds(p.recentProductIds);
+      if (recent) p.recentProductIds = recent;
+      else delete p.recentProductIds;
     }
     return p as unknown as SavedPreferences;
   } catch {

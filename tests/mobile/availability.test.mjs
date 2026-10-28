@@ -87,11 +87,21 @@ test('design samples ignore live availability while a cold server catalog stays 
     },
   };
   assert.equal(catalogAvailability(closed, true).availabilityStatus, 'closed');
+  // Whether the server has answered in this app run (QA 28.10: nothing payable before that); a
+  // re-read keeps the last answer.
+  assert.equal(catalogAvailability(cold, true).availabilityKnown, false);
+  assert.equal(catalogAvailability({ ...cold, status: 'error' }, true).availabilityKnown, false);
+  assert.equal(catalogAvailability(closed, true).availabilityKnown, true);
+  assert.equal(
+    catalogAvailability({ ...closed, status: 'checking' }, true).availabilityKnown,
+    true,
+  );
   for (const state of [cold, { ...cold, status: 'offline' }, closed]) {
     assert.deepEqual(catalogAvailability(state, false), {
       availabilityFresh: undefined,
       availabilityStatus: undefined,
       availabilityHours: undefined,
+      availabilityKnown: undefined,
     });
   }
 });

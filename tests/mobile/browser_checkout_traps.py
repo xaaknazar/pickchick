@@ -90,7 +90,7 @@ def context(browser, state, handler, draft=None, width=393, height=852):
             return
         data = None
         if path == '/v1/customers/me':
-            data = {'customer': customer}
+            data = {'customer': customer, 'legal': {'version':'fixture-v1','terms_url':'https://example.test/terms','privacy_url':'https://example.test/privacy','accepted':True}}
         elif path == '/v1/customer-checkout/availability':
             data = {'enabled': True, 'fresh': True, 'signature': 'a' * 64,
                     'products': [{'id': p['id'], 'available': True, 'stoppedOptions': []} for p in CATALOG['products']]}
@@ -149,12 +149,14 @@ def draft_saved(page):
 
 
 def open_checkout(page):
+    # Kaspi build (27.10.2026): the cart is the checkout, its own button pays.
     page.goto(URL + '/menu')
     page.get_by_test_id('product-pick-combo').click(timeout=25000)
     page.get_by_test_id('product-add').click()
     page.get_by_test_id('open-cart').click()
-    page.get_by_test_id('cart-checkout').click()
-    button = page.get_by_test_id('kaspi-checkout-submit')
+    expect(page.get_by_test_id('screen-M09')).to_be_visible()
+    expect(page.get_by_test_id('cart-checkout')).to_have_count(0)
+    button = page.get_by_test_id('cart-pay')
     expect(button).to_be_enabled(timeout=15000)
     return button
 
@@ -247,8 +249,7 @@ def scenario_item_stopped(browser):
     # The next tap quotes the current cart instead of resuming the old unbilled order.
     state['stopped_quote'] = True
     page.get_by_test_id('open-cart').click()
-    page.get_by_test_id('cart-checkout').click()
-    button = page.get_by_test_id('kaspi-checkout-submit')
+    button = page.get_by_test_id('cart-pay')
     expect(button).to_be_enabled(timeout=15000)
     button.click()
     expect(page.get_by_text('Блюдо или выбранный вариант закончились', exact=False)).to_be_visible(timeout=15000)
@@ -384,26 +385,27 @@ def scenario_kitchen_offline(browser):
     ctx.close()
 
 
-# CHECKOUT_TRAPS=E runs a subset while iterating; the default runs every scenario.
-SELECTED = os.environ.get('CHECKOUT_TRAPS', 'ABCDE').upper()
-with sync_playwright() as p:
-    browser = p.chromium.launch()
-    if 'A' in SELECTED:
-        for width, height in [(393, 852), (320, 568)]:
-            scenario_attention(browser, width, height)
-    if 'B' in SELECTED:
-        scenario_item_stopped(browser)
-    if 'C' in SELECTED:
-        scenario_orders(browser)
-    if 'E' in SELECTED:
-        scenario_orders_with_live_intent(browser)
-    if 'D' in SELECTED:
-        scenario_kitchen_offline(browser)
-    browser.close()
-assert not errors, errors
-if SELECTED != 'ABCDE':
-    print('PASS checkout traps (subset ' + SELECTED + ')')
-    raise SystemExit(0)
-print('PASS checkout traps: attention intent closes and stays closed, refused payment returns to the cart '
-      'without resend, Orders tab returns to the list (also with a live intent, no foreign auto-invoice), '
-      'kitchen offline is reported at once')
+if __name__ == '__main__':
+    # CHECKOUT_TRAPS=E runs a subset while iterating; the default runs every scenario.
+    SELECTED = os.environ.get('CHECKOUT_TRAPS', 'ABCDE').upper()
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        if 'A' in SELECTED:
+            for width, height in [(393, 852), (320, 568)]:
+                scenario_attention(browser, width, height)
+        if 'B' in SELECTED:
+            scenario_item_stopped(browser)
+        if 'C' in SELECTED:
+            scenario_orders(browser)
+        if 'E' in SELECTED:
+            scenario_orders_with_live_intent(browser)
+        if 'D' in SELECTED:
+            scenario_kitchen_offline(browser)
+        browser.close()
+    assert not errors, errors
+    if SELECTED != 'ABCDE':
+        print('PASS checkout traps (subset ' + SELECTED + ')')
+        raise SystemExit(0)
+    print('PASS checkout traps: attention intent closes and stays closed, refused payment returns to the cart '
+          'without resend, Orders tab returns to the list (also with a live intent, no foreign auto-invoice), '
+          'kitchen offline is reported at once')

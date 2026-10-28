@@ -22068,6 +22068,31 @@
           },
           "marketing_opt_in": {
             "type": "boolean"
+          },
+          "legal_consents": {
+            "type": "object",
+            "properties": {
+              "terms_version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "privacy_version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "accepted": {
+                "type": "boolean",
+                "const": true
+              }
+            },
+            "required": [
+              "terms_version",
+              "privacy_version",
+              "accepted"
+            ],
+            "additionalProperties": false
           }
         },
         "additionalProperties": false
@@ -22273,6 +22298,35 @@
         "properties": {
           "customer": {
             "$ref": "#/components/schemas/Customer"
+          },
+          "legal": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "terms_url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "privacy_url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "accepted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "version",
+              "terms_url",
+              "privacy_url",
+              "accepted"
+            ],
+            "additionalProperties": false
           }
         }
       },

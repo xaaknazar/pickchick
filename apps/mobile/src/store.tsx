@@ -7,6 +7,7 @@ import { withAvailability, catalogAvailability } from './availability';
 import { useAvailability } from './useAvailability';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { mergeCartLines } from './cart-actions';
+import { noteCartAdditions } from './cart-bar';
 import { subscribeCatalogConnectivity } from './connectivity';
 import {
   createContext,
@@ -106,6 +107,11 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   const [unpaidAvailable, setUnpaidAvailable] = useState(false);
   const [connectedCatalog, setConnectedCatalog] = useState<TestCatalog | null>(null);
   const [cart, setCart] = useCartState();
+  // Cart bar photos: product ids of the latest add actions, newest first (presentation only).
+  const [recentProducts, setRecentProducts] = useState<string[]>([]);
+  const noteAdded = useCallback((ids: string[], next: CartLine[]) => {
+    if (ids.length) setRecentProducts((previous) => noteCartAdditions(previous, ids, next));
+  }, []);
   const [previewCart, setPreviewCart] = useCartState();
   const [previewSelectedId, setPreviewSelectedId] = useState<string | null>(null);
   const [previewDiningMode, setPreviewDiningMode] = useState<DiningMode>('takeaway');
@@ -145,6 +151,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
           setNickname(saved.nickname);
           setOrderComment(saved.orderComment ?? '');
           setRequestedBranchId(saved.branchId);
+          setRecentProducts(saved.recentProductIds ?? []);
           if (saved.catalogMode === 'design') {
             setCart(restoreCart(saved, designProducts, DESIGN_RELEASE));
             restoration.current = null;
@@ -372,6 +379,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         : cartPublication.current && cart.length
           ? { publication: cartPublication.current }
           : {}),
+      ...(recentProducts.length ? { recentProductIds: recentProducts } : {}),
       lines:
         pendingCart?.lines ??
         cart.map((line) => ({
@@ -403,11 +411,13 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     requestedBranchId,
     releaseId,
     cart,
+    recentProducts,
   ]);
 
   const resetLocalData = () => {
     restoration.current = null;
     setCart([]);
+    setRecentProducts([]);
     setNickname('');
     setOrderComment('');
     setLocale('ru');
@@ -478,6 +488,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
               );
               if (!next) return;
               setCart(next);
+              noteAdded([product.id], next);
             }
             setGiftChoice(combo.customerId);
           },
@@ -506,6 +517,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
         : connectedCatalog && 'upsell_product_ids' in connectedCatalog
           ? connectedCatalog.upsell_product_ids
           : ['toast', 'sauce', 'cola'],
+    recentCartProductIds: recentProducts,
     cart: cart.map((line) => ({
       ...line,
       product: publication
@@ -539,6 +551,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       if (branch?.id === id) return;
       restoration.current = null;
       setCart([]);
+      setRecentProducts([]);
       setOrderComment('');
       setMenu(null);
       setConnectedCatalog(null);
@@ -548,6 +561,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       if (mode === catalogMode) return;
       restoration.current = null;
       setCart([]);
+      setRecentProducts([]);
       setOrderComment('');
       setSelectedId(null);
       setMode(mode);
@@ -555,23 +569,29 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     selectProduct: setSelectedId,
     appendCartLines: (lines) => {
       restoration.current = null;
-      let accepted = false;
+      const result: { next: CartLine[] | null } = { next: null };
       setCart((previous) => {
         const next = mergeCartLines(previous, lines, products);
-        accepted = next !== null;
+        result.next = next;
         if (next && !previous.length) cartPublication.current = publication;
         return next ?? previous;
       });
-      return accepted;
+      if (result.next)
+        noteAdded(
+          lines.map((line) => line.product.id),
+          result.next,
+        );
+      return result.next !== null;
     },
     addToCart: (id, selections, quantity = 1) => {
       const product = products.find((candidate) => candidate.id === id);
       if (!product || product.available === false) return;
       const chosen = selections ?? defaultSelections(product);
       restoration.current = null;
+      const added: { next: CartLine[] | null } = { next: null };
       setCart((previous) => {
         if (!previous.length) cartPublication.current = publication;
-        return updateQuantity(
+        const next = updateQuantity(
           previous,
           product,
           (previous.find(
@@ -581,7 +601,10 @@ export function MobileProvider({ children }: { children: ReactNode }) {
           )?.quantity ?? 0) + quantity,
           chosen,
         );
+        if (next !== previous && quantity > 0) added.next = next;
+        return next;
       });
+      if (added.next) noteAdded([product.id], added.next);
     },
     setQuantity: (id, quantity) => {
       restoration.current = null;
@@ -611,6 +634,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     availabilityFresh: undefined,
     availabilityStatus: undefined,
     availabilityHours: undefined,
+    availabilityKnown: undefined,
     testFlow: {
       ...testFlow,
       available: false,
@@ -631,6 +655,8 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     products: designProducts,
     upsellProductIds: ['toast', 'sauce', 'cola'],
     cart: previewCart,
+    // Design previews keep the cart order (no add history).
+    recentCartProductIds: undefined,
     catalogMode: 'design',
     selectedProduct:
       designProducts.find((product) => product.id === previewSelectedId) ??

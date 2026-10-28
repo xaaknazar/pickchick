@@ -1,3 +1,5 @@
+import { useCheckoutLegal } from '../components/CheckoutLegal';
+import { needsCheckoutConsent } from '../checkout-legal';
 import { t, localize, useLocale } from '../i18n';
 import { matchesPaidComboCart } from '../loyalty/combo-progress';
 import { PRICES_UPDATED } from '../cart-reprice';
@@ -6,18 +8,20 @@ import { recoverCommerceRead, historyOrderNeedsWatch } from '../commerce-read-re
 import { PAYMENT_COMMAND, paymentRefused, prepareCheckout } from '../checkout-preflight';
 import { KaspiPaymentState } from '../components/KaspiPaymentState';
 import {
-  CheckoutSheetHeader,
-  CheckoutAction,
-  UpcomingPayments,
-  checkoutStyle,
-} from '../components/CheckoutPresentation';
+  CartOrderComment,
+  CartPaymentFooter,
+  CartUnavailableBanner,
+} from '../components/CartSheet';
+import { cartEditSettleMs } from '../cart-payment';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, Linking, Modal, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { randomUUID } from 'expo-crypto';
 import type { CustomerCommerceOrder } from '@pickchick/contracts';
 import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
+import { accountCanAct } from '../account-access';
 import { CustomerSessionError } from '../customer-session';
 import { watchCommerceOrder, watchRetryDelay } from '../commerce-watch';
 import {
@@ -29,7 +33,6 @@ import {
   publishedCartVersion,
   cartSignature,
   normalizedOrderComment,
-  maskedPhone,
 } from '../commerce-checkout';
 import { OrderStatusView } from './OrderStatusScreen';
 import { CompletedOrderScreen } from './CompletedOrderScreen';
@@ -39,8 +42,7 @@ import { publishActiveOrderCount } from '../active-orders';
 import { commerceActiveKind } from '../orders-tab';
 import { useCommerceFeedback } from '../useCommerceFeedback';
 import { checkoutError, paymentReceived, commerceStatus } from '../commerce-presentation';
-import { CheckoutDetails } from './CheckoutScreen';
-import { CheckoutKeyboardDone } from '../components/CheckoutKeyboard';
+import { Cart } from './CatalogScreens';
 import {
   dismissPendingPayment,
   pendingPaymentDismissed,
@@ -59,25 +61,106 @@ import {
   supportAtOnce,
 } from '../checkout-resume';
 import { OrderSheet, useSheetDismissalLock } from '../components/OrderSheet';
-import { PaymentMark } from '../components/PaymentChoice';
-import { Body, Button, Caption, Empty, Icon, Page, Row } from '../components/UI';
+import { slidePayIntents, useSlidePayIntent } from '../useSlidePayIntent';
+import { rememberPaymentMethod, usePaymentMethod } from '../usePaymentMethod';
+import { PAYMENT_METHOD_NOT_CONNECTED } from '../payment-method';
+import { runSlidePayIntent } from '../slide-pay-intent';
+import {
+  noteCheckoutSwitch,
+  paymentStopLabel,
+  paymentStopMessage,
+  type PaymentAvailability,
+} from '../payment-availability';
+import { usePaymentAvailability } from '../usePaymentAvailability';
+import { Body, Button, Caption, Page } from '../components/UI';
 import { cartTotal, cartLineKey, money } from '../domain';
-import { colors, font } from '../theme';
+import { colors } from '../theme';
 
 type Quote = ReturnType<typeof CustomerQuoteSchema.parse>;
 type Pending = PendingPayment;
 const root = '/v1/customer-checkout';
 
+/**
+ * Owner 28.10.2026 (Drinkit reference): when paying is not possible right now the cart shows the
+ * reason in a red banner under the top bar and a grey, disabled pay button with a short label.
+ */
+function unavailableCart(availability: PaymentAvailability) {
+  // The banner stays mounted (empty while paying is possible), so a reason that appears while
+  // the cart is open is announced to screen readers.
+  const stop = availability.canPay ? null : availability.stop;
+  return {
+    banner: <CartUnavailableBanner message={stop ? paymentStopMessage(stop) : null} />,
+    label: stop ? paymentStopLabel(stop) : null,
+  };
+}
+
+/**
+ * Kaspi build cart (M09), owner 27.10.2026: there is no separate checkout page, the cart pays.
+ * A signed-in customer gets the guarded checkout session below; a guest sees the same cart and
+ * the pay button opens sign-in, which returns to the cart without sending anything by itself.
+ */
+export function KaspiCart(props: ScreenProps) {
+  useLocale();
+  const account = useAccount();
+  const router = useRouter();
+  const payment = usePaymentMethod();
+  const availability = usePaymentAvailability(props.model);
+  if (accountCanAct(account)) return <KaspiCheckoutScreen {...props} />;
+  const discount = props.model.comboRewards?.discountMinor ?? '0';
+  const total = (BigInt(cartTotal(props.model.cart)) - BigInt(discount)).toString();
+  const unavailable = unavailableCart(availability);
+  return (
+    <Cart
+      {...props}
+      checkout={{
+        banner: unavailable.banner,
+        comment: <CartOrderComment model={props.model} />,
+        footer: (blocked) => (
+          <CartPaymentFooter
+            totalMinor={total}
+            totalText={money(total)}
+            busy={false}
+            disabled={blocked || !account.ready || !availability.canPay}
+            unavailable={unavailable.label}
+            method={payment.method}
+            onPay={() => router.push({ pathname: '/auth', params: { returnTo: 'M09' } })}
+          />
+        ),
+      }}
+    />
+  );
+}
+
 /** One durable create command per customer. Never reissues a bank invoice on reconnect. */
 export function KaspiCheckoutScreen(props: ScreenProps) {
   useLocale();
   const { account } = useAccount();
-  return <KaspiCheckoutSession {...props} key={account?.customerId ?? 'guest'} />;
+  return <LegalCheckoutSession {...props} key={account?.customerId ?? 'guest'} />;
 }
-function KaspiCheckoutSession(props: ScreenProps) {
+function LegalCheckoutSession(props: ScreenProps) {
+  const legal = useCheckoutLegal();
+  return (
+    <>
+      <KaspiCheckoutSession {...props} authorizeLegal={legal.authorize} />
+      {legal.dialog}
+    </>
+  );
+}
+function KaspiCheckoutSession(
+  props: ScreenProps & { authorizeLegal: (signal?: AbortSignal) => Promise<void> },
+) {
   useLocale();
   const auth = useAccount(),
     customerId = auth.account?.customerId;
+  // The customer's active method (item 6b, 27.10.2026): the cart bar handle shows it and this
+  // cart pays with it. Only Kaspi.kz is available today, so it is always Kaspi here.
+  const payment = usePaymentMethod();
+  // Can this customer pay right now (owner 28.10.2026): closed, server switch, connection, stop
+  // list. Only hides or disables the payment; submit() keeps every server check of its own.
+  const availability = usePaymentAvailability(props.model);
+  // A press or slide with a method this cart cannot pay with (no flow yet): said, never silent.
+  const [methodStop, setMethodStop] = useState(false);
+  useEffect(() => setMethodStop(false), [payment.method]);
   const [config, setConfig] = useState<ReturnType<
     typeof CustomerCheckoutConfigSchema.parse
   > | null>(null);
@@ -113,6 +196,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
   const giftDiscount = props.model.comboRewards?.discountMinor ?? '0';
   const localTotal = (BigInt(cartTotal(props.model.cart)) - BigInt(giftDiscount)).toString();
   const cartOnlySignature = cartSignature(props.model.cart, props.model.diningMode, '', giftIndex);
+  // Lines, modifiers, gift and «В зале / С собой»: what a cart edit changes.
+  const lastCartKey = useRef<string | null>(null);
   const comment = normalizedOrderComment(props.model.orderComment);
   const signature = cartSignature(props.model.cart, props.model.diningMode, comment, giftIndex);
   const signatureRef = useRef(signature);
@@ -123,9 +208,12 @@ function KaspiCheckoutSession(props: ScreenProps) {
   // Audit 2.0: only a running command, a pending intent or an order the bank may still charge
   // locks the sheet. Attention, refused and old unbilled orders never do; "close" always wins.
   const lockedAt = Date.now();
+  // The cart (27.10.2026) is not locked while it only reads storage: closing it then leaves any
+  // saved intent for PaymentRecovery, and it opens/edits without the lock jumping the sheet.
+  // A found intent, a running command or a chargeable order locks it as before.
   useSheetDismissalLock(
     !leaving &&
-      (restoring ||
+      ((restoring && props.screenId !== 'M09') ||
         busy ||
         connectionPaused ||
         paidMoment ||
@@ -143,13 +231,14 @@ function KaspiCheckoutSession(props: ScreenProps) {
     draftOwns(pending.current, target.orderId) && draftCanAutoSend(pending.current, Date.now());
   const access = auth.withOrderAccess;
   const request = useCallback(
-    (path: string, method: 'GET' | 'POST' = 'GET', body?: unknown, signal?: AbortSignal) => {
+    async (path: string, method: 'GET' | 'POST' = 'GET', body?: unknown, signal?: AbortSignal) => {
       if (!customerId || !access) return Promise.reject(new Error('UNAUTHORIZED'));
+      if (needsCheckoutConsent(path, method)) await props.authorizeLegal(signal);
       return access(customerId, (token) =>
         commerceRequest(`${root}${path}`, method, body, token, signal),
       );
     },
-    [customerId, access],
+    [customerId, access, props.authorizeLegal],
   );
   const accept = useCallback(
     async (value: unknown, adopt = true) => {
@@ -221,6 +310,9 @@ function KaspiCheckoutSession(props: ScreenProps) {
   }, []);
 
   useEffect(() => {
+    // A burst of cart edits in the cart sheet re-reads once (27.10.2026); see cartEditSettleMs.
+    const settle = cartEditSettleMs(props.screenId, lastCartKey.current, cartOnlySignature);
+    lastCartKey.current = cartOnlySignature;
     if (!foreground || (orderRef.current && props.screenId !== 'M19')) return;
     let active = true;
     const controller = new AbortController();
@@ -233,6 +325,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
           ? {
               accept: (value: unknown) => CustomerCheckoutConfigSchema.parse(value).enabled,
               onPending: () => {
+                // The owner's server switch is off: the cart and the cart bar say so (28.10).
+                if (active) noteCheckoutSwitch(customerId, false);
                 if (active && props.screenId === 'M19') {
                   setError(new Error('NOT_READY'));
                   setLoaded(true);
@@ -257,8 +351,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
           if (active) setError(null);
         },
       });
-    setLoaded(false);
-    setRestoring(true);
+    // The old quote and error belong to the old cart: dropped at once, also while settling.
     setError(null);
     setQuote(null);
     setOrder(null);
@@ -272,7 +365,12 @@ function KaspiCheckoutSession(props: ScreenProps) {
         // An old intent that never became a known order: nothing was billed, nothing to send.
         await AsyncStorage.removeItem(key);
         pending.current = null;
-      } else if (draft && !(props.screenId === 'M19' && pendingPaymentDismissed(draft))) {
+      } else if (
+        draft &&
+        // «Заказы» and the cart (27.10.2026) do not reopen an intent the customer closed in this
+        // app run; the cart's pay button restores it first (submit), the checkout route at once.
+        !((props.screenId === 'M19' || props.screenId === 'M09') && pendingPaymentDismissed(draft))
+      ) {
         const existing = CustomerCommerceOrderSchema.parse(
           await prepareCheckout(() => recover(draft, controller.signal), controller.signal),
         );
@@ -305,6 +403,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
       if (props.screenId !== 'M19') {
         // Passive configuration only; price/admission checks belong to the explicit pay action.
         const setup = CustomerCheckoutConfigSchema.parse(await read('/config'));
+        if (active) noteCheckoutSwitch(customerId, setup.enabled);
         if (active && !controller.signal.aborted && !lock.current) setConfig(setup);
         return;
       }
@@ -315,18 +414,27 @@ function KaspiCheckoutSession(props: ScreenProps) {
       if (!active) return;
       setHistory(orders);
     };
-    void run()
-      .catch((e) => {
-        if (active && !controller.signal.aborted) setError(e);
-      })
-      .finally(() => {
-        if (active) {
-          setLoaded(true);
-          setRestoring(false);
-        }
-      });
+    const start = () => {
+      // The pay button (submit) aborts a re-read that has not started yet.
+      if (!active || controller.signal.aborted) return;
+      setLoaded(false);
+      setRestoring(true);
+      void run()
+        .catch((e) => {
+          if (active && !controller.signal.aborted) setError(e);
+        })
+        .finally(() => {
+          if (active) {
+            setLoaded(true);
+            setRestoring(false);
+          }
+        });
+    };
+    const timer = settle ? setTimeout(start, settle) : null;
+    if (!timer) start();
     return () => {
       active = false;
+      if (timer) clearTimeout(timer);
       controller.abort();
     };
   }, [
@@ -437,8 +545,24 @@ function KaspiCheckoutSession(props: ScreenProps) {
   }, [displayedCartTotal]);
   const submit = async () => {
     if (lock.current || !cart.current.length) return;
-    const acceptedTotal = quote?.totalMinor ?? localTotal;
+    // This session sends Kaspi invoices only; another active method never sends one. Until that
+    // method has its own flow, the press (or the slide) stops here with a visible message:
+    // nothing is created, quoted or sent.
+    if (payment.method !== 'kaspi') {
+      setMethodStop(true);
+      return;
+    }
+    setMethodStop(false);
     lock.current = true;
+    setBusy(true);
+    try {
+      await props.authorizeLegal();
+    } catch {
+      lock.current = false;
+      setBusy(false);
+      return;
+    }
+    const acceptedTotal = quote?.totalMinor ?? localTotal;
     bootstrap.current?.abort();
     const controller = new AbortController();
     preparation.current = controller;
@@ -498,6 +622,7 @@ function KaspiCheckoutSession(props: ScreenProps) {
         const value = CustomerCheckoutConfigSchema.parse(
           await request('/config', 'GET', undefined, controller.signal),
         );
+        noteCheckoutSwitch(customerId, value.enabled);
         if (!value.enabled) throw new CustomerSessionError('NOT_READY', 503, true);
         return value;
       });
@@ -566,10 +691,43 @@ function KaspiCheckoutSession(props: ScreenProps) {
       setLoaded(true);
     }
   };
+  // Slide to pay from the cart bar: the bar opens the cart with payment (M09, 27.10.2026; there
+  // is no separate checkout page). A fresh intent of this app process is taken once, after the
+  // saved intent is read, and equals one press of «Оплатить» below. Nothing else runs on its own:
+  // a holding intent, an order or a running command keeps the screen as it is, and any stop
+  // (consent, prices, comment, gift, stop list, network) waits for a new explicit press.
+  const slideIntent = useSlidePayIntent(props.screenId === 'M09' && !props.preview);
+  const submitRef = useRef(submit);
+  submitRef.current = submit;
+  useEffect(() => {
+    runSlidePayIntent(
+      slidePayIntents,
+      slideIntent,
+      {
+        restoring,
+        signedIn: !!customerId,
+        busy: lock.current,
+        saved: pending.current,
+        order: !!orderRef.current,
+        cartLines: cart.current.length,
+        blocked: !availability.canPay,
+        now: Date.now(),
+      },
+      () => void submitRef.current(),
+    );
+  }, [slideIntent, restoring, customerId]);
   const pay = useCallback(async () => {
     if (lock.current || !order) return;
     lock.current = true;
     setBusy(true);
+    try {
+      await props.authorizeLegal();
+    } catch {
+      lock.current = false;
+      setBusy(false);
+      setPaymentPaused(true);
+      return;
+    }
     setPaymentPaused(false);
     setError(null);
     const controller = new AbortController();
@@ -577,6 +735,8 @@ function KaspiCheckoutSession(props: ScreenProps) {
     const deadline = setTimeout(() => controller.abort('timeout'), 60_000);
     // Bounds "the bank may still answer" for this order even when it was created long ago.
     noteBankCommand(order.orderId, Date.now());
+    // The handle and «Способ оплаты» show the method of the last payment sent (item 6b).
+    rememberPaymentMethod(customerId, 'kaspi', 'payment');
     try {
       await accept(
         await prepareCheckout(
@@ -611,7 +771,16 @@ function KaspiCheckoutSession(props: ScreenProps) {
       lock.current = false;
       setBusy(false);
     }
-  }, [order, request, accept, refreshChangedMenu, key, props.model.refreshCatalog]);
+  }, [
+    order,
+    request,
+    accept,
+    refreshChangedMenu,
+    key,
+    props.model.refreshCatalog,
+    props.authorizeLegal,
+    customerId,
+  ]);
   useEffect(() => {
     // Explicit consent is persisted before order creation. Admission can arrive later.
     // Existing pre-consent drafts retain the manual action; no charge on a passive history visit.
@@ -654,6 +823,16 @@ function KaspiCheckoutSession(props: ScreenProps) {
     // The sheet lock is released in this render; close the sheet afterwards.
     if (leaving) props.goBack?.();
   }, [leaving]);
+  // The red banner says why paying is impossible right now (owner 28.10): an earlier refusal of
+  // the server (RESTAURANT_CLOSED after a phone clock a little behind at closing) is not shown
+  // under it with a «Попробовать снова» that does nothing, and does not come back when the
+  // restaurant opens (QA 28.10). Only the cart itself: an order on screen, a saved intent or a
+  // running command keep their failure for the payment guards.
+  useEffect(() => {
+    if (props.screenId === 'M19' || availability.canPay || !error) return;
+    if (orderRef.current || pending.current || lock.current) return;
+    setError(null);
+  }, [availability.canPay, error, props.screenId]);
   const total = quote ? quote.totalMinor : localTotal;
   // Keep the failure itself for payment/recovery guards; transient failures have no UI copy.
   const visibleError = error ? checkoutError(error) : '';
@@ -663,10 +842,33 @@ function KaspiCheckoutSession(props: ScreenProps) {
     !!config &&
     config.orderCommentEnabled !== true &&
     !!normalizedOrderComment(props.model.orderComment);
-  const footer =
-    props.screenId !== 'M19' && props.model.cart.length ? (
-      <>
+  // The cart is the checkout (27.10.2026): its footer carries the guards' notices and pays.
+  // Paying impossible right now (28.10.2026): a grey, disabled button with a short reason.
+  const unavailable = unavailableCart(availability);
+  const cartFooter = (blocked: boolean) => (
+    <CartPaymentFooter
+      totalMinor={total}
+      totalText={money(total)}
+      busy={busy}
+      disabled={busy || blocked || !availability.canPay}
+      unavailable={busy ? null : unavailable.label}
+      method={payment.method}
+      onPay={() => {
+        if (availability.canPay) void submit();
+      }}
+      notices={
         <>
+          {methodStop && payment.method !== 'kaspi' ? (
+            <View testID="cart-pay-method-stop" style={s.warning} accessibilityLiveRegion="polite">
+              <Body>{localize(t(PAYMENT_METHOD_NOT_CONNECTED))}</Body>
+              <Button
+                secondary
+                title={t('Выбрать Kaspi.kz')}
+                testID="cart-pay-method-kaspi"
+                onPress={() => payment.choose('kaspi')}
+              />
+            </View>
+          ) : null}
           {unsupportedComment ? (
             <View style={s.commentUnavailable}>
               <Caption>
@@ -679,41 +881,29 @@ function KaspiCheckoutSession(props: ScreenProps) {
               />
             </View>
           ) : null}
-          {priceNotice || props.model.catalogUpdateNotice ? (
-            <CatalogChangeNotice
-              message={priceNotice || props.model.catalogUpdateNotice!}
-              totals={props.model.cartChanges}
-            />
+          {/* The cart body already shows the menu update (with «Понятно»); the footer adds only
+              the quote's own price stop, never the same notice twice. */}
+          {priceNotice && priceNotice !== props.model.catalogUpdateNotice ? (
+            <CatalogChangeNotice message={priceNotice} totals={props.model.cartChanges} />
           ) : null}
         </>
-        <Row style={s.total}>
-          <Body style={s.totalLabel}>
-            {t('Итого')}
-            {localize(' ')}
-            <Caption>
-              · {localize(props.model.cart.reduce((n, line) => n + line.quantity, 0))}
-              {t('шт.')}
-            </Caption>
-          </Body>
-          <Body testID="kaspi-checkout-total" style={s.totalAmount}>
-            {localize(money(total))}
-          </Body>
-        </Row>
-        <CheckoutAction
-          testID="kaspi-checkout-submit"
-          title={localize(
-            busy ? t('Оформляем заказ…') : total === '0' ? t('Заказать подарок') : 'Оплатить через',
-          )}
-          kaspi={!busy && total !== '0'}
-          onPress={() => void submit()}
-          disabled={busy}
-        />
-      </>
-    ) : undefined;
+      }
+    />
+  );
+  // In the cart a stopped or failed payment returns to the cart view itself, not to a new sheet.
+  const backToCart = () => {
+    orderRef.current = null;
+    setOrder(null);
+    setQuote(null);
+    setError(null);
+    setLoaded(false);
+    setRefresh((c) => c + 1);
+  };
   if ((busy || connectionPaused || pending.current) && !order)
     return (
       <KaspiPaymentState
         canReturnToCheckout={!pending.current}
+        returnLabel={t('Вернуться в корзину')}
         onContinue={() => {}}
         onRetry={() => {}}
         onCart={() => {
@@ -742,15 +932,10 @@ function KaspiCheckoutSession(props: ScreenProps) {
         order={order}
         paid={paidMoment && paymentReceived(order.phase)}
         onContinue={() => setPaidMoment(false)}
-        onCart={() => props.navigate('M09')}
+        onCart={() => (props.screenId === 'M19' ? props.navigate('M09') : backToCart())}
         onRetry={() => {
           if (order.phase !== 'failed') return;
-          orderRef.current = null;
-          setOrder(null);
-          setQuote(null);
-          setError(null);
-          setLoaded(false);
-          setRefresh((c) => c + 1);
+          backToCart();
         }}
         extraAction={
           order.phase === 'ready_to_pay' && (!autoSends(order) || paymentPaused || !!error) ? (
@@ -830,7 +1015,12 @@ function KaspiCheckoutSession(props: ScreenProps) {
           }}
         />
       );
-    if (props.inSheet) return status(props);
+    // A repeated order in the cart sheet shows that cart, not a second cart sheet on top.
+    const sheetProps: ScreenProps =
+      props.screenId === 'M19'
+        ? props
+        : { ...props, navigate: (next) => (next === 'M09' ? backToCart() : props.navigate(next)) };
+    if (props.inSheet) return status(sheetProps);
     const close = () => {
       orderRef.current = null;
       setOrder(null);
@@ -849,36 +1039,9 @@ function KaspiCheckoutSession(props: ScreenProps) {
       </Modal>
     );
   }
-  return (
-    <Page
-      props={props}
-      title={localize(props.screenId === 'M19' ? 'Заказы' : 'Оформление')}
-      contentStyle={props.screenId === 'M19' ? ordersPageStyle.content : checkoutStyle.content}
-      footerStyle={checkoutStyle.footer}
-      footer={footer}
-      keyboardFooter={props.screenId === 'M12' ? <CheckoutKeyboardDone /> : undefined}
-      header={
-        props.screenId === 'M19' ? (
-          <OrdersHeader />
-        ) : (
-          <CheckoutSheetHeader
-            title={t('Оформление')}
-            testID="checkout-close"
-            onBack={props.goBack}
-            action={
-              !loaded ? (
-                <ActivityIndicator
-                  color={colors.accent}
-                  accessibilityLabel={t('Проверяем ваш заказ')}
-                />
-              ) : undefined
-            }
-            back
-          />
-        )
-      }
-    >
-      {visibleError && (props.screenId === 'M19' || !busy) ? (
+  const notices = (
+    <>
+      {visibleError && (props.screenId === 'M19' || (!busy && availability.canPay)) ? (
         <View style={s.warning} accessibilityLiveRegion="polite">
           <Body>{localize(visibleError)}</Body>
           <Button secondary title={t('Попробовать снова')} onPress={retry} />
@@ -889,76 +1052,57 @@ function KaspiCheckoutSession(props: ScreenProps) {
           <Body>{resumeNotice}</Body>
         </View>
       ) : null}
-      {props.screenId === 'M19' &&
-      (!loaded || (!!error && !visibleError && !historyNeedsRefresh && !history.length)) ? (
+    </>
+  );
+  if (props.screenId !== 'M19')
+    return (
+      <Cart
+        {...props}
+        checkout={{
+          restaurant: config?.restaurant,
+          banner: unavailable.banner,
+          notices,
+          comment:
+            config?.orderCommentEnabled !== false ? (
+              <CartOrderComment model={props.model} editable={!busy} />
+            ) : undefined,
+          footer: cartFooter,
+        }}
+      />
+    );
+  return (
+    <Page
+      props={props}
+      title={t('Заказы')}
+      contentStyle={ordersPageStyle.content}
+      header={<OrdersHeader />}
+    >
+      {notices}
+      {!loaded || (!!error && !visibleError && !historyNeedsRefresh && !history.length) ? (
         <View style={s.loading}>
           <ActivityIndicator color={colors.accent} />
           <Caption>{t('Проверяем ваш заказ')}</Caption>
         </View>
       ) : null}
-      {props.screenId === 'M19' && historyNeedsRefresh ? (
+      {historyNeedsRefresh ? (
         <Button title={t('Показать заказы')} secondary onPress={retry} />
       ) : null}
-      {props.screenId === 'M19' ? (
-        <>
-          {!history.length && loaded && !error ? (
-            <OrdersEmpty onMenu={() => props.navigate('M06')} />
-          ) : null}
-          <CommerceOrderList
-            orders={history}
-            products={props.model.products}
-            ratings={reviews.ratings}
-            onOpen={(item) => {
-              setInitialRating(undefined);
-              setOrder(item);
-            }}
-            onRate={(item, stars) => {
-              setInitialRating(stars);
-              setOrder(item);
-            }}
-          />
-        </>
-      ) : props.model.cart.length ? (
-        <CheckoutDetails
-          props={props}
-          commentEnabled={config?.orderCommentEnabled !== false}
-          commentEditable={!busy}
-          restaurantName={config?.restaurant}
-          details={
-            quote && quote.totalMinor !== localTotal ? (
-              <Caption>
-                {t('Сумма обновлена по меню ресторана. Проверьте её перед оплатой.')}
-              </Caption>
-            ) : undefined
-          }
-          paymentContent={
-            <>
-              <View style={checkoutStyle.paymentPanel}>
-                <Row style={{ minHeight: 64, padding: 14, gap: 12 }}>
-                  <PaymentMark method="kaspi" size={36} />
-                  <View style={s.flex}>
-                    <Body style={{ fontFamily: font.medium, fontSize: 15 }}>Kaspi.kz</Body>
-                    <Caption style={{ fontSize: 12, lineHeight: 18 }}>
-                      {t('Счёт придёт на {p0}', { p0: maskedPhone(auth.account?.phone) })}
-                    </Caption>
-                  </View>
-                  <Icon name="checkmark-circle" color={colors.accent} size={22} />
-                </Row>
-                <UpcomingPayments />
-              </View>
-              <Caption style={{ fontSize: 12, lineHeight: 18, marginHorizontal: 8 }}>
-                {t('Фискальный чек пока не выпускается - Webkassa подключается.')}
-              </Caption>
-            </>
-          }
-        />
-      ) : (
-        <Empty
-          title={t('В корзине пока пусто')}
-          detail={t('Выберите любимые блюда.')}
-          action={<Button title={t('В меню')} onPress={() => props.navigate('M06')} />}
-        />
-      )}
+      {!history.length && loaded && !error ? (
+        <OrdersEmpty onMenu={() => props.navigate('M06')} />
+      ) : null}
+      <CommerceOrderList
+        orders={history}
+        products={props.model.products}
+        ratings={reviews.ratings}
+        onOpen={(item) => {
+          setInitialRating(undefined);
+          setOrder(item);
+        }}
+        onRate={(item, stars) => {
+          setInitialRating(stars);
+          setOrder(item);
+        }}
+      />
     </Page>
   );
 }
@@ -966,10 +1110,6 @@ function KaspiCheckoutSession(props: ScreenProps) {
 const s = StyleSheet.create({
   commentUnavailable: { gap: 8, paddingVertical: 4 },
   savedComment: { gap: 4, padding: 14, borderRadius: 16, backgroundColor: colors.surface },
-  total: { justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, paddingVertical: 4 },
-  totalLabel: { fontFamily: font.heading, fontSize: 20, lineHeight: 28 },
-  totalAmount: { fontFamily: font.heading, fontSize: 24, lineHeight: 34 },
-  flex: { flex: 1, minWidth: 0, gap: 3 },
   card: { gap: 12, padding: 18, borderRadius: 22, backgroundColor: colors.surface },
   loading: { padding: 24, alignItems: 'center', gap: 12 },
   warning: { padding: 16, gap: 12, borderRadius: 18, backgroundColor: colors.warningSurface },

@@ -60,8 +60,10 @@ export default function Auth() {
       return;
     }
     Keyboard.dismiss();
+    // Kaspi build: sign-in from the cart's pay button returns to that cart (no automatic pay).
+    if (destination === 'M09') return router.dismissTo('/cart');
     if (destination === 'M12') router.dismissTo('/checkout');
-    else if (destination === 'M30') router.dismissTo('/(tabs)/profile');
+    else if (destination === 'M30') router.dismissTo('/profile');
     else if (destination === 'M26') router.dismissTo('/(tabs)/events');
     else if (destination === 'M19') router.dismissTo('/(tabs)/orders');
     else if (destination === 'pick-man') router.dismissTo('/games/pick-man');

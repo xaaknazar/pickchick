@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "build": "24",
+  "integrationSource": "add183c52f36ee3063fa7f4fc3a5bfd9dc2769cc",
+  "sharedBase": "21d2b886fa215f39a02ff673f2879879374d5b2b",
+  "tests": {
+    "status": "skipped-by-owner",
+    "decision": "выпускай без проверок",
+    "date": "2026-10-28"
+  },
+  "physicalAcceptance": {
+    "status": "not-performed",
+    "reason": "owner has no device available"
+  },
+  "availability": {
+    "at": "2026-10-28T04:42:15.748999+00:00",
+    "httpStatus": 200,
+    "hours": {
+      "openingTime": "10:00",
+      "closingTime": "00:00",
+      "timeZone": "Asia/Almaty"
+    },
+    "orderingOpen": false,
+    "fresh": false,
+    "enabled": true
+  },
+  "archiveStatus": "pending",
+  "deliveryStatus": "pending",
+  "appReview24": "not-authorized",
+  "serverDeployment": "not-authorized",
+  "campaignEnablement": "not-authorized"
+}

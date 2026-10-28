@@ -306,7 +306,13 @@ jobs:
           .local/design-venv/bin/python tests/mobile/browser_customer_account.py
           # Isolated Kaspi checkout fixture: no bank, no real customer or VPS requests.
           EXPO_PUBLIC_CUSTOMER_AUTH=server EXPO_PUBLIC_KASPI_CHECKOUT=1 EXPO_PUBLIC_UNPAID_TEST_ORDERS=1 EXPO_PUBLIC_PUBLISHED_CATALOG=0 pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/customer-auth-web
+          MOBILE_REVIEW_DEMO_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_review_demo.py
+          CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_checkout_legal.py
           .local/design-venv/bin/python tests/mobile/browser_kaspi_checkout.py
+          # Cart bar slide to pay: one-shot intent through the same guarded checkout.
+          CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_slide_to_pay.py
+          # Owner 28.10.2026: closed / payment impossible = no handle, red reason in the cart, zero orders.
+          CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_cart_unavailable.py
           # Audit 19.10 (0.2/2.0, 2.1, 2.4, 2.5): the Kaspi checkout never traps the customer.
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_checkout_traps.py
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_combo_rewards.py
@@ -314,6 +320,8 @@ jobs:
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 ORDERS_VIEWPORT=320x568 .local/design-venv/bin/python tests/mobile/browser_orders_redesign.py kaspi
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 TRACKER_MODE=kaspi .local/design-venv/bin/python tests/mobile/browser_tracker_redesign.py
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_localization.py
+          # Owner 27.10.2026: the Kaspi cart is the checkout (top bar, pill, selector, one press = one invoice).
+          CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_cart_page.py
       - name: Stop test infrastructure
         if: always()
         run: docker compose --env-file .env.example -f infra/local/compose.yaml down
@@ -347,7 +355,8 @@ jobs:
   kiosk:
     name: iPad kiosk state, bundles and browser recovery
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # Browser dependency downloads can take 9 minutes; retain time for all regressions.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:

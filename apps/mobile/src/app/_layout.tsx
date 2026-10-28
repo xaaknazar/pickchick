@@ -95,6 +95,8 @@ function AppLayout() {
                       contentStyle: { backgroundColor: 'transparent' },
                     }}
                   />
+                  {/* Profile is a pushed screen above the tabs: back chevron and swipe back. */}
+                  <Stack.Screen name="profile" options={{ gestureEnabled: true }} />
                   <Stack.Screen name="games/pick-blocks" options={ARCADE_SCREEN_OPTIONS} />
                   <Stack.Screen name="games/pick-man" options={ARCADE_SCREEN_OPTIONS} />
                   <Stack.Screen name="games/magic-sort" options={ARCADE_SCREEN_OPTIONS} />

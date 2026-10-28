@@ -1,0 +1,42 @@
+{
+  "codesign_verified": true,
+  "push_entitlement": "production",
+  "ipa_bytes": 130555208,
+  "ipa_sha256": "286c14cf2d50f12d2190355c28e454edf86e8cb491aa6e07a1d7cf6b2f8f15e6",
+  "native_js_sha256": "b49ee10e0375abc43b49f5319953386132fdc8f7ff65a9b964a5c4a9dc31094a",
+  "source_sha": "b71d55916100b6ef8688635d190c56326add5440",
+  "embedded_js_profile": {
+    "server_auth": true,
+    "kaspi": true,
+    "simulator_off": true,
+    "unpaid_test_off": true,
+    "farm_off": true,
+    "published_catalog": true
+  },
+  "hermes_exact_match": true,
+  "simulator": {
+    "version": "0.2.0",
+    "build": "22",
+    "release_build": true,
+    "installed": true,
+    "launched_menu": true,
+    "home_icon_verified": true,
+    "screenshots": {
+      "build22-menu.jpg": "dfa7be9cceea26e465999a5088fb232578109c866e93957e925b4680cdaddf25",
+      "build22-home.jpg": "fd002fd8873cf9364d50305706e21946162cea71bdc092fd7d090b985ebdb188"
+    }
+  },
+  "upload": {
+    "completed": true,
+    "app_store_connect_app_id": "6809208492",
+    "dsym_warnings": 8,
+    "apple_processing_confirmed": true,
+    "internal_group_available": true,
+    "group": "PickChick Internal",
+    "testers": 2,
+    "apple_status": "Testing",
+    "verified_at": "2026-10-22T14:45:29+05:00",
+    "build_url": "https://appstoreconnect.apple.com/teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/apps/6809208492/testflight/ios/980cccfc-89f9-45d0-9fe1-97dbfbe65888",
+    "confirmation_screenshot_sha256": "daeda9b362df58eca1a51e6a1d9b6f9b5939dda770d4ad3f391e5a0af3025f77"
+  }
+}

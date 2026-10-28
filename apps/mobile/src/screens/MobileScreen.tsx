@@ -1,5 +1,5 @@
 import { kaspiCheckoutEnabled } from '../commerce-checkout';
-import { KaspiCheckoutScreen } from './KaspiCheckoutScreen';
+import { KaspiCart, KaspiCheckoutScreen } from './KaspiCheckoutScreen';
 import { OrderStatusPreview } from './OrderStatusPreview';
 import { CompletedOrderPreview } from './CompletedOrderPreview';
 import { ConnectedFeedback } from './ConnectedFeedback';
@@ -7,6 +7,7 @@ import { connectedTestOrdersEnabled } from '../order-simulator';
 import type { ScreenProps } from '../model';
 import { requiresAccount } from '../account-access';
 import { AccountGate } from '../components/AccountGate';
+import { AppHeaderContext } from '../components/AppHeader';
 import { ConnectedCheckout, ConnectedHistory, ConnectedOrder } from './ConnectedOrderScreens';
 import {
   Branches,
@@ -47,17 +48,25 @@ import {
 
 /** Native counterparts of the canonical design catalog M01-M35. */
 export function MobileScreen(props: ScreenProps) {
-  return requiresAccount(props.screenId, props.preview) ? (
-    <AccountGate destination={props.screenId}>
-      <ScreenContent {...props} />
-    </AccountGate>
-  ) : (
-    <ScreenContent {...props} />
+  // The shared top header (AppHeader) reads model and navigation of the current screen.
+  return (
+    <AppHeaderContext.Provider value={props}>
+      {requiresAccount(props.screenId, props.preview) ? (
+        <AccountGate destination={props.screenId}>
+          <ScreenContent {...props} />
+        </AccountGate>
+      ) : (
+        <ScreenContent {...props} />
+      )}
+    </AppHeaderContext.Provider>
   );
 }
 
 function ScreenContent(props: ScreenProps) {
   if (props.preview && props.screenId === 'M20') return <CompletedOrderPreview {...props} />;
+  // Kaspi build (27.10.2026): the cart is the checkout; /checkout shows the same cart.
+  if (!props.preview && kaspiCheckoutEnabled && props.screenId === 'M09')
+    return <KaspiCart {...props} key="M09" />;
   if (props.preview && ['M17', 'M18'].includes(props.screenId))
     return <OrderStatusPreview {...props} />;
   if (

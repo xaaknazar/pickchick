@@ -12,7 +12,8 @@ import { usePublishedActiveOrderCount } from '../../active-orders';
 import { activeOrderCount, testActiveKind } from '../../orders-tab';
 
 // Floating capsule bar (Luma pattern, owner request 2026-10-11). Screens scroll under it
-// and reserve its height through TabBarInsetContext.
+// and reserve its height through TabBarInsetContext. Owner 27.10.2026: exactly three tabs;
+// the profile opens from the top header (components/AppHeader) as the /profile stack screen.
 export default function TabLayout() {
   useLocale();
   const insets = useSafeAreaInsets();
@@ -75,14 +76,6 @@ export default function TabLayout() {
             title: t('Заказы'),
             tabBarButtonTestID: 'tab-orders',
             tabBarBadge: activeOrders > 0 ? activeOrders : undefined,
-          }}
-        />
-        <Tabs.Screen
-          name="profile"
-          listeners={gate('M30')}
-          options={{
-            title: t('Профиль'),
-            tabBarButtonTestID: 'tab-profile',
           }}
         />
       </Tabs>

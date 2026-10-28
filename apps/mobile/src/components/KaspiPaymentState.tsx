@@ -35,6 +35,7 @@ export function KaspiPaymentState({
   notice,
   extraAction,
   canReturnToCheckout = true,
+  returnLabel = 'Вернуться к оформлению',
   onClose,
   closeLabel = 'Закрыть',
   closeDelayMs = null,
@@ -48,6 +49,8 @@ export function KaspiPaymentState({
   notice?: React.ReactNode;
   extraAction?: React.ReactNode;
   canReturnToCheckout?: boolean;
+  /** The Kaspi cart is the checkout (27.10.2026): «Вернуться в корзину». */
+  returnLabel?: string;
   /** Leaves this screen without touching the order or the bank (audit 0.2 / 2.0 / 2.4). */
   onClose?: () => void;
   closeLabel?: string;
@@ -71,8 +74,16 @@ export function KaspiPaymentState({
   }, [closable, closeDelayMs, order?.orderId, order?.phase]);
   const reduced = useReducedMotion();
   const tabBarInset = useTabBarInset();
-  const { height } = useWindowDimensions();
+  const { height, fontScale } = useWindowDimensions();
   const compact = height < 700;
+  // 320 x 568 class screens (QA 27.10, items 11/16): a smaller title, scene and gaps, so the
+  // amount line, the spinner and the countdown fit above the pinned buttons. Taller screens
+  // (393 x 852) keep their look.
+  const tight = height < 620;
+  // Large text on a small screen: the words come first and the scene follows them, so the
+  // amount is never pushed below the fold; the content scrolls above the buttons.
+  const textFirst = compact && (fontScale || 1) > 1.2;
+  const button = [s.button, tight && s.tightButton];
   const [foreground, setForeground] = useState(AppState.currentState !== 'background');
   const [openError, setOpenError] = useState(false);
   const [cancelHelp, setCancelHelp] = useState(false);
@@ -129,6 +140,82 @@ export function KaspiPaymentState({
       pulse.setValue(0);
     };
   }, [reduced, foreground, paid, failed, pulse]);
+  const scene =
+    height >= 500 && !showCancelHelp ? (
+      <View
+        style={[
+          s.visual,
+          (paid || failed) && s.resultVisual,
+          compact && s.compactVisual,
+          tight && s.tightVisual,
+        ]}
+        accessible={false}
+      >
+        <View style={[s.scene, compact && s.compactScene, tight && s.tightScene]}>
+          {paid || failed ? (
+            <View style={[s.resultMark, paid ? s.success : s.failure]}>
+              <Icon
+                name={paid ? 'checkmark' : 'alert'}
+                size={64}
+                color={paid ? '#FFFFFF' : colors.accent}
+              />
+            </View>
+          ) : (
+            <>
+              <Animated.View
+                style={[
+                  s.glow,
+                  {
+                    opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0.8] }),
+                    transform: [
+                      {
+                        scale: pulse.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.9, 1.05],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              />
+              <Animated.View
+                style={[
+                  s.ring,
+                  {
+                    opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.25, 0] }),
+                    transform: [
+                      {
+                        scale: pulse.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.85, 1.18],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              />
+              <Animated.View
+                style={{
+                  transform: [
+                    {
+                      translateY: pulse.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, -7],
+                      }),
+                    },
+                  ],
+                }}
+              >
+                <Image source={assets.pickManChick} contentFit="contain" style={s.hero} />
+              </Animated.View>
+              <View style={s.kaspiBadge}>
+                <PaymentMark method="kaspi" size={56} />
+              </View>
+            </>
+          )}
+        </View>
+      </View>
+    ) : null;
   return (
     <View
       style={s.root}
@@ -142,10 +229,14 @@ export function KaspiPaymentState({
               : 'kaspi-waiting'
       }
     >
-      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        testID="kaspi-state-scroll"
+        contentContainerStyle={[s.content, tight && s.tightContent]}
+        showsVerticalScrollIndicator={false}
+      >
         {notice}
         {!paid && !failed ? (
-          <Heading style={s.title}>
+          <Heading style={[s.title, tight && s.tightTitle]}>
             {localize(
               showCancelHelp
                 ? 'Отмена в Kaspi.kz'
@@ -157,81 +248,18 @@ export function KaspiPaymentState({
             )}
           </Heading>
         ) : null}
-        {height >= 500 && !showCancelHelp ? (
-          <View
-            style={[s.visual, (paid || failed) && s.resultVisual, compact && s.compactVisual]}
-            accessible={false}
-          >
-            <View style={[s.scene, compact && s.compactScene]}>
-              {paid || failed ? (
-                <View style={[s.resultMark, paid ? s.success : s.failure]}>
-                  <Icon
-                    name={paid ? 'checkmark' : 'alert'}
-                    size={64}
-                    color={paid ? '#FFFFFF' : colors.accent}
-                  />
-                </View>
-              ) : (
-                <>
-                  <Animated.View
-                    style={[
-                      s.glow,
-                      {
-                        opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0.8] }),
-                        transform: [
-                          {
-                            scale: pulse.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [0.9, 1.05],
-                            }),
-                          },
-                        ],
-                      },
-                    ]}
-                  />
-                  <Animated.View
-                    style={[
-                      s.ring,
-                      {
-                        opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.25, 0] }),
-                        transform: [
-                          {
-                            scale: pulse.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [0.85, 1.18],
-                            }),
-                          },
-                        ],
-                      },
-                    ]}
-                  />
-                  <Animated.View
-                    style={{
-                      transform: [
-                        {
-                          translateY: pulse.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0, -7],
-                          }),
-                        },
-                      ],
-                    }}
-                  >
-                    <Image source={assets.pickManChick} contentFit="contain" style={s.hero} />
-                  </Animated.View>
-                  <View style={s.kaspiBadge}>
-                    <PaymentMark method="kaspi" size={56} />
-                  </View>
-                </>
-              )}
-            </View>
-          </View>
-        ) : null}
+        {textFirst ? null : scene}
         {paid || failed ? (
-          <Heading style={s.title}>{localize(paid ? 'Оплачено' : 'Счёт не оплачен')}</Heading>
+          <Heading style={[s.title, tight && s.tightTitle]}>
+            {localize(paid ? 'Оплачено' : 'Счёт не оплачен')}
+          </Heading>
         ) : null}
         {!paid && !failed && !showCancelHelp && phase !== 'attention' ? (
-          <ActivityIndicator color={colors.accent} style={{ marginBottom: 14 }} />
+          <ActivityIndicator
+            testID="kaspi-state-spinner"
+            color={colors.accent}
+            style={tight ? s.tightSpinner : s.spinner}
+          />
         ) : null}
         {showCancelHelp ? (
           <View testID="kaspi-cancel-help" style={s.cancelHelp} accessibilityLiveRegion="polite">
@@ -245,7 +273,11 @@ export function KaspiPaymentState({
             </Caption>
           </View>
         ) : (
-          <Caption style={s.detail} accessibilityLiveRegion="polite">
+          <Caption
+            testID="kaspi-state-detail"
+            style={[s.detail, tight && s.tightDetail]}
+            accessibilityLiveRegion="polite"
+          >
             {localize(
               paid
                 ? `${money(order?.totalMinor ?? '0')} · Kaspi`
@@ -261,7 +293,7 @@ export function KaspiPaymentState({
         )}
         {waiting && remaining !== null && remaining > 0 ? (
           <View
-            style={s.deadline}
+            style={[s.deadline, tight && s.tightDeadline]}
             testID="kaspi-invoice-countdown"
             accessibilityLabel={localize(
               t('Осталось оплатить за {p0} минут {p1} секунд', {
@@ -271,12 +303,13 @@ export function KaspiPaymentState({
             )}
           >
             <Caption style={s.small}>{t('На оплату осталось')}</Caption>
-            <Body style={s.deadlineTime}>
+            <Body style={[s.deadlineTime, tight && s.tightDeadlineTime]}>
               {localize(Math.floor(remaining / 60))}:
               {localize(String(remaining % 60).padStart(2, '0'))}
             </Body>
           </View>
         ) : null}
+        {textFirst ? scene : null}
         {paid ? (
           <View style={s.orderCard}>
             <View style={s.orderColumn}>
@@ -315,7 +348,7 @@ export function KaspiPaymentState({
               title={t('Следить за заказом')}
               testID="kaspi-track-order"
               onPress={onContinue}
-              style={s.button}
+              style={button}
             />
           </>
         ) : failed ? (
@@ -324,26 +357,21 @@ export function KaspiPaymentState({
               title={t('Оплатить ещё раз')}
               testID="kaspi-retry-payment"
               onPress={onRetry}
-              style={s.button}
+              style={button}
             />
-            <Button title={t('Вернуться в корзину')} secondary onPress={onCart} style={s.button} />
+            <Button title={t('Вернуться в корзину')} secondary onPress={onCart} style={button} />
           </>
         ) : (
           <>
             {extraAction}
             {!order && canReturnToCheckout ? (
-              <Button
-                title={t('Вернуться к оформлению')}
-                secondary
-                onPress={onCart}
-                style={s.button}
-              />
+              <Button title={localize(returnLabel)} secondary onPress={onCart} style={button} />
             ) : null}
             {!deadlineReached && (waiting || phase === 'checking') ? (
               <Button
                 title={t('Открыть Kaspi.kz')}
                 testID="kaspi-open-app"
-                style={s.button}
+                style={button}
                 onPress={openKaspi}
               />
             ) : null}
@@ -352,19 +380,19 @@ export function KaspiPaymentState({
                 title={localize(showCancelHelp ? 'Вернуться к оплате' : 'Отменить в Kaspi')}
                 testID="kaspi-cancel-instructions"
                 secondary
-                style={s.button}
+                style={button}
                 onPress={() => setCancelHelp((value) => !value)}
               />
             ) : null}
             {support || phase === 'attention' || (closeReady && closeDelayMs !== 0) ? (
-              <SupportContact buttonStyle={s.button} textStyle={s.small} />
+              <SupportContact buttonStyle={button} textStyle={s.small} />
             ) : null}
             {closeReady ? (
               <Button
                 title={closeLabel}
                 testID="kaspi-close-order"
                 secondary
-                style={s.button}
+                style={button}
                 onPress={onClose}
               />
             ) : null}
@@ -471,4 +499,15 @@ const s = StyleSheet.create({
   number: { color: colors.accent, fontFamily: font.heading, fontSize: 26, lineHeight: 34 },
   mode: { fontFamily: font.heading, fontSize: 18, lineHeight: 26 },
   button: { borderRadius: 28, minHeight: 56 },
+  spinner: { marginBottom: 14 },
+  // 320 x 568 class screens (height < 620).
+  tightContent: { paddingVertical: 12 },
+  tightTitle: { fontSize: 24, lineHeight: 30, letterSpacing: -0.3 },
+  tightVisual: { height: 104, marginVertical: 6 },
+  tightScene: { transform: [{ scale: 0.36 }] },
+  tightSpinner: { marginBottom: 4 },
+  tightDetail: { marginTop: 4, fontSize: 14, lineHeight: 20 },
+  tightDeadline: { marginTop: 8, gap: 0 },
+  tightDeadlineTime: { fontSize: 20, lineHeight: 26 },
+  tightButton: { minHeight: 48 },
 });

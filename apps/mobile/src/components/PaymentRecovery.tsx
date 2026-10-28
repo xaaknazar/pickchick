@@ -32,6 +32,8 @@ export function PaymentRecovery() {
       !customerId ||
       params.preview === '1' ||
       path === '/checkout' ||
+      // The Kaspi cart is the checkout (27.10.2026) and restores its own intent.
+      path === '/cart' ||
       path === '/auth'
     )
       return;

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-26",
+  "updatedAt": "2026-10-28",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -4788,8 +4788,8 @@
     {
       "id": "mobile-combo-rewards",
       "workstream": "loyalty",
-      "title": "Комбо 7 + 1: отметки, подарок и возвраты",
-      "summary": "По решению владельца любое оплаченное комбо даёт отметку, подарок - Pick Combo. Подготовлены PostgreSQL-журнал, профиль, корзина, защита от повторного погашения и пересчёт после подтверждённого возврата. Проверены 12 новых PostgreSQL-сценариев и интерфейс 393×852/320×568. На сервере и iPhone пока не включено. 21.10 схема 060 установлена; флаг выключен, программа акции и начисления не созданы.",
+      "title": "Комбо 6 + 1: отметки, подарок и возвраты",
+      "summary": "По решению владельца любое оплаченное комбо даёт отметку, подарок - Pick Combo. Подготовлены PostgreSQL-журнал, профиль, корзина, защита от повторного погашения и пересчёт после подтверждённого возврата. Проверены 12 новых PostgreSQL-сценариев и интерфейс 393×852/320×568. На сервере и iPhone пока не включено. 21.10 схема 060 установлена; флаг выключен, программа акции и начисления не созданы. 28.10 исходники переведены на 6 оплаченных + 7-е в подарок. Повторные проверки новой интеграции пропущены по решению владельца. Серверный выпуск и включение акции не выполнены.",
       "status": "active",
       "owner": "development",
       "phase": "integration",
@@ -4806,6 +4806,10 @@
         {
           "label": "Cloud 068: резервная копия, восстановление и протокол выпуска",
           "path": "docs/operations/deployments/2026-10-21-cloud-migrations.md"
+        },
+        {
+          "label": "Редизайн и порядок выпуска 6 + 1",
+          "path": "docs/operations/mobile-redesign-2026-10-27/release24.md"
         }
       ],
       "acceptance": [
@@ -4817,7 +4821,7 @@
       "nextAction": "После приёмки финансового изменения выпустить API и совместимый FulfillmentWorker, затем iOS. Только отдельным решением запустить акцию и зафиксировать starts_at, без прошлых покупок; физическая приёмка и допустимый фискальный режим остаются.",
       "checks": {
         "implemented": true,
-        "verified": true,
+        "verified": false,
         "deployed": false,
         "accepted": false
       }
@@ -5014,6 +5018,74 @@
         "implemented": true,
         "verified": true,
         "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-appstore-1022",
+      "workstream": "mobile",
+      "title": "Оформить карточку App Store и доступ Apple",
+      "summary": "PickChick отправлен на App Review22.10 в18:20 Алматы: карточка1.0, бинарник0.2.0(23), заявка99775be3-3644-4d17-8e4f-ab4dfe3e53ca, статус Ожидание проверки. Права на контент подтверждены владельцем. TestFlight23 доступна PickChick Internal2. Legal/API c3a0 опубликованы после CI11/11 и backup/restore; review-вход и демонстрация проверены. Реальных платежей нет. Публичный выпуск остаётся ручным, приложение ещё не опубликовано.",
+      "status": "active",
+      "owner": "development",
+      "phase": "product",
+      "dependsOn": ["mobile-testflight21"],
+      "evidence": [
+        {
+          "label": "Карточка, вход, ограничения и протокол",
+          "path": "docs/operations/mobile-appstore-2026-10-22/README.md"
+        },
+        {
+          "label": "Нативная иконка и сборка22",
+          "path": "docs/operations/mobile-appstore-2026-10-22/build22.md"
+        },
+        {
+          "label": "История согласования юридических текстов",
+          "path": "docs/operations/mobile-appstore-2026-10-22/legal-text-alignment.md"
+        },
+        {
+          "label": "Новые условия, согласия и демонстрация",
+          "path": "docs/operations/mobile-appstore-2026-10-22/legal-and-review-demo.md"
+        },
+        {
+          "label": "Фактический выпуск23, legal/API и статус Apple",
+          "path": "docs/operations/mobile-appstore-2026-10-22/build23.md"
+        }
+      ],
+      "acceptance": [
+        "Карточка, реальные скриншоты и сведения о данных проверены.",
+        "Проверяющий Apple входит без внешней доставки кода; реальные платежи недоступны этому аккаунту.",
+        "Полный сценарий проверки и окончательный бинарник отдельно приняты до отправки."
+      ],
+      "nextAction": "Дождаться решения Apple; при замечаниях исправить конкретные требования. После одобрения завершить ручной публичный выпуск по решению владельца. Онлайн-пульт пока прежний.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-redesign-1027",
+      "workstream": "launch",
+      "title": "Редизайн мобильного приложения и TestFlight 24",
+      "summary": "Шапка, профиль, три вкладки, свайп корзины, закрытый ресторан и Liquid Glass интегрированы. Владелец разрешил выпуск без дополнительных проверок; устройства нет. Доставка пока не подтверждена.",
+      "status": "active",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": [],
+      "evidence": [
+        {
+          "label": "Протокол TestFlight 24",
+          "path": "docs/operations/mobile-redesign-2026-10-27/release24.md"
+        }
+      ],
+      "acceptance": ["Владелец принимает интерфейс на физическом iPhone после TestFlight."],
+      "nextAction": "Собрать и доставить TestFlight 24. App Review и VPS только по отдельному решению.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": false,
         "accepted": false
       }
     }

@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
   type ImageSourcePropType,
   type LayoutChangeEvent,
   type StyleProp,
@@ -33,7 +34,8 @@ import {
 import { colors, font } from '../theme';
 import { MotionPressable } from './Motion';
 import { ProductPhoto, productPhoto } from './ProductPhoto';
-import { Button, Icon, Logo } from './UI';
+import { AppHeader } from './AppHeader';
+import { Button, Icon } from './UI';
 
 /** Orders-tab colours from the approved brief (2026-10-12) that the theme does not name yet. */
 export const ordersPalette = {
@@ -54,14 +56,28 @@ const chefScenes: Record<OrderScene, number> = {
   'ready-takeaway': require('../../assets/order-status/chef-ready-takeaway.png'),
 };
 
+/** Short phones (iPhone SE class): the shared header leaves less room for the tab content. */
+const compactHeight = 700;
+
 export function OrdersHeader() {
   useLocale();
+  const { height } = useWindowDimensions();
+  const compact = height < compactHeight;
+  // Owner 27.10.2026: the shared top header (logo, restaurant, profile) above the tab title.
+  // Page already pads the safe area; the logo now lives in the header row, which keeps the
+  // same gutter and width on every tab, so the profile button does not shift between tabs.
   return (
-    <View style={s.header}>
-      <Text accessibilityRole="header" style={s.title} testID="orders-title">
-        {t('Заказы')}
-      </Text>
-      <Logo size={40} />
+    <View>
+      <AppHeader safeArea={false} />
+      <View style={[s.header, compact && s.headerCompact]}>
+        <Text
+          accessibilityRole="header"
+          style={[s.title, compact && s.titleCompact]}
+          testID="orders-title"
+        >
+          {t('Заказы')}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -645,7 +661,10 @@ export function OrdersEmpty({ onMenu }: { onMenu(): void }) {
   useLocale();
   const [width, setWidth] = useState(0);
   const onLayout = (event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width);
-  const art = Math.min(192, Math.max(132, width * 0.55 || 192));
+  // Short phones: a smaller chef and title keep «Открыть меню» above the tab bar on first view
+  // under the shared header (27.10.2026).
+  const compact = useWindowDimensions().height < compactHeight;
+  const art = Math.min(compact ? 120 : 192, Math.max(compact ? 96 : 132, width * 0.55 || 192));
   return (
     <View style={s.empty} testID="orders-empty" onLayout={onLayout}>
       <View
@@ -672,7 +691,7 @@ export function OrdersEmpty({ onMenu }: { onMenu(): void }) {
           testID="orders-empty-chef"
         />
       </View>
-      <Text accessibilityRole="header" style={s.emptyTitle}>
+      <Text accessibilityRole="header" style={[s.emptyTitle, compact && s.emptyTitleCompact]}>
         {t('Фритюр уже горячий')}
       </Text>
       <Text style={s.emptyDetail}>
@@ -682,7 +701,7 @@ export function OrdersEmpty({ onMenu }: { onMenu(): void }) {
         title={t('Открыть меню')}
         testID="orders-open-menu"
         onPress={onMenu}
-        style={s.emptyButton}
+        style={[s.emptyButton, compact && s.emptyButtonCompact]}
         textStyle={s.emptyButtonText}
       />
       <View style={s.steps}>
@@ -718,9 +737,10 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
+    paddingTop: 2,
+    paddingBottom: 12,
   },
+  headerCompact: { paddingBottom: 8 },
   title: {
     flex: 1,
     fontFamily: font.display,
@@ -729,6 +749,7 @@ const s = StyleSheet.create({
     letterSpacing: -0.4,
     color: colors.text,
   },
+  titleCompact: { fontSize: 28, lineHeight: 34 },
   sectionLabel: {
     fontFamily: font.bold,
     fontSize: 12,
@@ -932,6 +953,7 @@ const s = StyleSheet.create({
     color: colors.text,
     textAlign: 'center',
   },
+  emptyTitleCompact: { marginTop: 12, fontSize: 24, lineHeight: 30 },
   emptyDetail: {
     marginTop: 10,
     maxWidth: 340,
@@ -942,6 +964,7 @@ const s = StyleSheet.create({
     textAlign: 'center',
   },
   emptyButton: { alignSelf: 'stretch', marginTop: 24, minHeight: 54, borderRadius: 18 },
+  emptyButtonCompact: { marginTop: 18 },
   emptyButtonText: { fontFamily: font.bold, fontSize: 17, lineHeight: 24 },
   steps: { alignSelf: 'stretch', flexDirection: 'row', gap: 8, marginTop: 28 },
   step: {
