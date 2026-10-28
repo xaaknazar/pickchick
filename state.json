@@ -6522,8 +6522,8 @@
       "id": "mobile-redesign-1027",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-header-cart-1027",
-      "head": "17b7356bd5ff0cf4bdbea516c91e1b47b4ffc029",
-      "status": "active",
+      "head": "3197f805ed53f78362ab4b0ee5ab7a19d7978c98",
+      "status": "done",
       "scopes": [
         ".github/workflows/ci.yml",
         "apps/backoffice/src/operations.ts",
@@ -6656,8 +6656,9 @@
         "@release/ios",
         "@apple/appstore"
       ],
-      "updatedAt": "2026-10-28T04:45:23.034Z",
-      "summary": "Owner authorized TestFlight24 release and later explicitly waived additional checks. PR282 merged; native archive in progress. App Review, VPS and campaign remain outside authorization."
+      "updatedAt": "2026-10-28T05:24:22.192Z",
+      "summary": "PR282 and PR283 merged. Mobile 0.2.0(24) from 17b7356b built/signed/exported/uploaded; Apple processed and assigned to PickChick Internal (2 testers), notes saved. Owner explicitly waived additional tests; no physical device. Hours GET confirmed; no financial mutations or server changes.",
+      "nextAction": "Owner reviews TestFlight24. App Review24, API6+1 deployment and campaign activation each require separate authorization. Online roadmap not deployed; CI was not awaited under owner waiver."
     }
   ]
 }
