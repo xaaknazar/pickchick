@@ -6696,6 +6696,24 @@
       "updatedAt": "2026-10-28T05:49:52.313Z",
       "summary": "PR284 merged into shared at 2611d307: four mobile fixes; 490 Node + 59 Python, browser cart and swipe A-N, iOS 26.5 Simulator Release PASS. Evidence d99c183a. Full Foundation CI pending; no TestFlight or VPS release.",
       "nextAction": "Review full CI before the next TestFlight; physical iPhone acceptance remains pending."
+    },
+    {
+      "id": "mobile-build25",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-build25",
+      "scopes": [
+        "apps/mobile/app.json",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/operations/mobile-testflight25.md",
+        "docs/operations/mobile-testflight25-evidence.json",
+        "@release/ios",
+        "@apple/appstore"
+      ],
+      "status": "active",
+      "head": "2611d3076441ebee4d5e84e09445b1f93f6fe717",
+      "updatedAt": "2026-10-28T05:51:51.521Z"
     }
   ]
 }
