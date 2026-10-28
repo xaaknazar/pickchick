@@ -6230,7 +6230,6 @@
       "branch": "codex/mobile-appstore-1022",
       "scopes": [
         "docs/operations/mobile-appstore-2026-10-22",
-        "@apple/appstore",
         "@vps/api",
         "@vps/roadmap",
         "@vps/public-https",
@@ -6263,7 +6262,7 @@
       "status": "available",
       "head": "82ddc32651fa574172fe6015d959e2b7689a5efc",
       "updatedAt": "2026-10-28T04:45:23.016Z",
-      "summary": "App Review submitted22Oct2026 18:20 Almaty; Apple Waiting for Review, submission99775be3-3644-4d17-8e4f-ab4dfe3e53ca, iOS1.0 binary0.2.0(23). Owner confirmed content rights. Protocol82ddc326 pushed. Internal TestFlight23 Testing. Public release still manual. Owner approved temporary transfer to stage2-1024 on 2026-10-25: .github/workflows/ci.yml, docs/collaboration/handoff.md, docs/project-status.md, docs/roadmap/project.json, packages/contracts/openapi.json, scripts/contracts.mjs. Other scopes and task preserved. 26.10.2026: владелец явно разрешил временную передачу pnpm-workspace.yaml и pnpm-lock.yaml задаче stage2-1024 для исправления security CI PR277. Остальные резервы и задача сохранены. 27.10.2026 владелец прямо разрешил временную передачу @release/ios в kiosk-apple-demo только для локальной сборки киоска, без загрузки Apple и установки iPad. 28.10.2026: по прямому разрешению владельца необходимые пересечения переданы mobile-redesign-1027: apps/mobile/app.json, apps/mobile/package.json, apps/mobile/src/app/demo-order.tsx, apps/mobile/src/screens/ReviewDemoScreen.tsx, apps/mobile/src/i18n/messages.json, tests/mobile/browser_review_demo.py, apps/mobile/src/screens/KaspiCheckoutScreen.tsx, tests/mobile/browser_kaspi_checkout.py, tests/mobile/browser_checkout_traps.py, tests/mobile/browser_combo_rewards.py, tests/mobile/browser_orders_redesign.py, tests/mobile/browser_published_catalog.py. Остальные резервы сохранены.",
+      "summary": "App Review submitted22Oct2026 18:20 Almaty; Apple Waiting for Review, submission99775be3-3644-4d17-8e4f-ab4dfe3e53ca, iOS1.0 binary0.2.0(23). Owner confirmed content rights. Protocol82ddc326 pushed. Internal TestFlight23 Testing. Public release still manual. Owner approved temporary transfer to stage2-1024 on 2026-10-25: .github/workflows/ci.yml, docs/collaboration/handoff.md, docs/project-status.md, docs/roadmap/project.json, packages/contracts/openapi.json, scripts/contracts.mjs. Other scopes and task preserved. 26.10.2026: владелец явно разрешил временную передачу pnpm-workspace.yaml и pnpm-lock.yaml задаче stage2-1024 для исправления security CI PR277. Остальные резервы и задача сохранены. 27.10.2026 владелец прямо разрешил временную передачу @release/ios в kiosk-apple-demo только для локальной сборки киоска, без загрузки Apple и установки iPad. 28.10.2026: по прямому разрешению владельца необходимые пересечения переданы mobile-redesign-1027: apps/mobile/app.json, apps/mobile/package.json, apps/mobile/src/app/demo-order.tsx, apps/mobile/src/screens/ReviewDemoScreen.tsx, apps/mobile/src/i18n/messages.json, tests/mobile/browser_review_demo.py, apps/mobile/src/screens/KaspiCheckoutScreen.tsx, tests/mobile/browser_kaspi_checkout.py, tests/mobile/browser_checkout_traps.py, tests/mobile/browser_combo_rewards.py, tests/mobile/browser_orders_redesign.py, tests/mobile/browser_published_catalog.py. Остальные резервы сохранены. 2026-10-28: Apple resource transferred for owner-authorized mobile TestFlight24; App Review23 unchanged.",
       "nextAction": "Await Apple decision; no auto-publication or merge. PR276 open; online roadmap still previous snapshot. No real payments."
     },
     {
@@ -6523,7 +6522,7 @@
       "id": "mobile-redesign-1027",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-header-cart-1027",
-      "head": "add183c52f36ee3063fa7f4fc3a5bfd9dc2769cc",
+      "head": "17b7356bd5ff0cf4bdbea516c91e1b47b4ffc029",
       "status": "active",
       "scopes": [
         ".github/workflows/ci.yml",
@@ -6654,10 +6653,11 @@
         "docs/roadmap/project.json",
         "docs/operations/mobile-redesign-2026-10-27/release24.md",
         "docs/operations/mobile-redesign-2026-10-27/release24-evidence.json",
-        "@release/ios"
+        "@release/ios",
+        "@apple/appstore"
       ],
       "updatedAt": "2026-10-28T04:45:23.034Z",
-      "summary": "Owner authorized bundle add183c5 integration with fresh shared, PR/full CI/merge and mobile24 TestFlight only. Exact file overlaps transferred with explicit owner consent28Oct. Route files with parentheses use smallest legal parent apps/mobile/src/app. Claim registered before explicitly requested shared merge through atomic coordination update because standard claim requires shared already included. @release/ios moved from same-chat kiosk prep for authorized mobile build. No VPS/API rollout or App Store submission authorized."
+      "summary": "Owner authorized TestFlight24 release and later explicitly waived additional checks. PR282 merged; native archive in progress. App Review, VPS and campaign remain outside authorization."
     }
   ]
 }
