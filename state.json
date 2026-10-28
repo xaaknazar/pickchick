@@ -6688,11 +6688,12 @@
         "tests/mobile/availability-reader.test.mjs",
         "apps/mobile/src/availability-reader.ts",
         "tests/mobile/ios/CartFixesTests.swift",
-        "@ios/simulator"
+        "@ios/simulator",
+        "docs/operations/mobile-cart-fixes-2026-10-28"
       ],
       "status": "active",
-      "head": "c46a95b23b8c7ebf98074557a2658fc6da58e3b4",
-      "updatedAt": "2026-10-28T05:38:07.231Z"
+      "head": "a6503742ac3d48a9db9362a1885b6f06f57289f6",
+      "updatedAt": "2026-10-28T05:47:47.451Z"
     }
   ]
 }
