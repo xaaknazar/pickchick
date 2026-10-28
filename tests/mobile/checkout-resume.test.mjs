@@ -5,12 +5,16 @@ import {
   BANK_RESUME_WINDOW_MS,
   INVOICE_GRACE_MS,
   STUCK_AFTER_MS,
+  STUCK_NOTICE_MS,
   closeDelay,
+  closeNeedsConfirm,
+  closedIntent,
   draftCanAutoSend,
   draftIsFinal,
   draftOwns,
   liveBankAction,
   noteBankCommand,
+  paymentStuck,
   resumableOrder,
   staleBankAction,
   supportAtOnce,
@@ -203,4 +207,92 @@ test('a restaurant that does not admit the order for long offers the support con
   assert.equal(supportAtOnce(order('checking'), now), false);
   for (const phase of ['ready_to_pay', 'paid', 'failed'])
     assert.equal(supportAtOnce(order(phase, old), now), false, phase);
+});
+
+test('a sending or restaurant wait says it is stuck after 20 s, on the phone clock of this screen', () => {
+  // Owner 28.10.2026 (TestFlight 25): «Отправляем счёт» stayed with a spinner and nothing to press.
+  assert.equal(STUCK_NOTICE_MS, 20_000);
+  assert.equal(paymentStuck('sending', now, now + STUCK_NOTICE_MS - 1), null);
+  assert.equal(paymentStuck('sending', now, now + STUCK_NOTICE_MS), 'bank');
+  assert.equal(paymentStuck('awaiting_restaurant', now, now + 60_000), 'restaurant');
+  // Every other phase has its own actions; the connecting scene (no order) has its own button.
+  for (const phase of [
+    undefined,
+    'ready_to_pay',
+    'awaiting_payment',
+    'checking',
+    'failed',
+    'attention',
+    'paid',
+  ])
+    assert.equal(paymentStuck(phase, now, now + 10 * 60_000), null, String(phase));
+  // A clock moved backwards never claims a stuck wait.
+  assert.equal(paymentStuck('sending', now, now - 60_000), null);
+  assert.equal(paymentStuck('sending', now, Number.NaN), null);
+});
+
+test('the X asks first only while the bank may still act for this order', () => {
+  const own = { ...draft, orderId: order('sending').orderId, createdAt: now - 60_000 };
+  for (const phase of ['sending', 'awaiting_payment', 'checking'])
+    assert.equal(closeNeedsConfirm(order(phase), now, { draft: own }), true, phase);
+  // Unbilled, refused, failed and paid orders close at once: nothing can take money there.
+  for (const phase of [
+    'awaiting_restaurant',
+    'ready_to_pay',
+    'failed',
+    'attention',
+    'paid',
+    'preparing',
+  ])
+    assert.equal(closeNeedsConfirm(order(phase), now, { draft: own }), false, phase);
+  // A payment command of this screen still running: the screen may still read ready_to_pay.
+  assert.equal(closeNeedsConfirm(order('ready_to_pay'), now, { commandRunning: true }), true);
+  assert.equal(closeNeedsConfirm(order('failed'), now, { commandRunning: true }), false);
+  // A bank wait past its window (dead invoice, sending for long) no longer takes money.
+  const old = {
+    createdAt: iso(-BANK_RESUME_WINDOW_MS - 1),
+    updatedAt: iso(-BANK_RESUME_WINDOW_MS - 1),
+  };
+  assert.equal(closeNeedsConfirm(order('sending', old), now), false);
+  assert.equal(
+    closeNeedsConfirm(order('awaiting_payment', { expiresAt: iso(-INVOICE_GRACE_MS - 1) }), now),
+    false,
+  );
+  // The intent's own tap bounds the wait of its order, also for an order created long ago.
+  assert.equal(
+    closeNeedsConfirm(order('sending', old), now, { draft: { ...own, createdAt: now } }),
+    true,
+  );
+  // No order read yet: a saved intent that names an order may be at the bank; a create command
+  // cut short (no order id) or no intent at all created nothing to charge.
+  assert.equal(closeNeedsConfirm(undefined, now, { draft: own }), true);
+  assert.equal(closeNeedsConfirm(undefined, now, { draft: { ...draft, createdAt: now } }), false);
+  assert.equal(closeNeedsConfirm(undefined, now), false);
+});
+
+test('closing keeps an intent only while the bank may still act, never with an automatic invoice', () => {
+  const id = order('sending').orderId;
+  const own = { ...draft, orderId: id, createdAt: now - 60_000 };
+  // The bank may act: the intent stays for recovery (the screen withdraws its automatic invoice).
+  for (const phase of ['sending', 'awaiting_payment', 'checking'])
+    assert.equal(closedIntent(own, order(phase), now), 'keep', phase);
+  assert.equal(closedIntent(own, order('ready_to_pay'), now, true), 'keep', 'command running');
+  // Unbilled or settled: nothing is left to recover, the intent goes (audit 2.1).
+  for (const phase of ['awaiting_restaurant', 'ready_to_pay', 'attention', 'failed', 'paid'])
+    assert.equal(closedIntent(own, order(phase), now), 'remove', phase);
+  // An order the intent did not create never touches it (audit 2.4).
+  assert.equal(closedIntent(own, { ...order('sending'), orderId: draft.quoteId }, now), 'none');
+  assert.equal(closedIntent(null, order('sending'), now), 'none');
+  // No order on screen: an intent naming its order may be at the bank; a create command cut
+  // short never had a payment sent for it (the server cancels such an order unpaid).
+  assert.equal(closedIntent(own, undefined, now), 'keep');
+  assert.equal(closedIntent({ ...draft, createdAt: now }, undefined, now), 'remove');
+  // A kept intent without its automatic invoice: the next tap reopens its order but never sends
+  // an invoice for an unbilled one by itself (draftIsFinal), and nothing auto-sends after a restart.
+  const kept = { ...own, sendInvoice: false };
+  assert.equal(draftCanAutoSend(kept, now), false);
+  assert.equal(draftIsFinal(order('ready_to_pay'), kept, now), true);
+  assert.equal(draftIsFinal(order('awaiting_restaurant'), kept, now), true);
+  assert.equal(draftIsFinal(order('sending'), kept, now), false);
+  assert.equal(resumableOrder([order('sending')], now)?.phase, 'sending');
 });
