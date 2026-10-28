@@ -55,6 +55,46 @@ export function tabBarMetrics(
   return { bottom, side, maxWidth: 440, padding, itemHeight, height, inset: bottom + height };
 }
 
+/**
+ * The cart bar (quick pay) lives in the tab bar's own layer, laid out right on top of the tab
+ * capsule (owner 28.10.2026, TestFlight 25: «быстрая оплата застревает за иконками»). Before, each
+ * tab screen drew it at `bottom: inset` computed from this formula, in a layer UNDER the tab bar:
+ * whenever the real tab bar came out taller than the formula, or the screen's frame was shifted
+ * for a moment, the tab bar covered the cart bar and took its taps. Stacked in one layer they
+ * cannot overlap; this is the gap between the two capsules.
+ */
+export const tabCartGap = 10;
+
+/**
+ * Height of the docked cart bar before its first layout (padding 10 + capsule 64 + rims +
+ * the gap), so tab content does not jump while it is measured.
+ */
+export const tabCartDockEstimate = 86;
+
+/**
+ * Space the tab bar covers from the screen bottom, from the tab capsule's measured height (never
+ * less than the formula, which also holds until the first layout). Screen footers and the
+ * payment scenes sit above it.
+ */
+export function measuredTabBarInset(
+  metrics: Pick<TabBarMetrics, 'bottom' | 'height'>,
+  tabBarHeight?: number | null,
+): number {
+  return metrics.bottom + Math.max(metrics.height, Math.ceil(tabBarHeight ?? 0));
+}
+
+/**
+ * Space a tab screen reserves under its content: the tab bar plus the docked cart bar's measured
+ * height while the cart has lines (the estimate until it is measured with them).
+ */
+export function tabContentInset(
+  tabBarInset: number,
+  cartDockHeight: number | null | undefined,
+  cartLines: number,
+): number {
+  return tabBarInset + (cartLines > 0 ? Math.ceil(cartDockHeight || tabCartDockEstimate) : 0);
+}
+
 /** Width of one tab: the items share the capsule evenly (flex: 1 in FloatingTabBar). */
 export function tabItemWidth(
   screenWidth: number,

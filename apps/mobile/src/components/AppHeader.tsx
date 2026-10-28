@@ -76,7 +76,7 @@ function ProfileButton({ onPress }: { onPress(): void }) {
       name="person"
       label={t('Профиль')}
       size={size}
-      iconSize={24}
+      iconSize={28}
       place="header"
       onPress={onPress}
     >
@@ -147,7 +147,8 @@ const s = StyleSheet.create({
     paddingHorizontal: appHeaderMetrics.gutter,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    // Keep the longest Kazakh hours caption at its normal size beside the 54 pt profile.
+    gap: 8,
   },
   branch: {
     flex: 1,

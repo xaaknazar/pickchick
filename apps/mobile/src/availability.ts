@@ -92,7 +92,8 @@ export type AvailabilityReadState = {
   status: 'checking' | 'online' | 'offline' | 'error';
 };
 export function availabilityStatus(state: AvailabilityReadState): AvailabilityStatus {
-  if (state.status !== 'online') return state.status;
+  if (state.status === 'offline' || state.status === 'error') return state.status;
+  // A re-read keeps the last answer (stale-while-revalidate): «checking» only before the first.
   if (!state.data) return 'checking';
   if (!state.data.enabled) return 'disabled';
   if (state.data.orderingOpen === false) return 'closed';

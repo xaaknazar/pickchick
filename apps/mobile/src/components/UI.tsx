@@ -232,6 +232,47 @@ export function IconButton({
     />
   );
 }
+/**
+ * Plain round icon button without glass, as the cart quantity stepper looked before the redesign
+ * (owner 28.10.2026: «сделай их дизайн прежний»). Used inside a filled stepper pill.
+ */
+export function PlainIconButton({
+  name,
+  color,
+  label,
+  onPress,
+  style,
+  testID,
+  disabled = false,
+}: {
+  name: IconName;
+  color?: string;
+  label: string;
+  onPress: () => void;
+  style?: StyleProp<ViewStyle>;
+  testID?: string;
+  disabled?: boolean;
+}) {
+  useLocale();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={localize(label)}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      testID={testID}
+      style={({ pressed }) => [
+        styles.iconButton,
+        disabled && styles.disabled,
+        pressed && !disabled && styles.pressed,
+        style,
+      ]}
+    >
+      <Icon name={name} color={color} />
+    </Pressable>
+  );
+}
 /** Cart-style close control shared by every sheet and product screen. */
 export function CloseButton({
   label,
@@ -611,6 +652,13 @@ export const styles = StyleSheet.create({
   secondaryButtonText: { color: colors.text },
   disabled: { opacity: 0.5 },
   pressed: { opacity: 0.72 },
+  iconButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   notice: {
     borderRadius: 16,
     padding: 16,

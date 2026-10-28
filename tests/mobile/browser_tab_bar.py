@@ -118,9 +118,9 @@ def assert_header(page, screen, width):
     expect(scope.get_by_test_id('header-restaurant')).to_be_visible()
     b = button.bounding_box()
     assert b['width'] >= 44 and b['height'] >= 44, b
-    # Owner 27.10.2026: a 44-46 pt round glass button; signed in it shows the profile avatar
+    # Owner 28.10.2026: a bigger, 54 pt round glass button; signed in it shows the profile avatar
     # clipped to the circle (the guest glyph is checked in browser_account_required.py).
-    assert b['width'] <= 46.5 and abs(b['width'] - b['height']) <= 0.5, b
+    assert 53.5 <= b['width'] <= 54.5 and abs(b['width'] - b['height']) <= 0.5, b
     expect(button.locator('#header-profile-avatar')).to_have_count(1)
     assert button.evaluate('(e) => parseFloat(getComputedStyle(e).borderTopLeftRadius)') >= b['width'] / 2 - 1
     assert abs(width - (b['x'] + b['width']) - 18) <= 1, (screen, b)
@@ -236,8 +236,8 @@ with sync_playwright() as p:
         page.goto(URL + '/menu')
         expect(page.get_by_test_id('product-pick-combo')).to_be_visible(timeout=20000)
         expect(page.get_by_test_id('launch-reveal')).to_have_count(0, timeout=10000)
-        # Round glass profile button, 46 pt (owner 27.10.2026: 44-46 pt).
-        expected = (width + 760) / 2 - 18 - 46
+        # Round glass profile button, 54 pt (owner 28.10.2026: bigger).
+        expected = (width + 760) / 2 - 18 - 54
         for route, screen, _ in TABS:
             page.get_by_test_id('tab-' + route).click()
             expect(page.get_by_test_id('screen-' + screen)).to_be_visible()
@@ -247,7 +247,8 @@ with sync_playwright() as p:
         page.get_by_test_id('screen-M19').get_by_test_id('header-profile').click()
         expect(page.get_by_test_id('screen-M30')).to_be_visible()
         settings = page.get_by_test_id('profile-settings').bounding_box()
-        assert abs(settings['x'] - expected) <= 1, (settings, expected)
+        # Settings (46 pt) shares the header button's right edge (header button 54 pt).
+        assert abs(settings['x'] + settings['width'] - (expected + 54)) <= 1, (settings, expected)
         context.close()
     browser.close()
 assert errors == [], errors

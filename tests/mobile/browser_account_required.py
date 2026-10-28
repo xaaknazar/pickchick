@@ -139,7 +139,7 @@ with sync_playwright() as p:
         header = page.get_by_test_id('screen-M06').get_by_test_id('header-profile')
         expect(header.locator('#header-profile-avatar')).to_have_count(0)
         box = header.bounding_box()
-        assert 44 <= box['width'] <= 46.5 and abs(box['width'] - box['height']) <= 0.5, box
+        assert 53.5 <= box['width'] <= 54.5 and abs(box['width'] - box['height']) <= 0.5, box  # 54 pt (28.10)
         header.click()
         expect(visible(page, 'account-required-login')).to_be_visible()
         assert page.get_by_test_id('screen-M30').count() == 0

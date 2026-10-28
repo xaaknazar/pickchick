@@ -41,6 +41,7 @@ import { usePaymentAvailability } from '../usePaymentAvailability';
 import { joinSentences, paymentStopMessage } from '../payment-availability';
 import type { CartLine, MobileModel } from '../model';
 import { brandColors, colors, font } from '../theme';
+import { tabCartGap } from '../tab-bar-metrics';
 import { BottomActions, Icon, MinorMoney } from './UI';
 
 const PAD = 5;
@@ -88,16 +89,26 @@ export function CartShortcut({
   onPress,
   safeArea = false,
   floating = false,
-  bottomOffset = 0,
+  aboveTabBar = false,
   onHeightChange,
+  seenCount,
 }: {
   model: MobileModel;
   onPress: () => void;
   safeArea?: boolean;
   floating?: boolean;
-  /** Lifts the floating dock above the floating tab bar. */
-  bottomOffset?: number;
+  /**
+   * Docked in the tab bar's own layer, right on top of the tab capsule (TabCartDock, owner
+   * 28.10.2026): never under the tab bar, a fixed gap to it.
+   */
+  aboveTabBar?: boolean;
   onHeightChange?: (height: number) => void;
+  /**
+   * The item count the customer last saw on this bar, kept by an owner that outlives the bar.
+   * The tab bar unmounts its bar under a sheet (the cart, a product) and under the keyboard;
+   * without it every return would count as «added» and replay the feedback.
+   */
+  seenCount?: { current: number };
 }) {
   useLocale();
   const router = useRouter();
@@ -162,7 +173,8 @@ export function CartShortcut({
   }));
   // Subtle added feedback: the newest photo settles in when the customer returns with more items.
   const feedback = useRef(new NativeAnimated.Value(0)).current;
-  const previousCount = useRef(0);
+  const ownSeenCount = useRef(0);
+  const previousCount = seenCount ?? ownSeenCount;
   useFocusEffect(
     useCallback(() => {
       const added = count > previousCount.current;
@@ -197,7 +209,7 @@ export function CartShortcut({
         subscription.remove();
         reset();
       };
-    }, [count, reduced, feedback]),
+    }, [count, reduced, feedback, previousCount]),
   );
   // The Kaspi cart is the checkout (27.10.2026): the slide opens the cart with payment, which
   // takes the one-shot intent and presses its own «Оплатить» once. Guests sign in first and land
@@ -226,11 +238,7 @@ export function CartShortcut({
       safeArea={safeArea}
       pointerEvents="box-none"
       onLayout={(event) => onHeightChange?.(Math.ceil(event.nativeEvent.layout.height))}
-      style={[
-        s.dock,
-        floating && s.floating,
-        floating && bottomOffset > 0 && { bottom: bottomOffset, paddingBottom: 10 },
-      ]}
+      style={[s.dock, floating && s.floating, aboveTabBar && s.aboveTabBar]}
     >
       <GestureHandlerRootView style={s.root}>
         <View
@@ -391,6 +399,8 @@ const s = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   floating: { position: 'absolute', bottom: 0, left: 0, right: 0 },
+  // In the tab bar's layer the dock is laid out right above the tab capsule: this is the gap.
+  aboveTabBar: { paddingBottom: tabCartGap },
   root: { width: '100%', maxWidth: 320, alignSelf: 'center' },
   // The cart button fills the capsule's full height (a larger target, and the dock keeps its
   // distance to the tab bar); the handle and the photos sit inside with the same inset.

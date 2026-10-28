@@ -5135,6 +5135,33 @@
         "deployed": true,
         "accepted": false
       }
+    },
+    {
+      "id": "mobile-fixes-1028",
+      "workstream": "launch",
+      "title": "Исправления оплаты и корзины после TestFlight 25",
+      "summary": "Исправления 56023166 и дополнение 91596538 объединены. Подготовка 0.2.0 (26), storefront; повторные проверки и TestFlight ожидаются.",
+      "status": "active",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["mobile-cart-fixes-1028"],
+      "evidence": [
+        {
+          "label": "Протокол подготовки и доставки 26",
+          "path": "docs/operations/mobile-testflight26.md"
+        }
+      ],
+      "acceptance": [
+        "Безопасный немедленный выход из оплаты и отсутствие повторного счёта.",
+        "Плашка над вкладками, отсутствие ложного offline, прежний степпер и крупный профиль проверены на iPhone."
+      ],
+      "nextAction": "Полная CI, обычный merge и TestFlight; проверка на физическом iPhone. Сервер и онлайн-пульт не обновлять.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
     }
   ]
 }
