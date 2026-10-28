@@ -6732,9 +6732,11 @@
         "tests/mobile/browser_cart_unavailable.py",
         "docs/operations/mobile-testflight25.png"
       ],
-      "status": "active",
-      "head": "fc71c2269748a90f6fed84bfb079c45567267b97",
-      "updatedAt": "2026-10-28T06:24:19.221Z"
+      "status": "done",
+      "head": "183661d455d65168a20e4d333509f0daa4434079",
+      "updatedAt": "2026-10-28T06:26:01.210Z",
+      "summary": "TestFlight25 uploaded and processed; afac23b6-65e8-4f02-b9f1-95665601b240 assigned to PickChick Internal, 2 testers, notes saved. PR286 merged65d31405; tests-only dimensions/modal readiness correction, local A-J PASS. Full CI and physical acceptance not confirmed; publication requested by owner.",
+      "nextAction": "Owner updates TestFlight25 and checks four fixes on iPhone; review full CI result separately. App Review/VPS unchanged."
     }
   ]
 }
