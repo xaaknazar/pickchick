@@ -5140,7 +5140,7 @@
       "id": "mobile-fixes-1028",
       "workstream": "launch",
       "title": "Исправления оплаты и корзины после TestFlight 25",
-      "summary": "Исправления 56023166 и дополнение 91596538 объединены. Подготовка 0.2.0 (26), storefront; повторные проверки и TestFlight ожидаются.",
+      "summary": "0.2.0 (26) из e148946c доступна PickChick Internal, Apple Testing. PR287 merge 82f4978b, CI 11/11, браузеры и native Simulator PASS. Физическая приёмка владельцем ожидается.",
       "status": "active",
       "owner": "development",
       "phase": "integration",
@@ -5149,17 +5149,21 @@
         {
           "label": "Протокол подготовки и доставки 26",
           "path": "docs/operations/mobile-testflight26.md"
+        },
+        {
+          "label": "Подпись, хеши, CI и Apple Testing",
+          "path": "docs/operations/mobile-testflight26-evidence.json"
         }
       ],
       "acceptance": [
         "Безопасный немедленный выход из оплаты и отсутствие повторного счёта.",
         "Плашка над вкладками, отсутствие ложного offline, прежний степпер и крупный профиль проверены на iPhone."
       ],
-      "nextAction": "Полная CI, обычный merge и TestFlight; проверка на физическом iPhone. Сервер и онлайн-пульт не обновлять.",
+      "nextAction": "Владелец проверяет 26 на iPhone. Банковская сессия Kaspi требует отдельного восстановления; заказ не изменён. Сервер и онлайн-пульт не обновлять.",
       "checks": {
         "implemented": true,
-        "verified": false,
-        "deployed": false,
+        "verified": true,
+        "deployed": true,
         "accepted": false
       }
     }

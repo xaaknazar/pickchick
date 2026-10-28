@@ -1,0 +1,65 @@
+{
+  "gitSha": "e148946c4993d13789a7a25a06f30aa9aff7dc24",
+  "version": "0.2.0",
+  "build": "26",
+  "bundleId": "kz.pickchick.app",
+  "featureProfile": "storefront",
+  "archiveSignatureVerified": true,
+  "debuggable": false,
+  "pushEnvironment": "production",
+  "sameSigningAndFlagsAs25": true,
+  "jsSha256": "d154982deb2d66bde4f528e0369661ecdd366beea2152f0686ebe5b3c53a6ebc",
+  "compiledMarkers": {
+    "kaspi-state-close": true,
+    "kaspi-stuck": true,
+    "kaspi-close-dialog": true,
+    "tab-cart-dock": true,
+    "header-profile": true
+  },
+  "temporarySigningSettingsRestored": true,
+  "ipaSignatureVerified": true,
+  "ipa": {
+    "name": "PickChick.ipa",
+    "bytes": 130658940,
+    "sha256": "47f9a631c8eb0ffe158fdf0f34a5280546e319b146b90010e3d4e5d1b44a3de6"
+  },
+  "archiveStatus": "complete",
+  "exportStatus": "complete",
+  "ci": {
+    "sourceSha": "e148946c4993d13789a7a25a06f30aa9aff7dc24",
+    "url": "https://github.com/xaaknazar/pickchick/actions/runs/40668561516",
+    "status": "success",
+    "jobsPassed": 11,
+    "jobsTotal": 11
+  },
+  "integration": {
+    "pr": "https://github.com/xaaknazar/pickchick/pull/287",
+    "method": "merge",
+    "mergeSha": "82f4978b872361713bf582b377118c30cf958464",
+    "archiveSourceIncludedInShared": true,
+    "archiveSourceTreeMatchesShared": true
+  },
+  "deliveryStatus": "submitted",
+  "uploadAttempt": {
+    "result": "exportArchive Failed to Use Accounts",
+    "appleAccountsList": "empty",
+    "ownerSignInRequested": true,
+    "uploaded": false,
+    "ownerSignInRestored": true,
+    "retry": "success"
+  },
+  "ascAppId": "6809208492",
+  "uploadedConfirmedAt": "2026-10-28T10:42:29.998981+00:00",
+  "uploadWarnings": "Apple accepted upload; missing dSYM files for third-party frameworks limit symbolication.",
+  "testFlight": {
+    "buildId": "7c7c603f-572d-40ea-a5e8-459effbe34fd",
+    "url": "https://appstoreconnect.apple.com/teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/apps/6809208492/testflight/ios/7c7c603f-572d-40ea-a5e8-459effbe34fd",
+    "group": "PickChick Internal",
+    "groupId": "33b2ef37-6602-4b07-803e-cb336a09cb16",
+    "testers": 2,
+    "status": "Testing",
+    "whatToTestSaved": true,
+    "confirmedAt": "2026-10-28T10:50:48.402993+00:00",
+    "physicalIphoneAcceptance": "Owner will verify independently"
+  }
+}
