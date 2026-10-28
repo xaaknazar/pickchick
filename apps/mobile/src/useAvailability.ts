@@ -27,7 +27,8 @@ export function useAvailability(
   const [catalogVersion, setCatalogVersion] = useState<number | null>(null);
   useEffect(() => {
     if (!enabled) return;
-    // A restart (refresh) keeps a problem already shown until the server answers.
+    // A restart (refresh) keeps a problem already shown until the server answers, and a failure
+    // still pending keeps its start, so its five seconds are not counted from zero again.
     const connection = createConnectionTracker({ initial: trackRef.current, onChange: setTrack });
     const recovery = createAvailabilityRecovery({
       read: async (signal, signature) => {
@@ -68,8 +69,9 @@ export function useAvailability(
         setData(value);
         connection.succeeded();
       },
-      // A failed cycle counts; the problem is shown only once it persists (a second failure in a
-      // row or five seconds), never for a single dropped request.
+      // A failed cycle counts; a retried failure is shown only once it persists (a second failure
+      // in a row or five seconds), never for a single dropped request. A failure the reader does
+      // not retry (an HTTP refusal, a broken body) is final and shown at once.
       onFailure: (_error, retrying) => connection.failed(retrying ? 'offline' : 'error'),
     });
     const unsubscribe = subscribeCatalogConnectivity({

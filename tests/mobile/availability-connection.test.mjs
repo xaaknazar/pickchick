@@ -9,12 +9,17 @@ import {
   connectionProblem,
   createConnectionTracker,
   failurePersisted,
+  persistenceWait,
   phoneNetworkChanged,
   readFailed,
   readSucceeded,
   shownAvailabilityState,
 } from '../../apps/mobile/src/availability-connection.ts';
-import { createAvailabilityRecovery } from '../../apps/mobile/src/availability-recovery.ts';
+import {
+  AvailabilityRequestError,
+  CONFIRMATION_DELAY_MS,
+  createAvailabilityRecovery,
+} from '../../apps/mobile/src/availability-recovery.ts';
 import { catalogAvailability } from '../../apps/mobile/src/availability.ts';
 import {
   paymentAvailability,
@@ -80,9 +85,27 @@ test('a transient error keeps the last answer: the handle stays and no banner ap
   track = readSucceeded(track);
   assert.deepEqual(track, { ...CONNECTION_OK, streak: 1 });
   assert.equal(handle(decide(data, track)), true);
-  // An unexpected answer once (a broken body, a proxy page) is not shown either.
-  track = readFailed(track, 'error');
+});
+
+test('an answer the reader will not retry is final: shown at once, gone with the next answer', () => {
+  // An HTTP refusal, a broken body, a captive-portal page: createCatalogRecovery does not retry
+  // these, so waiting five seconds would only keep the last answer on screen for nothing (tech
+  // lead 28.10.2026). The guarded submit() re-checks on the server either way.
+  const data = answer();
+  let track = readFailed(CONNECTION_OK, 'error');
+  assert.equal(connectionProblem(track), 'error');
+  assert.equal(handle(decide(data, track)), false);
+  assert.equal(banner(decide(data, track)), 'Нет связи с сервером');
+  // Before the first answer as well: no later read is coming to correct it.
+  assert.equal(decide(null, track).stop.kind, 'offline');
+  // After a transient failure of the same run, too.
+  assert.equal(
+    connectionProblem(readFailed(readFailed(CONNECTION_OK, 'offline'), 'error')),
+    'error',
+  );
+  track = readSucceeded(track);
   assert.equal(handle(decide(data, track)), true);
+  assert.equal(banner(decide(data, track)), null);
 });
 
 test('a persistent error is shown: a second failed cycle in a row or five seconds', () => {
@@ -97,10 +120,10 @@ test('a persistent error is shown: a second failed cycle in a row or five second
   assert.equal(banner(twice), 'Нет связи с сервером');
   assert.equal(paymentStopLabel(twice.stop), 'Нет связи');
   // One cycle that never ends in an answer: the persistence timer marks it after five seconds.
-  track = readFailed(CONNECTION_OK, 'error');
+  track = readFailed(CONNECTION_OK, 'offline');
   assert.equal(handle(decide(data, track)), true);
   track = failurePersisted(track, track.streak);
-  assert.equal(connectionProblem(track), 'error');
+  assert.equal(connectionProblem(track), 'offline');
   assert.equal(banner(decide(data, track)), 'Нет связи с сервером');
   // Once shown it stays until the server answers (no blinking), then it is gone at once.
   assert.equal(readFailed(track, 'offline').shown, true);
@@ -197,9 +220,14 @@ test('the tracker: one timer per run, cancelled by an answer, a new run starts i
   tracker.succeeded();
   t.mock.timers.tick(CONNECTION_PROBLEM_AFTER_MS);
   assert.equal(connectionProblem(tracker.current()), null, 'the answer cancelled the timer');
+  tracker.failed('offline');
+  t.mock.timers.tick(CONNECTION_PROBLEM_AFTER_MS - 1);
+  assert.equal(connectionProblem(tracker.current()), null);
+  t.mock.timers.tick(1);
+  assert.equal(connectionProblem(tracker.current()), 'offline', 'five seconds without an answer');
+  tracker.succeeded();
   tracker.failed('error');
-  t.mock.timers.tick(CONNECTION_PROBLEM_AFTER_MS);
-  assert.equal(connectionProblem(tracker.current()), 'error', 'five seconds without an answer');
+  assert.equal(connectionProblem(tracker.current()), 'error', 'not retried: at once');
   tracker.succeeded();
   tracker.network(false);
   assert.equal(connectionProblem(tracker.current()), 'offline', 'the phone itself: at once');
@@ -241,6 +269,8 @@ test('long-poll dropped, snapshot failed, retry answers: never shown; still fail
   mode = 'fail';
   t.mock.timers.tick(100);
   await flush();
+  t.mock.timers.tick(CONFIRMATION_DELAY_MS);
+  await flush();
   await flush();
   assert.equal(tracker.current().failures, 1);
   assert.equal(handle(shown()), true, 'one dropped cycle keeps the handle');
@@ -254,6 +284,8 @@ test('long-poll dropped, snapshot failed, retry answers: never shown; still fail
   mode = 'fail';
   t.mock.timers.tick(100);
   await flush();
+  t.mock.timers.tick(CONFIRMATION_DELAY_MS);
+  await flush();
   await flush();
   assert.equal(handle(shown()), true);
   t.mock.timers.tick(2000);
@@ -261,4 +293,67 @@ test('long-poll dropped, snapshot failed, retry answers: never shown; still fail
   await flush();
   assert.equal(handle(shown()), false);
   assert.equal(banner(shown()), 'Нет связи с сервером');
+});
+
+test('a refresh restarts the reader, not the five seconds of a failure still pending', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+  const first = createConnectionTracker({ onChange: () => {} });
+  first.failed('offline');
+  t.mock.timers.tick(3000);
+  // useAvailability recreates the tracker from the current track on a refresh.
+  const pending = first.current();
+  first.stop();
+  assert.equal(persistenceWait(pending, Date.now()), 2000);
+  const second = createConnectionTracker({ initial: pending, onChange: () => {} });
+  t.after(() => second.stop());
+  t.mock.timers.tick(1999);
+  assert.equal(connectionProblem(second.current()), null);
+  t.mock.timers.tick(1);
+  assert.equal(connectionProblem(second.current()), 'offline', 'five seconds since the first');
+  // An answer ends the run; the next run counts from its own first failure.
+  second.succeeded();
+  assert.equal(second.current().since, null);
+  second.failed('offline');
+  assert.equal(second.current().since, Date.now());
+  // A run older than the persistence time is marked at once; a clock set back waits 5 s at most.
+  assert.equal(persistenceWait({ ...pending, since: Date.now() - 60_000 }, Date.now()), 0);
+  assert.equal(
+    persistenceWait({ ...pending, since: Date.now() + 60_000 }, Date.now()),
+    CONNECTION_PROBLEM_AFTER_MS,
+  );
+});
+
+test('an HTTP refusal of the long-poll is not confirmed and is shown at once', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let calls = 0;
+  let data = null;
+  const tracker = createConnectionTracker({ onChange: () => {} });
+  const recovery = createAvailabilityRecovery({
+    random: () => 1,
+    onChecking: () => {},
+    read: async () => {
+      if (++calls === 1) return answer();
+      throw new AvailabilityRequestError(403);
+    },
+    onSuccess: (value) => {
+      data = value;
+      tracker.succeeded();
+    },
+    onFailure: (_e, retrying) => tracker.failed(retrying ? 'offline' : 'error'),
+  });
+  t.after(() => {
+    recovery.stop();
+    tracker.stop();
+  });
+  recovery.setActive(true);
+  await flush();
+  t.mock.timers.tick(100);
+  await flush();
+  await flush();
+  assert.equal(calls, 2, 'no confirmation snapshot for a refusal');
+  assert.equal(connectionProblem(tracker.current()), 'error');
+  assert.equal(banner(decide(data, tracker.current())), 'Нет связи с сервером');
+  t.mock.timers.tick(60_000);
+  await flush();
+  assert.equal(calls, 2, 'and no retry either');
 });
