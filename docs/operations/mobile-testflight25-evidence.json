@@ -1,0 +1,27 @@
+{
+  "gitSha": "a0af08b4fd024e21da09f0bee0a4179bbe2ea2ab",
+  "dirty": false,
+  "version": "0.2.0",
+  "build": "25",
+  "featureProfile": "storefront",
+  "apiUrl": "https://pickchick.185.129.51.103.nip.io",
+  "archiveStatus": "complete",
+  "exportStatus": "complete",
+  "temporarySigningSettingsRestored": true,
+  "ipa": {
+    "name": "PickChick.ipa",
+    "bytes": 130645966,
+    "sha256": "c837e0b9087777b358f2166c37c31453299ab30705c5fed3237aff7da3c560a6"
+  },
+  "jsSha256": "a1d4090b912c070f601bccebfb0c709639e9b72cd0657b0d42520434bb186ea1",
+  "ipaSignatureVerified": true,
+  "deliveryStatus": "not-uploaded",
+  "testFlight": "not-assigned",
+  "physicalAcceptance": "not-performed",
+  "ci": {
+    "statusAtObservation": "in_progress",
+    "sourceRun": "https://github.com/xaaknazar/pickchick/actions/runs/40640614174"
+  },
+  "serverDeployment": "not-performed",
+  "appReview": "not-performed"
+}

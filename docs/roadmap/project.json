@@ -5101,7 +5101,7 @@
       "id": "mobile-cart-fixes-1028",
       "workstream": "launch",
       "title": "Исправления корзины и связи после TestFlight 24",
-      "summary": "Исправлены ложный offline, ширина плашки, стабильный размер текста и немедленный свайп. 490 Node + 59 Python, браузерные сценарии и native iPhone Simulator прошли. PR284 опубликован, полная CI выполняется.",
+      "summary": "Исправления PR284 включены в общий срез. Локальные, браузерные и iOS Simulator проверки прошли. Сборка 25: архив и IPA готовы, подпись проверена. В TestFlight не загружена, полная CI выполняется.",
       "status": "active",
       "owner": "development",
       "phase": "integration",
@@ -5114,13 +5114,17 @@
         {
           "label": "PR284: исправления и проверка iOS Simulator",
           "url": "https://github.com/xaaknazar/pickchick/pull/284"
+        },
+        {
+          "label": "Сборка 25: подготовка и доставка",
+          "path": "docs/operations/mobile-testflight25.md"
         }
       ],
       "acceptance": [
         "На iPhone нет ложного мигания связи при доступном API.",
         "Корзина компактна, текст стабилен, свайп работает без предварительного удержания."
       ],
-      "nextAction": "Дождаться полной CI перед новым выпуском; затем новый TestFlight и физическая приёмка владельцем.",
+      "nextAction": "После успешной полной CI загрузить готовую сборку 25 в TestFlight; физическая приёмка отдельно.",
       "checks": {
         "implemented": true,
         "verified": true,
