@@ -24,9 +24,68 @@
     "fresh": false,
     "enabled": true
   },
-  "archiveStatus": "pending",
-  "deliveryStatus": "pending",
+  "archiveStatus": "complete",
+  "deliveryStatus": "submitted",
   "appReview24": "not-authorized",
   "serverDeployment": "not-authorized",
-  "campaignEnablement": "not-authorized"
+  "campaignEnablement": "not-authorized",
+  "gitSha": "17b7356bd5ff0cf4bdbea516c91e1b47b4ffc029",
+  "dirty": false,
+  "featureProfile": "storefront",
+  "exportStatus": "complete",
+  "temporarySigningSettingsRestored": true,
+  "merge": {
+    "pr": 282,
+    "url": "https://github.com/xaaknazar/pickchick/pull/282",
+    "sha": "17b7356bd5ff0cf4bdbea516c91e1b47b4ffc029",
+    "method": "merge"
+  },
+  "pr276": "included-and-marked-merged-by-github",
+  "sdk": "iphoneos26.5",
+  "xcode": "26.6 (17F113)",
+  "nativeModules": {
+    "expo-blur": "57.0.3",
+    "expo-glass-effect": "57.0.4"
+  },
+  "jsSha256": "2e2b4fb076762b83da509b467e1280618e1f7f9401c3749c248fae8e55410ee5",
+  "ipa": [
+    {
+      "name": "PickChick.ipa",
+      "sha256": "5f0a85652bb3a5c0f541c75bdc977ea3c97a1e82907b7d080e0dc440c86ba240",
+      "bytes": 130646088
+    }
+  ],
+  "buildAttempts": [
+    {
+      "attempt": 1,
+      "result": "failed",
+      "reason": "workspace dependency dist output not built"
+    },
+    {
+      "attempt": 2,
+      "result": "failed",
+      "reason": "relocated Swift module cache path mismatch"
+    },
+    {
+      "attempt": 3,
+      "result": "success",
+      "reason": "workspace dependency build completed; fresh DerivedData"
+    }
+  ],
+  "ci": {
+    "statusAtObservation": "in_progress",
+    "requiredBeforeThisRelease": false,
+    "reason": "explicit owner waiver",
+    "url": "https://github.com/xaaknazar/pickchick/actions/runs/40635018587"
+  },
+  "testFlight": {
+    "status": "processed-and-assigned",
+    "buildId": "58d0e771-dda9-4f15-8b23-70a0a904dc1e",
+    "url": "https://appstoreconnect.apple.com/teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/apps/6809208492/testflight/ios/58d0e771-dda9-4f15-8b23-70a0a904dc1e",
+    "group": "PickChick Internal",
+    "groupType": "internal",
+    "testers": 2,
+    "releaseNotesSaved": true,
+    "confirmedAt": "2026-10-28T05:23:28.118023+00:00"
+  }
 }

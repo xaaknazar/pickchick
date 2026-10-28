@@ -5069,23 +5069,31 @@
       "id": "mobile-redesign-1027",
       "workstream": "launch",
       "title": "Редизайн мобильного приложения и TestFlight 24",
-      "summary": "Шапка, профиль, три вкладки, свайп корзины, закрытый ресторан и Liquid Glass интегрированы. Владелец разрешил выпуск без дополнительных проверок; устройства нет. Доставка пока не подтверждена.",
+      "summary": "Шапка, профиль, три вкладки, свайп корзины, закрытый ресторан и Liquid Glass интегрированы в shared через PR282. TestFlight 0.2.0 (24) обработана Apple и назначена PickChick Internal (2 тестировщика), описание сохранено. Дополнительные проверки пропущены по прямому решению владельца; физического устройства нет.",
       "status": "active",
       "owner": "development",
-      "phase": "integration",
+      "phase": "acceptance",
       "dependsOn": [],
       "evidence": [
         {
           "label": "Протокол TestFlight 24",
           "path": "docs/operations/mobile-redesign-2026-10-27/release24.md"
+        },
+        {
+          "label": "PR282: интеграция в общий срез",
+          "url": "https://github.com/xaaknazar/pickchick/pull/282"
+        },
+        {
+          "label": "Сборка 24 в TestFlight",
+          "url": "https://appstoreconnect.apple.com/teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/apps/6809208492/testflight/ios/58d0e771-dda9-4f15-8b23-70a0a904dc1e"
         }
       ],
       "acceptance": ["Владелец принимает интерфейс на физическом iPhone после TestFlight."],
-      "nextAction": "Собрать и доставить TestFlight 24. App Review и VPS только по отдельному решению.",
+      "nextAction": "Владелец смотрит сборку 24 в TestFlight. App Review 24, выпуск API 6 + 1 и включение акции - только по отдельным решениям. Онлайн-пульт не обновлён.",
       "checks": {
         "implemented": true,
         "verified": false,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     }
