@@ -386,12 +386,12 @@ export function CartShortcut({
 const s = StyleSheet.create({
   dock: {
     paddingTop: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
     borderTopWidth: 0,
     backgroundColor: 'transparent',
   },
   floating: { position: 'absolute', bottom: 0, left: 0, right: 0 },
-  root: { width: '100%', maxWidth: 440, alignSelf: 'center' },
+  root: { width: '100%', maxWidth: 320, alignSelf: 'center' },
   // The cart button fills the capsule's full height (a larger target, and the dock keeps its
   // distance to the tab bar); the handle and the photos sit inside with the same inset.
   capsule: {

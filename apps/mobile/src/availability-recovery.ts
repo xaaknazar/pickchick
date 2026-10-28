@@ -23,7 +23,24 @@ export function createAvailabilityRecovery(options: {
     !(error instanceof SyntaxError) &&
     !(error instanceof Error && error.message === 'INVALID_AVAILABILITY');
   const recovery = createCatalogRecovery({
-    load: (signal) => options.read(signal, signature),
+    load: async (signal) => {
+      try {
+        return await options.read(signal, signature);
+      } catch (error) {
+        // A proxy/radio can drop an idle long poll while ordinary GETs still work.
+        // Confirm with one immediate snapshot before announcing an outage. Never retry
+        // malformed data, HTTP rejections/rate limits, lifecycle aborts or payment commands.
+        if (
+          !signature ||
+          signal.aborted ||
+          !retryable(error) ||
+          error instanceof AvailabilityRequestError
+        )
+          throw error;
+        signature = '';
+        return options.read(signal, '');
+      }
+    },
     onLoading: options.onChecking,
     onSuccess: (value) => {
       signature = value.enabled ? value.signature : '';

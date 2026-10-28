@@ -20,7 +20,9 @@ export function useAvailability(
         const controller = new AbortController();
         const abort = () => controller.abort();
         signal.addEventListener('abort', abort, { once: true });
-        const timeout = setTimeout(abort, 24_000);
+        // The server intentionally holds an unchanged signature for 20 seconds. Allow
+        // transport latency around that wait; an immediate snapshot has a shorter budget.
+        const timeout = setTimeout(abort, signature ? 35_000 : 10_000);
         try {
           if (signal.aborted) throw Error('Aborted');
           const response = await fetch(

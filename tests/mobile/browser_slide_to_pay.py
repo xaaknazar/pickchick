@@ -7,7 +7,7 @@ opens the cart with payment (/cart, M09), which takes the one-shot intent and pr
 Runs against the customer-auth web export (EXPO_PUBLIC_CUSTOMER_AUTH=server,
 EXPO_PUBLIC_KASPI_CHECKOUT=1, EXPO_PUBLIC_UNPAID_TEST_ORDERS=1, EXPO_PUBLIC_PUBLISHED_CATALOG=0)
 with local fixtures only: no bank, no real customer, no VPS request.
-  A  bar zones; a tap shows the hint only; hold shows «тяни для оплаты»; a swipe without the hold,
+  A  bar zones; a tap shows the hint only; hold shows «тяни для оплаты»; an immediate partial swipe,
      a short drag and Enter on the handle send nothing (no /quotes, /orders or /payment request);
      the handle STRETCHES (owner 6a): its left edge stays at the bar's left edge, its width grows
      with the finger, the method mark rides at its right end (centred under the finger) and the
@@ -255,7 +255,7 @@ def release_curve(page, start, rest):
             'frames': len(samples), 'start': start, 'rest': rest}
 
 
-def slide(page, fraction, hold=450, steps=12, release_at_end=True):
+def slide(page, fraction, hold=0, steps=12, release_at_end=True):
     handle, _, travel = geometry(page)
     x, y = handle['x'] + handle['width'] / 2, handle['y'] + handle['height'] / 2
     page.mouse.move(x, y)
@@ -329,6 +329,7 @@ def scenario_bar_and_short_drag(browser, width, height, reduced):
     expect(handle).to_have_attribute('aria-label', 'Оплатить через Kaspi')
     assert bar['x'] >= 0 and bar['x'] + bar['width'] <= width and bar['y'] + bar['height'] <= tab['y'], (bar, tab)
     assert travel > 120, travel
+    assert bar['width'] <= 320.5 and bar['x'] >= 23, bar
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
     # VoiceOver / keyboard order follows the picture: the Kaspi handle first, then the cart button.
     # Its frame is level with the cart button (same top and height), the visible pill inside it.
@@ -350,15 +351,17 @@ def scenario_bar_and_short_drag(browser, width, height, reduced):
     expect(page.get_by_test_id('cart-pay-hint')).to_have_text(HINT)
     expect(page.get_by_test_id('cart-pay-hint')).to_have_count(0, timeout=4000)
     assert page.url.endswith('/menu'), page.url
-    # A swipe without the hold never stretches the handle (and never pays).
+    # An immediate partial swipe stretches, then returns without payment.
     start = box['x']
-    slide(page, 1.0, hold=0)
-    page.wait_for_timeout(400)
+    slide(page, 0.5, hold=0, release_at_end=False)
+    assert pill(page)[0]['width'] > box['width'] + 20
+    page.mouse.up()
+    page.wait_for_timeout(600)
     after, _ = pill(page)
     assert abs(after['x'] - start) < 1 and abs(after['width'] - box['width']) < 1, (after, box)
     assert page.url.endswith('/menu'), page.url
     # Hold: «тяни для оплаты», total and photos fade out.
-    slide(page, 0.0, steps=1, release_at_end=False)
+    slide(page, 0.05, steps=1, release_at_end=False)
     expect(page.get_by_test_id('cart-pay-hint')).to_have_text(HINT)
     fit = hint_fits(page)
     assert fit['normal'] and fit['large'], fit
@@ -666,7 +669,7 @@ def scenario_hint_languages(browser):
         page.goto(URL + '/menu')
         expect(page.get_by_test_id('cart-pay-handle')).to_be_visible(timeout=25000)
         expect(page.get_by_test_id('launch-reveal')).to_have_count(0, timeout=20000)
-        slide(page, 0.0, steps=1, release_at_end=False)
+        slide(page, 0.05, steps=1, release_at_end=False)
         hint = page.get_by_test_id('cart-pay-hint')
         expect(hint).to_have_text(HINTS[lang])
         fit = hint_fits(page)
@@ -786,7 +789,7 @@ def scenario_tabs(browser, width, height):
     # Hold on another tab: the same hint, nothing sent.
     page.get_by_test_id('tab-events').click()
     expect(page.get_by_test_id('screen-M26')).to_be_visible()
-    slide(page, 0.0, steps=1, release_at_end=False)
+    slide(page, 0.05, steps=1, release_at_end=False)
     expect(page.get_by_test_id('cart-pay-hint').filter(visible=True)).to_have_text(HINT)
     page.mouse.up()
     expect(page.get_by_test_id('cart-pay-hint')).to_have_count(0)
@@ -1002,7 +1005,7 @@ if __name__ == '__main__':
         browser.close()
     assert not errors, errors
     print('PASS slide to pay into the Kaspi cart (' + SELECTED + '): hold hint, the pill stretches from a fixed left '
-          'edge with the mark under the finger and shrinks back on an early release, tap/swipe/short drag/keyboard send nothing, '
+          'edge with the mark under the finger and shrinks back on an early release, tap/short drag/keyboard send nothing, '
           'full drag = one quote + one order + one invoice, reload/back resend nothing, price change and '
           'consent stop before the order, signed-out sign-in lands on the cart without sending, '
           'App Review account refused once, DEMO-1 without cart bar or mutations, gift total = invoice, '

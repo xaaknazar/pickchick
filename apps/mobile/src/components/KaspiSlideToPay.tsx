@@ -20,7 +20,7 @@ import { methodGlyph } from './PaymentChoice';
 import { Icon } from './UI';
 
 export type SlidePhase = 'idle' | 'hint' | 'drag';
-/** Press and hold before the handle follows the finger (owner: «зажать и тянуть»). */
+/** A short tap shows the hint; horizontal dragging does not require a timed hold. */
 export const SLIDE_HOLD_MS = 250;
 /** Releasing at or beyond this share of the track starts the payment. */
 export const SLIDE_COMPLETE_RATIO = 0.85;
@@ -83,7 +83,7 @@ function MethodMark({ method, size }: { method: PaymentMethodId; size: number })
 
 /**
  * Payment handle of the cart bar (the file keeps its name; the method is the customer's active
- * one, item 6b). Hold it (~250 ms) and drag to the right: the dark pill stays anchored at the
+ * one, item 6b). Drag to the right (no stationary hold required): the dark pill stays anchored at the
  * bar's left edge and STRETCHES with the finger (owner 27.10.2026, item 6a, Drinkit-like), the
  * method mark rides at its right end under the finger and the pill covers «тяни для оплаты».
  * Released at the end, the pill fills the bar and the parent opens the cart with payment once.
@@ -125,6 +125,8 @@ export function KaspiSlideToPay({
   const limit = useSharedValue(travel);
   const base = useSharedValue(width);
   const done = useSharedValue(false);
+  const dragging = useSharedValue(false);
+  const originX = useSharedValue(0);
   const timers = useRef<{
     hint?: ReturnType<typeof setTimeout>;
     reset?: ReturnType<typeof setTimeout>;
@@ -176,16 +178,22 @@ export function KaspiSlideToPay({
   const gesture = useMemo(() => {
     const pan = Gesture.Pan()
       .enabled(enabled)
-      .activateAfterLongPress(SLIDE_HOLD_MS)
+      .activeOffsetX([-8, 8])
+      .failOffsetY([-12, 12])
+      .maxPointers(1)
+      .onBegin((event) => {
+        originX.value = event.absoluteX;
+      })
       .onStart(() => {
         if (done.value) return;
+        dragging.value = true;
         cancelAnimation(x);
         runOnJS(startDrag)();
       })
       .onUpdate((event) => {
         if (done.value) return;
         // The pill's right end follows the finger horizontally, clamped to the bar.
-        x.value = Math.min(limit.value, Math.max(0, event.translationX));
+        x.value = Math.min(limit.value, Math.max(0, event.absoluteX - originX.value));
       })
       .onEnd((_event, success) => {
         if (done.value) return;
@@ -198,6 +206,15 @@ export function KaspiSlideToPay({
           x.value = reduced ? 0 : withSpring(0, SLIDE_RETURN_SPRING);
           runOnJS(cancelDrag)();
         }
+      })
+      .onFinalize(() => {
+        // Cancellation (system gesture, second finger, lost responder) also restores
+        // the pill. Only a successful full release above can issue an intent.
+        if (!dragging.value) return;
+        dragging.value = false;
+        if (done.value) return;
+        x.value = reduced ? 0 : withSpring(0, SLIDE_RETURN_SPRING);
+        runOnJS(cancelDrag)();
       });
     const tap = Gesture.Tap()
       .enabled(enabled)
@@ -206,7 +223,19 @@ export function KaspiSlideToPay({
         if (success && !done.value) runOnJS(flashHint)();
       });
     return Gesture.Race(pan, tap);
-  }, [enabled, reduced, x, limit, done, startDrag, cancelDrag, complete, flashHint]);
+  }, [
+    enabled,
+    reduced,
+    x,
+    limit,
+    done,
+    dragging,
+    originX,
+    startDrag,
+    cancelDrag,
+    complete,
+    flashHint,
+  ]);
   // Anchored at the left edge: only the width changes, never the position.
   const stretch = useAnimatedStyle(() => ({ width: base.value + Math.max(0, x.value) }));
   // Keyboard on the web build: Enter/Space opens the cart like VoiceOver's double tap.

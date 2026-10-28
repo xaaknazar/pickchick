@@ -155,3 +155,83 @@ test('permanent HTTP rejection stops while server overload retries', async (t) =
   assert.equal(calls, 2);
   assert.deepEqual(failures, [true, false]);
 });
+
+test('a dropped long poll is confirmed with a snapshot without flashing offline', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const reads = [],
+    failures = [],
+    values = [];
+  const recovery = createAvailabilityRecovery({
+    read: async (_signal, signature) => {
+      reads.push(signature);
+      if (signature) throw new TypeError('Network request failed');
+      return snapshot();
+    },
+    onChecking() {},
+    onSuccess: (v) => values.push(v),
+    onFailure: (e) => failures.push(e),
+  });
+  t.after(() => recovery.stop());
+  recovery.setActive(true);
+  await flush();
+  t.mock.timers.tick(100);
+  await flush();
+  assert.deepEqual(reads, ['', 'a'.repeat(64), '']);
+  assert.equal(values.length, 2);
+  assert.equal(failures.length, 0);
+});
+
+test('a failed confirmation still reports offline and retries with backoff', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let calls = 0;
+  const failures = [];
+  const recovery = createAvailabilityRecovery({
+    read: async () => {
+      if (++calls > 1) throw new TypeError('Network request failed');
+      return snapshot();
+    },
+    random: () => 1,
+    onChecking() {},
+    onSuccess() {},
+    onFailure: (_, retry) => failures.push(retry),
+  });
+  t.after(() => recovery.stop());
+  recovery.setActive(true);
+  await flush();
+  t.mock.timers.tick(100);
+  await flush();
+  assert.equal(calls, 3);
+  assert.deepEqual(failures, [true]);
+  t.mock.timers.tick(1999);
+  await flush();
+  assert.equal(calls, 3);
+  t.mock.timers.tick(1);
+  await flush();
+  assert.equal(calls, 4);
+});
+
+test('background cancellation never launches a confirmation request', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let calls = 0;
+  const failures = [];
+  const recovery = createAvailabilityRecovery({
+    read: async (signal) => {
+      if (++calls === 1) return snapshot();
+      return new Promise((_, reject) =>
+        signal.addEventListener('abort', () => reject(new TypeError('Aborted'))),
+      );
+    },
+    onChecking() {},
+    onSuccess() {},
+    onFailure: (e) => failures.push(e),
+  });
+  t.after(() => recovery.stop());
+  recovery.setActive(true);
+  await flush();
+  t.mock.timers.tick(100);
+  await flush();
+  recovery.setActive(false);
+  await flush();
+  assert.equal(calls, 2);
+  assert.equal(failures.length, 0);
+});

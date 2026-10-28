@@ -5096,6 +5096,33 @@
         "deployed": true,
         "accepted": false
       }
+    },
+    {
+      "id": "mobile-cart-fixes-1028",
+      "workstream": "launch",
+      "title": "Исправления корзины и связи после TestFlight 24",
+      "summary": "Подготовлены исправления ложного offline, ширины плашки, стабильного размера текста и немедленного свайпа. Проверки логики и браузерной корзины прошли; native выполняется.",
+      "status": "active",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["mobile-redesign-1027"],
+      "evidence": [
+        {
+          "label": "Причины, исправления и проверки",
+          "path": "docs/operations/mobile-cart-fixes-2026-10-28.md"
+        }
+      ],
+      "acceptance": [
+        "На iPhone нет ложного мигания связи при доступном API.",
+        "Корзина компактна, текст стабилен, свайп работает без предварительного удержания."
+      ],
+      "nextAction": "Завершить native и регрессии свайпа, опубликовать PR. Новый TestFlight и физическая приёмка ещё не выполнены.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
     }
   ]
 }
