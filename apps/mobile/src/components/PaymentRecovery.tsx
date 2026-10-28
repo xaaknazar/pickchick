@@ -12,6 +12,8 @@ import {
   normalizedOrderComment,
 } from '../commerce-checkout';
 import { paymentReceived } from '../commerce-presentation';
+import { publishActiveOrderCount, publishActiveOrderFloor } from '../active-orders';
+import { commerceActiveKind } from '../orders-tab';
 import { matchesPaidComboCart } from '../loyalty/combo-progress';
 import { cartLineKey } from '../domain';
 import {
@@ -81,6 +83,8 @@ const OWNED_PATHS = ['/checkout', '/cart', '/auth', '/order-status'];
 /** A read of the intent's order is reused this long while the app stays in the foreground. */
 const READ_REUSE_MS = 15_000;
 type Order = ReturnType<typeof CustomerCommerceOrderSchema.parse>;
+/** A closed intent is read once per close (a pay tap may reopen it and the X close it again). */
+const tidyKey = (draft: PendingPayment) => `${draft.key}:${draft.closedAt ?? ''}`;
 
 /**
  * A payment saved by an earlier app run (owner 28.10.2026, TestFlight 26). Before, this pushed
@@ -117,6 +121,8 @@ export function PaymentRecovery() {
   const settled = cartSettled.current;
   const reads = useRef(new Map<string, { at: number; wake: number; order: Order }>());
   const tidied = useRef(new Set<string>());
+  const account = useRef(customerId);
+  account.current = customerId;
   useEffect(() => {
     if (!kaspiCheckoutEnabled || !auth.ready || !customerId || !access || params.preview === '1') {
       publish(null);
@@ -158,13 +164,33 @@ export function PaymentRecovery() {
       await AsyncStorage.removeItem(key);
       return true;
     };
+    // Paid while the app was closed (review 28.10.2026): no banner, the cart lost its paid lines,
+    // and the order is in «Заказы». Its orange counter shows at once, not only after the tab has
+    // loaded its list, so the emptied cart is never left without a sign. Read only (GET); the
+    // exact number of the list, at least this order when the list cannot be read.
+    const countActiveOrders = async (paid: Order) => {
+      if (commerceActiveKind(paid.phase) !== null) publishActiveOrderFloor(1);
+      const result = (await access(customerId, (token) =>
+        commerceRequest('/v1/customer-checkout/orders', 'GET', undefined, token),
+      )) as { orders: unknown[] };
+      const orders = result.orders.map((value) => CustomerCommerceOrderSchema.parse(value));
+      if (account.current !== customerId) return;
+      publishActiveOrderCount(
+        orders.filter((entry) => commerceActiveKind(entry.phase) !== null).length,
+      );
+    };
     const run = async () => {
       const draft = parsePendingPayment(await AsyncStorage.getItem(key));
       if (!active) return;
       let decision = paymentLaunch(draft, undefined, Date.now());
       let order: Order | undefined;
-      // A closed intent is read once per run, only to tidy it up; an open one at every return.
-      if (draft?.orderId && decision.read && !tidied.current.has(draft.key)) {
+      // A closed intent is read once per close, only to tidy it up; an open one at every return
+      // (also one that a pay tap of this run opened again after it was read closed).
+      if (
+        draft?.orderId &&
+        decision.read &&
+        !(pendingPaymentClosed(draft) && tidied.current.has(tidyKey(draft)))
+      ) {
         try {
           order = await readOrder(draft.orderId);
         } catch {
@@ -172,7 +198,8 @@ export function PaymentRecovery() {
         }
         if (!active) return;
         decision = paymentLaunch(draft, order, Date.now());
-        if (order && !decision.remove && pendingPaymentClosed(draft)) tidied.current.add(draft.key);
+        if (order && !decision.remove && pendingPaymentClosed(draft))
+          tidied.current.add(tidyKey(draft));
       }
       if (draft && decision.remove) {
         const paid = !!order && paymentReceived(order.phase);
@@ -202,6 +229,7 @@ export function PaymentRecovery() {
             current.comboRewards?.select(false);
           }
           current.comboRewards?.refresh();
+          if (order) void countActiveOrders(order).catch(() => undefined);
         }
       }
       if (!active) return;
