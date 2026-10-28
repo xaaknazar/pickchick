@@ -148,7 +148,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     // Keep the longest Kazakh hours caption at its normal size beside the 54 pt profile.
-    gap: 10,
+    gap: 8,
   },
   branch: {
     flex: 1,
