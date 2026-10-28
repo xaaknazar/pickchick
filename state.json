@@ -6711,9 +6711,11 @@
         "@release/ios",
         "@apple/appstore"
       ],
-      "status": "active",
-      "head": "2611d3076441ebee4d5e84e09445b1f93f6fe717",
-      "updatedAt": "2026-10-28T05:51:51.521Z"
+      "status": "done",
+      "head": "89f7a3daca7c733a59c14fcfb2400d846c11f2e0",
+      "updatedAt": "2026-10-28T05:59:25.273Z",
+      "summary": "PR285 merged b305a5cd. iOS 0.2.0 (25) archive and IPA complete from clean a0af08b4, strict exported IPA signature/version/entitlements verified; flags unchanged from24. Evidence89f7a3da. No upload, full CI pending.",
+      "nextAction": "After full CI succeeds, upload existing mobile-cart-fixes-20261028-25 archive to TestFlight and assign PickChick Internal; physical acceptance pending."
     }
   ]
 }
