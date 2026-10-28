@@ -40,7 +40,7 @@ final class CartFixesTests: XCTestCase {
         let end = start.withOffset(CGVector(dx: dock.frame.width - handle.frame.width - 12, dy: 0))
         // 10 ms hold deliberately reproduces the owner's ordinary immediate drag.
         start.press(forDuration: 0.01, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0)
-        XCTAssertTrue(element("screen-M01", app).waitForExistence(timeout: 15), "A completed guest drag must reach sign-in, never submit payment")
+        XCTAssertTrue(element("account-required-login", app).waitForExistence(timeout: 15), "A completed guest drag must open the account-required sheet, never submit payment")
         attach("Immediate-drag-guest-auth-native", app)
     }
 
