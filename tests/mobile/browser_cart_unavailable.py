@@ -308,14 +308,14 @@ def expect_closed_bar(page, total='4 190 ₸'):
     newest = visible(page, 'cart-recent-photo-0').bounding_box()
     assert amount['x'] - box['x'] <= 40, ('empty glass before the total', amount, box)
     assert box['x'] + box['width'] - (newest['x'] + newest['width']) <= 12, (newest, box)
-    assert box['width'] <= min(view - 32, 440) - 60, ('the capsule did not shrink', box, view)
+    assert box['width'] <= min(view - 48, 320) - 60, ('the capsule did not shrink', box, view)
 
 
 def expect_open_bar(page, timeout=10000):
     expect(visible(page, 'cart-pay-handle')).to_have_count(1, timeout=timeout)
     expect(page.locator('#cart-pay-mark-kaspi').filter(visible=True)).to_have_count(1)
-    # With its handle the capsule spans the dock again (16 pt gutters, at most 440 pt).
-    width = min(page.viewport_size['width'] - 32, 440)
+    # Owner 28.10: the open capsule stays compact (24 pt gutters, at most 320 pt).
+    width = min(page.viewport_size['width'] - 48, 320)
     for _ in range(20):
         box = visible(page, 'cart-shortcut').bounding_box()
         if abs(box['width'] - width) <= 2:
