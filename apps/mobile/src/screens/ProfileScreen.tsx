@@ -113,7 +113,7 @@ export function Profile(props: ScreenProps) {
             testID="profile-back"
             name="chevron-back"
             label={t('Назад')}
-            size={appHeaderMetrics.profileSize}
+            size={appHeaderMetrics.profileBarSize}
             iconSize={24}
             onPress={props.goBack}
           />
@@ -129,7 +129,7 @@ export function Profile(props: ScreenProps) {
             testID="profile-settings"
             name="settings-outline"
             label={t('Настройки профиля')}
-            size={appHeaderMetrics.profileSize}
+            size={appHeaderMetrics.profileBarSize}
             iconSize={23}
             onPress={() => props.navigate('M34')}
           />

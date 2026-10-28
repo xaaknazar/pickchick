@@ -113,7 +113,11 @@ with sync_playwright() as p:
             expect(page.get_by_test_id('screen-M34')).to_have_count(0)
             expect(page.get_by_test_id('screen-M30')).to_have_count(1)
             settings = page.get_by_test_id('profile-settings').bounding_box()
-            assert abs(settings['x'] - under['x']) <= 1 and abs(settings['y'] - under['y']) <= 1, (settings, under)
+            # The header button is bigger (54 pt) than settings (46 pt); they share the right edge
+            # and the header button's centre (where the second tap lands) is over settings.
+            cx, cy = under['x'] + under['width'] / 2, under['y'] + under['height'] / 2
+            assert abs((settings['x'] + settings['width']) - (under['x'] + under['width'])) <= 1, (settings, under)
+            assert settings['x'] <= cx <= settings['x'] + settings['width'] and settings['y'] <= cy <= settings['y'] + settings['height'], (settings, under)
             if route == 'menu':
                 # Once the push has settled, settings works as before.
                 page.get_by_test_id('profile-settings').click()

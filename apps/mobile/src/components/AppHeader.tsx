@@ -76,7 +76,7 @@ function ProfileButton({ onPress }: { onPress(): void }) {
       name="person"
       label={t('Профиль')}
       size={size}
-      iconSize={24}
+      iconSize={28}
       place="header"
       onPress={onPress}
     >

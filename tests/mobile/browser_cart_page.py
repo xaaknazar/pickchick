@@ -270,9 +270,12 @@ def cart_page(browser, width, height):
     assert glyph(shut) == 'rgb(255, 255, 255)', glyph(shut)
     assert has_blur(clear) and has_blur(shut), 'Glass buttons blur what is behind them'
     assert blur_is_round(clear) and blur_is_round(shut), 'No square blur patch around the round buttons'
+    # Owner 28.10.2026: the cart -/+ keep their original look - plain buttons in one filled pill.
     for minus in (page.get_by_test_id('cart-minus-pick-combo'), page.get_by_test_id('cart-plus-pick-combo')):
-        assert has_blur(minus) and minus.bounding_box()['height'] >= 44
-        assert blur_is_round(minus), 'No square blur patch around -/+'
+        assert not has_blur(minus) and minus.bounding_box()['height'] >= 44
+    stepper_bg = page.get_by_test_id('cart-minus-pick-combo').evaluate(
+        '(e) => getComputedStyle(e.parentElement).backgroundColor')
+    assert stepper_bg == 'rgb(20, 48, 107)', stepper_bg
 
     # Text remains readable and keeps the same size after selection/layout changes.
     for mode in ('dine_in', 'takeaway', 'dine_in', 'takeaway'):
@@ -483,8 +486,7 @@ def glass_look(browser, width, height):
     page.get_by_test_id('open-cart').filter(visible=True).click()
     expect(page.get_by_test_id('screen-M09')).to_be_visible()
     expect(page.get_by_test_id('cart-pay')).to_be_enabled(timeout=15000)
-    controls = [page.get_by_test_id(i) for i in
-                ('cart-clear', 'cart-close', 'cart-minus-pick-combo', 'cart-plus-pick-combo')]
+    controls = [page.get_by_test_id(i) for i in ('cart-clear', 'cart-close')]
     for control in controls:
         parts = glass_parts(control)
         assert parts['blur'] and parts['specular'] and parts['rim'] == 'rgba(255, 255, 255, 0.3)', parts

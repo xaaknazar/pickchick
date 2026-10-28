@@ -54,7 +54,7 @@ import {
   Empty,
   Heading,
   Icon,
-  IconButton,
+  PlainIconButton,
   Loading,
   Logo,
   MinorMoney,
@@ -902,8 +902,7 @@ export function Cart(props: ScreenProps & { checkout?: CartCheckout }) {
                   }}
                 >
                   <Row style={s.stepper}>
-                    <IconButton
-                      size={44}
+                    <PlainIconButton
                       name="remove"
                       label={localize(
                         line.quantity === 1
@@ -931,8 +930,7 @@ export function Cart(props: ScreenProps & { checkout?: CartCheckout }) {
                     >
                       {localize(line.quantity)}
                     </Body>
-                    <IconButton
-                      size={44}
+                    <PlainIconButton
                       name="add"
                       label={localize(t('Добавить ещё {p0}', { p0: t(line.product.name) }))}
                       testID={`cart-plus-${line.product.id}`}
@@ -1304,7 +1302,8 @@ const s = StyleSheet.create({
   upsell: { width: 130, borderRadius: 18, padding: 10, gap: 8, backgroundColor: colors.surface },
   cartImage: { width: 84, height: 84, borderRadius: 18, backgroundColor: '#FFF8EE' },
   // Drinkit-like separate round glass -/+ (owner 27.10.2026).
-  stepper: { alignSelf: 'flex-start', gap: 6 },
+  // Owner 28.10.2026: the cart -/+ keep their original filled pill, not glass circles.
+  stepper: { backgroundColor: '#14306B', borderRadius: 24, alignSelf: 'flex-start', gap: 0 },
   largeIcon: {
     width: 94,
     height: 94,
