@@ -6729,11 +6729,12 @@
         "docs/operations/mobile-testflight25-evidence.json",
         "@release/ios",
         "@apple/appstore",
-        "tests/mobile/browser_cart_unavailable.py"
+        "tests/mobile/browser_cart_unavailable.py",
+        "docs/operations/mobile-testflight25.png"
       ],
       "status": "active",
-      "head": "b305a5cd201fdca90ecd89fbc644e70d77aa9146",
-      "updatedAt": "2026-10-28T06:07:54.977Z"
+      "head": "fc71c2269748a90f6fed84bfb079c45567267b97",
+      "updatedAt": "2026-10-28T06:24:19.221Z"
     }
   ]
 }
