@@ -14,5 +14,11 @@ buildNumber 24 -> 25; версия 0.2.0, Bundle ID kz.pickchick.app и проф
 группа PickChick Internal, 2 тестировщика. App Review, VPS/API и включение акции не меняются.
 Онлайн-пульт не опубликован; исходники статуса сохраняются в GitHub.
 
-Архив, IPA и доставка пока не завершены. Штатный scripts/mobile/ios_release.py сохраняет
+Архив и IPA завершены, загрузка в Apple не выполнялась. Штатный scripts/mobile/ios_release.py сохраняет
 блокировку выпуска и проверку подписи. Прежние сертификат и профиль с push сохраняются.
+
+## Результат локальной сборки
+
+Чистый опубликованный исходник `a0af08b4fd024e21da09f0bee0a4179bbe2ea2ab`; Xcode 26.6 (17F113), SDK iphoneos26.5. Штатные archive/export завершились успешно. В экспортированном IPA проверены Bundle ID, версия 0.2.0 (25), строгая проверка подписи, get-task-allow=false и aps-environment=production. Профиль, API и публичные флаги совпадают со сборкой 24. Временные настройки подписи восстановлены.
+
+[Протокол артефактов и SHA256](mobile-testflight25-evidence.json). [PR285](https://github.com/xaaknazar/pickchick/pull/285). Полная Foundation CI ещё выполняется; перед загрузкой требуется успешный результат. Это готовая локальная сборка, пока без доставки в TestFlight.
