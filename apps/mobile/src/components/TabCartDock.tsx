@@ -2,6 +2,7 @@ import { useIsFocused, useRouter } from 'expo-router';
 import { View } from 'react-native';
 import { useMobile } from '../store';
 import { CartShortcut } from './CartShortcut';
+import { PaymentResumeBanner } from './PaymentResumeBanner';
 
 /**
  * The cart bar (quick pay) of Меню, События and Заказы, drawn by the tab bar itself, right on top
@@ -17,13 +18,19 @@ import { CartShortcut } from './CartShortcut';
  * as before: the sheet covers it, and its last height is kept so the content below stays put.
  * The item count the customer last saw comes from the tab bar (`seenCount`), which outlives this
  * dock: coming back from the cart or the keyboard hiding is not «an item was added».
+ *
+ * On the menu (`resume`) the dock also carries the payment resume banner above the cart bar
+ * (owner 28.10.2026: the app opens on the menu, a saved payment is offered, never pushed).
  */
 export function TabCartDock({
   preview = false,
+  resume = false,
   onHeightChange,
   seenCount,
 }: {
   preview?: boolean;
+  /** The menu tab is shown: the payment resume banner may sit above the cart bar. */
+  resume?: boolean;
   onHeightChange?: (height: number) => void;
   seenCount?: { current: number };
 }) {
@@ -38,6 +45,9 @@ export function TabCartDock({
         if (focused) onHeightChange?.(Math.ceil(event.nativeEvent.layout.height));
       }}
     >
+      {focused && resume && !preview ? (
+        <PaymentResumeBanner cartBelow={model.cart.length > 0} />
+      ) : null}
       {focused ? (
         <CartShortcut
           model={model}

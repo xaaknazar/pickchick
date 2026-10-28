@@ -125,6 +125,7 @@ export function FloatingTabBar({
     <View pointerEvents="box-none" style={[s.host, { bottom: metrics.bottom }]}>
       <TabCartDock
         preview={params?.preview === '1'}
+        resume={state.routes[state.index]?.name === 'menu'}
         onHeightChange={onCartDockHeight}
         seenCount={seenCartCount}
       />

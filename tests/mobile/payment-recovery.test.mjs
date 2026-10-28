@@ -20,6 +20,22 @@ test('recovery belongs to the same customer and uses the accepted order when ava
   assert.deepEqual(parsePendingPayment(JSON.stringify(accepted)), accepted);
   assert.equal(parsePendingPayment(null), null);
 });
+test('drafts of earlier builds and closed drafts of this build both parse (owner 28.10.2026)', () => {
+  // Written before «closed» was stored: no closedAt, read as open.
+  const old = {
+    ...draft,
+    createdAt: 1793180000000,
+    orderId: '40000000-0000-4000-8000-000000000006',
+  };
+  assert.equal(parsePendingPayment(JSON.stringify(old)).closedAt, undefined);
+  const closed = { ...old, sendInvoice: false, closedAt: 1793180060000 };
+  assert.deepEqual(parsePendingPayment(JSON.stringify(closed)), closed);
+  for (const closedAt of ['1793180060000', 0, -5, 1.5, null, true])
+    assert.throws(
+      () => parsePendingPayment(JSON.stringify({ ...old, closedAt })),
+      String(closedAt),
+    );
+});
 test('corrupt storage cannot become a fresh order or inject an order URL', () => {
   for (const value of [
     null,

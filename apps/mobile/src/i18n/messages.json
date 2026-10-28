@@ -8728,5 +8728,29 @@
     "kk": "Мейрамхана әлі жауап бермеді. Төлем шоты жіберілмеді, ақша шегерілмеді.",
     "en": "The restaurant has not answered yet. No payment request was sent and you were not charged.",
     "context": "apps/mobile/src/commerce-presentation.ts"
+  },
+  {
+    "ru": "Заказ ждёт оплаты в Kaspi",
+    "kk": "Тапсырыс Kaspi-де төлемді күтіп тұр",
+    "en": "Your order is waiting for payment in Kaspi",
+    "context": "apps/mobile/src/payment-resume.ts"
+  },
+  {
+    "ru": "Проверяем оплату заказа",
+    "kk": "Тапсырыс төлемін тексеріп жатырмыз",
+    "en": "Checking your order payment",
+    "context": "apps/mobile/src/payment-resume.ts"
+  },
+  {
+    "ru": "Оплата заказа не завершена",
+    "kk": "Тапсырыс төлемі аяқталмады",
+    "en": "Your order payment is not finished",
+    "context": "apps/mobile/src/payment-resume.ts"
+  },
+  {
+    "ru": "Скрыть напоминание об оплате",
+    "kk": "Төлем туралы еске салуды жасыру",
+    "en": "Hide payment reminder",
+    "context": "apps/mobile/src/components/PaymentResumeBanner.tsx"
   }
 ]
