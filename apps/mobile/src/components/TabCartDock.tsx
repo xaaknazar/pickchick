@@ -15,13 +15,17 @@ import { CartShortcut } from './CartShortcut';
  *
  * While a route above the tabs is open (the cart, sign-in, an order status) the bar is not drawn,
  * as before: the sheet covers it, and its last height is kept so the content below stays put.
+ * The item count the customer last saw comes from the tab bar (`seenCount`), which outlives this
+ * dock: coming back from the cart or the keyboard hiding is not «an item was added».
  */
 export function TabCartDock({
   preview = false,
   onHeightChange,
+  seenCount,
 }: {
   preview?: boolean;
   onHeightChange?: (height: number) => void;
+  seenCount?: { current: number };
 }) {
   const model = useMobile(preview);
   const router = useRouter();
@@ -38,6 +42,7 @@ export function TabCartDock({
         <CartShortcut
           model={model}
           aboveTabBar
+          seenCount={seenCount}
           // The cart (M09) never requires an account: a guest browses it and signs in to pay.
           onPress={() =>
             router.push({ pathname: '/cart', params: preview ? { preview: '1' } : {} })

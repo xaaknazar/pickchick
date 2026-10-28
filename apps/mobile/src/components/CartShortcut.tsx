@@ -91,6 +91,7 @@ export function CartShortcut({
   floating = false,
   aboveTabBar = false,
   onHeightChange,
+  seenCount,
 }: {
   model: MobileModel;
   onPress: () => void;
@@ -102,6 +103,12 @@ export function CartShortcut({
    */
   aboveTabBar?: boolean;
   onHeightChange?: (height: number) => void;
+  /**
+   * The item count the customer last saw on this bar, kept by an owner that outlives the bar.
+   * The tab bar unmounts its bar under a sheet (the cart, a product) and under the keyboard;
+   * without it every return would count as «added» and replay the feedback.
+   */
+  seenCount?: { current: number };
 }) {
   useLocale();
   const router = useRouter();
@@ -166,7 +173,8 @@ export function CartShortcut({
   }));
   // Subtle added feedback: the newest photo settles in when the customer returns with more items.
   const feedback = useRef(new NativeAnimated.Value(0)).current;
-  const previousCount = useRef(0);
+  const ownSeenCount = useRef(0);
+  const previousCount = seenCount ?? ownSeenCount;
   useFocusEffect(
     useCallback(() => {
       const added = count > previousCount.current;
@@ -201,7 +209,7 @@ export function CartShortcut({
         subscription.remove();
         reset();
       };
-    }, [count, reduced, feedback]),
+    }, [count, reduced, feedback, previousCount]),
   );
   // The Kaspi cart is the checkout (27.10.2026): the slide opens the cart with payment, which
   // takes the one-shot intent and presses its own «Оплатить» once. Guests sign in first and land

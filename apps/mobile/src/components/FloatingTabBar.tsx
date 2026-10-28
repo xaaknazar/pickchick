@@ -1,5 +1,5 @@
 import { localize, t, useLocale } from '../i18n';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   Keyboard,
@@ -113,6 +113,9 @@ export function FloatingTabBar({
   const keyboardVisible = useKeyboardVisible();
   const metrics = tabBarMetrics(insets, fontScale);
   const params = state.routes[state.index]?.params as { preview?: unknown } | undefined;
+  // The cart's item count the customer last saw on the docked bar. Kept here, not in the bar: the
+  // bar unmounts under a sheet and under the keyboard, and a remount is not «an item was added».
+  const seenCartCount = useRef(0);
   // The keyboard hides the tab bar and the cart bar docked on it together.
   if (keyboardVisible) return null;
   // One layer above every tab screen (owner 28.10.2026): the cart bar (quick pay) is laid out
@@ -120,7 +123,11 @@ export function FloatingTabBar({
   // real height, the safe area or a screen's frame (TabCartDock).
   return (
     <View pointerEvents="box-none" style={[s.host, { bottom: metrics.bottom }]}>
-      <TabCartDock preview={params?.preview === '1'} onHeightChange={onCartDockHeight} />
+      <TabCartDock
+        preview={params?.preview === '1'}
+        onHeightChange={onCartDockHeight}
+        seenCount={seenCartCount}
+      />
       <View
         pointerEvents="box-none"
         style={[s.barRow, { paddingHorizontal: metrics.side }]}
