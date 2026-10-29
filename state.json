@@ -6985,11 +6985,12 @@
         "apps/mobile/app.json",
         "@ios/simulator",
         "@release/ios",
-        "@apple/appstore"
+        "@apple/appstore",
+        "tests/mobile/ios/SmokeTests.swift"
       ],
       "status": "active",
       "head": "635fd3aad03cd9d0af0272651f3b13d0ea9c6ad6",
-      "updatedAt": "2026-10-29T14:18:00.435Z"
+      "updatedAt": "2026-10-29T14:21:44.471Z"
     }
   ]
 }
