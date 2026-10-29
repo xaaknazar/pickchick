@@ -7004,9 +7004,9 @@
         "apps/mobile/src/haptics.ts",
         "tests/mobile/browser_slide_to_pay.py"
       ],
-      "status": "available",
+      "status": "active",
       "head": "71c851a05b90d96a3cae0e0c51734103df5ba255",
-      "updatedAt": "2026-10-29T18:53:27.881Z",
+      "updatedAt": "2026-10-29T19:00:47.954Z",
       "summary": "71c851a0 опубликован PR295, выведен из draft. Владелец разрешил передачу ровно haptics.ts и browser_slide_to_pay.py, записано в обе задачи. PR294 3b98dd27 включён merge в рабочую ветку с сохранением 16 делений и Pick Man. Усиление grab Heavy/tick Medium/armed Heavy; проверка подписи обновлена. 557 Node+59 Python, TypeScript/lint/format и полная browser_slide_to_pay A-Q PASS. Foundation40933826214 ещё идёт, без подтверждения полной зелёной CI. Реальных платежей и выпуска нет.",
       "nextAction": "Проверить Foundation CI40933826214 на 71c851a0 до слияния/выпуска, исправить выявленные ошибки. После зелёной CI требуется отдельное решение владельца на merge; не отправлять TestFlight автоматически. Для новой сборки проверить свободный номер Apple, включённый app.json29 только унаследован из PR294. Сила вибрации на физическом iPhone не проверена. Общие документы и iOS-ресурсы остаются mobile-feedback-1029."
     }
