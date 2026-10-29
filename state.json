@@ -6965,6 +6965,31 @@
       "updatedAt": "2026-10-29T14:17:55.452Z",
       "summary": "TestFlight 28 published to PickChick Internal, 2 testers. PR291 merged; exact IPA source 43ae6b04 Foundation 11/11 green. Documentation checkpoint 635fd3aa in PR293. Owner reports Kaspi payments and haptics work; physical acceptance remains partial.",
       "nextAction": "Merge documentation PR293 when its CI is green. Owner feedback on stronger haptics and Pick Man first-entry safe area continues separately."
+    },
+    {
+      "id": "mobile-feedback-1029",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-feedback-1029",
+      "scopes": [
+        "apps/mobile/src/haptics.ts",
+        "apps/mobile/src/components/KaspiSlideToPay.tsx",
+        "apps/mobile/src/games/pick-man/PickManScreen.tsx",
+        "tests/mobile/browser_slide_to_pay.py",
+        "tests/mobile/browser_pick_man.py",
+        "tests/mobile/game-route-presentation.test.mjs",
+        "tests/mobile/slide-pay-intent.test.mjs",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/operations/mobile-feedback-2026-10-29.md",
+        "apps/mobile/app.json",
+        "@ios/simulator",
+        "@release/ios",
+        "@apple/appstore"
+      ],
+      "status": "active",
+      "head": "635fd3aad03cd9d0af0272651f3b13d0ea9c6ad6",
+      "updatedAt": "2026-10-29T14:18:00.435Z"
     }
   ]
 }
