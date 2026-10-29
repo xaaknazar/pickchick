@@ -6992,6 +6992,19 @@
       "updatedAt": "2026-10-29T18:28:25.381Z",
       "summary": "PR291 и итоговый PR293 включены в shared; TestFlight 28 опубликован. Освобождены резервы завершённого этапа.",
       "nextAction": "Приёмка iPhone частичная; усиление вибрации отдельно mobile-feedback-1029."
+    },
+    {
+      "id": "mobile-cart-mode-1029",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-cart-mode-1029",
+      "scopes": [
+        "apps/mobile/src/components/CartShortcut.tsx",
+        "tests/mobile/browser_cart_shortcut.py",
+        "docs/operations/mobile-cart-mode-2026-10-29.md"
+      ],
+      "status": "active",
+      "head": "528ea6956eed0f1e42d3f324e0c26ec65708b005",
+      "updatedAt": "2026-10-29T18:28:31.091Z"
     }
   ]
 }
