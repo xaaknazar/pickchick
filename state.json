@@ -6863,9 +6863,9 @@
         "@vps/kaspi",
         "docs/operations/kaspi-cashier-login-2026-10-29.md"
       ],
-      "status": "available",
+      "status": "active",
       "head": "c17f90ad372bff4348c4fbd20cbee836ba3aea03",
-      "updatedAt": "2026-10-29T11:49:45.289Z",
+      "updatedAt": "2026-10-29T12:04:43.892Z",
       "summary": "Apple Lookup подтвердил текущую публичную Kaspi Pay 26.1027 от 27.10; CFBundleVersion не указан. Последний upstream всё ещё 26.0921/1115. Диагностика OldVersionToUpdate сохранена, сессия не установлена, server lock освобождена, новых банковских запросов нет. Протокол c17f90ad опубликован.",
       "nextAction": "Ждём подключённый разблокированный iPhone с Kaspi Pay для read-only метаданных версии/build; сейчас все устройства unavailable/disconnected. Не подбирать параметры и не обходить ограничения. Перед новым входом принять claim, получить новую owner lock; Terminal недоступен CUA, секреты вводит владелец. После авторизации проверить магазин и безопасную установку отдельно."
     }
