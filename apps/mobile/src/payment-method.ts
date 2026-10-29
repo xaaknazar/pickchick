@@ -9,11 +9,16 @@
  *   method in «Способ оплаты». The later of the two wins, so the handle always shows the method
  *   the customer used or picked last.
  * - A method this build cannot pay with right now falls back to the first available one. Today
- *   only Kaspi.kz pays; Apple Pay / Google Pay and bank cards are «скоро», so everyone sees Kaspi
- *   until they are connected. A new customer (or a guest) starts with Kaspi.
+ *   only Kaspi.kz pays, so everyone sees Kaspi until another method is connected. A new customer
+ *   (or a guest) starts with Kaspi.
+ * - The App Store build lists only the methods that pay now (owner 29.10.2026, App Review 2.1):
+ *   no Apple Pay / Google Pay / card row, name or mark. `EXPO_PUBLIC_UPCOMING_PAYMENTS=1` lists
+ *   them again as disabled «скоро» rows (store-build.ts).
  *
  * Pure module: the app wires it to AsyncStorage (usePaymentMethod.ts); Node tests use memory.
  */
+import { UPCOMING_PAYMENTS } from './store-build.ts';
+
 export type PaymentMethodId = 'kaspi' | 'apple_pay' | 'google_pay' | 'card';
 export const PAYMENT_METHOD_IDS: readonly PaymentMethodId[] = [
   'kaspi',
@@ -31,15 +36,24 @@ export type PaymentMethodOption = {
   available: boolean;
 };
 
-/** «Способ оплаты» in its order. Only Kaspi.kz pays today; the rest are «скоро». */
-export function paymentMethods(platform: string): PaymentMethodOption[] {
-  return [
+/**
+ * «Способ оплаты» in its order: the methods this build can pay with now (only Kaspi.kz today).
+ * `upcoming` (EXPO_PUBLIC_UPCOMING_PAYMENTS=1, default off) also lists the methods that are not
+ * connected yet as disabled «скоро» rows; without it they are not listed at all. A method that
+ * becomes available is listed in every build.
+ */
+export function paymentMethods(
+  platform: string,
+  upcoming: boolean = UPCOMING_PAYMENTS,
+): PaymentMethodOption[] {
+  const methods: PaymentMethodOption[] = [
     { id: 'kaspi', label: paymentMethodLabel('kaspi'), available: true },
     platform === 'android'
       ? { id: 'google_pay', label: paymentMethodLabel('google_pay'), available: false }
       : { id: 'apple_pay', label: paymentMethodLabel('apple_pay'), available: false },
     { id: 'card', label: paymentMethodLabel('card'), available: false },
   ];
+  return upcoming ? methods : methods.filter((method) => method.available);
 }
 
 export function paymentMethodLabel(method: PaymentMethodId): string {

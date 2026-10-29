@@ -214,7 +214,8 @@ function methodIcon(id: string): IconName {
 /**
  * «Способ оплаты» (owner 27.10.2026, item 6b): opens preselected with the customer's last used
  * method (the one the cart bar handle shows); choosing a method remembers it for the account.
- * Only Kaspi.kz pays today; wallets and cards are listed as «скоро» and cannot be chosen.
+ * Only Kaspi.kz pays today, so the App Store build lists Kaspi.kz alone (owner 29.10.2026). The
+ * disabled «скоро» rows of wallets and cards appear only with EXPO_PUBLIC_UPCOMING_PAYMENTS=1.
  */
 export function PaymentMethodSelector() {
   useLocale();

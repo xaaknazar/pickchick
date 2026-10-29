@@ -189,10 +189,13 @@ class ReleasePreflightTests(unittest.TestCase):
                          release.STOREFRONT_FLAGS | {"EXPO_PUBLIC_PICKCHICK_ENV": "production"})
         self.assertEqual(release.default_feature_profile("mobile"), "storefront")
         shell = {"EXPO_PUBLIC_PICKCHICK_ENV": "production", "EXPO_PUBLIC_API_URL": "https://evil.example",
-                 "EXPO_PUBLIC_SUPPORT_URL": "tel:+77000000000"}
+                 "EXPO_PUBLIC_SUPPORT_URL": "tel:+77000000000", "EXPO_PUBLIC_UPCOMING_PAYMENTS": "1"}
         production = release.archive_environment("production", shell)
         self.assertEqual(production["EXPO_PUBLIC_PICKCHICK_ENV"], "production")
         self.assertNotIn("EXPO_PUBLIC_API_URL", production)
+        # Owner 29.10.2026: a shell's leftover flag never brings Apple Pay / card into an archive.
+        self.assertNotIn("EXPO_PUBLIC_UPCOMING_PAYMENTS", production)
+        self.assertNotIn("EXPO_PUBLIC_UPCOMING_PAYMENTS", release.archive_environment("storefront", shell))
         self.assertEqual(production["EXPO_PUBLIC_SUPPORT_URL"], "tel:+77000000000")
         for name in ["storefront", "customer-pilot", "farm-pilot", "published-catalog"]:
             with self.subTest(profile=name):

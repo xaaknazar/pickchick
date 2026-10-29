@@ -27,9 +27,10 @@ import { translate } from '../../apps/mobile/src/i18n/core.ts';
 
 const A = '40000000-0000-4000-8000-0000000000a1';
 const B = '40000000-0000-4000-8000-0000000000b2';
-// This build: only Kaspi.kz pays. A future build where Apple Pay and cards work.
+// This build: only Kaspi.kz pays. A future build where Apple Pay and cards work (listed with
+// EXPO_PUBLIC_UPCOMING_PAYMENTS=1 today, then available).
 const today = paymentMethods('ios');
-const future = today.map((method) => ({ ...method, available: true }));
+const future = paymentMethods('ios', true).map((method) => ({ ...method, available: true }));
 
 function memoryStorage(initial = {}) {
   const data = new Map(Object.entries(initial));
@@ -47,10 +48,18 @@ function memoryStorage(initial = {}) {
   };
 }
 
-test('the cart lists Kaspi.kz first and the only available method; the others are «скоро»', () => {
+test('App Store build: the cart lists Kaspi.kz only; the flag lists the others as «скоро»', () => {
   assert.deepEqual(cartPaymentMethods, paymentMethods);
+  // Owner 29.10.2026 (App Review 2.1): no Apple Pay / Google Pay / card row by default.
+  for (const platform of ['ios', 'android', 'web'])
+    assert.deepEqual(
+      paymentMethods(platform).map((m) => [m.id, m.label, m.available]),
+      [['kaspi', 'Kaspi.kz', true]],
+      platform,
+    );
+  // EXPO_PUBLIC_UPCOMING_PAYMENTS=1 brings back the disabled list in its order.
   assert.deepEqual(
-    paymentMethods('ios').map((m) => [m.id, m.available]),
+    paymentMethods('ios', true).map((m) => [m.id, m.available]),
     [
       ['kaspi', true],
       ['apple_pay', false],
@@ -58,8 +67,13 @@ test('the cart lists Kaspi.kz first and the only available method; the others ar
     ],
   );
   assert.deepEqual(
-    paymentMethods('android').map((m) => m.id),
+    paymentMethods('android', true).map((m) => m.id),
     ['kaspi', 'google_pay', 'card'],
+  );
+  // A method that starts to pay is listed in every build (filter by availability, not by id).
+  assert.deepEqual(
+    future.filter((m) => m.available).map((m) => m.id),
+    ['kaspi', 'apple_pay', 'card'],
   );
   assert.deepEqual(PAYMENT_METHOD_IDS, ['kaspi', 'apple_pay', 'google_pay', 'card']);
   assert.equal(DEFAULT_PAYMENT_METHOD, 'kaspi');
