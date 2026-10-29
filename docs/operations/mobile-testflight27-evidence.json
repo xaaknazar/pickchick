@@ -1,0 +1,71 @@
+{
+  "gitSha": "146b8967c92594fd38eac07f813a7115e1075817",
+  "version": "0.2.0",
+  "build": "27",
+  "bundleId": "kz.pickchick.app",
+  "featureProfile": "storefront",
+  "archiveSignatureVerified": true,
+  "debuggable": false,
+  "pushEnvironment": "production",
+  "sameSigningAndFlagsAs26": true,
+  "jsSha256": "c4ab2d6c03aee527da9e70695992531786e06ad66efb3338a9613b9795e0f6b5",
+  "compiledMarkers": {
+    "closedAt": true,
+    "reopenedAt": true,
+    "payment-resume-banner": true,
+    "kaspi-state-close": true
+  },
+  "temporarySigningSettingsRestored": true,
+  "archiveStatus": "complete",
+  "ipaSignatureVerified": true,
+  "exportStatus": "complete",
+  "ipa": {
+    "name": "PickChick.ipa",
+    "bytes": 130666566,
+    "sha256": "69422aae63a2f3dd4dd5fce0d111b06e6db6b7ee2913e70db1dfe067a12e1cbf"
+  },
+  "deliveryStatus": "submitted",
+  "ci": {
+    "sourceSha": "146b8967c92594fd38eac07f813a7115e1075817",
+    "url": "https://github.com/xaaknazar/pickchick/actions/runs/40819801896",
+    "status": "success",
+    "jobsPassed": 11,
+    "jobsTotal": 11
+  },
+  "integration": {
+    "pr": "https://github.com/xaaknazar/pickchick/pull/289",
+    "mergeSha": "6660ce98cdb1cf0855c7fd7c62457ba8e2a5bb14",
+    "archiveSourceIncludedInShared": true,
+    "archiveSourceTreeMatchesShared": true,
+    "method": "merge"
+  },
+  "ascAppId": "6809208492",
+  "uploadedAt": "2026-10-29T05:40:45Z",
+  "uploadWarnings": "Accepted with missing third-party framework dSYM warnings; symbolication is limited.",
+  "testFlight": {
+    "buildId": "4baced8c-180a-45e4-a426-6824a7200872",
+    "url": "https://appstoreconnect.apple.com/teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/apps/6809208492/testflight/ios/4baced8c-180a-45e4-a426-6824a7200872",
+    "group": "PickChick Internal",
+    "groupId": "33b2ef37-6602-4b07-803e-cb336a09cb16",
+    "testers": 2,
+    "status": "Testing",
+    "whatToTestSaved": true,
+    "confirmedAt": "2026-10-29T05:46:32.214233+00:00",
+    "physicalIphoneAcceptance": "Owner will verify independently; no connected physical iPhone tested."
+  },
+  "localChecks": {
+    "nodeTests": 531,
+    "pythonTests": 59,
+    "mobileTypecheck": "PASS",
+    "eslint": "PASS",
+    "prettier": "PASS",
+    "translations": "PASS",
+    "browserLaunch": "A-H PASS",
+    "browserTraps": "A-G PASS",
+    "browserSlide": "A-P PASS",
+    "browserAvailability": "A-O PASS",
+    "browserKaspi": "320/393/768/852 PASS",
+    "nativeSimulator": "iPhone 17 Pro iOS 26.5 Release CartFixesTests PASS (26.200s)",
+    "nativeFirstAttempt": "Before restaurant opening: orderingOpen=false; retry after opening true passed."
+  }
+}

@@ -20,8 +20,51 @@ merge выполнен после проверки свободных облас
 неоплаченные тестовые заказы и Pick Farm выключены. Существующая подпись.
 
 На выпускающем Mac: 531 Node + 59 Python PASS; workspace build, mobile typecheck,
-ESLint, Prettier и переводы RU/KK/EN прошли. Браузерные проверки и Foundation CI выполняются. Загрузка и обработка Apple
-пока не подтверждены; физическая приёмка на iPhone не заявляется.
+ESLint, Prettier и переводы RU/KK/EN прошли. Браузерные проверки и полная
+Foundation CI 11/11 прошли. Физическая приёмка на iPhone не заявляется:
+владелец ранее выбрал самостоятельную проверку после TestFlight.
+
+## Выпуск 29 октября 2026
+
+Apple обработала PickChick **0.2.0 (27)**; в существующей группе
+**PickChick Internal** (2 тестировщика) подтверждён статус **«Тестируется»**.
+Можно нажать «Обновить» в TestFlight. Русский текст «Что тестировать» сохранён;
+внешние группы и новые тестировщики не добавлялись.
+[Сборка в Apple](https://appstoreconnect.apple.com/teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/apps/6809208492/testflight/ios/4baced8c-180a-45e4-a426-6824a7200872).
+[Машиночитаемые доказательства](mobile-testflight27-evidence.json).
+
+- Исходный чистый опубликованный SHA: `146b8967c92594fd38eac07f813a7115e1075817`.
+- [PR289](https://github.com/xaaknazar/pickchick/pull/289) объединён обычным merge
+  `6660ce98cdb1cf0855c7fd7c62457ba8e2a5bb14`; дерево исходника архива равно merge.
+- [Foundation CI](https://github.com/xaaknazar/pickchick/actions/runs/40819801896):
+  11/11 success на точном исходном SHA, до слияния, archive и upload.
+- Archive, export и upload штатным `scripts/mobile/ios_release.py` завершены.
+  Подпись архива и IPA проверена `codesign --verify --deep --strict`.
+  Bundle ID kz.pickchick.app, версия 0.2.0, build 27, debug выключен,
+  push environment production. Существующая подпись и публичные флаги совпадают
+  со сборкой 26. Временные настройки подписи восстановлены.
+- Во встроенном JS проверены closedAt, reopenedAt, payment-resume-banner,
+  kaspi-state-close; JS архива и IPA совпадает.
+- Apple подтвердила Upload succeeded 29.10 в 10:40:45 Алматы. Предупреждения
+  о недостающих dSYM сторонних frameworks ограничивают расшифровку их crash stack;
+  загрузку они не блокировали.
+- IPA SHA256: `69422aae63a2f3dd4dd5fce0d111b06e6db6b7ee2913e70db1dfe067a12e1cbf`.
+- JS SHA256: `c4ab2d6c03aee527da9e70695992531786e06ad66efb3338a9613b9795e0f6b5`.
+
+## Проверки на выпускающем Mac
+
+Браузерные фикстуры: launch_resume A-H, checkout_traps A-G, slide_to_pay A-P,
+cart_unavailable A-O, kaspi_checkout на 320/393/768/852 прошли. Запуск, прямые
+ссылки, legacy closed intent из 26, незакрытый баннер, оплаченный в отсутствие
+приложения заказ и RU/KK/EN проверены без настоящих счетов и платежей.
+
+Native Release на iPhone 17 Pro Simulator (iOS 26.5):
+CartFixesTests.testGuestCartImmediateDragAndDiningLabels PASS, 26,200 с.
+Гостевая корзина, выбор получения и немедленный свайп до входа не создавали счёт.
+Первый прогон до 10:00 остановился на недоступной оплате: read-only availability
+вернул orderingOpen=false. После открытия в 10:00 GET вернул true, повторный тест
+прошёл. Этот smoke не подменяет физическую проверку перезапуска после Kaspi.
+Simulator и локальный браузерный сервер остановлены после проверки.
 
 ## Чек-лист владельца
 
