@@ -91,7 +91,8 @@ export function PhotoProduct(props: Props) {
     });
   }, [product]);
   const combo = isComboProduct(product.id);
-  const blue = combo;
+  // Owner 29.10: extras and drinks use the same blue page palette as combos.
+  const blue = true;
   const s = blue ? blueStyles : warmStyles;
   const pageInk = blue ? '#FFFFFF' : ink;
   const pagePaper = blue ? '#0047BB' : paper;
