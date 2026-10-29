@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotionPressable, ScreenTransition } from '../components/Motion';
 import { Body, Button, Heading, Icon, IconButton, Row } from '../components/UI';
 import { colors, font } from '../theme';
+import { upcomingFeaturesShown } from '../store-build';
 
 // Inbox transport is not enabled yet. Do not invent messages or unread counts.
 // Owner 27.10.2026: opened from the profile row «Уведомления»; back returns to the profile.
@@ -17,6 +18,9 @@ export default function Notifications() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<'orders' | 'personal'>('orders');
   const orders = tab === 'orders';
+  // Review 29.10.2026: «Для вас» never receives anything (the inbox carries order messages only),
+  // so the App Store build has no such tab; other builds keep the design's two tabs.
+  const tabs = upcomingFeaturesShown();
   return (
     <ScreenTransition testID="notifications-screen" style={s.screen}>
       <Row style={[s.header, { paddingTop: insets.top + 8 }]}>
@@ -33,28 +37,30 @@ export default function Notifications() {
       <ScrollView
         contentContainerStyle={[s.content, { paddingBottom: Math.max(24, insets.bottom) }]}
       >
-        <View accessibilityRole="tablist" style={s.tabs}>
-          {(
-            [
-              { id: 'orders', title: 'Заказы' },
-              { id: 'personal', title: 'Для вас' },
-            ] as const
-          ).map((item) => (
-            <MotionPressable
-              key={item.id}
-              testID={`notifications-tab-${item.id}`}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: tab === item.id }}
-              aria-selected={tab === item.id}
-              onPress={() => setTab(item.id)}
-              style={[s.tab, tab === item.id && s.selectedTab]}
-            >
-              <Body style={[s.tabText, tab === item.id && s.selectedText]}>
-                {localize(item.title)}
-              </Body>
-            </MotionPressable>
-          ))}
-        </View>
+        {tabs ? (
+          <View accessibilityRole="tablist" style={s.tabs}>
+            {(
+              [
+                { id: 'orders', title: 'Заказы' },
+                { id: 'personal', title: 'Для вас' },
+              ] as const
+            ).map((item) => (
+              <MotionPressable
+                key={item.id}
+                testID={`notifications-tab-${item.id}`}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: tab === item.id }}
+                aria-selected={tab === item.id}
+                onPress={() => setTab(item.id)}
+                style={[s.tab, tab === item.id && s.selectedTab]}
+              >
+                <Body style={[s.tabText, tab === item.id && s.selectedText]}>
+                  {localize(item.title)}
+                </Body>
+              </MotionPressable>
+            ))}
+          </View>
+        ) : null}
         {notifications.error ? (
           <View style={{ gap: 12, marginVertical: 16 }}>
             <Body>{t(notifications.error)}</Body>
@@ -99,13 +105,13 @@ export default function Notifications() {
               />
             </View>
             <Heading small style={s.center}>
-              {localize(orders ? 'Следим за вашим заказом' : 'Новых предложений нет')}
+              {localize(orders ? 'Новых сообщений нет' : 'Новых предложений нет')}
             </Heading>
             <Body muted style={s.center}>
               {localize(
                 orders
-                  ? 'Здесь появятся сообщения о ваших заказах. Пока их статус можно посмотреть в разделе «Заказы».'
-                  : 'Здесь появятся персональные предложения Pick Chick. А пока загляните в события.',
+                  ? 'Сюда приходят сообщения о ваших заказах. Статус каждого заказа есть в разделе «Заказы».'
+                  : 'Персональных предложений нет. Игры Pick Chick - в разделе «События».',
               )}
             </Body>
             <Button

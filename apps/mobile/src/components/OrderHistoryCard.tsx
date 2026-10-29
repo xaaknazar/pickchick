@@ -2,6 +2,7 @@ import type { CustomerCommerceOrder } from '@pickchick/contracts';
 import type { Product } from '../model';
 import { commerceStatus } from '../commerce-presentation';
 import { orderScene } from '../order-status';
+import { t } from '../i18n';
 import {
   commerceActiveKind,
   latestUnratedOrderId,
@@ -69,7 +70,7 @@ export function commerceActiveModel(
     serviceMode: order.serviceMode,
     items: lines(order),
     totalMinor: order.totalMinor,
-    place: `${order.restaurant} · Kaspi`,
+    place: `${t(order.restaurant)} · Kaspi`,
     paymentMethod: 'Kaspi',
     paymentNote: paymentNote[order.phase],
     expiresAt: order.phase === 'awaiting_payment' ? order.expiresAt : null,

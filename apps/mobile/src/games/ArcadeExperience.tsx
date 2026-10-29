@@ -167,9 +167,7 @@ export function ArcadeIntro({
           disabled={disabled}
           onPress={onStart}
         />
-        <Text style={a.caption}>
-          {t('Личный рекорд на устройстве · очки без начисления Чиков')}
-        </Text>
+        <Text style={a.caption}>{t('Личный рекорд хранится на этом устройстве')}</Text>
       </View>
     </View>
   );

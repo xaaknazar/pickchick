@@ -181,7 +181,7 @@ export function Branches(props: ScreenProps) {
             </Text>
             <Text testID="branches-summary" style={s.branchesSummary}>
               {localize(
-                entries.length ? `${city} · ${restaurantCountLabel(entries.length)}` : city,
+                entries.length ? `${t(city)} · ${restaurantCountLabel(entries.length)}` : city,
               )}
             </Text>
             {loading ? <Loading title={t('Ищем рестораны')} /> : null}
@@ -189,7 +189,7 @@ export function Branches(props: ScreenProps) {
               <RestaurantCard
                 key={branch.id}
                 branch={branch}
-                address={location ? `${location.address}, ${location.city}` : undefined}
+                address={location ? `${t(location.address)}, ${t(location.city)}` : undefined}
                 status={status}
                 selected={props.model.branch?.id === branch.id}
                 onSelect={() => {
@@ -267,7 +267,7 @@ const ProductMenuCard = memo(function ProductMenuCard({
       testID={`product-${product.id}`}
       accessibilityRole="button"
       accessibilityLabel={localize(
-        `${product.name}, ${product.available === false ? 'Нет в наличии' : MinorMoney(product.priceMinor) + ', выбрать'}`,
+        `${t(product.name)}, ${product.available === false ? t('Нет в наличии') : `${MinorMoney(product.priceMinor)}, ${t('выбрать')}`}`,
       )}
       accessibilityState={{ disabled: product.available === false }}
       disabled={product.available === false}
@@ -634,7 +634,7 @@ export function Menu(props: ScreenProps) {
           {!props.model.products.length && props.model.connection.status !== 'loading' ? (
             <Empty
               title={t('Меню обновляется')}
-              detail={t('Мы готовим каталог этого ресторана.')}
+              detail={t('Позиции этого ресторана сейчас не загрузились. Обновите меню.')}
               action={<Button title={t('Обновить меню')} secondary onPress={props.model.refresh} />}
             />
           ) : null}
@@ -860,7 +860,7 @@ export function Cart(props: ScreenProps & { checkout?: CartCheckout }) {
       })}
       {!props.model.cart.length ? (
         <Empty
-          title={t('Здесь пока тихо')}
+          title={t('Корзина пуста')}
           detail={t('Добавьте любимые блюда - и станет хрустяще.')}
           action={<Button title={t('Выбрать в меню')} onPress={() => props.navigate('M06')} />}
         />
@@ -1035,8 +1035,8 @@ export function Unavailable(props: ScreenProps) {
           testAvailable
             ? 'Можно оформить заказ'
             : online
-              ? 'Приём заказов пока недоступен'
-              : 'Доступность пока не подтверждена',
+              ? 'Приём заказов сейчас недоступен'
+              : 'Не удалось проверить доступность',
         )}
         detail={localize(
           testAvailable

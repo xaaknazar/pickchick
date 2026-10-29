@@ -41,7 +41,7 @@ export default function ProductPhotoRoute() {
           backgroundColor: '#04143A',
         }}
       >
-        <Text style={{ color: 'white', fontSize: 20 }}>{t('Позиция пока недоступна')}</Text>
+        <Text style={{ color: 'white', fontSize: 20 }}>{t('Позиция сейчас недоступна')}</Text>
         <Button title={t('Вернуться в меню')} onPress={back} />
       </View>
     );

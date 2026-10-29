@@ -24,7 +24,7 @@ export function GameAvailability({
         testID="game-unavailable"
         style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 20 }}
       >
-        <Heading>{t('Игра пока недоступна')}</Heading>
+        <Heading>{t('Игра сейчас недоступна')}</Heading>
         <Body muted>{t('Выбери другую игру в «Событиях».')}</Body>
         <Button title={t('К событиям')} onPress={() => router.replace('/(tabs)/events')} />
       </View>

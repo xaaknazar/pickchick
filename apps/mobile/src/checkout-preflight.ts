@@ -31,6 +31,20 @@ export const paymentRefused = (error: unknown) =>
   error.authoritative &&
   PAYMENT_COMMAND.final.includes(error.code);
 
+/**
+ * The server refused this account any new order (403 FORBIDDEN on POST /orders, the App Review
+ * account). customer-checkout-controller `execute` answers it before the command runs, so no order
+ * exists: the create intent may be dropped and nothing is repeated in the background (review
+ * 29.10.2026: the payment step said «Связываемся с рестораном» and «Проверить оплату» resent POST
+ * /orders). Only the create command uses it; a FORBIDDEN invoice command (POST /payment) keeps its
+ * order and the quiet «Отправить счёт» continuation, as before.
+ */
+export const orderingForbidden = (error: unknown) =>
+  error instanceof CustomerSessionError &&
+  error.authoritative &&
+  error.status === 403 &&
+  error.code === 'FORBIDDEN';
+
 /** Only GETs or commands with a stable, durable idempotency identity belong here. */
 export async function prepareCheckout<T>(
   operation: () => Promise<T>,

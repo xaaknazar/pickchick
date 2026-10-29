@@ -642,9 +642,7 @@ export function PickManScreen() {
                           <Text style={s.small}>{t('Фирменный соус: +50 · соперник: +200')}</Text>
                         </View>
                         <Text style={[s.caption, s.centerText]}>
-                          {t(
-                            'Очки и рекорд сохраняются на этом устройстве. Чики за игру не начисляются.',
-                          )}
+                          {t('Очки и рекорд сохраняются на этом устройстве.')}
                         </Text>
                         <Button
                           testID="pick-man-help-close"

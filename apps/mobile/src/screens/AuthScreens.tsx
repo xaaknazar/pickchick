@@ -180,7 +180,7 @@ export function Phone(props: ScreenProps) {
                 ? 'Отправим код в доступный мессенджер'
                 : channel === 'auto' || channel === 'telegram'
                   ? 'Пришлём код в Telegram'
-                  : 'Подтверждение номера пока недоступно',
+                  : 'Подтверждение номера сейчас недоступно',
           )}
         </Text>
       </View>

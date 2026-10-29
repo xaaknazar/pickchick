@@ -40,30 +40,34 @@ export function Support(props: ScreenProps) {
       <Heading>{t('Мы рядом')}</Heading>
       <Body muted>
         {t(
-          'Вопрос по заказу или оплате? Назовите сумму и время заказа, так мы быстрее его найдём. Не сообщайте коды входа и данные карты.',
+          'Вопрос по заказу или оплате? Подойдите к кассе ресторана и назовите номер заказа. Никому не сообщайте код входа.',
         )}
       </Body>
+      {/* Review 29.10.2026: the card looked like a button and did nothing, and the old intro
+          («...данные карты») implied a chat and card payments. It is a plain information card
+          now; the build's own contact (EXPO_PUBLIC_SUPPORT_URL: phone, e-mail or page) is its
+          button when the release sets one. */}
       <Card>
         <Row>
           <View style={s.supportIcon}>
-            <Icon name="chatbubbles-outline" color={colors.accent} size={28} />
+            <Icon name="storefront-outline" color={colors.accent} size={28} />
           </View>
           <View style={ui.flex}>
-            <Heading small>{t('Поддержка Pick Chick')}</Heading>
-            <Caption>{t('Вопросы по заказу и оплате')}</Caption>
+            <Heading small>{t('Поддержка в ресторане')}</Heading>
+            <Caption testID="support-contact-fallback">
+              {t('Поддержка работает в ресторане: обратитесь к сотруднику на кассе.')}
+            </Caption>
           </View>
         </Row>
+        <SupportContact fallback={null} />
       </Card>
-      <SupportContact
-        fallback={t('Поддержка работает в ресторане: обратитесь к сотруднику на кассе.')}
-      />
       {/* Owner 29.10.2026: no message form that sends nothing; the restaurant itself (address,
           map and hours on «Наши рестораны») is the real contact. */}
       {location ? (
         <NavRow
           testID="support-restaurant"
-          title={location.name}
-          subtitle={`${location.city}, ${location.address}`}
+          title={t(location.name)}
+          subtitle={`${t(location.city)}, ${t(location.address)}`}
           icon="location-outline"
           onPress={() => props.navigate('M05')}
         />
@@ -80,6 +84,8 @@ export function DeleteAccount(props: ScreenProps) {
   useLocale();
   const demo = useAccount();
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  // Review 29.10.2026: after «Удалить аккаунт» the screen says that the account is gone.
+  const [deleted, setDeleted] = useState(false);
   const [cleared, setCleared] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const clearDescription =
@@ -141,6 +147,7 @@ export function DeleteAccount(props: ScreenProps) {
                   if (success) {
                     props.model.setNickname('');
                     setDeleteConfirmVisible(false);
+                    setDeleted(true);
                   }
                 });
               }}
@@ -179,6 +186,13 @@ export function DeleteAccount(props: ScreenProps) {
         {localize(`\n`)}
         {t('контролем')}
       </Heading>
+      {deleted && !demo.account ? (
+        <View testID="account-deleted" accessibilityLiveRegion="polite">
+          <Notice title={t('Аккаунт удалён')}>
+            {t('Профиль и доступ на всех ваших устройствах удалены.')}
+          </Notice>
+        </View>
+      ) : null}
       <Card>
         <Heading small>{t('Аккаунт')}</Heading>
         <Body muted>
@@ -278,7 +292,9 @@ export function Legal(props: ScreenProps) {
           </>
         ) : (
           <Notice>
-            {t('Документы ещё не опубликованы. Вход по SMS станет доступен после их утверждения.')}
+            {t(
+              'Документы сейчас недоступны, поэтому вход по номеру телефона закрыт. Попробуйте позже.',
+            )}
           </Notice>
         )}
         {linkError ? (
@@ -286,11 +302,8 @@ export function Legal(props: ScreenProps) {
             {t('Не удалось открыть документ. Проверьте подключение и попробуйте ещё раз.')}
           </Notice>
         ) : null}
-        <Body muted>
-          {t(
-            'Согласие на сообщения об акциях запрашивается отдельно. Для регистрации оно не требуется.',
-          )}
-        </Body>
+        {/* Review 29.10.2026: no «согласие на сообщения об акциях запрашивается отдельно»: this
+            build asks for no such consent. */}
         <NavRow title={t('Управлять аккаунтом и данными')} onPress={() => props.navigate('M32')} />
       </Page>
     );
@@ -343,11 +356,12 @@ export function Settings(props: ScreenProps) {
   const notifications = useNotifications();
   useLocale();
   // App Store build (owner 29.10.2026): while the server's push service is not connected there
-  // are no disabled switches and no «ещё не подключён»; only the language stays here.
+  // are no disabled switches and no «ещё не подключён». The screen holds the language, privacy and
+  // «Как проходит заказ»: it is «Настройки», like the gear and the App Review notes (review 29.10).
   const push = pushSettingsShown(notifications.connected);
   return (
-    <Page props={props} title={push ? t('Язык и уведомления') : t('Язык приложения')}>
-      {push ? <Heading small>{t('Язык приложения')}</Heading> : null}
+    <Page props={props} title={t('Настройки')}>
+      <Heading small>{t('Язык приложения')}</Heading>
       <Card>
         {(['kk', 'ru', 'en'] as const).map((language) => (
           <Pressable
@@ -371,7 +385,7 @@ export function Settings(props: ScreenProps) {
       {push ? <PushSettings preview={props.preview} /> : null}
       <NavRow
         title={t('Конфиденциальность')}
-        subtitle={t('Как будут обрабатываться согласия')}
+        subtitle={t('Документы и ваши данные')}
         onPress={() => props.navigate('M33')}
       />
       <NavRow

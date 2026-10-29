@@ -217,7 +217,7 @@ function LegacyConfiguredProduct(
                 {localize(
                   product.allergens?.length
                     ? t('Аллергены: {p0}.', { p0: product.allergens.join(', ') })
-                    : 'Сведения об аллергенах ресторан ещё не подтвердил.',
+                    : 'Ресторан не указал аллергены этой позиции. Уточните у сотрудника.',
                 )}
               </Caption>
               <Caption>

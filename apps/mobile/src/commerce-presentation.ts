@@ -127,6 +127,18 @@ export function closePaymentCopy(phase?: CustomerCommerceOrder['phase']) {
     stay: 'Остаться',
   };
 }
+/**
+ * The server refuses order and invoice creation for this account (403 FORBIDDEN: the App Review
+ * account, customer-checkout-controller execute). Before 29.10.2026 the app said «Оплата Kaspi ещё
+ * не открыта для вашего аккаунта» («...not enabled for your account yet»): the «not finished yet»
+ * wording App Review 2.1 rejects. Now a true, neutral sentence; the cart offers «Как проходит заказ»
+ * (/demo-order, the same basket without payment) instead of a retry.
+ */
+export const ORDERING_FORBIDDEN =
+  'Для этого аккаунта оплата заказов выключена. Как проходит заказ - можно посмотреть без оплаты.';
+export const ORDERING_FORBIDDEN_DEMO = 'Как проходит заказ';
+export const orderingForbiddenCode = (error: unknown) =>
+  error instanceof Error && error.message === 'FORBIDDEN';
 export function checkoutError(error: unknown) {
   const code = error instanceof Error ? error.message : '';
   if (code === 'CATALOG_UPGRADE_REQUIRED')
@@ -149,7 +161,7 @@ export function checkoutError(error: unknown) {
   if (['MENU_CHANGED', 'CONFLICT', 'QUOTE_EXPIRED'].includes(code))
     return 'Цены обновились. Проверьте итоговую сумму перед оплатой';
   if (code === 'INVALID_REQUEST') return 'Не удалось рассчитать заказ. Попробуйте ещё раз.';
-  if (code === 'FORBIDDEN') return 'Оплата Kaspi ещё не открыта для вашего аккаунта.';
+  if (code === 'FORBIDDEN') return ORDERING_FORBIDDEN;
 
   if (code === 'UNAUTHORIZED') return 'Войдите в аккаунт снова, чтобы продолжить свой заказ.';
   // Connectivity and temporary restaurant readiness recover in the background.

@@ -1,4 +1,4 @@
-import { t } from './i18n/core.ts';
+import { getLocale, t } from './i18n/core.ts';
 // Presentation only: whether ordering is accepted stays server-owned. These helpers
 // read the published hours from config/restaurant-locations.json for the M05 status.
 
@@ -103,7 +103,7 @@ export function headerHoursCaption(
   if (hours?.opening_time && hours.closing_time)
     return `${hours.opening_time}-${hours.closing_time}`;
   if (hours?.closing_time) return t('до {p0}', { p0: hours.closing_time });
-  return 'Часы уточняются';
+  return 'Часы работы не указаны';
 }
 
 /** "Открыто" + " · до 00:00", or "Закрыто" + " · откроется в 10:00". */
@@ -122,8 +122,14 @@ export function hoursStatusText(status: RestaurantHoursStatus): { state: string;
   };
 }
 
-/** "1 ресторан", "2 ресторана", "5 ресторанов", "21 ресторан". */
+/**
+ * "1 ресторан", "2 ресторана", "5 ресторанов", "21 ресторан"; KK «1 мейрамхана», EN «1 restaurant»
+ * / «2 restaurants» (review 29.10.2026: EN showed «Алматы · 1 ресторан»).
+ */
 export function restaurantCountLabel(count: number): string {
+  const locale = getLocale();
+  if (locale === 'en') return `${count} ${count === 1 ? 'restaurant' : 'restaurants'}`;
+  if (locale === 'kk') return `${count} мейрамхана`;
   const ones = count % 10;
   const tens = count % 100;
   const noun =

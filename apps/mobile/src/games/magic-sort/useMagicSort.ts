@@ -3,6 +3,7 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { useAccount } from '../../useAccount';
+import { guestCanOpen } from '../../account-access';
 import {
   applyRecord,
   createPuzzle,
@@ -34,8 +35,12 @@ export type PendingPour = {
   quantity: number;
 };
 export function useMagicSort() {
-  const { account } = useAccount();
-  const scope = account?.customerId ?? (account ? demoScope(account.phone) : null);
+  const { account, ready } = useAccount();
+  // A guest of the App Store build plays too (review 29.10.2026): the device keeps the guest's
+  // board and record under its own scope, apart from every account's.
+  const scope =
+    account?.customerId ??
+    (account ? demoScope(account.phone) : ready && guestCanOpen('magic-sort') ? 'guest' : null);
   const [game, setGame] = useState<GameState | null>(null);
   const [pending, setPending] = useState<PendingPour | null>(null);
   const [selected, setSelected] = useState<number | null>(null);

@@ -203,118 +203,122 @@ export function CompletedOrderScreen({
           ) : null}
         </View>
 
-        <View testID="completed-order-review" style={s.review}>
-          <Heading small style={s.sectionTitle}>
-            {t('Как вам заказ?')}
-          </Heading>
-          <Body style={s.muted}>{t('Оцените блюда и поделитесь впечатлениями.')}</Body>
-          {reviewLoading ? (
-            <ActivityIndicator
-              accessibilityLabel={t('Загружаем оценку заказа')}
-              color={colors.accent}
-            />
-          ) : null}
-          <View
-            style={s.stars}
-            accessibilityRole="radiogroup"
-            accessibilityLabel={t('Оценка заказа')}
-          >
-            {[1, 2, 3, 4, 5].map((value) => (
-              <MotionPressable
-                key={value}
-                testID={`completed-rating-${value}`}
-                accessibilityRole="radio"
-                accessibilityLabel={localize(t('Оценка {p0} из 5', { p0: value }))}
-                accessibilityState={{ checked: rating === value, disabled: locked }}
-                aria-checked={rating === value}
-                disabled={locked}
-                onPress={() => {
-                  ratingEdited.current = true;
-                  setRating(value);
+        {/* Review 29.10.2026: when the server takes no ratings, a customer without a rating sees
+            no locked stars and no «оценка пока недоступна»; a saved rating is still shown. */}
+        {reviewUnavailable && !review ? null : (
+          <View testID="completed-order-review" style={s.review}>
+            <Heading small style={s.sectionTitle}>
+              {t('Как вам заказ?')}
+            </Heading>
+            <Body style={s.muted}>{t('Оцените блюда и поделитесь впечатлениями.')}</Body>
+            {reviewLoading ? (
+              <ActivityIndicator
+                accessibilityLabel={t('Загружаем оценку заказа')}
+                color={colors.accent}
+              />
+            ) : null}
+            <View
+              style={s.stars}
+              accessibilityRole="radiogroup"
+              accessibilityLabel={t('Оценка заказа')}
+            >
+              {[1, 2, 3, 4, 5].map((value) => (
+                <MotionPressable
+                  key={value}
+                  testID={`completed-rating-${value}`}
+                  accessibilityRole="radio"
+                  accessibilityLabel={localize(t('Оценка {p0} из 5', { p0: value }))}
+                  accessibilityState={{ checked: rating === value, disabled: locked }}
+                  aria-checked={rating === value}
+                  disabled={locked}
+                  onPress={() => {
+                    ratingEdited.current = true;
+                    setRating(value);
+                  }}
+                  style={[s.star, locked && s.locked]}
+                >
+                  <Icon
+                    name={value <= rating ? 'star' : 'star-outline'}
+                    color={colors.accent}
+                    size={30}
+                  />
+                </MotionPressable>
+              ))}
+            </View>
+            <Caption style={s.muted}>
+              {localize(
+                rating ? t('Ваша оценка: {p0} из 5', { p0: rating }) : 'Выберите от 1 до 5 звёзд',
+              )}
+            </Caption>
+            <View style={s.commentGroup}>
+              <Body style={s.fieldLabel}>{t('Отзыв - по желанию')}</Body>
+              <TextInput
+                testID="completed-review-comment"
+                accessibilityLabel={t('Отзыв о заказе, необязательно')}
+                value={comment}
+                onChangeText={(value) => {
+                  commentEdited.current = true;
+                  setComment(value);
                 }}
-                style={[s.star, locked && s.locked]}
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
+                editable={!locked}
+                maxLength={500}
+                multiline
+                scrollEnabled
+                textAlignVertical="top"
+                returnKeyType="done"
+                submitBehavior="blurAndSubmit"
+                onSubmitEditing={Keyboard.dismiss}
+                placeholder={t('Что понравилось или что можно улучшить?')}
+                placeholderTextColor={colors.muted}
+                selectionColor={colors.accent}
+                style={[s.input, focused && s.inputFocused, locked && s.locked]}
+              />
+              <Caption style={s.counter}>{localize(comment.length)}/500</Caption>
+            </View>
+            {reviewUnavailable ? <Body style={s.muted}>{localize(reviewUnavailable)}</Body> : null}
+            {reviewError ? (
+              <Caption
+                testID="completed-review-error"
+                accessibilityLiveRegion="polite"
+                style={s.error}
               >
-                <Icon
-                  name={value <= rating ? 'star' : 'star-outline'}
-                  color={colors.accent}
-                  size={30}
-                />
-              </MotionPressable>
-            ))}
-          </View>
-          <Caption style={s.muted}>
-            {localize(
-              rating ? t('Ваша оценка: {p0} из 5', { p0: rating }) : 'Выберите от 1 до 5 звёзд',
-            )}
-          </Caption>
-          <View style={s.commentGroup}>
-            <Body style={s.fieldLabel}>{t('Отзыв - по желанию')}</Body>
-            <TextInput
-              testID="completed-review-comment"
-              accessibilityLabel={t('Отзыв о заказе, необязательно')}
-              value={comment}
-              onChangeText={(value) => {
-                commentEdited.current = true;
-                setComment(value);
-              }}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-              editable={!locked}
-              maxLength={500}
-              multiline
-              scrollEnabled
-              textAlignVertical="top"
-              returnKeyType="done"
-              submitBehavior="blurAndSubmit"
-              onSubmitEditing={Keyboard.dismiss}
-              placeholder={t('Что понравилось или что можно улучшить?')}
-              placeholderTextColor={colors.muted}
-              selectionColor={colors.accent}
-              style={[s.input, focused && s.inputFocused, locked && s.locked]}
-            />
-            <Caption style={s.counter}>{localize(comment.length)}/500</Caption>
-          </View>
-          {reviewUnavailable ? <Body style={s.muted}>{localize(reviewUnavailable)}</Body> : null}
-          {reviewError ? (
-            <Caption
-              testID="completed-review-error"
-              accessibilityLiveRegion="polite"
-              style={s.error}
-            >
-              {localize(reviewError)}
-            </Caption>
-          ) : null}
-          {reviewError && onRetryReview ? (
+                {localize(reviewError)}
+              </Caption>
+            ) : null}
+            {reviewError && onRetryReview ? (
+              <Button
+                secondary
+                testID="completed-review-retry"
+                title={t('Повторить загрузку')}
+                disabled={reviewLoading || reviewSaving}
+                onPress={onRetryReview}
+              />
+            ) : null}
+            {review && !changed && !reviewError ? (
+              <Caption
+                testID="completed-review-saved"
+                accessibilityLiveRegion="polite"
+                style={s.saved}
+              >
+                {t('Спасибо! Ваша оценка сохранена.')}
+              </Caption>
+            ) : null}
             <Button
-              secondary
-              testID="completed-review-retry"
-              title={t('Повторить загрузку')}
-              disabled={reviewLoading || reviewSaving}
-              onPress={onRetryReview}
+              testID="completed-review-save"
+              title={localize(
+                reviewSaving ? 'Сохраняем...' : review ? 'Обновить отзыв' : 'Отправить отзыв',
+              )}
+              disabled={locked || !rating || !changed}
+              onPress={() => {
+                Keyboard.dismiss();
+                onSaveReview?.(rating, comment.trim());
+              }}
+              style={s.save}
             />
-          ) : null}
-          {review && !changed && !reviewError ? (
-            <Caption
-              testID="completed-review-saved"
-              accessibilityLiveRegion="polite"
-              style={s.saved}
-            >
-              {t('Спасибо! Ваша оценка сохранена.')}
-            </Caption>
-          ) : null}
-          <Button
-            testID="completed-review-save"
-            title={localize(
-              reviewSaving ? 'Сохраняем...' : review ? 'Обновить отзыв' : 'Отправить отзыв',
-            )}
-            disabled={locked || !rating || !changed}
-            onPress={() => {
-              Keyboard.dismiss();
-              onSaveReview?.(rating, comment.trim());
-            }}
-            style={s.save}
-          />
-        </View>
+          </View>
+        )}
 
         {/* A deferred receipt (every app order today) shows no receipt block instead of «чек
             пока недоступен - подключаем сервис чеков» (owner 29.10.2026, App Review 2.1). */}
@@ -337,7 +341,7 @@ export function CompletedOrderScreen({
                 <Caption style={[s.muted, s.flex]}>
                   {localize(
                     order.receipt === 'issued'
-                      ? 'Чек выпущен. Ссылка пока недоступна.'
+                      ? 'Чек выпущен.'
                       : 'Ожидаем фискальный чек. Ссылка появится после выпуска.',
                   )}
                 </Caption>

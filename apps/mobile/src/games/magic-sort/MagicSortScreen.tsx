@@ -683,9 +683,7 @@ export function MagicSortScreen() {
       </View>
       <View style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 18 }}>
         <Text testID="magic-sort-notice" accessibilityLiveRegion="polite" style={s.notice}>
-          {localize(
-            model.saveError ? 'Прогресс пока не сохранён. Повторите сохранение.' : model.notice,
-          )}
+          {localize(model.saveError ? 'Прогресс не сохранён. Повторите сохранение.' : model.notice)}
         </Text>
       </View>
       {model.saveError ? (

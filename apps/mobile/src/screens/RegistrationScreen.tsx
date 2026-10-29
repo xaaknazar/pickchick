@@ -29,7 +29,7 @@ export function Onboarding(props: ScreenProps) {
     ? new Date(`${birthDate}T12:00:00`)
         .toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' })
         .replace(' г.', '')
-    : 'Выбрать';
+    : t('Выбрать');
   const [gender, setGender] = useState<DemoProfileInput['gender']>(profile?.gender ?? null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -109,7 +109,10 @@ export function Onboarding(props: ScreenProps) {
             disabled={!canSave}
             onPress={() => void save()}
           />
-          {editing ? (
+          {/* Review 29.10.2026: opened from the profile («Изменить профиль», «Мои данные», «Дата
+              рождения») with a profile not filled in yet, the form had only «Готово». Outside the
+              sign-in sheet it always offers «Отмена» back to the profile, saving nothing. */}
+          {editing || !props.inSheet ? (
             <Pressable
               testID="profile-fill-later"
               accessibilityRole="button"

@@ -130,7 +130,7 @@ export function Profile(props: ScreenProps) {
           <GlassButton
             testID="profile-settings"
             name="settings-outline"
-            label={t('Настройки профиля')}
+            label={t('Настройки')}
             size={appHeaderMetrics.profileBarSize}
             iconSize={23}
             onPress={() => props.navigate('M34')}

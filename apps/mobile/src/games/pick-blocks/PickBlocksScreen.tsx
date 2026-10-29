@@ -679,7 +679,7 @@ export function PickBlocksScreen() {
           accessibilityRole="button"
         >
           <Icon name="alert-circle-outline" size={17} color="#FFD2AE" />
-          <Text style={s.storageText}>{t('Игра пока не сохранилась. Повторить')}</Text>
+          <Text style={s.storageText}>{t('Игра не сохранилась. Повторить')}</Text>
         </Pressable>
       ) : null}
       <Modal
@@ -738,7 +738,7 @@ export function PickBlocksScreen() {
               {controller.storageError ? (
                 <Text style={s.storageText}>
                   {t(
-                    'Партия пока не сохранилась на телефоне. Можно продолжить игру или повторить сохранение.',
+                    'Партия не сохранилась на телефоне. Можно продолжить игру или повторить сохранение.',
                   )}
                 </Text>
               ) : null}
@@ -778,7 +778,7 @@ export function PickBlocksScreen() {
                   </View>
                   <Text style={s.smallPrint}>
                     {t(
-                      'Контур показывает, куда приземлится фигура. Рекорд хранится на этом телефоне. Игровые очки не переводятся в Чики.',
+                      'Контур показывает, куда приземлится фигура. Рекорд хранится на этом телефоне.',
                     )}
                   </Text>
                   <SolidButton

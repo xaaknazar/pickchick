@@ -5,7 +5,12 @@ import { matchesPaidComboCart } from '../loyalty/combo-progress';
 import { PRICES_UPDATED } from '../cart-reprice';
 import { CatalogChangeNotice } from '../components/CatalogChangeNotice';
 import { recoverCommerceRead, historyOrderNeedsWatch } from '../commerce-read-recovery';
-import { PAYMENT_COMMAND, paymentRefused, prepareCheckout } from '../checkout-preflight';
+import {
+  PAYMENT_COMMAND,
+  orderingForbidden,
+  paymentRefused,
+  prepareCheckout,
+} from '../checkout-preflight';
 import { KaspiPaymentState } from '../components/KaspiPaymentState';
 import {
   CartOrderComment,
@@ -51,9 +56,11 @@ import { commerceActiveKind } from '../orders-tab';
 import { useCommerceFeedback } from '../useCommerceFeedback';
 import {
   EARLIER_ORDER_NOTICE,
+  ORDERING_FORBIDDEN_DEMO,
   checkoutError,
   commerceStatus,
   earlierOrderNotice,
+  orderingForbiddenCode,
   paymentReceived,
 } from '../commerce-presentation';
 import { Cart } from './CatalogScreens';
@@ -171,6 +178,7 @@ function KaspiCheckoutSession(
   props: ScreenProps & { authorizeLegal: (signal?: AbortSignal) => Promise<void> },
 ) {
   useLocale();
+  const router = useRouter();
   const auth = useAccount(),
     customerId = auth.account?.customerId;
   // The customer's active method (item 6b, 27.10.2026): the cart bar handle shows it and this
@@ -334,8 +342,15 @@ function KaspiCheckoutSession(
           ? await request(`/orders/${draft.orderId}`, 'GET', undefined, signal)
           : await request('/orders', 'POST', { key: draft.key, quoteId: draft.quoteId }, signal);
       } catch (e) {
-        // Only a definitive server rejection allows discarding an unconsumed quote.
-        if (e instanceof CustomerSessionError && e.authoritative && e.code === 'QUOTE_EXPIRED') {
+        // Only a definitive server rejection allows discarding an unconsumed quote. FORBIDDEN on
+        // the create command (the App Review account, 29.10.2026) is one too: the server refused
+        // the account before creating anything, so the intent has no order to wait for; before,
+        // it kept the screen on «Связываемся с рестораном» and «Проверить оплату» resent it.
+        if (
+          e instanceof CustomerSessionError &&
+          e.authoritative &&
+          (e.code === 'QUOTE_EXPIRED' || (!draft.orderId && orderingForbidden(e)))
+        ) {
           await AsyncStorage.removeItem(key);
           pending.current = null;
         }
@@ -1178,9 +1193,7 @@ function KaspiCheckoutSession(
           reviewSaving={reviews.saving}
           reviewError={reviews.error}
           reviewUnavailable={
-            reviews.detail && !reviews.detail.enabled
-              ? 'Оценка этого заказа пока недоступна.'
-              : undefined
+            reviews.detail && !reviews.detail.enabled ? 'Оценки сейчас не принимаются.' : undefined
           }
           onSaveReview={reviews.detail?.enabled ? reviews.save : undefined}
           onRetryReview={reviews.retry}
@@ -1216,10 +1229,7 @@ function KaspiCheckoutSession(
           receipt={
             receiptShown(order.receipt)
               ? {
-                  caption:
-                    order.receipt === 'issued'
-                      ? 'Чек выпущен. Ссылка на него уточняется.'
-                      : 'Ожидаем фискальный чек',
+                  caption: order.receipt === 'issued' ? 'Чек выпущен' : 'Ожидаем фискальный чек',
                 }
               : undefined
           }
@@ -1249,12 +1259,29 @@ function KaspiCheckoutSession(
       </Modal>
     );
   }
+  // This account never pays (403 FORBIDDEN, the App Review account): the cart says so in neutral
+  // words and offers the demonstration with this basket (/demo-order) instead of a retry that
+  // would only be refused again. The basket stays as it is; nothing was ordered or billed.
+  const forbidden = orderingForbiddenCode(error);
   const notices = (
     <>
       {visibleError && (props.screenId === 'M19' || (!busy && availability.canPay)) ? (
-        <View style={s.warning} accessibilityLiveRegion="polite">
+        <View
+          testID={forbidden ? 'checkout-forbidden' : undefined}
+          style={s.warning}
+          accessibilityLiveRegion="polite"
+        >
           <Body>{localize(visibleError)}</Body>
-          <Button secondary title={t('Попробовать снова')} onPress={retry} />
+          {forbidden ? (
+            <Button
+              secondary
+              title={t(ORDERING_FORBIDDEN_DEMO)}
+              testID="checkout-forbidden-demo"
+              onPress={() => router.push('/demo-order')}
+            />
+          ) : (
+            <Button secondary title={t('Попробовать снова')} onPress={retry} />
+          )}
         </View>
       ) : null}
       {resumeNotice && props.screenId !== 'M19' && !busy ? (

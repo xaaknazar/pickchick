@@ -4,6 +4,7 @@ import {
 } from '@pickchick/catalog-admin/contracts';
 import { testLineId, TestSelectionSchema } from '@pickchick/test-order-flow/contracts';
 import { parseRecentProductIds } from './cart-bar.ts';
+import { t } from './i18n/core.ts';
 import type { CartLine, CatalogMode, Product, Selection, PaymentMethod } from './model';
 
 export const MAX_ITEM_QUANTITY = 20;
@@ -125,7 +126,10 @@ export function selectionDescription(line: Pick<CartLine, 'product' | 'selection
       const option = line.product.modifierGroups
         ?.find((g) => g.id === selected.group_id)
         ?.options.find((o) => o.id === selected.option_id);
-      return option ? option.label + (selected.quantity > 1 ? ` ×${selected.quantity}` : '') : '';
+      // Each label in the app language: EN read «Coca-Cola 0.5 л, бутылка» (review 29.10.2026).
+      return option
+        ? t(option.label) + (selected.quantity > 1 ? ` ×${selected.quantity}` : '')
+        : '';
     })
     .filter(Boolean)
     .join(' · ');

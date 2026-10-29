@@ -100,7 +100,7 @@ function OrderLines({ order }: { order: TestOrder }) {
             <Caption style={orderUI.detail}>
               {localize(
                 line.selections
-                  .map((s) => s.option_label + (s.quantity > 1 ? ` ×${s.quantity}` : ''))
+                  .map((s) => t(s.option_label) + (s.quantity > 1 ? ` ×${s.quantity}` : ''))
                   .join(' · '),
               )}
             </Caption>

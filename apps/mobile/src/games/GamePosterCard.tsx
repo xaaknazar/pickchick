@@ -40,7 +40,7 @@ export function GamePosterCard({
     <Pressable
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={localize(t('Играть в {p0}. {p1}', { p0: name, p1: description }))}
+      accessibilityLabel={localize(t('Играть в {p0}. {p1}', { p0: t(name), p1: t(description) }))}
       onPress={onPress}
       style={({ pressed }) => [s.card, { height }, pressed && { opacity: 0.88 }]}
     >

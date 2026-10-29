@@ -421,7 +421,7 @@ export function PickRunScreen(props: ScreenProps) {
               </View>
               <Text style={r.caption}>
                 {t('Рекорд {p0}', { p0: best })}
-                {t('· игровые очки без начисления Чиков')}
+                {t('· на этом устройстве')}
               </Text>
               <ArcadeButton
                 title={localize(status === 'paused' ? 'Продолжить' : 'Ещё раз!')}
@@ -434,9 +434,7 @@ export function PickRunScreen(props: ScreenProps) {
           </ScrollView>
         </View>
       ) : null}
-      {saveError ? (
-        <Text style={r.caption}>{t('Рекорд пока не сохранился на устройстве.')}</Text>
-      ) : null}
+      {saveError ? <Text style={r.caption}>{t('Рекорд не сохранился на устройстве.')}</Text> : null}
     </SafeAreaView>
   );
 }
@@ -459,7 +457,7 @@ export function PickRunResult(props: ScreenProps) {
             {localize(score === null ? 'Твой пик впереди.' : 'Красивый забег!')}
           </Text>
           <ArcadeMetric label={t('ТВОЙ СЧЁТ')} value={score ?? '-'} accent />
-          <Text style={r.body}>{t('Игровые очки не переводятся в Чики.')}</Text>
+          <Text style={r.body}>{t('Счёт и рекорд хранятся на этом устройстве.')}</Text>
           <ArcadeButton
             title={localize(score === null ? 'Начать игру' : 'Ещё раз!')}
             testID="game-replay"

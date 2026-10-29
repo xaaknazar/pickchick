@@ -149,7 +149,7 @@ export function OrderStatusView({
     const product = props.model.products.find((p) => p.id === line.id);
     const description = line.selections?.length
       ? line.selections
-          .map((s) => s.option_label + (s.quantity > 1 ? ` ×${s.quantity}` : ''))
+          .map((s) => t(s.option_label) + (s.quantity > 1 ? ` ×${s.quantity}` : ''))
           .join(' · ')
       : 'serving_label' in line
         ? line.serving_label
@@ -234,7 +234,7 @@ export function OrderStatusView({
                 style={s.badgeText}
                 testID="connected-order-number"
                 accessibilityLabel={localize(
-                  `${order.number ? t('Заказ номер {p0}', { p0: order.number }) : 'Заказ принят'}${name ? `, ${name}` : ''}`,
+                  `${order.number ? t('Заказ номер {p0}', { p0: order.number }) : t('Заказ принят')}${name ? `, ${t(name)}` : ''}`,
                 )}
               >
                 {localize(order.number ? `№ ${order.number}` : 'Заказ принят')}
@@ -260,7 +260,7 @@ export function OrderStatusView({
             </View>
             <View
               style={s.track}
-              accessibilityLabel={localize(t('Этап заказа: {p0}', { p0: orderStage(order) }))}
+              accessibilityLabel={localize(t('Этап заказа: {p0}', { p0: t(orderStage(order)) }))}
             >
               {['Кухня', 'Сборка', 'Выдача'].map((label, i) => (
                 <View key={label} style={s.trackItem}>

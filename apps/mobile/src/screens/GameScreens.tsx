@@ -37,7 +37,7 @@ export function Events(props: ScreenProps) {
       >
         <Heading style={s.eventsTitle}>{t('События')}</Heading>
         <Body muted style={s.eventsSubtitle}>
-          {t('Афиша Pick Chick: игры, события и новые поводы заглянуть к нам.')}
+          {t('Мини-игры Pick Chick: рекорды сохраняются на этом устройстве.')}
         </Body>
 
         {/* App Store build (owner 29.10.2026): the 6 + 1 card only while the server runs it. */}
