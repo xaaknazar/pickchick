@@ -96,25 +96,36 @@ test('background, reduced motion and media failure always pause the hero video',
   assert.equal(heroShouldPlay({ ...on, hostVisible: false }), false);
 });
 
-test('payment selector: only Kaspi.kz can be chosen, wallets and cards are «скоро»', () => {
-  for (const platform of ['ios', 'web']) {
+test('payment selector: the App Store build lists Kaspi.kz only (owner 29.10.2026)', () => {
+  for (const platform of ['ios', 'android', 'web']) {
     assert.deepEqual(
       cartPaymentMethods(platform).map((m) => [m.id, m.available]),
+      [['kaspi', true]],
+    );
+    // No Apple Pay, Google Pay or card name anywhere in the list.
+    assert.ok(
+      cartPaymentMethods(platform).every((m) => !/Apple|Google|карта/.test(m.label)),
+      platform,
+    );
+  }
+  // EXPO_PUBLIC_UPCOMING_PAYMENTS=1: the earlier list with disabled «скоро» rows.
+  for (const platform of ['ios', 'web'])
+    assert.deepEqual(
+      cartPaymentMethods(platform, true).map((m) => [m.id, m.available]),
       [
         ['kaspi', true],
         ['apple_pay', false],
         ['card', false],
       ],
     );
-  }
   assert.deepEqual(
-    cartPaymentMethods('android').map((m) => m.label),
+    cartPaymentMethods('android', true).map((m) => m.label),
     ['Kaspi.kz', 'Google Pay', 'Банковская карта'],
   );
   // Only Kaspi.kz is available on every platform; the selector has nothing else to choose.
   for (const platform of ['ios', 'android', 'web'])
     assert.deepEqual(
-      cartPaymentMethods(platform)
+      cartPaymentMethods(platform, true)
         .filter((m) => m.available)
         .map((m) => m.id),
       ['kaspi'],

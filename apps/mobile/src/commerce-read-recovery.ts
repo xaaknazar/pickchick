@@ -1,4 +1,3 @@
-import { t } from './i18n/core.ts';
 import { createCatalogRecovery } from './catalog-recovery.ts';
 import { watchRetryDelay } from './commerce-watch.ts';
 
@@ -57,21 +56,3 @@ export function recoverCommerceRead<T>(options: {
 
 export const historyOrderNeedsWatch = (phase: string) =>
   !['failed', 'handed_over', 'attention'].includes(phase);
-
-export function checkoutReadError(
-  error: unknown,
-  history: boolean,
-  retrying = watchRetryDelay(error, 1) !== null,
-): string {
-  const code = error instanceof Error ? error.message : '';
-  if (code === 'RESTAURANT_CLOSED')
-    return 'Ресторан сейчас закрыт. Корзина сохранена - оформите заказ в часы работы.';
-  if (code === 'UNAUTHORIZED') return 'Войдите в аккаунт снова, чтобы продолжить.';
-  if (code === 'FORBIDDEN')
-    return 'Оформление пока недоступно для вашего аккаунта. Корзина сохранена.';
-  if (code === 'NOT_READY') return 'Ресторан пока не готов принимать заказы. Корзина сохранена.';
-  const recovery = retrying ? 'Проверяем связь автоматически.' : 'Повторите проверку.';
-  return history
-    ? t('Не удалось загрузить заказы. {p0}', { p0: recovery })
-    : t('Не удалось загрузить оформление. Корзина сохранена. {p0}', { p0: recovery });
-}

@@ -59,9 +59,9 @@ with sync_playwright() as p:
    page.reload();expect(page.get_by_text(title,exact=True)).to_be_visible(timeout=20000)
    page.goto(URL+'/screen/M31')
    expect(page.get_by_test_id('launch-reveal')).to_have_count(0,timeout=20000)
-   support={'ru':'Вопросы по заказу и оплате','kk':'Тапсырыс пен төлем туралы сұрақтар','en':'Order and payment questions'}
+   support={'ru':'Поддержка в ресторане','kk':'Мейрамханадағы қолдау','en':'Support at the restaurant'}
    expect(page.get_by_text(support[lang],exact=True)).to_be_visible(timeout=20000)
-   fallback={'ru':'Пока поддержка работает в ресторане: обратитесь к сотруднику на кассе.','kk':'Әзірге қолдау мейрамханада көрсетіледі: кассадағы қызметкерге хабарласыңыз.','en':'For now, support is available in the restaurant. Please speak to a staff member at the till.'}
+   fallback={'ru':'Поддержка работает в ресторане: обратитесь к сотруднику на кассе.','kk':'Қолдау мейрамханада көрсетіледі: кассадағы қызметкерге хабарласыңыз.','en':'Support is available in the restaurant. Please speak to a staff member at the till.'}
    expect(page.get_by_test_id('support-contact-fallback')).to_have_text(fallback[lang])
    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),('support',lang,width)
    page.screenshot(path=str(OUT/f'support-{lang}-{width}.png'),full_page=True)

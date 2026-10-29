@@ -1,4 +1,5 @@
 import type { ScreenId } from './model';
+import { STORE_BUILD } from './store-build.ts';
 
 const orderScreens: readonly string[] = [
   'M12',
@@ -15,9 +16,19 @@ const orderScreens: readonly string[] = [
 ];
 export type AccountDestination = ScreenId | 'pick-blocks' | 'pick-man' | 'pick-farm' | 'magic-sort';
 
-export function requiresAccount(id: ScreenId, preview: boolean): boolean {
+/**
+ * Review 29.10.2026 (App Review 5.1.1, sign-in for features that need no account): the mini-games
+ * keep only a personal best on this device. In the App Store build a guest opens «События» and
+ * plays Pick Blocks, Pick Man and Magic Sort without signing in; ordering, the profile and Pick
+ * Farm (server progress, off in that build) still need the account. Other builds keep the wall.
+ */
+export function guestCanOpen(destination: AccountDestination, store = STORE_BUILD): boolean {
+  return store && ['M26', 'pick-blocks', 'pick-man', 'magic-sort'].includes(destination as string);
+}
+
+export function requiresAccount(id: ScreenId, preview: boolean, store = STORE_BUILD): boolean {
   return (
-    (!preview && ['M30', 'M26'].includes(id)) ||
+    (!preview && (id === 'M30' || (id === 'M26' && !guestCanOpen(id, store)))) ||
     id === 'M27' ||
     id === 'M28' ||
     (!preview && orderScreens.includes(id))

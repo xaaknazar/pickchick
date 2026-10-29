@@ -39,6 +39,8 @@ const Context = createContext<{
   items: Item[];
   busy: boolean;
   available: boolean;
+  /** The server's push service is connected for this platform (also before sign-in). */
+  connected: boolean;
   reason: 'web' | 'login' | 'service' | null;
   error: string | null;
   denied: boolean;
@@ -84,14 +86,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     [denied, setDenied] = useState(false);
   const busyRef = useRef(false);
   const supported = Platform.OS === 'ios' ? 'apns' : Platform.OS === 'android' ? 'fcm' : null;
+  const connected = !!config?.enabled && !!supported && config.providers.includes(supported);
   const reason =
-    Platform.OS === 'web'
-      ? 'web'
-      : !customer
-        ? 'login'
-        : !config?.enabled || !supported || !config.providers.includes(supported)
-          ? 'service'
-          : null;
+    Platform.OS === 'web' ? 'web' : !customer ? 'login' : !connected ? 'service' : null;
   const access = useCallback(
     async (path: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', body?: unknown) => {
       if (!customer || !account.withOrderAccess) throw new Error('sign_in_required');
@@ -294,6 +291,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         items,
         busy,
         available: reason === null,
+        connected,
         reason,
         error,
         denied,

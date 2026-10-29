@@ -6,7 +6,9 @@ no bank, no real customer, no VPS request.
   - top bar: red glass trash left, pin + restaurant point centred, glass close right, no title;
   - «В зале / С собой» pill switches the mode and the quote carries it;
   - removed: «Добавить ещё что-нибудь», promo code, small print after the total;
-  - order comment at the bottom, payment selector (Kaspi.kz selected, others «скоро»);
+  - order comment at the bottom, payment selector with Kaspi.kz only (owner 29.10.2026, App Store
+    build: no Apple Pay / Google Pay / card row, name or mark, no «скоро»); no 6 + 1 card and no
+    «Акции» block while the server does not run the programme;
   - one press of «Оплатить с Kaspi.kz» = one quote + one order + one invoice;
   - a guest is sent to sign-in (Kaspi reason, glass back on the code step) and back to the cart,
     nothing is ordered;
@@ -329,7 +331,11 @@ def cart_page(browser, width, height):
     for test_id in ('cart-add-more', 'cart-promo-open', 'cart-checkout', 'checkout-apple-pay', 'checkout-add-card'):
         expect(page.get_by_test_id(test_id)).to_have_count(0)
     expect(sheet.get_by_text('Всегда кстати', exact=True)).to_be_visible()
-    expect(page.get_by_test_id('cart-combo-reward')).to_have_count(1)
+    # This fixture's server does not run 6 + 1 (/combo-rewards unanswered) and publishes no promos:
+    # the App Store build shows no card and no empty «Акции» heading (owner 29.10.2026).
+    expect(page.get_by_test_id('cart-combo-reward')).to_have_count(0)
+    expect(sheet.get_by_text('Акции', exact=True)).to_have_count(0)
+    expect(sheet.get_by_text('Отметки пока у кассира', exact=False)).to_have_count(0)
     # Footer: payment method left, «Итого» right, white pay button below. The floating cart bar
     # under the sheet has its own cart-total, so the footer one is read inside the cart screen.
     method = page.get_by_test_id('cart-payment-method')
@@ -350,30 +356,30 @@ def cart_page(browser, width, height):
         expect(footer.get_by_text(copy, exact=False)).to_have_count(0)
     page.get_by_test_id('scroll-M09').evaluate('(e) => e.scrollTop = 0')
     page.screenshot(path=str(OUT / f'cart-1-item-{width}.png'))
-    # Comment at the bottom of the cart, after the promotions, above the payment block.
+    # Comment at the bottom of the cart, after the suggestions, above the payment block.
     comment = page.get_by_test_id('checkout-comment-input')
     comment.scroll_into_view_if_needed()
     comment.fill('Без лука')
     comment.blur()
     expect(page.get_by_test_id('checkout-comment-count')).to_have_text('8/60')
-    reward = page.get_by_test_id('cart-combo-reward').bounding_box()
+    above = page.get_by_test_id('cart-recommendations').bounding_box()
     box = comment.bounding_box()
-    assert reward['y'] < box['y'] and box['y'] + box['height'] <= footer.bounding_box()['y'] + 1, (reward, box)
+    assert above['y'] < box['y'] and box['y'] + box['height'] <= footer.bounding_box()['y'] + 1, (above, box)
     page.screenshot(path=str(OUT / f'cart-comment-{width}.png'))
-    # Payment selector: Kaspi.kz selected; Apple Pay and cards are «скоро» and cannot be chosen.
+    # Payment selector: Kaspi.kz only (owner 29.10.2026, App Review 2.1): no Apple Pay, Google Pay
+    # or card row, name, «скоро» or mark (EXPO_PUBLIC_UPCOMING_PAYMENTS is off in this build).
     method.click()
     chooser = page.get_by_test_id('cart-payment-sheet')
     expect(chooser).to_be_visible()
     kaspi = page.get_by_test_id('cart-payment-kaspi')
     expect(kaspi).to_have_attribute('aria-checked', 'true')
-    for id in ('apple_pay', 'card'):
-        option = page.get_by_test_id('cart-payment-' + id)
-        expect(option).to_have_attribute('aria-disabled', 'true')
-        expect(option).to_have_attribute('aria-checked', 'false')
-        expect(option).to_contain_text('СКОРО')
-        option.click(force=True)
-        expect(chooser).to_be_visible()
-    expect(page.get_by_test_id('cart-payment-google_pay')).to_have_count(0)
+    expect(chooser.get_by_role('radio')).to_have_count(1)
+    for id in ('apple_pay', 'google_pay', 'card'):
+        expect(page.get_by_test_id('cart-payment-' + id)).to_have_count(0)
+    for word in ('Apple', 'Google', 'Банковская карта', 'СКОРО', 'скоро'):
+        expect(chooser.get_by_text(word, exact=False)).to_have_count(0)
+    assert 'Apple' not in (chooser.inner_text() + ' '.join(
+        chooser.locator('[aria-label]').evaluate_all('(els) => els.map((e) => e.getAttribute("aria-label"))'))), 'no wallet name'
     expect(chooser.locator('input')).to_have_count(0)
     expect(page.get_by_test_id('cart-payment-close')).to_have_accessible_name('Закрыть способы оплаты')
     page.wait_for_timeout(350)
@@ -634,8 +640,8 @@ with sync_playwright() as p:
     browser.close()
 assert not errors, errors
 print('PASS cart page 393/320: Drinkit top bar (red glass trash, pin + point, glass close), dining pill -> quote, '
-      'one re-read per burst of edits, removed blocks/small print, comment, payment selector (Kaspi only, others '
-      '«скоро»), one press = 1 quote + 1 order + 1 invoice, 3-item total, glass product close, guest -> sign-in '
+      'one re-read per burst of edits, removed blocks/small print, comment, payment selector (Kaspi.kz only, no '
+      'Apple Pay / card / «скоро»), no 6 + 1 card while the server programme is off, one press = 1 quote + 1 order + 1 invoice, 3-item total, glass product close, guest -> sign-in '
       '(Kaspi reason, glass X and code-step back) -> cart, hero video plays under the cart and pauses for tab/full '
       'screen/background, round blur layers (no square patch), waiting scene fits at 393 and 320 (also with large text), '
       'Liquid Glass fallback (light rim, specular edge, thin veil; bar, handle on its opaque base, profile 0.4 rim and '

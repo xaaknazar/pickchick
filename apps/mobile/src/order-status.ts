@@ -55,7 +55,11 @@ export function orderTimeLabel(order: OrderStatusData, now: number): string {
       hour: '2-digit',
       minute: '2-digit',
     });
-    return t('{p0} в {p1}', { p0: order.state === 'ready' ? 'Готов к выдаче' : 'Выдан', p1: time });
+    // The state is translated too: EN used to read «Готов к выдаче at 11:40» (review 29.10.2026).
+    return t('{p0} в {p1}', {
+      p0: order.state === 'ready' ? t('Готов к выдаче') : t('Выдан'),
+      p1: time,
+    });
   }
   const minutes = Math.max(0, Math.floor((now - Date.parse(order.created_at)) / 60_000));
   return minutes < 1 ? 'Заказ только что принят' : t('С момента заказа: {p0} мин', { p0: minutes });

@@ -27,6 +27,7 @@ import {
   photoCartLimit,
 } from '../product-photo-selection';
 import { optionPhotos, extraPhotos } from '../product-photo-assets';
+import { catalogLogo } from '../catalog';
 import { ProductPhoto, isDrinkCutout, productPhoto } from '../components/ProductPhoto';
 import { MotionModal, MotionPressable as Pressable, useReducedMotion } from '../components/Motion';
 import { CloseButton, Icon, Row } from '../components/UI';
@@ -267,7 +268,7 @@ export function PhotoProduct(props: Props) {
           ))}
         </View>
       ) : (
-        <Text style={s.modalMuted}>{t('Данные уточняются.')}</Text>
+        <Text style={s.modalMuted}>{t('Пищевая ценность не указана.')}</Text>
       )}
       <Text style={s.modalMuted}>{t('Без учёта дополнительных опций.')}</Text>
       <Text style={s.modalMuted}>
@@ -312,8 +313,15 @@ export function PhotoProduct(props: Props) {
                   { alignItems: 'center', justifyContent: 'center', gap: 12 },
                 ]}
               >
-                <Icon name="image-outline" color="#65594F" size={48} />
-                <Text style={s.noPhoto}>{t('Фото скоро')}</Text>
+                {/* Review 29.10.2026: a missing photo shows the PickChick mark, not a grey «Без
+                    фото» placeholder (App Review 2.1). */}
+                <Image
+                  testID="product-photo-brand"
+                  source={catalogLogo}
+                  contentFit="contain"
+                  style={s.brandMark}
+                  accessible={false}
+                />
               </View>
             )}
             {drinkCutout ? null : (
@@ -484,9 +492,9 @@ export function PhotoProduct(props: Props) {
                     accessibilityRole="button"
                     accessibilityLabel={localize(
                       t('Заменить {p0} {p1}: {p2}', {
-                        p0: group.id === 'drink' ? 'напиток' : 'соус',
+                        p0: t(group.id === 'drink' ? 'напиток' : 'соус'),
                         p1: index + 1,
-                        p2: option?.label ?? 'не выбран',
+                        p2: t(option?.label ?? 'не выбран'),
                       }),
                     )}
                     testID={`photo-replace-${group.id}-${index}`}
@@ -618,7 +626,7 @@ export function PhotoProduct(props: Props) {
             testID="product-add"
             accessibilityRole="button"
             accessibilityLabel={localize(
-              `${props.editing ? 'Сохранить' : 'Добавить в корзину'}: ${money(totalPrice)}`,
+              `${t(props.editing ? 'Сохранить' : 'Добавить в корзину')}: ${money(totalPrice)}`,
             )}
             accessibilityState={{ disabled: !!reason }}
             disabled={!!reason}
@@ -662,11 +670,12 @@ export function PhotoProduct(props: Props) {
                 onPress={() => setPickerVisible(false)}
               />
               <Text style={s.modalTitle}>
-                {localize(picker.group.id === 'drink' ? 'Напиток' : 'Соус')}{' '}
-                {localize(picker.index + 1)}
-                {t('из')}
-                {localize(' ')}
-                {localize(picker.group.min)}
+                {/* One sentence, like the slot row: «Напиток 1 из 1», not «1из 1» (review 29.10). */}
+                {t('{p0} {p1} из {p2}', {
+                  p0: localize(picker.group.id === 'drink' ? 'Напиток' : 'Соус'),
+                  p1: picker.index + 1,
+                  p2: picker.group.min,
+                })}
               </Text>
             </Row>
             <ScrollView contentContainerStyle={s.grid} showsVerticalScrollIndicator={false}>
@@ -686,9 +695,8 @@ export function PhotoProduct(props: Props) {
                     key={option.id}
                     testID={`photo-option-${option.id}`}
                     accessibilityRole="radio"
-                    accessibilityLabel={localize(
-                      `${option.label}, ${option.price_delta_minor === '0' ? 'без доплаты' : '+' + money(option.price_delta_minor)}`,
-                    )}
+                    // Each part in the app language (review 29.10.2026: «…, без доплаты» in English).
+                    accessibilityLabel={`${localize(option.label)}, ${option.price_delta_minor === '0' ? t('без доплаты') : '+' + money(option.price_delta_minor)}`}
                     accessibilityState={{ checked: chosen, disabled: unavailable }}
                     aria-checked={chosen}
                     disabled={unavailable}
@@ -831,10 +839,13 @@ function OptionImage({
           accessible={false}
         />
       ) : (
-        <>
-          <Icon name="image-outline" color="#65594F" size={24} />
-          <Text style={s.noPhoto}>{t('Фото скоро')}</Text>
-        </>
+        <Image
+          testID="option-photo-brand"
+          source={catalogLogo}
+          contentFit="contain"
+          style={{ width: size * 0.56, height: size * 0.56, opacity: 0.85 }}
+          accessible={false}
+        />
       )}
     </View>
   );
@@ -863,7 +874,7 @@ function Counter({
     <Row style={s.counter}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={localize(t('Уменьшить: {p0}', { p0: name }))}
+        accessibilityLabel={localize(t('Уменьшить: {p0}', { p0: t(name) }))}
         disabled={minusDisabled}
         accessibilityState={{ disabled: minusDisabled }}
         style={[s.countButton, minusDisabled && { opacity: 0.35 }]}
@@ -874,7 +885,7 @@ function Counter({
       <Text style={s.count}>{localize(value)}</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={localize(t('Увеличить: {p0}', { p0: name }))}
+        accessibilityLabel={localize(t('Увеличить: {p0}', { p0: t(name) }))}
         disabled={plusDisabled}
         accessibilityState={{ disabled: plusDisabled }}
         style={[s.countButton, plusDisabled && { opacity: 0.35 }]}
@@ -1059,7 +1070,7 @@ function makeStyles(blue: boolean) {
       gap: 5,
       maxWidth: '100%',
     },
-    noPhoto: { fontFamily: font.body, fontSize: 10, color: '#65594F' },
+    brandMark: { width: 132, height: 132, opacity: 0.9 },
     modalFooter: { paddingHorizontal: 24, paddingTop: 12 },
     nutritionTrigger: {
       flexDirection: 'row',

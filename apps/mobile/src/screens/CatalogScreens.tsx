@@ -44,8 +44,11 @@ import {
   useMinuteClock,
 } from '../components/Restaurants';
 import { restaurantCountLabel, restaurantHoursStatus } from '../restaurant-hours';
+import { restaurantHoursNow } from '../payment-availability';
+import { useRestaurantHoursNow } from '../usePaymentAvailability';
 import { colors, font, restaurantColors } from '../theme';
 import { HeroVideo, LoyaltyCard } from '../components/Brand';
+import { upcomingFeaturesShown } from '../store-build';
 import {
   Body,
   Button,
@@ -129,9 +132,18 @@ export function Branches(props: ScreenProps) {
   const now = useMinuteClock();
   const [mapError, setMapError] = useState(false);
   const loading = props.model.connection.status === 'loading';
+  // The selected restaurant reads the server's published hours and the header's «откроемся»,
+  // like the header itself, so the two never disagree (review 29.10.2026: the header said
+  // «откроемся в 10:00» while this screen said «Открыто до 00:00» from the bundled hours).
+  const header = useRestaurantHoursNow(props.model);
   const entries = props.model.branches.map((branch) => {
     const location = restaurantLocation(branch.id);
-    return { branch, location, status: restaurantHoursStatus(location, now) };
+    const status =
+      branch.id === props.model.branch?.id
+        ? (header.status ??
+          restaurantHoursNow({ published: props.model.availabilityHours, location, now }).status)
+        : restaurantHoursStatus(location, now);
+    return { branch, location, status };
   });
   const selected = entries.find((entry) => entry.branch.id === props.model.branch?.id);
   const closed = selected?.status?.open === false ? selected.status : null;
@@ -180,7 +192,7 @@ export function Branches(props: ScreenProps) {
             </Text>
             <Text testID="branches-summary" style={s.branchesSummary}>
               {localize(
-                entries.length ? `${city} · ${restaurantCountLabel(entries.length)}` : city,
+                entries.length ? `${t(city)} · ${restaurantCountLabel(entries.length)}` : city,
               )}
             </Text>
             {loading ? <Loading title={t('Ищем рестораны')} /> : null}
@@ -188,7 +200,7 @@ export function Branches(props: ScreenProps) {
               <RestaurantCard
                 key={branch.id}
                 branch={branch}
-                address={location ? `${location.address}, ${location.city}` : undefined}
+                address={location ? `${t(location.address)}, ${t(location.city)}` : undefined}
                 status={status}
                 selected={props.model.branch?.id === branch.id}
                 onSelect={() => {
@@ -266,7 +278,7 @@ const ProductMenuCard = memo(function ProductMenuCard({
       testID={`product-${product.id}`}
       accessibilityRole="button"
       accessibilityLabel={localize(
-        `${product.name}, ${product.available === false ? 'Нет в наличии' : MinorMoney(product.priceMinor) + ', выбрать'}`,
+        `${t(product.name)}, ${product.available === false ? t('Нет в наличии') : `${MinorMoney(product.priceMinor)}, ${t('выбрать')}`}`,
       )}
       accessibilityState={{ disabled: product.available === false }}
       disabled={product.available === false}
@@ -334,6 +346,7 @@ export function Menu(props: ScreenProps) {
   const reduced = useReducedMotion();
   const published = usePublishedContent(props.model.branch?.id);
   const promotion = props.preview ? null : (published.content?.promos[0] ?? null);
+  const loyaltyShown = upcomingFeaturesShown(undefined, props.preview);
   const [promotionOpen, setPromotionOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const { width, height, fontScale } = useWindowDimensions();
@@ -547,19 +560,31 @@ export function Menu(props: ScreenProps) {
               if (combo) openProduct(combo);
               else props.navigate('M08');
             }}
-            style={[s.heroCaption, { bottom: Math.round(heroHeight * 0.27) }]}
+            style={[
+              s.heroCaption,
+              { bottom: Math.round(heroHeight * (loyaltyShown ? 0.27 : 0.17)) },
+            ]}
           >
             <Heading style={s.heroTitle}>{localize(promotion?.title.ru ?? 'Комбо недели')}</Heading>
             <Body style={s.heroSubtitle}>{t('подробнее')}</Body>
           </Pressable>
         </View>
-        <View style={[s.loyaltyLead, { marginTop: -Math.round(heroHeight * 0.26) }]}>
-          <LoyaltyCard preview={props.preview} onPress={() => props.navigate('M23')} />
-        </View>
+        {/* App Store build (owner 29.10.2026): the Chiki programme is not live, so its card
+            («6 вершин Алматы · скоро») is not shown; the design preview and test builds keep it. */}
+        {loyaltyShown ? (
+          <View style={[s.loyaltyLead, { marginTop: -Math.round(heroHeight * 0.26) }]}>
+            <LoyaltyCard preview={props.preview} onPress={() => props.navigate('M23')} />
+          </View>
+        ) : null}
         <View
           testID="storefront-category-anchor"
           onLayout={(e) => setCategoryTop(e.nativeEvent.layout.y)}
-          style={{ height: categoryHeight }}
+          // Without the loyalty card the categories keep their place over the hero's lower edge,
+          // so the first dishes still show on the first screen (as with the card, 393 x 852).
+          style={{
+            height: categoryHeight,
+            marginTop: loyaltyShown ? 0 : -Math.round(heroHeight * 0.13),
+          }}
         />
         <View style={s.menuBody}>
           {props.model.catalogMode === 'design' ? (
@@ -619,8 +644,8 @@ export function Menu(props: ScreenProps) {
           })}
           {!props.model.products.length && props.model.connection.status !== 'loading' ? (
             <Empty
-              title={t('Меню скоро появится')}
-              detail={t('Мы готовим каталог этого ресторана.')}
+              title={t('Меню обновляется')}
+              detail={t('Позиции этого ресторана сейчас не загрузились. Обновите меню.')}
               action={<Button title={t('Обновить меню')} secondary onPress={props.model.refresh} />}
             />
           ) : null}
@@ -846,7 +871,7 @@ export function Cart(props: ScreenProps & { checkout?: CartCheckout }) {
       })}
       {!props.model.cart.length ? (
         <Empty
-          title={t('Здесь пока тихо')}
+          title={t('Корзина пуста')}
           detail={t('Добавьте любимые блюда - и станет хрустяще.')}
           action={<Button title={t('Выбрать в меню')} onPress={() => props.navigate('M06')} />}
         />
@@ -958,11 +983,10 @@ export function Cart(props: ScreenProps & { checkout?: CartCheckout }) {
                 {t('Детали')}
               </Heading>
               <SummaryRow
-                label={localize(
-                  t('Блюда · {p0} шт.', {
-                    p0: props.model.cart.reduce((sum, line) => sum + line.quantity, 0),
-                  }),
-                )}
+                label={(() => {
+                  const dishes = props.model.cart.reduce((sum, line) => sum + line.quantity, 0);
+                  return t(dishes === 1 ? 'Блюда · 1 шт.' : 'Блюда · {p0} шт.', { p0: dishes });
+                })()}
                 value={MinorMoney(total)}
               />
               <OrderTotal value={MinorMoney(total)} />
@@ -1021,8 +1045,8 @@ export function Unavailable(props: ScreenProps) {
           testAvailable
             ? 'Можно оформить заказ'
             : online
-              ? 'Приём заказов пока недоступен'
-              : 'Доступность пока не подтверждена',
+              ? 'Приём заказов сейчас недоступен'
+              : 'Не удалось проверить доступность',
         )}
         detail={localize(
           testAvailable

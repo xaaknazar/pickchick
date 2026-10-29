@@ -1,5 +1,6 @@
 import { useState, type CSSProperties } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { t, useLocale } from '../i18n';
 import { font } from '../theme';
 import { authColors } from './AuthLayout';
 import { BirthDatePickerSheet } from './BirthDatePickerSheet';
@@ -12,6 +13,7 @@ import {
 } from './birth-date-picker';
 
 export default function BirthDatePicker({ value, onConfirm, onCancel }: BirthDatePickerProps) {
+  useLocale();
   const [maximum] = useState(almatyToday);
   const [initial] = useState(() => initialBirthDate(value, maximum));
   const [draft, setDraft] = useState(initial);
@@ -27,7 +29,7 @@ export default function BirthDatePicker({ value, onConfirm, onCancel }: BirthDat
       <View style={s.inputContainer}>
         <input
           data-testid="birthday-native-input"
-          aria-label="Дата рождения"
+          aria-label={t('Дата рождения')}
           type="date"
           min={MINIMUM_BIRTH_DATE}
           max={maximum}

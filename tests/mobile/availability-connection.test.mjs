@@ -210,10 +210,16 @@ test('a re-read keeps the last answer: «checking» with data reads the data', (
   );
 });
 
+// The tracker measures a run with `now`: the tests give it the mocked clock that `tick` advances
+// (with the real Date.now, a millisecond passing between failed() and the timer made it fire one
+// tick early now and then; review 29.10.2026).
 test('the tracker: one timer per run, cancelled by an answer, a new run starts its own', (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
   const seen = [];
-  const tracker = createConnectionTracker({ onChange: (track) => seen.push(track) });
+  const tracker = createConnectionTracker({
+    onChange: (track) => seen.push(track),
+    now: () => Date.now(),
+  });
   t.after(() => tracker.stop());
   tracker.failed('offline');
   t.mock.timers.tick(CONNECTION_PROBLEM_AFTER_MS - 1);
@@ -241,10 +247,10 @@ test('the tracker: one timer per run, cancelled by an answer, a new run starts i
 });
 
 test('long-poll dropped, snapshot failed, retry answers: never shown; still failing: shown', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
   let mode = 'ok';
   let data = null;
-  const tracker = createConnectionTracker({ onChange: () => {} });
+  const tracker = createConnectionTracker({ onChange: () => {}, now: () => Date.now() });
   const recovery = createAvailabilityRecovery({
     random: () => 1,
     onChecking: () => {},
@@ -325,10 +331,10 @@ test('a refresh restarts the reader, not the five seconds of a failure still pen
 });
 
 test('an HTTP refusal of the long-poll is not confirmed and is shown at once', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
   let calls = 0;
   let data = null;
-  const tracker = createConnectionTracker({ onChange: () => {} });
+  const tracker = createConnectionTracker({ onChange: () => {}, now: () => Date.now() });
   const recovery = createAvailabilityRecovery({
     random: () => 1,
     onChecking: () => {},

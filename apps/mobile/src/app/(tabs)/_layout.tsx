@@ -1,5 +1,6 @@
 import { t, useLocale } from '../../i18n';
 import { useAccount } from '../../useAccount';
+import { guestCanOpen } from '../../account-access';
 import { Tabs, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useWindowDimensions } from 'react-native';
@@ -81,7 +82,8 @@ export default function TabLayout() {
           />
           <Tabs.Screen
             name="events"
-            listeners={gate('M26')}
+            // App Store build (review 29.10.2026): a guest opens «События» and plays.
+            listeners={guestCanOpen('M26') ? undefined : gate('M26')}
             options={{
               title: t('События'),
               tabBarButtonTestID: 'tab-events',

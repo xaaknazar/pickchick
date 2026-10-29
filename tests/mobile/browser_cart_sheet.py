@@ -109,7 +109,7 @@ with sync_playwright() as p:
   expect(cart).to_be_visible();page.get_by_test_id('cart-close').click();expect(cart).not_to_be_visible()
   page.goto(URL+'/menu');page.get_by_test_id('open-cart').click();expect(cart).to_be_visible()
   expect(page.get_by_test_id('cart-quantity-pick-combo')).to_have_text('1')
-  page.get_by_test_id('cart-minus-pick-combo').click();expect(page.get_by_text('Здесь пока тихо',exact=True)).to_be_visible()
+  page.get_by_test_id('cart-minus-pick-combo').click();expect(page.get_by_text('Корзина пуста',exact=True)).to_be_visible()
   expect(page.get_by_test_id('cart-checkout')).to_have_count(0)
   assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
   context.close()

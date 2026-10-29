@@ -21,6 +21,15 @@ class ParallelCiTest(unittest.TestCase):
             self.assertEqual(WORKFLOW.count('/' + name + '.py'), 1, name)
         self.assertEqual(WORKFLOW.count('tests/backoffice/content-browser.mjs'), 1)
 
+    def test_storefront_runs_in_mobile_suite_with_all_profiles(self):
+        mobile = WORKFLOW.split('  foundation_mobile:\n', 1)[1].split('  foundation_simulator:', 1)[0]
+        account = WORKFLOW.split('  foundation_account:\n', 1)[1].split('  verify:', 1)[0]
+        self.assertEqual(mobile.count('tests/mobile/browser_store_walk.py'), 2)
+        self.assertEqual(mobile.count('tests/mobile/browser_review_account.py'), 2)
+        self.assertEqual(mobile.count('tests/mobile/browser_upcoming_payments.py'), 1)
+        self.assertNotIn('tests/mobile/browser_store_walk.py', account)
+        self.assertNotIn('tests/mobile/browser_review_account.py', account)
+
     def test_transaction_coverage(self):
         for command in ['pnpm check', 'pnpm test:integration', 'pnpm test:commerce',
                         'pnpm test:loyalty', 'pnpm test:fulfillment\n', 'pnpm test:mobile',

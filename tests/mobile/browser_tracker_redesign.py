@@ -269,7 +269,7 @@ def kaspi_flow(browser):
     def order():
         return {'orderId': order_id, 'revision': hex(state['revision'])[2:].zfill(64), 'restaurant': 'ТЦ Abay Plaza', 'branchId': BRANCH, 'createdAt': CREATED,
                 'updatedAt': iso(datetime.now(timezone.utc)), 'kitchenStage': state['stage'] if state['phase'] == 'preparing' else None, 'displayNumber': '12',
-                'totalMinor': '419000', 'serviceMode': 'takeaway', 'kitchenComment': None, 'phase': state['phase'], 'expiresAt': None, 'receipt': 'deferred',
+                'totalMinor': '419000', 'serviceMode': 'takeaway', 'kitchenComment': None, 'phase': state['phase'], 'expiresAt': None, 'receipt': state.get('receipt', 'deferred'),
                 'receiptUrl': None, 'items': [{'productId': 'pick-combo', 'title': 'Pick Combo', 'quantity': 1, 'totalMinor': '419000', 'modifiers': [s['option_label'] for s in SELECTIONS]}]}
 
     ctx = isolated_context(browser, viewport={'width': WIDTH, 'height': HEIGHT}, device_scale_factor=2, reduced_motion='reduce', has_touch=True)
@@ -312,13 +312,22 @@ def kaspi_flow(browser):
         ('assembly', ('preparing', 'assembly'), 'assembly', 'Пока готовим - сыграйте'),
         ('ready-takeaway', ('ready',), 'ready-takeaway', 'Ещё один раунд?'),
     ]:
+        if name == 'ready-takeaway':
+            # A receipt the server reports as pending is a real state: a status-only tile.
+            state['receipt'] = 'pending'
         if step:
             advance(*step)
         expect(page.get_by_test_id('order-chef-' + scene)).to_be_visible(timeout=10000)
-        check_bottom(page, playing, ['order-receipt'])
-        receipt = page.get_by_test_id('order-receipt')
-        expect(receipt).to_contain_text('Фискальный чек пока не выпускается - Webkassa подключается.')
-        assert receipt.get_attribute('role') != 'button', 'Status-only receipt tile is not an action'
+        if state.get('receipt', 'deferred') == 'deferred':
+            # Every app order today (deferred_pilot): no receipt tile at all instead of «чек пока
+            # не выпускается - Webkassa подключается» (owner 29.10.2026, App Review 2.1).
+            check_bottom(page, playing, [])
+            expect(page.get_by_test_id('order-receipt')).to_have_count(0)
+        else:
+            check_bottom(page, playing, ['order-receipt'])
+            receipt = page.get_by_test_id('order-receipt')
+            expect(receipt).to_contain_text('Ожидаем фискальный чек')
+            assert receipt.get_attribute('role') != 'button', 'Status-only receipt tile is not an action'
         expect(page.get_by_test_id('order-support')).to_have_count(0)
         capture(page, f'kaspi-tracker-{name}')
     # History's native Modal closes before opening a game. Back returns to the same history;

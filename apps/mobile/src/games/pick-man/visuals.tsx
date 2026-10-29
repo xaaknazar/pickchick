@@ -36,11 +36,13 @@ export const FoodIcon = memo(function FoodIcon({ kind, size }: { kind: Food; siz
   );
 });
 
+// Review 29.10.2026 (App Review 4.1 / 5.2.1): the rivals were arcade ghosts (domed body, wavy
+// hem, big eyes). They are little spicy flames now; the scared one turns pale and wobbles.
 const rivalArt = (color: string, scared = false) =>
   svg(
-    `<path d="M6 40V22C6 1 42 1 42 22v18l-9-5-9 6-9-6Z" fill="${color}" stroke="#E4EFFF" stroke-width="1.5"/><path d="M8 29h32v4H8Z" fill="#04143A" opacity=".16"/><ellipse cx="18" cy="21" rx="5.5" ry="6.5" fill="#FFF"/><ellipse cx="32" cy="21" rx="5.5" ry="6.5" fill="#FFF"/><circle cx="19" cy="22" r="2.7" fill="#04143A"/><circle cx="33" cy="22" r="2.7" fill="#04143A"/>${scared ? '<path d="m16 33 4-3 4 3 4-3 4 3" fill="none" stroke="#04143A" stroke-width="2"/>' : ''}`,
+    `<path d="M24 3c3 6 13 11 13 23 0 9-6 16-13 16S11 35 11 26c0-6 3-10 6-13 1 4 3 6 5 6-1-6 0-11 2-16Z" fill="${color}" stroke="#FFE8D6" stroke-width="1.5" stroke-linejoin="round"/>${scared ? '' : '<path d="M24 19c2 4 7 6 7 12a7 7 0 0 1-14 0c0-4 3-6 4-9 1 2 2 3 3 3Z" fill="#FFD27A" opacity=".5"/>'}<ellipse cx="19.5" cy="28" rx="4" ry="5" fill="#FFF"/><ellipse cx="28.5" cy="28" rx="4" ry="5" fill="#FFF"/><circle cx="20.5" cy="29" r="2.2" fill="#04143A"/><circle cx="29.5" cy="29" r="2.2" fill="#04143A"/>${scared ? '<path d="m18 37 3-2 3 2 3-2 3 2" fill="none" stroke="#04143A" stroke-width="2"/>' : ''}`,
   );
-const rivals = ['#91BFFF', '#C5A3F5', '#6FDDC6'].map((color) => rivalArt(color));
+const rivals = ['#FF5A47', '#FF9F1C', '#F857A6'].map((color) => rivalArt(color));
 const scaredRival = rivalArt('#CBDDFA', true);
 export const Chick = memo(function Chick({
   size,

@@ -6,14 +6,13 @@ import { fileURLToPath } from 'node:url';
 const app = process.env.PICKCHICK_PREVIEW_APP ?? 'mobile';
 if (!['mobile', 'kiosk'].includes(app)) throw new Error('Unsupported preview app');
 const output = process.env.PICKCHICK_PREVIEW_OUTPUT ?? 'default';
-if (
-  !['default', 'customer-auth'].includes(output) ||
-  (output === 'customer-auth' && app !== 'mobile')
-)
+// customer-auth: the Kaspi QA export; storefront: the App Store profile export (29.10.2026).
+const exports = { 'customer-auth': 'customer-auth-web', storefront: 'storefront-web' };
+if (!(output === 'default' || (output in exports && app === 'mobile')))
   throw new Error('Unsupported preview output');
 const root = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  output === 'customer-auth' ? '../../.local/customer-auth-web' : `../../apps/${app}/dist`,
+  output === 'default' ? `../../apps/${app}/dist` : `../../.local/${exports[output]}`,
 );
 const port = Number(
   app === 'kiosk'

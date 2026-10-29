@@ -15,6 +15,7 @@ import Animated, {
 import { assets } from '../assets';
 import { paymentHandleLabel, type PaymentMethodId } from '../payment-method';
 import { glass } from '../glass';
+import { haptic } from '../haptics';
 import { GlassFill, glassRimWidth, useGlassRim } from './GlassButton';
 import { methodGlyph } from './PaymentChoice';
 import { Icon } from './UI';
@@ -24,6 +25,13 @@ export type SlidePhase = 'idle' | 'hint' | 'drag';
 export const SLIDE_HOLD_MS = 250;
 /** Releasing at or beyond this share of the track starts the payment. */
 export const SLIDE_COMPLETE_RATIO = 0.85;
+/**
+ * The «armed» tap (owner 29.10.2026) fires when the pill passes SLIDE_COMPLETE_RATIO; it fires again
+ * only after the finger went back below this share, so jitter at the threshold does not buzz.
+ */
+export const SLIDE_DISARM_RATIO = 0.75;
+/** While the finger pulls, forwards or back, a light click every twelfth of the track (29.10). */
+export const SLIDE_TICKS = 12;
 const HINT_MS = 1400;
 const RESET_MS = 700;
 /**
@@ -126,6 +134,8 @@ export function KaspiSlideToPay({
   const base = useSharedValue(width);
   const done = useSharedValue(false);
   const dragging = useSharedValue(false);
+  const armed = useSharedValue(false);
+  const notch = useSharedValue(0);
   const originX = useSharedValue(0);
   const timers = useRef<{
     hint?: ReturnType<typeof setTimeout>;
@@ -156,6 +166,7 @@ export function KaspiSlideToPay({
   }, [onPhaseChange]);
   const startDrag = useCallback(() => {
     clearTimeout(timers.current.hint);
+    haptic('grab');
     onPhaseChange('drag');
   }, [onPhaseChange]);
   const cancelDrag = useCallback(() => onPhaseChange('idle'), [onPhaseChange]);
@@ -187,13 +198,28 @@ export function KaspiSlideToPay({
       .onStart(() => {
         if (done.value) return;
         dragging.value = true;
+        armed.value = false;
         cancelAnimation(x);
+        notch.value = limit.value > 0 ? Math.floor((x.value / limit.value) * SLIDE_TICKS) : 0;
         runOnJS(startDrag)();
       })
       .onUpdate((event) => {
         if (done.value) return;
         // The pill's right end follows the finger horizontally, clamped to the bar.
         x.value = Math.min(limit.value, Math.max(0, event.absoluteX - originX.value));
+        if (limit.value <= 0) return;
+        // A light click at every twelfth of the track, forwards and back, and one firm tap
+        // (instead of the click) where letting go starts the payment; again only after going back.
+        const step = Math.min(SLIDE_TICKS, Math.floor((x.value / limit.value) * SLIDE_TICKS));
+        const moved = step !== notch.value;
+        notch.value = step;
+        if (!armed.value && x.value >= limit.value * SLIDE_COMPLETE_RATIO) {
+          armed.value = true;
+          runOnJS(haptic)('armed');
+          return;
+        }
+        if (armed.value && x.value < limit.value * SLIDE_DISARM_RATIO) armed.value = false;
+        if (moved) runOnJS(haptic)('tick');
       })
       .onEnd((_event, success) => {
         if (done.value) return;
@@ -230,6 +256,8 @@ export function KaspiSlideToPay({
     limit,
     done,
     dragging,
+    armed,
+    notch,
     originX,
     startDrag,
     cancelDrag,

@@ -15,7 +15,7 @@ fixture = json.loads(Path(sys.argv[1]).read_text())
 URL = fixture['url']; OUT = Path(fixture['output']); CUSTOMER = fixture['customer']; BRANCH = fixture['branch']
 assert urlparse(URL).hostname in ('127.0.0.1', 'localhost')
 NOTICE = 'Цены обновились. Проверьте итоговую сумму перед оплатой'
-FORBIDDEN_TEXT = ['Позиция пока недоступна', 'Состав меню изменился', 'Нужно выбрать состав заново']
+FORBIDDEN_TEXT = ['Позиция пока недоступна', 'Позиция сейчас недоступна', 'Состав меню изменился', 'Нужно выбрать состав заново']
 LIMIT = 3.0
 future = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat().replace('+00:00', 'Z')
 customer = {'id': CUSTOMER, 'phone': '+77000000000', 'nickname': 'Synthetic browser', 'birth_date': None,

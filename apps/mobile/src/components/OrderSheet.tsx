@@ -211,7 +211,7 @@ export function OrderSheet({
     <GestureHandlerRootView style={s.root}>
       <Animated.View style={[StyleSheet.absoluteFill, s.scrim, scrim]} />
       {!blocked ? (
-        <SheetBackdrop label={localize(t('Закрыть: {p0}', { p0: name }))} onPress={close} />
+        <SheetBackdrop label={localize(t('Закрыть: {p0}', { p0: t(name) }))} onPress={close} />
       ) : null}
       <Animated.View
         ref={dialog}

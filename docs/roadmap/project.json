@@ -5194,6 +5194,34 @@
         "deployed": false,
         "accepted": false
       }
+    },
+    {
+      "id": "mobile-appstore-clean-1029",
+      "workstream": "launch",
+      "title": "TestFlight 28: готовые функции и вибрация оплаты",
+      "summary": "Бандл c333144f: только Kaspi.kz, скрыты незапущенные функции, игры гостем, исправлен вход, безопасный отказ проверочного аккаунта и expo-haptics.",
+      "status": "active",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["mobile-launch-1028"],
+      "evidence": [
+        {
+          "label": "Протокол сборки 28",
+          "path": "docs/operations/mobile-testflight28.md"
+        }
+      ],
+      "acceptance": [
+        "В storefront только Kaspi.kz и работающие функции; игры доступны гостю.",
+        "Проверочный аккаунт получает отказ без счёта и доступ к демонстрации.",
+        "Вибрация движения вперёд/назад и порога проверена на iPhone."
+      ],
+      "nextAction": "Полная Foundation CI, сборка 28, TestFlight и проверка на iPhone. App Store только чтение.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
     }
   ]
 }

@@ -45,6 +45,7 @@ export function OrderStatusScreen({
       props={props}
       order={order}
       notice={notice}
+      rateable
       afterItems={
         order.state === 'fulfilled' || order.state === 'cancelled' ? (
           <>
@@ -88,6 +89,7 @@ export function OrderStatusView({
   receipt,
   onSupport,
   onBeforeGame,
+  rateable = false,
 }: {
   props: ScreenProps;
   order: OrderStatusData;
@@ -97,6 +99,8 @@ export function OrderStatusView({
   onSupport?: () => void;
   /** Close a React Native <Modal> host first: a native route cannot be presented above it. */
   onBeforeGame?: () => void;
+  /** The host offers «Оценить заказ» once collected: only then the subtitle asks how it was. */
+  rateable?: boolean;
 }) {
   useLocale();
   const [more, setMore] = useState(false);
@@ -133,7 +137,10 @@ export function OrderStatusView({
     order.state === 'ready'
       ? 'Подходите к стойке и назовите номер'
       : order.state === 'fulfilled'
-        ? 'Как всё прошло? Нам важно ваше мнение'
+        ? // Review 29.10.2026: the demonstration has no rating, so it does not ask for one.
+          rateable
+          ? 'Как всё прошло? Нам важно ваше мнение'
+          : 'Заказ выдан. Спасибо, что выбрали PickChick'
         : order.state === 'cancelled'
           ? (order.cancellation_reason ?? 'Если нужна помощь, напишите нам')
           : orderStage(order) === 'На сборке'
@@ -149,7 +156,7 @@ export function OrderStatusView({
     const product = props.model.products.find((p) => p.id === line.id);
     const description = line.selections?.length
       ? line.selections
-          .map((s) => s.option_label + (s.quantity > 1 ? ` ×${s.quantity}` : ''))
+          .map((s) => t(s.option_label) + (s.quantity > 1 ? ` ×${s.quantity}` : ''))
           .join(' · ')
       : 'serving_label' in line
         ? line.serving_label
@@ -180,7 +187,7 @@ export function OrderStatusView({
         </View>
         <Text
           style={s.lineQuantity}
-          accessibilityLabel={localize(t('{p0} шт.', { p0: line.quantity }))}
+          accessibilityLabel={t(line.quantity === 1 ? '1 шт.' : '{p0} шт.', { p0: line.quantity })}
         >
           ×{localize(line.quantity)}
         </Text>
@@ -234,7 +241,7 @@ export function OrderStatusView({
                 style={s.badgeText}
                 testID="connected-order-number"
                 accessibilityLabel={localize(
-                  `${order.number ? t('Заказ номер {p0}', { p0: order.number }) : 'Заказ принят'}${name ? `, ${name}` : ''}`,
+                  `${order.number ? t('Заказ номер {p0}', { p0: order.number }) : t('Заказ принят')}${name ? `, ${t(name)}` : ''}`,
                 )}
               >
                 {localize(order.number ? `№ ${order.number}` : 'Заказ принят')}
@@ -260,7 +267,7 @@ export function OrderStatusView({
             </View>
             <View
               style={s.track}
-              accessibilityLabel={localize(t('Этап заказа: {p0}', { p0: orderStage(order) }))}
+              accessibilityLabel={localize(t('Этап заказа: {p0}', { p0: t(orderStage(order)) }))}
             >
               {['Кухня', 'Сборка', 'Выдача'].map((label, i) => (
                 <View key={label} style={s.trackItem}>
@@ -282,7 +289,8 @@ export function OrderStatusView({
                 {t('Ваш заказ')}
               </Text>
               <Caption style={s.orderSummary}>
-                {t('{p0} поз. · {p1}', {
+                {/* «1 item» in English, not «1 items» (review 29.10.2026). */}
+                {t(order.snapshot.lines.length === 1 ? '1 поз. · {p1}' : '{p0} поз. · {p1}', {
                   p0: order.snapshot.lines.length,
                   p1: money(order.snapshot.total_minor),
                 })}

@@ -17,32 +17,33 @@ export type OrderGame = {
   testID: string;
 };
 
-/** One line of «События» copy; the card itself truncates what does not fit. */
-const oneLine = (text: string) => text.replace(/\s*\n\s*/g, ' ');
+// The «События» copy as the catalogue holds it (two lines): the carousel translates it first and
+// then puts it on one line (review 29.10.2026: the one-line text had no translation, EN showed
+// «Заполняй ряды. Всё сложится.»).
 
 // Covers and copy come from the «События» cards; the tracker uses title case as approved.
 const cards: Record<OrderGameId, Omit<OrderGame, 'id'>> = {
   'pick-blocks': {
     title: 'Pick Blocks',
-    description: oneLine(pickBlocksPoster.description),
+    description: pickBlocksPoster.description,
     cover: pickBlocksPoster.cover,
     testID: 'order-play-blocks',
   },
   'pick-man': {
     title: 'Pick Man',
-    description: oneLine(pickManPoster.description),
+    description: pickManPoster.description,
     cover: pickManPoster.cover,
     testID: 'order-play-pick-man',
   },
   'magic-sort': {
     title: magicSortPoster.name,
-    description: oneLine(magicSortPoster.description),
+    description: magicSortPoster.description,
     cover: magicSortPoster.cover,
     testID: 'order-play-magic-sort',
   },
   'pick-farm': {
     title: 'Pick Farm',
-    description: oneLine(pickFarmPoster.description),
+    description: pickFarmPoster.description,
     cover: pickFarmPoster.cover,
     coverPosition: pickFarmPoster.coverPosition,
     testID: 'order-play-pick-farm',

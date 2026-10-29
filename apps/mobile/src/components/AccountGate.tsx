@@ -4,7 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAccount } from '../useAccount';
-import { accountCanAct, type AccountDestination } from '../account-access';
+import { accountCanAct, guestCanOpen, type AccountDestination } from '../account-access';
 import { Body, Button, Heading, Loading } from './UI';
 import { ProfileRestoreNotice } from './ProfileRestoreNotice';
 
@@ -20,15 +20,17 @@ export function AccountGate({
   const account = useAccount();
   const router = useRouter();
   const prompted = useRef(false);
+  // App Store build (review 29.10.2026): the mini-games need no account (account-access).
+  const open = guestCanOpen(destination);
   useFocusEffect(
     useCallback(() => {
-      if (account.ready && !account.account && !prompted.current) {
+      if (!open && account.ready && !account.account && !prompted.current) {
         prompted.current = true;
         router.push({ pathname: '/auth', params: { returnTo: destination } });
       }
-    }, [account.ready, account.account, router, destination]),
+    }, [open, account.ready, account.account, router, destination]),
   );
-  if (accountCanAct(account)) return children;
+  if (open || accountCanAct(account)) return children;
   const game =
     destination === 'pick-man' ||
     destination === 'pick-farm' ||

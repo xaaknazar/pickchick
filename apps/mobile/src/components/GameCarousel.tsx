@@ -28,6 +28,8 @@ export type CarouselGame<Id extends string = string> = {
 };
 
 const CARD_WIDTH = 300;
+/** The catalogue keeps the card's two-line copy: translated first, then put on one line. */
+const oneLine = (text: string) => text.replace(/\s*\n\s*/g, ' ');
 const CARD_HEIGHT = 200;
 const GAP = 12;
 // Eased stops keep the 120 pt fade free of a visible edge or a solid plate.
@@ -117,7 +119,7 @@ export function GameCarousel<Id extends string>({
             feedback="scale"
             accessibilityRole="button"
             accessibilityLabel={localize(
-              t('Играть в {p0}. {p1}', { p0: t(game.title), p1: t(game.description) }),
+              t('Играть в {p0}. {p1}', { p0: t(game.title), p1: oneLine(t(game.description)) }),
             )}
             onPress={() => onOpen(game.id)}
             style={[s.card, { width: cardWidth }, webCard]}
@@ -137,7 +139,7 @@ export function GameCarousel<Id extends string>({
                   {localize(game.title)}
                 </Text>
                 <Text numberOfLines={1} style={s.cardText}>
-                  {localize(game.description)}
+                  {oneLine(t(game.description))}
                 </Text>
               </View>
               <View style={s.play}>

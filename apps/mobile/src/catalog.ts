@@ -74,7 +74,7 @@ export function serverProducts(menu: MenuSnapshot | null, locale: Locale): Produ
     name: locale === 'en' ? item.name.ru : item.name[locale],
     priceMinor: item.price_minor,
     category: 'Меню',
-    description: 'Позиция ресторана. Оформление пока недоступно.',
+    description: 'Позиция меню ресторана.',
     image: catalogLogo,
     source: 'server',
   }));

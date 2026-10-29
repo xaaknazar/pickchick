@@ -12,6 +12,7 @@ import { useTabBarInset, useTabCartDockHeight } from './components/tab-bar-inset
 import { tabContentInset } from './tab-bar-metrics';
 import { useHasPaymentResume } from './components/PaymentRecovery';
 import { MobileScreen } from './screens/MobileScreen';
+import { storeHidesScreen } from './store-build';
 
 const tabRoutes = {
   M06: '/(tabs)/menu',
@@ -127,6 +128,9 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
   // Temporarily removed from the customer arcade by the owner. Old links return to events.
   if (id === 'M29') return <Redirect href={profileRoute} />;
   if (id === 'M27' || id === 'M28') return <Redirect href="/(tabs)/events" />;
+  // App Store build (owner 29.10.2026): an old or deep link to a screen that only previews what
+  // does not work yet (Chiki wallet and missions, refund and rating placeholders) opens the menu.
+  if (storeHidesScreen(id, undefined, preview)) return <Redirect href="/(tabs)/menu" />;
   const screen = (goBack = back) => (
     <MobileScreen
       screenId={id}

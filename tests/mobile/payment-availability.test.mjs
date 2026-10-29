@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { testCompleteCatalog } from '@pickchick/test-order-flow/complete-catalog';
 import { setAppLocale } from '../../apps/mobile/src/i18n/core.ts';
 import {
+  CLOCK_SKEW_MINUTES,
   PAYMENT_AVAILABLE,
   bannerAnnouncement,
   checkoutEnabledFor,
@@ -215,6 +216,28 @@ test('server «closed» against a phone clock that still reads open: the nearer 
   );
 });
 
+test('server «closed» inside its hours, away from a boundary: a pause, no opening promised', () => {
+  // Review 29.10.2026: orderingOpen false at 15:30 Almaty read as clock skew, so the header and
+  // the cart said «откроемся в 10:00» in the afternoon while «Рестораны» said open until 00:00.
+  for (const clock of ['10:16', '15:30', '23:44'])
+    assert.deepEqual(
+      decide({ now: almaty(clock), status: 'closed' }).stop,
+      { kind: 'switched_off' },
+      clock,
+    );
+  const paused = decide({ now: almaty('15:30'), status: 'closed' });
+  assert.equal(paymentStopMessage(paused.stop), 'Оплата временно недоступна');
+  assert.equal(paymentStopLabel(paused.stop), 'Оплата недоступна');
+  // Within CLOCK_SKEW_MINUTES of a boundary it is still the clocks disagreeing.
+  assert.equal(CLOCK_SKEW_MINUTES, 15);
+  for (const clock of ['10:00:01', '10:15', '23:45', '23:59'])
+    assert.deepEqual(
+      decide({ now: almaty(clock), status: 'closed' }).stop,
+      { kind: 'closed', opensAt: '10:00', opensTomorrow: false },
+      clock,
+    );
+});
+
 test('server switch, connection, freshness and the stop list each stop the payment', () => {
   assert.deepEqual(decide({ status: 'disabled' }).stop, { kind: 'switched_off' });
   assert.deepEqual(decide({ checkoutEnabled: false }).stop, { kind: 'switched_off' });
@@ -403,7 +426,7 @@ test("header caption: today's hours while open, «откроемся в HH:MM» 
     now: almaty('12:00'),
   });
   assert.equal(headerHoursCaption(fallback.hours, fallback.status), '10:00-00:00');
-  assert.equal(headerHoursCaption(null, null), 'Часы уточняются');
+  assert.equal(headerHoursCaption(null, null), 'Часы работы не указаны');
   // At the largest text the caption shrinks on iOS instead of truncating, never below its normal
   // size: what fits at the normal size (browser_cart_unavailable.py H, 320 pt) fits at every size.
   assert.ok(appHeaderCaptionMinScale < 1);

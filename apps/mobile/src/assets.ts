@@ -3,7 +3,9 @@ import type { ImageSourcePropType } from 'react-native';
 
 export const assets = {
   kaspi: require('../assets/payments/kaspi.png') as ImageSourcePropType,
-  pickManCover: require('../assets/games/pick-man-cover.png') as ImageSourcePropType,
+  // Review 29.10.2026 (App Review 4.1 / 5.2.1): the owner's cover with the arcade ghosts and the
+  // «1UP / HIGH SCORE» marquee retouched out (assets/games/pick-man-art.md); the original stays.
+  pickManCover: require('../assets/games/pick-man-cover-store.png') as ImageSourcePropType,
   pickManChick: require('../assets/games/pick-man-chick.png') as ImageSourcePropType,
   burger: require('../assets/catalog-hd/burger.png') as ImageSourcePropType,
   pickBlocksCover: require('../assets/games/pick-blocks-cover.png') as ImageSourcePropType,

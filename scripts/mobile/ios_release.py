@@ -500,6 +500,9 @@ def archive_environment(feature_profile, source=None, kiosk_flags=None):
     env = dict(source)
     # The backend is part of the profile: no shell override of the API host reaches an archive.
     env.pop("EXPO_PUBLIC_API_URL", None)
+    # Owner 29.10.2026 (App Review 2.1): the disabled Apple Pay / card list returns only when a
+    # profile pins EXPO_PUBLIC_UPCOMING_PAYMENTS, never from a shell left over from local testing.
+    env.pop("EXPO_PUBLIC_UPCOMING_PAYMENTS", None)
     if feature_profile not in KIOSK_PROFILES:
         # Mobile switch only; a kiosk bundle reads its pinned EXPO_PUBLIC_KIOSK_* values.
         env["EXPO_PUBLIC_PICKCHICK_ENV"] = profile_backend(feature_profile)[0]

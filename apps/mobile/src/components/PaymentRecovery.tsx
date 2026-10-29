@@ -25,6 +25,7 @@ import {
   type PendingPayment,
 } from '../payment-recovery';
 import { paymentLaunch, type PaymentResumeKind } from '../payment-resume';
+import { designPreview } from '../store-build';
 
 /** The small banner on the menu (owner 28.10.2026): which saved payment it offers. */
 export type PaymentResume = { customerId: string; key: string; kind: PaymentResumeKind };
@@ -124,7 +125,13 @@ export function PaymentRecovery() {
   const account = useRef(customerId);
   account.current = customerId;
   useEffect(() => {
-    if (!kaspiCheckoutEnabled || !auth.ready || !customerId || !access || params.preview === '1') {
+    if (
+      !kaspiCheckoutEnabled ||
+      !auth.ready ||
+      !customerId ||
+      !access ||
+      designPreview(params.preview)
+    ) {
       publish(null);
       return;
     }

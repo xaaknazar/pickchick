@@ -4,7 +4,6 @@ import { setImmediate as flush } from 'node:timers/promises';
 import {
   recoverCommerceRead,
   historyOrderNeedsWatch,
-  checkoutReadError,
 } from '../../apps/mobile/src/commerce-read-recovery.ts';
 import { CustomerSessionError } from '../../apps/mobile/src/customer-session.ts';
 const offline = new CustomerSessionError('NETWORK_UNAVAILABLE');
@@ -130,14 +129,9 @@ test('authoritative account rejection never retries; cancellation rejects and su
   assert.equal(recovered, false);
 });
 
-test('paid kitchen phases stay watched and initial errors do not claim a persisted order or payment', () => {
+test('paid kitchen phases stay watched', () => {
   for (const phase of ['paid', 'preparing', 'ready', 'checking', 'awaiting_payment'])
     assert.equal(historyOrderNeedsWatch(phase), true);
   for (const phase of ['handed_over', 'failed', 'attention'])
     assert.equal(historyOrderNeedsWatch(phase), false);
-  const message = checkoutReadError(offline, false);
-  assert.match(message, /Корзина сохранена/);
-  assert.doesNotMatch(message, /Заказ сохранён|оплачивать/);
-  assert.match(message, /автоматически/);
-  assert.doesNotMatch(checkoutReadError(new Error('bad schema'), true), /автоматически/);
 });

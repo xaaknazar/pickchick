@@ -19,7 +19,9 @@ with local fixtures only: no bank, no real customer, no VPS request.
   C  a changed price stops before the order; only a second explicit press continues
   D  consent: the dialog stops the slide, «Не сейчас» leaves the normal button, no retry
   E  signed out: the slide opens the sign-in and then the cart without sending anything
-  F  App Review account: the server refuses the order exactly as for a press, no retry, no invoice
+  F  App Review account: the server refuses the order exactly as for a press, no retry, no invoice;
+     the cart says «Для этого аккаунта оплата заказов выключена» with «Как проходит заказ», the
+     basket stays and the intent is dropped (review 29.10.2026)
   G  DEMO-1 demonstration: no cart bar or handle, no mutating request
   H  combo gift selected: bar total = «Оформить заказ» = checkout total = quote; one order, one invoice
   I  the hint «тяни для оплаты» fits at 320 pt in RU, KK and EN, also at the largest text size
@@ -30,8 +32,9 @@ with local fixtures only: no bank, no real customer, no VPS request.
      handle sits above the tab bar and below the header, the content ends above the bar, the
      profile stack screen shows no bar, and a full slide from События pays exactly once
   M  last used payment method (owner 6b): kept per account (no card data), set by a choice in
-     «Способ оплаты» and by a payment sent; a method that is «скоро» today (Apple Pay, card) or a
-     broken value falls back to Kaspi on the handle (mark + accessible name) and in the selector
+     «Способ оплаты» and by a payment sent; a method that does not pay today (Apple Pay, card) or a
+     broken value falls back to Kaspi on the handle (mark + accessible name) and in the selector,
+     which lists Kaspi.kz only (owner 29.10.2026, App Store build: no Apple Pay / card row)
   N  a future build where Apple Pay and the card can be chosen before their own payment flow
      exists (the served bundle is patched in this browser only): the handle, the selector and the
      pay button follow the choice («Оплатить картой», not «Оплатить с Банковская карта»), but a
@@ -52,6 +55,11 @@ with local fixtures only: no bank, no real customer, no VPS request.
      notice). POST /orders held: the X at once,
      «Ресторан не подтверждает заказ» after 20 s with «Вернуться в корзину» (no check of its own),
      closing asks nothing and removes the intent, a restart sends nothing
+  Q  owner 29.10 (vibration while pulling, forwards and back, not at the end): a light tap when
+     the finger starts stretching the handle, a click every twelfth of the track in both
+     directions, one firmer tap where letting go starts the payment (again only after going back
+     below 75 %), nothing at the release or on the spring back; a tap and the keyboard do not
+     vibrate; one full slide = one invoice (the web build records the cues instead of vibrating)
 """
 from browser_network import isolated_context, route_fixture
 import json
@@ -596,6 +604,16 @@ def review_flow(browser, via_slide):
         page.get_by_test_id('open-cart').click()
         expect(pay_button(page)).to_be_enabled(timeout=15000)
         pay_button(page).click()
+    # Review 29.10.2026: the refused create no longer keeps «Связываемся с рестораном» with a
+    # «Проверить оплату» that resends POST /orders. The cart says why and offers the demo.
+    notice = page.get_by_test_id('checkout-forbidden')
+    expect(notice).to_be_visible(timeout=15000)
+    expect(notice).to_contain_text('Для этого аккаунта оплата заказов выключена.')
+    expect(page.get_by_test_id('checkout-forbidden-demo')).to_have_text('Как проходит заказ')
+    expect(page.get_by_test_id('kaspi-close-order')).to_have_count(0)
+    expect(page.get_by_role('button', name='Проверить оплату', exact=True)).to_have_count(0)
+    expect(page.get_by_test_id('cart-quantity-pick-combo')).to_have_text('1')
+    assert page.evaluate('(key) => localStorage.getItem(key)', DRAFT_KEY) is None, 'intent dropped'
     wait_quiet(page, 4000)
     sheet = page.get_by_role('dialog', name='Корзина', exact=True).inner_text()
     counts = (state['quotes'], state['creates'], state['payments'])
@@ -603,6 +621,7 @@ def review_flow(browser, via_slide):
     wait_quiet(page)
     assert counts == (state['quotes'], state['creates'], state['payments']), 'no automatic retry'
     assert not any('/payment' in path for path in state['paths']), state['paths']
+    assert 'Ресторан не подтверждает заказ' not in page.evaluate('document.body.innerText')
     release(state)
     ctx.close()
     return sheet, counts
@@ -865,9 +884,11 @@ def scenario_payment_method(browser):
     expect(method).to_have_attribute('aria-label', 'Способ оплаты: Kaspi.kz, изменить')
     method.click()
     expect(page.get_by_test_id('cart-payment-kaspi')).to_have_attribute('aria-checked', 'true')
-    expect(page.get_by_test_id('cart-payment-apple_pay')).to_have_attribute('aria-checked', 'false')
-    # «Скоро» methods cannot be chosen, so nothing is remembered for them.
-    page.get_by_test_id('cart-payment-apple_pay').click(force=True)
+    # App Store build (owner 29.10.2026): methods that do not pay are not listed, so the saved
+    # Apple Pay can be neither shown nor chosen (and nothing is remembered for it).
+    for gone in ('apple_pay', 'google_pay', 'card'):
+        expect(page.get_by_test_id('cart-payment-' + gone)).to_have_count(0)
+    expect(page.get_by_test_id('cart-payment-sheet').get_by_role('radio')).to_have_count(1)
     assert json.loads(page.evaluate('(key) => localStorage.getItem(key)', METHOD_KEY))['source'] == 'payment'
     page.get_by_test_id('cart-payment-kaspi').click()
     expect(page.get_by_test_id('cart-payment-sheet')).to_have_count(0)
@@ -1253,8 +1274,96 @@ def scenario_unconnected_method(browser, width, height):
     ctx.close()
 
 
+def cues(page):
+    return page.evaluate('globalThis.__pickchickHaptics.splice(0)')
+
+
+def move_to(page, x, y, start, end, steps=8):
+    for i in range(1, steps + 1):
+        page.mouse.move(x + start + (end - start) * i / steps, y)
+        page.wait_for_timeout(16)
+
+
+def scenario_haptics(browser, width, height):
+    state = new_state()
+    ctx, page = make_context(browser, state, width, height, 'reduce')
+    page.add_init_script('globalThis.__pickchickHaptics = [];')
+    page.goto(URL + '/menu')
+    add(page)
+    expect(page.get_by_test_id('launch-reveal')).to_have_count(0)
+    page.wait_for_timeout(300)
+    box, _, travel = geometry(page)
+    assert cues(page) == []
+    # A tap only shows the hint.
+    page.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+    expect(page.get_by_test_id('cart-pay-hint')).to_have_text(HINT)
+    page.wait_for_timeout(300)
+    assert cues(page) == [], 'a tap does not vibrate'
+    # Pulling clicks all the way (owner 29.10: while pulling, not at the end): half way = the grab
+    # tap and a click per twelfth; the spring back after the release clicks nothing.
+    slide(page, 0.5)
+    page.wait_for_timeout(700)
+    got = cues(page)
+    assert got[0] == 'grab' and set(got[1:]) == {'tick'} and 4 <= len(got) - 1 <= 7, got
+    # 80 %: clicks, but no firm tap below the payment point.
+    slide(page, 0.8)
+    page.wait_for_timeout(700)
+    got = cues(page)
+    assert got[0] == 'grab' and 'armed' not in got and got.count('tick') >= 7, got
+    # Forwards past the payment point: clicks and one firm tap; jitter above 75 % keeps clicking
+    # both ways but never repeats the firm tap; back below 75 % clicks on the way back, and past
+    # the point again repeats the firm tap; an early release after all that pays nothing.
+    x, y = box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
+    page.mouse.move(x, y)
+    page.mouse.down()
+    move_to(page, x, y, 0, travel * 0.92, steps=12)
+    page.wait_for_timeout(100)
+    got = cues(page)
+    assert got[0] == 'grab' and got.count('armed') == 1 and got.count('tick') >= 7, got
+    move_to(page, x, y, travel * 0.92, travel * 0.8, steps=4)
+    move_to(page, x, y, travel * 0.8, travel * 0.92, steps=4)
+    page.wait_for_timeout(100)
+    got = cues(page)
+    assert 'armed' not in got and got.count('tick') >= 2, ('jitter clicks, no second firm tap', got)
+    move_to(page, x, y, travel * 0.92, travel * 0.4, steps=12)
+    page.wait_for_timeout(100)
+    got = cues(page)
+    assert set(got) == {'tick'} and len(got) >= 5, ('pulling back clicks too', got)
+    move_to(page, x, y, travel * 0.4, travel * 0.95, steps=12)
+    page.wait_for_timeout(100)
+    got = cues(page)
+    assert got.count('armed') == 1 and got.count('tick') >= 4, got
+    move_to(page, x, y, travel * 0.95, travel * 0.3, steps=12)
+    page.mouse.up()
+    page.wait_for_timeout(900)
+    got = cues(page)
+    assert set(got) == {'tick'} and len(got) >= 5 and page.url.endswith('/menu'), (got, page.url)
+    assert not checkout_traffic(state), checkout_traffic(state)
+    # The keyboard / VoiceOver path opens the cart with payment: no vibration.
+    page.get_by_role('button', name='Оплатить через Kaspi', exact=True).focus()
+    page.keyboard.press('Enter')
+    expect(pay_button(page)).to_be_enabled(timeout=15000)
+    assert cues(page) == []
+    page.go_back()
+    expect(page.get_by_test_id('cart-pay-handle').filter(visible=True)).to_have_count(1, timeout=15000)
+    wait_quiet(page, 1000)
+    state['quote_total'] = minor(page.get_by_test_id('cart-shortcut-total').filter(visible=True).inner_text())
+    # A full slide: grab, clicks, one firm tap - nothing extra at the release - and one invoice.
+    slide(page, 1.0, release_at_end=False)
+    page.wait_for_timeout(100)
+    got = cues(page)
+    assert got[0] == 'grab' and got.count('armed') == 1 and got.count('tick') >= 9, got
+    page.mouse.up()
+    expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi', timeout=15000)
+    assert cues(page) == [], 'no vibration at the end'
+    wait_quiet(page)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    assert cues(page) == []
+    release(state)
+    ctx.close()
+
 if __name__ == '__main__':
-    SELECTED = os.environ.get('SLIDE_TO_PAY', 'ABCDEFGHIJKLMNOP').upper()
+    SELECTED = os.environ.get('SLIDE_TO_PAY', 'ABCDEFGHIJKLMNOPQ').upper()
     with sync_playwright() as p:
         browser = p.chromium.launch()
         if 'A' in SELECTED:
@@ -1296,6 +1405,9 @@ if __name__ == '__main__':
             scenario_held_payment(browser, 320, 568)
             scenario_held_create(browser, 393, 852, via_x=False)
             scenario_held_create(browser, 320, 568, via_x=True)
+        if 'Q' in SELECTED:
+            scenario_haptics(browser, 393, 852)
+            scenario_haptics(browser, 320, 568)
         browser.close()
     assert not errors, errors
     print('PASS slide to pay into the Kaspi cart (' + SELECTED + '): hold hint, the pill stretches from a fixed left '
@@ -1309,4 +1421,5 @@ if __name__ == '__main__':
           'a method without its own flow stops with a message and sends nothing, '
           'a stuck «sending» has the X at once, an honest text after 20 s, asks before closing, '
           'returns to the cart and pays again without a second order or payment command, '
-          'a held payment command reads «Отправляем счёт» and a held create command is the restaurant\'s wait')
+          'a held payment command reads «Отправляем счёт» and a held create command is the restaurant\'s wait, '
+          'vibration while pulling forwards and back with one firm tap at the payment point, none at the release')

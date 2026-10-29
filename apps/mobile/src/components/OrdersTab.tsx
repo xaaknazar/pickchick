@@ -293,7 +293,8 @@ export function ActiveOrderCard({
   useLocale();
   const remaining = useInvoiceRemaining(model.kind === 'payment' ? model.expiresAt : null);
   const summary = itemsSummary(model.items);
-  const label = `${model.number ? t('Заказ номер {p0}', { p0: model.number }) : 'Заказ'}, ${model.badge}, ${serviceLabel(model.serviceMode)}, ${summary}, ${money(model.totalMinor)}`;
+  // Every part in the app language (review 29.10.2026: EN read «Order number 15, Готов»).
+  const label = `${model.number ? t('Заказ номер {p0}', { p0: model.number }) : t('Заказ')}, ${t(model.badge)}, ${serviceLabel(model.serviceMode)}, ${summary}, ${money(model.totalMinor)}`;
   if (model.kind === 'payment') {
     const note =
       remaining !== null && remaining > 0
@@ -472,9 +473,9 @@ export function HistoryOrderRow({
   const meta = cancelled
     ? historyMetaParts(model).slice(0, model.number ? 2 : 1)
     : historyMetaParts(model);
-  const title = itemsSummary(model.items) || 'Заказ';
+  const title = itemsSummary(model.items) || t('Заказ');
   const status = model.statusText
-    ? model.statusText
+    ? t(model.statusText)
     : model.rating
       ? t('оценка {p0} из 5', { p0: model.rating })
       : '';
@@ -486,7 +487,7 @@ export function HistoryOrderRow({
           testID={model.openTestID}
           accessibilityRole="button"
           accessibilityLabel={localize(
-            `${model.number ? t('Заказ номер {p0}', { p0: model.number }) : 'Заказ'}, ${title}, ${money(model.totalMinor)}${status ? `, ${status}` : ''}. ${model.openLabel ?? 'Открыть заказ'}`,
+            `${model.number ? t('Заказ номер {p0}', { p0: model.number }) : t('Заказ')}, ${title}, ${money(model.totalMinor)}${status ? `, ${status}` : ''}. ${t(model.openLabel ?? 'Открыть заказ')}`,
           )}
           onPress={model.onOpen}
           style={({ pressed }) => [StyleSheet.absoluteFill, pressed && s.rowPressed]}

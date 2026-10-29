@@ -43,16 +43,17 @@ with sync_playwright() as p:
  page.get_by_test_id('open-cart').click();expect(page.get_by_test_id('cart-quantity-burger')).to_have_text('2');expect(page.locator(TOTAL)).to_contain_text('5 400,02')
  page.screenshot(path=str(OUT/'published-cart-before.png'))
  expect(page.get_by_test_id('cart-pay')).to_be_enabled(timeout=15000);page.get_by_test_id('cart-pay').click()
- expect(page.get_by_role('button',name='Проверить оплату',exact=True)).to_be_visible(timeout=15000);assert len(refused)==len(quotes)
+ # Review 29.10.2026: the server refused the create (403 FORBIDDEN, no order exists), so the cart
+ # says so with «Как проходит заказ» instead of a connecting scene with «Проверить оплату».
+ expect(page.get_by_test_id('checkout-forbidden')).to_be_visible(timeout=15000);assert len(refused)==len(quotes)
+ expect(page.get_by_test_id('checkout-forbidden-demo')).to_be_visible()
  assert quotes[0]['status']==200 and quotes[0]['response']['totalMinor']=='540002'
- # A retained unknown intent is explicitly closable, never silently called cancelled.
- page.get_by_test_id('kaspi-close-order').click(timeout=105000)
- # Closing the order closes the cart sheet itself (no separate checkout page to return from).
+ assert page.evaluate('(key)=>localStorage.getItem(key)', 'pickchick.commerce.pending.v1:'+CUSTOMER) is None
+ page.get_by_test_id('cart-close').click()
  expect(page.get_by_test_id('screen-M09')).to_have_count(0,timeout=10000)
  # Add a second product before the next publication removes it.
  page.get_by_test_id('product-side').click();page.get_by_test_id('product-add').click();page.get_by_test_id('open-cart').click()
- # The fixture refuses order creation; discard its deliberately unfinished command before a new checkout.
- page.evaluate('(key)=>localStorage.removeItem(key)', 'pickchick.commerce.pending.v1:'+CUSTOMER)
+ # The refused create left no intent behind (checked above): nothing to discard before a new checkout.
  page.request.post(URL+'/fixture/publish')
  # A publication updates the visible basket without navigation or reload.
  expect(page.get_by_test_id('cart-prices-updated')).to_contain_text('Цены обновились',timeout=3000)
@@ -65,7 +66,7 @@ with sync_playwright() as p:
  expect(page.get_by_test_id('cart-quantity-side')).to_have_count(0)
  expect(page.locator(TOTAL)).to_contain_text('5 600,02')
  page.screenshot(path=str(OUT/'published-cart-updated.png'))
- expect(page.get_by_test_id('cart-pay')).to_be_enabled(timeout=15000);page.get_by_test_id('cart-pay').click();expect(page.get_by_role('button',name='Проверить оплату',exact=True)).to_be_visible(timeout=15000);assert len(refused)==len(quotes)
+ expect(page.get_by_test_id('cart-pay')).to_be_enabled(timeout=15000);page.get_by_test_id('cart-pay').click();expect(page.get_by_test_id('checkout-forbidden')).to_be_visible(timeout=15000);assert len(refused)==len(quotes)
  assert quotes[-1]['status']==200 and quotes[-1]['response']['totalMinor']=='560002';assert quotes[-1]['request']['items'][0]['selections']==[{'group_id':'side','option_id':'extra','quantity':1}]
  assert not errors,errors
  context.close();browser.close()

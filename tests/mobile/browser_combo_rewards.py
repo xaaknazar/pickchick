@@ -41,6 +41,9 @@ with sync_playwright() as p:
    elif path=='/v1/customer-checkout/availability':data={'enabled':True,'fresh':True,'signature':'a'*64,'products':[{'id':v['id'],'available':True,'stoppedOptions':[]} for v in CAT['products']]}
    elif path=='/v1/customer-checkout/orders':data={'orders':[]}
    elif path=='/v1/customer-checkout/feedback':data={'feedback':[]}
+   elif path=='/v1/customer-checkout/combo-rewards' and state['earned'] is None:
+    # Switched off on the server (production on 29.10.2026).
+    data={'enabled':False}
    elif path=='/v1/customer-checkout/combo-rewards':
     # Owner rule 27.10.2026: six paid combos, the seventh is a gift.
     n=state['earned'];data={'enabled':True,'programId':'40000000-0000-4000-8000-000000000010','giftProductId':'pick-combo','earnedUnits':n,'completedCycles':n//6,'currentStamps':n%6,'availableGifts':n//6,'usedGifts':0,'reservedGifts':0,'reconciliationRequired':False,'visibleStamps':6 if n==6 else n%6,'remainingToNextGift':6-n%6}
@@ -97,7 +100,17 @@ with sync_playwright() as p:
   state['earned']=5;page.goto(URL+'/profile')
   expect(page.get_by_test_id('profile-combo-reward-progress')).to_contain_text('Ещё 1 комбо до подарка')
   page.goto(URL+'/cart');expect(page.get_by_test_id('cart-use-combo-gift')).to_have_count(0)
+  # Owner 29.10.2026 (App Store build): the programme switched off on the server shows no card
+  # anywhere, instead of «Отметки пока у кассира»; it comes back with the server's next answer.
+  state['earned']=None
+  for path,card in [('/profile','profile-combo-reward'),('/events','events-combo-reward'),('/cart','cart-combo-reward')]:
+   page.goto(URL+path)
+   expect(page.get_by_test_id('screen-M30' if path=='/profile' else 'screen-M26' if path=='/events' else 'screen-M09')).to_be_visible(timeout=25000)
+   page.wait_for_timeout(1500)
+   expect(page.get_by_test_id(card)).to_have_count(0)
+   expect(page.get_by_text('Отметки пока у кассира',exact=False)).to_have_count(0)
+  page.screenshot(path=str(OUT/f'programme-off-cart-{width}.png'))
   context.close()
  browser.close()
 assert not errors,errors
-print('PASS 6+1 combo card (0/1/3/6 stamps, calm checks, 7 slots), events/cart cards, rules, selectable gift, zero-total summary and refund refresh: 393x852, 320x568; no payment requests')
+print('PASS 6+1 combo card (0/1/3/6 stamps, calm checks, 7 slots), events/cart cards, rules, selectable gift, zero-total summary and refund refresh, no card anywhere while the server programme is off: 393x852, 320x568; no payment requests')

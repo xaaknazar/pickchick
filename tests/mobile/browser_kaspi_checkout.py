@@ -123,7 +123,9 @@ with sync_playwright() as p:
   assert not state['keys'] and state['payments']==0 and state['quotes']==0
   # A definitive account rejection is only checked after explicit payment.
   button.click()
-  expect(page.get_by_text('Оплата Kaspi ещё не открыта для вашего аккаунта.',exact=True)).to_be_visible()
+  # Review 29.10.2026: a true, neutral sentence and the demonstration instead of «ещё не открыта».
+  expect(page.get_by_text('Для этого аккаунта оплата заказов выключена. Как проходит заказ - можно посмотреть без оплаты.',exact=True)).to_be_visible()
+  expect(page.get_by_test_id('checkout-forbidden-demo')).to_be_visible()
   expect(button).to_be_enabled()
   assert not state['keys'] and state['payments']==0 and state['quotes']==0
   total=page.get_by_test_id('screen-M09').get_by_test_id('cart-total')
@@ -303,7 +305,8 @@ with sync_playwright() as p:
   expect(page.get_by_test_id('completed-item-0')).to_contain_text('Coca-Cola 0,5 л')
   expect(page.get_by_test_id('completed-item-0')).to_contain_text('Фирменный соус')
   expect(page.get_by_test_id('order-kitchen-comment')).to_contain_text('Соус отдельно, пожалуйста')
-  expect(page.get_by_test_id('completed-receipt-unavailable')).to_be_visible()
+  # A deferred receipt (deferred_pilot): no receipt block, no «подключаем сервис чеков» (29.10.2026).
+  expect(page.get_by_test_id('completed-receipt-unavailable')).to_have_count(0)
   expect(page.get_by_test_id('completed-order-receipt')).to_have_count(0)
   rating=page.get_by_test_id('completed-rating-4')
   expect(rating).to_be_enabled(timeout=10000)

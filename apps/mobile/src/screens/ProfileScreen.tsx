@@ -17,6 +17,7 @@ import { useAccount } from '../useAccount';
 import { useNotifications } from '../notifications/provider';
 import { useTapsSettled } from '../components/useTapGuard';
 import { appHeaderMetrics } from '../app-header-metrics';
+import { comboCardShown, upcomingFeaturesShown } from '../store-build';
 
 function ProfileRow({
   title,
@@ -27,6 +28,7 @@ function ProfileRow({
   last = false,
   count = 0,
   accessibilityLabel,
+  trailing,
 }: {
   title: string;
   icon: IconName;
@@ -37,6 +39,8 @@ function ProfileRow({
   /** Unread counter shown inside the row (notifications); hidden at zero. */
   count?: number;
   accessibilityLabel?: string;
+  /** Shown instead of the chevron on a row without an action (only the hidden «Промокоды»). */
+  trailing?: ReactNode;
 }) {
   useLocale();
   return (
@@ -63,11 +67,7 @@ function ProfileRow({
           </Text>
         </View>
       ) : null}
-      {onPress ? (
-        <Icon name="chevron-forward" size={17} color={colors.muted} />
-      ) : (
-        <Text style={s.soon}>{t('Скоро')}</Text>
-      )}
+      {onPress ? <Icon name="chevron-forward" size={17} color={colors.muted} /> : trailing}
     </Pressable>
   );
 }
@@ -96,10 +96,13 @@ export function Profile(props: ScreenProps) {
     account.account?.profile.completedAt != null
       ? account.account.profile.nickname
       : account.account?.profile.nickname || props.model.nickname;
-  const name = savedNickname || 'Любитель хруста';
+  // An empty optional name (the first sign-in form allows «Готово» with nothing filled in) shows
+  // the default in the app language (App Review 29.10.2026: it was Russian on English screens).
+  const name = savedNickname || t('Любитель хруста');
   // Settings sits right under the header profile button: the second tap of a double tap that
   // opened this screen must not press it (or back) while the push is still running.
   const settled = useTapsSettled();
+  const comboProgress = props.model.comboRewards?.progress ?? props.model.testFlow.comboProgress;
   return (
     <View testID="screen-M30" style={s.screen}>
       {/* Stack screen above the tabs (27.10.2026): fixed bar with back, title and settings. */}
@@ -128,7 +131,7 @@ export function Profile(props: ScreenProps) {
           <GlassButton
             testID="profile-settings"
             name="settings-outline"
-            label={t('Настройки профиля')}
+            label={t('Настройки')}
             size={appHeaderMetrics.profileBarSize}
             iconSize={23}
             onPress={() => props.navigate('M34')}
@@ -217,7 +220,12 @@ export function Profile(props: ScreenProps) {
           <ProfileRow
             title={t('Уведомления')}
             icon="notifications-outline"
-            value={t('Заказы и предложения для вас')}
+            // The App Store build has no offers in the inbox (no «Для вас» tab): only orders.
+            value={t(
+              upcomingFeaturesShown(undefined, props.preview)
+                ? 'Заказы и предложения для вас'
+                : 'Сообщения о ваших заказах',
+            )}
             testID="profile-notifications"
             count={unread}
             accessibilityLabel={
@@ -261,41 +269,55 @@ export function Profile(props: ScreenProps) {
           ))}
         </View>
 
-        <ComboRewardCard
-          preview={props.preview}
-          progress={props.model.comboRewards?.progress ?? props.model.testFlow.comboProgress}
-          testID="profile-combo-reward"
-          onMenu={() =>
-            props.navigate(
-              props.model.comboRewards?.progress.commercial?.availableGifts ? 'M09' : 'M06',
-            )
-          }
-        />
-
-        <Pressable
-          testID="profile-loyalty"
-          accessibilityRole="button"
-          onPress={() => props.navigate('M23')}
-          style={s.loyalty}
-        >
-          <View style={s.loyaltyIcon}>
-            <Icon name="sparkles-outline" size={24} color={colors.accent} />
-          </View>
-          <View style={s.flex}>
-            <Text style={s.loyaltyTitle}>{t('Мои Чики и уровни')}</Text>
-            <Text style={s.loyaltyCopy}>{t('Твой путь к вершинам Алматы')}</Text>
-          </View>
-          <Icon name="chevron-forward" size={20} color={colors.muted} />
-        </Pressable>
-
-        <Group title={t('Программа Чиков')}>
-          <ProfileRow
-            title={t('Награды и миссии')}
-            icon="ribbon-outline"
-            onPress={() => props.navigate('M25')}
+        {/* App Store build (owner 29.10.2026): the 6 + 1 card only while the server runs it. */}
+        {comboCardShown(comboProgress, undefined, props.preview) ? (
+          <ComboRewardCard
+            preview={props.preview}
+            progress={comboProgress}
+            testID="profile-combo-reward"
+            onMenu={() =>
+              props.navigate(
+                props.model.comboRewards?.progress.commercial?.availableGifts ? 'M09' : 'M06',
+              )
+            }
           />
-          <ProfileRow title={t('Промокоды')} icon="ticket-outline" last />
-        </Group>
+        ) : null}
+
+        {/* The Chiki programme (levels, missions, promo codes) is not live: no entry point in the
+            App Store build instead of preview screens and a «Скоро» row (owner 29.10.2026). */}
+        {upcomingFeaturesShown(undefined, props.preview) ? (
+          <>
+            <Pressable
+              testID="profile-loyalty"
+              accessibilityRole="button"
+              onPress={() => props.navigate('M23')}
+              style={s.loyalty}
+            >
+              <View style={s.loyaltyIcon}>
+                <Icon name="sparkles-outline" size={24} color={colors.accent} />
+              </View>
+              <View style={s.flex}>
+                <Text style={s.loyaltyTitle}>{t('Мои Чики и уровни')}</Text>
+                <Text style={s.loyaltyCopy}>{t('Твой путь к вершинам Алматы')}</Text>
+              </View>
+              <Icon name="chevron-forward" size={20} color={colors.muted} />
+            </Pressable>
+
+            <Group title={t('Программа Чиков')}>
+              <ProfileRow
+                title={t('Награды и миссии')}
+                icon="ribbon-outline"
+                onPress={() => props.navigate('M25')}
+              />
+              <ProfileRow
+                title={t('Промокоды')}
+                icon="ticket-outline"
+                last
+                trailing={<Text style={s.soon}>{t('Скоро')}</Text>}
+              />
+            </Group>
+          </>
+        ) : null}
 
         <Group title={t('Аккаунт')}>
           <ProfileRow

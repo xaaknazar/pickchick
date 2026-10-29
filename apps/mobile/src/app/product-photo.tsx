@@ -2,13 +2,14 @@ import { t, useLocale } from '../i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, View, Text } from 'react-native';
 import { useMobile } from '../store';
+import { designPreview } from '../store-build';
 import { PhotoProduct } from '../screens/PhotoProduct';
 import { hasPhotoPilot } from '../product-photo-selection';
 import { Button } from '../components/UI';
 export default function ProductPhotoRoute() {
   useLocale();
   const params = useLocalSearchParams<{ product?: string; preview?: string }>();
-  const preview = params.preview === '1';
+  const preview = designPreview(params.preview);
   const model = useMobile(preview);
   const router = useRouter();
   const product = model.products.find((p) => p.id === params.product && hasPhotoPilot(p));
@@ -41,7 +42,7 @@ export default function ProductPhotoRoute() {
           backgroundColor: '#04143A',
         }}
       >
-        <Text style={{ color: 'white', fontSize: 20 }}>{t('Позиция пока недоступна')}</Text>
+        <Text style={{ color: 'white', fontSize: 20 }}>{t('Позиция сейчас недоступна')}</Text>
         <Button title={t('Вернуться в меню')} onPress={back} />
       </View>
     );

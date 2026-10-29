@@ -303,7 +303,10 @@ export function CartShortcut({
             testID="open-cart"
             accessibilityRole="button"
             accessibilityLabel={localize(
-              t('Корзина, {p0} позиций, {p1}', { p0: count, p1: total }),
+              t(count === 1 ? 'Корзина, 1 позиция, {p1}' : 'Корзина, {p0} позиций, {p1}', {
+                p0: count,
+                p1: total,
+              }),
             )}
             accessibilityHint={
               reason

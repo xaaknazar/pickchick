@@ -96,28 +96,16 @@
     "context": "apps/mobile/src/app/notifications.tsx:35"
   },
   {
-    "ru": "Следим за вашим заказом",
-    "kk": "Тапсырысыңыздың күйін бақылап отырмыз",
-    "en": "Keeping track of your order",
+    "ru": "Новых сообщений нет",
+    "kk": "Жаңа хабарлар жоқ",
+    "en": "No new messages",
     "context": "apps/mobile/src/app/notifications.tsx:60"
   },
   {
-    "ru": "Хорошие новости впереди",
-    "kk": "Жақсы жаңалықтар алда",
-    "en": "Good things are coming",
-    "context": "apps/mobile/src/app/notifications.tsx:60"
-  },
-  {
-    "ru": "Здесь появятся сообщения о ваших заказах. Пока их статус можно посмотреть в разделе «Заказы».",
-    "kk": "Тапсырыстарыңыз туралы хабарлар осында пайда болады. Әзірге олардың күйін «Тапсырыстар» бөлімінен көре аласыз.",
-    "en": "Messages about your orders will appear here. For now, check their status in Orders.",
+    "ru": "Сюда приходят сообщения о ваших заказах. Статус каждого заказа есть в разделе «Заказы».",
+    "kk": "Тапсырыстарыңыз туралы хабарлар осында келеді. Әр тапсырыстың күйі «Тапсырыстар» бөлімінде бар.",
+    "en": "Messages about your orders arrive here. The status of every order is in Orders.",
     "context": "apps/mobile/src/app/notifications.tsx:64"
-  },
-  {
-    "ru": "Здесь появятся ваши предложения, подарки и новости о Чиках. А пока загляните в события.",
-    "kk": "Сізге арналған ұсыныстар, сыйлықтар және Чиктер туралы жаңалықтар осында пайда болады. Әзірге оқиғалар бөліміне кіріп көріңіз.",
-    "en": "Your offers, gifts and Chiki news will appear here. Explore Events in the meantime.",
-    "context": "apps/mobile/src/app/notifications.tsx:65"
   },
   {
     "ru": "Мои заказы",
@@ -138,8 +126,8 @@
     "context": "apps/mobile/src/app/product-photo.tsx:25"
   },
   {
-    "ru": "Позиция пока недоступна",
-    "kk": "Бұл өнім әзірге қолжетімсіз",
+    "ru": "Позиция сейчас недоступна",
+    "kk": "Бұл өнім қазір қолжетімсіз",
     "en": "This item is currently unavailable",
     "context": "apps/mobile/src/app/product-photo.tsx:42"
   },
@@ -186,16 +174,10 @@
     "context": "apps/mobile/src/availability.ts:122"
   },
   {
-    "ru": "Игра пока недоступна",
-    "kk": "Ойын әзірге қолжетімсіз",
+    "ru": "Игра сейчас недоступна",
+    "kk": "Ойын қазір қолжетімсіз",
     "en": "This game is currently unavailable",
     "context": "apps/mobile/src/backoffice/GameAvailability.tsx:25"
-  },
-  {
-    "ru": "Загляни позже - здесь появится новая игра.",
-    "kk": "Кейінірек кіріп көр - мұнда жаңа ойын пайда болады.",
-    "en": "Come back later for a new game.",
-    "context": "apps/mobile/src/backoffice/GameAvailability.tsx:26"
   },
   {
     "ru": "К событиям",
@@ -240,9 +222,9 @@
     "context": "apps/mobile/src/cart-reprice.ts:4"
   },
   {
-    "ru": "Позиция ресторана. Оформление пока недоступно.",
-    "kk": "Мейрамхана өнімі. Тапсырыс беру әзірге қолжетімсіз.",
-    "en": "Restaurant item. Ordering is not available yet.",
+    "ru": "Позиция меню ресторана.",
+    "kk": "Мейрамхана мәзіріндегі өнім.",
+    "en": "An item on the restaurant menu.",
     "context": "apps/mobile/src/catalog.ts:77"
   },
   {
@@ -426,9 +408,9 @@
     "context": "apps/mobile/src/commerce-presentation.ts:81"
   },
   {
-    "ru": "Оплата Kaspi ещё не открыта для вашего аккаунта.",
-    "kk": "Аккаунтыңыз үшін Kaspi арқылы төлеу әлі қолжетімсіз.",
-    "en": "Kaspi payments are not enabled for your account yet.",
+    "ru": "Для этого аккаунта оплата заказов выключена. Как проходит заказ - можно посмотреть без оплаты.",
+    "kk": "Бұл аккаунт үшін тапсырыстарды төлеу өшірілген. Тапсырыстың қалай өтетінін төлемсіз көруге болады.",
+    "en": "Ordering is turned off for this account. You can see how ordering works without payment.",
     "context": "apps/mobile/src/commerce-presentation.ts:82"
   },
   {
@@ -436,30 +418,6 @@
     "kk": "Тапсырысты жалғастыру үшін аккаунтыңызға қайта кіріңіз.",
     "en": "Sign in again to continue your order.",
     "context": "apps/mobile/src/commerce-presentation.ts:84"
-  },
-  {
-    "ru": "Ресторан сейчас закрыт. Корзина сохранена - оформите заказ в часы работы.",
-    "kk": "Мейрамхана қазір жабық. Себет сақталды - жұмыс уақытында тапсырыс беріңіз.",
-    "en": "The restaurant is closed. Your basket is saved - order during opening hours.",
-    "context": "apps/mobile/src/commerce-read-recovery.ts:67"
-  },
-  {
-    "ru": "Войдите в аккаунт снова, чтобы продолжить.",
-    "kk": "Жалғастыру үшін аккаунтыңызға қайта кіріңіз.",
-    "en": "Sign in again to continue.",
-    "context": "apps/mobile/src/commerce-read-recovery.ts:68"
-  },
-  {
-    "ru": "Оформление пока недоступно для вашего аккаунта. Корзина сохранена.",
-    "kk": "Аккаунтыңыз үшін тапсырыс беру әзірге қолжетімсіз. Себет сақталды.",
-    "en": "Ordering is not available for your account yet. Your basket is saved.",
-    "context": "apps/mobile/src/commerce-read-recovery.ts:70"
-  },
-  {
-    "ru": "Ресторан пока не готов принимать заказы. Корзина сохранена.",
-    "kk": "Мейрамхана әзірге тапсырыс қабылдауға дайын емес. Себет сақталды.",
-    "en": "The restaurant isn't ready to take orders yet. Your basket is saved.",
-    "context": "apps/mobile/src/commerce-read-recovery.ts:71"
   },
   {
     "ru": "Проверяем связь автоматически.",
@@ -540,9 +498,9 @@
     "context": "apps/mobile/src/components/AuthWelcome.tsx:108"
   },
   {
-    "ru": "Чтобы оформлять заказы, копить Чики и играть в игры",
-    "kk": "Тапсырыс беру, Чиктер жинау және ойын ойнау үшін",
-    "en": "To order, collect Chiki and play games",
+    "ru": "Чтобы оформлять заказы и следить за ними",
+    "kk": "Тапсырыс беру және оларды бақылау үшін",
+    "en": "To place orders and follow them",
     "context": "apps/mobile/src/components/AuthWelcome.tsx:109"
   },
   {
@@ -906,9 +864,9 @@
     "context": "apps/mobile/src/components/ComboRewardCard.tsx:152"
   },
   {
-    "ru": "Личные отметки загружаются после входа. При отсутствии связи счётчик не обнуляется. Бумажные отметки и право на подарок пока учитываются на кассе.",
-    "kk": "Жеке белгілер аккаунтқа кіргеннен кейін жүктеледі. Байланыс болмаса, санақ нөлденбейді. Қағаз белгілер мен сыйлық алу құқығы әзірге кассада есепке алынады.",
-    "en": "Your stamps load after you sign in. The count won't reset if you're offline. Paper stamps and gift eligibility are still managed at the till.",
+    "ru": "Личные отметки загружаются после входа. При отсутствии связи счётчик не обнуляется. Бумажные отметки и право на подарок учитываются на кассе.",
+    "kk": "Жеке белгілер аккаунтқа кіргеннен кейін жүктеледі. Байланыс болмаса, санақ нөлденбейді. Қағаз белгілер мен сыйлық алу құқығы кассада есепке алынады.",
+    "en": "Your stamps load after you sign in. The count won't reset if you're offline. Paper stamps and gift eligibility are managed at the till.",
     "context": "apps/mobile/src/components/ComboRewardCard.tsx:156"
   },
   {
@@ -1092,12 +1050,6 @@
     "context": "apps/mobile/src/components/OrderActions.tsx:58"
   },
   {
-    "ru": "Обращения по оплате подключаются. Если нужна помощь сейчас, обратитесь к сотруднику ресторана.",
-    "kk": "Төлем бойынша өтініштер қосылып жатыр. Қазір көмек керек болса, мейрамхана қызметкеріне жүгініңіз.",
-    "en": "Payment support is being set up. If you need help now, ask a restaurant team member.",
-    "context": "apps/mobile/src/components/OrderActions.tsx:59"
-  },
-  {
     "ru": "Написать в поддержку",
     "kk": "Қолдау қызметіне жазу",
     "en": "Contact support",
@@ -1278,30 +1230,6 @@
     "context": "apps/mobile/src/components/PaymentChoice.tsx:64"
   },
   {
-    "ru": "Оплата и чеки - в процессе подключения. Реквизиты не нужны.",
-    "kk": "Төлем мен чектер қосылып жатыр. Төлем деректемелері қажет емес.",
-    "en": "Payments and receipts are being set up. No payment details are needed.",
-    "context": "apps/mobile/src/components/PaymentChoice.tsx:84"
-  },
-  {
-    "ru": "Выберите удобный способ. Онлайн-оплата скоро появится.",
-    "kk": "Ыңғайлы тәсілді таңдаңыз. Онлайн төлем жақында қосылады.",
-    "en": "Choose your preferred method. Online payment is coming soon.",
-    "context": "apps/mobile/src/components/PaymentChoice.tsx:85"
-  },
-  {
-    "ru": "Оплата в приложении Kaspi.kz",
-    "kk": "Kaspi.kz қолданбасында төлеу",
-    "en": "Pay in the Kaspi.kz app",
-    "context": "apps/mobile/src/components/PaymentChoice.tsx:113"
-  },
-  {
-    "ru": "Оплата банковской картой",
-    "kk": "Банк картасымен төлеу",
-    "en": "Pay by bank card",
-    "context": "apps/mobile/src/components/PaymentChoice.tsx:114"
-  },
-  {
     "ru": "Комбо",
     "kk": "Комбо",
     "en": "Combos",
@@ -1422,8 +1350,8 @@
     "context": "apps/mobile/src/components/Restaurants.tsx:252"
   },
   {
-    "ru": "Заказы пока недоступны",
-    "kk": "Тапсырыс беру әзірге қолжетімсіз",
+    "ru": "Заказы сейчас недоступны",
+    "kk": "Тапсырыс беру қазір қолжетімсіз",
     "en": "Ordering is currently unavailable",
     "context": "apps/mobile/src/components/Restaurants.tsx:254"
   },
@@ -1464,9 +1392,9 @@
     "context": "apps/mobile/src/games/ArcadeExperience.tsx:159"
   },
   {
-    "ru": "Личный рекорд на устройстве · очки без начисления Чиков",
-    "kk": "Құрылғыдағы жеке рекорд · ұпайлар үшін Чиктер берілмейді",
-    "en": "Personal best on this device · points don't earn Chiki",
+    "ru": "Личный рекорд хранится на этом устройстве",
+    "kk": "Жеке рекорд осы құрылғыда сақталады",
+    "en": "Your personal best is kept on this device",
     "context": "apps/mobile/src/games/ArcadeExperience.tsx:165"
   },
   {
@@ -1572,9 +1500,9 @@
     "context": "apps/mobile/src/games/magic-sort/MagicSortScreen.tsx:462"
   },
   {
-    "ru": "Прогресс пока не сохранён. Повторите сохранение.",
-    "kk": "Ойын барысы әлі сақталмады. Қайта сақтап көріңіз.",
-    "en": "Progress hasn't been saved yet. Please try saving again.",
+    "ru": "Прогресс не сохранён. Повторите сохранение.",
+    "kk": "Ойын барысы сақталмады. Қайта сақтап көріңіз.",
+    "en": "Progress wasn't saved. Please try saving again.",
     "context": "apps/mobile/src/games/magic-sort/MagicSortScreen.tsx:670"
   },
   {
@@ -1950,9 +1878,9 @@
     "context": "apps/mobile/src/games/pick-blocks/PickBlocksScreen.tsx:647"
   },
   {
-    "ru": "Игра пока не сохранилась. Повторить",
-    "kk": "Ойын әлі сақталмады. Қайталау",
-    "en": "Game not saved yet. Retry",
+    "ru": "Игра не сохранилась. Повторить",
+    "kk": "Ойын сақталмады. Қайталау",
+    "en": "Game not saved. Retry",
     "context": "apps/mobile/src/games/pick-blocks/PickBlocksScreen.tsx:659"
   },
   {
@@ -1987,8 +1915,8 @@
   },
   {
     "ru": "Места больше нет. А новый пик - впереди.",
-    "kk": "Бос орын қалмады. Ал жаңа шың әлі алда.",
-    "en": "No space left. Your next peak is still ahead.",
+    "kk": "Бос орын қалмады. Ал жаңа шың - алда.",
+    "en": "No space left. Your next peak is ahead.",
     "context": "apps/mobile/src/games/pick-blocks/PickBlocksScreen.tsx:706"
   },
   {
@@ -2004,9 +1932,9 @@
     "context": "apps/mobile/src/games/pick-blocks/PickBlocksScreen.tsx:709"
   },
   {
-    "ru": "Партия пока не сохранилась на телефоне. Можно продолжить игру или повторить сохранение.",
-    "kk": "Ойын әлі телефонға сақталмады. Ойынды жалғастыруға немесе қайта сақтауға болады.",
-    "en": "The game hasn't been saved on your phone yet. Keep playing or try saving again.",
+    "ru": "Партия не сохранилась на телефоне. Можно продолжить игру или повторить сохранение.",
+    "kk": "Ойын телефонға сақталмады. Ойынды жалғастыруға немесе қайта сақтауға болады.",
+    "en": "The game wasn't saved on your phone. Keep playing or try saving again.",
     "context": "apps/mobile/src/games/pick-blocks/PickBlocksScreen.tsx:712"
   },
   {
@@ -2058,9 +1986,9 @@
     "context": "apps/mobile/src/games/pick-blocks/PickBlocksScreen.tsx:735"
   },
   {
-    "ru": "Контур показывает, куда приземлится фигура. Рекорд хранится на этом телефоне. Игровые очки не переводятся в Чики.",
-    "kk": "Контур пішіннің қайда түсетінін көрсетеді. Рекорд осы телефонда сақталады. Ойын ұпайлары Чиктерге айналмайды.",
-    "en": "The outline shows where the piece will land. Your best score is stored on this phone. Game points don't convert to Chiki.",
+    "ru": "Контур показывает, куда приземлится фигура. Рекорд хранится на этом телефоне.",
+    "kk": "Контур пішіннің қайда түсетінін көрсетеді. Рекорд осы телефонда сақталады.",
+    "en": "The outline shows where the piece will land. Your best score is stored on this phone.",
     "context": "apps/mobile/src/games/pick-blocks/PickBlocksScreen.tsx:751"
   },
   {
@@ -2316,9 +2244,9 @@
     "context": "apps/mobile/src/games/pick-man/PickManScreen.tsx:621"
   },
   {
-    "ru": "Очки и рекорд сохраняются на этом устройстве. Чики за игру не начисляются.",
-    "kk": "Ұпайлар мен рекорд осы құрылғыда сақталады. Ойын үшін Чиктер берілмейді.",
-    "en": "Points and your best score are saved on this device. Playing doesn't earn Chiki.",
+    "ru": "Очки и рекорд сохраняются на этом устройстве.",
+    "kk": "Ұпайлар мен рекорд осы құрылғыда сақталады.",
+    "en": "Points and your best score are saved on this device.",
     "context": "apps/mobile/src/games/pick-man/PickManScreen.tsx:623"
   },
   {
@@ -2544,9 +2472,9 @@
     "context": "apps/mobile/src/games/pick-run/PickRunScreen.tsx:409"
   },
   {
-    "ru": "· игровые очки без начисления Чиков",
-    "kk": "· Чиктер берілмейтін ойын ұпайлары",
-    "en": "· game points don't earn Chiki",
+    "ru": "· на этом устройстве",
+    "kk": "· осы құрылғыда",
+    "en": "· on this device",
     "context": "apps/mobile/src/games/pick-run/PickRunScreen.tsx:411"
   },
   {
@@ -2556,9 +2484,9 @@
     "context": "apps/mobile/src/games/pick-run/PickRunScreen.tsx:413"
   },
   {
-    "ru": "Рекорд пока не сохранился на устройстве.",
-    "kk": "Рекорд құрылғыға әлі сақталмады.",
-    "en": "Your best score hasn't been saved on this device yet.",
+    "ru": "Рекорд не сохранился на устройстве.",
+    "kk": "Рекорд құрылғыға сақталмады.",
+    "en": "Your best score wasn't saved on this device.",
     "context": "apps/mobile/src/games/pick-run/PickRunScreen.tsx:423"
   },
   {
@@ -2586,9 +2514,9 @@
     "context": "apps/mobile/src/games/pick-run/PickRunScreen.tsx:444"
   },
   {
-    "ru": "Игровые очки не переводятся в Чики.",
-    "kk": "Ойын ұпайлары Чиктерге айналмайды.",
-    "en": "Game points don't convert to Chiki.",
+    "ru": "Счёт и рекорд хранятся на этом устройстве.",
+    "kk": "Ұпай мен рекорд осы құрылғыда сақталады.",
+    "en": "Your score and best score are kept on this device.",
     "context": "apps/mobile/src/games/pick-run/PickRunScreen.tsx:445"
   },
   {
@@ -3504,8 +3432,8 @@
     "context": "apps/mobile/src/screens/AuthScreens.tsx:171"
   },
   {
-    "ru": "Подтверждение номера пока недоступно",
-    "kk": "Нөмірді растау әзірге қолжетімсіз",
+    "ru": "Подтверждение номера сейчас недоступно",
+    "kk": "Нөмірді растау қазір қолжетімсіз",
     "en": "Phone verification is currently unavailable",
     "context": "apps/mobile/src/screens/AuthScreens.tsx:172"
   },
@@ -3798,15 +3726,9 @@
     "context": "apps/mobile/src/screens/CatalogScreens.tsx:566"
   },
   {
-    "ru": "Меню скоро появится",
-    "kk": "Мәзір жақында пайда болады",
-    "en": "The menu is coming soon",
-    "context": "apps/mobile/src/screens/CatalogScreens.tsx:598"
-  },
-  {
-    "ru": "Мы готовим каталог этого ресторана.",
-    "kk": "Осы мейрамхананың каталогын дайындап жатырмыз.",
-    "en": "We're preparing this restaurant's menu.",
+    "ru": "Позиции этого ресторана сейчас не загрузились. Обновите меню.",
+    "kk": "Бұл мейрамхананың өнімдері қазір жүктелмеді. Мәзірді жаңартыңыз.",
+    "en": "This restaurant's items didn't load right now. Refresh the menu.",
     "context": "apps/mobile/src/screens/CatalogScreens.tsx:599"
   },
   {
@@ -3822,9 +3744,9 @@
     "context": "apps/mobile/src/screens/CatalogScreens.tsx:621"
   },
   {
-    "ru": "Часы уточняются",
-    "kk": "Жұмыс уақыты нақтылануда",
-    "en": "Opening hours to be confirmed",
+    "ru": "Часы работы не указаны",
+    "kk": "Жұмыс уақыты көрсетілмеген",
+    "en": "Opening hours not listed",
     "context": "apps/mobile/src/screens/CatalogScreens.tsx:633"
   },
   {
@@ -3882,9 +3804,9 @@
     "context": "apps/mobile/src/screens/CatalogScreens.tsx:810"
   },
   {
-    "ru": "Здесь пока тихо",
-    "kk": "Әзірге бос",
-    "en": "Nothing here yet",
+    "ru": "Корзина пуста",
+    "kk": "Себет бос",
+    "en": "Your basket is empty",
     "context": "apps/mobile/src/screens/CatalogScreens.tsx:828"
   },
   {
@@ -3984,15 +3906,15 @@
     "context": "apps/mobile/src/screens/CatalogScreens.tsx:990"
   },
   {
-    "ru": "Приём заказов пока недоступен",
-    "kk": "Тапсырыс қабылдау әзірге қолжетімсіз",
+    "ru": "Приём заказов сейчас недоступен",
+    "kk": "Тапсырыс қабылдау қазір қолжетімсіз",
     "en": "Orders are currently unavailable",
     "context": "apps/mobile/src/screens/CatalogScreens.tsx:992"
   },
   {
-    "ru": "Доступность пока не подтверждена",
-    "kk": "Қолжетімділігі әлі расталмады",
-    "en": "Availability is not yet confirmed",
+    "ru": "Не удалось проверить доступность",
+    "kk": "Қолжетімділікті тексеру мүмкін болмады",
+    "en": "Couldn't check availability",
     "context": "apps/mobile/src/screens/CatalogScreens.tsx:993"
   },
   {
@@ -4188,12 +4110,6 @@
     "context": "apps/mobile/src/screens/CompletedOrderScreen.tsx:128"
   },
   {
-    "ru": "шт.",
-    "kk": "дана",
-    "en": "pcs",
-    "context": "apps/mobile/src/screens/CompletedOrderScreen.tsx:168"
-  },
-  {
     "ru": "Ваш комментарий к заказу",
     "kk": "Тапсырысқа жазған түсініктемеңіз",
     "en": "Your order note",
@@ -4290,16 +4206,10 @@
     "context": "apps/mobile/src/screens/CompletedOrderScreen.tsx:298"
   },
   {
-    "ru": "Чек выпущен. Ссылка пока недоступна.",
-    "kk": "Чек шығарылды. Сілтеме әзірге қолжетімсіз.",
-    "en": "Your receipt has been issued. The link is not available yet.",
+    "ru": "Чек выпущен.",
+    "kk": "Чек шығарылды.",
+    "en": "Your receipt has been issued.",
     "context": "apps/mobile/src/screens/CompletedOrderScreen.tsx:308"
-  },
-  {
-    "ru": "Фискальный чек пока недоступен - подключаем сервис чеков.",
-    "kk": "Фискалдық чек әзірге қолжетімсіз - чек қызметін қосып жатырмыз.",
-    "en": "Fiscal receipts are not available yet - we are connecting the receipt service.",
-    "context": "apps/mobile/src/screens/CompletedOrderScreen.tsx:310"
   },
   {
     "ru": "Ожидаем фискальный чек. Ссылка появится после выпуска.",
@@ -4764,9 +4674,9 @@
     "context": "apps/mobile/src/screens/ConnectedOrderScreens.tsx:610"
   },
   {
-    "ru": "Афиша Pick Chick: игры, события и новые поводы заглянуть к нам.",
-    "kk": "Pick Chick афишасы: ойындар, оқиғалар және бізге келуге жаңа себептер.",
-    "en": "What's on at Pick Chick: games, events and more reasons to visit.",
+    "ru": "Мини-игры Pick Chick: рекорды сохраняются на этом устройстве.",
+    "kk": "Pick Chick мини-ойындары: рекордтар осы құрылғыда сақталады.",
+    "en": "Pick Chick mini-games: your best scores are saved on this device.",
     "context": "apps/mobile/src/screens/GameScreens.tsx:31"
   },
   {
@@ -4860,9 +4770,9 @@
     "context": "apps/mobile/src/screens/KaspiCheckoutScreen.tsx:560"
   },
   {
-    "ru": "Оценка этого заказа пока недоступна.",
-    "kk": "Бұл тапсырысты бағалау әзірге қолжетімсіз.",
-    "en": "Rating this order is not available yet.",
+    "ru": "Оценки сейчас не принимаются.",
+    "kk": "Бағалар қазір қабылданбайды.",
+    "en": "Ratings are not being accepted right now.",
     "context": "apps/mobile/src/screens/KaspiCheckoutScreen.tsx:609"
   },
   {
@@ -4872,15 +4782,9 @@
     "context": "apps/mobile/src/screens/KaspiCheckoutScreen.tsx:621"
   },
   {
-    "ru": "Фискальный чек пока не выпускается - Webkassa подключается.",
-    "kk": "Фискалдық чек әзірге шығарылмайды - Webkassa қосылып жатыр.",
-    "en": "Fiscal receipts are not being issued yet - Webkassa is being connected.",
-    "context": "apps/mobile/src/screens/KaspiCheckoutScreen.tsx:644"
-  },
-  {
-    "ru": "Чек выпущен. Ссылка на него уточняется.",
-    "kk": "Чек шығарылды. Сілтемесін нақтылап жатырмыз.",
-    "en": "Your receipt has been issued. Its link is being confirmed.",
+    "ru": "Чек выпущен",
+    "kk": "Чек шығарылды",
+    "en": "Receipt issued",
     "context": "apps/mobile/src/screens/KaspiCheckoutScreen.tsx:646"
   },
   {
@@ -5532,6 +5436,12 @@
     "context": "apps/mobile/src/screens/OrderStatusScreen.tsx:132"
   },
   {
+    "ru": "Заказ выдан. Спасибо, что выбрали PickChick",
+    "kk": "Тапсырыс берілді. PickChick-ті таңдағаныңызға рақмет",
+    "en": "Order collected. Thanks for choosing PickChick",
+    "context": "apps/mobile/src/screens/OrderStatusScreen.tsx"
+  },
+  {
     "ru": "Если нужна помощь, напишите нам",
     "kk": "Көмек керек болса, бізге жазыңыз",
     "en": "Message us if you need help",
@@ -5646,9 +5556,9 @@
     "context": "apps/mobile/src/screens/PhotoProduct.tsx:253"
   },
   {
-    "ru": "Данные уточняются.",
-    "kk": "Мәліметтер нақтыланып жатыр.",
-    "en": "Details are being confirmed.",
+    "ru": "Пищевая ценность не указана.",
+    "kk": "Тағамдық құндылығы көрсетілмеген.",
+    "en": "Nutrition information is not listed.",
     "context": "apps/mobile/src/screens/PhotoProduct.tsx:266"
   },
   {
@@ -5662,12 +5572,6 @@
     "kk": "Аллергендерді мейрамхана қызметкерлерінен нақтылаңыз.",
     "en": "Ask our restaurant team about allergens.",
     "context": "apps/mobile/src/screens/PhotoProduct.tsx:272"
-  },
-  {
-    "ru": "Фото скоро",
-    "kk": "Фото жақында",
-    "en": "Photo coming soon",
-    "context": "apps/mobile/src/screens/PhotoProduct.tsx:310"
   },
   {
     "ru": "Настроить комбо",
@@ -5710,12 +5614,6 @@
     "kk": "Таңдалды",
     "en": "Selected",
     "context": "apps/mobile/src/screens/PhotoProduct.tsx:381"
-  },
-  {
-    "ru": "из",
-    "kk": "ішінен",
-    "en": "of",
-    "context": "apps/mobile/src/screens/PhotoProduct.tsx:382"
   },
   {
     "ru": "Временно нет",
@@ -5934,9 +5832,9 @@
     "context": "apps/mobile/src/screens/ProductConfiguration.tsx:203"
   },
   {
-    "ru": "Сведения об аллергенах ресторан ещё не подтвердил.",
-    "kk": "Мейрамхана аллергендер туралы мәліметті әлі растаған жоқ.",
-    "en": "The restaurant has not confirmed allergen information yet.",
+    "ru": "Ресторан не указал аллергены этой позиции. Уточните у сотрудника.",
+    "kk": "Мейрамхана бұл өнімнің аллергендерін көрсетпеген. Қызметкерден сұраңыз.",
+    "en": "The restaurant has not listed allergens for this item. Please ask a team member.",
     "context": "apps/mobile/src/screens/ProductConfiguration.tsx:213"
   },
   {
@@ -6018,9 +5916,9 @@
     "context": "apps/mobile/src/screens/ProfileScreen.tsx:76"
   },
   {
-    "ru": "Настройки профиля",
-    "kk": "Профиль баптаулары",
-    "en": "Profile settings",
+    "ru": "Настройки",
+    "kk": "Баптаулар",
+    "en": "Settings",
     "context": "apps/mobile/src/screens/ProfileScreen.tsx:96"
   },
   {
@@ -6126,6 +6024,12 @@
     "context": "apps/mobile/src/screens/ProfileScreen.tsx:252"
   },
   {
+    "ru": "Сообщения о ваших заказах",
+    "kk": "Тапсырыстарыңыз туралы хабарлар",
+    "en": "Messages about your orders",
+    "context": "apps/mobile/src/screens/ProfileScreen.tsx"
+  },
+  {
     "ru": "Язык",
     "kk": "Тіл",
     "en": "Language",
@@ -6228,9 +6132,9 @@
     "context": "apps/mobile/src/screens/ProfileScreens.tsx:67"
   },
   {
-    "ru": "Не оплачивайте тот же заказ повторно",
-    "kk": "Бір тапсырысты қайта төлемеңіз",
-    "en": "Do not pay for the same order again",
+    "ru": "Статус оплаты каждого заказа - в «Заказах». Не оплачивайте заказ повторно.",
+    "kk": "Әр тапсырыстың төлем күйі - «Тапсырыстар» бөлімінде. Тапсырысты қайта төлемеңіз.",
+    "en": "Each order's payment status is in Orders. Do not pay for an order twice.",
     "context": "apps/mobile/src/screens/ProfileScreens.tsx:68"
   },
   {
@@ -6330,9 +6234,9 @@
     "context": "apps/mobile/src/screens/ProfileScreens.tsx:175"
   },
   {
-    "ru": "Профиля на устройстве нет. Регистрация с настоящей SMS готовится.",
-    "kk": "Құрылғыда профиль жоқ. Нақты SMS арқылы тіркелу дайындалып жатыр.",
-    "en": "There is no profile on this device. Registration with real SMS is being prepared.",
+    "ru": "Профиля на устройстве нет.",
+    "kk": "Құрылғыда профиль жоқ.",
+    "en": "There is no profile on this device.",
     "context": "apps/mobile/src/screens/ProfileScreens.tsx:176"
   },
   {
@@ -6420,9 +6324,9 @@
     "context": "apps/mobile/src/screens/ProfileScreens.tsx:239"
   },
   {
-    "ru": "Документы ещё не опубликованы. Вход по SMS станет доступен после их утверждения.",
-    "kk": "Құжаттар әлі жарияланбаған. SMS арқылы кіру олар бекітілгеннен кейін қолжетімді болады.",
-    "en": "The documents have not been published yet. SMS sign-in will be available after they are approved.",
+    "ru": "Документы сейчас недоступны, поэтому вход по номеру телефона закрыт. Попробуйте позже.",
+    "kk": "Құжаттар қазір қолжетімсіз, сондықтан телефон нөмірі арқылы кіру жабық. Кейінірек қайталап көріңіз.",
+    "en": "The documents are unavailable right now, so phone sign-in is closed. Please try again later.",
     "context": "apps/mobile/src/screens/ProfileScreens.tsx:251"
   },
   {
@@ -6430,12 +6334,6 @@
     "kk": "Құжатты ашу мүмкін болмады. Байланысты тексеріп, қайта көріңіз.",
     "en": "Could not open the document. Check your connection and try again.",
     "context": "apps/mobile/src/screens/ProfileScreens.tsx:256"
-  },
-  {
-    "ru": "Согласие на сообщения об акциях запрашивается отдельно. Для регистрации оно не требуется.",
-    "kk": "Акциялар туралы хабарламаларға келісім бөлек сұралады. Тіркелу үшін ол міндетті емес.",
-    "en": "Consent to promotional messages is requested separately. It is not required to register.",
-    "context": "apps/mobile/src/screens/ProfileScreens.tsx:260"
   },
   {
     "ru": "Управлять аккаунтом и данными",
@@ -6486,12 +6384,6 @@
     "context": "apps/mobile/src/screens/ProfileScreens.tsx:299"
   },
   {
-    "ru": "Язык и уведомления",
-    "kk": "Тіл және хабарламалар",
-    "en": "Language and notifications",
-    "context": "apps/mobile/src/screens/ProfileScreens.tsx:306"
-  },
-  {
     "ru": "Язык приложения",
     "kk": "Қолданба тілі",
     "en": "App language",
@@ -6540,9 +6432,9 @@
     "context": "apps/mobile/src/screens/ProfileScreens.tsx:357"
   },
   {
-    "ru": "Как будут обрабатываться согласия",
-    "kk": "Келісімдер қалай өңделеді",
-    "en": "How consent is handled",
+    "ru": "Документы и ваши данные",
+    "kk": "Құжаттар және деректеріңіз",
+    "en": "Documents and your data",
     "context": "apps/mobile/src/screens/ProfileScreens.tsx:358"
   },
   {
@@ -6876,9 +6768,9 @@
     "context": "apps/mobile/src/useTestOrders.ts:43"
   },
   {
-    "ru": "Срок доступа истёк. Продлите его после завершения всех заказов. Если заказ ещё на кухне, попросите оператора закончить проверку.",
-    "kk": "Қолжетімділік мерзімі аяқталды. Барлық тапсырыс аяқталған соң ұзартыңыз. Тапсырыс әлі асүйде болса, оператордан тексеруді аяқтауды сұраңыз.",
-    "en": "Access has expired. Renew it after all orders are completed. If an order is still in the kitchen, ask the operator to finish the check.",
+    "ru": "Срок доступа истёк. Продлите его после завершения всех заказов. Если заказ на кухне, попросите оператора закончить проверку.",
+    "kk": "Қолжетімділік мерзімі аяқталды. Барлық тапсырыс аяқталған соң ұзартыңыз. Тапсырыс асүйде болса, оператордан тексеруді аяқтауды сұраңыз.",
+    "en": "Access has expired. Renew it after all orders are completed. If an order is in the kitchen, ask the operator to finish the check.",
     "context": "apps/mobile/src/useTestOrders.ts:45"
   },
   {
@@ -6942,18 +6834,6 @@
     "en": "The restaurant is closed. We take orders from {p0} to {p1}."
   },
   {
-    "ru": "Не удалось загрузить заказы. {p0}",
-    "context": "apps/mobile/src/commerce-read-recovery.ts:74",
-    "kk": "Тапсырыстарды жүктеу мүмкін болмады. {p0}",
-    "en": "Could not load orders. {p0}"
-  },
-  {
-    "ru": "Не удалось загрузить оформление. Корзина сохранена. {p0}",
-    "context": "apps/mobile/src/commerce-read-recovery.ts:75",
-    "kk": "Тапсырысты рәсімдеуді жүктеу мүмкін болмады. Себет сақталды. {p0}",
-    "en": "Could not load checkout. Your basket is saved. {p0}"
-  },
-  {
     "ru": "Добавить {p0}, {p1}",
     "context": "apps/mobile/src/components/CartExtras.tsx:63",
     "kk": "{p0} қосу, {p1}",
@@ -6976,6 +6856,12 @@
     "context": "apps/mobile/src/components/CartShortcut.tsx:248",
     "kk": "Себет: {p0} позиция, {p1}",
     "en": "Basket: {p0} items, {p1}"
+  },
+  {
+    "ru": "Корзина, 1 позиция, {p1}",
+    "kk": "Себет: 1 позиция, {p1}",
+    "en": "Basket: 1 item, {p1}",
+    "context": "apps/mobile/src/components/CartShortcut.tsx"
   },
   {
     "ru": "{p0}, скоро",
@@ -7218,6 +7104,12 @@
     "en": "{p0} pcs"
   },
   {
+    "ru": "1 шт.",
+    "kk": "1 дана",
+    "en": "1 pc",
+    "context": "apps/mobile/src/screens/CompletedOrderScreen.tsx"
+  },
+  {
     "ru": "Сейчас · {p0}",
     "context": "apps/mobile/src/orders-tab.ts:190",
     "kk": "Қазір · {p0}",
@@ -7294,6 +7186,12 @@
     "context": "apps/mobile/src/screens/CatalogScreens.tsx:940",
     "kk": "Тағамдар · {p0} дана",
     "en": "Dishes · {p0} pcs"
+  },
+  {
+    "ru": "Блюда · 1 шт.",
+    "kk": "Тағамдар · 1 дана",
+    "en": "Dishes · 1 pc",
+    "context": "apps/mobile/src/screens/CatalogScreens.tsx"
   },
   {
     "ru": "{p0} мин",
@@ -8248,21 +8146,6 @@
     "en": "Back to orders"
   },
   {
-    "ru": "Вопрос по заказу или оплате? Назовите сумму и время заказа, так мы быстрее его найдём. Не сообщайте коды входа и данные карты.",
-    "kk": "Тапсырыс немесе төлем туралы сұрағыңыз бар ма? Тапсырыс сомасы мен уақытын айтыңыз, сонда оны тезірек табамыз. Кіру кодтары мен карта деректерін айтпаңыз.",
-    "en": "Have a question about your order or payment? Tell us the order amount and time so we can find it faster. Do not share sign-in codes or card details."
-  },
-  {
-    "ru": "Вопросы по заказу и оплате",
-    "kk": "Тапсырыс пен төлем туралы сұрақтар",
-    "en": "Order and payment questions"
-  },
-  {
-    "ru": "Пока поддержка работает в ресторане: обратитесь к сотруднику на кассе.",
-    "kk": "Әзірге қолдау мейрамханада көрсетіледі: кассадағы қызметкерге хабарласыңыз.",
-    "en": "For now, support is available in the restaurant. Please speak to a staff member at the till."
-  },
-  {
     "ru": "ПОЛ · ПО ЖЕЛАНИЮ",
     "kk": "ЖЫНЫСЫ · МІНДЕТТІ ЕМЕС",
     "en": "GENDER · OPTIONAL"
@@ -8301,6 +8184,12 @@
     "ru": "{p0} поз. · {p1}",
     "kk": "{p0} позиция · {p1}",
     "en": "{p0} items · {p1}"
+  },
+  {
+    "ru": "1 поз. · {p1}",
+    "kk": "1 позиция · {p1}",
+    "en": "1 item · {p1}",
+    "context": "apps/mobile/src/screens/OrderStatusScreen.tsx"
   },
   {
     "ru": "Ходы: {p0}",
@@ -8550,9 +8439,9 @@
     "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx"
   },
   {
-    "ru": "Демонстрация завершена. Покупка, чек и бонусы не создавались.",
-    "kk": "Көрсетілім аяқталды. Сатып алу, чек немесе бонустар жасалған жоқ.",
-    "en": "Demonstration complete. No purchase, receipt or rewards were created.",
+    "ru": "Демонстрация завершена. Покупка и чек не создавались.",
+    "kk": "Көрсетілім аяқталды. Сатып алу немесе чек жасалған жоқ.",
+    "en": "Demonstration complete. No purchase or receipt was created.",
     "context": "apps/mobile/src/screens/ReviewDemoScreen.tsx"
   },
   {
@@ -8752,5 +8641,83 @@
     "kk": "Төлем туралы еске салуды жасыру",
     "en": "Hide payment reminder",
     "context": "apps/mobile/src/components/PaymentResumeBanner.tsx"
+  },
+  {
+    "ru": "Меню обновляется",
+    "kk": "Мәзір жаңартылуда",
+    "en": "The menu is being updated",
+    "context": "apps/mobile/src/screens/CatalogScreens.tsx"
+  },
+  {
+    "ru": "Обратитесь к сотруднику ресторана и назовите номер заказа.",
+    "kk": "Мейрамхана қызметкеріне жүгініп, тапсырыс нөмірін айтыңыз.",
+    "en": "Ask a restaurant team member and give your order number.",
+    "context": "apps/mobile/src/components/OrderActions.tsx"
+  },
+  {
+    "ru": "Выбери другую игру в «Событиях».",
+    "kk": "«Оқиғалар» бөлімінен басқа ойын таңда.",
+    "en": "Pick another game in Events.",
+    "context": "apps/mobile/src/backoffice/GameAvailability.tsx"
+  },
+  {
+    "ru": "Персональных предложений нет. Игры Pick Chick - в разделе «События».",
+    "kk": "Жеке ұсыныстар жоқ. Pick Chick ойындары - «Оқиғалар» бөлімінде.",
+    "en": "No personal offers. Pick Chick games are in Events.",
+    "context": "apps/mobile/src/app/notifications.tsx"
+  },
+  {
+    "ru": "Пищевая ценность дополнительных опций не включена.",
+    "kk": "Қосымша опциялардың тағамдық құндылығы есептелмеген.",
+    "en": "Extra options are not included in the nutrition values.",
+    "context": "apps/mobile/src/screens/ProductConfiguration.tsx"
+  },
+  {
+    "ru": "Поддержка работает в ресторане: обратитесь к сотруднику на кассе.",
+    "kk": "Қолдау мейрамханада көрсетіледі: кассадағы қызметкерге хабарласыңыз.",
+    "en": "Support is available in the restaurant. Please speak to a staff member at the till.",
+    "context": "apps/mobile/src/screens/ProfileScreens.tsx"
+  },
+  {
+    "ru": "Новых предложений нет",
+    "kk": "Жаңа ұсыныстар жоқ",
+    "en": "No new offers",
+    "context": "apps/mobile/src/app/notifications.tsx"
+  },
+  {
+    "ru": "Вопрос по заказу или оплате? Подойдите к кассе ресторана и назовите номер заказа. Никому не сообщайте код входа.",
+    "kk": "Тапсырыс немесе төлем туралы сұрағыңыз бар ма? Мейрамхана кассасына келіп, тапсырыс нөмірін айтыңыз. Кіру кодын ешкімге айтпаңыз.",
+    "en": "Have a question about your order or payment? Come to the restaurant counter and give your order number. Never share your sign-in code.",
+    "context": "apps/mobile/src/screens/ProfileScreens.tsx"
+  },
+  {
+    "ru": "Поддержка в ресторане",
+    "kk": "Мейрамханадағы қолдау",
+    "en": "Support at the restaurant",
+    "context": "apps/mobile/src/screens/ProfileScreens.tsx"
+  },
+  {
+    "ru": "Аккаунт удалён",
+    "kk": "Аккаунт жойылды",
+    "en": "Account deleted",
+    "context": "apps/mobile/src/screens/ProfileScreens.tsx"
+  },
+  {
+    "ru": "Профиль и доступ на всех ваших устройствах удалены.",
+    "kk": "Профиль және барлық құрылғыларыңыздағы қолжетімділік жойылды.",
+    "en": "Your profile and access on all your devices have been deleted.",
+    "context": "apps/mobile/src/screens/ProfileScreens.tsx"
+  },
+  {
+    "ru": "выбрать",
+    "kk": "таңдау",
+    "en": "choose",
+    "context": "apps/mobile/src/screens/CatalogScreens.tsx"
+  },
+  {
+    "ru": "4-й микрорайон, 10Б",
+    "kk": "4-шағын аудан, 10Б",
+    "en": "4th microdistrict, 10B",
+    "context": "config/restaurant-locations.json"
   }
 ]

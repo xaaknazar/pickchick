@@ -181,7 +181,7 @@ export function CityButton({ city, top }: { city: string; top: number }) {
       <Pressable
         testID="branches-city"
         accessibilityRole="button"
-        accessibilityLabel={localize(t('Город: {p0}', { p0: city }))}
+        accessibilityLabel={localize(t('Город: {p0}', { p0: t(city) }))}
         accessibilityState={{ expanded: open }}
         onPress={() => setOpen((value) => !value)}
         style={s.cityButton}
@@ -259,7 +259,7 @@ export function RestaurantCard({
               ) : branch.ordering_enabled ? (
                 'Приём заказов доступен'
               ) : (
-                'Заказы пока недоступны'
+                'Заказы сейчас недоступны'
               ),
             )}
           </Text>
@@ -272,7 +272,7 @@ export function RestaurantCard({
           <Pressable
             testID={`branch-map-${branch.id}`}
             accessibilityRole="link"
-            accessibilityLabel={localize(t('Открыть {p0} в 2ГИС', { p0: branch.name }))}
+            accessibilityLabel={localize(t('Открыть {p0} в 2ГИС', { p0: t(branch.name) }))}
             onPress={onOpenMap}
             style={s.mapRow}
           >
