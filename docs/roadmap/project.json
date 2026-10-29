@@ -5171,7 +5171,7 @@
       "id": "mobile-launch-1028",
       "workstream": "launch",
       "title": "Запуск на меню после закрытия оплаты",
-      "summary": "Бандл c36287e7, QA 98a0a7dc, сохранена шапка e148946c. Подготовка TestFlight 0.2.0 (27).",
+      "summary": "TestFlight 0.2.0 (27) доступен PickChick Internal. PR289 / CI 11/11, исходник 146b8967. Физическая приёмка ожидает владельца.",
       "status": "active",
       "owner": "development",
       "phase": "integration",
@@ -5180,6 +5180,10 @@
         {
           "label": "Протокол сборки 27",
           "path": "docs/operations/mobile-testflight27.md"
+        },
+        {
+          "label": "Подпись, CI и доступность Apple",
+          "path": "docs/operations/mobile-testflight27-evidence.json"
         }
       ],
       "acceptance": [
@@ -5187,11 +5191,11 @@
         "Повторная оплата открывает тот же заказ; напоминание не отправляет счёт автоматически.",
         "Проверка на физическом iPhone владельцем."
       ],
-      "nextAction": "Полная CI, merge, TestFlight 27 и физическая проверка. Сервер и онлайн-пульт не обновлять.",
+      "nextAction": "Владелец проверяет X -> полное закрытие -> меню, обычную корзину и повторное открытие того же заказа. Сервер и онлайн-пульт не обновлять.",
       "checks": {
         "implemented": true,
-        "verified": false,
-        "deployed": false,
+        "verified": true,
+        "deployed": true,
         "accepted": false
       }
     }
