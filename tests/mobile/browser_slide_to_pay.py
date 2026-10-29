@@ -335,8 +335,9 @@ def scenario_bar_and_short_drag(browser, width, height, reduced):
     handle = page.get_by_role('button', name='Оплатить через Kaspi', exact=True)
     expect(handle).to_have_count(1)
     expect(page.get_by_test_id('cart-shortcut-total')).to_have_text('4 190 ₸')
-    # Total only: no time, no item count, no label in the bar.
-    assert page.get_by_test_id('open-cart').inner_text().strip() == '4 190 ₸'
+    # Owner 29.10: the chosen dining mode sits above the total, with the cart's icon.
+    expect(page.get_by_test_id('cart-shortcut-dining-label')).to_have_text('С собой')
+    assert re.sub(r'[\ue000-\uf8ff\s]', '', page.get_by_test_id('open-cart').inner_text()) == 'Ссобой4190₸'
     expect(page.get_by_test_id('cart-recent-photo-0')).to_be_visible()
     expect(page.get_by_test_id('cart-recent-photo-1')).to_have_count(0)
     box, bar, travel = geometry(page)
