@@ -21,6 +21,15 @@ class ParallelCiTest(unittest.TestCase):
             self.assertEqual(WORKFLOW.count('/' + name + '.py'), 1, name)
         self.assertEqual(WORKFLOW.count('tests/backoffice/content-browser.mjs'), 1)
 
+    def test_storefront_runs_in_mobile_suite_with_all_profiles(self):
+        mobile = WORKFLOW.split('  foundation_mobile:\n', 1)[1].split('  foundation_simulator:', 1)[0]
+        account = WORKFLOW.split('  foundation_account:\n', 1)[1].split('  verify:', 1)[0]
+        self.assertEqual(mobile.count('tests/mobile/browser_store_walk.py'), 2)
+        self.assertEqual(mobile.count('tests/mobile/browser_review_account.py'), 2)
+        self.assertEqual(mobile.count('tests/mobile/browser_upcoming_payments.py'), 1)
+        self.assertNotIn('tests/mobile/browser_store_walk.py', account)
+        self.assertNotIn('tests/mobile/browser_review_account.py', account)
+
     def test_transaction_coverage(self):
         for command in ['pnpm check', 'pnpm test:integration', 'pnpm test:commerce',
                         'pnpm test:loyalty', 'pnpm test:fulfillment\n', 'pnpm test:mobile',
@@ -36,27 +45,19 @@ class ParallelCiTest(unittest.TestCase):
         self.assertIn('if: always()', gate)
         self.assertIn('name: Build, contracts and PostgreSQL integration', gate)
         needs = re.search(r'needs:\s*\[(.*?)\]', gate, re.S).group(1).replace('\n', '').replace(' ', '').rstrip(',').split(',')
-        self.assertEqual(len(needs), 6)
-        self.assertIn('foundation_storefront', needs)
+        self.assertEqual(len(needs), 5)
         for name in needs:
             self.assertIn('\n  ' + name + ':\n', WORKFLOW)
         source = gate.split("python3 - <<'PYTHON'\n", 1)[1].split('          PYTHON', 1)[0]
         source = '\n'.join(line[10:] for line in source.splitlines())
         for status in ['success', 'failure', 'skipped', 'cancelled']:
-            result = subprocess.run(['python3', '-c', source], env={'RESULTS': json.dumps(['success'] * (len(needs) - 1) + [status])}, capture_output=True)
+            result = subprocess.run(['python3', '-c', source], env={'RESULTS': json.dumps(['success'] * 4 + [status])}, capture_output=True)
             self.assertEqual(result.returncode == 0, status == 'success', status)
 
     def test_isolated_runners_and_local_infrastructure(self):
         for block in WORKFLOW.split('\n  foundation_')[1:]:
             block = block.split('\n  verify:', 1)[0]
             self.assertIn('runs-on: ubuntu-24.04', block)
-            if block.startswith('storefront:'):
-                self.assertNotIn('pnpm infra:up', block)
-                self.assertEqual(block.count('tests/mobile/browser_store_walk.py'), 2)
-                self.assertEqual(block.count('tests/mobile/browser_review_account.py'), 2)
-                self.assertEqual(block.count('tests/mobile/browser_upcoming_payments.py'), 1)
-                self.assertIn('trap ', block)
-                continue
             self.assertIn('cp .env.example .env', block)
             self.assertIn('pnpm infra:up', block)
             self.assertIn('if: always()', block)
