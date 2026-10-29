@@ -553,6 +553,65 @@ final class SmokeTests: XCTestCase {
         }
     }
 
+    // Native regression for the owner's first entry from the order-status modal.
+    // Run only with local demo auth and design previews (no real order or payment).
+    @MainActor
+    func testPickManOrderStatusSafeArea() throws {
+        let app = launchApp()
+        let menuHeader = element("app-header-bar", in: app)
+        XCTAssertTrue(menuHeader.waitForExistence(timeout: 10))
+        let safeHeaderTop = menuHeader.frame.minY
+        XCTAssertGreaterThan(safeHeaderTop, 0)
+        app.open(URL(string: "pickchick://auth?step=M02&returnTo=M30")!)
+        assertScreen("M02", in: app)
+        let phone = element("phone-input", in: app)
+        reveal(phone, in: app)
+        phone.tap()
+        phone.typeText("7000000000")
+        let phoneEntered = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            (phone.value as? String)?.filter { $0.isNumber } == "7000000000"
+        }, object: phone)
+        XCTAssertEqual(XCTWaiter.wait(for: [phoneEntered], timeout: 5), .completed)
+        tap("request-otp", in: app)
+        assertScreen("M03", in: app)
+        let code = element("otp-input", in: app)
+        reveal(code, in: app)
+        code.tap()
+        code.typeText("1234") // Four digits submit automatically; the input then unmounts.
+        if element("nickname-save", in: app).waitForExistence(timeout: 5) {
+            tap("nickname-save", in: app)
+        }
+        app.open(URL(string: "pickchick://order-status?id=M17&preview=1")!)
+        assertScreen("M17", in: app)
+        for entry in 1...2 {
+            let track = element("order-games-track", in: app)
+            reveal(track, in: app)
+            let card = element("order-play-pick-man", in: app)
+            if !card.isHittable { track.swipeLeft() }
+            tap("order-play-pick-man", in: app)
+            let exit = element("pick-man-exit", in: app)
+            XCTAssertTrue(exit.waitForExistence(timeout: 15))
+            let start = element("pick-man-start", in: app)
+            if start.waitForExistence(timeout: 3) { start.tap() }
+            let resume = element("pick-man-resume", in: app)
+            if resume.exists { resume.tap() }
+            let pause = element("pick-man-pause", in: app)
+            XCTAssertTrue(pause.waitForExistence(timeout: 10))
+            // iOS 26 does not expose the system status bar in this app's AX tree.
+            // Compare with the native menu header that already applies the system top inset.
+            print("PickMan entry \(entry): safeHeaderTop=\(safeHeaderTop), back=\(exit.frame), pause=\(pause.frame)")
+            attachScreenshot("PickMan-order-entry-\(entry)", of: app)
+            XCTAssertGreaterThanOrEqual(exit.frame.minY, safeHeaderTop,
+                                        "Back control must stay below the status bar on first entry")
+            XCTAssertGreaterThanOrEqual(pause.frame.minY, safeHeaderTop,
+                                        "Pause control must stay below the status bar on first entry")
+            XCTAssertTrue(exit.isHittable)
+            XCTAssertTrue(pause.isHittable)
+            exit.tap()
+            XCTAssertTrue(element("order-games-track", in: app).waitForExistence(timeout: 10))
+        }
+    }
+
     @MainActor
     private func beginDemoRegistration(in app: XCUIApplication) {
         tapHeaderProfile(in: app)

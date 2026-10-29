@@ -1300,16 +1300,16 @@ def scenario_haptics(browser, width, height):
     page.wait_for_timeout(300)
     assert cues(page) == [], 'a tap does not vibrate'
     # Pulling clicks all the way (owner 29.10: while pulling, not at the end): half way = the grab
-    # tap and a click per twelfth; the spring back after the release clicks nothing.
-    slide(page, 0.5)
+    # tap and a impact per sixteenth; the spring back after the release clicks nothing.
+    slide(page, 0.5, steps=24)
     page.wait_for_timeout(700)
     got = cues(page)
-    assert got[0] == 'grab' and set(got[1:]) == {'tick'} and 4 <= len(got) - 1 <= 7, got
+    assert got[0] == 'grab' and set(got[1:]) == {'tick'} and 7 <= len(got) - 1 <= 8, got
     # 80 %: clicks, but no firm tap below the payment point.
-    slide(page, 0.8)
+    slide(page, 0.8, steps=32)
     page.wait_for_timeout(700)
     got = cues(page)
-    assert got[0] == 'grab' and 'armed' not in got and got.count('tick') >= 7, got
+    assert got[0] == 'grab' and 'armed' not in got and got.count('tick') >= 11, got
     # Forwards past the payment point: clicks and one firm tap; jitter above 75 % keeps clicking
     # both ways but never repeats the firm tap; back below 75 % clicks on the way back, and past
     # the point again repeats the firm tap; an early release after all that pays nothing.
@@ -1349,10 +1349,10 @@ def scenario_haptics(browser, width, height):
     wait_quiet(page, 1000)
     state['quote_total'] = minor(page.get_by_test_id('cart-shortcut-total').filter(visible=True).inner_text())
     # A full slide: grab, clicks, one firm tap - nothing extra at the release - and one invoice.
-    slide(page, 1.0, release_at_end=False)
+    slide(page, 1.0, steps=32, release_at_end=False)
     page.wait_for_timeout(100)
     got = cues(page)
-    assert got[0] == 'grab' and got.count('armed') == 1 and got.count('tick') >= 9, got
+    assert got[0] == 'grab' and got.count('armed') == 1 and got.count('tick') >= 13, got
     page.mouse.up()
     expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi', timeout=15000)
     assert cues(page) == [], 'no vibration at the end'
