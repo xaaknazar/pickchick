@@ -1,11 +1,19 @@
-## 29 октября: подготовка TestFlight 28 - очистка storefront и вибрация
+## 29 октября: TestFlight 28 опубликован в PickChick Internal
 
-Бандл c333144f объединён с shared 6660ce98 без конфликтов. Владелец разрешил
-передать только пересечения mobile-launch-1028, mobile-appstore-1022 и kiosk-apple-demo.
-Версия 0.2.0 (28), storefront, новый нативный expo-haptics 57.0.3.
-557 Node + 59 Python PASS; остальные проверки и выпуск выполняются.
-App Store только чтение, сборка 23 остаётся на проверке. Прод и онлайн-пульт не меняются.
-Протокол: docs/operations/mobile-testflight28.md.
+PickChick 0.2.0 (28), storefront, исходник `43ae6b04`, доступен 2 тестировщикам.
+[PR291](https://github.com/xaaknazar/pickchick/pull/291) объединён `6c6fec0f`;
+[Foundation CI 11/11](https://github.com/xaaknazar/pickchick/actions/runs/40879127804).
+Только Kaspi.kz, скрыты незапущенные функции, игры гостем, безопасный отказ
+аккаунта Apple с демонстрацией, новый ExpoHaptics 57.0.3 слинкован в IPA.
+557 Node + 59 Python, build/typecheck/lint/format/translations и storefront 97 экранов PASS.
+Владелец взял проверку iPhone на себя: сообщил, что приложение и Kaspi работают,
+вибрация есть. Попросил её усилить и исправить шапку Pick Man при первом входе
+из заказа; это следующая задача. Полная физическая приёмка не отмечена.
+App Store 1.0 со сборкой 23 остаётся Waiting for Review; старые скриншоты содержат
+Чики/«скоро» и цену 90 ₸. Новые английские заметки подготовлены, не отправлены.
+Сервер, касса, iPad, App Store metadata и онлайн-пульт не менялись.
+Итоговые доказательства опубликованы отдельным документальным checkpoint;
+его CI не является CI исходника IPA. [Протокол](operations/mobile-testflight28.md).
 
 ## 29 октября: подготовка TestFlight 27 - запуск без навязанного экрана оплаты
 
