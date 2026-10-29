@@ -7004,11 +7004,11 @@
         "apps/mobile/src/haptics.ts",
         "tests/mobile/browser_slide_to_pay.py"
       ],
-      "status": "active",
-      "head": "ece96e6bc25c6ec949eb2e6b7ddba63a7bf3809c",
-      "updatedAt": "2026-10-29T18:43:26.222Z",
-      "summary": "ece96e6b опубликован PR295: плашка способа получения + синяя палитра страниц допов/напитков, как у комбо. Фото не редактировались, встроенный светлый фон снимков остаётся. TypeScript/lint/format, product-photo tests, complete_catalog 320/390/430 и 8 страниц 320/393 PASS. Предыдущие 557 Node+59 Python, cart_shortcut и slide B/I/L/Q PASS. Web-проверки, без нативной установки.\nВладелец 29.10 разрешил передать только haptics.ts и browser_slide_to_pay.py задаче mobile-cart-mode-1029 для дополнительного усиления и подписи плашки; остальные резервы и изменения сохранены.",
-      "nextAction": "Ждём согласование одного утверждения browser_slide_to_pay.py A от mobile-feedback-1029; затем A и полная CI, PR295 из draft. Слияние и выпуск не разрешены этой задачей; общие status/roadmap заняты. Снимки .local/extras-blue и .local/cart-mode-preview. Для полностью синего фона внутри фотографий требуется отдельное редактирование изображений."
+      "status": "available",
+      "head": "71c851a05b90d96a3cae0e0c51734103df5ba255",
+      "updatedAt": "2026-10-29T18:53:27.881Z",
+      "summary": "71c851a0 опубликован PR295, выведен из draft. Владелец разрешил передачу ровно haptics.ts и browser_slide_to_pay.py, записано в обе задачи. PR294 3b98dd27 включён merge в рабочую ветку с сохранением 16 делений и Pick Man. Усиление grab Heavy/tick Medium/armed Heavy; проверка подписи обновлена. 557 Node+59 Python, TypeScript/lint/format и полная browser_slide_to_pay A-Q PASS. Foundation40933826214 ещё идёт, без подтверждения полной зелёной CI. Реальных платежей и выпуска нет.",
+      "nextAction": "Проверить Foundation CI40933826214 на 71c851a0 до слияния/выпуска, исправить выявленные ошибки. После зелёной CI требуется отдельное решение владельца на merge; не отправлять TestFlight автоматически. Для новой сборки проверить свободный номер Apple, включённый app.json29 только унаследован из PR294. Сила вибрации на физическом iPhone не проверена. Общие документы и iOS-ресурсы остаются mobile-feedback-1029."
     }
   ]
 }
