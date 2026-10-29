@@ -6877,7 +6877,7 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-appstore-clean-1029",
       "head": "528ea6956eed0f1e42d3f324e0c26ec65708b005",
-      "status": "active",
+      "status": "done",
       "scopes": [
         ".github/workflows/ci.yml",
         "apps/mobile/assets/catalog-hd/README.md",
@@ -6989,9 +6989,9 @@
         "docs/operations/mobile-review-notes-28.en.txt",
         "tests/operations/test_ci_parallel.py"
       ],
-      "updatedAt": "2026-10-29T18:28:19.510Z",
-      "summary": "TestFlight 28 published to PickChick Internal, 2 testers. PR291 merged; exact IPA source 43ae6b04 Foundation 11/11 green. Documentation checkpoint 635fd3aa in PR293. Owner reports Kaspi payments and haptics work; physical acceptance remains partial.",
-      "nextAction": "Merge documentation PR293 when its CI is green. Owner feedback on stronger haptics and Pick Man first-entry safe area continues separately."
+      "updatedAt": "2026-10-29T18:28:25.381Z",
+      "summary": "PR291 и итоговый PR293 включены в shared; TestFlight 28 опубликован. Освобождены резервы завершённого этапа.",
+      "nextAction": "Приёмка iPhone частичная; усиление вибрации отдельно mobile-feedback-1029."
     }
   ]
 }
