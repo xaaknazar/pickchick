@@ -52,6 +52,11 @@ with local fixtures only: no bank, no real customer, no VPS request.
      notice). POST /orders held: the X at once,
      «Ресторан не подтверждает заказ» after 20 s with «Вернуться в корзину» (no check of its own),
      closing asks nothing and removes the intent, a restart sends nothing
+  Q  owner 29.10 (vibration): the handle gives a light tap when the finger starts stretching it,
+     one firmer tap where letting go starts the payment (again only after going back below 75 %),
+     and the «success» pattern when the release at the end starts the payment; a tap, an early
+     release, 80 % and the keyboard give no payment cue; one full slide = grab, armed, pay and one
+     invoice (the web build records the cues instead of vibrating)
 """
 from browser_network import isolated_context, route_fixture
 import json
@@ -1253,8 +1258,81 @@ def scenario_unconnected_method(browser, width, height):
     ctx.close()
 
 
+def cues(page):
+    return page.evaluate('globalThis.__pickchickHaptics.splice(0)')
+
+
+def move_to(page, x, y, start, end, steps=8):
+    for i in range(1, steps + 1):
+        page.mouse.move(x + start + (end - start) * i / steps, y)
+        page.wait_for_timeout(16)
+
+
+def scenario_haptics(browser, width, height):
+    state = new_state()
+    ctx, page = make_context(browser, state, width, height, 'reduce')
+    page.add_init_script('globalThis.__pickchickHaptics = [];')
+    page.goto(URL + '/menu')
+    add(page)
+    expect(page.get_by_test_id('launch-reveal')).to_have_count(0)
+    page.wait_for_timeout(300)
+    box, _, travel = geometry(page)
+    assert cues(page) == []
+    # A tap only shows the hint.
+    page.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+    expect(page.get_by_test_id('cart-pay-hint')).to_have_text(HINT)
+    page.wait_for_timeout(300)
+    assert cues(page) == [], 'a tap does not vibrate'
+    # Half way and 80 %: the grab tap only, nothing is sent.
+    slide(page, 0.5)
+    page.wait_for_timeout(700)
+    assert cues(page) == ['grab']
+    slide(page, 0.8)
+    page.wait_for_timeout(700)
+    assert cues(page) == ['grab'], 'below the payment point there is no firm tap'
+    # Past the payment point: one firm tap; jitter above 75 % does not repeat it; back below 75 %
+    # and past it again repeats it; an early release after all that pays nothing.
+    x, y = box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
+    page.mouse.move(x, y)
+    page.mouse.down()
+    move_to(page, x, y, 0, travel * 0.92)
+    page.wait_for_timeout(100)
+    assert cues(page) == ['grab', 'armed']
+    move_to(page, x, y, travel * 0.92, travel * 0.8, steps=4)
+    move_to(page, x, y, travel * 0.8, travel * 0.92, steps=4)
+    page.wait_for_timeout(100)
+    assert cues(page) == [], 'jitter at the threshold does not buzz'
+    move_to(page, x, y, travel * 0.92, travel * 0.4)
+    move_to(page, x, y, travel * 0.4, travel * 0.95)
+    page.wait_for_timeout(100)
+    assert cues(page) == ['armed']
+    move_to(page, x, y, travel * 0.95, travel * 0.3)
+    page.mouse.up()
+    page.wait_for_timeout(900)
+    assert cues(page) == [] and page.url.endswith('/menu'), page.url
+    assert not checkout_traffic(state), checkout_traffic(state)
+    # The keyboard / VoiceOver path opens the cart with payment: no payment cue.
+    page.get_by_role('button', name='Оплатить через Kaspi', exact=True).focus()
+    page.keyboard.press('Enter')
+    expect(pay_button(page)).to_be_enabled(timeout=15000)
+    assert cues(page) == []
+    page.go_back()
+    expect(page.get_by_test_id('cart-pay-handle').filter(visible=True)).to_have_count(1, timeout=15000)
+    wait_quiet(page, 1000)
+    state['quote_total'] = minor(page.get_by_test_id('cart-shortcut-total').filter(visible=True).inner_text())
+    # A full slide: grab, armed, pay - and one invoice.
+    slide(page, 1.0)
+    expect(page.get_by_test_id('kaspi-waiting')).to_contain_text('Ждём оплату в Kaspi', timeout=15000)
+    assert cues(page) == ['grab', 'armed', 'pay']
+    wait_quiet(page)
+    assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
+    assert cues(page) == []
+    release(state)
+    ctx.close()
+
+
 if __name__ == '__main__':
-    SELECTED = os.environ.get('SLIDE_TO_PAY', 'ABCDEFGHIJKLMNOP').upper()
+    SELECTED = os.environ.get('SLIDE_TO_PAY', 'ABCDEFGHIJKLMNOPQ').upper()
     with sync_playwright() as p:
         browser = p.chromium.launch()
         if 'A' in SELECTED:
@@ -1296,6 +1374,9 @@ if __name__ == '__main__':
             scenario_held_payment(browser, 320, 568)
             scenario_held_create(browser, 393, 852, via_x=False)
             scenario_held_create(browser, 320, 568, via_x=True)
+        if 'Q' in SELECTED:
+            scenario_haptics(browser, 393, 852)
+            scenario_haptics(browser, 320, 568)
         browser.close()
     assert not errors, errors
     print('PASS slide to pay into the Kaspi cart (' + SELECTED + '): hold hint, the pill stretches from a fixed left '
@@ -1309,4 +1390,5 @@ if __name__ == '__main__':
           'a method without its own flow stops with a message and sends nothing, '
           'a stuck «sending» has the X at once, an honest text after 20 s, asks before closing, '
           'returns to the cart and pays again without a second order or payment command, '
-          'a held payment command reads «Отправляем счёт» and a held create command is the restaurant\'s wait')
+          'a held payment command reads «Отправляем счёт» and a held create command is the restaurant\'s wait, '
+          'vibration cues grab / armed / pay only for a real stretch, a full slide = grab, armed, pay')
