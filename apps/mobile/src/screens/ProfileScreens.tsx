@@ -9,6 +9,8 @@ import { colors } from '../theme';
 import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
 import { SupportContact } from '../components/SupportContact';
+import { pushSettingsShown } from '../store-build';
+import { restaurantLocation } from '../restaurant-location';
 export { Phone, Otp } from './AuthScreens';
 export { Onboarding } from './RegistrationScreen';
 import {
@@ -32,6 +34,7 @@ export { Profile } from './ProfileScreen';
 // build's real contact (EXPO_PUBLIC_SUPPORT_URL) or sends the customer to the restaurant staff.
 export function Support(props: ScreenProps) {
   useLocale();
+  const location = restaurantLocation(props.model.branch?.id);
   return (
     <Page props={props} title={t('Помощь')}>
       <Heading>{t('Мы рядом')}</Heading>
@@ -52,8 +55,19 @@ export function Support(props: ScreenProps) {
         </Row>
       </Card>
       <SupportContact
-        fallback={t('Пока поддержка работает в ресторане: обратитесь к сотруднику на кассе.')}
+        fallback={t('Поддержка работает в ресторане: обратитесь к сотруднику на кассе.')}
       />
+      {/* Owner 29.10.2026: no message form that sends nothing; the restaurant itself (address,
+          map and hours on «Наши рестораны») is the real contact. */}
+      {location ? (
+        <NavRow
+          testID="support-restaurant"
+          title={location.name}
+          subtitle={`${location.city}, ${location.address}`}
+          icon="location-outline"
+          onPress={() => props.navigate('M05')}
+        />
+      ) : null}
       <NavRow
         title={t('Неясен результат оплаты?')}
         subtitle={t('Не оплачивайте тот же заказ повторно')}
@@ -328,9 +342,12 @@ export function Settings(props: ScreenProps) {
   const router = useRouter();
   const notifications = useNotifications();
   useLocale();
+  // App Store build (owner 29.10.2026): while the server's push service is not connected there
+  // are no disabled switches and no «ещё не подключён»; only the language stays here.
+  const push = pushSettingsShown(notifications.connected);
   return (
-    <Page props={props} title={t('Язык и уведомления')}>
-      <Heading small>{t('Язык приложения')}</Heading>
+    <Page props={props} title={push ? t('Язык и уведомления') : t('Язык приложения')}>
+      {push ? <Heading small>{t('Язык приложения')}</Heading> : null}
       <Card>
         {(['kk', 'ru', 'en'] as const).map((language) => (
           <Pressable
@@ -351,6 +368,25 @@ export function Settings(props: ScreenProps) {
           </Pressable>
         ))}
       </Card>
+      {push ? <PushSettings preview={props.preview} /> : null}
+      <NavRow
+        title={t('Конфиденциальность')}
+        subtitle={t('Как будут обрабатываться согласия')}
+        onPress={() => props.navigate('M33')}
+      />
+      <NavRow
+        title={t('Как проходит заказ')}
+        subtitle={t('Демонстрация - без оплаты')}
+        onPress={() => router.push('/demo-order')}
+      />
+    </Page>
+  );
+}
+function PushSettings({ preview }: { preview: boolean }) {
+  const notifications = useNotifications();
+  useLocale();
+  return (
+    <>
       <Heading small>{t('Уведомления')}</Heading>
       <Card>
         {[
@@ -373,7 +409,7 @@ export function Settings(props: ScreenProps) {
             <Switch
               testID={`push-${setting.id}`}
               value={notifications.preferences[setting.id]}
-              disabled={props.preview || notifications.busy || !notifications.available}
+              disabled={preview || notifications.busy || !notifications.available}
               onValueChange={(enabled) => {
                 void notifications.change(setting.id, enabled);
               }}
@@ -414,17 +450,7 @@ export function Settings(props: ScreenProps) {
           }}
         />
       ) : null}
-      <NavRow
-        title={t('Конфиденциальность')}
-        subtitle={t('Как будут обрабатываться согласия')}
-        onPress={() => props.navigate('M33')}
-      />
-      <NavRow
-        title={t('Как проходит заказ')}
-        subtitle={t('Демонстрация - без оплаты')}
-        onPress={() => router.push('/demo-order')}
-      />
-    </Page>
+    </>
   );
 }
 export function Rating(props: ScreenProps) {

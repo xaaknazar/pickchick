@@ -10,6 +10,7 @@ import { usePublishedContent } from '../backoffice/usePublishedContent';
 import { PromotionDialog } from '../backoffice/PromotionDialog';
 import type { PublishedContent } from '../backoffice/content-model';
 import type { ScreenProps } from '../model';
+import { comboCardShown } from '../store-build';
 import { orderUI } from './OrderPresentation';
 import { cartRecommendations } from '../cart-actions';
 import { lineUnitPrice, money, selectionDescription } from '../domain';
@@ -97,18 +98,25 @@ export function CartOffers({ props }: { props: ScreenProps }) {
   useLocale();
   const { content } = usePublishedContent(props.preview ? null : props.model.branch?.id);
   const [selected, setSelected] = useState<PublishedContent['promos'][number] | null>(null);
+  const progress = props.model.comboRewards?.progress ?? props.model.testFlow.comboProgress;
+  // App Store build (owner 29.10.2026): the 6 + 1 card only while the server runs the programme;
+  // without it and without published promotions there is no «Акции» block at all.
+  const combo = comboCardShown(progress, undefined, props.preview);
+  if (!combo && !content?.promos.length) return null;
   return (
     <View style={{ gap: 14 }}>
       <Heading small style={orderUI.section}>
         {t('Акции')}
       </Heading>
-      <ComboRewardCard
-        preview={props.preview}
-        progress={props.model.comboRewards?.progress ?? props.model.testFlow.comboProgress}
-        compact
-        testID="cart-combo-reward"
-        onMenu={() => props.navigate('M06')}
-      />
+      {combo ? (
+        <ComboRewardCard
+          preview={props.preview}
+          progress={progress}
+          compact
+          testID="cart-combo-reward"
+          onMenu={() => props.navigate('M06')}
+        />
+      ) : null}
       {content?.promos.length ? (
         <ScrollView
           horizontal

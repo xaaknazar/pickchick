@@ -46,6 +46,7 @@ import {
 import { restaurantCountLabel, restaurantHoursStatus } from '../restaurant-hours';
 import { colors, font, restaurantColors } from '../theme';
 import { HeroVideo, LoyaltyCard } from '../components/Brand';
+import { upcomingFeaturesShown } from '../store-build';
 import {
   Body,
   Button,
@@ -334,6 +335,7 @@ export function Menu(props: ScreenProps) {
   const reduced = useReducedMotion();
   const published = usePublishedContent(props.model.branch?.id);
   const promotion = props.preview ? null : (published.content?.promos[0] ?? null);
+  const loyaltyShown = upcomingFeaturesShown(undefined, props.preview);
   const [promotionOpen, setPromotionOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const { width, height, fontScale } = useWindowDimensions();
@@ -547,19 +549,31 @@ export function Menu(props: ScreenProps) {
               if (combo) openProduct(combo);
               else props.navigate('M08');
             }}
-            style={[s.heroCaption, { bottom: Math.round(heroHeight * 0.27) }]}
+            style={[
+              s.heroCaption,
+              { bottom: Math.round(heroHeight * (loyaltyShown ? 0.27 : 0.17)) },
+            ]}
           >
             <Heading style={s.heroTitle}>{localize(promotion?.title.ru ?? 'Комбо недели')}</Heading>
             <Body style={s.heroSubtitle}>{t('подробнее')}</Body>
           </Pressable>
         </View>
-        <View style={[s.loyaltyLead, { marginTop: -Math.round(heroHeight * 0.26) }]}>
-          <LoyaltyCard preview={props.preview} onPress={() => props.navigate('M23')} />
-        </View>
+        {/* App Store build (owner 29.10.2026): the Chiki programme is not live, so its card
+            («6 вершин Алматы · скоро») is not shown; the design preview and test builds keep it. */}
+        {loyaltyShown ? (
+          <View style={[s.loyaltyLead, { marginTop: -Math.round(heroHeight * 0.26) }]}>
+            <LoyaltyCard preview={props.preview} onPress={() => props.navigate('M23')} />
+          </View>
+        ) : null}
         <View
           testID="storefront-category-anchor"
           onLayout={(e) => setCategoryTop(e.nativeEvent.layout.y)}
-          style={{ height: categoryHeight }}
+          // Without the loyalty card the categories keep their place over the hero's lower edge,
+          // so the first dishes still show on the first screen (as with the card, 393 x 852).
+          style={{
+            height: categoryHeight,
+            marginTop: loyaltyShown ? 0 : -Math.round(heroHeight * 0.13),
+          }}
         />
         <View style={s.menuBody}>
           {props.model.catalogMode === 'design' ? (
@@ -619,7 +633,7 @@ export function Menu(props: ScreenProps) {
           })}
           {!props.model.products.length && props.model.connection.status !== 'loading' ? (
             <Empty
-              title={t('Меню скоро появится')}
+              title={t('Меню обновляется')}
               detail={t('Мы готовим каталог этого ресторана.')}
               action={<Button title={t('Обновить меню')} secondary onPress={props.model.refresh} />}
             />

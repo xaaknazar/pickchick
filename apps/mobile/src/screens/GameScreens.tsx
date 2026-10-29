@@ -11,11 +11,13 @@ import { FARM_ENABLED } from '../games/pick-farm/api';
 import { MagicSortCard } from '../games/magic-sort/MagicSortCard';
 import { PickManCard } from '../games/pick-man/visuals';
 import { AppHeader } from '../components/AppHeader';
+import { comboCardShown, upcomingFeaturesShown } from '../store-build';
 import { Body, Caption, Heading, Icon, Row, styles as ui, type IconName } from '../components/UI';
 
 export function Events(props: ScreenProps) {
   useLocale();
   const published = usePublishedContent(props.model.branch?.id);
+  const progress = props.model.comboRewards?.progress ?? props.model.testFlow.comboProgress;
   const insets = useSafeAreaInsets();
   return (
     <View testID="screen-M26" style={s.eventsPage}>
@@ -38,14 +40,17 @@ export function Events(props: ScreenProps) {
           {t('Афиша Pick Chick: игры, события и новые поводы заглянуть к нам.')}
         </Body>
 
-        <View style={{ marginTop: 20 }}>
-          <ComboRewardCard
-            preview={props.preview}
-            progress={props.model.comboRewards?.progress ?? props.model.testFlow.comboProgress}
-            testID="events-combo-reward"
-            onMenu={() => props.navigate('M06')}
-          />
-        </View>
+        {/* App Store build (owner 29.10.2026): the 6 + 1 card only while the server runs it. */}
+        {comboCardShown(progress, undefined, props.preview) ? (
+          <View style={{ marginTop: 20 }}>
+            <ComboRewardCard
+              preview={props.preview}
+              progress={progress}
+              testID="events-combo-reward"
+              onMenu={() => props.navigate('M06')}
+            />
+          </View>
+        ) : null}
 
         <Heading testID="events-games" style={s.eventSection}>
           {t('Игры')}
@@ -54,37 +59,47 @@ export function Events(props: ScreenProps) {
         {FARM_ENABLED ? <PickFarmCard /> : null}
         {published.gameEnabled('pick-blocks') ? <PickBlocksCard /> : null}
         {published.gameEnabled('pick-man') ? <PickManCard /> : null}
-        <Heading style={s.eventSection}>{t('Миссии')}</Heading>
-        <View style={s.missionCard}>
-          <View style={s.missionIcon}>
-            <Icon name="restaurant-outline" size={26} color={colors.accent} />
-          </View>
-          <View style={ui.flex}>
-            <Body style={s.upcomingTitle}>{t('Найди свой любимый вкус')}</Body>
-            <Caption style={s.upcomingDetail}>
-              {t('Новые задания и вкусные открытия. Скоро.')}
-            </Caption>
-          </View>
-        </View>
-        <Heading style={s.eventSection}>{t('Скоро')}</Heading>
-        <View style={s.upcomingList}>
-          {[
-            ['gift-outline', 'События недели', 'Условия и награды готовятся'],
-            ['sparkles-outline', 'День рождения', 'Праздничные предложения Pick Chick'],
-          ].map(([icon, title, detail]) => (
-            <Row key={title} style={s.upcomingRow}>
-              <View style={s.upcomingIcon}>
-                <Icon name={icon as IconName} size={22} color={colors.muted} />
-              </View>
-              <View style={ui.flex}>
-                <Body style={s.upcomingTitle}>{localize(title)}</Body>
-                <Caption style={s.upcomingDetail}>{localize(detail)}</Caption>
-              </View>
-            </Row>
-          ))}
-        </View>
+        {/* Missions and the «Скоро» list announce what is not live yet: not in the App Store
+            build (owner 29.10.2026, App Review 2.1); test builds and the preview keep them. */}
+        {upcomingFeaturesShown(undefined, props.preview) ? <UpcomingEvents /> : null}
       </ScrollView>
     </View>
+  );
+}
+function UpcomingEvents() {
+  useLocale();
+  return (
+    <>
+      <Heading style={s.eventSection}>{t('Миссии')}</Heading>
+      <View style={s.missionCard}>
+        <View style={s.missionIcon}>
+          <Icon name="restaurant-outline" size={26} color={colors.accent} />
+        </View>
+        <View style={ui.flex}>
+          <Body style={s.upcomingTitle}>{t('Найди свой любимый вкус')}</Body>
+          <Caption style={s.upcomingDetail}>
+            {t('Новые задания и вкусные открытия. Скоро.')}
+          </Caption>
+        </View>
+      </View>
+      <Heading style={s.eventSection}>{t('Скоро')}</Heading>
+      <View style={s.upcomingList}>
+        {[
+          ['gift-outline', 'События недели', 'Условия и награды готовятся'],
+          ['sparkles-outline', 'День рождения', 'Праздничные предложения Pick Chick'],
+        ].map(([icon, title, detail]) => (
+          <Row key={title} style={s.upcomingRow}>
+            <View style={s.upcomingIcon}>
+              <Icon name={icon as IconName} size={22} color={colors.muted} />
+            </View>
+            <View style={ui.flex}>
+              <Body style={s.upcomingTitle}>{localize(title)}</Body>
+              <Caption style={s.upcomingDetail}>{localize(detail)}</Caption>
+            </View>
+          </Row>
+        ))}
+      </View>
+    </>
   );
 }
 export { PickRunScreen as Game } from '../games/pick-run/PickRunScreen';

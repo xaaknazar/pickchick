@@ -313,7 +313,7 @@ export function PhotoProduct(props: Props) {
                 ]}
               >
                 <Icon name="image-outline" color="#65594F" size={48} />
-                <Text style={s.noPhoto}>{t('Фото скоро')}</Text>
+                <Text style={s.noPhoto}>{t('Без фото')}</Text>
               </View>
             )}
             {drinkCutout ? null : (
@@ -833,7 +833,7 @@ function OptionImage({
       ) : (
         <>
           <Icon name="image-outline" color="#65594F" size={24} />
-          <Text style={s.noPhoto}>{t('Фото скоро')}</Text>
+          <Text style={s.noPhoto}>{t('Без фото')}</Text>
         </>
       )}
     </View>

@@ -84,6 +84,7 @@ import { OrderSheet, useSheetDismissalLock } from '../components/OrderSheet';
 import { slidePayIntents, useSlidePayIntent } from '../useSlidePayIntent';
 import { rememberPaymentMethod, usePaymentMethod } from '../usePaymentMethod';
 import { PAYMENT_METHOD_NOT_CONNECTED } from '../payment-method';
+import { receiptShown } from '../store-build';
 import { runSlidePayIntent } from '../slide-pay-intent';
 import {
   noteCheckoutSwitch,
@@ -1209,15 +1210,19 @@ function KaspiCheckoutSession(
               </View>
             ) : undefined
           }
-          receipt={{
-            // Status only: the tracker has no receipt link; the completed order opens it.
-            caption:
-              order.receipt === 'deferred'
-                ? 'Фискальный чек пока не выпускается - Webkassa подключается.'
-                : order.receipt === 'issued'
-                  ? 'Чек выпущен. Ссылка на него уточняется.'
-                  : 'Ожидаем фискальный чек',
-          }}
+          // Status only: the tracker has no receipt link; the completed order opens it. A
+          // deferred receipt (every app order today, deferred_pilot) has no tile at all instead of
+          // «чек пока не выпускается - Webkassa подключается» (owner 29.10.2026, App Review 2.1).
+          receipt={
+            receiptShown(order.receipt)
+              ? {
+                  caption:
+                    order.receipt === 'issued'
+                      ? 'Чек выпущен. Ссылка на него уточняется.'
+                      : 'Ожидаем фискальный чек',
+                }
+              : undefined
+          }
         />
       );
     // A repeated order in the cart sheet shows that cart, not a second cart sheet on top.

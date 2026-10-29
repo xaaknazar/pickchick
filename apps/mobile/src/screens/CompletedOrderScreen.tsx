@@ -6,6 +6,7 @@ import { Image } from 'expo-image';
 import { ActivityIndicator, Keyboard, StyleSheet, TextInput, View } from 'react-native';
 import { CheckoutKeyboardDone } from '../components/CheckoutKeyboard';
 import { checkoutStyle } from '../components/CheckoutPresentation';
+import { receiptShown } from '../store-build';
 import { MotionPressable } from '../components/Motion';
 import { Body, Button, Caption, CloseButton, Heading, Icon, Page, Row } from '../components/UI';
 import { money } from '../domain';
@@ -82,6 +83,8 @@ export function CompletedOrderScreen({
       ? Math.ceil((ready - started) / 60_000)
       : null;
   const receiptAvailable = order.receipt === 'issued' && !!order.receiptUrl && !!onOpenReceipt;
+  // Opening a receipt link can fail only for an issued receipt, so its error has a block too.
+  const receiptBlock = receiptShown(order.receipt);
   return (
     <Page
       props={props}
@@ -313,52 +316,54 @@ export function CompletedOrderScreen({
           />
         </View>
 
-        <View style={s.section}>
-          <Heading small style={s.sectionTitle}>
-            {localize(onSupport ? 'Чек и помощь' : 'Фискальный чек')}
-          </Heading>
-          {receiptAvailable ? (
-            <Button
-              testID="completed-order-receipt"
-              title={t('Открыть фискальный чек')}
-              secondary
-              icon="receipt-outline"
-              onPress={onOpenReceipt}
-            />
-          ) : (
-            <View testID="completed-receipt-unavailable" style={s.receipt}>
-              <Icon name="receipt-outline" color={colors.muted} size={22} />
-              <Caption style={[s.muted, s.flex]}>
-                {localize(
-                  order.receipt === 'issued'
-                    ? 'Чек выпущен. Ссылка пока недоступна.'
-                    : order.receipt === 'deferred'
-                      ? 'Фискальный чек пока недоступен - подключаем сервис чеков.'
+        {/* A deferred receipt (every app order today) shows no receipt block instead of «чек
+            пока недоступен - подключаем сервис чеков» (owner 29.10.2026, App Review 2.1). */}
+        {receiptBlock || onSupport ? (
+          <View style={s.section}>
+            <Heading small style={s.sectionTitle}>
+              {localize(!receiptBlock ? 'Помощь' : onSupport ? 'Чек и помощь' : 'Фискальный чек')}
+            </Heading>
+            {!receiptBlock ? null : receiptAvailable ? (
+              <Button
+                testID="completed-order-receipt"
+                title={t('Открыть фискальный чек')}
+                secondary
+                icon="receipt-outline"
+                onPress={onOpenReceipt}
+              />
+            ) : (
+              <View testID="completed-receipt-unavailable" style={s.receipt}>
+                <Icon name="receipt-outline" color={colors.muted} size={22} />
+                <Caption style={[s.muted, s.flex]}>
+                  {localize(
+                    order.receipt === 'issued'
+                      ? 'Чек выпущен. Ссылка пока недоступна.'
                       : 'Ожидаем фискальный чек. Ссылка появится после выпуска.',
-                )}
+                  )}
+                </Caption>
+              </View>
+            )}
+            {receiptError ? (
+              <Caption
+                testID="completed-receipt-error"
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
+                style={s.error}
+              >
+                {localize(receiptError)}
               </Caption>
-            </View>
-          )}
-          {receiptError ? (
-            <Caption
-              testID="completed-receipt-error"
-              accessibilityRole="alert"
-              accessibilityLiveRegion="polite"
-              style={s.error}
-            >
-              {localize(receiptError)}
-            </Caption>
-          ) : null}
-          {onSupport ? (
-            <Button
-              testID="completed-order-support"
-              title={t('Связаться с поддержкой')}
-              secondary
-              icon="chatbubble-outline"
-              onPress={onSupport}
-            />
-          ) : null}
-        </View>
+            ) : null}
+            {onSupport ? (
+              <Button
+                testID="completed-order-support"
+                title={t('Связаться с поддержкой')}
+                secondary
+                icon="chatbubble-outline"
+                onPress={onSupport}
+              />
+            ) : null}
+          </View>
+        ) : null}
       </View>
     </Page>
   );

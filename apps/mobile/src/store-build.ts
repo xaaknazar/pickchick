@@ -61,15 +61,13 @@ export function comboCardShown(
 }
 
 /**
- * Push settings («О моих заказах», «События и предложения»). In the App Store build they are hidden
- * while the server's push service is not connected for this platform, instead of disabled switches
- * and «Сервис уведомлений ещё не подключён». The web notice and the sign-in hint stay (true).
+ * Push settings («О моих заказах», «События и предложения»). In the App Store build they are shown
+ * only once the server's push service is connected for this platform (`/v1/notifications/config`),
+ * instead of disabled switches and «Сервис уведомлений ещё не подключён»; a guest then sees the
+ * sign-in hint as before. Other builds keep the section with its notice.
  */
-export function pushSettingsShown(
-  reason: 'web' | 'login' | 'service' | null,
-  store = STORE_BUILD,
-): boolean {
-  return !store || reason !== 'service';
+export function pushSettingsShown(connected: boolean, store = STORE_BUILD): boolean {
+  return !store || connected;
 }
 
 /**
