@@ -26,6 +26,12 @@ import ts from 'typescript';
  * variable it is stored in) must be the condition of a ?:, an `if` or a `&&` chain, never inside
  * `||` or `!`. The test proves this by mutating each gate (`true || gate`, `gate || true`, `!gate`)
  * and expecting the check to fail (review 29.10.2026: `true || upcomingFeaturesShown(...)` passed).
+ * A `branch` gate is also checked for what it wraps (second review 29.10.2026): every occurrence of
+ * the allowed text lies in the branch the gate opens (`gate ? TEXT : …`, `if (gate) TEXT`,
+ * `gate && TEXT`; `when: false` for the other branch), or in a component or function whose every
+ * reference, in its own file and in every importer, is so wrapped. An inverted use (`gate ? null :
+ * TEXT`, `if (gate) return`) or a new ungated importer of the component fails; the test swaps the
+ * branches of every use that carries such text and expects the check to fail.
  */
 const SRC = fileURLToPath(new URL('../../apps/mobile/src/', import.meta.url));
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
@@ -61,18 +67,31 @@ const ONLY_AVAILABLE = {
   pattern: /const available = methods\.filter\(\(method\) => method\.available\)/,
 };
 const STORE_SCREENS = { file: 'ScreenHost.tsx', call: 'storeHidesScreen(id, undefined, preview)' };
-const TEST_ORDERS = { file: 'screens/MobileScreen.tsx', call: 'connectedTestOrdersEnabled' };
+const TEST_ORDERS = {
+  file: 'screens/MobileScreen.tsx',
+  call: 'connectedTestOrdersEnabled',
+  branch: true,
+};
 const COMBO_SERVER = {
   file: 'store-build.ts',
   pattern: /progress\?\.status === 'ready' && !!progress\.commercial/,
 };
 const DEMO_LEGAL = { file: 'screens/ProfileScreens.tsx', call: "account.mode === 'server'" };
-const DEMO_DATA = { file: 'screens/ProfileScreens.tsx', call: "demo.mode === 'demo'" };
+const DEMO_DATA = {
+  file: 'screens/ProfileScreens.tsx',
+  call: "demo.mode === 'demo'",
+  branch: true,
+};
 const PUSH = {
   file: 'screens/ProfileScreens.tsx',
   call: 'pushSettingsShown(notifications.connected)',
+  branch: true,
 };
-const upcoming = (file) => ({ file, call: 'upcomingFeaturesShown(undefined, props.preview)' });
+const upcoming = (file) => ({
+  file,
+  call: 'upcomingFeaturesShown(undefined, props.preview)',
+  branch: true,
+});
 
 /** Whole files that are not part of the App Store build: [file, why, importers, gates]. */
 const HIDDEN_FILES = [
@@ -156,7 +175,7 @@ const ALLOWED = [
     'screens/CatalogScreens.tsx',
     'Заказ поступит на кухню. Оплата и чеки - в процессе подключения.',
     'test orders: M11 only while the test-order flow is available',
-    { file: 'screens/CatalogScreens.tsx', call: 'testAvailable' },
+    { file: 'screens/CatalogScreens.tsx', call: 'testAvailable', branch: true },
   ],
   [
     'screens/ConnectedFeedback.tsx',
@@ -492,6 +511,209 @@ function gateHolds(gate, text = readFileSync(join(SRC, gate.file), 'utf8')) {
 
 const key = (file, text) => `${file}\u0000${text}`;
 
+// ---- What a `branch` gate wraps (second review 29.10.2026) ----
+
+const fileText = (file, overrides) => overrides?.[file] ?? readFileSync(join(SRC, file), 'utf8');
+const parsed = new Map();
+function sourceOf(file, overrides) {
+  const text = fileText(file, overrides);
+  const cacheKey = `${file}\u0000${text}`;
+  if (!parsed.has(cacheKey)) parsed.set(cacheKey, parse(file, text));
+  return parsed.get(cacheKey);
+}
+/** The app's files (stories are not bundled), plus files a test adds through `overrides`. */
+const appFiles = (overrides) => [
+  ...new Set([
+    ...[...sources(SRC)].map(srcFile).filter((file) => !/\.stories\.tsx$/.test(file)),
+    ...Object.keys(overrides ?? {}),
+  ]),
+];
+
+/** The nodes of a source that carry exactly this user-visible text. */
+function textNodes(source, text) {
+  const found = [];
+  const visit = (node) => {
+    if (
+      ((ts.isStringLiteral(node) ||
+        ts.isNoSubstitutionTemplateLiteral(node) ||
+        ts.isTemplateHead(node) ||
+        ts.isTemplateMiddle(node) ||
+        ts.isTemplateTail(node)) &&
+        node.text === text) ||
+      (ts.isJsxText(node) && node.text.trim() === text)
+    )
+      found.push(node);
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return found;
+}
+
+/**
+ * The parts of the gate's file shown only when the gate is `when` (default true), one entry per
+ * gate use: [use, nodes]. `?:` and `if` give their branch, a `&&` chain what it guards; with
+ * `when: false`, the else branch, or the rest of the block after `if (gate) return …`.
+ */
+function gateBranches(gate, overrides) {
+  const source = sourceOf(gate.file, overrides);
+  const when = gate.when ?? true;
+  return gateUses(source, gate.call).map((use) => {
+    let current = use;
+    const guardedByAnd = [];
+    for (;;) {
+      const parent = current.parent;
+      if (ts.isParenthesizedExpression(parent)) current = parent;
+      else if (
+        ts.isBinaryExpression(parent) &&
+        parent.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken
+      ) {
+        if (parent.left === current) guardedByAnd.push(parent.right);
+        current = parent;
+      } else break;
+    }
+    const parent = current.parent;
+    const nodes = [];
+    if (when) {
+      nodes.push(...guardedByAnd);
+      if (ts.isConditionalExpression(parent) && parent.condition === current)
+        nodes.push(parent.whenTrue);
+      if (ts.isIfStatement(parent) && parent.expression === current)
+        nodes.push(parent.thenStatement);
+    } else if (current === use || ts.isParenthesizedExpression(current)) {
+      // `a && gate` is false also when `a` is: only a bare gate selects the other branch.
+      if (ts.isConditionalExpression(parent) && parent.condition === current)
+        nodes.push(parent.whenFalse);
+      if (ts.isIfStatement(parent) && parent.expression === current) {
+        if (parent.elseStatement) nodes.push(parent.elseStatement);
+        const returns = (statement) =>
+          ts.isReturnStatement(statement) ||
+          (ts.isBlock(statement) && statement.statements.some(ts.isReturnStatement));
+        if (!parent.elseStatement && returns(parent.thenStatement) && ts.isBlock(parent.parent)) {
+          const rest = parent.parent.statements;
+          nodes.push(...rest.slice(rest.indexOf(parent) + 1));
+        }
+      }
+    }
+    return [use, nodes];
+  });
+}
+
+const within = (node, outer) =>
+  node.getStart() >= outer.getStart() && node.getEnd() <= outer.getEnd();
+
+/** The top-level function, component or constant of its file that holds the node, by name. */
+function holderOf(node) {
+  let current = node;
+  while (current.parent && !ts.isSourceFile(current.parent)) current = current.parent;
+  if ((ts.isFunctionDeclaration(current) || ts.isClassDeclaration(current)) && current.name)
+    return { name: current.name.text, declaration: current };
+  if (ts.isVariableStatement(current)) {
+    const declaration = current.declarationList.declarations.find((d) => within(node, d));
+    if (declaration && ts.isIdentifier(declaration.name))
+      return { name: declaration.name.text, declaration: current };
+  }
+  return null;
+}
+
+/** Reads of an identifier in a source (not its declaration, a property name or an import). */
+function reads(source, name, skip) {
+  const found = [];
+  const visit = (node) => {
+    if (skip && node === skip) return;
+    if (
+      ts.isIdentifier(node) &&
+      node.text === name &&
+      !(ts.isPropertyAccessExpression(node.parent) && node.parent.name === node) &&
+      !(ts.isPropertyAssignment(node.parent) && node.parent.name === node) &&
+      !ts.isImportSpecifier(node.parent) &&
+      !ts.isImportClause(node.parent) &&
+      !ts.isJsxClosingElement(node.parent) &&
+      !(ts.isVariableDeclaration(node.parent) && node.parent.name === node) &&
+      !(
+        (ts.isFunctionDeclaration(node.parent) || ts.isClassDeclaration(node.parent)) &&
+        node.parent.name === node
+      )
+    )
+      found.push(node);
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return found;
+}
+
+/**
+ * Every place a top-level name of `file` is used: in its own file outside its declaration and in
+ * every file that imports it. A namespace import or a re-export counts as an unknown use (null).
+ */
+function references(file, holder, overrides) {
+  const found = reads(sourceOf(file, overrides), holder.name, holder.declaration).map((node) => ({
+    file,
+    node,
+  }));
+  for (const other of appFiles(overrides)) {
+    if (other === file) continue;
+    const source = sourceOf(other, overrides);
+    for (const statement of source.statements) {
+      const spec =
+        (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) &&
+        statement.moduleSpecifier &&
+        ts.isStringLiteral(statement.moduleSpecifier)
+          ? statement.moduleSpecifier.text
+          : null;
+      if (!spec?.startsWith('.')) continue;
+      const resolved = normalize(join(dirname(other), spec))
+        .split(sep)
+        .join('/');
+      if (![resolved, `${resolved}.ts`, `${resolved}.tsx`].includes(file)) continue;
+      if (ts.isExportDeclaration(statement)) {
+        found.push({ file: other, node: null });
+        continue;
+      }
+      const bindings = statement.importClause?.namedBindings;
+      if (bindings && ts.isNamespaceImport(bindings)) found.push({ file: other, node: null });
+      else if (bindings)
+        for (const element of bindings.elements)
+          if ((element.propertyName ?? element.name).text === holder.name)
+            found.push(...reads(source, element.name.text).map((node) => ({ file: other, node })));
+    }
+  }
+  return found;
+}
+
+/**
+ * Is the node shown only when the gate opens? Inside one of the gate's branches, or inside a
+ * holder whose every reference is (recursively). `ends` collects the gate-file nodes that end
+ * each successful chain, so the mutation test knows which gate uses carry the text.
+ */
+function wrapped(file, node, gate, overrides, ends, depth = 0, seen = new Set()) {
+  if (!node) return false;
+  if (file === gate.file) {
+    const branch = gateBranches(gate, overrides).find(([, nodes]) =>
+      nodes.some((outer) => within(node, outer)),
+    );
+    if (branch) {
+      ends.push(node);
+      return true;
+    }
+  }
+  const holder = holderOf(node);
+  // `seen` is the current chain only: a cycle (recursion) is not a way in.
+  const id = `${file}:${holder?.name}`;
+  if (!holder || depth > 6 || seen.has(id)) return false;
+  const path = new Set([...seen, id]);
+  const uses = references(file, holder, overrides);
+  return (
+    uses.length > 0 &&
+    uses.every((use) => wrapped(use.file, use.node, gate, overrides, ends, depth + 1, path))
+  );
+}
+
+/** Every occurrence of an allowed text is wrapped by its `branch` gate. */
+function entryWrapped(file, text, gate, overrides, ends = []) {
+  const nodes = textNodes(sourceOf(file, overrides), text);
+  return nodes.length > 0 && nodes.every((node) => wrapped(file, node, gate, overrides, ends));
+}
+
 test('the patterns catch every wording of «not there yet», Chiki, placeholders and wallets', () => {
   for (const sample of [
     '6 вершин Алматы · скоро',
@@ -527,6 +749,9 @@ test('the patterns catch every wording of «not there yet», Chiki, placeholders
     'Пока их статус можно посмотреть в разделе «Заказы».',
     'Explore Events in the meantime.',
     'Вход по SMS станет доступен после их утверждения.',
+    // Second review 29.10.2026: the singular «готовится» of a feature.
+    'Регистрация с настоящей SMS готовится.',
+    'Ферма ещё готовится к открытию.',
   ])
     assert.ok(
       FORBIDDEN.some((re) => re.test(sample)),
@@ -548,6 +773,10 @@ test('the patterns catch every wording of «not there yet», Chiki, placeholders
     'Pick Chick',
     'Твой Чик. Любимое меню.',
     'Позиция сейчас недоступна',
+    // The order state «Готовится» (the kitchen is cooking it) on its own line or after a number.
+    'Готовится',
+    'Заказ №14\nГотовится',
+    'Order number 14, Готовится',
   ])
     assert.ok(!FORBIDDEN.some((re) => re.test(fine)), fine);
 });
@@ -573,6 +802,11 @@ test('every allowed entry and state is current and every gate holds', () => {
       gateHolds(gate),
       `${file}: ${text} - gate ${gate.call ?? gate.pattern} in ${gate.file}`,
     );
+    if (gate.branch)
+      assert.ok(
+        entryWrapped(file, text, gate),
+        `${file}: ${text} - not inside what ${gate.call} opens in ${gate.file}`,
+      );
   }
   const all = [...ALLOWED, ...STATES].map(([file, text]) => key(file, text));
   assert.equal(new Set(all).size, all.length);
@@ -608,6 +842,104 @@ test('a defeated gate fails the check (true ||, || true, !)', () => {
           `${gate.file}: ${wrap(gate.call)} at ${start} must fail`,
         );
       }
+  }
+});
+
+/** The gate use with its branches swapped: `g ? B : A`, `if (g) {} else A`, `g ? null : A`. */
+function swapped(text, source, use) {
+  let current = use;
+  let and = null;
+  for (;;) {
+    const parent = current.parent;
+    if (ts.isParenthesizedExpression(parent)) current = parent;
+    else if (
+      ts.isBinaryExpression(parent) &&
+      parent.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken
+    ) {
+      if (parent.left === current && !and) and = parent;
+      current = parent;
+    } else break;
+  }
+  const part = (node) => text.slice(node.getStart(source), node.getEnd());
+  const replace = (pairs) => {
+    let out = text;
+    for (const [node, value] of pairs.sort((a, b) => b[0].getStart(source) - a[0].getStart(source)))
+      out = out.slice(0, node.getStart(source)) + value + out.slice(node.getEnd());
+    return out;
+  };
+  const parent = current.parent;
+  if (ts.isConditionalExpression(parent) && parent.condition === current)
+    return replace([
+      [parent.whenTrue, part(parent.whenFalse)],
+      [parent.whenFalse, part(parent.whenTrue)],
+    ]);
+  if (ts.isIfStatement(parent) && parent.expression === current)
+    return parent.elseStatement
+      ? replace([
+          [parent.thenStatement, part(parent.elseStatement)],
+          [parent.elseStatement, part(parent.thenStatement)],
+        ])
+      : replace([[parent.thenStatement, `{} else ${part(parent.thenStatement)}`]]);
+  if (and) return replace([[and, `(${part(and.left)}) ? null : (${part(and.right)})`]]);
+  return null;
+}
+
+test('a branch gate wraps its text: swapped branches, inverted uses and new importers fail', () => {
+  const branchGates = new Map();
+  for (const [file, text, , gate] of ALLOWED)
+    if (gate?.branch) {
+      const id = `${gate.file}:${gate.call}`;
+      if (!branchGates.has(id)) branchGates.set(id, { gate, entries: [] });
+      branchGates.get(id).entries.push([file, text]);
+    }
+  assert.ok(branchGates.size >= 6, 'branch gates');
+  for (const { gate, entries } of branchGates.values()) {
+    const ends = [];
+    for (const [file, text] of entries) assert.ok(entryWrapped(file, text, gate, undefined, ends));
+    const text = fileText(gate.file);
+    const source = sourceOf(gate.file);
+    let carrying = 0;
+    for (const [use, nodes] of gateBranches(gate)) {
+      // Only the uses that open the allowed text: other uses of the same gate may wrap anything.
+      if (!ends.some((end) => nodes.some((outer) => within(end, outer)))) continue;
+      carrying++;
+      const mutated = swapped(text, source, use);
+      assert.ok(mutated, `${gate.file}: ${gate.call} at ${use.getStart(source)} can be swapped`);
+      const overrides = { [gate.file]: mutated };
+      assert.ok(
+        entries.some(([file, entry]) => !entryWrapped(file, entry, gate, overrides)),
+        `${gate.file}: ${gate.call} at ${use.getStart(source)} with swapped branches must fail`,
+      );
+    }
+    assert.ok(carrying > 0, `${gate.file}: ${gate.call} opens the allowed text`);
+  }
+  // A new screen rendering the Chiki menu card (Brand.tsx) without the gate fails.
+  const card = upcoming('screens/CatalogScreens.tsx');
+  assert.equal(entryWrapped('components/Brand.tsx', 'Чики за любимый вкус', card), true);
+  const importer = {
+    'screens/NewScreen.tsx': `import { LoyaltyCard } from '../components/Brand';
+export function NewScreen() {
+  return <LoyaltyCard preview={false} onPress={() => {}} />;
+}
+`,
+  };
+  assert.equal(entryWrapped('components/Brand.tsx', 'Чики за любимый вкус', card, importer), false);
+  // Inverted uses in a file of their own: only the first shape wraps the text.
+  const gate = { file: 'virtual/Gate.tsx', call: 'shown', branch: true };
+  const shapes = {
+    'if (shown) return <Text>{t("Скоро")}</Text>; return null;': true,
+    'return shown ? <Text>{t("Скоро")}</Text> : null;': true,
+    'return <View>{shown && <Text>{t("Скоро")}</Text>}</View>;': true,
+    'if (shown) return null; return <Text>{t("Скоро")}</Text>;': false,
+    'return shown ? null : <Text>{t("Скоро")}</Text>;': false,
+    'return <View>{shown || <Text>{t("Скоро")}</Text>}</View>;': false,
+    'return <Text>{t("Скоро")}</Text>;': false,
+  };
+  for (const [body, expected] of Object.entries(shapes)) {
+    const overrides = {
+      [gate.file]: `const shown = upcomingFeaturesShown();\nexport function A() {\n  ${body}\n}\n`,
+    };
+    assert.equal(entryWrapped(gate.file, 'Скоро', gate, overrides), expected, body);
   }
 });
 

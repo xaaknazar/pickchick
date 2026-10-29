@@ -342,6 +342,10 @@ jobs:
             sleep 1
           done
           STORE_WALK_PROFILE=storefront CUSTOMER_AUTH_URL=http://127.0.0.1:4197 .local/design-venv/bin/python tests/mobile/browser_store_walk.py
+          REVIEW_ACCOUNT_PROFILE=storefront CUSTOMER_AUTH_URL=http://127.0.0.1:4197 .local/design-venv/bin/python tests/mobile/browser_review_account.py
+          # The owner's switch back to the disabled payment list (EXPO_PUBLIC_UPCOMING_PAYMENTS=1, off in every release).
+          EXPO_PUBLIC_CUSTOMER_AUTH=server EXPO_PUBLIC_KASPI_CHECKOUT=1 EXPO_PUBLIC_UNPAID_TEST_ORDERS=1 EXPO_PUBLIC_PUBLISHED_CATALOG=0 EXPO_PUBLIC_UPCOMING_PAYMENTS=1 pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/customer-auth-web
+          UPCOMING_PAYMENTS_URL=http://127.0.0.1:4196 CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_upcoming_payments.py
       - name: Stop test infrastructure
         if: always()
         run: docker compose --env-file .env.example -f infra/local/compose.yaml down

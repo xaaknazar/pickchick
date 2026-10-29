@@ -16,17 +16,70 @@ cart bar:
     resume banner;
   - «Как проходит заказ» opens /demo-order with this basket and sends nothing.
 Runs against the customer-auth web export (CUSTOMER_AUTH_URL) with local fixtures only.
+REVIEW_ACCOUNT_PROFILE=storefront runs the same checks on the App Store profile export
+(PICKCHICK_PREVIEW_OUTPUT=storefront: the published catalogue, no test-order client; second
+review 29.10.2026: the fixture served only /v1/test/catalog, so it timed out there).
 """
+import json
 import os
+import subprocess
 from pathlib import Path
+from urllib.parse import urlparse
 from playwright.sync_api import sync_playwright, expect
+from browser_network import route_fixture
 import browser_slide_to_pay as bar
-from browser_slide_to_pay import (DRAFT_KEY, URL, add, checkout_traffic, errors, make_context,
+from browser_slide_to_pay import (BRANCH, DRAFT_KEY, URL, add, checkout_traffic, errors,
                                   new_state, release, slide)
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / os.environ.get('REVIEW_ACCOUNT_SHOTS', '.local/review-account')
 OUT.mkdir(parents=True, exist_ok=True)
+PROFILE = os.environ.get('REVIEW_ACCOUNT_PROFILE', 'qa')
+assert PROFILE in ('qa', 'storefront'), PROFILE
+STOREFRONT = PROFILE == 'storefront'
+test_requests = []
+if STOREFRONT:
+    # The published storefront: the back-office seed of the same menu (as browser_store_walk.py).
+    SEED = json.loads(subprocess.check_output(
+        ['node', '--input-type=module', '-e',
+         "import {mockupCatalogDraft} from './packages/catalog-admin/dist/seed.js';"
+         "console.log(JSON.stringify(mockupCatalogDraft))"], cwd=ROOT, text=True))
+    PUBLICATION = {'branch': {'id': BRANCH, 'code': 'ABAY', 'name': 'ТЦ Abay Plaza', 'timezone': 'Asia/Almaty',
+                              'ordering_enabled': True},
+                   'channel': 'mobile', 'version': 6, 'published_at': '2026-10-28T00:00:00.000Z',
+                   'payload': {**SEED, 'content_source': 'operator', 'content_reviewed': True}}
+
+
+def make_context(browser, state, width, height, reduced):
+    ctx, page = bar.make_context(browser, state, width, height, reduced)
+    if STOREFRONT:
+        def storefront(route):
+            path = urlparse(route.request.url).path
+            cors = {'Access-Control-Allow-Origin': '*'}
+            if path.startswith('/v1/test/'):
+                test_requests.append(route.request.method + ' ' + path)
+                return route.abort()
+            if path == '/v1/customer-checkout/catalog':
+                return route.fulfill(json=PUBLICATION, headers=cors)
+            if path == '/v1/customer-checkout/availability':
+                return route.fulfill(
+                    json={'enabled': True, 'fresh': True, 'orderingOpen': True, 'signature': 'a' * 64,
+                          'products': [{'id': p['id'], 'available': True, 'stoppedOptions': []}
+                                       for p in SEED['products']]},
+                    headers={**cors, 'X-Catalog-Version': str(PUBLICATION['version']),
+                             'X-Availability-Signature': 'a' * 64,
+                             'Access-Control-Expose-Headers': 'X-Catalog-Version, X-Availability-Signature'})
+            if path == '/v1/capabilities':
+                return route.fulfill(json={'schema_version': 1, 'environment': 'production',
+                                           'data_mode': 'pilot', 'ordering_enabled': False,
+                                           'features': {'phone_auth': True, 'test_order_flow': False,
+                                                        **{k: False for k in ['payments', 'fiscal', 'checkout',
+                                                                              'loyalty']}}},
+                                     headers=cors)
+            return route.fallback()
+        # Registered after the shared fixture, so it answers these paths first.
+        route_fixture(ctx, '**/v1/**', storefront)
+    return ctx, page
 TEXT = {
     'ru': ('Для этого аккаунта оплата заказов выключена. Как проходит заказ - можно посмотреть без оплаты.',
            'Как проходит заказ'),
@@ -131,7 +184,9 @@ if __name__ == '__main__':
         scenario_language(browser, 'ru', via_slide=True)
         browser.close()
     assert not errors, errors
-    print('PASS App Review account (synthetic 403 FORBIDDEN on POST /orders): RU/EN/KK neutral text and '
+    # The App Store profile has no test-order client at all.
+    assert not test_requests, test_requests
+    print(f'PASS App Review account ({PROFILE}, synthetic 403 FORBIDDEN on POST /orders): RU/EN/KK neutral text and '
           '«Как проходит заказ», no connecting scene or «Проверить оплату», one quote + one refused create '
           'per explicit press or slide, no invoice, nothing after 22 s, basket kept, intent dropped, '
           'demo opens with the basket, restart sends nothing; screenshots in ' + str(OUT))

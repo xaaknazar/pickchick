@@ -16,7 +16,11 @@ and the real temporary states that may be shown are shared with tests/mobile/sto
   cart, sign-in, «События» and the three mini-games without signing in), the 320 pt screen;
   the payment step: the App Review account (403 FORBIDDEN on POST /orders: neutral text,
   «Как проходит заказ» into the demonstration, no invoice), the restaurant that does not answer
-  and Kaspi answering slowly (20 s stuck states); «Удалить аккаунт» and its confirmation.
+  and Kaspi answering slowly (20 s stuck states); «Удалить аккаунт» and its confirmation;
+  the App Review sign-in in English (second review 29.10.2026): the number typed with its country
+  code («+7…», «7…», «8…») keeps every digit, the code, the «Let's get to know you» form left empty
+  with «Done», and the profile then shows «Crunch lover» (KK too), no Russian; the design-preview
+  deep links (`?preview=1`) are ignored by this build.
 The server answers like production on 29.10.2026: the 6 + 1 programme is switched off
 (/combo-rewards {enabled: false}), push is not connected, receipts are deferred.
 
@@ -41,7 +45,7 @@ assert PROFILE in ('qa', 'storefront'), PROFILE
 STOREFRONT = PROFILE == 'storefront'
 OUT = ROOT / os.environ.get('STORE_WALK_OUT', '.local/store-walk')
 # Debugging only: STORE_WALK_REPORT=1 prints findings instead of failing; STORE_WALK_ONLY=a,b runs
-# only those parts (signed_in, languages, small, guest, payment_step, delete).
+# only those parts (signed_in, languages, small, guest, payment_step, delete, sign_in).
 REPORT = os.environ.get('STORE_WALK_REPORT') == '1'
 ONLY = [part for part in os.environ.get('STORE_WALK_ONLY', '').split(',') if part]
 OUT.mkdir(parents=True, exist_ok=True)
@@ -155,9 +159,10 @@ COLLECT = '''() => {
 }'''
 
 
-def route_for(signed_in=True, checkout=None, deleted=None):
+def route_for(signed_in=True, checkout=None, deleted=None, auth=None):
     """`checkout`: None (the walk only looks), or the payment step: {'orders': 'forbidden' |
-    'hold' | 'ok', 'counts': {...}} (quotes, refused or held creates, invoices are counted)."""
+    'hold' | 'ok', 'counts': {...}} (quotes, refused or held creates, invoices are counted).
+    `auth`: the sign-in of a guest: {'calls': [...], 'customer': None until the code is verified}."""
     def ok(route, data, headers=None):
         route.fulfill(json=data, headers={'Access-Control-Allow-Origin': '*', **(headers or {})})
 
@@ -196,6 +201,24 @@ def route_for(signed_in=True, checkout=None, deleted=None):
         if deleted is not None and path == '/v1/customers/me' and method == 'DELETE':
             deleted.append(path)
             return ok(route, {'ok': True})
+        if auth is not None and method == 'POST' and path == '/v1/auth/otp/request':
+            body = route.request.post_data_json
+            auth['calls'].append(('request', body['phone']))
+            return route.fulfill(status=202, json={
+                'challenge_id': uid('challenge'), 'expires_at': '2099-01-01T00:03:00.000Z',
+                'resend_at': '2099-01-01T00:01:00.000Z', 'delivery_status': 'submitted',
+                'channel': 'telegram', 'code_length': 4}, headers={'Access-Control-Allow-Origin': '*'})
+        if auth is not None and method == 'POST' and path == '/v1/auth/otp/verify':
+            body = route.request.post_data_json
+            auth['calls'].append(('verify', body['code']))
+            # A new review account: no name, the optional profile form comes next.
+            auth['customer'] = {**customer, 'nickname': '', 'profile_completed_at': None}
+            return ok(route, {**envelope['tokens'], 'customer': auth['customer']})
+        if auth is not None and method == 'PATCH' and path == '/v1/customers/me':
+            body = route.request.post_data_json
+            auth['calls'].append(('patch', body))
+            auth['customer'] = {**auth['customer'], **body, 'profile_completed_at': '2026-10-29T10:00:00.000Z'}
+            return ok(route, {'customer': auth['customer']})
         if method not in ('GET', 'OPTIONS'):
             # The walk only looks: no quote, order, payment, feedback or profile write. (The QA
             # export also has the synthetic test-order client, whose session request is refused.)
@@ -210,8 +233,8 @@ def route_for(signed_in=True, checkout=None, deleted=None):
                 route.abort()
             return
         data, headers = None, None
-        if path == '/v1/customers/me' and signed_in and not deleted:
-            data = {'customer': customer, 'legal': {'version': 'fixture-v1', 'terms_url': 'https://example.test/terms',
+        if path == '/v1/customers/me' and (signed_in or (auth or {}).get('customer')) and not deleted:
+            data = {'customer': (auth or {}).get('customer') or customer, 'legal': {'version': 'fixture-v1', 'terms_url': 'https://example.test/terms',
                                                     'privacy_url': 'https://example.test/privacy', 'accepted': True}}
         elif path == '/v1/customer-checkout/availability':
             data = {'enabled': True, 'fresh': True, 'orderingOpen': True, 'signature': 'a' * 64,
@@ -220,7 +243,10 @@ def route_for(signed_in=True, checkout=None, deleted=None):
                 headers = {'X-Catalog-Version': str(PUBLICATION['version']), 'X-Availability-Signature': 'a' * 64,
                            'Access-Control-Expose-Headers': 'X-Catalog-Version, X-Availability-Signature'}
         elif path == '/v1/auth/config':
+            # Production: the code goes to Telegram or WhatsApp.
             data = {'enabled': True, 'delivery_consent_required': True, 'consent_version': 'fixture-v1',
+                    'channels': ['telegram'], 'channel_selection': 'automatic',
+                    'whatsapp_fallback_enabled': True,
                     'terms_url': 'https://example.test/terms', 'privacy_url': 'https://example.test/privacy'}
         elif path == '/v1/capabilities':
             data = {'schema_version': 1, 'environment': 'production' if STOREFRONT else 'staging',
@@ -264,14 +290,14 @@ def route_for(signed_in=True, checkout=None, deleted=None):
     return intercept
 
 
-def context(browser, width=393, height=852, signed_in=True, checkout=None, deleted=None):
+def context(browser, width=393, height=852, signed_in=True, checkout=None, deleted=None, auth=None):
     ctx = isolated_context(browser, viewport={'width': width, 'height': height}, device_scale_factor=2,
                            reduced_motion='reduce')
     if signed_in:
         ctx.add_init_script('sessionStorage.setItem("pickchick.customer.session.v1",'
                             + json.dumps(json.dumps(envelope)) + ');')
     # Default notification fixture: the push service is not connected (enabled false).
-    route_fixture(ctx, '**/v1/**', route_for(signed_in, checkout, deleted))
+    route_fixture(ctx, '**/v1/**', route_for(signed_in, checkout, deleted, auth))
     page = ctx.new_page()
     page.on('pageerror', lambda e: errors.append(str(e)))
     return ctx, page
@@ -456,8 +482,12 @@ def walk_signed_in(browser):
     page.goto(URL + '/screen/M31')
     expect(page.get_by_test_id('screen-M31')).to_be_visible(timeout=20000)
     settle(page)
-    page.get_by_test_id('screen-M31').get_by_text('Неясен результат оплаты?', exact=True).click()
-    expect(page.get_by_test_id('screen-M14')).to_be_visible(timeout=15000)
+    # «Неясен результат оплаты?» opens «Заказы» (where each order says whether it is paid), not the
+    # payment screen with «Оплатить» right under «do not pay again» (second review 29.10.2026).
+    page.get_by_test_id('support-payment-unclear').click()
+    expect(page.get_by_test_id('order-history-open-' + PREPARING['orderId'])).to_be_visible(timeout=15000)
+    expect(page.get_by_test_id('screen-M14')).to_have_count(0)
+    assert urlparse(page.url).path.rstrip('/').endswith('/orders'), page.url
     clean(page, 'help-payment-unclear-393', wait=1500)
     # «Мои заказы» opens the orders tab.
     open_profile(page)
@@ -508,10 +538,18 @@ def walk_signed_in(browser):
     clean(page, 'demo-order-393')
     # Deep links of preview-only screens open the menu in the App Store build.
     for screen in ('M22', 'M23', 'M24', 'M25', 'M35'):
-        page.goto(URL + f'/screen/{screen}')
-        expect(page.get_by_test_id('screen-M06').filter(visible=True)).to_be_visible(timeout=20000)
-        expect(page.get_by_test_id(f'screen-{screen}')).to_have_count(0)
-        assert urlparse(page.url).path.rstrip('/').endswith('/menu'), (screen, page.url)
+        for query in ('', '?preview=1'):
+            page.goto(URL + f'/screen/{screen}{query}')
+            expect(page.get_by_test_id('screen-M06').filter(visible=True)).to_be_visible(timeout=20000)
+            expect(page.get_by_test_id(f'screen-{screen}')).to_have_count(0)
+            assert urlparse(page.url).path.rstrip('/').endswith('/menu'), (screen, query, page.url)
+    # The design preview is ignored by this build (second review 29.10.2026: /screen/M25?preview=1
+    # showed «СКОРО», «Чиков», «ещё не»): the real screens, no «Закрыть превью».
+    for screen in ('M06', 'M26', 'M30'):
+        page.goto(URL + f'/screen/{screen}?preview=1')
+        expect(page.get_by_test_id(f'screen-{screen}').filter(visible=True)).to_be_visible(timeout=20000)
+        expect(page.get_by_test_id('close-design-preview')).to_have_count(0)
+        clean(page, f'preview-link-{screen}-393', shot=False)
     ctx.close()
 
 
@@ -535,6 +573,21 @@ def walk_languages(browser):
         page.get_by_test_id('product-pick-combo').click(timeout=25000)
         expect(page.get_by_test_id('product-add')).to_be_visible(timeout=15000)
         clean(page, f'product-{language}-393', english=english)
+        # The swap sheets of the combo (drink, sauce): option names and «без доплаты» in the app
+        # language, accessible names included (second review 29.10.2026).
+        groups = []
+        for test_id in page.locator('[data-testid^="photo-replace-"]').evaluate_all(
+                '(nodes) => nodes.filter((n) => n.offsetParent).map((n) => n.dataset.testid)'):
+            group = test_id.rsplit('-', 1)[0]
+            if group not in groups:
+                groups.append(group)
+                page.get_by_test_id(test_id).click()
+                expect(page.get_by_test_id('photo-replacement-dialog')).to_be_visible(timeout=10000)
+                clean(page, f'product-swap-{group.removeprefix("photo-replace-")}-{language}-393',
+                      english=english)
+                page.get_by_test_id('photo-replacement-apply').click()
+                expect(page.get_by_test_id('photo-replacement-dialog')).to_have_count(0, timeout=10000)
+        assert len(groups) >= 2, groups
         page.goto(URL + '/menu')
         settle(page)
         page.get_by_test_id('open-cart').filter(visible=True).click()
@@ -559,6 +612,16 @@ def walk_languages(browser):
         clean(page, f'order-ready-{language}-393', english=english)
         open_profile(page)
         clean(page, f'profile-{language}-393', english=english)
+        # The date of birth picker (its field is named in the app language too).
+        page.get_by_test_id('profile-birthday').click()
+        page.get_by_test_id('birthday-open').filter(visible=True).click(timeout=15000)
+        expect(page.get_by_test_id('birthday-picker').filter(visible=True)).to_be_visible(timeout=10000)
+        clean(page, f'birthday-picker-{language}-393', english=english)
+        page.get_by_test_id('birthday-picker-cancel').filter(visible=True).click()
+        # Magic Sort: every bottle reads its colours in the app language («Bottle 5: empty»).
+        page.goto(URL + '/games/magic-sort')
+        expect(page.get_by_test_id('magic-sort-bottle-0')).to_be_visible(timeout=25000)
+        clean(page, f'magic-sort-{language}-393', english=english)
         page.goto(URL + '/notifications')
         expect(page.get_by_test_id('notifications-screen')).to_be_visible(timeout=15000)
         clean(page, f'notifications-{language}-393', english=english)
@@ -733,8 +796,72 @@ def walk_delete(browser):
     ctx.close()
 
 
+def type_phone(page, keys):
+    field = page.get_by_test_id('phone-input').filter(visible=True)
+    field.fill('')
+    field.click()
+    field.press_sequentially(keys, delay=40)
+    page.wait_for_timeout(300)
+    return field.input_value()
+
+
+def walk_sign_in(browser):
+    # The App Review sign-in in English (second review 29.10.2026). The number of the review
+    # account typed key by key with its country code used to stop at «770 000 00 00»: ten digits
+    # starting with 7 looked complete, the keyboard closed and the last key never arrived, so the
+    # code went to another number. Then the optional «Let's get to know you» form, left empty.
+    auth = {'calls': [], 'customer': None}
+    ctx, page = context(browser, signed_in=False, auth=auth)
+    page.goto(URL + '/screen/M34')
+    page.get_by_test_id('language-en').click(timeout=25000)
+    expect(page.get_by_test_id('language-en')).to_have_attribute('aria-checked', 'true')
+    page.goto(URL + '/menu')
+    settle(page)
+    page.get_by_test_id('header-profile').filter(visible=True).click()
+    expect(page.get_by_test_id('auth-welcome')).to_be_visible(timeout=15000)
+    clean(page, 'sign-in-welcome-en-393', english=True)
+    page.get_by_test_id('account-required-login').filter(visible=True).click()
+    expect(page.get_by_test_id('phone-input').filter(visible=True)).to_be_editable(timeout=15000)
+    local = customer['phone'][2:]
+    shown = f'{local[:3]} {local[3:6]} {local[6:8]} {local[8:]}'
+    for typed in ('+7' + local, '7' + local, '8' + local, local):
+        assert type_phone(page, typed) == shown, (typed, page.get_by_test_id('phone-input').input_value())
+    expect(page.get_by_test_id('request-otp').filter(visible=True)).to_be_enabled()
+    type_phone(page, '+7' + local)
+    clean(page, 'sign-in-phone-en-393', english=True)
+    page.get_by_test_id('request-otp').filter(visible=True).click()
+    expect(page.get_by_test_id('otp-input').filter(visible=True)).to_be_editable(timeout=15000)
+    assert auth['calls'] == [('request', customer['phone'])], auth['calls']
+    clean(page, 'sign-in-code-en-393', english=True)
+    page.get_by_test_id('otp-input').filter(visible=True).fill('9381')
+    # «Let's get to know you»: everything is optional; «Done» with every field empty.
+    expect(page.get_by_test_id('nickname-save').filter(visible=True)).to_be_enabled(timeout=15000)
+    expect(page.get_by_test_id('nickname-input').filter(visible=True)).to_have_value('')
+    clean(page, 'sign-in-profile-form-en-393', english=True)
+    page.get_by_test_id('nickname-save').filter(visible=True).click()
+    expect(page.get_by_test_id('screen-M30').filter(visible=True)).to_be_visible(timeout=15000)
+    assert [call[0] for call in auth['calls']] == ['request', 'verify', 'patch'], auth['calls']
+    assert auth['calls'][2][1]['nickname'] == '', auth['calls']
+    identity = page.get_by_test_id('profile-identity')
+    expect(identity).to_contain_text('Crunch lover', timeout=15000)
+    expect(identity).not_to_contain_text('Любитель хруста')
+    clean(page, 'sign-in-profile-en-393', english=True)
+    # Kazakh: its own default name, not the Russian one.
+    page.goto(URL + '/screen/M34')
+    page.get_by_test_id('language-kk').click(timeout=25000)
+    open_profile(page)
+    expect(page.get_by_test_id('profile-identity')).to_contain_text('Қытырлақты жақсы көретін жан')
+    expect(page.get_by_test_id('profile-identity')).not_to_contain_text('Любитель хруста')
+    clean(page, 'sign-in-profile-kk-393')
+    page.goto(URL + '/screen/M34')
+    page.get_by_test_id('language-ru').click(timeout=25000)
+    expect(page.get_by_test_id('language-ru')).to_have_attribute('aria-checked', 'true')
+    ctx.close()
+
+
 PARTS = {'signed_in': walk_signed_in, 'languages': walk_languages, 'small': walk_small,
-         'guest': walk_guest, 'payment_step': walk_payment_step, 'delete': walk_delete}
+         'guest': walk_guest, 'payment_step': walk_payment_step, 'delete': walk_delete,
+         'sign_in': walk_sign_in}
 with sync_playwright() as p:
     browser = p.chromium.launch()
     for part, walk in PARTS.items():
@@ -750,4 +877,5 @@ if STOREFRONT:
 print(f'PASS App Store walk ({PROFILE}): {len(walked)} screens without «скоро» / «ещё не» / «not yet» / '
       f'Chiki / «Без фото» / Apple Pay / Google Pay / card (RU, EN without Cyrillic, KK; 393x852, 320x568, '
       f'guest with games), payment step (FORBIDDEN + demo, restaurant and Kaspi stuck states), account deletion, '
-      f'preview-only deep links open the menu, no other mutation; screenshots in {OUT}')
+      f'preview-only deep links open the menu and ?preview=1 is ignored, the App Review sign-in in EN '
+      f'(+7 / 7 / 8 typed, empty profile form, «Crunch lover»), no other mutation; screenshots in {OUT}')
