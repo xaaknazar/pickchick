@@ -30,6 +30,7 @@
 | lemonade / cola / fuse-peach / iced-tea / water    | i0.jpg / i2.jpg / i1.jpg / i22.jpg / i23.jpg                                            |
 | cola-bottle / signature-small                      | ../product-photo/cola-bottle.png / signature-sauce.png, предыдущая ретушь по оригиналам |
 | reward-seven-plus-one                              | i10.jpg                                                                                 |
+| sauce-cheese / sauce-bbq                           | signature-small.png, перекрашен соус (29.10.2026, см. ниже)                             |
 
 ## Промпты и проверка
 
@@ -60,3 +61,10 @@ Combo сохранено краткое описание промпта; для 
 
 12 октября 2026: `water.png` больше не показывается - Bonaqua (`water`, `i23.jpg`)
 использует фото владельца `../drinks/bonaqua-still.png` (см. `../drinks/README.md`).
+
+29.10.2026 (проверка App Store): у соусов Heinz сырный и Heinz барбекю не было фото, и в
+«Добавить к комбо» стоял серый значок «Без фото» - Apple считает это заглушкой (2.1).
+`sauce-cheese.png` и `sauce-bbq.png` получены из `signature-small.png` (прозрачная баночка
+соуса): медианное сглаживание соуса и смена его цвета (сырный - жёлто-оранжевый, барбекю -
+тёмно-коричневый), 800×800. Упаковка Heinz не рисовалась. Это иллюстрация цвета соуса;
+когда владелец даст фото настоящих порций, их нужно поставить вместо этих файлов.

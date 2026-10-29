@@ -41,11 +41,18 @@ export const optionPhotos: Record<string, ImageSourcePropType> = {
   'iced-tea-unsweet': require('../assets/catalog-hd/iced-tea.png'),
   pick: require('../assets/catalog-hd/signature-small.png'),
   hot: require('../assets/catalog-hd/sauce-hot.png'),
+  // Review 29.10.2026: the Heinz cheese / barbecue dips showed «Без фото» (App Review 2.1). The
+  // clear dip cup of signature-small with the sauce recoloured, no Heinz packaging drawn
+  // (assets/catalog-hd/README.md); the owner's photographs replace them when they exist.
+  cheese: require('../assets/catalog-hd/sauce-cheese.png'),
+  bbq: require('../assets/catalog-hd/sauce-bbq.png'),
 };
 export const extraPhotos: Record<string, ImageSourcePropType> = {
   fingers: catalogCutouts['fingers']!,
   sauce: require('../assets/catalog-hd/signature-small.png'),
   'sauce-hot': require('../assets/catalog-hd/sauce-hot.png'),
+  'sauce-cheese': require('../assets/catalog-hd/sauce-cheese.png'),
+  'sauce-bbq': require('../assets/catalog-hd/sauce-bbq.png'),
   toast: require('../assets/catalog-hd/toast.png'),
   coleslaw: require('../assets/catalog-hd/coleslaw.png'),
   wedges: require('../assets/catalog-hd/wedges.png'),

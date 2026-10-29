@@ -27,3 +27,13 @@ Edit target: attached extracted voxel chicken sprite. Critical correction only: 
 ### 3
 
 Precise background edit. Keep the single voxel chicken head with black sunglasses, white feathers, red comb and open yellow beak from the supplied image. Replace EVERY gray and white checkerboard square surrounding the chicken with one perfectly uniform flat dark navy RGB(2,13,39), hex #020D27, the same color as the game board. SOLID NAVY BACKGROUND REQUIRED. Do not make transparency. Do not draw ANY checkerboard. No texture, no vignette, no shadow, no extra objects, no text. Center complete character, face right, square composition with 4% margin. This is a small mobile game sprite; preserve full silhouette.
+
+## Обложка для App Store (29.10.2026)
+
+Проверка перед App Review отметила риск 4.1 / 5.2.1: на обложке владельца три «привидения» в
+стиле Pac-Man и табло «1UP 9990 / HIGH SCORE 99990». Файл владельца `pick-man-cover.png` не
+изменён. Приложение показывает `pick-man-cover-store.png`: табло и привидения удалены
+(OpenCV inpaint по маске цвета и яркости), на их местах - три огонька-соперника, те же, что в
+игре (векторные SVG из `games/pick-man/visuals.tsx`, отрисованы Chromium с подсветкой).
+Соперники в самой игре тоже стали огоньками вместо привидений. Скрипт ретуши не хранится в
+репозитории; вернуть обложку владельца - одна строка в `apps/mobile/src/assets.ts`.
