@@ -6854,6 +6854,18 @@
       "updatedAt": "2026-10-29T05:47:52.412Z",
       "summary": "TestFlight 0.2.0 (27) доступен PickChick Internal, Apple Testing 29.10. PR289 merged 6660ce98, CI 11/11 на исходнике IPA 146b8967. 531 Node +59 Python, браузерные и native Simulator PASS. Подпись/JS/флаги проверены. Итоговые docs/status/roadmap/evidence опубликованы f94f252d в PR290; его CI отдельно от выпущенного IPA. Физический iPhone владелец проверит сам; сервер/касса/iPad/App Store не выпускались.",
       "nextAction": "После зелёной CI PR290 включить документальный checkpoint обычным merge и finish mobile-launch-1028. До этого резервы сохраняются. Приёмку iPhone не отмечать без владельца. Не запускать банковские операции и серверные обновления."
+    },
+    {
+      "id": "kaspi-cashier-login-1029",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/kaspi-cashier-login-1029",
+      "scopes": [
+        "@vps/kaspi",
+        "docs/operations/kaspi-cashier-login-2026-10-29.md"
+      ],
+      "status": "active",
+      "head": "6660ce98cdb1cf0855c7fd7c62457ba8e2a5bb14",
+      "updatedAt": "2026-10-29T11:19:23.653Z"
     }
   ]
 }
