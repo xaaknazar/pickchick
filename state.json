@@ -6795,9 +6795,9 @@
         "@apple/appstore",
         "docs/operations/mobile-testflight26-evidence.json"
       ],
-      "status": "available",
-      "head": "7016a2ea1e9adee4e9718cbea41462dd654f8a86",
-      "updatedAt": "2026-10-28T10:52:12.178Z",
+      "status": "active",
+      "head": "8d205a759fadd58080a92d182961ca305fc9a270",
+      "updatedAt": "2026-10-29T04:41:39.072Z",
       "summary": "PR287 merged 82f4978b after full Foundation CI 11/11 on e148946c. TestFlight 0.2.0 (26) processed and Testing in PickChick Internal, 2 testers; what-to-test saved. Signature and JS verified. Owner will test physical iPhone. Read-only diagnosis: inactive Kaspi session, invoice_not_sent; order untouched. Final journal checkpoint 7016a2ea in PR288, roadmap tests 7/7.",
       "nextAction": "PR288 contains documentation only; wait for its CI, merge normally, then finish claim. Source IPA CI is already green. Owner iPhone acceptance pending. Do not deploy VPS/cashier/iPad/App Store or publish roadmap; no real payments or bank session changes."
     }
