@@ -6849,9 +6849,11 @@
         "@ios/simulator",
         "@apple/appstore"
       ],
-      "status": "active",
-      "head": "e7bc8e7b00cd53b6435da536a909af4a446b59c3",
-      "updatedAt": "2026-10-29T04:42:32.817Z"
+      "status": "available",
+      "head": "f94f252da29ad8f0e376ff9ecc2319bbfa10ef87",
+      "updatedAt": "2026-10-29T05:47:52.412Z",
+      "summary": "TestFlight 0.2.0 (27) доступен PickChick Internal, Apple Testing 29.10. PR289 merged 6660ce98, CI 11/11 на исходнике IPA 146b8967. 531 Node +59 Python, браузерные и native Simulator PASS. Подпись/JS/флаги проверены. Итоговые docs/status/roadmap/evidence опубликованы f94f252d в PR290; его CI отдельно от выпущенного IPA. Физический iPhone владелец проверит сам; сервер/касса/iPad/App Store не выпускались.",
+      "nextAction": "После зелёной CI PR290 включить документальный checkpoint обычным merge и finish mobile-launch-1028. До этого резервы сохраняются. Приёмку iPhone не отмечать без владельца. Не запускать банковские операции и серверные обновления."
     }
   ]
 }
