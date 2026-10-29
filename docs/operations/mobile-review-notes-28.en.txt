@@ -1,0 +1,24 @@
+PickChick is the official ordering app of one PickChick fried-chicken restaurant in Almaty, Kazakhstan. Customers browse the menu, customise combos, build a basket, pay with Kaspi.kz and collect the food at the restaurant counter (dine in or take away; no delivery). The app is available in Russian, Kazakh and English (Profile > Language).
+
+SIGN-IN FOR APP REVIEW
+1. Tap the profile icon (top right), then "With your phone number".
+2. Enter the 10 digits from the Username field (+7 is already shown) and tap Continue. Tapping Continue accepts the terms.
+3. On the code screen enter the 4-digit code from the Password field.
+4. On "Let's get to know you" tap Done. The name and the other fields are optional.
+No SMS, Telegram or WhatsApp message is needed for this review number. Regular customers receive their code in Telegram or WhatsApp. Sign-in is by phone number only; there is no third-party or social login. The menu, the basket and the mini-games (Events tab) also work without signing in.
+
+WHAT THE REVIEW ACCOUNT CAN DO
+Browse the full menu, open dishes, customise combos, add and change items in the basket, see the total, open the payment step, view Orders, play the mini-games, edit the profile and delete the account.
+
+WHY REAL ORDERS ARE TURNED OFF FOR THE REVIEW ACCOUNT
+Every real order goes to the kitchen of a working restaurant and creates a real Kaspi.kz bank invoice, and Kaspi.kz payment needs a Kaspi.kz account in Kazakhstan. So ordering is turned off for the review account: on the payment step the app says so and offers "How ordering works". Nothing is sent to the kitchen or the bank.
+To see the whole order journey without payment, tap "How ordering works" there, or add any dish to the basket and open Profile > Settings (gear icon) > "How ordering works". It uses the items in your basket and shows every stage: payment, preparation, ready, collection.
+
+PAYMENT
+Payment is by Kaspi.kz only, the main payment app in Kazakhstan. The customer swipes to pay, receives an invoice in the Kaspi.kz app and confirms it there; the app then shows the order status. The app sells food (physical goods consumed outside the app), so In-App Purchase does not apply (Guideline 3.1.3(e)). There are no digital goods or subscriptions. Prices are the restaurant's current menu prices.
+
+OPENING HOURS
+The restaurant takes orders from 10:00 to 00:00 Almaty time (UTC+5), which is 05:00-19:00 UTC / 22:00 on the previous day to 12:00 (PDT, UTC-7, for 29 October 2026) Pacific time. Outside these hours the app shows "Opening at 10:00" and the pay button reads "Closed for now"; the menu, basket, demonstration, games and profile keep working.
+
+ACCOUNT DELETION
+Profile > Manage data > Delete account. The app confirms "Account deleted". The review number can sign in again afterwards and gets a new, empty profile.
