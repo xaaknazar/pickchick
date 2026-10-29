@@ -30,6 +30,8 @@ export const SLIDE_COMPLETE_RATIO = 0.85;
  * only after the finger went back below this share, so jitter at the threshold does not buzz.
  */
 export const SLIDE_DISARM_RATIO = 0.75;
+/** While the finger pulls, forwards or back, a light click every twelfth of the track (29.10). */
+export const SLIDE_TICKS = 12;
 const HINT_MS = 1400;
 const RESET_MS = 700;
 /**
@@ -133,6 +135,7 @@ export function KaspiSlideToPay({
   const done = useSharedValue(false);
   const dragging = useSharedValue(false);
   const armed = useSharedValue(false);
+  const notch = useSharedValue(0);
   const originX = useSharedValue(0);
   const timers = useRef<{
     hint?: ReturnType<typeof setTimeout>;
@@ -172,7 +175,6 @@ export function KaspiSlideToPay({
   actions.current = { onComplete, onOpenCheckout };
   const complete = useCallback(() => {
     if (!mounted.current) return;
-    haptic('pay');
     actions.current.onComplete();
     clearTimeout(timers.current.reset);
     // The cart sheet opens over the bar; the pill returns to its width underneath it.
@@ -198,20 +200,26 @@ export function KaspiSlideToPay({
         dragging.value = true;
         armed.value = false;
         cancelAnimation(x);
+        notch.value = limit.value > 0 ? Math.floor((x.value / limit.value) * SLIDE_TICKS) : 0;
         runOnJS(startDrag)();
       })
       .onUpdate((event) => {
         if (done.value) return;
         // The pill's right end follows the finger horizontally, clamped to the bar.
         x.value = Math.min(limit.value, Math.max(0, event.absoluteX - originX.value));
-        // One firm tap where letting go starts the payment; again only after going back.
         if (limit.value <= 0) return;
+        // A light click at every twelfth of the track, forwards and back, and one firm tap
+        // (instead of the click) where letting go starts the payment; again only after going back.
+        const step = Math.min(SLIDE_TICKS, Math.floor((x.value / limit.value) * SLIDE_TICKS));
+        const moved = step !== notch.value;
+        notch.value = step;
         if (!armed.value && x.value >= limit.value * SLIDE_COMPLETE_RATIO) {
           armed.value = true;
           runOnJS(haptic)('armed');
-        } else if (armed.value && x.value < limit.value * SLIDE_DISARM_RATIO) {
-          armed.value = false;
+          return;
         }
+        if (armed.value && x.value < limit.value * SLIDE_DISARM_RATIO) armed.value = false;
+        if (moved) runOnJS(haptic)('tick');
       })
       .onEnd((_event, success) => {
         if (done.value) return;
@@ -249,6 +257,7 @@ export function KaspiSlideToPay({
     done,
     dragging,
     armed,
+    notch,
     originX,
     startDrag,
     cancelDrag,
