@@ -19,6 +19,11 @@ Workspace build/typecheck, ESLint, Prettier и переводы PASS.
 Полная Foundation CI, архив, TestFlight и физическая приёмка пока не подтверждены.
 Первый workspace typecheck потребовал сборки зависимостей; повтор после build.
 
+CI run40873334637: account suite превысила лимит 25 минут после добавления
+двух обходов магазина. Новые проверки выделены в обязательную
+foundation_storefront; общий gate требует успеха всех шести foundation suites.
+Покрытие сохранено, приложение не менялось. Новый полный прогон обязателен.
+
 ## Прод: только чтение
 
 - GET availability: enabled=true, orderingOpen=true, часы 10:00-00:00 Asia/Almaty.

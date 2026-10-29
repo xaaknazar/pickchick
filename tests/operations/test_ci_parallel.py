@@ -36,19 +36,27 @@ class ParallelCiTest(unittest.TestCase):
         self.assertIn('if: always()', gate)
         self.assertIn('name: Build, contracts and PostgreSQL integration', gate)
         needs = re.search(r'needs:\s*\[(.*?)\]', gate, re.S).group(1).replace('\n', '').replace(' ', '').rstrip(',').split(',')
-        self.assertEqual(len(needs), 5)
+        self.assertEqual(len(needs), 6)
+        self.assertIn('foundation_storefront', needs)
         for name in needs:
             self.assertIn('\n  ' + name + ':\n', WORKFLOW)
         source = gate.split("python3 - <<'PYTHON'\n", 1)[1].split('          PYTHON', 1)[0]
         source = '\n'.join(line[10:] for line in source.splitlines())
         for status in ['success', 'failure', 'skipped', 'cancelled']:
-            result = subprocess.run(['python3', '-c', source], env={'RESULTS': json.dumps(['success'] * 4 + [status])}, capture_output=True)
+            result = subprocess.run(['python3', '-c', source], env={'RESULTS': json.dumps(['success'] * (len(needs) - 1) + [status])}, capture_output=True)
             self.assertEqual(result.returncode == 0, status == 'success', status)
 
     def test_isolated_runners_and_local_infrastructure(self):
         for block in WORKFLOW.split('\n  foundation_')[1:]:
             block = block.split('\n  verify:', 1)[0]
             self.assertIn('runs-on: ubuntu-24.04', block)
+            if block.startswith('storefront:'):
+                self.assertNotIn('pnpm infra:up', block)
+                self.assertEqual(block.count('tests/mobile/browser_store_walk.py'), 2)
+                self.assertEqual(block.count('tests/mobile/browser_review_account.py'), 2)
+                self.assertEqual(block.count('tests/mobile/browser_upcoming_payments.py'), 1)
+                self.assertIn('trap ', block)
+                continue
             self.assertIn('cp .env.example .env', block)
             self.assertIn('pnpm infra:up', block)
             self.assertIn('if: always()', block)
