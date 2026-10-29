@@ -92,13 +92,16 @@ def checked_photo_url(value):
     return f"https://{host}" + (f":{port}" if port else "")
 
 
-def kiosk_profile_flags(feature_profile, photo_url, release_id):
+def kiosk_profile_flags(feature_profile, photo_url, release_id, review_digest=None):
     """Exact public values of a kiosk archive (commercial controller, API, photo, release id)."""
     if feature_profile not in KIOSK_API_URLS:
         fail("Kiosk archives require --feature-profile kiosk-production or kiosk-staging.")
     if not re.fullmatch(r"pk-[0-9a-f]{16}", release_id or ""):
         fail("Kiosk release id is invalid.")
+    if review_digest is not None and not re.fullmatch(r"[a-f0-9]{64}", review_digest):
+        fail("Invalid review code verifier.")
     return {
+        **({"EXPO_PUBLIC_KIOSK_REVIEW_CODE_SHA256": review_digest} if review_digest else {}),
         "EXPO_PUBLIC_KIOSK_COMMERCIAL": "1",
         "EXPO_PUBLIC_KIOSK_BUILD_PROFILE":
             "production" if feature_profile == "kiosk-production" else "staging",
@@ -107,6 +110,31 @@ def kiosk_profile_flags(feature_profile, photo_url, release_id):
         "EXPO_PUBLIC_KIOSK_PHOTO_MAC_PREVIEW": "0",
         "EXPO_PUBLIC_KIOSK_RELEASE_ID": release_id,
     }
+
+
+def read_review_verifier(value):
+    path = private_file(value, "review verifier")
+    try:
+        data = json.loads(path.read_text())
+        digest = data.get("sha256")
+        if data.get("purpose") != "pickchick-kiosk-review-v1" or not re.fullmatch(r"[a-f0-9]{64}", digest or ""):
+            raise ValueError()
+    except (ValueError, AttributeError):
+        fail("Invalid private review verifier file.")
+    return digest
+
+
+def checked_review_distribution(metadata):
+    review = metadata.get("kioskAppReview", False)
+    if type(review) is not bool:
+        fail("Invalid kiosk distribution metadata.")
+    if review and (APP_DIRECTORY != "kiosk" or metadata.get("featureProfile") != "kiosk-production"
+                   or metadata.get("testFlightInternalTestingOnly") is not False
+                   or not re.fullmatch(r"[a-f0-9]{64}", (metadata.get("embeddedPublicEnv") or {}).get("EXPO_PUBLIC_KIOSK_REVIEW_CODE_SHA256", ""))):
+        fail("App Review metadata requires the verified production kiosk demo.")
+    if APP_DIRECTORY == "kiosk" and not review and metadata.get("testFlightInternalTestingOnly", True) is not True:
+        fail("Kiosk internal-only metadata changed without an App Review candidate.")
+    return review
 
 
 def verify_kiosk_bundle(app, flags):
@@ -118,6 +146,9 @@ def verify_kiosk_bundle(app, flags):
         "photo printer origin": flags["EXPO_PUBLIC_KIOSK_PHOTO_URL"].encode(),
         "API origin": flags["EXPO_PUBLIC_KIOSK_API_URL"].encode(),
     }
+    if flags.get("EXPO_PUBLIC_KIOSK_REVIEW_CODE_SHA256"):
+        required["review code verifier"] = flags["EXPO_PUBLIC_KIOSK_REVIEW_CODE_SHA256"].encode()
+        required["isolated demo"] = b"PICKCHICK-DEMO-NOT-PAYABLE"
     missing = [label for label, value in required.items() if value not in bundle]
     if missing:
         fail("The kiosk bundle does not contain the pinned release values: " + ", ".join(missing)
@@ -490,7 +521,7 @@ def archive_environment(feature_profile, source=None, kiosk_flags=None):
     """Pin the JS bundle switches independently of the invoking shell and dotenv."""
     flags = kiosk_flags if feature_profile in KIOSK_PROFILES else feature_profile_flags(feature_profile)
     if feature_profile in KIOSK_PROFILES and (
-            not kiosk_flags or tuple(sorted(kiosk_flags)) != tuple(sorted(KIOSK_FLAG_KEYS))):
+            not kiosk_flags or set(kiosk_flags) not in (set(KIOSK_FLAG_KEYS), set(KIOSK_FLAG_KEYS) | {"EXPO_PUBLIC_KIOSK_REVIEW_CODE_SHA256"})):
         fail("Kiosk archives require their exact pinned public values.")
     if flags is None:
         return None
@@ -498,6 +529,7 @@ def archive_environment(feature_profile, source=None, kiosk_flags=None):
     if "EXPO_NO_CLIENT_ENV_VARS" in source:
         fail("EXPO_NO_CLIENT_ENV_VARS prevents the pilot flags from reaching the JS bundle.")
     env = dict(source)
+    env.pop("EXPO_PUBLIC_KIOSK_REVIEW_CODE_SHA256", None)
     # The backend is part of the profile: no shell override of the API host reaches an archive.
     env.pop("EXPO_PUBLIC_API_URL", None)
     if feature_profile not in KIOSK_PROFILES:
@@ -528,7 +560,8 @@ def verify_feature_profile(metadata, requested):
     if archived in KIOSK_PROFILES:
         embedded = metadata.get("embeddedPublicEnv") or {}
         expected = kiosk_profile_flags(archived, embedded.get("EXPO_PUBLIC_KIOSK_PHOTO_URL"),
-                                       embedded.get("EXPO_PUBLIC_KIOSK_RELEASE_ID"))
+                                       embedded.get("EXPO_PUBLIC_KIOSK_RELEASE_ID"),
+                                       embedded.get("EXPO_PUBLIC_KIOSK_REVIEW_CODE_SHA256"))
         if embedded != expected or metadata.get("kioskBundleVerified") is not True:
             fail(f"The archived {archived} kiosk values are missing, differ or were not verified.")
         return
@@ -549,7 +582,7 @@ def run_xcode(command, log, env=None):
         fail(f"Xcode exited with {result.returncode}. Review the private local log: {log}")
 
 
-def export_options(destination, signing=None):
+def export_options(destination, signing=None, kiosk_app_review=False):
     options = {
         "method": "app-store-connect",
         "destination": destination,
@@ -561,7 +594,9 @@ def export_options(destination, signing=None):
     if signing:
         options.update(signingStyle="manual", signingCertificate=signing["identity"],
                        provisioningProfiles={BUNDLE: signing["profileUuid"]})
-    if INTERNAL_ONLY:
+    if kiosk_app_review and APP_DIRECTORY != "kiosk":
+        fail("Kiosk App Review distribution is kiosk-only.")
+    if INTERNAL_ONLY and not kiosk_app_review:
         options["testFlightInternalTestingOnly"] = True
     return options
 
@@ -601,6 +636,10 @@ def main():
                              "kiosk export/upload default to the archived profile")
     parser.add_argument("--kiosk-photo-url",
                         help="HTTPS origin of the restaurant photo printer service (kiosk archive)")
+    parser.add_argument("--kiosk-app-review", action="store_true",
+                        help="Archive a kiosk candidate eligible for App Review; no submission")
+    parser.add_argument("--kiosk-review-verifier-file",
+                        help="Private JSON verifier prepared with kiosk-review-code.py")
     parser.add_argument("--workspace")
     parser.add_argument("--scheme")
     parser.add_argument("--release", default="first-testflight")
@@ -626,6 +665,12 @@ def main():
         fail("New kiosk archives require --feature-profile kiosk-production or kiosk-staging.")
     if args.kiosk_photo_url and not (args.app == "kiosk" and args.phase == "archive"):
         fail("--kiosk-photo-url applies only to a kiosk archive.")
+    if args.kiosk_app_review and not (args.app == "kiosk" and args.phase == "archive"
+                                      and args.feature_profile == "kiosk-production"
+                                      and args.kiosk_review_verifier_file):
+        fail("App Review requires a production kiosk archive and a private review verifier.")
+    if args.kiosk_review_verifier_file and not args.kiosk_app_review:
+        fail("The review verifier requires --kiosk-app-review.")
     args.workspace = args.workspace or str(ROOT / f"apps/{APP_DIRECTORY}/ios/{APP_TARGET}.xcworkspace")
     args.scheme = args.scheme or APP_TARGET
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", args.release):
@@ -661,7 +706,9 @@ def perform_phase(args, signing, artifacts):
 
     if args.phase == "archive":
         kiosk_flags = (kiosk_profile_flags(args.feature_profile, args.kiosk_photo_url,
-                                           "pk-" + secrets.token_hex(8))
+                                           "pk-" + secrets.token_hex(8),
+                                           read_review_verifier(args.kiosk_review_verifier_file)
+                                           if getattr(args, "kiosk_app_review", False) else None)
                        if APP_DIRECTORY == "kiosk" else None)
         bundle_env = archive_environment(args.feature_profile, kiosk_flags=kiosk_flags)
         if bundle_env is None:
@@ -702,7 +749,8 @@ def perform_phase(args, signing, artifacts):
                         "team": TEAM, "bundleIdentifier": BUNDLE, "apiUrl": api_url,
                         "environment": environment,
                         "supportUrl": (bundle_env or {}).get("EXPO_PUBLIC_SUPPORT_URL") or None,
-                        "app": APP_DIRECTORY, "testFlightInternalTestingOnly": INTERNAL_ONLY,
+                        "app": APP_DIRECTORY, "testFlightInternalTestingOnly": INTERNAL_ONLY and not getattr(args, "kiosk_app_review", False),
+                        "kioskAppReview": getattr(args, "kiosk_app_review", False),
                         "version": version, "build": build,
                         "featureProfile": canonical_profile(args.feature_profile),
                         "embeddedPublicEnv": (kiosk_flags or feature_profile_flags(args.feature_profile)
@@ -749,9 +797,10 @@ def perform_phase(args, signing, artifacts):
             fail("Upload requires --asc-app-id from the verified separate PickChick app record.")
         if metadata.get("deliveryStatus") == "submitted":
             fail("This release was already submitted. Verify processing in App Store Connect.")
+    kiosk_app_review = checked_review_distribution(metadata)
     destination = "export" if args.phase == "export" else "upload"
     plist = output / f"ExportOptions-{destination}.plist"
-    plist.write_bytes(plistlib.dumps(export_options(destination, signing)))
+    plist.write_bytes(plistlib.dumps(export_options(destination, signing, kiosk_app_review)))
     with temporary_search_list(signing, output), installed_profile(signing):
         run_xcode(export_command(signing, archive, output / destination, plist), output / f"{destination}.log")
     if signing:

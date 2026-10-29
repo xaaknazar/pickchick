@@ -36,8 +36,8 @@ const directionOf = (from: KioskStep, to: KioskStep): 'forward' | 'back' =>
     : flow.indexOf(to) >= 0 && flow.indexOf(to) < flow.indexOf(from)
       ? 'back'
       : 'forward';
-export function GuestScreen() {
-  const liveModel = useKioskController();
+export function GuestScreen({ onReviewExit }: { onReviewExit?: () => void }) {
+  const liveModel = useKioskController(onReviewExit);
   const [locale, setLocale] = useState<Locale>('ru');
   const [help, setHelp] = useState(false);
   const [cancel, setCancel] = useState(false);
@@ -208,7 +208,14 @@ export function GuestScreen() {
         screen = <ModeScreen model={model} context={context} />;
         break;
       case 'menu':
-        screen = <MenuScreen model={model} context={context} memory={menuMemory.current} />;
+        screen = (
+          <MenuScreen
+            model={model}
+            context={context}
+            memory={menuMemory.current}
+            review={!!onReviewExit}
+          />
+        );
         break;
       case 'product':
         screenKey = model.selectedProduct
@@ -222,7 +229,12 @@ export function GuestScreen() {
             context={context}
           />
         ) : (
-          <MenuScreen model={model} context={context} memory={menuMemory.current} />
+          <MenuScreen
+            model={model}
+            context={context}
+            memory={menuMemory.current}
+            review={!!onReviewExit}
+          />
         );
         break;
       case 'upsell':
@@ -237,6 +249,7 @@ export function GuestScreen() {
       case 'payment':
         screen = (
           <PaymentScreen
+            review={!!onReviewExit}
             model={model}
             context={context}
             onStartOver={() => {
@@ -274,7 +287,7 @@ export function GuestScreen() {
         {model.demo ? (
           <>
             <Heading size="title">{t.demoExitTitle}</Heading>
-            <Body>{t.demoExitBody}</Body>
+            <Body>{onReviewExit ? t.demoReceipt : t.demoExitBody}</Body>
             <Button
               label={t.demoTurnOff}
               testID="kiosk-demo-confirm"
