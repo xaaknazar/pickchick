@@ -180,8 +180,8 @@ export function CompletedOrderScreen({
                   ) : null}
                   <Row style={s.itemBottom}>
                     <Caption style={s.muted}>
-                      {localize(item.quantity)}
-                      {t('шт.')}
+                      {/* «1 pc», «2 pcs» with a space (review 29.10.2026: «1pcs»). */}
+                      {t(item.quantity === 1 ? '1 шт.' : '{p0} шт.', { p0: item.quantity })}
                     </Caption>
                     <Body style={s.itemAmount}>{localize(money(item.totalMinor))}</Body>
                   </Row>

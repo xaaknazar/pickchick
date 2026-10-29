@@ -9,7 +9,6 @@ import {
   checkoutError,
   orderingForbiddenCode,
 } from '../../apps/mobile/src/commerce-presentation.ts';
-import { checkoutReadError } from '../../apps/mobile/src/commerce-read-recovery.ts';
 import { guestCanOpen, requiresAccount } from '../../apps/mobile/src/account-access.ts';
 import { restaurantCountLabel } from '../../apps/mobile/src/restaurant-hours.ts';
 import { orderTimeLabel } from '../../apps/mobile/src/order-status.ts';
@@ -26,6 +25,8 @@ const messages = JSON.parse(
 const entry = (ru) => messages.find((message) => message.ru === ru);
 
 test('FORBIDDEN (the App Review account) reads as a true, neutral state in three languages', () => {
+  // A FORBIDDEN command or read (cart, «Заказы») reaches the customer only through checkoutError:
+  // this text and «Как проходит заказ»; there is no separate read-error wording (review 29.10.2026).
   assert.equal(checkoutError(new Error('FORBIDDEN')), ORDERING_FORBIDDEN);
   assert.equal(checkoutError(new CustomerSessionError('FORBIDDEN', 403, true)), ORDERING_FORBIDDEN);
   const copy = entry(ORDERING_FORBIDDEN);
@@ -35,10 +36,6 @@ test('FORBIDDEN (the App Review account) reads as a true, neutral state in three
   );
   assert.ok(copy.kk && !/әлі|әзірге/.test(copy.kk), copy.kk);
   assert.equal(entry(ORDERING_FORBIDDEN_DEMO).en, 'How ordering works');
-  // The read path says the same without «пока» / «yet».
-  const read = checkoutReadError(new Error('FORBIDDEN'), false);
-  assert.equal(read, 'Для этого аккаунта оформление заказов выключено. Корзина сохранена.');
-  assert.doesNotMatch(entry(read).en, /\byet\b/i);
   assert.equal(orderingForbiddenCode(new Error('FORBIDDEN')), true);
   assert.equal(orderingForbiddenCode(new Error('UNAUTHORIZED')), false);
 });

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { testCompleteCatalog } from '@pickchick/test-order-flow/complete-catalog';
 import { setAppLocale } from '../../apps/mobile/src/i18n/core.ts';
 import {
+  CLOCK_SKEW_MINUTES,
   PAYMENT_AVAILABLE,
   bannerAnnouncement,
   checkoutEnabledFor,
@@ -213,6 +214,28 @@ test('server «closed» against a phone clock that still reads open: the nearer 
     paymentStopMessage(decide({ hours: day, now: almaty('20:59'), status: 'closed' }).stop),
     'откроемся завтра в 09:00',
   );
+});
+
+test('server «closed» inside its hours, away from a boundary: a pause, no opening promised', () => {
+  // Review 29.10.2026: orderingOpen false at 15:30 Almaty read as clock skew, so the header and
+  // the cart said «откроемся в 10:00» in the afternoon while «Рестораны» said open until 00:00.
+  for (const clock of ['10:16', '15:30', '23:44'])
+    assert.deepEqual(
+      decide({ now: almaty(clock), status: 'closed' }).stop,
+      { kind: 'switched_off' },
+      clock,
+    );
+  const paused = decide({ now: almaty('15:30'), status: 'closed' });
+  assert.equal(paymentStopMessage(paused.stop), 'Оплата временно недоступна');
+  assert.equal(paymentStopLabel(paused.stop), 'Оплата недоступна');
+  // Within CLOCK_SKEW_MINUTES of a boundary it is still the clocks disagreeing.
+  assert.equal(CLOCK_SKEW_MINUTES, 15);
+  for (const clock of ['10:00:01', '10:15', '23:45', '23:59'])
+    assert.deepEqual(
+      decide({ now: almaty(clock), status: 'closed' }).stop,
+      { kind: 'closed', opensAt: '10:00', opensTomorrow: false },
+      clock,
+    );
 });
 
 test('server switch, connection, freshness and the stop list each stop the payment', () => {

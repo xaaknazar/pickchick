@@ -670,11 +670,12 @@ export function PhotoProduct(props: Props) {
                 onPress={() => setPickerVisible(false)}
               />
               <Text style={s.modalTitle}>
-                {localize(picker.group.id === 'drink' ? 'Напиток' : 'Соус')}{' '}
-                {localize(picker.index + 1)}
-                {t('из')}
-                {localize(' ')}
-                {localize(picker.group.min)}
+                {/* One sentence, like the slot row: «Напиток 1 из 1», not «1из 1» (review 29.10). */}
+                {t('{p0} {p1} из {p2}', {
+                  p0: localize(picker.group.id === 'drink' ? 'Напиток' : 'Соус'),
+                  p1: picker.index + 1,
+                  p2: picker.group.min,
+                })}
               </Text>
             </Row>
             <ScrollView contentContainerStyle={s.grid} showsVerticalScrollIndicator={false}>
@@ -694,9 +695,8 @@ export function PhotoProduct(props: Props) {
                     key={option.id}
                     testID={`photo-option-${option.id}`}
                     accessibilityRole="radio"
-                    accessibilityLabel={localize(
-                      `${option.label}, ${option.price_delta_minor === '0' ? 'без доплаты' : '+' + money(option.price_delta_minor)}`,
-                    )}
+                    // Each part in the app language (review 29.10.2026: «…, без доплаты» in English).
+                    accessibilityLabel={`${localize(option.label)}, ${option.price_delta_minor === '0' ? t('без доплаты') : '+' + money(option.price_delta_minor)}`}
                     accessibilityState={{ checked: chosen, disabled: unavailable }}
                     aria-checked={chosen}
                     disabled={unavailable}

@@ -420,30 +420,6 @@
     "context": "apps/mobile/src/commerce-presentation.ts:84"
   },
   {
-    "ru": "Ресторан сейчас закрыт. Корзина сохранена - оформите заказ в часы работы.",
-    "kk": "Мейрамхана қазір жабық. Себет сақталды - жұмыс уақытында тапсырыс беріңіз.",
-    "en": "The restaurant is closed. Your basket is saved - order during opening hours.",
-    "context": "apps/mobile/src/commerce-read-recovery.ts:67"
-  },
-  {
-    "ru": "Войдите в аккаунт снова, чтобы продолжить.",
-    "kk": "Жалғастыру үшін аккаунтыңызға қайта кіріңіз.",
-    "en": "Sign in again to continue.",
-    "context": "apps/mobile/src/commerce-read-recovery.ts:68"
-  },
-  {
-    "ru": "Для этого аккаунта оформление заказов выключено. Корзина сохранена.",
-    "kk": "Бұл аккаунт үшін тапсырыс беру өшірілген. Себет сақталды.",
-    "en": "Ordering is turned off for this account. Your basket is saved.",
-    "context": "apps/mobile/src/commerce-read-recovery.ts:70"
-  },
-  {
-    "ru": "Ресторан сейчас не принимает заказы. Корзина сохранена.",
-    "kk": "Мейрамхана қазір тапсырыс қабылдамайды. Себет сақталды.",
-    "en": "The restaurant is not taking orders right now. Your basket is saved.",
-    "context": "apps/mobile/src/commerce-read-recovery.ts:71"
-  },
-  {
     "ru": "Проверяем связь автоматически.",
     "kk": "Байланысты автоматты түрде тексеріп жатырмыз.",
     "en": "Checking the connection automatically.",
@@ -4134,12 +4110,6 @@
     "context": "apps/mobile/src/screens/CompletedOrderScreen.tsx:128"
   },
   {
-    "ru": "шт.",
-    "kk": "дана",
-    "en": "pcs",
-    "context": "apps/mobile/src/screens/CompletedOrderScreen.tsx:168"
-  },
-  {
     "ru": "Ваш комментарий к заказу",
     "kk": "Тапсырысқа жазған түсініктемеңіз",
     "en": "Your order note",
@@ -5466,6 +5436,12 @@
     "context": "apps/mobile/src/screens/OrderStatusScreen.tsx:132"
   },
   {
+    "ru": "Заказ выдан. Спасибо, что выбрали PickChick",
+    "kk": "Тапсырыс берілді. PickChick-ті таңдағаныңызға рақмет",
+    "en": "Order collected. Thanks for choosing PickChick",
+    "context": "apps/mobile/src/screens/OrderStatusScreen.tsx"
+  },
+  {
     "ru": "Если нужна помощь, напишите нам",
     "kk": "Көмек керек болса, бізге жазыңыз",
     "en": "Message us if you need help",
@@ -5638,12 +5614,6 @@
     "kk": "Таңдалды",
     "en": "Selected",
     "context": "apps/mobile/src/screens/PhotoProduct.tsx:381"
-  },
-  {
-    "ru": "из",
-    "kk": "ішінен",
-    "en": "of",
-    "context": "apps/mobile/src/screens/PhotoProduct.tsx:382"
   },
   {
     "ru": "Временно нет",
@@ -6054,6 +6024,12 @@
     "context": "apps/mobile/src/screens/ProfileScreen.tsx:252"
   },
   {
+    "ru": "Сообщения о ваших заказах",
+    "kk": "Тапсырыстарыңыз туралы хабарлар",
+    "en": "Messages about your orders",
+    "context": "apps/mobile/src/screens/ProfileScreen.tsx"
+  },
+  {
     "ru": "Язык",
     "kk": "Тіл",
     "en": "Language",
@@ -6156,9 +6132,9 @@
     "context": "apps/mobile/src/screens/ProfileScreens.tsx:67"
   },
   {
-    "ru": "Не оплачивайте тот же заказ повторно",
-    "kk": "Бір тапсырысты қайта төлемеңіз",
-    "en": "Do not pay for the same order again",
+    "ru": "Статус оплаты каждого заказа - в «Заказах». Не оплачивайте заказ повторно.",
+    "kk": "Әр тапсырыстың төлем күйі - «Тапсырыстар» бөлімінде. Тапсырысты қайта төлемеңіз.",
+    "en": "Each order's payment status is in Orders. Do not pay for an order twice.",
     "context": "apps/mobile/src/screens/ProfileScreens.tsx:68"
   },
   {
@@ -6258,9 +6234,9 @@
     "context": "apps/mobile/src/screens/ProfileScreens.tsx:175"
   },
   {
-    "ru": "Профиля на устройстве нет. Регистрация с настоящей SMS готовится.",
-    "kk": "Құрылғыда профиль жоқ. Нақты SMS арқылы тіркелу дайындалып жатыр.",
-    "en": "There is no profile on this device. Registration with real SMS is being prepared.",
+    "ru": "Профиля на устройстве нет.",
+    "kk": "Құрылғыда профиль жоқ.",
+    "en": "There is no profile on this device.",
     "context": "apps/mobile/src/screens/ProfileScreens.tsx:176"
   },
   {
@@ -6858,18 +6834,6 @@
     "en": "The restaurant is closed. We take orders from {p0} to {p1}."
   },
   {
-    "ru": "Не удалось загрузить заказы. {p0}",
-    "context": "apps/mobile/src/commerce-read-recovery.ts:74",
-    "kk": "Тапсырыстарды жүктеу мүмкін болмады. {p0}",
-    "en": "Could not load orders. {p0}"
-  },
-  {
-    "ru": "Не удалось загрузить оформление. Корзина сохранена. {p0}",
-    "context": "apps/mobile/src/commerce-read-recovery.ts:75",
-    "kk": "Тапсырысты рәсімдеуді жүктеу мүмкін болмады. Себет сақталды. {p0}",
-    "en": "Could not load checkout. Your basket is saved. {p0}"
-  },
-  {
     "ru": "Добавить {p0}, {p1}",
     "context": "apps/mobile/src/components/CartExtras.tsx:63",
     "kk": "{p0} қосу, {p1}",
@@ -6892,6 +6856,12 @@
     "context": "apps/mobile/src/components/CartShortcut.tsx:248",
     "kk": "Себет: {p0} позиция, {p1}",
     "en": "Basket: {p0} items, {p1}"
+  },
+  {
+    "ru": "Корзина, 1 позиция, {p1}",
+    "kk": "Себет: 1 позиция, {p1}",
+    "en": "Basket: 1 item, {p1}",
+    "context": "apps/mobile/src/components/CartShortcut.tsx"
   },
   {
     "ru": "{p0}, скоро",
@@ -7134,6 +7104,12 @@
     "en": "{p0} pcs"
   },
   {
+    "ru": "1 шт.",
+    "kk": "1 дана",
+    "en": "1 pc",
+    "context": "apps/mobile/src/screens/CompletedOrderScreen.tsx"
+  },
+  {
     "ru": "Сейчас · {p0}",
     "context": "apps/mobile/src/orders-tab.ts:190",
     "kk": "Қазір · {p0}",
@@ -7210,6 +7186,12 @@
     "context": "apps/mobile/src/screens/CatalogScreens.tsx:940",
     "kk": "Тағамдар · {p0} дана",
     "en": "Dishes · {p0} pcs"
+  },
+  {
+    "ru": "Блюда · 1 шт.",
+    "kk": "Тағамдар · 1 дана",
+    "en": "Dishes · 1 pc",
+    "context": "apps/mobile/src/screens/CatalogScreens.tsx"
   },
   {
     "ru": "{p0} мин",
@@ -8202,6 +8184,12 @@
     "ru": "{p0} поз. · {p1}",
     "kk": "{p0} позиция · {p1}",
     "en": "{p0} items · {p1}"
+  },
+  {
+    "ru": "1 поз. · {p1}",
+    "kk": "1 позиция · {p1}",
+    "en": "1 item · {p1}",
+    "context": "apps/mobile/src/screens/OrderStatusScreen.tsx"
   },
   {
     "ru": "Ходы: {p0}",

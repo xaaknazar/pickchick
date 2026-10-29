@@ -1,4 +1,4 @@
-import { localize, t, useLocale } from '../../i18n';
+import { getLocale, localize, t, useLocale } from '../../i18n';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import {
@@ -32,15 +32,20 @@ const colorNames: Record<Color, string> = {
 function moves(count: number): string {
   const tens = count % 100,
     ones = count % 10;
+  // Russian has three forms; English says «1 move», «21 moves» (review 29.10.2026).
   const word =
-    tens >= 11 && tens <= 14
-      ? 'ходов'
-      : ones === 1
+    getLocale() === 'en'
+      ? count === 1
         ? 'ход'
-        : ones >= 2 && ones <= 4
-          ? 'хода'
-          : 'ходов';
-  return `${count} ${word}`;
+        : 'ходов'
+      : tens >= 11 && tens <= 14
+        ? 'ходов'
+        : ones === 1
+          ? 'ход'
+          : ones >= 2 && ones <= 4
+            ? 'хода'
+            : 'ходов';
+  return `${count} ${t(word)}`;
 }
 function Prop({ kind, width, height }: { kind: 'shelf' | 'cork'; width: number; height: number }) {
   useLocale();
@@ -465,15 +470,14 @@ export function MagicSortScreen() {
                   key={index}
                   testID={`magic-sort-bottle-${index}`}
                   accessibilityRole="button"
-                  accessibilityLabel={localize(
-                    t('Бутылка {p0}: {p1}{p2}', {
-                      p0: index + 1,
-                      p1: colors.length
-                        ? colors.map((color) => colorNames[color]).join(', ')
-                        : 'пустая',
-                      p2: isSealed(colors) ? ', закрыта' : '',
-                    }),
-                  )}
+                  // Colours, «пустая» and «закрыта» in the app language too (review 29.10.2026).
+                  accessibilityLabel={t('Бутылка {p0}: {p1}{p2}', {
+                    p0: index + 1,
+                    p1: colors.length
+                      ? colors.map((color) => t(colorNames[color])).join(', ')
+                      : t('пустая'),
+                    p2: isSealed(colors) ? t(', закрыта') : '',
+                  })}
                   accessibilityState={{
                     selected,
                     disabled: !!model.pending || model.paused || isSealed(colors),

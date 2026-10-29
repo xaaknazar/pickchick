@@ -92,8 +92,7 @@ function OrderLines({ order }: { order: TestOrder }) {
           <Row style={{ alignItems: 'flex-start' }}>
             <Body style={[orderUI.label, ui.flex]}>{localize(line.name)}</Body>
             <Body style={orderUI.label}>
-              {localize(line.quantity)}
-              {t('шт.')}
+              {t(line.quantity === 1 ? '1 шт.' : '{p0} шт.', { p0: line.quantity })}
             </Body>
           </Row>
           {'selections' in line && line.selections.length ? (

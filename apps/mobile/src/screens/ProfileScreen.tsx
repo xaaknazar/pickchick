@@ -28,6 +28,7 @@ function ProfileRow({
   last = false,
   count = 0,
   accessibilityLabel,
+  trailing,
 }: {
   title: string;
   icon: IconName;
@@ -38,6 +39,8 @@ function ProfileRow({
   /** Unread counter shown inside the row (notifications); hidden at zero. */
   count?: number;
   accessibilityLabel?: string;
+  /** Shown instead of the chevron on a row without an action (only the hidden «Промокоды»). */
+  trailing?: ReactNode;
 }) {
   useLocale();
   return (
@@ -64,11 +67,7 @@ function ProfileRow({
           </Text>
         </View>
       ) : null}
-      {onPress ? (
-        <Icon name="chevron-forward" size={17} color={colors.muted} />
-      ) : (
-        <Text style={s.soon}>{t('Скоро')}</Text>
-      )}
+      {onPress ? <Icon name="chevron-forward" size={17} color={colors.muted} /> : trailing}
     </Pressable>
   );
 }
@@ -97,7 +96,9 @@ export function Profile(props: ScreenProps) {
     account.account?.profile.completedAt != null
       ? account.account.profile.nickname
       : account.account?.profile.nickname || props.model.nickname;
-  const name = savedNickname || 'Любитель хруста';
+  // An empty optional name (the first sign-in form allows «Готово» with nothing filled in) shows
+  // the default in the app language (App Review 29.10.2026: it was Russian on English screens).
+  const name = savedNickname || t('Любитель хруста');
   // Settings sits right under the header profile button: the second tap of a double tap that
   // opened this screen must not press it (or back) while the push is still running.
   const settled = useTapsSettled();
@@ -219,7 +220,12 @@ export function Profile(props: ScreenProps) {
           <ProfileRow
             title={t('Уведомления')}
             icon="notifications-outline"
-            value={t('Заказы и предложения для вас')}
+            // The App Store build has no offers in the inbox (no «Для вас» tab): only orders.
+            value={t(
+              upcomingFeaturesShown(undefined, props.preview)
+                ? 'Заказы и предложения для вас'
+                : 'Сообщения о ваших заказах',
+            )}
             testID="profile-notifications"
             count={unread}
             accessibilityLabel={
@@ -303,7 +309,12 @@ export function Profile(props: ScreenProps) {
                 icon="ribbon-outline"
                 onPress={() => props.navigate('M25')}
               />
-              <ProfileRow title={t('Промокоды')} icon="ticket-outline" last />
+              <ProfileRow
+                title={t('Промокоды')}
+                icon="ticket-outline"
+                last
+                trailing={<Text style={s.soon}>{t('Скоро')}</Text>}
+              />
             </Group>
           </>
         ) : null}

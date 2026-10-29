@@ -72,10 +72,14 @@ export function Support(props: ScreenProps) {
           onPress={() => props.navigate('M05')}
         />
       ) : null}
+      {/* Review 29.10.2026: it opened the payment screen (M14), which without a pending order is
+          the basket with «Оплатить» right under «do not pay again». «Заказы» shows whether each
+          order is paid. */}
       <NavRow
+        testID="support-payment-unclear"
         title={t('Неясен результат оплаты?')}
-        subtitle={t('Не оплачивайте тот же заказ повторно')}
-        onPress={() => props.navigate('M14')}
+        subtitle={t('Статус оплаты каждого заказа - в «Заказах». Не оплачивайте заказ повторно.')}
+        onPress={() => props.navigate('M19')}
       />
     </Page>
   );
@@ -203,7 +207,7 @@ export function DeleteAccount(props: ScreenProps) {
                 : 'Войдите по своему номеру, чтобы управлять аккаунтом.'
               : demo.account
                 ? 'Ваш профиль хранится на этом устройстве. Можно удалить номер, дату рождения и другие данные профиля; заказы этого устройства сохранятся.'
-                : 'Профиля на устройстве нет. Регистрация с настоящей SMS готовится.',
+                : 'Профиля на устройстве нет.',
           )}
         </Body>
         <Button

@@ -100,13 +100,19 @@ export function unavailableCartNames(cart: readonly CartLine[]): string[] {
   return names;
 }
 
+/** How far a phone clock and the server's may plausibly disagree around a boundary (minutes). */
+export const CLOCK_SKEW_MINUTES = 15;
+
 /**
- * The server says closed while the phone's clock still reads its published hours as open: the two
- * clocks disagree by a little. Nearer the opening (a phone a little ahead, or the opening minute
- * before the server confirms it) the restaurant opens at today's opening time; nearer the closing
- * (a phone a little behind) the restaurant has just closed, so the next opening is read at the
- * closing minute: «завтра» for same-day hours like 09:00-21:00, the same day for 10:00-00:00.
- * Hours open around the clock (or unreadable) give no time.
+ * The server says closed while the phone's clock still reads its published hours as open. Within
+ * CLOCK_SKEW_MINUTES of a boundary the two clocks disagree by a little: nearer the opening (a
+ * phone a little ahead, or the opening minute before the server confirms it) the restaurant opens
+ * at today's opening time; nearer the closing (a phone a little behind) the restaurant has just
+ * closed, so the next opening is read at the closing minute: «завтра» for same-day hours like
+ * 09:00-21:00, the same day for 10:00-00:00. Further inside its hours the server has paused
+ * ordering (review 29.10.2026: at 15:30 the header said «откроемся в 10:00» while «Рестораны»
+ * said «Открыто до 00:00»): payment is unavailable, with no opening time to promise. Hours open
+ * around the clock (or unreadable) give no time.
  */
 function serverClosedStop(input: Pick<PaymentAvailabilityInput, 'hours' | 'now'>): PaymentStop {
   const hours = input.hours;
@@ -118,8 +124,12 @@ function serverClosedStop(input: Pick<PaymentAvailabilityInput, 'hours' | 'now'>
   const DAY = 24 * 60;
   const sinceOpening = minute === null ? 0 : (minute - opening + DAY) % DAY;
   const untilClosing = minute === null ? DAY : (closing - minute + DAY) % DAY;
-  if (sinceOpening <= untilClosing)
-    return { kind: 'closed', opensAt: hours.openingTime, opensTomorrow: false };
+  if (sinceOpening <= untilClosing) {
+    if (minute === null || sinceOpening <= CLOCK_SKEW_MINUTES)
+      return { kind: 'closed', opensAt: hours.openingTime, opensTomorrow: false };
+    return { kind: 'switched_off' };
+  }
+  if (untilClosing > CLOCK_SKEW_MINUTES) return { kind: 'switched_off' };
   const atClosing = hoursStatusAtMinute(hours.openingTime, hours.closingTime, closing);
   return atClosing && !atClosing.open
     ? { kind: 'closed', opensAt: atClosing.opensAt, opensTomorrow: atClosing.opensTomorrow }

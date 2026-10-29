@@ -44,6 +44,8 @@ import {
   useMinuteClock,
 } from '../components/Restaurants';
 import { restaurantCountLabel, restaurantHoursStatus } from '../restaurant-hours';
+import { restaurantHoursNow } from '../payment-availability';
+import { useRestaurantHoursNow } from '../usePaymentAvailability';
 import { colors, font, restaurantColors } from '../theme';
 import { HeroVideo, LoyaltyCard } from '../components/Brand';
 import { upcomingFeaturesShown } from '../store-build';
@@ -130,9 +132,18 @@ export function Branches(props: ScreenProps) {
   const now = useMinuteClock();
   const [mapError, setMapError] = useState(false);
   const loading = props.model.connection.status === 'loading';
+  // The selected restaurant reads the server's published hours and the header's «откроемся»,
+  // like the header itself, so the two never disagree (review 29.10.2026: the header said
+  // «откроемся в 10:00» while this screen said «Открыто до 00:00» from the bundled hours).
+  const header = useRestaurantHoursNow(props.model);
   const entries = props.model.branches.map((branch) => {
     const location = restaurantLocation(branch.id);
-    return { branch, location, status: restaurantHoursStatus(location, now) };
+    const status =
+      branch.id === props.model.branch?.id
+        ? (header.status ??
+          restaurantHoursNow({ published: props.model.availabilityHours, location, now }).status)
+        : restaurantHoursStatus(location, now);
+    return { branch, location, status };
   });
   const selected = entries.find((entry) => entry.branch.id === props.model.branch?.id);
   const closed = selected?.status?.open === false ? selected.status : null;
@@ -972,11 +983,10 @@ export function Cart(props: ScreenProps & { checkout?: CartCheckout }) {
                 {t('Детали')}
               </Heading>
               <SummaryRow
-                label={localize(
-                  t('Блюда · {p0} шт.', {
-                    p0: props.model.cart.reduce((sum, line) => sum + line.quantity, 0),
-                  }),
-                )}
+                label={(() => {
+                  const dishes = props.model.cart.reduce((sum, line) => sum + line.quantity, 0);
+                  return t(dishes === 1 ? 'Блюда · 1 шт.' : 'Блюда · {p0} шт.', { p0: dishes });
+                })()}
                 value={MinorMoney(total)}
               />
               <OrderTotal value={MinorMoney(total)} />
