@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-29",
+  "app": "PickChick",
+  "version": "0.2.0",
+  "build": "28",
+  "sourceSha": "43ae6b042d68755c8ae50c8c10d9c0c40ce1cf67",
+  "pullRequest": "https://github.com/xaaknazar/pickchick/pull/291",
+  "ci": {
+    "url": "https://github.com/xaaknazar/pickchick/actions/runs/40879127804",
+    "verified": true,
+    "sourceSha": "43ae6b042d68755c8ae50c8c10d9c0c40ce1cf67",
+    "successfulJobs": 11,
+    "jobs": [
+      {
+        "id": 123466262015,
+        "name": "Foundation static checks and transaction invariants",
+        "conclusion": "success",
+        "status": "completed",
+        "started_at": "2026-10-29T13:09:11Z",
+        "completed_at": "2026-10-29T13:53:42Z"
+      },
+      {
+        "id": 123466262316,
+        "name": "Foundation simulator browser regressions",
+        "conclusion": "success",
+        "status": "completed",
+        "started_at": "2026-10-29T13:09:11Z",
+        "completed_at": "2026-10-29T13:20:08Z"
+      },
+      {
+        "id": 123466262457,
+        "name": "Cloud-edge fulfillment transport and recovery",
+        "conclusion": "success",
+        "status": "completed",
+        "started_at": "2026-10-29T13:09:10Z",
+        "completed_at": "2026-10-29T13:17:37Z"
+      },
+      {
+        "id": 123466262497,
+        "name": "Foundation POS and backoffice integration",
+        "conclusion": "success",
+        "status": "completed",
+        "started_at": "2026-10-29T13:09:11Z",
+        "completed_at": "2026-10-29T13:20:39Z"
+      },
+      {
+        "id": 123466262529,
+        "name": "Local kitchen UI and recovery",
+        "conclusion": "success",
+        "status": "completed",
+        "started_at": "2026-10-29T13:09:10Z",
+        "completed_at": "2026-10-29T13:11:17Z"
+      },
+      {
+        "id": 123466262551,
+        "name": "Foundation server account and Kaspi fixtures",
+        "conclusion": "success",
+        "status": "completed",
+        "started_at": "2026-10-29T13:09:10Z",
+        "completed_at": "2026-10-29T13:26:55Z"
+      },
+      {
+        "id": 123466262552,
+        "name": "iPad kiosk state, bundles and browser recovery",
+        "conclusion": "success",
+        "status": "completed",
+        "started_at": "2026-10-29T13:09:10Z",
+        "completed_at": "2026-10-29T13:16:55Z"
+      },
+      {
+        "id": 123466262566,
+        "name": "Private staging image and restricted database role",
+        "conclusion": "success",
+        "status": "completed",
+        "started_at": "2026-10-29T13:09:14Z",
+        "completed_at": "2026-10-29T13:11:26Z"
+      },
+      {
+        "id": 123466262779,
+        "name": "Foundation mobile bundles and checkout recovery",
+        "conclusion": "success",
+        "status": "completed",
+        "started_at": "2026-10-29T13:09:11Z",
+        "completed_at": "2026-10-29T13:21:04Z"
+      },
+      {
+        "id": 123466262839,
+        "name": "Design screens and interaction smoke",
+        "conclusion": "success",
+        "status": "completed",
+        "started_at": "2026-10-29T13:09:10Z",
+        "completed_at": "2026-10-29T13:10:21Z"
+      },
+      {
+        "id": 123490311769,
+        "name": "Build, contracts and PostgreSQL integration",
+        "conclusion": "success",
+        "status": "completed",
+        "started_at": "2026-10-29T13:53:46Z",
+        "completed_at": "2026-10-29T13:53:49Z"
+      }
+    ]
+  },
+  "archive": {
+    "version": "0.2.0",
+    "build": "28",
+    "sourceSha": "43ae6b042d68755c8ae50c8c10d9c0c40ce1cf67",
+    "dirty": false,
+    "featureProfile": "storefront",
+    "embeddedPublicEnv": {
+      "EXPO_PUBLIC_CUSTOMER_AUTH": "server",
+      "EXPO_PUBLIC_KASPI_CHECKOUT": "1",
+      "EXPO_PUBLIC_ORDER_SIMULATOR": "0",
+      "EXPO_PUBLIC_UNPAID_TEST_ORDERS": "0",
+      "EXPO_PUBLIC_PUBLISHED_CATALOG": "1",
+      "EXPO_PUBLIC_PICK_FARM": "0"
+    },
+    "hapticsLinked": true,
+    "hapticsSymbol": "_TtC11ExpoHaptics13HapticsModule",
+    "strictSignatureVerified": true,
+    "bundleSha256": "e942beeb0c6762df6dae611867345168bad80fd146517b05dcd53b974e704b67",
+    "executableSha256": "00c5cc5d67b6d9a0e6e7e9dd64df9234d5f64b02e3a10a8bad06b3990595b19b",
+    "ipaSha256": "223f1e52a09b4173af827242c4dfa8c6070e8b223d281a6e8733aa5616c96dea",
+    "ipaBytes": 131638071,
+    "exportVerified": true
+  },
+  "readOnlyChecks": {
+    "date": "2026-10-29",
+    "availability": {
+      "enabled": true,
+      "orderingOpen": true,
+      "openingTime": "10:00",
+      "closingTime": "00:00",
+      "timeZone": "Asia/Almaty"
+    },
+    "publicNotificationsStatus": 404,
+    "publicComboStatus": 404,
+    "internalNotifications": {
+      "enabled": false,
+      "providers": []
+    },
+    "internalComboUnauthenticatedStatus": 401,
+    "installedComboProgramEnabled": false,
+    "installedMobileFiscalPolicy": "deferred_pilot",
+    "review": {
+      "enabled": true,
+      "preflightValidated": true,
+      "applied": false,
+      "existingCustomer": true,
+      "normalizedPrivatePhoneMatches": true,
+      "privateCodeMatches": true,
+      "nativeSignInVerified": false
+    },
+    "apple": {
+      "submission": "99775be3-3644-4d17-8e4f-ab4dfe3e53ca",
+      "status": "WAITING_FOR_REVIEW",
+      "version": "1.0",
+      "build": "23",
+      "releaseMode": "MANUAL",
+      "usernameHasCountryPrefix": true,
+      "contactAndPasswordFieldsPresent": true,
+      "notesUseOldSignInText": true,
+      "ruEnDescriptionContainsUnfinishedFeatures": false,
+      "firstVersionWhatsNewFieldPresent": false,
+      "screenshotMenuContainsChikiAndSoon": true,
+      "screenshotComboPrice": "90 KZT",
+      "changesApplied": false
+    }
+  },
+  "localChecks": {
+    "mobileNodePassed": 557,
+    "mobilePythonPassed": 59,
+    "storefrontScreenCount": 97,
+    "storefrontWalkPassed": true,
+    "reviewAccountFixturesPassed": true,
+    "slideScenarios": "A-Q PASS",
+    "workspaceBuildTypecheckLintFormatTranslationsPassed": true,
+    "roadmapPassed": 7,
+    "ciPartitionPassed": 5,
+    "releaseGuardsTests": 54,
+    "releaseGuardsSkips": 4,
+    "operationsMac": {
+      "tests": 568,
+      "failures": 2,
+      "errors": 4,
+      "skips": 14,
+      "affectedSuites": ["backup_offsite", "client_ip_gateway"]
+    }
+  },
+  "testFlight": {
+    "published": true,
+    "uploadSubmitted": true,
+    "groupAssignmentVerified": true,
+    "uploadWarning": "Missing hermesvm.framework dSYM; upload succeeded",
+    "immediateUploadRequestedByOwner": true,
+    "buildId": "ad423d88-4f63-4a24-a342-2c5de7be2fa1",
+    "group": "PickChick Internal",
+    "testers": 2,
+    "descriptionSaved": true,
+    "url": "https://appstoreconnect.apple.com/teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/apps/6809208492/testflight/ios/ad423d88-4f63-4a24-a342-2c5de7be2fa1"
+  },
+  "iphone": {
+    "buildInstalled": false,
+    "visualChecksPassed": false,
+    "physicalHapticsConfirmedByOwner": false,
+    "realKaspiPaymentPerformed": false,
+    "device": "iPhone 17 Pro Max",
+    "osVersion": "27.0.1",
+    "blocker": null,
+    "verificationHandedToOwner": true,
+    "ownerReportedGeneralFunctionalityWorking": true,
+    "ownerReportedKaspiPaymentsArrive": true,
+    "ownerReportedHapticsPresent": true,
+    "ownerRequestedStrongerHaptics": true,
+    "ownerReportedPickManFirstEntrySafeAreaBug": true
+  },
+  "appStoreModified": false,
+  "vpsModified": false,
+  "onlineRoadmapUpdated": false,
+  "mergeSha": "6c6fec0f77828e45f5c55bc4ea26b19b627504bc"
+}

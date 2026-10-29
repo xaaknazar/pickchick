@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-28",
+  "updatedAt": "2026-10-29",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -5208,6 +5208,18 @@
         {
           "label": "Протокол сборки 28",
           "path": "docs/operations/mobile-testflight28.md"
+        },
+        {
+          "label": "PR291: исходники сборки 28",
+          "url": "https://github.com/xaaknazar/pickchick/pull/291"
+        },
+        {
+          "label": "Foundation CI 11/11 для IPA",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/40879127804"
+        },
+        {
+          "label": "Архив и назначение TestFlight",
+          "path": "docs/operations/mobile-testflight28-evidence.json"
         }
       ],
       "acceptance": [
@@ -5215,11 +5227,11 @@
         "Проверочный аккаунт получает отказ без счёта и доступ к демонстрации.",
         "Вибрация движения вперёд/назад и порога проверена на iPhone."
       ],
-      "nextAction": "Полная Foundation CI, сборка 28, TestFlight и проверка на iPhone. App Store только чтение.",
+      "nextAction": "Владелец проверяет сборку 28 на iPhone; сообщил о работающей оплате Kaspi, попросил усилить вибрацию и исправить первый вход в Pick Man. Это следующая задача. App Store только по отдельному разрешению.",
       "checks": {
         "implemented": true,
-        "verified": false,
-        "deployed": false,
+        "verified": true,
+        "deployed": true,
         "accepted": false
       }
     }
