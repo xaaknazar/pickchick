@@ -30,8 +30,9 @@ with local fixtures only: no bank, no real customer, no VPS request.
      handle sits above the tab bar and below the header, the content ends above the bar, the
      profile stack screen shows no bar, and a full slide from События pays exactly once
   M  last used payment method (owner 6b): kept per account (no card data), set by a choice in
-     «Способ оплаты» and by a payment sent; a method that is «скоро» today (Apple Pay, card) or a
-     broken value falls back to Kaspi on the handle (mark + accessible name) and in the selector
+     «Способ оплаты» and by a payment sent; a method that does not pay today (Apple Pay, card) or a
+     broken value falls back to Kaspi on the handle (mark + accessible name) and in the selector,
+     which lists Kaspi.kz only (owner 29.10.2026, App Store build: no Apple Pay / card row)
   N  a future build where Apple Pay and the card can be chosen before their own payment flow
      exists (the served bundle is patched in this browser only): the handle, the selector and the
      pay button follow the choice («Оплатить картой», not «Оплатить с Банковская карта»), but a
@@ -865,9 +866,11 @@ def scenario_payment_method(browser):
     expect(method).to_have_attribute('aria-label', 'Способ оплаты: Kaspi.kz, изменить')
     method.click()
     expect(page.get_by_test_id('cart-payment-kaspi')).to_have_attribute('aria-checked', 'true')
-    expect(page.get_by_test_id('cart-payment-apple_pay')).to_have_attribute('aria-checked', 'false')
-    # «Скоро» methods cannot be chosen, so nothing is remembered for them.
-    page.get_by_test_id('cart-payment-apple_pay').click(force=True)
+    # App Store build (owner 29.10.2026): methods that do not pay are not listed, so the saved
+    # Apple Pay can be neither shown nor chosen (and nothing is remembered for it).
+    for gone in ('apple_pay', 'google_pay', 'card'):
+        expect(page.get_by_test_id('cart-payment-' + gone)).to_have_count(0)
+    expect(page.get_by_test_id('cart-payment-sheet').get_by_role('radio')).to_have_count(1)
     assert json.loads(page.evaluate('(key) => localStorage.getItem(key)', METHOD_KEY))['source'] == 'payment'
     page.get_by_test_id('cart-payment-kaspi').click()
     expect(page.get_by_test_id('cart-payment-sheet')).to_have_count(0)

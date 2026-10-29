@@ -303,7 +303,8 @@ with sync_playwright() as p:
   expect(page.get_by_test_id('completed-item-0')).to_contain_text('Coca-Cola 0,5 л')
   expect(page.get_by_test_id('completed-item-0')).to_contain_text('Фирменный соус')
   expect(page.get_by_test_id('order-kitchen-comment')).to_contain_text('Соус отдельно, пожалуйста')
-  expect(page.get_by_test_id('completed-receipt-unavailable')).to_be_visible()
+  # A deferred receipt (deferred_pilot): no receipt block, no «подключаем сервис чеков» (29.10.2026).
+  expect(page.get_by_test_id('completed-receipt-unavailable')).to_have_count(0)
   expect(page.get_by_test_id('completed-order-receipt')).to_have_count(0)
   rating=page.get_by_test_id('completed-rating-4')
   expect(rating).to_be_enabled(timeout=10000)
