@@ -7004,9 +7004,9 @@
         "apps/mobile/src/haptics.ts",
         "tests/mobile/browser_slide_to_pay.py"
       ],
-      "status": "available",
+      "status": "active",
       "head": "ece96e6bc25c6ec949eb2e6b7ddba63a7bf3809c",
-      "updatedAt": "2026-10-29T18:43:20.861Z",
+      "updatedAt": "2026-10-29T18:43:26.222Z",
       "summary": "ece96e6b опубликован PR295: плашка способа получения + синяя палитра страниц допов/напитков, как у комбо. Фото не редактировались, встроенный светлый фон снимков остаётся. TypeScript/lint/format, product-photo tests, complete_catalog 320/390/430 и 8 страниц 320/393 PASS. Предыдущие 557 Node+59 Python, cart_shortcut и slide B/I/L/Q PASS. Web-проверки, без нативной установки.\nВладелец 29.10 разрешил передать только haptics.ts и browser_slide_to_pay.py задаче mobile-cart-mode-1029 для дополнительного усиления и подписи плашки; остальные резервы и изменения сохранены.",
       "nextAction": "Ждём согласование одного утверждения browser_slide_to_pay.py A от mobile-feedback-1029; затем A и полная CI, PR295 из draft. Слияние и выпуск не разрешены этой задачей; общие status/roadmap заняты. Снимки .local/extras-blue и .local/cart-mode-preview. Для полностью синего фона внутри фотографий требуется отдельное редактирование изображений."
     }
