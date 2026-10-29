@@ -315,7 +315,9 @@ def scenario_sending_wording(browser, width, height):
               localStorage.setItem(key, JSON.stringify({...prefs, locale}));
             }""", lang)
             page = relaunch(ctx, page)
-            expect(page.get_by_test_id('screen-M06').filter(visible=True)).to_be_visible(timeout=25000)
+            # Each locale opens a fresh page with the launch cover, just like the first run.
+            # The menu mounts underneath it; hit-testing must wait until the cover is gone.
+            on_menu(page)
         offer = banner(page)
         expect(offer).to_contain_text(entry[lang], timeout=15000)
         expect(offer).to_contain_text(action[lang])
