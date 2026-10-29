@@ -6815,7 +6815,6 @@
         "docs/operations/mobile-redesign-2026-10-27/fix-bar.md",
         "docs/operations/mobile-redesign-2026-10-27/fix-esc.md",
         "docs/operations/mobile-redesign-2026-10-27/fix-launch.md",
-        "tests/mobile/browser_cart_unavailable.py",
         "tests/mobile/browser_checkout_traps.py",
         "tests/mobile/browser_launch_resume.py",
         "tests/mobile/checkout-resume.test.mjs",
@@ -6827,8 +6826,8 @@
       ],
       "status": "available",
       "head": "f94f252da29ad8f0e376ff9ecc2319bbfa10ef87",
-      "updatedAt": "2026-10-29T14:17:55.445Z",
-      "summary": "TestFlight 0.2.0 (27) доступен PickChick Internal, Apple Testing 29.10. PR289 merged 6660ce98, CI 11/11 на исходнике IPA 146b8967. 531 Node +59 Python, браузерные и native Simulator PASS. Подпись/JS/флаги проверены. Итоговые docs/status/roadmap/evidence опубликованы f94f252d в PR290; его CI отдельно от выпущенного IPA. Физический iPhone владелец проверит сам; сервер/касса/iPad/App Store не выпускались.",
+      "updatedAt": "2026-10-29T19:32:33.349Z",
+      "summary": "TestFlight 0.2.0 (27) доступен PickChick Internal, Apple Testing 29.10. PR289 merged 6660ce98, CI 11/11 на исходнике IPA 146b8967. 531 Node +59 Python, браузерные и native Simulator PASS. Подпись/JS/флаги проверены. Итоговые docs/status/roadmap/evidence опубликованы f94f252d в PR290; его CI отдельно от выпущенного IPA. Физический iPhone владелец проверит сам; сервер/касса/iPad/App Store не выпускались. Владелец 30.10 явно разрешил передачу tests/mobile/browser_cart_unavailable.py задаче mobile-cart-mode-1029 для TestFlight30. Остальные резервы сохранены.",
       "nextAction": "После зелёной CI PR290 включить документальный checkpoint обычным merge и finish mobile-launch-1028. До этого резервы сохраняются. Приёмку iPhone не отмечать без владельца. Не запускать банковские операции и серверные обновления."
     },
     {
@@ -6855,21 +6854,15 @@
         "tests/mobile/browser_pick_man.py",
         "tests/mobile/game-route-presentation.test.mjs",
         "tests/mobile/slide-pay-intent.test.mjs",
-        "docs/project-status.md",
-        "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json",
         "docs/operations/mobile-feedback-2026-10-29.md",
-        "apps/mobile/app.json",
         "@ios/simulator",
-        "@release/ios",
-        "@apple/appstore",
         "tests/mobile/ios/SmokeTests.swift",
         "docs/operations/mobile-feedback-2026-10-29"
       ],
       "status": "active",
       "head": "528ea6956eed0f1e42d3f324e0c26ec65708b005",
-      "updatedAt": "2026-10-29T18:43:20.861Z",
-      "summary": "Владелец 29.10 разрешил передать только haptics.ts и browser_slide_to_pay.py задаче mobile-cart-mode-1029 для дополнительного усиления и подписи плашки; остальные резервы и изменения сохранены."
+      "updatedAt": "2026-10-29T19:32:33.349Z",
+      "summary": "Владелец 29.10 разрешил передать только haptics.ts и browser_slide_to_pay.py задаче mobile-cart-mode-1029 для дополнительного усиления и подписи плашки; остальные резервы и изменения сохранены. Владелец 30.10 явно разрешил передачу apps/mobile/app.json, docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json, @release/ios, @apple/appstore задаче mobile-cart-mode-1029 для TestFlight30. Остальные резервы сохранены."
     },
     {
       "id": "mobile-appstore-clean-1029",
@@ -7002,12 +6995,19 @@
         "docs/operations/mobile-cart-mode-2026-10-29.md",
         "apps/mobile/src/screens/PhotoProduct.tsx",
         "apps/mobile/src/haptics.ts",
-        "tests/mobile/browser_slide_to_pay.py"
+        "tests/mobile/browser_slide_to_pay.py",
+        "apps/mobile/app.json",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "@release/ios",
+        "@apple/appstore",
+        "tests/mobile/browser_cart_unavailable.py"
       ],
       "status": "available",
       "head": "75ca6ac1eebaf99fdaab0433baf76c16ef5bc19a",
       "updatedAt": "2026-10-29T19:02:06.334Z",
-      "summary": "Владелец разрешил новую сборку и TestFlight. Apple: 29 тестируется, следующий 30. Doctor существующей подписи PASS. PR295 исходник71c851a0: CI40933826214 упала на устаревшем expect_closed_bar в browser_cart_unavailable.py, ожидала только цену; A-Q и launch-resume A-H PASS. Протокол подготовки сохранён; новый doc-only checkpoint не является исходником IPA.",
+      "summary": "Владелец 30.10 разрешил выпуск30 и передачу выпускных областей и browser_cart_unavailable.py. Точная передача записана также в исходных задачах.",
       "nextAction": "Ожидаются ответы на передачу app.json, status/handoff/roadmap, @release/ios и @apple/appstore от mobile-feedback-1029, а также browser_cart_unavailable.py от mobile-launch-1028. После разрешения обновить тест на подпись+цену, build30, повторить локальный сценарий и полную CI, merge PR295, штатный storefront archive/export/upload и подтвердить PickChick Internal. Ничего на VPS/кассу/iPad/публичный App Store, без реальных платежей."
     }
   ]
