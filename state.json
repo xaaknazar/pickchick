@@ -6986,11 +6986,12 @@
         "@ios/simulator",
         "@release/ios",
         "@apple/appstore",
-        "tests/mobile/ios/SmokeTests.swift"
+        "tests/mobile/ios/SmokeTests.swift",
+        "docs/operations/mobile-feedback-2026-10-29"
       ],
       "status": "active",
-      "head": "635fd3aad03cd9d0af0272651f3b13d0ea9c6ad6",
-      "updatedAt": "2026-10-29T14:21:44.471Z"
+      "head": "528ea6956eed0f1e42d3f324e0c26ec65708b005",
+      "updatedAt": "2026-10-29T14:53:10.995Z"
     }
   ]
 }
