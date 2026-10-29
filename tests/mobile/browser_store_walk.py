@@ -15,7 +15,7 @@ The server answers like production on 29.10.2026: the 6 + 1 programme is switche
 Runs against the customer-auth web export (EXPO_PUBLIC_CUSTOMER_AUTH=server,
 EXPO_PUBLIC_KASPI_CHECKOUT=1, EXPO_PUBLIC_UNPAID_TEST_ORDERS=1, EXPO_PUBLIC_PUBLISHED_CATALOG=0)
 with local fixtures only: no bank, no real customer, no VPS request, no mutation.
-Screenshots: STORE_WALK_OUT (default .local/mobile-1029/store).
+Screenshots: STORE_WALK_OUT (default .local/store-walk).
 """
 from browser_network import isolated_context, route_fixture
 import json, os, re, subprocess, uuid
@@ -26,7 +26,7 @@ from playwright.sync_api import sync_playwright, expect
 ROOT = Path(__file__).resolve().parents[2]
 URL = os.environ.get('CUSTOMER_AUTH_URL', 'http://127.0.0.1:4196').rstrip('/')
 assert urlparse(URL).hostname in ('127.0.0.1', 'localhost'), 'Use a local exported app'
-OUT = ROOT / os.environ.get('STORE_WALK_OUT', '.local/mobile-1029/store')
+OUT = ROOT / os.environ.get('STORE_WALK_OUT', '.local/store-walk')
 OUT.mkdir(parents=True, exist_ok=True)
 CAT = json.loads(subprocess.check_output(['node', '--input-type=module', '-e',
     "import {testCompleteCatalog} from './packages/test-order-flow/dist/complete-catalog.js';console.log(JSON.stringify(testCompleteCatalog))"],
@@ -45,7 +45,7 @@ FORBIDDEN = [re.compile(pattern, re.I) for pattern in [
     r'оплата в процессе', r'появится позже', r'появятся позже', r'загляни позже',
     r'пока не (выпускается|начисляются|даёт|активн)', r'ещё не (активирован|активен)',
     r'пробн(ый|ые|ого|ых|ом|ая)', r'предварительн', r'готовим программу', r'готовятся',
-    r'на подготовке', r'apple ?pay', r'google ?pay', r'coming soon', r'being set up',
+    r'на подготовке', r'apple ?pay', r'google ?pay', r'coming soon', r'\bare coming\b', r'being set up',
     r'being connected', r'not connected yet', r'\bsoon\b', r'жақында(?![а-яёәіңғүұқөһ])',
     r'қосылып жатыр', r'әлі қосылмаған', r'іске қосылмаған', r'банковская карта', r'bank card',
 ]]
@@ -321,6 +321,8 @@ def walk_signed_in(browser):
     clean(page, 'notifications-orders-393')
     page.get_by_test_id('notifications-tab-personal').click()
     expect(page.get_by_test_id('notifications-empty-personal')).to_be_visible()
+    # An empty inbox, not a promise («Хорошие новости впереди» / «Good things are coming» before).
+    expect(page.get_by_test_id('notifications-empty-personal')).to_contain_text('Новых предложений нет')
     clean(page, 'notifications-personal-393')
     # Help: the restaurant itself is the contact, no message form.
     open_profile(page)

@@ -99,7 +99,7 @@ export default function Notifications() {
               />
             </View>
             <Heading small style={s.center}>
-              {localize(orders ? 'Следим за вашим заказом' : 'Хорошие новости впереди')}
+              {localize(orders ? 'Следим за вашим заказом' : 'Новых предложений нет')}
             </Heading>
             <Body muted style={s.center}>
               {localize(
