@@ -125,6 +125,20 @@ export function failurePending(track: ConnectionTrack): boolean {
   return track.kind !== null && !track.shown;
 }
 
+/**
+ * The reader stopped or started again: the app went to the background (the customer switches to
+ * Kaspi.kz to pay, locks the phone) or came back, or the phone lost its network interface. A
+ * failure not shown yet belonged to reads that no longer run, so it is forgotten (independent QA
+ * 28.10, item 20): its five seconds must not run out while nothing is read (on iPhone the timer
+ * fires on the first frame after the return), and the first failure after the return (iOS often
+ * reports «connection lost» right after resume) is not «the second failure in a row», because
+ * nothing was read in between. Both rules count only while reads run. A problem already shown
+ * stays until the server answers (no blinking), and the phone's own report is kept.
+ */
+export function readsPaused(track: ConnectionTrack): ConnectionTrack {
+  return failurePending(track) ? { ...track, failures: 0, kind: null, since: null } : track;
+}
+
 /** The connection problem the customer should see now, or null. */
 export function connectionProblem(track: ConnectionTrack): ReadFailure | null {
   if (track.phoneOffline) return 'offline';
@@ -150,6 +164,10 @@ export function shownAvailabilityState(
  * the track comes out through `onChange`; the persistence timer lives here so it can be tested.
  * A tracker started from an `initial` track with a failure still pending (the hook restarts the
  * reader on a refresh) waits only what is left of that run's persistence time.
+ * `reading(active)` follows the reader: going inactive forgets a failure not shown yet and stops
+ * its timer (readsPaused); coming back after a pause starts from a clean run. Repeated reports of
+ * the same state (every network event re-reports «active») change nothing, and the first report
+ * of a new tracker that reads keeps the pending run of a refresh.
  */
 export function createConnectionTracker(options: {
   onChange(track: ConnectionTrack): void;
@@ -162,6 +180,8 @@ export function createConnectionTracker(options: {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let timerStreak: number | null = null;
   let stopped = false;
+  // Whether the reader runs: null until the first report.
+  let reading: boolean | null = null;
   const disarm = () => {
     clearTimeout(timer);
     timer = undefined;
@@ -198,6 +218,11 @@ export function createConnectionTracker(options: {
     succeeded: () => set(readSucceeded(track)),
     failed: (kind: ReadFailure) => set(readFailed(track, kind, now())),
     network: (connected: boolean) => set(phoneNetworkChanged(track, connected)),
+    reading(active: boolean) {
+      const resumed = active && reading === false;
+      reading = active;
+      if (!active || resumed) set(readsPaused(track));
+    },
     current: () => track,
     stop() {
       stopped = true;

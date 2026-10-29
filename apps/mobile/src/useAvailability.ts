@@ -75,7 +75,14 @@ export function useAvailability(
       onFailure: (_error, retrying) => connection.failed(retrying ? 'offline' : 'error'),
     });
     const unsubscribe = subscribeCatalogConnectivity({
-      setActive: recovery.setActive,
+      // Reads pause in the background (the customer pays in Kaspi.kz, locks the phone) and while
+      // the phone has no network. A failure not shown yet pauses with them and is forgotten, so
+      // the five seconds and «a second failure in a row» count only while reads run: a drop just
+      // before leaving never shows «Нет связи с сервером» on the return (QA 28.10).
+      setActive: (active) => {
+        connection.reading(active);
+        recovery.setActive(active);
+      },
       // The phone itself reports no network: the paused long-poll cannot fail, so it says
       // «offline» here at once; the next successful read (after reconnect) says «online» again.
       setConnected: connection.network,

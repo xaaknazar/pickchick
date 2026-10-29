@@ -3,17 +3,20 @@
 Runs against the customer-auth web export (EXPO_PUBLIC_CUSTOMER_AUTH=server,
 EXPO_PUBLIC_KASPI_CHECKOUT=1, EXPO_PUBLIC_PUBLISHED_CATALOG=0) with local fixtures only:
 no bank, no real customer, no VPS request.
-  A  saved payment intent + order in 'attention': shown once with a close action and a
-     support contact, the intent is cleared, the next start does not reopen checkout.
+  A  saved payment intent + order in 'attention': the start opens the menu (owner 28.10.2026,
+     never a payment screen), tidies the intent up without a banner; «Заказы» shows the order
+     with a close action and a support contact; the next start does not reopen checkout.
   B  /payment refused with ITEM_STOPPED: back to the cart with the reason, no automatic
      resend, no reopen after restart, the next tap quotes the current cart.
   C  Orders tab: attention, unpaid, invoiced, long-unknown and never-admitted orders all lead
      back to the list; the long-unknown payment and the order the restaurant never admitted
      offer the support contact at once.
   D  kitchen offline at the quote: the honest message at once, no minute of spinner.
-  E  invoice in Kaspi + saved intent: closing reaches the Orders list, an older unpaid order
-     opened there neither sends its invoice by itself nor takes over the intent; the glass X is
-     there at once and asks first (the bank may still act).
+  E  invoice in Kaspi + saved intent: the start opens the menu with the resume banner (owner
+     28.10.2026), «Заказы» shows its list (no takeover); the banner opens the invoice, closing it
+     keeps the intent (closed) and reaches the Orders list, an older unpaid order opened there
+     neither sends its invoice by itself nor takes over the intent; the glass X is there at once
+     and asks first (the bank may still act).
   F  owner 28.10 (TestFlight 25), stuck before admission: the restaurant never admits the order.
      The glass X is there at once (no question: nothing was billed); after 20 s «Ресторан не
      подтверждает заказ» with «Проверить ещё раз» (one read) and «Вернуться в корзину»; back in the
@@ -194,9 +197,18 @@ def scenario_attention(browser, width, height):
              'signature': '{"items":[]}', 'orderId': ORDER, 'sendInvoice': True}
     ctx, page = context(browser, state, handler, draft, width, height)
     page.goto(URL + '/menu')
+    # Owner 28.10.2026 (TestFlight 26): the start opens the menu, never a payment screen. The
+    # intent of a settled order is tidied up at once (one read), with no banner.
+    expect(page.get_by_test_id('product-pick-combo')).to_be_visible(timeout=25000)
+    page.wait_for_function('(key) => localStorage.getItem(key) === null', arg=DRAFT_KEY, timeout=15000)
+    assert not page.url.endswith('/checkout'), page.url
+    expect(page.get_by_test_id('kaspi-waiting')).to_have_count(0)
+    expect(page.get_by_test_id('payment-resume-banner')).to_have_count(0)
+    # «Заказы» shows it with its way out and the support contact.
+    page.get_by_test_id('tab-orders').click()
+    page.get_by_test_id('order-history-open-' + ORDER).click(timeout=25000)
     waiting = page.get_by_test_id('kaspi-waiting')
-    expect(waiting).to_contain_text('Проверяем заказ', timeout=25000)
-    assert page.url.endswith('/checkout'), page.url
+    expect(waiting).to_contain_text('Проверяем заказ', timeout=10000)
     expect(waiting).to_contain_text('Новый заказ можно сделать сразу')
     expect(page.get_by_test_id('support-contact-fallback')).to_be_visible()
     close = page.get_by_test_id('kaspi-close-order')
@@ -207,6 +219,7 @@ def scenario_attention(browser, width, height):
     page.screenshot(path=str(OUT / f'A-attention-{width}.png'))
     close.click()
     expect(page.get_by_test_id('kaspi-waiting')).to_have_count(0, timeout=10000)
+    expect(page.get_by_test_id('order-history-open-' + ORDER)).to_be_visible(timeout=10000)
     assert not page.url.endswith('/checkout'), page.url
     # Next start: nothing reopens checkout.
     page.goto(URL + '/menu')
@@ -354,7 +367,17 @@ def scenario_orders_with_live_intent(browser):
              'signature': '{"items":[]}', 'orderId': INVOICED, 'sendInvoice': True, 'createdAt': tapped}
     ctx, page = context(browser, state, handler, draft)
     ctx.clock.install()
+    # Owner 28.10.2026: «Заказы» opened at start shows its list; it never takes over with the
+    # intent of an earlier run.
     page.goto(URL + '/orders')
+    expect(page.get_by_test_id('order-history-pay-' + UNPAID)).to_be_visible(timeout=25000)
+    assert page.url.endswith('/orders'), page.url
+    expect(page.get_by_test_id('order-sheet')).to_have_count(0)
+    # The menu offers it instead; «Открыть заказ» opens its payment state.
+    page.get_by_test_id('tab-menu').click()
+    resume = page.get_by_test_id('payment-resume-banner').filter(visible=True)
+    expect(resume).to_contain_text('Заказ ждёт оплаты в Kaspi', timeout=15000)
+    page.get_by_test_id('payment-resume-open').filter(visible=True).click()
     sheet = page.get_by_test_id('order-sheet')
     expect(sheet.get_by_test_id('kaspi-open-app')).to_be_visible(timeout=25000)
     assert page.url.endswith('/checkout'), page.url
@@ -370,7 +393,10 @@ def scenario_orders_with_live_intent(browser):
     page.clock.fast_forward(91_000)
     sheet.get_by_test_id('kaspi-close-order').click(timeout=10000)
     expect(page.get_by_test_id('order-sheet')).to_have_count(0, timeout=10000)
-    assert json.loads(draft_saved(page))['orderId'] == INVOICED, 'a live invoice keeps its intent'
+    kept = json.loads(draft_saved(page))
+    assert kept['orderId'] == INVOICED and kept['closedAt'], 'a live invoice keeps its intent, closed'
+    expect(page.get_by_test_id('payment-resume-banner')).to_have_count(0, timeout=10000)
+    page.get_by_test_id('tab-orders').click()
     # «Заказы» may still show the same invoice; its own way back must reach the list.
     back = page.get_by_test_id('kaspi-close-order')
     if back.count():

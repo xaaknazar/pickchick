@@ -180,8 +180,10 @@ test('tab screens reserve the measured tab bar and the cart bar docked on it', (
   const host = read('ScreenHost.tsx');
   assertHas(
     host,
-    'tabScreen ? tabContentInset(tabBarInset, cartDockHeight, model.cart.length) : 0',
+    'tabScreen ? tabContentInset(tabBarInset, cartDockHeight, model.cart.length, resumeBanner) : 0',
   );
+  // The payment resume banner sits in the same dock on the menu only (owner 28.10.2026).
+  assertHas(host, "const resumeBanner = useHasPaymentResume() && id === 'M06';");
   assertHas(host, 'const inTabs = tabBarInset > 0;');
   assertHas(host, 'const tabScreen = id in tabRoutes && inTabs;');
   assert.match(read('components/UI.tsx'), /props\.inTabLayout && !editing && tabBarInset > 0/);
@@ -199,6 +201,10 @@ test('tab screens reserve the measured tab bar and the cart bar docked on it', (
   assert.equal(tabContentInset(84, 0, 1), 84 + tabCartDockEstimate);
   assert.equal(tabContentInset(84, null, 1), 84 + tabCartDockEstimate);
   assert.equal(tabContentInset(84, 92, 0), 84);
+  // The resume banner alone (empty cart) also takes its measured room, the estimate until then.
+  assert.equal(tabContentInset(84, 66.2, 0, true), 84 + 67);
+  assert.equal(tabContentInset(84, null, 0, true), 84 + tabCartDockEstimate);
+  assert.equal(tabContentInset(84, 150, 2, true), 84 + 150);
 });
 
 test('the cart bar is docked in the tab bar layer, on top of the tab capsule (owner 28.10)', () => {

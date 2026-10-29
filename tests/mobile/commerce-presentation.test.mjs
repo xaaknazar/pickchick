@@ -8,6 +8,8 @@ import {
   commerceStatus,
   closePaymentCopy,
   stuckCopy,
+  EARLIER_ORDER_NOTICE,
+  earlierOrderNotice,
 } from '../../apps/mobile/src/commerce-presentation.ts';
 import { CustomerCommerceOrderSchema } from '../../packages/contracts/dist/index.js';
 import { readFileSync } from 'node:fs';
@@ -207,4 +209,45 @@ test('a stuck payment and «Закрыть оплату?» speak honestly in RU,
     assert.notEqual(t(ru), ru, ru);
     setAppLocale('ru');
   }
+});
+
+test('a reopened earlier order says so while the bank may act and the cart differs', () => {
+  // Independent QA 28.10 (item 19): «sending» order of 1 Pick Combo (4 190 ₸) closed with the X,
+  // the cart raised to 2 combos (8 380 ₸), «Оплатить» reopens the same order (the boundary).
+  const cart = { lines: 1, totalMinor: '838000' };
+  for (const phase of ['sending', 'awaiting_payment', 'checking'])
+    assert.equal(earlierOrderNotice({ phase, totalMinor: '419000' }, cart), true, phase);
+  // The same cart reopened is the same order; nothing at the bank, paid or failed: no notice.
+  assert.equal(earlierOrderNotice({ phase: 'sending', totalMinor: '838000' }, cart), false);
+  for (const phase of ['awaiting_restaurant', 'ready_to_pay', 'failed', 'attention', 'paid'])
+    assert.equal(earlierOrderNotice({ phase, totalMinor: '419000' }, cart), false, phase);
+  assert.equal(earlierOrderNotice(null, cart), false);
+  assert.equal(
+    earlierOrderNotice({ phase: 'sending', totalMinor: '419000' }, { lines: 0, totalMinor: '0' }),
+    false,
+  );
+  // The amount and why no new order, in RU, KK and EN, plain hyphen.
+  const messages = JSON.parse(
+    readFileSync(new URL('../../apps/mobile/src/i18n/messages.json', import.meta.url), 'utf8'),
+  );
+  const entry = messages.find((message) => message.ru === EARLIER_ORDER_NOTICE);
+  assert.ok(entry?.kk && entry.en);
+  assert.equal(
+    t(EARLIER_ORDER_NOTICE, { p0: '4 190 ₸' }).startsWith('Это ваш прошлый заказ на 4 190 ₸.'),
+    true,
+  );
+  assert.match(EARLIER_ORDER_NOTICE, /новый заказ не создаётся/);
+  for (const text of [entry.ru, entry.kk, entry.en]) assert.doesNotMatch(text, /[—–]/, text);
+  setAppLocale('en');
+  assert.match(
+    t(EARLIER_ORDER_NOTICE, { p0: '4 190 ₸' }),
+    /^This is your earlier order for 4 190 ₸\./,
+  );
+  assert.doesNotMatch(t(EARLIER_ORDER_NOTICE, { p0: '4 190 ₸' }), /[а-яё]/i);
+  setAppLocale('kk');
+  assert.match(
+    t(EARLIER_ORDER_NOTICE, { p0: '4 190 ₸' }),
+    /4 190 ₸ сомасындағы алдыңғы тапсырысыңыз/,
+  );
+  setAppLocale('ru');
 });

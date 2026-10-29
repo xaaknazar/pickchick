@@ -14,7 +14,8 @@ with local fixtures only: no bank, no real customer, no VPS request.
      pill covers the hint; an early release returns it to the base width on a visible spring
      (about 0.4 s, never narrower than the base width), at once with reduced motion
   B  a full drag fills the bar with the pill and creates exactly one quote, one order and one
-     invoice; reload/back resend nothing
+     invoice; reload/back resend nothing (owner 28.10.2026: a reload on the cart route shows the
+     cart, never the payment state of the earlier run)
   C  a changed price stops before the order; only a second explicit press continues
   D  consent: the dialog stops the slide, «Не сейчас» leaves the normal button, no retry
   E  signed out: the slide opens the sign-in and then the cart without sending anything
@@ -41,12 +42,14 @@ with local fixtures only: no bank, no real customer, no VPS request.
      «Проверить ещё раз» (one read, nothing sent) and «Вернуться в корзину»; closing asks first,
      returns to the cart with its lines and keeps the intent without its automatic invoice; a
      changed cart paid again reopens the same order (no new quote, order or payment command) and
-     says at once that it is stuck (the first time of the wait is kept); a restart after closing
-     sends nothing
+     says at once that it is stuck (the first time of the wait is kept) and, above the title, that
+     it is the earlier order of 4 190 ₸ while the cart says 8 380 ₸ (QA 28.10, item 19); a restart
+     after closing shows the cart, not the payment state, and sends nothing
   P  review 28.10: the request itself hangs. POST /payment held: «Отправляем счёт» (not «Ресторан
      принял заказ») with the X at once, «Kaspi отвечает дольше обычного» after 20 s, the X asks,
      closing keeps the order id without the automatic invoice, paying again reopens the same order
-     (1 quote, 1 order, 1 payment command) and is stuck at once. POST /orders held: the X at once,
+     (1 quote, 1 order, 1 payment command) and is stuck at once (the same cart: no «прошлый заказ»
+     notice). POST /orders held: the X at once,
      «Ресторан не подтверждает заказ» after 20 s with «Вернуться в корзину» (no check of its own),
      closing asks nothing and removes the intent, a restart sends nothing
 """
@@ -483,11 +486,14 @@ def scenario_full_slide(browser):
     assert set(saved) == {'method', 'source', 'at'}, saved
     wait_quiet(page)
     assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
-    # Reload of the same /cart?slide=... and back navigation resend nothing.
+    # Reload of the same /cart?slide=... and back navigation resend nothing. Owner 28.10.2026: a
+    # restart never lands on the payment state of the earlier run; the cart is the cart (the
+    # menu offers the payment, browser_launch_resume.py).
     assert urlparse(page.url).path.rstrip('/') == '/cart' and 'slide=' in page.url, page.url
     page.reload()
-    expect(page.get_by_test_id('kaspi-waiting')).to_be_visible(timeout=25000)
+    expect(pay_button(page)).to_be_visible(timeout=25000)
     wait_quiet(page)
+    expect(page.get_by_test_id('kaspi-waiting')).to_have_count(0)
     assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
     page.go_back()
     wait_quiet(page)
@@ -706,8 +712,8 @@ def scenario_stale_draft(browser):
     add(page)
     old = {'key': '40000000-0000-4000-8000-0000000000e1', 'quoteId': '40000000-0000-4000-8000-0000000000e2',
            'signature': '{"items":[]}', 'sendInvoice': True}
-    # Written after launch, as an intent closed earlier in this run stays (PaymentRecovery does
-    # not reopen it); createdAt is an hour old, so it may never send an invoice by itself.
+    # Written after launch (the start tidies such an intent up itself); createdAt is an hour old,
+    # so it may never send an invoice by itself.
     page.evaluate('([key, draft]) => localStorage.setItem(key, JSON.stringify({...draft, createdAt: Date.now() - 3600000}))',
                   [DRAFT_KEY, old])
     slide(page, 1.0)
@@ -1002,16 +1008,37 @@ def scenario_stuck_sending(browser, width, height):
     # The order has been «sending» for more than 20 s in this app run: it says so at once
     # (review 28.10: the first time of a wait is kept per order, on the phone clock).
     expect(scene).to_contain_text('Kaspi отвечает дольше обычного', timeout=5000)
+    # QA 28.10 (item 19): the cart now says 8 380 ₸, so the reopened screen says at once that this
+    # is the earlier order of 4 190 ₸ and why no new one, above the title, under the X.
+    earlier = page.get_by_test_id('kaspi-earlier-order')
+    expect(earlier).to_be_visible()
+    expect(earlier).to_have_text('Это ваш прошлый заказ на 4 190 ₸. Пока Kaspi обрабатывает его счёт, новый '
+                                 'заказ не создаётся - так вы не оплатите дважды. Корзина сохранена.')
+    note = earlier.bounding_box()
+    x_box = page.get_by_test_id('kaspi-state-close').bounding_box()
+    assert note['y'] >= x_box['y'] + x_box['height'] - 1, (note, x_box)
+    assert note['x'] >= 0 and note['x'] + note['width'] <= width, (note, width)
+    footer = scene.get_by_test_id('bottom-actions').bounding_box()
+    assert note['y'] + note['height'] <= footer['y'], (note, footer)
+    # The words come first: at 320 x 568 the decorative scene gives way, so the stuck detail stays
+    # above the buttons instead of scrolling under them.
+    detail = scene.get_by_test_id('kaspi-state-detail').bounding_box()
+    assert detail['y'] + detail['height'] <= footer['y'] + 1, (detail, footer)
+    expect(page.get_by_test_id('kaspi-stuck-recheck')).to_be_visible()
+    expect(page.get_by_test_id('kaspi-stuck-cart')).to_be_visible()
+    page.screenshot(path=str(OUT / f'esc-earlier-order-{width}.png'))
     wait_quiet(page)
     assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
-    # Closed again and the app restarted on the cart: the order comes back for recovery, nothing
-    # is sent again.
+    # Closed again and the app restarted on the cart (owner 28.10.2026, TestFlight 26): the
+    # closed payment stays closed - the cart, not «Отправляем счёт» - and nothing is sent again.
     page.get_by_test_id('kaspi-state-close').click()
     page.get_by_test_id('kaspi-close-confirm').click()
     expect(pay_button(page)).to_be_visible(timeout=10000)
+    stored(page, DRAFT_KEY, orderId=order('sending')['orderId'], sendInvoice=False)
     page.reload()
-    expect(page.get_by_test_id('kaspi-waiting').or_(pay_button(page))).to_be_visible(timeout=25000)
+    expect(pay_button(page)).to_be_enabled(timeout=25000)
     wait_quiet(page)
+    expect(page.get_by_test_id('kaspi-waiting')).to_have_count(0)
     assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
     release(state)
     ctx.close()
@@ -1075,6 +1102,8 @@ def scenario_held_payment(browser, width, height):
     # Paying again reopens the same order, nothing new is created or sent, and it is stuck at once.
     pay_button(page).click()
     expect(scene).to_contain_text('Kaspi отвечает дольше обычного', timeout=5000)
+    # The same cart: simply the same order, no «прошлый заказ» notice (QA 28.10, item 19).
+    expect(page.get_by_test_id('kaspi-earlier-order')).to_have_count(0)
     wait_quiet(page)
     assert (state['quotes'], state['creates'], state['payments']) == (1, 1, 1), state
     for route in routes:

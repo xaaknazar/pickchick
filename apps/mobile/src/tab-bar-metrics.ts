@@ -84,15 +84,20 @@ export function measuredTabBarInset(
 }
 
 /**
- * Space a tab screen reserves under its content: the tab bar plus the docked cart bar's measured
- * height while the cart has lines (the estimate until it is measured with them).
+ * Space a tab screen reserves under its content: the tab bar plus the dock's measured height
+ * while the cart has lines or the dock shows the payment resume banner on this tab (owner
+ * 28.10.2026, the menu only); the estimate until it is measured with them.
  */
 export function tabContentInset(
   tabBarInset: number,
   cartDockHeight: number | null | undefined,
   cartLines: number,
+  resumeBanner = false,
 ): number {
-  return tabBarInset + (cartLines > 0 ? Math.ceil(cartDockHeight || tabCartDockEstimate) : 0);
+  return (
+    tabBarInset +
+    (cartLines > 0 || resumeBanner ? Math.ceil(cartDockHeight || tabCartDockEstimate) : 0)
+  );
 }
 
 /** Width of one tab: the items share the capsule evenly (flex: 1 in FloatingTabBar). */

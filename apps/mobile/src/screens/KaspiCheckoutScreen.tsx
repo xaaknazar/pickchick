@@ -14,7 +14,15 @@ import {
 } from '../components/CartSheet';
 import { cartEditSettleMs } from '../cart-payment';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Linking, Modal, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  AppState,
+  Linking,
+  Modal,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { randomUUID } from 'expo-crypto';
@@ -41,13 +49,23 @@ import { OrdersEmpty, OrdersHeader, ordersPageStyle } from '../components/Orders
 import { publishActiveOrderCount } from '../active-orders';
 import { commerceActiveKind } from '../orders-tab';
 import { useCommerceFeedback } from '../useCommerceFeedback';
-import { checkoutError, paymentReceived, commerceStatus } from '../commerce-presentation';
+import {
+  EARLIER_ORDER_NOTICE,
+  checkoutError,
+  commerceStatus,
+  earlierOrderNotice,
+  paymentReceived,
+} from '../commerce-presentation';
 import { Cart } from './CatalogScreens';
 import {
-  dismissPendingPayment,
-  pendingPaymentDismissed,
+  adoptPendingPayment,
+  closePendingPayment,
+  pendingPaymentClosed,
   pendingPaymentKey,
+  pendingPaymentOfThisRun,
+  pendingPaymentShownOnly,
   parsePendingPayment,
+  reopenPendingPayment,
   type PendingPayment,
 } from '../payment-recovery';
 import {
@@ -160,6 +178,8 @@ function KaspiCheckoutSession(
   // Can this customer pay right now (owner 28.10.2026): closed, server switch, connection, stop
   // list. Only hides or disables the payment; submit() keeps every server check of its own.
   const availability = usePaymentAvailability(props.model);
+  // 320 x 568 class screens (KaspiPaymentState «tight»): the earlier-order notice is smaller.
+  const tightScreen = useWindowDimensions().height < 620;
   // A press or slide with a method this cart cannot pay with (no flow yet): said, never silent.
   const [methodStop, setMethodStop] = useState(false);
   useEffect(() => setMethodStop(false), [payment.method]);
@@ -220,12 +240,15 @@ function KaspiCheckoutSession(
   const key = pendingPaymentKey(customerId);
   const [leaving, setLeaving] = useState(false);
   const [resumeNotice, setResumeNotice] = useState('');
+  // An earlier order the pay tap (or the cart's own restore) reopened instead of a new one: while
+  // the bank may act on it and the cart differs, its screen says so (QA 28.10, item 19).
+  const [reopened, setReopened] = useState<string | null>(null);
   // Audit 2.0: only a running command, a pending intent or an order the bank may still charge
   // locks the sheet. Attention, refused and old unbilled orders never do; "close" always wins.
   const lockedAt = Date.now();
   // The cart (27.10.2026) is not locked while it only reads storage: closing it then leaves any
-  // saved intent for PaymentRecovery, and it opens/edits without the lock jumping the sheet.
-  // A found intent, a running command or a chargeable order locks it as before.
+  // saved intent in storage (the menu offers it, 28.10.2026), and it opens/edits without the lock
+  // jumping the sheet. A found intent, a running command or a chargeable order locks it as before.
   useSheetDismissalLock(
     !leaving &&
       ((restoring && props.screenId !== 'M09') ||
@@ -241,9 +264,12 @@ function KaspiCheckoutSession(
         Boolean(order && liveBankAction(order, lockedAt))),
   );
   // Only the order created by the saved intent may send its invoice without a new tap; an older
-  // unpaid order opened from «Заказы» always waits for «Отправить счёт».
+  // unpaid order opened from «Заказы» always waits for «Отправить счёт». So does an order the
+  // menu's banner opened («Открыть заказ», review 28.10.2026): opening never sends the invoice.
   const autoSends = (target: CustomerCommerceOrder) =>
-    draftOwns(pending.current, target.orderId) && draftCanAutoSend(pending.current, Date.now());
+    draftOwns(pending.current, target.orderId) &&
+    draftCanAutoSend(pending.current, Date.now()) &&
+    !pendingPaymentShownOnly(pending.current);
   const access = auth.withOrderAccess;
   const request = useCallback(
     async (path: string, method: 'GET' | 'POST' = 'GET', body?: unknown, signal?: AbortSignal) => {
@@ -370,6 +396,7 @@ function KaspiCheckoutSession(
     setError(null);
     setQuote(null);
     setOrder(null);
+    setReopened(null);
     const run = async () => {
       const raw = await AsyncStorage.getItem(key);
       const draft = parsePendingPayment(raw);
@@ -382,9 +409,14 @@ function KaspiCheckoutSession(
         pending.current = null;
       } else if (
         draft &&
-        // «Заказы» and the cart (27.10.2026) do not reopen an intent the customer closed in this
-        // app run; the cart's pay button restores it first (submit), the checkout route at once.
-        !((props.screenId === 'M19' || props.screenId === 'M09') && pendingPaymentDismissed(draft))
+        // Owner 28.10.2026 (TestFlight 26): an intent the customer closed never opens by itself,
+        // also after a restart (closedAt); the pay button restores it first (submit). No screen
+        // takes over with an intent of an earlier app run either, also a route opened directly
+        // (/checkout, /order-status; review 28.10): the app opens on the menu, which offers it
+        // (PaymentResumeBanner). Only an intent of this run comes back: a pay tap of this run, or
+        // the banner's «Открыть заказ», which opens the recovery screen (M12).
+        !pendingPaymentClosed(draft) &&
+        pendingPaymentOfThisRun(draft)
       ) {
         const existing = CustomerCommerceOrderSchema.parse(
           await prepareCheckout(() => recover(draft, controller.signal), controller.signal),
@@ -404,6 +436,7 @@ function KaspiCheckoutSession(
               ),
             );
         } else {
+          if (props.screenId !== 'M19') setReopened(existing.orderId);
           await acceptRef.current(existing);
           if (props.screenId !== 'M19' || !['failed', 'attention'].includes(existing.phase)) return;
           // The Orders tab shows a settled order in its list, not as a payment screen.
@@ -411,8 +444,9 @@ function KaspiCheckoutSession(
           setOrder(null);
         }
       } else if (draft) {
-        // Closed in «Заказы» (audit 2.4): the tab shows its list, not the intent. The intent
-        // stays saved for the checkout and the next start, and no other order touches it here.
+        // Closed, or saved by an earlier run (audit 2.4, owner 28.10.2026): the cart and the
+        // checkout show the cart, «Заказы» its list, not the intent. It stays saved for the next
+        // pay tap (submit restores it first) and the menu's banner; no other order touches it.
         pending.current = null;
       }
       if (props.screenId !== 'M19') {
@@ -592,14 +626,22 @@ function KaspiCheckoutSession(
     setError(null);
     setPriceNotice('');
     setResumeNotice('');
+    setReopened(null);
     const prepared = <T,>(operation: () => Promise<T>) =>
       prepareCheckout(operation, controller.signal);
     try {
       // Restore the exact previous intent before any new quote/order is created.
       const raw = await AsyncStorage.getItem(key);
       if (raw) {
-        const draft = parsePendingPayment(raw)!;
-        if (draft.orderId || draftCanAutoSend(draft, Date.now())) {
+        const saved = parsePendingPayment(raw)!;
+        if (saved.orderId || draftCanAutoSend(saved, Date.now())) {
+          // An explicit tap (owner 28.10.2026): the intent is this run's again, and a closed one
+          // is open again, so a restart while it waits in Kaspi offers it on the menu. A closed
+          // one keeps its automatic invoice withdrawn; nothing new is created while it may bill.
+          // Opened by the banner before, it may now send its invoice as the tap asks (review).
+          const draft = reopenPendingPayment(saved, Date.now());
+          if (draft !== saved)
+            await AsyncStorage.setItem(key, JSON.stringify(draft)).catch(() => undefined);
           pending.current = draft;
           const previous = CustomerCommerceOrderSchema.parse(
             await prepared(() => recover(draft, controller.signal)),
@@ -610,6 +652,7 @@ function KaspiCheckoutSession(
             paymentReceived(previous.phase) ||
             previous.phase === 'failed'
           ) {
+            setReopened(previous.orderId);
             await accept(previous);
             return;
           }
@@ -628,6 +671,7 @@ function KaspiCheckoutSession(
         Date.now(),
       );
       if (existing) {
+        setReopened(existing.orderId);
         await accept(existing);
         return;
       }
@@ -691,6 +735,7 @@ function KaspiCheckoutSession(
         throw new Error('CHECKOUT_STORAGE');
       });
       pending.current = draft;
+      adoptPendingPayment(draft.key);
       setIntentSaved(draft.key);
       await accept(await prepared(() => recover(draft, controller.signal)));
     } catch (e) {
@@ -845,8 +890,9 @@ function KaspiCheckoutSession(
   /**
    * Audit 0.2 / 2.0 / 2.4: leave a payment screen without touching the order or the bank. An
    * unbilled order also withdraws its automatic invoice; an order the bank may still charge
-   * keeps its intent for recovery at the next app start, but is not pushed back this session,
-   * and never sends an invoice by itself again (closedIntent).
+   * keeps its intent, closed for good (closedAt, owner 28.10.2026: also after a restart): it is
+   * never opened by itself again, never sends an invoice by itself, and only the next explicit
+   * pay tap reopens the same order (closedIntent).
    * Owner 28.10.2026: the glass X returns to the cart itself (`to: 'cart'`), the cart keeps its
    * lines and the customer may change them and pay again; «Заказы» returns to its list.
    */
@@ -876,12 +922,11 @@ function KaspiCheckoutSession(
       pending.current = null;
       saved = AsyncStorage.removeItem(key);
     } else if (intent === 'keep' && draft) {
-      dismissPendingPayment(draft.key);
-      if (draft.sendInvoice !== false) {
-        const kept: Pending = { ...draft, sendInvoice: false };
-        pending.current = kept;
-        saved = AsyncStorage.setItem(key, JSON.stringify(kept));
-      }
+      // Before 28.10.2026 «closed» lived only in memory: after a restart the intent pushed its
+      // payment screen («Отправляем счёт») again. Now it is written into the intent itself.
+      const kept = closePendingPayment(draft, Date.now());
+      pending.current = kept;
+      saved = AsyncStorage.setItem(key, JSON.stringify(kept));
     }
     await saved?.catch(() => undefined);
     if (props.screenId === 'M19') {
@@ -893,9 +938,9 @@ function KaspiCheckoutSession(
       return;
     }
     if (to === 'cart') {
-      // The kept intent waits in storage for the next app start or the next explicit tap (submit
-      // restores it before anything new); the cart itself is free, as when it is opened again.
-      if (pending.current && pendingPaymentDismissed(pending.current)) pending.current = null;
+      // The kept intent waits in storage, closed, for the next explicit tap (submit restores it
+      // before anything new); the cart itself is free, as when it is opened again.
+      if (pending.current && pendingPaymentClosed(pending.current)) pending.current = null;
       setConnectionPaused(false);
       setPaymentPaused(false);
       setPaidMoment(false);
@@ -907,7 +952,7 @@ function KaspiCheckoutSession(
   /**
    * The X and «Вернуться в корзину» of a payment screen (owner 28.10.2026): the cart (M09) returns
    * to the cart itself; «Заказы» returns to its list at once (as before); the recovery route M12
-   * (opened by PaymentRecovery at start) closes like its «Закрыть», since it restores a saved
+   * (opened from the menu's resume banner) closes like its «Закрыть», since it restores a saved
    * intent at once by design. A connecting screen without a saved intent has created nothing: it
    * only stops the attempt. The confirmation itself (closeNeedsConfirm) is asked by
    * KaspiPaymentState.
@@ -1057,6 +1102,23 @@ function KaspiCheckoutSession(
       <KaspiPaymentState
         order={order}
         paid={paidMoment && paymentReceived(order.phase)}
+        notice={
+          // QA 28.10 (item 19): a pay tap that reopened an earlier order at the bank, while the
+          // cart now differs from it, says at once which order this is and why no new one.
+          props.screenId !== 'M19' &&
+          reopened === order.orderId &&
+          earlierOrderNotice(order, { lines: props.model.cart.length, totalMinor: localTotal }) ? (
+            <View
+              testID="kaspi-earlier-order"
+              style={[s.earlier, tightScreen && s.tightEarlier]}
+              accessibilityLiveRegion="polite"
+            >
+              <Caption style={[s.earlierText, tightScreen && s.tightEarlierText]}>
+                {t(EARLIER_ORDER_NOTICE, { p0: money(order.totalMinor) })}
+              </Caption>
+            </View>
+          ) : undefined
+        }
         onContinue={() => setPaidMoment(false)}
         onCart={() => (props.screenId === 'M19' ? props.navigate('M09') : backToCart())}
         onRetry={() => {
@@ -1256,4 +1318,17 @@ const s = StyleSheet.create({
   card: { gap: 12, padding: 18, borderRadius: 22, backgroundColor: colors.surface },
   loading: { padding: 24, alignItems: 'center', gap: 12 },
   warning: { padding: 16, gap: 12, borderRadius: 18, backgroundColor: colors.warningSurface },
+  // On the dark payment scene, like its order card (KaspiPaymentState orderCard).
+  earlier: {
+    width: '100%',
+    maxWidth: 360,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 18,
+    backgroundColor: '#0B2255',
+  },
+  earlierText: { color: '#DCE6FA', fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  tightEarlier: { paddingVertical: 8, paddingHorizontal: 12, marginBottom: 6 },
+  tightEarlierText: { fontSize: 13, lineHeight: 18 },
 });

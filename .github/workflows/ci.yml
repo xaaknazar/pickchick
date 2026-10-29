@@ -313,6 +313,8 @@ jobs:
           .local/design-venv/bin/python tests/mobile/browser_kaspi_checkout.py
           # Cart bar slide to pay: one-shot intent through the same guarded checkout.
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_slide_to_pay.py
+          # Owner 28.10.2026 (TestFlight 26): the app opens on the menu; a closed payment never comes back.
+          CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_launch_resume.py
           # Owner 28.10.2026: closed / payment impossible = no handle, red reason in the cart, zero orders.
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_cart_unavailable.py
           # Owner 28.10.2026: quick pay is drawn by the tab bar, above it, on every tab and state.

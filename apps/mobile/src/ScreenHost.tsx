@@ -10,6 +10,7 @@ import type { ScreenId } from './model';
 import { useMobile } from './store';
 import { useTabBarInset, useTabCartDockHeight } from './components/tab-bar-inset';
 import { tabContentInset } from './tab-bar-metrics';
+import { useHasPaymentResume } from './components/PaymentRecovery';
 import { MobileScreen } from './screens/MobileScreen';
 
 const tabRoutes = {
@@ -37,6 +38,8 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
   // at the very bottom of the screen, under the tab bar, and moved footers behind it too.
   const inTabs = tabBarInset > 0;
   const tabScreen = id in tabRoutes && inTabs;
+  // The menu keeps its content above the payment resume banner in the dock too (28.10.2026).
+  const resumeBanner = useHasPaymentResume() && id === 'M06';
   const statusSheet = ['M17', 'M18', 'M20'].includes(id);
   const inSheet = id === 'M09' || id === 'M12' || statusSheet;
   const back = useCallback(
@@ -133,7 +136,9 @@ export function ScreenHost({ id, preview = false }: { id: ScreenId; preview?: bo
       inSheet={inSheet}
       preview={preview}
       cartBottomInset={
-        tabScreen ? tabContentInset(tabBarInset, cartDockHeight, model.cart.length) : 0
+        tabScreen
+          ? tabContentInset(tabBarInset, cartDockHeight, model.cart.length, resumeBanner)
+          : 0
       }
       inTabLayout={inTabs}
     />

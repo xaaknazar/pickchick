@@ -5166,6 +5166,34 @@
         "deployed": true,
         "accepted": false
       }
+    },
+    {
+      "id": "mobile-launch-1028",
+      "workstream": "launch",
+      "title": "Запуск на меню после закрытия оплаты",
+      "summary": "Бандл c36287e7, QA 98a0a7dc, сохранена шапка e148946c. Подготовка TestFlight 0.2.0 (27).",
+      "status": "active",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["mobile-fixes-1028"],
+      "evidence": [
+        {
+          "label": "Протокол сборки 27",
+          "path": "docs/operations/mobile-testflight27.md"
+        }
+      ],
+      "acceptance": [
+        "После X и перезапуска открывается меню, корзина остаётся корзиной.",
+        "Повторная оплата открывает тот же заказ; напоминание не отправляет счёт автоматически.",
+        "Проверка на физическом iPhone владельцем."
+      ],
+      "nextAction": "Полная CI, merge, TestFlight 27 и физическая проверка. Сервер и онлайн-пульт не обновлять.",
+      "checks": {
+        "implemented": true,
+        "verified": false,
+        "deployed": false,
+        "accepted": false
+      }
     }
   ]
 }
