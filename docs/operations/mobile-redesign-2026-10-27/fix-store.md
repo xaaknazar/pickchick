@@ -179,7 +179,11 @@ Unit/static (29.10, на `fa5bac5d`): `pnpm test:mobile` - 542/542 node-тест
 `store-copy.test.mjs`, +7 `store-build.test.mjs`) и 59 Python-тестов (1 пропущен, как раньше;
 `test_ios_release.py` с новой проверкой флага); `pnpm typecheck` (все пакеты), `pnpm lint`,
 `pnpm format:check`, `node scripts/mobile/translations.mjs --check`, `pnpm design:check` - без
-ошибок.
+ошибок. Один из трёх полных прогонов `pnpm test:mobile` уронил старый тест
+`availability-connection.test.mjs` «the tracker: one timer per run...» (`'offline' !== null`):
+трекер берёт настоящий `Date.now`, а тест подменяет только `setTimeout`, под нагрузкой это
+плавает. Файлы этого теста и `availability-connection.ts` полосой не менялись; отдельно 5 из 5
+и повторный полный прогон 542/542 - PASS.
 
 Браузер, Kaspi-экспорт (порт 5196; все изменения приложения, кроме заголовка «Новых предложений
 нет», который добавлен последним - на финальном экспорте повторены `browser_store_walk.py` и
