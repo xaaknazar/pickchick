@@ -1,6 +1,6 @@
 """Launch continuity and the Drinkit-style cart bar on local, read-only synthetic data.
 
-Simulator export (no Kaspi checkout, local demo account): the bar shows the total only and the
+Simulator export (no Kaspi checkout, local demo account): the bar shows the selected dining mode, total and the
 photos of the last added items; the whole capsule opens the cart and has no Kaspi handle. The Kaspi
 handle and slide to pay are covered by browser_slide_to_pay.py on the customer-auth export.
 """
@@ -78,10 +78,15 @@ with sync_playwright() as p:
             expect(pill).to_be_visible()
             expect(page.get_by_test_id('launch-reveal')).to_have_count(0)
             expect(pill).to_contain_text('4 190')
-            # Total only (owner): no count, label or time; photos of the last items on the right.
+            # Dining mode above the total, with the same icon as the cart; no invented time.
             expect(page.get_by_test_id('cart-shortcut-total')).to_have_text('4 190 ₸')
-            # Icon glyphs (private use characters) aside, the total is the only text.
-            assert re.sub(r'[\ue000-\uf8ff\s]', '', pill.inner_text()) == '4190₸', pill.inner_text()
+            mode = page.get_by_test_id('cart-shortcut-dining-label')
+            expect(mode).to_have_text('С собой')
+            expect(pill).to_have_attribute('aria-label', re.compile('С собой'))
+            label_box = mode.bounding_box()
+            total_box = page.get_by_test_id('cart-shortcut-total').bounding_box()
+            assert label_box['y'] + label_box['height'] <= total_box['y'] + 1
+            assert re.sub(r'[\ue000-\uf8ff\s]', '', pill.inner_text()) == 'Ссобой4190₸', pill.inner_text()
             expect(page.get_by_test_id('cart-count')).to_have_count(0)
             expect(page.get_by_test_id('cart-recent-photo-0')).to_be_visible()
             expect(page.get_by_test_id('cart-recent-photo-1')).to_have_count(0)
@@ -127,6 +132,16 @@ with sync_playwright() as p:
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
             pill.click()
             expect(page.get_by_test_id('cart-checkout')).to_be_visible()
+        page.get_by_test_id('cart-dining-dine_in').click()
+        page.goto(URL + '/menu')
+        expect(page.get_by_test_id('cart-shortcut-dining-label')).to_have_text('В зале')
+        page.reload()
+        expect(page.get_by_test_id('cart-shortcut-dining-label')).to_have_text('В зале')
+        page.get_by_test_id('open-cart').click()
+        page.get_by_test_id('cart-dining-takeaway').click()
+        page.goto(URL + '/orders')
+        expect(page.get_by_test_id('cart-shortcut-dining-label')).to_have_text('С собой')
+        page.get_by_test_id('open-cart').click()
         page.get_by_test_id('cart-clear').click()
         page.get_by_test_id('cart-clear-confirm').click()
         page.goto(URL + '/events')
@@ -213,7 +228,16 @@ with sync_playwright() as p:
         expect(page.get_by_test_id('cart-recent-photo-2')).to_be_visible(timeout=20000)
         assert photos() == ['cart-recent-pick-combo', 'cart-recent-coleslaw', 'cart-recent-wedges'], photos()
         # Tapping the photos or the total opens the cart (they are decorative parts of one button).
-        for zone in ['cart-recent-photo-0', 'cart-shortcut-total']:
+        for zone in ['cart-recent-photo-0', 'cart-shortcut-total', 'cart-shortcut-dining-label']:
+            # Wait until the sheet's closing overlay is gone before a raw coordinate tap.
+            # Locator actions auto-wait for this, but mouse.click deliberately does not.
+            page.wait_for_function('''(id) => {
+                const e = document.querySelector('[data-testid="' + id + '"]');
+                if (!e) return false;
+                const b = e.getBoundingClientRect();
+                return !!document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2)
+                    ?.closest('[data-testid="open-cart"]');
+            }''', arg=zone)
             box = page.get_by_test_id(zone).bounding_box()
             page.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
             expect(page.get_by_test_id('cart-checkout')).to_be_visible()
@@ -222,6 +246,6 @@ with sync_playwright() as p:
         context.close()
     browser.close()
 assert not errors, errors
-print('PASS: every tab / four sizes, transparent floating docks, total only, last three photos in add order '
+print('PASS: every tab / four sizes, transparent floating docks, dining mode above total, last three photos in add order '
       '(persisted), no Kaspi handle outside the Kaspi build (the bag pill on its opaque base), navigation and '
       'empty cart')

@@ -80,10 +80,10 @@ function RecentPhoto({ line, size, index }: { line: CartLine; size: number; inde
 }
 
 // Drinkit-style dock shared by the tabs and the standalone menu (owner request 27.10.2026):
-// the payment handle on the left (the customer's last used method, Kaspi today), the total only
-// in the middle, the last added items on the right. When paying is not possible right now
-// (owner 28.10.2026: closed, payments switched off, no connection, stop list) the bar has no
-// handle at all, only the total and the photos; a tap opens the cart with the reason.
+// the payment handle on the left (the customer's last used method, Kaspi today), the selected
+// dining mode above the total in the middle, the last added items on the right. When paying is
+// not possible (closed, payments switched off, no connection, stop list) the bar has no handle;
+// a tap opens the cart with the reason. The dining mode always follows the basket (owner 29.10).
 export function CartShortcut({
   model,
   onPress,
@@ -120,12 +120,17 @@ export function CartShortcut({
   const total = MinorMoney(
     payableTotalMinor(cartTotal(model.cart), model.comboRewards?.discountMinor),
   );
+  const diningLabel = t(model.diningMode === 'dine_in' ? 'В зале' : 'С собой');
+  const diningIcon = model.diningMode === 'dine_in' ? 'restaurant-outline' : 'bag-handle-outline';
   const reduced = useReducedMotion();
   const capsuleGlass = useGlassBarStyle();
   const pillRim = useGlassRim();
   const { width, fontScale } = useWindowDimensions();
   const layout = cartBarLayout({ width, fontScale, totalLength: total.length });
-  const recent = recentCartLines(model.cart, model.recentCartProductIds, layout.photos);
+  // Keep the full Kazakh dining label and its icon readable on a narrow phone.
+  const photoLimit =
+    width < 360 && diningLabel.length > 10 ? Math.min(2, layout.photos) : layout.photos;
+  const recent = recentCartLines(model.cart, model.recentCartProductIds, photoLimit);
   const payable = slideToPayAvailable({
     kaspiCheckout: kaspiCheckoutEnabled,
     orderSimulator: orderSimulatorEnabled,
@@ -302,11 +307,12 @@ export function CartShortcut({
           <Pressable
             testID="open-cart"
             accessibilityRole="button"
-            accessibilityLabel={localize(
+            accessibilityLabel={joinSentences(
               t(count === 1 ? 'Корзина, 1 позиция, {p1}' : 'Корзина, {p0} позиций, {p1}', {
                 p0: count,
                 p1: total,
               }),
+              diningLabel,
             )}
             accessibilityHint={
               reason
@@ -334,6 +340,19 @@ export function CartShortcut({
               style={[s.middle, closed ? s.middleClosed : s.fill, contentStyle]}
             >
               <View testID="cart-total" style={s.totalBox}>
+                <View testID="cart-shortcut-dining" style={s.dining}>
+                  <Icon name={diningIcon} size={14} color={s.diningText.color} />
+                  <Text
+                    testID="cart-shortcut-dining-label"
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.85}
+                    maxFontSizeMultiplier={1.3}
+                    style={s.diningText}
+                  >
+                    {diningLabel}
+                  </Text>
+                </View>
                 <Text
                   testID="cart-shortcut-total"
                   numberOfLines={1}
@@ -448,7 +467,22 @@ const s = StyleSheet.create({
   },
   middle: { minWidth: 0, alignItems: 'center', justifyContent: 'center' },
   middleClosed: { flexShrink: 1 },
-  totalBox: { maxWidth: '100%' },
+  totalBox: { maxWidth: '100%', alignItems: 'center' },
+  dining: {
+    maxWidth: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  diningText: {
+    fontFamily: font.medium,
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#B8BAC2',
+    flexShrink: 1,
+    includeFontPadding: false,
+  },
   total: {
     fontFamily: font.display,
     color: colors.white,
