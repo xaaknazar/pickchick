@@ -87,7 +87,9 @@ export function ArcadeButton({
         pressed && { transform: [{ scale: 0.98 }], opacity: 0.9 },
       ]}
     >
-      {icon ? <Icon name={icon} size={20} color={secondary ? arcade.white : '#24130A'} /> : null}
+      {icon ? (
+        <Icon name={icon} size={20} color={secondary ? arcade.white : colors.orangeInk} />
+      ) : null}
       <Text style={[a.buttonLabel, secondary && { color: arcade.white }]}>{localize(title)}</Text>
     </Pressable>
   );
@@ -333,16 +335,17 @@ const a = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 18,
-    backgroundColor: arcade.orange,
+    // The brand's main action (owner 29.10.2026): the same orange and ink as «Добавить» and Button.
+    backgroundColor: colors.accent,
     borderWidth: 1,
-    borderColor: '#FFD7B5',
+    borderColor: colors.accent,
     flexDirection: 'row',
     gap: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondary: { backgroundColor: arcade.panel, borderColor: arcade.border },
-  buttonLabel: { fontFamily: font.bold, fontSize: 16, lineHeight: 23, color: '#24130A' },
+  buttonLabel: { fontFamily: font.bold, fontSize: 16, lineHeight: 23, color: colors.orangeInk },
   glowBlue: {
     position: 'absolute',
     top: -160,
