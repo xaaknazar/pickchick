@@ -6850,8 +6850,8 @@
       "id": "mobile-appstore-clean-1029",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-appstore-clean-1029",
-      "head": "6c6fec0f77828e45f5c55bc4ea26b19b627504bc",
-      "status": "active",
+      "head": "635fd3aad03cd9d0af0272651f3b13d0ea9c6ad6",
+      "status": "available",
       "scopes": [
         ".github/workflows/ci.yml",
         "apps/mobile/assets/catalog-hd/README.md",
@@ -6973,8 +6973,9 @@
         "@apple/appstore",
         "tests/operations/test_ci_parallel.py"
       ],
-      "updatedAt": "2026-10-29T14:03:22.328Z",
-      "summary": "Owner approved overlapping claims for build 28; App Store read-only; TestFlight authorized."
+      "updatedAt": "2026-10-29T14:17:06.110Z",
+      "summary": "TestFlight 28 published to PickChick Internal, 2 testers. PR291 merged; exact IPA source 43ae6b04 Foundation 11/11 green. Documentation checkpoint 635fd3aa in PR293. Owner reports Kaspi payments and haptics work; physical acceptance remains partial.",
+      "nextAction": "Merge documentation PR293 when its CI is green. Owner feedback on stronger haptics and Pick Man first-entry safe area continues separately."
     }
   ]
 }
