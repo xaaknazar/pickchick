@@ -30,8 +30,8 @@ export const SLIDE_COMPLETE_RATIO = 0.85;
  * only after the finger went back below this share, so jitter at the threshold does not buzz.
  */
 export const SLIDE_DISARM_RATIO = 0.75;
-/** While the finger pulls, forwards or back, a light click every twelfth of the track (29.10). */
-export const SLIDE_TICKS = 12;
+/** While the finger pulls, forwards or back, a light impact every sixteenth of the track (29.10). */
+export const SLIDE_TICKS = 16;
 const HINT_MS = 1400;
 const RESET_MS = 700;
 /**
@@ -208,7 +208,7 @@ export function KaspiSlideToPay({
         // The pill's right end follows the finger horizontally, clamped to the bar.
         x.value = Math.min(limit.value, Math.max(0, event.absoluteX - originX.value));
         if (limit.value <= 0) return;
-        // A light click at every twelfth of the track, forwards and back, and one firm tap
+        // A light impact at every sixteenth of the track, forwards and back, and one firm tap
         // (instead of the click) where letting go starts the payment; again only after going back.
         const step = Math.min(SLIDE_TICKS, Math.floor((x.value / limit.value) * SLIDE_TICKS));
         const moved = step !== notch.value;

@@ -5234,6 +5234,34 @@
         "deployed": true,
         "accepted": false
       }
+    },
+    {
+      "id": "mobile-feedback-1029",
+      "workstream": "mobile",
+      "title": "Отзыв после 28: вибрация оплаты и отступы Pick Man",
+      "summary": "Текущая подпись сохранена. Более ощутимые и частые импульсы движения; системные отступы Pick Man применяются вместе с компоновкой.",
+      "status": "active",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["mobile-appstore-clean-1029"],
+      "evidence": [
+        {
+          "label": "Изменения, проверки и ограничения",
+          "path": "docs/operations/mobile-feedback-2026-10-29.md"
+        }
+      ],
+      "acceptance": [
+        "Первый и повторный вход в Pick Man из заказа не перекрывает системную строку.",
+        "Вибрация заметнее при движении в обе стороны; подпись остаётся прежней.",
+        "Полный жест создаёт один платёжный запрос; раннее отпускание ничего не отправляет."
+      ],
+      "nextAction": "Завершить нативную проверку, PR/CI; затем новый TestFlight и приёмка владельцем на iPhone.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
     }
   ]
 }

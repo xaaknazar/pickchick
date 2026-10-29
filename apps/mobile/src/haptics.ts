@@ -4,9 +4,8 @@ import { Platform } from 'react-native';
 /**
  * Taptic feedback of the payment handle (owner 29.10.2026: «вибрация нужна, когда начал тянуть и
  * назад тоже - процесс, когда тянем, а не в конце»):
- * - `grab`  - the finger starts stretching the pill (light tap);
- * - `tick`  - every twelfth of the track while the finger pulls, forwards and back (the light
- *             «selection» click of iOS pickers);
+ * - `grab`  - the finger starts stretching the pill (medium tap);
+ * - `tick`  - every sixteenth of the track while the finger pulls, forwards and back (light impact);
  * - `armed` - the pill passed the point where letting go starts the payment (firmer tap).
  * Nothing extra at the release. iOS skips them by itself when the customer turned System Haptics
  * off. A native build without the module (an older dev client) only loses the feedback:
@@ -22,11 +21,13 @@ export function haptic(cue: HapticCue): void {
     if (Array.isArray(log)) log.push(cue);
     return;
   }
-  const feedback =
+  // Owner's feedback on build 28: make the pull a little stronger and denser.
+  const feedback = Haptics.impactAsync(
     cue === 'tick'
-      ? Haptics.selectionAsync()
-      : Haptics.impactAsync(
-          cue === 'armed' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light,
-        );
+      ? Haptics.ImpactFeedbackStyle.Light
+      : cue === 'armed'
+        ? Haptics.ImpactFeedbackStyle.Heavy
+        : Haptics.ImpactFeedbackStyle.Medium,
+  );
   feedback.catch(() => undefined);
 }

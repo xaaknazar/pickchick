@@ -1,3 +1,14 @@
+## 29 октября: правки по отзыву о TestFlight 28
+
+Задача `mobile-feedback-1029`, ветка `codex/mobile-feedback-1029`.
+Текущая подпись оплаты сохранена. Усилены импульсы движения, 16 делений вместо 12;
+Pick Man получает системные отступы одновременно с разметкой шапки и поля.
+557 Node + 59 Python, TypeScript, адресный lint/format, A-Q и Pick Man browser PASS.
+Native iOS 26.5 PASS: оба входа, верх кнопок 71 pt. По поручению владельца
+выпустить 29: PR/CI, storefront archive/upload, назначить PickChick Internal.
+Опубликованной остаётся сборка 28. Сервер и онлайн-пульт не обновлять.
+[Протокол](../operations/mobile-feedback-2026-10-29.md).
+
 ## 29 октября: TestFlight 28 опубликован в PickChick Internal
 
 PickChick 0.2.0 (28), storefront, исходник `43ae6b04`, доступен 2 тестировщикам.

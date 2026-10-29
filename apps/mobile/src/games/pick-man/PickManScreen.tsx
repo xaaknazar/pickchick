@@ -23,7 +23,7 @@ import Animated, {
   type FrameInfo,
 } from 'react-native-reanimated';
 import { advanceMotion, createMotion, queueMotion } from './motion';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, Logo } from '../../components/UI';
 import { colors, font } from '../../theme';
 import {
@@ -351,6 +351,7 @@ function MazeBoard({
 }
 export function PickManScreen() {
   useLocale();
+  const insets = useSafeAreaInsets();
   const router = useRouter(),
     controller = usePickMan(),
     reduced = useReducedMotion();
@@ -453,7 +454,20 @@ export function PickManScreen() {
   }, [controller.pause, controller.steer, help, playing, restart]);
   const overlay = help || restart || status === 'paused' || status === 'over' || status === 'won';
   return (
-    <SafeAreaView testID="pick-man-screen" style={s.page}>
+    <View
+      testID="pick-man-screen"
+      // Keep header and board in the same layout pass when entering above the order modal.
+      // Native SafeAreaView can apply its padding late during this presentation.
+      style={[
+        s.page,
+        {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+          paddingLeft: insets.left + 6,
+          paddingRight: insets.right + 6,
+        },
+      ]}
+    >
       <ArcadeBackdrop />
       <View style={[s.header, compact && { height: wide ? 48 : 58 }]}>
         <Pressable
@@ -745,7 +759,7 @@ export function PickManScreen() {
           </Pressable>
         </View>
       ) : null}
-    </SafeAreaView>
+    </View>
   );
 }
 const s = StyleSheet.create({
