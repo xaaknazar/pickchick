@@ -13,6 +13,7 @@ import {
 import { AuthButton, AuthLayout, authColors } from '../components/AuthLayout';
 import { Icon } from '../components/UI';
 import { DEMO_LOGIN_CODE, formatDemoPhone, normalizeDemoPhone } from '../demo-account';
+import { phoneFieldDigits, phoneMayContinue } from '../phone-entry';
 import type { ScreenProps } from '../model';
 import { colors, font } from '../theme';
 import { TELEGRAM_REQUIRED_MESSAGE, useAccount } from '../useAccount';
@@ -34,11 +35,6 @@ function DemoNote() {
       {t('. Сообщения не отправляются.')}
     </Text>
   );
-}
-function phoneDigits(value: string) {
-  let digits = value.replace(/\D/g, '');
-  if (digits.length > 10 && /^[78]/.test(digits)) digits = digits.slice(1);
-  return digits.slice(0, 10);
 }
 function displayPhone(value: string) {
   return [value.slice(0, 3), value.slice(3, 6), value.slice(6, 8), value.slice(8, 10)]
@@ -147,10 +143,13 @@ export function Phone(props: ScreenProps) {
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           onChangeText={(value) => {
-            const next = phoneDigits(value);
+            const next = phoneFieldDigits(value);
             setPhone(next);
             setSubmitted(false);
-            if (next.length === 10 && normalizeDemoPhone(next)) Keyboard.dismiss();
+            // «+7 70…» typed with its country code is not complete at 10 digits (App Review
+            // 29.10.2026): the keyboard stays for the last key, Continue already works.
+            if (next.length === 10 && normalizeDemoPhone(next) && !phoneMayContinue(next))
+              Keyboard.dismiss();
           }}
           placeholder="000 000 00 00"
           placeholderTextColor={authColors.muted}
@@ -184,7 +183,7 @@ export function Phone(props: ScreenProps) {
           )}
         </Text>
       </View>
-      {phone.length === 10 && !valid ? (
+      {phone.length === 10 && !valid && !phoneMayContinue(phone) ? (
         <Text accessibilityRole="alert" style={s.error}>
           {t('Проверьте мобильный номер Казахстана.')}
         </Text>
