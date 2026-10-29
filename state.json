@@ -7003,11 +7003,11 @@
         "docs/operations/mobile-cart-mode-2026-10-29.md",
         "apps/mobile/src/screens/PhotoProduct.tsx"
       ],
-      "status": "active",
-      "head": "4dff6d8b64d158803f0ea82efd6314f745186c3e",
-      "updatedAt": "2026-10-29T18:37:25.553Z",
-      "summary": "UI готов: способ получения с иконкой над ценой, RU/KK/EN, узкая казахская подпись помещается. 4dff6d8b опубликован, draft PR295. TypeScript/lint/format, 557 Node+59 Python, browser_cart_shortcut и slide B/I/L/Q PASS; web 320/393 оба режима/3 языка PASS. Native/iPhone не проверены. Предыдущая собственная задача appstore-clean завершена после PR293.",
-      "nextAction": "Ждём ответ владельца на согласование одного утверждения сценария A в tests/mobile/browser_slide_to_pay.py (активный резерв mobile-feedback-1029). После разрешения согласованно обновить только проверку подписи, пройти A и полную CI, вывести PR295 из draft. Ничего не сливать/не выпускать без разрешения. Status/roadmap остаются параллельной задаче."
+      "status": "available",
+      "head": "ece96e6bc25c6ec949eb2e6b7ddba63a7bf3809c",
+      "updatedAt": "2026-10-29T18:40:25.478Z",
+      "summary": "ece96e6b опубликован PR295: плашка способа получения + синяя палитра страниц допов/напитков, как у комбо. Фото не редактировались, встроенный светлый фон снимков остаётся. TypeScript/lint/format, product-photo tests, complete_catalog 320/390/430 и 8 страниц 320/393 PASS. Предыдущие 557 Node+59 Python, cart_shortcut и slide B/I/L/Q PASS. Web-проверки, без нативной установки.",
+      "nextAction": "Ждём согласование одного утверждения browser_slide_to_pay.py A от mobile-feedback-1029; затем A и полная CI, PR295 из draft. Слияние и выпуск не разрешены этой задачей; общие status/roadmap заняты. Снимки .local/extras-blue и .local/cart-mode-preview. Для полностью синего фона внутри фотографий требуется отдельное редактирование изображений."
     }
   ]
 }
