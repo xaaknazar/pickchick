@@ -1,24 +1,34 @@
-"""App Store walk (owner 29.10.2026, «устрани это все»; App Review Guideline 2.1).
+"""App Store walk (owner 29.10.2026, «устрани это все»; App Review Guideline 2.1; review 29.10.2026).
 
 The Kaspi customer build is what goes to the App Store. This walk opens every customer screen of
 that build and asserts that no visible text, accessible name or icon announces a feature that does
-not work yet («скоро», «подключается», «появится позже», «в процессе подключения», «coming soon»)
-and that no Apple Pay / Google Pay / bank card is offered (no name, no row, no Apple/Google logo):
-  menu (top, end, product page, cart bar), cart (+ end) and «Способ оплаты», «События», «Заказы»,
-  order status and its help sheet, a completed order, the profile and every row (notifications
-  with both tabs, help, profile edit, language and notifications settings, restaurants, documents,
-  data management), the deep links of preview-only screens (M22-M25, M35 open the menu), the same
-  main screens in English and Kazakh, a guest (menu, cart, sign-in) and the 320 pt screen.
+not work yet («скоро», «подключается», «ещё не / пока не», «not yet», «will be available»,
+KK «әлі», «әзірге», «қосылуда»), mentions the Chiki programme or a «Без фото» placeholder, or
+offers Apple Pay / Google Pay / a bank card (no name, no row, no Apple/Google logo). The patterns
+and the real temporary states that may be shown are shared with tests/mobile/store-copy.test.mjs
+(store-copy-patterns.json).
+  menu (top, end, product page with the combo extras, cart bar), cart (+ end) and «Способ оплаты»,
+  «События», «Заказы», order status and its help sheet, a completed order, the profile and every
+  row (notifications, help and restaurant, «Неясен результат оплаты?», profile edit with its
+  «Отмена», «Настройки» with «Как проходит заказ», restaurants, documents, data management), the
+  deep links of preview-only screens (M22-M25, M35 open the menu), the same main screens in
+  English (where no Cyrillic may remain, accessible names included) and Kazakh, a guest (menu,
+  cart, sign-in, «События» and the three mini-games without signing in), the 320 pt screen;
+  the payment step: the App Review account (403 FORBIDDEN on POST /orders: neutral text,
+  «Как проходит заказ» into the demonstration, no invoice), the restaurant that does not answer
+  and Kaspi answering slowly (20 s stuck states); «Удалить аккаунт» and its confirmation.
 The server answers like production on 29.10.2026: the 6 + 1 programme is switched off
 (/combo-rewards {enabled: false}), push is not connected, receipts are deferred.
 
-Runs against the customer-auth web export (EXPO_PUBLIC_CUSTOMER_AUTH=server,
-EXPO_PUBLIC_KASPI_CHECKOUT=1, EXPO_PUBLIC_UNPAID_TEST_ORDERS=1, EXPO_PUBLIC_PUBLISHED_CATALOG=0)
-with local fixtures only: no bank, no real customer, no VPS request, no mutation.
-Screenshots: STORE_WALK_OUT (default .local/store-walk).
+STORE_WALK_PROFILE:
+  storefront (the App Store profile: EXPO_PUBLIC_CUSTOMER_AUTH=server, EXPO_PUBLIC_KASPI_CHECKOUT=1,
+    EXPO_PUBLIC_ORDER_SIMULATOR=0, EXPO_PUBLIC_UNPAID_TEST_ORDERS=0, EXPO_PUBLIC_PUBLISHED_CATALOG=1,
+    EXPO_PUBLIC_PICK_FARM=0): the published catalogue, no test-order request at all;
+  qa (default; the customer-auth export of CI: ...UNPAID_TEST_ORDERS=1, PUBLISHED_CATALOG=0).
+Local fixtures only: no bank, no real customer, no VPS request. Screenshots: STORE_WALK_OUT.
 """
 from browser_network import isolated_context, route_fixture
-import json, os, re, subprocess, uuid
+import json, os, re, subprocess, threading, uuid
 from pathlib import Path
 from urllib.parse import urlparse
 from playwright.sync_api import sync_playwright, expect
@@ -26,33 +36,71 @@ from playwright.sync_api import sync_playwright, expect
 ROOT = Path(__file__).resolve().parents[2]
 URL = os.environ.get('CUSTOMER_AUTH_URL', 'http://127.0.0.1:4196').rstrip('/')
 assert urlparse(URL).hostname in ('127.0.0.1', 'localhost'), 'Use a local exported app'
+PROFILE = os.environ.get('STORE_WALK_PROFILE', 'qa')
+assert PROFILE in ('qa', 'storefront'), PROFILE
+STOREFRONT = PROFILE == 'storefront'
 OUT = ROOT / os.environ.get('STORE_WALK_OUT', '.local/store-walk')
+# Debugging only: STORE_WALK_REPORT=1 prints findings instead of failing; STORE_WALK_ONLY=a,b runs
+# only those parts (signed_in, languages, small, guest, payment_step, delete).
+REPORT = os.environ.get('STORE_WALK_REPORT') == '1'
+ONLY = [part for part in os.environ.get('STORE_WALK_ONLY', '').split(',') if part]
 OUT.mkdir(parents=True, exist_ok=True)
-CAT = json.loads(subprocess.check_output(['node', '--input-type=module', '-e',
-    "import {testCompleteCatalog} from './packages/test-order-flow/dist/complete-catalog.js';console.log(JSON.stringify(testCompleteCatalog))"],
-    cwd=ROOT, text=True))
+
+
+def node_json(code):
+    return json.loads(subprocess.check_output(['node', '--input-type=module', '-e', code], cwd=ROOT, text=True))
+
+
+CAT = node_json("import {testCompleteCatalog} from './packages/test-order-flow/dist/complete-catalog.js';"
+                "console.log(JSON.stringify(testCompleteCatalog))")
 BRANCH = CAT['branch_id']
 PRICES = {p['id']: (p['name'], int(p['price_minor'])) for p in CAT['products']}
+# The published storefront (back-office seed of the same menu) for the storefront profile.
+SEED = node_json("import {mockupCatalogDraft} from './packages/catalog-admin/dist/seed.js';"
+                 "console.log(JSON.stringify(mockupCatalogDraft))")
+PUBLICATION = {'branch': {'id': BRANCH, 'code': 'ABAY', 'name': 'ТЦ Abay Plaza', 'timezone': 'Asia/Almaty',
+                          'ordering_enabled': True},
+               'channel': 'mobile', 'version': 6, 'published_at': '2026-10-28T00:00:00.000Z',
+               'payload': {**SEED, 'content_source': 'operator', 'content_reviewed': True}}
+PRODUCTS = SEED['products'] if STOREFRONT else CAT['products']
+
+
+def option_delta(product, group_id, option_id):
+    for group in product.get('modifier_groups') or []:
+        if group['id'] == group_id:
+            for option in group['options']:
+                if option['id'] == option_id:
+                    return int(option.get('price_delta_minor') or 0)
+    return 0
+
+
+def quote_total(body):
+    by_id = {p['id']: p for p in PRODUCTS}
+    total = 0
+    for item in body['items']:
+        product = by_id[item['productId']]
+        unit = int(product['price_minor']) + sum(
+            option_delta(product, s['group_id'], s['option_id']) * s['quantity'] for s in item['selections'])
+        total += unit * item['quantity']
+    return str(total)
+
+
 MESSAGES = {m['ru']: m for m in json.loads((ROOT / 'apps/mobile/src/i18n/messages.json').read_text())}
+SHARED = json.loads((ROOT / 'tests/mobile/store-copy-patterns.json').read_text())
+FORBIDDEN = [re.compile(pattern, re.I) for pattern in SHARED['patterns']]
+# Real temporary states (closed, payment pending, bank or restaurant not answering) in RU/KK/EN.
+ALLOWED_VISIBLE = sorted({text for state in SHARED['states']
+                          for text in (state['text'], MESSAGES.get(state['text'], {}).get('kk'),
+                                       MESSAGES.get(state['text'], {}).get('en')) if text},
+                         key=len, reverse=True)
 GLYPHS = json.loads((ROOT / 'apps/mobile/node_modules/@expo/vector-icons/build/vendor/'
                      'react-native-vector-icons/glyphmaps/Ionicons.json').read_text())
 # The Apple / Google marks the payment rows used: none may be drawn anywhere.
 LOGOS = {name: chr(GLYPHS[name]) for name in ('logo-apple', 'logo-google', 'logo-apple-appstore')}
-
-# Same wordings as tests/mobile/store-copy.test.mjs (RU, KK, EN).
-FORBIDDEN = [re.compile(pattern, re.I) for pattern in [
-    r'скоро', r'подключа', r'не подключ[её]н', r'после подключения', r'в процессе подключения',
-    r'оплата в процессе', r'появится позже', r'появятся позже', r'загляни позже',
-    r'пока не (выпускается|начисляются|даёт|активн)', r'ещё не (активирован|активен)',
-    r'пробн(ый|ые|ого|ых|ом|ая)', r'предварительн', r'готовим программу', r'готовятся',
-    r'на подготовке', r'apple ?pay', r'google ?pay', r'coming soon', r'\bare coming\b', r'being set up',
-    r'being connected', r'not connected yet', r'\bsoon\b', r'жақында(?![а-яёәіңғүұқөһ])',
-    r'қосылып жатыр', r'әлі қосылмаған', r'іске қосылмаған', r'банковская карта', r'bank card',
-]]
-# A real farewell, not a feature: «Будем ждать снова!» reads «See you again soon!» in English.
-FAREWELL = MESSAGES['Спасибо, что выбрали PickChick. Будем ждать снова!']
-ALLOWED_VISIBLE = [FAREWELL['ru'], FAREWELL['kk'], FAREWELL['en']]
 WALLET_IDS = ['apple_pay', 'google_pay', 'card']
+CYRILLIC = re.compile(r'[А-Яа-яЁёӘәІіҢңҒғҮүҰұҚқӨөҺһ]')
+# English screens may show these Cyrillic words only: the language names of the language picker.
+EN_ALLOWED_CYRILLIC = ['Русский', 'Қазақша']
 
 CUSTOMER = '40000000-0000-4000-8000-000000000001'
 customer = {'id': CUSTOMER, 'phone': '+77000000000', 'nickname': 'UI test', 'birth_date': None,
@@ -63,28 +111,33 @@ envelope = {'version': 1, 'device_id': '40000000-0000-4000-8000-000000000004',
                        'session_id': '40000000-0000-4000-8000-000000000002', 'customer': customer},
             'challenge': None, 'otp_request': None, 'verify_intent': None,
             'refresh_request_id': None, 'closing': None}
+DRAFT_KEY = 'pickchick.commerce.pending.v1:' + CUSTOMER
 
 
 def uid(seed):
     return str(uuid.uuid5(uuid.NAMESPACE_URL, 'pickchick-store-walk/' + seed))
 
 
-def commerce_order(number, phase, created, entries, stage=None):
-    return {'orderId': uid('order' + number), 'revision': uuid.uuid5(uuid.NAMESPACE_URL, created).hex * 2,
+def commerce_order(number, phase, created, entries, stage=None, modifiers=None):
+    return {'orderId': uid('order' + number), 'revision': uuid.uuid5(uuid.NAMESPACE_URL, created + phase).hex * 2,
             'restaurant': 'ТЦ Abay Plaza', 'branchId': BRANCH, 'createdAt': created, 'updatedAt': created,
             'kitchenStage': stage, 'displayNumber': number,
             'totalMinor': str(sum(PRICES[p][1] * q for p, q in entries)), 'serviceMode': 'takeaway',
-            'kitchenComment': None, 'phase': phase, 'expiresAt': None,
+            'kitchenComment': None, 'phase': phase,
+            'expiresAt': None,
             # Every app order today: fiscalPolicy deferred_pilot, no receipt.
             'receipt': 'deferred', 'receiptUrl': None,
             'items': [{'productId': p, 'title': PRICES[p][0], 'quantity': q,
-                       'totalMinor': str(PRICES[p][1] * q), 'modifiers': []} for p, q in entries]}
+                       'totalMinor': str(PRICES[p][1] * q), 'modifiers': list(modifiers or [])}
+                      for p, q in entries]}
 
 
-PREPARING = commerce_order('14', 'preparing', '2026-10-29T06:50:00.000Z', [('finger-duo', 1), ('sauce', 1)], 'cooking')
+PREPARING = commerce_order('14', 'preparing', '2026-10-29T06:50:00.000Z', [('pick-combo', 1), ('sauce', 1)],
+                           'cooking', ['Coca-Cola 0.5 л, бутылка', 'Фирменный соус Pick Chick'])
+READY = commerce_order('15', 'ready', '2026-10-29T06:40:00.000Z', [('finger-duo', 1)])
 HANDED = commerce_order('12', 'handed_over', '2026-10-28T12:32:00.000Z', [('pick-combo', 1)])
-ORDERS = [PREPARING, HANDED]
-errors, mutations, walked = [], [], []
+ORDERS = [PREPARING, READY, HANDED]
+errors, mutations, walked, test_requests = [], [], [], []
 
 COLLECT = '''() => {
   const shown = (el) => {
@@ -102,41 +155,87 @@ COLLECT = '''() => {
 }'''
 
 
-def route_for(signed_in=True):
+def route_for(signed_in=True, checkout=None, deleted=None):
+    """`checkout`: None (the walk only looks), or the payment step: {'orders': 'forbidden' |
+    'hold' | 'ok', 'counts': {...}} (quotes, refused or held creates, invoices are counted)."""
+    def ok(route, data, headers=None):
+        route.fulfill(json=data, headers={'Access-Control-Allow-Origin': '*', **(headers or {})})
+
     def intercept(route):
         path = urlparse(route.request.url).path
         method = route.request.method
+        if path.startswith('/v1/test/'):
+            test_requests.append(f'{method} {path}')
+        if checkout is not None and path.startswith('/v1/customer-checkout/') and method == 'POST':
+            counts = checkout['counts']
+            if path.endswith('/quotes'):
+                counts['quotes'] += 1
+                body = route.request.post_data_json
+                return ok(route, {'quoteId': uid('quote%d' % counts['quotes']), 'totalMinor': quote_total(body),
+                                  'expiresAt': '2099-01-01T00:00:00.000Z', 'serviceMode': body['serviceMode'],
+                                  'kitchenComment': None})
+            if path.endswith('/orders'):
+                counts['creates'] += 1
+                if checkout['orders'] == 'forbidden':
+                    # The server's error envelope (customer-checkout-controller, App Review phone).
+                    return route.fulfill(status=403, json={'code': 'FORBIDDEN', 'message_key': 'errors.forbidden',
+                                                           'trace_id': uid('trace'), 'retryable': False},
+                                         headers={'Access-Control-Allow-Origin': '*'})
+                if checkout['orders'] == 'hold':
+                    checkout['held'].append(route)
+                    return
+                checkout['order'] = commerce_order('21', 'ready_to_pay', '2026-10-29T07:00:00.000Z',
+                                                   [('pick-combo', 1)])
+                return ok(route, checkout['order'])
+            if path.endswith('/payment'):
+                counts['payments'] += 1
+                # Kaspi answers slowly: the invoice is still being sent.
+                checkout['order'] = {**checkout['order'], 'phase': 'sending',
+                                     'revision': uuid.uuid4().hex * 2}
+                return ok(route, checkout['order'])
+        if deleted is not None and path == '/v1/customers/me' and method == 'DELETE':
+            deleted.append(path)
+            return ok(route, {'ok': True})
         if method not in ('GET', 'OPTIONS'):
-            # The walk only looks: no quote, order, payment, feedback or profile write. (This export
-            # also has the synthetic test-order client, whose session request is refused here.)
+            # The walk only looks: no quote, order, payment, feedback or profile write. (The QA
+            # export also has the synthetic test-order client, whose session request is refused.)
             if not path.startswith('/v1/test/'):
                 mutations.append(f'{method} {path}')
             route.abort()
             return
         if path.endswith('/watch'):
-            route.abort()
+            if checkout is not None:
+                checkout['held'].append(route)
+            else:
+                route.abort()
             return
-        data = None
-        if path == '/v1/customers/me' and signed_in:
+        data, headers = None, None
+        if path == '/v1/customers/me' and signed_in and not deleted:
             data = {'customer': customer, 'legal': {'version': 'fixture-v1', 'terms_url': 'https://example.test/terms',
                                                     'privacy_url': 'https://example.test/privacy', 'accepted': True}}
         elif path == '/v1/customer-checkout/availability':
-            data = {'enabled': True, 'fresh': True, 'signature': 'a' * 64,
-                    'products': [{'id': p['id'], 'available': True, 'stoppedOptions': []} for p in CAT['products']]}
+            data = {'enabled': True, 'fresh': True, 'orderingOpen': True, 'signature': 'a' * 64,
+                    'products': [{'id': p['id'], 'available': True, 'stoppedOptions': []} for p in PRODUCTS]}
+            if STOREFRONT:
+                headers = {'X-Catalog-Version': str(PUBLICATION['version']), 'X-Availability-Signature': 'a' * 64,
+                           'Access-Control-Expose-Headers': 'X-Catalog-Version, X-Availability-Signature'}
         elif path == '/v1/auth/config':
             data = {'enabled': True, 'delivery_consent_required': True, 'consent_version': 'fixture-v1',
                     'terms_url': 'https://example.test/terms', 'privacy_url': 'https://example.test/privacy'}
         elif path == '/v1/capabilities':
-            data = {'schema_version': 1, 'environment': 'staging', 'data_mode': 'pilot', 'ordering_enabled': False,
-                    'features': {'phone_auth': True, 'test_order_flow': True,
+            data = {'schema_version': 1, 'environment': 'production' if STOREFRONT else 'staging',
+                    'data_mode': 'pilot', 'ordering_enabled': False,
+                    'features': {'phone_auth': True, 'test_order_flow': not STOREFRONT,
                                  **{k: False for k in ['payments', 'fiscal', 'checkout', 'loyalty']}}}
-        elif path == '/v1/branches':
+        elif path == '/v1/customer-checkout/catalog' and STOREFRONT:
+            data = PUBLICATION
+        elif path == '/v1/branches' and not STOREFRONT:
             data = {'branches': [{'id': BRANCH, 'code': 'TEST', 'name': 'ТЦ Abay Plaza', 'timezone': 'Asia/Almaty',
                                   'ordering_enabled': False}]}
-        elif path == '/v1/branches/' + BRANCH + '/menu':
+        elif path == '/v1/branches/' + BRANCH + '/menu' and not STOREFRONT:
             data = {'schema_version': 1, 'branch_id': BRANCH, 'release_id': uid('release'), 'version': 1,
                     'published_at': '2026-09-07T00:00:00Z', 'items': []}
-        elif path == '/v1/test/catalog':
+        elif path == '/v1/test/catalog' and not STOREFRONT:
             data = CAT
         elif path == '/v1/content/branches/' + BRANCH:
             data = {'schema_version': 1, 'branch_id': BRANCH, 'promos': [], 'games': []}
@@ -147,29 +246,32 @@ def route_for(signed_in=True):
             # Production on 29.10.2026: CUSTOMER_COMBO_REWARDS_ENABLED is off.
             data = {'enabled': False}
         elif path == '/v1/customer-checkout/orders':
-            data = {'orders': ORDERS}
+            data = {'orders': [] if checkout is not None else ORDERS}
         elif path == '/v1/customer-checkout/feedback':
             data = {'feedback': []}
         elif path.startswith('/v1/customer-checkout/orders/') and path.endswith('/feedback'):
             data = {'orderId': path.split('/')[4], 'enabled': True, 'preparationStartedAt': None,
                     'readyAt': None, 'feedback': None}
         elif path.startswith('/v1/customer-checkout/orders/'):
-            data = next((o for o in ORDERS if o['orderId'] == path.split('/')[4]), None)
+            if checkout is not None and checkout.get('order'):
+                data = checkout['order']
+            else:
+                data = next((o for o in ORDERS if o['orderId'] == path.split('/')[4]), None)
         if data is None:
             route.abort()
             return
-        route.fulfill(json=data, headers={'Access-Control-Allow-Origin': '*'})
+        ok(route, data, headers)
     return intercept
 
 
-def context(browser, width=393, height=852, signed_in=True):
+def context(browser, width=393, height=852, signed_in=True, checkout=None, deleted=None):
     ctx = isolated_context(browser, viewport={'width': width, 'height': height}, device_scale_factor=2,
                            reduced_motion='reduce')
     if signed_in:
         ctx.add_init_script('sessionStorage.setItem("pickchick.customer.session.v1",'
                             + json.dumps(json.dumps(envelope)) + ');')
     # Default notification fixture: the push service is not connected (enabled false).
-    route_fixture(ctx, '**/v1/**', route_for(signed_in))
+    route_fixture(ctx, '**/v1/**', route_for(signed_in, checkout, deleted))
     page = ctx.new_page()
     page.on('pageerror', lambda e: errors.append(str(e)))
     return ctx, page
@@ -179,18 +281,29 @@ def settle(page):
     expect(page.get_by_test_id('launch-reveal')).to_have_count(0, timeout=25000)
 
 
-def clean(page, name, wait=600, shot=True):
-    """No forbidden word, no wallet row or mark on the visible screen; then a screenshot."""
+def clean(page, name, wait=600, shot=True, english=False):
+    """No forbidden word, no wallet row or mark on the visible screen; in English no Cyrillic."""
     page.wait_for_timeout(wait)
     text = page.evaluate(COLLECT)
     for allowed in ALLOWED_VISIBLE:
         text = text.replace(allowed, '')
     hits = []
     for pattern in FORBIDDEN:
-        match = pattern.search(text)
-        if match:
+        for match in pattern.finditer(text):
             hits.append(text[max(0, match.start() - 60):match.end() + 60].replace('\n', ' / '))
+    if REPORT and hits:
+        print('FORBIDDEN', name, hits)
+        hits = []
     assert not hits, (name, hits)
+    if english:
+        latin = text
+        for word in EN_ALLOWED_CYRILLIC:
+            latin = latin.replace(word, '')
+        russian = sorted({line.strip() for line in latin.split('\n') if CYRILLIC.search(line)})
+        if REPORT and russian:
+            print('CYRILLIC', name, russian)
+            russian = []
+        assert not russian, (name, 'Cyrillic on an English screen', russian)
     for logo, glyph in LOGOS.items():
         assert glyph not in text, (name, logo)
     glyphs = page.evaluate('() => document.body.textContent')
@@ -211,11 +324,13 @@ def scroll_end(page, test_id):
     page.get_by_test_id(test_id).filter(visible=True).first.evaluate('(e) => { e.scrollTop = e.scrollHeight; }')
 
 
-def add(page, product='pick-combo', shot=None):
+def add(page, product='pick-combo', shot=None, english=False):
     page.get_by_test_id('product-' + product).click(timeout=25000)
     expect(page.get_by_test_id('product-add')).to_be_visible(timeout=15000)
     if shot:
-        clean(page, shot)
+        clean(page, shot, english=english)
+        # «Добавить к комбо»: every extra and sauce has a picture (no «Без фото» placeholder).
+        expect(page.get_by_test_id('option-photo-brand')).to_have_count(0)
     page.get_by_test_id('product-add').click()
     expect(page.get_by_test_id('cart-shortcut').filter(visible=True)).to_be_visible(timeout=15000)
 
@@ -230,14 +345,14 @@ def profile_row(page, label):
     page.get_by_test_id('screen-M30').get_by_text(label, exact=True).click()
 
 
-def payment_selector(page, name):
+def payment_selector(page, name, english=False):
     page.get_by_test_id('cart-payment-method').click()
     sheet = page.get_by_test_id('cart-payment-sheet')
     expect(sheet).to_be_visible()
     # Kaspi.kz only: one radio, checked.
     expect(sheet.get_by_role('radio')).to_have_count(1)
     expect(page.get_by_test_id('cart-payment-kaspi')).to_have_attribute('aria-checked', 'true')
-    clean(page, name)
+    clean(page, name, english=english)
     page.get_by_test_id('cart-payment-close').click()
     expect(sheet).to_have_count(0)
 
@@ -279,9 +394,15 @@ def walk_signed_in(browser):
     clean(page, 'events-393')
     scroll_end(page, 'scroll-M26')
     clean(page, 'events-end-393')
+    # The mini-games' start screens: a personal best on this device, no Chiki.
+    for route, start in (('/games/pick-blocks', 'blocks-start'), ('/games/pick-man', 'pick-man-start')):
+        page.goto(URL + route)
+        expect(page.get_by_test_id(start)).to_be_visible(timeout=25000)
+        clean(page, f'game-{route.split("/")[-1]}-393')
     # «Заказы»: list, an order in preparation and its help sheet, a completed order.
-    page.get_by_test_id('tab-orders').click()
-    expect(page.get_by_test_id('order-history-open-' + PREPARING['orderId'])).to_be_visible(timeout=20000)
+    page.goto(URL + '/orders')
+    expect(page.get_by_test_id('order-history-open-' + PREPARING['orderId'])).to_be_visible(timeout=25000)
+    settle(page)
     clean(page, 'orders-393')
     page.get_by_test_id('order-history-open-' + PREPARING['orderId']).click()
     expect(page.get_by_test_id('order-more')).to_be_visible(timeout=15000)
@@ -315,20 +436,19 @@ def walk_signed_in(browser):
     clean(page, 'profile-393')
     scroll_end(page, 'scroll-M30')
     clean(page, 'profile-end-393')
-    # Notifications: both tabs.
+    # Notifications: one list (no «Для вас» that never receives anything), a neutral empty state.
     page.get_by_test_id('profile-notifications').click()
     expect(page.get_by_test_id('notifications-screen')).to_be_visible(timeout=15000)
-    clean(page, 'notifications-orders-393')
-    page.get_by_test_id('notifications-tab-personal').click()
-    expect(page.get_by_test_id('notifications-empty-personal')).to_be_visible()
-    # An empty inbox, not a promise («Хорошие новости впереди» / «Good things are coming» before).
-    expect(page.get_by_test_id('notifications-empty-personal')).to_contain_text('Новых предложений нет')
-    clean(page, 'notifications-personal-393')
-    # Help: the restaurant itself is the contact, no message form.
+    expect(page.get_by_test_id('notifications-tab-personal')).to_have_count(0)
+    expect(page.get_by_test_id('notifications-empty-orders')).to_contain_text('Новых сообщений нет')
+    clean(page, 'notifications-393')
+    # Help: an information card (not a dead button), the restaurant, no message form.
     open_profile(page)
     page.get_by_test_id('profile-help').click()
     expect(page.get_by_test_id('screen-M31')).to_be_visible(timeout=15000)
     expect(page.get_by_test_id('support-restaurant')).to_contain_text('4-й микрорайон, 10Б')
+    expect(page.get_by_test_id('screen-M31').get_by_text('Поддержка Pick Chick', exact=True)).to_have_count(0)
+    expect(page.get_by_test_id('screen-M31')).not_to_contain_text('данные карты')
     clean(page, 'help-393')
     page.get_by_test_id('support-restaurant').click()
     expect(page.get_by_test_id('screen-M05')).to_be_visible(timeout=15000)
@@ -365,47 +485,96 @@ def walk_signed_in(browser):
             for gone in ('push-orders', 'push-promotions'):
                 expect(page.get_by_test_id(gone)).to_have_count(0)
             expect(page.get_by_test_id('language-ru')).to_be_visible()
+            # The review notes: Profile > Settings (gear) > «How ordering works».
+            expect(page.get_by_test_id('screen-M34').get_by_text('Настройки', exact=True).first).to_be_visible()
+            expect(page.get_by_test_id('screen-M34').get_by_text('Как проходит заказ', exact=True)).to_be_visible()
+        if screen == 'screen-M04':
+            # A way back without saving (review 29.10.2026: only «Готово» before).
+            expect(page.get_by_test_id('profile-fill-later')).to_be_visible()
+        if screen == 'screen-M33':
+            expect(page.get_by_test_id('screen-M33')).not_to_contain_text('запрашивается отдельно')
         if shot:
             clean(page, shot)
         else:
             clean(page, f'row {label or test_id}', wait=300, shot=False)
+        if screen == 'screen-M04':
+            page.get_by_test_id('profile-fill-later').click()
+            expect(page.get_by_test_id('screen-M30')).to_be_visible(timeout=15000)
+    # Settings > «Как проходит заказ»: the demonstration, nothing sent.
+    page.goto(URL + '/screen/M34')
+    settle(page)
+    page.get_by_test_id('screen-M34').get_by_text('Как проходит заказ', exact=True).click()
+    expect(page.get_by_test_id('demo-start')).to_be_visible(timeout=15000)
+    clean(page, 'demo-order-393')
     # Deep links of preview-only screens open the menu in the App Store build.
     for screen in ('M22', 'M23', 'M24', 'M25', 'M35'):
         page.goto(URL + f'/screen/{screen}')
         expect(page.get_by_test_id('screen-M06').filter(visible=True)).to_be_visible(timeout=20000)
         expect(page.get_by_test_id(f'screen-{screen}')).to_have_count(0)
         assert urlparse(page.url).path.rstrip('/').endswith('/menu'), (screen, page.url)
-    # English and Kazakh: the same main screens.
+    ctx.close()
+
+
+def walk_languages(browser):
+    # English (no Cyrillic left, accessible names included) and Kazakh: the same main screens.
+    ctx, page = context(browser)
+    page.goto(URL + '/menu')
+    settle(page)
+    add(page)
     for language in ('en', 'kk'):
+        english = language == 'en'
         page.goto(URL + '/screen/M34')
         expect(page.get_by_test_id('language-' + language)).to_be_visible(timeout=20000)
         page.get_by_test_id('language-' + language).click()
         expect(page.get_by_test_id('language-' + language)).to_have_attribute('aria-checked', 'true')
-        clean(page, f'settings-{language}-393')
+        clean(page, f'settings-{language}-393', english=english)
         page.goto(URL + '/menu')
         settle(page)
         expect(page.get_by_test_id('product-pick-combo')).to_be_visible(timeout=25000)
-        clean(page, f'menu-{language}-393')
+        clean(page, f'menu-{language}-393', english=english)
+        page.get_by_test_id('product-pick-combo').click(timeout=25000)
+        expect(page.get_by_test_id('product-add')).to_be_visible(timeout=15000)
+        clean(page, f'product-{language}-393', english=english)
+        page.goto(URL + '/menu')
+        settle(page)
         page.get_by_test_id('open-cart').filter(visible=True).click()
         expect(page.get_by_test_id('screen-M09')).to_be_visible(timeout=15000)
-        clean(page, f'cart-{language}-393')
-        payment_selector(page, f'payment-selector-{language}-393')
+        clean(page, f'cart-{language}-393', english=english)
+        payment_selector(page, f'payment-selector-{language}-393', english=english)
         page.get_by_test_id('cart-close').click()
         page.get_by_test_id('tab-events').click()
         expect(page.get_by_test_id('screen-M26')).to_be_visible(timeout=15000)
-        clean(page, f'events-{language}-393')
+        clean(page, f'events-{language}-393', english=english)
         page.get_by_test_id('tab-orders').click()
         expect(page.get_by_test_id('order-history-open-' + PREPARING['orderId'])).to_be_visible(timeout=20000)
-        clean(page, f'orders-{language}-393')
+        clean(page, f'orders-{language}-393', english=english)
+        page.get_by_test_id('order-history-open-' + PREPARING['orderId']).click()
+        expect(page.get_by_test_id('order-more')).to_be_visible(timeout=15000)
+        clean(page, f'order-status-{language}-393', english=english)
+        page.goto(URL + '/orders')
+        expect(page.get_by_test_id('order-history-open-' + READY['orderId'])).to_be_visible(timeout=25000)
+        settle(page)
+        page.get_by_test_id('order-history-open-' + READY['orderId']).click()
+        expect(page.get_by_test_id('order-more')).to_be_visible(timeout=15000)
+        clean(page, f'order-ready-{language}-393', english=english)
         open_profile(page)
-        clean(page, f'profile-{language}-393')
+        clean(page, f'profile-{language}-393', english=english)
         page.goto(URL + '/notifications')
         expect(page.get_by_test_id('notifications-screen')).to_be_visible(timeout=15000)
-        page.get_by_test_id('notifications-tab-personal').click()
-        clean(page, f'notifications-{language}-393')
+        clean(page, f'notifications-{language}-393', english=english)
         page.goto(URL + '/screen/M31')
         expect(page.get_by_test_id('screen-M31')).to_be_visible(timeout=15000)
-        clean(page, f'help-{language}-393')
+        clean(page, f'help-{language}-393', english=english)
+        page.goto(URL + '/screen/M05')
+        expect(page.get_by_test_id('screen-M05')).to_be_visible(timeout=15000)
+        clean(page, f'restaurants-{language}-393', english=english)
+        page.goto(URL + '/demo-order')
+        expect(page.get_by_test_id('demo-start')).to_be_visible(timeout=15000)
+        page.get_by_test_id('demo-start').click()
+        expect(page.get_by_test_id('demo-approve')).to_be_visible()
+        clean(page, f'demo-order-{language}-393', english=english)
+        page.get_by_test_id('demo-reset').click()
+        expect(page.get_by_test_id('demo-start')).to_be_visible()
     page.goto(URL + '/screen/M34')
     page.get_by_test_id('language-ru').click()
     expect(page.get_by_test_id('language-ru')).to_have_attribute('aria-checked', 'true')
@@ -437,7 +606,8 @@ def walk_small(browser):
 
 
 def walk_guest(browser):
-    # A guest: no 6 + 1 card in the cart; the sign-in screen is clean.
+    # A guest: no 6 + 1 card in the cart; «События» and the mini-games need no account (5.1.1);
+    # the sign-in screen behind the profile icon says nothing about Chiki.
     ctx, page = context(browser, signed_in=False)
     page.goto(URL + '/menu')
     settle(page)
@@ -450,21 +620,134 @@ def walk_guest(browser):
     clean(page, 'guest-cart-393')
     page.get_by_test_id('cart-close').click()
     expect(page.get_by_test_id('screen-M09')).to_have_count(0, timeout=10000)
-    # «События» and the profile ask a guest to sign in first: that screen is clean too.
     page.get_by_test_id('tab-events').click()
+    expect(page.get_by_test_id('screen-M26')).to_be_visible(timeout=15000)
+    expect(page.get_by_test_id('auth-welcome')).to_have_count(0)
+    expect(page.get_by_test_id('account-required')).to_have_count(0)
+    clean(page, 'guest-events-393')
+    for card, start, name in (('pick-blocks-open', 'blocks-start', 'pick-blocks'),
+                              ('pick-man-open', 'pick-man-start', 'pick-man')):
+        page.goto(URL + '/events')
+        expect(page.get_by_test_id(card)).to_be_visible(timeout=25000)
+        page.get_by_test_id(card).click()
+        expect(page.get_by_test_id(start)).to_be_visible(timeout=20000)
+        expect(page.get_by_test_id('auth-welcome')).to_have_count(0)
+        expect(page.get_by_test_id('account-required')).to_have_count(0)
+        clean(page, f'guest-{name}-393')
+    page.goto(URL + '/games/pick-blocks')
+    expect(page.get_by_test_id('blocks-start')).to_be_visible(timeout=20000)
+    page.get_by_test_id('blocks-start').click()
+    expect(page.get_by_test_id('blocks-board')).to_be_visible(timeout=15000)
+    page.goto(URL + '/games/magic-sort')
+    expect(page.get_by_test_id('magic-sort-screen')).to_be_visible(timeout=20000)
+    expect(page.get_by_test_id('account-required')).to_have_count(0)
+    expect(page.get_by_test_id('auth-welcome')).to_have_count(0)
+    clean(page, 'guest-magic-sort-393')
+    # The profile icon opens the sign-in: ordering only, no «копить Чики».
+    page.goto(URL + '/menu')
+    settle(page)
+    page.get_by_test_id('header-profile').filter(visible=True).click()
     expect(page.get_by_test_id('auth-welcome')).to_be_visible(timeout=15000)
+    expect(page.get_by_test_id('auth-welcome')).to_contain_text('Чтобы оформлять заказы и следить за ними')
     clean(page, 'guest-sign-in-393')
     ctx.close()
 
 
+def pay_from_cart(page):
+    page.goto(URL + '/menu')
+    settle(page)
+    add(page)
+    page.get_by_test_id('open-cart').filter(visible=True).click()
+    expect(page.get_by_test_id('screen-M09').get_by_test_id('cart-pay')).to_be_enabled(timeout=15000)
+    page.get_by_test_id('screen-M09').get_by_test_id('cart-pay').click()
+
+
+def walk_payment_step(browser):
+    # The App Review account: the server answers 403 FORBIDDEN to POST /orders.
+    checkout = {'orders': 'forbidden', 'counts': {'quotes': 0, 'creates': 0, 'payments': 0}, 'held': []}
+    ctx, page = context(browser, checkout=checkout)
+    pay_from_cart(page)
+    expect(page.get_by_test_id('checkout-forbidden')).to_be_visible(timeout=15000)
+    expect(page.get_by_test_id('checkout-forbidden')).to_contain_text(
+        'Для этого аккаунта оплата заказов выключена. Как проходит заказ - можно посмотреть без оплаты.')
+    expect(page.get_by_test_id('kaspi-connecting')).to_have_count(0)
+    clean(page, 'payment-forbidden-393')
+    page.wait_for_timeout(3000)
+    assert checkout['counts'] == {'quotes': 1, 'creates': 1, 'payments': 0}, checkout['counts']
+    page.get_by_test_id('checkout-forbidden-demo').click()
+    expect(page.get_by_test_id('demo-start')).to_be_visible(timeout=15000)
+    clean(page, 'payment-forbidden-demo-393')
+    page.get_by_test_id('demo-start').click()
+    page.get_by_test_id('demo-approve').click()
+    page.get_by_test_id('demo-ready').click()
+    page.get_by_test_id('demo-collect').click()
+    expect(page.get_by_test_id('review-demo')).to_contain_text('Покупка и чек не создавались')
+    clean(page, 'demo-end-393')
+    assert checkout['counts'] == {'quotes': 1, 'creates': 1, 'payments': 0}, checkout['counts']
+    ctx.close()
+    # The restaurant does not answer: POST /orders held; after 20 s it says so, honestly.
+    checkout = {'orders': 'hold', 'counts': {'quotes': 0, 'creates': 0, 'payments': 0}, 'held': []}
+    ctx, page = context(browser, checkout=checkout)
+    pay_from_cart(page)
+    expect(page.get_by_test_id('kaspi-connecting')).to_be_visible(timeout=15000)
+    clean(page, 'payment-restaurant-393')
+    expect(page.get_by_text('Ресторан не подтверждает заказ', exact=True)).to_be_visible(timeout=30000)
+    clean(page, 'payment-restaurant-stuck-393')
+    assert checkout['counts']['payments'] == 0, checkout['counts']
+    for held in checkout['held']:
+        try:
+            held.abort()
+        except Exception:
+            pass
+    ctx.close()
+    # Kaspi answers slowly: the invoice command says «sending»; after 20 s it says so.
+    checkout = {'orders': 'ok', 'counts': {'quotes': 0, 'creates': 0, 'payments': 0}, 'held': []}
+    ctx, page = context(browser, checkout=checkout)
+    pay_from_cart(page)
+    expect(page.get_by_text('Kaspi отвечает дольше обычного', exact=True)).to_be_visible(timeout=40000)
+    clean(page, 'payment-kaspi-slow-393')
+    assert checkout['counts'] == {'quotes': 1, 'creates': 1, 'payments': 1}, checkout['counts']
+    for held in checkout['held']:
+        try:
+            held.abort()
+        except Exception:
+            pass
+    ctx.close()
+
+
+def walk_delete(browser):
+    # Profile > «Управление данными» > «Удалить аккаунт»: confirmation, DELETE, then it says so.
+    deleted = []
+    ctx, page = context(browser, deleted=deleted)
+    page.goto(URL + '/screen/M32')
+    expect(page.get_by_test_id('delete-demo-profile')).to_be_enabled(timeout=25000)
+    settle(page)
+    page.get_by_test_id('delete-demo-profile').click()
+    expect(page.get_by_test_id('server-delete-confirmation')).to_be_visible()
+    clean(page, 'delete-confirm-393')
+    page.get_by_test_id('confirm-server-delete').click()
+    expect(page.get_by_test_id('account-deleted')).to_be_visible(timeout=15000)
+    expect(page.get_by_test_id('account-deleted')).to_contain_text('Аккаунт удалён')
+    clean(page, 'delete-done-393')
+    assert deleted == ['/v1/customers/me'], deleted
+    ctx.close()
+
+
+PARTS = {'signed_in': walk_signed_in, 'languages': walk_languages, 'small': walk_small,
+         'guest': walk_guest, 'payment_step': walk_payment_step, 'delete': walk_delete}
 with sync_playwright() as p:
     browser = p.chromium.launch()
-    walk_signed_in(browser)
-    walk_small(browser)
-    walk_guest(browser)
+    for part, walk in PARTS.items():
+        if not ONLY or part in ONLY:
+            walk(browser)
     browser.close()
+assert not ONLY and not REPORT, 'a partial or report-only run is not a pass'
 assert not mutations, mutations
 assert not errors, errors
-print(f'PASS App Store walk: {len(walked)} screens without «скоро» / «подключается» / Apple Pay / '
-      f'Google Pay / card (RU, EN, KK; 393x852, 320x568, guest), preview-only deep links open the menu, '
-      f'no mutation; screenshots in {OUT}')
+if STOREFRONT:
+    # The App Store profile has no test-order client at all.
+    assert not test_requests, test_requests
+print(f'PASS App Store walk ({PROFILE}): {len(walked)} screens without «скоро» / «ещё не» / «not yet» / '
+      f'Chiki / «Без фото» / Apple Pay / Google Pay / card (RU, EN without Cyrillic, KK; 393x852, 320x568, '
+      f'guest with games), payment step (FORBIDDEN + demo, restaurant and Kaspi stuck states), account deletion, '
+      f'preview-only deep links open the menu, no other mutation; screenshots in {OUT}')

@@ -19,7 +19,9 @@ with local fixtures only: no bank, no real customer, no VPS request.
   C  a changed price stops before the order; only a second explicit press continues
   D  consent: the dialog stops the slide, «Не сейчас» leaves the normal button, no retry
   E  signed out: the slide opens the sign-in and then the cart without sending anything
-  F  App Review account: the server refuses the order exactly as for a press, no retry, no invoice
+  F  App Review account: the server refuses the order exactly as for a press, no retry, no invoice;
+     the cart says «Для этого аккаунта оплата заказов выключена» with «Как проходит заказ», the
+     basket stays and the intent is dropped (review 29.10.2026)
   G  DEMO-1 demonstration: no cart bar or handle, no mutating request
   H  combo gift selected: bar total = «Оформить заказ» = checkout total = quote; one order, one invoice
   I  the hint «тяни для оплаты» fits at 320 pt in RU, KK and EN, also at the largest text size
@@ -597,6 +599,16 @@ def review_flow(browser, via_slide):
         page.get_by_test_id('open-cart').click()
         expect(pay_button(page)).to_be_enabled(timeout=15000)
         pay_button(page).click()
+    # Review 29.10.2026: the refused create no longer keeps «Связываемся с рестораном» with a
+    # «Проверить оплату» that resends POST /orders. The cart says why and offers the demo.
+    notice = page.get_by_test_id('checkout-forbidden')
+    expect(notice).to_be_visible(timeout=15000)
+    expect(notice).to_contain_text('Для этого аккаунта оплата заказов выключена.')
+    expect(page.get_by_test_id('checkout-forbidden-demo')).to_have_text('Как проходит заказ')
+    expect(page.get_by_test_id('kaspi-close-order')).to_have_count(0)
+    expect(page.get_by_role('button', name='Проверить оплату', exact=True)).to_have_count(0)
+    expect(page.get_by_test_id('cart-quantity-pick-combo')).to_have_text('1')
+    assert page.evaluate('(key) => localStorage.getItem(key)', DRAFT_KEY) is None, 'intent dropped'
     wait_quiet(page, 4000)
     sheet = page.get_by_role('dialog', name='Корзина', exact=True).inner_text()
     counts = (state['quotes'], state['creates'], state['payments'])
@@ -604,6 +616,7 @@ def review_flow(browser, via_slide):
     wait_quiet(page)
     assert counts == (state['quotes'], state['creates'], state['payments']), 'no automatic retry'
     assert not any('/payment' in path for path in state['paths']), state['paths']
+    assert 'Ресторан не подтверждает заказ' not in page.evaluate('document.body.innerText')
     release(state)
     ctx.close()
     return sheet, counts

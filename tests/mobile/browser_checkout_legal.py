@@ -35,7 +35,8 @@ with sync_playwright() as p:
       page.screenshot(path=str(OUT/f'consent-{width}.png'))
       accept.click()
       expect(accept).to_have_count(0)
-      expect(page.get_by_text('Оплата Kaspi ещё не открыта для вашего аккаунта.',exact=True)).to_be_visible()
+      expect(page.get_by_text('Для этого аккаунта оплата заказов выключена. Как проходит заказ - можно посмотреть без оплаты.',exact=True)).to_be_visible()
+      expect(page.get_by_test_id('checkout-forbidden-demo')).to_be_visible()
       assert consent['accepted'] and consent['patches']==2 and state['quotes']==1
       assert state['creates']==state['payments']==0
       assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')

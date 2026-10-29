@@ -403,7 +403,7 @@ test("header caption: today's hours while open, «откроемся в HH:MM» 
     now: almaty('12:00'),
   });
   assert.equal(headerHoursCaption(fallback.hours, fallback.status), '10:00-00:00');
-  assert.equal(headerHoursCaption(null, null), 'Часы уточняются');
+  assert.equal(headerHoursCaption(null, null), 'Часы работы не указаны');
   // At the largest text the caption shrinks on iOS instead of truncating, never below its normal
   // size: what fits at the normal size (browser_cart_unavailable.py H, 320 pt) fits at every size.
   assert.ok(appHeaderCaptionMinScale < 1);

@@ -123,7 +123,9 @@ with sync_playwright() as p:
   assert not state['keys'] and state['payments']==0 and state['quotes']==0
   # A definitive account rejection is only checked after explicit payment.
   button.click()
-  expect(page.get_by_text('Оплата Kaspi ещё не открыта для вашего аккаунта.',exact=True)).to_be_visible()
+  # Review 29.10.2026: a true, neutral sentence and the demonstration instead of «ещё не открыта».
+  expect(page.get_by_text('Для этого аккаунта оплата заказов выключена. Как проходит заказ - можно посмотреть без оплаты.',exact=True)).to_be_visible()
+  expect(page.get_by_test_id('checkout-forbidden-demo')).to_be_visible()
   expect(button).to_be_enabled()
   assert not state['keys'] and state['payments']==0 and state['quotes']==0
   total=page.get_by_test_id('screen-M09').get_by_test_id('cart-total')

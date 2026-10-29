@@ -89,9 +89,9 @@ with sync_playwright() as p:
     page.get_by_test_id('test-checkout-create').click()
     expect(page.get_by_test_id('screen-M14').get_by_test_id('connected-order-number')).to_have_text(ORDER['number'])
     page.goto(URL + '/screen/M11')
-    expect(page.get_by_text('Доступность пока не подтверждена', exact=True)).to_be_visible(timeout=15000)
+    expect(page.get_by_text('Не удалось проверить доступность', exact=True)).to_be_visible(timeout=15000)
     page.get_by_role('button', name='Обновить доступность', exact=True).click()
-    expect(page.get_by_text('Доступность пока не подтверждена', exact=True)).to_be_visible()
+    expect(page.get_by_text('Не удалось проверить доступность', exact=True)).to_be_visible()
     mode['terminal'] = True
     page.goto(URL + '/screen/M19')
     expect(page.get_by_test_id('orders-history').get_by_test_id(

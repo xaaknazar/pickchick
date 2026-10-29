@@ -136,8 +136,12 @@ test('tabs keep order, labels, gates and accessibility semantics', () => {
   ]);
   assert.equal(order.length, tabBarTabCount);
   assert.doesNotMatch(layout, /tab-profile|name="profile"/);
-  assert.equal((layout.match(/listeners=\{gate\(/g) ?? []).length, 2);
-  assert.match(layout, /name="events"\s+listeners=\{gate\('M26'\)\}/);
+  assert.equal((layout.match(/gate\('M(26|19)'\)/g) ?? []).length, 2);
+  // Review 29.10.2026: in the App Store build a guest opens «События» (account-access guestCanOpen).
+  assert.match(
+    layout,
+    /name="events"\s+(?:\/\/[^\n]*\n\s*)?listeners=\{guestCanOpen\('M26'\) \? undefined : gate\('M26'\)\}/,
+  );
   assert.match(layout, /name="orders"\s+listeners=\{gate\('M19'\)\}/);
   assert.match(layout, /tabBarBadge: activeOrders > 0 \? activeOrders : undefined/);
   assert.ok(!existsSync(new URL('../../apps/mobile/src/app/(tabs)/profile.tsx', import.meta.url)));

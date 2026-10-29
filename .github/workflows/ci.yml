@@ -330,6 +330,18 @@ jobs:
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_cart_page.py
           # Owner 29.10.2026 (App Review 2.1): no «скоро» / Apple Pay / Google Pay in the App Store build.
           CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_store_walk.py
+          # Review 29.10.2026: the App Review account (403 FORBIDDEN on POST /orders) on the payment step.
+          CUSTOMER_AUTH_URL=http://127.0.0.1:4196 .local/design-venv/bin/python tests/mobile/browser_review_account.py
+          # The same walk on the App Store profile itself (published catalogue, no test orders).
+          EXPO_PUBLIC_CUSTOMER_AUTH=server EXPO_PUBLIC_KASPI_CHECKOUT=1 EXPO_PUBLIC_ORDER_SIMULATOR=0 EXPO_PUBLIC_UNPAID_TEST_ORDERS=0 EXPO_PUBLIC_PUBLISHED_CATALOG=1 EXPO_PUBLIC_PICK_FARM=0 pnpm --filter @pickchick/mobile exec expo export --platform web --clear --output-dir ../../.local/storefront-web
+          PICKCHICK_PREVIEW_OUTPUT=storefront MOBILE_PREVIEW_PORT=4197 node scripts/mobile/preview-server.mjs > .local/storefront-server.log 2>&1 &
+          storefront_pid=$!
+          trap 'kill "$customer_pid" "$storefront_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4197/ > /dev/null; then break; fi
+            sleep 1
+          done
+          STORE_WALK_PROFILE=storefront CUSTOMER_AUTH_URL=http://127.0.0.1:4197 .local/design-venv/bin/python tests/mobile/browser_store_walk.py
       - name: Stop test infrastructure
         if: always()
         run: docker compose --env-file .env.example -f infra/local/compose.yaml down

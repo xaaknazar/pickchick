@@ -1,0 +1,91 @@
+{
+  "about": "App Store copy guard (owner 29.10.2026, «устрани это все»; App Review 2.1). Shared by tests/mobile/store-copy.test.mjs (every source string with its KK and EN) and tests/mobile/browser_store_walk.py (every rendered screen). Patterns are case-insensitive. «states» are real temporary states that may say «ещё не / пока / yet»: each one is listed with why it is true at the moment it is shown.",
+  "patterns": [
+    "скоро",
+    "подключа",
+    "не подключ[её]н",
+    "после подключения",
+    "в процессе подключения",
+    "оплата в процессе",
+    "появится позже",
+    "появятся позже",
+    "загляни позже",
+    "(?<![а-яёәіңғүұқөһ])(ещё|еще|пока) не",
+    "станет доступ",
+    "будет доступ",
+    "после запуска",
+    "(?<![а-яёәіңғүұқөһ])а пока(?![а-яёәіңғүұқөһ])",
+    "(?<![а-яёәіңғүұқөһ])пока (их|что|можно)(?![а-яёәіңғүұқөһ])",
+    "уточня(ется|ются)",
+    "пробн(ый|ые|ого|ых|ом|ая)",
+    "предварительн",
+    "готовим программу",
+    "готовятся",
+    "на подготовке",
+    "(?<![а-яёәіңғүұқөһ])чик(и|ов|ам|ами|ах)(?![а-яёәіңғүұқөһ])",
+    "без фото",
+    "жақында(?![а-яёәіңғүұқөһ])",
+    "қосылып жатыр",
+    "қосылуда",
+    "әлі қосылмаған",
+    "іске қосылмаған",
+    "(?<![а-яёәіңғүұқөһ])әлі(?![а-яёәіңғүұқөһ])",
+    "(?<![а-яёәіңғүұқөһ])әзірге(?![а-яёәіңғүұқөһ])",
+    "нақтыланып жатыр",
+    "чиктер",
+    "фотосыз",
+    "apple ?pay",
+    "google ?pay",
+    "банковская карта",
+    "bank card",
+    "coming soon",
+    "\\bare coming\\b",
+    "being set up",
+    "being connected",
+    "being confirmed",
+    "not connected yet",
+    "not enabled",
+    "\\bsoon\\b",
+    "\\byet\\b",
+    "will be available",
+    "available later",
+    "\\bfor now\\b",
+    "in the meantime",
+    "\\bonce\\b[^.]*\\b(connected|enabled|launch(es|ed)?|approved|published|set up|available)\\b",
+    "after launch",
+    "\\bchiki\\b",
+    "no photo"
+  ],
+  "states": [
+    {
+      "file": "commerce-presentation.ts",
+      "text": "Спасибо, что выбрали PickChick. Будем ждать снова!",
+      "why": "the farewell after a handed-over order (EN «See you again soon!»), not a feature"
+    },
+    {
+      "file": "commerce-presentation.ts",
+      "text": "Проверяем, что кухня может принять заказ. Счёт ещё не выставлен.",
+      "why": "payment pending: the restaurant has not admitted the order, so no invoice exists yet"
+    },
+    {
+      "file": "commerce-presentation.ts",
+      "text": "Счёт ещё не пришёл в Kaspi. Если он всё же придёт, его можно оплатить - заказ появится в «Заказах».",
+      "why": "the bank has not answered after 20 s (stuck «sending»)"
+    },
+    {
+      "file": "commerce-presentation.ts",
+      "text": "Ресторан пока не ответил. Счёт не выставлен, деньги не списаны.",
+      "why": "the restaurant has not answered after 20 s (stuck «awaiting_restaurant»)"
+    },
+    {
+      "file": "components/OrderHistoryCard.tsx",
+      "text": "счёт ещё не отправлен",
+      "why": "an unbilled order in «Заказы»: its invoice was never sent"
+    },
+    {
+      "file": "payment-availability.ts",
+      "text": "Пока не работаем",
+      "why": "the restaurant is closed now (EN «Closed for now»), shown with the opening time"
+    }
+  ]
+}

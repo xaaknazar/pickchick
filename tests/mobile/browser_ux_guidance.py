@@ -115,7 +115,7 @@ with sync_playwright() as p:
         }""")
         capture(page, f'clear-{width}')
         page.get_by_test_id('cart-clear-confirm').click()
-        expect(page.get_by_text('Здесь пока тихо', exact=True)).to_be_visible()
+        expect(page.get_by_text('Корзина пуста', exact=True)).to_be_visible()
         page.wait_for_function('(key) => JSON.parse(localStorage.getItem(key))?.lines.length === 0', arg=KEY)
         expect(page.get_by_test_id('cart-clear')).to_be_disabled()
         context.close()

@@ -164,7 +164,9 @@ with sync_playwright() as playwright:
     page.get_by_test_id('pick-blocks-open').click()
     expect(page.get_by_test_id('blocks-start')).to_be_visible()
     page.get_by_test_id('blocks-help').click()
-    expect(page.get_by_text('Игровые очки не переводятся в Чики.', exact=False)).to_be_visible()
+    # Review 29.10.2026: no mention of the Chiki programme; the record stays on this phone.
+    expect(page.get_by_text('Рекорд хранится на этом телефоне.', exact=False)).to_be_visible()
+    expect(page.get_by_text('Чики', exact=False)).to_have_count(0)
     page.get_by_test_id('blocks-help-close').click()
     expect(page.get_by_test_id('blocks-start')).to_be_visible()
     page.screenshot(path=str(OUTPUT / 'intro.png'))
@@ -288,7 +290,7 @@ with sync_playwright() as playwright:
       };
     """)
     write_failure.get_by_test_id('blocks-start').click()
-    notice = write_failure.get_by_text('Игра пока не сохранилась. Повторить', exact=True)
+    notice = write_failure.get_by_text('Игра не сохранилась. Повторить', exact=True)
     expect(notice).to_be_visible()
     assert saved(write_failure) is None
     notice.click()
@@ -308,7 +310,7 @@ with sync_playwright() as playwright:
     """)
     expect(read_failure.get_by_test_id('blocks-start')).to_be_visible()
     assert saved(read_failure) == original
-    read_failure.get_by_text('Игра пока не сохранилась. Повторить', exact=True).click()
+    read_failure.get_by_text('Игра не сохранилась. Повторить', exact=True).click()
     assert_still_paused(read_failure)
     assert saved(read_failure) == original
 
