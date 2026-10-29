@@ -11,13 +11,14 @@ import { AuthFlowContext } from '../auth-flow';
 import { accountDestination } from '../account-access';
 import { useAccount } from '../useAccount';
 import { useMobile } from '../store';
+import { designPreview } from '../store-build';
 import type { ScreenId, ScreenProps } from '../model';
 
 export default function Auth() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const destination = accountDestination(params.returnTo);
-  const preview = params.preview === '1';
+  const preview = designPreview(params.preview);
   const account = useAccount();
   const onboardingEntered = useRef(false);
   const model = useMobile(preview);

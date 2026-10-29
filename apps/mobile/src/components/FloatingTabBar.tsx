@@ -1,4 +1,5 @@
 import { localize, t, useLocale } from '../i18n';
+import { designPreview } from '../store-build';
 import { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
@@ -124,7 +125,7 @@ export function FloatingTabBar({
   return (
     <View pointerEvents="box-none" style={[s.host, { bottom: metrics.bottom }]}>
       <TabCartDock
-        preview={params?.preview === '1'}
+        preview={designPreview(params?.preview)}
         resume={state.routes[state.index]?.name === 'menu'}
         onHeightChange={onCartDockHeight}
         seenCount={seenCartCount}

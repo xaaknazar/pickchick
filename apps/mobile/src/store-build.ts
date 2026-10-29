@@ -18,12 +18,22 @@ import type { ComboProgressState } from './loyalty/combo-progress';
  * - real temporary states stay (closed, offline, item on stop, server refused, payment pending).
  *
  * Simulator, test-order and design builds (no Kaspi checkout) and the design preview (`preview`)
- * keep showing everything. Kept free of Expo imports for Node tests; Expo inlines both
+ * keep showing everything (the design preview only outside the App Store build, `designPreview`).
+ * Kept free of Expo imports for Node tests; Expo inlines both
  * `process.env.EXPO_PUBLIC_*` reads at bundle time (static member access only).
  */
 export const STORE_BUILD = process.env.EXPO_PUBLIC_KASPI_CHECKOUT === '1';
 /** Lists Apple Pay / Google Pay / bank card as disabled «скоро» methods. Default off. */
 export const UPCOMING_PAYMENTS = process.env.EXPO_PUBLIC_UPCOMING_PAYMENTS === '1';
+
+/**
+ * The design preview (`?preview=1`, e.g. `pickchick://screen/M25?preview=1`) shows design samples
+ * of every screen, including what does not work yet. No screen links there; the App Store build
+ * ignores the parameter, so a hand-typed deep link opens the real screen (review 29.10.2026).
+ */
+export function designPreview(param: unknown, store = STORE_BUILD): boolean {
+  return !store && param === '1';
+}
 
 /**
  * Screens that only preview what does not work yet, opened by an old link or a deep link

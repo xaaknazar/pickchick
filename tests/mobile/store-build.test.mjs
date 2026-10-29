@@ -5,12 +5,14 @@ import {
   STORE_HIDDEN_SCREENS,
   UPCOMING_PAYMENTS,
   comboCardShown,
+  designPreview,
   pushSettingsShown,
   receiptShown,
   storeHidesScreen,
   upcomingFeaturesShown,
 } from '../../apps/mobile/src/store-build.ts';
 import { paymentMethods, activePaymentMethod } from '../../apps/mobile/src/payment-method.ts';
+import { readFileSync, readdirSync } from 'node:fs';
 
 // Owner 29.10.2026 («устрани это все»): what the App Store build (the Kaspi customer build)
 // shows. Node runs without EXPO_PUBLIC_* values: both switches read as off.
@@ -44,6 +46,43 @@ test('App Store build: preview-only screens open the menu; previews and test bui
   // Real screens of the App Store build stay reachable.
   for (const id of ['M05', 'M06', 'M09', 'M12', 'M19', 'M20', 'M21', 'M26', 'M30', 'M31', 'M33'])
     assert.equal(storeHidesScreen(id, true), false, id);
+});
+
+test('App Store build ignores ?preview=1: a deep link opens the real screen (review 29.10.2026)', () => {
+  assert.equal(
+    designPreview('1', true),
+    false,
+    'pickchick://screen/M25?preview=1 in the App Store build',
+  );
+  assert.equal(
+    designPreview('1', false),
+    true,
+    'simulator and test builds keep the design preview',
+  );
+  for (const other of [undefined, '', '0', 'true', ['1'], 1])
+    assert.equal(designPreview(other, false), false, String(other));
+  // Every route (and the tab bar, the payment banner) reads the parameter only through it.
+  const app = new URL('../../apps/mobile/src/', import.meta.url);
+  const files = readdirSync(app, { recursive: true }).filter((name) => /\.tsx?$/.test(name));
+  const direct = files.filter((name) =>
+    /preview\s*===\s*'1'/.test(readFileSync(new URL(name, app), 'utf8')),
+  );
+  assert.deepEqual(direct, []);
+  const readers = files.filter((name) =>
+    /designPreview\(/.test(readFileSync(new URL(name, app), 'utf8')),
+  );
+  for (const route of [
+    'app/screen/[id].tsx',
+    'app/cart.tsx',
+    'app/checkout.tsx',
+    'app/order-status.tsx',
+    'app/(tabs)/menu.tsx',
+    'app/auth.tsx',
+    'app/product-photo.tsx',
+    'components/FloatingTabBar.tsx',
+    'components/PaymentRecovery.tsx',
+  ])
+    assert.ok(readers.includes(route), route);
 });
 
 test('App Store build: the Chiki programme, missions and «скоро» sections have no entry point', () => {
