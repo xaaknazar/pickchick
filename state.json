@@ -7115,11 +7115,11 @@
         ".github/workflows/offline-stand.yml",
         ".github/workflows/windows-pos.yml"
       ],
-      "status": "active",
-      "head": "88170395abfd88c86d026f80d51aacd0765eb3ae",
-      "updatedAt": "2026-10-30T12:31:32.421Z",
-      "summary": "Owner-authorized preparation of server and cashier windows; no remote writes. Separate disk/NAS unavailable.",
-      "nextAction": "Refresh reviewed candidates, exact CI/offline profile, read-only baseline and owner packet."
+      "status": "available",
+      "head": "9a4954dc057b751da100609dd136b370e841d1a3",
+      "updatedAt": "2026-10-30T13:35:15.935Z",
+      "summary": "Подготовка сохранена в PR300, checkpoint 9a4954dc. Кандидат ffb2fd23 отдельно опубликован: Foundation CI11/11, offline ci без пропусков с known_issue279, Windows POS и архив024 сверены; PR270 без пересборки совпал с протоколом21.10. VPS только чтением, установок нет.",
+      "nextAction": "После подтверждения подключения Mac получить защищённую копию020 только чтением и проверить полную реальную цепочку/023 API совместимость/оба отката. Нужны второй диск/NAS и адресный шаг авторотации. Владелец выбирает две даты и даёт отдельное да на каждый шаг. См. docs/operations/stage2-windows-1030; онлайн-пульт не опубликован."
     }
   ]
 }
