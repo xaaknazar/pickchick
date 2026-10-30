@@ -1,0 +1,38 @@
+{
+  "gitSha": "bbd9956d82ec137c40fd56f98eb8fb1181583e9c",
+  "dirty": false,
+  "version": "0.2.0",
+  "build": "31",
+  "bundleIdentifier": "kz.pickchick.app",
+  "featureProfile": "storefront",
+  "embeddedPublicEnv": {
+    "EXPO_PUBLIC_CUSTOMER_AUTH": "server",
+    "EXPO_PUBLIC_KASPI_CHECKOUT": "1",
+    "EXPO_PUBLIC_ORDER_SIMULATOR": "0",
+    "EXPO_PUBLIC_UNPAID_TEST_ORDERS": "0",
+    "EXPO_PUBLIC_PUBLISHED_CATALOG": "1",
+    "EXPO_PUBLIC_PICK_FARM": "0"
+  },
+  "archiveStatus": "complete",
+  "exportStatus": "complete",
+  "codesignVerified": true,
+  "ipaBytes": 131639527,
+  "ipaSha256": "6733d3092e2528efbb7b5773d6ef50b86ce3644418ff24536c73f1a94958eb38",
+  "jsBytes": 6212536,
+  "jsSha256": "cacf2fdbc5397b9400b52c5c2f6a2e521c8d42aa976b1cd759b7c5f715ff3fb1",
+  "embeddedTranslationStringsVerified": true,
+  "sourcePullRequest": "https://github.com/xaaknazar/pickchick/pull/297",
+  "ownerAcceptance": false,
+  "sourceMerge": "ed23186bd5782346986dd4ff4ba3a425f3f028bd",
+  "ci": {
+    "url": "https://github.com/xaaknazar/pickchick/actions/runs/41021327703",
+    "headSha": "bbd9956d82ec137c40fd56f98eb8fb1181583e9c",
+    "result": "success",
+    "jobsPassed": 11,
+    "jobsTotal": 11
+  },
+  "releaseLabel": "mobile-kazakh-20261030-31-r3",
+  "deliveryStatus": "blocked_xcode_account",
+  "appleProcessingVerified": false,
+  "internalGroupAvailable": false
+}
