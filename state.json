@@ -7112,11 +7112,12 @@
         "infra/windows/update-runtime-stage2-1024.ps1",
         "tests/operations/test_stage2_release_1024.py",
         "tests/operations/test_windows_stage2_release.py",
-        ".github/workflows/offline-stand.yml"
+        ".github/workflows/offline-stand.yml",
+        ".github/workflows/windows-pos.yml"
       ],
       "status": "active",
-      "head": "cc5228b57eaf1618359173e8cc657f35cd314cca",
-      "updatedAt": "2026-10-30T12:26:33.500Z",
+      "head": "88170395abfd88c86d026f80d51aacd0765eb3ae",
+      "updatedAt": "2026-10-30T12:31:32.421Z",
       "summary": "Owner-authorized preparation of server and cashier windows; no remote writes. Separate disk/NAS unavailable.",
       "nextAction": "Refresh reviewed candidates, exact CI/offline profile, read-only baseline and owner packet."
     }
