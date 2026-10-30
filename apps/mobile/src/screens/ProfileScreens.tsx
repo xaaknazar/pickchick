@@ -1,10 +1,11 @@
+import { TextInput } from '../components/LocalizedText';
 import { useNotifications } from '../notifications/provider';
 import { t, localize, useLocale } from '../i18n';
 import { MotionPressable as Pressable, MotionModal as Modal } from '../components/Motion';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
-import { Alert, Platform, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { colors } from '../theme';
 import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';

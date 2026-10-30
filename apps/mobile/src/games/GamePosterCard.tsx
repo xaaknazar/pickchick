@@ -1,10 +1,10 @@
+import { Text } from '../components/LocalizedText';
 import { localize, t, useLocale } from '../i18n';
 import { Image } from 'expo-image';
 import {
   Platform,
   Pressable,
   StyleSheet,
-  Text,
   View,
   type ImageSourcePropType,
   type ViewStyle,

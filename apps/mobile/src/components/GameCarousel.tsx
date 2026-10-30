@@ -1,3 +1,4 @@
+import { Text } from './LocalizedText';
 import { localize, t, useLocale } from '../i18n';
 import { useState } from 'react';
 import { Image, type ImageContentPosition } from 'expo-image';
@@ -5,7 +6,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
   type ImageSourcePropType,

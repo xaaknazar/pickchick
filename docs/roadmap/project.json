@@ -5267,7 +5267,7 @@
       "id": "mobile-cart-mode-1029",
       "workstream": "mobile",
       "title": "TestFlight30: способ получения, синие допы и вибрация",
-      "summary": "Выбранный режим над ценой быстрой оплаты, синяя палитра товарных страниц и усиленные импульсы движения.",
+      "summary": "0.2.0 (30) доступна PickChick Internal; полная CI 11/11, подпись и upload проверены. Режим над ценой, синие допы, усиленная вибрация.",
       "status": "active",
       "owner": "development",
       "phase": "integration",
@@ -5276,6 +5276,14 @@
         {
           "label": "Протокол выпуска30",
           "path": "docs/operations/mobile-testflight30.md"
+        },
+        {
+          "label": "Подпись, CI и доступность Apple",
+          "path": "docs/operations/mobile-testflight30-evidence.json"
+        },
+        {
+          "label": "Казахская подсказка: причина и проверка после30",
+          "path": "docs/operations/mobile-cart-mode-2026-10-29.md"
         }
       ],
       "acceptance": [
@@ -5283,7 +5291,39 @@
         "Страницы допов с синим фоном и читаемыми действиями.",
         "Вибрация сильнее в обе стороны; один жест отправляет одно намерение оплаты."
       ],
-      "nextAction": "Полная CI, merge и TestFlight30; приёмка владельцем.",
+      "nextAction": "CI и включение правки казахского шрифта в shared; в опубликованной 0.2.0 (30) её нет. Нативная проверка и следующий выпуск отдельно.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-kazakh-review-1030",
+      "workstream": "mobile",
+      "title": "Казахский перевод, полный шрифт и вкладка «Игры»",
+      "summary": "Проверен словарь, 204 уточнения сохранившихся ключей, переименование раздела на трёх языках и системный шрифт kk в 42 файлах. 562 Node + 59 Python, TypeScript/lint и локальные браузерные проверки прошли. Новый выпуск не выполнялся.",
+      "status": "active",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["mobile-cart-mode-1029"],
+      "evidence": [
+        {
+          "label": "Протокол проверки",
+          "path": "docs/operations/mobile-kazakh-review-2026-10-30.md"
+        },
+        {
+          "label": "RU / KK / EN",
+          "path": "docs/translations/mobile-ru-kk-en.md"
+        }
+      ],
+      "acceptance": [
+        "Казахские буквы отображаются единым начертанием.",
+        "Литературный казахский и единое вежливое обращение.",
+        "Вкладка Игры / Ойындар / Games."
+      ],
+      "nextAction": "CI и включение PR; отдельный выпуск и проверка на физическом iPhone. Онлайн-пульт не обновлён.",
       "checks": {
         "implemented": true,
         "verified": true,

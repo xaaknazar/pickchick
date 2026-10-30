@@ -35,7 +35,7 @@ export function Events(props: ScreenProps) {
           },
         ]}
       >
-        <Heading style={s.eventsTitle}>{t('События')}</Heading>
+        <Heading style={s.eventsTitle}>{t('Игры')}</Heading>
         <Body muted style={s.eventsSubtitle}>
           {t('Мини-игры Pick Chick: рекорды сохраняются на этом устройстве.')}
         </Body>

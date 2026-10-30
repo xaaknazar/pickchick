@@ -1,5 +1,6 @@
+import { Text } from './LocalizedText';
 import { localize, useLocale } from '../i18n';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { colors, font } from '../theme';
 import { money } from '../domain';
 

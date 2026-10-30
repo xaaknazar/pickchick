@@ -85,7 +85,7 @@ export default function TabLayout() {
             // App Store build (review 29.10.2026): a guest opens «События» and plays.
             listeners={guestCanOpen('M26') ? undefined : gate('M26')}
             options={{
-              title: t('События'),
+              title: t('Игры'),
               tabBarButtonTestID: 'tab-events',
             }}
           />

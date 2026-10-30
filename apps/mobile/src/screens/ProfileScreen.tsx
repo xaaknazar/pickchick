@@ -1,10 +1,11 @@
+import { Text } from '../components/LocalizedText';
 import { localize, t, useLocale } from '../i18n';
 import { MotionPressable as Pressable } from '../components/Motion';
 import type { ReactNode } from 'react';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { ComboRewardCard } from '../components/ComboRewardCard';
-import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Icon, Loading, type IconName } from '../components/UI';
 import { GlassButton } from '../components/GlassButton';

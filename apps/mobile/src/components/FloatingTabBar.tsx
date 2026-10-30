@@ -1,3 +1,4 @@
+import { Text } from './LocalizedText';
 import { localize, t, useLocale } from '../i18n';
 import { designPreview } from '../store-build';
 import { useEffect, useRef, useState } from 'react';
@@ -6,7 +7,6 @@ import {
   Keyboard,
   Platform,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
   type ViewStyle,

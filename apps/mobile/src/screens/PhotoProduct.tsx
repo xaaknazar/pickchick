@@ -1,3 +1,4 @@
+import { Text } from '../components/LocalizedText';
 import { localize, t, useLocale } from '../i18n';
 import { ProductMenuNotice } from '../components/ProductMenuNotice';
 import { useEffect, useRef, useState } from 'react';
@@ -6,7 +7,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
   type ViewStyle,

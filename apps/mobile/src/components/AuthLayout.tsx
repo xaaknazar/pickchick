@@ -1,3 +1,4 @@
+import { Text } from './LocalizedText';
 import { localize, t, useLocale } from '../i18n';
 import { MotionPressable as Pressable } from './Motion';
 import { useEffect, useState, type ReactNode, type RefObject } from 'react';
@@ -7,7 +8,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
   type ViewStyle,

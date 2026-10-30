@@ -1,3 +1,4 @@
+import { Text } from '../components/LocalizedText';
 import { t, localize, useLocale } from '../i18n';
 import { ComboGiftChoice } from '../components/ComboGiftChoice';
 import { unavailableCartLine } from '../availability';
@@ -21,7 +22,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { CartLine, Product, ScreenProps } from '../model';
 import { assets } from '../assets';

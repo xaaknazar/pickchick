@@ -1,3 +1,4 @@
+import { Text } from './LocalizedText';
 import { localize, t, useLocale } from '../i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -7,7 +8,6 @@ import {
   Easing,
   Platform,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -110,7 +110,7 @@ export function CartShortcut({
    */
   seenCount?: { current: number };
 }) {
-  useLocale();
+  const locale = useLocale();
   const router = useRouter();
   const account = useAccount();
   // The handle shows the customer's last used payment method (owner 6b; Kaspi today).
@@ -268,7 +268,7 @@ export function CartShortcut({
                 adjustsFontSizeToFit
                 minimumFontScale={HINT_MIN_FIT}
                 maxFontSizeMultiplier={HINT_MAX_SCALE}
-                style={s.hint}
+                style={[s.hint, locale === 'kk' && s.hintKazakh]}
               >
                 {t('тяни для оплаты')}
               </Text>
@@ -517,6 +517,14 @@ const s = StyleSheet.create({
     color: colors.white,
     textAlign: 'center',
     includeFontPadding: false,
+  },
+  // The bundled Jost lacks Kazakh glyphs. Use one native face for the entire phrase,
+  // rather than mixing Jost letters with per-character system fallbacks.
+  hintKazakh: {
+    // Linux CI uses wider system glyphs than iOS/macOS: keep the full phrase at 320 pt.
+    fontSize: 17,
+    fontFamily: Platform.select({ ios: 'System', android: 'sans-serif', default: 'system-ui' }),
+    fontWeight: '600',
   },
   // The touch and VoiceOver frame spans the capsule height, level with the cart button.
   handle: { position: 'absolute', left: PAD, top: 0, bottom: 0 },

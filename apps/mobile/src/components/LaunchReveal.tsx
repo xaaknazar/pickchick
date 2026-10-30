@@ -1,3 +1,4 @@
+import { Text } from './LocalizedText';
 import { t, useLocale } from '../i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -6,7 +7,6 @@ import {
   Easing,
   Platform,
   StyleSheet,
-  Text,
   useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';

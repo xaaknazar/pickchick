@@ -1,3 +1,4 @@
+import { Text } from '../components/LocalizedText';
 import { NotificationsProvider } from '../notifications/provider';
 import { t, useLocale } from '../i18n';
 import { PaymentRecovery } from '../components/PaymentRecovery';
@@ -14,7 +15,7 @@ import { Jost_700Bold } from '@expo-google-fonts/jost/700Bold';
 import { Manrope_400Regular } from '@expo-google-fonts/manrope/400Regular';
 import { Manrope_600SemiBold } from '@expo-google-fonts/manrope/600SemiBold';
 import { Manrope_700Bold } from '@expo-google-fonts/manrope/700Bold';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { MobileProvider } from '../store';
 import { AccountProvider } from '../useAccount';
 import { ARCADE_SCREEN_OPTIONS } from '../games/route-options';

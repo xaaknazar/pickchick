@@ -340,7 +340,7 @@ const STATES = SHARED.states.map(({ file, text, why }) => [file, text, `state: $
 
 // Whole areas that are not part of the App Store build at all.
 const SKIPPED = [
-  // Pick Farm: EXPO_PUBLIC_PICK_FARM=0 in storefront/production; its route opens «События».
+  // Pick Farm: EXPO_PUBLIC_PICK_FARM=0 in storefront/production; its route opens «Игры».
   /^games\/pick-farm\//,
   // Storybook stories are not bundled into the app.
   /\.stories\.tsx$/,

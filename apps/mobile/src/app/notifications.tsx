@@ -111,11 +111,11 @@ export default function Notifications() {
               {localize(
                 orders
                   ? 'Сюда приходят сообщения о ваших заказах. Статус каждого заказа есть в разделе «Заказы».'
-                  : 'Персональных предложений нет. Игры Pick Chick - в разделе «События».',
+                  : 'Персональных предложений нет. Игры Pick Chick - в разделе «Игры».',
               )}
             </Body>
             <Button
-              title={localize(orders ? 'Мои заказы' : 'Открыть события')}
+              title={localize(orders ? 'Мои заказы' : 'Открыть игры')}
               secondary
               testID="notifications-destination"
               // Back to the existing tabs (below the profile) instead of stacking a second set.

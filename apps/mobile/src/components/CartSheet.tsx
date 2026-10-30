@@ -1,3 +1,4 @@
+import { Text, TextInput } from './LocalizedText';
 import { localize, t, useLocale } from '../i18n';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
@@ -7,8 +8,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
   useWindowDimensions,
 } from 'react-native';

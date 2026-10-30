@@ -33,12 +33,12 @@ test('no customer-visible app string in any locale still promises 7 + 1 or an 8t
       assert.doesNotMatch(entry[locale], OLD_RULE, `${locale}: ${entry[locale]}`);
 });
 
-test('the KK headline keeps «сатып ал.» together so «ал.» never sits alone at 320 pt', () => {
+test('the KK headline keeps «сатып алыңыз.» together so «алыңыз.» never sits alone at 320 pt', () => {
   try {
     setAppLocale('kk');
-    // A no-break space joins the verb; the line breaks after «комбо» instead of before «ал.».
-    assert.equal(t('Купи 6 комбо.'), '6 комбо сатып ал.');
-    assert.equal(t('7-е - в подарок!'), '7-шісі - сыйлық!');
+    // A no-break space joins the verb; the line breaks after «комбо» instead of before «алыңыз.».
+    assert.equal(t('Купи 6 комбо.'), '6 комбо сатып алыңыз.');
+    assert.equal(t('7-е - в подарок!'), '7-ші комбо - сыйлық!');
     setAppLocale('ru');
     assert.equal(t('Купи 6 комбо.'), 'Купи 6 комбо.');
   } finally {

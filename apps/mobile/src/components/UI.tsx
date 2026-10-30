@@ -1,3 +1,4 @@
+import { Text, TextInput } from './LocalizedText';
 import { localize, t, useLocale } from '../i18n';
 import { MotionPressable as Pressable } from './Motion';
 import { useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -10,8 +11,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
   type StyleProp,
   type TextStyle,

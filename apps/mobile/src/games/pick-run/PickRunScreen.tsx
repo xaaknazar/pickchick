@@ -1,3 +1,4 @@
+import { Text } from '../../components/LocalizedText';
 import { t, localize, useLocale } from '../../i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -8,7 +9,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -301,7 +301,7 @@ export function PickRunScreen(props: ScreenProps) {
         <Pressable
           onPress={exit}
           accessibilityRole="button"
-          accessibilityLabel={t('К событиям')}
+          accessibilityLabel={t('К играм')}
           style={r.icon}
         >
           <Icon name="chevron-back" color={arcade.white} size={24} />
@@ -429,7 +429,7 @@ export function PickRunScreen(props: ScreenProps) {
                 icon="play"
                 onPress={status === 'paused' ? () => change('countdown') : start}
               />
-              <ArcadeButton title={t('К событиям')} secondary onPress={exit} />
+              <ArcadeButton title={t('К играм')} secondary onPress={exit} />
             </View>
           </ScrollView>
         </View>
@@ -464,7 +464,7 @@ export function PickRunResult(props: ScreenProps) {
             icon="play"
             onPress={() => props.navigate('M27')}
           />
-          <ArcadeButton title={t('К событиям')} secondary onPress={() => props.navigate('M26')} />
+          <ArcadeButton title={t('К играм')} secondary onPress={() => props.navigate('M26')} />
         </View>
       </ScrollView>
     </SafeAreaView>

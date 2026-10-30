@@ -1,5 +1,6 @@
+import { Text } from './LocalizedText';
 import { createContext, useContext } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { appHeaderCaptionMinScale, appHeaderMetrics } from '../app-header-metrics';

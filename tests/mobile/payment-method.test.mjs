@@ -279,7 +279,7 @@ test('the handle names its method in RU, KK and EN; the hint opens the cart with
     'Hold and slide to the right. Double-tap opens the cart with payment.',
   );
   assert.ok(has(hint).kk.includes('себет'));
-  assert.equal(translate('Открыть корзину с оплатой', 'kk'), 'Төлеммен себетті ашу');
+  assert.equal(translate('Открыть корзину с оплатой', 'kk'), 'Төлем жасау үшін себетті ашу');
   // The handle reads its label and mark from the active method, never a hard-coded Kaspi.
   const source = readFileSync(
     new URL('../../apps/mobile/src/components/KaspiSlideToPay.tsx', import.meta.url),

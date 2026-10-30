@@ -1,3 +1,4 @@
+import { Text } from '../../components/LocalizedText';
 import { dateLocale } from '../../i18n/core';
 import { t, localize, useLocale } from '../../i18n';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -11,7 +12,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
 } from 'react-native';

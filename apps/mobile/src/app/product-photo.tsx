@@ -1,6 +1,7 @@
+import { Text } from '../components/LocalizedText';
 import { t, useLocale } from '../i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, View, Text } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { useMobile } from '../store';
 import { designPreview } from '../store-build';
 import { PhotoProduct } from '../screens/PhotoProduct';

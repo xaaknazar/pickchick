@@ -1,7 +1,8 @@
+import { TextInput } from '../components/LocalizedText';
 import { t, localize, useLocale } from '../i18n';
 import { CheckoutSheetHeader, checkoutStyle } from '../components/CheckoutPresentation';
 import { useState, type ReactNode } from 'react';
-import { Keyboard, StyleSheet, TextInput, View } from 'react-native';
+import { Keyboard, StyleSheet, View } from 'react-native';
 import { CheckoutKeyboardDone } from '../components/CheckoutKeyboard';
 import type { ScreenProps } from '../model';
 import { restaurantLocation } from '../restaurant-location';

@@ -1,3 +1,4 @@
+import { Text } from '../../components/LocalizedText';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
@@ -9,7 +10,6 @@ import {
   Image as NativeImage,
   Pressable,
   ScrollView,
-  Text,
   View,
   useWindowDimensions,
   type GestureResponderEvent,

@@ -54,6 +54,8 @@ with sync_playwright() as p:
   for lang,title in [('kk','Қолданба тілі'),('en','App language'),('ru','Язык приложения')]:
    page.get_by_test_id('language-'+lang).click();expect(page.get_by_text(title,exact=True)).to_be_visible()
    expect(page.get_by_test_id('language-'+lang)).to_have_attribute('aria-checked','true')
+   family=page.get_by_text(title,exact=True).evaluate('(e)=>getComputedStyle(e).fontFamily')
+   assert ('system-ui' in family) if lang=='kk' else ('Jost' in family or 'Manrope' in family), (lang,family)
    page.screenshot(path=str(OUT/f'settings-{lang}-{width}.png'),full_page=True)
    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(lang,width)
    page.reload();expect(page.get_by_text(title,exact=True)).to_be_visible(timeout=20000)
@@ -82,7 +84,7 @@ with sync_playwright() as p:
   page.goto(URL+'/screen/M34');expect(page.get_by_test_id('language-en')).to_be_visible(timeout=20000)
   page.get_by_test_id('language-en').click();page.goto(URL+'/menu');expect(page.get_by_test_id('floating-tab-bar')).to_be_visible(timeout=20000)
   expect(page.get_by_test_id('launch-reveal')).to_have_count(0,timeout=20000)
-  expect(page.get_by_test_id('tab-menu')).to_contain_text('Menu');expect(page.get_by_test_id('tab-orders')).to_contain_text('Orders')
+  expect(page.get_by_test_id('tab-menu')).to_contain_text('Menu');expect(page.get_by_test_id('tab-orders')).to_contain_text('Orders');expect(page.get_by_test_id('tab-events')).to_contain_text('Games')
   page.screenshot(path=str(OUT/f'menu-en-{width}.png'),full_page=True)
   expect(page.get_by_test_id('tab-profile')).to_have_count(0);expect(page.get_by_test_id('floating-tab-bar').get_by_role('tab')).to_have_count(3)
   header=page.get_by_test_id('screen-M06').get_by_test_id('header-profile');expect(header).to_have_accessible_name('Profile')

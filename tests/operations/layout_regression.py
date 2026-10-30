@@ -106,7 +106,7 @@ class MobileLayout(unittest.TestCase):
                 self.assertEqual(page.get_by_test_id('open-design-review').count(), 0)
                 # Owner 27.10.2026: three tabs; the profile opens from the top header.
                 self.assertEqual(page.get_by_test_id('tab-profile').count(), 0)
-                for label in ['Меню', 'События', 'Заказы']:
+                for label in ['Меню', 'Игры', 'Заказы']:
                     bounds = page.get_by_text(label, exact=True).last.bounding_box()
                     self.assertGreaterEqual(bounds['height'], 16)
                     self.assertLessEqual(bounds['y'] + bounds['height'], height)

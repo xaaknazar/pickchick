@@ -1,6 +1,7 @@
+import { TextInput } from '../components/LocalizedText';
 import { localize, t, useLocale } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import type { TestFeedback, TestFeedbackInput } from '@pickchick/test-order-flow/contracts';
 import type { ScreenProps } from '../model';
 import { TestApiError } from '../test-client';

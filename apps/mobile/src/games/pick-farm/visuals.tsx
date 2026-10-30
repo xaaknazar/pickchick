@@ -1,7 +1,8 @@
+import { Text } from '../../components/LocalizedText';
 import { GardenArt } from './GardenArt';
 import { memo } from 'react';
 import { useRouter } from 'expo-router';
-import { Image as NativeImage, Pressable, Text, type ImageSourcePropType } from 'react-native';
+import { Image as NativeImage, Pressable, type ImageSourcePropType } from 'react-native';
 import { Icon } from '../../components/UI';
 import { font } from '../../theme';
 import { useGameCardHeight } from '../ArcadeCard';

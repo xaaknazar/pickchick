@@ -850,7 +850,7 @@ def walk_sign_in(browser):
     page.goto(URL + '/screen/M34')
     page.get_by_test_id('language-kk').click(timeout=25000)
     open_profile(page)
-    expect(page.get_by_test_id('profile-identity')).to_contain_text('Қытырлақты жақсы көретін жан')
+    expect(page.get_by_test_id('profile-identity')).to_contain_text('Қытырлақ дәмді ұнататын жан')
     expect(page.get_by_test_id('profile-identity')).not_to_contain_text('Любитель хруста')
     clean(page, 'sign-in-profile-kk-393')
     page.goto(URL + '/screen/M34')

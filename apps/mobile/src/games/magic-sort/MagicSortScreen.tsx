@@ -1,3 +1,4 @@
+import { Text } from '../../components/LocalizedText';
 import { getLocale, localize, t, useLocale } from '../../i18n';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
@@ -7,7 +8,6 @@ import {
   Easing,
   Image,
   Pressable,
-  Text,
   View,
   useWindowDimensions,
   BackHandler,

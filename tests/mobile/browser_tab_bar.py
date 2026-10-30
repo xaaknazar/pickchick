@@ -26,7 +26,7 @@ CAT = json.loads(subprocess.check_output(['node', '--input-type=module', '-e',
     "import {testCompleteCatalog} from './packages/test-order-flow/dist/complete-catalog.js';console.log(JSON.stringify(testCompleteCatalog))"], cwd=ROOT, text=True))
 BRANCH = CAT['branch_id']
 # Owner 27.10.2026: exactly three tabs; the profile opens from the top header.
-TABS = [('menu', 'M06', 'Меню'), ('events', 'M26', 'События'), ('orders', 'M19', 'Заказы')]
+TABS = [('menu', 'M06', 'Меню'), ('events', 'M26', 'Игры'), ('orders', 'M19', 'Заказы')]
 errors = []
 
 

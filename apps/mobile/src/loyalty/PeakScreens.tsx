@@ -1,9 +1,10 @@
+import { Text } from '../components/LocalizedText';
 import { dateLocale } from '../i18n/core';
 import { t, localize, useLocale } from '../i18n';
 import { MotionPressable as Pressable, MotionModal as Modal } from '../components/Motion';
 import { useState } from 'react';
 import { Image } from 'expo-image';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CloseButton,
