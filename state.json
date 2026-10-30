@@ -7082,9 +7082,9 @@
         "tests/mobile/browser_review_account.py",
         "tests/mobile/payment-availability.test.mjs"
       ],
-      "status": "available",
+      "status": "active",
       "head": "0df8a0e30c41395cd5616a8681a24db777553f78",
-      "updatedAt": "2026-10-30T08:44:02.634Z",
+      "updatedAt": "2026-10-30T09:08:44.120Z",
       "summary": "PR297 merged ed23186b; source bbd9956d CI41021327703 all11 PASS. Build0.2.0(31) release mobile-kazakh-20261030-31-r3 archive/export/codesign and JS verified. Upload failed: Xcode account unavailable; Mac locked. Protocol PR298, 7 roadmap tests PASS. No server/POS/App Store changes.",
       "nextAction": "Owner unlocks Mac; restore existing Xcode Apple sign-in privately, then upload existing immutable r3 archive. Verify processing and PickChick Internal availability, save What to Test and proof, update protocol PR298. Do not claim TestFlight availability before confirmation."
     }
