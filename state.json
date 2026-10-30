@@ -7078,11 +7078,12 @@
         "apps/mobile/app.json",
         "@release/ios",
         "@apple/appstore",
-        "tests/mobile/browser_slide_to_pay.py"
+        "tests/mobile/browser_slide_to_pay.py",
+        "tests/mobile/browser_review_account.py"
       ],
       "status": "active",
       "head": "b16c6e39c3c0750f804fffd9d14b9019c117f17c",
-      "updatedAt": "2026-10-30T06:32:23.215Z",
+      "updatedAt": "2026-10-30T06:33:14.670Z",
       "summary": "PR297: Kazakh editorial review, 1462 canonical strings, 207 before/after rows, Games labels, complete KK font in 42 files. Published b16c6e39. 562 Node + 59 Python, TS/lint/format, 7 roadmap, localization/typography/tab bar browser PASS. Approved seven-file transfers recorded. Foundation CI41013162812 pending; no release.",
       "nextAction": "After PR296 is included, retarget PR297 to codex/shared-development; verify full CI on final head before merge/release. Native iPhone acceptance and next TestFlight are separate. Do not merge into prior task branch. Server/POS/catalog remain unchanged."
     }
