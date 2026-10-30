@@ -7082,11 +7082,11 @@
         "tests/mobile/browser_review_account.py",
         "tests/mobile/payment-availability.test.mjs"
       ],
-      "status": "active",
-      "head": "0df8a0e30c41395cd5616a8681a24db777553f78",
-      "updatedAt": "2026-10-30T09:08:44.120Z",
-      "summary": "PR297 merged ed23186b; source bbd9956d CI41021327703 all11 PASS. Build0.2.0(31) release mobile-kazakh-20261030-31-r3 archive/export/codesign and JS verified. Upload failed: Xcode account unavailable; Mac locked. Protocol PR298, 7 roadmap tests PASS. No server/POS/App Store changes.",
-      "nextAction": "Owner unlocks Mac; restore existing Xcode Apple sign-in privately, then upload existing immutable r3 archive. Verify processing and PickChick Internal availability, save What to Test and proof, update protocol PR298. Do not claim TestFlight availability before confirmation."
+      "status": "available",
+      "head": "a0a6e04dd522ab2732ab86426ae870ea5c1b08c7",
+      "updatedAt": "2026-10-30T09:31:29.574Z",
+      "summary": "PickChick 0.2.0(31) доступен PickChick Internal, Apple Тестируется, 2 тестировщика; source CI11/11 и PR297 merged. Протокол/сравнение отказа23 опубликованы a0a6e04d, PR298. Физическая приёмка не выполнена.",
+      "nextAction": "Завершить документальный PR298 после CI. По отказу Apple5.1.1(v) нужны понятный путь удаления и видео физического устройства; повторная отправка не выполнялась. API push-тексты и онлайн-пульт не выпускались."
     }
   ]
 }
