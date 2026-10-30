@@ -8488,13 +8488,13 @@
   },
   {
     "ru": "откроемся в {p0}",
-    "kk": "Ашылу уақыты: {p0}",
+    "kk": "Ашылады: {p0}",
     "en": "Opening at {p0}",
     "context": "apps/mobile/src/restaurant-hours.ts"
   },
   {
     "ru": "откроемся завтра в {p0}",
-    "kk": "Ашылу уақыты: ертең {p0}",
+    "kk": "Ертең ашылады: {p0}",
     "en": "Opening tomorrow at {p0}",
     "context": "apps/mobile/src/restaurant-hours.ts"
   },
