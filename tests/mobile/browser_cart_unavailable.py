@@ -61,6 +61,7 @@ from browser_network import isolated_context, route_fixture
 import hashlib
 import json
 import os
+import re
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -369,15 +370,18 @@ def tr(ru, lang, **values):
     return text
 
 
-def expect_closed_bar(page, total='4 190 ₸'):
-    # Drinkit at night: no payment handle (and no bag pill), the total and the photo only.
+def expect_closed_bar(page, total='4 190 ₸', lang='ru'):
+    # No payment handle at night; the selected dining mode remains above the total.
     expect(visible(page, 'cart-pay-handle')).to_have_count(0, timeout=10000)
     expect(page.locator('#cart-pay-mark-kaspi')).to_have_count(0)
     bar = visible(page, 'cart-shortcut')
     expect(bar).to_have_count(1)
     expect(visible(page, 'cart-shortcut-total')).to_have_text(total)
     expect(visible(page, 'cart-recent-photo-0')).to_be_visible()
-    assert visible(page, 'open-cart').inner_text().strip() == total
+    dining = tr('С собой', lang)
+    expect(visible(page, 'cart-shortcut-dining-label')).to_have_text(dining)
+    text = re.sub(r'[\ue000-\uf8ff\s]', '', visible(page, 'open-cart').inner_text())
+    assert text == re.sub(r'\s', '', dining + total), text
     box = bar.bounding_box()
     button = visible(page, 'open-cart').bounding_box()
     # The cart button fills the whole capsule: the total is a big target, nothing on the left.
@@ -644,6 +648,9 @@ def scenario_slide_interrupted(browser):
     expect_open_bar(page, 20000)
     expect(page.get_by_test_id('launch-reveal')).to_have_count(0, timeout=20000)
     since = len(state['paths'])
+    # Visibility precedes the gesture's layout/effect commit on a cold browser.
+    # Let two rendered frames settle before the only drag; no retry or payment assertion changes.
+    page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
     # Hold and drag most of the way, then the server closes (its own answer, not the hours).
     # A long hold: the 250 ms press-and-hold must register even on a busy test machine.
     slide(page, 0.7, hold=900, release_at_end=False)
@@ -860,7 +867,7 @@ def scenario_languages(browser, width=320, height=568):
         expect(page.get_by_test_id('language-' + lang)).to_have_attribute('aria-checked', 'true')
         page.goto(URL + '/menu')
         expect(page.get_by_test_id('launch-reveal')).to_have_count(0, timeout=20000)
-        expect_closed_bar(page)
+        expect_closed_bar(page, lang=lang)
         opens = tr('откроемся завтра в {p0}', lang, p0='09:00')
         expect(visible(page, 'header-hours')).to_have_text(opens)
         fit = caption_fit(page)

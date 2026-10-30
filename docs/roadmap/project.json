@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-29",
+  "updatedAt": "2026-10-30",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -5232,6 +5232,62 @@
         "implemented": true,
         "verified": true,
         "deployed": true,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-feedback-1029",
+      "workstream": "mobile",
+      "title": "Отзыв после 28: вибрация оплаты и отступы Pick Man",
+      "summary": "Текущая подпись сохранена. Более ощутимые и частые импульсы движения; системные отступы Pick Man применяются вместе с компоновкой.",
+      "status": "active",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["mobile-appstore-clean-1029"],
+      "evidence": [
+        {
+          "label": "Изменения, проверки и ограничения",
+          "path": "docs/operations/mobile-feedback-2026-10-29.md"
+        }
+      ],
+      "acceptance": [
+        "Первый и повторный вход в Pick Man из заказа не перекрывает системную строку.",
+        "Вибрация заметнее при движении в обе стороны; подпись остаётся прежней.",
+        "Полный жест создаёт один платёжный запрос; раннее отпускание ничего не отправляет."
+      ],
+      "nextAction": "Завершить нативную проверку, PR/CI; затем новый TestFlight и приёмка владельцем на iPhone.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
+    },
+    {
+      "id": "mobile-cart-mode-1029",
+      "workstream": "mobile",
+      "title": "TestFlight30: способ получения, синие допы и вибрация",
+      "summary": "Выбранный режим над ценой быстрой оплаты, синяя палитра товарных страниц и усиленные импульсы движения.",
+      "status": "active",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["mobile-feedback-1029"],
+      "evidence": [
+        {
+          "label": "Протокол выпуска30",
+          "path": "docs/operations/mobile-testflight30.md"
+        }
+      ],
+      "acceptance": [
+        "Способ получения над ценой соответствует корзине на RU/KK/EN.",
+        "Страницы допов с синим фоном и читаемыми действиями.",
+        "Вибрация сильнее в обе стороны; один жест отправляет одно намерение оплаты."
+      ],
+      "nextAction": "Полная CI, merge и TestFlight30; приёмка владельцем.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
         "accepted": false
       }
     }
