@@ -1,3 +1,4 @@
+import { Text } from './components/LocalizedText';
 import { t, useLocale } from './i18n';
 import { OrderSheet } from './components/OrderSheet';
 import { useCallback, useState } from 'react';
@@ -5,7 +6,7 @@ import { ScreenTransition } from './components/Motion';
 import { Stack, Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useAccount } from './useAccount';
 import { accountDestination, requiresAccount } from './account-access';
-import { Pressable, Text } from 'react-native';
+import { Pressable } from 'react-native';
 import type { ScreenId } from './model';
 import { useMobile } from './store';
 import { useTabBarInset, useTabCartDockHeight } from './components/tab-bar-inset';

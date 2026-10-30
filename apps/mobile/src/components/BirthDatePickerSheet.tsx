@@ -1,7 +1,8 @@
+import { Text } from './LocalizedText';
 import { t, useLocale } from '../i18n';
 import { MotionPressable as Pressable } from './Motion';
 import { useEffect, useRef, type ReactNode } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { font } from '../theme';
 import { AuthButton, authColors } from './AuthLayout';

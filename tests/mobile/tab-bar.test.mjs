@@ -131,13 +131,13 @@ test('tabs keep order, labels, gates and accessibility semantics', () => {
   // Owner 27.10.2026: exactly three tabs; the profile opens from the top header.
   assert.deepEqual(order, [
     ['menu', 'Меню'],
-    ['events', 'События'],
+    ['events', 'Игры'],
     ['orders', 'Заказы'],
   ]);
   assert.equal(order.length, tabBarTabCount);
   assert.doesNotMatch(layout, /tab-profile|name="profile"/);
   assert.equal((layout.match(/gate\('M(26|19)'\)/g) ?? []).length, 2);
-  // Review 29.10.2026: in the App Store build a guest opens «События» (account-access guestCanOpen).
+  // Review 29.10.2026: in the App Store build a guest opens «Игры» (account-access guestCanOpen).
   assert.match(
     layout,
     /name="events"\s+(?:\/\/[^\n]*\n\s*)?listeners=\{guestCanOpen\('M26'\) \? undefined : gate\('M26'\)\}/,
@@ -158,7 +158,7 @@ test('tabs keep order, labels, gates and accessibility semantics', () => {
 
 test('three tabs share the capsule evenly with room for the label at 320 and 393 pt', () => {
   // Label widths in em, measured in Chromium with Manrope 600 (12 px). Widest: kk «Тапсырыстар».
-  const labels = { Меню: 2.9, События: 4.35, Заказы: 3.53, Оқиғалар: 4.58, Тапсырыстар: 6.56 };
+  const labels = { Меню: 2.9, Игры: 4.35, Заказы: 3.53, Ойындар: 4.58, Тапсырыстар: 6.56 };
   const widest = Math.max(...Object.values(labels));
   const room = (screen, scale) => tabItemWidth(screen, tabBarMetrics({ bottom: 34 }, scale)) - 8;
   for (const scale of [1, tabLabelMaxScale, 3.1]) {

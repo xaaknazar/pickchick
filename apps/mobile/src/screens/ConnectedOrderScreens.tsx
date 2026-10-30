@@ -1,3 +1,4 @@
+import { Text, TextInput } from '../components/LocalizedText';
 import { dateLocale } from '../i18n/core';
 import { t, localize, useLocale } from '../i18n';
 import { OrderTotal, orderUI } from '../components/OrderPresentation';
@@ -15,7 +16,7 @@ import { RepeatOrder } from '../components/RepeatOrder';
 import { CheckoutDetails, CheckoutHeader } from './CheckoutScreen';
 import { unpaidTestOrdersEnabled } from '../order-simulator';
 import { useState } from 'react';
-import { Text, TextInput, View, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import type { TestOrder } from '@pickchick/test-order-flow/contracts';
 import type { ScreenProps } from '../model';
 import {

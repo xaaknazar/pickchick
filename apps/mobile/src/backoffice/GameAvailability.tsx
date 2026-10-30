@@ -25,8 +25,8 @@ export function GameAvailability({
         style={{ flex: 1, justifyContent: 'center', padding: 24, gap: 20 }}
       >
         <Heading>{t('Игра сейчас недоступна')}</Heading>
-        <Body muted>{t('Выбери другую игру в «Событиях».')}</Body>
-        <Button title={t('К событиям')} onPress={() => router.replace('/(tabs)/events')} />
+        <Body muted>{t('Выбери другую игру в «Играх».')}</Body>
+        <Button title={t('К играм')} onPress={() => router.replace('/(tabs)/events')} />
       </View>
     </SafeAreaView>
   );

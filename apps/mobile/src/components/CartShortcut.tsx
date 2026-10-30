@@ -1,3 +1,4 @@
+import { Text } from './LocalizedText';
 import { localize, t, useLocale } from '../i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -7,7 +8,6 @@ import {
   Easing,
   Platform,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
 } from 'react-native';

@@ -1,15 +1,9 @@
+import { Text } from '../components/LocalizedText';
 import { localize, t, useLocale } from '../i18n';
 import { OrderHistoryPreview } from './CompletedOrderPreview';
 import { OrdersEmpty, OrdersHeader, ordersPageStyle } from '../components/OrdersTab';
 import { Image } from 'expo-image';
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { assets } from '../assets';
 import { PeakWallet, PeakRewards } from '../loyalty/PeakScreens';

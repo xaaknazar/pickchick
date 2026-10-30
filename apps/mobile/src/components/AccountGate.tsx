@@ -74,7 +74,7 @@ export function AccountGate({
           </>
         )}
         <Button
-          title={localize(game ? 'К событиям' : 'В меню')}
+          title={localize(game ? 'К играм' : 'В меню')}
           secondary
           onPress={() => router.replace(game ? '/(tabs)/events' : '/(tabs)/menu')}
         />

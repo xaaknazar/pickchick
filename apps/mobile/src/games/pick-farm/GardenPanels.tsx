@@ -1,5 +1,6 @@
+import { Text } from '../../components/LocalizedText';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import {
   CROPS,
   DECORATIONS,

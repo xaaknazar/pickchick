@@ -1,5 +1,6 @@
+import { Text } from '../../components/LocalizedText';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { AccessibilityInfo, Animated, AppState, Easing, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, AppState, Easing, View } from 'react-native';
 import type { CropId } from '@pickchick/farm-game';
 import { font } from '../../theme';
 import { farmPalette } from './styles';

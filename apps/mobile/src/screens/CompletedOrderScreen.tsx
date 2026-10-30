@@ -1,9 +1,10 @@
+import { TextInput } from '../components/LocalizedText';
 import { dateLocale } from '../i18n/core';
 import { t, localize, useLocale } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import type { CustomerCommerceOrder } from '@pickchick/contracts';
 import { Image } from 'expo-image';
-import { ActivityIndicator, Keyboard, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, StyleSheet, View } from 'react-native';
 import { CheckoutKeyboardDone } from '../components/CheckoutKeyboard';
 import { checkoutStyle } from '../components/CheckoutPresentation';
 import { receiptShown } from '../store-build';

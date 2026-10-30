@@ -1,9 +1,9 @@
+import { Text } from './LocalizedText';
 import { t, localize, useLocale } from '../i18n';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
   AppState,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
   type ImageSourcePropType,

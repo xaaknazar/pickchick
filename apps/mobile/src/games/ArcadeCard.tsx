@@ -1,7 +1,8 @@
+import { Text } from '../components/LocalizedText';
 import { localize, t, useLocale } from '../i18n';
 import type { ReactNode } from 'react';
 import { Image } from 'expo-image';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { assets } from '../assets';
 import { colors, font } from '../theme';
 import { Icon, Logo } from '../components/UI';

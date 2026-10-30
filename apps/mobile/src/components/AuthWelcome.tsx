@@ -1,3 +1,4 @@
+import { Text } from './LocalizedText';
 import { t, localize, useLocale } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -7,7 +8,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
   type ViewStyle,

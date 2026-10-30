@@ -1,6 +1,7 @@
+import { Text } from './LocalizedText';
 import { localize, t, useLocale } from '../i18n';
 import { useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, font, restaurantColors } from '../theme';

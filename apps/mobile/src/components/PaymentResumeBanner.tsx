@@ -1,5 +1,6 @@
+import { Text } from './LocalizedText';
 import { t, useLocale } from '../i18n';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MotionPressable as Pressable } from './Motion';
 import { GlassFill, glassBarRim, useGlassBarStyle } from './GlassButton';

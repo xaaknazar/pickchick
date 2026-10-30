@@ -1,6 +1,7 @@
+import { Text } from '../components/LocalizedText';
 import { t, localize, useLocale } from '../i18n';
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { TestOrder } from '@pickchick/test-order-flow/contracts';

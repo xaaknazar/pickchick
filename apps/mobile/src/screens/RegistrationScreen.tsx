@@ -1,8 +1,9 @@
+import { TextInput } from '../components/LocalizedText';
 import { dateLocale } from '../i18n/core';
 import { localize, t, useLocale } from '../i18n';
 import { MotionPressable as Pressable } from '../components/Motion';
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
+import { Keyboard, StyleSheet, View, useWindowDimensions } from 'react-native';
 import type { ScreenProps } from '../model';
 import { useAccount } from '../useAccount';
 import { isValidBirthDate, type DemoProfileInput } from '../profile-details';

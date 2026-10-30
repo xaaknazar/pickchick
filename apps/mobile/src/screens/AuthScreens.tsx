@@ -1,15 +1,8 @@
+import { Text, TextInput } from '../components/LocalizedText';
 import { t, localize, useLocale } from '../i18n';
 import { MotionPressable as Pressable } from '../components/Motion';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Keyboard,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { Keyboard, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { AuthButton, AuthLayout, authColors } from '../components/AuthLayout';
 import { Icon } from '../components/UI';
 import { DEMO_LOGIN_CODE, formatDemoPhone, normalizeDemoPhone } from '../demo-account';

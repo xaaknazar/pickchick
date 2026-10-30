@@ -1,6 +1,7 @@
+import { Text } from './LocalizedText';
 import { t, localize, useLocale } from '../i18n';
 import { useEffect, useState, type ReactNode } from 'react';
-import { AppState, Platform, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { AppState, Platform, StyleSheet, View, type ImageSourcePropType } from 'react-native';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import mapMetadata from '../../assets/maps/abay-plaza.json' with { type: 'json' };

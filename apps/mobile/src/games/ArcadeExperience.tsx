@@ -1,3 +1,4 @@
+import { Text } from '../components/LocalizedText';
 import { dateLocale } from '../i18n/core';
 import { localize, t, useLocale } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
@@ -8,7 +9,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
   type ImageSourcePropType,
   type ViewStyle,
