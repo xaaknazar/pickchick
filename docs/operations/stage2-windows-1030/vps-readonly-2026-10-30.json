@@ -1,0 +1,448 @@
+{
+  "observedAt": "2026-10-30T12:15:16.368572+00:00",
+  "apiLabels": {
+    "org.opencontainers.image.revision": "c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da"
+  },
+  "apiImage": "sha256:063076dbe2033aefc0128a8ac9ed67f38d7a98e3e295e125c9e0b1876e6b6729",
+  "pointers": {
+    "current": "/opt/pickchick-staging/releases/c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da",
+    "public-https/current": "/opt/pickchick-staging/public-https/releases/c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da"
+  },
+  "hashes": {
+    "/opt/pickchick-staging/releases/c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da/infra/staging/compose.yaml": "05d009fa3bc286c403032f2be9eaf6d25c7ff004abdd1b92c0880baff2682805",
+    "/opt/pickchick-staging/public-https/releases/c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da/infra/public-staging/compose.yaml": "b56dac55f6ec8670ac868ab438fd900f9eecdb7e1497ad16d388daa8cb93f426",
+    "/opt/pickchick-staging/public-https/releases/c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da/infra/public-staging/gateway.Caddyfile": "c603c640458f791ad0c19430ab3fd1e344dcc9f1448fbf99357524368e5fa520"
+  },
+  "flags": {
+    "CATALOG_EDGE_COMBO_STOPS_ENABLED": "absent",
+    "BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED": "absent",
+    "BACKOFFICE_RECONCILIATION_ENABLED": "absent",
+    "CLOUD_EDGE_IDENTITY_ROTATION_ENABLED": "absent",
+    "COMBO_REWARDS_ENABLED": "absent",
+    "CUSTOMER_COMBO_REWARDS_ENABLED": "absent"
+  },
+  "diskFreeGiB": 130,
+  "lockExists": false,
+  "containers": [
+    {
+      "name": "/pickchick-staging-api-1",
+      "image": "sha256:063076dbe2033aefc0128a8ac9ed67f38d7a98e3e295e125c9e0b1876e6b6729",
+      "startedAt": "2026-10-22T12:43:50.510239681Z",
+      "status": "running"
+    },
+    {
+      "name": "/pickchick-public-gateway",
+      "image": "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+      "startedAt": "2026-10-22T12:38:39.669295332Z",
+      "status": "running"
+    },
+    {
+      "name": "/pickchick-roadmap",
+      "image": "sha256:2c87ef9bd3c6a3bd4b472b4bec2ce9d16354b0c574f736c476489d09f560a203",
+      "startedAt": "2026-10-22T10:19:28.74373337Z",
+      "status": "running"
+    },
+    {
+      "name": "/pickchick-kitchen-portal",
+      "image": "sha256:2c87ef9bd3c6a3bd4b472b4bec2ce9d16354b0c574f736c476489d09f560a203",
+      "startedAt": "2026-10-21T14:33:58.029166848Z",
+      "status": "running"
+    },
+    {
+      "name": "/pickchick-kaspi-worker",
+      "image": "sha256:0ed9e8e8a96f4bc399e04ac86ec76ceb885cc52cdb2bc74953dbc729abd3a74a",
+      "startedAt": "2026-10-29T13:41:40.681920805Z",
+      "status": "running"
+    },
+    {
+      "name": "/pickchick-kiosk-kaspi-qr-worker",
+      "image": "sha256:0743948f7082d0103718a4a8effe6363692005cc1d5b6b713f12b03d44592641",
+      "startedAt": "2026-10-29T13:41:40.757225552Z",
+      "status": "running"
+    },
+    {
+      "name": "/pickchick-staff-login",
+      "image": "sha256:9e31d924fd53f414e8b861208fa1eb013ea9c561888dfa5d6a7a5717b6085471",
+      "startedAt": "2026-10-21T13:43:52.971777807Z",
+      "status": "running"
+    },
+    {
+      "name": "/pickchick-kaspi-bridge",
+      "image": "sha256:b7218d9346b3934d16ec261b95bb780ef6bd651c56883e09e730459b55e8c042",
+      "startedAt": "2026-10-08T11:55:03.244702163Z",
+      "status": "running"
+    },
+    {
+      "name": "/pickchick-staging-cloud-db-1",
+      "image": "sha256:54451ecb8ab38c24c3ec123f2fd501303a3a1856a5c66e98cecf2460d5e1e9d7",
+      "startedAt": "2026-09-06T11:16:25.683151988Z",
+      "status": "running"
+    },
+    {
+      "name": "/pickchick-staging-redis-cache-1",
+      "image": "sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232",
+      "startedAt": "2026-09-06T11:16:25.685896266Z",
+      "status": "running"
+    },
+    {
+      "name": "/deploy-server-1",
+      "image": "sha256:cda8c924efe9cd6929fea6ab50e28b7605beb96ec5891edcf01a645fe7bff42e",
+      "startedAt": "2026-08-20T11:23:54.518957959Z",
+      "status": "running"
+    },
+    {
+      "name": "/deploy-caddy-1",
+      "image": "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+      "startedAt": "2026-08-19T18:01:44.32152829Z",
+      "status": "running"
+    },
+    {
+      "name": "/deploy-db-1",
+      "image": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "startedAt": "2026-08-19T17:53:10.226108251Z",
+      "status": "running"
+    }
+  ],
+  "ledger": [
+    {
+      "scope": "cloud",
+      "version": "001_cloud_foundation.sql",
+      "checksum": "7c133c6b92635f9b1984bf5687a4686cb6ea4d741db6740cfe3997be5f09829e"
+    },
+    {
+      "scope": "cloud",
+      "version": "002_cloud_snapshot_guards.sql",
+      "checksum": "7db80ef7ab0075e469dac86406d43a2f8e8eea80a24ca31f18ead5920ca57b73"
+    },
+    {
+      "scope": "cloud",
+      "version": "003_cloud_menu_sync.sql",
+      "checksum": "e474f157c038b269b3e600d89adba22041e324ec581dc60b6ca43d12258bbc38"
+    },
+    {
+      "scope": "cloud",
+      "version": "004_cloud_test_order_flow.sql",
+      "checksum": "03227808191ca583165d0eef455da1ab612ce8a366b80b599cd6fc9d951a5654"
+    },
+    {
+      "scope": "cloud",
+      "version": "005_cloud_test_modifier_task_titles.sql",
+      "checksum": "1bdee0d6aa46ff3d560be671dd612b0a2397a2ed73cbde5633810334d5448958"
+    },
+    {
+      "scope": "cloud",
+      "version": "006_cloud_test_permanent_access.sql",
+      "checksum": "df19a22606b843c16b5368fe20b0ccd496ee86212ecf8a828408f86c02c16877"
+    },
+    {
+      "scope": "cloud",
+      "version": "007_cloud_customer_identity.sql",
+      "checksum": "19f95c9a7edb2868a05e0d8bf3f51d0e1b5affd83ba59ee3d35b90e6c741232e"
+    },
+    {
+      "scope": "cloud",
+      "version": "008_cloud_commerce_core.sql",
+      "checksum": "cd511319956936d05f209be2735c7045c0d938864bf15cd61a3a8281cd7a642a"
+    },
+    {
+      "scope": "cloud",
+      "version": "009_cloud_catalog_admin.sql",
+      "checksum": "fea789769355daba7bd24f5e962ac64fa9e62733bf5ee76a089063f63a96cff8"
+    },
+    {
+      "scope": "cloud",
+      "version": "010_cloud_loyalty.sql",
+      "checksum": "438645a64cd092e3d4eb7165e692c4aefc68bf04fa4a6b72027406d65394661b"
+    },
+    {
+      "scope": "cloud",
+      "version": "011_cloud_catalog_lock_permissions.sql",
+      "checksum": "ba44575a3788839af75bfb18dd1a310ae7c0d851bab83c595c3088708d90fa8a"
+    },
+    {
+      "scope": "cloud",
+      "version": "012_cloud_commerce_catalog.sql",
+      "checksum": "d86aa924a6eaae3fb8ffa2fc13829b0164415f4cb9f601a5284231c5045fca1b"
+    },
+    {
+      "scope": "cloud",
+      "version": "013_cloud_identity_receipt_limits.sql",
+      "checksum": "1eb5870a4f4d8a0a43a81ed2a16c736f846a1b8165033787dca2c31a72637b8a"
+    },
+    {
+      "scope": "cloud",
+      "version": "014_cloud_fulfillment_transport.sql",
+      "checksum": "4e817e6debac5d3bab8061ab1236ecf5990eef8c07002d3368124f493db5c7eb"
+    },
+    {
+      "scope": "cloud",
+      "version": "015_cloud_unpaid_cancellation.sql",
+      "checksum": "6c401c2f0da90de5f811246a989126c7de1a94ffe9d9263fd6ea2b2b75b8403a"
+    },
+    {
+      "scope": "cloud",
+      "version": "016_cloud_pos_order_sync.sql",
+      "checksum": "7be83014cb221f2ff9ec9623ae189b6b3515ebe24f715aed659ac73ca261a917"
+    },
+    {
+      "scope": "cloud",
+      "version": "017_cloud_backoffice.sql",
+      "checksum": "c8dcc0aa563ee3c84b9430a386f4b88ab6ad600310a6cb3683faf96912ac95db"
+    },
+    {
+      "scope": "cloud",
+      "version": "018_pos_kitchen_sync.sql",
+      "checksum": "6c25a8586b6e9474246c88b9367a0c0386aef64d6db336e31b23df31ff925577"
+    },
+    {
+      "scope": "cloud",
+      "version": "019_cloud_unpaid_test_orders.sql",
+      "checksum": "7bd02419f40ccb9f5dcecd9a0825fd64f4d6228af512c233dc61b3fa30802a3b"
+    },
+    {
+      "scope": "cloud",
+      "version": "020_cloud_daily_test_numbers.sql",
+      "checksum": "078ff253c6841e56d6da2a4a7bd864dc43abdc65d0f45e6defdcee3f2d2e4427"
+    },
+    {
+      "scope": "cloud",
+      "version": "021_cloud_test_service_shifts.sql",
+      "checksum": "9ca32ab5a39dc04ea9ed432569ef46848cceb82c8df8701ce36fe29150e4bd5f"
+    },
+    {
+      "scope": "cloud",
+      "version": "022_cloud_otp_channels.sql",
+      "checksum": "691652a70e416f141e9f1cda63b2d79b8e25445433bd7b1ef88a89ceac260663"
+    },
+    {
+      "scope": "cloud",
+      "version": "023_cloud_otp_delivery_consent.sql",
+      "checksum": "8ecbb88c1166abe412fcd81238e5c4b43e8c1c2b97f802c134181e222e0dfee3"
+    },
+    {
+      "scope": "cloud",
+      "version": "024_cloud_customer_pilot_orders.sql",
+      "checksum": "68f1dd7ff70b77e07df81244e51cff601a8d95712382fb53b4f1786d1739fdca"
+    },
+    {
+      "scope": "cloud",
+      "version": "025_cloud_combo_stamps.sql",
+      "checksum": "c43e7788d52fd9270dd976c24cb2ffc3ca6613d6a985d4a6b942ce2be6b93ad1"
+    },
+    {
+      "scope": "cloud",
+      "version": "026_cloud_kaspi_remote.sql",
+      "checksum": "55860d08ad09a66a2f9518c51019957239a5d3cf684dd77134a464ada917b3bb"
+    },
+    {
+      "scope": "cloud",
+      "version": "027_cloud_deferred_fiscal_pilot.sql",
+      "checksum": "e0f5d9799d6404f3c3d12a994b07db376115fd249c5a0e838bea3b31b7d6f65f"
+    },
+    {
+      "scope": "cloud",
+      "version": "028_cloud_otp_code_length.sql",
+      "checksum": "2ef7f0373c20eaf68282eef03ff5f75897abc3d623810cbbacf200a44a85dc95"
+    },
+    {
+      "scope": "cloud",
+      "version": "029_cloud_kaspi_invoice_comment.sql",
+      "checksum": "c925da018929b9ed8a65860c2e75198bb592f7a11e15a15baf40b9a1eca1d4fa"
+    },
+    {
+      "scope": "cloud",
+      "version": "030_cloud_branch_availability.sql",
+      "checksum": "8e7004220c20d1cb223b0bdf015fc6c31cf8422dcedc1d5a0c6bbca31b6d7fc3"
+    },
+    {
+      "scope": "cloud",
+      "version": "031_cloud_otp_auto_channel.sql",
+      "checksum": "f7a96c9f5cbba44323231579c29ff452223307f9d4c0a172e268b7cfaad20a6a"
+    },
+    {
+      "scope": "cloud",
+      "version": "032_cloud_order_feedback.sql",
+      "checksum": "441b68666a5d96281f9d01494ced7403b0cc5c3d0bf9a12b651a16c5700dc0e8"
+    },
+    {
+      "scope": "cloud",
+      "version": "033_cloud_cashier_reports.sql",
+      "checksum": "3415e80a26f48041d23d9148aa7bc35aeb4a5925c278d3b7377b23167d0f5724"
+    },
+    {
+      "scope": "cloud",
+      "version": "034_cloud_catalog_menu_delivery.sql",
+      "checksum": "647de8d40b6e8547f1f66bedde95d1145ccb93743c2ccbe1872806768aded2cd"
+    },
+    {
+      "scope": "cloud",
+      "version": "035_cloud_kiosk_sessions.sql",
+      "checksum": "d57394b0dd82a4aaf0b059e660dc3183b24e236141e6e10523ee3649391d4c2c"
+    },
+    {
+      "scope": "cloud",
+      "version": "036_cloud_kiosk_commerce.sql",
+      "checksum": "54f8a12127812176bcd3ef3d9363d7978b7d8223b1c79af39ff7472d422a13f7"
+    },
+    {
+      "scope": "cloud",
+      "version": "037_cloud_farm.sql",
+      "checksum": "07eeee827a6540c951aef7574d0a1e766e5a4d310755443c8748f4cca7d158a3"
+    },
+    {
+      "scope": "cloud",
+      "version": "038_cloud_farm_field_capacity.sql",
+      "checksum": "70c7e5442b92b6c104caac0d9bda2c1f88fd8f344d7190d606e8ef798b0a6c0b"
+    },
+    {
+      "scope": "cloud",
+      "version": "039_cloud_tiptoppay_checkout.sql",
+      "checksum": "1f7b924b1af678c0f704703119d26d56ad493503e970c03f7175337aef10bfba"
+    },
+    {
+      "scope": "cloud",
+      "version": "040_cloud_tiptoppay_test_checkout.sql",
+      "checksum": "c2f308086bf665a504e286e15e3d8dde73dae5217d004f043f3a066bac66219b"
+    },
+    {
+      "scope": "cloud",
+      "version": "042_cloud_finance.sql",
+      "checksum": "a1554e3dc90d775d1c899d612fbec46addb8073eac39f034297e09e5aa59113b"
+    },
+    {
+      "scope": "cloud",
+      "version": "043_cloud_kiosk_kaspi_qr.sql",
+      "checksum": "afab40793e930a1c7a647fe2ad7e28e8b94922f7c95bcace4f14fb7e3e08f5e2"
+    },
+    {
+      "scope": "cloud",
+      "version": "044_cloud_kiosk_enrollment.sql",
+      "checksum": "ea55253db1ef9daf1ec6544204f7a33b3fb33a944c4dbdb36d6bb83563e143a5"
+    },
+    {
+      "scope": "cloud",
+      "version": "045_cloud_kiosk_qr_before_admission.sql",
+      "checksum": "9e2be1892bbb749d1f7780bc7e4d97803748d0592adff63f383a90873d4a3255"
+    },
+    {
+      "scope": "cloud",
+      "version": "046_cloud_kiosk_qr_recovery.sql",
+      "checksum": "18ab7ff9d594eb04e0c6ea6c4588f2377d1da6ed3317dfa39e8a1c9e7602e767"
+    },
+    {
+      "scope": "cloud",
+      "version": "047_cloud_edge_menu_state.sql",
+      "checksum": "ac6cbe668221fd5dc5f4388899e3c29706332b515f436f607cdc451e9abf771c"
+    },
+    {
+      "scope": "cloud",
+      "version": "048_cloud_stop_commands.sql",
+      "checksum": "9a32a6422d02fe85e4232e2adea3e064013176442c5a0c190c3d419d9ff9af1b"
+    },
+    {
+      "scope": "cloud",
+      "version": "049_cloud_catalog_assets.sql",
+      "checksum": "acf9022df4813814c03ae04ac80b1db641eaeb52fea13b19f1c59b776a6f05e7"
+    },
+    {
+      "scope": "cloud",
+      "version": "050_cloud_kiosk_payment_incidents.sql",
+      "checksum": "90571b744040395da274e45867d856d80cfc1a551d74f7b2cde2bb30694cd234"
+    },
+    {
+      "scope": "cloud",
+      "version": "051_cloud_device_registry.sql",
+      "checksum": "a092193ab0a679f1ac45ec34f27858c1c862488c708455d74ad38a38704f871a"
+    },
+    {
+      "scope": "cloud",
+      "version": "052_cloud_workforce.sql",
+      "checksum": "688a43422abceeed0b40c8fdb494db7ba27fc7e8e467db9dcfdfe0b69df07e10"
+    },
+    {
+      "scope": "cloud",
+      "version": "053_cloud_channel_numbers.sql",
+      "checksum": "97cf72d3134271c94c83882939d4d85641e3fbc67c05ee4717b7ec6cf469985d"
+    },
+    {
+      "scope": "cloud",
+      "version": "054_cloud_kitchen_fulfillment.sql",
+      "checksum": "51c75d16a8e9e7177762ed0dbff81fc5f1051abd4f5242c4f71b52091fcab51e"
+    },
+    {
+      "scope": "cloud",
+      "version": "055_cloud_channel_stops.sql",
+      "checksum": "fa6e4bb6bb01b1a85013aac2c43842bf7dcea764731928e25166b8f0408c68e4"
+    },
+    {
+      "scope": "cloud",
+      "version": "056_cloud_kitchen_screens.sql",
+      "checksum": "e0c4ed488c13c5e9620fdee20ed000aa19d3afe2f2716b6a12f516f5a59edf07"
+    },
+    {
+      "scope": "cloud",
+      "version": "057_cloud_workforce_payroll.sql",
+      "checksum": "70127677b1164632719659fe44492633d5127210e3665ad92d56f4a25f40cc77"
+    },
+    {
+      "scope": "cloud",
+      "version": "058_cloud_device_center.sql",
+      "checksum": "12a8a0b1e0e6ae14226dfc0097c4ca862fe5d432065a5ddd9791c4fb714d24c9"
+    },
+    {
+      "scope": "cloud",
+      "version": "060_cloud_combo_rewards.sql",
+      "checksum": "378212126f63d22d4da1ab9444b49683cd6e697b9e951e1477adf31ae15404ef"
+    },
+    {
+      "scope": "cloud",
+      "version": "064_cloud_cashier_ordering_state.sql",
+      "checksum": "3d2ba83e4cf1013beeea30748d8c5b84160649aad405a5d3560373943f1de642"
+    },
+    {
+      "scope": "cloud",
+      "version": "066_cloud_edge_identity_rotation.sql",
+      "checksum": "74bed9292178cbcf8849412e9a34e3e9e3cdd4fa946335cb8afb79bfba008437"
+    },
+    {
+      "scope": "cloud",
+      "version": "068_cloud_identity_abuse_limits.sql",
+      "checksum": "cc864b56a535b1aaa6f69ed962f001b519df07086d0fe0a57a686c3969d28a24"
+    }
+  ],
+  "ready": {
+    "status": 200,
+    "body": {
+      "service": "api",
+      "ready": true,
+      "degraded": false,
+      "dependencies": {
+        "database": "up",
+        "schema": "up",
+        "redis": "up"
+      }
+    }
+  },
+  "capabilities": {
+    "status": 200,
+    "body": {
+      "schema_version": 1,
+      "environment": "staging",
+      "data_mode": "pilot",
+      "ordering_enabled": false,
+      "features": {
+        "phone_auth": true,
+        "checkout": false,
+        "payments": false,
+        "fiscal": false,
+        "loyalty": false,
+        "test_order_flow": true,
+        "unpaid_test_orders": true
+      },
+      "notice": {
+        "ru": "Заказы в приложении оплачиваются через Kaspi. Чеки в процессе подключения.",
+        "kk": "Қосымшадағы тапсырыстар Kaspi арқылы төленеді. Чектер қосылуда."
+      }
+    }
+  }
+}

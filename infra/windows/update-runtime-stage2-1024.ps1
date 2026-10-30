@@ -53,6 +53,11 @@ function Assert-RuntimeLedger($Actual,$Expected) {
  if(@($Actual).Count -ne @($Expected).Count){throw 'Ledger length differs.'}
  for($i=0;$i -lt @($Expected).Count;$i++){foreach($key in @('scope','version','checksum')){if($Actual[$i].$key -cne $Expected[$i].$key){throw 'Migration history differs.'}}}
 }
+function Assert-Stage2Predecessor([string]$Commit) {
+ # The 020->023 bridge is built from PR270, never from a tree containing 024.
+ # Refresh this pin only after a separately reviewed and tested schema023 bridge.
+ if($Commit -cne '0fb95c9f09031d93e38e3af2a0c4a1bcc81f591c'){throw 'Unreviewed schema023 predecessor; replan the cashier window.'}
+}
 function Assert-RuntimePreserved {
  foreach($path in $script:preserved.Keys){if((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $script:preserved[$path]){throw 'Configuration or identity changed.'}}
  foreach($name in $script:neighbors.Keys){$s=Get-CimInstance Win32_Service -Filter "Name='$name'";if($s.State -cne 'Running' -or $s.ProcessId -ne $script:neighbors[$name]){throw 'Unrelated service changed.'}}
@@ -139,6 +144,7 @@ $baselineProof=Get-Content $BaselineReceipt -Raw|ConvertFrom-Json
 if($baselineProof.format -cne 'pickchick-stage2-baseline-v1' -or $baselineProof.schema -ne 23 -or $baselineProof.branchId -cne $BranchId.ToString() -or $baselineProof.computerName -ine $env:COMPUTERNAME -or $baselineProof.sourceCommit -cnotmatch '^[a-f0-9]{40}$'){throw 'Reviewed schema023 baseline receipt required.'}
 if(@($baselineProof.xmlHashes).Count -ne 4 -or @($baselineProof.xmlHashes|Where-Object {$_ -cnotmatch '^[a-f0-9]{64}$'}).Count){throw 'Four reviewed XML hashes required.'}
 $oldSha=$baselineProof.sourceCommit
+Assert-Stage2Predecessor $oldSha
 $script:oldEdge=Join-Path $program ('Edge\edge-'+$oldSha.Substring(0,7)+'\app');$oldWorker=$oldEdge
 $newRoot=Join-Path $program ('Edge\edge-'+$SourceCommit.Substring(0,7));$script:newApp=Join-Path $newRoot 'app'
 $stateRoot=Join-Path $data ('EdgeTools\runtime-stage2-1024-'+$SourceCommit.Substring(0,7))
