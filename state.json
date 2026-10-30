@@ -3175,9 +3175,7 @@
         "apps/mobile/src/games/pick-farm/FarmPanels.tsx",
         "apps/mobile/src/games/pick-farm/FieldObjects.tsx",
         "apps/mobile/src/games/pick-farm/GardenArt.tsx",
-        "apps/mobile/src/games/pick-farm/GardenPanels.tsx",
         "apps/mobile/src/games/pick-farm/Hud.tsx",
-        "apps/mobile/src/games/pick-farm/PickFarmScreen.tsx",
         "apps/mobile/src/games/pick-farm/PlantingVisual.tsx",
         "apps/mobile/src/games/pick-farm/Ranch.tsx",
         "apps/mobile/src/games/pick-farm/RanchPanels.tsx",
@@ -3193,7 +3191,6 @@
         "apps/mobile/src/games/pick-farm/haptics.ts",
         "apps/mobile/src/games/pick-farm/harvest-queue.ts",
         "apps/mobile/src/games/pick-farm/hit-zones.ts",
-        "apps/mobile/src/games/pick-farm/motion.tsx",
         "apps/mobile/src/games/pick-farm/pipeline.ts",
         "apps/mobile/src/games/pick-farm/ranch-layout.ts",
         "apps/mobile/src/games/pick-farm/sprite-hit-masks.ts",
@@ -3217,7 +3214,7 @@
       "status": "available",
       "head": "e9e8fd77f94eeb01b3d36ff45e8b247fce868278",
       "updatedAt": "2026-10-12T13:00:33.036Z",
-      "summary": "PR #193: животные на поле (касание/проведение/удержание), прогулки, событие земли, отклик, звук комбо и птицы, стек панелей, ряд HUD. Тесты engine 42, mobile, PG16, browser v2/v3/progression прошли. Shared status files released for owner-authorized kiosk/mobile/devices handoff; preserve existing farm entries.",
+      "summary": "PR #193: животные на поле (касание/проведение/удержание), прогулки, событие земли, отклик, звук комбо и птицы, стек панелей, ряд HUD. Тесты engine 42, mobile, PG16, browser v2/v3/progression прошли. Shared status files released for owner-authorized kiosk/mobile/devices handoff; preserve existing farm entries. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/games/pick-farm/GardenPanels.tsx, apps/mobile/src/games/pick-farm/PickFarmScreen.tsx, apps/mobile/src/games/pick-farm/motion.tsx",
       "nextAction": "Владельцу: ревью и слияние PR #193; выложить API protocol 3, TestFlight (добавить expo-haptics при освобождении apps/mobile/ios), физический iPhone.\n2026-10-12: по прямому подтверждению владельца в чате переданы задаче mobile-redesign-1012 только следующие файлы: apps/mobile/src/games/pick-farm/visuals.tsx. Остальные резервы, рабочая ветка и checkpoint сохранены. Резерв каталога pick-farm разделён на существующие соседние пути из общего среза и обеих веток; новые пути занимать отдельно."
     },
     {
@@ -6805,7 +6802,6 @@
         "apps/mobile/src/active-orders.ts",
         "apps/mobile/src/availability-connection.ts",
         "apps/mobile/src/components/KaspiPaymentState.tsx",
-        "apps/mobile/src/components/PaymentResumeBanner.tsx",
         "apps/mobile/src/components/TabCartDock.tsx",
         "apps/mobile/src/payment-recovery.ts",
         "apps/mobile/src/payment-resume.ts",
@@ -6827,7 +6823,7 @@
       "status": "available",
       "head": "f94f252da29ad8f0e376ff9ecc2319bbfa10ef87",
       "updatedAt": "2026-10-29T19:32:33.349Z",
-      "summary": "TestFlight 0.2.0 (27) доступен PickChick Internal, Apple Testing 29.10. PR289 merged 6660ce98, CI 11/11 на исходнике IPA 146b8967. 531 Node +59 Python, браузерные и native Simulator PASS. Подпись/JS/флаги проверены. Итоговые docs/status/roadmap/evidence опубликованы f94f252d в PR290; его CI отдельно от выпущенного IPA. Физический iPhone владелец проверит сам; сервер/касса/iPad/App Store не выпускались. Владелец 30.10 явно разрешил передачу tests/mobile/browser_cart_unavailable.py задаче mobile-cart-mode-1029 для TestFlight30. Остальные резервы сохранены.",
+      "summary": "TestFlight 0.2.0 (27) доступен PickChick Internal, Apple Testing 29.10. PR289 merged 6660ce98, CI 11/11 на исходнике IPA 146b8967. 531 Node +59 Python, браузерные и native Simulator PASS. Подпись/JS/флаги проверены. Итоговые docs/status/roadmap/evidence опубликованы f94f252d в PR290; его CI отдельно от выпущенного IPA. Физический iPhone владелец проверит сам; сервер/касса/iPad/App Store не выпускались. Владелец 30.10 явно разрешил передачу tests/mobile/browser_cart_unavailable.py задаче mobile-cart-mode-1029 для TestFlight30. Остальные резервы сохранены. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/components/PaymentResumeBanner.tsx",
       "nextAction": "После зелёной CI PR290 включить документальный checkpoint обычным merge и finish mobile-launch-1028. До этого резервы сохраняются. Приёмку iPhone не отмечать без владельца. Не запускать банковские операции и серверные обновления."
     },
     {
@@ -6850,7 +6846,6 @@
       "branch": "codex/mobile-feedback-1029",
       "scopes": [
         "apps/mobile/src/components/KaspiSlideToPay.tsx",
-        "apps/mobile/src/games/pick-man/PickManScreen.tsx",
         "tests/mobile/browser_pick_man.py",
         "tests/mobile/game-route-presentation.test.mjs",
         "tests/mobile/slide-pay-intent.test.mjs",
@@ -6862,7 +6857,7 @@
       "status": "active",
       "head": "528ea6956eed0f1e42d3f324e0c26ec65708b005",
       "updatedAt": "2026-10-29T19:32:33.349Z",
-      "summary": "Владелец 29.10 разрешил передать только haptics.ts и browser_slide_to_pay.py задаче mobile-cart-mode-1029 для дополнительного усиления и подписи плашки; остальные резервы и изменения сохранены. Владелец 30.10 явно разрешил передачу apps/mobile/app.json, docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json, @release/ios, @apple/appstore задаче mobile-cart-mode-1029 для TestFlight30. Остальные резервы сохранены."
+      "summary": "Владелец 29.10 разрешил передать только haptics.ts и browser_slide_to_pay.py задаче mobile-cart-mode-1029 для дополнительного усиления и подписи плашки; остальные резервы и изменения сохранены. Владелец 30.10 явно разрешил передачу apps/mobile/app.json, docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json, @release/ios, @apple/appstore задаче mobile-cart-mode-1029 для TestFlight30. Остальные резервы сохранены. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/games/pick-man/PickManScreen.tsx"
     },
     {
       "id": "mobile-appstore-clean-1029",
@@ -6990,10 +6985,8 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-cart-mode-1029",
       "scopes": [
-        "apps/mobile/src/components/CartShortcut.tsx",
         "tests/mobile/browser_cart_shortcut.py",
         "docs/operations/mobile-cart-mode-2026-10-29.md",
-        "apps/mobile/src/screens/PhotoProduct.tsx",
         "apps/mobile/src/haptics.ts",
         "tests/mobile/browser_slide_to_pay.py",
         "apps/mobile/app.json",
@@ -7013,7 +7006,7 @@
       "status": "available",
       "head": "b32808225f3f88bfa45746f18fbfff2bb0be6bf8",
       "updatedAt": "2026-10-30T05:52:53.438Z",
-      "summary": "Исправлена казахская подсказка оплаты: Jost не содержит ғөңі, вся kk-фраза использует системный полужирный. Коммит b3280822, PR296 обновлён. Typecheck/lint/format, web-export, браузерные AI и 7 roadmap PASS. RU/EN и логика оплаты сохранены. TestFlight30 доступен, но новая правка шрифта в него не входит.",
+      "summary": "Исправлена казахская подсказка оплаты: Jost не содержит ғөңі, вся kk-фраза использует системный полужирный. Коммит b3280822, PR296 обновлён. Typecheck/lint/format, web-export, браузерные AI и 7 roadmap PASS. RU/EN и логика оплаты сохранены. TestFlight30 доступен, но новая правка шрифта в него не входит. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/screens/PhotoProduct.tsx, apps/mobile/src/components/CartShortcut.tsx",
       "nextAction": "Дождаться полной CI PR296 и включить изменения в shared; нативная проверка шрифта и следующий TestFlight отдельным выпуском. Не менять VPS/кассу/iPad/App Store/онлайн-пульт, реальные платежи не выполнять."
     },
     {
@@ -7032,11 +7025,18 @@
         "docs/operations/mobile-kazakh-review-2026-10-30.tsv",
         "scripts/mobile/translations.mjs",
         "docs/translations",
-        "packages/customer-notifications/src/templates.ts"
+        "packages/customer-notifications/src/templates.ts",
+        "apps/mobile/src/games/pick-farm/GardenPanels.tsx",
+        "apps/mobile/src/games/pick-farm/PickFarmScreen.tsx",
+        "apps/mobile/src/games/pick-farm/motion.tsx",
+        "apps/mobile/src/components/PaymentResumeBanner.tsx",
+        "apps/mobile/src/games/pick-man/PickManScreen.tsx",
+        "apps/mobile/src/screens/PhotoProduct.tsx",
+        "apps/mobile/src/components/CartShortcut.tsx"
       ],
       "status": "active",
       "head": "b32808225f3f88bfa45746f18fbfff2bb0be6bf8",
-      "updatedAt": "2026-10-30T05:58:49.434Z"
+      "updatedAt": "2026-10-30T06:06:15.297Z"
     }
   ]
 }
