@@ -28,7 +28,8 @@ ACCEPTED = 'e4eb91b52ed912254e388513853e72b430d12c88'
 live.BASELINE = BASELINE
 SUPPORT = {'infra/staging/release-stage2-1024.py', 'tests/operations/test_stage2_release_1024.py',
            'infra/windows/update-runtime-stage2-1024.ps1', 'tests/operations/test_windows_stage2_release.py',
-           '.github/workflows/ci.yml', '.github/workflows/offline-stand.yml', 'docs/project-status.md', 'docs/roadmap/project.json',
+           '.github/workflows/ci.yml', '.github/workflows/offline-stand.yml', '.github/workflows/windows-pos.yml',
+           'docs/project-status.md', 'docs/roadmap/project.json',
            'docs/collaboration/handoff.md'}
 FLAGS = {'CATALOG_EDGE_COMBO_STOPS_ENABLED', 'BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED',
          'BACKOFFICE_RECONCILIATION_ENABLED'}
