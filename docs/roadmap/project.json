@@ -5303,7 +5303,7 @@
       "id": "mobile-kazakh-review-1030",
       "workstream": "mobile",
       "title": "Казахский перевод, полный шрифт и вкладка «Игры»",
-      "summary": "Проверен словарь, 204 уточнения сохранившихся ключей, переименование раздела на трёх языках и системный шрифт kk в 42 файлах. 562 Node + 59 Python, TypeScript/lint и локальные браузерные проверки прошли. Новый выпуск не выполнялся.",
+      "summary": "Казахский перевод и системный шрифт kk, вкладка Игры. PR297 слит, полная CI 11/11. PickChick 0.2.0 (31) обработан Apple и доступен PickChick Internal (2 тестировщика), статус Тестируется. Продолжение: подготовлены прямое удаление аккаунта для App Review и иконка геймпада; сборка32 ещё не выпущена.",
       "status": "active",
       "owner": "development",
       "phase": "integration",
@@ -5316,6 +5316,14 @@
         {
           "label": "RU / KK / EN",
           "path": "docs/translations/mobile-ru-kk-en.md"
+        },
+        {
+          "label": "Протокол выпуска31",
+          "path": "docs/operations/mobile-testflight31.md"
+        },
+        {
+          "label": "Исправление замечания Apple и видео",
+          "path": "docs/operations/mobile-app-review-1030.md"
         }
       ],
       "acceptance": [
@@ -5323,11 +5331,11 @@
         "Литературный казахский и единое вежливое обращение.",
         "Вкладка Игры / Ойындар / Games."
       ],
-      "nextAction": "CI и включение PR; отдельный выпуск и проверка на физическом iPhone. Онлайн-пульт не обновлён.",
+      "nextAction": "Полная CI и TestFlight32; затем владелец записывает физический сценарий удаления для Apple. Публичная повторная отправка ещё не выполнена.",
       "checks": {
         "implemented": true,
         "verified": true,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     }
