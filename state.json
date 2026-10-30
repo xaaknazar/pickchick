@@ -7010,11 +7010,11 @@
         "patches",
         "tests/mobile/uri-decoder-security.test.mjs"
       ],
-      "status": "active",
-      "head": "2936017c2bc71f33ae893a19ab3dbfc4698f80be",
-      "updatedAt": "2026-10-30T05:48:43.537Z",
-      "summary": "TestFlight 0.2.0 (30) доступен PickChick Internal, статус Testing, 2 тестировщика. Исходник 5cd14c09, PR295 слит после Foundation41004296150 11/11. Подпись, IPA и upload проверены; Apple build a1fe23a0-a8f4-495f-8195-7c6d8c37c890. Итоговые документы опубликованы checkpoint2936017c, PR296; 7 roadmap тестов PASS. Владелец проверяет iPhone сам.",
-      "nextAction": "Документальный PR296: дождаться CI, включить протокол в shared и штатно finish. Это не блокирует доступную сборку30. Не выпускать VPS/кассу/iPad/App Store/онлайн-пульт; реальные платежи не выполнять."
+      "status": "available",
+      "head": "b32808225f3f88bfa45746f18fbfff2bb0be6bf8",
+      "updatedAt": "2026-10-30T05:52:53.438Z",
+      "summary": "Исправлена казахская подсказка оплаты: Jost не содержит ғөңі, вся kk-фраза использует системный полужирный. Коммит b3280822, PR296 обновлён. Typecheck/lint/format, web-export, браузерные AI и 7 roadmap PASS. RU/EN и логика оплаты сохранены. TestFlight30 доступен, но новая правка шрифта в него не входит.",
+      "nextAction": "Дождаться полной CI PR296 и включить изменения в shared; нативная проверка шрифта и следующий TestFlight отдельным выпуском. Не менять VPS/кассу/iPad/App Store/онлайн-пульт, реальные платежи не выполнять."
     }
   ]
 }
