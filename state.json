@@ -7071,11 +7071,14 @@
         "apps/mobile/src/components/LocalizedText.tsx",
         "tests/mobile/kazakh-typography.test.mjs",
         "tests/mobile/browser_kazakh_typography.py",
-        "apps/mobile/src/components/AccountGate.tsx"
+        "apps/mobile/src/components/AccountGate.tsx",
+        "tests/mobile/payment-method.test.mjs",
+        "tests/mobile/combo-promo-copy.test.mjs",
+        "tests/mobile/browser_localization.py"
       ],
       "status": "active",
       "head": "b32808225f3f88bfa45746f18fbfff2bb0be6bf8",
-      "updatedAt": "2026-10-30T06:06:20.402Z"
+      "updatedAt": "2026-10-30T06:08:54.217Z"
     }
   ]
 }
