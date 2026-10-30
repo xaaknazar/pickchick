@@ -6988,10 +6988,6 @@
         "tests/mobile/browser_cart_shortcut.py",
         "docs/operations/mobile-cart-mode-2026-10-29.md",
         "apps/mobile/src/haptics.ts",
-        "tests/mobile/browser_slide_to_pay.py",
-        "apps/mobile/app.json",
-        "@release/ios",
-        "@apple/appstore",
         "tests/mobile/browser_cart_unavailable.py",
         "docs/operations/mobile-testflight30.md",
         "docs/operations/mobile-testflight30-evidence.json",
@@ -7003,7 +6999,7 @@
       "status": "available",
       "head": "b32808225f3f88bfa45746f18fbfff2bb0be6bf8",
       "updatedAt": "2026-10-30T05:52:53.438Z",
-      "summary": "Исправлена казахская подсказка оплаты: Jost не содержит ғөңі, вся kk-фраза использует системный полужирный. Коммит b3280822, PR296 обновлён. Typecheck/lint/format, web-export, браузерные AI и 7 roadmap PASS. RU/EN и логика оплаты сохранены. TestFlight30 доступен, но новая правка шрифта в него не входит. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/screens/PhotoProduct.tsx, apps/mobile/src/components/CartShortcut.tsx Documentation continuity transferred to mobile-kazakh-review-1030; build30 and release scopes retained.",
+      "summary": "Исправлена казахская подсказка оплаты: Jost не содержит ғөңі, вся kk-фраза использует системный полужирный. Коммит b3280822, PR296 обновлён. Typecheck/lint/format, web-export, браузерные AI и 7 roadmap PASS. RU/EN и логика оплаты сохранены. TestFlight30 доступен, но новая правка шрифта в него не входит. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/screens/PhotoProduct.tsx, apps/mobile/src/components/CartShortcut.tsx Documentation continuity transferred to mobile-kazakh-review-1030; build30 and release scopes retained. Owner requested next publication 30.10; release scopes transferred to mobile-kazakh-review-1030.",
       "nextAction": "Дождаться полной CI PR296 и включить изменения в shared; нативная проверка шрифта и следующий TestFlight отдельным выпуском. Не менять VPS/кассу/iPad/App Store/онлайн-пульт, реальные платежи не выполнять."
     },
     {
@@ -7078,7 +7074,11 @@
         "tests/mobile/browser_store_walk.py",
         "tests/operations/layout_regression.py",
         "docs/operations/mobile-testflight31.md",
-        "docs/operations/mobile-testflight31-evidence.json"
+        "docs/operations/mobile-testflight31-evidence.json",
+        "apps/mobile/app.json",
+        "@release/ios",
+        "@apple/appstore",
+        "tests/mobile/browser_slide_to_pay.py"
       ],
       "status": "active",
       "head": "b16c6e39c3c0750f804fffd9d14b9019c117f17c",
