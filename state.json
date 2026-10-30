@@ -7010,11 +7010,11 @@
         "patches",
         "tests/mobile/uri-decoder-security.test.mjs"
       ],
-      "status": "active",
-      "head": "834ee9937c735dbcbab7a8ec07f1921816269e57",
-      "updatedAt": "2026-10-30T04:38:42.027Z",
-      "summary": "Владелец 30.10 разрешил выпуск30 и передачу выпускных областей и browser_cart_unavailable.py. Точная передача записана также в исходных задачах.",
-      "nextAction": "Ожидаются ответы на передачу app.json, status/handoff/roadmap, @release/ios и @apple/appstore от mobile-feedback-1029, а также browser_cart_unavailable.py от mobile-launch-1028. После разрешения обновить тест на подпись+цену, build30, повторить локальный сценарий и полную CI, merge PR295, штатный storefront archive/export/upload и подтвердить PickChick Internal. Ничего на VPS/кассу/iPad/публичный App Store, без реальных платежей."
+      "status": "available",
+      "head": "2936017c2bc71f33ae893a19ab3dbfc4698f80be",
+      "updatedAt": "2026-10-30T05:45:27.719Z",
+      "summary": "TestFlight 0.2.0 (30) доступен PickChick Internal, статус Testing, 2 тестировщика. Исходник 5cd14c09, PR295 слит после Foundation41004296150 11/11. Подпись, IPA и upload проверены; Apple build a1fe23a0-a8f4-495f-8195-7c6d8c37c890. Итоговые документы опубликованы checkpoint2936017c, PR296; 7 roadmap тестов PASS. Владелец проверяет iPhone сам.",
+      "nextAction": "Документальный PR296: дождаться CI, включить протокол в shared и штатно finish. Это не блокирует доступную сборку30. Не выпускать VPS/кассу/iPad/App Store/онлайн-пульт; реальные платежи не выполнять."
     }
   ]
 }
