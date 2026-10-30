@@ -7074,11 +7074,15 @@
         "tests/mobile/browser_localization.py",
         "docs/project-status.md",
         "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json"
+        "docs/roadmap/project.json",
+        "tests/mobile/browser_store_walk.py",
+        "tests/operations/layout_regression.py",
+        "docs/operations/mobile-testflight31.md",
+        "docs/operations/mobile-testflight31-evidence.json"
       ],
-      "status": "available",
+      "status": "active",
       "head": "b16c6e39c3c0750f804fffd9d14b9019c117f17c",
-      "updatedAt": "2026-10-30T06:18:16.323Z",
+      "updatedAt": "2026-10-30T06:32:23.215Z",
       "summary": "PR297: Kazakh editorial review, 1462 canonical strings, 207 before/after rows, Games labels, complete KK font in 42 files. Published b16c6e39. 562 Node + 59 Python, TS/lint/format, 7 roadmap, localization/typography/tab bar browser PASS. Approved seven-file transfers recorded. Foundation CI41013162812 pending; no release.",
       "nextAction": "After PR296 is included, retarget PR297 to codex/shared-development; verify full CI on final head before merge/release. Native iPhone acceptance and next TestFlight are separate. Do not merge into prior task branch. Server/POS/catalog remain unchanged."
     }
