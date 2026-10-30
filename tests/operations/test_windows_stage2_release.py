@@ -16,6 +16,10 @@ CASES = r'''
 $script:cases=0
 function Check([bool]$Value,[string]$Why){if(!$Value){throw $Why};$script:cases++}
 function Rejects([scriptblock]$Run,[string]$Why){$bad=$false;try{& $Run|Out-Null}catch{$bad=$true};Check $bad $Why}
+Assert-Stage2Predecessor '0fb95c9f09031d93e38e3af2a0c4a1bcc81f591c'
+Check $true 'Reviewed schema023 bridge accepted'
+Rejects {Assert-Stage2Predecessor 'e4eb91b52ed912254e388513853e72b430d12c88'} 'Shared schema024 tree is not a schema023 bridge'
+Rejects {Assert-Stage2Predecessor ('a'*40)} 'Unreviewed predecessor refused'
 $a=@(@{scope='edge';version='001.sql';checksum='hash'})
 Assert-RuntimeLedger $a @([pscustomobject]@{checksum='hash';scope='edge';version='001.sql'})
 Check $true 'Ledger compares semantic values'

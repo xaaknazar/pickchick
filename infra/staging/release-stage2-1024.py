@@ -21,7 +21,9 @@ spec.loader.exec_module(live)
 base, market = live.base, live.market
 require, digest, quote, REMOTE = live.require, live.digest, live.quote, live.REMOTE
 BASELINE = 'c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da'
-ACCEPTED = '549ef93e43065e56a6fa172da3ded49ff4c73ce0'
+# Reviewed shared runtime including the installed App Review/legal API contract.
+# Evidence and remaining release gates: docs/operations/stage2-windows-1030/README.md.
+ACCEPTED = 'e4eb91b52ed912254e388513853e72b430d12c88'
 # Inherited prepare/rollback use their module's pin; this private import does not change old tools.
 live.BASELINE = BASELINE
 SUPPORT = {'infra/staging/release-stage2-1024.py', 'tests/operations/test_stage2_release_1024.py',
@@ -62,7 +64,7 @@ def check_flags(env):
 
 
 def check_delta(paths):
-    require(all(p in SUPPORT or p.startswith('docs/operations/stage2-2026-10-24/') for p in paths), 'Runtime differs from reviewed candidate; refresh accepted pin after integration')
+    require(all(p in SUPPORT or p.startswith(('docs/operations/stage2-2026-10-24/', 'docs/operations/stage2-windows-1030/')) for p in paths), 'Runtime differs from reviewed candidate; refresh accepted pin after integration')
 
 
 def check_receipt(result):
