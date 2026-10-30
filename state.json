@@ -7015,6 +7015,25 @@
       "updatedAt": "2026-10-30T05:52:53.438Z",
       "summary": "Исправлена казахская подсказка оплаты: Jost не содержит ғөңі, вся kk-фраза использует системный полужирный. Коммит b3280822, PR296 обновлён. Typecheck/lint/format, web-export, браузерные AI и 7 roadmap PASS. RU/EN и логика оплаты сохранены. TestFlight30 доступен, но новая правка шрифта в него не входит.",
       "nextAction": "Дождаться полной CI PR296 и включить изменения в shared; нативная проверка шрифта и следующий TestFlight отдельным выпуском. Не менять VPS/кассу/iPad/App Store/онлайн-пульт, реальные платежи не выполнять."
+    },
+    {
+      "id": "mobile-kazakh-review-1030",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-kazakh-review-1030",
+      "scopes": [
+        "apps/mobile/src/i18n",
+        "apps/mobile/src/app",
+        "apps/mobile/src/screens/GameScreens.tsx",
+        "apps/mobile/src/backoffice/GameAvailability.tsx",
+        "tests/mobile/tab-bar.test.mjs",
+        "tests/mobile/browser_tab_bar.py",
+        "tests/mobile/store-copy.test.mjs",
+        "docs/operations/mobile-kazakh-review-2026-10-30.md",
+        "docs/operations/mobile-kazakh-review-2026-10-30.tsv"
+      ],
+      "status": "active",
+      "head": "b32808225f3f88bfa45746f18fbfff2bb0be6bf8",
+      "updatedAt": "2026-10-30T05:56:46.102Z"
     }
   ]
 }
