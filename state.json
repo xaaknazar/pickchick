@@ -7080,11 +7080,15 @@
         "@apple/appstore",
         "tests/mobile/browser_slide_to_pay.py",
         "tests/mobile/browser_review_account.py",
-        "tests/mobile/payment-availability.test.mjs"
+        "tests/mobile/payment-availability.test.mjs",
+        "tests/mobile/browser_profile.py",
+        "docs/operations/mobile-app-review-1030.md",
+        "docs/operations/mobile-testflight32.md",
+        "docs/operations/mobile-testflight32-evidence.json"
       ],
-      "status": "available",
+      "status": "active",
       "head": "a0a6e04dd522ab2732ab86426ae870ea5c1b08c7",
-      "updatedAt": "2026-10-30T09:31:29.574Z",
+      "updatedAt": "2026-10-30T09:33:47.906Z",
       "summary": "PickChick 0.2.0(31) доступен PickChick Internal, Apple Тестируется, 2 тестировщика; source CI11/11 и PR297 merged. Протокол/сравнение отказа23 опубликованы a0a6e04d, PR298. Физическая приёмка не выполнена.",
       "nextAction": "Завершить документальный PR298 после CI. По отказу Apple5.1.1(v) нужны понятный путь удаления и видео физического устройства; повторная отправка не выполнялась. API push-тексты и онлайн-пульт не выпускались."
     }
