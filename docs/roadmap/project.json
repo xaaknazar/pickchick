@@ -5267,7 +5267,7 @@
       "id": "mobile-cart-mode-1029",
       "workstream": "mobile",
       "title": "TestFlight30: способ получения, синие допы и вибрация",
-      "summary": "Выбранный режим над ценой быстрой оплаты, синяя палитра товарных страниц и усиленные импульсы движения.",
+      "summary": "0.2.0 (30) доступна PickChick Internal; полная CI 11/11, подпись и upload проверены. Режим над ценой, синие допы, усиленная вибрация.",
       "status": "active",
       "owner": "development",
       "phase": "integration",
@@ -5276,6 +5276,10 @@
         {
           "label": "Протокол выпуска30",
           "path": "docs/operations/mobile-testflight30.md"
+        },
+        {
+          "label": "Подпись, CI и доступность Apple",
+          "path": "docs/operations/mobile-testflight30-evidence.json"
         }
       ],
       "acceptance": [
@@ -5283,11 +5287,11 @@
         "Страницы допов с синим фоном и читаемыми действиями.",
         "Вибрация сильнее в обе стороны; один жест отправляет одно намерение оплаты."
       ],
-      "nextAction": "Полная CI, merge и TestFlight30; приёмка владельцем.",
+      "nextAction": "Владелец проверяет 0.2.0 (30) на iPhone: подпись режима, синие допы, усиление вибрации; физическая приёмка не отмечена.",
       "checks": {
         "implemented": true,
         "verified": true,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       }
     }
