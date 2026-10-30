@@ -32,7 +32,29 @@
     "jobsTotal": 11
   },
   "releaseLabel": "mobile-kazakh-20261030-31-r3",
-  "deliveryStatus": "blocked_xcode_account",
-  "appleProcessingVerified": false,
-  "internalGroupAvailable": false
+  "deliveryStatus": "submitted",
+  "appleProcessingVerified": true,
+  "internalGroupAvailable": true,
+  "uploadSucceededAt": "2026-10-30T09:18:58Z",
+  "appleProcessingState": "complete",
+  "uploadWarnings": [
+    "Missing dSYM: ExpoImage.framework",
+    "Missing dSYM: React.framework",
+    "Missing dSYM: ReactNativeDependencies.framework",
+    "Missing dSYM: SDWebImage.framework",
+    "Missing dSYM: SDWebImageAVIFCoder.framework",
+    "Missing dSYM: SDWebImageSVGCoder.framework",
+    "Missing dSYM: SDWebImageWebPCoder.framework",
+    "Missing dSYM: hermesvm.framework"
+  ],
+  "internalBuildState": "testing",
+  "availabilityVerifiedAt": "2026-10-30T09:28:54Z",
+  "appleBuildId": "f618b438-5069-4c32-ae7c-f5b7865081a0",
+  "appleBuildUrl": "https://appstoreconnect.apple.com/teams/d4bb6fec-2b82-44c6-b91d-b679b1114a6e/apps/6809208492/testflight/ios/f618b438-5069-4c32-ae7c-f5b7865081a0",
+  "internalGroup": {
+    "id": "33b2ef37-6602-4b07-803e-cb336a09cb16",
+    "name": "PickChick Internal",
+    "testers": 2
+  },
+  "whatToTestSaved": true
 }
