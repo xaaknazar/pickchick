@@ -7006,11 +7006,13 @@
         "docs/operations/mobile-testflight30.md",
         "docs/operations/mobile-testflight30-evidence.json",
         "pnpm-workspace.yaml",
-        "pnpm-lock.yaml"
+        "pnpm-lock.yaml",
+        "patches",
+        "tests/mobile/uri-decoder-security.test.mjs"
       ],
       "status": "active",
       "head": "834ee9937c735dbcbab7a8ec07f1921816269e57",
-      "updatedAt": "2026-10-30T04:37:33.985Z",
+      "updatedAt": "2026-10-30T04:38:42.027Z",
       "summary": "Владелец 30.10 разрешил выпуск30 и передачу выпускных областей и browser_cart_unavailable.py. Точная передача записана также в исходных задачах.",
       "nextAction": "Ожидаются ответы на передачу app.json, status/handoff/roadmap, @release/ios и @apple/appstore от mobile-feedback-1029, а также browser_cart_unavailable.py от mobile-launch-1028. После разрешения обновить тест на подпись+цену, build30, повторить локальный сценарий и полную CI, merge PR295, штатный storefront archive/export/upload и подтвердить PickChick Internal. Ничего на VPS/кассу/iPad/публичный App Store, без реальных платежей."
     }
