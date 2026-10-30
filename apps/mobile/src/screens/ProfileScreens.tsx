@@ -122,7 +122,7 @@ export function DeleteAccount(props: ScreenProps) {
     ]);
   };
   return (
-    <Page props={props} title={t('Управление данными')}>
+    <Page props={props} title={t('Удалить аккаунт')}>
       <Modal
         visible={deleteConfirmVisible}
         transparent
@@ -392,6 +392,12 @@ export function Settings(props: ScreenProps) {
         title={t('Конфиденциальность')}
         subtitle={t('Документы и ваши данные')}
         onPress={() => props.navigate('M33')}
+      />
+      <NavRow
+        title={t('Удалить аккаунт')}
+        icon="trash-outline"
+        testID="settings-delete-account"
+        onPress={() => props.navigate('M32')}
       />
       <NavRow
         title={t('Как проходит заказ')}

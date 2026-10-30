@@ -341,6 +341,12 @@ export function Profile(props: ScreenProps) {
             icon="globe-outline"
             value={{ kk: 'Қазақша', ru: 'Русский', en: 'English' }[props.model.locale]}
             onPress={() => props.navigate('M34')}
+          />
+          <ProfileRow
+            title={t('Удалить аккаунт')}
+            icon="trash-outline"
+            testID="profile-delete-account"
+            onPress={() => props.navigate('M32')}
             last
           />
         </Group>
@@ -355,11 +361,6 @@ export function Profile(props: ScreenProps) {
             title={t('Условия и конфиденциальность')}
             icon="document-text-outline"
             onPress={() => props.navigate('M33')}
-          />
-          <ProfileRow
-            title={t('Управление данными')}
-            icon="shield-checkmark-outline"
-            onPress={() => props.navigate('M32')}
             last
           />
         </Group>

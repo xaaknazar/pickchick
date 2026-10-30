@@ -59,8 +59,8 @@ export function Icon({
     </View>
   );
 }
-// Exact 24×24 outlines from the supplied mobile v2 mockup. An image gives all
-// four tabs the same optical box without platform icon-font baseline offsets.
+// 24×24 outlines keep the same optical box without icon-font baseline offsets.
+// Owner 30.10.2026: the Games tab uses a controller, replacing the old Events calendar.
 export function TabIcon({
   name,
   color,
@@ -71,7 +71,8 @@ export function TabIcon({
   useLocale();
   const paths = {
     menu: '<path d="M3 6h18M3 12h18M3 18h12"/>',
-    events: '<rect x="3" y="5" width="18" height="16" rx="4"/><path d="M8 3v4M16 3v4M3 11h18"/>',
+    events:
+      '<path d="M7 6h10c2 0 3.1 1.3 3.5 3.3l1.3 7c.4 2.2-1.9 3.7-3.5 2.2L15.5 16h-7l-2.8 2.5c-1.6 1.5-3.9 0-3.5-2.2l1.3-7C3.9 7.3 5 6 7 6Z"/><path d="M6 11h4M8 9v4"/><circle cx="15.5" cy="10" r=".7" fill="none"/><circle cx="18" cy="12.5" r=".7" fill="none"/>',
     orders: '<path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2z"/><path d="M9 7h6M9 11h6"/>',
     profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/>',
   };

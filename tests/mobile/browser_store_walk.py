@@ -501,7 +501,7 @@ def walk_signed_in(browser):
         (None, 'Язык', 'screen-M34', None),
         (None, 'Наши рестораны', 'screen-M05', 'restaurants-393'),
         (None, 'Условия и конфиденциальность', 'screen-M33', 'legal-393'),
-        (None, 'Управление данными', 'screen-M32', 'data-393'),
+        ('profile-delete-account', None, 'screen-M32', 'data-393'),
     ]
     for test_id, label, screen, shot in rows:
         open_profile(page)
@@ -779,15 +779,21 @@ def walk_payment_step(browser):
 
 
 def walk_delete(browser):
-    # Profile > «Управление данными» > «Удалить аккаунт»: confirmation, DELETE, then it says so.
+    # Enter through the visible profile action, never a deep link: cancel is non-destructive.
     deleted = []
     ctx, page = context(browser, deleted=deleted)
-    page.goto(URL + '/screen/M32')
+    open_profile(page)
+    page.get_by_test_id('profile-delete-account').click()
     expect(page.get_by_test_id('delete-demo-profile')).to_be_enabled(timeout=25000)
     settle(page)
     page.get_by_test_id('delete-demo-profile').click()
     expect(page.get_by_test_id('server-delete-confirmation')).to_be_visible()
     clean(page, 'delete-confirm-393')
+    page.get_by_text('Оставить аккаунт', exact=True).click()
+    expect(page.get_by_test_id('server-delete-confirmation')).to_have_count(0)
+    assert deleted == [], deleted
+    expect(page.get_by_test_id('delete-demo-profile')).to_be_enabled()
+    page.get_by_test_id('delete-demo-profile').click()
     page.get_by_test_id('confirm-server-delete').click()
     expect(page.get_by_test_id('account-deleted')).to_be_visible(timeout=15000)
     expect(page.get_by_test_id('account-deleted')).to_contain_text('Аккаунт удалён')
