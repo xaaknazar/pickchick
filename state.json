@@ -5133,13 +5133,12 @@
         "docs/operations/photo-printer-windows.md",
         "tools/photo-printer/server.mjs",
         "tools/photo-printer/service.mjs",
-        "tests/photo-printer/service.test.mjs",
-        "@windows/cashier"
+        "tests/photo-printer/service.test.mjs"
       ],
       "status": "active",
       "head": "4a4c9e7130910daa0b8798fd477168a31f03e042",
-      "updatedAt": "2026-10-21T17:27:36.612Z",
-      "summary": "PR260 /4a4c9e71: 41 local tests pass; photo CI pass, full CI pending. Real cashier at192.168.2.61 pinned SSH, 7 services healthy. USB helper compiled, installer syntax checked. Isolated Windows runtime renders ru/kk/en 576x718 without printing. Only staging prepared; service not installed. 21.10: владелец отдельно разрешил ручную ротацию действующего ключа кассы по edge-identity-rotation.md. Release-fixes временно использует только device identity и четыре транспортные службы; резерв photo-printer и его блокировки сохранены, принтер/кассовое приложение не изменяются. 21.10.2026 ручной ключ продлён: до20.11.2026 12:34:54 Алматы. Сверка до/после read-only, SHA host key совпал, identity ACL/file match,7служб running, edge ready, heartbeat12:37:37. Схема058 сохранена, runtime/кассовое приложение не обновлялись. Временный identity-доступ завершён, блокировка освобождена. 21.10 owner explicitly transferred only @windows/cashier temporarily to windows-runtime-1021 for runtime release; printer task/files preserved; return after verification. 21.10: @windows/cashier возвращён после решения владельца «Кассу установим позже». Runtime apply не запускался, прежние службы/schema020 сохранены; подготовленный пакет не устанавливать в рамках задачи принтера.",
+      "updatedAt": "2026-10-30T12:13:01.272Z",
+      "summary": "PR260 /4a4c9e71: 41 local tests pass; photo CI pass, full CI pending. Real cashier at192.168.2.61 pinned SSH, 7 services healthy. USB helper compiled, installer syntax checked. Isolated Windows runtime renders ru/kk/en 576x718 without printing. Only staging prepared; service not installed. 21.10: владелец отдельно разрешил ручную ротацию действующего ключа кассы по edge-identity-rotation.md. Release-fixes временно использует только device identity и четыре транспортные службы; резерв photo-printer и его блокировки сохранены, принтер/кассовое приложение не изменяются. 21.10.2026 ручной ключ продлён: до20.11.2026 12:34:54 Алматы. Сверка до/после read-only, SHA host key совпал, identity ACL/file match,7служб running, edge ready, heartbeat12:37:37. Схема058 сохранена, runtime/кассовое приложение не обновлялись. Временный identity-доступ завершён, блокировка освобождена. 21.10 owner explicitly transferred only @windows/cashier temporarily to windows-runtime-1021 for runtime release; printer task/files preserved; return after verification. 21.10: @windows/cashier возвращён после решения владельца «Кассу установим позже». Runtime apply не запускался, прежние службы/schema020 сохранены; подготовленный пакет не устанавливать в рамках задачи принтера. 30.10: owner approved transfer of only @windows/cashier to stage2-windows-1030 for preparation, no deployment.",
       "nextAction": "Await physical USB move to cashier. Then exact hardware identity, full CI, TLS, metadata backup and disabled dedicated service install, short paper test, iPad pairing/reconnect acceptance. Mac manual bridge remains fallback. No LaunchAgent. No unknown replay. Private continuation in .local/photo-windows."
     },
     {
@@ -6227,7 +6226,6 @@
       "branch": "codex/mobile-appstore-1022",
       "scopes": [
         "docs/operations/mobile-appstore-2026-10-22",
-        "@vps/api",
         "@vps/roadmap",
         "@vps/public-https",
         "infra/staging/app-review-access.py",
@@ -6250,13 +6248,12 @@
         "apps/mobile/src/checkout-legal.ts",
         "tests/mobile/checkout-legal.test.mjs",
         "infra/staging/appstore-legal-release.py",
-        "tests/operations/test_appstore_legal_release.py",
-        "@vps/postgres"
+        "tests/operations/test_appstore_legal_release.py"
       ],
       "status": "available",
       "head": "82ddc32651fa574172fe6015d959e2b7689a5efc",
-      "updatedAt": "2026-10-29T12:23:05.590Z",
-      "summary": "App Review submitted22Oct2026 18:20 Almaty; Apple Waiting for Review, submission99775be3-3644-4d17-8e4f-ab4dfe3e53ca, iOS1.0 binary0.2.0(23). Owner confirmed content rights. Protocol82ddc326 pushed. Internal TestFlight23 Testing. Public release still manual. Owner approved temporary transfer to stage2-1024 on 2026-10-25: .github/workflows/ci.yml, docs/collaboration/handoff.md, docs/project-status.md, docs/roadmap/project.json, packages/contracts/openapi.json, scripts/contracts.mjs. Other scopes and task preserved. 26.10.2026: владелец явно разрешил временную передачу pnpm-workspace.yaml и pnpm-lock.yaml задаче stage2-1024 для исправления security CI PR277. Остальные резервы и задача сохранены. 27.10.2026 владелец прямо разрешил временную передачу @release/ios в kiosk-apple-demo только для локальной сборки киоска, без загрузки Apple и установки iPad. 28.10.2026: по прямому разрешению владельца необходимые пересечения переданы mobile-redesign-1027: apps/mobile/app.json, apps/mobile/package.json, apps/mobile/src/app/demo-order.tsx, apps/mobile/src/screens/ReviewDemoScreen.tsx, apps/mobile/src/i18n/messages.json, tests/mobile/browser_review_demo.py, apps/mobile/src/screens/KaspiCheckoutScreen.tsx, tests/mobile/browser_kaspi_checkout.py, tests/mobile/browser_checkout_traps.py, tests/mobile/browser_combo_rewards.py, tests/mobile/browser_orders_redesign.py, tests/mobile/browser_published_catalog.py. Остальные резервы сохранены. 2026-10-28: Apple resource transferred for owner-authorized mobile TestFlight24; App Review23 unchanged.",
+      "updatedAt": "2026-10-30T12:13:01.270Z",
+      "summary": "App Review submitted22Oct2026 18:20 Almaty; Apple Waiting for Review, submission99775be3-3644-4d17-8e4f-ab4dfe3e53ca, iOS1.0 binary0.2.0(23). Owner confirmed content rights. Protocol82ddc326 pushed. Internal TestFlight23 Testing. Public release still manual. Owner approved temporary transfer to stage2-1024 on 2026-10-25: .github/workflows/ci.yml, docs/collaboration/handoff.md, docs/project-status.md, docs/roadmap/project.json, packages/contracts/openapi.json, scripts/contracts.mjs. Other scopes and task preserved. 26.10.2026: владелец явно разрешил временную передачу pnpm-workspace.yaml и pnpm-lock.yaml задаче stage2-1024 для исправления security CI PR277. Остальные резервы и задача сохранены. 27.10.2026 владелец прямо разрешил временную передачу @release/ios в kiosk-apple-demo только для локальной сборки киоска, без загрузки Apple и установки iPad. 28.10.2026: по прямому разрешению владельца необходимые пересечения переданы mobile-redesign-1027: apps/mobile/app.json, apps/mobile/package.json, apps/mobile/src/app/demo-order.tsx, apps/mobile/src/screens/ReviewDemoScreen.tsx, apps/mobile/src/i18n/messages.json, tests/mobile/browser_review_demo.py, apps/mobile/src/screens/KaspiCheckoutScreen.tsx, tests/mobile/browser_kaspi_checkout.py, tests/mobile/browser_checkout_traps.py, tests/mobile/browser_combo_rewards.py, tests/mobile/browser_orders_redesign.py, tests/mobile/browser_published_catalog.py. Остальные резервы сохранены. 2026-10-28: Apple resource transferred for owner-authorized mobile TestFlight24; App Review23 unchanged. 30.10: owner approved transfer of only @vps/api, @vps/postgres to stage2-windows-1030 for preparation, no deployment.",
       "nextAction": "Await Apple decision; no auto-publication or merge. PR276 open; online roadmap still previous snapshot. No real payments."
     },
     {
@@ -6472,12 +6469,21 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/stage2-window-1027",
       "scopes": [
-        "docs/operations/stage2-2026-10-24"
+        "docs/operations/stage2-2026-10-24/README.md",
+        "docs/operations/stage2-2026-10-24/cfg.md",
+        "docs/operations/stage2-2026-10-24/ebk.md",
+        "docs/operations/stage2-2026-10-24/kln.md",
+        "docs/operations/stage2-2026-10-24/off.md",
+        "docs/operations/stage2-2026-10-24/owner-actions.md",
+        "docs/operations/stage2-2026-10-24/owner-decisions-2026-10-27.md",
+        "docs/operations/stage2-2026-10-24/pcs.md",
+        "docs/operations/stage2-2026-10-24/rec-sample-statement.csv",
+        "docs/operations/stage2-2026-10-24/rec.md"
       ],
       "status": "available",
       "head": "a6a7caafb4abdbcd4b8b6c362b084945c19737e0",
       "updatedAt": "2026-10-28T04:45:23.016Z",
-      "summary": "Owner decisions27.10 and timed server window published in PR280, SHAa6a7caafb4abdbcd4b8b6c362b084945c19737e0. PR277 merged with explicit approval, merge21d2b886; source1159 CI40225419145 success11/11 reconfirmed. Roadmap tests7/7, formatting/diff checks passed. Queue restore issue279, kiosk demo preparation separate chat01a179c9-3426-7470-b0d2-6c3efc781daa. No installations/migrations/flags/payments/online roadmap. 28.10.2026: по прямому разрешению владельца необходимые пересечения переданы mobile-redesign-1027: docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json. Остальные резервы сохранены.",
+      "summary": "Owner decisions27.10 and timed server window published in PR280, SHAa6a7caafb4abdbcd4b8b6c362b084945c19737e0. PR277 merged with explicit approval, merge21d2b886; source1159 CI40225419145 success11/11 reconfirmed. Roadmap tests7/7, formatting/diff checks passed. Queue restore issue279, kiosk demo preparation separate chat01a179c9-3426-7470-b0d2-6c3efc781daa. No installations/migrations/flags/payments/online roadmap. 28.10.2026: по прямому разрешению владельца необходимые пересечения переданы mobile-redesign-1027: docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json. Остальные резервы сохранены. 30.10: owner approved transfer of release-preparation.md only; remaining document claims retained.",
       "nextAction": "Await owner dates and separate yes for every release step; no deployment ready until App Store API integration and reviewed candidate/full CI. PR280 documentation not authorized for merge. Preserve choices: DDL069+070+071, station delivery only, manual cash/SmartPOS totals, backup heartbeat after new cashier, unlisted kiosk/demo/no real invoices, full offline stand before each install. Prepare final pinned window packet after integration and read-only baseline."
     },
     {
@@ -7068,9 +7074,6 @@
         "tests/mobile/payment-method.test.mjs",
         "tests/mobile/combo-promo-copy.test.mjs",
         "tests/mobile/browser_localization.py",
-        "docs/project-status.md",
-        "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json",
         "tests/mobile/browser_store_walk.py",
         "tests/operations/layout_regression.py",
         "docs/operations/mobile-testflight31.md",
@@ -7088,9 +7091,33 @@
       ],
       "status": "available",
       "head": "3ee71dcf50e9ef798688cbcb0aff1cf3e6b6976e",
-      "updatedAt": "2026-10-30T10:43:11.232Z",
-      "summary": "TestFlight 0.2.0 (32) доступен PickChick Internal, статус Тестируется подтверждён 30.10 в15:40. PR298 merged e4eb91b5, исходник aeb7fbda CI11/11; явное удаление аккаунта и геймпад. Итоговый протокол/хеши/status/roadmap опубликованы 3ee71dcf в PR299; дерево чистое.",
+      "updatedAt": "2026-10-30T12:13:01.272Z",
+      "summary": "TestFlight 0.2.0 (32) доступен PickChick Internal, статус Тестируется подтверждён 30.10 в15:40. PR298 merged e4eb91b5, исходник aeb7fbda CI11/11; явное удаление аккаунта и геймпад. Итоговый протокол/хеши/status/roadmap опубликованы 3ee71dcf в PR299; дерево чистое. 30.10: owner approved transfer of only docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json to stage2-windows-1030 for preparation, no deployment.",
       "nextAction": "Владелец записывает на физическом iPhone вход и полное удаление выделенного review-аккаунта. Затем проверить видео, добавить в App Review Notes и подготовить повторную отправку Apple. Документационный PR299 ждёт собственной CI/merge; это не меняет доступность32. Сервер/касса/пульт не выпускались, реальные аккаунты/платежи не затронуты."
+    },
+    {
+      "id": "stage2-windows-1030",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/stage2-windows-1030",
+      "scopes": [
+        "@vps/api",
+        "@vps/postgres",
+        "@windows/cashier",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json",
+        "docs/operations/stage2-2026-10-24/release-preparation.md",
+        "docs/operations/stage2-windows-1030",
+        "infra/staging/release-stage2-1024.py",
+        "infra/windows/update-runtime-stage2-1024.ps1",
+        "tests/operations/test_stage2_release_1024.py",
+        "tests/operations/test_windows_stage2_release.py"
+      ],
+      "status": "active",
+      "head": "e4eb91b52ed912254e388513853e72b430d12c88",
+      "updatedAt": "2026-10-30T12:13:01.279Z",
+      "summary": "Owner-authorized preparation of server and cashier windows; no remote writes. Separate disk/NAS unavailable.",
+      "nextAction": "Refresh reviewed candidates, exact CI/offline profile, read-only baseline and owner packet."
     }
   ]
 }
