@@ -6990,9 +6990,6 @@
         "apps/mobile/src/haptics.ts",
         "tests/mobile/browser_slide_to_pay.py",
         "apps/mobile/app.json",
-        "docs/project-status.md",
-        "docs/collaboration/handoff.md",
-        "docs/roadmap/project.json",
         "@release/ios",
         "@apple/appstore",
         "tests/mobile/browser_cart_unavailable.py",
@@ -7006,7 +7003,7 @@
       "status": "available",
       "head": "b32808225f3f88bfa45746f18fbfff2bb0be6bf8",
       "updatedAt": "2026-10-30T05:52:53.438Z",
-      "summary": "Исправлена казахская подсказка оплаты: Jost не содержит ғөңі, вся kk-фраза использует системный полужирный. Коммит b3280822, PR296 обновлён. Typecheck/lint/format, web-export, браузерные AI и 7 roadmap PASS. RU/EN и логика оплаты сохранены. TestFlight30 доступен, но новая правка шрифта в него не входит. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/screens/PhotoProduct.tsx, apps/mobile/src/components/CartShortcut.tsx",
+      "summary": "Исправлена казахская подсказка оплаты: Jost не содержит ғөңі, вся kk-фраза использует системный полужирный. Коммит b3280822, PR296 обновлён. Typecheck/lint/format, web-export, браузерные AI и 7 roadmap PASS. RU/EN и логика оплаты сохранены. TestFlight30 доступен, но новая правка шрифта в него не входит. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/screens/PhotoProduct.tsx, apps/mobile/src/components/CartShortcut.tsx Documentation continuity transferred to mobile-kazakh-review-1030; build30 and release scopes retained.",
       "nextAction": "Дождаться полной CI PR296 и включить изменения в shared; нативная проверка шрифта и следующий TestFlight отдельным выпуском. Не менять VPS/кассу/iPad/App Store/онлайн-пульт, реальные платежи не выполнять."
     },
     {
@@ -7074,7 +7071,10 @@
         "apps/mobile/src/components/AccountGate.tsx",
         "tests/mobile/payment-method.test.mjs",
         "tests/mobile/combo-promo-copy.test.mjs",
-        "tests/mobile/browser_localization.py"
+        "tests/mobile/browser_localization.py",
+        "docs/project-status.md",
+        "docs/collaboration/handoff.md",
+        "docs/roadmap/project.json"
       ],
       "status": "active",
       "head": "b32808225f3f88bfa45746f18fbfff2bb0be6bf8",
