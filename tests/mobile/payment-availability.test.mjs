@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { testCompleteCatalog } from '@pickchick/test-order-flow/complete-catalog';
@@ -31,6 +31,8 @@ import { defaultSelections } from '../../apps/mobile/src/domain.ts';
 // Owner 28.10.2026 (Drinkit reference): a closed restaurant or a payment that cannot go through
 // shows no payment handle on the cart bar, a red reason in the cart and a grey pay button.
 // Screen behaviour is covered end to end by browser_cart_unavailable.py.
+
+afterEach(() => setAppLocale('ru'));
 
 const products = testCompleteCatalog.products.map((p) => ({
   ...p,
@@ -379,12 +381,12 @@ test('banner and pay button texts in RU, KK and EN, plain hyphen only', () => {
   }
   // Kazakh: a neutral form, no case suffix that would depend on the number (review 28.10).
   setAppLocale('kk');
-  assert.equal(paymentStopMessage(stops[0]), 'Ашылу уақыты: 10:00');
-  assert.equal(paymentStopMessage(stops[1]), 'Ашылу уақыты: ертең 09:00');
+  assert.equal(paymentStopMessage(stops[0]), 'Ашылады: 10:00');
+  assert.equal(paymentStopMessage(stops[1]), 'Ертең ашылады: 09:00');
   assert.equal(paymentStopMessage(stops[3]), 'Сервермен байланыс жоқ');
   assert.equal(
     headerHoursCaption(null, { open: false, opensAt: '7:30', opensTomorrow: false }),
-    'Ашылу уақыты: 7:30',
+    'Ашылады: 7:30',
   );
   setAppLocale('en');
   assert.equal(paymentStopLabel(stops[0]), 'Closed for now');
