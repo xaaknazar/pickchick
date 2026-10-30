@@ -1,0 +1,12 @@
+diff --git a/index.js b/index.js
+index d45e67d91d38c91d05e68e8b338e4bc2de591dcc..922266f238f45d75baa1ac963579d682c9848bad 100644
+--- a/index.js
++++ b/index.js
+@@ -1,5 +1,6 @@
+ 'use strict';
+ const strictUriEncode = require('strict-uri-encode');
+-const decodeComponent = require('decode-uri-component');
++// decode-uri-component 0.5.1 is ESM; preserve query-string's existing CommonJS API.
++const decodeComponent = require('decode-uri-component').default;
+ const splitOnFirst = require('split-on-first');
+ const filterObject = require('filter-obj');
