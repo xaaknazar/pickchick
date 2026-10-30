@@ -7010,9 +7010,9 @@
         "patches",
         "tests/mobile/uri-decoder-security.test.mjs"
       ],
-      "status": "available",
+      "status": "active",
       "head": "2936017c2bc71f33ae893a19ab3dbfc4698f80be",
-      "updatedAt": "2026-10-30T05:45:27.719Z",
+      "updatedAt": "2026-10-30T05:48:43.537Z",
       "summary": "TestFlight 0.2.0 (30) доступен PickChick Internal, статус Testing, 2 тестировщика. Исходник 5cd14c09, PR295 слит после Foundation41004296150 11/11. Подпись, IPA и upload проверены; Apple build a1fe23a0-a8f4-495f-8195-7c6d8c37c890. Итоговые документы опубликованы checkpoint2936017c, PR296; 7 roadmap тестов PASS. Владелец проверяет iPhone сам.",
       "nextAction": "Документальный PR296: дождаться CI, включить протокол в shared и штатно finish. Это не блокирует доступную сборку30. Не выпускать VPS/кассу/iPad/App Store/онлайн-пульт; реальные платежи не выполнять."
     }
