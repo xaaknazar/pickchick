@@ -486,6 +486,12 @@ def profile_backend(feature_profile):
     return environment, PRODUCTION_API_URL if environment == "production" else STAGING_API_URL
 
 
+def staging_host(value):
+    """True for a link to the staging nip.io host (by name or by its IP address)."""
+    host = (urlsplit(value).hostname or "") if "://" in value else ""
+    return host.endswith("nip.io") or "185.129.51.103" in host
+
+
 def archive_environment(feature_profile, source=None, kiosk_flags=None):
     """Pin the JS bundle switches independently of the invoking shell and dotenv."""
     flags = kiosk_flags if feature_profile in KIOSK_PROFILES else feature_profile_flags(feature_profile)
@@ -506,6 +512,12 @@ def archive_environment(feature_profile, source=None, kiosk_flags=None):
     if feature_profile not in KIOSK_PROFILES:
         # Mobile switch only; a kiosk bundle reads its pinned EXPO_PUBLIC_KIOSK_* values.
         env["EXPO_PUBLIC_PICKCHICK_ENV"] = profile_backend(feature_profile)[0]
+        # Build 33 (owner 30.10.2026, «переводи на наш домен»): the production build links nothing
+        # to the staging host, the optional support contact included.
+        if (env["EXPO_PUBLIC_PICKCHICK_ENV"] == "production"
+                and staging_host(env.get("EXPO_PUBLIC_SUPPORT_URL", ""))):
+            fail("The production profile cannot link support to the staging host; "
+                 "use the pickchick.kz domain in EXPO_PUBLIC_SUPPORT_URL.")
     env.update(flags)
     env["PICKCHICK_APP_VARIANT"] = "release"
     env["EXPO_NO_DOTENV"] = "1"

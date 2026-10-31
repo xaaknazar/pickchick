@@ -29,9 +29,11 @@ STORE_WALK_PROFILE:
     EXPO_PUBLIC_ORDER_SIMULATOR=0, EXPO_PUBLIC_UNPAID_TEST_ORDERS=0, EXPO_PUBLIC_PUBLISHED_CATALOG=1,
     EXPO_PUBLIC_PICK_FARM=0): the published catalogue, no test-order request at all;
   qa (default; the customer-auth export of CI: ...UNPAID_TEST_ORDERS=1, PUBLISHED_CATALOG=0).
+PICKCHICK_EXPECT_API=https://api.pickchick.kz (build 33, export with EXPO_PUBLIC_PICKCHICK_ENV=production):
+  the run fails if any request goes to the staging nip.io host or none reaches the domain.
 Local fixtures only: no bank, no real customer, no VPS request. Screenshots: STORE_WALK_OUT.
 """
-from browser_network import isolated_context, route_fixture
+from browser_network import assert_api_origin, isolated_context, route_fixture
 import json, os, re, subprocess, threading, uuid
 from pathlib import Path
 from urllib.parse import urlparse
@@ -880,7 +882,10 @@ assert not errors, errors
 if STOREFRONT:
     # The App Store profile has no test-order client at all.
     assert not test_requests, test_requests
-print(f'PASS App Store walk ({PROFILE}): {len(walked)} screens without «скоро» / «ещё не» / «not yet» / '
+# Build 33 (PICKCHICK_EXPECT_API=https://api.pickchick.kz with the production export): no request to
+# the staging nip.io host; every API request was answered by the local fixtures.
+origins = assert_api_origin()
+print(f'PASS App Store walk ({PROFILE}, outside requests by origin {origins}): {len(walked)} screens without «скоро» / «ещё не» / «not yet» / '
       f'Chiki / «Без фото» / Apple Pay / Google Pay / card (RU, EN without Cyrillic, KK; 393x852, 320x568, '
       f'guest with games), payment step (FORBIDDEN + demo, restaurant and Kaspi stuck states), account deletion, '
       f'preview-only deep links open the menu and ?preview=1 is ignored, the App Review sign-in in EN '

@@ -19,6 +19,8 @@ Runs against the customer-auth web export (CUSTOMER_AUTH_URL) with local fixture
 REVIEW_ACCOUNT_PROFILE=storefront runs the same checks on the App Store profile export
 (PICKCHICK_PREVIEW_OUTPUT=storefront: the published catalogue, no test-order client; second
 review 29.10.2026: the fixture served only /v1/test/catalog, so it timed out there).
+PICKCHICK_EXPECT_API=https://api.pickchick.kz (build 33, the production export): no request may go
+to the staging nip.io host and at least one must reach the domain (answered by the fixtures).
 """
 import json
 import os
@@ -26,7 +28,7 @@ import subprocess
 from pathlib import Path
 from urllib.parse import urlparse
 from playwright.sync_api import sync_playwright, expect
-from browser_network import route_fixture
+from browser_network import assert_api_origin, route_fixture
 import browser_slide_to_pay as bar
 from browser_slide_to_pay import (BRANCH, DRAFT_KEY, URL, add, checkout_traffic, errors,
                                   new_state, release, slide)
@@ -186,7 +188,9 @@ if __name__ == '__main__':
     assert not errors, errors
     # The App Store profile has no test-order client at all.
     assert not test_requests, test_requests
-    print(f'PASS App Review account ({PROFILE}, synthetic 403 FORBIDDEN on POST /orders): RU/EN/KK neutral text and '
+    # Build 33: with PICKCHICK_EXPECT_API the production export never asks the staging host.
+    origins = assert_api_origin()
+    print(f'PASS App Review account ({PROFILE}, outside requests by origin {origins}, synthetic 403 FORBIDDEN on POST /orders): RU/EN/KK neutral text and '
           '«Как проходит заказ», no connecting scene or «Проверить оплату», one quote + one refused create '
           'per explicit press or slide, no invoice, nothing after 22 s, basket kept, intent dropped, '
           'demo opens with the basket, restart sends nothing; screenshots in ' + str(OUT))

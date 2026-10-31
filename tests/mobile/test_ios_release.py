@@ -197,6 +197,18 @@ class ReleasePreflightTests(unittest.TestCase):
         self.assertNotIn("EXPO_PUBLIC_UPCOMING_PAYMENTS", production)
         self.assertNotIn("EXPO_PUBLIC_UPCOMING_PAYMENTS", release.archive_environment("storefront", shell))
         self.assertEqual(production["EXPO_PUBLIC_SUPPORT_URL"], "tel:+77000000000")
+        # Build 33 (owner 30.10.2026): the production build links nothing to the staging host.
+        for support in ["https://pickchick.185.129.51.103.nip.io/support/",
+                        "https://other.nip.io/help", "https://185.129.51.103/support/"]:
+            with self.subTest(support=support), self.assertRaisesRegex(RuntimeError, "staging host"):
+                release.archive_environment("production", {**shell, "EXPO_PUBLIC_SUPPORT_URL": support})
+        self.assertEqual(release.archive_environment(
+            "production", {**shell, "EXPO_PUBLIC_SUPPORT_URL": "https://pickchick.kz/support/"})
+            ["EXPO_PUBLIC_SUPPORT_URL"], "https://pickchick.kz/support/")
+        # Staging profiles keep whatever the owner gave them (their backend is staging anyway).
+        self.assertEqual(release.archive_environment(
+            "storefront", {**shell, "EXPO_PUBLIC_SUPPORT_URL": "https://pickchick.185.129.51.103.nip.io/support/"})
+            ["EXPO_PUBLIC_PICKCHICK_ENV"], "staging")
         for name in ["storefront", "customer-pilot", "farm-pilot", "published-catalog"]:
             with self.subTest(profile=name):
                 env = release.archive_environment(name, shell)
