@@ -11,6 +11,7 @@ import threading
 import unittest
 from unittest.mock import patch
 import urllib.error
+import urllib.request
 
 
 spec = importlib.util.spec_from_file_location(
@@ -22,7 +23,9 @@ spec.loader.exec_module(gate)
 API = "https://api.pickchick.kz"
 SITE = "https://pickchick.kz"
 STAGING = "https://pickchick.185.129.51.103.nip.io"
-CONFIG = {"enabled": True, "consent_version": "2026-10-01",
+# The shape packages/customer-identity config() sends with Telegram as the only channel.
+CONFIG = {"enabled": True, "channels": ["telegram"], "channel_selection": "automatic",
+          "delivery_consent_required": True, "consent_version": "2026-10-01",
           "terms_url": f"{SITE}/legal/terms", "privacy_url": f"{SITE}/legal/privacy"}
 
 
@@ -42,8 +45,11 @@ def fake(config=CONFIG, overrides=None):
         answer = pages.get(url, (404, b""))
         if isinstance(answer, Exception):
             raise answer
-        status, body, *final = answer
-        return status, final[0] if final else url, body
+        # (status, body[, final URL[, redirect targets]]); without targets, as http_fetch, the
+        # final URL is the only hop.
+        status, body, *rest = answer
+        final = rest[0] if rest else url
+        return status, final, body, rest[1] if len(rest) > 1 else ([final] if final != url else [])
 
     return fetch, asked
 
@@ -58,7 +64,8 @@ class DomainGateTests(unittest.TestCase):
         results = gate.run_checks(API, SITE, fetch, [("Support URL", f"{SITE}/support/"),
                                                      ("Privacy Policy URL", f"{SITE}/legal/privacy")])
         self.assertEqual(failures(results), {})
-        self.assertEqual(len(results), 10)
+        self.assertEqual(len(results), 11)
+        self.assertIn("sign-in code in Telegram only", [row["check"] for row in results])
         self.assertTrue(all(url.startswith((API, SITE)) for url in asked), asked)
 
     def test_the_14_10_server_links_on_nip_io_fail_and_are_not_opened(self):
@@ -101,6 +108,60 @@ class DomainGateTests(unittest.TestCase):
         self.assertEqual(found, {"sign-in enabled": "customer sign-in is disabled",
                                  "server terms_url": "missing", "server privacy_url": "missing"})
 
+    def test_whatsapp_fallback_makes_the_telegram_only_texts_false(self):
+        # Review notes 33, the reply and metadata.json say «code in Telegram». With the fallback
+        # on, AuthScreens.tsx says «Telegram или WhatsApp» on the sign-in screen App Review sees.
+        server = {**CONFIG, "whatsapp_fallback_enabled": True}
+        fetch, _ = fake(server)
+        found = failures(gate.run_checks(API, SITE, fetch))
+        self.assertEqual(set(found), {"sign-in code in Telegram only"})
+        self.assertIn("WhatsApp fallback is on", found["sign-in code in Telegram only"])
+        self.assertIn("review notes 33", found["sign-in code in Telegram only"])
+        fetch, _ = fake(server)
+        out = io.StringIO()
+        with patch.object(gate, "http_fetch", fetch), contextlib.redirect_stdout(out):
+            self.assertEqual(gate.main(["--support-url", f"{SITE}/support/"]), 1)
+        self.assertIn('"Domain gate FAIL"', out.getvalue())
+        # Explicitly off, or SMS next to Telegram (the app asks "auto" = Telegram first): passes.
+        for config in ({**CONFIG, "whatsapp_fallback_enabled": False},
+                       {**CONFIG, "channels": ["sms", "telegram"]}):
+            fetch, _ = fake(config)
+            self.assertEqual(failures(gate.run_checks(API, SITE, fetch)), {}, config)
+        # Without Telegram the app has no channel to request the code at all.
+        for channels in (["sms"], None):
+            config = {key: value for key, value in CONFIG.items() if key != "channel_selection"}
+            config["channels"] = channels
+            fetch, _ = fake(config)
+            found = failures(gate.run_checks(API, SITE, fetch))
+            self.assertEqual(set(found), {"sign-in code in Telegram only"}, channels)
+            self.assertIn("no Telegram channel", found["sign-in code in Telegram only"])
+
+    def test_every_redirect_hop_counts_not_only_the_last_url(self):
+        # pickchick.kz -> nip.io -> pickchick.kz used to pass on the final host alone.
+        fetch, _ = fake(overrides={
+            f"{SITE}/legal/privacy": (200, b"<html/>", f"{SITE}/legal/privacy",
+                                      [f"{STAGING}/legal/privacy", f"{SITE}/legal/privacy"]),
+            f"{SITE}/support/": (200, b"<html/>", f"{SITE}/support/",
+                                 ["http://pickchick.kz/support/", f"{SITE}/support/"]),
+            f"{API}/health/live": (200, b"{}", f"{API}/health/live",
+                                   ["https://example.com/health", f"{API}/health/live"]),
+            # Within the domain (a trailing slash, the API subdomain) is fine.
+            f"{SITE}/legal/terms": (200, b"<html/>", f"{SITE}/legal/terms/",
+                                    [f"{SITE}/legal/terms/"])})
+        found = failures(gate.run_checks(API, SITE, fetch))
+        self.assertEqual(found["site /legal/privacy"], "redirects to the staging host "
+                         "pickchick.185.129.51.103.nip.io")
+        self.assertEqual(found["server privacy_url"], found["site /legal/privacy"])
+        self.assertEqual(found["site /support/"], "redirects to plain http http://pickchick.kz/support/")
+        self.assertEqual(found["api health"], "redirects off pickchick.kz to example.com")
+        self.assertNotIn("site /legal/terms", found)
+        self.assertNotIn("server terms_url", found)
+        # A redirect refused before nip.io (http_fetch answers with the 3xx) fails the same way.
+        fetch, _ = fake(overrides={f"{SITE}/legal/terms": (302, b"", f"{SITE}/legal/terms",
+                                                           [f"{STAGING}/legal/terms"])})
+        found = failures(gate.run_checks(API, SITE, fetch))
+        self.assertIn("redirects to the staging host", found["site /legal/terms"])
+
     def test_cli_exit_codes_and_bare_https_origins(self):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
@@ -139,10 +200,19 @@ class DomainGateTests(unittest.TestCase):
     def test_http_fetch_sends_only_a_plain_get(self):
         seen = []
 
+        redirects = {"/two": "/hop", "/hop": "/ok",
+                     "/to-staging": f"{STAGING}/legal/terms",
+                     "/to-staging-ip": "https://185.129.51.103/legal/privacy"}
+
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_GET(self):  # noqa: N802
                 seen.append((self.command, self.headers.get("Cookie"),
                              self.headers.get("Authorization"), self.headers.get("Content-Length")))
+                if self.path in redirects:
+                    self.send_response(302)
+                    self.send_header("Location", redirects[self.path])
+                    self.end_headers()
+                    return
                 self.send_response(404 if self.path == "/missing" else 200)
                 self.end_headers()
                 self.wfile.write(b"{}")
@@ -154,14 +224,25 @@ class DomainGateTests(unittest.TestCase):
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         base = f"http://127.0.0.1:{server.server_address[1]}"
+        refuse = AssertionError("an https request left the process")
         try:
-            with patch.dict(os.environ, {"no_proxy": "127.0.0.1", "NO_PROXY": "127.0.0.1"}):
-                self.assertEqual(gate.http_fetch(f"{base}/ok", timeout=5), (200, f"{base}/ok", b"{}"))
+            # Only the loopback fixture answers; any https request (the staging host) would raise.
+            with patch.dict(os.environ, {"no_proxy": "127.0.0.1", "NO_PROXY": "127.0.0.1"}), \
+                    patch.object(urllib.request.HTTPSHandler, "https_open", side_effect=refuse):
+                self.assertEqual(gate.http_fetch(f"{base}/ok", timeout=5),
+                                 (200, f"{base}/ok", b"{}", []))
                 self.assertEqual(gate.http_fetch(f"{base}/missing", timeout=5)[0], 404)
+                self.assertEqual(gate.http_fetch(f"{base}/two", timeout=5),
+                                 (200, f"{base}/ok", b"{}", [f"{base}/hop", f"{base}/ok"]))
+                # The staging hop is recorded and not followed: the 302 itself comes back.
+                self.assertEqual(gate.http_fetch(f"{base}/to-staging", timeout=5),
+                                 (302, f"{base}/to-staging", b"", [f"{STAGING}/legal/terms"]))
+                self.assertEqual(gate.http_fetch(f"{base}/to-staging-ip", timeout=5)[::3],
+                                 (302, ["https://185.129.51.103/legal/privacy"]))
         finally:
             server.shutdown()
             server.server_close()
-        self.assertEqual(seen, [("GET", None, None, None)] * 2)
+        self.assertEqual(seen, [("GET", None, None, None)] * 7)
 
 
 if __name__ == "__main__":

@@ -7,9 +7,18 @@ Owner 30.10.2026: «переводи на наш домен». The app compiles 
 CUSTOMER_AUTH_TERMS_URL / CUSTOMER_AUTH_PRIVACY_URL; the checkout legal block uses the same
 pair), and App Store Connect has its own Support URL and Privacy Policy URL fields.
 
-Only GET requests, without a body, cookies or credentials. Nothing is changed anywhere. Exit 0
-only when the API answers on the domain, the server's document links and the given App Store
-Connect URLs are on pickchick.kz (never the staging nip.io host or its IP) and every page opens.
+The review notes 33, the Resolution Center reply and metadata.json say the sign-in code comes
+in Telegram only. The server decides that too: with its WhatsApp fallback on, the sign-in
+screen promises «Telegram или WhatsApp» (AuthScreens.tsx), so the gate checks
+/v1/auth/config for it.
+
+Only GET requests, without a body, cookies or credentials. Nothing is changed anywhere. Every
+redirect hop is checked, not only the last URL: each must stay on https and on the domain. A
+redirect to the staging host is not followed at all, so that host never gets a request from
+this script. Exit 0 only when the API answers on the
+domain, sign-in sends the code in Telegram only, the server's document links and the given App
+Store Connect URLs are on pickchick.kz (never the staging nip.io host or its IP) and every page
+opens without passing through another host.
 
     python3 scripts/mobile/check_domain_links.py \\
         --support-url https://pickchick.kz/support/ --support-url https://pickchick.kz/support/en.html \\
@@ -44,15 +53,46 @@ def base_url(value):
     return f"https://{parts.netloc}"
 
 
+class RecordHops(urllib.request.HTTPRedirectHandler):
+    """Records every redirect target in order; never follows one to the staging host."""
+
+    def __init__(self):
+        super().__init__()
+        self.hops = []
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        self.hops.append(newurl)
+        if staging(urlsplit(newurl).hostname or ""):
+            return None  # urllib then answers with the 3xx itself; nip.io gets no request
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def http_fetch(url, timeout=15):
-    """One GET; returns (status, final URL after redirects, first bytes of the body)."""
+    """One GET; returns (status, final URL, first bytes of the body, every redirect target)."""
     request = urllib.request.Request(url, method="GET", headers={
         "Accept": "application/json, text/html;q=0.9", "User-Agent": "PickChick-release-preflight"})
+    hops = RecordHops()
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return response.status, response.geturl(), response.read(MAX_BODY)
+        with urllib.request.build_opener(hops).open(request, timeout=timeout) as response:
+            return response.status, response.geturl(), response.read(MAX_BODY), hops.hops
     except urllib.error.HTTPError as error:
-        return error.code, error.geturl() or url, b""
+        return error.code, error.geturl() or url, b"", hops.hops
+
+
+def telegram_only(config):
+    """Why sign-in would not send the code in Telegram only, as the review texts say; else None.
+
+    The server sends channels without WhatsApp, channel_selection "automatic" when Telegram is
+    on and whatsapp_fallback_enabled when a Telegram miss falls back to WhatsApp.
+    """
+    if config.get("whatsapp_fallback_enabled") is True:
+        return ("WhatsApp fallback is on: the sign-in screen says «Telegram или WhatsApp», but the "
+                "review notes 33, the reply and metadata.json say Telegram only; turn the fallback "
+                "off or change those texts first")
+    channels = config.get("channels")
+    if not isinstance(channels, list) or "telegram" not in channels:
+        return f"no Telegram channel (channels {channels!r}): the app cannot request the code"
+    return None
 
 
 def run_checks(api, site, fetch=None, store_urls=()):
@@ -68,15 +108,32 @@ def run_checks(api, site, fetch=None, store_urls=()):
         results.append({"check": check, "url": url, "ok": reason is None,
                         **({"reason": reason} if reason else {})})
 
+    def bad_hop(url, hops):
+        """The first redirect that leaves https, the domain or reaches the staging host."""
+        start_host = urlsplit(url).hostname or ""
+        targets = [urlsplit(hop) for hop in hops]
+        for parts in targets:
+            if staging(parts.hostname or ""):
+                return f"redirects to the staging host {parts.hostname}"
+        for parts in targets:
+            if parts.scheme != "https":
+                return f"redirects to plain {parts.scheme or 'relative'} {parts.geturl()}"
+        for parts in targets:
+            host = parts.hostname or ""
+            if host != start_host and not owned(host):
+                return f"redirects off {site_host} to {host}"
+        return None
+
     def get(check, url, expect_json=False):
         try:
-            status, final, body = fetch(url)
+            status, final, body, *rest = fetch(url)
         except Exception as error:  # noqa: BLE001 - every network failure fails the gate
             record(check, url, f"no answer: {type(error).__name__}")
             return None
-        final_host = urlsplit(final).hostname or ""
-        if staging(final_host):
-            record(check, url, f"redirects to the staging host {final_host}")
+        # Every hop counts: a pickchick.kz link through nip.io back to pickchick.kz still fails.
+        hop = bad_hop(url, [*(rest[0] if rest else ()), final])
+        if hop:
+            record(check, url, hop)
         elif status != 200:
             record(check, url, f"HTTP {status}")
         elif expect_json:
@@ -115,6 +172,10 @@ def run_checks(api, site, fetch=None, store_urls=()):
     if config is not None:
         if config.get("enabled") is not True:
             record("sign-in enabled", f"{api}/v1/auth/config", "customer sign-in is disabled")
+        else:
+            # Review notes 33 / reply / metadata.json: «Regular customers receive their code in
+            # Telegram». The WhatsApp fallback would make that false on the sign-in screen.
+            record("sign-in code in Telegram only", f"{api}/v1/auth/config", telegram_only(config))
         # CUSTOMER_AUTH_TERMS_URL / CUSTOMER_AUTH_PRIVACY_URL: consent, profile, checkout.
         owned_link("server terms_url", config.get("terms_url"))
         owned_link("server privacy_url", config.get("privacy_url"))
