@@ -344,6 +344,46 @@ class ReleasePreflightTests(unittest.TestCase):
                 self.assertEqual("warning" in backend[0], profile != "production")
                 self.assertEqual(seen[-1][0], "PickChick export completed")
 
+    def test_upload_of_a_defaulted_staging_profile_stops_before_apple(self):
+        # Archive, export and upload that all forgot --feature-profile production match each
+        # other; upload is where a defaulted staging bundle stops. Naming it still uploads.
+        cases = (("storefront", True, "stop"), ("storefront", False, "upload"),
+                 ("published-catalog", True, "stop"), ("production", False, "upload"))
+        for profile, defaulted, outcome in cases:
+            with self.subTest(profile=profile, defaulted=defaulted), \
+                    tempfile.TemporaryDirectory() as directory:
+                output = Path(directory) / "build33"
+                output.mkdir()
+                self.archive(output)
+                recorded = {"archiveStatus": "complete", "team": release.TEAM,
+                            "bundleIdentifier": release.BUNDLE, "featureProfile": profile,
+                            "embeddedPublicEnv": release.feature_profile_flags(profile)}
+                (output / "release.json").write_text(json.dumps(recorded))
+                args = Namespace(phase="upload", release="build33", feature_profile=profile,
+                                 profile_from_default=defaulted, asc_app_id="1234567890")
+                seen = []
+                with patch.object(release, "run_xcode") as xcode, patch.object(
+                        release, "event", lambda message, **data: seen.append((message, data))):
+                    if outcome == "stop":
+                        with self.assertRaisesRegex(RuntimeError, "--feature-profile production"
+                                                    ".*pass --feature-profile " + profile):
+                            release.perform_phase(args, None, Path(directory))
+                    else:
+                        release.perform_phase(args, None, Path(directory))
+                after = json.loads((output / "release.json").read_text())
+                if outcome == "stop":
+                    xcode.assert_not_called()
+                    self.assertEqual(after, recorded)
+                    self.assertFalse((output / "ExportOptions-upload.plist").exists())
+                else:
+                    xcode.assert_called_once()
+                    self.assertEqual(after["deliveryStatus"], "submitted")
+                    self.assertEqual(seen[-1][0], "Apple upload command completed")
+        # Kiosk and the unpinned legacy profile keep their own rules.
+        release.upload_profile_guard("legacy", True)
+        with patch.object(release, "APP_DIRECTORY", "kiosk"):
+            release.upload_profile_guard("storefront", True)
+
     def test_export_does_not_upload_or_reassign_build_numbers(self):
         options = release.export_options("export")
         self.assertEqual(options["destination"], "export")

@@ -502,6 +502,24 @@ def backend_notice(feature_profile, defaulted):
     return notice
 
 
+def upload_profile_guard(feature_profile, defaulted):
+    """Build 33: Apple gets a staging (nip.io) mobile bundle only when that is said explicitly.
+
+    The default profile is still storefront, so an archive, export and upload that all forgot
+    --feature-profile production would match each other and only warn. Upload is the last
+    phase before Apple: there a defaulted staging profile stops; naming it on the command line
+    (for example --feature-profile storefront for an internal TestFlight build) still works.
+    """
+    if (APP_DIRECTORY != "mobile" or not defaulted
+            or feature_profile_flags(feature_profile) is None
+            or profile_backend(feature_profile)[0] == "production"):
+        return
+    profile = canonical_profile(feature_profile)
+    fail(f"This archive has the default {profile} profile, which talks to the staging host. "
+         "App Store builds from build 33 on need --feature-profile production in archive, export "
+         f"and upload; to upload this staging build anyway, pass --feature-profile {profile}.")
+
+
 def staging_host(value):
     """True for a link to the staging nip.io host (by name or by its IP address)."""
     host = (urlsplit(value).hostname or "") if "://" in value else ""
@@ -628,7 +646,9 @@ def main():
     parser.add_argument("--feature-profile", choices=["legacy", *MOBILE_PROFILES, *KIOSK_PROFILES],
                         default=None,
                         help="JS feature set; mobile defaults to storefront (catalog-pilot is an "
-                             "alias). A new kiosk archive needs kiosk-production or kiosk-staging; "
+                             "alias), but a mobile upload names any staging profile explicitly; "
+                             "App Store builds use production. A new kiosk archive needs "
+                             "kiosk-production or kiosk-staging; "
                              "kiosk export/upload default to the archived profile")
     parser.add_argument("--kiosk-photo-url",
                         help="HTTPS origin of the restaurant photo printer service (kiosk archive)")
@@ -786,6 +806,7 @@ def perform_phase(args, signing, artifacts):
         fail("Use the same immutable signing profile and certificate that created this release.")
     verify_archived_profile(app, signing)
     if args.phase == "upload":
+        upload_profile_guard(args.feature_profile, getattr(args, "profile_from_default", False))
         if not args.asc_app_id or not re.fullmatch(r"[0-9]+", args.asc_app_id):
             fail("Upload requires --asc-app-id from the verified separate PickChick app record.")
         if metadata.get("deliveryStatus") == "submitted":
