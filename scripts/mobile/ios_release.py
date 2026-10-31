@@ -486,6 +486,22 @@ def profile_backend(feature_profile):
     return environment, PRODUCTION_API_URL if environment == "production" else STAGING_API_URL
 
 
+def backend_notice(feature_profile, defaulted):
+    """The backend a mobile archive compiles in, said before Xcode runs (build 33).
+
+    The default stays storefront (staging) until the server legal links and the App Store
+    Connect URLs move to pickchick.kz; an archive that forgets --feature-profile production
+    must not look like the App Store build.
+    """
+    environment, api_url = profile_backend(feature_profile)
+    notice = {"feature_profile": canonical_profile(feature_profile), "environment": environment,
+              "api_url": api_url, "profile_from_default": defaulted}
+    if environment != "production":
+        notice["warning"] = ("This bundle talks to the staging host. App Store builds from build 33 "
+                             "on need --feature-profile production in archive, export and upload.")
+    return notice
+
+
 def staging_host(value):
     """True for a link to the staging nip.io host (by name or by its IP address)."""
     host = (urlsplit(value).hostname or "") if "://" in value else ""
@@ -631,6 +647,7 @@ def main():
     if args.feature_profile is None and args.app == "kiosk" and args.phase == "archive":
         fail("Kiosk archives require --feature-profile kiosk-production or kiosk-staging "
              "and --kiosk-photo-url; the legacy shell environment is no longer accepted.")
+    args.profile_from_default = args.feature_profile is None
     if args.feature_profile is None and args.app != "kiosk":
         args.feature_profile = default_feature_profile(args.app)
     if args.feature_profile in MOBILE_PROFILES and args.app != "mobile":
@@ -653,6 +670,9 @@ def main():
               selected_team=TEAM, bundle_identifier=BUNDLE,
               native_workspace_exists=Path(args.workspace).is_dir(),
               archive_tool_available=True)
+        if args.app == "mobile" and feature_profile_flags(args.feature_profile) is not None:
+            event("Mobile JS bundle backend", **backend_notice(args.feature_profile,
+                                                                args.profile_from_default))
         local_command(["xcodebuild", "-checkFirstLaunchStatus"])
         if Path(args.workspace).is_dir():
             validate_build_settings(args)
@@ -700,6 +720,8 @@ def perform_phase(args, signing, artifacts):
             # app.json keeps the staging defaults; the pinned profile selects the bundle's backend.
             environment, api_url = profile_backend(args.feature_profile)
             api_url = checked_api_url(api_url)
+            event("Mobile JS bundle backend", **backend_notice(
+                args.feature_profile, getattr(args, "profile_from_default", False)))
         else:
             environment, api_url = "staging", checked_api_url(extra.get("apiUrl", ""))
         if archive.exists() or metadata_path.exists():
@@ -754,6 +776,10 @@ def perform_phase(args, signing, artifacts):
         # Kiosk export/upload: the archived profile (verified below), legacy for older archives.
         args.feature_profile = metadata.get("featureProfile", "legacy")
     verify_feature_profile(metadata, args.feature_profile)
+    if APP_DIRECTORY == "mobile" and feature_profile_flags(args.feature_profile) is not None:
+        # The archived profile (verified above), said again before Apple gets the bundle.
+        event("Mobile JS bundle backend", **backend_notice(
+            args.feature_profile, getattr(args, "profile_from_default", False)))
     if metadata.get("featureProfile") in KIOSK_PROFILES:
         verify_kiosk_bundle(app, metadata["embeddedPublicEnv"])
     if metadata.get("signing", {"style": "automatic"}) != public_signing(signing):

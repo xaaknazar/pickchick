@@ -5,6 +5,7 @@ from argparse import Namespace
 import copy
 import datetime
 import hashlib
+import inspect
 import json
 import os
 from pathlib import Path
@@ -246,6 +247,25 @@ class ReleasePreflightTests(unittest.TestCase):
                 {"featureProfile": "production", "embeddedPublicEnv": dict(release.STOREFRONT_FLAGS)},
                 "production")
 
+    def test_archive_and_doctor_say_which_backend_the_bundle_compiles(self):
+        # Build 33: the default stays storefront (staging) until the server legal links
+        # move, so an archive that forgets --feature-profile production says so before Xcode runs.
+        notice = release.backend_notice("storefront", True)
+        self.assertEqual(notice["environment"], "staging")
+        self.assertEqual(notice["api_url"], release.STAGING_API_URL)
+        self.assertTrue(notice["profile_from_default"])
+        self.assertIn("--feature-profile production", notice["warning"])
+        production = release.backend_notice("production", False)
+        self.assertEqual(production, {"feature_profile": "production", "environment": "production",
+                                      "api_url": "https://api.pickchick.kz",
+                                      "profile_from_default": False})
+        self.assertEqual(release.backend_notice("catalog-pilot", False)["feature_profile"],
+                         "published-catalog")
+        self.assertIn("backend_notice(", inspect.getsource(release.perform_phase))
+        self.assertIn("backend_notice(", inspect.getsource(release.main))
+        self.assertIn("args.profile_from_default = args.feature_profile is None",
+                      inspect.getsource(release.main))
+
     def test_public_staging_url_without_embedded_credentials(self):
         self.assertEqual(
             release.checked_api_url("https://pickchick.185.129.51.103.nip.io/"),
@@ -297,6 +317,32 @@ class ReleasePreflightTests(unittest.TestCase):
             (app / "main.jsbundle").unlink()
             with self.assertRaisesRegex(RuntimeError, "main.jsbundle"):
                 release.archive_app(archive)
+
+    def test_export_and_upload_repeat_the_archived_backend(self):
+        # A build 33 archive that forgot --feature-profile production is storefront everywhere
+        # (export/upload default to it too), so the last phase before Apple says so again.
+        for profile, defaulted, environment in (("production", False, "production"),
+                                                ("storefront", True, "staging")):
+            with self.subTest(profile=profile), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory) / "build33"
+                output.mkdir()
+                self.archive(output)
+                (output / "release.json").write_text(json.dumps({
+                    "archiveStatus": "complete", "team": release.TEAM,
+                    "bundleIdentifier": release.BUNDLE, "featureProfile": profile,
+                    "embeddedPublicEnv": release.feature_profile_flags(profile)}))
+                args = Namespace(phase="export", release="build33", feature_profile=profile,
+                                 profile_from_default=defaulted)
+                seen = []
+                with patch.object(release, "run_xcode"), patch.object(
+                        release, "event", lambda message, **data: seen.append((message, data))):
+                    release.perform_phase(args, None, Path(directory))
+                backend = [data for message, data in seen if message == "Mobile JS bundle backend"]
+                self.assertEqual(len(backend), 1, seen)
+                self.assertEqual(backend[0]["environment"], environment)
+                self.assertEqual(backend[0]["profile_from_default"], defaulted)
+                self.assertEqual("warning" in backend[0], profile != "production")
+                self.assertEqual(seen[-1][0], "PickChick export completed")
 
     def test_export_does_not_upload_or_reassign_build_numbers(self):
         options = release.export_options("export")
