@@ -16,7 +16,9 @@ and the real temporary states that may be shown are shared with tests/mobile/sto
   cart, sign-in, «События» and the three mini-games without signing in), the 320 pt screen;
   the payment step: the App Review account (403 FORBIDDEN on POST /orders: neutral text,
   «Как проходит заказ» into the demonstration, no invoice), the restaurant that does not answer
-  and Kaspi answering slowly (20 s stuck states); «Удалить аккаунт» and its confirmation;
+  and Kaspi answering slowly (20 s stuck states); «Удалить аккаунт» and its confirmation, and
+  in English the path of mobile-review-notes-33.en.txt (build 33, App Review 5.1.1(v)) from the
+  header profile icon and from Settings, by the labels the notes name;
   the App Review sign-in in English (second review 29.10.2026): the number typed with its country
   code («+7…», «7…», «8…») keeps every digit, the code, the «Let's get to know you» form left empty
   with «Done», and the profile then shows «Crunch lover» (KK too), no Russian; the design-preview
@@ -802,6 +804,53 @@ def walk_delete(browser):
     clean(page, 'delete-done-393')
     assert deleted == ['/v1/customers/me'], deleted
     ctx.close()
+    # Build 33 (App Review 5.1.1(v), 30.10.2026): the path of mobile-review-notes-33.en.txt in
+    # English, by the labels the notes name. From the header profile icon: Profile > «Delete
+    # account» (right below «Language») > «Delete account» > «Delete your Pick Chick account?» >
+    # «Delete account» > «Account deleted»; Settings (gear) > «Delete account» opens the same screen.
+    for entry in ('settings', 'profile'):
+        deleted = []
+        ctx, page = context(browser, deleted=deleted)
+        page.goto(URL + '/screen/M34')
+        page.get_by_test_id('language-en').click(timeout=25000)
+        expect(page.get_by_test_id('language-en')).to_have_attribute('aria-checked', 'true')
+        page.goto(URL + '/menu')
+        settle(page)
+        page.get_by_test_id('header-profile').filter(visible=True).click()
+        profile = page.get_by_test_id('screen-M30').filter(visible=True)
+        expect(profile).to_be_visible(timeout=15000)
+        row = profile.get_by_test_id('profile-delete-account')
+        expect(row).to_contain_text('Delete account')
+        language = profile.get_by_text('Language', exact=True).bounding_box()
+        below = row.bounding_box()['y'] - language['y']
+        assert 0 < below < 160, ('«Delete account» right below «Language»', below)
+        if entry == 'settings':
+            page.get_by_test_id('profile-settings').click()
+            expect(page.get_by_test_id('screen-M34').filter(visible=True)).to_be_visible(timeout=15000)
+            page.get_by_test_id('settings-delete-account').get_by_text('Delete account', exact=True).click()
+        else:
+            clean(page, 'delete-profile-en-393', english=True)
+            row.get_by_text('Delete account', exact=True).click()
+        screen = page.get_by_test_id('screen-M32').filter(visible=True)
+        expect(screen).to_be_visible(timeout=15000)
+        expect(page.get_by_test_id('delete-demo-profile')).to_have_text('Delete account', timeout=25000)
+        expect(page.get_by_test_id('delete-demo-profile')).to_be_enabled()
+        if entry == 'settings':
+            assert deleted == [], deleted
+            ctx.close()
+            continue
+        clean(page, 'delete-screen-en-393', english=True)
+        page.get_by_test_id('delete-demo-profile').click()
+        dialog = page.get_by_test_id('server-delete-confirmation')
+        expect(dialog).to_contain_text('Delete your Pick Chick account?')
+        expect(dialog.get_by_text('Keep account', exact=True)).to_be_visible()
+        clean(page, 'delete-confirm-en-393', english=True)
+        assert deleted == [], deleted
+        dialog.get_by_text('Delete account', exact=True).click()
+        expect(page.get_by_test_id('account-deleted')).to_contain_text('Account deleted', timeout=15000)
+        clean(page, 'delete-done-en-393', english=True)
+        assert deleted == ['/v1/customers/me'], deleted
+        ctx.close()
 
 
 def type_phone(page, keys):
@@ -887,6 +936,6 @@ if STOREFRONT:
 origins = assert_api_origin()
 print(f'PASS App Store walk ({PROFILE}, outside requests by origin {origins}): {len(walked)} screens without «скоро» / «ещё не» / «not yet» / '
       f'Chiki / «Без фото» / Apple Pay / Google Pay / card (RU, EN without Cyrillic, KK; 393x852, 320x568, '
-      f'guest with games), payment step (FORBIDDEN + demo, restaurant and Kaspi stuck states), account deletion, '
+      f'guest with games), payment step (FORBIDDEN + demo, restaurant and Kaspi stuck states), account deletion (RU, and the build 33 notes path in EN from Profile and Settings), '
       f'preview-only deep links open the menu and ?preview=1 is ignored, the App Review sign-in in EN '
       f'(+7 / 7 / 8 typed, empty profile form, «Crunch lover»), no other mutation; screenshots in {OUT}')
