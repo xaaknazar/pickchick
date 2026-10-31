@@ -110,7 +110,48 @@ CI заменены на «build 33».
   «Support URL» / «Privacy Policy URL». Их проверяет `check_domain_links.py` (шаг 3 ниже).
 - Профиль по умолчанию в `ios_release.py` оставлен `storefront`: сменить его можно отдельным
   изменением после «Domain gate PASS». До тех пор флаг `--feature-profile production` обязателен,
-  а событие «Mobile JS bundle backend» с предупреждением показывает забытый флаг.
+  а событие «Mobile JS bundle backend» с предупреждением показывает забытый флаг. `upload`
+  мобильного приложения с профилем по умолчанию, который ходит на staging, останавливается до
+  Xcode (ниже, «Правки по замечаниям»); staging-сборку можно загрузить, только назвав профиль
+  явно (`--feature-profile storefront`).
+
+## Правки по замечаниям техлида (31.10)
+
+Блокирующих замечаний не было; все пять мелких разобраны.
+
+1. **WhatsApp в шлюзе домена.** `check_domain_links.py` уже читал `/v1/auth/config`, но не
+   смотрел `whatsapp_fallback_enabled`. Заметки 28/33, ответ и `metadata.json` говорят «код в
+   Telegram», а при включённом резерве WhatsApp экран входа пишет «Telegram или WhatsApp»
+   (`AuthScreens.tsx`, строки 110-114) - App Review это увидит. Новая строка шлюза
+   `sign-in code in Telegram only` (когда вход включён): FAIL при
+   `whatsapp_fallback_enabled: true` (в причине - какие тексты поменять) и при `channels` без
+   `telegram` (приложению не на что запросить код). SMS рядом с Telegram не мешает: приложение
+   просит `auto` = Telegram. Выбран FAIL, а не предупреждение: шлюз - условие отправки, и
+   ложное утверждение в заметках - причина отказа. Если владелец решит включить WhatsApp, тексты
+   и эта строка меняются вместе, отдельным изменением. Ручная проверка из шага 6 больше не
+   нужна - её делает шаг 3.
+2. **Каждый переход редиректа.** Раньше `http_fetch` шёл по редиректам `urllib` и проверял только
+   хост последнего адреса: ссылка `pickchick.kz` -> nip.io -> `pickchick.kz` проходила. Теперь
+   `http_fetch` записывает каждый переход и на staging-хост (nip.io или IP) не идёт вообще -
+   возвращает сам 3xx, nip.io не получает от скрипта ни одного запроса. `run_checks` проверяет
+   все переходы: staging -> «redirects to the staging host», не https -> «redirects to plain
+   http», чужой домен -> «redirects off pickchick.kz» (переходы внутри домена, например `/terms`
+   -> `/terms/`, разрешены). Отказ от редиректов совсем отбросил бы и такие безобидные переходы.
+3. **Загрузка не на production.** `ios_release.py upload` для мобильного приложения
+   (`upload_profile_guard`) останавливается до Xcode, если профиль взят по умолчанию и ходит на
+   staging (`storefront`, `published-catalog` и др.): «App Store builds from build 33 on need
+   --feature-profile production ... pass --feature-profile storefront» - `release.json` не
+   меняется. С явным `--feature-profile storefront` (внутренний TestFlight) и с `production`
+   загрузка идёт как раньше. Киоск и `legacy` не затронуты. Старая команда из
+   `mobile-redesign-2026-10-27/README.md` (upload без флага) для storefront-архива теперь
+   остановится - так и задумано; `README.md` не правился (исторический ранбук сборки 24).
+4. **Кнопка корзины в `screenshots-plan.md`.** На кнопке видно «Оплатить с [знак Kaspi]
+   Kaspi.kz» (шаблон `Оплатить с {p0}`), сумма стоит в строке «Итого»; строка
+   `Оплатить с Kaspi.kz, {p0}` с суммой - это `accessibilityLabel` (VoiceOver). План теперь
+   описывает и то, и другое.
+5. **Обход storefront на staging в CI** больше не делается - только экспорт `production`.
+   Принято техлидом; покрытие staging сохраняют обход QA и аккаунт App Review на экспорте
+   customer-auth. Без изменений.
 
 ## Что сделать Codex для сборки 33
 
@@ -120,15 +161,17 @@ CI заменены на «build 33».
    `python3 scripts/mobile/ios_release.py archive --feature-profile production ...` и тот же флаг
    в `export` / `upload`. В выводе каждой фазы должно быть «Mobile JS bundle backend» с
    `"environment": "production"`, `"api_url": "https://api.pickchick.kz"` и без `warning`; иначе
-   не отправлять. `EXPO_PUBLIC_API_URL` не задавать; `EXPO_PUBLIC_SUPPORT_URL` - только на
-   `pickchick.kz` или телефон/почта.
+   не отправлять. `upload` без флага на storefront-архиве остановится сам. `EXPO_PUBLIC_API_URL`
+   не задавать; `EXPO_PUBLIC_SUPPORT_URL` - только на `pickchick.kz` или телефон/почта.
 3. **Шлюз домена (только чтение)**: `python3 scripts/mobile/check_domain_links.py` - сначала без
    полей карточки. Пока сервер отдаёт документы с nip.io, ожидается FAIL на `server terms_url` /
    `server privacy_url`. После «да» владельца перевести `CUSTOMER_AUTH_TERMS_URL` /
    `CUSTOMER_AUTH_PRIVACY_URL` сервера и поля «Support URL» / «Privacy Policy URL» (RU и en-GB)
    на `pickchick.kz`, затем повторить с полями обеих локализаций:
    `python3 scripts/mobile/check_domain_links.py --support-url <RU как в Apple> --support-url <en-GB как в Apple> --privacy-policy-url <как в Apple>`.
-   Отправлять на проверку только при «Domain gate PASS».
+   Шлюз также падает на `sign-in code in Telegram only`, если сервер включил резерв WhatsApp
+   (тогда «код в Telegram» в заметках, ответе и `metadata.json` неверно), и на любом редиректе
+   через nip.io, http или чужой домен. Отправлять на проверку только при «Domain gate PASS».
 4. Сборку 33 в TestFlight; на iPhone проверить, что приложение работает с `api.pickchick.kz`
    (сертификат, меню, вход, профиль) и что «Документы» открывают `pickchick.kz`.
 5. Видео владельца на физическом iPhone по сценарию `mobile-app-review-1030.md` (выделенный
@@ -138,8 +181,8 @@ CI заменены на «build 33».
    `GET /v1/customer-checkout/availability` (в заметках 28 было 10:00 / 00:00), `{UTC}` (05:00-19:00) и
    `{PACIFIC}` на дату подачи: с 1 ноября 2026 в США PST (UTC-8) - «21:00 on the previous day to
    11:00 (PST, UTC-8)». `{VIDEO}` - одна фраза о приложенной записи, только если она приложена;
-   иначе строку удалить. Перед вставкой проверить, что `/v1/auth/config` не включил WhatsApp:
-   иначе исправить фразу «Regular customers receive their code in Telegram». То же для
+   иначе строку удалить. Фразу «Regular customers receive their code in Telegram» проверяет шлюз
+   (шаг 3, строка `sign-in code in Telegram only`); при FAIL этой строки не отправлять. То же для
    `{VIDEO}` в ответе `mobile-review-reply-33.en.txt`.
 7. **Повторная отправка и ответ Apple - только после «да» владельца**: выбрать для 1.0 сборку 33,
    вставить заметки, приложить видео, ответить в Resolution Center, отправить. Тексты карточки и
@@ -150,9 +193,16 @@ CI заменены на «build 33».
 
 ## Проверки
 
-- `pnpm test:mobile`: 566/566 node-тестов (было 562: +4 `store-metadata.test.mjs`) и 70
-  Python-тестов (было 59: +2 `test_browser_network.py`, +2 `test_ios_release.py`, +7
-  `test_check_domain_links.py`), 1 пропуск как раньше.
+- `pnpm test:mobile`: 566/566 node-тестов (было 562: +4 `store-metadata.test.mjs`) и 73
+  Python-теста (было 59: +2 `test_browser_network.py`, +3 `test_ios_release.py`, +9
+  `test_check_domain_links.py`), 1 пропуск как раньше. Из них по замечаниям 31.10: +2 в
+  `test_check_domain_links.py` (резерв WhatsApp и каналы без Telegram; переходы через nip.io,
+  http и чужой домен, разрешённый переход внутри домена), расширен тест `http_fetch` (настоящий
+  сервер на loopback: цепочка из двух редиректов записана; редирект на nip.io и на IP сервера
+  не выполняется - любой https-запрос из процесса в тесте падает), +1 в `test_ios_release.py`
+  (upload: storefront и published-catalog по умолчанию - остановка без Xcode и без записи в
+  `release.json`; явный storefront и production - загрузка). Каждую новую проверку я ломал
+  руками (возврат старого кода) - тесты падали.
 - `pnpm typecheck` (все пакеты), `pnpm lint`, `pnpm format:check`,
   `node scripts/mobile/translations.mjs --check` (1462 строки, новых строк интерфейса нет),
   `pnpm design:check` (130 экранов) - без ошибок.
@@ -194,13 +244,16 @@ CI заменены на «build 33».
 
 - Код приложения не менялся; менялись тесты, инструменты выпуска, CI и документы.
 - CI больше не обходит storefront со staging-адресом - только профиль `production` (флаги те же).
-- «Code in Telegram only» верно, пока на сервере не включён резерв WhatsApp (шаг 6).
+- «Code in Telegram only» верно, пока на сервере не включён резерв WhatsApp; теперь это
+  проверяет шлюз (шаг 3), но только в момент запуска: если сервер включит WhatsApp после
+  отправки, текст станет неверным - сервер не трогать до решения Apple.
 - Если бэк-офис выключит игру, карточка `GameAvailability` во `fullScreenModal` стоит на нативном
   `SafeAreaView` (по центру экрана; при первом входе возможен 0 сверху - не под строкой
   состояния, т.к. содержимое по центру).
 - Возможные конфликты: `.github/workflows/ci.yml` (шаг storefront), `tests/mobile/browser_network.py`,
   `browser_store_walk.py` (`walk_delete`), `browser_review_account.py`,
-  `scripts/mobile/ios_release.py`, `docs/operations/mobile-appstore-2026-10-22/metadata.json`,
-  `tests/mobile/store-metadata.test.mjs`. Ветку `codex/mobile-build29-1030` после влития этой не
+  `scripts/mobile/ios_release.py` (+ `tests/mobile/test_ios_release.py`),
+  `scripts/mobile/check_domain_links.py`, `docs/operations/mobile-appstore-2026-10-22/metadata.json`,
+  `screenshots-plan.md`, `tests/mobile/store-metadata.test.mjs`. Ветку `codex/mobile-build29-1030` после влития этой не
   вливать (её нужное здесь, остальное заменено).
 - `docs/project-status.md`, `docs/roadmap/project.json`, `handoff.md` не менялись.
