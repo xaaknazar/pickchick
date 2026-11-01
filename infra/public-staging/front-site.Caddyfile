@@ -16,6 +16,21 @@ pickchick.185.129.51.103.nip.io {
 			}
 		}
 	}
+	# Menu availability long-poll (GET ?after=<signature>): the server holds an unchanged answer
+	# for 20 s. Under the default 8 s every wait ended in a 504 here, and the app showed
+	# "Нет связи с сервером" on builds 23-32 (owner 01.11.2026). Same 32 s as api.pickchick.kz.
+	@availability_watch {
+		method GET
+		path /v1/customer-checkout/availability
+	}
+	handle @availability_watch {
+		reverse_proxy pickchick-public-gateway:8080 {
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 32s
+			}
+		}
+	}
 	handle {
 		reverse_proxy pickchick-public-gateway:8080 {
 			transport http {
