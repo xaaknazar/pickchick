@@ -7163,9 +7163,9 @@
         "tests/mobile/browser_tab_bar.py",
         "apps/mobile/src/screens/CatalogScreens.tsx"
       ],
-      "status": "available",
+      "status": "active",
       "head": "8c38f6735d11e6c03d7a5f33772286f57f7985e7",
-      "updatedAt": "2026-11-02T20:17:30.703Z",
+      "updatedAt": "2026-11-02T20:46:00.682Z",
       "summary": "Draft PR303 поверх PR302, 8c38f673. Spring-капсула подключена, повторный тап работает на Меню/Заказах, обычная смена сохраняет позицию; Reduce Motion учтён. 562+59, typecheck/lint/format, browser_tab_bar и browser_account_required PASS. Три согласованных передачи оформлены. iPhone не проверен, выпуска нет.",
       "nextAction": "Ждём согласования ещё GameScreens.tsx: добавить ref/useTabScrollToTop, включить events в SCROLL_TO_TOP_TABS, повторить проверки и завершить PR303. После merge PR302 сменить base PR303 на shared. Самостоятельно не выпускать."
     }
