@@ -7163,11 +7163,11 @@
         "tests/mobile/browser_tab_bar.py",
         "apps/mobile/src/screens/CatalogScreens.tsx"
       ],
-      "status": "active",
-      "head": "5f9112357267e18276b77448efaa29bc150da35c",
-      "updatedAt": "2026-11-02T20:07:54.458Z",
-      "summary": "Подготовлены независимые TabActiveCapsule и useTabScrollToTop; typecheck, lint, prettier PASS. Опубликован d2cbecd2. Компоненты ещё не подключены, UI не изменён. Протокол docs/operations/mobile-tab-motion-1102.md.",
-      "nextAction": "Ожидается согласование передачи FloatingTabBar.tsx, UI.tsx, browser_tab_bar.py от mobile-kazakh-review-1030. Затем подключить компоненты, сохранить PR302 в CatalogScreens, проверить реальные переходы, открыть PR. Ничего не выпускать."
+      "status": "available",
+      "head": "8c38f6735d11e6c03d7a5f33772286f57f7985e7",
+      "updatedAt": "2026-11-02T20:17:30.703Z",
+      "summary": "Draft PR303 поверх PR302, 8c38f673. Spring-капсула подключена, повторный тап работает на Меню/Заказах, обычная смена сохраняет позицию; Reduce Motion учтён. 562+59, typecheck/lint/format, browser_tab_bar и browser_account_required PASS. Три согласованных передачи оформлены. iPhone не проверен, выпуска нет.",
+      "nextAction": "Ждём согласования ещё GameScreens.tsx: добавить ref/useTabScrollToTop, включить events в SCROLL_TO_TOP_TABS, повторить проверки и завершить PR303. После merge PR302 сменить base PR303 на shared. Самостоятельно не выпускать."
     }
   ]
 }
