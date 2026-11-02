@@ -7163,11 +7163,11 @@
         "apps/mobile/src/screens/CatalogScreens.tsx",
         "apps/mobile/src/screens/GameScreens.tsx"
       ],
-      "status": "active",
-      "head": "8c38f6735d11e6c03d7a5f33772286f57f7985e7",
-      "updatedAt": "2026-11-02T20:46:05.339Z",
-      "summary": "Draft PR303 поверх PR302, 8c38f673. Spring-капсула подключена, повторный тап работает на Меню/Заказах, обычная смена сохраняет позицию; Reduce Motion учтён. 562+59, typecheck/lint/format, browser_tab_bar и browser_account_required PASS. Три согласованных передачи оформлены. iPhone не проверен, выпуска нет.",
-      "nextAction": "Ждём согласования ещё GameScreens.tsx: добавить ref/useTabScrollToTop, включить events в SCROLL_TO_TOP_TABS, повторить проверки и завершить PR303. После merge PR302 сменить base PR303 на shared. Самостоятельно не выпускать."
+      "status": "available",
+      "head": "39727bcd3a4afd206011dd4ad7c50d8a3242416c",
+      "updatedAt": "2026-11-02T20:48:57.300Z",
+      "summary": "PR303 ready for review, 39727bcd. Все три вкладки: spring капсула, повторный тап наверх, сохранение позиции, Reduce Motion. Передача GameScreens отдельно согласована и оформлена. Финальные typecheck/lint/format/browser_tab_bar PASS (320/393/1024); прежние 562+59 и browser_account_required PASS. iPhone и выпуск не выполнялись.",
+      "nextAction": "Дождаться полной CI. PR303 основан на PR302: после включения PR302 сменить base на shared. Слияние и новая сборка требуют поручения владельца; затем проверить плавность на iPhone. Общий статус и пульт не менялись: заняты другой задачей."
     }
   ]
 }
