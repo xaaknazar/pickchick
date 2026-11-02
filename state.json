@@ -7139,6 +7139,18 @@
       "updatedAt": "2026-11-02T17:45:46.240Z",
       "summary": "PR #301 merged normally after full green Foundation CI 41486431876 on 90f83a1d. nip.io Caddy long-poll fixed: 504 at 8.59s -> 200 ~20s, backup/rollback in docs/operations/front-longpoll-1101.md. node-forge 1.4.1; audit exception removed, signature regressions retained. Temporary HTTPS and package scopes returned. IPA32 has zero app extensions. No other deployment.",
       "nextAction": "Separate unresolved cashier issue: fresh=false, last observation 2026-11-02 14:29:55 Almaty; owner confirms power/internet but Mac has no cashier LAN access. Read services when access returns; do not bypass freshness or change devices without approval. Shared status/roadmap and online dashboard not changed (owned by another task)."
+    },
+    {
+      "id": "mobile-closed-notice-1102",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-closed-notice-1102",
+      "scopes": [
+        "apps/mobile/src/components/RestaurantClosedNotice.tsx",
+        "docs/operations/mobile-closed-notice-1102.md"
+      ],
+      "status": "active",
+      "head": "35a314753e4f1c05868a6b2f8f5dc336c3d20261",
+      "updatedAt": "2026-11-02T18:40:55.013Z"
     }
   ]
 }
