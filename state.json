@@ -7153,6 +7153,19 @@
       "updatedAt": "2026-11-02T18:51:23.007Z",
       "summary": "PR #302, c7fcb709: верхняя плашка с луной и временем открытия на вкладках и в корзине. Проверены 562 Node + 59 Python, typecheck/lint/format, браузер ABDEH на 393/320 и RU/KK/EN; физический iPhone не проверен. Foundation CI 41504047462 идёт. Три файла переданы с согласия владельца, остальные изменения сохранены. Протокол docs/operations/mobile-closed-notice-1102.md.",
       "nextAction": "Дождаться Foundation CI PR #302; merge и выпуск новой сборки не выполнены. После согласования выпуска проверить на iPhone. Общий статус и онлайн-пульт не обновлялись: области заняты."
+    },
+    {
+      "id": "mobile-tab-motion-1102",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-tab-motion-1102",
+      "scopes": [
+        "apps/mobile/src/components/TabActiveCapsule.tsx",
+        "apps/mobile/src/components/useTabScrollToTop.ts",
+        "docs/operations/mobile-tab-motion-1102.md"
+      ],
+      "status": "active",
+      "head": "35a314753e4f1c05868a6b2f8f5dc336c3d20261",
+      "updatedAt": "2026-11-02T18:54:21.398Z"
     }
   ]
 }
