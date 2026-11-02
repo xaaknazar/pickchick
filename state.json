@@ -7128,11 +7128,12 @@
       "scopes": [
         "infra/public-staging/front-site.Caddyfile",
         "tests/operations/test_front_site_longpoll.py",
-        "docs/operations/front-longpoll-1101.md"
+        "docs/operations/front-longpoll-1101.md",
+        "tests/backoffice/finance-browser.py"
       ],
       "status": "active",
       "head": "f9e1234e397daf8807364379c41218e4807d13a6",
-      "updatedAt": "2026-11-02T14:30:18.050Z"
+      "updatedAt": "2026-11-02T14:45:06.243Z"
     }
   ]
 }
