@@ -6998,12 +6998,14 @@
         "docs/operations/mobile-testflight30.md",
         "docs/operations/mobile-testflight30-evidence.json",
         "patches",
-        "tests/mobile/uri-decoder-security.test.mjs"
+        "tests/mobile/uri-decoder-security.test.mjs",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml"
       ],
       "status": "available",
       "head": "b32808225f3f88bfa45746f18fbfff2bb0be6bf8",
-      "updatedAt": "2026-11-02T16:48:36.611Z",
-      "summary": "Исправлена казахская подсказка оплаты: Jost не содержит ғөңі, вся kk-фраза использует системный полужирный. Коммит b3280822, PR296 обновлён. Typecheck/lint/format, web-export, браузерные AI и 7 roadmap PASS. RU/EN и логика оплаты сохранены. TestFlight30 доступен, но новая правка шрифта в него не входит. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/screens/PhotoProduct.tsx, apps/mobile/src/components/CartShortcut.tsx Documentation continuity transferred to mobile-kazakh-review-1030; build30 and release scopes retained. Owner requested next publication 30.10; release scopes transferred to mobile-kazakh-review-1030.\n2026-11-02: owner approved temporary transfer of pnpm-workspace.yaml and pnpm-lock.yaml from mobile-cart-mode-1029 to front-longpoll-1101 for official node-forge 1.4.1 security update; return after merge. No deploy authorized by this transfer.",
+      "updatedAt": "2026-11-02T17:45:40.969Z",
+      "summary": "Исправлена казахская подсказка оплаты: Jost не содержит ғөңі, вся kk-фраза использует системный полужирный. Коммит b3280822, PR296 обновлён. Typecheck/lint/format, web-export, браузерные AI и 7 roadmap PASS. RU/EN и логика оплаты сохранены. TestFlight30 доступен, но новая правка шрифта в него не входит. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/screens/PhotoProduct.tsx, apps/mobile/src/components/CartShortcut.tsx Documentation continuity transferred to mobile-kazakh-review-1030; build30 and release scopes retained. Owner requested next publication 30.10; release scopes transferred to mobile-kazakh-review-1030.\n2026-11-02: owner approved temporary transfer of pnpm-workspace.yaml and pnpm-lock.yaml from mobile-cart-mode-1029 to front-longpoll-1101 for official node-forge 1.4.1 security update; return after merge. No deploy authorized by this transfer.\n2026-11-02: package scopes returned after PR #301 ordinary merge, node-forge 1.4.1 and full green Foundation CI 41486431876. Integrate shared before further dependency edits.",
       "nextAction": "Дождаться полной CI PR296 и включить изменения в shared; нативная проверка шрифта и следующий TestFlight отдельным выпуском. Не менять VPS/кассу/iPad/App Store/онлайн-пульт, реальные платежи не выполнять."
     },
     {
@@ -7128,15 +7130,13 @@
         "tests/operations/test_front_site_longpoll.py",
         "docs/operations/front-longpoll-1101.md",
         "tests/backoffice/finance-browser.py",
-        "pnpm-workspace.yaml",
-        "pnpm-lock.yaml",
         "scripts/node-forge-security.mjs",
         "scripts/dependency-audit.mjs",
         "tests/unit/node-forge-patch.test.mjs"
       ],
       "status": "active",
       "head": "90f83a1dccc34df1c64c0786f93866e4be5563a0",
-      "updatedAt": "2026-11-02T16:58:09.749Z",
+      "updatedAt": "2026-11-02T17:45:40.969Z",
       "summary": "PR #301: Caddy live validated, long-poll 200 ~20s. Owner approved package-file transfer; node-forge 1.4.1 published, audit and 5 security regressions pass. Foundation CI 41486431876 pending on 90f83a1d.",
       "nextAction": "Wait full CI, ordinary merge if green, return temporary package scopes. Cashier fresh=false; owner has no access to LAN, cashier untouched."
     }
