@@ -7017,7 +7017,6 @@
         "apps/mobile/src/screens/GameScreens.tsx",
         "apps/mobile/src/backoffice/GameAvailability.tsx",
         "tests/mobile/tab-bar.test.mjs",
-        "tests/mobile/browser_tab_bar.py",
         "tests/mobile/store-copy.test.mjs",
         "docs/operations/mobile-kazakh-review-2026-10-30.md",
         "docs/operations/mobile-kazakh-review-2026-10-30.tsv",
@@ -7040,12 +7039,10 @@
         "apps/mobile/src/components/CartLinePrice.tsx",
         "apps/mobile/src/components/CartSheet.tsx",
         "apps/mobile/src/components/ComboRewardCard.tsx",
-        "apps/mobile/src/components/FloatingTabBar.tsx",
         "apps/mobile/src/components/GameCarousel.tsx",
         "apps/mobile/src/components/LaunchReveal.tsx",
         "apps/mobile/src/components/OrdersTab.tsx",
         "apps/mobile/src/components/Restaurants.tsx",
-        "apps/mobile/src/components/UI.tsx",
         "apps/mobile/src/games/ArcadeCard.tsx",
         "apps/mobile/src/games/ArcadeExperience.tsx",
         "apps/mobile/src/games/GamePosterCard.tsx",
@@ -7088,8 +7085,8 @@
       ],
       "status": "available",
       "head": "3ee71dcf50e9ef798688cbcb0aff1cf3e6b6976e",
-      "updatedAt": "2026-11-02T18:41:29.345Z",
-      "summary": "TestFlight 0.2.0 (32) доступен PickChick Internal, статус Тестируется подтверждён 30.10 в15:40. PR298 merged e4eb91b5, исходник aeb7fbda CI11/11; явное удаление аккаунта и геймпад. Итоговый протокол/хеши/status/roadmap опубликованы 3ee71dcf в PR299; дерево чистое. 30.10: owner approved transfer of only docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json to stage2-windows-1030 for preparation, no deployment.\n2026-11-02 owner approved temporary transfer to mobile-closed-notice-1102: apps/mobile/src/components/AppHeader.tsx, apps/mobile/src/screens/CatalogScreens.tsx. Existing behavior preserved; return after merge.",
+      "updatedAt": "2026-11-02T20:07:54.452Z",
+      "summary": "TestFlight 0.2.0 (32) доступен PickChick Internal, статус Тестируется подтверждён 30.10 в15:40. PR298 merged e4eb91b5, исходник aeb7fbda CI11/11; явное удаление аккаунта и геймпад. Итоговый протокол/хеши/status/roadmap опубликованы 3ee71dcf в PR299; дерево чистое. 30.10: owner approved transfer of only docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json to stage2-windows-1030 for preparation, no deployment.\n2026-11-02 owner approved temporary transfer to mobile-closed-notice-1102: apps/mobile/src/components/AppHeader.tsx, apps/mobile/src/screens/CatalogScreens.tsx. Existing behavior preserved; return after merge. 02.11: точечная передача в mobile-tab-motion-1102: apps/mobile/src/components/FloatingTabBar.tsx, apps/mobile/src/components/UI.tsx, tests/mobile/browser_tab_bar.py. Согласие владельца для трёх файлов; CatalogScreens передан из своей предыдущей задачи после merge её опубликованного checkpoint.",
       "nextAction": "Владелец записывает на физическом iPhone вход и полное удаление выделенного review-аккаунта. Затем проверить видео, добавить в App Review Notes и подготовить повторную отправку Apple. Документационный PR299 ждёт собственной CI/merge; это не меняет доступность32. Сервер/касса/пульт не выпускались, реальные аккаунты/платежи не затронуты."
     },
     {
@@ -7145,13 +7142,12 @@
         "apps/mobile/src/components/RestaurantClosedNotice.tsx",
         "docs/operations/mobile-closed-notice-1102.md",
         "apps/mobile/src/components/AppHeader.tsx",
-        "apps/mobile/src/screens/CatalogScreens.tsx",
         "tests/mobile/browser_cart_unavailable.py"
       ],
       "status": "available",
       "head": "c7fcb70947e67d264fed6d012397855070f3dddc",
-      "updatedAt": "2026-11-02T18:51:23.007Z",
-      "summary": "PR #302, c7fcb709: верхняя плашка с луной и временем открытия на вкладках и в корзине. Проверены 562 Node + 59 Python, typecheck/lint/format, браузер ABDEH на 393/320 и RU/KK/EN; физический iPhone не проверен. Foundation CI 41504047462 идёт. Три файла переданы с согласия владельца, остальные изменения сохранены. Протокол docs/operations/mobile-closed-notice-1102.md.",
+      "updatedAt": "2026-11-02T20:07:54.452Z",
+      "summary": "PR #302, c7fcb709: верхняя плашка с луной и временем открытия на вкладках и в корзине. Проверены 562 Node + 59 Python, typecheck/lint/format, браузер ABDEH на 393/320 и RU/KK/EN; физический iPhone не проверен. Foundation CI 41504047462 идёт. Три файла переданы с согласия владельца, остальные изменения сохранены. Протокол docs/operations/mobile-closed-notice-1102.md. 02.11: точечная передача в mobile-tab-motion-1102: apps/mobile/src/screens/CatalogScreens.tsx. Согласие владельца для трёх файлов; CatalogScreens передан из своей предыдущей задачи после merge её опубликованного checkpoint.",
       "nextAction": "Дождаться Foundation CI PR #302; merge и выпуск новой сборки не выполнены. После согласования выпуска проверить на iPhone. Общий статус и онлайн-пульт не обновлялись: области заняты."
     },
     {
@@ -7161,11 +7157,15 @@
       "scopes": [
         "apps/mobile/src/components/TabActiveCapsule.tsx",
         "apps/mobile/src/components/useTabScrollToTop.ts",
-        "docs/operations/mobile-tab-motion-1102.md"
+        "docs/operations/mobile-tab-motion-1102.md",
+        "apps/mobile/src/components/FloatingTabBar.tsx",
+        "apps/mobile/src/components/UI.tsx",
+        "tests/mobile/browser_tab_bar.py",
+        "apps/mobile/src/screens/CatalogScreens.tsx"
       ],
       "status": "active",
       "head": "5f9112357267e18276b77448efaa29bc150da35c",
-      "updatedAt": "2026-11-02T20:07:43.664Z",
+      "updatedAt": "2026-11-02T20:07:54.458Z",
       "summary": "Подготовлены независимые TabActiveCapsule и useTabScrollToTop; typecheck, lint, prettier PASS. Опубликован d2cbecd2. Компоненты ещё не подключены, UI не изменён. Протокол docs/operations/mobile-tab-motion-1102.md.",
       "nextAction": "Ожидается согласование передачи FloatingTabBar.tsx, UI.tsx, browser_tab_bar.py от mobile-kazakh-review-1030. Затем подключить компоненты, сохранить PR302 в CatalogScreens, проверить реальные переходы, открыть PR. Ничего не выпускать."
     }
