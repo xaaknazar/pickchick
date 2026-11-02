@@ -490,6 +490,7 @@ def scenario_closed_hours(browser, width, height):
         scope = page.get_by_test_id('screen-' + screen)
         expect(scope).to_be_visible()
         expect(scope.get_by_test_id('header-hours')).to_have_text('откроемся в 10:00')
+        expect(scope.get_by_test_id('restaurant-closed-notice-text')).to_have_text('откроемся в 10:00')
         expect_closed_bar(page)
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         if route == 'events':
@@ -501,6 +502,8 @@ def scenario_closed_hours(browser, width, height):
     since = len(state['paths'])
     open_cart(page)
     cart, pay = expect_cart_unavailable(page, 'откроемся в 10:00', 'Пока не работаем')
+    expect(cart.get_by_test_id('restaurant-closed-notice-text')).to_have_text('откроемся в 10:00')
+    expect(page.get_by_test_id('restaurant-closed-notice')).to_have_count(1)
     page.wait_for_timeout(400)
     page.screenshot(path=str(OUT / f'closed-cart-{width}.png'))
     try_to_pay(page, pay)
@@ -513,6 +516,7 @@ def scenario_closed_hours(browser, width, height):
     set_clock(page, state, at('10:00:00.5'))
     expect_open_bar(page)
     expect(page.get_by_test_id('screen-M06').get_by_test_id('header-hours')).to_have_text('10:00-00:00')
+    expect(page.get_by_test_id('screen-M06').get_by_test_id('restaurant-closed-notice')).to_have_count(0)
     page.screenshot(path=str(OUT / f'open-menu-{width}.png'))
     open_cart(page)
     expect_cart_payable(page)
@@ -619,6 +623,7 @@ def scenario_stop_list(browser):
     expect_closed_bar(page)
     open_cart(page)
     expect_cart_unavailable(page, STALE, 'Оплата недоступна')
+    expect(page.get_by_test_id('screen-M09').get_by_test_id('restaurant-closed-notice')).to_have_count(0)
     page.wait_for_timeout(400)
     page.screenshot(path=str(OUT / 'stale-cart-393.png'))
     # Fresh again with Pick Combo on the stop list: the reason changes in the open cart.
@@ -870,6 +875,7 @@ def scenario_languages(browser, width=320, height=568):
         expect_closed_bar(page, lang=lang)
         opens = tr('откроемся завтра в {p0}', lang, p0='09:00')
         expect(visible(page, 'header-hours')).to_have_text(opens)
+        expect(visible(page, 'restaurant-closed-notice-text')).to_have_text(opens)
         fit = caption_fit(page)
         # Normal size: the whole caption, no ellipsis. Largest text: iOS shrinks it to fit
         # (adjustsFontSizeToFit), never below the normal size, which fits.
@@ -878,6 +884,9 @@ def scenario_languages(browser, width=320, height=568):
         print(lang, 'header caption', fit)
         open_cart(page)
         expect_cart_unavailable(page, opens, tr('Пока не работаем', lang))
+        expect(page.get_by_test_id('screen-M09').get_by_test_id('restaurant-closed-notice-text')).to_have_text(opens)
+        notice = large_text(page, 'restaurant-closed-notice-text', 1.5, 20)
+        assert not notice['sideways'] and not notice['clipped'] and notice['inside'], (lang, notice)
         page.wait_for_timeout(400)
         page.screenshot(path=str(OUT / f'closed-cart-{lang}-{width}.png'))
         cart = page.get_by_test_id('screen-M09')
