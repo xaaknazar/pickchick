@@ -6997,15 +6997,13 @@
         "tests/mobile/browser_cart_unavailable.py",
         "docs/operations/mobile-testflight30.md",
         "docs/operations/mobile-testflight30-evidence.json",
-        "pnpm-workspace.yaml",
-        "pnpm-lock.yaml",
         "patches",
         "tests/mobile/uri-decoder-security.test.mjs"
       ],
       "status": "available",
       "head": "b32808225f3f88bfa45746f18fbfff2bb0be6bf8",
-      "updatedAt": "2026-10-30T05:52:53.438Z",
-      "summary": "Исправлена казахская подсказка оплаты: Jost не содержит ғөңі, вся kk-фраза использует системный полужирный. Коммит b3280822, PR296 обновлён. Typecheck/lint/format, web-export, браузерные AI и 7 roadmap PASS. RU/EN и логика оплаты сохранены. TestFlight30 доступен, но новая правка шрифта в него не входит. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/screens/PhotoProduct.tsx, apps/mobile/src/components/CartShortcut.tsx Documentation continuity transferred to mobile-kazakh-review-1030; build30 and release scopes retained. Owner requested next publication 30.10; release scopes transferred to mobile-kazakh-review-1030.",
+      "updatedAt": "2026-11-02T16:48:36.611Z",
+      "summary": "Исправлена казахская подсказка оплаты: Jost не содержит ғөңі, вся kk-фраза использует системный полужирный. Коммит b3280822, PR296 обновлён. Typecheck/lint/format, web-export, браузерные AI и 7 roadmap PASS. RU/EN и логика оплаты сохранены. TestFlight30 доступен, но новая правка шрифта в него не входит. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/screens/PhotoProduct.tsx, apps/mobile/src/components/CartShortcut.tsx Documentation continuity transferred to mobile-kazakh-review-1030; build30 and release scopes retained. Owner requested next publication 30.10; release scopes transferred to mobile-kazakh-review-1030.\n2026-11-02: owner approved temporary transfer of pnpm-workspace.yaml and pnpm-lock.yaml from mobile-cart-mode-1029 to front-longpoll-1101 for official node-forge 1.4.1 security update; return after merge. No deploy authorized by this transfer.",
       "nextAction": "Дождаться полной CI PR296 и включить изменения в shared; нативная проверка шрифта и следующий TestFlight отдельным выпуском. Не менять VPS/кассу/iPad/App Store/онлайн-пульт, реальные платежи не выполнять."
     },
     {
@@ -7129,12 +7127,14 @@
         "infra/public-staging/front-site.Caddyfile",
         "tests/operations/test_front_site_longpoll.py",
         "docs/operations/front-longpoll-1101.md",
-        "tests/backoffice/finance-browser.py"
+        "tests/backoffice/finance-browser.py",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml"
       ],
       "status": "active",
       "head": "f9e1234e397daf8807364379c41218e4807d13a6",
-      "updatedAt": "2026-11-02T14:53:11.260Z",
-      "summary": "\n2026-11-02: owner approved temporary transfer of @vps/public-https from mobile-appstore-1022 to front-longpoll-1101 for scoped Caddy availability timeout fix; return after verification.\n2026-11-02: Caddy hotfix f9e1234e deployed at 14:48 UTC; nip.io long-poll GET 200 twice at 20.06s, external Mac 200 at 20.65s. Other site/static content and container start times unchanged. Shared server lock released. Temporary HTTPS reserve returned; PR301 and docs/operations/front-longpoll-1101.md contain evidence. Full CI pending after calendar-only test fix."
+      "updatedAt": "2026-11-02T16:48:36.614Z",
+      "summary": "\n2026-11-02: owner approved temporary transfer of @vps/public-https from mobile-appstore-1022 to front-longpoll-1101 for scoped Caddy availability timeout fix; return after verification.\n2026-11-02: Caddy hotfix f9e1234e deployed at 14:48 UTC; nip.io long-poll GET 200 twice at 20.06s, external Mac 200 at 20.65s. Other site/static content and container start times unchanged. Shared server lock released. Temporary HTTPS reserve returned; PR301 and docs/operations/front-longpoll-1101.md contain evidence. Full CI pending after calendar-only test fix.\n2026-11-02: owner approved temporary transfer of pnpm-workspace.yaml and pnpm-lock.yaml from mobile-cart-mode-1029 to front-longpoll-1101 for official node-forge 1.4.1 security update; return after merge. No deploy authorized by this transfer."
     }
   ]
 }
