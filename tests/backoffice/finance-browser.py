@@ -24,6 +24,8 @@ with sync_playwright() as pw:
     def tab(label):
         b(label).click()
     def period(start, end):
+        # Pending recovery reloads the report; wait before typing into its fields.
+        expect(b('Показать')).to_be_enabled()
         page.get_by_test_id('finance-start').fill(start)
         page.get_by_test_id('finance-end').fill(end)
         b('Показать').click()
