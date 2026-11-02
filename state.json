@@ -7129,11 +7129,14 @@
         "docs/operations/front-longpoll-1101.md",
         "tests/backoffice/finance-browser.py",
         "pnpm-workspace.yaml",
-        "pnpm-lock.yaml"
+        "pnpm-lock.yaml",
+        "scripts/node-forge-security.mjs",
+        "scripts/dependency-audit.mjs",
+        "tests/unit/node-forge-patch.test.mjs"
       ],
       "status": "active",
-      "head": "f9e1234e397daf8807364379c41218e4807d13a6",
-      "updatedAt": "2026-11-02T16:48:36.614Z",
+      "head": "a45fe6f82ed06312eddd5034c2da08b82746fa2f",
+      "updatedAt": "2026-11-02T16:48:41.911Z",
       "summary": "\n2026-11-02: owner approved temporary transfer of @vps/public-https from mobile-appstore-1022 to front-longpoll-1101 for scoped Caddy availability timeout fix; return after verification.\n2026-11-02: Caddy hotfix f9e1234e deployed at 14:48 UTC; nip.io long-poll GET 200 twice at 20.06s, external Mac 200 at 20.65s. Other site/static content and container start times unchanged. Shared server lock released. Temporary HTTPS reserve returned; PR301 and docs/operations/front-longpoll-1101.md contain evidence. Full CI pending after calendar-only test fix.\n2026-11-02: owner approved temporary transfer of pnpm-workspace.yaml and pnpm-lock.yaml from mobile-cart-mode-1029 to front-longpoll-1101 for official node-forge 1.4.1 security update; return after merge. No deploy authorized by this transfer."
     }
   ]
