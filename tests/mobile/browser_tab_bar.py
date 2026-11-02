@@ -27,8 +27,6 @@ CAT = json.loads(subprocess.check_output(['node', '--input-type=module', '-e',
 BRANCH = CAT['branch_id']
 # Owner 27.10.2026: exactly three tabs; the profile opens from the top header.
 TABS = [('menu', 'M06', 'Меню'), ('events', 'M26', 'Игры'), ('orders', 'M19', 'Заказы')]
-# Games has its own ScrollView; its scoped transfer is still pending.
-SCROLL_TO_TOP_TABS = [tab for tab in TABS if tab[0] != 'events']
 errors = []
 
 
@@ -231,7 +229,7 @@ with sync_playwright() as p:
             assert last_content_bottom(page, screen) <= box['y'] + 1, (route, width)
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         if not CAPTURE_ONLY:
-            for route, screen, _ in SCROLL_TO_TOP_TABS:
+            for route, screen, _ in TABS:
                 assert_repeat_scroll(page, route, screen, smooth=False)
                 assert_capsule_settled(page, route)
         # Cart dock must sit above the floating bar and keep the content clear.
@@ -333,7 +331,7 @@ with sync_playwright() as p:
             }""")
             assert_capsule_settled(page, 'events')
             expect(page.locator('[data-testid$="-pill"][data-testid^="tab-"]')).to_have_count(1)
-            for route, screen, _ in SCROLL_TO_TOP_TABS:
+            for route, screen, _ in TABS:
                 assert_repeat_scroll(page, route, screen, smooth=True)
             # A changed viewport remeasures the capsule instead of leaving it between tabs.
             page.set_viewport_size({'width': 430, 'height': 932})

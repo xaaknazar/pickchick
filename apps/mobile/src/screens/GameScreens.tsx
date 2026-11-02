@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+import { useTabScrollToTop } from '../components/useTabScrollToTop';
 import { t, localize, useLocale } from '../i18n';
 import { ComboRewardCard } from '../components/ComboRewardCard';
 import { usePublishedContent } from '../backoffice/usePublishedContent';
@@ -16,6 +18,8 @@ import { Body, Caption, Heading, Icon, Row, styles as ui, type IconName } from '
 
 export function Events(props: ScreenProps) {
   useLocale();
+  const scroll = useRef<ScrollView>(null);
+  useTabScrollToTop(scroll);
   const published = usePublishedContent(props.model.branch?.id);
   const progress = props.model.comboRewards?.progress ?? props.model.testFlow.comboProgress;
   const insets = useSafeAreaInsets();
@@ -24,6 +28,7 @@ export function Events(props: ScreenProps) {
       {/* Owner 27.10.2026: the same top header as the menu (logo, restaurant, profile). */}
       <AppHeader />
       <ScrollView
+        ref={scroll}
         testID="scroll-M26"
         style={s.eventsScroll}
         showsVerticalScrollIndicator={false}
