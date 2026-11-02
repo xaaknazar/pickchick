@@ -8,6 +8,7 @@ import { CheckoutKeyboardDone } from '../components/CheckoutKeyboard';
 import { ProductPhoto, productPhoto } from '../components/ProductPhoto';
 import { hasPhotoPilot } from '../product-photo-selection';
 import { useReducedMotion } from '../components/Motion';
+import { useTabScrollToTop } from '../components/useTabScrollToTop';
 import { MotionPressable as Pressable, MotionModal } from '../components/Motion';
 import { usePublishedContent } from '../backoffice/usePublishedContent';
 import { PromotionDialog } from '../backoffice/PromotionDialog';
@@ -364,6 +365,9 @@ export function Menu(props: ScreenProps) {
   const offsets = useSharedValue<number[]>([]);
   const requestedCategory = useSharedValue(-1);
   const requestedY = useSharedValue(0);
+  useTabScrollToTop(scroll, () => {
+    requestedCategory.value = -1;
+  });
   const contentHeight = useSharedValue(0);
   const viewportHeight = useSharedValue(0);
   const chips = useRef<ScrollView>(null);

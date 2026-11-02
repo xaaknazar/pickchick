@@ -10,11 +10,13 @@ import {
   View,
   useWindowDimensions,
   type ViewStyle,
+  type LayoutRectangle,
 } from 'react-native';
 import type { BottomTabBarProps } from 'expo-router/tabs';
 import { MotionPressable as Pressable } from './Motion';
 import { TabIcon } from './UI';
 import { TabCartDock } from './TabCartDock';
+import { TabActiveCapsule } from './TabActiveCapsule';
 import { colors, font } from '../theme';
 import {
   tabBarMetrics,
@@ -117,6 +119,9 @@ export function FloatingTabBar({
   // The cart's item count the customer last saw on the docked bar. Kept here, not in the bar: the
   // bar unmounts under a sheet and under the keyboard, and a remount is not «an item was added».
   const seenCartCount = useRef(0);
+  const [frames, setFrames] = useState<Record<string, LayoutRectangle>>({});
+  const activeRoute = state.routes[state.index];
+  const activeFrame = activeRoute ? frames[activeRoute.key] : undefined;
   // The keyboard hides the tab bar and the cart bar docked on it together.
   if (keyboardVisible) return null;
   // One layer above every tab screen (owner 28.10.2026): the cart bar (quick pay) is laid out
@@ -144,77 +149,92 @@ export function FloatingTabBar({
             reducedTransparency ? s.solid : [s.glass, webGlass],
           ]}
         >
-          {state.routes.map((route, index) => {
-            const options = descriptors[route.key]?.options ?? {};
-            const focused = state.index === index;
-            const label = typeof options.title === 'string' ? options.title : route.name;
-            const color = focused ? palette.active : palette.inactive;
-            const badge =
-              options.tabBarBadge === undefined || options.tabBarBadge === ''
-                ? null
-                : Number(options.tabBarBadge) > 9
-                  ? '9+'
-                  : String(options.tabBarBadge);
-            const onPress = () => {
-              const event = navigation.emit({
-                type: 'tabPress',
-                target: route.key,
-                canPreventDefault: true,
-              });
-              if (!focused && !event.defaultPrevented)
-                navigation.navigate(route.name, route.params);
-            };
-            return (
-              <Pressable
-                key={route.key}
-                testID={options.tabBarButtonTestID}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: focused }}
-                aria-selected={focused}
-                accessibilityLabel={localize(
-                  options.tabBarAccessibilityLabel ??
-                    (badge ? t('{p0}, активных заказов: {p1}', { p0: label, p1: badge }) : label),
-                )}
-                feedback="scale"
-                onPress={onPress}
-                onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route.key })}
-                style={[s.item, { minHeight: metrics.itemHeight }]}
-              >
-                {focused ? (
-                  <View
-                    testID={`${options.tabBarButtonTestID}-pill`}
-                    pointerEvents="none"
-                    style={s.pill}
-                  />
-                ) : null}
-                <View>
-                  <TabIcon name={route.name as TabName} color={color} />
-                  {badge ? (
-                    <View
-                      testID={`${options.tabBarButtonTestID}-badge`}
-                      pointerEvents="none"
-                      style={s.badge}
-                    >
-                      <Text style={s.badgeText} maxFontSizeMultiplier={1.2} numberOfLines={1}>
-                        {localize(badge)}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-                <Text
-                  numberOfLines={1}
-                  maxFontSizeMultiplier={tabLabelMaxScale}
-                  // iOS: the longest label (kk «Тапсырыстар») shrinks instead of truncating at
-                  // 320 pt with the largest supported text size.
-                  adjustsFontSizeToFit
-                  minimumFontScale={tabLabelMinFit}
-                  style={[s.label, { color }, focused && s.labelActive]}
+          <View style={s.items}>
+            {activeRoute && activeFrame ? (
+              <TabActiveCapsule
+                frame={activeFrame}
+                testID={`${descriptors[activeRoute.key]?.options.tabBarButtonTestID}-pill`}
+              />
+            ) : null}
+            {state.routes.map((route, index) => {
+              const options = descriptors[route.key]?.options ?? {};
+              const focused = state.index === index;
+              const label = typeof options.title === 'string' ? options.title : route.name;
+              const color = focused ? palette.active : palette.inactive;
+              const badge =
+                options.tabBarBadge === undefined || options.tabBarBadge === ''
+                  ? null
+                  : Number(options.tabBarBadge) > 9
+                    ? '9+'
+                    : String(options.tabBarBadge);
+              const onPress = () => {
+                const event = navigation.emit({
+                  type: 'tabPress',
+                  target: route.key,
+                  canPreventDefault: true,
+                });
+                if (!focused && !event.defaultPrevented)
+                  navigation.navigate(route.name, route.params);
+              };
+              return (
+                <Pressable
+                  key={route.key}
+                  onLayout={({ nativeEvent: { layout } }) => {
+                    setFrames((previous) => {
+                      const frame = previous[route.key];
+                      if (
+                        frame &&
+                        frame.x === layout.x &&
+                        frame.y === layout.y &&
+                        frame.width === layout.width &&
+                        frame.height === layout.height
+                      )
+                        return previous;
+                      return { ...previous, [route.key]: layout };
+                    });
+                  }}
+                  testID={options.tabBarButtonTestID}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: focused }}
+                  aria-selected={focused}
+                  accessibilityLabel={localize(
+                    options.tabBarAccessibilityLabel ??
+                      (badge ? t('{p0}, активных заказов: {p1}', { p0: label, p1: badge }) : label),
+                  )}
+                  feedback="scale"
+                  onPress={onPress}
+                  onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route.key })}
+                  style={[s.item, { minHeight: metrics.itemHeight }]}
                 >
-                  {localize(label)}
-                </Text>
-              </Pressable>
-            );
-          })}
+                  <View>
+                    <TabIcon name={route.name as TabName} color={color} />
+                    {badge ? (
+                      <View
+                        testID={`${options.tabBarButtonTestID}-badge`}
+                        pointerEvents="none"
+                        style={s.badge}
+                      >
+                        <Text style={s.badgeText} maxFontSizeMultiplier={1.2} numberOfLines={1}>
+                          {localize(badge)}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text
+                    numberOfLines={1}
+                    maxFontSizeMultiplier={tabLabelMaxScale}
+                    // iOS: the longest label (kk «Тапсырыстар») shrinks instead of truncating at
+                    // 320 pt with the largest supported text size.
+                    adjustsFontSizeToFit
+                    minimumFontScale={tabLabelMinFit}
+                    style={[s.label, { color }, focused && s.labelActive]}
+                  >
+                    {localize(label)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       </View>
     </View>
@@ -237,6 +257,7 @@ const s = StyleSheet.create({
     shadowRadius: 18,
     elevation: 12,
   },
+  items: { flex: 1, flexDirection: 'row' },
   glass: { backgroundColor: palette.glass },
   solid: { backgroundColor: palette.solid },
   item: {
@@ -248,15 +269,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 6,
     borderRadius: 999,
-  },
-  pill: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    borderRadius: 999,
-    backgroundColor: palette.pill,
   },
   label: {
     fontFamily: font.medium,

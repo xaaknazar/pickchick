@@ -27,6 +27,8 @@ CAT = json.loads(subprocess.check_output(['node', '--input-type=module', '-e',
 BRANCH = CAT['branch_id']
 # Owner 27.10.2026: exactly three tabs; the profile opens from the top header.
 TABS = [('menu', 'M06', 'Меню'), ('events', 'M26', 'Игры'), ('orders', 'M19', 'Заказы')]
+# Games has its own ScrollView; its scoped transfer is still pending.
+SCROLL_TO_TOP_TABS = [tab for tab in TABS if tab[0] != 'events']
 errors = []
 
 
@@ -133,6 +135,47 @@ def assert_header(page, screen, width):
     return b
 
 
+def assert_capsule_settled(page, route):
+    page.wait_for_function("""(route) => {
+      const pill = document.querySelector(`[data-testid="tab-${route}-pill"]`);
+      const tab = document.querySelector(`[data-testid="tab-${route}"]`);
+      if (!pill || !tab) return false;
+      const a = pill.getBoundingClientRect(), b = tab.getBoundingClientRect();
+      return Math.abs(a.x-b.x) < 1 && Math.abs(a.width-b.width) < 1;
+    }""", arg=route)
+
+
+def assert_repeat_scroll(page, route, screen, smooth):
+    page.get_by_test_id('tab-' + route).click()
+    scroll = page.get_by_test_id('scroll-' + screen)
+    expect(scroll).to_be_visible()
+    start = scroll.evaluate('(e) => { e.scrollTop = Math.min(400, e.scrollHeight-e.clientHeight); return e.scrollTop; }')
+    # Switching away and back preserves position; only a repeat press scrolls to top.
+    other = 'events' if route == 'menu' else 'menu'
+    page.get_by_test_id('tab-' + other).click()
+    page.get_by_test_id('tab-' + route).click()
+    assert abs(scroll.evaluate('(e) => e.scrollTop') - start) < 2, (route, start)
+    positions = page.evaluate("""async ({route, screen}) => {
+      const el = document.querySelector(`[data-testid="scroll-${screen}"]`);
+      const values = [el.scrollTop];
+      document.querySelector(`[data-testid="tab-${route}"]`).click();
+      const end = performance.now() + 900;
+      while(performance.now() < end) {
+        await new Promise(requestAnimationFrame);
+        values.push(el.scrollTop);
+      }
+      return values;
+    }""", {'route': route, 'screen': screen})
+    assert positions[-1] <= 1, (route, positions)
+    if start > 30:
+        intermediate = any(1 < y < start - 1 for y in positions)
+        assert intermediate == smooth, (route, smooth, positions)
+    # Repeating the action at the top is harmless and leaves this route active.
+    page.get_by_test_id('tab-' + route).click()
+    expect(page.get_by_test_id('tab-' + route)).to_have_attribute('aria-selected', 'true')
+    assert scroll.evaluate('(e) => e.scrollTop') <= 1
+
+
 with sync_playwright() as p:
     browser = p.chromium.launch()
     for width, height in [(393, 852), (320, 568)]:
@@ -187,6 +230,10 @@ with sync_playwright() as p:
             scroll_to_end(page, screen)
             assert last_content_bottom(page, screen) <= box['y'] + 1, (route, width)
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+        if not CAPTURE_ONLY:
+            for route, screen, _ in SCROLL_TO_TOP_TABS:
+                assert_repeat_scroll(page, route, screen, smooth=False)
+                assert_capsule_settled(page, route)
         # Cart dock must sit above the floating bar and keep the content clear.
         page.get_by_test_id('tab-menu').click()
         page.get_by_test_id('scroll-M06').evaluate('(e) => { e.scrollTop = 0; }')
@@ -250,7 +297,52 @@ with sync_playwright() as p:
         # Settings (46 pt) shares the header button's right edge (header button 54 pt).
         assert abs(settings['x'] + settings['width'] - (expected + 54)) <= 1, (settings, expected)
         context.close()
+    if not CAPTURE_ONLY:
+        for width, height in [(393, 852), (320, 568)]:
+            context = isolated_context(browser, viewport={'width': width, 'height': height},
+                                       has_touch=True, reduced_motion='no-preference')
+            signed_in(context)
+            route_fixture(context, '**/v1/**', fixture)
+            page = context.new_page()
+            page.on('pageerror', lambda error: errors.append(str(error)))
+            page.goto(URL + '/menu')
+            expect(page.get_by_test_id('product-pick-combo')).to_be_visible(timeout=20000)
+            expect(page.get_by_test_id('launch-reveal')).to_have_count(0, timeout=10000)
+            assert_capsule_settled(page, 'menu')
+            samples = page.evaluate("""async () => {
+              const pill = document.querySelector('[data-testid="tab-menu-pill"]');
+              const values = [pill.getBoundingClientRect().x];
+              document.querySelector('[data-testid="tab-events"]').click();
+              const end = performance.now() + 1000;
+              while(performance.now() < end) {
+                await new Promise(requestAnimationFrame);
+                if (!pill.isConnected) throw new Error('Capsule was replaced');
+                values.push(pill.getBoundingClientRect().x);
+              }
+              return values;
+            }""")
+            assert samples[-1] > samples[0] + 50, samples
+            assert any(samples[0]+2 < x < samples[-1]-2 for x in samples), samples
+            assert_capsule_settled(page, 'events')
+            # Redirect the same moving capsule before the previous spring settles.
+            page.evaluate("""async () => {
+              for (const route of ['orders','menu','events','menu','orders','events']) {
+                document.querySelector(`[data-testid="tab-${route}"]`).click();
+                await new Promise(r => setTimeout(r, 45));
+              }
+            }""")
+            assert_capsule_settled(page, 'events')
+            expect(page.locator('[data-testid$="-pill"][data-testid^="tab-"]')).to_have_count(1)
+            for route, screen, _ in SCROLL_TO_TOP_TABS:
+                assert_repeat_scroll(page, route, screen, smooth=True)
+            # A changed viewport remeasures the capsule instead of leaving it between tabs.
+            page.set_viewport_size({'width': 430, 'height': 932})
+            assert_capsule_settled(page, 'orders')
+            page.emulate_media(reduced_motion='reduce')
+            page.get_by_test_id('tab-menu').click()
+            assert_capsule_settled(page, 'menu')
+            context.close()
     browser.close()
 assert errors == [], errors
-print('tab bar: 3 tabs, header profile at one spot on all tabs (320/393/1024), opaque collapsed menu header, '
+print('tab bar: spring continuity, interrupted switches, repeat-to-top and Reduce Motion; 3 tabs, header profile at one spot on all tabs (320/393/1024), opaque collapsed menu header, '
       'profile stack screen without bar/cart; screenshots:', OUT)
