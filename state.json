@@ -7014,7 +7014,6 @@
       "scopes": [
         "apps/mobile/src/i18n",
         "apps/mobile/src/app",
-        "apps/mobile/src/screens/GameScreens.tsx",
         "apps/mobile/src/backoffice/GameAvailability.tsx",
         "tests/mobile/tab-bar.test.mjs",
         "tests/mobile/store-copy.test.mjs",
@@ -7085,8 +7084,8 @@
       ],
       "status": "available",
       "head": "3ee71dcf50e9ef798688cbcb0aff1cf3e6b6976e",
-      "updatedAt": "2026-11-02T20:07:54.452Z",
-      "summary": "TestFlight 0.2.0 (32) доступен PickChick Internal, статус Тестируется подтверждён 30.10 в15:40. PR298 merged e4eb91b5, исходник aeb7fbda CI11/11; явное удаление аккаунта и геймпад. Итоговый протокол/хеши/status/roadmap опубликованы 3ee71dcf в PR299; дерево чистое. 30.10: owner approved transfer of only docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json to stage2-windows-1030 for preparation, no deployment.\n2026-11-02 owner approved temporary transfer to mobile-closed-notice-1102: apps/mobile/src/components/AppHeader.tsx, apps/mobile/src/screens/CatalogScreens.tsx. Existing behavior preserved; return after merge. 02.11: точечная передача в mobile-tab-motion-1102: apps/mobile/src/components/FloatingTabBar.tsx, apps/mobile/src/components/UI.tsx, tests/mobile/browser_tab_bar.py. Согласие владельца для трёх файлов; CatalogScreens передан из своей предыдущей задачи после merge её опубликованного checkpoint.",
+      "updatedAt": "2026-11-02T20:46:05.339Z",
+      "summary": "TestFlight 0.2.0 (32) доступен PickChick Internal, статус Тестируется подтверждён 30.10 в15:40. PR298 merged e4eb91b5, исходник aeb7fbda CI11/11; явное удаление аккаунта и геймпад. Итоговый протокол/хеши/status/roadmap опубликованы 3ee71dcf в PR299; дерево чистое. 30.10: owner approved transfer of only docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json to stage2-windows-1030 for preparation, no deployment.\n2026-11-02 owner approved temporary transfer to mobile-closed-notice-1102: apps/mobile/src/components/AppHeader.tsx, apps/mobile/src/screens/CatalogScreens.tsx. Existing behavior preserved; return after merge. 02.11: точечная передача в mobile-tab-motion-1102: apps/mobile/src/components/FloatingTabBar.tsx, apps/mobile/src/components/UI.tsx, tests/mobile/browser_tab_bar.py. Согласие владельца для трёх файлов; CatalogScreens передан из своей предыдущей задачи после merge её опубликованного checkpoint. 02.11: владелец отдельно разрешил передать GameScreens.tsx в mobile-tab-motion-1102 только для повторной прокрутки вкладки; игровая логика сохраняется.",
       "nextAction": "Владелец записывает на физическом iPhone вход и полное удаление выделенного review-аккаунта. Затем проверить видео, добавить в App Review Notes и подготовить повторную отправку Apple. Документационный PR299 ждёт собственной CI/merge; это не меняет доступность32. Сервер/касса/пульт не выпускались, реальные аккаунты/платежи не затронуты."
     },
     {
@@ -7161,11 +7160,12 @@
         "apps/mobile/src/components/FloatingTabBar.tsx",
         "apps/mobile/src/components/UI.tsx",
         "tests/mobile/browser_tab_bar.py",
-        "apps/mobile/src/screens/CatalogScreens.tsx"
+        "apps/mobile/src/screens/CatalogScreens.tsx",
+        "apps/mobile/src/screens/GameScreens.tsx"
       ],
       "status": "active",
       "head": "8c38f6735d11e6c03d7a5f33772286f57f7985e7",
-      "updatedAt": "2026-11-02T20:46:00.682Z",
+      "updatedAt": "2026-11-02T20:46:05.339Z",
       "summary": "Draft PR303 поверх PR302, 8c38f673. Spring-капсула подключена, повторный тап работает на Меню/Заказах, обычная смена сохраняет позицию; Reduce Motion учтён. 562+59, typecheck/lint/format, browser_tab_bar и browser_account_required PASS. Три согласованных передачи оформлены. iPhone не проверен, выпуска нет.",
       "nextAction": "Ждём согласования ещё GameScreens.tsx: добавить ref/useTabScrollToTop, включить events в SCROLL_TO_TOP_TABS, повторить проверки и завершить PR303. После merge PR302 сменить base PR303 на shared. Самостоятельно не выпускать."
     }
