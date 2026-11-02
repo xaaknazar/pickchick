@@ -84,6 +84,8 @@ with sync_playwright() as pw:
     expect(b('Проверить результат')).to_have_count(0)
     assert recovered[0] == requests[0]
     assert requests[0]['command']['entry']['account_id'] is None
+    # Reload resets the report to the current month; select the fixture period again.
+    period('2026-10-01', '2026-10-31')
     tab('Журнал операций')
     expect(b('Синтетические коммунальные услуги')).to_have_count(1)
     tab('ДДС')
