@@ -7163,9 +7163,11 @@
         "apps/mobile/src/components/useTabScrollToTop.ts",
         "docs/operations/mobile-tab-motion-1102.md"
       ],
-      "status": "active",
-      "head": "35a314753e4f1c05868a6b2f8f5dc336c3d20261",
-      "updatedAt": "2026-11-02T18:54:21.398Z"
+      "status": "available",
+      "head": "d2cbecd288c98ab31022b84a74cbb7d74054d4fe",
+      "updatedAt": "2026-11-02T18:56:39.586Z",
+      "summary": "Подготовлены независимые TabActiveCapsule и useTabScrollToTop; typecheck, lint, prettier PASS. Опубликован d2cbecd2. Компоненты ещё не подключены, UI не изменён. Протокол docs/operations/mobile-tab-motion-1102.md.",
+      "nextAction": "Ожидается согласование передачи FloatingTabBar.tsx, UI.tsx, browser_tab_bar.py от mobile-kazakh-review-1030. Затем подключить компоненты, сохранить PR302 в CatalogScreens, проверить реальные переходы, открыть PR. Ничего не выпускать."
     }
   ]
 }
