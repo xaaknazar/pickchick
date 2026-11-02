@@ -7134,11 +7134,11 @@
         "scripts/dependency-audit.mjs",
         "tests/unit/node-forge-patch.test.mjs"
       ],
-      "status": "active",
+      "status": "done",
       "head": "90f83a1dccc34df1c64c0786f93866e4be5563a0",
-      "updatedAt": "2026-11-02T17:45:40.969Z",
-      "summary": "PR #301: Caddy live validated, long-poll 200 ~20s. Owner approved package-file transfer; node-forge 1.4.1 published, audit and 5 security regressions pass. Foundation CI 41486431876 pending on 90f83a1d.",
-      "nextAction": "Wait full CI, ordinary merge if green, return temporary package scopes. Cashier fresh=false; owner has no access to LAN, cashier untouched."
+      "updatedAt": "2026-11-02T17:45:46.240Z",
+      "summary": "PR #301 merged normally after full green Foundation CI 41486431876 on 90f83a1d. nip.io Caddy long-poll fixed: 504 at 8.59s -> 200 ~20s, backup/rollback in docs/operations/front-longpoll-1101.md. node-forge 1.4.1; audit exception removed, signature regressions retained. Temporary HTTPS and package scopes returned. IPA32 has zero app extensions. No other deployment.",
+      "nextAction": "Separate unresolved cashier issue: fresh=false, last observation 2026-11-02 14:29:55 Almaty; owner confirms power/internet but Mac has no cashier LAN access. Read services when access returns; do not bypass freshness or change devices without approval. Shared status/roadmap and online dashboard not changed (owned by another task)."
     }
   ]
 }
