@@ -6994,7 +6994,6 @@
         "tests/mobile/browser_cart_shortcut.py",
         "docs/operations/mobile-cart-mode-2026-10-29.md",
         "apps/mobile/src/haptics.ts",
-        "tests/mobile/browser_cart_unavailable.py",
         "docs/operations/mobile-testflight30.md",
         "docs/operations/mobile-testflight30-evidence.json",
         "patches",
@@ -7004,8 +7003,8 @@
       ],
       "status": "available",
       "head": "b32808225f3f88bfa45746f18fbfff2bb0be6bf8",
-      "updatedAt": "2026-11-02T17:45:40.969Z",
-      "summary": "Исправлена казахская подсказка оплаты: Jost не содержит ғөңі, вся kk-фраза использует системный полужирный. Коммит b3280822, PR296 обновлён. Typecheck/lint/format, web-export, браузерные AI и 7 roadmap PASS. RU/EN и логика оплаты сохранены. TestFlight30 доступен, но новая правка шрифта в него не входит. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/screens/PhotoProduct.tsx, apps/mobile/src/components/CartShortcut.tsx Documentation continuity transferred to mobile-kazakh-review-1030; build30 and release scopes retained. Owner requested next publication 30.10; release scopes transferred to mobile-kazakh-review-1030.\n2026-11-02: owner approved temporary transfer of pnpm-workspace.yaml and pnpm-lock.yaml from mobile-cart-mode-1029 to front-longpoll-1101 for official node-forge 1.4.1 security update; return after merge. No deploy authorized by this transfer.\n2026-11-02: package scopes returned after PR #301 ordinary merge, node-forge 1.4.1 and full green Foundation CI 41486431876. Integrate shared before further dependency edits.",
+      "updatedAt": "2026-11-02T18:41:29.345Z",
+      "summary": "Исправлена казахская подсказка оплаты: Jost не содержит ғөңі, вся kk-фраза использует системный полужирный. Коммит b3280822, PR296 обновлён. Typecheck/lint/format, web-export, браузерные AI и 7 roadmap PASS. RU/EN и логика оплаты сохранены. TestFlight30 доступен, но новая правка шрифта в него не входит. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/screens/PhotoProduct.tsx, apps/mobile/src/components/CartShortcut.tsx Documentation continuity transferred to mobile-kazakh-review-1030; build30 and release scopes retained. Owner requested next publication 30.10; release scopes transferred to mobile-kazakh-review-1030.\n2026-11-02: owner approved temporary transfer of pnpm-workspace.yaml and pnpm-lock.yaml from mobile-cart-mode-1029 to front-longpoll-1101 for official node-forge 1.4.1 security update; return after merge. No deploy authorized by this transfer.\n2026-11-02: package scopes returned after PR #301 ordinary merge, node-forge 1.4.1 and full green Foundation CI 41486431876. Integrate shared before further dependency edits.\n2026-11-02 owner approved temporary transfer to mobile-closed-notice-1102: tests/mobile/browser_cart_unavailable.py. Existing behavior preserved; return after merge.",
       "nextAction": "Дождаться полной CI PR296 и включить изменения в shared; нативная проверка шрифта и следующий TestFlight отдельным выпуском. Не менять VPS/кассу/iPad/App Store/онлайн-пульт, реальные платежи не выполнять."
     },
     {
@@ -7035,7 +7034,6 @@
         "apps/mobile/src/ScreenHost.tsx",
         "apps/mobile/src/app/_layout.tsx",
         "apps/mobile/src/app/product-photo.tsx",
-        "apps/mobile/src/components/AppHeader.tsx",
         "apps/mobile/src/components/AuthLayout.tsx",
         "apps/mobile/src/components/AuthWelcome.tsx",
         "apps/mobile/src/components/BirthDatePickerSheet.tsx",
@@ -7057,7 +7055,6 @@
         "apps/mobile/src/games/pick-run/PickRunScreen.tsx",
         "apps/mobile/src/loyalty/PeakScreens.tsx",
         "apps/mobile/src/screens/AuthScreens.tsx",
-        "apps/mobile/src/screens/CatalogScreens.tsx",
         "apps/mobile/src/screens/CheckoutScreen.tsx",
         "apps/mobile/src/screens/CompletedOrderScreen.tsx",
         "apps/mobile/src/screens/ConnectedFeedback.tsx",
@@ -7091,8 +7088,8 @@
       ],
       "status": "available",
       "head": "3ee71dcf50e9ef798688cbcb0aff1cf3e6b6976e",
-      "updatedAt": "2026-10-30T12:13:01.272Z",
-      "summary": "TestFlight 0.2.0 (32) доступен PickChick Internal, статус Тестируется подтверждён 30.10 в15:40. PR298 merged e4eb91b5, исходник aeb7fbda CI11/11; явное удаление аккаунта и геймпад. Итоговый протокол/хеши/status/roadmap опубликованы 3ee71dcf в PR299; дерево чистое. 30.10: owner approved transfer of only docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json to stage2-windows-1030 for preparation, no deployment.",
+      "updatedAt": "2026-11-02T18:41:29.345Z",
+      "summary": "TestFlight 0.2.0 (32) доступен PickChick Internal, статус Тестируется подтверждён 30.10 в15:40. PR298 merged e4eb91b5, исходник aeb7fbda CI11/11; явное удаление аккаунта и геймпад. Итоговый протокол/хеши/status/roadmap опубликованы 3ee71dcf в PR299; дерево чистое. 30.10: owner approved transfer of only docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json to stage2-windows-1030 for preparation, no deployment.\n2026-11-02 owner approved temporary transfer to mobile-closed-notice-1102: apps/mobile/src/components/AppHeader.tsx, apps/mobile/src/screens/CatalogScreens.tsx. Existing behavior preserved; return after merge.",
       "nextAction": "Владелец записывает на физическом iPhone вход и полное удаление выделенного review-аккаунта. Затем проверить видео, добавить в App Review Notes и подготовить повторную отправку Apple. Документационный PR299 ждёт собственной CI/merge; это не меняет доступность32. Сервер/касса/пульт не выпускались, реальные аккаунты/платежи не затронуты."
     },
     {
@@ -7146,11 +7143,15 @@
       "branch": "codex/mobile-closed-notice-1102",
       "scopes": [
         "apps/mobile/src/components/RestaurantClosedNotice.tsx",
-        "docs/operations/mobile-closed-notice-1102.md"
+        "docs/operations/mobile-closed-notice-1102.md",
+        "apps/mobile/src/components/AppHeader.tsx",
+        "apps/mobile/src/screens/CatalogScreens.tsx",
+        "tests/mobile/browser_cart_unavailable.py"
       ],
       "status": "active",
       "head": "35a314753e4f1c05868a6b2f8f5dc336c3d20261",
-      "updatedAt": "2026-11-02T18:40:55.013Z"
+      "updatedAt": "2026-11-02T18:41:29.345Z",
+      "summary": "Owner approved three-file temporary transfer for closed restaurant moon notice; preserve payment/stale protections and translations."
     }
   ]
 }
