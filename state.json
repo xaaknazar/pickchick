@@ -7168,6 +7168,23 @@
       "updatedAt": "2026-11-02T20:48:57.300Z",
       "summary": "PR303 ready for review, 39727bcd. Все три вкладки: spring капсула, повторный тап наверх, сохранение позиции, Reduce Motion. Передача GameScreens отдельно согласована и оформлена. Финальные typecheck/lint/format/browser_tab_bar PASS (320/393/1024); прежние 562+59 и browser_account_required PASS. iPhone и выпуск не выполнялись.",
       "nextAction": "Дождаться полной CI. PR303 основан на PR302: после включения PR302 сменить base на shared. Слияние и новая сборка требуют поручения владельца; затем проверить плавность на iPhone. Общий статус и пульт не менялись: заняты другой задачей."
+    },
+    {
+      "id": "queue-recovery-279-1103",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/queue-recovery-279-1103",
+      "scopes": [
+        "packages/pos-order-sync",
+        "packages/edge-fulfillment/src/repository.ts",
+        "packages/edge-fulfillment/src/records.ts",
+        "db/cloud/migrations/072_cloud_kitchen_restore_review.sql",
+        "db/edge/migrations/025_edge_kitchen_restore_review.sql",
+        "docs/operations/queue-recovery-279.md",
+        "tests/integration/kitchen-restore-review.test.mjs"
+      ],
+      "status": "active",
+      "head": "35a314753e4f1c05868a6b2f8f5dc336c3d20261",
+      "updatedAt": "2026-11-03T15:17:37.544Z"
     }
   ]
 }
