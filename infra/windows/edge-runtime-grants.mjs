@@ -1,3 +1,4 @@
+import { kitchenRestoreReviewGrants } from './kitchen-restore-review-grants.mjs';
 import { transaction } from '@pickchick/database';
 import { displayNumberGrant } from './fulfillment-worker-grants.mjs';
 
@@ -297,6 +298,18 @@ export async function applyEdgeRuntimeGrants(pool, role, options = {}) {
     }
     await client.query(`REVOKE ALL ON SCHEMA ${namespace} FROM ${target}`);
     await client.query(sql);
+    const review = (
+      await client.query(
+        `SELECT EXISTS(SELECT 1 FROM ${namespace}.schema_migrations WHERE scope='edge' AND version='025_edge_kitchen_restore_review.sql') AS applied,
+       to_regclass($1) IS NOT NULL AS reviews,to_regclass($2) IS NOT NULL AS decisions`,
+        [`${namespace}.fulfillment_restore_reviews`, `${namespace}.fulfillment_restore_decisions`],
+      )
+    ).rows[0];
+    if (review.applied !== review.reviews || review.applied !== review.decisions)
+      throw new Error('Restore review migration objects differ');
+    if (review.applied && options.fulfillment)
+      await client.query(kitchenRestoreReviewGrants(role, schema, 'edge'));
+
     const create = await client.query("SELECT has_schema_privilege($1,$2,'CREATE') AS permitted", [
       role,
       schema,

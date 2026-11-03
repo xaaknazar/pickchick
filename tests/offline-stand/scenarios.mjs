@@ -572,36 +572,21 @@ export const SCENARIOS = {
       // re-emits their versions with new events and the cloud refuses them (409).
       const conflicts = await versionConflicts(stand);
       notes.version_conflicts = conflicts;
-      const knownIssues =
-        conflicts.pos_kitchen + conflicts.pos_orders + conflicts.channel_kitchen > 0
-          ? [
-              {
-                id: 'restore_version_conflict',
-                title:
-                  'После восстановления кассы заказ, который был в работе в момент копии и продвинулся позже, конфликтует с облаком (409); упорядоченная очередь кухонных событий кассы стоит на нём, новые статусы кухни не доходят до кабинета',
-                doc: 'docs/operations/edge-restore.md («Что остаётся ручной сверкой»)',
-                evidence: conflicts,
-                checks: [
-                  ...(conflicts.pos_kitchen
-                    ? ['pos_kitchen_in_cloud', 'pos_kitchen_events_once']
-                    : []),
-                  ...(conflicts.pos_orders ? ['pos_orders_in_cloud', 'pos_events_once'] : []),
-                  ...(conflicts.channel_kitchen
-                    ? ['channel_projection_matches', 'channel_orders_admitted_once']
-                    : []),
-                  'queues_drained',
-                  'final_drain',
-                ],
-                // Queue checks are exempt only while nothing but these blocked streams waits.
-                pendingKeys: ['pos_events', 'kitchen_events'],
-              },
-            ]
-          : [];
+      // #279 is a pilot blocker. A version conflict is a failed acceptance check,
+      // never a tolerated exception that turns a blocked queue into a passing run.
+      const knownIssues = [];
       return {
         notes,
         knownIssues,
         context: { lostPosOrders: lostPos, lostChannelOrders: [...lostChannel] },
         checks: [
+          check(
+            'restore_conflicts_not_blocking',
+            'После восстановления нет конфликтов, удерживающих очередь',
+            Object.values(conflicts).every((n) => n === 0),
+            0,
+            Object.values(conflicts).reduce((a, b) => a + b, 0),
+          ),
           check(
             'restore_fenced',
             'Восстановленная касса сама сдвинула номера событий (fence «restore»)',

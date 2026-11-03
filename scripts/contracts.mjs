@@ -55,6 +55,8 @@ import {
   FulfillmentStationsSchema,
   FulfillmentDisplaySchema,
   FulfillmentActionSchema,
+  FulfillmentRestoreDecisionSchema,
+  FulfillmentRestoreResultSchema,
   StationPlanPullRequestSchema,
   StationPlanPullResponseSchema,
   StationPlanReceiptSchema,
@@ -949,6 +951,8 @@ Object.assign(openapi.components.schemas, {
   FulfillmentStations: jsonSchema(FulfillmentStationsSchema),
   FulfillmentDisplay: jsonSchema(FulfillmentDisplaySchema),
   FulfillmentAction: jsonSchema(FulfillmentActionSchema),
+  FulfillmentRestoreDecision: jsonSchema(FulfillmentRestoreDecisionSchema),
+  FulfillmentRestoreResult: jsonSchema(FulfillmentRestoreResultSchema),
 });
 openapi.components.securitySchemes.staffTerminal = {
   type: 'apiKey',
@@ -1012,6 +1016,13 @@ Object.assign(openapi.paths, {
     { orderId: true },
     [stationParameter],
   ),
+  '/edge/v1/fulfillment/orders/{orderId}/restore-review': fulfillmentOperation(
+    'post',
+    'reviewRestoredLocalTicket',
+    'FulfillmentRestoreResult',
+    'FulfillmentRestoreDecision',
+    { orderId: true },
+  ),
   '/edge/v1/fulfillment/orders/{orderId}/actions': fulfillmentOperation(
     'post',
     'actOnLocalFulfillment',
@@ -1038,6 +1049,9 @@ Object.assign(openapi.paths, {
     ],
   ),
 });
+
+openapi.paths['/edge/v1/fulfillment/orders/{orderId}/restore-review'].post.description =
+  'Local edge only. Shift manager for this branch and an active non-display terminal. Immutable decision with reason, epoch, expected version and body commandId. Resume allows local kitchen work; retire suppresses it. Neither changes canonical state, payment or handoff. Exact body retry returns the original decision.';
 
 Object.assign(openapi.components.schemas, {
   FulfillmentTransportPullRequest: jsonSchema(PullRequestSchema),

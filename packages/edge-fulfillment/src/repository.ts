@@ -1,3 +1,4 @@
+import { restoreReview } from './restore-review.js';
 import { effectiveLocalStops, lineStopIds } from '@pickchick/local-orders';
 import { ReleaseCommandSchema, ReleaseResultSchema } from './model.js';
 import type { ReleaseResult } from './model.js';
@@ -98,6 +99,65 @@ async function tasks(client: DatabaseClient, row: Reservation) {
 
 export class EdgeFulfillment {
   constructor(private readonly pool: DatabasePool) {}
+  /** Human kitchen check after restore; never changes the order's canonical state or money. */
+  async reviewRestore(branchId: string, auth: StaffAuth, input: unknown) {
+    const c = parse(
+      z.strictObject({
+        commandId: z.uuid(),
+        orderId: z.uuid(),
+        epoch: z.int().min(2),
+        expectedVersion: z.int().positive(),
+        decision: z.enum(['resume', 'retire']),
+        reason: z.string().trim().min(3).max(500),
+      }),
+      input,
+    );
+    return transaction(this.pool, async (client) => {
+      const staff = await authenticateStaff(client, branchId, auth);
+      if (staff.role !== 'shift_manager') fail('FORBIDDEN');
+      await client.query('SELECT id FROM branch_config WHERE id=$1 FOR KEY SHARE', [branchId]);
+      await lock(client, 'fulfillment:restore-command:' + c.commandId);
+      const row = await order(client, branchId, c.orderId);
+      const saved = (
+        await client.query('SELECT * FROM fulfillment_restore_decisions WHERE command_id=$1', [
+          c.commandId,
+        ])
+      ).rows[0];
+      if (saved) {
+        if (
+          saved.order_id !== c.orderId ||
+          saved.epoch !== c.epoch ||
+          saved.staff_id !== staff.staff_id ||
+          saved.decision !== c.decision ||
+          saved.reason !== c.reason ||
+          saved.expected_version !== c.expectedVersion
+        )
+          fail('CONFLICT');
+        return { epoch: c.epoch, status: c.decision };
+      }
+      const review = await restoreReview(client, row);
+      if (
+        !review ||
+        review.epoch !== c.epoch ||
+        review.status !== 'pending' ||
+        row.version !== c.expectedVersion
+      )
+        fail('CONFLICT');
+      await client.query(
+        `INSERT INTO fulfillment_restore_decisions(epoch,order_id,command_id,staff_id,decision,reason,expected_version)
+        VALUES($1,$2,$3,$4,$5,$6,$7)`,
+        [c.epoch, c.orderId, c.commandId, staff.staff_id, c.decision, c.reason, c.expectedVersion],
+      );
+      await audit(
+        client,
+        branchId,
+        staff.staff_id,
+        'fulfillment.restore_' + c.decision,
+        row.order_id,
+      );
+      return { epoch: c.epoch, status: c.decision };
+    });
+  }
   /** Internal trusted transport port. Callers must authenticate producer/device before invoking.
    * The local binding is rechecked in PG. No HTTP endpoint or paid boolean exists. */
   async acceptCloud(scopeInput: TrustedCloud, input: unknown) {
@@ -398,6 +458,8 @@ export class EdgeFulfillment {
       if (replay === 'conflict') fail('CONFLICT');
       if (replay === 'replay') return saved!.result;
       let row = await order(client, branchId, command.orderId);
+      const restored = await restoreReview(client, row);
+      if (restored && restored.status !== 'resume') fail('NOT_READY');
       decided(checkVersion(row.version, command.expectedVersion));
       const shape = decided(commandShape(command));
       // Each pure step is one aggregate version and one event; task steps also bump the task.
@@ -530,6 +592,7 @@ export class EdgeFulfillment {
         fail('FORBIDDEN');
       return {
         ...view(row),
+        restoreReview: await restoreReview(client, row),
         channel: row.snapshot.channel,
         serviceMode: row.snapshot.serviceMode,
         ...(row.snapshot.kitchenComment ? { kitchenComment: row.snapshot.kitchenComment } : {}),
@@ -558,11 +621,20 @@ export class EdgeFulfillment {
       if (!['kitchen', 'shift_manager'].includes(staff.role)) fail('FORBIDDEN');
       if (q.stationId) await stationPermission(client, branchId, staff, q.stationId);
       await client.query('SET TRANSACTION READ ONLY');
+      const hasReviews = (
+        await client.query("SELECT to_regclass('fulfillment_restore_reviews') IS NOT NULL AS ok")
+      ).rows[0].ok;
+      const reviewFilter = hasReviews
+        ? ` AND NOT EXISTS (
+        SELECT 1 FROM fulfillment_restore_reviews rr JOIN fulfillment_restore_decisions d USING(epoch,order_id)
+        WHERE rr.order_id=r.order_id AND d.decision='retire' AND rr.epoch=(
+          SELECT max(latest.epoch) FROM fulfillment_restore_reviews latest WHERE latest.order_id=r.order_id))`
+        : '';
       // Fetch identities first, then one bounded order projection at a time.
       // A large combo order must not multiply the response by a 100-row page.
       const candidates = (
         await client.query<{ order_id: string }>(
-          `SELECT r.order_id FROM fulfillment_reservations r WHERE branch_id=$1 AND state IN ('accepted','in_production','ready','cancel_requested') AND ($2::uuid IS NULL OR order_id>$2) AND ($4::uuid IS NULL OR r.assembly_station_id=$4 OR EXISTS(SELECT 1 FROM fulfillment_tasks t WHERE t.order_id=r.order_id AND t.station_id=$4)) ORDER BY order_id LIMIT $3`,
+          `SELECT r.order_id FROM fulfillment_reservations r WHERE branch_id=$1 AND state IN ('accepted','in_production','ready','cancel_requested') AND ($2::uuid IS NULL OR order_id>$2) AND ($4::uuid IS NULL OR r.assembly_station_id=$4 OR EXISTS(SELECT 1 FROM fulfillment_tasks t WHERE t.order_id=r.order_id AND t.station_id=$4)) ${reviewFilter} ORDER BY order_id LIMIT $3`,
           [branchId, q.afterOrderId ?? null, q.limit + 1, q.stationId ?? null],
         )
       ).rows;
@@ -574,6 +646,7 @@ export class EdgeFulfillment {
         const row = await readReservation(client, branchId, candidate.order_id);
         const item = {
           ...view(row),
+          restoreReview: await restoreReview(client, row),
           channel: row.snapshot.channel,
           serviceMode: row.snapshot.serviceMode,
           ...(row.snapshot.kitchenComment ? { kitchenComment: row.snapshot.kitchenComment } : {}),
@@ -604,12 +677,22 @@ export class EdgeFulfillment {
       }),
       input,
     );
+    const hasReviews = (
+      await this.pool.query("SELECT to_regclass('fulfillment_restore_reviews') IS NOT NULL AS ok")
+    ).rows[0].ok;
+    const reviewFilter = hasReviews
+      ? ` AND NOT EXISTS (
+      SELECT 1 FROM fulfillment_restore_reviews r LEFT JOIN fulfillment_restore_decisions d USING(epoch,order_id)
+      WHERE r.order_id=fulfillment_reservations.order_id AND r.epoch=(SELECT max(latest.epoch)
+        FROM fulfillment_restore_reviews latest WHERE latest.order_id=r.order_id)
+      AND coalesce(d.decision,'pending')<>'resume')`
+      : '';
     const rows = (
       await this.pool.query<{ display_number: string; state: State; display_name: string }>(
         // An order no longer live for edge 022 numbering (untouched for 12 hours, or 'ready' for
         // 3 hours) is off the board: its number may already belong to a new order, and the
         // board never shows one number twice.
-        `SELECT display_number,state,left(coalesce(snapshot->>'displayName',''),14) AS display_name FROM fulfillment_reservations WHERE branch_id=$1 AND state IN ('accepted','in_production','ready') AND updated_at>clock_timestamp()-CASE WHEN state='ready' THEN interval '3 hours' ELSE interval '12 hours' END AND display_number>$2::bigint ORDER BY display_number LIMIT $3`,
+        `SELECT display_number,state,left(coalesce(snapshot->>'displayName',''),14) AS display_name FROM fulfillment_reservations WHERE branch_id=$1 AND state IN ('accepted','in_production','ready') AND updated_at>clock_timestamp()-CASE WHEN state='ready' THEN interval '3 hours' ELSE interval '12 hours' END AND display_number>$2::bigint ${reviewFilter} ORDER BY display_number LIMIT $3`,
         [branchId, q.afterNumber, q.limit + 1],
       )
     ).rows;

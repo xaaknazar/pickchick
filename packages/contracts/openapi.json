@@ -8485,6 +8485,132 @@
         "description": "Local edge only, EDGE_FULFILLMENT_ENABLED required. Kitchen/shift_manager session, own branch and active terminal. Responses are no-store and bounded to 3 MiB; commands to 16 KiB. No payment or cloud admission authority."
       }
     },
+    "/edge/v1/fulfillment/orders/{orderId}/restore-review": {
+      "post": {
+        "operationId": "reviewRestoredLocalTicket",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": [],
+            "staffTerminal": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FulfillmentRestoreDecision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FulfillmentRestoreResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired local staff session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role cannot perform operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing or outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency, quote expiry, menu or availability conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Device binding or service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Local edge only. Shift manager for this branch and an active non-display terminal. Immutable decision with reason, epoch, expected version and body commandId. Resume allows local kitchen work; retire suppresses it. Neither changes canonical state, payment or handoff. Exact body retry returns the original decision."
+      }
+    },
     "/edge/v1/fulfillment/orders/{orderId}/actions": {
       "post": {
         "operationId": "actOnLocalFulfillment",
@@ -25735,6 +25861,29 @@
             "format": "date-time",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
           },
+          "restoreReview": {
+            "type": "object",
+            "properties": {
+              "epoch": {
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 9007199254740991
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "resume",
+                  "retire"
+                ]
+              }
+            },
+            "required": [
+              "epoch",
+              "status"
+            ],
+            "additionalProperties": false
+          },
           "assemblyStationId": {
             "type": "string",
             "format": "uuid",
@@ -26010,6 +26159,29 @@
             "type": "string",
             "format": "date-time",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "restoreReview": {
+            "type": "object",
+            "properties": {
+              "epoch": {
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 9007199254740991
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "resume",
+                  "retire"
+                ]
+              }
+            },
+            "required": [
+              "epoch",
+              "status"
+            ],
+            "additionalProperties": false
           },
           "assemblyStationId": {
             "type": "string",
@@ -26320,6 +26492,29 @@
                   "type": "string",
                   "format": "date-time",
                   "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                },
+                "restoreReview": {
+                  "type": "object",
+                  "properties": {
+                    "epoch": {
+                      "type": "integer",
+                      "minimum": 2,
+                      "maximum": 9007199254740991
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "resume",
+                        "retire"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "epoch",
+                    "status"
+                  ],
+                  "additionalProperties": false
                 },
                 "assemblyStationId": {
                   "type": "string",
@@ -26777,6 +26972,70 @@
             "additionalProperties": false
           }
         ]
+      },
+      "FulfillmentRestoreDecision": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "epoch": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 9007199254740991
+          },
+          "expectedVersion": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 2147483647
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "resume",
+              "retire"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "commandId",
+          "epoch",
+          "expectedVersion",
+          "decision",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "FulfillmentRestoreResult": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "epoch": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "resume",
+              "retire"
+            ]
+          }
+        },
+        "required": [
+          "epoch",
+          "status"
+        ],
+        "additionalProperties": false
       },
       "FulfillmentTransportPullRequest": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -29250,6 +29509,31 @@
               "inventoryEffect": {
                 "type": "string",
                 "const": "none"
+              },
+              "restoreContext": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "epoch": {
+                    "type": "integer",
+                    "minimum": 2,
+                    "maximum": 9007199254740991
+                  },
+                  "sequenceFloor": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9]\\d{0,18})$"
+                  }
+                },
+                "required": [
+                  "id",
+                  "epoch",
+                  "sequenceFloor"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [

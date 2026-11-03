@@ -1,3 +1,4 @@
+import { kitchenRestoreReviewGrants } from './kitchen-restore-review-grants.mjs';
 /** Dedicated transport roles. Never apply these to the staff-facing Edge HTTP role. */
 function roleSql(role, schema, statements) {
   for (const name of [role, schema])
@@ -35,19 +36,21 @@ export function posSyncWorkerGrants(role, schema = 'public') {
     ['UPDATE(attempts,acknowledged_at)', 'outbox_events,fulfillment_outbox'],
   ]);
 }
-export function posSyncReceiverGrants(role, schema = 'public') {
-  return roleSql(role, schema, [
-    [
-      'SELECT',
-      'devices,device_credentials,pos_order_sync_bindings,pos_order_sync_inbox,pos_order_sync_projection,pos_kitchen_sync_inbox,pos_kitchen_sync_projection',
-    ],
-    ['UPDATE(pos_sync_lock_anchor)', 'devices,device_credentials'],
-    ['UPDATE(lock_anchor)', 'pos_order_sync_bindings'],
-    [
-      'INSERT',
-      'pos_order_sync_inbox,pos_order_sync_projection,pos_kitchen_sync_inbox,pos_kitchen_sync_projection',
-    ],
-    ['UPDATE(version,state,last_event_id,updated_at)', 'pos_order_sync_projection'],
-    ['UPDATE(version,state,last_event_id,updated_at,observed_at)', 'pos_kitchen_sync_projection'],
-  ]);
+export function posSyncReceiverGrants(role, schema = 'public', { restoreReview = false } = {}) {
+  return (
+    roleSql(role, schema, [
+      [
+        'SELECT',
+        'devices,device_credentials,pos_order_sync_bindings,pos_order_sync_inbox,pos_order_sync_projection,pos_kitchen_sync_inbox,pos_kitchen_sync_projection',
+      ],
+      ['UPDATE(pos_sync_lock_anchor)', 'devices,device_credentials'],
+      ['UPDATE(lock_anchor)', 'pos_order_sync_bindings'],
+      [
+        'INSERT',
+        'pos_order_sync_inbox,pos_order_sync_projection,pos_kitchen_sync_inbox,pos_kitchen_sync_projection',
+      ],
+      ['UPDATE(version,state,last_event_id,updated_at)', 'pos_order_sync_projection'],
+      ['UPDATE(version,state,last_event_id,updated_at,observed_at)', 'pos_kitchen_sync_projection'],
+    ]) + (restoreReview ? '\n' + kitchenRestoreReviewGrants(role, schema, 'receiver') : '')
+  );
 }

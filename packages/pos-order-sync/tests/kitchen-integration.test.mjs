@@ -446,37 +446,341 @@ async function restricted(ctx, side, grants, run) {
 test('dedicated real LOGIN worker and receiver can deliver observations but cannot provision authority or money', async () => {
   await fixture(async (ctx) => {
     await order(ctx);
-    await restricted(ctx, 'cloud', posSyncReceiverGrants, async (cloud) => {
-      await restricted(ctx, 'edge', posSyncWorkerGrants, async (edge) => {
-        const io = {
-          fetch: async (_url, options) => {
-            const event = JSON.parse(options.body);
-            const result = await (
-              event.aggregate_type === 'order_fulfillment' ? receivePosKitchen : receivePosOrder
-            )(cloud, { deviceId: ctx.identity.device_id, token: ctx.identity.token }, event);
-            return Response.json(result);
-          },
-        };
-        assert.equal((await syncPosOrdersOnce(edge, ctx.options, io)).state, 'delivered');
-        assert.equal((await syncPosKitchenOnce(edge, ctx.options, io)).state, 'delivered');
+    await restricted(
+      ctx,
+      'cloud',
+      (role, schema) => posSyncReceiverGrants(role, schema, { restoreReview: true }),
+      async (cloud) => {
+        await restricted(ctx, 'edge', posSyncWorkerGrants, async (edge) => {
+          const io = {
+            fetch: async (_url, options) => {
+              const event = JSON.parse(options.body);
+              const result = await (
+                event.aggregate_type === 'order_fulfillment' ? receivePosKitchen : receivePosOrder
+              )(cloud, { deviceId: ctx.identity.device_id, token: ctx.identity.token }, event);
+              return Response.json(result);
+            },
+          };
+          assert.equal((await syncPosOrdersOnce(edge, ctx.options, io)).state, 'delivered');
+          assert.equal((await syncPosKitchenOnce(edge, ctx.options, io)).state, 'delivered');
+          for (const sql of [
+            'UPDATE local_staff SET active=true',
+            'UPDATE branch_config SET ordering_enabled=true',
+            "UPDATE fulfillment_outbox SET payload='{}'",
+            'INSERT INTO pos_kitchen_sync_state(branch_id) VALUES(gen_random_uuid())',
+          ])
+            await assert.rejects(edge.query(sql), { code: '42501' });
+          await assert.rejects(
+            retryPosKitchenDelivery(edge, ctx.branch, randomUUID()),
+            /FORBIDDEN/,
+          );
+        });
         for (const sql of [
-          'UPDATE local_staff SET active=true',
-          'UPDATE branch_config SET ordering_enabled=true',
-          "UPDATE fulfillment_outbox SET payload='{}'",
-          'INSERT INTO pos_kitchen_sync_state(branch_id) VALUES(gen_random_uuid())',
+          "UPDATE devices SET status='active'",
+          'UPDATE device_credentials SET expires_at=clock_timestamp()',
+          'UPDATE pos_order_sync_bindings SET active=true',
+          'INSERT INTO commerce_captures(id) VALUES(gen_random_uuid())',
+          "UPDATE pos_kitchen_sync_projection SET owner_hash=repeat('0',64)",
         ])
-          await assert.rejects(edge.query(sql), { code: '42501' });
-        await assert.rejects(retryPosKitchenDelivery(edge, ctx.branch, randomUUID()), /FORBIDDEN/);
-      });
-      for (const sql of [
-        "UPDATE devices SET status='active'",
-        'UPDATE device_credentials SET expires_at=clock_timestamp()',
-        'UPDATE pos_order_sync_bindings SET active=true',
-        'INSERT INTO commerce_captures(id) VALUES(gen_random_uuid())',
-        "UPDATE pos_kitchen_sync_projection SET owner_hash=repeat('0',64)",
-      ])
-        await assert.rejects(cloud.query(sql), { code: '42501' });
-    });
+          await assert.rejects(cloud.query(sql), { code: '42501' });
+      },
+    );
     await noFinance(ctx);
+  });
+});
+
+// Cloud has a later observation while the restored edge retains the earlier kitchen state.
+// The lost timeline is delivered through the real receiver, never by bypassing cloud guards.
+test('279: restore hold, durable quarantine ACK and next-order progress preserve canonical state', async () => {
+  const { fenceRestoredEdge } = await import('@pickchick/local-orders');
+  await fixture(async (ctx) => {
+    const o = await order(ctx);
+    await syncPosOrdersOnce(ctx.edge.pool, ctx.options);
+    await drain(ctx);
+    const initial = (await events(ctx))[0];
+    const lost = {
+      ...initial,
+      event_id: randomUUID(),
+      producer_sequence: String(BigInt(initial.producer_sequence) + 1n),
+      aggregate_version: 2,
+      event_type: 'edge.fulfillment_ready',
+      payload: { ...initial.payload, version: 2, state: 'ready' },
+    };
+    assert.equal((await post(ctx, lost)).status, 200);
+    const canonical = (await ctx.cloud.pool.query('SELECT * FROM pos_kitchen_sync_projection'))
+      .rows;
+    const commercial = (await ctx.cloud.pool.query('SELECT * FROM pos_order_sync_projection')).rows;
+    const fence = await fenceRestoredEdge(ctx.edge.pool, true);
+    const current = await ctx.repo.readOrder(ctx.branch, staffAuth(ctx.cook), o.order_id, {
+      stationId: ctx.prep,
+    });
+    assert.deepEqual(current.restoreReview, { epoch: fence.epoch, status: 'pending' });
+    const action = {
+      commandId: randomUUID(),
+      orderId: o.order_id,
+      expectedVersion: current.version,
+      action: 'start_task',
+      taskId: current.tasks[0].id,
+      expectedTaskVersion: current.tasks[0].version,
+    };
+    await assert.rejects(ctx.repo.act(ctx.branch, staffAuth(ctx.cook), action), /NOT_READY/);
+    const decision = {
+      commandId: randomUUID(),
+      orderId: o.order_id,
+      epoch: fence.epoch,
+      expectedVersion: current.version,
+      decision: 'resume',
+      reason: 'Checked physical kitchen before resuming',
+    };
+    await assert.rejects(
+      ctx.repo.reviewRestore(ctx.branch, staffAuth(ctx.cook), decision),
+      /FORBIDDEN/,
+    );
+    await assert.rejects(
+      ctx.repo.reviewRestore(ctx.branch, staffAuth(ctx.manager), {
+        ...decision,
+        expectedVersion: 99,
+      }),
+      /CONFLICT/,
+    );
+    await ctx.repo.reviewRestore(ctx.branch, staffAuth(ctx.manager), decision);
+    await ctx.repo.reviewRestore(ctx.branch, staffAuth(ctx.manager), decision);
+    await assert.rejects(
+      ctx.repo.reviewRestore(ctx.branch, staffAuth(ctx.manager), {
+        ...decision,
+        expectedVersion: 99,
+      }),
+      /CONFLICT/,
+    );
+    await ctx.repo.act(ctx.branch, staffAuth(ctx.cook), action);
+    const conflict = (await events(ctx)).at(-1);
+    assert.equal(conflict.payload.restoreContext.epoch, fence.epoch);
+    assert.ok(
+      BigInt(conflict.producer_sequence) > BigInt(conflict.payload.restoreContext.sequenceFloor),
+    );
+    await ctx.cloud.pool
+      .query(`CREATE FUNCTION reject_restore_probe() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic disk failure'; END $$;
+      CREATE TRIGGER reject_restore_probe BEFORE INSERT ON pos_kitchen_restore_conflicts FOR EACH ROW EXECUTE FUNCTION reject_restore_probe()`);
+    assert.equal((await syncPosKitchenOnce(ctx.edge.pool, ctx.options)).state, 'retry');
+    assert.equal(await pending(ctx), 1, 'failed durable write must not acknowledge');
+    await ctx.cloud.pool.query(
+      'DROP TRIGGER reject_restore_probe ON pos_kitchen_restore_conflicts',
+    );
+    await retryNow(ctx);
+    await restricted(
+      ctx,
+      'cloud',
+      (role, schema) => posSyncReceiverGrants(role, schema, { restoreReview: true }),
+      async (cloud) => {
+        const io = {
+          fetch: async (_url, options) =>
+            Response.json(
+              await receivePosKitchen(
+                cloud,
+                { deviceId: ctx.identity.device_id, token: ctx.identity.token },
+                JSON.parse(options.body),
+              ),
+            ),
+        };
+        assert.equal((await syncPosKitchenOnce(ctx.edge.pool, ctx.options, io)).state, 'delivered');
+        await assert.rejects(cloud.query('DELETE FROM pos_kitchen_restore_conflicts'), {
+          code: '42501',
+        });
+        await assert.rejects(
+          cloud.query(
+            'INSERT INTO pos_kitchen_restore_decisions(event_id) VALUES(gen_random_uuid())',
+          ),
+          { code: '42501' },
+        );
+      },
+    );
+    assert.deepEqual(await (await post(ctx, conflict)).json(), kitchenReceiptFor(conflict));
+    assert.equal((await post(ctx, { ...conflict, event_id: randomUUID() })).status, 409);
+    assert.equal((await post(ctx, { ...conflict, producer_id: randomUUID() })).status, 403);
+    assert.equal(
+      (await post(ctx, { ...conflict, payload: { ...conflict.payload, staffId: randomUUID() } }))
+        .status,
+      409,
+    );
+    const next = await order(ctx);
+    assert.equal((await syncPosOrdersOnce(ctx.edge.pool, ctx.options)).state, 'delivered');
+    await drain(ctx);
+    assert.equal(
+      (
+        await ctx.cloud.pool.query(
+          'SELECT state FROM pos_kitchen_sync_projection WHERE order_id=$1',
+          [next.order_id],
+        )
+      ).rows[0].state,
+      'accepted',
+    );
+    assert.deepEqual(
+      (
+        await ctx.cloud.pool.query('SELECT * FROM pos_kitchen_sync_projection WHERE order_id=$1', [
+          o.order_id,
+        ])
+      ).rows,
+      canonical,
+    );
+    assert.deepEqual(
+      (
+        await ctx.cloud.pool.query('SELECT * FROM pos_order_sync_projection WHERE order_id=$1', [
+          o.order_id,
+        ])
+      ).rows,
+      commercial,
+    );
+    assert.equal(
+      (await ctx.cloud.pool.query('SELECT count(*)::int n FROM pos_kitchen_restore_conflicts'))
+        .rows[0].n,
+      1,
+    );
+    await assert.rejects(
+      ctx.cloud.pool.query('DELETE FROM pos_kitchen_restore_conflicts'),
+      /append-only/,
+    );
+    const manager = await provisionCatalogManager(ctx.cloud.pool, {
+      organization_id: ctx.org,
+      name: 'Synthetic review',
+      branch_ids: [ctx.branch],
+    });
+    const bo = new Backoffice(ctx.cloud.pool, true);
+    await grantBackoffice(ctx.cloud.pool, manager.actor_id, ctx.branch, 'analyst');
+    const page = await bo.restoreReviews(manager.token, ctx.branch);
+    assert.equal(page.items[0].event_id, conflict.event_id);
+    const review = {
+      commandId: randomUUID(),
+      eventId: conflict.event_id,
+      expectedVersion: 1,
+      reason: 'Compared kitchen with canonical cloud history',
+    };
+    await assert.rejects(bo.reviewRestore(manager.token, ctx.branch, review), /FORBIDDEN/);
+    await assert.rejects(bo.restoreReviews(manager.token, randomUUID()), /FORBIDDEN/);
+    await grantBackoffice(ctx.cloud.pool, manager.actor_id, ctx.branch, 'manager');
+    await bo.reviewRestore(manager.token, ctx.branch, review);
+    await bo.reviewRestore(manager.token, ctx.branch, review);
+    await assert.rejects(
+      bo.reviewRestore(manager.token, ctx.branch, { ...review, commandId: randomUUID() }),
+      /CONFLICT/,
+    );
+    assert.equal(
+      (await bo.restoreReviews(manager.token, ctx.branch)).items[0].review_reason,
+      review.reason,
+    );
+    // Reviewing a discrepancy never silently rejoins the divergent timeline to the canonical one.
+    let live = await ctx.repo.readOrder(ctx.branch, staffAuth(ctx.cook), o.order_id, {
+      stationId: ctx.prep,
+    });
+    for (const action of ['complete_task', 'ready', 'handoff']) {
+      const task = live.tasks[0];
+      await ctx.repo.act(ctx.branch, staffAuth(ctx.cook), {
+        commandId: randomUUID(),
+        orderId: o.order_id,
+        expectedVersion: live.version,
+        action,
+        ...(action === 'complete_task'
+          ? { taskId: task.id, expectedTaskVersion: task.version }
+          : {}),
+      });
+      live = await ctx.repo.readOrder(ctx.branch, staffAuth(ctx.cook), o.order_id, {
+        stationId: ctx.prep,
+      });
+    }
+    await drain(ctx);
+    assert.equal(
+      (await ctx.cloud.pool.query('SELECT count(*)::int n FROM pos_kitchen_restore_conflicts'))
+        .rows[0].n,
+      4,
+    );
+    assert.deepEqual(
+      (
+        await ctx.cloud.pool.query('SELECT * FROM pos_kitchen_sync_projection WHERE order_id=$1', [
+          o.order_id,
+        ])
+      ).rows,
+      canonical,
+    );
+    await noFinance(ctx);
+  });
+});
+
+test('279: retired restored orders cannot execute or appear on guest display; least-privilege roles keep history immutable', async () => {
+  const { fenceRestoredEdge } = await import('@pickchick/local-orders');
+  const { applyEdgeRuntimeGrants } = await import('../../../infra/windows/edge-runtime-grants.mjs');
+  await fixture(async (ctx) => {
+    const o = await order(ctx);
+    await fenceRestoredEdge(ctx.edge.pool, true);
+    assert.deepEqual((await ctx.repo.readDisplay(ctx.branch)).items, []);
+    const role = 'restore_' + randomUUID().replaceAll('-', '');
+    const secret = randomBytes(32).toString('hex');
+    let runtime;
+    try {
+      await ctx.edge.admin.query(
+        `CREATE ROLE ${role} LOGIN PASSWORD '${secret}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT`,
+      );
+      await applyEdgeRuntimeGrants(ctx.edge.pool, role, {
+        schema: ctx.edge.schema,
+        fulfillment: true,
+      });
+      const url = new URL(ctx.edge.config.databaseUrl);
+      url.username = role;
+      url.password = secret;
+      runtime = createPool(url.toString());
+      const repo = new EdgeFulfillment(runtime);
+      const current = await repo.readOrder(ctx.branch, staffAuth(ctx.manager), o.order_id);
+      const input = {
+        commandId: randomUUID(),
+        orderId: o.order_id,
+        epoch: current.restoreReview.epoch,
+        expectedVersion: current.version,
+        decision: 'retire',
+        reason: 'Already issued on the lost timeline',
+      };
+      await repo.reviewRestore(ctx.branch, staffAuth(ctx.manager), input);
+      await repo.reviewRestore(ctx.branch, staffAuth(ctx.manager), input);
+      const after = await repo.readOrder(ctx.branch, staffAuth(ctx.manager), o.order_id);
+      assert.equal(after.version, current.version);
+      assert.equal(after.state, current.state);
+      assert.equal(after.restoreReview.status, 'retire');
+      assert.deepEqual((await repo.listKitchen(ctx.branch, staffAuth(ctx.manager))).items, []);
+      assert.deepEqual((await repo.readDisplay(ctx.branch)).items, []);
+      await assert.rejects(
+        repo.act(ctx.branch, staffAuth(ctx.manager), {
+          commandId: randomUUID(),
+          orderId: o.order_id,
+          expectedVersion: current.version,
+          action: 'start_task',
+          taskId: current.tasks[0].id,
+          expectedTaskVersion: current.tasks[0].version,
+        }),
+        /NOT_READY/,
+      );
+      await assert.rejects(
+        runtime.query("UPDATE fulfillment_restore_decisions SET decision='resume'"),
+        { code: '42501' },
+      );
+      await assert.rejects(runtime.query('DELETE FROM fulfillment_restore_reviews'), {
+        code: '42501',
+      });
+      await assert.rejects(
+        runtime.query(
+          'INSERT INTO fulfillment_restore_epochs(epoch,sequence_floor) VALUES(99,1000000000)',
+        ),
+        { code: '42501' },
+      );
+      assert.equal(
+        (
+          await ctx.edge.pool.query(
+            "SELECT count(*)::int n FROM local_audit WHERE action='fulfillment.restore_retire'",
+          )
+        ).rows[0].n,
+        1,
+      );
+      await noFinance(ctx);
+    } finally {
+      await runtime?.end();
+      await ctx.edge.admin.query(`DROP OWNED BY ${role}`);
+      await ctx.edge.admin.query(`DROP ROLE ${role}`);
+    }
   });
 });

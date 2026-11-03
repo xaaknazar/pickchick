@@ -1,3 +1,4 @@
+import { restoreReview } from './restore-review.js';
 import { randomUUID } from 'node:crypto';
 import { OrderError, audit } from '@pickchick/local-orders';
 import type { LocalOrderExecutionPort } from '@pickchick/local-orders';
@@ -137,6 +138,8 @@ export function localUnpaidExecution(host: {
         )
       ).rows[0];
       if (!row) throw new OrderError('KITCHEN_UNAVAILABLE');
+      const review = await restoreReview(client, row);
+      if (review && review.status !== 'resume') throw new OrderError('KITCHEN_UNAVAILABLE');
       const tasks = await client.query('SELECT state FROM fulfillment_tasks WHERE order_id=$1', [
         orderId,
       ]);

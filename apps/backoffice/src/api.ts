@@ -51,6 +51,14 @@ export function allowedPath(path: string): boolean {
     return true;
   const [pathname = '', search, extra] = path.split('?');
   if (extra !== undefined || path.includes('#')) return false;
+  if (new RegExp(`^operations/branches/${UUID}/restore-reviews$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    return (
+      [...q.keys()].every((k) => k === 'after') &&
+      q.getAll('after').length <= 1 &&
+      (q.get('after') === null || new RegExp(`^${UUID}$`).test(q.get('after')!))
+    );
+  }
   if (new RegExp(`^operations/branches/${UUID}/workforce$`).test(pathname)) {
     const q = new URLSearchParams(search ?? '');
     return (
