@@ -1,4 +1,3 @@
-import { kitchenRestoreReviewGrants } from './kitchen-restore-review-grants.mjs';
 /** Dedicated transport roles. Never apply these to the staff-facing Edge HTTP role. */
 function roleSql(role, schema, statements) {
   for (const name of [role, schema])
@@ -51,6 +50,9 @@ export function posSyncReceiverGrants(role, schema = 'public', { restoreReview =
       ],
       ['UPDATE(version,state,last_event_id,updated_at)', 'pos_order_sync_projection'],
       ['UPDATE(version,state,last_event_id,updated_at,observed_at)', 'pos_kitchen_sync_projection'],
-    ]) + (restoreReview ? '\n' + kitchenRestoreReviewGrants(role, schema, 'receiver') : '')
+    ]) +
+    (restoreReview
+      ? '\n' + roleSql(role, schema, [['SELECT,INSERT', 'pos_kitchen_restore_conflicts']])
+      : '')
   );
 }
