@@ -7197,11 +7197,14 @@
         "packages/edge-fulfillment/src/restore-review.ts",
         "infra/windows/kitchen-restore-review-grants.mjs",
         "tests/backoffice/restore-review.test.mjs",
-        "tests/kitchen/restore-review.test.mjs"
+        "tests/kitchen/restore-review.test.mjs",
+        "infra/windows/edge-runtime-grants.mjs",
+        "tests/offline-stand/scenarios.mjs",
+        "tests/offline-stand/run.mjs"
       ],
       "status": "active",
       "head": "35a314753e4f1c05868a6b2f8f5dc336c3d20261",
-      "updatedAt": "2026-11-03T15:21:46.508Z"
+      "updatedAt": "2026-11-03T15:30:06.762Z"
     }
   ]
 }
