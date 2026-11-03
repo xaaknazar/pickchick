@@ -7180,11 +7180,20 @@
         "db/cloud/migrations/072_cloud_kitchen_restore_review.sql",
         "db/edge/migrations/025_edge_kitchen_restore_review.sql",
         "docs/operations/queue-recovery-279.md",
-        "tests/integration/kitchen-restore-review.test.mjs"
+        "tests/integration/kitchen-restore-review.test.mjs",
+        "packages/backoffice-core/src/index.ts",
+        "packages/backoffice-core/src/restore-review.ts",
+        "services/api/src/backoffice-controller.ts",
+        "services/edge/src/fulfillment-controller.ts",
+        "packages/contracts/src/fulfillment.ts",
+        "apps/backoffice/src/operations.ts",
+        "apps/backoffice/src/api.ts",
+        "apps/kitchen/src/restore-review.ts",
+        "infra/windows/pos-sync-worker-grants.mjs"
       ],
       "status": "active",
       "head": "35a314753e4f1c05868a6b2f8f5dc336c3d20261",
-      "updatedAt": "2026-11-03T15:17:37.544Z"
+      "updatedAt": "2026-11-03T15:18:44.051Z"
     }
   ]
 }
