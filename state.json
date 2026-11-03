@@ -7205,11 +7205,11 @@
         "packages/contracts/openapi.json",
         "scripts/contracts.mjs"
       ],
-      "status": "active",
-      "head": "7e0f1fd1df7dff5362bbc712ca98094a53772168",
-      "updatedAt": "2026-11-03T16:01:45.579Z",
-      "summary": "Published checkpoint 7e0f1fd1df7dff5362bbc712ca98094a53772168; draft PR304. Restore hold, durable conflict quarantine and manager review implemented, NOT release-ready. Workspace build, 69 regression tests, 147 supporting tests, browser/API checks and four real-process offline scenarios passed; final packaging delta 3 integration tests/lint/format passed. Exact evidence docs/operations/queue-recovery-279.md. No production writes.",
-      "nextAction": "Continue after kitchen app.ts/server.mjs and portal server.mjs transfer; implement kitchen operator UI, real backup/restore and legacy-backup recovery, then full CI/offline acceptance. Cashier LAN blocked: Mac192.168.3.13 /23 sees gateway192.168.2.100, cashier192.168.2.59 ARP incomplete; SSH key loaded. User confirms same Wi-Fi; requested current cashier IPv4 and reverse ping to Mac. Windows resource and shared status docs remain reserved by stage2-windows-1030. Do not merge/deploy/close279 yet."
+      "status": "available",
+      "head": "94be6ae04d3c9142c0c7fe23fb8d3dda03b102d3",
+      "updatedAt": "2026-11-03T16:02:58.418Z",
+      "summary": "Published 94be6ae04d3c9142c0c7fe23fb8d3dda03b102d3, draft PR304. Cashier connection verified: correct IPv4 192.168.2.69/23; earlier .59 misread. Pinned SSH identity matches, WIN-C583E2V3LH9, seven PickChick services Running/Auto; edge3101 and cloud API via tunnel43100 readiness HTTP200 ready true. Read-only, no production changes. Prior build/tests/offline checkpoint recorded in docs/operations/queue-recovery-279.md.",
+      "nextAction": "LAN blocker resolved. Still await kitchen app.ts/server.mjs and infra/kitchen-portal/server.mjs transfer for operator UI; true backup/restore, legacy backups, full CI/offline acceptance outstanding. No merge/deploy/close279. Windows and shared status docs remain held by stage2-windows-1030; obtain coordinated resource transfer before mutations."
     }
   ]
 }
