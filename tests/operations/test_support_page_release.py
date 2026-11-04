@@ -47,6 +47,12 @@ class SupportPageTests(unittest.TestCase):
             self.assertEqual(section.count('<li>'),3)
             self.assertIn('href="tel:+77000000000"',section)
             for absent in ('<form','<script','{SUPPORT_EMAIL}','—','–'):self.assertNotIn(absent,section)
+            # Google asks which data is kept and for how long: the section says what stays and
+            # links the policy's retention heading (the one legal-update.py pins on the page).
+            self.assertIn('href="/legal/privacy#:~:text=%D0%A1%D1%80%D0%BE%D0%BA%D0%B8%20%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D1%8F%20%D0%B0%D0%BA%D0%BA%D0%B0%D1%83%D0%BD%D1%82%D0%B0"',section)
+            self.assertIn('«Сроки хранения аккаунта»',section)
+            self.assertEqual(section.count('<p class="prepare'),2)
+        self.assertIn("'<h2>Сроки хранения аккаунта</h2>'",(root/'infra/public-staging/legal-update.py').read_text())
 
     def test_invalid_contact_cannot_inject_markup(self):
         with self.assertRaises(ValueError):m.render('ru','"><script>')

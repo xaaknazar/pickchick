@@ -3,6 +3,12 @@ import html
 import json
 from pathlib import Path
 import re
+from urllib.parse import quote
+
+# The published privacy policy (Russian) keeps its retention periods under this heading
+# (legal-update.py pins it). A text fragment scrolls there; older browsers open the policy top.
+RETENTION_HEADING = 'Сроки хранения аккаунта'
+RETENTION_URL = '/legal/privacy#:~:text=' + quote(RETENTION_HEADING)
 
 
 def render(language, phone):
@@ -23,7 +29,9 @@ def render(language, phone):
               f'<h3>{e(c["delete_app_title"])}</h3><ol>{steps}</ol>'
               f'<h3>{e(c["delete_request_title"])}</h3><p>{e(c["delete_request"])}</p>'
               f'<a class="call" href="tel:{phone}">{e(c["call"])}</a>'
-              f'<p class="prepare">{e(c["delete_data"])}</p></section>')
+              f'<p class="prepare">{e(c["delete_data"])}</p>'
+              f'<p class="prepare kept">{e(c["delete_kept"])} '
+              f'<a href="{RETENTION_URL}">{e(c["delete_kept_link"])}</a></p></section>')
     return f'''<!doctype html>
 <html lang="{language}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{e(c['title'])}</title><meta name="description" content="{e(c['intro'])}"><link rel="stylesheet" href="/support/style.css"></head>
