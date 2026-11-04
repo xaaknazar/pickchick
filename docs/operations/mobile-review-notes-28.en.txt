@@ -5,7 +5,7 @@ SIGN-IN FOR APP REVIEW
 2. Enter the 10 digits from the Username field (+7 is already shown) and tap Continue. Tapping Continue accepts the terms.
 3. On the code screen enter the 4-digit code from the Password field.
 4. On "Let's get to know you" tap Done. The name and the other fields are optional.
-No SMS, Telegram or WhatsApp message is needed for this review number. Regular customers receive their code in Telegram or WhatsApp. Sign-in is by phone number only; there is no third-party or social login. The menu, the basket and the mini-games (Events tab) also work without signing in.
+No SMS or Telegram message is needed for this review number. Regular customers receive their code in Telegram. Sign-in is by phone number only; there is no third-party or social login. The menu, the basket and the mini-games (Events tab) also work without signing in.
 
 WHAT THE REVIEW ACCOUNT CAN DO
 Browse the full menu, open dishes, customise combos, add and change items in the basket, see the total, open the payment step, view Orders, play the mini-games, edit the profile and delete the account.

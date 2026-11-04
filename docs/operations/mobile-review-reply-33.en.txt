@@ -1,0 +1,12 @@
+Hello,
+
+Thank you for reviewing PickChick. We have made account deletion directly visible in the app in build 0.2.0 (33):
+
+- Profile > Delete account (in the Profile list, right below Language). The Delete account screen explains what is removed. Tap Delete account, then confirm in the dialog "Delete your Pick Chick account?". The app shows "Account deleted" once our server has deleted the account.
+- The same screen also opens from Profile > Settings (gear icon) > Delete account.
+
+The profile icon is at the top right of the Menu, Games and Orders tabs. Sign-in details for the review account are in App Review Information; the same review number can sign in again after deletion and gets a new, empty profile. The updated App Review Notes describe the steps.
+{VIDEO}
+
+Kind regards,
+PickChick
