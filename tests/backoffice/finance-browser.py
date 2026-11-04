@@ -3,6 +3,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 from playwright.sync_api import sync_playwright, expect
 
 c = json.loads(Path(sys.argv[1]).read_text())
@@ -24,10 +25,22 @@ with sync_playwright() as pw:
     def tab(label):
         b(label).click()
     def period(start, end):
+        # Both the initial operations load and recovery can redraw these draft fields.
+        expect(page.get_by_test_id('branch-select')).to_be_enabled()
+        expect(b('Показать')).to_be_enabled()
         page.get_by_test_id('finance-start').fill(start)
         page.get_by_test_id('finance-end').fill(end)
-        b('Показать').click()
+        def selected_report(response):
+            url = urlparse(response.url)
+            query = parse_qs(url.query)
+            return (response.request.method == 'GET' and url.path.endswith('/finance')
+                    and query.get('start_date') == [start] and query.get('end_date') == [end])
+        with page.expect_response(selected_report) as report:
+            b('Показать').click()
+        assert report.value.status == 200, {'finance_report_status': report.value.status}
         expect(b('Показать')).to_be_enabled()
+        expect(page.get_by_test_id('finance-start')).to_have_value(start)
+        expect(page.get_by_test_id('finance-end')).to_have_value(end)
     expect(b('Настройки')).to_be_enabled()
     period('2026-10-01', '2026-10-31')
     expect(page.get_by_role('heading', name='Финансы за период')).to_be_visible()
@@ -84,6 +97,8 @@ with sync_playwright() as pw:
     expect(b('Проверить результат')).to_have_count(0)
     assert recovered[0] == requests[0]
     assert requests[0]['command']['entry']['account_id'] is None
+    # Reload resets the report to the current month; select the fixture period again.
+    period('2026-10-01', '2026-10-31')
     tab('Журнал операций')
     expect(b('Синтетические коммунальные услуги')).to_have_count(1)
     tab('ДДС')

@@ -400,3 +400,76 @@ test('QA: a kiosk order handed over on the lost timeline of a restore is a resto
     [],
   );
 });
+
+test('restore reconciliation never exempts an unreviewed or changed canonical history', () => {
+  const { data, ledger } = world();
+  const remote = { ...data.cloud.posKitchen[0] };
+  const edge = data.edge.reservations.find((r) => r.order_id === remote.order_id);
+  edge.state = 'accepted';
+  edge.version = 1;
+  const record = {
+    orderId: edge.order_id,
+    epoch: 2,
+    decision: 'retire',
+    canonical: remote,
+    edgeState: 'accepted',
+    edgeVersion: 1,
+  };
+  const context = { pending, reviewedRestores: [record] };
+  assert.ok(failed(evaluate(data, ledger, context)).includes('restore_reviews_preserve_history'));
+  data.edge.restoreDecisions = [
+    {
+      order_id: edge.order_id,
+      epoch: 2,
+      decision: 'retire',
+      expected_version: 1,
+      reason: 'Physically reviewed',
+    },
+  ];
+  assert.ok(!failed(evaluate(data, ledger, context)).includes('pos_kitchen_in_cloud'));
+  data.cloud.posKitchen[0].version++;
+  assert.ok(failed(evaluate(data, ledger, context)).includes('restore_reviews_preserve_history'));
+  data.cloud.posKitchen[0].version--;
+  edge.version++;
+  assert.ok(failed(evaluate(data, ledger, context)).includes('restore_reviews_preserve_history'));
+});
+
+test('resumed restore requires the latest durable observation, not merely a manager click', () => {
+  const { data, ledger } = world();
+  const remote = { ...data.cloud.posKitchen[0] };
+  const edge = data.edge.reservations.find((r) => r.order_id === remote.order_id);
+  edge.version++;
+  const context = {
+    pending,
+    reviewedRestores: [
+      {
+        orderId: edge.order_id,
+        epoch: 2,
+        decision: 'resume',
+        canonical: remote,
+        edgeState: 'accepted',
+        edgeVersion: 1,
+      },
+    ],
+  };
+  data.edge.restoreDecisions = [
+    {
+      order_id: edge.order_id,
+      epoch: 2,
+      decision: 'resume',
+      expected_version: 1,
+      reason: 'Physically reviewed',
+    },
+  ];
+  assert.ok(failed(evaluate(data, ledger, context)).includes('restore_reviews_preserve_history'));
+  data.cloud.restoreConflicts = [
+    {
+      order_id: edge.order_id,
+      aggregate_version: edge.version,
+      envelope: { payload: { state: edge.state } },
+    },
+  ];
+  assert.ok(!failed(evaluate(data, ledger, context)).includes('restore_reviews_preserve_history'));
+  data.cloud.restoreConflicts[0].aggregate_version--;
+  assert.ok(failed(evaluate(data, ledger, context)).includes('restore_reviews_preserve_history'));
+});

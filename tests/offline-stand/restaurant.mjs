@@ -339,6 +339,7 @@ export class Restaurant {
       ]) {
         const queue = await this.kitchenQueue(actor, station);
         for (const order of queue) {
+          if (order.restoreReview && order.restoreReview.status !== 'resume') continue;
           if (this.random() >= share) continue;
           const own = order.tasks.filter((t) => t.stationId === station);
           const task =

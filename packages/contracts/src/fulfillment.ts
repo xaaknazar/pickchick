@@ -56,6 +56,9 @@ export const FulfillmentTaskSchema = z.strictObject({
   }),
 });
 export const FulfillmentKitchenOrderSchema = FulfillmentSummarySchema.extend({
+  restoreReview: z
+    .strictObject({ epoch: z.int().min(2), status: z.enum(['pending', 'resume', 'retire']) })
+    .optional(),
   assemblyStationId: uuid,
   channel: z.enum(['mobile', 'kiosk', 'pos']),
   serviceMode: z.enum(['takeaway', 'dine_in']),
@@ -119,3 +122,16 @@ export type FulfillmentSummary = z.infer<typeof FulfillmentSummarySchema>;
 export type FulfillmentTask = z.infer<typeof FulfillmentTaskSchema>;
 export type FulfillmentOrder = z.infer<typeof FulfillmentOrderSchema>;
 export type FulfillmentAction = z.infer<typeof FulfillmentActionSchema>;
+
+/** Manager-only reconciliation of a restored local ticket. Never authorizes payment. */
+export const FulfillmentRestoreDecisionSchema = z.strictObject({
+  commandId: uuid,
+  epoch: z.int().min(2),
+  expectedVersion: version,
+  decision: z.enum(['resume', 'retire']),
+  reason: z.string().trim().min(3).max(500),
+});
+export const FulfillmentRestoreResultSchema = z.strictObject({
+  epoch: z.int().min(2),
+  status: z.enum(['resume', 'retire']),
+});

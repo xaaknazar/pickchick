@@ -6,7 +6,7 @@
  *   node --env-file=.env tests/offline-stand/run.mjs --mode backlog --events 10000
  *
  * Options: --scenarios a,b  --seed N  --output DIR (default .local/offline-stand/<run>)
- *          --keep (keep the run schemas)  --no-docker (skip the restore drill)
+ *          --keep (keep the run schemas)  --no-docker (native restore with OFFLINE_STAND_PG_BIN, otherwise skip)
  *          --cleanup (drop every offstand_* schema left by a killed run; no stand may run)
  *          soak only: --sample-every 10m  --shift-every 4h  --relogin-every 1h
  * Databases: CLOUD_DATABASE_URL / EDGE_DATABASE_URL (local only); the restore drill restores the
@@ -388,7 +388,7 @@ export async function main(argv = process.argv.slice(2)) {
     runDir: out,
     cloudUrl: process.env.CLOUD_DATABASE_URL,
     edgeUrl: process.env.EDGE_DATABASE_URL,
-    restoreUrl: options.noDocker ? null : defaultRestoreUrl(),
+    restoreUrl: options.noDocker && !process.env.OFFLINE_STAND_PG_BIN ? null : defaultRestoreUrl(),
     seed: options.seed,
     log,
   });

@@ -13,6 +13,8 @@ import {
 import { z } from 'zod';
 import {
   FulfillmentActionSchema,
+  FulfillmentRestoreDecisionSchema,
+  FulfillmentRestoreResultSchema,
   FulfillmentConfigSchema,
   FulfillmentDisplaySchema,
   FulfillmentKitchenOrderSchema,
@@ -86,10 +88,14 @@ function summary(row: Summary) {
   });
 }
 function kitchenOrder(
-  row: Pick<Order, keyof Summary | 'channel' | 'serviceMode' | 'tasks' | 'kitchenComment'>,
+  row: Pick<
+    Order,
+    keyof Summary | 'channel' | 'serviceMode' | 'tasks' | 'kitchenComment' | 'restoreReview'
+  >,
 ) {
   return output(FulfillmentKitchenOrderSchema, {
     ...summary(row),
+    ...(row.restoreReview ? { restoreReview: row.restoreReview } : {}),
     assemblyStationId: row.assemblyStationId,
     channel: row.channel,
     serviceMode: row.serviceMode,
@@ -253,6 +259,24 @@ export class FulfillmentController {
         cancellationReason: row.cancellationReason,
         inventoryDisposition: row.inventoryDisposition,
       });
+    });
+  }
+  @Post('orders/:orderId/restore-review')
+  @HttpCode(200)
+  restoreReview(
+    @Headers() headers: RequestHeaders,
+    @Param('orderId') id: string,
+    @Body() body: unknown,
+  ) {
+    return this.run(headers, async (auth) => {
+      const value = input(FulfillmentRestoreDecisionSchema, body);
+      return output(
+        FulfillmentRestoreResultSchema,
+        await this.repository.reviewRestore(this.branchId, auth, {
+          ...value,
+          orderId: input(UuidSchema, id),
+        }),
+      );
     });
   }
   @Post('orders/:orderId/actions')
