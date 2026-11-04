@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Animated, Easing, Keyboard, StyleSheet, View } from 'react-native';
 import { useReducedMotion } from '../components/Motion';
-import { OrderSheet } from '../components/OrderSheet';
+import { OrderSheet, SheetBackLayer } from '../components/OrderSheet';
 import { AuthWelcome } from '../components/AuthWelcome';
 import { Phone, Otp } from '../screens/AuthScreens';
 import { Onboarding } from '../screens/RegistrationScreen';
@@ -172,6 +172,8 @@ export default function Auth() {
               </Animated.View>
               {auxiliary ? (
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: '#04143A' }]}>
+                  {/* Android Back closes the documents or support page, not the whole sign-in. */}
+                  <SheetBackLayer onBack={() => setAuxiliary(null)} />
                   {auxiliary === 'M33' ? (
                     <Legal {...props} screenId="M33" goBack={() => setAuxiliary(null)} />
                   ) : (

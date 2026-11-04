@@ -30,6 +30,7 @@ import { useTabBarInset } from './tab-bar-inset';
 import { SupportContact } from './SupportContact';
 import { GlassButton } from './GlassButton';
 import { PaymentCloseConfirm } from './PaymentCloseConfirm';
+import { useSheetBack } from './OrderSheet';
 
 const BANK_PHASES: readonly string[] = ['sending', 'awaiting_payment', 'checking'];
 /** The smallest share of its size the scene may shrink to so the words fit (owner 28.10.2026). */
@@ -207,6 +208,13 @@ export function KaspiPaymentState({
     if (dismissNeedsConfirm?.()) setConfirming(true);
     else onDismiss();
   };
+  // Android Back (lane android, 05.11.2026) is the glass X: the same confirmation while the bank
+  // may act, never a silent exit from a running payment. Without an X (the paid moment) the
+  // locked sheet keeps Back. While «Закрыть оплату?» is open, its own dialog takes Back (stay).
+  useSheetBack(() => {
+    requestDismiss();
+    return true;
+  }, dismissible && !confirming);
   useEffect(() => {
     if ((!waiting && phase !== 'checking') || !foreground || !order?.expiresAt) return;
     setNow(Date.now());

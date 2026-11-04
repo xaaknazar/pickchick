@@ -27,14 +27,47 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { useIsFocused } from 'expo-router';
 import { motion, useReducedMotion } from './Motion';
 import { useTapsSettled } from './useTapGuard';
 import { colors } from '../theme';
+import { createBackLayers, type BackLayer } from '../back-layers';
 
 // Keyboard events use window coordinates; children are laid out inside this sheet.
 export const SheetKeyboardOffsetContext = createContext(0);
 
 const SheetDismissalContext = createContext<(owner: symbol, blocked: boolean) => void>(() => {});
+
+const SheetBackContext = createContext<((layer: BackLayer) => () => void) | null>(null);
+
+/**
+ * Hardware Back (Android) for a layer on top of a sheet's content (back-layers.ts): `onBack`
+ * returns true when it handled Back. Inside a sheet the sheet asks it before closing itself;
+ * outside a sheet (the payment screen of the «Заказы» tab) it listens to Back itself, only while
+ * its screen is focused. Escape on the web is unchanged (it closes an unlocked sheet).
+ */
+export function useSheetBack(onBack: BackLayer, enabled = true) {
+  const add = useContext(SheetBackContext);
+  const focused = useIsFocused();
+  const latest = useRef(onBack);
+  latest.current = onBack;
+  useEffect(() => {
+    if (!enabled) return;
+    if (add) return add(() => latest.current());
+    if (Platform.OS !== 'android' || !focused) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => latest.current());
+    return () => subscription.remove();
+  }, [add, enabled, focused]);
+}
+
+/** Renders nothing; while mounted, Back runs `onBack` instead of closing the sheet. */
+export function SheetBackLayer({ onBack }: { onBack(): void }) {
+  useSheetBack(() => {
+    onBack();
+    return true;
+  });
+  return null;
+}
 
 /** The payment owns its dismissal lock; closing a sheet never cancels a bank invoice. */
 export function useSheetDismissalLock(blocked: boolean) {
@@ -139,14 +172,22 @@ export function OrderSheet({
       easing: Easing.bezier(0.22, 1, 0.36, 1),
     });
   }, [reduced, y]);
+  // Back asks the layers on top first (the payment X, an overlay, the OTP step); a locked sheet
+  // (close() is a no-op then) keeps Back, so a running payment never leaves the app.
+  const [layers] = useState(createBackLayers);
+  const back = useCallback(() => {
+    if (!layers.dispatch()) close();
+    return true;
+  }, [close, layers]);
+  // Only while this sheet's screen is on top: a game opened from the order tracker sits above the
+  // order-status sheet, and its Back (not playing) must leave the game, not slide away the hidden
+  // sheet underneath and leave an invisible route over the tabs.
+  const focused = useIsFocused();
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      close();
-      return true;
-    });
+    if (Platform.OS !== 'android' || !focused) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', back);
     return () => sub.remove();
-  }, [close]);
+  }, [back, focused]);
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const node = dialog.current as unknown as HTMLElement;
@@ -157,6 +198,7 @@ export function OrderSheet({
       ).filter((el) => el.getAttribute('aria-disabled') !== 'true' && el.getClientRects().length);
     controls()[0]?.focus();
     const key = (event: KeyboardEvent) => {
+      // The web keeps Escape = close (a locked sheet stays): layers are an Android Back matter.
       if (event.key === 'Escape') {
         event.preventDefault();
         close();
@@ -237,7 +279,9 @@ export function OrderSheet({
         ) : null}
         <SheetKeyboardOffsetContext.Provider value={top}>
           <SheetDismissalContext.Provider value={blockDismissal}>
-            {children(close)}
+            <SheetBackContext.Provider value={layers.add}>
+              {children(close)}
+            </SheetBackContext.Provider>
           </SheetDismissalContext.Provider>
         </SheetKeyboardOffsetContext.Provider>
       </Animated.View>

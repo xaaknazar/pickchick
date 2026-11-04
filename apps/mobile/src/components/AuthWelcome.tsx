@@ -305,6 +305,11 @@ const s = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 10 },
+    // Android ignores the iOS shadow props (lane android 05.11.2026): the same orange glow as a
+    // box shadow around the button's own pill shape.
+    ...Platform.select({
+      android: { borderRadius: 28, boxShadow: `0 10px 32px ${colors.accent}40` },
+    }),
   },
   phoneIcon: { position: 'absolute', top: 19, left: '16%' },
   footer: {
