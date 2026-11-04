@@ -7203,11 +7203,15 @@
         "tests/offline-stand/run.mjs",
         "packages/edge-fulfillment/src/local-pos.ts",
         "packages/contracts/openapi.json",
-        "scripts/contracts.mjs"
+        "scripts/contracts.mjs",
+        "tests/offline-stand/checks.mjs",
+        "tests/offline-stand/restaurant.mjs",
+        "tests/offline-stand/stand.test.mjs",
+        "docs/operations/edge-restore.md"
       ],
       "status": "active",
       "head": "94be6ae04d3c9142c0c7fe23fb8d3dda03b102d3",
-      "updatedAt": "2026-11-04T05:42:00.729Z",
+      "updatedAt": "2026-11-04T05:43:30.485Z",
       "summary": "Published 94be6ae04d3c9142c0c7fe23fb8d3dda03b102d3, draft PR304. Cashier connection verified: correct IPv4 192.168.2.69/23; earlier .59 misread. Pinned SSH identity matches, WIN-C583E2V3LH9, seven PickChick services Running/Auto; edge3101 and cloud API via tunnel43100 readiness HTTP200 ready true. Read-only, no production changes. Prior build/tests/offline checkpoint recorded in docs/operations/queue-recovery-279.md.",
       "nextAction": "LAN blocker resolved. Still await kitchen app.ts/server.mjs and infra/kitchen-portal/server.mjs transfer for operator UI; true backup/restore, legacy backups, full CI/offline acceptance outstanding. No merge/deploy/close279. Windows and shared status docs remain held by stage2-windows-1030; obtain coordinated resource transfer before mutations."
     }
