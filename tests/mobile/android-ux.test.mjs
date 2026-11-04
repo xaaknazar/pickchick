@@ -6,7 +6,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createBackLayers } from '../../apps/mobile/src/back-layers.ts';
 import { keyboardAvoidingBehavior } from '../../apps/mobile/src/keyboard-avoidance.ts';
-import { ANDROID_HAPTICS, IMPACT_STYLE } from '../../apps/mobile/src/haptic-map.ts';
+import { ANDROID_FEEDBACK, IMPACT_STYLE } from '../../apps/mobile/src/haptic-map.ts';
 
 const appRoot = fileURLToPath(new URL('../../apps/mobile/', import.meta.url));
 const src = `${appRoot}src/`;
@@ -181,7 +181,7 @@ test('keyboard: forms pad above the keyboard on Android too (edge-to-edge)', () 
     );
 });
 
-test('haptics: Android plays system constants that exist in expo-haptics, with old-API fallbacks', () => {
+test('haptics: Android keeps the heavy impact for grab/armed, system slider ticks with fallbacks', () => {
   const types = readFileSync(
     `${appRoot}node_modules/expo-haptics/build/Haptics.types.d.ts`,
     'utf8',
@@ -199,18 +199,29 @@ test('haptics: Android plays system constants that exist in expo-haptics, with o
     'long-press',
     'virtual-key',
   ]);
-  for (const cue of ['grab', 'tick', 'armed']) {
-    assert.ok(ANDROID_HAPTICS[cue].length >= 2, cue);
-    for (const type of ANDROID_HAPTICS[cue]) assert.ok(android.has(type), `${cue}: ${type}`);
-    assert.ok(
-      everyVersion.has(ANDROID_HAPTICS[cue].at(-1)),
-      `${cue} ends with an all-API constant`,
-    );
-    assert.ok(['medium', 'heavy'].includes(IMPACT_STYLE[cue]));
-  }
+  // Owner: firmer feedback. The pick-up and the point where letting go pays keep the 60 ms
+  // heavy pulse (system DRAG_START / CONFIRM are often weaker, tech-lead review 05.11.2026).
+  assert.deepEqual(ANDROID_FEEDBACK.grab, { kind: 'impact', style: 'heavy' });
+  assert.deepEqual(ANDROID_FEEDBACK.armed, { kind: 'impact', style: 'heavy' });
+  // A tick every sixteenth of the track: the short system slider constant, not a vibrator buzz.
+  const tick = ANDROID_FEEDBACK.tick;
+  assert.equal(tick.kind, 'system');
+  assert.ok(tick.types.length >= 2);
+  for (const type of tick.types) assert.ok(android.has(type), `tick: ${type}`);
+  assert.ok(everyVersion.has(tick.types.at(-1)), 'tick ends with an all-API constant');
+  const impacts = readFileSync(
+    `${appRoot}node_modules/expo-haptics/build/Haptics.types.d.ts`,
+    'utf8',
+  ).split('export declare enum ImpactFeedbackStyle')[1];
+  for (const style of new Set(Object.values(IMPACT_STYLE)))
+    assert.match(impacts, new RegExp(`= "${style}"`), style);
   assert.deepEqual(IMPACT_STYLE, { grab: 'heavy', tick: 'medium', armed: 'heavy' });
   const code = read('haptics.ts');
   assert.match(code, /performAndroidHapticsAsync/);
+  assert.match(
+    code,
+    /if \(feedback\.kind === 'impact'\) \{\s*await Haptics\.impactAsync\(feedback\.style/,
+  );
   assert.match(code, /Platform\.OS === 'android'\s*\? androidFeedback\(cue\)/);
 });
 

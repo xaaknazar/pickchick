@@ -3,26 +3,32 @@
  *
  * iOS: UIImpactFeedbackGenerator styles (owner 29.10.2026: heavy grab, medium ticks, heavy at the
  * point where letting go pays).
- * Android (lane android, 05.11.2026): the system's own haptic constants
- * (View.performHapticFeedback, expo-haptics `performAndroidHapticsAsync`) instead of a fixed
- * vibration: they are tuned per device, short enough for a tick every sixteenth of the track
- * (a 43 ms vibrator buzz per tick blurs into one hum) and follow the phone's «Touch feedback»
- * setting as iOS follows System Haptics. Newer constants come first; on an older Android the
- * next one plays, and only when none is available the vibrator impact is used.
+ * Android (lane android, 05.11.2026, tech-lead review the same day):
+ * - `grab` and `armed` keep the heavy expo-haptics impact (a 60 ms vibrator pulse, as before the
+ *   lane): the owner asked for firmer feedback, and the system DRAG_START / CONFIRM / LONG_PRESS
+ *   constants are short and often weaker than that pulse on real phones;
+ * - `tick` plays the system's own slider constant (View.performHapticFeedback, expo-haptics
+ *   `performAndroidHapticsAsync`): it is tuned per device and short enough for a tick every
+ *   sixteenth of the track, where a 43 ms vibrator buzz per tick blurs into one hum. It follows
+ *   the phone's «Touch feedback» setting as iOS follows System Haptics. SEGMENT_TICK (API 34)
+ *   comes first; on an older Android CLOCK_TICK (every version) plays, and only when neither is
+ *   available the medium impact is used.
+ * The strength still has to be felt on 2-3 real phones before production (lane note).
  */
 export type HapticCue = 'grab' | 'tick' | 'armed';
 
-/** expo-haptics `AndroidHaptics` values, preferred first (API level in the comment). */
-export const ANDROID_HAPTICS: Record<HapticCue, readonly string[]> = {
-  // DRAG_START (34): the handle was picked up; LONG_PRESS (all versions).
-  grab: ['drag-start', 'long-press'],
+export type AndroidFeedback =
+  { kind: 'impact'; style: 'medium' | 'heavy' } | { kind: 'system'; types: readonly string[] };
+
+/** What Android plays for each cue; `types` are expo-haptics `AndroidHaptics` values, preferred first. */
+export const ANDROID_FEEDBACK: Record<HapticCue, AndroidFeedback> = {
+  grab: { kind: 'impact', style: 'heavy' },
   // SEGMENT_TICK (34): a discrete point on a slider; CLOCK_TICK (all versions).
-  tick: ['segment-tick', 'clock-tick'],
-  // CONFIRM (30): letting go now pays; LONG_PRESS (all versions).
-  armed: ['confirm', 'long-press'],
+  tick: { kind: 'system', types: ['segment-tick', 'clock-tick'] },
+  armed: { kind: 'impact', style: 'heavy' },
 };
 
-/** expo-haptics `ImpactFeedbackStyle` values; Android uses them only as the last fallback. */
+/** expo-haptics `ImpactFeedbackStyle` values: iOS always, Android for impacts and as the last fallback. */
 export const IMPACT_STYLE: Record<HapticCue, 'medium' | 'heavy'> = {
   grab: 'heavy',
   tick: 'medium',
