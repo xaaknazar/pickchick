@@ -29,7 +29,19 @@
     "privacy": "Конфиденциальность",
     "terms": "Условия использования",
     "language": "Язык страницы",
-    "skip": "Перейти к ответам"
+    "skip": "Перейти к ответам",
+    "delete_link": "Удалить аккаунт PickChick",
+    "delete_title": "Удалить аккаунт PickChick",
+    "delete_intro": "Аккаунт приложения PickChick можно удалить в самом приложении или без него, по телефону ресторана.",
+    "delete_app_title": "В приложении",
+    "delete_app_steps": [
+      "Войдите в аккаунт и нажмите значок профиля вверху справа на экране «Меню», «Игры» или «Заказы».",
+      "Выберите «Удалить аккаунт» (сразу под «Язык») и на следующем экране нажмите «Удалить аккаунт».",
+      "Подтвердите удаление. После ответа сервера приложение покажет «Аккаунт удалён»."
+    ],
+    "delete_request_title": "Без приложения",
+    "delete_request": "Позвоните в ресторан PickChick и попросите удалить аккаунт, привязанный к вашему номеру телефона. Перед удалением мы убедимся, что номер принадлежит вам. Коды входа и банковские данные сообщать не нужно.",
+    "delete_data": "Удаляются профиль (ник, пол и дата рождения), вход по номеру телефона и доступ со всех устройств. Сведения о заказах и платежах, которые нужно хранить для учёта, обрабатываются по политике конфиденциальности. Удаление аккаунта не возвращает оплату."
   },
   "kk": {
     "title": "PickChick қолдау қызметі",
@@ -61,7 +73,19 @@
     "privacy": "Құпиялылық",
     "terms": "Пайдалану шарттары",
     "language": "Бет тілі",
-    "skip": "Жауаптарға өту"
+    "skip": "Жауаптарға өту",
+    "delete_link": "PickChick аккаунтын жою",
+    "delete_title": "PickChick аккаунтын жою",
+    "delete_intro": "PickChick қосымшасының аккаунтын қосымшаның өзінде немесе қосымшасыз, мейрамхана телефоны арқылы жоюға болады.",
+    "delete_app_title": "Қосымшада",
+    "delete_app_steps": [
+      "Аккаунтқа кіріп, «Мәзір», «Ойындар» немесе «Тапсырыстар» экранының жоғарғы оң жағындағы профиль белгішесін басыңыз.",
+      "«Аккаунтты жою» тармағын таңдаңыз («Тіл» астында), келесі экранда «Аккаунтты жою» батырмасын басыңыз.",
+      "Жоюды растаңыз. Сервер жауап бергеннен кейін қосымша «Аккаунт жойылды» деп көрсетеді."
+    ],
+    "delete_request_title": "Қосымшасыз",
+    "delete_request": "PickChick мейрамханасына қоңырау шалып, телефон нөміріңізге байланған аккаунтты жоюды сұраңыз. Жоймас бұрын нөмірдің сізге тиесілі екенін тексереміз. Кіру кодтарын және банк деректерін айтудың қажеті жоқ.",
+    "delete_data": "Профиль (лақап ат, жыныс және туған күн), телефон нөмірі арқылы кіру және барлық құрылғылардағы қолжетімділік жойылады. Есепке алу үшін сақталуы тиіс тапсырыстар мен төлемдер туралы мәліметтер құпиялылық саясатына сәйкес өңделеді. Аккаунтты жою төлемді қайтармайды."
   },
   "en": {
     "title": "PickChick support",
@@ -93,6 +117,18 @@
     "privacy": "Privacy policy",
     "terms": "Terms of use",
     "language": "Page language",
-    "skip": "Skip to answers"
+    "skip": "Skip to answers",
+    "delete_link": "Delete your PickChick account",
+    "delete_title": "Delete your PickChick account",
+    "delete_intro": "You can delete your PickChick app account in the app, or without the app by calling the restaurant.",
+    "delete_app_title": "In the app",
+    "delete_app_steps": [
+      "Sign in and tap the profile icon at the top right of the Menu, Games or Orders screen.",
+      "Choose Delete account (right under Language), then tap Delete account on the next screen.",
+      "Confirm. Once the server answers, the app shows Account deleted."
+    ],
+    "delete_request_title": "Without the app",
+    "delete_request": "Call the PickChick restaurant and ask us to delete the account linked to your phone number. We check that the number is yours before deleting the account. Do not share sign-in codes or bank details.",
+    "delete_data": "We delete your profile (nickname, gender and date of birth), sign-in with your phone number and access from all devices. Order and payment records that must be kept for accounting are handled according to our privacy policy. Deleting your account does not refund a payment."
   }
 }
