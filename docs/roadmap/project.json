@@ -5343,7 +5343,7 @@
       "id": "mobile-build33-1031",
       "workstream": "mobile",
       "title": "TestFlight33 на api.pickchick.kz",
-      "summary": "Подготовлен production-профиль выпуска33; 566 Node +73 Python, TypeScript/lint/format и переводы PASS. App Review account на production-экспорте без запросов к nip.io. CI и доставка ещё не подтверждены; серверный шлюз FAIL по двум старым ссылкам документов. Отправка App Store32 не изменяется.",
+      "summary": "Подготовлен production-профиль выпуска33; 566 Node +73 Python, TypeScript/lint/format и переводы PASS. App Review account на production-экспорте без запросов к nip.io. PR305 слит, Foundation CI 11/11 PASS, подписанный IPA33 проверен. Загрузка ждёт входа Apple Account в Xcode; доступность в TestFlight не подтверждена. Серверный шлюз FAIL по двум старым ссылкам документов. Отправка App Store32 не изменяется.",
       "status": "active",
       "owner": "development",
       "phase": "integration",
@@ -5359,7 +5359,7 @@
         "Сборка33 доступна существующей группе PickChick Internal.",
         "Физическая приёмка владельцем на iPhone."
       ],
-      "nextAction": "Полная CI и merge, затем archive/export/upload production и подтверждение внутренней группы. Документы сервера после решения Apple; публичное обновление отдельно.",
+      "nextAction": "Вход Apple Account в Xcode, повтор upload готового архива production, обработка Apple и подтверждение PickChick Internal. Приёмка владельцем на iPhone. Документы сервера после решения Apple; публичное обновление отдельно.",
       "checks": {
         "implemented": true,
         "verified": false,

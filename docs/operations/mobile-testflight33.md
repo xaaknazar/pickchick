@@ -36,7 +36,56 @@ mobile-kazakh-review-1030 и stage2-windows-1030. Прежние задачи и
   api_url=https://api.pickchick.kz, profile_from_default=false,без warning.
 - Doctor с существующим выделенным keychain и App Store profile PASS;
   новая подпись и новые профили не создавались.
-- Полная Foundation CI, архив, экспорт, загрузка и доступность33 ещё не подтверждены.
+- Полная Foundation CI PASS, 11/11, attempt2:
+  https://github.com/xaaknazar/pickchick/actions/runs/41905159145.
+  Первый запуск остановился на таймауте browser_demo_account после reload;
+  код приложения и тест совпадают с базой. Локальная проверка трёх размеров PASS,
+  повтор только упавших CI jobs PASS. Photo printer CI также PASS после повтора
+  проверки геометрии (первое падение на один пиксель).
+- PR305 слит обычным merge: https://github.com/xaaknazar/pickchick/pull/305.
+  Исходный чистый опубликованный SHA архива:
+  `4c7ed8ece4265a64f76b1ea417ca67c459ee87a4`.
+  Merge SHA: `642010ae555a9f8b8292a00dfb270ad2c581480b`; дерево совпадает с исходным.
+- Native prebuild, pods, подписанный Release archive и export PASS.
+  Загрузка остановлена Xcode: `Failed to Use Accounts`. Открыта форма входа
+  Apple Account; подтверждённой загрузки и доступности в TestFlight пока нет.
+
+## Нативный артефакт и доставка
+
+Релиз `mobile-production-20261105-33`, версия0.2.0(33), Bundle ID `kz.pickchick.app`.
+Для archive, export и попытки upload явно передан `--feature-profile production`.
+Каждая из трёх фаз вывела `Mobile JS bundle backend` с полями:
+
+```json
+{
+  "feature_profile": "production",
+  "environment": "production",
+  "api_url": "https://api.pickchick.kz",
+  "profile_from_default": false
+}
+```
+
+Поле warning отсутствует. Событие upload подтверждает выбранный профиль,
+но не успешную передачу: первая попытка завершилась ошибкой авторизации Xcode.
+Повторить upload того же архива после входа владельца, затем дождаться обработки
+и проверить существующую группу PickChick Internal. Новые группы и тестировщики
+не создаются; App Store32 не изменяется.
+
+Проверки архива и экспортированного IPA:
+
+- `codesign --verify --deep --strict`: PASS.
+- Версия, build и Bundle ID в архиве и IPA совпадают.
+- В нативном исполняемом файле присутствует runtime-класс ExpoHaptics.HapticsModule;
+  это проверка включения модуля, не проверка ощущения вибрации на iPhone.
+- Расширений `.appex`:0.
+- `EXPO_PUBLIC_UPCOMING_PAYMENTS` не задан в окружении сборки.
+- JS в IPA совпадает с архивом, 6 213 642 байта, SHA-256:
+  `4a95b580c2506f464a7cd5be8963f9af97449d490f2122bec42667c72b5e35a6`.
+- Экспортированный IPA:131 638 763 байта, SHA-256:
+  `6d4991649fed74e77b346d987e105940bbe6bc153246209553313a0c9fee0179`.
+
+Приёмка на физическом iPhone пока не выполнена. Нативная сборка и успешные
+браузерные проверки не считаются подтверждением доступности в TestFlight.
 
 ## Apple и серверный шлюз
 
