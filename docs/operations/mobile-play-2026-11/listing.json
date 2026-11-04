@@ -13,6 +13,12 @@
   "accountDeletionUrl": "https://pickchick.kz/support/#delete-account",
   "containsAds": false,
   "inAppPurchases": false,
+  "graphics": {
+    "appIcon": "graphics/play-icon-512.png",
+    "featureGraphic": "graphics/feature-graphic-1024x500.png",
+    "featureGraphicStatus": "draft: the owner approves it before upload",
+    "phoneScreenshots": "store-graphics.md: Codex captures 4-8 phone screenshots, 1080 x 1920, from the internal testing build"
+  },
   "listings": {
     "ru-RU": {
       "title": "PickChick",

@@ -2,7 +2,7 @@
 // only what the production build does, and every code path the Data safety answers cite exists.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 
 const root = new URL('../../', import.meta.url);
 const pack = (name) =>
@@ -133,11 +133,48 @@ test('rating, deletion page and testers guide are present and honest', () => {
     readFileSync(new URL('infra/public-staging/support/content.json', root), 'utf8'),
   );
   for (const language of ['ru', 'kk', 'en'])
-    assert.ok(deletion.includes(support[language].delete_request), language);
+    for (const key of ['delete_request', 'delete_data', 'delete_kept', 'delete_kept_link'])
+      assert.ok(deletion.includes(support[language][key]), `${language}.${key}`);
+  // Google asks which data stays and for how long: the page links the policy's retention section.
+  assert.match(deletion, /Сроки хранения аккаунта/);
   const guide = pack('testers-guide.ru.md');
   assert.match(guide, /14 дней подряд/);
   assert.match(guide, /12 человек/);
   assert.match(guide, /\{OPT_IN_LINK\}/);
   assert.match(guide, /Настоящие заказы и оплату не делайте/);
   for (const text of [rating, deletion, guide]) assert.doesNotMatch(text, /[–—]/);
+});
+
+test('store graphics: Play icon and feature graphic in the formats Play Console accepts', () => {
+  const png = (path) => {
+    const url = new URL(`docs/operations/mobile-play-2026-11/${path}`, root);
+    const bytes = readFileSync(url);
+    assert.equal(bytes.subarray(1, 4).toString(), 'PNG', path);
+    return {
+      width: bytes.readUInt32BE(16),
+      height: bytes.readUInt32BE(20),
+      colorType: bytes[25],
+      size: statSync(url).size,
+    };
+  };
+  const { graphics } = listing;
+  // 512 x 512, 32-bit PNG with alpha, at most 1 MB.
+  const icon = png(graphics.appIcon);
+  assert.deepEqual([icon.width, icon.height, icon.colorType], [512, 512, 6]);
+  assert.ok(icon.size <= 1024 * 1024, String(icon.size));
+  // 1024 x 500, 24-bit PNG (no alpha), at most 15 MB.
+  const feature = png(graphics.featureGraphic);
+  assert.deepEqual([feature.width, feature.height, feature.colorType], [1024, 500, 2]);
+  assert.ok(feature.size <= 15 * 1024 * 1024, String(feature.size));
+  assert.match(graphics.featureGraphicStatus, /owner approves/);
+  const plan = pack('store-graphics.md');
+  for (const text of [
+    graphics.appIcon,
+    graphics.featureGraphic,
+    'scripts/mobile/play_store_graphics.py',
+    '1080 x 1920',
+  ])
+    assert.ok(plan.includes(text), text);
+  assert.ok(existsSync(new URL('scripts/mobile/play_store_graphics.py', root)));
+  assert.doesNotMatch(plan, /[–—]/);
 });
