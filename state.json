@@ -7261,11 +7261,11 @@
         "docs/project-status.md",
         "docs/roadmap/project.json"
       ],
-      "status": "active",
+      "status": "available",
       "head": "58aa4423780a44d888d170f3100d0cb21bf4a7f3",
-      "updatedAt": "2026-11-04T22:25:36.750Z",
-      "summary": "Build33 available in PickChick Internal, Apple status Testing. PR305 merged, source CI 11/11. PR306 contains delivery evidence. Temporary release/Apple and five completed file scopes returned; project status/roadmap retained until evidence merge.",
-      "nextAction": "Wait for owner Xcode login; preserve failed upload evidence and retry same release mobile-production-20261105-33 with explicit production. Confirm Apple processing and PickChick Internal availability, update PR306 evidence. Physical iPhone acceptance pending. Legal URL changes await new Apple32 decision; public update requires separate owner approval."
+      "updatedAt": "2026-11-04T22:26:14.758Z",
+      "summary": "TestFlight0.2.0(33) delivered and Apple processed; PickChick Internal status Testing confirmed 2026-11-04 22:23UTC. Build ID a4fad84a-b506-4de7-8f31-06510e79cb69. PR305 merged, archive source4c7ed8ec Foundation11/11 PASS. Production backend confirmed all phases, codesign PASS, no appex, ExpoHaptics present. Protocol/status/roadmap checkpoint58aa4423 in PR306. Release/Apple reserves and five completed file scopes returned to prior tasks.",
+      "nextAction": "Owner iPhone acceptance pending. PR306 evidence CI/merge pending; keep project-status/roadmap until merge then return to stage2-windows-1030. Server legal URLs remain nip.io: wait new Apple32 decision, guarded change then Domain gate PASS. App Store update requires separate owner approval; keep32 unchanged. No real payments, devices or online-roadmap deployment."
     }
   ]
 }
