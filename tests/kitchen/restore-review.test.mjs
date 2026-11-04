@@ -86,11 +86,12 @@ test('local HTTP requires manager, carries the restore marker and preserves repe
         headers: headers(c.manager),
         body: JSON.stringify({ ...body, decision: 'resume' }),
       });
-      assert.notEqual(
+      assert.equal(
         resume.status,
-        200,
+        409,
         'local manager cannot resume cloud-owned execution without cloud reconciliation',
       );
+      assert.equal((await resume.json()).code, 'CONFLICT');
       assert.equal((await post(c.cook)).status, 403);
       assert.equal((await post(c.manager)).status, 200);
       assert.equal((await post(c.manager)).status, 200);
