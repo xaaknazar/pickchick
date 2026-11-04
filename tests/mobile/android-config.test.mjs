@@ -5,11 +5,31 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { gunzipSync } from 'node:zlib';
 
 const appRoot = fileURLToPath(new URL('../../apps/mobile/', import.meta.url));
 const { expo } = JSON.parse(readFileSync(`${appRoot}app.json`, 'utf8'));
 const require = createRequire(import.meta.url);
 const plugin = require('../../apps/mobile/plugins/android-release.js');
+
+/** One file from a .tgz (ustar headers, 512-byte blocks), without a tar dependency. */
+function tarFile(archive, name) {
+  const tar = gunzipSync(readFileSync(archive));
+  for (let offset = 0; offset + 512 <= tar.length;) {
+    const header = tar.subarray(offset, offset + 512);
+    const field = (start, length) =>
+      header
+        .subarray(start, start + length)
+        .toString('utf8')
+        .replace(/\0.*$/s, '');
+    const entry = [field(345, 155), field(0, 100)].filter(Boolean).join('/');
+    if (!entry) break;
+    const size = parseInt(field(124, 12).trim() || '0', 8);
+    if (entry === name) return tar.subarray(offset + 512, offset + 512 + size).toString('utf8');
+    offset += 512 + Math.ceil(size / 512) * 512;
+  }
+  throw new Error(`${name} is not in ${archive}`);
+}
 
 function png(path) {
   const bytes = readFileSync(`${appRoot}${path}`);
@@ -48,6 +68,14 @@ test('app.json: Play package, unchanged versionCode, adaptive icon, no backups, 
   ])
     assert.ok(android.blockedPermissions.includes(`android.permission.${permission}`), permission);
   assert.ok(android.blockedPermissions.includes('com.google.android.gms.permission.AD_ID'));
+  // Tech-lead review 05.11: NetInfo reads Wi-Fi details only when granted, the app schedules no
+  // local notification to restore after a reboot and never asks for the install referrer.
+  for (const permission of [
+    'android.permission.ACCESS_WIFI_STATE',
+    'android.permission.RECEIVE_BOOT_COMPLETED',
+    'com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE',
+  ])
+    assert.ok(android.blockedPermissions.includes(permission), permission);
   // Launcher badge counters (ShortcutBadger in expo-notifications): the app sets no badge.
   assert.ok(android.blockedPermissions.includes('android.permission.READ_APP_BADGE'));
   assert.ok(
@@ -136,6 +164,42 @@ test('android-release plugin: release signs with the upload key properties, neve
   // No literal key, password or alias in the release config: Gradle properties only.
   assert.doesNotMatch(configs.split('release {')[1], /(?:storeFile|Password|keyAlias)\s+'/);
   assert.throws(() => plugin.setReleaseSigning('android {}'), /signing blocks changed/);
+});
+
+test('android-release plugin: the real Expo SDK template app/build.gradle is rewritten', () => {
+  // expo prebuild copies android/ from expo's own template.tgz; when an SDK update changes its
+  // signing blocks this fails in pnpm test:mobile instead of at prebuild (tech-lead review).
+  const original = tarFile(
+    `${appRoot}node_modules/expo/template.tgz`,
+    'package/android/app/build.gradle',
+  );
+  assert.match(original, /release \{[^}]*?signingConfig signingConfigs\.debug/);
+  const gradle = plugin.setReleaseSigning(original);
+  assert.equal(plugin.setReleaseSigning(gradle), gradle);
+  const count = (text, char) => text.split(char).length - 1;
+  assert.equal(count(gradle, '{') - count(original, '{'), 2);
+  assert.equal(count(gradle, '}') - count(original, '}'), 2);
+  const [, afterConfigs] = gradle.split(/\n {4}signingConfigs \{\n/);
+  const configs = afterConfigs.split(/\n {4}buildTypes \{\n/)[0];
+  assert.match(configs, /^ {8}debug \{[\s\S]*?storeFile file\('debug\.keystore'\)/);
+  const upload = configs.split(/\n {8}release \{\n/)[1];
+  assert.ok(upload, 'a release signing config inside signingConfigs');
+  for (const name of plugin.UPLOAD_PROPERTIES) assert.match(upload, new RegExp(`'${name}'`));
+  const buildTypes = gradle.split(/\n {4}buildTypes \{\n/)[1].split(/\n {4}\}\n/)[0];
+  const [debugType, releaseType] = buildTypes.split(/\n {8}release \{\n/);
+  assert.match(debugType, /signingConfig signingConfigs\.debug/);
+  assert.match(
+    releaseType,
+    /signingConfig findProperty\('pickchickUploadStoreFile'\) \? signingConfigs\.release : null/,
+  );
+  assert.doesNotMatch(releaseType, /signingConfigs\.debug/);
+  // Everything else in the template stays as Expo wrote it.
+  assert.equal(
+    gradle
+      .replace(plugin.RELEASE_SIGNING, '')
+      .replace(plugin.RELEASE_SIGNING_USE, 'signingConfig signingConfigs.debug'),
+    original,
+  );
 });
 
 test('production introspection: the manifest Expo generates for the Play build', () => {

@@ -69,7 +69,10 @@
         "com.sonyericsson.home.permission.BROADCAST_BADGE",
         "com.sonymobile.home.permission.PROVIDER_INSERT_BADGE",
         "me.everything.badger.permission.BADGE_COUNT_READ",
-        "me.everything.badger.permission.BADGE_COUNT_WRITE"
+        "me.everything.badger.permission.BADGE_COUNT_WRITE",
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE"
       ]
     },
     "web": {

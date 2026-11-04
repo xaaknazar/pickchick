@@ -14,14 +14,19 @@ Phases:
 
 Profiles are the mobile profiles of ios_release.py (one model for both stores). The only Google
 Play profile is `production` (https://api.pickchick.kz), also the default here; a staging profile
-needs --allow-staging and is refused for a release label that says release or upload.
+needs --allow-staging and is refused for a release label that says release or upload. Inspect is
+the last gate before a manual Play Console upload: it fails a staging bundle unless
+--allow-staging is given, and then says it is a local test bundle, not one for Google Play. The
+bundle file name carries its profile (PickChick-0.2.0-7-production.aab).
 
 Signing: the upload keystore and its passwords come only from the environment
 (PICKCHICK_ANDROID_UPLOAD_KEYSTORE, PICKCHICK_ANDROID_UPLOAD_KEYSTORE_PASSWORD,
 PICKCHICK_ANDROID_UPLOAD_KEY_ALIAS, PICKCHICK_ANDROID_UPLOAD_KEY_PASSWORD) or a private 0600 file
 with the same KEY=value lines (--signing-file). Nothing of it is printed, written to release.json
-or passed on a command line: Gradle reads the pickchickUpload* properties from its environment.
-A bundle signed with the Android debug key is refused. Nothing is uploaded to Google.
+or passed on a command line: only the Gradle step gets the pickchickUpload* properties in its
+environment; `expo prebuild` (and every config plugin it runs) gets none of the upload values.
+An upload keystore that holds the Android debug key, and a bundle signed with it, are refused.
+Nothing is uploaded to Google.
 """
 
 import argparse
@@ -71,15 +76,21 @@ ANDROID_NS = "http://schemas.android.com/apk/res/android"
 PERMISSION_ALLOWLIST = {
     "android.permission.INTERNET": "API, menu photos, Kaspi status",
     "android.permission.ACCESS_NETWORK_STATE": "offline banner (NetInfo), image loading",
-    "android.permission.ACCESS_WIFI_STATE": "NetInfo connection details",
-    "android.permission.VIBRATE": "slide-to-pay haptics fallback (expo-haptics)",
+    "android.permission.VIBRATE": "slide-to-pay grab/armed impact (expo-haptics vibrator)",
     "android.permission.POST_NOTIFICATIONS": "order status notifications (Android 13+)",
-    "android.permission.RECEIVE_BOOT_COMPLETED": "expo-notifications keeps scheduled items",
     "android.permission.WAKE_LOCK": "push delivery (Firebase Messaging)",
     "com.google.android.c2dm.permission.RECEIVE": "push delivery (Firebase Messaging)",
-    "com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE":
-        "expo-application install referrer (not called by the app)",
     f"{PACKAGE}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION": "AndroidX internal signature permission",
+}
+# Blocked in app.json after the tech-lead review (05.11.2026), so they fail inspect if they come
+# back: ACCESS_WIFI_STATE (NetInfo reads Wi-Fi details only when it is granted, the app uses
+# isConnected), RECEIVE_BOOT_COMPLETED (expo-notifications reschedules local notifications after a
+# reboot; the app schedules none, push comes through Firebase) and the install referrer service
+# (expo-application; the app never asks for the referrer).
+TRIMMED_PERMISSIONS = {
+    "android.permission.ACCESS_WIFI_STATE",
+    "android.permission.RECEIVE_BOOT_COMPLETED",
+    "com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE",
 }
 # Never in a Play build: these collect data the Data safety form says we do not collect, or
 # grant powers the app does not use (they are blocked in app.json too).
@@ -92,6 +103,7 @@ FORBIDDEN_PERMISSIONS = {
     "android.permission.REQUEST_INSTALL_PACKAGES",
 }
 DEBUG_CERT_OWNER = "CN=Android Debug"
+STAGING_HOST = "185.129.51.103"
 
 _spec = importlib.util.spec_from_file_location("ios_release", Path(__file__).with_name("ios_release.py"))
 ios = importlib.util.module_from_spec(_spec)
@@ -109,22 +121,44 @@ def default_artifacts_root():
 
 # Profiles ------------------------------------------------------------------------------------
 
-def select_profile(requested, allow_staging, release_label):
-    """The bundle's profile: production by default; staging only when said twice, never for a release."""
+def resolve_profile(requested):
+    """A pinned mobile profile of ios_release.py; production when none is named."""
     profile = ios.canonical_profile(requested or DEFAULT_PROFILE)
     if profile not in ios.MOBILE_PROFILES:
         fail("Android builds accept only the mobile feature profiles of ios_release.py.")
     if ios.feature_profile_flags(profile) is None:
         fail("Android builds need a pinned mobile profile; legacy and kiosk profiles are refused.")
-    environment, _ = ios.profile_backend(profile)
-    if environment != "production":
-        if not allow_staging:
-            fail(f"The {profile} profile talks to the staging host. Google Play builds use the "
-                 "production profile; pass --allow-staging only for a local test build.")
-        if re.search(r"release|upload", release_label or "", re.IGNORECASE):
-            fail(f"A staging ({profile}) build cannot carry a release or upload label; "
-                 "Google Play gets only --feature-profile production.")
     return profile
+
+
+def is_play_profile(profile):
+    return ios.profile_backend(profile)[0] == "production"
+
+
+def refuse_staging(profile, allow_staging, release_label):
+    """Staging only when said twice (--feature-profile and --allow-staging), never for a release."""
+    if is_play_profile(profile):
+        return
+    if not allow_staging:
+        fail(f"The {profile} profile talks to the staging host. Google Play builds use the "
+             "production profile; pass --allow-staging only for a local test build.")
+    if re.search(r"release|upload", release_label or "", re.IGNORECASE):
+        fail(f"A staging ({profile}) build cannot carry a release or upload label; "
+             "Google Play gets only --feature-profile production.")
+
+
+def select_profile(requested, allow_staging, release_label):
+    """The bundle's profile: production by default; staging only when said twice, never for a release."""
+    profile = resolve_profile(requested)
+    refuse_staging(profile, allow_staging, release_label)
+    return profile
+
+
+def artifact_name(version_name, version_code, profile, suffix):
+    """PickChick-0.2.0-7-production.aab; a staging bundle also says so in its name."""
+    profile = ios.canonical_profile(profile)
+    tail = "" if is_play_profile(profile) else "-staging-not-for-play"
+    return f"PickChick-{version_name}-{version_code}-{profile}{tail}.{suffix}"
 
 
 def backend_notice(profile, defaulted):
@@ -139,10 +173,17 @@ def backend_notice(profile, defaulted):
 
 
 def bundle_environment(profile, source=None):
-    """ios_release's pinned bundle values (API override and leftover flags removed) + build env."""
+    """ios_release's pinned bundle values (API override and leftover flags removed) + build env.
+
+    The upload key inputs of the invoking shell are dropped here: `expo prebuild` and its config
+    plugins never see them. Only the Gradle step adds them back, as gradle_signing_env().
+    """
     env = ios.archive_environment(profile, source)
     if env is None:
         fail("Android builds need a pinned mobile profile.")
+    for key in list(env):
+        if key in SIGNING_KEYS or key.startswith("ORG_GRADLE_PROJECT_pickchickUpload"):
+            del env[key]
     env.update(CI="1", EXPO_NO_TELEMETRY="1")
     return env
 
@@ -227,8 +268,16 @@ def upload_certificate(signing):
 
 
 def refuse_debug_certificate(certificate, debug_sha256=None):
+    """The upload keystore inputs must not name the Android debug key (checked before any build)."""
     if DEBUG_CERT_OWNER in certificate["owner"] or (debug_sha256 and certificate["sha256"] == debug_sha256):
-        fail("This bundle is signed with the Android debug key; Google Play needs the upload key.")
+        fail("The upload keystore holds the Android debug key; Google Play needs your own "
+             "upload key (PICKCHICK_ANDROID_UPLOAD_KEYSTORE).")
+
+
+def verified_upload_certificate(signing):
+    certificate = upload_certificate(signing)
+    refuse_debug_certificate(certificate)
+    return certificate
 
 
 # Commands ------------------------------------------------------------------------------------
@@ -406,6 +455,10 @@ def embedded_app_config(bundle):
         "js_bundle_embedded": bool(bundle_bytes),
         "hermes_bytecode": bundle_bytes[:8] == bytes.fromhex("c61fbc03c103191f"),
         "bundle_mentions_production_api": ios.PRODUCTION_API_URL.encode() in bundle_bytes,
+        # Information only (tech-lead review 05.11.2026): src/build-config.ts keeps the
+        # STAGING_API_URL constant in every bundle, iOS too; the production export never calls
+        # it (storefront walk). Make it a failure once build-config drops it from production.
+        "bundle_mentions_staging_host": STAGING_HOST.encode() in bundle_bytes,
     }
 
 
@@ -458,15 +511,21 @@ def signed_certificate(bundle):
     return keytool_certificate(["-printcert", "-jarfile", str(bundle)])
 
 
-def inspect_bundle(bundle, metadata, aapt2=None, expected_version_code=None):
+def inspect_bundle(bundle, metadata, aapt2=None, expected_version_code=None, allow_staging=False):
+    """The last gate before a manual Play Console upload; a staging bundle fails it by default."""
     profile = metadata.get("featureProfile")
     if not profile:
         fail("release.json beside the bundle names no profile; inspect only bundles built by this script.")
+    profile = resolve_profile(profile)
     event("Mobile JS bundle backend", **backend_notice(profile, metadata.get("profileFromDefault", False)))
     facts = manifest_facts(parse_xmltree(dump_manifest(bundle, aapt2 or find_aapt2())))
     app_config = embedded_app_config(bundle)
     certificate = signed_certificate(bundle)
     problems = manifest_problems(facts, expected_version_code) + bundle_problems(app_config, profile)
+    play_profile = is_play_profile(profile)
+    if not play_profile and not allow_staging:
+        problems.append(f"the {profile} profile talks to the staging host; Google Play takes only "
+                        "the production profile (inspect a local test bundle with --allow-staging)")
     if DEBUG_CERT_OWNER in certificate["owner"]:
         problems.append("signed with the Android debug key")
     if metadata.get("uploadCertificateSha256") and certificate["sha256"] != metadata["uploadCertificateSha256"]:
@@ -478,8 +537,11 @@ def inspect_bundle(bundle, metadata, aapt2=None, expected_version_code=None):
           signer_is_debug_key=DEBUG_CERT_OWNER in certificate["owner"])
     if problems:
         fail("Inspect FAIL: " + "; ".join(problems))
-    event("Inspect PASS", bundle=str(bundle), google_play_profile=profile == DEFAULT_PROFILE,
-          upload_performed=False)
+    if play_profile:
+        event("Inspect PASS", bundle=str(bundle), google_play_profile=True, upload_performed=False)
+    else:
+        event("Inspect PASS for a local test only - NOT for Google Play", bundle=str(bundle),
+              google_play_profile=False, feature_profile=profile, upload_performed=False)
     return facts
 
 
@@ -559,14 +621,19 @@ def write_private_json(path, data):
     ios.write_private_json(path, data)
 
 
-def build(args, profile, signing, output):
+def checked_app_json():
     config = app_json()
-    android = config.get("android", {})
-    if android.get("package") != PACKAGE:
+    if config.get("android", {}).get("package") != PACKAGE:
         fail("app.json must select the kz.pickchick.app Android package.")
-    certificate = upload_certificate(signing)
-    refuse_debug_certificate(certificate)
-    env = {**bundle_environment(profile), **gradle_signing_env(signing)}
+    return config
+
+
+def build(args, profile, signing, certificate, output):
+    config = checked_app_json()
+    android = config.get("android", {})
+    # expo prebuild runs every config plugin: none of them gets an upload key value.
+    prebuild_env = bundle_environment(profile)
+    gradle_env = {**prebuild_env, **gradle_signing_env(signing)}
     log = output / "build.log"
     metadata = {
         "createdAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -582,23 +649,52 @@ def build(args, profile, signing, output):
         "buildStatus": "started", "uploadPerformed": False,
     }
     write_private_json(output / "release.json", metadata)
-    run_logged(prebuild_command(), log, APP, env)
-    run_logged(gradle_command(args.apk, args.architectures), log, NATIVE, env)
-    produced = NATIVE / "app/build/outputs/bundle/release/app-release.aab"
-    if not produced.is_file():
-        fail("Gradle finished without app-release.aab.")
-    bundle = output / f"PickChick-{metadata['versionName']}-{metadata['versionCode']}.aab"
+    try:
+        run_logged(prebuild_command(), log, APP, prebuild_env)
+        run_logged(gradle_command(args.apk, args.architectures), log, NATIVE, gradle_env)
+        produced = NATIVE / "app/build/outputs/bundle/release/app-release.aab"
+        if not produced.is_file():
+            fail("Gradle finished without app-release.aab.")
+    except BaseException:
+        metadata["buildStatus"] = "failed"
+        write_private_json(output / "release.json", metadata)
+        raise
+    name = lambda suffix: artifact_name(metadata["versionName"], metadata["versionCode"], profile, suffix)
+    bundle = output / name("aab")
     shutil.copy2(produced, bundle)
     os.chmod(bundle, 0o600)
     if args.apk:
         apk = NATIVE / "app/build/outputs/apk/release/app-release.apk"
         if apk.is_file():
-            shutil.copy2(apk, output / f"PickChick-{metadata['versionName']}-{metadata['versionCode']}.apk")
+            shutil.copy2(apk, output / name("apk"))
     metadata.update(buildStatus="complete", bundle=bundle.name,
                     bundleSha256=hashlib.sha256(bundle.read_bytes()).hexdigest())
     write_private_json(output / "release.json", metadata)
     event("PickChick Android bundle built", bundle=str(bundle), upload_performed=False)
-    inspect_bundle(bundle, metadata, expected_version_code=metadata["versionCode"])
+    inspect_bundle(bundle, metadata, expected_version_code=metadata["versionCode"],
+                   allow_staging=args.allow_staging)
+
+
+def start_build(args, profile, signing, artifacts):
+    """Checks that need no files first; a refused build leaves no release directory behind."""
+    if not signing:
+        fail("A release bundle needs the upload key (PICKCHICK_ANDROID_UPLOAD_* or --signing-file); "
+             "the Android debug key is never used for Google Play.")
+    checked_app_json()
+    certificate = verified_upload_certificate(signing)
+    output = artifacts / args.release
+    if output.exists() and any(output.iterdir()):
+        fail("Release artifacts already exist. Use a new --release label; nothing is overwritten.")
+    os.umask(0o077)
+    with release_lock():
+        created = not output.exists()
+        output.mkdir(parents=True, exist_ok=True, mode=0o700)
+        try:
+            build(args, profile, signing, certificate, output)
+        except BaseException:
+            if created and output.is_dir() and not any(output.iterdir()):
+                output.rmdir()
+            raise
 
 
 def main():
@@ -608,7 +704,8 @@ def main():
     parser.add_argument("--feature-profile", choices=list(ios.MOBILE_PROFILES), default=None,
                         help="JS feature set; production (default) is the only Google Play profile")
     parser.add_argument("--allow-staging", action="store_true",
-                        help="Permit a staging profile for a local test build (never a release)")
+                        help="Permit a staging profile for a local test build or its inspect "
+                             "(never a release; inspect then says NOT for Google Play)")
     parser.add_argument("--release", default="play-internal",
                         help="Release label: the artifacts directory name")
     parser.add_argument("--artifacts-root", default=str(default_artifacts_root()),
@@ -635,22 +732,24 @@ def main():
         if not metadata_path.is_file():
             fail("release.json is missing beside the bundle; inspect only bundles built by this script.")
         metadata = json.loads(metadata_path.read_text())
-        inspect_bundle(bundle, metadata, expected_version_code=app_json()["android"].get("versionCode"))
+        inspect_bundle(bundle, metadata, expected_version_code=app_json()["android"].get("versionCode"),
+                       allow_staging=args.allow_staging)
         return
 
-    profile = select_profile(args.feature_profile, args.allow_staging, args.release)
+    profile = resolve_profile(args.feature_profile)
+    # Said in every phase, before anything can stop it (a refused staging profile included).
+    event("Mobile JS bundle backend", **backend_notice(profile, args.profile_from_default))
+    refuse_staging(profile, args.allow_staging, args.release)
     signing = signing_inputs(signing_file=args.signing_file)
     artifacts = ios.artifact_root(args.artifacts_root)
 
     if args.phase == "doctor":
-        event("Mobile JS bundle backend", **backend_notice(profile, args.profile_from_default))
         report = sdk_report()
         major = java_major()
         event("Local Android build environment", java_major=major, **report,
               package=PACKAGE, artifacts_root=str(artifacts))
         if signing:
-            certificate = upload_certificate(signing)
-            refuse_debug_certificate(certificate)
+            certificate = verified_upload_certificate(signing)
             event("Upload key inputs verified", alias_present=True,
                   certificate_sha256=certificate["sha256"], values_printed=False)
         else:
@@ -662,17 +761,7 @@ def main():
         event("Doctor does not contact Google Play or prove Play Console access")
         return
 
-    if not signing:
-        fail("A release bundle needs the upload key (PICKCHICK_ANDROID_UPLOAD_* or --signing-file); "
-             "the Android debug key is never used for Google Play.")
-    event("Mobile JS bundle backend", **backend_notice(profile, args.profile_from_default))
-    os.umask(0o077)
-    output = artifacts / args.release
-    if output.exists() and any(output.iterdir()):
-        fail("Release artifacts already exist. Use a new --release label; nothing is overwritten.")
-    output.mkdir(parents=True, exist_ok=True, mode=0o700)
-    with release_lock():
-        build(args, profile, signing, output)
+    start_build(args, profile, signing, artifacts)
 
 
 if __name__ == "__main__":

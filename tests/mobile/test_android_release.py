@@ -1,5 +1,6 @@
 """Android release tool: profiles, upload key handling, mocked Gradle and the manifest gate."""
 
+import contextlib
 import importlib.util
 from argparse import Namespace
 import io
@@ -90,6 +91,15 @@ class ProfileTests(unittest.TestCase):
             with self.subTest(profile=name), self.assertRaises(RuntimeError):
                 release.select_profile(name, True, "local-test")
 
+    def test_artifact_names_carry_the_profile(self):
+        self.assertEqual(release.artifact_name("0.2.0", 7, "production", "aab"),
+                         "PickChick-0.2.0-7-production.aab")
+        # A staging test build under any label never looks like the Play bundle.
+        self.assertEqual(release.artifact_name("0.2.0", 7, "storefront", "aab"),
+                         "PickChick-0.2.0-7-storefront-staging-not-for-play.aab")
+        self.assertEqual(release.artifact_name("0.2.0", 7, "catalog-pilot", "apk"),
+                         "PickChick-0.2.0-7-published-catalog-staging-not-for-play.apk")
+
     def test_bundle_environment_reuses_the_ios_pinning(self):
         shell = {"EXPO_PUBLIC_API_URL": "https://evil.example", "EXPO_PUBLIC_UPCOMING_PAYMENTS": "1",
                  "EXPO_PUBLIC_PICKCHICK_ENV": "staging", "PICKCHICK_APP_VARIANT": "development"}
@@ -106,6 +116,14 @@ class ProfileTests(unittest.TestCase):
                 "EXPO_PUBLIC_SUPPORT_URL": "https://pickchick.185.129.51.103.nip.io/support/"})
         with self.assertRaisesRegex(RuntimeError, "EXPO_NO_CLIENT_ENV_VARS"):
             release.bundle_environment("production", {"EXPO_NO_CLIENT_ENV_VARS": "1"})
+
+    def test_bundle_environment_drops_upload_key_values_of_the_shell(self):
+        shell = {key: f"{key}-secret" for key in release.SIGNING_KEYS}
+        shell.update({f"ORG_GRADLE_PROJECT_{name}": "gradle-secret"
+                      for name in release.GRADLE_SIGNING.values()}, PATH="/usr/bin")
+        env = release.bundle_environment("production", shell)
+        self.assertEqual(env["PATH"], "/usr/bin")
+        self.assertFalse([key for key, value in env.items() if "secret" in value])
 
 
 class SigningTests(unittest.TestCase):
@@ -221,15 +239,19 @@ class BuildTests(unittest.TestCase):
                 if "bundleRelease" in command:
                     produced.write_bytes(b"PK synthetic bundle")
 
-            args = Namespace(apk=False, architectures="arm64-v8a", profile_from_default=True)
+            args = Namespace(apk=False, architectures="arm64-v8a", profile_from_default=True,
+                             allow_staging=False)
             sha = ":".join(["CD"] * 32)
+            # The invoking shell may export the upload key inputs (the documented way).
+            shell = {**os.environ, "PICKCHICK_ANDROID_UPLOAD_KEYSTORE_PASSWORD": "store-secret-value",
+                     "PICKCHICK_ANDROID_UPLOAD_KEY_PASSWORD": "key-secret-value"}
             with patch.object(release, "NATIVE", native), \
                     patch.object(release, "run_logged", run_logged), \
-                    patch.object(release, "upload_certificate",
-                                 return_value={"owner": "CN=PickChick upload", "sha256": sha}), \
+                    patch.dict(os.environ, shell, clear=True), \
                     patch.object(release, "inspect_bundle") as inspect, \
                     patch.object(release, "event"):
-                release.build(args, "production", signing, output)
+                release.build(args, "production", signing,
+                              {"owner": "CN=PickChick upload", "sha256": sha}, output)
             self.assertEqual([call[0][2] if call[0][0] != "./gradlew" else "gradle" for call in calls],
                              ["prebuild", "gradle"])
             prebuild, gradle = calls
@@ -239,8 +261,14 @@ class BuildTests(unittest.TestCase):
                 self.assertEqual(env["EXPO_PUBLIC_PICKCHICK_ENV"], "production")
                 self.assertEqual(env["PICKCHICK_APP_VARIANT"], "release")
                 self.assertNotIn("EXPO_PUBLIC_API_URL", env)
+                self.assertFalse(set(release.SIGNING_KEYS) & set(env))
             self.assertEqual(gradle[2]["ORG_GRADLE_PROJECT_pickchickUploadKeyPassword"],
                              "key-secret-value")
+            self.assertEqual(gradle[2]["ORG_GRADLE_PROJECT_pickchickUploadStoreFile"], str(keystore))
+            # expo prebuild runs every config plugin: no upload key value, path or alias there.
+            self.assertFalse([key for key in prebuild[2] if "pickchickUpload" in key])
+            self.assertFalse([key for key, value in prebuild[2].items()
+                              if "secret" in value or value == str(keystore)])
             for command, _, _ in calls:
                 self.assertFalse(any("secret" in part for part in command))
             metadata = json.loads((output / "release.json").read_text())
@@ -254,20 +282,77 @@ class BuildTests(unittest.TestCase):
             self.assertFalse(metadata["uploadPerformed"])
             self.assertEqual(oct(os.stat(output / "release.json").st_mode & 0o777), "0o600")
             bundle = output / metadata["bundle"]
+            self.assertEqual(bundle.name, "PickChick-0.2.0-7-production.aab")
             self.assertTrue(bundle.is_file())
             inspect.assert_called_once()
+            self.assertEqual(inspect.call_args.kwargs["allow_staging"], False)
 
-    def test_build_stops_before_prebuild_on_the_debug_key(self):
+    def signing(self):
+        return {"store_file": Path("/x"), "store_password": "p", "key_alias": "a", "key_password": "p"}
+
+    def test_refused_build_leaves_no_release_directory(self):
+        args = Namespace(apk=False, architectures="arm64-v8a", profile_from_default=False,
+                         allow_staging=False, release="play-internal-9")
         with tempfile.TemporaryDirectory() as directory, \
                 patch.object(release, "run_logged") as run, \
                 patch.object(release, "upload_certificate",
                              return_value={"owner": "CN=Android Debug,O=Android,C=US", "sha256": "AA"}):
-            with self.assertRaisesRegex(RuntimeError, "debug key"):
-                release.build(Namespace(apk=False, architectures="arm64-v8a",
-                                        profile_from_default=False), "production",
-                              {"store_file": Path("/x"), "store_password": "p", "key_alias": "a",
-                               "key_password": "p"}, Path(directory))
+            artifacts = Path(directory)
+            with self.assertRaisesRegex(RuntimeError, "upload keystore holds the Android debug key"):
+                release.start_build(args, "production", self.signing(), artifacts)
             run.assert_not_called()
+            self.assertEqual(list(artifacts.iterdir()), [])
+            with self.assertRaisesRegex(RuntimeError, "needs the upload key"):
+                release.start_build(args, "production", None, artifacts)
+            self.assertEqual(list(artifacts.iterdir()), [])
+
+    def test_failed_gradle_keeps_its_log_and_says_failed(self):
+        args = Namespace(apk=False, architectures="arm64-v8a", profile_from_default=False,
+                         allow_staging=False, release="play-internal-9")
+
+        def run_logged(command, log, cwd, env):
+            log.write_text("log")
+            if "bundleRelease" in command:
+                release.fail("gradlew exited with 1. Review the private log")
+
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(release, "run_logged", run_logged), \
+                patch.object(release, "release_lock", contextlib.nullcontext), \
+                patch.object(release, "upload_certificate",
+                             return_value={"owner": "CN=PickChick upload", "sha256": "CD"}):
+            artifacts = Path(directory)
+            with self.assertRaisesRegex(RuntimeError, "gradlew exited"):
+                release.start_build(args, "production", self.signing(), artifacts)
+            output = artifacts / "play-internal-9"
+            self.assertEqual(json.loads((output / "release.json").read_text())["buildStatus"], "failed")
+            self.assertTrue((output / "build.log").is_file())
+            with self.assertRaisesRegex(RuntimeError, "already exist"):
+                release.start_build(args, "production", self.signing(), artifacts)
+
+    def test_staging_test_build_is_named_and_inspected_as_staging(self):
+        with tempfile.TemporaryDirectory() as directory:
+            native = Path(directory) / "android"
+            produced = native / "app/build/outputs/bundle/release/app-release.aab"
+            produced.parent.mkdir(parents=True)
+            output = Path(directory) / "out"
+            output.mkdir()
+
+            def run_logged(command, log, cwd, env):
+                self.assertEqual(env["EXPO_PUBLIC_PICKCHICK_ENV"], "staging")
+                if "bundleRelease" in command:
+                    produced.write_bytes(b"PK synthetic bundle")
+
+            args = Namespace(apk=False, architectures="arm64-v8a", profile_from_default=False,
+                             allow_staging=True)
+            with patch.object(release, "NATIVE", native), \
+                    patch.object(release, "run_logged", run_logged), \
+                    patch.object(release, "inspect_bundle") as inspect, \
+                    patch.object(release, "event"):
+                release.build(args, "storefront", self.signing(), {"owner": "CN=x", "sha256": "CD"},
+                              output)
+            metadata = json.loads((output / "release.json").read_text())
+            self.assertEqual(metadata["bundle"], "PickChick-0.2.0-7-storefront-staging-not-for-play.aab")
+            self.assertEqual(inspect.call_args.kwargs["allow_staging"], True)
 
     def test_build_without_upload_key_stops_and_says_the_backend(self):
         env = {key: value for key, value in os.environ.items()
@@ -276,13 +361,22 @@ class BuildTests(unittest.TestCase):
             result = subprocess.run([sys.executable, release.__file__, "build", "--artifacts-root",
                                      directory, "--release", "unit-test"], capture_output=True,
                                     text=True, env=env)
+            self.assertEqual(list(Path(directory).iterdir()), [])
         self.assertEqual(result.returncode, 1)
-        self.assertIn("never used for Google Play", result.stdout)
+        lines = [json.loads(line) for line in result.stdout.splitlines()]
+        self.assertEqual(lines[0]["message"], "Mobile JS bundle backend")
+        self.assertEqual(lines[0]["environment"], "production")
+        self.assertEqual(lines[0]["api_url"], "https://api.pickchick.kz")
+        self.assertIn("never used for Google Play", lines[-1]["reason"])
         self.assertNotIn("Command started", result.stdout)
         staging = subprocess.run([sys.executable, release.__file__, "doctor", "--feature-profile",
                                   "storefront"], capture_output=True, text=True, env=env)
         self.assertEqual(staging.returncode, 1)
-        self.assertIn("--allow-staging", staging.stdout)
+        lines = [json.loads(line) for line in staging.stdout.splitlines()]
+        # The refused profile is said first, with its staging warning.
+        self.assertEqual(lines[0]["message"], "Mobile JS bundle backend")
+        self.assertIn("staging host", lines[0]["warning"])
+        self.assertIn("--allow-staging", lines[-1]["reason"])
 
 
 class InspectTests(unittest.TestCase):
@@ -327,17 +421,30 @@ class InspectTests(unittest.TestCase):
                     release.manifest_facts(release.parse_xmltree(text)), 7))
                 self.assertIn(expected, problems)
         self.assertTrue(release.FORBIDDEN_PERMISSIONS.isdisjoint(release.PERMISSION_ALLOWLIST))
+        # Trimmed after the tech-lead review: blocked in app.json and no longer allowlisted.
+        blocked = set(json.loads((release.APP / "app.json").read_text())["expo"]["android"]
+                      ["blockedPermissions"])
+        self.assertTrue(release.TRIMMED_PERMISSIONS <= blocked)
+        self.assertTrue(release.TRIMMED_PERMISSIONS.isdisjoint(release.PERMISSION_ALLOWLIST))
+        self.assertTrue(release.FORBIDDEN_PERMISSIONS <= blocked)
+        for permission in sorted(release.TRIMMED_PERMISSIONS):
+            with self.subTest(trimmed=permission):
+                text = XMLTREE.replace("android.permission.VIBRATE", permission)
+                problems = "; ".join(release.manifest_problems(
+                    release.manifest_facts(release.parse_xmltree(text)), 7))
+                self.assertIn(f"outside the allowlist: {permission}", problems)
         with self.assertRaisesRegex(RuntimeError, "single <manifest>"):
             release.parse_xmltree("N: android=x\n")
 
-    def bundle(self, directory, environment="production", api=ios.PRODUCTION_API_URL, js=True):
-        path = Path(directory) / "PickChick-0.2.0-7.aab"
+    def bundle(self, directory, environment="production", api=ios.PRODUCTION_API_URL, js=True,
+               extra=b""):
+        path = Path(directory) / f"PickChick-0.2.0-7-{environment}.aab"
         with zipfile.ZipFile(path, "w") as archive:
             archive.writestr("base/assets/app.config", json.dumps(
                 {"extra": {"environment": environment, "apiUrl": api}}))
             if js:
                 archive.writestr("base/assets/index.android.bundle",
-                                 bytes.fromhex("c61fbc03c103191f") + api.encode())
+                                 bytes.fromhex("c61fbc03c103191f") + api.encode() + extra)
             archive.writestr("base/manifest/AndroidManifest.xml", b"proto")
             archive.writestr("base/resources.pb", b"proto")
         return path
@@ -355,6 +462,12 @@ class InspectTests(unittest.TestCase):
             self.assertTrue(release.bundle_problems(staging, "production"))
             nojs = release.embedded_app_config(self.bundle(directory, js=False))
             self.assertIn("no embedded JS bundle", release.bundle_problems(nojs, "production")[0])
+            # Reported, not failed: build-config.ts keeps the staging constant (iOS too).
+            self.assertFalse(facts["bundle_mentions_staging_host"])
+            known = release.embedded_app_config(
+                self.bundle(directory, extra=ios.STAGING_API_URL.encode()))
+            self.assertTrue(known["bundle_mentions_staging_host"])
+            self.assertEqual(release.bundle_problems(known, "production"), [])
 
     def test_inspect_says_the_backend_and_refuses_debug_or_foreign_signers(self):
         sha = ":".join(["EF"] * 32)
@@ -382,6 +495,39 @@ class InspectTests(unittest.TestCase):
                         self.assertEqual(seen[-1][0], "Inspect PASS")
                     self.assertEqual(seen[0][0], "Mobile JS bundle backend")
                     self.assertEqual(seen[0][1]["environment"], "production")
+
+    def test_inspect_fails_a_staging_bundle_unless_it_is_a_named_local_test(self):
+        metadata = {"featureProfile": "storefront", "profileFromDefault": False,
+                    "uploadCertificateSha256": "EF"}
+        with tempfile.TemporaryDirectory() as directory:
+            bundle = self.bundle(directory, "staging", ios.STAGING_API_URL)
+            seen = []
+            with patch.object(release, "dump_manifest", return_value=XMLTREE), \
+                    patch.object(release, "signed_certificate",
+                                 return_value={"owner": "CN=PickChick upload", "sha256": "EF"}), \
+                    patch.object(release, "event",
+                                 lambda message, **data: seen.append((message, data))):
+                with self.assertRaisesRegex(RuntimeError, "Inspect FAIL: .*storefront profile talks "
+                                                          "to the staging host.*--allow-staging"):
+                    release.inspect_bundle(bundle, metadata, aapt2=Path("aapt2"),
+                                           expected_version_code=7)
+                self.assertNotIn("Inspect PASS", [message for message, _ in seen])
+                self.assertIn("warning", seen[0][1])
+                seen.clear()
+                release.inspect_bundle(bundle, metadata, aapt2=Path("aapt2"),
+                                       expected_version_code=7, allow_staging=True)
+            message, data = seen[-1]
+            self.assertEqual(message, "Inspect PASS for a local test only - NOT for Google Play")
+            self.assertFalse(data["google_play_profile"])
+            # A production bundle mislabelled as staging (or the reverse) still fails.
+            with patch.object(release, "dump_manifest", return_value=XMLTREE), \
+                    patch.object(release, "signed_certificate",
+                                 return_value={"owner": "CN=PickChick upload", "sha256": "EF"}), \
+                    patch.object(release, "event"):
+                with self.assertRaisesRegex(RuntimeError, "embedded app config is staging"):
+                    release.inspect_bundle(bundle, {**metadata, "featureProfile": "production"},
+                                           aapt2=Path("aapt2"), expected_version_code=7,
+                                           allow_staging=True)
 
     def test_doctor_lists_missing_toolchain_parts(self):
         report = {"android_home": None, "platform_36": False, "build_tools_ok": False,

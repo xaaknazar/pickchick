@@ -137,3 +137,5 @@ module.exports.dataExtractionRulesXml = dataExtractionRulesXml;
 module.exports.RULES_RESOURCE = RULES_RESOURCE;
 module.exports.setReleaseSigning = setReleaseSigning;
 module.exports.UPLOAD_PROPERTIES = UPLOAD_PROPERTIES;
+module.exports.RELEASE_SIGNING = RELEASE_SIGNING;
+module.exports.RELEASE_SIGNING_USE = RELEASE_SIGNING_USE;
