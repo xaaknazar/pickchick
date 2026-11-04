@@ -1,0 +1,33 @@
+{
+  "packageName": "kz.pickchick.app",
+  "sourceSha": "8f9db20e",
+  "source": "docs/operations/mobile-appstore-2026-10-22/metadata.json (App Store texts of build 33), adapted for Google Play",
+  "defaultLanguage": "ru-RU",
+  "appOrGame": "app",
+  "category": "FOOD_AND_DRINK",
+  "categoryLabel": "Food & Drink",
+  "contactEmail": "{SUPPORT_EMAIL}",
+  "contactPhone": null,
+  "website": "https://pickchick.kz",
+  "privacyPolicy": "https://pickchick.kz/legal/privacy",
+  "accountDeletionUrl": "https://pickchick.kz/support/#delete-account",
+  "containsAds": false,
+  "inAppPurchases": false,
+  "listings": {
+    "ru-RU": {
+      "title": "PickChick",
+      "shortDescription": "Меню PickChick, заказ с оплатой через Kaspi.kz и мини-игры",
+      "fullDescription": "PickChick - приложение ресторана с куриными блюдами и комбо в Алматы.\n\nВЫБИРАЙТЕ ПО ВКУСУ\nСмотрите фотографии блюд, состав и доступные варианты. Собирайте своё комбо, выбирайте напитки и соусы, меняйте количество и проверяйте итог в корзине.\n\nЗАКАЗ И ОПЛАТА\nОформите заказ в приложении и оплатите его через Kaspi.kz: счёт приходит в приложение Kaspi.kz, а статус заказа виден в PickChick. Готовый заказ заберите у стойки ресторана - в зале или с собой.\n\nРЕСТОРАН РЯДОМ\nУзнайте адрес и часы работы PickChick. Откройте расположение ресторана в 2ГИС и спланируйте визит.\n\nМИНИ-ИГРЫ\nСделайте паузу с Pick Blocks, Pick Man и Magic Sort. Игры открываются на весь экран.\n\nНА ВАШЕМ ЯЗЫКЕ\nИнтерфейс доступен на казахском, русском и английском. Выбранный язык сохраняется.\n\nВАШ ПРОФИЛЬ\nУправляйте данными профиля и просматривайте свои заказы. Пол и дата рождения указываются по желанию. Удаление аккаунта доступно в приложении.\n\nМеню, цены, наличие блюд и доступность оформления показываются в приложении. Обслуживание доступно в ресторане PickChick в Алматы. Для входа используется номер телефона и код через Telegram."
+    },
+    "kk": {
+      "title": "PickChick",
+      "shortDescription": "PickChick мәзірі, Kaspi.kz арқылы төленетін тапсырыс және мини-ойындар",
+      "fullDescription": "PickChick - Алматыдағы тауық етінен жасалған тағамдар мен комбо мейрамханасының қосымшасы.\n\nӨЗ ТАЛҒАМЫҢЫЗБЕН ТАҢДАҢЫЗ\nТағамдардың фотосуреттерін, құрамын және қолжетімді нұсқаларын қараңыз. Өз комбоңызды жинап, сусындар мен соустарды таңдаңыз, санын өзгертіп, себеттегі қорытынды соманы тексеріңіз.\n\nТАПСЫРЫС ЖӘНЕ ТӨЛЕМ\nТапсырысты қосымшада рәсімдеп, Kaspi.kz арқылы төлеңіз: шот Kaspi.kz қосымшасына келеді, ал тапсырыс күйі PickChick-те көрінеді. Дайын тапсырысты мейрамхананың кассасынан алыңыз - залда немесе өзіңізбен бірге.\n\nМЕЙРАМХАНА ЖАҚЫН\nPickChick мекенжайы мен жұмыс уақытын біліңіз. Мейрамхананың орнын 2ГИС-те ашып, сапарыңызды жоспарлаңыз.\n\nМИНИ-ОЙЫНДАР\nPick Blocks, Pick Man және Magic Sort ойындарымен демалыңыз. Ойындар толық экранда ашылады.\n\nӨЗ ТІЛІҢІЗДЕ\nИнтерфейс қазақ, орыс және ағылшын тілдерінде қолжетімді. Таңдалған тіл сақталады.\n\nСІЗДІҢ ПРОФИЛІҢІЗ\nПрофиль деректерін басқарып, тапсырыстарыңызды қараңыз. Жынысы мен туған күні қалау бойынша көрсетіледі. Аккаунтты қосымшада жоюға болады.\n\nМәзір, бағалар, тағамдардың бар-жоғы және тапсырыс беру мүмкіндігі қосымшада көрсетіледі. Қызмет Алматыдағы PickChick мейрамханасында көрсетіледі. Кіру үшін телефон нөмірі мен Telegram арқылы келетін код қолданылады."
+    },
+    "en-US": {
+      "title": "PickChick",
+      "shortDescription": "PickChick menu, order and pay with Kaspi.kz, collect at the counter",
+      "fullDescription": "PickChick is your companion to our chicken restaurant in Almaty, Kazakhstan.\n\nMAKE IT YOUR COMBO\nExplore food photos, ingredients and available options. Choose drinks and sauces, adjust quantities and review your basket total.\n\nORDER AND PAY\nPlace your order in the app and pay with Kaspi.kz: the invoice arrives in your Kaspi.kz app and PickChick shows your order status. Collect your food at the restaurant counter, to eat in or take away.\n\nFIND PICKCHICK\nCheck the restaurant address and opening hours. Open its location in 2GIS to plan your visit.\n\nPLAY A QUICK GAME\nTake a break with Pick Blocks, Pick Man and Magic Sort. Mini-games open in full screen.\n\nCHOOSE YOUR LANGUAGE\nUse the app in Kazakh, Russian or English. Your language preference is saved.\n\nYOUR PROFILE\nManage your profile and view your orders. Gender and date of birth are optional. You can delete your account in the app.\n\nThe app shows current menu prices, item availability and ordering availability. Restaurant service is available in Almaty. Sign-in uses a phone number and a verification code delivered through Telegram."
+    }
+  }
+}
