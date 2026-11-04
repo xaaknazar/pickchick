@@ -7228,6 +7228,29 @@
       "updatedAt": "2026-11-04T06:54:19.479Z",
       "summary": "№279 code accepted and fast-forward integrated in shared: 9f0a064f24814db26af3ed2ea5c38148e6ba0399; PR304 merged. Foundation CI41784374884 11/11 success; photo CI41784381440 success; pnpm check; 153 regressions, 17 backup/legacy, 7 real encrypted backup restore; operations550 passed/21 macOS skips; browser lost-response recovery; full offline4883f038 8/8 without known_issue. Protocol docs/operations/queue-recovery-279.md and final PR comment https://github.com/xaaknazar/pickchick/pull/304#issuecomment-6624648299. Nov4 cashier192.168.2.69 pinned SSH verified, all7services Running/Automatic, Edge and tunnel ready=true. No deployment or real-data mutations. Authorized installer transfer changed only backup checksum pins.",
       "nextAction": "Production rollout remains separate under issue279: coordinate stage2-windows-1030, verified current backup/upgrade and rollback, reserve VPS/cashier, obtain separate owner yes before cloud072/edge025 or installation. Then real Windows/point acceptance and 8-hour test; keep279 open until acceptance. Legacy unproven pending and post-backup lost orders require manual reconciliation; cloud-owned local resume forbidden. Shared status/roadmap/handoff files and cashier still belong to stage2; this task files now released."
+    },
+    {
+      "id": "mobile-build33-1031",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-build33-1031",
+      "scopes": [
+        ".github/workflows/ci.yml",
+        "docs/operations/mobile-redesign-2026-10-27/fix-b33.md",
+        "docs/operations/mobile-review-notes-28.en.txt",
+        "docs/operations/mobile-review-notes-33.en.txt",
+        "docs/operations/mobile-review-reply-33.en.txt",
+        "scripts/mobile/check_domain_links.py",
+        "scripts/mobile/ios_release.py",
+        "tests/mobile/browser_network.py",
+        "tests/mobile/store-metadata.test.mjs",
+        "tests/mobile/test_browser_network.py",
+        "tests/mobile/test_check_domain_links.py",
+        "tests/mobile/test_ios_release.py",
+        "docs/operations/mobile-testflight33.md"
+      ],
+      "status": "active",
+      "head": "8f9db20efc871ccf5d78e1fcebc7051ba2840ab7",
+      "updatedAt": "2026-11-04T20:07:50.257Z"
     }
   ]
 }
