@@ -6256,12 +6256,14 @@
         "tests/mobile/checkout-legal.test.mjs",
         "infra/staging/appstore-legal-release.py",
         "tests/operations/test_appstore_legal_release.py",
-        "@vps/public-https"
+        "@vps/public-https",
+        "docs/operations/mobile-appstore-2026-10-22/metadata.json",
+        "docs/operations/mobile-appstore-2026-10-22/screenshots-plan.md"
       ],
       "status": "available",
       "head": "82ddc32651fa574172fe6015d959e2b7689a5efc",
-      "updatedAt": "2026-11-04T20:14:54.592Z",
-      "summary": "App Review submitted22Oct2026 18:20 Almaty; Apple Waiting for Review, submission99775be3-3644-4d17-8e4f-ab4dfe3e53ca, iOS1.0 binary0.2.0(23). Owner confirmed content rights. Protocol82ddc326 pushed. Internal TestFlight23 Testing. Public release still manual. Owner approved temporary transfer to stage2-1024 on 2026-10-25: .github/workflows/ci.yml, docs/collaboration/handoff.md, docs/project-status.md, docs/roadmap/project.json, packages/contracts/openapi.json, scripts/contracts.mjs. Other scopes and task preserved. 26.10.2026: владелец явно разрешил временную передачу pnpm-workspace.yaml и pnpm-lock.yaml задаче stage2-1024 для исправления security CI PR277. Остальные резервы и задача сохранены. 27.10.2026 владелец прямо разрешил временную передачу @release/ios в kiosk-apple-demo только для локальной сборки киоска, без загрузки Apple и установки iPad. 28.10.2026: по прямому разрешению владельца необходимые пересечения переданы mobile-redesign-1027: apps/mobile/app.json, apps/mobile/package.json, apps/mobile/src/app/demo-order.tsx, apps/mobile/src/screens/ReviewDemoScreen.tsx, apps/mobile/src/i18n/messages.json, tests/mobile/browser_review_demo.py, apps/mobile/src/screens/KaspiCheckoutScreen.tsx, tests/mobile/browser_kaspi_checkout.py, tests/mobile/browser_checkout_traps.py, tests/mobile/browser_combo_rewards.py, tests/mobile/browser_orders_redesign.py, tests/mobile/browser_published_catalog.py. Остальные резервы сохранены. 2026-10-28: Apple resource transferred for owner-authorized mobile TestFlight24; App Review23 unchanged. 30.10: owner approved transfer of only @vps/api, @vps/postgres to stage2-windows-1030 for preparation, no deployment.\n2026-11-02: owner approved temporary transfer of @vps/public-https from mobile-appstore-1022 to front-longpoll-1101 for scoped Caddy availability timeout fix; return after verification.\n2026-11-02: Caddy hotfix f9e1234e deployed at 14:48 UTC; nip.io long-poll GET 200 twice at 20.06s, external Mac 200 at 20.65s. Other site/static content and container start times unchanged. Shared server lock released. Temporary HTTPS reserve returned; PR301 and docs/operations/front-longpoll-1101.md contain evidence. Full CI pending after calendar-only test fix.\nOwner explicitly approved temporary transfer to mobile-build33-1031 for build33: docs/operations/mobile-appstore-2026-10-22/metadata.json, docs/operations/mobile-appstore-2026-10-22/screenshots-plan.md. Task and all other scopes preserved; no App Store32 submission change.",
+      "updatedAt": "2026-11-04T22:25:36.741Z",
+      "summary": "App Review submitted22Oct2026 18:20 Almaty; Apple Waiting for Review, submission99775be3-3644-4d17-8e4f-ab4dfe3e53ca, iOS1.0 binary0.2.0(23). Owner confirmed content rights. Protocol82ddc326 pushed. Internal TestFlight23 Testing. Public release still manual. Owner approved temporary transfer to stage2-1024 on 2026-10-25: .github/workflows/ci.yml, docs/collaboration/handoff.md, docs/project-status.md, docs/roadmap/project.json, packages/contracts/openapi.json, scripts/contracts.mjs. Other scopes and task preserved. 26.10.2026: владелец явно разрешил временную передачу pnpm-workspace.yaml и pnpm-lock.yaml задаче stage2-1024 для исправления security CI PR277. Остальные резервы и задача сохранены. 27.10.2026 владелец прямо разрешил временную передачу @release/ios в kiosk-apple-demo только для локальной сборки киоска, без загрузки Apple и установки iPad. 28.10.2026: по прямому разрешению владельца необходимые пересечения переданы mobile-redesign-1027: apps/mobile/app.json, apps/mobile/package.json, apps/mobile/src/app/demo-order.tsx, apps/mobile/src/screens/ReviewDemoScreen.tsx, apps/mobile/src/i18n/messages.json, tests/mobile/browser_review_demo.py, apps/mobile/src/screens/KaspiCheckoutScreen.tsx, tests/mobile/browser_kaspi_checkout.py, tests/mobile/browser_checkout_traps.py, tests/mobile/browser_combo_rewards.py, tests/mobile/browser_orders_redesign.py, tests/mobile/browser_published_catalog.py. Остальные резервы сохранены. 2026-10-28: Apple resource transferred for owner-authorized mobile TestFlight24; App Review23 unchanged. 30.10: owner approved transfer of only @vps/api, @vps/postgres to stage2-windows-1030 for preparation, no deployment.\n2026-11-02: owner approved temporary transfer of @vps/public-https from mobile-appstore-1022 to front-longpoll-1101 for scoped Caddy availability timeout fix; return after verification.\n2026-11-02: Caddy hotfix f9e1234e deployed at 14:48 UTC; nip.io long-poll GET 200 twice at 20.06s, external Mac 200 at 20.65s. Other site/static content and container start times unchanged. Shared server lock released. Temporary HTTPS reserve returned; PR301 and docs/operations/front-longpoll-1101.md contain evidence. Full CI pending after calendar-only test fix.\nOwner explicitly approved temporary transfer to mobile-build33-1031 for build33: docs/operations/mobile-appstore-2026-10-22/metadata.json, docs/operations/mobile-appstore-2026-10-22/screenshots-plan.md. Task and all other scopes preserved; no App Store32 submission change. Temporary build33 transfer returned after successful internal TestFlight delivery; existing task and remaining scopes preserved.",
       "nextAction": "Await Apple decision; no auto-publication or merge. PR276 open; online roadmap still previous snapshot. No real payments."
     },
     {
@@ -7083,12 +7085,17 @@
         "tests/mobile/browser_profile.py",
         "docs/operations/mobile-app-review-1030.md",
         "docs/operations/mobile-testflight32.md",
-        "docs/operations/mobile-testflight32-evidence.json"
+        "docs/operations/mobile-testflight32-evidence.json",
+        "@release/ios",
+        "@apple/appstore",
+        "apps/mobile/app.json",
+        "tests/mobile/browser_review_account.py",
+        "tests/mobile/browser_store_walk.py"
       ],
       "status": "available",
       "head": "3ee71dcf50e9ef798688cbcb0aff1cf3e6b6976e",
-      "updatedAt": "2026-11-04T20:14:54.592Z",
-      "summary": "TestFlight 0.2.0 (32) доступен PickChick Internal, статус Тестируется подтверждён 30.10 в15:40. PR298 merged e4eb91b5, исходник aeb7fbda CI11/11; явное удаление аккаунта и геймпад. Итоговый протокол/хеши/status/roadmap опубликованы 3ee71dcf в PR299; дерево чистое. 30.10: owner approved transfer of only docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json to stage2-windows-1030 for preparation, no deployment.\n2026-11-02 owner approved temporary transfer to mobile-closed-notice-1102: apps/mobile/src/components/AppHeader.tsx, apps/mobile/src/screens/CatalogScreens.tsx. Existing behavior preserved; return after merge. 02.11: точечная передача в mobile-tab-motion-1102: apps/mobile/src/components/FloatingTabBar.tsx, apps/mobile/src/components/UI.tsx, tests/mobile/browser_tab_bar.py. Согласие владельца для трёх файлов; CatalogScreens передан из своей предыдущей задачи после merge её опубликованного checkpoint. 02.11: владелец отдельно разрешил передать GameScreens.tsx в mobile-tab-motion-1102 только для повторной прокрутки вкладки; игровая логика сохраняется.\nOwner explicitly approved temporary transfer to mobile-build33-1031 for build33: tests/mobile/browser_review_account.py, tests/mobile/browser_store_walk.py, apps/mobile/app.json, @release/ios, @apple/appstore. Task and all other scopes preserved; no App Store32 submission change.",
+      "updatedAt": "2026-11-04T22:25:36.737Z",
+      "summary": "TestFlight 0.2.0 (32) доступен PickChick Internal, статус Тестируется подтверждён 30.10 в15:40. PR298 merged e4eb91b5, исходник aeb7fbda CI11/11; явное удаление аккаунта и геймпад. Итоговый протокол/хеши/status/roadmap опубликованы 3ee71dcf в PR299; дерево чистое. 30.10: owner approved transfer of only docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json to stage2-windows-1030 for preparation, no deployment.\n2026-11-02 owner approved temporary transfer to mobile-closed-notice-1102: apps/mobile/src/components/AppHeader.tsx, apps/mobile/src/screens/CatalogScreens.tsx. Existing behavior preserved; return after merge. 02.11: точечная передача в mobile-tab-motion-1102: apps/mobile/src/components/FloatingTabBar.tsx, apps/mobile/src/components/UI.tsx, tests/mobile/browser_tab_bar.py. Согласие владельца для трёх файлов; CatalogScreens передан из своей предыдущей задачи после merge её опубликованного checkpoint. 02.11: владелец отдельно разрешил передать GameScreens.tsx в mobile-tab-motion-1102 только для повторной прокрутки вкладки; игровая логика сохраняется.\nOwner explicitly approved temporary transfer to mobile-build33-1031 for build33: tests/mobile/browser_review_account.py, tests/mobile/browser_store_walk.py, apps/mobile/app.json, @release/ios, @apple/appstore. Task and all other scopes preserved; no App Store32 submission change. Temporary build33 transfer returned after successful internal TestFlight delivery; existing task and remaining scopes preserved.",
       "nextAction": "Владелец записывает на физическом iPhone вход и полное удаление выделенного review-аккаунта. Затем проверить видео, добавить в App Review Notes и подготовить повторную отправку Apple. Документационный PR299 ждёт собственной CI/merge; это не меняет доступность32. Сервер/касса/пульт не выпускались, реальные аккаунты/платежи не затронуты."
     },
     {
@@ -7251,20 +7258,13 @@
         "tests/mobile/test_check_domain_links.py",
         "tests/mobile/test_ios_release.py",
         "docs/operations/mobile-testflight33.md",
-        "docs/operations/mobile-appstore-2026-10-22/metadata.json",
-        "docs/operations/mobile-appstore-2026-10-22/screenshots-plan.md",
-        "tests/mobile/browser_review_account.py",
-        "tests/mobile/browser_store_walk.py",
-        "apps/mobile/app.json",
-        "@release/ios",
-        "@apple/appstore",
         "docs/project-status.md",
         "docs/roadmap/project.json"
       ],
       "status": "active",
-      "head": "84369aa509efc919c174bbc06e86ad578cd5a1b7",
-      "updatedAt": "2026-11-04T22:11:33.852Z",
-      "summary": "PR305 merged normally; source 4c7ed8ec full Foundation CI 11/11 PASS. Production archive/export 0.2.0(33) verified, API api.pickchick.kz, ExpoHaptics present, no appex. Upload failed: Xcode Failed to Use Accounts; owner login form open. Protocol checkpoint 84369aa5, draft PR306. No App Store32/server/device changes.",
+      "head": "58aa4423780a44d888d170f3100d0cb21bf4a7f3",
+      "updatedAt": "2026-11-04T22:25:36.750Z",
+      "summary": "Build33 available in PickChick Internal, Apple status Testing. PR305 merged, source CI 11/11. PR306 contains delivery evidence. Temporary release/Apple and five completed file scopes returned; project status/roadmap retained until evidence merge.",
       "nextAction": "Wait for owner Xcode login; preserve failed upload evidence and retry same release mobile-production-20261105-33 with explicit production. Confirm Apple processing and PickChick Internal availability, update PR306 evidence. Physical iPhone acceptance pending. Legal URL changes await new Apple32 decision; public update requires separate owner approval."
     }
   ]
