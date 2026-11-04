@@ -38,7 +38,7 @@ inspection of the unique name in the private manifest; it does not guess ownersh
 schema the cashier is expected to be at:
 
 ```text
-node.exe backup-native-service.mjs <toolsRoot> <pgBin> <runRoot> <branchId> [schema014|...|schema024]
+node.exe backup-native-service.mjs <toolsRoot> <pgBin> <runRoot> <branchId> [schema014|...|schema025]
 ```
 
 Without it the expected schema is `schema014`. The migration ledger of the dump

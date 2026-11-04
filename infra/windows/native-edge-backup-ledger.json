@@ -118,5 +118,10 @@
     "version": "024_edge_station_plans.sql",
     "checksum": "cd3cbf65792a760a53267784c0f6c88f1178f4a9d24135decad47d89a123064a",
     "scope": "edge"
+  },
+  {
+    "version": "025_edge_kitchen_restore_review.sql",
+    "checksum": "ab73b1abff4850098c513d7b39bda5e86ff21ac6ea5c06a1420410dcb31ad18a",
+    "scope": "edge"
   }
 ]

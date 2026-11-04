@@ -143,6 +143,9 @@ export class EdgeFulfillment {
         row.version !== c.expectedVersion
       )
         fail('CONFLICT');
+      // Cloud-owned execution needs reconciliation with the cloud authority first.
+      // A local human click alone cannot safely re-emit its lost versions or issue it twice.
+      if (c.decision === 'resume' && row.commercial_owner !== 'edge_pos') fail('NOT_READY');
       await client.query(
         `INSERT INTO fulfillment_restore_decisions(epoch,order_id,command_id,staff_id,decision,reason,expected_version)
         VALUES($1,$2,$3,$4,$5,$6,$7)`,

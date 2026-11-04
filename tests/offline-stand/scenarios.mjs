@@ -5,9 +5,10 @@
  * traffic, drains every queue and compares both ledgers (checks.mjs).
  */
 import { execFile, spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { promisify } from 'node:util';
-import { resolve } from 'node:path';
+import { resolve, isAbsolute } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { createPool } from '@pickchick/database';
 import {
@@ -510,20 +511,46 @@ export const SCENARIOS = {
       const tools = await restoreTools(stand, profile);
       if (tools.skip) return { skipped: tools.skip };
       const notes = {};
-      // 1. Hot backup while the restaurant works (as the scheduled cashier backup would).
+      // Keep one known live POS ticket: the lost timeline starts preparation but never issues it.
+      await traffic.stop();
+      const sentinel = await r.posSale();
+      if (!sentinel) throw new StandError('RESTORE_SENTINEL_NOT_CREATED');
+      await ctx.converge();
+      // Real database backup with live kitchen tickets.
       const dump = resolve(stand.runDir, 'edge-backup.dump');
-      await dockerDump(tools.edgeContainer, stand.schema, dump);
+      await tools.dump(stand.schema, dump);
       notes.backup_at = new Date().toISOString();
-      // 2. The lost timeline: sales, kitchen work and paid app orders the cloud receives.
+      // 2. The lost timeline: one task advances; new sales and paid orders continue.
+      const ticket = (await r.kitchenQueue('cook', stand.ids.prep)).find(
+        (o) => o.orderId === sentinel.orderId,
+      );
+      const task = ticket?.tasks.find(
+        (t) => t.stationId === stand.ids.prep && t.state === 'queued',
+      );
+      if (
+        !task ||
+        !(await r.kitchenAct('cook', ticket, {
+          action: 'start_task',
+          expectedVersion: ticket.version,
+          taskId: task.taskId,
+          expectedTaskVersion: task.version,
+        }))
+      )
+        throw new StandError('RESTORE_SENTINEL_NOT_ADVANCED');
+      const originalShare = traffic.rates.kitchenShare;
+      traffic.rates.kitchenShare = 0;
+      traffic.start();
       await ctx.hold(profile.restoreLostMs);
       await traffic.stop();
       const before = await ctx.converge();
       notes.lost_timeline_delivered = before.converged;
+      traffic.rates.kitchenShare = originalShare;
+      const canonical = await snapshot(stand);
       // 3. The cashier PC dies; the database is restored on a replacement server.
       for (const name of [...WORKERS, 'edge']) await stand.stop(name, 'SIGKILL');
       await stand.edge.end();
       await prepareRestoreTarget(stand);
-      await dockerRestore(tools.restoreContainer, dump);
+      await tools.restore(dump);
       stand.edgeAdmin = stand.admin.restore;
       stand.edge = createPool(stand.edgeUrl, 4);
       const restored = new Set(
@@ -563,13 +590,58 @@ export const SCENARIOS = {
       notes.channel_orders_lost_by_restore = orphaned.lost.length;
       notes.channel_orders_lost_live = orphaned.live.length;
       notes.channel_orders_lost_by_state = orphaned.states;
+      // Manager explicitly checks each restored ticket. The fixture's known task was not
+      // issued; all other old tickets are removed from execution after synthetic staff review.
+      const reviews = (
+        await stand.edge.query('SELECT * FROM fulfillment_restore_reviews ORDER BY order_id')
+      ).rows;
+      const reviewedRestores = [];
+      const managerHeaders = { ...r.kitchenHeaders('manager'), 'Content-Type': 'application/json' };
+      for (const row of reviews) {
+        const url = stand.lan.url + '/edge/v1/fulfillment/orders/' + row.order_id;
+        const response = await fetch(url, { headers: managerHeaders });
+        if (!response.ok) throw new StandError('RESTORE_READ_FAILED');
+        const current = await response.json();
+        if (current.restoreReview?.status !== 'pending')
+          throw new StandError('RESTORE_HOLD_MISSING');
+        const decision = row.order_id === sentinel.orderId ? 'resume' : 'retire';
+        const source = [...canonical.cloud.posKitchen, ...canonical.cloud.projection].find(
+          (o) => o.order_id === row.order_id,
+        );
+        if (!source) throw new StandError('RESTORE_CANONICAL_MISSING');
+        const body = {
+          commandId: randomUUID(),
+          epoch: row.epoch,
+          expectedVersion: current.version,
+          decision,
+          reason: 'Synthetic physical staff check against the recorded lost timeline',
+        };
+        const save = () =>
+          fetch(url + '/restore-review', {
+            method: 'POST',
+            headers: managerHeaders,
+            body: JSON.stringify(body),
+          });
+        for (let repeat = 0; repeat < 2; repeat++)
+          if (!(await save()).ok) throw new StandError('RESTORE_REVIEW_FAILED');
+        reviewedRestores.push({
+          orderId: row.order_id,
+          epoch: row.epoch,
+          decision,
+          canonical: source,
+          edgeState: current.state,
+          edgeVersion: current.version,
+        });
+      }
+      if (!reviewedRestores.some((r) => r.orderId === sentinel.orderId))
+        throw new StandError('RESTORE_SENTINEL_NOT_HELD');
+      notes.manually_reviewed = reviewedRestores.length;
       // 4. The restaurant works again on the restored database.
       r.menu = null;
       const lostChannel = new Set(orphaned.lost);
       traffic.start();
       await ctx.hold(profile.restoreAfterMs);
-      // Orders live at backup time that also moved on the lost timeline: the restored cashier
-      // re-emits their versions with new events and the cloud refuses them (409).
+      // The manually resumed POS emits conflicting versions into durable quarantine.
       const conflicts = await versionConflicts(stand);
       notes.version_conflicts = conflicts;
       // #279 is a pilot blocker. A version conflict is a failed acceptance check,
@@ -578,7 +650,7 @@ export const SCENARIOS = {
       return {
         notes,
         knownIssues,
-        context: { lostPosOrders: lostPos, lostChannelOrders: [...lostChannel] },
+        context: { lostPosOrders: lostPos, lostChannelOrders: [...lostChannel], reviewedRestores },
         checks: [
           check(
             'restore_conflicts_not_blocking',
@@ -642,6 +714,45 @@ export async function versionConflicts(stand) {
 /** Tools for the restore drill: the database servers' own pg_dump/pg_restore via docker. */
 async function restoreTools(stand, profile) {
   if (!stand.admin.restore) return { skip: 'нет OFFLINE_STAND_RESTORE_DATABASE_URL' };
+  const bin = process.env.OFFLINE_STAND_PG_BIN;
+  if (bin) {
+    if (!isAbsolute(bin)) throw new StandError('PG_BIN_MUST_BE_ABSOLUTE');
+    const native = async (tool, raw, args) => {
+      const url = checkedAdminUrl(raw, 'restore');
+      try {
+        await run(resolve(bin, tool), args, {
+          timeout: 120000,
+          env: {
+            ...Object.fromEntries(
+              Object.entries(process.env).filter(([key]) => !key.startsWith('PG')),
+            ),
+            PGHOST: url.hostname,
+            PGPORT: url.port || '5432',
+            PGUSER: decodeURIComponent(url.username),
+            PGPASSWORD: decodeURIComponent(url.password),
+            PGDATABASE: url.pathname.slice(1),
+            PGOPTIONS: '',
+          },
+        });
+      } catch {
+        throw new StandError('NATIVE_PG_TOOL_FAILED', tool);
+      }
+    };
+    await run(resolve(bin, 'pg_dump'), ['--version'], { timeout: 10000 });
+    await run(resolve(bin, 'pg_restore'), ['--version'], { timeout: 10000 });
+    return {
+      dump: (schema, file) =>
+        native('pg_dump', stand.admin.edge, ['-n', schema, '-Fc', '-f', file]),
+      restore: (file) =>
+        native('pg_restore', stand.admin.restore, [
+          '--exit-on-error',
+          '--single-transaction',
+          '-d',
+          'pickchick_edge',
+          file,
+        ]),
+    };
+  }
   if (profile.noDocker) return { skip: 'docker отключён параметром' };
   try {
     const container = async (url) => {
@@ -655,9 +766,11 @@ async function restoreTools(stand, profile) {
       if (names.length !== 1) throw new StandError('CONTAINER_NOT_UNIQUE', port);
       return names[0];
     };
+    const edgeContainer = await container(stand.admin.edge);
+    const restoreContainer = await container(stand.admin.restore);
     return {
-      edgeContainer: await container(stand.admin.edge),
-      restoreContainer: await container(stand.admin.restore),
+      dump: (schema, file) => dockerDump(edgeContainer, schema, file),
+      restore: (file) => dockerRestore(restoreContainer, file),
     };
   } catch (error) {
     return { skip: `docker недоступен: ${error.code ?? error.message}` };

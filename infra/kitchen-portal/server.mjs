@@ -384,9 +384,10 @@ export async function createPortal({
           return;
         }
       }
-      const edgeAction = /^\/edge\/v1\/fulfillment\/orders\/([0-9a-f-]{36})\/actions$/i.exec(
-        pathOnGateway,
-      );
+      const edgeAction =
+        /^\/edge\/v1\/fulfillment\/orders\/([0-9a-f-]{36})\/(?:actions|restore-review)$/i.exec(
+          pathOnGateway,
+        );
       // A cloud-owned order is acted on only through the cloud; never also by the cashier.
       if (cloud && edgeAction && cloud.owners.has(edgeAction[1].toLowerCase())) {
         send(res, 400, errorBody('INVALID_REQUEST'));

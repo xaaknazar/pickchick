@@ -21,7 +21,10 @@ export function allowed(method, raw) {
   if (!raw.startsWith(base)) return false;
   const u = new URL(raw, 'http://127.0.0.1');
   if (method === 'POST')
-    return !u.search && new RegExp(`^${base}/orders/${UUID}/actions$`, 'i').test(u.pathname);
+    return (
+      !u.search &&
+      new RegExp(`^${base}/orders/${UUID}/(?:actions|restore-review)$`, 'i').test(u.pathname)
+    );
   if (method !== 'GET') return false;
   let keys;
   if ([base + '/config', base + '/stations'].includes(u.pathname)) keys = [];
@@ -129,6 +132,7 @@ const assets = new Map([
     'types',
     'api',
     'runtime',
+    'restore-review',
     'demo',
     'ticket-view',
     'terminal-access',
