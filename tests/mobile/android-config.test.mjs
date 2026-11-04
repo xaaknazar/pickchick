@@ -48,6 +48,12 @@ test('app.json: Play package, unchanged versionCode, adaptive icon, no backups, 
   ])
     assert.ok(android.blockedPermissions.includes(`android.permission.${permission}`), permission);
   assert.ok(android.blockedPermissions.includes('com.google.android.gms.permission.AD_ID'));
+  // Launcher badge counters (ShortcutBadger in expo-notifications): the app sets no badge.
+  assert.ok(android.blockedPermissions.includes('android.permission.READ_APP_BADGE'));
+  assert.ok(
+    android.blockedPermissions.filter((name) => /launcher|badge|home\.permission/i.test(name))
+      .length >= 15,
+  );
   // No SDK pin: React Native 0.86 / Expo SDK 57 already compile and target API 36.
   assert.equal(
     expo.plugins.some((entry) => [entry].flat()[0] === 'expo-build-properties'),
@@ -92,6 +98,44 @@ test('android-release plugin: one dgis query, nothing backed up or transferred',
       assert.match(body, new RegExp(`<exclude domain="${domain}" path="\\." />`), section);
   }
   assert.doesNotMatch(xml, /<include/);
+});
+
+test('android-release plugin: release signs with the upload key properties, never debug', () => {
+  const template = [
+    'android {',
+    '    signingConfigs {',
+    '        debug {',
+    "            storeFile file('debug.keystore')",
+    "            storePassword 'android'",
+    '        }',
+    '    }',
+    '    buildTypes {',
+    '        debug {',
+    '            signingConfig signingConfigs.debug',
+    '        }',
+    '        release {',
+    '            signingConfig signingConfigs.debug',
+    '            minifyEnabled false',
+    '        }',
+    '    }',
+    '}',
+  ].join('\n');
+  const gradle = plugin.setReleaseSigning(template);
+  assert.equal(plugin.setReleaseSigning(gradle), gradle);
+  const release = gradle.split('buildTypes {')[1].split('release {')[1];
+  assert.match(
+    release,
+    /signingConfig findProperty\('pickchickUploadStoreFile'\) \? signingConfigs\.release : null/,
+  );
+  assert.doesNotMatch(release, /signingConfigs\.debug/);
+  // Debug builds keep the debug key.
+  assert.match(gradle.split('buildTypes {')[1].split('release {')[0], /signingConfigs\.debug/);
+  const configs = gradle.split('signingConfigs {')[1].split('buildTypes {')[0];
+  for (const name of plugin.UPLOAD_PROPERTIES)
+    assert.match(configs, new RegExp(`findProperty\\('${name}'\\)`));
+  // No literal key, password or alias in the release config: Gradle properties only.
+  assert.doesNotMatch(configs.split('release {')[1], /(?:storeFile|Password|keyAlias)\s+'/);
+  assert.throws(() => plugin.setReleaseSigning('android {}'), /signing blocks changed/);
 });
 
 test('production introspection: the manifest Expo generates for the Play build', () => {

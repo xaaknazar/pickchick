@@ -20,7 +20,7 @@ Signing: the upload keystore and its passwords come only from the environment
 (PICKCHICK_ANDROID_UPLOAD_KEYSTORE, PICKCHICK_ANDROID_UPLOAD_KEYSTORE_PASSWORD,
 PICKCHICK_ANDROID_UPLOAD_KEY_ALIAS, PICKCHICK_ANDROID_UPLOAD_KEY_PASSWORD) or a private 0600 file
 with the same KEY=value lines (--signing-file). Nothing of it is printed, written to release.json
-or passed on a command line: Gradle reads AGP's injected signing properties from its environment.
+or passed on a command line: Gradle reads the pickchickUpload* properties from its environment.
 A bundle signed with the Android debug key is refused. Nothing is uploaded to Google.
 """
 
@@ -50,15 +50,20 @@ MIN_TARGET_SDK = 36
 PLATFORM = "android-36"
 BUILD_TOOLS_MAJOR = "36"
 CMAKE_VERSION = "3.22.1"
+# AGP 8.12 (React Native 0.86) builds library modules that name no buildToolsVersion (the expo
+# module among them) with its own default; Gradle cannot install it without SDK licence files.
+AGP_DEFAULT_BUILD_TOOLS = "35.0.0"
 SIGNING_KEYS = ("PICKCHICK_ANDROID_UPLOAD_KEYSTORE", "PICKCHICK_ANDROID_UPLOAD_KEYSTORE_PASSWORD",
                 "PICKCHICK_ANDROID_UPLOAD_KEY_ALIAS", "PICKCHICK_ANDROID_UPLOAD_KEY_PASSWORD")
-# AGP reads these Gradle properties (Android Studio's «Generate Signed Bundle» uses them);
-# ORG_GRADLE_PROJECT_* environment entries keep them off the command line.
-INJECTED = {
-    "store_file": "android.injected.signing.store.file",
-    "store_password": "android.injected.signing.store.password",
-    "key_alias": "android.injected.signing.key.alias",
-    "key_password": "android.injected.signing.key.password",
+# Gradle properties the release signing config reads (apps/mobile/plugins/android-release.js);
+# ORG_GRADLE_PROJECT_* environment entries keep them off the command line. AGP's own
+# android.injected.signing.* properties set this way were ignored by bundleRelease (container
+# build 05.11.2026: the AAB was debug-signed, which inspect caught).
+GRADLE_SIGNING = {
+    "store_file": "pickchickUploadStoreFile",
+    "store_password": "pickchickUploadStorePassword",
+    "key_alias": "pickchickUploadKeyAlias",
+    "key_password": "pickchickUploadKeyPassword",
 }
 ANDROID_NS = "http://schemas.android.com/apk/res/android"
 # Permissions the release may request (lane android, 05.11.2026). Anything else fails inspect:
@@ -198,7 +203,7 @@ def signing_inputs(source=None, signing_file=None):
 
 
 def gradle_signing_env(signing):
-    return {f"ORG_GRADLE_PROJECT_{INJECTED[key]}": str(value) for key, value in signing.items()}
+    return {f"ORG_GRADLE_PROJECT_{GRADLE_SIGNING[key]}": str(value) for key, value in signing.items()}
 
 
 def keytool_certificate(args, env=None):
@@ -509,7 +514,9 @@ def sdk_report(source=None):
         "react_native_compile_sdk": versions["compile_sdk"],
         "react_native_min_sdk": versions["min_sdk"],
     }
-    report["build_tools_ok"] = (versions["build_tools"] or "") in report["build_tools"]
+    report["build_tools_required"] = sorted({versions["build_tools"] or "", AGP_DEFAULT_BUILD_TOOLS} - {""})
+    report["build_tools_ok"] = (bool(versions["build_tools"]) and
+                                set(report["build_tools_required"]) <= set(report["build_tools"]))
     return report
 
 
@@ -520,7 +527,8 @@ def doctor_problems(report, java_major):
     if not report["platform_36"]:
         problems.append("SDK platform android-36 is missing")
     if not report["build_tools_ok"]:
-        problems.append("the build-tools version React Native asks for is missing")
+        problems.append("build-tools " + ", ".join(report.get("build_tools_required", []))
+                        + " (React Native and the AGP default) are missing")
     if not report["ndk_present"]:
         problems.append(f"NDK {report['ndk_required']} is missing")
     if not report["cmake_present"]:

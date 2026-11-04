@@ -22,16 +22,20 @@ spec.loader.exec_module(release)
 ios = release.ios
 
 NS = release.ANDROID_NS
-# Shape of `aapt2 dump xmltree` on the proto manifest of an AAB base module (build-tools 36).
+# Shape of `aapt2 dump xmltree` on the proto manifest of an AAB base module (build-tools 36.0.0,
+# taken from the container build of 05.11.2026 and shortened).
 XMLTREE = f"""N: android={NS} (line=2)
   E: manifest (line=2)
-    A: {NS}:versionCode(0x0101021b)=7
-    A: {NS}:versionName(0x0101021c)="0.2.0" (Raw: "0.2.0")
-    A: {NS}:compileSdkVersion(0x01010572)=36
     A: package="kz.pickchick.app" (Raw: "kz.pickchick.app")
+    A: {NS}:versionCode(0x0101021b)=7 (Raw: "7")
+    A: {NS}:versionName(0x0101021c)="0.2.0" (Raw: "0.2.0")
+    A: {NS}:compileSdkVersion(0x01010572)=36 (Raw: "36")
+    A: platformBuildVersionCode=36 (Raw: "36")
+      T: '\\n\\n    '
       E: uses-sdk (line=7)
-        A: {NS}:minSdkVersion(0x0101020c)=24
-        A: {NS}:targetSdkVersion(0x01010270)=36
+        A: {NS}:minSdkVersion(0x0101020c)=24 (Raw: "24")
+        A: {NS}:targetSdkVersion(0x01010270)=36 (Raw: "36")
+      T: '\\n\\n    '
       E: uses-permission (line=11)
         A: {NS}:name(0x01010003)="android.permission.INTERNET" (Raw: "android.permission.INTERNET")
       E: uses-permission (line=12)
@@ -45,9 +49,9 @@ XMLTREE = f"""N: android={NS} (line=2)
               E: data (line=24)
                 A: {NS}:scheme(0x01010027)="dgis" (Raw: "dgis")
       E: application (line=30)
-        A: {NS}:allowBackup(0x01010280)=false
-        A: {NS}:dataExtractionRules(0x0101064e)=@0x7f160001
-        A: {NS}:enableOnBackInvokedCallback(0x0101066b)=false
+        A: {NS}:allowBackup(0x01010280)=false (Raw: "false")
+        A: {NS}:dataExtractionRules(0x0101063e)=@xml/pickchick_data_extraction_rules (Raw: "@xml/pickchick_data_extraction_rules")
+        A: {NS}:enableOnBackInvokedCallback(0x0101066b)=false (Raw: "false")
           E: activity (line=40)
             A: {NS}:name(0x01010003)="kz.pickchick.app.MainActivity" (Raw: "kz.pickchick.app.MainActivity")
               E: intent-filter (line=44)
@@ -156,11 +160,15 @@ class SigningTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             signing = release.signing_inputs(self.env(self.keystore(directory)))
         env = release.gradle_signing_env(signing)
-        self.assertEqual(env["ORG_GRADLE_PROJECT_android.injected.signing.store.password"],
-                         "store-secret-value")
-        self.assertEqual(env["ORG_GRADLE_PROJECT_android.injected.signing.key.password"],
-                         "key-secret-value")
-        self.assertEqual(env["ORG_GRADLE_PROJECT_android.injected.signing.key.alias"], "upload")
+        self.assertEqual(env["ORG_GRADLE_PROJECT_pickchickUploadStorePassword"], "store-secret-value")
+        self.assertEqual(env["ORG_GRADLE_PROJECT_pickchickUploadKeyPassword"], "key-secret-value")
+        self.assertEqual(env["ORG_GRADLE_PROJECT_pickchickUploadKeyAlias"], "upload")
+        self.assertEqual(set(env), {f"ORG_GRADLE_PROJECT_{name}"
+                                    for name in release.GRADLE_SIGNING.values()})
+        # The same property names the generated app/build.gradle reads (android-release.js).
+        plugin = (release.APP / "plugins/android-release.js").read_text()
+        for name in release.GRADLE_SIGNING.values():
+            self.assertIn(f"findProperty('{name}')", plugin)
         command = " ".join(release.gradle_command(True, "arm64-v8a"))
         self.assertNotIn("secret", command)
         self.assertIn("--no-daemon", command)
@@ -231,7 +239,7 @@ class BuildTests(unittest.TestCase):
                 self.assertEqual(env["EXPO_PUBLIC_PICKCHICK_ENV"], "production")
                 self.assertEqual(env["PICKCHICK_APP_VARIANT"], "release")
                 self.assertNotIn("EXPO_PUBLIC_API_URL", env)
-            self.assertEqual(gradle[2]["ORG_GRADLE_PROJECT_android.injected.signing.key.password"],
+            self.assertEqual(gradle[2]["ORG_GRADLE_PROJECT_pickchickUploadKeyPassword"],
                              "key-secret-value")
             for command, _, _ in calls:
                 self.assertFalse(any("secret" in part for part in command))
@@ -290,11 +298,12 @@ class InspectTests(unittest.TestCase):
         self.assertEqual(facts["querySchemes"], ["dgis"])
         self.assertEqual(facts["deepLinkSchemes"], ["pickchick"])
         self.assertEqual(facts["allowBackup"], "false")
+        self.assertEqual(facts["dataExtractionRules"], "@xml/pickchick_data_extraction_rules")
         self.assertIsNone(facts["debuggable"])
         self.assertEqual(release.manifest_problems(facts, 7), [])
 
     def test_each_play_blocker_is_reported(self):
-        application = f"    A: {NS}:allowBackup(0x01010280)=false"
+        application = f"    A: {NS}:allowBackup(0x01010280)=false (Raw: \"false\")"
         cases = {
             "targetSdk 35": XMLTREE.replace("targetSdkVersion(0x01010270)=36",
                                             "targetSdkVersion(0x01010270)=35"),
@@ -302,7 +311,7 @@ class InspectTests(unittest.TestCase):
                                          f"        A: {NS}:debuggable(0x0101000f)=true"),
             "usesCleartextTraffic": with_attribute(
                 XMLTREE, application, f"        A: {NS}:usesCleartextTraffic(0x010104ec)=true"),
-            "allowBackup is not false": XMLTREE.replace("allowBackup(0x01010280)=false",
+            "allowBackup is not false": XMLTREE.replace("allowBackup(0x01010280)=false (Raw: \"false\")",
                                                         "allowBackup(0x01010280)=true"),
             "forbidden permissions: android.permission.RECORD_AUDIO": XMLTREE.replace(
                 "android.permission.VIBRATE", "android.permission.RECORD_AUDIO"),
@@ -310,7 +319,7 @@ class InspectTests(unittest.TestCase):
                 "android.permission.VIBRATE", "android.permission.READ_CONTACTS"),
             "dgis": XMLTREE.replace('"dgis"', '"geo"'),
             "exp+": XMLTREE.replace('"pickchick"', '"exp+pickchick"'),
-            "versionCode 8": XMLTREE.replace("versionCode(0x0101021b)=7", "versionCode(0x0101021b)=8"),
+            "versionCode 8": XMLTREE.replace("versionCode(0x0101021b)=7 ", "versionCode(0x0101021b)=8 "),
         }
         for expected, text in cases.items():
             with self.subTest(case=expected):
@@ -377,14 +386,24 @@ class InspectTests(unittest.TestCase):
     def test_doctor_lists_missing_toolchain_parts(self):
         report = {"android_home": None, "platform_36": False, "build_tools_ok": False,
                   "ndk_present": False, "ndk_required": "27.1.12297006", "cmake_present": False,
-                  "react_native_target_sdk": "35"}
+                  "react_native_target_sdk": "35", "build_tools_required": ["35.0.0", "36.0.0"]}
         problems = "; ".join(release.doctor_problems(report, 11))
-        for text in ["ANDROID_HOME", "android-36", "build-tools", "NDK 27.1.12297006", "CMake",
-                     "targetSdk is below 36", "JDK 17"]:
+        for text in ["ANDROID_HOME", "android-36", "build-tools 35.0.0, 36.0.0", "NDK 27.1.12297006",
+                     "CMake", "targetSdk is below 36", "JDK 17"]:
             self.assertIn(text, problems)
         ready = {**report, "android_home": "/sdk", "platform_36": True, "build_tools_ok": True,
                  "ndk_present": True, "cmake_present": True, "react_native_target_sdk": "36"}
         self.assertEqual(release.doctor_problems(ready, 21), [])
+
+    def test_sdk_report_requires_react_native_and_agp_build_tools(self):
+        with tempfile.TemporaryDirectory() as directory:
+            sdk = Path(directory)
+            (sdk / "build-tools/36.0.0").mkdir(parents=True)
+            report = release.sdk_report({"ANDROID_HOME": str(sdk)})
+            self.assertEqual(report["build_tools_required"], ["35.0.0", "36.0.0"])
+            self.assertFalse(report["build_tools_ok"])
+            (sdk / "build-tools/35.0.0").mkdir()
+            self.assertTrue(release.sdk_report({"ANDROID_HOME": str(sdk)})["build_tools_ok"])
 
     def test_react_native_asks_for_api_36(self):
         versions = release.required_native_versions()
