@@ -7261,10 +7261,11 @@
         "docs/project-status.md",
         "docs/roadmap/project.json"
       ],
-      "status": "active",
-      "head": "4c7ed8ece4265a64f76b1ea417ca67c459ee87a4",
-      "updatedAt": "2026-11-04T20:19:40.924Z",
-      "summary": "Owner-authorized build33 production TestFlight preparation. Seven occupied files and @release/ios, @apple/appstore transferred with explicit chat approval; previous tasks preserved. App Store32 remains unchanged. Local 566 Node + 73 Python tests PASS."
+      "status": "available",
+      "head": "84369aa509efc919c174bbc06e86ad578cd5a1b7",
+      "updatedAt": "2026-11-04T21:15:13.409Z",
+      "summary": "PR305 merged normally; source 4c7ed8ec full Foundation CI 11/11 PASS. Production archive/export 0.2.0(33) verified, API api.pickchick.kz, ExpoHaptics present, no appex. Upload failed: Xcode Failed to Use Accounts; owner login form open. Protocol checkpoint 84369aa5, draft PR306. No App Store32/server/device changes.",
+      "nextAction": "Wait for owner Xcode login; preserve failed upload evidence and retry same release mobile-production-20261105-33 with explicit production. Confirm Apple processing and PickChick Internal availability, update PR306 evidence. Physical iPhone acceptance pending. Legal URL changes await new Apple32 decision; public update requires separate owner approval."
     }
   ]
 }
