@@ -21,7 +21,40 @@
     },
     "android": {
       "package": "kz.pickchick.app",
-      "versionCode": 7
+      "versionCode": 7,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android/adaptive-icon-foreground.png",
+        "monochromeImage": "./assets/android/adaptive-icon-monochrome.png",
+        "backgroundColor": "#0042E0"
+      },
+      "allowBackup": false,
+      "softwareKeyboardLayoutMode": "resize",
+      "predictiveBackGestureEnabled": false,
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.READ_PHONE_STATE",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM",
+        "android.permission.USE_FULL_SCREEN_INTENT",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "com.google.android.gms.permission.AD_ID"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -30,7 +63,12 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": false
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -50,9 +88,12 @@
       [
         "expo-notifications",
         {
-          "defaultChannel": "orders"
+          "defaultChannel": "orders",
+          "icon": "./assets/android/notification-icon.png",
+          "color": "#FF6D30"
         }
-      ]
+      ],
+      "./plugins/android-release.js"
     ],
     "extra": {
       "environment": "staging",
