@@ -7262,7 +7262,7 @@
       "id": "mobile-android-1105",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-android-1105",
-      "head": "2fe0e3a6b6ec31fcfa2a0d7cbbf8b395036294a4",
+      "head": "1fb5ba04deb67029eb49e9b05352600ba9754f48",
       "scopes": [
         "apps/mobile/assets/android/adaptive-icon-foreground.png",
         "apps/mobile/assets/android/adaptive-icon-monochrome.png",
@@ -7308,9 +7308,9 @@
         "docs/roadmap/project.json"
       ],
       "status": "active",
-      "updatedAt": "2026-11-05T07:18:01.120Z",
-      "summary": "Verified bundle51e54708; owner approved12 exact scoped transfers and version1.0.1. One explicit cooperative overlap auth.tsx with prior app route scope retained to preserve bracketed routes unsupported by registry scope syntax. Shared integration pending. No Play/server changes authorized.",
-      "nextAction": "Merge shared, verify code/CI and signed production AAB. Offline key backup media pending owner."
+      "updatedAt": "2026-11-05T07:21:40.627Z",
+      "summary": "PR307: 1.0.1(7), 584 Node +96 Python/static PASS; full CI and local SDK/AAB in progress. Owner approved 12 file transfers; auth.tsx overlaps broad parent by explicit agreement.",
+      "nextAction": "Full CI then ordinary merge; doctor, permanent upload key and signed AAB. No website/Play changes authorized."
     }
   ]
 }
