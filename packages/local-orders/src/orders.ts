@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
-  CartSchema,
+  PosQuoteRequestSchema,
   QuoteSchema,
   LocalOrderSchema,
   CreateLocalOrderSchema,
@@ -14,7 +14,13 @@ import {
   EventEnvelopeSchema,
   LocalOrderListSchema,
 } from '@pickchick/contracts';
-import type { StaffSession, LocalOrder, Quote, MenuSnapshot } from '@pickchick/contracts';
+import type {
+  AggregatorChannel,
+  StaffSession,
+  LocalOrder,
+  Quote,
+  MenuSnapshot,
+} from '@pickchick/contracts';
 import { transaction } from '@pickchick/database';
 import type { DatabaseClient, DatabasePool } from '@pickchick/database';
 import { menuLineStopIds } from '@pickchick/menu-sync';
@@ -25,12 +31,26 @@ import { priceCart } from './pricing.js';
 import { command, lockBranch } from './commands.js';
 import { requireOpenCashShift, loadCashShift } from './shifts.js';
 
+/** Kitchen admission of a cashier order: unpaid service, or a paid POS sale (cutover 5.2). */
+export type LocalAdmissionKind = 'unpaid_service' | 'pos_sale';
+/** Aggregator sale on the kitchen snapshot (contracts R2, 5.2): the upper-case order number. */
+export interface LocalDeliveryRef {
+  provider: AggregatorChannel;
+  externalNumber: string;
+}
 /** Trusted in-process kitchen port. It shares the order's PG transaction, never
  * receives client-supplied prices or a paid flag, and must be wired by the host. */
 export interface LocalOrderExecutionPort {
   admit(
     client: DatabaseClient,
-    order: { orderId: string; branchId: string; quote: Quote },
+    order: {
+      orderId: string;
+      branchId: string;
+      quote: Quote;
+      /** Absent: unpaid_service, exactly as before the cutover. */
+      kind?: LocalAdmissionKind;
+      delivery?: LocalDeliveryRef;
+    },
     actor: StaffSession,
     commandId: string,
   ): Promise<void>;
@@ -43,7 +63,8 @@ export interface LocalOrderExecutionPort {
   ): Promise<void>;
 }
 
-async function activeMenu(client: DatabaseClient, branchId: string) {
+/** @internal Active edge menu of the branch (shared by orders and POS sales). */
+export async function activeMenu(client: DatabaseClient, branchId: string) {
   const result = await client.query(
     `SELECT s.payload FROM active_menu a JOIN menu_snapshots s
     ON s.id = a.release_id AND s.branch_id = a.branch_id WHERE a.branch_id = $1`,
@@ -88,7 +109,8 @@ export async function stopAuditReady(client: DatabaseClient) {
     )
   ).rows[0]!.ready;
 }
-async function checkStops(client: DatabaseClient, branchId: string, variants: string[]) {
+/** @internal */
+export async function checkStops(client: DatabaseClient, branchId: string, variants: string[]) {
   const stopped = await client.query(
     `SELECT 1 FROM local_stops WHERE branch_id = $1 AND variant_id = ANY($2::uuid[]) AND stopped AND (expires_at IS NULL OR expires_at > clock_timestamp()) AND (expires_shift_id IS NULL OR EXISTS(SELECT 1 FROM local_cash_shifts c WHERE c.id=expires_shift_id AND c.state='open')) LIMIT 1`,
     [branchId, variants],
@@ -100,7 +122,7 @@ async function checkStops(client: DatabaseClient, branchId: string, variants: st
  * optional combo_component_variant_ids / linked_variant_id fields the fixed components and the
  * products behind chosen options count too; an old menu gives the old ids (item and options).
  */
-function cartStopIds(
+export function cartStopIds(
   menu: MenuSnapshot,
   lines: readonly {
     variant_id: string;
@@ -117,22 +139,31 @@ function cartStopIds(
   });
 }
 
+/**
+ * POST checkout/quotes. The cart may name an aggregator sales_channel (cutover 5.1): only in
+ * pos_sale mode, only takeaway, priced by the channel; 'hall' or no field is the hall quote,
+ * byte for byte as before.
+ */
 export async function createQuote(
   pool: DatabasePool,
   branchId: string,
   auth: StaffAuth,
   input: unknown,
 ) {
-  const parsed = CartSchema.safeParse(input);
+  const parsed = PosQuoteRequestSchema.safeParse(input);
   if (!parsed.success) throw new OrderError('INVALID_REQUEST');
-  const cart = parsed.data;
+  const { sales_channel: requested, ...cart } = parsed.data;
+  const channel = requested === 'hall' ? undefined : requested;
+  if (channel && cart.service_mode !== 'takeaway') throw new OrderError('INVALID_REQUEST');
   return transaction(pool, async (client) => {
     const actor = await authenticateStaff(client, branchId, auth);
     requirePermission(actor, 'checkout');
     const branch = await lockBranch(client, branchId);
     if (!branch.ordering_enabled) throw new OrderError('BRANCH_UNAVAILABLE');
+    if (channel && branch.pos_service_mode !== 'pos_sale')
+      throw new OrderError('SERVICE_MODE_DISABLED');
     const menu = await activeMenu(client, branchId);
-    const pricing = priceCart(menu, cart);
+    const pricing = priceCart(menu, cart, channel ?? 'hall');
     await checkStops(client, branchId, cartStopIds(menu, cart.items));
     const time = (await client.query('SELECT clock_timestamp() AS time')).rows[0].time as Date;
     const quote = QuoteSchema.parse({
@@ -142,6 +173,7 @@ export async function createQuote(
       menu_version: menu.version,
       service_mode: cart.service_mode,
       channel: 'pos',
+      ...(channel ? { sales_channel: channel } : {}),
       ...(cart.details ? { details: cart.details } : {}),
       ...pricing,
       created_at: time.toISOString(),
@@ -166,7 +198,8 @@ export async function createQuote(
   });
 }
 
-async function loadOrder(
+/** @internal */
+export async function loadOrder(
   client: DatabaseClient,
   branchId: string,
   actor: StaffSession,
@@ -180,19 +213,19 @@ async function loadOrder(
   const row = result.rows[0];
   if (!row || (actor.role !== 'shift_manager' && row.terminal_id !== actor.terminal_id))
     throw new OrderError('NOT_FOUND');
-  const execution =
-    row.execution_mode === 'unpaid_service'
-      ? (
-          await client.query(
-            "SELECT version,state,display_number FROM fulfillment_reservations WHERE order_id=$1 AND branch_id=$2 AND commercial_owner='edge_pos'",
-            [id, branchId],
-          )
-        ).rows[0]
-      : undefined;
-  if (row.execution_mode === 'unpaid_service' && !execution)
-    throw new OrderError('KITCHEN_UNAVAILABLE');
+  // Both cashier admissions (unpaid service and, cutover, a paid pos_sale) own a kitchen reservation.
+  const admitted = row.execution_mode === 'unpaid_service' || row.execution_mode === 'pos_sale';
+  const execution = admitted
+    ? (
+        await client.query(
+          "SELECT version,state,display_number FROM fulfillment_reservations WHERE order_id=$1 AND branch_id=$2 AND commercial_owner='edge_pos'",
+          [id, branchId],
+        )
+      ).rows[0]
+    : undefined;
+  if (admitted && !execution) throw new OrderError('KITCHEN_UNAVAILABLE');
   return LocalOrderSchema.parse({
-    ...(execution ? { execution_mode: 'unpaid_service', fulfillment: execution } : {}),
+    ...(execution ? { execution_mode: row.execution_mode, fulfillment: execution } : {}),
     order_id: row.id,
     branch_id: row.branch_id,
     quote_id: row.quote_id,
@@ -209,7 +242,8 @@ async function loadOrder(
   });
 }
 
-async function orderEvent(
+/** @internal */
+export async function orderEvent(
   client: DatabaseClient,
   order: LocalOrder,
   type: 'order.created' | 'order.cancelled',
@@ -293,7 +327,9 @@ export async function createLocalOrder(
     parsed.data,
     async (client, actor, branch) => {
       const unpaid = parsed.data.kitchen_admission === 'unpaid';
+      // pos_sale (cutover 5.1): orders are created only by POST pos/sales, paid in one step.
       if (
+        branch.pos_service_mode === 'pos_sale' ||
         (unpaid && (branch.pos_service_mode !== 'unpaid_service' || !execution)) ||
         (!unpaid && branch.pos_service_mode === 'unpaid_service')
       )
@@ -313,6 +349,8 @@ export async function createLocalOrder(
       const menu = await activeMenu(client, branchId);
       if (menu.release_id !== row.release_id) throw new OrderError('MENU_CHANGED');
       const quote = QuoteSchema.parse(row.snapshot);
+      // An aggregator quote (left over from pos_sale mode) is priced for a paid sale only.
+      if (quote.sales_channel) throw new OrderError('SERVICE_MODE_DISABLED');
       // The quote was priced on this same release (MENU_CHANGED above), so its lines resolve.
       await checkStops(client, branchId, cartStopIds(menu, quote.lines));
       const shift = await requireOpenCashShift(client, branchId, actor);

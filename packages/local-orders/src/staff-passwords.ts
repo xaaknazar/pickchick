@@ -411,3 +411,95 @@ export async function loginStaffPin(
     terminalAuth,
   );
 }
+
+/**
+ * PIN check of a named staff member without a new session (cutover: one-time manager approvals,
+ * contracts 5.1 POST staff/approvals). The same lookup, scrypt work, per-terminal backoff, attempt
+ * window and concurrency guard as PIN login on that terminal, so approvals cannot be used to
+ * guess PINs faster than staff/pin. Any mismatch (wrong PIN, another person's PIN, inactive or
+ * locked staff) is one counted failure and the same UNAUTHORIZED; the caller checks the role.
+ */
+export async function verifyStaffPin(
+  pool: DatabasePool,
+  branchId: string,
+  terminalId: string,
+  staffId: string,
+  pin: string,
+): Promise<{ staff_id: string; name: string; role: string }> {
+  if (
+    typeof pin !== 'string' ||
+    !PIN_FORMAT.test(pin) ||
+    !UuidSchema.safeParse(staffId).success ||
+    !UuidSchema.safeParse(terminalId).success
+  )
+    throw new OrderError('UNAUTHORIZED');
+  const backoff = pinBackoffKey(branchId, terminalId);
+  const lockedMs = pinBackoff.lockedMs(backoff);
+  if (lockedMs > 0) throw new StaffRateLimitError(Math.ceil(lockedMs / 1000));
+  const login = await pinLoginName(pool, branchId, pin);
+  if (!(await reserveAttempt(pool, branchId, terminalId))) throw new OrderError('UNAUTHORIZED');
+  if (activePasswordOperations >= 2) throw new StaffRateLimitError();
+  activePasswordOperations++;
+  try {
+    const result = await transaction(pool, async (client) => {
+      const found = await client.query(
+        `SELECT s.id FROM local_staff s JOIN local_staff_pins p ON p.staff_id=s.id AND p.branch_id=s.branch_id
+         WHERE s.branch_id=$1 AND p.login=$2`,
+        [branchId, login],
+      );
+      const foundId = found.rows[0]?.id as string | undefined;
+      const staff = foundId
+        ? await client.query(
+            'SELECT id,name,role,active FROM local_staff WHERE id=$1 AND branch_id=$2 FOR UPDATE',
+            [foundId, branchId],
+          )
+        : undefined;
+      const stored = foundId
+        ? await client.query(
+            `SELECT *, (locked_until > clock_timestamp()) AS locked,
+          (locked_until IS NOT NULL AND locked_until <= clock_timestamp()) AS lock_expired
+         FROM local_staff_pins WHERE staff_id=$1 AND branch_id=$2 AND login=$3 FOR UPDATE`,
+            [foundId, branchId, login],
+          )
+        : undefined;
+      const record = stored?.rows[0];
+      const key = await derive('PickChick-PIN:' + pin, record?.salt ?? dummySalt);
+      let matches: boolean;
+      try {
+        matches = timingSafeEqual(key, Buffer.from(record?.verifier ?? dummyVerifier, 'hex'));
+      } finally {
+        key.fill(0);
+      }
+      if (!record || !staff?.rows[0]?.active || record.locked) return null;
+      if (!matches) {
+        await client.query(
+          `UPDATE local_staff_pins SET
+           failed_attempts=LEAST(5,CASE WHEN $2 THEN 1 ELSE failed_attempts+1 END),
+           locked_until=CASE WHEN (CASE WHEN $2 THEN 1 ELSE failed_attempts+1 END)>=5
+             THEN clock_timestamp()+interval '15 minutes' ELSE NULL END
+           WHERE staff_id=$1`,
+          [foundId, record.lock_expired],
+        );
+        return null;
+      }
+      // A correct PIN of someone else is still a failure for the named person.
+      if (foundId !== staffId.toLowerCase()) return null;
+      await client.query(
+        'UPDATE local_staff_pins SET failed_attempts=0,locked_until=NULL WHERE staff_id=$1',
+        [foundId],
+      );
+      return {
+        staff_id: foundId,
+        name: staff.rows[0].name as string,
+        role: staff.rows[0].role as string,
+      };
+    });
+    if (!result) {
+      pinBackoff.fail(backoff);
+      throw new OrderError('UNAUTHORIZED');
+    }
+    return result;
+  } finally {
+    activePasswordOperations--;
+  }
+}
