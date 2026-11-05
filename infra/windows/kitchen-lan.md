@@ -21,11 +21,12 @@ native gateway остаётся на 127.0.0.1:4178.
 параметров ниже использует переменные оператора, а не реальные секреты:
 
 ```powershell
-.\install-kitchen-lan.ps1 -CashierAddress $CashierIp -KitchenAddress $KitchenIp -KitchenTerminalId $KitchenTerminal -BranchLabel $BranchName -GatewaySha256 $ReviewedGatewayHash -CheckSha256 $ReviewedCheckHash
+.\install-kitchen-lan.ps1 -CashierAddress $CashierIp -KitchenAddress $KitchenIp -KitchenTerminalId $KitchenTerminal -BranchLabel $BranchName -GatewaySha256 $ReviewedGatewayHash -CheckSha256 $ReviewedCheckHash -ProfilesSha256 $ReviewedProfilesHash
 ```
 
-Рядом должны находиться исходные `kitchen-lan-gateway.mjs`, `kitchen-lan-check.mjs`
-и точная проверенная версия `install-native-foundation.ps1`. SHA256 обоих JS-файлов
+Рядом должны находиться исходные `kitchen-lan-gateway.mjs`, `lan-route-profiles.mjs`
+(профили маршрутов, шлюз импортирует его из своей папки), `kitchen-lan-check.mjs`
+и точная проверенная версия `install-native-foundation.ps1`. SHA256 трёх JS-файлов
 берутся из manifest поставки. Helper сверяет foundation, копирует уже проверенный
 WinSW 2.12 и использует установленный Node 24.21.0.
 
