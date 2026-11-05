@@ -6,7 +6,10 @@ JSON compose и перенос готового node-forge1.4.1. Подтвер�
 Для этапа2 выбран разрешённый fallback069-071; 072 отделена из-за новых kitchen ACL.
 Оператор сохраняет остальные настройки; 16 tests PASS. Полный offline CI стал
 обязательным gate точного SHA. [PR310](https://github.com/xaaknazar/pickchick/pull/310)
-содержит замороженный runtime; повторная CI после исправлений ещё проверяется.
+содержит runtime6630eb0f: [Foundation11/11](https://github.com/xaaknazar/pickchick/actions/runs/42008838570)
+и [полный offline](https://github.com/xaaknazar/pickchick/actions/runs/42008838516) PASS.
+Код подготовкиbf4a2280 в PR311 также прошёл полную CI. Вечером сохраняются3
+неизвестных QR в рабочей очереди; допуск к серверному окну не подтверждён.
 Подготовлены смена двух ссылок, скрытый ввод Telegram и отдельный перенос Caddy.
 Локальная репетиция Caddy PASS, откат0.44с; это не установка на VPS.
 Ненулевые исторические unknown/fulfillment записи пока не позволяют подтвердить
