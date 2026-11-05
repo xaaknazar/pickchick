@@ -1,0 +1,35 @@
+PLAY CONSOLE > App content > App access
+Choose: "All or some functionality in my app is restricted".
+Add one set of instructions:
+- Name: PickChick review account
+- Username: the dedicated review phone number (10 digits after +7), the same one Apple uses. Codex types it only into this field.
+- Password: the fixed 4-digit review code of that number. Codex types it only into this field.
+- No other information is needed to sign in (no 2-step verification, no location).
+- Any other information: paste the SHORT text below (the field is short). The LONG text is for reference and for a reply to Google if they ask.
+
+SHORT (for "Any other information")
+Menu, basket and games work without signing in. To sign in: profile icon (top right) > With your phone number > enter the Username digits > Continue > enter the Password code. Real orders are turned off for this account: the payment step offers "How ordering works" instead. Delete account: Profile > Delete account.
+
+LONG
+PickChick is the ordering app of one PickChick fried-chicken restaurant in Almaty, Kazakhstan. Customers browse the menu, customise combos, build a basket, pay with Kaspi.kz and collect the food at the restaurant counter (dine in or take away; no delivery). The app is available in Russian, Kazakh and English (Profile > Language).
+
+SIGN-IN
+1. Tap the profile icon (top right), then "With your phone number".
+2. Enter the 10 digits from the Username field (+7 is already shown) and tap Continue. Tapping Continue accepts the terms.
+3. On the code screen enter the 4-digit code from the Password field.
+4. On "Let's get to know you" tap Done. The name and the other fields are optional.
+No SMS or Telegram message is needed for this review number. Regular customers receive their code in Telegram. The menu, the basket and the mini-games (Games tab) also work without signing in. The Android Back button closes the top sheet or dialog.
+
+ACCOUNT DELETION
+1. After signing in, tap the profile icon at the top right of Menu, Games or Orders.
+2. In the Profile list tap "Delete account" (right below "Language").
+3. On the "Delete account" screen tap "Delete account".
+4. In the dialog "Delete your Pick Chick account?" tap "Delete account" again to confirm ("Keep account" cancels).
+5. The app shows "Account deleted" once our server has deleted the account.
+Without the app: https://pickchick.kz/support/#delete-account
+
+WHY REAL ORDERS ARE TURNED OFF FOR THE REVIEW ACCOUNT
+Every real order goes to the kitchen of a working restaurant and creates a real Kaspi.kz bank invoice, and Kaspi.kz payment needs a Kaspi.kz account in Kazakhstan. So ordering is turned off for the review account: on the payment step the app says so and offers "How ordering works", which shows every stage (payment, preparation, ready, collection) with the items in the basket. Nothing is sent to the kitchen or the bank.
+
+PAYMENT
+Payment is by Kaspi.kz only. The customer swipes to pay, receives an invoice in the Kaspi.kz app and confirms it there; the app then shows the order status. The app sells food (physical goods), so Google Play Billing does not apply. There are no digital goods, subscriptions or ads.

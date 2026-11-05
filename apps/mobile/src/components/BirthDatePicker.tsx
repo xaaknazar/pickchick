@@ -52,8 +52,9 @@ function AndroidBirthDatePicker({ value, onConfirm, onCancel }: BirthDatePickerP
         value: options.value,
         minimumDate: options.minimumDate,
         maximumDate: options.maximumDate,
-        positiveButton: { label: 'Готово' },
-        negativeButton: { label: 'Отмена' },
+        // The system dialog shows these labels as given: translate them (KK / EN builds).
+        positiveButton: { label: t('Готово') },
+        negativeButton: { label: t('Отмена') },
         onValueChange: (_event, date) => {
           if (!active || settled) return;
           const selected = birthDateFromNative(date);
