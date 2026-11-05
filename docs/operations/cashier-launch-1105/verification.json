@@ -13,7 +13,11 @@
     "identityExpiresAt": "2026-11-20T07:34:54.977Z",
     "noProductionMigrations": true,
     "noServiceRestart": true,
-    "noRealOrderOrPayment": true
+    "noRealOrderOrPayment": true,
+    "posSyncInstalled": false,
+    "posSetupRows": 0,
+    "localPosOrdersAwaitingReconciliation": 5,
+    "posSyncIssue": 312
   },
   "backup": {
     "startedAt": "2026-11-05T11:04:49.053Z",
@@ -149,5 +153,55 @@
       "design": "passed"
     }
   },
-  "checkpointEncryptionVerified": true
+  "checkpointEncryptionVerified": true,
+  "verifiedCandidate": "25387997ce5ea1d964b6532d765d7d70ccf78da8",
+  "ci": {
+    "foundation": {
+      "run": 42018966257,
+      "status": "success",
+      "jobsPassed": 11
+    },
+    "offline": {
+      "run": 42018966140,
+      "status": "success",
+      "mode": "ci",
+      "scenariosPassed": 9,
+      "knownIssues": [],
+      "skipped": 0
+    },
+    "windowsPos": {
+      "run": 42018966171,
+      "status": "success",
+      "artifactHashesVerified": true,
+      "installed": false
+    }
+  },
+  "runtime025Package": {
+    "source": "25387997ce5ea1d964b6532d765d7d70ccf78da8",
+    "bytes": 8649528,
+    "sha256": "77023bee7f67868acc4e56fa0256766be0de136d80163165761b86ce8a2bd41c",
+    "manifestFilesVerified": 8040,
+    "migrations": 25,
+    "windowsPathBudgetVerified": true,
+    "packagedDistRehearsal": {
+      "source": "25387997ce5ea1d964b6532d765d7d70ccf78da8",
+      "packagedRuntime": true,
+      "restrictedLogin": true,
+      "ready": true,
+      "menuVersionStatus": 200,
+      "restoredOrdersHeld": 73,
+      "productionChanged": false
+    }
+  },
+  "releaseGates": {
+    "ownerHasSecondSsd": false,
+    "currentServerCandidate": "fallback069-071 excludes072 and PR304",
+    "separateCloud072ReleaseRequired": true,
+    "windows025InstallerAcceptancePending": true,
+    "windowsServicesRollbackPending": true,
+    "posSyncAcceptancePending": true,
+    "physicalWanAcceptancePending": true,
+    "identityRotationDeadline": "2026-11-13"
+  },
+  "localRehearsalClusterStopped": true
 }
