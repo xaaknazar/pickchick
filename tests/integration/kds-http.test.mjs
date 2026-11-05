@@ -2,7 +2,7 @@
 // GET fulfillment/kds/breading, the KDS keys of the kitchen API only while the layout is on, the
 // guest board without aggregator orders and without new keys, and the courier handover marks.
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import test from 'node:test';
 import {
   CourierIncidentListSchema,
@@ -16,6 +16,7 @@ import {
   KdsBreadingSchema,
 } from '@pickchick/contracts';
 import { grantStation, kdsStationId } from '@pickchick/edge-fulfillment';
+import { TerminalAccess, provisionStaff, terminalHash } from '@pickchick/local-orders';
 import { createEdge } from '../../services/edge/dist/index.js';
 import { fixture } from '../../packages/edge-fulfillment/tests/fixture.mjs';
 import {
@@ -405,4 +406,118 @@ test('KDS HTTP: layout on - screens per terminal, KDS tickets, cascade, breading
         assert.ok(!plain.text.includes(key));
       assert.equal(errorOf(await call('/kds/breading', ctx.cook), 404), 'NOT_FOUND');
     });
+  }));
+
+/** A paired kitchen screen (device access on) with a shift manager session on it. */
+async function managedScreen(ctx, mode) {
+  const access = new TerminalAccess(ctx.pool, ctx.scope.branchId, ctx.scope.deviceId);
+  const code = randomBytes(16).toString('hex'),
+    issuedAt = new Date();
+  await access.receive({
+    commandId: randomUUID(),
+    branchId: ctx.scope.branchId,
+    edgeDeviceId: ctx.scope.deviceId,
+    terminalId: randomUUID(),
+    mode,
+    name: 'Synthetic ' + mode,
+    generation: 1,
+    action: 'pair',
+    codeHash: terminalHash(code),
+    issuedAt: issuedAt.toISOString(),
+    expiresAt: new Date(issuedAt.getTime() + 600000).toISOString(),
+  });
+  const key = await access.pair({ code });
+  const staff = await provisionStaff(ctx.pool, ctx.scope.branchId, {
+    staff_id: ctx.manager.staff_id,
+    terminal_id: key.terminalId,
+    name: 'Synthetic staff',
+    role: 'shift_manager',
+  });
+  return { ...staff, terminalKey: key.terminalKey };
+}
+
+test('KDS-4 managed screens: marks refused first while the layout is off, courier work only on assembly screens', () =>
+  fixture(async (ctx) => {
+    const b = ctx.scope.branchId;
+    const S = (fn) => kdsStationId(b, fn);
+    const desk = await cashierDesk(ctx);
+    await writeKdsLayout(ctx.pool, b, kdsTestLayout(b), { enable: false });
+    const prep = await managedScreen(ctx, 'prep'),
+      assembly = await managedScreen(ctx, 'assembly');
+    const prior = process.env.EDGE_DEVICE_ACCESS_ENABLED;
+    process.env.EDGE_DEVICE_ACCESS_ENABLED = 'true';
+    const app = await createEdge({
+      service: 'edge',
+      environment: 'test',
+      databaseUrl: ctx.url,
+      branchId: b,
+      edgeDeviceId: ctx.scope.deviceId,
+      edgeFulfillmentEnabled: true,
+      port: 0,
+    });
+    try {
+      await app.listen(0, '127.0.0.1');
+      const url = await app.getUrl();
+      const call = async (path, screen, body) => {
+        const response = await fetch(url + prefix + path, {
+          method: body === undefined ? 'GET' : 'POST',
+          headers: {
+            Authorization: 'Bearer ' + screen.token,
+            'X-Staff-Session-Id': screen.session_id,
+            'X-Terminal-Id': screen.terminal_id,
+            'X-Terminal-Key': screen.terminalKey,
+            'Content-Type': 'application/json',
+            'Idempotency-Key': randomUUID(),
+          },
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+          signal: AbortSignal.timeout(5000),
+        });
+        return { status: response.status, text: await response.text() };
+      };
+      await switchKdsLayout(ctx.pool, b, true);
+      const local = await desk.order({
+        delivery: { provider: 'glovo', externalNumber: 'G-900' },
+        burgers: 0,
+      });
+      let current = await ctx.read(local.order_id);
+      for (const fn of ['issue', 'assembly_delivery', 'delivery_handover'])
+        current = await ctx.act(current, 'complete_station', ctx.manager, { stationId: S(fn) });
+      assert.equal(current.state, 'ready');
+      const path = '/orders/' + local.order_id + '/actions';
+      const withMarks = { action: 'handoff', expectedVersion: current.version, handover: MARKS };
+      // Layout off: a body with marks is refused before anything else, as before the contract
+      // allowed the key - even from a prep screen that may not hand over at all.
+      await switchKdsLayout(ctx.pool, b, false);
+      assert.equal(errorOf(await call(path, prep, withMarks), 400), 'INVALID_REQUEST');
+      assert.equal(errorOf(await call(path, assembly, withMarks), 400), 'INVALID_REQUEST');
+      // Layout on: a prep screen cannot hand over; the assembly screen needs the marks.
+      await switchKdsLayout(ctx.pool, b, true);
+      assert.equal(errorOf(await call(path, prep, withMarks), 403), 'FORBIDDEN');
+      assert.equal(
+        errorOf(await call(path, assembly, { ...withMarks, handover: undefined }), 400),
+        MARKS_CODE,
+      );
+      const refusal = { provider: 'glovo', kind: 'courier_refused', description: 'Курьер уехал' };
+      assert.equal(errorOf(await call('/incidents', prep, refusal), 403), 'FORBIDDEN');
+      const incident = exact(
+        CourierIncidentSchema,
+        await call('/incidents', assembly, refusal),
+        201,
+      );
+      assert.deepEqual(
+        exact(CourierIncidentListSchema, await call('/incidents?scope=open', prep)).items,
+        [incident],
+      );
+      assert.equal(
+        exact(FulfillmentSummarySchema, await call(path, assembly, withMarks)).state,
+        'handed_over',
+      );
+      assert.deepEqual((await ctx.pool.query('SELECT terminal_id FROM delivery_handovers')).rows, [
+        { terminal_id: assembly.terminal_id },
+      ]);
+    } finally {
+      await app.close();
+      if (prior === undefined) delete process.env.EDGE_DEVICE_ACCESS_ENABLED;
+      else process.env.EDGE_DEVICE_ACCESS_ENABLED = prior;
+    }
   }));
