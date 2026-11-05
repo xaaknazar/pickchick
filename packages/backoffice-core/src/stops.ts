@@ -37,6 +37,11 @@ export interface BackofficeOptions {
    * (cloud074), the waste reason becomes required, GET .../ops/stock answers. Default off.
    */
   stockV2Enabled?: boolean;
+  /**
+   * BACKOFFICE_SALES_REPORT_ENABLED (cutover CC-7): GET .../ops/sales answers and GET branches/:id
+   * reports capabilities.sales_report. Default off: the view is 404 like any unknown view.
+   */
+  salesReportEnabled?: boolean;
 }
 function flag(env: Record<string, string | undefined>, name: string) {
   const value = env[name] ?? 'false';
@@ -52,6 +57,7 @@ export function backofficeOptions(
     stationPlanDeliveryEnabled: flag(env, 'BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED'),
     rolesEnabled: flag(env, 'BACKOFFICE_ROLES_ENABLED'),
     stockV2Enabled: flag(env, 'BACKOFFICE_STOCK_V2_ENABLED'),
+    salesReportEnabled: flag(env, 'BACKOFFICE_SALES_REPORT_ENABLED'),
   };
 }
 export interface StopActor {

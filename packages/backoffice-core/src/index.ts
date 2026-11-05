@@ -34,11 +34,13 @@ import {
   type BackofficePermission,
 } from './roles.js';
 import { assertStockV2, readStockOps, stockV2Readable, stockV2Writable } from './stock-v2.js';
+import { readSalesReport } from './sales-report.js';
 export * from './model.js';
 export * from './stops.js';
 export * from './station-plans.js';
 export * from './roles.js';
 export * from './stock-v2.js';
+export * from './sales-report.js';
 export const BACKOFFICE = Symbol('BACKOFFICE');
 type Actor = {
   id: string;
@@ -469,19 +471,27 @@ export class Backoffice {
           edge_configuration_delivery: stationPlan.enabled && stationPlan.available,
           ...(this.options.rolesEnabled === true ? { roles: actor.designations } : {}),
           ...stockV2,
+          // Cutover CC-7: only while BACKOFFICE_SALES_REPORT_ENABLED is on.
+          ...(this.options.salesReportEnabled === true ? { sales_report: true } : {}),
         },
       };
     });
   }
   /**
-   * Cutover read views under one prefix (contracts 5.10): GET .../ops/<view>. P0 has `stock`
-   * (stock v2 report of waste by reason and of every document with its v2 fields), only while
-   * BACKOFFICE_STOCK_V2_ENABLED is on and cloud074 is readable; otherwise 404 STOCK_V2_DISABLED.
+   * Cutover read views under one prefix (contracts 5.10): GET .../ops/<view>, one REPEATABLE READ
+   * snapshot each, permission reports.read.
+   * - `stock` (CC-6): stock v2 report of waste by reason and of every document with its v2
+   *   fields, only while BACKOFFICE_STOCK_V2_ENABLED is on and cloud074 is readable; otherwise
+   *   404 STOCK_V2_DISABLED.
+   * - `sales` (CC-7, sales-report.ts): only while BACKOFFICE_SALES_REPORT_ENABLED is on;
+   *   otherwise exactly the 404 of an unknown view.
    */
   async ops(token: string, branch: string, view: string, input: unknown = {}) {
     return transaction(this.pool, async (db) => {
       await db.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
       await this.scope(db, token, branch);
+      if (view === 'sales' && this.options.salesReportEnabled === true)
+        return readSalesReport(db, branch, input, new Date());
       if (view !== 'stock') return fail('NOT_FOUND');
       if (this.options.stockV2Enabled !== true || !(await stockV2Readable(db)))
         throw new ErrorCode('NOT_FOUND', 'STOCK_V2_DISABLED');

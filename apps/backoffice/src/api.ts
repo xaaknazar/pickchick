@@ -118,6 +118,16 @@ export function allowedPath(path: string): boolean {
       /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '')
     );
   }
+  // Cutover CC-7: sales report of an Almaty date window.
+  if (new RegExp(`^operations/branches/${UUID}/ops/sales$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    return (
+      [...q.keys()].length === 2 &&
+      ['start_date', 'end_date'].every((k) => q.getAll(k).length === 1) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('start_date') ?? '') &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '')
+    );
+  }
   if (new RegExp(`^operations/branches/${UUID}$`).test(pathname)) return reportQuery(search ?? '');
   return (
     search === undefined &&

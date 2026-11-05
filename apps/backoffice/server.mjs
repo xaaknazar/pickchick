@@ -140,6 +140,20 @@ export const allowed = (method, path) => {
       /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '')
     );
   }
+  // Cutover CC-7: sales report of an Almaty date window (the server checks the 92-day limit).
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/sales$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    return (
+      (search?.length ?? 0) <= 200 &&
+      [...q.keys()].length === 2 &&
+      ['start_date', 'end_date'].every((k) => q.getAll(k).length === 1) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('start_date') ?? '') &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '')
+    );
+  }
   if (method === 'GET' && new RegExp(`^/v1/admin/backoffice/branches/${UUID}$`, 'i').test(pathname))
     return reportQuery(search ?? '');
   if (search !== undefined) return false;
@@ -417,8 +431,9 @@ export function createBackofficeServer({
           const chunks = [];
           let size = 0;
           // A reconciliation day lists every matched operation for the accountant's export; a
-          // stock report lists up to 200 documents with all their lines.
-          const limit = /\/(?:reconciliation|ops\/stock)\?/.test(path)
+          // stock report lists up to 200 documents with all their lines; a sales report lists up
+          // to 200 refunds and 200 staff meals with 92 days.
+          const limit = /\/(?:reconciliation|ops\/stock|ops\/sales)\?/.test(path)
             ? 4 * 1024 * 1024
             : 1024 * 1024;
           for await (const chunk of response.body ?? []) {

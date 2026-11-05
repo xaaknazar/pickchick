@@ -83,7 +83,8 @@ export class BackofficeController {
   }
   /**
    * Cutover read views (contracts 5.10): one prefix for the gateway and the operator proxy.
-   * P0: `stock` behind BACKOFFICE_STOCK_V2_ENABLED; everything else is 404.
+   * P0: `stock` behind BACKOFFICE_STOCK_V2_ENABLED, `sales` behind BACKOFFICE_SALES_REPORT_ENABLED;
+   * everything else is 404.
    */
   @Get('branches/:id/ops/:view') ops(
     @Param('id') id: string,

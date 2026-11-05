@@ -47,8 +47,9 @@ export const storage = () => {
  * Real catalog/back-office API behind the operator proxy. `media` mounts the photo upload and
  * media routes (CATALOG_MEDIA_UPLOAD_ENABLED); `remoteStops` turns on back-office stop commands;
  * `stationPlans` turns on station plan delivery to the cashier edge; `reconciliation` mounts the
- * daily payment reconciliation (BACKOFFICE_RECONCILIATION_ENABLED); `roles` and `stockV2` are the
- * cutover flags BACKOFFICE_ROLES_ENABLED and BACKOFFICE_STOCK_V2_ENABLED (CC-5, CC-6).
+ * daily payment reconciliation (BACKOFFICE_RECONCILIATION_ENABLED); `roles`, `stockV2` and
+ * `salesReport` are the cutover flags BACKOFFICE_ROLES_ENABLED, BACKOFFICE_STOCK_V2_ENABLED and
+ * BACKOFFICE_SALES_REPORT_ENABLED (CC-5, CC-6, CC-7).
  */
 export async function withCatalog(run, options = {}) {
   const {
@@ -58,6 +59,7 @@ export async function withCatalog(run, options = {}) {
     reconciliation = false,
     roles = false,
     stockV2 = false,
+    salesReport = false,
     ...serverOptions
   } = options;
   await withSyncDatabases(async (context) => {
@@ -73,6 +75,7 @@ export async function withCatalog(run, options = {}) {
       stationPlanDeliveryEnabled: stationPlans,
       ...(roles ? { rolesEnabled: true } : {}),
       ...(stockV2 ? { stockV2Enabled: true } : {}),
+      ...(salesReport ? { salesReportEnabled: true } : {}),
     });
     await grantBackoffice(cloud.pool, manager.actor_id, branch, 'manager');
     class CatalogModule {}

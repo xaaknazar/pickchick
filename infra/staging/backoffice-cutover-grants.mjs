@@ -10,6 +10,13 @@
  *   guarded historical releases, so nothing is added there). assertBackofficeCutoverPrivileges
  *   proves the column rights the stock v2 command needs.
  *
+ * - cloud073 projections read by the sales report (CC-7, contracts 3.2 point 2): their read rights
+ *   stay with the one reset of those tables, cloudPosSalesGrants(apiRole, {receiver, backoffice})
+ *   in infra/staging/pos-sales-grants.mjs (with the receiver on, the API role already reads them).
+ *   A second reset here would undo the first, so this helper only proves the result
+ *   (assertBackofficeCutoverPrivileges with `salesReport`); without the rights the report shows
+ *   coverage.pos=false instead of failing.
+ *
  * Apply after backofficeGrants. The SQL is a reset of exactly the 074 relations: it revokes every
  * privilege of `role` on them, then grants the enabled set. On a database without 074 it is a
  * no-op (to_regclass guard), so provisioning can run before the migration.
@@ -19,6 +26,14 @@ export const MIGRATION = '074_cloud_backoffice_cutover.sql';
 export const BACKOFFICE_CUTOVER_RELATIONS = Object.freeze({ bo_role_designations: 'r' });
 const READ = Object.freeze(['SELECT']);
 const NAME = /^[a-z][a-z0-9_]{0,62}$/;
+/** The cloud073 tables GET .../ops/sales reads (packages/backoffice-core/src/sales-report.ts). */
+export const SALES_REPORT_TABLES = Object.freeze([
+  'cloud_pos_sales',
+  'cloud_pos_tenders',
+  'cloud_pos_refunds',
+  'cloud_pos_refund_tenders',
+  'cloud_pos_shift_reports',
+]);
 
 /** Exact rights of the shared API role on the 074 relations. */
 export function backofficeCutoverPrivileges({ backoffice, roles }) {
@@ -42,8 +57,9 @@ export function backofficeCutoverGrants(role, options, schema = 'public') {
 }
 
 /**
- * Proves the exact set of backofficeCutoverPrivileges(options) on bo_role_designations, and, when
- * `stockV2` is on, the INSERT and SELECT column rights of the stock v2 command.
+ * Proves the exact set of backofficeCutoverPrivileges(options) on bo_role_designations; when
+ * `stockV2` is on, the INSERT and SELECT column rights of the stock v2 command; when
+ * `salesReport` is on, SELECT on every SALES_REPORT_TABLES table that exists (cloud073).
  */
 export async function assertBackofficeCutoverPrivileges(client, role, options, schema = 'public') {
   if (!NAME.test(role ?? '') || !NAME.test(schema))
@@ -70,5 +86,18 @@ export async function assertBackofficeCutoverPrivileges(client, role, options, s
     ).rows;
     if (!columns.every((c) => c.can_insert && c.can_select))
       throw new Error(`bo_stock_documents v2 columns are not writable by ${role}`);
+  }
+  if (options.salesReport === true) {
+    const missing = (
+      await client.query(
+        `SELECT t FROM unnest($2::text[]) t
+         WHERE to_regclass($3 || '.' || t) IS NOT NULL
+           AND NOT has_table_privilege($1, ($3 || '.' || t)::regclass, 'SELECT')
+         ORDER BY t`,
+        [role, SALES_REPORT_TABLES, schema],
+      )
+    ).rows.map((row) => row.t);
+    if (missing.length)
+      throw new Error(`sales report tables not readable by ${role}: ${missing.join(',')}`);
   }
 }

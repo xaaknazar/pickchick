@@ -32,11 +32,28 @@ test('operator proxy allowlist: only ops/stock with view and a date window', () 
     assert.equal(ok(q), false, q);
   assert.equal(allowed('GET', `${base}/stock`), false);
   assert.equal(allowed('POST', `${base}/stock`), false);
-  assert.equal(allowed('GET', `${base}/sales?start_date=2026-11-19&end_date=2026-11-19`), false);
+  assert.equal(allowed('GET', `${base}/sales?start_date=2026-11-19&end_date=2026-11-19`), true);
   assert.equal(allowed('GET', `${base}/stock/extra?view=waste`), false);
   // The routes of today are unchanged.
   assert.equal(allowed('GET', `/v1/admin/backoffice/branches/${branch}?period=day`), true);
   assert.equal(allowed('POST', `/v1/admin/backoffice/branches/${branch}/commands`), true);
+});
+
+test('operator proxy allowlist: ops/sales takes exactly a start and an end date', () => {
+  const branch = randomUUID();
+  const ok = (q) => allowed('GET', `/v1/admin/backoffice/branches/${branch}/ops/sales?${q}`);
+  assert.equal(ok('start_date=2026-11-19&end_date=2026-11-19'), true);
+  assert.equal(ok('end_date=2026-11-30&start_date=2026-11-01'), true);
+  for (const q of [
+    'start_date=2026-11-19',
+    'start_date=2026-11-19&end_date=2026-11-19&view=sales',
+    'start_date=2026-11-19&start_date=2026-11-19&end_date=2026-11-19',
+    'start_date=19.11.2026&end_date=2026-11-19',
+    'start_date=2026-11-19&end_date=2026-11-19&format=csv',
+  ])
+    assert.equal(ok(q), false, q);
+  assert.equal(allowed('GET', `/v1/admin/backoffice/branches/${branch}/ops/sales`), false);
+  assert.equal(allowed('POST', `/v1/admin/backoffice/branches/${branch}/ops/sales`), false);
 });
 
 test('flags off: ops/stock answers 404 STOCK_V2_DISABLED, v2 fields 409, read keeps its keys', () =>
@@ -236,3 +253,48 @@ test('flags on: permissions in read, waste reasons over HTTP, ops/stock report, 
     },
     { roles: true, stockV2: true },
   ));
+
+test('sales report flag: off is the 404 of an unknown view, on answers through the proxy', async () => {
+  const path = (branch) =>
+    `/v1/admin/backoffice/branches/${branch}/ops/sales?start_date=${today()}&end_date=${today()}`;
+  await withCatalog(async (c) => {
+    const headers = { Authorization: 'Bearer ' + c.manager.token };
+    const off = await fetch(c.url + path(c.branch), { headers });
+    assert.equal(off.status, 404);
+    const body = await off.json();
+    assert.equal(body.code, 'NOT_FOUND');
+    assert.equal(body.error, undefined);
+    const state = await (
+      await fetch(`${c.url}/v1/admin/backoffice/branches/${c.branch}?period=day`, { headers })
+    ).json();
+    assert.equal('sales_report' in state.capabilities, false);
+  });
+  await withCatalog(
+    async (c) => {
+      const headers = { Authorization: 'Bearer ' + c.manager.token };
+      assert.equal((await fetch(c.url + path(c.branch))).status, 401);
+      const state = await (
+        await fetch(`${c.url}/v1/admin/backoffice/branches/${c.branch}?period=day`, { headers })
+      ).json();
+      assert.equal(state.capabilities.sales_report, true);
+      assert.equal('effective_role' in state, false);
+      const response = await fetch(c.url + path(c.branch), { headers });
+      assert.equal(response.status, 200);
+      assert.match(response.headers.get('content-type'), /^application\/json/);
+      const report = await response.json();
+      assert.equal(report.view, 'sales');
+      assert.equal(report.coverage.pos, true);
+      assert.deepEqual(
+        report.channels.map((v) => v.channel),
+        ['hall_dine_in', 'hall_takeaway', 'yandex_eda', 'glovo', 'mobile', 'kiosk'],
+      );
+      assert.equal(report.methods.length, 9);
+      const tooLong = await fetch(
+        `${c.url}/v1/admin/backoffice/branches/${c.branch}/ops/sales?start_date=2026-01-01&end_date=2026-11-19`,
+        { headers },
+      );
+      assert.equal(tooLong.status, 400);
+    },
+    { salesReport: true },
+  );
+});
