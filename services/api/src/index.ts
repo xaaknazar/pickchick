@@ -263,6 +263,8 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
             new CloudChannelStops(resources.pool, {
               ...cloudStopOptions(process.env),
               enabled: config.backofficeEnabled === true,
+              // Cutover CC-5: designated shift managers change stops (default off).
+              rolesEnabled: backofficeOptions(process.env).rolesEnabled === true,
             }),
         },
       ]
@@ -313,13 +315,17 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
         provide: WORKFORCE,
         inject: [RESOURCE],
         useFactory: (resources: Resources) =>
-          new Workforce(resources.pool, config.workforceEnabled === true),
+          new Workforce(resources.pool, config.workforceEnabled === true, {
+            rolesEnabled: backofficeOptions(process.env).rolesEnabled === true,
+          }),
       },
       {
         provide: FINANCE,
         inject: [RESOURCE],
         useFactory: (resources: Resources) =>
-          new Finance(resources.pool, config.backofficeEnabled === true),
+          new Finance(resources.pool, config.backofficeEnabled === true, {
+            rolesEnabled: backofficeOptions(process.env).rolesEnabled === true,
+          }),
       },
       {
         provide: RECONCILIATION,
@@ -329,6 +335,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
             resources.pool,
             config.backofficeEnabled === true &&
               reconciliationOptions(process.env).enabled === true,
+            { rolesEnabled: backofficeOptions(process.env).rolesEnabled === true },
           ),
       },
       {

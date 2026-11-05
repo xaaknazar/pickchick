@@ -125,6 +125,21 @@ export const allowed = (method, path) => {
     ).test(pathname)
   )
     return true;
+  // Cutover CC-6 (contracts 5.10): stock v2 report; cutover read views live under ops/<view>.
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/stock$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    return (
+      (search?.length ?? 0) <= 200 &&
+      [...q.keys()].length === 3 &&
+      ['view', 'start_date', 'end_date'].every((k) => q.getAll(k).length === 1) &&
+      /^(waste|movement)$/.test(q.get('view') ?? '') &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('start_date') ?? '') &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '')
+    );
+  }
   if (method === 'GET' && new RegExp(`^/v1/admin/backoffice/branches/${UUID}$`, 'i').test(pathname))
     return reportQuery(search ?? '');
   if (search !== undefined) return false;
@@ -401,8 +416,11 @@ export function createBackofficeServer({
           });
           const chunks = [];
           let size = 0;
-          // A reconciliation day lists every matched operation for the accountant's export.
-          const limit = /\/reconciliation\?/.test(path) ? 4 * 1024 * 1024 : 1024 * 1024;
+          // A reconciliation day lists every matched operation for the accountant's export; a
+          // stock report lists up to 200 documents with all their lines.
+          const limit = /\/(?:reconciliation|ops\/stock)\?/.test(path)
+            ? 4 * 1024 * 1024
+            : 1024 * 1024;
           for await (const chunk of response.body ?? []) {
             size += chunk.length;
             if (size > limit) {

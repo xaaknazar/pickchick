@@ -17,6 +17,10 @@ export const BackofficeErrorReasonSchema = z.enum([
   'REFUND_EXCEEDS_PAYMENT',
   'STATION_PLAN_DELIVERY_DISABLED',
   'STATION_PLAN_EMPTY',
+  // Cutover CC-5/CC-6 (contracts 5.10): only with BACKOFFICE_ROLES_ENABLED/_STOCK_V2_ENABLED.
+  'ROLE_FORBIDDEN',
+  'STOCK_V2_DISABLED',
+  'REASON_REQUIRED',
 ]);
 export type BackofficeErrorReason = z.infer<typeof BackofficeErrorReasonSchema>;
 export class BackofficeError extends Error {
@@ -196,6 +200,39 @@ const lines = z
   .min(1)
   .max(100)
   .refine((v) => new Set(v.map((l) => l.ingredient_id)).size === v.length);
+const calendarDay = z.iso.date().refine((value) => {
+  const date = new Date(`${value}T00:00:00Z`);
+  return (
+    value >= '2000-01-01' &&
+    value <= '2099-12-31' &&
+    Number.isFinite(date.getTime()) &&
+    date.toISOString().slice(0, 10) === value
+  );
+});
+/** Verbatim copy of StockWasteReasonSchema (packages/contracts/src/cutover-enums.ts, cloud074). */
+export const STOCK_WASTE_REASONS = [
+  'hot_cabinet_expired',
+  'meat_expired',
+  'defect',
+  'prep_expired',
+  'damaged',
+  'returned_after_cooking',
+  'rework',
+  'other',
+] as const;
+/** Verbatim copy of StockSupplierKindSchema (packages/contracts/src/cutover-enums.ts). */
+export const STOCK_SUPPLIER_KINDS = ['central_kitchen', 'bakery', 'household', 'supplier'] as const;
+export const StockWasteReasonSchema = z.enum(STOCK_WASTE_REASONS);
+/**
+ * Stock v2 receipt metadata (Ск1): where the goods came from and the date of the supplier's
+ * document. The document number stays in the command's `reference`.
+ */
+export const StockReceiptMetaSchema = z.strictObject({
+  supplier_kind: z.enum(STOCK_SUPPLIER_KINDS),
+  supplier_name: z.string().trim().min(1).max(120).optional(),
+  document_date: calendarDay,
+});
+export type StockReceiptMeta = z.infer<typeof StockReceiptMetaSchema>;
 export const Command = z.discriminatedUnion('type', [
   z.strictObject({
     type: z.literal('save'),
@@ -215,6 +252,13 @@ export const Command = z.discriminatedUnion('type', [
     kind: z.enum(['receipt', 'waste', 'count']),
     reference: text,
     lines,
+    /**
+     * Stock v2 (BACKOFFICE_STOCK_V2_ENABLED, cloud074): the waste reason, required for every
+     * waste while the flag is on. Only for waste. Refused with STOCK_V2_DISABLED while off.
+     */
+    reason_code: StockWasteReasonSchema.optional(),
+    /** Stock v2: receipt supplier and document date. Only for receipts; same flag rule. */
+    meta: StockReceiptMetaSchema.optional(),
   }),
   z.strictObject({
     type: z.literal('produce'),
@@ -303,15 +347,7 @@ export const StopRequest = z
   })
   .refine((v) => v.stopped || v.duration === 'manual');
 export type StopRequestInput = z.infer<typeof StopRequest>;
-const calendarDate = z.iso.date().refine((value) => {
-  const date = new Date(`${value}T00:00:00Z`);
-  return (
-    value >= '2000-01-01' &&
-    value <= '2099-12-31' &&
-    Number.isFinite(date.getTime()) &&
-    date.toISOString().slice(0, 10) === value
-  );
-});
+const calendarDate = calendarDay;
 export const Query = z
   .strictObject({
     period: z

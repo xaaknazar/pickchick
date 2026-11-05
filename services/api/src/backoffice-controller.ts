@@ -29,7 +29,7 @@ const statuses: Record<BackofficeError['code'], number> = {
 /** Stop commands are small; the generic 100 KiB JSON limit is far more than they need. */
 export const BACKOFFICE_STOP_BODY_LIMIT = 16 * 1024;
 /** Carries only the stable reason code; never a message, stack or database detail. */
-class BackofficeReasonException extends HttpException {
+export class BackofficeReasonException extends HttpException {
   constructor(
     readonly code: BackofficeError['code'],
     readonly reason: BackofficeErrorReason,
@@ -39,7 +39,7 @@ class BackofficeReasonException extends HttpException {
 }
 /** Standard error envelope plus `error: {code}` with the precise stop-command reason. */
 @Catch(BackofficeReasonException)
-class BackofficeReasonFilter implements ExceptionFilter {
+export class BackofficeReasonFilter implements ExceptionFilter {
   catch(error: BackofficeReasonException, host: ArgumentsHost) {
     const http = host.switchToHttp();
     const request = http.getRequest<{ traceId?: string }>();
@@ -80,6 +80,18 @@ export class BackofficeController {
     @Query() query?: unknown,
   ) {
     return this.run(() => this.service.read(this.token(auth), id, query ?? {}));
+  }
+  /**
+   * Cutover read views (contracts 5.10): one prefix for the gateway and the operator proxy.
+   * P0: `stock` behind BACKOFFICE_STOCK_V2_ENABLED; everything else is 404.
+   */
+  @Get('branches/:id/ops/:view') ops(
+    @Param('id') id: string,
+    @Param('view') view: string,
+    @Headers('authorization') auth?: string,
+    @Query() query?: unknown,
+  ) {
+    return this.run(() => this.service.ops(this.token(auth), id, view, query ?? {}));
   }
   @Get('branches/:id/restore-reviews') restoreReviews(
     @Param('id') id: string,

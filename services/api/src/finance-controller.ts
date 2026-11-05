@@ -9,11 +9,14 @@ import {
   Param,
   Post,
   Query,
+  UseFilters,
 } from '@nestjs/common';
 import { FINANCE, Finance } from '@pickchick/backoffice-core/finance';
 import { BackofficeError } from '@pickchick/backoffice-core';
+import { BackofficeReasonException, BackofficeReasonFilter } from './backoffice-controller.js';
 
 @Controller('v1/admin/backoffice/branches/:id/finance')
+@UseFilters(BackofficeReasonFilter)
 export class FinanceController {
   constructor(@Inject(FINANCE) private readonly service: Finance) {}
   private token(auth?: string) {
@@ -23,6 +26,9 @@ export class FinanceController {
     try {
       return await fn();
     } catch (e) {
+      // Only BACKOFFICE_ROLES_ENABLED gives a finance error a reason (ROLE_FORBIDDEN).
+      if (e instanceof BackofficeError && e.reason)
+        throw new BackofficeReasonException(e.code, e.reason);
       if (e instanceof BackofficeError)
         throw new HttpException(
           { code: e.code },
