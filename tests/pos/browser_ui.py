@@ -49,6 +49,15 @@ with sync_playwright() as pw:
     page = context.new_page()
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)))
+    # Cutover 19.11: this edge has no paid sales, so GET pos/config answers 404 and the cashier
+    # stays today's unpaid cashier. No other paid-mode route may ever be asked.
+    paid_calls, pos_config = [], []
+    def paid_request(request):
+        path = request.url.split('/edge/v1/', 1)[1] if '/edge/v1/' in request.url else ''
+        if path.startswith('pos/') or path.startswith('staff/approvals') or path.split('?')[0].endswith('-report'):
+            paid_calls.append(request.method + ' ' + path)
+    page.on('request', paid_request)
+    page.on('response', lambda r: pos_config.append(r.status) if r.url.endswith('/edge/v1/pos/config') else None)
     try:
         page.goto(url)
         audit_touch_layout(page,output,"pin")
@@ -260,6 +269,9 @@ with sync_playwright() as pw:
         pin(page,'2468')
         page.get_by_role('button',name='СМЕНА',exact=True).click()
         audit_touch_layout(page,output,'shift')
+        expect(page.get_by_text('Тестовые заказы без оплаты',exact=True)).to_be_visible()
+        expect(page.locator('.bottom-nav').get_by_role('button',name=re.compile('ЧЕКИ WEBKASSA'))).to_have_count(0)
+        expect(page.get_by_test_id('sale-channels')).to_have_count(0)
         page.get_by_role('button',name='Закрыть смену',exact=True).click()
         audit_touch_layout(page,output,'close-summary','.close-shift-modal')
         page.get_by_role('button',name='Дальше',exact=True).click()
@@ -281,10 +293,12 @@ with sync_playwright() as pw:
         expect(page.get_by_text('Личный PIN выдаёт управляющий. Проверка на локальном сервере.',exact=True)).to_be_visible()
         assert external==[],external
         assert errors==[],errors
+        assert paid_calls and set(paid_calls)=={'GET pos/config'}, paid_calls
+        assert pos_config and set(pos_config)=={404}, pos_config
     except Exception:
         page.screenshot(path=str(output/'failure.png'))
         print('RENDER_ERRORS',errors)
         print(page.locator('body').inner_text()[-1800:])
         raise
     context.close();browser.close()
-print('POS v2: 16 workstation viewports plus mobile, touch targets and reachability, local PIN/shift/cash movement, restored draft, lost ACK, kitchen and named display passed; WAN blocked.')
+print('POS v2: 16 workstation viewports plus mobile, touch targets and reachability, local PIN/shift/cash movement, restored draft, lost ACK, kitchen and named display passed; WAN blocked; pos/config 404 kept the unpaid cashier.')
