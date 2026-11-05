@@ -5,6 +5,7 @@ Default is read-only. An exact published source/CI, owned deployment lock,
 encrypted backup, isolated restore and candidate startup are required for apply.
 """
 import argparse
+import copy
 import importlib.util
 import json
 import os
@@ -21,20 +22,47 @@ spec.loader.exec_module(live)
 base, market = live.base, live.market
 require, digest, quote, REMOTE = live.require, live.digest, live.quote, live.REMOTE
 BASELINE = 'c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da'
-ACCEPTED = '549ef93e43065e56a6fa172da3ded49ff4c73ce0'
+# Owner fallback: exact reviewed 069-071 candidate, without 072/runtime PR304.
+ACCEPTED = 'ffb2fd231e08db43843816afb9cccb1e532375e0'
 # Inherited prepare/rollback use their module's pin; this private import does not change old tools.
 live.BASELINE = BASELINE
 SUPPORT = {'infra/staging/release-stage2-1024.py', 'tests/operations/test_stage2_release_1024.py',
            'infra/windows/update-runtime-stage2-1024.ps1', 'tests/operations/test_windows_stage2_release.py',
-           '.github/workflows/ci.yml', 'docs/project-status.md', 'docs/roadmap/project.json',
+           '.github/workflows/ci.yml', '.github/workflows/offline-stand.yml', 'docs/project-status.md', 'docs/roadmap/project.json',
            'docs/collaboration/handoff.md'}
 FLAGS = {'CATALOG_EDGE_COMBO_STOPS_ENABLED', 'BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED',
          'BACKOFFICE_RECONCILIATION_ENABLED'}
 LEDGER_HEAD = '071_cloud_daily_reconciliation.sql'
 
 
-def compose_candidate(text, expected):
+def unique_json(pairs):
+    result = {}
+    for key, value in pairs:
+        require(key not in result, 'Duplicate compose JSON key')
+        result[key] = value
+    return result
+
+
+def compose_candidate(text, expected, candidate_sha=None):
     require(digest(text.encode()) == expected, 'Installed compose differs from reviewed hash')
+    if text.lstrip().startswith('{'):
+        require(candidate_sha is not None and re.fullmatch('[a-f0-9]{40}', candidate_sha)
+                and candidate_sha != BASELINE, 'Exact candidate SHA required')
+        before = json.loads(text, object_pairs_hook=unique_json)
+        after = copy.deepcopy(before)
+        api = after.get('services', {}).get('api', {})
+        require(api.get('image') == 'pickchick-api:'+BASELINE, 'Resolved baseline image differs')
+        env = api.get('environment')
+        require(isinstance(env, dict) and 'RELEASE_SHA' not in env,
+                'Resolved API environment differs from inspected baseline')
+        require(not any(k in env for k in FLAGS), 'Stage2 flags already present; inspect baseline')
+        api['image'] = 'pickchick-api:'+candidate_sha
+        env.update({k:'false' for k in sorted(FLAGS)})
+        verify = copy.deepcopy(after)
+        verify['services']['api']['image'] = 'pickchick-api:'+BASELINE
+        for key in FLAGS: del verify['services']['api']['environment'][key]
+        require(verify == before, 'Unrelated resolved compose change')
+        return json.dumps(after, indent=2)+'\n'
     require(not any(k in text for k in FLAGS), 'Stage2 flags already present; inspect baseline')
     original = text
     block = ''.join('      '+k+': "false"\n' for k in sorted(FLAGS))
@@ -62,7 +90,7 @@ def check_flags(env):
 
 
 def check_delta(paths):
-    require(all(p in SUPPORT or p.startswith('docs/operations/stage2-2026-10-24/') for p in paths), 'Runtime differs from reviewed candidate; refresh accepted pin after integration')
+    require(all(p in SUPPORT or p.startswith(('docs/operations/stage2-2026-10-24/', 'docs/operations/server-window-1105/')) for p in paths), 'Runtime differs from reviewed candidate; refresh accepted pin after integration')
 
 
 def check_receipt(result):
@@ -121,7 +149,7 @@ class Release(live.Release):
         self.runtime_acl(); self.verify_public()
         env = self.runtime_environment(); check_flags(env)
         text = self.read_text(self.compose_path(BASELINE))
-        text = compose_candidate(text, a.expected_compose_sha256)
+        text = compose_candidate(text, a.expected_compose_sha256, self.sha)
         return {'candidate':text, 'environment':env, 'rollback':self.rollback_artifacts(),
                 'neighbors':self.neighbors(), 'acl':self.acl(), 'capabilities':self.http_json('/v1/capabilities', public=False)}
 
