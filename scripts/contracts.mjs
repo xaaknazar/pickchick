@@ -363,6 +363,110 @@ const openapi = {
       'CashMovementInput',
       { idempotent: true, shiftId: true },
     ),
+    // cutover:pos begin
+    // Paid POS sales on the cashier edge (docs/architecture/cutover-2026-11-contracts.md 5.1).
+    // Schemas are inlined so this block needs no shared import or component edit (contracts 4.2).
+    ...(await (async () => {
+      const c = await import('@pickchick/contracts');
+      const body = (schema) => ({
+        required: true,
+        content: { 'application/json': { schema: jsonSchema(schema) } },
+      });
+      const ok = (schema, description = 'Success') => ({
+        description,
+        content: { 'application/json': { schema: jsonSchema(schema) } },
+      });
+      const uuidParameter = (name, where = 'path') => ({
+        name,
+        in: where,
+        required: true,
+        schema: { type: 'string', format: 'uuid' },
+      });
+      const errors = {
+        400: response('Error', 'Invalid request'),
+        401: response('Error', 'Invalid or expired local staff session'),
+        403: response('Error', 'Role cannot perform operation'),
+        404: response('Error', 'Edge without schema026, or resource outside actor scope'),
+        500: response('Error', 'Internal error'),
+      };
+      const staff = [{ staffBearer: [], staffSession: [] }];
+      const conflicts =
+        'Paid-sale rule refused (contracts 5.1): SERVICE_MODE_DISABLED, METHOD_DISABLED, TENDER_SUM_MISMATCH, CASH_TENDERED_TOO_LOW, TERMINAL_AMOUNT_NOT_WHOLE, CHANNEL_PRICE_UNAVAILABLE, EXTERNAL_REF_REQUIRED, EXTERNAL_REF_DUPLICATE, APPROVAL_REQUIRED, APPROVAL_INVALID, CASH_SHIFT_REQUIRED, QUOTE_EXPIRED, MENU_CHANGED, ITEM_STOPPED, KITCHEN_UNAVAILABLE, or an idempotency conflict. Until ErrorSchema lists the POS codes (CR pos-1) the body says CONFLICT.';
+      return {
+        // The hall cart is unchanged; an aggregator quote names sales_channel ('hall' = absent).
+        '/edge/v1/checkout/quotes': {
+          post: {
+            ...staffOperation('post', 'createLocalQuote', 'Quote', 'Cart', { status: 201 }).post,
+            requestBody: body(c.PosQuoteRequestSchema),
+            description:
+              'sales_channel yandex_eda|glovo only in pos_sale mode and only takeaway; lines are priced with the aggregator price (409 CHANNEL_PRICE_UNAVAILABLE when the item is not sold there). Without the field (or with hall) the quote is exactly the hall quote.',
+          },
+        },
+        '/edge/v1/pos/config': {
+          get: {
+            operationId: 'readPosConfig',
+            security: staff,
+            parameters: [
+              {
+                name: 'client_version',
+                in: 'query',
+                required: false,
+                schema: { type: 'string', pattern: '^[0-9A-Za-z][0-9A-Za-z._+-]{0,63}$' },
+                description: 'Client build of this cash desk, recorded with its last config fetch.',
+              },
+            ],
+            responses: { 200: ok(c.PosConfigSchema), ...errors },
+            description:
+              'Service mode, the eight payment methods and channels of the branch. 404 on an edge without schema026: the POS keeps its unpaid UI.',
+          },
+        },
+        '/edge/v1/pos/sales': {
+          post: {
+            operationId: 'createPosSale',
+            security: staff,
+            parameters: [uuidParameter('Idempotency-Key', 'header')],
+            requestBody: body(c.PosSaleRequestSchema),
+            responses: {
+              201: ok(c.PosSaleResultSchema, 'Paid order admitted to the kitchen'),
+              ...errors,
+              409: response('Error', conflicts),
+              413: response('Error', 'Request too large'),
+            },
+            description:
+              'One PostgreSQL transaction: paid captured order, tenders, kitchen admission, Webkassa receipt record and durable posSales events. A replay with the same Idempotency-Key and body returns the stored result and never spends an approval twice.',
+          },
+        },
+        '/edge/v1/pos/sales/{orderId}': {
+          get: {
+            operationId: 'readPosSale',
+            security: staff,
+            parameters: [uuidParameter('orderId')],
+            responses: { 200: ok(c.PosSaleSchema), ...errors },
+          },
+        },
+        '/edge/v1/staff/approvals': {
+          post: {
+            operationId: 'requestManagerApproval',
+            security: staff,
+            requestBody: body(c.ManagerApprovalRequestSchema),
+            responses: {
+              201: ok(c.ManagerApprovalSchema, 'One-time approval token, valid 120 s'),
+              ...errors,
+              401: response('Error', 'Invalid session, or wrong manager PIN'),
+              403: response('Error', 'The PIN is not a shift manager'),
+              429: {
+                ...response('Error', 'AUTH_RATE_LIMITED: PIN backoff of this cash desk'),
+                headers: { 'Retry-After': { schema: { type: 'string' } } },
+              },
+              503: response('Error', 'Local service unavailable'),
+            },
+            description:
+              'The shift manager PIN on this cash desk (the terminal of the session) with the backoff of staff/pin. The token is bound to the desk, action and subject hash and is spent once by the command that needs it.',
+          },
+        },
+      };
+    })()),
+    // cutover:pos end
     '/edge/v1/orders/{orderId}': staffOperation('get', 'readLocalOrder', 'LocalOrder', undefined, {
       orderId: true,
     }),
