@@ -14,8 +14,13 @@ import {
 import { RESOURCE, Resources } from '@pickchick/platform';
 import {
   createPosSale,
+  listPendingFiscalReceipts,
   readPosConfig,
   readPosSale,
+  readShiftReport,
+  recordFiscalReceipt,
+  refundPosSale,
+  voidPosSale,
   OrderError,
   orderErrorStatus,
 } from '@pickchick/local-orders';
@@ -53,6 +58,12 @@ export class PosSalesController {
   private get pool() {
     return this.resources.pool;
   }
+  private get execution() {
+    return localUnpaidExecution({
+      enabled: this.resources.config.edgeFulfillmentEnabled,
+      deviceId: this.resources.config.edgeDeviceId,
+    });
+  }
 
   @Get('pos/config')
   @Header('Cache-Control', 'no-store')
@@ -75,10 +86,7 @@ export class PosSalesController {
         auth,
         headers['idempotency-key'] ?? '',
         body,
-        localUnpaidExecution({
-          enabled: this.resources.config.edgeFulfillmentEnabled,
-          deviceId: this.resources.config.edgeDeviceId,
-        }),
+        this.execution,
       ),
     );
   }
@@ -86,5 +94,102 @@ export class PosSalesController {
   @Get('pos/sales/:orderId')
   sale(@Headers() headers: Record<string, string | undefined>, @Param('orderId') orderId: string) {
     return this.run(headers, (auth) => readPosSale(this.pool, this.branchId, auth, orderId));
+  }
+
+  /** POS-3: void before the kitchen starts (else 409 ORDER_IN_PRODUCTION). */
+  @Post('pos/sales/:orderId/void')
+  @HttpCode(200)
+  voidSale(
+    @Headers() headers: Record<string, string | undefined>,
+    @Param('orderId') orderId: string,
+    @Body() body: unknown,
+  ) {
+    return this.run(headers, (auth) =>
+      voidPosSale(
+        this.pool,
+        this.branchId,
+        auth,
+        headers['idempotency-key'] ?? '',
+        orderId,
+        body,
+        this.execution,
+      ),
+    );
+  }
+
+  /** POS-3: refund by tender, full or partial; the answer is the PosSale with it. */
+  @Post('pos/sales/:orderId/refunds')
+  @HttpCode(201)
+  refund(
+    @Headers() headers: Record<string, string | undefined>,
+    @Param('orderId') orderId: string,
+    @Body() body: unknown,
+  ) {
+    return this.run(headers, (auth) =>
+      refundPosSale(
+        this.pool,
+        this.branchId,
+        auth,
+        headers['idempotency-key'] ?? '',
+        orderId,
+        body,
+      ),
+    );
+  }
+
+  /** POS-5: receipts still to be punched in the Webkassa cabinet. */
+  @Get('pos/fiscal-receipts/pending')
+  @Header('Cache-Control', 'no-store')
+  pendingReceipts(
+    @Headers() headers: Record<string, string | undefined>,
+    @Query('shift_id') shiftId?: unknown,
+  ) {
+    return this.run(headers, (auth) =>
+      listPendingFiscalReceipts(this.pool, this.branchId, auth, shiftId),
+    );
+  }
+
+  /** POS-5: the Webkassa number of one receipt (a correction needs fiscal_correct). */
+  @Post('pos/fiscal-receipts/:receiptId/record')
+  @HttpCode(200)
+  recordReceipt(
+    @Headers() headers: Record<string, string | undefined>,
+    @Param('receiptId') receiptId: string,
+    @Body() body: unknown,
+  ) {
+    return this.run(headers, (auth) =>
+      recordFiscalReceipt(
+        this.pool,
+        this.branchId,
+        auth,
+        headers['idempotency-key'] ?? '',
+        receiptId,
+        body,
+      ),
+    );
+  }
+
+  /** POS-4: PickChick X report of a sales shift (now, not fiscal). */
+  @Get('cash-shifts/:shiftId/x-report')
+  @Header('Cache-Control', 'no-store')
+  xReport(
+    @Headers() headers: Record<string, string | undefined>,
+    @Param('shiftId') shiftId: string,
+  ) {
+    return this.run(headers, (auth) =>
+      readShiftReport(this.pool, this.branchId, auth, shiftId, 'x'),
+    );
+  }
+
+  /** POS-4: PickChick Z report frozen when the sales shift closed (not fiscal). */
+  @Get('cash-shifts/:shiftId/z-report')
+  @Header('Cache-Control', 'no-store')
+  zReport(
+    @Headers() headers: Record<string, string | undefined>,
+    @Param('shiftId') shiftId: string,
+  ) {
+    return this.run(headers, (auth) =>
+      readShiftReport(this.pool, this.branchId, auth, shiftId, 'z'),
+    );
   }
 }

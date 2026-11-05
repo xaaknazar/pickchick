@@ -461,7 +461,116 @@ const openapi = {
               503: response('Error', 'Local service unavailable'),
             },
             description:
-              'The shift manager PIN on this cash desk (the terminal of the session) with the backoff of staff/pin. The token is bound to the desk, action and subject hash and is spent once by the command that needs it.',
+              'The shift manager PIN on this cash desk (the terminal of the session) with the backoff of staff/pin. staff_id names the manager, or is the session staff itself: then the owner of the PIN must be a shift manager. The token is bound to the desk, action and subject hash and is spent once by the command that needs it.',
+          },
+        },
+        '/edge/v1/pos/sales/{orderId}/void': {
+          post: {
+            operationId: 'voidPosSale',
+            security: staff,
+            parameters: [uuidParameter('orderId'), uuidParameter('Idempotency-Key', 'header')],
+            requestBody: body(c.PosVoidRequestSchema),
+            responses: {
+              200: ok(c.PosSaleResultSchema, 'Order cancelled (version 2) and the sale returned'),
+              ...errors,
+              409: response(
+                'Error',
+                'ORDER_IN_PRODUCTION (the kitchen started: refund instead), DRAWER_INSUFFICIENT, APPROVAL_INVALID, CASH_SHIFT_REQUIRED, SERVICE_MODE_DISABLED, or CONFLICT (version, a refund already made, a recorded sale receipt with fiscal_sale_issued false, idempotency). Until ErrorSchema lists the POS codes (CR pos-1) the body says CONFLICT.',
+              ),
+            },
+            description:
+              "Before the kitchen starts, with the approval 'void' for {order_id, amount_minor: total}: one transaction cancels the kitchen admission and the order, returns every tender in full at this desk's open sales shift (cash from its drawer) and records the return receipt (pending when fiscal_sale_issued, else not_required; a pending sale receipt then becomes not_required).",
+          },
+        },
+        '/edge/v1/pos/sales/{orderId}/refunds': {
+          post: {
+            operationId: 'refundPosSale',
+            security: staff,
+            parameters: [uuidParameter('orderId'), uuidParameter('Idempotency-Key', 'header')],
+            requestBody: body(c.PosRefundRequestSchema),
+            responses: {
+              201: ok(c.PosSaleSchema, 'Refund recorded; the order row is unchanged'),
+              ...errors,
+              409: response(
+                'Error',
+                'REFUND_LIMIT (above what a tender still holds, or 100 refunds), REFUND_NOT_SUPPORTED (aggregator, ChocoFood, staff meal, marketing), TERMINAL_AMOUNT_NOT_WHOLE, DRAWER_INSUFFICIENT, APPROVAL_INVALID, CASH_SHIFT_REQUIRED, SERVICE_MODE_DISABLED, or CONFLICT (voided sale, known refund_id, idempotency). Until ErrorSchema lists the POS codes (CR pos-1) the body says CONFLICT.',
+              ),
+            },
+            description:
+              "Full or partial amounts per tender with the approval 'refund' for {order_id, amount_minor: the refund}, at this desk's open sales shift; cash never above its drawer. The refund receipt is pending when the sale had a receipt, else not_required.",
+          },
+        },
+        '/edge/v1/pos/fiscal-receipts/pending': {
+          get: {
+            operationId: 'listPendingFiscalReceipts',
+            security: staff,
+            parameters: [
+              {
+                name: 'shift_id',
+                in: 'query',
+                required: false,
+                schema: { type: 'string', format: 'uuid' },
+                description: 'Receipts of the sales and refunds of this shift (its closing gate).',
+              },
+            ],
+            responses: { 200: ok(c.PosFiscalPendingSchema), ...errors },
+            description:
+              'Receipts still to be punched in the Webkassa cabinet, oldest first: of this cash desk for a cashier, of every desk for a shift manager.',
+          },
+        },
+        '/edge/v1/pos/fiscal-receipts/{receiptId}/record': {
+          post: {
+            operationId: 'recordFiscalReceipt',
+            security: staff,
+            parameters: [uuidParameter('receiptId'), uuidParameter('Idempotency-Key', 'header')],
+            requestBody: body(c.PosFiscalRecordRequestSchema),
+            responses: {
+              200: ok(c.PosFiscalReceiptSchema, 'The receipt record (a new version)'),
+              ...errors,
+              409: response(
+                'Error',
+                'APPROVAL_REQUIRED or APPROVAL_INVALID (correcting a recorded number), or CONFLICT (stale version, receipt not required, idempotency). Until ErrorSchema lists the POS codes (CR pos-1) the body says CONFLICT.',
+              ),
+            },
+            description:
+              "The Webkassa receipt number typed at the sale or later. Correcting a recorded number needs the approval 'fiscal_correct' for {order_id, amount_minor: the receipt amount}.",
+          },
+        },
+        '/edge/v1/cash-shifts/{shiftId}/x-report': {
+          get: {
+            operationId: 'readCashShiftXReport',
+            security: staff,
+            parameters: [uuidParameter('shiftId')],
+            responses: { 200: ok(c.PosShiftReportSchema), ...errors },
+            description:
+              'PickChick X report of a sales shift, computed now (not fiscal). 404 for a shift that did not open in pos_sale mode and on an edge without schema026.',
+          },
+        },
+        '/edge/v1/cash-shifts/{shiftId}/z-report': {
+          get: {
+            operationId: 'readCashShiftZReport',
+            security: staff,
+            parameters: [uuidParameter('shiftId')],
+            responses: {
+              200: ok(c.PosShiftReportSchema),
+              ...errors,
+              409: response('Error', 'CONFLICT: the shift is still open'),
+            },
+            description:
+              'PickChick Z report frozen when the sales shift closed (not fiscal). 404 for a shift that did not open in pos_sale mode.',
+          },
+        },
+        // The close of a sales shift also takes the Kaspi terminal total and, with pending
+        // receipts, the approval; an ordinary shift refuses both keys (400) as before.
+        '/edge/v1/cash-shifts/{shiftId}/close': {
+          post: {
+            ...staffOperation('post', 'closeCashShift', 'CashShift', 'CashShiftClose', {
+              idempotent: true,
+              shiftId: true,
+            }).post,
+            requestBody: body(c.PosCashShiftCloseSchema),
+            description:
+              "terminal_reported_minor and approval only for a sales shift. With receipts of its sales and refunds pending, the approval 'shift_close_pending_fiscal' for {shift_id, amount_minor: their sum}, typed on the shift's own desk, is required (409 FISCAL_PENDING without it; until ErrorSchema lists the POS codes the body says CONFLICT). The shift closes, then its Z report is frozen.",
           },
         },
       };
