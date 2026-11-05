@@ -16,12 +16,15 @@ import {
   CloudCommandSchema,
   StaffCommandSchema,
   RoutingSchema,
-  taskPlan,
   FulfillmentError,
   LeaseSchema,
   AckSchema,
 } from './model.js';
 import type { TrustedCloud } from './model.js';
+import { buildKitchenPlan } from './kds-plan.js';
+import { readKdsLayout, readMenuKdsSlugs } from './kds-layout.js';
+import { KDS_STATIONS, cloudKdsSlugs, kdsFunctionKind, noKdsSlugs } from './kds.js';
+import type { KdsSlugs } from './kds.js';
 
 import {
   acceptsWork,
@@ -48,7 +51,16 @@ const snapshot = (task: Task): TaskSnapshot => ({
   stationId: task.station_id,
   state: task.state,
   version: task.version,
+  // Pinned at admission by a KDS plan only (toasts of a table); absent on every other task.
+  ...(task.details.kds?.upstreamOf ? { upstreamOf: task.details.kds.upstreamOf } : {}),
 });
+/** KDS task details and the delivery mark leave the edge only while the layout is enabled. */
+const withoutKds = (task: Task): Task => {
+  if (!task.details.kds) return task;
+  const { kds, ...details } = task.details;
+  void kds;
+  return { ...task, details };
+};
 async function lock(client: DatabaseClient, key: string) {
   await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [key]);
 }
@@ -247,8 +259,14 @@ export class EdgeFulfillment {
             )
           ).rows[0];
           if (!stored) fail('ROUTING_MISSING');
-          const routing = parse(RoutingSchema, stored.payload),
-            plan = taskPlan(p.snapshot, routing);
+          const routing = parse(RoutingSchema, stored.payload);
+          // Contracts section 5.2: the same seam as the cashier path. Layout off: exactly
+          // taskPlan(snapshot, routing) and routing.assemblyStationId.
+          const kitchen = await buildKitchenPlan(client, {
+            branchId: scope.branchId,
+            snapshot: p.snapshot,
+            routing,
+          });
           // A quote may not reserve two commercial order IDs, even on concurrent deliveries.
           await lock(client, 'fulfillment:quote:' + scope.branchId + ':' + p.quoteId);
           if (
@@ -275,8 +293,8 @@ export class EdgeFulfillment {
                 scope.deviceId,
                 p.snapshot,
                 routing.version,
-                JSON.stringify(plan),
-                routing.assemblyStationId,
+                JSON.stringify(kitchen.plan),
+                kitchen.assemblyStationId,
                 number,
               ],
             )
@@ -583,6 +601,7 @@ export class EdgeFulfillment {
       const staff = await authenticateStaff(client, branchId, auth);
       if (q.stationId) await stationPermission(client, branchId, staff, q.stationId);
       await client.query('SET TRANSACTION READ ONLY');
+      const kdsOn = (await readKdsLayout(client, branchId)).enabled;
       const row = await readReservation(client, branchId, orderId);
       const allTasks = await tasks(client, row);
       // Station membership is pinned to this order, including its assembly-only
@@ -599,7 +618,8 @@ export class EdgeFulfillment {
         channel: row.snapshot.channel,
         serviceMode: row.snapshot.serviceMode,
         ...(row.snapshot.kitchenComment ? { kitchenComment: row.snapshot.kitchenComment } : {}),
-        tasks: allTasks,
+        ...(kdsOn && row.snapshot.delivery ? { delivery: row.snapshot.delivery } : {}),
+        tasks: kdsOn ? allTasks : allTasks.map(withoutKds),
         cancellationReason: row.cancellation_reason,
         inventoryDisposition: row.inventory_disposition,
       };
@@ -624,6 +644,7 @@ export class EdgeFulfillment {
       if (!['kitchen', 'shift_manager'].includes(staff.role)) fail('FORBIDDEN');
       if (q.stationId) await stationPermission(client, branchId, staff, q.stationId);
       await client.query('SET TRANSACTION READ ONLY');
+      const kdsOn = (await readKdsLayout(client, branchId)).enabled;
       const hasReviews = (
         await client.query("SELECT to_regclass('fulfillment_restore_reviews') IS NOT NULL AS ok")
       ).rows[0].ok;
@@ -653,7 +674,8 @@ export class EdgeFulfillment {
           channel: row.snapshot.channel,
           serviceMode: row.snapshot.serviceMode,
           ...(row.snapshot.kitchenComment ? { kitchenComment: row.snapshot.kitchenComment } : {}),
-          tasks: await tasks(client, row),
+          ...(kdsOn && row.snapshot.delivery ? { delivery: row.snapshot.delivery } : {}),
+          tasks: kdsOn ? await tasks(client, row) : (await tasks(client, row)).map(withoutKds),
         };
         const size = Buffer.byteLength(JSON.stringify(item));
         if (items.length && bytes + size > 2_097_152) break;
@@ -694,8 +716,9 @@ export class EdgeFulfillment {
       await this.pool.query<{ display_number: string; state: State; display_name: string }>(
         // An order no longer live for edge 022 numbering (untouched for 12 hours, or 'ready' for
         // 3 hours) is off the board: its number may already belong to a new order, and the
-        // board never shows one number twice.
-        `SELECT display_number,state,left(coalesce(snapshot->>'displayName',''),14) AS display_name FROM fulfillment_reservations WHERE branch_id=$1 AND state IN ('accepted','in_production','ready') AND updated_at>clock_timestamp()-CASE WHEN state='ready' THEN interval '3 hours' ELSE interval '12 hours' END AND display_number>$2::bigint ${reviewFilter} ORDER BY display_number LIMIT $3`,
+        // board never shows one number twice. Aggregator orders (snapshot.delivery, cutover
+        // KDS) go to couriers, never to the guest board; the board gets no new key for them.
+        `SELECT display_number,state,left(coalesce(snapshot->>'displayName',''),14) AS display_name FROM fulfillment_reservations WHERE branch_id=$1 AND state IN ('accepted','in_production','ready') AND updated_at>clock_timestamp()-CASE WHEN state='ready' THEN interval '3 hours' ELSE interval '12 hours' END AND display_number>$2::bigint AND snapshot->'delivery' IS NULL ${reviewFilter} ORDER BY display_number LIMIT $3`,
         [branchId, q.afterNumber, q.limit + 1],
       )
     ).rows;
@@ -708,6 +731,143 @@ export class EdgeFulfillment {
       })),
       nextAfterNumber: rows.length > q.limit ? page.at(-1)!.display_number : null,
     };
+  }
+  /**
+   * GET fulfillment/layout (contracts section 5.4). {enabled:false}: the old kitchen screen.
+   * screens: the layout stations of the session's terminal (0..2, tabs); a managed terminal only
+   * opens stations of its own mode.
+   */
+  async readLayout(branchId: string, auth: StaffAuth, terminalMode?: 'prep' | 'assembly') {
+    parse(z.uuid(), branchId);
+    return transaction(this.pool, async (client) => {
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+      const staff = await authenticateStaff(client, branchId, auth);
+      if (!['kitchen', 'shift_manager'].includes(staff.role)) fail('FORBIDDEN');
+      await client.query('SET TRANSACTION READ ONLY');
+      const kds = await readKdsLayout(client, branchId);
+      if (!kds.enabled) return { enabled: false as const };
+      const names = new Map(
+        (
+          await client.query<{ id: string; name: string }>(
+            'SELECT id,name FROM fulfillment_stations WHERE branch_id=$1 AND id=ANY($2::uuid[])',
+            [branchId, kds.layout.stations.map((s) => s.edge_station_id)],
+          )
+        ).rows.map((row) => [row.id, row.name]),
+      );
+      return {
+        enabled: true as const,
+        layoutVersion: kds.version,
+        mode: kds.mode,
+        stations: kds.layout.stations.map((s) => ({
+          id: s.edge_station_id,
+          function: s.function,
+          name:
+            names.get(s.edge_station_id) ??
+            KDS_STATIONS.find((spec) => spec.function === s.function)!.name,
+          kind: kdsFunctionKind(s.function),
+        })),
+        screens: kds.layout.stations
+          .filter(
+            (s) =>
+              s.terminal_ids.includes(staff.terminal_id) &&
+              (!terminalMode || kdsFunctionKind(s.function) === terminalMode),
+          )
+          .map((s) => s.edge_station_id)
+          .slice(0, 2),
+      };
+    });
+  }
+  /**
+   * GET fulfillment/kds/breading (contracts section 5.4, КД4): station 6 has no tasks; its screen
+   * is a projection of the open table tasks whose product the layout lists for breading (or that
+   * carry pinned fingers). Oldest order first; only orders the kitchen may work on. Fingers only
+   * when the layout counts them. NOT_FOUND while the layout is off or has no breading station.
+   */
+  async readBreading(branchId: string, auth: StaffAuth, input: unknown = {}) {
+    parse(z.uuid(), branchId);
+    const q = parse(z.strictObject({ limit: z.int().min(1).max(100).default(50) }), input);
+    return transaction(this.pool, async (client) => {
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+      const staff = await authenticateStaff(client, branchId, auth);
+      if (!['kitchen', 'shift_manager'].includes(staff.role)) fail('FORBIDDEN');
+      const kds = await readKdsLayout(client, branchId);
+      const station = kds.enabled
+        ? kds.layout.stations.find((s) => s.function === 'breading')
+        : undefined;
+      if (!station) return fail('NOT_FOUND');
+      await stationPermission(client, branchId, staff, station.edge_station_id);
+      await client.query('SET TRANSACTION READ ONLY');
+      const hasReviews = (
+        await client.query("SELECT to_regclass('fulfillment_restore_reviews') IS NOT NULL AS ok")
+      ).rows[0].ok;
+      // As the guest board: a restored order counts only once the manager resumed it.
+      const reviewFilter = hasReviews
+        ? ` AND NOT EXISTS (
+        SELECT 1 FROM fulfillment_restore_reviews rr LEFT JOIN fulfillment_restore_decisions d USING(epoch,order_id)
+        WHERE rr.order_id=r.order_id AND rr.epoch=(SELECT max(latest.epoch)
+          FROM fulfillment_restore_reviews latest WHERE latest.order_id=r.order_id)
+        AND coalesce(d.decision,'pending')<>'resume')`
+        : '';
+      const open = `t.branch_id=r.branch_id AND t.order_id=r.order_id AND t.state IN ('queued','in_progress')
+        AND t.details->'kds'->>'function' IN ('assembly_hall','assembly_delivery')`;
+      const orders = (
+        await client.query<{
+          order_id: string;
+          display_number: string | null;
+          snapshot: { channel: string; serviceMode: 'takeaway' | 'dine_in'; delivery?: unknown };
+        }>(
+          `SELECT r.order_id,r.display_number,r.snapshot FROM fulfillment_reservations r
+           WHERE r.branch_id=$1 AND r.state IN ('accepted','in_production')
+           AND EXISTS(SELECT 1 FROM fulfillment_tasks t WHERE ${open}) ${reviewFilter}
+           ORDER BY r.created_at,r.order_id LIMIT 500`,
+          [branchId],
+        )
+      ).rows;
+      const breaded = new Set(station.product_ids);
+      let cashierSlugs: KdsSlugs | null | undefined;
+      const result = [];
+      let total = 0,
+        counted = Boolean(station.counts?.length);
+      for (const row of orders) {
+        if (result.length >= q.limit) break;
+        let slugs = cloudKdsSlugs;
+        if (row.snapshot.channel === 'pos') {
+          if (cashierSlugs === undefined) cashierSlugs = await readMenuKdsSlugs(client, branchId);
+          slugs = cashierSlugs ?? noKdsSlugs;
+        }
+        const lines = (
+          await client.query<{ details: Task['details'] }>(
+            `SELECT t.details FROM fulfillment_tasks t JOIN fulfillment_reservations r
+             ON r.branch_id=t.branch_id AND r.order_id=t.order_id WHERE r.order_id=$1 AND ${open}
+             ORDER BY t.component_key`,
+            [row.order_id],
+          )
+        ).rows
+          .map((task) => task.details)
+          .filter((details) => {
+            const slug = slugs.product(details.productId);
+            return (slug !== null && breaded.has(slug)) || details.kds?.fingers !== undefined;
+          })
+          .map((details) => ({
+            title: details.title,
+            quantity: details.quantity,
+            ...(details.kds?.fingers !== undefined ? { fingers: details.kds.fingers } : {}),
+          }));
+        if (!lines.length) continue;
+        const fingers = lines.reduce((sum, line) => sum + (line.fingers ?? 0), 0);
+        if (lines.some((line) => line.fingers !== undefined)) counted = true;
+        total += fingers;
+        result.push({
+          orderId: row.order_id,
+          displayNumber: row.display_number,
+          serviceMode: row.snapshot.serviceMode,
+          ...(row.snapshot.delivery ? { delivery: row.snapshot.delivery } : {}),
+          lines,
+          ...(fingers > 0 ? { fingers } : {}),
+        });
+      }
+      return { orders: result, ...(counted ? { totalFingers: total } : {}) };
+    });
   }
   async claimOutbox(scope: TrustedCloud, input: unknown) {
     const req = parse(LeaseSchema, input);

@@ -1,5 +1,6 @@
-// Cutover lane kds, KDS-3 on PostgreSQL (full repository chain incl. 027): station provisioning,
-// the 027 guards and the runtime grants of infra/windows/kds-grants.mjs.
+// Cutover lane kds on PostgreSQL (full repository chain incl. 027). KDS-3: station provisioning,
+// the 027 guards and the runtime grants of infra/windows/kds-grants.mjs. KDS-2: the kitchen plan
+// of both admission paths, the table cascade, finishing stations and the KDS read views.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
@@ -11,9 +12,25 @@ import {
   kdsRuntimeGrantSql,
   kdsTableGrantees,
 } from '../../../infra/windows/kds-grants.mjs';
-import { KDS_STATIONS, kdsStationId, provisionKdsStations } from '../dist/index.js';
+import { FulfillmentLayoutSchema, KdsBreadingSchema } from '@pickchick/contracts';
+import {
+  KDS_STATIONS,
+  RoutingSchema,
+  buildKitchenPlan,
+  grantStation,
+  kdsStationId,
+  provisionKdsStations,
+  taskPlan,
+} from '../dist/index.js';
 import { errorCode, fixture } from './fixture.mjs';
-import { tableFingerprint } from './kds-fixture.mjs';
+import {
+  assertStrictEvents,
+  cashierDesk,
+  kdsTestLayout,
+  switchKdsLayout,
+  tableFingerprint,
+  writeKdsLayout,
+} from './kds-fixture.mjs';
 
 const provision = (pool, branchId) =>
   transaction(pool, (client) => provisionKdsStations(client, branchId));
@@ -375,6 +392,500 @@ test('kds-grants: exact runtime privileges on the 027 tables', () =>
         'kds_setting_changes',
         'kds_settings',
       ]);
+    } finally {
+      await f.admin.query(`DROP OWNED BY ${role}`).catch(() => {});
+      await f.admin.query(`DROP ROLE IF EXISTS ${role}`);
+    }
+  }));
+
+// ---------------------------------------------------------------------------------------------
+// KDS-2: the kitchen plan on PostgreSQL.
+const S = (f, fn) => kdsStationId(f.scope.branchId, fn);
+const reservation = async (f, orderId) =>
+  (await f.pool.query('SELECT * FROM fulfillment_reservations WHERE order_id=$1', [orderId]))
+    .rows[0];
+const tasksOf = async (f, orderId) =>
+  (
+    await f.pool.query(
+      'SELECT id,component_key,station_id,kind,details,state,version FROM fulfillment_tasks WHERE order_id=$1',
+      [orderId],
+    )
+  ).rows.sort((a, b) => (a.component_key < b.component_key ? -1 : 1));
+const activeRouting = async (f) =>
+  RoutingSchema.parse(
+    (
+      await f.pool.query(
+        'SELECT r.payload FROM fulfillment_routing r JOIN fulfillment_config c ON c.branch_id=r.branch_id AND c.active_routing_version=r.version',
+      )
+    ).rows[0].payload,
+  );
+const completeStation = (f, current, fn, actor = f.manager) =>
+  f.act(current, 'complete_station', actor, { stationId: S(f, fn) });
+const noKdsKeys = (value) => {
+  const text = JSON.stringify(value);
+  for (const key of ['"kds"', '"delivery"', '"upstreamOf"']) assert.ok(!text.includes(key), key);
+};
+
+test('KDS-2 layout off: stations and a stored layout change nothing for either admission path', () =>
+  fixture(async (f) => {
+    await writeKdsLayout(f.pool, f.scope.branchId, kdsTestLayout(f.scope.branchId), {
+      enable: false,
+    });
+    const desk = await cashierDesk(f);
+    const routing = await activeRouting(f);
+    const { command, order } = await f.accepted(true);
+    const cloud = await reservation(f, order.orderId);
+    assert.deepEqual(cloud.task_plan, taskPlan(command.payload.snapshot, routing));
+    assert.equal(cloud.assembly_station_id, f.assembly);
+    const local = await desk.order();
+    const cash = await reservation(f, local.order_id);
+    assert.deepEqual(cash.task_plan, taskPlan(cash.snapshot, routing));
+    assert.equal(cash.assembly_station_id, f.assembly);
+    for (const id of [order.orderId, local.order_id]) {
+      const read = await f.read(id);
+      noKdsKeys(read);
+      assert.ok(read.tasks.every((t) => [f.prep, f.assembly].includes(t.station_id)));
+    }
+    noKdsKeys(await f.repo.listKitchen(f.scope.branchId, f.manager.auth, {}));
+    assert.deepEqual(await f.repo.readLayout(f.scope.branchId, f.packer.auth), { enabled: false });
+    await assert.rejects(
+      f.repo.readBreading(f.scope.branchId, f.manager.auth),
+      errorCode('NOT_FOUND'),
+    );
+    const streams = await assertStrictEvents(f.pool);
+    assert.ok(streams.pos > 0 && streams.cloud > 0);
+  }));
+
+test('KDS-2 cloud admission: the pinned KDS plan, cascade from the table, ready only at issue', () =>
+  fixture(async (f) => {
+    const b = f.scope.branchId;
+    await writeKdsLayout(f.pool, b, kdsTestLayout(b));
+    const { command, order } = await f.accepted(true);
+    const row = await reservation(f, order.orderId);
+    assert.equal(row.assembly_station_id, S(f, 'issue'));
+    assert.equal(row.routing_version, 1);
+    const lineId = command.payload.snapshot.lines[0].lineId;
+    const key = (part, fn) => `${lineId}:component:${part}:${fn}`;
+    let tasks = await tasksOf(f, order.orderId);
+    assert.deepEqual(
+      tasks.map((t) => [t.component_key, t.station_id, t.kind, t.details.kds, t.state]),
+      [
+        [
+          key('burger', 'assembly_hall'),
+          S(f, 'assembly_hall'),
+          'assembly_item',
+          { function: 'assembly_hall' },
+          'queued',
+        ],
+        [
+          key('burger', 'toasts'),
+          S(f, 'toasts'),
+          'prep',
+          { function: 'toasts', upstreamOf: S(f, 'assembly_hall'), units: 2, unit: 'burger' },
+          'queued',
+        ],
+        [key('drink', 'issue'), S(f, 'issue'), 'assembly_item', { function: 'issue' }, 'queued'],
+        [
+          key('fries', 'assembly_hall'),
+          S(f, 'assembly_hall'),
+          'assembly_item',
+          { function: 'assembly_hall', fingers: 8 },
+          'queued',
+        ],
+      ],
+    );
+    // The linked drink choice is hidden on the table and stays with the drink at issue.
+    const drinkChoice = command.payload.snapshot.lines[0].selectedDetails.modifiers;
+    for (const task of tasks)
+      assert.deepEqual(
+        task.details.modifiers,
+        task.station_id === S(f, 'issue') ? drinkChoice : [],
+      );
+    const toast = tasks.find((t) => t.station_id === S(f, 'toasts'));
+    let current = await f.act(order, 'start_task', f.manager, {
+      taskId: toast.id,
+      expectedTaskVersion: toast.version,
+    });
+    // Issue waits for the table and its toast; the table is never the finishing station.
+    await assert.rejects(completeStation(f, current, 'issue'), errorCode('NOT_READY'));
+    await assert.rejects(f.act(current, 'ready'), errorCode('NOT_READY'));
+    const before = Number(
+      (await f.pool.query('SELECT max(sequence) AS s FROM fulfillment_outbox')).rows[0].s,
+    );
+    current = await completeStation(f, current, 'assembly_hall');
+    assert.equal(current.state, 'in_production');
+    tasks = await tasksOf(f, order.orderId);
+    assert.deepEqual(
+      tasks.map((t) => t.state),
+      ['done', 'done', 'queued', 'done'],
+    );
+    const cascade = (
+      await f.pool.query(
+        "SELECT payload FROM fulfillment_outbox WHERE sequence>$1 AND event_type='edge.task_changed' ORDER BY sequence",
+        [before],
+      )
+    ).rows.map((r) => [r.payload.taskId, r.payload.stationId, r.payload.taskState]);
+    // Toast first, with its own station; then the table's own tasks; no event of a new kind.
+    assert.deepEqual(cascade[0], [toast.id, S(f, 'toasts'), 'done']);
+    assert.equal(cascade.length, 5);
+    assert.ok(cascade.slice(1).every(([, station]) => station === S(f, 'assembly_hall')));
+    current = await completeStation(f, current, 'issue');
+    assert.equal(current.state, 'ready');
+    // The guest board shows the hall order as usual.
+    assert.deepEqual((await f.repo.readDisplay(b)).items, [
+      { number: current.displayNumber, state: 'ready' },
+    ]);
+    current = await f.act(current, 'handoff');
+    assert.equal(current.state, 'handed_over');
+    const read = await f.read(order.orderId);
+    assert.ok(read.tasks.every((t) => t.details.kds));
+    assert.ok(!('delivery' in read));
+    assert.equal((await assertStrictEvents(f.pool)).pos, 0);
+  }));
+
+test('KDS-2 cloud reservation pins its plan: switching the layout before authorization changes nothing', () =>
+  fixture(async (f) => {
+    const b = f.scope.branchId;
+    await writeKdsLayout(f.pool, b, kdsTestLayout(b));
+    const kds = f.admission();
+    const held = await f.repo.acceptCloud(f.scope, kds);
+    await switchKdsLayout(f.pool, b, false);
+    const legacy = f.admission();
+    const legacyHeld = await f.repo.acceptCloud(f.scope, legacy);
+    await switchKdsLayout(f.pool, b, true);
+    const a = await f.repo.acceptCloud(f.scope, f.authorize(kds, held));
+    const c = await f.repo.acceptCloud(f.scope, f.authorize(legacy, legacyHeld));
+    assert.equal(a.assemblyStationId, S(f, 'issue'));
+    assert.deepEqual(
+      (await tasksOf(f, a.orderId)).map((t) => t.station_id),
+      [S(f, 'assembly_hall'), S(f, 'toasts')],
+    );
+    assert.equal(c.assemblyStationId, f.assembly);
+    assert.deepEqual(
+      (await tasksOf(f, c.orderId)).map((t) => t.station_id),
+      [f.prep],
+    );
+  }));
+
+test('KDS-2 cashier admission through the seam: menu slugs, drink option at issue, cancel before start', () =>
+  fixture(async (f) => {
+    const b = f.scope.branchId;
+    const desk = await cashierDesk(f);
+    await writeKdsLayout(f.pool, b, kdsTestLayout(b));
+    const local = await desk.order();
+    assert.equal(local.fulfillment.state, 'accepted');
+    const row = await reservation(f, local.order_id);
+    assert.equal(row.assembly_station_id, S(f, 'issue'));
+    const [combo, burger] = row.snapshot.lines;
+    assert.equal(combo.selectedDetails.modifiers[0].optionId, desk.colaOption);
+    const tasks = await tasksOf(f, local.order_id);
+    assert.deepEqual(
+      tasks.map((t) => [t.component_key, t.station_id, t.details.kds, t.details.modifiers.length]),
+      [
+        ...[
+          [`${combo.lineId}:modifier:0:issue`, S(f, 'issue'), { function: 'issue' }, 0],
+          [
+            `${combo.lineId}:parent:assembly_hall`,
+            S(f, 'assembly_hall'),
+            { function: 'assembly_hall', fingers: 6 },
+            0,
+          ],
+          [
+            `${combo.lineId}:parent:toasts`,
+            S(f, 'toasts'),
+            { function: 'toasts', upstreamOf: S(f, 'assembly_hall'), units: 2 },
+            0,
+          ],
+          [
+            `${burger.lineId}:parent:assembly_hall`,
+            S(f, 'assembly_hall'),
+            { function: 'assembly_hall' },
+            0,
+          ],
+          [
+            `${burger.lineId}:parent:toasts`,
+            S(f, 'toasts'),
+            { function: 'toasts', upstreamOf: S(f, 'assembly_hall'), units: 1, unit: 'burger' },
+            0,
+          ],
+        ].sort((x, y) => (x[0] < y[0] ? -1 : 1)),
+      ],
+    );
+    const drink = tasks.find((t) => t.component_key.endsWith(':modifier:0:issue'));
+    assert.deepEqual(
+      [drink.details.productId, drink.details.title, drink.details.quantity],
+      [desk.cola.product, 'Кола', 2],
+    );
+    // Hall path: the table closes both toasts, issue makes the order ready, then handoff.
+    let current = await f.read(local.order_id);
+    current = await completeStation(f, current, 'assembly_hall');
+    assert.deepEqual(
+      (await tasksOf(f, local.order_id)).filter((t) => t.state !== 'done').map((t) => t.station_id),
+      [S(f, 'issue')],
+    );
+    current = await completeStation(f, current, 'issue');
+    assert.equal(current.state, 'ready');
+    assert.equal((await f.act(current, 'handoff')).state, 'handed_over');
+    // Cancel before the kitchen starts: every KDS task of the order is cancelled.
+    const second = await desk.order({ comboQuantity: 1, burgers: 2 });
+    const cancelled = await desk.cancel(second);
+    assert.equal(cancelled.state, 'cancelled');
+    const after = await tasksOf(f, second.order_id);
+    assert.equal(after.length, 5);
+    assert.ok(after.every((t) => t.state === 'cancelled'));
+    assert.equal((await reservation(f, second.order_id)).state, 'cancelled');
+    // A started KDS order cannot be cancelled at the cashier, exactly as before.
+    const third = await desk.order({ comboQuantity: 0, burgers: 1 });
+    const toast = (await tasksOf(f, third.order_id)).find((t) => t.station_id === S(f, 'toasts'));
+    await f.act(await f.read(third.order_id), 'start_task', f.manager, {
+      taskId: toast.id,
+      expectedTaskVersion: toast.version,
+    });
+    await assert.rejects(desk.cancel(third), (error) => error.code === 'ORDER_IN_PRODUCTION');
+    const streams = await assertStrictEvents(f.pool);
+    assert.ok(streams.pos >= 15, JSON.stringify(streams));
+  }));
+
+test('KDS-2 aggregator sale: table 2, drinks at issue, station 3 finishes, off the guest board', () =>
+  fixture(async (f) => {
+    const b = f.scope.branchId;
+    const desk = await cashierDesk(f);
+    await writeKdsLayout(f.pool, b, kdsTestLayout(b));
+    const hall = await desk.order({ comboQuantity: 0, burgers: 1 });
+    const delivery = { provider: 'yandex_eda', externalNumber: 'YA-123' };
+    const agg = await desk.order({ delivery, burgers: 0 });
+    const row = await reservation(f, agg.order_id);
+    assert.equal(row.assembly_station_id, S(f, 'delivery_handover'));
+    assert.deepEqual(row.snapshot.delivery, delivery);
+    assert.equal(row.snapshot.serviceMode, 'takeaway');
+    assert.deepEqual(
+      (await tasksOf(f, agg.order_id)).map((t) => [
+        t.station_id,
+        t.details.kds.function,
+        t.details.kds.upstreamOf,
+      ]),
+      [
+        [S(f, 'issue'), 'issue', undefined],
+        [S(f, 'assembly_delivery'), 'assembly_delivery', undefined],
+        [S(f, 'toasts'), 'toasts', S(f, 'assembly_delivery')],
+      ],
+    );
+    // Guest board: only the hall order, with the same keys as ever.
+    const board = await f.repo.readDisplay(b);
+    assert.deepEqual(board, {
+      items: [{ number: (await reservation(f, hall.order_id)).display_number, state: 'preparing' }],
+      nextAfterNumber: null,
+    });
+    // Kitchen output: delivery and details.kds only while the layout is on.
+    const kitchen = await f.repo.listKitchen(b, f.manager.auth, {});
+    const aggItem = kitchen.items.find((item) => item.orderId === agg.order_id);
+    assert.deepEqual(aggItem.delivery, delivery);
+    assert.ok(!('delivery' in kitchen.items.find((item) => item.orderId === hall.order_id)));
+    assert.deepEqual((await f.read(agg.order_id)).delivery, delivery);
+    await switchKdsLayout(f.pool, b, false);
+    noKdsKeys(await f.read(agg.order_id));
+    noKdsKeys(await f.repo.listKitchen(b, f.manager.auth, {}));
+    assert.equal((await f.repo.readDisplay(b)).items.length, 1);
+    await switchKdsLayout(f.pool, b, true);
+    // Courier flow: drinks at issue do not make it ready; table 2, then station 3.
+    let current = await f.read(agg.order_id);
+    current = await completeStation(f, current, 'issue');
+    assert.equal(current.state, 'in_production');
+    await assert.rejects(completeStation(f, current, 'delivery_handover'), errorCode('NOT_READY'));
+    current = await completeStation(f, current, 'assembly_delivery');
+    current = await completeStation(f, current, 'delivery_handover');
+    assert.equal(current.state, 'ready');
+    assert.equal((await f.repo.readDisplay(b)).items.length, 1);
+    assert.equal((await f.act(current, 'handoff')).state, 'handed_over');
+    await assertStrictEvents(f.pool);
+  }));
+
+test('KDS-2 race: toast completion and table completion on the same order version', () =>
+  fixture(async (f) => {
+    const b = f.scope.branchId;
+    await writeKdsLayout(f.pool, b, kdsTestLayout(b));
+    await grantStation(f.pool, b, f.cook.staff_id, S(f, 'toasts'));
+    const winners = new Set();
+    for (let round = 0; round < 6; round++) {
+      const { order } = await f.accepted();
+      const toast = (await tasksOf(f, order.orderId)).find((t) => t.station_id === S(f, 'toasts'));
+      const current = await f.act(order, 'start_task', f.manager, {
+        taskId: toast.id,
+        expectedTaskVersion: toast.version,
+      });
+      const [byToast, byTable] = await Promise.allSettled([
+        f.act(current, 'complete_task', f.cook, {
+          taskId: toast.id,
+          expectedTaskVersion: toast.version + 1,
+        }),
+        completeStation(f, current, 'assembly_hall', f.manager),
+      ]);
+      const outcomes = [byToast.status, byTable.status].sort();
+      assert.deepEqual(outcomes, ['fulfilled', 'rejected']);
+      const loser = byToast.status === 'rejected' ? byToast : byTable;
+      assert.equal(loser.reason.code, 'CONFLICT');
+      winners.add(byToast.status === 'fulfilled' ? 'toast' : 'table');
+      const fresh = await f.read(order.orderId);
+      const toastNow = fresh.tasks.find((t) => t.id === toast.id);
+      assert.deepEqual([toastNow.state, toastNow.version], ['done', toast.version + 2]);
+      if (byToast.status === 'fulfilled') {
+        await completeStation(f, fresh, 'assembly_hall');
+      } else {
+        await assert.rejects(
+          f.act(fresh, 'complete_task', f.cook, {
+            taskId: toast.id,
+            expectedTaskVersion: toast.version + 1,
+          }),
+          errorCode('CONFLICT'),
+        );
+        await assert.rejects(
+          f.act(fresh, 'complete_task', f.cook, {
+            taskId: toast.id,
+            expectedTaskVersion: toast.version + 2,
+          }),
+          errorCode('NOT_READY'),
+        );
+      }
+      const doneEvents = (
+        await f.pool.query(
+          "SELECT count(*)::int AS n FROM fulfillment_outbox WHERE payload->>'taskId'=$1 AND payload->>'taskState'='done'",
+          [toast.id],
+        )
+      ).rows[0].n;
+      assert.equal(doneEvents, 1);
+      assert.ok((await tasksOf(f, order.orderId)).every((t) => t.state === 'done'));
+    }
+    assert.ok(winners.size >= 1);
+    await assertStrictEvents(f.pool);
+  }));
+
+test('KDS-2 switch off: started KDS orders finish on their stations, new orders use the old routing', () =>
+  fixture(async (f) => {
+    const b = f.scope.branchId;
+    await writeKdsLayout(f.pool, b, kdsTestLayout(b));
+    const { order } = await f.accepted(true);
+    await switchKdsLayout(f.pool, b, false);
+    const { order: old } = await f.accepted(true);
+    assert.equal(old.assemblyStationId, f.assembly);
+    assert.ok((await tasksOf(f, old.orderId)).every((t) => !t.details.kds));
+    let current = await f.read(order.orderId);
+    noKdsKeys(current.tasks.map((t) => t.details));
+    current = await completeStation(f, current, 'assembly_hall');
+    assert.deepEqual(
+      (await tasksOf(f, order.orderId)).filter((t) => t.state !== 'done').map((t) => t.station_id),
+      [S(f, 'issue')],
+    );
+    current = await completeStation(f, current, 'issue');
+    assert.equal(current.state, 'ready');
+    // The old order still goes the old way.
+    const legacy = await f.complete(old);
+    assert.equal((await f.act(legacy, 'ready', f.packer)).state, 'ready');
+  }));
+
+test('KDS-2 GET layout and breading views: screens per terminal, fingers, permissions', () =>
+  fixture(async (f) => {
+    const b = f.scope.branchId;
+    const desk = await cashierDesk(f);
+    const terminals = {
+      assembly_hall: [f.packer.terminal_id],
+      issue: [f.packer.terminal_id],
+      breading: [f.cook.terminal_id],
+      toasts: [f.cook.terminal_id],
+    };
+    await writeKdsLayout(f.pool, b, kdsTestLayout(b, { terminals }), { enable: false });
+    assert.deepEqual(await f.repo.readLayout(b, f.packer.auth), { enabled: false });
+    await switchKdsLayout(f.pool, b, true);
+    const layout = FulfillmentLayoutSchema.parse(await f.repo.readLayout(b, f.packer.auth));
+    assert.deepEqual(layout, {
+      enabled: true,
+      layoutVersion: 1,
+      mode: 'normal',
+      stations: KDS_STATIONS.map((spec) => ({
+        id: S(f, spec.function),
+        function: spec.function,
+        name: spec.name,
+        kind: spec.kind,
+      })),
+      screens: [S(f, 'assembly_hall'), S(f, 'issue')],
+    });
+    assert.deepEqual((await f.repo.readLayout(b, f.cook.auth)).screens, [
+      S(f, 'breading'),
+      S(f, 'toasts'),
+    ]);
+    assert.deepEqual((await f.repo.readLayout(b, f.packer.auth, 'prep')).screens, []);
+    assert.deepEqual((await f.repo.readLayout(b, f.manager.auth)).screens, []);
+    await assert.rejects(f.repo.readLayout(b, f.cashier.auth), errorCode('FORBIDDEN'));
+
+    const { order: combo } = await f.accepted(true);
+    await f.accepted(); // a burger only: nothing to bread
+    const local = await desk.order({ comboQuantity: 2, burgers: 1 });
+    await assert.rejects(f.repo.readBreading(b, f.cook.auth), errorCode('FORBIDDEN'));
+    await assert.rejects(f.repo.readBreading(b, f.cashier.auth), errorCode('FORBIDDEN'));
+    await grantStation(f.pool, b, f.cook.staff_id, S(f, 'breading'));
+    const view = KdsBreadingSchema.parse(await f.repo.readBreading(b, f.cook.auth));
+    assert.deepEqual(view, {
+      orders: [
+        {
+          orderId: combo.orderId,
+          displayNumber: combo.displayNumber,
+          serviceMode: 'takeaway',
+          lines: [{ title: 'Synthetic fries', quantity: 4, fingers: 8 }],
+          fingers: 8,
+        },
+        {
+          orderId: local.order_id,
+          displayNumber: (await reservation(f, local.order_id)).display_number,
+          serviceMode: 'dine_in',
+          lines: [{ title: 'Pick Combo', quantity: 2, fingers: 6 }],
+          fingers: 6,
+        },
+      ],
+      totalFingers: 14,
+    });
+    assert.deepEqual(
+      (await f.repo.readBreading(b, f.cook.auth, { limit: 1 })).orders.map((o) => o.orderId),
+      [combo.orderId],
+    );
+    // The table assembled the combo: it leaves the breading screen.
+    await completeStation(f, await f.read(combo.orderId), 'assembly_hall');
+    assert.deepEqual(
+      (await f.repo.readBreading(b, f.manager.auth)).orders.map((o) => o.orderId),
+      [local.order_id],
+    );
+    await assert.rejects(
+      f.repo.readBreading(b, f.manager.auth, { limit: 0 }),
+      errorCode('INVALID'),
+    );
+    await switchKdsLayout(f.pool, b, false);
+    await assert.rejects(f.repo.readBreading(b, f.manager.auth), errorCode('NOT_FOUND'));
+  }));
+
+test('KDS-2 a database role without SELECT on the KDS tables keeps the old plan', () =>
+  fixture(async (f) => {
+    const b = f.scope.branchId;
+    const role = 'kds_worker_' + randomUUID().replaceAll('-', '').slice(0, 20);
+    await f.admin.query(`CREATE ROLE ${role} NOLOGIN NOINHERIT`);
+    try {
+      await f.pool.query(`GRANT USAGE ON SCHEMA ${f.schema} TO ${role}`);
+      await writeKdsLayout(f.pool, b, kdsTestLayout(b));
+      const snapshot = f.admission(true).payload.snapshot;
+      const routing = await activeRouting(f);
+      const plan = () =>
+        transaction(f.pool, async (client) => {
+          await client.query(`SET LOCAL ROLE ${role}`);
+          return buildKitchenPlan(client, { branchId: b, snapshot, routing });
+        });
+      assert.deepEqual(await plan(), {
+        plan: taskPlan(snapshot, routing),
+        assemblyStationId: f.assembly,
+      });
+      await f.pool.query(
+        `GRANT SELECT ON ${f.schema}.kds_settings,${f.schema}.kds_layouts TO ${role}`,
+      );
+      // Cloud lines name slugs: the worker never needs the menu tables.
+      const kds = await plan();
+      assert.equal(kds.assemblyStationId, S(f, 'issue'));
+      assert.equal(kds.plan.length, 4);
     } finally {
       await f.admin.query(`DROP OWNED BY ${role}`).catch(() => {});
       await f.admin.query(`DROP ROLE IF EXISTS ${role}`);

@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
+import type { KdsFunction } from './kds.js';
 
 export class FulfillmentError extends Error {
   constructor(
@@ -110,6 +111,15 @@ const DetailsSchema = z
       .max(100),
   })
   .passthrough();
+/**
+ * Cutover KDS (contracts section 5.2): aggregator order of a cashier sale. The pos lane writes
+ * it for yandex_eda/glovo sales (the external order ref upper-case); same rule as
+ * FulfillmentDeliverySchema and delivery_handovers (027). Absent for hall, ChocoFood and cloud.
+ */
+export const SnapshotDeliverySchema = z.strictObject({
+  provider: z.enum(['yandex_eda', 'glovo']),
+  externalNumber: z.string().regex(/^[A-Z0-9-]{3,40}$/),
+});
 export const SnapshotSchema = z
   .object({
     organizationId: uuid,
@@ -118,6 +128,7 @@ export const SnapshotSchema = z
     serviceMode: z.enum(['takeaway', 'dine_in']),
     displayName: z.string().max(14).optional(),
     kitchenComment: z.string().max(60).optional(),
+    delivery: SnapshotDeliverySchema.optional(),
     currency: z.literal('KZT'),
     totalMinor: z.string().regex(/^(0|[1-9][0-9]{0,15})$/),
     lines: z
@@ -205,6 +216,18 @@ export const LeaseSchema = z.strictObject({
 export const AckSchema = z.strictObject({ eventId: uuid, workerId: uuid, leaseToken: uuid });
 export type Routing = z.infer<typeof RoutingSchema>;
 export type Snapshot = z.infer<typeof SnapshotSchema>;
+/**
+ * KDS task details (contracts section 5.4, FulfillmentTaskKdsSchema), frozen at admission while
+ * the edge KDS layout is enabled; never set by taskPlan.
+ */
+export type KdsTaskDetails = {
+  function: KdsFunction;
+  upstreamOf?: string;
+  units?: number;
+  unit?: 'finger' | 'toast' | 'burger';
+  fingers?: number;
+  unmapped?: true;
+};
 export type TaskPlan = {
   componentKey: string;
   stationId: string;
@@ -217,6 +240,7 @@ export type TaskPlan = {
     parentTitle: string;
     description: string;
     modifiers: unknown[];
+    kds?: KdsTaskDetails;
   };
 };
 /** Explicit routes for every leaf and parent item; no inferred "default station". */
