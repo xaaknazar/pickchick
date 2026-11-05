@@ -7088,23 +7088,6 @@
       "nextAction": "Владелец записывает на физическом iPhone вход и полное удаление выделенного review-аккаунта. Затем проверить видео, добавить в App Review Notes и подготовить повторную отправку Apple. Документационный PR299 ждёт собственной CI/merge; это не меняет доступность32. Сервер/касса/пульт не выпускались, реальные аккаунты/платежи не затронуты."
     },
     {
-      "id": "stage2-windows-1030",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/stage2-windows-1030",
-      "scopes": [
-        "@windows/cashier",
-        "docs/operations/stage2-2026-10-24/release-preparation.md",
-        "docs/operations/stage2-windows-1030",
-        "tests/operations/test_windows_stage2_release.py",
-        ".github/workflows/windows-pos.yml"
-      ],
-      "status": "available",
-      "head": "9a4954dc057b751da100609dd136b370e841d1a3",
-      "updatedAt": "2026-11-05T09:13:13.570Z",
-      "summary": "Подготовка сохранена в PR300, checkpoint 9a4954dc. Кандидат ffb2fd23 отдельно опубликован: Foundation CI11/11, offline ci без пропусков с known_issue279, Windows POS и архив024 сверены; PR270 без пересборки совпал с протоколом21.10. VPS только чтением, установок нет. Owner approved 2026-11-04 transfer of update-runtime-stage2-1024.ps1 to queue-recovery-279-1103 solely for backup file checksum refresh; all other scopes retained.\nOwner explicitly approved temporary transfer to mobile-build33-1031 for build33: docs/project-status.md, docs/roadmap/project.json. Task and all other scopes preserved; no App Store32 submission change.\n05.11.2026: владелец явно разрешил временную передачу серверных областей и общих записей задаче stage2-candidate-1105 для четырёх серверных шагов; кассовые, мобильные и остальные резервы сохранены.",
-      "nextAction": "После подтверждения подключения Mac получить защищённую копию020 только чтением и проверить полную реальную цепочку/023 API совместимость/оба отката. Нужны второй диск/NAS и адресный шаг авторотации. Владелец выбирает две даты и даёт отдельное да на каждый шаг. См. docs/operations/stage2-windows-1030; онлайн-пульт не опубликован."
-    },
-    {
       "id": "front-longpoll-1101",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/front-longpoll-1101",
@@ -7336,6 +7319,26 @@
       "head": "7347843011af85118b39be4a387e27232a75e6a9",
       "updatedAt": "2026-11-05T10:03:48.864Z",
       "summary": "05.11.2026: владелец явно разрешил временную передачу серверных областей и общих записей задаче stage2-candidate-1105 для четырёх серверных шагов; кассовые, мобильные и остальные резервы сохранены.\n05.11: владелец разрешил перенести готовое исправление node-forge 1.4.1 из shared в резервного кандидата stage2 и временно передать два файла зависимостей задаче stage2-candidate-1105; остальные области сохранены."
+    },
+    {
+      "id": "stage2-windows-1030",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/stage2-windows-1030",
+      "scopes": [
+        "@windows/cashier",
+        "docs/operations/stage2-2026-10-24/release-preparation.md",
+        "docs/operations/stage2-windows-1030",
+        "tests/operations/test_windows_stage2_release.py",
+        ".github/workflows/windows-pos.yml",
+        "docs/operations/cashier-launch-1105",
+        "infra/windows/queue-recovery-upgrade-db.mjs",
+        "tests/operations/queue-recovery-upgrade.test.mjs"
+      ],
+      "status": "active",
+      "head": "afaba7efc19ec6292582140b994625f32b5a2ad9",
+      "updatedAt": "2026-11-05T11:01:31.305Z",
+      "summary": "Подготовка сохранена в PR300, checkpoint 9a4954dc. Кандидат ffb2fd23 отдельно опубликован: Foundation CI11/11, offline ci без пропусков с known_issue279, Windows POS и архив024 сверены; PR270 без пересборки совпал с протоколом21.10. VPS только чтением, установок нет. Owner approved 2026-11-04 transfer of update-runtime-stage2-1024.ps1 to queue-recovery-279-1103 solely for backup file checksum refresh; all other scopes retained.\nOwner explicitly approved temporary transfer to mobile-build33-1031 for build33: docs/project-status.md, docs/roadmap/project.json. Task and all other scopes preserved; no App Store32 submission change.\n05.11.2026: владелец явно разрешил временную передачу серверных областей и общих записей задаче stage2-candidate-1105 для четырёх серверных шагов; кассовые, мобильные и остальные резервы сохранены.",
+      "nextAction": "После подтверждения подключения Mac получить защищённую копию020 только чтением и проверить полную реальную цепочку/023 API совместимость/оба отката. Нужны второй диск/NAS и адресный шаг авторотации. Владелец выбирает две даты и даёт отдельное да на каждый шаг. См. docs/operations/stage2-windows-1030; онлайн-пульт не опубликован."
     }
   ]
 }
