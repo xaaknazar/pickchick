@@ -7262,7 +7262,7 @@
       "id": "mobile-android-1105",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-android-1105",
-      "head": "51e54708cb378d2de5960b91867f361e85cdca2e",
+      "head": "2fe0e3a6b6ec31fcfa2a0d7cbbf8b395036294a4",
       "scopes": [
         "apps/mobile/assets/android/adaptive-icon-foreground.png",
         "apps/mobile/assets/android/adaptive-icon-monochrome.png",
@@ -7303,10 +7303,12 @@
         "infra/public-staging/support/style.css",
         "tests/operations/test_support_page_release.py",
         "docs/operations/mobile-play-2026-11/mac-build.md",
-        "@release/android"
+        "@release/android",
+        "docs/project-status.md",
+        "docs/roadmap/project.json"
       ],
       "status": "active",
-      "updatedAt": "2026-11-05T07:09:43.997Z",
+      "updatedAt": "2026-11-05T07:18:01.120Z",
       "summary": "Verified bundle51e54708; owner approved12 exact scoped transfers and version1.0.1. One explicit cooperative overlap auth.tsx with prior app route scope retained to preserve bracketed routes unsupported by registry scope syntax. Shared integration pending. No Play/server changes authorized.",
       "nextAction": "Merge shared, verify code/CI and signed production AAB. Offline key backup media pending owner."
     }
