@@ -80,6 +80,22 @@ class Guards(unittest.TestCase):
         for path in ['services/api/src/main.ts','db/cloud/migrations/069_cloud_customer_notifications.sql','infra/staging/release-market.py']:
             with self.assertRaises(r.market.GuardFailure): r.check_delta([path])
 
+    def test_exact_full_offline_ci_required(self):
+        import copy
+        proof = {'run': {'head_sha':'a'*40,'status':'completed','conclusion':'success',
+          'path':'.github/workflows/offline-stand.yml','head_repository':{'full_name':'xaaknazar/pickchick'}},
+          'jobs': {'total_count':1,'jobs':[{'name':'Offline stand (ci)','head_sha':'a'*40,
+            'status':'completed','conclusion':'success'}]}}
+        r.check_offline_ci(proof, 'a'*40)
+        for field,value in [('head_sha','b'*40),('conclusion','failure'),('path','.github/workflows/ci.yml')]:
+            bad=copy.deepcopy(proof);bad['run'][field]=value
+            with self.assertRaises(r.market.GuardFailure):r.check_offline_ci(bad,'a'*40)
+        for field,value in [('head_sha','b'*40),('conclusion','skipped'),('name','Offline stand (soak)')]:
+            bad=copy.deepcopy(proof);bad['jobs']['jobs'][0][field]=value
+            with self.assertRaises(r.market.GuardFailure):r.check_offline_ci(bad,'a'*40)
+        bad=copy.deepcopy(proof);bad['jobs']['total_count']=2
+        with self.assertRaises(r.market.GuardFailure):r.check_offline_ci(bad,'a'*40)
+
     def test_flags_off_for_all_optional_programs(self):
         r.check_flags({})
         r.check_flags({k:r.digest(b'false') for k in r.FLAGS})

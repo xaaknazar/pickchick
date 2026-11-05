@@ -93,6 +93,22 @@ def check_delta(paths):
     require(all(p in SUPPORT or p.startswith(('docs/operations/stage2-2026-10-24/', 'docs/operations/server-window-1105/')) for p in paths), 'Runtime differs from reviewed candidate; refresh accepted pin after integration')
 
 
+
+def check_offline_ci(proof, sha):
+    run, jobs = proof.get('run', {}), proof.get('jobs', {})
+    rows = jobs.get('jobs', [])
+    require(run.get('head_sha') == sha and run.get('status') == 'completed'
+            and run.get('conclusion') == 'success'
+            and run.get('path') == '.github/workflows/offline-stand.yml'
+            and run.get('head_repository', {}).get('full_name') == 'xaaknazar/pickchick',
+            'Full offline CI must pass on the exact candidate')
+    require(jobs.get('total_count') == 1 and len(rows) == 1
+            and rows[0].get('name') == 'Offline stand (ci)'
+            and rows[0].get('head_sha') == sha
+            and rows[0].get('status') == 'completed' and rows[0].get('conclusion') == 'success',
+            'Offline proof is incomplete, failed or for a different profile')
+
+
 def check_receipt(result):
     require(result.get('ok') is True and result.get('checksum') == 'verified'
             and result.get('migration') == LEDGER_HEAD and result.get('restore') == 'passed'
@@ -121,6 +137,15 @@ class Release(live.Release):
             64, (), base.workflow_jobs((market.REPO/'.github/workflows/ci.yml').read_text()), frozenset(),
             'stage2-release-1024', (), exact_ci_jobs=True)
         market.Release.__init__(self, args, profile)
+
+    def ci(self):
+        foundation = super().ci()
+        proof_path = self.args.offline_ci_proof
+        require(proof_path and proof_path.is_file(), 'Full offline CI proof required')
+        proof = json.loads(proof_path.read_text())
+        check_offline_ci(proof, self.sha)
+        self.save('offline-ci-proof.json', proof)
+        return foundation
 
     def source_checks(self):
         require(re.fullmatch('[a-f0-9]{40}', self.sha) and self.sha != BASELINE, 'Full candidate SHA required')
@@ -312,7 +337,7 @@ def parse(argv=None):
     p.add_argument('action', choices=['prepare','apply','rollback'])
     for name in ('sha','branch','expected-api-sha','expected-public-sha','expected-api-image','expected-compose-sha256','expected-gateway-sha256'):
         p.add_argument('--'+name, required=True)
-    for name in ('ssh-key','backup-identity','ci-proof'):
+    for name in ('ssh-key','backup-identity','ci-proof','offline-ci-proof'):
         p.add_argument('--'+name, type=Path, required=name=='ssh-key')
     p.add_argument('--ci-run'); p.add_argument('--owner-id'); p.add_argument('--apply', action='store_true')
     return p.parse_args(argv)
