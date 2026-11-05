@@ -14862,6 +14862,13 @@
             ],
             "additionalProperties": false
           },
+          "sales_channel": {
+            "type": "string",
+            "enum": [
+              "yandex_eda",
+              "glovo"
+            ]
+          },
           "quote_id": {
             "type": "string",
             "format": "uuid",
@@ -15115,12 +15122,16 @@
             "type": "string",
             "enum": [
               "awaiting_payment",
-              "cancelled"
+              "cancelled",
+              "paid"
             ]
           },
           "payment_state": {
             "type": "string",
-            "const": "not_started"
+            "enum": [
+              "not_started",
+              "captured"
+            ]
           },
           "fiscal_state": {
             "type": "string",
@@ -15147,7 +15158,10 @@
           },
           "execution_mode": {
             "type": "string",
-            "const": "unpaid_service"
+            "enum": [
+              "unpaid_service",
+              "pos_sale"
+            ]
           },
           "fulfillment": {
             "type": "object",
@@ -15207,6 +15221,13 @@
                   "kitchen_comment"
                 ],
                 "additionalProperties": false
+              },
+              "sales_channel": {
+                "type": "string",
+                "enum": [
+                  "yandex_eda",
+                  "glovo"
+                ]
               },
               "quote_id": {
                 "type": "string",
@@ -15495,12 +15516,16 @@
                   "type": "string",
                   "enum": [
                     "awaiting_payment",
-                    "cancelled"
+                    "cancelled",
+                    "paid"
                   ]
                 },
                 "payment_state": {
                   "type": "string",
-                  "const": "not_started"
+                  "enum": [
+                    "not_started",
+                    "captured"
+                  ]
                 },
                 "fiscal_state": {
                   "type": "string",
@@ -15527,7 +15552,10 @@
                 },
                 "execution_mode": {
                   "type": "string",
-                  "const": "unpaid_service"
+                  "enum": [
+                    "unpaid_service",
+                    "pos_sale"
+                  ]
                 },
                 "fulfillment": {
                   "type": "object",
@@ -15587,6 +15615,13 @@
                         "kitchen_comment"
                       ],
                       "additionalProperties": false
+                    },
+                    "sales_channel": {
+                      "type": "string",
+                      "enum": [
+                        "yandex_eda",
+                        "glovo"
+                      ]
                     },
                     "quote_id": {
                       "type": "string",
@@ -16021,15 +16056,14 @@
           },
           "cash_received_minor": {
             "type": "string",
-            "const": "0"
+            "pattern": "^(0|[1-9]\\d{0,18})$"
           },
           "cash_refunded_minor": {
             "type": "string",
-            "const": "0"
+            "pattern": "^(0|[1-9]\\d{0,18})$"
           },
           "payment_processing_available": {
-            "type": "boolean",
-            "const": false
+            "type": "boolean"
           },
           "report_at": {
             "type": "string",
@@ -16289,15 +16323,14 @@
                   },
                   "cash_received_minor": {
                     "type": "string",
-                    "const": "0"
+                    "pattern": "^(0|[1-9]\\d{0,18})$"
                   },
                   "cash_refunded_minor": {
                     "type": "string",
-                    "const": "0"
+                    "pattern": "^(0|[1-9]\\d{0,18})$"
                   },
                   "payment_processing_available": {
-                    "type": "boolean",
-                    "const": false
+                    "type": "boolean"
                   },
                   "report_at": {
                     "type": "string",
@@ -16535,15 +16568,14 @@
                 },
                 "cash_received_minor": {
                   "type": "string",
-                  "const": "0"
+                  "pattern": "^(0|[1-9]\\d{0,18})$"
                 },
                 "cash_refunded_minor": {
                   "type": "string",
-                  "const": "0"
+                  "pattern": "^(0|[1-9]\\d{0,18})$"
                 },
                 "payment_processing_available": {
-                  "type": "boolean",
-                  "const": false
+                  "type": "boolean"
                 },
                 "report_at": {
                   "type": "string",
@@ -16655,7 +16687,8 @@
             "type": "string",
             "enum": [
               "payment_required",
-              "unpaid_service"
+              "unpaid_service",
+              "pos_sale"
             ]
           },
           "branch_id": {
@@ -29153,6 +29186,13 @@
                       "kitchen_comment"
                     ],
                     "additionalProperties": false
+                  },
+                  "sales_channel": {
+                    "type": "string",
+                    "enum": [
+                      "yandex_eda",
+                      "glovo"
+                    ]
                   },
                   "quote_id": {
                     "type": "string",
