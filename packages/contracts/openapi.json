@@ -2995,7 +2995,7 @@
             }
           }
         },
-        "description": "One PostgreSQL transaction: paid captured order, tenders, kitchen admission, Webkassa receipt record and durable posSales events. A replay with the same Idempotency-Key and body returns the stored result and never spends an approval twice."
+        "description": "One PostgreSQL transaction: paid captured order, tenders, kitchen admission, Webkassa receipt record and durable posSales events. A replay with the same Idempotency-Key and body returns the stored result and never spends an approval twice. An aggregator or ChocoFood order number belongs to at most one sale of its channel that is not voided (EXTERNAL_REF_DUPLICATE): a void frees it for the corrected re-entry."
       }
     },
     "/edge/v1/pos/sales/{orderId}": {
@@ -4526,7 +4526,7 @@
             }
           },
           "409": {
-            "description": "ORDER_IN_PRODUCTION (the kitchen started: refund instead), DRAWER_INSUFFICIENT, APPROVAL_INVALID, CASH_SHIFT_REQUIRED, SERVICE_MODE_DISABLED, or CONFLICT (version, a refund already made, a recorded sale receipt with fiscal_sale_issued false, idempotency). Until ErrorSchema lists the POS codes (CR pos-1) the body says CONFLICT.",
+            "description": "ORDER_IN_PRODUCTION (the kitchen started: refund instead), DRAWER_INSUFFICIENT, APPROVAL_INVALID, CASH_SHIFT_REQUIRED, SERVICE_MODE_DISABLED, or CONFLICT (version, a refund already made, a recorded sale receipt with fiscal_sale_issued false, a sale receipt that was not required with fiscal_sale_issued true, idempotency). Until ErrorSchema lists the POS codes (CR pos-1) the body says CONFLICT.",
             "content": {
               "application/json": {
                 "schema": {
