@@ -40,6 +40,8 @@ class OwnIngress(unittest.TestCase):
             with self.assertRaises(ValueError):
                 p.subnet_guard([{'Name': 'other', 'IPAM': {'Config': [{'Subnet': subnet}]}}])
         with self.assertRaises(ValueError):p.subnet_guard([{'Name': p.NETWORK}])
+        p.subnet_guard([], [{'dst': 'default'}, {'dst': '185.129.51.0/24'}])
+        with self.assertRaises(ValueError):p.subnet_guard([], [{'dst': '10.240.0.0/16'}])
 
     def test_gateway_compose_preserves_every_other_value(self):
         before = {'name': 'pickchick-public', 'services': {'gateway': {

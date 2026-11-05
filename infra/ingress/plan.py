@@ -36,7 +36,7 @@ def sites(original, expected_hash):
     return suffix
 
 
-def subnet_guard(networks):
+def subnet_guard(networks, routes=()):
     selected = ipaddress.ip_network(SUBNET)
     require(selected.prefixlen == 28 and ipaddress.ip_address(ADDRESS) in selected,
             'Fixed /28 and Caddy address required')
@@ -45,6 +45,12 @@ def subnet_guard(networks):
         for config in net.get('IPAM', {}).get('Config') or []:
             existing = ipaddress.ip_network(config['Subnet'])
             require(existing.version != 4 or not existing.overlaps(selected), 'Subnet collision')
+    for route in routes:
+        destination = route.get('dst')
+        if destination in (None, 'default'):
+            continue
+        existing = ipaddress.ip_network(destination, strict=False)
+        require(existing.version != 4 or not existing.overlaps(selected), 'Host route collision')
 
 
 def gateway(original, expected_hash):

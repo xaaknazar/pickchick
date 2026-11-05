@@ -184,7 +184,7 @@ def main(a):
             gateway_compose(old_compose, ROOT / 'public-https/releases' / a.sha / 'infra/public-staging/gateway.Caddyfile'), 'Unrelated compose change')
     networks = json.loads(run(['docker', 'network', 'inspect',
                               *run(['docker', 'network', 'ls', '-q']).decode().splitlines()]))
-    subnet_guard(networks)
+    subnet_guard(networks, json.loads(run(['ip', '-j', 'route', 'show'])))
     active_old_network = json.loads(run(['docker', 'network', 'inspect', 'deploy_default']))[0]
     names = {c['Name'] for c in active_old_network['Containers'].values()}
     require(names - {'deploy-caddy-1', 'deploy-db-1', 'deploy-server-1'} == UPSTREAMS,
