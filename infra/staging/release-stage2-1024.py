@@ -30,6 +30,10 @@ SUPPORT = {'infra/staging/release-stage2-1024.py', 'tests/operations/test_stage2
            'infra/windows/update-runtime-stage2-1024.ps1', 'tests/operations/test_windows_stage2_release.py',
            '.github/workflows/ci.yml', '.github/workflows/offline-stand.yml', 'docs/project-status.md', 'docs/roadmap/project.json',
            'docs/collaboration/handoff.md'}
+SECURITY_REF = '90f83a1dccc34df1c64c0786f93866e4be5563a0'
+SECURITY_FILES = {'pnpm-workspace.yaml','pnpm-lock.yaml','scripts/dependency-audit.mjs',
+                  'scripts/node-forge-security.mjs','tests/unit/node-forge-patch.test.mjs'}
+SUPPORT |= SECURITY_FILES
 FLAGS = {'CATALOG_EDGE_COMBO_STOPS_ENABLED', 'BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED',
          'BACKOFFICE_RECONCILIATION_ENABLED'}
 LEDGER_HEAD = '071_cloud_daily_reconciliation.sql'
@@ -158,6 +162,8 @@ class Release(live.Release):
         # Never remove already deployed legal/App Review behavior. Integration needs a new reviewed pin.
         self.execute(['git', 'merge-base', '--is-ancestor', BASELINE, self.sha])
         check_delta(self.git('diff', '--name-only', ACCEPTED, self.sha).splitlines())
+        require(not self.git('diff','--name-only',SECURITY_REF,self.sha,'--',*sorted(SECURITY_FILES)),
+                'Dependency files differ from owner-approved upstream security fix')
 
     def baseline_migrations(self):
         names = sorted(p.name for p in (market.REPO/'db/cloud/migrations').glob('*.sql') if int(p.name[:3]) <= 71)
