@@ -7325,11 +7325,14 @@
         "docs/project-status.md",
         "docs/roadmap/project.json",
         "pnpm-workspace.yaml",
-        "pnpm-lock.yaml"
+        "pnpm-lock.yaml",
+        "scripts/dependency-audit.mjs",
+        "scripts/node-forge-security.mjs",
+        "tests/unit/node-forge-patch.test.mjs"
       ],
       "status": "active",
-      "head": "1a9472f1dc2a34b8ab4db7beb6f9c5616ed23f73",
-      "updatedAt": "2026-11-05T09:49:32.321Z",
+      "head": "276f05fc71809c9e0e2448d60607b8382bd047f0",
+      "updatedAt": "2026-11-05T09:49:42.897Z",
       "summary": "05.11.2026: владелец явно разрешил временную передачу серверных областей и общих записей задаче stage2-candidate-1105 для четырёх серверных шагов; кассовые, мобильные и остальные резервы сохранены.\n05.11: владелец разрешил перенести готовое исправление node-forge 1.4.1 из shared в резервного кандидата stage2 и временно передать два файла зависимостей задаче stage2-candidate-1105; остальные области сохранены."
     }
   ]
