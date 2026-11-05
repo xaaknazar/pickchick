@@ -34,6 +34,9 @@ SECURITY_REF = '90f83a1dccc34df1c64c0786f93866e4be5563a0'
 SECURITY_FILES = {'pnpm-workspace.yaml','pnpm-lock.yaml','scripts/dependency-audit.mjs',
                   'scripts/node-forge-security.mjs','tests/unit/node-forge-patch.test.mjs'}
 SUPPORT |= SECURITY_FILES
+FIXTURE_REF = 'a45fe6f82ed06312eddd5034c2da08b82746fa2f'
+FIXTURE_FILE = 'tests/backoffice/finance-browser.py'
+SUPPORT.add(FIXTURE_FILE)
 FLAGS = {'CATALOG_EDGE_COMBO_STOPS_ENABLED', 'BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED',
          'BACKOFFICE_RECONCILIATION_ENABLED'}
 LEDGER_HEAD = '071_cloud_daily_reconciliation.sql'
@@ -164,6 +167,8 @@ class Release(live.Release):
         check_delta(self.git('diff', '--name-only', ACCEPTED, self.sha).splitlines())
         require(not self.git('diff','--name-only',SECURITY_REF,self.sha,'--',*sorted(SECURITY_FILES)),
                 'Dependency files differ from owner-approved upstream security fix')
+        require(not self.git('diff','--name-only',FIXTURE_REF,self.sha,'--',FIXTURE_FILE),
+                'Finance fixture differs from the reviewed shared test fix')
 
     def baseline_migrations(self):
         names = sorted(p.name for p in (market.REPO/'db/cloud/migrations').glob('*.sql') if int(p.name[:3]) <= 71)

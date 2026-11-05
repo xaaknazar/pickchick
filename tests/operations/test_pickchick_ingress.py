@@ -44,6 +44,15 @@ class Cutover(unittest.TestCase):
             with self.assertRaises(RuntimeError):self.s.switch(start,probe,cmd)
             self.assertEqual(calls[-2:], [['docker','stop','--time','5',self.s.NEW],['docker','start',self.s.OLD]])
             self.assertFalse(any('rm' in c for c in calls))
+    def test_restore_attempt_survives_new_container_stop_timeout(self):
+        import subprocess
+        calls=[]
+        def cmd(args,**kw):
+            calls.append(args)
+            if args[-1]==self.s.NEW:raise subprocess.TimeoutExpired(args,20)
+        def start():raise RuntimeError('fixture')
+        with self.assertRaises(subprocess.TimeoutExpired):self.s.switch(start,lambda:None,cmd)
+        self.assertEqual(calls[-1],['docker','start',self.s.OLD])
     def test_no_cutover_before_separate_night_and_watchdog(self):
         from datetime import datetime,timezone
         now=datetime(2026,11,8,20,30,tzinfo=timezone.utc)

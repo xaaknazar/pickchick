@@ -48,8 +48,11 @@ def switch(start_new,probe,command=run):
         probe()
     except BaseException:
         started=time.monotonic()
-        command(['docker','stop','--time','5',NEW],check=False)
-        command(['docker','start',OLD])
+        try:
+            command(['docker','stop','--time','5',NEW],check=False)
+        finally:
+            # Even a Docker timeout while stopping NEW must attempt to restore OLD.
+            command(['docker','start',OLD])
         elapsed=time.monotonic()-started
         if elapsed>=60:raise RuntimeError('Rollback exceeded one minute; inspect immediately') from None
         raise
