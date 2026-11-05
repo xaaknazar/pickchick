@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { execFile } from 'node:child_process';
 import { cp, mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -765,4 +766,120 @@ test('least privilege: the API role reads designations only through backofficeCu
       await c.cloud.admin.query(`DROP OWNED BY ${role}`);
       await c.cloud.admin.query(`DROP ROLE ${role}`);
     }
+  }));
+
+test('scripts/backoffice-setup.mjs --designation records, --role is unchanged, bad usage refused', () =>
+  withSyncDatabases(async (c) => {
+    const p = await people(c);
+    const script = fileURLToPath(new URL('../../../scripts/backoffice-setup.mjs', import.meta.url));
+    const run = (args) =>
+      new Promise((resolve) => {
+        execFile(
+          process.execPath,
+          [script, ...args],
+          { env: { ...process.env, CLOUD_DATABASE_URL: c.cloud.config.databaseUrl } },
+          (error, stdout, stderr) =>
+            resolve({ code: error ? (error.code ?? 1) : 0, stdout, stderr }),
+        );
+      });
+    const designated = await run([
+      '--actor',
+      p.shift.actor_id,
+      '--branch',
+      c.branch,
+      '--designation',
+      'shift_manager',
+      '--reason',
+      'Начальник смены с 16.11',
+    ]);
+    assert.equal(designated.code, 0, designated.stderr);
+    const event = JSON.parse(designated.stdout);
+    assert.deepEqual(
+      { ...event, note: undefined },
+      {
+        event: 'backoffice_designation_recorded',
+        actor_id: p.shift.actor_id,
+        branch_id: c.branch,
+        grant: 'analyst',
+        previous_role: null,
+        role: 'shift_manager',
+        note: undefined,
+      },
+    );
+    assert.doesNotMatch(designated.stdout, /token|password/i);
+    const withdrawn = await run([
+      '--actor',
+      p.shift.actor_id,
+      '--branch',
+      c.branch,
+      '--designation',
+      'none',
+      '--reason',
+      'Снять назначение',
+    ]);
+    assert.equal(JSON.parse(withdrawn.stdout).role, null);
+    const rows = (
+      await c.cloud.pool.query(
+        'SELECT role,reason,source FROM bo_role_designations WHERE actor_id=$1 ORDER BY id',
+        [p.shift.actor_id],
+      )
+    ).rows;
+    assert.deepEqual(rows, [
+      { role: 'shift_manager', reason: 'Начальник смены с 16.11', source: 'trusted_local_setup' },
+      { role: null, reason: 'Снять назначение', source: 'trusted_local_setup' },
+    ]);
+    // The grant form of today: same arguments, same output.
+    const granted = await run([
+      '--actor',
+      p.accountant.actor_id,
+      '--branch',
+      c.branch,
+      '--role',
+      'manager',
+    ]);
+    assert.equal(granted.code, 0, granted.stderr);
+    assert.equal(
+      granted.stdout,
+      'Backoffice branch grant recorded. Existing private manager credential remains unchanged.\n',
+    );
+    for (const args of [
+      [
+        '--actor',
+        p.shift.actor_id,
+        '--branch',
+        c.branch,
+        '--designation',
+        'owner',
+        '--reason',
+        'Нет',
+      ],
+      ['--actor', p.shift.actor_id, '--branch', c.branch, '--designation', 'accountant'],
+      [
+        '--actor',
+        p.shift.actor_id,
+        '--branch',
+        c.branch,
+        '--role',
+        'shift_manager',
+        '--reason',
+        'x',
+      ],
+    ]) {
+      const refused = await run(args);
+      assert.notEqual(refused.code, 0);
+      assert.match(refused.stderr, /Usage: --actor UUID --branch UUID --role manager\|analyst/);
+    }
+    // A manager cannot be designated.
+    const manager = await run([
+      '--actor',
+      p.manager.actor_id,
+      '--branch',
+      c.branch,
+      '--designation',
+      'accountant',
+      '--reason',
+      'Управляющий',
+    ]);
+    assert.notEqual(manager.code, 0);
+    assert.match(manager.stderr, /CONFLICT/);
   }));
