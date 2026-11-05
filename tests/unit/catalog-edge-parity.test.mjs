@@ -570,3 +570,154 @@ test('CLI --allow: exit 0 on the reviewed list, 1 on another difference, 2 on a 
     parseArguments(['--catalog', 'c', '--edge', 'e', '--allow', 'a', '--allow', 'b']),
   );
 });
+
+// Cutover CC-3: --aggregator-prices compares MenuItem.aggregator_prices_minor of an edge with the
+// aggregator_prices feature against the catalog projected as the cloud publishes it with
+// CATALOG_AGGREGATOR_PRICES_ENABLED. Synthetic prices only.
+function aggregatorCatalog() {
+  const catalog = structuredClone(mockupCatalogDraft);
+  const product = (id) => catalog.products.find((p) => p.id === id);
+  product('pick-combo').channel_prices_minor = { yandex_eda: '459000', glovo: '469000' };
+  product('burger').channel_prices_minor = { yandex_eda: '269000' };
+  return catalog;
+}
+/** The edge menu after it applied the aggregator form of a publication of this catalog. */
+const appliedWithPrices = (catalog) =>
+  projectCatalogMenu(catalog, branch, 3, '2026-11-16T05:00:00.000Z', undefined, {
+    aggregatorPrices: true,
+  });
+
+test('--aggregator-prices: off ignores them as before; on compares every channel price', () => {
+  const catalog = aggregatorCatalog();
+  const edge = installedV2();
+  // Without the switch the cloud projection refuses the keys, exactly as before.
+  const off = catalogEdgeParity({ catalog, snapshot: edge });
+  assert.deepEqual(off.failures, [
+    { code: 'PROJECTION_FAILED', reason: 'CHANNEL_PRICES_NOT_SUPPORTED' },
+  ]);
+  assert.equal('aggregator_prices' in off || 'aggregator_price_changes' in off.summary, false);
+  // An edge that already has them is not compared without the switch.
+  const plain = catalogEdgeParity({
+    catalog: mockupCatalogDraft,
+    snapshot: appliedWithPrices(catalog),
+  });
+  assert.equal(plain.ok, true);
+  // With the switch: the first publication adds the prices, each one is reviewed.
+  const on = catalogEdgeParity({ catalog, snapshot: edge }, { aggregatorPrices: true });
+  assert.equal(on.ok, false);
+  assert.equal(on.aggregator_prices, true);
+  assert.equal(on.summary.aggregator_price_changes, 3);
+  assert.deepEqual(
+    on.failures.map(({ code, channel, edge_minor: before, catalog_minor: after }) => [
+      code,
+      channel,
+      before,
+      after,
+    ]),
+    [
+      ['AGGREGATOR_PRICE_CHANGED', 'yandex_eda', null, '459000'],
+      ['AGGREGATOR_PRICE_CHANGED', 'glovo', null, '469000'],
+      ['AGGREGATOR_PRICE_CHANGED', 'yandex_eda', null, '269000'],
+    ],
+  );
+  // After the edge applied that publication: parity is clean.
+  const applied = catalogEdgeParity(
+    { catalog, snapshot: appliedWithPrices(catalog) },
+    { aggregatorPrices: true },
+  );
+  assert.equal(applied.ok, true, JSON.stringify(applied.failures));
+  assert.equal(applied.summary.aggregator_price_changes, 0);
+  // A later change of one price or a channel dropped by the catalog is a failure.
+  const changed = aggregatorCatalog();
+  changed.products.find((p) => p.id === 'burger').channel_prices_minor = { glovo: '279000' };
+  const next = catalogEdgeParity(
+    { catalog: changed, snapshot: appliedWithPrices(catalog) },
+    { aggregatorPrices: true },
+  );
+  assert.deepEqual(
+    next.failures.map((entry) => [entry.channel, entry.edge_minor, entry.catalog_minor]),
+    [
+      ['yandex_eda', '269000', null],
+      ['glovo', null, '279000'],
+    ],
+  );
+  // Own-channel overrides stay a projection failure with the switch on.
+  const own = aggregatorCatalog();
+  own.products[3].channel_prices_minor = { pos: '1' };
+  assert.deepEqual(
+    catalogEdgeParity({ catalog: own, snapshot: edge }, { aggregatorPrices: true }).failures,
+    [{ code: 'PROJECTION_FAILED', reason: 'CHANNEL_PRICES_NOT_SUPPORTED' }],
+  );
+});
+
+test('--aggregator-prices with --allow: the reviewed list pins every aggregator price', () => {
+  const catalog = aggregatorCatalog();
+  const snapshot = installedV2();
+  const detailed = catalogEdgeParity(
+    { catalog, snapshot },
+    { detailed: true, aggregatorPrices: true },
+  );
+  const expected = expectedEdgeChanges(detailed, edgePayloadHash(catalog));
+  assert.equal(expected.counts.AGGREGATOR_PRICE_CHANGED, 3);
+  const run = (input) =>
+    parityRun({
+      catalog: input,
+      snapshot,
+      aggregatorPrices: true,
+      allow: { expected, sha256: 'f'.repeat(64) },
+    });
+  const passed = run(catalog);
+  assert.equal(passed.ok, true, JSON.stringify(passed.allow));
+  assert.equal(passed.aggregator_prices, true);
+  // Another aggregator price is another payload and another difference: refused.
+  const other = aggregatorCatalog();
+  other.products.find((p) => p.id === 'burger').channel_prices_minor.yandex_eda = '279000';
+  const refused = run(other);
+  assert.equal(refused.ok, false);
+  assert.deepEqual(refused.allow.stale, ['PAYLOAD_CHANGED']);
+  assert.deepEqual(
+    refused.allow.unexpected.map((entry) => [entry.code, entry.catalog_minor]),
+    [['AGGREGATOR_PRICE_CHANGED', '279000']],
+  );
+  // The same list without the switch: projection fails, the gate refuses.
+  const without = parityRun({ catalog, snapshot, allow: { expected, sha256: 'f'.repeat(64) } });
+  assert.equal(without.ok, false);
+  assert.deepEqual(codes(without.allow.blocking), ['PROJECTION_FAILED']);
+  // A new item pins its aggregator prices too.
+  const burgerVariant = appliedWithPrices(catalog).items.find(
+    (i) => i.source_id === 'burger',
+  ).variant_id;
+  const added = catalogEdgeParity(
+    {
+      catalog,
+      snapshot: {
+        ...snapshot,
+        items: snapshot.items.filter((i) => i.variant_id !== burgerVariant),
+      },
+    },
+    { detailed: true, aggregatorPrices: true },
+  );
+  const burger = added.warnings.find(
+    (entry) => entry.code === 'ITEM_ADDED' && entry.source_id === 'burger',
+  );
+  assert.deepEqual(burger?.catalog_aggregator_prices_minor, { yandex_eda: '269000' });
+});
+
+test('CLI: --aggregator-prices is a switch without a value, accepted once', () => {
+  assert.deepEqual(parseArguments(['--catalog', 'c', '--aggregator-prices', '--edge', 'e']), {
+    catalog: 'c',
+    aggregatorPrices: true,
+    edge: 'e',
+  });
+  assert.deepEqual(parseArguments(['--catalog', 'c', '--edge', 'e', '--aggregator-prices']), {
+    catalog: 'c',
+    edge: 'e',
+    aggregatorPrices: true,
+  });
+  for (const argv of [
+    ['--catalog', 'c', '--edge', 'e', '--aggregator-prices', '--aggregator-prices'],
+    ['--aggregator-prices'],
+    ['--catalog', 'c', '--edge', '--aggregator-prices'],
+  ])
+    assert.throws(() => parseArguments(argv), JSON.stringify(argv));
+});

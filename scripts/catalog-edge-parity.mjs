@@ -17,6 +17,14 @@
  *            and the same payload: an extra or a missing difference fails. PROJECTION_FAILED,
  *            ROUTING_UNRESOLVED and PRODUCT_ID_CHANGED are never allowed; ROUTE_DERIVED_ON_APPLY
  *            stays a warning outside the list.
+ * --aggregator-prices
+ *            optional (cutover CC-3, with CATALOG_AGGREGATOR_PRICES_ENABLED on the cloud): project
+ *            the catalog as the cloud then publishes it (yandex_eda/glovo channel prices become
+ *            aggregator_prices_minor) and compare those prices item by item for an edge that
+ *            advertises the aggregator_prices menu feature. Any difference, including a price
+ *            the edge does not have yet, is AGGREGATOR_PRICE_CHANGED (a failure, like
+ *            PRICE_CHANGED; with --allow it must be in the reviewed list). Without the flag no
+ *            aggregator price is compared and the report is exactly the previous one.
  *
  * The catalog is projected with the same projectCatalogMenu the cloud publishes with, then
  * compared item by item. Exit 0: no failure (with --allow: exactly the reviewed changes).
@@ -34,6 +42,8 @@ import { CatalogPayloadSchema } from '@pickchick/catalog-admin/contracts';
 import { projectCatalogMenu, deriveRouting, MenuRoutingError } from '@pickchick/menu-sync';
 
 const PROJECTION_RELEASE = '00000000-0000-4000-8000-000000000000';
+/** Aggregator channels of MenuItem.aggregator_prices_minor (contracts 5.3). */
+const AGGREGATOR_CHANNELS = Object.freeze(['yandex_eda', 'glovo']);
 const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 export class ParityInputError extends Error {}
@@ -96,7 +106,7 @@ const optionRule = (option) => ({
  * adds the before/after values to entries that otherwise carry just the identity, so a reviewed
  * list pins every value; off, the entries are exactly the historical ones.
  */
-function compareItem(edge, next, failures, warnings, detailed) {
+function compareItem(edge, next, failures, warnings, detailed, aggregatorPrices) {
   const at = { variant_id: edge.variant_id, name: name(edge) };
   if (edge.price_minor !== next.price_minor)
     failures.push({
@@ -105,6 +115,20 @@ function compareItem(edge, next, failures, warnings, detailed) {
       edge_minor: edge.price_minor,
       catalog_minor: next.price_minor,
     });
+  // Only with --aggregator-prices; null = not sold in that channel (no key).
+  if (aggregatorPrices)
+    for (const channel of AGGREGATOR_CHANNELS) {
+      const before = edge.aggregator_prices_minor?.[channel] ?? null,
+        after = next.aggregator_prices_minor?.[channel] ?? null;
+      if (before !== after)
+        failures.push({
+          code: 'AGGREGATOR_PRICE_CHANGED',
+          ...at,
+          channel,
+          edge_minor: before,
+          catalog_minor: after,
+        });
+    }
   if (edge.product_id !== next.product_id) failures.push({ code: 'PRODUCT_ID_CHANGED', ...at });
   if (name(edge) !== name(next))
     warnings.push({ code: 'NAME_CHANGED', ...at, catalog_name: name(next) });
@@ -193,7 +217,10 @@ function compareItem(edge, next, failures, warnings, detailed) {
  * Pure comparison; the CLI only reads the input files and prints this report. `detailed` is the
  * --allow form (see compareItem); without it the report is the historical one.
  */
-export function catalogEdgeParity({ catalog, snapshot, routing }, { detailed = false } = {}) {
+export function catalogEdgeParity(
+  { catalog, snapshot, routing },
+  { detailed = false, aggregatorPrices = false } = {},
+) {
   const source = catalogInput(catalog);
   const parsedSnapshot = MenuSnapshotSchema.safeParse(snapshot);
   if (!parsedSnapshot.success) throw new ParityInputError('Edge snapshot is invalid');
@@ -211,6 +238,7 @@ export function catalogEdgeParity({ catalog, snapshot, routing }, { detailed = f
       edge.version + 1,
       source.publishedAt ?? edge.published_at,
       PROJECTION_RELEASE,
+      ...(aggregatorPrices ? [{ aggregatorPrices: true }] : []),
     );
   } catch (error) {
     // The cloud would refuse to publish this catalog to the edge at all.
@@ -227,7 +255,7 @@ export function catalogEdgeParity({ catalog, snapshot, routing }, { detailed = f
       items.push({ variant_id: item.variant_id, name: name(item), status: 'removed' });
       continue;
     }
-    compareItem(item, next, failures, warnings, detailed);
+    compareItem(item, next, failures, warnings, detailed, aggregatorPrices);
     items.push({
       variant_id: item.variant_id,
       source_id: next.source_id,
@@ -245,6 +273,9 @@ export function catalogEdgeParity({ catalog, snapshot, routing }, { detailed = f
         variant_id: next.variant_id,
         name: name(next),
         ...(detailed ? { source_id: next.source_id ?? null, catalog_minor: next.price_minor } : {}),
+        ...(detailed && aggregatorPrices
+          ? { catalog_aggregator_prices_minor: next.aggregator_prices_minor ?? null }
+          : {}),
       });
       items.push({
         variant_id: next.variant_id,
@@ -294,6 +325,7 @@ export function catalogEdgeParity({ catalog, snapshot, routing }, { detailed = f
   const count = (list, code) => list.filter((entry) => entry.code === code).length;
   return {
     ok: failures.length === 0,
+    ...(aggregatorPrices ? { aggregator_prices: true } : {}),
     branch_id: edge.branch_id,
     catalog_version: source.version,
     edge_release_id: edge.release_id,
@@ -307,6 +339,9 @@ export function catalogEdgeParity({ catalog, snapshot, routing }, { detailed = f
       price_changes: count(failures, 'PRICE_CHANGED'),
       option_price_changes: count(failures, 'OPTION_PRICE_CHANGED'),
       removed_options: count(failures, 'OPTION_REMOVED') + count(failures, 'GROUP_REMOVED'),
+      ...(aggregatorPrices
+        ? { aggregator_price_changes: count(failures, 'AGGREGATOR_PRICE_CHANGED') }
+        : {}),
       warnings: warnings.length,
     },
     routing: routingReport,
@@ -443,9 +478,10 @@ export function allowReviewedChanges(report, expected, { payloadSha256, fileSha2
 }
 
 /** One CLI run: the historical report, or with an --allow list the gated detailed report. */
-export function parityRun({ catalog, snapshot, routing, allow }) {
-  if (!allow) return catalogEdgeParity({ catalog, snapshot, routing });
-  const report = catalogEdgeParity({ catalog, snapshot, routing }, { detailed: true });
+export function parityRun({ catalog, snapshot, routing, allow, aggregatorPrices = false }) {
+  const options = aggregatorPrices ? { aggregatorPrices: true } : {};
+  if (!allow) return catalogEdgeParity({ catalog, snapshot, routing }, options);
+  const report = catalogEdgeParity({ catalog, snapshot, routing }, { detailed: true, ...options });
   const result = allowReviewedChanges(report, allow.expected, {
     payloadSha256: edgePayloadHash(catalogInput(catalog).payload),
     fileSha256: allow.sha256,
@@ -474,6 +510,12 @@ export function parseArguments(argv) {
   for (let index = 0; index < argv.length; index += 2) {
     const flag = argv[index],
       value = argv[index + 1];
+    // The only switch without a value (cutover CC-3).
+    if (flag === '--aggregator-prices' && !('aggregatorPrices' in options)) {
+      options.aggregatorPrices = true;
+      index -= 1;
+      continue;
+    }
     const key = {
       '--catalog': 'catalog',
       '--edge': 'edge',
@@ -482,7 +524,7 @@ export function parseArguments(argv) {
     }[flag];
     if (!key || !value || value.startsWith('--') || key in options)
       throw new ParityInputError(
-        'Usage: catalog-edge-parity.mjs --catalog <file> --edge <file> [--routing <file>] [--allow <expected.json>]',
+        'Usage: catalog-edge-parity.mjs --catalog <file> --edge <file> [--routing <file>] [--allow <expected.json>] [--aggregator-prices]',
       );
     options[key] = value;
   }
@@ -499,6 +541,7 @@ async function main() {
     snapshot: await readJson(options.edge),
     routing: options.routing ? await readJson(options.routing) : undefined,
     allow: allowBytes ? { expected: jsonOf(allowBytes), sha256: sha256(allowBytes) } : undefined,
+    aggregatorPrices: options.aggregatorPrices === true,
   });
   console.log(JSON.stringify(report, null, 2));
   process.exitCode = report.ok ? 0 : 1;
