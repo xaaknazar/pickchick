@@ -3,6 +3,8 @@ import type { DatabasePool, DatabaseClient } from '@pickchick/database';
 import { z } from 'zod';
 import { SetupSchema, parse, digest, FulfillmentError, CloudScopeSchema } from './model.js';
 import type { TrustedCloud } from './model.js';
+import { KDS_STATIONS, kdsStationId } from './kds.js';
+import type { KdsFunction } from './kds.js';
 
 export async function boundary(client: DatabaseClient, input: TrustedCloud) {
   const scope = parse(CloudScopeSchema, input);
@@ -119,4 +121,102 @@ export function grantStation(
   return transaction(pool, (client) =>
     grantStationInTransaction(client, branchId, staffId, stationId),
   );
+}
+
+export type KdsProvisioning = {
+  stations: { id: string; function: KdsFunction; kind: 'prep' | 'assembly'; name: string }[];
+  stationsAdded: number;
+  /** Active kitchen identity with the shared login `kitchen`, or null when none is enrolled. */
+  kitchenStaffId: string | null;
+  grantsAdded: number;
+  settingsCreated: boolean;
+};
+/**
+ * Trusted local provisioning of the six KDS stations (contracts section 2.3, schema027), run by
+ * the guarded upgrade tool inside its transaction. Idempotent: an existing station with the same
+ * id must have the same kind and name (else CONFLICT), existing stations, routes and grants are
+ * never changed or removed (the old "Приготовление"/"Сборка" stay for rollback). Grants all six
+ * to the active kitchen identity whose login is `kitchen`, and creates the kds_settings row
+ * switched off with its audit row. Never enables the layout and never touches orders.
+ */
+export async function provisionKdsStations(
+  client: DatabaseClient,
+  branchId: string,
+): Promise<KdsProvisioning> {
+  parse(z.uuid(), branchId);
+  const schema = (
+    await client.query(
+      "SELECT to_regclass('kds_settings') IS NOT NULL AND to_regclass('kds_setting_changes') IS NOT NULL AS ready",
+    )
+  ).rows[0];
+  if (!schema?.ready) throw new FulfillmentError('NOT_READY');
+  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+    'pickchick-kds-provision:' + branchId,
+  ]);
+  const config = await client.query(
+    'SELECT 1 FROM fulfillment_config WHERE branch_id=$1 FOR SHARE',
+    [branchId],
+  );
+  if (!config.rowCount) throw new FulfillmentError('NOT_READY');
+  const stations: KdsProvisioning['stations'] = [];
+  let stationsAdded = 0;
+  for (const spec of KDS_STATIONS) {
+    const id = kdsStationId(branchId, spec.function);
+    stationsAdded += (
+      await client.query(
+        'INSERT INTO fulfillment_stations(branch_id,id,kind,name) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',
+        [branchId, id, spec.kind, spec.name],
+      )
+    ).rowCount!;
+    const saved = (
+      await client.query(
+        'SELECT kind,name FROM fulfillment_stations WHERE branch_id=$1 AND id=$2 FOR SHARE',
+        [branchId, id],
+      )
+    ).rows[0];
+    if (saved?.kind !== spec.kind || saved?.name !== spec.name)
+      throw new FulfillmentError('CONFLICT');
+    stations.push({ id, function: spec.function, kind: spec.kind, name: spec.name });
+  }
+  const kitchen = (
+    await client.query(
+      `SELECT s.id FROM local_staff s JOIN local_staff_passwords p ON p.staff_id=s.id AND p.branch_id=s.branch_id
+       WHERE s.branch_id=$1 AND s.active AND s.role='kitchen' AND p.login='kitchen' FOR SHARE OF s`,
+      [branchId],
+    )
+  ).rows[0] as { id: string } | undefined;
+  let grantsAdded = 0;
+  if (kitchen)
+    for (const station of stations)
+      grantsAdded += (
+        await client.query(
+          'INSERT INTO fulfillment_station_grants(branch_id,staff_id,station_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',
+          [branchId, kitchen.id, station.id],
+        )
+      ).rowCount!;
+  const settings = await client.query('SELECT 1 FROM kds_settings WHERE branch_id=$1 FOR UPDATE', [
+    branchId,
+  ]);
+  let settingsCreated = false;
+  if (!settings.rowCount) {
+    const reason = 'Станции KDS созданы, раскладка выключена';
+    // Audit row first: the settings row's deferred foreign key needs it at commit.
+    await client.query(
+      `INSERT INTO kds_setting_changes(command_id,branch_id,version,field,value,actor,reason,request_hash)
+       VALUES(gen_random_uuid(),$1,1,'provisioned',NULL,'operator',$2,$3)`,
+      [branchId, reason, digest({ branchId, field: 'provisioned', reason })],
+    );
+    await client.query(
+      "INSERT INTO kds_settings(branch_id,layout_enabled,shift_mode,version) VALUES($1,false,'normal',1)",
+      [branchId],
+    );
+    settingsCreated = true;
+  }
+  return {
+    stations,
+    stationsAdded,
+    kitchenStaffId: kitchen?.id ?? null,
+    grantsAdded,
+    settingsCreated,
+  };
 }

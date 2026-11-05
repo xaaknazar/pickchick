@@ -13,8 +13,10 @@ assert.ok(
   ['127.0.0.1', 'localhost', '[::1]'].includes(checked.hostname),
   'Local edge PostgreSQL only',
 );
-assert.ok(
-  ['/pickchick_edge', '/pickchick_test'].includes(checked.pathname),
+// Development databases only; a parallel worktree may use its own suffixed copy (pickchick_edge_kds).
+assert.match(
+  checked.pathname,
+  /^\/pickchick_(edge|test)(_[a-z0-9]+)?$/,
   'Explicit development database only',
 );
 assert.equal(checked.search, '', 'Connection overrides may not select another host/schema');
