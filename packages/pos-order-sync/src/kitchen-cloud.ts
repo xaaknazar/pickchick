@@ -74,7 +74,8 @@ export async function receivePosKitchen(pool: DatabasePool, auth: DeviceAuth, in
       });
       if (
         !commercial ||
-        commercial.execution_mode !== 'unpaid_service' ||
+        // Cutover (cloud 073): a paid pos_sale follows its paid commercial projection the same way.
+        commercial.execution_mode !== p.executionMode ||
         commercial.branch_id !== branch ||
         commercial.device_id !== auth.deviceId ||
         commercial.producer_id !== event.producer_id ||
@@ -103,6 +104,7 @@ export async function receivePosKitchen(pool: DatabasePool, auth: DeviceAuth, in
           existing.display_number !== p.displayNumber ||
           existing.routing_version !== p.routingVersion ||
           existing.assembly_station_id !== p.assemblyStationId ||
+          existing.execution_mode !== p.executionMode ||
           existing.created_at.toISOString() !== p.createdAt)
       )
         throw new PosSyncError('CONFLICT');
@@ -176,7 +178,7 @@ export async function receivePosKitchen(pool: DatabasePool, auth: DeviceAuth, in
       if (p.version === 1)
         await client.query(
           `INSERT INTO pos_kitchen_sync_projection(order_id,branch_id,device_id,producer_id,reservation_id,quote_id,quote_digest,owner_hash,execution_mode,display_number,routing_version,assembly_station_id,version,state,created_at,updated_at,last_event_id)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,'unpaid_service',$9,$10,$11,1,'accepted',$12,$13,$14)`,
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$15,$9,$10,$11,1,'accepted',$12,$13,$14)`,
           [
             p.orderId,
             branch,
@@ -192,6 +194,7 @@ export async function receivePosKitchen(pool: DatabasePool, auth: DeviceAuth, in
             p.createdAt,
             p.updatedAt,
             event.event_id,
+            p.executionMode,
           ],
         );
       else

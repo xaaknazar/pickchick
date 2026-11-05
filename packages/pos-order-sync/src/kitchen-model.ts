@@ -33,7 +33,8 @@ export const PosKitchenEventSchema = EventEnvelopeSchema.extend({
     updatedAt: z.iso.datetime(),
     routingVersion: version,
     assemblyStationId: z.uuid(),
-    executionMode: z.literal('unpaid_service'),
+    // Cutover (contracts 5.2, 5.6): the admission kind of the cashier order (records.ts view()).
+    executionMode: z.enum(['unpaid_service', 'pos_sale']),
     staffId: z.uuid(),
     taskId: z.uuid().optional(),
     taskVersion: version.optional(),
