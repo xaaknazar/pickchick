@@ -253,5 +253,5 @@ test('the merged contracts publish all three extensions next to each other', asy
     assert.ok(text.includes(name), name);
   // The menu feature key is a query key outside the published schemas (pcs handshake).
   assert.equal(EDGE_MENU_FEATURES_QUERY_KEY, 'menu_features');
-  assert.deepEqual(EdgeMenuFeatureSchema.options, ['combo_stops']);
+  assert.deepEqual(EdgeMenuFeatureSchema.options, ['combo_stops', 'aggregator_prices']);
 });
