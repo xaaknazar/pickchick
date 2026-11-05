@@ -418,6 +418,8 @@ export async function loginStaffPin(
  * window and concurrency guard as PIN login on that terminal, so approvals cannot be used to
  * guess PINs faster than staff/pin. Any mismatch (wrong PIN, another person's PIN, inactive or
  * locked staff) is one counted failure and the same UNAUTHORIZED; the caller checks the role.
+ * `anyOwner`: the PIN may belong to anyone active, found as staff/pin finds them (CR client-2 1:
+ * the cashier desk names itself and the manager types their PIN); the caller still checks the role.
  */
 export async function verifyStaffPin(
   pool: DatabasePool,
@@ -425,6 +427,7 @@ export async function verifyStaffPin(
   terminalId: string,
   staffId: string,
   pin: string,
+  anyOwner = false,
 ): Promise<{ staff_id: string; name: string; role: string }> {
   if (
     typeof pin !== 'string' ||
@@ -483,7 +486,7 @@ export async function verifyStaffPin(
         return null;
       }
       // A correct PIN of someone else is still a failure for the named person.
-      if (foundId !== staffId.toLowerCase()) return null;
+      if (!foundId || (!anyOwner && foundId !== staffId.toLowerCase())) return null;
       await client.query(
         'UPDATE local_staff_pins SET failed_attempts=0,locked_until=NULL WHERE staff_id=$1',
         [foundId],

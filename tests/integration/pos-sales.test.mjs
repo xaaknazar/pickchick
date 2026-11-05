@@ -985,13 +985,19 @@ test('approval: wrong PIN, not a manager, expired, other desk, wrong action or a
         beneficiary: 'Синтетический повар',
         approval: proof(approval),
       });
-    // PIN checks (4 attempts on this desk, under its window of 10 per minute).
+    // PIN checks (this test stays under the desk window of 10 attempts per minute).
     await assert.rejects(
       approve(ctx, 'staff_meal', subject, { pin: '9999' }),
       code('UNAUTHORIZED'),
     );
+    // CR client-2 1: the desk may name itself; the PIN's owner, a shift manager, approves.
+    assert.equal(
+      (await approve(ctx, 'staff_meal', subject, { staff: ctx.cashier })).manager.staff_id,
+      ctx.manager.staff_id,
+    );
+    // Naming someone else still checks that person: the manager's PIN is not theirs.
     await assert.rejects(
-      approve(ctx, 'staff_meal', subject, { staff: ctx.cashier }),
+      approve(ctx, 'staff_meal', subject, { staff: ctx.second }),
       code('UNAUTHORIZED'),
     );
     await assert.rejects(

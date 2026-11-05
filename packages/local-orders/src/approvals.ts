@@ -54,7 +54,9 @@ export class ApprovalPinError extends OrderError {
 
 /**
  * POST staff/approvals (contracts 5.1, R13): the shift manager types their PIN on the cashier's
- * desk. The terminal is the session's; the PIN check has the backoff of staff/pin. The result is
+ * desk. The terminal is the session's; the PIN check has the backoff of staff/pin. staff_id names
+ * the manager, or is the session's own staff (CR client-2 1: the cash desk has no manager list);
+ * then the PIN owner is found as staff/pin finds them and must be a shift manager. The result is
  * a one-time token valid for 120 s, bound to this desk, the action and the subject hash; only its
  * SHA-256 is stored. Not a command(): replaying a request issues another approval (the unused one
  * expires), and the token never lands in local_command_results.
@@ -82,6 +84,7 @@ export async function requestManagerApproval(
       requester.terminal_id,
       request.staff_id,
       request.pin,
+      request.staff_id.toLowerCase() === requester.staff_id,
     );
   } catch (error) {
     if (error instanceof OrderError && error.code === 'UNAUTHORIZED')
