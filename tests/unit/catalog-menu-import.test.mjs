@@ -994,8 +994,10 @@ async function stubCatalogApi(t, token) {
   const receipts = new Map(),
     calls = [];
   const server = createServer(async (request, response) => {
-    let body = '';
-    for await (const chunk of request) body += chunk;
+    // Decode once: a Cyrillic character split across two TCP chunks must not become U+FFFD.
+    const chunks = [];
+    for await (const chunk of request) chunks.push(chunk);
+    const body = Buffer.concat(chunks).toString('utf8');
     calls.push({
       method: request.method,
       url: request.url,
@@ -1242,6 +1244,23 @@ test('save and publish refuse tampered builds, foreign branches and unsafe API o
     wrong.read(branch),
     (e) =>
       e.code === 'API_REFUSED' && /401 UNAUTHORIZED/.test(e.detail) && !e.detail.includes(token),
+  );
+  // The saved draft is read back and compared: a server that stored one damaged character is
+  // caught (a body decoded chunk by chunk turns a split Cyrillic letter into U+FFFD).
+  const lossy = {
+    ...api,
+    save: async (id, body) => {
+      const answer = await api.save(id, body);
+      answer.draft.payload.products[5].name.ru = answer.draft.payload.products[5].name.ru.replace(
+        /.$/,
+        '�',
+      );
+      return answer;
+    },
+  };
+  await assert.rejects(
+    runSave({ loaded, branch, reviewedBy: 'Синтетический Управляющий', api: lossy }),
+    (e) => e.code === 'API_RESPONSE_INVALID',
   );
 });
 
