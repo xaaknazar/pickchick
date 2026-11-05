@@ -377,7 +377,7 @@ test('the restricted role pulls, holds, downloads photos, derives routing, appli
       assert.deepEqual(Object.fromEntries(new URLSearchParams(requests[0].query)), {
         active_release_id: local.release_id,
         active_version: '2',
-        menu_features: 'combo_stops',
+        menu_features: 'combo_stops,aggregator_prices',
       });
       assert.equal(requests.length, 1);
       assert.equal(acks.length, 0);

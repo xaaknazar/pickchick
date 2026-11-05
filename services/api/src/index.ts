@@ -45,7 +45,7 @@ import {
   edgeMenuFeatures,
   pullMenu,
   SyncError,
-  withoutComboStopLinks,
+  withoutEdgeOnlyFields,
 } from '@pickchick/menu-sync';
 import {
   BranchSchema,
@@ -147,8 +147,9 @@ class BranchesController {
       [id.data],
     );
     if (!rows[0]) throw new NotFoundException();
-    // Public read-only menu: the cashier-only combo stop fields stay off this route.
-    return withoutComboStopLinks(MenuSnapshotSchema.parse(rows[0].payload));
+    // Public read-only menu (installed mobile parses it strictly): the cashier-only fields of
+    // every menu feature (combo stop links, aggregator prices) stay off this route.
+    return withoutEdgeOnlyFields(MenuSnapshotSchema.parse(rows[0].payload));
   }
 }
 

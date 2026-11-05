@@ -48,6 +48,14 @@ export interface CatalogAdminOptions {
    * combo_stops menu feature; turn on after the cashier runtime that applies them is installed.
    */
   edgeComboStops?: boolean;
+  /**
+   * Cutover owner flag CATALOG_AGGREGATOR_PRICES_ENABLED (default off; contracts 5.3, 6.1): the
+   * edge publication branch may publish channel_prices_minor.yandex_eda/glovo and its cashier
+   * menu carries them as aggregator_prices_minor. The cloud delivers them only to an edge that
+   * sends the aggregator_prices menu feature. Off: such a publication is refused as before
+   * (CHANNEL_PRICES_NOT_SUPPORTED) and every state and release is byte-identical.
+   */
+  edgeAggregatorPrices?: boolean;
 }
 export function catalogAdminOptions(
   env: Readonly<Record<string, string | undefined>> = {},
@@ -73,6 +81,9 @@ export function catalogAdminOptions(
   const comboStops = env['CATALOG_EDGE_COMBO_STOPS_ENABLED'] ?? 'false';
   if (!['true', 'false'].includes(comboStops))
     throw new Error('CATALOG_EDGE_COMBO_STOPS_CONFIGURATION_INVALID');
+  const aggregatorPrices = env['CATALOG_AGGREGATOR_PRICES_ENABLED'] ?? 'false';
+  if (!['true', 'false'].includes(aggregatorPrices))
+    throw new Error('CATALOG_AGGREGATOR_PRICES_CONFIGURATION_INVALID');
   const roles = env['CATALOG_ACCESS_ROLES_ENABLED'] ?? 'false';
   if (!['true', 'false'].includes(roles))
     throw new Error('CATALOG_ACCESS_ROLES_CONFIGURATION_INVALID');
@@ -83,6 +94,7 @@ export function catalogAdminOptions(
     enabled: value === 'true',
     ...(edge === 'true' ? { edgePublicationBranchId: edgeBranch! } : {}),
     ...(edge === 'true' && comboStops === 'true' ? { edgeComboStops: true } : {}),
+    ...(edge === 'true' && aggregatorPrices === 'true' ? { edgeAggregatorPrices: true } : {}),
     ...(mobile === 'true' ? { mobileStorefrontBranchId: branchId! } : {}),
     ...(z.uuid().safeParse(kioskBranch).success ? { kioskBranchId: kioskBranch! } : {}),
     ...(roles === 'true' ? { enforceRoles: true } : {}),
@@ -172,6 +184,13 @@ export class CatalogAdmin {
   private actor(db: DatabaseClient, token: string): Promise<Actor> {
     return authenticateCatalogActor(db, token, this.options);
   }
+  /** Aggregator prices publish only to the edge publication branch, behind the owner flag. */
+  private aggregatorPrices(branch: Branch): boolean {
+    return (
+      this.options.edgeAggregatorPrices === true &&
+      this.options.edgePublicationBranchId === branch.id
+    );
+  }
   private async state(db: DatabaseClient, branch: Branch): Promise<CatalogState> {
     const head = (
       await db.query<Head>(
@@ -200,6 +219,7 @@ export class CatalogAdmin {
         mobile: this.options.mobileStorefrontBranchId === branch.id,
         pos: this.options.edgePublicationBranchId === branch.id,
         kiosk: this.options.kioskBranchId === branch.id,
+        ...(this.aggregatorPrices(branch) ? { aggregator_prices: true } : {}),
       },
       ...(this.options.edgePublicationBranchId === branch.id
         ? {
@@ -351,10 +371,10 @@ export class CatalogAdmin {
           throw failure('CONFLICT');
         payload = CatalogPayloadSchema.parse(before.payload);
         const edgePublication = this.options.edgePublicationBranchId === branch.id;
-        assertCatalogPublishable(
-          payload,
-          !edgePublication && this.options.mobileStorefrontBranchId === branch.id,
-        );
+        assertCatalogPublishable(payload, {
+          mobile: !edgePublication && this.options.mobileStorefrontBranchId === branch.id,
+          aggregatorPrices: this.aggregatorPrices(branch),
+        });
         await assertCatalogAssets(db, branch.organization_id, payload);
         publication = (head.published_version ?? 0) + 1;
         await db.query(
@@ -399,7 +419,10 @@ export class CatalogAdmin {
               latest.version + 1,
               new Date().toISOString(),
               undefined,
-              { comboStops: this.options.edgeComboStops === true },
+              {
+                comboStops: this.options.edgeComboStops === true,
+                aggregatorPrices: this.aggregatorPrices(branch),
+              },
             );
           } catch (error) {
             throw error instanceof CatalogProjectionError
