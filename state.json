@@ -7343,11 +7343,12 @@
         "infra/staging/watchdog-grants.mjs",
         "tests/unit/watchdog-grants.test.mjs",
         "infra/staging/pickchick-watchdog.service",
-        "infra/staging/pickchick-watchdog.timer"
+        "infra/staging/pickchick-watchdog.timer",
+        "docs/operations/idrink-removal"
       ],
       "status": "active",
       "head": "0c78c0d0fdb38841a57b81974cdb1f634ebf5ae0",
-      "updatedAt": "2026-11-05T21:11:42.739Z",
+      "updatedAt": "2026-11-05T21:29:47.025Z",
       "summary": "Owner-approved forge 1.4.1 transfer complete. Runtime 6630eb0f: PR310, Foundation 42008838570 11/11 PASS and offline 42008838516 PASS; canonical exact-SHA proofs validated. Preparation code bf4a2280: PR311, Foundation 42010176649 11/11 and offline 42010176561 PASS. Final docs checkpoint 0c78c0d0; docs-only CI pending. Source/JSON/backup-recipient/route checks pass. No VPS writes, deploys, migrations, payments or flag changes. Evening gate remains unmet: 3 unknown QR still scheduled by worker, 73 unfinished edge projections, 18 paid-unfinished.\n06.11: owner approved temporary transfer for own PickChick Caddy and iDrink retirement stages 0-3. No Kaspi bridge/settings changes; final deletion requires separate approval after seven days.",
       "nextAction": "Reclaim this task before continuation. At 06 Nov 00:30 Asia/Almaty after owner start, repeat refs/claims/live baseline and no-active-work gate; wait only until 01:00 then stop if unresolved. No automatic cancellation or bank calls. If cleared, exact two document links then fallback 069-071/API with fresh encrypted backup and isolated restore; never deploy preparation shared tree containing072. Keep Mac powered/networked. Watchdog and Caddy remain later gated steps. Preserve other tasks and claims."
     }
