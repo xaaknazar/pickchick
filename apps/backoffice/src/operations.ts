@@ -8,7 +8,9 @@ import {
   StopsModel,
   STATION_PLAN_STATE_LABELS,
   object,
+  permitted,
   refundActions,
+  stockV2,
   stationPlanReason,
   stationPlanStatus,
   stationPlanSummary,
@@ -411,6 +413,16 @@ export class OperationsView {
     private navigate: (section: string) => void,
     readonly stops: StopsModel | null = null,
   ) {}
+  /**
+   * Whether this person may send stop commands. Servers with BACKOFFICE_ROLES_ENABLED send
+   * permissions[] (a designated shift manager has an analyst grant); otherwise the stop list's
+   * own role decides, exactly as before.
+   */
+  private canStop(d: StopList) {
+    return Array.isArray(this.model.data?.permissions)
+      ? permitted(this.model.data, 'stops.write')
+      : d.role === 'manager';
+  }
   /** Why stop controls are absent or disabled; null when the manager can send commands. */
   private stopBlocker(d: StopList): { text: string; hide: boolean } | null {
     if (!d.remote_stops.enabled)
@@ -418,7 +430,7 @@ export class OperationsView {
         text: 'Удалённый стоп из кабинета выключен на сервере. Ставьте позиции на стоп на кассе: изменения с кассы появятся здесь, в приложении и киоске.',
         hide: true,
       };
-    if (d.role !== 'manager')
+    if (!this.canStop(d))
       return {
         text: 'У вас доступ только для просмотра. Ставить позиции на стоп может управляющий точки.',
         hide: false,
@@ -670,7 +682,7 @@ export class OperationsView {
         'stop-toggle-' + item.variant_id,
       );
       control.disabled =
-        Boolean(blocker) || Boolean(item.pending) || item.version === null || d.role !== 'manager';
+        Boolean(blocker) || Boolean(item.pending) || item.version === null || !this.canStop(d);
       if (item.pending) control.title = 'Команда ждёт подтверждения кассы';
       actionCell.append(control);
     }
@@ -1097,7 +1109,7 @@ export class OperationsView {
   }
   private stationPlanPanel(plan: StationPlanStatus) {
     const summary = stationPlanSummary(plan);
-    const writable = this.model.data?.role === 'manager' && summary.canDeliver;
+    const writable = permitted(this.model.data, 'records.write') && summary.canDeliver;
     const p = panel(
       'Доставка плана на кассу',
       'Версия, которую подтвердила касса, а не только публикация в облаке.',
@@ -1194,7 +1206,7 @@ export class OperationsView {
   private restoreReviews() {
     const branch = this.model.branch;
     if (!branch) return;
-    const writable = this.model.data?.role === 'manager';
+    const writable = permitted(this.model.data, 'restore_reviews.write');
     const path = `branches/${branch}/restore-reviews`;
     const d = dialog(
       'Проверка после восстановления кассы',
@@ -1310,7 +1322,7 @@ export class OperationsView {
     fields: [string, (p: Data) => string | Node][],
     sub = '',
   ) {
-    const writable = this.model.data?.role === 'manager',
+    const writable = permitted(this.model.data, 'records.write'),
       p = panel(
         title,
         sub,
@@ -1390,13 +1402,18 @@ export class OperationsView {
     );
   }
   private stock(kind: 'receipt' | 'waste' | 'count') {
+    const v2 = stockV2(this.model.data);
     const d = dialog(
       status(kind),
       kind === 'count'
         ? 'Введите фактически посчитанное количество. Ноль означает отсутствие запаса; пустая строка не считается нулём. Перед проведением проверьте расхождения.'
-        : 'Укажите ингредиенты, количество и основание. Все строки проводятся одним документом.',
+        : v2 && kind === 'waste'
+          ? 'Выберите причину, ингредиенты и количество. Все строки проводятся одним документом с одной причиной.'
+          : v2 && kind === 'receipt'
+            ? 'Укажите, откуда поставка, номер и дату накладной, ингредиенты и стоимость. Все строки проводятся одним документом.'
+            : 'Укажите ингредиенты, количество и основание. Все строки проводятся одним документом.',
     );
-    const command = inventoryEditor(d, kind, this.model.data!.stock);
+    const command = inventoryEditor(d, kind, this.model.data!.stock, { stockV2: v2 });
     this.footer(d, command, 'Провести документ');
   }
 
@@ -1532,7 +1549,10 @@ export class OperationsView {
           ]),
         ),
       );
-      if (data['owner'] === 'cloud' && this.model.data?.role === 'manager') {
+      // Each action has its own permission: a shift manager cancels and refunds, the technical
+      // write-off by recipe stays with the manager (servers without roles: manager only).
+      const can = (permission: string) => permitted(this.model.data, permission);
+      if (data['owner'] === 'cloud' && can('orders.cancel'))
         d.append(
           button('Отменить неоплаченный заказ', () =>
             this.confirm(
@@ -1542,6 +1562,7 @@ export class OperationsView {
             ),
           ),
         );
+      if (data['owner'] === 'cloud' && can('stock.production'))
         d.append(
           button('Списать ингредиенты по заказу', () =>
             this.confirm(
@@ -1551,6 +1572,7 @@ export class OperationsView {
             ),
           ),
         );
+      if (data['owner'] === 'cloud' && can('orders.refund')) {
         const captures = data['captures'] as Data[];
         const refunds = data['refunds'] as Data[];
         const { adapter, manual } = refundActions(data);
@@ -1751,7 +1773,9 @@ export class OperationsView {
   render(page: string, content: HTMLElement) {
     const m = this.model,
       d = m.data;
-    if (page === 'finance') this.renderReconciliation(content);
+    // Cutover CC-5: a shift manager does not see reconciliation (servers with roles only).
+    if (page === 'finance' && (!d || permitted(d, 'reconciliation.read')))
+      this.renderReconciliation(content);
     if (page === 'stoplist' && this.stops?.data) {
       this.renderStops(content, this.stops.data);
       return;
@@ -2058,6 +2082,13 @@ export class OperationsView {
       content.append(
         this.inventory.render(d, {
           stock: (kind) => this.stock(kind),
+          can: (permission) => permitted(d, permission),
+          ...(stockV2(d)
+            ? {
+                report: (view: 'waste' | 'movement', start: string, end: string) =>
+                  this.model.stockReport(view, start, end),
+              }
+            : {}),
           records: (kind) =>
             kind === 'ingredient'
               ? this.records('ingredient', 'Ингредиенты', [
@@ -2250,7 +2281,7 @@ export class OperationsView {
                     'muted',
                     'Доступ iPad сохраняется. Используйте штатную процедуру настройки киоска.',
                   )
-                : d.role === 'manager' && v['status'] !== 'revoked'
+                : permitted(d, 'devices.write') && v['status'] !== 'revoked'
                   ? button('Отключить устройство', () => this.revokeDevice(v), 'button subtle')
                   : el('span'),
           ]),

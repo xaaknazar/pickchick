@@ -60,6 +60,9 @@ export type FinanceSnapshot = {
   capabilities?: { replace: boolean; history: boolean };
   branch_id: string;
   role: string;
+  /** Cutover CC-5: only from servers with BACKOFFICE_ROLES_ENABLED (an accountant writes). */
+  effective_role?: string;
+  permissions?: string[];
   as_of: string;
   categories: Category[];
   centers: Record<string, string>;
@@ -248,7 +251,9 @@ export class FinanceModel {
     return e instanceof Error ? e.message : 'Не удалось выполнить операцию.';
   }
   get writable() {
-    return this.data?.role === 'manager' && !this.busy && !this.pending && !this.storageBroken;
+    const role =
+      this.data?.role === 'manager' || Boolean(this.data?.permissions?.includes('finance.write'));
+    return role && !this.busy && !this.pending && !this.storageBroken;
   }
   async send(command: Record<string, unknown>, reason: string) {
     if (!this.writable) return false;

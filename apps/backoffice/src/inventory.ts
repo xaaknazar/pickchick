@@ -1,12 +1,19 @@
 import { element as el, button, field, select, check } from './dom.js';
-import { object, type Data, type Snapshot } from './operations-model.js';
+import { object, type Data, type Snapshot, type StockReport } from './operations-model.js';
 import {
+  SUPPLIER_KINDS,
+  WASTE_REASONS,
+  almatyDay,
   displayQuantity,
   stockFilter,
   stockPreview,
+  stockV2Fields,
+  supplierKindLabel,
+  wasteReasonLabel,
   inventoryCsv,
   type StockKind,
   type StockLine,
+  type StockV2Draft,
 } from './inventory-model.js';
 const money = (value: unknown) => {
   const n = BigInt(String(value ?? 0)),
@@ -48,9 +55,24 @@ function table(head: string[], rows: (string | Node)[][]) {
   if (!rows.length) wrap.append(el('p', 'op-note', 'Нет записей по выбранным условиям.'));
   return wrap;
 }
-/** A draft is reviewed in base units before the existing durable command is submitted. */
-export function inventoryEditor(d: HTMLDialogElement, kind: StockKind, stock: Data[]) {
+/**
+ * A draft is reviewed in base units before the existing durable command is submitted. With
+ * `stockV2` (server capability, cutover CC-6) a waste needs a reason and a receipt records where
+ * it came from and the date of the supplier's document.
+ */
+export function inventoryEditor(
+  d: HTMLDialogElement,
+  kind: StockKind,
+  stock: Data[],
+  options: { stockV2?: boolean } = {},
+) {
   d.classList.add('inventory-editor');
+  const v2: StockV2Draft = {
+    reason_code: '',
+    supplier_kind: '',
+    supplier_name: '',
+    document_date: almatyDay(new Date()),
+  };
   const lines: StockLine[] = [],
     wrap = el('div', 'inventory-lines'),
     preview = el('div', 'inventory-preview');
@@ -172,9 +194,58 @@ export function inventoryEditor(d: HTMLDialogElement, kind: StockKind, stock: Da
     lines.push({ ingredient_id: '', quantity: '', cost: '', unit: 'pcs' });
     draw();
   };
+  const details: Node[] = [];
+  if (options.stockV2 && kind === 'waste')
+    details.push(
+      select(
+        'Причина списания',
+        v2.reason_code,
+        [
+          { value: '', label: 'Выберите причину' },
+          ...WASTE_REASONS.map(([value, label]) => ({ value, label })),
+        ],
+        (value) => {
+          v2.reason_code = value;
+        },
+        'op-waste-reason',
+      ),
+      el('p', 'op-note', 'Для «Другое» опишите, что случилось, в поле «Причина изменения» ниже.'),
+    );
+  if (options.stockV2 && kind === 'receipt')
+    details.push(
+      select(
+        'Откуда поставка',
+        v2.supplier_kind,
+        [
+          { value: '', label: 'Выберите' },
+          ...SUPPLIER_KINDS.map(([value, label]) => ({ value, label })),
+        ],
+        (value) => {
+          v2.supplier_kind = value;
+        },
+        'op-supplier-kind',
+      ),
+      field(
+        'Поставщик',
+        v2.supplier_name,
+        (value) => {
+          v2.supplier_name = value;
+        },
+        { id: 'op-supplier-name', max: 120, hint: 'Необязательно, например название пекарни.' },
+      ),
+      field(
+        'Дата накладной',
+        v2.document_date,
+        (value) => {
+          v2.document_date = value;
+        },
+        { id: 'op-document-date', type: 'date' },
+      ),
+    );
   d.append(
+    ...details,
     field(
-      'Номер документа',
+      options.stockV2 && kind === 'receipt' ? 'Номер накладной' : 'Номер документа',
       reference,
       (v) => {
         reference = v;
@@ -189,6 +260,7 @@ export function inventoryEditor(d: HTMLDialogElement, kind: StockKind, stock: Da
   );
   add();
   return () => {
+    const extra = options.stockV2 ? stockV2Fields(kind, v2) : {};
     const parsed = stockPreview(kind, lines, stock);
     if (!reference.trim()) throw new Error('Укажите номер документа.');
     if (!reviewed) throw new Error('Проверьте документ и отметьте подтверждение.');
@@ -196,19 +268,30 @@ export function inventoryEditor(d: HTMLDialogElement, kind: StockKind, stock: Da
       type: 'stock',
       kind,
       reference: reference.trim(),
+      ...extra,
       lines: parsed.map((r) => r.command),
     };
   };
 }
+export type InventoryCallbacks = {
+  stock: (kind: StockKind) => void;
+  records: (kind: string) => HTMLElement;
+  /** Permission of the signed-in role (operations-model permitted). */
+  can: (permission: string) => boolean;
+  /** Stock v2 report (GET .../ops/stock); absent while the server has no stock v2. */
+  report?: (view: 'waste' | 'movement', start: string, end: string) => Promise<StockReport>;
+};
 export class InventoryView {
   private tab = 'balances';
   private query = '';
   private filter = 'active';
   private documentKind = '';
-  render(
-    data: Snapshot,
-    callbacks: { stock: (kind: StockKind) => void; records: (kind: string) => HTMLElement },
-  ) {
+  private reportView: 'waste' | 'movement' = 'waste';
+  private reportStart = almatyDay(new Date(), 6);
+  private reportEnd = almatyDay(new Date());
+  private reportResult: StockReport | null = null;
+  private reportError = '';
+  render(data: Snapshot, callbacks: InventoryCallbacks) {
     const root = el('section', 'inventory'),
       toolbar = el('div', 'inventory-toolbar'),
       tabs = el('nav', 'inventory-tabs'),
@@ -220,6 +303,7 @@ export class InventoryView {
       for (const [key, label] of [
         ['balances', 'Остатки'],
         ['documents', 'Документы'],
+        ...(callbacks.report ? [['report', 'Списания и поставки']] : []),
         ['recipe', 'Техкарты'],
         ['ingredient', 'Номенклатура'],
       ]) {
@@ -236,6 +320,7 @@ export class InventoryView {
       }
       if (this.tab === 'balances') this.balances(body, data);
       else if (this.tab === 'documents') this.documents(body, data);
+      else if (this.tab === 'report' && callbacks.report) this.report(body, callbacks.report);
       else {
         if (this.tab === 'recipe')
           body.append(
@@ -249,10 +334,16 @@ export class InventoryView {
       }
     };
     toolbar.append(el('div', '', 'Складской учёт'));
-    if (data.role === 'manager')
+    // Each document kind has its own permission (a shift manager counts, an accountant only
+    // receives); servers without roles keep the manager-only rule.
+    if (callbacks.can('stock.receipt'))
       toolbar.append(
         button('Поставка', () => callbacks.stock('receipt'), 'button primary', 'op-receipt'),
-        button('Списание', () => callbacks.stock('waste'), 'button', 'op-waste'),
+      );
+    if (callbacks.can('stock.waste'))
+      toolbar.append(button('Списание', () => callbacks.stock('waste'), 'button', 'op-waste'));
+    if (callbacks.can('stock.count'))
+      toolbar.append(
         button('Инвентаризация', () => callbacks.stock('count'), 'button', 'op-count'),
       );
     root.append(
@@ -372,6 +463,177 @@ export class InventoryView {
       ),
     );
     draw();
+  }
+  /** Stock v2: waste by reason or every document of a window, with reason and invoice details. */
+  private report(
+    body: HTMLElement,
+    load: (view: 'waste' | 'movement', start: string, end: string) => Promise<StockReport>,
+  ) {
+    const result = el('div', 'inventory-report');
+    result.dataset.testid = 'inventory-report';
+    const show = () => {
+      result.replaceChildren();
+      if (this.reportError) {
+        const n = el('p', 'notice error', this.reportError);
+        n.setAttribute('role', 'alert');
+        result.append(n);
+        return;
+      }
+      const r = this.reportResult;
+      if (!r) {
+        result.append(el('p', 'op-note', 'Выберите период и нажмите «Показать».'));
+        return;
+      }
+      const date = (v: unknown) =>
+        new Date(String(v)).toLocaleString('ru-RU', { timeZone: 'Asia/Almaty' });
+      const summary = (key: string) =>
+        Array.isArray(r.summary[key]) ? (r.summary[key] as Data[]) : [];
+      if (r.view === 'waste') {
+        result.append(
+          el(
+            'p',
+            'op-note',
+            `Списаний: ${String(r.totals['documents'])} на ${money(r.totals['value_minor'])} по средней себестоимости.`,
+          ),
+          el('h3', '', 'По причинам'),
+          table(
+            ['Причина', 'Документов', 'Сумма'],
+            summary('by_reason').map((v) => [
+              wasteReasonLabel(v['reason_code']),
+              String(v['documents']),
+              money(v['value_minor']),
+            ]),
+          ),
+          el('h3', '', 'По позициям'),
+          table(
+            ['Ингредиент', 'Списано', 'Сумма'],
+            summary('by_ingredient').map((v) => [
+              String(v['name']),
+              displayQuantity(v['quantity'], v['unit']),
+              money(v['value_minor']),
+            ]),
+          ),
+          el('h3', '', 'По сотрудникам'),
+          table(
+            ['Автор', 'Документов', 'Сумма'],
+            summary('by_author').map((v) => [
+              String(v['actor_name']),
+              String(v['documents']),
+              money(v['value_minor']),
+            ]),
+          ),
+        );
+      } else
+        result.append(
+          table(
+            ['Тип', 'Документов', 'Изменение стоимости'],
+            summary('by_kind').map((v) => [
+              kinds[String(v['kind'])] ?? String(v['kind']),
+              String(v['documents']),
+              money(v['value_delta_minor']),
+            ]),
+          ),
+        );
+      result.append(
+        el('h3', '', 'Документы'),
+        table(
+          ['Документ', 'Тип', 'Создан', 'Причина или поставщик', 'Автор', 'Основание'],
+          r.documents.map((v) => {
+            const meta = v['meta'] && typeof v['meta'] === 'object' ? (v['meta'] as Data) : null;
+            return [
+              String(v['reference']),
+              kinds[String(v['kind'])] ?? String(v['kind']),
+              date(v['created_at']),
+              v['kind'] === 'waste'
+                ? wasteReasonLabel(v['reason_code'])
+                : meta
+                  ? [
+                      supplierKindLabel(meta['supplier_kind']),
+                      meta['supplier_name'] ? String(meta['supplier_name']) : '',
+                      'накладная от ' +
+                        new Date(`${String(meta['document_date'])}T00:00:00Z`).toLocaleDateString(
+                          'ru-RU',
+                          { timeZone: 'UTC' },
+                        ),
+                    ]
+                      .filter(Boolean)
+                      .join(', ')
+                  : '-',
+              String(v['actor_name'] ?? '-'),
+              String(v['reason']),
+            ];
+          }),
+        ),
+      );
+      if (r.truncated)
+        result.append(el('p', 'op-note', 'Показаны последние 200 документов периода.'));
+    };
+    const run = button(
+      'Показать',
+      () => {
+        run.disabled = true;
+        load(this.reportView, this.reportStart, this.reportEnd)
+          .then((value) => {
+            this.reportResult = value;
+            this.reportError = '';
+          })
+          .catch((error: unknown) => {
+            this.reportResult = null;
+            this.reportError =
+              error instanceof Error && error.message === 'INVALID_REQUEST'
+                ? 'Проверьте даты: период - не больше 92 дней, начало не позже конца.'
+                : 'Отчёт не загрузился. Проверьте связь и повторите.';
+          })
+          .finally(() => {
+            run.disabled = false;
+            show();
+          });
+      },
+      'button primary',
+      'inventory-report-run',
+    );
+    const controls = el('div', 'inventory-filters');
+    controls.append(
+      select(
+        'Отчёт',
+        this.reportView,
+        [
+          { value: 'waste', label: 'Списания по причинам' },
+          { value: 'movement', label: 'Все документы и поставки' },
+        ],
+        (v) => {
+          this.reportView = v === 'movement' ? 'movement' : 'waste';
+        },
+        'inventory-report-view',
+      ),
+      field(
+        'С',
+        this.reportStart,
+        (v) => {
+          this.reportStart = v;
+        },
+        { id: 'inventory-report-start', type: 'date' },
+      ),
+      field(
+        'По',
+        this.reportEnd,
+        (v) => {
+          this.reportEnd = v;
+        },
+        { id: 'inventory-report-end', type: 'date' },
+      ),
+      run,
+    );
+    body.append(
+      el(
+        'p',
+        'op-note',
+        'Дни считаются по времени Алматы. Сумма списания - стоимость по средней себестоимости на момент документа.',
+      ),
+      controls,
+      result,
+    );
+    show();
   }
   private documents(body: HTMLElement, data: Snapshot) {
     const list = el('div');

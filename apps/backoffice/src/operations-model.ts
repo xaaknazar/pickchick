@@ -43,8 +43,65 @@ export type Snapshot = {
   publications: Data[];
   /** Station plan delivery to the cashier (absent from servers before stage 2). */
   station_plan?: unknown;
+  /** Cutover CC-5: only from servers with BACKOFFICE_ROLES_ENABLED; `role` stays the grant. */
+  effective_role?: string;
+  permissions?: string[];
   capabilities: Data;
 };
+/**
+ * Whether the signed-in person may do `permission` (cutover CC-5, contracts 5.10). Servers with
+ * BACKOFFICE_ROLES_ENABLED send permissions[]; every other server keeps the old rule: the
+ * manager grant writes, an analyst reads.
+ */
+export function permitted(
+  data: { role: string; permissions?: unknown } | null | undefined,
+  permission: string,
+): boolean {
+  if (!data) return false;
+  if (Array.isArray(data.permissions)) return data.permissions.includes(permission);
+  return permission.endsWith('.read') || data.role === 'manager';
+}
+/** UI copy of the server mapping (packages/backoffice-core/src/roles.ts commandPermission). */
+export function commandPermission(command: Data): string {
+  switch (command['type']) {
+    case 'stock':
+      return command['kind'] === 'receipt'
+        ? 'stock.receipt'
+        : command['kind'] === 'waste'
+          ? 'stock.waste'
+          : 'stock.count';
+    case 'produce':
+    case 'consume':
+      return 'stock.production';
+    case 'revoke_device':
+      return 'devices.write';
+    case 'cancel_order':
+      return 'orders.cancel';
+    case 'refund':
+    case 'manual_refund':
+    case 'withdraw_refund':
+      return 'orders.refund';
+    default:
+      return 'records.write';
+  }
+}
+/** Role line under the name in the sidebar; null on servers without designations. */
+export function roleTitle(data: { effective_role?: unknown } | null | undefined): string | null {
+  const titles: Record<string, string> = {
+    manager: 'Вы: управляющий',
+    shift_manager: 'Вы: начальник смены',
+    accountant: 'Вы: бухгалтер',
+    analyst: 'Вы: просмотр',
+  };
+  return typeof data?.effective_role === 'string' ? (titles[data.effective_role] ?? null) : null;
+}
+/** Stock v2 (cutover CC-6): the server takes waste reasons and receipt details. */
+export const stockV2 = (data: { capabilities?: unknown } | null | undefined) =>
+  Boolean(
+    data?.capabilities &&
+    typeof data.capabilities === 'object' &&
+    (data.capabilities as Data)['stock_v2'] === true,
+  );
 export type OperationalApi = (path: string, request?: Request) => Promise<unknown>;
 type Pending = {
   actor: string;
@@ -193,7 +250,7 @@ export class OperationsModel {
   }
   async execute(command: Data, reason: string) {
     if (this.busy || this.pending) throw new ApiError('PENDING');
-    if (this.data?.role !== 'manager') throw new ApiError('FORBIDDEN');
+    if (!permitted(this.data, commandPermission(command))) throw new ApiError('FORBIDDEN');
     const pending = {
       actor: this.actor,
       branch: this.branch,
@@ -249,6 +306,41 @@ export class OperationsModel {
     if (generation !== this.generation) throw new ApiError('FORBIDDEN');
     return object(value);
   }
+  /** Stock v2 report (GET .../ops/stock, cutover CC-6): waste by reason or every document. */
+  async stockReport(view: 'waste' | 'movement', startDate: string, endDate: string) {
+    const generation = this.generation;
+    const query = new URLSearchParams({ view, start_date: startDate, end_date: endDate });
+    const value = await this.api(`branches/${this.branch}/ops/stock?${query.toString()}`);
+    if (generation !== this.generation) throw new ApiError('FORBIDDEN');
+    return stockReport(value, this.branch, view);
+  }
+}
+export type StockReport = {
+  schema_version: 1;
+  branch_id: string;
+  view: 'waste' | 'movement';
+  start_date: string;
+  end_date: string;
+  totals: Data;
+  summary: Data;
+  documents: Data[];
+  truncated: boolean;
+};
+export function stockReport(value: unknown, branch: string, view: string): StockReport {
+  const o = object(value);
+  if (
+    o['schema_version'] !== 1 ||
+    o['branch_id'] !== branch ||
+    o['view'] !== view ||
+    !Array.isArray(o['documents']) ||
+    typeof o['truncated'] !== 'boolean'
+  )
+    throw new ApiError('INVALID_RESPONSE');
+  object(o['totals']);
+  const summary = object(o['summary']);
+  for (const key of Object.keys(summary))
+    if (!Array.isArray(summary[key])) throw new ApiError('INVALID_RESPONSE');
+  return o as StockReport;
 }
 
 export type StopDuration = 'manual' | 'hour' | 'shift';
@@ -480,7 +572,9 @@ export class StopsModel {
     if (!data || data.branch_id !== this.branch) throw new ApiError('INVALID_REQUEST');
     if (!data.remote_stops.enabled)
       throw new ApiError('SERVICE_UNAVAILABLE', 0, 'REMOTE_STOPS_DISABLED');
-    if (data.role !== 'manager') throw new ApiError('FORBIDDEN', 0, 'STOP_FORBIDDEN');
+    // A designated shift manager has an analyst grant; the server marks the list writable.
+    if (data.role !== 'manager' && !data.remote_stops.writable)
+      throw new ApiError('FORBIDDEN', 0, 'STOP_FORBIDDEN');
     if (item.pending) throw new ApiError('CONFLICT', 0, 'STOP_COMMAND_IN_PROGRESS');
     if (item.version === null || !item.listed)
       throw new ApiError('NOT_READY', 0, 'EDGE_STOPS_NOT_READY');
