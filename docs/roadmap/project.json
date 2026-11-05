@@ -5371,7 +5371,7 @@
       "id": "mobile-android-play-1105",
       "workstream": "mobile",
       "title": "Подготовить Android 1.0.1 (7) для Google Play",
-      "summary": "PR307 включён в shared после Foundation CI 11/11; 584 Node +96 Python и 101 экран production PASS. Android Studio и постоянная подпись готовы; SDK ждёт принятия лицензии владельцем, AAB пока не собран.",
+      "summary": "PR307/308 включены в shared после Foundation CI 11/11. Android 1.0.1 (7) подписан из чистого 1a9472f1 на Java 21; doctor/Inspect PASS, api.pickchick.kz, ровно 7 разрешений, подпись всех payload-записей проверена. 584 Node +96 Python и 101 экран production PASS. Google Play и сайт не менялись.",
       "status": "active",
       "owner": "development",
       "phase": "acceptance",
@@ -5392,16 +5392,20 @@
         {
           "label": "Foundation CI исходного кода 11/11",
           "url": "https://github.com/xaaknazar/pickchick/actions/runs/41986578348"
+        },
+        {
+          "label": "Foundation CI дерева подписанной сборки 11/11",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/41990360542"
         }
       ],
       "acceptance": [
         "Полная Foundation CI и Inspect PASS на production AAB с 7 разрешениями.",
         "Проверка владельцем на физическом Android отдельно от web/CI."
       ],
-      "nextAction": "Получить согласие на лицензию SDK, установить SDK/NDK/CMake, получить doctor и Inspect PASS на подписанном AAB. Сайт/Play и приёмка на телефоне отдельно.",
+      "nextAction": "Отдельно согласовать обновление поддержки и Play Console; сохранить офлайн-копию ключа, затем внутреннее тестирование на физическом Android. FCM не настроен.",
       "checks": {
         "implemented": true,
-        "verified": false,
+        "verified": true,
         "deployed": false,
         "accepted": false
       },
