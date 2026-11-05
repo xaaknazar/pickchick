@@ -966,3 +966,270 @@ test('the service validates a config and its PFX without listening (--check), an
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+// ---- Cutover 19.11 (CL-4, CL-5): Windows scripts for the gateway clients and the desks ------
+
+const windowsFile = (name) => new URL(`../../infra/windows/${name}`, import.meta.url);
+const LAN_SCRIPTS = [
+  'install-kitchen-lan.ps1',
+  'update-kitchen-lan-clients.ps1',
+  'install-kitchen-client.ps1',
+  'install-pos-client.ps1',
+];
+/** A top-level PowerShell function of these scripts: `function Name...` up to its `}` line. */
+const psFunction = (source, name) =>
+  new RegExp(`^function ${name}\\b[\\s\\S]*?^\\}`, 'm').exec(source)?.[0];
+
+test('Windows LAN scripts: ASCII, pinned helpers, shared helpers equal, autostart only on request and never before 19.11, iiko only read', async () => {
+  const source = Object.fromEntries(
+    await Promise.all(
+      LAN_SCRIPTS.map(async (name) => [name, await readFile(windowsFile(name), 'utf8')]),
+    ),
+  );
+  for (const [name, text] of Object.entries(source)) {
+    // Windows PowerShell 5.1 reads a script without BOM in the ANSI code page.
+    assert.doesNotMatch(text, /[^\t\n\r -~]/, `${name} is ASCII`);
+    assert.match(text, /^#Requires -Version 5\.1/, name);
+    assert.match(text, /Set-StrictMode -Version Latest/, name);
+    assert.match(text, /\$ErrorActionPreference='Stop'/, name);
+    assert.doesNotMatch(
+      text,
+      /Invoke-Expression|\biex\b|Invoke-WebRequest|Invoke-RestMethod|DownloadString|Start-BitsTransfer|https?:\/\//i,
+      name,
+    );
+    for (const line of text.split('\n').filter((l) => /iiko/i.test(l)))
+      assert.doesNotMatch(
+        line,
+        /Stop-|Remove-|Set-|New-|Disable-|Kill|taskkill|sc\.exe|reg\.exe|Rename-|Move-/i,
+        `${name} never changes iiko: ${line.trim()}`,
+      );
+  }
+  const foundation = createHash('sha256')
+    .update(await readFile(windowsFile('install-native-foundation.ps1')))
+    .digest('hex');
+  for (const name of ['install-kitchen-lan.ps1', 'update-kitchen-lan-clients.ps1'])
+    assert.ok(source[name].includes(foundation), `${name} pins the reviewed NTFS helpers`);
+  for (const name of ['Test-LanIPv4', 'Assert-LanAcl'])
+    assert.equal(
+      psFunction(source['update-kitchen-lan-clients.ps1'], name),
+      psFunction(source['install-kitchen-lan.ps1'], name),
+      name,
+    );
+  const kitchen = source['install-kitchen-client.ps1'];
+  const pos = source['install-pos-client.ps1'];
+  const shared = (text) =>
+    text.slice(
+      text.indexOf('\nfunction Test-LanIPv4'),
+      text.indexOf('# ---- End of shared LAN client helpers ----'),
+    );
+  assert.ok(shared(kitchen).length > 5000);
+  assert.equal(shared(kitchen), shared(pos), 'the client installers share one helper block');
+  for (const [text, app, minimum] of [
+    [kitchen, 'kitchen-desktop', '0.4.0'],
+    [pos, 'pos-desktop', '0.5.0'],
+  ]) {
+    // Registry writes only inside Set-LanAutostart, called only for -Autostart, guarded by date.
+    const autostart = psFunction(text, 'Set-LanAutostart');
+    assert.ok(autostart.includes('$Today.Date -lt $CutoverDate.Date'));
+    for (const write of ['New-ItemProperty', 'Remove-ItemProperty', 'Set-ItemProperty'])
+      assert.equal(
+        text.split(write).length - 1,
+        autostart.split(write).length - 1,
+        `${write} only in Set-LanAutostart`,
+      );
+    assert.equal(text.split("Set-LanAutostart '").length - 1, 1);
+    assert.match(text, /ParameterSetName -ceq 'Autostart'\) \{\n\s+Set-LanAutostart '/);
+    assert.match(text, /\[datetime\]\$CutoverDate=\[datetime\]'2026-11-19'/);
+    assert.ok(text.includes(`[version]'${minimum}'`));
+    // The default app path is where the per-user NSIS installer of that app puts it.
+    const builder = await readFile(
+      new URL(`../../apps/${app}/electron-builder.yml`, import.meta.url),
+      'utf8',
+    );
+    const product = /^productName: (.+)$/m.exec(builder)[1];
+    const exe = /^\s+executableName: (.+)$/m.exec(builder)[1];
+    assert.match(builder, /perMachine: false/);
+    assert.ok(text.includes(`'Programs\\${product}\\${exe}.exe'`), `${app} path`);
+  }
+  const desk = JSON.parse(
+    await readFile(new URL('../../apps/pos-desktop/package.json', import.meta.url), 'utf8'),
+  );
+  const [major, minor] = desk.version.split('.').map(Number);
+  assert.ok(
+    major > 0 || minor >= 5,
+    'the POS installer requires a pos-desktop that knows edgeHost',
+  );
+});
+
+function findPowerShell() {
+  if (process.env.PICKCHICK_TEST_PWSH) return process.env.PICKCHICK_TEST_PWSH;
+  for (const directory of (process.env.PATH ?? '').split(':'))
+    for (const name of ['pwsh', 'powershell'])
+      if (spawnSync('test', ['-x', join(directory, name)]).status === 0)
+        return join(directory, name);
+  return null;
+}
+
+test('PowerShell: the LAN script functions against synthetic gateways; their files pass the gateway and both app validators', async (t) => {
+  const pwsh = findPowerShell();
+  if (!pwsh) {
+    if (process.env.CI) assert.fail('PowerShell is required for the LAN script checks in CI');
+    t.skip('PowerShell unavailable; set PICKCHICK_TEST_PWSH to run the LAN script checks');
+    return;
+  }
+  const BIND = '10.20.0.1';
+  const directory = await mkdtemp(join(tmpdir(), 'pickchick-lan-scripts-'));
+  const out = join(directory, 'out');
+  await mkdir(out);
+  await mkdir(join(directory, 'other'));
+  const edge = createServer((req, res) => {
+    const status =
+      { '/edge/v1/fulfillment/config': 200 }[req.url] ??
+      ([
+        '/edge/v1/session',
+        '/edge/v1/cash-shifts/current',
+        '/edge/v1/fulfillment/stations',
+      ].includes(req.url)
+        ? 401
+        : 404);
+    res.writeHead(status, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify(
+        status === 200
+          ? { enabled: true }
+          : { code: status === 401 ? 'UNAUTHORIZED' : 'NOT_FOUND' },
+      ),
+    );
+  });
+  await new Promise((resolve) => edge.listen(0, '127.0.0.1', resolve));
+  const servers = [];
+  try {
+    const pki = await gatewayPki(directory, BIND);
+    const other = await gatewayPki(join(directory, 'other'), '10.20.9.9');
+    const settings = {
+      bindAddress: BIND,
+      edgePort: edge.address().port,
+      pfx: pki.pfx,
+      passphrase: pki.passphrase,
+      timeoutMs: 2000,
+      clients: [
+        { address: '10.20.0.11', profile: 'kitchen' },
+        { address: '10.20.0.12', profile: 'display' },
+        { address: '10.20.0.21', profile: 'pos' },
+      ],
+    };
+    const ports = { closed: await freePort() };
+    for (const [name, from] of [
+      ['kitchen', '10.20.0.11'],
+      ['display', '10.20.0.12'],
+      ['pos', '10.20.0.21'],
+      ['unlisted', '10.20.0.99'],
+    ]) {
+      const lan = await profiledGateway(settings);
+      lan.state.from = from;
+      servers.push(lan.gateway);
+      ports[name] = lan.port;
+    }
+    await writeFile(join(directory, 'cert.pem'), pki.cert);
+    await writeFile(join(directory, 'other.pem'), other.cert);
+    await writeFile(join(directory, 'server.pfx'), pki.pfx);
+    const { X509Certificate } = await import('node:crypto');
+    const sha = createHash('sha256').update(new X509Certificate(pki.cert).raw).digest('hex');
+    const run = await promisify(execFile)(
+      pwsh,
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-File',
+        fileURLToPath(new URL('kitchen-lan-clients.test.ps1', import.meta.url)),
+      ],
+      {
+        timeout: 180000,
+        maxBuffer: 1024 * 1024,
+        env: {
+          ...process.env,
+          LAN_TEST_OUT: out,
+          LAN_TEST_HOST: BIND,
+          LAN_TEST_CERT: join(directory, 'cert.pem'),
+          LAN_TEST_OTHER_CERT: join(directory, 'other.pem'),
+          LAN_TEST_CERT_SHA: sha,
+          LAN_TEST_PORTS: JSON.stringify(ports),
+          LAN_TEST_PFX: join(directory, 'server.pfx'),
+          LAN_TEST_PASSPHRASE: pki.passphrase,
+        },
+      },
+    );
+    const passed = /LAN client script checks passed: (\d+)/.exec(run.stdout);
+    assert.ok(passed && Number(passed[1]) >= 120, run.stdout + run.stderr);
+
+    // The gateway accepts exactly the configs the update script writes.
+    const gateway = fileURLToPath(windowsFile('kitchen-lan-gateway.mjs'));
+    for (const [file, expected] of [
+      ['gateway-clients.json', { format: 'clients', clients: { kitchen: 1, display: 1, pos: 2 } }],
+      [
+        'gateway-legacy.json',
+        { format: 'clientAddresses', clients: { kitchen: 1, display: 0, pos: 0 } },
+      ],
+    ]) {
+      const check = spawnSync(process.execPath, [gateway, '--check', join(out, file)], {
+        encoding: 'utf8',
+        timeout: 15000,
+      });
+      assert.equal(check.status, 0, `${file}: ${check.stderr}`);
+      const summary = JSON.parse(check.stdout);
+      assert.equal(summary.format, expected.format);
+      assert.deepEqual(summary.clients, expected.clients);
+    }
+    // pos-desktop starts with every config the POS installer writes.
+    const { validateConfig: validatePos } = await import('../../apps/pos-desktop/protocol.mjs');
+    const posConfigs = {};
+    for (const file of ['pos-escpos.json', 'pos-kept.json', 'pos-fresh.json']) {
+      posConfigs[file] = validatePos(JSON.parse(await readFile(join(out, file), 'utf8')));
+      assert.equal(posConfigs[file].edgeHost, BIND, file);
+      assert.equal(posConfigs[file].edgePort, 3443, file);
+      assert.equal(posConfigs[file].terminalId, '10000000-0000-4000-8000-000000000011', file);
+    }
+    assert.deepEqual(posConfigs['pos-escpos.json'].printer, {
+      mode: 'escpos-tcp',
+      host: '10.20.0.50',
+      port: 9100,
+      drawerKick: true,
+    });
+    assert.equal(posConfigs['pos-escpos.json'].pinLength, 4);
+    assert.deepEqual(posConfigs['pos-escpos.json'].categories, {
+      '10000000-0000-4000-8000-000000000012': 'Combo',
+    });
+    assert.equal(posConfigs['pos-kept.json'].printer.deviceName, 'Old queue');
+    assert.equal(posConfigs['pos-fresh.json'].printer.deviceName, 'Receipt 80');
+    // kitchen-desktop as packaged: security.mjs next to the kitchen gateway it copies at build.
+    const desktop = join(directory, 'kitchen-desktop');
+    await mkdir(desktop);
+    for (const [from, to] of [
+      ['../../apps/kitchen-desktop/security.mjs', 'security.mjs'],
+      ['../../apps/kitchen/server.mjs', 'gateway.mjs'],
+      ['../../apps/kitchen/terminal-cookie.mjs', 'terminal-cookie.mjs'],
+    ])
+      await writeFile(join(desktop, to), await readFile(new URL(from, import.meta.url)));
+    const { validateConfig: validateKitchen } = await import(
+      pathToFileURL(join(desktop, 'security.mjs')).href
+    );
+    for (const [file, mode] of [
+      ['kitchen-prep.json', 'prep'],
+      ['kitchen-display.json', 'display'],
+      ['kitchen-staff.json', undefined],
+    ]) {
+      const config = validateKitchen(JSON.parse(await readFile(join(out, file), 'utf8')));
+      assert.equal(config.edgeHost, BIND, file);
+      assert.equal(config.edgePort, 3443, file);
+      assert.equal(config.terminalMode, mode, file);
+    }
+  } finally {
+    for (const server of servers) {
+      server.closeAllConnections();
+      await new Promise((resolve) => server.close(resolve));
+    }
+    edge.closeAllConnections();
+    await new Promise((resolve) => edge.close(resolve));
+    await rm(directory, { recursive: true, force: true });
+  }
+});
