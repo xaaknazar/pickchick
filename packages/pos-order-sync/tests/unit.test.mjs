@@ -10,6 +10,8 @@ import {
   syncPosKitchenOnce,
   sendPosEvent,
 } from '../dist/index.js';
+// posSales wire vectors (contracts 5.6) run with the package unit tests.
+import './sales-model.test.mjs';
 
 const identity = {
   device_id: randomUUID(),
