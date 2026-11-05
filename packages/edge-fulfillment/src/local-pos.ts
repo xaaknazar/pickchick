@@ -136,14 +136,15 @@ export function localUnpaidExecution(host: {
         order.orderId,
       );
     },
-    async cancel(client, branchId, orderId, actor, reason) {
+    async cancel(client, branchId, orderId, actor, reason, kind = 'unpaid_service') {
       // Kitchen commands lock this same reservation before touching tasks. A
       // simultaneous start/cancel therefore has one authoritative outcome.
+      // Cutover (contracts 5.2): the void of a paid pos_sale cancels through this same path.
       const row = (
         await client.query<Reservation>(
           `SELECT * FROM fulfillment_reservations WHERE order_id=$1 AND branch_id=$2
-         AND commercial_owner='edge_pos' AND admission_kind='unpaid_service' FOR UPDATE`,
-          [orderId, branchId],
+         AND commercial_owner='edge_pos' AND admission_kind=$3 FOR UPDATE`,
+          [orderId, branchId, kind],
         )
       ).rows[0];
       if (!row) throw new OrderError('KITCHEN_UNAVAILABLE');
@@ -175,7 +176,15 @@ export function localUnpaidExecution(host: {
         reason,
         inventoryEffect: 'none',
       });
-      await audit(client, branchId, actor.staff_id, 'fulfillment.local_unpaid_cancelled', orderId);
+      await audit(
+        client,
+        branchId,
+        actor.staff_id,
+        kind === 'pos_sale'
+          ? 'fulfillment.local_pos_sale_cancelled'
+          : 'fulfillment.local_unpaid_cancelled',
+        orderId,
+      );
     },
   };
 }

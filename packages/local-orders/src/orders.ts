@@ -54,12 +54,17 @@ export interface LocalOrderExecutionPort {
     actor: StaffSession,
     commandId: string,
   ): Promise<void>;
+  /**
+   * Cancels the kitchen admission while every task is still queued (else ORDER_IN_PRODUCTION).
+   * `kind` absent: unpaid_service, exactly as before the cutover; 'pos_sale' for a void.
+   */
   cancel(
     client: DatabaseClient,
     branchId: string,
     orderId: string,
     actor: StaffSession,
     reason: string,
+    kind?: LocalAdmissionKind,
   ): Promise<void>;
 }
 

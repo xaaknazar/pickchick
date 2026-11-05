@@ -19,5 +19,6 @@ export * from './kitchen-password-reset.js';
 export * from './approvals.js';
 export * from './payment-methods.js';
 export * from './sales.js';
+export * from './refunds.js';
 export * from './shift-reports.js';
 export * from './pos-outbox.js';
