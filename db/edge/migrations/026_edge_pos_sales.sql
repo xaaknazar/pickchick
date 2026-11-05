@@ -526,6 +526,13 @@ BEGIN
     IF NEW.version<>1 OR NEW.approval_id IS NOT NULL THEN
       RAISE EXCEPTION 'Invalid initial POS fiscal receipt' USING ERRCODE='23514';
     END IF;
+    -- A sale whose receipt was not required was never fiscalized, so its void or refund has no
+    -- Webkassa return. A void writes its return receipt before a pending sale receipt becomes
+    -- not_required, so every legitimate flow passes.
+    IF NEW.kind='refund' AND NEW.state<>'not_required' AND EXISTS(SELECT 1 FROM pos_fiscal_receipts
+        WHERE order_id=NEW.order_id AND branch_id=NEW.branch_id AND kind='sale' AND state='not_required') THEN
+      RAISE EXCEPTION 'A sale without a Webkassa receipt has no Webkassa return' USING ERRCODE='23514';
+    END IF;
     RETURN NEW;
   END IF;
   IF (to_jsonb(NEW)-ARRAY['state','receipt_number','version','recorded_by_staff_id','recorded_at','approval_id'])

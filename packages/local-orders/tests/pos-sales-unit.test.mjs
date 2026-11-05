@@ -489,8 +489,29 @@ test('a void plan: whole sale of this version, no refund yet, receipts by fiscal
   const free = posSale([tender('chocofood', '349000')], { receipt: 'not_required' });
   assert.deepEqual(planPosVoid(free, paid, request(false)).refundReceipt, 'not_required');
   assert.equal(planPosVoid(free, paid, request(false)).saleReceiptNotRequired, false);
+  // A sale whose receipt was not required has no Webkassa sale: "issued" contradicts the record
+  // whichever method made it not required, so no pending return receipt is ever planned.
+  for (const method of [
+    'aggregator_yandex_eda',
+    'aggregator_glovo',
+    'chocofood',
+    'staff_meal',
+    'marketing',
+    'cash',
+  ])
+    assert.throws(
+      () =>
+        planPosVoid(
+          posSale([tender(method, '349000')], { receipt: 'not_required' }),
+          paid,
+          request(true),
+        ),
+      code('CONFLICT'),
+      method,
+    );
   for (const [sale, order, body] of [
     [recorded, paid, request(false)],
+    [free, paid, request(true)],
     [
       posSale([cash]),
       { state: 'cancelled', version: 2 },

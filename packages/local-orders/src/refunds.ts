@@ -110,7 +110,10 @@ export interface PosVoidPlan {
  * returns the whole sale and is its only refund), every tender returned in full.
  * fiscal_sale_issued says whether the sale receipt was punched in Webkassa: then a return receipt
  * is due (pending); otherwise a pending sale receipt is no longer required and neither is the
- * return. A recorded sale receipt was issued, so `false` contradicts it (CONFLICT).
+ * return. The answer must agree with the receipt record (CONFLICT otherwise): a recorded sale
+ * receipt was issued, so `false` contradicts it; a sale whose receipt was not required
+ * (aggregator, ChocoFood, staff meal, marketing or a not_required method) has no Webkassa sale,
+ * so `true` contradicts it and would ask for a return receipt of a sale never fiscalized.
  */
 export function planPosVoid(
   sale: PosSale,
@@ -120,7 +123,11 @@ export function planPosVoid(
   if (order.state !== 'paid' || order.version !== request.expected_version || sale.refunds.length)
     throw new OrderError('CONFLICT');
   const receipt = sale.fiscal.find((row) => row.kind === 'sale');
-  if (!receipt || (receipt.state === 'recorded' && !request.fiscal_sale_issued))
+  if (
+    !receipt ||
+    (receipt.state === 'recorded' && !request.fiscal_sale_issued) ||
+    (receipt.state === 'not_required' && request.fiscal_sale_issued)
+  )
     throw new OrderError('CONFLICT');
   return {
     parts: sale.tenders.map((tender) => ({
