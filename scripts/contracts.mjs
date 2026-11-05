@@ -1061,6 +1061,25 @@ Object.assign(openapi.paths, {
     CourierIncident: jsonSchema(kds.CourierIncidentSchema),
     CourierIncidentList: jsonSchema(kds.CourierIncidentListSchema),
   });
+  Object.assign(openapi.paths, {
+    '/edge/v1/fulfillment/layout': fulfillmentOperation(
+      'get',
+      'getLocalKdsLayout',
+      'FulfillmentLayout',
+    ),
+    '/edge/v1/fulfillment/kds/breading': fulfillmentOperation(
+      'get',
+      'getLocalKdsBreading',
+      'KdsBreading',
+      undefined,
+      {},
+      [limitParameter],
+    ),
+  });
+  openapi.paths['/edge/v1/fulfillment/layout'].get.description +=
+    ' KDS layout of the point: {enabled:false} while kds_settings.layout_enabled is off or schema027 is missing (the kitchen client keeps its old screen); otherwise the layout version, shift mode, the KDS stations and the stations of the requesting terminal (0..2 screens). An older edge answers 404.';
+  openapi.paths['/edge/v1/fulfillment/kds/breading'].get.description +=
+    ' Breading station 6 view: prep terminal and access to the breading station. Accepted or in-production orders, oldest first, whose open assembly table tasks hold breading products; fingers only when the layout counts them. 404 while the KDS layout is off.';
 }
 // cutover:kds end
 
