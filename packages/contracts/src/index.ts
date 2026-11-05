@@ -102,6 +102,15 @@ export const MenuItemKitchenSchema = z.strictObject({
 });
 export const MenuItemKindSchema = z.enum(['item', 'combo', 'set']);
 
+/**
+ * Aggregator prices of one menu item (cutover Аг4). A key is present only when the item is sold
+ * in that aggregator channel; the own-channel price stays price_minor. Sent only to edges that
+ * advertise the aggregator_prices menu feature; installed edges parse strictly and never get it.
+ */
+export const MenuAggregatorPricesSchema = z
+  .strictObject({ yandex_eda: MoneyMinorSchema.optional(), glovo: MoneyMinorSchema.optional() })
+  .refine((prices) => Object.keys(prices).length > 0, 'Empty aggregator prices');
+
 export const MenuItemSchema = z
   .strictObject({
     product_id: UuidSchema,
@@ -125,6 +134,7 @@ export const MenuItemSchema = z
       .optional(),
     // Optional unified-menu fields: installed POS/edge parsers ignore or never receive them.
     source_id: MenuSourceIdSchema.optional(),
+    aggregator_prices_minor: MenuAggregatorPricesSchema.optional(),
     sku: z
       .string()
       .regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/)
@@ -313,8 +323,9 @@ export const EdgeMenuStateQuerySchema = z.strictObject({
  * comma-separated query key `menu_features` (outside EdgeMenuStateQuerySchema). Installed clouds
  * ignore unknown query keys and installed edges never send it; a cloud ignores values it does
  * not know. combo_stops: the edge applies combo_component_variant_ids / linked_variant_id.
+ * aggregator_prices: the edge prices aggregator channels from aggregator_prices_minor.
  */
-export const EdgeMenuFeatureSchema = z.enum(['combo_stops']);
+export const EdgeMenuFeatureSchema = z.enum(['combo_stops', 'aggregator_prices']);
 export const EDGE_MENU_FEATURES_QUERY_KEY = 'menu_features';
 export type EdgeMenuFeature = z.infer<typeof EdgeMenuFeatureSchema>;
 export const AckReceiptSchema = z.strictObject({
@@ -577,6 +588,7 @@ export const jsonSchema = (schema: z.ZodType) => z.toJSONSchema(schema);
 export * from './fulfillment.js';
 
 export * from './customer-commerce.js';
+export * from './cutover-enums.js';
 
 export * from './device-access.js';
 export * from './notifications.js';

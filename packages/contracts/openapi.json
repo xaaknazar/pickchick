@@ -13143,6 +13143,20 @@
                   "type": "string",
                   "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
                 },
+                "aggregator_prices_minor": {
+                  "type": "object",
+                  "properties": {
+                    "yandex_eda": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,18})$"
+                    },
+                    "glovo": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,18})$"
+                    }
+                  },
+                  "additionalProperties": false
+                },
                 "sku": {
                   "type": "string",
                   "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
@@ -13705,6 +13719,20 @@
                           "type": "string",
                           "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
                         },
+                        "aggregator_prices_minor": {
+                          "type": "object",
+                          "properties": {
+                            "yandex_eda": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9]\\d{0,18})$"
+                            },
+                            "glovo": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9]\\d{0,18})$"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
                         "sku": {
                           "type": "string",
                           "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
@@ -14165,6 +14193,20 @@
                                 "source_id": {
                                   "type": "string",
                                   "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                                },
+                                "aggregator_prices_minor": {
+                                  "type": "object",
+                                  "properties": {
+                                    "yandex_eda": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9]\\d{0,18})$"
+                                    },
+                                    "glovo": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9]\\d{0,18})$"
+                                    }
+                                  },
+                                  "additionalProperties": false
                                 },
                                 "sku": {
                                   "type": "string",

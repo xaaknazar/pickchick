@@ -11,3 +11,4 @@ export * from './routing.js';
 export * from './media.js';
 export * from './restore-fence.js';
 export * from './station-plan.js';
+export * from './channel-prices.js';
