@@ -18,7 +18,6 @@ import type {
 } from '@pickchick/contracts';
 import { transaction } from '@pickchick/database';
 import type { DatabaseClient, DatabasePool } from '@pickchick/database';
-import { hashJson } from '@pickchick/menu-sync';
 import { audit, authenticateStaff, requirePermission } from './staff.js';
 import type { StaffAuth } from './staff.js';
 import { command } from './commands.js';
@@ -34,6 +33,12 @@ import {
 import { consumeApproval, posSalesInstalled } from './approvals.js';
 import type { ConsumedApproval } from './approvals.js';
 import { loadPaymentMethods } from './payment-methods.js';
+import {
+  FISCAL_RECEIPT_COLUMNS,
+  appendFiscalEvent,
+  appendPosSaleEvent,
+  fiscalReceipt,
+} from './pos-outbox.js';
 
 const MAX_BIGINT = 9223372036854775807n;
 type RevenueKind = 'revenue' | 'staff_meal' | 'marketing';
@@ -183,19 +188,6 @@ export async function loadPosSale(
     cashier_staff_id: sale.cashier_staff_id,
     created_at: sale.created_at.toISOString(),
   });
-}
-
-async function appendPosSaleEvent(
-  client: DatabaseClient,
-  branchId: string,
-  kind: 'sale' | 'fiscal',
-  entityId: string,
-  payload: Record<string, unknown>,
-) {
-  await client.query(
-    'INSERT INTO pos_sale_outbox(branch_id,kind,entity_id,payload,payload_hash) VALUES($1,$2,$3,$4,$5)',
-    [branchId, kind, entityId, payload, hashJson(payload)],
-  );
 }
 
 /**
@@ -362,8 +354,7 @@ export async function createPosSale(
           `INSERT INTO pos_fiscal_receipts(id,branch_id,order_id,kind,state,receipt_number,amount_minor,
            recorded_by_staff_id,recorded_at)
            VALUES($1,$2,$3,'sale',$4,$5,$6,$7,CASE WHEN $5::text IS NULL THEN NULL ELSE clock_timestamp() END)
-           RETURNING id,order_id,refund_id,kind,mode,state,receipt_number,version,
-             amount_minor::text AS amount_minor,recorded_by_staff_id,recorded_at`,
+           RETURNING ${FISCAL_RECEIPT_COLUMNS}`,
           [
             randomUUID(),
             branchId,
@@ -396,19 +387,7 @@ export async function createPosSale(
         tenders: sale.tenders,
         created_at: sale.created_at,
       });
-      await appendPosSaleEvent(client, branchId, 'fiscal', receipt.id, {
-        receipt_id: receipt.id,
-        order_id: receipt.order_id,
-        refund_id: receipt.refund_id,
-        kind: receipt.kind,
-        mode: receipt.mode,
-        state: receipt.state,
-        receipt_number: receipt.receipt_number,
-        version: receipt.version,
-        amount_minor: receipt.amount_minor,
-        recorded_by_staff_id: receipt.recorded_by_staff_id,
-        recorded_at: receipt.recorded_at?.toISOString() ?? null,
-      });
+      await appendFiscalEvent(client, branchId, fiscalReceipt(receipt));
       const order = await loadOrder(client, branchId, actor, orderId);
       await orderEvent(client, order, 'order.created');
       await audit(client, branchId, actor.staff_id, 'pos_sale.created', orderId);
