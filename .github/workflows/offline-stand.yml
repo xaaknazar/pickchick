@@ -4,7 +4,8 @@ name: Offline stand
 # 15 minutes; soak and backlog runs are limited by the hosted runner's 6-hour job limit.
 on:
   push:
-    branches: ['codex/stage2-windows-1030', 'codex/stage2-candidate-1105', 'codex/stage2-runtime-1105']
+    branches:
+      ['codex/stage2-windows-1030', 'codex/stage2-candidate-1105', 'codex/stage2-runtime-1105']
   workflow_dispatch:
     inputs:
       mode:
