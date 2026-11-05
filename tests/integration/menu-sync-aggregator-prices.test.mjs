@@ -334,7 +334,8 @@ test('catalog publication: off refuses aggregator prices and keeps releases as b
     await save(on, own);
     await assert.rejects(publish(on), (error) => error.reason === 'CHANNEL_PRICES_NOT_SUPPORTED');
     // The published catalog payload keeps the keys for the cloud; the storefront strip drops them.
-    const { storefrontPayload } = await import('../../packages/commerce-core/dist/catalog-media.js');
+    const { storefrontPayload } =
+      await import('../../packages/commerce-core/dist/catalog-media.js');
     const head = (
       await cloud.pool.query(
         'SELECT p.payload FROM catalog_branch_heads h JOIN catalog_publications p ON p.branch_id=h.branch_id AND p.version=h.published_version WHERE h.branch_id=$1',
