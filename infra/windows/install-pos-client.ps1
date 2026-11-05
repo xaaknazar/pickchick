@@ -22,7 +22,8 @@ param(
     [Parameter(ParameterSetName='Install')][guid]$TerminalId=[guid]::Empty,
     [Parameter(ParameterSetName='Install')][string]$PrinterQueue='',
     [Parameter(ParameterSetName='Install')][string]$PrinterAddress='',
-    [Parameter(ParameterSetName='Install')][ValidateRange(1,65535)][int]$PrinterPort=9100,
+    # Raw ESC/POS printing is pinned to 9100 (contracts section 5.8); the parameter stays for scripts that pass it.
+    [Parameter(ParameterSetName='Install')][ValidateRange(9100,9100)][int]$PrinterPort=9100,
     [Parameter(ParameterSetName='Install')][switch]$DrawerKick,
     [Parameter(ParameterSetName='Install')][switch]$Replace,
     [Parameter(Mandatory=$true,ParameterSetName='Autostart')][ValidateSet('On','Off')][string]$Autostart,
@@ -220,7 +221,7 @@ function New-PosPrinter([string]$Queue,[string]$Address,[int]$Port,[bool]$Kick) 
     }
     if($Address) {
         if(-not (Test-LanIPv4 $Address)) {throw 'POS_PRINTER_INVALID: -PrinterAddress must be a private IPv4.'}
-        if($Port -lt 1 -or $Port -gt 65535) {throw 'POS_PRINTER_INVALID: -PrinterPort.'}
+        if($Port -ne 9100) {throw 'POS_PRINTER_INVALID: -PrinterPort must be 9100 (contracts section 5.8).'}
         return [ordered]@{mode='escpos-tcp';host=$Address;port=$Port;drawerKick=$Kick}
     }
     if($Kick) {throw 'POS_PRINTER_INVALID: -DrawerKick needs -PrinterAddress.'}

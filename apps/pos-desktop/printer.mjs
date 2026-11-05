@@ -87,7 +87,8 @@ export function privateIPv4(value) {
  * The `printer` key of config.json (contracts sections 5.8 and 6.1). Absent: printing is not
  * configured and the desk sells exactly as before.
  *   {mode:'windows-driver', deviceName}            the Windows printer queue of this desk
- *   {mode:'escpos-tcp', host, port?, drawerKick?}  a LAN printer at a private IPv4, port 9100
+ *   {mode:'escpos-tcp', host, port?, drawerKick?}  a LAN printer at a private IPv4; the port is
+ *                                                  9100 only (section 5.8 pins it; absent: 9100)
  */
 export function validatePrinter(value) {
   if (value === undefined) return undefined;
@@ -100,14 +101,7 @@ export function validatePrinter(value) {
     if (value.mode === 'escpos-tcp') {
       keys(value, ['mode', 'host'], ['port', 'drawerKick']);
       const { host, port = 9100, drawerKick = false } = value;
-      if (
-        !privateIPv4(host) ||
-        !Number.isInteger(port) ||
-        port < 1 ||
-        port > 65535 ||
-        typeof drawerKick !== 'boolean'
-      )
-        throw new Error();
+      if (!privateIPv4(host) || port !== 9100 || typeof drawerKick !== 'boolean') throw new Error();
       return Object.freeze({ mode: value.mode, host, port, drawerKick });
     }
     throw new Error();

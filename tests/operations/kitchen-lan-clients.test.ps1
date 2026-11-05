@@ -200,6 +200,7 @@ Assert-Throws { New-PosPrinter 'Queue' '10.20.0.50' 9100 $false } 'POS_PRINTER_I
 Assert-Throws { New-PosPrinter 'Queue' '' 9100 $true } 'POS_PRINTER_INVALID' 'drawer kick on the driver'
 Assert-Throws { New-PosPrinter '' '' 9100 $true } 'POS_PRINTER_INVALID' 'drawer kick without a printer'
 Assert-Throws { New-PosPrinter '' '8.8.8.8' 9100 $false } 'POS_PRINTER_INVALID' 'public printer address'
+Assert-Throws { New-PosPrinter '' '10.20.0.50' 9101 $false } 'POS_PRINTER_INVALID' 'raw printing port other than 9100'
 
 # ---- Files, versions, autostart guard ----
 $file = Join-Path $out 'written.json'

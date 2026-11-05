@@ -99,6 +99,10 @@ test('printer settings: Windows queue or a LAN ESC/POS printer, nothing else', (
     { mode: 'escpos-tcp', host: 'printer.invalid' },
     { mode: 'escpos-tcp', host: LAN_PRINTER, port: 0 },
     { mode: 'escpos-tcp', host: LAN_PRINTER, port: '9100' },
+    // Section 5.8 pins the raw printing port: any other is refused, never tried.
+    { mode: 'escpos-tcp', host: LAN_PRINTER, port: 9101 },
+    { mode: 'escpos-tcp', host: LAN_PRINTER, port: 515 },
+    { mode: 'escpos-tcp', host: LAN_PRINTER, port: 9100.5 },
     { mode: 'escpos-tcp', host: LAN_PRINTER, drawerKick: 'yes' },
     { mode: 'escpos-tcp', host: LAN_PRINTER, deviceName: 'POS-80' },
   ])
