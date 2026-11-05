@@ -31,19 +31,44 @@ ProjectSync не поддерживает скобки в именах инди�
 - TypeScript, ESLint, Prettier, translations --check, design:check PASS.
 - Два Python-теста сборщика получили фиксированный app.json fixture: смена
   пользовательской версии больше не ломает проверку имени артефакта.
-- Production web-export создан; браузерная приёмка выполняется отдельно.
+- Production web-export: 101 экран storefront PASS; 2298 проверяемых запросов
+  на api.pickchick.kz, 0 на nip.io. Проверочный аккаунт RU/KK/EN PASS (522
+  обращения к этому домену), ответы сервера искусственные, банковских счетов нет.
+- 5 тестов страницы поддержки PASS; сайт не публиковался.
+- PR307 включён обычным merge 8409830627745c885ba6aada6c51b5a55dda7da2.
+  Проверенная вершина 1fb5ba04deb67029eb49e9b05352600ba9754f48;
+  [Foundation CI](https://github.com/xaaknazar/pickchick/actions/runs/41986578348)
+  PASS 11/11, дополнительные roadmap/photo-printer проверки также зелёные.
+- Android Studio 2026.2.1.8 (rabbit1), встроенная Java 25.0.3 установлены.
+  SHA-256 установщика проверен перед установкой. Gradle шаблона Expo: 9.3.1.
+- Постоянный upload key RSA-4096 / PKCS12 создан. Пароль случайный, хранится
+  в локальной login Keychain macOS; файл ключа 0600, каталог 0700, вне проекта
+  и iCloud. Пароль передаётся keytool/Gradle через память и окружение, не argv.
+  Повторное чтение сертификата через Keychain успешно.
+
+SHA-256 сертификата upload key (не содержимое ключа):
+
+`3B:50:AC:C2:B0:F3:CF:D7:07:B6:1B:9C:F0:EE:DC:F2:E8:36:2C:4B:5C:92:53:39:56:B2:6F:CA:9B:0E:8E:56`
+
+Событие doctor: feature_profile=production, environment=production,
+api_url=https://api.pickchick.kz, profile_from_default=false, без warning.
+Doctor пока FAIL: отсутствуют platform android-36, build-tools 35.0.0/36.0.0,
+NDK 27.1.12297006 и CMake 3.22.1. Автоматическая проверка разрешений отклонила
+ответ «да» на юридическую лицензию без отдельного согласия владельца.
+Владельцу передан [текст лицензии Android SDK](https://developer.android.com/studio/terms),
+ответ пока ожидается. Обхода блокировки и принятия лицензии не было.
 
 ## Пока не подтверждено
 
-- Полная Foundation CI и merge Android PR.
-- Android Studio/SDK устанавливаются; doctor без FAIL ещё не получен.
-- Постоянный upload key, подписанный AAB и Inspect PASS с 7 разрешениями.
+- Установка SDK и doctor без FAIL после согласия владельца на лицензию.
+- Подписанный AAB и Inspect PASS с 7 разрешениями; build ещё не запускался.
 - Физический Android, включая аппаратную Назад и ощутимую вибрацию.
 - FCM/Google Services не настроены; доставка push не заявляется рабочей.
 
 Офлайн-носитель для резервной копии ключа и пароля владелец подготовит позже.
 Ни ключ, ни пароль в этот протокол не записываются. После выпуска сюда будут
-добавлены только SHA-256 сертификата/AAB и проверенные результаты doctor/inspect.
+добавлены SHA-256 AAB и проверенные результаты doctor/build/inspect. Отпечаток
+сертификата уже зафиксирован выше; AAB и его SHA-256 пока отсутствуют.
 
 ## Последующие шаги только по отдельному разрешению
 
