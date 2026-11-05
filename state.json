@@ -7002,14 +7002,12 @@
         "docs/operations/mobile-testflight30.md",
         "docs/operations/mobile-testflight30-evidence.json",
         "patches",
-        "tests/mobile/uri-decoder-security.test.mjs",
-        "pnpm-workspace.yaml",
-        "pnpm-lock.yaml"
+        "tests/mobile/uri-decoder-security.test.mjs"
       ],
       "status": "available",
       "head": "b32808225f3f88bfa45746f18fbfff2bb0be6bf8",
-      "updatedAt": "2026-11-05T07:09:43.967Z",
-      "summary": "Исправлена казахская подсказка оплаты: Jost не содержит ғөңі, вся kk-фраза использует системный полужирный. Коммит b3280822, PR296 обновлён. Typecheck/lint/format, web-export, браузерные AI и 7 roadmap PASS. RU/EN и логика оплаты сохранены. TestFlight30 доступен, но новая правка шрифта в него не входит. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/screens/PhotoProduct.tsx, apps/mobile/src/components/CartShortcut.tsx Documentation continuity transferred to mobile-kazakh-review-1030; build30 and release scopes retained. Owner requested next publication 30.10; release scopes transferred to mobile-kazakh-review-1030.\n2026-11-02: owner approved temporary transfer of pnpm-workspace.yaml and pnpm-lock.yaml from mobile-cart-mode-1029 to front-longpoll-1101 for official node-forge 1.4.1 security update; return after merge. No deploy authorized by this transfer.\n2026-11-02: package scopes returned after PR #301 ordinary merge, node-forge 1.4.1 and full green Foundation CI 41486431876. Integrate shared before further dependency edits.\n2026-11-02 owner approved temporary transfer to mobile-closed-notice-1102: tests/mobile/browser_cart_unavailable.py. Existing behavior preserved; return after merge. Owner approved temporary transfer of 1 exact Android files to mobile-android-1105 on 2026-11-05. Broad app route scope retained because registry cannot express bracketed route names: auth.tsx only is authorized shared scope; all other routes remain here.",
+      "updatedAt": "2026-11-05T09:49:32.321Z",
+      "summary": "Исправлена казахская подсказка оплаты: Jost не содержит ғөңі, вся kk-фраза использует системный полужирный. Коммит b3280822, PR296 обновлён. Typecheck/lint/format, web-export, браузерные AI и 7 roadmap PASS. RU/EN и логика оплаты сохранены. TestFlight30 доступен, но новая правка шрифта в него не входит. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/screens/PhotoProduct.tsx, apps/mobile/src/components/CartShortcut.tsx Documentation continuity transferred to mobile-kazakh-review-1030; build30 and release scopes retained. Owner requested next publication 30.10; release scopes transferred to mobile-kazakh-review-1030.\n2026-11-02: owner approved temporary transfer of pnpm-workspace.yaml and pnpm-lock.yaml from mobile-cart-mode-1029 to front-longpoll-1101 for official node-forge 1.4.1 security update; return after merge. No deploy authorized by this transfer.\n2026-11-02: package scopes returned after PR #301 ordinary merge, node-forge 1.4.1 and full green Foundation CI 41486431876. Integrate shared before further dependency edits.\n2026-11-02 owner approved temporary transfer to mobile-closed-notice-1102: tests/mobile/browser_cart_unavailable.py. Existing behavior preserved; return after merge. Owner approved temporary transfer of 1 exact Android files to mobile-android-1105 on 2026-11-05. Broad app route scope retained because registry cannot express bracketed route names: auth.tsx only is authorized shared scope; all other routes remain here.\n05.11: владелец разрешил перенести готовое исправление node-forge 1.4.1 из shared в резервного кандидата stage2 и временно передать два файла зависимостей задаче stage2-candidate-1105; остальные области сохранены.",
       "nextAction": "Дождаться полной CI PR296 и включить изменения в shared; нативная проверка шрифта и следующий TestFlight отдельным выпуском. Не менять VPS/кассу/iPad/App Store/онлайн-пульт, реальные платежи не выполнять."
     },
     {
@@ -7325,12 +7323,14 @@
         "docs/collaboration/handoff.md",
         "@vps/public-https",
         "docs/project-status.md",
-        "docs/roadmap/project.json"
+        "docs/roadmap/project.json",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml"
       ],
       "status": "active",
       "head": "1a9472f1dc2a34b8ab4db7beb6f9c5616ed23f73",
-      "updatedAt": "2026-11-05T09:13:13.570Z",
-      "summary": "05.11.2026: владелец явно разрешил временную передачу серверных областей и общих записей задаче stage2-candidate-1105 для четырёх серверных шагов; кассовые, мобильные и остальные резервы сохранены."
+      "updatedAt": "2026-11-05T09:49:32.321Z",
+      "summary": "05.11.2026: владелец явно разрешил временную передачу серверных областей и общих записей задаче stage2-candidate-1105 для четырёх серверных шагов; кассовые, мобильные и остальные резервы сохранены.\n05.11: владелец разрешил перенести готовое исправление node-forge 1.4.1 из shared в резервного кандидата stage2 и временно передать два файла зависимостей задаче stage2-candidate-1105; остальные области сохранены."
     }
   ]
 }
