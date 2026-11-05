@@ -189,6 +189,14 @@ export const saleErrorMessage = (error: unknown, context: SaleErrorContext = {})
     RECEIPT_NUMBER_INVALID: 'Номер чека Webkassa - от 1 до 40 символов',
     RECEIPT_NOT_PENDING: 'Этот чек уже оформлен',
     AGGREGATOR_TAKEAWAY_ONLY: 'Заказ агрегатора - только с собой',
+    // Void, refund, Webkassa receipts and closing a sales shift (part B).
+    REFUND_REASON_REQUIRED: 'Выберите причину',
+    REFUND_AMOUNT_INVALID: 'Введите сумму возврата хотя бы по одной оплате',
+    FISCAL_SALE_ANSWER_REQUIRED: 'Ответьте: чек продажи уже пробит в Webkassa?',
+    SALE_NOT_ACTIVE: 'Заказ уже отменён или возвращён полностью',
+    RECEIPT_NUMBER_SAME: 'Это тот же номер чека',
+    PRINTER_NOT_CONFIGURED: 'Печать не настроена',
+    PRINT_FAILED: 'Принтер не ответил. Проверьте принтер и бумагу; повторите печать вручную.',
   };
   return text[code] ?? errorMessage(error);
 };

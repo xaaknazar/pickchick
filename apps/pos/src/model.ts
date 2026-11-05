@@ -2,13 +2,17 @@ import * as parse from './types.js';
 import type {
   Approval,
   Cart,
+  FiscalPendingItem,
   LocalOrder,
   MenuSnapshot,
   PosConfig,
   PosPaymentMethod,
   PosSale,
   Quote,
+  RefundReason,
+  SaleFiscal,
   SalesChannel,
+  ShiftReport,
   StaffCredential,
   StaffSession,
   Stop,
@@ -39,7 +43,9 @@ export type Pending = {
     | 'shift_close'
     | 'shift_move'
     | 'sale'
-    | 'fiscal_record';
+    | 'fiscal_record'
+    | 'void'
+    | 'refund';
   at: string;
   /** fiscal_record: the order whose sale is read again once the receipt number is stored. */
   subject?: string;
@@ -69,15 +75,66 @@ export type SalePayment =
   | { method: 'aggregator' }
   | { method: 'staff_meal'; beneficiary: string }
   | { method: 'marketing'; reason: string };
-export type ApprovalAction = 'staff_meal' | 'marketing';
-/** One-time shift manager approval for this quote; never written to the journal with a PIN. */
+/** Approval actions the cashier asks for (contracts section 2.1, P0 subset). */
+export type ApprovalAction =
+  'staff_meal' | 'marketing' | 'void' | 'refund' | 'fiscal_correct' | 'shift_close_pending_fiscal';
+/**
+ * What one approval is for (POST staff/approvals `subject`). Built only by the helpers below, so
+ * the key order is fixed and two subjects compare by their JSON.
+ */
+export type ApprovalSubject =
+  | { quote_id: string; amount_minor: string }
+  | { order_id: string; amount_minor: string }
+  | { shift_id: string; amount_minor: string };
+/** staff_meal, marketing: the quote being sold and its total. */
+export const quoteSubject = (q: Pick<Quote, 'quote_id' | 'total_minor'>): ApprovalSubject => ({
+  quote_id: q.quote_id,
+  amount_minor: q.total_minor,
+});
+/** void: the order and the money the void gives back (all that is left to refund). */
+export const voidSubject = (
+  sale: Pick<PosSale, 'order_id' | 'refundable_minor'>,
+): ApprovalSubject => ({ order_id: sale.order_id, amount_minor: sale.refundable_minor });
+/** refund: the order and the sum of the refunded tender amounts. */
+export const refundSubject = (
+  orderId: string,
+  tenders: readonly { amount_minor: string }[],
+): ApprovalSubject => ({
+  order_id: orderId,
+  amount_minor: tenders.reduce((sum, t) => sum + BigInt(t.amount_minor), 0n).toString(),
+});
+/** fiscal_correct: the order of the receipt and the receipt amount. */
+export const fiscalSubject = (
+  receipt: { order_id: string } & Pick<SaleFiscal, 'amount_minor'>,
+): ApprovalSubject => ({ order_id: receipt.order_id, amount_minor: receipt.amount_minor });
+/** shift_close_pending_fiscal: the shift and the total of its receipts still pending. */
+export const closeSubject = (
+  shiftId: string,
+  pending: readonly { amount_minor: string }[],
+): ApprovalSubject => ({
+  shift_id: shiftId,
+  amount_minor: pending.reduce((sum, r) => sum + BigInt(r.amount_minor), 0n).toString(),
+});
+/** One-time shift manager approval for one subject; never written to the journal with a PIN. */
 export type HeldApproval = Approval & {
   action: ApprovalAction;
-  quote_id: string;
-  amount_minor: string;
+  subject: ApprovalSubject;
   /** Local receive time: expiry uses the edge TTL, not the two clocks. */
   received_at: number;
 };
+/** A typed paper number (Webkassa receipt): 1..40 characters, no control characters. */
+const typedNumber = (value: string, code: string) => {
+  const result = value.trim();
+  if (
+    !result ||
+    result.length > 40 ||
+    [...result].some((c) => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127)
+  )
+    throw new Error(code);
+  return result;
+};
+const SALE_ACTIONS: readonly ApprovalAction[] = ['staff_meal', 'marketing'];
+const PIN_FORMAT = /^(?:[0-9]{4}|[0-9]{6})$/;
 export const blankSaleDraft = (): SaleDraft => ({
   channel: 'hall',
   serviceModeChosen: false,
@@ -119,6 +176,32 @@ const SALE_REJECTIONS = new Set([
   'APPROVAL_INVALID',
   'KITCHEN_UNAVAILABLE',
 ]);
+/**
+ * Definite answers to a void or refund (contracts section 5.1): the edge refused inside its
+ * transaction, the same key never succeeds. The order is read again; nothing is retried.
+ */
+const OPERATION_REJECTIONS = new Set([
+  'SERVICE_MODE_DISABLED',
+  'METHOD_DISABLED',
+  'TERMINAL_AMOUNT_NOT_WHOLE',
+  'APPROVAL_REQUIRED',
+  'APPROVAL_INVALID',
+  'ORDER_IN_PRODUCTION',
+  'REFUND_LIMIT',
+  'REFUND_NOT_SUPPORTED',
+  'DRAWER_INSUFFICIENT',
+]);
+/** Definite answers to closing a sales shift: pending receipts without a valid approval. */
+const CLOSE_REJECTIONS = new Set(['FISCAL_PENDING', 'APPROVAL_REQUIRED', 'APPROVAL_INVALID']);
+const VOID_KEYS = ['expected_version', 'reason_code', 'reason', 'fiscal_sale_issued', 'approval'];
+const REFUND_KEYS = ['refund_id', 'tenders', 'reason_code', 'reason', 'approval'];
+const CLOSE_KEYS = [
+  'expected_version',
+  'counted_cash_minor',
+  'reason',
+  'terminal_reported_minor',
+  'approval',
+];
 const approvalKey = (code: string) => code === 'APPROVAL_REQUIRED' || code === 'APPROVAL_INVALID';
 /** A paid-mode channel is offered when it and (for an aggregator) its method are switched on. */
 export function saleChannelEnabled(config: PosConfig, channel: SalesChannel): boolean {
@@ -135,22 +218,47 @@ export function mixableMethods(config: PosConfig): MixableMethod[] {
     config.methods.some((m) => m.code === code && m.enabled && m.allow_in_mix),
   );
 }
+/** The held approval covers exactly this action and subject and is not about to expire. */
 export function approvalValid(
   approval: HeldApproval | null,
-  quote: Quote | null,
   action: ApprovalAction,
+  subject: ApprovalSubject | null,
   now: number,
   ttlSeconds: number,
 ): approval is HeldApproval {
   return Boolean(
     approval &&
-    quote &&
+    subject &&
     approval.action === action &&
-    approval.quote_id === quote.quote_id &&
-    approval.amount_minor === quote.total_minor &&
+    JSON.stringify(approval.subject) === JSON.stringify(subject) &&
     now < approval.received_at + ttlSeconds * 1000 - APPROVAL_MARGIN_MS,
   );
 }
+/** The approval proof of a command body, or the error the cashier sees before anything is sent. */
+function approvalProof(
+  held: HeldApproval | null,
+  action: ApprovalAction,
+  subject: ApprovalSubject,
+  now: number,
+  ttlSeconds: number,
+) {
+  if (!held || held.action !== action) throw new Error('APPROVAL_REQUIRED');
+  if (!approvalValid(held, action, subject, now, ttlSeconds)) throw new Error('APPROVAL_INVALID');
+  return { approval_id: held.approval_id, token: held.token };
+}
+/** A journaled approval proof: exactly {approval_id, token}. */
+function parseProof(value: unknown) {
+  const a = parse.record(value);
+  if (Object.keys(a).length !== 2 || typeof a.token !== 'string' || !a.token) throw new Error();
+  parse.uuid(a.approval_id);
+}
+const refundReason = (code: unknown, text: unknown) => {
+  if (!(parse.REFUND_REASONS as readonly unknown[]).includes(code))
+    throw new Error('REFUND_REASON_REQUIRED');
+  if (typeof text !== 'string' || text.trim().length < 3 || text.trim().length > 300)
+    throw new Error('REASON_REQUIRED');
+  return { reason_code: code as RefundReason, reason: text.trim() };
+};
 /** Spare seconds so an approval or quote is never sent just as the edge lets it expire. */
 const APPROVAL_MARGIN_MS = 5000;
 const QUOTE_MARGIN_MS = 15000;
@@ -280,7 +388,7 @@ export function saleRequest(input: {
   if (action) {
     const held = input.approval;
     if (!held) throw new Error('APPROVAL_REQUIRED');
-    if (!approvalValid(held, quote, action, input.now, config.approval_ttl_seconds))
+    if (!approvalValid(held, action, quoteSubject(quote), input.now, config.approval_ttl_seconds))
       throw new Error('APPROVAL_INVALID');
     approval = { approval_id: held.approval_id, token: held.token };
   }
@@ -349,7 +457,21 @@ export type State = {
   sale: PosSale | null;
   saleDraft: SaleDraft;
   approval: HeldApproval | null;
+  /** "Чеки Webkassa": the last pending list read (this shift, or every shift). */
+  fiscal: FiscalPending | null;
+  /** Latest X report of this desk's open sales shift; null without one. */
+  shiftReport: ShiftReport | null;
+  /** Frozen Z report read after closing a sales shift. */
+  zReport: ShiftReport | null;
 };
+export type FiscalPending = {
+  scope: 'shift' | 'all';
+  shift_id: string | null;
+  receipts: FiscalPendingItem[];
+  at: number;
+};
+/** Every sale-mode field of a fresh state; they reset with the session and the paid mode. */
+const blankOperations = () => ({ fiscal: null, shiftReport: null, zReport: null });
 /** How often the header asks the edge about its cloud link (with the operations refresh). */
 export const CLOUD_LINK_POLL_MS = 10000;
 /** An edge that predates GET edge/v1/cloud-link (404) is asked again only after this pause. */
@@ -420,6 +542,7 @@ export class PosController {
     sale: null,
     saleDraft: blankSaleDraft(),
     approval: null,
+    ...blankOperations(),
   };
   private menuChanges = 0;
   private credential: StaffCredential | null = null;
@@ -593,24 +716,68 @@ export class PosController {
       parse.minor(body.amount_minor);
       parse.text(body.reason);
     } else if (p.kind === 'shift_close') {
-      if (!/^cash-shifts\/[0-9a-f-]+\/close$/.test(path) || Object.keys(body).length !== 3)
+      // Today's close has exactly three keys; a sales shift may add the Kaspi terminal total
+      // and the shift_close_pending_fiscal approval (contracts section 5.1).
+      const keys = Object.keys(body);
+      if (
+        !/^cash-shifts\/[0-9a-f-]+\/close$/.test(path) ||
+        keys.some((k) => !CLOSE_KEYS.includes(k)) ||
+        keys.length < 3
+      )
         throw new Error();
       parse.uuid(path.split('/')[1]);
       parse.integer(body.expected_version);
       parse.minor(body.counted_cash_minor);
       parse.text(body.reason);
+      if (body.terminal_reported_minor !== undefined) parse.minor(body.terminal_reported_minor);
+      if (body.approval !== undefined) parseProof(body.approval);
     } else if (p.kind === 'sale') {
       this.parseSaleBody(path, body);
     } else if (p.kind === 'fiscal_record') {
+      const keys = Object.keys(body);
       if (
         !/^pos\/fiscal-receipts\/[0-9a-f-]+\/record$/.test(path) ||
-        Object.keys(body).length !== 2
+        keys.some((k) => !['expected_version', 'receipt_number', 'approval'].includes(k)) ||
+        keys.length < 2
       )
         throw new Error();
       parse.uuid(path.split('/')[2]);
       parse.integer(body.expected_version);
       parse.text(body.receipt_number, 40);
+      if (body.approval !== undefined) parseProof(body.approval);
       parse.uuid(p.subject);
+    } else if (p.kind === 'void') {
+      if (
+        !/^pos\/sales\/[0-9a-f-]+\/void$/.test(path) ||
+        Object.keys(body).length !== VOID_KEYS.length ||
+        Object.keys(body).some((k) => !VOID_KEYS.includes(k)) ||
+        typeof body.fiscal_sale_issued !== 'boolean'
+      )
+        throw new Error();
+      parse.uuid(path.split('/')[2]);
+      parse.integer(body.expected_version);
+      refundReason(body.reason_code, body.reason);
+      parseProof(body.approval);
+    } else if (p.kind === 'refund') {
+      if (
+        !/^pos\/sales\/[0-9a-f-]+\/refunds$/.test(path) ||
+        Object.keys(body).length !== REFUND_KEYS.length ||
+        Object.keys(body).some((k) => !REFUND_KEYS.includes(k)) ||
+        !Array.isArray(body.tenders) ||
+        !body.tenders.length ||
+        body.tenders.length > 2
+      )
+        throw new Error();
+      parse.uuid(path.split('/')[2]);
+      parse.uuid(body.refund_id);
+      const ids = body.tenders.map((value) => {
+        const t = parse.record(value);
+        if (Object.keys(t).length !== 2 || parse.minor(t.amount_minor) === '0') throw new Error();
+        return parse.uuid(t.tender_id);
+      });
+      if (new Set(ids).size !== ids.length) throw new Error();
+      refundReason(body.reason_code, body.reason);
+      parseProof(body.approval);
     } else throw new Error();
     return {
       key: parse.uuid(p.key),
@@ -652,11 +819,7 @@ export class PosController {
     if (body.cash_tendered_minor !== undefined) parse.minor(body.cash_tendered_minor);
     if (body.beneficiary !== undefined) parse.text(body.beneficiary, 100);
     if (body.reason !== undefined && parse.text(body.reason).trim().length < 3) throw new Error();
-    if (body.approval !== undefined) {
-      const a = parse.record(body.approval);
-      if (Object.keys(a).length !== 2 || typeof a.token !== 'string' || !a.token) throw new Error();
-      parse.uuid(a.approval_id);
-    }
+    if (body.approval !== undefined) parseProof(body.approval);
   }
   async boot() {
     let stored: string | null;
@@ -761,8 +924,10 @@ export class PosController {
       sale: null,
       saleDraft: blankSaleDraft(),
       approval: null,
+      ...blankOperations(),
     };
     this.posConfigAt = -Infinity;
+    this.operationsSaleAt = -Infinity;
     this.posConfigMissingUntil = -Infinity;
     await this.refreshData();
     await this.readOperations();
@@ -813,6 +978,7 @@ export class PosController {
       sale: null,
       saleDraft: blankSaleDraft(),
       approval: null,
+      ...blankOperations(),
     };
     this.emit();
   }
@@ -964,6 +1130,20 @@ export class PosController {
     await this.readOperations();
     await this.refreshCloudLink();
     await this.refreshPosConfig();
+    await this.refreshSaleOperations();
+  }
+  private operationsSaleAt = -Infinity;
+  /**
+   * Paid mode only: pending Webkassa receipts and the X report of this desk, at most every
+   * POS_CONFIG_POLL_MS (or at once with force). Nothing here is ever asked in the unpaid mode.
+   */
+  async refreshSaleOperations(force = false) {
+    const now = this.now();
+    if (!this.saleMode || !this.credential) return;
+    if (!force && now - this.operationsSaleAt < POS_CONFIG_POLL_MS) return;
+    this.operationsSaleAt = now;
+    await this.refreshFiscal();
+    await this.refreshShiftReport();
   }
   /**
    * GET pos/config (contracts section 5.1). A 404 is an edge without paid sales: today's
@@ -1003,6 +1183,7 @@ export class PosController {
       if (wasSale && !this.saleMode) {
         this.state.saleDraft = blankSaleDraft();
         this.state.approval = null;
+        Object.assign(this.state, blankOperations());
       }
       this.emit();
     }
@@ -1355,6 +1536,22 @@ export class PosController {
         if (p.kind === 'fiscal_record' && p.subject) await this.refreshSale(p.subject);
         throw error;
       }
+      // Void, refund and closing a sales shift (contracts section 5.1, POS-3/4): a definite
+      // refusal ends the command; the approval it carried is spent or invalid either way.
+      if (
+        error instanceof ApiError &&
+        error.status >= 400 &&
+        error.status < 500 &&
+        (((p.kind === 'void' || p.kind === 'refund') && OPERATION_REJECTIONS.has(error.code)) ||
+          (p.kind === 'shift_close' && CLOSE_REJECTIONS.has(error.code)))
+      ) {
+        this.save({ ...j, pending: null });
+        this.state.approval = null;
+        if (p.kind === 'shift_close') await this.refreshFiscal();
+        else await this.reloadSaleOrder(p.path.split('/')[2]!);
+        if (error.code === 'SERVICE_MODE_DISABLED') await this.refreshPosConfig(true);
+        throw error;
+      }
       if (error instanceof ApiError && error.code === 'CONFLICT' && error.status === 409) {
         // The edge stores a command result only when it commits, and a committed same-key
         // replay returns that result. A 409 CONFLICT for this key is therefore a final
@@ -1413,14 +1610,65 @@ export class PosController {
       // The POST replays its historical result; GET is the authoritative current sale.
       await this.refreshSale(id);
       await this.readOperations();
+      await this.refreshSaleOperations(true);
       return;
     }
     if (p.kind === 'fiscal_record') {
       const r = parse.record(value);
-      if (r.receipt_id !== undefined && r.receipt_id !== p.path.split('/')[2])
+      if (
+        (r.receipt_id !== undefined && r.receipt_id !== p.path.split('/')[2]) ||
+        (r.receipt_number !== undefined && r.receipt_number !== p.body.receipt_number)
+      )
         throw new Error('INVALID_RESPONSE');
       this.save({ ...j, pending: null });
+      this.state.approval = null;
       if (p.subject) await this.refreshSale(p.subject);
+      await this.refreshFiscal();
+      return;
+    }
+    if (p.kind === 'void') {
+      // 200 {order, sale}: the order is cancelled and its sale carries the void.
+      const result = parse.saleResult(value);
+      const id = p.path.split('/')[2];
+      if (
+        result.order.order_id !== id ||
+        result.order.branch_id !== this.state.actor?.branch_id ||
+        result.order.state !== 'cancelled' ||
+        !result.sale.refunds.some((r) => r.kind === 'void')
+      )
+        throw new Error('INVALID_RESPONSE');
+      this.save({ ...j, pending: null });
+      this.state.approval = null;
+      if (!this.state.order || this.state.order.order_id === id) this.state.order = result.order;
+      if (!this.state.sale || this.state.sale.order_id === id) this.state.sale = result.sale;
+      await this.reloadSaleOrder(id!);
+      await this.readOperations();
+      await this.refreshSaleOperations(true);
+      return;
+    }
+    if (p.kind === 'refund') {
+      // PosSale: this refund is in it, on exactly the requested tenders.
+      const sale = parse.posSale(value);
+      const id = p.path.split('/')[2];
+      const refund = sale.refunds.find((r) => r.refund_id === p.body.refund_id);
+      const key = (t: { tender_id: unknown; amount_minor: unknown }) =>
+        `${t.tender_id}:${t.amount_minor}`;
+      if (
+        sale.order_id !== id ||
+        !refund ||
+        refund.kind !== 'refund' ||
+        !unchanged(
+          refund.tenders.map(key).sort(),
+          (p.body.tenders as Record<string, unknown>[]).map((t) => key(t as never)).sort(),
+        )
+      )
+        throw new Error('INVALID_RESPONSE');
+      this.save({ ...j, pending: null });
+      this.state.approval = null;
+      if (!this.state.sale || this.state.sale.order_id === id) this.state.sale = sale;
+      await this.reloadSaleOrder(id!);
+      await this.readOperations();
+      await this.refreshSaleOperations(true);
       return;
     }
     if (p.kind === 'create' || p.kind === 'cancel') {
@@ -1488,6 +1736,8 @@ export class PosController {
       }
       this.save({ ...j, pending: null });
       this.state.quote = null;
+      // A sales shift closed with its approval (if any): it is spent, never shown again.
+      if (p.kind === 'shift_close') this.state.approval = null;
       await this.refreshData();
       await this.readOperations();
     }
@@ -1513,9 +1763,13 @@ export class PosController {
       this.state.operationsAvailable = false;
       this.state.shift = null;
     }
+    if (p.kind === 'void' || p.kind === 'refund' || p.kind === 'fiscal_record')
+      this.state.approval = null;
     try {
       if (p.kind === 'cancel') await this.readOrder(p.path.split('/')[1]!);
       if (p.kind === 'fiscal_record' && p.subject) await this.readSale(p.subject);
+      if (p.kind === 'void' || p.kind === 'refund')
+        await this.reloadSaleOrder(p.path.split('/')[2]!);
       if (p.kind === 'stop') {
         const id = parse.uuid(p.body.variant_id);
         const s = parse.stop(await this.request(`availability/stops/${id}`));
@@ -1645,9 +1899,13 @@ export class PosController {
       this.state.quote && this.state.saleDraft.reviewed?.quote_id === this.state.quote.quote_id,
     );
   }
-  approvalFor(action: ApprovalAction) {
+  /** The held approval for this action and subject (a sale action: the shown quote), or null. */
+  approvalFor(action: ApprovalAction, subject?: ApprovalSubject) {
     const ttl = this.state.posConfig?.approval_ttl_seconds ?? 0;
-    return approvalValid(this.state.approval, this.state.quote, action, this.now(), ttl)
+    const target =
+      subject ??
+      (SALE_ACTIONS.includes(action) && this.state.quote ? quoteSubject(this.state.quote) : null);
+    return approvalValid(this.state.approval, action, target, this.now(), ttl)
       ? this.state.approval
       : null;
   }
@@ -1676,25 +1934,28 @@ export class PosController {
    * journaled: a lost answer only leaves an unused approval that expires; the PIN is asked
    * again. A refused PIN never ends the cashier's own session.
    */
-  async requestApproval(pin: string, action: ApprovalAction) {
-    if (!this.editable()) return;
+  async requestApproval(pin: string, action: ApprovalAction, subject?: ApprovalSubject) {
+    if (!this.journal || !this.state.actor || this.state.busy || this.state.storageBlocked) return;
+    if (this.journal.pending) {
+      this.fail(new Error('PENDING'));
+      return;
+    }
     await this.run(async () => {
       const actor = this.state.actor;
-      if (!actor || !this.saleMode || !this.state.quote) throw new Error('INVALID_REQUEST');
-      if (!/^(?:[0-9]{4}|[0-9]{6})$/.test(pin)) throw new Error('APPROVAL_PIN_REJECTED');
+      const sale = SALE_ACTIONS.includes(action);
+      if (!actor || !this.saleMode) throw new Error('INVALID_REQUEST');
+      // A sale action is for the quote on screen; every other action names its own subject.
+      if (sale ? !this.state.quote || this.state.order || subject : !subject)
+        throw new Error('INVALID_REQUEST');
+      if (!PIN_FORMAT.test(pin)) throw new Error('APPROVAL_PIN_REJECTED');
       this.state.approval = null;
-      const q = await this.freshQuote();
+      const target = sale ? quoteSubject(await this.freshQuote()) : subject!;
       let value: unknown;
       try {
         value = await this.request('staff/approvals', {
           method: 'POST',
           key: this.newKey(),
-          body: {
-            staff_id: actor.staff_id,
-            pin,
-            action,
-            subject: { quote_id: q.quote_id, amount_minor: q.total_minor },
-          },
+          body: { staff_id: actor.staff_id, pin, action, subject: target },
         });
       } catch (error) {
         // A refused manager PIN (401/403, any code) is not the cashier's session ending.
@@ -1708,13 +1969,7 @@ export class PosController {
         throw error;
       }
       const approval = parse.approval(value);
-      this.state.approval = {
-        ...approval,
-        action,
-        quote_id: q.quote_id,
-        amount_minor: q.total_minor,
-        received_at: this.now(),
-      };
+      this.state.approval = { ...approval, action, subject: target, received_at: this.now() };
     });
   }
   /** Pays the confirmed quote: one journaled POST pos/sales, replayed only with its own key. */
@@ -1741,17 +1996,54 @@ export class PosController {
   }
   /** Webkassa receipt number typed after the receipt was punched (Ч3, manual fiscal mode). */
   async recordReceipt(receiptNumber: string) {
+    const sale = this.state.sale,
+      receipt = sale?.fiscal.find((f) => f.kind === 'sale' && f.state === 'pending');
+    if (!sale || !receipt) {
+      this.fail(new Error('RECEIPT_NOT_PENDING'));
+      return;
+    }
+    await this.recordFiscal({ ...receipt, order_id: sale.order_id }, receiptNumber);
+  }
+  /**
+   * POST pos/fiscal-receipts/{id}/record: a pending receipt gets its number; a recorded one is
+   * corrected only with a fiscal_correct approval of the shift manager (contracts section 5.1).
+   * Journaled like every command, and read again with GET pos/sales/{order} afterwards.
+   */
+  async recordFiscal(
+    receipt: {
+      receipt_id: string;
+      order_id: string;
+      version: number;
+      amount_minor: string;
+      state: SaleFiscal['state'];
+      receipt_number?: string | null;
+    },
+    receiptNumber: string,
+  ) {
     await this.run(async () => {
-      const sale = this.state.sale,
-        receipt = sale?.fiscal.find((f) => f.kind === 'sale' && f.state === 'pending');
-      if (!sale || !receipt) throw new Error('RECEIPT_NOT_PENDING');
-      const number = receiptNumber.trim();
-      if (!number || number.length > 40) throw new Error('RECEIPT_NUMBER_INVALID');
+      if (!this.saleMode) throw new Error('SERVICE_MODE_DISABLED');
+      if (receipt.state === 'not_required') throw new Error('RECEIPT_NOT_PENDING');
+      const number = typedNumber(receiptNumber, 'RECEIPT_NUMBER_INVALID');
+      const correction = receipt.state === 'recorded';
+      if (correction && number === receipt.receipt_number) throw new Error('RECEIPT_NUMBER_SAME');
+      const approval = correction
+        ? approvalProof(
+            this.state.approval,
+            'fiscal_correct',
+            fiscalSubject(receipt),
+            this.now(),
+            this.state.posConfig?.approval_ttl_seconds ?? 0,
+          )
+        : undefined;
       await this.begin(
         'fiscal_record',
-        `pos/fiscal-receipts/${receipt.receipt_id}/record`,
-        { expected_version: receipt.version, receipt_number: number },
-        sale.order_id,
+        `pos/fiscal-receipts/${parse.uuid(receipt.receipt_id)}/record`,
+        {
+          expected_version: receipt.version,
+          receipt_number: number,
+          ...(approval ? { approval } : {}),
+        },
+        parse.uuid(receipt.order_id),
       );
     });
   }
@@ -1767,6 +2059,256 @@ export class PosController {
     } catch {
       /* The next done-screen action reads it again. */
     }
+  }
+  /** Best effort after a void or refund: the order (kitchen state, version) and its sale. */
+  private async reloadSaleOrder(orderId: string) {
+    try {
+      if (this.state.order?.order_id === orderId) await this.readOrder(orderId);
+    } catch {
+      /* The order card reads it again when it is opened. */
+    }
+    await this.refreshSale(orderId);
+  }
+  /**
+   * The paid order shown in the order card: GET orders/{id} and GET pos/sales/{id}. Its sale
+   * replaces any other one on screen; the done screen of a new order clears it again.
+   */
+  async openSale(orderId: string) {
+    await this.run(async () => {
+      if (!this.journal || this.journal.pending) throw new Error('PENDING');
+      if (!this.saleMode) throw new Error('SERVICE_MODE_DISABLED');
+      await this.readOrder(orderId);
+      if (this.state.order?.execution_mode !== 'pos_sale') throw new Error('INVALID_REQUEST');
+      this.state.sale = null;
+      this.state.approval = null;
+      await this.readSale(orderId);
+      this.save({
+        ...this.journal,
+        selected: orderId,
+        known: [orderId, ...this.journal.known.filter((v) => v !== orderId)].slice(0, 100),
+      });
+    });
+  }
+  /** The selected paid order and its sale, both read for the same order. */
+  private saleTarget() {
+    const order = this.state.order,
+      sale = this.state.sale;
+    if (!order || !sale || order.execution_mode !== 'pos_sale' || sale.order_id !== order.order_id)
+      throw new Error('INVALID_REQUEST');
+    if (order.state !== 'paid' || sale.refundable_minor === '0') throw new Error('SALE_NOT_ACTIVE');
+    return { order, sale };
+  }
+  /**
+   * POST pos/sales/{id}/void (contracts section 5.1): only before the kitchen starts, with a void
+   * approval of the shift manager for {order_id, refundable}. fiscal_sale_issued says whether the
+   * sale receipt is already in Webkassa: known for recorded and not required receipts, asked
+   * from the cashier for a pending one.
+   */
+  async voidSale(input: {
+    reason_code: RefundReason;
+    reason: string;
+    fiscal_sale_issued?: boolean;
+  }) {
+    await this.run(async () => {
+      if (!this.saleMode) throw new Error('SERVICE_MODE_DISABLED');
+      const { order, sale } = this.saleTarget();
+      if (order.fulfillment_state !== 'accepted') throw new Error('ORDER_IN_PRODUCTION');
+      const reason = refundReason(input.reason_code, input.reason);
+      const receipt = sale.fiscal.find((f) => f.kind === 'sale');
+      const issued =
+        receipt?.state === 'recorded'
+          ? true
+          : receipt?.state === 'pending'
+            ? input.fiscal_sale_issued
+            : false;
+      if (typeof issued !== 'boolean') throw new Error('FISCAL_SALE_ANSWER_REQUIRED');
+      const approval = approvalProof(
+        this.state.approval,
+        'void',
+        voidSubject(sale),
+        this.now(),
+        this.state.posConfig?.approval_ttl_seconds ?? 0,
+      );
+      await this.begin('void', `pos/sales/${order.order_id}/void`, {
+        expected_version: order.version,
+        ...reason,
+        fiscal_sale_issued: issued,
+        approval,
+      });
+    });
+  }
+  /**
+   * POST pos/sales/{id}/refunds (contracts section 5.1): back to the tenders it was paid with,
+   * each at most what it still holds, with a refund approval for {order_id, sum}. Cash comes
+   * out of this desk's drawer; a Kaspi terminal refund is made on the terminal first.
+   */
+  async refund(input: {
+    tenders: readonly { tender_id: string; amount_minor: string }[];
+    reason_code: RefundReason;
+    reason: string;
+  }) {
+    await this.run(async () => {
+      if (!this.saleMode) throw new Error('SERVICE_MODE_DISABLED');
+      const { order, sale } = this.saleTarget();
+      if (!input.tenders.length || input.tenders.length > 2)
+        throw new Error('REFUND_AMOUNT_INVALID');
+      const tenders = input.tenders.map((t) => {
+        const paid = sale.tenders.find((x) => x.tender_id === t.tender_id);
+        if (!paid) throw new Error('REFUND_AMOUNT_INVALID');
+        if (!(parse.REFUNDABLE_METHODS as readonly string[]).includes(paid.method))
+          throw new Error('REFUND_NOT_SUPPORTED');
+        let amount: bigint;
+        try {
+          amount = BigInt(parse.minor(t.amount_minor));
+        } catch {
+          throw new Error('REFUND_AMOUNT_INVALID');
+        }
+        if (amount <= 0n) throw new Error('REFUND_AMOUNT_INVALID');
+        if (paid.method === 'kaspi_terminal' && amount % 100n !== 0n)
+          throw new Error('TERMINAL_AMOUNT_NOT_WHOLE');
+        if (amount > parse.tenderRefundable(sale, paid.tender_id)) throw new Error('REFUND_LIMIT');
+        return { tender_id: paid.tender_id, amount_minor: amount.toString() };
+      });
+      if (new Set(tenders.map((t) => t.tender_id)).size !== tenders.length)
+        throw new Error('REFUND_AMOUNT_INVALID');
+      const reason = refundReason(input.reason_code, input.reason);
+      const subject = refundSubject(order.order_id, tenders);
+      if (BigInt(subject.amount_minor) > BigInt(sale.refundable_minor))
+        throw new Error('REFUND_LIMIT');
+      const approval = approvalProof(
+        this.state.approval,
+        'refund',
+        subject,
+        this.now(),
+        this.state.posConfig?.approval_ttl_seconds ?? 0,
+      );
+      await this.begin('refund', `pos/sales/${order.order_id}/refunds`, {
+        refund_id: this.newKey(),
+        tenders,
+        ...reason,
+        approval,
+      });
+    });
+  }
+  /** GET pos/fiscal-receipts/pending: this desk's open shift, or every shift of the branch. */
+  private async readFiscal(scope: FiscalPending['scope']) {
+    const shift = this.state.shift?.state === 'open' ? this.state.shift.shift_id : null;
+    const own = scope === 'shift' && shift;
+    const receipts = parse.fiscalPending(
+      await this.request(`pos/fiscal-receipts/pending${own ? `?shift_id=${shift}` : ''}`),
+    );
+    this.state.fiscal = {
+      scope: own ? 'shift' : 'all',
+      shift_id: own ? shift : null,
+      receipts,
+      at: this.now(),
+    };
+    return receipts;
+  }
+  /** Best effort for the badge and the tab; a failed read keeps the last list. */
+  async refreshFiscal(scope: FiscalPending['scope'] = this.state.fiscal?.scope ?? 'shift') {
+    if (!this.saleMode || !this.credential) return;
+    const epoch = this.generation;
+    try {
+      await this.readFiscal(scope);
+    } catch (error) {
+      if (epoch === this.generation && error instanceof ApiError && error.code === 'UNAUTHORIZED')
+        this.fail(error);
+      return;
+    }
+    if (epoch === this.generation) this.emit();
+  }
+  /** The X report of this desk's open shift, kept for the shift tab (best effort). */
+  async refreshShiftReport() {
+    const shift = this.state.shift;
+    if (!this.saleMode || !this.credential || shift?.state !== 'open') {
+      this.state.shiftReport = null;
+      return;
+    }
+    const epoch = this.generation;
+    try {
+      const report = await this.readReport('x', shift.shift_id);
+      if (epoch === this.generation) this.state.shiftReport = report;
+    } catch {
+      return;
+    }
+    if (epoch === this.generation) this.emit();
+  }
+  private async readReport(kind: 'x' | 'z', shiftId: string) {
+    const report = parse.shiftReport(
+      await this.request(`cash-shifts/${parse.uuid(shiftId)}/${kind}-report`),
+    );
+    if (report.kind !== kind || report.shift_id !== shiftId) throw new Error('INVALID_RESPONSE');
+    return report;
+  }
+  /** "X-отчёт": a fresh snapshot of the open shift; nothing changes on the edge. */
+  async xReport() {
+    await this.run(async () => {
+      const shift = this.state.shift;
+      if (!this.saleMode || shift?.state !== 'open') throw new Error('CASH_SHIFT_REQUIRED');
+      this.state.shiftReport = await this.readReport('x', shift.shift_id);
+    });
+  }
+  /** The frozen Z report of a closed sales shift (GET cash-shifts/{id}/z-report). */
+  async zReport(shiftId: string) {
+    await this.run(async () => {
+      if (!this.saleMode) throw new Error('SERVICE_MODE_DISABLED');
+      this.state.zReport = await this.readReport('z', shiftId);
+    });
+  }
+  /** Pending receipts of one shift, for the close wizard (the closing manager's session). */
+  async pendingForClose(shiftId: string) {
+    let result: FiscalPendingItem[] | null = null;
+    await this.run(async () => {
+      if (!this.saleMode) throw new Error('SERVICE_MODE_DISABLED');
+      if (this.state.shift?.shift_id !== shiftId) throw new Error('CASH_SHIFT_REQUIRED');
+      result = await this.readFiscal('shift');
+    });
+    return result as FiscalPendingItem[] | null;
+  }
+  /**
+   * Closes a sales shift (contracts section 5.1): today's body plus the Kaspi terminal total
+   * and, while receipts are pending, a shift_close_pending_fiscal approval for {shift, pending
+   * total}. The pending list is read again right before, so the approval matches what is left.
+   */
+  async closeSaleShift(
+    shiftId: string,
+    input: { counted_cash_minor: string; terminal_reported_minor?: string; reason: string },
+  ) {
+    await this.run(async () => {
+      if (!this.saleMode) throw new Error('SERVICE_MODE_DISABLED');
+      const shift = parse.cashShift(await this.request(`cash-shifts/${parse.uuid(shiftId)}`));
+      if (shift.branch_id !== this.state.actor?.branch_id || shift.state !== 'open')
+        throw new Error('CONFLICT');
+      parse.minor(input.counted_cash_minor);
+      if (input.terminal_reported_minor !== undefined) parse.minor(input.terminal_reported_minor);
+      const reason = input.reason.trim();
+      if (!reason || reason.length > 300) throw new Error('INVALID_REQUEST');
+      const pending = parse.fiscalPending(
+        await this.request(`pos/fiscal-receipts/pending?shift_id=${shiftId}`),
+      );
+      // Without an approval the edge refuses the same way (FISCAL_PENDING); say it before.
+      if (pending.length && this.state.approval?.action !== 'shift_close_pending_fiscal')
+        throw new Error('FISCAL_PENDING');
+      const approval = pending.length
+        ? approvalProof(
+            this.state.approval,
+            'shift_close_pending_fiscal',
+            closeSubject(shiftId, pending),
+            this.now(),
+            this.state.posConfig?.approval_ttl_seconds ?? 0,
+          )
+        : undefined;
+      await this.begin('shift_close', `cash-shifts/${shiftId}/close`, {
+        expected_version: shift.version,
+        counted_cash_minor: input.counted_cash_minor,
+        reason,
+        ...(input.terminal_reported_minor === undefined
+          ? {}
+          : { terminal_reported_minor: input.terminal_reported_minor }),
+        ...(approval ? { approval } : {}),
+      });
+    });
   }
   async cancel(reason: string) {
     await this.run(async () => {

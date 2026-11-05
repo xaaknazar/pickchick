@@ -5,7 +5,11 @@ import {
   POS_CONFIG_MISSING_MS,
   POS_CONFIG_POLL_MS,
   PosController,
+  closeSubject,
+  fiscalSubject,
   mixableMethods,
+  refundSubject,
+  voidSubject,
 } from '../../apps/pos/dist/model.js';
 import { ApiError, errorMessage, saleErrorMessage } from '../../apps/pos/dist/api.js';
 import { SaleView } from '../../apps/pos/dist/v2/sale-view.js';
@@ -19,6 +23,8 @@ import {
   pickupText,
   posConfig as parsePosConfig,
   posSale as parseSale,
+  shiftReport as parseReport,
+  tenderRefundable,
 } from '../../apps/pos/dist/types.js';
 
 const memory = () => {
@@ -566,6 +572,15 @@ function saleEdge({
     loseNextSale: false,
     quoteError: null,
     echoChannel: true,
+    // Part B: voids, refunds, receipts, X/Z and closing (contracts section 5.1, POS-3..5).
+    ops: [],
+    opReject: null,
+    loseNextOp: false,
+    started: new Set(),
+    used: new Set(),
+    closed: null,
+    reportOverride: null,
+    drawerTaken: 0n,
   };
   const quoteFor = (body) => {
     const unit = body.sales_channel ? channelPrice : state.price;
@@ -711,25 +726,290 @@ function saleEdge({
         expires_at: new Date(Date.now() + 120000).toISOString(),
         manager: { staff_id: randomUUID(), name: 'Тестовый начальник' },
       };
-      state.approvals.set(approval.approval_id, options.body);
+      state.approvals.set(approval.approval_id, {
+        ...options.body,
+        manager: approval.manager.staff_id,
+      });
       return approval;
     }
-    if (/^pos\/fiscal-receipts\/[0-9a-f-]+\/record$/.test(path)) {
-      const id = path.split('/')[2];
-      for (const sale of state.sales.values())
-        for (const receipt of sale.fiscal)
-          if (receipt.receipt_id === id) {
-            assert.equal(options.body.expected_version, receipt.version);
-            Object.assign(receipt, {
-              state: 'recorded',
-              receipt_number: options.body.receipt_number,
-              version: receipt.version + 1,
-            });
-            return { ...receipt };
-          }
-      throw new ApiError('NOT_FOUND', 404);
+    if (/^pos\/fiscal-receipts\/[0-9a-f-]+\/record$/.test(path))
+      return command(path, options, () => {
+        const id = path.split('/')[2];
+        for (const sale of state.sales.values())
+          for (const receipt of sale.fiscal)
+            if (receipt.receipt_id === id) {
+              if (options.body.expected_version !== receipt.version)
+                throw new ApiError('CONFLICT', 409);
+              // A recorded number is corrected only with a fiscal_correct approval.
+              if (receipt.state === 'recorded')
+                consume(options.body.approval, 'fiscal_correct', {
+                  order_id: sale.order_id,
+                  amount_minor: receipt.amount_minor,
+                });
+              else assert.equal(options.body.approval, undefined);
+              Object.assign(receipt, {
+                state: 'recorded',
+                receipt_number: options.body.receipt_number,
+                version: receipt.version + 1,
+              });
+              return { ...receipt, order_id: sale.order_id, mode: 'manual_webkassa' };
+            }
+        throw new ApiError('NOT_FOUND', 404);
+      });
+    if (path.startsWith('pos/fiscal-receipts/pending')) {
+      const shift = new URL(path, 'http://edge.invalid/').searchParams.get('shift_id');
+      return { receipts: pendingReceipts(shift) };
     }
+    if (/^pos\/sales\/[0-9a-f-]+\/void$/.test(path))
+      return command(path, options, () => voidSale(path.split('/')[2], options.body));
+    if (/^pos\/sales\/[0-9a-f-]+\/refunds$/.test(path))
+      return command(path, options, () => refundSale(path.split('/')[2], options.body));
+    if (/^cash-shifts\/[0-9a-f-]+\/x-report$/.test(path))
+      return state.reportOverride ?? report('x');
+    if (/^cash-shifts\/[0-9a-f-]+\/z-report$/.test(path)) {
+      if (!state.closed) throw new ApiError('CONFLICT', 409);
+      return report('z');
+    }
+    if (path === `cash-shifts/${f.shift.shift_id}/close` && options.method === 'POST')
+      return command(path, options, () => closeShift(options.body));
+    if (state.closed && path === 'cash-shifts/current')
+      return { shift: null, server_time: new Date().toISOString() };
+    if (state.closed && path === 'cash-shifts')
+      return { shifts: [state.closed], server_time: new Date().toISOString() };
+    if (state.closed && path === `cash-shifts/${f.shift.shift_id}`) return state.closed;
     return f.api(path, auth, options);
+  };
+  /** Idempotent command store of the synthetic edge: same key, same body, same result. */
+  const command = (path, options, run) => {
+    assert.equal(options.method, 'POST');
+    state.ops.push({ path, ...globalThis.structuredClone(options) });
+    const saved = state.commands.get(options.key);
+    if (saved) {
+      assert.equal(saved.body, JSON.stringify(options.body), 'same key, same body');
+      return globalThis.structuredClone(saved.result);
+    }
+    if (state.opReject) throw state.opReject;
+    const result = run();
+    state.commands.set(options.key, {
+      body: JSON.stringify(options.body),
+      result: globalThis.structuredClone(result),
+    });
+    if (state.loseNextOp) {
+      state.loseNextOp = false;
+      throw new ApiError('EDGE_UNREACHABLE');
+    }
+    return result;
+  };
+  /** One-time approval: same action, same subject, unused (contracts section 5.1). */
+  const consume = (proof, action, subject) => {
+    const issued = proof && state.approvals.get(proof.approval_id);
+    if (!proof) throw new ApiError('APPROVAL_REQUIRED', 409);
+    if (
+      !issued ||
+      issued.action !== action ||
+      JSON.stringify(issued.subject) !== JSON.stringify(subject) ||
+      state.used.has(proof.approval_id)
+    )
+      throw new ApiError('APPROVAL_INVALID', 409);
+    state.used.add(proof.approval_id);
+  };
+  const manualFiscal = (method) =>
+    state.config.methods.find((m) => m.code === method)?.fiscal_policy === 'manual_webkassa';
+  const tenderLeft = (sale, tender) =>
+    BigInt(tender.amount_minor) -
+    sale.refunds
+      .flatMap((r) => r.tenders)
+      .filter((t) => t.tender_id === tender.tender_id)
+      .reduce((n, t) => n + BigInt(t.amount_minor), 0n);
+  const pendingReceipts = (shift) =>
+    [...state.sales.values()]
+      .filter((sale) => !shift || sale.shift_id === shift)
+      .flatMap((sale) =>
+        sale.fiscal
+          .filter((r) => r.state === 'pending')
+          .map((r) => ({
+            receipt_id: r.receipt_id,
+            order_id: sale.order_id,
+            display_number: sale.display_number,
+            kind: r.kind,
+            amount_minor: r.amount_minor,
+            methods: sale.tenders.map((t) => t.method),
+            created_at: sale.created_at,
+            version: r.version,
+          })),
+      );
+  const drawer = () =>
+    BigInt(f.shift.opening_cash_minor) +
+    [...state.sales.values()].reduce((n, sale) => {
+      const cash = sale.tenders.find((t) => t.method === 'cash');
+      return cash ? n + tenderLeft(sale, cash) : n;
+    }, 0n);
+  const voidSale = (id, body) => {
+    const order = state.orders.get(id),
+      sale = state.sales.get(id);
+    if (!order || !sale) throw new ApiError('NOT_FOUND', 404);
+    if (state.started.has(id)) throw new ApiError('ORDER_IN_PRODUCTION', 409);
+    if (body.expected_version !== order.version || order.state !== 'paid')
+      throw new ApiError('CONFLICT', 409);
+    consume(body.approval, 'void', { order_id: id, amount_minor: sale.refundable_minor });
+    const refund = {
+      refund_id: randomUUID(),
+      kind: 'void',
+      amount_minor: sale.refundable_minor,
+      reason_code: body.reason_code,
+      approved_by_staff_id: state.approvals.get(body.approval.approval_id).manager,
+      created_at: new Date().toISOString(),
+      tenders: sale.tenders
+        .map((t) => ({ tender_id: t.tender_id, amount_minor: tenderLeft(sale, t).toString() }))
+        .filter((t) => t.amount_minor !== '0'),
+    };
+    sale.refunds.push(refund);
+    sale.refundable_minor = '0';
+    const receipt = sale.fiscal.find((r) => r.kind === 'sale');
+    if (receipt.state === 'pending' && !body.fiscal_sale_issued)
+      Object.assign(receipt, { state: 'not_required', version: receipt.version + 1 });
+    else if (receipt.state !== 'not_required')
+      sale.fiscal.push({
+        receipt_id: randomUUID(),
+        kind: 'refund',
+        state: 'pending',
+        receipt_number: null,
+        version: 1,
+        amount_minor: refund.amount_minor,
+      });
+    Object.assign(order, {
+      state: 'cancelled',
+      version: order.version + 1,
+      fulfillment_state: 'cancelled',
+      fulfillment: { ...order.fulfillment, version: 2, state: 'cancelled' },
+      cancellation_reason: body.reason,
+    });
+    return { order: { ...order }, sale: globalThis.structuredClone(sale) };
+  };
+  const refundSale = (id, body) => {
+    const sale = state.sales.get(id);
+    if (!sale) throw new ApiError('NOT_FOUND', 404);
+    const sum = body.tenders.reduce((n, t) => n + BigInt(t.amount_minor), 0n);
+    consume(body.approval, 'refund', { order_id: id, amount_minor: sum.toString() });
+    let cash = 0n;
+    for (const part of body.tenders) {
+      const tender = sale.tenders.find((t) => t.tender_id === part.tender_id);
+      if (!tender || BigInt(part.amount_minor) > tenderLeft(sale, tender))
+        throw new ApiError('REFUND_LIMIT', 409);
+      if (tender.method === 'cash') cash += BigInt(part.amount_minor);
+    }
+    if (cash > drawer() - state.drawerTaken) throw new ApiError('DRAWER_INSUFFICIENT', 409);
+    sale.refunds.push({
+      refund_id: body.refund_id,
+      kind: 'refund',
+      amount_minor: sum.toString(),
+      reason_code: body.reason_code,
+      approved_by_staff_id: state.approvals.get(body.approval.approval_id).manager,
+      created_at: new Date().toISOString(),
+      tenders: body.tenders.map((t) => ({ ...t })),
+    });
+    sale.refundable_minor = (BigInt(sale.refundable_minor) - sum).toString();
+    if (sale.tenders.some((t) => manualFiscal(t.method)))
+      sale.fiscal.push({
+        receipt_id: randomUUID(),
+        kind: 'refund',
+        state: 'pending',
+        receipt_number: null,
+        version: 1,
+        amount_minor: sum.toString(),
+      });
+    return globalThis.structuredClone(sale);
+  };
+  const report = (kind) => {
+    const methods = new Map(),
+      channels = new Map(),
+      fiscal = { pending: 0, recorded: 0, not_required: 0 };
+    let voided = 0;
+    const sales = [...state.sales.values()];
+    for (const sale of sales) {
+      for (const t of sale.tenders) {
+        const m = methods.get(t.method) ?? { sales: 0n, refunds: 0n, count: 0 };
+        m.sales += BigInt(t.amount_minor);
+        m.count++;
+        methods.set(t.method, m);
+      }
+      for (const r of sale.refunds) {
+        if (r.kind === 'void') voided++;
+        for (const part of r.tenders) {
+          const method = sale.tenders.find((t) => t.tender_id === part.tender_id).method;
+          methods.get(method).refunds += BigInt(part.amount_minor);
+        }
+      }
+      const c = channels.get(sale.sales_channel) ?? { total: 0n, count: 0 };
+      c.total += BigInt(sale.total_minor);
+      c.count++;
+      channels.set(sale.sales_channel, c);
+      for (const r of sale.fiscal) fiscal[r.state]++;
+    }
+    const cash = methods.get('cash') ?? { sales: 0n, refunds: 0n };
+    const expected = BigInt(f.shift.opening_cash_minor) + cash.sales - cash.refunds;
+    const terminal = methods.get('kaspi_terminal') ?? { sales: 0n, refunds: 0n };
+    const closed = state.closed;
+    return {
+      kind,
+      shift_id: f.shift.shift_id,
+      terminal_id: f.actor.terminal_id,
+      state: closed ? 'closed' : 'open',
+      opened_at: f.shift.opened_at,
+      closed_at: closed?.closed_at ?? null,
+      opening_cash_minor: f.shift.opening_cash_minor,
+      cash_in_minor: '0',
+      cash_out_minor: '0',
+      cash_sales_minor: cash.sales.toString(),
+      cash_refunds_minor: cash.refunds.toString(),
+      expected_cash_minor: expected.toString(),
+      counted_cash_minor: closed?.counted_cash_minor ?? null,
+      discrepancy_minor: closed ? (BigInt(closed.counted_cash_minor) - expected).toString() : null,
+      methods: [...methods].map(([method, m]) => ({
+        method,
+        sales_minor: m.sales.toString(),
+        refunds_minor: m.refunds.toString(),
+        count: m.count,
+      })),
+      channels: [...channels].map(([sales_channel, c]) => ({
+        sales_channel,
+        total_minor: c.total.toString(),
+        count: c.count,
+      })),
+      terminal_reported_minor: closed?.terminal_reported ?? null,
+      terminal_discrepancy_minor: closed?.terminal_reported
+        ? (BigInt(closed.terminal_reported) - (terminal.sales - terminal.refunds)).toString()
+        : null,
+      fiscal,
+      orders: { count: sales.length, voided_count: voided },
+      report_at: new Date().toISOString(),
+    };
+  };
+  const closeShift = (body) => {
+    if (state.closed || body.expected_version !== f.shift.version)
+      throw new ApiError('CONFLICT', 409);
+    const pending = pendingReceipts(f.shift.shift_id);
+    if (pending.length)
+      consume(body.approval, 'shift_close_pending_fiscal', {
+        shift_id: f.shift.shift_id,
+        amount_minor: pending.reduce((n, r) => n + BigInt(r.amount_minor), 0n).toString(),
+      });
+    const expected = BigInt(report('x').expected_cash_minor);
+    state.closed = {
+      ...f.shift,
+      version: f.shift.version + 1,
+      state: 'closed',
+      closed_at: new Date().toISOString(),
+      closed_by_staff_id: f.actor.staff_id,
+      expected_cash_minor: expected.toString(),
+      counted_cash_minor: body.counted_cash_minor,
+      discrepancy_minor: (BigInt(body.counted_cash_minor) - expected).toString(),
+      closing_reason: body.reason,
+      terminal_reported: body.terminal_reported_minor ?? null,
+    };
+    const { terminal_reported: _reported, ...shift } = state.closed;
+    void _reported;
+    return shift;
   };
   return { ...f, api, edge: state };
 }
@@ -778,6 +1058,9 @@ test('pos/config 404 or any refused read keeps today unpaid cashier with the sam
     const key = '11111111-1111-4111-8111-111111111111';
     const model = new PosController(api, memory(), memory(), () => key);
     await model.login(JSON.stringify(f.credential));
+    // The operations poll of today's cashier asks nothing new (no receipts, no X report).
+    await model.refreshOperations();
+    await model.refreshSaleOperations(true);
     model.quantity(f.item.variant_id, 1);
     await model.calculate();
     await model.create(true);
@@ -786,6 +1069,11 @@ test('pos/config 404 or any refused read keeps today unpaid cashier with the sam
     assert.equal(model.state.pending.kind, 'create');
     const config = f.calls.filter((c) => c.path === 'pos/config');
     assert.deepEqual(config, [{ path: 'pos/config' }], 'one plain GET at login, nothing else');
+    assert.deepEqual(
+      f.calls.filter((c) => /^pos\/(?!config$)|-report$|^staff\/approvals/.test(c.path)),
+      [],
+      'no paid-mode route is ever asked by the unpaid cashier',
+    );
     const quote = f.calls.find((c) => c.path === 'checkout/quotes');
     assert.deepEqual(Object.keys(quote.body), ['release_id', 'service_mode', 'items']);
     assert.deepEqual(f.calls.find((c) => c.path === 'orders' && c.method === 'POST').body, {
@@ -1586,6 +1874,537 @@ test('a quote close to expiry is quoted again before payment; same content keeps
   assert.equal(model.state.error.message, 'ORDER_REVIEW_REQUIRED');
   assert.equal(model.state.quote.total_minor, '709000');
   assert.equal(edge.edge.posts.length, 1);
+});
+
+// ---- Part B: void, refunds, Webkassa receipts, X/Z and closing a sales shift --------------
+
+/** One paid sale on the synthetic edge, then opened again in the order card. */
+async function soldAndOpened(model, edge, payment = { method: 'cash', tendered_minor: '700000' }) {
+  await reviewed(model, edge);
+  await model.sell(payment);
+  assert.equal(model.state.error, null, String(model.state.error));
+  const id = model.state.sale.order_id;
+  model.newDraft();
+  await model.openSale(id);
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.equal(model.state.order.order_id, id);
+  return id;
+}
+const lastOp = (edge) => edge.edge.ops.at(-1);
+
+test('void before the kitchen starts: reason, the Webkassa answer and a void PIN for the order', async () => {
+  const edge = saleEdge(),
+    storage = memory();
+  const model = await saleCashier(edge, storage);
+  const id = await soldAndOpened(model, edge);
+  const input = { reason_code: 'guest_changed_mind', reason: 'Гость передумал' };
+  await model.voidSale({ ...input, fiscal_sale_issued: false });
+  assert.equal(model.state.error.message, 'APPROVAL_REQUIRED');
+  await model.voidSale({ reason_code: 'mistake', reason: 'Гость передумал' });
+  assert.equal(model.state.error.message, 'REFUND_REASON_REQUIRED');
+  await model.voidSale({ ...input, reason: ' аб ' });
+  assert.equal(model.state.error.message, 'REASON_REQUIRED');
+  // An approval for another amount does not cover this void.
+  await model.requestApproval(MANAGER_PIN, 'void', { order_id: id, amount_minor: '1' });
+  await model.voidSale({ ...input, fiscal_sale_issued: false });
+  assert.equal(model.state.error.message, 'APPROVAL_INVALID');
+  await model.requestApproval(MANAGER_PIN, 'void', voidSubject(model.state.sale));
+  assert.deepEqual(edge.calls.findLast((c) => c.path === 'staff/approvals').body, {
+    staff_id: edge.actor.staff_id,
+    pin: MANAGER_PIN,
+    action: 'void',
+    subject: { order_id: id, amount_minor: '699000' },
+  });
+  // The sale receipt is still pending: the cashier must say whether it was punched.
+  await model.voidSale(input);
+  assert.equal(model.state.error.message, 'FISCAL_SALE_ANSWER_REQUIRED');
+  assert.equal(edge.edge.ops.length, 0, 'nothing is sent before every answer is given');
+  let journaled;
+  const write = storage.setItem;
+  storage.setItem = (k, v) => {
+    journaled ??= JSON.parse(v).pending;
+    write(k, v);
+  };
+  await model.voidSale({ ...input, fiscal_sale_issued: false });
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.equal(journaled.kind, 'void', 'saved before it is sent');
+  assert.equal(journaled.key, lastOp(edge).key);
+  assert.equal(lastOp(edge).path, `pos/sales/${id}/void`);
+  assert.deepEqual(lastOp(edge).body, {
+    expected_version: 1,
+    reason_code: 'guest_changed_mind',
+    reason: 'Гость передумал',
+    fiscal_sale_issued: false,
+    approval: { approval_id: [...edge.edge.approvals.keys()][1], token: 'c'.repeat(64) },
+  });
+  assert.equal(model.state.pending, null);
+  assert.equal(model.state.approval, null, 'an approval is used once');
+  assert.equal(model.state.order.state, 'cancelled');
+  assert.equal(model.state.sale.refunds[0].kind, 'void');
+  assert.equal(model.state.sale.refundable_minor, '0');
+  assert.equal(model.state.sale.fiscal[0].state, 'not_required', 'never punched, never needed');
+  await model.voidSale({ ...input, fiscal_sale_issued: false });
+  assert.equal(model.state.error.message, 'SALE_NOT_ACTIVE');
+  assert.equal(saleErrorMessage(model.state.error), 'Заказ уже отменён или возвращён полностью');
+  for (const value of storage.data.values())
+    assert.ok(!value.includes(MANAGER_PIN), 'no PIN in the journal');
+});
+
+test('void after the kitchen started is refused before sending; the edge refusal ends it too', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const id = await soldAndOpened(model, edge);
+  const order = edge.edge.orders.get(id);
+  Object.assign(order, {
+    fulfillment_state: 'in_production',
+    fulfillment: { ...order.fulfillment, state: 'in_production' },
+  });
+  await model.openSale(id);
+  await model.requestApproval(MANAGER_PIN, 'void', voidSubject(model.state.sale));
+  const input = { reason_code: 'wrong_order', reason: 'Неверный заказ', fiscal_sale_issued: true };
+  await model.voidSale(input);
+  assert.equal(model.state.error.message, 'ORDER_IN_PRODUCTION');
+  assert.equal(saleErrorMessage(model.state.error), 'Кухня уже начала - оформите возврат');
+  assert.equal(edge.edge.ops.length, 0);
+  // The cashier saw "На кухне", but the kitchen starts before the PIN: the edge decides.
+  Object.assign(order, {
+    fulfillment_state: 'accepted',
+    fulfillment: { ...order.fulfillment, state: 'accepted' },
+  });
+  edge.edge.started.add(id);
+  await model.openSale(id);
+  await model.requestApproval(MANAGER_PIN, 'void', voidSubject(model.state.sale));
+  await model.voidSale(input);
+  assert.equal(model.state.error.code, 'ORDER_IN_PRODUCTION');
+  assert.equal(edge.edge.ops.length, 1);
+  assert.equal(model.state.pending, null, 'a definite refusal ends the command');
+  assert.equal(model.state.approval, null);
+  assert.equal(model.state.order.state, 'paid', 'the order is read again and stays paid');
+  assert.equal(model.state.sale.refunds.length, 0);
+});
+
+test('refund by tender: partial amounts, per-tender and order limits, whole tenge on the terminal', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const id = await soldAndOpened(model, edge, {
+    method: 'mixed',
+    parts: [
+      { method: 'cash', amount_minor: '199000' },
+      { method: 'kaspi_terminal', amount_minor: '500000' },
+    ],
+    tendered_minor: '200000',
+  });
+  const [cash, terminal] = model.state.sale.tenders;
+  const reason = { reason_code: 'quality', reason: 'Качество блюда' };
+  const refund = (tenders) => model.refund({ tenders, ...reason });
+  await refund([]);
+  assert.equal(model.state.error.message, 'REFUND_AMOUNT_INVALID');
+  await refund([{ tender_id: cash.tender_id, amount_minor: '0' }]);
+  assert.equal(model.state.error.message, 'REFUND_AMOUNT_INVALID');
+  await refund([{ tender_id: cash.tender_id, amount_minor: '199001' }]);
+  assert.equal(model.state.error.message, 'REFUND_LIMIT', 'never more than the tender paid');
+  await refund([{ tender_id: terminal.tender_id, amount_minor: '100050' }]);
+  assert.equal(model.state.error.message, 'TERMINAL_AMOUNT_NOT_WHOLE');
+  const parts = [
+    { tender_id: cash.tender_id, amount_minor: '100000' },
+    { tender_id: terminal.tender_id, amount_minor: '200000' },
+  ];
+  await refund(parts);
+  assert.equal(model.state.error.message, 'APPROVAL_REQUIRED');
+  await model.requestApproval(MANAGER_PIN, 'refund', refundSubject(id, parts));
+  assert.deepEqual(edge.calls.findLast((c) => c.path === 'staff/approvals').body.subject, {
+    order_id: id,
+    amount_minor: '300000',
+  });
+  await refund(parts);
+  assert.equal(model.state.error, null, String(model.state.error));
+  const body = lastOp(edge).body;
+  assert.equal(lastOp(edge).path, `pos/sales/${id}/refunds`);
+  assert.deepEqual(Object.keys(body), [
+    'refund_id',
+    'tenders',
+    'reason_code',
+    'reason',
+    'approval',
+  ]);
+  assert.match(body.refund_id, /^[0-9a-f-]{36}$/);
+  assert.notEqual(body.refund_id, lastOp(edge).key, 'the refund id is not the command key');
+  assert.deepEqual(body.tenders, parts);
+  assert.equal(model.state.sale.refundable_minor, '399000');
+  assert.equal(tenderRefundable(model.state.sale, cash.tender_id), 99000n);
+  assert.equal(tenderRefundable(model.state.sale, terminal.tender_id), 300000n);
+  assert.deepEqual(
+    model.state.sale.fiscal.map((r) => [r.kind, r.state, r.amount_minor]),
+    [
+      ['sale', 'pending', '699000'],
+      ['refund', 'pending', '300000'],
+    ],
+    'a refund receipt is to be punched in Webkassa',
+  );
+  assert.equal(model.state.approval, null);
+  await refund([{ tender_id: cash.tender_id, amount_minor: '100000' }]);
+  assert.equal(model.state.error.message, 'REFUND_LIMIT', 'what is left of the tender');
+  // The drawer cannot pay out: a definite refusal, read the sale again, nothing pending.
+  edge.edge.drawerTaken = 10_000_000n;
+  const rest = [{ tender_id: cash.tender_id, amount_minor: '99000' }];
+  await model.requestApproval(MANAGER_PIN, 'refund', refundSubject(id, rest));
+  await refund(rest);
+  assert.equal(model.state.error.code, 'DRAWER_INSUFFICIENT');
+  assert.equal(saleErrorMessage(model.state.error), 'В кассе недостаточно наличных');
+  assert.equal(model.state.pending, null);
+  assert.equal(model.state.approval, null);
+  assert.equal(model.state.sale.refunds.length, 1);
+});
+
+test('aggregator and ChocoFood money is refunded in their cabinets, never from the desk', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  await reviewed(model, edge);
+  await model.sell({ method: 'chocofood', external_order_ref: 'CF-1001' });
+  const sale = model.state.sale;
+  model.newDraft();
+  await model.openSale(sale.order_id);
+  await model.refund({
+    tenders: [{ tender_id: sale.tenders[0].tender_id, amount_minor: '100000' }],
+    reason_code: 'quality',
+    reason: 'Качество блюда',
+  });
+  assert.equal(model.state.error.message, 'REFUND_NOT_SUPPORTED');
+  assert.equal(
+    saleErrorMessage(model.state.error, { method: 'chocofood' }),
+    'Возврат ChocoFood оформляется в кабинете ChocoFood',
+  );
+  assert.equal(edge.edge.ops.length, 0);
+});
+
+test('lost void and refund answers stay journaled and are recovered with their own key and body', async () => {
+  const edge = saleEdge(),
+    storage = memory(),
+    sessions = memory();
+  const model = await saleCashier(edge, storage, sessions);
+  const id = await soldAndOpened(model, edge);
+  const parts = [{ tender_id: model.state.sale.tenders[0].tender_id, amount_minor: '100000' }];
+  await model.requestApproval(MANAGER_PIN, 'refund', refundSubject(id, parts));
+  edge.edge.loseNextOp = true;
+  await model.refund({ tenders: parts, reason_code: 'quality', reason: 'Качество блюда' });
+  assert.equal(model.state.error.code, 'EDGE_UNREACHABLE');
+  assert.equal(model.state.pending.kind, 'refund');
+  const sent = lastOp(edge);
+  const restored = new PosController(edge.api, sessions, storage, randomUUID);
+  await restored.boot();
+  assert.equal(edge.edge.ops.length, 1, 'boot never resends an unknown refund');
+  assert.equal(restored.state.pending.kind, 'refund');
+  assert.equal(restored.state.pending.key, sent.key);
+  await restored.recover();
+  assert.equal(restored.state.error, null, String(restored.state.error));
+  assert.equal(lastOp(edge).key, sent.key, 'the same key');
+  assert.deepEqual(lastOp(edge).body, sent.body, 'the same body, the same refund_id');
+  assert.equal(restored.state.pending, null);
+  assert.equal(restored.state.sale.refunds.length, 1, 'refunded once');
+  assert.equal(restored.state.order.order_id, id, 'the selected order comes back after a restart');
+  await restored.requestApproval(MANAGER_PIN, 'void', voidSubject(restored.state.sale));
+  edge.edge.loseNextOp = true;
+  await restored.voidSale({ reason_code: 'other', reason: 'Гость ушёл', fiscal_sale_issued: true });
+  assert.equal(restored.state.pending.kind, 'void');
+  const voidKey = restored.state.pending.key;
+  await restored.recover();
+  assert.equal(lastOp(edge).key, voidKey);
+  assert.equal(restored.state.order.state, 'cancelled');
+  assert.equal(restored.state.sale.refunds.length, 2);
+  assert.deepEqual(
+    restored.state.sale.fiscal.map((r) => [r.kind, r.state]),
+    [
+      ['sale', 'pending'],
+      ['refund', 'pending'],
+      ['refund', 'pending'],
+    ],
+    'a punched sale receipt is cancelled by a refund receipt',
+  );
+});
+
+test('journal keeps only well-formed void, refund, receipt and close commands', async () => {
+  const edge = saleEdge();
+  const scope = `${edge.actor.branch_id}.${edge.actor.staff_id}.${edge.actor.terminal_id}`;
+  const approval = { approval_id: randomUUID(), token: 'c'.repeat(64) };
+  const order = randomUUID();
+  const entry = (kind, path, body, extra = {}) => ({
+    kind,
+    path,
+    body,
+    key: randomUUID(),
+    at: 'x',
+    ...extra,
+  });
+  const voidBody = {
+    expected_version: 1,
+    reason_code: 'guest_changed_mind',
+    reason: 'Гость передумал',
+    fiscal_sale_issued: false,
+    approval,
+  };
+  const refundBody = {
+    refund_id: randomUUID(),
+    tenders: [{ tender_id: randomUUID(), amount_minor: '1000' }],
+    reason_code: 'quality',
+    reason: 'Качество блюда',
+    approval,
+  };
+  const closeBody = {
+    expected_version: 1,
+    counted_cash_minor: '100',
+    reason: 'Закрытие смены',
+    terminal_reported_minor: '0',
+    approval,
+  };
+  const fiscalPath = `pos/fiscal-receipts/${randomUUID()}/record`;
+  for (const [value, ok] of [
+    [entry('void', `pos/sales/${order}/void`, voidBody), true],
+    [entry('void', `pos/sales/${order}/void`, { ...voidBody, approval: undefined }), false],
+    [entry('void', `pos/sales/${order}/void`, { ...voidBody, fiscal_sale_issued: 'no' }), false],
+    [entry('void', `pos/sales/${order}/void`, { ...voidBody, reason_code: 'x' }), false],
+    [entry('void', `pos/sales/${order}/refunds`, voidBody), false],
+    [entry('refund', `pos/sales/${order}/refunds`, refundBody), true],
+    [
+      entry('refund', `pos/sales/${order}/refunds`, {
+        ...refundBody,
+        tenders: [refundBody.tenders[0], refundBody.tenders[0]],
+      }),
+      false,
+    ],
+    [
+      entry('refund', `pos/sales/${order}/refunds`, {
+        ...refundBody,
+        tenders: [{ ...refundBody.tenders[0], amount_minor: '0' }],
+      }),
+      false,
+    ],
+    [entry('refund', `pos/sales/${order}/refunds`, { ...refundBody, lines: [] }), false],
+    [entry('shift_close', `cash-shifts/${edge.shift.shift_id}/close`, closeBody), true],
+    [
+      entry('shift_close', `cash-shifts/${edge.shift.shift_id}/close`, {
+        ...closeBody,
+        terminal_reported_minor: '-1',
+      }),
+      false,
+    ],
+    [
+      entry('shift_close', `cash-shifts/${edge.shift.shift_id}/close`, {
+        ...closeBody,
+        approval: { approval_id: 'x', token: 't' },
+      }),
+      false,
+    ],
+    [
+      entry(
+        'fiscal_record',
+        fiscalPath,
+        { expected_version: 2, receipt_number: 'TEST-WK-2', approval },
+        { subject: order },
+      ),
+      true,
+    ],
+    [
+      entry(
+        'fiscal_record',
+        fiscalPath,
+        { expected_version: 2, receipt_number: 'TEST-WK-2', pin: MANAGER_PIN },
+        { subject: order },
+      ),
+      false,
+    ],
+  ]) {
+    const storage = memory();
+    const body = JSON.parse(JSON.stringify(value));
+    storage.setItem(
+      `pickchick.pos.journal.v1.${scope}`,
+      JSON.stringify({ version: 1, scope, draft: null, pending: body, known: [], selected: null }),
+    );
+    const model = await saleCashier(edge, storage);
+    assert.equal(model.state.storageBlocked, !ok, JSON.stringify(value));
+    if (ok) assert.equal(model.state.pending.kind, value.kind);
+    else assert.equal(model.state.error.message, 'STORAGE_DAMAGED');
+  }
+});
+
+test('Webkassa tab: pending receipts of this shift, numbers recorded later, a correction needs a PIN', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  await reviewed(model, edge);
+  await model.sell({ method: 'cash', tendered_minor: '700000' });
+  model.newDraft();
+  await reviewed(model, edge);
+  await model.sell({ method: 'kaspi_manual' });
+  model.newDraft();
+  await model.refreshFiscal();
+  assert.equal(
+    edge.calls.findLast((c) => c.path.startsWith('pos/fiscal-receipts/pending')).path,
+    `pos/fiscal-receipts/pending?shift_id=${edge.shift.shift_id}`,
+  );
+  assert.equal(model.state.fiscal.scope, 'shift');
+  assert.deepEqual(
+    model.state.fiscal.receipts.map((r) => [r.display_number, r.kind, r.methods]),
+    [
+      ['27', 'sale', ['cash']],
+      ['28', 'sale', ['kaspi_manual']],
+    ],
+  );
+  await model.refreshFiscal('all');
+  assert.equal(
+    edge.calls.findLast((c) => c.path.startsWith('pos/fiscal-receipts/pending')).path,
+    'pos/fiscal-receipts/pending',
+    'every shift: no query',
+  );
+  const [first] = model.state.fiscal.receipts;
+  await model.recordFiscal({ ...first, state: 'pending' }, '\u0007');
+  assert.equal(model.state.error.message, 'RECEIPT_NUMBER_INVALID');
+  await model.recordFiscal({ ...first, state: 'pending' }, ' TEST-WK-7 ');
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.deepEqual(lastOp(edge).body, { expected_version: 1, receipt_number: 'TEST-WK-7' });
+  assert.deepEqual(
+    model.state.fiscal.receipts.map((r) => r.display_number),
+    ['28'],
+    'the list is read again',
+  );
+  // A wrong number already recorded: corrected from the order card with fiscal_correct.
+  await model.openSale(first.order_id);
+  const receipt = { ...model.state.sale.fiscal[0], order_id: first.order_id };
+  assert.deepEqual(
+    [receipt.state, receipt.receipt_number, receipt.version],
+    ['recorded', 'TEST-WK-7', 2],
+  );
+  await model.recordFiscal(receipt, 'TEST-WK-7');
+  assert.equal(model.state.error.message, 'RECEIPT_NUMBER_SAME');
+  await model.recordFiscal(receipt, 'TEST-WK-8');
+  assert.equal(model.state.error.message, 'APPROVAL_REQUIRED');
+  await model.requestApproval(MANAGER_PIN, 'fiscal_correct', fiscalSubject(receipt));
+  await model.recordFiscal(receipt, 'TEST-WK-8');
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.deepEqual(lastOp(edge).body, {
+    expected_version: 2,
+    receipt_number: 'TEST-WK-8',
+    approval: { approval_id: [...edge.edge.approvals.keys()].at(-1), token: 'c'.repeat(64) },
+  });
+  assert.deepEqual(
+    [model.state.sale.fiscal[0].receipt_number, model.state.sale.fiscal[0].version],
+    ['TEST-WK-8', 3],
+  );
+  assert.equal(model.state.approval, null);
+  // A stale version: the edge refuses (CONFLICT), the command ends, the sale is read again.
+  await model.requestApproval(MANAGER_PIN, 'fiscal_correct', fiscalSubject(receipt));
+  await model.recordFiscal(receipt, 'TEST-WK-9');
+  assert.equal(model.state.error.code, 'CONFLICT');
+  assert.equal(model.state.pending, null);
+  assert.equal(model.state.sale.fiscal[0].receipt_number, 'TEST-WK-8');
+});
+
+test('X report, closing a sales shift with the Kaspi total and a PIN for pending receipts, then Z', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  await reviewed(model, edge);
+  await model.sell({ method: 'cash', tendered_minor: '700000' });
+  model.newDraft();
+  await reviewed(model, edge);
+  await model.sell({ method: 'kaspi_terminal' });
+  model.newDraft();
+  await model.xReport();
+  const x = model.state.shiftReport;
+  assert.equal(x.kind, 'x');
+  assert.equal(x.cash_sales_minor, '699000');
+  assert.equal(x.expected_cash_minor, '1199000', 'opening 5 000 + cash sales 6 990');
+  assert.deepEqual(
+    x.methods.map((m) => [m.method, m.sales_minor]),
+    [
+      ['cash', '699000'],
+      ['kaspi_terminal', '699000'],
+    ],
+  );
+  // A report that does not add up is never shown or printed.
+  edge.edge.reportOverride = { ...x, expected_cash_minor: '1' };
+  await model.xReport();
+  assert.equal(model.state.error.message, 'INVALID_RESPONSE');
+  assert.equal(model.state.shiftReport, x);
+  edge.edge.reportOverride = null;
+  assert.throws(() => parseReport({ ...x, kind: 'z' }), /INVALID_RESPONSE/, 'Z of an open shift');
+  const shiftId = edge.shift.shift_id;
+  const input = {
+    counted_cash_minor: '1199000',
+    terminal_reported_minor: '699000',
+    reason: 'Закрытие смены',
+  };
+  await model.closeSaleShift(shiftId, input);
+  assert.equal(model.state.error.message, 'FISCAL_PENDING');
+  assert.equal(saleErrorMessage(model.state.error), 'Есть неоформленные чеки Webkassa');
+  assert.equal(edge.edge.ops.length, 0);
+  const pending = await model.pendingForClose(shiftId);
+  assert.equal(pending.length, 2);
+  await model.requestApproval(
+    MANAGER_PIN,
+    'shift_close_pending_fiscal',
+    closeSubject(shiftId, pending),
+  );
+  assert.deepEqual(edge.calls.findLast((c) => c.path === 'staff/approvals').body.subject, {
+    shift_id: shiftId,
+    amount_minor: '1398000',
+  });
+  await model.closeSaleShift(shiftId, input);
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.equal(lastOp(edge).path, `cash-shifts/${shiftId}/close`);
+  assert.deepEqual(lastOp(edge).body, {
+    expected_version: 1,
+    counted_cash_minor: '1199000',
+    reason: 'Закрытие смены',
+    terminal_reported_minor: '699000',
+    approval: { approval_id: [...edge.edge.approvals.keys()].at(-1), token: 'c'.repeat(64) },
+  });
+  assert.equal(model.state.pending, null);
+  assert.equal(model.state.approval, null);
+  assert.equal(model.state.shift, null, 'no open shift on this desk any more');
+  await model.zReport(shiftId);
+  const z = model.state.zReport;
+  assert.deepEqual(
+    [z.kind, z.state, z.counted_cash_minor, z.discrepancy_minor, z.terminal_discrepancy_minor],
+    ['z', 'closed', '1199000', '0', '0'],
+  );
+  assert.equal(z.fiscal.pending, 2);
+});
+
+test('closing approval is bound to what is pending; without receipts no approval is sent', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  await reviewed(model, edge);
+  await model.sell({ method: 'cash', tendered_minor: '700000' });
+  model.newDraft();
+  await reviewed(model, edge);
+  await model.sell({ method: 'kaspi_manual' });
+  model.newDraft();
+  const shiftId = edge.shift.shift_id;
+  const pending = await model.pendingForClose(shiftId);
+  assert.equal(pending.length, 2);
+  await model.requestApproval(
+    MANAGER_PIN,
+    'shift_close_pending_fiscal',
+    closeSubject(shiftId, pending),
+  );
+  // Another desk records one of the numbers after the PIN: the approval names a sum now gone.
+  const recordOnEdge = (receipt) =>
+    Object.assign(edge.edge.sales.get(receipt.order_id).fiscal[0], {
+      state: 'recorded',
+      receipt_number: 'TEST-WK-' + receipt.display_number,
+      version: 2,
+    });
+  recordOnEdge(pending[0]);
+  const input = { counted_cash_minor: '1199000', reason: 'Закрытие смены' };
+  await model.closeSaleShift(shiftId, input);
+  assert.equal(model.state.error.message, 'APPROVAL_INVALID');
+  assert.equal(edge.edge.ops.length, 0);
+  recordOnEdge(pending[1]);
+  await model.closeSaleShift(shiftId, input);
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.deepEqual(
+    lastOp(edge).body,
+    { expected_version: 1, counted_cash_minor: '1199000', reason: 'Закрытие смены' },
+    'nothing pending: no approval and no terminal total were sent',
+  );
 });
 
 // ---- Paid-mode screens (apps/pos/src/v2/sale-view.js): DOM-free template values -------------

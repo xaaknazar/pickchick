@@ -943,22 +943,30 @@ export function posSale(value: unknown): PosSale {
       reference: optionalText(t.reference, 40),
     };
   });
-  const refunds = array(s.refunds, 50).map((v) => {
+  const refunds = array(s.refunds, 100).map((v) => {
     const r = record(v);
+    const parts = array(r.tenders, 2).map((x) => {
+      const t = record(x);
+      return { tender_id: uuid(t.tender_id), amount_minor: positive(t.amount_minor) };
+    });
+    const amount = positive(r.amount_minor);
+    if (
+      !parts.length ||
+      new Set(parts.map((t) => t.tender_id)).size !== parts.length ||
+      parts.reduce((sum, t) => sum + BigInt(t.amount_minor), 0n) !== BigInt(amount)
+    )
+      throw new Error('INVALID_RESPONSE');
     return {
       refund_id: uuid(r.refund_id),
       kind: oneOf(r.kind, ['void', 'refund'] as const),
-      amount_minor: positive(r.amount_minor),
+      amount_minor: amount,
       reason_code: text(r.reason_code, 40),
       approved_by_staff_id: uuid(r.approved_by_staff_id),
       created_at: date(r.created_at),
-      tenders: array(r.tenders, 2).map((x) => {
-        const t = record(x);
-        return { tender_id: uuid(t.tender_id), amount_minor: positive(t.amount_minor) };
-      }),
+      tenders: parts,
     };
   });
-  const fiscal = array(s.fiscal, 50).map((v) => {
+  const fiscal = array(s.fiscal, 101).map((v) => {
     const f = record(v);
     const state = oneOf(f.state, ['pending', 'recorded', 'not_required'] as const);
     return {
@@ -1000,7 +1008,19 @@ export function posSale(value: unknown): PosSale {
     (method === 'chocofood' && externalRef === null) ||
     revenue !== (method === 'staff_meal' || method === 'marketing' ? method : 'revenue') ||
     refunds.reduce((sum, r) => sum + BigInt(r.amount_minor), 0n) > BigInt(total) ||
-    BigInt(minor(s.refundable_minor)) > BigInt(total) ||
+    // The refund screens compute limits from these numbers (contracts section 5.1, POS-3):
+    // what is left to refund, and per tender never more than it paid.
+    BigInt(minor(s.refundable_minor)) !==
+      BigInt(total) - refunds.reduce((sum, r) => sum + BigInt(r.amount_minor), 0n) ||
+    tenders.some(
+      (t) =>
+        refunds
+          .flatMap((r) => r.tenders)
+          .filter((x) => x.tender_id === t.tender_id)
+          .reduce((sum, x) => sum + BigInt(x.amount_minor), 0n) > BigInt(t.amount_minor),
+    ) ||
+    refunds.some((r) => r.tenders.some((x) => !tenders.some((t) => t.tender_id === x.tender_id))) ||
+    new Set(refunds.map((r) => r.refund_id)).size !== refunds.length ||
     new Set(fiscal.map((f) => f.receipt_id)).size !== fiscal.length
   )
     throw new Error('INVALID_RESPONSE');
@@ -1067,4 +1087,196 @@ export function pickupText(
     CHANNEL_NAMES[sale.sales_channel] +
     (sale.external_order_ref ? ' №' + sale.external_order_ref : '')
   );
+}
+
+// ---- Cutover 19.11: void, refunds, manual Webkassa, X/Z (contracts section 5.1, POS-3..5) --
+
+export const REFUND_REASONS = [
+  'guest_changed_mind',
+  'wrong_order',
+  'quality',
+  'aggregator_cancelled',
+  'cashier_error',
+  'other',
+] as const;
+export type RefundReason = (typeof REFUND_REASONS)[number];
+export const REFUND_REASON_NAMES: Record<RefundReason, string> = {
+  guest_changed_mind: 'Гость передумал',
+  wrong_order: 'Неверный заказ',
+  quality: 'Качество блюда',
+  aggregator_cancelled: 'Агрегатор отменил',
+  cashier_error: 'Ошибка кассира',
+  other: 'Другое',
+};
+/**
+ * Tenders whose money the desk gives back itself. Aggregator and ChocoFood refunds are made in
+ * their own cabinets (REFUND_NOT_SUPPORTED); staff meal and marketing carry no money.
+ */
+export const REFUNDABLE_METHODS = ['cash', 'kaspi_terminal', 'kaspi_manual'] as const;
+/** What one tender of a sale can still return: paid minus its earlier refunds. */
+export function tenderRefundable(sale: Pick<PosSale, 'tenders' | 'refunds'>, tenderId: string) {
+  const tender = sale.tenders.find((t) => t.tender_id === tenderId);
+  if (!tender) return 0n;
+  const refunded = sale.refunds
+    .flatMap((r) => r.tenders)
+    .filter((t) => t.tender_id === tenderId)
+    .reduce((sum, t) => sum + BigInt(t.amount_minor), 0n);
+  return BigInt(tender.amount_minor) - refunded;
+}
+/** One receipt still to punch in the Webkassa cabinet (GET pos/fiscal-receipts/pending). */
+export type FiscalPendingItem = {
+  receipt_id: string;
+  order_id: string;
+  display_number: string;
+  kind: 'sale' | 'refund';
+  amount_minor: string;
+  methods: PosPaymentMethod[];
+  created_at: string;
+  version: number;
+};
+export function fiscalPending(value: unknown): FiscalPendingItem[] {
+  const v = record(value);
+  const receipts = array(v.receipts, 1000).map((x) => {
+    const r = record(x);
+    const methods = array(r.methods, 2).map((m) => oneOf(m, PAYMENT_METHODS));
+    if (!methods.length) throw new Error('INVALID_RESPONSE');
+    return {
+      receipt_id: uuid(r.receipt_id),
+      order_id: uuid(r.order_id),
+      display_number: displayNumber(r.display_number),
+      kind: oneOf(r.kind, ['sale', 'refund'] as const),
+      amount_minor: positive(r.amount_minor),
+      methods,
+      created_at: date(r.created_at),
+      version: integer(r.version),
+    };
+  });
+  if (new Set(receipts.map((r) => r.receipt_id)).size !== receipts.length)
+    throw new Error('INVALID_RESPONSE');
+  return receipts;
+}
+/** A signed amount of tiyn ("-1500", "0", "2500"); "-0" is not a number the edge writes. */
+function signed(value: unknown): string {
+  const result = text(value, 21);
+  if (result === '-0') throw new Error('INVALID_RESPONSE');
+  minor(result.replace(/^-/, ''));
+  return result;
+}
+export type ShiftReportMethod = {
+  method: PosPaymentMethod;
+  sales_minor: string;
+  refunds_minor: string;
+  count: number;
+};
+/** X (any moment) or frozen Z (closed shift) PickChick report of one cash desk; not fiscal. */
+export type ShiftReport = {
+  kind: 'x' | 'z';
+  shift_id: string;
+  terminal_id: string;
+  state: 'open' | 'closed';
+  opened_at: string;
+  closed_at: string | null;
+  opening_cash_minor: string;
+  cash_in_minor: string;
+  cash_out_minor: string;
+  cash_sales_minor: string;
+  cash_refunds_minor: string;
+  expected_cash_minor: string;
+  counted_cash_minor: string | null;
+  discrepancy_minor: string | null;
+  methods: ShiftReportMethod[];
+  channels: { sales_channel: SalesChannel; total_minor: string; count: number }[];
+  terminal_reported_minor: string | null;
+  terminal_discrepancy_minor: string | null;
+  fiscal: { pending: number; recorded: number; not_required: number };
+  orders: { count: number; voided_count: number };
+  report_at: string;
+};
+/** Kaspi terminal money of a report: what the desk recorded, to compare with the terminal. */
+export const terminalNetMinor = (report: Pick<ShiftReport, 'methods'>) =>
+  report.methods
+    .filter((m) => m.method === 'kaspi_terminal')
+    .reduce((sum, m) => sum + BigInt(m.sales_minor) - BigInt(m.refunds_minor), 0n);
+/**
+ * GET cash-shifts/{id}/x-report and z-report. The arithmetic of contracts section 5.1 is checked
+ * here, so a report that does not add up is never shown or printed.
+ */
+export function shiftReport(value: unknown): ShiftReport {
+  const r = record(value);
+  const count = (v: unknown) => integer(v, 0, Number.MAX_SAFE_INTEGER);
+  const nullable = <T>(v: unknown, parse: (x: unknown) => T) => (v === null ? null : parse(v));
+  const methods = array(r.methods, 8).map((x) => {
+    const m = record(x);
+    return {
+      method: oneOf(m.method, PAYMENT_METHODS),
+      sales_minor: minor(m.sales_minor),
+      refunds_minor: minor(m.refunds_minor),
+      count: count(m.count),
+    };
+  });
+  const channels = array(r.channels, 3).map((x) => {
+    const c = record(x);
+    return {
+      sales_channel: oneOf(c.sales_channel, SALES_CHANNELS),
+      total_minor: minor(c.total_minor),
+      count: count(c.count),
+    };
+  });
+  const f = record(r.fiscal),
+    o = record(r.orders);
+  const report: ShiftReport = {
+    kind: oneOf(r.kind, ['x', 'z'] as const),
+    shift_id: uuid(r.shift_id),
+    terminal_id: uuid(r.terminal_id),
+    state: oneOf(r.state, ['open', 'closed'] as const),
+    opened_at: date(r.opened_at),
+    closed_at: nullable(r.closed_at, date),
+    opening_cash_minor: minor(r.opening_cash_minor),
+    cash_in_minor: minor(r.cash_in_minor),
+    cash_out_minor: minor(r.cash_out_minor),
+    cash_sales_minor: minor(r.cash_sales_minor),
+    cash_refunds_minor: minor(r.cash_refunds_minor),
+    expected_cash_minor: minor(r.expected_cash_minor),
+    counted_cash_minor: nullable(r.counted_cash_minor, minor),
+    discrepancy_minor: nullable(r.discrepancy_minor, signed),
+    methods,
+    channels,
+    terminal_reported_minor: nullable(r.terminal_reported_minor, minor),
+    terminal_discrepancy_minor: nullable(r.terminal_discrepancy_minor, signed),
+    fiscal: {
+      pending: count(f.pending),
+      recorded: count(f.recorded),
+      not_required: count(f.not_required),
+    },
+    orders: { count: count(o.count), voided_count: count(o.voided_count) },
+    report_at: date(r.report_at),
+  };
+  const big = BigInt;
+  const closed = report.state === 'closed';
+  if (
+    big(report.expected_cash_minor) !==
+      big(report.opening_cash_minor) +
+        big(report.cash_in_minor) -
+        big(report.cash_out_minor) +
+        big(report.cash_sales_minor) -
+        big(report.cash_refunds_minor) ||
+    (report.kind === 'z' && !closed) ||
+    closed !== (report.closed_at !== null) ||
+    closed !== (report.counted_cash_minor !== null) ||
+    (report.counted_cash_minor === null
+      ? report.discrepancy_minor !== null
+      : report.discrepancy_minor === null ||
+        big(report.discrepancy_minor) !==
+          big(report.counted_cash_minor) - big(report.expected_cash_minor)) ||
+    (report.terminal_reported_minor === null
+      ? report.terminal_discrepancy_minor !== null
+      : report.terminal_discrepancy_minor === null ||
+        big(report.terminal_discrepancy_minor) !==
+          big(report.terminal_reported_minor) - terminalNetMinor(report)) ||
+    new Set(methods.map((m) => m.method)).size !== methods.length ||
+    new Set(channels.map((c) => c.sales_channel)).size !== channels.length ||
+    report.orders.voided_count > report.orders.count
+  )
+    throw new Error('INVALID_RESPONSE');
+  return report;
 }
