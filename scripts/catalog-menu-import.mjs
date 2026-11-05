@@ -3,7 +3,7 @@
  * Real menu import for the 19.11.2026 cutover (contracts CC-1, design-catalog section 3.3).
  *
  *   node scripts/catalog-menu-import.mjs build --dir <sheets> --out <new dir>
- *        [--current <catalog.json>] [--edge <edge-menu.json>]
+ *        [--current <catalog.json>] [--edge <edge-menu.json>] [--aggregator-prices sheet|hall-fallback]
  *   node scripts/catalog-menu-import.mjs save --manifest <manifest.json> --reviewed-by "<name>"
  *        --branch <uuid> --token-file <credential.json> [--api <base>]
  *   node scripts/catalog-menu-import.mjs publish --manifest <manifest.json> --parity <report.json>
@@ -16,6 +16,11 @@
  *          expected-edge-changes.json for `catalog-edge-parity --allow`. No network, no database.
  *          --current is the catalog published now (admin state, public catalog or bare payload):
  *          the report shows "было -> стало" and every published slug must stay.
+ *          --aggregator-prices (cutover CC-3) puts the Yandex Eda / Glovo columns into
+ *          channel_prices_minor: sheet = only filled cells, hall-fallback = an empty cell takes the
+ *          hall price (UNCONFIRMED in the report, contracts 9 q.11); «-» = not sold there. Such a
+ *          build is published only with CATALOG_AGGREGATOR_PRICES_ENABLED on the cloud and a
+ *          parity report made with `catalog-edge-parity --aggregator-prices --allow`.
  * save     the only step that sets content_reviewed:true: PUT of the built payload as the draft,
  *          request_id derived from the manifest SHA-256. A repeat after success changes nothing.
  * publish  POST publish (confirmation publish_catalog) of exactly that saved draft, only with a
@@ -48,6 +53,16 @@ import {
 } from './catalog-edge-parity.mjs';
 
 export const MANIFEST_SCHEMA = 'pickchick.catalog-menu-import/v1';
+/**
+ * Aggregator price modes of build (cutover CC-3, contracts R4 and 9 q.11). off (default): the
+ * Yandex/Glovo columns are only checked and counted, the payload is exactly as before. sheet:
+ * a filled cell becomes channel_prices_minor.yandex_eda/glovo, an empty cell (or «-») means not
+ * sold in that channel. hall-fallback: an empty cell takes the hall price, marked UNCONFIRMED in
+ * the review; «-» means not sold. Publishing either needs CATALOG_AGGREGATOR_PRICES_ENABLED.
+ */
+export const AGGREGATOR_MODES = Object.freeze(['off', 'sheet', 'hall-fallback']);
+/** Explicit «not sold in this channel» in an aggregator price cell (sheet and hall-fallback). */
+const NOT_SOLD = '-';
 /** Design-catalog risk 2: the payload limit (256 KiB) is also built into installed clients. */
 export const PAYLOAD_BUDGET_BYTES = 230 * 1024;
 export const DEFAULT_API = 'http://127.0.0.1:3100';
@@ -302,7 +317,10 @@ const intIn = (value, min, max) => {
  * Pure build from parsed sheets. Returns the payload (or null), every error, the expected edge
  * changes (with an edge menu) and what the review report needs. Never throws on sheet content.
  */
-export function buildMenu(sheets, { current = null, edge = null } = {}) {
+export function buildMenu(sheets, { current = null, edge = null, aggregatorPrices = 'off' } = {}) {
+  if (!AGGREGATOR_MODES.includes(aggregatorPrices))
+    throw new ImportError('AGGREGATOR_MODE_INVALID', `«${aggregatorPrices}»`);
+  const aggregators = aggregatorPrices !== 'off';
   const errors = [];
   const fail = (code, at, detail) => errors.push({ code, ...at, detail });
   const capture = (at, run) => {
@@ -343,12 +361,24 @@ export function buildMenu(sheets, { current = null, edge = null } = {}) {
     if (!row.serving_ru || row.serving_ru.length > 150 || row.serving_kk.length > 150)
       fail('SERVING_INVALID', at('serving_ru'), row.slug);
     const price = capture(at('price_tenge'), () => tengeToMinor(row.price_tenge));
-    const yandex = row.yandex_price_tenge
-      ? capture(at('yandex_price_tenge'), () => tengeToMinor(row.yandex_price_tenge))
-      : null;
-    const glovo = row.glovo_price_tenge
-      ? capture(at('glovo_price_tenge'), () => tengeToMinor(row.glovo_price_tenge))
-      : null;
+    // off: exactly the step-1 check. Otherwise «-» = not sold, empty = not sold or hall price.
+    const aggregatorCell = (field) => {
+      const value = row[field];
+      if (aggregators && value === NOT_SOLD) return { minor: null, fromHall: false };
+      if (!value)
+        return aggregatorPrices === 'hall-fallback'
+          ? { minor: price, fromHall: price !== null }
+          : { minor: null, fromHall: false };
+      return { minor: capture(at(field), () => tengeToMinor(value)), fromHall: false };
+    };
+    const yandexCell = aggregatorCell('yandex_price_tenge'),
+      glovoCell = aggregatorCell('glovo_price_tenge');
+    const yandex = yandexCell.minor,
+      glovo = glovoCell.minor;
+    const channelPrices = {
+      ...(yandex === null ? {} : { yandex_eda: yandex }),
+      ...(glovo === null ? {} : { glovo }),
+    };
     const measure = (field) => {
       if (row[field] === '') return null;
       const value = intIn(row[field], 1, 100000);
@@ -374,6 +404,8 @@ export function buildMenu(sheets, { current = null, edge = null } = {}) {
       price,
       yandex,
       glovo,
+      yandexFromHall: yandexCell.fromHall,
+      glovoFromHall: glovoCell.fromHall,
       payload: {
         id: row.slug,
         sku: row.slug,
@@ -381,6 +413,9 @@ export function buildMenu(sheets, { current = null, edge = null } = {}) {
         description: { ru: row.description_ru, kk: row.description_kk },
         category_id: categories.get(row.category)?.id ?? 'category-1',
         price_minor: price ?? '0',
+        ...(aggregators && Object.keys(channelPrices).length
+          ? { channel_prices_minor: channelPrices }
+          : {}),
         image_asset_key: row.image_asset_key,
         available: true,
         prep_required: row.kitchen_route === 'prep',
@@ -604,7 +639,7 @@ export function buildMenu(sheets, { current = null, edge = null } = {}) {
       if (bytes > PAYLOAD_BUDGET_BYTES)
         fail('PAYLOAD_BUDGET', {}, `${bytes} байт больше ${PAYLOAD_BUDGET_BYTES}`);
       try {
-        assertCatalogPublishable(payload, false);
+        assertCatalogPublishable(payload, aggregators ? { aggregatorPrices: true } : false);
       } catch (error) {
         fail('NOT_PUBLISHABLE', {}, error?.reason ?? error?.code ?? 'CONFLICT');
       }
@@ -615,12 +650,16 @@ export function buildMenu(sheets, { current = null, edge = null } = {}) {
           (edge?.version ?? 0) + 1,
           edge?.published_at ?? CHECK_PUBLISHED_AT,
           CHECK_RELEASE,
+          ...(aggregators ? [{ aggregatorPrices: true }] : []),
         );
       } catch (error) {
         fail('PROJECTION_FAILED', {}, error?.code ?? 'INVALID_MENU');
       }
       if (edge && !errors.length) {
-        const report = catalogEdgeParity({ catalog: payload, snapshot: edge }, { detailed: true });
+        const report = catalogEdgeParity(
+          { catalog: payload, snapshot: edge },
+          { detailed: true, ...(aggregators ? { aggregatorPrices: true } : {}) },
+        );
         try {
           expected = expectedEdgeChanges(report, edgePayloadHash(payload));
         } catch (error) {
@@ -664,6 +703,14 @@ export function buildMenu(sheets, { current = null, edge = null } = {}) {
     without_photo: products.filter((product) => product.row.photo !== 'есть').length,
     without_yandex_price: products.filter((product) => product.yandex === null).length,
     without_glovo_price: products.filter((product) => product.glovo === null).length,
+    // Only with aggregator prices, so an off build keeps the step-1 manifest bytes.
+    ...(aggregators
+      ? {
+          aggregator_prices: aggregatorPrices,
+          yandex_from_hall: products.filter((product) => product.yandexFromHall).length,
+          glovo_from_hall: products.filter((product) => product.glovoFromHall).length,
+        }
+      : {}),
     unconfirmed: unconfirmed.length,
     new_slugs: products.filter((product) => !kept.has(product.row.slug)).length,
     price_changes: currentPayload
@@ -676,6 +723,7 @@ export function buildMenu(sheets, { current = null, edge = null } = {}) {
     errors: errors.length,
   };
   return {
+    aggregatorPrices,
     payload,
     bytes,
     errors,
@@ -707,6 +755,32 @@ const table = (headers, rows) =>
     ...rows.map((row) => `| ${row.map(cell).join(' | ')} |`),
   ].join('\n');
 
+const aggregatorColumns = (model) =>
+  model.aggregatorPrices !== undefined && model.aggregatorPrices !== 'off';
+/** One aggregator price cell of the review: price, hall fallback marked, or not sold. */
+const aggregatorCellText = (minor, fromHall) =>
+  minor === null
+    ? 'не продаётся'
+    : `${money(minor)}${fromHall ? ' = зал (UNCONFIRMED, контракт 9 в.11)' : ''}`;
+function aggregatorReviewLines(model) {
+  const { summary } = model;
+  return [
+    '- Цены Яндекс Еды и Glovo входят в эту публикацию и уходят только на кассу (заказы с планшетов ' +
+      'агрегаторов); приложение и киоск их не получают. Публиковать можно только при включённом ' +
+      '`CATALOG_AGGREGATOR_PRICES_ENABLED`.',
+    `- Не продаётся в Яндекс Еде: ${summary.without_yandex_price}, в Glovo: ${summary.without_glovo_price} ` +
+      '(ячейка «-» или пустая ячейка без режима цены зала).',
+    ...(model.aggregatorPrices === 'hall-fallback'
+      ? [
+          `- UNCONFIRMED: цена агрегатора = цена зала (полных прайсов нет, контракт 9 в.11): ` +
+            `Яндекс Еда ${summary.yandex_from_hall}, Glovo ${summary.glovo_from_hall}. ` +
+            'Позицию, которой нет у агрегатора, отметьте «-» в листе и соберите заново.',
+        ]
+      : []),
+    '- Доплаты опций у агрегаторов - как в зале (контракт 9 в.10).',
+  ];
+}
+
 /** Russian review report for the manager: every price, every UNCONFIRMED mapping marked. */
 export function reviewMarkdown(model, meta) {
   const { summary } = model;
@@ -734,8 +808,12 @@ export function reviewMarkdown(model, meta) {
         ? ''
         : ` Размер каталога: ${model.bytes} байт из ${PAYLOAD_BUDGET_BYTES} допустимых.`),
     '- КБЖУ публикуются нулями со статусом «не проверено», аллергены - «не указаны» (в iiko их нет).',
-    '- Цены Яндекс Еды и Glovo в эту публикацию не входят: прайсов агрегаторов в репозитории нет, ' +
-      'колонки заполняет управляющий, их публикует отдельный шаг (цены агрегаторов, CC-3).',
+    ...(model.aggregatorPrices === undefined || model.aggregatorPrices === 'off'
+      ? [
+          '- Цены Яндекс Еды и Glovo в эту публикацию не входят: прайсов агрегаторов в репозитории нет, ' +
+            'колонки заполняет управляющий, их публикует отдельный шаг (цены агрегаторов, CC-3).',
+        ]
+      : aggregatorReviewLines(model)),
     '',
   ];
   if (model.errors.length) {
@@ -767,6 +845,7 @@ export function reviewMarkdown(model, meta) {
           'slug',
           'Название RU / KK',
           'Цена',
+          ...(aggregatorColumns(model) ? ['Яндекс Еда', 'Glovo'] : []),
           'Было (опубликовано)',
           'Порция',
           'Фото',
@@ -788,6 +867,12 @@ export function reviewMarkdown(model, meta) {
             product.row.slug,
             `${product.row.name_ru} / ${product.row.name_kk || 'без KK'}`,
             money(product.price),
+            ...(aggregatorColumns(model)
+              ? [
+                  aggregatorCellText(product.yandex, product.yandexFromHall),
+                  aggregatorCellText(product.glovo, product.glovoFromHall),
+                ]
+              : []),
             previous,
             product.row.serving_ru,
             product.row.photo,
@@ -893,6 +978,24 @@ export function reviewMarkdown(model, meta) {
       ),
       '',
     );
+    const aggregatorChanges = model.expected.changes.filter(
+      (c) => c.code === 'AGGREGATOR_PRICE_CHANGED',
+    );
+    if (aggregatorChanges.length)
+      lines.push(
+        '### Цены агрегаторов на кассе',
+        '',
+        table(
+          ['Позиция на кассе', 'Канал', 'Сейчас', 'Станет'],
+          aggregatorChanges.map((c) => [
+            c.name,
+            c.channel === 'yandex_eda' ? 'Яндекс Еда' : 'Glovo',
+            c.edge_minor === null ? 'не продаётся' : money(c.edge_minor),
+            c.catalog_minor === null ? 'не продаётся' : money(c.catalog_minor),
+          ]),
+        ),
+        '',
+      );
     const prices = model.expected.changes.filter((c) => c.code === 'PRICE_CHANGED');
     if (prices.length)
       lines.push(
@@ -954,7 +1057,12 @@ const jsonOf = (bytes, name) => {
 };
 
 /** build: read the sheets and optional inputs, write the four outputs into a new directory. */
-export async function runBuild({ dir, out, current, edge }) {
+export async function runBuild({ dir, out, current, edge, aggregatorPrices = 'off' }) {
+  if (!AGGREGATOR_MODES.includes(aggregatorPrices))
+    throw new ImportError(
+      'AGGREGATOR_MODE_INVALID',
+      `--aggregator-prices: ${AGGREGATOR_MODES.join('|')}`,
+    );
   const inputs = {},
     sheets = {};
   for (const [key, spec] of Object.entries(SHEETS)) {
@@ -982,7 +1090,7 @@ export async function runBuild({ dir, out, current, edge }) {
     if (!parsed.success) throw new ImportError('INPUT_UNREADABLE', 'edge: меню кассы не разобрано');
     edgeInput = parsed.data;
   } else inputs.edge = null;
-  const model = buildMenu(sheets, { current: currentInput, edge: edgeInput });
+  const model = buildMenu(sheets, { current: currentInput, edge: edgeInput, aggregatorPrices });
   await prepareOut(out);
   const outputs = {};
   const write = async (name, text) => {
@@ -1000,6 +1108,8 @@ export async function runBuild({ dir, out, current, edge }) {
   const manifest = {
     schema: MANIFEST_SCHEMA,
     tool: 'scripts/catalog-menu-import.mjs',
+    // Only for an aggregator build: an off build keeps exactly the step-1 manifest.
+    ...(aggregatorPrices === 'off' ? {} : { aggregator_prices: aggregatorPrices }),
     inputs,
     outputs,
     payload: model.payload
@@ -1071,6 +1181,11 @@ export async function loadManifest(path) {
   }
   if (!files['payload.json'] || !files['review.md'])
     throw new ImportError('MANIFEST_INVALID', 'manifest.json: нет каталога или отчёта');
+  if (
+    manifest.aggregator_prices !== undefined &&
+    !['sheet', 'hall-fallback'].includes(manifest.aggregator_prices)
+  )
+    throw new ImportError('MANIFEST_INVALID', 'manifest.json: неизвестный режим цен агрегаторов');
   const parsed = CatalogPayloadSchema.safeParse(jsonOf(files['payload.json'], 'payload.json'));
   if (!parsed.success || payloadHash(parsed.data) !== manifest.payload.sha256)
     throw new ImportError('OUTPUT_CHANGED', 'payload.json не совпадает с манифестом');
@@ -1079,6 +1194,7 @@ export async function loadManifest(path) {
   const reviewed = { ...parsed.data, content_reviewed: true };
   return {
     manifest,
+    aggregatorPrices: manifest.aggregator_prices !== undefined,
     sha256: sha256(bytes),
     dir,
     payload: parsed.data,
@@ -1266,6 +1382,14 @@ export function assertParityReport(report, loaded, branch, state) {
     report.allow.file_sha256 !== loaded.expected.sha256
   )
     throw new ImportError('PARITY_FAILED', 'отчёт паритета сделан для другого каталога или списка');
+  // The reviewed list of an aggregator build pins aggregator prices: compared with the same switch.
+  if ((report.aggregator_prices === true) !== (loaded.aggregatorPrices === true))
+    throw new ImportError(
+      'PARITY_FAILED',
+      loaded.aggregatorPrices
+        ? 'сборка с ценами агрегаторов: запустите catalog-edge-parity с --aggregator-prices'
+        : 'сборка без цен агрегаторов: запустите catalog-edge-parity без --aggregator-prices',
+    );
   const active = state.edge_delivery?.edge_active_version;
   if (
     state.publication_support?.pos === true &&
@@ -1286,6 +1410,12 @@ export async function runPublish({ loaded, branch, parity, api }) {
   if (hashOf(state.published?.payload) !== loaded.reviewedSha256) {
     assertBase(loaded, state);
     assertParityReport(parity, loaded, branch, state);
+    // The cloud refuses them otherwise (CHANNEL_PRICES_NOT_SUPPORTED); say why before trying.
+    if (loaded.aggregatorPrices && state.publication_support?.aggregator_prices !== true)
+      throw new ImportError(
+        'AGGREGATOR_PRICES_DISABLED',
+        'облако не публикует цены агрегаторов: нужен CATALOG_AGGREGATOR_PRICES_ENABLED=true',
+      );
     if (!state.draft || hashOf(state.draft.payload) !== loaded.reviewedSha256)
       throw new ImportError(
         'DRAFT_DIFFERS',
@@ -1316,7 +1446,7 @@ export async function runPublish({ loaded, branch, parity, api }) {
 }
 
 const COMMANDS = {
-  build: { required: ['--dir', '--out'], optional: ['--current', '--edge'] },
+  build: { required: ['--dir', '--out'], optional: ['--current', '--edge', '--aggregator-prices'] },
   save: {
     required: ['--manifest', '--reviewed-by', '--branch', '--token-file'],
     optional: ['--api'],
@@ -1348,6 +1478,11 @@ export function parseArguments(argv) {
     if (!(flag in options)) throw new UsageError(`${command}: ${flag} is required`);
   if (options['--branch'] !== undefined && !UUID.test(options['--branch']))
     throw new UsageError('--branch must be a branch uuid');
+  if (
+    options['--aggregator-prices'] !== undefined &&
+    !['sheet', 'hall-fallback'].includes(options['--aggregator-prices'])
+  )
+    throw new UsageError('--aggregator-prices must be sheet or hall-fallback');
   return { command, options };
 }
 
@@ -1359,6 +1494,7 @@ async function main() {
       out: options['--out'],
       current: options['--current'],
       edge: options['--edge'],
+      aggregatorPrices: options['--aggregator-prices'] ?? 'off',
     });
     console.log(
       JSON.stringify({

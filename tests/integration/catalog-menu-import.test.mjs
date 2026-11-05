@@ -171,3 +171,141 @@ test('the real CMS saves and publishes the built menu and the edge applies all 5
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+/** One worker cycle of a new edge that advertises its menu features (cutover runtime). */
+async function deliverWithFeatures(cloud, edge, auth, branch, features) {
+  const { event } = await pullMenu(cloud.pool, auth, undefined, { features });
+  const ack = await applyMenu(edge.pool, branch, event);
+  await acknowledgeMenu(cloud.pool, auth, ack);
+  const active = await activeMenu(edge, branch);
+  await pullMenu(
+    cloud.pool,
+    auth,
+    { active_release_id: active.release_id, active_version: active.version },
+    { features },
+  );
+  return ack;
+}
+
+test('CC-3: after М1 the hall-fallback build publishes aggregator prices only with the flag', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'pickchick-menu-import-pg-'));
+  const { readFile } = await import('node:fs/promises');
+  try {
+    await withSyncDatabases(async ({ cloud, edge, org, branch, device }) => {
+      const auth = authFor(await provisionDevice(cloud.pool, device));
+      const manager = await provisionCatalogManager(cloud.pool, {
+        organization_id: org,
+        name: 'Synthetic catalog editor',
+        branch_ids: [branch],
+      });
+      await cloud.pool.query(
+        'INSERT INTO fulfillment_transport_bindings(branch_id,organization_id,device_id,producer_id) VALUES($1,$2,$3,$4)',
+        [branch, org, device, randomUUID()],
+      );
+      const options = { enabled: true, edgePublicationBranchId: branch };
+      const off = new CatalogAdmin(cloud.pool, options);
+      const on = new CatalogAdmin(cloud.pool, { ...options, edgeAggregatorPrices: true });
+      const features = ['combo_stops', 'aggregator_prices'];
+      await pullMenu(cloud.pool, auth, await installLocalMenu(edge, branch, 2), { features });
+      // М1 with the flag off: the real menu at hall prices (as in the test above).
+      let state = await off.seed(manager.token, branch, {
+        expected_revision: 0,
+        request_id: randomUUID(),
+      });
+      const apiOf = (service) => ({
+        read: (id) => service.read(manager.token, id),
+        save: (id, body) => service.save(manager.token, id, body),
+        publish: (id, body) => service.publish(manager.token, id, body),
+      });
+      const cycle = async (name, service, aggregatorPrices) => {
+        state = await service.read(manager.token, branch);
+        const installed = await activeMenu(edge, branch);
+        const current = join(dir, `${name}-state.json`),
+          edgeFile = join(dir, `${name}-edge.json`),
+          out = join(dir, name);
+        await writeFile(current, JSON.stringify(state));
+        await writeFile(edgeFile, JSON.stringify(installed));
+        const build = await runBuild({
+          dir: FIXTURE,
+          out,
+          current,
+          edge: edgeFile,
+          aggregatorPrices,
+        });
+        assert.deepEqual(build.manifest.errors, []);
+        const loaded = await loadManifest(join(out, 'manifest.json'));
+        const api = apiOf(service);
+        await runSave({ loaded, branch, reviewedBy: 'Синтетический Управляющий', api });
+        const parity = parityRun({
+          catalog: JSON.parse(await readFile(join(out, 'payload.json'), 'utf8')),
+          snapshot: installed,
+          allow: {
+            expected: JSON.parse(await readFile(join(out, 'expected-edge-changes.json'), 'utf8')),
+            sha256: loaded.expected.sha256,
+          },
+          aggregatorPrices: aggregatorPrices !== 'off',
+        });
+        assert.equal(parity.ok, true, JSON.stringify(parity.allow));
+        return { loaded, parity, api };
+      };
+      // The installed v1 seed publication first (М1 compares against a published head).
+      state = await off.save(manager.token, branch, {
+        expected_revision: state.draft.revision,
+        request_id: randomUUID(),
+        payload: { ...structuredClone(state.draft.payload), content_reviewed: true },
+      });
+      await off.publish(manager.token, branch, {
+        expected_revision: state.draft.revision,
+        expected_published_version: 0,
+        request_id: randomUUID(),
+        confirmation: 'publish_catalog',
+      });
+      await deliverWithFeatures(cloud, edge, auth, branch, features);
+      const m1 = await cycle('m1', off, 'off');
+      assert.equal((await runPublish({ ...m1, branch })).status, 'published');
+      await deliverWithFeatures(cloud, edge, auth, branch, features);
+      const hall = await activeMenu(edge, branch);
+      assert.equal(hall.items.length, 54);
+      assert.equal(
+        hall.items.some((i) => i.aggregator_prices_minor),
+        false,
+      );
+      // CC-3 build, flag still off on the cloud: the tool refuses before any request.
+      const cc3 = await cycle('cc3', off, 'hall-fallback');
+      await assert.rejects(
+        runPublish({ ...cc3, branch }),
+        (e) => e.code === 'AGGREGATOR_PRICES_DISABLED',
+      );
+      // Flag on: published, delivered to the new edge with aggregator_prices_minor.
+      const published = await runPublish({ ...cc3, api: apiOf(on), branch });
+      assert.equal(published.status, 'published');
+      await deliverWithFeatures(cloud, edge, auth, branch, features);
+      state = await on.read(manager.token, branch);
+      assert.equal(state.edge_delivery.status, 'applied');
+      assert.equal(state.publication_support.aggregator_prices, true);
+      const priced = await activeMenu(edge, branch);
+      assert.equal(priced.items.length, 54);
+      for (const item of priced.items)
+        assert.deepEqual(item.aggregator_prices_minor, {
+          yandex_eda: item.price_minor,
+          glovo: item.price_minor,
+        });
+      // Hall prices and identities did not move.
+      for (const item of hall.items) {
+        const next = priced.items.find((i) => i.variant_id === item.variant_id);
+        assert.equal(next.price_minor, item.price_minor);
+      }
+      // Parity after apply (contracts 6.2 step 5) is clean with --aggregator-prices.
+      const after = parityRun({
+        catalog: state,
+        snapshot: priced,
+        aggregatorPrices: true,
+      });
+      assert.equal(after.ok, true, JSON.stringify(after.failures));
+      assert.equal(after.summary.aggregator_price_changes, 0);
+      // An installed edge pulling the same release would get the hall form (other test file).
+    });
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

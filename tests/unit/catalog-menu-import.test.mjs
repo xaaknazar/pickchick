@@ -24,6 +24,7 @@ import { priceCatalogSnapshot } from '../../packages/catalog-pricing/dist/index.
 import { parityRun } from '../../scripts/catalog-edge-parity.mjs';
 import { EDGE_KEYS, frozenStorefrontSchemas } from './catalog-frozen-storefront.mjs';
 import {
+  AGGREGATOR_MODES,
   CATEGORIES,
   LEGACY_SLUGS,
   PAYLOAD_BUDGET_BYTES,
@@ -38,6 +39,7 @@ import {
   payloadHash,
   readCredential,
   requestIdFor,
+  reviewMarkdown,
   runBuild,
   runPublish,
   runSave,
@@ -1164,4 +1166,242 @@ test('CLI: usage exit 2, refused build exit 1, save through the local API withou
   ]);
   assert.equal(remote.code, 1);
   assert.equal(JSON.parse(remote.stderr).code, 'API_INVALID');
+});
+
+// Cutover CC-3: build --aggregator-prices. Synthetic aggregator prices only (no real price list
+// exists in the repository); the fixture columns stay empty.
+const withAggregatorCells = (copy) => {
+  row(copy.positions, 'burger').yandex_price_tenge = '2 690';
+  row(copy.positions, 'burger').glovo_price_tenge = '2790';
+  row(copy.positions, 'pick-combo').yandex_price_tenge = '4590';
+  row(copy.positions, 'pick-combo').glovo_price_tenge = '-';
+  row(copy.positions, 'water').glovo_price_tenge = '-';
+};
+const aggregatorSheets = () => {
+  const copy = sheets();
+  withAggregatorCells(copy);
+  return copy;
+};
+const pricesOf = (model) =>
+  Object.fromEntries(
+    model.payload.products
+      .filter((p) => p.channel_prices_minor)
+      .map((p) => [p.id, p.channel_prices_minor]),
+  );
+
+test('aggregator prices: off is the step-1 build; sheet takes only the filled cells', () => {
+  assert.deepEqual(AGGREGATOR_MODES, ['off', 'sheet', 'hall-fallback']);
+  const off = buildMenu(sheets(), { aggregatorPrices: 'off' });
+  assert.equal(JSON.stringify(off.payload), JSON.stringify(payload));
+  assert.deepEqual(off.summary, built.summary);
+  assert.equal('aggregator_prices' in built.summary, false);
+  // Off keeps the step-1 check: «-» is not a price there.
+  const dash = buildMenu(aggregatorSheets());
+  assert.deepEqual(codes(dash.errors), ['PRICE_INVALID']);
+  assert.equal(dash.payload, null);
+  const sheet = buildMenu(aggregatorSheets(), { aggregatorPrices: 'sheet' });
+  assert.deepEqual(sheet.errors, []);
+  assert.deepEqual(pricesOf(sheet), {
+    'pick-combo': { yandex_eda: '459000' },
+    burger: { yandex_eda: '269000', glovo: '279000' },
+  });
+  assert.equal(sheet.summary.aggregator_prices, 'sheet');
+  assert.equal(sheet.summary.without_yandex_price, 52);
+  assert.equal(sheet.summary.without_glovo_price, 53);
+  assert.deepEqual([sheet.summary.yandex_from_hall, sheet.summary.glovo_from_hall], [0, 0]);
+  // Hall prices and everything else are the off build.
+  const strip = (value) =>
+    JSON.stringify({
+      ...value,
+      products: value.products.map((p) => {
+        const copy = { ...p };
+        delete copy.channel_prices_minor;
+        return copy;
+      }),
+    });
+  assert.equal(strip(sheet.payload), strip(payload));
+  // Cells are checked like hall prices: whole tenge, plausible.
+  const bad = sheets();
+  row(bad.positions, 'burger').yandex_price_tenge = '2690,5';
+  assert.deepEqual(codes(buildMenu(bad, { aggregatorPrices: 'sheet' }).errors), [
+    'PRICE_NOT_WHOLE_TENGE',
+  ]);
+  assert.throws(
+    () => buildMenu(sheets(), { aggregatorPrices: 'yes' }),
+    (e) => e.code === 'AGGREGATOR_MODE_INVALID',
+  );
+});
+
+test('aggregator prices hall-fallback: empty cells take the hall price, marked UNCONFIRMED', () => {
+  const model = buildMenu(aggregatorSheets(), {
+    aggregatorPrices: 'hall-fallback',
+    current: { branchId: branch, version: 11, publishedAt: null, payload: v11 },
+    edge: edgeMenu,
+  });
+  assert.deepEqual(model.errors, []);
+  const prices = pricesOf(model);
+  assert.equal(Object.keys(prices).length, 54);
+  for (const product of model.payload.products) {
+    const own = product.channel_prices_minor;
+    if (product.id === 'burger') assert.deepEqual(own, { yandex_eda: '269000', glovo: '279000' });
+    else if (product.id === 'pick-combo') assert.deepEqual(own, { yandex_eda: '459000' });
+    else if (product.id === 'water') assert.deepEqual(own, { yandex_eda: product.price_minor });
+    else assert.deepEqual(own, { yandex_eda: product.price_minor, glovo: product.price_minor });
+  }
+  assert.deepEqual(
+    [
+      model.summary.without_yandex_price,
+      model.summary.without_glovo_price,
+      model.summary.yandex_from_hall,
+      model.summary.glovo_from_hall,
+    ],
+    [0, 2, 52, 51],
+  );
+  // The publication checks the cloud runs with the flag on all pass.
+  const reviewedAggregator = { ...model.payload, content_reviewed: true };
+  assert.doesNotThrow(() =>
+    assertCatalogPublishable(reviewedAggregator, { aggregatorPrices: true }),
+  );
+  assert.throws(() => assertCatalogPublishable(reviewedAggregator), /CONFLICT/);
+  assert.ok(model.bytes <= PAYLOAD_BUDGET_BYTES, `${model.bytes} bytes`);
+  // Storefronts: the stripped payload still parses with the frozen installed schema.
+  const storefront = stripStorefrontPayload(CatalogPayloadSchema.parse(reviewedAggregator));
+  assert.equal(frozenStorefrontSchemas().Payload.safeParse(storefront).success, true);
+  assert.equal(JSON.stringify(storefront), JSON.stringify(stripStorefrontPayload(reviewed)));
+  // The reviewed cashier list pins every aggregator price the edge does not have yet: on the 24
+  // installed items (Glovo not for pick-combo and water), the 30 new ones carry them in ITEM_ADDED.
+  assert.equal(edgeMenu.items.length, 24);
+  assert.equal(model.expected.counts.AGGREGATOR_PRICE_CHANGED, 24 + 22);
+  const added = model.expected.changes.filter((c) => c.code === 'ITEM_ADDED');
+  assert.equal(added.length, 30);
+  assert.ok(added.every((c) => c.catalog_aggregator_prices_minor?.yandex_eda));
+  // Hall changes are the same as in the off build against the same edge menu.
+  const offExpected = buildMenu(sheets(), { edge: edgeMenu }).expected;
+  assert.deepEqual(
+    model.expected.changes.filter((c) => c.code === 'PRICE_CHANGED'),
+    offExpected.changes.filter((c) => c.code === 'PRICE_CHANGED'),
+  );
+  // The manager sees both columns and every fallback marked.
+  const review = reviewMarkdown(model, { inputs: {}, payloadSha256: 'a'.repeat(64) });
+  assert.match(review, /\| Цена \| Яндекс Еда \| Glovo \|/);
+  assert.equal(review.match(/= зал \(UNCONFIRMED, контракт 9 в\.11\)/g).length, 52 + 51);
+  assert.match(review, /UNCONFIRMED: цена агрегатора = цена зала/);
+  assert.match(review, /CATALOG_AGGREGATOR_PRICES_ENABLED/);
+  assert.match(review, /### Цены агрегаторов на кассе/);
+  assert.equal(review.includes('в эту публикацию не входят'), false);
+  // Off review keeps the step-1 sentence and table.
+  const offReview = reviewMarkdown(built, { inputs: {}, payloadSha256: 'a'.repeat(64) });
+  assert.match(offReview, /в эту публикацию не входят/);
+  assert.equal(offReview.includes('| Яндекс Еда |'), false);
+});
+
+test('publish of an aggregator build needs the cloud flag and an --aggregator-prices parity report', async (t) => {
+  const dir = await tempDir(t);
+  const token = randomBytes(32).toString('hex');
+  const stub = await stubCatalogApi(t, token);
+  const inputs = await writeInputs(dir);
+  // Fixture sheets with synthetic aggregator cells.
+  const sheetsDir = join(dir, 'sheets');
+  await cp(FIXTURE, sheetsDir, { recursive: true });
+  const positions = sheets().positions;
+  const header = SHEETS.positions.columns.join('\t');
+  const changed = { positions: structuredClone(positions) };
+  withAggregatorCells(changed);
+  await writeFile(
+    join(sheetsDir, SHEETS.positions.file),
+    [header, ...changed.positions.map((r) => SHEETS.positions.columns.map((c) => r[c]).join('\t'))]
+      .join('\n')
+      .concat('\n'),
+  );
+  const out = join(dir, 'out');
+  const result = await runBuild({ dir: sheetsDir, out, ...inputs, aggregatorPrices: 'sheet' });
+  assert.equal(result.ok, true, JSON.stringify(result.manifest.errors));
+  assert.equal(result.manifest.aggregator_prices, 'sheet');
+  const loaded = await loadManifest(join(out, 'manifest.json'));
+  assert.equal(loaded.aggregatorPrices, true);
+  const api = catalogApi({ base: apiBase(stub.url), token });
+  await runSave({ loaded, branch, reviewedBy: 'Синтетический Управляющий', api });
+  const expected = JSON.parse(await readFile(join(out, 'expected-edge-changes.json'), 'utf8'));
+  const allow = { expected, sha256: loaded.expected.sha256 };
+  const parity = parityRun({
+    catalog: loaded.payload,
+    snapshot: edgeMenu,
+    allow,
+    aggregatorPrices: true,
+  });
+  assert.equal(parity.ok, true, JSON.stringify(parity.allow));
+  const refusedWith = async (report, code) =>
+    assert.rejects(runPublish({ loaded, branch, parity: report, api }), (e) => e.code === code);
+  // A report without the switch cannot be the one for this build.
+  await refusedWith(
+    parityRun({ catalog: loaded.payload, snapshot: edgeMenu, allow }),
+    'PARITY_FAILED',
+  );
+  const withoutSwitch = { ...parity };
+  delete withoutSwitch.aggregator_prices;
+  await refusedWith(withoutSwitch, 'PARITY_FAILED');
+  // The cloud without CATALOG_AGGREGATOR_PRICES_ENABLED: refused before any request.
+  await refusedWith(parity, 'AGGREGATOR_PRICES_DISABLED');
+  assert.equal(stub.calls.filter((call) => call.method === 'POST').length, 0);
+  stub.state.publication_support = { ...stub.state.publication_support, aggregator_prices: true };
+  const published = await runPublish({ loaded, branch, parity, api });
+  assert.equal(published.status, 'published');
+  assert.deepEqual(
+    stub.state.published.payload.products.find((p) => p.id === 'burger').channel_prices_minor,
+    { yandex_eda: '269000', glovo: '279000' },
+  );
+  // The reverse: an off build refuses a report made with --aggregator-prices.
+  const offOut = join(dir, 'off');
+  await runBuild({ dir: FIXTURE, out: offOut, ...inputs });
+  const offLoaded = await loadManifest(join(offOut, 'manifest.json'));
+  assert.equal(offLoaded.aggregatorPrices, false);
+  assert.equal('aggregator_prices' in offLoaded.manifest, false);
+  const offExpected = JSON.parse(
+    await readFile(join(offOut, 'expected-edge-changes.json'), 'utf8'),
+  );
+  const offParity = parityRun({
+    catalog: offLoaded.payload,
+    snapshot: edgeMenu,
+    allow: { expected: offExpected, sha256: offLoaded.expected.sha256 },
+  });
+  const state = { ...stub.state, published: v11State.published, edge_delivery: null };
+  assert.doesNotThrow(() => assertParityReport(offParity, offLoaded, branch, state));
+  assert.throws(
+    () => assertParityReport({ ...offParity, aggregator_prices: true }, offLoaded, branch, state),
+    (e) => e.code === 'PARITY_FAILED',
+  );
+  // An unknown mode in a manifest is refused.
+  const manifest = JSON.parse(await readFile(join(out, 'manifest.json'), 'utf8'));
+  await writeFile(
+    join(out, 'manifest.json'),
+    JSON.stringify({ ...manifest, aggregator_prices: 'x' }),
+  );
+  await assert.rejects(
+    loadManifest(join(out, 'manifest.json')),
+    (e) => e.code === 'MANIFEST_INVALID',
+  );
+  // CLI: the mode is a value of build only.
+  assert.deepEqual(
+    parseArguments(['build', '--dir', 'd', '--out', 'o', '--aggregator-prices', 'hall-fallback'])
+      .options,
+    { '--dir': 'd', '--out': 'o', '--aggregator-prices': 'hall-fallback' },
+  );
+  for (const argv of [
+    ['build', '--dir', 'd', '--out', 'o', '--aggregator-prices', 'off'],
+    ['build', '--dir', 'd', '--out', 'o', '--aggregator-prices'],
+    [
+      'save',
+      '--manifest',
+      'm',
+      '--reviewed-by',
+      'x',
+      '--branch',
+      branch,
+      '--token-file',
+      'f',
+      '--aggregator-prices',
+      'sheet',
+    ],
+  ])
+    assert.throws(() => parseArguments(argv), argv.join(' '));
 });
