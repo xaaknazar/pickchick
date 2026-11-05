@@ -4,6 +4,8 @@
  *
  *   node scripts/catalog-menu-import.mjs build --dir <sheets> --out <new dir>
  *        [--current <catalog.json>] [--edge <edge-menu.json>] [--aggregator-prices sheet|hall-fallback]
+ *   node scripts/catalog-menu-import.mjs restore --snapshot <state.json> --out <new dir>
+ *        [--current <catalog.json>] [--edge <edge-menu.json>]
  *   node scripts/catalog-menu-import.mjs save --manifest <manifest.json> --reviewed-by "<name>"
  *        --branch <uuid> --token-file <credential.json> [--api <base>]
  *   node scripts/catalog-menu-import.mjs publish --manifest <manifest.json> --parity <report.json>
@@ -21,6 +23,9 @@
  *          hall price (UNCONFIRMED in the report, contracts 9 q.11); «-» = not sold there. Such a
  *          build is published only with CATALOG_AGGREGATOR_PRICES_ENABLED on the cloud and a
  *          parity report made with `catalog-edge-parity --aggregator-prices --allow`.
+ * restore  rollback build from a saved catalog (the state.json of step 1, a public catalog or a bare
+ *          payload): the same outputs as build with that content, so save/publish turn it into a
+ *          new version; the review lists what leaves, returns and changes price against --current.
  * save     the only step that sets content_reviewed:true: PUT of the built payload as the draft,
  *          request_id derived from the manifest SHA-256. A repeat after success changes nothing.
  * publish  POST publish (confirmation publish_catalog) of exactly that saved draft, only with a
@@ -1445,8 +1450,247 @@ export async function runPublish({ loaded, branch, parity, api }) {
   return { ...receipt, receipt: await writeReceipt(loaded.dir, 'publish-receipt.json', receipt) };
 }
 
+/** Whether a catalog carries Yandex Eda / Glovo prices (cutover CC-3). */
+const hasAggregatorPrices = (payload) =>
+  payload.products.some((product) =>
+    ['yandex_eda', 'glovo'].some((key) => product.channel_prices_minor?.[key] !== undefined),
+  );
+const productName = (product) => product.name?.ru ?? product.id;
+
+/** review.md of a restore: what the rollback publishes and what it changes. */
+export function restoreMarkdown({
+  source,
+  inputs,
+  payload,
+  payloadSha256,
+  current,
+  edge,
+  expected,
+}) {
+  const aggregators = hasAggregatorPrices(payload);
+  const lines = [
+    `# Откат меню: каталог версии ${source.version ?? 'без номера'}`,
+    '',
+    `Источник: снимок \`${source.file}\` (SHA-256 \`${inputs.snapshot.sha256}\`)` +
+      (source.publishedAt ? `, опубликован ${source.publishedAt}` : '') +
+      (source.branchId ? `, точка \`${source.branchId}\`` : '') +
+      '.',
+    `Каталог отката: ${payload.products.length} позиций, SHA-256 \`${payloadSha256}\`.`,
+    '',
+    'Публикации неизменяемы: этот каталог станет новой версией с содержимым снимка. Порядок тот же,',
+    'что у обычной сборки: подпись этого отчёта, `catalog-edge-parity --allow`, `save`, `publish`.',
+  ];
+  if (aggregators)
+    lines.push(
+      '',
+      'В снимке есть цены Яндекс Еды и Glovo: публикация пройдёт только с',
+      '`CATALOG_AGGREGATOR_PRICES_ENABLED=true` и паритетом `--aggregator-prices`.',
+    );
+  if (current) {
+    const before = new Map(current.payload.products.map((p) => [p.id, p]));
+    const after = new Map(payload.products.map((p) => [p.id, p]));
+    const removed = current.payload.products.filter((p) => !after.has(p.id));
+    const returned = payload.products.filter((p) => !before.has(p.id));
+    const prices = payload.products.filter(
+      (p) => before.has(p.id) && before.get(p.id).price_minor !== p.price_minor,
+    );
+    lines.push(
+      '',
+      `## Что изменится относительно опубликованной версии ${current.version ?? '-'}`,
+      '',
+      `- Уберутся из меню (${removed.length}): ${removed.map(productName).join(', ') || 'нет'}.`,
+      `- Вернутся в меню (${returned.length}): ${returned.map(productName).join(', ') || 'нет'}.`,
+      `- Изменятся цены зала (${prices.length}):`,
+      '',
+      table(
+        ['Позиция', 'slug', 'Было', 'Станет'],
+        prices.map((p) => [
+          productName(p),
+          p.id,
+          money(before.get(p.id).price_minor),
+          money(p.price_minor),
+        ]),
+      ),
+    );
+  } else
+    lines.push(
+      '',
+      'Опубликованная версия не передана (`--current`): сравнения «было -> стало» нет.',
+    );
+  lines.push(
+    '',
+    '## Позиции и цены отката',
+    '',
+    table(
+      ['Позиция', 'slug', 'Цена зала', ...(aggregators ? ['Яндекс Еда', 'Glovo'] : [])],
+      payload.products.map((p) => [
+        productName(p),
+        p.id,
+        money(p.price_minor),
+        ...(aggregators
+          ? [
+              money(p.channel_prices_minor?.yandex_eda ?? null),
+              money(p.channel_prices_minor?.glovo ?? null),
+            ]
+          : []),
+      ]),
+    ),
+  );
+  if (edge)
+    lines.push(
+      '',
+      `## Касса: меню версии ${edge.version}`,
+      '',
+      `Ожидаемые изменения на кассе: ${expected.changes.length} (expected-edge-changes.json).`,
+    );
+  return lines.join('\n') + '\n';
+}
+
+/**
+ * restore: a rollback build from a saved catalog - the state.json taken before a publication
+ * (admin state), a public catalog or a bare payload. Writes the same outputs as build, so the
+ * manager signs the review and `save`/`publish` work unchanged; the rollback is a new version
+ * with the old content. The 24 published v11 slugs must be in it; products added after the
+ * snapshot leave the menu and are listed in the review.
+ */
+export async function runRestore({ snapshot, out, current, edge }) {
+  const inputs = {};
+  const read = async (path, key) => {
+    const bytes = await readRegular(path, 5_000_000);
+    inputs[key] = { sha256: sha256(bytes), bytes: bytes.length };
+    return jsonOf(bytes, key);
+  };
+  let source, currentInput;
+  try {
+    source = catalogInput(await read(snapshot, 'snapshot'));
+    currentInput = current ? catalogInput(await read(current, 'current')) : null;
+  } catch (error) {
+    if (error instanceof ParityInputError) throw new ImportError('INPUT_UNREADABLE', error.message);
+    throw error;
+  }
+  if (!current) inputs.current = null;
+  let edgeInput = null;
+  if (edge) {
+    const parsed = MenuSnapshotSchema.safeParse(await read(edge, 'edge'));
+    if (!parsed.success) throw new ImportError('INPUT_UNREADABLE', 'edge: меню кассы не разобрано');
+    edgeInput = parsed.data;
+  } else inputs.edge = null;
+  const errors = [];
+  const fail = (code, detail) => errors.push({ code, detail });
+  const branches = new Set(
+    [source.branchId, currentInput?.branchId, edgeInput?.branch_id].filter(Boolean),
+  );
+  if (branches.size > 1)
+    fail('BRANCH_MISMATCH', 'снимок, текущий каталог и меню кассы - разные точки');
+  const payload = CatalogPayloadSchema.parse({ ...source.payload, content_reviewed: false });
+  const aggregators = hasAggregatorPrices(payload);
+  const slugs = new Set(payload.products.map((p) => p.id));
+  for (const slug of LEGACY_SLUGS)
+    if (!slugs.has(slug)) fail('EXISTING_SLUG_MISSING', `${slug} нет в снимке`);
+  try {
+    assertCatalogPublishable(payload, aggregators ? { aggregatorPrices: true } : false);
+  } catch (error) {
+    fail('NOT_PUBLISHABLE', error?.reason ?? error?.code ?? 'CONFLICT');
+  }
+  try {
+    projectCatalogMenu(
+      payload,
+      edgeInput?.branch_id ?? CHECK_BRANCH,
+      (edgeInput?.version ?? 0) + 1,
+      edgeInput?.published_at ?? CHECK_PUBLISHED_AT,
+      CHECK_RELEASE,
+      ...(aggregators ? [{ aggregatorPrices: true }] : []),
+    );
+  } catch (error) {
+    fail('PROJECTION_FAILED', error?.code ?? 'INVALID_MENU');
+  }
+  let expected = null;
+  if (edgeInput && !errors.length) {
+    const report = catalogEdgeParity(
+      { catalog: payload, snapshot: edgeInput },
+      { detailed: true, ...(aggregators ? { aggregatorPrices: true } : {}) },
+    );
+    try {
+      expected = expectedEdgeChanges(report, edgePayloadHash(payload));
+    } catch (error) {
+      if (!(error instanceof ParityInputError)) throw error;
+      fail('EDGE_NOT_PUBLISHABLE', report.failures.map((f) => f.code).join(', '));
+    }
+  }
+  await prepareOut(out);
+  const outputs = {};
+  const write = async (name, text) => {
+    const bytes = Buffer.from(text, 'utf8');
+    await writeFile(join(out, name), bytes, { flag: 'wx', mode: 0o600 });
+    outputs[name] = { sha256: sha256(bytes), bytes: bytes.length };
+  };
+  const ok = errors.length === 0;
+  const payloadSha256 = payloadHash(payload);
+  if (ok) await write('payload.json', JSON.stringify(payload, null, 2) + '\n');
+  else outputs['payload.json'] = null;
+  if (ok && expected)
+    await write('expected-edge-changes.json', JSON.stringify(expected, null, 2) + '\n');
+  else outputs['expected-edge-changes.json'] = null;
+  await write(
+    'review.md',
+    restoreMarkdown({
+      source: { ...source, file: basename(snapshot) },
+      inputs,
+      payload,
+      payloadSha256,
+      current: currentInput,
+      edge: edgeInput,
+      expected: expected ?? { changes: [] },
+    }) + (ok ? '' : `\n## Ошибки\n\n${errors.map((e) => `- ${e.code}: ${e.detail}`).join('\n')}\n`),
+  );
+  const manifest = {
+    schema: MANIFEST_SCHEMA,
+    tool: 'scripts/catalog-menu-import.mjs',
+    ...(aggregators ? { aggregator_prices: 'sheet' } : {}),
+    restore: {
+      branch_id: source.branchId,
+      version: source.version,
+      published_at: source.publishedAt,
+      payload_sha256: payloadHash(source.payload),
+    },
+    inputs,
+    outputs,
+    payload: ok
+      ? {
+          sha256: payloadSha256,
+          edge_sha256: edgePayloadHash(payload),
+          bytes: Buffer.byteLength(JSON.stringify(payload)),
+          budget_bytes: PAYLOAD_BUDGET_BYTES,
+          products: payload.products.length,
+          categories: payload.categories.length,
+          content_reviewed: false,
+        }
+      : null,
+    current: currentInput
+      ? {
+          branch_id: currentInput.branchId,
+          version: currentInput.version,
+          payload_sha256: payloadHash(currentInput.payload),
+        }
+      : null,
+    edge: edgeInput
+      ? {
+          branch_id: edgeInput.branch_id,
+          release_id: edgeInput.release_id,
+          version: edgeInput.version,
+        }
+      : null,
+    summary: { products: payload.products.length, aggregator_prices: aggregators },
+    errors,
+  };
+  const manifestText = JSON.stringify(manifest, null, 2) + '\n';
+  await writeFile(join(out, 'manifest.json'), manifestText, { flag: 'wx', mode: 0o600 });
+  return { ok, manifest, manifestSha256: sha256(manifestText) };
+}
+
 const COMMANDS = {
   build: { required: ['--dir', '--out'], optional: ['--current', '--edge', '--aggregator-prices'] },
+  restore: { required: ['--snapshot', '--out'], optional: ['--current', '--edge'] },
   save: {
     required: ['--manifest', '--reviewed-by', '--branch', '--token-file'],
     optional: ['--api'],
@@ -1460,7 +1704,7 @@ export class UsageError extends Error {}
 export function parseArguments(argv) {
   const [command, ...rest] = argv;
   const spec = COMMANDS[command];
-  if (!spec) throw new UsageError('Usage: catalog-menu-import.mjs build|save|publish ...');
+  if (!spec) throw new UsageError('Usage: catalog-menu-import.mjs build|restore|save|publish ...');
   const options = {};
   for (let index = 0; index < rest.length; index += 2) {
     const flag = rest[index],
@@ -1503,6 +1747,26 @@ async function main() {
         manifest_sha256: result.manifestSha256,
         payload_sha256: result.manifest.payload?.sha256 ?? null,
         summary: result.manifest.summary,
+        errors: result.manifest.errors.slice(0, 20),
+      }),
+    );
+    process.exitCode = result.ok ? 0 : 1;
+    return;
+  }
+  if (command === 'restore') {
+    const result = await runRestore({
+      snapshot: options['--snapshot'],
+      out: options['--out'],
+      current: options['--current'],
+      edge: options['--edge'],
+    });
+    console.log(
+      JSON.stringify({
+        event: 'catalog_menu_restore_built',
+        ok: result.ok,
+        manifest_sha256: result.manifestSha256,
+        payload_sha256: result.manifest.payload?.sha256 ?? null,
+        restore: result.manifest.restore,
         errors: result.manifest.errors.slice(0, 20),
       }),
     );

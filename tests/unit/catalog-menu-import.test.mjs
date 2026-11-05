@@ -42,6 +42,7 @@ import {
   reviewMarkdown,
   runBuild,
   runPublish,
+  runRestore,
   runSave,
   tengeToMinor,
 } from '../../scripts/catalog-menu-import.mjs';
@@ -1404,4 +1405,147 @@ test('publish of an aggregator build needs the cloud flag and an --aggregator-pr
     ],
   ])
     assert.throws(() => parseArguments(argv), argv.join(' '));
+});
+
+test('restore: the saved v11 state becomes a rollback build, saved and published as v13', async (t) => {
+  const dir = await tempDir(t);
+  const token = randomBytes(32).toString('hex');
+  const stub = await stubCatalogApi(t, token);
+  const inputs = await writeInputs(dir);
+  const api = catalogApi({ base: apiBase(stub.url), token });
+  // The cutover build goes out first (v12) and the cashier applies it as its menu version 9.
+  await runBuild({ dir: FIXTURE, out: join(dir, 'v12'), ...inputs });
+  const v12 = await loadManifest(join(dir, 'v12', 'manifest.json'));
+  await runSave({ loaded: v12, branch, reviewedBy: 'Синтетический Управляющий', api });
+  const expected12 = JSON.parse(
+    await readFile(join(dir, 'v12', 'expected-edge-changes.json'), 'utf8'),
+  );
+  await runPublish({
+    loaded: v12,
+    branch,
+    api,
+    parity: parityRun({
+      catalog: v12.payload,
+      snapshot: edgeMenu,
+      allow: { expected: expected12, sha256: v12.expected.sha256 },
+    }),
+  });
+  const edge12 = projectCatalogMenu(
+    reviewed,
+    branch,
+    9,
+    '2026-11-09T18:00:00.000Z',
+    '20000000-0000-4000-8000-000000000009',
+  );
+  stub.state.edge_delivery = {
+    ...stub.state.edge_delivery,
+    status: 'applied',
+    edge_active_version: 9,
+  };
+  const current = join(dir, 'v12-state.json'),
+    edge = join(dir, 'edge-v12.json');
+  await writeFile(current, JSON.stringify(await api.read(branch)));
+  await writeFile(edge, JSON.stringify(edge12));
+
+  // Rollback build from the v11 snapshot of step 1.
+  const out = join(dir, 'rollback');
+  const restored = await runRestore({ snapshot: inputs.current, out, current, edge });
+  assert.equal(restored.ok, true, JSON.stringify(restored.manifest.errors));
+  assert.deepEqual(restored.manifest.restore, {
+    branch_id: branch,
+    version: 11,
+    published_at: '2026-10-14T00:00:00.000Z',
+    payload_sha256: payloadHash(v11),
+  });
+  assert.deepEqual(restored.manifest.current, {
+    branch_id: branch,
+    version: 12,
+    payload_sha256: payloadHash(reviewed),
+  });
+  assert.equal(restored.manifest.payload.content_reviewed, false);
+  assert.equal(restored.manifest.aggregator_prices, undefined);
+  for (const name of ['payload.json', 'review.md', 'expected-edge-changes.json', 'manifest.json'])
+    assert.equal((await stat(join(out, name))).mode & 0o777, 0o600, name);
+  const review = await readFile(join(out, 'review.md'), 'utf8');
+  const leaving = reviewed.products.filter((p) => !v11.products.some((o) => o.id === p.id));
+  assert.ok(leaving.length > 0);
+  assert.match(review, /^# Откат меню: каталог версии 11\n/);
+  assert.match(
+    review,
+    new RegExp(`Уберутся из меню \\(${leaving.length}\\): ${leaving[0].name.ru}`),
+  );
+  assert.match(review, /Вернутся в меню \(0\): нет\./);
+  assert.match(review, /Изменятся цены зала \(\d+\)/);
+  assert.match(review, /## Касса: меню версии 9/);
+  assert.doesNotMatch(review, /[\u2013\u2014]/);
+  const again = await runRestore({
+    snapshot: inputs.current,
+    out: join(dir, 'rollback-again'),
+    current,
+    edge,
+  });
+  assert.equal(again.manifestSha256, restored.manifestSha256, 'deterministic');
+
+  // save and publish exactly as a build: v13 carries the v11 content.
+  const loaded = await loadManifest(join(out, 'manifest.json'));
+  assert.equal(loaded.reviewedSha256, payloadHash({ ...v11, content_reviewed: true }));
+  const saved = await runSave({ loaded, branch, reviewedBy: 'Синтетический Управляющий', api });
+  assert.equal(saved.status, 'saved');
+  const expected = JSON.parse(await readFile(join(out, 'expected-edge-changes.json'), 'utf8'));
+  const parity = parityRun({
+    catalog: loaded.payload,
+    snapshot: edge12,
+    allow: { expected, sha256: loaded.expected.sha256 },
+  });
+  assert.equal(parity.ok, true);
+  const published = await runPublish({ loaded, branch, api, parity });
+  assert.deepEqual([published.status, published.published_version], ['published', 13]);
+  assert.equal(payloadHash(stub.state.published.payload), payloadHash(v11));
+
+  // Refusals: a snapshot without a slug of the installed clients, another branch, bad input.
+  const broken = join(dir, 'broken.json');
+  await writeFile(
+    broken,
+    JSON.stringify({
+      ...v11State,
+      published: {
+        ...v11State.published,
+        payload: { ...v11, products: v11.products.filter((p) => p.id !== LEGACY_SLUGS[0]) },
+      },
+    }),
+  );
+  const missing = await runRestore({ snapshot: broken, out: join(dir, 'broken') });
+  assert.equal(missing.ok, false);
+  assert.deepEqual(
+    missing.manifest.errors.map((e) => e.code),
+    ['EXISTING_SLUG_MISSING'],
+  );
+  assert.equal(missing.manifest.payload, null);
+  await assert.rejects(loadManifest(join(dir, 'broken', 'manifest.json')), (e) =>
+    ['MANIFEST_HAS_ERRORS', 'MANIFEST_INVALID'].includes(e.code),
+  );
+  const foreign = join(dir, 'foreign.json');
+  await writeFile(
+    foreign,
+    JSON.stringify({ ...v11State, branch: { ...v11State.branch, id: randomUUID() } }),
+  );
+  assert.deepEqual(
+    (
+      await runRestore({ snapshot: foreign, out: join(dir, 'foreign'), current })
+    ).manifest.errors.map((e) => e.code),
+    ['BRANCH_MISMATCH'],
+  );
+  const garbage = join(dir, 'garbage.json');
+  await writeFile(garbage, JSON.stringify({ payload: { products: 'x' }, branch_id: branch }));
+  await assert.rejects(runRestore({ snapshot: garbage, out: join(dir, 'garbage') }), (e) =>
+    ['INPUT_UNREADABLE'].includes(e.code),
+  );
+  await assert.rejects(
+    runRestore({ snapshot: inputs.current, out }),
+    (e) => e.code === 'OUT_NOT_EMPTY',
+  );
+  assert.deepEqual(parseArguments(['restore', '--snapshot', 'a.json', '--out', 'x']), {
+    command: 'restore',
+    options: { '--snapshot': 'a.json', '--out': 'x' },
+  });
 });
