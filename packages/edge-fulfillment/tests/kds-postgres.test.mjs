@@ -430,6 +430,7 @@ const noKdsKeys = (value) => {
   const text = JSON.stringify(value);
   for (const key of ['"kds"', '"delivery"', '"upstreamOf"']) assert.ok(!text.includes(key), key);
 };
+const MARKS = Object.freeze({ numberMatched: true, courierAccepted: true, photoTaken: true });
 
 test('KDS-2 layout off: stations and a stored layout change nothing for either admission path', () =>
   fixture(async (f) => {
@@ -701,7 +702,9 @@ test('KDS-2 aggregator sale: table 2, drinks at issue, station 3 finishes, off t
     current = await completeStation(f, current, 'delivery_handover');
     assert.equal(current.state, 'ready');
     assert.equal((await f.repo.readDisplay(b)).items.length, 1);
-    assert.equal((await f.act(current, 'handoff')).state, 'handed_over');
+    // KDS-4: the courier handover needs the three protocol marks.
+    current = await f.act(current, 'handoff', f.manager, { handover: MARKS });
+    assert.equal(current.state, 'handed_over');
     await assertStrictEvents(f.pool);
   }));
 
@@ -964,4 +967,190 @@ test('kds-grants: the fulfillment worker admits cloud orders on the KDS layout o
       await f.admin.query(`DROP OWNED BY ${role}`).catch(() => {});
       await f.admin.query(`DROP ROLE IF EXISTS ${role}`);
     }
+  }));
+
+// ---------------------------------------------------------------------------------------------
+// KDS-4: the courier handover protocol (Аг9) on the edge.
+const marksRequired = (error) =>
+  error.code === 'INVALID' && error.reason === 'HANDOVER_MARKS_REQUIRED';
+const handoff = (f, current, actor, extra = {}, commandId = randomUUID()) =>
+  f.repo.act(f.scope.branchId, actor.auth, {
+    commandId,
+    orderId: current.orderId,
+    expectedVersion: current.version,
+    action: 'handoff',
+    ...extra,
+  });
+/** An aggregator sale on the layout, completed by table 2, issue and station 3. */
+async function readyDelivery(f, desk, delivery) {
+  const local = await desk.order({ delivery, burgers: 0 });
+  let current = await f.read(local.order_id);
+  for (const fn of ['issue', 'assembly_delivery', 'delivery_handover'])
+    current = await completeStation(f, current, fn);
+  assert.equal(current.state, 'ready');
+  return current;
+}
+/** A ticket on the old stations (layout off at admission): all tasks done, then ready. */
+async function readyLegacy(f, local) {
+  const done = await f.complete(await f.read(local.order_id));
+  return f.act(done, 'ready', f.packer);
+}
+
+test('KDS-4 courier handover: three marks for a delivery order, journal row with the handoff, replay', () =>
+  fixture(async (f) => {
+    const b = f.scope.branchId;
+    const desk = await cashierDesk(f);
+    await writeKdsLayout(f.pool, b, kdsTestLayout(b));
+    await grantStation(f.pool, b, f.packer.staff_id, S(f, 'delivery_handover'));
+    const delivery = { provider: 'glovo', externalNumber: 'G-77' };
+    // The state check comes first, as for every handoff.
+    const early = await desk.order({ delivery, burgers: 0 });
+    await assert.rejects(
+      handoff(f, await f.read(early.order_id), f.packer),
+      errorCode('NOT_READY'),
+    );
+    const current = await readyDelivery(f, desk, delivery);
+    const counts = async () => ({
+      version: (await reservation(f, current.orderId)).version,
+      outbox: await f.count('fulfillment_outbox'),
+      commands: await f.count('fulfillment_commands'),
+      audit: await f.count('local_audit'),
+      handovers: await f.count('delivery_handovers'),
+    });
+    const before = await counts();
+    // Without the marks: HANDOVER_MARKS_REQUIRED and nothing is written.
+    await assert.rejects(handoff(f, current, f.packer), marksRequired);
+    // A missing, false or unknown mark is not a valid command at all.
+    for (const bad of [
+      { numberMatched: true, courierAccepted: true },
+      { ...MARKS, photoTaken: false },
+      { ...MARKS, extra: true },
+    ])
+      await assert.rejects(handoff(f, current, f.packer, { handover: bad }), errorCode('INVALID'));
+    // Marks belong to a handoff only.
+    await assert.rejects(
+      f.act(current, 'ready', f.manager, { handover: MARKS }),
+      errorCode('INVALID'),
+    );
+    assert.deepEqual(await counts(), before);
+    // With the marks: handed over, and the journal row in the same transaction.
+    const commandId = randomUUID();
+    const handed = await handoff(f, current, f.packer, { handover: MARKS }, commandId);
+    assert.equal(handed.state, 'handed_over');
+    assert.equal(handed.version, current.version + 1);
+    const journal = (await f.pool.query('SELECT * FROM delivery_handovers')).rows;
+    assert.equal(journal.length, 1);
+    const { handed_over_at: at, ...row } = journal[0];
+    assert.ok(at instanceof Date);
+    assert.deepEqual(row, {
+      order_id: current.orderId,
+      branch_id: b,
+      command_id: commandId,
+      provider: 'glovo',
+      external_number: 'G-77',
+      number_matched: true,
+      courier_accepted: true,
+      photo_taken: true,
+      station_id: S(f, 'delivery_handover'),
+      staff_id: f.packer.staff_id,
+      terminal_id: f.packer.terminal_id,
+      reported_at: null,
+    });
+    // Replay: the same key and body give the stored result; another body conflicts.
+    assert.deepEqual(await handoff(f, current, f.packer, { handover: MARKS }, commandId), handed);
+    await assert.rejects(handoff(f, current, f.packer, {}, commandId), errorCode('CONFLICT'));
+    assert.equal(await f.count('delivery_handovers'), 1);
+    // The handoff event keeps exactly the keys of a hall handoff (no marks, no delivery).
+    const hall = await desk.order({ comboQuantity: 0, burgers: 1 });
+    let plain = await f.read(hall.order_id);
+    for (const fn of ['assembly_hall', 'issue']) plain = await completeStation(f, plain, fn);
+    assert.equal((await f.act(plain, 'handoff')).state, 'handed_over');
+    const handedEvents = (
+      await f.pool.query(
+        "SELECT order_id,payload FROM fulfillment_outbox WHERE event_type='edge.fulfillment_handed_over' ORDER BY sequence",
+      )
+    ).rows;
+    assert.deepEqual(
+      handedEvents.map((e) => e.order_id),
+      [current.orderId, hall.order_id],
+    );
+    assert.deepEqual(
+      Object.keys(handedEvents[0].payload).sort(),
+      Object.keys(handedEvents[1].payload).sort(),
+    );
+    assert.equal(handedEvents[0].payload.staffId, f.packer.staff_id);
+    // One journal row per command: a reused key of another login on another order conflicts.
+    const second = await readyDelivery(f, desk, { provider: 'yandex_eda', externalNumber: 'YA-9' });
+    await assert.rejects(
+      handoff(f, second, f.manager, { handover: MARKS }, commandId),
+      errorCode('CONFLICT'),
+    );
+    // A kitchen login without access to the finishing station cannot hand over.
+    await assert.rejects(handoff(f, second, f.cook, { handover: MARKS }), errorCode('FORBIDDEN'));
+    assert.equal((await reservation(f, second.orderId)).state, 'ready');
+    assert.equal(await f.count('delivery_handovers'), 1);
+    assert.equal((await handoff(f, second, f.manager, { handover: MARKS })).state, 'handed_over');
+    assert.deepEqual(
+      (
+        await f.pool.query(
+          'SELECT provider,external_number,staff_id FROM delivery_handovers WHERE order_id=$1',
+          [second.orderId],
+        )
+      ).rows,
+      [{ provider: 'yandex_eda', external_number: 'YA-9', staff_id: f.manager.staff_id }],
+    );
+    await assertStrictEvents(f.pool);
+  }));
+
+test('KDS-4 the protocol covers exactly the tickets that show delivery: layout off, hall, rollback', () =>
+  fixture(async (f) => {
+    const b = f.scope.branchId;
+    const desk = await cashierDesk(f);
+    await writeKdsLayout(f.pool, b, kdsTestLayout(b), { enable: false });
+    for (const fn of ['assembly_hall', 'issue', 'assembly_delivery', 'delivery_handover'])
+      await grantStation(f.pool, b, f.packer.staff_id, S(f, fn));
+    const delivery = { provider: 'yandex_eda', externalNumber: 'YA-500' };
+    // Layout off: an aggregator order is today's order. Marks are refused, the plain handoff works.
+    let legacy = await readyLegacy(f, await desk.order({ delivery, burgers: 0 }));
+    await assert.rejects(
+      handoff(f, legacy, f.packer, { handover: MARKS }),
+      (error) => error.code === 'INVALID' && error.reason === undefined,
+    );
+    legacy = await handoff(f, legacy, f.packer);
+    assert.equal(legacy.state, 'handed_over');
+    // Admitted while off, still open when the layout goes on: its ticket shows delivery now.
+    const early = await readyLegacy(f, await desk.order({ delivery, burgers: 0 }));
+    await switchKdsLayout(f.pool, b, true);
+    assert.deepEqual((await f.read(early.orderId)).delivery, delivery);
+    await assert.rejects(handoff(f, early, f.packer), marksRequired);
+    assert.equal((await handoff(f, early, f.packer, { handover: MARKS })).state, 'handed_over');
+    assert.deepEqual(
+      (await f.pool.query('SELECT order_id,station_id FROM delivery_handovers')).rows,
+      [{ order_id: early.orderId, station_id: f.assembly }],
+    );
+    // Layout on: hall orders (cashier and cloud) hand over without marks, marks are refused.
+    let hall = await f.read((await desk.order({ comboQuantity: 0, burgers: 1 })).order_id);
+    for (const fn of ['assembly_hall', 'issue']) hall = await completeStation(f, hall, fn);
+    const { order } = await f.accepted(true);
+    let cloud = await f.read(order.orderId);
+    for (const fn of ['assembly_hall', 'issue']) cloud = await completeStation(f, cloud, fn);
+    for (const ticket of [hall, cloud]) {
+      assert.equal(ticket.state, 'ready');
+      await assert.rejects(
+        handoff(f, ticket, f.packer, { handover: MARKS }),
+        (error) => error.code === 'INVALID' && error.reason === undefined,
+      );
+      assert.equal((await handoff(f, ticket, f.packer)).state, 'handed_over');
+    }
+    // Rollback: a KDS delivery order still open when the layout goes off finishes the old way
+    // (the old screen has no marks); no journal row.
+    const late = await readyDelivery(f, desk, delivery);
+    await switchKdsLayout(f.pool, b, false);
+    await assert.rejects(
+      handoff(f, late, f.packer, { handover: MARKS }),
+      (error) => error.code === 'INVALID' && error.reason === undefined,
+    );
+    assert.equal((await handoff(f, late, f.packer)).state, 'handed_over');
+    assert.equal(await f.count('delivery_handovers'), 1);
+    await assertStrictEvents(f.pool);
   }));

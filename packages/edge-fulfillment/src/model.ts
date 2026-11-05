@@ -6,7 +6,11 @@ export class FulfillmentError extends Error {
   constructor(
     readonly code:
       'INVALID' | 'FORBIDDEN' | 'NOT_FOUND' | 'CONFLICT' | 'NOT_READY' | 'ROUTING_MISSING',
-    readonly reason?: 'ITEM_STOPPED',
+    /**
+     * ITEM_STOPPED: a NOT_READY admission refusal (stopped item). HANDOVER_MARKS_REQUIRED: an
+     * INVALID handoff of a delivery order without the three courier marks (cutover KDS-4).
+     */
+    readonly reason?: 'ITEM_STOPPED' | 'HANDOVER_MARKS_REQUIRED',
   ) {
     super(code);
   }
@@ -207,6 +211,18 @@ export const StaffCommandSchema = z.strictObject({
   expectedTaskVersion: z.int().positive().optional(),
   reason: z.string().min(1).max(500).optional(),
   inventoryDisposition: z.enum(['requires_inventory_review', 'recorded_elsewhere']).optional(),
+  /**
+   * Cutover KDS-4 (contracts section 5.4, FulfillmentHandoverSchema): the courier protocol marks
+   * of a delivery order handoff, each confirmed. Absent on every other command, so the request
+   * hash of every existing command is unchanged.
+   */
+  handover: z
+    .strictObject({
+      numberMatched: z.literal(true),
+      courierAccepted: z.literal(true),
+      photoTaken: z.literal(true),
+    })
+    .optional(),
 });
 export const LeaseSchema = z.strictObject({
   workerId: uuid,

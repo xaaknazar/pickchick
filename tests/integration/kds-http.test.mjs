@@ -1,6 +1,6 @@
-// Cutover lane kds, KDS-2 over HTTP (contracts section 5.4): GET fulfillment/layout and
-// GET fulfillment/kds/breading, the KDS keys of the kitchen API only while the layout is on, and
-// the guest board without aggregator orders and without new keys.
+// Cutover lane kds, KDS-2 and KDS-4 over HTTP (contracts section 5.4): GET fulfillment/layout and
+// GET fulfillment/kds/breading, the KDS keys of the kitchen API only while the layout is on, the
+// guest board without aggregator orders and without new keys, and the courier handover marks.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
@@ -37,7 +37,7 @@ async function lan(ctx, run) {
   await app.listen(0, '127.0.0.1');
   const url = await app.getUrl();
   try {
-    await run(async (path, actor, body) => {
+    await run(async (path, actor, body, key = randomUUID()) => {
       const response = await fetch(url + prefix + path, {
         method: body === undefined ? 'GET' : 'POST',
         headers: {
@@ -45,7 +45,7 @@ async function lan(ctx, run) {
           'X-Staff-Session-Id': actor.session_id,
           'X-Terminal-Id': actor.terminal_id,
           'Content-Type': 'application/json',
-          'Idempotency-Key': randomUUID(),
+          'Idempotency-Key': key,
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         signal: AbortSignal.timeout(5000),
@@ -63,6 +63,12 @@ const exact = (schema, response, status = 200) => {
   assert.equal(JSON.stringify(parsed), response.text);
   return parsed;
 };
+const MARKS = Object.freeze({ numberMatched: true, courierAccepted: true, photoTaken: true });
+// The edge sends HANDOVER_MARKS_REQUIRED; the error filter passes it once ErrorSchema lists the
+// code (CR kds-6, owner cloud), until then it answers the generic 400 code.
+const MARKS_CODE = ErrorSchema.shape.code.options.includes('HANDOVER_MARKS_REQUIRED')
+  ? 'HANDOVER_MARKS_REQUIRED'
+  : 'INVALID_REQUEST';
 const errorOf = (response, status) => {
   assert.equal(response.status, status, response.text);
   return ErrorSchema.parse(JSON.parse(response.text)).code;
@@ -209,17 +215,90 @@ test('KDS HTTP: layout on - screens per terminal, KDS tickets, cascade, breading
         }),
       );
       assert.equal(ready.state, 'ready');
-      // Handover marks stay refused until KDS-4.
+      // KDS-4: courier marks belong to delivery orders only; a hall order refuses them.
       assert.equal(
         errorOf(
           await call('/orders/' + order.orderId + '/actions', ctx.packer, {
             action: 'handoff',
             expectedVersion: ready.version,
-            handover: { numberMatched: true, courierAccepted: true, photoTaken: true },
+            handover: MARKS,
           }),
           400,
         ),
         'INVALID_REQUEST',
+      );
+
+      // KDS-4: the aggregator order at station 3 - no marks, refused; three marks, handed over
+      // with its journal row; the same key and body replay the same answer.
+      let courier = exact(
+        FulfillmentOrderSchema,
+        await call('/orders/' + agg.order_id, ctx.manager),
+      );
+      for (const fn of ['issue', 'assembly_delivery', 'delivery_handover'])
+        courier = exact(
+          FulfillmentSummarySchema,
+          await call('/orders/' + agg.order_id + '/actions', ctx.packer, {
+            action: 'complete_station',
+            expectedVersion: courier.version,
+            stationId: S(fn),
+          }),
+        );
+      assert.equal(courier.state, 'ready');
+      const handoffBody = { action: 'handoff', expectedVersion: courier.version };
+      assert.equal(
+        errorOf(await call('/orders/' + agg.order_id + '/actions', ctx.packer, handoffBody), 400),
+        MARKS_CODE,
+      );
+      assert.equal(
+        errorOf(
+          await call('/orders/' + agg.order_id + '/actions', ctx.packer, {
+            ...handoffBody,
+            handover: { ...MARKS, photoTaken: false },
+          }),
+          400,
+        ),
+        'INVALID_REQUEST',
+      );
+      assert.equal(await ctx.count('delivery_handovers'), 0);
+      const key = randomUUID();
+      const handed = await call(
+        '/orders/' + agg.order_id + '/actions',
+        ctx.packer,
+        { ...handoffBody, handover: MARKS },
+        key,
+      );
+      assert.equal(exact(FulfillmentSummarySchema, handed).state, 'handed_over');
+      const replayed = await call(
+        '/orders/' + agg.order_id + '/actions',
+        ctx.packer,
+        { ...handoffBody, handover: MARKS },
+        key,
+      );
+      assert.equal(replayed.text, handed.text);
+      assert.equal(
+        errorOf(
+          await call('/orders/' + agg.order_id + '/actions', ctx.packer, handoffBody, key),
+          409,
+        ),
+        'CONFLICT',
+      );
+      assert.deepEqual(
+        (
+          await ctx.pool.query(
+            'SELECT order_id,command_id,provider,external_number,station_id,staff_id,terminal_id FROM delivery_handovers',
+          )
+        ).rows,
+        [
+          {
+            order_id: agg.order_id,
+            command_id: key,
+            provider: 'glovo',
+            external_number: 'G-4567',
+            station_id: S('delivery_handover'),
+            staff_id: ctx.packer.staff_id,
+            terminal_id: ctx.packer.terminal_id,
+          },
+        ],
       );
 
       // Guest board: no aggregator order and only the keys it always had.

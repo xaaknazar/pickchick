@@ -108,6 +108,44 @@ async function tasks(client: DatabaseClient, row: Reservation) {
     )
   ).rows;
 }
+/**
+ * The courier handover journal row (027 delivery_handovers) of a delivery handoff, in the same
+ * transaction as its handed_over step: the aggregator and number of the order, the station that
+ * finished it, who handed it over on which screen, and the command (Idempotency-Key). A replay
+ * of the command returns its stored result before reaching this point; another command of the
+ * same order cannot get here (the order is handed_over), and a reused key conflicts.
+ */
+async function recordHandover(
+  client: DatabaseClient,
+  row: Reservation,
+  staff: { staff_id: string; terminal_id: string },
+  commandId: string,
+  delivery: NonNullable<Reservation['snapshot']['delivery']>,
+) {
+  if (
+    (
+      await client.query('SELECT 1 FROM delivery_handovers WHERE command_id=$1 OR order_id=$2', [
+        commandId,
+        row.order_id,
+      ])
+    ).rowCount
+  )
+    fail('CONFLICT');
+  await client.query(
+    `INSERT INTO delivery_handovers(order_id,branch_id,command_id,provider,external_number,number_matched,courier_accepted,photo_taken,station_id,staff_id,terminal_id)
+     VALUES($1,$2,$3,$4,$5,true,true,true,$6,$7,$8)`,
+    [
+      row.order_id,
+      row.branch_id,
+      commandId,
+      delivery.provider,
+      delivery.externalNumber,
+      row.assembly_station_id,
+      staff.staff_id,
+      staff.terminal_id,
+    ],
+  );
+}
 
 export class EdgeFulfillment {
   constructor(private readonly pool: DatabasePool) {}
@@ -483,6 +521,8 @@ export class EdgeFulfillment {
       if (restored && restored.status !== 'resume') fail('NOT_READY');
       decided(checkVersion(row.version, command.expectedVersion));
       const shape = decided(commandShape(command));
+      // Courier marks belong to a handoff only (the HTTP schema already says so).
+      if (command.handover && command.action !== 'handoff') fail('INVALID');
       // Each pure step is one aggregate version and one event; task steps also bump the task.
       const apply = async (steps: Step[]) => {
         for (const step of steps) {
@@ -578,7 +618,20 @@ export class EdgeFulfillment {
               planReady({ order: row.state, tasks: (await tasks(client, row)).map(snapshot) }),
             ),
           );
-        } else await apply(decided(planHandoff({ order: row.state })));
+        } else {
+          // Courier handover protocol (Аг9, contracts section 5.4): exactly the orders whose
+          // kitchen tickets carry `delivery` - an aggregator order while the KDS layout is on.
+          // Layout off (or no 027): today's handoff, and marks are refused as before KDS-4.
+          const protocol =
+            row.snapshot.delivery !== undefined && (await readKdsLayout(client, branchId)).enabled;
+          if (command.handover && !protocol) fail('INVALID');
+          const steps = decided(planHandoff({ order: row.state }));
+          if (protocol && !command.handover)
+            throw new FulfillmentError('INVALID', 'HANDOVER_MARKS_REQUIRED');
+          await apply(steps);
+          if (protocol)
+            await recordHandover(client, row, staff, command.commandId, row.snapshot.delivery!);
+        }
       }
       await audit(client, branchId, staff.staff_id, 'fulfillment.' + command.action, row.order_id);
       const result = view(row);

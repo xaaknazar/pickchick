@@ -27,7 +27,7 @@ import {
   UuidSchema,
 } from '@pickchick/contracts';
 import { transaction } from '@pickchick/database';
-import { EdgeFulfillment, FulfillmentError } from '@pickchick/edge-fulfillment';
+import { EdgeFulfillment, FulfillmentError, readKdsLayout } from '@pickchick/edge-fulfillment';
 import {
   authenticateStaff,
   authenticateManagedTerminal,
@@ -209,6 +209,10 @@ export async function runFulfillment<T>(
     if (error instanceof OrderError)
       throw new HttpException({ code: error.code }, orderErrorStatus[error.code]);
     if (error instanceof FulfillmentError) {
+      // Courier protocol (KDS-4): the body code is HANDOVER_MARKS_REQUIRED once ErrorSchema
+      // lists it (CR kds-6); until then the error filter answers 400 INVALID_REQUEST.
+      if (error.code === 'INVALID' && error.reason === 'HANDOVER_MARKS_REQUIRED')
+        fail(400, 'HANDOVER_MARKS_REQUIRED');
       if (error.code === 'INVALID') fail(400, 'INVALID_REQUEST');
       if (error.code === 'FORBIDDEN') fail(403, 'FORBIDDEN');
       if (error.code === 'NOT_FOUND') fail(404, 'NOT_FOUND');
@@ -323,9 +327,15 @@ export class FulfillmentController {
   action(@Headers() headers: RequestHeaders, @Param('orderId') id: string, @Body() body: unknown) {
     return this.run(headers, async (auth) => {
       const action = input(FulfillmentActionSchema, body);
-      // Courier handover marks (contracts section 5.4) are served with KDS-4; until then a body
-      // carrying them is refused exactly as before the contract allowed the key.
-      if ('handover' in action) fail(400, 'INVALID_REQUEST');
+      // Courier handover marks (contracts section 5.4) exist only while the KDS layout is on;
+      // otherwise a body carrying them is refused first, exactly as before the contract allowed
+      // the key. The repository decides the protocol again inside the command transaction.
+      if (
+        'handover' in action &&
+        !(await transaction(this.resources.pool, (client) => readKdsLayout(client, this.branchId)))
+          .enabled
+      )
+        fail(400, 'INVALID_REQUEST');
       const orderId = input(UuidSchema, id);
       if (auth.terminal)
         await transaction(this.resources.pool, async (client) => {
