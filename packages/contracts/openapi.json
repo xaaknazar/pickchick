@@ -8875,6 +8875,230 @@
         "description": "Local edge only, EDGE_FULFILLMENT_ENABLED required. Kitchen/shift_manager session, own branch and active terminal. Responses are no-store and bounded to 3 MiB; commands to 16 KiB. No payment or cloud admission authority."
       }
     },
+    "/edge/v1/fulfillment/layout": {
+      "get": {
+        "operationId": "getLocalKdsLayout",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": [],
+            "staffTerminal": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FulfillmentLayout"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired local staff session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role cannot perform operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing or outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency, quote expiry, menu or availability conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Device binding or service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Local edge only, EDGE_FULFILLMENT_ENABLED required. Kitchen/shift_manager session, own branch and active terminal. Responses are no-store and bounded to 3 MiB; commands to 16 KiB. No payment or cloud admission authority. KDS layout of the point: {enabled:false} while kds_settings.layout_enabled is off or schema027 is missing (the kitchen client keeps its old screen); otherwise the layout version, shift mode, the KDS stations and the stations of the requesting terminal (0..2 screens). An older edge answers 404."
+      }
+    },
+    "/edge/v1/fulfillment/kds/breading": {
+      "get": {
+        "operationId": "getLocalKdsBreading",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": [],
+            "staffTerminal": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KdsBreading"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired local staff session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role cannot perform operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing or outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency, quote expiry, menu or availability conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Device binding or service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Local edge only, EDGE_FULFILLMENT_ENABLED required. Kitchen/shift_manager session, own branch and active terminal. Responses are no-store and bounded to 3 MiB; commands to 16 KiB. No payment or cloud admission authority. Breading station 6 view: prep terminal and access to the breading station. Accepted or in-production orders, oldest first, whose open assembly table tasks hold breading products; fingers only when the layout counts them. 404 while the KDS layout is off."
+      }
+    },
     "/internal/v1/edge/fulfillment/pull": {
       "post": {
         "operationId": "pullCommercialFulfillment",
@@ -28494,6 +28718,27 @@
                                     "type": "string",
                                     "maxLength": 60
                                   },
+                                  "delivery": {
+                                    "type": "object",
+                                    "properties": {
+                                      "provider": {
+                                        "type": "string",
+                                        "enum": [
+                                          "yandex_eda",
+                                          "glovo"
+                                        ]
+                                      },
+                                      "externalNumber": {
+                                        "type": "string",
+                                        "pattern": "^[A-Z0-9-]{3,40}$"
+                                      }
+                                    },
+                                    "required": [
+                                      "provider",
+                                      "externalNumber"
+                                    ],
+                                    "additionalProperties": false
+                                  },
                                   "currency": {
                                     "type": "string",
                                     "const": "KZT"
@@ -28816,6 +29061,27 @@
                                   "kitchenComment": {
                                     "type": "string",
                                     "maxLength": 60
+                                  },
+                                  "delivery": {
+                                    "type": "object",
+                                    "properties": {
+                                      "provider": {
+                                        "type": "string",
+                                        "enum": [
+                                          "yandex_eda",
+                                          "glovo"
+                                        ]
+                                      },
+                                      "externalNumber": {
+                                        "type": "string",
+                                        "pattern": "^[A-Z0-9-]{3,40}$"
+                                      }
+                                    },
+                                    "required": [
+                                      "provider",
+                                      "externalNumber"
+                                    ],
+                                    "additionalProperties": false
                                   },
                                   "currency": {
                                     "type": "string",
