@@ -25950,6 +25950,27 @@
             "type": "string",
             "maxLength": 60
           },
+          "delivery": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "yandex_eda",
+                  "glovo"
+                ]
+              },
+              "externalNumber": {
+                "type": "string",
+                "pattern": "^[A-Z0-9-]{3,40}$"
+              }
+            },
+            "required": [
+              "provider",
+              "externalNumber"
+            ],
+            "additionalProperties": false
+          },
           "tasks": {
             "maxItems": 2000,
             "type": "array",
@@ -26102,6 +26123,53 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "kds": {
+                      "type": "object",
+                      "properties": {
+                        "function": {
+                          "type": "string",
+                          "enum": [
+                            "breading",
+                            "toasts",
+                            "assembly_hall",
+                            "assembly_delivery",
+                            "issue",
+                            "delivery_handover"
+                          ]
+                        },
+                        "upstreamOf": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "units": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000
+                        },
+                        "unit": {
+                          "type": "string",
+                          "enum": [
+                            "finger",
+                            "toast",
+                            "burger"
+                          ]
+                        },
+                        "fingers": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000
+                        },
+                        "unmapped": {
+                          "type": "boolean",
+                          "const": true
+                        }
+                      },
+                      "required": [
+                        "function"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -26249,6 +26317,27 @@
             "type": "string",
             "maxLength": 60
           },
+          "delivery": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "yandex_eda",
+                  "glovo"
+                ]
+              },
+              "externalNumber": {
+                "type": "string",
+                "pattern": "^[A-Z0-9-]{3,40}$"
+              }
+            },
+            "required": [
+              "provider",
+              "externalNumber"
+            ],
+            "additionalProperties": false
+          },
           "tasks": {
             "maxItems": 2000,
             "type": "array",
@@ -26401,6 +26490,53 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "kds": {
+                      "type": "object",
+                      "properties": {
+                        "function": {
+                          "type": "string",
+                          "enum": [
+                            "breading",
+                            "toasts",
+                            "assembly_hall",
+                            "assembly_delivery",
+                            "issue",
+                            "delivery_handover"
+                          ]
+                        },
+                        "upstreamOf": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "units": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000
+                        },
+                        "unit": {
+                          "type": "string",
+                          "enum": [
+                            "finger",
+                            "toast",
+                            "burger"
+                          ]
+                        },
+                        "fingers": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000
+                        },
+                        "unmapped": {
+                          "type": "boolean",
+                          "const": true
+                        }
+                      },
+                      "required": [
+                        "function"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -26582,6 +26718,27 @@
                   "type": "string",
                   "maxLength": 60
                 },
+                "delivery": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "enum": [
+                        "yandex_eda",
+                        "glovo"
+                      ]
+                    },
+                    "externalNumber": {
+                      "type": "string",
+                      "pattern": "^[A-Z0-9-]{3,40}$"
+                    }
+                  },
+                  "required": [
+                    "provider",
+                    "externalNumber"
+                  ],
+                  "additionalProperties": false
+                },
                 "tasks": {
                   "maxItems": 2000,
                   "type": "array",
@@ -26734,6 +26891,53 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "kds": {
+                            "type": "object",
+                            "properties": {
+                              "function": {
+                                "type": "string",
+                                "enum": [
+                                  "breading",
+                                  "toasts",
+                                  "assembly_hall",
+                                  "assembly_delivery",
+                                  "issue",
+                                  "delivery_handover"
+                                ]
+                              },
+                              "upstreamOf": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "units": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 1000000
+                              },
+                              "unit": {
+                                "type": "string",
+                                "enum": [
+                                  "finger",
+                                  "toast",
+                                  "burger"
+                                ]
+                              },
+                              "fingers": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 1000000
+                              },
+                              "unmapped": {
+                                "type": "boolean",
+                                "const": true
+                              }
+                            },
+                            "required": [
+                              "function"
+                            ],
+                            "additionalProperties": false
                           }
                         },
                         "required": [
@@ -26963,15 +27167,54 @@
             "properties": {
               "action": {
                 "type": "string",
-                "enum": [
-                  "ready",
-                  "handoff"
-                ]
+                "const": "ready"
               },
               "expectedVersion": {
                 "type": "integer",
                 "exclusiveMinimum": 0,
                 "maximum": 2147483647
+              }
+            },
+            "required": [
+              "action",
+              "expectedVersion"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "action": {
+                "type": "string",
+                "const": "handoff"
+              },
+              "expectedVersion": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647
+              },
+              "handover": {
+                "type": "object",
+                "properties": {
+                  "numberMatched": {
+                    "type": "boolean",
+                    "const": true
+                  },
+                  "courierAccepted": {
+                    "type": "boolean",
+                    "const": true
+                  },
+                  "photoTaken": {
+                    "type": "boolean",
+                    "const": true
+                  }
+                },
+                "required": [
+                  "numberMatched",
+                  "courierAccepted",
+                  "photoTaken"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
@@ -27076,6 +27319,510 @@
         "required": [
           "epoch",
           "status"
+        ],
+        "additionalProperties": false
+      },
+      "KdsLayout": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "schema_version": {
+            "type": "number",
+            "const": 1
+          },
+          "branch_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "stations": {
+            "minItems": 1,
+            "maxItems": 6,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "edge_station_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "function": {
+                  "type": "string",
+                  "enum": [
+                    "breading",
+                    "toasts",
+                    "assembly_hall",
+                    "assembly_delivery",
+                    "issue",
+                    "delivery_handover"
+                  ]
+                },
+                "terminal_ids": {
+                  "maxItems": 10,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "product_ids": {
+                  "maxItems": 200,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                  }
+                },
+                "counts": {
+                  "maxItems": 200,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "product_id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+                      },
+                      "unit": {
+                        "type": "string",
+                        "enum": [
+                          "finger",
+                          "toast",
+                          "burger"
+                        ]
+                      },
+                      "count": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100
+                      }
+                    },
+                    "required": [
+                      "product_id",
+                      "unit",
+                      "count"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "edge_station_id",
+                "function",
+                "terminal_ids",
+                "product_ids"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "schema_version",
+          "branch_id",
+          "version",
+          "stations"
+        ],
+        "additionalProperties": false
+      },
+      "FulfillmentLayout": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "const": false
+              }
+            },
+            "required": [
+              "enabled"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "const": true
+              },
+              "layoutVersion": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "morning",
+                  "normal",
+                  "peak"
+                ]
+              },
+              "stations": {
+                "minItems": 1,
+                "maxItems": 6,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "function": {
+                      "type": "string",
+                      "enum": [
+                        "breading",
+                        "toasts",
+                        "assembly_hall",
+                        "assembly_delivery",
+                        "issue",
+                        "delivery_handover"
+                      ]
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "prep",
+                        "assembly"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "function",
+                    "name",
+                    "kind"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "screens": {
+                "maxItems": 2,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                }
+              }
+            },
+            "required": [
+              "enabled",
+              "layoutVersion",
+              "mode",
+              "stations",
+              "screens"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "KdsBreading": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "orders": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "orderId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "displayNumber": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]{0,18}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "serviceMode": {
+                  "type": "string",
+                  "enum": [
+                    "takeaway",
+                    "dine_in"
+                  ]
+                },
+                "delivery": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "enum": [
+                        "yandex_eda",
+                        "glovo"
+                      ]
+                    },
+                    "externalNumber": {
+                      "type": "string",
+                      "pattern": "^[A-Z0-9-]{3,40}$"
+                    }
+                  },
+                  "required": [
+                    "provider",
+                    "externalNumber"
+                  ],
+                  "additionalProperties": false
+                },
+                "lines": {
+                  "minItems": 1,
+                  "maxItems": 2000,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 250
+                      },
+                      "quantity": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000000
+                      },
+                      "fingers": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000000
+                      }
+                    },
+                    "required": [
+                      "title",
+                      "quantity"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "fingers": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100000000
+                }
+              },
+              "required": [
+                "orderId",
+                "displayNumber",
+                "serviceMode",
+                "lines"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "totalFingers": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000000000
+          }
+        },
+        "required": [
+          "orders"
+        ],
+        "additionalProperties": false
+      },
+      "CourierIncidentRequest": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "yandex_eda",
+              "glovo",
+              "other"
+            ]
+          },
+          "claimedNumber": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9-]{1,40}$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "number_mismatch",
+              "not_accepted_in_app",
+              "no_photo",
+              "courier_refused",
+              "other"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "provider",
+          "kind",
+          "description"
+        ],
+        "additionalProperties": false
+      },
+      "CourierIncident": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "incidentId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "yandex_eda",
+              "glovo",
+              "other"
+            ]
+          },
+          "claimedNumber": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9-]{1,40}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "number_mismatch",
+              "not_accepted_in_app",
+              "no_photo",
+              "courier_refused",
+              "other"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          },
+          "recordedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "displayNumber": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,18}$"
+          }
+        },
+        "required": [
+          "incidentId",
+          "provider",
+          "claimedNumber",
+          "kind",
+          "description",
+          "recordedAt"
+        ],
+        "additionalProperties": false
+      },
+      "CourierIncidentList": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "items": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "incidentId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "provider": {
+                  "type": "string",
+                  "enum": [
+                    "yandex_eda",
+                    "glovo",
+                    "other"
+                  ]
+                },
+                "claimedNumber": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9-]{1,40}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "number_mismatch",
+                    "not_accepted_in_app",
+                    "no_photo",
+                    "courier_refused",
+                    "other"
+                  ]
+                },
+                "description": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 500
+                },
+                "recordedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                },
+                "displayNumber": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]{0,18}$"
+                }
+              },
+              "required": [
+                "incidentId",
+                "provider",
+                "claimedNumber",
+                "kind",
+                "description",
+                "recordedAt"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "items"
         ],
         "additionalProperties": false
       },
