@@ -1697,7 +1697,13 @@ export class PosController {
           },
         });
       } catch (error) {
-        if (error instanceof ApiError && ['UNAUTHORIZED', 'FORBIDDEN'].includes(error.code))
+        // A refused manager PIN (401/403, any code) is not the cashier's session ending.
+        if (
+          error instanceof ApiError &&
+          (error.status === 401 ||
+            error.status === 403 ||
+            ['UNAUTHORIZED', 'FORBIDDEN'].includes(error.code))
+        )
           throw new ApiError('APPROVAL_PIN_REJECTED', error.status);
         throw error;
       }

@@ -703,6 +703,7 @@ function saleEdge({
     if (path === 'staff/approvals') {
       assert.equal(options.method, 'POST');
       assert.ok(options.key, 'approvals are sent with an Idempotency-Key');
+      if (options.body.pin === '0000') throw new ApiError('ROLE_NOT_ALLOWED', 403);
       if (options.body.pin !== MANAGER_PIN) throw new ApiError('UNAUTHORIZED', 401);
       const approval = {
         approval_id: randomUUID(),
@@ -1188,6 +1189,9 @@ test('staff meal and marketing need a one-time shift manager approval; the PIN i
   assert.equal(model.state.error.code, 'APPROVAL_PIN_REJECTED');
   assert.equal(saleErrorMessage(model.state.error), 'Неверный PIN или нет прав начальника смены');
   assert.ok(model.state.actor, 'a refused manager PIN never ends the cashier session');
+  await model.requestApproval('0000', 'staff_meal');
+  assert.equal(model.state.error.code, 'APPROVAL_PIN_REJECTED', 'any 403 code is a refused PIN');
+  assert.ok(model.state.actor);
   await model.requestApproval(MANAGER_PIN, 'staff_meal');
   const request = edge.calls.findLast((c) => c.path === 'staff/approvals');
   assert.deepEqual(request.body, {
@@ -1324,7 +1328,7 @@ test('every section 5.1 error code has the Russian cashier text; unpaid texts ar
     errorMessage(new ApiError('ORDER_IN_PRODUCTION')),
     'Приготовление уже началось. Отмена с кассы недоступна.',
   );
-  for (const text of Object.values(texts)) assert.ok(!/[–—]/.test(text), text);
+  for (const text of Object.values(texts)) assert.ok(!/[\u2013\u2014]/.test(text), text);
 });
 
 test('Webkassa receipt number on the done screen is journaled and the sale read again', async () => {
@@ -1937,6 +1941,6 @@ test('screens: every paid-mode text is Russian copy with the plain hyphen only',
     seen.push(...texts(view.values()));
     view.setState({ approvalOpen: false, entry: null });
   }
-  for (const text of seen) assert.ok(!/[–—]/.test(text), text);
+  for (const text of seen) assert.ok(!/[\u2013\u2014]/.test(text), text);
   assert.ok(seen.includes('На терминале - только целые тенге. Выберите другой способ.'));
 });

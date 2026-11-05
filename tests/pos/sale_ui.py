@@ -28,7 +28,7 @@ def capture(page, name):
 
 def no_long_dashes(page):
     text = page.locator('[data-pos]').inner_text()
-    assert '—' not in text and '–' not in text, 'long dash in cashier text'
+    assert '\u2014' not in text and '\u2013' not in text, 'long dash in cashier text'
 
 
 with sync_playwright() as pw:
