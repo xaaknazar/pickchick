@@ -12,6 +12,8 @@ import {
 } from '../dist/index.js';
 // posSales wire vectors (contracts 5.6) run with the package unit tests.
 import './sales-model.test.mjs';
+// pos_sale in the old order_commercial and kitchen streams (POS-6).
+import './pos-sale-streams.test.mjs';
 
 const identity = {
   device_id: randomUUID(),
