@@ -103,6 +103,76 @@ export function reportTicket(report, terminalLabel, printedAt = new Date().toISO
     terminal_label: terminalLabel,
   };
 }
+/** The non-fiscal order ticket of a paid order (section 5.8): number, pickup, lines, payment. */
+export function orderTicket(order, sale, terminalLabel, printedAt = new Date().toISOString()) {
+  return {
+    kind: 'order',
+    title: 'Чек заказа (не фискальный)',
+    display_number: sale.display_number,
+    pickup_text: pickupText(sale),
+    lines: order.snapshot.lines.map((line) => ({
+      name: line.name.ru,
+      quantity: line.quantity,
+      total_minor: line.total_minor,
+      options: (line.modifiers ?? [])
+        .slice(0, 30)
+        .map((m) => m.name.ru + (m.quantity > 1 ? ` × ${m.quantity}` : '')),
+    })),
+    totals: [{ label: 'Итого', amount_minor: sale.total_minor }],
+    tenders: sale.tenders.map((t) => ({
+      method: t.method,
+      label: METHOD_NAMES[t.method],
+      amount_minor: t.amount_minor,
+    })),
+    ...(sale.change_minor && sale.change_minor !== '0' ? { change_minor: sale.change_minor } : {}),
+    printed_at: printedAt,
+    terminal_label: terminalLabel,
+  };
+}
+/** The slip of one void or refund of a sale (section 5.8): what went back, by which payment. */
+export function refundTicket(sale, refund, terminalLabel, printedAt = new Date().toISOString()) {
+  const methodOf = (id) => sale.tenders.find((t) => t.tender_id === id)?.method;
+  return {
+    kind: 'refund',
+    title: refund.kind === 'void' ? 'Отмена заказа (не фискальный)' : 'Возврат (не фискальный)',
+    display_number: sale.display_number,
+    totals: [
+      {
+        label: refund.kind === 'void' ? 'Отменено' : 'Возвращено',
+        amount_minor: refund.amount_minor,
+      },
+    ],
+    tenders: refund.tenders.map((t) => ({
+      method: methodOf(t.tender_id),
+      label: METHOD_NAMES[methodOf(t.tender_id)],
+      amount_minor: t.amount_minor,
+    })),
+    printed_at: printedAt,
+    terminal_label: terminalLabel,
+  };
+}
+/** What the cashier reads after one print attempt (the main process answers its state). */
+export function printMessage(result) {
+  const state = result?.state;
+  if (state === 'sent') return 'Отправлено на печать';
+  if (state === 'not_configured') return saleErrorMessage(new Error('PRINTER_NOT_CONFIGURED'));
+  if (state === 'failed')
+    return saleErrorMessage(
+      new Error(result.code === 'PRINTER_BUSY' ? 'PRINTER_BUSY' : 'PRINT_FAILED'),
+    );
+  // A lost answer: the paper may be out. Never printed again by itself (section 5.8).
+  return saleErrorMessage(new Error('PRINT_UNKNOWN'));
+}
+/** The drawer's answer: null when there is nothing to say (an automatic opening that worked). */
+export function drawerMessage(result, quiet = false) {
+  const state = result?.state;
+  if (state === 'sent') return quiet ? null : 'Ящик кассы открыт';
+  if (state === 'not_configured')
+    return quiet ? null : saleErrorMessage(new Error('PRINTER_NOT_CONFIGURED'));
+  if (state === 'unsupported') return quiet ? null : saleErrorMessage(new Error('DRAWER_BY_KEY'));
+  if (state === 'failed') return saleErrorMessage(new Error('DRAWER_FAILED'));
+  return saleErrorMessage(new Error('DRAWER_UNKNOWN'));
+}
 
 export class OpsView {
   state = blank();
@@ -313,6 +383,10 @@ export class OpsView {
         if (!m.state.error && !m.state.pending) {
           this.setState({ card: { mode: 'view' } });
           this.say('Заказ отменён');
+          // Cash still in the sale goes back to the guest from the drawer.
+          const cash = sale.tenders.find((t) => t.method === 'cash');
+          if (cash && tenderRefundable(sale, cash.tender_id) > 0n)
+            await this.openDrawer({ quiet: true });
         }
         return true;
       },
@@ -340,6 +414,9 @@ export class OpsView {
         if (!m.state.error && !m.state.pending) {
           this.setState({ card: { mode: 'view' } });
           this.say('Возврат проведён. Пробейте чек возврата в Webkassa.');
+          const cash = sale.tenders.find((t) => t.method === 'cash');
+          if (cash && parts.some((p) => p.tender_id === cash.tender_id))
+            await this.openDrawer({ quiet: true });
         }
         return true;
       },
@@ -411,6 +488,7 @@ export class OpsView {
         key: r.refund_id,
         text: `${r.kind === 'void' ? 'Отмена' : 'Возврат'} · ${time(r.created_at)} · ${REFUND_REASON_NAMES[r.reason_code] ?? r.reason_code}`,
         sum: '-' + money(r.amount_minor),
+        print: g(() => this.print(refundTicket(sale, r, this.terminalLabel))),
       })),
       opsCardHasRefunds: sale.refunds.length > 0,
       opsCardReceipts: sale.fiscal.map((r) => ({
@@ -432,6 +510,7 @@ export class OpsView {
       opsCardVoidPick: g(() => this.startVoid()),
       opsCardRefundPick: g(() => this.startRefund()),
       opsCardClose: g(() => this.closeCard()),
+      opsCardPrint: g(() => this.printOrder()),
       opsCardBack: g(() => this.setState({ card: { mode: 'view' } })),
     };
     if (card.mode === 'view') return values;
@@ -610,29 +689,45 @@ export class OpsView {
     await this.model.xReport();
     if (!this.model.state.error) this.setState({ report: 'x' });
   }
+  /** One print attempt per tap; a lost answer is unknown and never printed again by itself. */
   async print(ticket) {
     if (typeof this.printer?.print !== 'function') {
       this.say(this.text(new Error('PRINTER_NOT_CONFIGURED')));
       return;
     }
+    let result;
     try {
-      // A lost printer answer is unknown: never printed again automatically (section 5.8).
-      await this.printer.print(ticket);
-      this.say('Отправлено на печать');
+      result = await this.printer.print(ticket);
     } catch {
-      this.say(this.text(new Error('PRINT_FAILED')));
+      // The bridge refused the call before main printed anything.
+      result = { state: 'failed' };
     }
+    this.say(printMessage(result));
   }
-  async openDrawer() {
+  /** One drawer pulse. `quiet`: an automatic opening says only when it did not work. */
+  async openDrawer({ quiet = false } = {}) {
     if (typeof this.printer?.openDrawer !== 'function') {
-      this.say(this.text(new Error('PRINTER_NOT_CONFIGURED')));
+      if (!quiet) this.say(this.text(new Error('PRINTER_NOT_CONFIGURED')));
       return;
     }
+    let result;
     try {
-      await this.printer.openDrawer();
+      result = await this.printer.openDrawer();
     } catch {
-      this.say(this.text(new Error('PRINT_FAILED')));
+      result = { state: 'failed' };
     }
+    const message = drawerMessage(result, quiet);
+    if (message) this.say(message);
+  }
+  /** After a sale is paid on this desk (design КС4): cash in hand opens the drawer once. */
+  async sold(sale) {
+    if (sale?.tenders.some((t) => t.method === 'cash')) await this.openDrawer({ quiet: true });
+  }
+  /** The order ticket of the paid order on screen (done screen or order card). */
+  async printOrder() {
+    const { order, sale } = this.model.state;
+    if (!order || !sale || order.order_id !== sale.order_id) return;
+    await this.print(orderTicket(order, sale, this.terminalLabel));
   }
   reportValues() {
     const kind = this.state.report,

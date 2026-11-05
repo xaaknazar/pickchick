@@ -100,6 +100,9 @@ const sale = new SaleView(model, {
   say,
   pinLength,
   next: nextOrder,
+  // Declared below; called only after a sale is paid or its ticket is asked for.
+  onSold: (paid) => ops.sold(paid),
+  printOrder: () => ops.printOrder(),
 });
 // Paid mode, part B: order card (void, refund), Webkassa tab, X/Z and the sales close wizard.
 const ops = new OpsView(model, sale, {

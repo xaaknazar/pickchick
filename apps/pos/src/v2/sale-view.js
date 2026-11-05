@@ -133,14 +133,18 @@ export class SaleView {
    * @param options.say short status toast
    * @param options.pinLength PIN digits of this branch (4 or 6)
    * @param options.next starts the next order (the app's own reset of the order screen)
+   * @param options.onSold called once with the sale this screen just paid (the cash drawer)
+   * @param options.printOrder prints the order ticket of the sale on the done screen
    */
-  constructor(model, { onChange, guard, say, pinLength = 4, next }) {
+  constructor(model, { onChange, guard, say, pinLength = 4, next, onSold, printOrder }) {
     this.model = model;
     this.onChange = onChange;
     this.guard = guard;
     this.say = say;
     this.pinLength = pinLength;
     this.next = next;
+    this.onSold = onSold;
+    this.printOrder = printOrder;
   }
   setState(change) {
     this.state = { ...this.state, ...change };
@@ -299,8 +303,11 @@ export class SaleView {
       return;
     }
     await this.model.sell(payment);
-    if (this.model.state.sale && !this.model.state.pending) this.done();
-    else if (this.model.state.error?.message === 'ORDER_REVIEW_REQUIRED')
+    if (this.model.state.sale && !this.model.state.pending) {
+      this.done();
+      // Only a sale paid from this screen: a replayed journal never opens the drawer.
+      await this.onSold?.(this.model.state.sale);
+    } else if (this.model.state.error?.message === 'ORDER_REVIEW_REQUIRED')
       // A new quote changed what the guest heard: repeat it before taking money.
       this.setState({ screen: 'review' });
   }
@@ -789,6 +796,10 @@ export class SaleView {
               ? 'Номер чека Webkassa нужно внести до закрытия смены'
               : false,
       saleNext: g(() => this.next()),
+      saleDonePrint: g(async () => {
+        if (this.printOrder) await this.printOrder();
+        else this.say(saleErrorMessage(new Error('PRINTER_NOT_CONFIGURED')));
+      }),
     };
   }
   approvalValues() {

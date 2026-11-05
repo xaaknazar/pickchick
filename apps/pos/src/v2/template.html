@@ -5543,6 +5543,9 @@
           <div class="sale-fiscal-note" data-testid="sale-fiscal-note">{{ saleFiscalNote }}</div>
         </sc-if>
         <div class="sale-actions">
+          <div onClick="{{ saleDonePrint }}" class="sale-button" data-testid="sale-done-print">
+            Печать чека
+          </div>
           <div onClick="{{ saleNext }}" class="sale-button sale-primary">Новый заказ</div>
         </div>
       </div>
@@ -5652,6 +5655,9 @@
               <sc-for list="{{ opsCardRefunds }}" as="r" hint-placeholder-count="1">
                 <div class="ops-line" data-testid="ops-card-refund">
                   <span>{{ r.text }}</span><b>{{ r.sum }}</b>
+                  <div onClick="{{ r.print }}" class="sale-button sale-secondary ops-row-action">
+                    Печать
+                  </div>
                 </div>
               </sc-for>
             </sc-if>
@@ -5745,6 +5751,9 @@
         </div>
         <div class="sale-actions">
           <sc-if value="{{ opsCardView }}" hint-placeholder-val="{{ true }}">
+            <div onClick="{{ opsCardPrint }}" class="sale-button" data-testid="ops-card-print">
+              Печать чека
+            </div>
             <div onClick="{{ opsCardClose }}" class="sale-button">Закрыть</div>
           </sc-if>
           <sc-if value="{{ opsCardEdit }}" hint-placeholder-val="{{ false }}">

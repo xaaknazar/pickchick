@@ -13,7 +13,14 @@ import {
 } from '../../apps/pos/dist/model.js';
 import { ApiError, errorMessage, saleErrorMessage } from '../../apps/pos/dist/api.js';
 import { SaleView } from '../../apps/pos/dist/v2/sale-view.js';
-import { OpsView } from '../../apps/pos/dist/v2/ops-view.js';
+import {
+  OpsView,
+  drawerMessage,
+  orderTicket,
+  printMessage,
+  refundTicket,
+} from '../../apps/pos/dist/v2/ops-view.js';
+import { parseTicket } from '../../apps/pos-desktop/printer.mjs';
 import {
   cashShift as parseShift,
   inputMoney,
@@ -3039,6 +3046,7 @@ test('screens: shift tab of the paid mode shows real money; X report prints a ty
     print: async (ticket) => {
       printed.push(ticket);
       if (fail) throw new Error('lost');
+      return { state: 'sent' };
     },
   };
   const { ops, said } = opsScreens(model, { printer });
@@ -3287,4 +3295,280 @@ test('screens: every part B text is Russian copy with the plain hyphen only', as
     seen.push(saleErrorMessage(new Error(code)));
   assert.ok(seen.length > 100);
   for (const text of seen) assert.ok(!/[\u2013\u2014]/.test(text), text);
+});
+
+// ---- Cutover 19.11 (CL-3): tickets and the cash drawer from the cashier screens -------------
+
+/** The pos-desktop printer bridge (preload): answers what main would answer. */
+function printerBridge(answers = {}) {
+  const calls = [];
+  return {
+    calls,
+    answers,
+    print: async (ticket) => {
+      calls.push(['print', ticket]);
+      return answers.print ?? { state: 'sent' };
+    },
+    openDrawer: async () => {
+      calls.push(['drawer']);
+      return answers.drawer ?? { state: 'sent' };
+    },
+  };
+}
+/** SaleView and OpsView wired as in app.js: the sale hands its drawer and ticket to ops. */
+function wiredScreens(model, printer) {
+  const said = [];
+  const guard =
+    (fn) =>
+    async (...args) => {
+      if (model.state.busy || model.state.pending) return;
+      await fn(...args);
+    };
+  let ops;
+  const view = new SaleView(model, {
+    onChange: () => {},
+    guard,
+    say: (text) => said.push(text),
+    pinLength: 4,
+    next: () => {
+      model.newDraft();
+      view.reset();
+    },
+    onSold: (paid) => ops.sold(paid),
+    printOrder: () => ops.printOrder(),
+  });
+  ops = new OpsView(model, view, {
+    onChange: () => {},
+    guard,
+    say: (text) => said.push(text),
+    setTab: () => {},
+    pinCredential: async () => {
+      throw new Error('Неверный PIN или нет доступа к рабочему месту');
+    },
+    logoutCredential: async () => {},
+    endSession: () => {},
+    printer,
+    terminalLabel: 'Тестовая точка',
+  });
+  return { view, ops, said };
+}
+async function payOnScreen(view, method, cash) {
+  view.setState({ screen: 'pay', method, cash: cash ?? '' });
+  await view.values().salePayConfirm();
+  assert.equal(view.values().isSaleDone, true);
+}
+
+test('screens: a cash sale opens the drawer once; the done screen prints the order ticket', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const printer = printerBridge();
+  const { view, said } = wiredScreens(model, printer);
+  await reviewed(model, edge, 'takeaway');
+  await payOnScreen(view, 'cash', '10000');
+  assert.deepEqual(printer.calls, [['drawer']], 'one pulse, nothing printed by itself');
+  assert.deepEqual(said, [], 'a drawer that opened says nothing');
+  await view.values().saleDonePrint();
+  assert.equal(printer.calls.length, 2);
+  const ticket = printer.calls[1][1];
+  assert.deepEqual(
+    { ...ticket, printed_at: 'x' },
+    {
+      kind: 'order',
+      title: 'Чек заказа (не фискальный)',
+      display_number: '27',
+      pickup_text: 'Забрать на выдаче',
+      lines: [{ name: 'Комбо на двоих', quantity: 1, total_minor: '699000', options: [] }],
+      totals: [{ label: 'Итого', amount_minor: '699000' }],
+      tenders: [{ method: 'cash', label: 'Наличные', amount_minor: '699000' }],
+      change_minor: '301000',
+      printed_at: 'x',
+      terminal_label: 'Тестовая точка',
+    },
+  );
+  // Main accepts exactly what the renderer sends (apps/pos-desktop/printer.mjs).
+  assert.deepEqual(parseTicket(ticket), ticket);
+  assert.equal(said.at(-1), 'Отправлено на печать');
+  // Every answer of main has its own words; none is printed again by itself.
+  for (const [answer, text] of [
+    [{ state: 'unknown' }, saleErrorMessage(new Error('PRINT_UNKNOWN'))],
+    [{ state: 'failed' }, saleErrorMessage(new Error('PRINT_FAILED'))],
+    [{ state: 'failed', code: 'PRINTER_BUSY' }, saleErrorMessage(new Error('PRINTER_BUSY'))],
+    [{ state: 'not_configured' }, 'Печать не настроена'],
+    [undefined, saleErrorMessage(new Error('PRINT_UNKNOWN'))],
+  ]) {
+    printer.answers.print = answer ?? null;
+    if (!answer) printer.print = async (t) => (printer.calls.push(['print', t]), undefined);
+    const before = printer.calls.length;
+    await view.values().saleDonePrint();
+    assert.equal(printer.calls.length, before + 1);
+    assert.equal(said.at(-1), text, JSON.stringify(answer));
+  }
+  assert.equal(
+    saleErrorMessage(new Error('PRINT_UNKNOWN')),
+    'Неизвестно, напечатан ли чек. Проверьте принтер; при необходимости повторите печать вручную.',
+  );
+  assert.equal(model.state.pending, null, 'printing never touches the command journal');
+});
+
+test('screens: only cash opens the drawer; a drawer that did not open is said once', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const printer = printerBridge();
+  const { view, said } = wiredScreens(model, printer);
+  await reviewed(model, edge);
+  await payOnScreen(view, 'kaspi_terminal');
+  assert.deepEqual(printer.calls, [], 'no drawer for a Kaspi terminal sale');
+  await view.values().saleNext();
+  printer.answers.drawer = { state: 'unknown' };
+  await reviewed(model, edge);
+  await payOnScreen(view, 'cash', '7000');
+  assert.deepEqual(printer.calls, [['drawer']]);
+  assert.equal(said.at(-1), 'Неизвестно, открылся ли ящик - проверьте его');
+  assert.equal(drawerMessage({ state: 'failed' }, true), 'Ящик не открылся - откройте его ключом');
+  assert.equal(drawerMessage({ state: 'unsupported' }, true), null);
+  assert.equal(drawerMessage({ state: 'not_configured' }, true), null);
+  assert.equal(drawerMessage({ state: 'sent' }, true), null);
+  // The shift tab button says every answer.
+  assert.equal(drawerMessage({ state: 'sent' }), 'Ящик кассы открыт');
+  assert.equal(drawerMessage({ state: 'unsupported' }), 'Ящик открывается ключом');
+  assert.equal(drawerMessage({ state: 'not_configured' }), 'Печать не настроена');
+  assert.equal(printMessage({ state: 'sent' }), 'Отправлено на печать');
+});
+
+test('screens: without a printer the sale completes and printing says "Печать не настроена"', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const { view, said } = wiredScreens(model, undefined);
+  await reviewed(model, edge);
+  await payOnScreen(view, 'cash', '7000');
+  assert.equal(model.state.sale.display_number, '27');
+  assert.deepEqual(said, [], 'no drawer message without a printer');
+  await view.values().saleDonePrint();
+  assert.equal(said.at(-1), 'Печать не настроена');
+  // The browser cashier (no printOrder at all) says the same.
+  const bare = screens(model);
+  bare.view.done();
+  await bare.view.values().saleDonePrint();
+  assert.equal(bare.said.at(-1), 'Печать не настроена');
+});
+
+test('screens: the order card reprints the order ticket and the slip of each refund; cash refunds open the drawer', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const printer = printerBridge();
+  const { view, ops } = wiredScreens(model, printer);
+  await reviewed(model, edge);
+  await model.sell({
+    method: 'mixed',
+    parts: [
+      { method: 'cash', amount_minor: '199000' },
+      { method: 'kaspi_terminal', amount_minor: '500000' },
+    ],
+    tendered_minor: '200000',
+  });
+  const id = model.state.sale.order_id;
+  model.newDraft();
+  await ops.openCard(id);
+  await ops.templateValues(legacyShift, 'orders').opsCardPrint();
+  let ticket = printer.calls.at(-1)[1];
+  assert.equal(ticket.kind, 'order');
+  assert.deepEqual(ticket.tenders, [
+    { method: 'cash', label: 'Наличные', amount_minor: '199000' },
+    { method: 'kaspi_terminal', label: 'Kaspi терминал', amount_minor: '500000' },
+  ]);
+  assert.equal(ticket.change_minor, '1000');
+  assert.deepEqual(parseTicket(ticket), ticket);
+  // A Kaspi-only refund: no drawer.
+  await ops.templateValues(legacyShift, 'orders').opsCardRefundPick();
+  await ops.templateValues(legacyShift, 'orders').opsRefundTenders[1].all();
+  await ops
+    .templateValues(legacyShift, 'orders')
+    .opsReasons.find((r) => r.label === 'Качество блюда')
+    .pick();
+  printer.calls.length = 0;
+  await ops.templateValues(legacyShift, 'orders').opsConfirm();
+  await pinTap(view, MANAGER_PIN);
+  assert.deepEqual(printer.calls, [], 'no drawer when no cash goes back');
+  // A cash refund: one pulse.
+  await ops.templateValues(legacyShift, 'orders').opsCardRefundPick();
+  await ops.templateValues(legacyShift, 'orders').opsRefundTenders[0].all();
+  await ops
+    .templateValues(legacyShift, 'orders')
+    .opsReasons.find((r) => r.label === 'Качество блюда')
+    .pick();
+  await ops.templateValues(legacyShift, 'orders').opsConfirm();
+  await pinTap(view, MANAGER_PIN);
+  assert.deepEqual(printer.calls, [['drawer']]);
+  const values = ops.templateValues(legacyShift, 'orders');
+  assert.equal(values.opsCardRefunds.length, 2);
+  await values.opsCardRefunds[0].print();
+  ticket = printer.calls.at(-1)[1];
+  assert.deepEqual(
+    { ...ticket, printed_at: 'x' },
+    {
+      kind: 'refund',
+      title: 'Возврат (не фискальный)',
+      display_number: '27',
+      totals: [{ label: 'Возвращено', amount_minor: '500000' }],
+      tenders: [{ method: 'kaspi_terminal', label: 'Kaspi терминал', amount_minor: '500000' }],
+      printed_at: 'x',
+      terminal_label: 'Тестовая точка',
+    },
+  );
+  assert.deepEqual(parseTicket(ticket), { ...ticket, lines: [] });
+  const sale = model.state.sale;
+  const slip = refundTicket(sale, { ...sale.refunds[0], kind: 'void' }, 'Касса');
+  assert.equal(slip.title, 'Отмена заказа (не фискальный)');
+  assert.deepEqual(slip.totals, [{ label: 'Отменено', amount_minor: '500000' }]);
+  assert.equal(orderTicket(model.state.order, sale, 'Касса').kind, 'order');
+});
+
+test('screens: the X report ticket of the renderer is a valid PosTicket for main', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const printer = printerBridge();
+  const { ops, said } = wiredScreens(model, printer);
+  await reviewed(model, edge);
+  await model.sell({ method: 'cash', tendered_minor: '700000' });
+  model.newDraft();
+  await ops.templateValues(legacyShift, 'shift').sayX();
+  await ops.templateValues(legacyShift, 'shift').opsReportPrint();
+  const ticket = printer.calls.at(-1)[1];
+  assert.equal(ticket.kind, 'x_report');
+  assert.deepEqual(parseTicket(ticket), ticket);
+  // The shift tab drawer button of a Windows-driver desk: the drawer opens by key.
+  printer.answers.drawer = { state: 'unsupported' };
+  await ops.templateValues(legacyShift, 'shift').sayDrawer();
+  assert.deepEqual(printer.calls.at(-1), ['drawer']);
+  assert.equal(said.at(-1), 'Ящик открывается ключом');
+});
+
+test('screens: voiding a cash sale opens the drawer once; the void slip prints', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const printer = printerBridge();
+  const { view, ops } = wiredScreens(model, printer);
+  await reviewed(model, edge);
+  await model.sell({ method: 'cash', tendered_minor: '700000' });
+  const id = model.state.sale.order_id;
+  model.newDraft();
+  await ops.openCard(id);
+  await ops.templateValues(legacyShift, 'orders').opsCardVoidPick();
+  await ops
+    .templateValues(legacyShift, 'orders')
+    .opsReasons.find((r) => r.label === 'Гость передумал')
+    .pick();
+  await ops
+    .templateValues(legacyShift, 'orders')
+    .opsVoidAnswers.find((a) => a.label === 'Чек продажи не пробит')
+    .pick();
+  await ops.templateValues(legacyShift, 'orders').opsConfirm();
+  assert.deepEqual(printer.calls, []);
+  await pinTap(view, MANAGER_PIN);
+  assert.deepEqual(printer.calls, [['drawer']], 'the cash goes back from the drawer');
+  await ops.templateValues(legacyShift, 'orders').opsCardRefunds[0].print();
+  const slip = printer.calls.at(-1)[1];
+  assert.equal(slip.title, 'Отмена заказа (не фискальный)');
+  assert.deepEqual(slip.totals, [{ label: 'Отменено', amount_minor: '699000' }]);
+  assert.deepEqual(parseTicket(slip), { ...slip, lines: [] });
 });

@@ -97,6 +97,9 @@ with sync_playwright() as pw:
         expect(page.get_by_test_id('sale-done-pickup')).to_have_text('Забрать на выдаче')
         expect(page.get_by_test_id('sale-done-change')).to_have_text('Сдача 1 510 ₸')
         audit_touch_layout(page, output, 'sale-done', '.sale-done')
+        # The browser cashier has no printer bridge: the ticket is not printed, the sale stands.
+        page.get_by_test_id('sale-done-print').click()
+        expect(page.locator('.pos-toast')).to_have_text('Печать не настроена')
         page.get_by_test_id('sale-receipt').click()
         entry = page.locator('.sale-entry')
         for key in 'TEST-WK-1':

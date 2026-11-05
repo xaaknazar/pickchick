@@ -197,6 +197,13 @@ export const saleErrorMessage = (error: unknown, context: SaleErrorContext = {})
     RECEIPT_NUMBER_SAME: 'Это тот же номер чека',
     PRINTER_NOT_CONFIGURED: 'Печать не настроена',
     PRINT_FAILED: 'Принтер не ответил. Проверьте принтер и бумагу; повторите печать вручную.',
+    // Printing and the drawer from pos-desktop (CL-3, section 5.8): one attempt per tap.
+    PRINT_UNKNOWN:
+      'Неизвестно, напечатан ли чек. Проверьте принтер; при необходимости повторите печать вручную.',
+    PRINTER_BUSY: 'Принтер занят предыдущей печатью. Повторите через несколько секунд.',
+    DRAWER_BY_KEY: 'Ящик открывается ключом',
+    DRAWER_FAILED: 'Ящик не открылся - откройте его ключом',
+    DRAWER_UNKNOWN: 'Неизвестно, открылся ли ящик - проверьте его',
   };
   return text[code] ?? errorMessage(error);
 };
