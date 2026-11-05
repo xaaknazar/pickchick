@@ -7332,11 +7332,12 @@
         ".github/workflows/windows-pos.yml",
         "docs/operations/cashier-launch-1105",
         "infra/windows/queue-recovery-upgrade-db.mjs",
-        "tests/operations/queue-recovery-upgrade.test.mjs"
+        "tests/operations/queue-recovery-upgrade.test.mjs",
+        ".github/workflows/ci.yml"
       ],
       "status": "active",
       "head": "afaba7efc19ec6292582140b994625f32b5a2ad9",
-      "updatedAt": "2026-11-05T11:01:31.305Z",
+      "updatedAt": "2026-11-05T11:21:51.718Z",
       "summary": "Подготовка сохранена в PR300, checkpoint 9a4954dc. Кандидат ffb2fd23 отдельно опубликован: Foundation CI11/11, offline ci без пропусков с known_issue279, Windows POS и архив024 сверены; PR270 без пересборки совпал с протоколом21.10. VPS только чтением, установок нет. Owner approved 2026-11-04 transfer of update-runtime-stage2-1024.ps1 to queue-recovery-279-1103 solely for backup file checksum refresh; all other scopes retained.\nOwner explicitly approved temporary transfer to mobile-build33-1031 for build33: docs/project-status.md, docs/roadmap/project.json. Task and all other scopes preserved; no App Store32 submission change.\n05.11.2026: владелец явно разрешил временную передачу серверных областей и общих записей задаче stage2-candidate-1105 для четырёх серверных шагов; кассовые, мобильные и остальные резервы сохранены.",
       "nextAction": "После подтверждения подключения Mac получить защищённую копию020 только чтением и проверить полную реальную цепочку/023 API совместимость/оба отката. Нужны второй диск/NAS и адресный шаг авторотации. Владелец выбирает две даты и даёт отдельное да на каждый шаг. См. docs/operations/stage2-windows-1030; онлайн-пульт не опубликован."
     }
