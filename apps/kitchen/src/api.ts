@@ -118,7 +118,8 @@ export function validatedError(value: unknown, status: number): string | null {
   )
     return null;
   const codes: Record<number, readonly string[]> = {
-    400: ['INVALID_REQUEST'],
+    // HANDOVER_MARKS_REQUIRED: courier handover without the three marks (cutover KDS-4, CR kds-6).
+    400: ['INVALID_REQUEST', 'HANDOVER_MARKS_REQUIRED'],
     401: ['UNAUTHORIZED'],
     403: ['FORBIDDEN'],
     404: ['NOT_FOUND'],

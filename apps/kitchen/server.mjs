@@ -20,23 +20,30 @@ export function allowed(method, raw) {
   if (method === 'POST' && raw === '/edge/v1/terminals/pair') return true;
   if (!raw.startsWith(base)) return false;
   const u = new URL(raw, 'http://127.0.0.1');
+  // Cutover KDS (contracts 5.4, CR kds-5): POST incidents, GET layout, kds/breading, incidents.
   if (method === 'POST')
     return (
       !u.search &&
-      new RegExp(`^${base}/orders/${UUID}/(?:actions|restore-review)$`, 'i').test(u.pathname)
+      (new RegExp(`^${base}/orders/${UUID}/(?:actions|restore-review)$`, 'i').test(u.pathname) ||
+        u.pathname === base + '/incidents')
     );
   if (method !== 'GET') return false;
   let keys;
-  if ([base + '/config', base + '/stations'].includes(u.pathname)) keys = [];
+  if ([base + '/config', base + '/stations', base + '/layout'].includes(u.pathname)) keys = [];
   else if (u.pathname === base + '/kitchen') keys = ['stationId', 'afterOrderId', 'limit'];
   else if (u.pathname === base + '/display') keys = ['afterNumber', 'limit'];
-  else if (new RegExp(`^${base}/orders/${UUID}$`, 'i').test(u.pathname)) keys = ['stationId'];
+  else if (u.pathname === base + '/kds/breading') keys = ['limit'];
+  else if (u.pathname === base + '/incidents') {
+    if (!u.searchParams.has('scope')) return false;
+    keys = ['scope'];
+  } else if (new RegExp(`^${base}/orders/${UUID}$`, 'i').test(u.pathname)) keys = ['stationId'];
   else return false;
   for (const [k, v] of u.searchParams) {
     if (!keys.includes(k) || u.searchParams.getAll(k).length !== 1) return false;
     if (['stationId', 'afterOrderId'].includes(k) && !new RegExp('^' + UUID + '$', 'i').test(v))
       return false;
     if (k === 'limit' && (!/^[1-9]\d{0,2}$/.test(v) || Number(v) > 100)) return false;
+    if (k === 'scope' && !['open', 'today'].includes(v)) return false;
     if (k === 'afterNumber' && (!/^[1-9]\d{0,18}$/.test(v) || BigInt(v) > 9223372036854775807n))
       return false;
   }
@@ -136,6 +143,8 @@ const assets = new Map([
     'demo',
     'ticket-view',
     'terminal-access',
+    'kds-view',
+    'courier',
     'components/TerminalPairing',
     'components/DisplayAccess',
     'components/PasswordReset',

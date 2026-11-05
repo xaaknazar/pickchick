@@ -1169,3 +1169,360 @@ nav button[aria-pressed='true']:hover:not(:disabled) {
     display: none;
   }
 }
+
+/* Cutover KDS screens (contracts 5.4): 6, 5, tables 1 and 2, issue (2), courier counter (3).
+   Kitchen monoblocks 1280x800 and 1920x1080, touch: every control is at least 64px high. */
+.kds-notice {
+  flex: none;
+  padding: 12px 40px;
+  background: #eef3fc;
+  color: #0b2f73;
+  border-bottom: 1px solid #c9d7f2;
+  font-weight: 700;
+}
+.kds-summary {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 34px;
+  margin: 22px 40px 0;
+  padding: 18px 26px;
+  border-radius: 22px;
+  background: #fff;
+  border: 3px solid var(--blue);
+}
+/* KDS terminal: its one or two screens are tabs in the same row as the commands. */
+.station-switcher.kds-tabs {
+  flex: 1 1 440px;
+  order: -1;
+  max-height: none;
+  overflow: visible;
+}
+.kds-tabs .station-button {
+  flex: 1 1 200px;
+  min-height: 72px;
+}
+.kds-tabs .station-kind {
+  display: none;
+}
+.kds-summary p {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.kds-summary span {
+  font-size: 18px;
+  font-weight: 700;
+  color: #53657d;
+}
+.kds-summary strong {
+  font:
+    800 38px/1.1 Montserrat,
+    Golos,
+    sans-serif;
+  color: var(--blue);
+}
+.kds-summary .kds-hint,
+.kds-breakdown {
+  flex-basis: 100%;
+  font-size: 18px;
+  font-weight: 700;
+  color: #3b4760;
+  overflow-wrap: anywhere;
+}
+.kds-banner {
+  flex: none;
+  max-height: 30vh;
+  overflow: auto;
+  margin: 12px 40px 0;
+  padding: 14px 22px;
+  border-radius: 18px;
+  background: #fff0e6;
+  border: 3px solid var(--orange);
+  color: #8a2f05;
+  font-size: 22px;
+}
+.kds-banner p {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+.kds-ticket .kds-line {
+  padding-bottom: 12px;
+}
+.kds-count,
+.kds-total {
+  margin: 6px 0 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #0b2f73;
+}
+.kds-total {
+  padding: 0 22px 18px;
+  font-size: 22px;
+}
+.kds-unmapped {
+  margin: 8px 0 0;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: #b4231a;
+  color: #fff;
+  font-weight: 800;
+  font-size: 16px;
+}
+.kds-chip {
+  display: inline-block;
+  margin: 8px 8px 0 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 2px solid #b9cdf0;
+  background: #eef3fc;
+  color: #0b2f73;
+  font-weight: 800;
+  font-size: 16px;
+}
+.kds-chip-done {
+  border-color: #8fcfaa;
+  background: #e8f7ee;
+  color: #1d5e39;
+}
+.kds-chip-wait {
+  border-color: #f0c7b3;
+  background: #fff4ee;
+  color: #8a2f05;
+}
+.mode-delivery {
+  background: #ffe2d3;
+  color: #8a2f05;
+  white-space: normal;
+}
+.kds-block {
+  padding: 12px 22px 0;
+}
+.kds-block h4 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  color: #0b2f73;
+}
+.kds-block .lines {
+  padding: 6px 0;
+}
+.kds-compact {
+  margin: 4px 0 0;
+  padding: 0 22px;
+  font-size: 17px;
+  line-height: 1.4;
+  color: #3b4760;
+  overflow-wrap: anywhere;
+}
+.kds .ticket-actions button,
+.courier-dialog .kds-action {
+  min-height: 74px;
+}
+.kds .ticket-actions .kds-final,
+.courier-dialog .kds-final {
+  background: #1d7a46;
+}
+.kds .ticket-actions .kds-final:hover:not(:disabled) {
+  background: #17643a;
+}
+.kds .ticket-actions .kds-secondary {
+  margin-top: 12px;
+  min-height: 64px;
+  background: #fff;
+  color: #8a2f05;
+  border: 2px solid var(--orange);
+}
+.kds .ticket-actions .kds-secondary:hover:not(:disabled) {
+  background: #fff4ee;
+}
+.kds-ready {
+  border-color: #8fcfaa;
+}
+.kds-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  padding: 22px 40px;
+  align-items: start;
+}
+.kds-column h2 {
+  margin: 0 0 12px;
+  font:
+    800 26px Montserrat,
+    Golos,
+    sans-serif;
+  color: #0b2f73;
+}
+.kds-column h2 span {
+  margin-left: 8px;
+  color: var(--orange);
+}
+.kds-column .tickets {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  padding: 0;
+}
+.kds-none {
+  color: #68758a;
+  font-size: 18px;
+}
+.courier-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin: 22px 40px 0;
+}
+.courier-filter label {
+  flex-basis: 100%;
+  font-weight: 800;
+  font-size: 18px;
+  color: #0b2f73;
+}
+.courier-filter input {
+  flex: 1 1 320px;
+  min-height: 72px;
+  padding: 10px 18px;
+  border: 3px solid var(--blue);
+  border-radius: 16px;
+  font:
+    800 32px Montserrat,
+    Golos,
+    sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.courier-filter button {
+  min-height: 72px;
+}
+.courier-filter .kds-secondary {
+  color: #8a2f05;
+  border: 2px solid var(--orange);
+}
+.courier-head {
+  padding: 18px 22px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #fff4ee;
+  border-bottom: 1px solid #f0d6c8;
+}
+.courier-provider {
+  font-weight: 800;
+  font-size: 18px;
+  color: #8a2f05;
+}
+.courier-number {
+  font:
+    800 54px/1 Montserrat,
+    Golos,
+    sans-serif;
+  color: #0e1524;
+  overflow-wrap: anywhere;
+}
+.courier-meta {
+  font-size: 16px;
+  color: #53657d;
+}
+.courier-status {
+  margin: 12px 22px 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0b2f73;
+}
+.kds-progress {
+  padding: 0 22px;
+}
+.courier-match {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 4px #0047bb55;
+}
+.courier-dialog {
+  width: min(680px, calc(100% - 32px));
+}
+.courier-dialog .courier-mark {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 72px;
+  margin: 10px 0;
+  padding: 10px 16px;
+  border: 2px solid #cdd7e8;
+  border-radius: 14px;
+  font-size: 20px;
+  cursor: pointer;
+}
+.courier-dialog .courier-mark input {
+  width: 36px;
+  height: 36px;
+  min-height: 0;
+  flex: none;
+  margin: 0;
+}
+.courier-dialog select,
+.courier-dialog textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 12px;
+  border: 1px solid #6a7588;
+  border-radius: 8px;
+  background: #fff;
+  color: #08224f;
+  font: inherit;
+}
+.courier-dialog footer {
+  flex-wrap: wrap;
+}
+.courier-dialog footer button {
+  min-height: 64px;
+  border-radius: 14px;
+}
+.courier-dialog .kds-action {
+  border: 0;
+  background: var(--orange);
+  color: #fff;
+  font-weight: 800;
+}
+.courier-dialog .kds-final {
+  background: #1d7a46;
+}
+.courier-dialog .kds-action:disabled {
+  opacity: 0.45;
+}
+.courier-dialog .kds-secondary {
+  color: #8a2f05;
+  border: 2px solid var(--orange);
+  background: #fff;
+}
+.courier-hint {
+  font-weight: 700;
+}
+.courier-privacy {
+  margin: 8px 0 0;
+  font-weight: 700;
+  color: #8a2f05;
+}
+@media (max-width: 1500px) {
+  .kds-summary,
+  .kds-banner,
+  .courier-filter {
+    margin-left: 26px;
+    margin-right: 26px;
+  }
+  .kds-columns {
+    padding: 18px 26px;
+  }
+  .courier-number {
+    font-size: 46px;
+  }
+}
+@media (max-width: 1000px) {
+  .kds-columns {
+    grid-template-columns: 1fr;
+  }
+}

@@ -13,8 +13,21 @@ import {
   choice,
   prefix,
   cloudPrefix,
+  kdsLayout,
+  breading,
+  incidents,
 } from './types.js';
-import type { Credential, Station, Order, DisplayItem, Action } from './types.js';
+import type {
+  Credential,
+  Station,
+  Order,
+  DisplayItem,
+  Action,
+  KdsLayout,
+  KdsFunction,
+  Breading,
+  Incident,
+} from './types.js';
 export interface StoragePort {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
@@ -69,7 +82,20 @@ export type State = {
   cloudPending: Pending | null;
   cloudConflict: boolean;
   cloudReviewed: Order | null;
+  /**
+   * Cutover KDS (contracts section 5.4): the edge layout of this cook session. null - the layout
+   * is off, missing (404) or not known yet: today's screen, unchanged.
+   */
+  kds: KdsLayout | null;
+  /** Station 6 view (GET kds/breading); only while the breading station is open. */
+  breading: Breading | null;
+  /** Open courier incidents ("Менеджер вызван") of screens 2 and 3. */
+  incidents: Incident[];
+  /** Set when the layout went off during the session (the old screen is back). */
+  kdsNotice: 'KDS_LAYOUT_OFF' | null;
 };
+/** The layout is re-read at most this often while signed in (kds-switch enable/disable). */
+export const LAYOUT_TTL_MS = 30000;
 export type Lease = (name: string) => Promise<(() => void) | null>;
 const authKey = 'pickchick.kitchen.credential.v1';
 const scope = (c: Credential) => `${c.branch_id}.${c.staff_id}.${c.terminal_id}`;
@@ -153,7 +179,12 @@ export class KitchenModel {
     cloudPending: null,
     cloudConflict: false,
     cloudReviewed: null,
+    kds: null,
+    breading: null,
+    incidents: [],
+    kdsNotice: null,
   };
+  private layoutReadAt = 0;
   private streamOrders: Record<Owner, Order[]> = { edge: [], cloud: [] };
   private streamDisplay: Record<Owner, DisplayItem[]> = { edge: [], cloud: [] };
   private edgeStations: Station[] = [];
@@ -239,6 +270,8 @@ export class KitchenModel {
       cursor: null,
       next: null,
       lastSync: null,
+      breading: null,
+      incidents: [],
     });
   }
   /** Cloud mode: stations of both identities, preparation first; keeps a still-valid choice. */
@@ -307,7 +340,10 @@ export class KitchenModel {
       stations: [],
       lastSync: null,
       lease: false,
+      kds: null,
+      kdsNotice: null,
     });
+    this.layoutReadAt = 0;
     if (this.state.cloud) {
       // The cloud screen keeps working without the cook.
       this.edgeStations = [];
@@ -436,6 +472,8 @@ export class KitchenModel {
     // Cloud orders use whole-ticket actions; with the cloud stream the page uses them for both.
     this.state.wholeTicketActions = this.state.cloud || enabled.wholeTicketActions === true;
     const list = stations(await this.call(prefix + '/stations', c), c.branch_id);
+    // Read before the lease like the stations; any doubt keeps today's screen.
+    const layout = this.state.cloud ? null : await this.fetchLayout(c);
     this.release?.();
     this.release = null;
     this.state.lease = false;
@@ -482,6 +520,12 @@ export class KitchenModel {
         lease: true,
       });
     this.resetSnapshot();
+    if (!this.state.cloud) {
+      this.state.kds = layout ?? null;
+      this.state.kdsNotice = null;
+      this.layoutReadAt = Date.now();
+      this.applyScreens(true);
+    }
     try {
       const raw = this.durable.getItem(journalKey(c));
       if (raw) {
@@ -606,8 +650,21 @@ export class KitchenModel {
     if (!this.state.cloud) {
       if (!c) return;
       if (Date.parse(c.expires_at) <= Date.now()) throw new ApiError('SESSION_EXPIRED', 401, true);
+      if (this.state.mode === 'kitchen' && Date.now() - this.layoutReadAt >= LAYOUT_TTL_MS)
+        this.applyLayout(await this.fetchLayout(c));
+      if (this.state.mode === 'kitchen' && this.kdsFunction() === 'breading') {
+        const view = await this.readBreading(c);
+        if (view) {
+          this.publish([], []);
+          this.state.breading = view;
+          return;
+        }
+      }
       const edge = await this.readStream(prefix, c, c.branch_id);
+      const fn = this.state.mode === 'kitchen' ? this.kdsFunction() : null;
+      const open = fn === 'issue' || fn === 'delivery_handover' ? await this.readIncidents(c) : [];
       this.publish(edge.orders, edge.display);
+      this.state.incidents = open;
       return;
     }
     const sc = this.state.screen;
@@ -727,6 +784,75 @@ export class KitchenModel {
     } while (cursor);
     return { orders: all, display };
   }
+  /**
+   * GET fulfillment/layout. undefined: no definitive answer (network, invalid body) - the caller
+   * keeps the last known layout; null: off or an edge without the route (404).
+   */
+  private async fetchLayout(c: Credential): Promise<KdsLayout | null | undefined> {
+    try {
+      return kdsLayout(await this.call(prefix + '/layout', c));
+    } catch (error) {
+      if (error instanceof StaleOperation || revokedSession(error)) throw error;
+      if (error instanceof ApiError && error.validated && error.status === 404) return null;
+      return undefined;
+    }
+  }
+  /** A doubtful answer keeps the last known layout until the next read (LAYOUT_TTL_MS). */
+  private applyLayout(next: KdsLayout | null | undefined) {
+    this.layoutReadAt = Date.now();
+    if (next === undefined) return;
+    if (this.state.kds && !next) this.state.kdsNotice = 'KDS_LAYOUT_OFF';
+    if (next) this.state.kdsNotice = null;
+    this.state.kds = next;
+    this.applyScreens();
+  }
+  /** The KDS function of a station of the active layout, null without one. */
+  kdsFunction(stationId = this.state.stationId): KdsFunction | null {
+    return this.state.kds?.stations.find((s) => s.id === stationId)?.function ?? null;
+  }
+  /**
+   * Kitchen login on a KDS terminal: the layout screens of this terminal are its station tabs
+   * (one or two, e.g. table 2 and the courier counter 3). Empty: the station switcher as today
+   * (shift manager, or a terminal the layout does not name).
+   */
+  get tabs(): Station[] {
+    const layout = this.state.kds;
+    if (!layout || this.state.actor?.role !== 'kitchen') return [];
+    return layout.screens.flatMap((id) => this.state.stations.filter((s) => s.id === id));
+  }
+  /** Sign-in opens the first screen of the terminal; a later layout read keeps an open tab. */
+  private applyScreens(signIn = false) {
+    const tabs = this.tabs;
+    if (
+      tabs.length &&
+      !this.state.pending &&
+      (signIn || !tabs.some((station) => station.id === this.state.stationId))
+    ) {
+      this.state.stationId = tabs[0]!.id;
+      this.resetSnapshot();
+    }
+  }
+  /** Station 6; null when the layout no longer has it (the station reads as a plain queue). */
+  private async readBreading(c: Credential) {
+    try {
+      return breading(await this.call(prefix + '/kds/breading?limit=100', c));
+    } catch (error) {
+      if (error instanceof ApiError && error.validated && error.status === 404) {
+        this.applyLayout(await this.fetchLayout(c));
+        if (this.kdsFunction() !== 'breading') return null;
+      }
+      throw error;
+    }
+  }
+  /** Banner of screens 2 and 3; a failed read keeps the last list (the queue shows the error). */
+  private async readIncidents(c: Credential) {
+    try {
+      return incidents(await this.call(prefix + '/incidents?scope=open', c));
+    } catch (error) {
+      if (error instanceof StaleOperation || revokedSession(error)) throw error;
+      return this.state.incidents;
+    }
+  }
   async selectStation(id: string) {
     if (this.state.pending || this.state.cloudPending) return;
     await this.run(async () => {
@@ -805,6 +931,15 @@ export class KitchenModel {
         );
       if (this.ownerOffline(o))
         throw new Error(owner === 'cloud' ? 'CLOUD_OFFLINE' : 'EDGE_OFFLINE');
+      // Courier protocol (Аг9): a ticket with `delivery` (KDS layout on) is handed over only
+      // with the three marks, and only such a ticket carries them; the edge checks it again.
+      const marks = body.action === 'handoff' && body.handover !== undefined;
+      if (body.action === 'handoff' && o.delivery && !marks)
+        throw new Error('HANDOVER_MARKS_REQUIRED');
+      if (marks && (!o.delivery || owner !== 'edge')) throw new Error('ACTION_UNAVAILABLE');
+      const plain: Action = marks
+        ? { action: 'handoff', expectedVersion: body.expectedVersion }
+        : body;
       if (
         !this.state.orders.some(
           (current) =>
@@ -813,7 +948,7 @@ export class KitchenModel {
             ownerOf(current) === owner,
         ) ||
         !allowedActions(o, s, this.state.wholeTicketActions).some(
-          (a) => JSON.stringify(a) === JSON.stringify(body),
+          (a) => JSON.stringify(a) === JSON.stringify(plain),
         )
       )
         throw new Error('ACTION_UNAVAILABLE');
@@ -854,6 +989,19 @@ export class KitchenModel {
       if (e instanceof ApiError && e.validated && e.status === 409 && e.code === 'CONFLICT') {
         this.setSlot(owner, { conflict: true });
         await this.review(owner);
+      }
+      // A validated 400 to a handoff is a definitive refusal: the edge validates the courier
+      // marks before any write and stores no receipt. It happens only around kds-switch
+      // enable/disable (the ticket's `delivery` changed); the journal is closed so the counter
+      // can hand the order over again with the current protocol.
+      if (e instanceof ApiError && e.validated && e.status === 400 && p.body.action === 'handoff') {
+        this.clearPending(owner);
+        await this.read().catch(() => {});
+        throw new ApiError(
+          e.code === 'HANDOVER_MARKS_REQUIRED' ? e.code : 'HANDOVER_REFUSED',
+          400,
+          true,
+        );
       }
       throw e;
     }
