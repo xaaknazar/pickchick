@@ -6,14 +6,38 @@ import { MENU_ASSETS } from './menu-assets.mjs';
 export const APP_ORIGIN = 'pickchick-pos://app';
 export const APP_URL = `${APP_ORIGIN}/`;
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
+/**
+ * Paid-sale routes of the cashier (cutover 19.11, contracts section 5.5), one definition for
+ * this adapter and apps/pos/server.mjs. The edge answers 404 until it runs pos_sale.
+ */
+export const SALE_ROUTES = Object.freeze({
+  read: Object.freeze([
+    'pos/config',
+    `pos/sales/${UUID}`,
+    'pos/fiscal-receipts/pending',
+    `cash-shifts/${UUID}/x-report`,
+    `cash-shifts/${UUID}/z-report`,
+  ]),
+  write: Object.freeze([
+    'staff/approvals',
+    'pos/sales',
+    `pos/sales/${UUID}/void`,
+    `pos/sales/${UUID}/refunds`,
+    `pos/fiscal-receipts/${UUID}/record`,
+  ]),
+});
+/** GET paths that may carry exactly one `?shift_id=<uuid>` filter (today's orders, receipts). */
+export const SHIFT_FILTERED = Object.freeze(['orders', 'pos/fiscal-receipts/pending']);
 const readPath = new RegExp(
-  `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?)$`,
+  `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?|${SALE_ROUTES.read.join('|')})$`,
   'i',
 );
 const writePath = new RegExp(
-  `^/edge/v1/(staff/(login|pin|logout)|checkout/quotes|orders|orders/${UUID}/cancel|cash-shifts|cash-shifts/${UUID}/(?:close|movements)|ordering/(open|close)|availability/stops)$`,
+  `^/edge/v1/(staff/(login|pin|logout)|checkout/quotes|orders|orders/${UUID}/cancel|cash-shifts|cash-shifts/${UUID}/(?:close|movements)|ordering/(open|close)|availability/stops|${SALE_ROUTES.write.join('|')})$`,
   'i',
 );
+/** PIN checks typed on this desk: small bodies only (contracts section 5.1, staff/approvals). */
+const PIN_PATHS = ['/edge/v1/staff/login', '/edge/v1/staff/pin', '/edge/v1/staff/approvals'];
 const assets = new Map([
   ...V2_ASSETS.map(([name, type]) => ['/' + name, [name, type]]),
   ...MENU_ASSETS.map((name) => [`/assets/menu/${name}`, [`assets/menu/${name}`, 'image/jpeg']]),
@@ -123,7 +147,7 @@ function localURL(value) {
       url.username ||
       url.password ||
       (url.search &&
-        (url.pathname !== '/edge/v1/orders' ||
+        (!SHIFT_FILTERED.some((path) => url.pathname === `/edge/v1/${path}`) ||
           !new RegExp(`^\\?shift_id=${UUID}$`, 'i').test(url.search))) ||
       url.hash
     )
@@ -272,7 +296,9 @@ export function createProtocolHandler({
       // Only the session that holds journal authority can lose it. An isolated PIN check (the
       // shift-close dialog) and another person's credential (logout of a non-manager PIN) never
       // revoke the logged-in cashier's journal; a request without a session id still does.
-      const pinCheck = path === '/edge/v1/staff/pin';
+      // A shift manager approval refused with 401/403 is a wrong manager PIN, not this session
+      // ending (contracts section 5.1, R13); the cashier's next ordinary request tells that.
+      const pinCheck = path === '/edge/v1/staff/pin' || path === '/edge/v1/staff/approvals';
       const ownSession =
         !headers['x-staff-session-id'] || headers['x-staff-session-id'] === journalSession;
       if (
@@ -287,10 +313,7 @@ export function createProtocolHandler({
           return json(415, { code: 'INVALID_REQUEST' });
         try {
           body = Buffer.from(
-            await readBounded(
-              request.body,
-              ['/edge/v1/staff/login', '/edge/v1/staff/pin'].includes(path) ? 2048 : 64000,
-            ),
+            await readBounded(request.body, PIN_PATHS.includes(path) ? 2048 : 64000),
           ).toString('utf8');
           JSON.parse(body);
         } catch (error) {

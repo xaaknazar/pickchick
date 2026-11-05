@@ -3,6 +3,8 @@ import { createServer } from 'node:http';
 import { MENU_ASSETS } from '../pos-desktop/menu-assets.mjs';
 import {
   MENU_MEDIA_PATH,
+  SALE_ROUTES,
+  SHIFT_FILTERED,
   createMenuMediaCache,
   menuMediaResponse,
 } from '../pos-desktop/protocol.mjs';
@@ -10,13 +12,15 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
-// Paid sales (cutover 19.11, contracts section 5.1): only the routes the cashier screens call.
-const SALE_READS = `pos/config|pos/sales/${UUID}`;
-const SALE_WRITES = `staff/approvals|pos/sales|pos/fiscal-receipts/${UUID}/record`;
+// Paid sales (cutover 19.11, contracts section 5.5): the same routes as pos-desktop, defined
+// once in its protocol module. The edge answers 404 until it runs pos_sale.
+const SALE_READS = SALE_ROUTES.read.join('|');
+const SALE_WRITES = SALE_ROUTES.write.join('|');
+const FILTERED = SHIFT_FILTERED.map((path) => `${path}\\?shift_id=${UUID}`).join('|');
 const allowed = (method, path) =>
   method === 'GET'
     ? new RegExp(
-        `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders(?:\\?shift_id=${UUID})?|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?|${SALE_READS})$`,
+        `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders|${FILTERED}|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?|${SALE_READS})$`,
         'i',
       ).test(path)
     : method === 'POST' &&

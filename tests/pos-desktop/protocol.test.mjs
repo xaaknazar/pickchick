@@ -589,3 +589,151 @@ test('terminal config accepts a 6-digit PIN pad only as an explicit 4 or 6 (6.5)
   assert.equal(validateConfig({ pinLength: 4 }).pinLength, 4);
   for (const pinLength of [5, 8, '6', null, 0]) assert.throws(() => validateConfig({ pinLength }));
 });
+
+// ---- Cutover 19.11 (contracts section 5.5, CL-2): paid-sale routes of the cashier ----------
+
+/** Exactly the paid routes of the section 5.5 `pos` profile (photos are fetched by main). */
+const SALE_GET = [
+  'pos/config',
+  `pos/sales/${ID}`,
+  'pos/fiscal-receipts/pending',
+  `pos/fiscal-receipts/pending?shift_id=${ID}`,
+  `cash-shifts/${ID}/x-report`,
+  `cash-shifts/${ID}/z-report`,
+];
+const SALE_POST = [
+  'staff/approvals',
+  'pos/sales',
+  `pos/sales/${ID}/void`,
+  `pos/sales/${ID}/refunds`,
+  `pos/fiscal-receipts/${ID}/record`,
+];
+const SALE_REFUSED = [
+  ['POST', 'pos/config'],
+  ['GET', 'pos/sales'],
+  ['GET', `pos/sales/${ID}/void`],
+  ['POST', `pos/sales/${ID}/payments`],
+  ['POST', 'pos/fiscal-receipts/pending'],
+  ['GET', 'pos/fiscal-receipts/pending?shift_id=not-a-shift'],
+  ['GET', `pos/fiscal-receipts/pending?shift_id=${ID}&all=true`],
+  ['GET', `pos/sales/${ID}?shift_id=${ID}`],
+  ['GET', `cash-shifts/${ID}/y-report`],
+  ['GET', 'cash-shifts/current/x-report'],
+  ['POST', `staff/approvals?pin=1234`],
+  ['POST', 'pos/fiscal'],
+];
+const saleRequest = (method) =>
+  method === 'POST'
+    ? { method, headers: { 'Content-Type': 'application/json' }, body: '{}' }
+    : { method };
+
+test('paid-sale routes of contracts 5.5 pass the desktop adapter and the browser server alike', async () => {
+  await fixture(async (handler, upstream) => {
+    for (const path of SALE_GET) {
+      const url = `/edge/v1/${path}`;
+      assert.equal(isAllowedRendererURL(new URL(url, APP_URL).href), true, path);
+      assert.equal((await handler(request(url))).status, 200, path);
+      assert.equal(upstream.at(-1).url, `http://127.0.0.1:3101${url}`);
+    }
+    for (const path of SALE_POST) {
+      assert.equal((await handler(request(`/edge/v1/${path}`, saleRequest('POST')))).status, 200);
+      assert.equal(upstream.at(-1).options.method, 'POST');
+    }
+    const forwarded = upstream.length;
+    for (const [method, path] of SALE_REFUSED)
+      assert.ok(
+        (await handler(request(`/edge/v1/${path}`, saleRequest(method)))).status >= 400,
+        method + ' ' + path,
+      );
+    assert.equal(upstream.length, forwarded, 'refused paths never reach the edge');
+    // A manager PIN body is as small as a login body.
+    const big = JSON.stringify({ pin: '1'.repeat(3000) });
+    const response = await handler(
+      request('/edge/v1/staff/approvals', { ...saleRequest('POST'), body: big }),
+    );
+    assert.equal(response.status, 413);
+  });
+  // The browser server of the same cashier forwards exactly the same set.
+  const { createPosServer } = await import('../../apps/pos/server.mjs');
+  const seen = [];
+  const edge = createServer((req, res) => {
+    seen.push(`${req.method} ${req.url}`);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end('{}');
+  });
+  await new Promise((resolve) => edge.listen(0, '127.0.0.1', resolve));
+  const pos = createPosServer({ edgePort: edge.address().port });
+  await new Promise((resolve) => pos.listen(0, '127.0.0.1', resolve));
+  try {
+    const base = `http://127.0.0.1:${pos.address().port}/edge/v1/`;
+    for (const path of SALE_GET)
+      assert.equal((await fetch(base + path)).status, 200, 'server GET ' + path);
+    for (const path of SALE_POST)
+      assert.equal((await fetch(base + path, saleRequest('POST'))).status, 200, 'server ' + path);
+    for (const [method, path] of SALE_REFUSED)
+      assert.ok((await fetch(base + path, saleRequest(method))).status >= 400, method + ' ' + path);
+    assert.deepEqual(seen, [
+      ...SALE_GET.map((path) => `GET /edge/v1/${path}`),
+      ...SALE_POST.map((path) => `POST /edge/v1/${path}`),
+    ]);
+  } finally {
+    await new Promise((resolve) => pos.close(resolve));
+    await new Promise((resolve) => edge.close(resolve));
+  }
+});
+
+test('a refused shift manager PIN on staff/approvals keeps the cashier journal', async () => {
+  const { createJournalStore } = await import(pathToFileURL(desktopFile('journal.mjs')).href);
+  const id = (last) => `10000000-0000-4000-8000-${String(last).padStart(12, '0')}`;
+  const cashier = {
+    session_id: id(1),
+    staff_id: id(2),
+    terminal_id: ID,
+    branch_id: id(4),
+    role: 'cashier',
+    expires_at: new Date(Date.now() + 3600000).toISOString(),
+  };
+  const scope = `${cashier.branch_id}.${cashier.staff_id}.${cashier.terminal_id}`;
+  const key = `pickchick.pos.journal.v1.${scope}`;
+  const journal = (n) =>
+    JSON.stringify({ version: 1, scope, draft: null, pending: null, known: [], selected: n });
+  const directory = await mkdtemp(join(tmpdir(), 'pickchick-approval-journal-'));
+  const store = createJournalStore({ directory });
+  let answer;
+  try {
+    await fixture(
+      async (handler) => {
+        const call = (path, method = 'POST') =>
+          handler(
+            request(path, {
+              ...saleRequest(method),
+              headers: {
+                ...saleRequest(method).headers,
+                Authorization: `Bearer ${'b'.repeat(64)}`,
+                'X-Staff-Session-Id': cashier.session_id,
+              },
+            }),
+          );
+        answer = () => new Response(JSON.stringify(cashier), { status: 200 });
+        assert.equal((await call('/edge/v1/session', 'GET')).status, 200);
+        store.setItem(key, journal(null));
+        for (const status of [401, 403]) {
+          answer = () => new Response('{"code":"UNAUTHORIZED"}', { status });
+          assert.equal((await call('/edge/v1/staff/approvals')).status, status);
+          store.setItem(key, journal(null));
+        }
+        // Any other route answering 401 for this session still revokes at once.
+        answer = () => new Response('{"code":"UNAUTHORIZED"}', { status: 401 });
+        assert.equal((await call(`/edge/v1/pos/sales/${ID}/void`)).status, 401);
+        assert.throws(() => store.setItem(key, journal(null)));
+      },
+      {
+        config: { terminalId: ID },
+        onSession: (value, sessionId) => store.setSession(value, sessionId),
+        fetchImpl: async () => answer(),
+      },
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
