@@ -7285,6 +7285,27 @@
       "nextAction": "После зелёной CI PR309 включить протокол обычным merge и закрыть этап. Дальнейшие шаги поддержки/Play Console/внутренней загрузки требуют отдельного да. Офлайн-копия ключа и физический Android не проверены, FCM не настроен. Сборка: Library/Caches/PickChick/android-releases/play-internal-1-r2. Действующие чужие задачи и scopes сохранены."
     },
     {
+      "id": "stage2-windows-1030",
+      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
+      "branch": "codex/stage2-windows-1030",
+      "scopes": [
+        "@windows/cashier",
+        "docs/operations/stage2-2026-10-24/release-preparation.md",
+        "docs/operations/stage2-windows-1030",
+        "tests/operations/test_windows_stage2_release.py",
+        ".github/workflows/windows-pos.yml",
+        "docs/operations/cashier-launch-1105",
+        "infra/windows/queue-recovery-upgrade-db.mjs",
+        "tests/operations/queue-recovery-upgrade.test.mjs",
+        ".github/workflows/ci.yml"
+      ],
+      "status": "available",
+      "head": "61e879870e596d5e579d9925e21f579ff040028b",
+      "updatedAt": "2026-11-05T12:03:51.491Z",
+      "summary": "PR300, протокол61e87987 опубликован. Кандидат25387997: Foundation11/11, offline9/9 без known issues/skip, WindowsPOS success и хеши проверены; runtime025 SHA77023bee собран и проверен на реальной изолированной копии. Касса192.168.2.69,7 служб Running/Auto, Edge/tunnel ready; защищённая копия020 сверена по47 таблицам на Windows/Mac, зашифрованные020/023/024/025 расшифровкой проверены. Репетиция020→023→024→025 и restore020/023/025 прошла, кластер остановлен. Новый helper024→025,8/8 тестов, pnpm check passed. Производство020 не обновлялось. SSD у владельца пока нет. Найден POS-sync blocker312; работающий43100 не менять. Общие status/roadmap заняты другим Mac, онлайн-пульт не обновлён.",
+      "nextAction": "Продолжить с протокола docs/operations/cashier-launch-1105/README.md. Ближайший серверный fallback069-071 другого Mac исключает072/PR304: отдельная координация072/API/прав и совместимости023 обязательна. Требуются целостный Windows025-оператор, оба возврата служб, POS-sync312 с проверкой5 локальных записей, второй SSD/NAS и независимое хранение recovery-key. Затем согласованное ночное окно и физическая WAN/8час приёмка. Ключ связи истекает20.11; если выпуск не состоялся до10.11, продлить вручную не позднее13.11. PR300 автоматически не сливать: наследует старые серверные изменения. CI источника253 завершена success;61e87987 только документация, её CI отдельно."
+    },
+    {
       "id": "stage2-candidate-1105",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/stage2-candidate-1105",
@@ -7313,34 +7334,17 @@
         "scripts/node-forge-security.mjs",
         "tests/unit/node-forge-patch.test.mjs",
         "infra/staging/watchdog/setup-telegram.command",
-        "tests/backoffice/finance-browser.py"
+        "tests/backoffice/finance-browser.py",
+        "docs/operations/idrink-removal.md",
+        "infra/ingress",
+        "tests/operations/test_own_ingress.py",
+        "docs/operations/staging-vps.md"
       ],
-      "status": "available",
+      "status": "active",
       "head": "0c78c0d0fdb38841a57b81974cdb1f634ebf5ae0",
-      "updatedAt": "2026-11-05T18:16:20.748Z",
+      "updatedAt": "2026-11-05T21:01:22.839Z",
       "summary": "Owner-approved forge 1.4.1 transfer complete. Runtime 6630eb0f: PR310, Foundation 42008838570 11/11 PASS and offline 42008838516 PASS; canonical exact-SHA proofs validated. Preparation code bf4a2280: PR311, Foundation 42010176649 11/11 and offline 42010176561 PASS. Final docs checkpoint 0c78c0d0; docs-only CI pending. Source/JSON/backup-recipient/route checks pass. No VPS writes, deploys, migrations, payments or flag changes. Evening gate remains unmet: 3 unknown QR still scheduled by worker, 73 unfinished edge projections, 18 paid-unfinished.",
       "nextAction": "Reclaim this task before continuation. At 06 Nov 00:30 Asia/Almaty after owner start, repeat refs/claims/live baseline and no-active-work gate; wait only until 01:00 then stop if unresolved. No automatic cancellation or bank calls. If cleared, exact two document links then fallback 069-071/API with fresh encrypted backup and isolated restore; never deploy preparation shared tree containing072. Keep Mac powered/networked. Watchdog and Caddy remain later gated steps. Preserve other tasks and claims."
-    },
-    {
-      "id": "stage2-windows-1030",
-      "owner": "3dd9e23b-3884-44b1-af02-16a06db3baa6",
-      "branch": "codex/stage2-windows-1030",
-      "scopes": [
-        "@windows/cashier",
-        "docs/operations/stage2-2026-10-24/release-preparation.md",
-        "docs/operations/stage2-windows-1030",
-        "tests/operations/test_windows_stage2_release.py",
-        ".github/workflows/windows-pos.yml",
-        "docs/operations/cashier-launch-1105",
-        "infra/windows/queue-recovery-upgrade-db.mjs",
-        "tests/operations/queue-recovery-upgrade.test.mjs",
-        ".github/workflows/ci.yml"
-      ],
-      "status": "available",
-      "head": "61e879870e596d5e579d9925e21f579ff040028b",
-      "updatedAt": "2026-11-05T12:03:51.491Z",
-      "summary": "PR300, протокол61e87987 опубликован. Кандидат25387997: Foundation11/11, offline9/9 без known issues/skip, WindowsPOS success и хеши проверены; runtime025 SHA77023bee собран и проверен на реальной изолированной копии. Касса192.168.2.69,7 служб Running/Auto, Edge/tunnel ready; защищённая копия020 сверена по47 таблицам на Windows/Mac, зашифрованные020/023/024/025 расшифровкой проверены. Репетиция020→023→024→025 и restore020/023/025 прошла, кластер остановлен. Новый helper024→025,8/8 тестов, pnpm check passed. Производство020 не обновлялось. SSD у владельца пока нет. Найден POS-sync blocker312; работающий43100 не менять. Общие status/roadmap заняты другим Mac, онлайн-пульт не обновлён.",
-      "nextAction": "Продолжить с протокола docs/operations/cashier-launch-1105/README.md. Ближайший серверный fallback069-071 другого Mac исключает072/PR304: отдельная координация072/API/прав и совместимости023 обязательна. Требуются целостный Windows025-оператор, оба возврата служб, POS-sync312 с проверкой5 локальных записей, второй SSD/NAS и независимое хранение recovery-key. Затем согласованное ночное окно и физическая WAN/8час приёмка. Ключ связи истекает20.11; если выпуск не состоялся до10.11, продлить вручную не позднее13.11. PR300 автоматически не сливать: наследует старые серверные изменения. CI источника253 завершена success;61e87987 только документация, её CI отдельно."
     }
   ]
 }
