@@ -31724,6 +31724,14 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "cash_sales_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,29})$"
+                        },
+                        "cash_refunds_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]{0,29})$"
                         }
                       },
                       "required": [
@@ -31806,7 +31814,8 @@
                           "type": "string",
                           "enum": [
                             "awaiting_payment",
-                            "cancelled"
+                            "cancelled",
+                            "paid"
                           ]
                         },
                         "version": {
@@ -31818,7 +31827,8 @@
                           "type": "string",
                           "enum": [
                             "payment_required",
-                            "unpaid_service"
+                            "unpaid_service",
+                            "pos_sale"
                           ]
                         },
                         "kitchen_state": {
@@ -33560,12 +33570,16 @@
                 "type": "string",
                 "enum": [
                   "awaiting_payment",
-                  "cancelled"
+                  "cancelled",
+                  "paid"
                 ]
               },
               "payment_state": {
                 "type": "string",
-                "const": "not_started"
+                "enum": [
+                  "not_started",
+                  "captured"
+                ]
               },
               "fulfillment_state": {
                 "type": "string",
@@ -33573,7 +33587,10 @@
               },
               "execution_mode": {
                 "type": "string",
-                "const": "unpaid_service"
+                "enum": [
+                  "unpaid_service",
+                  "pos_sale"
+                ]
               },
               "total_minor": {
                 "type": "string",
@@ -34026,7 +34043,10 @@
               },
               "executionMode": {
                 "type": "string",
-                "const": "unpaid_service"
+                "enum": [
+                  "unpaid_service",
+                  "pos_sale"
+                ]
               },
               "staffId": {
                 "type": "string",
