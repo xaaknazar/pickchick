@@ -182,10 +182,12 @@ Mac на зарядке, в сети, без сна (`caffeinate -i`). Не ме
 Скрытый read -rs, передача по stdin, файл VPS0600 у pickchick-ops. Повтор поверх
 существующего файла запрещён; токен не попадает в argv, Git или вывод.
 
-У текущего `watchdog-grants.mjs` НЕТ команды inspect: доступны apply-sql/disable-sql.
-Перед установкой read-only SELECT проверяет существующую роль/права; затем
-штатный apply-sql из ops-watchdog.md атомарно выдаёт точный SELECT whitelist.
-Не запускать несуществующий inspect и не пропускать сверку прав.
+С 06.11 `watchdog-grants.mjs inspect` формирует READ ONLY SQL для проверки
+существующей роли, членства, разрешённых столбцов и лишних прав записи.
+Команда не читает пароль или данные клиентов. Перед установкой передать её SQL
+в существующее защищённое подключение psql; затем штатный apply-sql из
+ops-watchdog.md атомарно выдаёт точный SELECT whitelist. На ночной проверке
+роль отсутствовала; apply-sql не запускался.
 
 Дальше по ops-watchdog.md: watchdog/current, collect-only, dry-run, systemd timer
 в shadow (`WATCHDOG_TELEGRAM_ENABLED=false`). Edge-backup heartbeat на кассе не
@@ -195,6 +197,12 @@ Mac на зарядке, в сети, без сна (`caffeinate -i`). Не ме
 Откат: остановить только watchdog timer; disable-sql лишает входа только его роль.
 
 ## Шаг 4: отдельная ночь 01:00-02:00, не ночь кассы
+
+**Обновлено 06.11:** прежняя процедура ниже сохранена как история подготовки
+05.11. Для нового решения владельца использовать
+[протокол iDrink](../idrink-removal.md) и `infra/ingress/`, без legacy-сайта,
+с отдельной /28 и доверием одному IP. Старые `infra/pickchick-ingress/*`
+не запускать. Ночью 06.11 разрешена только подготовка, переключение запрещено.
 
 Опись: PickChick nip.io, pickchick.kz, api, www; один чужой верхний блок.
 Caddy2.11.4, сеть deploy_default, порты80/tcp443/tcp. Сертификаты/конфиг в named
