@@ -256,6 +256,19 @@ test(
             await page.evaluate(() => Object.keys(globalThis.pickchickPosWindow).sort()),
             ['isFullscreen', 'onChange', 'toggleFullscreen'],
           );
+          stage = 'typed printer interface';
+          assert.deepEqual(
+            await page.evaluate(() => Object.keys(globalThis.pickchickPosPrinter).sort()),
+            ['openDrawer', 'print'],
+          );
+          // No `printer` in this profile's config.json: nothing is printed, nothing blocks.
+          assert.deepEqual(await page.evaluate(() => globalThis.pickchickPosPrinter.openDrawer()), {
+            state: 'not_configured',
+          });
+          assert.deepEqual(
+            await page.evaluate(() => globalThis.pickchickPosPrinter.print({ kind: 'html' })),
+            { state: 'failed', code: 'INVALID_TICKET' },
+          );
           await app.evaluate(({ app, BrowserWindow }) => {
             app.focus({ steal: true });
             const w = BrowserWindow.getAllWindows()[0];

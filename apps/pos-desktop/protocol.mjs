@@ -6,6 +6,7 @@ import { isIP } from 'node:net';
 import { Readable } from 'node:stream';
 import { connect as connectTls } from 'node:tls';
 import { MENU_ASSETS } from './menu-assets.mjs';
+import { validatePrinter } from './printer.mjs';
 
 export const APP_ORIGIN = 'pickchick-pos://app';
 export const APP_URL = `${APP_ORIGIN}/`;
@@ -231,11 +232,13 @@ export function validateConfig(value = {}) {
           'pinLength',
           'edgeHost',
           'edgeCertificatePem',
+          'printer',
         ].includes(key),
     )
   )
     throw new Error('INVALID_POS_CONFIG');
   const upstream = validateUpstream(value);
+  const printer = validatePrinter(value.printer);
   const {
     edgePort = 3101,
     branchLabel = 'Локальная точка',
@@ -276,6 +279,7 @@ export function validateConfig(value = {}) {
     ...(terminalId === undefined ? {} : { terminalId }),
     ...(pinLength === undefined ? {} : { pinLength }),
     ...upstream,
+    ...(printer === undefined ? {} : { printer }),
   };
 }
 

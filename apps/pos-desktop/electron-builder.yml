@@ -10,6 +10,7 @@ directories:
 files:
   - main.mjs
   - protocol.mjs
+  - printer.mjs
   - menu-assets.mjs
   - v2-assets.mjs
   - renderer/v2/**/*
