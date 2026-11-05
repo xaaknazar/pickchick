@@ -126,3 +126,51 @@ test('fixed loopback gateway serves local files and fails closed on occupied por
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+// A module that app.js imports but the package lacks stops the whole renderer at start (D0 lacked
+// restore-review, demo and ticket-view). Follow the compiled import graph from app.js.
+test('the package holds exactly the renderer modules app.js loads', async () => {
+  const { modules } = await import('../scripts/inputs.mjs');
+  const renderer = new URL('../renderer/', import.meta.url);
+  const pending = ['app.js'];
+  const loaded = new Set();
+  while (pending.length) {
+    const name = pending.pop();
+    if (loaded.has(name)) continue;
+    loaded.add(name);
+    assert.ok(ASSETS.includes(name), 'not packaged: ' + name);
+    const text = await readFile(new URL(name, renderer), 'utf8');
+    for (const match of text.matchAll(/(?:from\s*|import\s*\(?\s*)['"](\.{1,2}\/[^'"]+\.js)['"]/g))
+      pending.push(new URL(match[1], new URL(name, 'file:///renderer/')).pathname.slice(10));
+  }
+  assert.deepEqual(
+    [...loaded].sort(),
+    ASSETS.filter((name) => name.endsWith('.js')).sort(),
+    'every packaged module is loaded and every loaded module packaged',
+  );
+  assert.deepEqual(
+    modules.map((name) => name + '.js').sort(),
+    ASSETS.filter((name) => name.endsWith('.js')).sort(),
+  );
+  for (const name of ['kds-view.js', 'courier.js']) assert.ok(loaded.has(name), name);
+});
+
+// Cutover KDS-5: the renderer reaches the KDS routes of CR kds-5 through the same gateway rules.
+test('renderer may call the KDS routes with their exact query rules only', () => {
+  for (const [path, method] of [
+    [endpoint + '/layout', 'GET'],
+    [endpoint + '/kds/breading?limit=100', 'GET'],
+    [endpoint + '/incidents?scope=open', 'GET'],
+    [endpoint + '/incidents?scope=today', 'GET'],
+    [endpoint + '/incidents', 'POST'],
+  ])
+    assert.ok(isAllowedRendererRequest(APP_ORIGIN + path, method), method + ' ' + path);
+  for (const [path, method] of [
+    [endpoint + '/layout?x=1', 'GET'],
+    [endpoint + '/incidents', 'GET'],
+    [endpoint + '/incidents?scope=week', 'GET'],
+    [endpoint + '/incidents?scope=open', 'POST'],
+    [endpoint + '/kds/breading?limit=500', 'GET'],
+  ])
+    assert.equal(isAllowedRendererRequest(APP_ORIGIN + path, method), false, method + ' ' + path);
+});
