@@ -1,16 +1,25 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createServer } from 'node:http';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { createServer as createHttpsServer } from 'node:https';
+import { connect as connectTcp } from 'node:net';
+import { spawnSync } from 'node:child_process';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { desktopFile } from './support.mjs';
 
-const { createProtocolHandler, validateConfig, APP_URL, isAllowedRendererURL } = await import(
-  pathToFileURL(desktopFile('protocol.mjs')).href
-);
+const {
+  createProtocolHandler,
+  validateConfig,
+  APP_URL,
+  isAllowedRendererURL,
+  SALE_ROUTES,
+  EDGE_READ_PATH,
+  EDGE_WRITE_PATH,
+} = await import(pathToFileURL(desktopFile('protocol.mjs')).href);
 const request = (path, options) => new globalThis.Request(new URL(path, APP_URL), options);
 const ID = '10000000-0000-4000-8000-000000000003';
 
@@ -735,5 +744,340 @@ test('a refused shift manager PIN on staff/approvals keeps the cashier journal',
     );
   } finally {
     await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('the paid-sale allowlist is exactly the section 5.5 pos profile list', () => {
+  const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
+  assert.deepEqual(SALE_ROUTES, {
+    read: [
+      'pos/config',
+      `pos/sales/${uuid}`,
+      'pos/fiscal-receipts/pending',
+      `cash-shifts/${uuid}/x-report`,
+      `cash-shifts/${uuid}/z-report`,
+    ],
+    write: [
+      'staff/approvals',
+      'pos/sales',
+      `pos/sales/${uuid}/void`,
+      `pos/sales/${uuid}/refunds`,
+      `pos/fiscal-receipts/${uuid}/record`,
+    ],
+  });
+  // The gateway profile (CL-4) imports these two expressions instead of copying them.
+  assert.ok(EDGE_READ_PATH.test('/edge/v1/pos/config'));
+  assert.ok(EDGE_WRITE_PATH.test(`/edge/v1/pos/sales/${ID}/refunds`));
+  assert.ok(!EDGE_READ_PATH.test('/edge/v1/pos/sales'));
+  assert.ok(!EDGE_WRITE_PATH.test('/edge/v1/pos/config'));
+});
+
+// ---- Cutover 19.11 (CL-2): a remote edge over pinned TLS -------------------------------------
+
+/** The LAN address the synthetic certificates name; the listener itself is on loopback. */
+const LAN_EDGE = '192.168.77.10';
+async function certificate(directory, name, ip) {
+  const config = join(directory, name + '.cnf'),
+    cert = join(directory, name + '.pem'),
+    key = join(directory, name + '.key');
+  await writeFile(
+    config,
+    `[req]\ndistinguished_name=dn\nx509_extensions=ext\nprompt=no\n[dn]\nCN=Synthetic POS edge TLS\n[ext]\nsubjectAltName=IP:${ip}\nbasicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\n`,
+    { mode: 0o600 },
+  );
+  const result = spawnSync(
+    'openssl',
+    [
+      'req',
+      '-x509',
+      '-newkey',
+      'rsa:2048',
+      '-nodes',
+      '-days',
+      '2',
+      '-config',
+      config,
+      '-out',
+      cert,
+      '-keyout',
+      key,
+    ],
+    { encoding: 'utf8' },
+  );
+  assert.equal(result.status, 0, 'Synthetic certificate generation must succeed');
+  return { cert: await readFile(cert, 'utf8'), key: await readFile(key, 'utf8') };
+}
+const tlsDirectory = await mkdtemp(join(tmpdir(), 'pickchick-pos-tls-'));
+const trusted = await certificate(tlsDirectory, 'trusted', LAN_EDGE);
+const impostor = await certificate(tlsDirectory, 'impostor', LAN_EDGE);
+const foreign = await certificate(tlsDirectory, 'foreign', '10.255.254.253');
+await rm(tlsDirectory, { recursive: true, force: true });
+const remote = (extra = {}) => ({
+  edgeHost: LAN_EDGE,
+  edgePort: 3443,
+  edgeCertificatePem: trusted.cert,
+  ...extra,
+});
+async function listen(server) {
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  return server.address().port;
+}
+async function stop(server) {
+  server.closeAllConnections?.();
+  await new Promise((resolve) => server.close(resolve));
+}
+/** Connects the pinned transport to a loopback listener instead of the LAN address. */
+const dialTo = (port, dials) => (host, edgePort) => {
+  dials.push(`${host}:${edgePort}`);
+  return connectTcp(port, '127.0.0.1');
+};
+const neverHttp = async () => {
+  throw new Error('a remote edge must never be asked over plain HTTP');
+};
+
+test('remote edge settings: both keys or none, a private IPv4 named by the pinned certificate', async () => {
+  // Absent keys: the settings are exactly today's.
+  assert.deepEqual(validateConfig({ edgePort: 3101 }), {
+    edgePort: 3101,
+    branchLabel: 'Локальная точка',
+    categories: {},
+  });
+  const settings = validateConfig(remote());
+  assert.equal(settings.edgeHost, LAN_EDGE);
+  assert.equal(settings.edgePort, 3443);
+  assert.equal(settings.edgeCertificatePem, trusted.cert.trim() + '\n');
+  for (const bad of [
+    { edgeHost: '8.8.8.8' },
+    { edgeHost: '127.0.0.1' },
+    { edgeHost: '169.254.1.1' },
+    { edgeHost: 'localhost' },
+    { edgeHost: 'edge.pickchick.invalid' },
+    { edgeHost: '192.168.077.10' },
+    { edgeHost: '::1' },
+    { edgeHost: undefined },
+    { edgeCertificatePem: undefined },
+    { edgeCertificatePem: 'broken' },
+    { edgeCertificatePem: trusted.key },
+    { edgeCertificatePem: trusted.cert + trusted.cert },
+    { edgeCertificatePem: trusted.cert + trusted.key },
+    { edgeCertificatePem: foreign.cert },
+    { edgeCertificatePem: 'x'.repeat(16385) },
+    { edgeUrl: `https://${LAN_EDGE}:3443` },
+  ])
+    assert.throws(() => validateConfig(remote(bad)), /INVALID_POS_CONFIG/, JSON.stringify(bad));
+  // The renderer never learns where the edge is or whom this desk trusts.
+  await fixture(
+    async (handler) => {
+      const config = await (await handler(request('/config.json'))).json();
+      assert.deepEqual(config, { branchLabel: 'Локальная точка', categories: {} });
+      assert.ok(!JSON.stringify(config).includes(LAN_EDGE));
+    },
+    { config: remote(), fetchImpl: neverHttp },
+  );
+});
+
+test('a loopback edge is asked exactly as before: same URL, same request options', async () => {
+  await fixture(async (handler, upstream) => {
+    await handler(request('/edge/v1/session'));
+    await handler(
+      request('/edge/v1/pos/sales', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': ID },
+        body: '{}',
+      }),
+    );
+    assert.equal(upstream[0].url, 'http://127.0.0.1:3101/edge/v1/session');
+    assert.deepEqual(Object.keys(upstream[0].options), ['method', 'headers', 'redirect', 'signal']);
+    assert.deepEqual(upstream[0].options.headers, {});
+    assert.equal(upstream[1].url, 'http://127.0.0.1:3101/edge/v1/pos/sales');
+    assert.deepEqual(Object.keys(upstream[1].options), [
+      'method',
+      'headers',
+      'redirect',
+      'signal',
+      'body',
+    ]);
+    assert.deepEqual(upstream[1].options.headers, {
+      'idempotency-key': ID,
+      'Content-Type': 'application/json',
+    });
+  });
+});
+
+test('a remote edge is asked over HTTPS pinned to its certificate, with the same answers', async () => {
+  const seen = [];
+  const webp = Buffer.from('UklGRh4AAABXRUJQVlA4TBEAAAAvB8ABAAdQrcLXo/+BiOh/AAA=', 'base64');
+  const photo = createHash('sha256').update(webp).digest('hex');
+  const edge = createHttpsServer(trusted, async (req, res) => {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    seen.push({
+      method: req.method,
+      url: req.url,
+      headers: req.headers,
+      body: Buffer.concat(chunks).toString('utf8'),
+    });
+    if (req.url === `/edge/v1/media/${photo}.webp`) {
+      res.writeHead(200, { 'Content-Type': 'image/webp' });
+      res.end(webp);
+    } else if (req.url === '/edge/v1/staff/logout') {
+      res.writeHead(204);
+      res.end();
+    } else if (req.url === '/edge/v1/staff/login') {
+      res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
+      res.end('{"code":"AUTH_RATE_LIMITED"}');
+    } else if (req.url === '/edge/v1/cloud-link') {
+      res.writeHead(302, { Location: 'http://127.0.0.1:9/leak' });
+      res.end();
+    } else {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Set-Cookie': 'edge=private' });
+      res.end(JSON.stringify({ path: req.url }));
+    }
+  });
+  const port = await listen(edge);
+  const dials = [];
+  try {
+    await fixture(
+      async (handler) => {
+        let response = await handler(request(`/edge/v1/orders?shift_id=${ID}`));
+        assert.equal(response.status, 200);
+        assert.deepEqual(await response.json(), { path: `/edge/v1/orders?shift_id=${ID}` });
+        assert.equal(response.headers.get('set-cookie'), null);
+        const body = JSON.stringify({ quote_id: ID });
+        response = await handler(
+          request('/edge/v1/pos/sales', {
+            method: 'POST',
+            body,
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: 'Bearer synthetic-fixture',
+              'X-Staff-Session-Id': ID,
+              'Idempotency-Key': ID,
+              Cookie: 'private-cookie=fixture',
+            },
+          }),
+        );
+        assert.equal(response.status, 200);
+        const sale = seen.at(-1);
+        assert.equal(sale.method, 'POST');
+        assert.equal(sale.url, '/edge/v1/pos/sales');
+        assert.equal(sale.body, body);
+        assert.equal(sale.headers.host, `${LAN_EDGE}:3443`, 'the gateway checks its own Host');
+        assert.equal(sale.headers.authorization, 'Bearer synthetic-fixture');
+        assert.equal(sale.headers['x-staff-session-id'], ID);
+        assert.equal(sale.headers['idempotency-key'], ID);
+        assert.equal(sale.headers['content-type'], 'application/json');
+        assert.equal(sale.headers.cookie, undefined);
+        assert.equal(sale.headers.origin, undefined);
+        response = await handler(
+          request('/edge/v1/staff/logout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+          }),
+        );
+        assert.equal(response.status, 204);
+        assert.equal(await response.text(), '');
+        response = await handler(
+          request('/edge/v1/staff/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+          }),
+        );
+        assert.equal(response.status, 429);
+        assert.equal(response.headers.get('retry-after'), '60');
+        // A redirect is refused, never followed.
+        const before = seen.length;
+        response = await handler(request('/edge/v1/cloud-link'));
+        assert.equal(response.status, 502);
+        assert.equal((await response.json()).code, 'INVALID_RESPONSE');
+        assert.equal(seen.length, before + 1);
+        // Menu photos come from the same pinned edge, without staff credentials.
+        response = await handler(request(`/assets/menu/${photo}.webp`));
+        assert.equal(response.headers.get('content-type'), 'image/webp');
+        assert.deepEqual(Buffer.from(await response.arrayBuffer()), webp);
+        assert.equal(seen.at(-1).headers.authorization, undefined);
+        assert.equal(seen.at(-1).headers.host, `${LAN_EDGE}:3443`);
+        assert.equal(dials.length, seen.length, 'one pinned connection per request');
+        assert.ok(dials.every((d) => d === `${LAN_EDGE}:3443`));
+      },
+      { config: remote(), fetchImpl: neverHttp, dial: dialTo(port, dials) },
+    );
+  } finally {
+    await stop(edge);
+  }
+});
+
+test('an impostor certificate or a plain HTTP listener gets no request: no fallback to HTTP', async () => {
+  let reached = 0;
+  const impostorEdge = createHttpsServer(impostor, (_req, res) => {
+    reached++;
+    res.end('{}');
+  });
+  const plainEdge = createServer((_req, res) => {
+    reached++;
+    res.end('{}');
+  });
+  const impostorPort = await listen(impostorEdge);
+  const plainPort = await listen(plainEdge);
+  try {
+    for (const port of [impostorPort, plainPort]) {
+      const dials = [];
+      let http = 0;
+      await fixture(
+        async (handler) => {
+          for (const [path, init] of [
+            ['/edge/v1/session', {}],
+            [
+              '/edge/v1/staff/login',
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ login: 'synthetic', password: 'synthetic-only' }),
+              },
+            ],
+          ]) {
+            const response = await handler(request(path, init));
+            assert.equal(response.status, 504);
+            assert.equal((await response.json()).code, 'EDGE_TIMEOUT');
+          }
+          const photo = await handler(request(`/assets/menu/${'a'.repeat(64)}.webp`));
+          assert.equal(photo.status, 404, 'no photo and no bundled logo in this fixture');
+        },
+        {
+          config: remote(),
+          fetchImpl: async () => {
+            http++;
+            return new Response('{}');
+          },
+          dial: dialTo(port, dials),
+        },
+      );
+      assert.equal(http, 0, 'the HTTP client is never used for a remote edge');
+      assert.equal(dials.length, 3, 'one attempt per request, never retried');
+    }
+    assert.equal(reached, 0, 'no HTTP request reached an untrusted listener');
+  } finally {
+    await stop(impostorEdge);
+    await stop(plainEdge);
+  }
+});
+
+test('an unresponsive remote edge is bounded by the transport timeout', async () => {
+  const idle = createHttpsServer(trusted, () => {});
+  const port = await listen(idle);
+  try {
+    await fixture(
+      async (handler) => {
+        const began = Date.now();
+        const response = await handler(request('/edge/v1/session'));
+        assert.equal(response.status, 504);
+        assert.ok(Date.now() - began < 2000);
+      },
+      { config: remote(), fetchImpl: neverHttp, dial: dialTo(port, []), timeoutMs: 200 },
+    );
+  } finally {
+    await stop(idle);
   }
 });
