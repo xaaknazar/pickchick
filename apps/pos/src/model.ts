@@ -1,9 +1,14 @@
 import * as parse from './types.js';
 import type {
+  Approval,
   Cart,
   LocalOrder,
   MenuSnapshot,
+  PosConfig,
+  PosPaymentMethod,
+  PosSale,
   Quote,
+  SalesChannel,
   StaffCredential,
   StaffSession,
   Stop,
@@ -13,15 +18,296 @@ import type {
   Selection,
   EdgeCloudLink,
 } from './types.js';
-import { ApiError, passwordTransport, type PasswordTransport, type Transport } from './api.js';
+import {
+  ApiError,
+  passwordTransport,
+  type PasswordTransport,
+  type SaleErrorContext,
+  type Transport,
+} from './api.js';
 export type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 export type Pending = {
   key: string;
   path: string;
   body: Record<string, unknown>;
-  kind: 'create' | 'cancel' | 'ordering' | 'stop' | 'shift_open' | 'shift_close' | 'shift_move';
+  kind:
+    | 'create'
+    | 'cancel'
+    | 'ordering'
+    | 'stop'
+    | 'shift_open'
+    | 'shift_close'
+    | 'shift_move'
+    | 'sale'
+    | 'fiscal_record';
   at: string;
+  /** fiscal_record: the order whose sale is read again once the receipt number is stored. */
+  subject?: string;
 };
+/** The order being sold in the paid mode; kept in memory, so a restart asks again (KS8). */
+export type SaleDraft = {
+  channel: SalesChannel;
+  /** The cashier tapped "В зале" or "С собой" for this order; never assumed by default. */
+  serviceModeChosen: boolean;
+  /** Aggregator order number typed from the aggregator tablet. */
+  externalOrderRef: string;
+  /** The quote the guest confirmed on "Повторите заказ гостю" and what it contained. */
+  reviewed: { quote_id: string; signature: string } | null;
+};
+export type MixableMethod = (typeof parse.MIXABLE_METHODS)[number];
+/** What the cashier chose on the payment screen; saleRequest turns it into POST pos/sales. */
+export type SalePayment =
+  | { method: 'cash'; tendered_minor: string }
+  | { method: 'kaspi_terminal'; reference?: string }
+  | { method: 'kaspi_manual'; reference?: string }
+  | {
+      method: 'mixed';
+      parts: { method: MixableMethod; amount_minor: string; reference?: string }[];
+      tendered_minor?: string;
+    }
+  | { method: 'chocofood'; external_order_ref: string }
+  | { method: 'aggregator' }
+  | { method: 'staff_meal'; beneficiary: string }
+  | { method: 'marketing'; reason: string };
+export type ApprovalAction = 'staff_meal' | 'marketing';
+/** One-time shift manager approval for this quote; never written to the journal with a PIN. */
+export type HeldApproval = Approval & {
+  action: ApprovalAction;
+  quote_id: string;
+  amount_minor: string;
+  /** Local receive time: expiry uses the edge TTL, not the two clocks. */
+  received_at: number;
+};
+export const blankSaleDraft = (): SaleDraft => ({
+  channel: 'hall',
+  serviceModeChosen: false,
+  externalOrderRef: '',
+  reviewed: null,
+});
+/** What the guest heard on the repeat screen: lines, quantities, prices, type and channel. */
+export const quoteSignature = (q: Quote) =>
+  JSON.stringify([
+    q.release_id,
+    q.service_mode,
+    q.sales_channel ?? 'hall',
+    q.total_minor,
+    q.details ?? null,
+    q.lines.map((l) => [parse.lineKey(l), l.quantity, l.total_minor]),
+  ]);
+const SALE_KEYS = [
+  'quote_id',
+  'service_mode_confirmed',
+  'order_repeated',
+  'external_order_ref',
+  'tenders',
+  'cash_tendered_minor',
+  'beneficiary',
+  'reason',
+  'approval',
+];
+/** Definite edge answers to POST pos/sales: nothing was committed, the same key never succeeds. */
+const SALE_REJECTIONS = new Set([
+  'SERVICE_MODE_DISABLED',
+  'METHOD_DISABLED',
+  'TENDER_SUM_MISMATCH',
+  'CASH_TENDERED_TOO_LOW',
+  'TERMINAL_AMOUNT_NOT_WHOLE',
+  'CHANNEL_PRICE_UNAVAILABLE',
+  'EXTERNAL_REF_REQUIRED',
+  'EXTERNAL_REF_DUPLICATE',
+  'APPROVAL_REQUIRED',
+  'APPROVAL_INVALID',
+  'KITCHEN_UNAVAILABLE',
+]);
+const approvalKey = (code: string) => code === 'APPROVAL_REQUIRED' || code === 'APPROVAL_INVALID';
+/** A paid-mode channel is offered when it and (for an aggregator) its method are switched on. */
+export function saleChannelEnabled(config: PosConfig, channel: SalesChannel): boolean {
+  const entry = config.channels.find((c) => c.code === channel);
+  if (channel === 'hall') return entry?.enabled ?? true;
+  return Boolean(entry?.enabled) && methodEnabled(config, parse.aggregatorMethod(channel));
+}
+export function methodEnabled(config: PosConfig, code: PosPaymentMethod): boolean {
+  return config.methods.some((m) => m.code === code && m.enabled);
+}
+/** Methods that may form a mixed payment on this edge (owner decision, section 00 item 1). */
+export function mixableMethods(config: PosConfig): MixableMethod[] {
+  return parse.MIXABLE_METHODS.filter((code) =>
+    config.methods.some((m) => m.code === code && m.enabled && m.allow_in_mix),
+  );
+}
+export function approvalValid(
+  approval: HeldApproval | null,
+  quote: Quote | null,
+  action: ApprovalAction,
+  now: number,
+  ttlSeconds: number,
+): approval is HeldApproval {
+  return Boolean(
+    approval &&
+    quote &&
+    approval.action === action &&
+    approval.quote_id === quote.quote_id &&
+    approval.amount_minor === quote.total_minor &&
+    now < approval.received_at + ttlSeconds * 1000 - APPROVAL_MARGIN_MS,
+  );
+}
+/** Spare seconds so an approval or quote is never sent just as the edge lets it expire. */
+const APPROVAL_MARGIN_MS = 5000;
+const QUOTE_MARGIN_MS = 15000;
+const text = (value: string, min: number, max: number, code: string) => {
+  const result = value.trim();
+  if (result.length < min || result.length > max) throw new Error(code);
+  return result;
+};
+/**
+ * Contracts section 2.2 and section 00, checked before anything is sent so the cashier sees
+ * the problem at once. The edge applies the same rules again inside one transaction.
+ */
+export function saleRequest(input: {
+  quote: Quote;
+  config: PosConfig;
+  draft: SaleDraft;
+  payment: SalePayment;
+  approval: HeldApproval | null;
+  now: number;
+}): Record<string, unknown> {
+  const { quote, config, draft, payment } = input;
+  if (config.mode !== 'pos_sale') throw new Error('SERVICE_MODE_DISABLED');
+  if (!draft.serviceModeChosen) throw new Error('SERVICE_MODE_REQUIRED');
+  if (draft.reviewed?.quote_id !== quote.quote_id) throw new Error('ORDER_REVIEW_REQUIRED');
+  const channel = draft.channel;
+  if ((quote.sales_channel ?? 'hall') !== channel || !saleChannelEnabled(config, channel))
+    throw new Error('METHOD_DISABLED');
+  const total = BigInt(quote.total_minor);
+  // Hall-only methods never pay an aggregator order and the reverse (section 2.2).
+  if (parse.isAggregator(channel) !== (payment.method === 'aggregator'))
+    throw new Error('METHOD_DISABLED');
+  const need = (code: PosPaymentMethod) => {
+    if (!methodEnabled(config, code)) throw new Error('METHOD_DISABLED');
+  };
+  const reference = (value: string | undefined) =>
+    value === undefined || !value.trim()
+      ? {}
+      : { reference: text(value, 1, 40, 'REFERENCE_INVALID') };
+  const whole = (amount: bigint) => {
+    if (amount % 100n !== 0n) throw new Error('TERMINAL_AMOUNT_NOT_WHOLE');
+  };
+  const tenders: Record<string, unknown>[] = [];
+  let tendered: string | undefined,
+    externalRef: string | undefined,
+    beneficiary: string | undefined,
+    reason: string | undefined,
+    action: ApprovalAction | undefined;
+  switch (payment.method) {
+    case 'cash': {
+      need('cash');
+      tendered = parse.minor(payment.tendered_minor);
+      if (BigInt(tendered) < total) throw new Error('CASH_TENDERED_TOO_LOW');
+      tenders.push({ method: 'cash', amount_minor: quote.total_minor });
+      break;
+    }
+    case 'kaspi_terminal':
+    case 'kaspi_manual': {
+      need(payment.method);
+      if (payment.method === 'kaspi_terminal') whole(total);
+      tenders.push({
+        method: payment.method,
+        amount_minor: quote.total_minor,
+        ...reference(payment.reference),
+      });
+      break;
+    }
+    case 'mixed': {
+      const allowed = mixableMethods(config);
+      if (payment.parts.length !== 2) throw new Error('MIX_INVALID');
+      for (const part of payment.parts) {
+        need(part.method);
+        if (!allowed.includes(part.method)) throw new Error('MIX_INVALID');
+      }
+      const cash = payment.parts.filter((p) => p.method === 'cash');
+      if (cash.length > 1) throw new Error('MIX_INVALID');
+      let sum = 0n;
+      for (const part of payment.parts) {
+        const amount = BigInt(parse.minor(part.amount_minor));
+        if (amount <= 0n) throw new Error('TENDER_SUM_MISMATCH');
+        if (part.method === 'kaspi_terminal') whole(amount);
+        sum += amount;
+        tenders.push({
+          method: part.method,
+          amount_minor: part.amount_minor,
+          ...(part.method === 'cash' ? {} : reference(part.reference)),
+        });
+      }
+      if (sum !== total) throw new Error('TENDER_SUM_MISMATCH');
+      if (cash.length) {
+        tendered = parse.minor(payment.tendered_minor ?? cash[0]!.amount_minor);
+        if (BigInt(tendered) < BigInt(cash[0]!.amount_minor))
+          throw new Error('CASH_TENDERED_TOO_LOW');
+      } else if (payment.tendered_minor !== undefined) throw new Error('MIX_INVALID');
+      break;
+    }
+    case 'chocofood': {
+      need('chocofood');
+      externalRef = payment.external_order_ref.trim().toUpperCase();
+      if (!parse.EXTERNAL_ORDER_REF.test(externalRef)) throw new Error('EXTERNAL_REF_REQUIRED');
+      tenders.push({ method: 'chocofood', amount_minor: quote.total_minor });
+      break;
+    }
+    case 'aggregator': {
+      if (!parse.isAggregator(channel) || quote.service_mode !== 'takeaway')
+        throw new Error('METHOD_DISABLED');
+      const method = parse.aggregatorMethod(channel);
+      need(method);
+      externalRef = draft.externalOrderRef.trim().toUpperCase();
+      if (!parse.EXTERNAL_ORDER_REF.test(externalRef)) throw new Error('EXTERNAL_REF_REQUIRED');
+      tenders.push({ method, amount_minor: quote.total_minor });
+      break;
+    }
+    case 'staff_meal':
+    case 'marketing': {
+      need(payment.method);
+      action = payment.method;
+      if (payment.method === 'staff_meal')
+        beneficiary = text(payment.beneficiary, 1, 100, 'BENEFICIARY_REQUIRED');
+      else reason = text(payment.reason, 3, 300, 'REASON_REQUIRED');
+      tenders.push({ method: payment.method, amount_minor: quote.total_minor });
+      break;
+    }
+    default:
+      throw new Error('METHOD_DISABLED');
+  }
+  let approval: { approval_id: string; token: string } | undefined;
+  if (action) {
+    const held = input.approval;
+    if (!held) throw new Error('APPROVAL_REQUIRED');
+    if (!approvalValid(held, quote, action, input.now, config.approval_ttl_seconds))
+      throw new Error('APPROVAL_INVALID');
+    approval = { approval_id: held.approval_id, token: held.token };
+  }
+  return {
+    quote_id: quote.quote_id,
+    service_mode_confirmed: true,
+    order_repeated: true,
+    ...(externalRef === undefined ? {} : { external_order_ref: externalRef }),
+    tenders,
+    ...(tendered === undefined ? {} : { cash_tendered_minor: tendered }),
+    ...(beneficiary === undefined ? {} : { beneficiary }),
+    ...(reason === undefined ? {} : { reason }),
+    ...(approval === undefined ? {} : { approval }),
+  };
+}
+/** Error text context of a journaled sale: its first method and the channel of that method. */
+export function saleContext(body: Record<string, unknown> | undefined): SaleErrorContext {
+  const first = Array.isArray(body?.tenders) ? parse.record(body.tenders[0]).method : undefined;
+  return {
+    ...(first === 'aggregator_yandex_eda'
+      ? { channel: 'yandex_eda' as const }
+      : first === 'aggregator_glovo'
+        ? { channel: 'glovo' as const }
+        : {}),
+    ...(typeof first === 'string' ? { method: first } : {}),
+  };
+}
 type Journal = {
   version: 1;
   scope: string;
@@ -55,11 +341,23 @@ export type State = {
   menuChange: MenuChange | null;
   /** The cashier edge's internet (cloud) link; null when unknown or not reported by the edge. */
   cloudLink: EdgeCloudLink | null;
+  /** Last GET pos/config that succeeded; null before it or when the edge has no route. */
+  posConfig: PosConfig | null;
+  /** The edge answered 404 to pos/config: an older edge, today's unpaid cashier only. */
+  posConfigMissing: boolean;
+  /** The paid order the done screen shows, until the next order starts. */
+  sale: PosSale | null;
+  saleDraft: SaleDraft;
+  approval: HeldApproval | null;
 };
 /** How often the header asks the edge about its cloud link (with the operations refresh). */
 export const CLOUD_LINK_POLL_MS = 10000;
 /** An edge that predates GET edge/v1/cloud-link (404) is asked again only after this pause. */
 const CLOUD_LINK_MISSING_MS = 10 * 60000;
+/** Sale methods are read again with the operations refresh at most this often. */
+export const POS_CONFIG_POLL_MS = 30000;
+/** An edge that predates GET edge/v1/pos/config (404) is asked again only after this pause. */
+export const POS_CONFIG_MISSING_MS = 10 * 60000;
 /**
  * Header connection line (offline stand finding, stage 2): staff tell "no connection to the
  * cashier server" (LAN, red) from "no internet" (WAN, yellow: selling and the kitchen go on).
@@ -87,6 +385,13 @@ export const scopeFor = (actor: StaffSession) =>
   `${actor.branch_id}.${actor.staff_id}.${actor.terminal_id}`;
 const journalKey = (scope: string) => `pickchick.pos.journal.v1.${scope}`;
 const unchanged = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+/** The edge's tenders are exactly the requested ones (method and amount, in any order). */
+function sameTenders(actual: PosSale['tenders'], requested: unknown) {
+  const key = (t: { method: unknown; amount_minor: unknown }) => `${t.method}:${t.amount_minor}`;
+  if (!Array.isArray(requested) || requested.length !== actual.length) return false;
+  const want = requested.map((t) => key(parse.record(t) as never)).sort();
+  return unchanged(actual.map(key).sort(), want);
+}
 export class PosController {
   state: State = {
     actor: null,
@@ -110,6 +415,11 @@ export class PosController {
     operationsError: null,
     menuChange: null,
     cloudLink: null,
+    posConfig: null,
+    posConfigMissing: false,
+    sale: null,
+    saleDraft: blankSaleDraft(),
+    approval: null,
   };
   private menuChanges = 0;
   private credential: StaffCredential | null = null;
@@ -128,6 +438,12 @@ export class PosController {
   ) {}
   private cloudLinkAt = -Infinity;
   private cloudLinkMissingUntil = -Infinity;
+  private posConfigAt = -Infinity;
+  private posConfigMissingUntil = -Infinity;
+  /** The edge runs the paid mode (`pos_sale`); otherwise every screen is today's cashier. */
+  get saleMode() {
+    return this.state.posConfig?.mode === 'pos_sale';
+  }
   subscribe(listener: () => void) {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -283,6 +599,18 @@ export class PosController {
       parse.integer(body.expected_version);
       parse.minor(body.counted_cash_minor);
       parse.text(body.reason);
+    } else if (p.kind === 'sale') {
+      this.parseSaleBody(path, body);
+    } else if (p.kind === 'fiscal_record') {
+      if (
+        !/^pos\/fiscal-receipts\/[0-9a-f-]+\/record$/.test(path) ||
+        Object.keys(body).length !== 2
+      )
+        throw new Error();
+      parse.uuid(path.split('/')[2]);
+      parse.integer(body.expected_version);
+      parse.text(body.receipt_number, 40);
+      parse.uuid(p.subject);
     } else throw new Error();
     return {
       key: parse.uuid(p.key),
@@ -290,7 +618,45 @@ export class PosController {
       body,
       kind: p.kind as Pending['kind'],
       at: parse.text(p.at, 40),
+      ...(p.kind === 'fiscal_record' ? { subject: parse.uuid(p.subject) } : {}),
     };
+  }
+  /** A journaled POST pos/sales body: exactly what saleRequest can produce, nothing else. */
+  private parseSaleBody(path: string, body: Record<string, unknown>) {
+    if (
+      path !== 'pos/sales' ||
+      Object.keys(body).some((k) => !SALE_KEYS.includes(k)) ||
+      body.service_mode_confirmed !== true ||
+      body.order_repeated !== true ||
+      !Array.isArray(body.tenders) ||
+      !body.tenders.length ||
+      body.tenders.length > 2
+    )
+      throw new Error();
+    parse.uuid(body.quote_id);
+    for (const value of body.tenders) {
+      const t = parse.record(value);
+      if (
+        Object.keys(t).some((k) => !['method', 'amount_minor', 'reference'].includes(k)) ||
+        !(parse.PAYMENT_METHODS as readonly unknown[]).includes(t.method) ||
+        parse.minor(t.amount_minor) === '0'
+      )
+        throw new Error();
+      if (t.reference !== undefined) parse.text(t.reference, 40);
+    }
+    if (
+      body.external_order_ref !== undefined &&
+      !parse.EXTERNAL_ORDER_REF.test(parse.text(body.external_order_ref, 40))
+    )
+      throw new Error();
+    if (body.cash_tendered_minor !== undefined) parse.minor(body.cash_tendered_minor);
+    if (body.beneficiary !== undefined) parse.text(body.beneficiary, 100);
+    if (body.reason !== undefined && parse.text(body.reason).trim().length < 3) throw new Error();
+    if (body.approval !== undefined) {
+      const a = parse.record(body.approval);
+      if (Object.keys(a).length !== 2 || typeof a.token !== 'string' || !a.token) throw new Error();
+      parse.uuid(a.approval_id);
+    }
   }
   async boot() {
     let stored: string | null;
@@ -390,10 +756,20 @@ export class PosController {
       operationsError: null,
       menuChange: null,
       cloudLink: null,
+      posConfig: null,
+      posConfigMissing: false,
+      sale: null,
+      saleDraft: blankSaleDraft(),
+      approval: null,
     };
+    this.posConfigAt = -Infinity;
+    this.posConfigMissingUntil = -Infinity;
     await this.refreshData();
     await this.readOperations();
     if (journal.selected) await this.readOrder(journal.selected);
+    // Asked after every request of today's cashier, which stay as they were. The paid mode is
+    // decided by the edge; a 404 or any failure keeps today's unpaid cashier.
+    await this.refreshPosConfig(true);
   }
   logout() {
     if (this.state.busy) return;
@@ -432,6 +808,11 @@ export class PosController {
       operationsError: null,
       menuChange: null,
       cloudLink: null,
+      posConfig: null,
+      posConfigMissing: false,
+      sale: null,
+      saleDraft: blankSaleDraft(),
+      approval: null,
     };
     this.emit();
   }
@@ -582,6 +963,49 @@ export class PosController {
     if (this.state.busy || this.state.pending || !this.state.actor) return;
     await this.readOperations();
     await this.refreshCloudLink();
+    await this.refreshPosConfig();
+  }
+  /**
+   * GET pos/config (contracts section 5.1). A 404 is an edge without paid sales: today's
+   * unpaid cashier, asked again after POS_CONFIG_MISSING_MS. A failed read keeps the last
+   * answer, so a short LAN loss never flips the screens; only the edge's own answer does.
+   */
+  async refreshPosConfig(force = false) {
+    const now = this.now(),
+      credential = this.credential,
+      epoch = this.generation;
+    if (!credential) return;
+    if (!force && (now - this.posConfigAt < POS_CONFIG_POLL_MS || now < this.posConfigMissingUntil))
+      return;
+    this.posConfigAt = now;
+    let config: PosConfig | null = this.state.posConfig,
+      missing = this.state.posConfigMissing;
+    try {
+      config = parse.posConfig(await this.api('pos/config', credential));
+      missing = false;
+    } catch (error) {
+      if (epoch !== this.generation) return;
+      if (error instanceof ApiError && error.status === 404) {
+        config = null;
+        missing = true;
+        this.posConfigMissingUntil = now + POS_CONFIG_MISSING_MS;
+      } else if (error instanceof ApiError && error.code === 'UNAUTHORIZED') {
+        this.fail(error);
+        return;
+      }
+    }
+    if (epoch !== this.generation) return;
+    if (!unchanged(this.state.posConfig, config) || this.state.posConfigMissing !== missing) {
+      const wasSale = this.saleMode;
+      this.state.posConfig = config;
+      this.state.posConfigMissing = missing;
+      // Leaving the paid mode drops what only it shows; the cart itself stays.
+      if (wasSale && !this.saleMode) {
+        this.state.saleDraft = blankSaleDraft();
+        this.state.approval = null;
+      }
+      this.emit();
+    }
   }
   /** Asked at most every CLOUD_LINK_POLL_MS; never blocks the operations view or selling. */
   async refreshCloudLink() {
@@ -765,6 +1189,7 @@ export class PosController {
         draft: { release_id: this.journal.draft.release_id, service_mode: 'takeaway', items: [] },
       });
       this.state.quote = null;
+      this.state.saleDraft = blankSaleDraft();
       this.emit();
     } catch (error) {
       this.fail(error);
@@ -779,6 +1204,7 @@ export class PosController {
       if (this.journal.draft?.items.length) held.push(this.journal.draft);
       this.save({ ...this.journal, held, draft });
       this.state.quote = null;
+      this.state.saleDraft = blankSaleDraft();
       this.emit();
     } catch (error) {
       this.fail(error);
@@ -788,6 +1214,8 @@ export class PosController {
     if (!this.editable()) return;
     await this.run(async () => {
       if (!this.journal?.draft?.items.length) throw new Error('INVALID_REQUEST');
+      // The paid mode checks its methods and channels again before every quote.
+      if (this.saleMode) await this.refreshPosConfig(true);
       await this.refreshData();
       await this.quoteWithRetry();
     });
@@ -806,9 +1234,18 @@ export class PosController {
   private async quoteDraft() {
     if (!this.journal?.draft?.items.length) throw new Error('MENU_CHANGED');
     const draft = { ...this.journal.draft!, release_id: this.state.menu!.release_id };
+    // Paid mode, aggregator channel (contracts section 2.2): channel prices, always takeaway.
+    // Every other quote request is the draft exactly as before.
+    const channel = this.saleMode ? this.state.saleDraft.channel : 'hall';
+    if (parse.isAggregator(channel)) draft.service_mode = 'takeaway';
     this.save({ ...this.journal, draft });
     this.state.quote = null;
-    const q = parse.quote(await this.request('checkout/quotes', { method: 'POST', body: draft }));
+    const q = parse.quote(
+      await this.request('checkout/quotes', {
+        method: 'POST',
+        body: parse.isAggregator(channel) ? { ...draft, sales_channel: channel } : draft,
+      }),
+    );
     const actual = q.lines
       .map((l) => ({ key: parse.lineKey(l), quantity: l.quantity }))
       .sort((a, b) => a.key.localeCompare(b.key));
@@ -816,6 +1253,7 @@ export class PosController {
       q.branch_id !== this.state.actor?.branch_id ||
       q.release_id !== draft.release_id ||
       q.service_mode !== draft.service_mode ||
+      (q.sales_channel ?? 'hall') !== channel ||
       !unchanged(
         actual,
         draft.items
@@ -826,10 +1264,22 @@ export class PosController {
       throw new Error('INVALID_RESPONSE');
     this.state.quote = q;
   }
-  private async begin(kind: Pending['kind'], path: string, body: Record<string, unknown>) {
+  private async begin(
+    kind: Pending['kind'],
+    path: string,
+    body: Record<string, unknown>,
+    subject?: string,
+  ) {
     if (!this.journal || this.state.storageBlocked || this.journal.pending)
       throw new Error('PENDING');
-    const pending = { kind, path, body, key: this.newKey(), at: new Date().toISOString() };
+    const pending = {
+      kind,
+      path,
+      body,
+      key: this.newKey(),
+      at: new Date().toISOString(),
+      ...(subject === undefined ? {} : { subject }),
+    };
     this.save({ ...this.journal, pending });
     this.emit();
     await this.replay();
@@ -853,6 +1303,8 @@ export class PosController {
       if (!this.hasConfirmedOpenShift) throw new Error('CASH_SHIFT_REQUIRED');
       const q = this.state.quote;
       if (!q || Date.parse(q.expires_at) <= Date.now()) throw new Error('QUOTE_EXPIRED');
+      // The paid mode sells through POST pos/sales; POST orders there is always refused.
+      if (this.saleMode) throw new Error('SERVICE_MODE_DISABLED');
       if (kitchenAdmission && this.state.ordering?.pos_service_mode !== 'unpaid_service')
         throw new Error('SERVICE_MODE_DISABLED');
       await this.begin('create', 'orders', {
@@ -885,6 +1337,24 @@ export class PosController {
         await this.refreshData();
         await this.readOperations();
       }
+      // Paid sale rules (contracts section 5.1): the edge refused inside its transaction and
+      // committed nothing, so this key can never succeed. The quote stays usable unless the
+      // refusal is about the quote itself; the cashier fixes the payment and sends a new key.
+      if (
+        (p.kind === 'sale' || p.kind === 'fiscal_record') &&
+        error instanceof ApiError &&
+        error.status >= 400 &&
+        error.status < 500 &&
+        (p.kind === 'sale' ? SALE_REJECTIONS.has(error.code) : approvalKey(error.code))
+      ) {
+        this.save({ ...j, pending: null });
+        if (approvalKey(error.code)) this.state.approval = null;
+        if (['CHANNEL_PRICE_UNAVAILABLE', 'SERVICE_MODE_DISABLED'].includes(error.code))
+          this.state.quote = null;
+        if (error.code === 'SERVICE_MODE_DISABLED') await this.refreshPosConfig(true);
+        if (p.kind === 'fiscal_record' && p.subject) await this.refreshSale(p.subject);
+        throw error;
+      }
       if (error instanceof ApiError && error.code === 'CONFLICT' && error.status === 409) {
         // The edge stores a command result only when it commits, and a committed same-key
         // replay returns that result. A 409 CONFLICT for this key is therefore a final
@@ -894,7 +1364,11 @@ export class PosController {
         this.state.quote = null;
         // A create is rejected when its quote is already an order (made on this terminal with
         // another key): show that order instead of leaving the same cart to be sold twice.
-        if (p.kind === 'create' && (await this.adoptQuotedOrder(p))) return;
+        if ((p.kind === 'create' || p.kind === 'sale') && (await this.adoptQuotedOrder(p))) {
+          if (p.kind === 'sale' && this.state.order)
+            await this.refreshSale(this.state.order.order_id);
+          return;
+        }
         await this.reconcileRejected(p);
       }
       if (
@@ -914,6 +1388,40 @@ export class PosController {
         this.state.quote = null;
       }
       throw error;
+    }
+    if (p.kind === 'sale') {
+      const result = parse.saleResult(value);
+      if (
+        result.order.branch_id !== this.state.actor?.branch_id ||
+        result.order.quote_id !== p.body.quote_id ||
+        !sameTenders(result.sale.tenders, p.body.tenders)
+      )
+        throw new Error('INVALID_RESPONSE');
+      const id = result.order.order_id;
+      this.save({
+        ...j,
+        pending: null,
+        selected: id,
+        known: [id, ...j.known.filter((v) => v !== id)].slice(0, 100),
+        draft: null,
+      });
+      this.state.order = result.order;
+      this.state.sale = result.sale;
+      this.state.quote = null;
+      this.state.approval = null;
+      this.state.saleDraft = blankSaleDraft();
+      // The POST replays its historical result; GET is the authoritative current sale.
+      await this.refreshSale(id);
+      await this.readOperations();
+      return;
+    }
+    if (p.kind === 'fiscal_record') {
+      const r = parse.record(value);
+      if (r.receipt_id !== undefined && r.receipt_id !== p.path.split('/')[2])
+        throw new Error('INVALID_RESPONSE');
+      this.save({ ...j, pending: null });
+      if (p.subject) await this.refreshSale(p.subject);
+      return;
     }
     if (p.kind === 'create' || p.kind === 'cancel') {
       const created = parse.order(value);
@@ -1007,6 +1515,7 @@ export class PosController {
     }
     try {
       if (p.kind === 'cancel') await this.readOrder(p.path.split('/')[1]!);
+      if (p.kind === 'fiscal_record' && p.subject) await this.readSale(p.subject);
       if (p.kind === 'stop') {
         const id = parse.uuid(p.body.variant_id);
         const s = parse.stop(await this.request(`availability/stops/${id}`));
@@ -1056,9 +1565,201 @@ export class PosController {
       this.state.order = null;
       this.state.quote = null;
       this.state.error = null;
+      this.state.sale = null;
+      this.state.approval = null;
+      this.state.saleDraft = blankSaleDraft();
       this.emit();
     } catch (error) {
       this.fail(error);
+    }
+  }
+  // ---- Paid mode (cutover 19.11, contracts section 5.1) ------------------------------------
+  /** Hall or an aggregator. An aggregator order is always takeaway at channel prices. */
+  setChannel(channel: SalesChannel) {
+    if (!this.editable() || !this.journal?.draft) return;
+    try {
+      const config = this.state.posConfig;
+      if (!config || !this.saleMode || !saleChannelEnabled(config, channel))
+        throw new Error('METHOD_DISABLED');
+      const aggregator = parse.isAggregator(channel),
+        previous = this.state.saleDraft;
+      if (aggregator && this.journal.draft.service_mode !== 'takeaway')
+        this.save({ ...this.journal, draft: { ...this.journal.draft, service_mode: 'takeaway' } });
+      this.state.saleDraft = {
+        channel,
+        serviceModeChosen: aggregator,
+        externalOrderRef: previous.channel === channel ? previous.externalOrderRef : '',
+        reviewed: null,
+      };
+      this.state.quote = null;
+      this.state.approval = null;
+      this.state.error = null;
+      this.emit();
+    } catch (error) {
+      this.fail(error);
+    }
+  }
+  /** KS8: the cashier must tap "В зале" or "С собой" for every paid order. */
+  chooseServiceMode(mode: Cart['service_mode']) {
+    if (!this.editable() || !this.journal?.draft) return;
+    try {
+      if (parse.isAggregator(this.state.saleDraft.channel) && mode !== 'takeaway')
+        throw new Error('AGGREGATOR_TAKEAWAY_ONLY');
+      this.save({ ...this.journal, draft: { ...this.journal.draft, service_mode: mode } });
+      this.state.saleDraft = { ...this.state.saleDraft, serviceModeChosen: true, reviewed: null };
+      this.state.quote = null;
+      this.state.error = null;
+      this.emit();
+    } catch (error) {
+      this.fail(error);
+    }
+  }
+  setExternalOrderRef(value: string) {
+    if (!this.editable()) return;
+    this.state.saleDraft = {
+      ...this.state.saleDraft,
+      externalOrderRef: value.trim().toUpperCase().slice(0, 40),
+      reviewed: null,
+    };
+    this.emit();
+  }
+  /** "Гость подтвердил - к оплате": binds the repeat screen to this exact quote. */
+  confirmReview() {
+    const q = this.state.quote;
+    try {
+      if (!this.saleMode || !q || this.state.order) throw new Error('ORDER_REVIEW_REQUIRED');
+      if (!this.state.saleDraft.serviceModeChosen) throw new Error('SERVICE_MODE_REQUIRED');
+      this.state.saleDraft = {
+        ...this.state.saleDraft,
+        reviewed: { quote_id: q.quote_id, signature: quoteSignature(q) },
+      };
+      this.state.error = null;
+      this.emit();
+    } catch (error) {
+      this.fail(error);
+    }
+  }
+  /** True while the shown quote is the one the guest confirmed on the repeat screen. */
+  get reviewed() {
+    return Boolean(
+      this.state.quote && this.state.saleDraft.reviewed?.quote_id === this.state.quote.quote_id,
+    );
+  }
+  approvalFor(action: ApprovalAction) {
+    const ttl = this.state.posConfig?.approval_ttl_seconds ?? 0;
+    return approvalValid(this.state.approval, this.state.quote, action, this.now(), ttl)
+      ? this.state.approval
+      : null;
+  }
+  /**
+   * A quote close to expiry is quoted again before money moves. Same lines, prices, type and
+   * channel keep the guest's confirmation; anything else must be repeated to the guest.
+   */
+  private async freshQuote(): Promise<Quote> {
+    const current = this.state.quote;
+    if (current && Date.parse(current.expires_at) - this.now() > QUOTE_MARGIN_MS) return current;
+    const reviewed = this.state.saleDraft.reviewed;
+    await this.refreshData();
+    await this.quoteWithRetry();
+    const q = this.state.quote!;
+    this.state.saleDraft = {
+      ...this.state.saleDraft,
+      reviewed:
+        reviewed && reviewed.signature === quoteSignature(q)
+          ? { quote_id: q.quote_id, signature: reviewed.signature }
+          : null,
+    };
+    return q;
+  }
+  /**
+   * POST staff/approvals with the shift manager's PIN (contracts section 5.1, R13). Not
+   * journaled: a lost answer only leaves an unused approval that expires; the PIN is asked
+   * again. A refused PIN never ends the cashier's own session.
+   */
+  async requestApproval(pin: string, action: ApprovalAction) {
+    if (!this.editable()) return;
+    await this.run(async () => {
+      const actor = this.state.actor;
+      if (!actor || !this.saleMode || !this.state.quote) throw new Error('INVALID_REQUEST');
+      if (!/^(?:[0-9]{4}|[0-9]{6})$/.test(pin)) throw new Error('APPROVAL_PIN_REJECTED');
+      this.state.approval = null;
+      const q = await this.freshQuote();
+      let value: unknown;
+      try {
+        value = await this.request('staff/approvals', {
+          method: 'POST',
+          key: this.newKey(),
+          body: {
+            staff_id: actor.staff_id,
+            pin,
+            action,
+            subject: { quote_id: q.quote_id, amount_minor: q.total_minor },
+          },
+        });
+      } catch (error) {
+        if (error instanceof ApiError && ['UNAUTHORIZED', 'FORBIDDEN'].includes(error.code))
+          throw new ApiError('APPROVAL_PIN_REJECTED', error.status);
+        throw error;
+      }
+      const approval = parse.approval(value);
+      this.state.approval = {
+        ...approval,
+        action,
+        quote_id: q.quote_id,
+        amount_minor: q.total_minor,
+        received_at: this.now(),
+      };
+    });
+  }
+  /** Pays the confirmed quote: one journaled POST pos/sales, replayed only with its own key. */
+  async sell(payment: SalePayment) {
+    if (!this.editable()) return;
+    await this.run(async () => {
+      if (!this.state.operationsAvailable || this.state.operationsError)
+        throw new Error('CASH_SHIFT_STATUS_UNKNOWN');
+      if (!this.hasConfirmedOpenShift) throw new Error('CASH_SHIFT_REQUIRED');
+      const config = this.state.posConfig;
+      if (!config) throw new Error('POS_CONFIG_UNAVAILABLE');
+      if (!this.state.quote) throw new Error('ORDER_REVIEW_REQUIRED');
+      const quote = await this.freshQuote();
+      const body = saleRequest({
+        quote,
+        config,
+        draft: this.state.saleDraft,
+        payment,
+        approval: this.state.approval,
+        now: this.now(),
+      });
+      await this.begin('sale', 'pos/sales', body);
+    });
+  }
+  /** Webkassa receipt number typed after the receipt was punched (Ч3, manual fiscal mode). */
+  async recordReceipt(receiptNumber: string) {
+    await this.run(async () => {
+      const sale = this.state.sale,
+        receipt = sale?.fiscal.find((f) => f.kind === 'sale' && f.state === 'pending');
+      if (!sale || !receipt) throw new Error('RECEIPT_NOT_PENDING');
+      const number = receiptNumber.trim();
+      if (!number || number.length > 40) throw new Error('RECEIPT_NUMBER_INVALID');
+      await this.begin(
+        'fiscal_record',
+        `pos/fiscal-receipts/${receipt.receipt_id}/record`,
+        { expected_version: receipt.version, receipt_number: number },
+        sale.order_id,
+      );
+    });
+  }
+  private async readSale(orderId: string) {
+    const sale = parse.posSale(await this.request(`pos/sales/${parse.uuid(orderId)}`));
+    if (sale.order_id !== orderId) throw new Error('INVALID_RESPONSE');
+    if (!this.state.sale || this.state.sale.order_id === orderId) this.state.sale = sale;
+  }
+  /** Best effort: the historical command result stays on screen when the read fails. */
+  private async refreshSale(orderId: string) {
+    try {
+      await this.readSale(orderId);
+    } catch {
+      /* The next done-screen action reads it again. */
     }
   }
   async cancel(reason: string) {

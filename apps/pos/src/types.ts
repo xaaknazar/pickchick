@@ -1,24 +1,83 @@
 import type {
+  AggregatorChannel,
   Cart,
-  LocalOrder,
+  CashShift as ContractCashShift,
+  EdgeCloudLink,
+  FiscalReceiptState,
+  LocalOrder as ContractLocalOrder,
   MenuCategory,
   MenuSnapshot,
-  Quote,
-  CashShift,
-  EdgeCloudLink,
+  PosPaymentConfirmation,
+  PosPaymentMethod,
+  PosServiceMode,
+  Quote as ContractQuote,
+  SalesChannel,
   StaffCredential,
   StaffSession,
 } from '@pickchick/contracts';
 export type {
+  AggregatorChannel,
   EdgeCloudLink,
   Cart,
-  LocalOrder,
   MenuCategory,
   MenuSnapshot,
-  Quote,
-  CashShift,
+  PosPaymentMethod,
+  PosServiceMode,
+  SalesChannel,
   StaffCredential,
   StaffSession,
+};
+/**
+ * Cutover 19.11 (contracts section 5.1): an aggregator quote echoes its sales_channel; a hall
+ * quote never has the key, so quotes of the unpaid cashier stay byte-for-byte as before.
+ */
+export type Quote = ContractQuote & { sales_channel?: AggregatorChannel };
+/** A paid sale (`pos_sale`) is an admitted order in state `paid` with a captured payment. */
+export type LocalOrder = Omit<
+  ContractLocalOrder,
+  'state' | 'payment_state' | 'execution_mode' | 'snapshot'
+> & {
+  state: ContractLocalOrder['state'] | 'paid';
+  payment_state: ContractLocalOrder['payment_state'] | 'captured';
+  execution_mode?: NonNullable<ContractLocalOrder['execution_mode']> | 'pos_sale';
+  snapshot: Quote;
+};
+/** Shifts opened in sales mode carry real cash totals; other shifts keep '0' and false. */
+export type CashShift = Omit<
+  ContractCashShift,
+  'cash_received_minor' | 'cash_refunded_minor' | 'payment_processing_available'
+> & {
+  cash_received_minor: string;
+  cash_refunded_minor: string;
+  payment_processing_available: boolean;
+};
+/** Cutover enums (contracts section 2.1), repeated as values: the browser loads no zod. */
+export const SALES_CHANNELS = ['hall', 'yandex_eda', 'glovo'] as const;
+export const AGGREGATOR_CHANNELS = ['yandex_eda', 'glovo'] as const;
+export const POS_SERVICE_MODES = ['payment_required', 'unpaid_service', 'pos_sale'] as const;
+export const PAYMENT_METHODS = [
+  'cash',
+  'kaspi_terminal',
+  'aggregator_yandex_eda',
+  'aggregator_glovo',
+  'staff_meal',
+  'marketing',
+  'kaspi_manual',
+  'chocofood',
+] as const;
+/** Section 00 item 1: a mixed payment has exactly two parts of these, at most one in cash. */
+export const MIXABLE_METHODS = ['cash', 'kaspi_terminal', 'kaspi_manual'] as const;
+const CONFIRMATIONS = ['drawer', 'cashier_attested', 'aggregator_attested', 'manager_approved'];
+/** ExternalOrderRefSchema (contracts section 2.1): typed from the aggregator tablet. */
+export const EXTERNAL_ORDER_REF = /^[A-Za-z0-9-]{3,40}$/;
+export const aggregatorMethod = (channel: AggregatorChannel) =>
+  channel === 'yandex_eda' ? ('aggregator_yandex_eda' as const) : ('aggregator_glovo' as const);
+export const isAggregator = (channel: unknown): channel is AggregatorChannel =>
+  (AGGREGATOR_CHANNELS as readonly unknown[]).includes(channel);
+export const CHANNEL_NAMES: Record<SalesChannel, string> = {
+  hall: 'Зал',
+  yandex_eda: 'Яндекс Еда',
+  glovo: 'Glovo',
 };
 export type FulfillmentState = NonNullable<LocalOrder['fulfillment']>['state'];
 export type Item = MenuSnapshot['items'][number];
@@ -43,7 +102,7 @@ export type Ordering = {
   branch_id: string;
   ordering_enabled: boolean;
   version: number;
-  pos_service_mode?: 'payment_required' | 'unpaid_service';
+  pos_service_mode?: PosServiceMode;
 };
 export type Stop = { variant_id: string; stopped: boolean; version: number };
 export type ModifierOption = ModifierGroup['options'][number];
@@ -512,7 +571,17 @@ export function quote(value: unknown): Quote {
     q.subtotal_minor !== total
   )
     throw new Error('INVALID_RESPONSE');
+  // Only an aggregator quote names its channel, and an aggregator order is always takeaway.
+  if (
+    q.sales_channel !== undefined &&
+    (!(AGGREGATOR_CHANNELS as readonly unknown[]).includes(q.sales_channel) ||
+      q.service_mode !== 'takeaway')
+  )
+    throw new Error('INVALID_RESPONSE');
   return {
+    ...(q.sales_channel === undefined
+      ? {}
+      : { sales_channel: q.sales_channel as AggregatorChannel }),
     ...(q.details === undefined ? {} : { details: details(q.details) }),
     quote_id: uuid(q.quote_id),
     branch_id: uuid(q.branch_id),
@@ -531,7 +600,9 @@ export function quote(value: unknown): Quote {
 }
 export function order(value: unknown): LocalOrder {
   const o = record(value);
-  const admitted = o.execution_mode === 'unpaid_service';
+  // A paid sale (cutover 19.11) is admitted at payment exactly like an unpaid service order.
+  const sale = o.execution_mode === 'pos_sale';
+  const admitted = o.execution_mode === 'unpaid_service' || sale;
   let fulfillment: LocalOrder['fulfillment'];
   if (admitted) {
     const f = record(o.fulfillment);
@@ -556,8 +627,8 @@ export function order(value: unknown): LocalOrder {
   } else if (o.execution_mode !== undefined || o.fulfillment !== undefined)
     throw new Error('INVALID_RESPONSE');
   if (
-    !['awaiting_payment', 'cancelled'].includes(String(o.state)) ||
-    o.payment_state !== 'not_started' ||
+    !(sale ? ['paid', 'cancelled'] : ['awaiting_payment', 'cancelled']).includes(String(o.state)) ||
+    o.payment_state !== (sale ? 'captured' : 'not_started') ||
     o.fiscal_state !== 'not_requested' ||
     (!admitted && o.fulfillment_state !== 'blocked') ||
     o.next_action !== (admitted || o.state === 'cancelled' ? 'none' : 'payment_not_available') ||
@@ -565,7 +636,11 @@ export function order(value: unknown): LocalOrder {
   )
     throw new Error('INVALID_RESPONSE');
   const snapshot = quote(o.snapshot);
-  if (snapshot.quote_id !== o.quote_id || snapshot.branch_id !== o.branch_id)
+  if (
+    snapshot.quote_id !== o.quote_id ||
+    snapshot.branch_id !== o.branch_id ||
+    (!sale && snapshot.sales_channel !== undefined)
+  )
     throw new Error('INVALID_RESPONSE');
   return {
     order_id: uuid(o.order_id),
@@ -573,11 +648,13 @@ export function order(value: unknown): LocalOrder {
     quote_id: uuid(o.quote_id),
     version: integer(o.version),
     state: o.state as LocalOrder['state'],
-    payment_state: 'not_started',
+    payment_state: sale ? 'captured' : 'not_started',
     fiscal_state: 'not_requested',
     fulfillment_state: o.fulfillment_state as LocalOrder['fulfillment_state'],
     next_action: o.next_action as LocalOrder['next_action'],
-    ...(fulfillment ? { execution_mode: 'unpaid_service' as const, fulfillment } : {}),
+    ...(fulfillment
+      ? { execution_mode: sale ? ('pos_sale' as const) : ('unpaid_service' as const), fulfillment }
+      : {}),
     snapshot,
     created_at: date(o.created_at),
     cancellation_reason: o.cancellation_reason as string | null,
@@ -591,7 +668,7 @@ export function ordering(value: unknown): Ordering {
   if (typeof o.ordering_enabled !== 'boolean') throw new Error('INVALID_RESPONSE');
   if (
     o.pos_service_mode !== undefined &&
-    !['payment_required', 'unpaid_service'].includes(String(o.pos_service_mode))
+    !(POS_SERVICE_MODES as readonly unknown[]).includes(o.pos_service_mode)
   )
     throw new Error('INVALID_RESPONSE');
   return {
@@ -600,7 +677,7 @@ export function ordering(value: unknown): Ordering {
     version: integer(o.version),
     ...(o.pos_service_mode === undefined
       ? {}
-      : { pos_service_mode: o.pos_service_mode as 'payment_required' | 'unpaid_service' }),
+      : { pos_service_mode: o.pos_service_mode as PosServiceMode }),
   };
 }
 export function stop(value: unknown): Stop {
@@ -610,14 +687,16 @@ export function stop(value: unknown): Stop {
 }
 export function cashShift(value: unknown): CashShift {
   const s = record(value);
+  // Contracts section 5.1: in a sales-mode shift these become money and a boolean; every
+  // other shift keeps '0', '0' and false exactly as before.
   if (
     !['open', 'closed'].includes(String(s.state)) ||
     s.currency !== 'KZT' ||
-    s.cash_received_minor !== '0' ||
-    s.cash_refunded_minor !== '0' ||
-    s.payment_processing_available !== false
+    typeof s.payment_processing_available !== 'boolean'
   )
     throw new Error('INVALID_RESPONSE');
+  const cashReceived = minor(s.cash_received_minor),
+    cashRefunded = minor(s.cash_refunded_minor);
   const discrepancy = s.discrepancy_minor === null ? null : text(s.discrepancy_minor, 21);
   if (discrepancy !== null) {
     if (discrepancy === '-0') throw new Error('INVALID_RESPONSE');
@@ -660,9 +739,9 @@ export function cashShift(value: unknown): CashShift {
     cancelled_count: integer(s.cancelled_count, 0),
     order_total_minor: minor(s.order_total_minor),
     unpaid_total_minor: minor(s.unpaid_total_minor),
-    cash_received_minor: '0',
-    cash_refunded_minor: '0',
-    payment_processing_available: false,
+    cash_received_minor: cashReceived,
+    cash_refunded_minor: cashRefunded,
+    payment_processing_available: s.payment_processing_available,
     report_at: date(s.report_at),
   };
   if (result.state === 'open') {
@@ -724,4 +803,268 @@ export function inputMoney(value: string): string {
   if (!/^\d{1,16}(?:[.,]\d{1,2})?$/.test(value.trim())) throw new Error('INVALID_CASH_AMOUNT');
   const [whole, fraction = ''] = value.trim().replace(',', '.').split('.');
   return minor((BigInt(whole!) * 100n + BigInt(fraction.padEnd(2, '0'))).toString());
+}
+
+// ---- Cutover 19.11: paid sales (contracts section 5.1) -------------------------------------
+
+export type FiscalPolicy = 'manual_webkassa' | 'not_required';
+export type PosConfigMethod = {
+  code: PosPaymentMethod;
+  enabled: boolean;
+  requires_approval: boolean;
+  allow_in_mix: boolean;
+  fiscal_policy: FiscalPolicy;
+};
+/** GET edge/v1/pos/config. An edge without the route (404) keeps today's unpaid cashier. */
+export type PosConfig = {
+  mode: PosServiceMode;
+  methods: PosConfigMethod[];
+  channels: { code: SalesChannel; enabled: boolean }[];
+  fiscal_mode: 'manual_webkassa';
+  approval_ttl_seconds: number;
+  server_time: string;
+};
+export type SaleTender = {
+  tender_id: string;
+  method: PosPaymentMethod;
+  amount_minor: string;
+  confirmation: PosPaymentConfirmation;
+  reference: string | null;
+};
+export type SaleRefund = {
+  refund_id: string;
+  kind: 'void' | 'refund';
+  amount_minor: string;
+  reason_code: string;
+  approved_by_staff_id: string;
+  created_at: string;
+  tenders: { tender_id: string; amount_minor: string }[];
+};
+export type SaleFiscal = {
+  receipt_id: string;
+  kind: 'sale' | 'refund';
+  state: FiscalReceiptState;
+  receipt_number: string | null;
+  version: number;
+  amount_minor: string;
+};
+export type PosSale = {
+  order_id: string;
+  display_number: string;
+  pickup: 'issue' | 'delivery_handover';
+  sales_channel: SalesChannel;
+  external_order_ref: string | null;
+  service_mode: Cart['service_mode'];
+  revenue_kind: 'revenue' | 'staff_meal' | 'marketing';
+  total_minor: string;
+  cash_tendered_minor: string | null;
+  change_minor: string | null;
+  tenders: SaleTender[];
+  refunds: SaleRefund[];
+  refundable_minor: string;
+  fiscal: SaleFiscal[];
+  shift_id: string;
+  terminal_id: string;
+  cashier_staff_id: string;
+  created_at: string;
+};
+export type SaleResult = { order: LocalOrder; sale: PosSale };
+export type Approval = {
+  approval_id: string;
+  token: string;
+  expires_at: string;
+  manager: { staff_id: string; name: string };
+};
+const oneOf = <T extends string>(value: unknown, values: readonly T[]): T => {
+  if (!(values as readonly unknown[]).includes(value)) throw new Error('INVALID_RESPONSE');
+  return value as T;
+};
+const flag = (value: unknown): boolean => {
+  if (typeof value !== 'boolean') throw new Error('INVALID_RESPONSE');
+  return value;
+};
+const optionalText = (value: unknown, max: number): string | null =>
+  value === null ? null : text(value, max);
+const positive = (value: unknown): string => {
+  const amount = minor(value);
+  if (amount === '0') throw new Error('INVALID_RESPONSE');
+  return amount;
+};
+/**
+ * Unknown method or channel codes are skipped, never offered: a later edge may add one (P1)
+ * without breaking this cashier. Known codes must be well-formed and unique.
+ */
+export function posConfig(value: unknown): PosConfig {
+  const c = record(value);
+  const methods = array(c.methods, 32)
+    .map(record)
+    .filter((m) => (PAYMENT_METHODS as readonly unknown[]).includes(m.code))
+    .map((m) => ({
+      code: m.code as PosPaymentMethod,
+      enabled: flag(m.enabled),
+      requires_approval: flag(m.requires_approval),
+      allow_in_mix: flag(m.allow_in_mix),
+      fiscal_policy: oneOf(m.fiscal_policy, ['manual_webkassa', 'not_required'] as const),
+    }));
+  const channels = array(c.channels, 16)
+    .map(record)
+    .filter((ch) => (SALES_CHANNELS as readonly unknown[]).includes(ch.code))
+    .map((ch) => ({ code: ch.code as SalesChannel, enabled: flag(ch.enabled) }));
+  if (
+    new Set(methods.map((m) => m.code)).size !== methods.length ||
+    new Set(channels.map((ch) => ch.code)).size !== channels.length ||
+    c.fiscal_mode !== 'manual_webkassa'
+  )
+    throw new Error('INVALID_RESPONSE');
+  return {
+    mode: oneOf(c.mode, POS_SERVICE_MODES),
+    methods,
+    channels,
+    fiscal_mode: 'manual_webkassa',
+    approval_ttl_seconds: integer(c.approval_ttl_seconds, 1, 3600),
+    server_time: date(c.server_time),
+  };
+}
+/** The kitchen number is a positive integer; the edge may send it as a number or a string. */
+function displayNumber(value: unknown): string {
+  if (typeof value === 'number') return String(integer(value));
+  return positive(value);
+}
+export function posSale(value: unknown): PosSale {
+  const s = record(value);
+  const total = minor(s.total_minor);
+  const tenders = array(s.tenders, 2).map((v) => {
+    const t = record(v);
+    return {
+      tender_id: uuid(t.tender_id),
+      method: oneOf(t.method, PAYMENT_METHODS),
+      amount_minor: positive(t.amount_minor),
+      confirmation: oneOf(t.confirmation, CONFIRMATIONS) as PosPaymentConfirmation,
+      reference: optionalText(t.reference, 40),
+    };
+  });
+  const refunds = array(s.refunds, 50).map((v) => {
+    const r = record(v);
+    return {
+      refund_id: uuid(r.refund_id),
+      kind: oneOf(r.kind, ['void', 'refund'] as const),
+      amount_minor: positive(r.amount_minor),
+      reason_code: text(r.reason_code, 40),
+      approved_by_staff_id: uuid(r.approved_by_staff_id),
+      created_at: date(r.created_at),
+      tenders: array(r.tenders, 2).map((x) => {
+        const t = record(x);
+        return { tender_id: uuid(t.tender_id), amount_minor: positive(t.amount_minor) };
+      }),
+    };
+  });
+  const fiscal = array(s.fiscal, 50).map((v) => {
+    const f = record(v);
+    const state = oneOf(f.state, ['pending', 'recorded', 'not_required'] as const);
+    return {
+      receipt_id: uuid(f.receipt_id),
+      kind: oneOf(f.kind, ['sale', 'refund'] as const),
+      state,
+      receipt_number:
+        state === 'recorded' ? text(f.receipt_number, 40) : nullOnly(f.receipt_number),
+      version: integer(f.version),
+      amount_minor: minor(f.amount_minor),
+    };
+  });
+  const channel = oneOf(s.sales_channel, SALES_CHANNELS);
+  const pickup = oneOf(s.pickup, ['issue', 'delivery_handover'] as const);
+  const serviceMode = oneOf(s.service_mode, ['dine_in', 'takeaway'] as const);
+  const externalRef = optionalText(s.external_order_ref, 40);
+  const tendered = s.cash_tendered_minor === null ? null : minor(s.cash_tendered_minor);
+  const change = s.change_minor === null ? null : minor(s.change_minor);
+  const cash = tenders.filter((t) => t.method === 'cash');
+  const method = tenders.length === 1 ? tenders[0]!.method : null;
+  const revenue = oneOf(s.revenue_kind, ['revenue', 'staff_meal', 'marketing'] as const);
+  if (
+    !tenders.length ||
+    new Set(tenders.map((t) => t.tender_id)).size !== tenders.length ||
+    tenders.reduce((sum, t) => sum + BigInt(t.amount_minor), 0n) !== BigInt(total) ||
+    cash.length > 1 ||
+    (cash.length === 0 && (tendered !== null || change !== null)) ||
+    (cash.length === 1 &&
+      (tendered === null
+        ? change !== null && change !== '0'
+        : BigInt(tendered) < BigInt(cash[0]!.amount_minor) ||
+          change !== (BigInt(tendered) - BigInt(cash[0]!.amount_minor)).toString())) ||
+    (isAggregator(channel)
+      ? pickup !== 'delivery_handover' ||
+        serviceMode !== 'takeaway' ||
+        externalRef === null ||
+        method !== aggregatorMethod(channel)
+      : pickup !== 'issue') ||
+    (method === 'chocofood' && externalRef === null) ||
+    revenue !== (method === 'staff_meal' || method === 'marketing' ? method : 'revenue') ||
+    refunds.reduce((sum, r) => sum + BigInt(r.amount_minor), 0n) > BigInt(total) ||
+    BigInt(minor(s.refundable_minor)) > BigInt(total) ||
+    new Set(fiscal.map((f) => f.receipt_id)).size !== fiscal.length
+  )
+    throw new Error('INVALID_RESPONSE');
+  return {
+    order_id: uuid(s.order_id),
+    display_number: displayNumber(s.display_number),
+    pickup,
+    sales_channel: channel,
+    external_order_ref: externalRef,
+    service_mode: serviceMode,
+    revenue_kind: revenue,
+    total_minor: total,
+    cash_tendered_minor: tendered,
+    change_minor: change,
+    tenders,
+    refunds,
+    refundable_minor: minor(s.refundable_minor),
+    fiscal,
+    shift_id: uuid(s.shift_id),
+    terminal_id: uuid(s.terminal_id),
+    cashier_staff_id: uuid(s.cashier_staff_id),
+    created_at: date(s.created_at),
+  };
+}
+function nullOnly(value: unknown): null {
+  if (value !== null) throw new Error('INVALID_RESPONSE');
+  return null;
+}
+/** 201 of POST edge/v1/pos/sales: the paid, admitted order and its sale must agree. */
+export function saleResult(value: unknown): SaleResult {
+  const r = record(value);
+  const o = order(r.order),
+    s = posSale(r.sale);
+  if (
+    o.execution_mode !== 'pos_sale' ||
+    o.order_id !== s.order_id ||
+    o.snapshot.total_minor !== s.total_minor ||
+    o.snapshot.service_mode !== s.service_mode ||
+    (o.snapshot.sales_channel ?? 'hall') !== s.sales_channel ||
+    o.fulfillment?.display_number !== s.display_number
+  )
+    throw new Error('INVALID_RESPONSE');
+  return { order: o, sale: s };
+}
+export function approval(value: unknown): Approval {
+  const a = record(value),
+    m = record(a.manager);
+  if (typeof a.token !== 'string' || !/^[A-Za-z0-9._~-]{16,256}$/.test(a.token))
+    throw new Error('INVALID_RESPONSE');
+  return {
+    approval_id: uuid(a.approval_id),
+    token: a.token,
+    expires_at: date(a.expires_at),
+    manager: { staff_id: uuid(m.staff_id), name: text(m.name, 100) },
+  };
+}
+/** The pickup line of the done screen and the order ticket (contracts section 5.8). */
+export function pickupText(
+  sale: Pick<PosSale, 'pickup' | 'sales_channel' | 'external_order_ref'>,
+): string {
+  if (sale.pickup === 'issue') return 'Забрать на выдаче';
+  return (
+    'Выдача доставки · ' +
+    CHANNEL_NAMES[sale.sales_channel] +
+    (sale.external_order_ref ? ' №' + sale.external_order_ref : '')
+  );
 }
