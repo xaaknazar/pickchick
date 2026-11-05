@@ -24,7 +24,9 @@ import {
   setStaffPin,
 } from '@pickchick/local-orders';
 import {
+  EdgeFulfillment,
   RoutingSchema,
+  grantStation,
   localUnpaidExecution,
   provisionFulfillment,
   taskPlan,
@@ -1309,7 +1311,7 @@ test('two cash desks sell in parallel: each on its own shift, distinct numbers, 
   });
 });
 
-test('without a KDS layout a paid sale is admitted exactly like an unpaid order', async () => {
+test('without a KDS layout a paid sale is admitted like an unpaid order and cooked to handoff', async () => {
   await desk(
     async (ctx) => {
       const pool = ctx.edge.pool;
@@ -1365,6 +1367,52 @@ test('without a KDS layout a paid sale is admitted exactly like an unpaid order'
           )
         ).rows;
       assert.deepEqual(await tasks(paid.order.order_id), await tasks(unpaid.order_id));
+      // The kitchen runs the paid order through its usual lifecycle.
+      const cook = await provisionStaff(pool, ctx.branch, ctx.setup('kitchen'));
+      await grantStation(pool, ctx.branch, cook.staff_id, ctx.prep);
+      await grantStation(pool, ctx.branch, cook.staff_id, ctx.assembly);
+      const repo = new EdgeFulfillment(pool);
+      const act = (current, action, extra = {}) =>
+        repo.act(ctx.branch, staffAuth(cook), {
+          commandId: randomUUID(),
+          orderId: current.orderId,
+          expectedVersion: current.version,
+          action,
+          ...extra,
+        });
+      let current = await repo.readOrder(ctx.branch, staffAuth(cook), paid.order.order_id, {
+        stationId: ctx.prep,
+      });
+      assert.equal(current.tasks.length, 2);
+      for (const task of current.tasks) {
+        current = await act(current, 'start_task', {
+          taskId: task.id,
+          expectedTaskVersion: task.version,
+        });
+        current = await act(current, 'complete_task', {
+          taskId: task.id,
+          expectedTaskVersion: task.version + 1,
+        });
+      }
+      current = await act(current, 'ready');
+      assert.equal((await act(current, 'handoff')).state, 'handed_over');
+      const done = await readLocalOrder(
+        pool,
+        ctx.branch,
+        staffAuth(ctx.cashier),
+        paid.order.order_id,
+      );
+      assert.equal(done.state, 'paid');
+      assert.equal(done.version, 1);
+      assert.equal(done.fulfillment.state, 'handed_over');
+      const events = (
+        await pool.query(
+          'SELECT event_type,payload FROM fulfillment_outbox WHERE order_id=$1 ORDER BY sequence',
+          [paid.order.order_id],
+        )
+      ).rows;
+      assert.equal(events.at(-1).event_type, 'edge.fulfillment_handed_over');
+      assert.ok(events.every((event) => event.payload.executionMode === 'pos_sale'));
     },
     { mode: 'unpaid_service' },
   );
