@@ -8,6 +8,7 @@ import {
   mixableMethods,
 } from '../../apps/pos/dist/model.js';
 import { ApiError, errorMessage, saleErrorMessage } from '../../apps/pos/dist/api.js';
+import { SaleView } from '../../apps/pos/dist/v2/sale-view.js';
 import {
   cashShift as parseShift,
   inputMoney,
@@ -1581,4 +1582,361 @@ test('a quote close to expiry is quoted again before payment; same content keeps
   assert.equal(model.state.error.message, 'ORDER_REVIEW_REQUIRED');
   assert.equal(model.state.quote.total_minor, '709000');
   assert.equal(edge.edge.posts.length, 1);
+});
+
+// ---- Paid-mode screens (apps/pos/src/v2/sale-view.js): DOM-free template values -------------
+
+function screens(model) {
+  const said = [];
+  let nexts = 0;
+  const view = new SaleView(model, {
+    onChange: () => {},
+    guard:
+      (fn) =>
+      async (...args) => {
+        if (model.state.busy || model.state.pending) return;
+        await fn(...args);
+      },
+    say: (text) => said.push(text),
+    pinLength: 4,
+    next: () => {
+      nexts++;
+      model.newDraft();
+      view.reset();
+    },
+  });
+  return { view, said, nexts: () => nexts };
+}
+const legacyValues = { totalLabel: '6 990 ₸', interactionBusy: false };
+const tap = async (keys, labels) => {
+  for (const label of labels) await keys.find((k) => k.label === label).tap();
+};
+const texts = (value, out = []) => {
+  if (typeof value === 'string') out.push(value);
+  else if (Array.isArray(value)) for (const v of value) texts(v, out);
+  else if (value && typeof value === 'object') for (const v of Object.values(value)) texts(v, out);
+  return out;
+};
+
+test('screens: the unpaid cashier renders none of the paid-mode blocks', async () => {
+  const f = fixture();
+  const api = async (path, auth, options) => {
+    if (path === 'pos/config') throw new ApiError('NOT_FOUND', 404);
+    return f.api(path, auth, options);
+  };
+  const model = new PosController(api, memory(), memory(), randomUUID);
+  await model.login(JSON.stringify(f.credential));
+  const { view } = screens(model);
+  view.setState({ screen: 'pay', method: 'cash', approvalOpen: true });
+  assert.deepEqual(view.templateValues(legacyValues), {
+    saleChannelBar: false,
+    saleRefShown: false,
+    isSaleReview: false,
+    isSalePay: false,
+    isSaleDone: false,
+    saleApprovalOpen: false,
+    saleEntryOpen: false,
+  });
+});
+
+test('screens: order screen never preselects the service mode and names what is missing', async () => {
+  const config = posConfigFor();
+  config.channels.find((c) => c.code === 'glovo').enabled = false;
+  const edge = saleEdge({ config });
+  const model = await saleCashier(edge);
+  const { view, said } = screens(model);
+  // What the app renders: the order screen values win over the closed overlays.
+  let order = view.templateValues(legacyValues);
+  assert.equal(order.saleChannelBar, true);
+  assert.equal(order.isSalePay, false);
+  assert.equal(order.payBtnLabel, 'К ОПЛАТЕ');
+  assert.deepEqual(
+    order.saleChannels.map((c) => c.label),
+    ['ЗАЛ', 'ЯНДЕКС ЕДА'],
+    'a switched-off channel is not shown',
+  );
+  model.quantity(edge.item.variant_id, 1);
+  order = view.orderValues(legacyValues);
+  assert.equal(order.payBtnLabel, 'Выберите: в зале или с собой');
+  assert.equal(order.payBtnBg, 'var(--n300)');
+  assert.deepEqual(
+    order.modeOpts.map((o) => o.bg),
+    ['#fff', '#fff'],
+    'neither option looks chosen',
+  );
+  await order.toPay();
+  assert.deepEqual(said, ['Выберите: в зале или с собой']);
+  assert.equal(edge.calls.filter((c) => c.path === 'checkout/quotes').length, 0);
+  await order.modeOpts[1].pick();
+  order = view.orderValues(legacyValues);
+  assert.equal(model.state.draft.service_mode, 'dine_in');
+  assert.equal(order.modeOpts[1].bg, 'var(--blue)');
+  assert.equal(order.payBtnLabel, 'К ОПЛАТЕ · 6 990 ₸');
+  assert.equal(order.payBtnBg, undefined, 'the designer colours of an active button stay');
+  await order.saleChannels[1].pick();
+  order = view.orderValues(legacyValues);
+  assert.equal(order.saleRefShown, true);
+  assert.equal(order.saleRefTitle, 'Номер заказа Яндекс Еды*');
+  assert.equal(order.payBtnLabel, 'Введите номер заказа агрегатора');
+  assert.equal(order.modeOpts[0].bg, 'var(--blue)', 'aggregator orders are takeaway');
+  assert.equal(order.modeOpts[0].note, 'доставка');
+  await order.toPay();
+  assert.equal(view.values().saleEntryOpen, true, 'the number is asked first');
+  assert.equal(view.values().saleEntryTitle, 'Номер заказа Яндекс Еды');
+});
+
+test('screens: payment tiles follow pos/config; an aggregator order has one tile', async () => {
+  const config = posConfigFor();
+  config.methods.find((m) => m.code === 'kaspi_manual').enabled = false;
+  const edge = saleEdge({ config });
+  const model = await saleCashier(edge);
+  const { view } = screens(model);
+  await reviewed(model, edge);
+  view.setState({ screen: 'pay' });
+  assert.deepEqual(
+    view.values().saleTiles.map((t) => t.label),
+    ['НАЛИЧНЫЕ', 'KASPI ТЕРМИНАЛ', 'СМЕШАННАЯ', 'CHOCOFOOD', 'ПИТАНИЕ СОТРУДНИКА', 'МАРКЕТИНГ'],
+  );
+  model.state.posConfig.methods.find((m) => m.code === 'kaspi_terminal').allow_in_mix = false;
+  assert.ok(!view.values().saleTiles.some((t) => t.label === 'СМЕШАННАЯ'), 'needs two methods');
+  model.newDraft();
+  model.quantity(edge.item.variant_id, 1);
+  model.setChannel('glovo');
+  model.setExternalOrderRef('GL-77');
+  await model.calculate();
+  model.confirmReview();
+  view.setState({ screen: 'pay', method: 'aggregator' });
+  const values = view.values();
+  assert.deepEqual(
+    values.saleTiles.map((t) => t.label),
+    ['ОПЛАЧЕНО АГРЕГАТОРОМ'],
+  );
+  assert.equal(values.saleReviewType, 'ДОСТАВКА · GLOVO №GL-77');
+  assert.equal(
+    values.saleAggregatorNote,
+    'Заказ оплачен в Glovo №GL-77 - деньги придут от агрегатора.',
+  );
+  assert.equal(values.salePayLabel, 'Провести заказ Glovo');
+});
+
+test('screens: cash from the keypad with change, then the done screen with number and Webkassa', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const { view, nexts } = screens(model);
+  model.quantity(edge.item.variant_id, 1);
+  await view.orderValues(legacyValues).modeOpts[0].pick();
+  await view.orderValues(legacyValues).toPay();
+  let values = view.values();
+  assert.equal(values.isSaleReview, true);
+  assert.equal(values.saleReviewType, 'С СОБОЙ');
+  assert.deepEqual(
+    values.saleReviewLines.map((l) => [l.qty, l.name, l.total]),
+    [['1 ×', 'Комбо на двоих', '6 990 ₸']],
+  );
+  assert.equal(values.saleReviewTotal, '6 990 ₸');
+  await values.saleReviewConfirm();
+  values = view.values();
+  assert.equal(values.isSalePay, true);
+  assert.equal(values.salePanelNone, true);
+  await values.saleTiles[0].pick();
+  values = view.values();
+  assert.equal(values.salePayDisabled, 'true');
+  await tap(values.saleCashKeys, ['1', '0', '0', '0', '0']);
+  values = view.values();
+  assert.equal(values.saleCashLabel, '10 000 ₸');
+  assert.equal(values.saleChangeTitle, 'Сдача');
+  assert.equal(values.saleChangeLabel, '3 010 ₸');
+  assert.equal(values.salePayLabel, 'Принять 10 000 ₸ · сдача 3 010 ₸');
+  await values.saleCashQuick.find((q) => q.label === 'Без сдачи').tap();
+  assert.equal(view.values().saleCashLabel, '6 990 ₸');
+  await view
+    .values()
+    .saleCashQuick.find((q) => q.label === '10 000 ₸')
+    .tap();
+  await view.values().salePayConfirm();
+  assert.deepEqual(posted(edge)[0].tenders, [{ method: 'cash', amount_minor: '699000' }]);
+  assert.equal(posted(edge)[0].cash_tendered_minor, '1000000');
+  values = view.values();
+  assert.equal(values.isSaleDone, true);
+  assert.equal(values.isSalePay, false);
+  assert.equal(values.saleDoneNo, '27');
+  assert.equal(values.saleDonePickup, 'Забрать на выдаче');
+  assert.equal(values.saleDoneMethod, 'Наличные');
+  assert.equal(values.saleDoneChange, 'Сдача 3 010 ₸');
+  assert.equal(values.saleFiscalPending, true);
+  await values.saleReceiptSave();
+  assert.equal(view.values().saleEntryTitle, 'Номер чека Webkassa', 'an empty number is asked');
+  await tap(view.values().saleEntryKeys, ['T', 'E', 'S', 'T', '-', 'W', 'K', '-', '1']);
+  await view.values().saleEntrySave();
+  await view.values().saleReceiptSave();
+  values = view.values();
+  assert.equal(values.saleFiscalPending, false);
+  assert.equal(values.saleFiscalNote, 'Чек Webkassa №TEST-WK-1 сохранён');
+  await values.saleNext();
+  assert.equal(nexts(), 1);
+  assert.equal(view.values().isSaleDone, false);
+  assert.equal(model.state.sale, null);
+});
+
+test('screens: Kaspi terminal instructions, declined terminal, and Webkassa later', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const { view, said } = screens(model);
+  await reviewed(model, edge);
+  view.setState({ screen: 'pay' });
+  await view
+    .values()
+    .saleTiles.find((t) => t.label === 'KASPI ТЕРМИНАЛ')
+    .pick();
+  let values = view.values();
+  assert.deepEqual(values.saleTerminalSteps, [
+    '1. Введите на терминале Kaspi 6 990 ₸.',
+    '2. Дождитесь на терминале «Оплата прошла».',
+    '3. Только после этого нажмите «Оплата на терминале прошла».',
+  ]);
+  assert.equal(values.salePayLabel, 'Оплата на терминале прошла');
+  await values.saleTerminalDecline();
+  assert.equal(view.values().salePanelNone, true);
+  assert.match(said.at(-1), /Оплата не прошла/);
+  assert.equal(edge.edge.posts.length, 0);
+  await view
+    .values()
+    .saleTiles.find((t) => t.label === 'KASPI ТЕРМИНАЛ')
+    .pick();
+  await view.values().salePayConfirm();
+  values = view.values();
+  assert.equal(values.saleDoneMethod, 'Kaspi терминал');
+  assert.equal(values.saleDoneChange, false);
+  await values.saleReceiptLater();
+  assert.equal(view.values().saleFiscalNote, 'Номер чека Webkassa нужно внести до закрытия смены');
+});
+
+test('screens: mixed payment parts, staff meal with the PIN modal, aggregator number entry', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const { view } = screens(model);
+  await reviewed(model, edge);
+  view.setState({ screen: 'pay' });
+  await view
+    .values()
+    .saleTiles.find((t) => t.label === 'СМЕШАННАЯ')
+    .pick();
+  let values = view.values();
+  assert.deepEqual(
+    values.saleMixParts.map((p) => p.methods.find((m) => m.pressed === 'true').label),
+    ['Наличные', 'Kaspi терминал'],
+  );
+  assert.equal(values.salePayDisabled, 'true');
+  await tap(values.saleMixKeys, ['1', '9', '9', '0']);
+  values = view.values();
+  assert.deepEqual(
+    values.saleMixParts.map((p) => p.amount),
+    ['1 990 ₸', '5 000 ₸'],
+  );
+  assert.equal(values.saleMixRestTitle, 'Сдача');
+  await values.saleMixCashPick();
+  await tap(view.values().saleMixKeys, ['2', '0', '0', '0']);
+  values = view.values();
+  assert.equal(values.saleMixCashLabel, '2 000 ₸');
+  assert.equal(values.saleMixRestLabel, '10 ₸');
+  // Choosing cash for the second part moves the first part to the other method.
+  await values.saleMixParts[1].methods.find((m) => m.label === 'Наличные').pick();
+  assert.deepEqual(view.state.mix, ['kaspi_terminal', 'cash']);
+  await view
+    .values()
+    .saleMixParts[1].methods.find((m) => m.label === 'Kaspi терминал')
+    .pick();
+  await view
+    .values()
+    .saleMixParts[0].methods.find((m) => m.label === 'Наличные')
+    .pick();
+  await view.values().saleMixCashPick();
+  await tap(view.values().saleMixKeys, ['2', '0', '0', '0']);
+  await view.values().salePayConfirm();
+  assert.deepEqual(posted(edge)[0], {
+    quote_id: model.state.order.quote_id,
+    service_mode_confirmed: true,
+    order_repeated: true,
+    tenders: [
+      { method: 'cash', amount_minor: '199000' },
+      { method: 'kaspi_terminal', amount_minor: '500000' },
+    ],
+    cash_tendered_minor: '200000',
+  });
+  assert.equal(view.values().saleDoneMethod, 'Наличные 1 990 ₸ + Kaspi терминал 5 000 ₸');
+  await view.values().saleNext();
+
+  await reviewed(model, edge);
+  view.setState({ screen: 'pay' });
+  await view
+    .values()
+    .saleTiles.find((t) => t.label === 'ПИТАНИЕ СОТРУДНИКА')
+    .pick();
+  values = view.values();
+  assert.equal(values.saleFreeTextTitle, 'Кому*');
+  await values.saleFreeTextPick();
+  await tap(view.values().saleEntryKeys, ['А', 'Й', 'Г', 'Е', 'Р', 'И', 'М']);
+  assert.equal(view.values().saleEntryShown, 'Айгерим');
+  await view.values().saleEntrySave();
+  assert.equal(view.state.beneficiary, 'Айгерим');
+  await view.values().saleApprovalPick();
+  values = view.values();
+  assert.equal(values.saleApprovalOpen, true);
+  assert.equal(values.saleApprovalSub, 'Питание сотрудника · 6 990 ₸');
+  await tap(values.saleApprovalKeys, ['1', '1', '1', '1']);
+  assert.equal(view.values().saleApprovalError, 'Неверный PIN или нет прав начальника смены');
+  assert.equal(view.state.approvalPin, '', 'a typed PIN is never kept');
+  await tap(view.values().saleApprovalKeys, MANAGER_PIN.split(''));
+  values = view.values();
+  assert.equal(values.saleApprovalOpen, false);
+  assert.equal(values.saleApprovalLabel, 'Подтвердил: Тестовый начальник');
+  assert.equal(values.salePayDisabled, false);
+  await values.salePayConfirm();
+  assert.equal(posted(edge)[1].beneficiary, 'Айгерим');
+  assert.equal(view.values().saleDoneTitle, 'Заказ без выручки передан на кухню');
+  assert.equal(view.values().saleFiscalNote, 'Чек Webkassa для этого способа оплаты не нужен');
+  await view.values().saleNext();
+
+  model.quantity(edge.item.variant_id, 1);
+  await view.orderValues(legacyValues).saleChannels[1].pick();
+  await view.orderValues(legacyValues).saleRefPick();
+  await tap(view.values().saleEntryKeys, ['Y', 'A']);
+  await view.values().saleEntrySave();
+  assert.equal(model.state.saleDraft.externalOrderRef, '', 'two characters are not a number');
+  await tap(view.values().saleEntryKeys, ['-', '1', '2', '3']);
+  await view.values().saleEntrySave();
+  assert.equal(model.state.saleDraft.externalOrderRef, 'YA-123');
+  await view.orderValues(legacyValues).toPay();
+  values = view.values();
+  assert.equal(values.saleReviewType, 'ДОСТАВКА · ЯНДЕКС ЕДА №YA-123');
+  await values.saleReviewConfirm();
+  assert.equal(view.state.method, 'aggregator', 'the only method is preselected');
+  await view.values().salePayConfirm();
+  assert.equal(view.values().saleDonePickup, 'Выдача доставки · Яндекс Еда №YA-123');
+});
+
+test('screens: every paid-mode text is Russian copy with the plain hyphen only', async () => {
+  const edge = saleEdge({ price: '699050' });
+  const model = await saleCashier(edge);
+  const { view } = screens(model);
+  const seen = [...texts(view.orderValues(legacyValues))];
+  await reviewed(model, edge);
+  for (const method of [
+    'cash',
+    'kaspi_terminal',
+    'kaspi_manual',
+    'mixed',
+    'chocofood',
+    'staff_meal',
+    'marketing',
+  ]) {
+    view.setState({ screen: 'pay' });
+    view.pick(method);
+    seen.push(...texts(view.values()), view.missing());
+    view.setState({ approvalOpen: true, entry: { purpose: 'reason', value: '' } });
+    seen.push(...texts(view.values()));
+    view.setState({ approvalOpen: false, entry: null });
+  }
+  for (const text of seen) assert.ok(!/[–—]/.test(text), text);
+  assert.ok(seen.includes('На терминале - только целые тенге. Выберите другой способ.'));
 });

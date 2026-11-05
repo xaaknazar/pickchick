@@ -10,15 +10,18 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
+// Paid sales (cutover 19.11, contracts section 5.1): only the routes the cashier screens call.
+const SALE_READS = `pos/config|pos/sales/${UUID}`;
+const SALE_WRITES = `staff/approvals|pos/sales|pos/fiscal-receipts/${UUID}/record`;
 const allowed = (method, path) =>
   method === 'GET'
     ? new RegExp(
-        `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders(?:\\?shift_id=${UUID})?|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?)$`,
+        `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders(?:\\?shift_id=${UUID})?|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?|${SALE_READS})$`,
         'i',
       ).test(path)
     : method === 'POST' &&
       new RegExp(
-        `^/edge/v1/(staff/(login|pin|logout)|checkout/quotes|orders|orders/${UUID}/cancel|cash-shifts|cash-shifts/${UUID}/(?:close|movements)|ordering/(open|close)|availability/stops)$`,
+        `^/edge/v1/(staff/(login|pin|logout)|checkout/quotes|orders|orders/${UUID}/cancel|cash-shifts|cash-shifts/${UUID}/(?:close|movements)|ordering/(open|close)|availability/stops|${SALE_WRITES})$`,
         'i',
       ).test(path);
 const assets = new Map([
@@ -109,7 +112,12 @@ export function createPosServer({
           for await (const chunk of req) {
             size += chunk.length;
             if (
-              size > (['/edge/v1/staff/login', '/edge/v1/staff/pin'].includes(path) ? 2048 : 64000)
+              size >
+              (['/edge/v1/staff/login', '/edge/v1/staff/pin', '/edge/v1/staff/approvals'].includes(
+                path,
+              )
+                ? 2048
+                : 64000)
             ) {
               send(413, { code: 'INVALID_REQUEST' });
               return;
