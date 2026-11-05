@@ -5,7 +5,7 @@
  * - `kitchen`: today's kitchen list plus the KDS routes of CR kds-5 and restore-review;
  * - `display`: the order board only (pairing, its terminal session, config and the board);
  * - `pos`: an exact mirror of the pos-desktop allowlist (apps/pos-desktop/protocol.mjs) plus its
- *   readiness probe and the content-addressed menu photos.
+ *   readiness probe, the content-addressed menu photos and the build it adds to GET pos/config.
  *
  * Self-contained on purpose: the Windows service copies this file next to
  * kitchen-lan-gateway.mjs, without the apps. tests/operations/kitchen-lan.test.mjs imports the
@@ -120,12 +120,22 @@ export const POS_SHIFT_FILTERED = Object.freeze(['orders', 'pos/fiscal-receipts/
 export const POS_MEDIA_PATH = /^\/edge\/v1\/media\/[a-f0-9]{64}\.webp$/;
 /** Same limits as pos-desktop: PIN checks 2 KiB, other commands 64 000 bytes, answers 4 MB. */
 const POS_PIN_PATHS = ['/edge/v1/staff/login', '/edge/v1/staff/pin', '/edge/v1/staff/approvals'];
+/** pos-desktop BODYLESS_WRITES: sent without a body (a body there is refused). */
+export const POS_BODYLESS = Object.freeze(['/edge/v1/staff/logout']);
+/** pos-desktop CLIENT_VERSION: the build the desk adds to GET pos/config (CR pos-2 1.1). */
+export const POS_CLIENT_VERSION = /^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$/;
 
 /** One cash desk (pos-desktop with edgeHost): its own requests only, nothing of the kitchen. */
 export function allowedPosRoute(method, raw) {
   const url = target(raw);
   if (!url) return false;
   if (method === 'GET' && (raw === '/health/ready' || POS_MEDIA_PATH.test(raw))) return true;
+  if (url.search && url.pathname === '/edge/v1/pos/config')
+    return (
+      method === 'GET' &&
+      url.search.startsWith('?client_version=') &&
+      POS_CLIENT_VERSION.test(url.search.slice('?client_version='.length))
+    );
   if (url.search)
     return (
       method === 'GET' &&
@@ -175,7 +185,7 @@ export const PROFILES = Object.freeze({
     allows: allowedPosRoute,
     headers: Object.freeze(['authorization', 'x-staff-session-id', 'idempotency-key']),
     bodyLimit: (path) => (POS_PIN_PATHS.includes(path) ? 2048 : 64000),
-    bodyless: Object.freeze([]),
+    bodyless: POS_BODYLESS,
     responseLimit: 4000000,
     rawJson: true,
     mediaLimit: 1500000,

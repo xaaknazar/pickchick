@@ -7,6 +7,7 @@ import { createPrinter } from './printer.mjs';
 import {
   APP_URL,
   createProtocolHandler,
+  desktopClientVersion,
   isAllowedRendererURL,
   validateConfig,
 } from './protocol.mjs';
@@ -231,6 +232,8 @@ else {
           assetDir: new URL('./renderer/', import.meta.url),
           config,
           onSession: (value, sessionId) => journal.setSession(value, sessionId),
+          // Which build this desk runs, for pos-sales-setup status (CR pos-2 section 1.1).
+          clientVersion: desktopClientVersion(app.getVersion()),
         }),
       );
       Menu.setApplicationMenu(null);

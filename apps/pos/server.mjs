@@ -2,6 +2,7 @@ import { V2_ASSETS } from '../pos-desktop/v2-assets.mjs';
 import { createServer } from 'node:http';
 import { MENU_ASSETS } from '../pos-desktop/menu-assets.mjs';
 import {
+  BODYLESS_WRITES,
   MENU_MEDIA_PATH,
   SALE_ROUTES,
   SHIFT_FILTERED,
@@ -105,7 +106,9 @@ export function createPosServer({
         if (typeof value === 'string' && value.length < 200) headers[name] = value;
       }
       let body;
-      if (req.method === 'POST') {
+      // A bodyless path (logout) is forwarded without a body, as pos-desktop does.
+      if (req.method === 'POST' && BODYLESS_WRITES.includes(path)) req.resume();
+      else if (req.method === 'POST') {
         if (req.headers['content-type'] !== 'application/json') {
           send(415, { code: 'INVALID_REQUEST' });
           return;

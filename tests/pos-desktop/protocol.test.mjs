@@ -691,6 +691,121 @@ test('paid-sale routes of contracts 5.5 pass the desktop adapter and the browser
   }
 });
 
+test('the renderer bare logout reaches the edge bodyless on the desk and the browser server', async () => {
+  const sessions = [];
+  // The renderer's transport sends POST staff/logout without a body or Content-Type.
+  const bare = {
+    method: 'POST',
+    headers: { Authorization: 'Bearer synthetic-fixture', 'X-Staff-Session-Id': ID },
+  };
+  const upstream = [];
+  await fixture(
+    async (handler) => {
+      const response = await handler(request('/edge/v1/staff/logout', bare));
+      assert.equal(response.status, 204, 'before: 415 on the desk, the edge session lived on');
+      assert.equal(await response.text(), '');
+      assert.equal(upstream.length, 1);
+      assert.equal(upstream[0].url, 'http://127.0.0.1:3101/edge/v1/staff/logout');
+      assert.equal(upstream[0].options.method, 'POST');
+      assert.equal(upstream[0].options.body, undefined);
+      assert.deepEqual(upstream[0].options.headers, {
+        authorization: 'Bearer synthetic-fixture',
+        'x-staff-session-id': ID,
+      });
+      // This session never held the journal (no GET session here), so the journal is untouched.
+      assert.deepEqual(sessions, []);
+      // A body the renderer might attach is not forwarded either.
+      await handler(
+        request('/edge/v1/staff/logout', {
+          ...bare,
+          headers: { ...bare.headers, 'Content-Type': 'application/json' },
+          body: '{}',
+        }),
+      );
+      assert.equal(upstream.length, 2);
+      assert.equal(upstream[1].options.body, undefined);
+      assert.equal(upstream[1].options.headers['Content-Type'], undefined);
+      // Every other command still needs a JSON body.
+      for (const path of ['/edge/v1/staff/pin', '/edge/v1/pos/sales', '/edge/v1/orders'])
+        assert.equal((await handler(request(path, bare))).status, 415, path);
+      assert.equal(upstream.length, 2);
+    },
+    {
+      onSession: (value) => sessions.push(value),
+      fetchImpl: async (url, options) => {
+        upstream.push({ url: String(url), options });
+        return new Response(null, { status: 204 });
+      },
+    },
+  );
+  const { createPosServer } = await import('../../apps/pos/server.mjs');
+  const received = [];
+  const edge = createServer(async (req, res) => {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    received.push({
+      line: `${req.method} ${req.url}`,
+      headers: req.headers,
+      body: String(Buffer.concat(chunks)),
+    });
+    res.writeHead(204);
+    res.end();
+  });
+  await new Promise((resolve) => edge.listen(0, '127.0.0.1', resolve));
+  const pos = createPosServer({ edgePort: edge.address().port });
+  await new Promise((resolve) => pos.listen(0, '127.0.0.1', resolve));
+  try {
+    const base = `http://127.0.0.1:${pos.address().port}`;
+    const response = await fetch(base + '/edge/v1/staff/logout', bare);
+    assert.equal(response.status, 204);
+    assert.equal(received.length, 1);
+    assert.equal(received[0].line, 'POST /edge/v1/staff/logout');
+    assert.equal(received[0].body, '');
+    assert.equal(received[0].headers['content-type'], undefined);
+    assert.equal(received[0].headers['x-staff-session-id'], ID);
+    assert.equal((await fetch(base + '/edge/v1/pos/sales', bare)).status, 415);
+    assert.equal(received.length, 1);
+  } finally {
+    await new Promise((resolve) => pos.close(resolve));
+    await new Promise((resolve) => edge.close(resolve));
+  }
+});
+
+test('the desk adds its own build to GET pos/config only; the renderer cannot', async () => {
+  await fixture(
+    async (handler, upstream) => {
+      assert.equal((await handler(request('/edge/v1/pos/config'))).status, 200);
+      assert.equal(
+        upstream.at(-1).url,
+        'http://127.0.0.1:3101/edge/v1/pos/config?client_version=pos-desktop-0.5.0',
+      );
+      assert.equal((await handler(request('/edge/v1/menu'))).status, 200);
+      assert.equal(upstream.at(-1).url, 'http://127.0.0.1:3101/edge/v1/menu');
+      assert.equal((await handler(request(`/edge/v1/orders?shift_id=${ID}`))).status, 200);
+      assert.equal(upstream.at(-1).url, `http://127.0.0.1:3101/edge/v1/orders?shift_id=${ID}`);
+      const before = upstream.length;
+      for (const path of [
+        '/edge/v1/pos/config?client_version=forged',
+        '/edge/v1/pos/config?shift_id=' + ID,
+      ])
+        assert.equal((await handler(request(path))).status, 403, path);
+      assert.equal(upstream.length, before);
+    },
+    { clientVersion: 'pos-desktop-0.5.0' },
+  );
+  // Without it (the default) pos/config is the plain route, as every other request.
+  await fixture(async (handler, upstream) => {
+    await handler(request('/edge/v1/pos/config'));
+    assert.equal(upstream.at(-1).url, 'http://127.0.0.1:3101/edge/v1/pos/config');
+  });
+  for (const clientVersion of ['', 'pos desktop', 'pos+desktop', 'x'.repeat(65), 1])
+    await assert.rejects(
+      fixture(async () => {}, { clientVersion }),
+      /INVALID_CLIENT_VERSION/,
+      String(clientVersion),
+    );
+});
+
 test('a refused shift manager PIN on staff/approvals keeps the cashier journal', async () => {
   const { createJournalStore } = await import(pathToFileURL(desktopFile('journal.mjs')).href);
   const id = (last) => `10000000-0000-4000-8000-${String(last).padStart(12, '0')}`;

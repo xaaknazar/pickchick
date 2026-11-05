@@ -43,6 +43,28 @@ const writePath = new RegExp(
 );
 /** The edge routes of this desk; the CL-4 `pos` gateway profile mirrors them (section 5.5). */
 export { readPath as EDGE_READ_PATH, writePath as EDGE_WRITE_PATH };
+/**
+ * POST paths forwarded without a body or Content-Type: the renderer ends a session with a bare
+ * POST staff/logout, which the edge revokes by its headers alone. The `pos` gateway profile lists
+ * the same paths as bodyless and refuses a body on them.
+ */
+export const BODYLESS_WRITES = Object.freeze(['/edge/v1/staff/logout']);
+/**
+ * `client_version` of GET pos/config (CR pos-2 section 1.1): the edge records which build each
+ * desk runs for the pos-sales-setup status. This adapter adds its own build; the renderer cannot
+ * choose it. A subset of the edge's format without '+', so no character needs encoding (the
+ * gateway refuses '%' in a request target).
+ */
+export const CLIENT_VERSION = /^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$/;
+/** The client_version of an installed build, or undefined when that version cannot be sent. */
+export function desktopClientVersion(appVersion) {
+  const value = `pos-desktop-${appVersion}`;
+  return typeof appVersion === 'string' &&
+    /^[0-9A-Za-z]/.test(appVersion) &&
+    CLIENT_VERSION.test(value)
+    ? value
+    : undefined;
+}
 /** PIN checks typed on this desk: small bodies only (contracts section 5.1, staff/approvals). */
 const PIN_PATHS = ['/edge/v1/staff/login', '/edge/v1/staff/pin', '/edge/v1/staff/approvals'];
 const assets = new Map([
@@ -375,6 +397,7 @@ function json(status, value) {
 
 /** The renderer can select neither a file path nor an upstream host.
  *  Routes match apps/pos/server.mjs; this adapter changes transport only.
+ *  `clientVersion` (desktopClientVersion of the app) is added to GET pos/config only.
  *  `dial` is for tests of the pinned remote edge only (see createEdgeTransport). */
 export function createProtocolHandler({
   assetDir,
@@ -382,10 +405,16 @@ export function createProtocolHandler({
   fetchImpl = globalThis.fetch,
   timeoutMs = 10000,
   onSession = () => {},
+  clientVersion,
   dial,
 }) {
   const settings = validateConfig(config);
   const edge = createEdgeTransport(settings, { fetchImpl, dial });
+  if (
+    clientVersion !== undefined &&
+    (typeof clientVersion !== 'string' || !CLIENT_VERSION.test(clientVersion))
+  )
+    throw new Error('INVALID_CLIENT_VERSION');
   if (
     !(assetDir instanceof URL) ||
     assetDir.protocol !== 'file:' ||
@@ -434,7 +463,8 @@ export function createProtocolHandler({
       )
         revoke();
       let body;
-      if (request.method === 'POST') {
+      // A bodyless path (logout) is forwarded without a body, whatever the renderer attached.
+      if (request.method === 'POST' && !BODYLESS_WRITES.includes(path)) {
         if (request.headers.get('content-type') !== 'application/json')
           return json(415, { code: 'INVALID_REQUEST' });
         try {
@@ -447,8 +477,13 @@ export function createProtocolHandler({
         }
         headers['Content-Type'] = 'application/json';
       }
+      // GET pos/config never carries a renderer query (localURL); the build reported is ours.
+      const search =
+        clientVersion && request.method === 'GET' && path === '/edge/v1/pos/config'
+          ? `?client_version=${clientVersion}`
+          : url.search;
       try {
-        const response = await edge(`${path}${url.search}`, {
+        const response = await edge(`${path}${search}`, {
           method: request.method,
           headers,
           redirect: 'error',

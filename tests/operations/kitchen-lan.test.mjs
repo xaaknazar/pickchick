@@ -24,16 +24,21 @@ import {
   POS_READ_PATH,
   POS_WRITE_PATH,
   POS_SHIFT_FILTERED,
+  POS_BODYLESS,
+  POS_CLIENT_VERSION,
   allowedDisplayRoute,
   allowedPosRoute,
 } from '../../infra/windows/lan-route-profiles.mjs';
 import {
   APP_URL,
+  BODYLESS_WRITES,
+  CLIENT_VERSION,
   EDGE_READ_PATH,
   EDGE_WRITE_PATH,
   SALE_ROUTES,
   SHIFT_FILTERED,
   createProtocolHandler,
+  desktopClientVersion,
 } from '../../apps/pos-desktop/protocol.mjs';
 import { allowed as kitchenAppAllowed } from '../../apps/kitchen/server.mjs';
 
@@ -433,6 +438,86 @@ test('pos profile is the pos-desktop allowlist exactly: same regular expressions
     assert.equal(allowedPosRoute(method, path), false, `${method} ${path}`);
 });
 
+test('pos profile mirrors the desk bodyless logout and the build it adds to GET pos/config', async () => {
+  assert.equal(PROFILES.pos.bodyless, POS_BODYLESS);
+  assert.deepEqual([...POS_BODYLESS], [...BODYLESS_WRITES]);
+  assert.ok(Object.isFrozen(POS_BODYLESS));
+  assert.equal(POS_CLIENT_VERSION.source, CLIENT_VERSION.source);
+  assert.equal(POS_CLIENT_VERSION.flags, CLIENT_VERSION.flags);
+  const forwarded = [];
+  const desk = (clientVersion) =>
+    createProtocolHandler({
+      assetDir: pathToFileURL(tmpdir() + '/'),
+      config: { edgePort: 3101 },
+      ...(clientVersion === undefined ? {} : { clientVersion }),
+      fetchImpl: async (url, init) => {
+        const target = new URL(url);
+        forwarded.push({ line: `${init.method} ${target.pathname}${target.search}`, init });
+        return new Response(null, { status: 204 });
+      },
+    });
+  const call = (handler, path, init) =>
+    handler(new globalThis.Request(new URL(path, APP_URL), init));
+  // The renderer's bare logout: forwarded without body or Content-Type, and the profile takes it.
+  for (const init of [
+    { method: 'POST' },
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' },
+  ]) {
+    assert.equal((await call(desk(), '/edge/v1/staff/logout', init)).status, 204);
+    const sent = forwarded.at(-1);
+    assert.equal(sent.line, 'POST /edge/v1/staff/logout');
+    assert.equal(sent.init.body, undefined);
+    assert.equal(sent.init.headers['Content-Type'], undefined);
+    assert.equal(allowedPosRoute('POST', '/edge/v1/staff/logout'), true);
+    assert.ok(PROFILES.pos.bodyless.includes('/edge/v1/staff/logout'));
+  }
+  // Other commands still need their JSON body.
+  assert.equal((await call(desk(), '/edge/v1/pos/sales', { method: 'POST' })).status, 415);
+  // The installed build, never the renderer's choice.
+  assert.equal(desktopClientVersion('0.5.0'), 'pos-desktop-0.5.0');
+  for (const bad of [undefined, '', '0.5.0+build', '0.5.0 beta', 'x'.repeat(60), 5])
+    assert.equal(desktopClientVersion(bad), undefined, String(bad));
+  assert.throws(() => desk('pos+desktop'), /INVALID_CLIENT_VERSION/);
+  assert.throws(() => desk(''), /INVALID_CLIENT_VERSION/);
+  await call(desk('pos-desktop-0.5.0'), '/edge/v1/pos/config');
+  assert.equal(forwarded.at(-1).line, 'GET /edge/v1/pos/config?client_version=pos-desktop-0.5.0');
+  assert.equal(
+    allowedPosRoute('GET', '/edge/v1/pos/config?client_version=pos-desktop-0.5.0'),
+    true,
+  );
+  // Without it (tests, the browser cashier) the request is exactly the plain route.
+  await call(desk(), '/edge/v1/pos/config');
+  assert.equal(forwarded.at(-1).line, 'GET /edge/v1/pos/config');
+  // Only that path, only that key, once, in the desk's own format.
+  await call(desk('pos-desktop-0.5.0'), `/edge/v1/orders?shift_id=${ID}`);
+  assert.equal(forwarded.at(-1).line, `GET /edge/v1/orders?shift_id=${ID}`);
+  const before = forwarded.length;
+  assert.equal(
+    (await call(desk('pos-desktop-0.5.0'), '/edge/v1/pos/config?client_version=forged')).status,
+    403,
+    'the renderer cannot choose the version',
+  );
+  assert.equal(forwarded.length, before);
+  for (const [method, path] of [
+    ['GET', '/edge/v1/pos/config?client_version='],
+    ['GET', '/edge/v1/pos/config?client_version=pos+desktop'],
+    ['GET', '/edge/v1/pos/config?client_version=pos%2Bdesktop'],
+    ['GET', `/edge/v1/pos/config?client_version=${'x'.repeat(65)}`],
+    ['GET', '/edge/v1/pos/config?client_version=a&client_version=b'],
+    ['GET', '/edge/v1/pos/config?client_version=a&shift_id=' + ID],
+    ['GET', '/edge/v1/pos/config?shift_id=' + ID],
+    ['GET', '/edge/v1/pos/config?version=a'],
+    ['POST', '/edge/v1/pos/config?client_version=a'],
+    ['GET', '/edge/v1/orders?client_version=a'],
+    ['GET', '/edge/v1/session?client_version=a'],
+  ])
+    assert.equal(allowedPosRoute(method, path), false, `${method} ${path}`);
+  assert.equal(
+    allowedPosRoute('GET', `/edge/v1/pos/config?client_version=${'x'.repeat(64)}`),
+    true,
+  );
+});
+
 const KDS_ROUTES = new Set([
   'GET /edge/v1/fulfillment/layout',
   'GET /edge/v1/fulfillment/kds/breading',
@@ -702,7 +787,7 @@ test('one gateway port, three profiles by client IPv4 over real pinned TLS: the 
     } else if (req.url === `/edge/v1/media/${SHA}.webp`) {
       res.writeHead(200, { 'Content-Type': 'text/html' });
       res.end('<html>');
-    } else if (req.url === '/edge/v1/pos/config')
+    } else if (req.url.split('?')[0] === '/edge/v1/pos/config')
       json(200, '{"mode":"pos_sale",  "server_time":"2026-11-19T03:00:00Z"}');
     else if (req.url === '/edge/v1/menu' || req.url === '/edge/v1/fulfillment/stations')
       json(200, big);
@@ -845,6 +930,7 @@ test('one gateway port, three profiles by client IPv4 over real pinned TLS: the 
         lan.state.from = DESK;
         return connectTcp(lan.port, '127.0.0.1');
       },
+      clientVersion: desktopClientVersion('0.5.0'),
       timeoutMs: 5000,
     });
     const deskCall = (path, init) => desk(new globalThis.Request(new URL(path, APP_URL), init));
@@ -854,6 +940,11 @@ test('one gateway port, three profiles by client IPv4 over real pinned TLS: the 
       await response.text(),
       '{"mode":"pos_sale",  "server_time":"2026-11-19T03:00:00Z"}',
       'the desk gets the edge bytes unchanged',
+    );
+    assert.equal(
+      received.at(-1).path,
+      '/edge/v1/pos/config?client_version=pos-desktop-0.5.0',
+      'the desk reports its build through the gateway (CR pos-2 section 1.1)',
     );
     const sale = JSON.stringify({ quote_id: ID, lines: 'x'.repeat(20000) });
     response = await deskCall('/edge/v1/pos/sales', {
@@ -877,12 +968,28 @@ test('one gateway port, three profiles by client IPv4 over real pinned TLS: the 
     response = await deskCall('/edge/v1/menu');
     assert.equal(response.status, 200, 'a 3.5 MB menu fits the 4 MB desk limit');
     assert.equal((await response.text()).length, big.length);
+    // The renderer's logout is a bare POST; the desk and the profile pass it bodyless, so the
+    // edge session really ends (before, the desk refused it with 415).
     response = await deskCall('/edge/v1/staff/logout', {
       method: 'POST',
-      body: '{}',
-      headers: json,
+      headers: { Authorization: 'Bearer synthetic-fixture', 'X-Staff-Session-Id': ID },
     });
     assert.equal(response.status, 204);
+    assert.equal(await response.text(), '');
+    assert.equal(received.at(-1).method, 'POST');
+    assert.equal(received.at(-1).path, '/edge/v1/staff/logout');
+    assert.equal(received.at(-1).body, '');
+    assert.equal(received.at(-1).headers['content-type'], undefined);
+    assert.equal(received.at(-1).headers['x-staff-session-id'], ID);
+    assert.equal(received.at(-1).headers.authorization, 'Bearer synthetic-fixture');
+    count = received.length;
+    assert.equal(
+      (await call(DESK, '/edge/v1/staff/logout', { method: 'POST', headers: json, body: '{}' }))
+        .status,
+      400,
+      'a body on the bodyless logout is refused by the pos profile',
+    );
+    assert.equal(received.length, count);
     response = await deskCall(`/assets/menu/${photo}.webp`);
     assert.equal(response.headers.get('content-type'), 'image/webp');
     assert.deepEqual(Buffer.from(await response.arrayBuffer()), webp);
