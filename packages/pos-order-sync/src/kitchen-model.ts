@@ -41,6 +41,13 @@ export const PosKitchenEventSchema = EventEnvelopeSchema.extend({
     stationId: z.uuid().optional(),
     reason: z.string().min(1).max(300).optional(),
     inventoryEffect: z.literal('none').optional(),
+    restoreContext: z
+      .strictObject({
+        id: z.uuid(),
+        epoch: z.int().min(2),
+        sequenceFloor: positiveBigint.refine((v) => BigInt(v) >= 1000000000n),
+      })
+      .optional(),
   }),
 });
 export type PosKitchenEvent = z.infer<typeof PosKitchenEventSchema>;
@@ -70,6 +77,8 @@ export function parseKitchenEvent(input: unknown): PosKitchenEvent {
     (p.version === 1) !== (event.event_type === 'edge.fulfillment_accepted') ||
     Date.parse(p.createdAt) > Date.parse(p.updatedAt) ||
     Date.parse(p.updatedAt) > Date.parse(event.occurred_at) ||
+    (p.restoreContext !== undefined &&
+      BigInt(event.producer_sequence) <= BigInt(p.restoreContext.sequenceFloor)) ||
     [p.taskId, p.taskVersion, p.taskState, p.stationId].some(
       (value) => (value !== undefined) !== task,
     ) ||

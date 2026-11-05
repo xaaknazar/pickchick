@@ -112,10 +112,11 @@ export function DeleteAccount(props: ScreenProps) {
       setConfirmVisible(true);
       return;
     }
+    // Native buttons show their text as given (lane android 05.11.2026: translated like the rest).
     Alert.alert(localize('Очистить данные устройства?'), localize(clearDescription), [
-      { text: 'Оставить', style: 'cancel' },
+      { text: t('Оставить'), style: 'cancel' },
       {
-        text: 'Очистить',
+        text: t('Очистить'),
         style: 'destructive',
         onPress: clearPreferences,
       },
@@ -127,7 +128,11 @@ export function DeleteAccount(props: ScreenProps) {
         visible={deleteConfirmVisible}
         transparent
         animationType="none"
-        onRequestClose={() => setDeleteConfirmVisible(false)}
+        // Android Back is «Оставить аккаунт»: not while the deletion runs (its answer and any
+        // error are shown in this dialog), like the disabled button.
+        onRequestClose={() => {
+          if (!demo.busy) setDeleteConfirmVisible(false);
+        }}
       >
         <ScrollView style={{ flex: 1 }} contentContainerStyle={s.confirmBackdrop}>
           <View testID="server-delete-confirmation" accessibilityViewIsModal style={s.confirmCard}>

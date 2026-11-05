@@ -238,7 +238,7 @@ test('backup role reads every edge table through pg_read_all_data and can change
         databaseDefaultsRevoked: false, // shared test database keeps PUBLIC TEMP
       });
       assert.ok(proof.relations > 40);
-      assert.equal(proof.ownerFunctionsClosed, 2); // display allocator and restore fence
+      assert.equal(proof.ownerFunctionsClosed, 3); // display allocator, restore fence and event provenance trigger
       const backup = await connectAs(f.edge.config.databaseUrl, BACKUP_ROLE, fixture.password);
       try {
         assert.deepEqual(

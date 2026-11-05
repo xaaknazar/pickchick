@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 export const forgeAdvisory = 'GHSA-86w9-cpqp-85rv';
-export const patchSha256 = 'f62abad2a9dd9648c682496678d3fb749967ab24293a6a469660ad0f20d92521';
-export const patchedRsaSha256 = '98fbd62bfb31de7f706d3d0cbee4c5c7d3b63649846c55d678e963c236bfbcaf';
+export const forgeVersion = '1.4.1';
+export const reviewedRsaSha256 = '6632e195295ce76f6bb9131ee770dcd6cc1ee4ffac7906302208b00faf95a87f';
 export function resolveForgeConsumers() {
   return ['mobile', 'kiosk'].flatMap((app) => {
     const request = createRequire(`${root}apps/${app}/package.json`);
@@ -80,26 +80,19 @@ export function signatureChecks(forge) {
 
 /** Fail closed if any lockfile consumer can resolve an unreviewed forge snapshot. */
 export function verifyForgeLock(lock) {
-  assert.match(lock, new RegExp(`^  node-forge@1\\.4\\.0: ${patchSha256}$`, 'm'));
   const snapshots = lock.split('\nsnapshots:\n')[1];
   assert.ok(snapshots, 'Missing dependency snapshots');
   const entries = [...snapshots.matchAll(/^ {2}node-forge@([^\n]+):/gm)];
   assert.equal(entries.length, 1, 'Every node-forge snapshot must be reviewed');
-  assert.equal(entries[0][1], `1.4.0(patch_hash=${patchSha256})`);
+  assert.equal(entries[0][1], forgeVersion);
   const references = [...snapshots.matchAll(/^ +node-forge: ([^\n]+)$/gm)];
   assert.ok(references.length > 0, 'Missing node-forge consumers');
-  for (const entry of references) assert.equal(entry[1], `1.4.0(patch_hash=${patchSha256})`);
+  for (const entry of references) assert.equal(entry[1], forgeVersion);
 }
 
 export function verifyNodeForgePatch() {
   verifyForgeLock(readFileSync(`${root}pnpm-lock.yaml`, 'utf8'));
   verifyForgeLock(readFileSync(`${root}node_modules/.pnpm/lock.yaml`, 'utf8'));
-  assert.equal(
-    createHash('sha256')
-      .update(readFileSync(`${root}patches/node-forge@1.4.0.patch`))
-      .digest('hex'),
-    patchSha256,
-  );
   const consumers = resolveForgeConsumers();
   // Check all physical install copies, including copies no longer referenced by Expo.
   const copies = readdirSync(`${root}node_modules/.pnpm`)
@@ -108,21 +101,21 @@ export function verifyNodeForgePatch() {
     .filter((path) => existsSync(`${path}/package.json`));
   assert.ok(copies.length > 0, 'Missing installed node-forge');
   for (const directory of copies) {
-    assert.equal(JSON.parse(readFileSync(`${directory}/package.json`)).version, '1.4.0');
+    assert.equal(JSON.parse(readFileSync(`${directory}/package.json`)).version, forgeVersion);
     assert.equal(
       createHash('sha256')
         .update(readFileSync(`${directory}/lib/rsa.js`))
         .digest('hex'),
-      patchedRsaSha256,
-      'Every installed node-forge copy must match the reviewed RSA patch',
+      reviewedRsaSha256,
+      'Every installed node-forge copy must match the reviewed upstream release',
     );
   }
   for (const consumer of consumers) {
-    assert.equal(JSON.parse(readFileSync(consumer.packagePath)).version, '1.4.0');
+    assert.equal(JSON.parse(readFileSync(consumer.packagePath)).version, forgeVersion);
     assert.equal(
       createHash('sha256').update(readFileSync(consumer.rsaPath)).digest('hex'),
-      patchedRsaSha256,
-      'Installed node-forge must match the reviewed RSA patch before any advisory exception',
+      reviewedRsaSha256,
+      'Installed node-forge must match the reviewed upstream release',
     );
   }
   for (const forge of new Set(consumers.map((consumer) => consumer.forge))) signatureChecks(forge);

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { forgeAdvisory, verifyNodeForgePatch } from './node-forge-security.mjs';
+import { verifyNodeForgePatch } from './node-forge-security.mjs';
 
 import { bracesAdvisory, verifyBracesPatch } from './braces-security.mjs';
 
@@ -20,13 +20,6 @@ export function blockingAdvisories(report) {
       'Unaccounted audit findings; refusing the exception',
     );
   return advisories.filter((item) => {
-    if (
-      item.github_advisory_id === forgeAdvisory &&
-      item.module_name === 'node-forge' &&
-      item.findings?.length &&
-      item.findings.every((finding) => finding.version === '1.4.0')
-    )
-      return false;
     if (
       item.github_advisory_id === bracesAdvisory &&
       item.module_name === 'braces' &&
@@ -53,7 +46,7 @@ export function auditedRelease() {
       `Dependency audit blocked: ${blocked.map((item) => `${item.module_name} ${item.github_advisory_id}`).join(', ')}`,
     );
   console.log(
-    `Dependency audit passed high/critical gate; ${forgeAdvisory} and ${bracesAdvisory} validated by installed patches and executable regressions. Lower findings: ${report.metadata.vulnerabilities.moderate} moderate.`,
+    `Dependency audit passed high/critical gate; node-forge uses the reviewed upstream release; ${bracesAdvisory} validated by its installed patch and executable regressions. Lower findings: ${report.metadata.vulnerabilities.moderate} moderate.`,
   );
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) auditedRelease();

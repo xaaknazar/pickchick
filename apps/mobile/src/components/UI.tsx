@@ -25,6 +25,7 @@ import { colors, font } from '../theme';
 import { SheetKeyboardOffsetContext } from './OrderSheet';
 import { GlassButton } from './GlassButton';
 import { useTabBarInset } from './tab-bar-inset';
+import { keyboardAvoidingBehavior } from '../keyboard-avoidance';
 
 export type IconName = React.ComponentProps<typeof Ionicons>['name'];
 export function Icon({
@@ -388,7 +389,7 @@ export function Page({
   return (
     <KeyboardAvoidingView
       testID={`screen-${props.screenId}`}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={keyboardAvoidingBehavior(Platform.OS)}
       keyboardVerticalOffset={keyboardOffset}
       style={[styles.page, { paddingTop: props.inSheet ? 0 : insets.top }]}
     >

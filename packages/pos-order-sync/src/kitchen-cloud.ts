@@ -28,16 +28,24 @@ export async function receivePosKitchen(pool: DatabasePool, auth: DeviceAuth, in
         event.producer_id !== binding.producer_id
       )
         throw new PosSyncError('FORBIDDEN');
+      const restoreCapability = (
+        await client.query<{ installed: boolean; ready: boolean }>(
+          `SELECT to_regclass('pos_kitchen_restore_conflicts') IS NOT NULL AS installed, CASE WHEN to_regclass('pos_kitchen_restore_conflicts') IS NULL THEN false
+         ELSE (has_table_privilege('pos_kitchen_restore_conflicts','SELECT') AND has_table_privilege('pos_kitchen_restore_conflicts','INSERT')) END AS ready`,
+        )
+      ).rows[0]!;
+      const restoreReady = restoreCapability.ready;
+      if (restoreCapability.installed && !restoreReady) throw new PosSyncError('CONFLICT');
+      if (p.restoreContext && !restoreReady) throw new PosSyncError('CONFLICT');
+      const params = [event.event_id, event.producer_id, event.producer_sequence];
       const previous = await client.query(
-        `SELECT * FROM pos_kitchen_sync_inbox WHERE event_id=$1 OR(producer_id=$2 AND producer_sequence=$3)
-         OR(order_id=$4 AND aggregate_version=$5)`,
-        [
-          event.event_id,
-          event.producer_id,
-          event.producer_sequence,
-          event.aggregate_id,
-          event.aggregate_version,
-        ],
+        `SELECT event_id,payload_hash,branch_id,device_id FROM pos_kitchen_sync_inbox
+         WHERE event_id=$1 OR(producer_id=$2 AND producer_sequence=$3)` +
+          (restoreReady
+            ? ` UNION ALL SELECT event_id,payload_hash,branch_id,device_id
+         FROM pos_kitchen_restore_conflicts WHERE event_id=$1 OR(producer_id=$2 AND producer_sequence=$3)`
+            : ''),
+        params,
       );
       if (previous.rowCount) {
         if (
@@ -82,23 +90,70 @@ export async function receivePosKitchen(pool: DatabasePool, auth: DeviceAuth, in
           [p.orderId],
         )
       ).rows[0];
+      // Ownership/immutable identity must match even when we quarantine an observation.
+      if (
+        existing &&
+        (existing.branch_id !== branch ||
+          existing.device_id !== auth.deviceId ||
+          existing.producer_id !== event.producer_id ||
+          existing.reservation_id !== p.reservationId ||
+          existing.quote_id !== p.quoteId ||
+          existing.quote_digest !== p.quoteDigest ||
+          existing.owner_hash !== p.ownerHash ||
+          existing.display_number !== p.displayNumber ||
+          existing.routing_version !== p.routingVersion ||
+          existing.assembly_station_id !== p.assemblyStationId ||
+          existing.created_at.toISOString() !== p.createdAt)
+      )
+        throw new PosSyncError('CONFLICT');
+      const timeline = restoreReady
+        ? (
+            await client.query(
+              `SELECT producer_sequence,restore_id FROM pos_kitchen_restore_conflicts
+         WHERE order_id=$1 ORDER BY producer_sequence DESC LIMIT 1`,
+              [p.orderId],
+            )
+          ).rows[0]
+        : undefined;
+      const collision = existing && p.version <= existing.version;
+      if (collision || timeline) {
+        const context = p.restoreContext;
+        // A new, fenced sequence of this authenticated POS may be acknowledged only after
+        // durable quarantine. An ordinary conflict, reused sequence or changed owner is rejected.
+        if (
+          !context ||
+          !existing ||
+          BigInt(context.sequenceFloor) <= BigInt(existing.last_sequence) ||
+          (timeline && BigInt(event.producer_sequence) <= BigInt(timeline.producer_sequence))
+        )
+          throw new PosSyncError('CONFLICT');
+        await client.query(
+          `INSERT INTO pos_kitchen_restore_conflicts(event_id,branch_id,device_id,producer_id,
+           producer_sequence,order_id,aggregate_version,restore_id,canonical_version,reason,payload_hash,envelope)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+          [
+            event.event_id,
+            branch,
+            auth.deviceId,
+            event.producer_id,
+            event.producer_sequence,
+            p.orderId,
+            p.version,
+            context.id,
+            existing.version,
+            timeline ? 'restore_timeline' : 'version_collision',
+            hash,
+            event,
+          ],
+        );
+        return kitchenReceiptFor(event);
+      }
       if (
         p.version === 1
           ? !!existing
           : !existing ||
             existing.version + 1 !== p.version ||
             BigInt(existing.last_sequence) >= BigInt(event.producer_sequence) ||
-            existing.branch_id !== branch ||
-            existing.device_id !== auth.deviceId ||
-            existing.producer_id !== event.producer_id ||
-            existing.reservation_id !== p.reservationId ||
-            existing.quote_id !== p.quoteId ||
-            existing.quote_digest !== p.quoteDigest ||
-            existing.owner_hash !== p.ownerHash ||
-            existing.display_number !== p.displayNumber ||
-            existing.routing_version !== p.routingVersion ||
-            existing.assembly_station_id !== p.assemblyStationId ||
-            existing.created_at.toISOString() !== p.createdAt ||
             existing.updated_at.getTime() > Date.parse(p.updatedAt)
       )
         throw new PosSyncError('CONFLICT');

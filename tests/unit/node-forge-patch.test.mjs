@@ -16,8 +16,8 @@ test('all installed Expo signing consumers reject malformed signatures and accep
 test('signature regression detects vulnerable unpatched node-forge behavior', () => {
   const consumer = resolveForgeConsumers()[0];
   const source = readFileSync(consumer.rsaPath, 'utf8').replace(
-    /obj\.value\.length !== 2 \|\|\s*obj\.value\[0\]\.value\.length !==\s*\(\('parameters' in capture\) \? 2 : 1\)/,
-    'obj.value.length !== 2',
+    /d\.substring\(0, withParameters\.length\) !== withParameters &&\s*d\.substring\(0, withoutParameters\.length\) !== withoutParameters/,
+    'false',
   );
   assert.notEqual(source, readFileSync(consumer.rsaPath, 'utf8'));
   const code = `const {createRequire,Module}=require('node:module');
@@ -31,7 +31,7 @@ test('signature regression detects vulnerable unpatched node-forge behavior', ()
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Missing expected exception/);
 });
-test('only the exact patched advisory is exempt; other high/critical and malformed audits fail', () => {
+test('forge has no advisory exemptions; all high/critical and malformed audits fail', () => {
   const finding = {
     module_name: 'node-forge',
     github_advisory_id: forgeAdvisory,
@@ -47,14 +47,14 @@ test('only the exact patched advisory is exempt; other high/critical and malform
       },
     },
   });
-  assert.deepEqual(blockingAdvisories(report([finding])), []);
+  assert.equal(blockingAdvisories(report([finding])).length, 1);
   for (const changed of [
     { ...finding, github_advisory_id: 'OTHER' },
     { ...finding, module_name: 'other' },
-    { ...finding, findings: [{ version: '1.3.0' }] },
+    { ...finding, findings: [{ version: '1.4.1' }] },
     { ...finding, severity: 'critical', github_advisory_id: 'OTHER' },
   ])
-    assert.equal(blockingAdvisories(report([finding, changed])).length, 1);
+    assert.equal(blockingAdvisories(report([finding, changed])).length, 2);
   assert.throws(() => blockingAdvisories({}));
   assert.throws(() =>
     blockingAdvisories({ advisories: {}, metadata: { vulnerabilities: { high: 1, critical: 0 } } }),

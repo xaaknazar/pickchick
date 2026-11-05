@@ -1,3 +1,4 @@
+import { openRestoreReview } from './restore-review.js';
 import { passwordReset } from './components/PasswordReset.js';
 import { TerminalAccess } from './terminal-access.js';
 import { terminalPairing } from './components/TerminalPairing.js';
@@ -346,7 +347,7 @@ function render() {
             ? o.tasks.filter((t) => t.stationId === s.stationId)
             : o.tasks;
           const extras = prepTicket ? o.tasks.filter((t) => t.stationId !== s.stationId) : [];
-          return `<article class="ticket ${o.state === 'cancel_requested' ? 'cancel' : ''}${offline ? ' owner-offline' : ''}" data-order="${o.orderId}"${s.cloud ? ` data-owner="${ownerOf(o)}"` : ''}><div class="ticket-head"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div><span class="mode">${o.serviceMode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ'}</span><p class="channel">${o.channel === 'pos' ? 'Касса' : o.channel === 'kiosk' ? 'Киоск' : 'Приложение'}</p>${s.cloud ? sourceBadge(ownerOf(o), offline) : ''}</div><div class="age"><strong>${Math.max(0, Math.floor((Date.now() - Date.parse(o.createdAt)) / 60000))} мин</strong><small>${escape(labels[o.state] ?? o.state)}</small></div></div>${o.kitchenComment ? `<aside class="order-note"><strong>Комментарий к заказу</strong><p>${escape(o.kitchenComment)}</p></aside>` : ''}<div class="lines">${visibleTasks
+          return `<article class="ticket ${o.state === 'cancel_requested' ? 'cancel' : ''}${offline ? ' owner-offline' : ''}" data-order="${o.orderId}"${s.cloud ? ` data-owner="${ownerOf(o)}"` : ''}><div class="ticket-head"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div><span class="mode">${o.serviceMode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ'}</span><p class="channel">${o.channel === 'pos' ? 'Касса' : o.channel === 'kiosk' ? 'Киоск' : 'Приложение'}</p>${s.cloud ? sourceBadge(ownerOf(o), offline) : ''}</div><div class="age"><strong>${Math.max(0, Math.floor((Date.now() - Date.parse(o.createdAt)) / 60000))} мин</strong><small>${escape(labels[o.state] ?? o.state)}</small></div></div>${o.restoreReview?.status === 'pending' ? `<aside class="order-note"><strong>Проверка после восстановления</strong><p>Приготовление и выдача приостановлены. Руководитель смены должен сверить этот заказ.</p>${s.actor?.role === 'shift_manager' && ownerOf(o) === 'edge' ? button('Проверить заказ', `data-restore-review="${o.orderId}"`, ticketBlocked) : '<p>Войдите под учётной записью руководителя смены.</p>'}</aside>` : ''}${o.kitchenComment ? `<aside class="order-note"><strong>Комментарий к заказу</strong><p>${escape(o.kitchenComment)}</p></aside>` : ''}<div class="lines">${visibleTasks
             .map((t) => {
               const index = o.tasks.indexOf(t);
               const own = t.stationId === s.stationId;
@@ -368,7 +369,7 @@ function render() {
             )
             .join(
               '',
-            )}${o.state === 'cancel_requested' ? '<p>Сначала подтвердите остановку своих позиций. Итоговую отмену и остатки сверяет управляющий.</p>' : ''}${!actions.length && o.state !== 'cancel_requested' ? '<p>Ожидание следующей станции</p>' : ''}</div></article>`;
+            )}${o.state === 'cancel_requested' ? '<p>Сначала подтвердите остановку своих позиций. Итоговую отмену и остатки сверяет управляющий.</p>' : ''}${!actions.length && !o.restoreReview && o.state !== 'cancel_requested' ? '<p>Ожидание следующей станции</p>' : ''}</div></article>`;
         })
         .join('') ||
       '<div class="empty"><span>✓</span><h2>Очередь пуста</h2><p>Новые допущенные заказы появятся здесь автоматически</p></div>'
@@ -426,6 +427,17 @@ function render() {
   document.querySelectorAll<HTMLButtonElement>('[data-station]').forEach((b) =>
     b.addEventListener('click', () => {
       if (b.dataset.station) void model.selectStation(b.dataset.station);
+    }),
+  );
+  document.querySelectorAll<HTMLButtonElement>('[data-restore-review]').forEach((b) =>
+    b.addEventListener('click', () => {
+      const ticket = s.orders.find(
+        (o) => o.orderId === b.dataset.restoreReview && ownerOf(o) === 'edge',
+      );
+      if (ticket && s.actor && !blockedFor(ticket))
+        openRestoreReview(ticket, s.actor, request, scopedStorage(localStorage), () => {
+          void model.refresh();
+        });
     }),
   );
   document.querySelectorAll<HTMLButtonElement>('[data-command]').forEach((b) =>

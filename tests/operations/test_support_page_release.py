@@ -32,6 +32,28 @@ class SupportPageTests(unittest.TestCase):
             for absent in ('<script','<form','review_code','review_phone','iframe','—','–'):
                 self.assertNotIn(absent,text)
 
+    def test_account_deletion_section_for_google_play(self):
+        # Google Play (lane android 05.11.2026): /support/#delete-account names PickChick, the
+        # in-app path with the app's own labels and a way to ask without the app.
+        labels={'ru':('Удалить аккаунт','Язык','Аккаунт удалён'),
+                'kk':('Аккаунтты жою','Тіл','Аккаунт жойылды'),
+                'en':('Delete account','Language','Account deleted')}
+        for lang,words in labels.items():
+            text=m.render(lang,'+77000000000')
+            section=text.split('<section id="delete-account"',1)[1].split('</section>',1)[0]
+            self.assertIn('href="#delete-account"',text.split('<section id="answers"',1)[0])
+            self.assertIn('PickChick',section)
+            for word in words:self.assertIn(word,section)
+            self.assertEqual(section.count('<li>'),3)
+            self.assertIn('href="tel:+77000000000"',section)
+            for absent in ('<form','<script','{SUPPORT_EMAIL}','—','–'):self.assertNotIn(absent,section)
+            # Google asks which data is kept and for how long: the section says what stays and
+            # links the policy's retention heading (the one legal-update.py pins on the page).
+            self.assertIn('href="/legal/privacy#:~:text=%D0%A1%D1%80%D0%BE%D0%BA%D0%B8%20%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D1%8F%20%D0%B0%D0%BA%D0%BA%D0%B0%D1%83%D0%BD%D1%82%D0%B0"',section)
+            self.assertIn('«Сроки хранения аккаунта»',section)
+            self.assertEqual(section.count('<p class="prepare'),2)
+        self.assertIn("'<h2>Сроки хранения аккаунта</h2>'",(root/'infra/public-staging/legal-update.py').read_text())
+
     def test_invalid_contact_cannot_inject_markup(self):
         with self.assertRaises(ValueError):m.render('ru','"><script>')
         with self.assertRaises(ValueError):m.render('../private','+77000000000')
