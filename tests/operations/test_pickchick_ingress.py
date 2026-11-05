@@ -53,6 +53,18 @@ class Cutover(unittest.TestCase):
         def start():raise RuntimeError('fixture')
         with self.assertRaises(subprocess.TimeoutExpired):self.s.switch(start,lambda:None,cmd)
         self.assertEqual(calls[-1],['docker','start',self.s.OLD])
+    def test_neighbor_inventory_retains_stopped_and_restarted_services(self):
+        import json
+        def container(name,started='old'):
+            return {'Name':'/'+name,'Id':name,'Image':'image','State':{'Status':'running','StartedAt':started}}
+        rows=[container(self.s.OLD),container(self.s.NEW),container('worker'),container('db')]
+        rows[-1]['State']['Status']='exited'
+        def cmd(args):return 'one\ntwo\nthree\nfour' if args[1]=='ps' else json.dumps(rows)
+        before=self.s.neighbors(cmd)
+        self.assertEqual(set(before),{'/worker','/db'})
+        self.assertEqual(before['/db']['status'],'exited')
+        rows[2]['State']['StartedAt']='new'
+        self.assertNotEqual(before,self.s.neighbors(cmd))
     def test_no_cutover_before_separate_night_and_watchdog(self):
         from datetime import datetime,timezone
         now=datetime(2026,11,8,20,30,tzinfo=timezone.utc)

@@ -32,6 +32,14 @@ def run(args,check=True,timeout=20):
     if check and r.returncode:raise RuntimeError('Ingress command failed; details withheld')
     return r.stdout.strip()
 
+def neighbors(command=run):
+    ids=command(['docker','ps','-aq']).splitlines()
+    if not ids:raise ValueError('Container inventory unavailable')
+    containers=json.loads(command(['docker','inspect',*ids]))
+    return {c['Name']:{'id':c['Id'],'image':c['Image'],'status':c['State']['Status'],
+            'started_at':c['State']['StartedAt']} for c in containers
+            if c['Name'] not in ['/'+OLD,'/'+NEW]}
+
 def receipt_guard(proof,now):
     if proof.get('schema')!=1 or proof.get('stage2_verified') is not True or proof.get('watchdog_test_received') is not True:raise ValueError('Completed stage2/watchdog receipt required')
     since=datetime.fromisoformat(proof['telegram_enabled_at'])
@@ -94,8 +102,11 @@ def main():
     if not {'api.pickchick.kz','pickchick.kz','www.pickchick.kz','pickchick.185.129.51.103.nip.io','185.129.51.103.nip.io'}<=hosts:raise ValueError('Every old public host must have a probe')
     if any(not re.fullmatch(r'[A-Za-z0-9.-]+',x['host']) or not x['path'].startswith('/') or '\n' in x['path'] for x in checks):raise ValueError('Invalid probe')
     paths={x.get('path','').split('?')[0] for x in checks}
-    if not {'/health/ready','/v1/auth/config','/v1/customer-checkout/availability','/backoffice/','/kitchen/','/display/'}<=paths:raise ValueError('Required application routes missing')
+    if not {'/health/live','/v1/auth/config','/v1/customer-checkout/availability','/backoffice/','/kitchen/prep','/kitchen/assembly','/display'}<=paths:raise ValueError('Required application routes missing')
     if not any(x['host']=='pickchick.185.129.51.103.nip.io' and x['path'].startswith('/v1/customer-checkout/availability?after=') for x in checks):raise ValueError('Long-poll baseline missing')
+    healthy={('api.pickchick.kz',p) for p in ['/health/live','/v1/auth/config','/v1/customer-checkout/availability']}
+    healthy|={('pickchick.185.129.51.103.nip.io',p) for p in ['/backoffice/','/kitchen/prep','/kitchen/assembly','/display']}
+    if not healthy<={(x['host'],x['path']) for x in checks if x['status']==200}:raise ValueError('Required application route is not healthy in baseline')
     if any('hsts' not in x or 'location' not in x for x in checks):raise ValueError('Expected response headers missing')
     def probe():
         for x in checks:
@@ -108,11 +119,13 @@ def main():
                 if x.get('body_sha256') and hashlib.sha256(body).hexdigest()!=x['body_sha256']:raise ValueError('Public body differs')
                 if '?after=' in x['path'] and not 18<=time.monotonic()-start<=33:raise ValueError('Long-poll timing differs; inspect before retry')
             finally:conn.close()
+        if neighbors()!=before_neighbors:raise ValueError('Neighbor containers changed')
     if run(['docker','inspect',NEW],check=False):raise ValueError('New ingress container already exists; inspect before retry')
     prefix=['docker','compose','-f',str(candidate/'compose.json')]
     run(prefix+['config','--quiet'])
     run(prefix+['run','--rm','--no-deps','caddy','caddy','validate','--config','/etc/caddy/Caddyfile','--adapter','caddyfile'])
     if not a.apply:print('Prepared candidate verified; no live switch.');return
+    before_neighbors=neighbors()
     lock=Path('/opt/pickchick-staging/.market-release.lock')
     lock.mkdir(mode=0o700)
     # Retain the owned lock on failure; never remove a foreign lock or old container.
@@ -120,6 +133,7 @@ def main():
     with (lock/'owner.json').open('x') as f:
         os.chmod(lock/'owner.json',0o600);json.dump(owner,f)
     if sha(live)!=BASELINE or json.loads(run(['docker','inspect',OLD]))[0]['Id']!=old['Id']:raise ValueError('Drift after lock')
+    if neighbors()!=before_neighbors:raise ValueError('Neighbor drift after lock')
     switch(lambda:run(prefix+['up','-d','--no-deps','caddy']),probe)
     if json.loads((lock/'owner.json').read_text())!=owner:raise ValueError('Lock ownership changed')
     (lock/'owner.json').unlink();lock.rmdir()
