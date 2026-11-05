@@ -2171,6 +2171,25 @@ test('void before the kitchen starts: order and kitchen cancelled, every tender 
       voidSale(ctx, glovo.order.order_id, await voidBody(ctx, glovo), { actor: ctx.second }),
       code('NOT_FOUND'),
     );
+    // Its receipt was not required, so it was never fiscalized: "issued" contradicts the record.
+    // Nothing is written (no Webkassa return receipt to punch) and the approval is not spent.
+    const untouched = async () => ({
+      ...(await counts(pool)),
+      pos_refunds: await count(pool, 'pos_refunds'),
+      pos_refund_tenders: await count(pool, 'pos_refund_tenders'),
+      outbox_events: await count(pool, 'outbox_events'),
+    });
+    const beforeIssued = await untouched();
+    const issuedBody = await voidBody(ctx, glovo, { issued: true });
+    await assert.rejects(voidSale(ctx, glovo.order.order_id, issuedBody), code('CONFLICT'));
+    assert.deepEqual(await untouched(), beforeIssued);
+    assert.equal(await spent(pool, issuedBody.approval), null);
+    assert.equal(
+      (await listPendingFiscalReceipts(pool, ctx.branch, staffAuth(ctx.cashier))).receipts.filter(
+        (receipt) => receipt.order_id === glovo.order.order_id,
+      ).length,
+      0,
+    );
     const aggregatorVoid = await voidSale(ctx, glovo.order.order_id, await voidBody(ctx, glovo));
     assert.deepEqual(
       aggregatorVoid.sale.fiscal.map(({ kind, state, version }) => [kind, state, version]),
@@ -2478,6 +2497,151 @@ test('refunds: by tender, full or partial, limits, terminal tenge, drawer, platf
       ),
       code('REFUND_LIMIT'),
     );
+  });
+});
+
+test('a voided aggregator or ChocoFood order frees its number for the corrected re-entry', async () => {
+  await desk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    const yandexSale = (q, ref, actor = ctx.cashier) =>
+      sell(
+        ctx,
+        sale(q, {
+          tenders: [{ method: 'aggregator_yandex_eda', amount_minor: '399000' }],
+          external_order_ref: ref,
+        }),
+        { actor },
+      );
+    const yandex = async (ref) => yandexSale(await quote(ctx, { channel: 'yandex_eda' }), ref);
+    const live = async (ref) =>
+      Number(
+        (
+          await pool.query(
+            `SELECT count(*) FILTER (WHERE o.state='paid') AS live FROM pos_sales s
+             JOIN local_orders o ON o.id=s.order_id WHERE s.external_order_ref=$1`,
+            [ref],
+          )
+        ).rows[0].live,
+      );
+    // The cashier keyed the order wrongly: void it before the kitchen starts, then enter it again
+    // under the platform's real number, so the courier handover still matches the tablet.
+    const wrong = await yandex('YA-FIX-1');
+    await voidSale(ctx, wrong.order.order_id, await voidBody(ctx, wrong));
+    const fixed = await yandex('ya-fix-1');
+    assert.equal(fixed.sale.external_order_ref, 'YA-FIX-1');
+    assert.deepEqual((await reservation(pool, fixed.order.order_id)).snapshot.delivery, {
+      provider: 'yandex_eda',
+      externalNumber: 'YA-FIX-1',
+    });
+    // History keeps the voided sale with its number; only one sale with it is live.
+    const history = await readPosSale(
+      pool,
+      ctx.branch,
+      staffAuth(ctx.cashier),
+      wrong.order.order_id,
+    );
+    assert.equal(history.external_order_ref, 'YA-FIX-1');
+    assert.equal(history.refunds[0].kind, 'void');
+    assert.equal(await live('YA-FIX-1'), 1);
+    const before = await counts(pool);
+    await assert.rejects(yandex('YA-FIX-1'), code('EXTERNAL_REF_DUPLICATE'));
+    assert.deepEqual(await counts(pool), before);
+    // ChocoFood (hall, its own number) the same way.
+    const choco = async (ref) =>
+      sell(
+        ctx,
+        sale(await quote(ctx, { serviceMode: 'dine_in' }), {
+          tenders: [{ method: 'chocofood', amount_minor: '349000' }],
+          external_order_ref: ref,
+        }),
+      );
+    const cf = await choco('CF-FIX-1');
+    await assert.rejects(choco('CF-FIX-1'), code('EXTERNAL_REF_DUPLICATE'));
+    await voidSale(ctx, cf.order.order_id, await voidBody(ctx, cf));
+    const cfAgain = await choco('cf-fix-1');
+    assert.equal(cfAgain.sale.external_order_ref, 'CF-FIX-1');
+    assert.equal(cfAgain.sale.tenders[0].confirmation, 'aggregator_attested');
+    await assert.rejects(choco('CF-FIX-1'), code('EXTERNAL_REF_DUPLICATE'));
+    assert.equal(await live('CF-FIX-1'), 1);
+    // Both desks re-enter a voided number at the same moment: exactly one sale wins.
+    await voidSale(ctx, fixed.order.order_id, await voidBody(ctx, fixed));
+    assert.equal(await live('YA-FIX-1'), 0);
+    const quotes = await Promise.all(
+      [ctx.cashier, ctx.second].map((actor) => quote(ctx, { actor, channel: 'yandex_eda' })),
+    );
+    const both = await Promise.allSettled(
+      [ctx.cashier, ctx.second].map((actor, index) => yandexSale(quotes[index], 'YA-FIX-1', actor)),
+    );
+    assert.equal(both.filter((result) => result.status === 'fulfilled').length, 1);
+    assert.equal(
+      both.find((result) => result.status === 'rejected').reason.code,
+      'EXTERNAL_REF_DUPLICATE',
+    );
+    assert.equal(await live('YA-FIX-1'), 1);
+    // Each sale entered with the number goes to the cloud with it: the wrong one, the fix and the
+    // winner of the race (the refused one wrote nothing).
+    const numbered = (
+      await pool.query(
+        "SELECT kind FROM pos_sale_outbox WHERE payload->>'external_order_ref'='YA-FIX-1' ORDER BY sequence",
+      )
+    ).rows.map((row) => row.kind);
+    assert.deepEqual(numbered, ['sale', 'sale', 'sale']);
+  });
+});
+
+test("a refund of another desk's sale is made in a shift manager session on the refunding desk", async () => {
+  await desk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    const paid = await cashSale(ctx);
+    const deskB = async (amount) => ({
+      refund_id: randomUUID(),
+      tenders: [part(paid, 'cash', amount)],
+      reason_code: 'quality',
+      reason: 'Синтетический возврат',
+      approval: proof(
+        await grantApproval(
+          ctx,
+          'refund',
+          { order_id: paid.order.order_id, amount_minor: amount },
+          { terminal: ctx.second.terminal_id },
+        ),
+      ),
+    });
+    // The cashier session of desk B does not see desk A's sale, even with an approval there.
+    await assert.rejects(
+      refundSale(ctx, paid.order.order_id, await deskB('100000'), { actor: ctx.second }),
+      code('NOT_FOUND'),
+    );
+    // Runbook pos-sales.md 5: a shift manager signs in on desk B; the refund is booked at desk B's
+    // open sales shift and its cash comes out of desk B's drawer.
+    const managerB = await provisionStaff(
+      pool,
+      ctx.branch,
+      ctx.setup('shift_manager', ctx.second.terminal_id),
+    );
+    const refunded = await refundSale(ctx, paid.order.order_id, await deskB('100000'), {
+      actor: managerB,
+    });
+    assert.equal(refunded.refundable_minor, '249000');
+    assert.deepEqual(
+      (
+        await pool.query(
+          'SELECT shift_id,terminal_id,staff_id FROM pos_refunds WHERE order_id=$1',
+          [paid.order.order_id],
+        )
+      ).rows,
+      [
+        {
+          shift_id: ctx.shifts.second,
+          terminal_id: ctx.second.terminal_id,
+          staff_id: managerB.staff_id,
+        },
+      ],
+    );
+    const drawer = async (shift) =>
+      (await readCashShift(pool, ctx.branch, staffAuth(ctx.manager), shift)).expected_cash_minor;
+    assert.equal(await drawer(ctx.shifts.first), '849000');
+    assert.equal(await drawer(ctx.shifts.second), '400000');
   });
 });
 
@@ -3147,6 +3311,19 @@ test('a restricted runtime LOGIN with the 5.9 grants voids, refunds, records and
         await voidBody(ctx, a, { issued: true }),
       );
       assert.equal(voided.order.state, 'cancelled');
+      // The order number guard of schema026 runs on the 5.9 grants: void, re-entry, duplicate.
+      const glovo = async () =>
+        sell(
+          restricted,
+          sale(await quote(restricted, { channel: 'glovo' }), {
+            tenders: [{ method: 'aggregator_glovo', amount_minor: '389000' }],
+            external_order_ref: 'GL-LOGIN-1',
+          }),
+        );
+      const keyed = await glovo();
+      await voidSale(restricted, keyed.order.order_id, await voidBody(ctx, keyed));
+      assert.equal((await glovo()).sale.external_order_ref, 'GL-LOGIN-1');
+      await assert.rejects(glovo(), code('EXTERNAL_REF_DUPLICATE'));
       const b = await mixSale(restricted);
       const refunded = await refundSale(
         restricted,

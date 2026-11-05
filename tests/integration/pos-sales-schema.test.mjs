@@ -205,6 +205,7 @@ async function sell(ctx, q, sale, pool = ctx.edge.pool) {
   const orderId = randomUUID();
   const tenders = sale.tenders.map((tender) => ({ id: randomUUID(), ...tender }));
   await transaction(pool, async (client) => {
+    if (sale.isolation) await client.query(`SET TRANSACTION ISOLATION LEVEL ${sale.isolation}`);
     const approval = sale.approval ? await approve(client, ctx, sale.approval) : null;
     await client.query(
       `INSERT INTO local_orders(id,branch_id,quote_id,total_minor,cash_shift_id,execution_mode,state,payment_state)
@@ -249,9 +250,11 @@ async function sell(ctx, q, sale, pool = ctx.edge.pool) {
       );
     if (sale.receipt !== false)
       await client.query(
-        "INSERT INTO pos_fiscal_receipts(id,branch_id,order_id,kind,state,amount_minor) VALUES($1,$2,$3,'sale','pending',$4)",
-        [randomUUID(), ctx.branch, orderId, q.total_minor],
+        "INSERT INTO pos_fiscal_receipts(id,branch_id,order_id,kind,state,amount_minor) VALUES($1,$2,$3,'sale',$4,$5)",
+        [randomUUID(), ctx.branch, orderId, sale.receiptState ?? 'pending', q.total_minor],
       );
+    // Keeps the transaction (and every lock it took) open until the test lets it commit.
+    if (sale.hold) await sale.hold(client);
   });
   return { orderId, tenders };
 }
@@ -296,9 +299,17 @@ async function refund(ctx, sold, kind, parts, pool = ctx.edge.pool, hooks = {}) 
       );
     if (hooks.receipt !== false)
       await client.query(
-        "INSERT INTO pos_fiscal_receipts(id,branch_id,order_id,refund_id,kind,state,amount_minor) VALUES($1,$2,$3,$4,'refund','pending',$5)",
-        [randomUUID(), ctx.branch, sold.orderId, id, hooks.amount ?? amount],
+        "INSERT INTO pos_fiscal_receipts(id,branch_id,order_id,refund_id,kind,state,amount_minor) VALUES($1,$2,$3,$4,'refund',$5,$6)",
+        [
+          randomUUID(),
+          ctx.branch,
+          sold.orderId,
+          id,
+          hooks.receiptState ?? 'pending',
+          hooks.amount ?? amount,
+        ],
       );
+    if (hooks.hold) await hooks.hold(client);
   });
   return id;
 }
@@ -1005,6 +1016,191 @@ test('void before cooking, refunds by tender, drawer limit, approvals and receip
       pool.query('UPDATE pos_shift_reports SET pending_fiscal_count=0'),
       rejected(/immutable/),
     );
+  });
+});
+
+/** Resolves once `ready()` is true, polling the database; fails after `ms`. */
+async function until(ready, ms = 10_000) {
+  const deadline = Date.now() + ms;
+  while (!(await ready())) {
+    if (Date.now() > deadline) throw new Error('Condition not reached');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+}
+/** A transaction hook that signals it is inside and waits for the test to let it commit. */
+function gate() {
+  let enter, leave;
+  const inside = new Promise((resolve) => (enter = resolve));
+  const open = new Promise((resolve) => (leave = resolve));
+  return {
+    inside,
+    leave,
+    hold: async () => {
+      enter();
+      await open;
+    },
+  };
+}
+
+test('an order number belongs to one sale that is not voided; no Webkassa return without a sale receipt', async () => {
+  await desk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    const duplicate = (error) => error.code === '23505' && /not voided/.test(error.message);
+    // A second cash desk with its own open sales shift.
+    const other = await provisionStaff(pool, ctx.branch, {
+      staff_id: randomUUID(),
+      terminal_id: randomUUID(),
+      name: 'Synthetic staff',
+      role: 'cashier',
+    });
+    const deskB = { ...ctx, cashier: other, terminal: other.terminal_id, shift: randomUUID() };
+    await pool.query(
+      'INSERT INTO local_cash_shifts(id,branch_id,staff_id,terminal_id,opening_cash_minor,sales_mode) VALUES($1,$2,$3,$4,0,true)',
+      [deskB.shift, ctx.branch, ctx.manager.staff_id, other.terminal_id],
+    );
+    // Aggregator and ChocoFood receipts are not required by default (contracts section 00).
+    const glovo = async (ref, extra = {}, q, at = ctx) => {
+      const quoted = q ?? (await quote(at, { channel: 'glovo' }));
+      return sell(at, quoted, {
+        channel: 'glovo',
+        ref,
+        tenders: [{ method: 'aggregator_glovo', amount: quoted.total_minor }],
+        receiptState: 'not_required',
+        ...extra,
+      });
+    };
+    const voidOf = (sold, hooks = {}) =>
+      refund(
+        ctx,
+        sold,
+        'void',
+        [{ tender: sold.tenders[0], amount: sold.tenders[0].amount }],
+        pool,
+        {
+          receiptState: 'not_required',
+          ...hooks,
+        },
+      );
+    const state = async (orderId) =>
+      (await pool.query('SELECT state FROM local_orders WHERE id=$1', [orderId])).rows[0].state;
+
+    const first = await glovo('GL-FIX-1');
+    await assert.rejects(glovo('GL-FIX-1'), duplicate);
+    // R1 backstop: a sale never fiscalized has no Webkassa return, for a void or a refund.
+    await assert.rejects(
+      voidOf(first, { receiptState: 'pending' }),
+      rejected(/no Webkassa return/),
+    );
+    assert.equal(await state(first.orderId), 'paid');
+    // The void releases the number: the corrected re-entry under the same number is sold.
+    await voidOf(first);
+    assert.equal(await state(first.orderId), 'cancelled');
+    const reentry = await glovo('GL-FIX-1');
+    assert.equal(await state(reentry.orderId), 'paid');
+    // A second live sale of that number is refused again; the other channel is another order.
+    await assert.rejects(glovo('GL-FIX-1'), duplicate);
+    const yandex = await quote(ctx, { channel: 'yandex_eda' });
+    await sell(ctx, yandex, {
+      channel: 'yandex_eda',
+      ref: 'GL-FIX-1',
+      tenders: [{ method: 'aggregator_yandex_eda', amount: yandex.total_minor }],
+      receiptState: 'not_required',
+    });
+    // ChocoFood (hall) the same way.
+    const choco = async () => {
+      const q = await quote(ctx);
+      return sell(ctx, q, {
+        ref: 'CF-FIX-1',
+        tenders: [{ method: 'chocofood', amount: q.total_minor }],
+        receiptState: 'not_required',
+      });
+    };
+    const cf = await choco();
+    await assert.rejects(choco(), duplicate);
+    await voidOf(cf);
+    await choco();
+    await assert.rejects(choco(), duplicate);
+    // A refund of a sale whose receipt was not required has no Webkassa return either.
+    const manualQuote = await quote(ctx);
+    const manual = await sell(ctx, manualQuote, {
+      tenders: [{ method: 'kaspi_manual', amount: manualQuote.total_minor }],
+      receiptState: 'not_required',
+    });
+    await assert.rejects(
+      refund(ctx, manual, 'refund', [{ tender: manual.tenders[0], amount: '100' }]),
+      rejected(/no Webkassa return/),
+    );
+    await refund(ctx, manual, 'refund', [{ tender: manual.tenders[0], amount: '100' }], pool, {
+      receiptState: 'not_required',
+    });
+
+    // A void still in flight on desk A keeps the number taken for desk B (an order on desk A's
+    // shift would wait for the void anyway); after its COMMIT the number is free.
+    const quotes = await Promise.all([
+      quote(deskB, { channel: 'glovo' }),
+      quote(deskB, { channel: 'glovo' }),
+      quote(ctx, { channel: 'glovo' }),
+      quote(deskB, { channel: 'glovo' }),
+    ]);
+    const voiding = gate();
+    const timer = setTimeout(voiding.leave, 10_000);
+    const inFlight = voidOf(reentry, { hold: voiding.hold });
+    await voiding.inside;
+    try {
+      await assert.rejects(glovo('GL-FIX-1', {}, quotes[0], deskB), duplicate);
+    } finally {
+      clearTimeout(timer);
+      voiding.leave();
+    }
+    await inFlight;
+    await glovo('GL-FIX-1', {}, quotes[1], deskB);
+
+    // Two inserts of one number at once on two desks: the second waits for the first's lock,
+    // then sees the committed sale and is refused at its number. It carries no kitchen admission
+    // (COMMIT would refuse that anyway), so it does not wait on the display counter the first
+    // one holds and reaches the number lock.
+    const selling = gate();
+    const held = glovo('GL-FIX-2', { hold: selling.hold }, quotes[2]);
+    await selling.inside;
+    const second = glovo('GL-FIX-2', { kitchen: false }, quotes[3], deskB).then(
+      () => null,
+      (error) => error,
+    );
+    try {
+      await until(
+        async () =>
+          (
+            await pool.query(
+              "SELECT count(*)::int AS n FROM pg_locks WHERE locktype='advisory' AND NOT granted",
+            )
+          ).rows[0].n === 1,
+      );
+    } finally {
+      selling.leave();
+    }
+    await held;
+    assert.ok(duplicate(await second), String(await second));
+    assert.equal(
+      (
+        await pool.query(
+          "SELECT count(*)::int AS n FROM pos_sales WHERE external_order_ref='GL-FIX-2'",
+        )
+      ).rows[0].n,
+      1,
+    );
+
+    // The check needs a fresh snapshot after the lock: numbered sales only under read committed.
+    for (const isolation of ['REPEATABLE READ', 'SERIALIZABLE'])
+      await assert.rejects(
+        glovo('GL-FIX-3', { isolation }),
+        (error) => error.code === '0A000' && /read committed/.test(error.message),
+      );
+    const hallQuote = await quote(ctx);
+    await sell(ctx, hallQuote, {
+      isolation: 'REPEATABLE READ',
+      tenders: [{ method: 'kaspi_manual', amount: hallQuote.total_minor }],
+    });
+    await glovo('GL-FIX-3');
   });
 });
 
