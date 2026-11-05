@@ -229,6 +229,9 @@ export const StaffCommandSchema = z.strictObject({
  * CourierIncidentRequestSchema (@pickchick/contracts kds.ts, which this package does not depend
  * on); a test pins both. The client's Idempotency-Key is the incident id.
  */
+/** +7 or 8 and ten digits: the journal stores no phone numbers (looksLikePhone of the contract). */
+const noPhone = (text: string) =>
+  !/(?:\+\s*7|(?<![\p{L}\p{N}-])8)(?:[\s()-]*\d){10}(?!\d)/u.test(text);
 export const CourierIncidentInputSchema = z.strictObject({
   orderId: uuid.optional(),
   provider: z.enum(['yandex_eda', 'glovo', 'other']),
@@ -236,9 +239,10 @@ export const CourierIncidentInputSchema = z.strictObject({
     .string()
     .trim()
     .regex(/^[A-Za-z0-9-]{1,40}$/)
+    .refine(noPhone)
     .optional(),
   kind: z.enum(['number_mismatch', 'not_accepted_in_app', 'no_photo', 'courier_refused', 'other']),
-  description: z.string().trim().min(3).max(500),
+  description: z.string().trim().min(3).max(500).refine(noPhone),
 });
 export const CourierIncidentQuerySchema = z.strictObject({ scope: z.enum(['open', 'today']) });
 export const LeaseSchema = z.strictObject({

@@ -293,6 +293,11 @@ export function openIncident(input: {
         feedback.textContent = 'Номер - только буквы, цифры и дефис.';
         return;
       }
+      // The edge refuses a phone number in either field (no personal data in the journal).
+      if (number && looksLikePhone(number)) {
+        feedback.textContent = 'Это похоже на телефон - введите номер заказа агрегатора.';
+        return;
+      }
       const draft: IncidentDraft = {
         incidentId: crypto.randomUUID(),
         body: {

@@ -117,6 +117,15 @@ test('the edge incident request mirrors CourierIncidentRequestSchema of the cont
     { ...good, description: 'x'.repeat(501) },
     { ...good, orderId: 'not-a-uuid' },
     { ...good, phone: '0' },
+    // No phone numbers in the journal (synthetic all-zero numbers).
+    { ...good, claimedNumber: '87000000000' },
+    { ...good, claimedNumber: '8700000000' },
+    { ...good, claimedNumber: 'G-87000000000' },
+    { ...good, description: 'Курьер просил звонить +7 700 000 00 00' },
+    { ...good, description: 'Курьер просил звонить 8 (700) 000-00-00' },
+    { ...good, description: 'Курьер просил звонить 8700000000000' },
+    { ...good, description: 'Заказ Y-87000000000 не совпал' },
+    { ...good, description: 'Ждал 8 минут, 10 заказов в очереди' },
     { provider: 'glovo', kind: 'other' },
     {},
   ];
@@ -126,6 +135,20 @@ test('the edge incident request mirrors CourierIncidentRequestSchema of the cont
     assert.equal(edge.success, http.success, JSON.stringify(vector));
     if (http.success) assert.deepEqual(edge.data, http.data);
   }
+  const accepted = (patch) => CourierIncidentInputSchema.safeParse({ ...good, ...patch }).success;
+  for (const phone of [
+    { claimedNumber: '87000000000' },
+    { description: 'Курьер просил звонить +7 700 000 00 00' },
+    { description: 'Курьер просил звонить 8 (700) 000-00-00' },
+  ])
+    assert.equal(accepted(phone), false, JSON.stringify(phone));
+  for (const plain of [
+    { claimedNumber: '8700000000' },
+    { claimedNumber: 'G-87000000000' },
+    { description: 'Заказ Y-87000000000 не совпал' },
+    { description: 'Ждал 8 минут, 10 заказов в очереди' },
+  ])
+    assert.equal(accepted(plain), true, JSON.stringify(plain));
   for (const scope of ['open', 'today', 'all', ''])
     assert.equal(
       CourierIncidentQuerySchema.safeParse({ scope }).success,

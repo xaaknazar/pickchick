@@ -284,6 +284,19 @@ test('KDS HTTP: layout on - screens per terminal, KDS tickets, cascade, breading
         errorOf(await call('/incidents', ctx.packer, { ...refusal, phone: '0' }), 400),
         'INVALID_REQUEST',
       );
+      // No phone numbers in the journal, whichever field carries one (synthetic all-zero).
+      for (const phone of [
+        { claimedNumber: '87000000000' },
+        { description: 'Курьер просил звонить +7 700 000 00 00' },
+      ])
+        assert.equal(
+          errorOf(await call('/incidents', ctx.packer, { ...refusal, ...phone }), 400),
+          'INVALID_REQUEST',
+        );
+      assert.equal(
+        (await ctx.pool.query('SELECT count(*)::int AS n FROM courier_incidents')).rows[0].n,
+        1,
+      );
       assert.equal(errorOf(await call('/incidents', ctx.cashier, refusal), 403), 'FORBIDDEN');
       // A kitchen login without access to the order's finishing station.
       assert.equal(errorOf(await call('/incidents', ctx.cook, refusal), 403), 'FORBIDDEN');

@@ -1314,6 +1314,25 @@ test('KDS-4 courier incidents: record, replay and conflicts, open banner and the
     await switchKdsLayout(f.pool, b, false);
     await assert.rejects(listIncidents(f, f.packer, 'today'), errorCode('NOT_FOUND'));
     assert.equal(await f.count('courier_incidents'), 4);
+    // A retry of a lost answer still gets the stored record (same staff, terminal and request);
+    // anything else under that key conflicts, and a new incident is refused.
+    assert.deepEqual(
+      await recordIncident(f, f.packer, { ...body, orderId: order.orderId }, withOrder),
+      recorded,
+    );
+    await assert.rejects(recordIncident(f, f.manager, body, withOrder), errorCode('CONFLICT'));
+    await assert.rejects(recordIncident(f, f.packer, body), errorCode('NOT_FOUND'));
+    // Phone numbers never reach the journal.
+    await switchKdsLayout(f.pool, b, true);
+    for (const phone of [
+      { claimedNumber: '87000000000' },
+      { description: 'Курьер просил звонить 8 700 000 00 00' },
+    ])
+      await assert.rejects(
+        recordIncident(f, f.packer, { ...body, ...phone }),
+        errorCode('INVALID'),
+      );
+    assert.equal(await f.count('courier_incidents'), 4);
     await assertStrictEvents(f.pool);
   }));
 

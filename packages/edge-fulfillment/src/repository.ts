@@ -912,6 +912,22 @@ export class EdgeFulfillment {
         )
       ).rows;
       const breaded = new Set(station.product_ids);
+      // The open table tasks of every candidate in one statement (station 6 polls every 5 s).
+      const tableTasks = new Map<string, Task['details'][]>();
+      if (orders.length)
+        for (const task of (
+          await client.query<{ order_id: string; details: Task['details'] }>(
+            `SELECT t.order_id,t.details FROM fulfillment_tasks t JOIN fulfillment_reservations r
+             ON r.branch_id=t.branch_id AND r.order_id=t.order_id
+             WHERE r.order_id=ANY($1::uuid[]) AND ${open}
+             ORDER BY t.order_id,t.component_key`,
+            [orders.map((row) => row.order_id)],
+          )
+        ).rows) {
+          const list = tableTasks.get(task.order_id);
+          if (list) list.push(task.details);
+          else tableTasks.set(task.order_id, [task.details]);
+        }
       let cashierSlugs: KdsSlugs | null | undefined;
       const result = [];
       let total = 0,
@@ -923,15 +939,7 @@ export class EdgeFulfillment {
           if (cashierSlugs === undefined) cashierSlugs = await readMenuKdsSlugs(client, branchId);
           slugs = cashierSlugs ?? noKdsSlugs;
         }
-        const lines = (
-          await client.query<{ details: Task['details'] }>(
-            `SELECT t.details FROM fulfillment_tasks t JOIN fulfillment_reservations r
-             ON r.branch_id=t.branch_id AND r.order_id=t.order_id WHERE r.order_id=$1 AND ${open}
-             ORDER BY t.component_key`,
-            [row.order_id],
-          )
-        ).rows
-          .map((task) => task.details)
+        const lines = (tableTasks.get(row.order_id) ?? [])
           .filter((details) => {
             const slug = slugs.product(details.productId);
             return (slug !== null && breaded.has(slug)) || details.kds?.fingers !== undefined;
@@ -964,7 +972,7 @@ export class EdgeFulfillment {
    * client's Idempotency-Key: the same staff, terminal and request replay the stored record,
    * anything else under that id conflicts. The claimed number is stored upper-case like the
    * aggregator numbers. Insert-only journal, no outbox event (cloud report: P1).
-   * NOT_FOUND while the KDS layout is off.
+   * A new incident is NOT_FOUND while the KDS layout is off; a stored one still replays.
    */
   async recordIncident(branchId: string, auth: StaffAuth, incidentId: string, input: unknown) {
     parse(z.uuid(), branchId);
@@ -982,7 +990,19 @@ export class EdgeFulfillment {
       const staff = await authenticateStaff(client, branchId, auth);
       if (!['kitchen', 'shift_manager'].includes(staff.role)) fail('FORBIDDEN');
       const kds = await readKdsLayout(client, branchId);
-      if (!kds.enabled) return fail('NOT_FOUND');
+      // A stored incident replays even after kds-switch disable (a retry of a lost answer);
+      // only a new incident needs the layout. Without the readable journal (027 or the runtime
+      // grant missing) there is nothing to replay.
+      if (
+        !kds.enabled &&
+        !(
+          await client.query<{ ok: boolean }>(
+            `SELECT to_regclass('courier_incidents') IS NOT NULL
+               AND has_table_privilege(to_regclass('courier_incidents'),'SELECT') AS ok`,
+          )
+        ).rows[0]!.ok
+      )
+        return fail('NOT_FOUND');
       await lock(client, 'fulfillment:courier-incident:' + id);
       const select = (sql: string) =>
         client.query<IncidentRow>(`${INCIDENT_SELECT} WHERE i.incident_id=$1${sql}`, [id]);
@@ -997,6 +1017,7 @@ export class EdgeFulfillment {
           fail('CONFLICT');
         return incidentView(saved);
       }
+      if (!kds.enabled) return fail('NOT_FOUND');
       let stationId: string;
       if (incident.orderId) {
         const order = (

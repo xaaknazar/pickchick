@@ -169,6 +169,14 @@ export const KdsBreadingSchema = z.strictObject({
 
 /** Courier protocol refusals (Аг9/Аг10). The client sends incident_id as Idempotency-Key. */
 export const CourierIncidentProviderSchema = z.enum([...AggregatorChannelSchema.options, 'other']);
+/**
+ * A Kazakhstan/Russian phone number (+7 or 8 and ten digits, with any spacing). The incident
+ * journal stores no personal data: such a number in the request is refused (400). Aggregator
+ * order numbers do not start this way. Same rule as the kitchen form (apps/kitchen courier.ts).
+ */
+const looksLikePhone = (text: string) =>
+  /(?:\+\s*7|(?<![\p{L}\p{N}-])8)(?:[\s()-]*\d){10}(?!\d)/u.test(text);
+const noPhone = (text: string) => !looksLikePhone(text);
 const claimedNumber = z.string().regex(/^[A-Za-z0-9-]{1,40}$/);
 const description = z.string().trim().min(3).max(500);
 export const CourierIncidentRequestSchema = z.strictObject({
@@ -178,10 +186,11 @@ export const CourierIncidentRequestSchema = z.strictObject({
     .string()
     .trim()
     .regex(/^[A-Za-z0-9-]{1,40}$/)
+    .refine(noPhone, 'A phone number is not an order number')
     .optional(),
   kind: CourierIncidentKindSchema,
   /** Free text without phone numbers or names of guests (UI hint "Не вводите телефоны"). */
-  description,
+  description: description.refine(noPhone, 'No phone numbers in the description'),
 });
 /** POST /edge/v1/fulfillment/incidents result and one row of the incident list. */
 export const CourierIncidentSchema = z.strictObject({
