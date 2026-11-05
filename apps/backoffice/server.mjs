@@ -233,6 +233,8 @@ const assets = new Map([
     'workforce-model',
     'finance-report',
     'finance-charts',
+    'sales-report',
+    'sales-report-model',
   ].map((n) => [`/${n}.js`, [`${n}.js`, 'text/javascript; charset=utf-8']]),
   ...['logo.png', 'shot.jpg', ...Array.from({ length: 24 }, (_, i) => `i${i}.jpg`)].map((n) => [
     `/assets/${n}`,

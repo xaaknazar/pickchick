@@ -1,4 +1,5 @@
 import { ApiError, type Request } from './api.js';
+import { salesReport, type SalesReport } from './sales-report-model.js';
 export type Data = Record<string, unknown>;
 export type Entry = {
   id: string;
@@ -95,6 +96,13 @@ export function roleTitle(data: { effective_role?: unknown } | null | undefined)
   };
   return typeof data?.effective_role === 'string' ? (titles[data.effective_role] ?? null) : null;
 }
+/** Sales report (cutover CC-7): the server answers GET .../ops/sales. */
+export const salesReportAvailable = (data: { capabilities?: unknown } | null | undefined) =>
+  Boolean(
+    data?.capabilities &&
+    typeof data.capabilities === 'object' &&
+    (data.capabilities as Data)['sales_report'] === true,
+  );
 /** Stock v2 (cutover CC-6): the server takes waste reasons and receipt details. */
 export const stockV2 = (data: { capabilities?: unknown } | null | undefined) =>
   Boolean(
@@ -313,6 +321,14 @@ export class OperationsModel {
     const value = await this.api(`branches/${this.branch}/ops/stock?${query.toString()}`);
     if (generation !== this.generation) throw new ApiError('FORBIDDEN');
     return stockReport(value, this.branch, view);
+  }
+  /** Sales report (GET .../ops/sales, cutover CC-7) of an Almaty date window. */
+  async salesReport(startDate: string, endDate: string): Promise<SalesReport> {
+    const generation = this.generation;
+    const query = new URLSearchParams({ start_date: startDate, end_date: endDate });
+    const value = await this.api(`branches/${this.branch}/ops/sales?${query.toString()}`);
+    if (generation !== this.generation) throw new ApiError('FORBIDDEN');
+    return salesReport(value, this.branch);
   }
 }
 export type StockReport = {

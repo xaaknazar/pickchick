@@ -1,4 +1,5 @@
 import { InventoryView, inventoryEditor } from './inventory.js';
+import { SalesReportView } from './sales-report.js';
 import { ReconciliationView } from './components/ReconciliationView.js';
 import { ReconciliationModel } from './reconciliation-model.js';
 import { element as el, button, field, select, check } from './dom.js';
@@ -10,6 +11,7 @@ import {
   object,
   permitted,
   refundActions,
+  salesReportAvailable,
   stockV2,
   stationPlanReason,
   stationPlanStatus,
@@ -405,6 +407,7 @@ export function stopName(item: StopItem) {
 
 export class OperationsView {
   private inventory = new InventoryView();
+  private sales = new SalesReportView();
   private stopFilter: 'all' | 'stopped' | 'waiting' = 'all';
   private stopQuery = '';
   constructor(
@@ -1895,6 +1898,9 @@ export class OperationsView {
       return;
     }
     if (page === 'dash' || page === 'reports') {
+      // Cutover CC-7: the sales report of every channel, only from servers that have it.
+      if (page === 'reports' && salesReportAvailable(d))
+        content.append(this.sales.render((start, end) => this.model.salesReport(start, end)));
       content.append(
         stats([
           [
