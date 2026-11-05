@@ -19,6 +19,8 @@ import {
   FulfillmentError,
   LeaseSchema,
   AckSchema,
+  CourierIncidentInputSchema,
+  CourierIncidentQuerySchema,
 } from './model.js';
 import type { TrustedCloud } from './model.js';
 import { buildKitchenPlan } from './kds-plan.js';
@@ -146,6 +148,39 @@ async function recordHandover(
     ],
   );
 }
+
+/**
+ * P0 rule of the "Менеджер вызван" banner (no incident statuses before P1 028): an incident is
+ * open for this many minutes after it was recorded, while its order (if any) is still live.
+ */
+export const COURIER_INCIDENT_OPEN_MINUTES = 30;
+interface IncidentRow {
+  incident_id: string;
+  branch_id: string;
+  provider: 'yandex_eda' | 'glovo' | 'other';
+  claimed_number: string | null;
+  kind: 'number_mismatch' | 'not_accepted_in_app' | 'no_photo' | 'courier_refused' | 'other';
+  description: string;
+  staff_id: string;
+  terminal_id: string;
+  request_hash: string;
+  recorded_at: Date;
+  display_number: string | null;
+}
+const INCIDENT_SELECT = `SELECT i.incident_id,i.branch_id,i.provider,i.claimed_number,i.kind,i.description,
+  i.staff_id,i.terminal_id,i.request_hash,i.recorded_at,r.display_number
+  FROM courier_incidents i LEFT JOIN fulfillment_reservations r
+  ON r.branch_id=i.branch_id AND r.order_id=i.order_id`;
+/** CourierIncidentSchema of the contract (contracts section 5.4). */
+const incidentView = (row: IncidentRow) => ({
+  incidentId: row.incident_id,
+  provider: row.provider,
+  claimedNumber: row.claimed_number,
+  kind: row.kind,
+  description: row.description,
+  recordedAt: row.recorded_at.toISOString(),
+  ...(row.display_number !== null ? { displayNumber: row.display_number } : {}),
+});
 
 export class EdgeFulfillment {
   constructor(private readonly pool: DatabasePool) {}
@@ -920,6 +955,113 @@ export class EdgeFulfillment {
         });
       }
       return { orders: result, ...(counted ? { totalFingers: total } : {}) };
+    });
+  }
+  /**
+   * POST fulfillment/incidents (contracts section 5.4, Аг9): a courier protocol refusal, recorded
+   * at the courier counter (the order's finishing station, else station 3 of the layout, else 2)
+   * by a kitchen login with access to that station or a shift manager. incidentId is the
+   * client's Idempotency-Key: the same staff, terminal and request replay the stored record,
+   * anything else under that id conflicts. The claimed number is stored upper-case like the
+   * aggregator numbers. Insert-only journal, no outbox event (cloud report: P1).
+   * NOT_FOUND while the KDS layout is off.
+   */
+  async recordIncident(branchId: string, auth: StaffAuth, incidentId: string, input: unknown) {
+    parse(z.uuid(), branchId);
+    const id = parse(z.uuid(), incidentId),
+      request = parse(CourierIncidentInputSchema, input);
+    const incident = {
+      ...(request.orderId ? { orderId: request.orderId } : {}),
+      provider: request.provider,
+      ...(request.claimedNumber ? { claimedNumber: request.claimedNumber.toUpperCase() } : {}),
+      kind: request.kind,
+      description: request.description,
+    };
+    const requestHash = digest(incident);
+    return transaction(this.pool, async (client) => {
+      const staff = await authenticateStaff(client, branchId, auth);
+      if (!['kitchen', 'shift_manager'].includes(staff.role)) fail('FORBIDDEN');
+      const kds = await readKdsLayout(client, branchId);
+      if (!kds.enabled) return fail('NOT_FOUND');
+      await lock(client, 'fulfillment:courier-incident:' + id);
+      const select = (sql: string) =>
+        client.query<IncidentRow>(`${INCIDENT_SELECT} WHERE i.incident_id=$1${sql}`, [id]);
+      const saved = (await select('')).rows[0];
+      if (saved) {
+        if (
+          saved.branch_id !== branchId ||
+          saved.staff_id !== staff.staff_id ||
+          saved.terminal_id !== staff.terminal_id ||
+          saved.request_hash !== requestHash
+        )
+          fail('CONFLICT');
+        return incidentView(saved);
+      }
+      let stationId: string;
+      if (incident.orderId) {
+        const order = (
+          await client.query<{ assembly_station_id: string }>(
+            'SELECT assembly_station_id FROM fulfillment_reservations WHERE order_id=$1 AND branch_id=$2 FOR KEY SHARE',
+            [incident.orderId, branchId],
+          )
+        ).rows[0];
+        stationId = order?.assembly_station_id ?? fail('NOT_FOUND');
+      } else {
+        const counter =
+          kds.layout.stations.find((s) => s.function === 'delivery_handover') ??
+          kds.layout.stations.find((s) => s.function === 'issue')!;
+        stationId = counter.edge_station_id;
+      }
+      await stationPermission(client, branchId, staff, stationId);
+      await client.query(
+        `INSERT INTO courier_incidents(incident_id,branch_id,order_id,provider,claimed_number,kind,description,station_id,staff_id,terminal_id,request_hash)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        [
+          id,
+          branchId,
+          incident.orderId ?? null,
+          incident.provider,
+          incident.claimedNumber ?? null,
+          incident.kind,
+          incident.description,
+          stationId,
+          staff.staff_id,
+          staff.terminal_id,
+          requestHash,
+        ],
+      );
+      await audit(client, branchId, staff.staff_id, 'fulfillment.courier_incident', id);
+      return incidentView((await select('')).rows[0]!);
+    });
+  }
+  /**
+   * GET fulfillment/incidents?scope=open|today (contracts section 5.4): the "Менеджер вызван"
+   * banner of screens 2 and 3 (open: recorded within COURIER_INCIDENT_OPEN_MINUTES, its order
+   * not yet handed over, cancelled or released) and the journal of the Almaty day. Newest first.
+   * NOT_FOUND while the KDS layout is off.
+   */
+  async listIncidents(branchId: string, auth: StaffAuth, input: unknown) {
+    parse(z.uuid(), branchId);
+    const q = parse(CourierIncidentQuerySchema, input);
+    return transaction(this.pool, async (client) => {
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+      const staff = await authenticateStaff(client, branchId, auth);
+      if (!['kitchen', 'shift_manager'].includes(staff.role)) fail('FORBIDDEN');
+      await client.query('SET TRANSACTION READ ONLY');
+      if (!(await readKdsLayout(client, branchId)).enabled) fail('NOT_FOUND');
+      const open = q.scope === 'open';
+      const window = open
+        ? `i.recorded_at>clock_timestamp()-$2*interval '1 minute'
+           AND (i.order_id IS NULL OR r.state NOT IN ('handed_over','cancelled','released'))`
+        : `i.recorded_at>=(date_trunc('day',clock_timestamp() AT TIME ZONE 'Asia/Almaty') AT TIME ZONE 'Asia/Almaty')`;
+      const rows = (
+        await client.query<IncidentRow>(
+          `${INCIDENT_SELECT} WHERE i.branch_id=$1 AND ${window}
+           ORDER BY i.recorded_at DESC,i.incident_id LIMIT 200`,
+          open ? [branchId, COURIER_INCIDENT_OPEN_MINUTES] : [branchId],
+        )
+      ).rows;
+      return { items: rows.map(incidentView) };
     });
   }
   async claimOutbox(scope: TrustedCloud, input: unknown) {

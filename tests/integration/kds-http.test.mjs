@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 import {
+  CourierIncidentListSchema,
+  CourierIncidentSchema,
   ErrorSchema,
   FulfillmentDisplaySchema,
   FulfillmentKitchenSchema,
@@ -90,6 +92,20 @@ test('KDS HTTP: layout off answers {enabled:false}, breading 404, tickets withou
         assert.ok(!page.text.includes(key));
       assert.equal(errorOf(await call('/layout?x=1', ctx.packer), 400), 'INVALID_REQUEST');
       assert.equal(errorOf(await call('/layout', ctx.cashier), 403), 'FORBIDDEN');
+      // Courier incidents exist only with the layout on.
+      assert.equal(errorOf(await call('/incidents?scope=open', ctx.packer), 404), 'NOT_FOUND');
+      assert.equal(
+        errorOf(
+          await call('/incidents', ctx.manager, {
+            provider: 'glovo',
+            kind: 'other',
+            description: 'Курьер отказался',
+          }),
+          404,
+        ),
+        'NOT_FOUND',
+      );
+      assert.equal(await ctx.count('courier_incidents'), 0);
     });
   }));
 
@@ -228,6 +244,57 @@ test('KDS HTTP: layout on - screens per terminal, KDS tickets, cascade, breading
         'INVALID_REQUEST',
       );
 
+      // KDS-4: a courier refusal at station 3 is recorded once and shows on the banner.
+      const refusal = {
+        orderId: agg.order_id,
+        provider: 'glovo',
+        claimedNumber: 'g-4568',
+        kind: 'number_mismatch',
+        description: 'Номер в приложении курьера другой',
+      };
+      const incidentKey = randomUUID();
+      const recorded = await call('/incidents', ctx.packer, refusal, incidentKey);
+      const incident = exact(CourierIncidentSchema, recorded, 201);
+      assert.deepEqual(
+        [incident.incidentId, incident.claimedNumber, incident.provider],
+        [incidentKey, 'G-4568', 'glovo'],
+      );
+      assert.equal(
+        incident.displayNumber,
+        (
+          await ctx.pool.query(
+            'SELECT display_number FROM fulfillment_reservations WHERE order_id=$1',
+            [agg.order_id],
+          )
+        ).rows[0].display_number,
+      );
+      assert.equal(
+        (await call('/incidents', ctx.packer, refusal, incidentKey)).text,
+        recorded.text,
+      );
+      assert.equal(
+        errorOf(
+          await call('/incidents', ctx.packer, { ...refusal, kind: 'no_photo' }, incidentKey),
+          409,
+        ),
+        'CONFLICT',
+      );
+      assert.equal(
+        errorOf(await call('/incidents', ctx.packer, { ...refusal, phone: '0' }), 400),
+        'INVALID_REQUEST',
+      );
+      assert.equal(errorOf(await call('/incidents', ctx.cashier, refusal), 403), 'FORBIDDEN');
+      // A kitchen login without access to the order's finishing station.
+      assert.equal(errorOf(await call('/incidents', ctx.cook, refusal), 403), 'FORBIDDEN');
+      const banner = exact(
+        CourierIncidentListSchema,
+        await call('/incidents?scope=open', ctx.packer),
+      );
+      assert.deepEqual(banner.items, [incident]);
+      assert.equal(errorOf(await call('/incidents', ctx.packer), 400), 'INVALID_REQUEST');
+      assert.equal(errorOf(await call('/incidents?scope=all', ctx.packer), 400), 'INVALID_REQUEST');
+      assert.equal(errorOf(await call('/incidents?scope=open', ctx.cashier), 403), 'FORBIDDEN');
+
       // KDS-4: the aggregator order at station 3 - no marks, refused; three marks, handed over
       // with its journal row; the same key and body replay the same answer.
       let courier = exact(
@@ -299,6 +366,15 @@ test('KDS HTTP: layout on - screens per terminal, KDS tickets, cascade, breading
             terminal_id: ctx.packer.terminal_id,
           },
         ],
+      );
+      // Handed over: the banner is clear, the journal of the day keeps the refusal.
+      assert.deepEqual(
+        exact(CourierIncidentListSchema, await call('/incidents?scope=open', ctx.manager)).items,
+        [],
+      );
+      assert.deepEqual(
+        exact(CourierIncidentListSchema, await call('/incidents?scope=today', ctx.cook)).items,
+        [incident],
       );
 
       // Guest board: no aggregator order and only the keys it always had.

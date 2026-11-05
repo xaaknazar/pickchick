@@ -224,6 +224,23 @@ export const StaffCommandSchema = z.strictObject({
     })
     .optional(),
 });
+/**
+ * Cutover KDS-4: a courier protocol refusal (Аг9) as the kitchen sends it. Structural mirror of
+ * CourierIncidentRequestSchema (@pickchick/contracts kds.ts, which this package does not depend
+ * on); a test pins both. The client's Idempotency-Key is the incident id.
+ */
+export const CourierIncidentInputSchema = z.strictObject({
+  orderId: uuid.optional(),
+  provider: z.enum(['yandex_eda', 'glovo', 'other']),
+  claimedNumber: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9-]{1,40}$/)
+    .optional(),
+  kind: z.enum(['number_mismatch', 'not_accepted_in_app', 'no_photo', 'courier_refused', 'other']),
+  description: z.string().trim().min(3).max(500),
+});
+export const CourierIncidentQuerySchema = z.strictObject({ scope: z.enum(['open', 'today']) });
 export const LeaseSchema = z.strictObject({
   workerId: uuid,
   limit: z.int().min(1).max(100),

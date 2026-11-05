@@ -1075,7 +1075,39 @@ Object.assign(openapi.paths, {
       {},
       [limitParameter],
     ),
+    '/edge/v1/fulfillment/incidents': {
+      ...fulfillmentOperation(
+        'get',
+        'listLocalCourierIncidents',
+        'CourierIncidentList',
+        undefined,
+        {},
+        [
+          {
+            name: 'scope',
+            in: 'query',
+            required: true,
+            schema: { type: 'string', enum: ['open', 'today'] },
+            description:
+              'open: the "manager called" banner (recorded in the last 30 minutes, order still live); today: the journal of the Asia/Almaty day.',
+          },
+        ],
+      ),
+      ...fulfillmentOperation(
+        'post',
+        'recordLocalCourierIncident',
+        'CourierIncident',
+        'CourierIncidentRequest',
+        { status: 201, idempotent: true },
+      ),
+    },
   });
+  openapi.paths['/edge/v1/fulfillment/incidents'].get.description +=
+    ' Courier protocol refusals of the point, newest first, at most 200. 404 while the KDS layout is off.';
+  openapi.paths['/edge/v1/fulfillment/incidents'].post.description +=
+    ' Records a courier protocol refusal (insert-only journal, no cloud event). Idempotency-Key is the incident id: the same staff, terminal and body replay the stored record, anything else under that key is 409. A kitchen login needs access to the order finishing station (else station 3, else 2 of the layout); a managed screen must be an assembly screen. 404 while the KDS layout is off.';
+  openapi.paths['/edge/v1/fulfillment/orders/{orderId}/actions'].post.description +=
+    ' Cutover KDS-4: while the KDS layout is on, the handoff of an aggregator order requires handover {numberMatched, courierAccepted, photoTaken} all true (400 HANDOVER_MARKS_REQUIRED otherwise) and writes the courier handover journal row in the same transaction; marks on any other order or with the layout off are 400.';
   openapi.paths['/edge/v1/fulfillment/layout'].get.description +=
     ' KDS layout of the point: {enabled:false} while kds_settings.layout_enabled is off or schema027 is missing (the kitchen client keeps its old screen); otherwise the layout version, shift mode, the KDS stations and the stations of the requesting terminal (0..2 screens). An older edge answers 404.';
   openapi.paths['/edge/v1/fulfillment/kds/breading'].get.description +=

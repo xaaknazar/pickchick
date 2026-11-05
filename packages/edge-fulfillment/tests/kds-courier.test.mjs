@@ -1,11 +1,21 @@
 // Cutover lane kds, KDS-4 (contracts section 5.4): the courier handover marks of the edge staff
-// command mirror the HTTP contract exactly, and every existing command hashes as before. Pure:
-// no PostgreSQL.
+// command and the courier incident request mirror the HTTP contract exactly, and every existing
+// command hashes as before. Pure: no PostgreSQL.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
-import { FulfillmentActionSchema, FulfillmentHandoverSchema } from '@pickchick/contracts';
-import { StaffCommandSchema, digest } from '../dist/index.js';
+import {
+  CourierIncidentListQuerySchema,
+  CourierIncidentRequestSchema,
+  FulfillmentActionSchema,
+  FulfillmentHandoverSchema,
+} from '@pickchick/contracts';
+import {
+  CourierIncidentInputSchema,
+  CourierIncidentQuerySchema,
+  StaffCommandSchema,
+  digest,
+} from '../dist/index.js';
 
 const MARKS = { numberMatched: true, courierAccepted: true, photoTaken: true };
 const base = () => ({
@@ -72,4 +82,54 @@ test('a command without marks parses and hashes exactly as before KDS-4', () => 
     digest(StaffCommandSchema.parse(command)),
     digest(StaffCommandSchema.parse({ ...command, handover: MARKS })),
   );
+});
+
+test('the edge incident request mirrors CourierIncidentRequestSchema of the contract', () => {
+  const good = {
+    orderId: randomUUID(),
+    provider: 'yandex_eda',
+    claimedNumber: ' ya-12 ',
+    kind: 'number_mismatch',
+    description: '  Номер не совпал  ',
+  };
+  const vectors = [
+    good,
+    { provider: 'other', kind: 'courier_refused', description: 'Курьер отказался' },
+    { provider: 'glovo', kind: 'no_photo', description: 'abc', claimedNumber: 'G-1' },
+    ...['yandex_eda', 'glovo', 'other', 'chocofood', 'hall', ''].map((provider) => ({
+      ...good,
+      provider,
+    })),
+    ...[
+      'number_mismatch',
+      'not_accepted_in_app',
+      'no_photo',
+      'courier_refused',
+      'other',
+      'late',
+    ].map((kind) => ({ ...good, kind })),
+    { ...good, claimedNumber: '' },
+    { ...good, claimedNumber: '+7 700 000' },
+    { ...good, claimedNumber: 'A'.repeat(40) },
+    { ...good, claimedNumber: 'A'.repeat(41) },
+    { ...good, description: ' ab ' },
+    { ...good, description: 'x'.repeat(500) },
+    { ...good, description: 'x'.repeat(501) },
+    { ...good, orderId: 'not-a-uuid' },
+    { ...good, phone: '0' },
+    { provider: 'glovo', kind: 'other' },
+    {},
+  ];
+  for (const vector of vectors) {
+    const http = CourierIncidentRequestSchema.safeParse(vector);
+    const edge = CourierIncidentInputSchema.safeParse(vector);
+    assert.equal(edge.success, http.success, JSON.stringify(vector));
+    if (http.success) assert.deepEqual(edge.data, http.data);
+  }
+  for (const scope of ['open', 'today', 'all', ''])
+    assert.equal(
+      CourierIncidentQuerySchema.safeParse({ scope }).success,
+      CourierIncidentListQuerySchema.safeParse({ scope }).success,
+    );
+  assert.equal(CourierIncidentQuerySchema.safeParse({ scope: 'open', x: 1 }).success, false);
 });

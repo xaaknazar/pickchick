@@ -5,7 +5,9 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 import { createPool, transaction } from '@pickchick/database';
+import { edgeRuntimeGrantSql } from '../../../infra/windows/edge-runtime-grants.mjs';
 import { fulfillmentWorkerGrants } from '../../../infra/windows/fulfillment-worker-grants.mjs';
+import { kitchenRestoreReviewGrants } from '../../../infra/windows/kitchen-restore-review-grants.mjs';
 import {
   MIGRATION,
   RUNTIME_PRIVILEGES,
@@ -1153,4 +1155,238 @@ test('KDS-4 the protocol covers exactly the tickets that show delivery: layout o
     assert.equal((await handoff(f, late, f.packer)).state, 'handed_over');
     assert.equal(await f.count('delivery_handovers'), 1);
     await assertStrictEvents(f.pool);
+  }));
+
+const recordIncident = (f, actor, body, id = randomUUID()) =>
+  f.repo.recordIncident(f.scope.branchId, actor.auth, id, body);
+const listIncidents = (f, actor, scope) =>
+  f.repo.listIncidents(f.scope.branchId, actor.auth, { scope });
+/** A journal row written directly, e.g. recorded before the open window or on another day. */
+const pastIncident = (f, staff, stationId, recordedAt, extra = {}) =>
+  f.pool.query(
+    `INSERT INTO courier_incidents(incident_id,branch_id,order_id,provider,claimed_number,kind,description,station_id,staff_id,terminal_id,request_hash,recorded_at)
+     VALUES($1,$2,$3,'glovo',NULL,'courier_refused','Курьер уехал без заказа',$4,$5,$6,$7,$8::timestamptz)`,
+    [
+      extra.id ?? randomUUID(),
+      f.scope.branchId,
+      extra.orderId ?? null,
+      stationId,
+      staff.staff_id,
+      staff.terminal_id,
+      'e'.repeat(64),
+      recordedAt,
+    ],
+  );
+
+test('KDS-4 courier incidents: record, replay and conflicts, open banner and the journal of the day', () =>
+  fixture(async (f) => {
+    const b = f.scope.branchId;
+    const desk = await cashierDesk(f);
+    await writeKdsLayout(f.pool, b, kdsTestLayout(b), { enable: false });
+    const body = {
+      provider: 'yandex_eda',
+      claimedNumber: ' ya-301 ',
+      kind: 'number_mismatch',
+      description: 'Номер в приложении курьера не совпал',
+    };
+    // Layout off: the protocol views do not exist.
+    await assert.rejects(recordIncident(f, f.manager, body), errorCode('NOT_FOUND'));
+    await assert.rejects(listIncidents(f, f.manager, 'open'), errorCode('NOT_FOUND'));
+    await switchKdsLayout(f.pool, b, true);
+    await grantStation(f.pool, b, f.packer.staff_id, S(f, 'delivery_handover'));
+    const delivery = { provider: 'yandex_eda', externalNumber: 'YA-300' };
+    const order = await readyDelivery(f, desk, delivery);
+    const outbox = await f.count('fulfillment_outbox');
+    // Bad requests and roles.
+    for (const bad of [
+      { ...body, provider: 'chocofood' },
+      { ...body, claimedNumber: '+7 700 000' },
+      { ...body, description: ' x ' },
+      { ...body, phone: '0' },
+    ])
+      await assert.rejects(recordIncident(f, f.packer, bad), errorCode('INVALID'));
+    await assert.rejects(recordIncident(f, f.packer, body, 'not-a-uuid'), errorCode('INVALID'));
+    await assert.rejects(recordIncident(f, f.cashier, body), (error) => error.code === 'FORBIDDEN');
+    await assert.rejects(listIncidents(f, f.cashier, 'open'), (e) => e.code === 'FORBIDDEN');
+    await assert.rejects(listIncidents(f, f.manager, 'all'), errorCode('INVALID'));
+    await assert.rejects(
+      recordIncident(f, f.packer, { ...body, orderId: randomUUID() }),
+      errorCode('NOT_FOUND'),
+    );
+    // A kitchen login needs access to the courier counter of the incident.
+    await assert.rejects(recordIncident(f, f.cook, body), errorCode('FORBIDDEN'));
+    // With the order: at its finishing station (3), number upper-case, display number shown.
+    const withOrder = randomUUID();
+    const recorded = await recordIncident(
+      f,
+      f.packer,
+      { ...body, orderId: order.orderId },
+      withOrder,
+    );
+    const number = (await reservation(f, order.orderId)).display_number;
+    assert.deepEqual(recorded, {
+      incidentId: withOrder,
+      provider: 'yandex_eda',
+      claimedNumber: 'YA-301',
+      kind: 'number_mismatch',
+      description: 'Номер в приложении курьера не совпал',
+      recordedAt: recorded.recordedAt,
+      displayNumber: number,
+    });
+    assert.ok(Date.parse(recorded.recordedAt) <= Date.now());
+    const stored = (
+      await f.pool.query('SELECT * FROM courier_incidents WHERE incident_id=$1', [withOrder])
+    ).rows[0];
+    assert.deepEqual(
+      [stored.order_id, stored.station_id, stored.staff_id, stored.terminal_id, stored.reported_at],
+      [order.orderId, S(f, 'delivery_handover'), f.packer.staff_id, f.packer.terminal_id, null],
+    );
+    assert.match(stored.request_hash, /^[a-f0-9]{64}$/);
+    // Replay: same login, terminal and request -> the stored record; anything else -> CONFLICT.
+    assert.deepEqual(
+      await recordIncident(f, f.packer, { ...body, orderId: order.orderId }, withOrder),
+      recorded,
+    );
+    assert.deepEqual(
+      await recordIncident(
+        f,
+        f.packer,
+        { ...body, claimedNumber: 'YA-301', orderId: order.orderId },
+        withOrder,
+      ),
+      recorded,
+    );
+    await assert.rejects(recordIncident(f, f.packer, body, withOrder), errorCode('CONFLICT'));
+    await assert.rejects(
+      recordIncident(f, f.manager, { ...body, orderId: order.orderId }, withOrder),
+      errorCode('CONFLICT'),
+    );
+    // Without an order: at station 3 of the layout, no display number.
+    const loose = await recordIncident(f, f.manager, {
+      provider: 'other',
+      kind: 'courier_refused',
+      description: 'Курьер отказался ждать',
+    });
+    assert.equal(loose.claimedNumber, null);
+    assert.ok(!('displayNumber' in loose));
+    assert.equal(
+      (
+        await f.pool.query('SELECT station_id FROM courier_incidents WHERE incident_id=$1', [
+          loose.incidentId,
+        ])
+      ).rows[0].station_id,
+      S(f, 'delivery_handover'),
+    );
+    // Old and yesterday's rows: outside the banner window, and outside today's journal.
+    const old = randomUUID(),
+      yesterday = randomUUID();
+    await pastIncident(f, f.manager, S(f, 'issue'), new Date(Date.now() - 31 * 60_000), {
+      id: old,
+    });
+    await pastIncident(f, f.manager, S(f, 'issue'), new Date(Date.now() - 36 * 3600_000), {
+      id: yesterday,
+    });
+    const ids = (list) => list.items.map((item) => item.incidentId);
+    const open = await listIncidents(f, f.packer, 'open');
+    assert.deepEqual(ids(open), [loose.incidentId, withOrder]);
+    assert.deepEqual(open.items[1], recorded);
+    const today = ids(await listIncidents(f, f.cook, 'today'));
+    assert.deepEqual(today.slice(0, 2), [loose.incidentId, withOrder]);
+    assert.ok(!today.includes(yesterday));
+    // An old row counts for today only when it was recorded after Almaty midnight.
+    const almaty = new Date(Date.now() + 5 * 3600_000);
+    const sinceMidnight = almaty.getUTCHours() * 60 + almaty.getUTCMinutes();
+    if (Math.abs(sinceMidnight - 31) > 2) assert.equal(today.includes(old), sinceMidnight > 31);
+    // Handing the order over closes its banner; the journal keeps it.
+    await handoff(f, order, f.packer, { handover: MARKS });
+    assert.deepEqual(ids(await listIncidents(f, f.packer, 'open')), [loose.incidentId]);
+    assert.ok(ids(await listIncidents(f, f.packer, 'today')).includes(withOrder));
+    // Journal only: no outbox event, the row is final.
+    assert.equal(await f.count('fulfillment_outbox'), outbox + 1);
+    await assert.rejects(
+      f.pool.query('UPDATE courier_incidents SET kind=$1 WHERE incident_id=$2', [
+        'other',
+        withOrder,
+      ]),
+      (error) => error.code === '23514',
+    );
+    // Switched off: the views are gone again; the rows stay.
+    await switchKdsLayout(f.pool, b, false);
+    await assert.rejects(listIncidents(f, f.packer, 'today'), errorCode('NOT_FOUND'));
+    assert.equal(await f.count('courier_incidents'), 4);
+    await assertStrictEvents(f.pool);
+  }));
+
+test('KDS-4 the reviewed runtime grants are enough for handover and incidents; without them the old flow', () =>
+  fixture(async (f) => {
+    const b = f.scope.branchId;
+    const role = 'kds_rt4_' + randomUUID().replaceAll('-', '').slice(0, 20);
+    await f.admin.query(`CREATE ROLE ${role} NOLOGIN NOINHERIT`);
+    let runtime;
+    try {
+      // The edge runtime role as installed (fulfillment, cashier reports, restore review),
+      // without the 027 rights.
+      await f.pool.query(
+        edgeRuntimeGrantSql(role, { schema: f.schema, fulfillment: true, cashierReports: true }),
+      );
+      await f.pool.query(kitchenRestoreReviewGrants(role, f.schema));
+      const desk = await cashierDesk(f);
+      await writeKdsLayout(f.pool, b, kdsTestLayout(b));
+      await grantStation(f.pool, b, f.packer.staff_id, S(f, 'delivery_handover'));
+      const url = new URL(f.url);
+      url.searchParams.set('options', url.searchParams.get('options') + ' -c role=' + role);
+      runtime = createPool(url.toString(), 2);
+      assert.equal((await runtime.query('SELECT current_user AS u')).rows[0].u, role);
+      const repo = new EdgeFulfillment(runtime);
+      const act = (current, extra = {}) =>
+        repo.act(b, f.packer.auth, {
+          commandId: randomUUID(),
+          orderId: current.orderId,
+          expectedVersion: current.version,
+          action: 'handoff',
+          ...extra,
+        });
+      // Without the KDS rights the runtime cannot see the layout: today's handoff, no views.
+      const first = await readyDelivery(f, desk, { provider: 'glovo', externalNumber: 'G-100' });
+      await assert.rejects(act(first, { handover: MARKS }), errorCode('INVALID'));
+      await assert.rejects(
+        repo.listIncidents(b, f.packer.auth, { scope: 'open' }),
+        errorCode('NOT_FOUND'),
+      );
+      assert.equal((await act(first)).state, 'handed_over');
+      // With kds-grants RUNTIME_PRIVILEGES: the protocol, its journal row and the incidents.
+      await f.pool.query(kdsRuntimeGrantSql(role, f.schema));
+      await assertKdsRuntimePrivileges(f.pool, role, f.schema);
+      const second = await readyDelivery(f, desk, { provider: 'glovo', externalNumber: 'G-101' });
+      await assert.rejects(act(second), marksRequired);
+      assert.equal((await act(second, { handover: MARKS })).state, 'handed_over');
+      const incident = await repo.recordIncident(b, f.packer.auth, randomUUID(), {
+        orderId: second.orderId,
+        provider: 'glovo',
+        kind: 'no_photo',
+        description: 'Курьер не сфотографировал заказ',
+      });
+      assert.deepEqual((await repo.listIncidents(b, f.packer.auth, { scope: 'today' })).items, [
+        incident,
+      ]);
+      assert.deepEqual(await repo.listIncidents(b, f.packer.auth, { scope: 'open' }), {
+        items: [],
+      });
+      assert.deepEqual((await f.pool.query('SELECT order_id FROM delivery_handovers')).rows, [
+        { order_id: second.orderId },
+      ]);
+      // The runtime still cannot change the journals or the switch.
+      const denied = (error) => error.code === '42501';
+      await assert.rejects(
+        runtime.query('UPDATE delivery_handovers SET reported_at=clock_timestamp()'),
+        denied,
+      );
+      await assert.rejects(runtime.query('DELETE FROM courier_incidents'), denied);
+      await assert.rejects(runtime.query('UPDATE kds_settings SET layout_enabled=false'), denied);
+      await assertStrictEvents(f.pool);
+    } finally {
+      await runtime?.end();
+      await f.admin.query(`DROP OWNED BY ${role}`).catch(() => {});
+      await f.admin.query(`DROP ROLE IF EXISTS ${role}`);
+    }
   }));
