@@ -124,22 +124,37 @@ function edge({ layout = { enabled: false }, role = 'kitchen' } = {}) {
     assemblyStationId: stationIds.issue,
     tasks: [task(stationIds.table1, { kds: { function: 'assembly_hall' } })],
   };
-  const state = { layout, orders: [deliveryOrder, hallOrder], fault: null };
+  const state = {
+    layout,
+    orders: [deliveryOrder, hallOrder],
+    fault: null,
+    live: [],
+    stationsFault: null,
+  };
   const session = new Store(),
     durable = new Store(),
     calls = [];
   const transport = async (path, actor, body, key) => {
     calls.push({ path, body: globalThis.structuredClone(body), key });
     if (path.endsWith('/fulfillment/config')) return { enabled: true, wholeTicketActions: true };
-    if (path.endsWith('/stations'))
+    // The edge lists the KDS stations only while the layout is on; after disable, only those
+    // with unfinished orders (state.live).
+    if (path.endsWith('/stations')) {
+      if (state.stationsFault) throw state.stationsFault;
+      const on = state.layout?.enabled === true;
       return {
         branchId: c.branch_id,
         items: [
           { id: stationIds.oldPrep, kind: 'prep', name: 'Приготовление' },
           { id: stationIds.oldAssembly, kind: 'assembly', name: 'Сборка' },
-          ...KDS.map(([key, , kind, name]) => ({ id: stationIds[key], kind, name })),
+          ...KDS.filter(([key]) => on || state.live.includes(key)).map(([key, , kind, name]) => ({
+            id: stationIds[key],
+            kind,
+            name,
+          })),
         ],
       };
+    }
     if (path.endsWith('/layout')) {
       if (state.layout instanceof Error) throw state.layout;
       return globalThis.structuredClone(state.layout);
@@ -389,6 +404,9 @@ test('kds-switch disable during the shift: the old screen comes back with a noti
     assert.ok(m.state.kds);
     Date.now = () => later + LAYOUT_TTL_MS + 1000;
     f.state.layout = { enabled: false };
+    // Orders admitted with the layout keep table 1 and issue listed until they are finished.
+    f.state.live = ['table1', 'issue'];
+    f.calls.length = 0;
     await m.refresh();
   } finally {
     Date.now = realNow;
@@ -397,6 +415,76 @@ test('kds-switch disable during the shift: the old screen comes back with a noti
   assert.equal(m.state.kdsNotice, 'KDS_LAYOUT_OFF');
   assert.deepEqual(m.tabs, []);
   assert.equal(m.kdsFunction(), null);
+  assert.deepEqual(paths(f), [
+    '/edge/v1/fulfillment/layout',
+    '/edge/v1/fulfillment/stations',
+    '/edge/v1/fulfillment/kitchen',
+  ]);
+  assert.deepEqual(
+    m.state.stations.map((s) => s.id),
+    [stationIds.oldPrep, stationIds.oldAssembly, stationIds.table1, stationIds.issue],
+  );
+  assert.equal(m.state.stationId, stationIds.table1, 'the cook finishes the started orders');
+});
+
+test('kds-switch enable and disable during the shift: the station list is read again', async () => {
+  const f = edge(),
+    m = f.make();
+  await login(f, m);
+  assert.deepEqual(
+    m.state.stations.map((s) => s.id),
+    [stationIds.oldPrep, stationIds.oldAssembly],
+  );
+  assert.equal(m.state.stationId, stationIds.oldPrep);
+  const realNow = Date.now;
+  let now = realNow();
+  const tick = () => {
+    now += LAYOUT_TTL_MS + 1000;
+  };
+  try {
+    Date.now = () => now;
+    // Enable mid-shift: the KDS stations appear and the terminal opens its first screen.
+    f.state.layout = layoutOn(['table1', 'issue']);
+    f.state.stationsFault = new ApiError('CONNECTION_UNKNOWN');
+    tick();
+    await m.refresh();
+    assert.equal(m.state.error, null, 'a failed station read is not an error of the queue');
+    assert.equal(m.state.kds, null, 'without the station list nothing changes');
+    assert.equal(m.state.stationId, stationIds.oldPrep);
+    f.state.stationsFault = null;
+    f.calls.length = 0;
+    await m.refresh();
+    assert.deepEqual(
+      paths(f).slice(0, 2),
+      ['/edge/v1/fulfillment/layout', '/edge/v1/fulfillment/stations'],
+      'the next poll retries at once',
+    );
+    assert.ok(m.state.kds);
+    assert.deepEqual(
+      m.tabs.map((s) => s.id),
+      [stationIds.table1, stationIds.issue],
+    );
+    assert.equal(m.state.stationId, stationIds.table1);
+    // A later read with the same switch reads no stations.
+    tick();
+    f.calls.length = 0;
+    await m.refresh();
+    assert.deepEqual(paths(f), ['/edge/v1/fulfillment/layout', '/edge/v1/fulfillment/kitchen']);
+    // Disable with nothing left on the KDS stations: back to the first prep station, as at sign-in.
+    f.state.layout = { enabled: false };
+    tick();
+    await m.refresh();
+  } finally {
+    Date.now = realNow;
+  }
+  assert.equal(m.state.kds, null);
+  assert.equal(m.state.kdsNotice, 'KDS_LAYOUT_OFF');
+  assert.deepEqual(
+    m.state.stations.map((s) => s.id),
+    [stationIds.oldPrep, stationIds.oldAssembly],
+  );
+  assert.equal(m.state.stationId, stationIds.oldPrep);
+  assert.equal(m.state.error, null);
 });
 
 test('courier handover: a delivery ticket needs the three marks, and only it may carry them', async () => {

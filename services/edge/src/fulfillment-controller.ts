@@ -27,7 +27,12 @@ import {
   UuidSchema,
 } from '@pickchick/contracts';
 import { transaction } from '@pickchick/database';
-import { EdgeFulfillment, FulfillmentError, readKdsLayout } from '@pickchick/edge-fulfillment';
+import {
+  EdgeFulfillment,
+  FulfillmentError,
+  hiddenKdsStations,
+  readKdsLayout,
+} from '@pickchick/edge-fulfillment';
 import {
   authenticateStaff,
   authenticateManagedTerminal,
@@ -263,9 +268,17 @@ export class FulfillmentController {
         const terminal = auth.terminal
           ? await authenticateManagedTerminal(client, this.branchId, auth.terminal)
           : null;
+        // Layout off: the provisioned KDS stations stay out of today's list (contracts section
+        // 10, risk 3), except while one still has live work after kds-switch disable.
+        const hidden = await hiddenKdsStations(
+          client,
+          this.branchId,
+          rows.rows.map((row) => row.id),
+        );
+        const listed = rows.rows.filter((row) => !hidden.has(row.id));
         return {
           branchId: this.branchId,
-          items: terminal ? rows.rows.filter((row) => row.kind === terminal.mode) : rows.rows,
+          items: terminal ? listed.filter((row) => row.kind === terminal.mode) : listed,
         };
       });
       await this.boundSession(headers);

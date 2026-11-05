@@ -1,7 +1,7 @@
 // Shared by the KDS lane database tests (tests/integration/kds-*.test.mjs): an isolated schema
 // migrated from an explicit list of edge migrations, on a local development database only.
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { copyFile, mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,10 +9,13 @@ import { fileURLToPath } from 'node:url';
 import { createPool, migrate, transaction } from '@pickchick/database';
 import {
   OrderError,
+  TerminalAccess,
   audit,
   cancelLocalOrder,
   createLocalOrder,
   createQuote,
+  provisionStaff,
+  terminalHash,
 } from '@pickchick/local-orders';
 import {
   FulfillmentError,
@@ -250,6 +253,36 @@ export async function writeKdsLayout(pool, branchId, layout, { enable = true } =
     );
   });
   if (enable) await switchKdsLayout(pool, branchId, true);
+}
+/**
+ * A paired kitchen screen (EDGE_DEVICE_ACCESS_ENABLED=true at request time) with a shift
+ * manager session on it; requests send X-Terminal-Key = terminalKey.
+ */
+export async function managedScreen(f, mode) {
+  const access = new TerminalAccess(f.pool, f.scope.branchId, f.scope.deviceId);
+  const code = randomBytes(16).toString('hex'),
+    issuedAt = new Date();
+  await access.receive({
+    commandId: randomUUID(),
+    branchId: f.scope.branchId,
+    edgeDeviceId: f.scope.deviceId,
+    terminalId: randomUUID(),
+    mode,
+    name: 'Synthetic ' + mode,
+    generation: 1,
+    action: 'pair',
+    codeHash: terminalHash(code),
+    issuedAt: issuedAt.toISOString(),
+    expiresAt: new Date(issuedAt.getTime() + 600000).toISOString(),
+  });
+  const key = await access.pair({ code });
+  const staff = await provisionStaff(f.pool, f.scope.branchId, {
+    staff_id: f.manager.staff_id,
+    terminal_id: key.terminalId,
+    name: 'Synthetic staff',
+    role: 'shift_manager',
+  });
+  return { ...staff, terminalKey: key.terminalKey };
 }
 export function switchKdsLayout(pool, branchId, enabled) {
   return transaction(pool, async (client) => {

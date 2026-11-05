@@ -2,7 +2,7 @@
 // GET fulfillment/kds/breading, the KDS keys of the kitchen API only while the layout is on, the
 // guest board without aggregator orders and without new keys, and the courier handover marks.
 import assert from 'node:assert/strict';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 import {
   CourierIncidentListSchema,
@@ -16,12 +16,12 @@ import {
   KdsBreadingSchema,
 } from '@pickchick/contracts';
 import { grantStation, kdsStationId } from '@pickchick/edge-fulfillment';
-import { TerminalAccess, provisionStaff, terminalHash } from '@pickchick/local-orders';
 import { createEdge } from '../../services/edge/dist/index.js';
 import { fixture } from '../../packages/edge-fulfillment/tests/fixture.mjs';
 import {
   cashierDesk,
   kdsTestLayout,
+  managedScreen,
   switchKdsLayout,
   writeKdsLayout,
 } from '../../packages/edge-fulfillment/tests/kds-fixture.mjs';
@@ -407,34 +407,6 @@ test('KDS HTTP: layout on - screens per terminal, KDS tickets, cascade, breading
       assert.equal(errorOf(await call('/kds/breading', ctx.cook), 404), 'NOT_FOUND');
     });
   }));
-
-/** A paired kitchen screen (device access on) with a shift manager session on it. */
-async function managedScreen(ctx, mode) {
-  const access = new TerminalAccess(ctx.pool, ctx.scope.branchId, ctx.scope.deviceId);
-  const code = randomBytes(16).toString('hex'),
-    issuedAt = new Date();
-  await access.receive({
-    commandId: randomUUID(),
-    branchId: ctx.scope.branchId,
-    edgeDeviceId: ctx.scope.deviceId,
-    terminalId: randomUUID(),
-    mode,
-    name: 'Synthetic ' + mode,
-    generation: 1,
-    action: 'pair',
-    codeHash: terminalHash(code),
-    issuedAt: issuedAt.toISOString(),
-    expiresAt: new Date(issuedAt.getTime() + 600000).toISOString(),
-  });
-  const key = await access.pair({ code });
-  const staff = await provisionStaff(ctx.pool, ctx.scope.branchId, {
-    staff_id: ctx.manager.staff_id,
-    terminal_id: key.terminalId,
-    name: 'Synthetic staff',
-    role: 'shift_manager',
-  });
-  return { ...staff, terminalKey: key.terminalKey };
-}
 
 test('KDS-4 managed screens: marks refused first while the layout is off, courier work only on assembly screens', () =>
   fixture(async (ctx) => {

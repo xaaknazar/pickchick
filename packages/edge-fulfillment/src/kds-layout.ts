@@ -1,5 +1,5 @@
 import type { DatabaseClient } from '@pickchick/database';
-import { menuKdsSlugs, parseKdsLayout } from './kds.js';
+import { KDS_STATIONS, kdsStationId, menuKdsSlugs, parseKdsLayout } from './kds.js';
 import type { KdsLayoutData, KdsSlugs } from './kds.js';
 
 type Queryable = Pick<DatabaseClient, 'query'>;
@@ -41,6 +41,55 @@ export async function readKdsLayout(client: Queryable, branchId: string): Promis
   return layout
     ? { enabled: true, version: row.version, mode: row.shift_mode, layout }
     : { enabled: false };
+}
+
+/**
+ * GET fulfillment/stations with the layout off (contracts section 10, risk 3): which of the
+ * listed stations are KDS stations to leave out. provisionKdsStations creates the six stations
+ * and grants them to the kitchen login before the layout is ever enabled; the installed kitchen
+ * screens open the first prep (or assembly) station of the list, so listing them would open an
+ * empty KDS queue while the old stations still get every order. A KDS station that still has
+ * live work - an order admitted while the layout was on, with a task there or finishing there,
+ * and shown on its kitchen page - stays listed until that order leaves the kitchen, so
+ * kds-switch disable never strands a started order. Empty while the layout is on, and no query
+ * at all when none of the listed stations is a KDS station.
+ */
+export async function hiddenKdsStations(
+  client: Queryable,
+  branchId: string,
+  listed: readonly string[],
+): Promise<Set<string>> {
+  const kds = new Set(KDS_STATIONS.map((spec) => kdsStationId(branchId, spec.function)));
+  const candidates = listed.filter((id) => kds.has(id));
+  if (!candidates.length || (await readKdsLayout(client, branchId)).enabled) return new Set();
+  const hasReviews = (
+    await client.query<{ ok: boolean }>(
+      "SELECT to_regclass('fulfillment_restore_reviews') IS NOT NULL AS ok",
+    )
+  ).rows[0]!.ok;
+  // The same visibility as GET fulfillment/kitchen?stationId= (repository listKitchen).
+  const reviewFilter = hasReviews
+    ? ` AND NOT EXISTS (
+        SELECT 1 FROM fulfillment_restore_reviews rr JOIN fulfillment_restore_decisions d USING(epoch,order_id)
+        WHERE rr.order_id=live.order_id AND d.decision='retire' AND rr.epoch=(
+          SELECT max(latest.epoch) FROM fulfillment_restore_reviews latest WHERE latest.order_id=live.order_id))`
+    : '';
+  // Starts from the live orders (partial index fulfillment_active_idx), never from task history.
+  const live = (
+    await client.query<{ id: string }>(
+      `SELECT DISTINCT live.station_id::text AS id FROM (
+         SELECT r.order_id,r.assembly_station_id AS station_id FROM fulfillment_reservations r
+          WHERE r.branch_id=$1 AND r.state IN ('accepted','in_production','ready','cancel_requested')
+         UNION ALL
+         SELECT r.order_id,t.station_id FROM fulfillment_reservations r
+          JOIN fulfillment_tasks t ON t.order_id=r.order_id AND t.branch_id=r.branch_id
+          WHERE r.branch_id=$1 AND r.state IN ('accepted','in_production','ready','cancel_requested')
+       ) live WHERE live.station_id=ANY($2::uuid[])${reviewFilter}`,
+      [branchId, candidates],
+    )
+  ).rows;
+  const working = new Set(live.map((row) => row.id));
+  return new Set(candidates.filter((id) => !working.has(id)));
 }
 
 // Menu snapshots are immutable (trigger menu_snapshots_immutable): slugs of a release never change.

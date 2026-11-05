@@ -651,7 +651,7 @@ export class KitchenModel {
       if (!c) return;
       if (Date.parse(c.expires_at) <= Date.now()) throw new ApiError('SESSION_EXPIRED', 401, true);
       if (this.state.mode === 'kitchen' && Date.now() - this.layoutReadAt >= LAYOUT_TTL_MS)
-        this.applyLayout(await this.fetchLayout(c));
+        await this.applyLayout(c, await this.fetchLayout(c));
       if (this.state.mode === 'kitchen' && this.kdsFunction() === 'breading') {
         const view = await this.readBreading(c);
         if (view) {
@@ -797,10 +797,34 @@ export class KitchenModel {
       return undefined;
     }
   }
-  /** A doubtful answer keeps the last known layout until the next read (LAYOUT_TTL_MS). */
-  private applyLayout(next: KdsLayout | null | undefined) {
+  /**
+   * A doubtful answer keeps the last known layout until the next read (LAYOUT_TTL_MS). When the
+   * layout goes on or off the station list is read again first: the edge lists the KDS stations
+   * only while the layout is on (after disable, only those with unfinished orders). A station
+   * that left the list gives way to the first prep station, as at sign-in, unless a command is
+   * pending there. If the list cannot be read, nothing changes and the next poll tries again.
+   */
+  private async applyLayout(c: Credential, next: KdsLayout | null | undefined) {
+    if (next === undefined) {
+      this.layoutReadAt = Date.now();
+      return;
+    }
+    if (!!next !== !!this.state.kds) {
+      let list: Station[];
+      try {
+        list = stations(await this.call(prefix + '/stations', c), c.branch_id);
+      } catch (error) {
+        if (error instanceof StaleOperation || revokedSession(error)) throw error;
+        return;
+      }
+      this.state.stations = list;
+      if (!this.state.pending && !list.some((s) => s.id === this.state.stationId)) {
+        this.state.stationId =
+          list.find((station) => station.kind === 'prep')?.id ?? list[0]?.id ?? null;
+        this.resetSnapshot();
+      }
+    }
     this.layoutReadAt = Date.now();
-    if (next === undefined) return;
     if (this.state.kds && !next) this.state.kdsNotice = 'KDS_LAYOUT_OFF';
     if (next) this.state.kdsNotice = null;
     this.state.kds = next;
@@ -838,7 +862,7 @@ export class KitchenModel {
       return breading(await this.call(prefix + '/kds/breading?limit=100', c));
     } catch (error) {
       if (error instanceof ApiError && error.validated && error.status === 404) {
-        this.applyLayout(await this.fetchLayout(c));
+        await this.applyLayout(c, await this.fetchLayout(c));
         if (this.kdsFunction() !== 'breading') return null;
       }
       throw error;
