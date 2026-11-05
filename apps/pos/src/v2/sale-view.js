@@ -460,9 +460,11 @@ export class SaleView {
     if (!this.on && !doneShown) return { saleChannelBar: false, saleRefShown: false, ...screens };
     const q = this.quote,
       g = this.guard;
+    // A quote replaced under the payment screen (live menu, expiry) is repeated to the guest.
+    const repeat = s.screen === 'review' || (s.screen === 'pay' && !m.reviewed);
     const values = {
       ...screens,
-      isSaleReview: s.screen === 'review' && Boolean(q) && !sale,
+      isSaleReview: repeat && Boolean(q) && !sale,
       isSalePay: s.screen === 'pay' && Boolean(q) && m.reviewed && !sale,
       isSaleDone: doneShown,
       saleReviewType: this.typeLabel(),

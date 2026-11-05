@@ -1721,6 +1721,11 @@ test('screens: payment tiles follow pos/config; an aggregator order has one tile
     'Заказ оплачен в Glovo №GL-77 - деньги придут от агрегатора.',
   );
   assert.equal(values.salePayLabel, 'Провести заказ Glovo');
+  // A new quote under the open payment screen goes back to "Повторите заказ гостю".
+  await model.calculate();
+  assert.equal(model.reviewed, false);
+  assert.equal(view.values().isSalePay, false);
+  assert.equal(view.values().isSaleReview, true);
 });
 
 test('screens: cash from the keypad with change, then the done screen with number and Webkassa', async () => {
