@@ -7307,9 +7307,9 @@
         "docs/project-status.md",
         "docs/roadmap/project.json"
       ],
-      "status": "available",
-      "updatedAt": "2026-11-05T07:54:26.196Z",
-      "summary": "PR307 merged 84098306; Foundation CI41986578348 11/11. Version1.0.1(7), 584 Node+96 Python, 101 production screens and review account PASS. Android Studio/JDK installed, permanent upload key in local Keychain. Protocol/status draft PR308 f87d8eda. No AAB yet; doctor FAIL because SDK license awaits explicit owner consent after automatic approval rejection.",
+      "status": "active",
+      "updatedAt": "2026-11-05T08:21:17.554Z",
+      "summary": "PR307 merged 84098306; Foundation CI41986578348 11/11. Version1.0.1(7), 584 Node+96 Python, 101 production screens and review account PASS. Android Studio/JDK installed, permanent upload key in local Keychain. Protocol/status draft PR308 f87d8eda. No AAB yet; doctor FAIL because SDK license awaits explicit owner consent after automatic approval rejection. Owner explicitly accepted Android SDK license on 2026-11-05; installation/build resumed.",
       "nextAction": "After explicit SDK license consent install platform36/build-tools35+36/NDK27.1.12297006/CMake3.22.1; doctor, build production and inspect exactly7 permissions using local Keychain helper. Review PR308 CI and continue protocol. No website/Play/App Store/VPS release authorized. Offline key backup later; physical Android pending."
     }
   ]
