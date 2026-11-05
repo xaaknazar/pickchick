@@ -7252,11 +7252,11 @@
         "docs/project-status.md",
         "docs/roadmap/project.json"
       ],
-      "status": "active",
+      "status": "done",
       "head": "58aa4423780a44d888d170f3100d0cb21bf4a7f3",
-      "updatedAt": "2026-11-05T07:17:27.390Z",
-      "summary": "TestFlight0.2.0(33) delivered and Apple processed; PickChick Internal status Testing confirmed 2026-11-04 22:23UTC. Build ID a4fad84a-b506-4de7-8f31-06510e79cb69. PR305 merged, archive source4c7ed8ec Foundation11/11 PASS. Production backend confirmed all phases, codesign PASS, no appex, ExpoHaptics present. Protocol/status/roadmap checkpoint58aa4423 in PR306. Release/Apple reserves and five completed file scopes returned to prior tasks.",
-      "nextAction": "Owner iPhone acceptance pending. PR306 evidence CI/merge pending; keep project-status/roadmap until merge then return to stage2-windows-1030. Server legal URLs remain nip.io: wait new Apple32 decision, guarded change then Domain gate PASS. App Store update requires separate owner approval; keep32 unchanged. No real payments, devices or online-roadmap deployment."
+      "updatedAt": "2026-11-05T07:17:36.188Z",
+      "summary": "PR305 and PR306 merged; full Foundation CI 11/11; 0.2.0(33) available to PickChick Internal. Protocol includes IPA/JS hashes and production backend.",
+      "nextAction": "Owner iPhone acceptance pending. Server legal URLs and App Store update wait for separate authorization."
     },
     {
       "id": "mobile-android-1105",
