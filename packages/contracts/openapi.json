@@ -8743,7 +8743,7 @@
             }
           }
         },
-        "description": "Local edge only, EDGE_FULFILLMENT_ENABLED required. Kitchen/shift_manager session, own branch and active terminal. Responses are no-store and bounded to 3 MiB; commands to 16 KiB. No payment or cloud admission authority."
+        "description": "Local edge only, EDGE_FULFILLMENT_ENABLED required. Kitchen/shift_manager session, own branch and active terminal. Responses are no-store and bounded to 3 MiB; commands to 16 KiB. No payment or cloud admission authority. Cutover KDS-4: while the KDS layout is on, the handoff of an aggregator order requires handover {numberMatched, courierAccepted, photoTaken} all true (400 HANDOVER_MARKS_REQUIRED otherwise) and writes the courier handover journal row in the same transaction; marks on any other order or with the layout off are 400."
       }
     },
     "/edge/v1/fulfillment/display": {
@@ -9097,6 +9097,250 @@
           }
         },
         "description": "Local edge only, EDGE_FULFILLMENT_ENABLED required. Kitchen/shift_manager session, own branch and active terminal. Responses are no-store and bounded to 3 MiB; commands to 16 KiB. No payment or cloud admission authority. Breading station 6 view: prep terminal and access to the breading station. Accepted or in-production orders, oldest first, whose open assembly table tasks hold breading products; fingers only when the layout counts them. 404 while the KDS layout is off."
+      }
+    },
+    "/edge/v1/fulfillment/incidents": {
+      "get": {
+        "operationId": "listLocalCourierIncidents",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": [],
+            "staffTerminal": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "today"
+              ]
+            },
+            "description": "open: the \"manager called\" banner (recorded in the last 30 minutes, order still live); today: the journal of the Asia/Almaty day."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourierIncidentList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired local staff session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role cannot perform operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing or outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency, quote expiry, menu or availability conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Device binding or service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Local edge only, EDGE_FULFILLMENT_ENABLED required. Kitchen/shift_manager session, own branch and active terminal. Responses are no-store and bounded to 3 MiB; commands to 16 KiB. No payment or cloud admission authority. Courier protocol refusals of the point, newest first, at most 200. 404 while the KDS layout is off."
+      },
+      "post": {
+        "operationId": "recordLocalCourierIncident",
+        "security": [
+          {
+            "staffBearer": [],
+            "staffSession": [],
+            "staffTerminal": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CourierIncidentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourierIncident"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired local staff session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role cannot perform operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing or outside actor scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version, idempotency, quote expiry, menu or availability conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Device binding or service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Local edge only, EDGE_FULFILLMENT_ENABLED required. Kitchen/shift_manager session, own branch and active terminal. Responses are no-store and bounded to 3 MiB; commands to 16 KiB. No payment or cloud admission authority. Records a courier protocol refusal (insert-only journal, no cloud event). Idempotency-Key is the incident id: the same staff, terminal and body replay the stored record, anything else under that key is 409. A kitchen login needs access to the order finishing station (else station 3, else 2 of the layout); a managed screen must be an assembly screen. 404 while the KDS layout is off."
       }
     },
     "/internal/v1/edge/fulfillment/pull": {
