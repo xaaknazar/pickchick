@@ -538,6 +538,9 @@ td.price {
   white-space: nowrap;
   font-weight: 650;
 }
+td.price .aggregator-prices {
+  font-weight: 400;
+}
 .product-identity {
   display: flex;
   align-items: center;

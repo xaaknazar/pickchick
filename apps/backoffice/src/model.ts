@@ -1,5 +1,6 @@
 import {
   copy,
+  catalogHasBlockedAggregatorPrices,
   catalogHasChannelPrices,
   parsePayload,
   parseState,
@@ -404,9 +405,21 @@ export class CatalogModel {
         throw new Error('Перед публикацией подтвердите проверку содержимого и сохраните черновик.');
       // Mobile-only prices are blocked as well once the cashier takes publications.
       const support = this.state.publication_support;
-      if (catalogHasChannelPrices(this.payload, support?.mobile === true && support.pos !== true))
+      // Aggregator prices (cutover) publish only while the cashier takes them.
+      const aggregators = support?.aggregator_prices === true && support.pos === true;
+      if (
+        catalogHasChannelPrices(
+          this.payload,
+          support?.mobile === true && support.pos !== true,
+          true,
+        )
+      )
         throw new Error(
           'Цены каналов пока доступны только в черновике: касса, киоск и приложение получают одну базовую цену. Очистите поля «Цены по каналам», сохраните черновик и опубликуйте.',
+        );
+      if (catalogHasBlockedAggregatorPrices(this.payload, aggregators))
+        throw new Error(
+          'Цены Яндекс Еды и Glovo пока нельзя публиковать: их публикация на кассу ещё не включена. Очистите поля «Цены агрегаторов», сохраните черновик и опубликуйте.',
         );
       await this.command('publish', {
         expected_revision: this.state.draft.revision,

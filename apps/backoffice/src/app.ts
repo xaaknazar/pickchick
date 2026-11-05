@@ -10,7 +10,14 @@ import { FinanceView } from './finance.js';
 import { OperationsView, sections } from './operations.js';
 import { CatalogModel } from './model.js';
 import { transport, message, staffAuth } from './api.js';
-import { money, copy, deliveryText, publicationCopy } from './domain.js';
+import {
+  aggregatorPriceLine,
+  copy,
+  deliveryText,
+  hasAggregatorPrice,
+  money,
+  publicationCopy,
+} from './domain.js';
 import {
   element as el,
   button,
@@ -885,6 +892,12 @@ function render() {
           model.payload!.categories.find((c) => c.id === p.category_id)?.name.ru ?? p.category_id,
         price = el('td', 'price', money(p.price_minor)),
         nutrition = el('td');
+      // Cutover: aggregator prices next to the base price (only where they are in use).
+      if (model.state?.publication_support?.aggregator_prices === true || hasAggregatorPrice(p)) {
+        const line = el('small', 'muted aggregator-prices', aggregatorPriceLine(p));
+        line.dataset.testid = `aggregator-prices-${p.id}`;
+        price.append(line);
+      }
       nutrition.append(
         el('span', '', `${p.nutrition.energy_kcal} ккал`),
         el(
