@@ -10,6 +10,8 @@
 Миграция `db/edge/migrations/026_edge_pos_sales.sql`, SHA-256 на `513985f6`:
 `9e3ab95a851bae3bb7383e9517d5fcc76f6f0b92bacc98d12f3292309226e8be`.
 Хеш окончательный после заморозки DDL 10.11 18:00; при изменении файла полоса pos пришлёт новый.
+**Заменён:** 026 изменена по ревью (номер заказа после отмены, чек возврата без чека продажи),
+действующий SHA-256 - в [CR pos-5 §2](pos-5.md). Отношения и права ниже не изменились.
 
 Новые отношения (владелец - owner edge, грантов в миграции нет):
 `pos_sales_setting_changes` (+ последовательность `pos_sales_setting_changes_change_sequence_seq`), `pos_payment_methods`, `pos_config_fetches`, `local_manager_approvals`, `pos_sales`, `pos_sale_tenders`, `pos_refunds`, `pos_refund_tenders`, `pos_fiscal_receipts`, `pos_shift_reports`, `pos_sale_outbox` (+ `pos_sale_outbox_sequence_seq`), `pos_sale_sync_state`.
