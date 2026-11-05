@@ -284,6 +284,9 @@ export class FulfillmentController {
   action(@Headers() headers: RequestHeaders, @Param('orderId') id: string, @Body() body: unknown) {
     return this.run(headers, async (auth) => {
       const action = input(FulfillmentActionSchema, body);
+      // Courier handover marks (contracts section 5.4) are served with KDS-4; until then a body
+      // carrying them is refused exactly as before the contract allowed the key.
+      if ('handover' in action) fail(400, 'INVALID_REQUEST');
       const orderId = input(UuidSchema, id);
       if (auth.terminal)
         await transaction(this.resources.pool, async (client) => {
