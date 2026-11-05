@@ -27,6 +27,8 @@
 
 Воркерам (POS sync, fulfillment, menu-sync) в P0 ничего не нужно (`WORKER_PRIVILEGES` нет; отчёт в облако - P1, 028+).
 
+**Исправлено в CR kds-3:** воркеру fulfillment нужен `SELECT` на `kds_settings` и `kds_layouts` (облачный допуск через `buildKitchenPlan`), см. `docs/collaboration/cutover-cr/kds-3.md`.
+
 Экспорт `kds-grants.mjs`: `MIGRATION`, `KDS_TABLES`, `RUNTIME_PRIVILEGES`, `kdsRuntimeGrantSql(role, schema)` (только GRANT, без REVOKE), `assertKdsRuntimePrivileges(client, role, schema)` (точный набор прав на 5 таблицах, бросает при отличии), `kdsTableGrantees(client, schema)` (кто кроме владельца имеет права на новые таблицы).
 
 ## 2. `infra/windows/kds-upgrade-db.mjs` (integration)

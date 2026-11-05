@@ -4,16 +4,21 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
-import { transaction } from '@pickchick/database';
+import { createPool, transaction } from '@pickchick/database';
+import { fulfillmentWorkerGrants } from '../../../infra/windows/fulfillment-worker-grants.mjs';
 import {
   MIGRATION,
   RUNTIME_PRIVILEGES,
+  WORKER_PRIVILEGES,
   assertKdsRuntimePrivileges,
+  assertKdsWorkerPrivileges,
   kdsRuntimeGrantSql,
   kdsTableGrantees,
+  kdsWorkerGrantSql,
 } from '../../../infra/windows/kds-grants.mjs';
 import { FulfillmentLayoutSchema, KdsBreadingSchema } from '@pickchick/contracts';
 import {
+  EdgeFulfillment,
   KDS_STATIONS,
   RoutingSchema,
   buildKitchenPlan,
@@ -887,6 +892,75 @@ test('KDS-2 a database role without SELECT on the KDS tables keeps the old plan'
       assert.equal(kds.assemblyStationId, S(f, 'issue'));
       assert.equal(kds.plan.length, 4);
     } finally {
+      await f.admin.query(`DROP OWNED BY ${role}`).catch(() => {});
+      await f.admin.query(`DROP ROLE IF EXISTS ${role}`);
+    }
+  }));
+
+test('kds-grants: the fulfillment worker admits cloud orders on the KDS layout only with WORKER_PRIVILEGES', () =>
+  fixture(async (f) => {
+    const b = f.scope.branchId;
+    const role = 'kds_ffworker_' + randomUUID().replaceAll('-', '').slice(0, 20);
+    await f.admin.query(`CREATE ROLE ${role} NOLOGIN NOINHERIT`);
+    let worker;
+    try {
+      // The real transport worker grant set (infra/windows/fulfillment-worker-grants.mjs).
+      await f.pool.query(fulfillmentWorkerGrants(role, f.schema));
+      await writeKdsLayout(f.pool, b, kdsTestLayout(b));
+      const url = new URL(f.url);
+      url.searchParams.set('options', url.searchParams.get('options') + ' -c role=' + role);
+      worker = createPool(url.toString(), 2);
+      assert.equal((await worker.query('SELECT current_user AS u')).rows[0].u, role);
+      const repo = new EdgeFulfillment(worker);
+      // Without the KDS worker rights the cloud order keeps today's stations.
+      const plain = await repo.acceptCloud(f.scope, f.admission());
+      assert.equal(plain.assemblyStationId, f.assembly);
+      assert.deepEqual(
+        Object.keys(WORKER_PRIVILEGES).sort(),
+        Object.keys(RUNTIME_PRIVILEGES).sort(),
+      );
+      await assert.rejects(assertKdsWorkerPrivileges(f.pool, role, f.schema), /differ/);
+      await f.pool.query(kdsWorkerGrantSql(role, f.schema));
+      assert.deepEqual(await assertKdsWorkerPrivileges(f.pool, role, f.schema), {
+        role,
+        schema: f.schema,
+        migration: MIGRATION,
+        tables: 5,
+        verified: true,
+      });
+      await assert.rejects(assertKdsRuntimePrivileges(f.pool, role, f.schema), /differ/);
+      assert.deepEqual(await kdsTableGrantees(f.pool, f.schema), [role]);
+      const command = f.admission(true);
+      const held = await repo.acceptCloud(f.scope, command);
+      assert.equal(held.assemblyStationId, S(f, 'issue'));
+      const admitted = await repo.acceptCloud(f.scope, f.authorize(command, held));
+      assert.equal(admitted.state, 'accepted');
+      assert.deepEqual(
+        (await tasksOf(f, admitted.orderId)).map((t) => t.details.kds.function).sort(),
+        ['assembly_hall', 'assembly_hall', 'issue', 'toasts'],
+      );
+      // Read-only rights: the worker can neither switch the layout nor write a layout.
+      const denied = (error) => error.code === '42501';
+      await assert.rejects(worker.query('UPDATE kds_settings SET layout_enabled=false'), denied);
+      await assert.rejects(
+        worker.query(
+          "INSERT INTO kds_layouts(branch_id,version,layout,checksum,source,reason) VALUES($1,9,'{}',$2,'operator','x')",
+          [b, 'c'.repeat(64)],
+        ),
+        denied,
+      );
+      for (const extra of [
+        `GRANT INSERT ON ${f.schema}.kds_layouts TO ${role}`,
+        `GRANT SELECT ON ${f.schema}.delivery_handovers TO ${role}`,
+      ]) {
+        await f.pool.query(extra);
+        await assert.rejects(assertKdsWorkerPrivileges(f.pool, role, f.schema), /differ/, extra);
+        await f.pool.query(extra.replace('GRANT', 'REVOKE').replace(' TO ', ' FROM '));
+      }
+      await assertKdsWorkerPrivileges(f.pool, role, f.schema);
+      await assertStrictEvents(f.pool);
+    } finally {
+      await worker?.end();
       await f.admin.query(`DROP OWNED BY ${role}`).catch(() => {});
       await f.admin.query(`DROP ROLE IF EXISTS ${role}`);
     }

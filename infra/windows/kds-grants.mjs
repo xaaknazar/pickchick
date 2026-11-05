@@ -7,6 +7,9 @@
  * P0 runtime needs: read the switch and the active layout (GET fulfillment/layout, admission),
  * write the courier journals (handoff with marks, incidents). kds_settings.layout_enabled and
  * kds_layouts are changed only by the owner tool kds-switch.mjs; the audit table is the owner's.
+ * P0 fulfillment transport worker (fulfillment-worker-grants.mjs role) needs to read the switch
+ * and the active layout too: it runs the cloud admission (acceptCloud -> buildKitchenPlan).
+ * Without them a cloud order keeps today's stations while the KDS screens are open.
  * P1 (manager shift mode, cloud reports) adds its own reviewed grants with migration 028+.
  */
 export const MIGRATION = '027_edge_kds_foundation.sql';
@@ -25,6 +28,15 @@ export const RUNTIME_PRIVILEGES = Object.freeze({
   courier_incidents: Object.freeze(['SELECT', 'INSERT']),
 });
 
+/** Fulfillment transport worker: reads the switch and the layout of the cloud admission. */
+export const WORKER_PRIVILEGES = Object.freeze({
+  kds_setting_changes: Object.freeze([]),
+  kds_layouts: Object.freeze(['SELECT']),
+  kds_settings: Object.freeze(['SELECT']),
+  delivery_handovers: Object.freeze([]),
+  courier_incidents: Object.freeze([]),
+});
+
 const identifier = (value) => {
   if (typeof value !== 'string' || !/^[a-z][a-z0-9_]{0,62}$/.test(value))
     throw new Error('Invalid KDS grant identifier');
@@ -39,11 +51,10 @@ function privilegeParts(privilege) {
   return { action: match[1], columns };
 }
 
-/** Pure SQL for the runtime role (no REVOKE; the caller owns the reset). */
-export function kdsRuntimeGrantSql(role, schema = 'public') {
+function grantSql(privilegeMap, role, schema) {
   const target = identifier(role),
     namespace = identifier(schema);
-  return Object.entries(RUNTIME_PRIVILEGES)
+  return Object.entries(privilegeMap)
     .filter(([, privileges]) => privileges.length)
     .map(([table, privileges]) => {
       for (const privilege of privileges) privilegeParts(privilege);
@@ -51,13 +62,28 @@ export function kdsRuntimeGrantSql(role, schema = 'public') {
     })
     .join('\n');
 }
+/** Pure SQL for the runtime role (no REVOKE; the caller owns the reset). */
+export function kdsRuntimeGrantSql(role, schema = 'public') {
+  return grantSql(RUNTIME_PRIVILEGES, role, schema);
+}
+/** Pure SQL for the fulfillment transport worker role (no REVOKE; the caller owns the reset). */
+export function kdsWorkerGrantSql(role, schema = 'public') {
+  return grantSql(WORKER_PRIVILEGES, role, schema);
+}
 
 /**
  * Proves the exact privilege set of `role` on the five KDS tables: every table and column right
  * equals RUNTIME_PRIVILEGES (nothing more, nothing missing). Other tables are verified by their
  * own helpers. Throws on the first difference; returns a summary otherwise.
  */
-export async function assertKdsRuntimePrivileges(client, role, schema = 'public') {
+export function assertKdsRuntimePrivileges(client, role, schema = 'public') {
+  return assertPrivileges(RUNTIME_PRIVILEGES, client, role, schema);
+}
+/** The same proof for the fulfillment transport worker role and WORKER_PRIVILEGES. */
+export function assertKdsWorkerPrivileges(client, role, schema = 'public') {
+  return assertPrivileges(WORKER_PRIVILEGES, client, role, schema);
+}
+async function assertPrivileges(privilegeMap, client, role, schema) {
   identifier(role);
   identifier(schema);
   const relations = (
@@ -77,7 +103,7 @@ export async function assertKdsRuntimePrivileges(client, role, schema = 'public'
   ).rows;
   if (relations.length !== KDS_TABLES.length) throw new Error('KDS schema027 tables missing');
   for (const relation of relations) {
-    const parts = RUNTIME_PRIVILEGES[relation.relname].map(privilegeParts);
+    const parts = privilegeMap[relation.relname].map(privilegeParts);
     const whole = (action) => parts.some((part) => part.action === action && !part.columns);
     const columnSet = (action) =>
       new Set(parts.filter((part) => part.action === action).flatMap((p) => p.columns ?? []));
