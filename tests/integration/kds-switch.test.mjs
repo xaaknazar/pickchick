@@ -10,12 +10,15 @@ import { promisify } from 'node:util';
 import { KdsLayoutSchema } from '@pickchick/contracts';
 import { transaction } from '@pickchick/database';
 import {
+  EdgeFulfillment,
   digest,
   kdsStationId,
   provisionFulfillment,
   provisionKdsStations,
 } from '@pickchick/edge-fulfillment';
+import { kdsWorkerGrantSql } from '../../infra/windows/kds-grants.mjs';
 import {
+  KDS_WORKER_ROLES,
   KdsSwitchError,
   applyKdsLayout,
   buildKdsLayout,
@@ -562,6 +565,146 @@ test('apply, replay, enable preconditions, enable and disable: every change is a
       'Раскладка KDS: выключена',
       'Активная раскладка: версия 3',
     ]);
+  }));
+
+/** A cloud order admitted on the old stations (layout off), optionally an aggregator order. */
+async function oldStationOrder(ctx, delivery) {
+  await ctx.pool.query('UPDATE branch_config SET ordering_enabled=true WHERE id=$1', [
+    ctx.branchId,
+  ]);
+  const repo = new EdgeFulfillment(ctx.pool);
+  const snapshot = {
+    organizationId: ctx.scope.organizationId,
+    branchId: ctx.branchId,
+    legalEntityId: randomUUID(),
+    customerId: randomUUID(),
+    channel: 'mobile',
+    serviceMode: 'takeaway',
+    currency: 'KZT',
+    totalMinor: '150000',
+    ttlSeconds: 300,
+    ...(delivery ? { delivery } : {}),
+    lines: [
+      {
+        lineId: randomUUID(),
+        productId: 'synthetic-burger',
+        title: 'Synthetic burger',
+        description: '',
+        quantity: 1,
+        unitPriceMinor: '150000',
+        discountMinor: '0',
+        grossMinor: '150000',
+        totalMinor: '150000',
+        taxCode: 'SYNTHETIC',
+      },
+    ],
+  };
+  const payload = {
+    orderId: randomUUID(),
+    branchId: ctx.branchId,
+    quoteId: randomUUID(),
+    quoteDigest: digest(snapshot),
+    snapshot,
+    owner: 'cloud',
+  };
+  const held = await repo.acceptCloud(ctx.scope, {
+    eventId: randomUUID(),
+    type: 'edge.admission_requested',
+    payload,
+  });
+  return repo.acceptCloud(ctx.scope, {
+    eventId: randomUUID(),
+    type: 'edge.kitchen_admission_requested',
+    payload: {
+      orderId: payload.orderId,
+      branchId: ctx.branchId,
+      reservationId: held.reservationId,
+      deviceId: ctx.scope.deviceId,
+      quoteDigest: payload.quoteDigest,
+      snapshot,
+      owner: 'cloud',
+    },
+  });
+}
+
+test('enable: the fulfillment worker must read the layout; open orders on old stations are reported', () =>
+  withSwitchEdge(async (ctx) => {
+    assert.deepEqual(KDS_WORKER_ROLES, [
+      'pickchick_fulfillment_sync',
+      'pickchick_fulfillment_worker',
+    ]);
+    const role = 'kds_switch_worker_' + randomUUID().replaceAll('-', '').slice(0, 16);
+    const absent = 'kds_switch_absent_' + randomUUID().replaceAll('-', '').slice(0, 16);
+    await ctx.admin.query(`CREATE ROLE ${role} NOLOGIN NOINHERIT`);
+    try {
+      const built = await buildKdsLayout(ctx.pool, {
+        branchId: ctx.branchId,
+        tsv: CHEF_TSV,
+        terminalsTsv: ctx.screensTsv(),
+      });
+      await applyKdsLayout(ctx.pool, {
+        branchId: ctx.branchId,
+        layout: built.layout,
+        reason: 'Раскладка шефа (синтетика)',
+      });
+      const enable = (workerRoles) =>
+        setKdsLayoutEnabled(ctx.pool, {
+          branchId: ctx.branchId,
+          enabled: true,
+          reason: 'Т9 учение (синтетика)',
+          workerRoles,
+        });
+      const status = (workerRoles) => kdsStatus(ctx.pool, { branchId: ctx.branchId, workerRoles });
+      const blindText =
+        'У воркера fulfillment нет прав чтения раскладки KDS - заказы приложения и киоска уйдут на старые станции' +
+        ` (роль ${role})`;
+
+      // A worker role without the KDS rights: cloud orders would stay on the old stations.
+      await assert.rejects(
+        enable([role, absent]),
+        kdsError('ENABLE_REJECTED', ['WORKER_GRANTS_MISSING']),
+      );
+      await ctx.pool.query(`GRANT USAGE ON SCHEMA ${ctx.schema} TO ${role}`);
+      await assert.rejects(enable([role]), kdsError('ENABLE_REJECTED', ['WORKER_GRANTS_MISSING']));
+      const before = await status([role, absent]);
+      assert.deepEqual(before.worker_roles, [{ role, layout_read: false }]);
+      assert.equal(before.summary[3], blindText);
+      assert.equal((await ctx.settings()).layout_enabled, false, 'nothing changed');
+      assert.equal(await ctx.count('kds_setting_changes'), 2);
+
+      // Open orders on the old stations (one of them an aggregator order): reported, not refused.
+      await oldStationOrder(ctx);
+      await oldStationOrder(ctx, { provider: 'glovo', externalNumber: 'G-777' });
+      assert.deepEqual((await status([role])).orders_on_old_stations, {
+        orders: 2,
+        delivery: 1,
+      });
+      await ctx.pool.query(kdsWorkerGrantSql(role, ctx.schema));
+      const on = await enable([role, absent]);
+      assert.equal(on.changed, true);
+      const warning = on.warnings.find((w) => w.code === 'OPEN_ORDERS_ON_OLD_STATIONS');
+      assert.equal(
+        warning?.message,
+        'Открытых заказов на старых станциях: 2 (из них агрегаторов: 1) - их завершает начальник смены через переключатель станций',
+      );
+      const after = await status([role]);
+      assert.deepEqual(after.worker_roles, [{ role, layout_read: true }]);
+      assert.deepEqual(after.summary.slice(0, 1).concat(after.summary.slice(3)), [
+        'Раскладка KDS: включена',
+        'Воркер fulfillment читает раскладку KDS',
+        'Открытых заказов на старых станциях: 2 (из них агрегаторов: 1) - их завершает начальник смены через переключатель станций',
+      ]);
+      // No worker role on this server (a development edge): reported, never a blocker.
+      assert.equal(
+        (await status([absent])).summary[3],
+        'Роль воркера fulfillment на сервере точки не найдена',
+      );
+      for (const text of [...on.warnings.map((w) => w.message), ...after.summary])
+        assert.doesNotMatch(text, /[‒-―−]/);
+    } finally {
+      await ctx.admin.query(`DROP OWNED BY ${role}`).catch(() => {});
+      await ctx.admin.query(`DROP ROLE IF EXISTS ${role}`);
+    }
   }));
 
 test('status before 027 reports the old kitchen; no tool command works before provisioning', () =>

@@ -20,7 +20,7 @@ import { edgeInstallConfig } from '../../scripts/edge-migrate.mjs';
  *   node --env-file=<owner.env> infra/windows/kds-switch.mjs status
  *   ... layout-build --tsv <chef.tsv> [--terminals <screens.tsv>] --out <layout.json>
  *   ... layout-apply --file <layout.json> --reason "<3-300>"
- *   ... enable --reason "<3-300>"     (new orders get KDS tasks)
+ *   ... enable --reason "<3-300>"     (new orders get KDS tasks; needs the worker rights)
  *   ... disable --reason "<3-300>"    (new orders go to the old stations again)
  *
  * Chef TSV columns: product_slug, function, unit, count (unit and count both empty or both set).
@@ -43,6 +43,19 @@ const FLAGS = {
   enable: { required: ['--reason'], optional: [] },
   disable: { required: ['--reason'], optional: [] },
 };
+/**
+ * Database roles of the fulfillment transport worker, which runs the cloud admission of app and
+ * kiosk orders (acceptCloud -> buildKitchenPlan) and must read the switch and the layout
+ * (WORKER_PRIVILEGES of kds-grants.mjs, CR kds-3). pickchick_fulfillment_sync is the login the
+ * native Windows worker requires (native-fulfillment-worker.mjs); pickchick_fulfillment_worker
+ * is the default of cashier-reports-upgrade-db.mjs. Every one of them that exists is checked.
+ */
+export const KDS_WORKER_ROLES = Object.freeze([
+  'pickchick_fulfillment_sync',
+  'pickchick_fulfillment_worker',
+]);
+const WORKER_GRANTS_TEXT =
+  'У воркера fulfillment нет прав чтения раскладки KDS - заказы приложения и киоска уйдут на старые станции';
 const MAX_FILE_BYTES = 256 * 1024;
 const SLUG = /^[a-z0-9][a-z0-9-]{0,39}$/;
 const NAMES = Object.fromEntries(KDS_STATIONS.map((station) => [station.function, station.name]));
@@ -277,11 +290,58 @@ async function activeMenu(client, branchId) {
 }
 
 /**
+ * Existing worker roles (pg_roles is cluster-wide) and whether each can read the switch and the
+ * active layout of this schema. readKdsLayout reports the layout as off to a role without these
+ * rights, so the cloud admission would silently keep the old stations.
+ */
+async function workerLayoutAccess(client, roles) {
+  if (!roles.length) return [];
+  return (
+    await client.query(
+      `SELECT r.rolname AS role,
+         has_schema_privilege(r.rolname,
+           (SELECT relnamespace FROM pg_class WHERE oid=to_regclass('kds_settings')),'USAGE')
+         AND has_table_privilege(r.rolname,to_regclass('kds_settings'),'SELECT')
+         AND has_table_privilege(r.rolname,to_regclass('kds_layouts'),'SELECT') AS layout_read
+       FROM pg_roles r WHERE r.rolname=ANY($1::text[]) ORDER BY r.rolname`,
+      [roles],
+    )
+  ).rows;
+}
+/**
+ * Live orders whose finishing station is not a KDS station: admitted on the old stations. After
+ * enable a kitchen login on a KDS screen sees only its tabs, so the shift manager finishes them
+ * with the station switcher; the aggregator ones are then handed over with the three marks.
+ */
+async function ordersOnOldStations(client, branchId) {
+  const kds = KDS_STATIONS.map((spec) => kdsStationId(branchId, spec.function));
+  return (
+    await client.query(
+      `SELECT count(*)::int AS orders,count(*) FILTER (WHERE r.snapshot ? 'delivery')::int AS delivery
+       FROM fulfillment_reservations r WHERE r.branch_id=$1
+         AND r.state IN ('accepted','in_production','ready','cancel_requested')
+         AND NOT r.assembly_station_id=ANY($2::uuid[])`,
+      [branchId, kds],
+    )
+  ).rows[0];
+}
+const oldStationsText = ({ orders, delivery }) =>
+  `Открытых заказов на старых станциях: ${orders}` +
+  (delivery ? ` (из них агрегаторов: ${delivery})` : '') +
+  ' - их завершает начальник смены через переключатель станций';
+
+/**
  * Checks a schema-valid layout against this edge: its KDS stations, the active menu and the
  * kitchen screens. `strict` adds the conditions to switch it on: the kitchen login can open
- * every station and every station with work has a screen.
+ * every station, every station with work has a screen and the fulfillment worker can read the
+ * layout.
  */
-async function checkLayout(client, branchId, layout, { strict = false } = {}) {
+async function checkLayout(
+  client,
+  branchId,
+  layout,
+  { strict = false, workerRoles = KDS_WORKER_ROLES } = {},
+) {
   const errors = [],
     warnings = [];
   if (layout.branch_id !== branchId)
@@ -385,6 +445,17 @@ async function checkLayout(client, branchId, layout, { strict = false } = {}) {
         kitchen
           ? `У входа kitchen нет доступа к станциям: ${closed.join(', ')}`
           : 'Нет активного входа kitchen для экранов кухни',
+      ),
+    );
+  // Only to switch on: grants are installed by kds-upgrade-db, a draft layout may come first.
+  const blind = strict
+    ? (await workerLayoutAccess(client, workerRoles)).filter((r) => !r.layout_read)
+    : [];
+  if (blind.length)
+    errors.push(
+      problem(
+        'WORKER_GRANTS_MISSING',
+        `${WORKER_GRANTS_TEXT} (роль ${blind.map((r) => r.role).join(', ')})`,
       ),
     );
   return { errors, warnings, unmapped };
@@ -590,8 +661,14 @@ export async function applyKdsLayout(pool, { branchId, layout: input, reason: ra
   });
 }
 
-/** enable|disable. Enabling re-checks the active layout strictly; disabling always works. */
-export async function setKdsLayoutEnabled(pool, { branchId, enabled, reason: rawReason }) {
+/**
+ * enable|disable. Enabling re-checks the active layout strictly (including the worker rights)
+ * and warns about open orders on the old stations; disabling always works.
+ */
+export async function setKdsLayoutEnabled(
+  pool,
+  { branchId, enabled, reason: rawReason, workerRoles = KDS_WORKER_ROLES },
+) {
   if (typeof enabled !== 'boolean') throw new TypeError('enabled');
   const reason = checkedReason(rawReason);
   return transaction(pool, async (client) => {
@@ -614,10 +691,16 @@ export async function setKdsLayoutEnabled(pool, { branchId, enabled, reason: raw
           settings.active_layout_version,
         ])
       ).rows[0].layout;
-      const checked = await checkLayout(client, branchId, parsedLayout(stored), { strict: true });
+      const checked = await checkLayout(client, branchId, parsedLayout(stored), {
+        strict: true,
+        workerRoles,
+      });
       if (checked.errors.length)
         reject('ENABLE_REJECTED', 'Раскладку нельзя включить', checked.errors);
       warnings = checked.warnings;
+      const old = await ordersOnOldStations(client, branchId);
+      if (old.orders)
+        warnings = [...warnings, problem('OPEN_ORDERS_ON_OLD_STATIONS', oldStationsText(old))];
     }
     const version = await recordChange(
       client,
@@ -641,8 +724,11 @@ export async function setKdsLayoutEnabled(pool, { branchId, enabled, reason: raw
   });
 }
 
-/** status: read-only view of the switch, the active layout, the stations and the audit. */
-export async function kdsStatus(pool, { branchId }) {
+/**
+ * status: read-only view of the switch, the active layout, the stations, the worker rights, the
+ * open orders on the old stations and the audit.
+ */
+export async function kdsStatus(pool, { branchId, workerRoles = KDS_WORKER_ROLES }) {
   return transaction(pool, async (client) => {
     await client.query('SET TRANSACTION READ ONLY');
     UuidSchema.parse(branchId);
@@ -703,6 +789,9 @@ export async function kdsStatus(pool, { branchId }) {
     ).rows.map((row) => ({ ...row, recorded_at: row.recorded_at.toISOString() }));
     const present = stations.filter((s) => s.present).length,
       access = stations.filter((s) => s.kitchen_access).length;
+    const workers = await workerLayoutAccess(client, workerRoles);
+    const blind = workers.filter((w) => !w.layout_read);
+    const old = await ordersOnOldStations(client, branchId);
     return {
       schema_ready: true,
       provisioned: Boolean(settings),
@@ -732,6 +821,8 @@ export async function kdsStatus(pool, { branchId }) {
         : null,
       stations,
       kitchen_login: kitchen?.id ?? null,
+      worker_roles: workers,
+      orders_on_old_stations: old,
       changes,
       summary: [
         settings
@@ -739,6 +830,12 @@ export async function kdsStatus(pool, { branchId }) {
           : 'Станции KDS не созданы',
         active ? `Активная раскладка: версия ${active.version}` : 'Активной раскладки нет',
         `Станции KDS: ${present} из ${stations.length}, доступ входа kitchen: ${access} из ${stations.length}`,
+        blind.length
+          ? `${WORKER_GRANTS_TEXT} (роль ${blind.map((w) => w.role).join(', ')})`
+          : workers.length
+            ? 'Воркер fulfillment читает раскладку KDS'
+            : 'Роль воркера fulfillment на сервере точки не найдена',
+        oldStationsText(old),
       ],
     };
   });

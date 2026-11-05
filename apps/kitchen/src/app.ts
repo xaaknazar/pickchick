@@ -355,13 +355,21 @@ function render() {
       )}</div>${extras.length ? `<p class="assembly-extras">На других станциях: ${extras.map((t) => `${escape(t.details.title)} ×${t.details.quantity}`).join(' · ')}</p>` : ''}<div class="ticket-actions">${actions
       .filter((a) => !('taskId' in a))
       .map((a) =>
-        button(
-          a.action === 'complete_station' && s.stationId === o.assemblyStationId
-            ? 'Заказ собран'
-            : actionLabel[a.action],
-          `id="order-${o.orderId}" data-command="${escape(JSON.stringify({ orderId: o.orderId, body: a }))}"`,
-          ticketBlocked,
-        ),
+        // A delivery ticket (KDS layout on) on an old station, e.g. an aggregator order admitted
+        // before kds-switch enable: handed over with the three marks, as on the courier counter.
+        a.action === 'handoff' && o.delivery && ownerOf(o) === 'edge'
+          ? button(
+              'Передать курьеру',
+              `id="handover-${o.orderId}" data-handover="${o.orderId}"`,
+              ticketBlocked,
+            )
+          : button(
+              a.action === 'complete_station' && s.stationId === o.assemblyStationId
+                ? 'Заказ собран'
+                : actionLabel[a.action],
+              `id="order-${o.orderId}" data-command="${escape(JSON.stringify({ orderId: o.orderId, body: a }))}"`,
+              ticketBlocked,
+            ),
       )
       .join(
         '',

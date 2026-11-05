@@ -3,7 +3,9 @@
  * on a disposable PostgreSQL edge with the KDS layout on, at both monoblock resolutions.
  * Three kitchen terminals as on the point: 6+5 (prep tabs), table 1 + issue (morning tabs) and
  * table 2 + the courier counter 3 (owner decision: a tab on the table-2 screen). Synthetic
- * orders only: a cloud combo, a cashier hall order and two cashier aggregator orders.
+ * orders only: a cloud combo, a cashier hall order and two cashier aggregator orders, plus an
+ * aggregator order admitted before kds-switch enable that a shift manager hands over from the
+ * old assembly station with the three marks.
  * Never calls the cloud, an aggregator or any network outside 127.0.0.1.
  */
 import test from 'node:test';
@@ -22,9 +24,8 @@ const { createEdge } = await import(pathToFileURL(resolve(apiRoot, 'services/edg
 const { fixture } = await import(
   pathToFileURL(resolve(apiRoot, 'packages/edge-fulfillment/tests/fixture.mjs'))
 );
-const { assertStrictEvents, cashierDesk, kdsTestLayout, writeKdsLayout } = await import(
-  pathToFileURL(resolve(apiRoot, 'packages/edge-fulfillment/tests/kds-fixture.mjs'))
-);
+const { assertStrictEvents, cashierDesk, kdsTestLayout, switchKdsLayout, writeKdsLayout } =
+  await import(pathToFileURL(resolve(apiRoot, 'packages/edge-fulfillment/tests/kds-fixture.mjs')));
 const { grantStation, kdsStationId } = await import(
   pathToFileURL(resolve(apiRoot, 'packages/edge-fulfillment/dist/index.js'))
 );
@@ -64,7 +65,18 @@ for (const [width, height] of [
               delivery_handover: [runner.terminal_id],
             },
           }),
+          { enable: false },
         );
+        // Admitted while the layout is off: old stations, ready before kds-switch enable.
+        const early = await desk.order({
+          delivery: { provider: 'glovo', externalNumber: 'G-100' },
+          comboQuantity: 0,
+          burgers: 1,
+        });
+        let earlyOrder = await ctx.complete(await ctx.read(early.order_id));
+        earlyOrder = await ctx.act(earlyOrder, 'ready');
+        assert.equal(earlyOrder.assemblyStationId, ctx.assembly);
+        await switchKdsLayout(ctx.pool, b, true);
         for (const [staff, fns] of [
           [ctx.cook.staff_id, ['breading', 'toasts']],
           [ctx.packer.staff_id, ['assembly_hall', 'issue']],
@@ -121,6 +133,8 @@ for (const [width, height] of [
               cook: redact(ctx.cook),
               packer: redact(ctx.packer),
               runner: redact(runner),
+              manager: redact(ctx.manager),
+              oldAssembly: ctx.assembly,
               stations: Object.fromEntries(
                 [
                   'breading',
@@ -136,6 +150,7 @@ for (const [width, height] of [
                 hall: { id: hall.order_id, number: await number(hall.order_id) },
                 glovo: { id: glovo.order_id, number: await number(glovo.order_id) },
                 yandex: { id: yandex.order_id, number: await number(yandex.order_id) },
+                early: { id: early.order_id, number: await number(early.order_id) },
               },
             }),
             { mode: 0o600 },
@@ -160,8 +175,31 @@ for (const [width, height] of [
           assert.equal(await state(cloud.orderId), 'ready');
           assert.equal(await state(glovo.order_id), 'handed_over');
           assert.equal(await state(yandex.order_id), 'ready');
-          const handovers = (await ctx.pool.query('SELECT * FROM delivery_handovers')).rows;
-          assert.equal(handovers.length, 1);
+          assert.equal(await state(early.order_id), 'handed_over');
+          const handovers = (
+            await ctx.pool.query('SELECT * FROM delivery_handovers ORDER BY handed_over_at')
+          ).rows;
+          assert.equal(handovers.length, 2);
+          assert.deepEqual(
+            [
+              handovers[1].order_id,
+              handovers[1].external_number,
+              handovers[1].number_matched && handovers[1].courier_accepted,
+              handovers[1].photo_taken,
+              handovers[1].station_id,
+              handovers[1].staff_id,
+              handovers[1].terminal_id,
+            ],
+            [
+              early.order_id,
+              'G-100',
+              true,
+              true,
+              ctx.assembly,
+              ctx.manager.staff_id,
+              ctx.manager.terminal_id,
+            ],
+          );
           assert.deepEqual(
             [
               handovers[0].order_id,

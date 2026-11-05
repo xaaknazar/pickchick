@@ -204,7 +204,31 @@ with sync_playwright() as p:
     expect(ticket(page, 'yandex')).to_be_visible()
     capture(page, '3-banner')
     page.locator('#logout').click()
+
+    # Aggregator order admitted before enable, on the old assembly station: the shift manager
+    # hands it over with the same three-marks dialog (no plain handoff for a delivery ticket).
+    login(page, fixture['manager'])
+    page.locator(f'[data-station="{fixture["oldAssembly"]}"]').tap()
+    settle(page)
+    expect(ticket(page, 'early')).to_be_visible()
+    assert ticket(page, 'early').locator('[data-command]').count() == 0, 'No plain handoff'
+    handover = ticket(page, 'early').get_by_role('button', name='Передать курьеру', exact=True)
+    expect(handover).to_be_enabled()
+    handover.tap()
+    dialog = page.locator('dialog.courier-dialog')
+    expect(dialog).to_contain_text('Передача курьеру Glovo G-100')
+    confirm = page.locator('#handover-confirm')
+    for i in range(3):
+        expect(confirm).to_be_disabled()
+        dialog.locator('.courier-mark').nth(i).tap()
+    expect(confirm).to_be_enabled()
+    capture(page, 'old-station-handover')
+    confirm.tap()
+    expect(dialog).to_have_count(0)
+    settle(page)
+    expect(ticket(page, 'early')).to_have_count(0)
+    # No logout: the test reads the result with this manager session afterwards.
     assert not errors, errors
     context.close()
     browser.close()
-print(f'PASS KDS screens {width}x{height}: 6, 5, table 1, issue 2, table 2, courier 3, marks, refusal, board')
+print(f'PASS KDS screens {width}x{height}: 6, 5, table 1, issue 2, table 2, courier 3, marks, refusal, board, old-station handover')
