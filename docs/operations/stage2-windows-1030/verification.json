@@ -1,0 +1,173 @@
+{
+  "recordedAt": "2026-10-30",
+  "candidate": {
+    "sourceCommit": "ffb2fd231e08db43843816afb9cccb1e532375e0",
+    "publishedBranch": "codex/stage2-candidate-1030",
+    "reviewedRuntime": "e4eb91b52ed912254e388513853e72b430d12c88"
+  },
+  "foundationCI": {
+    "runId": 41056223677,
+    "url": "https://github.com/xaaknazar/pickchick/actions/runs/41056223677",
+    "headSha": "ffb2fd231e08db43843816afb9cccb1e532375e0",
+    "conclusion": "success",
+    "attempt": 1,
+    "exactReleaseGuard": "passed",
+    "jobs": [
+      {
+        "id": 124064628843,
+        "name": "Foundation server account and Kaspi fixtures",
+        "conclusion": "success"
+      },
+      {
+        "id": 124064628985,
+        "name": "Foundation mobile bundles and checkout recovery",
+        "conclusion": "success"
+      },
+      {
+        "id": 124064629008,
+        "name": "Local kitchen UI and recovery",
+        "conclusion": "success"
+      },
+      {
+        "id": 124064629014,
+        "name": "iPad kiosk state, bundles and browser recovery",
+        "conclusion": "success"
+      },
+      {
+        "id": 124064629025,
+        "name": "Cloud-edge fulfillment transport and recovery",
+        "conclusion": "success"
+      },
+      {
+        "id": 124064629072,
+        "name": "Foundation simulator browser regressions",
+        "conclusion": "success"
+      },
+      {
+        "id": 124064629150,
+        "name": "Foundation static checks and transaction invariants",
+        "conclusion": "success"
+      },
+      {
+        "id": 124064629158,
+        "name": "Foundation POS and backoffice integration",
+        "conclusion": "success"
+      },
+      {
+        "id": 124064629211,
+        "name": "Design screens and interaction smoke",
+        "conclusion": "success"
+      },
+      {
+        "id": 124064629337,
+        "name": "Private staging image and restricted database role",
+        "conclusion": "success"
+      },
+      {
+        "id": 124084082784,
+        "name": "Build, contracts and PostgreSQL integration",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "offlineCI": {
+    "runId": 41056223536,
+    "url": "https://github.com/xaaknazar/pickchick/actions/runs/41056223536",
+    "sourceCommit": "ffb2fd231e08db43843816afb9cccb1e532375e0",
+    "mode": "ci",
+    "status": "passed",
+    "durationSeconds": 765,
+    "artifactId": 12977058797,
+    "artifactSha256": "e0919d0a581dd92369e58e250503fd6c6e39ea7e5b0a8c6abfed7d4378ad47de",
+    "scenarios": [
+      {
+        "id": "baseline",
+        "status": "passed"
+      },
+      {
+        "id": "backlog",
+        "status": "passed"
+      },
+      {
+        "id": "wan_outage",
+        "status": "passed"
+      },
+      {
+        "id": "wan_chaos",
+        "status": "passed"
+      },
+      {
+        "id": "lan_outage",
+        "status": "passed"
+      },
+      {
+        "id": "edge_restart",
+        "status": "passed"
+      },
+      {
+        "id": "cloud_restart",
+        "status": "passed"
+      },
+      {
+        "id": "edge_restore",
+        "status": "known_issue"
+      },
+      {
+        "id": "staff_wan_vs_lan",
+        "status": "passed"
+      }
+    ],
+    "knownIssue": "restore_version_conflict / GitHub issue279",
+    "skipped": 0,
+    "realCashierSnapshotUsed": false
+  },
+  "posPackage": {
+    "runId": 41056223533,
+    "url": "https://github.com/xaaknazar/pickchick/actions/runs/41056223533",
+    "artifactId": 12977695315,
+    "sourceCommit": "ffb2fd231e08db43843816afb9cccb1e532375e0",
+    "sourceDirty": false,
+    "entryHashesMatch": true,
+    "windowsExecutionTested": false,
+    "authenticodeVerified": false,
+    "physicalPowerLossTested": false
+  },
+  "archives": {
+    "runtime023-0fb95c9f.zip": {
+      "bytes": 8490256,
+      "sha256": "5249e860899563957a1e00ffab97e4e8eab1310c234b063f6e9de148b7bafdd8"
+    },
+    "runtime024-ffb2fd23.zip": {
+      "bytes": 8642851,
+      "sha256": "50edc6e1e81b32dd476f3502db0ba85dfd70f2fd708c392fd95532a5f3bf7220"
+    },
+    "pos-ffb2fd23.zip": {
+      "bytes": 344334756,
+      "sha256": "665effc55f41152a75a918823a9a5d3cd0d10beda94cb0b84fb1af95eb562bbc"
+    }
+  },
+  "historicalBridge": {
+    "sourceCommit": "0fb95c9f09031d93e38e3af2a0c4a1bcc81f591c",
+    "rebuilt": false,
+    "allManifestFilesVerified": true,
+    "migrations": 23,
+    "matchesProtocol20261021": true
+  },
+  "realSnapshotChain": {
+    "status": "blocked_waiting_cashier_connection",
+    "backup020Retrieved": false,
+    "migrated020to023": false,
+    "backup023Restored": false,
+    "runtime023WithNewApiVerified": false,
+    "migrated023to024": false,
+    "rollback020Verified": false,
+    "rollback023Verified": false
+  },
+  "productionChanges": {
+    "server": false,
+    "cashier": false,
+    "flags": false,
+    "payments": false,
+    "roadmap": false
+  }
+}

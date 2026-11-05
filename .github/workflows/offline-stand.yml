@@ -1,8 +1,12 @@
 name: Offline stand
 
-# Manual only: the offline stand (docs/operations/offline-stand.md). The ci profile takes about
+# The release-preparation branch also runs the complete ci profile on its exact SHA.
+# Manual runs remain available for other profiles (docs/operations/offline-stand.md).
+# The ci profile takes about
 # 15 minutes; soak and backlog runs are limited by the hosted runner's 6-hour job limit.
 on:
+  push:
+    branches: ['codex/stage2-windows-1030']
   workflow_dispatch:
     inputs:
       mode:
@@ -21,7 +25,7 @@ permissions:
 
 jobs:
   offline_stand:
-    name: Offline stand (${{ inputs.mode }})
+    name: Offline stand (${{ inputs.mode || 'ci' }})
     runs-on: ubuntu-24.04
     timeout-minutes: 350
     steps:
@@ -46,7 +50,7 @@ jobs:
         run: pnpm test:offline-stand:unit
       - name: Run the offline stand
         env:
-          MODE: ${{ inputs.mode }}
+          MODE: ${{ inputs.mode || 'ci' }}
           OPTIONS: ${{ inputs.options }}
         # OPTIONS is split into words on purpose (no eval): only stand options can be passed.
         run: node --env-file=.env tests/offline-stand/run.mjs --mode "$MODE" $OPTIONS --output .local/offline-stand/run
@@ -54,7 +58,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: offline-stand-${{ inputs.mode }}-${{ github.sha }}
+          name: offline-stand-${{ inputs.mode || 'ci' }}-${{ github.sha }}
           path: |
             .local/offline-stand/run/report.json
             .local/offline-stand/run/report.md
