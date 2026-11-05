@@ -1,6 +1,7 @@
 /* global structuredClone */
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -13,8 +14,13 @@ import { mockupCatalogDraft } from '../../packages/catalog-admin/dist/seed.js';
 import { projectCatalogMenu } from '../../packages/menu-sync/dist/index.js';
 import { previewId } from '../../scripts/local-pos-draft.mjs';
 import {
+  EXPECTED_CHANGES_SCHEMA,
+  allowReviewedChanges,
   catalogEdgeParity,
   catalogInput,
+  edgePayloadHash,
+  expectedEdgeChanges,
+  parityRun,
   parseArguments,
 } from '../../scripts/catalog-edge-parity.mjs';
 
@@ -262,4 +268,305 @@ test('CLI is read-only: exit 0 on parity, 1 on a price diff, 2 on bad input', as
     catalog: 'c',
     routing: 'r',
   });
+});
+
+const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+/** Every difference kind the gate knows, on top of the installed POS v2 menu (cutover shape). */
+function everyDifference() {
+  const payload = structuredClone(mockupCatalogDraft);
+  const [combo, master] = payload.products;
+  combo.price_minor = '369000';
+  combo.name.ru = 'Finger Combo';
+  combo.modifier_groups[0].options[1].price_delta_minor = '25000';
+  combo.modifier_groups[0].options[4].available = false;
+  combo.modifier_groups[1].min = 0;
+  combo.modifier_groups[0].options.splice(3, 1);
+  combo.modifier_groups[0].options.push({
+    ...combo.modifier_groups[0].options[2],
+    id: 'sprite-can',
+    label: { ru: 'Спрайт жб', kk: '' },
+    price_delta_minor: '10000',
+  });
+  master.modifier_groups.splice(2, 1);
+  master.modifier_groups.push({
+    ...structuredClone(master.modifier_groups[1]),
+    id: 'sauce-paid-hot',
+    min: 0,
+    max: 3,
+    options: master.modifier_groups[1].options.map((o) => ({
+      ...o,
+      default_quantity: 0,
+      max_quantity: 3,
+    })),
+  });
+  payload.products[2].image_asset_key = 'i7.jpg';
+  payload.products[3].category_id = 'category-2';
+  payload.products.at(-1).available = false;
+  payload.products.push({
+    ...structuredClone(payload.products[12]),
+    id: 'chick-burger',
+    sku: 'chick-burger',
+    name: { ru: 'Chick Burger', kk: 'Chick Burger' },
+    price_minor: '239000',
+  });
+  return payload;
+}
+const prep = '30000000-0000-4000-8000-000000000001',
+  assembly = '30000000-0000-4000-8000-000000000002';
+function routingFor(snapshot) {
+  const projected = projectCatalogMenu(mockupCatalogDraft, branch, 3, snapshot.published_at);
+  return {
+    routing: {
+      version: 2,
+      assemblyStationId: assembly,
+      routes: projected.items.map((item) => ({
+        productId: item.product_id,
+        stationId: item.kitchen.route === 'prep' ? prep : assembly,
+        kind: item.kitchen.route,
+      })),
+    },
+    stations: [
+      { id: prep, kind: 'prep' },
+      { id: assembly, kind: 'assembly' },
+    ],
+  };
+}
+/** The reviewed list exactly as catalog-menu-import build writes it, plus its file bytes. */
+function reviewedList(payload, snapshot) {
+  const report = catalogEdgeParity({ catalog: payload, snapshot }, { detailed: true });
+  const expected = expectedEdgeChanges(report, edgePayloadHash(payload));
+  const bytes = JSON.stringify(expected, null, 2) + '\n';
+  return { expected, bytes, allow: { expected: JSON.parse(bytes), sha256: sha256(bytes) } };
+}
+
+test('without --allow the report is byte-identical to the script before the option existed', () => {
+  // Hashes of JSON.stringify(report, null, 2) printed by the unmodified script (D0 5b212949).
+  const snapshot = installedV2();
+  const rich = catalogEdgeParity({
+    catalog: everyDifference(),
+    snapshot,
+    routing: routingFor(snapshot),
+  });
+  assert.deepEqual(
+    [...new Set([...rich.failures, ...rich.warnings].map((entry) => entry.code))].sort(),
+    [
+      'CATEGORY_CHANGED',
+      'GROUP_ADDED',
+      'GROUP_LIMITS_CHANGED',
+      'GROUP_REMOVED',
+      'IMAGE_CHANGED',
+      'ITEM_ADDED',
+      'ITEM_REMOVED',
+      'NAME_CHANGED',
+      'OPTION_ADDED',
+      'OPTION_CHANGED',
+      'OPTION_PRICE_CHANGED',
+      'OPTION_REMOVED',
+      'PRICE_CHANGED',
+      'ROUTE_DERIVED_ON_APPLY',
+    ],
+  );
+  assert.equal(
+    sha256(JSON.stringify(rich, null, 2)),
+    'e9fe5afdebe827349fc3ea4f4c4ac300abb37ecfd2e9d4bb6f91695f5e56edd1',
+  );
+  const clean = catalogEdgeParity({ catalog: mockupCatalogDraft, snapshot });
+  assert.equal(
+    sha256(JSON.stringify(clean, null, 2)),
+    '399b0ae9c534c1c1c65d9071cc44a8c2dfba4b94a85c02168a95bfbf3abc2fb5',
+  );
+  // parityRun without a list is the same function call.
+  assert.deepEqual(parityRun({ catalog: everyDifference(), snapshot }), {
+    ...catalogEdgeParity({ catalog: everyDifference(), snapshot }),
+  });
+});
+
+test('detailed form pins before/after values only where the historical entry has none', () => {
+  const snapshot = installedV2();
+  const plain = catalogEdgeParity({ catalog: everyDifference(), snapshot });
+  const detailed = catalogEdgeParity({ catalog: everyDifference(), snapshot }, { detailed: true });
+  const find = (report, code) =>
+    [...report.failures, ...report.warnings].find((e) => e.code === code);
+  assert.deepEqual(find(detailed, 'GROUP_LIMITS_CHANGED').edge, {
+    min_selected: 1,
+    max_selected: 1,
+  });
+  assert.deepEqual(find(detailed, 'GROUP_LIMITS_CHANGED').catalog, {
+    min_selected: 0,
+    max_selected: 1,
+  });
+  assert.equal(find(detailed, 'OPTION_CHANGED').edge.available, true);
+  assert.equal(find(detailed, 'OPTION_CHANGED').catalog.available, false);
+  assert.equal(find(detailed, 'OPTION_ADDED').catalog_minor, '10000');
+  assert.deepEqual(find(detailed, 'GROUP_ADDED').catalog, { min_selected: 0, max_selected: 3 });
+  assert.equal(find(detailed, 'ITEM_ADDED').catalog_minor, '239000');
+  assert.equal(find(detailed, 'ITEM_ADDED').source_id, 'chick-burger');
+  assert.ok(find(detailed, 'CATEGORY_CHANGED').catalog_category_id);
+  for (const code of ['GROUP_LIMITS_CHANGED', 'OPTION_CHANGED', 'OPTION_ADDED', 'ITEM_ADDED'])
+    for (const key of ['edge', 'catalog', 'catalog_minor', 'source_id'])
+      assert.equal(key in find(plain, code), false, `${code}.${key}`);
+  // Failures, summary and items are the same in both forms.
+  assert.deepEqual(detailed.failures, plain.failures);
+  assert.deepEqual(detailed.summary, plain.summary);
+  assert.deepEqual(detailed.items, plain.items);
+});
+
+test('--allow passes only for exactly the reviewed differences of the same payload and edge menu', () => {
+  const snapshot = installedV2();
+  const payload = everyDifference();
+  const { expected, allow } = reviewedList(payload, snapshot);
+  assert.equal(expected.schema, EXPECTED_CHANGES_SCHEMA);
+  assert.equal(expected.edge_release_id, snapshot.release_id);
+  assert.ok(expected.changes.length > 10);
+  assert.equal(
+    expected.changes.some((entry) => entry.code === 'ROUTE_DERIVED_ON_APPLY'),
+    false,
+  );
+  let report = parityRun({ catalog: payload, snapshot, routing: routingFor(snapshot), allow });
+  assert.equal(report.ok, true);
+  assert.equal(report.allow.ok, true);
+  assert.equal(report.allow.matched, expected.changes.length);
+  assert.equal(report.allow.file_sha256, allow.sha256);
+  assert.ok(report.failures.length > 0, 'the raw differences stay visible');
+  assert.equal(report.routing.derived_version, 3);
+  // The saved (reviewed) copy is the same catalog for the edge.
+  report = parityRun({ catalog: { ...payload, content_reviewed: true }, snapshot, allow });
+  assert.equal(report.ok, true);
+  // A price changed after review: one unexpected and one missing difference.
+  const repriced = structuredClone(payload);
+  repriced.products[0].price_minor = '359000';
+  report = parityRun({ catalog: repriced, snapshot, allow });
+  assert.equal(report.ok, false);
+  assert.equal(report.allow.unexpected.length, 1);
+  assert.equal(report.allow.missing.length, 1);
+  assert.deepEqual(report.allow.stale, ['PAYLOAD_CHANGED']);
+  // A difference the list does not have, and a listed one that no longer happens.
+  const shorter = {
+    ...allow,
+    expected: { ...allow.expected, changes: allow.expected.changes.slice(1) },
+  };
+  report = parityRun({ catalog: payload, snapshot, allow: shorter });
+  assert.deepEqual(
+    [report.ok, report.allow.unexpected.length, report.allow.missing.length],
+    [false, 1, 0],
+  );
+  const longer = {
+    ...allow,
+    expected: {
+      ...allow.expected,
+      changes: [...allow.expected.changes, allow.expected.changes[0]],
+    },
+  };
+  report = parityRun({ catalog: payload, snapshot, allow: longer });
+  assert.deepEqual(
+    [report.ok, report.allow.unexpected.length, report.allow.missing.length],
+    [false, 0, 1],
+  );
+  // The edge menu moved on (another publication applied): the list is stale.
+  const moved = { ...snapshot, release_id: '20000000-0000-4000-8000-000000000003', version: 3 };
+  report = parityRun({ catalog: payload, snapshot: MenuSnapshotSchema.parse(moved), allow });
+  assert.equal(report.ok, false);
+  assert.deepEqual(report.allow.stale, ['EDGE_MENU_CHANGED']);
+});
+
+test('--allow never accepts a publication the edge would reject, and refuses invalid lists', () => {
+  const snapshot = installedV2();
+  const { allow } = reviewedList(mockupCatalogDraft, snapshot);
+  const channel = structuredClone(mockupCatalogDraft);
+  channel.products[0].channel_prices_minor = { mobile: '100000' };
+  const report = parityRun({ catalog: channel, snapshot, allow });
+  assert.equal(report.ok, false);
+  assert.deepEqual(
+    report.allow.blocking.map((entry) => entry.code),
+    ['PROJECTION_FAILED'],
+  );
+  const rejected = catalogEdgeParity({ catalog: channel, snapshot }, { detailed: true });
+  assert.throws(() => expectedEdgeChanges(rejected, edgePayloadHash(channel)), /reject/);
+  for (const broken of [
+    { ...allow.expected, schema: 'other' },
+    { ...allow.expected, payload_sha256: 'x' },
+    { ...allow.expected, edge_version: '2' },
+    { ...allow.expected, changes: [{ code: 'PROJECTION_FAILED' }] },
+    { ...allow.expected, changes: [{ code: 'ROUTE_DERIVED_ON_APPLY' }] },
+    { ...allow.expected, changes: [1] },
+    [],
+  ])
+    assert.throws(
+      () => allowReviewedChanges(rejected, broken, { payloadSha256: 'a', fileSha256: 'b' }),
+      /Expected changes file is invalid/,
+    );
+});
+
+test('CLI --allow: exit 0 on the reviewed list, 1 on another difference, 2 on a broken list', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'pickchick-parity-allow-'));
+  const run = (args) =>
+    promisify(execFile)(process.execPath, [script, ...args], { maxBuffer: 50_000_000 }).then(
+      (result) => ({ code: 0, ...result }),
+      (error) => ({ code: error.code, stdout: error.stdout, stderr: error.stderr }),
+    );
+  try {
+    const snapshot = installedV2();
+    const payload = everyDifference();
+    const { bytes } = reviewedList(payload, snapshot);
+    const files = {
+      edge: join(dir, 'edge.json'),
+      catalog: join(dir, 'catalog.json'),
+      expected: join(dir, 'expected.json'),
+      changed: join(dir, 'changed.json'),
+      broken: join(dir, 'broken.json'),
+    };
+    await writeFile(files.edge, JSON.stringify(snapshot));
+    await writeFile(files.catalog, JSON.stringify(payload));
+    await writeFile(files.expected, bytes);
+    const changed = structuredClone(payload);
+    changed.products[1].price_minor = '1';
+    await writeFile(files.changed, JSON.stringify(changed));
+    await writeFile(files.broken, '{"schema":"x"}');
+    const ok = await run([
+      '--catalog',
+      files.catalog,
+      '--edge',
+      files.edge,
+      '--allow',
+      files.expected,
+    ]);
+    assert.equal(ok.code, 0);
+    const report = JSON.parse(ok.stdout);
+    assert.equal(report.ok, true);
+    assert.equal(report.allow.file_sha256, sha256(bytes));
+    const plain = await run(['--catalog', files.catalog, '--edge', files.edge]);
+    assert.equal(plain.code, 1);
+    assert.equal('allow' in JSON.parse(plain.stdout), false);
+    const diff = await run([
+      '--catalog',
+      files.changed,
+      '--edge',
+      files.edge,
+      '--allow',
+      files.expected,
+    ]);
+    assert.equal(diff.code, 1);
+    assert.equal(JSON.parse(diff.stdout).allow.ok, false);
+    const bad = await run([
+      '--catalog',
+      files.catalog,
+      '--edge',
+      files.edge,
+      '--allow',
+      files.broken,
+    ]);
+    assert.equal(bad.code, 2);
+    assert.match(bad.stderr, /Expected changes file is invalid/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+  assert.deepEqual(parseArguments(['--catalog', 'c', '--edge', 'e', '--allow', 'a']), {
+    catalog: 'c',
+    edge: 'e',
+    allow: 'a',
+  });
+  assert.throws(() => parseArguments(['--catalog', 'c', '--edge', 'e', '--allow']));
+  assert.throws(() =>
+    parseArguments(['--catalog', 'c', '--edge', 'e', '--allow', 'a', '--allow', 'b']),
+  );
 });
