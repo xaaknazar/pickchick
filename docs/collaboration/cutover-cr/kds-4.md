@@ -78,4 +78,6 @@
    assert.equal(report.ok, false);
 ```
 
+Готовый патч - `docs/collaboration/cutover-cr/kds-4.patch` (в блоках выше markdown съедает пустые строки контекста, поэтому `git apply` берёт файл, а не текст CR): `git apply docs/collaboration/cutover-cr/kds-4.patch`. Проверено 05.11 на слиянии pos (`b25674d5`) в kds вместе с CR kds-6: корневой `pnpm test` - 383 теста, 382 прошли, 0 упали, 1 пропущен (подробности - CR kds-8).
+
 Интерфейс `deriveRouting(snapshot, active, stations)` не меняется. Если полоса cloud сливается раньше kds, её правка этих тестов должна идти вместе со слиянием kds (иначе красные с другой стороны): удобнее, чтобы integration применила оба diff в коммите слияния kds.
