@@ -13,6 +13,7 @@ import {
 } from '../../apps/pos/dist/model.js';
 import { ApiError, errorMessage, saleErrorMessage } from '../../apps/pos/dist/api.js';
 import { SaleView } from '../../apps/pos/dist/v2/sale-view.js';
+import { OpsView } from '../../apps/pos/dist/v2/ops-view.js';
 import {
   cashShift as parseShift,
   inputMoney,
@@ -2767,4 +2768,523 @@ test('screens: every paid-mode text is Russian copy with the plain hyphen only',
   }
   for (const text of seen) assert.ok(!/[\u2013\u2014]/.test(text), text);
   assert.ok(seen.includes('На терминале - только целые тенге. Выберите другой способ.'));
+});
+
+// ---- Part B screens (apps/pos/src/v2/ops-view.js): DOM-free template values ----------------
+
+function opsScreens(model, options = {}) {
+  const base = screens(model);
+  const tabs = [];
+  let ended = 0;
+  const ops = new OpsView(model, base.view, {
+    onChange: () => {},
+    guard:
+      (fn) =>
+      async (...args) => {
+        if (model.state.busy || model.state.pending) return;
+        await fn(...args);
+      },
+    say: (text) => base.said.push(text),
+    setTab: (tab) => tabs.push(tab),
+    pinCredential:
+      options.pinCredential ??
+      (async () => {
+        throw new Error('Неверный PIN или нет доступа к рабочему месту');
+      }),
+    logoutCredential: async () => {},
+    endSession: () => ended++,
+    printer: options.printer,
+    terminalLabel: 'Тестовая точка',
+  });
+  return { ...base, ops, tabs, ended: () => ended };
+}
+const legacyShift = {
+  ...legacyValues,
+  shiftOrders: 137,
+  drawerLabel: '5 000 ₸',
+  cashLog: [
+    { time: '09:00', what: 'Начальный остаток · тест', sum: '5 000 ₸', fg: 'var(--green)' },
+  ],
+  navItems: [{ label: 'ЗАКАЗ' }],
+};
+const pinTap = (view, pin) => tap(view.values().saleApprovalKeys, pin.split(''));
+
+test('screens: part B renders nothing for the unpaid cashier', async () => {
+  const f = fixture();
+  const api = async (path, auth, options) => {
+    if (path === 'pos/config') throw new ApiError('NOT_FOUND', 404);
+    return f.api(path, auth, options);
+  };
+  const model = new PosController(api, memory(), memory(), randomUUID);
+  await model.login(JSON.stringify(f.credential));
+  const { ops } = opsScreens(model);
+  ops.setState({ card: { mode: 'view' }, report: 'x', close: { step: 1 } });
+  assert.deepEqual(ops.templateValues(legacyShift, 'fiscal'), {
+    isFiscalTab: false,
+    isOpsCard: false,
+    isOpsReport: false,
+    isOpsClose: false,
+  });
+});
+
+test('screens: paid order card - void with a reason, the Webkassa answer and the PIN modal', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const { view, ops, said } = opsScreens(model);
+  await reviewed(model, edge);
+  await model.sell({ method: 'cash', tendered_minor: '700000' });
+  const id = model.state.sale.order_id;
+  model.newDraft();
+  await ops.openCard(id);
+  let values = ops.templateValues(legacyShift, 'orders');
+  assert.equal(values.isOpsCard, true);
+  assert.equal(values.opsCardTitle, 'Заказ №27');
+  assert.equal(values.opsCardStatus, 'На кухне · оплачен · в зале');
+  assert.equal(values.opsCardPickup, 'Забрать на выдаче');
+  assert.deepEqual(
+    values.opsCardReceipts.map((r) => [r.text, r.action]),
+    [['Чек продажи · 6 990 ₸ · не оформлен', 'Внести номер']],
+  );
+  assert.equal(values.opsCardCanVoid, true);
+  assert.equal(values.opsCardCanRefund, true);
+  await values.opsCardVoidPick();
+  values = ops.templateValues(legacyShift, 'orders');
+  assert.equal(values.opsCardVoid, true);
+  assert.equal(values.opsConfirmDisabled, 'true');
+  await values.opsConfirm();
+  assert.equal(said.at(-1), 'Выберите причину');
+  await values.opsReasons.find((r) => r.label === 'Гость передумал').pick();
+  values = ops.templateValues(legacyShift, 'orders');
+  assert.equal(values.opsReasonValue, 'Гость передумал', 'the reason text starts from the chip');
+  await values.opsConfirm();
+  assert.equal(said.at(-1), 'Ответьте: чек продажи уже пробит в Webkassa?');
+  await values.opsVoidAnswers.find((a) => a.label === 'Чек продажи не пробит').pick();
+  values = ops.templateValues(legacyShift, 'orders');
+  assert.equal(values.opsConfirmLabel, 'Отменить заказ · PIN начальника смены');
+  await values.opsConfirm();
+  let modal = view.values();
+  assert.equal(modal.saleApprovalOpen, true);
+  assert.equal(modal.saleApprovalSub, 'Отмена заказа №27 · 6 990 ₸');
+  await pinTap(view, '1111');
+  assert.equal(view.values().saleApprovalError, 'Неверный PIN или нет прав начальника смены');
+  assert.equal(edge.edge.ops.length, 0);
+  await pinTap(view, MANAGER_PIN);
+  assert.equal(view.values().saleApprovalOpen, false);
+  values = ops.templateValues(legacyShift, 'orders');
+  assert.equal(values.opsCardView, true);
+  assert.match(values.opsCardStatus, /^Отменён/);
+  assert.equal(values.opsCardRefunds.length, 1);
+  assert.match(values.opsCardRefunds[0].text, /^Отмена · \d\d:\d\d · Гость передумал$/);
+  assert.equal(values.opsCardRefunds[0].sum, '-6 990 ₸');
+  assert.equal(values.opsCardCanVoid, false);
+  assert.equal(values.opsCardCanRefund, false);
+  assert.equal(values.opsCardNote, 'Заказ отменён.');
+  assert.deepEqual(lastOp(edge).body.fiscal_sale_issued, false);
+  assert.ok(said.includes('Заказ отменён'));
+  await values.opsCardClose();
+  assert.equal(ops.templateValues(legacyShift, 'orders').isOpsCard, false);
+  assert.equal(model.state.order, null, 'the cart is editable again');
+});
+
+test('screens: refund by tender with the keypad and "Всё"; the desk never refunds an aggregator', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const { view, ops, said } = opsScreens(model);
+  await reviewed(model, edge);
+  await model.sell({
+    method: 'mixed',
+    parts: [
+      { method: 'cash', amount_minor: '199000' },
+      { method: 'kaspi_terminal', amount_minor: '500000' },
+    ],
+    tendered_minor: '200000',
+  });
+  const id = model.state.sale.order_id;
+  model.newDraft();
+  await ops.openCard(id);
+  await ops.templateValues(legacyShift, 'orders').opsCardRefundPick();
+  let values = ops.templateValues(legacyShift, 'orders');
+  assert.deepEqual(
+    values.opsRefundTenders.map((t) => [t.name, t.left, t.amount, t.note]),
+    [
+      ['Наличные', 'можно вернуть 1 990 ₸', '-', 'Выдайте наличные из ящика кассы.'],
+      [
+        'Kaspi терминал',
+        'можно вернуть 5 000 ₸',
+        '-',
+        'Сначала проведите возврат на терминале Kaspi, затем подтвердите.',
+      ],
+    ],
+  );
+  assert.equal(values.opsConfirmLabel, 'Введите сумму возврата');
+  await tap(values.opsRefundKeys, ['1', '0', '0', '0']);
+  await ops.templateValues(legacyShift, 'orders').opsRefundTenders[1].all();
+  await ops
+    .templateValues(legacyShift, 'orders')
+    .opsReasons.find((r) => r.label === 'Качество блюда')
+    .pick();
+  values = ops.templateValues(legacyShift, 'orders');
+  assert.deepEqual(
+    values.opsRefundTenders.map((t) => t.amount),
+    ['1 000 ₸', '5 000 ₸'],
+  );
+  assert.equal(values.opsRefundSum, '6 000 ₸');
+  assert.equal(values.opsConfirmLabel, 'Вернуть 6 000 ₸ · PIN начальника смены');
+  await values.opsConfirm();
+  assert.equal(view.values().saleApprovalSub, 'Возврат по заказу №27 · 6 000 ₸');
+  await pinTap(view, MANAGER_PIN);
+  assert.deepEqual(lastOp(edge).body.tenders, [
+    { tender_id: model.state.sale.tenders[0].tender_id, amount_minor: '100000' },
+    { tender_id: model.state.sale.tenders[1].tender_id, amount_minor: '500000' },
+  ]);
+  values = ops.templateValues(legacyShift, 'orders');
+  assert.equal(values.opsCardView, true);
+  assert.ok(said.includes('Возврат проведён. Пробейте чек возврата в Webkassa.'));
+  assert.deepEqual(
+    values.opsCardReceipts.map((r) => r.text),
+    ['Чек продажи · 6 990 ₸ · не оформлен', 'Чек возврата · 6 000 ₸ · не оформлен'],
+  );
+  assert.equal(values.opsCardTenders[0].left, 'доступно к возврату 990 ₸');
+  await values.opsCardClose();
+  // Aggregator money goes back in the aggregator cabinet: no refund screen at the desk.
+  model.quantity(edge.item.variant_id, 1);
+  model.setChannel('yandex_eda');
+  model.setExternalOrderRef('YA-77');
+  await model.calculate();
+  model.confirmReview();
+  await model.sell({ method: 'aggregator' });
+  const aggregator = model.state.sale.order_id;
+  model.newDraft();
+  await ops.openCard(aggregator);
+  values = ops.templateValues(legacyShift, 'orders');
+  assert.equal(values.opsCardCanRefund, false);
+  assert.equal(values.opsCardCanVoid, true, 'an aggregator order is voided before the kitchen');
+  ops.startRefund();
+  assert.equal(said.at(-1), 'Возврат агрегатора оформляется в кабинете агрегатора');
+});
+
+test('screens: Webkassa tab lists pending receipts, records numbers, a correction asks the PIN', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const { view, ops, said, tabs } = opsScreens(model);
+  for (const payment of [
+    { method: 'cash', tendered_minor: '700000' },
+    { method: 'kaspi_manual' },
+  ]) {
+    await reviewed(model, edge);
+    await model.sell(payment);
+    model.newDraft();
+  }
+  let values = ops.templateValues(legacyShift, 'order');
+  const nav = values.navItems.at(-1);
+  assert.deepEqual([nav.label, nav.badge], ['ЧЕКИ WEBKASSA', '2']);
+  assert.equal(values.isFiscalTab, false);
+  await nav.go();
+  assert.deepEqual(tabs, ['fiscal']);
+  values = ops.templateValues(legacyShift, 'fiscal');
+  assert.equal(values.isFiscalTab, true);
+  assert.equal(values.opsFiscalTitle, 'Не оформлено: 2 на 13 980 ₸');
+  assert.match(values.opsFiscalSub, /^Эта смена · обновлено в \d\d:\d\d$/);
+  assert.deepEqual(
+    values.opsFiscalRows.map((r) => [r.no, r.kind, r.methods, r.sum]),
+    [
+      ['№27', 'Продажа', 'Наличные', '6 990 ₸'],
+      ['№28', 'Продажа', 'Kaspi вручную', '6 990 ₸'],
+    ],
+  );
+  await values.opsFiscalRows[0].record();
+  assert.equal(view.values().saleEntryTitle, 'Номер чека Webkassa');
+  await view.values().saleEntrySave();
+  assert.equal(said.at(-1), 'Номер чека Webkassa - от 1 до 40 символов', 'an empty number');
+  await tap(view.values().saleEntryKeys, ['T', 'E', 'S', 'T', '-', 'W', 'K', '-', '5']);
+  await view.values().saleEntrySave();
+  assert.equal(said.at(-1), 'Чек заказа №27 оформлен');
+  values = ops.templateValues(legacyShift, 'fiscal');
+  assert.equal(values.opsFiscalTitle, 'Не оформлено: 1 на 6 990 ₸');
+  assert.equal(values.navItems.at(-1).badge, '1');
+  await values.opsFiscalScopes.find((c) => c.label === 'Все смены').pick();
+  assert.equal(
+    edge.calls.findLast((c) => c.path.startsWith('pos/fiscal-receipts/pending')).path,
+    'pos/fiscal-receipts/pending',
+  );
+  assert.match(ops.templateValues(legacyShift, 'fiscal').opsFiscalSub, /^Все смены точки/);
+  // A wrong number already recorded: from the order card, a new number and the manager's PIN.
+  await ops.openCard([...edge.edge.sales.keys()][0]);
+  values = ops.templateValues(legacyShift, 'fiscal');
+  assert.deepEqual(
+    values.opsCardReceipts.map((r) => [r.text, r.action]),
+    [['Чек продажи · 6 990 ₸ · №TEST-WK-5', 'Исправить']],
+  );
+  await values.opsCardReceipts[0].tap();
+  await tap(view.values().saleEntryKeys, ['T', 'E', 'S', 'T', '-', 'W', 'K', '-', '5']);
+  await view.values().saleEntrySave();
+  assert.equal(said.at(-1), 'Это тот же номер чека');
+  await ops.templateValues(legacyShift, 'fiscal').opsCardReceipts[0].tap();
+  await tap(view.values().saleEntryKeys, ['T', 'E', 'S', 'T', '-', 'W', 'K', '-', '6']);
+  await view.values().saleEntrySave();
+  assert.equal(view.values().saleApprovalSub, 'Исправление чека Webkassa №TEST-WK-5');
+  await pinTap(view, MANAGER_PIN);
+  assert.equal(view.values().saleApprovalOpen, false);
+  assert.equal(said.at(-1), 'Номер чека Webkassa исправлен');
+  assert.equal(lastOp(edge).body.receipt_number, 'TEST-WK-6');
+  assert.ok(lastOp(edge).body.approval, 'the correction carries its approval');
+});
+
+test('screens: shift tab of the paid mode shows real money; X report prints a typed ticket', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const printed = [];
+  let fail = false;
+  const printer = {
+    print: async (ticket) => {
+      printed.push(ticket);
+      if (fail) throw new Error('lost');
+    },
+  };
+  const { ops, said } = opsScreens(model, { printer });
+  await reviewed(model, edge);
+  await model.sell({ method: 'cash', tendered_minor: '700000' });
+  model.newDraft();
+  let values = ops.templateValues(legacyShift, 'shift');
+  assert.equal(values.shiftRevenue, '6 990 ₸');
+  assert.equal(values.shiftOrders, 1);
+  assert.deepEqual(
+    values.shiftPays.map((p) => [p.name, p.sum]),
+    [['Наличные', '6 990 ₸']],
+  );
+  assert.equal(values.drawerLabel, '11 990 ₸');
+  assert.equal(values.kkmLine, 'Чеки: вручную в Webkassa · не оформлено: 1');
+  assert.equal(values.cashLog[0].what, 'Начальный остаток');
+  assert.ok(!texts(values).some((t) => /Тест/.test(t)), 'no test-mode texts in the paid mode');
+  await values.sayRetry();
+  await values.sayX();
+  values = ops.templateValues(legacyShift, 'shift');
+  assert.equal(values.isOpsReport, true);
+  assert.equal(values.opsReportTitle, 'X-отчёт PickChick (не фискальный)');
+  assert.deepEqual(
+    values.opsReportRows.map((r) => [r.label, r.value]),
+    [
+      ['Начальный остаток', '5 000 ₸'],
+      ['Внесения', '0 ₸'],
+      ['Изъятия', '0 ₸'],
+      ['Наличные продажи', '6 990 ₸'],
+      ['Наличные возвраты', '0 ₸'],
+      ['Ожидается в ящике', '11 990 ₸'],
+    ],
+  );
+  assert.equal(values.opsReportRevenue, '6 990 ₸');
+  await values.opsReportPrint();
+  assert.equal(printed.length, 1);
+  assert.deepEqual(
+    { ...printed[0], printed_at: 'x' },
+    {
+      kind: 'x_report',
+      title: 'X-отчёт PickChick (не фискальный)',
+      lines: ['Заказов: 1, отменено: 0', 'Чеки Webkassa: оформлено 0, не оформлено 1, не нужен 0'],
+      totals: values.opsReportRows.map((r, i) => ({
+        label: r.label,
+        amount_minor: ['500000', '0', '0', '699000', '0', '1199000'][i],
+      })),
+      tenders: [
+        {
+          method: 'cash',
+          label: 'Наличные',
+          sales_minor: '699000',
+          refunds_minor: '0',
+          count: 1,
+        },
+      ],
+      printed_at: 'x',
+      terminal_label: 'Тестовая точка',
+    },
+  );
+  assert.equal(said.at(-1), 'Отправлено на печать');
+  fail = true;
+  await values.opsReportPrint();
+  assert.equal(printed.length, 2, 'one attempt per tap, never repeated by itself');
+  assert.equal(said.at(-1), saleErrorMessage(new Error('PRINT_FAILED')));
+  await values.opsReportClose();
+  assert.equal(ops.templateValues(legacyShift, 'shift').isOpsReport, false);
+  const bare = opsScreens(model);
+  await bare.ops.templateValues(legacyShift, 'shift').sayDrawer();
+  assert.equal(bare.said.at(-1), 'Печать не настроена');
+});
+
+test('screens: closing wizard - counted cash, Kaspi total, receipts, PIN, then Z and the lock', async () => {
+  const edge = saleEdge();
+  edge.actor.role = 'shift_manager';
+  edge.credential.role = 'shift_manager';
+  const model = await saleCashier(edge);
+  let credentials = 0;
+  const { view, ops, said, ended } = opsScreens(model, {
+    pinCredential: async (pin) => {
+      credentials++;
+      if (pin !== MANAGER_PIN) throw new Error('Неверный PIN или нет доступа к рабочему месту');
+      return edge.credential;
+    },
+  });
+  for (const payment of [
+    { method: 'cash', tendered_minor: '700000' },
+    { method: 'kaspi_terminal' },
+  ]) {
+    await reviewed(model, edge);
+    await model.sell(payment);
+    model.newDraft();
+  }
+  await ops.templateValues(legacyShift, 'shift').startClose();
+  let values = ops.templateValues(legacyShift, 'shift');
+  assert.equal(values.isOpsClose, true);
+  assert.equal(values.opsCloseSteps.length, 6, 'the Kaspi terminal step is asked');
+  assert.equal(values.opsCloseTitle, '1 · Сводка смены');
+  assert.deepEqual(
+    values.opsCloseRows.map((r) => [r.label, r.value]),
+    [
+      ['Наличные', '6 990 ₸'],
+      ['Kaspi терминал', '6 990 ₸'],
+      ['Выручка', '13 980 ₸'],
+      ['Заказов', '2'],
+    ],
+  );
+  await values.opsCloseNext();
+  values = ops.templateValues(legacyShift, 'shift');
+  assert.equal(values.opsCloseTitle, '2 · Пересчитайте наличные');
+  await tap(values.opsCloseKeys, ['1', '1', '9', '9', '0']);
+  values = ops.templateValues(legacyShift, 'shift');
+  assert.deepEqual([values.opsCloseAmount, values.opsCloseDiff], ['11 990 ₸', 'Расхождения нет']);
+  await values.opsCloseNext();
+  values = ops.templateValues(legacyShift, 'shift');
+  assert.equal(values.opsCloseTitle, '3 · Итог терминала Kaspi за смену');
+  await tap(values.opsCloseKeys, ['6', '9', '0', '0']);
+  assert.equal(
+    ops.templateValues(legacyShift, 'shift').opsCloseDiff,
+    'Расхождение терминала -90 ₸',
+  );
+  await tap(ops.templateValues(legacyShift, 'shift').opsCloseKeys, ['⌫', '⌫', '9', '0']);
+  values = ops.templateValues(legacyShift, 'shift');
+  assert.equal(values.opsCloseDiff, 'Совпадает с кассой');
+  await values.opsCloseNext();
+  values = ops.templateValues(legacyShift, 'shift');
+  assert.equal(values.opsCloseTitle, '4 · Чеки Webkassa');
+  assert.equal(
+    values.opsCloseNote,
+    'Не оформлено: 2 на 13 980 ₸. Закрыть смену можно только с PIN начальника смены.',
+  );
+  assert.equal(values.opsCloseAction, 'Оформить чеки сейчас');
+  await values.opsCloseNext();
+  values = ops.templateValues(legacyShift, 'shift');
+  assert.deepEqual(
+    [values.opsCloseTitle, values.opsCloseNote],
+    ['5 · Причина', 'Расхождений нет.'],
+  );
+  await values.opsCloseNext();
+  values = ops.templateValues(legacyShift, 'shift');
+  assert.equal(values.opsCloseCta, 'Закрыть смену · PIN начальника смены');
+  await values.opsCloseNext();
+  assert.equal(view.values().saleApprovalSub, 'Закрытие смены · не оформлено чеков Webkassa: 2');
+  await pinTap(view, '1111');
+  assert.equal(view.values().saleApprovalError, 'Неверный PIN или нет доступа к рабочему месту');
+  assert.equal(edge.edge.ops.length, 0, 'a wrong PIN changes nothing');
+  await pinTap(view, MANAGER_PIN);
+  assert.equal(credentials, 2);
+  assert.equal(view.values().saleApprovalOpen, false);
+  assert.deepEqual(lastOp(edge).body, {
+    expected_version: 1,
+    counted_cash_minor: '1199000',
+    reason: 'Закрытие смены',
+    terminal_reported_minor: '699000',
+    approval: { approval_id: [...edge.edge.approvals.keys()].at(-1), token: 'c'.repeat(64) },
+  });
+  assert.equal(
+    edge.edge.approvals.get([...edge.edge.approvals.keys()].at(-1)).action,
+    'shift_close_pending_fiscal',
+  );
+  values = ops.templateValues(legacyShift, 'shift');
+  assert.equal(values.isOpsClose, false);
+  assert.equal(values.isOpsReport, true);
+  assert.equal(values.opsReportTitle, 'Z-отчёт PickChick (не фискальный)');
+  assert.equal(values.opsReportZ, true);
+  assert.ok(said.includes('Смена закрыта. Не забудьте закрыть смену в кабинете Webkassa.'));
+  assert.ok(values.opsReportLines.some((l) => l.text === 'Расхождение терминала Kaspi: 0 ₸'));
+  await values.opsReportClose();
+  assert.equal(ended(), 1, 'the desk is locked after the Z report');
+});
+
+test('screens: a discrepancy at closing needs a typed reason', async () => {
+  const edge = saleEdge();
+  edge.actor.role = 'shift_manager';
+  edge.credential.role = 'shift_manager';
+  const config = posConfigFor();
+  config.methods.find((m) => m.code === 'kaspi_terminal').enabled = false;
+  edge.edge.config = config;
+  const model = await saleCashier(edge);
+  const { view, ops, said } = opsScreens(model);
+  await ops.templateValues(legacyShift, 'shift').startClose();
+  let values = ops.templateValues(legacyShift, 'shift');
+  assert.equal(values.opsCloseSteps.length, 5, 'no Kaspi terminal step without the method');
+  await values.opsCloseNext();
+  await tap(ops.templateValues(legacyShift, 'shift').opsCloseKeys, ['4', '9', '0', '0']);
+  values = ops.templateValues(legacyShift, 'shift');
+  assert.equal(values.opsCloseDiff, 'Расхождение -100 ₸');
+  await values.opsCloseNext();
+  assert.equal(ops.templateValues(legacyShift, 'shift').opsCloseTitle, '4 · Чеки Webkassa');
+  await ops.templateValues(legacyShift, 'shift').opsCloseNext();
+  values = ops.templateValues(legacyShift, 'shift');
+  assert.equal(values.opsCloseField, true);
+  await values.opsCloseNext();
+  assert.equal(said.at(-1), 'Укажите причину - от 3 до 300 символов');
+  await values.opsCloseFieldPick();
+  await tap(view.values().saleEntryKeys, ['Н', 'Е', 'Д', 'О', 'С', 'Т', 'А', 'Ч', 'А']);
+  await view.values().saleEntrySave();
+  values = ops.templateValues(legacyShift, 'shift');
+  assert.equal(values.opsCloseFieldValue, 'Недостача');
+  await values.opsCloseNext();
+  assert.equal(ops.templateValues(legacyShift, 'shift').opsCloseTitle, '6 · PIN начальника смены');
+  await ops.templateValues(legacyShift, 'shift').opsCloseBack();
+  assert.equal(ops.templateValues(legacyShift, 'shift').opsCloseTitle, '5 · Причина');
+});
+
+test('screens: every part B text is Russian copy with the plain hyphen only', async () => {
+  const edge = saleEdge();
+  edge.actor.role = 'shift_manager';
+  edge.credential.role = 'shift_manager';
+  const model = await saleCashier(edge);
+  const { ops, view } = opsScreens(model);
+  await reviewed(model, edge);
+  await model.sell({ method: 'cash', tendered_minor: '700000' });
+  const id = model.state.sale.order_id;
+  model.newDraft();
+  const seen = [];
+  const collect = (tab = 'shift') => seen.push(...texts(ops.templateValues(legacyShift, tab)));
+  await ops.openCard(id);
+  collect('fiscal');
+  ops.startVoid();
+  collect();
+  ops.setState({ card: { mode: 'view' } });
+  ops.startRefund();
+  collect();
+  ops.closeCard();
+  await ops.openX();
+  collect();
+  ops.setState({ report: null });
+  await ops.startClose();
+  for (let step = 1; step <= 6; step++) {
+    ops.setState({ close: { ...ops.state.close, step } });
+    collect();
+  }
+  for (const purpose of ['opsReason', 'fiscalNumber', 'closeReason']) {
+    view.setState({ entry: { purpose, value: '' } });
+    seen.push(...texts(view.values()));
+  }
+  for (const code of [
+    'REFUND_REASON_REQUIRED',
+    'REFUND_AMOUNT_INVALID',
+    'FISCAL_SALE_ANSWER_REQUIRED',
+    'SALE_NOT_ACTIVE',
+    'RECEIPT_NUMBER_SAME',
+    'PRINTER_NOT_CONFIGURED',
+    'PRINT_FAILED',
+  ])
+    seen.push(saleErrorMessage(new Error(code)));
+  assert.ok(seen.length > 100);
+  for (const text of seen) assert.ok(!/[\u2013\u2014]/.test(text), text);
 });

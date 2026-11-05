@@ -2091,6 +2091,8 @@ export class PosController {
   }
   /** The selected paid order and its sale, both read for the same order. */
   private saleTarget() {
+    // Voids and refunds are booked to this desk's open sales shift (edge schema026 guard).
+    if (!this.hasConfirmedOpenShift) throw new Error('CASH_SHIFT_REQUIRED');
     const order = this.state.order,
       sale = this.state.sale;
     if (!order || !sale || order.execution_mode !== 'pos_sale' || sale.order_id !== order.order_id)

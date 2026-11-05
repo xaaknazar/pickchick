@@ -37,6 +37,8 @@ function syntheticEdge() {
     token: randomUUID().replaceAll('-', '').padEnd(64, '0'),
   });
   const cashier = staff('cashier', 'Тестовый кассир');
+  const manager = staff('shift_manager', 'Тестовый начальник');
+  const actors = [cashier, manager];
   const items = [
     ['Тестовое комбо', '349000'],
     ['Тестовый напиток', '50000'],
@@ -104,6 +106,10 @@ function syntheticEdge() {
     posts: [],
     unpaid: [],
     number: 26,
+    // Part B: voids, refunds, receipts, approvals and the closed shift.
+    ops: [],
+    approvals: [],
+    closed: null,
   };
   const quote = (body) => {
     const lines = body.items.map((line) => {
@@ -214,18 +220,165 @@ function syntheticEdge() {
     state.sales.set(order_id, sale);
     return [201, { order, sale }];
   };
+  const left = (sale, tender) =>
+    BigInt(tender.amount_minor) -
+    sale.refunds
+      .flatMap((r) => r.tenders)
+      .filter((t) => t.tender_id === tender.tender_id)
+      .reduce((n, t) => n + BigInt(t.amount_minor), 0n);
+  const pending = (shiftId) =>
+    [...state.sales.values()]
+      .filter((sale) => !shiftId || sale.shift_id === shiftId)
+      .flatMap((sale) =>
+        sale.fiscal
+          .filter((r) => r.state === 'pending')
+          .map((r) => ({
+            receipt_id: r.receipt_id,
+            order_id: sale.order_id,
+            display_number: sale.display_number,
+            kind: r.kind,
+            amount_minor: r.amount_minor,
+            methods: sale.tenders.map((t) => t.method),
+            created_at: sale.created_at,
+            version: r.version,
+          })),
+      );
+  const report = (kind) => {
+    const methods = new Map(),
+      channels = new Map(),
+      fiscal = { pending: 0, recorded: 0, not_required: 0 };
+    let voided = 0;
+    for (const sale of state.sales.values()) {
+      for (const t of sale.tenders) {
+        const m = methods.get(t.method) ?? { sales: 0n, refunds: 0n, count: 0 };
+        m.sales += BigInt(t.amount_minor);
+        m.count++;
+        methods.set(t.method, m);
+      }
+      for (const r of sale.refunds) {
+        if (r.kind === 'void') voided++;
+        for (const part of r.tenders)
+          methods.get(sale.tenders.find((t) => t.tender_id === part.tender_id).method).refunds +=
+            BigInt(part.amount_minor);
+      }
+      const c = channels.get(sale.sales_channel) ?? { total: 0n, count: 0 };
+      c.total += BigInt(sale.total_minor);
+      c.count++;
+      channels.set(sale.sales_channel, c);
+      for (const r of sale.fiscal) fiscal[r.state]++;
+    }
+    const cash = methods.get('cash') ?? { sales: 0n, refunds: 0n };
+    const terminal = methods.get('kaspi_terminal') ?? { sales: 0n, refunds: 0n };
+    const expected = BigInt(shift.opening_cash_minor) + cash.sales - cash.refunds;
+    const closed = state.closed;
+    return {
+      kind,
+      shift_id: shift.shift_id,
+      terminal_id: terminal_id(),
+      state: closed ? 'closed' : 'open',
+      opened_at: shift.opened_at,
+      closed_at: closed?.closed_at ?? null,
+      opening_cash_minor: shift.opening_cash_minor,
+      cash_in_minor: '0',
+      cash_out_minor: '0',
+      cash_sales_minor: cash.sales.toString(),
+      cash_refunds_minor: cash.refunds.toString(),
+      expected_cash_minor: expected.toString(),
+      counted_cash_minor: closed?.counted_cash_minor ?? null,
+      discrepancy_minor: closed ? (BigInt(closed.counted_cash_minor) - expected).toString() : null,
+      methods: [...methods].map(([method, m]) => ({
+        method,
+        sales_minor: m.sales.toString(),
+        refunds_minor: m.refunds.toString(),
+        count: m.count,
+      })),
+      channels: [...channels].map(([sales_channel, c]) => ({
+        sales_channel,
+        total_minor: c.total.toString(),
+        count: c.count,
+      })),
+      terminal_reported_minor: closed?.terminal ?? null,
+      terminal_discrepancy_minor:
+        closed?.terminal == null
+          ? null
+          : (BigInt(closed.terminal) - (terminal.sales - terminal.refunds)).toString(),
+      fiscal,
+      orders: { count: state.sales.size, voided_count: voided },
+      report_at: new Date().toISOString(),
+    };
+  };
+  const terminal_id = () => terminal;
+  /** Idempotent part B commands: the same key returns the stored answer. */
+  const command = (p, body, key, run) => {
+    state.ops.push({ path: p, body, key });
+    if (state.commands.has(key)) return state.commands.get(key);
+    const result = run();
+    state.commands.set(key, result);
+    return result;
+  };
+  const operation = (p, body) => {
+    const id = p.split('/')[2];
+    const sale = state.sales.get(id),
+      order = state.orders.get(id);
+    if (p.endsWith('/void')) {
+      const refund = {
+        refund_id: randomUUID(),
+        kind: 'void',
+        amount_minor: sale.refundable_minor,
+        reason_code: body.reason_code,
+        approved_by_staff_id: manager.staff_id,
+        created_at: new Date().toISOString(),
+        tenders: sale.tenders
+          .map((t) => ({ tender_id: t.tender_id, amount_minor: left(sale, t).toString() }))
+          .filter((t) => t.amount_minor !== '0'),
+      };
+      sale.refunds.push(refund);
+      sale.refundable_minor = '0';
+      Object.assign(order, {
+        state: 'cancelled',
+        version: order.version + 1,
+        fulfillment_state: 'cancelled',
+        fulfillment: { ...order.fulfillment, version: 2, state: 'cancelled' },
+        cancellation_reason: body.reason,
+      });
+      return [200, { order, sale }];
+    }
+    const sum = body.tenders.reduce((n, t) => n + BigInt(t.amount_minor), 0n);
+    sale.refunds.push({
+      refund_id: body.refund_id,
+      kind: 'refund',
+      amount_minor: sum.toString(),
+      reason_code: body.reason_code,
+      approved_by_staff_id: manager.staff_id,
+      created_at: new Date().toISOString(),
+      tenders: body.tenders,
+    });
+    sale.refundable_minor = (BigInt(sale.refundable_minor) - sum).toString();
+    sale.fiscal.push({
+      receipt_id: randomUUID(),
+      kind: 'refund',
+      state: 'pending',
+      receipt_number: null,
+      version: 1,
+      amount_minor: sum.toString(),
+    });
+    return [200, sale];
+  };
   const route = (method, path, body, headers) => {
     if (path === '/health/ready') return [200, { ready: true }];
-    if (path === '/edge/v1/staff/pin')
-      return body.pin === '1357' ? [200, cashier] : [401, { code: 'UNAUTHORIZED' }];
-    if (headers.authorization !== `Bearer ${cashier.token}`) return [401, { code: 'UNAUTHORIZED' }];
+    if (path === '/edge/v1/staff/pin') {
+      const found = { 1357: cashier, 2468: manager }[body.pin];
+      return found ? [200, found] : [401, { code: 'UNAUTHORIZED' }];
+    }
+    const actor = actors.find((a) => headers.authorization === `Bearer ${a.token}`);
+    if (!actor) return [401, { code: 'UNAUTHORIZED' }];
     const p = path.replace('/edge/v1/', '');
     const now = new Date().toISOString();
     if (method === 'GET') {
       if (p === 'session') {
-        const { token: _token, ...actor } = cashier;
+        const { token: _token, ...session } = actor;
         void _token;
-        return [200, actor];
+        return [200, session];
       }
       if (p === 'menu') return [200, menu];
       if (p === 'menu/version') return [200, { release_id: menu.release_id, version: 1 }];
@@ -246,8 +399,17 @@ function syntheticEdge() {
         ];
       if (p.startsWith('availability/stops/'))
         return [200, { variant_id: p.split('/')[2], stopped: false, version: 0 }];
-      if (p === 'cash-shifts/current') return [200, { shift, server_time: now }];
-      if (p === 'cash-shifts') return [200, { shifts: [shift], server_time: now }];
+      if (p === 'cash-shifts/current')
+        return [200, { shift: state.closed ? null : shift, server_time: now }];
+      if (p === 'cash-shifts') return [200, { shifts: [state.closed ?? shift], server_time: now }];
+      if (p === `cash-shifts/${shift.shift_id}`) return [200, state.closed ?? shift];
+      if (p === `cash-shifts/${shift.shift_id}/x-report`) return [200, report('x')];
+      if (p === `cash-shifts/${shift.shift_id}/z-report`)
+        return state.closed ? [200, report('z')] : [409, { code: 'CONFLICT' }];
+      if (p.startsWith('pos/fiscal-receipts/pending')) {
+        const query = new URL(p, 'http://edge.invalid/').searchParams.get('shift_id');
+        return [200, { receipts: pending(query) }];
+      }
       if (p === 'orders') return [200, { orders: [...state.orders.values()], server_time: now }];
       if (p.startsWith('orders/')) {
         const o = state.orders.get(p.split('/')[1]);
@@ -277,9 +439,33 @@ function syntheticEdge() {
       state.commands.set(key, result);
       return result;
     }
+    if (/^pos\/sales\/[0-9a-f-]+\/(void|refunds)$/.test(p))
+      return command(p, body, headers['idempotency-key'], () => operation(p, body));
+    if (p === `cash-shifts/${shift.shift_id}/close`)
+      return command(p, body, headers['idempotency-key'], () => {
+        const expected = report('x').expected_cash_minor;
+        state.closed = {
+          ...shift,
+          version: 2,
+          state: 'closed',
+          closed_at: new Date().toISOString(),
+          closed_by_staff_id: actor.staff_id,
+          expected_cash_minor: expected,
+          counted_cash_minor: body.counted_cash_minor,
+          discrepancy_minor: (BigInt(body.counted_cash_minor) - BigInt(expected)).toString(),
+          closing_reason: body.reason,
+        };
+        Object.defineProperty(state.closed, 'terminal', {
+          value: body.terminal_reported_minor ?? null,
+          enumerable: false,
+        });
+        return [200, state.closed];
+      });
     if (p === 'staff/approvals') {
-      if (body.pin !== '2468' || body.staff_id !== cashier.staff_id)
+      // The session's own staff id with a shift manager PIN (CR client-1 section 1).
+      if (body.pin !== '2468' || body.staff_id !== actor.staff_id)
         return [401, { code: 'UNAUTHORIZED' }];
+      state.approvals.push({ action: body.action, subject: body.subject });
       return [
         200,
         {
@@ -291,6 +477,7 @@ function syntheticEdge() {
       ];
     }
     if (/^pos\/fiscal-receipts\/[0-9a-f-]+\/record$/.test(p)) {
+      state.ops.push({ path: p, body, key: headers['idempotency-key'] });
       for (const sale of state.sales.values())
         for (const receipt of sale.fiscal)
           if (receipt.receipt_id === p.split('/')[2]) {
@@ -334,9 +521,11 @@ test('paid cashier screens in the browser: hall cash, aggregator, staff meal; 40
   const output = new URL('../../.local/pos-sale-browser/', import.meta.url);
   await mkdir(output, { recursive: true, mode: 0o700 });
   const temp = await mkdtemp(fileURLToPath(new URL('run-', output)));
+  const paid = edge.state.config;
   const control = createServer((req, res) => {
-    // The browser script switches the synthetic edge to an edge without pos/config.
+    // The browser script switches the synthetic edge to an edge without pos/config and back.
     if (req.url === '/legacy') edge.state.config = null;
+    if (req.url === '/paid') edge.state.config = paid;
     res.end('{}');
   });
   await new Promise((r) => control.listen(0, '127.0.0.1', r));
@@ -378,6 +567,40 @@ test('paid cashier screens in the browser: hall cash, aggregator, staff meal; 40
     const recorded = [...edge.state.sales.values()][0].fiscal[0];
     assert.equal(recorded.receipt_number, 'TEST-WK-1');
     assert.equal(edge.state.unpaid.length, 0, 'POST orders is never sent in the paid mode');
+    // Part B: refund of the cash order, void of the aggregator order, the refund receipt, the
+    // close with the Kaspi terminal total and no pending receipts (so no close approval).
+    const [first, second] = [...edge.state.sales.values()];
+    const byPath = (end) => edge.state.ops.filter((o) => o.path.endsWith(end));
+    assert.deepEqual(
+      byPath('/refunds').map((o) => o.body.tenders),
+      [[{ tender_id: first.tenders[0].tender_id, amount_minor: '349000' }]],
+    );
+    assert.equal(byPath('/refunds')[0].body.reason_code, 'quality');
+    assert.equal(byPath('/void')[0].path, `pos/sales/${second.order_id}/void`);
+    assert.equal(byPath('/void')[0].body.reason_code, 'aggregator_cancelled');
+    assert.equal(byPath('/void')[0].body.fiscal_sale_issued, false);
+    assert.deepEqual(
+      byPath('/record').map((o) => o.body.receipt_number),
+      ['TEST-WK-1', 'TEST-WK-2'],
+    );
+    assert.deepEqual(
+      edge.state.approvals.map((a) => a.action),
+      ['staff_meal', 'refund', 'void'],
+      'one approval per action; none for closing without pending receipts',
+    );
+    assert.deepEqual(edge.state.approvals[1].subject, {
+      order_id: first.order_id,
+      amount_minor: '349000',
+    });
+    const close = byPath('/close');
+    assert.equal(close.length, 1);
+    assert.deepEqual(close[0].body, {
+      expected_version: 1,
+      counted_cash_minor: '2000000',
+      reason: 'Закрытие смены',
+      terminal_reported_minor: '0',
+    });
+    assert.equal(edge.state.closed.state, 'closed');
   } finally {
     await new Promise((r) => control.close(r));
     await new Promise((r) => pos.close(r));

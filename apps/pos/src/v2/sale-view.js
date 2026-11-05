@@ -72,6 +72,31 @@ const ENTRIES = {
     max: 40,
     sub: 'Номер пробитого чека из кабинета Webkassa, до 40 знаков.',
   },
+  // Part B screens (ops-view.js) pass their own save handler.
+  opsReason: {
+    title: 'Причина',
+    keys: TEXT_KEYS,
+    max: 300,
+    min: 3,
+    space: true,
+    sub: 'От 3 до 300 знаков. Останется в отчёте продаж.',
+  },
+  fiscalNumber: {
+    title: 'Номер чека Webkassa',
+    keys: CODE_KEYS,
+    max: 40,
+    min: 1,
+    error: 'RECEIPT_NUMBER_INVALID',
+    sub: 'Номер пробитого чека из кабинета Webkassa, до 40 знаков.',
+  },
+  closeReason: {
+    title: 'Причина расхождения',
+    keys: TEXT_KEYS,
+    max: 300,
+    min: 3,
+    space: true,
+    sub: 'От 3 до 300 знаков. Останется в отчёте смены.',
+  },
 };
 const tiyn = (digits) => BigInt(digits || '0') * 100n;
 /** Whole tenge at or above an amount: what a guest can hand over without coins of tiyn. */
@@ -93,6 +118,10 @@ const blank = () => ({
   entry: null,
   approvalOpen: false,
   approvalPin: '',
+  // A PIN asked for another screen: its subtitle, its handler and its last refusal.
+  pinSub: null,
+  pinRun: null,
+  pinError: '',
 });
 
 export class SaleView {
@@ -303,9 +332,39 @@ export class SaleView {
         : entry.value + key;
     this.setState({ entry: { ...entry, value } });
   }
-  saveEntry() {
-    const { purpose, value } = this.state.entry;
+  /**
+   * The shift manager PIN modal for another screen. `run(pin)` does the work and returns true
+   * when the modal may close; the PIN leaves the view state before it is called.
+   */
+  askPin({ sub, run }) {
+    this.setState({ approvalOpen: true, approvalPin: '', pinSub: sub, pinRun: run, pinError: '' });
+  }
+  closePin() {
+    this.setState({
+      approvalOpen: false,
+      approvalPin: '',
+      pinSub: null,
+      pinRun: null,
+      pinError: '',
+    });
+  }
+  /** Text entry for another screen; `onSave(text)` gets the trimmed value. */
+  askText(purpose, value, onSave) {
+    this.setState({ entry: { purpose, value: value ?? '', onSave } });
+  }
+  async saveEntry() {
+    const { purpose, value, onSave } = this.state.entry;
     const text = value.trim();
+    if (onSave) {
+      const spec = ENTRIES[purpose];
+      if (text.length < (spec.min ?? 1)) {
+        this.say(saleErrorMessage(new Error(spec.error ?? 'REASON_REQUIRED')));
+        return;
+      }
+      this.setState({ entry: null });
+      await onSave(text);
+      return;
+    }
     if (['ref', 'choco'].includes(purpose) && !EXTERNAL_ORDER_REF.test(text)) {
       this.say(
         saleErrorMessage(new Error('EXTERNAL_REF_REQUIRED'), {
@@ -330,6 +389,17 @@ export class SaleView {
     if (pin.length < this.pinLength) return;
     // The PIN leaves the view state before the request: it is never kept or journaled.
     this.setState({ approvalPin: '' });
+    const run = this.state.pinRun;
+    if (run) {
+      let done = false;
+      try {
+        done = await run(pin);
+      } catch (error) {
+        this.setState({ pinError: error instanceof Error ? error.message : String(error) });
+      }
+      if (done) this.closePin();
+      return;
+    }
     await this.model.requestApproval(pin, this.state.method);
     const approval = this.model.approvalFor(this.state.method);
     if (approval) {
@@ -619,7 +689,15 @@ export class SaleView {
           ? 'Подтвердил: ' + approval.manager.name
           : 'Нажмите, чтобы ввести PIN',
         saleApprovalBorder: approval ? 'var(--green)' : 'var(--orange)',
-        saleApprovalPick: g(() => this.setState({ approvalOpen: true, approvalPin: '' })),
+        saleApprovalPick: g(() =>
+          this.setState({
+            approvalOpen: true,
+            approvalPin: '',
+            pinSub: null,
+            pinRun: null,
+            pinError: '',
+          }),
+        ),
         salePayLabel: staff ? 'Провести питание сотрудника' : 'Провести маркетинг',
       });
     }
@@ -721,17 +799,18 @@ export class SaleView {
     return {
       saleApprovalOpen: true,
       saleApprovalSub:
+        s.pinSub ??
         (s.method === 'staff_meal' ? 'Питание сотрудника' : 'Маркетинг') +
-        (q ? ' · ' + money(q.total_minor) : ''),
+          (q ? ' · ' + money(q.total_minor) : ''),
       saleApprovalDots: Array.from({ length: this.pinLength }, (_, i) => ({
         bg: i < s.approvalPin.length ? 'var(--blue)' : 'transparent',
       })),
-      saleApprovalError: error ? this.errorText(error) : '',
+      saleApprovalError: s.pinError || (error ? this.errorText(error) : ''),
       saleApprovalKeys: this.keys(
         (d) => this.approvalDigit(d),
         (all) => this.setState({ approvalPin: all ? '' : this.state.approvalPin.slice(0, -1) }),
       ),
-      saleApprovalClose: g(() => this.setState({ approvalOpen: false, approvalPin: '' })),
+      saleApprovalClose: g(() => this.closePin()),
     };
   }
   entryValues() {

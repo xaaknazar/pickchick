@@ -2,6 +2,7 @@ import { requestPinCredential } from './pin-login.js';
 import { photoFor } from './photos.js';
 import { ReferenceView } from './reference-view.js';
 import { SaleView } from './sale-view.js';
+import { OpsView } from './ops-view.js';
 import { TemplateView } from './template-engine.js';
 import { model, pinLogin } from './runtime.js';
 import {
@@ -99,6 +100,19 @@ const sale = new SaleView(model, {
   say,
   pinLength,
   next: nextOrder,
+});
+// Paid mode, part B: order card (void, refund), Webkassa tab, X/Z and the sales close wizard.
+const ops = new OpsView(model, sale, {
+  onChange: schedule,
+  guard: safe,
+  say,
+  setTab: (tab) => reference.setState({ tab }),
+  pinCredential: (pin) => requestPinCredential(pin, config.terminalId),
+  logoutCredential: (credential) =>
+    transport('staff/logout', credential, { method: 'POST' }).catch(() => {}),
+  endSession: () => lock(),
+  printer: globalThis.pickchickPosPrinter,
+  terminalLabel: config.branchLabel ?? 'Локальная точка',
 });
 function details(change) {
   const d = model.state.draft;
@@ -292,6 +306,7 @@ function nextOrder() {
   clearInterval(successTimer);
   model.newDraft();
   sale.reset();
+  ops.reset();
   lastOrder = null;
   reference.setState({
     screen: 'work',
@@ -307,6 +322,7 @@ function lock() {
   if (blocked()) return;
   model.logout();
   sale.reset();
+  ops.reset();
   globalThis.pickchickPosJournal?.endSession();
   reference.setState({ screen: 'lock', pin: '', user: null });
 }
@@ -405,6 +421,8 @@ function draw() {
       }
     : null;
   if (!m.actor && s.screen !== 'lock') s.screen = 'lock';
+  // The Webkassa tab exists only while the edge sells (pos_sale).
+  if (s.tab === 'fiscal' && !model.saleMode) s.tab = 'order';
   const v = reference.renderVals();
   v.interactionBusy = Boolean(m.busy || m.pending || m.storageBlocked);
   // The designer module supplies appearance and local view transitions only.
@@ -873,7 +891,12 @@ function draw() {
     fiscal: 'var(--n300)',
     rowBg: '#fff',
     canRefund: false,
-    open: safe(() => orderDialog(o.order_id)),
+    // A paid order opens the card with void, refund and its Webkassa receipts.
+    open: safe(() =>
+      model.saleMode && o.execution_mode === 'pos_sale'
+        ? ops.openCard(o.order_id)
+        : orderDialog(o.order_id),
+    ),
     fiscalLabel: 'без чека',
     note: o.snapshot.details?.kitchen_comment ?? '',
     hasNote: Boolean(o.snapshot.details?.kitchen_comment),
@@ -904,6 +927,36 @@ function draw() {
   v.dayTotal = rows.length + ' заказов · последние 100';
   v.dayEmpty = rows.length === 0;
   v.fiscalLegend = [];
+  if (model.saleMode) {
+    // Paid orders: hall and delivery apart, cancelled orders bring no money.
+    const paid = rows.filter((o) => o.state === 'paid');
+    const stat = (label, list) => ({
+      label,
+      note: 'Оплаченные заказы',
+      color: 'var(--blue)',
+      orders: String(list.length),
+      revenue: money(list.reduce((n, o) => n + BigInt(o.snapshot.total_minor), 0n).toString()),
+      avg: list.length
+        ? money(
+            (
+              list.reduce((n, o) => n + BigInt(o.snapshot.total_minor), 0n) / BigInt(list.length)
+            ).toString(),
+          )
+        : '-',
+      share: 'Без отменённых заказов',
+    });
+    v.dayStats = [
+      stat('ВСЕ ЗАКАЗЫ', paid),
+      stat(
+        'ЗАЛ И НАВЫНОС',
+        paid.filter((o) => !o.snapshot.sales_channel),
+      ),
+      stat(
+        'ДОСТАВКА',
+        paid.filter((o) => o.snapshot.sales_channel),
+      ),
+    ];
+  }
   const stopRows = (m.menu?.items ?? [])
     .flatMap((p) => [
       p,
@@ -950,6 +1003,8 @@ function draw() {
       lift: safe(() => model.setStop(p.variant, false, 'Снят кассиром')),
     }));
   v.stopCount = v.stopActive.length;
+  // Paid mode: everything of part B, on top of the values above (navItems, shift tab).
+  Object.assign(v, ops.templateValues(v, s.tab));
   v.noStops = !v.stopCount;
   v.stopDurations = [
     ['shift', 'До конца смены'],
