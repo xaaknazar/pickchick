@@ -591,7 +591,8 @@ test('views: tables show toasts state and unmapped, 5 counts units, 2 has two co
     [f.deliveryOrder.orderId],
   );
   // UI texts use the plain hyphen only.
-  for (const html of [table, toasts, issue, counter]) assert.doesNotMatch(html, /[‒–—―−]/);
+  for (const html of [table, toasts, issue, counter])
+    assert.doesNotMatch(html, /[\u2012-\u2015\u2212]/);
 });
 
 test('breading view, incident banner, plural and the phone guard of the refusal form', () => {

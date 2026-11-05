@@ -11,7 +11,7 @@ url, width, height = fixture['url'], fixture['width'], fixture['height']
 stations, orders = fixture['stations'], fixture['orders']
 assert urlparse(url).hostname == '127.0.0.1'
 output = Path(fixture['output'])
-LONG_DASHES = re.compile('[‒–—―−]')
+LONG_DASHES = re.compile('[\u2012-\u2015\u2212]')
 
 
 def capture(page, name):

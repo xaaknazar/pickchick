@@ -46,7 +46,7 @@ if (key === 'scope' && !['open', 'today'].includes(value)) return false;
 
 ## 3. Приложение кухни
 
-`apps/kitchen/server.mjs` (allowlist локального прокси) принадлежит полосе kds и будет расширен теми же правилами вместе с экранами KDS-5. Просьба к client: тест профиля `kitchen` сравнивает список с этим CR; после KDS-5 - с регулярками `apps/kitchen/server.mjs`, как профиль `pos` сравнивается с `apps/pos-desktop/protocol.mjs`.
+`apps/kitchen/server.mjs` (allowlist локального прокси, функция `allowed(method, path)`) расширен ровно этими правилами в KDS-5 (коммит `c12da62e`, тест `apps/kitchen/tests/gateway.test.mjs` «allowlist adds only the KDS routes of CR kds-5»). Просьба к client: тест профиля `kitchen` импортирует `allowed` из `apps/kitchen/server.mjs` и сравнивает с профилем шлюза, как профиль `pos` сравнивается с `apps/pos-desktop/protocol.mjs`. Экраны KDS ходят только по этим маршрутам; без них в профиле экран работает по-старому (`GET layout` через шлюз получает 404).
 
 ## 4. Для сведения integration
 
