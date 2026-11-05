@@ -219,6 +219,13 @@ class SigningTests(unittest.TestCase):
 
 
 class BuildTests(unittest.TestCase):
+    def setUp(self):
+        # Test release naming with a fixed fixture, independent of the next app version.
+        config = {"version": "0.2.0", "android": {"package": release.PACKAGE, "versionCode": 7}}
+        app_config = patch.object(release, "app_json", return_value=config)
+        app_config.start()
+        self.addCleanup(app_config.stop)
+
     def test_build_pins_the_bundle_and_never_writes_secrets(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -2,7 +2,7 @@
   "expo": {
     "name": "PickChick",
     "slug": "pickchick",
-    "version": "0.2.0",
+    "version": "1.0.1",
     "icon": "../../design/prototype/assets/mockup/logo.png",
     "orientation": "portrait",
     "scheme": "pickchick",
