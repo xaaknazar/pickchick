@@ -249,6 +249,51 @@ test('status and layout-build: the next layout from the chef file and the operat
     );
   }));
 
+test('layout-build: station 3 is a tab on the table-2 screen unless the screens file names it', () =>
+  withSwitchEdge(async (ctx) => {
+    const lines = ctx
+      .screensTsv()
+      .split('\n')
+      .filter((line) => !line.startsWith('delivery_handover\t'));
+    const built = await buildKdsLayout(ctx.pool, {
+      branchId: ctx.branchId,
+      tsv: CHEF_TSV,
+      terminalsTsv: lines.join('\n'),
+    });
+    const at = (fn) => built.layout.stations.find((s) => s.function === fn);
+    assert.deepEqual(at('delivery_handover').terminal_ids, [ctx.screens.t2]);
+    assert.deepEqual(at('assembly_delivery').terminal_ids, [ctx.screens.t2]);
+    assert.equal(built.report.handoverOnTable2, true);
+    assert.match(
+      formatBuildReport(built.report),
+      /^Выдача доставки \(3\): вкладка на экране стола 2 \(по умолчанию\)$/m,
+    );
+    // An explicit line wins; a table-2 screen that already has two tabs gets no third one.
+    const explicit = await buildKdsLayout(ctx.pool, {
+      branchId: ctx.branchId,
+      tsv: CHEF_TSV,
+      terminalsTsv: ctx.screensTsv(),
+    });
+    assert.equal(explicit.report.handoverOnTable2, false);
+    assert.doesNotMatch(formatBuildReport(explicit.report), /по умолчанию/);
+    const full = await buildKdsLayout(ctx.pool, {
+      branchId: ctx.branchId,
+      tsv: CHEF_TSV,
+      terminalsTsv: [...lines, `issue\t${ctx.screens.t2}`].join('\n'),
+    });
+    assert.deepEqual(
+      full.layout.stations.find((s) => s.function === 'delivery_handover').terminal_ids,
+      [],
+    );
+    assert.equal(full.report.handoverOnTable2, false);
+    // Without a screens file nothing is invented.
+    const bare = await buildKdsLayout(ctx.pool, { branchId: ctx.branchId, tsv: CHEF_TSV });
+    assert.deepEqual(
+      bare.layout.stations.find((s) => s.function === 'delivery_handover').terminal_ids,
+      [],
+    );
+  }));
+
 test('chef and screens TSV problems are reported with their line numbers', () => {
   assert.throws(
     () => parseChefTsv('slug\tfunction\nx\tissue'),

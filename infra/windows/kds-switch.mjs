@@ -410,6 +410,20 @@ const nextVersion = async (client, branchId) =>
     )
   ).rows[0].next;
 
+/**
+ * Owner decision (contracts section 9, q.15): the courier counter (3) is a tab on the screen of
+ * table 2. A screens file without delivery_handover lines puts station 3 on every table-2 screen
+ * that still has room for a second tab (a terminal opens at most two stations). Explicit lines
+ * and screens carried over from the active layout are kept as they are.
+ */
+function defaultHandoverScreens(terminalsOf, fromFile) {
+  const explicit = terminalsOf('delivery_handover');
+  if (!fromFile || explicit.length) return { ids: explicit, defaulted: false };
+  const tabs = (id) => FUNCTIONS.filter((fn) => terminalsOf(fn).includes(id)).length;
+  const ids = terminalsOf('assembly_delivery').filter((id) => tabs(id) < 2);
+  return { ids, defaulted: ids.length > 0 };
+}
+
 /** layout-build: chef TSV (+ screens) -> the next layout version and the operator report. */
 export async function buildKdsLayout(pool, { branchId, tsv, terminalsTsv }) {
   const rows = parseChefTsv(tsv);
@@ -431,6 +445,11 @@ export async function buildKdsLayout(pool, { branchId, tsv, terminalsTsv }) {
               settings.active_layout_version,
             ])
           ).rows[0].layout;
+    const terminalsOf = (fn) =>
+      screens
+        ? (screens.get(fn) ?? [])
+        : (active?.stations.find((s) => s.function === fn)?.terminal_ids ?? []);
+    const handoverScreens = defaultHandoverScreens(terminalsOf, Boolean(screens));
     const layout = parsedLayout({
       schema_version: 1,
       branch_id: branchId,
@@ -443,9 +462,10 @@ export async function buildKdsLayout(pool, { branchId, tsv, terminalsTsv }) {
         return {
           edge_station_id: kdsStationId(branchId, spec.function),
           function: spec.function,
-          terminal_ids: screens
-            ? (screens.get(spec.function) ?? [])
-            : (active?.stations.find((s) => s.function === spec.function)?.terminal_ids ?? []),
+          terminal_ids:
+            spec.function === 'delivery_handover'
+              ? handoverScreens.ids
+              : terminalsOf(spec.function),
           product_ids: own.map((row) => row.product_slug),
           ...(counts.length ? { counts } : {}),
         };
@@ -467,6 +487,7 @@ export async function buildKdsLayout(pool, { branchId, tsv, terminalsTsv }) {
         unmapped: checked.unmapped,
         warnings: checked.warnings,
         terminalsFrom: screens ? 'file' : active ? 'active_layout' : 'none',
+        handoverOnTable2: handoverScreens.defaulted,
       },
     };
   });
@@ -481,6 +502,9 @@ export function formatBuildReport(report, out) {
     `Позиции меню без раскладки: ${report.unmapped.length}`,
     ...report.unmapped.map((name) => `  - ${name}`),
     ...(report.terminalsFrom === 'active_layout' ? ['Экраны взяты из действующей раскладки'] : []),
+    ...(report.handoverOnTable2
+      ? [`${NAMES.delivery_handover}: вкладка на экране стола 2 (по умолчанию)`]
+      : []),
     ...(report.warnings.length
       ? ['Предупреждения:', ...report.warnings.map((w) => `  - ${w.message}`)]
       : []),
