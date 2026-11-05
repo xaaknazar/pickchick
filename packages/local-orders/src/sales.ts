@@ -259,11 +259,15 @@ export async function createPosSale(
       ).rows[0].total;
       if (BigInt(shiftTotal) + BigInt(quote.total_minor) > MAX_BIGINT)
         throw new OrderError('INVALID_REQUEST');
+      // The platform's number belongs to one sale of the channel that is not voided: a voided
+      // (cancelled) sale releases it for the corrected re-entry (schema026 guard_pos_sale).
       if (
         plan.externalOrderRef !== null &&
         (
           await client.query(
-            'SELECT 1 FROM pos_sales WHERE branch_id=$1 AND sales_channel=$2 AND external_order_ref=$3',
+            `SELECT 1 FROM pos_sales s JOIN local_orders o ON o.id=s.order_id AND o.branch_id=s.branch_id
+             WHERE s.branch_id=$1 AND s.sales_channel=$2 AND s.external_order_ref=$3
+               AND o.state<>'cancelled'`,
             [branchId, plan.channel, plan.externalOrderRef],
           )
         ).rowCount
@@ -324,7 +328,7 @@ export async function createPosSale(
           ],
         );
       } catch (error) {
-        // Branch commands are serialized; this is the index behind the duplicate check above.
+        // Branch commands are serialized; this is the schema026 guard behind the check above.
         if ((error as { code?: string }).code === '23505')
           throw new OrderError('EXTERNAL_REF_DUPLICATE');
         throw error;

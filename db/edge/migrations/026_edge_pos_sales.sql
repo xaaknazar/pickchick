@@ -341,8 +341,8 @@ CREATE TABLE pos_sales (
   CHECK((cash_tendered_minor IS NULL) = (change_minor IS NULL)),
   CHECK(sales_channel='hall' OR (external_order_ref IS NOT NULL AND revenue_kind='revenue'))
 );
--- Protection against entering one aggregator (or ChocoFood) order twice.
-CREATE UNIQUE INDEX pos_sales_external_order_ref_idx ON pos_sales(branch_id,sales_channel,external_order_ref)
+-- Lookup of an aggregator (or ChocoFood) order number; its uniqueness is in guard_pos_sale.
+CREATE INDEX pos_sales_external_order_ref_idx ON pos_sales(branch_id,sales_channel,external_order_ref)
   WHERE external_order_ref IS NOT NULL;
 CREATE INDEX pos_sales_shift_idx ON pos_sales(branch_id,shift_id,created_at,order_id);
 CREATE FUNCTION guard_pos_sale() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -355,6 +355,26 @@ BEGIN
         AND q.terminal_id=NEW.terminal_id AND q.staff_id=NEW.cashier_staff_id
         AND c.terminal_id=NEW.terminal_id AND c.state='open' AND c.sales_mode) THEN
     RAISE EXCEPTION 'POS sale requires its order and an open sales shift of its cash desk' USING ERRCODE='23514';
+  END IF;
+  -- One aggregator (or ChocoFood) order is entered once: its number belongs to at most one sale
+  -- of the channel that is not voided. A void (the order cancelled, the only way a paid sale is
+  -- cancelled) releases the number, so a mis-keyed order is voided and re-entered under the
+  -- platform's real number (CR pos-5). The lock per number orders concurrent inserts of it; the
+  -- check after the lock takes a fresh read committed snapshot and sees every committed sale (a
+  -- void still in flight keeps the number taken). A transaction snapshot (repeatable read,
+  -- serializable) would be older than the lock, so a numbered sale needs read committed, the
+  -- level of the runtime.
+  IF NEW.external_order_ref IS NOT NULL THEN
+    IF current_setting('transaction_isolation') NOT IN ('read committed','read uncommitted') THEN
+      RAISE EXCEPTION 'A numbered POS sale needs read committed isolation' USING ERRCODE='0A000';
+    END IF;
+    PERFORM pg_advisory_xact_lock(hashtextextended('pickchick-pos-external-ref:'||NEW.branch_id::text
+      ||':'||NEW.sales_channel||':'||NEW.external_order_ref,0));
+    IF EXISTS(SELECT 1 FROM pos_sales s JOIN local_orders o ON o.id=s.order_id AND o.branch_id=s.branch_id
+        WHERE s.branch_id=NEW.branch_id AND s.sales_channel=NEW.sales_channel
+          AND s.external_order_ref=NEW.external_order_ref AND o.state<>'cancelled') THEN
+      RAISE EXCEPTION 'POS order number already belongs to a sale that is not voided' USING ERRCODE='23505';
+    END IF;
   END IF;
   RETURN NEW;
 END $$;
