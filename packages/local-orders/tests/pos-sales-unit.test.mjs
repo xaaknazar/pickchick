@@ -1,8 +1,19 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
-import { PosPaymentMethodSchema, PosSaleRequestSchema, QuoteSchema } from '@pickchick/contracts';
-import { planPosSale, priceCart } from '@pickchick/local-orders';
+import {
+  PosPaymentMethodSchema,
+  PosSaleRequestSchema,
+  PosSaleSchema,
+  QuoteSchema,
+} from '@pickchick/contracts';
+import {
+  MAX_POS_REFUNDS_PER_SALE,
+  planPosRefund,
+  planPosSale,
+  planPosVoid,
+  priceCart,
+} from '@pickchick/local-orders';
 
 // POS-2 money rules without a database (contracts 2.2, 5.3, section 00). Synthetic menu only.
 const code = (expected) => (error) => error.code === expected;
@@ -318,4 +329,181 @@ test('a sale plan follows contracts 2.2 and section 00 for every method', () => 
     assert.throws(() => plan(q, body), code(expected), JSON.stringify(body));
   // Every method of the enum is covered by a rule above or a successful plan.
   assert.equal(PosPaymentMethodSchema.options.length, 8);
+});
+
+// POS-3 refund and void rules without a database (contracts 5.1, section 00).
+const tender = (method, amount) => ({
+  tender_id: randomUUID(),
+  method,
+  amount_minor: amount,
+  confirmation: POLICY_CONFIRMATION[method],
+  reference: null,
+});
+const POLICY_CONFIRMATION = {
+  cash: 'drawer',
+  kaspi_terminal: 'cashier_attested',
+  kaspi_manual: 'cashier_attested',
+  aggregator_yandex_eda: 'aggregator_attested',
+  aggregator_glovo: 'aggregator_attested',
+  chocofood: 'aggregator_attested',
+  staff_meal: 'manager_approved',
+  marketing: 'manager_approved',
+};
+const posSale = (tenders, { refunds = [], receipt = 'pending' } = {}) => {
+  const total = tenders.reduce((sum, t) => sum + BigInt(t.amount_minor), 0n);
+  const refunded = refunds.reduce((sum, r) => sum + BigInt(r.amount_minor), 0n);
+  return PosSaleSchema.parse({
+    order_id: randomUUID(),
+    display_number: 7,
+    pickup: 'issue',
+    sales_channel: 'hall',
+    external_order_ref: null,
+    service_mode: 'takeaway',
+    revenue_kind: 'revenue',
+    total_minor: total.toString(),
+    cash_tendered_minor: tenders.some((t) => t.method === 'cash') ? '500000' : null,
+    change_minor: tenders.some((t) => t.method === 'cash') ? '0' : null,
+    tenders,
+    refunds,
+    refundable_minor: (total - refunded).toString(),
+    fiscal: [
+      {
+        receipt_id: randomUUID(),
+        kind: 'sale',
+        state: receipt,
+        receipt_number: receipt === 'recorded' ? 'SYN-WK-1' : null,
+        version: 1,
+        amount_minor: total.toString(),
+      },
+    ],
+    shift_id: randomUUID(),
+    terminal_id: randomUUID(),
+    cashier_staff_id: randomUUID(),
+    created_at: '2026-11-05T10:00:00.000Z',
+  });
+};
+const refundOf = (parts) => ({
+  refund_id: randomUUID(),
+  kind: 'refund',
+  amount_minor: parts.reduce((sum, p) => sum + BigInt(p.amount_minor), 0n).toString(),
+  reason_code: 'quality',
+  approved_by_staff_id: randomUUID(),
+  created_at: '2026-11-05T10:05:00.000Z',
+  tenders: parts,
+});
+
+test('a refund plan: by tender, never above what each still holds, whole tenge on the terminal', () => {
+  const cash = tender('cash', '49000'),
+    terminal = tender('kaspi_terminal', '300000');
+  const sale = posSale([cash, terminal], {
+    refunds: [refundOf([{ tender_id: cash.tender_id, amount_minor: '20000' }])],
+  });
+  assert.deepEqual(
+    planPosRefund(sale, {
+      tenders: [
+        { tender_id: terminal.tender_id.toUpperCase(), amount_minor: '300000' },
+        { tender_id: cash.tender_id, amount_minor: '29000' },
+      ],
+    }),
+    [
+      { tender_id: terminal.tender_id, method: 'kaspi_terminal', amount_minor: '300000' },
+      { tender_id: cash.tender_id, method: 'cash', amount_minor: '29000' },
+    ],
+  );
+  for (const [tenders, expected] of [
+    [[{ tender_id: cash.tender_id, amount_minor: '29001' }], 'REFUND_LIMIT'],
+    [[{ tender_id: terminal.tender_id, amount_minor: '300100' }], 'REFUND_LIMIT'],
+    [[{ tender_id: terminal.tender_id, amount_minor: '150' }], 'TERMINAL_AMOUNT_NOT_WHOLE'],
+    [[{ tender_id: randomUUID(), amount_minor: '100' }], 'INVALID_REQUEST'],
+    [
+      [
+        { tender_id: cash.tender_id, amount_minor: '100' },
+        { tender_id: cash.tender_id.toUpperCase(), amount_minor: '100' },
+      ],
+      'INVALID_REQUEST',
+    ],
+  ])
+    assert.throws(() => planPosRefund(sale, { tenders }), code(expected), JSON.stringify(tenders));
+  // Kaspi manual: any amount (no terminal); the whole payment back is allowed.
+  const manual = tender('kaspi_manual', '125050');
+  assert.equal(
+    planPosRefund(posSale([manual]), {
+      tenders: [{ tender_id: manual.tender_id, amount_minor: '125050' }],
+    })[0].amount_minor,
+    '125050',
+  );
+  // The platform or no money: aggregator, ChocoFood, staff meal and marketing.
+  for (const method of [
+    'aggregator_yandex_eda',
+    'aggregator_glovo',
+    'chocofood',
+    'staff_meal',
+    'marketing',
+  ]) {
+    const paid = tender(method, '349000');
+    assert.throws(
+      () =>
+        planPosRefund(posSale([paid]), {
+          tenders: [{ tender_id: paid.tender_id, amount_minor: '100' }],
+        }),
+      code('REFUND_NOT_SUPPORTED'),
+      method,
+    );
+  }
+  // At most 100 refunds per sale (PosSaleSchema), the void included.
+  const many = tender('kaspi_manual', '349000');
+  const full = posSale([many], {
+    refunds: Array.from({ length: MAX_POS_REFUNDS_PER_SALE }, () =>
+      refundOf([{ tender_id: many.tender_id, amount_minor: '100' }]),
+    ),
+  });
+  assert.equal(MAX_POS_REFUNDS_PER_SALE, 100);
+  assert.throws(
+    () => planPosRefund(full, { tenders: [{ tender_id: many.tender_id, amount_minor: '100' }] }),
+    code('REFUND_LIMIT'),
+  );
+});
+
+test('a void plan: whole sale of this version, no refund yet, receipts by fiscal_sale_issued', () => {
+  const cash = tender('cash', '49000'),
+    terminal = tender('kaspi_terminal', '300000');
+  const paid = { state: 'paid', version: 1 };
+  const request = (issued) => ({ expected_version: 1, fiscal_sale_issued: issued });
+  const parts = [
+    { tender_id: cash.tender_id, method: 'cash', amount_minor: '49000' },
+    { tender_id: terminal.tender_id, method: 'kaspi_terminal', amount_minor: '300000' },
+  ];
+  assert.deepEqual(planPosVoid(posSale([cash, terminal]), paid, request(false)), {
+    parts,
+    refundReceipt: 'not_required',
+    saleReceiptNotRequired: true,
+  });
+  assert.deepEqual(planPosVoid(posSale([cash, terminal]), paid, request(true)), {
+    parts,
+    refundReceipt: 'pending',
+    saleReceiptNotRequired: false,
+  });
+  const recorded = posSale([cash, terminal], { receipt: 'recorded' });
+  assert.equal(planPosVoid(recorded, paid, request(true)).refundReceipt, 'pending');
+  assert.equal(planPosVoid(recorded, paid, request(true)).saleReceiptNotRequired, false);
+  const free = posSale([tender('chocofood', '349000')], { receipt: 'not_required' });
+  assert.deepEqual(planPosVoid(free, paid, request(false)).refundReceipt, 'not_required');
+  assert.equal(planPosVoid(free, paid, request(false)).saleReceiptNotRequired, false);
+  for (const [sale, order, body] of [
+    [recorded, paid, request(false)],
+    [
+      posSale([cash]),
+      { state: 'cancelled', version: 2 },
+      { ...request(false), expected_version: 2 },
+    ],
+    [posSale([cash]), { state: 'paid', version: 1 }, { ...request(false), expected_version: 2 }],
+    [
+      posSale([cash], {
+        refunds: [refundOf([{ tender_id: cash.tender_id, amount_minor: '1000' }])],
+      }),
+      paid,
+      request(false),
+    ],
+  ])
+    assert.throws(() => planPosVoid(sale, order, body), code('CONFLICT'));
 });
