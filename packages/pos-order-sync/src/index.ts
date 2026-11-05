@@ -6,3 +6,4 @@ export * from './http.js';
 export * from './kitchen-model.js';
 export * from './kitchen-cloud.js';
 export * from './kitchen-worker.js';
+export * from './sales-cloud.js';

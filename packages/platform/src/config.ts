@@ -30,6 +30,11 @@ export interface ServiceConfig {
   edgeDeviceId?: string;
   fulfillmentTransportEnabled?: boolean;
   posOrderSyncEnabled?: boolean;
+  /**
+   * Cutover CC-4 (contracts 5.6, 6.1): CLOUD_POS_SALES_SYNC_ENABLED, cloud API only, default off.
+   * The API receives the posSales stream of paid POS sales; it needs the POS order sync binding.
+   */
+  posSalesSyncEnabled?: boolean;
   /** Edge service applies back-office stop commands from its inbox (edge schema019). */
   remoteStopsEnabled?: boolean;
   /** Cloud accepts device-initiated identity renewal (cloud066, edge-identity-rotation.md). */
@@ -146,6 +151,12 @@ export function loadConfig(
     'true';
   if (posSync && service === 'edge' && !UuidSchema.safeParse(env.EDGE_DEVICE_ID).success)
     throw new Error('POS order sync requires EDGE_DEVICE_ID');
+  const posSales = env.CLOUD_POS_SALES_SYNC_ENABLED ?? 'false';
+  if (
+    !['true', 'false'].includes(posSales) ||
+    (posSales === 'true' && (service !== 'api' || !posSync))
+  )
+    throw new Error('CLOUD_POS_SALES_SYNC_ENABLED requires the cloud POS order sync');
   const remoteStops = env.EDGE_REMOTE_STOPS_ENABLED ?? 'false';
   if (!['true', 'false'].includes(remoteStops) || (remoteStops === 'true' && service !== 'edge'))
     throw new Error('EDGE_REMOTE_STOPS_ENABLED configuration invalid');
@@ -210,6 +221,7 @@ export function loadConfig(
     ...(transport ? { fulfillmentTransportEnabled: true } : {}),
     ...(posSync ? { posOrderSyncEnabled: true } : {}),
     ...(posSync && service === 'edge' ? { edgeDeviceId: env.EDGE_DEVICE_ID! } : {}),
+    ...(posSales === 'true' ? { posSalesSyncEnabled: true } : {}),
     ...(remoteStops === 'true' ? { remoteStopsEnabled: true } : {}),
     ...(identityRotation === 'true' ? { edgeIdentityRotationEnabled: true } : {}),
   };
