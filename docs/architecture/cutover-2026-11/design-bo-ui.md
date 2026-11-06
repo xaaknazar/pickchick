@@ -262,6 +262,26 @@ branches/:id`, а строки `stock` - `counted_at`;
 Не сделано в шаге 4: `view=variance` и `view=consumption` (их данные появятся с подсчётом ключевых
 позиций и автосписанием, шаги 5-6), `meta.count_scope`.
 
+**Сделано в шаге 8** (`readStockOpsP1`, запрос `StockOpsQueryP1`; запрос облачной полосы
+`StockOpsQuery` прежний, без склада P1 новые виды - `INVALID_REQUEST`, без склада v2 - 404
+`STOCK_V2_DISABLED`; allowlist прокси и кабинета принимают оба вида):
+
+- `view=variance`: документы `count` окна; `totals { documents, items, lines_with_difference,
+shortage_value_minor, surplus_value_minor, delta_value_minor }`; `summary.rows [{ ingredient_id,
+name, unit, counts, expected, counted, last_counted_at, delta_quantity, delta_value_minor }]` -
+  `expected`/`counted` последнего подсчёта позиции в окне (ожидалось = `balance_after -
+quantity_delta`), суммы - по всем подсчётам окна, сортировка по сумме (недостача сверху);
+  `summary.by_day [{ day, documents, items, lines_with_difference, shortage_value_minor,
+surplus_value_minor, delta_value_minor }]`;
+- `view=consumption`: документы `consumption` и сторно их, как `waste`: `totals { documents,
+value_minor, reversals }`, `summary.by_source [{ source: pos|cloud|manual, documents, reversals,
+value_minor }]` (по `source_ref` исходного документа), `by_day`, `by_ingredient` (нетто);
+- отклонение: `meta.count_scope` не сделан. Общая команда `stock` не меняется (её `meta` строгая и
+  только для поставки), а отдельная команда подсчёта дала бы второй путь записи того же документа.
+  Ключевые позиции определяет карточка (`count_daily`, §5.4), отчёт показывает позиции каждого
+  подсчёта; вкладка отчёта называется «Расход по продажам», потому что «Списание по продажам» -
+  уже вкладка связей и очереди (шаг 5).
+
 ### 5.3 Связи меню: `GET ops/menu-links` и команды (склад v2 + 075)
 
 ```text
@@ -338,6 +358,15 @@ reversal`, тот же `reference`, `reason` запроса, движения р
 
 Не сделано в шаге 4: строка списания `recipe_output_id` (раскладка выхода ТТК), `count_daily`, `group`,
 `meta.count_scope`, связи меню (§5.3) - они нужны автосписанию и подсчёту ключевых позиций.
+
+**Сделано в шаге 8**: `IngredientP1` принимает `count_daily: boolean` и `group:
+raw|semi|packaging|drink|household|other` (без склада P1 строгая `Ingredient` их отклоняет);
+кабинет - поля в карточке, кнопка «Подсчёт на закрытии (N)» (окно `count` со строками этих позиций;
+`stock.count`). `produce` при складе P1 отказывает техкарте с явным `stock_policy='explode'`
+(`INVALID_REQUEST/RECIPE_POLICY_EXPLODE`); без политики - как раньше (иначе склад P1 сломал бы
+производство всех прежних техкарт). Поле «Выход техкарты при продаже» (`stock_policy`) - в
+редакторе техкарты кабинета. Строка списания `recipe_output_id` по-прежнему не сделана (общая
+строка `stock` требует `ingredient_id`; вариант - отдельная команда P1, решение после 19.11).
 
 ### 5.5 Автосписание (`BACKOFFICE_STOCK_AUTOCONSUME_ENABLED`)
 
@@ -445,7 +474,10 @@ no_data|off, facts}`: тексты пишет кабинет (`manager-shift-mod
   `no_data/stale`), «Webkassa» - чеки дня без номера, «Списания» и «Подсчёт» - документы склада дня,
   «Заблокированные списания» - позиции очереди дня в `blocked` (`off` без автосписания), «Явка» -
   опубликованные смены графика, «Стоп-лист» - последнее сообщение кассы. Подсчёт по `count_daily`
-  не сделан (поля нет): проверяется наличие подсчётов дня.
+  в шаге 6 не сделан (поля нет): проверялось наличие подсчётов дня. Шаг 8: при отмеченных
+  позициях `key_count` - `problem`, пока хоть одна используемая позиция `count_daily` не посчитана
+  документом `count` дня (факты `key_items`, `key_counted`, `key_missing` до 10 имён,
+  `key_missing_count`); без отмеченных - прежнее правило.
 - Журнал: при доступной смене менеджера `save` kind `shift` - `NOT_READY/LEGACY_JOURNAL_READ_ONLY`;
   `GET branches/:id` читает журнал отдельно (последние 200, `limits.shift_records`,
   `truncated.shift_records`), остальные записи - прежние 2000 (пробел §1 `design-backoffice.md`).
@@ -674,8 +706,12 @@ discount_state { id, state: 'draft'|'active'|'archived', expected_revision }
 7. Шаг 7 (сделан): редактор скидок (`ops/discounts`, `discount_save`, `discount_state`, раздел
    «Скидки» с плашкой, история), право `discounts.write`, интерфейс для кассы (§5.8, P1), CR
    `bo-ui-7`. Исправления аудита без флага не делались: §8 в.1 без ответа, умолчание шага 3 в силе.
-8. Runbook `docs/operations/backoffice-p1-cutover.md`, дополнения `backoffice-cutover.md`, CR маршрутов
-   для `scripts/contracts.mjs`, полный прогон наборов и `pnpm check`.
+8. Шаг 8 (сделан): отчёты склада `view=variance|consumption` (вкладки «Расхождения подсчёта», «Расход
+   по продажам»), `count_daily`/`group` и «Подсчёт на закрытии», проверка ключевых позиций смены,
+   `stock_policy` в редакторе техкарты и `RECIPE_POLICY_EXPLODE`; браузерный проход по всем экранам
+   P1 четырьмя ролями на 1440 и 390 px (`p1-pass-browser.test.mjs`) и исправления из него; runbook
+   (сводка: флаги, порядок 13.11-19.11, роли, откат), дополнения `backoffice-cutover.md`, CR
+   `bo-ui-8` (075 в окне Cloud-1, маршруты `ops/<view>` в `scripts/contracts.mjs`); полный прогон.
 
 Каждый шаг: тест «флаг выключен - прежний ответ», права по §4 с отказом для каждой роли, идемпотентность
 команд (`request_id`, тот же ключ с другим телом - `CONFLICT`), деньги целыми тиынами.
@@ -709,3 +745,7 @@ discount_state { id, state: 'draft'|'active'|'archived', expected_revision }
 9. **Каналы и сумма скидки** (шаг 7). Умолчание: шесть каналов (зал, Яндекс Еда, Glovo, ChocoFood,
    приложение, киоск), ChocoFood - чек зала с оплатой ChocoFood; сумма - до 1 000 000 ₸ на чек
    (защита от опечатки). Правила расчёта на кассе (§5.8 P1) - предложение для полосы pos.
+10. **075 в окне Cloud-1** (шаг 8). Связи шефа и проверка без списания на Т7/Т8 возможны, только если
+    075 и права P1 стоят до 16.11. Умолчание runbook: 075 в Cloud-1 (14.11) вместе с 074 (CR
+    `bo-ui-8` §1); если интеграция оставит её в Cloud-2, проверка на Т7/Т8 выпадает и режим остаётся
+    «Проверка без списания» дольше.
