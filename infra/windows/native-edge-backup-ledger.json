@@ -123,5 +123,10 @@
     "version": "025_edge_kitchen_restore_review.sql",
     "checksum": "ab73b1abff4850098c513d7b39bda5e86ff21ac6ea5c06a1420410dcb31ad18a",
     "scope": "edge"
+  },
+  {
+    "version": "026_edge_pos_sales.sql",
+    "checksum": "921c526320f6b878f592949d7ca2ebc71e28a1ceb14881c74909314ed46d057c",
+    "scope": "edge"
   }
 ]

@@ -28,7 +28,7 @@ import { dirname, join, win32 } from 'node:path';
  *
  * One run: exclusive run lock, the shared native maintenance lease, the destination must be
  * reachable, a REPEATABLE READ snapshot as the dedicated read-only backup role (cluster identity,
- * reviewed migration ledger 020-025, the one configured branch, row counts), pg_dump of exactly
+ * reviewed migration ledger 020-026, the one configured branch, row counts), pg_dump of exactly
  * that snapshot into the protected local staging folder, `pg_restore --list` must contain the
  * data of every table, then AES-256-GCM encryption straight into a temporary file at the
  * destination, fsync, rename, a full read-back that authenticates and re-hashes every byte, and
@@ -44,6 +44,9 @@ export const EDGE_BACKUP_SCHEMAS = Object.freeze({
   // Stage 2 (lane cfg): station plans, reviewed at integration with the exact 024 file checksum.
   schema024: 24,
   schema025: 25,
+  // Cutover 19.11 (lane pos, CR pos-6): paid POS sales; 026 also redefines edge_restore_fence
+  // (pos_sale_outbox joins the queues, owner and ACL unchanged). Reviewed by the exact 026 bytes.
+  schema026: 26,
 });
 export const EDGE_BACKUP_ERRORS = Object.freeze([
   'CONFIG_INVALID',
@@ -129,7 +132,7 @@ function reviewedLedger(pinned) {
 /**
  * The reviewed schema name of a live migration ledger: it must equal, row for row (file name,
  * SHA-256, scope), the pinned ledger prefix of one reviewed schema. Anything else is refused, so
- * a later migration (026+) stops the backup until it is reviewed here.
+ * a later migration (027+) stops the backup until it is reviewed here.
  */
 export function verifiedSchema(ledger, pinned) {
   const reviewed = reviewedLedger(pinned);

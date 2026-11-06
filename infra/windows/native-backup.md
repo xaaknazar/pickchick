@@ -34,17 +34,18 @@ inspection of the unique name in the private manifest; it does not guess ownersh
 ## Service backup at a named edge schema
 
 `backup-native-service.mjs` is the same rehearsal for a running service cashier
-(ordering stays open, `unpaid_service` branch). Its last argument names the edge
+(ordering stays open, `unpaid_service` branch; with POS sales on, `pos_service_mode='pos_sale'`
+from edge 026, it refuses, so take it with sales mode off, as for every guarded upgrade). Its last argument names the edge
 schema the cashier is expected to be at:
 
 ```text
-node.exe backup-native-service.mjs <toolsRoot> <pgBin> <runRoot> <branchId> [schema014|...|schema025]
+node.exe backup-native-service.mjs <toolsRoot> <pgBin> <runRoot> <branchId> [schema014|...|schema026]
 ```
 
 Without it the expected schema is `schema014`. The migration ledger of the dump
 snapshot and of the restored copy must equal exactly that prefix of the pinned
 `native-edge-backup-ledger.json` (file name, SHA-256 and scope of every migration
-001-024; 024 is the stage 2 station plan migration). Any other schema name, a ledger one migration behind or ahead, or any
+001-026; 024 is the stage 2 station plan migration, 026 the cutover POS sales migration). Any other schema name, a ledger one migration behind or ahead, or any
 changed checksum fails closed. The manifest records `expectedSchema`. Guarded
 upgrades (`menu-sync-upgrade-db.mjs`, `remote-stops-upgrade-db.mjs`) accept only a
 manifest at the current ledger, finished less than 6 hours earlier.

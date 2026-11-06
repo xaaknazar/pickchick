@@ -34,7 +34,7 @@ const code = (expected) => (error) => error instanceof EdgeBackupError && error.
 const rows = (count) =>
   pinned.slice(0, count).map(({ version, checksum, scope }) => ({ version, checksum, scope }));
 
-test('only the reviewed edge schemas 020-025 are backed up; anything else is refused', () => {
+test('only the reviewed edge schemas 020-026 are backed up; anything else is refused', () => {
   assert.deepEqual(EDGE_BACKUP_SCHEMAS, {
     schema020: 20,
     schema021: 21,
@@ -42,6 +42,7 @@ test('only the reviewed edge schemas 020-025 are backed up; anything else is ref
     schema023: 23,
     schema024: 24,
     schema025: 25,
+    schema026: 26,
   });
   for (const [name, length] of Object.entries(EDGE_BACKUP_SCHEMAS))
     assert.equal(verifiedSchema(rows(length), pinned), name);
@@ -53,12 +54,16 @@ test('only the reviewed edge schemas 020-025 are backed up; anything else is ref
     ),
     'schema023',
   );
-  const future = { version: '026_edge_future.sql', checksum: 'a'.repeat(64), scope: 'edge' };
+  const future = {
+    version: String(pinned.length + 1).padStart(3, '0') + '_edge_future.sql',
+    checksum: 'a'.repeat(64),
+    scope: 'edge',
+  };
   for (const ledger of [
     rows(19),
     rows(14),
     [],
-    [...rows(25), future],
+    [...rows(pinned.length), future],
     // 024 is reviewed by its exact file bytes: another 024 is not schema024.
     rows(23).concat([{ ...pinned[23], checksum: 'd'.repeat(64) }]),
     rows(23).concat([{ ...pinned[23], version: '024_edge_other.sql' }]),
@@ -98,6 +103,30 @@ test('schema024 (stage 2 station plans) is reviewed by the exact bytes of the ed
   assert.equal(verifiedSchema(rows(24), pinned), 'schema024');
   // The pending runtime release (schema023) is still accepted by the same tool.
   assert.equal(verifiedSchema(rows(23), pinned), 'schema023');
+});
+
+test('schema026 (cutover POS sales) is reviewed by the exact bytes of the edge 026 migration', async () => {
+  const name = '026_edge_pos_sales.sql';
+  const bytes = await readFile(new URL('../../db/edge/migrations/' + name, import.meta.url));
+  const checksum = createHash('sha256').update(bytes).digest('hex');
+  // CR pos-6 section 2: the 026 with the posSales restore fence.
+  assert.equal(checksum, '921c526320f6b878f592949d7ca2ebc71e28a1ceb14881c74909314ed46d057c');
+  assert.deepEqual(pinned[25], { version: name, checksum, scope: 'edge' });
+  // The guarded 025 -> 026 upgrade applies exactly this file.
+  const { POS_SALES_MIGRATION } = await import('../../infra/windows/pos-sales-upgrade-db.mjs');
+  assert.equal(POS_SALES_MIGRATION, name);
+  assert.equal(verifiedSchema(rows(26), pinned), 'schema026');
+  // A cashier still on 025 before the window is backed up by the same tool.
+  assert.equal(verifiedSchema(rows(25), pinned), 'schema025');
+  // The superseded 026 drafts (CR pos-1, CR pos-5) are never a reviewed schema.
+  for (const superseded of [
+    '9e3ab95a851bae3bb7383e9517d5fcc76f6f0b92bacc98d12f3292309226e8be',
+    '4ff8da34df867929269b7554a61182741840a2300f7a406d4e33748e99a0d873',
+  ])
+    assert.throws(
+      () => verifiedSchema(rows(25).concat([{ ...pinned[25], checksum: superseded }]), pinned),
+      code('UNREVIEWED_SCHEMA'),
+    );
 });
 const config = {
   format: 'pickchick-edge-backup-config-v1',
@@ -440,7 +469,9 @@ test('copy listing only accepts complete copies of this branch and old leftovers
     // that copy may hold the newest data, so it is neither a copy nor a leftover here.
     const newer = name('2026-10-20T09:17:00Z', '0000000b');
     await writeFile(join(dir, newer), 'x');
-    await writeFile(join(dir, newer + '.json'), sidecar(newer, 1, { schema: 'schema026' }));
+    const unreviewed =
+      'schema' + String(Math.max(...Object.values(EDGE_BACKUP_SCHEMAS)) + 1).padStart(3, '0');
+    await writeFile(join(dir, newer + '.json'), sidecar(newer, 1, { schema: unreviewed }));
     const damaged = name('2026-10-20T08:17:00Z', '0000000c');
     await writeFile(join(dir, damaged), 'x');
     await writeFile(join(dir, damaged + '.json'), '{"format":');
