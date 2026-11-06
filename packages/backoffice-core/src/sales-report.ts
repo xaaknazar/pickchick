@@ -18,8 +18,11 @@ import { parse, periodWindow } from './model.js';
  * - `sales_minor` is every sale of the period, voided ones included, exactly like the cashier Z
  *   report; a void is a refund of the whole sale (`voids_minor`), a refund of a part is
  *   `refunds_minor`; revenue = sales - voids - refunds.
- * - A check is a paid sale that was not voided. Average check = sum of those checks / their
- *   number, before refunds, rounded half up to a tiyn.
+ * - A check is a sale of the period that was not voided before the period ended. Average check =
+ *   sum of those checks / their number, before refunds, rounded half up to a tiyn. A void made
+ *   after the end (23:55 sale, 00:05 void) belongs to the next day's voids_minor and never
+ *   changes the checks, hours, shifts or top items of the period it closed: a closed day's
+ *   figures stay as they were.
  * - Staff meals and marketing are «Без выручки»: never in revenue, channels or average check;
  *   they have their own block and their own payment methods.
  * - Every one of the eight cashier payment methods is its own row; the cloud channels are paid
@@ -144,10 +147,15 @@ export async function readSalesReport(db: Db, branch: string, input: unknown, no
   const pos = await salesReportPosReadable(db);
   const rows = async <T = Record<string, unknown>>(sql: string, args: unknown[]) =>
     (await db.query(sql, args)).rows as T[];
-  // Two parameter sets: $1 branch with $2/$3 either the Almaty dates (cashier business_date) or
-  // the same window as instants [start, end) for everything stamped with a time.
+  // Parameter sets: $1 branch with $2/$3 either the Almaty dates (cashier business_date) or
+  // the same window as instants [start, end) for everything stamped with a time; `asOfEnd`
+  // adds $4 = end for the state of a sale when the period ended (cloud073: voided_at is set
+  // exactly when the sale is voided).
   const dates = [branch, q.start_date, q.end_date];
   const window = [branch, start, end];
+  const asOfEnd = [branch, q.start_date, q.end_date, end];
+  const paidAtEnd = '(s.voided_at IS NULL OR s.voided_at >= $4)';
+  const voidedAtEnd = 's.voided_at < $4';
   const channelMoney = new Map<string, Money & { checks: number; voided: number }>();
   const channel = (code: string) => {
     let v = channelMoney.get(code);
@@ -220,12 +228,12 @@ export async function readSalesReport(db: Db, branch: string, input: unknown, no
       paid: string;
       discount: string;
     }>(
-      `SELECT ${channelExpression} AS channel,count(*) FILTER(WHERE s.state='paid')::int AS checks,
-        count(*) FILTER(WHERE s.state='voided')::int AS voided,sum(s.total_minor)::text AS sales,
-        coalesce(sum(s.total_minor) FILTER(WHERE s.state='paid'),0)::text AS paid,
+      `SELECT ${channelExpression} AS channel,count(*) FILTER(WHERE ${paidAtEnd})::int AS checks,
+        count(*) FILTER(WHERE ${voidedAtEnd})::int AS voided,sum(s.total_minor)::text AS sales,
+        coalesce(sum(s.total_minor) FILTER(WHERE ${paidAtEnd}),0)::text AS paid,
         sum(s.discount_minor)::text AS discount
        ${revenueSales} GROUP BY 1`,
-      dates,
+      asOfEnd,
     )) {
       const v = channel(r.channel);
       v.checks += r.checks;
@@ -267,10 +275,10 @@ export async function readSalesReport(db: Db, branch: string, input: unknown, no
       else v.refunds += big(r.amount);
     }
     for (const r of await rows<{ day: string; checks: number; sales: string; paid: string }>(
-      `SELECT s.business_date::text AS day,count(*) FILTER(WHERE s.state='paid')::int AS checks,
-        sum(s.total_minor)::text AS sales,coalesce(sum(s.total_minor) FILTER(WHERE s.state='paid'),0)::text AS paid
+      `SELECT s.business_date::text AS day,count(*) FILTER(WHERE ${paidAtEnd})::int AS checks,
+        sum(s.total_minor)::text AS sales,coalesce(sum(s.total_minor) FILTER(WHERE ${paidAtEnd}),0)::text AS paid
        ${revenueSales} GROUP BY 1`,
-      dates,
+      asOfEnd,
     )) {
       const v = dayOf(r.day);
       v.checks += r.checks;
@@ -289,15 +297,15 @@ export async function readSalesReport(db: Db, branch: string, input: unknown, no
     for (const r of await rows<{ day: string; total: string }>(
       `SELECT s.business_date::text AS day,sum(s.total_minor)::text AS total FROM cloud_pos_sales s
        WHERE s.branch_id=$1 AND s.business_date BETWEEN $2::date AND $3::date
-         AND s.revenue_kind<>'revenue' AND s.state='paid' GROUP BY 1`,
-      dates,
+         AND s.revenue_kind<>'revenue' AND ${paidAtEnd} GROUP BY 1`,
+      asOfEnd,
     ))
       dayOf(r.day).no_revenue += big(r.total);
     for (const r of await rows<{ hour: number; checks: number; paid: string }>(
       `SELECT extract(hour FROM s.sold_at AT TIME ZONE 'Asia/Almaty')::int AS hour,count(*)::int AS checks,
         sum(s.total_minor)::text AS paid
-       ${revenueSales} AND s.state='paid' GROUP BY 1`,
-      dates,
+       ${revenueSales} AND ${paidAtEnd} GROUP BY 1`,
+      asOfEnd,
     )) {
       const v = hourOf(r.hour);
       v.checks += r.checks;
@@ -306,12 +314,12 @@ export async function readSalesReport(db: Db, branch: string, input: unknown, no
     noRevenue = {
       kinds: (
         await rows<{ revenue_kind: string; checks: number; voided: number; total: string }>(
-          `SELECT s.revenue_kind,count(*) FILTER(WHERE s.state='paid')::int AS checks,
-            count(*) FILTER(WHERE s.state='voided')::int AS voided,
-            coalesce(sum(s.total_minor) FILTER(WHERE s.state='paid'),0)::text AS total
+          `SELECT s.revenue_kind,count(*) FILTER(WHERE ${paidAtEnd})::int AS checks,
+            count(*) FILTER(WHERE ${voidedAtEnd})::int AS voided,
+            coalesce(sum(s.total_minor) FILTER(WHERE ${paidAtEnd}),0)::text AS total
            FROM cloud_pos_sales s WHERE s.branch_id=$1 AND s.business_date BETWEEN $2::date AND $3::date
              AND s.revenue_kind<>'revenue' GROUP BY 1`,
-          dates,
+          asOfEnd,
         )
       ).map((r) => ({
         revenue_kind: r.revenue_kind,
@@ -323,12 +331,13 @@ export async function readSalesReport(db: Db, branch: string, input: unknown, no
       truncated: false,
     };
     const items = await rows(
-      `SELECT s.order_id,s.display_number,s.revenue_kind,s.state,s.total_minor::text AS total_minor,
+      `SELECT s.order_id,s.display_number,s.revenue_kind,
+        CASE WHEN ${voidedAtEnd} THEN 'voided' ELSE 'paid' END AS state,s.total_minor::text AS total_minor,
         s.beneficiary,s.reason,s.approval_manager_staff_id,s.cashier_staff_id,s.shift_id,s.terminal_id,s.sold_at
        FROM cloud_pos_sales s WHERE s.branch_id=$1 AND s.business_date BETWEEN $2::date AND $3::date
          AND s.revenue_kind<>'revenue'
        ORDER BY s.sold_at DESC,s.order_id LIMIT ${SALES_REPORT_LIMITS.no_revenue + 1}`,
-      dates,
+      asOfEnd,
     );
     noRevenue.items = items.slice(0, SALES_REPORT_LIMITS.no_revenue).map((r) => ({
       ...r,
@@ -378,7 +387,7 @@ export async function readSalesReport(db: Db, branch: string, input: unknown, no
         methods: r.methods,
       });
     const shiftRows = await rows(
-      `SELECT s.shift_id,s.terminal_id,count(*) FILTER(WHERE s.state='paid' AND s.revenue_kind='revenue')::int AS checks,
+      `SELECT s.shift_id,s.terminal_id,count(*) FILTER(WHERE ${paidAtEnd} AND s.revenue_kind='revenue')::int AS checks,
         coalesce(sum(s.total_minor) FILTER(WHERE s.revenue_kind='revenue'),0)::text AS sales_minor,
         min(s.sold_at) AS first_sale_at,max(s.sold_at) AS last_sale_at,
         z.closed_at,z.expected_cash_minor::text AS expected_cash_minor,z.counted_cash_minor::text AS counted_cash_minor,
@@ -387,7 +396,7 @@ export async function readSalesReport(db: Db, branch: string, input: unknown, no
        WHERE s.branch_id=$1 AND s.business_date BETWEEN $2::date AND $3::date
        GROUP BY s.shift_id,s.terminal_id,z.shift_id
        ORDER BY min(s.sold_at) DESC,s.shift_id LIMIT ${SALES_REPORT_LIMITS.shifts + 1}`,
-      dates,
+      asOfEnd,
     );
     shiftsTruncated = shiftRows.length > SALES_REPORT_LIMITS.shifts;
     shifts = shiftRows.slice(0, SALES_REPORT_LIMITS.shifts).map((r) => ({
@@ -413,9 +422,9 @@ export async function readSalesReport(db: Db, branch: string, input: unknown, no
         sum((l->>'quantity')::int)::int AS quantity,sum((l->>'total_minor')::bigint)::text AS total_minor
        FROM cloud_pos_sales s CROSS JOIN LATERAL jsonb_array_elements(s.lines) l
        WHERE s.branch_id=$1 AND s.business_date BETWEEN $2::date AND $3::date
-         AND s.revenue_kind='revenue' AND s.state='paid'
+         AND s.revenue_kind='revenue' AND ${paidAtEnd}
        GROUP BY 1,2 ORDER BY sum((l->>'total_minor')::bigint) DESC,2,1 LIMIT ${SALES_REPORT_LIMITS.top_items}`,
-      dates,
+      asOfEnd,
     );
     const received = (
       await rows<{ at: Date | null }>(

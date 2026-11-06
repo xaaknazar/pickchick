@@ -7,7 +7,16 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { migrate } from '@pickchick/database';
 import { withSyncDatabases } from '../../../tests/helpers/sync.mjs';
-import { D, PRODUCT, STAFF, at, cloudOrders, seed } from './sales-report-fixture.mjs';
+import {
+  D,
+  PRODUCT,
+  STAFF,
+  at,
+  cloudOrders,
+  posRefund,
+  posSale,
+  seed,
+} from './sales-report-fixture.mjs';
 import { provisionCatalogManager } from '../../catalog-admin/dist/index.js';
 import {
   Backoffice,
@@ -333,6 +342,130 @@ test('one day: channels, all eight methods, voids, refunds with approver, no rev
     assert.equal(
       both.by_day.reduce((a, d) => a + BigInt(d.revenue_minor), 0n).toString(),
       both.totals.revenue_minor,
+    );
+  }));
+
+test('a void after Almaty midnight belongs to the next day; the closed day keeps its checks', () =>
+  withSyncDatabases(async (c) => {
+    const db = c.cloud.pool;
+    const shift = randomUUID();
+    const NOW = new Date('2026-11-21T06:00:00.000Z');
+    const report = (start_date, end_date = start_date) =>
+      readSalesReport(db, c.branch, { start_date, end_date }, NOW);
+    // 19.11 23:55: a 1000 tenge burger; 23:40: a staff meal. Both voided after midnight.
+    const sale = await posSale(db, c, {
+      shift,
+      number: 1,
+      at: at(D, '23:55:00'),
+      tenders: [['cash', '100000', 'drawer']],
+      lines: [
+        {
+          product_id: PRODUCT.burger,
+          variant_id: PRODUCT.burger,
+          name: { ru: 'Синтетический бургер' },
+          quantity: 1,
+          unit_price_minor: '100000',
+          total_minor: '100000',
+        },
+      ],
+    });
+    const meal = await posSale(db, c, {
+      shift,
+      number: 2,
+      at: at(D, '23:40:00'),
+      kind: 'staff_meal',
+      beneficiary: 'Синтетический сотрудник',
+      tenders: [['staff_meal', '40000', 'manager_approved']],
+    });
+    const before = await report(D);
+    const voidAt = async (target, when) => {
+      await db.query(
+        `UPDATE cloud_pos_sales SET state='voided',voided_at=$2,last_sequence=last_sequence+100
+         WHERE order_id=$1`,
+        [target.id, when],
+      );
+      await posRefund(db, c, { ...target, shift }, 'void', when, target.tenders);
+    };
+    await voidAt(sale, at('2026-11-20', '00:05:00'));
+    await voidAt(meal, at('2026-11-20', '00:20:00'));
+    const after = await report(D);
+    // Run on the 21st, the report of the 19th is the report it was before the voids.
+    assert.deepEqual(after, before);
+    const dineIn = pick(after.channels, 'channel', 'hall_dine_in');
+    assert.deepEqual(
+      [dineIn.checks, dineIn.voided_checks, dineIn.sales_minor, dineIn.voids_minor],
+      [1, 0, '100000', '0'],
+    );
+    assert.equal(dineIn.revenue_minor, '100000');
+    assert.equal(dineIn.average_check_minor, '100000');
+    assert.deepEqual(
+      [after.totals.checks, after.totals.voided_checks, after.totals.average_check_minor],
+      [1, 0, '100000'],
+    );
+    assert.deepEqual(after.by_day[0].checks, 1);
+    assert.deepEqual(
+      after.by_hour.filter((h) => h.checks).map((h) => [h.hour, h.checks, h.sales_minor]),
+      [[23, 1, '100000']],
+    );
+    assert.deepEqual(after.top_items, [
+      {
+        product_id: PRODUCT.burger,
+        name: 'Синтетический бургер',
+        quantity: 1,
+        total_minor: '100000',
+      },
+    ]);
+    assert.deepEqual(
+      after.shifts.map((s) => [s.shift_id, s.checks, s.sales_minor]),
+      [[shift, 1, '100000']],
+    );
+    assert.deepEqual(pick(after.no_revenue.kinds, 'revenue_kind', 'staff_meal'), {
+      revenue_kind: 'staff_meal',
+      checks: 1,
+      voided_checks: 0,
+      total_minor: '40000',
+    });
+    assert.deepEqual(
+      after.no_revenue.items.map((i) => [i.display_number, i.state]),
+      [[2, 'paid']],
+    );
+    assert.equal(after.totals.no_revenue_minor, '40000');
+    assert.equal(after.by_day[0].no_revenue_minor, '40000');
+    assert.deepEqual(after.refunds, []);
+    // The 20th carries the voids; no check of its own.
+    const next = await report('2026-11-20');
+    const nextDineIn = pick(next.channels, 'channel', 'hall_dine_in');
+    assert.deepEqual(
+      [nextDineIn.checks, nextDineIn.voided_checks, nextDineIn.sales_minor, nextDineIn.voids_minor],
+      [0, 0, '0', '100000'],
+    );
+    assert.equal(next.totals.revenue_minor, '-100000');
+    assert.deepEqual(
+      next.refunds.map((r) => [r.kind, r.display_number, r.amount_minor]),
+      [
+        ['void', 2, '40000'],
+        ['void', 1, '100000'],
+      ],
+    );
+    // Both days together: the sales are voided within the period.
+    const both = await report(D, '2026-11-20');
+    const bothDineIn = pick(both.channels, 'channel', 'hall_dine_in');
+    assert.deepEqual(
+      [bothDineIn.checks, bothDineIn.voided_checks, bothDineIn.sales_minor, bothDineIn.voids_minor],
+      [0, 1, '100000', '100000'],
+    );
+    assert.equal(both.totals.revenue_minor, '0');
+    assert.equal(both.totals.average_check_minor, '0');
+    assert.deepEqual(both.top_items, []);
+    assert.deepEqual(pick(both.no_revenue.kinds, 'revenue_kind', 'staff_meal'), {
+      revenue_kind: 'staff_meal',
+      checks: 0,
+      voided_checks: 1,
+      total_minor: '0',
+    });
+    assert.deepEqual(
+      both.no_revenue.items.map((i) => [i.display_number, i.state]),
+      [[2, 'voided']],
     );
   }));
 
