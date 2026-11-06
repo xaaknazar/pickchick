@@ -71,10 +71,23 @@ const stable = (state) => {
   for (const key of ['as_of', 'period_start', 'period_end', 'trace_id']) delete copy[key];
   return copy;
 };
+/**
+ * The read without what the listed P1 capabilities add. pos_day (step 2, «Касса») also adds the
+ * named cash desks of the order registry (`pos_terminals`), `paid_total_minor` of the cashier
+ * metrics and, per POS order, `terminal_id` (none in these empty branches).
+ */
 const without = (state, keys) => {
   const capabilities = { ...state.capabilities };
   for (const key of keys) delete capabilities[key];
-  return { ...state, capabilities };
+  const copy = { ...state, capabilities };
+  if (keys.includes('pos_day')) {
+    assert.ok(Array.isArray(copy.pos_terminals), 'pos_day adds pos_terminals');
+    assert.equal(typeof copy.cashier_metrics.paid_total_minor, 'string');
+    delete copy.pos_terminals;
+    copy.cashier_metrics = { ...copy.cashier_metrics };
+    delete copy.cashier_metrics.paid_total_minor;
+  }
+  return copy;
 };
 
 test('loadConfig: the five P1 flags default off, add a key only when on, and are validated', () => {
@@ -222,7 +235,7 @@ test('flags off: GET branches/:id and the ops views are the cloud lane result, 0
       );
   }));
 
-test('each P1 flag adds only its capability key, after the cloud lane keys', () =>
+test('each P1 flag adds only its capability key (pos_day also the registry fields), after the cloud lane keys', () =>
   withSyncDatabases(async (c) => {
     const p = await manager(c);
     for (const cloud of [{}, CLOUD_FLAGS]) {

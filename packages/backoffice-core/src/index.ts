@@ -36,6 +36,7 @@ import {
 import { assertStockV2, readStockOps, stockV2Readable, stockV2Writable } from './stock-v2.js';
 import { readSalesReport } from './sales-report.js';
 import { p1Capabilities } from './p1-flags.js';
+import { posOrderCard, posOrderExtras, readPosDay } from './pos-day.js';
 export * from './model.js';
 export * from './stops.js';
 export * from './station-plans.js';
@@ -43,6 +44,7 @@ export * from './roles.js';
 export * from './stock-v2.js';
 export * from './sales-report.js';
 export * from './p1-flags.js';
+export * from './pos-day.js';
 export * from './edge-staff.js';
 export const BACKOFFICE = Symbol('BACKOFFICE');
 type Actor = {
@@ -197,6 +199,8 @@ export class Backoffice {
 
       const rows = async (sql: string, args: unknown[] = [branch]) =>
         (await db.query(sql, args)).rows;
+      // Back-office P1 «Касса» (bo-ui): paid POS sales, cash desks, Webkassa state. Off: as before.
+      const posDay = this.options.posDayEnabled === true;
       const reportsInstalled =
         (await rows("SELECT 1 WHERE to_regclass('cloud_cashier_orders') IS NOT NULL", [])).length >
         0;
@@ -240,12 +244,18 @@ export class Backoffice {
               `SELECT count(*)::int orders,
         count(*) FILTER(WHERE payload->>'state'='cancelled')::int cancelled_orders,
         coalesce(sum((payload->>'total_minor')::numeric) FILTER(WHERE payload->>'state'='awaiting_payment'),0)::text unpaid_total_minor,
-        coalesce(sum((payload->>'total_minor')::numeric) FILTER(WHERE payload->>'kitchen_state'='handed_over'),0)::text completed_total_minor
+        coalesce(sum((payload->>'total_minor')::numeric) FILTER(WHERE payload->>'kitchen_state'='handed_over'),0)::text completed_total_minor${posDay ? ",\n        coalesce(sum((payload->>'total_minor')::numeric) FILTER(WHERE payload->>'state'='paid'),0)::text paid_total_minor" : ''}
         FROM cloud_cashier_orders WHERE branch_id=$1 AND (($4::uuid IS NOT NULL AND cash_shift_id=$4) OR ($4::uuid IS NULL AND created_at >= $2 AND created_at < $3))`,
               [branch, start, end, q.shift_id ?? null],
             )
           )[0]
-        : { orders: 0, cancelled_orders: 0, unpaid_total_minor: '0', completed_total_minor: '0' };
+        : {
+            orders: 0,
+            cancelled_orders: 0,
+            unpaid_total_minor: '0',
+            completed_total_minor: '0',
+            ...(posDay ? { paid_total_minor: '0' } : {}),
+          };
       const cashierObserved = reportsInstalled
         ? (
             await rows(
@@ -257,17 +267,6 @@ export class Backoffice {
       const cashierShifts = shiftRows.slice(0, 200).map(flattenShift);
       if (selectedShift && !cashierShifts.some((row) => row.id === selectedShift.id))
         cashierShifts.unshift(selectedShift);
-      const cashierOrders = cashierRows.slice(0, 200).map((row) => ({
-        ...row.payload,
-        id: row.id,
-        created_at: row.created_at,
-        observed_at: row.observed_at,
-        owner: 'edge_pos',
-        channel: 'pos',
-        source: 'cashier_report',
-        payment_state: 'not_started',
-        fiscal_state: 'not_requested',
-      }));
       const records = await rows(
         'SELECT id,kind,revision,payload,updated_at FROM bo_records WHERE branch_id=$1 ORDER BY kind,updated_at DESC,id LIMIT 2000',
       );
@@ -285,6 +284,33 @@ export class Backoffice {
         `SELECT p.order_id id,p.first_observed_at created_at,p.total_minor::text,p.version::text,p.state,'pos' channel,p.commercial_owner owner,p.payment_state,coalesce(k.state,p.fulfillment_state) kitchen_state,coalesce(k.observed_at,p.updated_at) observed_at,p.execution_mode FROM pos_order_sync_projection p LEFT JOIN pos_kitchen_sync_projection k ON k.order_id=p.order_id AND k.branch_id=p.branch_id WHERE p.branch_id=$1 AND p.first_observed_at >= $2 AND p.first_observed_at < $3 ${reportsInstalled ? 'AND NOT EXISTS(SELECT 1 FROM cloud_cashier_orders c WHERE c.id=p.order_id AND c.branch_id=p.branch_id)' : ''} ORDER BY p.first_observed_at DESC,p.order_id LIMIT 201`,
         [branch, start, end],
       );
+      const extras = posDay
+        ? await posOrderExtras(
+            db,
+            branch,
+            [
+              ...cashierRows
+                .slice(0, 200)
+                .map((row) => ({ id: row.id, shift_id: row.cash_shift_id })),
+              ...pos.slice(0, 200).map((row) => ({ id: row.id, shift_id: null })),
+            ],
+            reportsInstalled,
+          )
+        : null;
+      const cashierOrders = cashierRows.slice(0, 200).map((row) => ({
+        ...row.payload,
+        id: row.id,
+        created_at: row.created_at,
+        observed_at: row.observed_at,
+        owner: 'edge_pos',
+        channel: 'pos',
+        source: 'cashier_report',
+        // CR pos-4 section 2: a paid POS sale is paid, its receipt state comes from cloud073.
+        payment_state:
+          extras && row.payload.execution_mode === 'pos_sale' ? 'captured' : 'not_started',
+        fiscal_state: extras?.fiscal.get(row.id) ?? 'not_requested',
+        ...(extras ? { terminal_id: extras.terminal.get(row.id) ?? null } : {}),
+      }));
       const metrics = (
         await rows(
           `SELECT
@@ -404,6 +430,8 @@ export class Backoffice {
         cashier_orders: cashierOrders,
         cashier_metrics: cashierMetrics,
         selected_shift: selectedShift,
+        // «Касса» (bo-ui): the named cash desks of the registry column, only with the flag on.
+        ...(extras ? { pos_terminals: extras.terminals } : {}),
         coverage: {
           cashier_reports_available: cashierAvailable,
           cashier_reports_complete: false,
@@ -416,7 +444,12 @@ export class Backoffice {
         orders: q.shift_id ? [] : orders.slice(0, 200),
         pos: q.shift_id
           ? []
-          : pos.slice(0, 200).filter((row) => !cashierOrders.some((c) => c.id === row.id)),
+          : pos
+              .slice(0, 200)
+              .filter((row) => !cashierOrders.some((c) => c.id === row.id))
+              .map((row) =>
+                extras ? { ...row, terminal_id: extras.terminal.get(row.id) ?? null } : row,
+              ),
         metrics: q.shift_id
           ? {
               ...metrics,
@@ -491,6 +524,8 @@ export class Backoffice {
    *   404 STOCK_V2_DISABLED.
    * - `sales` (CC-7, sales-report.ts): only while BACKOFFICE_SALES_REPORT_ENABLED is on;
    *   otherwise exactly the 404 of an unknown view.
+   * - `pos-day` (bo-ui «Касса», pos-day.ts): only while BACKOFFICE_POS_DAY_ENABLED is on;
+   *   otherwise exactly the 404 of an unknown view.
    */
   async ops(token: string, branch: string, view: string, input: unknown = {}) {
     return transaction(this.pool, async (db) => {
@@ -498,6 +533,9 @@ export class Backoffice {
       await this.scope(db, token, branch);
       if (view === 'sales' && this.options.salesReportEnabled === true)
         return readSalesReport(db, branch, input, new Date());
+      // Back-office P1 «Касса» (bo-ui, pos-day.ts): only while BACKOFFICE_POS_DAY_ENABLED is on.
+      if (view === 'pos-day' && this.options.posDayEnabled === true)
+        return readPosDay(db, branch, input, new Date());
       if (view !== 'stock') return fail('NOT_FOUND');
       if (this.options.stockV2Enabled !== true || !(await stockV2Readable(db)))
         throw new ErrorCode('NOT_FOUND', 'STOCK_V2_DISABLED');
@@ -566,7 +604,10 @@ export class Backoffice {
               ])
             ).rows[0]
           : null;
-        if (report)
+        // Back-office P1 «Касса» (bo-ui): the cashier receipt (tenders, voids, refunds, Webkassa).
+        const posDay = this.options.posDayEnabled === true;
+        if (report) {
+          const card = posDay ? await posOrderCard(db, branch, id, true) : null;
           return {
             order: {
               ...report.payload,
@@ -582,8 +623,11 @@ export class Backoffice {
               source: 'cashier_report',
               owner: 'edge_pos',
               channel: 'pos',
-              payment_state: 'not_started',
-              fiscal_state: 'not_requested',
+              // CR pos-4 section 2: a paid POS sale is paid; its receipt state is in pos_sale.
+              payment_state:
+                posDay && report.payload.execution_mode === 'pos_sale' ? 'captured' : 'not_started',
+              fiscal_state:
+                card?.pos_sale?.fiscal.find((f) => f.kind === 'sale')?.state ?? 'not_requested',
             },
             owner: 'edge_pos',
             source: 'cashier_report',
@@ -592,7 +636,9 @@ export class Backoffice {
             fiscal: [],
             events: [],
             capabilities: { can_cancel: false, can_refund: false },
+            ...(card ?? {}),
           };
+        }
         const pos = (
           await db.query(
             'SELECT p.order_id id,p.snapshot,p.state,p.version,p.total_minor::text,p.payment_state,p.fiscal_state,p.execution_mode,coalesce(k.state,p.fulfillment_state) kitchen_state,k.version kitchen_version,k.observed_at FROM pos_order_sync_projection p LEFT JOIN pos_kitchen_sync_projection k ON k.order_id=p.order_id AND k.branch_id=p.branch_id WHERE p.order_id=$1 AND p.branch_id=$2',
@@ -608,7 +654,15 @@ export class Backoffice {
             [id, branch],
           )
         ).rows;
-        return { order: pos, owner: 'edge', captures: [], refunds: [], fiscal: [], events };
+        return {
+          order: pos,
+          owner: 'edge',
+          captures: [],
+          refunds: [],
+          fiscal: [],
+          events,
+          ...(posDay ? await posOrderCard(db, branch, id, Boolean(reportsInstalled)) : {}),
+        };
       }
       const captures = (
         await db.query(
