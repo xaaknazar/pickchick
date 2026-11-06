@@ -439,7 +439,7 @@ export class Backoffice {
                 db,
                 branch,
                 cashierShifts
-                  .map((shift) => shift['staff_id'])
+                  .map((shift) => (shift as Record<string, unknown>)['staff_id'])
                   .filter((id): id is string => typeof id === 'string'),
               ),
             }
