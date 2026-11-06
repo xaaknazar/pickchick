@@ -22,6 +22,11 @@ files:
   - renderer/runtime.js
   - renderer/types.js
   - renderer/terminal-access.js
+  - renderer/restore-review.js
+  - renderer/demo.js
+  - renderer/ticket-view.js
+  - renderer/kds-view.js
+  - renderer/courier.js
   - renderer/components/*.js
   - renderer/components/*.css
   - renderer/fonts/*.woff2

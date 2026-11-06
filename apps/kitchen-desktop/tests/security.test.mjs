@@ -155,6 +155,37 @@ test('the package holds exactly the renderer modules app.js loads', async () => 
   for (const name of ['kds-view.js', 'courier.js']) assert.ok(loaded.has(name), name);
 });
 
+// ASSETS is what the gateway serves; electron-builder.yml `files` is what goes into app.asar.
+// 0.4.0 first listed the KDS modules (and the three D0 lacked) in ASSETS only, so the packaged
+// app.asar still missed them and app.js could not start (found by verify:win on win-unpacked).
+test('electron-builder packages every renderer asset and nothing else of the renderer', async () => {
+  const yml = await readFile(new URL('../electron-builder.yml', import.meta.url), 'utf8');
+  const block = /^files:\n((?: {2}- .+\n)+)/m.exec(yml);
+  assert.ok(block, 'files list');
+  const entries = block[1]
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => line.slice(4));
+  const pattern = (glob) =>
+    new RegExp('^' + glob.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replaceAll('*', '[^/]*') + '$');
+  const renderer = entries.filter((entry) => entry.startsWith('renderer/'));
+  const packaged = [...ASSETS, 'asset-manifest.json'].map((name) => 'renderer/' + name);
+  for (const name of packaged)
+    assert.ok(
+      renderer.some((entry) => pattern(entry).test(name)),
+      'not in electron-builder files: ' + name,
+    );
+  for (const entry of renderer)
+    assert.ok(
+      packaged.some((name) => pattern(entry).test(name)),
+      'stale electron-builder entry: ' + entry,
+    );
+  assert.deepEqual(
+    entries.filter((entry) => !entry.startsWith('renderer/')),
+    ['main.mjs', 'security.mjs', 'gateway.mjs', 'terminal-cookie.mjs', 'package.json'],
+  );
+});
+
 // Cutover KDS-5: the renderer reaches the KDS routes of CR kds-5 through the same gateway rules.
 test('renderer may call the KDS routes with their exact query rules only', () => {
   for (const [path, method] of [
