@@ -229,11 +229,35 @@ export async function managerShiftChecks(
     )
   ).rows[0]!;
   out.waste = check(stock.waste > 0 ? 'ok' : 'no_data', { documents: stock.waste });
-  out.key_count = check(stock.counts > 0 ? 'ok' : 'no_data', {
-    documents: stock.counts,
-    items: stock.counted,
-    last_at: iso(stock.last_count_at),
-  });
+  // Key positions (Ск7, step 8): the used ingredients marked «считать каждый день»
+  // (count_daily, stock P1). Without any, the check stays «a count of the day exists».
+  const keys = (
+    await db.query<{ id: string; name: string; counted: boolean }>(
+      `SELECT r.id,r.payload->>'name' AS name,EXISTS(
+           SELECT 1 FROM bo_stock_movements m JOIN bo_stock_documents c ON c.id=m.document_id AND c.branch_id=m.branch_id
+           WHERE c.branch_id=$1 AND c.kind='count' AND c.created_at >= $2 AND c.created_at < $3 AND m.ingredient_id=r.id) counted
+       FROM bo_records r WHERE r.branch_id=$1 AND r.kind='ingredient' AND r.payload->>'count_daily'='true'
+         AND r.payload->>'active'='true' AND r.payload->>'deleted' IS DISTINCT FROM 'true'
+       ORDER BY r.payload->>'name',r.id`,
+      [branch, start, end],
+    )
+  ).rows;
+  const missing = keys.filter((k) => !k.counted);
+  out.key_count = keys.length
+    ? check(missing.length ? 'problem' : 'ok', {
+        documents: stock.counts,
+        items: stock.counted,
+        last_at: iso(stock.last_count_at),
+        key_items: keys.length,
+        key_counted: keys.length - missing.length,
+        key_missing: missing.slice(0, 10).map((k) => k.name),
+        key_missing_count: missing.length,
+      })
+    : check(stock.counts > 0 ? 'ok' : 'no_data', {
+        documents: stock.counts,
+        items: stock.counted,
+        last_at: iso(stock.last_count_at),
+      });
 
   // Automatic consumption: sales of the day that could not be written off.
   if (await autoconsumeAvailable(db, options)) {

@@ -25,6 +25,7 @@ export const BackofficeErrorReasonSchema = z.enum([
   'REVERSAL_NOT_ALLOWED',
   'ALREADY_REVERSED',
   'COUNTED_AFTER_DOCUMENT',
+  'RECIPE_POLICY_EXPLODE',
   // Lane bo-ui automatic consumption (design-bo-ui 5.5): only with BACKOFFICE_STOCK_AUTOCONSUME_ENABLED.
   'AUTOCONSUME_ACTIVE',
   // Lane bo-ui manager shift (design-bo-ui 5.6): only with BACKOFFICE_MANAGER_SHIFTS_ENABLED.

@@ -89,7 +89,10 @@ test('P1 schemas: storno and quick waste are strict, the shared Command never ta
       .success,
     true,
   );
-  assert.equal(IngredientP1.safeParse({ ...ingredient, count_daily: true }).success, false);
+  // Step 8: count_daily and group are stock P1 fields too (stock-p1-reports.test.mjs).
+  assert.equal(IngredientP1.safeParse({ ...ingredient, count_daily: true }).success, true);
+  assert.equal(IngredientP1.safeParse({ ...ingredient, count_daily: 1 }).success, false);
+  assert.equal(IngredientP1.safeParse({ ...ingredient, colour: 'red' }).success, false);
   assert.deepEqual([...REVERSIBLE_KINDS], ['receipt', 'waste', 'production', 'consumption']);
 });
 

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { DatabaseClient } from '@pickchick/database';
 import { BackofficeError, Ingredient, parse, periodWindow } from './model.js';
-import { STOCK_OPS_DOCUMENT_LIMIT, StockOpsQuery } from './stock-v2.js';
+import { STOCK_OPS_DOCUMENT_LIMIT, stockWindowValid } from './stock-v2.js';
 import type { BackofficeP1Permission } from './roles.js';
 import {
   ConsumptionRetryCommand,
@@ -81,8 +81,25 @@ export const QuickWasteSchema = z.strictObject({
   label: z.string().trim().min(1).max(40),
   quantity: positive,
 });
-/** The ingredient payload while stock P1 is available; without it the strict Ingredient applies. */
-export const IngredientP1 = Ingredient.extend({ quick_waste: QuickWasteSchema.optional() });
+/** Ingredient groups of design-backoffice 3 (filters of «Остатки», the closing count). */
+export const INGREDIENT_GROUPS = [
+  'raw',
+  'semi',
+  'packaging',
+  'drink',
+  'household',
+  'other',
+] as const;
+/**
+ * The ingredient payload while stock P1 is available; without it the strict Ingredient applies.
+ * `quick_waste` is the tile of the waste dialog (step 4); `count_daily` puts the position on the
+ * closing count of every manager shift (Ск7, step 8) and `group` sorts it (design-backoffice 3).
+ */
+export const IngredientP1 = Ingredient.extend({
+  quick_waste: QuickWasteSchema.optional(),
+  count_daily: z.boolean().optional(),
+  group: z.enum(INGREDIENT_GROUPS).optional(),
+});
 
 /**
  * Storno of a whole stock document (Ск1). `expected_balances` holds the balance revision of every
@@ -331,31 +348,54 @@ export async function markCounted(db: Db, branch: string, document: string, ingr
   );
 }
 
+/** Report views of GET .../ops/stock while stock P1 is on (design-bo-ui 5.2). */
+export const STOCK_P1_VIEWS = ['waste', 'movement', 'variance', 'consumption'] as const;
+export const StockOpsQueryP1 = z
+  .strictObject({
+    view: z.enum(STOCK_P1_VIEWS),
+    start_date: z.iso.date(),
+    end_date: z.iso.date(),
+  })
+  .refine(stockWindowValid);
+
+/** The documents of a view: wastes or consumptions with their storno, counts, or everything. */
+function viewScope(view: (typeof STOCK_P1_VIEWS)[number]) {
+  const reversalOf = (kind: string) =>
+    `(d.kind='${kind}' OR (d.kind='reversal' AND EXISTS(SELECT 1 FROM bo_stock_documents w
+       WHERE w.id=d.reverses_document_id AND w.branch_id=d.branch_id AND w.kind='${kind}')))`;
+  if (view === 'waste') return reversalOf('waste');
+  if (view === 'consumption') return reversalOf('consumption');
+  if (view === 'variance') return "d.kind='count'";
+  return 'true';
+}
+
 /**
  * GET .../ops/stock with stock P1 (design-bo-ui 5.2). The same query and answer as the cloud
- * lane's readStockOps, plus:
+ * lane's readStockOps for waste and movement, plus:
  * - documents[] carry the P1 columns (reason_code and meta are there already, then source_ref,
  *   reverses_document_id, reversed_by, reversed_at, reverses);
  * - view=waste also takes the reversals of waste documents made in the window: each is a negative
  *   entry on the day of the storno, under the reason code and the author of the waste it reverses
  *   (so a waste reversed later stays in the closed days and the days add up to the period);
  *   `documents` counts the wastes, `reversals` the storno documents, `value_minor` is net;
- * - view=movement lists reversals as their own kind.
+ * - view=movement lists reversals as their own kind;
+ * - view=consumption (step 8): the consumption documents by sales (automatic, `source_ref`
+ *   pos:/cloud:, and the manual write-off by the recipes of an order) with their storno, the same
+ *   way as the waste: by source, day and ingredient, net of storno;
+ * - view=variance (step 8): the count documents of the window and what they found: for each
+ *   counted ingredient the number of counts, the expected and the counted quantity of its last
+ *   count (expected = the balance before the count) and the sum of the differences in quantity
+ *   and value; by day the shortage and the surplus at average cost.
  */
 export async function readStockOpsP1(db: Db, branch: string, input: unknown, now: Date) {
-  const q = parse(StockOpsQuery, input);
+  const q = parse(StockOpsQueryP1, input);
   const { start, end } = periodWindow(
     { period: 'custom', start_date: q.start_date, end_date: q.end_date },
     now,
   );
   const args = [branch, start, end];
   const rows = async (sql: string) => (await db.query(sql, args)).rows;
-  const scope =
-    q.view === 'waste'
-      ? `(d.kind='waste' OR (d.kind='reversal' AND EXISTS(SELECT 1 FROM bo_stock_documents w
-           WHERE w.id=d.reverses_document_id AND w.branch_id=d.branch_id AND w.kind='waste')))`
-      : 'true';
-  const window = `d.branch_id=$1 AND d.created_at >= $2 AND d.created_at < $3 AND ${scope}`;
+  const window = `d.branch_id=$1 AND d.created_at >= $2 AND d.created_at < $3 AND ${viewScope(q.view)}`;
   const documents = await rows(
     `SELECT d.id,d.kind,d.reference,d.reason,d.reason_code,d.meta,d.order_id,d.created_at,d.actor_id,a.name actor_name,
       ${LINES},
@@ -363,11 +403,68 @@ export async function readStockOpsP1(db: Db, branch: string, input: unknown, now
      FROM bo_stock_documents d JOIN catalog_managers a ON a.id=d.actor_id
      WHERE ${window} ORDER BY d.created_at DESC,d.id LIMIT ${STOCK_OPS_DOCUMENT_LIMIT + 1}`,
   );
-  // One row per document with its value effect; a reversal takes the reason and the author of
-  // the document it reverses. Every summary below aggregates this set.
+  const envelope = {
+    schema_version: 1 as const,
+    branch_id: branch,
+    view: q.view,
+    timezone: 'Asia/Almaty' as const,
+    start_date: q.start_date,
+    end_date: q.end_date,
+    period_start: start.toISOString(),
+    period_end: end.toISOString(),
+    as_of: now.toISOString(),
+  };
+  const listed = {
+    documents: documents.slice(0, STOCK_OPS_DOCUMENT_LIMIT),
+    truncated: documents.length > STOCK_OPS_DOCUMENT_LIMIT,
+    limits: { documents: STOCK_OPS_DOCUMENT_LIMIT },
+  };
+  if (q.view === 'variance') {
+    // One row per counted line: expected = the balance before the count.
+    const counted = `WITH lines AS (
+        SELECT m.ingredient_id,d.id document_id,d.created_at,(d.created_at AT TIME ZONE 'Asia/Almaty')::date AS day,
+          m.quantity_delta,m.value_delta_minor,m.balance_after,(m.balance_after-m.quantity_delta) expected
+        FROM bo_stock_documents d JOIN bo_stock_movements m ON m.document_id=d.id AND m.branch_id=d.branch_id
+        WHERE ${window})`;
+    const sums = `coalesce(sum(-value_delta_minor) FILTER (WHERE value_delta_minor<0),0)::text shortage_value_minor,
+        coalesce(sum(value_delta_minor) FILTER (WHERE value_delta_minor>0),0)::text surplus_value_minor,
+        coalesce(sum(value_delta_minor),0)::text delta_value_minor`;
+    const totals = (
+      await rows(
+        `${counted} SELECT count(DISTINCT document_id)::int documents,count(DISTINCT ingredient_id)::int items,
+          count(*) FILTER (WHERE quantity_delta<>0)::int lines_with_difference,${sums} FROM lines`,
+      )
+    )[0];
+    return {
+      ...envelope,
+      totals,
+      summary: {
+        rows: await rows(
+          `${counted} SELECT l.ingredient_id,r.payload->>'name' AS name,r.payload->>'unit' AS unit,count(*)::int counts,
+            (array_agg(l.expected ORDER BY l.created_at DESC,l.document_id))[1]::text expected,
+            (array_agg(l.balance_after ORDER BY l.created_at DESC,l.document_id))[1]::text counted,
+            to_char(max(l.created_at) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') last_counted_at,
+            sum(l.quantity_delta)::text delta_quantity,sum(l.value_delta_minor)::text delta_value_minor
+           FROM lines l JOIN bo_records r ON r.id=l.ingredient_id AND r.branch_id=$1 AND r.kind='ingredient'
+           GROUP BY l.ingredient_id,r.payload->>'name',r.payload->>'unit'
+           ORDER BY sum(l.value_delta_minor),r.payload->>'name',l.ingredient_id`,
+        ),
+        by_day: await rows(
+          `${counted} SELECT day::text AS day,count(DISTINCT document_id)::int documents,
+            count(DISTINCT ingredient_id)::int items,count(*) FILTER (WHERE quantity_delta<>0)::int lines_with_difference,
+            ${sums} FROM lines GROUP BY day ORDER BY day`,
+        ),
+      },
+      ...listed,
+    };
+  }
+  // One row per document with its value effect; a reversal takes the reason, the author and the
+  // source of the document it reverses. Every summary below aggregates this set.
   const effects = `WITH docs AS (
       SELECT d.id,d.kind,(d.kind='reversal') reversal,
         coalesce(d.reason_code,o.reason_code) reason_code,coalesce(o.actor_id,d.actor_id) actor_id,
+        CASE WHEN coalesce(o.source_ref,d.source_ref) LIKE 'pos:%' THEN 'pos'
+          WHEN coalesce(o.source_ref,d.source_ref) LIKE 'cloud:%' THEN 'cloud' ELSE 'manual' END source,
         (d.created_at AT TIME ZONE 'Asia/Almaty')::date AS day,
         coalesce((SELECT sum(m.value_delta_minor) FROM bo_stock_movements m WHERE m.document_id=d.id AND m.branch_id=d.branch_id),0) AS value_delta
       FROM bo_stock_documents d
@@ -384,6 +481,22 @@ export async function readStockOpsP1(db: Db, branch: string, input: unknown, now
     `${effects} SELECT day::text AS day,${counts},count(*)::int all_documents,coalesce(sum(-value_delta),0)::text value_minor,
       coalesce(sum(value_delta),0)::text value_delta_minor FROM docs GROUP BY day ORDER BY day`,
   );
+  const netDays = byDay.map(({ day, documents, reversals, value_minor }) => ({
+    day,
+    documents,
+    reversals,
+    value_minor,
+  }));
+  const byIngredient = () =>
+    rows(
+      `SELECT m.ingredient_id,r.payload->>'name' AS name,r.payload->>'unit' AS unit,
+        sum(-m.quantity_delta)::text quantity,sum(-m.value_delta_minor)::text value_minor
+       FROM bo_stock_documents d
+       JOIN bo_stock_movements m ON m.document_id=d.id AND m.branch_id=d.branch_id
+       JOIN bo_records r ON r.id=m.ingredient_id AND r.branch_id=m.branch_id AND r.kind='ingredient'
+       WHERE ${window} GROUP BY m.ingredient_id,r.payload->>'name',r.payload->>'unit'
+       ORDER BY sum(-m.value_delta_minor) DESC,m.ingredient_id`,
+    );
   const summary =
     q.view === 'waste'
       ? {
@@ -391,58 +504,44 @@ export async function readStockOpsP1(db: Db, branch: string, input: unknown, now
             `${effects} SELECT reason_code,${counts},coalesce(sum(-value_delta),0)::text value_minor
              FROM docs GROUP BY reason_code ORDER BY reason_code NULLS LAST`,
           ),
-          by_day: byDay.map(({ day, documents, reversals, value_minor }) => ({
-            day,
-            documents,
-            reversals,
-            value_minor,
-          })),
-          by_ingredient: await rows(
-            `SELECT m.ingredient_id,r.payload->>'name' AS name,r.payload->>'unit' AS unit,
-              sum(-m.quantity_delta)::text quantity,sum(-m.value_delta_minor)::text value_minor
-             FROM bo_stock_documents d
-             JOIN bo_stock_movements m ON m.document_id=d.id AND m.branch_id=d.branch_id
-             JOIN bo_records r ON r.id=m.ingredient_id AND r.branch_id=m.branch_id AND r.kind='ingredient'
-             WHERE ${window} GROUP BY m.ingredient_id,r.payload->>'name',r.payload->>'unit'
-             ORDER BY sum(-m.value_delta_minor) DESC,m.ingredient_id`,
-          ),
+          by_day: netDays,
+          by_ingredient: await byIngredient(),
           by_author: await rows(
             `${effects} SELECT d.actor_id,a.name actor_name,${counts},coalesce(sum(-d.value_delta),0)::text value_minor
              FROM docs d JOIN catalog_managers a ON a.id=d.actor_id GROUP BY d.actor_id,a.name ORDER BY a.name,d.actor_id`,
           ),
         }
-      : {
-          by_kind: await rows(
-            `${effects} SELECT kind,count(*)::int documents,coalesce(sum(value_delta),0)::text value_delta_minor
-             FROM docs GROUP BY kind ORDER BY kind`,
-          ),
-          by_day: byDay.map(({ day, all_documents, value_delta_minor }) => ({
-            day,
-            documents: all_documents,
-            value_delta_minor,
-          })),
-        };
-  return {
-    schema_version: 1 as const,
-    branch_id: branch,
-    view: q.view,
-    timezone: 'Asia/Almaty' as const,
-    start_date: q.start_date,
-    end_date: q.end_date,
-    period_start: start.toISOString(),
-    period_end: end.toISOString(),
-    as_of: now.toISOString(),
-    totals:
-      q.view === 'waste'
+      : q.view === 'consumption'
         ? {
+            by_source: await rows(
+              `${effects} SELECT source,${counts},coalesce(sum(-value_delta),0)::text value_minor
+               FROM docs GROUP BY source ORDER BY CASE source WHEN 'pos' THEN 1 WHEN 'cloud' THEN 2 ELSE 3 END`,
+            ),
+            by_day: netDays,
+            by_ingredient: await byIngredient(),
+          }
+        : {
+            by_kind: await rows(
+              `${effects} SELECT kind,count(*)::int documents,coalesce(sum(value_delta),0)::text value_delta_minor
+               FROM docs GROUP BY kind ORDER BY kind`,
+            ),
+            by_day: byDay.map(({ day, all_documents, value_delta_minor }) => ({
+              day,
+              documents: all_documents,
+              value_delta_minor,
+            })),
+          };
+  return {
+    ...envelope,
+    totals:
+      q.view === 'movement'
+        ? { documents: totals.all_documents, value_delta_minor: totals.value_delta_minor }
+        : {
             documents: totals.documents,
             value_minor: totals.value_minor,
             reversals: totals.reversals,
-          }
-        : { documents: totals.all_documents, value_delta_minor: totals.value_delta_minor },
+          },
     summary,
-    documents: documents.slice(0, STOCK_OPS_DOCUMENT_LIMIT),
-    truncated: documents.length > STOCK_OPS_DOCUMENT_LIMIT,
-    limits: { documents: STOCK_OPS_DOCUMENT_LIMIT },
+    ...listed,
   };
 }

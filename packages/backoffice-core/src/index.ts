@@ -1120,7 +1120,12 @@ export class Backoffice {
         } else if (c.type === 'produce' || c.type === 'consume') {
           // A branch that writes off automatically (dry_run or on) takes no manual consume.
           if (c.type === 'consume') await assertManualConsume(db, branch, this.options);
-          result = await this.production(db, branch, actor, req.reason, c);
+          // Stock P1: a recipe marked «раскладывать при продаже» is never produced to stock.
+          const policy =
+            c.type === 'produce' &&
+            this.options.stockV2Enabled === true &&
+            (await stockP1Ready(db));
+          result = await this.production(db, branch, actor, req.reason, c, policy);
           entity = (result as { id: string }).id;
         } else if (c.type === 'revoke_device') {
           const d = (
@@ -1450,6 +1455,13 @@ export class Backoffice {
     actor: Actor,
     reason: string,
     c: Extract<z.infer<typeof Request>['command'], { type: 'produce' | 'consume' }>,
+    /**
+     * Stock P1 (step 8): refuse a recipe whose stock_policy is explicitly 'explode'. Its output
+     * is laid out into raw ingredients at every sale, so a produced batch would write the raw
+     * ingredients off twice and keep the output in stock forever. Without a policy the cloud
+     * lane rule stands (production allowed).
+     */
+    policy = false,
   ) {
     const needs = new Map<string, bigint>();
     let output: { id: string; quantity: bigint } | null = null;
@@ -1472,6 +1484,8 @@ export class Backoffice {
       if (r.revision !== c.recipe_revision) return fail('CONFLICT');
       const recipe = parse(RecipeP1, r.payload);
       if (!recipe.output_ingredient_id) return fail('INVALID_REQUEST');
+      if (policy && recipe.stock_policy === 'explode')
+        throw new ErrorCode('INVALID_REQUEST', 'RECIPE_POLICY_EXPLODE');
       snapshot = r;
       add(recipe, BigInt(c.batches));
       output = {
