@@ -29,7 +29,11 @@ import { POS_SALES_MIGRATION, POS_SALES_SHA256 } from './pos-sales-upgrade-db.mj
  * other row, sequence, table ACL and function is unchanged. The layout stays off: kds-switch.mjs
  * enables it later. A second `apply` refuses; `inspect` on 027 verifies the installed state and
  * refuses when a worker or the runtime lacks its KDS rights (cloud orders would stay on the old
- * stations). Rollback: the previous binary keeps working on 027 (it reads none of it).
+ * stations). Rollback of the runtime after 027: the RC-edge (KDS-2 routing 6c0cd964). The pre-cutover
+ * binary reads the six provisioned stations as ordinary ones: a menu with a new prep item is
+ * refused (ROUTING_UNRESOLVED, three prep stations) and GET fulfillment/stations lists them. It
+ * goes back only together with the schema026 copy (contracts 3.2 p.4, cutover-d0-baseline.json).
+ * A `kitchen` login enrolled after apply gets its stations from `kds-switch.mjs provision`.
  */
 export const KDS_MIGRATION = MIGRATION;
 /** SHA-256 of the reviewed 027 (CR kds-1, unchanged in CR kds-3/kds-5); other bytes are refused. */
