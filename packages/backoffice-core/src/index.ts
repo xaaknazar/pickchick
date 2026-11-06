@@ -39,6 +39,9 @@ import { p1Capabilities } from './p1-flags.js';
 import { posOrderCard, posOrderExtras, posStaffNames, readPosDay } from './pos-day.js';
 import {
   IngredientP1,
+  STOCK_P1_RECORD_KEYS,
+  keepStoredFields,
+  stripKeptFields,
   P1_COMMAND_FLAGS,
   P1_COMMAND_PERMISSIONS,
   P1_DOCUMENTS_SQL,
@@ -96,6 +99,7 @@ export * from './manager-shifts.js';
 export * from './manager-shifts-store.js';
 export * from './positions.js';
 export * from './discounts.js';
+export * from './p1-rollback.js';
 export const BACKOFFICE = Symbol('BACKOFFICE');
 /** The old manager journal (bo_records kind shift) in GET branches/:id while the shift runs. */
 export const LEGACY_JOURNAL_LIMIT = 200;
@@ -996,6 +1000,18 @@ export class Backoffice {
             (await stockP1Ready(db));
           // Staff positions (step 6): an employee card may carry its position fields.
           const positions = c.kind === 'employee' && this.options.staffPositionsEnabled === true;
+          // Review BOUI-R3: while stock P1 is not available an ingredient or a recipe keeps its
+          // P1 fields (the employee pattern): sent back unchanged they are not refused, left out
+          // they are not wiped.
+          const keptP1 =
+            (c.kind === 'ingredient' || c.kind === 'recipe') && !p1Record
+              ? STOCK_P1_RECORD_KEYS[c.kind]
+              : null;
+          const sentP1 =
+            keptP1 !== null &&
+            typeof c.payload === 'object' &&
+            c.payload !== null &&
+            keptP1.some((k) => k in (c.payload as Record<string, unknown>));
           const lockOld = async () =>
             (
               await db.query<Row>(
@@ -1003,9 +1019,9 @@ export class Backoffice {
                 [branch, c.kind, c.id],
               )
             ).rows[0];
-          // An employee card is read before the payload check (its kept position fields);
-          // every other record after it, as before.
-          let old = c.kind === 'employee' ? await lockOld() : undefined;
+          // An employee card, and a stock card that names P1 fields while stock P1 is off, is
+          // read before the payload check (its kept fields); every other record after it.
+          let old = c.kind === 'employee' || sentP1 ? await lockOld() : undefined;
           const parsed = parse(
             (p1Record
               ? c.kind === 'ingredient'
@@ -1018,9 +1034,20 @@ export class Backoffice {
             // that sends them back unchanged is not refused (positions.ts).
             c.kind === 'employee' && !positions
               ? stripKeptPositions(c.payload, old?.payload)
-              : c.payload,
+              : sentP1
+                ? stripKeptFields(c.payload, old?.payload, keptP1)
+                : c.payload,
           );
-          if (c.kind !== 'employee') old = await lockOld();
+          if (c.kind !== 'employee' && !sentP1) old = await lockOld();
+          // stock_policy belongs to a production recipe only: a menu recipe is pinned into the
+          // immutable order snapshots (cloud017), which the cloud lane parses strictly.
+          if (
+            p1Record &&
+            c.kind === 'recipe' &&
+            'stock_policy' in parsed &&
+            parsed['output_ingredient_id'] === null
+          )
+            fail('INVALID_REQUEST');
           if ((old?.revision ?? 0) !== c.expected_revision) return fail('CONFLICT');
           if (positions && EMPLOYEE_P1_KEYS.some((k) => k in parsed)) {
             requirePermission(actor.effective, 'staff.positions');
@@ -1031,7 +1058,11 @@ export class Backoffice {
             );
           }
           const payload =
-            c.kind === 'employee' ? keepEmployeePositions(parsed, old?.payload) : parsed;
+            c.kind === 'employee'
+              ? keepEmployeePositions(parsed, old?.payload)
+              : keptP1
+                ? keepStoredFields(parsed, old?.payload, keptP1)
+                : parsed;
           before = old?.payload ?? null;
           entity = c.id;
           await this.validateRecord(db, branch, c.kind, payload, old);

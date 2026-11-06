@@ -1414,6 +1414,8 @@ export class OperationsView {
           if (value) p['quick_waste'] = value;
           else delete p['quick_waste'];
         }
+        // stock_policy belongs to a recipe with an output (the server refuses it on a menu one).
+        if (kind === 'recipe' && !p['output_ingredient_id']) delete p['stock_policy'];
         return {
           type: 'save',
           kind,

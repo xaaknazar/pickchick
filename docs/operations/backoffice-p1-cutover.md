@@ -157,6 +157,8 @@ CR `bo-ui-1` §1); ключ helper-а указан в таблице. Без п�
   «Сторно» - обратный документ, исходный остаётся в истории; позиция очереди остаётся «Списано».
   Ошибочный подсчёт - новым подсчётом.
 - **Общие исправления аудита** уходят вместе с `BACKOFFICE_POS_DAY_ENABLED=false`.
+- **Образ API на сборку облачной полосы** (075 остаётся): сначала владелец схемы переносит поля P1
+  из карточек (раздел «Откат образа API»), иначе такие карточки и техкарты не сохраняются.
 - Что не откатывается: документы склада (неизменяемы), учётные записи кассы, заведённые
   `staff-roster-apply.mjs`, закрытые смены менеджера, ревизии скидок.
 
@@ -435,10 +437,15 @@ CR `bo-ui-4`.
   надолго - отдельный флаг через CR интеграции.
 - Документы сторно и `counted_at` остаются: документы неизменяемы, ошибку исправляет следующий
   документ.
-- Плитки остаются в карточках ингредиентов. Пока склад P1 выключен, прежний редактор карточки
-  отправит плитку обратно и получит отказ «Сервер отклонил данные»: такую карточку правьте после
-  повторного включения или попросите оператора (поле `quick_waste` удалить сохранением карточки при
-  включённом складе P1).
+- Плитки, «Считать каждый день», «Группа» карточек ингредиентов и «Выход техкарты при продаже»
+  техкарт остаются в записях. Пока склад P1 выключен, карточку и техкарту можно править как
+  обычно: поля, отправленные обратно без изменений, сервер не отклоняет, а сохранение без них их не
+  стирает (как поля должностей сотрудника). Изменить их можно только после повторного включения.
+- Отчёт «Списания» облачной полосы не знает сторно: после отката сторнированное списание снова
+  считается в причинах полностью, сторно видно только как документ. Итоги списаний за дни после
+  первого сторно сверяйте после повторного включения склада P1.
+- Откат самого образа API на сборку облачной полосы - раздел «Откат образа API» ниже: перед ним
+  владелец схемы убирает поля P1 из карточек.
 
 ### Проверки (тесты полосы)
 
@@ -630,9 +637,95 @@ CR `bo-ui-4`.
 ### Включение и откат
 
 Ничего отдельно: появляется со складом P1. Откат - как у склада P1. Поля карточки
-(`count_daily`, `group`) и `stock_policy` остаются в записях; пока склад P1 выключен, прежний
-редактор карточки отправит их обратно и получит «Сервер отклонил данные» - такую карточку правьте
-после повторного включения (как плитку быстрого списания).
+(`count_daily`, `group`) и `stock_policy` остаются в записях; пока склад P1 выключен, карточка и
+техкарта сохраняются как обычно, поля не теряются (раздел «Откат» склада P1). Откат образа API -
+раздел «Откат образа API».
+
+### Откат образа API (сборка облачной полосы при оставшейся 075)
+
+Сборка облачной полосы проверяет карточки ингредиента, техкарты и сотрудника строгими схемами
+(сохранение, «Производство»). Карточка с полем P1 (`quick_waste`, `count_daily`, `group`,
+`stock_policy`, `position_code`, `extra_position_codes`, `pos_access`) у неё не сохранится и не
+произведётся. Поэтому **перед** откатом образа владелец схемы (не роль API) в одной транзакции
+переносит эти поля в отдельную таблицу `bo_p1_payload_stash` (только владелец, у роли API прав
+нет) и поднимает ревизию карточки на 1 (открытый редактор получит «Данные изменились» вместо
+перезаписи). Повторный запуск ничего не меняет.
+
+```sql
+BEGIN;
+CREATE TABLE IF NOT EXISTS bo_p1_payload_stash (
+  branch_id uuid NOT NULL,
+  kind text NOT NULL CHECK (kind IN ('ingredient','recipe','employee')),
+  record_id uuid NOT NULL,
+  stashed_revision integer NOT NULL,
+  fields jsonb NOT NULL CHECK (jsonb_typeof(fields) = 'object'),
+  stashed_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  restored_at timestamptz NULL,
+  PRIMARY KEY (branch_id, kind, record_id, stashed_revision)
+);
+REVOKE ALL ON bo_p1_payload_stash FROM PUBLIC;
+WITH p1 AS (
+  SELECT r.branch_id, r.kind, r.id, r.revision,
+    (SELECT coalesce(jsonb_object_agg(k, r.payload->k), '{}'::jsonb)
+       FROM unnest(CASE r.kind
+         WHEN 'ingredient' THEN ARRAY['quick_waste','count_daily','group']
+         WHEN 'recipe' THEN ARRAY['stock_policy']
+         ELSE ARRAY['position_code','extra_position_codes','pos_access'] END) k
+      WHERE r.payload ? k) AS fields
+  FROM bo_records r WHERE r.kind IN ('ingredient','recipe','employee')
+  FOR UPDATE OF r
+), moved AS (
+  INSERT INTO bo_p1_payload_stash (branch_id, kind, record_id, stashed_revision, fields)
+  SELECT branch_id, kind, id, revision + 1, fields FROM p1 WHERE fields <> '{}'::jsonb
+  RETURNING branch_id, kind, record_id, fields
+)
+UPDATE bo_records r
+   SET payload = r.payload - ARRAY(SELECT jsonb_object_keys(m.fields)),
+       revision = r.revision + 1, updated_at = clock_timestamp()
+  FROM moved m
+ WHERE r.branch_id = m.branch_id AND r.kind = m.kind AND r.id = m.record_id;
+COMMIT;
+```
+
+Выполнять так (файл `p1-stash.sql` - ровно этот блок, `p1-restore.sql` - блок ниже; тот же
+способ, что в `backup-offsite.md`):
+
+```
+docker exec -i pickchick-staging-cloud-db-1 psql -X -q -v ON_ERROR_STOP=1 -U postgres -d pickchick_cloud < p1-stash.sql
+docker exec pickchick-staging-cloud-db-1 psql -X -U postgres -d pickchick_cloud -c "SELECT kind,count(*) FROM bo_p1_payload_stash WHERE restored_at IS NULL GROUP BY kind"
+```
+
+Когда снова работает сборка bo-ui, владелец возвращает последние перенесённые поля (поля, которые
+карточка за это время получила сама, не перезаписываются; ревизия +1). Повторный запуск ничего не
+меняет.
+
+```sql
+BEGIN;
+WITH s AS (
+  SELECT DISTINCT ON (branch_id, kind, record_id) branch_id, kind, record_id, stashed_revision, fields
+    FROM bo_p1_payload_stash WHERE restored_at IS NULL
+   ORDER BY branch_id, kind, record_id, stashed_revision DESC
+), back AS (
+  UPDATE bo_records r
+     SET payload = s.fields || r.payload, revision = r.revision + 1, updated_at = clock_timestamp()
+    FROM s
+   WHERE r.branch_id = s.branch_id AND r.kind = s.kind AND r.id = s.record_id
+  RETURNING r.branch_id, r.kind, r.id
+)
+UPDATE bo_p1_payload_stash t SET restored_at = clock_timestamp()
+  FROM s
+ WHERE t.restored_at IS NULL AND t.branch_id = s.branch_id AND t.kind = s.kind
+   AND t.record_id = s.record_id AND t.stashed_revision <= s.stashed_revision
+   AND EXISTS (SELECT 1 FROM back b WHERE b.branch_id = s.branch_id AND b.kind = s.kind AND b.id = s.record_id);
+COMMIT;
+```
+
+После отката образа: склад облачной полосы не знает сторно (отчёт «Списания» считает сторнированное
+списание полностью), «Касса», «Смена менеджера», «Скидки», «Списание по продажам» недоступны;
+данные 075 остаются и снова видны после возврата сборки bo-ui. Проверено тестом
+`packages/backoffice-core/tests/stock-p1-rollback.test.mjs` (строгие схемы облачной полосы
+принимают каждую карточку после переноса, возврат восстанавливает поля, тест сверяет оба блока SQL
+с этим разделом).
 
 ### Проверки (тесты полосы)
 
@@ -805,6 +898,8 @@ node scripts/staff-pin-batch.mjs --file PickChick-состав-кассы-18.11.
 `BACKOFFICE_STAFF_POSITIONS_ENABLED=false` и перезапуск API: колонки и кнопки исчезают. Поля в
 карточках остаются: сохранение карточки без них их не стирает (и при выключенном флаге), прежний
 редактор, отправивший их без изменений, не получает отказа. Учётные записи кассы не меняются.
+Откат образа API на сборку облачной полосы - сначала перенос полей владельцем (раздел «Откат образа
+API»): её строгая схема сотрудника не знает полей должностей.
 
 ### Проверки (тесты полосы)
 

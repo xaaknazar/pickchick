@@ -100,6 +100,44 @@ export const IngredientP1 = Ingredient.extend({
   count_daily: z.boolean().optional(),
   group: z.enum(INGREDIENT_GROUPS).optional(),
 });
+/** The stock P1 fields of a card: an ingredient's (IngredientP1) and a recipe's (RecipeP1). */
+export const INGREDIENT_P1_KEYS = ['quick_waste', 'count_daily', 'group'] as const;
+export const RECIPE_P1_KEYS = ['stock_policy'] as const;
+export const STOCK_P1_RECORD_KEYS = {
+  ingredient: INGREDIENT_P1_KEYS,
+  recipe: RECIPE_P1_KEYS,
+} as const;
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+/**
+ * Review BOUI-R3 (the employee pattern of positions.ts): while stock P1 is not available (flag
+ * off, the helper called with stockV2 false, cloud075 or its rights missing), the P1 fields of an
+ * incoming payload that are exactly the stored ones are dropped before the strict cloud lane
+ * check, so a cabinet that sends the stored card back is not refused. A changed or new P1 field
+ * stays and is refused, as before.
+ */
+export function stripKeptFields(
+  input: unknown,
+  old: Record<string, unknown> | null | undefined,
+  keys: readonly string[],
+) {
+  if (!old || !input || typeof input !== 'object' || Array.isArray(input)) return input;
+  const value = input as Record<string, unknown>;
+  if (!keys.some((k) => k in value)) return input;
+  const out = { ...value };
+  for (const k of keys) if (k in out && k in old && same(out[k], old[k])) delete out[k];
+  return out;
+}
+/** The payload to store: the parsed one plus the stored P1 fields it does not name. */
+export function keepStoredFields(
+  payload: Record<string, unknown>,
+  old: Record<string, unknown> | null | undefined,
+  keys: readonly string[],
+): Record<string, unknown> {
+  if (!old || !keys.some((k) => k in old && !(k in payload))) return payload;
+  const out = { ...payload };
+  for (const k of keys) if (k in old && !(k in out)) out[k] = old[k];
+  return out;
+}
 
 /**
  * Storno of a whole stock document (Ск1). `expected_balances` holds the balance revision of every

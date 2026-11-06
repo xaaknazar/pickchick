@@ -41,7 +41,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test tests/unit.test.mjs tests/reconciliation-unit.test.mjs tests/consumption-unit.test.mjs tests/discounts-unit.test.mjs",
-    "test:integration": "node --env-file=../../.env --test --test-concurrency=1 tests/postgres.test.mjs tests/commerce.test.mjs tests/grants.test.mjs tests/stops.test.mjs tests/kiosk-incidents.test.mjs tests/reconciliation.test.mjs tests/roles.test.mjs tests/stock-v2.test.mjs tests/sales-report.test.mjs tests/p1-schema.test.mjs tests/p1-grants.test.mjs tests/pos-day.test.mjs tests/stock-p1.test.mjs tests/stock-p1-reports.test.mjs tests/consumption.test.mjs tests/manager-shifts.test.mjs tests/staff-positions.test.mjs tests/discounts.test.mjs"
+    "test:integration": "node --env-file=../../.env --test --test-concurrency=1 tests/postgres.test.mjs tests/commerce.test.mjs tests/grants.test.mjs tests/stops.test.mjs tests/kiosk-incidents.test.mjs tests/reconciliation.test.mjs tests/roles.test.mjs tests/stock-v2.test.mjs tests/sales-report.test.mjs tests/p1-schema.test.mjs tests/p1-grants.test.mjs tests/pos-day.test.mjs tests/stock-p1.test.mjs tests/stock-p1-reports.test.mjs tests/consumption.test.mjs tests/manager-shifts.test.mjs tests/staff-positions.test.mjs tests/discounts.test.mjs tests/stock-p1-rollback.test.mjs"
   },
   "dependencies": {
     "@pickchick/database": "workspace:*",
