@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomBytes, randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { createApi } from '@pickchick/api';
 import { createPool } from '@pickchick/database';
 import { provisionDevice } from '@pickchick/menu-sync';
-import { createQuote, createLocalOrder, cancelLocalOrder } from '@pickchick/local-orders';
+import {
+  createQuote,
+  createLocalOrder,
+  cancelLocalOrder,
+  fenceRestoredEdge,
+} from '@pickchick/local-orders';
 import {
   MAX_POS_SALE_BATCH_BYTES,
   POS_SALES_PROBE_INTERVAL_MS,
@@ -32,7 +38,9 @@ import {
   migrationsUpTo,
   sentAs,
   stream,
+  vectorEvent,
   withPosSalesDatabases,
+  zReportFor,
 } from './sales-cloud-fixture.mjs';
 
 // Edge sender of posSales (contracts 5.6, CC-4) on PostgreSQL with edge schema026 and the real
@@ -542,6 +550,183 @@ test('two sender processes at once (a second worker started with --once) deliver
     assert.equal(await cloudCount(ctx.cloud.pool, 'cloud_pos_sales'), 8);
     assert.equal(await cloudCount(ctx.cloud.pool, 'cloud_pos_shift_reports'), 1);
     assert.equal((await syncState(ctx.edge.pool, ctx.branch)).last_error, null);
+  });
+});
+
+// ------------------------------------------------------------ edge database restore ----
+const GAP = 1_000_000_000n;
+const EDGE_MIGRATIONS = new URL('../../../db/edge/migrations/', import.meta.url);
+const OUTBOXES = "ARRAY['cashier_report_outbox', 'fulfillment_outbox']";
+/**
+ * Stub of CR cloud-5 (docs/collaboration/cutover-cr/cloud-5.md, pos lane, schema026): the
+ * edge_restore_fence of 023 with pos_sale_outbox added to the producer sequences it moves, the
+ * rest of the function byte for byte, its search_path pinned again (CREATE OR REPLACE resets
+ * it) and its EXECUTE rights untouched.
+ */
+async function applyPosSalesFence(pool) {
+  const sql = await readFile(new URL('023_edge_restore_fence.sql', EDGE_MIGRATIONS), 'utf8');
+  const start = sql.indexOf('CREATE FUNCTION edge_restore_fence(');
+  const body = sql.slice(start, sql.indexOf('END; $$;', start) + 'END; $$;'.length);
+  assert.equal(body.split(OUTBOXES).length, 2, 'the 023 fence names its two outboxes once');
+  await pool.query(
+    body
+      .replace('CREATE FUNCTION', 'CREATE OR REPLACE FUNCTION')
+      .replace(OUTBOXES, "ARRAY['cashier_report_outbox', 'fulfillment_outbox', 'pos_sale_outbox']"),
+  );
+  const pin = sql.indexOf('DO $$ BEGIN', start);
+  await pool.query(sql.slice(pin, sql.indexOf('END $$;', pin) + 'END $$;'.length));
+}
+const lastValue = async (pool, table) =>
+  BigInt(
+    (
+      await pool.query(
+        `SELECT coalesce(pg_sequence_last_value(pg_get_serial_sequence($1,'sequence')::regclass),0) AS v`,
+        [table],
+      )
+    ).rows[0].v,
+  );
+/**
+ * The edge database comes back from an older copy (hourly backup, stage copy): the copy holds
+ * sale 1 acknowledged and sale 2 written but not yet acknowledged; the lost timeline delivered
+ * sale 2 and then sale 3, which the restored edge never stored, so the cloud already holds the
+ * next sequence of this device. The restored ledger carries the identity of the database the
+ * copy was taken from (modelled as in restore.test.mjs).
+ */
+async function restoreOlderCopy(ctx) {
+  const kept = cashSale(ctx.branch, 1, 1);
+  await enqueue(ctx.edge.pool, [kept]);
+  assert.deepEqual(await ctx.step(), { state: 'delivered', count: 1, more: false });
+  const copied = cashSale(ctx.branch, 2, 2);
+  const [row] = await enqueue(ctx.edge.pool, [copied]);
+  const lost = { ...cashSale(ctx.branch, 1, 3), sequence: String(BigInt(row.sequence) + 1n) };
+  const delivered = await receivePosSales(ctx.cloud.pool, authFor(ctx.identity), {
+    events: [sentAs(copied, row), lost],
+  });
+  assert.equal(delivered.receipts.length, 2, 'the cloud accepted the lost timeline');
+  await ctx.edge.pool.query(
+    `INSERT INTO edge_database_epochs(epoch,system_identifier,database_oid,reason,sequence_gap)
+     SELECT max(epoch)+1, 1, 1, 'initial', 0 FROM edge_database_epochs`,
+  );
+  return { kept, copied, row, lost };
+}
+
+test('restored edge database, fence of today (023): pos_sale_outbox is left behind, the next sale reuses a sequence and stays parked as CONFLICT', async () => {
+  await withSender(async (ctx) => {
+    const { row, lost } = await restoreOlderCopy(ctx);
+    const pos = await lastValue(ctx.edge.pool, 'pos_sale_outbox');
+    assert.equal((await fenceRestoredEdge(ctx.edge.pool)).state, 'restore');
+    assert.equal(await lastValue(ctx.edge.pool, 'pos_sale_outbox'), pos);
+    const [next] = await enqueue(ctx.edge.pool, [cashSale(ctx.branch, 1, 4)]);
+    assert.equal(next.sequence, lost.sequence);
+    const parked = { state: 'parked', eventId: next.event_id, error: 'CONFLICT' };
+    assert.deepEqual(await ctx.step(), parked);
+    // Sale 2 of the copy went again as a duplicate; the new sale holds the stream.
+    assert.deepEqual(
+      (await outbox(ctx.edge.pool)).map((item) => [
+        item.sequence,
+        !!item.acknowledged_at,
+        item.last_error,
+      ]),
+      [
+        [String(BigInt(row.sequence) - 1n), true, null],
+        [row.sequence, true, null],
+        [next.sequence, false, 'rejected:CONFLICT'],
+      ],
+    );
+    // Releasing it does not help: the cloud keeps that sequence for the lost event.
+    await retryPosSalesDelivery(ctx.edge.pool, ctx.branch, next.event_id);
+    ctx.advance(60_000);
+    assert.deepEqual(await ctx.step(), parked);
+    assert.equal(await cloudCount(ctx.cloud.pool, 'cloud_pos_sales'), 3);
+  });
+});
+
+/** The owner SQL of docs/operations/backoffice-cutover.md «Восстановление базы кассы», verbatim. */
+async function runbookShift(pool) {
+  const runbook = await readFile(
+    new URL('../../../docs/operations/backoffice-cutover.md', import.meta.url),
+    'utf8',
+  );
+  const section = runbook.slice(runbook.indexOf('### Восстановление базы кассы'));
+  const open = section.indexOf('```sql\n') + '```sql\n'.length;
+  const block = section.slice(open, section.indexOf('```\n', open));
+  const [covered, shifted] = await pool.query(block);
+  return { covered: covered.rows[0].covered, value: BigInt(shifted.rows[0].setval) };
+}
+
+test('restored edge database, interim runbook step until CR cloud-5: the owner shifts the posSales number before the desk opens and new events pass', async () => {
+  await withSender(async (ctx) => {
+    const { lost } = await restoreOlderCopy(ctx);
+    assert.equal((await fenceRestoredEdge(ctx.edge.pool)).state, 'restore');
+    const pos = await lastValue(ctx.edge.pool, 'pos_sale_outbox');
+    assert.deepEqual(await runbookShift(ctx.edge.pool), { covered: false, value: pos + GAP });
+    const [next] = await enqueue(ctx.edge.pool, [cashSale(ctx.branch, 1, 4)]);
+    assert.ok(BigInt(next.sequence) > BigInt(lost.sequence));
+    assert.deepEqual(await ctx.step(), { state: 'delivered', count: 2, more: false });
+    assert.ok((await outbox(ctx.edge.pool)).every((item) => item.acknowledged_at));
+    assert.equal(await cloudCount(ctx.cloud.pool, 'cloud_pos_sales'), 4);
+  });
+});
+
+test('restored edge database with the posSales fence (CR cloud-5): new events pass the lost timeline; a Z of a shift open across the restore stays parked', async () => {
+  await withSender(async (ctx) => {
+    await applyPosSalesFence(ctx.edge.pool);
+    const fence = (
+      await ctx.edge.pool.query(
+        `SELECT p.proconfig,has_function_privilege('public',p.oid,'EXECUTE') AS public
+         FROM pg_proc p WHERE p.proname='edge_restore_fence' AND p.pronamespace=current_schema()::regnamespace`,
+      )
+    ).rows;
+    assert.deepEqual(fence, [
+      {
+        proconfig: [`search_path=pg_catalog, ${ctx.edge.schema}, pg_temp`],
+        public: false,
+      },
+    ]);
+    const { kept, copied } = await restoreOlderCopy(ctx);
+    const before = {
+      pos: await lastValue(ctx.edge.pool, 'pos_sale_outbox'),
+      kitchen: await lastValue(ctx.edge.pool, 'fulfillment_outbox'),
+      reports: await lastValue(ctx.edge.pool, 'cashier_report_outbox'),
+    };
+    assert.equal((await fenceRestoredEdge(ctx.edge.pool)).state, 'restore');
+    // The two older outboxes move exactly as before; pos_sale_outbox moves with them, once.
+    assert.equal(await lastValue(ctx.edge.pool, 'fulfillment_outbox'), before.kitchen + GAP);
+    assert.equal(await lastValue(ctx.edge.pool, 'cashier_report_outbox'), before.reports + GAP);
+    assert.equal(await lastValue(ctx.edge.pool, 'pos_sale_outbox'), before.pos + GAP);
+    assert.equal((await fenceRestoredEdge(ctx.edge.pool)).state, 'current');
+    assert.equal(await lastValue(ctx.edge.pool, 'pos_sale_outbox'), before.pos + GAP);
+    // The runbook check sees the fixed fence (its extra shift would only add another gap).
+    const covered = await ctx.edge.pool.query(
+      "SELECT pg_get_functiondef('edge_restore_fence(boolean)'::regprocedure) LIKE '%pos_sale_outbox%' AS covered",
+    );
+    assert.equal(covered.rows[0].covered, true);
+    const sale = cashSale(ctx.branch, 1, 4);
+    const [next] = await enqueue(ctx.edge.pool, [sale]);
+    assert.equal(BigInt(next.sequence), before.pos + GAP + 1n);
+    // Sale 2 of the copy is a duplicate, the new sale is accepted.
+    assert.deepEqual(await ctx.step(), { state: 'delivered', count: 2, more: false });
+    assert.ok((await outbox(ctx.edge.pool)).every((item) => item.acknowledged_at));
+    assert.equal(await cloudCount(ctx.cloud.pool, 'cloud_pos_sales'), 4);
+    // The Z of the shift that was open across the restore lacks the lost sale 3: refused, parked
+    // (runbook «Восстановление базы кассы»; procedure asked for in CR cloud-5 section 2).
+    const z = vectorEvent('shift_report_z', ctx.branch, (p, event) => {
+      event.event_id = randomUUID();
+      p.report = zReportFor([kept, copied, sale], p.report, {
+        cash_out_minor: '0',
+        counted_cash_minor: '2050000',
+        terminal_reported_minor: null,
+        terminal_discrepancy_minor: null,
+      });
+    });
+    assert.equal(z.payload.report.expected_cash_minor, '2050000');
+    const [zRow] = await enqueue(ctx.edge.pool, [z]);
+    assert.deepEqual(await ctx.step(), {
+      state: 'parked',
+      eventId: zRow.event_id,
+      error: 'INVALID_EVENT',
+    });
+    assert.equal(await cloudCount(ctx.cloud.pool, 'cloud_pos_shift_reports'), 0);
   });
 });
 
