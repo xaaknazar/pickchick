@@ -7379,6 +7379,20 @@
       "updatedAt": "2026-11-06T20:06:40.746Z",
       "summary": "c8de3a81 / PR313: AAB 1.0.1(7) released to internal testing; upload certificate matches. Approved Alex banner and RU/KK/EN draft saved; IARC 3+/Everyone; owner changed audience to 13-15,16-17,18+. Listing tests 5/5 and Prettier PASS; current CI running.\n06.11 П6: по прямому решению владельца в исходном задании Android и согласованию между чатами переданы только поддержка /support/#delete-account, её оператор/тесты и общие записи статуса задаче android-play-1106. С1/С3 завершены, release lock отсутствует. Это не передача API, БД, банков, кассы, каталога, цен, Caddy или разрешение Play production.",
       "nextAction": "Owner enters tester email list in open Play tab; then physical Android checklist. Emulator SDK download still running on this Mac, screenshots pending. KK review and P6 coordinated server window pending; Data safety only initial draft. Never production without separate owner approval.\nП6 разрешён владельцем; сначала адаптировать support-page-release.py для обновления уже существующей HTTP200 страницы, сохраняя защиту первого развёртывания. Полная CI точного опубликованного коммита, проверенная копия/откат, новый собственный release lock, атомарное обновление только /support/, HTTP200 и #delete-account RU/KK/EN. Сверить неизменность API6630eb0f/schema071/public pointer c3a0fbee и соседей. Не менять Caddy/API/БД/флаги/кассу/цены/каталог. Сохранить записи С1/С3 из36f05455 при обновлении status/roadmap/handoff; не заменять их старой копией shared. Публикация онлайн-пульта не входит в передачу. После П6 записать доказательства и согласованно вернуть временные области."
+    },
+    {
+      "id": "mobile-cart-location-1106",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/mobile-cart-location-1106",
+      "scopes": [
+        "apps/mobile/src/cart-location.ts",
+        "tests/mobile/cart-location.test.mjs",
+        "tests/mobile/browser_cart_location.py",
+        "docs/operations/mobile-cart-location-2026-11-06.md"
+      ],
+      "status": "active",
+      "head": "1a9472f1dc2a34b8ab4db7beb6f9c5616ed23f73",
+      "updatedAt": "2026-11-06T20:20:06.849Z"
     }
   ]
 }
