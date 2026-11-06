@@ -7372,9 +7372,9 @@
         "infra/staging/stage2-owner-connection.py",
         "tests/operations/test_stage2_owner_connection.py"
       ],
-      "status": "available",
+      "status": "active",
       "head": "818524ec8fdfebe7552864c5942948e22d11a496",
-      "updatedAt": "2026-11-06T16:08:50.687Z",
+      "updatedAt": "2026-11-06T16:10:52.366Z",
       "summary": "C1 evening PASS: 443 checks, Domain11/11, observation over10min; C3 STOP before owner command, schema068 unchanged, own lock released. Fix818524ec pushed; 37 local tests PASS, CI42249179575 pending.",
       "nextAction": "Await owner repeat-C3 decision and green CI. Do not rerun C1. Fresh UUID/lock, post-C1 compose89cc593e, fresh068 backup/rehearsal; use stage2-owner-connection.py, never require provision. Runtime6630eb0f unchanged; no072/flags. Deadline06Nov18:30UTC. Preserve first-attempt proofs. Android P6 waits; no VPS transfer."
     }
