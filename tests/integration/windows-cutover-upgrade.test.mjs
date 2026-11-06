@@ -36,6 +36,20 @@ import {
   POS_SALES_SHA256,
   posSalesMigration,
 } from '../../infra/windows/pos-sales-upgrade-db.mjs';
+import {
+  KDS_TABLES,
+  assertKdsRuntimePrivileges,
+  assertKdsWorkerPrivileges,
+  kdsTableGrantees,
+} from '../../infra/windows/kds-grants.mjs';
+import {
+  KDS_MIGRATION,
+  KDS_SHA256,
+  KDS_UPGRADE_WORKER_ROLES,
+  kdsMigration,
+  routingSupportsKdsStations,
+} from '../../infra/windows/kds-upgrade-db.mjs';
+import { KDS_RUNTIME_ROLES, KDS_WORKER_ROLES } from '../../infra/windows/kds-switch.mjs';
 import { withSyncDatabases } from '../helpers/sync.mjs';
 import { staffAuth } from '../helpers/orders.mjs';
 
@@ -156,13 +170,26 @@ async function unpaidDay(ctx) {
     { expected_version: 1, reason: 'Синтетическая отмена' },
     port,
   );
-  return { order, live };
+  return { order, live, cook };
 }
 
 const run = async (ctx, options) => {
   const client = await ctx.edge.pool.connect();
   try {
     return await posSalesMigration(client, {
+      appRoot: repoRoot,
+      branchId: ctx.branch,
+      schema: ctx.edge.schema,
+      ...options,
+    });
+  } finally {
+    client.release();
+  }
+};
+const runKds = async (ctx, options) => {
+  const client = await ctx.edge.pool.connect();
+  try {
+    return await kdsMigration(client, {
       appRoot: repoRoot,
       branchId: ctx.branch,
       schema: ctx.edge.schema,
@@ -381,6 +408,166 @@ test('pos-sales-upgrade-db refuses a ledger that is not exactly 001-025 and work
         assert.deepEqual(await posSalesGrantees(ctx.edge.pool, { schema: ctx.edge.schema }), []);
       },
       { edgeMigrationDirectory: edge024 },
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('kds-upgrade-db: 027 after the 026 tool on a populated edge - KDS stations off, exact runtime and worker grants, repeat refused', async () => {
+  // The tool's role names are the ones kds-switch.mjs checks before enable (CR kds-3 section 4).
+  assert.deepEqual([...KDS_UPGRADE_WORKER_ROLES], [...KDS_WORKER_ROLES]);
+  assert.deepEqual(KDS_RUNTIME_ROLES, ['pickchick_edge_runtime']);
+  assert.equal(routingSupportsKdsStations(), true);
+  assert.equal(
+    routingSupportsKdsStations(() => {
+      throw new Error('ROUTING_UNRESOLVED');
+    }),
+    false,
+  );
+  const root = await mkdtemp(join(tmpdir(), 'pickchick-cutover-027-'));
+  try {
+    const edge025 = await migrationsBefore(join(root, 'edge025'), '026');
+    await withSyncDatabases(
+      async (ctx) => {
+        const { pool, schema } = ctx.edge;
+        const day = await unpaidDay(ctx);
+        // The kitchen login that provisionKdsStations grants the six stations to (synthetic).
+        await pool.query(
+          "INSERT INTO local_staff_passwords(staff_id,branch_id,login,salt,verifier) VALUES($1,$2,'kitchen',$3,$4)",
+          [day.cook.staff_id, ctx.branch, 'a'.repeat(64), 'b'.repeat(64)],
+        );
+        const runtime = await loginRole(ctx, (role) =>
+          applyEdgeRuntimeGrants(pool, role, { schema, fulfillment: true }),
+        );
+        const fulfillment = await loginRole(ctx, (role) =>
+          pool.query(fulfillmentWorkerGrants(role, schema, { restoreFence: true })),
+        );
+        const posSync = await loginRole(ctx, (role) =>
+          pool.query(posSyncWorkerGrants(role, schema)),
+        );
+        const kdsRoles = { runtimeRole: runtime.role, workerRoles: [fulfillment.role] };
+        try {
+          // 027 only after the reviewed 026.
+          await assert.rejects(
+            runKds(ctx, { mode: 'inspect', ...kdsRoles }),
+            /Expected unchanged schema026 and only reviewed migration027/,
+          );
+          await run(ctx, { mode: 'apply', runtimeRole: runtime.role, workerRole: posSync.role });
+          const ledger026 = await ledger(pool);
+          // A runtime package before KDS-2, other 027 bytes and a connected service are refused.
+          await assert.rejects(
+            runKds(ctx, {
+              mode: 'apply',
+              ...kdsRoles,
+              derive: () => {
+                throw new Error('ROUTING_UNRESOLVED');
+              },
+            }),
+            /KDS-2 routing rule/,
+          );
+          const tampered = join(root, 'tampered027');
+          await migrationsBefore(tampered, '028');
+          await appendFile(join(tampered, 'db/edge/migrations', KDS_MIGRATION), '\n-- x\n');
+          await assert.rejects(
+            runKds(ctx, { mode: 'apply', ...kdsRoles, appRoot: tampered }),
+            /Expected reviewed migrations 001-026 and the reviewed migration027/,
+          );
+          await fulfillment.open().query('SELECT 1');
+          await assert.rejects(
+            runKds(ctx, { mode: 'apply', ...kdsRoles }),
+            /Edge services must be stopped/,
+          );
+          await fulfillment.close();
+          assert.deepEqual(await ledger(pool), ledger026);
+
+          const inspected = await runKds(ctx, { mode: 'inspect', ...kdsRoles });
+          assert.equal(inspected.migrations, 26);
+          assert.equal(inspected.applied, false);
+          const before = await stateRows(pool);
+          const applied = await runKds(ctx, { mode: 'apply', ...kdsRoles });
+          assert.equal(applied.fingerprint, inspected.fingerprint);
+          assert.equal(applied.migrations, 27);
+          assert.deepEqual(applied.kdsGrantedTo, [fulfillment.role, runtime.role].sort());
+          assert.equal(applied.stations, 6);
+          assert.equal(applied.stationsAdded, 6);
+          assert.equal(applied.kitchenGrantsAdded, 6);
+          assert.equal(applied.kitchenStaffId, day.cook.staff_id);
+          assert.equal(applied.layoutEnabled, false);
+          assert.deepEqual(await ledger(pool), [
+            ...ledger026,
+            { version: KDS_MIGRATION, checksum: KDS_SHA256 },
+          ]);
+          assert.deepEqual(await stateRows(pool), before);
+          assert.equal(
+            (await assertKdsRuntimePrivileges(pool, runtime.role, schema)).verified,
+            true,
+          );
+          assert.equal(
+            (await assertKdsWorkerPrivileges(pool, fulfillment.role, schema)).verified,
+            true,
+          );
+          assert.deepEqual(
+            (await kdsTableGrantees(pool, schema)).sort(),
+            [fulfillment.role, runtime.role].sort(),
+          );
+          assert.equal(
+            (
+              await pool.query(
+                'SELECT count(*)::int AS n FROM pg_tables WHERE schemaname=$1 AND tablename=ANY($2)',
+                [schema, KDS_TABLES],
+              )
+            ).rows[0].n,
+            5,
+          );
+          // Off: the worker reads the switch (cloud admission) but cannot change it; the
+          // installed runtime keeps today's unpaid kitchen flow on the old stations.
+          const worker = fulfillment.open();
+          assert.deepEqual((await worker.query('SELECT layout_enabled FROM kds_settings')).rows, [
+            { layout_enabled: false },
+          ]);
+          await assert.rejects(
+            worker.query('UPDATE kds_settings SET layout_enabled=true'),
+            (error) => error.code === '42501',
+          );
+          await fulfillment.close();
+          assert.equal((await day.order(runtime.open())).fulfillment.state, 'accepted');
+          await runtime.close();
+
+          // A repeat never reapplies; inspect proves the installed state and refuses a worker
+          // without its KDS rights (cloud orders would stay on the old stations).
+          await assert.rejects(runKds(ctx, { mode: 'apply', ...kdsRoles }), /already applied/);
+          const verified = await runKds(ctx, { mode: 'inspect', ...kdsRoles });
+          assert.equal(verified.applied, true);
+          assert.equal(verified.stations, 6);
+          assert.equal(verified.layoutEnabled, false);
+          await pool.query(`REVOKE SELECT ON kds_layouts FROM ${fulfillment.role}`);
+          await assert.rejects(
+            runKds(ctx, { mode: 'inspect', ...kdsRoles }),
+            /KDS table privileges differ: kds_layouts/,
+          );
+          await pool.query(`GRANT SELECT ON kds_layouts TO ${fulfillment.role}`);
+          // A runtime grant reset on 027 keeps the reviewed KDS set (edge-runtime-grants.mjs).
+          await applyEdgeRuntimeGrants(pool, runtime.role, { schema, fulfillment: true });
+          assert.equal((await runKds(ctx, { mode: 'inspect', ...kdsRoles })).applied, true);
+          // The 026 tool still verifies its own state on 027.
+          assert.equal(
+            (
+              await run(ctx, {
+                mode: 'inspect',
+                runtimeRole: runtime.role,
+                workerRole: posSync.role,
+              })
+            ).applied,
+            true,
+          );
+        } finally {
+          await posSync.drop();
+          await fulfillment.drop();
+          await runtime.drop();
+        }
+      },
+      { edgeMigrationDirectory: edge025 },
     );
   } finally {
     await rm(root, { recursive: true, force: true });

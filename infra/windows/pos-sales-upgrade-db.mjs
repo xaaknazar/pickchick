@@ -166,7 +166,8 @@ export async function posSalesMigration(
         throw Error('POS sales must stay off after migration026');
       return state;
     };
-    if (JSON.stringify(ledger) === JSON.stringify(expected)) {
+    // Already on the reviewed 026 (later reviewed migrations may follow): inspect verifies it.
+    if (JSON.stringify(ledger.slice(0, LEDGER_LENGTH)) === JSON.stringify(expected)) {
       // Already on the reviewed 026: never reapplied; inspect proves the installed state.
       if (mode === 'apply') throw Error('Migration026 is already applied; nothing changed');
       await verifyGrants();
