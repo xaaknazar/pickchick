@@ -843,3 +843,61 @@ CREATE TABLE pos_sale_sync_state (
   last_error text CHECK(length(last_error) BETWEEN 1 AND 500),
   updated_at timestamptz NOT NULL DEFAULT clock_timestamp()
 );
+
+-- 10. Restore fence of the posSales stream (CR cloud-5 item 1) ---------------------------------
+-- Restore fence (023, docs/operations/edge-restore.md) also moves the posSales producer sequence:
+-- the cloud keeps UNIQUE(device_id, sequence) of cloud_pos_sale_inbox and refuses a reused
+-- sequence as CONFLICT for good. The body is 023's byte for byte except the outbox list.
+CREATE OR REPLACE FUNCTION edge_restore_fence(p_force boolean DEFAULT false)
+RETURNS TABLE(state text, epoch integer, sequence_gap bigint)
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+#variable_conflict use_column
+DECLARE
+  gap constant bigint := 1000000000;
+  live_system bigint;
+  live_oid bigint;
+  last_epoch edge_database_epochs%ROWTYPE;
+  source text;
+  sequence_name text;
+BEGIN
+  -- Serializes concurrent fences (edge service and FulfillmentWorker); readers are not blocked.
+  LOCK TABLE edge_database_epochs IN EXCLUSIVE MODE;
+  SELECT c.system_identifier INTO live_system FROM pg_control_system() c;
+  SELECT d.oid::bigint INTO live_oid FROM pg_database d WHERE d.datname = current_database();
+  SELECT * INTO last_epoch FROM edge_database_epochs e ORDER BY e.epoch DESC LIMIT 1;
+  IF NOT FOUND THEN
+    INSERT INTO edge_database_epochs(epoch, system_identifier, database_oid, reason, sequence_gap)
+      VALUES (1, live_system, live_oid, 'initial', 0);
+    RETURN QUERY SELECT 'initial'::text, 1, 0::bigint;
+    RETURN;
+  END IF;
+  IF NOT p_force AND last_epoch.system_identifier = live_system
+    AND last_epoch.database_oid = live_oid THEN
+    RETURN QUERY SELECT 'current'::text, last_epoch.epoch, 0::bigint;
+    RETURN;
+  END IF;
+  UPDATE local_order_streams SET last_sequence = last_sequence + gap;
+  FOREACH source IN ARRAY ARRAY['cashier_report_outbox', 'fulfillment_outbox', 'pos_sale_outbox'] LOOP
+    IF to_regclass(source) IS NOT NULL THEN
+      sequence_name := pg_get_serial_sequence(source, 'sequence');
+      IF sequence_name IS NOT NULL THEN
+        PERFORM setval(sequence_name::regclass,
+          coalesce(pg_sequence_last_value(sequence_name::regclass), 0) + gap, true);
+      END IF;
+    END IF;
+  END LOOP;
+  -- The stop-list heartbeat revision is this counter; the cloud ignores any revision not above
+  -- the last one it stored, so a restored counter would leave branch availability stale (every
+  -- app and kiosk checkout AVAILABILITY_STALE) until it caught up with the lost timeline.
+  UPDATE fulfillment_transport_state SET attempts = attempts + gap;
+  UPDATE menu_sync_state SET restore_resync_from = last_sequence;
+  INSERT INTO edge_database_epochs(epoch, system_identifier, database_oid, reason, sequence_gap)
+    VALUES (last_epoch.epoch + 1, live_system, live_oid,
+      CASE WHEN p_force THEN 'operator' ELSE 'restore' END, gap);
+  RETURN QUERY SELECT CASE WHEN p_force THEN 'operator' ELSE 'restore' END, last_epoch.epoch + 1, gap;
+END; $$;
+-- CREATE OR REPLACE resets the SET clause: pin the owner-controlled search_path again (023).
+-- Ownership and EXECUTE rights (REVOKE FROM PUBLIC, the Edge and FulfillmentWorker grants) stay.
+DO $$ BEGIN
+ EXECUTE format('ALTER FUNCTION %I.edge_restore_fence(boolean) SET search_path = pg_catalog, %I, pg_temp',current_schema(),current_schema());
+END $$;
