@@ -1951,9 +1951,24 @@ export class PosController {
     return q;
   }
   /**
+   * After a 401 of staff/approvals: did this desk's own session end? One ordinary read, GET
+   * cash-shifts/current, answers it. Not GET session: pos-desktop takes the journal away on every
+   * GET session and gives it back only on its 200, so a lost answer there would block the
+   * journal. Only the edge's own 401 says the session ended; a lost answer or any other refusal
+   * keeps the cashier logged in and the PIN refused.
+   */
+  private async sessionEnded() {
+    try {
+      await this.request('cash-shifts/current');
+      return false;
+    } catch (error) {
+      return error instanceof ApiError && (error.status === 401 || error.code === 'UNAUTHORIZED');
+    }
+  }
+  /**
    * POST staff/approvals with the shift manager's PIN (contracts section 5.1, R13). Not
    * journaled: a lost answer only leaves an unused approval that expires; the PIN is asked
-   * again. A refused PIN never ends the cashier's own session.
+   * again. A refused PIN never ends the cashier's own session; an ended session still does.
    */
   async requestApproval(pin: string, action: ApprovalAction, subject?: ApprovalSubject) {
     if (!this.journal || !this.state.actor || this.state.busy || this.state.storageBlocked) return;
@@ -1989,14 +2004,22 @@ export class PosController {
           body: { staff_id: actor.staff_id, pin, action, subject: target },
         });
       } catch (error) {
-        // A refused manager PIN (401/403, any code) is not the cashier's session ending.
+        // A refused manager PIN (401/403, any code) is not the cashier's session ending. A 401
+        // is also what the edge answers when this desk's own session ended (CR pos-2 section
+        // 1.2), so the session is asked once: only its own 401 logs the desk out.
         if (
           error instanceof ApiError &&
           (error.status === 401 ||
             error.status === 403 ||
             ['UNAUTHORIZED', 'FORBIDDEN'].includes(error.code))
-        )
+        ) {
+          if (
+            (error.status === 401 || error.code === 'UNAUTHORIZED') &&
+            (await this.sessionEnded())
+          )
+            throw new ApiError('UNAUTHORIZED', 401);
           throw new ApiError('APPROVAL_PIN_REJECTED', error.status);
+        }
         throw error;
       }
       const approval = parse.approval(value);

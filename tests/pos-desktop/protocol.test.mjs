@@ -850,6 +850,26 @@ test('a refused shift manager PIN on staff/approvals keeps the cashier journal',
         answer = () => new Response('{"code":"UNAUTHORIZED"}', { status: 401 });
         assert.equal((await call(`/edge/v1/pos/sales/${ID}/void`)).status, 401);
         assert.throws(() => store.setItem(key, journal(null)));
+        // After a 401 on staff/approvals the cashier asks GET cash-shifts/current once
+        // (apps/pos model.ts sessionEnded): a lost answer there keeps the journal, the edge's
+        // own 401 takes it away. GET session would not do: a lost answer to it leaves the
+        // journal revoked although the session is alive.
+        answer = () => new Response(JSON.stringify(cashier), { status: 200 });
+        assert.equal((await call('/edge/v1/session', 'GET')).status, 200);
+        store.setItem(key, journal(null));
+        answer = () => {
+          throw new TypeError('fetch failed');
+        };
+        assert.equal((await call('/edge/v1/cash-shifts/current', 'GET')).status, 504);
+        store.setItem(key, journal(null));
+        assert.equal((await call('/edge/v1/session', 'GET')).status, 504);
+        assert.throws(() => store.setItem(key, journal(null)), 'a lost GET session revokes');
+        answer = () => new Response(JSON.stringify(cashier), { status: 200 });
+        assert.equal((await call('/edge/v1/session', 'GET')).status, 200);
+        store.setItem(key, journal(null));
+        answer = () => new Response('{"code":"UNAUTHORIZED"}', { status: 401 });
+        assert.equal((await call('/edge/v1/cash-shifts/current', 'GET')).status, 401);
+        assert.throws(() => store.setItem(key, journal(null)), 'the session ended');
       },
       {
         config: { terminalId: ID },

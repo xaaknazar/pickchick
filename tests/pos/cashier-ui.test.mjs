@@ -1613,6 +1613,57 @@ test('definite edge refusals end the command and keep the quote; uncertain answe
   assert.equal(new Set(edge.edge.posts.map((p) => p.key)).size, 3, 'each refusal took a new key');
 });
 
+test('a 401 on staff/approvals asks the session once: an ended session logs the desk out, a wrong PIN does not', async () => {
+  const edge = saleEdge();
+  // The edge says 401 to every request of an ended session; a probe answer can be lost.
+  let ended = false,
+    probeLost = false;
+  const asked = { 'cash-shifts/current': 0, session: 0 };
+  const desk = {
+    ...edge,
+    api: async (path, auth, options) => {
+      if (path in asked) asked[path]++;
+      if (path === 'cash-shifts/current' && probeLost) throw new ApiError('EDGE_UNREACHABLE');
+      if (ended && path !== 'staff/approvals') throw new ApiError('UNAUTHORIZED', 401);
+      return edge.api(path, auth, options);
+    },
+  };
+  const model = await saleCashier(desk);
+  await reviewed(model, edge);
+  const probes = () => asked['cash-shifts/current'];
+  const sessions = asked.session;
+  let before = probes();
+  await model.requestApproval('9999', 'staff_meal');
+  assert.equal(model.state.error.code, 'APPROVAL_PIN_REJECTED');
+  assert.equal(probes(), before + 1, 'a 401 asks the session once');
+  assert.ok(model.state.actor, 'the session is alive: only the PIN was wrong');
+  before = probes();
+  await model.requestApproval('0000', 'staff_meal');
+  assert.equal(model.state.error.code, 'APPROVAL_PIN_REJECTED', 'PIN right, not a shift manager');
+  assert.equal(probes(), before, 'a 403 never asks the session');
+  // A lost probe answer is not an ended session: the PIN is refused, the desk stays.
+  probeLost = true;
+  await model.requestApproval('9999', 'staff_meal');
+  assert.equal(model.state.error.code, 'APPROVAL_PIN_REJECTED');
+  assert.ok(model.state.actor);
+  probeLost = false;
+  // Never GET session: on pos-desktop that read takes the journal away until it answers 200.
+  assert.equal(asked.session, sessions, 'GET session is asked at login only');
+  // The cashier's own session ended on the edge: staff/approvals and the probe both say 401.
+  ended = true;
+  before = probes();
+  await model.requestApproval('9999', 'staff_meal');
+  assert.equal(probes(), before + 1);
+  assert.equal(model.state.error.code, 'UNAUTHORIZED');
+  assert.equal(
+    saleErrorMessage(model.state.error),
+    errorMessage(new ApiError('UNAUTHORIZED', 401)),
+    'the desk says the session ended, not that the PIN is wrong',
+  );
+  assert.equal(model.state.actor, null, 'the desk logs out at once');
+  assert.equal(edge.edge.posts.length, 0);
+});
+
 test('every section 5.1 error code has the Russian cashier text; unpaid texts are unchanged', () => {
   const texts = {
     SERVICE_MODE_DISABLED: 'Касса не принимает оплату - сообщите менеджеру',
