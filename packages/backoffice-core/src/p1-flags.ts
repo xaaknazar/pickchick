@@ -40,7 +40,11 @@ export const P1_FEATURE_RELATIONS = Object.freeze({
     ['bo_stock_settings', WRITE],
     ['bo_consumption_items', WRITE],
   ] as const),
-  manager_shifts: Object.freeze([['bo_manager_shifts', WRITE]] as const),
+  // Step 6: the branch's own checklist versions (cloud075 section 8, append-only).
+  manager_shifts: Object.freeze([
+    ['bo_manager_shifts', WRITE],
+    ['bo_branch_templates', ['SELECT', 'INSERT'] as const],
+  ] as const),
   discounts: Object.freeze([
     ['bo_discounts', WRITE],
     ['bo_discount_revisions', ['SELECT'] as const],

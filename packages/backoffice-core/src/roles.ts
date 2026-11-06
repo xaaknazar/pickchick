@@ -75,6 +75,15 @@ export const BACKOFFICE_P1_PERMISSIONS = [
   'stock.settings',
   /** Retry or skip a queued consumption (BACKOFFICE_STOCK_AUTOCONSUME_ENABLED). */
   'consumption.write',
+  /** Open, save and close the manager shift (BACKOFFICE_MANAGER_SHIFTS_ENABLED). */
+  'manager_shifts.write',
+  /** Save a new version of the branch checklist (BACKOFFICE_MANAGER_SHIFTS_ENABLED). */
+  'manager_shifts.template',
+  /**
+   * Position fields of an employee card, the branch list of positions and the roster of the
+   * cashier edge (BACKOFFICE_STAFF_POSITIONS_ENABLED).
+   */
+  'staff.positions',
 ] as const;
 export type BackofficeP1Permission = (typeof BACKOFFICE_P1_PERMISSIONS)[number];
 export type BackofficeAnyPermission = BackofficePermission | BackofficeP1Permission;
@@ -118,13 +127,15 @@ export const ROLE_PERMISSIONS: Readonly<
  * P1 matrix (design-bo-ui 4): storno by the manager and the accountant (design-backoffice 4
  * table, design-bo-ui 8 q2; the shift manager only if the owner says so); links and the branch
  * mode by the manager only (the chef approves through the manager); retry and skip of a queued
- * consumption by the manager and the shift manager.
+ * consumption by the manager and the shift manager; the manager shift by the manager and the
+ * shift manager (design-bo-ui 4), its checklist template by the manager; positions and the roster
+ * by the manager.
  */
 export const P1_ROLE_PERMISSIONS: Readonly<
   Record<BackofficeEffectiveRole, readonly BackofficeP1Permission[]>
 > = Object.freeze({
   manager: BACKOFFICE_P1_PERMISSIONS,
-  shift_manager: Object.freeze(['consumption.write'] as const),
+  shift_manager: Object.freeze(['consumption.write', 'manager_shifts.write'] as const),
   accountant: Object.freeze(['stock.reverse'] as const),
   analyst: Object.freeze([] as const),
 });

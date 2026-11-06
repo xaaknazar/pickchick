@@ -38,8 +38,8 @@ import { readSalesReport } from './sales-report.js';
 import { p1Capabilities } from './p1-flags.js';
 import { posOrderCard, posOrderExtras, posStaffNames, readPosDay } from './pos-day.js';
 import {
-  AUTOCONSUME_COMMANDS,
   IngredientP1,
+  P1_COMMAND_FLAGS,
   P1_COMMAND_PERMISSIONS,
   P1_DOCUMENTS_SQL,
   P1Request,
@@ -62,6 +62,21 @@ import {
   saveStockSettings,
   skipConsumption,
 } from './consumption-store.js';
+import {
+  managerShiftCommand,
+  managerShiftsAvailable,
+  readManagerShifts,
+} from './manager-shifts-store.js';
+import {
+  EMPLOYEE_P1_KEYS,
+  EmployeeP1,
+  assertEmployeePositions,
+  keepEmployeePositions,
+  readStaffPositions,
+  readStaffRoster,
+  saveStaffPositions,
+  stripKeptPositions,
+} from './positions.js';
 export * from './model.js';
 export * from './stops.js';
 export * from './station-plans.js';
@@ -74,7 +89,12 @@ export * from './edge-staff.js';
 export * from './stock-p1.js';
 export * from './consumption.js';
 export * from './consumption-store.js';
+export * from './manager-shifts.js';
+export * from './manager-shifts-store.js';
+export * from './positions.js';
 export const BACKOFFICE = Symbol('BACKOFFICE');
+/** The old manager journal (bo_records kind shift) in GET branches/:id while the shift runs. */
+export const LEGACY_JOURNAL_LIMIT = 200;
 type Actor = {
   id: string;
   organization_id: string;
@@ -295,9 +315,24 @@ export class Backoffice {
       const cashierShifts = shiftRows.slice(0, 200).map(flattenShift);
       if (selectedShift && !cashierShifts.some((row) => row.id === selectedShift.id))
         cashierShifts.unshift(selectedShift);
-      const records = await rows(
-        'SELECT id,kind,revision,payload,updated_at FROM bo_records WHERE branch_id=$1 ORDER BY kind,updated_at DESC,id LIMIT 2000',
+      // Manager shift (bo-ui step 6): the old journal (kind shift) is read only and listed apart,
+      // its newest 200, so it never crowds stations and tickets out of the 2000 records
+      // (design-backoffice 1). Without the feature: the cloud lane's statement.
+      const managerShifts =
+        this.options.managerShiftsEnabled === true &&
+        (await managerShiftsAvailable(db, this.options));
+      let records = await rows(
+        managerShifts
+          ? `SELECT id,kind,revision,payload,updated_at FROM (
+              (SELECT id,kind,revision,payload,updated_at FROM bo_records WHERE branch_id=$1 AND kind<>'shift' ORDER BY kind,updated_at DESC,id LIMIT 2000)
+              UNION ALL
+              (SELECT id,kind,revision,payload,updated_at FROM bo_records WHERE branch_id=$1 AND kind='shift' ORDER BY updated_at DESC,id LIMIT ${LEGACY_JOURNAL_LIMIT + 1})
+            ) r ORDER BY kind,updated_at DESC,id`
+          : 'SELECT id,kind,revision,payload,updated_at FROM bo_records WHERE branch_id=$1 ORDER BY kind,updated_at DESC,id LIMIT 2000',
       );
+      const journal = records.filter((r) => r.kind === 'shift');
+      const journalTruncated = managerShifts && journal.length > LEGACY_JOURNAL_LIMIT;
+      if (journalTruncated) records = records.filter((r) => r !== journal[LEGACY_JOURNAL_LIMIT]);
       // Stock P1 (bo-ui, stock-p1.ts): only with stock v2, cloud075 and its rights; otherwise the
       // stock rows, the documents and the capabilities are the cloud lane's.
       const stockP1 = this.options.stockV2Enabled === true && (await stockP1Ready(db));
@@ -444,6 +479,8 @@ export class Backoffice {
       // Cutover CC-5/CC-6: new keys only while their flag is on (the installed UI reads `role`).
       // P1 permissions only for the features that are available (design-bo-ui 2 rule 5).
       const autoconsume = stockP1 && (await autoconsumeAvailable(db, this.options));
+      // Staff positions (bo-ui step 6): card fields only, always usable while the flag is on.
+      const staffPositions = this.options.staffPositionsEnabled === true;
       const roles =
         this.options.rolesEnabled === true
           ? {
@@ -453,6 +490,10 @@ export class Backoffice {
                   ? (['stock.reverse', 'menu_links.write', 'menu_links.approve'] as const)
                   : []),
                 ...(autoconsume ? (['stock.settings', 'consumption.write'] as const) : []),
+                ...(managerShifts
+                  ? (['manager_shifts.write', 'manager_shifts.template'] as const)
+                  : []),
+                ...(staffPositions ? (['staff.positions'] as const) : []),
               ]),
             }
           : {};
@@ -553,6 +594,8 @@ export class Backoffice {
               })),
             }
           : {}),
+        // Staff positions (step 6): the list in force for the cards, the roster and «Доступы».
+        ...(staffPositions ? { staff_positions: await readStaffPositions(db, branch) } : {}),
         limits: {
           cashier_orders: 200,
           cashier_shifts: 200,
@@ -562,6 +605,7 @@ export class Backoffice {
           refunds: 200,
           issues: 100,
           records: 2000,
+          ...(managerShifts ? { shift_records: LEGACY_JOURNAL_LIMIT } : {}),
         },
         truncated: {
           cashier_orders: cashierRows.length > 200,
@@ -571,6 +615,7 @@ export class Backoffice {
           finance: finance.length > 200,
           refunds: refunds.length > 200,
           issues: issues.length > 100,
+          ...(managerShifts ? { shift_records: journalTruncated } : {}),
         },
         capabilities: {
           operational_shift_filter: cashierAvailable,
@@ -602,7 +647,7 @@ export class Backoffice {
   async ops(token: string, branch: string, view: string, input: unknown = {}) {
     return transaction(this.pool, async (db) => {
       await db.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
-      await this.scope(db, token, branch);
+      const actor = await this.scope(db, token, branch);
       if (view === 'sales' && this.options.salesReportEnabled === true)
         return readSalesReport(db, branch, input, new Date());
       // Back-office P1 «Касса» (bo-ui, pos-day.ts): only while BACKOFFICE_POS_DAY_ENABLED is on.
@@ -620,6 +665,17 @@ export class Backoffice {
       ) {
         if (!(await autoconsumeAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
         return readConsumption(db, branch, input, new Date());
+      }
+      // Back-office P1 manager shift (step 6): only while BACKOFFICE_MANAGER_SHIFTS_ENABLED is on.
+      if (view === 'manager-shifts' && this.options.managerShiftsEnabled === true) {
+        if (!(await managerShiftsAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+        return readManagerShifts(db, branch, input, new Date(), this.options);
+      }
+      // The roster of the cashier edge (step 6): the manager only (staff.positions).
+      if (view === 'staff-roster' && this.options.staffPositionsEnabled === true) {
+        requirePermission(actor.effective, 'staff.positions');
+        parse(z.strictObject({}), input);
+        return readStaffRoster(db, branch, new Date());
       }
       if (view !== 'stock') return fail('NOT_FOUND');
       if (this.options.stockV2Enabled !== true || !(await stockV2Readable(db)))
@@ -808,15 +864,20 @@ export class Backoffice {
    * Command union stays the cloud lane's.
    */
   private p1Request(input: unknown): P1RequestInput | null {
-    if (this.options.stockV2Enabled !== true || Request.safeParse(input).success) return null;
-    const parsed = P1Request.safeParse(input);
-    if (!parsed.success) return null;
-    // The automatic consumption commands exist only with their own flag.
+    const o = this.options;
     if (
-      AUTOCONSUME_COMMANDS.includes(parsed.data.command.type) &&
-      this.options.stockAutoconsumeEnabled !== true
+      !(
+        o.stockV2Enabled === true ||
+        o.managerShiftsEnabled === true ||
+        o.staffPositionsEnabled === true
+      ) ||
+      Request.safeParse(input).success
     )
       return null;
+    const parsed = P1Request.safeParse(input);
+    if (!parsed.success) return null;
+    // Each P1 command exists only while its flags are on (P1_COMMAND_FLAGS).
+    if (P1_COMMAND_FLAGS[parsed.data.command.type].some((flag) => o[flag] !== true)) return null;
     return parsed.data;
   }
   async command(token: string, branch: string, input: unknown) {
@@ -882,28 +943,72 @@ export class Backoffice {
                 : await skipConsumption(db, branch, actor.id, req.reason, c);
             entity = c.order_id;
           }
+        } else if (
+          c.type === 'manager_shift_open' ||
+          c.type === 'manager_shift_save' ||
+          c.type === 'manager_shift_close' ||
+          c.type === 'manager_shift_template'
+        ) {
+          // Manager shift (manager-shifts-store.ts): the flag and the cloud075 rights.
+          if (!(await managerShiftsAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+          result = await managerShiftCommand(db, branch, actor.id, c, new Date(), this.options);
+          entity = c.type === 'manager_shift_template' ? null : c.id;
+        } else if (c.type === 'staff_positions_save') {
+          // The branch list of positions (positions.ts).
+          result = await saveStaffPositions(db, branch, actor.id, c);
+          entity = null;
         } else if (c.type === 'save') {
+          // Manager shift on (step 6): the old journal is read only.
+          if (
+            c.kind === 'shift' &&
+            this.options.managerShiftsEnabled === true &&
+            (await managerShiftsAvailable(db, this.options))
+          )
+            throw new ErrorCode('NOT_READY', 'LEGACY_JOURNAL_READ_ONLY');
           // Stock P1: an ingredient may carry its quick waste tile; otherwise the strict schema.
           // A recipe may carry its stock_policy (explode, stock) for the automatic consumption.
           const p1Record =
             (c.kind === 'ingredient' || c.kind === 'recipe') &&
             this.options.stockV2Enabled === true &&
             (await stockP1Ready(db));
-          const payload = parse(
+          // Staff positions (step 6): an employee card may carry its position fields.
+          const positions = c.kind === 'employee' && this.options.staffPositionsEnabled === true;
+          const lockOld = async () =>
+            (
+              await db.query<Row>(
+                'SELECT * FROM bo_records WHERE branch_id=$1 AND kind=$2 AND id=$3 FOR UPDATE',
+                [branch, c.kind, c.id],
+              )
+            ).rows[0];
+          // An employee card is read before the payload check (its kept position fields);
+          // every other record after it, as before.
+          let old = c.kind === 'employee' ? await lockOld() : undefined;
+          const parsed = parse(
             (p1Record
               ? c.kind === 'ingredient'
                 ? IngredientP1
                 : RecipeP1
-              : Schemas[c.kind]) as z.ZodType<Record<string, unknown>>,
-            c.payload,
+              : positions
+                ? EmployeeP1
+                : Schemas[c.kind]) as z.ZodType<Record<string, unknown>>,
+            // A card that already has position fields keeps them with the flag off: a cabinet
+            // that sends them back unchanged is not refused (positions.ts).
+            c.kind === 'employee' && !positions
+              ? stripKeptPositions(c.payload, old?.payload)
+              : c.payload,
           );
-          const old = (
-            await db.query<Row>(
-              'SELECT * FROM bo_records WHERE branch_id=$1 AND kind=$2 AND id=$3 FOR UPDATE',
-              [branch, c.kind, c.id],
-            )
-          ).rows[0];
+          if (c.kind !== 'employee') old = await lockOld();
           if ((old?.revision ?? 0) !== c.expected_revision) return fail('CONFLICT');
+          if (positions && EMPLOYEE_P1_KEYS.some((k) => k in parsed)) {
+            requirePermission(actor.effective, 'staff.positions');
+            assertEmployeePositions(
+              (await readStaffPositions(db, branch)).positions,
+              parsed,
+              old?.payload ?? null,
+            );
+          }
+          const payload =
+            c.kind === 'employee' ? keepEmployeePositions(parsed, old?.payload) : parsed;
           before = old?.payload ?? null;
           entity = c.id;
           await this.validateRecord(db, branch, c.kind, payload, old);

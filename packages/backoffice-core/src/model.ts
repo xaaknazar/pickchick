@@ -27,6 +27,14 @@ export const BackofficeErrorReasonSchema = z.enum([
   'COUNTED_AFTER_DOCUMENT',
   // Lane bo-ui automatic consumption (design-bo-ui 5.5): only with BACKOFFICE_STOCK_AUTOCONSUME_ENABLED.
   'AUTOCONSUME_ACTIVE',
+  // Lane bo-ui manager shift (design-bo-ui 5.6): only with BACKOFFICE_MANAGER_SHIFTS_ENABLED.
+  'MANAGER_SHIFT_OPEN',
+  'CHECKLIST_INCOMPLETE',
+  'HANDOVER_REQUIRED',
+  'LEGACY_JOURNAL_READ_ONLY',
+  // Lane bo-ui staff positions (design-bo-ui 5.7): only with BACKOFFICE_STAFF_POSITIONS_ENABLED.
+  'POSITION_UNKNOWN',
+  'POSITION_IN_USE',
 ]);
 export type BackofficeErrorReason = z.infer<typeof BackofficeErrorReasonSchema>;
 export class BackofficeError extends Error {

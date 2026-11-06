@@ -94,7 +94,8 @@ test('P1 schemas: storno and quick waste are strict, the shared Command never ta
 });
 
 test('P1 permission: storno by the manager and the accountant, listed only when asked for', () => {
-  // Step 5 adds the menu link and automatic consumption permissions after the storno.
+  // Step 5 adds the menu link and automatic consumption permissions after the storno, step 6
+  // the manager shift and the staff positions.
   assert.deepEqual(
     [...BACKOFFICE_P1_PERMISSIONS],
     [
@@ -103,6 +104,9 @@ test('P1 permission: storno by the manager and the accountant, listed only when 
       'menu_links.approve',
       'stock.settings',
       'consumption.write',
+      'manager_shifts.write',
+      'manager_shifts.template',
+      'staff.positions',
     ],
   );
   assert.equal(BACKOFFICE_PERMISSIONS.includes('stock.reverse'), false);

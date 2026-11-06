@@ -101,6 +101,33 @@ const without = (state, keys) => {
     assert.deepEqual(copy.stock_settings, { autoconsume_mode: 'off', start_at: null, revision: 0 });
     delete copy.stock_settings;
   }
+  // manager_shifts (step 6) lists the old journal apart with its limit, and its two P1
+  // permissions while it can run.
+  if (keys.includes('manager_shifts') && state.capabilities.manager_shifts === true) {
+    assert.equal(copy.limits.shift_records, 200);
+    assert.equal(copy.truncated.shift_records, false);
+    copy.limits = { ...copy.limits };
+    copy.truncated = { ...copy.truncated };
+    delete copy.limits.shift_records;
+    delete copy.truncated.shift_records;
+    if (Array.isArray(copy.permissions)) {
+      assert.deepEqual(copy.permissions.slice(-2), [
+        'manager_shifts.write',
+        'manager_shifts.template',
+      ]);
+      copy.permissions = copy.permissions.slice(0, -2);
+    }
+  }
+  // staff_positions (step 6) adds the list of positions and its P1 permission.
+  if (keys.includes('staff_positions')) {
+    assert.equal(copy.staff_positions.version, 1);
+    assert.equal(copy.staff_positions.positions.length, 11);
+    delete copy.staff_positions;
+    if (Array.isArray(copy.permissions)) {
+      assert.deepEqual(copy.permissions.slice(-1), ['staff.positions']);
+      copy.permissions = copy.permissions.slice(0, -1);
+    }
+  }
   if (keys.includes('pos_day')) {
     assert.ok(Array.isArray(copy.pos_terminals), 'pos_day adds pos_terminals');
     assert.deepEqual(copy.pos_staff, {}, 'pos_day adds pos_staff');
@@ -222,6 +249,11 @@ async function p1Rows(c, actor) {
     "INSERT INTO bo_discounts(id,branch_id,name,kind,percent_bp,revision,created_by,updated_by) VALUES($1,$2,'Синтетическая','percent',1000,1,$3,$3)",
     [randomUUID(), c.branch, actor],
   );
+  for (const kind of ['manager_shift', 'staff_positions'])
+    await q(
+      "INSERT INTO bo_branch_templates(branch_id,kind,version,body,created_by) VALUES($1,$2,2,'{}',$3)",
+      [c.branch, kind, actor],
+    );
 }
 
 test('flags off: GET branches/:id and the ops views are the cloud lane result, 075 rows never leak', () =>

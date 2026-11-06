@@ -11,6 +11,13 @@ import {
   MenuLinksApproveCommand,
   StockSettingsCommand,
 } from './consumption.js';
+import {
+  ManagerShiftCloseCommand,
+  ManagerShiftOpenCommand,
+  ManagerShiftSaveCommand,
+  ManagerShiftTemplateCommand,
+} from './manager-shifts.js';
+import { StaffPositionsSaveCommand } from './positions.js';
 
 /**
  * Stock P1 of the back office (lane bo-ui, owner decision 05.11; design-bo-ui.md sections 2, 3,
@@ -87,9 +94,11 @@ export const StockReverseCommand = z.strictObject({
   expected_balances: z.record(z.uuid(), revision),
 });
 /**
- * Every P1 command (design-bo-ui 5.3-5.5). The menu links ride stock P1; stock_settings and the
- * queue commands also need BACKOFFICE_STOCK_AUTOCONSUME_ENABLED (index.ts p1Request), so with that
- * flag off they stay unknown commands.
+ * Every P1 command (design-bo-ui 5.3-5.7). Each one exists only while its flag is on (index.ts
+ * p1Request, P1_COMMAND_FLAGS), so with the flag off it stays an unknown command: the menu links
+ * and the storno ride stock v2; stock_settings and the queue commands also need
+ * BACKOFFICE_STOCK_AUTOCONSUME_ENABLED; the manager shift commands
+ * BACKOFFICE_MANAGER_SHIFTS_ENABLED; the list of positions BACKOFFICE_STAFF_POSITIONS_ENABLED.
  */
 export const P1Command = z.discriminatedUnion('type', [
   StockReverseCommand,
@@ -98,6 +107,11 @@ export const P1Command = z.discriminatedUnion('type', [
   StockSettingsCommand,
   ConsumptionRetryCommand,
   ConsumptionSkipCommand,
+  ManagerShiftOpenCommand,
+  ManagerShiftSaveCommand,
+  ManagerShiftCloseCommand,
+  ManagerShiftTemplateCommand,
+  StaffPositionsSaveCommand,
 ]);
 /** P1 commands of the automatic consumption (BACKOFFICE_STOCK_AUTOCONSUME_ENABLED). */
 export const AUTOCONSUME_COMMANDS: readonly string[] = Object.freeze([
@@ -115,6 +129,35 @@ export const P1_COMMAND_PERMISSIONS: Readonly<
   stock_settings: 'stock.settings',
   consumption_retry: 'consumption.write',
   consumption_skip: 'consumption.write',
+  manager_shift_open: 'manager_shifts.write',
+  manager_shift_save: 'manager_shifts.write',
+  manager_shift_close: 'manager_shifts.write',
+  manager_shift_template: 'manager_shifts.template',
+  staff_positions_save: 'staff.positions',
+});
+/** The back-office option each P1 command needs besides its own feature checks. */
+export const P1_COMMAND_FLAGS: Readonly<
+  Record<
+    z.infer<typeof P1Command>['type'],
+    readonly (
+      | 'stockV2Enabled'
+      | 'stockAutoconsumeEnabled'
+      | 'managerShiftsEnabled'
+      | 'staffPositionsEnabled'
+    )[]
+  >
+> = Object.freeze({
+  stock_reverse: ['stockV2Enabled'],
+  menu_link_save: ['stockV2Enabled'],
+  menu_links_approve: ['stockV2Enabled'],
+  stock_settings: ['stockV2Enabled', 'stockAutoconsumeEnabled'],
+  consumption_retry: ['stockV2Enabled', 'stockAutoconsumeEnabled'],
+  consumption_skip: ['stockV2Enabled', 'stockAutoconsumeEnabled'],
+  manager_shift_open: ['managerShiftsEnabled'],
+  manager_shift_save: ['managerShiftsEnabled'],
+  manager_shift_close: ['managerShiftsEnabled'],
+  manager_shift_template: ['managerShiftsEnabled'],
+  staff_positions_save: ['staffPositionsEnabled'],
 });
 export type P1CommandInput = z.infer<typeof P1Command>;
 /** POST .../commands body of a P1 command (the same envelope as Request in model.ts). */
