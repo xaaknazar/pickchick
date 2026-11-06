@@ -68,6 +68,13 @@ export type BackofficePermission = (typeof BACKOFFICE_PERMISSIONS)[number];
 export const BACKOFFICE_P1_PERMISSIONS = [
   /** Storno of a stock document (stock P1, BACKOFFICE_STOCK_V2_ENABLED with cloud075). */
   'stock.reverse',
+  /** Menu-stock links: edit a link (menu_link_save) and approve links for the chef (stock P1). */
+  'menu_links.write',
+  'menu_links.approve',
+  /** Branch mode of the automatic consumption (BACKOFFICE_STOCK_AUTOCONSUME_ENABLED). */
+  'stock.settings',
+  /** Retry or skip a queued consumption (BACKOFFICE_STOCK_AUTOCONSUME_ENABLED). */
+  'consumption.write',
 ] as const;
 export type BackofficeP1Permission = (typeof BACKOFFICE_P1_PERMISSIONS)[number];
 export type BackofficeAnyPermission = BackofficePermission | BackofficeP1Permission;
@@ -108,14 +115,16 @@ export const ROLE_PERMISSIONS: Readonly<
   ] as const),
 });
 /**
- * P1 matrix: storno by the manager and the accountant (design-backoffice 4 table, design-bo-ui 4
- * and 8 q2; the shift manager only if the owner says so).
+ * P1 matrix (design-bo-ui 4): storno by the manager and the accountant (design-backoffice 4
+ * table, design-bo-ui 8 q2; the shift manager only if the owner says so); links and the branch
+ * mode by the manager only (the chef approves through the manager); retry and skip of a queued
+ * consumption by the manager and the shift manager.
  */
 export const P1_ROLE_PERMISSIONS: Readonly<
   Record<BackofficeEffectiveRole, readonly BackofficeP1Permission[]>
 > = Object.freeze({
-  manager: Object.freeze(['stock.reverse'] as const),
-  shift_manager: Object.freeze([] as const),
+  manager: BACKOFFICE_P1_PERMISSIONS,
+  shift_manager: Object.freeze(['consumption.write'] as const),
   accountant: Object.freeze(['stock.reverse'] as const),
   analyst: Object.freeze([] as const),
 });

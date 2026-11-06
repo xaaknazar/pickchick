@@ -87,6 +87,15 @@ const without = (state, keys) => {
     assert.deepEqual(copy.stock, [], 'no stock rows in these branches');
     assert.deepEqual(copy.documents, [], 'no documents in these branches');
   }
+  // stock_autoconsume (step 5) also lists its two P1 permissions while it can run.
+  if (
+    keys.includes('stock_autoconsume') &&
+    state.capabilities.stock_autoconsume === true &&
+    Array.isArray(copy.permissions)
+  ) {
+    assert.deepEqual(copy.permissions.slice(-2), ['stock.settings', 'consumption.write']);
+    copy.permissions = copy.permissions.slice(0, -2);
+  }
   if (keys.includes('pos_day')) {
     assert.ok(Array.isArray(copy.pos_terminals), 'pos_day adds pos_terminals');
     assert.deepEqual(copy.pos_staff, {}, 'pos_day adds pos_staff');
@@ -238,19 +247,23 @@ test('flags off: GET branches/:id and the ops views are the cloud lane result, 0
       assert.deepEqual(stable(await lane.read(p.token, c.branch)), before);
     }
     // The P1 views do not exist while their flags are off: exactly the 404 of an unknown view.
-    const off = new Backoffice(c.cloud.pool, true, { ...CLOUD_FLAGS, ...offOptions });
-    for (const view of [
-      'pos-day',
-      'consumption',
-      'menu-links',
-      'manager-shifts',
-      'discounts',
-      'bogus',
-    ])
-      await assert.rejects(
-        off.ops(p.token, c.branch, view, {}),
-        (error) => error.code === 'NOT_FOUND' && error.reason === undefined,
-      );
+    // menu-links is a stock P1 view (step 5): it rides BACKOFFICE_STOCK_V2_ENABLED like the
+    // storno (design-bo-ui 8 q5), so it is unknown only while stock v2 is off.
+    for (const cloud of [CLOUD_FLAGS, {}]) {
+      const off = new Backoffice(c.cloud.pool, true, { ...cloud, ...offOptions });
+      for (const view of [
+        'pos-day',
+        'consumption',
+        ...(cloud.stockV2Enabled ? [] : ['menu-links']),
+        'manager-shifts',
+        'discounts',
+        'bogus',
+      ])
+        await assert.rejects(
+          off.ops(p.token, c.branch, view, {}),
+          (error) => error.code === 'NOT_FOUND' && error.reason === undefined,
+        );
+    }
   }));
 
 test('each P1 flag adds only its capability key (pos_day also the registry fields), after the cloud lane keys', () =>

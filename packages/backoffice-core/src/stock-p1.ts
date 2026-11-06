@@ -3,6 +3,14 @@ import { z } from 'zod';
 import type { DatabaseClient } from '@pickchick/database';
 import { BackofficeError, Ingredient, parse, periodWindow } from './model.js';
 import { STOCK_OPS_DOCUMENT_LIMIT, StockOpsQuery } from './stock-v2.js';
+import type { BackofficeP1Permission } from './roles.js';
+import {
+  ConsumptionRetryCommand,
+  ConsumptionSkipCommand,
+  MenuLinkSaveCommand,
+  MenuLinksApproveCommand,
+  StockSettingsCommand,
+} from './consumption.js';
 
 /**
  * Stock P1 of the back office (lane bo-ui, owner decision 05.11; design-bo-ui.md sections 2, 3,
@@ -78,7 +86,36 @@ export const StockReverseCommand = z.strictObject({
   document_id: z.uuid(),
   expected_balances: z.record(z.uuid(), revision),
 });
-export const P1Command = z.discriminatedUnion('type', [StockReverseCommand]);
+/**
+ * Every P1 command (design-bo-ui 5.3-5.5). The menu links ride stock P1; stock_settings and the
+ * queue commands also need BACKOFFICE_STOCK_AUTOCONSUME_ENABLED (index.ts p1Request), so with that
+ * flag off they stay unknown commands.
+ */
+export const P1Command = z.discriminatedUnion('type', [
+  StockReverseCommand,
+  MenuLinkSaveCommand,
+  MenuLinksApproveCommand,
+  StockSettingsCommand,
+  ConsumptionRetryCommand,
+  ConsumptionSkipCommand,
+]);
+/** P1 commands of the automatic consumption (BACKOFFICE_STOCK_AUTOCONSUME_ENABLED). */
+export const AUTOCONSUME_COMMANDS: readonly string[] = Object.freeze([
+  'stock_settings',
+  'consumption_retry',
+  'consumption_skip',
+]);
+/** The permission of each P1 command (design-bo-ui 4). */
+export const P1_COMMAND_PERMISSIONS: Readonly<
+  Record<z.infer<typeof P1Command>['type'], BackofficeP1Permission>
+> = Object.freeze({
+  stock_reverse: 'stock.reverse',
+  menu_link_save: 'menu_links.write',
+  menu_links_approve: 'menu_links.approve',
+  stock_settings: 'stock.settings',
+  consumption_retry: 'consumption.write',
+  consumption_skip: 'consumption.write',
+});
 export type P1CommandInput = z.infer<typeof P1Command>;
 /** POST .../commands body of a P1 command (the same envelope as Request in model.ts). */
 export const P1Request = z.strictObject({

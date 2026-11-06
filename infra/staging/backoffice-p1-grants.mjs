@@ -22,7 +22,8 @@
  *   pos lane's cloudPosSalesGrants(role, {backoffice: true}) gives the same set, so its exact proof
  *   still holds after this helper when its `backoffice` option is the same back-office switch.
  * - BACKOFFICE_STOCK_AUTOCONSUME_ENABLED: SELECT on cloud_pos_sales (sold lines and release),
- *   catalog_menu_deliveries and catalog_publications (the catalog version of a POS release).
+ *   cloud_pos_refunds (refunds before the kitchen started), catalog_menu_deliveries and
+ *   catalog_publications (the catalog version of a POS release).
  *
  * With the back office off the SQL only revokes. For the 075 relations the SQL is a reset: it
  * revokes every privilege of `role` on them, then grants the enabled set. On a database without 075
@@ -59,9 +60,14 @@ export const POS_DAY_TABLES = Object.freeze([
   'cloud_pos_fiscal_receipts',
   'cloud_pos_shift_reports',
 ]);
-/** Tables outside 075 the consumption worker reads (design-backoffice 4, algorithm step 2). */
+/**
+ * Tables outside 075 the consumption worker reads (design-backoffice 4, algorithm step 2): sold
+ * lines and release, refunds (a full refund before the kitchen started is not written off), and
+ * the catalog version of a POS release.
+ */
 export const AUTOCONSUME_READ_TABLES = Object.freeze([
   'cloud_pos_sales',
+  'cloud_pos_refunds',
   'catalog_menu_deliveries',
   'catalog_publications',
 ]);

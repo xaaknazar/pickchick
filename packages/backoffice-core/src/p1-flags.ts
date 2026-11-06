@@ -47,7 +47,7 @@ export const P1_FEATURE_RELATIONS = Object.freeze({
   ] as const),
 });
 /** Every relation of the list exists and the current role holds every listed right on it. */
-async function relationsReady(
+export async function p1RelationsReady(
   db: Db,
   list: readonly (readonly [string, readonly string[]])[],
 ): Promise<boolean> {
@@ -82,16 +82,18 @@ export async function p1Capabilities(
   const out: P1Capabilities = {};
   // Works without cloud073 (the view then reports coverage.pos_tables=false), so always true.
   if (options.posDayEnabled === true) out.pos_day = true;
+  // Step 5: the worker consumes by the menu-stock links, so stock P1 is part of the key.
   if (options.stockAutoconsumeEnabled === true)
     out.stock_autoconsume =
       options.stockV2Enabled === true &&
-      (await relationsReady(db, P1_FEATURE_RELATIONS.stock_autoconsume));
+      stockP1 &&
+      (await p1RelationsReady(db, P1_FEATURE_RELATIONS.stock_autoconsume));
   if (options.managerShiftsEnabled === true)
-    out.manager_shifts = await relationsReady(db, P1_FEATURE_RELATIONS.manager_shifts);
+    out.manager_shifts = await p1RelationsReady(db, P1_FEATURE_RELATIONS.manager_shifts);
   // Employee payload fields only (no DDL).
   if (options.staffPositionsEnabled === true) out.staff_positions = true;
   if (options.discountsEnabled === true)
-    out.discounts = await relationsReady(db, P1_FEATURE_RELATIONS.discounts);
+    out.discounts = await p1RelationsReady(db, P1_FEATURE_RELATIONS.discounts);
   if (options.stockV2Enabled === true && stockP1) out.stock_p1 = true;
   return out;
 }

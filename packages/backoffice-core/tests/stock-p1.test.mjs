@@ -94,7 +94,17 @@ test('P1 schemas: storno and quick waste are strict, the shared Command never ta
 });
 
 test('P1 permission: storno by the manager and the accountant, listed only when asked for', () => {
-  assert.deepEqual([...BACKOFFICE_P1_PERMISSIONS], ['stock.reverse']);
+  // Step 5 adds the menu link and automatic consumption permissions after the storno.
+  assert.deepEqual(
+    [...BACKOFFICE_P1_PERMISSIONS],
+    [
+      'stock.reverse',
+      'menu_links.write',
+      'menu_links.approve',
+      'stock.settings',
+      'consumption.write',
+    ],
+  );
   assert.equal(BACKOFFICE_PERMISSIONS.includes('stock.reverse'), false);
   assert.deepEqual(
     Object.fromEntries(
@@ -330,7 +340,13 @@ test('storno: exact opposite movements, once per document, never below zero, rol
     const state0 = await bo.read(token, c.branch);
     assert.equal(state0.capabilities.stock_p1, true);
     assert.equal(Object.keys(state0.capabilities).at(-1), 'stock_p1');
-    assert.deepEqual(state0.permissions, [...BACKOFFICE_PERMISSIONS, 'stock.reverse']);
+    // Stock P1 lists the storno and, from step 5, the menu link rights of the manager.
+    assert.deepEqual(state0.permissions, [
+      ...BACKOFFICE_PERMISSIONS,
+      'stock.reverse',
+      'menu_links.write',
+      'menu_links.approve',
+    ]);
     assert.deepEqual((await bo.read(p.accountant.token, c.branch)).permissions, [
       ...permissionsOf('accountant'),
       'stock.reverse',

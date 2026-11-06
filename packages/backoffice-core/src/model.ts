@@ -25,6 +25,8 @@ export const BackofficeErrorReasonSchema = z.enum([
   'REVERSAL_NOT_ALLOWED',
   'ALREADY_REVERSED',
   'COUNTED_AFTER_DOCUMENT',
+  // Lane bo-ui automatic consumption (design-bo-ui 5.5): only with BACKOFFICE_STOCK_AUTOCONSUME_ENABLED.
+  'AUTOCONSUME_ACTIVE',
 ]);
 export type BackofficeErrorReason = z.infer<typeof BackofficeErrorReasonSchema>;
 export class BackofficeError extends Error {

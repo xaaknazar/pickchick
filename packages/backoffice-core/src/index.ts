@@ -38,7 +38,9 @@ import { readSalesReport } from './sales-report.js';
 import { p1Capabilities } from './p1-flags.js';
 import { posOrderCard, posOrderExtras, posStaffNames, readPosDay } from './pos-day.js';
 import {
+  AUTOCONSUME_COMMANDS,
   IngredientP1,
+  P1_COMMAND_PERMISSIONS,
   P1_DOCUMENTS_SQL,
   P1Request,
   markCounted,
@@ -47,6 +49,18 @@ import {
   stockP1Ready,
   type P1RequestInput,
 } from './stock-p1.js';
+import { RecipeP1 } from './consumption.js';
+import {
+  approveMenuLinks,
+  assertManualConsume,
+  autoconsumeAvailable,
+  readConsumption,
+  readMenuLinks,
+  retryConsumption,
+  saveMenuLink,
+  saveStockSettings,
+  skipConsumption,
+} from './consumption-store.js';
 export * from './model.js';
 export * from './stops.js';
 export * from './station-plans.js';
@@ -57,6 +71,8 @@ export * from './p1-flags.js';
 export * from './pos-day.js';
 export * from './edge-staff.js';
 export * from './stock-p1.js';
+export * from './consumption.js';
+export * from './consumption-store.js';
 export const BACKOFFICE = Symbol('BACKOFFICE');
 type Actor = {
   id: string;
@@ -425,11 +441,18 @@ export class Backoffice {
         this.options.stationPlanDeliveryEnabled === true,
       );
       // Cutover CC-5/CC-6: new keys only while their flag is on (the installed UI reads `role`).
+      // P1 permissions only for the features that are available (design-bo-ui 2 rule 5).
+      const autoconsume = stockP1 && (await autoconsumeAvailable(db, this.options));
       const roles =
         this.options.rolesEnabled === true
           ? {
               effective_role: actor.effective,
-              permissions: permissionsOf(actor.effective, stockP1 ? ['stock.reverse'] : []),
+              permissions: permissionsOf(actor.effective, [
+                ...(stockP1
+                  ? (['stock.reverse', 'menu_links.write', 'menu_links.approve'] as const)
+                  : []),
+                ...(autoconsume ? (['stock.settings', 'consumption.write'] as const) : []),
+              ]),
             }
           : {};
       const stockV2 =
@@ -574,6 +597,19 @@ export class Backoffice {
       // Back-office P1 «Касса» (bo-ui, pos-day.ts): only while BACKOFFICE_POS_DAY_ENABLED is on.
       if (view === 'pos-day' && this.options.posDayEnabled === true)
         return readPosDay(db, branch, input, new Date());
+      // Back-office P1 menu-stock links (stock P1) and the consumption queue (autoconsume).
+      if (view === 'menu-links' && this.options.stockV2Enabled === true) {
+        if (!(await stockP1Ready(db))) throw new ErrorCode('NOT_FOUND', 'STOCK_V2_DISABLED');
+        return readMenuLinks(db, branch, input);
+      }
+      if (
+        view === 'consumption' &&
+        this.options.stockAutoconsumeEnabled === true &&
+        this.options.stockV2Enabled === true
+      ) {
+        if (!(await autoconsumeAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+        return readConsumption(db, branch, input, new Date());
+      }
       if (view !== 'stock') return fail('NOT_FOUND');
       if (this.options.stockV2Enabled !== true || !(await stockV2Readable(db)))
         throw new ErrorCode('NOT_FOUND', 'STOCK_V2_DISABLED');
@@ -763,14 +799,24 @@ export class Backoffice {
   private p1Request(input: unknown): P1RequestInput | null {
     if (this.options.stockV2Enabled !== true || Request.safeParse(input).success) return null;
     const parsed = P1Request.safeParse(input);
-    return parsed.success ? parsed.data : null;
+    if (!parsed.success) return null;
+    // The automatic consumption commands exist only with their own flag.
+    if (
+      AUTOCONSUME_COMMANDS.includes(parsed.data.command.type) &&
+      this.options.stockAutoconsumeEnabled !== true
+    )
+      return null;
+    return parsed.data;
   }
   async command(token: string, branch: string, input: unknown) {
     const req: z.infer<typeof Request> | P1RequestInput =
       this.p1Request(input) ?? parse(Request, input);
     const manualRefund = req.command.type === 'manual_refund';
+    const c0 = req.command;
     const permission: BackofficeAnyPermission =
-      req.command.type === 'stock_reverse' ? 'stock.reverse' : commandPermission(req.command);
+      c0.type in P1_COMMAND_PERMISSIONS
+        ? P1_COMMAND_PERMISSIONS[c0.type as keyof typeof P1_COMMAND_PERMISSIONS]
+        : commandPermission(c0 as z.infer<typeof Request>['command']);
     try {
       return await transaction(this.pool, async (db) => {
         const actor = await this.scope(db, token, branch, permission);
@@ -800,14 +846,44 @@ export class Backoffice {
           if (!(await stockP1Ready(db))) throw new ErrorCode('NOT_READY', 'STOCK_V2_DISABLED');
           result = await reverseStockDocument(db, branch, actor.id, req.reason, c);
           entity = (result as { id: string }).id;
+        } else if (c.type === 'menu_link_save' || c.type === 'menu_links_approve') {
+          // Menu-stock links (consumption-store.ts): stock P1 or not at all.
+          if (!(await stockP1Ready(db))) throw new ErrorCode('NOT_READY', 'STOCK_V2_DISABLED');
+          result =
+            c.type === 'menu_link_save'
+              ? await saveMenuLink(db, branch, actor.id, c)
+              : await approveMenuLinks(db, branch, actor.id, c);
+          entity = null;
+        } else if (
+          c.type === 'stock_settings' ||
+          c.type === 'consumption_retry' ||
+          c.type === 'consumption_skip'
+        ) {
+          // Automatic consumption (consumption-store.ts): flag, stock P1 and the 075 rights.
+          if (!(await autoconsumeAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+          if (c.type === 'stock_settings') {
+            result = await saveStockSettings(db, branch, actor.id, c);
+            entity = null;
+          } else {
+            result =
+              c.type === 'consumption_retry'
+                ? await retryConsumption(db, branch, actor.id, c)
+                : await skipConsumption(db, branch, actor.id, req.reason, c);
+            entity = c.order_id;
+          }
         } else if (c.type === 'save') {
           // Stock P1: an ingredient may carry its quick waste tile; otherwise the strict schema.
-          const p1Ingredient =
-            c.kind === 'ingredient' &&
+          // A recipe may carry its stock_policy (explode, stock) for the automatic consumption.
+          const p1Record =
+            (c.kind === 'ingredient' || c.kind === 'recipe') &&
             this.options.stockV2Enabled === true &&
             (await stockP1Ready(db));
           const payload = parse(
-            (p1Ingredient ? IngredientP1 : Schemas[c.kind]) as z.ZodType<Record<string, unknown>>,
+            (p1Record
+              ? c.kind === 'ingredient'
+                ? IngredientP1
+                : RecipeP1
+              : Schemas[c.kind]) as z.ZodType<Record<string, unknown>>,
             c.payload,
           );
           const old = (
@@ -907,6 +983,8 @@ export class Backoffice {
               c.lines.map((line) => line.ingredient_id),
             );
         } else if (c.type === 'produce' || c.type === 'consume') {
+          // A branch that writes off automatically (dry_run or on) takes no manual consume.
+          if (c.type === 'consume') await assertManualConsume(db, branch, this.options);
           result = await this.production(db, branch, actor, req.reason, c);
           entity = (result as { id: string }).id;
         } else if (c.type === 'revoke_device') {
@@ -1086,7 +1164,8 @@ export class Backoffice {
     if (kind === 'game' && old && payload['template'] !== old.payload['template']) fail('CONFLICT');
     if (kind === 'ingredient' && old && payload['unit'] !== old.payload['unit']) fail('CONFLICT');
     if (kind === 'recipe') {
-      const p = parse(Recipe, payload);
+      // RecipeP1 = Recipe plus the optional stock_policy (accepted only under stock P1).
+      const p = parse(RecipeP1, payload);
       for (const l of p.lines)
         if (!(await exists('ingredient', l.ingredient_id))) fail('INVALID_REQUEST');
       if (p.output_ingredient_id && !(await exists('ingredient', p.output_ingredient_id)))
@@ -1256,7 +1335,7 @@ export class Backoffice {
       ).rows[0];
       if (!r) return fail('NOT_FOUND');
       if (r.revision !== c.recipe_revision) return fail('CONFLICT');
-      const recipe = parse(Recipe, r.payload);
+      const recipe = parse(RecipeP1, r.payload);
       if (!recipe.output_ingredient_id) return fail('INVALID_REQUEST');
       snapshot = r;
       add(recipe, BigInt(c.batches));
@@ -1292,7 +1371,7 @@ export class Backoffice {
           (details.kind === 'combo' || details.modifiers?.length || details.components?.length)
         )
           return fail('NOT_READY');
-        add(parse(Recipe, line.recipe), BigInt(line.quantity));
+        add(parse(RecipeP1, line.recipe), BigInt(line.quantity));
       }
       if (needs.size === 0) return fail('NOT_READY');
     }
