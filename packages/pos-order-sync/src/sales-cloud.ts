@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
 import type { DatabaseClient, DatabasePool } from '@pickchick/database';
 import { transaction } from '@pickchick/database';
-import { authenticateDevice } from '@pickchick/menu-sync';
+import { authenticateDevice, hashJson } from '@pickchick/menu-sync';
 import type { DeviceAuth } from '@pickchick/menu-sync';
 import { PosSyncError } from './model.js';
 import {
@@ -378,33 +380,25 @@ async function applyFiscal(
   );
 }
 
-/**
- * The frozen Z report of a closed sales shift. Its own arithmetic (expected cash, discrepancy,
- * terminal) is checked by the wire model; here its cash and every method row it lists must equal
- * the projected tenders of the shift's sales and refund parts paid at the shift, exactly as the
- * edge computed them (schema026 pos_shift_cash), and no method with projected sales or refunds
- * may be missing from it (the edge always lists all eight methods, zero rows included).
- */
-async function applyShiftReport(
+type ShiftReportEvent = PosSaleEvent & { kind: 'shift_report' };
+type ShiftReport = ShiftReportEvent['payload']['report'];
+/** Tenders of the shift's sales and the refund parts paid at the shift, per method (cloud rows). */
+interface ShiftProjection {
+  sales: Map<string, { method: string; sales_minor: string; count: number }>;
+  refunds: Map<string, string>;
+}
+async function shiftProjection(
   client: DatabaseClient,
   branch: string,
-  device: string,
-  event: PosSaleEvent & { kind: 'shift_report' },
-) {
-  const p = event.payload,
-    r = p.report;
-  if (
-    (await client.query('SELECT 1 FROM cloud_pos_shift_reports WHERE shift_id=$1', [p.shift_id]))
-      .rowCount
-  )
-    invalid('shift_identity');
+  shiftId: string,
+): Promise<ShiftProjection> {
   const sales = new Map(
     (
       await client.query<{ method: string; sales_minor: string; count: number }>(
         `SELECT t.method,sum(t.amount_minor)::text AS sales_minor,count(*)::integer AS count
          FROM cloud_pos_tenders t JOIN cloud_pos_sales s ON s.order_id=t.order_id AND s.branch_id=t.branch_id
          WHERE s.branch_id=$1 AND s.shift_id=$2 GROUP BY t.method`,
-        [branch, p.shift_id],
+        [branch, shiftId],
       )
     ).rows.map((row) => [row.method, row]),
   );
@@ -414,15 +408,19 @@ async function applyShiftReport(
         `SELECT t.method,sum(t.amount_minor)::text AS refunds_minor FROM cloud_pos_refund_tenders t
          JOIN cloud_pos_refunds f ON f.refund_id=t.refund_id AND f.branch_id=t.branch_id
          WHERE f.branch_id=$1 AND f.shift_id=$2 GROUP BY t.method`,
-        [branch, p.shift_id],
+        [branch, shiftId],
       )
     ).rows.map((row) => [row.method, row.refunds_minor]),
   );
+  return { sales, refunds };
+}
+/** The first check of the Z against the projection that fails, or null when they agree. */
+function shiftMismatch(r: ShiftReport, { sales, refunds }: ShiftProjection) {
   if (
     BigInt(r.cash_sales_minor) !== BigInt(sales.get('cash')?.sales_minor ?? '0') ||
     BigInt(r.cash_refunds_minor) !== BigInt(refunds.get('cash') ?? '0')
   )
-    invalid('shift_cash');
+    return 'shift_cash' as const;
   const listed = new Set<string>(r.methods.map((row) => row.method));
   if (
     r.methods.some(
@@ -434,7 +432,23 @@ async function applyShiftReport(
     // A method the shift took or returned money with must have its own row in the Z report.
     [...sales.keys(), ...refunds.keys()].some((method) => !listed.has(method))
   )
-    invalid('shift_methods');
+    return 'shift_methods' as const;
+  return null;
+}
+async function shiftReportStored(client: DatabaseClient, shiftId: string) {
+  return !!(
+    await client.query('SELECT 1 FROM cloud_pos_shift_reports WHERE shift_id=$1', [shiftId])
+  ).rowCount;
+}
+/** The Z report row exactly as the edge wrote it. */
+async function insertShiftReport(
+  client: DatabaseClient,
+  branch: string,
+  device: string,
+  event: ShiftReportEvent,
+) {
+  const p = event.payload,
+    r = p.report;
   await client.query(
     `INSERT INTO cloud_pos_shift_reports(shift_id,branch_id,device_id,terminal_id,opened_at,closed_at,
      report,expected_cash_minor,counted_cash_minor,discrepancy_minor,terminal_reported_minor)
@@ -455,10 +469,40 @@ async function applyShiftReport(
   );
 }
 
-async function receiveOne(client: DatabaseClient, auth: DeviceAuth, event: PosSaleEvent) {
-  const branch = await authorize(client, auth, event.branch_id),
-    device = id(auth.deviceId),
-    hash = posSalePayloadHash(event);
+/**
+ * The frozen Z report of a closed sales shift. Its own arithmetic (expected cash, discrepancy,
+ * terminal) is checked by the wire model; here its cash and every method row it lists must equal
+ * the projected tenders of the shift's sales and refund parts paid at the shift, exactly as the
+ * edge computed them (schema026 pos_shift_cash), and no method with projected sales or refunds
+ * may be missing from it (the edge always lists all eight methods, zero rows included).
+ */
+async function applyShiftReport(
+  client: DatabaseClient,
+  branch: string,
+  device: string,
+  event: ShiftReportEvent,
+) {
+  if (await shiftReportStored(client, event.payload.shift_id)) invalid('shift_identity');
+  const mismatch = shiftMismatch(
+    event.payload.report,
+    await shiftProjection(client, branch, event.payload.shift_id),
+  );
+  if (mismatch) invalid(mismatch);
+  await insertShiftReport(client, branch, device, event);
+}
+
+/**
+ * Where the inbox stands on this event: `new` when neither its id nor its (device, sequence) is
+ * known, `duplicate` when exactly this event was accepted, `conflict` when either is held by
+ * another identity or payload hash.
+ */
+async function inboxState(
+  client: DatabaseClient,
+  branch: string,
+  device: string,
+  event: PosSaleEvent,
+  hash: string,
+) {
   const previous = (
     await client.query<{
       event_id: string;
@@ -473,20 +517,39 @@ async function receiveOne(client: DatabaseClient, auth: DeviceAuth, event: PosSa
       [event.event_id, device, event.sequence],
     )
   ).rows;
-  if (previous.length) {
-    const row = previous[0]!;
-    if (
-      previous.length !== 1 ||
-      row.event_id !== id(event.event_id) ||
-      row.branch_id !== branch ||
-      row.device_id !== device ||
-      row.sequence !== event.sequence ||
-      row.kind !== event.kind ||
-      row.payload_hash !== hash
-    )
-      throw new Rejection('CONFLICT', 'identity');
-    return 'duplicate' as const;
-  }
+  if (!previous.length) return 'new' as const;
+  const row = previous[0]!;
+  return previous.length !== 1 ||
+    row.event_id !== id(event.event_id) ||
+    row.branch_id !== branch ||
+    row.device_id !== device ||
+    row.sequence !== event.sequence ||
+    row.kind !== event.kind ||
+    row.payload_hash !== hash
+    ? ('conflict' as const)
+    : ('duplicate' as const);
+}
+async function insertInbox(
+  client: DatabaseClient,
+  branch: string,
+  device: string,
+  event: PosSaleEvent,
+  hash: string,
+) {
+  await client.query(
+    `INSERT INTO cloud_pos_sale_inbox(event_id,branch_id,device_id,sequence,kind,payload_hash)
+     VALUES($1,$2,$3,$4,$5,$6)`,
+    [event.event_id, branch, device, event.sequence, event.kind, hash],
+  );
+}
+
+async function receiveOne(client: DatabaseClient, auth: DeviceAuth, event: PosSaleEvent) {
+  const branch = await authorize(client, auth, event.branch_id),
+    device = id(auth.deviceId),
+    hash = posSalePayloadHash(event);
+  const known = await inboxState(client, branch, device, event, hash);
+  if (known === 'conflict') throw new Rejection('CONFLICT', 'identity');
+  if (known === 'duplicate') return 'duplicate' as const;
   switch (event.kind) {
     case 'sale':
       await applySale(client, branch, device, event);
@@ -502,11 +565,7 @@ async function receiveOne(client: DatabaseClient, auth: DeviceAuth, event: PosSa
       await applyShiftReport(client, branch, device, event);
       break;
   }
-  await client.query(
-    `INSERT INTO cloud_pos_sale_inbox(event_id,branch_id,device_id,sequence,kind,payload_hash)
-     VALUES($1,$2,$3,$4,$5,$6)`,
-    [event.event_id, branch, device, event.sequence, event.kind, hash],
-  );
+  await insertInbox(client, branch, device, event, hash);
   return 'accepted' as const;
 }
 
@@ -561,4 +620,282 @@ export async function receivePosSales(
     receipts.push(posSaleReceiptFor(event));
   }
   return PosSaleBatchResultSchema.parse({ receipts });
+}
+
+// ------------------------------------------------- Z of a shift open across an edge restore ----
+
+/**
+ * edge_restore_fence (edge 026 after CR cloud-5 item 1; until then the owner step of the runbook
+ * «Восстановление базы кассы») moves the posSales number of a restored edge by this gap. A shift
+ * holding a sale whose last event is at least half of it below the Z was open while the edge
+ * database came back from a copy: no shift spans 5*10^8 events of one device.
+ */
+const RESTORE_FENCE_GAP = 1_000_000_000n;
+export type RestoredShiftReportRefusal =
+  | 'request'
+  | 'model'
+  | 'not_shift_report'
+  | 'schema'
+  | 'not_owner'
+  | 'request_reused'
+  | 'actor'
+  | 'binding'
+  | 'identity'
+  | 'shift_identity'
+  | 'not_head'
+  | 'not_parked'
+  | 'not_restore';
+/** A refusal of acceptRestoredShiftReport: the PosSyncError code and a fixed reason token. */
+export class RestoredShiftReportError extends PosSyncError {
+  constructor(
+    code: PosSyncError['code'],
+    readonly reason: RestoredShiftReportRefusal,
+  ) {
+    super(code);
+  }
+}
+function refuse(code: PosSyncError['code'], reason: RestoredShiftReportRefusal): never {
+  throw new RestoredShiftReportError(code, reason);
+}
+export const RestoredShiftReportRequestSchema = z.strictObject({
+  branchId: z.uuid(),
+  deviceId: z.uuid(),
+  /** Back-office actor with the manager grant on the branch who decided it (bo_audit). */
+  actorId: z.uuid(),
+  /** Idempotency key of the command (bo_commands, with the digest of the request). */
+  requestId: z.uuid(),
+  reason: z.string().trim().min(3).max(300),
+  /** payload_hash of the edge outbox row; the event must hash to it, as the sender checks. */
+  payloadHash: z.string().regex(/^[a-f0-9]{64}$/),
+  /** The parked shift_report event exactly as the edge sends it (pos_sale_outbox row). */
+  event: z.unknown(),
+});
+export type RestoredShiftReportRequest = z.input<typeof RestoredShiftReportRequestSchema>;
+/** Per method: what the Z says and what the cloud holds from the sales and refunds stream. */
+export interface RestoredShiftReportMethod {
+  method: string;
+  z_sales_minor: string;
+  cloud_sales_minor: string;
+  z_refunds_minor: string;
+  cloud_refunds_minor: string;
+  z_count: number;
+  cloud_count: number;
+}
+export type RestoredShiftReportResult =
+  | {
+      state: 'accepted';
+      event_id: string;
+      sequence: string;
+      shift_id: string;
+      rejected_as: 'shift_cash' | 'shift_methods';
+      cash: {
+        z_sales_minor: string;
+        cloud_sales_minor: string;
+        z_refunds_minor: string;
+        cloud_refunds_minor: string;
+      };
+      methods: RestoredShiftReportMethod[];
+    }
+  | { state: 'duplicate'; event_id: string; sequence: string; shift_id: string };
+
+function methodRows(r: ShiftReport, projection: ShiftProjection): RestoredShiftReportMethod[] {
+  const listed = r.methods.map((row) => row.method as string);
+  const methods = [
+    ...listed,
+    ...[...projection.sales.keys(), ...projection.refunds.keys()].filter(
+      (method, index, all) => !listed.includes(method) && all.indexOf(method) === index,
+    ),
+  ];
+  return methods.map((method) => {
+    const row = r.methods.find((item) => item.method === method);
+    return {
+      method,
+      z_sales_minor: BigInt(row?.sales_minor ?? '0').toString(),
+      cloud_sales_minor: BigInt(projection.sales.get(method)?.sales_minor ?? '0').toString(),
+      z_refunds_minor: BigInt(row?.refunds_minor ?? '0').toString(),
+      cloud_refunds_minor: BigInt(projection.refunds.get(method) ?? '0').toString(),
+      z_count: row?.count ?? 0,
+      cloud_count: projection.sales.get(method)?.count ?? 0,
+    };
+  });
+}
+
+/**
+ * CR cloud-5 item 2, option A (lead decision 06.11): the cloud database owner accepts, exactly as
+ * the edge wrote it, the Z report of a sales shift that was open while the edge database came
+ * back from a copy. The restored edge lacks the sales and refunds of the lost timeline that the
+ * cloud already holds, so the receiver refuses that Z (INVALID_EVENT, shift_cash or
+ * shift_methods), the edge parks it and every later event of the device waits behind it.
+ *
+ * Only that case is accepted. The event parses as the receiver parses it and hashes to the edge
+ * outbox payload_hash; it is a shift_report of this branch and device; neither its event id nor
+ * its (device, sequence) nor its shift is known yet; nothing of the device after it was accepted
+ * (it heads the parked stream); the receiver would refuse it now with shift_cash or
+ * shift_methods; the cloud holds at least what the Z counts in cash and in every method (the Z
+ * misses events, it never has more); and a sale of the shift lies at least half a restore fence
+ * gap below the Z. Voids and refunds are never accepted this way (their limits stay).
+ *
+ * Owner only (the owner of cloud_pos_shift_reports, like retryPosSalesDelivery on the edge: the
+ * API receiver role may write these tables but never runs this). It writes the Z row and the
+ * inbox row of the event, a bo_audit row (action pos_sales:accept_restored_z, the per-method
+ * difference) and a bo_commands row (actor, request id, digest) in one transaction under the
+ * branch binding lock the receiver takes. The same request again returns the stored result; a Z
+ * already in the inbox returns `duplicate` and writes nothing. No DDL; without a call nothing
+ * changes. Afterwards the owner of the edge database releases the parked event
+ * (retryPosSalesDelivery): the next attempt is a duplicate for the cloud and the stream goes on.
+ */
+export async function acceptRestoredShiftReport(
+  pool: DatabasePool,
+  input: RestoredShiftReportRequest,
+): Promise<RestoredShiftReportResult> {
+  const parsed = RestoredShiftReportRequestSchema.safeParse(input);
+  if (!parsed.success) refuse('INVALID_REQUEST', 'request');
+  const req = parsed.data;
+  let event: PosSaleEvent;
+  try {
+    event = parsePosSaleEvent(req.event);
+  } catch {
+    refuse('INVALID_REQUEST', 'model');
+  }
+  const hash = posSalePayloadHash(event);
+  if (hash !== req.payloadHash) refuse('INVALID_REQUEST', 'model');
+  if (event.kind !== 'shift_report') refuse('CONFLICT', 'not_shift_report');
+  const z: ShiftReportEvent = event;
+  const branch = id(req.branchId),
+    device = id(req.deviceId),
+    actor = id(req.actorId),
+    requestId = id(req.requestId);
+  if (id(z.branch_id) !== branch) refuse('INVALID_REQUEST', 'model');
+  const digest = hashJson({
+    branch_id: branch,
+    device_id: device,
+    event_id: id(z.event_id),
+    sequence: z.sequence,
+    payload_hash: hash,
+    reason: req.reason,
+  });
+  return transaction(pool, async (client) => {
+    const owner = (
+      await client.query<{ installed: boolean; allowed: boolean | null }>(
+        `SELECT to_regclass('cloud_pos_shift_reports') IS NOT NULL AND to_regclass('cloud_pos_sale_inbox') IS NOT NULL AS installed,
+         (SELECT pg_get_userbyid(relowner)=current_user FROM pg_class
+          WHERE oid=to_regclass('cloud_pos_shift_reports')) AS allowed`,
+      )
+    ).rows[0];
+    if (!owner?.installed) refuse('NOT_FOUND', 'schema');
+    if (owner?.allowed !== true) refuse('FORBIDDEN', 'not_owner');
+    // As in the back-office command(): the actor first (a personal login with the manager grant
+    // on the branch, not revoked), then the idempotency key (bo_commands, request id + digest).
+    const manager = (
+      await client.query<{ organization_id: string }>(
+        `SELECT s.organization_id FROM bo_access_grants g
+         JOIN catalog_manager_branches s ON s.actor_id=g.actor_id AND s.branch_id=g.branch_id
+         JOIN catalog_managers m ON m.id=g.actor_id AND m.organization_id=s.organization_id
+         WHERE g.actor_id=$1 AND g.branch_id=$2 AND g.role='manager' AND m.revoked_at IS NULL
+         FOR SHARE OF g,s`,
+        [actor, branch],
+      )
+    ).rows[0];
+    if (!manager) refuse('FORBIDDEN', 'actor');
+    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+      'bo:actor:' + actor + ':' + requestId,
+    ]);
+    const previous = (
+      await client.query<{ digest: string; result: RestoredShiftReportResult }>(
+        'SELECT digest,result FROM bo_commands WHERE actor_id=$1 AND request_id=$2',
+        [actor, requestId],
+      )
+    ).rows[0];
+    if (previous) {
+      if (previous.digest !== digest) refuse('CONFLICT', 'request_reused');
+      return previous.result;
+    }
+    // The receiver's lock: no delivery of this branch runs between the checks and the writes.
+    const binding = (
+      await client.query<{ active: boolean }>(
+        `SELECT b.active FROM pos_order_sync_bindings b JOIN devices d ON d.id=b.device_id
+         WHERE b.branch_id=$1 AND b.device_id=$2 AND d.organization_id=b.organization_id
+         AND d.branch_id=b.branch_id FOR UPDATE OF b`,
+        [branch, device],
+      )
+    ).rows[0];
+    if (!binding?.active) refuse('FORBIDDEN', 'binding');
+    const shiftId = z.payload.shift_id;
+    const known = await inboxState(client, branch, device, z, hash);
+    if (known === 'conflict') refuse('CONFLICT', 'identity');
+    if (known === 'duplicate')
+      return {
+        state: 'duplicate',
+        event_id: id(z.event_id),
+        sequence: z.sequence,
+        shift_id: shiftId,
+      };
+    if (await shiftReportStored(client, shiftId)) refuse('CONFLICT', 'shift_identity');
+    const later = await client.query(
+      'SELECT 1 FROM cloud_pos_sale_inbox WHERE device_id=$1 AND sequence>$2 LIMIT 1',
+      [device, z.sequence],
+    );
+    if (later.rowCount) refuse('CONFLICT', 'not_head');
+    const r = z.payload.report;
+    const projection = await shiftProjection(client, branch, shiftId);
+    const mismatch = shiftMismatch(r, projection);
+    if (!mismatch) refuse('CONFLICT', 'not_parked');
+    const methods = methodRows(r, projection);
+    const cash = {
+      z_sales_minor: BigInt(r.cash_sales_minor).toString(),
+      cloud_sales_minor: BigInt(projection.sales.get('cash')?.sales_minor ?? '0').toString(),
+      z_refunds_minor: BigInt(r.cash_refunds_minor).toString(),
+      cloud_refunds_minor: BigInt(projection.refunds.get('cash') ?? '0').toString(),
+    };
+    const fenced = (
+      await client.query<{ fenced: boolean }>(
+        `SELECT EXISTS(SELECT 1 FROM cloud_pos_sales WHERE branch_id=$1 AND device_id=$2
+         AND shift_id=$3 AND last_sequence<=$4::bigint) AS fenced`,
+        [branch, device, shiftId, (BigInt(z.sequence) - RESTORE_FENCE_GAP / 2n).toString()],
+      )
+    ).rows[0]?.fenced;
+    if (
+      !fenced ||
+      BigInt(cash.z_sales_minor) > BigInt(cash.cloud_sales_minor) ||
+      BigInt(cash.z_refunds_minor) > BigInt(cash.cloud_refunds_minor) ||
+      methods.some(
+        (row) =>
+          BigInt(row.z_sales_minor) > BigInt(row.cloud_sales_minor) ||
+          BigInt(row.z_refunds_minor) > BigInt(row.cloud_refunds_minor) ||
+          row.z_count > row.cloud_count,
+      )
+    )
+      refuse('CONFLICT', 'not_restore');
+    await insertShiftReport(client, branch, device, z);
+    await insertInbox(client, branch, device, z, hash);
+    const result: RestoredShiftReportResult = {
+      state: 'accepted',
+      event_id: id(z.event_id),
+      sequence: z.sequence,
+      shift_id: shiftId,
+      rejected_as: mismatch,
+      cash,
+      methods,
+    };
+    await client.query(
+      `INSERT INTO bo_audit(id,branch_id,organization_id,actor_id,request_id,action,entity_id,reason,
+       before_value,after_value) VALUES($1,$2,$3,$4,$5,'pos_sales:accept_restored_z',$6,$7,$8,$9)`,
+      [
+        randomUUID(),
+        branch,
+        manager.organization_id,
+        actor,
+        requestId,
+        shiftId,
+        req.reason,
+        { device_id: device, event_id: result.event_id, sequence: result.sequence },
+        result,
+      ],
+    );
+    await client.query(
+      'INSERT INTO bo_commands(actor_id,request_id,branch_id,digest,result) VALUES($1,$2,$3,$4,$5)',
+      [actor, requestId, branch, digest, result],
+    );
+    return result;
+  });
 }

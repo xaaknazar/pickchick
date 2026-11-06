@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createApi } from '@pickchick/api';
 import { createPool } from '@pickchick/database';
-import { provisionDevice } from '@pickchick/menu-sync';
+import { hashJson, provisionDevice } from '@pickchick/menu-sync';
 import {
   createQuote,
   createLocalOrder,
@@ -31,6 +35,8 @@ import {
   posSyncWorkerGrants,
 } from '../../../infra/windows/pos-sync-worker-grants.mjs';
 import { cloudPosSalesGrants } from '../../../infra/staging/pos-sales-grants.mjs';
+import { provisionCatalogManager } from '../../catalog-admin/dist/index.js';
+import { grantBackoffice } from '../../backoffice-core/dist/index.js';
 import { withOrderDesk, staffAuth } from '../../../tests/helpers/orders.mjs';
 import {
   cashSale,
@@ -668,7 +674,7 @@ test('restored edge database, interim runbook step until CR cloud-5: the owner s
   });
 });
 
-test('restored edge database with the posSales fence (CR cloud-5): new events pass the lost timeline; a Z of a shift open across the restore stays parked', async () => {
+test('restored edge database with the posSales fence (CR cloud-5): new events pass the lost timeline; a Z of a shift open across the restore is parked until the cloud owner accepts it as written', async () => {
   await withSender(async (ctx) => {
     await applyPosSalesFence(ctx.edge.pool);
     const fence = (
@@ -709,7 +715,7 @@ test('restored edge database with the posSales fence (CR cloud-5): new events pa
     assert.ok((await outbox(ctx.edge.pool)).every((item) => item.acknowledged_at));
     assert.equal(await cloudCount(ctx.cloud.pool, 'cloud_pos_sales'), 4);
     // The Z of the shift that was open across the restore lacks the lost sale 3: refused, parked
-    // (runbook «Восстановление базы кассы»; procedure asked for in CR cloud-5 section 2).
+    // (runbook «Восстановление базы кассы», CR cloud-5 section 2).
     const z = vectorEvent('shift_report_z', ctx.branch, (p, event) => {
       event.event_id = randomUUID();
       p.report = zReportFor([kept, copied, sale], p.report, {
@@ -720,15 +726,157 @@ test('restored edge database with the posSales fence (CR cloud-5): new events pa
       });
     });
     assert.equal(z.payload.report.expected_cash_minor, '2050000');
-    const [zRow] = await enqueue(ctx.edge.pool, [z]);
-    assert.deepEqual(await ctx.step(), {
-      state: 'parked',
-      eventId: zRow.event_id,
-      error: 'INVALID_EVENT',
-    });
+    // The next shift's first sale waits behind the Z.
+    const later = cashSale(ctx.branch, 1, 5);
+    later.payload.shift_id = randomUUID();
+    const [zRow] = await enqueue(ctx.edge.pool, [z, later]);
+    const parked = { state: 'parked', eventId: zRow.event_id, error: 'INVALID_EVENT' };
+    assert.deepEqual(await ctx.step(), parked);
     assert.equal(await cloudCount(ctx.cloud.pool, 'cloud_pos_shift_reports'), 0);
+    // Releasing it alone does not help: the receiver refuses that Z again.
+    await retryPosSalesDelivery(ctx.edge.pool, ctx.branch, zRow.event_id);
+    ctx.advance(60_000);
+    assert.deepEqual(await ctx.step(), parked);
+    assert.equal(await cloudCount(ctx.cloud.pool, 'cloud_pos_shift_reports'), 0);
+
+    // The only positive path: the cloud owner command (CR cloud-5 item 2, option A), run as in
+    // the runbook. The parked row is exported on the edge with the runbook SQL ...
+    assert.equal(await runbookExport(ctx.edge.pool, later.event_id), null, 'not parked, no file');
+    const exported = await runbookExport(ctx.edge.pool, zRow.event_id);
+    assert.deepEqual(exported, { ...sentAs(z, zRow), payload_hash: hashJson(z.payload) });
+    const manager = await provisionCatalogManager(ctx.cloud.pool, {
+      organization_id: ctx.org,
+      name: 'Синтетический управляющий',
+      branch_ids: [ctx.branch],
+    });
+    await grantBackoffice(ctx.cloud.pool, manager.actor_id, ctx.branch, 'manager');
+    const directory = await mkdtemp(join(tmpdir(), 'pickchick-restored-z-'));
+    try {
+      const file = join(directory, 'parked-z.json');
+      await writeFile(file, JSON.stringify(exported) + '\n');
+      // ... and accepted with scripts/backoffice-setup.mjs and the owner URL of the cloud.
+      const args = [
+        '--accept-restored-z',
+        '--branch',
+        ctx.branch,
+        '--device',
+        ctx.device,
+        '--actor',
+        manager.actor_id,
+        '--request',
+        randomUUID(),
+        '--event',
+        file,
+        '--reason',
+        'Z смены через восстановление кассы (синтетика)',
+      ];
+      const accepted = await backofficeSetup(ctx, args);
+      assert.equal(accepted.code, 0, accepted.stderr);
+      const line = JSON.parse(accepted.stdout);
+      assert.deepEqual(
+        { ...line, methods: line.methods.filter((row) => row.method === 'cash') },
+        {
+          event: 'pos_sales_restored_z',
+          state: 'accepted',
+          event_id: zRow.event_id,
+          sequence: zRow.sequence,
+          shift_id: z.payload.shift_id,
+          rejected_as: 'shift_cash',
+          cash: {
+            z_sales_minor: '1050000',
+            cloud_sales_minor: '1400000',
+            z_refunds_minor: '0',
+            cloud_refunds_minor: '0',
+          },
+          methods: [
+            {
+              method: 'cash',
+              z_sales_minor: '1050000',
+              cloud_sales_minor: '1400000',
+              z_refunds_minor: '0',
+              cloud_refunds_minor: '0',
+              z_count: 3,
+              cloud_count: 4,
+            },
+          ],
+        },
+      );
+      assert.doesNotMatch(accepted.stdout, /token|password|Синтетический/i);
+      // The same command again is a no-op with the same answer (stored as jsonb, so the key
+      // order of the line may differ).
+      const replay = await backofficeSetup(ctx, args);
+      assert.equal(replay.code, 0, replay.stderr);
+      assert.deepEqual(JSON.parse(replay.stdout), line);
+      assert.equal(await cloudCount(ctx.cloud.pool, 'cloud_pos_shift_reports'), 1);
+      const written = (
+        await ctx.cloud.pool.query(
+          `SELECT (SELECT count(*) FROM bo_audit WHERE action='pos_sales:accept_restored_z')::int AS audit,
+           (SELECT count(*) FROM bo_commands)::int AS commands,
+           (SELECT report FROM cloud_pos_shift_reports WHERE shift_id=$1) AS report`,
+          [z.payload.shift_id],
+        )
+      ).rows[0];
+      assert.deepEqual(written, { audit: 1, commands: 1, report: z.payload.report });
+      // An unusable file is refused like an event that fails the model; nothing is written.
+      await writeFile(file, '');
+      const empty = await backofficeSetup(ctx, [
+        ...args.slice(0, 8),
+        randomUUID(),
+        ...args.slice(9),
+      ]);
+      assert.equal(empty.code, 1);
+      assert.deepEqual(JSON.parse(empty.stderr), {
+        event: 'pos_sales_restored_z_refused',
+        code: 'INVALID_REQUEST',
+        reason: 'model',
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+    // The edge owner releases the parked Z: it goes as a duplicate and the stream goes on.
+    ctx.advance(60_000);
+    assert.deepEqual(await ctx.step(), parked, 'parked on the edge until its owner releases it');
+    await retryPosSalesDelivery(ctx.edge.pool, ctx.branch, zRow.event_id);
+    ctx.advance(60_000);
+    assert.deepEqual(await ctx.step(), { state: 'delivered', count: 2, more: false });
+    assert.ok(
+      (await outbox(ctx.edge.pool)).every((item) => item.acknowledged_at && !item.last_error),
+    );
+    assert.equal(await cloudCount(ctx.cloud.pool, 'cloud_pos_sales'), 5);
+    assert.equal(await cloudCount(ctx.cloud.pool, 'cloud_pos_shift_reports'), 1);
+    assert.equal((await syncState(ctx.edge.pool, ctx.branch)).last_error, null);
   });
 });
+
+/**
+ * The edge export SQL of docs/operations/backoffice-cutover.md «Принять Z смены, открытой во
+ * время восстановления», verbatim except the psql variable `:'event_id'`: the JSON row or null.
+ */
+async function runbookExport(pool, eventId) {
+  const runbook = await readFile(
+    new URL('../../../docs/operations/backoffice-cutover.md', import.meta.url),
+    'utf8',
+  );
+  const section = runbook.slice(runbook.indexOf('#### Принять Z смены, открытой во время'));
+  const open = section.indexOf('```sql\n') + '```sql\n'.length;
+  const block = section.slice(open, section.indexOf('```\n', open));
+  assert.equal(block.split(":'event_id'").length, 2);
+  const result = await pool.query(block.replace(":'event_id'", '$1'), [eventId]);
+  assert.ok(result.rowCount <= 1);
+  return result.rows[0]?.json_build_object ?? null;
+}
+/** scripts/backoffice-setup.mjs with the owner URL of the cloud test schema. */
+function backofficeSetup(ctx, args) {
+  const script = fileURLToPath(new URL('../../../scripts/backoffice-setup.mjs', import.meta.url));
+  return new Promise((resolve) => {
+    execFile(
+      process.execPath,
+      [script, ...args],
+      { env: { ...process.env, CLOUD_DATABASE_URL: ctx.cloud.config.databaseUrl } },
+      (error, stdout, stderr) => resolve({ code: error ? (error.code ?? 1) : 0, stdout, stderr }),
+    );
+  });
+}
 
 /** A real LOGIN role holding exactly `grants` on one side's test schema. */
 async function restricted(ctx, side, grants, run) {
