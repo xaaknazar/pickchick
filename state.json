@@ -7404,9 +7404,11 @@
         "docs/operations/mobile-play-2026-11/account-deletion-web.md",
         "docs/operations/mobile-play-2026-11/data-safety.md"
       ],
-      "status": "active",
-      "head": "1a9472f1dc2a34b8ab4db7beb6f9c5616ed23f73",
-      "updatedAt": "2026-11-06T20:46:28.568Z"
+      "status": "available",
+      "head": "f2935480685853b1f3d800419df97f077da5c200",
+      "updatedAt": "2026-11-06T20:51:53.545Z",
+      "summary": "PR315 f2935480685853b1f3d800419df97f077da5c200: ровно 3 delete_kept дословно по решению07.11, ссылки/контакт/тесты/deleteMe сохранены. 5/5 support tests, diff/format PASS. Data safety: сохранённый URL подтверждён чтением; форма не менялась. Политика только локальный кандидат через legal-update helper, без публикации.",
+      "nextAction": "Включить PR315 в точный кандидат П6 до CI/упаковки и выпуска в согласованное окно. KK вычитать носителю с карточкой Play. Политику публиковать только после отдельного да. Обновление общих status/roadmap остаётся у android-play-1106."
     }
   ]
 }
