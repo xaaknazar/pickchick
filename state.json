@@ -7107,13 +7107,12 @@
       "scopes": [
         "apps/mobile/src/components/RestaurantClosedNotice.tsx",
         "docs/operations/mobile-closed-notice-1102.md",
-        "apps/mobile/src/components/AppHeader.tsx",
-        "tests/mobile/browser_cart_unavailable.py"
+        "apps/mobile/src/components/AppHeader.tsx"
       ],
       "status": "available",
       "head": "c7fcb70947e67d264fed6d012397855070f3dddc",
       "updatedAt": "2026-11-02T20:07:54.452Z",
-      "summary": "PR #302, c7fcb709: верхняя плашка с луной и временем открытия на вкладках и в корзине. Проверены 562 Node + 59 Python, typecheck/lint/format, браузер ABDEH на 393/320 и RU/KK/EN; физический iPhone не проверен. Foundation CI 41504047462 идёт. Три файла переданы с согласия владельца, остальные изменения сохранены. Протокол docs/operations/mobile-closed-notice-1102.md. 02.11: точечная передача в mobile-tab-motion-1102: apps/mobile/src/screens/CatalogScreens.tsx. Согласие владельца для трёх файлов; CatalogScreens передан из своей предыдущей задачи после merge её опубликованного checkpoint.",
+      "summary": "PR #302, c7fcb709: верхняя плашка с луной и временем открытия на вкладках и в корзине. Проверены 562 Node + 59 Python, typecheck/lint/format, браузер ABDEH на 393/320 и RU/KK/EN; физический iPhone не проверен. Foundation CI 41504047462 идёт. Три файла переданы с согласия владельца, остальные изменения сохранены. Протокол docs/operations/mobile-closed-notice-1102.md. 02.11: точечная передача в mobile-tab-motion-1102: apps/mobile/src/screens/CatalogScreens.tsx. Согласие владельца для трёх файлов; CatalogScreens передан из своей предыдущей задачи после merge её опубликованного checkpoint.\nВладелец разрешил передать browser_cart_unavailable.py задаче mobile-cart-location-1106 для новой подписи, проверки запрета оплаты сохраняются.",
       "nextAction": "Дождаться Foundation CI PR #302; merge и выпуск новой сборки не выполнены. После согласования выпуска проверить на iPhone. Общий статус и онлайн-пульт не обновлялись: области заняты."
     },
     {
@@ -7388,7 +7387,8 @@
         "apps/mobile/src/components/CartShortcut.tsx",
         "tests/mobile/browser_slide_to_pay.py",
         "docs/project-status.md",
-        "docs/roadmap/project.json"
+        "docs/roadmap/project.json",
+        "tests/mobile/browser_cart_unavailable.py"
       ],
       "status": "active",
       "head": "1a9472f1dc2a34b8ab4db7beb6f9c5616ed23f73",
