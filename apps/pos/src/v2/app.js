@@ -475,10 +475,11 @@ function draw() {
     'sayCashOut',
   ])
     v[key] = unavailable;
-  // Desk number and app line (CR client-5): the lock screen shows the mode this desk was last
-  // told by the edge, the other screens the session's pos/config.
+  // Desk number and app line (CR client-5): the session's pos/config once it is read, and
+  // until then (the lock screen, the first moment after a PIN) the edge's last answer to this
+  // desk, so a desk that sells never flashes "Касса 1" or "TEST".
   deskPaid = rememberDeskMode(deskStorage, m, deskPaid);
-  Object.assign(v, deskTexts(m.actor ? model.saleMode : deskPaid, config.appVersion));
+  Object.assign(v, deskTexts(deskPaid, config.appVersion));
   // Red: no connection to the cashier server; yellow: no internet, the cashier keeps working.
   const connection = connectionLabel(m);
   Object.assign(v, {
@@ -904,7 +905,8 @@ function draw() {
   v.dayRows = rows.map((o) => ({
     no: orderNumber(o),
     time: time(o.created_at),
-    channel: o.execution_mode === 'pos_sale' ? 'КАССА' : 'КАССА · ТЕСТ',
+    // A desk that sells calls no row a test; "Без оплаты" says what an unpaid row is.
+    channel: o.execution_mode === 'pos_sale' || model.saleMode ? 'КАССА' : 'КАССА · ТЕСТ',
     chBg: 'var(--blue)',
     guest: o.snapshot.details?.display_name || '-',
     items: o.snapshot.lines.map((l) => l.name.ru + ' ×' + l.quantity).join(', '),
@@ -925,7 +927,8 @@ function draw() {
         ? ops.openCard(o.order_id)
         : orderDialog(o.order_id),
     ),
-    // «Чек»: a paid order opens its card and prints «Чек заказа (не фискальный)».
+    // «Чек»: a paid order opens its card with the Webkassa number entry of a receipt still to
+    // punch, or prints «Чек заказа (не фискальный)» (ops-view.js printReceipt).
     reprint: !model.saleMode
       ? unavailable
       : o.execution_mode === 'pos_sale'

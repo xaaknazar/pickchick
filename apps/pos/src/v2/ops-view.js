@@ -783,12 +783,18 @@ export class OpsView {
     await this.print(orderTicket(order, sale, this.terminalLabel));
   }
   /**
-   * «Чек» of a paid order row (CR client-5): the order card with its Webkassa receipts (the
-   * number of a pending one is entered there) and one print of «Чек заказа (не фискальный)».
+   * «Чек» of a paid order row (CR client-5): the order card with its Webkassa receipts, and
+   * one action of that card. A sale receipt still to punch opens its number entry; otherwise a
+   * paid order prints «Чек заказа (не фискальный)» once. A cancelled order prints nothing by
+   * itself: its card has the slip of the void.
    */
   async printReceipt(orderId) {
     await this.openCard(orderId);
-    if (this.state.card && this.target()?.order.order_id === orderId) await this.printOrder();
+    const target = this.state.card ? this.target() : null;
+    if (target?.order.order_id !== orderId) return;
+    const receipt = this.saleReceipt();
+    if (receipt?.state === 'pending') this.askReceipt(receipt);
+    else if (target.order.state === 'paid') await this.printOrder();
   }
   reportValues() {
     const kind = this.state.report,

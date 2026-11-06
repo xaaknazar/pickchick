@@ -4167,22 +4167,34 @@ test('ЗАКАЗЫ in the paid mode: at most RECEIPT_READS reads per refresh; no
   assert.equal(calls.length, asked);
 });
 
-test('screens: «Чек» of a paid row opens its card and prints the order ticket once', async () => {
+test('screens: «Чек» of a paid row: the Webkassa entry of a receipt to punch, else the order ticket', async () => {
   const edge = saleEdge();
   const model = await saleCashier(edge);
   const printer = printerBridge();
-  const { ops, said } = wiredScreens(model, printer);
+  const { view, ops, said } = wiredScreens(model, printer);
   await reviewed(model, edge, 'takeaway');
   await model.sell({ method: 'kaspi_manual' });
   const sale = model.state.sale;
   model.newDraft();
+  // Not punched yet: the card of the order opens at the number entry, nothing is printed.
   await ops.printReceipt(sale.order_id);
   assert.equal(ops.state.card?.mode, 'view', 'the card shows its Webkassa receipt');
-  const card = ops.cardValues();
   assert.deepEqual(
-    card.opsCardReceipts.map((r) => [r.text, r.action]),
+    ops.cardValues().opsCardReceipts.map((r) => [r.text, r.action]),
     [['Чек продажи · 6 990 ₸ · не оформлен', 'Внести номер']],
   );
+  assert.equal(view.state.entry?.purpose, 'fiscalNumber');
+  assert.equal(view.values().saleEntryTitle, 'Номер чека Webkassa');
+  assert.deepEqual(printer.calls, [], 'no paper the cashier did not ask for');
+  view.setState({ entry: { ...view.state.entry, value: 'WK-7' } });
+  await view.saveEntry();
+  assert.equal(said.at(-1), 'Номер чека Webkassa сохранён');
+  assert.equal(model.state.saleReceipts[sale.order_id], 'recorded', 'the row says оформлен');
+  ops.closeCard();
+  // Punched (or not needed): «Чек» prints «Чек заказа (не фискальный)» once.
+  await ops.printReceipt(sale.order_id);
+  assert.equal(ops.state.card?.mode, 'view');
+  assert.equal(view.state.entry, null);
   assert.equal(printer.calls.length, 1);
   const [kind, ticket] = printer.calls[0];
   assert.equal(kind, 'print');
@@ -4195,7 +4207,23 @@ test('screens: «Чек» of a paid row opens its card and prints the order tick
   await bare.ops.printReceipt(sale.order_id);
   assert.equal(bare.ops.state.card?.mode, 'view');
   assert.equal(bare.said.at(-1), 'Печать не настроена');
-  assert.ok(!bare.said.some((t) => /тест/i.test(t)), bare.said.join(' | '));
+  assert.ok(![...said, ...bare.said].some((t) => /тест/i.test(t)), bare.said.join(' | '));
+  // A cancelled order prints nothing by itself: its card has the slip of the void.
+  bare.ops.closeCard();
+  const voided = edge.edge.orders.get(sale.order_id);
+  Object.assign(voided, {
+    state: 'cancelled',
+    version: voided.version + 1,
+    fulfillment_state: 'cancelled',
+    fulfillment: { ...voided.fulfillment, version: 2, state: 'cancelled' },
+    cancellation_reason: 'Синтетическая отмена',
+  });
+  const quiet = printerBridge();
+  const after = wiredScreens(model, quiet);
+  await after.ops.printReceipt(sale.order_id);
+  assert.equal(after.ops.state.card?.mode, 'view');
+  assert.equal(after.view.state.entry, null);
+  assert.deepEqual(quiet.calls, []);
 });
 
 test('web POS publishes the app version for the lock screen only when it is given', async () => {
