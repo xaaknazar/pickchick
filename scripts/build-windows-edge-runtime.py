@@ -56,6 +56,11 @@ ADMIN_FILES = (
     'infra/windows/pos-sales-grants.mjs',
     'infra/windows/pos-sales-upgrade-db.mjs',
     'scripts/pos-sales-setup.mjs',
+    # Cutover 19.11 (CR kds-1 section 4, CR kds-3): edge 027 grants, the guarded upgrade and the
+    # operator switch. kds-switch.mjs imports kds-grants.mjs and ../../scripts/edge-migrate.mjs.
+    'infra/windows/kds-grants.mjs',
+    'infra/windows/kds-upgrade-db.mjs',
+    'infra/windows/kds-switch.mjs',
     'infra/windows/README.md',
     'infra/windows/native-staff-login.md',
     'infra/windows/local-pos-service.md',
