@@ -13,7 +13,7 @@ export function validateWorkerConfig(config, origin, branchId, deviceId) {
     !config.posOrderSyncEnabled ||
     config.branchId !== branchId ||
     config.edgeDeviceId !== deviceId ||
-    origin !== 'http://127.0.0.1:43100' ||
+    origin !== 'http://127.0.0.1:43110' ||
     !['postgres:', 'postgresql:'].includes(url.protocol) ||
     url.hostname !== '127.0.0.1' ||
     url.port !== '55433' ||
