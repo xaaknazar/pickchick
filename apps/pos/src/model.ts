@@ -267,6 +267,22 @@ const refundReason = (code: unknown, text: unknown) => {
 /** Spare seconds so an approval or quote is never sent just as the edge lets it expire. */
 const APPROVAL_MARGIN_MS = 5000;
 const QUOTE_MARGIN_MS = 15000;
+/** Longest wait for an answer of the cashier transport (api.ts): the approval request itself. */
+const REQUEST_MS = 12000;
+/**
+ * How long the quote of a staff meal or marketing approval must still live when the PIN is
+ * asked: the approval TTL, the request and the margin sell() keeps. Paying while the approval
+ * is valid then never re-quotes, which would change quote_id and void the approval (a second
+ * PIN). Capped by what a fresh quote of this edge lives, so a short-lived quote is not asked
+ * for again in vain.
+ */
+export function approvalQuoteSpare(quote: Quote, ttlSeconds: number) {
+  const need = ttlSeconds * 1000 + QUOTE_MARGIN_MS + REQUEST_MS;
+  const lifetime = Date.parse(quote.expires_at) - Date.parse(quote.created_at);
+  return Number.isFinite(lifetime)
+    ? Math.max(QUOTE_MARGIN_MS, Math.min(need, lifetime - QUOTE_MARGIN_MS))
+    : need;
+}
 const text = (value: string, min: number, max: number, code: string) => {
   const result = value.trim();
   if (result.length < min || result.length > max) throw new Error(code);
@@ -1918,9 +1934,9 @@ export class PosController {
    * A quote close to expiry is quoted again before money moves. Same lines, prices, type and
    * channel keep the guest's confirmation; anything else must be repeated to the guest.
    */
-  private async freshQuote(): Promise<Quote> {
+  private async freshQuote(minRemainingMs = QUOTE_MARGIN_MS): Promise<Quote> {
     const current = this.state.quote;
-    if (current && Date.parse(current.expires_at) - this.now() > QUOTE_MARGIN_MS) return current;
+    if (current && Date.parse(current.expires_at) - this.now() > minRemainingMs) return current;
     const reviewed = this.state.saleDraft.reviewed;
     await this.refreshData();
     await this.quoteWithRetry();
@@ -1954,7 +1970,17 @@ export class PosController {
         throw new Error('INVALID_REQUEST');
       if (!PIN_FORMAT.test(pin)) throw new Error('APPROVAL_PIN_REJECTED');
       this.state.approval = null;
-      const target = sale ? quoteSubject(await this.freshQuote()) : subject!;
+      // The quote must outlive the approval: a re-quote at payment would change quote_id.
+      const target = sale
+        ? quoteSubject(
+            await this.freshQuote(
+              approvalQuoteSpare(
+                this.state.quote!,
+                this.state.posConfig?.approval_ttl_seconds ?? 0,
+              ),
+            ),
+          )
+        : subject!;
       let value: unknown;
       try {
         value = await this.request('staff/approvals', {

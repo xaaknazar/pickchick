@@ -5,6 +5,7 @@ import {
   POS_CONFIG_MISSING_MS,
   POS_CONFIG_POLL_MS,
   PosController,
+  approvalQuoteSpare,
   closeSubject,
   fiscalSubject,
   mixableMethods,
@@ -563,6 +564,8 @@ function saleEdge({
   price = '699000',
   channelPrice = '750000',
   quoteTtlMs = 120000,
+  // The edge clock of quote times; a test that moves the cashier clock passes the same one.
+  clock = () => Date.now(),
 } = {}) {
   const f = fixture();
   f.item.modifier_groups = [];
@@ -593,6 +596,7 @@ function saleEdge({
   };
   const quoteFor = (body) => {
     const unit = body.sales_channel ? channelPrice : state.price;
+    const at = clock();
     const quote = {
       quote_id: randomUUID(),
       branch_id: f.actor.branch_id,
@@ -615,8 +619,8 @@ function saleEdge({
       subtotal_minor: (BigInt(unit) * BigInt(body.items[0].quantity)).toString(),
       discount_minor: '0',
       total_minor: (BigInt(unit) * BigInt(body.items[0].quantity)).toString(),
-      created_at: new Date().toISOString(),
-      expires_at: new Date(Date.now() + quoteTtlMs).toISOString(),
+      created_at: new Date(at).toISOString(),
+      expires_at: new Date(at + quoteTtlMs).toISOString(),
     };
     state.quotes.set(quote.quote_id, quote);
     return quote;
@@ -1954,6 +1958,54 @@ test('a quote close to expiry is quoted again before payment; same content keeps
   assert.equal(model.state.error.message, 'ORDER_REVIEW_REQUIRED');
   assert.equal(model.state.quote.total_minor, '709000');
   assert.equal(edge.edge.posts.length, 1);
+});
+
+test('a sale approval is taken on a quote that outlives it: paying later needs no second PIN', async () => {
+  let now = Date.now();
+  // Edge quotes live 300 s, approvals 120 s (contracts section 5.1).
+  const edge = saleEdge({ quoteTtlMs: 300000, clock: () => now });
+  const model = await saleCashier(edge, memory(), memory(), { now: () => now });
+  await reviewed(model, edge);
+  const first = model.state.quote.quote_id;
+  now += 200000; // 100 s of the quote left: less than the approval may still be used
+  await model.requestApproval(MANAGER_PIN, 'staff_meal');
+  assert.equal(model.state.error, null, String(model.state.error));
+  const approved = edge.calls.findLast((c) => c.path === 'staff/approvals').body.subject;
+  assert.notEqual(approved.quote_id, first, 'quoted again before the PIN, not at payment');
+  assert.equal(approved.quote_id, model.state.quote.quote_id);
+  assert.equal(model.reviewed, true, 'same lines and prices keep the guest confirmation');
+  now += 100000; // paid 100 s later, inside the approval
+  await model.sell({ method: 'staff_meal', beneficiary: 'Тестовый сотрудник' });
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.equal(posted(edge)[0].quote_id, approved.quote_id, 'the approved quote is the one sold');
+  assert.equal(edge.edge.approvals.size, 1, 'one PIN');
+  // A quote with enough life left is approved as it is: no extra quote.
+  model.newDraft();
+  await reviewed(model, edge);
+  const fresh = model.state.quote.quote_id,
+    quotes = edge.edge.quotes.size;
+  now += 10000;
+  await model.requestApproval(MANAGER_PIN, 'marketing');
+  assert.equal(
+    edge.calls.findLast((c) => c.path === 'staff/approvals').body.subject.quote_id,
+    fresh,
+  );
+  assert.equal(edge.edge.quotes.size, quotes);
+  // An edge whose quotes live shorter than the approval is not asked again in vain.
+  assert.equal(
+    approvalQuoteSpare(
+      { created_at: '2026-11-19T03:00:00.000Z', expires_at: '2026-11-19T03:02:00.000Z' },
+      120,
+    ),
+    105000,
+  );
+  assert.equal(
+    approvalQuoteSpare(
+      { created_at: '2026-11-19T03:00:00.000Z', expires_at: '2026-11-19T03:05:00.000Z' },
+      120,
+    ),
+    147000,
+  );
 });
 
 // ---- Part B: void, refunds, Webkassa receipts, X/Z and closing a sales shift --------------
