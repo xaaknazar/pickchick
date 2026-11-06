@@ -5371,7 +5371,7 @@
       "id": "mobile-android-play-1105",
       "workstream": "mobile",
       "title": "Подготовить Android 1.0.1 (7) для Google Play",
-      "summary": "Подписанный production AAB 1.0.1(7) проверен и доступен во внутреннем треке Google Play одному владельцу. RU/KK/EN, Алекс и 4 адаптации App Store сохранены; аудитория 13+, IARC3+/Everyone. Data safety сохранена: шесть типов, включая ID устройства для входа; Google не отправлена. Checkpoint3ab9d51f: Foundation11/11 PASS. П6 публикует отдельная задача p6-retention-1107. Android у владельца сейчас недоступен; физическая приёмка и вычитка KK карточки не завершены. Закрытый тест12/14 не начат, production не отправлен.",
+      "summary": "Подписанный production AAB 1.0.1(7) проверен и доступен во внутреннем треке Google Play одному владельцу. RU/KK/EN, Алекс и 4 адаптации App Store сохранены; аудитория 13+, IARC3+/Everyone. Data safety сохранена: шесть типов, включая ID устройства для входа; Google не отправлена. Checkpoint3ab9d51f: Foundation11/11 PASS. П6 публикует отдельная задача p6-retention-1107. Повторная проверка07.11: HTTP200 RU/KK/EN, раздела удаления ещё нет; кандидат14001781 ожидает CI. Android у владельца сейчас недоступен; физическая приёмка и вычитка KK карточки не завершены. Закрытый тест12/14 не начат, production не отправлен.",
       "status": "active",
       "owner": "development",
       "phase": "acceptance",
