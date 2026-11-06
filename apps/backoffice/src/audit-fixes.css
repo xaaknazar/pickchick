@@ -155,4 +155,10 @@ html.bo-fixes .inventory-table td:first-child {
   .bo-cards details[open] {
     min-width: 0;
   }
+  /* Step 8 pass (F14): on a phone every period is visible, the chips wrap instead of hiding
+     «Год» and «Период» behind a sideways scroll. */
+  .bo-fixes .op-periods {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
 }

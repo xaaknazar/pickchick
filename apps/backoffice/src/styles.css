@@ -2358,6 +2358,9 @@ textarea {
   justify-self: start;
 }
 .pos-home .stats,
+.pos-amount {
+  white-space: nowrap;
+}
 .pos-day .pos-stats {
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }

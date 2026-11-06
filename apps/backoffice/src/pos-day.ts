@@ -82,13 +82,26 @@ function table(headers: string[], rows: Cell[][], empty: string, testId = '') {
   wrap.append(t);
   return wrap;
 }
+/**
+ * A text with amounts («Продажи 21 000 ₸ - отмены 2 000 ₸»): each amount stays on one line, so
+ * a phone never leaves a lone «₸» on the next line (step 8 pass). The text itself is unchanged.
+ */
+function amountsTogether(host: HTMLElement, text: string) {
+  let last = 0;
+  for (const m of text.matchAll(/-?\d[\d ]*(?:,\d+)? ₸/g)) {
+    host.append(text.slice(last, m.index), el('span', 'pos-amount', m[0]));
+    last = m.index + m[0].length;
+  }
+  host.append(text.slice(last));
+  return host;
+}
 function stats(items: [string, string, string?][], testId = '') {
   const n = el('div', 'stats pos-stats');
   if (testId) n.dataset.testid = testId;
   for (const [name, value, detail] of items) {
     const c = el('div', 'stat');
     c.append(el('span', 'muted', name), el('strong', '', value));
-    if (detail) c.append(el('small', 'muted', detail));
+    if (detail) c.append(amountsTogether(el('small', 'muted'), detail));
     n.append(c);
   }
   return n;

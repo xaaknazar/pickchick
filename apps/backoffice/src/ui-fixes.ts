@@ -21,14 +21,18 @@ export function cards(wrap: HTMLElement, headers: readonly string[]) {
  */
 export function labelledCards(wrap: HTMLElement, headers: readonly string[]) {
   wrap.classList.add('bo-cards');
-  for (const row of wrap.querySelectorAll('tbody tr')) {
+  // Only the rows of this table: a table nested in a cell (the movements of a stock document)
+  // keeps its own labels (step 8 pass), and its cell takes the whole card width.
+  const own = wrap instanceof HTMLTableElement ? wrap : wrap.querySelector('table');
+  const rows = own ? [...own.tBodies].flatMap((body) => [...body.rows]) : [];
+  for (const row of rows) {
     const cells = [...row.children] as HTMLElement[];
     if (cells.length === 1 && (cells[0] as HTMLTableCellElement).colSpan > 1) {
       row.classList.add('bo-cards-empty');
       continue;
     }
     cells.forEach((cell, i) => {
-      cell.dataset.label = headers[i] ?? '';
+      cell.dataset.label = cell.querySelector('table') ? '' : (headers[i] ?? '');
     });
   }
   return wrap;
