@@ -2,6 +2,15 @@ import { InventoryView, inventoryEditor } from './inventory.js';
 import { SalesReportView } from './sales-report.js';
 import { PosDayView, PosHomeView, receiptDetails } from './pos-day.js';
 import { almatyTime, csvTenge } from './sales-report-model.js';
+import {
+  deskLabel,
+  ordersTotalsText,
+  pagerText,
+  periodDays,
+  searchAllowed,
+  type OrdersParams,
+  type OrdersView,
+} from './orders-model.js';
 import { ReconciliationView } from './components/ReconciliationView.js';
 import { ReconciliationModel } from './reconciliation-model.js';
 import { element as el, button, field, select, check } from './dom.js';
@@ -328,19 +337,6 @@ function table(headers: string[], rows: (string | Node)[][], empty = 'Данны
   t.append(body);
   wrap.append(t);
   return cards(wrap, headers);
-}
-/** «05.11.2026» or «01.11.2026 - 05.11.2026» for the snapshot's period (end is exclusive). */
-function periodText(d: Snapshot) {
-  const day = (iso: string) =>
-    new Intl.DateTimeFormat('ru-RU', {
-      timeZone: 'Asia/Almaty',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    }).format(new Date(iso));
-  const start = day(d.period_start);
-  const end = d.period_end ? day(new Date(Date.parse(d.period_end) - 1).toISOString()) : start;
-  return start === end ? start : `${start} - ${end}`;
 }
 function stats(items: [string, string, string?][]) {
   const n = el('div', 'stats');
@@ -2201,13 +2197,28 @@ export class OperationsView {
    * below in render() is unchanged.
    */
   private posOrders(content: HTMLElement, d: Snapshot) {
+    // Audit F10: the server searches, sorts, pages and totals every order of the period
+    // (GET .../ops/orders). If it cannot answer, the newest orders of GET branches/:id are
+    // filtered here, as in step 2, and the screen says that the list is partial.
     const all = [
       ...new Map(
         [...d.orders, ...d.pos, ...(d.cashier_orders ?? [])].map((row) => [String(row['id']), row]),
       ).values(),
     ];
     const desks = d.pos_terminals ?? [];
-    const desk = (o: Data) => (o['channel'] === 'pos' ? this.deskName(o['terminal_id']) : '-');
+    const window = periodDays(d.period_start, d.period_end ?? d.as_of);
+    let server: OrdersView | null = null;
+    let serverFailed = false;
+    let loading = true;
+    let page = 1;
+    let ticket = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const desk = (o: Data) =>
+      o['channel'] !== 'pos'
+        ? '-'
+        : server
+          ? deskLabel(server, typeof o['terminal_id'] === 'string' ? o['terminal_id'] : null)
+          : this.deskName(o['terminal_id']);
     const number = (o: Data) =>
       o['display_number'] ? '№' + String(o['display_number']) : String(o['id']).slice(0, 8);
     const payment = (o: Data) =>
@@ -2217,6 +2228,14 @@ export class OperationsView {
     const live = (o: Data) => !['cancelled', 'voided'].includes(String(o['state']));
     let query = '',
       channel = '';
+    const params = (p = page): OrdersParams => ({
+      ...window,
+      q: searchAllowed(query) ? query : '',
+      channel,
+      terminal_id: this.orderDesk,
+      sort: this.orderSort,
+      page: p,
+    });
     const visible = () =>
       all
         .filter(
@@ -2243,6 +2262,39 @@ export class OperationsView {
           return -time;
         });
     const clipped = d.truncated;
+    const csvRow = (o: Data) => {
+      const at = almatyTime(String(o['created_at']));
+      return [
+        at.slice(0, 10),
+        at.slice(11),
+        number(o),
+        desk(o),
+        status(o['channel']),
+        csvTenge(o['total_minor'] ?? '0'),
+        payment(o),
+        status(o['kitchen_state'] ?? o['state']),
+        String(o['id']),
+      ];
+    };
+    const CSV_HEAD = [
+      'Дата',
+      'Время',
+      'Номер',
+      'Касса',
+      'Канал',
+      'Сумма, ₸',
+      'Оплата',
+      'Кухня',
+      'ID заказа',
+    ];
+    const exportAll = async () => {
+      if (!server) return exportCsv('orders', CSV_HEAD, visible().map(csvRow));
+      // Every page of the selection, at most 50 pages (5 000 orders) in one file.
+      const rows: Data[] = [];
+      for (let p = 1; p <= Math.min(server.pages, 50); p++)
+        rows.push(...(p === server.page ? server.rows : (await this.model.orders(params(p))).rows));
+      exportCsv('orders', CSV_HEAD, rows.map(csvRow));
+    };
     const p = panel(
       'Реестр заказов',
       'Приложение, киоск и касса. У каждой кассы свои номера заказов, поэтому рядом с номером указана касса. Деньги и чеки кассы по дням - в разделе «Касса».',
@@ -2251,34 +2303,9 @@ export class OperationsView {
         button(
           'Экспорт CSV',
           () =>
-            exportCsv(
-              'orders',
-              [
-                'Дата',
-                'Время',
-                'Номер',
-                'Касса',
-                'Канал',
-                'Сумма, ₸',
-                'Оплата',
-                'Кухня',
-                'ID заказа',
-              ],
-              visible().map((o) => {
-                const at = almatyTime(String(o['created_at']));
-                return [
-                  at.slice(0, 10),
-                  at.slice(11),
-                  number(o),
-                  desk(o),
-                  status(o['channel']),
-                  csvTenge(o['total_minor'] ?? '0'),
-                  payment(o),
-                  status(o['kitchen_state'] ?? o['state']),
-                  String(o['id']),
-                ];
-              }),
-            ),
+            void exportAll().catch(() => {
+              hint.textContent = 'Файл не собран: нет связи с сервером. Повторите позже.';
+            }),
           'button',
           'op-orders-csv',
         ),
@@ -2287,26 +2314,68 @@ export class OperationsView {
     const list = el('div');
     const totals = el('p', 'op-note pos-order-totals');
     totals.dataset.testid = 'op-orders-totals';
+    const pager = el('div', 'toolbar op-orders-pager');
+    pager.dataset.testid = 'op-orders-pager';
+    const hint = el('p', 'op-note');
+    hint.dataset.testid = 'op-orders-hint';
     const draw = () => {
-      const rows = visible();
-      const kept = rows.filter(live);
-      const sum = kept.reduce((a, o) => a + BigInt(String(o['total_minor'] ?? '0')), 0n);
-      const byDesk = desks
-        .map((t) => {
-          const mine = kept.filter(
-            (o) => o['channel'] === 'pos' && o['terminal_id'] === t.terminal_id,
-          );
-          return mine.length
-            ? `${t.label}: ${mine.length}, ${amount(mine.reduce((a, o) => a + BigInt(String(o['total_minor'] ?? '0')), 0n))}`
-            : '';
-        })
-        .filter(Boolean);
-      totals.textContent =
-        `Итого по списку: заказов ${rows.length}, без отменённых ${kept.length} на ${amount(sum)}` +
-        (byDesk.length ? `. ${byDesk.join(' · ')}` : '') +
-        (clipped?.['orders'] || clipped?.['pos'] || clipped?.['cashier_orders']
-          ? '. Список неполный: итог только по показанным заказам.'
-          : '.');
+      const rows = server ? server.rows : visible();
+      if (server) totals.textContent = ordersTotalsText(server);
+      else {
+        const kept = rows.filter(live);
+        const sum = kept.reduce((a, o) => a + BigInt(String(o['total_minor'] ?? '0')), 0n);
+        const byDesk = desks
+          .map((t) => {
+            const mine = kept.filter(
+              (o) => o['channel'] === 'pos' && o['terminal_id'] === t.terminal_id,
+            );
+            return mine.length
+              ? `${t.label}: ${mine.length}, ${amount(mine.reduce((a, o) => a + BigInt(String(o['total_minor'] ?? '0')), 0n))}`
+              : '';
+          })
+          .filter(Boolean);
+        totals.textContent = loading
+          ? 'Загружаем заказы за период...'
+          : `Итого по списку: заказов ${rows.length}, без отменённых ${kept.length} на ${amount(sum)}` +
+            (byDesk.length ? `. ${byDesk.join(' · ')}` : '') +
+            (clipped?.['orders'] || clipped?.['pos'] || clipped?.['cashier_orders']
+              ? '. Список неполный: итог только по показанным заказам.'
+              : '.') +
+            (serverFailed
+              ? ' Поиск по всему периоду сейчас недоступен: показаны последние заказы, не больше 200 из каждого источника.'
+              : '');
+      }
+      hint.textContent = searchAllowed(query)
+        ? ''
+        : 'Ищите по номеру заказа («117» или «№117») или по началу ID заказа.';
+      pager.replaceChildren();
+      if (server && server.pages > 1) {
+        const back = button(
+          'Назад',
+          () => {
+            page = Math.max(1, page - 1);
+            void load();
+          },
+          'button subtle',
+          'op-orders-prev',
+        );
+        back.disabled = server.page <= 1;
+        const next = button(
+          'Дальше',
+          () => {
+            page = Math.min(server!.pages, page + 1);
+            void load();
+          },
+          'button subtle',
+          'op-orders-next',
+        );
+        next.disabled = server.page >= server.pages;
+        pager.append(back, el('span', 'op-note', pagerText(server)), next);
+      }
+      if (loading && !server && !serverFailed) {
+        list.replaceChildren(el('p', 'op-note', 'Загружаем заказы...'));
+        return;
+      }
       list.replaceChildren(
         table(
           ['Заказ', 'Касса', 'Дата', 'Канал', 'Сумма', 'Оплата', 'Кухня', ''],
@@ -2331,6 +2400,30 @@ export class OperationsView {
         ),
       );
     };
+    const load = async () => {
+      const mine = ++ticket;
+      loading = true;
+      draw();
+      try {
+        const view = await this.model.orders(params());
+        if (mine !== ticket) return;
+        server = view;
+        page = view.page;
+        serverFailed = false;
+      } catch {
+        if (mine !== ticket) return;
+        server = null;
+        serverFailed = true;
+      }
+      loading = false;
+      draw();
+    };
+    // A filter starts again from page 1; without the server the list is filtered here.
+    const refresh = () => {
+      page = 1;
+      if (serverFailed) draw();
+      else void load();
+    };
     const toolbar = el('div', 'toolbar');
     toolbar.append(
       field(
@@ -2338,7 +2431,9 @@ export class OperationsView {
         query,
         (v) => {
           query = v;
-          draw();
+          clearTimeout(timer);
+          if (serverFailed) draw();
+          else timer = setTimeout(refresh, 300);
         },
         { id: 'op-order-search' },
       ),
@@ -2348,7 +2443,7 @@ export class OperationsView {
         [{ value: '', label: 'Все' }, ...opts(['mobile', 'pos', 'kiosk'])],
         (v) => {
           channel = v;
-          draw();
+          refresh();
         },
         'op-order-channel',
       ),
@@ -2361,7 +2456,7 @@ export class OperationsView {
         ],
         (v) => {
           this.orderDesk = v;
-          draw();
+          refresh();
         },
         'op-order-desk',
       ),
@@ -2376,13 +2471,14 @@ export class OperationsView {
         ],
         (v) => {
           this.orderSort = v as typeof this.orderSort;
-          draw();
+          refresh();
         },
         'op-order-sort',
       ),
     );
-    p.append(toolbar, totals, list);
+    p.append(toolbar, hint, totals, list, pager);
     draw();
+    void load();
     content.append(p);
   }
   async order(id: string) {
@@ -2812,6 +2908,118 @@ export class OperationsView {
     p.append(filters, count, list);
     draw();
     content.append(p);
+  }
+  /** The blocks of «Оплаты и чеки» below the reconciliation, from one snapshot. */
+  private settlementBlocks(content: HTMLElement, src: Snapshot) {
+    const metrics = src.metrics;
+    const clipped = src.truncated;
+    content.append(
+      stats([
+        ['Оплаты', amount(metrics['captured_minor']), 'Приложение и киоск'],
+        ['Возвраты', amount(metrics['refunded_minor']), 'Приложение и киоск'],
+        ['Неизвестные платежи', val(metrics['unknown_payments'])],
+        ['Проблемы сверки', String(src.issues.length) + (clipped?.['issues'] ? '+' : '')],
+      ]),
+    );
+    const p = panel('Фискальные документы', 'Статус приходит от фискального адаптера.');
+    p.append(
+      table(
+        ['Документ', 'Заказ', 'Тип', 'Сумма', 'Статус'],
+        src.finance.map((v) => [
+          String(v['id']).slice(0, 8),
+          String(v['order_id']).slice(0, 8),
+          v['kind'] === 'sale' ? 'Продажа' : 'Возврат',
+          amount(v['amount_minor']),
+          badge(v['state']),
+        ]),
+      ),
+    );
+    const r = panel('Возвраты');
+    r.append(
+      table(
+        ['Заказ', 'Сумма', 'Причина', 'Статус'],
+        src.refunds.map((v) => [
+          String(v['order_id']).slice(0, 8),
+          amount(v['amount_minor']),
+          val(v['reason']),
+          badge(v['state']),
+        ]),
+      ),
+    );
+    content.append(
+      p,
+      r,
+      note(
+        'Закрытие фискальной смены и выгрузка в 1С ожидают подключения и проверки соответствующих адаптеров.',
+      ),
+    );
+  }
+  /** Audit F13: the day of «Оплаты и чеки» and its snapshot (GET branches/:id of that day). */
+  private settle: { day: string; stamp: string; data: Snapshot | null; failed: boolean } | null =
+    null;
+  private settleOwnDay = '';
+  /** The reconciliation day while the reconciliation is shown, else the page's own day. */
+  dayOfSettlements(): { day: string; reconciliation: boolean } {
+    const rec = this.reconciliation?.model;
+    if (rec && !rec.unavailable && /^\d{4}-\d{2}-\d{2}$/.test(rec.day))
+      return { day: rec.day, reconciliation: true };
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Almaty' }).format(new Date());
+    return { day: this.settleOwnDay || today, reconciliation: false };
+  }
+  private settlementsDay(content: HTMLElement, stamp: string) {
+    const { day, reconciliation } = this.dayOfSettlements();
+    // Another day, or «Обновить» (a new main snapshot): the day is read again.
+    if (this.settle?.day !== day || this.settle.stamp !== stamp) {
+      const mine = { day, stamp, data: null as Snapshot | null, failed: false };
+      this.settle = mine;
+      void this.model
+        .daySnapshot(day)
+        .then((v) => {
+          mine.data = v;
+        })
+        .catch(() => {
+          mine.failed = true;
+        })
+        .finally(() => {
+          if (this.settle === mine) this.model.changed();
+        });
+    }
+    const head = el('div', 'toolbar settle-head');
+    const title = el(
+      'h2',
+      'op-section-title',
+      `Приложение и киоск за ${day.slice(8, 10)}.${day.slice(5, 7)}.${day.slice(0, 4)}` +
+        (reconciliation ? ' (день сверки выше)' : ''),
+    );
+    title.dataset.testid = 'settle-title';
+    head.append(title);
+    if (!reconciliation) {
+      const picker = field(
+        'День',
+        day,
+        (v) => {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+            this.settleOwnDay = v;
+            this.model.changed();
+          }
+        },
+        { id: 'settle-day', type: 'date' },
+      );
+      head.append(picker);
+    }
+    content.append(head);
+    const s = this.settle;
+    if (!s?.data) {
+      content.append(
+        note(
+          s?.failed
+            ? 'Данные дня не загрузились: нет связи с сервером. Нажмите «Обновить».'
+            : 'Загружаем данные дня...',
+        ),
+      );
+      return;
+    }
+    this.settlementBlocks(content, s.data);
   }
   /** Stage 2, lane rec: daily reconciliation on top of «Оплаты и чеки»; hidden while off. */
   private reconciliation: ReconciliationView | null = null;
@@ -3327,52 +3535,13 @@ export class OperationsView {
       return;
     }
     if (page === 'finance') {
-      // Audit F13 (with the fixes): the blocks below follow the header period, the daily
-      // reconciliation above has its own day; each says which.
-      if (ui.fixes)
-        content.append(
-          el('h2', 'op-section-title', 'Приложение и киоск за период ' + periodText(d)),
-        );
-      content.append(
-        stats([
-          ['Оплаты', amount(metrics['captured_minor']), 'Приложение и киоск'],
-          ['Возвраты', amount(metrics['refunded_minor']), 'Приложение и киоск'],
-          ['Неизвестные платежи', val(metrics['unknown_payments'])],
-          ['Проблемы сверки', String(d.issues.length) + (clipped?.['issues'] ? '+' : '')],
-        ]),
-      );
-      const p = panel('Фискальные документы', 'Статус приходит от фискального адаптера.');
-      p.append(
-        table(
-          ['Документ', 'Заказ', 'Тип', 'Сумма', 'Статус'],
-          d.finance.map((v) => [
-            String(v['id']).slice(0, 8),
-            String(v['order_id']).slice(0, 8),
-            v['kind'] === 'sale' ? 'Продажа' : 'Возврат',
-            amount(v['amount_minor']),
-            badge(v['state']),
-          ]),
-        ),
-      );
-      const r = panel('Возвраты');
-      r.append(
-        table(
-          ['Заказ', 'Сумма', 'Причина', 'Статус'],
-          d.refunds.map((v) => [
-            String(v['order_id']).slice(0, 8),
-            amount(v['amount_minor']),
-            val(v['reason']),
-            badge(v['state']),
-          ]),
-        ),
-      );
-      content.append(
-        p,
-        r,
-        note(
-          'Закрытие фискальной смены и выгрузка в 1С ожидают подключения и проверки соответствующих адаптеров.',
-        ),
-      );
+      // Audit F13 (with the fixes): one date on the page. The header period is gone here; the
+      // blocks below show the reconciliation day (or their own day without reconciliation).
+      if (ui.fixes) {
+        this.settlementsDay(content, d.as_of);
+        return;
+      }
+      this.settlementBlocks(content, d);
       return;
     }
     if (page === 'promo')

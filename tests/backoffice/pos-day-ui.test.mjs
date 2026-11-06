@@ -100,6 +100,8 @@ test('allowlists: ops/pos-day takes one date and an optional cash desk, nothing 
     `${base}/ops/manager-shifts`,
     `${base}/ops/staff-roster`,
     `${base}/ops/discounts`,
+    // Review: the order registry on the server (audit F10, orders-registry-ui.test.mjs).
+    `${base}/ops/orders`,
     `${base}/finance`,
   ])
     assert.equal(regex.test(path), true, path);
@@ -108,6 +110,7 @@ test('allowlists: ops/pos-day takes one date and an optional cash desk, nothing 
     `${base}/ops/discounts/x`,
     `${base}/ops/pos-day/x`,
     `${base}/ops/consumption/x`,
+    `${base}/ops/orders/x`,
     `${base}/ops/`,
   ])
     assert.equal(regex.test(path), false, path);

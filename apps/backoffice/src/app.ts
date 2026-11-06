@@ -439,7 +439,7 @@ function login() {
   root.replaceChildren(page);
 }
 /** Audit F07: the pages whose data follows the header period (with the audit fixes). */
-const PERIOD_PAGES = ['dash', 'orders', 'reports', 'settlements', 'shifts'];
+const PERIOD_PAGES = ['dash', 'orders', 'reports', 'shifts'];
 function render() {
   if (page !== 'devices') devices.hideCode();
   // Lane bo-ui audit fixes: one switch for every view (ui-fixes.ts), and a root class for CSS.
@@ -690,16 +690,26 @@ function render() {
       'op-refresh',
     );
     refresh.disabled = operations.busy || Boolean(operations.pending);
-    // Audit F07 (with the fixes): no period switch on pages it does not change.
+    // Audit F07 (with the fixes): no period switch on pages it does not change. Audit F13:
+    // «Оплаты и чеки» have one date, the reconciliation day (or their own), not the header one.
     const periodShown = !ui.fixes || PERIOD_PAGES.includes(page);
     if (periodShown) tools.append(periodField);
     else {
-      const hint = el('small', 'muted header-filter-hint', 'Данные на сейчас, без выбора периода.');
+      const hint = el(
+        'small',
+        'muted header-filter-hint',
+        page === 'settlements'
+          ? 'Дата страницы - день ниже, без выбора периода.'
+          : 'Данные на сейчас, без выбора периода.',
+      );
       hint.dataset.testid = 'no-period-hint';
       tools.append(hint);
     }
     periodTarget.append(tools);
-    if (['dash', 'orders', 'shifts', 'reports', 'settlements'].includes(page)) {
+    if (
+      ['dash', 'orders', 'shifts', 'reports', 'settlements'].includes(page) &&
+      !(ui.fixes && page === 'settlements')
+    ) {
       const shifts = operations.data?.cashier_shifts ?? [];
       if (shifts.length) {
         const chooser = select(

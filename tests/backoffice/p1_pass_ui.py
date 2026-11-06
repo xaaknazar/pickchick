@@ -28,13 +28,13 @@ ROLES = {
 # What each role may do on the P1 screens (design-bo-ui 4).
 CAN = {
     'manager': {'count': True, 'reverse': True, 'discounts': True, 'shift': True, 'mode': True,
-                'team': True},
+                'team': True, 'rec': True},
     'shift': {'count': True, 'reverse': False, 'discounts': False, 'shift': True, 'mode': False,
-              'team': False},
+              'team': False, 'rec': False},
     'accountant': {'count': False, 'reverse': True, 'discounts': False, 'shift': False,
-                   'mode': False, 'team': True},
+                   'mode': False, 'team': True, 'rec': True},
     'analyst': {'count': False, 'reverse': False, 'discounts': False, 'shift': False,
-                'mode': False, 'team': True},
+                'mode': False, 'team': True, 'rec': True},
 }
 STOCK_TABS = ['Остатки', 'Документы', 'Списания', 'Движение', 'Расхождения подсчёта',
               'Расход по продажам', 'Списание по продажам', 'Техкарты', 'Ингредиенты']
@@ -148,9 +148,23 @@ with sync_playwright() as pw:
             page.get_by_test_id('pos-day-tab-webkassa').click()
             expect(page.get_by_test_id('pos-webkassa-pending')).to_be_visible()
             check(page, role, 'pos-webkassa', width)
-            # «Заказы» with the cash desk column.
+            # «Заказы» with the cash desk column, totals of the period from the server (F10).
             nav(page, 'orders')
+            expect(page.get_by_test_id('op-orders-totals')).to_contain_text('Итого за период')
             check(page, role, 'orders', width)
+            # «Оплаты и чеки» (audit F13): one date, the reconciliation day where it is shown.
+            nav(page, 'settlements')
+            expect(page.get_by_role('group', name='Период')).to_have_count(0)
+            title = page.get_by_test_id('settle-title')
+            if can['rec']:
+                day = page.get_by_test_id('rec-day').input_value()
+                expect(title).to_have_text(
+                    f'Приложение и киоск за {day[8:10]}.{day[5:7]}.{day[0:4]} (день сверки выше)')
+            else:
+                expect(page.get_by_test_id('reconciliation')).to_have_count(0)
+                expect(title).to_contain_text('Приложение и киоск за ')
+                expect(page.get_by_test_id('settle-day')).to_be_visible()
+            check(page, role, 'settlements', width)
             # «Остатки»: every tab; the reports are run for today.
             nav(page, 'stock')
             expect(page.get_by_test_id('stock-sales-notice')).to_contain_text(

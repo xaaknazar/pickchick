@@ -218,7 +218,15 @@ with sync_playwright() as pw:
         expect(lines.filter(has_text='Касса 1')).to_contain_text('№1')
         expect(lines.filter(has_text='Касса 2')).to_contain_text('№1')
         expect(registry).to_contain_text('Оплачено')
-        expect(page.get_by_test_id('op-orders-totals')).to_contain_text('Итого по списку: заказов 2, без отменённых 2 на 3 700 ₸')
+        # Audit F10: the server totals the whole period, also by cash desk.
+        expect(page.get_by_test_id('op-orders-totals')).to_contain_text('Итого за период: заказов 2, без отменённых 2 на 3 700 ₸. Касса 1: 1, 2 500 ₸ · Касса 2: 1, 1 200 ₸.')
+        # The search asks the server: «№1» is the number 1 of both desks.
+        with page.expect_response(lambda r: '/ops/orders?' in r.url and 'q=' in r.url) as answer:
+            page.get_by_test_id('op-order-search').fill('№1')
+        assert answer.value.status == 200, answer.value.status
+        expect(lines).to_have_count(2)
+        with page.expect_response(lambda r: '/ops/orders?' in r.url and 'q=' not in r.url):
+            page.get_by_test_id('op-order-search').fill('')
         page.get_by_test_id('op-order-desk').select_option(label='Касса 2')
         expect(lines).to_have_count(1)
         page.get_by_test_id('op-order-desk').select_option('')

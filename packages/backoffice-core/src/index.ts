@@ -83,6 +83,7 @@ import {
   stripKeptPositions,
 } from './positions.js';
 import { discountCommand, discountsAvailable, readDiscounts } from './discounts.js';
+import { readOrdersRegistry } from './orders-registry.js';
 export * from './model.js';
 export * from './stops.js';
 export * from './station-plans.js';
@@ -100,6 +101,7 @@ export * from './manager-shifts-store.js';
 export * from './positions.js';
 export * from './discounts.js';
 export * from './p1-rollback.js';
+export * from './orders-registry.js';
 export const BACKOFFICE = Symbol('BACKOFFICE');
 /** The old manager journal (bo_records kind shift) in GET branches/:id while the shift runs. */
 export const LEGACY_JOURNAL_LIMIT = 200;
@@ -653,8 +655,9 @@ export class Backoffice {
    *   404 STOCK_V2_DISABLED.
    * - `sales` (CC-7, sales-report.ts): only while BACKOFFICE_SALES_REPORT_ENABLED is on;
    *   otherwise exactly the 404 of an unknown view.
-   * - `pos-day` (bo-ui «Касса», pos-day.ts): only while BACKOFFICE_POS_DAY_ENABLED is on;
-   *   otherwise exactly the 404 of an unknown view.
+   * - `pos-day` (bo-ui «Касса», pos-day.ts) and `orders` (the order registry on the server,
+   *   orders-registry.ts, audit F10): only while BACKOFFICE_POS_DAY_ENABLED is on; otherwise
+   *   exactly the 404 of an unknown view.
    * - `discounts` (bo-ui step 7, discounts.ts): only while BACKOFFICE_DISCOUNTS_ENABLED is on;
    *   otherwise exactly the 404 of an unknown view.
    */
@@ -667,6 +670,9 @@ export class Backoffice {
       // Back-office P1 «Касса» (bo-ui, pos-day.ts): only while BACKOFFICE_POS_DAY_ENABLED is on.
       if (view === 'pos-day' && this.options.posDayEnabled === true)
         return readPosDay(db, branch, input, new Date());
+      // The order registry searched, sorted, paged and totalled on the server (audit F10).
+      if (view === 'orders' && this.options.posDayEnabled === true)
+        return readOrdersRegistry(db, branch, input, new Date());
       // Back-office P1 menu-stock links (stock P1) and the consumption queue (autoconsume).
       if (view === 'menu-links' && this.options.stockV2Enabled === true) {
         if (!(await stockP1Ready(db))) throw new ErrorCode('NOT_FOUND', 'STOCK_V2_DISABLED');

@@ -11,6 +11,23 @@ export class ApiError extends Error {
 export type Request = { method?: 'GET' | 'PUT' | 'POST'; body?: unknown };
 export type Transport = (path: string, token: string, options?: Request) => Promise<unknown>;
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
+/** Lane bo-ui (audit F10): GET .../ops/orders, the order registry on the server. */
+function ordersQuery(q: URLSearchParams) {
+  const keys = ['start_date', 'end_date', 'q', 'channel', 'terminal_id', 'sort', 'page'];
+  const day = (v: string | null) => v !== null && /^\d{4}-\d{2}-\d{2}$/.test(v);
+  const value = (k: string, re: RegExp) => q.get(k) === null || re.test(q.get(k) ?? '');
+  return (
+    [...q.keys()].every((k) => keys.includes(k)) &&
+    keys.every((k) => q.getAll(k).length <= 1) &&
+    day(q.get('start_date')) &&
+    day(q.get('end_date')) &&
+    value('q', /^[0-9a-fA-F№ -]{0,40}$/) &&
+    value('channel', /^(mobile|kiosk|pos)$/) &&
+    value('terminal_id', new RegExp(`^${UUID}$`)) &&
+    value('sort', /^(new|old|number|amount)$/) &&
+    value('page', /^[1-9][0-9]{0,3}$/)
+  );
+}
 function reportQuery(search: string) {
   if (search.length > 400) return false;
   const query = new URLSearchParams(search);
@@ -140,6 +157,9 @@ export function allowedPath(path: string): boolean {
       (terminal === null || new RegExp(`^${UUID}$`).test(terminal))
     );
   }
+  // Lane bo-ui (audit F10): the order registry of a date window on the server.
+  if (new RegExp(`^operations/branches/${UUID}/ops/orders$`).test(pathname))
+    return (search?.length ?? 0) <= 300 && ordersQuery(new URLSearchParams(search ?? ''));
   // Lane bo-ui automatic consumption: menu-stock links and the consumption queue.
   if (new RegExp(`^operations/branches/${UUID}/ops/menu-links$`).test(pathname))
     return search === undefined;

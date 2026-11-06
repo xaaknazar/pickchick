@@ -1,6 +1,7 @@
 import { ApiError, type Request } from './api.js';
 import { salesReport, type SalesReport } from './sales-report-model.js';
 import { posDay, type PosDay } from './pos-day-model.js';
+import { ordersSearch, ordersView, type OrdersParams, type OrdersView } from './orders-model.js';
 import {
   consumptionView,
   menuLinksView,
@@ -526,6 +527,25 @@ export class OperationsModel {
     const value = await this.api(`branches/${branch}/ops/pos-day?${query.toString()}`);
     if (generation !== this.generation) throw new ApiError('FORBIDDEN');
     return posDay(value, branch);
+  }
+  /**
+   * GET branches/:id of one Almaty day, not kept as the shown snapshot (audit F13: «Оплаты и
+   * чеки» show the reconciliation day, the header period stays as it is for the other pages).
+   */
+  async daySnapshot(day: string): Promise<Snapshot> {
+    const branch = this.branch;
+    const query = new URLSearchParams({ period: 'custom', start_date: day, end_date: day });
+    const value = await this.api(`branches/${branch}?${query.toString()}`);
+    if (branch !== this.branch) throw new ApiError('FORBIDDEN');
+    return snapshot(value, branch);
+  }
+  /** One page of the order registry on the server (GET .../ops/orders, audit F10). */
+  async orders(params: OrdersParams): Promise<OrdersView> {
+    const generation = this.generation;
+    const branch = this.branch;
+    const value = await this.api(`branches/${branch}/ops/orders?${ordersSearch(params)}`);
+    if (generation !== this.generation) throw new ApiError('FORBIDDEN');
+    return ordersView(value, branch);
   }
   /** Menu-stock links of the head catalog (GET .../ops/menu-links, lane bo-ui step 5). */
   async menuLinks(): Promise<MenuLinksView> {

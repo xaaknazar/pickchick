@@ -11,6 +11,28 @@ export const JSON_MAX_BYTES = 300 * 1024;
 /** Content-addressed catalog photo renditions, proxied same-origin so CSP img-src stays 'self'. */
 export const MEDIA_ROUTE = /^\/v1\/media\/catalog\/[a-f0-9]{64}(?:\.(?:card|hero|thumb))?\.webp$/;
 export const MEDIA_MAX_BYTES = 1500000;
+/**
+ * Lane bo-ui (audit F10): GET .../ops/orders - an Almaty date window, optionally a search
+ * (number or a piece of the id), channel, cash desk, order and page; each key at most once.
+ */
+function ordersQuery(q, flags = '') {
+  const one = (k) => q.getAll(k).length <= 1;
+  const day = (v) => v !== null && /^\d{4}-\d{2}-\d{2}$/.test(v);
+  const value = (k, re) => q.get(k) === null || re.test(q.get(k));
+  return (
+    [...q.keys()].every((k) =>
+      ['start_date', 'end_date', 'q', 'channel', 'terminal_id', 'sort', 'page'].includes(k),
+    ) &&
+    ['start_date', 'end_date', 'q', 'channel', 'terminal_id', 'sort', 'page'].every(one) &&
+    day(q.get('start_date')) &&
+    day(q.get('end_date')) &&
+    value('q', /^[0-9a-fA-F№ -]{0,40}$/) &&
+    value('channel', /^(mobile|kiosk|pos)$/) &&
+    value('terminal_id', new RegExp(`^${UUID}$`, flags)) &&
+    value('sort', /^(new|old|number|amount)$/) &&
+    value('page', /^[1-9][0-9]{0,3}$/)
+  );
+}
 function reportQuery(search) {
   if (search.length > 400) return false;
   const query = new URLSearchParams(search);
@@ -172,6 +194,15 @@ export const allowed = (method, path) => {
       (terminal === null || new RegExp(`^${UUID}$`, 'i').test(terminal))
     );
   }
+  // Lane bo-ui (audit F10): the order registry of an Almaty date window, searched, sorted and
+  // paged on the server (BACKOFFICE_POS_DAY_ENABLED).
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/orders$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    return (search?.length ?? 0) <= 300 && ordersQuery(q, 'i');
+  }
   // Lane bo-ui automatic consumption: the menu-stock links (no query) and the queue of one
   // Almaty day or of every day, optionally one state.
   if (
@@ -313,6 +344,7 @@ const assets = new Map([
     // Lane bo-ui «Касса» (shown only while the API reports capabilities.pos_day).
     'pos-day',
     'pos-day-model',
+    'orders-model',
     // Lane bo-ui audit fixes (active only while the API reports them).
     'ui-fixes',
     'dialog-guard',

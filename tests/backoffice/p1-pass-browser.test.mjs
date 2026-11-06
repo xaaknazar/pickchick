@@ -43,6 +43,8 @@ const FLAGS = {
   staffPositions: true,
   discounts: true,
   workforce: true,
+  // «Оплаты и чеки» with the daily reconciliation (audit F13: one date on the page).
+  reconciliation: true,
 };
 const today = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Almaty' }).format(new Date());

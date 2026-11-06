@@ -7,7 +7,9 @@ stock dialogs), on (the cutover back office with roles: F03, F05-F09, F14-F20). 
 import json
 import re
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 from playwright.sync_api import sync_playwright, expect
 
 config = json.loads(Path(sys.argv[1]).read_text())
@@ -317,9 +319,22 @@ with sync_playwright() as pw:
         head = raw.decode('utf-8-sig').split('\r\n')[0]
         assert head == '"Показатель";"Сумма, ₸"', head
 
-        # F13: the settlements blocks say which period they show.
+        # F13: one date on «Оплаты и чеки»: no header period; without the reconciliation the
+        # blocks have their own day (today), and another day reloads them for that day.
         nav(page, 'settlements')
-        expect(page.locator('h2.op-section-title')).to_contain_text('Приложение и киоск за период')
+        expect(page.get_by_role('group', name='Период')).to_have_count(0)
+        expect(page.get_by_test_id('no-period-hint')).to_contain_text('Дата страницы')
+        title = page.get_by_test_id('settle-title')
+        today = datetime.now(ZoneInfo('Asia/Almaty')).date()
+        expect(title).to_have_text(f'Приложение и киоск за {today:%d.%m.%Y}')
+        before = today - timedelta(days=1)
+        with page.expect_response(lambda r: f'start_date={before}' in r.url and f'end_date={before}' in r.url) as answer:
+            page.get_by_test_id('settle-day').fill(str(before))
+        assert answer.value.status == 200, answer.value.status
+        expect(title).to_have_text(f'Приложение и киоск за {before:%d.%m.%Y}')
+        # The other pages keep their own header period.
+        nav(page, 'dash')
+        expect(page.get_by_role('group', name='Период')).to_have_count(1)
         page.close()
 
         # ---- F03: the accountant writes finance, posts a receipt, but no waste ----
