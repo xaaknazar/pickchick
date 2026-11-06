@@ -135,7 +135,8 @@ export const allowed = (method, path) => {
       (search?.length ?? 0) <= 200 &&
       [...q.keys()].length === 3 &&
       ['view', 'start_date', 'end_date'].every((k) => q.getAll(k).length === 1) &&
-      /^(waste|movement)$/.test(q.get('view') ?? '') &&
+      // Lane bo-ui stock P1 (step 8) adds variance and consumption; the API decides by its flag.
+      /^(waste|movement|variance|consumption)$/.test(q.get('view') ?? '') &&
       /^\d{4}-\d{2}-\d{2}$/.test(q.get('start_date') ?? '') &&
       /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '')
     );

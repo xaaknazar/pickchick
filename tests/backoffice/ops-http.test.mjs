@@ -22,8 +22,11 @@ test('operator proxy allowlist: only ops/stock with view and a date window', () 
   const ok = (q) => allowed('GET', `${base}/stock?${q}`);
   assert.equal(ok('view=waste&start_date=2026-11-19&end_date=2026-11-19'), true);
   assert.equal(ok('view=movement&start_date=2026-11-01&end_date=2026-11-30'), true);
+  // Lane bo-ui stock P1 (step 8): the API answers these only with stock P1, see below.
+  assert.equal(ok('view=variance&start_date=2026-11-19&end_date=2026-11-19'), true);
+  assert.equal(ok('view=consumption&start_date=2026-11-19&end_date=2026-11-19'), true);
   for (const q of [
-    'view=consumption&start_date=2026-11-19&end_date=2026-11-19',
+    'view=sales&start_date=2026-11-19&end_date=2026-11-19',
     'view=waste&start_date=2026-11-19',
     'view=waste&start_date=2026-11-19&end_date=2026-11-19&token=x',
     'view=waste&view=waste&start_date=2026-11-19&end_date=2026-11-19',
@@ -70,11 +73,16 @@ test('flags off: ops/stock answers 404 STOCK_V2_DISABLED, v2 fields 409, read ke
     assert.equal(body.code, 'NOT_FOUND');
     assert.deepEqual(body.error, { code: 'STOCK_V2_DISABLED' });
     // The proxy refuses what it does not know before the API sees it.
-    const blocked = await fetch(c.url + opsPath(c.branch, { ...query, view: 'consumption' }), {
+    const blocked = await fetch(c.url + opsPath(c.branch, { ...query, view: 'sales' }), {
       headers,
     });
     assert.equal(blocked.status, 404);
     assert.equal((await blocked.json()).error, undefined);
+    // A stock P1 view (lane bo-ui step 8) reaches the API, which answers as for every stock view
+    // while stock v2 is off.
+    const p1 = await fetch(c.url + opsPath(c.branch, { ...query, view: 'variance' }), { headers });
+    assert.equal(p1.status, 404);
+    assert.deepEqual((await p1.json()).error, { code: 'STOCK_V2_DISABLED' });
     // The API itself: an unknown view is a plain 404.
     const unknown = await fetch(
       `${c.upstream}/v1/admin/backoffice/branches/${c.branch}/ops/sales?start_date=2026-11-01`,

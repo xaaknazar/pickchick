@@ -24,7 +24,12 @@ import {
   wasteReasonLabelP1,
   wasteReportCsv,
   inventoryCsv,
+  consumptionReportCsv,
+  consumptionSourceLabel,
+  signedQuantity,
+  varianceReportCsv,
   type QuickTile,
+  type StockReportView,
   type StockKind,
   type StockLine,
   type StockV2Draft,
@@ -101,6 +106,9 @@ export function inventoryEditor(
     draft?: StockEditorState | null;
     /** Stock P1: the quick waste tiles of the ingredients (waste only). */
     quickWaste?: QuickTile[];
+    /** Step 8 «Подсчёт на закрытии»: the first lines and number of a new document (no draft). */
+    prefill?: StockLine[];
+    reference?: string;
   } = {},
 ) {
   d.classList.add('inventory-editor');
@@ -119,7 +127,8 @@ export function inventoryEditor(
   const lines: StockLine[] = [],
     wrap = el('div', 'inventory-lines'),
     preview = el('div', 'inventory-preview');
-  let reference = typeof draft?.reference === 'string' ? draft.reference : '',
+  let reference =
+      typeof draft?.reference === 'string' ? draft.reference : (options.reference ?? ''),
     reviewed = false;
   const review = check(
     'Проверил количество и стоимость перед проведением',
@@ -341,6 +350,9 @@ export function inventoryEditor(
   if (restored.length) {
     lines.push(...restored.slice(0, 100).map((l) => ({ ...l })));
     draw();
+  } else if (options.prefill?.length) {
+    lines.push(...options.prefill.slice(0, 100).map((l) => ({ ...l })));
+    draw();
   } else add();
   const build = () => {
     const extra = options.stockV2 ? stockV2Fields(kind, v2) : {};
@@ -380,7 +392,7 @@ export type InventoryCallbacks = {
   /** Permission of the signed-in role (operations-model permitted). */
   can: (permission: string) => boolean;
   /** Stock v2 report (GET .../ops/stock); absent while the server has no stock v2. */
-  report?: (view: 'waste' | 'movement', start: string, end: string) => Promise<StockReport>;
+  report?: (view: StockReportView, start: string, end: string) => Promise<StockReport>;
   /** Lane bo-ui stock fixes (audit F17): «Ингредиенты» instead of a second «Номенклатура». */
   fixes?: boolean;
   /** Why a document kind is not offered to this role, in words (audit F03, F09). */
@@ -400,6 +412,25 @@ export type InventoryCallbacks = {
    * the queue (capabilities.stock_autoconsume). `stamp` changes with every page snapshot.
    */
   autoconsume?: { stamp: string; callbacks: AutoconsumeCallbacks };
+  /**
+   * Step 8 «Подсчёт на закрытии»: a count of the positions marked «Считать каждый день» (stock P1,
+   * the role may count, at least one such position). Absent otherwise.
+   */
+  keyCount?: { open: () => void; items: number };
+};
+const REPORT_TABS: readonly StockReportView[] = ['waste', 'movement', 'variance', 'consumption'];
+const isReportTab = (tab: string): tab is StockReportView =>
+  (REPORT_TABS as readonly string[]).includes(tab);
+/** «Как считается» under each stock P1 report. */
+const REPORT_NOTES: Record<StockReportView, string> = {
+  waste:
+    'Как считается: дни - по времени Алматы, период - до 92 дней. Сумма - стоимость по средней себестоимости на момент документа. Сторно списания уменьшает итоги дня, в который его провели, под причиной и автором исходного списания. Списания до включения склада v2 - строкой «Без кода причины».',
+  movement:
+    'Все документы периода: поставки, списания, инвентаризации, производство и сторно. Изменение стоимости со знаком: поставка увеличивает запас, списание уменьшает.',
+  variance:
+    'Как считается: каждая инвентаризация периода (и «Подсчёт на закрытии») сравнивает посчитанное с остатком по учёту в момент подсчёта. «Ожидалось» и «Посчитано» - последнего подсчёта позиции, «Разница» и «Сумма» - всех подсчётов периода, по средней себестоимости. Минус - недостача. Первый ввод остатков (18.11) показывает весь остаток как излишек.',
+  consumption:
+    'Как считается: документы «По техкарте» периода - списание по продажам кассы, по заказам приложения и киоска и ручное списание по техкартам заказа. Сторно такого документа уменьшает итоги дня, в который его провели. Сумма - по средней себестоимости на момент документа.',
 };
 export class InventoryView {
   private tab = 'balances';
@@ -412,11 +443,18 @@ export class InventoryView {
   private reportResult: StockReport | null = null;
   private reportError = '';
   /** Stock P1 reports: one result per tab, the period is shared. */
-  private p1Results: Record<'waste' | 'movement', StockReport | null> = {
+  private p1Results: Record<StockReportView, StockReport | null> = {
     waste: null,
     movement: null,
+    variance: null,
+    consumption: null,
   };
-  private p1Errors: Record<'waste' | 'movement', string> = { waste: '', movement: '' };
+  private p1Errors: Record<StockReportView, string> = {
+    waste: '',
+    movement: '',
+    variance: '',
+    consumption: '',
+  };
   private sales = new AutoconsumeView();
   render(data: Snapshot, callbacks: InventoryCallbacks) {
     const root = el('section', 'inventory'),
@@ -435,6 +473,9 @@ export class InventoryView {
           ? [
               ['waste', 'Списания'],
               ['movement', 'Движение'],
+              // Step 8: what the counts found and what the sales wrote off.
+              ['variance', 'Расхождения подсчёта'],
+              ['consumption', 'Расход по продажам'],
             ]
           : callbacks.report
             ? [['report', 'Списания и поставки']]
@@ -457,7 +498,7 @@ export class InventoryView {
       if (this.tab === 'balances') this.balances(body, data, Boolean(p1));
       else if (this.tab === 'documents' && p1) this.documentsP1(body, data, p1);
       else if (this.tab === 'documents') this.documents(body, data);
-      else if ((this.tab === 'waste' || this.tab === 'movement') && p1 && callbacks.report)
+      else if (isReportTab(this.tab) && p1 && callbacks.report)
         this.reportP1(body, this.tab, callbacks.report);
       else if (this.tab === 'report' && callbacks.report && !p1)
         this.report(body, callbacks.report);
@@ -465,12 +506,7 @@ export class InventoryView {
         body.append(
           this.sales.render(callbacks.autoconsume.stamp, callbacks.autoconsume.callbacks),
         );
-      else if (
-        this.tab === 'waste' ||
-        this.tab === 'movement' ||
-        this.tab === 'sales' ||
-        (this.tab === 'report' && p1)
-      ) {
+      else if (isReportTab(this.tab) || this.tab === 'sales' || (this.tab === 'report' && p1)) {
         // The server lost (or gained) stock P1 since the tab was chosen: back to the balances.
         this.tab = 'balances';
         draw();
@@ -499,6 +535,15 @@ export class InventoryView {
     if (callbacks.can('stock.count'))
       toolbar.append(
         button('Инвентаризация', () => callbacks.stock('count'), 'button', 'op-count'),
+      );
+    if (callbacks.keyCount)
+      toolbar.append(
+        button(
+          `Подсчёт на закрытии (${callbacks.keyCount.items})`,
+          callbacks.keyCount.open,
+          'button',
+          'op-key-count',
+        ),
       );
     // Audit F03, F09: a role that cannot post a kind is told who can, instead of a silent gap.
     const missing = (['stock.receipt', 'stock.waste', 'stock.count'] as const)
@@ -836,8 +881,8 @@ export class InventoryView {
    */
   private reportP1(
     body: HTMLElement,
-    view: 'waste' | 'movement',
-    load: (view: 'waste' | 'movement', start: string, end: string) => Promise<StockReport>,
+    view: StockReportView,
+    load: (view: StockReportView, start: string, end: string) => Promise<StockReport>,
   ) {
     const result = el('div', 'inventory-report');
     result.dataset.testid = 'inventory-report-' + view;
@@ -913,6 +958,89 @@ export class InventoryView {
             true,
           ),
         );
+      else if (view === 'variance')
+        result.append(
+          el(
+            'p',
+            'op-note',
+            `Подсчётов: ${String(t['documents'] ?? 0)}, позиций: ${String(t['items'] ?? 0)}, с расхождением: ${String(t['lines_with_difference'] ?? 0)}. Недостача ${tenge(t['shortage_value_minor'])}, излишек ${tenge(t['surplus_value_minor'])}, итого ${tenge(t['delta_value_minor'])}.`,
+          ),
+          el('h3', '', 'По позициям'),
+          table(
+            [
+              'Ингредиент',
+              'Подсчётов',
+              'Ожидалось',
+              'Посчитано',
+              'Разница',
+              'Сумма',
+              'Последний подсчёт',
+            ],
+            summary('rows').map((v) => [
+              String(v['name']),
+              String(v['counts']),
+              displayQuantity(v['expected'], v['unit']),
+              displayQuantity(v['counted'], v['unit']),
+              signedQuantity(v['delta_quantity'], v['unit']),
+              tenge(v['delta_value_minor']),
+              almatyStamp(v['last_counted_at']),
+            ]),
+            true,
+          ),
+          el('h3', '', 'По дням'),
+          table(
+            ['День', 'Подсчётов', 'Позиций', 'Недостача', 'Излишек', 'Итого'],
+            summary('by_day').map((v) => [
+              day(v['day']),
+              String(v['documents']),
+              String(v['items']),
+              tenge(v['shortage_value_minor']),
+              tenge(v['surplus_value_minor']),
+              tenge(v['delta_value_minor']),
+            ]),
+            true,
+          ),
+        );
+      else if (view === 'consumption')
+        result.append(
+          el(
+            'p',
+            'op-note',
+            `Документов: ${String(t['documents'] ?? 0)}, сторно: ${String(t['reversals'] ?? 0)}. Итого ${tenge(t['value_minor'])} по средней себестоимости.`,
+          ),
+          el('h3', '', 'По источникам'),
+          table(
+            ['Источник', 'Документов', 'Сторно', 'Сумма'],
+            summary('by_source').map((v) => [
+              consumptionSourceLabel(v['source']),
+              String(v['documents']),
+              String(v['reversals'] ?? 0),
+              tenge(v['value_minor']),
+            ]),
+            true,
+          ),
+          el('h3', '', 'По дням'),
+          table(
+            ['День', 'Документов', 'Сторно', 'Сумма'],
+            summary('by_day').map((v) => [
+              day(v['day']),
+              String(v['documents']),
+              String(v['reversals'] ?? 0),
+              tenge(v['value_minor']),
+            ]),
+            true,
+          ),
+          el('h3', '', 'По позициям'),
+          table(
+            ['Ингредиент', 'Списано', 'Сумма'],
+            summary('by_ingredient').map((v) => [
+              String(v['name']),
+              displayQuantity(v['quantity'], v['unit']),
+              tenge(v['value_minor']),
+            ]),
+            true,
+          ),
+        );
       else
         result.append(
           el(
@@ -957,13 +1085,21 @@ export class InventoryView {
         );
       const files = el('div', 'inventory-filters');
       const span = `${r.start_date}-${r.end_date}`;
-      if (view === 'waste')
+      const totals =
+        view === 'waste'
+          ? wasteReportCsv
+          : view === 'variance'
+            ? varianceReportCsv
+            : view === 'consumption'
+              ? consumptionReportCsv
+              : null;
+      if (totals)
         files.append(
           button(
             'CSV итогов',
-            () => download(`pickchick-waste-${span}.csv`, wasteReportCsv(r)),
+            () => download(`pickchick-${view}-${span}.csv`, totals(r)),
             'button',
-            'inventory-waste-csv',
+            `inventory-${view}-csv`,
           ),
         );
       files.append(
@@ -971,7 +1107,7 @@ export class InventoryView {
           'CSV строк документов',
           () =>
             download(
-              `pickchick-${view === 'waste' ? 'waste-lines' : 'stock-movement'}-${span}.csv`,
+              `pickchick-${view === 'waste' ? 'waste-lines' : view === 'movement' ? 'stock-movement' : view + '-lines'}-${span}.csv`,
               stockDocumentsCsv(r.documents),
             ),
           'button',
@@ -1024,17 +1160,7 @@ export class InventoryView {
       ),
       run,
     );
-    body.append(
-      el(
-        'p',
-        'op-note',
-        view === 'waste'
-          ? 'Как считается: дни - по времени Алматы, период - до 92 дней. Сумма - стоимость по средней себестоимости на момент документа. Сторно списания уменьшает итоги дня, в который его провели, под причиной и автором исходного списания. Списания до включения склада v2 - строкой «Без кода причины».'
-          : 'Все документы периода: поставки, списания, инвентаризации, производство и сторно. Изменение стоимости со знаком: поставка увеличивает запас, списание уменьшает.',
-      ),
-      controls,
-      result,
-    );
+    body.append(el('p', 'op-note', REPORT_NOTES[view]), controls, result);
     show();
   }
   /** Stock P1 «Документы»: reason or supplier, storno state and the storno of a whole document. */

@@ -43,7 +43,12 @@ import {
   reversalPreview,
   stockKindLabel,
   stockSalesNotice,
+  INGREDIENT_GROUP_OPTIONS,
+  RECIPE_POLICY_OPTIONS,
+  almatyDay,
+  keyCountLines,
   type StockKind,
+  type StockReportView,
 } from './inventory-model.js';
 import {
   OperationsModel,
@@ -1327,6 +1332,59 @@ export class OperationsView {
         ),
         box,
       );
+      // Step 8: the closing count of the key positions (Ск7) and the group of the position.
+      const count = el('div', 'form-grid');
+      count.append(
+        check(
+          'Считать каждый день (подсчёт на закрытии)',
+          p['count_daily'] === true,
+          (on) => {
+            if (on) p['count_daily'] = true;
+            else delete p['count_daily'];
+          },
+          'op-count-daily',
+        ),
+        select(
+          'Группа',
+          typeof p['group'] === 'string' ? p['group'] : '',
+          [{ value: '', label: 'Не задана' }, ...INGREDIENT_GROUP_OPTIONS],
+          (value) => {
+            if (value) p['group'] = value;
+            else delete p['group'];
+          },
+          'op-ingredient-group',
+        ),
+      );
+      d.append(
+        el('h3', '', 'Подсчёт на закрытии'),
+        note(
+          'Отмеченные позиции попадают в «Подсчёт на закрытии» в «Остатках», а смена менеджера при закрытии проверяет, что их посчитали.',
+        ),
+        count,
+      );
+    }
+    // Stock P1 (step 8): how the automatic consumption treats the output of this recipe.
+    if (kind === 'recipe' && stockP1(this.model.data)) {
+      const policy = el('div', 'form-grid');
+      policy.append(
+        select(
+          'Выход техкарты при продаже',
+          typeof p['stock_policy'] === 'string' ? p['stock_policy'] : '',
+          [...RECIPE_POLICY_OPTIONS],
+          (value) => {
+            if (value) p['stock_policy'] = value;
+            else delete p['stock_policy'];
+          },
+          'op-stock-policy',
+        ),
+      );
+      d.append(
+        el('h3', '', 'Списание по продажам'),
+        note(
+          'Только для техкарт с выходом полуфабриката. «Раскладывать на сырьё» - при продаже списывается сырьё из состава, «Производство» по такой техкарте недоступно. «Списывать сам выход» - заготовку делают партиями через «Производство», а продажа списывает готовый выход со склада.',
+        ),
+        policy,
+      );
     }
     if (kind === 'campaign')
       d.append(
@@ -1706,19 +1764,25 @@ export class OperationsView {
   private stockDraftKey(kind: StockKind) {
     return `${STOCK_DRAFT}:${this.model.actor}:${this.model.branch}:${kind}`;
   }
-  private stock(kind: StockKind) {
+  /**
+   * A stock document dialog. `key` (stock P1, step 8): «Подсчёт на закрытии» - a count that starts
+   * with the positions marked «Считать каждый день» (an unfinished count draft wins).
+   */
+  private stock(kind: StockKind, closing = false) {
     const v2 = stockV2(this.model.data);
     // Lane bo-ui (audit F01, F02, F17) with stock v2 or the audit fixes; otherwise as before.
     const fixes = stockFixes(this.model.data);
     const d = dialog(
-      fixes ? STOCK_TITLES[kind] : status(kind),
-      kind === 'count'
-        ? 'Введите фактически посчитанное количество. Ноль означает отсутствие запаса; пустая строка не считается нулём. Перед проведением проверьте расхождения.'
-        : v2 && kind === 'waste'
-          ? 'Выберите причину, ингредиенты и количество. Все строки проводятся одним документом с одной причиной.'
-          : v2 && kind === 'receipt'
-            ? 'Укажите, откуда поставка, номер и дату накладной, ингредиенты и стоимость. Все строки проводятся одним документом.'
-            : 'Укажите ингредиенты, количество и основание. Все строки проводятся одним документом.',
+      closing ? 'Подсчёт на закрытии' : fixes ? STOCK_TITLES[kind] : status(kind),
+      closing
+        ? 'Посчитайте ключевые позиции и введите фактическое количество. Ноль - запаса нет; пустую строку уберите, если позицию не считали. Документ проводится как инвентаризация этих позиций.'
+        : kind === 'count'
+          ? 'Введите фактически посчитанное количество. Ноль означает отсутствие запаса; пустая строка не считается нулём. Перед проведением проверьте расхождения.'
+          : v2 && kind === 'waste'
+            ? 'Выберите причину, ингредиенты и количество. Все строки проводятся одним документом с одной причиной.'
+            : v2 && kind === 'receipt'
+              ? 'Укажите, откуда поставка, номер и дату накладной, ингредиенты и стоимость. Все строки проводятся одним документом.'
+              : 'Укажите ингредиенты, количество и основание. Все строки проводятся одним документом.',
     );
     if (!fixes) {
       const command = inventoryEditor(d, kind, this.model.data!.stock, { stockV2: v2 });
@@ -1738,6 +1802,12 @@ export class OperationsView {
     const editor = inventoryEditor(d, kind, this.model.data!.stock, {
       stockV2: v2,
       draft: saved,
+      ...(closing
+        ? {
+            prefill: keyCountLines(this.model.data!.stock),
+            reference: `Подсчёт на закрытии ${almatyDay(new Date()).split('-').reverse().join('.')}`,
+          }
+        : {}),
       // Stock P1: the quick waste tiles of the ingredient cards (waste only).
       ...(stockP1(this.model.data) && kind === 'waste'
         ? { quickWaste: quickWasteTiles(this.model.data!.stock) }
@@ -3137,8 +3207,17 @@ export class OperationsView {
             : {}),
           ...(stockV2(d)
             ? {
-                report: (view: 'waste' | 'movement', start: string, end: string) =>
+                report: (view: StockReportView, start: string, end: string) =>
                   this.model.stockReport(view, start, end),
+              }
+            : {}),
+          // Step 8 «Подсчёт на закрытии»: the positions marked «Считать каждый день».
+          ...(stockP1(d) && permitted(d, 'stock.count') && keyCountLines(d.stock).length
+            ? {
+                keyCount: {
+                  open: () => this.stock('count', true),
+                  items: keyCountLines(d.stock).length,
+                },
               }
             : {}),
           // Stock fixes (iiko-gap P0-13): whether sales are written off (the branch mode of the

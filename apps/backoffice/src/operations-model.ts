@@ -506,7 +506,11 @@ export class OperationsModel {
     return object(value);
   }
   /** Stock v2 report (GET .../ops/stock, cutover CC-6): waste by reason or every document. */
-  async stockReport(view: 'waste' | 'movement', startDate: string, endDate: string) {
+  async stockReport(
+    view: 'waste' | 'movement' | 'variance' | 'consumption',
+    startDate: string,
+    endDate: string,
+  ) {
     const generation = this.generation;
     const query = new URLSearchParams({ view, start_date: startDate, end_date: endDate });
     const value = await this.api(`branches/${this.branch}/ops/stock?${query.toString()}`);

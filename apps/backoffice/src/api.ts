@@ -113,7 +113,7 @@ export function allowedPath(path: string): boolean {
     return (
       [...q.keys()].length === 3 &&
       ['view', 'start_date', 'end_date'].every((k) => q.getAll(k).length === 1) &&
-      /^(waste|movement)$/.test(q.get('view') ?? '') &&
+      /^(waste|movement|variance|consumption)$/.test(q.get('view') ?? '') &&
       /^\d{4}-\d{2}-\d{2}$/.test(q.get('start_date') ?? '') &&
       /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '')
     );
@@ -475,6 +475,8 @@ const reasons: Record<string, string> = {
   ALREADY_REVERSED: 'Документ уже сторнирован. Сторно - одно на документ. Обновите страницу.',
   COUNTED_AFTER_DOCUMENT:
     'После документа по его позициям провели инвентаризацию: она уже учла фактический остаток. Исправьте остаток новой инвентаризацией или списанием.',
+  RECIPE_POLICY_EXPLODE:
+    'Эта техкарта при продаже раскладывается на сырьё, поэтому её не производят партиями. Если заготовку делают заранее, выберите в техкарте «Списывать сам выход».',
   // Lane bo-ui step 6 (servers with capabilities.manager_shifts / staff_positions).
   MANAGER_SHIFT_OPEN: 'Смена менеджера уже открыта. Обновите страницу и закройте её.',
   CHECKLIST_INCOMPLETE:

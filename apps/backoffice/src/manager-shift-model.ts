@@ -144,6 +144,15 @@ export function checkText(auto: string, check: Check | null | undefined): string
         ? 'Списаний за день не внесено. Подтвердите или внесите в «Остатки».'
         : `Документов списания за день: ${num(f['documents'])}.`;
     case 'key_count':
+      // Step 8: the positions marked «Считать каждый день» (count_daily) of the ingredient cards.
+      if (f['key_items'] !== undefined) {
+        const items = num(f['key_items']),
+          missing = num(f['key_missing_count']),
+          names = Array.isArray(f['key_missing']) ? f['key_missing'].map(String) : [];
+        return missing
+          ? `Не посчитаны ключевые позиции: ${missing} из ${items}${names.length ? ' (' + names.join(', ') + (missing > names.length ? ' и другие' : '') + ')' : ''}. Проведите «Подсчёт на закрытии» в «Остатки» или поясните.`
+          : `Ключевые позиции посчитаны: ${items} из ${items}, последний подсчёт в ${time(f['last_at'])}.`;
+      }
       return check.status === 'no_data'
         ? 'Подсчёта за день нет. Проведите инвентаризацию ключевых позиций в «Остатки».'
         : `Подсчётов за день: ${num(f['documents'])}, позиций: ${num(f['items'])}, последний в ${time(f['last_at'])}.`;

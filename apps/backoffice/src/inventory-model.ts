@@ -509,3 +509,156 @@ export function stockDocumentsCsv(documents: Data[]): string[][] {
     ),
   ];
 }
+
+// ------------------------------------------------- stock P1 step 8: reports and key count ----
+
+/** Report tabs of stock P1 (GET .../ops/stock?view=…). */
+export type StockReportView = 'waste' | 'movement' | 'variance' | 'consumption';
+/** Ingredient groups (design-backoffice 3) in the card and in the count dialog. */
+export const INGREDIENT_GROUP_OPTIONS: readonly { value: string; label: string }[] = [
+  { value: 'raw', label: 'Сырьё' },
+  { value: 'semi', label: 'Полуфабрикаты' },
+  { value: 'packaging', label: 'Упаковка' },
+  { value: 'drink', label: 'Напитки' },
+  { value: 'household', label: 'Хозтовары' },
+  { value: 'other', label: 'Другое' },
+];
+/** stock_policy of a recipe output (design-bo-ui 5.3); empty = the default, explode. */
+export const RECIPE_POLICY_OPTIONS: readonly { value: string; label: string }[] = [
+  { value: '', label: 'По умолчанию: раскладывать на сырьё' },
+  { value: 'explode', label: 'Раскладывать на сырьё (производство недоступно)' },
+  { value: 'stock', label: 'Списывать сам выход (заготовка партиями)' },
+];
+const SOURCE_NAMES: Record<string, string> = {
+  pos: 'Касса',
+  cloud: 'Приложение и киоск',
+  manual: 'Вручную по техкартам заказа',
+};
+/** Where a consumption came from, in words («Расход по продажам»). */
+export const consumptionSourceLabel = (source: unknown) =>
+  SOURCE_NAMES[String(source)] ?? String(source);
+/**
+ * «Подсчёт на закрытии»: the used positions marked «Считать каждый день» (count_daily), by group
+ * and name, as empty count lines of the count dialog.
+ */
+export function keyCountLines(stock: Data[]): StockLine[] {
+  const order = INGREDIENT_GROUP_OPTIONS.map((g) => g.value);
+  return stock
+    .map((row) => ({ row, p: object(row['payload']) }))
+    .filter(({ p }) => p['active'] === true && p['count_daily'] === true)
+    .sort((a, b) => {
+      const ga = order.indexOf(String(a.p['group'] ?? 'other')),
+        gb = order.indexOf(String(b.p['group'] ?? 'other'));
+      return ga - gb || String(a.p['name']).localeCompare(String(b.p['name']), 'ru');
+    })
+    .map(({ row, p }) => ({
+      ingredient_id: String(row['id']),
+      quantity: '',
+      unit: String(p['unit'] ?? 'pcs'),
+      cost: '',
+    }));
+}
+/** A signed quantity of a base unit for the variance table: «-2 шт», «+0,5 кг», «0 г». */
+export function signedQuantity(value: unknown, base: unknown) {
+  const n = BigInt(String(value ?? 0));
+  return (n > 0n ? '+' : '') + displayQuantity(n, base);
+}
+/** «Расхождения подсчёта» CSV: totals, positions and days, money in tenge. */
+export function varianceReportCsv(report: {
+  start_date: string;
+  end_date: string;
+  totals: Data;
+  summary: Data;
+}): string[][] {
+  const day = (d: unknown) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d));
+    return m ? `${m[3]}.${m[2]}.${m[1]}` : String(d);
+  };
+  const t = report.totals;
+  return [
+    ['Расхождения подсчёта за период', `${day(report.start_date)} - ${day(report.end_date)}`],
+    ['Подсчётов', 'Позиций', 'Недостача, ₸', 'Излишек, ₸', 'Итого, ₸'],
+    [
+      String(t['documents'] ?? 0),
+      String(t['items'] ?? 0),
+      csvTenge(t['shortage_value_minor'] ?? '0'),
+      csvTenge(t['surplus_value_minor'] ?? '0'),
+      csvTenge(t['delta_value_minor'] ?? '0'),
+    ],
+    [],
+    [
+      'Ингредиент',
+      'Подсчётов',
+      'Ожидалось',
+      'Посчитано',
+      'Разница',
+      'Единица',
+      'Сумма, ₸',
+      'Последний подсчёт',
+    ],
+    ...rowsOf(report.summary, 'rows').map((r) => {
+      const [expected, unit] = csvQuantity(r['expected'], r['unit']);
+      return [
+        csvTextCell(r['name']),
+        String(r['counts'] ?? 0),
+        expected,
+        csvQuantity(r['counted'], r['unit'])[0],
+        csvQuantity(r['delta_quantity'], r['unit'])[0],
+        unit,
+        csvTenge(r['delta_value_minor']),
+        time(r['last_counted_at']),
+      ];
+    }),
+    [],
+    ['День', 'Подсчётов', 'Позиций', 'Недостача, ₸', 'Излишек, ₸', 'Итого, ₸'],
+    ...rowsOf(report.summary, 'by_day').map((r) => [
+      day(r['day']),
+      String(r['documents'] ?? 0),
+      String(r['items'] ?? 0),
+      csvTenge(r['shortage_value_minor']),
+      csvTenge(r['surplus_value_minor']),
+      csvTenge(r['delta_value_minor']),
+    ]),
+  ];
+}
+/** «Расход по продажам» CSV: totals, sources, days and positions, net of storno. */
+export function consumptionReportCsv(report: {
+  start_date: string;
+  end_date: string;
+  totals: Data;
+  summary: Data;
+}): string[][] {
+  const day = (d: unknown) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d));
+    return m ? `${m[3]}.${m[2]}.${m[1]}` : String(d);
+  };
+  const t = report.totals;
+  return [
+    ['Расход по продажам за период', `${day(report.start_date)} - ${day(report.end_date)}`],
+    ['Документов', 'Сторно', 'Сумма, ₸'],
+    [String(t['documents'] ?? 0), String(t['reversals'] ?? 0), csvTenge(t['value_minor'] ?? '0')],
+    [],
+    ['Источник', 'Документов', 'Сторно', 'Сумма, ₸'],
+    ...rowsOf(report.summary, 'by_source').map((r) => [
+      consumptionSourceLabel(r['source']),
+      String(r['documents'] ?? 0),
+      String(r['reversals'] ?? 0),
+      csvTenge(r['value_minor']),
+    ]),
+    [],
+    ['День', 'Документов', 'Сторно', 'Сумма, ₸'],
+    ...rowsOf(report.summary, 'by_day').map((r) => [
+      day(r['day']),
+      String(r['documents'] ?? 0),
+      String(r['reversals'] ?? 0),
+      csvTenge(r['value_minor']),
+    ]),
+    [],
+    ['Ингредиент', 'Списано', 'Единица', 'Сумма, ₸'],
+    ...rowsOf(report.summary, 'by_ingredient').map((r) => [
+      csvTextCell(r['name']),
+      ...csvQuantity(r['quantity'], r['unit']),
+      csvTenge(r['value_minor']),
+    ]),
+  ];
+}
