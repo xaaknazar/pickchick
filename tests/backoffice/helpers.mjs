@@ -67,6 +67,8 @@ export async function withCatalog(run, options = {}) {
     salesReport = false,
     posDay = false,
     autoconsume = false,
+    managerShifts = false,
+    staffPositions = false,
     workforce = false,
     cloudMigrationDirectory,
     ...serverOptions
@@ -90,6 +92,9 @@ export async function withCatalog(run, options = {}) {
         ...(posDay ? { posDayEnabled: true } : {}),
         // Lane bo-ui step 5 (BACKOFFICE_STOCK_AUTOCONSUME_ENABLED).
         ...(autoconsume ? { stockAutoconsumeEnabled: true } : {}),
+        // Lane bo-ui step 6 (BACKOFFICE_MANAGER_SHIFTS_ENABLED, BACKOFFICE_STAFF_POSITIONS_ENABLED).
+        ...(managerShifts ? { managerShiftsEnabled: true } : {}),
+        ...(staffPositions ? { staffPositionsEnabled: true } : {}),
       });
       await grantBackoffice(cloud.pool, manager.actor_id, branch, 'manager');
       class CatalogModule {}

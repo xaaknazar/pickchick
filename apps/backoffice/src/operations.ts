@@ -51,6 +51,7 @@ import {
   STATION_PLAN_STATE_LABELS,
   auditFixes,
   autoconsumeAvailable,
+  managerShiftsAvailable,
   object,
   permitted,
   posDayAvailable,
@@ -1620,8 +1621,9 @@ export class OperationsView {
     fields: [string, (p: Data) => string | Node][],
     sub = '',
     order?: (a: Entry, b: Entry) => number,
+    readOnly = false,
   ) {
-    const writable = permitted(this.model.data, 'records.write'),
+    const writable = !readOnly && permitted(this.model.data, 'records.write'),
       p = panel(
         title,
         sub,
@@ -3504,6 +3506,9 @@ export class OperationsView {
           note('Показаны последние 200 смен периода. Для остальных смен сузьте период.'),
         );
       if (d.selected_shift) content.append(this.cashierShift(d.selected_shift));
+      // Lane bo-ui step 6: with the manager shift the old journal is read only (the server
+      // refuses new entries) and shows its newest 200 entries.
+      const journalReadOnly = managerShiftsAvailable(d);
       content.append(
         this.records(
           'shift',
@@ -3517,7 +3522,12 @@ export class OperationsView {
             ['Открыта', (p) => date(p['opened_at'])],
             ['Закрыта', (p) => date(p['closed_at'])],
           ],
-          'Управленческая смена. Не заменяет фискальную смену кассы.',
+          journalReadOnly
+            ? 'Прежний журнал, только для чтения. Смены менеджера ведутся в блоке «Смена менеджера» выше.' +
+                (clipped?.['shift_records'] ? ' Показаны последние 200 записей.' : '')
+            : 'Управленческая смена. Не заменяет фискальную смену кассы.',
+          undefined,
+          journalReadOnly,
         ),
       );
       // Audit F16 (with the fixes): the employees are kept on the «Сотрудники» tab above only.

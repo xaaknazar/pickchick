@@ -6,6 +6,7 @@ import {
   OperationsModel,
   StopsModel,
   headerRole,
+  managerShiftsAvailable,
   permitted,
   posDayAvailable,
   rightsText,
@@ -15,6 +16,8 @@ import { dirtyDialogOpen } from './dialog-guard.js';
 import { cards, dash, ui } from './ui-fixes.js';
 import { WorkforceModel } from './workforce-model.js';
 import { WorkforceView } from './workforce.js';
+import { ManagerShiftView } from './manager-shift.js';
+import { staffPositions } from './staff-positions-model.js';
 import { FinanceModel } from './finance-model.js';
 import { FinanceView } from './finance.js';
 import { OperationsView, POS_SECTION, sections } from './operations.js';
@@ -115,10 +118,51 @@ const workforceView = new WorkforceView(workforce, render);
 finance.fixes = workforce.fixes = () => operations.fixes;
 financeView.rights = () => rightsText(operations.data, 'finance.write');
 workforceView.rights = () => rightsText(operations.data, 'workforce.write');
+// Lane bo-ui step 6: staff positions on the «Сотрудники» tab, only with capabilities.staff_positions.
+workforceView.positions = () => ({
+  list: staffPositions(operations.data),
+  may: operations.data !== null && permitted(operations.data, 'staff.positions'),
+  rights: rightsText(operations.data, 'staff.positions'),
+  roster: () => operations.staffRoster(),
+  savePositions: async (command, reason) => {
+    try {
+      if (await operations.execute(command, reason)) return null;
+      return message(operations.error);
+    } catch (e) {
+      return message(e);
+    }
+  },
+});
+// Lane bo-ui step 6 «Смена менеджера» on the «Смены» page, only with capabilities.manager_shifts.
+const managerShift = new ManagerShiftView({
+  load: (date) => operations.managerShifts(date),
+  execute: async (command, reason) => {
+    try {
+      if (await operations.execute(command, reason)) return null;
+      return message(operations.error);
+    } catch (e) {
+      return message(e);
+    }
+  },
+  can: (permission) => operations.data !== null && permitted(operations.data, permission),
+  rights: (permission) => rightsText(operations.data, permission),
+  employees: () =>
+    (operations.data?.records ?? [])
+      .filter((r) => r.kind === 'employee' && r.payload['active'] && !r.payload['deleted'])
+      .map((r) => ({ value: r.id, label: String(r.payload['name']) })),
+  toStock: () => {
+    page = 'stock';
+    history.replaceState(null, '', '#stock');
+    render();
+  },
+  scope: () => `${operations.actor}:${operations.branch}`,
+  changed: () => softRender(),
+});
 function syncOperations() {
   if (!model.actor) {
     workforce.clear();
     workforceView.clear();
+    managerShift.clear();
     finance.clear();
     financeView.clear();
     operations.clear();
@@ -742,6 +786,7 @@ function render() {
   const hidden = (permission: string) =>
     operations.data !== null && !permitted(operations.data, permission);
   if (page === 'shifts') {
+    if (managerShiftsAvailable(operations.data)) managerShift.render(content);
     if (hidden('workforce.read'))
       content.append(
         notice('Табель, ставки и начисления видят управляющий и бухгалтер. Кассовые смены - ниже.'),

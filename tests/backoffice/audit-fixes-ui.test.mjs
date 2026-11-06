@@ -157,6 +157,12 @@ test('F08 every action code of the back office has a section and a Russian name'
     'stock_settings',
     'consumption_retry',
     'consumption_skip',
+    // Lane bo-ui step 6 (manager-shifts-store.ts, positions.ts).
+    'manager_shift_open',
+    'manager_shift_save',
+    'manager_shift_close',
+    'manager_shift_template',
+    'staff_positions_save',
     'cancel_order',
     'refund',
     'manual_refund',

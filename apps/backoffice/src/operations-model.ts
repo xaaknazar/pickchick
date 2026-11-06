@@ -7,6 +7,7 @@ import {
   type ConsumptionView,
   type MenuLinksView,
 } from './autoconsume-model.js';
+import { managerShiftsView, type ManagerShiftsView } from './manager-shift-model.js';
 export type Data = Record<string, unknown>;
 export type Entry = {
   id: string;
@@ -58,6 +59,8 @@ export type Snapshot = {
   /** «Касса» (lane bo-ui): only from servers with BACKOFFICE_POS_DAY_ENABLED. */
   pos_terminals?: { terminal_id: string; label: string; first_seen_at: string | null }[];
   pos_staff?: Record<string, { name: string; employee_id: string; role: string }>;
+  /** Staff positions (lane bo-ui step 6): only with BACKOFFICE_STAFF_POSITIONS_ENABLED. */
+  staff_positions?: unknown;
 };
 /**
  * Whether the signed-in person may do `permission` (cutover CC-5, contracts 5.10). Servers with
@@ -97,6 +100,15 @@ export function commandPermission(command: Data): string {
     case 'consumption_retry':
     case 'consumption_skip':
       return 'consumption.write';
+    // Lane bo-ui step 6: the manager shift and the branch list of positions.
+    case 'manager_shift_open':
+    case 'manager_shift_save':
+    case 'manager_shift_close':
+      return 'manager_shifts.write';
+    case 'manager_shift_template':
+      return 'manager_shifts.template';
+    case 'staff_positions_save':
+      return 'staff.positions';
     case 'revoke_device':
       return 'devices.write';
     case 'cancel_order':
@@ -162,6 +174,23 @@ export const autoconsumeAvailable = (data: { capabilities?: unknown } | null | u
     (data.capabilities as Data)['stock_autoconsume'] === true,
   );
 /**
+ * Manager shift (lane bo-ui step 6, BACKOFFICE_MANAGER_SHIFTS_ENABLED): the server answers GET
+ * .../ops/manager-shifts, takes the shift commands and keeps the old journal read only.
+ */
+export const managerShiftsAvailable = (data: { capabilities?: unknown } | null | undefined) =>
+  Boolean(
+    data?.capabilities &&
+    typeof data.capabilities === 'object' &&
+    (data.capabilities as Data)['manager_shifts'] === true,
+  );
+/** Staff positions (lane bo-ui step 6, BACKOFFICE_STAFF_POSITIONS_ENABLED). */
+export const staffPositionsAvailable = (data: { capabilities?: unknown } | null | undefined) =>
+  Boolean(
+    data?.capabilities &&
+    typeof data.capabilities === 'object' &&
+    (data.capabilities as Data)['staff_positions'] === true,
+  );
+/**
  * Audit fixes of lane bo-ui that change the cabinet without a flag of their own (design-bo-ui
  * §6, §8 q1; audit F05-F08, F13-F20): on while the server reports capabilities.pos_day, the flag
  * of the cutover back office (BACKOFFICE_POS_DAY_ENABLED). With it off the cabinet is exactly
@@ -200,6 +229,9 @@ export const RIGHTS_TEXT: Record<string, string> = {
   'menu_links.approve': 'Связи меню со складом утверждает управляющий по решению шефа.',
   'stock.settings': 'Режим списания по продажам меняет управляющий.',
   'consumption.write': 'Повторить или пропустить списание могут управляющий и начальник смены.',
+  'manager_shifts.write': 'Открывают и закрывают смену управляющий и начальник смены.',
+  'manager_shifts.template': 'Чек-лист смены меняет управляющий.',
+  'staff.positions': 'Должности, доступ к кассе и выгрузку состава ведёт управляющий.',
   'records.write': 'Изменять записи может управляющий точки.',
 };
 /**
@@ -494,6 +526,26 @@ export class OperationsModel {
     const value = await this.api(`branches/${branch}/ops/consumption${search ? '?' + search : ''}`);
     if (generation !== this.generation) throw new ApiError('FORBIDDEN');
     return consumptionView(value, branch);
+  }
+  /** Manager shift of one Almaty day (GET .../ops/manager-shifts, lane bo-ui step 6). */
+  async managerShifts(date: string): Promise<ManagerShiftsView> {
+    const generation = this.generation;
+    const branch = this.branch;
+    const value = await this.api(
+      `branches/${branch}/ops/manager-shifts?${new URLSearchParams({ date }).toString()}`,
+    );
+    if (generation !== this.generation) throw new ApiError('FORBIDDEN');
+    return managerShiftsView(value, branch);
+  }
+  /** The roster of the cash desk (GET .../ops/staff-roster, manager, lane bo-ui step 6). */
+  async staffRoster(): Promise<Data> {
+    const generation = this.generation;
+    const branch = this.branch;
+    const value = object(await this.api(`branches/${branch}/ops/staff-roster`));
+    if (generation !== this.generation) throw new ApiError('FORBIDDEN');
+    if (value['branch_id'] !== branch || !Array.isArray(value['staff']))
+      throw new ApiError('INVALID_RESPONSE');
+    return value;
   }
   /** Sales report (GET .../ops/sales, cutover CC-7) of an Almaty date window. */
   async salesReport(startDate: string, endDate: string): Promise<SalesReport> {

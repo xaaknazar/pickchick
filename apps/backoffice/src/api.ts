@@ -156,6 +156,17 @@ export function allowedPath(path: string): boolean {
       (date === null || /^\d{4}-\d{2}-\d{2}$/.test(date))
     );
   }
+  // Lane bo-ui step 6: the manager shift of one Almaty day and the roster of the cash desk.
+  if (new RegExp(`^operations/branches/${UUID}/ops/manager-shifts$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    return (
+      [...q.keys()].every((k) => k === 'date') &&
+      q.getAll('date').length <= 1 &&
+      (q.get('date') === null || /^\d{4}-\d{2}-\d{2}$/.test(q.get('date') ?? ''))
+    );
+  }
+  if (new RegExp(`^operations/branches/${UUID}/ops/staff-roster$`).test(pathname))
+    return search === undefined;
   if (new RegExp(`^operations/branches/${UUID}$`).test(pathname)) return reportQuery(search ?? '');
   return (
     search === undefined &&
@@ -454,6 +465,15 @@ const reasons: Record<string, string> = {
   ALREADY_REVERSED: 'Документ уже сторнирован. Сторно - одно на документ. Обновите страницу.',
   COUNTED_AFTER_DOCUMENT:
     'После документа по его позициям провели инвентаризацию: она уже учла фактический остаток. Исправьте остаток новой инвентаризацией или списанием.',
+  // Lane bo-ui step 6 (servers with capabilities.manager_shifts / staff_positions).
+  MANAGER_SHIFT_OPEN: 'Смена менеджера уже открыта. Обновите страницу и закройте её.',
+  CHECKLIST_INCOMPLETE:
+    'Ответьте на все обязательные пункты. «Есть проблема», «Не применимо» и пункты с проблемой по данным требуют комментария.',
+  HANDOVER_REQUIRED: 'Заполните передачу смены: минимум 3 символа.',
+  LEGACY_JOURNAL_READ_ONLY:
+    'Управленческий журнал только для чтения: смены ведутся в блоке «Смена менеджера».',
+  POSITION_UNKNOWN: 'Такой должности нет в списке или она выключена. Обновите страницу.',
+  POSITION_IN_USE: 'Должность нельзя удалить из списка: её можно только выключить.',
 };
 export const reasonMessage = (reason: string | undefined) =>
   reason === undefined ? undefined : reasons[reason];
