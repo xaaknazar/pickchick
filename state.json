@@ -7372,11 +7372,11 @@
         "infra/staging/stage2-owner-connection.py",
         "tests/operations/test_stage2_owner_connection.py"
       ],
-      "status": "active",
-      "head": "f1f02585be6c5a3940f838e7b79a1470e5cef967",
-      "updatedAt": "2026-11-06T15:59:02.307Z",
-      "summary": "C1 guard fix 30604130 published in PR311. Named safe diagnostics, exact API image/revision/env and seven auth keys, full neighbor labels. Local 28 tests PASS; 26 also with Python -O. Foundation 11/11 PASS https://github.com/xaaknazar/pickchick/actions/runs/42228997173 ; full Offline(ci) PASS https://github.com/xaaknazar/pickchick/actions/runs/42228997301 . No VPS reads/writes or repeat deployment.",
-      "nextAction": "Wait for explicit new owner approval naming C1/C3 repeat window. Day start before16:00 Almaty/end19:00; night C1from00:30 C3from01:00/end07:00. Use published c1-window.py, not old temporary scripts; fresh baseline/no active work/73-18 fingerprints/backup068/restore/pins. After successful window tell owner about hidden bot key entry. Do not merge or deploy automatically."
+      "status": "available",
+      "head": "818524ec8fdfebe7552864c5942948e22d11a496",
+      "updatedAt": "2026-11-06T16:08:50.687Z",
+      "summary": "C1 evening PASS: 443 checks, Domain11/11, observation over10min; C3 STOP before owner command, schema068 unchanged, own lock released. Fix818524ec pushed; 37 local tests PASS, CI42249179575 pending.",
+      "nextAction": "Await owner repeat-C3 decision and green CI. Do not rerun C1. Fresh UUID/lock, post-C1 compose89cc593e, fresh068 backup/rehearsal; use stage2-owner-connection.py, never require provision. Runtime6630eb0f unchanged; no072/flags. Deadline06Nov18:30UTC. Preserve first-attempt proofs. Android P6 waits; no VPS transfer."
     }
   ]
 }
