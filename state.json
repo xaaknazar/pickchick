@@ -7364,11 +7364,14 @@
       "scopes": [
         "codex-reports/2026-11-06-android.md",
         "docs/operations/mobile-play-2026-11/release-1106.md",
-        "@android/emulator"
+        "@android/emulator",
+        "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.png",
+        "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.provenance.json",
+        "docs/operations/mobile-play-2026-11/listing-1106.json"
       ],
       "status": "active",
       "head": "e1d5eb93fcf17850aaea9d4e5d962b9fe3866cd9",
-      "updatedAt": "2026-11-06T15:44:35.413Z",
+      "updatedAt": "2026-11-06T15:48:55.541Z",
       "summary": "PR313, e1d5eb93 published and remote SHA verified. AAB inspect/hash PASS, source CI41994780430 11/11 success, 5 listing + 5 support tests PASS. Local emulator APK signature/Hermes verified, original AAB/upload key unchanged. Console form ready, awaits owner legal declarations; no app creation/upload/production confirmed. Emulator download running on this Mac.",
       "nextAction": "Continue same branch/checkpoint. Await banner/support email/KK review and owner creation of app. Coordinate P6 with stage2-candidate-1105 before any VPS/shared docs edit: current support200 lacks delete-account; first-install operator needs tested update path. Menu v11 Pick Combo90KZT is test price; no price edits or store screenshots with that price. Full journal codex-reports/2026-11-06-android.md. SDK session94276, log /private/tmp/pickchick-android-sdk-install.log; local APK /private/tmp/pickchick-emulator-1106/PickChick-1.0.1-7-emulator.apk. No screenshots yet. Online roadmap unchanged."
     }
