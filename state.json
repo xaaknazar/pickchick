@@ -7351,9 +7351,9 @@
         "infra/staging/c1-window.py",
         "tests/operations/test_c1_window.py"
       ],
-      "status": "available",
+      "status": "active",
       "head": "30604130e361c7c41d03d8363a34f406305b7406",
-      "updatedAt": "2026-11-06T14:38:53.190Z",
+      "updatedAt": "2026-11-06T15:13:37.747Z",
       "summary": "C1 guard fix 30604130 published in PR311. Named safe diagnostics, exact API image/revision/env and seven auth keys, full neighbor labels. Local 28 tests PASS; 26 also with Python -O. Foundation 11/11 PASS https://github.com/xaaknazar/pickchick/actions/runs/42228997173 ; full Offline(ci) PASS https://github.com/xaaknazar/pickchick/actions/runs/42228997301 . No VPS reads/writes or repeat deployment.",
       "nextAction": "Wait for explicit new owner approval naming C1/C3 repeat window. Day start before16:00 Almaty/end19:00; night C1from00:30 C3from01:00/end07:00. Use published c1-window.py, not old temporary scripts; fresh baseline/no active work/73-18 fingerprints/backup068/restore/pins. After successful window tell owner about hidden bot key entry. Do not merge or deploy automatically."
     }
