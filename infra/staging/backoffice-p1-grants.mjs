@@ -11,6 +11,10 @@
  * - bo_stock_settings, bo_consumption_items: SELECT, INSERT, UPDATE with
  *   BACKOFFICE_STOCK_AUTOCONSUME_ENABLED and stock v2 (the worker consumes by the links).
  * - bo_manager_shifts: SELECT, INSERT, UPDATE with BACKOFFICE_MANAGER_SHIFTS_ENABLED.
+ * - bo_branch_templates (step 6: the branch's own checklist versions and list of positions):
+ *   SELECT, INSERT with BACKOFFICE_MANAGER_SHIFTS_ENABLED or BACKOFFICE_STAFF_POSITIONS_ENABLED
+ *   (append-only, the 075 trigger refuses UPDATE and DELETE). `staffPositions` is optional (absent
+ *   = false), so the call of CR bo-ui-1 stays valid.
  * - bo_discounts: SELECT, INSERT, UPDATE and bo_discount_revisions: SELECT with
  *   BACKOFFICE_DISCOUNTS_ENABLED. The history is written by the cloud075 trigger as the owner, so
  *   the API role never inserts it.
@@ -37,10 +41,12 @@ export const BACKOFFICE_P1_RELATIONS = Object.freeze({
   bo_menu_stock_links: 'r',
   bo_consumption_items: 'r',
   bo_manager_shifts: 'r',
+  bo_branch_templates: 'r',
   bo_discounts: 'r',
   bo_discount_revisions: 'r',
 });
 const READ = Object.freeze(['SELECT']);
+const APPEND = Object.freeze(['SELECT', 'INSERT']);
 const WRITE = Object.freeze(['SELECT', 'INSERT', 'UPDATE']);
 const NAME = /^[a-z][a-z0-9_]{0,62}$/;
 const FLAGS = Object.freeze([
@@ -77,10 +83,16 @@ export const P1_COLUMNS = Object.freeze({
   bo_stock_balances: Object.freeze(['counted_at']),
 });
 
+/** Flags added after CR bo-ui-1: optional, absent means false. */
+const OPTIONAL_FLAGS = Object.freeze(['staffPositions']);
 function options(input) {
-  if (!input || FLAGS.some((flag) => typeof input[flag] !== 'boolean'))
+  if (
+    !input ||
+    FLAGS.some((flag) => typeof input[flag] !== 'boolean') ||
+    OPTIONAL_FLAGS.some((flag) => flag in input && typeof input[flag] !== 'boolean')
+  )
     throw new Error('Invalid backoffice P1 grants');
-  return input;
+  return { ...input, staffPositions: input.staffPositions === true };
 }
 
 /** Exact rights of the shared API role on the 075 relations for the enabled flags. */
@@ -92,6 +104,7 @@ export function backofficeP1Privileges(input) {
     ...(o.stockV2 ? { bo_menu_stock_links: WRITE } : {}),
     ...(consume ? { bo_stock_settings: WRITE, bo_consumption_items: WRITE } : {}),
     ...(o.managerShifts ? { bo_manager_shifts: WRITE } : {}),
+    ...(o.managerShifts || o.staffPositions ? { bo_branch_templates: APPEND } : {}),
     ...(o.discounts ? { bo_discounts: WRITE, bo_discount_revisions: READ } : {}),
   });
 }

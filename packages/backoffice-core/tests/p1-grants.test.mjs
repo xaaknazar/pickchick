@@ -70,9 +70,24 @@ test('privileges per flag: nothing without the back office, autoconsume only wit
     bo_stock_settings: WRITE,
     bo_consumption_items: WRITE,
     bo_manager_shifts: WRITE,
+    bo_branch_templates: ['SELECT', 'INSERT'],
     bo_discounts: WRITE,
     bo_discount_revisions: ['SELECT'],
   });
+  // Step 6: the branch lists are append-only, for the manager shift or the staff positions;
+  // staffPositions is optional (the call of CR bo-ui-1 has no such key).
+  assert.deepEqual(backofficeP1Privileges({ ...OFF, staffPositions: true }), {
+    bo_branch_templates: ['SELECT', 'INSERT'],
+  });
+  assert.deepEqual(backofficeP1Privileges({ ...OFF, managerShifts: true }), {
+    bo_manager_shifts: WRITE,
+    bo_branch_templates: ['SELECT', 'INSERT'],
+  });
+  assert.deepEqual(backofficeP1Privileges({ ...OFF, staffPositions: false }), {});
+  assert.throws(
+    () => backofficeP1Privileges({ ...ALL, staffPositions: 'true' }),
+    /Invalid backoffice P1 grants/,
+  );
   assert.deepEqual(backofficeP1Privileges({ ...OFF, autoconsume: true }), {});
   assert.deepEqual(backofficeP1Reads({ ...OFF, autoconsume: true }), []);
   assert.deepEqual(backofficeP1Privileges({ ...OFF, stockV2: true }), {
@@ -267,6 +282,13 @@ test('least privilege: the API role writes P1 only through the helper, never del
          VALUES($1,$2,(now() AT TIME ZONE 'Asia/Almaty')::date,now(),1,1,$3)`,
         [randomUUID(), c.branch, actor],
       );
+      // The branch lists are appended, never changed.
+      await pool.query(
+        `INSERT INTO bo_branch_templates(branch_id,kind,version,body,created_by)
+         VALUES($1,'staff_positions',2,'{}',$2)`,
+        [c.branch, actor],
+      );
+      await assert.rejects(pool.query("UPDATE bo_branch_templates SET body='{}'"), denied);
       for (const table of Object.keys(BACKOFFICE_P1_RELATIONS))
         await assert.rejects(pool.query(`DELETE FROM ${table}`), denied, table);
       // pos-day and the consumption worker read their tables outside 075.

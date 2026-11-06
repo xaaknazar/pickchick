@@ -300,3 +300,33 @@ END $$;
 REVOKE ALL ON FUNCTION bo_discount_history() FROM PUBLIC;
 CREATE TRIGGER bo_discounts_history AFTER INSERT OR UPDATE ON bo_discounts
 FOR EACH ROW EXECUTE FUNCTION bo_discount_history();
+
+-- 8. Lists a branch manager edits (lane bo-ui step 6, А10/А11 checklist template, А8/Д3 positions;
+-- added before the 10.11 freeze because an editable, versioned checklist and an editable list of
+-- positions need storage). The built-in checklist of section 6 and the built-in eleven positions
+-- stay code and are version 1; a branch's own versions are rows here from version 2 on, never
+-- changed or deleted. kind 'manager_shift' = {opening: [item], closing: [item]}, kind
+-- 'staff_positions' = {positions: [position]}; the body is validated by the command. A manager
+-- shift keeps the version it was opened with (bo_manager_shifts.template_version), which must
+-- then exist.
+CREATE TABLE bo_branch_templates (
+ branch_id uuid NOT NULL REFERENCES branches(id),
+ kind text NOT NULL CHECK(kind IN ('manager_shift','staff_positions')),
+ version integer NOT NULL CHECK(version>=2),
+ body jsonb NOT NULL CHECK(jsonb_typeof(body)='object'),
+ created_by uuid NOT NULL REFERENCES catalog_managers(id),
+ created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+ PRIMARY KEY(branch_id,kind,version)
+);
+CREATE TRIGGER bo_branch_templates_immutable BEFORE UPDATE OR DELETE ON bo_branch_templates
+FOR EACH ROW EXECUTE FUNCTION commerce_immutable();
+CREATE FUNCTION guard_bo_manager_shift_template() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.template_version>1 AND NOT EXISTS(SELECT 1 FROM bo_branch_templates t
+      WHERE t.branch_id=NEW.branch_id AND t.kind='manager_shift' AND t.version=NEW.template_version) THEN
+    RAISE EXCEPTION 'Unknown manager shift template version' USING ERRCODE='23503';
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER bo_manager_shifts_template BEFORE INSERT ON bo_manager_shifts
+FOR EACH ROW EXECUTE FUNCTION guard_bo_manager_shift_template();
