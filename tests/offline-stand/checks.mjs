@@ -104,6 +104,7 @@ export async function snapshot(stand) {
   const commerce = await import('../../packages/commerce-core/dist/index.js');
   return {
     edge: {
+      restoreDecisions: await rows(e, 'SELECT * FROM fulfillment_restore_decisions'),
       orders: await rows(
         e,
         'SELECT id,total_minor::text,state,version FROM local_orders WHERE branch_id=$1',
@@ -164,6 +165,11 @@ export async function snapshot(stand) {
         ?.release_id,
     },
     cloud: {
+      restoreConflicts: await rows(
+        c,
+        'SELECT order_id,aggregate_version,envelope,producer_sequence::text FROM pos_kitchen_restore_conflicts WHERE branch_id=$1 ORDER BY producer_sequence DESC',
+        b,
+      ),
       posOrders: await rows(
         c,
         'SELECT order_id,total_minor::text,state,version FROM pos_order_sync_projection WHERE branch_id=$1',
@@ -269,6 +275,48 @@ export function evaluate(data, ledger, context = {}) {
   const results = [];
   const lost = new Set(context.lostPosOrders ?? []);
   const lostKitchen = new Set(context.lostKitchenOrders ?? context.lostPosOrders ?? []);
+  // A restore difference is accepted only with an immutable operator decision AND evidence
+  // that the canonical cloud history is unchanged. Resume also needs a durable latest observation.
+  const reconciled = new Set();
+  for (const reviewed of context.reviewedRestores ?? []) {
+    const decision = (data.edge.restoreDecisions ?? []).find(
+      (d) => d.order_id === reviewed.orderId && d.epoch === reviewed.epoch,
+    );
+    const edge = data.edge.reservations.find((r) => r.order_id === reviewed.orderId);
+    const remote = [...data.cloud.posKitchen, ...data.cloud.projection].find(
+      (r) => r.order_id === reviewed.orderId,
+    );
+    const conflict = (data.cloud.restoreConflicts ?? []).find(
+      (r) => r.order_id === reviewed.orderId,
+    );
+    const stable =
+      remote &&
+      remote.state === reviewed.canonical.state &&
+      remote.version === reviewed.canonical.version;
+    const execution =
+      reviewed.decision === 'retire'
+        ? edge?.state === reviewed.edgeState && edge?.version === reviewed.edgeVersion
+        : conflict?.envelope?.payload?.state === edge?.state &&
+          conflict?.aggregate_version === edge?.version;
+    if (
+      decision?.decision === reviewed.decision &&
+      decision?.expected_version === reviewed.edgeVersion &&
+      decision.reason?.length >= 3 &&
+      stable &&
+      execution
+    )
+      reconciled.add(reviewed.orderId);
+  }
+  if (context.reviewedRestores)
+    results.push(
+      check(
+        'restore_reviews_preserve_history',
+        'Каждое расхождение проверено: история сервера сохранена, снятые заказы не готовятся, новые наблюдения записаны отдельно',
+        reconciled.size === context.reviewedRestores.length,
+        context.reviewedRestores.length,
+        reconciled.size,
+      ),
+    );
   const edgeOrders = new Map(data.edge.orders.map((o) => [o.id, o]));
   const told = [...ledger.pos.values()];
   // 1-2. POS: every acknowledged sale is on the edge exactly once; retries made no extras.
@@ -348,7 +396,10 @@ export function evaluate(data, ledger, context = {}) {
   const kitchenDiff = posReservations
     .filter((r) => {
       const remote = posKitchen.get(r.order_id);
-      return !remote || remote.state !== r.state || remote.version !== r.version;
+      return (
+        !reconciled.has(r.order_id) &&
+        (!remote || remote.state !== r.state || remote.version !== r.version)
+      );
     })
     .map((r) => ({
       order: r.order_id,
@@ -377,7 +428,8 @@ export function evaluate(data, ledger, context = {}) {
       'pos_kitchen_events_once',
       'Каждое кухонное событие кассы принято облаком ровно один раз',
       data.cloud.posKitchenInbox.total === data.cloud.posKitchenInbox.distinct_versions &&
-        data.cloud.posKitchenInbox.total >= data.edge.kitchenEvents.pos,
+        data.cloud.posKitchenInbox.total + (data.cloud.restoreConflicts?.length ?? 0) >=
+          data.edge.kitchenEvents.pos,
       data.edge.kitchenEvents.pos,
       data.cloud.posKitchenInbox.total,
     ),
@@ -391,6 +443,7 @@ export function evaluate(data, ledger, context = {}) {
   for (const entry of channelOrders) {
     // Admitted on the lost timeline of a restore drill: reported by that scenario.
     if (lostChannel.has(entry.orderId)) continue;
+    if (reconciled.has(entry.orderId)) continue;
     const order = cloudOrders.get(entry.orderId),
       edge = reservations.get(entry.orderId),
       remote = projection.get(entry.orderId);
@@ -433,6 +486,7 @@ export function evaluate(data, ledger, context = {}) {
     .filter((r) => r.commercial_owner === 'cloud')
     .filter((r) => {
       const p = projection.get(r.order_id);
+      if (reconciled.has(r.order_id)) return false;
       return (
         !p ||
         p.state !== r.state ||

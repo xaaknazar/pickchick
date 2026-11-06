@@ -49,6 +49,17 @@ function reportQuery(search) {
 export const allowed = (method, path) => {
   const [pathname, search, extra] = path.split('?');
   if (extra !== undefined || path.includes('#')) return false;
+  if (new RegExp(`^/v1/admin/backoffice/branches/${UUID}/restore-reviews$`).test(pathname)) {
+    if (method === 'POST') return search === undefined;
+    if (method !== 'GET') return false;
+    const q = new URLSearchParams(search ?? '');
+    return (
+      [...q.keys()].every((k) => k === 'after') &&
+      q.getAll('after').length <= 1 &&
+      (q.get('after') === null || new RegExp(`^${UUID}$`).test(q.get('after')))
+    );
+  }
+
   if (
     method === 'GET' &&
     new RegExp(`^/v1/admin/backoffice/branches/${UUID}/workforce$`).test(pathname)

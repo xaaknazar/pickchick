@@ -16,8 +16,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ScreenProps } from '../model';
 import { CloseButton, Icon } from './UI';
 import { GlassButton } from './GlassButton';
+import { SheetBackLayer } from './OrderSheet';
 import { colors, font } from '../theme';
 import { ProfileRestoreNotice } from './ProfileRestoreNotice';
+import { keyboardAvoidingBehavior } from '../keyboard-avoidance';
 
 // Brand theme from the supplied mobile-v2 source, scoped to its auth screens.
 export const authColors = {
@@ -110,7 +112,7 @@ export function AuthLayout({
   return (
     <KeyboardAvoidingView
       testID={`screen-${props.screenId}`}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={keyboardAvoidingBehavior(Platform.OS)}
       keyboardVerticalOffset={top}
       style={[
         s.page,
@@ -140,13 +142,17 @@ export function AuthLayout({
             <View style={s.topAction}>
               {props.screenId === 'M03' ? (
                 // Glass like the X on the other sign-in steps (owner 27.10.2026).
-                <GlassButton
-                  testID="auth-change-number"
-                  name="chevron-back"
-                  iconSize={24}
-                  label={t('Изменить номер')}
-                  onPress={topAction?.onPress ?? props.goBack}
-                />
+                <>
+                  <GlassButton
+                    testID="auth-change-number"
+                    name="chevron-back"
+                    iconSize={24}
+                    label={t('Изменить номер')}
+                    onPress={topAction?.onPress ?? props.goBack}
+                  />
+                  {/* Android Back on the code step goes back to the number, like this button. */}
+                  <SheetBackLayer onBack={topAction?.onPress ?? props.goBack} />
+                </>
               ) : (
                 <CloseButton label={t('Закрыть вход')} onPress={props.goBack} />
               )}

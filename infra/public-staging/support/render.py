@@ -3,6 +3,12 @@ import html
 import json
 from pathlib import Path
 import re
+from urllib.parse import quote
+
+# The published privacy policy (Russian) keeps its retention periods under this heading
+# (legal-update.py pins it). A text fragment scrolls there; older browsers open the policy top.
+RETENTION_HEADING = 'Сроки хранения аккаунта'
+RETENTION_URL = '/legal/privacy#:~:text=' + quote(RETENTION_HEADING)
 
 
 def render(language, phone):
@@ -15,13 +21,24 @@ def render(language, phone):
                   for lang,label in [('kk','ҚАЗ'),('ru','РУС'),('en','ENG')])
     answers = ''.join(f'<details{(" open" if i == 0 else "")}><summary>{e(q)}</summary><p>{e(a)}</p></details>'
                       for i,(q,a) in enumerate(c['questions']))
+    # Google Play (lane android 05.11.2026): a prominent section, linkable as #delete-account, that
+    # says how to delete the account in the app and how to ask for it without the app.
+    steps = ''.join(f'<li>{e(step)}</li>' for step in c['delete_app_steps'])
+    delete = (f'<section id="delete-account" class="delete" aria-labelledby="delete-title">'
+              f'<h2 id="delete-title">{e(c["delete_title"])}</h2><p>{e(c["delete_intro"])}</p>'
+              f'<h3>{e(c["delete_app_title"])}</h3><ol>{steps}</ol>'
+              f'<h3>{e(c["delete_request_title"])}</h3><p>{e(c["delete_request"])}</p>'
+              f'<a class="call" href="tel:{phone}">{e(c["call"])}</a>'
+              f'<p class="prepare">{e(c["delete_data"])}</p>'
+              f'<p class="prepare kept">{e(c["delete_kept"])} '
+              f'<a href="{RETENTION_URL}">{e(c["delete_kept_link"])}</a></p></section>')
     return f'''<!doctype html>
 <html lang="{language}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{e(c['title'])}</title><meta name="description" content="{e(c['intro'])}"><link rel="stylesheet" href="/support/style.css"></head>
 <body><a class="skip" href="#answers">{e(c['skip'])}</a>
 <header><a class="brand" href="/support/" aria-label="PickChick">Pick<span>Chick</span></a><nav aria-label="{e(c['language'])}">{nav}</nav></header>
-<main><section aria-labelledby="title"><h1 id="title">{e(c['title'])}</h1><p class="intro">{e(c['intro'])}</p>
+<main><section aria-labelledby="title"><h1 id="title">{e(c['title'])}</h1><p class="intro">{e(c['intro'])}</p><a class="delete-link" href="#delete-account">{e(c['delete_link'])}</a>
 <div class="contact"><h2>{e(c['contact'])}</h2><a class="call" href="tel:{phone}">{e(c['call'])}</a><a class="phone" href="tel:{phone}">{phone}</a>
 <p class="address">{e(c['address'])}</p><a class="map" href="https://2gis.kz/almaty/geo/70030076952394244">{e(c['map'])}</a></div></section>
-<section id="answers" aria-labelledby="help"><h2 id="help">{e(c['help'])}</h2>{answers}<p class="prepare">{e(c['prepare'])}</p></section></main>
+<section id="answers" aria-labelledby="help"><h2 id="help">{e(c['help'])}</h2>{answers}<p class="prepare">{e(c['prepare'])}</p></section>{delete}</main>
 <footer><p>© 2026 PickChick</p><div><a href="/legal/privacy">{e(c['privacy'])}</a><a href="/legal/terms">{e(c['terms'])}</a></div></footer></body></html>'''

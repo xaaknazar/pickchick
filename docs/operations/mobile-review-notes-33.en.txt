@@ -1,0 +1,30 @@
+PickChick is the official ordering app of one PickChick fried-chicken restaurant in Almaty, Kazakhstan. Customers browse the menu, customise combos, build a basket, pay with Kaspi.kz and collect the food at the restaurant counter (dine in or take away; no delivery). The app is available in Russian, Kazakh and English (Profile > Language).
+
+SIGN-IN FOR APP REVIEW
+1. Tap the profile icon (top right), then "With your phone number".
+2. Enter the 10 digits from the Username field (+7 is already shown) and tap Continue. Tapping Continue accepts the terms.
+3. On the code screen enter the 4-digit code from the Password field.
+4. On "Let's get to know you" tap Done. The name and the other fields are optional.
+No SMS or Telegram message is needed for this review number. Regular customers receive their code in Telegram. Sign-in is by phone number only; there is no third-party or social login. The menu, the basket and the mini-games (Games tab) also work without signing in.
+
+ACCOUNT DELETION (Guideline 5.1.1(v))
+1. After signing in, tap the profile icon at the top right of Menu, Games or Orders.
+2. In the Profile list tap "Delete account" (right below "Language").
+3. On the "Delete account" screen tap "Delete account".
+4. In the dialog "Delete your Pick Chick account?" tap "Delete account" again to confirm ("Keep account" cancels).
+5. The app shows "Account deleted" once our server has deleted the account. The profile and access on all devices are removed.
+The same screen also opens from Profile > Settings (gear icon) > "Delete account". "Clear local data" on that screen is a different action: it only signs out this device and clears its local settings; the account remains. The review number can sign in again afterwards and gets a new, empty profile.
+{VIDEO}
+
+WHAT THE REVIEW ACCOUNT CAN DO
+Browse the full menu, open dishes, customise combos, add and change items in the basket, see the total, open the payment step, view Orders, play the mini-games, edit the profile and delete the account.
+
+WHY REAL ORDERS ARE TURNED OFF FOR THE REVIEW ACCOUNT
+Every real order goes to the kitchen of a working restaurant and creates a real Kaspi.kz bank invoice, and Kaspi.kz payment needs a Kaspi.kz account in Kazakhstan. So ordering is turned off for the review account: on the payment step the app says so and offers "How ordering works". Nothing is sent to the kitchen or the bank.
+To see the whole order journey without payment, tap "How ordering works" there, or add any dish to the basket and open Profile > Settings (gear icon) > "How ordering works". It uses the items in your basket and shows every stage: payment, preparation, ready, collection.
+
+PAYMENT
+Payment is by Kaspi.kz only, the main payment app in Kazakhstan. The customer swipes to pay, receives an invoice in the Kaspi.kz app and confirms it there; the app then shows the order status. The app sells food (physical goods consumed outside the app), so In-App Purchase does not apply (Guideline 3.1.3(e)). There are no digital goods or subscriptions. Prices are the restaurant's current menu prices.
+
+OPENING HOURS
+The restaurant takes orders from {OPEN} to {CLOSE} Almaty time (UTC+5), which is {UTC} UTC / {PACIFIC} Pacific time. Outside these hours the app shows "Opening at {OPEN}" and the pay button reads "Closed for now"; the menu, basket, demonstration, games and profile keep working.

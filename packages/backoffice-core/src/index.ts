@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { listRestoreReviews, decideRestoreReview } from './restore-review.js';
 import { assertDeviceRevocation } from './device-access.js';
 import { z } from 'zod';
 import { transaction, type DatabasePool, type DatabaseClient } from '@pickchick/database';
@@ -74,6 +75,18 @@ export class Backoffice {
     private enabled = false,
     private options: BackofficeOptions = {},
   ) {}
+  async restoreReviews(token: string, branch: string, query: unknown = {}) {
+    return transaction(this.pool, async (db) => {
+      await this.scope(db, token, branch);
+      return listRestoreReviews(db, branch, query);
+    });
+  }
+  async reviewRestore(token: string, branch: string, input: unknown) {
+    return transaction(this.pool, async (db) => {
+      const actor = await this.scope(db, token, branch, true);
+      return decideRestoreReview(db, branch, actor.id, input);
+    });
+  }
   private async scope(
     db: DatabaseClient,
     token: string,

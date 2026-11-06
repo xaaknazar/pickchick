@@ -486,6 +486,46 @@ def profile_backend(feature_profile):
     return environment, PRODUCTION_API_URL if environment == "production" else STAGING_API_URL
 
 
+def backend_notice(feature_profile, defaulted):
+    """The backend a mobile archive compiles in, said before Xcode runs (build 33).
+
+    The default stays storefront (staging) until the server legal links and the App Store
+    Connect URLs move to pickchick.kz; an archive that forgets --feature-profile production
+    must not look like the App Store build.
+    """
+    environment, api_url = profile_backend(feature_profile)
+    notice = {"feature_profile": canonical_profile(feature_profile), "environment": environment,
+              "api_url": api_url, "profile_from_default": defaulted}
+    if environment != "production":
+        notice["warning"] = ("This bundle talks to the staging host. App Store builds from build 33 "
+                             "on need --feature-profile production in archive, export and upload.")
+    return notice
+
+
+def upload_profile_guard(feature_profile, defaulted):
+    """Build 33: Apple gets a staging (nip.io) mobile bundle only when that is said explicitly.
+
+    The default profile is still storefront, so an archive, export and upload that all forgot
+    --feature-profile production would match each other and only warn. Upload is the last
+    phase before Apple: there a defaulted staging profile stops; naming it on the command line
+    (for example --feature-profile storefront for an internal TestFlight build) still works.
+    """
+    if (APP_DIRECTORY != "mobile" or not defaulted
+            or feature_profile_flags(feature_profile) is None
+            or profile_backend(feature_profile)[0] == "production"):
+        return
+    profile = canonical_profile(feature_profile)
+    fail(f"This archive has the default {profile} profile, which talks to the staging host. "
+         "App Store builds from build 33 on need --feature-profile production in archive, export "
+         f"and upload; to upload this staging build anyway, pass --feature-profile {profile}.")
+
+
+def staging_host(value):
+    """True for a link to the staging nip.io host (by name or by its IP address)."""
+    host = (urlsplit(value).hostname or "") if "://" in value else ""
+    return host.endswith("nip.io") or "185.129.51.103" in host
+
+
 def archive_environment(feature_profile, source=None, kiosk_flags=None):
     """Pin the JS bundle switches independently of the invoking shell and dotenv."""
     flags = kiosk_flags if feature_profile in KIOSK_PROFILES else feature_profile_flags(feature_profile)
@@ -506,6 +546,12 @@ def archive_environment(feature_profile, source=None, kiosk_flags=None):
     if feature_profile not in KIOSK_PROFILES:
         # Mobile switch only; a kiosk bundle reads its pinned EXPO_PUBLIC_KIOSK_* values.
         env["EXPO_PUBLIC_PICKCHICK_ENV"] = profile_backend(feature_profile)[0]
+        # Build 33 (owner 30.10.2026, «переводи на наш домен»): the production build links nothing
+        # to the staging host, the optional support contact included.
+        if (env["EXPO_PUBLIC_PICKCHICK_ENV"] == "production"
+                and staging_host(env.get("EXPO_PUBLIC_SUPPORT_URL", ""))):
+            fail("The production profile cannot link support to the staging host; "
+                 "use the pickchick.kz domain in EXPO_PUBLIC_SUPPORT_URL.")
     env.update(flags)
     env["PICKCHICK_APP_VARIANT"] = "release"
     env["EXPO_NO_DOTENV"] = "1"
@@ -600,7 +646,9 @@ def main():
     parser.add_argument("--feature-profile", choices=["legacy", *MOBILE_PROFILES, *KIOSK_PROFILES],
                         default=None,
                         help="JS feature set; mobile defaults to storefront (catalog-pilot is an "
-                             "alias). A new kiosk archive needs kiosk-production or kiosk-staging; "
+                             "alias), but a mobile upload names any staging profile explicitly; "
+                             "App Store builds use production. A new kiosk archive needs "
+                             "kiosk-production or kiosk-staging; "
                              "kiosk export/upload default to the archived profile")
     parser.add_argument("--kiosk-photo-url",
                         help="HTTPS origin of the restaurant photo printer service (kiosk archive)")
@@ -619,6 +667,7 @@ def main():
     if args.feature_profile is None and args.app == "kiosk" and args.phase == "archive":
         fail("Kiosk archives require --feature-profile kiosk-production or kiosk-staging "
              "and --kiosk-photo-url; the legacy shell environment is no longer accepted.")
+    args.profile_from_default = args.feature_profile is None
     if args.feature_profile is None and args.app != "kiosk":
         args.feature_profile = default_feature_profile(args.app)
     if args.feature_profile in MOBILE_PROFILES and args.app != "mobile":
@@ -641,6 +690,9 @@ def main():
               selected_team=TEAM, bundle_identifier=BUNDLE,
               native_workspace_exists=Path(args.workspace).is_dir(),
               archive_tool_available=True)
+        if args.app == "mobile" and feature_profile_flags(args.feature_profile) is not None:
+            event("Mobile JS bundle backend", **backend_notice(args.feature_profile,
+                                                                args.profile_from_default))
         local_command(["xcodebuild", "-checkFirstLaunchStatus"])
         if Path(args.workspace).is_dir():
             validate_build_settings(args)
@@ -688,6 +740,8 @@ def perform_phase(args, signing, artifacts):
             # app.json keeps the staging defaults; the pinned profile selects the bundle's backend.
             environment, api_url = profile_backend(args.feature_profile)
             api_url = checked_api_url(api_url)
+            event("Mobile JS bundle backend", **backend_notice(
+                args.feature_profile, getattr(args, "profile_from_default", False)))
         else:
             environment, api_url = "staging", checked_api_url(extra.get("apiUrl", ""))
         if archive.exists() or metadata_path.exists():
@@ -742,12 +796,17 @@ def perform_phase(args, signing, artifacts):
         # Kiosk export/upload: the archived profile (verified below), legacy for older archives.
         args.feature_profile = metadata.get("featureProfile", "legacy")
     verify_feature_profile(metadata, args.feature_profile)
+    if APP_DIRECTORY == "mobile" and feature_profile_flags(args.feature_profile) is not None:
+        # The archived profile (verified above), said again before Apple gets the bundle.
+        event("Mobile JS bundle backend", **backend_notice(
+            args.feature_profile, getattr(args, "profile_from_default", False)))
     if metadata.get("featureProfile") in KIOSK_PROFILES:
         verify_kiosk_bundle(app, metadata["embeddedPublicEnv"])
     if metadata.get("signing", {"style": "automatic"}) != public_signing(signing):
         fail("Use the same immutable signing profile and certificate that created this release.")
     verify_archived_profile(app, signing)
     if args.phase == "upload":
+        upload_profile_guard(args.feature_profile, getattr(args, "profile_from_default", False))
         if not args.asc_app_id or not re.fullmatch(r"[0-9]+", args.asc_app_id):
             fail("Upload requires --asc-app-id from the verified separate PickChick app record.")
         if metadata.get("deliveryStatus") == "submitted":

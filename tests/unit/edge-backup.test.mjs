@@ -34,13 +34,14 @@ const code = (expected) => (error) => error instanceof EdgeBackupError && error.
 const rows = (count) =>
   pinned.slice(0, count).map(({ version, checksum, scope }) => ({ version, checksum, scope }));
 
-test('only the reviewed edge schemas 020-024 are backed up; anything else is refused', () => {
+test('only the reviewed edge schemas 020-025 are backed up; anything else is refused', () => {
   assert.deepEqual(EDGE_BACKUP_SCHEMAS, {
     schema020: 20,
     schema021: 21,
     schema022: 22,
     schema023: 23,
     schema024: 24,
+    schema025: 25,
   });
   for (const [name, length] of Object.entries(EDGE_BACKUP_SCHEMAS))
     assert.equal(verifiedSchema(rows(length), pinned), name);
@@ -52,12 +53,12 @@ test('only the reviewed edge schemas 020-024 are backed up; anything else is ref
     ),
     'schema023',
   );
-  const future = { version: '025_edge_future.sql', checksum: 'a'.repeat(64), scope: 'edge' };
+  const future = { version: '026_edge_future.sql', checksum: 'a'.repeat(64), scope: 'edge' };
   for (const ledger of [
     rows(19),
     rows(14),
     [],
-    [...rows(24), future],
+    [...rows(25), future],
     // 024 is reviewed by its exact file bytes: another 024 is not schema024.
     rows(23).concat([{ ...pinned[23], checksum: 'd'.repeat(64) }]),
     rows(23).concat([{ ...pinned[23], version: '024_edge_other.sql' }]),
@@ -439,7 +440,7 @@ test('copy listing only accepts complete copies of this branch and old leftovers
     // that copy may hold the newest data, so it is neither a copy nor a leftover here.
     const newer = name('2026-10-20T09:17:00Z', '0000000b');
     await writeFile(join(dir, newer), 'x');
-    await writeFile(join(dir, newer + '.json'), sidecar(newer, 1, { schema: 'schema025' }));
+    await writeFile(join(dir, newer + '.json'), sidecar(newer, 1, { schema: 'schema026' }));
     const damaged = name('2026-10-20T08:17:00Z', '0000000c');
     await writeFile(join(dir, damaged), 'x');
     await writeFile(join(dir, damaged + '.json'), '{"format":');

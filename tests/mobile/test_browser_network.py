@@ -1,9 +1,11 @@
 import ast
+import os
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock
-from browser_network import API, FixtureRoute, health, isolated_context, route_fixture
+from browser_network import (API, PRODUCTION_API, SEEN_ORIGINS, FixtureRoute, assert_api_origin,
+                             health, isolated_context, route_fixture)
 
 
 def request(url, method='GET'):
@@ -74,6 +76,38 @@ class NetworkIsolation(unittest.TestCase):
         route=request(API+'/unhandled');callback(route)
         route.abort.assert_called_once();route.continue_.assert_not_called()
         with self.assertRaises(AssertionError):isolated_context(browser,service_workers='allow')
+
+    def test_production_domain_gets_the_same_local_probe_and_config(self):
+        # Build 33: the production profile asks https://api.pickchick.kz.
+        self.assertEqual(PRODUCTION_API, 'https://api.pickchick.kz')
+        self.assertTrue(health(request(PRODUCTION_API + '/health/live')))
+        context, handler = Mock(), Mock()
+        route_fixture(context, '**/v1/**', handler)
+        config = request(PRODUCTION_API + '/v1/notifications/config')
+        context.route.call_args.args[1](config)
+        config.fulfill.assert_called_once(); handler.assert_not_called()
+        route = request(PRODUCTION_API + '/v1/customer-checkout/orders', 'POST')
+        FixtureRoute(route).continue_(); route.abort.assert_called_once()
+
+    def test_every_outside_request_is_recorded_and_the_expected_api_checked(self):
+        context = isolated_context(Mock())
+        self.assertEqual(context.on.call_args.args[0], 'request')
+        record = context.on.call_args.args[1]
+        before = dict(SEEN_ORIGINS)
+        for url in [PRODUCTION_API + '/v1/catalog', PRODUCTION_API + '/health/live',
+                    'http://127.0.0.1:5197/menu', 'data:image/png;base64,AA']:
+            record(SimpleNamespace(url=url))
+        self.assertEqual(SEEN_ORIGINS.get(PRODUCTION_API, 0) - before.get(PRODUCTION_API, 0), 2)
+        self.assertNotIn('http://127.0.0.1:5197', SEEN_ORIGINS)
+        seen = {PRODUCTION_API: 2, 'https://example.test': 1}
+        self.assertEqual(assert_api_origin(PRODUCTION_API, seen), seen)
+        for bad in [{**seen, API: 1}, {'https://pickchick.example.nip.io': 1, PRODUCTION_API: 1},
+                    {'https://185.129.51.103': 1, PRODUCTION_API: 1}, {'https://example.test': 1}]:
+            with self.assertRaises(AssertionError):
+                assert_api_origin(PRODUCTION_API, bad)
+        # Without an expected API (the staging QA exports) it only reports.
+        if 'PICKCHICK_EXPECT_API' not in os.environ:
+            self.assertEqual(assert_api_origin(None, {API: 3}), {API: 3})
 
     def test_all_mobile_browser_contexts_keep_guard_until_close(self):
         for path in Path(__file__).parent.glob('browser_*.py'):

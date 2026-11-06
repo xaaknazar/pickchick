@@ -55,6 +55,7 @@ export type Order = Summary & {
   channel: 'mobile' | 'kiosk' | 'pos';
   serviceMode: 'takeaway' | 'dine_in';
   kitchenComment?: string;
+  restoreReview?: { epoch: number; status: 'pending' | 'resume' | 'retire' };
   tasks: Task[];
   /** Set by the model for orders read from the cloud stream (never taken from the payload). */
   fulfillmentOwner?: 'edge' | 'cloud';
@@ -209,6 +210,14 @@ export function order(v: unknown, branch: string): Order {
     channel: choice(o.channel, ['mobile', 'kiosk', 'pos']),
     serviceMode: choice(o.serviceMode, ['takeaway', 'dine_in']),
     ...(o.kitchenComment === undefined ? {} : { kitchenComment: str(o.kitchenComment, 60) }),
+    ...(o.restoreReview === undefined
+      ? {}
+      : {
+          restoreReview: {
+            epoch: int(record(o.restoreReview).epoch),
+            status: choice(record(o.restoreReview).status, ['pending', 'resume', 'retire']),
+          },
+        }),
     tasks,
   };
 }

@@ -1191,6 +1191,119 @@ export class OperationsView {
       'Отключить устройство',
     );
   }
+  private restoreReviews() {
+    const branch = this.model.branch;
+    if (!branch) return;
+    const writable = this.model.data?.role === 'manager';
+    const path = `branches/${branch}/restore-reviews`;
+    const d = dialog(
+      'Проверка после восстановления кассы',
+      'Здесь сохранены расхождения с историей сервера. Проверка не меняет оплату, выдачу или статус заказа. Продолжение приготовления подтверждается отдельно на кухне.',
+    );
+    const body = el('div');
+    d.append(body);
+    const load = async (after?: string) => {
+      body.replaceChildren(note('Загружаем расхождения...'));
+      try {
+        const data = object(await this.model.api(path + (after ? '?after=' + after : '')));
+        if (!d.isConnected) return;
+        if (data['installed'] !== true) {
+          body.replaceChildren(note('Проверка восстановления ещё не включена на сервере.'));
+          return;
+        }
+        if (!Array.isArray(data['items'])) throw new Error('INVALID_RESPONSE');
+        const rows = data['items'].map(object);
+        body.replaceChildren(
+          table(
+            ['Заказ', 'История сервера', 'После восстановления', 'Проверка'],
+            rows.map((row) => {
+              const action = el('div');
+              if (row['reviewed_at'])
+                action.append(
+                  note(
+                    'Проверено ' +
+                      date(row['reviewed_at']) +
+                      (row['reviewer_name'] ? ', ' + val(row['reviewer_name']) : '') +
+                      ': ' +
+                      val(row['review_reason']),
+                  ),
+                );
+              else if (writable)
+                action.append(
+                  button('Проверить', () => {
+                    const form = dialog(
+                      'Проверить заказ №' + val(row['display_number']),
+                      'Сверьте заказ с кухней и кассой. Запишите результат и дальнейшие действия. История сервера сохранится.',
+                    );
+                    let reason = '',
+                      sent: Data | null = null;
+                    const input = field(
+                      'Результат проверки',
+                      reason,
+                      (v) => {
+                        reason = v;
+                      },
+                      { required: true, max: 500 },
+                    );
+                    const feedback = note('');
+                    const save = button(
+                      'Сохранить проверку',
+                      async () => {
+                        if (!sent && reason.trim().length < 3) {
+                          feedback.textContent = 'Опишите результат проверки, минимум 3 символа.';
+                          return;
+                        }
+                        sent ??= {
+                          commandId: crypto.randomUUID(),
+                          eventId: row['event_id'],
+                          expectedVersion: 1,
+                          reason: reason.trim(),
+                        };
+                        save.disabled = true;
+                        input.querySelectorAll('input,textarea').forEach((el) => {
+                          (el as HTMLInputElement).disabled = true;
+                        });
+                        try {
+                          await this.model.api(path, { method: 'POST', body: sent });
+                          form.close();
+                          await load(after);
+                        } catch {
+                          feedback.textContent =
+                            'Сохранение не подтверждено. Повторите запрос или закройте окно и обновите список, чтобы проверить результат.';
+                          save.textContent = 'Повторить тот же запрос';
+                        } finally {
+                          save.disabled = false;
+                        }
+                      },
+                      'button primary',
+                    );
+                    form.append(input, feedback, save);
+                  }),
+                );
+              else action.append(note('Ожидает управляющего'));
+              return [
+                '№' + val(row['display_number']),
+                status(row['canonical_state']),
+                status(row['observed_state']),
+                action,
+              ];
+            }),
+          ),
+        );
+        if (!rows.length) body.append(note('Расхождений на этой странице нет.'));
+        body.append(button('Обновить', () => void load(after)));
+        if (after) body.append(button('В начало', () => void load()));
+        if (typeof data['next'] === 'string')
+          body.append(button('Следующие', () => void load(String(data['next']))));
+      } catch {
+        body.replaceChildren(
+          notice('Не удалось загрузить расхождения. Проверьте соединение и повторите.', 'bad'),
+          button('Повторить', () => void load(after)),
+        );
+      }
+    };
+    void load();
+  }
   private records(
     kind: string,
     title: string,
@@ -1850,6 +1963,7 @@ export class OperationsView {
           'Реестр заказов',
           'Последние 200 записей каждого источника. Новые отчёты кассы используют исходную дату заказа; для старого обмена отдельно указано время получения сервером.',
           [
+            button('Проверка восстановления', () => this.restoreReviews()),
             button('Экспорт CSV', () =>
               exportCsv(
                 'orders',

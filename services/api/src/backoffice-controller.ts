@@ -81,6 +81,20 @@ export class BackofficeController {
   ) {
     return this.run(() => this.service.read(this.token(auth), id, query ?? {}));
   }
+  @Get('branches/:id/restore-reviews') restoreReviews(
+    @Param('id') id: string,
+    @Headers('authorization') auth?: string,
+    @Query() query?: unknown,
+  ) {
+    return this.run(() => this.service.restoreReviews(this.token(auth), id, query ?? {}));
+  }
+  @Post('branches/:id/restore-reviews') @HttpCode(200) reviewRestore(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Headers('authorization') auth?: string,
+  ) {
+    return this.run(() => this.service.reviewRestore(this.token(auth), id, body));
+  }
   @Get('branches/:id/orders/:orderId') order(
     @Param('id') id: string,
     @Param('orderId') orderId: string,

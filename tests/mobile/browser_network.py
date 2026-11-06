@@ -1,8 +1,21 @@
-"""Keep browser fixtures local, including NetInfo's reachability probe."""
+"""Keep browser fixtures local, including NetInfo's reachability probe.
+
+Every isolated context also records the origin of each request that leaves the loopback host
+(fulfilled by a fixture or blocked). With PICKCHICK_EXPECT_API set (build 33: the production
+profile, https://api.pickchick.kz), assert_api_origin() fails the run when any request went to the
+staging nip.io host or when none went to the expected API.
+"""
+import os
 from urllib.parse import urlparse
 
+# Staging (the default build profile) and production (EXPO_PUBLIC_PICKCHICK_ENV=production).
 API = 'https://pickchick.185.129.51.103.nip.io'
+PRODUCTION_API = 'https://api.pickchick.kz'
+API_ORIGINS = (API, PRODUCTION_API)
 LOCAL_HOSTS = {'localhost', '127.0.0.1', '::1'}
+STAGING_HOST_MARKS = ('nip.io', '185.129.51.103')
+# Origin -> number of requests, over every isolated context of this process.
+SEEN_ORIGINS = {}
 
 
 def local(url):
@@ -10,8 +23,13 @@ def local(url):
     return parsed.scheme in ('http', 'https') and parsed.hostname in LOCAL_HOSTS
 
 
+def origin(url):
+    parsed = urlparse(url)
+    return f'{parsed.scheme}://{parsed.netloc}'
+
+
 def health(route):
-    if route.request.url != API + '/health/live':
+    if route.request.url not in {api + '/health/live' for api in API_ORIGINS}:
         return False
     assert route.request.method == 'GET', 'NetInfo must use the reviewed GET probe'
     route.fulfill(status=200, json={'alive': True, 'service': 'api'},
@@ -24,7 +42,8 @@ DISABLED_NOTIFICATIONS = {'enabled': False, 'providers': [], 'consentVersion': '
 
 def notifications_config(route, fixture=DISABLED_NOTIFICATIONS):
     """Only the new read-only config endpoint has a default; all mutations stay explicit."""
-    if fixture is None or route.request.url != API + '/v1/notifications/config':
+    if fixture is None or route.request.url not in {api + '/v1/notifications/config'
+                                                    for api in API_ORIGINS}:
         return False
     assert route.request.method == 'GET', 'Notification config must be read-only'
     route.fulfill(status=200, json=fixture, headers={'Access-Control-Allow-Origin': '*'})
@@ -59,7 +78,29 @@ def isolated_context(browser, **kwargs):
             FixtureRoute(route).continue_()
 
     context.route('**/*', guard)
+    context.on('request', record)
     return context
+
+
+def record(request):
+    if request.url.startswith(('http://', 'https://')) and not local(request.url):
+        key = origin(request.url)
+        SEEN_ORIGINS[key] = SEEN_ORIGINS.get(key, 0) + 1
+
+
+def assert_api_origin(expected=None, seen=None):
+    """With PICKCHICK_EXPECT_API: no request went to the staging host, some went to that API.
+
+    Returns the recorded origins (for the PASS line); without the variable it only returns them.
+    """
+    expected = expected or os.environ.get('PICKCHICK_EXPECT_API')
+    seen = SEEN_ORIGINS if seen is None else seen
+    if expected:
+        staging = {key: n for key, n in seen.items()
+                   if any(mark in urlparse(key).hostname for mark in STAGING_HOST_MARKS)}
+        assert not staging, ('requests to the staging host', staging)
+        assert seen.get(expected), ('no request reached ' + expected, seen)
+    return dict(seen)
 
 
 def route_fixture(context, pattern, handler, *, notification_fixture=DISABLED_NOTIFICATIONS):

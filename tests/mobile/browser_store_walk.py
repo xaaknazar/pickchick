@@ -16,7 +16,9 @@ and the real temporary states that may be shown are shared with tests/mobile/sto
   cart, sign-in, «События» and the three mini-games without signing in), the 320 pt screen;
   the payment step: the App Review account (403 FORBIDDEN on POST /orders: neutral text,
   «Как проходит заказ» into the demonstration, no invoice), the restaurant that does not answer
-  and Kaspi answering slowly (20 s stuck states); «Удалить аккаунт» and its confirmation;
+  and Kaspi answering slowly (20 s stuck states); «Удалить аккаунт» and its confirmation, and
+  in English the path of mobile-review-notes-33.en.txt (build 33, App Review 5.1.1(v)) from the
+  header profile icon and from Settings, by the labels the notes name;
   the App Review sign-in in English (second review 29.10.2026): the number typed with its country
   code («+7…», «7…», «8…») keeps every digit, the code, the «Let's get to know you» form left empty
   with «Done», and the profile then shows «Crunch lover» (KK too), no Russian; the design-preview
@@ -29,9 +31,11 @@ STORE_WALK_PROFILE:
     EXPO_PUBLIC_ORDER_SIMULATOR=0, EXPO_PUBLIC_UNPAID_TEST_ORDERS=0, EXPO_PUBLIC_PUBLISHED_CATALOG=1,
     EXPO_PUBLIC_PICK_FARM=0): the published catalogue, no test-order request at all;
   qa (default; the customer-auth export of CI: ...UNPAID_TEST_ORDERS=1, PUBLISHED_CATALOG=0).
+PICKCHICK_EXPECT_API=https://api.pickchick.kz (build 33, export with EXPO_PUBLIC_PICKCHICK_ENV=production):
+  the run fails if any request goes to the staging nip.io host or none reaches the domain.
 Local fixtures only: no bank, no real customer, no VPS request. Screenshots: STORE_WALK_OUT.
 """
-from browser_network import isolated_context, route_fixture
+from browser_network import assert_api_origin, isolated_context, route_fixture
 import json, os, re, subprocess, threading, uuid
 from pathlib import Path
 from urllib.parse import urlparse
@@ -800,6 +804,53 @@ def walk_delete(browser):
     clean(page, 'delete-done-393')
     assert deleted == ['/v1/customers/me'], deleted
     ctx.close()
+    # Build 33 (App Review 5.1.1(v), 30.10.2026): the path of mobile-review-notes-33.en.txt in
+    # English, by the labels the notes name. From the header profile icon: Profile > «Delete
+    # account» (right below «Language») > «Delete account» > «Delete your Pick Chick account?» >
+    # «Delete account» > «Account deleted»; Settings (gear) > «Delete account» opens the same screen.
+    for entry in ('settings', 'profile'):
+        deleted = []
+        ctx, page = context(browser, deleted=deleted)
+        page.goto(URL + '/screen/M34')
+        page.get_by_test_id('language-en').click(timeout=25000)
+        expect(page.get_by_test_id('language-en')).to_have_attribute('aria-checked', 'true')
+        page.goto(URL + '/menu')
+        settle(page)
+        page.get_by_test_id('header-profile').filter(visible=True).click()
+        profile = page.get_by_test_id('screen-M30').filter(visible=True)
+        expect(profile).to_be_visible(timeout=15000)
+        row = profile.get_by_test_id('profile-delete-account')
+        expect(row).to_contain_text('Delete account')
+        language = profile.get_by_text('Language', exact=True).bounding_box()
+        below = row.bounding_box()['y'] - language['y']
+        assert 0 < below < 160, ('«Delete account» right below «Language»', below)
+        if entry == 'settings':
+            page.get_by_test_id('profile-settings').click()
+            expect(page.get_by_test_id('screen-M34').filter(visible=True)).to_be_visible(timeout=15000)
+            page.get_by_test_id('settings-delete-account').get_by_text('Delete account', exact=True).click()
+        else:
+            clean(page, 'delete-profile-en-393', english=True)
+            row.get_by_text('Delete account', exact=True).click()
+        screen = page.get_by_test_id('screen-M32').filter(visible=True)
+        expect(screen).to_be_visible(timeout=15000)
+        expect(page.get_by_test_id('delete-demo-profile')).to_have_text('Delete account', timeout=25000)
+        expect(page.get_by_test_id('delete-demo-profile')).to_be_enabled()
+        if entry == 'settings':
+            assert deleted == [], deleted
+            ctx.close()
+            continue
+        clean(page, 'delete-screen-en-393', english=True)
+        page.get_by_test_id('delete-demo-profile').click()
+        dialog = page.get_by_test_id('server-delete-confirmation')
+        expect(dialog).to_contain_text('Delete your Pick Chick account?')
+        expect(dialog.get_by_text('Keep account', exact=True)).to_be_visible()
+        clean(page, 'delete-confirm-en-393', english=True)
+        assert deleted == [], deleted
+        dialog.get_by_text('Delete account', exact=True).click()
+        expect(page.get_by_test_id('account-deleted')).to_contain_text('Account deleted', timeout=15000)
+        clean(page, 'delete-done-en-393', english=True)
+        assert deleted == ['/v1/customers/me'], deleted
+        ctx.close()
 
 
 def type_phone(page, keys):
@@ -880,8 +931,11 @@ assert not errors, errors
 if STOREFRONT:
     # The App Store profile has no test-order client at all.
     assert not test_requests, test_requests
-print(f'PASS App Store walk ({PROFILE}): {len(walked)} screens without «скоро» / «ещё не» / «not yet» / '
+# Build 33 (PICKCHICK_EXPECT_API=https://api.pickchick.kz with the production export): no request to
+# the staging nip.io host; every API request was answered by the local fixtures.
+origins = assert_api_origin()
+print(f'PASS App Store walk ({PROFILE}, outside requests by origin {origins}): {len(walked)} screens without «скоро» / «ещё не» / «not yet» / '
       f'Chiki / «Без фото» / Apple Pay / Google Pay / card (RU, EN without Cyrillic, KK; 393x852, 320x568, '
-      f'guest with games), payment step (FORBIDDEN + demo, restaurant and Kaspi stuck states), account deletion, '
+      f'guest with games), payment step (FORBIDDEN + demo, restaurant and Kaspi stuck states), account deletion (RU, and the build 33 notes path in EN from Profile and Settings), '
       f'preview-only deep links open the menu and ?preview=1 is ignored, the App Review sign-in in EN '
       f'(+7 / 7 / 8 typed, empty profile form, «Crunch lover»), no other mutation; screenshots in {OUT}')

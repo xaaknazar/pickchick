@@ -893,6 +893,7 @@ export class KitchenModel {
   }
 }
 export function allowedActions(o: Order, station: string, wholeTicketActions = false): Action[] {
+  if (o.restoreReview && o.restoreReview.status !== 'resume') return [];
   if (wholeTicketActions && ['accepted', 'in_production'].includes(o.state)) {
     const own = o.tasks.filter((t) => t.stationId === station);
     const assembly = o.assemblyStationId === station;
