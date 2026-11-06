@@ -7303,6 +7303,25 @@
       "nextAction": "Продолжить с протокола docs/operations/cashier-launch-1105/README.md. Ближайший серверный fallback069-071 другого Mac исключает072/PR304: отдельная координация072/API/прав и совместимости023 обязательна. Требуются целостный Windows025-оператор, оба возврата служб, POS-sync312 с проверкой5 локальных записей, второй SSD/NAS и независимое хранение recovery-key. Затем согласованное ночное окно и физическая WAN/8час приёмка. Ключ связи истекает20.11; если выпуск не состоялся до10.11, продлить вручную не позднее13.11. PR300 автоматически не сливать: наследует старые серверные изменения. CI источника253 завершена success;61e87987 только документация, её CI отдельно."
     },
     {
+      "id": "android-play-1106",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/android-play-1106",
+      "scopes": [
+        "codex-reports/2026-11-06-android.md",
+        "docs/operations/mobile-play-2026-11/release-1106.md",
+        "@android/emulator",
+        "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.png",
+        "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.provenance.json",
+        "docs/operations/mobile-play-2026-11/listing-1106.json",
+        "@google-play/pickchick"
+      ],
+      "status": "active",
+      "head": "e1d5eb93fcf17850aaea9d4e5d962b9fe3866cd9",
+      "updatedAt": "2026-11-06T15:52:10.573Z",
+      "summary": "PR313, e1d5eb93 published and remote SHA verified. AAB inspect/hash PASS, source CI41994780430 11/11 success, 5 listing + 5 support tests PASS. Local emulator APK signature/Hermes verified, original AAB/upload key unchanged. Console form ready, awaits owner legal declarations; no app creation/upload/production confirmed. Emulator download running on this Mac.",
+      "nextAction": "Continue same branch/checkpoint. Await banner/support email/KK review and owner creation of app. Coordinate P6 with stage2-candidate-1105 before any VPS/shared docs edit: current support200 lacks delete-account; first-install operator needs tested update path. Menu v11 Pick Combo90KZT is test price; no price edits or store screenshots with that price. Full journal codex-reports/2026-11-06-android.md. SDK session94276, log /private/tmp/pickchick-android-sdk-install.log; local APK /private/tmp/pickchick-emulator-1106/PickChick-1.0.1-7-emulator.apk. No screenshots yet. Online roadmap unchanged."
+    },
+    {
       "id": "stage2-candidate-1105",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/stage2-candidate-1105",
@@ -7349,32 +7368,15 @@
         "tests/operations/test_close_test_qr_1106.py",
         "docs/operations/test-payment-cleanup-1106.md",
         "infra/staging/c1-window.py",
-        "tests/operations/test_c1_window.py"
+        "tests/operations/test_c1_window.py",
+        "infra/staging/stage2-owner-connection.py",
+        "tests/operations/test_stage2_owner_connection.py"
       ],
       "status": "active",
-      "head": "30604130e361c7c41d03d8363a34f406305b7406",
-      "updatedAt": "2026-11-06T15:13:37.747Z",
+      "head": "f1f02585be6c5a3940f838e7b79a1470e5cef967",
+      "updatedAt": "2026-11-06T15:59:02.307Z",
       "summary": "C1 guard fix 30604130 published in PR311. Named safe diagnostics, exact API image/revision/env and seven auth keys, full neighbor labels. Local 28 tests PASS; 26 also with Python -O. Foundation 11/11 PASS https://github.com/xaaknazar/pickchick/actions/runs/42228997173 ; full Offline(ci) PASS https://github.com/xaaknazar/pickchick/actions/runs/42228997301 . No VPS reads/writes or repeat deployment.",
       "nextAction": "Wait for explicit new owner approval naming C1/C3 repeat window. Day start before16:00 Almaty/end19:00; night C1from00:30 C3from01:00/end07:00. Use published c1-window.py, not old temporary scripts; fresh baseline/no active work/73-18 fingerprints/backup068/restore/pins. After successful window tell owner about hidden bot key entry. Do not merge or deploy automatically."
-    },
-    {
-      "id": "android-play-1106",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/android-play-1106",
-      "scopes": [
-        "codex-reports/2026-11-06-android.md",
-        "docs/operations/mobile-play-2026-11/release-1106.md",
-        "@android/emulator",
-        "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.png",
-        "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.provenance.json",
-        "docs/operations/mobile-play-2026-11/listing-1106.json",
-        "@google-play/pickchick"
-      ],
-      "status": "active",
-      "head": "e1d5eb93fcf17850aaea9d4e5d962b9fe3866cd9",
-      "updatedAt": "2026-11-06T15:52:10.573Z",
-      "summary": "PR313, e1d5eb93 published and remote SHA verified. AAB inspect/hash PASS, source CI41994780430 11/11 success, 5 listing + 5 support tests PASS. Local emulator APK signature/Hermes verified, original AAB/upload key unchanged. Console form ready, awaits owner legal declarations; no app creation/upload/production confirmed. Emulator download running on this Mac.",
-      "nextAction": "Continue same branch/checkpoint. Await banner/support email/KK review and owner creation of app. Coordinate P6 with stage2-candidate-1105 before any VPS/shared docs edit: current support200 lacks delete-account; first-install operator needs tested update path. Menu v11 Pick Combo90KZT is test price; no price edits or store screenshots with that price. Full journal codex-reports/2026-11-06-android.md. SDK session94276, log /private/tmp/pickchick-android-sdk-install.log; local APK /private/tmp/pickchick-emulator-1106/PickChick-1.0.1-7-emulator.apk. No screenshots yet. Online roadmap unchanged."
     }
   ]
 }
