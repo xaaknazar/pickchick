@@ -7349,9 +7349,9 @@
         "tests/operations/test_close_test_qr_1106.py",
         "docs/operations/test-payment-cleanup-1106.md"
       ],
-      "status": "available",
+      "status": "active",
       "head": "3b632ef468698aa61ea3590a0006041c906a53e1",
-      "updatedAt": "2026-11-06T09:48:32.617Z",
+      "updatedAt": "2026-11-06T10:01:18.898Z",
       "summary": "Владелец отдельно разрешил одноразовый автозапуск С1/С3. Создан pickchick-15-00 ACTIVE COUNT1 на06.11 15:00Алматы/10:00UTC/13:00Mac. Протокол и журнал обновлены. До запуска сервер не менялся.",
       "nextAction": "В назначенное время продолжить окно по docs/operations/server-window-1105/window-2026-11-06.md: свежие refs/claims/baseline, точные73/18 без новых оплат, С1 затем С3 runtime6630eb0f; все копии/проверки/откат обязательны. Повторное разрешение не нужно. После завершения или остановки отключить pickchick-15-00."
     }
