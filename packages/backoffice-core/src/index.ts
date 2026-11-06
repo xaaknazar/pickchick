@@ -77,6 +77,7 @@ import {
   saveStaffPositions,
   stripKeptPositions,
 } from './positions.js';
+import { discountCommand, discountsAvailable, readDiscounts } from './discounts.js';
 export * from './model.js';
 export * from './stops.js';
 export * from './station-plans.js';
@@ -92,6 +93,7 @@ export * from './consumption-store.js';
 export * from './manager-shifts.js';
 export * from './manager-shifts-store.js';
 export * from './positions.js';
+export * from './discounts.js';
 export const BACKOFFICE = Symbol('BACKOFFICE');
 /** The old manager journal (bo_records kind shift) in GET branches/:id while the shift runs. */
 export const LEGACY_JOURNAL_LIMIT = 200;
@@ -481,6 +483,8 @@ export class Backoffice {
       const autoconsume = stockP1 && (await autoconsumeAvailable(db, this.options));
       // Staff positions (bo-ui step 6): card fields only, always usable while the flag is on.
       const staffPositions = this.options.staffPositionsEnabled === true;
+      // Back-office P1 (bo-ui): {} without a query while every P1 flag is off.
+      const p1 = await p1Capabilities(db, this.options, stockP1);
       const roles =
         this.options.rolesEnabled === true
           ? {
@@ -494,13 +498,13 @@ export class Backoffice {
                   ? (['manager_shifts.write', 'manager_shifts.template'] as const)
                   : []),
                 ...(staffPositions ? (['staff.positions'] as const) : []),
+                // Discounts (step 7): the editor, while the 075 rights are there.
+                ...(p1.discounts === true ? (['discounts.write'] as const) : []),
               ]),
             }
           : {};
       const stockV2 =
         this.options.stockV2Enabled === true ? { stock_v2: await stockV2Writable(db) } : {};
-      // Back-office P1 (bo-ui): {} without a query while every P1 flag is off.
-      const p1 = await p1Capabilities(db, this.options, stockP1);
       return {
         schema_version: 1,
         branch_id: branch,
@@ -643,6 +647,8 @@ export class Backoffice {
    *   otherwise exactly the 404 of an unknown view.
    * - `pos-day` (bo-ui «Касса», pos-day.ts): only while BACKOFFICE_POS_DAY_ENABLED is on;
    *   otherwise exactly the 404 of an unknown view.
+   * - `discounts` (bo-ui step 7, discounts.ts): only while BACKOFFICE_DISCOUNTS_ENABLED is on;
+   *   otherwise exactly the 404 of an unknown view.
    */
   async ops(token: string, branch: string, view: string, input: unknown = {}) {
     return transaction(this.pool, async (db) => {
@@ -676,6 +682,11 @@ export class Backoffice {
         requirePermission(actor.effective, 'staff.positions');
         parse(z.strictObject({}), input);
         return readStaffRoster(db, branch, new Date());
+      }
+      // Discounts (step 7): only while BACKOFFICE_DISCOUNTS_ENABLED is on; every role reads.
+      if (view === 'discounts' && this.options.discountsEnabled === true) {
+        if (!(await discountsAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+        return readDiscounts(db, branch, input, new Date());
       }
       if (view !== 'stock') return fail('NOT_FOUND');
       if (this.options.stockV2Enabled !== true || !(await stockV2Readable(db)))
@@ -869,7 +880,8 @@ export class Backoffice {
       !(
         o.stockV2Enabled === true ||
         o.managerShiftsEnabled === true ||
-        o.staffPositionsEnabled === true
+        o.staffPositionsEnabled === true ||
+        o.discountsEnabled === true
       ) ||
       Request.safeParse(input).success
     )
@@ -957,6 +969,13 @@ export class Backoffice {
           // The branch list of positions (positions.ts).
           result = await saveStaffPositions(db, branch, actor.id, c);
           entity = null;
+        } else if (c.type === 'discount_save' || c.type === 'discount_state') {
+          // Discount editor (discounts.ts): the flag and the cloud075 rights; never published.
+          if (!(await discountsAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+          const done = await discountCommand(db, branch, actor.id, c, new Date());
+          result = done.result;
+          before = done.before;
+          entity = c.id;
         } else if (c.type === 'save') {
           // Manager shift on (step 6): the old journal is read only.
           if (

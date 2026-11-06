@@ -84,6 +84,11 @@ export const BACKOFFICE_P1_PERMISSIONS = [
    * cashier edge (BACKOFFICE_STAFF_POSITIONS_ENABLED).
    */
   'staff.positions',
+  /**
+   * Create, edit, switch on and off and archive discounts (BACKOFFICE_DISCOUNTS_ENABLED). The
+   * cashier applies them later with the shift manager's PIN (P1 of the pos lane).
+   */
+  'discounts.write',
 ] as const;
 export type BackofficeP1Permission = (typeof BACKOFFICE_P1_PERMISSIONS)[number];
 export type BackofficeAnyPermission = BackofficePermission | BackofficeP1Permission;
@@ -129,7 +134,8 @@ export const ROLE_PERMISSIONS: Readonly<
  * mode by the manager only (the chef approves through the manager); retry and skip of a queued
  * consumption by the manager and the shift manager; the manager shift by the manager and the
  * shift manager (design-bo-ui 4), its checklist template by the manager; positions and the roster
- * by the manager.
+ * by the manager; discounts by the manager only (owner decision 05.11: they are made only in the
+ * back office; the shift manager approves one at the cash desk with a PIN, P1).
  */
 export const P1_ROLE_PERMISSIONS: Readonly<
   Record<BackofficeEffectiveRole, readonly BackofficeP1Permission[]>

@@ -35,6 +35,10 @@ export const BackofficeErrorReasonSchema = z.enum([
   // Lane bo-ui staff positions (design-bo-ui 5.7): only with BACKOFFICE_STAFF_POSITIONS_ENABLED.
   'POSITION_UNKNOWN',
   'POSITION_IN_USE',
+  // Lane bo-ui discounts (design-bo-ui 5.8): only with BACKOFFICE_DISCOUNTS_ENABLED.
+  'DISCOUNT_NAME_TAKEN',
+  'DISCOUNT_ARCHIVED',
+  'DISCOUNT_PERIOD_ENDED',
 ]);
 export type BackofficeErrorReason = z.infer<typeof BackofficeErrorReasonSchema>;
 export class BackofficeError extends Error {

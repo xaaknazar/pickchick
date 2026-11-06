@@ -18,6 +18,7 @@ import {
   ManagerShiftTemplateCommand,
 } from './manager-shifts.js';
 import { StaffPositionsSaveCommand } from './positions.js';
+import { DiscountSaveCommand, DiscountStateCommand } from './discounts.js';
 
 /**
  * Stock P1 of the back office (lane bo-ui, owner decision 05.11; design-bo-ui.md sections 2, 3,
@@ -98,7 +99,8 @@ export const StockReverseCommand = z.strictObject({
  * p1Request, P1_COMMAND_FLAGS), so with the flag off it stays an unknown command: the menu links
  * and the storno ride stock v2; stock_settings and the queue commands also need
  * BACKOFFICE_STOCK_AUTOCONSUME_ENABLED; the manager shift commands
- * BACKOFFICE_MANAGER_SHIFTS_ENABLED; the list of positions BACKOFFICE_STAFF_POSITIONS_ENABLED.
+ * BACKOFFICE_MANAGER_SHIFTS_ENABLED; the list of positions BACKOFFICE_STAFF_POSITIONS_ENABLED;
+ * the discount editor BACKOFFICE_DISCOUNTS_ENABLED (discounts.ts).
  */
 export const P1Command = z.discriminatedUnion('type', [
   StockReverseCommand,
@@ -112,6 +114,8 @@ export const P1Command = z.discriminatedUnion('type', [
   ManagerShiftCloseCommand,
   ManagerShiftTemplateCommand,
   StaffPositionsSaveCommand,
+  DiscountSaveCommand,
+  DiscountStateCommand,
 ]);
 /** P1 commands of the automatic consumption (BACKOFFICE_STOCK_AUTOCONSUME_ENABLED). */
 export const AUTOCONSUME_COMMANDS: readonly string[] = Object.freeze([
@@ -134,6 +138,8 @@ export const P1_COMMAND_PERMISSIONS: Readonly<
   manager_shift_close: 'manager_shifts.write',
   manager_shift_template: 'manager_shifts.template',
   staff_positions_save: 'staff.positions',
+  discount_save: 'discounts.write',
+  discount_state: 'discounts.write',
 });
 /** The back-office option each P1 command needs besides its own feature checks. */
 export const P1_COMMAND_FLAGS: Readonly<
@@ -144,6 +150,7 @@ export const P1_COMMAND_FLAGS: Readonly<
       | 'stockAutoconsumeEnabled'
       | 'managerShiftsEnabled'
       | 'staffPositionsEnabled'
+      | 'discountsEnabled'
     )[]
   >
 > = Object.freeze({
@@ -158,6 +165,8 @@ export const P1_COMMAND_FLAGS: Readonly<
   manager_shift_close: ['managerShiftsEnabled'],
   manager_shift_template: ['managerShiftsEnabled'],
   staff_positions_save: ['staffPositionsEnabled'],
+  discount_save: ['discountsEnabled'],
+  discount_state: ['discountsEnabled'],
 });
 export type P1CommandInput = z.infer<typeof P1Command>;
 /** POST .../commands body of a P1 command (the same envelope as Request in model.ts). */

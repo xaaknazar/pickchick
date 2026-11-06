@@ -128,6 +128,15 @@ const without = (state, keys) => {
       copy.permissions = copy.permissions.slice(0, -1);
     }
   }
+  // discounts (step 7) lists its P1 permission (the manager's) while the editor can run.
+  if (
+    keys.includes('discounts') &&
+    state.capabilities.discounts === true &&
+    Array.isArray(copy.permissions)
+  ) {
+    assert.deepEqual(copy.permissions.slice(-1), ['discounts.write']);
+    copy.permissions = copy.permissions.slice(0, -1);
+  }
   if (keys.includes('pos_day')) {
     assert.ok(Array.isArray(copy.pos_terminals), 'pos_day adds pos_terminals');
     assert.deepEqual(copy.pos_staff, {}, 'pos_day adds pos_staff');
@@ -369,6 +378,7 @@ test('HTTP: the API maps the config flags; flag-off bodies are the cloud lane bo
           posDay: await get('/ops/pos-day?date=2026-11-19'),
           managerShifts: await get('/ops/manager-shifts?date=2026-11-19'),
           roster: await get('/ops/staff-roster'),
+          discounts: await get('/ops/discounts'),
           bogus: await get('/ops/bogus'),
         };
       } finally {
@@ -383,8 +393,8 @@ test('HTTP: the API maps the config flags; flag-off bodies are the cloud lane bo
     // A P1 view while off answers exactly like an unknown view.
     assert.equal(off.posDay.status, 404);
     assert.deepEqual(stable(off.posDay.body), stable(off.bogus.body));
-    // Step 6 views: the same 404 while their flags are off.
-    for (const view of [off.managerShifts, off.roster]) {
+    // Step 6 and 7 views: the same 404 while their flags are off.
+    for (const view of [off.managerShifts, off.roster, off.discounts]) {
       assert.equal(view.status, 404);
       assert.deepEqual(stable(view.body), stable(off.bogus.body));
     }
@@ -421,4 +431,9 @@ test('HTTP: the API maps the config flags; flag-off bodies are the cloud lane bo
     assert.equal(on.roster.status, 200);
     assert.deepEqual(on.roster.body.staff, []);
     assert.match(on.roster.body.sha256, /^[0-9a-f]{64}$/);
+    // Step 7: the discount editor's view, never applied at the cash desk yet.
+    assert.equal(on.discounts.status, 200);
+    assert.deepEqual(on.discounts.body.discounts, []);
+    assert.equal(on.discounts.body.applied_at_pos, false);
+    assert.equal(on.discounts.body.published_to_edge, false);
   }));
