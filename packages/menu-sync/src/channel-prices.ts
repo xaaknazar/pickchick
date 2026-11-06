@@ -2,7 +2,12 @@ import type { SalesChannel } from '@pickchick/contracts';
 
 /** Cutover Аг4 (contracts section 5.3). Owner after D0: cloud lane. Pure, synchronous. */
 export function channelItemPriceMinor(
-  item: { price_minor: string; aggregator_prices_minor?: { yandex_eda?: string; glovo?: string } },
+  item: {
+    price_minor: string;
+    // exactOptionalPropertyTypes: a MenuItem (whose optional keys may hold undefined) fits as is.
+    aggregator_prices_minor?:
+      { yandex_eda?: string | undefined; glovo?: string | undefined } | undefined;
+  },
   channel: SalesChannel,
 ): string | null {
   if (channel === 'hall') return item.price_minor;
