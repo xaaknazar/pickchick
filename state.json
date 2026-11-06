@@ -7402,11 +7402,13 @@
         "codex-reports/2026-11-07-day.md",
         "infra/public-staging/support-page-release.py",
         "tests/operations/test_support_page_release.py",
-        "@vps/public-https/support"
+        "@vps/public-https/support",
+        "tests/operations/test_support_page_update.py",
+        "docs/operations/mobile-play-2026-11/support-update-1107.md"
       ],
       "status": "active",
       "head": "3b583d5af156534f7bac6d73348877e716a6936b",
-      "updatedAt": "2026-11-06T21:31:54.760Z",
+      "updatedAt": "2026-11-06T21:33:20.209Z",
       "summary": "PR315, 3b583d5a: владелец подтвердил казахский текст страницы удаления словами перевод в норме. Тексты без изменений; только протокол и журнал. Format/diff PASS. Предыдущие 5 support tests PASS; сервер не изменён. Получена явная передача публикации П6, оператор и резерв support; отдельная политика не разрешена.",
       "nextAction": "Включить тексты PR315 в кандидат П6, полная CI и выпуск в согласованное окно. Подтверждение KK страницы получено; политику не публиковать без отдельного да."
     }
