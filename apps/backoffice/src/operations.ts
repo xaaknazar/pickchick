@@ -16,9 +16,19 @@ import {
   settle,
   writeDraft,
 } from './dialog-guard.js';
-import { almatyDateTime, cards, dash, isoDay, ui } from './ui-fixes.js';
+import { almatyDateTime, cards, dash, isoDay, labelledCards, ui } from './ui-fixes.js';
 import { NO_FILTER, auditRows, auditView, type AuditFilter } from './audit-model.js';
-import type { StockKind } from './inventory-model.js';
+import {
+  almatyStamp,
+  displayQuantity,
+  documentDetail,
+  quickWasteField,
+  quickWasteTiles,
+  reversalPreview,
+  stockKindLabel,
+  stockSalesNotice,
+  type StockKind,
+} from './inventory-model.js';
 import {
   OperationsModel,
   StopsModel,
@@ -31,6 +41,7 @@ import {
   rightsText,
   salesReportAvailable,
   stockFixes,
+  stockP1,
   stockV2,
   stationPlanReason,
   stationPlanStatus,
@@ -189,6 +200,8 @@ const date = (v: unknown) =>
           minute: '2-digit',
         })
     : '-';
+/** Columns of the storno preview (lane bo-ui stock P1). */
+const STORNO_HEADERS = ['Ингредиент', 'Сейчас', 'Изменение', 'После сторно', 'Стоимость'];
 const amount = (v: unknown) => {
   const n = BigInt(String(v ?? '0')),
     a = n < 0n ? -n : n;
@@ -1248,6 +1261,55 @@ export class OperationsView {
         }),
       );
     }
+    // Stock P1: the quick waste tile of an ingredient (design-backoffice 5 «Остатки»). Without
+    // the capability the field is not shown and the payload is left as it is.
+    let tile: { label: string; quantity: string } | null = null;
+    if (kind === 'ingredient' && stockP1(this.model.data)) {
+      const q =
+        p['quick_waste'] && typeof p['quick_waste'] === 'object' ? object(p['quick_waste']) : {};
+      const typed = {
+        label: typeof q['label'] === 'string' ? q['label'] : '',
+        quantity: typeof q['quantity'] === 'string' ? q['quantity'] : '',
+      };
+      tile = typed;
+      // The draft keeps the fields as typed; the save checks them (quickWasteField).
+      const keep = () => {
+        if (typed.label || typed.quantity) p['quick_waste'] = { ...typed };
+        else delete p['quick_waste'];
+      };
+      const unit = status(p['unit']);
+      const box = el('div', 'form-grid');
+      box.append(
+        field(
+          'Название плитки',
+          typed.label,
+          (v) => {
+            typed.label = v;
+            keep();
+          },
+          { id: 'op-quick-waste-label', max: 40, hint: 'Например, «Фингерсы из шкафа».' },
+        ),
+        field(
+          'Количество за одно нажатие',
+          typed.quantity,
+          (v) => {
+            typed.quantity = v;
+            keep();
+          },
+          {
+            id: 'op-quick-waste-quantity',
+            hint: `Целое число в учётной единице ингредиента (${unit}).`,
+          },
+        ),
+      );
+      d.append(
+        el('h3', '', 'Плитка быстрого списания'),
+        note(
+          'Необязательно. Плитка появится в окне «Списание»: одно нажатие добавит это количество. Оставьте оба поля пустыми, чтобы убрать плитку.',
+        ),
+        box,
+      );
+    }
     if (kind === 'campaign')
       d.append(
         note(
@@ -1266,13 +1328,20 @@ export class OperationsView {
       );
     this.footer(
       d,
-      () => ({
-        type: 'save',
-        kind,
-        id: record?.id ?? crypto.randomUUID(),
-        expected_revision: record?.revision ?? 0,
-        payload: p,
-      }),
+      () => {
+        if (tile) {
+          const value = quickWasteField(tile.label, tile.quantity);
+          if (value) p['quick_waste'] = value;
+          else delete p['quick_waste'];
+        }
+        return {
+          type: 'save',
+          kind,
+          id: record?.id ?? crypto.randomUUID(),
+          expected_revision: record?.revision ?? 0,
+          payload: p,
+        };
+      },
       'Сохранить',
       key
         ? {
@@ -1647,7 +1716,14 @@ export class OperationsView {
       dirty: saved !== null,
     });
     if (saved) d.append(restoredNote(saved.saved_at));
-    const editor = inventoryEditor(d, kind, this.model.data!.stock, { stockV2: v2, draft: saved });
+    const editor = inventoryEditor(d, kind, this.model.data!.stock, {
+      stockV2: v2,
+      draft: saved,
+      // Stock P1: the quick waste tiles of the ingredient cards (waste only).
+      ...(stockP1(this.model.data) && kind === 'waste'
+        ? { quickWaste: quickWasteTiles(this.model.data!.stock) }
+        : {}),
+    });
     let reason = typeof saved?.reason === 'string' ? saved.reason : '';
     // Every change goes to the tab's draft; a closed (sent or discarded) dialog writes nothing.
     const persist = () => {
@@ -1676,6 +1752,71 @@ export class OperationsView {
         return 'Остаток изменился, пока вы вводили документ: по этим позициям уже провели другой документ. Колонка «По учёту» обновлена, ваши строки сохранены. Проверьте их, отметьте проверку и проведите документ ещё раз.';
       },
     });
+  }
+
+  /**
+   * Stock P1 storno of a whole document (design-bo-ui 5.4): the exact opposite of its movements as
+   * one new document; the original stays in history. The preview is against today's balances; a
+   * CONFLICT (another document moved them) reloads them in place.
+   */
+  private reverse(document: Data) {
+    const d = dialog(
+      'Сторно документа',
+      'Сторно создаст обратный документ. Исходный останется в истории.',
+    );
+    d.dataset.testid = 'stock-reverse-dialog';
+    const body = el('div');
+    let current = document;
+    let preview = reversalPreview(current, this.model.data?.stock ?? []);
+    const draw = () => {
+      body.replaceChildren(
+        el(
+          'p',
+          'op-note',
+          `${stockKindLabel(current['kind'])} «${String(current['reference'])}» от ${almatyStamp(current['created_at'])}. ${documentDetail(current)}`,
+        ),
+        labelledCards(
+          table(
+            STORNO_HEADERS,
+            preview.lines.map((l) => [
+              l.name,
+              displayQuantity(l.before, l.unit),
+              (BigInt(l.delta) > 0n ? '+' : '') + displayQuantity(l.delta, l.unit),
+              l.ok ? displayQuantity(l.after, l.unit) : 'Не хватает',
+              (BigInt(l.value_delta) > 0n ? '+' : '') + amount(l.value_delta),
+            ]),
+          ),
+          STORNO_HEADERS,
+        ),
+      );
+      if (preview.error) {
+        const n = el('p', 'notice error', preview.error);
+        n.dataset.testid = 'stock-reverse-blocked';
+        body.append(n);
+      }
+    };
+    draw();
+    d.append(body);
+    this.footer(
+      d,
+      () => {
+        if (preview.error) throw new Error(preview.error);
+        return preview.command;
+      },
+      'Провести сторно',
+      {
+        conflict: async () => {
+          // ALREADY_REVERSED and COUNTED_AFTER_DOCUMENT are conflicts with a reason: say it.
+          const failure = this.model.error;
+          if (failure instanceof ApiError && failure.reason) return message(failure);
+          await this.model.load(this.model.actor, this.model.branch);
+          current = this.model.data?.documents.find((v) => v['id'] === current['id']) ?? current;
+          preview = reversalPreview(current, this.model.data?.stock ?? []);
+          draw();
+          return 'Остатки этих позиций изменились, пока окно было открыто. Таблица обновлена: проверьте её и проведите сторно ещё раз.';
+        },
+      },
+    );
   }
 
   private cashierShift(shift: Data) {
@@ -2783,6 +2924,21 @@ export class OperationsView {
             ? {
                 report: (view: 'waste' | 'movement', start: string, end: string) =>
                   this.model.stockReport(view, start, end),
+              }
+            : {}),
+          // Stock fixes (iiko-gap P0-13): sales are not written off yet (autoconsume, step 5).
+          ...(stockFixes(d) ? { salesNotice: stockSalesNotice('off', stockP1(d)) } : {}),
+          // Stock P1: «Списания», «Движение», «Последний подсчёт» and storno.
+          ...(stockP1(d)
+            ? {
+                stockP1: {
+                  reverse: permitted(d, 'stock.reverse')
+                    ? (document: Data) => this.reverse(document)
+                    : null,
+                  reverseRights: permitted(d, 'stock.reverse')
+                    ? null
+                    : rightsText(d, 'stock.reverse'),
+                },
               }
             : {}),
           records: (kind) =>

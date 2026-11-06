@@ -432,6 +432,12 @@ const reasons: Record<string, string> = {
   REASON_REQUIRED: 'Укажите причину списания.',
   STOCK_V2_DISABLED:
     'Причины списаний и данные накладной пока не включены на сервере. Обновите страницу.',
+  // Lane bo-ui stock P1 (servers with capabilities.stock_p1).
+  REVERSAL_NOT_ALLOWED:
+    'Этот документ не сторнируется: инвентаризацию исправляют новой инвентаризацией, сторно - не отменяют.',
+  ALREADY_REVERSED: 'Документ уже сторнирован. Сторно - одно на документ. Обновите страницу.',
+  COUNTED_AFTER_DOCUMENT:
+    'После документа по его позициям провели инвентаризацию: она уже учла фактический остаток. Исправьте остаток новой инвентаризацией или списанием.',
 };
 export const reasonMessage = (reason: string | undefined) =>
   reason === undefined ? undefined : reasons[reason];

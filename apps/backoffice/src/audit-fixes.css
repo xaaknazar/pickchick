@@ -126,6 +126,8 @@ html.bo-fixes .inventory-table td:first-child {
     gap: 8px;
     padding: 4px 0 !important;
     border: 0 !important;
+    /* The generic td:first-child (34 %) and td:last-child (215 px) widths are for tables. */
+    width: auto !important;
     min-width: 0 !important;
     max-width: none !important;
     white-space: normal;

@@ -127,3 +127,19 @@
   justify-self: start;
   align-self: end;
 }
+
+/* Lane bo-ui stock P1 (capabilities.stock_p1 only): words stay whole in the narrow report and
+   document columns, and the quick waste tiles sit in a row that wraps. */
+.inventory-p1 .inventory-table td {
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
+}
+.op-quick-waste {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.op-quick-waste .op-quick-tile {
+  min-height: 44px;
+}

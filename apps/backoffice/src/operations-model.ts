@@ -78,6 +78,9 @@ export function commandPermission(command: Data): string {
     case 'produce':
     case 'consume':
       return 'stock.production';
+    // Lane bo-ui stock P1: storno of a stock document (servers with capabilities.stock_p1).
+    case 'stock_reverse':
+      return 'stock.reverse';
     case 'revoke_device':
       return 'devices.write';
     case 'cancel_order':
@@ -122,6 +125,17 @@ export const stockV2 = (data: { capabilities?: unknown } | null | undefined) =>
     (data.capabilities as Data)['stock_v2'] === true,
   );
 /**
+ * Stock P1 (lane bo-ui, design-bo-ui 2 and 5.4): the server with stock v2, cloud075 and its rights
+ * takes storno, quick waste tiles and reports counted_at; without the key the cabinet is the
+ * cloud lane's stock page.
+ */
+export const stockP1 = (data: { capabilities?: unknown } | null | undefined) =>
+  Boolean(
+    data?.capabilities &&
+    typeof data.capabilities === 'object' &&
+    (data.capabilities as Data)['stock_p1'] === true,
+  );
+/**
  * Audit fixes of lane bo-ui that change the cabinet without a flag of their own (design-bo-ui
  * §6, §8 q1; audit F05-F08, F13-F20): on while the server reports capabilities.pos_day, the flag
  * of the cutover back office (BACKOFFICE_POS_DAY_ENABLED). With it off the cabinet is exactly
@@ -155,6 +169,7 @@ export const RIGHTS_TEXT: Record<string, string> = {
   'stock.receipt': 'Поставку проводят управляющий, начальник смены и бухгалтер.',
   'stock.waste': 'Списание проводят управляющий и начальник смены.',
   'stock.count': 'Инвентаризацию проводят управляющий и начальник смены.',
+  'stock.reverse': 'Сторно делают управляющий и бухгалтер.',
   'records.write': 'Изменять записи может управляющий точки.',
 };
 /**

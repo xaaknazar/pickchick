@@ -13,6 +13,13 @@ export const ui = { fixes: false };
  */
 export function cards(wrap: HTMLElement, headers: readonly string[]) {
   if (!ui.fixes) return wrap;
+  return labelledCards(wrap, headers);
+}
+/**
+ * The phone cards of `cards` for a table that exists only behind its own capability (lane bo-ui
+ * stock P1): always marked, because without that capability the table is never drawn.
+ */
+export function labelledCards(wrap: HTMLElement, headers: readonly string[]) {
   wrap.classList.add('bo-cards');
   for (const row of wrap.querySelectorAll('tbody tr')) {
     const cells = [...row.children] as HTMLElement[];

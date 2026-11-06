@@ -80,17 +80,34 @@ with sync_playwright() as pw:
     expect(page.locator('dialog.op-dialog')).to_have_count(0)
 
     # ---- Report tab ----
-    page.get_by_role('button', name='Списания и поставки').click()
-    with page.expect_response(lambda r: '/ops/stock?' in r.url) as answer:
+    if config.get('p1'):
+        # cloud075 with its rights: stock P1 rides stock v2 (lane bo-ui), two report tabs.
+        expect(page.get_by_role('button', name='Списания и поставки')).to_have_count(0)
+        page.get_by_role('button', name='Списания', exact=True).click()
+        with page.expect_response(lambda r: '/ops/stock?' in r.url) as answer:
+            page.get_by_test_id('inventory-waste-run').click()
+        assert answer.value.status == 200, answer.value.status
+        report = page.get_by_test_id('inventory-report-waste')
+        expect(report).to_contain_text('Тепловой шкаф: старше 50 минут')
+        expect(report).to_contain_text('Синтетический управляющий')
+        page.get_by_role('button', name='Движение', exact=True).click()
+        page.get_by_test_id('inventory-movement-run').click()
+        report = page.get_by_test_id('inventory-report-movement')
+        expect(report).to_contain_text('Пекарня, Синтетическая пекарня, накладная от 18.11.2026')
+    else:
+        # The cloud lane's stock page (stock v2 without cloud075).
+        page.get_by_role('button', name='Списания и поставки').click()
+        with page.expect_response(lambda r: '/ops/stock?' in r.url) as answer:
+            page.get_by_test_id('inventory-report-run').click()
+        assert answer.value.status == 200, answer.value.status
+        report = page.get_by_test_id('inventory-report')
+        expect(report).to_contain_text('Тепловой шкаф: старше 50 минут')
+        expect(report).to_contain_text('Синтетический управляющий')
+        page.get_by_test_id('inventory-report-view').select_option('movement')
         page.get_by_test_id('inventory-report-run').click()
-    assert answer.value.status == 200, answer.value.status
-    report = page.get_by_test_id('inventory-report')
-    expect(report).to_contain_text('Тепловой шкаф: старше 50 минут')
-    expect(report).to_contain_text('Синтетический управляющий')
-    page.get_by_test_id('inventory-report-view').select_option('movement')
-    page.get_by_test_id('inventory-report-run').click()
-    expect(report).to_contain_text('Пекарня, Синтетическая пекарня, накладная от 18.11.2026')
-    capture(page, 'stock-report-1440.png')
+        expect(report).to_contain_text('Пекарня, Синтетическая пекарня, накладная от 18.11.2026')
+        expect(page.get_by_text('Последний подсчёт')).to_have_count(0)
+    capture(page, 'stock-report-%s-1440.png' % ('p1' if config.get('p1') else 'v2'))
     page.close()
 
     # ---- Designated shift manager, phone width ----

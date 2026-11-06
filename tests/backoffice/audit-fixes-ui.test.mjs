@@ -149,6 +149,8 @@ test('F08 every action code of the back office has a section and a Russian name'
     'stock:count',
     'produce',
     'consume',
+    // Lane bo-ui stock P1 (stock-p1.ts).
+    'stock_reverse',
     'cancel_order',
     'refund',
     'manual_refund',
