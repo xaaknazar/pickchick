@@ -64,8 +64,12 @@ with sync_playwright() as pw:
         except Exception as error: mode = 'unreadable: ' + type(error).__name__
         pos_config.append((response.status, mode))
     page.on('response', config_response)
+    # CR client-5: without payments every test-mode text stays exactly as before, although this
+    # desk publishes its real version (0.5.0) in /config.json.
+    TEST_UNAVAILABLE='В тестовом режиме эта интеграция не подключена. Деньги и чеки не проводятся.'
     try:
         page.goto(url)
+        expect(page.locator('.pin-connection')).to_have_text('Вход по личному PIN · Pick Chick POS 0.4 · TEST')
         audit_touch_layout(page,output,"pin")
         for width, height in ((1920,1080),(1366,768),(1366,705),(1024,600),(390,844)):
             page.set_viewport_size({'width':width, 'height':height})
@@ -90,6 +94,8 @@ with sync_playwright() as pw:
         page.evaluate('Date.now = window.realDateNow')
         pin(page, '2468')
         expect(page.locator('.shift-open-card')).to_be_visible()
+        expect(page.locator('.shift-open-subtitle')).to_contain_text('Абая 62 · Касса 1 · ')
+        expect(page.locator('.shift-open-subtitle')).to_contain_text('открывает Тестовый начальник (Начальник смены)')
         audit_touch_layout(page,output,'opening')
         for width,height in ((1366,768),(1366,705),(1024,600),(390,844)):
             page.set_viewport_size({'width':width,'height':height})
@@ -105,6 +111,10 @@ with sync_playwright() as pw:
         page.set_viewport_size({'width':1920,'height':1080})
         page.get_by_role('button', name='Открыть смену', exact=True).click()
         expect(page.get_by_text('КОМБО', exact=True)).to_be_visible()
+        expect(page.locator('.pos-toast')).to_have_text('Тестовая смена открыта')
+        expect(page.get_by_text('Начальник смены · касса 1', exact=True).first).to_be_visible()
+        page.get_by_role('button', name='Промокод', exact=True).click()
+        expect(page.locator('.pos-toast')).to_have_text(TEST_UNAVAILABLE)
         # Offline stand finding (24.10): "no internet" is shown apart from the cashier link.
         no_internet = page.get_by_text('Нет интернета · касса работает', exact=True)
         expect(no_internet).to_be_visible(timeout=20000)
@@ -259,6 +269,12 @@ with sync_playwright() as pw:
         page.get_by_role('button',name='ЗАКАЗЫ',exact=True).click()
         bounded(page.get_by_role('button',name='Открыть',exact=True).first,1366,768)
         bounded(page.get_by_role('button',name='Чек',exact=True).first,1366,768)
+        # The first .order-table-row is the column header; the order row says "без чека".
+        order_row=page.locator('.order-table-row').filter(has_text='КАССА · ТЕСТ')
+        expect(order_row).to_have_count(1)
+        expect(order_row).to_contain_text('без чека')
+        order_row.get_by_role('button',name='Чек',exact=True).click()
+        expect(page.locator('.pos-toast')).to_have_text(TEST_UNAVAILABLE)
         audit_touch_layout(page,output,'orders')
         page.get_by_role('button',name='Открыть',exact=True).first.click()
         audit_touch_layout(page,output,'order-details','dialog')
@@ -297,6 +313,10 @@ with sync_playwright() as pw:
         assert closed.value.status == 200, 'Shift close must be confirmed before browser teardown'
         expect(page.get_by_text('Тестовая смена закрыта. Фискальный Z-отчёт не формировался.',exact=True)).to_be_visible()
         expect(page.get_by_text('Личный PIN выдаёт управляющий. Проверка на локальном сервере.',exact=True)).to_be_visible()
+        expect(page.locator('.pin-connection')).to_have_text('Вход по личному PIN · Pick Chick POS 0.4 · TEST')
+        expect(page.get_by_text('Касса 1 · ', exact=False).first).to_be_visible()
+        # A desk without payments never stores a paid hint for its lock screen.
+        assert page.evaluate("() => localStorage.getItem('pickchick.pos.desk-mode.v1')") is None
         assert external==[],external
         assert errors==[],errors
         assert paid_calls and set(paid_calls)=={'GET pos/config'}, paid_calls
@@ -307,4 +327,4 @@ with sync_playwright() as pw:
         print(page.locator('body').inner_text()[-1800:])
         raise
     context.close();browser.close()
-print('POS v2: 16 workstation viewports plus mobile, touch targets and reachability, local PIN/shift/cash movement, restored draft, lost ACK, kitchen and named display passed; WAN blocked; pos/config', sorted(set(pos_config)), 'kept the unpaid cashier.')
+print('POS v2: 16 workstation viewports plus mobile, touch targets and reachability, local PIN/shift/cash movement, restored draft, lost ACK, kitchen and named display passed; WAN blocked; pos/config', sorted(set(pos_config)), 'kept the unpaid cashier and every test-mode text (CR client-5).')

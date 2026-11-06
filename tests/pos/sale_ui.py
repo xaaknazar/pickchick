@@ -26,6 +26,17 @@ def capture(page, name):
     page.screenshot(path=str(output / name))
 
 
+PAID_LOCK = 'Вход по личному PIN · Pick Chick POS 0.5.0'
+TEST_LOCK = 'Вход по личному PIN · Pick Chick POS 0.4 · TEST'
+HINT = "() => localStorage.getItem('pickchick.pos.desk-mode.v1')"
+
+
+def paid_lock(page):
+    """CR client-5: the lock screen of a desk that sells: no desk number, no TEST, real version."""
+    expect(page.locator('.pin-connection')).to_have_text(PAID_LOCK)
+    expect(page.get_by_text(re.compile('Касса 1|TEST'))).to_have_count(0)
+
+
 def no_long_dashes(page):
     text = page.locator('[data-pos]').inner_text()
     assert '\u2014' not in text and '\u2013' not in text, 'long dash in cashier text'
@@ -49,10 +60,19 @@ with sync_playwright() as pw:
     page.on('pageerror', lambda e: errors.append(str(e)))
     try:
         page.goto(url)
+        # A desk never told by its edge (no session yet): today's lock texts until the first login.
+        expect(page.locator('.pin-connection')).to_have_text(TEST_LOCK)
+        assert page.evaluate(HINT) is None
         for digit in '1357':
             button(page, digit).click()
         tile = page.get_by_role('button', name=re.compile('Тестовое комбо'))
         expect(tile).to_be_visible()
+        # CR client-5: a desk that sells names no test mode and no wrong desk number.
+        expect(page.get_by_text('Кассир', exact=True).first).to_be_visible()
+        expect(page.get_by_text(re.compile('касса 1', re.I))).to_have_count(0)
+        assert page.evaluate(HINT) == 'pos_sale'
+        button(page, 'Промокод').click()
+        expect(page.locator('.pos-toast')).to_have_text('Эта функция пока не подключена.')
 
         # KS8: no default service mode, the pay button names what is missing.
         expect(page.get_by_test_id('sale-channels')).to_be_visible()
@@ -172,6 +192,9 @@ with sync_playwright() as pw:
         expect(page.locator('.payment-modal')).to_contain_text('ПЕРЕДАЧА ЗАКАЗА')
         expect(button(page, 'ПЕРЕДАТЬ БЕЗ ОПЛАТЫ')).to_be_visible()
         expect(page.locator('.sale-pay')).to_have_count(0)
+        # The edge said 404: today's texts again, and the lock screen will show them too.
+        expect(page.get_by_text('Кассир · касса 1', exact=True).first).to_be_visible()
+        assert page.evaluate(HINT) == 'unpaid'
         capture(page, 'legacy-pay-1920.png')
         expect(page.locator('.bottom-nav').get_by_role('button', name=re.compile('ЧЕКИ WEBKASSA'))).to_have_count(0)
         page.keyboard.press('Escape')
@@ -187,6 +210,28 @@ with sync_playwright() as pw:
             row = page.locator('.order-table-row', has=page.get_by_text(number, exact=True))
             row.get_by_role('button', name='Открыть').click()
             expect(page.get_by_test_id('ops-card-title')).to_have_text('Заказ №' + number)
+
+        # CR client-5: each paid row says its Webkassa sale receipt as the X report counts it,
+        # read again after the reload; «Чек» opens the card and prints the order ticket.
+        nav.get_by_role('button', name=re.compile('^ЗАКАЗЫ')).click()
+        def order_row(number):
+            return page.locator('.order-table-row', has=page.get_by_text(number, exact=True))
+        expect(order_row('27')).to_contain_text('чек: оформлен', timeout=10000)
+        expect(order_row('28')).to_contain_text('чек: не нужен', timeout=10000)
+        expect(order_row('29')).to_contain_text('чек: не нужен', timeout=10000)
+        for number in ('27', '28', '29'):
+            # The whole state is readable in the 148px column: never cut with an ellipsis.
+            label = order_row(number).get_by_text(re.compile('^чек: '))
+            assert label.evaluate('(e) => e.scrollWidth <= e.clientWidth'), number
+        for number in ('27', '28', '29'):
+            expect(order_row(number)).not_to_contain_text('без чека')
+            expect(order_row(number)).not_to_contain_text('ТЕСТ')
+        capture(page, 'orders-paid-1920.png')
+        order_row('28').get_by_role('button', name='Чек', exact=True).click()
+        expect(page.get_by_test_id('ops-card-title')).to_have_text('Заказ №28')
+        expect(page.locator('.pos-toast')).to_have_text('Печать не настроена')
+        expect(page.get_by_test_id('ops-card-receipt').first).to_contain_text('Чек продажи · 3 590 ₸ · не нужен')
+        page.locator('.ops-card .sale-actions').get_by_role('button', name='Закрыть', exact=True).click()
 
         # Refund of the cash order by its tender, with the shift manager PIN.
         open_order('27')
@@ -283,6 +328,12 @@ with sync_playwright() as pw:
         capture(page, 'ops-z-report-1920.png')
         page.get_by_role('button', name='Готово · закрыть кассу').click()
         expect(button(page, '1')).to_be_visible()
+        paid_lock(page)
+        capture(page, 'lock-paid-1920.png')
+        # After a restart the lock screen still knows this desk sells.
+        page.reload()
+        expect(button(page, '1')).to_be_visible()
+        paid_lock(page)
         assert not errors, errors
         assert not external, external
     finally:

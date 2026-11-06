@@ -82,6 +82,22 @@ export function paidDayStats(orders) {
     ),
   ];
 }
+/**
+ * "ОПЛАТА · ККМ" of an order row in the paid mode (CR client-5): the state of a paid order's
+ * Webkassa sale receipt in the words of the X report (оформлен / не оформлен / не нужен), "-"
+ * until it is read; an order passed without payment has no receipt and keeps "без чека". Short
+ * enough for the 148px column at 13px: "чек: не оформлен" is never cut.
+ */
+export function receiptRow(order, state) {
+  if (order.execution_mode !== 'pos_sale')
+    return { fiscalLabel: 'без чека', fiscal: 'var(--n300)' };
+  return {
+    fiscalLabel: 'чек: ' + (RECEIPT_STATES[state] ?? '-'),
+    fiscal:
+      { recorded: '#0B7A3B', pending: 'var(--orange)', not_required: 'var(--n600)' }[state] ??
+      'var(--n300)',
+  };
+}
 /** Revenue of a report: every method but staff meal and marketing, net of refunds. */
 export const reportRevenue = (report) =>
   report.methods
@@ -765,6 +781,14 @@ export class OpsView {
     const { order, sale } = this.model.state;
     if (!order || !sale || order.order_id !== sale.order_id) return;
     await this.print(orderTicket(order, sale, this.terminalLabel));
+  }
+  /**
+   * «Чек» of a paid order row (CR client-5): the order card with its Webkassa receipts (the
+   * number of a pending one is entered there) and one print of «Чек заказа (не фискальный)».
+   */
+  async printReceipt(orderId) {
+    await this.openCard(orderId);
+    if (this.state.card && this.target()?.order.order_id === orderId) await this.printOrder();
   }
   reportValues() {
     const kind = this.state.report,

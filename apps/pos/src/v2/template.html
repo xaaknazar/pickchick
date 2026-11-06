@@ -92,7 +92,7 @@
         Pick Chick · {{ branchLabel }}
       </div>
       <div style="margin-top: 6px; font-size: 20px; color: rgba(255, 255, 255, 0.72)">
-        Касса 1 · {{ clock }}
+        {{ deskPrefix }}{{ clock }}
       </div>
       <div class="pin-dots" style="margin-top:44px;display:flex;gap:18px;animation:{{ pinShake }}">
         <sc-for list="{{ pinDots }}" as="d" hint-placeholder-count="4">
@@ -125,7 +125,7 @@
         class="pin-connection"
         style="margin-top: 36px; font-size: 15px; color: rgba(255, 255, 255, 0.55)"
       >
-        {{ connLabel }} · Pick Chick POS 0.4 · TEST
+        {{ connLabel }} · {{ appLine }}
       </div>
       <div
         class="pin-hint"
@@ -183,7 +183,8 @@
           class="shift-open-subtitle"
           style="margin-top: 6px; font-size: 18px; color: var(--n600)"
         >
-          {{ branchLabel }} · Касса 1 · {{ dateLabel }} · открывает {{ userName }} ({{ userRole }})
+          {{ branchLabel }} · {{ deskPrefix }}{{ dateLabel }} · открывает {{ userName }} ({{
+          userRole }})
         </div>
         <div
           class="shift-open-label"
@@ -2440,7 +2441,7 @@
                       </div></sc-if
                     >
                     <div
-                      onClick="{{ sayReprint }}"
+                      onClick="{{ r.reprint }}"
                       style="
                         flex: none;
                         height: 48px;
@@ -3482,7 +3483,7 @@
             <div style="line-height: 1.15">
               <b style="color: var(--n900); font-size: 15px">{{ userName }}</b><br /><span
                 style="font-size: 12px"
-                >{{ userRole }} · касса 1</span
+                >{{ userRole }}{{ deskChip }}</span
               >
             </div>
           </div>

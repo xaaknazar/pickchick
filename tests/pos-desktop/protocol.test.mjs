@@ -806,6 +806,41 @@ test('the desk adds its own build to GET pos/config only; the renderer cannot', 
     );
 });
 
+test('the desk publishes its installed version in /config.json for the lock screen (CR client-5)', async () => {
+  const { desktopAppVersion, APP_VERSION } = await import(
+    pathToFileURL(desktopFile('protocol.mjs')).href
+  );
+  const pkg = JSON.parse(await readFile(desktopFile('package.json'), 'utf8'));
+  // app.getVersion() of the packaged app is the package version.
+  assert.equal(desktopAppVersion(pkg.version), pkg.version);
+  assert.match(pkg.version, APP_VERSION);
+  for (const value of ['0.5', '0.5.0+build', '', 5, undefined, 'v0.5.0'])
+    assert.equal(desktopAppVersion(value), undefined, String(value));
+  await fixture(
+    async (handler, upstream) => {
+      const config = await (await handler(request('/config.json'))).json();
+      assert.deepEqual(config, {
+        branchLabel: 'Synthetic desktop',
+        categories: {},
+        appVersion: '0.5.0',
+      });
+      assert.equal(upstream.length, 0);
+    },
+    { appVersion: '0.5.0' },
+  );
+  // Without it (an older main, tests) /config.json is exactly as before.
+  await fixture(async (handler) => {
+    const config = await (await handler(request('/config.json'))).json();
+    assert.deepEqual(config, { branchLabel: 'Synthetic desktop', categories: {} });
+  });
+  for (const appVersion of ['', '0.5', 'pos-desktop-0.5.0', 1])
+    await assert.rejects(
+      fixture(async () => {}, { appVersion }),
+      /INVALID_APP_VERSION/,
+      String(appVersion),
+    );
+});
+
 test('a refused shift manager PIN on staff/approvals keeps the cashier journal', async () => {
   const { createJournalStore } = await import(pathToFileURL(desktopFile('journal.mjs')).href);
   const id = (last) => `10000000-0000-4000-8000-${String(last).padStart(12, '0')}`;
