@@ -7381,10 +7381,10 @@
         "docs/operations/mobile-play-2026-11/support-update-1107.md"
       ],
       "status": "active",
-      "head": "1400178119f9ad7481037391f0f287149f0a75c2",
+      "head": "21358f913c7e8ee2906f84410f256b2ec8638e76",
       "updatedAt": "2026-11-06T21:33:20.209Z",
-      "summary": "П6 в работе: PR315, SHA14001781. Guarded update-existing/rollback-update готовы; прежние5tests PASS, Linux14/14 PASS с настоящим renameat2. Source package проверен и передан только во временную папку VPS. Рабочая support ещё старая, delete-account отсутствует. Foundation42298575783:8jobs success,2in_progress,итоговый11-й ещё не начался. Публикация только после полной11/11 CI точного SHA. Политика не публикуется.",
-      "nextAction": "Дождаться https://github.com/xaaknazar/pickchick/actions/runs/42298575783; preflight/apply П6 с backup/rollback, публичные HTTP200+delete-account RU/KK/EN, протокол. Google Play ведёт android-play-1106; параллельный support release не запускать."
+      "summary": "П6: первая попытка14001781 после11/11 CI и preflight штатно откатилась. Все178 HTTP-ресурсов/manifest/API/gateway проверены, свойlock снят. Найдены права0700 приumask077; исправлены явные0755. Регрессионный тест воспроизводит прежний дефект; Linux16/16 и прежние5/5 PASS. Новый опубликованный SHA21358f913c7e8ee2906f84410f256b2ec8638e76, PR315. Повторная полная CI идёт; support пока прежняя безdelete-account. Политика не публикуется.",
+      "nextAction": "Дождаться полной11/11 CI SHA21358f91; preflight/apply П6 с backup/rollback, публичные HTTP200+delete-account RU/KK/EN, протокол. Google Play ведёт android-play-1106; параллельный support release не запускать."
     },
     {
       "id": "android-play-1106",
