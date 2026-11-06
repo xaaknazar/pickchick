@@ -47,8 +47,22 @@ export const FENCE_QUEUES_026 =
   "ARRAY['cashier_report_outbox', 'fulfillment_outbox', 'pos_sale_outbox']";
 const LEDGER_LENGTH = 26;
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
+/**
+ * A refusal of this tool: the operator sees its own message (integration review R10). Nothing
+ * else is printed: no connection string, SQL or row data.
+ */
+const refused = (message) => Object.assign(new Error(message), { refusal: true });
+/** What the command line may print for an error: own refusals and grant-proof messages only. */
+export function operatorMessage(error) {
+  const message = typeof error?.message === 'string' ? error.message : '';
+  if (error?.refusal === true) return message;
+  if (/^POS sales [A-Za-z0-9 ,:._-]{3,160}$/.test(message)) return message;
+  const code =
+    typeof error?.code === 'string' && /^[A-Z0-9_]{2,20}$/.test(error.code) ? error.code : null;
+  return code ? 'database or connection error ' + code : null;
+}
 const identifier = (name) => {
-  if (!/^[a-z][a-z0-9_]{0,62}$/.test(name ?? '')) throw Error('Invalid identifier');
+  if (!/^[a-z][a-z0-9_]{0,62}$/.test(name ?? '')) throw refused('Invalid identifier');
   return '"' + name + '"';
 };
 
@@ -69,7 +83,7 @@ async function reviewedFiles(appRoot) {
     names[LEDGER_LENGTH - 1] !== POS_SALES_MIGRATION ||
     expected[LEDGER_LENGTH - 1].checksum !== POS_SALES_SHA256
   )
-    throw Error('Expected reviewed migrations 001-025 and the reviewed migration026');
+    throw refused('Expected reviewed migrations 001-025 and the reviewed migration026');
   return { dir, expected };
 }
 
@@ -100,11 +114,11 @@ export async function posSalesMigration(
     workerRole = 'pickchick_pos_sync',
   },
 ) {
-  if (!['inspect', 'apply'].includes(mode)) throw Error('Invalid mode');
+  if (!['inspect', 'apply'].includes(mode)) throw refused('Invalid mode');
   const ns = identifier(schema);
   identifier(runtimeRole);
   identifier(workerRole);
-  if (runtimeRole === workerRole) throw Error('Runtime and worker roles must differ');
+  if (runtimeRole === workerRole) throw refused('Runtime and worker roles must differ');
   try {
     await client.query('BEGIN');
     await client.query("SET LOCAL lock_timeout='5s'");
@@ -120,7 +134,7 @@ export async function posSalesMigration(
            AND backend_type='client backend' AND usename IS DISTINCT FROM current_user ORDER BY 1`,
       )
     ).rows.map((r) => r.role);
-    if (others.length) throw Error('Edge services must be stopped');
+    if (others.length) throw refused('Edge services must be stopped');
     const tables = (
       await client.query('SELECT tablename FROM pg_tables WHERE schemaname=$1 ORDER BY tablename', [
         schema,
@@ -136,7 +150,7 @@ export async function posSalesMigration(
     ).rows;
     const { dir, expected } = await reviewedFiles(appRoot);
     const branches = (await client.query('SELECT id FROM branch_config')).rows;
-    if (branches.length !== 1 || branches[0].id !== branchId) throw Error('Branch differs');
+    if (branches.length !== 1 || branches[0].id !== branchId) throw refused('Branch differs');
     const roles = (
       await client.query('SELECT rolname FROM pg_roles WHERE rolname=ANY($1) ORDER BY rolname', [
         [runtimeRole, workerRole],
@@ -151,7 +165,7 @@ export async function posSalesMigration(
       // Only the runtime and the POS sync worker may reach 026; the owner keeps its own rights.
       const grantees = (await posSalesGrantees(client, { schema })).sort();
       if (JSON.stringify(grantees) !== JSON.stringify([...roles].sort()))
-        throw Error('Unexpected role can reach POS sales relations');
+        throw refused('Unexpected role can reach POS sales relations');
     };
     const methods = async () =>
       (
@@ -163,19 +177,19 @@ export async function posSalesMigration(
     const offState = async () => {
       const state = await methods();
       if (state.count !== 8 || state.enabled || state.mode === 'pos_sale')
-        throw Error('POS sales must stay off after migration026');
+        throw refused('POS sales must stay off after migration026');
       return state;
     };
     // Already on the reviewed 026 (later reviewed migrations may follow): inspect verifies it.
     if (JSON.stringify(ledger.slice(0, LEDGER_LENGTH)) === JSON.stringify(expected)) {
       // Already on the reviewed 026: never reapplied; inspect proves the installed state.
-      if (mode === 'apply') throw Error('Migration026 is already applied; nothing changed');
+      if (mode === 'apply') throw refused('Migration026 is already applied; nothing changed');
       await verifyGrants();
       const fence = (await functionState(client, schema, ['edge_restore_fence(boolean)'], true))[
         'edge_restore_fence(boolean)'
       ];
       if (!fence?.definition.includes(FENCE_QUEUES_026))
-        throw Error('Restore fence does not cover pos_sale_outbox');
+        throw refused('Restore fence does not cover pos_sale_outbox');
       const state = await methods();
       await client.query('ROLLBACK');
       return {
@@ -192,9 +206,9 @@ export async function posSalesMigration(
       };
     }
     if (JSON.stringify(ledger) !== JSON.stringify(expected.slice(0, LEDGER_LENGTH - 1)))
-      throw Error('Expected unchanged schema025 and only reviewed migration026');
+      throw refused('Expected unchanged schema025 and only reviewed migration026');
     if (Object.keys(POS_SALES_RELATIONS).some((name) => tables.includes(name)))
-      throw Error('POS sales objects already exist');
+      throw refused('POS sales objects already exist');
     const columns = Object.fromEntries(
       (
         await client.query(
@@ -247,12 +261,12 @@ export async function posSalesMigration(
     const initial = await snapshot(null);
     const existingFunctions = Object.keys(initial.functions);
     for (const name of POS_SALES_REPLACED_FUNCTIONS)
-      if (!(name in initial.functions)) throw Error('Expected function of schema025 is missing');
+      if (!(name in initial.functions)) throw refused('Expected function of schema025 is missing');
     const fence023 = (await functionState(client, schema, ['edge_restore_fence(boolean)'], true))[
       'edge_restore_fence(boolean)'
     ];
     if (fence023.definition.split(FENCE_QUEUES_023).length !== 2)
-      throw Error('Restore fence of schema025 differs from 023');
+      throw refused('Restore fence of schema025 differs from 023');
     const fingerprint = digest(JSON.stringify(initial));
     let serviceMode = (await client.query('SELECT pos_service_mode FROM branch_config')).rows[0]
       .pos_service_mode;
@@ -278,7 +292,7 @@ export async function posSalesMigration(
         JSON.stringify(Object.fromEntries(relations.map((r) => [r.relname, r.relkind]))) !==
         JSON.stringify(Object.fromEntries(Object.entries(POS_SALES_RELATIONS).sort()))
       )
-        throw Error('Unexpected relation created by migration026');
+        throw refused('Unexpected relation created by migration026');
       const after = (
         await client.query(
           `SELECT table_name AS name, array_agg(column_name::text ORDER BY ordinal_position) AS columns
@@ -292,7 +306,7 @@ export async function posSalesMigration(
           JSON.stringify(cols) !==
           JSON.stringify([...columns[name], ...(POS_SALES_ADDED_COLUMNS[name] ?? [])])
         )
-          throw Error('Unexpected column change');
+          throw refused('Unexpected column change');
       if (
         (
           await client.query(
@@ -300,7 +314,7 @@ export async function posSalesMigration(
           )
         ).rows[0].any
       )
-        throw Error('Existing cash shifts must stay outside sales mode');
+        throw refused('Existing cash shifts must stay outside sales mode');
       // CR pos-6: the fence keeps owner, ACL, search_path and SECURITY DEFINER; its definition
       // differs from 023 only by pos_sale_outbox in the queue list.
       const fence026 = (await functionState(client, schema, ['edge_restore_fence(boolean)'], true))[
@@ -313,10 +327,10 @@ export async function posSalesMigration(
         fence026.config !== fence023.config ||
         fence026.definer !== true
       )
-        throw Error('Restore fence changed beyond the pos_sale_outbox queue');
+        throw refused('Restore fence changed beyond the pos_sale_outbox queue');
       serviceMode = (await offState()).mode;
       if (JSON.stringify(await snapshot(existingFunctions)) !== JSON.stringify(initial))
-        throw Error('Data, sequence or permission changed during migration');
+        throw refused('Data, sequence or permission changed during migration');
     }
     await client.query(mode === 'apply' ? 'COMMIT' : 'ROLLBACK');
     return {
@@ -346,7 +360,7 @@ async function main() {
     !appRoot ||
     !/^[a-f0-9-]{36}$/.test(branchId ?? '')
   )
-    throw Error('Invalid POS sales migration invocation');
+    throw refused('Invalid POS sales migration invocation');
   const url = new URL(process.env.EDGE_DATABASE_URL ?? '');
   if (
     url.hostname !== '127.0.0.1' ||
@@ -354,7 +368,7 @@ async function main() {
     url.pathname !== '/pickchick_edge' ||
     url.username !== 'pickchick_edge_owner'
   )
-    throw Error('Expected local edge owner');
+    throw refused('Expected local edge owner');
   const { Client } = createRequire(join(resolve(toolsRoot), 'package.json'))('pg');
   const client = new Client({
     connectionString: url.href,
@@ -371,7 +385,10 @@ async function main() {
   }
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))
-  main().catch(() => {
-    console.error('POS sales migration stopped; inspect protected state.');
+  main().catch((error) => {
+    const reason = operatorMessage(error);
+    console.error(
+      `POS sales migration stopped${reason ? ': ' + reason : ''}; inspect protected state.`,
+    );
     process.exitCode = 1;
   });

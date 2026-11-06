@@ -46,8 +46,22 @@ export const KDS_UPGRADE_WORKER_ROLES = Object.freeze([
 const LEDGER_LENGTH = 27;
 const DATA_TABLES = ['fulfillment_station_grants', 'fulfillment_stations'];
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
+/**
+ * A refusal of this tool: the operator sees its own message (integration review R10). Nothing
+ * else is printed: no connection string, SQL or row data.
+ */
+const refused = (message) => Object.assign(new Error(message), { refusal: true });
+/** What the command line may print for an error: own refusals and grant-proof messages only. */
+export function operatorMessage(error) {
+  const message = typeof error?.message === 'string' ? error.message : '';
+  if (error?.refusal === true) return message;
+  if (/^KDS [A-Za-z0-9 ,:._-]{3,160}$/.test(message)) return message;
+  const code =
+    typeof error?.code === 'string' && /^[A-Z0-9_]{2,20}$/.test(error.code) ? error.code : null;
+  return code ? 'database or connection error ' + code : null;
+}
 const identifier = (name) => {
-  if (!/^[a-z][a-z0-9_]{0,62}$/.test(name ?? '')) throw Error('Invalid identifier');
+  if (!/^[a-z][a-z0-9_]{0,62}$/.test(name ?? '')) throw refused('Invalid identifier');
   return '"' + name + '"';
 };
 
@@ -99,7 +113,7 @@ async function reviewedFiles(appRoot) {
     names[LEDGER_LENGTH - 1] !== KDS_MIGRATION ||
     expected[LEDGER_LENGTH - 1].checksum !== KDS_SHA256
   )
-    throw Error('Expected reviewed migrations 001-026 and the reviewed migration027');
+    throw refused('Expected reviewed migrations 001-026 and the reviewed migration027');
   return { dir, expected };
 }
 
@@ -115,11 +129,11 @@ export async function kdsMigration(
     derive = deriveRouting,
   },
 ) {
-  if (!['inspect', 'apply'].includes(mode)) throw Error('Invalid mode');
+  if (!['inspect', 'apply'].includes(mode)) throw refused('Invalid mode');
   const ns = identifier(schema);
   identifier(runtimeRole);
   if (!Array.isArray(workerRoles) || workerRoles.some((role) => role === runtimeRole))
-    throw Error('Invalid worker roles');
+    throw refused('Invalid worker roles');
   workerRoles.forEach(identifier);
   try {
     await client.query('BEGIN');
@@ -133,9 +147,9 @@ export async function kdsMigration(
            AND backend_type='client backend' AND usename IS DISTINCT FROM current_user ORDER BY 1`,
       )
     ).rows.map((r) => r.role);
-    if (others.length) throw Error('Edge services must be stopped');
+    if (others.length) throw refused('Edge services must be stopped');
     if (!routingSupportsKdsStations(derive))
-      throw Error('Runtime package lacks the KDS-2 routing rule');
+      throw refused('Runtime package lacks the KDS-2 routing rule');
     const tables = (
       await client.query('SELECT tablename FROM pg_tables WHERE schemaname=$1 ORDER BY tablename', [
         schema,
@@ -151,7 +165,7 @@ export async function kdsMigration(
     ).rows;
     const { dir, expected } = await reviewedFiles(appRoot);
     const branches = (await client.query('SELECT id FROM branch_config')).rows;
-    if (branches.length !== 1 || branches[0].id !== branchId) throw Error('Branch differs');
+    if (branches.length !== 1 || branches[0].id !== branchId) throw refused('Branch differs');
     const present = (
       await client.query('SELECT rolname FROM pg_roles WHERE rolname=ANY($1) ORDER BY rolname', [
         [runtimeRole, ...workerRoles],
@@ -164,7 +178,7 @@ export async function kdsMigration(
       for (const role of workers) await assertKdsWorkerPrivileges(client, role, schema);
       const grantees = (await kdsTableGrantees(client, schema)).sort();
       if (JSON.stringify(grantees) !== JSON.stringify([...present].sort()))
-        throw Error('Unexpected role can reach KDS tables');
+        throw refused('Unexpected role can reach KDS tables');
     };
     const kdsState = async () =>
       (
@@ -176,11 +190,11 @@ export async function kdsMigration(
       ).rows[0];
     // Already on the reviewed 027 (later reviewed migrations may follow): inspect verifies it.
     if (JSON.stringify(ledger.slice(0, LEDGER_LENGTH)) === JSON.stringify(expected)) {
-      if (mode === 'apply') throw Error('Migration027 is already applied; nothing changed');
+      if (mode === 'apply') throw refused('Migration027 is already applied; nothing changed');
       await verifyGrants();
       const state = await kdsState();
       if (state.stations !== KDS_STATIONS.length || state.enabled === null)
-        throw Error('KDS stations or settings are missing');
+        throw refused('KDS stations or settings are missing');
       await client.query('ROLLBACK');
       return {
         mode,
@@ -196,13 +210,14 @@ export async function kdsMigration(
       };
     }
     if (JSON.stringify(ledger) !== JSON.stringify(expected.slice(0, LEDGER_LENGTH - 1)))
-      throw Error('Expected unchanged schema026 and only reviewed migration027');
-    if (KDS_TABLES.some((name) => tables.includes(name))) throw Error('KDS objects already exist');
+      throw refused('Expected unchanged schema026 and only reviewed migration027');
+    if (KDS_TABLES.some((name) => tables.includes(name)))
+      throw refused('KDS objects already exist');
     if (
       !(await client.query('SELECT 1 FROM fulfillment_config WHERE branch_id=$1', [branchId]))
         .rowCount
     )
-      throw Error('Fulfillment is not provisioned on this edge');
+      throw refused('Fulfillment is not provisioned on this edge');
     const columns = Object.fromEntries(
       (
         await client.query(
@@ -286,13 +301,13 @@ export async function kdsMigration(
           data[table].some((hash) => !kept.has(hash)) ||
           after.length !== data[table].length + added[table]
         )
-          throw Error('Unexpected change of ' + table);
+          throw refused('Unexpected change of ' + table);
       }
       const state = await kdsState();
       if (state.stations !== KDS_STATIONS.length || state.enabled !== false)
-        throw Error('KDS must stay off after migration027');
+        throw refused('KDS must stay off after migration027');
       if ((await snapshot()) !== before)
-        throw Error('Data, sequence or permission changed during migration');
+        throw refused('Data, sequence or permission changed during migration');
     }
     await client.query(mode === 'apply' ? 'COMMIT' : 'ROLLBACK');
     return {
@@ -327,7 +342,7 @@ async function main() {
     !appRoot ||
     !/^[a-f0-9-]{36}$/.test(branchId ?? '')
   )
-    throw Error('Invalid KDS migration invocation');
+    throw refused('Invalid KDS migration invocation');
   const url = new URL(process.env.EDGE_DATABASE_URL ?? '');
   if (
     url.hostname !== '127.0.0.1' ||
@@ -335,7 +350,7 @@ async function main() {
     url.pathname !== '/pickchick_edge' ||
     url.username !== 'pickchick_edge_owner'
   )
-    throw Error('Expected local edge owner');
+    throw refused('Expected local edge owner');
   const { Client } = createRequire(join(resolve(toolsRoot), 'package.json'))('pg');
   const client = new Client({
     connectionString: url.href,
@@ -351,7 +366,8 @@ async function main() {
   }
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))
-  main().catch(() => {
-    console.error('KDS migration stopped; inspect protected state.');
+  main().catch((error) => {
+    const reason = operatorMessage(error);
+    console.error(`KDS migration stopped${reason ? ': ' + reason : ''}; inspect protected state.`);
     process.exitCode = 1;
   });
