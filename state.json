@@ -7394,6 +7394,19 @@
       "updatedAt": "2026-11-06T20:43:35.086Z",
       "summary": "PR314, SHA679ef207: точка рядом со способом получения в быстрой оплате. 586 Node + 96 Python, typecheck/lint/format/translations, браузерные ABIRL/AH и полный demo cart-shortcut PASS. Все согласованные тесты обновлены. Foundation CI последнего SHA пока выполняется. Выпусков и слияния нет. Общие статус и roadmap возвращены Android-задаче после опубликованного checkpoint.",
       "nextAction": "Проверить Foundation CI https://github.com/xaaknazar/pickchick/actions/runs/42290245032; затем согласованное слияние и отдельный выпуск. Физическая приёмка на iPhone ещё не выполнена."
+    },
+    {
+      "id": "p6-retention-1107",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/p6-retention-1107",
+      "scopes": [
+        "docs/operations/mobile-play-2026-11/retention-1107.md",
+        "docs/operations/mobile-play-2026-11/legal-retention-proposal-1107.md",
+        "codex-reports/2026-11-07-day.md"
+      ],
+      "status": "active",
+      "head": "1a9472f1dc2a34b8ab4db7beb6f9c5616ed23f73",
+      "updatedAt": "2026-11-06T20:46:28.568Z"
     }
   ]
 }
