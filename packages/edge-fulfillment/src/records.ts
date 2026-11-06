@@ -14,7 +14,8 @@ export interface Reservation {
   order_id: string;
   branch_id: string;
   commercial_owner: 'cloud' | 'edge_pos';
-  admission_kind: 'cloud_authorized' | 'unpaid_service';
+  // Edge schema026 (cutover, CR pos-5 section 4) adds pos_sale for paid cashier admissions.
+  admission_kind: 'cloud_authorized' | 'unpaid_service' | 'pos_sale';
   reservation_id: string;
   quote_id: string;
   quote_hash: string;
