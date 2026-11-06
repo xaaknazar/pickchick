@@ -186,6 +186,9 @@ def update_existing(a, old, api, before):
         (release / 'gateway.before').write_bytes(original_config)
         prepared = release / 'exchange'
         prepared.mkdir(mode=0o755)
+        # main uses umask 077 for private backups. The exchanged public directory
+        # must remain traversable by the gateway, which drops DAC capabilities.
+        prepared.chmod(0o755)
         for name, content in pages.items():
             f = prepared / Path(name).name
             f.write_text(content); f.chmod(0o644)
@@ -207,6 +210,11 @@ def update_existing(a, old, api, before):
             switched = True
             replace_manifest(manifest_path, (json.dumps(updated, indent=2) + '\n').encode())
             r.require(r.public_files(old) == updated, 'support.update.manifest_after_exchange')
+            for name in sorted(SUPPORT_ASSETS):
+                try:
+                    r.verify_public_asset((name, updated['files'][name]))
+                except Exception:
+                    raise RuntimeError('support.update.http_asset.' + Path(name).name) from None
             verify(updated, before, api, old, old, baseline)
             r.require(r.containers() == before, 'support.update.any_container_changed')
             r.require((old / 'infra/public-staging/gateway.Caddyfile').read_bytes() == original_config,

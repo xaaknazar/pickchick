@@ -2,6 +2,7 @@
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace
@@ -98,6 +99,19 @@ class UpdateTests(unittest.TestCase):
         m.support_tree(self.web/'support',self.manifest['files'])
         self.assertFalse(m.r.LOCK.exists())
 
+    def test_public_permissions_under_private_release_umask(self):
+        previous = os.umask(0o077)
+        try:
+            self.run_update()
+        finally:
+            os.umask(previous)
+        self.assertEqual((self.web/'support').stat().st_mode & 0o777, 0o755)
+        for name in m.SUPPORT_ASSETS:
+            self.assertEqual((self.web/name).stat().st_mode & 0o777, 0o644)
+        self.assertEqual(self.manifest_file.stat().st_mode & 0o777, 0o644)
+        backup = self.root/'support-updates'/self.args.source_sha
+        self.assertEqual(backup.stat().st_mode & 0o777, 0o700)
+
     def test_rollback_refuses_intervening_manifest_change(self):
         self.run_update()
         self.args.expected_manifest_sha256=m.r.digest(self.manifest_file)
@@ -150,6 +164,19 @@ class UpdateTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'unsupported'):self.run_update()
         m.support_tree(self.web/'support',self.manifest['files'])
         self.assertEqual(self.manifest_file.read_bytes(),self.original_manifest)
+
+    def test_unreadable_new_page_names_check_and_rolls_back(self):
+        def inaccessible_new_page(item):
+            name, _ = item
+            if not (self.web/name).read_bytes().startswith(b'old '):
+                raise RuntimeError('synthetic HTTP 403')
+            self.verify_asset(item)
+        self.patch(m.r, 'verify_public_asset', inaccessible_new_page)
+        with self.assertRaisesRegex(RuntimeError, r'support.update.http_asset.en.html'):
+            self.run_update()
+        self.assertEqual(self.manifest_file.read_bytes(),self.original_manifest)
+        m.support_tree(self.web/'support',self.manifest['files'])
+        self.assertTrue(m.r.LOCK.exists())
 
     def test_third_party_asset_cannot_be_added_to_pages(self):
         with self.assertRaisesRegex(RuntimeError,'page_set'):
