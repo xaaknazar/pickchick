@@ -34,7 +34,7 @@ const code = (expected) => (error) => error instanceof EdgeBackupError && error.
 const rows = (count) =>
   pinned.slice(0, count).map(({ version, checksum, scope }) => ({ version, checksum, scope }));
 
-test('only the reviewed edge schemas 020-026 are backed up; anything else is refused', () => {
+test('only the reviewed edge schemas 020-027 are backed up; anything else is refused', () => {
   assert.deepEqual(EDGE_BACKUP_SCHEMAS, {
     schema020: 20,
     schema021: 21,
@@ -43,6 +43,7 @@ test('only the reviewed edge schemas 020-026 are backed up; anything else is ref
     schema024: 24,
     schema025: 25,
     schema026: 26,
+    schema027: 27,
   });
   for (const [name, length] of Object.entries(EDGE_BACKUP_SCHEMAS))
     assert.equal(verifiedSchema(rows(length), pinned), name);
@@ -127,6 +128,24 @@ test('schema026 (cutover POS sales) is reviewed by the exact bytes of the edge 0
       () => verifiedSchema(rows(25).concat([{ ...pinned[25], checksum: superseded }]), pinned),
       code('UNREVIEWED_SCHEMA'),
     );
+});
+
+test('schema027 (cutover KDS foundation) is reviewed by the exact bytes of the edge 027 migration', async () => {
+  const name = '027_edge_kds_foundation.sql';
+  const bytes = await readFile(new URL('../../db/edge/migrations/' + name, import.meta.url));
+  const checksum = createHash('sha256').update(bytes).digest('hex');
+  // CR kds-1 section 1 (unchanged by CR kds-3, kds-5).
+  assert.equal(checksum, '41e55b450721646e45be599cf58626fd52328113f5a8165bb8fa5edf1e3a2a97');
+  assert.deepEqual(pinned[26], { version: name, checksum, scope: 'edge' });
+  const { KDS_MIGRATION, KDS_SHA256 } = await import('../../infra/windows/kds-upgrade-db.mjs');
+  assert.equal(KDS_MIGRATION, name);
+  assert.equal(KDS_SHA256, checksum);
+  assert.equal(verifiedSchema(rows(27), pinned), 'schema027');
+  assert.equal(verifiedSchema(rows(26), pinned), 'schema026');
+  assert.throws(
+    () => verifiedSchema(rows(26).concat([{ ...pinned[26], checksum: 'e'.repeat(64) }]), pinned),
+    code('UNREVIEWED_SCHEMA'),
+  );
 });
 const config = {
   format: 'pickchick-edge-backup-config-v1',

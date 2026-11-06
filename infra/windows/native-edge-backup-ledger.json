@@ -128,5 +128,10 @@
     "version": "026_edge_pos_sales.sql",
     "checksum": "921c526320f6b878f592949d7ca2ebc71e28a1ceb14881c74909314ed46d057c",
     "scope": "edge"
+  },
+  {
+    "version": "027_edge_kds_foundation.sql",
+    "checksum": "41e55b450721646e45be599cf58626fd52328113f5a8165bb8fa5edf1e3a2a97",
+    "scope": "edge"
   }
 ]

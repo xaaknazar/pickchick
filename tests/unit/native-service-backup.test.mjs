@@ -49,14 +49,14 @@ test('backup rejects foreign branch, different service mode and changed migratio
   assert.throws(() => verifyServiceSnapshot(branch, changed, branchId, ledger));
 });
 
-test('pinned ledger is exactly the reviewed edge migrations 001-026 of this repository', async () => {
+test('pinned ledger is exactly the reviewed edge migrations 001-027 of this repository', async () => {
   const dir = fileURLToPath(new URL('../../db/edge/migrations/', import.meta.url));
-  // A later migration (027+) needs its own reviewed allowlist entry; it is not accepted here.
+  // A later migration (028+) needs its own reviewed allowlist entry; it is not accepted here.
   const names = (await readdir(dir))
     .filter((name) => name.endsWith('.sql'))
     .sort()
-    .slice(0, 26);
-  assert.equal(names.length, 26);
+    .slice(0, 27);
+  assert.equal(names.length, 27);
   assert.deepEqual(
     pinned,
     await Promise.all(
@@ -98,9 +98,15 @@ test('pinned ledger is exactly the reviewed edge migrations 001-026 of this repo
     pinned[25].checksum,
     '921c526320f6b878f592949d7ca2ebc71e28a1ceb14881c74909314ed46d057c',
   );
+  // Cutover 19.11 (CR kds-1): the KDS foundation, after a schema026 copy.
+  assert.equal(pinned[26].version, '027_edge_kds_foundation.sql');
+  assert.equal(
+    pinned[26].checksum,
+    '41e55b450721646e45be599cf58626fd52328113f5a8165bb8fa5edf1e3a2a97',
+  );
 });
 
-test('each reviewed schema014-026 accepts only its own exact ledger', () => {
+test('each reviewed schema014-027 accepts only its own exact ledger', () => {
   assert.deepEqual(Object.keys(SERVICE_BACKUP_SCHEMAS), [
     'schema014',
     'schema015',
@@ -115,6 +121,7 @@ test('each reviewed schema014-026 accepts only its own exact ledger', () => {
     'schema024',
     'schema025',
     'schema026',
+    'schema027',
   ]);
   for (const [mode, length] of Object.entries(SERVICE_BACKUP_SCHEMAS)) {
     const expected = expectedServiceLedger(pinned, mode);

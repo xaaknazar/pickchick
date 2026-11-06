@@ -39,13 +39,13 @@ from edge 026, it refuses, so take it with sales mode off, as for every guarded 
 schema the cashier is expected to be at:
 
 ```text
-node.exe backup-native-service.mjs <toolsRoot> <pgBin> <runRoot> <branchId> [schema014|...|schema026]
+node.exe backup-native-service.mjs <toolsRoot> <pgBin> <runRoot> <branchId> [schema014|...|schema027]
 ```
 
 Without it the expected schema is `schema014`. The migration ledger of the dump
 snapshot and of the restored copy must equal exactly that prefix of the pinned
 `native-edge-backup-ledger.json` (file name, SHA-256 and scope of every migration
-001-026; 024 is the stage 2 station plan migration, 026 the cutover POS sales migration). Any other schema name, a ledger one migration behind or ahead, or any
+001-027; 024 is the stage 2 station plan migration, 026 and 027 the cutover POS sales and KDS migrations). Any other schema name, a ledger one migration behind or ahead, or any
 changed checksum fails closed. The manifest records `expectedSchema`. Guarded
 upgrades (`menu-sync-upgrade-db.mjs`, `remote-stops-upgrade-db.mjs`) accept only a
 manifest at the current ledger, finished less than 6 hours earlier.
