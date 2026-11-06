@@ -2,13 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createPool } from '@pickchick/database';
-import { CatalogPayloadSchema } from '@pickchick/catalog-admin/contracts';
 import { withSyncDatabases } from '../../../tests/helpers/sync.mjs';
-import { catalogPayloadHash } from '../../catalog-pricing/dist/index.js';
 import { backofficeGrants } from '../../../infra/staging/backoffice-grants.mjs';
 import { backofficeP1Grants } from '../../../infra/staging/backoffice-p1-grants.mjs';
 import { Backoffice, BackofficeError } from '../dist/index.js';
 import { people } from './consumption-fixture.mjs';
+import { discountCatalog, publishDiscountCatalog as publish } from './discounts-fixture.mjs';
 
 /**
  * Discount editor of lane bo-ui step 7 (discounts.ts; design-bo-ui.md 3, 4, 5.8) on PostgreSQL:
@@ -48,70 +47,6 @@ const state = (id, revision, value) => ({
   state: value,
   expected_revision: revision,
 });
-const text = (ru) => ({ ru, kk: '' });
-const product = (id, name, category) => ({
-  id,
-  sku: id.toUpperCase(),
-  name: text(name),
-  description: text('Синтетическое описание'),
-  category_id: category,
-  price_minor: '116700',
-  image_asset_key: 'i0.jpg',
-  available: true,
-  prep_required: true,
-  prep_minutes: 5,
-  serving_label: text('1 шт'),
-  weight_g: 100,
-  volume_ml: null,
-  ingredients: text('Синтетический состав'),
-  allergens: [],
-  allergens_status: 'declared',
-  nutrition: { basis: 'per_serving', energy_kcal: 100, protein_g: 10, fat_g: 4, carbs_g: 6 },
-  nutrition_status: 'operator_entered',
-  kind: 'item',
-  combo_components: [],
-  modifier_groups: [],
-});
-export function discountCatalog() {
-  return CatalogPayloadSchema.parse({
-    schema_version: 1,
-    currency: 'KZT',
-    content_source: 'operator',
-    content_reviewed: true,
-    categories: [
-      { id: 'chicken', name: text('Синтетическая курица') },
-      { id: 'drinks', name: text('Синтетические напитки') },
-    ],
-    products: [
-      product('wings', 'Синтетические крылья', 'chicken'),
-      product('strips', 'Синтетические стрипсы', 'chicken'),
-      product('cola', 'Синтетическая кола', 'drinks'),
-    ],
-    estimated_minutes: { min: 5, max: 10 },
-    upsell_product_ids: [],
-  });
-}
-/** A head catalog publication of the branch (draft, publication, head), without pricing. */
-async function publish(c, version = 1, payload = discountCatalog()) {
-  const q = (sql, args) => c.cloud.pool.query(sql, args);
-  const actor = (
-    await q('SELECT id FROM catalog_managers WHERE organization_id=$1 ORDER BY id LIMIT 1', [c.org])
-  ).rows[0].id;
-  const hash = catalogPayloadHash(payload);
-  await q(
-    'INSERT INTO catalog_draft_versions(branch_id,organization_id,revision,payload,payload_hash,actor_id) VALUES($1,$2,$3,$4,$5,$6)',
-    [c.branch, c.org, version, payload, hash, actor],
-  );
-  await q(
-    'INSERT INTO catalog_publications(branch_id,organization_id,version,source_revision,payload,payload_hash,actor_id) VALUES($1,$2,$3,$3,$4,$5,$6)',
-    [c.branch, c.org, version, payload, hash, actor],
-  );
-  await q(
-    `INSERT INTO catalog_branch_heads(branch_id,organization_id,draft_revision,published_version) VALUES($1,$2,$3,$3)
-     ON CONFLICT(branch_id) DO UPDATE SET draft_revision=excluded.draft_revision,published_version=excluded.published_version`,
-    [c.branch, c.org, version],
-  );
-}
 const rows = async (c, sql, args = [c.branch]) => (await c.cloud.pool.query(sql, args)).rows;
 const count = async (c, table) =>
   (await c.cloud.pool.query(`SELECT count(*)::int n FROM ${table}`)).rows[0].n;

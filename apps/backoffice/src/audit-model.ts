@@ -38,6 +38,8 @@ const EXACT: Record<string, [string, string]> = {
   manager_shift_close: ['Смены', 'Закрытие смены менеджера'],
   manager_shift_template: ['Смены', 'Новая версия чек-листа смены'],
   staff_positions_save: ['Смены', 'Список должностей'],
+  discount_save: ['Скидки', 'Скидка: создание или изменение'],
+  discount_state: ['Скидки', 'Скидка: включение, выключение или архив'],
   cancel_order: ['Заказы', 'Отмена заказа'],
   refund: ['Заказы', 'Запрос возврата'],
   manual_refund: ['Заказы', 'Ручной возврат Kaspi'],

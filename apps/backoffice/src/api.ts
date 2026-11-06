@@ -167,6 +167,16 @@ export function allowedPath(path: string): boolean {
   }
   if (new RegExp(`^operations/branches/${UUID}/ops/staff-roster$`).test(pathname))
     return search === undefined;
+  // Lane bo-ui step 7: the discounts, or one discount with its revisions.
+  if (new RegExp(`^operations/branches/${UUID}/ops/discounts$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    const id = q.get('id');
+    return (
+      [...q.keys()].every((k) => k === 'id') &&
+      q.getAll('id').length <= 1 &&
+      (id === null || new RegExp(`^${UUID}$`).test(id))
+    );
+  }
   if (new RegExp(`^operations/branches/${UUID}$`).test(pathname)) return reportQuery(search ?? '');
   return (
     search === undefined &&
@@ -474,6 +484,10 @@ const reasons: Record<string, string> = {
     'Управленческий журнал только для чтения: смены ведутся в блоке «Смена менеджера».',
   POSITION_UNKNOWN: 'Такой должности нет в списке или она выключена. Обновите страницу.',
   POSITION_IN_USE: 'Должность нельзя удалить из списка: её можно только выключить.',
+  // Lane bo-ui step 7 (servers with capabilities.discounts).
+  DISCOUNT_NAME_TAKEN: 'Скидка с таким названием уже есть. Выберите другое название.',
+  DISCOUNT_ARCHIVED: 'Скидка в архиве: её нельзя изменить или включить. Создайте новую.',
+  DISCOUNT_PERIOD_ENDED: 'Период скидки уже закончился. Измените даты и включите её снова.',
 };
 export const reasonMessage = (reason: string | undefined) =>
   reason === undefined ? undefined : reasons[reason];

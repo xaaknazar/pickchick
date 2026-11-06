@@ -163,6 +163,9 @@ test('F08 every action code of the back office has a section and a Russian name'
     'manager_shift_close',
     'manager_shift_template',
     'staff_positions_save',
+    // Lane bo-ui step 7 (discounts.ts).
+    'discount_save',
+    'discount_state',
     'cancel_order',
     'refund',
     'manual_refund',

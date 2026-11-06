@@ -69,6 +69,7 @@ export async function withCatalog(run, options = {}) {
     autoconsume = false,
     managerShifts = false,
     staffPositions = false,
+    discounts = false,
     workforce = false,
     cloudMigrationDirectory,
     ...serverOptions
@@ -95,6 +96,8 @@ export async function withCatalog(run, options = {}) {
         // Lane bo-ui step 6 (BACKOFFICE_MANAGER_SHIFTS_ENABLED, BACKOFFICE_STAFF_POSITIONS_ENABLED).
         ...(managerShifts ? { managerShiftsEnabled: true } : {}),
         ...(staffPositions ? { staffPositionsEnabled: true } : {}),
+        // Lane bo-ui step 7 (BACKOFFICE_DISCOUNTS_ENABLED).
+        ...(discounts ? { discountsEnabled: true } : {}),
       });
       await grantBackoffice(cloud.pool, manager.actor_id, branch, 'manager');
       class CatalogModule {}

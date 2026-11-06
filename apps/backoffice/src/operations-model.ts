@@ -8,6 +8,7 @@ import {
   type MenuLinksView,
 } from './autoconsume-model.js';
 import { managerShiftsView, type ManagerShiftsView } from './manager-shift-model.js';
+import { discountsView, type DiscountsView } from './discounts-model.js';
 export type Data = Record<string, unknown>;
 export type Entry = {
   id: string;
@@ -109,6 +110,10 @@ export function commandPermission(command: Data): string {
       return 'manager_shifts.template';
     case 'staff_positions_save':
       return 'staff.positions';
+    // Lane bo-ui step 7: the discount editor (manager only).
+    case 'discount_save':
+    case 'discount_state':
+      return 'discounts.write';
     case 'revoke_device':
       return 'devices.write';
     case 'cancel_order':
@@ -191,6 +196,16 @@ export const staffPositionsAvailable = (data: { capabilities?: unknown } | null 
     (data.capabilities as Data)['staff_positions'] === true,
   );
 /**
+ * Discount editor (lane bo-ui step 7, BACKOFFICE_DISCOUNTS_ENABLED): the server answers GET
+ * .../ops/discounts and takes discount_save and discount_state. Never applied at the cash desk yet.
+ */
+export const discountsAvailable = (data: { capabilities?: unknown } | null | undefined) =>
+  Boolean(
+    data?.capabilities &&
+    typeof data.capabilities === 'object' &&
+    (data.capabilities as Data)['discounts'] === true,
+  );
+/**
  * Audit fixes of lane bo-ui that change the cabinet without a flag of their own (design-bo-ui
  * §6, §8 q1; audit F05-F08, F13-F20): on while the server reports capabilities.pos_day, the flag
  * of the cutover back office (BACKOFFICE_POS_DAY_ENABLED). With it off the cabinet is exactly
@@ -232,6 +247,7 @@ export const RIGHTS_TEXT: Record<string, string> = {
   'manager_shifts.write': 'Открывают и закрывают смену управляющий и начальник смены.',
   'manager_shifts.template': 'Чек-лист смены меняет управляющий.',
   'staff.positions': 'Должности, доступ к кассе и выгрузку состава ведёт управляющий.',
+  'discounts.write': 'Скидки создаёт и меняет только управляющий точки.',
   'records.write': 'Изменять записи может управляющий точки.',
 };
 /**
@@ -546,6 +562,16 @@ export class OperationsModel {
     if (value['branch_id'] !== branch || !Array.isArray(value['staff']))
       throw new ApiError('INVALID_RESPONSE');
     return value;
+  }
+  /** Discounts of the branch, with the revisions of one (GET .../ops/discounts, step 7). */
+  async discounts(id = ''): Promise<DiscountsView> {
+    const generation = this.generation;
+    const branch = this.branch;
+    const value = await this.api(
+      `branches/${branch}/ops/discounts${id ? '?' + new URLSearchParams({ id }).toString() : ''}`,
+    );
+    if (generation !== this.generation) throw new ApiError('FORBIDDEN');
+    return discountsView(value, branch);
   }
   /** Sales report (GET .../ops/sales, cutover CC-7) of an Almaty date window. */
   async salesReport(startDate: string, endDate: string): Promise<SalesReport> {

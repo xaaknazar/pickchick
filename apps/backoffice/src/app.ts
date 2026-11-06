@@ -5,6 +5,7 @@ import { KioskIncidentsView } from './components/KioskIncidentsView.js';
 import {
   OperationsModel,
   StopsModel,
+  discountsAvailable,
   headerRole,
   managerShiftsAvailable,
   permitted,
@@ -17,12 +18,14 @@ import { cards, dash, ui } from './ui-fixes.js';
 import { WorkforceModel } from './workforce-model.js';
 import { WorkforceView } from './workforce.js';
 import { ManagerShiftView } from './manager-shift.js';
+import { DiscountsPage } from './discounts.js';
+import { DISCOUNTS_SECTION } from './discounts-model.js';
 import { staffPositions } from './staff-positions-model.js';
 import { FinanceModel } from './finance-model.js';
 import { FinanceView } from './finance.js';
 import { OperationsView, POS_SECTION, sections } from './operations.js';
 import { CatalogModel } from './model.js';
-import { transport, message, staffAuth } from './api.js';
+import { ApiError, transport, message, staffAuth } from './api.js';
 import {
   aggregatorPriceLine,
   copy,
@@ -47,11 +50,20 @@ const root = document.querySelector<HTMLDivElement>('#app')!,
 let page = sections.some((s) => s[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'dash';
 // Lane bo-ui «Касса»: #pos opens only once the server reports capabilities.pos_day.
 let wantPos = location.hash === '#pos';
-/** The sections of this server: `sections`, plus «Касса» after «Заказы» while pos_day is on. */
-const allSections = (): readonly (readonly [string, string, string])[] =>
-  posDayAvailable(operations.data)
+// Lane bo-ui step 7 «Скидки»: #discounts opens only once the server reports capabilities.discounts.
+let wantDiscounts = location.hash === '#discounts';
+/**
+ * The sections of this server: `sections`, plus «Касса» after «Заказы» while pos_day is on and
+ * «Скидки» after «Промо и баннеры» while discounts is on.
+ */
+const allSections = (): readonly (readonly [string, string, string])[] => {
+  const list = posDayAvailable(operations.data)
     ? [...sections.slice(0, 2), POS_SECTION, ...sections.slice(2)]
     : sections;
+  if (!discountsAvailable(operations.data)) return list;
+  const at = list.findIndex((s) => s[0] === 'promo') + 1;
+  return [...list.slice(0, at), DISCOUNTS_SECTION, ...list.slice(at)];
+};
 let cashierJournalOpen = false;
 const operations = new OperationsModel(
   (path, request) => model.operations(path, request),
@@ -158,11 +170,28 @@ const managerShift = new ManagerShiftView({
   scope: () => `${operations.actor}:${operations.branch}`,
   changed: () => softRender(),
 });
+// Lane bo-ui step 7 «Скидки», only with capabilities.discounts (the POS does not apply them yet).
+const discountPage = new DiscountsPage({
+  load: (id) => operations.discounts(id),
+  execute: async (command, reason) => {
+    try {
+      if (await operations.execute(command, reason)) return null;
+      return operations.error ?? new ApiError('PENDING');
+    } catch (e) {
+      return e;
+    }
+  },
+  can: (permission) => operations.data !== null && permitted(operations.data, permission),
+  rights: (permission) => rightsText(operations.data, permission),
+  scope: () => `${operations.actor}:${operations.branch}`,
+  changed: () => softRender(),
+});
 function syncOperations() {
   if (!model.actor) {
     workforce.clear();
     workforceView.clear();
     managerShift.clear();
+    discountPage.clear();
     finance.clear();
     financeView.clear();
     operations.clear();
@@ -425,6 +454,12 @@ function render() {
     if (posDayAvailable(operations.data)) page = 'pos';
   }
   if (page === 'pos' && operations.data && !posDayAvailable(operations.data)) page = 'dash';
+  if (wantDiscounts && operations.data) {
+    wantDiscounts = false;
+    if (discountsAvailable(operations.data)) page = 'discounts';
+  }
+  if (page === 'discounts' && operations.data && !discountsAvailable(operations.data))
+    page = 'dash';
   const shell = el('div', 'shell'),
     sidebar = el('aside', 'sidebar'),
     brand = el('div', 'brand');
@@ -604,8 +639,9 @@ function render() {
   header.append(branch);
   const legacyControls = el('div', 'wf-legacy-controls');
   const periodTarget = page === 'shifts' ? legacyControls : header;
-  // «Касса» has its own day and cash desk pickers (audit F07: no period that does nothing).
-  if (page !== 'items' && page !== 'finance' && page !== 'pos') {
+  // «Касса» has its own day and cash desk pickers (audit F07: no period that does nothing);
+  // «Скидки» has no period at all.
+  if (page !== 'items' && page !== 'finance' && page !== 'pos' && page !== 'discounts') {
     const periods = el('div', 'op-periods');
     for (const [id, label] of [
       ['day', 'Сегодня'],
@@ -808,6 +844,25 @@ function render() {
     if (hidden('finance.read'))
       content.append(notice('Финансы видят управляющий и бухгалтер точки.', 'notice error'));
     else financeView.render(content);
+    return;
+  }
+  if (page === 'discounts') {
+    // A discount command whose answer did not arrive is checked here, before the next one.
+    if (operations.pending) {
+      const n = notice(
+        'Результат прошлой операции ещё не подтверждён. Проверьте его, прежде чем менять скидки.',
+      );
+      const recover = button(
+        'Проверить результат',
+        () => void operations.recover().then(() => discountPage.reload()),
+        'button primary',
+        'dc-recover',
+      );
+      recover.disabled = operations.busy;
+      n.append(recover);
+      content.append(n);
+    }
+    discountPage.render(content);
     return;
   }
   if (page === 'devices') {

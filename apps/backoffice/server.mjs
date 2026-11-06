@@ -214,6 +214,20 @@ export const allowed = (method, path) => {
     new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/staff-roster$`, 'i').test(pathname)
   )
     return search === undefined;
+  // Lane bo-ui step 7: the discount editor, every discount or one with its revisions.
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/discounts$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    const id = q.get('id');
+    return (
+      (search?.length ?? 0) <= 200 &&
+      [...q.keys()].every((k) => k === 'id') &&
+      q.getAll('id').length <= 1 &&
+      (id === null || new RegExp(`^${UUID}$`, 'i').test(id))
+    );
+  }
   if (method === 'GET' && new RegExp(`^/v1/admin/backoffice/branches/${UUID}$`, 'i').test(pathname))
     return reportQuery(search ?? '');
   if (search !== undefined) return false;
@@ -309,6 +323,9 @@ const assets = new Map([
     'manager-shift',
     'manager-shift-model',
     'staff-positions-model',
+    // Lane bo-ui step 7 «Скидки» (shown only with capabilities.discounts).
+    'discounts',
+    'discounts-model',
   ].map((n) => [`/${n}.js`, [`${n}.js`, 'text/javascript; charset=utf-8']]),
   ...['logo.png', 'shot.jpg', ...Array.from({ length: 24 }, (_, i) => `i${i}.jpg`)].map((n) => [
     `/assets/${n}`,
@@ -509,10 +526,12 @@ export function createBackofficeServer({
           // A reconciliation day lists every matched operation for the accountant's export; a
           // stock report lists up to 200 documents with all their lines; a sales report lists up
           // to 200 refunds and 200 staff meals with 92 days; a cashier day («Касса») up to 2200
-          // receipts with their items, tenders, refunds and Webkassa receipts.
+          // receipts with their items, tenders, refunds and Webkassa receipts; the discounts up to
+          // 200 with their catalog scope and the catalog names.
           const limit = /\/ops\/pos-day\?/.test(path)
             ? 8 * 1024 * 1024
-            : /\/(?:reconciliation|ops\/stock|ops\/sales)\?/.test(path)
+            : /\/(?:reconciliation|ops\/stock|ops\/sales)\?/.test(path) ||
+                /\/ops\/discounts(?:\?|$)/.test(path)
               ? 4 * 1024 * 1024
               : 1024 * 1024;
           for await (const chunk of response.body ?? []) {
