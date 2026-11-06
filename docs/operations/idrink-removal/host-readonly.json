@@ -1,0 +1,40 @@
+{
+  "rebootRequired": true,
+  "upgradablePackageCount": 185,
+  "sshHostFingerprints": [
+    {
+      "type": "ssh_host_rsa_key",
+      "fingerprint": "SHA256:iIhDfEXp9lwyndMLU7tpjI1Hn6tQ4uT2fsvyeDr+O8k"
+    },
+    {
+      "type": "ssh_host_ed25519_key",
+      "fingerprint": "SHA256:Bt3HkaktjLmWe4tB1pOK9b8gOnHuxp+tvp1hhEDtxp8"
+    },
+    {
+      "type": "ssh_host_ecdsa_key",
+      "fingerprint": "SHA256:+Tocz2KkwW2hYTRerF6SA4DwanAyaFcQa3nrl+M2dcg"
+    }
+  ],
+  "firewallReadable": false,
+  "pickchick-staff-login": {
+    "composeProject": null,
+    "composeFiles": null,
+    "composeDirectory": null,
+    "mountDestinations": ["/run/ceo.json"]
+  },
+  "pickchick-public-gateway": {
+    "composeProject": "pickchick-public",
+    "composeFiles": "/opt/pickchick-staging/public-https/releases/c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da/infra/public-staging/compose.yaml",
+    "composeDirectory": "/opt/pickchick-staging/public-https/releases/c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da/infra/public-staging",
+    "mountDestinations": ["/srv/public", "/etc/caddy/Caddyfile"]
+  },
+  "dockerSubnets": [
+    "172.17.0.0/16",
+    "172.18.0.0/16",
+    "172.23.0.0/16",
+    "172.22.0.0/16",
+    "172.21.0.0/16",
+    "172.20.0.0/16",
+    "172.19.0.0/16"
+  ]
+}
