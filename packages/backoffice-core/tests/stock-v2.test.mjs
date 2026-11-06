@@ -380,7 +380,11 @@ test('flag on: waste needs a reason, receipts keep supplier and date, nothing ha
         ['Синтетическая булка', 'pcs', '6', '6000'],
       ],
     );
-    assert.deepEqual(report.summary.by_day, [{ day: today, documents: 5, value_minor: '56000' }]);
+    // On 075 stock v2 carries stock P1 (lane bo-ui, stock-p1.ts): every waste row also counts the
+    // storno documents of the window (none here); stock-p1.test.mjs pins the cloud lane answer.
+    assert.deepEqual(report.summary.by_day, [
+      { day: today, documents: 5, reversals: 0, value_minor: '56000' },
+    ]);
     assert.deepEqual(
       report.summary.by_author.map((r) => [r.actor_name, r.documents, r.value_minor]),
       [
@@ -439,7 +443,9 @@ test('flag on: waste needs a reason, receipts keep supplier and date, nothing ha
       }),
       is('UNAUTHORIZED', undefined),
     );
-    // The D0 list in GET branches/:id is unchanged by stock v2 (reason codes live in ops/stock).
+    // The D0 list in GET branches/:id keeps its keys and order; on 075 stock P1 (lane bo-ui)
+    // appends the reason, the receipt details and the storno links (without 075: the D0 keys,
+    // stock-p1.test.mjs).
     const state = await v2.read(s.manager.token, c.branch);
     assert.deepEqual(Object.keys(state.documents[0]), [
       'id',
@@ -451,6 +457,13 @@ test('flag on: waste needs a reason, receipts keep supplier and date, nothing ha
       'actor_id',
       'actor_name',
       'lines',
+      'reason_code',
+      'meta',
+      'source_ref',
+      'reverses_document_id',
+      'reversed_by',
+      'reversed_at',
+      'reverses',
     ]);
   }));
 

@@ -21,6 +21,10 @@ export const BackofficeErrorReasonSchema = z.enum([
   'ROLE_FORBIDDEN',
   'STOCK_V2_DISABLED',
   'REASON_REQUIRED',
+  // Lane bo-ui stock P1 (design-bo-ui 5): only with BACKOFFICE_STOCK_V2_ENABLED and cloud075.
+  'REVERSAL_NOT_ALLOWED',
+  'ALREADY_REVERSED',
+  'COUNTED_AFTER_DOCUMENT',
 ]);
 export type BackofficeErrorReason = z.infer<typeof BackofficeErrorReasonSchema>;
 export class BackofficeError extends Error {

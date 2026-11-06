@@ -66,9 +66,19 @@ export type P1Capabilities = {
   manager_shifts?: boolean;
   staff_positions?: boolean;
   discounts?: boolean;
+  stock_p1?: true;
 };
-/** The P1 keys of GET branches/:id capabilities, in this order, only for the flags that are on. */
-export async function p1Capabilities(db: Db, options: BackofficeOptions): Promise<P1Capabilities> {
+/**
+ * The P1 keys of GET branches/:id capabilities, in this order, only for the flags that are on.
+ * `stock_p1` (stock P1 under the existing BACKOFFICE_STOCK_V2_ENABLED, design-bo-ui 2) comes last
+ * and only while it is usable (`stockP1`, stock-p1.ts stockP1Ready): without cloud075 or its
+ * rights the key is absent and the answer is the cloud lane's.
+ */
+export async function p1Capabilities(
+  db: Db,
+  options: BackofficeOptions,
+  stockP1 = false,
+): Promise<P1Capabilities> {
   const out: P1Capabilities = {};
   // Works without cloud073 (the view then reports coverage.pos_tables=false), so always true.
   if (options.posDayEnabled === true) out.pos_day = true;
@@ -82,5 +92,6 @@ export async function p1Capabilities(db: Db, options: BackofficeOptions): Promis
   if (options.staffPositionsEnabled === true) out.staff_positions = true;
   if (options.discountsEnabled === true)
     out.discounts = await relationsReady(db, P1_FEATURE_RELATIONS.discounts);
+  if (options.stockV2Enabled === true && stockP1) out.stock_p1 = true;
   return out;
 }

@@ -21,6 +21,52 @@ const CHECK = fails('23514');
 const UNIQUE = fails('23505');
 const FK = fails('23503');
 const withoutClock = (value) => ({ ...value, as_of: null });
+/** The storno and source keys stock P1 appends to a document row (stock-p1.ts). */
+const P1_LINK_KEYS = [
+  'source_ref',
+  'reverses_document_id',
+  'reversed_by',
+  'reversed_at',
+  'reverses',
+];
+/**
+ * A snapshot of 075 with stock v2 on, without what stock P1 adds to it (design-bo-ui 2: the
+ * existing stock v2 flag carries stock P1 once 075 and its rights are there): capabilities.stock_p1
+ * last, counted_at per stock row, and per document reason_code and meta (GET branches/:id) and the
+ * storno links. On old rows every added value is the stored one or null.
+ */
+function withoutStockP1(snapshot, rows) {
+  const stored = new Map(rows.map((r) => [r.id, r]));
+  const strip = (document, keys) => {
+    const copy = { ...document };
+    for (const key of keys) {
+      if (key === 'reason_code' || key === 'meta')
+        assert.deepEqual(copy[key], stored.get(copy.id)[key], key);
+      else assert.equal(copy[key], null, key);
+      delete copy[key];
+    }
+    return copy;
+  };
+  const readV2 = { ...snapshot.readV2, capabilities: { ...snapshot.readV2.capabilities } };
+  assert.equal(Object.keys(readV2.capabilities).at(-1), 'stock_p1');
+  assert.equal(readV2.capabilities.stock_p1, true);
+  delete readV2.capabilities.stock_p1;
+  readV2.stock = readV2.stock.map((row) => {
+    assert.equal(Object.keys(row).at(-1), 'counted_at');
+    assert.equal(row.counted_at, null);
+    const copy = { ...row };
+    delete copy.counted_at;
+    return copy;
+  });
+  readV2.documents = readV2.documents.map((d) =>
+    strip(d, ['reason_code', 'meta', ...P1_LINK_KEYS]),
+  );
+  const ops = {
+    ...snapshot.ops,
+    documents: snapshot.ops.documents.map((d) => strip(d, P1_LINK_KEYS)),
+  };
+  return { ...snapshot, readV2, ops };
+}
 
 async function people(c) {
   const manager = await provisionCatalogManager(c.cloud.pool, {
@@ -198,8 +244,10 @@ test('upgrade from 074 with data: documents stay valid, the cloud lane runtime a
 
         assert.deepEqual(await migrate(c.cloud.pool, MIGRATIONS, 'cloud'), [P1]);
         const after = await snapshot();
-        // GET branches/:id, GET ops/stock and every old row are byte-identical after 075.
-        assert.deepEqual(after, before);
+        // GET branches/:id, GET ops/stock and every old row are byte-identical after 075, except
+        // for what stock P1 adds under stock v2 (all of it null or the stored values on old rows).
+        assert.deepEqual(after.read, before.read);
+        assert.deepEqual(withoutStockP1(after, after.documents), before);
         const fresh = (
           await c.cloud.pool.query(
             'SELECT count(*) FILTER(WHERE source_ref IS NULL AND reverses_document_id IS NULL)::int n, count(*)::int total FROM bo_stock_documents',

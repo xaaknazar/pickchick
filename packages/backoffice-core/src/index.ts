@@ -30,13 +30,23 @@ import {
   permissionsOf,
   requirePermission,
   resolveBackofficeRole,
+  type BackofficeAnyPermission,
   type BackofficeEffectiveRole,
-  type BackofficePermission,
 } from './roles.js';
 import { assertStockV2, readStockOps, stockV2Readable, stockV2Writable } from './stock-v2.js';
 import { readSalesReport } from './sales-report.js';
 import { p1Capabilities } from './p1-flags.js';
 import { posOrderCard, posOrderExtras, posStaffNames, readPosDay } from './pos-day.js';
+import {
+  IngredientP1,
+  P1_DOCUMENTS_SQL,
+  P1Request,
+  markCounted,
+  readStockOpsP1,
+  reverseStockDocument,
+  stockP1Ready,
+  type P1RequestInput,
+} from './stock-p1.js';
 export * from './model.js';
 export * from './stops.js';
 export * from './station-plans.js';
@@ -46,6 +56,7 @@ export * from './sales-report.js';
 export * from './p1-flags.js';
 export * from './pos-day.js';
 export * from './edge-staff.js';
+export * from './stock-p1.js';
 export const BACKOFFICE = Symbol('BACKOFFICE');
 type Actor = {
   id: string;
@@ -124,7 +135,7 @@ export class Backoffice {
     db: DatabaseClient,
     token: string,
     branch: string,
-    need: BackofficePermission = 'reports.read',
+    need: BackofficeAnyPermission = 'reports.read',
   ): Promise<Actor> {
     if (!this.enabled) fail('SERVICE_UNAVAILABLE');
     parse(z.uuid(), branch);
@@ -270,8 +281,11 @@ export class Backoffice {
       const records = await rows(
         'SELECT id,kind,revision,payload,updated_at FROM bo_records WHERE branch_id=$1 ORDER BY kind,updated_at DESC,id LIMIT 2000',
       );
+      // Stock P1 (bo-ui, stock-p1.ts): only with stock v2, cloud075 and its rights; otherwise the
+      // stock rows, the documents and the capabilities are the cloud lane's.
+      const stockP1 = this.options.stockV2Enabled === true && (await stockP1Ready(db));
       const stock = await rows(
-        `SELECT r.id,r.payload,b.quantity::text,b.value_minor::text,b.revision FROM bo_records r LEFT JOIN bo_stock_balances b ON b.branch_id=r.branch_id AND b.ingredient_id=r.id WHERE r.branch_id=$1 AND r.kind='ingredient' ORDER BY r.payload->>'name',r.id`,
+        `SELECT r.id,r.payload,b.quantity::text,b.value_minor::text,b.revision${stockP1 ? ',b.counted_at' : ''} FROM bo_records r LEFT JOIN bo_stock_balances b ON b.branch_id=r.branch_id AND b.ingredient_id=r.id WHERE r.branch_id=$1 AND r.kind='ingredient' ORDER BY r.payload->>'name',r.id`,
       );
       const orders = await rows(
         `SELECT o.id,o.created_at,o.total_minor::text,o.version::text,o.state,o.snapshot->>'channel' channel,'cloud' owner,p.state payment_state,f.state kitchen_state,f.observed_at,f.display_number::text,
@@ -389,7 +403,9 @@ export class Backoffice {
           : 'SELECT id,actor_id,action,occurred_at created_at FROM catalog_audit WHERE branch_id=$1 ORDER BY occurred_at DESC,id LIMIT 100',
       );
       const documents = await rows(
-        `SELECT d.id,d.kind,d.reference,d.reason,d.order_id,d.created_at,d.actor_id,a.name actor_name,
+        stockP1
+          ? P1_DOCUMENTS_SQL
+          : `SELECT d.id,d.kind,d.reference,d.reason,d.order_id,d.created_at,d.actor_id,a.name actor_name,
           coalesce((SELECT jsonb_agg(jsonb_build_object(
             'ingredient_id',m.ingredient_id,'name',r.payload->>'name','unit',r.payload->>'unit',
             'quantity_delta',m.quantity_delta::text,'value_delta_minor',m.value_delta_minor::text,
@@ -411,12 +427,15 @@ export class Backoffice {
       // Cutover CC-5/CC-6: new keys only while their flag is on (the installed UI reads `role`).
       const roles =
         this.options.rolesEnabled === true
-          ? { effective_role: actor.effective, permissions: permissionsOf(actor.effective) }
+          ? {
+              effective_role: actor.effective,
+              permissions: permissionsOf(actor.effective, stockP1 ? ['stock.reverse'] : []),
+            }
           : {};
       const stockV2 =
         this.options.stockV2Enabled === true ? { stock_v2: await stockV2Writable(db) } : {};
       // Back-office P1 (bo-ui): {} without a query while every P1 flag is off.
-      const p1 = await p1Capabilities(db, this.options);
+      const p1 = await p1Capabilities(db, this.options, stockP1);
       return {
         schema_version: 1,
         branch_id: branch,
@@ -558,6 +577,8 @@ export class Backoffice {
       if (view !== 'stock') return fail('NOT_FOUND');
       if (this.options.stockV2Enabled !== true || !(await stockV2Readable(db)))
         throw new ErrorCode('NOT_FOUND', 'STOCK_V2_DISABLED');
+      // Stock P1 (bo-ui): storno in the reports and the storno links of the documents.
+      if (await stockP1Ready(db)) return readStockOpsP1(db, branch, input, new Date());
       return readStockOps(db, branch, input, new Date());
     });
   }
@@ -734,12 +755,25 @@ export class Backoffice {
       };
     });
   }
+  /**
+   * A P1 command (stock-p1.ts, `stock_reverse`): parsed by its own schema and only while its flag
+   * is on, so with the flag off it is exactly an unknown command (INVALID_REQUEST) and the shared
+   * Command union stays the cloud lane's.
+   */
+  private p1Request(input: unknown): P1RequestInput | null {
+    if (this.options.stockV2Enabled !== true || Request.safeParse(input).success) return null;
+    const parsed = P1Request.safeParse(input);
+    return parsed.success ? parsed.data : null;
+  }
   async command(token: string, branch: string, input: unknown) {
-    const req = parse(Request, input);
+    const req: z.infer<typeof Request> | P1RequestInput =
+      this.p1Request(input) ?? parse(Request, input);
     const manualRefund = req.command.type === 'manual_refund';
+    const permission: BackofficeAnyPermission =
+      req.command.type === 'stock_reverse' ? 'stock.reverse' : commandPermission(req.command);
     try {
       return await transaction(this.pool, async (db) => {
-        const actor = await this.scope(db, token, branch, commandPermission(req.command));
+        const actor = await this.scope(db, token, branch, permission);
         await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
           'bo:actor:' + actor.id + ':' + req.request_id,
         ]);
@@ -761,8 +795,21 @@ export class Backoffice {
         let result: unknown;
         let before: unknown = null;
         let entity: string | null;
-        if (c.type === 'save') {
-          const payload = parse(Schemas[c.kind] as z.ZodType<Record<string, unknown>>, c.payload);
+        if (c.type === 'stock_reverse') {
+          // Stock P1 storno (stock-p1.ts): flag on, cloud075 and its rights, or not at all.
+          if (!(await stockP1Ready(db))) throw new ErrorCode('NOT_READY', 'STOCK_V2_DISABLED');
+          result = await reverseStockDocument(db, branch, actor.id, req.reason, c);
+          entity = (result as { id: string }).id;
+        } else if (c.type === 'save') {
+          // Stock P1: an ingredient may carry its quick waste tile; otherwise the strict schema.
+          const p1Ingredient =
+            c.kind === 'ingredient' &&
+            this.options.stockV2Enabled === true &&
+            (await stockP1Ready(db));
+          const payload = parse(
+            (p1Ingredient ? IngredientP1 : Schemas[c.kind]) as z.ZodType<Record<string, unknown>>,
+            c.payload,
+          );
           const old = (
             await db.query<Row>(
               'SELECT * FROM bo_records WHERE branch_id=$1 AND kind=$2 AND id=$3 FOR UPDATE',
@@ -851,6 +898,14 @@ export class Backoffice {
             meta: c.meta ?? null,
           });
           entity = (result as { id: string }).id;
+          // Stock P1: a count is the physical truth of its ingredients from now on (counted_at).
+          if (c.kind === 'count' && v2 && (await stockP1Ready(db)))
+            await markCounted(
+              db,
+              branch,
+              entity,
+              c.lines.map((line) => line.ingredient_id),
+            );
         } else if (c.type === 'produce' || c.type === 'consume') {
           result = await this.production(db, branch, actor, req.reason, c);
           entity = (result as { id: string }).id;

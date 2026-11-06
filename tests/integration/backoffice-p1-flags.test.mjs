@@ -81,6 +81,12 @@ const without = (state, keys) => {
   const capabilities = { ...state.capabilities };
   for (const key of keys) delete capabilities[key];
   const copy = { ...state, capabilities };
+  // stock_p1 (stock P1 under the existing BACKOFFICE_STOCK_V2_ENABLED, step 4) also adds
+  // counted_at to the stock rows and the storno keys to the documents (none in these branches).
+  if (keys.includes('stock_p1')) {
+    assert.deepEqual(copy.stock, [], 'no stock rows in these branches');
+    assert.deepEqual(copy.documents, [], 'no documents in these branches');
+  }
   if (keys.includes('pos_day')) {
     assert.ok(Array.isArray(copy.pos_terminals), 'pos_day adds pos_terminals');
     assert.deepEqual(copy.pos_staff, {}, 'pos_day adds pos_staff');
@@ -212,10 +218,19 @@ test('flags off: GET branches/:id and the ops views are the cloud lane result, 0
       const lane = new Backoffice(c.cloud.pool, true, cloud);
       const off = new Backoffice(c.cloud.pool, true, { ...cloud, ...offOptions });
       const before = stable(await lane.read(p.token, c.branch));
+      // With stock v2 on and 075 with its rights, stock P1 rides the existing flag (design-bo-ui
+      // 2, step 4): its key comes last; without 075 the key is absent (stock-p1.test.mjs).
       assert.deepEqual(Object.keys(before.capabilities), [
         ...CLOUD_CAPABILITIES,
-        ...(cloud.rolesEnabled ? ['roles', 'stock_v2', 'sales_report'] : []),
+        ...(cloud.rolesEnabled ? ['roles', 'stock_v2', 'sales_report', 'stock_p1'] : []),
       ]);
+      if (cloud.stockV2Enabled)
+        assert.deepEqual(Object.keys(without(before, ['stock_p1']).capabilities), [
+          ...CLOUD_CAPABILITIES,
+          'roles',
+          'stock_v2',
+          'sales_report',
+        ]);
       assert.deepEqual(stable(await off.read(p.token, c.branch)), before);
       if (cloud.rolesEnabled) continue;
       await p1Rows(c, p.actor_id);
@@ -250,7 +265,13 @@ test('each P1 flag adds only its capability key (pos_day also the registry field
             c.branch,
           ),
         );
-        assert.deepEqual(Object.keys(state.capabilities), [...Object.keys(off.capabilities), key]);
+        // P1 keys in the order of design-bo-ui 2: stock_p1 (stock v2 with 075) stays last.
+        const offKeys = Object.keys(off.capabilities).filter((k) => k !== 'stock_p1');
+        assert.deepEqual(Object.keys(state.capabilities), [
+          ...offKeys,
+          key,
+          ...(cloud.stockV2Enabled ? ['stock_p1'] : []),
+        ]);
         assert.deepEqual(without(state, [key]), off);
         // Autoconsume consumes by the stock v2 links: without stock v2 it cannot run.
         assert.equal(
@@ -266,12 +287,13 @@ test('each P1 flag adds only its capability key (pos_day also the registry field
         }).read(p.token, c.branch),
       );
       assert.deepEqual(Object.keys(all.capabilities), [
-        ...Object.keys(off.capabilities),
+        ...Object.keys(off.capabilities).filter((k) => k !== 'stock_p1'),
         'pos_day',
         'stock_autoconsume',
         'manager_shifts',
         'staff_positions',
         'discounts',
+        ...(cloud.stockV2Enabled ? ['stock_p1'] : []),
       ]);
     }
   }));
