@@ -27,6 +27,21 @@ export interface BackofficeOptions {
    * Default off; needs stationPlanGrants on the API role.
    */
   stationPlanDeliveryEnabled?: boolean;
+  /**
+   * BACKOFFICE_ROLES_ENABLED (cutover CC-5): shift manager and accountant designations of
+   * cloud074 apply (roles.ts). Default off: manager/analyst exactly as before.
+   */
+  rolesEnabled?: boolean;
+  /**
+   * BACKOFFICE_STOCK_V2_ENABLED (cutover CC-6): waste reason codes and receipt metadata
+   * (cloud074), the waste reason becomes required, GET .../ops/stock answers. Default off.
+   */
+  stockV2Enabled?: boolean;
+  /**
+   * BACKOFFICE_SALES_REPORT_ENABLED (cutover CC-7): GET .../ops/sales answers and GET branches/:id
+   * reports capabilities.sales_report. Default off: the view is 404 like any unknown view.
+   */
+  salesReportEnabled?: boolean;
 }
 function flag(env: Record<string, string | undefined>, name: string) {
   const value = env[name] ?? 'false';
@@ -40,13 +55,23 @@ export function backofficeOptions(
     remoteStopsEnabled: flag(env, 'BACKOFFICE_REMOTE_STOPS_ENABLED'),
     manualRefundsEnabled: flag(env, 'BACKOFFICE_MANUAL_REFUNDS_ENABLED'),
     stationPlanDeliveryEnabled: flag(env, 'BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED'),
+    rolesEnabled: flag(env, 'BACKOFFICE_ROLES_ENABLED'),
+    stockV2Enabled: flag(env, 'BACKOFFICE_STOCK_V2_ENABLED'),
+    salesReportEnabled: flag(env, 'BACKOFFICE_SALES_REPORT_ENABLED'),
   };
 }
 export interface StopActor {
   id: string;
   organization_id: string;
   role: 'manager' | 'analyst';
+  /**
+   * Set only with BACKOFFICE_ROLES_ENABLED: the effective role may send stop commands (a
+   * designated shift manager has an analyst grant). Absent: the manager grant decides, as before.
+   */
+  can_write_stops?: boolean;
 }
+/** Whether this actor may send stop commands (see StopActor.can_write_stops). */
+export const stopWriter = (actor: StopActor) => actor.can_write_stops ?? actor.role === 'manager';
 type Db = Pick<DatabaseClient, 'query'>;
 /** Same grace as the transport (fulfillment-transport cloud.ts): a delivered command may still
  * get its edge verdict for this long after expires_at. */
@@ -347,10 +372,7 @@ export async function readStopList(
       enabled: options.remoteStopsEnabled === true,
       edge_ready: edgeReady,
       writable:
-        options.remoteStopsEnabled === true &&
-        actor.role === 'manager' &&
-        edgeReady &&
-        catalog !== null,
+        options.remoteStopsEnabled === true && stopWriter(actor) && edgeReady && catalog !== null,
     },
     catalog: catalog
       ? { version: catalog.version, published_at: catalog.published_at.toISOString() }

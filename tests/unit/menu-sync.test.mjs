@@ -3,20 +3,33 @@ import test from 'node:test';
 /* global structuredClone, DOMException */
 import { randomUUID } from 'node:crypto';
 import {
+  CatalogProjectionError,
+  EDGE_MENU_FEATURES,
   canonicalJson,
+  channelItemPriceMinor,
+  channelOptionPriceMinor,
+  edgeMenuFeatures,
   hashJson,
   isPermanentMediaFailure,
   localCloudOrigin,
+  menuDeliveryChecksums,
+  menuDeliveryForm,
   projectCatalogMenu,
+  withoutAggregatorPrices,
+  withoutComboStopLinks,
+  withoutEdgeOnlyFields,
 } from '@pickchick/menu-sync';
 import {
+  EdgeMenuFeatureSchema,
   EdgeMenuStateQuerySchema,
   MenuAckSchema,
+  MenuPublishedSchema,
   MenuSnapshotSchema,
   menuAckResult,
 } from '@pickchick/contracts';
 import { fixtureMenu } from '@pickchick/test-fixtures';
 import { mockupCatalogDraft } from '../../packages/catalog-admin/dist/seed.js';
+import { EDGE_KEYS } from './catalog-frozen-storefront.mjs';
 
 test('menu protocol hashes ignore object key order while preserving array order', () => {
   assert.equal(canonicalJson({ z: 'қ', a: { y: 2, b: 1 } }), '{"a":{"b":1,"y":2},"z":"қ"}');
@@ -141,4 +154,199 @@ test('photo download failures: 4xx and bad bytes are permanent, outages are tran
     assert.equal(isPermanentMediaFailure(new Error(message)), false, message);
   assert.equal(isPermanentMediaFailure(new DOMException('timeout', 'TimeoutError')), false);
   assert.equal(isPermanentMediaFailure('Sync HTTP 404'), false);
+});
+
+// Cutover CC-3 (contracts 5.3): delivery forms over the feature subsets {combo_stops,
+// aggregator_prices}. Each form must be exactly the menu the cloud would publish with those
+// flags, its checksum must be accepted by the ACK, and nothing changes for unmarked menus.
+const cutoverBranch = '10000000-0000-4000-8000-000000000003';
+const cutoverRelease = '30000000-0000-4000-8000-000000000011';
+const cutoverAt = '2026-11-16T05:00:00.000Z';
+/** Combo stop data (fixed components, linked option) and aggregator prices (synthetic tiyn). */
+function cutoverCatalog() {
+  const catalog = structuredClone(mockupCatalogDraft);
+  const product = (id) => catalog.products.find((p) => p.id === id);
+  product('pick-combo').combo_components = [
+    { product_id: 'fingers', quantity: 3 },
+    { product_id: 'toast', quantity: 1 },
+  ];
+  for (const option of product('pick-combo').modifier_groups.find((g) => g.id === 'drink').options)
+    if (option.id === 'cola-bottle') option.linked_product_id = 'cola';
+  product('pick-combo').channel_prices_minor = { yandex_eda: '459000', glovo: '469000' };
+  product('burger').channel_prices_minor = { yandex_eda: '269000' };
+  product('cola').channel_prices_minor = { glovo: '119000' };
+  return catalog;
+}
+const featureSets = [
+  [],
+  ['combo_stops'],
+  ['aggregator_prices'],
+  ['combo_stops', 'aggregator_prices'],
+];
+/** The catalog as it can be published with the aggregator flag off: no aggregator keys. */
+function withoutAggregatorKeys(catalog) {
+  const copy = structuredClone(catalog);
+  for (const product of copy.products) {
+    if (!product.channel_prices_minor) continue;
+    delete product.channel_prices_minor.yandex_eda;
+    delete product.channel_prices_minor.glovo;
+    if (!Object.keys(product.channel_prices_minor).length) delete product.channel_prices_minor;
+  }
+  return copy;
+}
+/** What the cloud publishes with exactly these flags (CATALOG_EDGE_COMBO_STOPS / AGGREGATOR). */
+const project = (catalog, features) =>
+  projectCatalogMenu(
+    features.includes('aggregator_prices') ? catalog : withoutAggregatorKeys(catalog),
+    cutoverBranch,
+    4,
+    cutoverAt,
+    cutoverRelease,
+    {
+      comboStops: features.includes('combo_stops'),
+      aggregatorPrices: features.includes('aggregator_prices'),
+    },
+  );
+const publishedEvent = (menu) =>
+  MenuPublishedSchema.parse({
+    event_id: '40000000-0000-4000-8000-000000000001',
+    producer_id: '40000000-0000-4000-8000-000000000002',
+    producer_sequence: '4',
+    branch_id: cutoverBranch,
+    aggregate_type: 'menu_release',
+    aggregate_id: menu.release_id,
+    aggregate_version: menu.version,
+    schema_version: 1,
+    event_type: 'menu.published',
+    payload: { menu, checksum: hashJson(menu) },
+    occurred_at: cutoverAt,
+    correlation_id: '40000000-0000-4000-8000-000000000003',
+    causation_id: null,
+  });
+const comboFieldsIn = (menu) =>
+  /combo_component_variant_ids|linked_variant_id/.test(JSON.stringify(menu));
+const aggregatorFieldsIn = (menu) => /aggregator_prices_minor/.test(JSON.stringify(menu));
+
+test('the edge advertises both menu features; the cloud knows exactly these two', () => {
+  assert.deepEqual(EDGE_MENU_FEATURES, ['combo_stops', 'aggregator_prices']);
+  assert.deepEqual(EdgeMenuFeatureSchema.options, ['combo_stops', 'aggregator_prices']);
+  assert.deepEqual(edgeMenuFeatures(EDGE_MENU_FEATURES.join(',')), [
+    'combo_stops',
+    'aggregator_prices',
+  ]);
+  assert.deepEqual(edgeMenuFeatures('aggregator_prices,future_thing'), ['aggregator_prices']);
+});
+
+test('delivery form for each of the 4 feature subsets is the menu published with those flags', () => {
+  const catalog = cutoverCatalog();
+  const full = project(catalog, ['combo_stops', 'aggregator_prices']);
+  const event = publishedEvent(full);
+  const checksums = new Set();
+  for (const features of featureSets) {
+    const form = menuDeliveryForm(event, features);
+    const expected = project(catalog, features);
+    assert.deepEqual(form.payload.menu, expected, features.join(','));
+    assert.equal(form.payload.checksum, hashJson(expected));
+    assert.equal(form.payload.checksum, hashJson(form.payload.menu));
+    assert.equal(comboFieldsIn(form.payload.menu), features.includes('combo_stops'));
+    assert.equal(aggregatorFieldsIn(form.payload.menu), features.includes('aggregator_prices'));
+    // Envelope identity is never touched: the edge ACKs the same event, sequence and release.
+    assert.deepEqual({ ...form, payload: null }, { ...event, payload: null });
+    assert.equal(MenuPublishedSchema.safeParse(form).success, true);
+    checksums.add(form.payload.checksum);
+    // Feature order and unknown values do not matter.
+    assert.deepEqual(menuDeliveryForm(event, [...features].reverse()), form);
+    assert.deepEqual(menuDeliveryForm(event, [...features, 'future_thing']), form);
+  }
+  assert.equal(checksums.size, 4);
+  // The ACK accepts exactly these four checksums and nothing else.
+  assert.deepEqual(menuDeliveryChecksums(event), checksums);
+  assert.equal(menuDeliveryChecksums(event).has('a'.repeat(64)), false);
+  // The full form is the stored event itself, the empty one has no cashier-only field.
+  assert.equal(menuDeliveryForm(event, ['combo_stops', 'aggregator_prices']), event);
+  assert.deepEqual(menuDeliveryForm(event, []).payload.menu, withoutEdgeOnlyFields(full));
+  for (const item of menuDeliveryForm(event, []).payload.menu.items) {
+    for (const key of Object.keys(item)) assert.ok(EDGE_KEYS.item.includes(key), key);
+    for (const group of item.modifier_groups ?? [])
+      for (const option of group.options)
+        for (const key of Object.keys(option)) assert.ok(EDGE_KEYS.option.includes(key), key);
+  }
+});
+
+test('aggregator prices are projected only for keyed products and price channels as the cashier does', () => {
+  const menu = project(cutoverCatalog(), ['aggregator_prices']);
+  const item = (slug) => menu.items.find((i) => i.source_id === slug);
+  assert.deepEqual(item('pick-combo').aggregator_prices_minor, {
+    yandex_eda: '459000',
+    glovo: '469000',
+  });
+  assert.deepEqual(item('burger').aggregator_prices_minor, { yandex_eda: '269000' });
+  assert.deepEqual(item('cola').aggregator_prices_minor, { glovo: '119000' });
+  assert.equal('aggregator_prices_minor' in item('fingers'), false);
+  assert.equal(menu.items.filter((i) => i.aggregator_prices_minor).length, 3);
+  // Key present = sold in that channel; hall stays price_minor; options keep the hall surcharge.
+  assert.equal(channelItemPriceMinor(item('burger'), 'hall'), item('burger').price_minor);
+  assert.equal(channelItemPriceMinor(item('burger'), 'yandex_eda'), '269000');
+  assert.equal(channelItemPriceMinor(item('burger'), 'glovo'), null);
+  assert.equal(channelItemPriceMinor(item('fingers'), 'yandex_eda'), null);
+  const option = item('pick-combo').modifier_groups[0].options[0];
+  assert.equal(channelOptionPriceMinor(option, 'glovo'), option.price_minor);
+  // Identities and every other field are exactly the hall projection.
+  assert.deepEqual(withoutAggregatorPrices(menu), project(cutoverCatalog(), []));
+});
+
+test('aggregator prices off: refused as before; own-channel overrides stay refused when on', () => {
+  const catalog = cutoverCatalog();
+  for (const options of [{}, { comboStops: true }, { aggregatorPrices: false }])
+    assert.throws(
+      () => projectCatalogMenu(catalog, cutoverBranch, 4, cutoverAt, cutoverRelease, options),
+      (error) =>
+        error instanceof CatalogProjectionError && error.code === 'CHANNEL_PRICES_NOT_SUPPORTED',
+    );
+  for (const channel of ['mobile', 'pos', 'kiosk']) {
+    const own = cutoverCatalog();
+    own.products.find((p) => p.id === 'fingers').channel_prices_minor = { [channel]: '1' };
+    assert.throws(
+      () => project(own, ['combo_stops', 'aggregator_prices']),
+      /CHANNEL_PRICES_NOT_SUPPORTED/,
+      channel,
+    );
+  }
+  // A hidden product's aggregator price is accepted and simply not published.
+  const hidden = cutoverCatalog();
+  for (const p of hidden.products) delete p.channel_prices_minor;
+  hidden.products.find((p) => p.id === 'water').available = false;
+  hidden.products.find((p) => p.id === 'water').channel_prices_minor = { glovo: '1' };
+  assert.equal(aggregatorFieldsIn(project(hidden, ['aggregator_prices'])), false);
+});
+
+test('flags off: projection, delivery forms and ACK checksums are byte-identical to before', () => {
+  const plain = structuredClone(mockupCatalogDraft);
+  const legacy = projectCatalogMenu(plain, cutoverBranch, 4, cutoverAt, cutoverRelease);
+  // The new option changes nothing on a catalog without aggregator keys.
+  for (const options of [{ aggregatorPrices: true }, { aggregatorPrices: false }])
+    assert.equal(
+      canonicalJson(
+        projectCatalogMenu(plain, cutoverBranch, 4, cutoverAt, cutoverRelease, options),
+      ),
+      canonicalJson(legacy),
+    );
+  const event = publishedEvent(legacy);
+  for (const features of featureSets) assert.equal(menuDeliveryForm(event, features), event);
+  assert.deepEqual(menuDeliveryChecksums(event), new Set([event.payload.checksum]));
+  assert.equal(withoutAggregatorPrices(legacy), legacy);
+  assert.equal(withoutEdgeOnlyFields(legacy), legacy);
+  // Stage 2 only (combo stops on, no aggregator data): the two historical forms, nothing more.
+  const stage2Catalog = cutoverCatalog();
+  for (const p of stage2Catalog.products) delete p.channel_prices_minor;
+  const stage2 = publishedEvent(project(stage2Catalog, ['combo_stops']));
+  const plainForm = menuDeliveryForm(stage2, []);
+  assert.deepEqual(plainForm.payload.menu, withoutComboStopLinks(stage2.payload.menu));
+  assert.equal(menuDeliveryForm(stage2, ['combo_stops']), stage2);
+  assert.equal(menuDeliveryForm(stage2, ['combo_stops', 'aggregator_prices']), stage2);
+  assert.deepEqual(menuDeliveryForm(stage2, ['aggregator_prices']), plainForm);
+  assert.deepEqual(
+    menuDeliveryChecksums(stage2),
+    new Set([stage2.payload.checksum, plainForm.payload.checksum]),
+  );
 });

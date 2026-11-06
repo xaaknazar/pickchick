@@ -227,7 +227,26 @@ export const ErrorSchema = z.strictObject({
     'SERVICE_MODE_DISABLED',
     'KITCHEN_UNAVAILABLE',
     'ORDER_IN_PRODUCTION',
+    // Cashier edge pos_sale routes only (contracts 5.1, PosErrorCodeSchema in pos-sales.ts; CR
+    // pos-1 section 2, CR client-4 section 1); cloud routes never send them.
+    'METHOD_DISABLED',
+    'TENDER_SUM_MISMATCH',
+    'CASH_TENDERED_TOO_LOW',
+    'TERMINAL_AMOUNT_NOT_WHOLE',
+    'CHANNEL_PRICE_UNAVAILABLE',
+    'EXTERNAL_REF_REQUIRED',
+    'EXTERNAL_REF_DUPLICATE',
+    'APPROVAL_REQUIRED',
+    'APPROVAL_INVALID',
+    'REFUND_LIMIT',
+    'REFUND_NOT_SUPPORTED',
+    'DRAWER_INSUFFICIENT',
+    'FISCAL_PENDING',
     'SHIFT_CLOSED',
+    // Kitchen edge only (cutover KDS-4, CR kds-6): handoff of a delivery order without the three
+    // courier marks. Only kitchen clients with the KDS layout send marks; cloud routes never
+    // answer it.
+    'HANDOVER_MARKS_REQUIRED',
     'CONFLICT',
     'INSUFFICIENT_STOCK',
     'NOT_READY',

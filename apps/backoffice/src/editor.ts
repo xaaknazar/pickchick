@@ -4,8 +4,12 @@ import {
   toMinor,
   money,
   assetKeys,
+  channelPriceInput,
+  hasAggregatorPrice,
   productIssues,
+  setChannelPrice,
   type CatalogPayload,
+  type PriceChannel,
   type Product,
   type Group,
   type PublicationSupport,
@@ -141,12 +145,27 @@ export function openEditor(
     ['pos', 'Касса'],
     ['kiosk', 'Киоск'],
   ] as const;
-  const channelInputs = new Map<string, string>(
-    channels.map(([key]) => [
-      key,
-      p.channel_prices_minor?.[key] === undefined ? '' : toMajor(p.channel_prices_minor[key]!),
-    ]),
+  // Cutover Аг4: shown while the cashier takes aggregator prices, or to clear saved ones.
+  const aggregators = [
+    ['yandex_eda', 'Яндекс Еде'],
+    ['glovo', 'Glovo'],
+  ] as const;
+  const showAggregators = publicationSupport.aggregator_prices === true || hasAggregatorPrice(p);
+  const channelInputs = new Map<PriceChannel, string>(
+    [...channels, ...aggregators].map(([key]) => [key, channelPriceInput(p, key)]),
   );
+  const channelField = (key: PriceChannel, label: string, hint: string) =>
+    field(
+      label,
+      channelInputs.get(key)!,
+      (value) => {
+        channelInputs.set(key, value);
+        // Invalid input stays in the field for explicit validation; the product is untouched.
+        setChannelPrice(p, key, value);
+        changed();
+      },
+      { id: `edit-price-${key}`, hint },
+    );
   error.setAttribute('role', 'alert');
   error.dataset.testid = 'editor-error';
   dialog.dataset.testid = 'product-editor';
@@ -535,32 +554,7 @@ export function openEditor(
         ),
         grid(
           ...channels.map(([key, label]) =>
-            field(
-              `${label}, ₸`,
-              channelInputs.get(key)!,
-              (value) => {
-                channelInputs.set(key, value);
-                if (!value.trim()) {
-                  if (p.channel_prices_minor) {
-                    delete p.channel_prices_minor[key];
-                    if (!Object.keys(p.channel_prices_minor).length) delete p.channel_prices_minor;
-                  }
-                } else {
-                  try {
-                    const minor = toMinor(value);
-                    p.channel_prices_minor ??= {};
-                    p.channel_prices_minor[key] = minor;
-                  } catch {
-                    /* Keep invalid input for explicit validation. */
-                  }
-                }
-                changed();
-              },
-              {
-                id: `edit-price-${key}`,
-                hint: 'Необязательно. Тенге, до двух знаков после запятой.',
-              },
-            ),
+            channelField(key, `${label}, ₸`, 'Необязательно. Тенге, до двух знаков после запятой.'),
           ),
         ),
         el(
@@ -571,6 +565,33 @@ export function openEditor(
             : 'Базовая цена действует везде: на кассе, в приложении и киоске. Отдельные цены каналов можно сохранить в черновике, но публикация с ними заблокирована — чтобы опубликовать, оставьте все поля каналов пустыми.',
         ),
       );
+      if (showAggregators) {
+        const aggregatorSection = section('Цены агрегаторов');
+        aggregatorSection.dataset.testid = 'edit-aggregator-prices';
+        aggregatorSection.append(
+          el(
+            'p',
+            'muted',
+            'Цены зала, киоска и приложения - базовая цена. Здесь только заказы, которые кассир вводит с планшета агрегатора. Доплаты модификаторов - как в зале.',
+          ),
+          grid(
+            ...aggregators.map(([key, where]) =>
+              channelField(
+                key,
+                `Цена в ${where}, ₸`,
+                `Пустое поле - позиция не продаётся в ${where}. Тенге, до двух знаков после запятой.`,
+              ),
+            ),
+          ),
+          el(
+            'p',
+            'muted',
+            publicationSupport.aggregator_prices === true
+              ? 'Цены агрегаторов публикуются только на кассу. Приложение и киоск их не получают.'
+              : 'Публикация цен агрегаторов на кассу ещё не включена: пока поля заполнены, публикация каталога заблокирована. Чтобы опубликовать, очистите эти поля.',
+          ),
+        );
+      }
       photoSection();
     } else if (tab === 'details') {
       const s = section('Порция и состав');
@@ -953,6 +974,15 @@ export function openEditor(
           toMinor(value);
         } catch {
           issues.push(`${label}: укажите корректную цену или оставьте поле пустым.`);
+        }
+      }
+      for (const [key, where] of aggregators) {
+        const value = channelInputs.get(key)!;
+        if (!value.trim()) continue;
+        try {
+          toMinor(value);
+        } catch {
+          issues.push(`Укажите цену в ${where} или оставьте поле пустым.`);
         }
       }
       if (isNew && payload.products.some((v) => v.id === p.id))

@@ -18,8 +18,10 @@ import {
   publishedCatalog,
   readable,
   resultView,
+  stopWriter,
   type StopActor,
 } from './stops.js';
+import { can, requirePermission, resolveBackofficeRole } from './roles.js';
 
 /**
  * ADR-0014 S3: stops of the cloud channels (kiosk/mobile of a branch in mode 'cloud').
@@ -38,10 +40,15 @@ export interface CloudStopOptions {
   cloudStopsEnabled?: boolean;
   /** BACKOFFICE_REMOTE_STOPS_ENABLED: managers may queue commands for the cashier. */
   remoteStopsEnabled?: boolean;
+  /**
+   * BACKOFFICE_ROLES_ENABLED (cutover CC-5, from backofficeOptions): a designated shift manager
+   * changes stops too. Not read by cloudStopOptions; absent means off.
+   */
+  rolesEnabled?: boolean;
 }
 export function cloudStopOptions(
   env: Record<string, string | undefined> = process.env,
-): Required<CloudStopOptions> {
+): Required<Omit<CloudStopOptions, 'rolesEnabled'>> {
   const flag = (name: string) => {
     const value = env[name] ?? 'false';
     if (value !== 'true' && value !== 'false') throw new Error(`${name} must be true or false`);
@@ -204,7 +211,7 @@ export async function setCloudStopInTransaction(
   options: CloudStopOptions,
 ) {
   if (options.cloudStopsEnabled !== true) reject('SERVICE_UNAVAILABLE', 'CLOUD_STOPS_DISABLED');
-  if (actor.role !== 'manager') throw new BackofficeError('FORBIDDEN');
+  if (!stopWriter(actor)) throw new BackofficeError('FORBIDDEN');
   const hash = digest({ branch: branchId, type: 'cloud_stop', ...request });
   const previous = await replay(db, actor, request.request_id, hash);
   if (previous !== undefined) return previous;
@@ -319,7 +326,7 @@ export async function overrideCashierStopInTransaction(
   if (options.cloudStopsEnabled !== true) reject('SERVICE_UNAVAILABLE', 'CLOUD_STOPS_DISABLED');
   if (request.include_cashier && options.remoteStopsEnabled !== true)
     reject('SERVICE_UNAVAILABLE', 'REMOTE_STOPS_DISABLED');
-  if (actor.role !== 'manager') throw new BackofficeError('FORBIDDEN');
+  if (!stopWriter(actor)) throw new BackofficeError('FORBIDDEN');
   const hash = digest({ branch: branchId, type: 'cashier_stop_override', ...request });
   const previous = await replay(db, actor, request.request_id, hash);
   if (previous !== undefined) return previous;
@@ -491,7 +498,7 @@ export async function readCloudStops(
     cloud_stops: {
       enabled: options.cloudStopsEnabled === true,
       writable:
-        options.cloudStopsEnabled === true && actor.role === 'manager' && ready && catalog !== null,
+        options.cloudStopsEnabled === true && stopWriter(actor) && ready && catalog !== null,
     },
     kitchen: { online: channel.fresh, presence_seconds: KITCHEN_PRESENCE_SECONDS },
     cashier: {
@@ -571,8 +578,18 @@ export class CloudChannelStops {
         [actor.id, branch, actor.organization_id],
       )
     ).rows[0];
-    if (!grant || (write && grant.role !== 'manager')) throw new BackofficeError('FORBIDDEN');
-    return { ...actor, role: grant.role } satisfies StopActor;
+    if (!grant) throw new BackofficeError('FORBIDDEN');
+    if (this.options.rolesEnabled !== true) {
+      if (write && grant.role !== 'manager') throw new BackofficeError('FORBIDDEN');
+      return { ...actor, role: grant.role } satisfies StopActor;
+    }
+    const { role } = await resolveBackofficeRole(db, actor.id, branch, grant.role, true);
+    if (write) requirePermission(role, 'stops.write');
+    return {
+      ...actor,
+      role: grant.role,
+      can_write_stops: can(role, 'stops.write'),
+    } satisfies StopActor;
   }
   async read(token: string, branch: string) {
     return transaction(this.pool, async (db) => {

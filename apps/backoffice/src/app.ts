@@ -2,7 +2,7 @@ import { DevicesModel } from './devices-model.js';
 import { DeviceAccessView } from './components/DeviceAccessView.js';
 import { KioskIncidentsModel } from './kiosk-incidents-model.js';
 import { KioskIncidentsView } from './components/KioskIncidentsView.js';
-import { OperationsModel, StopsModel } from './operations-model.js';
+import { OperationsModel, StopsModel, permitted, roleTitle } from './operations-model.js';
 import { WorkforceModel } from './workforce-model.js';
 import { WorkforceView } from './workforce.js';
 import { FinanceModel } from './finance-model.js';
@@ -10,7 +10,14 @@ import { FinanceView } from './finance.js';
 import { OperationsView, sections } from './operations.js';
 import { CatalogModel } from './model.js';
 import { transport, message, staffAuth } from './api.js';
-import { money, copy, deliveryText, publicationCopy } from './domain.js';
+import {
+  aggregatorPriceLine,
+  copy,
+  deliveryText,
+  hasAggregatorPrice,
+  money,
+  publicationCopy,
+} from './domain.js';
 import {
   element as el,
   button,
@@ -117,8 +124,10 @@ function syncOperations() {
     (incidents.actor !== model.actor.id || incidents.branch !== branch)
   )
     void incidents.load(model.actor.id, branch);
-  if (branch) void finance.scope(model.actor.id, branch);
-  if (branch && (page === 'shifts' || workforce.actor))
+  // Cutover CC-5: a shift manager sees neither the finance ledger nor rates and payroll.
+  const reads = (permission: string) => !operations.data || permitted(operations.data, permission);
+  if (branch && reads('finance.read')) void finance.scope(model.actor.id, branch);
+  if (branch && (page === 'shifts' || workforce.actor) && reads('workforce.read'))
     void workforce.scope(model.actor.id, branch);
   if (branch && (operations.actor !== model.actor.id || operations.branch !== branch))
     void operations.load(model.actor.id, branch);
@@ -374,7 +383,12 @@ function render() {
           if (finance.pending && page === 'finance') return;
           financeView.clear();
           page = id;
-          if (id === 'shifts' && model.actor && model.state)
+          if (
+            id === 'shifts' &&
+            model.actor &&
+            model.state &&
+            (!operations.data || permitted(operations.data, 'workforce.read'))
+          )
             void workforce.scope(model.actor.id, model.state.branch.id);
           history.replaceState(null, '', '#' + id);
           if (id === 'stoplist' && model.actor && model.state)
@@ -390,15 +404,18 @@ function render() {
     }
   };
   const daily = el('div', 'nav-primary');
+  // Cutover CC-5: sections the role cannot read are not offered (the server answers 403 anyway).
+  const visible = (section: (typeof sections)[number]) =>
+    section[0] !== 'finance' || !operations.data || permitted(operations.data, 'finance.read');
   appendLinks(
     daily,
     [...sections]
-      .filter((section) => primary.includes(section[0]))
+      .filter((section) => primary.includes(section[0]) && visible(section))
       .sort((a, b) => primary.indexOf(a[0]) - primary.indexOf(b[0])),
   );
   appendLinks(
     daily,
-    [...sections].filter((section) => !primary.includes(section[0])),
+    [...sections].filter((section) => !primary.includes(section[0]) && visible(section)),
   );
   navigation.append(daily);
   navigation.id = 'cabinet-navigation';
@@ -418,7 +435,7 @@ function render() {
   const user = el('div', 'user');
   user.append(
     el('strong', '', model.actor.name),
-    el('span', 'muted', 'Управление рестораном'),
+    el('span', 'muted', roleTitle(operations.data) ?? 'Управление рестораном'),
     button(
       'Выйти',
       async () => {
@@ -668,8 +685,14 @@ function render() {
   main.append(content);
   shell.append(sidebar, main);
   root.replaceChildren(shell);
+  const hidden = (permission: string) =>
+    operations.data !== null && !permitted(operations.data, permission);
   if (page === 'shifts') {
-    workforceView.render(content);
+    if (hidden('workforce.read'))
+      content.append(
+        notice('Табель, ставки и начисления видят управляющий и бухгалтер. Кассовые смены - ниже.'),
+      );
+    else workforceView.render(content);
     const cashier = el('details', 'panel');
     cashier.open = cashierJournalOpen;
     cashier.addEventListener('toggle', () => {
@@ -683,7 +706,9 @@ function render() {
     return;
   }
   if (page === 'finance') {
-    financeView.render(content);
+    if (hidden('finance.read'))
+      content.append(notice('Финансы видят управляющий и бухгалтер точки.', 'notice error'));
+    else financeView.render(content);
     return;
   }
   if (page === 'devices') {
@@ -885,6 +910,12 @@ function render() {
           model.payload!.categories.find((c) => c.id === p.category_id)?.name.ru ?? p.category_id,
         price = el('td', 'price', money(p.price_minor)),
         nutrition = el('td');
+      // Cutover: aggregator prices next to the base price (only where they are in use).
+      if (model.state?.publication_support?.aggregator_prices === true || hasAggregatorPrice(p)) {
+        const line = el('small', 'muted aggregator-prices', aggregatorPriceLine(p));
+        line.dataset.testid = `aggregator-prices-${p.id}`;
+        price.append(line);
+      }
       nutrition.append(
         el('span', '', `${p.nutrition.energy_kcal} ккал`),
         el(

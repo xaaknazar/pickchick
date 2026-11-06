@@ -4,6 +4,7 @@ import { transaction, type DatabasePool, type DatabaseClient } from '@pickchick/
 import { catalogHash } from '@pickchick/catalog-admin';
 import { digest } from '@pickchick/commerce-core';
 import { BackofficeError, parse } from './model.js';
+import { requirePermission, resolveBackofficeRole } from './roles.js';
 import {
   DayString,
   MappingSchema,
@@ -203,12 +204,20 @@ export async function grantReconciliationAccountant(
 
 export class Reconciliation {
   private now: () => Date;
+  private rolesEnabled: boolean;
   constructor(
     private pool: DatabasePool,
     private enabled = false,
-    options: Pick<ReconciliationOptions, 'now'> = {},
+    options: Pick<ReconciliationOptions, 'now'> & {
+      /**
+       * BACKOFFICE_ROLES_ENABLED (cutover CC-5): a designated accountant writes like an operator
+       * accountant (bo_rec_accountants); a designated shift manager does not see reconciliation.
+       */
+      rolesEnabled?: boolean;
+    } = {},
   ) {
     this.now = options.now ?? (() => new Date());
+    this.rolesEnabled = options.rolesEnabled === true;
   }
   private async scope(db: DatabaseClient, token: string, branch: string, write = false) {
     if (!this.enabled) fail('SERVICE_UNAVAILABLE', 'RECONCILIATION_DISABLED');
@@ -233,8 +242,14 @@ export class Reconciliation {
       )
     ).rows[0];
     if (!grant) return fail('FORBIDDEN');
-    const role: Role =
+    let role: Role =
       grant.role === 'manager' ? 'manager' : grant.accountant ? 'accountant' : 'analyst';
+    if (role !== 'manager' && this.rolesEnabled) {
+      const designated = (await resolveBackofficeRole(db, known.id, branch, grant.role, true)).role;
+      if (designated === 'accountant') role = 'accountant';
+      else if (designated === 'shift_manager')
+        requirePermission(designated, write ? 'reconciliation.write' : 'reconciliation.read');
+    }
     if (write && role === 'analyst') fail('FORBIDDEN');
     return { ...known, role } as Actor;
   }

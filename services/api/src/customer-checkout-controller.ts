@@ -185,7 +185,11 @@ export class CustomerCheckoutController implements OnModuleInit, OnModuleDestroy
                 ? 'QUOTE_EXPIRED'
                 : error.code === 'INVALID'
                   ? 'INVALID_REQUEST'
-                  : error.code;
+                  : // A cashier edge code in ErrorSchema (CR pos-1): installed app bundles keep the
+                    // CONFLICT the error filter answered before the edge codes joined it.
+                    error.code === 'REFUND_LIMIT'
+                    ? 'CONFLICT'
+                    : error.code;
         throw new HttpException({ code }, statuses[error.code]);
       }
       throw error;

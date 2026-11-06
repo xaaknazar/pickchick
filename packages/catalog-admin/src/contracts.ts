@@ -67,6 +67,16 @@ export const CatalogModifierSchema = z.strictObject({
     .min(1)
     .max(20),
 });
+/**
+ * Aggregator channels of channel_prices_minor (cutover Аг4, contracts R4 and 5.3): a key present
+ * means the product is sold in that aggregator channel at that price. Published only with
+ * CATALOG_AGGREGATOR_PRICES_ENABLED, delivered only to the cashier edge as
+ * MenuItem.aggregator_prices_minor, and never to a storefront (stripStorefrontPayload).
+ */
+export const CATALOG_AGGREGATOR_CHANNELS = ['yandex_eda', 'glovo'] as const;
+export type CatalogAggregatorChannel = (typeof CATALOG_AGGREGATOR_CHANNELS)[number];
+export const isCatalogAggregatorChannel = (channel: string): channel is CatalogAggregatorChannel =>
+  CATALOG_AGGREGATOR_CHANNELS.some((value) => value === channel);
 export const CatalogProductSchema = z.strictObject({
   id: Id,
   sku: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/),
@@ -79,6 +89,8 @@ export const CatalogProductSchema = z.strictObject({
       mobile: Minor.optional(),
       pos: Minor.optional(),
       kiosk: Minor.optional(),
+      yandex_eda: Minor.optional(),
+      glovo: Minor.optional(),
     })
     .optional(),
   image_asset_key: z.string().refine((v) => CATALOG_ASSET_KEYS.some((key) => key === v)),
@@ -198,12 +210,27 @@ export function catalogHasChannelPrices(payload: CatalogPayload): boolean {
     (product) => Object.keys(product.channel_prices_minor ?? {}).length > 0,
   );
 }
-export function assertCatalogPublishable(payload: CatalogPayload, mobileEnabled = false): void {
+export interface CatalogPublishableOptions {
+  /** Mobile overrides publish (the mobile storefront branch that is not the edge publication). */
+  mobile?: boolean;
+  /** CATALOG_AGGREGATOR_PRICES_ENABLED on the edge publication branch: yandex_eda/glovo publish. */
+  aggregatorPrices?: boolean;
+}
+/**
+ * Channel prices a publication may carry. `options` as a boolean is the historical mobile
+ * switch; every other channel key (pos, kiosk, and aggregators unless allowed) is refused.
+ */
+export function assertCatalogPublishable(
+  payload: CatalogPayload,
+  options: boolean | CatalogPublishableOptions = false,
+): void {
+  const { mobile = false, aggregatorPrices = false } =
+    typeof options === 'boolean' ? { mobile: options } : options;
+  const allowed = (channel: string) =>
+    (channel === 'mobile' && mobile) || (aggregatorPrices && isCatalogAggregatorChannel(channel));
   if (
     payload.products.some((p) =>
-      Object.keys(p.channel_prices_minor ?? {}).some(
-        (channel) => channel !== 'mobile' || !mobileEnabled,
-      ),
+      Object.keys(p.channel_prices_minor ?? {}).some((channel) => !allowed(channel)),
     )
   )
     throw new CatalogAdminError('CONFLICT', 'CHANNEL_PRICES_NOT_SUPPORTED');
@@ -214,17 +241,44 @@ export type CatalogImageRef = z.infer<typeof CatalogImageRefSchema>;
 export const CATALOG_STOREFRONT_STRIPPED_FIELDS = ['image', 'kitchen_route'] as const;
 /**
  * Copy of a payload without the unified-menu product fields, so the payload still parses
- * with the strict schema bundled in already installed kiosk and mobile builds.
+ * with the strict schema bundled in already installed kiosk and mobile builds. Aggregator
+ * prices are cashier-only (contracts 5.3): their keys leave channel_prices_minor, and the object
+ * itself when nothing else is left. A product without them keeps its channel_prices_minor as is.
  */
 export function stripStorefrontPayload(payload: CatalogPayload): CatalogPayload {
   return {
     ...payload,
     products: payload.products.map((product) => {
-      const copy: Partial<CatalogProduct> = { ...product };
+      const copy: Partial<CatalogProduct> = { ...withoutAggregatorChannelPrices(product) };
       for (const field of CATALOG_STOREFRONT_STRIPPED_FIELDS) delete copy[field];
       return copy as CatalogProduct;
     }),
   };
+}
+const hasAggregatorChannelPrices = (product: CatalogProduct) =>
+  Object.keys(product.channel_prices_minor ?? {}).some(isCatalogAggregatorChannel);
+/** The product without its yandex_eda/glovo channel prices; the same object when it has none. */
+function withoutAggregatorChannelPrices(product: CatalogProduct): CatalogProduct {
+  if (!hasAggregatorChannelPrices(product)) return product;
+  const copy: Partial<CatalogProduct> = { ...product };
+  const own = Object.fromEntries(
+    Object.entries(product.channel_prices_minor ?? {}).filter(
+      ([channel]) => !isCatalogAggregatorChannel(channel),
+    ),
+  );
+  if (Object.keys(own).length) copy.channel_prices_minor = own;
+  else delete copy.channel_prices_minor;
+  return copy as CatalogProduct;
+}
+/**
+ * The published payload as the public, unauthenticated GET /v1/catalog/branches/:id returns it:
+ * the cashier-only aggregator prices (contracts 5.3) leave channel_prices_minor (and the object
+ * when nothing else is left); image, kitchen_route and every other field stay as published. A
+ * payload without aggregator prices is returned as it is (byte-identical answer).
+ */
+export function publicCatalogPayload(payload: CatalogPayload): CatalogPayload {
+  if (!payload.products.some(hasAggregatorChannelPrices)) return payload;
+  return { ...payload, products: payload.products.map(withoutAggregatorChannelPrices) };
 }
 const MediaVariantUrl = (variant: 'card' | 'hero' | 'thumb') =>
   z.string().regex(new RegExp(`^/v1/media/catalog/[a-f0-9]{64}\\.${variant}\\.webp$`));
@@ -279,7 +333,16 @@ export const CatalogMenuDeliverySchema = z.strictObject({
 export const CatalogStateSchema = z.strictObject({
   branch: Branch,
   publication_support: z
-    .strictObject({ mobile: z.boolean(), pos: z.boolean(), kiosk: z.boolean() })
+    .strictObject({
+      mobile: z.boolean(),
+      pos: z.boolean(),
+      kiosk: z.boolean(),
+      /**
+       * Present (true) only while CATALOG_AGGREGATOR_PRICES_ENABLED publishes aggregator prices
+       * to this branch's cashier; absent otherwise, so the state stays byte-identical.
+       */
+      aggregator_prices: z.literal(true).optional(),
+    })
     .optional(),
   edge_delivery: CatalogMenuDeliverySchema.nullable().optional(),
   draft: CatalogDraftSchema.nullable(),

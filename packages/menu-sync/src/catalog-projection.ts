@@ -31,7 +31,13 @@ export interface CatalogMenuPayload {
     price_minor: string;
     available: boolean;
     channel_prices_minor?:
-      | { mobile?: string | undefined; pos?: string | undefined; kiosk?: string | undefined }
+      | {
+          mobile?: string | undefined;
+          pos?: string | undefined;
+          kiosk?: string | undefined;
+          yandex_eda?: string | undefined;
+          glovo?: string | undefined;
+        }
       | undefined;
     modifier_groups: {
       id: string;
@@ -58,7 +64,19 @@ export interface CatalogProjectionOptions {
    * projection is byte-identical to the one installed edges accept (same checksum).
    */
   comboStops?: boolean;
+  /**
+   * Cutover aggregator prices (CATALOG_AGGREGATOR_PRICES_ENABLED, default off; contracts 5.3):
+   * channel_prices_minor.yandex_eda/glovo become MenuItem.aggregator_prices_minor. Off, any
+   * channel price is refused as before (CHANNEL_PRICES_NOT_SUPPORTED); on, only these two keys
+   * are accepted (own-channel overrides mobile/pos/kiosk stay refused).
+   */
+  aggregatorPrices?: boolean;
 }
+
+/** Aggregator channels of the catalog and of MenuItem.aggregator_prices_minor (same keys). */
+export const MENU_AGGREGATOR_CHANNELS = ['yandex_eda', 'glovo'] as const;
+const isAggregatorChannel = (channel: string) =>
+  MENU_AGGREGATOR_CHANNELS.some((value) => value === channel);
 
 /** Deepest fixed-component level the combo stop rule follows (catalogStopView: depth 1..5). */
 const COMPONENT_LEVELS = 5;
@@ -115,6 +133,31 @@ export function withoutComboStopLinks(menu: MenuSnapshot): MenuSnapshot {
 }
 
 /**
+ * The publication without the cashier aggregator prices (an edge without the aggregator_prices
+ * feature, the public branch menu). Returns the same object when no item carries them.
+ */
+export function withoutAggregatorPrices(menu: MenuSnapshot): MenuSnapshot {
+  if (!menu.items.some((item) => item.aggregator_prices_minor !== undefined)) return menu;
+  return {
+    ...menu,
+    items: menu.items.map((item) => {
+      if (item.aggregator_prices_minor === undefined) return item;
+      const copy = { ...item };
+      delete copy.aggregator_prices_minor;
+      return copy;
+    }),
+  };
+}
+
+/**
+ * The publication as every installed client knows it: no cashier-only field of any menu feature
+ * (combo stop links, aggregator prices). Same object when there is nothing to remove.
+ */
+export function withoutEdgeOnlyFields(menu: MenuSnapshot): MenuSnapshot {
+  return withoutAggregatorPrices(withoutComboStopLinks(menu));
+}
+
+/**
  * Shares identities with installed POS v1/v2 and the availability projection.
  * Unified-menu fields are optional additions; legacy ids, prices and option ids are unchanged.
  */
@@ -126,8 +169,23 @@ export function projectCatalogMenu(
   releaseId = randomUUID(),
   options: CatalogProjectionOptions = {},
 ): MenuSnapshot {
-  if (payload.products.some((p) => Object.keys(p.channel_prices_minor ?? {}).length))
+  const projected = (channel: string) =>
+    options.aggregatorPrices === true && isAggregatorChannel(channel);
+  if (
+    payload.products.some((p) =>
+      Object.keys(p.channel_prices_minor ?? {}).some((channel) => !projected(channel)),
+    )
+  )
     throw new CatalogProjectionError('CHANNEL_PRICES_NOT_SUPPORTED');
+  // Key present = sold in that aggregator channel; an item without any key gets no field.
+  const aggregatorPrices = (product: CatalogMenuPayload['products'][number]) => {
+    const prices = product.channel_prices_minor;
+    if (!options.aggregatorPrices || !prices) return {};
+    const entries = MENU_AGGREGATOR_CHANNELS.flatMap((channel) =>
+      prices[channel] === undefined ? [] : [[channel, prices[channel]] as const],
+    );
+    return entries.length ? { aggregator_prices_minor: Object.fromEntries(entries) } : {};
+  };
   const available = new Set(payload.products.filter((p) => p.available).map((p) => p.id));
   if (
     payload.products.some(
@@ -203,6 +261,7 @@ export function projectCatalogMenu(
             ? { image_url: `/assets/menu/${product.image_asset_key}` }
             : {}),
         source_id: product.id,
+        ...aggregatorPrices(product),
         sku: product.sku,
         kind: product.kind,
         sort_order: order.get(product.id),

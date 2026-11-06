@@ -24,11 +24,34 @@ import {
   type BackofficeOptions,
 } from './stops.js';
 import { createStationPlanInTransaction, readStationPlanStatus } from './station-plans.js';
+import {
+  can,
+  commandPermission,
+  permissionsOf,
+  requirePermission,
+  resolveBackofficeRole,
+  type BackofficeEffectiveRole,
+  type BackofficePermission,
+} from './roles.js';
+import { assertStockV2, readStockOps, stockV2Readable, stockV2Writable } from './stock-v2.js';
+import { readSalesReport } from './sales-report.js';
 export * from './model.js';
 export * from './stops.js';
 export * from './station-plans.js';
+export * from './roles.js';
+export * from './stock-v2.js';
+export * from './sales-report.js';
 export const BACKOFFICE = Symbol('BACKOFFICE');
-type Actor = { id: string; organization_id: string; role: 'manager' | 'analyst' };
+type Actor = {
+  id: string;
+  organization_id: string;
+  /** The bo_access_grants role, unchanged in every response (`role`). */
+  role: 'manager' | 'analyst';
+  /** Cutover CC-5: equal to `role` unless BACKOFFICE_ROLES_ENABLED and a designation apply. */
+  effective: BackofficeEffectiveRole;
+  /** BACKOFFICE_ROLES_ENABLED and cloud074 readable. */
+  designations: boolean;
+};
 type Row = {
   id: string;
   kind: Kind;
@@ -83,15 +106,20 @@ export class Backoffice {
   }
   async reviewRestore(token: string, branch: string, input: unknown) {
     return transaction(this.pool, async (db) => {
-      const actor = await this.scope(db, token, branch, true);
+      const actor = await this.scope(db, token, branch, 'restore_reviews.write');
       return decideRestoreReview(db, branch, actor.id, input);
     });
   }
+  /**
+   * Token, branch grant and the permission `need` of the effective role (roles.ts). With
+   * BACKOFFICE_ROLES_ENABLED off the effective role is the grant role: reads for both roles and
+   * writes for the manager only, with the same errors as before.
+   */
   private async scope(
     db: DatabaseClient,
     token: string,
     branch: string,
-    write = false,
+    need: BackofficePermission = 'reports.read',
   ): Promise<Actor> {
     if (!this.enabled) fail('SERVICE_UNAVAILABLE');
     parse(z.uuid(), branch);
@@ -109,8 +137,21 @@ export class Backoffice {
         [actor.id, branch, actor.organization_id],
       )
     ).rows[0];
-    if (!grant || (write && grant.role !== 'manager')) return fail('FORBIDDEN');
-    return { ...actor, role: grant.role };
+    if (!grant) return fail('FORBIDDEN');
+    const resolved = await resolveBackofficeRole(
+      db,
+      actor.id,
+      branch,
+      grant.role,
+      this.options.rolesEnabled === true,
+    );
+    requirePermission(resolved.role, need);
+    return {
+      ...actor,
+      role: grant.role,
+      effective: resolved.role,
+      designations: resolved.designations,
+    };
   }
   async content(branch: string, channel: string) {
     parse(z.uuid(), branch);
@@ -331,10 +372,18 @@ export class Backoffice {
         branch,
         this.options.stationPlanDeliveryEnabled === true,
       );
+      // Cutover CC-5/CC-6: new keys only while their flag is on (the installed UI reads `role`).
+      const roles =
+        this.options.rolesEnabled === true
+          ? { effective_role: actor.effective, permissions: permissionsOf(actor.effective) }
+          : {};
+      const stockV2 =
+        this.options.stockV2Enabled === true ? { stock_v2: await stockV2Writable(db) } : {};
       return {
         schema_version: 1,
         branch_id: branch,
         role: actor.role,
+        ...roles,
         as_of: now.toISOString(),
         period_start: start.toISOString(),
         period_end: end.toISOString(),
@@ -420,8 +469,33 @@ export class Backoffice {
           external_reviews: false,
           fiscal_shift: false,
           edge_configuration_delivery: stationPlan.enabled && stationPlan.available,
+          ...(this.options.rolesEnabled === true ? { roles: actor.designations } : {}),
+          ...stockV2,
+          // Cutover CC-7: only while BACKOFFICE_SALES_REPORT_ENABLED is on.
+          ...(this.options.salesReportEnabled === true ? { sales_report: true } : {}),
         },
       };
+    });
+  }
+  /**
+   * Cutover read views under one prefix (contracts 5.10): GET .../ops/<view>, one REPEATABLE READ
+   * snapshot each, permission reports.read.
+   * - `stock` (CC-6): stock v2 report of waste by reason and of every document with its v2
+   *   fields, only while BACKOFFICE_STOCK_V2_ENABLED is on and cloud074 is readable; otherwise
+   *   404 STOCK_V2_DISABLED.
+   * - `sales` (CC-7, sales-report.ts): only while BACKOFFICE_SALES_REPORT_ENABLED is on;
+   *   otherwise exactly the 404 of an unknown view.
+   */
+  async ops(token: string, branch: string, view: string, input: unknown = {}) {
+    return transaction(this.pool, async (db) => {
+      await db.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+      await this.scope(db, token, branch);
+      if (view === 'sales' && this.options.salesReportEnabled === true)
+        return readSalesReport(db, branch, input, new Date());
+      if (view !== 'stock') return fail('NOT_FOUND');
+      if (this.options.stockV2Enabled !== true || !(await stockV2Readable(db)))
+        throw new ErrorCode('NOT_FOUND', 'STOCK_V2_DISABLED');
+      return readStockOps(db, branch, input, new Date());
     });
   }
   /** Stop list v2 (catalog names, edge versions, open commands); analysts may read it. */
@@ -429,7 +503,15 @@ export class Backoffice {
     return transaction(this.pool, async (db) => {
       await db.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
       const actor = await this.scope(db, token, branch);
-      return readStopList(db, actor, branch, this.options);
+      // A designated shift manager may send stop commands (roles.ts); `role` stays the grant.
+      return readStopList(
+        db,
+        this.options.rolesEnabled === true
+          ? { ...actor, can_write_stops: can(actor.effective, 'stops.write') }
+          : actor,
+        branch,
+        this.options,
+      );
     });
   }
   /** Manager-only stop/unstop command for the cashier edge, behind BACKOFFICE_REMOTE_STOPS_ENABLED. */
@@ -437,7 +519,7 @@ export class Backoffice {
     const request = parse(StopRequest, input);
     try {
       return await transaction(this.pool, async (db) => {
-        const actor = await this.scope(db, token, branch, true);
+        const actor = await this.scope(db, token, branch, 'stops.write');
         return requestStopInTransaction(db, actor, branch, request, this.options);
       });
     } catch (error) {
@@ -578,7 +660,7 @@ export class Backoffice {
     const manualRefund = req.command.type === 'manual_refund';
     try {
       return await transaction(this.pool, async (db) => {
-        const actor = await this.scope(db, token, branch, true);
+        const actor = await this.scope(db, token, branch, commandPermission(req.command));
         await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
           'bo:actor:' + actor.id + ':' + req.request_id,
         ]);
@@ -682,7 +764,13 @@ export class Backoffice {
           entity = plan.id;
           result = { station_plan: plan };
         } else if (c.type === 'stock') {
-          result = await this.stock(db, branch, actor, req.reason, c.kind, c.reference, c.lines);
+          // Stock v2 (CC-6): the flag and cloud074 decide whether reason_code/meta are accepted.
+          const v2 = this.options.stockV2Enabled === true && (await stockV2Writable(db));
+          assertStockV2(c, v2);
+          result = await this.stock(db, branch, actor, req.reason, c.kind, c.reference, c.lines, {
+            reason_code: c.reason_code ?? null,
+            meta: c.meta ?? null,
+          });
           entity = (result as { id: string }).id;
         } else if (c.type === 'produce' || c.type === 'consume') {
           result = await this.production(db, branch, actor, req.reason, c);
@@ -964,12 +1052,20 @@ export class Backoffice {
       value_minor: string;
       expected_revision: number;
     }[],
+    v2: { reason_code: string | null; meta: Record<string, unknown> | null },
   ) {
     const id = randomUUID();
-    await db.query(
-      'INSERT INTO bo_stock_documents(id,branch_id,actor_id,kind,reference,reason) VALUES($1,$2,$3,$4,$5,$6)',
-      [id, branch, actor.id, kind, reference, reason],
-    );
+    // A v1 document is written with exactly the pre-074 statement (works with or without 074).
+    if (v2.reason_code === null && v2.meta === null)
+      await db.query(
+        'INSERT INTO bo_stock_documents(id,branch_id,actor_id,kind,reference,reason) VALUES($1,$2,$3,$4,$5,$6)',
+        [id, branch, actor.id, kind, reference, reason],
+      );
+    else
+      await db.query(
+        'INSERT INTO bo_stock_documents(id,branch_id,actor_id,kind,reference,reason,reason_code,meta) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+        [id, branch, actor.id, kind, reference, reason, v2.reason_code, v2.meta],
+      );
     for (const line of lines) {
       const b = (
         await db.query(

@@ -107,6 +107,27 @@ export function allowedPath(path: string): boolean {
     new RegExp(`^operations/branches/${UUID}/reconciliation/(?:preview|commands)$`).test(pathname)
   )
     return true;
+  // Cutover CC-6: stock v2 report; cutover read views live under ops/<view>.
+  if (new RegExp(`^operations/branches/${UUID}/ops/stock$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    return (
+      [...q.keys()].length === 3 &&
+      ['view', 'start_date', 'end_date'].every((k) => q.getAll(k).length === 1) &&
+      /^(waste|movement)$/.test(q.get('view') ?? '') &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('start_date') ?? '') &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '')
+    );
+  }
+  // Cutover CC-7: sales report of an Almaty date window.
+  if (new RegExp(`^operations/branches/${UUID}/ops/sales$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    return (
+      [...q.keys()].length === 2 &&
+      ['start_date', 'end_date'].every((k) => q.getAll(k).length === 1) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('start_date') ?? '') &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '')
+    );
+  }
   if (new RegExp(`^operations/branches/${UUID}$`).test(pathname)) return reportQuery(search ?? '');
   return (
     search === undefined &&
@@ -394,6 +415,11 @@ const reasons: Record<string, string> = {
     'Этот номер операции Kaspi уже зарегистрирован. Проверьте номер возврата в Kaspi Pay.',
   REFUND_EXCEEDS_PAYMENT:
     'Сумма больше оплаченной за вычетом уже возвращённого. Проверьте сумму возврата.',
+  // Cutover CC-5/CC-6 (servers with BACKOFFICE_ROLES_ENABLED / BACKOFFICE_STOCK_V2_ENABLED).
+  ROLE_FORBIDDEN: 'Для вашей роли это действие недоступно. Его может выполнить управляющий точки.',
+  REASON_REQUIRED: 'Укажите причину списания.',
+  STOCK_V2_DISABLED:
+    'Причины списаний и данные накладной пока не включены на сервере. Обновите страницу.',
 };
 export const reasonMessage = (reason: string | undefined) =>
   reason === undefined ? undefined : reasons[reason];

@@ -1,0 +1,67 @@
+product_slug	group_id	title_ru	title_kk	min	max	default_option_id	default_qty	unconfirmed	comment
+pick-combo	drink			1	1	cola-bottle	1		Finger Combo 00144: «Напитки к комбо 0,5 зал» min 1, max 1
+pick-combo	sauce			0	1	sauce	1	в iiko у этого комбо показан только max бесплатного дипа: принято min 0	Finger Combo 00144: «-соус дип бесплатно» max 1
+pick-combo	sauce-paid-signature			0	3		0		Finger Combo 00144: max 3
+pick-combo	sauce-paid-cheese			0	3		0		Finger Combo 00144: max 3
+pick-combo	sauce-paid-hot			0	3		0		Finger Combo 00144: max 3
+master-combo	drink			1	1	cola-bottle	1		Master Combo 00145: «Напитки к комбо 0,5 зал» min 1, max 1
+master-combo	sauce			0	1	sauce	1	в iiko у этого комбо показан только max бесплатного дипа: принято min 0	Master Combo 00145: «-соус дип бесплатно» max 1
+master-combo	sauce-paid-signature			0	3		0		Master Combo 00145: max 3
+master-combo	sauce-paid-cheese			0	3		0		Master Combo 00145: max 3
+master-combo	sauce-paid-hot			0	3		0		Master Combo 00145: max 3
+burger-combo	drink			1	1	cola-bottle	1		Pick Burger Combo 00146: «Напитки к комбо 0,5 зал» min 1, max 1
+burger-combo	sauce			0	1	sauce	1	в iiko у этого комбо показан только max бесплатного дипа: принято min 0	Pick Burger Combo 00146: «-соус дип бесплатно» max 1
+burger-combo	sauce-paid-signature			0	3		0		Pick Burger Combo 00146: max 3
+burger-combo	sauce-paid-cheese			0	3		0		Pick Burger Combo 00146: max 3
+burger-combo	sauce-paid-hot			0	3		0		Pick Burger Combo 00146: max 3
+solo-combo	drink			1	1	cola-bottle	1		Solo Combo 00147: «Напитки к комбо 0,5 зал» min 1, max 1
+solo-combo	sauce			0	1	sauce	1	в iiko у этого комбо показан только max бесплатного дипа: принято min 0	Solo Combo 00147: «-соус дип бесплатно» max 1
+solo-combo	sauce-paid-signature			0	3		0		Solo Combo 00147: max 3
+solo-combo	sauce-paid-cheese			0	3		0		Solo Combo 00147: max 3
+solo-combo	sauce-paid-hot			0	3		0		Solo Combo 00147: max 3
+pick-meal-combo	drink			1	1	cola-bottle	1		Pick Meal 00399: «Напитки к комбо 0,5 зал» min 1, max 1
+pick-meal-combo	sauce			1	1	sauce	1		Pick Meal 00399: «-соус дип бесплатно» min 1, max 1
+pick-meal-combo	sauce-paid-signature			0	3		0		Pick Meal 00399: max 3
+pick-meal-combo	sauce-paid-cheese			0	3		0		Pick Meal 00399: max 3
+pick-meal-combo	sauce-paid-hot			0	3		0		Pick Meal 00399: max 3
+chick-burger-combo	drink			1	1	cola-bottle	1		Chick Burger Combo 00437: «Напитки к комбо 0,5 зал» min 1, max 1
+chick-burger-combo	sauce			0	1	sauce	1	в iiko у этого комбо показан только max бесплатного дипа: принято min 0	Chick Burger Combo 00437: «-соус дип бесплатно» max 1
+chick-burger-combo	sauce-paid-signature			0	5		0		Chick Burger Combo 00437: max 5
+chick-burger-combo	sauce-paid-cheese			0	5		0		Chick Burger Combo 00437: max 5
+chick-burger-combo	sauce-paid-hot			0	5		0		Chick Burger Combo 00437: max 5
+chick-meal-combo	drink			1	1	cola-bottle	1		Chick Meal 00438: «Напитки к комбо 0,5 зал» min 1, max 1
+chick-meal-combo	sauce			0	1	sauce	1	в iiko у этого комбо показан только max бесплатного дипа: принято min 0	Chick Meal 00438: «-соус дип бесплатно» max 1
+chick-meal-combo	sauce-paid-signature			0	5		0		Chick Meal 00438: max 5
+chick-meal-combo	sauce-paid-cheese			0	5		0		Chick Meal 00438: max 5
+chick-meal-combo	sauce-paid-hot			0	5		0		Chick Meal 00438: max 5
+finger-duo	drink	Напитки на выбор · 2 шт	Таңдауыңызға қарай сусындар · 2 дана	2	2	cola-bottle	2		Finger Duo Combo 00232: «Напитки к комбо 0,5 зал» min 2, max 2
+finger-duo	sauce	Соусы на выбор · 2 шт	Таңдауыңызға қарай тұздықтар · 2 дана	0	2	sauce	2	в iiko у этого комбо показан только max бесплатного дипа: принято min 0	Finger Duo Combo 00232: «-соус дип бесплатно» max 2
+finger-duo	sauce-paid-signature			0	3		0		Finger Duo Combo 00232: max 3
+finger-duo	sauce-paid-cheese			0	3		0		Finger Duo Combo 00232: max 3
+finger-duo	sauce-paid-hot			0	3		0		Finger Duo Combo 00232: max 3
+burger-duo	drink	Напитки на выбор · 2 шт	Таңдауыңызға қарай сусындар · 2 дана	2	2	cola-bottle	2		Pick Burger Duo 00441: «Напитки к комбо 0,5 зал» min 2, max 2
+burger-duo	sauce	Соусы на выбор · 2 шт	Таңдауыңызға қарай тұздықтар · 2 дана	0	2	sauce	2	в iiko у этого комбо показан только max бесплатного дипа: принято min 0	Pick Burger Duo 00441: «-соус дип бесплатно» max 2
+burger-duo	sauce-paid-signature			0	3		0		Pick Burger Duo 00441: max 3
+burger-duo	sauce-paid-cheese			0	3		0		Pick Burger Duo 00441: max 3
+burger-duo	sauce-paid-hot			0	3		0		Pick Burger Duo 00441: max 3
+mix-duo	drink	Напитки на выбор · 2 шт	Таңдауыңызға қарай сусындар · 2 дана	2	2	cola-bottle	2		Mix Duo c Pick Burger 00242: «Напитки к комбо 0,5 зал» min 2, max 2
+mix-duo	sauce	Соусы на выбор · 2 шт	Таңдауыңызға қарай тұздықтар · 2 дана	0	2	sauce	2	в iiko у этого комбо показан только max бесплатного дипа: принято min 0	Mix Duo c Pick Burger 00242: «-соус дип бесплатно» max 2
+mix-duo	sauce-paid-signature			0	3		0		Mix Duo c Pick Burger 00242: max 3
+mix-duo	sauce-paid-cheese			0	3		0		Mix Duo c Pick Burger 00242: max 3
+mix-duo	sauce-paid-hot			0	3		0		Mix Duo c Pick Burger 00242: max 3
+chick-burger-duo	drink	Напитки на выбор · 2 шт	Таңдауыңызға қарай сусындар · 2 дана	2	2	cola-bottle	2		Chick Burger Duo 00241: «Напитки к комбо 0,5 зал» min 2, max 2
+chick-burger-duo	sauce	Соусы на выбор · 2 шт	Таңдауыңызға қарай тұздықтар · 2 дана	0	2	sauce	2	в iiko у этого комбо показан только max бесплатного дипа: принято min 0	Chick Burger Duo 00241: «-соус дип бесплатно» max 2
+chick-burger-duo	sauce-paid-signature			0	3		0		Chick Burger Duo 00241: max 3
+chick-burger-duo	sauce-paid-cheese			0	3		0		Chick Burger Duo 00241: max 3
+chick-burger-duo	sauce-paid-hot			0	3		0		Chick Burger Duo 00241: max 3
+mix-chick-duo	drink	Напитки на выбор · 2 шт	Таңдауыңызға қарай сусындар · 2 дана	2	2	cola-bottle	2		Mix Duo c Chick Burger 00440: «Напитки к комбо 0,5 зал» min 2, max 2
+mix-chick-duo	sauce	Соусы на выбор · 2 шт	Таңдауыңызға қарай тұздықтар · 2 дана	0	2	sauce	2	в iiko у этого комбо показан только max бесплатного дипа: принято min 0	Mix Duo c Chick Burger 00440: «-соус дип бесплатно» max 2
+mix-chick-duo	sauce-paid-signature			0	3		0		Mix Duo c Chick Burger 00440: max 3
+mix-chick-duo	sauce-paid-cheese			0	3		0		Mix Duo c Chick Burger 00440: max 3
+mix-chick-duo	sauce-paid-hot			0	3		0		Mix Duo c Chick Burger 00440: max 3
+mix-burger-duo	drink	Напитки на выбор · 2 шт	Таңдауыңызға қарай сусындар · 2 дана	2	2	cola-bottle	2		Mix Burger Duo 00442: «Напитки к комбо 0,5 зал» min 2, max 2
+mix-burger-duo	sauce	Соусы на выбор · 2 шт	Таңдауыңызға қарай тұздықтар · 2 дана	0	2	sauce	2	в iiko у этого комбо показан только max бесплатного дипа: принято min 0	Mix Burger Duo 00442: «-соус дип бесплатно» max 2
+mix-burger-duo	sauce-paid-signature			0	3		0		Mix Burger Duo 00442: max 3
+mix-burger-duo	sauce-paid-cheese			0	3		0		Mix Burger Duo 00442: max 3
+mix-burger-duo	sauce-paid-hot			0	3		0		Mix Burger Duo 00442: max 3
+piko	piko-flavor			1	1	piko-apple	1	вкусы Piko сохраняются из v11	как в v11

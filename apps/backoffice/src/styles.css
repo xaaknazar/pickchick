@@ -538,6 +538,9 @@ td.price {
   white-space: nowrap;
   font-weight: 650;
 }
+td.price .aggregator-prices {
+  font-weight: 400;
+}
 .product-identity {
   display: flex;
   align-items: center;
@@ -2294,4 +2297,45 @@ textarea {
 .photo-actions > .button {
   flex: 0 0 auto;
   margin-bottom: 26px;
+}
+/* Cutover CC-7: sales report on the reports page. */
+.sales-report {
+  min-width: 0;
+}
+.sales-report-filters {
+  grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) auto;
+  margin: 12px 0;
+}
+.sales-report-filters input {
+  min-height: 44px;
+  width: 100%;
+}
+.sales-report h3 {
+  margin: 22px 0 8px;
+  font-size: 15px;
+}
+.sales-table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.sales-table td {
+  white-space: nowrap;
+}
+.sales-table td:nth-child(n + 6) {
+  white-space: normal;
+}
+.sales-report-rules ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+@media (max-width: 650px) {
+  .sales-report-filters {
+    grid-template-columns: 1fr;
+  }
+  .sales-report .panel-head {
+    flex-wrap: wrap;
+  }
 }
