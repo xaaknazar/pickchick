@@ -118,18 +118,21 @@ pickchick_edge_broken_<дата>`) от владельца кластера.
    `docs/operations/backoffice-cutover.md` «Восстановление базы кассы» (`covered` = `true`;
    `false` - не та 026: кассу не открывать, звать инженера). Затем поток продаж кассы:
    `pos-sales-setup.mjs status` (`cloud.last_error`, `pos_sales_outbox.pending`). Если там
-   `PARKED INVALID_EVENT <event_id>` и это Z (`shift_report`) смены, открытой во время
-   восстановления, выполнить `docs/operations/backoffice-cutover.md`, раздел «Принять Z
-   смены, открытой во время восстановления» (команда владельца облака, CR cloud-6).
-   Освобождение события на кассе (п. 4 того раздела) - `retryPosSalesDelivery` с правами
-   владельца базы кассы; отдельной команды оператора `pos-sales-setup.mjs sync-release` в
-   этой версии нет (CR cloud-2 §6, работа полосы pos: в 026 нет строки аудита для такой
-   команды, нужен её выбор полосой). До неё освобождение делает инженер: вызов
-   `retryPosSalesDelivery(pool, branchId, eventId)` с owner-подключением к базе кассы, как в
-   тесте `packages/pos-order-sync/tests/sales-worker-integration.test.mjs`. Отмены и возвраты продаж потерянного
-   отрезка этой командой не принимаются и повторно не проводятся: до любой отмены или
-   возврата после восстановления сверить продажу с отчётом продаж в кабинете, разбор - с
-   инженером.
+   `PARKED <код> <event_id>`, какое событие стоит, показывает
+   `node --env-file=<owner.env> infra/windows/pos-sales-sync-release.mjs status` (поле
+   `parked`: `kind`, `reason`, `head`). Если это Z (`kind: shift_report`,
+   `reason: INVALID_EVENT`) смены, открытой во время восстановления, выполнить
+   `docs/operations/backoffice-cutover.md`, раздел «Принять Z смены, открытой во время
+   восстановления», пп. 1-3 (команда владельца облака, CR cloud-6). Освобождение события на
+   кассе (п. 4 того раздела) - только после ответа облака `pos_sales_restored_z` с
+   `state: accepted` (или `duplicate`), командой владельца базы кассы:
+   `node --env-file=<owner.env> infra/windows/pos-sales-sync-release.mjs release --event <event_id> --reason "Z смены через восстановление кассы принят владельцем облака" --actor "Codex"`.
+   Она печатает одну строку JSON `pos_sales_sync_released` - скопировать её в журнал окна
+   (другой записи этого действия нет). Ожидаемый вывод, отказы и проверка после -
+   мастер-runbook `docs/operations/cutover-2026-11-19.md` §9.1-9.2. Отмены и возвраты продаж
+   потерянного отрезка командой облака не принимаются и повторно не проводятся: такое событие
+   без инженера не освобождать (облако снова отклонит его); до любой отмены или возврата после
+   восстановления сверить продажу с отчётом продаж в кабинете, разбор - с инженером.
 6. Если восстанавливали не дамп, а файлы (образ диска, копию каталога данных
    PostgreSQL), или дамп залили в ту же базу (`pg_restore --clean` без новой базы),
    паспорт базы совпадёт и fence сам не сработает. Тогда до шага 5 от владельца
@@ -220,7 +223,10 @@ pickchick_edge_broken_<дата>`) от владельца кластера.
   `pos-sales-streams.test.mjs` (fence 026 сдвигает `pos_sale_outbox` один раз, прежние
   счётчики - как 023; восстановление до и после 026), `packages/pos-order-sync/tests/sales-worker-integration.test.mjs`
   (новые события после fence проходят потерянный отрезок; Z смены через восстановление
-  ждёт команды владельца облака) и `sales-cloud-restored-z.test.mjs` (сама команда).
+  ждёт команды владельца облака), `sales-cloud-restored-z.test.mjs` (сама команда) и
+  `tests/integration/cutover-sync-release.test.mjs` (`pos-sales-sync-release.mjs`: `status`
+  показывает только припаркованный Z, после команды облака `release` и следующий шаг
+  отправителя доставляют его и продажу за ним; отказы ничего не меняют).
 - `tests/integration/windows-edge-backup.test.mjs`: копия ролью только для чтения через
   экспортированный снимок, шифрование и проверка, хранение, отказы; с настоящими
   `pg_dump`/`pg_restore` 18 (`EDGE_BACKUP_TEST_PG_BIN`) - полное восстановление копии в
