@@ -75,6 +75,8 @@ import {
   PosOrderEventSchema,
   PosKitchenEventSchema,
   PosOrderReceiptSchema,
+  PosSaleBatchSchema,
+  PosSaleBatchResultSchema,
 } from '@pickchick/pos-order-sync';
 import {
   CatalogStateSchema,
@@ -1422,6 +1424,37 @@ openapi.paths['/internal/v1/edge/pos-orders/events'] = {
     },
   },
 };
+// cutover:cloud begin
+// posSales stream of the cashier edge (contracts 5.6, cutover CC-4; CR cloud-2 section 3).
+Object.assign(openapi.components.schemas, {
+  PosSaleBatch: jsonSchema(PosSaleBatchSchema),
+  PosSaleBatchResult: jsonSchema(PosSaleBatchResultSchema),
+});
+openapi.paths['/internal/v1/edge/pos-orders/sales'] = {
+  post: {
+    operationId: 'receiveEdgePosSales',
+    description:
+      'Private, disabled-by-default (CLOUD_POS_SALES_SYNC_ENABLED) posSales stream of paid POS sales, voids, refunds, Webkassa receipt records and Z reports of the cashier edge (contracts 5.6). Up to 50 events in edge sequence order; {events: []} is the support probe. Each event commits on its own and is acknowledged only after COMMIT; the answer is the accepted prefix, the first refused event ends it as rejected CONFLICT or INVALID_EVENT. 404 without the flag or schema073. Not routed by the public gateway.',
+    security: [{ deviceBearer: [], deviceId: [] }],
+    requestBody: {
+      required: true,
+      content: { 'application/json': { schema: { $ref: '#/components/schemas/PosSaleBatch' } } },
+    },
+    responses: {
+      200: response('PosSaleBatchResult'),
+      400: response(
+        'Error',
+        'Malformed batch, query string, over 50 events or 96 KiB, unordered sequences',
+      ),
+      401: response('Error', 'Invalid, expired or revoked device'),
+      403: response('Error', 'Inactive POS sync binding or another branch'),
+      404: response('Error', 'Feature disabled or schema073 missing'),
+      413: response('Error', 'Global HTTP body limit exceeded'),
+      500: response('Error', 'Internal error'),
+    },
+  },
+};
+// cutover:cloud end
 
 // Station plans for the cashier edge (cloud070, stage 2 lane cfg).
 Object.assign(openapi.components.schemas, {
@@ -1536,6 +1569,28 @@ Object.assign(openapi.paths, {
   },
   '/v1/content/branches/{branchId}': { get: boContent },
 });
+// cutover:cloud begin
+// Cutover read views GET .../ops/<view> (contracts 5.10): stock v2 (CC-6, CR cloud-3 section 3)
+// and the sales report (CC-7, CR cloud-4 section 3). Both answer 404 while their flag is off.
+const boStockReport = boOperation('readBackofficeStockReport', 'BackofficeResult');
+boStockReport.parameters.push(
+  {
+    name: 'view',
+    in: 'query',
+    required: true,
+    schema: { type: 'string', enum: ['waste', 'movement'] },
+  },
+  { name: 'start_date', in: 'query', required: true, schema: { type: 'string', format: 'date' } },
+  { name: 'end_date', in: 'query', required: true, schema: { type: 'string', format: 'date' } },
+);
+openapi.paths['/v1/admin/backoffice/branches/{branchId}/ops/stock'] = { get: boStockReport };
+const boSalesReport = boOperation('readBackofficeSalesReport', 'BackofficeResult');
+boSalesReport.parameters.push(
+  { name: 'start_date', in: 'query', required: true, schema: { type: 'string', format: 'date' } },
+  { name: 'end_date', in: 'query', required: true, schema: { type: 'string', format: 'date' } },
+);
+openapi.paths['/v1/admin/backoffice/branches/{branchId}/ops/sales'] = { get: boSalesReport };
+// cutover:cloud end
 
 for (const [name, schema] of Object.entries({
   NotificationConfigSchema,
