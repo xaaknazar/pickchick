@@ -7406,11 +7406,11 @@
         "docs/roadmap/project.json",
         "infra/public-staging/support/content.json"
       ],
-      "status": "active",
-      "head": "9fb0504b6da86e33fd9f627a09c8c24dba12ba8a",
-      "updatedAt": "2026-11-06T21:45:35.239Z",
-      "summary": "9fb0504b / PR313: internal AAB1.0.1(7) active with owner list; approved Alex and four App Store adaptations saved. Data safety five types saved as draft. Listing5/5, roadmap evidence, format/diff PASS; previous3ab9d51f Foundation11/11 and photo PASS. New docs CI separate. Owner Android unavailable; KK full listing pending. P6 release transferred to p6-retention-1107. No production submission, server or online-roadmap update.",
-      "nextAction": "After P6 exact-SHA CI/deploy and HTTP200 delete-account RU/KK/EN evidence, finalize Data safety; physical Android checklist and KK listing review; prepare12-person14-day closed test. Production only separate explicit owner approval. Preserve PR311 C1/C3 and PR314 cart-location records during shared integration; do not run support release in parallel."
+      "status": "available",
+      "head": "d2b0633ce47219256b433f15a05181f6b2642684",
+      "updatedAt": "2026-11-06T21:54:12.726Z",
+      "summary": "d2b0633c / PR313: Data safety fully saved in Publishing overview, not submitted. Six types include random sign-in device_id independent of FCM; fraud/security added to phone and device ID, partial deletion without account No. Source evidence and actual Console table in release-1106.md. Listing5/5, roadmap evidence, format/diff PASS; latest docs CI separate. Physical Android and KK listing remain pending.",
+      "nextAction": "After p6-retention-1107 deployment verify HTTP200 and delete-account RU/KK/EN before Google review. Original data-safety.md reserved by mobile-android-1105: reconcile its device ID row with release-1106.md, preserving PR315 retention. Closed test12/14 not started. Production only separate owner yes. Preserve PR311/314 during shared integration; online roadmap not deployed."
     }
   ]
 }
