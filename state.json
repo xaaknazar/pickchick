@@ -7344,11 +7344,14 @@
         "tests/unit/watchdog-grants.test.mjs",
         "infra/staging/pickchick-watchdog.service",
         "infra/staging/pickchick-watchdog.timer",
-        "docs/operations/idrink-removal"
+        "docs/operations/idrink-removal",
+        "infra/staging/close-test-qr-1106.sql",
+        "tests/operations/test_close_test_qr_1106.py",
+        "docs/operations/test-payment-cleanup-1106.md"
       ],
-      "status": "available",
+      "status": "active",
       "head": "40e69daf0cab479504d67cb03d0d6457f5aee4a9",
-      "updatedAt": "2026-11-06T06:21:31.349Z",
+      "updatedAt": "2026-11-06T06:43:38.725Z",
       "summary": "Ночь 06.11: пять веток Claude опубликованы; архив iDrink на VPS и Mac проверен. PR311, 40e69daf: Foundation 11/11 и полный offline PASS. Подготовлены собственный Caddy и watchdog inspect; установки нет. С1/С3 остановлены по трём unknown оплатам. Журнал ~/Claude/PickChick-exchange/codex-reports/2026-11-06-night.md; итог обновлён 11:20 Алматы.",
       "nextAction": "Сверить неизвестные оплаты без автоматической отмены, затем новое серверное окно с повтором условий. Watchdog после успешного окна и ввода токена владельцем. Caddy - отдельная разрешённая ночь и проверка UI; iDrink не останавливать/не удалять автоматически. Прочитать firewall/root cron с доступом владельца, сверить SSH в hoster.kz, сделать внешнюю копию архива. Онлайн-пульт не обновлён, PR не слит."
     }
