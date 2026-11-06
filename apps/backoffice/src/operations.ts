@@ -887,6 +887,9 @@ export class OperationsView {
     } catch (e) {
       error.textContent = e instanceof Error && !('code' in e) ? e.message : message(e);
     }
+    // Review BOUI-R5 (with the fixes): the message is scrolled into the dialog, above the sticky
+    // submit button (scroll-margin in audit-fixes.css), so a phone never shows half a sentence.
+    if (ui.fixes && error.textContent) error.scrollIntoView?.({ block: 'nearest' });
   }
   /**
    * The reason field, the error line and the submit button of a command dialog. Lane bo-ui:

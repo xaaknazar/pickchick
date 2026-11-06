@@ -390,6 +390,44 @@ with sync_playwright() as pw:
         assert box and box['x'] + box['width'] <= 390, box
         assert page.evaluate('document.documentElement.scrollWidth') <= 390
         capture(page, 'stock-shift-manager-390.png')
+        # Review BOUI-R5: on a phone the conflict message of the shift manager's waste is
+        # scrolled into view above the sticky «Провести документ» button, never cut off.
+        page.get_by_test_id('op-waste').click()
+        d = dialog(page)
+        d.get_by_test_id('op-waste-reason').select_option('defect')
+        d.locator('#op-reference').fill('СП-ТЕЛЕФОН')
+        d.get_by_test_id('op-stock-ingredient-0').select_option(config['bun'])
+        d.locator('#op-stock-quantity-0').fill('1')
+        d.get_by_test_id('inventory-reviewed').check()
+        d.locator('#op-reason').fill('Синтетическая проверка на телефоне')
+        d.evaluate('(node) => { node.scrollTop = 0; }')
+        status = page.evaluate("""async ([branch, token, ing]) => {
+          const base = '/v1/admin/backoffice/branches/' + branch;
+          const h = {Authorization: 'Bearer ' + token, 'Content-Type': 'application/json'};
+          const s = await (await fetch(base + '?period=day', {headers: h})).json();
+          const row = s.stock.find(r => r.id === ing);
+          const r = await fetch(base + '/commands', {method: 'POST', headers: h, body: JSON.stringify({
+            request_id: crypto.randomUUID(), reason: 'Параллельный документ на телефоне',
+            command: {type: 'stock', kind: 'waste', reference: 'ПАР-2', reason_code: 'damaged',
+              lines: [{ingredient_id: ing, quantity: '1', value_minor: '0', expected_revision: row.revision}]}})});
+          return r.status;
+        }""", [config['branch'], config['manager']['token'], config['bun']])
+        assert status == 200, status
+        save = d.get_by_test_id('op-save')
+        save.click()
+        error = d.locator('.op-form-error')
+        expect(error).to_contain_text('Остаток изменился, пока вы вводили документ')
+        dialog_box = d.bounding_box()
+        error_box = error.bounding_box()
+        save_box = save.bounding_box()
+        assert error_box and save_box and dialog_box, (error_box, save_box, dialog_box)
+        assert error_box['y'] >= dialog_box['y'] - 1, (error_box, dialog_box)
+        assert error_box['y'] + error_box['height'] <= save_box['y'] + 1, (error_box, save_box)
+        assert error_box['x'] + error_box['width'] <= 390, error_box
+        capture(page, 'stock-conflict-shift-390.png')
+        d.get_by_test_id('inventory-reviewed').check()
+        save.click()
+        expect(dialog(page)).to_have_count(0)
         nav(page, 'shifts')
         expect(page.locator('.content')).to_contain_text('Табель, ставки и начисления видят управляющий и бухгалтер')
         expect(page.get_by_test_id('workforce')).to_have_count(0)

@@ -162,3 +162,8 @@ html.bo-fixes .inventory-table td:first-child {
     overflow: visible;
   }
 }
+
+/* Review BOUI-R5: a dialog error scrolled into view stays above the sticky submit button. */
+html.bo-fixes .op-dialog .op-form-error {
+  scroll-margin-bottom: 96px;
+}
