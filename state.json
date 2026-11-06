@@ -7406,9 +7406,9 @@
         "docs/roadmap/project.json",
         "infra/public-staging/support/content.json"
       ],
-      "status": "available",
+      "status": "active",
       "head": "6f0f7b5e35c8f28e22d1e5b2c438a8469f60692a",
-      "updatedAt": "2026-11-06T22:41:16.140Z",
+      "updatedAt": "2026-11-06T22:46:35.176Z",
       "summary": "6f0f7b5e / PR313: закрытый Alpha4701047942306330987 настроен, Казахстан, список owner and staff, отзывы email, исходный AAB7, примечания RU/EN/KK. Выпуск сохранён в Publishing overview, статус Ещё не отправлено на проверку. Исправлена обязательная декларация рекламного ID: Нет, AD_ID blocked. Отсчёт12/14 не начат. Владелец сам добавляет участников, форма открыта. Format/diff/JSON PASS; remote SHA verified.",
       "nextAction": "П6 исправление21358f91/PR315 проходит CI после подтверждённого отката, HTTP200 RU/KK/EN пока без delete-account. После выпуска П6 проверить anchor/текст и автопроверки Play, отправить именно Alpha; повторного разрешения на закрытый тест не нужно. Проверить сохранённый список владельца, нужны12 вступивших участников. Physical Android и KK listing pending. Production только отдельное да. Исходные guide/data-safety заняты mobile-android-1105; согласовать обновление. Онлайн-пульт не опубликован, PR311/314 сохранить при интеграции."
     }
