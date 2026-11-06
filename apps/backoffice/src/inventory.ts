@@ -1,4 +1,6 @@
 import { element as el, button, field, select, check } from './dom.js';
+import { almatyDateTime, cards, tenge, ui } from './ui-fixes.js';
+import { csvTenge } from './sales-report-model.js';
 import { object, type Data, type Snapshot, type StockReport } from './operations-model.js';
 import {
   SUPPLIER_KINDS,
@@ -16,10 +18,16 @@ import {
   type StockV2Draft,
 } from './inventory-model.js';
 const money = (value: unknown) => {
+  // Lane bo-ui audit F19: one money format with the rest of the cabinet.
+  if (ui.fixes) return tenge(value);
   const n = BigInt(String(value ?? 0)),
     a = n < 0n ? -n : n;
   return `${n < 0n ? '-' : ''}${(a / 100n).toLocaleString('ru-RU')},${(a % 100n).toString().padStart(2, '0')} ₸`;
 };
+const when = (value: unknown) =>
+  ui.fixes
+    ? almatyDateTime(value)
+    : new Date(String(value)).toLocaleString('ru-RU', { timeZone: 'Asia/Almaty' });
 const kinds: Record<string, string> = {
   receipt: 'Поступление',
   waste: 'Списание',
@@ -53,7 +61,7 @@ function table(head: string[], rows: (string | Node)[][]) {
   t.append(h, body);
   wrap.append(t);
   if (!rows.length) wrap.append(el('p', 'op-note', 'Нет записей по выбранным условиям.'));
-  return wrap;
+  return cards(wrap, head);
 }
 /**
  * A draft is reviewed in base units before the existing durable command is submitted. With
@@ -63,20 +71,26 @@ function table(head: string[], rows: (string | Node)[][]) {
 export function inventoryEditor(
   d: HTMLDialogElement,
   kind: StockKind,
-  stock: Data[],
-  options: { stockV2?: boolean } = {},
+  initial: Data[],
+  options: { stockV2?: boolean; draft?: StockEditorState | null } = {},
 ) {
   d.classList.add('inventory-editor');
+  // Lane bo-ui (audit F02): the balances can be replaced after a CONFLICT (setStock below).
+  let stock = initial;
+  const draft = options.draft ?? null;
   const v2: StockV2Draft = {
     reason_code: '',
     supplier_kind: '',
     supplier_name: '',
     document_date: almatyDay(new Date()),
   };
+  if (draft?.v2)
+    for (const k of ['reason_code', 'supplier_kind', 'supplier_name', 'document_date'] as const)
+      if (typeof draft.v2[k] === 'string') v2[k] = draft.v2[k];
   const lines: StockLine[] = [],
     wrap = el('div', 'inventory-lines'),
     preview = el('div', 'inventory-preview');
-  let reference = '',
+  let reference = typeof draft?.reference === 'string' ? draft.reference : '',
     reviewed = false;
   const review = check(
     'Проверил количество и стоимость перед проведением',
@@ -258,8 +272,21 @@ export function inventoryEditor(
     preview,
     review,
   );
-  add();
-  return () => {
+  const restored = Array.isArray(draft?.lines)
+    ? draft.lines.filter(
+        (l) =>
+          l &&
+          typeof l.ingredient_id === 'string' &&
+          typeof l.quantity === 'string' &&
+          typeof l.unit === 'string' &&
+          typeof l.cost === 'string',
+      )
+    : [];
+  if (restored.length) {
+    lines.push(...restored.slice(0, 100).map((l) => ({ ...l })));
+    draw();
+  } else add();
+  const build = () => {
     const extra = options.stockV2 ? stockV2Fields(kind, v2) : {};
     const parsed = stockPreview(kind, lines, stock);
     if (!reference.trim()) throw new Error('Укажите номер документа.');
@@ -272,7 +299,25 @@ export function inventoryEditor(
       lines: parsed.map((r) => r.command),
     };
   };
+  return Object.assign(build, {
+    /** Lane bo-ui (audit F01): the input as it is now, for the sessionStorage draft. */
+    state: (): StockEditorState => ({
+      reference,
+      lines: lines.map((l) => ({ ...l })),
+      v2: { ...v2 },
+    }),
+    /**
+     * Lane bo-ui (audit F02): fresh balances after a CONFLICT. The lines stay; «По учёту» and
+     * the expected revisions come from the new balances and the check box must be ticked again.
+     */
+    setStock: (next: Data[]) => {
+      stock = next;
+      draw();
+    },
+  });
 }
+/** What a stock document dialog keeps between a reload and the next opening (audit F01). */
+export type StockEditorState = { reference: string; lines: StockLine[]; v2: StockV2Draft };
 export type InventoryCallbacks = {
   stock: (kind: StockKind) => void;
   records: (kind: string) => HTMLElement;
@@ -280,6 +325,12 @@ export type InventoryCallbacks = {
   can: (permission: string) => boolean;
   /** Stock v2 report (GET .../ops/stock); absent while the server has no stock v2. */
   report?: (view: 'waste' | 'movement', start: string, end: string) => Promise<StockReport>;
+  /** Lane bo-ui stock fixes (audit F17): «Ингредиенты» instead of a second «Номенклатура». */
+  fixes?: boolean;
+  /** Why a document kind is not offered to this role, in words (audit F03, F09). */
+  rights?: (permission: string) => string | null;
+  /** Unfinished stock documents of this tab (audit F01), to continue them. */
+  drafts?: { kind: StockKind; label: string; open: () => void }[];
 };
 export class InventoryView {
   private tab = 'balances';
@@ -305,7 +356,7 @@ export class InventoryView {
         ['documents', 'Документы'],
         ...(callbacks.report ? [['report', 'Списания и поставки']] : []),
         ['recipe', 'Техкарты'],
-        ['ingredient', 'Номенклатура'],
+        ['ingredient', callbacks.fixes ? 'Ингредиенты' : 'Номенклатура'],
       ]) {
         const b = button(
           label!,
@@ -346,8 +397,26 @@ export class InventoryView {
       toolbar.append(
         button('Инвентаризация', () => callbacks.stock('count'), 'button', 'op-count'),
       );
+    // Audit F03, F09: a role that cannot post a kind is told who can, instead of a silent gap.
+    const missing = (['stock.receipt', 'stock.waste', 'stock.count'] as const)
+      .filter((permission) => !callbacks.can(permission))
+      .map((permission) => callbacks.rights?.(permission))
+      .filter((text): text is string => Boolean(text));
+    const rights = missing.length
+      ? el('p', 'op-note op-rights', [...new Set(missing)].join(' '))
+      : null;
+    if (rights) rights.dataset.testid = 'stock-rights';
+    const drafts = el('div', 'op-drafts');
+    for (const item of callbacks.drafts ?? []) {
+      const n = el('p', 'notice op-draft-waiting', `Есть незавершённый документ «${item.label}».`);
+      n.dataset.testid = 'stock-draft-' + item.kind;
+      n.append(button('Продолжить ввод', item.open, 'button subtle'));
+      drafts.append(n);
+    }
     root.append(
       toolbar,
+      ...(rights ? [rights] : []),
+      ...(drafts.childElementCount ? [drafts] : []),
       el(
         'p',
         'op-note',
@@ -431,14 +500,20 @@ export class InventoryView {
             String(r['quantity'] ?? 0),
             unitLabels[String(p['unit'])] ?? '',
             String(p['minimum'] ?? 0),
-            money(r['value_minor']),
+            ui.fixes ? csvTenge(r['value_minor'] ?? '0') : money(r['value_minor']),
           ];
         });
         const url = URL.createObjectURL(
           new Blob(
             [
               inventoryCsv([
-                ['Ингредиент', 'Количество', 'Учётная единица', 'Минимум', 'Стоимость'],
+                [
+                  'Ингредиент',
+                  'Количество',
+                  'Учётная единица',
+                  'Минимум',
+                  ui.fixes ? 'Стоимость, ₸' : 'Стоимость',
+                ],
                 ...rows,
               ]),
             ],
@@ -484,8 +559,7 @@ export class InventoryView {
         result.append(el('p', 'op-note', 'Выберите период и нажмите «Показать».'));
         return;
       }
-      const date = (v: unknown) =>
-        new Date(String(v)).toLocaleString('ru-RU', { timeZone: 'Asia/Almaty' });
+      const date = when;
       const summary = (key: string) =>
         Array.isArray(r.summary[key]) ? (r.summary[key] as Data[]) : [];
       if (r.view === 'waste') {
@@ -669,9 +743,7 @@ export class InventoryView {
               return [
                 String(v['reference']),
                 kinds[String(v['kind'])] ?? String(v['kind']),
-                new Date(String(v['created_at'])).toLocaleString('ru-RU', {
-                  timeZone: 'Asia/Almaty',
-                }),
+                when(v['created_at']),
                 String(v['reason']),
                 details,
               ];

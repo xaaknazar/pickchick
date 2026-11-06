@@ -1,4 +1,5 @@
 import { element as el, button, field, select, grid } from './dom.js';
+import { almatyDateTime, cards, isoMonth, ui, yearOptions } from './ui-fixes.js';
 import {
   WorkforceModel,
   type WorkRecord,
@@ -13,6 +14,15 @@ import {
 } from './workforce-model.js';
 
 type Data = Record<string, unknown>;
+/** Audit F08: the kinds of workforce records in the history, in words. */
+const HISTORY_KINDS: Record<string, string> = {
+  plan: 'График',
+  time: 'Табель',
+  rate: 'Ставка',
+  bonus: 'Премия',
+  payroll: 'Ведомость',
+  employee: 'Карточка сотрудника',
+};
 type Form = {
   kind: string;
   id: string;
@@ -78,6 +88,11 @@ export class WorkforceView {
   get dirty() {
     return this.form !== null;
   }
+  /**
+   * Lane bo-ui (audit F03, F09): who may change the schedule, in words, for a person who cannot.
+   * app.ts sets it; null keeps the cabinet's silent disabled buttons.
+   */
+  rights: () => string | null = () => null;
   clear() {
     this.form = null;
     this.formError = '';
@@ -90,7 +105,38 @@ export class WorkforceView {
   private button(text: string, action: () => void, primary = false) {
     const b = button(text, action, primary ? 'button primary' : 'button');
     b.disabled = !this.model.writable;
+    const why = this.model.roleWrites ? null : this.rights();
+    if (why) b.title = why;
     return b;
+  }
+  /** Audit F08 (with the fixes): what a history row changed and for whom. */
+  private historyAction(a: { action: string; before_value?: unknown; after_value?: unknown }) {
+    const after = (a.after_value ?? null) as Data | null,
+      before = (a.before_value ?? null) as Data | null;
+    const kind = String(after?.['kind'] ?? before?.['kind'] ?? '');
+    const payload = (after?.['payload'] ?? before?.['payload'] ?? null) as Data | null;
+    const who =
+      kind === 'employee'
+        ? String(payload?.['name'] ?? after?.['name'] ?? '')
+        : payload?.['employee_id']
+          ? this.name(payload['employee_id'])
+          : '';
+    const what = HISTORY_KINDS[kind];
+    const base =
+      a.action === 'workforce.save'
+        ? (what ?? 'Изменение записи')
+        : a.action === 'workforce.delete'
+          ? 'Удаление: ' + (what ?? 'запись').toLowerCase()
+          : a.action === 'workforce.period'
+            ? `${after?.['closed'] ? 'Закрытие' : 'Открытие'} табеля за ${isoMonth(String(after?.['month'] ?? '').slice(0, 7))}`
+            : a.action === 'workforce.generate_payroll'
+              ? 'Расчёт ведомости'
+              : a.action === 'save:employee'
+                ? 'Карточка сотрудника'
+                : a.action === 'workforce.import'
+                  ? 'Импорт явок'
+                  : 'Изменение записи';
+    return who && a.action !== 'workforce.period' ? `${base}: ${who}` : base;
   }
   private recordActions(kind: string, record: WorkRecord | EmployeeRecord) {
     const actions = el('div', 'wf-row-actions');
@@ -159,7 +205,7 @@ export class WorkforceView {
     });
     table.append(head, body);
     wrap.append(table);
-    return wrap;
+    return cards(wrap, headers);
   }
   private matching(r: WorkRecord) {
     if (r.payload['deleted']) return false;
@@ -218,6 +264,12 @@ export class WorkforceView {
         }),
       );
     const data = this.model.data;
+    const why = data && !this.model.roleWrites ? this.rights() : null;
+    if (why) {
+      const n = el('p', 'wf-notice wf-rights', why + ' У вас - просмотр.');
+      n.dataset.testid = 'workforce-rights';
+      root.append(n);
+    }
     if (!data) {
       root.append(
         el(
@@ -240,9 +292,12 @@ export class WorkforceView {
       void this.model.load();
     };
     const selectedYear = this.model.month.slice(0, 4);
-    const years = [
-      ...new Set([...Array.from({ length: 101 }, (_, i) => String(2000 + i)), selectedYear]),
-    ].sort();
+    // Audit F19 (with the fixes): the years of PickChick data, not 2000-2099.
+    const years = ui.fixes
+      ? yearOptions(selectedYear)
+      : [
+          ...new Set([...Array.from({ length: 101 }, (_, i) => String(2000 + i)), selectedYear]),
+        ].sort();
     filters.append(
       select(
         'Месяц',
@@ -586,17 +641,21 @@ export class WorkforceView {
               details.append(d);
             }
             return [
-              new Date(a.created_at).toLocaleString('ru-RU', { timeZone: 'Asia/Almaty' }),
+              ui.fixes
+                ? almatyDateTime(a.created_at)
+                : new Date(a.created_at).toLocaleString('ru-RU', { timeZone: 'Asia/Almaty' }),
               a.author ?? a.actor_id,
-              a.action === 'workforce.delete'
-                ? 'Удаление записи'
-                : a.action === 'workforce.period'
-                  ? 'Закрытие / открытие табеля'
-                  : a.action === 'save:employee'
-                    ? 'Карточка сотрудника'
-                    : a.action === 'workforce.import'
-                      ? 'Импорт явок'
-                      : 'Изменение записи',
+              ui.fixes
+                ? this.historyAction(a)
+                : a.action === 'workforce.delete'
+                  ? 'Удаление записи'
+                  : a.action === 'workforce.period'
+                    ? 'Закрытие / открытие табеля'
+                    : a.action === 'save:employee'
+                      ? 'Карточка сотрудника'
+                      : a.action === 'workforce.import'
+                        ? 'Импорт явок'
+                        : 'Изменение записи',
               a.reason,
               details,
             ];

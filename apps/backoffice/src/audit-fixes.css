@@ -1,0 +1,156 @@
+/*
+ * Lane bo-ui audit fixes (design-bo-ui §6). Every rule is scoped to html.bo-fixes, which app.ts
+ * sets only while the server reports the audit fixes (operations-model auditFixes), or to a class
+ * the cabinet adds only then (.bo-cards). Without them this file changes nothing.
+ */
+
+/* F06: the selected tab keeps its colours under the pointer and after a tap on a phone. */
+html.bo-fixes .wf-tabs .button.selected:hover:not(:disabled),
+html.bo-fixes .wf-actions .button.selected:hover:not(:disabled),
+html.bo-fixes .inventory-tabs .button.selected:hover:not(:disabled),
+html.bo-fixes .wf-tabs .button.selected:focus-visible,
+html.bo-fixes .inventory-tabs .button.selected:focus-visible {
+  background: #0047bb;
+  border-color: #0047bb;
+  color: #fff;
+}
+
+/* F09: who is signed in, next to the branch picker (visible on a phone as well). */
+.header-role {
+  align-self: center;
+  margin: 0;
+  padding: 6px 12px;
+  border: 1px solid #c8d3e3;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* F05: data being refreshed in place. */
+.notice.op-refreshing {
+  margin: 0;
+}
+
+/* F19: the select arrow is drawn on the select itself, so it never slips under the field. */
+html.bo-fixes select,
+html.bo-fixes .finance-workspace select {
+  background-image:
+    linear-gradient(45deg, transparent 50%, #5d6b82 50%),
+    linear-gradient(135deg, #5d6b82 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) 50%,
+    calc(100% - 15px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+html.bo-fixes .field:has(> select)::after,
+html.bo-fixes .finance-workspace .field:has(> select)::after,
+html.bo-fixes .header-tools .header-shift::after {
+  content: none;
+}
+@media (forced-colors: active) {
+  html.bo-fixes select,
+  html.bo-fixes .finance-workspace select {
+    background-image: none;
+  }
+}
+
+/* F19: narrow columns break between words, never inside one («Инвентаризаци я»). */
+html.bo-fixes .op-table td,
+html.bo-fixes .inventory-table td,
+html.bo-fixes .wf-table td,
+html.bo-fixes .table-scroll td {
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
+}
+html.bo-fixes .op-table td:first-child,
+html.bo-fixes .inventory-table td:first-child {
+  min-width: 9rem;
+}
+
+/* F15: an overdue ticket says so next to its status. */
+.op-ticket-state {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* F01: an unfinished document waiting on the stock page. */
+.op-drafts {
+  display: grid;
+  gap: 8px;
+}
+.op-draft-waiting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.op-rights {
+  margin: 0;
+}
+
+/* F14: on a phone every row of a marked table is a labelled card. */
+@media (max-width: 650px) {
+  .bo-cards table,
+  .bo-cards tbody,
+  .bo-cards .op-table,
+  .bo-cards .wf-table {
+    display: block;
+    width: 100%;
+    min-width: 0 !important;
+  }
+  .bo-cards thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .bo-cards tbody tr {
+    display: block;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border, #d8e0ea);
+  }
+  .bo-cards tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .bo-cards td {
+    display: grid;
+    grid-template-columns: minmax(96px, 40%) minmax(0, 1fr);
+    gap: 8px;
+    padding: 4px 0 !important;
+    border: 0 !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    white-space: normal;
+    text-align: left;
+  }
+  .bo-cards td::before {
+    content: attr(data-label);
+    color: var(--muted, #5b6474);
+    font-size: 12px;
+    font-weight: 400;
+  }
+  .bo-cards td[data-label='']::before {
+    content: none;
+  }
+  .bo-cards td[data-label=''] {
+    display: block;
+  }
+  .bo-cards .bo-cards-empty td {
+    display: block;
+    padding: 16px 0 !important;
+  }
+  .bo-cards .button {
+    white-space: normal;
+  }
+  .bo-cards details[open] {
+    min-width: 0;
+  }
+}

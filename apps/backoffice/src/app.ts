@@ -5,10 +5,14 @@ import { KioskIncidentsView } from './components/KioskIncidentsView.js';
 import {
   OperationsModel,
   StopsModel,
+  headerRole,
   permitted,
   posDayAvailable,
+  rightsText,
   roleTitle,
 } from './operations-model.js';
+import { dirtyDialogOpen } from './dialog-guard.js';
+import { cards, dash, ui } from './ui-fixes.js';
 import { WorkforceModel } from './workforce-model.js';
 import { WorkforceView } from './workforce.js';
 import { FinanceModel } from './finance-model.js';
@@ -106,6 +110,11 @@ const workforce = new WorkforceModel(
   render,
 );
 const workforceView = new WorkforceView(workforce, render);
+// Lane bo-ui: the audit fixes (F05 read errors) and the rights in words (F03, F09); both return
+// what the cabinet showed before while the server has neither roles nor the audit fixes.
+finance.fixes = workforce.fixes = () => operations.fixes;
+financeView.rights = () => rightsText(operations.data, 'finance.write');
+workforceView.rights = () => rightsText(operations.data, 'workforce.write');
 function syncOperations() {
   if (!model.actor) {
     workforce.clear();
@@ -356,8 +365,13 @@ function login() {
   page.append(card);
   root.replaceChildren(page);
 }
+/** Audit F07: the pages whose data follows the header period (with the audit fixes). */
+const PERIOD_PAGES = ['dash', 'orders', 'reports', 'settlements', 'shifts'];
 function render() {
   if (page !== 'devices') devices.hideCode();
+  // Lane bo-ui audit fixes: one switch for every view (ui-fixes.ts), and a root class for CSS.
+  ui.fixes = Boolean(model.actor) && operations.fixes;
+  document.documentElement.classList.toggle('bo-fixes', ui.fixes);
   if (!model.actor) {
     login();
     return;
@@ -486,10 +500,24 @@ function render() {
     header = el('header', 'topbar'),
     titles = el('div', 'page-title');
   titles.append(
-    el('h1', '', allSections().find((s) => s[0] === page)?.[1] ?? 'PickChick'),
+    el(
+      'h1',
+      '',
+      // Audit F17 (with the fixes): the page is called what its menu item is called.
+      ui.fixes && page === 'items'
+        ? 'Меню и цены'
+        : (allSections().find((s) => s[0] === page)?.[1] ?? 'PickChick'),
+    ),
     el('p', 'muted', allSections().find((s) => s[0] === page)?.[2] ?? ''),
   );
   header.append(titles);
+  // Audit F09: who is signed in, in the header (also on a phone, where the sidebar folds).
+  const role = headerRole(operations.data);
+  if (role) {
+    const chip = el('p', 'header-role', role);
+    chip.dataset.testid = 'header-role';
+    header.append(chip);
+  }
   const branch = select(
     'Точка',
     model.state?.branch.id ?? '',
@@ -582,7 +610,14 @@ function render() {
       'op-refresh',
     );
     refresh.disabled = operations.busy || Boolean(operations.pending);
-    tools.append(periodField);
+    // Audit F07 (with the fixes): no period switch on pages it does not change.
+    const periodShown = !ui.fixes || PERIOD_PAGES.includes(page);
+    if (periodShown) tools.append(periodField);
+    else {
+      const hint = el('small', 'muted header-filter-hint', 'Данные на сейчас, без выбора периода.');
+      hint.dataset.testid = 'no-period-hint';
+      tools.append(hint);
+    }
     periodTarget.append(tools);
     if (['dash', 'orders', 'shifts', 'reports', 'settlements'].includes(page)) {
       const shifts = operations.data?.cashier_shifts ?? [];
@@ -632,7 +667,7 @@ function render() {
           ),
         );
     }
-    if (choosingCustom || operations.period === 'custom') {
+    if (periodShown && (choosingCustom || operations.period === 'custom')) {
       const dates = el('form', 'date-range');
       const start = field(
         'С даты',
@@ -881,8 +916,8 @@ function render() {
   const table = el('table'),
     thead = el('thead'),
     tr = el('tr');
-  for (const text of ['Позиция', 'Категория', 'Цена', 'КБЖУ', 'В меню', 'Действия'])
-    tr.append(el('th', '', text));
+  const catalogHeads = ['Позиция', 'Категория', 'Цена', 'КБЖУ', 'В меню', 'Действия'];
+  for (const text of catalogHeads) tr.append(el('th', '', text));
   thead.append(tr);
   const tbody = el('tbody');
   tbody.dataset.testid = 'catalog-products';
@@ -895,7 +930,9 @@ function render() {
     el(
       'p',
       'muted table-help',
-      '«Скрыта из меню» — позиция не попадёт в следующую публикацию. Если блюдо временно закончилось, поставьте его на «Стоп» в разделе «Стоп-лист»: стоп действует сразу на кассе, в приложении и киоске и не требует публикации.',
+      dash(
+        '«Скрыта из меню» — позиция не попадёт в следующую публикацию. Если блюдо временно закончилось, поставьте его на «Стоп» в разделе «Стоп-лист»: стоп действует сразу на кассе, в приложении и киоске и не требует публикации.',
+      ),
     ),
   );
   content.append(panel);
@@ -989,6 +1026,8 @@ function render() {
       row.append(cell);
       tbody.append(row);
     }
+    // Audit F14 (with the fixes): price and buttons stay on a phone screen.
+    cards(tableWrap, catalogHeads);
   }
   rows();
   const groups = model.payload.products.flatMap((p) => p.modifier_groups.map((g) => ({ p, g })));
@@ -1144,7 +1183,9 @@ function channelStatus() {
       'p',
       'muted channel-help',
       support?.mobile || support?.kiosk || support?.pos
-        ? 'Сохранённый черновик ничего не меняет. После публикации приложение и киоск берут новое меню сразу, касса — после подтверждения кассового узла.'
+        ? dash(
+            'Сохранённый черновик ничего не меняет. После публикации приложение и киоск берут новое меню сразу, касса — после подтверждения кассового узла.',
+          )
         : 'Подключение публикаций к приложению, кассе и киоску ещё не включено. Сохранённый черновик сам по себе не меняет действующее меню.',
     ),
   );
@@ -1209,7 +1250,9 @@ window.addEventListener('beforeunload', (event) => {
     finance.pending ||
     financeView.dirty ||
     workforce.pending ||
-    workforceView.dirty
+    workforceView.dirty ||
+    // Audit F01: an open guarded dialog with changes (only with the fixes; see dialog-guard.ts).
+    dirtyDialogOpen()
   ) {
     event.preventDefault();
     event.returnValue = '';

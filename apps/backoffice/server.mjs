@@ -223,7 +223,7 @@ export const allowed = (method, path) => {
 const assets = new Map([
   ['/workspace.css', ['workspace.css', 'text/css; charset=utf-8']],
   ['/', ['index.html', 'text/html; charset=utf-8']],
-  ...['styles', 'fonts', 'workforce', 'inventory', 'device-center'].map((n) => [
+  ...['styles', 'fonts', 'workforce', 'inventory', 'device-center', 'audit-fixes'].map((n) => [
     `/${n}.css`,
     [`${n}.css`, 'text/css; charset=utf-8'],
   ]),
@@ -255,6 +255,10 @@ const assets = new Map([
     // Lane bo-ui «Касса» (shown only while the API reports capabilities.pos_day).
     'pos-day',
     'pos-day-model',
+    // Lane bo-ui audit fixes (active only while the API reports them).
+    'ui-fixes',
+    'dialog-guard',
+    'audit-model',
   ].map((n) => [`/${n}.js`, [`${n}.js`, 'text/javascript; charset=utf-8']]),
   ...['logo.png', 'shot.jpg', ...Array.from({ length: 24 }, (_, i) => `i${i}.jpg`)].map((n) => [
     `/assets/${n}`,

@@ -121,6 +121,55 @@ export const stockV2 = (data: { capabilities?: unknown } | null | undefined) =>
     typeof data.capabilities === 'object' &&
     (data.capabilities as Data)['stock_v2'] === true,
   );
+/**
+ * Audit fixes of lane bo-ui that change the cabinet without a flag of their own (design-bo-ui
+ * §6, §8 q1; audit F05-F08, F13-F20): on while the server reports capabilities.pos_day, the flag
+ * of the cutover back office (BACKOFFICE_POS_DAY_ENABLED). With it off the cabinet is exactly
+ * the cloud lane's. The only place that decides; CR bo-ui-3 asks integration to confirm it.
+ */
+export const auditFixes = (data: { capabilities?: unknown } | null | undefined) =>
+  posDayAvailable(data);
+/** Stock dialog fixes (audit F01, F02, F17 of the stock): stock v2 or the audit fixes. */
+export const stockFixes = (data: { capabilities?: unknown } | null | undefined) =>
+  stockV2(data) || auditFixes(data);
+/**
+ * «Вы: ...» in the page header (audit F09): the effective role from servers with roles; with the
+ * audit fixes also the grant role of servers without them. null: the header has no role line.
+ */
+export function headerRole(
+  data: { role?: unknown; effective_role?: unknown; capabilities?: unknown } | null | undefined,
+): string | null {
+  const designated = roleTitle(data);
+  if (designated) return designated;
+  if (!auditFixes(data)) return null;
+  return data?.role === 'manager'
+    ? 'Вы: управляющий'
+    : data?.role === 'analyst'
+      ? 'Вы: просмотр'
+      : null;
+}
+/** Who may do it under the role matrix (contracts 5.10), for servers with roles. */
+export const RIGHTS_TEXT: Record<string, string> = {
+  'finance.write': 'Вносить и исправлять операции могут управляющий и бухгалтер точки.',
+  'workforce.write': 'График, табель, ставки и начисления меняет управляющий точки.',
+  'stock.receipt': 'Поставку проводят управляющий, начальник смены и бухгалтер.',
+  'stock.waste': 'Списание проводят управляющий и начальник смены.',
+  'stock.count': 'Инвентаризацию проводят управляющий и начальник смены.',
+  'records.write': 'Изменять записи может управляющий точки.',
+};
+/**
+ * Why a button is not available to this person, in words (audit F03, F09), or null when the
+ * cabinet keeps today's silent rule (no roles on the server and no audit fixes).
+ */
+export function rightsText(
+  data: { permissions?: unknown; capabilities?: unknown } | null | undefined,
+  permission: string,
+): string | null {
+  if (Array.isArray(data?.permissions))
+    return RIGHTS_TEXT[permission] ?? 'Для вашей роли это действие недоступно.';
+  if (!auditFixes(data)) return null;
+  return 'У вас доступ только для просмотра. Это действие выполняет управляющий точки.';
+}
 export type OperationalApi = (path: string, request?: Request) => Promise<unknown>;
 type Pending = {
   actor: string;
@@ -128,6 +177,7 @@ type Pending = {
   request: { request_id: string; reason: string; command: Data };
 };
 const KEY = 'pickchick.backoffice.operations.v1';
+const FIXES_KEY = 'pickchick.backoffice.audit-fixes.v1';
 /**
  * Refund actions of a cloud order card. Without a bank refund adapter the old "request refund"
  * button is hidden (nothing would execute it); managers record refunds made in Kaspi Pay when
@@ -185,6 +235,8 @@ export class OperationsModel {
   period = 'day';
   filters: ReportFilters = {};
   private generation = 0;
+  /** auditFixes of the last snapshot of this person and branch (survives a reload of the tab). */
+  private known = false;
   constructor(
     /** Shared with the reconciliation section of the settlements page (same transport). */
     readonly api: OperationalApi,
@@ -193,6 +245,16 @@ export class OperationsModel {
   ) {}
   private key() {
     return KEY + ':' + this.actor;
+  }
+  private fixesKey() {
+    return FIXES_KEY + ':' + this.actor + ':' + this.branch;
+  }
+  /**
+   * Lane bo-ui (audit F05): whether the audit fixes apply. Known from the snapshot, and while
+   * none is loaded (first load, lost connection) from the last one of this person and branch.
+   */
+  get fixes(): boolean {
+    return this.data ? auditFixes(this.data) : this.known;
   }
   clear() {
     this.generation++;
@@ -204,6 +266,7 @@ export class OperationsModel {
     this.busy = false;
     this.pending = null;
     this.error = null;
+    this.known = false;
   }
   async load(
     actor: string,
@@ -219,7 +282,11 @@ export class OperationsModel {
     if (this.pending && changedScope && actor === this.actor) throw new ApiError('PENDING');
     const changedWindow =
       period !== this.period || JSON.stringify(filters) !== JSON.stringify(this.filters);
-    if (changedWindow) this.data = null;
+    // Audit F05 (with the fixes): another period keeps the shown data, marked «Обновляем…»,
+    // until the new snapshot arrives; a failed load returns to the period of the shown data.
+    const keep = !changedScope && this.fixes && this.data !== null;
+    const previous = { period: this.period, filters: this.filters };
+    if (changedWindow && !keep) this.data = null;
     if (changedScope) {
       this.data = null;
       this.pending = null;
@@ -228,6 +295,13 @@ export class OperationsModel {
     this.branch = branch;
     this.period = period;
     this.filters = { ...filters };
+    if (changedScope) {
+      try {
+        this.known = this.store.getItem(this.fixesKey()) === '1';
+      } catch {
+        this.known = false;
+      }
+    }
     const generation = ++this.generation;
     this.busy = true;
     this.error = null;
@@ -254,11 +328,24 @@ export class OperationsModel {
       }
       if (filters.shiftId) query.set('shift_id', filters.shiftId);
       const value = await this.api(`branches/${branch}?${query.toString()}`);
-      if (generation === this.generation) this.data = snapshot(value, branch);
+      if (generation === this.generation) {
+        this.data = snapshot(value, branch);
+        this.known = auditFixes(this.data);
+        try {
+          if (this.known) this.store.setItem(this.fixesKey(), '1');
+          else this.store.removeItem(this.fixesKey());
+        } catch {
+          // Only the first screen of the next reload depends on it.
+        }
+      }
     } catch (e) {
       if (generation === this.generation) {
         this.error = e;
         if (e instanceof ApiError && [401, 403].includes(e.status)) this.data = null;
+        else if (keep && changedWindow) {
+          this.period = previous.period;
+          this.filters = previous.filters;
+        }
       }
     } finally {
       if (generation === this.generation) {

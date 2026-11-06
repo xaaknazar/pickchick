@@ -1,4 +1,5 @@
 import { element as el, button, field, select, check, grid } from '../dom.js';
+import { ui } from '../ui-fixes.js';
 import {
   COVERAGE_LABELS,
   METHOD_LABELS,
@@ -366,7 +367,10 @@ export class ReconciliationView {
         'rec-methods',
       ),
       note(
-        'Наличные и Kaspi Smart POS на кассе PickChick пока не учитывает: касса передаёт заказы без оплаты. Для них введите итог ККМ или банка вручную. Чики в оплате заказов пока не используются.',
+        // Lane bo-ui (with the audit fixes): since 19.11 the cash desk takes payment itself.
+        ui.fixes
+          ? 'Оплаты кассы PickChick (наличные, Kaspi Smart POS, Kaspi вручную, агрегаторы) по дням и сменам - в разделе «Касса». Здесь сверка их пока не делает: для них введите итог ККМ или банка вручную. Чики в оплате заказов пока не используются.'
+          : 'Наличные и Kaspi Smart POS на кассе PickChick пока не учитывает: касса передаёт заказы без оплаты. Для них введите итог ККМ или банка вручную. Чики в оплате заказов пока не используются.',
       ),
     );
     if (d.tiptoppay_test?.payments)

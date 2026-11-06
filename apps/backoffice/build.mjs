@@ -16,6 +16,7 @@ for (const file of [
   'workforce.css',
   'inventory.css',
   'device-center.css',
+  'audit-fixes.css',
 ])
   await copyFile(new URL(`src/${file}`, import.meta.url), new URL(`dist/${file}`, import.meta.url));
 for (const file of ['logo.png', 'shot.jpg', ...Array.from({ length: 24 }, (_, i) => `i${i}.jpg`)]) {

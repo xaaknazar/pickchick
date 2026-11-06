@@ -10,6 +10,8 @@ import {
   Reconciliation,
 } from '../../packages/backoffice-core/dist/reconciliation.js';
 import { ReconciliationController } from '../../services/api/dist/reconciliation-controller.js';
+import { Workforce } from '../../packages/backoffice-core/dist/workforce-store.js';
+import { WORKFORCE, WorkforceController } from '../../services/api/dist/workforce-controller.js';
 import {
   BackofficeController,
   BackofficeContentController,
@@ -49,7 +51,8 @@ export const storage = () => {
  * `stationPlans` turns on station plan delivery to the cashier edge; `reconciliation` mounts the
  * daily payment reconciliation (BACKOFFICE_RECONCILIATION_ENABLED); `roles`, `stockV2` and
  * `salesReport` are the cutover flags BACKOFFICE_ROLES_ENABLED, BACKOFFICE_STOCK_V2_ENABLED and
- * BACKOFFICE_SALES_REPORT_ENABLED (CC-5, CC-6, CC-7).
+ * BACKOFFICE_SALES_REPORT_ENABLED (CC-5, CC-6, CC-7). `workforce` mounts the schedule, time sheet
+ * and payroll routes (WORKFORCE_ENABLED); `posDay` is lane bo-ui's BACKOFFICE_POS_DAY_ENABLED.
  */
 export async function withCatalog(run, options = {}) {
   const {
@@ -61,6 +64,7 @@ export async function withCatalog(run, options = {}) {
     stockV2 = false,
     salesReport = false,
     posDay = false,
+    workforce = false,
     ...serverOptions
   } = options;
   await withSyncDatabases(async (context) => {
@@ -89,6 +93,7 @@ export async function withCatalog(run, options = {}) {
         BackofficeContentController,
         FinanceController,
         ...(reconciliation ? [ReconciliationController] : []),
+        ...(workforce ? [WorkforceController] : []),
         ...(media ? [CatalogMediaController] : []),
       ],
       providers: [
@@ -109,6 +114,14 @@ export async function withCatalog(run, options = {}) {
           useValue: new Finance(cloud.pool, true, roles ? { rolesEnabled: true } : {}),
         },
         { provide: RECONCILIATION, useValue: new Reconciliation(cloud.pool, reconciliation) },
+        ...(workforce
+          ? [
+              {
+                provide: WORKFORCE,
+                useValue: new Workforce(cloud.pool, true, roles ? { rolesEnabled: true } : {}),
+              },
+            ]
+          : []),
         { provide: CATALOG_ADMIN, useValue: service },
         { provide: BACKOFFICE, useValue: backoffice },
         {

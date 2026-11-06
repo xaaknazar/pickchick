@@ -5,16 +5,32 @@ import { almatyTime, csvTenge } from './sales-report-model.js';
 import { ReconciliationView } from './components/ReconciliationView.js';
 import { ReconciliationModel } from './reconciliation-model.js';
 import { element as el, button, field, select, check } from './dom.js';
-import { message } from './api.js';
+import { ApiError, message } from './api.js';
+import {
+  dropDraft,
+  guard,
+  isGuarded,
+  mayClose,
+  readDraft,
+  sessionStore,
+  settle,
+  writeDraft,
+} from './dialog-guard.js';
+import { almatyDateTime, cards, dash, isoDay, ui } from './ui-fixes.js';
+import { NO_FILTER, auditRows, auditView, type AuditFilter } from './audit-model.js';
+import type { StockKind } from './inventory-model.js';
 import {
   OperationsModel,
   StopsModel,
   STATION_PLAN_STATE_LABELS,
+  auditFixes,
   object,
   permitted,
   posDayAvailable,
   refundActions,
+  rightsText,
   salesReportAvailable,
+  stockFixes,
   stockV2,
   stationPlanReason,
   stationPlanStatus,
@@ -146,18 +162,32 @@ const POS_LABELS: Record<string, string> = {
   payment_required: 'Оплата при заказе',
 };
 let posLabels = false;
+/** Lane bo-ui audit fixes (F16, F19): codes that showed as is (`ui.fixes` only). */
+const FIX_LABELS: Record<string, string> = {
+  staff: 'Персонал',
+  kitchen: 'Экран кухни',
+  revoked: 'Отключено',
+  sale: 'Продажа',
+  refund: 'Возврат',
+  not_requested: 'Не запрошен',
+};
 const status = (v: unknown) =>
-  labels[String(v)] ?? (posLabels ? POS_LABELS[String(v)] : undefined) ?? val(v);
+  labels[String(v)] ??
+  (posLabels ? POS_LABELS[String(v)] : undefined) ??
+  (ui.fixes ? FIX_LABELS[String(v)] : undefined) ??
+  val(v);
 const date = (v: unknown) =>
   v
-    ? new Date(String(v)).toLocaleString('ru-RU', {
-        timeZone: 'Asia/Almaty',
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
+    ? ui.fixes
+      ? almatyDateTime(v)
+      : new Date(String(v)).toLocaleString('ru-RU', {
+          timeZone: 'Asia/Almaty',
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
     : '-';
 const amount = (v: unknown) => {
   const n = BigInt(String(v ?? '0')),
@@ -180,6 +210,39 @@ function badge(value: unknown) {
 }
 function note(text: string) {
   return el('p', 'op-note', text);
+}
+/** Lane bo-ui audit F01: sessionStorage drafts of the record editor and the stock documents. */
+const RECORD_DRAFT = 'pickchick.backoffice.record-draft.v1';
+const STOCK_DRAFT = 'pickchick.backoffice.stock-draft.v1';
+type RecordDraft = { revision: number; payload: Data; reason: string; saved_at: string };
+/** Audit F17: the window is called what its button is called. */
+const STOCK_TITLES: Record<StockKind, string> = {
+  receipt: 'Поставка',
+  waste: 'Списание',
+  count: 'Инвентаризация',
+};
+const commandPermissionOf = (kind: StockKind) =>
+  kind === 'receipt' ? 'stock.receipt' : kind === 'waste' ? 'stock.waste' : 'stock.count';
+type StockDraft = {
+  reference: string;
+  lines: { ingredient_id: string; quantity: string; unit: string; cost: string }[];
+  v2: { reason_code: string; supplier_kind: string; supplier_name: string; document_date: string };
+  reason: string;
+  saved_at: string;
+};
+function restoredNote(savedAt: unknown) {
+  const at =
+    typeof savedAt === 'string' && Number.isFinite(Date.parse(savedAt))
+      ? ' от ' + almatyDateTime(savedAt)
+      : '';
+  const n = el(
+    'p',
+    'notice op-draft-restored',
+    `Восстановлен несохранённый ввод${at}. Проверьте поля перед сохранением.`,
+  );
+  n.setAttribute('role', 'status');
+  n.dataset.testid = 'op-draft-restored';
+  return n;
 }
 function notice(text: string, cls: string, testId?: string) {
   const n = el('div', 'notice ' + cls, text);
@@ -224,7 +287,20 @@ function table(headers: string[], rows: (string | Node)[][], empty = 'Данны
   }
   t.append(body);
   wrap.append(t);
-  return wrap;
+  return cards(wrap, headers);
+}
+/** «05.11.2026» or «01.11.2026 - 05.11.2026» for the snapshot's period (end is exclusive). */
+function periodText(d: Snapshot) {
+  const day = (iso: string) =>
+    new Intl.DateTimeFormat('ru-RU', {
+      timeZone: 'Asia/Almaty',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).format(new Date(iso));
+  const start = day(d.period_start);
+  const end = d.period_end ? day(new Date(Date.parse(d.period_end) - 1).toISOString()) : start;
+  return start === end ? start : `${start} - ${end}`;
 }
 function stats(items: [string, string, string?][]) {
   const n = el('div', 'stats');
@@ -253,6 +329,8 @@ function dialog(title: string, sub: string) {
     close = button(
       'Закрыть',
       () => {
+        // Audit F01: a guarded dialog with changes asks first (dialog-guard.ts); others close.
+        if (!mayClose(d)) return;
         d.close();
         d.remove();
       },
@@ -416,13 +494,13 @@ export function stopRowState(
         tone: 'good',
       };
     case 'conflict':
-      return { text: 'Касса изменила позицию — обновите', tone: 'bad' };
+      return { text: dash('Касса изменила позицию — обновите'), tone: 'bad' };
     case 'no_open_shift':
       return { text: 'Нет открытой смены', tone: 'bad' };
     case 'expired':
       return { text: 'Касса не ответила за 2 минуты', tone: 'bad' };
     case 'not_found':
-      return { text: 'Позиции нет в меню кассы — опубликуйте меню', tone: 'bad' };
+      return { text: dash('Позиции нет в меню кассы — опубликуйте меню'), tone: 'bad' };
     default:
       return { text: 'Касса вернула неизвестный ответ', tone: 'bad' };
   }
@@ -440,7 +518,11 @@ export class OperationsView {
   private home = new PosHomeView();
   private orderSort: 'new' | 'old' | 'number' | 'amount' = 'new';
   private orderDesk = '';
-  private stopFilter: 'all' | 'stopped' | 'waiting' = 'all';
+  /** null: not chosen yet - «Все позиции», or «Только на стопе» with the audit fixes (F20). */
+  private stopFilter: 'all' | 'stopped' | 'waiting' | null = null;
+  private get stopMode(): 'all' | 'stopped' | 'waiting' {
+    return this.stopFilter ?? (ui.fixes ? 'stopped' : 'all');
+  }
   private stopQuery = '';
   constructor(
     readonly model: OperationsModel,
@@ -607,7 +689,7 @@ export class OperationsView {
       search,
       select(
         'Показать',
-        this.stopFilter,
+        this.stopMode,
         [
           { value: 'all', label: 'Все позиции' },
           { value: 'stopped', label: 'Только на стопе' },
@@ -621,6 +703,12 @@ export class OperationsView {
       ),
     );
     p.append(filters);
+    if (ui.fixes)
+      p.append(
+        note(
+          'В списке «Все позиции» варианты блюд скрыты, пока они не на стопе. Чтобы найти вариант, введите его название в поиск.',
+        ),
+      );
     const wrap = el('div', 'table-wrap'),
       t = el('table', 'op-table stop-table'),
       head = el('thead'),
@@ -635,12 +723,20 @@ export class OperationsView {
     const rows = () => {
       body.replaceChildren();
       const q = this.stopQuery.trim().toLocaleLowerCase();
+      const mode = this.stopMode;
       const visible = d.items.filter(
         (i) =>
-          (this.stopFilter === 'all' ||
-            (this.stopFilter === 'stopped' && i.sales_blocked) ||
-            (this.stopFilter === 'waiting' && i.pending)) &&
-          (!q || stopName(i).toLocaleLowerCase().includes(q)),
+          (mode === 'all' ||
+            (mode === 'stopped' && i.sales_blocked) ||
+            (mode === 'waiting' && i.pending)) &&
+          (!q || stopName(i).toLocaleLowerCase().includes(q)) &&
+          // Audit F20 (with the fixes): options of «Все позиции» show on a search, or when stopped.
+          (!ui.fixes ||
+            mode !== 'all' ||
+            q ||
+            i.kind !== 'option' ||
+            i.sales_blocked ||
+            Boolean(i.pending)),
       );
       for (const item of visible) body.append(this.stopRow(item, d, blocker));
       if (!visible.length) {
@@ -648,7 +744,11 @@ export class OperationsView {
           td = el(
             'td',
             'op-empty',
-            d.catalog ? 'По запросу ничего не найдено.' : 'Меню ещё не опубликовано.',
+            !d.catalog
+              ? 'Меню ещё не опубликовано.'
+              : ui.fixes && mode === 'stopped' && !q
+                ? 'Сейчас на стопе ничего нет. Чтобы поставить позицию на стоп, выберите «Все позиции».'
+                : 'По запросу ничего не найдено.',
           );
         td.colSpan = 4;
         r.append(td);
@@ -727,27 +827,56 @@ export class OperationsView {
   private options(kind: string) {
     return this.model.entries(kind).map((r) => ({ value: r.id, label: val(r.payload['name']) }));
   }
-  private async submit(d: HTMLDialogElement, command: () => Data, reason: string) {
+  private async submit(
+    d: HTMLDialogElement,
+    command: () => Data,
+    reason: string,
+    conflict?: () => Promise<string>,
+  ) {
     const error = d.querySelector('.op-form-error')!;
     error.textContent = '';
     try {
       const ok = await this.model.execute(command(), reason);
       if (ok) {
+        settle(d);
         d.close();
         d.remove();
-      } else error.textContent = message(this.model.error);
+      } else if (
+        conflict &&
+        this.model.error instanceof ApiError &&
+        this.model.error.code === 'CONFLICT'
+      )
+        error.textContent = await conflict();
+      else error.textContent = message(this.model.error);
     } catch (e) {
       error.textContent = e instanceof Error && !('code' in e) ? e.message : message(e);
     }
   }
-  private footer(d: HTMLDialogElement, command: () => Data, label = 'Сохранить') {
-    let reason = '';
+  /**
+   * The reason field, the error line and the submit button of a command dialog. Lane bo-ui:
+   * `options` restore and track the reason of a draft and handle a CONFLICT in place (stock).
+   */
+  private footer(
+    d: HTMLDialogElement,
+    command: () => Data,
+    label = 'Сохранить',
+    options: {
+      reason?: string;
+      onReason?: (value: string) => void;
+      conflict?: () => Promise<string>;
+    } = {},
+  ) {
+    let reason = options.reason ?? '';
+    // Audit F01 (with the fixes): every command dialog asks before its input is thrown away.
+    if (auditFixes(this.model.data) && !isGuarded(d))
+      guard(d, { question: 'Закрыть окно? Введённые данные не сохранятся.' });
     d.append(
       field(
         'Причина изменения',
         reason,
         (v) => {
           reason = v;
+          options.onReason?.(v);
         },
         { required: true, id: 'op-reason', max: 500 },
       ),
@@ -757,19 +886,54 @@ export class OperationsView {
     d.append(error);
     const save = button(
       label,
-      () => void this.submit(d, command, reason),
+      () => void this.submit(d, command, reason, options.conflict),
       'button primary',
       'op-save',
     );
     d.append(save);
   }
   edit(kind: string, record?: Entry) {
-    const p = structuredClone(record?.payload ?? defaultPayload(kind)),
+    // Audit F01 (with the fixes): the input of a record survives a reload and a forced close.
+    const store = auditFixes(this.model.data) ? sessionStore() : null;
+    const key = auditFixes(this.model.data)
+      ? `${RECORD_DRAFT}:${this.model.actor}:${this.model.branch}:${kind}:${record?.id ?? 'new'}`
+      : null;
+    const saved = key ? readDraft<RecordDraft>(store, key) : null;
+    const restored =
+      saved &&
+      saved.revision === (record?.revision ?? 0) &&
+      saved.payload &&
+      typeof saved.payload === 'object'
+        ? saved
+        : null;
+    if (key && saved && !restored) dropDraft(store, key);
+    const p = structuredClone(restored?.payload ?? record?.payload ?? defaultPayload(kind)),
       d = dialog(
         record ? 'Изменить запись' : 'Новая запись',
         'Изменения сохраняются для выбранной точки и попадают в журнал аудита.',
       );
     d.dataset.testid = 'op-editor';
+    let reason = restored?.reason ?? '';
+    const persist = () => {
+      if (key)
+        writeDraft(store, key, {
+          revision: record?.revision ?? 0,
+          payload: p,
+          reason,
+          saved_at: new Date().toISOString(),
+        } satisfies RecordDraft);
+    };
+    if (key) {
+      guard(d, {
+        question: 'Закрыть окно? Изменения записи не сохранятся.',
+        store,
+        key,
+        dirty: restored !== null,
+      });
+      if (restored) d.append(restoredNote(restored.saved_at));
+      d.addEventListener('input', persist);
+      d.addEventListener('change', persist);
+    }
     const fields: F[] = [{ key: 'name', label: 'Название' }];
     const stateField: F = {
       key: 'status',
@@ -1100,13 +1264,26 @@ export class OperationsView {
             : 'Публикация сохраняет план. Применение на локальной кухне требует подтверждения устройства.',
         ),
       );
-    this.footer(d, () => ({
-      type: 'save',
-      kind,
-      id: record?.id ?? crypto.randomUUID(),
-      expected_revision: record?.revision ?? 0,
-      payload: p,
-    }));
+    this.footer(
+      d,
+      () => ({
+        type: 'save',
+        kind,
+        id: record?.id ?? crypto.randomUUID(),
+        expected_revision: record?.revision ?? 0,
+        payload: p,
+      }),
+      'Сохранить',
+      key
+        ? {
+            reason,
+            onReason: (value) => {
+              reason = value;
+              persist();
+            },
+          }
+        : {},
+    );
   }
   /**
    * Binding of a back-office station to a kitchen station the cashier reported. Shown only when
@@ -1356,6 +1533,7 @@ export class OperationsView {
     title: string,
     fields: [string, (p: Data) => string | Node][],
     sub = '',
+    order?: (a: Entry, b: Entry) => number,
   ) {
     const writable = permitted(this.model.data, 'records.write'),
       p = panel(
@@ -1365,7 +1543,8 @@ export class OperationsView {
           ? [button('Добавить', () => this.edit(kind), 'button primary', 'op-add-' + kind)]
           : [],
       );
-    const rows = this.model.entries(kind).map((r) => {
+    const entries = this.model.entries(kind);
+    const rows = (order ? [...entries].sort(order) : entries).map((r) => {
       const actions = el('div', 'op-actions');
       if (writable)
         actions.append(
@@ -1436,10 +1615,15 @@ export class OperationsView {
       'Провести производство',
     );
   }
-  private stock(kind: 'receipt' | 'waste' | 'count') {
+  private stockDraftKey(kind: StockKind) {
+    return `${STOCK_DRAFT}:${this.model.actor}:${this.model.branch}:${kind}`;
+  }
+  private stock(kind: StockKind) {
     const v2 = stockV2(this.model.data);
+    // Lane bo-ui (audit F01, F02, F17) with stock v2 or the audit fixes; otherwise as before.
+    const fixes = stockFixes(this.model.data);
     const d = dialog(
-      status(kind),
+      fixes ? STOCK_TITLES[kind] : status(kind),
       kind === 'count'
         ? 'Введите фактически посчитанное количество. Ноль означает отсутствие запаса; пустая строка не считается нулём. Перед проведением проверьте расхождения.'
         : v2 && kind === 'waste'
@@ -1448,8 +1632,50 @@ export class OperationsView {
             ? 'Укажите, откуда поставка, номер и дату накладной, ингредиенты и стоимость. Все строки проводятся одним документом.'
             : 'Укажите ингредиенты, количество и основание. Все строки проводятся одним документом.',
     );
-    const command = inventoryEditor(d, kind, this.model.data!.stock, { stockV2: v2 });
-    this.footer(d, command, 'Провести документ');
+    if (!fixes) {
+      const command = inventoryEditor(d, kind, this.model.data!.stock, { stockV2: v2 });
+      this.footer(d, command, 'Провести документ');
+      return;
+    }
+    const store = sessionStore(),
+      key = this.stockDraftKey(kind),
+      saved = readDraft<StockDraft>(store, key);
+    guard(d, {
+      question: 'Отменить ввод документа? Набранные строки не будут проведены.',
+      store,
+      key,
+      dirty: saved !== null,
+    });
+    if (saved) d.append(restoredNote(saved.saved_at));
+    const editor = inventoryEditor(d, kind, this.model.data!.stock, { stockV2: v2, draft: saved });
+    let reason = typeof saved?.reason === 'string' ? saved.reason : '';
+    // Every change goes to the tab's draft; a closed (sent or discarded) dialog writes nothing.
+    const persist = () => {
+      if (d.isConnected && d.open)
+        writeDraft(store, key, {
+          ...editor.state(),
+          reason,
+          saved_at: new Date().toISOString(),
+        } satisfies StockDraft);
+    };
+    for (const type of ['input', 'change', 'click']) d.addEventListener(type, persist);
+    // The stock page lists unfinished documents; redraw it once this one is closed.
+    d.addEventListener('close', () => this.model.changed(), { once: true });
+    this.footer(d, editor, 'Провести документ', {
+      reason,
+      onReason: (value) => {
+        reason = value;
+        persist();
+      },
+      // Audit F02: another document moved these balances. Read them again in place, keep the
+      // lines and the reason, and let the same dialog send again with the new revisions.
+      conflict: async () => {
+        await this.model.load(this.model.actor, this.model.branch);
+        if (this.model.data) editor.setStock(this.model.data.stock);
+        persist();
+        return 'Остаток изменился, пока вы вводили документ: по этим позициям уже провели другой документ. Колонка «По учёту» обновлена, ваши строки сохранены. Проверьте их, отметьте проверку и проведите документ ещё раз.';
+      },
+    });
   }
 
   private cashierShift(shift: Data) {
@@ -2032,6 +2258,117 @@ export class OperationsView {
       mode === 'manual' ? 'Зарегистрировать возврат' : 'Запросить возврат',
     );
   }
+  /**
+   * Audit F05: what went wrong with the last request, in words that fit it. Access is mentioned
+   * only for 403; the request id only for a command whose result is unconfirmed; a lost
+   * connection keeps the shown data and says from when it is.
+   */
+  private problem(hasData: boolean) {
+    const m = this.model,
+      e = m.error;
+    const code = e instanceof ApiError ? e.code : '';
+    const status = e instanceof ApiError ? e.status : 0;
+    const asOf = m.data
+      ? new Date(m.data.as_of).toLocaleTimeString('ru-RU', {
+          timeZone: 'Asia/Almaty',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : '';
+    let text: string;
+    if (code === 'NETWORK' && m.pending)
+      text =
+        'Ответ на команду не получен. Нажмите «Проверить»: повтор того же запроса не создаст вторую запись.';
+    else if (code === 'NETWORK' || code === 'SERVICE_UNAVAILABLE')
+      text = hasData
+        ? `Нет связи с сервером. Показаны данные на ${asOf}. Проверьте интернет и нажмите «Повторить».`
+        : 'Нет связи с сервером. Проверьте интернет и нажмите «Повторить».';
+    else if (status === 403 || code === 'FORBIDDEN')
+      text = 'Для операционных разделов нужен отдельный доступ управляющего к выбранной точке.';
+    else text = message(e);
+    const n = notice(text, 'error bad', 'op-problem');
+    if (
+      hasData &&
+      !m.pending &&
+      ['NETWORK', 'SERVICE_UNAVAILABLE', 'INVALID_RESPONSE'].includes(code)
+    )
+      n.append(
+        button('Повторить', () => void m.load(m.actor, m.branch), 'button subtle', 'op-retry'),
+      );
+    return n;
+  }
+  private auditFilter: AuditFilter = { ...NO_FILTER };
+  /** Audit F08: names, Russian operation names, and filters by author, section and days. */
+  private auditPage(content: HTMLElement, d: Snapshot) {
+    const rows = auditRows(d.audit, d.catalog_audit);
+    const p = panel(
+      'История изменений',
+      'Последние 200 операций бэк-офиса и 100 операций меню, новые сверху. Фильтры работают по этому списку.',
+    );
+    p.dataset.testid = 'audit-log';
+    const list = el('div'),
+      count = el('p', 'op-note');
+    count.dataset.testid = 'audit-count';
+    const draw = () => {
+      const shown = auditView(rows, this.auditFilter);
+      count.textContent = `Показано ${shown.length} из ${rows.length}.`;
+      list.replaceChildren(
+        table(
+          ['Время', 'Автор', 'Раздел', 'Операция', 'Причина'],
+          shown.map((r) => [date(r.at), r.author, r.section, r.action, r.reason]),
+          'Нет операций по выбранным условиям.',
+        ),
+      );
+    };
+    const pick = (values: string[]) =>
+      [...new Set(values)]
+        .sort((a, b) => a.localeCompare(b, 'ru'))
+        .map((v) => ({ value: v, label: v }));
+    const filters = el('div', 'filters audit-filters');
+    filters.append(
+      select(
+        'Автор',
+        this.auditFilter.author,
+        [{ value: '', label: 'Все авторы' }, ...pick(rows.map((r) => r.author))],
+        (v) => {
+          this.auditFilter.author = v;
+          draw();
+        },
+        'audit-author',
+      ),
+      select(
+        'Раздел',
+        this.auditFilter.section,
+        [{ value: '', label: 'Все разделы' }, ...pick(rows.map((r) => r.section))],
+        (v) => {
+          this.auditFilter.section = v;
+          draw();
+        },
+        'audit-section',
+      ),
+      field(
+        'С даты',
+        this.auditFilter.from,
+        (v) => {
+          this.auditFilter.from = v;
+          draw();
+        },
+        { id: 'audit-from', type: 'date' },
+      ),
+      field(
+        'По дату',
+        this.auditFilter.to,
+        (v) => {
+          this.auditFilter.to = v;
+          draw();
+        },
+        { id: 'audit-to', type: 'date' },
+      ),
+    );
+    p.append(filters, count, list);
+    draw();
+    content.append(p);
+  }
   /** Stage 2, lane rec: daily reconciliation on top of «Оплаты и чеки»; hidden while off. */
   private reconciliation: ReconciliationView | null = null;
   private renderReconciliation(content: HTMLElement) {
@@ -2065,7 +2402,9 @@ export class OperationsView {
       content.append(panel('Загружаем стоп-лист…', 'Получаем состояние кассы.'));
       return;
     }
-    if (m.error) content.append(note(message(m.error)));
+    // Audit F05 (with the fixes): loading and a lost connection never read as missing access.
+    const fixes = m.fixes;
+    if (m.error) content.append(fixes ? this.problem(Boolean(d)) : note(message(m.error)));
     if (m.pending)
       content.append(
         panel(
@@ -2074,6 +2413,20 @@ export class OperationsView {
           [button('Проверить', () => void m.recover(), 'button primary', 'op-recover')],
         ),
       );
+    if (!d && fixes) {
+      const p = panel(
+        m.busy ? 'Загружаем данные…' : 'Данные не загрузились',
+        m.busy ? 'Получаем данные точки, это займёт несколько секунд.' : '',
+        m.busy ? [] : [button('Повторить', () => void m.load(m.actor, m.branch), 'button primary')],
+      );
+      p.dataset.testid = m.busy ? 'op-loading' : 'op-load-failed';
+      content.append(p);
+      return;
+    }
+    if (d && fixes && m.busy) {
+      const n = notice('Обновляем данные…', 'op-refreshing', 'op-refreshing');
+      content.append(n);
+    }
     if (!d) {
       content.append(
         panel(
@@ -2231,8 +2584,10 @@ export class OperationsView {
         const bar = el('progress');
         bar.max = 1000;
         bar.value = Number((BigInt(String(r['amount_minor'])) * 1000n) / max);
-        bar.setAttribute('aria-label', val(r['day']));
-        b.append(el('span', '', val(r['day'])), bar, el('strong', '', amount(r['amount_minor'])));
+        // Audit F19 (with the fixes): «05.11.2026», not «2026-11-05».
+        const day = ui.fixes ? isoDay(r['day']) : val(r['day']);
+        bar.setAttribute('aria-label', day);
+        b.append(el('span', '', day), bar, el('strong', '', amount(r['amount_minor'])));
         bars.append(b);
       }
       if (!d.chart.length) bars.append(note('Подтверждённых оплат за этот период нет.'));
@@ -2267,7 +2622,14 @@ export class OperationsView {
           'Средняя сумма: исходная сумма выданных заказов, до вычета возвратов.',
           [
             button('Экспорт CSV', () =>
-              exportCsv('report', ['Показатель', 'Сумма, минимальные единицы KZT'], report),
+              // Audit F11 (with the fixes): tenge with a decimal comma, «Сумма, ₸».
+              ui.fixes
+                ? exportCsv(
+                    'report',
+                    ['Показатель', 'Сумма, ₸'],
+                    report.map(([a, b]) => [a!, csvTenge(b)]),
+                  )
+                : exportCsv('report', ['Показатель', 'Сумма, минимальные единицы KZT'], report),
             ),
           ],
         );
@@ -2395,10 +2757,28 @@ export class OperationsView {
           ['Документы', String(d.documents.length), 'Последние 200'],
         ]),
       );
+      const store = stockFixes(d) ? sessionStore() : null;
       content.append(
         this.inventory.render(d, {
           stock: (kind) => this.stock(kind),
           can: (permission) => permitted(d, permission),
+          ...(stockFixes(d)
+            ? {
+                fixes: true,
+                rights: (permission: string) => rightsText(d, permission),
+                drafts: (['receipt', 'waste', 'count'] as const)
+                  .filter(
+                    (kind) =>
+                      permitted(d, commandPermissionOf(kind)) &&
+                      readDraft(store, this.stockDraftKey(kind)) !== null,
+                  )
+                  .map((kind) => ({
+                    kind,
+                    label: STOCK_TITLES[kind],
+                    open: () => this.stock(kind),
+                  })),
+              }
+            : {}),
           ...(stockV2(d)
             ? {
                 report: (view: 'waste' | 'movement', start: string, end: string) =>
@@ -2425,6 +2805,12 @@ export class OperationsView {
       return;
     }
     if (page === 'finance') {
+      // Audit F13 (with the fixes): the blocks below follow the header period, the daily
+      // reconciliation above has its own day; each says which.
+      if (ui.fixes)
+        content.append(
+          el('h2', 'op-section-title', 'Приложение и киоск за период ' + periodText(d)),
+        );
       content.append(
         stats([
           ['Оплаты', amount(metrics['captured_minor']), 'Приложение и киоск'],
@@ -2518,7 +2904,54 @@ export class OperationsView {
         ),
       );
     }
-    if (page === 'tickets')
+    if (page === 'tickets' && ui.fixes) {
+      // Audit F15: priority, «Просрочено» in words, overdue first, then urgent, then by due time.
+      const now = Date.now();
+      const overdue = (p: Data) =>
+        ['new', 'in_progress'].includes(String(p['status'])) &&
+        typeof p['due_at'] === 'string' &&
+        Date.parse(p['due_at']) < now;
+      const rank = (r: Entry) =>
+        (overdue(r.payload) ? 0 : 2) + (r.payload['priority'] === 'urgent' ? 0 : 1);
+      content.append(
+        this.records(
+          'ticket',
+          'Обращения',
+          [
+            ['Тип', (p) => status(p['category'])],
+            [
+              'Приоритет',
+              (p) => {
+                const b = el('span', 'op-badge', status(p['priority']));
+                if (p['priority'] === 'urgent') b.classList.add('bad');
+                return b;
+              },
+            ],
+            [
+              'Статус',
+              (p) => {
+                const box = el('div', 'op-ticket-state');
+                box.append(badge(p['status']));
+                if (overdue(p)) box.append(el('span', 'op-badge bad op-overdue', 'Просрочено'));
+                return box;
+              },
+            ],
+            ['Срок', (p) => date(p['due_at'])],
+            [
+              'Ответственный',
+              (p) =>
+                this.options('employee').find((v) => v.value === p['assignee_id'])?.label ?? '-',
+            ],
+          ],
+          'Просроченные обращения - сверху, затем срочные.',
+          (a, b) =>
+            rank(a) - rank(b) ||
+            String(a.payload['due_at'] ?? '9999').localeCompare(
+              String(b.payload['due_at'] ?? '9999'),
+            ),
+        ),
+      );
+    } else if (page === 'tickets')
       content.append(
         this.records('ticket', 'Обращения', [
           ['Тип', (p) => status(p['category'])],
@@ -2560,12 +2993,26 @@ export class OperationsView {
       if (plan) content.append(this.stationPlanPanel(plan));
       const p = panel(
         'Наблюдаемые заказы кухни',
-        'Последнее подтверждённое состояние из обмена с локальной точкой.',
+        ui.fixes
+          ? 'Последние 50 заказов из обмена с локальной точкой. Все заказы с оплатой и кухней - в разделе «Заказы».'
+          : 'Последнее подтверждённое состояние из обмена с локальной точкой.',
+        ui.fixes
+          ? [
+              button(
+                'Открыть «Заказы»',
+                () => {
+                  history.replaceState(null, '', '#orders');
+                  this.navigate('orders');
+                },
+                'button subtle',
+              ),
+            ]
+          : [],
       );
       p.append(
         table(
           ['Заказ', 'Статус', 'Версия маршрута', 'Получено'],
-          d.kitchen.map((v) => [
+          (ui.fixes ? d.kitchen.slice(0, 50) : d.kitchen).map((v) => [
             val(v['display_number'] ?? String(v['order_id']).slice(0, 8)),
             badge(v['state']),
             val(v['routing_version']),
@@ -2656,16 +3103,28 @@ export class OperationsView {
           ],
           'Управленческая смена. Не заменяет фискальную смену кассы.',
         ),
-        this.records(
-          'employee',
-          'Сотрудники',
-          [
-            ['Роль', (p) => status(p['role'])],
-            ['Работает', (p) => (p['active'] ? 'Да' : 'Нет')],
-          ],
-          'Карточки для учёта. Доступ к кассе и кухне выдаётся отдельно.',
-        ),
       );
+      // Audit F16 (with the fixes): the employees are kept on the «Сотрудники» tab above only.
+      if (!ui.fixes)
+        content.append(
+          this.records(
+            'employee',
+            'Сотрудники',
+            [
+              ['Роль', (p) => status(p['role'])],
+              ['Работает', (p) => (p['active'] ? 'Да' : 'Нет')],
+            ],
+            'Карточки для учёта. Доступ к кассе и кухне выдаётся отдельно.',
+          ),
+        );
+      else
+        content.append(
+          note('Карточки сотрудников, ставки и роли - на вкладке «Сотрудники» раздела «Смены».'),
+        );
+    }
+    if (page === 'audit' && ui.fixes) {
+      this.auditPage(content, d);
+      return;
     }
     if (page === 'audit') {
       const rows = [...d.audit, ...d.catalog_audit].sort((a, b) =>
