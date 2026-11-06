@@ -187,6 +187,7 @@ test('007 keeps state event uniqueness and immutable outbox/results while reserv
 // order on top of the installed 025. Integration pins each hash from the owning lane's CR.
 const CUTOVER_EDGE = {
   '026_edge_pos_sales.sql': '921c526320f6b878f592949d7ca2ebc71e28a1ceb14881c74909314ed46d057c',
+  '027_edge_kds_foundation.sql': '41e55b450721646e45be599cf58626fd52328113f5a8165bb8fa5edf1e3a2a97',
 };
 
 test('cutover edge migrations upgrade a 025 edge in order with their reviewed bytes, earlier ledger unchanged', async () => {
@@ -221,6 +222,23 @@ test('cutover edge migrations upgrade a 025 edge in order with their reviewed by
         // An edge on 026+ never runs on a package without its files (older runtime package).
         await assert.rejects(migrate(pool, installed, 'edge'), /unsupported schema/);
         assert.deepEqual(await ledger(pool), after);
+      },
+    ),
+  );
+});
+
+test('cutover edge 027 is never applied before 026: a gapped install refuses 026 later without changes', async () => {
+  await isolated(async (pool) =>
+    subset(
+      (name) => name !== '026_edge_pos_sales.sql',
+      async (gapped) => {
+        // migrate() itself does not require contiguous numbers; the guarded tools do (3.2 p.1).
+        await migrate(pool, gapped, 'edge');
+        const before = await ledger(pool);
+        assert.ok(before.some((row) => row.version === '027_edge_kds_foundation.sql'));
+        await assert.rejects(migrate(pool, directory, 'edge'), /Out-of-order migration/);
+        assert.deepEqual(await ledger(pool), before);
+        assert.equal((await pool.query("SELECT to_regclass('pos_sales') AS r")).rows[0].r, null);
       },
     ),
   );
