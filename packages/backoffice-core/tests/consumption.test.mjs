@@ -7,7 +7,11 @@ import {
   BACKOFFICE_PERMISSIONS,
   Backoffice,
   BackofficeError,
+  consumptionBacklog,
+  enqueueConsumption,
+  managerShiftChecks,
   permissionsOf,
+  readStockSettings,
   runStockConsumption,
 } from '../dist/index.js';
 import { backofficeGrants } from '../../../infra/staging/backoffice-grants.mjs';
@@ -607,6 +611,8 @@ test('dry_run writes no documents; switched on later it catches up in sale order
       autoconsume_mode: 'dry_run',
       start_at: start.toISOString(),
       revision: 1,
+      // Just switched on: the catch-up ahead is not a stall (review BOUI-R2).
+      backlog: { not_queued: 0, waiting: 0, since: null, stalled: false, stall_minutes: 5 },
     });
     assert.equal(
       'stock_settings' in (await new Backoffice(c.cloud.pool, true, V2).read(token, c.branch)),
@@ -940,4 +946,113 @@ test('a semi-finished item made in batches is written off once: no policy blocks
     // «Раскладывать на сырьё» is never produced to stock, linked or not.
     await save('recipe', recipeId, 2, { ...recipePayload, stock_policy: 'explode' });
     await assert.rejects(produce(3), is('INVALID_REQUEST', 'RECIPE_POLICY_EXPLODE'));
+  }));
+
+test('a worker that does not run is reported: due sales not queued, queue items left waiting', () =>
+  withSyncDatabases(async (c) => {
+    // Review BOUI-R2: only the worker queues the sales. Mode «Включено» with no worker used to
+    // show 0 waiting, 0 blocked and «Продажи списываются со склада автоматически».
+    const { bo, release, s, token } = await setup(c);
+    await linkFixture(bo, token, c, s);
+    await settings(bo, token, c, 'on', ago(120), 0);
+    const quiet = { not_queued: 0, waiting: 0, since: null, stalled: false, stall_minutes: 5 };
+    const posAt = ago(30);
+    const sale = await posSale(c, release, { at: posAt, number: 71, lines: [['fries', 1]] });
+    await kitchen(c, sale, 'in_production');
+    await cloudOrder(c, { at: ago(25), lines: [['fries', 1]], display: 72 });
+    // Not started yet: due only at the day close, nothing late.
+    const waiting = await posSale(c, release, { at: ago(20), number: 73, lines: [['cola', 1]] });
+    await kitchen(c, waiting, 'accepted');
+    // The kitchen started just now and the mode was saved just now: normal lag, not a stall.
+    assert.deepEqual((await bo.ops(token, c.branch, 'consumption', {})).backlog, quiet);
+    assert.deepEqual((await bo.read(token, c.branch)).stock_settings.backlog, quiet);
+    // An hour later, still without a single tick (owner connection moves the clocks back).
+    const db = await c.cloud.pool.connect();
+    try {
+      await db.query('SET session_replication_role = replica');
+      await db.query(
+        "UPDATE pos_kitchen_sync_projection SET observed_at=clock_timestamp()-interval '20 minutes' WHERE branch_id=$1",
+        [c.branch],
+      );
+      await db.query(
+        "UPDATE cloud_fulfillment_projection SET observed_at=clock_timestamp()-interval '20 minutes' WHERE branch_id=$1",
+        [c.branch],
+      );
+    } finally {
+      await db.query('SET session_replication_role = DEFAULT');
+      db.release();
+    }
+    await c.cloud.pool.query(
+      "UPDATE bo_stock_settings SET updated_at=updated_at-interval '1 hour',revision=revision+1 WHERE branch_id=$1",
+      [c.branch],
+    );
+    const stalled = {
+      not_queued: 2,
+      waiting: 0,
+      since: posAt.toISOString(),
+      stalled: true,
+      stall_minutes: 5,
+    };
+    const view = await bo.ops(token, c.branch, 'consumption', {});
+    assert.deepEqual(view.backlog, stalled);
+    // The queue alone looks healthy: that is exactly why the backlog is there.
+    assert.equal(view.items.length, 0);
+    assert.equal(view.counts.blocked, 0);
+    // A filter by day or state does not hide it; the stock page and the manager shift see it.
+    assert.deepEqual(
+      (await bo.ops(token, c.branch, 'consumption', { state: 'blocked' })).backlog,
+      stalled,
+    );
+    assert.deepEqual((await bo.read(token, c.branch)).stock_settings.backlog, stalled);
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Almaty' }).format(new Date());
+    const checks = await managerShiftChecks(c.cloud.pool, c.branch, today, new Date(), ON);
+    assert.deepEqual(checks.blocked_consumption, {
+      status: 'problem',
+      facts: { blocked: 0, not_processed: 2, not_processed_since: posAt.toISOString() },
+    });
+    // The worker runs: both are written off, nothing is late any more.
+    const done = await tick(c);
+    assert.equal(done.states.applied, 2);
+    assert.deepEqual((await bo.ops(token, c.branch, 'consumption', {})).backlog, quiet);
+    assert.equal(
+      (await managerShiftChecks(c.cloud.pool, c.branch, today, new Date(), ON)).blocked_consumption
+        .status,
+      'ok',
+    );
+    // A queue item a crashed worker left pending counts as waiting once it is 5 minutes old.
+    const late = await posSale(c, release, { at: ago(3), number: 74, lines: [['fries', 1]] });
+    await kitchen(c, late, 'in_production');
+    const current = await readStockSettings(c.cloud.pool, c.branch);
+    assert.equal(await enqueueConsumption(c.cloud.pool, c.branch, current, new Date()), 1);
+    const later = new Date(Date.now() + 10 * 60000);
+    assert.deepEqual(await consumptionBacklog(c.cloud.pool, c.branch, current, later), {
+      not_queued: 0,
+      waiting: 1,
+      since: (await items(c)).find((i) => i.order_id === late).sold_at.toISOString(),
+      stalled: true,
+      stall_minutes: 5,
+    });
+    // ... and the cola sale that waits for the day close is late only after 03:00 plus 5 minutes.
+    const tomorrow = new Date(Date.now() + (24 * 60 + 3 * 60 + 10) * 60000);
+    assert.equal(
+      (await consumptionBacklog(c.cloud.pool, c.branch, current, tomorrow)).not_queued,
+      1,
+    );
+    // In dry_run the pending item is late as well; in off nothing is ever late.
+    for (const mode of ['dry_run', 'off'])
+      assert.equal(
+        (
+          await consumptionBacklog(
+            c.cloud.pool,
+            c.branch,
+            {
+              ...current,
+              autoconsume_mode: mode,
+              start_at: mode === 'off' ? null : current.start_at,
+            },
+            mode === 'off' ? tomorrow : later,
+          )
+        ).stalled,
+        mode === 'dry_run',
+      );
   }));

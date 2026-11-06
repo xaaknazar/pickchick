@@ -54,6 +54,7 @@ import {
   approveMenuLinks,
   assertManualConsume,
   autoconsumeAvailable,
+  consumptionBacklog,
   linkedOutputs,
   readConsumption,
   readMenuLinks,
@@ -592,10 +593,12 @@ export class Backoffice {
         // Automatic consumption (step 5): the branch mode for the stock page, only while it runs.
         ...(autoconsume
           ? {
-              stock_settings: await readStockSettings(db, branch).then((v) => ({
+              stock_settings: await readStockSettings(db, branch).then(async (v) => ({
                 autoconsume_mode: v.autoconsume_mode,
                 start_at: v.start_at,
                 revision: v.revision,
+                // Review BOUI-R2: sales the worker should have handled and has not.
+                backlog: await consumptionBacklog(db, branch, v, now),
               })),
             }
           : {}),

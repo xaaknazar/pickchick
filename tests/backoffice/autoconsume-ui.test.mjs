@@ -17,6 +17,7 @@ import { documentDetail, stockSalesNotice } from '../../apps/backoffice/dist/inv
 import {
   almatyInput,
   approveCommand,
+  backlogOf,
   consumptionView,
   coverageText,
   coverageWarning,
@@ -38,6 +39,7 @@ import {
   saleLabel,
   settingsCommand,
   shareText,
+  stallText,
   unsetPolicyWarnings,
 } from '../../apps/backoffice/dist/autoconsume-model.js';
 
@@ -155,6 +157,60 @@ test('mode: words, Almaty input, the command and what it does', () => {
     stockSalesNotice('on', true, '2026-11-18T19:00:00.000Z'),
     /автоматически с 19\.11\.2026 00:00/,
   );
+});
+
+test('a worker that does not run: the stock notice and the tab say so in words (BOUI-R2)', () => {
+  const asOf = '2026-11-19T10:00:00.000Z'; // 15:00 Almaty
+  const stalled = backlogOf({
+    not_queued: 2,
+    waiting: 1,
+    since: '2026-11-19T09:05:00.000Z',
+    stalled: true,
+    stall_minutes: 5,
+  });
+  assert.deepEqual(stalled, {
+    not_queued: 2,
+    waiting: 1,
+    since: '2026-11-19T09:05:00.000Z',
+    stalled: true,
+  });
+  const on = stallText(stalled, 'on', asOf);
+  assert.equal(
+    on,
+    'Списание по продажам не работает: 3 продажи не обработаны с 14:05. Остатки по этим продажам не уменьшаются. Сообщите владельцу: служба списания на сервере не запущена.',
+  );
+  // The stock page shows it instead of «Продажи списываются со склада автоматически».
+  assert.equal(stockSalesNotice('on', true, '2026-11-18T19:00:00.000Z', on), on);
+  assert.doesNotMatch(stockSalesNotice('on', true, '2026-11-18T19:00:00.000Z', on), /списываются/);
+  // An older day carries its date; one sale is singular; dry_run says the check does not run.
+  assert.match(
+    stallText({ ...stalled, not_queued: 1, waiting: 0 }, 'on', '2026-11-20T10:00:00.000Z'),
+    /^Списание по продажам не работает: 1 продажа не обработана с 19\.11\.2026 14:05\./,
+  );
+  assert.match(
+    stallText({ ...stalled, not_queued: 5, waiting: 0 }, 'dry_run', asOf),
+    /^Проверка продаж по связям не работает: 5 продаж не обработаны с 14:05\./,
+  );
+  // Nothing late, mode off, or an older server without the key: no text.
+  assert.equal(stallText(backlogOf({ ...stalled, stalled: false }), 'on', asOf), null);
+  assert.equal(stallText(stalled, 'off', asOf), null);
+  assert.equal(backlogOf(undefined), null);
+  assert.equal(stallText(null, 'on', asOf), null);
+  assert.equal(stockSalesNotice('off', true, null, on), stockSalesNotice('off', true));
+  assert.doesNotMatch(on, LONG_DASHES);
+  // GET .../ops/consumption carries it; without it the view still loads.
+  const raw = {
+    schema_version: 1,
+    branch_id: branch,
+    as_of: asOf,
+    settings: { autoconsume_mode: 'on', start_at: asOf, revision: 1 },
+    items: [],
+    counts: {},
+    coverage: {},
+  };
+  assert.deepEqual(consumptionView({ ...raw, backlog: { ...stalled } }, branch).backlog, stalled);
+  assert.equal(consumptionView(raw, branch).backlog, null);
+  assert.equal(consumptionView(raw, branch).as_of, asOf);
 });
 
 test('coverage: share in words, the 95 % warning with the most frequent missing items', () => {

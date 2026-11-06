@@ -21,6 +21,7 @@ import { NO_FILTER, auditRows, auditView, type AuditFilter } from './audit-model
 import {
   almatyInput,
   approveCommand,
+  backlogOf,
   coverageWarning,
   itemReason,
   itemTitle,
@@ -32,6 +33,7 @@ import {
   modeConsequence,
   saleLabel,
   settingsCommand,
+  stallText,
   type AutoconsumeMode,
   type ConsumptionView,
   type LinkDraftLine,
@@ -3242,6 +3244,13 @@ export class OperationsView {
                   autoconsumeAvailable(d) ? this.consumptionMode(d) : 'off',
                   stockP1(d),
                   autoconsumeAvailable(d) ? this.consumptionStart(d) : null,
+                  autoconsumeAvailable(d)
+                    ? stallText(
+                        backlogOf(object((d as unknown as Data)['stock_settings'])['backlog']),
+                        this.consumptionMode(d),
+                        d.as_of,
+                      )
+                    : null,
                 ),
               }
             : {}),

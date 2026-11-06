@@ -36,8 +36,62 @@ export type Coverage = {
   missing: { catalog_key: string; name: string | null; lines: number }[];
   truncated: boolean;
 };
+/**
+ * Review BOUI-R2: sales the worker should have handled and has not (GET .../ops/consumption and
+ * stock_settings of GET branches/:id). Absent on an older server.
+ */
+export type ConsumptionBacklog = {
+  not_queued: number;
+  waiting: number;
+  since: string | null;
+  stalled: boolean;
+};
+export function backlogOf(value: unknown): ConsumptionBacklog | null {
+  const b = object(value);
+  if (typeof b['stalled'] !== 'boolean') return null;
+  return {
+    not_queued: Number(b['not_queued'] ?? 0),
+    waiting: Number(b['waiting'] ?? 0),
+    since: typeof b['since'] === 'string' ? b['since'] : null,
+    stalled: b['stalled'],
+  };
+}
+const almatyDay = (value: string) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Almaty' }).format(new Date(value));
+/** «14:05» on the same Almaty day as `asOf`, otherwise «18.11.2026 23:40». */
+function sinceText(since: string, asOf: string) {
+  const full = almatyDateTime(since);
+  return almatyDay(since) === almatyDay(asOf) ? full.slice(-5) : full;
+}
+const sales = (n: number) =>
+  n % 10 === 1 && n % 100 !== 11
+    ? 'продажа не обработана'
+    : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100)
+      ? 'продажи не обработаны'
+      : 'продаж не обработаны';
+/**
+ * «Списание по продажам не работает: 3 продажи не обработаны с 14:05. …» while the worker does
+ * not keep up, or null. Shown on the stock page, in «Списание по продажам» and in the manager
+ * shift check, so a quiet queue never reads as a healthy one.
+ */
+export function stallText(
+  backlog: ConsumptionBacklog | null,
+  mode: AutoconsumeMode,
+  asOf: string,
+): string | null {
+  if (!backlog?.stalled || mode === 'off') return null;
+  const n = backlog.not_queued + backlog.waiting;
+  const since = backlog.since ? ` с ${sinceText(backlog.since, asOf)}` : '';
+  return mode === 'dry_run'
+    ? `Проверка продаж по связям не работает: ${n} ${sales(n)}${since}. Сообщите владельцу: служба списания на сервере не запущена.`
+    : `Списание по продажам не работает: ${n} ${sales(n)}${since}. Остатки по этим продажам не уменьшаются. Сообщите владельцу: служба списания на сервере не запущена.`;
+}
 export type ConsumptionView = {
   settings: ConsumptionSettings;
+  /** Review BOUI-R2; null from an older server. */
+  backlog: ConsumptionBacklog | null;
+  /** GET .../ops/consumption as_of (the moment the backlog was computed). */
+  as_of: string;
   items: Data[];
   counts: Record<string, number>;
   coverage: Coverage;
@@ -73,6 +127,8 @@ export function consumptionView(value: unknown, branch: string): ConsumptionView
       updated_by_name: typeof s['updated_by_name'] === 'string' ? s['updated_by_name'] : null,
       updated_at: typeof s['updated_at'] === 'string' ? s['updated_at'] : null,
     },
+    backlog: backlogOf(o['backlog']),
+    as_of: typeof o['as_of'] === 'string' ? o['as_of'] : new Date().toISOString(),
     items: list(o['items']),
     counts: Object.fromEntries(CONSUMPTION_STATES.map((k) => [k, Number(counts[k] ?? 0)])),
     coverage: {

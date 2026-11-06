@@ -203,6 +203,28 @@ test('texts of the automatic checks: money in tenge, Almaty time, no long dashes
       'Списание по продажам не включено. Пункт необязателен.',
     ],
     [
+      'blocked_consumption',
+      { status: 'ok', facts: { blocked: 0, not_processed: 0, not_processed_since: null } },
+      'Заблокированных списаний нет.',
+    ],
+    // Review BOUI-R2: a worker that does not run is a problem in words, never «нет».
+    [
+      'blocked_consumption',
+      {
+        status: 'problem',
+        facts: { blocked: 0, not_processed: 4, not_processed_since: '2026-11-19T09:05:00.000Z' },
+      },
+      'Списание по продажам не работает: не обработано продаж 4 с 19.11.2026 14:05. Сообщите владельцу.',
+    ],
+    [
+      'blocked_consumption',
+      {
+        status: 'problem',
+        facts: { blocked: 2, not_processed: 1, not_processed_since: '2026-11-19T09:05:00.000Z' },
+      },
+      'Списание по продажам не работает: не обработано продаж 1 с 19.11.2026 14:05. Сообщите владельцу. Не списано продаж: 2. Разберите в «Остатки» - «Списание по продажам» или поясните.',
+    ],
+    [
       'key_count',
       { status: 'no_data', facts: { documents: 0, items: 0, last_at: null } },
       'Подсчёта за день нет. Проведите инвентаризацию ключевых позиций в «Остатки».',

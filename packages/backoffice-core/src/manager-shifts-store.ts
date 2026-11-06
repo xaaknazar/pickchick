@@ -4,7 +4,11 @@ import { BackofficeError, parse, periodWindow } from './model.js';
 import { readable, type BackofficeOptions } from './stops.js';
 import { P1_FEATURE_RELATIONS, p1RelationsReady } from './p1-flags.js';
 import { readPosDay } from './pos-day.js';
-import { autoconsumeAvailable } from './consumption-store.js';
+import {
+  autoconsumeAvailable,
+  consumptionBacklog,
+  readStockSettings,
+} from './consumption-store.js';
 import { branchTemplatesWritable, latestTemplate } from './positions.js';
 import {
   ChecklistTemplateSchema,
@@ -268,7 +272,14 @@ export async function managerShiftChecks(
         [branch, start, end],
       )
     ).rows[0]!.n;
-    out.blocked_consumption = check(blocked > 0 ? 'problem' : 'ok', { blocked });
+    // Review BOUI-R2: sales the worker should have handled and has not (any day) are a problem
+    // too, so «Заблокированных списаний нет» never stands for a worker that does not run.
+    const backlog = await consumptionBacklog(db, branch, await readStockSettings(db, branch), now);
+    out.blocked_consumption = check(blocked > 0 || backlog.stalled ? 'problem' : 'ok', {
+      blocked,
+      not_processed: backlog.not_queued + backlog.waiting,
+      not_processed_since: backlog.since,
+    });
   } else out.blocked_consumption = check('off');
   return Object.fromEntries(MANAGER_SHIFT_AUTO.map((k) => [k, out[k]])) as Checks;
 }

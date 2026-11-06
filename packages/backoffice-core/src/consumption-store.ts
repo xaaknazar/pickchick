@@ -1031,6 +1031,110 @@ async function coverage(db: Db, branch: string, now: Date) {
     truncated,
   };
 }
+/**
+ * A sale due for the worker this long ago without being handled means the worker is not running
+ * (it ticks every 30 seconds, services/api/src/stock-consumption-worker.ts).
+ */
+export const CONSUMPTION_STALL_MINUTES = 5;
+export type ConsumptionBacklog = {
+  /** Due sales since start_at without a queue item, due at least 5 minutes ago. */
+  not_queued: number;
+  /** Queue items the worker should have processed 5 minutes ago (pending; previewed while on). */
+  waiting: number;
+  /** Sale time of the oldest of them, or null. */
+  since: string | null;
+  /** Something is late: the sales are not written off (review BOUI-R2). */
+  stalled: boolean;
+  stall_minutes: number;
+};
+const dayCloseAt = (column: string) =>
+  `((((${column}) AT TIME ZONE 'Asia/Almaty')::date + 1) + time '03:00') AT TIME ZONE 'Asia/Almaty'`;
+/**
+ * Review BOUI-R2: only the worker queues the sales, so the cabinet cannot tell a quiet day from a
+ * worker that never runs by the queue alone. This counts what the worker would have taken by now
+ * (the selection of enqueueConsumption, without its batch limit) and has not, and the queue items
+ * it should already have processed. A sale counts as due from its kitchen start (the projection
+ * time) or the day close, and never before the mode was last saved, so the catch-up after
+ * switching on is not reported as a stall.
+ */
+export async function consumptionBacklog(
+  db: Db,
+  branch: string,
+  settings: Pick<StockSettings, 'autoconsume_mode' | 'start_at' | 'updated_at'>,
+  now: Date,
+): Promise<ConsumptionBacklog> {
+  const out: ConsumptionBacklog = {
+    not_queued: 0,
+    waiting: 0,
+    since: null,
+    stalled: false,
+    stall_minutes: CONSUMPTION_STALL_MINUTES,
+  };
+  if (settings.autoconsume_mode === 'off' || settings.start_at === null) return out;
+  const late = new Date(now.getTime() - CONSUMPTION_STALL_MINUTES * 60000);
+  const saved = settings.updated_at ?? settings.start_at;
+  const oldest: Date[] = [];
+  const add = (
+    row: { n: number; since: Date | null } | undefined,
+    key: 'not_queued' | 'waiting',
+  ) => {
+    out[key] += row?.n ?? 0;
+    if (row?.since) oldest.push(row.since);
+  };
+  if (await readable(db, 'cloud_pos_sales')) {
+    const b = await bounds(db, branch, 'pos');
+    add(
+      (
+        await db.query<{ n: number; since: Date | null }>(
+          `SELECT count(*)::int n,min(s.sold_at) since FROM cloud_pos_sales s
+           LEFT JOIN pos_kitchen_sync_projection k ON k.order_id=s.order_id AND k.branch_id=s.branch_id
+           WHERE s.branch_id=$1 AND s.sold_at >= $2 AND s.sold_at <= $3
+             AND s.business_date >= (($2::timestamptz AT TIME ZONE 'Asia/Almaty')::date - 1)
+             AND ($5::timestamptz IS NULL OR s.sold_at < $5 OR s.sold_at >= $6::timestamptz - interval '7 days')
+             AND greatest(CASE WHEN k.state IN ${STARTED} THEN coalesce(k.observed_at,s.sold_at)
+               ELSE ${dayCloseAt('s.sold_at')} END,$7::timestamptz) <= $4
+             AND NOT EXISTS(SELECT 1 FROM bo_consumption_items i WHERE i.branch_id=s.branch_id AND i.source='pos' AND i.order_id=s.order_id)`,
+          [branch, settings.start_at, now, late, b.min, b.max, saved],
+        )
+      ).rows[0],
+      'not_queued',
+    );
+  }
+  const b = await bounds(db, branch, 'cloud');
+  add(
+    (
+      await db.query<{ n: number; since: Date | null }>(
+        `SELECT count(*)::int n,min(c.sold_at) since FROM commerce_orders o
+         JOIN LATERAL (SELECT min(x.occurred_at) sold_at FROM commerce_captures x WHERE x.order_id=o.id) c ON c.sold_at IS NOT NULL
+         LEFT JOIN cloud_fulfillment_projection f ON f.order_id=o.id
+         WHERE o.branch_id=$1 AND o.created_at >= $2::timestamptz - interval '1 day'
+           AND c.sold_at >= $2 AND c.sold_at <= $3
+           AND ($5::timestamptz IS NULL OR c.sold_at < $5 OR c.sold_at >= $6::timestamptz - interval '7 days')
+           AND greatest(CASE WHEN f.state IN ${STARTED} THEN coalesce(f.observed_at,c.sold_at)
+             ELSE ${dayCloseAt('c.sold_at')} END,$7::timestamptz) <= $4
+           AND NOT EXISTS(SELECT 1 FROM bo_consumption_items i WHERE i.branch_id=o.branch_id AND i.source='cloud' AND i.order_id=o.id)`,
+        [branch, settings.start_at, now, late, b.min, b.max, saved],
+      )
+    ).rows[0],
+    'not_queued',
+  );
+  add(
+    (
+      await db.query<{ n: number; since: Date | null }>(
+        `SELECT count(*)::int n,min(i.sold_at) since FROM bo_consumption_items i
+         WHERE i.branch_id=$1 AND i.sold_at >= $2 AND greatest(i.updated_at,$4::timestamptz) <= $3
+           AND (i.state='pending' OR (i.state='previewed' AND $5='on'))`,
+        [branch, settings.start_at, late, saved, settings.autoconsume_mode],
+      )
+    ).rows[0],
+    'waiting',
+  );
+  out.since = oldest.length
+    ? new Date(Math.min(...oldest.map((d) => d.getTime()))).toISOString()
+    : null;
+  out.stalled = out.not_queued + out.waiting > 0;
+  return out;
+}
 /** GET .../ops/consumption (autoconsume): mode, queue of a day or of all days, counts, coverage. */
 export async function readConsumption(db: Db, branch: string, input: unknown, now: Date) {
   const q = parse(ConsumptionQuery, input);
@@ -1083,6 +1187,8 @@ export async function readConsumption(db: Db, branch: string, input: unknown, no
     state: q.state ?? null,
     as_of: now.toISOString(),
     settings,
+    // Review BOUI-R2: whether the worker keeps up (all days, whatever the filter).
+    backlog: await consumptionBacklog(db, branch, settings, now),
     items: items.slice(0, CONSUMPTION_LIST_LIMIT),
     counts,
     coverage: await coverage(db, branch, now),

@@ -17,6 +17,7 @@ import {
   queueActions,
   queueSummary,
   saleLabel,
+  stallText,
   stateLabel,
   type ConsumptionView,
   type LinkFilter,
@@ -166,6 +167,14 @@ export class AutoconsumeView {
     const line = el('p', 'autoconsume-mode-line', `Списание по продажам: ${modeText(v.settings)}`);
     line.dataset.testid = 'autoconsume-mode';
     box.append(line);
+    // Review BOUI-R2: the worker does not keep up; said before anything that looks healthy.
+    const stall = stallText(v.backlog, v.settings.autoconsume_mode, v.as_of);
+    if (stall) {
+      const n = el('p', 'notice error', stall);
+      n.setAttribute('role', 'alert');
+      n.dataset.testid = 'autoconsume-stalled';
+      box.append(n);
+    }
     if (v.settings.updated_by_name && v.settings.updated_at)
       box.append(
         el(

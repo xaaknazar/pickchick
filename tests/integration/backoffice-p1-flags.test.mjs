@@ -98,7 +98,12 @@ const without = (state, keys) => {
   }
   // ... and the branch mode of the stock page (no settings row: off).
   if (keys.includes('stock_autoconsume') && state.capabilities.stock_autoconsume === true) {
-    assert.deepEqual(copy.stock_settings, { autoconsume_mode: 'off', start_at: null, revision: 0 });
+    assert.deepEqual(copy.stock_settings, {
+      autoconsume_mode: 'off',
+      start_at: null,
+      revision: 0,
+      backlog: { not_queued: 0, waiting: 0, since: null, stalled: false, stall_minutes: 5 },
+    });
     delete copy.stock_settings;
   }
   // manager_shifts (step 6) lists the old journal apart with its limit, and its two P1

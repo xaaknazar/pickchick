@@ -156,11 +156,20 @@ export function checkText(auto: string, check: Check | null | undefined): string
       return check.status === 'no_data'
         ? 'Подсчёта за день нет. Проведите инвентаризацию ключевых позиций в «Остатки».'
         : `Подсчётов за день: ${num(f['documents'])}, позиций: ${num(f['items'])}, последний в ${time(f['last_at'])}.`;
-    case 'blocked_consumption':
+    case 'blocked_consumption': {
       if (check.status === 'off') return 'Списание по продажам не включено. Пункт необязателен.';
-      return num(f['blocked']) > 0
-        ? `Не списано продаж: ${num(f['blocked'])}. Разберите в «Остатки» - «Списание по продажам» или поясните.`
-        : 'Заблокированных списаний нет.';
+      // Review BOUI-R2: sales the worker should have handled (the server says how many).
+      const late = num(f['not_processed']);
+      const stalled =
+        late > 0
+          ? `Списание по продажам не работает: не обработано продаж ${late}${typeof f['not_processed_since'] === 'string' ? ` с ${almatyDateTime(f['not_processed_since'])}` : ''}. Сообщите владельцу.`
+          : '';
+      const blocked =
+        num(f['blocked']) > 0
+          ? `Не списано продаж: ${num(f['blocked'])}. Разберите в «Остатки» - «Списание по продажам» или поясните.`
+          : '';
+      return [stalled, blocked].filter(Boolean).join(' ') || 'Заблокированных списаний нет.';
+    }
     default:
       return CHECK_LABELS[check.status];
   }

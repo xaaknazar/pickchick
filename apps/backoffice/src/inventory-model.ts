@@ -231,7 +231,10 @@ export function stockSalesNotice(
   mode: 'off' | 'dry_run' | 'on' = 'off',
   lastCount = false,
   startAt: string | null = null,
+  /** Review BOUI-R2: the stall text of the worker (stallText), shown instead of «списываются». */
+  stall: string | null = null,
 ): string | null {
+  if (stall && mode !== 'off') return stall;
   // Step 5: with the automatic consumption on the page says from when sales are written off.
   if (mode === 'on')
     return startAt
