@@ -1613,6 +1613,57 @@ test('definite edge refusals end the command and keep the quote; uncertain answe
   assert.equal(new Set(edge.edge.posts.map((p) => p.key)).size, 3, 'each refusal took a new key');
 });
 
+test('an edge that answers only a bare CONFLICT for the POS codes: each command ends, none is retried', async () => {
+  // Until ErrorSchema lists the 13 POS codes (CR pos-1 section 2, CR client-4), the edge error
+  // filter turns EXTERNAL_REF_DUPLICATE, REFUND_LIMIT, DRAWER_INSUFFICIENT... into 409 CONFLICT.
+  // Degraded but safe: the command ends, the generic text shows, nothing is sent again.
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  await reviewed(model, edge, 'takeaway');
+  edge.edge.reject = new ApiError('CONFLICT', 409);
+  await model.sell({ method: 'cash', tendered_minor: '700000' });
+  assert.equal(model.state.pending, null, 'the sale command ends');
+  assert.equal(model.state.error.code, 'CONFLICT');
+  assert.equal(
+    saleErrorMessage(model.state.error, { method: 'cash' }),
+    errorMessage(new ApiError('CONFLICT', 409)),
+    'today the generic text, not a section 5.1 text',
+  );
+  assert.equal(model.state.quote, null, 'quoted again before the next try');
+  assert.ok(model.state.draft?.items.length, 'the cart stays');
+  await model.recover();
+  await model.refreshOperations();
+  assert.equal(edge.edge.posts.length, 1, 'never sent again with its key');
+  assert.equal(edge.edge.sales.size, 0, 'nothing was sold');
+  // The next try is a new command: new quote, new key, the guest's confirmation again.
+  edge.edge.reject = null;
+  await model.calculate();
+  model.confirmReview();
+  await model.sell({ method: 'cash', tendered_minor: '700000' });
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.equal(edge.edge.posts.length, 2);
+  assert.notEqual(edge.edge.posts[1].key, edge.edge.posts[0].key);
+  assert.notEqual(edge.edge.posts[1].body.quote_id, edge.edge.posts[0].body.quote_id);
+  // A refund refused the same way (REFUND_LIMIT or DRAWER_INSUFFICIENT on a merged edge).
+  const id = model.state.sale.order_id;
+  model.newDraft();
+  await model.openSale(id);
+  const parts = [{ tender_id: model.state.sale.tenders[0].tender_id, amount_minor: '100000' }];
+  await model.requestApproval(MANAGER_PIN, 'refund', refundSubject(id, parts));
+  assert.ok(model.approvalFor('refund', refundSubject(id, parts)));
+  edge.edge.opReject = new ApiError('CONFLICT', 409);
+  const ops = edge.edge.ops.length;
+  await model.refund({ tenders: parts, reason_code: 'quality', reason: 'Качество блюда' });
+  assert.equal(model.state.pending, null, 'the refund command ends');
+  assert.equal(model.state.error.code, 'CONFLICT');
+  assert.equal(model.state.approval, null, 'the approval it carried is asked again');
+  assert.equal(edge.edge.ops.length, ops + 1);
+  await model.recover();
+  await model.refreshOperations();
+  assert.equal(edge.edge.ops.length, ops + 1, 'never sent again');
+  assert.equal(edge.edge.sales.get(id).refunds.length, 0);
+});
+
 test('a 401 on staff/approvals asks the session once: an ended session logs the desk out, a wrong PIN does not', async () => {
   const edge = saleEdge();
   // The edge says 401 to every request of an ended session; a probe answer can be lost.
