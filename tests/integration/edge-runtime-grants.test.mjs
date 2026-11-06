@@ -320,3 +320,45 @@ test('cutover 026: runtime grants hold exactly the reviewed POS sales privileges
     }),
   );
 });
+
+test('cutover 027: runtime grants hold exactly the reviewed KDS privileges with kitchen access only', async () => {
+  await fixture(async (ctx) =>
+    runtime(ctx, async (pool, role, options) => {
+      const { assertKdsRuntimePrivileges, kdsTableGrantees } =
+        await import('../../infra/windows/kds-grants.mjs');
+      // CR kds-1 section 3: with 027 applied and fulfillment, the reset grants the KDS set.
+      assert.equal((await assertKdsRuntimePrivileges(ctx.pool, role, ctx.schema)).verified, true);
+      assert.deepEqual(await kdsTableGrantees(ctx.pool, ctx.schema), [role]);
+      for (const sql of [
+        'UPDATE kds_settings SET layout_enabled=true',
+        'SELECT 1 FROM kds_setting_changes',
+        'DELETE FROM courier_incidents',
+        'UPDATE delivery_handovers SET staff_id=staff_id',
+      ])
+        await assert.rejects(pool.query(sql), denied, sql);
+      // Without kitchen access none of the KDS tables is reachable after the reset.
+      await applyEdgeRuntimeGrants(ctx.pool, role, { ...options, fulfillment: false });
+      assert.deepEqual(await kdsTableGrantees(ctx.pool, ctx.schema), []);
+      await assert.rejects(pool.query('SELECT 1 FROM kds_settings'), denied);
+      await applyEdgeRuntimeGrants(ctx.pool, role, options);
+      assert.equal((await assertKdsRuntimePrivileges(ctx.pool, role, ctx.schema)).verified, true);
+      // A ledger that names 027 while its objects are missing (or the reverse) is refused.
+      const row = (
+        await ctx.pool.query(
+          "DELETE FROM schema_migrations WHERE version='027_edge_kds_foundation.sql' RETURNING version,checksum,scope",
+        )
+      ).rows[0];
+      try {
+        await assert.rejects(
+          applyEdgeRuntimeGrants(ctx.pool, role, options),
+          /KDS migration objects differ/,
+        );
+      } finally {
+        await ctx.pool.query(
+          'INSERT INTO schema_migrations(version,checksum,scope) VALUES($1,$2,$3)',
+          [row.version, row.checksum, row.scope],
+        );
+      }
+    }),
+  );
+});
