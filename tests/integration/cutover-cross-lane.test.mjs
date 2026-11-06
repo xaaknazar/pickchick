@@ -364,10 +364,10 @@ async function drain(sync, pool, options) {
   assert.fail('Bounded stream drain exceeded');
 }
 /** The posSales loop of the POS sync worker until the outbox is empty (contracts 5.6). */
-async function drainPosSales(pool, options, schedule) {
+async function drainPosSales(pool, options, schedule, io = {}) {
   const states = [];
   for (let i = 0; i < 50; i++) {
-    const result = await syncPosSalesOnce(pool, options, schedule);
+    const result = await syncPosSalesOnce(pool, options, schedule, io);
     states.push(result.state);
     if (result.state === 'idle') return states;
     assert.ok(['delivered', 'probed'].includes(result.state), JSON.stringify(result));
@@ -521,6 +521,69 @@ async function cloudOrder(ctx, desk, pool) {
   });
 }
 
+/**
+ * Contracts 6.2 steps 6-7 with the real operator tools: the chef's KDS layout (kds-switch
+ * layout-build, layout-apply, enable with the installed logins) and pos-sales-setup enable with
+ * every method, once the cloud answered posSales and the desk fetched GET pos/config.
+ */
+async function switchOn(ctx, desk, pos) {
+  const edge = ctx.edge.pool;
+  const screens = {};
+  for (const fn of ['breading', 'toasts', 'assembly_hall', 'assembly_delivery', 'issue']) {
+    screens[fn] = randomUUID();
+    await edge.query('INSERT INTO local_terminals(id,branch_id) VALUES($1,$2)', [
+      screens[fn],
+      ctx.branch,
+    ]);
+  }
+  const built = await buildKdsLayout(edge, {
+    branchId: ctx.branch,
+    tsv: [
+      'product_slug\tfunction\tunit\tcount',
+      'pick-burger\ttoasts\tburger\t1',
+      'pick-burger\tassembly_hall',
+      'pick-burger\tassembly_delivery',
+      'pick-drink\tissue',
+    ].join('\n'),
+    terminalsTsv: [
+      'function\tterminal_id',
+      ...Object.entries(screens).map(([fn, id]) => `${fn}\t${id}`),
+    ].join('\n'),
+  });
+  assert.deepEqual(built.report.unmapped, []);
+  await applyKdsLayout(edge, {
+    branchId: ctx.branch,
+    layout: built.layout,
+    reason: 'Раскладка шефа (синтетика)',
+  });
+  const enabled = await setKdsLayoutEnabled(edge, {
+    branchId: ctx.branch,
+    enabled: true,
+    reason: 'Т9 учение KDS',
+    workerRoles: [desk.fulfillment.role],
+    runtimeRoles: [desk.runtime.role],
+  });
+  assert.equal(enabled.layout_enabled, true);
+  const status = await posSalesStatus(edge, ctx.branch);
+  assert.deepEqual(status.blockers, []);
+  // CR client-4 section 5 item 3: the operator sees the build of every cash desk.
+  assert.deepEqual(
+    status.cash_desks.map((d) => [d.terminal_id, d.client_version]),
+    [[desk.cashier.terminal_id, DESK_BUILD]],
+  );
+  const methods = PosPaymentMethodSchema.options;
+  const switched = await enablePosSales(edge, ctx.branch, {
+    methods,
+    reason: 'Т7 пробная смена',
+  });
+  assert.equal(switched.mode, 'pos_sale');
+  const paidConfig = PosConfigSchema.parse(
+    ok(await pos('GET', `/edge/v1/pos/config?client_version=${DESK_BUILD}`)),
+  );
+  assert.equal(paidConfig.mode, 'pos_sale');
+  assert.ok(paidConfig.methods.every((method) => method.enabled));
+}
+
 test('C4 025 -> 026 -> 027, then a paid day on the KDS layout through the real cash desk and kitchen routes reaches the new cloud on all four streams', async () => {
   const root = await mkdtemp(join(tmpdir(), 'pickchick-cross-lane-'));
   try {
@@ -647,61 +710,8 @@ test('C4 025 -> 026 -> 027, then a paid day on the KDS layout through the real c
           assert.equal(unpaidConfig.mode, 'unpaid_service');
           assert.ok(unpaidConfig.methods.every((method) => !method.enabled));
 
-          // ---- Steps 6-7: KDS layout from the chef's file, enable with the installed logins.
-          const screens = {};
-          for (const fn of ['breading', 'toasts', 'assembly_hall', 'assembly_delivery', 'issue']) {
-            screens[fn] = randomUUID();
-            await edge.query('INSERT INTO local_terminals(id,branch_id) VALUES($1,$2)', [
-              screens[fn],
-              ctx.branch,
-            ]);
-          }
-          const built = await buildKdsLayout(edge, {
-            branchId: ctx.branch,
-            tsv: [
-              'product_slug\tfunction\tunit\tcount',
-              'pick-burger\ttoasts\tburger\t1',
-              'pick-burger\tassembly_hall',
-              'pick-burger\tassembly_delivery',
-              'pick-drink\tissue',
-            ].join('\n'),
-            terminalsTsv: [
-              'function\tterminal_id',
-              ...Object.entries(screens).map(([fn, id]) => `${fn}\t${id}`),
-            ].join('\n'),
-          });
-          assert.deepEqual(built.report.unmapped, []);
-          await applyKdsLayout(edge, {
-            branchId: ctx.branch,
-            layout: built.layout,
-            reason: 'Раскладка шефа (синтетика)',
-          });
-          const enabled = await setKdsLayoutEnabled(edge, {
-            branchId: ctx.branch,
-            enabled: true,
-            reason: 'Т9 учение KDS',
-            workerRoles: [desk.fulfillment.role],
-            runtimeRoles: [desk.runtime.role],
-          });
-          assert.equal(enabled.layout_enabled, true);
-          const status = await posSalesStatus(edge, ctx.branch);
-          assert.deepEqual(status.blockers, []);
-          // CR client-4 section 5 item 3: the operator sees the build of every cash desk.
-          assert.deepEqual(
-            status.cash_desks.map((d) => [d.terminal_id, d.client_version]),
-            [[desk.cashier.terminal_id, DESK_BUILD]],
-          );
-          const methods = PosPaymentMethodSchema.options;
-          const switched = await enablePosSales(edge, ctx.branch, {
-            methods,
-            reason: 'Т7 пробная смена',
-          });
-          assert.equal(switched.mode, 'pos_sale');
-          const paidConfig = PosConfigSchema.parse(
-            ok(await pos('GET', `/edge/v1/pos/config?client_version=${DESK_BUILD}`)),
-          );
-          assert.equal(paidConfig.mode, 'pos_sale');
-          assert.ok(paidConfig.methods.every((method) => method.enabled));
+          // ---- Steps 6-7: the KDS layout and paid sales switched on with the operator tools.
+          await switchOn(ctx, desk, pos);
 
           // ---- The paid day: a sales shift, five sales through POST pos/sales.
           const shift = CashShiftSchema.parse(
@@ -1555,4 +1565,256 @@ test('every flag off after C4: today’s POS, kitchen and board get byte-identic
   assert.deepEqual(days.edge027.transcript, days.edge025.transcript);
   assert.deepEqual(days.edge027.streams, days.edge025.streams);
   assert.equal(days.edge027.cloud, days.edge025.cloud);
+});
+
+// ------------------------------------------------------- no WAN, then every stream catches up ----
+/** The kitchen screen calls of one ticket (kitchen profile): read at a station, act, complete. */
+function kdsScreen(kitchen, branch) {
+  const S = (fn) => kdsStationId(branch, fn);
+  const read = async (orderId, fn) =>
+    FulfillmentOrderSchema.parse(
+      ok(await kitchen('GET', `/edge/v1/fulfillment/orders/${orderId}?stationId=${S(fn)}`)),
+    );
+  const act = (current, body) =>
+    kitchen('POST', `/edge/v1/fulfillment/orders/${current.orderId}/actions`, {
+      expectedVersion: current.version,
+      ...body,
+    });
+  const complete = async (current, fn) =>
+    ok(await act(current, { action: 'complete_station', stationId: S(fn) }));
+  return { read, act, complete };
+}
+
+test('WAN down after the switch-on: sales and the KDS kitchen go on, the four streams keep every event and catch up in order once the cloud is back', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'pickchick-cross-lane-wan-'));
+  try {
+    const before026 = await migrationsBefore(root, '026');
+    await withSyncDatabases(
+      async (ctx) => {
+        const edge = ctx.edge.pool;
+        const desk = await edge025(ctx);
+        await windowC4(ctx, desk);
+        const cloud = await running(createApi, {
+          ...ctx.cloud.config,
+          posOrderSyncEnabled: true,
+          posSalesSyncEnabled: true,
+        });
+        const server = await startEdge(ctx, desk.runtime);
+        try {
+          const up = {
+            enabled: true,
+            branchId: ctx.branch,
+            origin: cloud.url,
+            identity: desk.identity,
+          };
+          // The router of the cash desk is down: nothing listens at the cloud address.
+          const down = { ...up, origin: 'http://127.0.0.1:9' };
+          const sync = desk.posSync.open();
+          let clock = Date.now();
+          const io = { now: () => clock };
+          const schedule = createPosSalesSchedule();
+          assert.equal((await syncPosSalesOnce(sync, up, schedule, io)).state, 'probed');
+          const pos = lanClient(server.url, 'pos', desk.cashier);
+          const boss = lanClient(server.url, 'pos', desk.manager);
+          const kds = kdsScreen(
+            lanClient(server.url, 'kitchen', desk.cook, desk.cook.terminal_id),
+            ctx.branch,
+          );
+          ok(await pos('GET', `/edge/v1/pos/config?client_version=${DESK_BUILD}`));
+          await switchOn(ctx, desk, pos);
+
+          // ---- No WAN: a whole paid shift with its kitchen; every sender fails and waits.
+          const tried = [];
+          const attempt = async () => {
+            // Idle while nothing is pending and the last answer is recent; otherwise it fails.
+            const sales = await syncPosSalesOnce(sync, down, schedule, io);
+            assert.ok(['retry', 'waiting', 'idle'].includes(sales.state), JSON.stringify(sales));
+            tried.push(sales.error ?? sales.state);
+            for (const stream of [syncPosOrdersOnce, syncPosKitchenOnce]) {
+              const result = await stream(sync, down);
+              assert.ok(['retry', 'idle'].includes(result.state), JSON.stringify(result));
+            }
+            clock += 61_000;
+          };
+          const shift = ok(
+            await boss('POST', '/edge/v1/cash-shifts', { opening_cash_minor: '500000' }),
+            201,
+          );
+          await attempt();
+          const sell = async (items, extra, body) => {
+            const quote = ok(
+              await pos('POST', '/edge/v1/checkout/quotes', {
+                release_id: desk.release.release_id,
+                service_mode: 'takeaway',
+                items: items.map((item) => ({ variant_id: item.variant_id, quantity: 1 })),
+                ...extra,
+              }),
+              201,
+            );
+            const sale = PosSaleResultSchema.parse(
+              ok(
+                await pos('POST', '/edge/v1/pos/sales', {
+                  quote_id: quote.quote_id,
+                  service_mode_confirmed: true,
+                  order_repeated: true,
+                  ...body,
+                }),
+                201,
+              ),
+            );
+            await attempt();
+            return sale;
+          };
+          const hall = await sell(
+            [desk.burger, desk.drink],
+            { service_mode: 'dine_in' },
+            {
+              tenders: [{ method: 'cash', amount_minor: '409000' }],
+              cash_tendered_minor: '409000',
+            },
+          );
+          const glovo = await sell(
+            [desk.burger],
+            { sales_channel: 'glovo' },
+            {
+              tenders: [{ method: 'aggregator_glovo', amount_minor: '389000' }],
+              external_order_ref: 'G-7001',
+            },
+          );
+          const kaspi = await sell(
+            [desk.burger, desk.drink],
+            {},
+            {
+              tenders: [{ method: 'kaspi_terminal', amount_minor: '409000' }],
+            },
+          );
+          for (const sale of [hall, kaspi]) {
+            let current = await kds.read(sale.order.order_id, 'assembly_hall');
+            current = await kds.complete(current, 'assembly_hall');
+            current = await kds.complete(current, 'issue');
+            assert.equal(ok(await kds.act(current, { action: 'handoff' })).state, 'handed_over');
+          }
+          let courier = await kds.read(glovo.order.order_id, 'assembly_delivery');
+          courier = await kds.complete(courier, 'assembly_delivery');
+          courier = await kds.complete(courier, 'delivery_handover');
+          assert.equal(
+            ok(await kds.act(courier, { action: 'handoff', handover: MARKS })).state,
+            'handed_over',
+          );
+          await attempt();
+          const pending = PosFiscalPendingSchema.parse(
+            ok(await pos('GET', `/edge/v1/pos/fiscal-receipts/pending?shift_id=${shift.shift_id}`)),
+          ).receipts;
+          for (const [index, receipt] of pending.entries())
+            ok(
+              await pos('POST', `/edge/v1/pos/fiscal-receipts/${receipt.receipt_id}/record`, {
+                expected_version: receipt.version,
+                receipt_number: `SYN-WK-OFF-${index + 1}`,
+              }),
+            );
+          const open = ok(await boss('GET', `/edge/v1/cash-shifts/${shift.shift_id}`));
+          assert.equal(open.expected_cash_minor, '909000');
+          ok(
+            await boss('POST', `/edge/v1/cash-shifts/${shift.shift_id}/close`, {
+              expected_version: open.version,
+              counted_cash_minor: '909000',
+              reason: 'Синтетическое закрытие без интернета',
+              terminal_reported_minor: '409000',
+            }),
+          );
+          await attempt();
+          // Nothing of the shift reached the cloud; everything waits on the edge.
+          const waiting = async () =>
+            (
+              await edge.query(
+                `SELECT (SELECT count(*)::int FROM pos_sale_outbox WHERE acknowledged_at IS NULL) AS sales,
+                   (SELECT count(*)::int FROM outbox_events WHERE aggregate_type='order_commercial'
+                      AND acknowledged_at IS NULL) AS orders,
+                   (SELECT count(*)::int FROM fulfillment_outbox WHERE payload->>'commercialOwner'='edge_pos'
+                      AND acknowledged_at IS NULL) AS kitchen,
+                   (SELECT count(*)::int FROM cashier_report_outbox WHERE acknowledged_at IS NULL) AS reports`,
+              )
+            ).rows[0];
+          assert.ok(tried.includes('NETWORK_UNKNOWN'), String(tried));
+          assert.deepEqual(
+            (
+              await edge.query(
+                `SELECT (SELECT last_error FROM pos_sale_sync_state) AS sales,
+                   (SELECT last_error FROM pos_order_sync_state) AS orders,
+                   (SELECT last_error FROM pos_kitchen_sync_state) AS kitchen`,
+              )
+            ).rows[0],
+            { sales: 'NETWORK_UNKNOWN', orders: 'NETWORK_UNKNOWN', kitchen: 'NETWORK_UNKNOWN' },
+          );
+          const backlog = await waiting();
+          const events = await posSaleEvents(edge);
+          assert.equal(backlog.sales, events.length);
+          assert.equal(backlog.orders, 3);
+          assert.ok(backlog.kitchen > 0 && backlog.reports > 0, JSON.stringify(backlog));
+          assert.deepEqual(
+            await cloudRows(
+              ctx,
+              `SELECT (SELECT count(*)::int FROM cloud_pos_sale_inbox WHERE branch_id=$1) AS sales,
+                 (SELECT count(*)::int FROM pos_order_sync_inbox WHERE branch_id=$1) AS orders`,
+            ),
+            [{ sales: 0, orders: 0 }],
+          );
+
+          // ---- The WAN is back after the outage: the retry pauses are over (time skip).
+          clock += 3_600_000;
+          await edge.query('UPDATE pos_order_sync_state SET retry_after=NULL');
+          await edge.query('UPDATE pos_kitchen_sync_state SET retry_after=NULL');
+          const states = await drainPosSales(sync, up, schedule, io);
+          assert.ok(states.includes('delivered') && states.at(-1) === 'idle', String(states));
+          await drain(syncPosOrdersOnce, sync, up);
+          await drain(syncPosKitchenOnce, sync, up);
+          await drainCashierReports(ctx);
+          assert.deepEqual(await waiting(), { sales: 0, orders: 0, kitchen: 0, reports: 0 });
+          // Exactly the edge's events, once each, in the edge's order.
+          assert.deepEqual(
+            (
+              await cloudRows(
+                ctx,
+                'SELECT event_id,sequence::text AS sequence,kind FROM cloud_pos_sale_inbox WHERE branch_id=$1 ORDER BY sequence',
+              )
+            ).map((row) => [row.event_id, row.sequence, row.kind]),
+            events.map((event) => [event.event_id, event.sequence, event.kind]),
+          );
+          assert.deepEqual(
+            (
+              await cloudRows(
+                ctx,
+                'SELECT state,sales_channel,total_minor::text AS total FROM cloud_pos_sales WHERE branch_id=$1 ORDER BY display_number',
+              )
+            ).map((row) => [row.state, row.sales_channel, row.total]),
+            [
+              ['paid', 'hall', '409000'],
+              ['paid', 'glovo', '389000'],
+              ['paid', 'hall', '409000'],
+            ],
+          );
+          assert.deepEqual(
+            await cloudRows(
+              ctx,
+              `SELECT (SELECT count(*)::int FROM cloud_pos_shift_reports WHERE branch_id=$1) AS z,
+                 (SELECT count(*)::int FROM pos_order_sync_projection WHERE branch_id=$1 AND state='paid') AS paid,
+                 (SELECT count(*)::int FROM pos_kitchen_sync_projection WHERE branch_id=$1 AND state='handed_over') AS handed,
+                 (SELECT payload->>'expected_cash_minor' FROM cloud_cashier_shifts WHERE id='${shift.shift_id}') AS expected`,
+            ),
+            [{ z: 1, paid: 3, handed: 3, expected: '909000' }],
+          );
+          assert.deepEqual((await edge.query('SELECT last_error FROM pos_sale_sync_state')).rows, [
+            { last_error: null },
+          ]);
+        } finally {
+          await server.app.close();
+          await cloud.app.close();
+          await desk.drop();
+        }
+      },
+      { edgeMigrationDirectory: before026 },
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
