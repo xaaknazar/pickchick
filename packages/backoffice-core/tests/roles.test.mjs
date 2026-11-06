@@ -360,6 +360,41 @@ test('designations: append-only, latest row wins, refused for managers and stran
     assert.equal((await bo.read(p.shift.token, c.branch)).effective_role, 'manager');
   }));
 
+test('a grant change ends a designation: designate, promote, demote is an analyst again', () =>
+  withSyncDatabases(async (c) => {
+    const p = await people(c);
+    const bo = new Backoffice(c.cloud.pool, true, { rolesEnabled: true });
+    const role = async () => (await bo.read(p.shift.token, c.branch)).effective_role;
+    const designate = (text) =>
+      designateBackoffice(c.cloud.pool, p.shift.actor_id, c.branch, 'shift_manager', text);
+    await designate('Т7: начальник смены');
+    assert.equal(await role(), 'shift_manager');
+    // Recording the same grant role again is not a change: the designation stays.
+    await grantBackoffice(c.cloud.pool, p.shift.actor_id, c.branch, 'analyst');
+    assert.equal(await role(), 'shift_manager');
+    await grantBackoffice(c.cloud.pool, p.shift.actor_id, c.branch, 'manager');
+    assert.equal(await role(), 'manager');
+    // Demoted: no shift manager rights come back with the old designation.
+    await grantBackoffice(c.cloud.pool, p.shift.actor_id, c.branch, 'analyst');
+    const state = await bo.read(p.shift.token, c.branch);
+    assert.equal(state.role, 'analyst');
+    assert.equal(state.effective_role, 'analyst');
+    assert.deepEqual(state.permissions, [
+      'reports.read',
+      'finance.read',
+      'reconciliation.read',
+      'workforce.read',
+    ]);
+    // The operator designates anew after the change; the record shows nothing was in force.
+    const again = await designate('Снова начальник смены после понижения');
+    assert.equal(again.previous_role, null);
+    assert.equal(await role(), 'shift_manager');
+    // The other analyst and the flag-off cabinet are untouched.
+    assert.equal((await bo.read(p.accountant.token, c.branch)).effective_role, 'analyst');
+    const off = new Backoffice(c.cloud.pool, true, {});
+    assert.equal((await off.read(p.shift.token, c.branch)).effective_role, undefined);
+  }));
+
 test('flag off: designations change nothing and GET branches/:id keeps the D0 payload', () =>
   withSyncDatabases(async (c) => {
     const p = await people(c);

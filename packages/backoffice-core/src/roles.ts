@@ -8,7 +8,7 @@ import { BackofficeError, parse, type Command } from './model.js';
  * bo_access_grants keeps its two roles: manager writes, analyst reads. Behind
  * BACKOFFICE_ROLES_ENABLED (default off) the operator may designate a personal login that has an
  * analyst grant as shift_manager or accountant of a branch (bo_role_designations, cloud074,
- * append-only, the latest row is in force):
+ * append-only, the latest row is in force until the actor's grant role changes):
  *
  *   effectiveRole = grant.manager ? 'manager' : (BACKOFFICE_ROLES_ENABLED ? designation : null) ?? 'analyst'
  *
@@ -154,22 +154,37 @@ export function commandPermission(command: z.infer<typeof Command>): BackofficeP
 }
 
 type Db = Pick<DatabaseClient, 'query'>;
-/** cloud074 is applied and the current database role may read the designations. */
+/**
+ * cloud074 is applied and the current database role may read the designations and the grant
+ * audit they are checked against (bo_access_audit, read by the back-office role since cloud017).
+ */
 export async function roleDesignationsReadable(db: Db): Promise<boolean> {
   const r = await db.query<{ ok: boolean | null }>(
     `SELECT to_regclass('bo_role_designations') IS NOT NULL
-      AND has_table_privilege(current_user, to_regclass('bo_role_designations'), 'SELECT') AS ok`,
+      AND has_table_privilege(current_user, to_regclass('bo_role_designations'), 'SELECT')
+      AND to_regclass('bo_access_audit') IS NOT NULL
+      AND has_table_privilege(current_user, to_regclass('bo_access_audit'), 'SELECT') AS ok`,
   );
   return r.rows[0]?.ok === true;
 }
-async function latestDesignation(db: Db, actorId: string, branchId: string) {
+/**
+ * The designation in force: the latest row of the actor on the branch, and only while it is
+ * newer than the last change of the actor's grant role there (bo_access_audit rows whose role
+ * differs from previous_role; both are written under the same advisory lock). A grant change
+ * ends a designation, so an analyst promoted to manager and demoted again is an analyst until
+ * the operator designates anew. Re-recording the same grant role changes nothing.
+ */
+async function designationInForce(db: Db, actorId: string, branchId: string) {
   const row = (
-    await db.query<{ role: BackofficeDesignation | null }>(
-      'SELECT role FROM bo_role_designations WHERE actor_id=$1 AND branch_id=$2 ORDER BY id DESC LIMIT 1',
+    await db.query<{ role: BackofficeDesignation | null; current: boolean }>(
+      `SELECT d.role,d.created_at > coalesce((SELECT max(a.created_at) FROM bo_access_audit a
+         WHERE a.actor_id=$1 AND a.branch_id=$2 AND a.previous_role IS DISTINCT FROM a.role),
+         '-infinity'::timestamptz) AS current
+       FROM bo_role_designations d WHERE d.actor_id=$1 AND d.branch_id=$2 ORDER BY d.id DESC LIMIT 1`,
       [actorId, branchId],
     )
   ).rows[0];
-  return row?.role ?? null;
+  return row?.current ? row.role : null;
 }
 export type ResolvedRole = {
   role: BackofficeEffectiveRole;
@@ -190,7 +205,7 @@ export async function resolveBackofficeRole(
   if (!rolesEnabled) return { role: grant, designations: false };
   const designations = await roleDesignationsReadable(db);
   const designation =
-    designations && grant !== 'manager' ? await latestDesignation(db, actorId, branchId) : null;
+    designations && grant !== 'manager' ? await designationInForce(db, actorId, branchId) : null;
   return { role: effectiveRole(grant, designation, designations), designations };
 }
 
@@ -227,7 +242,7 @@ export async function designateBackoffice(
     ).rows[0];
     if (!grant) throw new BackofficeError('FORBIDDEN');
     if (role !== null && grant.role === 'manager') throw new BackofficeError('CONFLICT');
-    const previous = await latestDesignation(db, actorId, branchId);
+    const previous = await designationInForce(db, actorId, branchId);
     const row = (
       await db.query<{ id: string; created_at: Date }>(
         `INSERT INTO bo_role_designations(actor_id,branch_id,role,reason) VALUES($1,$2,$3,$4)
