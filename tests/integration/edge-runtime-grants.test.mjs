@@ -266,3 +266,57 @@ test('reapplying runtime grants removes old column permissions and disabled kitc
     }),
   );
 });
+
+test('cutover 026: runtime grants hold exactly the reviewed POS sales privileges and reset them', async () => {
+  await fixture(async (ctx) =>
+    runtime(ctx, async (pool, role, options) => {
+      const { RUNTIME_PRIVILEGES, assertPosSalesPrivileges, posSalesGrantees } =
+        await import('../../infra/windows/pos-sales-grants.mjs');
+      const exact = () =>
+        assertPosSalesPrivileges(ctx.pool, role, RUNTIME_PRIVILEGES, { schema: ctx.schema });
+      // CR pos-1 section 1: with 026 applied the reset re-grants the 026 runtime set exactly.
+      assert.deepEqual(await exact(), { verified: true, relations: 14 });
+      assert.deepEqual(await posSalesGrantees(ctx.pool, { schema: ctx.schema }), [role]);
+      assert.equal(
+        (await pool.query('SELECT count(*)::int AS n FROM pos_payment_methods')).rows[0].n,
+        8,
+      );
+      for (const sql of [
+        'UPDATE pos_payment_methods SET enabled=true',
+        "UPDATE branch_config SET pos_service_mode='pos_sale'",
+        'SELECT 1 FROM pos_sale_sync_state',
+        'SELECT 1 FROM pos_sales_setting_changes',
+        'UPDATE pos_sale_outbox SET attempts=attempts+1',
+        'DELETE FROM pos_sales',
+      ])
+        await assert.rejects(pool.query(sql), denied, sql);
+      // A stray grant is removed by the next reset; the reviewed set comes back without it.
+      await ctx.pool.query(`GRANT UPDATE ON pos_sales, pos_sale_sync_state TO ${role}`);
+      await assert.rejects(exact(), /POS sales table privileges differ/);
+      await applyEdgeRuntimeGrants(ctx.pool, role, options);
+      assert.deepEqual(await exact(), { verified: true, relations: 14 });
+      // Without kitchen access the POS sale objects stay (they are not kitchen privileges).
+      await applyEdgeRuntimeGrants(ctx.pool, role, { ...options, fulfillment: false });
+      assert.deepEqual(await exact(), { verified: true, relations: 14 });
+      // A ledger that names 026 while its objects are missing (or the reverse) is refused.
+      const row = (
+        await ctx.pool.query(
+          "DELETE FROM schema_migrations WHERE version='026_edge_pos_sales.sql' RETURNING version,checksum,scope",
+        )
+      ).rows[0];
+      try {
+        await assert.rejects(
+          applyEdgeRuntimeGrants(ctx.pool, role, options),
+          /POS sales migration objects differ/,
+        );
+      } finally {
+        await ctx.pool.query(
+          'INSERT INTO schema_migrations(version,checksum,scope) VALUES($1,$2,$3)',
+          [row.version, row.checksum, row.scope],
+        );
+      }
+      await applyEdgeRuntimeGrants(ctx.pool, role, options);
+      assert.deepEqual(await exact(), { verified: true, relations: 14 });
+    }),
+  );
+});
