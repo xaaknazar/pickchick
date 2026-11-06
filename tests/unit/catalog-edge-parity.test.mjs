@@ -211,10 +211,18 @@ test('routing coverage reports routes derived on apply and proves derivation wit
   });
   assert.equal(report.ok, true);
   assert.equal(report.routing.derived_version, 3);
-  // With two prep stations a new prep route cannot be derived: the publication would be rejected.
+  // Prep routes on two prep stations: a new prep route cannot be derived (cutover KDS-2 rule),
+  // the publication would be rejected.
+  const secondPrep = '30000000-0000-4000-8000-000000000003';
   const ambiguous = {
-    routing: { ...routing, routes: routing.routes.slice(1) },
-    stations: [...stations, { id: '30000000-0000-4000-8000-000000000003', kind: 'prep' }],
+    routing: {
+      ...routing,
+      routes: [
+        ...routing.routes.slice(1),
+        { productId: 'other-prep', stationId: secondPrep, kind: 'prep' },
+      ],
+    },
+    stations: [...stations, { id: secondPrep, kind: 'prep' }],
   };
   report = catalogEdgeParity({ catalog: mockupCatalogDraft, snapshot, routing: ambiguous });
   assert.equal(report.ok, false);
