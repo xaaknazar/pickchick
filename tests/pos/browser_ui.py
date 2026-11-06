@@ -49,15 +49,21 @@ with sync_playwright() as pw:
     page = context.new_page()
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)))
-    # Cutover 19.11: this edge has no paid sales, so GET pos/config answers 404 and the cashier
-    # stays today's unpaid cashier. No other paid-mode route may ever be asked.
+    # Cutover 19.11: this edge has no paid sales. GET pos/config answers 404 (edge before 026) or
+    # 200 with mode unpaid_service and every method off (edge 026, paid sales not switched on);
+    # either way the cashier stays today's unpaid cashier. No other paid-mode route is ever asked.
     paid_calls, pos_config = [], []
     def paid_request(request):
         path = request.url.split('/edge/v1/', 1)[1] if '/edge/v1/' in request.url else ''
         if path.startswith('pos/') or path.startswith('staff/approvals') or path.split('?')[0].endswith('-report'):
             paid_calls.append(request.method + ' ' + path)
     page.on('request', paid_request)
-    page.on('response', lambda r: pos_config.append(r.status) if r.url.endswith('/edge/v1/pos/config') else None)
+    def config_response(response):
+        if not response.url.split('?')[0].endswith('/edge/v1/pos/config'): return
+        try: mode = response.json().get('mode') if response.status == 200 else None
+        except Exception as error: mode = 'unreadable: ' + type(error).__name__
+        pos_config.append((response.status, mode))
+    page.on('response', config_response)
     try:
         page.goto(url)
         audit_touch_layout(page,output,"pin")
@@ -294,11 +300,11 @@ with sync_playwright() as pw:
         assert external==[],external
         assert errors==[],errors
         assert paid_calls and set(paid_calls)=={'GET pos/config'}, paid_calls
-        assert pos_config and set(pos_config)=={404}, pos_config
+        assert pos_config and set(pos_config) <= {(404, None), (200, 'unpaid_service')}, pos_config
     except Exception:
         page.screenshot(path=str(output/'failure.png'))
         print('RENDER_ERRORS',errors)
         print(page.locator('body').inner_text()[-1800:])
         raise
     context.close();browser.close()
-print('POS v2: 16 workstation viewports plus mobile, touch targets and reachability, local PIN/shift/cash movement, restored draft, lost ACK, kitchen and named display passed; WAN blocked; pos/config 404 kept the unpaid cashier.')
+print('POS v2: 16 workstation viewports plus mobile, touch targets and reachability, local PIN/shift/cash movement, restored draft, lost ACK, kitchen and named display passed; WAN blocked; pos/config', sorted(set(pos_config)), 'kept the unpaid cashier.')
