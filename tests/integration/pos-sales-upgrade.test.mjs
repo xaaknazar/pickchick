@@ -13,6 +13,7 @@ import {
   closeCashShift,
   createLocalOrder,
   createQuote,
+  fenceRestoredEdge,
   listCashShifts,
   listLocalOrders,
   moveCash,
@@ -36,6 +37,8 @@ import {
   syncPosOrdersOnce,
 } from '@pickchick/pos-order-sync';
 import { applyEdgeRuntimeGrants } from '../../infra/windows/edge-runtime-grants.mjs';
+import { fulfillmentWorkerGrants } from '../../infra/windows/fulfillment-worker-grants.mjs';
+import { posSalesRuntimeGrants } from '../../infra/windows/pos-sales-grants.mjs';
 import { withSyncDatabases, running } from '../helpers/sync.mjs';
 import { staffAuth } from '../helpers/orders.mjs';
 
@@ -514,6 +517,285 @@ test('026 on a populated 025 edge keeps rows, guards, reads and cashier reports 
     await rm(root, { recursive: true, force: true });
   }
 });
+
+// CR cloud-5 item 1: 026 ends with edge_restore_fence of 023 plus pos_sale_outbox in its outbox
+// list, its search_path pinned again (CREATE OR REPLACE resets SET) and its ACL unchanged.
+const GAP = 1_000_000_000n;
+const OUTBOXES_023 = "ARRAY['cashier_report_outbox', 'fulfillment_outbox']";
+const OUTBOXES_026 = "ARRAY['cashier_report_outbox', 'fulfillment_outbox', 'pos_sale_outbox']";
+/** edge_restore_fence(boolean) as PostgreSQL holds it: definition, owner, rights, settings. */
+async function fenceFunction(pool) {
+  const { rows: found } = await pool.query(
+    `SELECT pg_get_functiondef(p.oid) AS definition, pg_get_userbyid(p.proowner) AS owner,
+       p.proacl::text AS acl, p.proconfig, p.prosecdef, p.provolatile,
+       has_function_privilege('public', p.oid, 'EXECUTE') AS public_execute
+     FROM pg_proc p WHERE p.proname='edge_restore_fence' AND p.pronamespace=current_schema()::regnamespace`,
+  );
+  assert.equal(found.length, 1, 'one edge_restore_fence(boolean), no overload');
+  return found[0];
+}
+const lastSequence = async (db, table) => {
+  if (!(await db.query('SELECT to_regclass($1) AS t', [table])).rows[0].t) return null;
+  return BigInt(
+    (
+      await db.query(
+        `SELECT coalesce(pg_sequence_last_value(pg_get_serial_sequence($1,'sequence')::regclass),0) AS v`,
+        [table],
+      )
+    ).rows[0].v,
+  );
+};
+/** Every counter edge_restore_fence moves, the menu restore cursor and the fence ledger. */
+async function fenceCounters(pool) {
+  const one = async (sql) => (await pool.query(sql)).rows;
+  return {
+    streams: (await one('SELECT last_sequence FROM local_order_streams ORDER BY branch_id')).map(
+      (row) => BigInt(row.last_sequence),
+    ),
+    reports: await lastSequence(pool, 'cashier_report_outbox'),
+    kitchen: await lastSequence(pool, 'fulfillment_outbox'),
+    pos: await lastSequence(pool, 'pos_sale_outbox'),
+    heartbeat: (
+      await one('SELECT attempts FROM fulfillment_transport_state ORDER BY branch_id')
+    ).map((row) => BigInt(row.attempts)),
+    menu: await one(
+      'SELECT last_sequence::text,restore_resync_from::text FROM menu_sync_state ORDER BY branch_id',
+    ),
+    epochs: await one(
+      'SELECT epoch,reason,sequence_gap::text FROM edge_database_epochs ORDER BY epoch',
+    ),
+  };
+}
+/** How far each counter moved (null where the counter does not exist). */
+const moved = (before, after) => ({
+  streams: after.streams.map((value, i) => value - before.streams[i]),
+  reports: after.reports - before.reports,
+  kitchen: after.kitchen - before.kitchen,
+  pos: after.pos === null ? null : after.pos - before.pos,
+  heartbeat: after.heartbeat.map((value, i) => value - before.heartbeat[i]),
+  menu: after.menu,
+  epochs: after.epochs.slice(before.epochs.length),
+});
+/** The restored ledger carries the identity of the database the copy was taken from. */
+const restoredIdentity = (pool) =>
+  pool.query(
+    `INSERT INTO edge_database_epochs(epoch,system_identifier,database_oid,reason,sequence_gap)
+     SELECT max(epoch)+1, 1, 1, 'initial', 0 FROM edge_database_epochs`,
+  );
+/** posSales events written the way pos-outbox.ts writes them (synthetic payloads). */
+const writePosEvents = async (pool, branch, count) => {
+  const written = [];
+  for (let i = 0; i < count; i++) {
+    const payload = { synthetic: randomUUID() };
+    written.push(
+      (
+        await pool.query(
+          `INSERT INTO pos_sale_outbox(branch_id,kind,entity_id,payload,payload_hash)
+           VALUES($1,'sale',$2,$3,$4) RETURNING sequence::text AS sequence`,
+          [branch, randomUUID(), payload, randomBytes(32).toString('hex')],
+        )
+      ).rows[0].sequence,
+    );
+  }
+  return written.map(BigInt);
+};
+
+/** A LOGIN role with `grant`, a one-connection pool on the test schema, dropped by `close`. */
+async function loginRole(ctx, grant) {
+  const role = 'pos_fence_' + randomUUID().replaceAll('-', ''),
+    password = randomBytes(32).toString('hex');
+  await ctx.edge.admin.query(
+    `CREATE ROLE ${role} LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT`,
+  );
+  const url = new URL(ctx.edge.config.databaseUrl);
+  url.username = role;
+  url.password = password;
+  const pool = createPool(url.toString(), 1);
+  const close = async () => {
+    await pool.end();
+    await ctx.edge.admin.query(`DROP OWNED BY ${role}`);
+    await ctx.edge.admin.query(`DROP ROLE ${role}`);
+  };
+  try {
+    await grant(role);
+  } catch (error) {
+    await close();
+    throw error;
+  }
+  return { role, pool, close };
+}
+
+test('026 on a populated 025 edge: the restore fence moves pos_sale_outbox exactly once and the older counters exactly as 023 did; search_path pinned, no PUBLIC EXECUTE, grants kept (CR cloud-5)', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'pickchick-pos-sales-fence-'));
+  try {
+    const edge025 = await upTo(root, 'edge-025', edgeDir, '026');
+    const edge026 = await upTo(root, 'edge-026', edgeDir, '027');
+    await withSyncDatabases(
+      async (ctx) => {
+        const { pool, schema } = ctx.edge;
+        const desk = await unpaidDesk(ctx);
+        // A populated 025 day: order stream, kitchen events, cashier reports, transport heartbeat.
+        const open = await openCashShift(pool, ctx.branch, staffAuth(desk.manager), randomUUID(), {
+          opening_cash_minor: '500000',
+        });
+        await moveCash(pool, ctx.branch, staffAuth(desk.manager), randomUUID(), open.shift_id, {
+          direction: 'in',
+          amount_minor: '20000',
+          reason: 'Размен',
+        });
+        await desk.cancel(await desk.order());
+        await desk.finish(await desk.order());
+        await desk.order();
+        await pool.query(
+          'INSERT INTO fulfillment_transport_state(branch_id,attempts) VALUES($1,7) ON CONFLICT DO NOTHING',
+          [ctx.branch],
+        );
+        // The installed runtime and the fencing FulfillmentWorker (today's grants, schema023).
+        const runtime = await loginRole(ctx, (role) =>
+          applyEdgeRuntimeGrants(pool, role, { schema, fulfillment: true }),
+        );
+        let worker;
+        try {
+          worker = await loginRole(ctx, (role) =>
+            pool.query(fulfillmentWorkerGrants(role, schema, { restoreFence: true })),
+          );
+          await fenceUpgrade(ctx, edge026, runtime, worker);
+        } finally {
+          await worker?.close();
+          await runtime.close();
+        }
+      },
+      { edgeMigrationDirectory: edge025 },
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+async function fenceUpgrade(ctx, edge026, runtime, worker) {
+  const { pool, schema } = ctx.edge;
+  const executes = async () =>
+    (
+      await pool.query(
+        `SELECT has_function_privilege($1,'edge_restore_fence(boolean)','EXECUTE') AS runtime,
+           has_function_privilege($2,'edge_restore_fence(boolean)','EXECUTE') AS worker`,
+        [runtime.role, worker.role],
+      )
+    ).rows[0];
+  const covered = async () =>
+    (
+      await pool.query(
+        "SELECT pg_get_functiondef('edge_restore_fence(boolean)'::regprocedure) LIKE '%pos_sale_outbox%' AS covered",
+      )
+    ).rows[0].covered;
+  const before025 = await fenceCounters(pool);
+  assert.ok(before025.streams[0] > 0n && before025.reports > 0n && before025.kitchen > 0n);
+  assert.equal(before025.pos, null);
+  assert.deepEqual(before025.heartbeat, [7n]);
+  const fence023 = await fenceFunction(pool);
+  assert.equal(fence023.definition.split(OUTBOXES_023).length, 2);
+  assert.equal(await covered(), false);
+  assert.deepEqual(await executes(), { runtime: true, worker: true });
+
+  // Today (023): a restored copy moves the order stream, cashier reports, kitchen events and
+  // the heartbeat revision by the gap, once.
+  await restoredIdentity(pool);
+  assert.equal((await fenceRestoredEdge(runtime.pool)).state, 'restore');
+  const after025 = await fenceCounters(pool);
+  const step025 = moved(before025, after025);
+  assert.deepEqual(
+    { ...step025, menu: null, epochs: null },
+    {
+      streams: [GAP],
+      reports: GAP,
+      kitchen: GAP,
+      pos: null,
+      heartbeat: [GAP],
+      menu: null,
+      epochs: null,
+    },
+  );
+  // The restored ledger row (the copy's identity) and the fence's own row.
+  assert.deepEqual(step025.epochs, [
+    { epoch: before025.epochs.at(-1).epoch + 1, reason: 'initial', sequence_gap: '0' },
+    { epoch: before025.epochs.at(-1).epoch + 2, reason: 'restore', sequence_gap: String(GAP) },
+  ]);
+
+  // 026 replaces the function and calls nothing: no epoch, no counter moves.
+  assert.deepEqual(await migrate(pool, edge026, 'edge'), [EDGE_026]);
+  assert.deepEqual(await fenceCounters(pool), { ...after025, pos: 0n });
+  const fence026 = await fenceFunction(pool);
+  // The definition differs from 023 only by the outbox list; owner, ACL, owner rights,
+  // volatility and the pinned search_path are the same.
+  assert.equal(fence026.definition, fence023.definition.replace(OUTBOXES_023, OUTBOXES_026));
+  assert.deepEqual({ ...fence026, definition: null }, { ...fence023, definition: null });
+  assert.deepEqual(fence026.proconfig, [`search_path=pg_catalog, ${schema}, pg_temp`]);
+  assert.equal(fence026.prosecdef, true);
+  assert.equal(fence026.public_execute, false);
+  assert.deepEqual(await executes(), { runtime: true, worker: true });
+  // The check of the interim owner step (backoffice-cutover.md) now answers covered.
+  assert.equal(await covered(), true);
+  assert.equal((await fenceRestoredEdge(runtime.pool)).state, 'current');
+  assert.equal((await fenceRestoredEdge(worker.pool)).state, 'current');
+  assert.deepEqual(await fenceCounters(pool), { ...after025, pos: 0n });
+
+  // A sales day on 026 writes posSales events; the runtime draws the next number (USAGE) but
+  // never sets it: the fence moves it with owner rights.
+  await pool.query(posSalesRuntimeGrants(runtime.role, schema));
+  assert.deepEqual(await writePosEvents(pool, ctx.branch, 3), [1n, 2n, 3n]);
+  await assert.rejects(
+    runtime.pool.query("SELECT setval(pg_get_serial_sequence('pos_sale_outbox','sequence'), 5)"),
+    /permission denied/,
+  );
+  // Another restore on 026, fenced by the least-privileged runtime in a session holding a
+  // temporary pos_sale_outbox: the pinned search_path (pg_temp last) moves the real one.
+  await restoredIdentity(pool);
+  const before026 = await fenceCounters(pool);
+  const session = await runtime.pool.connect();
+  let spoof;
+  try {
+    await session.query('CREATE TEMP TABLE pos_sale_outbox(sequence bigserial)');
+    await session.query('INSERT INTO pos_sale_outbox DEFAULT VALUES');
+    assert.equal((await fenceRestoredEdge(session)).state, 'restore');
+    spoof = BigInt(
+      (
+        await session.query(
+          "SELECT pg_sequence_last_value(pg_get_serial_sequence('pg_temp.pos_sale_outbox','sequence')::regclass) AS v",
+        )
+      ).rows[0].v,
+    );
+  } finally {
+    await session.query('DROP TABLE IF EXISTS pg_temp.pos_sale_outbox');
+    session.release();
+  }
+  assert.equal(spoof, 1n, 'a temporary table never stands in for the real outbox');
+  const after026 = await fenceCounters(pool);
+  const step026 = moved(before026, after026);
+  // The older counters move exactly as 023 moved them; pos_sale_outbox moves by the gap.
+  assert.deepEqual(
+    { ...step026, pos: null, menu: null, epochs: null },
+    { ...step025, menu: null, epochs: null },
+  );
+  assert.equal(step026.pos, GAP);
+  assert.deepEqual(step026.epochs, [
+    { epoch: after026.epochs.at(-1).epoch, reason: 'restore', sequence_gap: String(GAP) },
+  ]);
+  assert.deepEqual(
+    after026.menu.map((row) => row.restore_resync_from),
+    after026.menu.map((row) => row.last_sequence),
+  );
+  // Exactly once: the next start (runtime) and the worker's first cycle change nothing.
+  assert.equal((await fenceRestoredEdge(runtime.pool)).state, 'current');
+  assert.equal((await fenceRestoredEdge(worker.pool)).state, 'current');
+  assert.deepEqual(await fenceCounters(pool), after026);
+  // The next posSales event is past anything the lost timeline could have used.
+  assert.deepEqual(await writePosEvents(pool, ctx.branch, 1), [3n + GAP + 1n]);
+  // Rights are still exactly the 023 ones after both fences.
+  assert.deepEqual(
+    { ...(await fenceFunction(pool)), definition: null },
+    { ...fence023, definition: null },
+  );
+}
 
 test('073 on a populated 072 cloud keeps the POS projections and accepts today’s commercial and kitchen events', async () => {
   const root = await mkdtemp(join(tmpdir(), 'pickchick-pos-sales-cloud-upgrade-'));

@@ -14,6 +14,7 @@ import {
   createLocalOrder,
   createPosSale,
   createQuote,
+  fenceRestoredEdge,
   moveCash,
   openCashShift,
   provisionStaff,
@@ -795,4 +796,237 @@ test('new receivers on a cloud before 073: a paid sale waits on the edge, nothin
   } finally {
     await rm(before073, { recursive: true, force: true });
   }
+});
+
+// ------------------------------------------------------------ edge database restore ----
+// CR cloud-5 item 1 on the real 026, mirroring the restore cases of the cloud lane
+// (packages/pos-order-sync/tests/sales-worker-integration.test.mjs on codex/cutover-cloud). The
+// cloud keeps every posSales event in cloud_pos_sale_inbox (073, UNIQUE(device_id, sequence))
+// and its receiver answers CONFLICT for good when an event's id or (device, sequence) belongs to
+// another event (sales-cloud.ts inboxState); that rule runs here on the real 073 table.
+const GAP = 1_000_000_000n;
+const lastSequence = async (pool, table) =>
+  BigInt(
+    (
+      await pool.query(
+        `SELECT coalesce(pg_sequence_last_value(pg_get_serial_sequence($1,'sequence')::regclass),0) AS v`,
+        [table],
+      )
+    ).rows[0].v,
+  );
+const pendingPosSales = async (pool) =>
+  (
+    await pool.query(
+      `SELECT o.event_id,o.branch_id,o.sequence::text AS sequence,o.kind,o.payload,o.payload_hash,
+         o.occurred_at FROM pos_sale_outbox o WHERE o.acknowledged_at IS NULL ORDER BY o.sequence`,
+    )
+  ).rows;
+/**
+ * The inbox rule of the cloud receiver for `events` in order: `new` (stored), `duplicate`
+ * (exactly this event is stored) or `conflict` (its id or device sequence belongs to another
+ * event), which ends the delivery like the receiver ends a batch. Accepted events are
+ * acknowledged on the edge unless `acknowledge` is false (a delivery of the lost timeline).
+ */
+async function deliverToInbox(ctx, events, { acknowledge = true } = {}) {
+  const states = [];
+  for (const event of events) {
+    const known = (
+      await ctx.cloud.pool.query(
+        `SELECT event_id,device_id,sequence::text AS sequence,kind,payload_hash FROM cloud_pos_sale_inbox
+         WHERE event_id=$1 OR (device_id=$2 AND sequence=$3)`,
+        [event.event_id, ctx.device, event.sequence],
+      )
+    ).rows;
+    const same = (row) =>
+      row.event_id === event.event_id &&
+      row.sequence === event.sequence &&
+      row.kind === event.kind &&
+      row.payload_hash === event.payload_hash;
+    const state = !known.length
+      ? 'new'
+      : known.length === 1 && same(known[0])
+        ? 'duplicate'
+        : 'conflict';
+    states.push(state);
+    if (state === 'conflict') break;
+    if (state === 'new')
+      await ctx.cloud.pool.query(
+        `INSERT INTO cloud_pos_sale_inbox(event_id,branch_id,device_id,sequence,kind,payload_hash)
+         VALUES($1,$2,$3,$4,$5,$6)`,
+        [event.event_id, ctx.branch, ctx.device, event.sequence, event.kind, event.payload_hash],
+      );
+    if (acknowledge)
+      await ctx.edge.pool.query(
+        'UPDATE pos_sale_outbox SET acknowledged_at=clock_timestamp() WHERE event_id=$1 AND acknowledged_at IS NULL',
+        [event.event_id],
+      );
+  }
+  return states;
+}
+
+test('restored edge database on the real 026 (CR cloud-5): the fence moves posSales past the lost timeline once, the copy goes again as duplicates and no new event of the open shift reuses a sequence', async () => {
+  await streamDesk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    const cash = {
+      tenders: [{ method: 'cash', amount_minor: '349000' }],
+      cash_tendered_minor: '349000',
+    };
+    // Kept: sold and accepted by the cloud before the copy was taken.
+    const kept = await sell(ctx, cash);
+    assert.deepEqual(await deliverToInbox(ctx, await pendingPosSales(pool)), ['new', 'new']);
+    // Copied: sold and in the copy, but not yet acknowledged when the copy was taken.
+    const copied = await sell(ctx, cash);
+    const copy = await pendingPosSales(pool);
+    assert.deepEqual(
+      copy.map((event) => event.kind),
+      ['sale', 'fiscal'],
+    );
+    // The lost timeline (between the copy and the failure) delivered the copied events and a
+    // sale the restored edge never stored, at the next sequences of this device.
+    const tail = BigInt(copy.at(-1).sequence);
+    const lost = ['sale', 'fiscal'].map((kind, i) => ({
+      event_id: randomUUID(),
+      sequence: String(tail + 1n + BigInt(i)),
+      kind,
+      payload_hash: hashJson({ synthetic: randomUUID() }),
+    }));
+    assert.deepEqual(await deliverToInbox(ctx, [...copy, ...lost], { acknowledge: false }), [
+      'new',
+      'new',
+      'new',
+      'new',
+    ]);
+    // The edge database comes back from that copy: its ledger carries the copy's identity.
+    await pool.query(
+      `INSERT INTO edge_database_epochs(epoch,system_identifier,database_oid,reason,sequence_gap)
+       SELECT max(epoch)+1, 1, 1, 'initial', 0 FROM edge_database_epochs`,
+    );
+    // Unfenced, the next posSales number would be tail + 1, which the cloud holds for the lost
+    // sale (the parked CONFLICT of the cloud lane's "fence of today (023)" case).
+    assert.equal(await lastSequence(pool, 'pos_sale_outbox'), tail);
+    assert.deepEqual(
+      await deliverToInbox(
+        ctx,
+        [{ ...lost[0], event_id: randomUUID(), payload_hash: hashJson({ unfenced: true }) }],
+        { acknowledge: false },
+      ),
+      ['conflict'],
+    );
+    // The check of the interim owner step (backoffice-cutover.md «Восстановление базы кассы»):
+    // the installed 026 fence covers pos_sale_outbox, so the manual shift is not needed.
+    assert.equal(
+      (
+        await pool.query(
+          "SELECT pg_get_functiondef('edge_restore_fence(boolean)'::regprocedure) LIKE '%pos_sale_outbox%' AS covered",
+        )
+      ).rows[0].covered,
+      true,
+    );
+    const before = {
+      pos: tail,
+      reports: await lastSequence(pool, 'cashier_report_outbox'),
+      kitchen: await lastSequence(pool, 'fulfillment_outbox'),
+      orders: BigInt(
+        (await pool.query('SELECT last_sequence FROM local_order_streams')).rows[0].last_sequence,
+      ),
+    };
+    const counters = async () => ({
+      pos: await lastSequence(pool, 'pos_sale_outbox'),
+      reports: await lastSequence(pool, 'cashier_report_outbox'),
+      kitchen: await lastSequence(pool, 'fulfillment_outbox'),
+      orders: BigInt(
+        (await pool.query('SELECT last_sequence FROM local_order_streams')).rows[0].last_sequence,
+      ),
+    });
+    // The edge start fences once: every producer sequence, posSales included, moves by the gap.
+    assert.equal((await fenceRestoredEdge(pool)).state, 'restore');
+    const fenced = await counters();
+    assert.deepEqual(fenced, {
+      pos: before.pos + GAP,
+      reports: before.reports + GAP,
+      kitchen: before.kitchen + GAP,
+      orders: before.orders + GAP,
+    });
+    assert.equal((await fenceRestoredEdge(pool)).state, 'current');
+    assert.deepEqual(await counters(), fenced);
+
+    // The shift open across the restore goes on: a new sale, its receipts, the Z.
+    const next = await sell(ctx, cash);
+    for (const [i, sale] of [kept, copied, next].entries())
+      await recordFiscalReceipt(
+        pool,
+        ctx.branch,
+        staffAuth(ctx.cashier),
+        randomUUID(),
+        sale.sale.fiscal.find((receipt) => receipt.kind === 'sale').receipt_id,
+        { expected_version: 1, receipt_number: `SYN-WK-R${i + 1}` },
+      );
+    const open = await readCashShift(pool, ctx.branch, staffAuth(ctx.manager), ctx.shift.shift_id);
+    await closeCashShift(
+      pool,
+      ctx.branch,
+      staffAuth(ctx.manager),
+      randomUUID(),
+      ctx.shift.shift_id,
+      {
+        expected_version: open.version,
+        counted_cash_minor: open.expected_cash_minor,
+        reason: 'Синтетическое закрытие после восстановления',
+      },
+    );
+    const pending = await pendingPosSales(pool);
+    assert.deepEqual(
+      pending.map((event) => event.kind),
+      ['sale', 'fiscal', 'sale', 'fiscal', 'fiscal', 'fiscal', 'fiscal', 'shift_report'],
+    );
+    // Every pending event is a valid wire event as stored.
+    assert.equal(
+      parsePosSaleBatch({
+        events: pending.map((event) => ({
+          event_id: event.event_id,
+          branch_id: event.branch_id,
+          sequence: event.sequence,
+          kind: event.kind,
+          occurred_at: event.occurred_at.toISOString(),
+          payload: event.payload,
+        })),
+      }).events.length,
+      pending.length,
+    );
+    // The copy goes again as duplicates; every new event is past the lost timeline.
+    assert.deepEqual(pending.slice(0, 2), copy);
+    assert.ok(pending.slice(2).every((event) => BigInt(event.sequence) > tail + GAP));
+    assert.deepEqual(await deliverToInbox(ctx, pending), [
+      'duplicate',
+      'duplicate',
+      ...Array(6).fill('new'),
+    ]);
+    assert.deepEqual(await pendingPosSales(pool), []);
+    // The Z counts what the restored desk sold (kept, copied, next); the cloud also holds the
+    // lost sale. That Z is CR cloud-5 item 2 (the cloud owner command), not a sequence matter.
+    const z = pending.at(-1).payload.report;
+    assert.deepEqual([z.orders.count, z.cash_sales_minor], [3, '1047000']);
+    assert.equal(
+      Number(
+        (
+          await ctx.cloud.pool.query(
+            "SELECT count(*) FROM cloud_pos_sale_inbox WHERE device_id=$1 AND kind='sale'",
+            [ctx.device],
+          )
+        ).rows[0].count,
+      ),
+      4,
+    );
+    // The order_commercial stream of the same paid day flows across the gap as well.
+    await drain(syncPosOrdersOnce, ctx);
+    assert.deepEqual(
+      (
+        await ctx.cloud.pool.query(
+          'SELECT state FROM pos_order_sync_projection WHERE branch_id=$1 ORDER BY order_id',
+          [ctx.branch],
+        )
+      ).rows.map((row) => row.state),
+      ['paid', 'paid', 'paid'],
+    );
+  });
 });
