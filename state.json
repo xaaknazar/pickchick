@@ -7390,11 +7390,11 @@
         "tests/mobile/browser_cart_unavailable.py",
         "tests/mobile/browser_cart_shortcut.py"
       ],
-      "status": "active",
-      "head": "bee6b0ad96ca196e0d1d05a25d94c8b8f8b6f246",
-      "updatedAt": "2026-11-06T20:34:59.399Z",
-      "summary": "PR314, bee6b0ad: название выбранной точки в быстрой оплате. 586 Node +96 Python, typecheck/lint/format/translations, браузерные ABIRL/AH и roadmap 7/7 PASS. Foundation42289232077 идёт. Сборки и сервер не менялись.",
-      "nextAction": "Обновить проверку демо-плашки после согласованной передачи; полный CI PR314 и отдельный нативный выпуск."
+      "status": "available",
+      "head": "679ef20788a902faaa861f9b4e8688d12646e429",
+      "updatedAt": "2026-11-06T20:43:35.086Z",
+      "summary": "PR314, SHA679ef207: точка рядом со способом получения в быстрой оплате. 586 Node + 96 Python, typecheck/lint/format/translations, браузерные ABIRL/AH и полный demo cart-shortcut PASS. Все согласованные тесты обновлены. Foundation CI последнего SHA пока выполняется. Выпусков и слияния нет.",
+      "nextAction": "Проверить Foundation CI https://github.com/xaaknazar/pickchick/actions/runs/42290245032; затем согласованное слияние и отдельный выпуск. Физическая приёмка на iPhone ещё не выполнена."
     }
   ]
 }
