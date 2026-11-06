@@ -149,35 +149,65 @@ allowlist `apps/backoffice/server.mjs` (точные ключи query, пред�
 продажи тоже (продажа без известной смены - по `business_date`). Это отличается от «Продаж» (CC-7, по
 времени продажи) - экран пишет об этом в «Как считается».
 
+Сделано в шаге 2 (`packages/backoffice-core/src/pos-day.ts`). Ответ:
+
 ```text
-{ schema_version: 1, branch_id, date, timezone: 'Asia/Almaty', as_of,
-  coverage: { pos_tables: bool, cashier_reports: bool, last_received_at: ts|null },
-  terminals: [{ terminal_id, device_id, label }],            // label - имя устройства, «Касса 1»
-  shifts: [{ shift_id, terminal_id, device_id, state: 'open'|'closed', opened_at, closed_at|null,
-             opened_by_staff_id|null, cashier_names: [text],
-             z: ShiftReport|null,                             // cloud_pos_shift_reports.report (§5.1 контракта)
-             received: { sales_count, sales_minor, refunds_minor,
-                         methods: [{ method, sales_minor, refunds_minor, count }] },  // для открытой: «не X-отчёт»
+{ schema_version: 1, branch_id, view: 'pos-day', date, terminal_id|null, timezone: 'Asia/Almaty',
+  day_start, day_end, as_of,
+  coverage: { pos_tables: bool, cashier_reports: bool,
+              last_received_at: ts|null,                     // последняя запись 073 точки: «Данные кассы получены в 23:41»
+              cashier_reports_at: ts|null },
+  terminals: [{ terminal_id, label, first_seen_at|null }],   // «Касса 1», «Касса 2» по первой смене (Z и отчёты кассы)
+  shifts: [{ shift_id, terminal_id|null, device_id|null,
+             source: 'z'|'cashier_report'|'sales', state: 'open'|'closed'|'unknown',
+             opened_at|null, closed_at|null, opened_by_staff_id|null, cashier_staff_ids: [id],
+             cash: { opening_cash_minor, cash_in_minor, cash_out_minor, cash_sales_minor|null,
+                     cash_refunds_minor|null, expected_cash_minor, counted_cash_minor|null,
+                     discrepancy_minor|null } | null,
+             terminal: { expected_minor, reported_minor|null, discrepancy_minor|null },  // Kaspi терминал
+             z: ShiftReport|null, z_received_at|null, cashier_report_at|null,
+             received: { sales_count, voided_count, sales_minor, refunds_minor,
+                         methods: [{ method, count, sales_minor, refunds_minor }] },     // 8 способов
+             fiscal: { pending, recorded, not_required },
              flags: { cash_discrepancy: bool, terminal_discrepancy: bool, fiscal_pending: int } }],
-  sales: [{ order_id, display_number, sold_at, terminal_id, shift_id, cashier_staff_id,
-            sales_channel, service_mode, revenue_kind, external_order_ref|null,
-            subtotal_minor, discount_minor, total_minor, cash_tendered_minor|null, change_minor|null,
-            state: 'paid'|'voided', voided_at|null, beneficiary|null, reason|null,
-            approval_manager_staff_id|null, lines: QuoteLine[],
+  totals: { sales_count, voided_count, checks, sales_minor, voids_minor, refunds_minor, revenue_minor,
+            average_check_minor, no_revenue: { checks, total_minor, kinds: [{ revenue_kind, checks, total_minor }] } } | null,
+  channels: [{ channel, checks, sales_minor, voids_minor, refunds_minor, revenue_minor, average_check_minor }],
+  methods: [{ method, revenue: bool, payments, sales_minor, voids_minor, refunds_minor, net_minor }],  // 8 способов
+  sales: [{ order_id, display_number, terminal_id, shift_id, device_id, cashier_staff_id, sold_at,
+            business_date, of_day: bool, sales_channel, service_mode, channel, revenue_kind,
+            external_order_ref|null, subtotal_minor, discount_minor, total_minor,
+            cash_tendered_minor|null, change_minor|null, state: 'paid'|'voided', voided_at|null,
+            beneficiary|null, reason|null, approval_manager_staff_id|null, lines,
             tenders: [{ tender_id, method, amount_minor, confirmation, reference|null }],
-            refunds: [{ refund_id, kind, amount_minor, reason_code, reason, staff_id,
-                        approved_by_staff_id, created_at, tenders: [{ tender_id, method, amount_minor }] }],
+            refunds: [{ refund_id, kind: 'void'|'refund', amount_minor, reason_code, reason, staff_id,
+                        approved_by_staff_id, shift_id, terminal_id|null, created_at, in_day: bool,
+                        tenders: [{ method, amount_minor }] }],
             refunded_minor,
             fiscal: [{ receipt_id, kind, refund_id|null, state, receipt_number|null, version,
-                       amount_minor, recorded_by_staff_id|null, recorded_at|null }] }],
+                       amount_minor, recorded_by_staff_id|null, recorded_at|null, in_day: bool }] }],
   fiscal_summary: { pending: { count, amount_minor }, recorded: { count, sales_minor, refunds_minor, net_minor },
-                    not_required: { count, amount_minor, methods: [{ method, count, amount_minor }] } },
-  staff: { '<edge staff id>': { name, employee_id, role } },  // по edgeStaffId (§5.7); нет - кода нет в карте
-  limits: { sales: 1000 }, truncated: { sales: bool } }
+                    not_required: { count, amount_minor, methods: [{ method, count, amount_minor }] } } | null,
+  staff: { '<edge staff id>': { name, employee_id, role } },  // по edgeStaffId; нет карточки - id нет в карте
+  limits: { sales: 2000, earlier_sales: 200 }, truncated: { sales: bool, earlier_sales: bool } }
 ```
 
-Без 073 или без прав - `coverage.pos_tables=false`, пустые `shifts` из 073 и `sales`, экран пишет «Облако
-ещё не получает продажи кассы», а не нули. Ошибки: `INVALID_REQUEST` (дата, `terminal_id`), 403 чужой точке.
+`sales` - чеки дня (новые сверху) и, после них, более ранние чеки, по которым сегодня был возврат
+(`of_day=false`, их деньги не входят в продажи дня). Выручка = продажи - отмены - возвраты дня
+(`revenue_kind='revenue'`); питание персонала и маркетинг - в `totals.no_revenue` и своими способами
+(`revenue=false`). Сумма способов с `revenue=true` равна `totals.revenue_minor` (тест). Чек - чек выручки
+дня, не отменённый в тот же день; средний чек - их сумма / их число, половина вверх.
+
+Без 073 или без прав на любую из шести таблиц - `coverage.pos_tables=false`, `totals`, `fiscal_summary` -
+`null`, `sales`, `channels`, `methods` пустые; смены из отчётов кассы (033) всё равно в `shifts`. Экран пишет
+«Облако ещё не получает продажи кассы», а не нули. Ошибки: `INVALID_REQUEST` (дата, `terminal_id`, лишние
+ключи), 403 чужой точке, 404 без флага (вид неизвестен, как до полосы).
+
+При флаге то же чтение добавляет в снимок `GET branches/:id` поля `pos_terminals`, `pos_staff`,
+`cashier_metrics.paid_total_minor` и в строки кассы `terminal_id`; `payment_state` проданного на кассе
+заказа - `captured`, `fiscal_state` - из 073 (CR pos-4 §2). Карточка заказа кассы получает `pos_sale`
+(та же карточка чека), `pos_staff`, `pos_terminal`. Без флага - ни одного нового ключа (тест
+`backoffice-p1-flags`).
 
 ### 5.2 `GET ops/stock?view=…&start_date&end_date` (склад v2; есть у облачной полосы)
 
@@ -347,8 +377,11 @@ discount_state { id, state: 'draft'|'active'|'archived', expected_revision }
    облачной полосы (`roles`, `sales-report`, `stock-v2` в `packages/backoffice-core/tests`) ждали, что
    `migrate()` применит ровно 073/074; теперь они ждут все файлы от нужного и заодно проверяют прежний
    рантайм на 075.
-2. `ops/pos-day`, `edge-staff-id` (ядро и скрипт), allowlist и gateway, тесты PostgreSQL.
-3. Раздел «Касса» и новая «Главная», F04/F10/F12, браузерные проверки.
+2. Шаг 2 (сделан): `ops/pos-day`, `edge-staff-id` (ядро и скрипт), allowlist и gateway, тесты
+   PostgreSQL и HTTP по ролям, раздел «Касса», блок «Сегодня» на «Главной», реестр заказов с кассой,
+   F04/F10/F11 (CSV реестра)/F12, исправления CR pos-4 §2 - всё за `BACKOFFICE_POS_DAY_ENABLED`;
+   браузерная проверка с флагом и без, runbook «Касса в бэк-офисе» (`backoffice-p1-cutover.md`).
+3. Резерв шага 2 (если интеграция попросит доработки «Кассы»).
 4. Склад: сторно, `variance`/`consumption`, быстрые плитки и выход ТТК, связи меню (API и экран).
 5. Автосписание: ядро, воркер, настройки, очередь, экран.
 6. Смена менеджера и персонал (должности, выгрузка, `staff-roster-apply`, `staff-pin-batch`).
@@ -368,8 +401,9 @@ discount_state { id, state: 'draft'|'active'|'archived', expected_revision }
    Начальнику смены - только если владелец скажет.
 3. **Одиннадцатая должность.** Умолчание: `manager` («Управляющий», доступ к кассе как у начальника
    смены). Остальные десять - трекер А8.
-4. **Чеков кассы в день в пик** (предел `ops/pos-day`, `iiko-gap.md` в.13). Умолчание: 1000 чеков за
-   день с признаком `truncated`.
+4. **Чеков кассы в день в пик** (предел `ops/pos-day`, `iiko-gap.md` в.13). Ответ: 2000 чеков за день
+   (и до 200 более ранних чеков с возвратом в этот день) с признаком `truncated`; итоги дня считаются по
+   всем чекам, предел только у списка (шаг 2).
 5. **Склад P1 под `BACKOFFICE_STOCK_V2_ENABLED`.** По дополнению контракта сторно, связи меню, быстрые
    плитки и отчёты склада P1 включаются тем же флагом, что причины списаний (вкл. 16.11). Значит, после
    Cloud-2 (075 и права) они появятся у управляющего без отдельного шага. Умолчание: так и оставить
