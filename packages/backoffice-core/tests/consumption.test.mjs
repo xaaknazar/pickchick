@@ -648,8 +648,10 @@ test('dry_run writes no documents; switched on later it catches up in sale order
     for (let i = 1; i < docs.length; i++) assert.ok(docs[i].created_at >= docs[i - 1].created_at);
     queue = await items(c);
     assert.ok(!queue.some((i) => i.order_id === early || i.order_id === today));
-    // The day-close pass of tomorrow takes today's sale.
-    const tomorrow = () => new Date(Date.now() + day * 60000);
+    // The day-close pass of tomorrow (03:00 Almaty of the next day) takes today's sale. One day
+    // and three hours later is past that pass whatever the time of the run (between 00:00 and
+    // 03:00 Almaty one day later is still before it).
+    const tomorrow = () => new Date(Date.now() + (day + 3 * 60) * 60000);
     await tick(c, ON, tomorrow);
     assert.equal((await items(c)).find((i) => i.order_id === today).state, 'applied');
     // Back to off: nothing is read, the documents stay.
