@@ -52,8 +52,8 @@ kind `assignment`) в 075 не входят.
 | -------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------ |
 | `BACKOFFICE_POS_DAY_ENABLED`           | `pos_day`                                               | всегда `true`: без 073 вид отвечает `coverage.pos_tables=false`                                                                                             | -                             | `false`                                          |
 | `BACKOFFICE_STOCK_AUTOCONSUME_ENABLED` | `stock_autoconsume`                                     | склад v2 и `stock_p1` (шаг 5: связи), таблицы 075 настроек и очереди доступны роли на запись                                                                | `BACKOFFICE_STOCK_V2_ENABLED` | режим `off` или флаг `false`; документы остаются |
-| `BACKOFFICE_MANAGER_SHIFTS_ENABLED`    | `manager_shifts`                                        | `bo_manager_shifts` доступна на запись                                                                                                                      | -                             | `false`; смены остаются                          |
-| `BACKOFFICE_STAFF_POSITIONS_ENABLED`   | `staff_positions`                                       | всегда `true` (только поля карточки)                                                                                                                        | -                             | `false`; поля в карточке остаются                |
+| `BACKOFFICE_MANAGER_SHIFTS_ENABLED`    | `manager_shifts`                                        | `bo_manager_shifts` на запись и `bo_branch_templates` на добавление (шаг 6)                                                                                 | -                             | `false`; смены остаются                          |
+| `BACKOFFICE_STAFF_POSITIONS_ENABLED`   | `staff_positions`                                       | всегда `true` (поля карточки); список должностей правится при `bo_branch_templates` (`staff_positions.editable`)                                            | -                             | `false`; поля в карточке остаются                |
 | `BACKOFFICE_DISCOUNTS_ENABLED`         | `discounts`                                             | `bo_discounts` на запись и история на чтение                                                                                                                | -                             | `false`                                          |
 | `BACKOFFICE_STOCK_V2_ENABLED` (есть)   | `stock_p1` (шаг 4, последний ключ)                      | только `true` и только при флаге **и** `stockP1Ready` (колонки 075 склада и права helper-а P1 со `stockV2`); иначе ключа нет, ответ - как у облачной полосы | 075 и helper P1               | `false` или helper P1 со `stockV2=false`         |
 
@@ -89,6 +89,7 @@ DDL заморожен 10.11: дальше файл только дополня�
 | `bo_menu_stock_links`                   | связь товара или опции каталога (slug) со складом: `effect consume/none`, `lines` 0..50, `status draft/approved`                                                           | ключ = `product[:group:option]`; `none` ⇔ пустые строки; изменение `effect`/`lines` возвращает в `draft`, утверждение их не меняет                                                                                                                                                        |
 | `bo_consumption_items`                  | очередь автосписания: заказ кассы или облака, состояние, причина, документ                                                                                                 | `applied`, `skipped`, `not_required` - конечные; `applied` ⇔ документ, и это `consumption` именно этого заказа; `blocked/skipped/not_required` с причиной                                                                                                                                 |
 | `bo_manager_shifts`                     | смена менеджера: `opening`, `closing` (jsonb), `template_version`                                                                                                          | одна открытая на точку; `business_date` = дата открытия по Алматы (смена после полуночи - день открытия); закрытая содержит `closing.handover` (3+ символа) и неизменна                                                                                                                   |
+| `bo_branch_templates` (шаг 6, раздел 8) | версии списков, которые правит управляющий: чек-лист смены (`manager_shift`: `opening`, `closing`) и должности (`staff_positions`)                                         | версия 1 - встроенная в коде, строки с версии 2; только добавление (`commerce_immutable`); смена с `template_version > 1` ссылается на существующую версию (триггер)                                                                                                                      |
 | `bo_discounts`, `bo_discount_revisions` | скидка: сумма в тиынах или процент в базисных пунктах (10000 = 100 %), `scope`, `schedule`, `requires_manager_pin=true`, `combinable=false`, `state draft/active/archived` | `archived` конечна; живые названия точки уникальны без учёта регистра; каждую ревизию пишет триггер владельца в историю, роль API историю не пишет                                                                                                                                        |
 
 Общие правила таблиц 075: первая ревизия 1, каждое изменение +1, ключевые колонки неизменны, удалений
@@ -110,16 +111,17 @@ DDL заморожен 10.11: дальше файл только дополня�
 
 Чтение всех новых видов - `reports.read` (все четыре роли), кроме `ops/staff-roster` (только manager).
 
-| Право                  | manager | shift_manager | accountant | analyst | Команды                                                  |
-| ---------------------- | ------- | ------------- | ---------- | ------- | -------------------------------------------------------- |
-| `stock.reverse`        | да      | -             | да         | -       | `stock_reverse`                                          |
-| `menu_links.write`     | да      | -             | -          | -       | `menu_link_save`                                         |
-| `menu_links.approve`   | да      | -             | -          | -       | `menu_links_approve` (шеф утверждает через управляющего) |
-| `stock.settings`       | да      | -             | -          | -       | `stock_settings`                                         |
-| `consumption.write`    | да      | да            | -          | -       | `consumption_retry`, `consumption_skip`                  |
-| `manager_shifts.write` | да      | да            | -          | -       | `manager_shift_open`, `_save`, `_close`                  |
-| `staff.positions`      | да      | -             | -          | -       | поля должности в карточке, `ops/staff-roster`            |
-| `discounts.write`      | да      | -             | -          | -       | `discount_save`, `discount_state`                        |
+| Право                     | manager | shift_manager | accountant | analyst | Команды                                                  |
+| ------------------------- | ------- | ------------- | ---------- | ------- | -------------------------------------------------------- |
+| `stock.reverse`           | да      | -             | да         | -       | `stock_reverse`                                          |
+| `menu_links.write`        | да      | -             | -          | -       | `menu_link_save`                                         |
+| `menu_links.approve`      | да      | -             | -          | -       | `menu_links_approve` (шеф утверждает через управляющего) |
+| `stock.settings`          | да      | -             | -          | -       | `stock_settings`                                         |
+| `consumption.write`       | да      | да            | -          | -       | `consumption_retry`, `consumption_skip`                  |
+| `manager_shifts.write`    | да      | да            | -          | -       | `manager_shift_open`, `_save`, `_close`                  |
+| `manager_shifts.template` | да      | -             | -          | -       | `manager_shift_template` (шаг 6)                         |
+| `staff.positions`         | да      | -             | -          | -       | поля должности в карточке, `ops/staff-roster`            |
+| `discounts.write`         | да      | -             | -          | -       | `discount_save`, `discount_state`                        |
 
 Сделано в шаге 4: `stock.reverse` - отдельный список P1 (`BACKOFFICE_P1_PERMISSIONS`,
 `P1_ROLE_PERMISSIONS` в `roles.ts`), в `BACKOFFICE_PERMISSIONS` не входит: `permissions[]` получает его
@@ -129,6 +131,11 @@ DDL заморожен 10.11: дальше файл только дополня�
 Сделано в шаге 5: `menu_links.write`, `menu_links.approve` (управляющий) приходят в `permissions[]` со
 складом P1, `stock.settings` (управляющий) и `consumption.write` (управляющий, начальник смены) - при
 доступном автосписании; порядок списка - `BACKOFFICE_P1_PERMISSIONS`.
+
+Сделано в шаге 6: `manager_shifts.write` (управляющий, начальник смены) и `manager_shifts.template`
+(управляющий, новое право для версии чек-листа) - при доступной смене менеджера; `staff.positions`
+(управляющий: поля карточки, список должностей, `ops/staff-roster`) - при флаге должностей. Порядок -
+`BACKOFFICE_P1_PERMISSIONS`. Отказ в выгрузке состава для начальника смены - `ROLE_FORBIDDEN`.
 
 Сторно: `design-backoffice.md` противоречит сам себе (§2 А12 - «сторно ... только manager и
 shift_manager», там же и в таблице §4 - бухгалтер делает сторно, `stock_reverse` m/acc). Принято по
@@ -407,6 +414,37 @@ manager_shift_close { id, items: [Answer], handover: 3..2000, expected_revision 
 Ошибки: `MANAGER_SHIFT_OPEN`, `CHECKLIST_INCOMPLETE`, `HANDOVER_REQUIRED`, закрытая - `CONFLICT`.
 «Управленческий журнал» (kind `shift` в `bo_records`) при флаге только читается.
 
+**Сделано в шаге 6** (`manager-shifts.ts` - схемы, шаблон v1, правило чек-листа; `manager-shifts-store.ts` -
+БД; за флагом и правами 075 на `bo_manager_shifts` и `bo_branch_templates`, иначе вид - 404
+неизвестного вида без флага и `NOT_READY` без прав, команды - `INVALID_REQUEST`/`NOT_READY`):
+
+- `GET ops/manager-shifts?date` (по умолчанию сегодня по Алматы) → `{ schema_version, branch_id, date,
+timezone, as_of, template: {version, opening, closing, updated_at, updated_by_name, editable},
+open: Shift|null, open_template: {version, opening, closing}|null, shifts: [Shift] (до 50,
+truncated), checks_date, checks: {attendance, stoplist, cash_float, cash_shifts,
+webkassa_receipts, waste, key_count, blocked_consumption} }`. Проверка - `{status: ok|problem|
+no_data|off, facts}`: тексты пишет кабинет (`manager-shift-model.ts`), факты - сервер. Проверки
+  открытой смены - за её день (`checks_date`), без открытой - за `date`.
+- Пункт: `{code, label, auto: <проверка>|null, required}`; ответ `{code, status, comment}`. Неполно
+  (`INVALID_REQUEST/CHECKLIST_INCOMPLETE`): нет ответа на обязательный пункт (кроме проверки `off`),
+  «Есть проблема» или «Не применимо» без комментария, пункт с проверкой `problem` без комментария
+  (это пояснение расхождения). Ответ хранит текст пункта и проверку на момент ответа.
+- Отклонения от текста выше: `manager_shift_open` без `business_date` (день - по часам БД при
+  открытии); `manager_shift_save` фазы `closing` - черновик (`closing.draft=true`, неполные ответы и
+  передача), фазы `opening` - исправление открытия (полное); новая команда
+  `manager_shift_template {opening, closing, expected_version}` - версия чек-листа точки
+  (`bo_branch_templates`), действует для смен, открытых после неё; открытая смена закрывается по своей
+  версии (`open_template`).
+- Авто-проверки: «Кассовые смены» и «Разменный фонд» - смены дня из `readPosDay` (Z и отчёты кассы:
+  закрыто из всего, сумма расхождений наличных и терминала; касса открыта, а данных нет 10 минут -
+  `no_data/stale`), «Webkassa» - чеки дня без номера, «Списания» и «Подсчёт» - документы склада дня,
+  «Заблокированные списания» - позиции очереди дня в `blocked` (`off` без автосписания), «Явка» -
+  опубликованные смены графика, «Стоп-лист» - последнее сообщение кассы. Подсчёт по `count_daily`
+  не сделан (поля нет): проверяется наличие подсчётов дня.
+- Журнал: при доступной смене менеджера `save` kind `shift` - `NOT_READY/LEGACY_JOURNAL_READ_ONLY`;
+  `GET branches/:id` читает журнал отдельно (последние 200, `limits.shift_records`,
+  `truncated.shift_records`), остальные записи - прежние 2000 (пробел §1 `design-backoffice.md`).
+
 ### 5.7 Персонал (`BACKOFFICE_STAFF_POSITIONS_ENABLED`)
 
 `Employee` (payload, без DDL): `position_code`, `extra_position_codes[] (≤3)`,
@@ -438,6 +476,28 @@ uuid из `sha256('pickchick-edge-staff-v1:' + employee_id + ':' + role)` с б�
 generated_at, staff: [{ employee_id, name, role, edge_staff_id }], sha256 }` - вход
 `staff-roster-apply.mjs --file F [--apply --expected-plan H]` и `staff-pin-batch.mjs` на сервере точки
 (операторские функции `packages/local-orders`; нет функции - CR `bo-ui-<n>`).
+
+**Сделано в шаге 6** (`positions.ts`; за флагом, без DDL для карточки):
+
+- `GET branches/:id` - `staff_positions: {version, editable, positions, updated_at, updated_by_name}`;
+  должность `{code, label, station 1..9|null, kds (функции KDS станции), pos_access, active}`. Список
+  редактируемый (решение задачи шага): `staff_positions_save {positions, expected_version}` пишет
+  версию в `bo_branch_templates` (право `staff.positions`); код не удаляется (`POSITION_IN_USE`), только
+  `active=false`.
+- Карточка `EmployeeP1`: `position_code`, `extra_position_codes` (до 3, без повтора должности),
+  `pos_access`; должность и станции - из списка и действующие (кроме уже стоящих у карточки,
+  `POSITION_UNKNOWN`). Сохранение без этих полей их оставляет; при выключенном флаге неизменённые поля
+  в запросе не дают отказа (`stripKeptPositions`) - откат не стирает должности.
+- `GET ops/staff-roster` (управляющий) → `{schema_version: 1, branch_id, generated_at,
+positions_version, staff: [{employee_id, name, position_code, pos_access, role, edge_staff_id,
+active}], sha256}`: все карточки, включая неработающие и удалённые (их записи отзываются); `role` -
+  роль кассы только у работающей карточки с доступом. `sha256` - от `{schema_version, branch_id, staff}`
+  с фиксированным порядком ключей (тот же код в `scripts/staff-roster-apply.mjs`, тест сравнивает).
+- `scripts/staff-roster-apply.mjs`: план (`provision`, `revoke`, `keep`, `blocked`, `unmanaged`) и его
+  sha256; `--apply --expected-plan H` - ровно этот план через `revokeStaff`, затем `provisionStaff` на
+  активном `--terminal` и файл входа `staff-credential.mjs`. Роль не меняется на месте (отзыв и новая
+  запись); отозванная ранее запись - `blocked` (CR `bo-ui-6` §3). `scripts/staff-pin-batch.mjs`: PIN по
+  одному скрытым вводом через `setStaffPin`, три попытки, занятый PIN - повтор, PIN нигде не выводится.
 
 ### 5.8 Скидки (`BACKOFFICE_DISCOUNTS_ENABLED`)
 
@@ -515,7 +575,11 @@ discount_state { id, state: 'draft'|'active'|'archived', expected_revision }
    `consumption_skip`), воркер `stock-consumption-worker.ts`, вкладка «Списание по продажам», CR
    `bo-ui-5`. Перенесено: отчёты склада `view=consumption|variance` (шаг 6, с подсчётом ключевых
    позиций), поле `stock_policy` в редакторе техкарты кабинета.
-6. Смена менеджера и персонал (должности, выгрузка, `staff-roster-apply`, `staff-pin-batch`).
+6. Шаг 6 (сделан): смена менеджера (`ops/manager-shifts`, команды открытия, черновика, закрытия и версии
+   чек-листа, авто-проверки, журнал только для чтения и исправление `LIMIT 2000`), должности
+   (список с версиями, поля карточки, «Доступы», `ops/staff-roster`), `staff-roster-apply.mjs`,
+   `staff-pin-batch.mjs`; 075 раздел 8 `bo_branch_templates`; CR `bo-ui-6`. Перенесено: подсчёт по
+   `count_daily`, отчёты склада `variance`/`consumption`, восстановление отозванной записи кассы (CR).
 7. Скидки и исправления аудита без флага.
 8. Runbook `docs/operations/backoffice-p1-cutover.md`, дополнения `backoffice-cutover.md`, CR маршрутов
    для `scripts/contracts.mjs`, полный прогон наборов и `pnpm check`.
@@ -541,3 +605,8 @@ discount_state { id, state: 'draft'|'active'|'archived', expected_revision }
    Cloud-2 (075 и права) они появятся у управляющего без отдельного шага. Умолчание: так и оставить
    (черновые связи ничего не списывают, пока автосписание выключено); если нужен отдельный шаг - новый
    флаг через CR.
+6. **Отозванная учётная запись кассы** (шаг 6). Номер кассы детерминирован, а операторские функции
+   не восстанавливают `active=false`: вернувшийся сотрудник в прежней роли получает `blocked`.
+   Умолчание: вручную через оператора кассы; функция - полосе pos (CR `bo-ui-6` §3).
+7. **Право на чек-лист.** Умолчание: версию чек-листа сохраняет только управляющий
+   (`manager_shifts.template`), открывают и закрывают смену управляющий и начальник смены.
