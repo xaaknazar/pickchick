@@ -38,7 +38,11 @@ import {
 } from '@pickchick/pos-order-sync';
 import { applyEdgeRuntimeGrants } from '../../infra/windows/edge-runtime-grants.mjs';
 import { fulfillmentWorkerGrants } from '../../infra/windows/fulfillment-worker-grants.mjs';
-import { posSalesRuntimeGrants } from '../../infra/windows/pos-sales-grants.mjs';
+import {
+  POS_SALES_RELATIONS,
+  assertPosSalesPrivileges,
+  posSalesRuntimeGrants,
+} from '../../infra/windows/pos-sales-grants.mjs';
 import { withSyncDatabases, running } from '../helpers/sync.mjs';
 import { staffAuth } from '../helpers/orders.mjs';
 
@@ -427,6 +431,15 @@ test('026 on a populated 025 edge keeps rows, guards, reads and cashier reports 
             `CREATE ROLE ${role} LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT`,
           );
           await applyEdgeRuntimeGrants(pool, role, { schema: ctx.edge.schema, fulfillment: true });
+          // Today's installed runtime knows nothing of 026. The reset of the integration branch
+          // also grants the reviewed 026 runtime set (CR pos-1 section 1; proven exactly by
+          // tests/integration/edge-runtime-grants.test.mjs), so take every 026 privilege away
+          // again: this login holds only what today's runtime holds on 026.
+          for (const [relation, kind] of Object.entries(POS_SALES_RELATIONS))
+            await ctx.edge.admin.query(
+              `REVOKE ALL ON ${kind === 'S' ? 'SEQUENCE ' : 'TABLE '}${ctx.edge.schema}.${relation} FROM ${role}`,
+            );
+          await assertPosSalesPrivileges(ctx.edge.admin, role, {}, { schema: ctx.edge.schema });
           const url = new URL(ctx.edge.config.databaseUrl);
           url.username = role;
           url.password = password;
