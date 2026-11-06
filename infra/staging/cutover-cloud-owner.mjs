@@ -1,0 +1,479 @@
+/**
+ * Cutover 19.11.2026 (contracts 3.1, 6.1, 6.2 steps 2, 5 and 8; integration review R5): the
+ * guarded owner steps of the cloud. On the VPS the full provision.mjs is never run (it rewrites
+ * unrelated runtime ACL, docs/operations/stage2-2026-10-24/README.md), so cloud 073 (posSales
+ * projection, lane pos) and 074 (back-office cutover, lane cloud) and the grants of each cutover
+ * flag go through this tool only, modelled on stage2-cloud-owner.mjs:
+ *
+ *   node infra/staging/cutover-cloud-owner.mjs inspect
+ *   node infra/staging/cutover-cloud-owner.mjs deploy
+ *   node infra/staging/cutover-cloud-owner.mjs flag <pos-sales-sync|roles|stock-v2|sales-report> <true|false>
+ *   node infra/staging/cutover-cloud-owner.mjs compose-candidate --compose <file> --sha256 <hex> --out <file>
+ *   node infra/staging/cutover-cloud-owner.mjs compose-flag <flag> <true|false> --compose <file> --sha256 <hex> --out <file>
+ *
+ * inspect/deploy/flag run inside the candidate API image as the cloud owner (CLOUD_DATABASE_URL
+ * of pickchick_owner on pickchick_cloud), in ONE repeatable-read transaction, for the API role
+ * pickchick_app:
+ * - deploy: exact schema072 ledger (every file byte for byte), the reviewed bytes of 072/073/074,
+ *   then 073 and 074 in order with their ledger rows, then the grants of provision.mjs's
+ *   cutover:integration block with every cutover flag off (cloudPosSalesGrants receiver off,
+ *   then backofficeCutoverGrants roles off, then both exact checks). Existing tables keep their
+ *   columns (074 adds bo_stock_documents.reason_code and meta) and rows, role attributes stay,
+ *   the API role gains exactly the back-office read set of 073 (none without BACKOFFICE_ENABLED).
+ *   A repeat is refused; 072 is applied by its own С4 release, never here. Files after 074
+ *   (cloud 075 of the bo-ui lane) are not touched.
+ * - flag: the grants of ONE flag, the same reset and checks as provision.mjs, exact delta, nothing
+ *   else on the role changes. Enable = grants first, then the API environment; disable = the API
+ *   environment first, then the grants. stock-v2 and sales-report change no grant: they prove the
+ *   rights the feature needs. Flags of the back office need BACKOFFICE_ENABLED grants.
+ * - compose-candidate / compose-flag: the guarded API environment step on a copy of the installed
+ *   compose (no database): the installed file must have the reviewed SHA-256; the candidate adds
+ *   only the literal cutover flag lines, all "false" (api and provision services, like the
+ *   release scripts' compose_candidate); a flag run flips only that one key. The result goes to a
+ *   new file; both SHA-256 are printed for the release record.
+ * Output is names, booleans and hashes, never row data or the connection string.
+ */
+import { createHash } from 'node:crypto';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { fingerprint, OwnerGuardError, runtimePrivileges } from './unified-menu-owner.mjs';
+import {
+  BACKOFFICE_PRIVILEGES,
+  POS_SALES_RELATIONS,
+  RUNTIME_PRIVILEGES,
+  assertCloudPosSalesPrivileges,
+  cloudPosSalesGrants,
+} from './pos-sales-grants.mjs';
+import {
+  SALES_REPORT_TABLES,
+  assertBackofficeCutoverPrivileges,
+  backofficeCutoverGrants,
+} from './backoffice-cutover-grants.mjs';
+
+export const BASELINE = '072_cloud_kitchen_restore_review.sql';
+export const MIGRATIONS = Object.freeze([
+  '073_cloud_pos_sales_sync.sql',
+  '074_cloud_backoffice_cutover.sql',
+]);
+/** Reviewed bytes (SHA-256, master runbook section 2.2) of the baseline and of both files. */
+export const CHECKSUMS = Object.freeze({
+  '072_cloud_kitchen_restore_review.sql':
+    'd222ea9bf0aeebcaaeea96bc119c9b8aa3e1d9f032a1af7914aefe5c8981c5e2',
+  '073_cloud_pos_sales_sync.sql':
+    '1d649530705ecfaee8e297a047dda99541c8a310fe7e422a230365f02e5c13b0',
+  '074_cloud_backoffice_cutover.sql':
+    'ead3064f692da4712e6cd365f7fcae9a4e296970a2ab07cd411f1b9f2b5ffc73',
+});
+/** Tables 073/074 create, and the two columns 074 adds to an existing table. */
+export const NEW_TABLES = Object.freeze([
+  ...Object.keys(POS_SALES_RELATIONS),
+  'bo_role_designations',
+]);
+export const ADDED_COLUMNS = Object.freeze({ bo_stock_documents: ['reason_code', 'meta'] });
+/** Flags with database grants (or proofs) and their API environment keys. */
+export const FLAGS = Object.freeze({
+  'pos-sales-sync': 'CLOUD_POS_SALES_SYNC_ENABLED',
+  roles: 'BACKOFFICE_ROLES_ENABLED',
+  'stock-v2': 'BACKOFFICE_STOCK_V2_ENABLED',
+  'sales-report': 'BACKOFFICE_SALES_REPORT_ENABLED',
+});
+/** Every cutover key of the API environment (aggregator prices has no grant). */
+export const COMPOSE_FLAGS = Object.freeze({
+  ...FLAGS,
+  'aggregator-prices': 'CATALOG_AGGREGATOR_PRICES_ENABLED',
+});
+/** Keys the provision service also carries (they choose grants in provision.mjs). */
+export const PROVISION_KEYS = Object.freeze([
+  'CLOUD_POS_SALES_SYNC_ENABLED',
+  'BACKOFFICE_ROLES_ENABLED',
+  'BACKOFFICE_STOCK_V2_ENABLED',
+  'BACKOFFICE_SALES_REPORT_ENABLED',
+]);
+export const API_ROLE = 'pickchick_app';
+/** Back-office grants on (backofficeGrants(role, true)), as in stage2-cloud-owner.mjs. */
+const BACKOFFICE_MARKER = 'bo_commands||INSERT';
+const RECEIVER_MARKER = 'cloud_pos_sale_inbox||INSERT';
+const ROLES_MARKER = 'bo_role_designations||SELECT';
+const LOCK = 724001; // Same advisory lock as @pickchick/database migrate().
+const ROLE = /^[a-z][a-z0-9_]{0,62}$/;
+const SHA = /^[a-f0-9]{64}$/;
+
+const sha256 = (s) => createHash('sha256').update(s).digest('hex');
+const guard = (ok, message) => {
+  if (!ok) throw new OwnerGuardError(message);
+};
+const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const union = (a, b) => [...new Set([...a, ...b])].sort();
+const minus = (a, b) => a.filter((x) => !b.includes(x));
+
+/** A privilege map of pos-sales-grants.mjs as runtimePrivileges strings (table|column|privilege). */
+function privilegeStrings(map) {
+  const out = [];
+  for (const [table, list] of Object.entries(map))
+    for (const item of list) {
+      const columns = /^UPDATE\(([a-z_,]+)\)$/.exec(item);
+      if (columns)
+        for (const column of columns[1].split(',')) out.push(`${table}|${column}|UPDATE`);
+      else out.push(`${table}||${item}`);
+    }
+  return out;
+}
+const cutoverPrivilege = (privilege) => NEW_TABLES.includes(privilege.split('|')[0]);
+/** The exact cutover rights of the API role for a grant state (provision.mjs cutover block). */
+export function cutoverPrivileges({ receiver, backoffice, roles }) {
+  const pos = receiver ? RUNTIME_PRIVILEGES : backoffice ? BACKOFFICE_PRIVILEGES : {};
+  return union(privilegeStrings(pos), [
+    ...(backoffice ? SALES_REPORT_TABLES.map((t) => `${t}||SELECT`) : []),
+    ...(backoffice && roles ? [ROLES_MARKER] : []),
+  ]);
+}
+const stateOf = (acl) => ({
+  backoffice: acl.includes(BACKOFFICE_MARKER),
+  receiver: acl.includes(RECEIVER_MARKER),
+  roles: acl.includes(ROLES_MARKER),
+});
+async function currentSchema(c) {
+  const schema = (await c.query('SELECT current_schema() AS s')).rows[0].s;
+  guard(ROLE.test(schema ?? ''), 'Unexpected schema');
+  return schema;
+}
+/** The provision.mjs cutover:integration block for one state, with its exact checks. */
+async function cutoverGrants(c, role, schema, state, proofs = {}) {
+  const posSales = { receiver: state.receiver, backoffice: state.backoffice };
+  const cutover = { backoffice: state.backoffice, roles: state.roles };
+  await c.query(cloudPosSalesGrants(role, posSales, schema));
+  await c.query(backofficeCutoverGrants(role, cutover, schema));
+  await assertCloudPosSalesPrivileges(c, role, posSales, schema);
+  await assertBackofficeCutoverPrivileges(
+    c,
+    role,
+    { ...cutover, stockV2: proofs.stockV2 === true, salesReport: proofs.salesReport === true },
+    schema,
+  );
+}
+
+async function columns(c) {
+  return Object.fromEntries(
+    (
+      await c.query(
+        "SELECT c.relname AS name,array_agg(a.attname::text ORDER BY a.attnum) AS columns FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped WHERE n.nspname=current_schema() AND c.relkind IN ('r','p') GROUP BY c.relname ORDER BY c.relname",
+      )
+    ).rows.map((r) => [r.name, r.columns]),
+  );
+}
+async function roles(c) {
+  return (
+    await c.query(
+      'SELECT rolname,rolsuper,rolcreaterole,rolcreatedb,rolcanlogin,rolreplication,rolbypassrls,rolconfig FROM pg_roles ORDER BY rolname',
+    )
+  ).rows;
+}
+const ledgerOf = async (c) =>
+  (await c.query('SELECT version,checksum,scope FROM schema_migrations ORDER BY version')).rows;
+
+/** Repository files up to 074 with the reviewed bytes of 072/073/074; later files are ignored. */
+async function candidate(directory) {
+  const all = (await readdir(directory)).filter((n) => /^\d{3}_[a-z0-9_]+\.sql$/.test(n)).sort();
+  const at = all.indexOf(MIGRATIONS[0]);
+  guard(
+    at > 0 && all[at - 1] === BASELINE && all[at + 1] === MIGRATIONS[1],
+    'Exact 072, 073 and 074 candidate files required',
+  );
+  const files = all.slice(0, at + 2);
+  const sql = new Map(
+    await Promise.all(files.map(async (n) => [n, await readFile(join(directory, n), 'utf8')])),
+  );
+  for (const [name, checksum] of Object.entries(CHECKSUMS))
+    guard(sha256(sql.get(name)) === checksum, 'Reviewed migration bytes differ: ' + name);
+  return { files, sql, baseline: at };
+}
+const exactPrefix = (ledger, files, sql, count) =>
+  ledger.length >= count &&
+  ledger
+    .slice(0, count)
+    .every(
+      (r, i) =>
+        r.version === files[i] && r.scope === 'cloud' && r.checksum === sha256(sql.get(r.version)),
+    );
+
+export async function deployCutover(c, { directory, role = API_ROLE, inspect = false }) {
+  guard(ROLE.test(role), 'Invalid runtime role');
+  await c.query("SET LOCAL lock_timeout='5s';SET LOCAL statement_timeout='300s'");
+  if (!inspect) await c.query('SELECT pg_advisory_xact_lock($1)', [LOCK]);
+  const schema = await currentSchema(c);
+  const { files, sql, baseline } = await candidate(directory);
+  const ledger = await ledgerOf(c);
+  const at072 = ledger.length === baseline && exactPrefix(ledger, files, sql, baseline);
+  const at074 = exactPrefix(ledger, files, sql, files.length);
+  guard(
+    at072 || at074,
+    'Exact schema072 ledger required (072 by its own C4 release; do not replay a partial apply)',
+  );
+  const acl = await runtimePrivileges(c, role);
+  const state = stateOf(acl);
+  const expected = cutoverPrivileges({ ...state, receiver: false, roles: false });
+  if (inspect)
+    return {
+      ledger: at072 ? 'schema072' : 'schema074',
+      pending: at072 ? [...MIGRATIONS] : [],
+      reviewedBytes: true,
+      backofficeGrants: state.backoffice,
+      privilegesAdded: at072 ? expected : [],
+      flags: at074
+        ? { posSalesSync: state.receiver, roles: state.roles }
+        : { posSalesSync: false, roles: false },
+    };
+  guard(at072, 'Cloud 073/074 are already applied: deploy runs once');
+  const before = await columns(c);
+  guard(
+    NEW_TABLES.every((t) => !(t in before)),
+    'Cutover tables already exist',
+  );
+  for (const [table, added] of Object.entries(ADDED_COLUMNS))
+    guard(
+      table in before && added.every((name) => !before[table].includes(name)),
+      'Cutover columns already exist',
+    );
+  guard(!acl.some(cutoverPrivilege), 'Unexpected cutover privileges before deploy');
+  const existing = Object.fromEntries(
+    Object.entries(before).filter(([n]) => n !== 'schema_migrations'),
+  );
+  const data = await fingerprint(c, existing);
+  const rolesBefore = await roles(c);
+  const appended = [];
+  for (const name of MIGRATIONS) {
+    await c.query(sql.get(name));
+    const row = { version: name, checksum: sha256(sql.get(name)), scope: 'cloud' };
+    await c.query('INSERT INTO schema_migrations(version,checksum,scope) VALUES($1,$2,$3)', [
+      row.version,
+      row.checksum,
+      row.scope,
+    ]);
+    appended.push(row);
+  }
+  // Every cutover flag off: what provision.mjs grants with them unset.
+  await cutoverGrants(c, role, schema, { ...state, receiver: false, roles: false });
+  const after = await columns(c);
+  guard(
+    equal(Object.keys(after).sort(), [...Object.keys(before), ...NEW_TABLES].sort()),
+    'Unexpected tables',
+  );
+  for (const [t, cols] of Object.entries(before))
+    guard(equal(after[t], [...cols, ...(ADDED_COLUMNS[t] ?? [])]), 'Existing columns changed');
+  guard(equal(await fingerprint(c, existing), data), 'Existing rows changed');
+  guard(equal(await roles(c), rolesBefore), 'Role attributes changed');
+  guard(
+    equal(await runtimePrivileges(c, role), union(acl, expected)),
+    'Unexpected privilege delta',
+  );
+  guard(equal(await ledgerOf(c), [...ledger, ...appended]), 'Ledger changed');
+  return {
+    applied: [...MIGRATIONS],
+    existingDataPreserved: true,
+    backofficeGrants: state.backoffice,
+    privilegesAdded: expected,
+    privilegesRemoved: [],
+    flags: { posSalesSync: false, roles: false, stockV2: false, salesReport: false },
+  };
+}
+
+/** Grants (or proofs) of one cutover flag; exact delta, nothing else on the role changes. */
+export async function setCutoverFlag(c, { role = API_ROLE, flag, enabled }) {
+  guard(ROLE.test(role) && flag in FLAGS && typeof enabled === 'boolean', 'Invalid flag');
+  await c.query("SET LOCAL lock_timeout='5s';SET LOCAL statement_timeout='60s'");
+  await c.query('SELECT pg_advisory_xact_lock($1)', [LOCK]);
+  const schema = await currentSchema(c);
+  const applied = new Map((await ledgerOf(c)).map((r) => [r.version, r.checksum]));
+  guard(
+    MIGRATIONS.every((m) => applied.get(m) === CHECKSUMS[m]),
+    'Run deploy (073/074 with the reviewed bytes) first',
+  );
+  const acl = await runtimePrivileges(c, role);
+  const state = stateOf(acl);
+  guard(
+    equal(acl.filter(cutoverPrivilege), cutoverPrivileges(state)),
+    'Cutover grants differ from every known flag state: run inspect',
+  );
+  guard(
+    !enabled || flag === 'pos-sales-sync' || state.backoffice,
+    'BACKOFFICE_ENABLED grants are required first',
+  );
+  const target = {
+    ...state,
+    ...(flag === 'pos-sales-sync' ? { receiver: enabled } : {}),
+    ...(flag === 'roles' ? { roles: enabled } : {}),
+  };
+  const rolesBefore = await roles(c);
+  await cutoverGrants(c, role, schema, target, {
+    stockV2: flag === 'stock-v2' && enabled,
+    salesReport: flag === 'sales-report' && enabled,
+  });
+  const want = union(
+    acl.filter((p) => !cutoverPrivilege(p)),
+    cutoverPrivileges(target),
+  );
+  const now = await runtimePrivileges(c, role);
+  guard(equal(now, want), 'Unexpected privilege delta');
+  guard(equal(await roles(c), rolesBefore), 'Role attributes changed');
+  return {
+    flag,
+    enabled,
+    privilegesAdded: minus(now, acl),
+    privilegesRemoved: minus(acl, now),
+    environment: FLAGS[flag],
+    order: enabled
+      ? 'grants done; now set the API environment and restart the API'
+      : 'run after the API environment is off and the API restarted',
+  };
+}
+
+// --------------------------------------------------------------- API environment (compose) ----
+const API_ANCHOR = '      CLOUD_DATABASE_URL: postgresql://pickchick_app:';
+const OWNER_ANCHOR = '      CLOUD_DATABASE_URL: postgresql://pickchick_owner:';
+const line = (key, value) => `      ${key}: "${value}"\n`;
+const apiLines = (value = 'false') =>
+  Object.values(COMPOSE_FLAGS)
+    .map((key) => line(key, value))
+    .join('');
+const provisionLines = () => PROVISION_KEYS.map((key) => line(key, 'false')).join('');
+const installed = (text, expected) =>
+  guard(
+    typeof text === 'string' && SHA.test(expected ?? '') && sha256(text) === expected,
+    'Installed compose differs from the reviewed hash',
+  );
+
+/** Installed compose plus the cutover keys, all "false"; nothing else changes. */
+export function composeCandidate(text, expectedSha256) {
+  installed(text, expectedSha256);
+  for (const key of Object.values(COMPOSE_FLAGS))
+    guard(!text.includes(key + ':'), 'Installed compose already mentions ' + key);
+  guard(
+    text.split('\n' + API_ANCHOR).length === 2 && text.split('\n' + OWNER_ANCHOR).length === 2,
+    'Compose database anchors differ',
+  );
+  const result = text
+    .replace('\n' + API_ANCHOR, '\n' + apiLines() + API_ANCHOR)
+    .replace('\n' + OWNER_ANCHOR, '\n' + provisionLines() + OWNER_ANCHOR);
+  guard(
+    result.replace(apiLines(), '').replace(provisionLines(), '') === text,
+    'Compose candidate changed more than the flag lines',
+  );
+  return result;
+}
+
+/** One cutover key flipped in the api service (and in provision where it is carried). */
+export function composeFlag(text, expectedSha256, flag, enabled) {
+  installed(text, expectedSha256);
+  guard(flag in COMPOSE_FLAGS && typeof enabled === 'boolean', 'Invalid flag');
+  const key = COMPOSE_FLAGS[flag];
+  const [from, to] = enabled ? ['false', 'true'] : ['true', 'false'];
+  const count = PROVISION_KEYS.includes(key) ? 2 : 1;
+  guard(
+    text.split(line(key, from)).length === count + 1 && !text.includes(line(key, to)),
+    `${key} is not in the expected state in the installed compose`,
+  );
+  guard(text.split(key + ':').length === count + 1, `${key} appears in an unexpected place`);
+  const result = text.replaceAll(line(key, from), line(key, to));
+  guard(result.replaceAll(line(key, to), line(key, from)) === text, 'Compose changed more');
+  return result;
+}
+
+// ------------------------------------------------------------------------------- command line ----
+const USAGE =
+  'Usage: cutover-cloud-owner.mjs inspect | deploy | flag <pos-sales-sync|roles|stock-v2|sales-report> <true|false> | compose-candidate --compose <file> --sha256 <hex> --out <file> | compose-flag <flag> <true|false> --compose <file> --sha256 <hex> --out <file>';
+function composeOptions(rest) {
+  const options = {};
+  for (let i = 0; i < rest.length; i += 2) {
+    const name = /^--(compose|sha256|out)$/.exec(rest[i] ?? '')?.[1];
+    guard(name && !(name in options) && typeof rest[i + 1] === 'string', USAGE);
+    options[name] = rest[i + 1];
+  }
+  guard(
+    ['compose', 'sha256', 'out'].every((name) => options[name]),
+    USAGE,
+  );
+  guard(SHA.test(options.sha256), USAGE);
+  return options;
+}
+export function parseArguments(argv) {
+  const [command, ...rest] = argv;
+  if (['inspect', 'deploy'].includes(command) && rest.length === 0) return { command };
+  if (
+    command === 'flag' &&
+    rest.length === 2 &&
+    rest[0] in FLAGS &&
+    ['true', 'false'].includes(rest[1])
+  )
+    return { command, flag: rest[0], enabled: rest[1] === 'true' };
+  if (command === 'compose-candidate') return { command, ...composeOptions(rest) };
+  if (command === 'compose-flag' && rest[0] in COMPOSE_FLAGS && ['true', 'false'].includes(rest[1]))
+    return {
+      command,
+      flag: rest[0],
+      enabled: rest[1] === 'true',
+      ...composeOptions(rest.slice(2)),
+    };
+  throw new OwnerGuardError(USAGE);
+}
+
+async function compose(args) {
+  const text = await readFile(args.compose, 'utf8');
+  const result =
+    args.command === 'compose-candidate'
+      ? composeCandidate(text, args.sha256)
+      : composeFlag(text, args.sha256, args.flag, args.enabled);
+  await writeFile(args.out, result, { flag: 'wx', mode: 0o600 }).catch(() => {
+    throw new OwnerGuardError('Output file exists or is not writable');
+  });
+  return {
+    composeBefore: sha256(text),
+    composeAfter: sha256(result),
+    ...(args.flag ? { environment: COMPOSE_FLAGS[args.flag], enabled: args.enabled } : {}),
+  };
+}
+
+async function main(argv) {
+  const args = parseArguments(argv);
+  if (args.command.startsWith('compose-')) return console.log(JSON.stringify(await compose(args)));
+  let url;
+  try {
+    url = new URL(process.env.CLOUD_DATABASE_URL ?? '');
+  } catch {
+    url = null;
+  }
+  guard(
+    url?.username === 'pickchick_owner' && url.pathname === '/pickchick_cloud',
+    'Owner database required',
+  );
+  const { createPool } = await import('@pickchick/database');
+  const pool = createPool(url.href),
+    c = await pool.connect();
+  try {
+    await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
+    const result =
+      args.command === 'flag'
+        ? await setCutoverFlag(c, { flag: args.flag, enabled: args.enabled })
+        : await deployCutover(c, {
+            directory: fileURLToPath(new URL('../../db/cloud/migrations/', import.meta.url)),
+            inspect: args.command === 'inspect',
+          });
+    await c.query(args.command === 'inspect' ? 'ROLLBACK' : 'COMMIT');
+    console.log(JSON.stringify(result));
+  } catch (e) {
+    await c.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    c.release();
+    await pool.end();
+  }
+}
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1])
+  main(process.argv.slice(2)).catch((e) => {
+    console.error(
+      e instanceof OwnerGuardError
+        ? `Cutover cloud owner guard: ${e.message}`
+        : 'Cutover cloud owner transaction failed; inspect state before retry.',
+    );
+    process.exitCode = 1;
+  });
