@@ -367,6 +367,8 @@ test('HTTP: the API maps the config flags; flag-off bodies are the cloud lane bo
         return {
           branch: await get(''),
           posDay: await get('/ops/pos-day?date=2026-11-19'),
+          managerShifts: await get('/ops/manager-shifts?date=2026-11-19'),
+          roster: await get('/ops/staff-roster'),
           bogus: await get('/ops/bogus'),
         };
       } finally {
@@ -381,6 +383,11 @@ test('HTTP: the API maps the config flags; flag-off bodies are the cloud lane bo
     // A P1 view while off answers exactly like an unknown view.
     assert.equal(off.posDay.status, 404);
     assert.deepEqual(stable(off.posDay.body), stable(off.bogus.body));
+    // Step 6 views: the same 404 while their flags are off.
+    for (const view of [off.managerShifts, off.roster]) {
+      assert.equal(view.status, 404);
+      assert.deepEqual(stable(view.body), stable(off.bogus.body));
+    }
     // The same config with every P1 field explicitly false is the same API.
     const explicit = await read({
       ...base,
@@ -407,4 +414,11 @@ test('HTTP: the API maps the config flags; flag-off bodies are the cloud lane bo
       ),
       stable(off.branch.body),
     );
+    // With their flags the step 6 views answer through the API.
+    assert.equal(on.managerShifts.status, 200);
+    assert.equal(on.managerShifts.body.date, '2026-11-19');
+    assert.equal(on.managerShifts.body.open, null);
+    assert.equal(on.roster.status, 200);
+    assert.deepEqual(on.roster.body.staff, []);
+    assert.match(on.roster.body.sha256, /^[0-9a-f]{64}$/);
   }));
