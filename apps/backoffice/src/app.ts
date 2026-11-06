@@ -2,12 +2,18 @@ import { DevicesModel } from './devices-model.js';
 import { DeviceAccessView } from './components/DeviceAccessView.js';
 import { KioskIncidentsModel } from './kiosk-incidents-model.js';
 import { KioskIncidentsView } from './components/KioskIncidentsView.js';
-import { OperationsModel, StopsModel, permitted, roleTitle } from './operations-model.js';
+import {
+  OperationsModel,
+  StopsModel,
+  permitted,
+  posDayAvailable,
+  roleTitle,
+} from './operations-model.js';
 import { WorkforceModel } from './workforce-model.js';
 import { WorkforceView } from './workforce.js';
 import { FinanceModel } from './finance-model.js';
 import { FinanceView } from './finance.js';
-import { OperationsView, sections } from './operations.js';
+import { OperationsView, POS_SECTION, sections } from './operations.js';
 import { CatalogModel } from './model.js';
 import { transport, message, staffAuth } from './api.js';
 import {
@@ -32,6 +38,13 @@ import { openEditor, emptyProduct, type EditorContext } from './editor.js';
 const root = document.querySelector<HTMLDivElement>('#app')!,
   model = new CatalogModel(transport, window.sessionStorage);
 let page = sections.some((s) => s[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'dash';
+// Lane bo-ui «Касса»: #pos opens only once the server reports capabilities.pos_day.
+let wantPos = location.hash === '#pos';
+/** The sections of this server: `sections`, plus «Касса» after «Заказы» while pos_day is on. */
+const allSections = (): readonly (readonly [string, string, string])[] =>
+  posDayAvailable(operations.data)
+    ? [...sections.slice(0, 2), POS_SECTION, ...sections.slice(2)]
+    : sections;
 let cashierJournalOpen = false;
 const operations = new OperationsModel(
   (path, request) => model.operations(path, request),
@@ -349,15 +362,20 @@ function render() {
     login();
     return;
   }
+  if (wantPos && operations.data) {
+    wantPos = false;
+    if (posDayAvailable(operations.data)) page = 'pos';
+  }
+  if (page === 'pos' && operations.data && !posDayAvailable(operations.data)) page = 'dash';
   const shell = el('div', 'shell'),
     sidebar = el('aside', 'sidebar'),
     brand = el('div', 'brand');
   brand.append(image('logo.png', 'PickChick'), el('small', '', 'Управление рестораном'));
   sidebar.append(brand);
-  const primary = ['dash', 'orders', 'items', 'stoplist', 'shifts', 'reports', 'finance'];
+  const primary = ['dash', 'orders', 'pos', 'items', 'stoplist', 'shifts', 'reports', 'finance'];
   const navigation = el('nav', 'navigation');
   navigation.setAttribute('aria-label', 'Разделы кабинета');
-  const appendLinks = (container: HTMLElement, list: (typeof sections)[number][]) => {
+  const appendLinks = (container: HTMLElement, list: (readonly [string, string, string])[]) => {
     for (const [id, label] of list) {
       const nav = button(
         id === 'items'
@@ -405,17 +423,17 @@ function render() {
   };
   const daily = el('div', 'nav-primary');
   // Cutover CC-5: sections the role cannot read are not offered (the server answers 403 anyway).
-  const visible = (section: (typeof sections)[number]) =>
+  const visible = (section: readonly [string, string, string]) =>
     section[0] !== 'finance' || !operations.data || permitted(operations.data, 'finance.read');
   appendLinks(
     daily,
-    [...sections]
+    [...allSections()]
       .filter((section) => primary.includes(section[0]) && visible(section))
       .sort((a, b) => primary.indexOf(a[0]) - primary.indexOf(b[0])),
   );
   appendLinks(
     daily,
-    [...sections].filter((section) => !primary.includes(section[0]) && visible(section)),
+    [...allSections()].filter((section) => !primary.includes(section[0]) && visible(section)),
   );
   navigation.append(daily);
   navigation.id = 'cabinet-navigation';
@@ -468,8 +486,8 @@ function render() {
     header = el('header', 'topbar'),
     titles = el('div', 'page-title');
   titles.append(
-    el('h1', '', sections.find((s) => s[0] === page)?.[1] ?? 'PickChick'),
-    el('p', 'muted', sections.find((s) => s[0] === page)?.[2] ?? ''),
+    el('h1', '', allSections().find((s) => s[0] === page)?.[1] ?? 'PickChick'),
+    el('p', 'muted', allSections().find((s) => s[0] === page)?.[2] ?? ''),
   );
   header.append(titles);
   const branch = select(
@@ -514,7 +532,8 @@ function render() {
   header.append(branch);
   const legacyControls = el('div', 'wf-legacy-controls');
   const periodTarget = page === 'shifts' ? legacyControls : header;
-  if (page !== 'items' && page !== 'finance') {
+  // «Касса» has its own day and cash desk pickers (audit F07: no period that does nothing).
+  if (page !== 'items' && page !== 'finance' && page !== 'pos') {
     const periods = el('div', 'op-periods');
     for (const [id, label] of [
       ['day', 'Сегодня'],

@@ -1,5 +1,6 @@
 import { ApiError, type Request } from './api.js';
 import { salesReport, type SalesReport } from './sales-report-model.js';
+import { posDay, type PosDay } from './pos-day-model.js';
 export type Data = Record<string, unknown>;
 export type Entry = {
   id: string;
@@ -48,6 +49,9 @@ export type Snapshot = {
   effective_role?: string;
   permissions?: string[];
   capabilities: Data;
+  /** «Касса» (lane bo-ui): only from servers with BACKOFFICE_POS_DAY_ENABLED. */
+  pos_terminals?: { terminal_id: string; label: string; first_seen_at: string | null }[];
+  pos_staff?: Record<string, { name: string; employee_id: string; role: string }>;
 };
 /**
  * Whether the signed-in person may do `permission` (cutover CC-5, contracts 5.10). Servers with
@@ -102,6 +106,13 @@ export const salesReportAvailable = (data: { capabilities?: unknown } | null | u
     data?.capabilities &&
     typeof data.capabilities === 'object' &&
     (data.capabilities as Data)['sales_report'] === true,
+  );
+/** «Касса» (lane bo-ui, BACKOFFICE_POS_DAY_ENABLED): the server answers GET .../ops/pos-day. */
+export const posDayAvailable = (data: { capabilities?: unknown } | null | undefined) =>
+  Boolean(
+    data?.capabilities &&
+    typeof data.capabilities === 'object' &&
+    (data.capabilities as Data)['pos_day'] === true,
   );
 /** Stock v2 (cutover CC-6): the server takes waste reasons and receipt details. */
 export const stockV2 = (data: { capabilities?: unknown } | null | undefined) =>
@@ -321,6 +332,16 @@ export class OperationsModel {
     const value = await this.api(`branches/${this.branch}/ops/stock?${query.toString()}`);
     if (generation !== this.generation) throw new ApiError('FORBIDDEN');
     return stockReport(value, this.branch, view);
+  }
+  /** One cashier day for «Касса» (GET .../ops/pos-day, lane bo-ui), optionally one cash desk. */
+  async posDay(date: string, terminal = ''): Promise<PosDay> {
+    const generation = this.generation;
+    const branch = this.branch;
+    const query = new URLSearchParams({ date });
+    if (terminal) query.set('terminal_id', terminal);
+    const value = await this.api(`branches/${branch}/ops/pos-day?${query.toString()}`);
+    if (generation !== this.generation) throw new ApiError('FORBIDDEN');
+    return posDay(value, branch);
   }
   /** Sales report (GET .../ops/sales, cutover CC-7) of an Almaty date window. */
   async salesReport(startDate: string, endDate: string): Promise<SalesReport> {

@@ -128,6 +128,18 @@ export function allowedPath(path: string): boolean {
       /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '')
     );
   }
+  // Lane bo-ui «Касса»: one Almaty day, optionally one cash desk.
+  if (new RegExp(`^operations/branches/${UUID}/ops/pos-day$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    const terminal = q.get('terminal_id');
+    return (
+      [...q.keys()].every((k) => k === 'date' || k === 'terminal_id') &&
+      q.getAll('date').length === 1 &&
+      q.getAll('terminal_id').length <= 1 &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('date') ?? '') &&
+      (terminal === null || new RegExp(`^${UUID}$`).test(terminal))
+    );
+  }
   if (new RegExp(`^operations/branches/${UUID}$`).test(pathname)) return reportQuery(search ?? '');
   return (
     search === undefined &&

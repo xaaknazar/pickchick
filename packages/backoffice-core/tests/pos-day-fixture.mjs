@@ -285,15 +285,18 @@ export const ONE_METHODS = [
  * - desk three: shift «unknown» (no Z, no report) with №1 on 19.11, and on 20.11 shift «next».
  * Three receipts have the number 1 on three cash desks.
  */
-export async function seedDay(c) {
+export async function seedDay(c, D = DAY) {
   await employees(c);
-  const D = DAY;
+  const shiftDay = (n) =>
+    new Date(Date.parse(`${D}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+  const before = shiftDay(-1),
+    after = shiftDay(1);
   // ---- desk one, 18.11 ----
   await zReport(c, {
     shift: SHIFT.earlier,
     terminal: TERMINAL.one,
-    opened: at('2026-11-18', '09:00:00'),
-    closed: at('2026-11-18', '23:55:00'),
+    opened: at(before, '09:00:00'),
+    closed: at(before, '23:55:00'),
     opening: '1000000',
     cash_sales: '700000',
     cash_refunds: '0',
@@ -305,7 +308,7 @@ export async function seedDay(c) {
     shift: SHIFT.earlier,
     terminal: TERMINAL.one,
     number: 9,
-    at: at('2026-11-18', '23:30:00'),
+    at: at(before, '23:30:00'),
     tenders: [['cash', '700000', 'drawer']],
     tendered: '1000000',
     receipt: { state: 'recorded', number: 'SYN-0009' },
@@ -315,7 +318,7 @@ export async function seedDay(c) {
   await zReport(c, {
     ...one,
     opened: at(D, '09:00:00'),
-    closed: at('2026-11-20', '00:30:00'),
+    closed: at(after, '00:30:00'),
     opening: '1000000',
     cash_sales: '500000',
     cash_refunds: '700000',
@@ -404,7 +407,7 @@ export async function seedDay(c) {
   await sale(c, {
     ...one,
     number: 7,
-    at: at('2026-11-20', '00:10:00'),
+    at: at(after, '00:10:00'),
     tenders: [['cash', '150000', 'drawer']],
     receipt: { state: 'pending' },
   });
@@ -455,7 +458,7 @@ export async function seedDay(c) {
     shift: SHIFT.next,
     terminal: TERMINAL.two,
     number: 1,
-    at: at('2026-11-20', '11:00:00'),
+    at: at(after, '11:00:00'),
     tenders: [['cash', '30000', 'drawer']],
   });
   return { nine };

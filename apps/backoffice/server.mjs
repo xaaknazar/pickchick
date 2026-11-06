@@ -252,6 +252,9 @@ const assets = new Map([
     'finance-charts',
     'sales-report',
     'sales-report-model',
+    // Lane bo-ui «Касса» (shown only while the API reports capabilities.pos_day).
+    'pos-day',
+    'pos-day-model',
   ].map((n) => [`/${n}.js`, [`${n}.js`, 'text/javascript; charset=utf-8']]),
   ...['logo.png', 'shot.jpg', ...Array.from({ length: 24 }, (_, i) => `i${i}.jpg`)].map((n) => [
     `/assets/${n}`,

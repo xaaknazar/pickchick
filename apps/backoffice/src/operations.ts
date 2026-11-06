@@ -1,5 +1,7 @@
 import { InventoryView, inventoryEditor } from './inventory.js';
 import { SalesReportView } from './sales-report.js';
+import { PosDayView, PosHomeView, receiptDetails } from './pos-day.js';
+import { almatyTime, csvTenge } from './sales-report-model.js';
 import { ReconciliationView } from './components/ReconciliationView.js';
 import { ReconciliationModel } from './reconciliation-model.js';
 import { element as el, button, field, select, check } from './dom.js';
@@ -10,6 +12,7 @@ import {
   STATION_PLAN_STATE_LABELS,
   object,
   permitted,
+  posDayAvailable,
   refundActions,
   salesReportAvailable,
   stockV2,
@@ -18,6 +21,7 @@ import {
   stationPlanSummary,
   type Data,
   type Entry,
+  type Snapshot,
   type StopDuration,
   type StopItem,
   type StopList,
@@ -43,6 +47,11 @@ export const sections = [
   ['shifts', 'Смены', 'Сотрудники и управленческий журнал смен'],
   ['audit', 'Журнал аудита', 'Кто, когда и что изменил'],
 ] as const;
+/**
+ * «Касса» (lane bo-ui, BACKOFFICE_POS_DAY_ENABLED): shown after «Заказы» only while GET
+ * branches/:id reports capabilities.pos_day; without it the cabinet has exactly `sections`.
+ */
+export const POS_SECTION = ['pos', 'Касса', 'Смены, чеки и Webkassa'] as const;
 const labels: Record<string, string> = {
   open: 'Открыта',
   'order.created': 'Заказ создан',
@@ -122,7 +131,23 @@ const labels: Record<string, string> = {
   pcs: 'шт',
 };
 const val = (v: unknown) => (v === null || v === undefined || v === '' ? '-' : String(v));
-const status = (v: unknown) => labels[String(v)] ?? val(v);
+/**
+ * Lane bo-ui (CR pos-4 section 2): names of the codes of paid POS sales, used only while
+ * capabilities.pos_day is on (`posLabels`, set by every render); without it a code shows as before.
+ */
+const POS_LABELS: Record<string, string> = {
+  paid: 'Оплачен',
+  captured: 'Оплачено',
+  pos_sale: 'Продажа кассы',
+  voided: 'Отменён',
+  recorded: 'Чек оформлен',
+  not_required: 'Чек не нужен',
+  unpaid_service: 'Без оплаты в PickChick',
+  payment_required: 'Оплата при заказе',
+};
+let posLabels = false;
+const status = (v: unknown) =>
+  labels[String(v)] ?? (posLabels ? POS_LABELS[String(v)] : undefined) ?? val(v);
 const date = (v: unknown) =>
   v
     ? new Date(String(v)).toLocaleString('ru-RU', {
@@ -146,7 +171,10 @@ function badge(value: unknown) {
   const n = el('span', 'op-badge', status(value));
   if (['unknown', 'failed', 'attention_required', 'revoked'].includes(String(value)))
     n.classList.add('bad');
-  if (['active', 'succeeded', 'issued', 'handed_over', 'resolved'].includes(String(value)))
+  if (
+    ['active', 'succeeded', 'issued', 'handed_over', 'resolved'].includes(String(value)) ||
+    (posLabels && ['captured', 'paid', 'recorded'].includes(String(value)))
+  )
     n.classList.add('good');
   return n;
 }
@@ -408,6 +436,10 @@ export function stopName(item: StopItem) {
 export class OperationsView {
   private inventory = new InventoryView();
   private sales = new SalesReportView();
+  private posDay = new PosDayView();
+  private home = new PosHomeView();
+  private orderSort: 'new' | 'old' | 'number' | 'amount' = 'new';
+  private orderDesk = '';
   private stopFilter: 'all' | 'stopped' | 'waiting' = 'all';
   private stopQuery = '';
   constructor(
@@ -1440,17 +1472,30 @@ export class OperationsView {
         ),
       ],
     );
+    const rows: (string | Node)[][] = [
+      ['Состояние', shift['state'] === 'open' ? 'Открыта' : 'Закрыта'],
+      ['Открыта', date(shift['opened_at'])],
+      ['Закрыта', date(shift['closed_at'])],
+      ['Кассир', posLabels ? this.staffName(shift['staff_id']) : val(shift['staff_id'])],
+      ['Наличные на открытии', amount(shift['opening_cash_minor'])],
+      ['Внесения', amount(shift['cash_in_minor'])],
+      ['Изъятия', amount(shift['cash_out_minor'])],
+    ];
+    // Lane bo-ui (CR pos-4 section 2): a sales shift takes cash; opening + in - out + sales -
+    // refunds = expected. The cash desk by its name.
+    if (posLabels) {
+      rows.splice(1, 0, ['Касса', this.deskName(shift['terminal_id'])]);
+      if (shift['cash_sales_minor'] !== undefined)
+        rows.push(
+          ['Наличные продажи', amount(shift['cash_sales_minor'])],
+          ['Наличные возвраты', amount(shift['cash_refunds_minor'])],
+        );
+    }
     p.append(
       table(
         ['Показатель', 'Значение'],
         [
-          ['Состояние', shift['state'] === 'open' ? 'Открыта' : 'Закрыта'],
-          ['Открыта', date(shift['opened_at'])],
-          ['Закрыта', date(shift['closed_at'])],
-          ['Кассир', val(shift['staff_id'])],
-          ['Наличные на открытии', amount(shift['opening_cash_minor'])],
-          ['Внесения', amount(shift['cash_in_minor'])],
-          ['Изъятия', amount(shift['cash_out_minor'])],
+          ...rows,
           ['Ожидаемый остаток', amount(shift['expected_cash_minor'])],
           [
             'Пересчитано при закрытии',
@@ -1466,7 +1511,212 @@ export class OperationsView {
     );
     return p;
   }
+  /** The back-office name of an edge staff id (edgeStaffId), or its short code (audit F12). */
+  private staffName(id: unknown) {
+    if (typeof id !== 'string' || !id) return 'Кассир не определён';
+    return this.model.data?.pos_staff?.[id]?.name ?? `Сотрудник ${id.slice(0, 8)} (нет карточки)`;
+  }
+  /** «Касса 1», «Касса 2» by the server's order of first shifts (audit F10). */
+  private deskName(id: unknown) {
+    if (typeof id !== 'string' || !id) return 'Касса не известна';
+    return (
+      this.model.data?.pos_terminals?.find((t) => t.terminal_id === id)?.label ??
+      `Касса ${id.slice(0, 4)}`
+    );
+  }
+  /**
+   * The order registry while «Касса» is on (audit F04, F10, F11): the cash desk of every POS
+   * order, numbers that repeat across desks told apart, the date in one line, sorting, totals of
+   * the list and a CSV in tenge with date, number and cash desk. Without the flag the registry
+   * below in render() is unchanged.
+   */
+  private posOrders(content: HTMLElement, d: Snapshot) {
+    const all = [
+      ...new Map(
+        [...d.orders, ...d.pos, ...(d.cashier_orders ?? [])].map((row) => [String(row['id']), row]),
+      ).values(),
+    ];
+    const desks = d.pos_terminals ?? [];
+    const desk = (o: Data) => (o['channel'] === 'pos' ? this.deskName(o['terminal_id']) : '-');
+    const number = (o: Data) =>
+      o['display_number'] ? '№' + String(o['display_number']) : String(o['id']).slice(0, 8);
+    const payment = (o: Data) =>
+      o['channel'] === 'pos' && o['payment_state'] === 'not_started'
+        ? 'Оплата на кассе: данные не поступают'
+        : status(o['payment_state']);
+    const live = (o: Data) => !['cancelled', 'voided'].includes(String(o['state']));
+    let query = '',
+      channel = '';
+    const visible = () =>
+      all
+        .filter(
+          (o) =>
+            (!channel || o['channel'] === channel) &&
+            (!this.orderDesk || (o['channel'] === 'pos' && o['terminal_id'] === this.orderDesk)) &&
+            (String(o['id']).includes(query.trim()) ||
+              String(o['display_number'] ?? '').includes(query.trim().replace(/^№\s*/, ''))),
+        )
+        .sort((a, b) => {
+          const time = String(a['created_at']).localeCompare(String(b['created_at']));
+          if (this.orderSort === 'old') return time;
+          if (this.orderSort === 'number')
+            return (
+              Number(a['display_number'] ?? 0) - Number(b['display_number'] ?? 0) ||
+              desk(a).localeCompare(desk(b)) ||
+              -time
+            );
+          if (this.orderSort === 'amount') {
+            const x =
+              BigInt(String(b['total_minor'] ?? '0')) - BigInt(String(a['total_minor'] ?? '0'));
+            return x > 0n ? 1 : x < 0n ? -1 : -time;
+          }
+          return -time;
+        });
+    const clipped = d.truncated;
+    const p = panel(
+      'Реестр заказов',
+      'Приложение, киоск и касса. У каждой кассы свои номера заказов, поэтому рядом с номером указана касса. Деньги и чеки кассы по дням - в разделе «Касса».',
+      [
+        button('Проверка восстановления', () => this.restoreReviews()),
+        button(
+          'Экспорт CSV',
+          () =>
+            exportCsv(
+              'orders',
+              [
+                'Дата',
+                'Время',
+                'Номер',
+                'Касса',
+                'Канал',
+                'Сумма, ₸',
+                'Оплата',
+                'Кухня',
+                'ID заказа',
+              ],
+              visible().map((o) => {
+                const at = almatyTime(String(o['created_at']));
+                return [
+                  at.slice(0, 10),
+                  at.slice(11),
+                  number(o),
+                  desk(o),
+                  status(o['channel']),
+                  csvTenge(o['total_minor'] ?? '0'),
+                  payment(o),
+                  status(o['kitchen_state'] ?? o['state']),
+                  String(o['id']),
+                ];
+              }),
+            ),
+          'button',
+          'op-orders-csv',
+        ),
+      ],
+    );
+    const list = el('div');
+    const totals = el('p', 'op-note pos-order-totals');
+    totals.dataset.testid = 'op-orders-totals';
+    const draw = () => {
+      const rows = visible();
+      const kept = rows.filter(live);
+      const sum = kept.reduce((a, o) => a + BigInt(String(o['total_minor'] ?? '0')), 0n);
+      const byDesk = desks
+        .map((t) => {
+          const mine = kept.filter(
+            (o) => o['channel'] === 'pos' && o['terminal_id'] === t.terminal_id,
+          );
+          return mine.length
+            ? `${t.label}: ${mine.length}, ${amount(mine.reduce((a, o) => a + BigInt(String(o['total_minor'] ?? '0')), 0n))}`
+            : '';
+        })
+        .filter(Boolean);
+      totals.textContent =
+        `Итого по списку: заказов ${rows.length}, без отменённых ${kept.length} на ${amount(sum)}` +
+        (byDesk.length ? `. ${byDesk.join(' · ')}` : '') +
+        (clipped?.['orders'] || clipped?.['pos'] || clipped?.['cashier_orders']
+          ? '. Список неполный: итог только по показанным заказам.'
+          : '.');
+      list.replaceChildren(
+        table(
+          ['Заказ', 'Касса', 'Дата', 'Канал', 'Сумма', 'Оплата', 'Кухня', ''],
+          rows.map((o) => {
+            const when = el('span', 'op-nowrap', almatyTime(String(o['created_at'])));
+            if (o['channel'] === 'pos' && o['source'] !== 'cashier_report')
+              when.title = 'Время получения сервером';
+            const pay = el('span', 'op-badge', payment(o));
+            if (['captured', 'paid'].includes(String(o['payment_state'])))
+              pay.classList.add('good');
+            return [
+              number(o),
+              desk(o),
+              when,
+              status(o['channel']),
+              amount(o['total_minor']),
+              pay,
+              badge(o['kitchen_state'] ?? o['state']),
+              button('Открыть', () => void this.order(String(o['id'])), 'button subtle'),
+            ];
+          }),
+        ),
+      );
+    };
+    const toolbar = el('div', 'toolbar');
+    toolbar.append(
+      field(
+        'Найти заказ',
+        query,
+        (v) => {
+          query = v;
+          draw();
+        },
+        { id: 'op-order-search' },
+      ),
+      select(
+        'Канал',
+        channel,
+        [{ value: '', label: 'Все' }, ...opts(['mobile', 'pos', 'kiosk'])],
+        (v) => {
+          channel = v;
+          draw();
+        },
+        'op-order-channel',
+      ),
+      select(
+        'Касса',
+        this.orderDesk,
+        [
+          { value: '', label: 'Все кассы' },
+          ...desks.map((t) => ({ value: t.terminal_id, label: t.label })),
+        ],
+        (v) => {
+          this.orderDesk = v;
+          draw();
+        },
+        'op-order-desk',
+      ),
+      select(
+        'Порядок',
+        this.orderSort,
+        [
+          { value: 'new', label: 'Сначала новые' },
+          { value: 'old', label: 'Сначала старые' },
+          { value: 'number', label: 'По номеру' },
+          { value: 'amount', label: 'По сумме' },
+        ],
+        (v) => {
+          this.orderSort = v as typeof this.orderSort;
+          draw();
+        },
+        'op-order-sort',
+      ),
+    );
+    p.append(toolbar, totals, list);
+    draw();
+    content.append(p);
+  }
   async order(id: string) {
+    posLabels = posDayAvailable(this.model.data);
     try {
       const data = await this.model.order(id),
         o = object(data['order']),
@@ -1505,11 +1755,38 @@ export class OperationsView {
           ]),
         ),
       );
-      for (const [key, title] of [
-        ['captures', 'Подтверждённые оплаты'],
-        ['refunds', 'Возвраты'],
-        ['fiscal', 'Фискальные документы'],
-      ] as const)
+      // Lane bo-ui (audit F04): a POS order shows the cashier receipt from cloud073, or says that
+      // the payment of the cash desk does not reach the cloud; never «Не начата».
+      const posOrder = posLabels && data['owner'] !== 'cloud';
+      if (posOrder) {
+        const sale = data['pos_sale'];
+        if (sale && typeof sale === 'object') {
+          const terminal = data['pos_terminal'] as
+            { terminal_id: string; label: string; first_seen_at: string | null } | null | undefined;
+          d.append(
+            el('h3', '', 'Чек кассы'),
+            ...receiptDetails(
+              {
+                terminals: terminal ? [terminal] : (this.model.data?.pos_terminals ?? []),
+                staff: (data['pos_staff'] as Snapshot['pos_staff']) ?? {},
+              },
+              sale as Data,
+            ),
+          );
+        } else
+          d.append(
+            note(
+              'Оплата на кассе: данные о ней в облако не поступают. Сумма и позиции - по данным кассы.',
+            ),
+          );
+      }
+      for (const [key, title] of posOrder
+        ? []
+        : ([
+            ['captures', 'Подтверждённые оплаты'],
+            ['refunds', 'Возвраты'],
+            ['fiscal', 'Фискальные документы'],
+          ] as const))
         d.append(
           el('h3', '', title),
           key === 'refunds'
@@ -1776,6 +2053,7 @@ export class OperationsView {
   render(page: string, content: HTMLElement) {
     const m = this.model,
       d = m.data;
+    posLabels = posDayAvailable(d);
     // Cutover CC-5: a shift manager does not see reconciliation (servers with roles only).
     if (page === 'finance' && (!d || permitted(d, 'reconciliation.read')))
       this.renderReconciliation(content);
@@ -1806,6 +2084,13 @@ export class OperationsView {
       );
       return;
     }
+    // Lane bo-ui «Касса»: one cashier day, read only (pos-day.ts).
+    if (page === 'pos') {
+      if (!posLabels)
+        content.append(panel('Раздел «Касса» недоступен', 'На сервере этот раздел выключен.'));
+      else content.append(this.posDay.render((date, desk) => m.posDay(date, desk), m.branch));
+      return;
+    }
     const metrics = d.metrics;
     const clipped = d.truncated;
     if (
@@ -1813,6 +2098,9 @@ export class OperationsView {
       ['dash', 'reports', 'finance'].includes(page)
     ) {
       const summary = d.cashier_metrics ?? {};
+      // CR pos-4 section 2: a sales shift (cash_sales_minor) takes payment at the cash desk.
+      const salesShift =
+        posLabels && d.selected_shift != null && d.selected_shift['cash_sales_minor'] !== undefined;
       content.append(
         panel(
           'Отчёт по кассовой смене',
@@ -1821,10 +2109,14 @@ export class OperationsView {
         stats([
           ['Заказы кассы', val(summary['orders'])],
           ['Отменены', val(summary['cancelled_orders'])],
-          ['Сумма неоплаченных заказов', amount(summary['unpaid_total_minor'])],
+          salesShift
+            ? ['Оплачено на кассе', amount(summary['paid_total_minor'])]
+            : ['Сумма неоплаченных заказов', amount(summary['unpaid_total_minor'])],
         ]),
         note(
-          'Это полученные операционные данные кассы; полнота истории ещё не подтверждена. Подтверждённые оплаты, возвраты и фискальные итоги этой смены пока не передаются. Наличие заказа не означает оплату.',
+          salesShift
+            ? 'Смена продаж: оплаты и возвраты приняты кассой. Способы оплаты, чеки Webkassa и Z-отчёт - в разделе «Касса».'
+            : 'Это полученные операционные данные кассы; полнота истории ещё не подтверждена. Подтверждённые оплаты, возвраты и фискальные итоги этой смены пока не передаются. Наличие заказа не означает оплату.',
         ),
       );
       if (d.selected_shift) content.append(this.cashierShift(d.selected_shift));
@@ -1901,6 +2193,20 @@ export class OperationsView {
       // Cutover CC-7: the sales report of every channel, only from servers that have it.
       if (page === 'reports' && salesReportAvailable(d))
         content.append(this.sales.render((start, end) => this.model.salesReport(start, end)));
+      // Lane bo-ui (iiko-gap P0-6): today of every channel and the cash desks on «Главная».
+      if (page === 'dash' && posLabels)
+        content.append(
+          this.home.render({
+            branch: m.branch,
+            posDay: (date, desk) => m.posDay(date, desk),
+            salesReport: salesReportAvailable(d) ? (start, end) => m.salesReport(start, end) : null,
+            open: () => {
+              history.replaceState(null, '', '#pos');
+              this.navigate('pos');
+            },
+          }),
+          el('h2', 'pos-home-period', 'Приложение и киоск за выбранный период'),
+        );
       content.append(
         stats([
           [
@@ -1978,6 +2284,10 @@ export class OperationsView {
           ),
         );
       }
+      return;
+    }
+    if (page === 'orders' && posLabels) {
+      this.posOrders(content, d);
       return;
     }
     if (page === 'orders') {
