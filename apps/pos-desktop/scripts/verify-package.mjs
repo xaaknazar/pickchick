@@ -62,6 +62,7 @@ const expectedInputs = [
   ...[
     'main.mjs',
     'protocol.mjs',
+    'printer.mjs',
     'menu-assets.mjs',
     'journal.mjs',
     'preload.cjs',
@@ -95,6 +96,7 @@ assert.deepEqual(
   [
     '/main.mjs',
     '/protocol.mjs',
+    '/printer.mjs',
     '/menu-assets.mjs',
     '/v2-assets.mjs',
     '/renderer/v2',
@@ -119,6 +121,7 @@ for (const name of renderer) {
 for (const name of [
   'main.mjs',
   'protocol.mjs',
+  'printer.mjs',
   'menu-assets.mjs',
   'v2-assets.mjs',
   'journal.mjs',

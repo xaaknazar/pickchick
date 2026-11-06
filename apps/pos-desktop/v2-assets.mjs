@@ -27,6 +27,8 @@ export const V2_ASSETS = [
   ['v2/pin-login.js', 'text/javascript'],
   ['v2/runtime.js', 'text/javascript'],
   ['v2/reference-view.js', 'text/javascript'],
+  ['v2/sale-view.js', 'text/javascript'],
+  ['v2/ops-view.js', 'text/javascript'],
   ['v2/template-engine.js', 'text/javascript'],
   ['v2/template.html', 'text/html; charset=utf-8'],
   ['v2/styles.css', 'text/css'],

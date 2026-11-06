@@ -2,7 +2,10 @@ import { V2_ASSETS } from '../pos-desktop/v2-assets.mjs';
 import { createServer } from 'node:http';
 import { MENU_ASSETS } from '../pos-desktop/menu-assets.mjs';
 import {
+  BODYLESS_WRITES,
   MENU_MEDIA_PATH,
+  SALE_ROUTES,
+  SHIFT_FILTERED,
   createMenuMediaCache,
   menuMediaResponse,
 } from '../pos-desktop/protocol.mjs';
@@ -10,15 +13,20 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
+// Paid sales (cutover 19.11, contracts section 5.5): the same routes as pos-desktop, defined
+// once in its protocol module. The edge answers 404 until it runs pos_sale.
+const SALE_READS = SALE_ROUTES.read.join('|');
+const SALE_WRITES = SALE_ROUTES.write.join('|');
+const FILTERED = SHIFT_FILTERED.map((path) => `${path}\\?shift_id=${UUID}`).join('|');
 const allowed = (method, path) =>
   method === 'GET'
     ? new RegExp(
-        `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders(?:\\?shift_id=${UUID})?|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?)$`,
+        `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders|${FILTERED}|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?|${SALE_READS})$`,
         'i',
       ).test(path)
     : method === 'POST' &&
       new RegExp(
-        `^/edge/v1/(staff/(login|pin|logout)|checkout/quotes|orders|orders/${UUID}/cancel|cash-shifts|cash-shifts/${UUID}/(?:close|movements)|ordering/(open|close)|availability/stops)$`,
+        `^/edge/v1/(staff/(login|pin|logout)|checkout/quotes|orders|orders/${UUID}/cancel|cash-shifts|cash-shifts/${UUID}/(?:close|movements)|ordering/(open|close)|availability/stops|${SALE_WRITES})$`,
         'i',
       ).test(path);
 const assets = new Map([
@@ -98,7 +106,9 @@ export function createPosServer({
         if (typeof value === 'string' && value.length < 200) headers[name] = value;
       }
       let body;
-      if (req.method === 'POST') {
+      // A bodyless path (logout) is forwarded without a body, as pos-desktop does.
+      if (req.method === 'POST' && BODYLESS_WRITES.includes(path)) req.resume();
+      else if (req.method === 'POST') {
         if (req.headers['content-type'] !== 'application/json') {
           send(415, { code: 'INVALID_REQUEST' });
           return;
@@ -109,7 +119,12 @@ export function createPosServer({
           for await (const chunk of req) {
             size += chunk.length;
             if (
-              size > (['/edge/v1/staff/login', '/edge/v1/staff/pin'].includes(path) ? 2048 : 64000)
+              size >
+              (['/edge/v1/staff/login', '/edge/v1/staff/pin', '/edge/v1/staff/approvals'].includes(
+                path,
+              )
+                ? 2048
+                : 64000)
             ) {
               send(413, { code: 'INVALID_REQUEST' });
               return;

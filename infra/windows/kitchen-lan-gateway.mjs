@@ -3,71 +3,117 @@ import { isIP } from 'node:net';
 import { TextDecoder } from 'node:util';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import {
+  PROFILES,
+  PROFILE_NAMES,
+  POS_MEDIA_PATH,
+  allowedKitchenRoute,
+} from './lan-route-profiles.mjs';
 
-const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
-const base = '/edge/v1/fulfillment';
+export { allowedKitchenRoute };
 export function privateIPv4(value) {
   if (typeof value !== 'string' || isIP(value) !== 4) return false;
   const [a, b] = value.split('.').map(Number);
   return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
 }
-export function allowedKitchenRoute(method, raw) {
-  if (typeof raw !== 'string' || /[%#\\]/.test(raw)) return false;
-  if (
-    method === 'POST' &&
-    [
-      '/edge/v1/staff/login',
-      '/edge/v1/staff/logout',
-      '/edge/v1/staff/password-reset',
-      '/edge/v1/terminals/pair',
-    ].includes(raw)
-  )
-    return true;
-  if (method === 'GET' && ['/edge/v1/session', '/edge/v1/terminals/session'].includes(raw))
-    return true;
-  if (!raw.startsWith(base)) return false;
-  const url = new URL(raw, 'https://127.0.0.1');
-  if (raw !== url.pathname + url.search) return false;
-  if (method === 'POST')
-    return !url.search && new RegExp(`^${base}/orders/${UUID}/actions$`, 'i').test(url.pathname);
-  if (method !== 'GET') return false;
-  let keys;
-  if ([base + '/config', base + '/stations'].includes(url.pathname)) keys = [];
-  else if (url.pathname === base + '/kitchen') keys = ['stationId', 'afterOrderId', 'limit'];
-  else if (url.pathname === base + '/display') keys = ['afterNumber', 'limit'];
-  else if (new RegExp(`^${base}/orders/${UUID}$`, 'i').test(url.pathname)) keys = ['stationId'];
-  else return false;
-  for (const [key, value] of url.searchParams) {
-    if (!keys.includes(key) || url.searchParams.getAll(key).length !== 1) return false;
-    if (['stationId', 'afterOrderId'].includes(key) && !new RegExp(`^${UUID}$`, 'i').test(value))
-      return false;
-    if (key === 'limit' && (!/^[1-9]\d{0,2}$/.test(value) || Number(value) > 100)) return false;
+
+/** New format (cutover CL-4): up to 32 clients, each with one profile. */
+export const MAX_CLIENTS = 32;
+/** Old format `clientAddresses`: every address is a kitchen client, limits as before. */
+export const MAX_LEGACY_CLIENTS = 20;
+const LEGACY_MAX_CONNECTIONS = 40;
+const DEFAULT_MAX_CONNECTIONS = 64;
+const label = (value) =>
+  typeof value === 'string' &&
+  value.length >= 1 &&
+  value.length <= 60 &&
+  [...value].every((character) => character.charCodeAt(0) >= 32 && character.charCodeAt(0) !== 127);
+
+/**
+ * Client address -> profile name. `clientAddresses` (the format installed before the cutover)
+ * makes every address a `kitchen` client and keeps 40 connections; `clients[]` names a profile
+ * per address. The server's own address is always a kitchen client, as before, so the
+ * installer's check keeps working from the server.
+ */
+export function clientProfiles({ bindAddress, clientAddresses, clients, maxConnections }) {
+  if (!privateIPv4(bindAddress)) throw new Error('INVALID_LAN_GATEWAY_CONFIG');
+  if (clientAddresses !== undefined) {
     if (
-      key === 'afterNumber' &&
-      (!/^[1-9]\d{0,18}$/.test(value) || BigInt(value) > 9223372036854775807n)
+      clients !== undefined ||
+      maxConnections !== undefined ||
+      !Array.isArray(clientAddresses) ||
+      !clientAddresses.length ||
+      clientAddresses.length > MAX_LEGACY_CLIENTS ||
+      clientAddresses.some((address) => !privateIPv4(address)) ||
+      new Set(clientAddresses).size !== clientAddresses.length
     )
-      return false;
+      throw new Error('INVALID_LAN_GATEWAY_CONFIG');
+    return {
+      format: 'clientAddresses',
+      profiles: new Map([bindAddress, ...clientAddresses].map((address) => [address, 'kitchen'])),
+      maxConnections: LEGACY_MAX_CONNECTIONS,
+    };
   }
-  return true;
+  if (
+    !Array.isArray(clients) ||
+    !clients.length ||
+    clients.length > MAX_CLIENTS ||
+    (maxConnections !== undefined &&
+      (!Number.isInteger(maxConnections) || maxConnections < 16 || maxConnections > 256))
+  )
+    throw new Error('INVALID_LAN_GATEWAY_CONFIG');
+  const profiles = new Map([[bindAddress, 'kitchen']]);
+  for (const client of clients) {
+    if (
+      !client ||
+      typeof client !== 'object' ||
+      Array.isArray(client) ||
+      Object.keys(client).some((key) => !['address', 'profile', 'label'].includes(key)) ||
+      !privateIPv4(client.address) ||
+      !PROFILE_NAMES.includes(client.profile) ||
+      (client.label !== undefined && !label(client.label)) ||
+      profiles.has(client.address)
+    )
+      throw new Error('INVALID_LAN_GATEWAY_CONFIG');
+    profiles.set(client.address, client.profile);
+  }
+  return {
+    format: 'clients',
+    profiles,
+    maxConnections: maxConnections ?? DEFAULT_MAX_CONNECTIONS,
+  };
 }
 
-/** Dedicated LAN boundary. PostgreSQL, owner commands and cloud transport remain loopback-only. */
+async function readLimited(reader, limit) {
+  const parts = [];
+  let size = 0;
+  for (;;) {
+    const chunk = await reader.read();
+    if (chunk.done) return Buffer.concat(parts);
+    size += chunk.value.length;
+    if (size > limit) {
+      await reader.cancel();
+      return null;
+    }
+    parts.push(chunk.value);
+  }
+}
+
+/** Dedicated LAN boundary. PostgreSQL, owner commands and cloud transport remain loopback-only.
+ *  The profile of each request comes from the client IPv4 only (lan-route-profiles.mjs). */
 export function createKitchenLanGateway({
   bindAddress,
   port = 3443,
   clientAddresses,
+  clients,
+  maxConnections,
   edgePort = 3101,
   pfx,
   passphrase,
   timeoutMs = 10000,
 }) {
+  const access = clientProfiles({ bindAddress, clientAddresses, clients, maxConnections });
   if (
-    !privateIPv4(bindAddress) ||
-    !Array.isArray(clientAddresses) ||
-    !clientAddresses.length ||
-    clientAddresses.length > 20 ||
-    clientAddresses.some((address) => !privateIPv4(address)) ||
-    new Set(clientAddresses).size !== clientAddresses.length ||
     !Number.isInteger(port) ||
     port < 1024 ||
     port > 65535 ||
@@ -85,7 +131,6 @@ export function createKitchenLanGateway({
     timeoutMs > 15000
   )
     throw new Error('INVALID_LAN_GATEWAY_CONFIG');
-  const clients = new Set([bindAddress, ...clientAddresses]);
   const server = createServer(
     {
       pfx,
@@ -107,8 +152,20 @@ export function createKitchenLanGateway({
         });
         res.end(status === 204 ? undefined : JSON.stringify(body));
       };
+      const respondBytes = (status, type, bytes, retry) => {
+        if (res.destroyed) return;
+        res.writeHead(status, {
+          'Content-Type': type,
+          'Cache-Control': 'no-store',
+          'X-Content-Type-Options': 'nosniff',
+          'Content-Length': String(bytes.length),
+          ...(retry ? { 'Retry-After': retry } : {}),
+        });
+        res.end(bytes);
+      };
+      const profile = PROFILES[access.profiles.get(req.socket.remoteAddress)];
       if (
-        !clients.has(req.socket.remoteAddress) ||
+        !profile ||
         req.headers.host !== `${bindAddress}:${port}` ||
         req.headers.origin ||
         req.headers['sec-fetch-site']
@@ -122,19 +179,13 @@ export function createKitchenLanGateway({
         respond(200, { status: 'ok', service: 'pickchick-kitchen-lan' });
         return;
       }
-      if (!allowedKitchenRoute(req.method, path)) {
+      if (!profile.allows(req.method, path)) {
         req.resume();
         respond(404, { code: 'NOT_FOUND' });
         return;
       }
       const headers = { Accept: 'application/json' };
-      for (const name of [
-        'authorization',
-        'x-staff-session-id',
-        'x-terminal-id',
-        'x-terminal-key',
-        'idempotency-key',
-      ]) {
+      for (const name of profile.headers) {
         const value = req.headers[name];
         if (value !== undefined && (typeof value !== 'string' || value.length > 200)) {
           req.resume();
@@ -144,14 +195,8 @@ export function createKitchenLanGateway({
         if (value) headers[name] = value;
       }
       let body;
-      const limit = [
-        '/edge/v1/staff/login',
-        '/edge/v1/staff/password-reset',
-        '/edge/v1/terminals/pair',
-      ].includes(path)
-        ? 2048
-        : 16384;
-      if (req.method === 'POST' && path !== '/edge/v1/staff/logout') {
+      const limit = profile.bodyLimit(path);
+      if (req.method === 'POST' && !profile.bodyless.includes(path)) {
         if (req.headers['content-type'] !== 'application/json') {
           req.resume();
           respond(415, { code: 'INVALID_REQUEST' });
@@ -201,9 +246,27 @@ export function createKitchenLanGateway({
           respond(204);
           return;
         }
+        const type = upstream.headers.get('content-type') ?? '';
+        // A menu photo of a cash desk: WebP bytes only; the desk checks their SHA-256 itself.
+        if (profile.mediaLimit && upstream.status === 200 && POS_MEDIA_PATH.test(path)) {
+          const reader = upstream.body?.getReader();
+          const bytes =
+            reader &&
+            /^image\/webp$/i.test(type) &&
+            Number(upstream.headers.get('content-length') ?? 0) <= profile.mediaLimit
+              ? await readLimited(reader, profile.mediaLimit)
+              : null;
+          if (!bytes) {
+            await reader?.cancel().catch(() => {});
+            respond(502, { code: 'INVALID_RESPONSE' });
+            return;
+          }
+          respondBytes(200, 'image/webp', bytes);
+          return;
+        }
         if (
-          !/^application\/json(?:;|$)/i.test(upstream.headers.get('content-type') ?? '') ||
-          Number(upstream.headers.get('content-length') ?? 0) > 3 * 1024 * 1024
+          !/^application\/json(?:;|$)/i.test(type) ||
+          Number(upstream.headers.get('content-length') ?? 0) > profile.responseLimit
         ) {
           await upstream.body?.cancel();
           respond(502, { code: 'INVALID_RESPONSE' });
@@ -211,24 +274,14 @@ export function createKitchenLanGateway({
         }
         const reader = upstream.body?.getReader();
         if (!reader) throw new Error();
-        const parts = [];
-        let size = 0;
-        for (;;) {
-          const chunk = await reader.read();
-          if (chunk.done) break;
-          size += chunk.value.length;
-          if (size > 3 * 1024 * 1024) {
-            await reader.cancel();
-            respond(502, { code: 'INVALID_RESPONSE' });
-            return;
-          }
-          parts.push(chunk.value);
+        const bytes = await readLimited(reader, profile.responseLimit);
+        if (!bytes) {
+          respond(502, { code: 'INVALID_RESPONSE' });
+          return;
         }
         let value;
         try {
-          value = JSON.parse(
-            new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(parts)),
-          );
+          value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
         } catch {
           respond(502, { code: 'INVALID_RESPONSE' });
           return;
@@ -238,39 +291,73 @@ export function createKitchenLanGateway({
           /^[1-9][0-9]{0,3}$/.test(upstream.headers.get('retry-after') ?? '')
             ? upstream.headers.get('retry-after')
             : undefined;
-        respond(upstream.status, value, retry);
+        // A cash desk gets the edge's bytes as they are (validated JSON), like over loopback.
+        if (profile.rawJson)
+          respondBytes(upstream.status, 'application/json; charset=utf-8', bytes, retry);
+        else respond(upstream.status, value, retry);
       } catch {
         respond(504, { code: 'EDGE_TIMEOUT' });
       }
     },
   );
-  server.maxConnections = 40;
+  server.maxConnections = access.maxConnections;
   server.on('tlsClientError', () => {});
   return server;
 }
 
-async function main() {
-  if (process.argv.length !== 3) throw new Error('INVALID_LAN_GATEWAY_CONFIG');
-  const raw = await readFile(process.argv[2]);
-  if (raw.length > 4096) throw new Error('INVALID_LAN_GATEWAY_CONFIG');
-  const config = JSON.parse(raw.toString('utf8'));
+const CONFIG_KEYS = [
+  'bindAddress',
+  'port',
+  'clientAddresses',
+  'clients',
+  'maxConnections',
+  'edgePort',
+  'pfxPath',
+  'passphrase',
+];
+/**
+ * Reads the private service config (written by install-kitchen-lan.ps1 in the old format or by
+ * update-kitchen-lan-clients.ps1) and builds the gateway without listening. The summary holds
+ * no address or secret: format, client count per profile and the connection limit.
+ */
+export async function loadKitchenLanGateway(configPath) {
+  const raw = await readFile(configPath);
+  if (raw.length > 16384) throw new Error('INVALID_LAN_GATEWAY_CONFIG');
+  const config = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(raw));
   if (
-    Object.keys(config).some(
-      (key) =>
-        !['bindAddress', 'port', 'clientAddresses', 'edgePort', 'pfxPath', 'passphrase'].includes(
-          key,
-        ),
-    )
+    !config ||
+    typeof config !== 'object' ||
+    Array.isArray(config) ||
+    Object.keys(config).some((key) => !CONFIG_KEYS.includes(key)) ||
+    typeof config.pfxPath !== 'string'
   )
     throw new Error('INVALID_LAN_GATEWAY_CONFIG');
   const { pfxPath, ...settings } = config;
   const server = createKitchenLanGateway({ ...settings, pfx: await readFile(pfxPath) });
+  const { format, profiles, maxConnections } = clientProfiles(settings);
+  const clients = Object.fromEntries(PROFILE_NAMES.map((name) => [name, 0]));
+  for (const [address, name] of profiles) if (address !== settings.bindAddress) clients[name]++;
+  return { server, settings, summary: { format, clients, maxConnections } };
+}
+
+async function main() {
+  // `--check <config>`: the config and the PFX passphrase are valid; nothing listens. Used by
+  // update-kitchen-lan-clients.ps1 before it stops the running service.
+  const check = process.argv.length === 4 && process.argv[2] === '--check';
+  if (process.argv.length !== 3 && !check) throw new Error('INVALID_LAN_GATEWAY_CONFIG');
+  const { server, settings, summary } = await loadKitchenLanGateway(process.argv.at(-1));
+  if (check) {
+    console.log(JSON.stringify({ check: 'LAN_GATEWAY_CONFIG_OK', ...summary }));
+    return;
+  }
   server.on('error', () => {
     console.error('LAN_GATEWAY_UNAVAILABLE');
     process.exitCode = 1;
     server.close();
   });
-  server.listen(config.port, config.bindAddress, () => console.log('KITCHEN_LAN_READY'));
+  server.listen(settings.port ?? 3443, settings.bindAddress, () =>
+    console.log('KITCHEN_LAN_READY'),
+  );
   for (const signal of ['SIGTERM', 'SIGINT'])
     process.on(signal, () => {
       server.close();

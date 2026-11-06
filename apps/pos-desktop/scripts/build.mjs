@@ -42,6 +42,7 @@ for (const path of [
   ...[
     'main.mjs',
     'protocol.mjs',
+    'printer.mjs',
     'menu-assets.mjs',
     'journal.mjs',
     'preload.cjs',

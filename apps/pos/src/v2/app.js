@@ -1,6 +1,8 @@
 import { requestPinCredential } from './pin-login.js';
 import { photoFor } from './photos.js';
 import { ReferenceView } from './reference-view.js';
+import { SaleView } from './sale-view.js';
+import { OpsView, paidDayStats } from './ops-view.js';
 import { TemplateView } from './template-engine.js';
 import { model, pinLogin } from './runtime.js';
 import {
@@ -91,6 +93,30 @@ const safe =
     }
     schedule();
   };
+// Paid mode screens (cutover 19.11); they render nothing unless the edge sells (pos_sale).
+const sale = new SaleView(model, {
+  onChange: schedule,
+  guard: safe,
+  say,
+  pinLength,
+  next: nextOrder,
+  // Declared below; called only after a sale is paid or its ticket is asked for.
+  onSold: (paid) => ops.sold(paid),
+  printOrder: () => ops.printOrder(),
+});
+// Paid mode, part B: order card (void, refund), Webkassa tab, X/Z and the sales close wizard.
+const ops = new OpsView(model, sale, {
+  onChange: schedule,
+  guard: safe,
+  say,
+  setTab: (tab) => reference.setState({ tab }),
+  pinCredential: (pin) => requestPinCredential(pin, config.terminalId),
+  logoutCredential: (credential) =>
+    transport('staff/logout', credential, { method: 'POST' }).catch(() => {}),
+  endSession: () => lock(),
+  printer: globalThis.pickchickPosPrinter,
+  terminalLabel: config.branchLabel ?? 'Локальная точка',
+});
 function details(change) {
   const d = model.state.draft;
   if (d)
@@ -282,6 +308,8 @@ function nextOrder() {
   if (blocked()) return;
   clearInterval(successTimer);
   model.newDraft();
+  sale.reset();
+  ops.reset();
   lastOrder = null;
   reference.setState({
     screen: 'work',
@@ -296,6 +324,8 @@ function nextOrder() {
 function lock() {
   if (blocked()) return;
   model.logout();
+  sale.reset();
+  ops.reset();
   globalThis.pickchickPosJournal?.endSession();
   reference.setState({ screen: 'lock', pin: '', user: null });
 }
@@ -394,6 +424,8 @@ function draw() {
       }
     : null;
   if (!m.actor && s.screen !== 'lock') s.screen = 'lock';
+  // The Webkassa tab exists only while the edge sells (pos_sale).
+  if (s.tab === 'fiscal' && !model.saleMode) s.tab = 'order';
   const v = reference.renderVals();
   v.interactionBusy = Boolean(m.busy || m.pending || m.storageBlocked);
   // The designer module supplies appearance and local view transitions only.
@@ -629,6 +661,7 @@ function draw() {
     shiftByLabel: 'управляющим',
     syncLabel: 'Локальный сервер · внешние каналы ещё не подключены',
   });
+  Object.assign(v, sale.templateValues(v));
   v.tiles = (groups[s.cat] ?? []).map((p) => {
     // Own stop (unknown counts as out), or the combo rule: a stopped fixed component or a
     // required choice with nothing left (fields present only in menus for the new cashier).
@@ -849,19 +882,24 @@ function draw() {
   v.dayRows = rows.map((o) => ({
     no: orderNumber(o),
     time: time(o.created_at),
-    channel: 'КАССА · ТЕСТ',
+    channel: o.execution_mode === 'pos_sale' ? 'КАССА' : 'КАССА · ТЕСТ',
     chBg: 'var(--blue)',
     guest: o.snapshot.details?.display_name || '-',
     items: o.snapshot.lines.map((l) => l.name.ru + ' ×' + l.quantity).join(', '),
     sum: money(o.snapshot.total_minor),
-    pay: 'Без оплаты',
+    pay: o.execution_mode === 'pos_sale' ? 'Оплачен' : 'Без оплаты',
     status: kitchenLabel(o),
     stBg: o.fulfillment_state === 'ready' ? '#DCF2E4' : 'var(--n100)',
     stFg: o.fulfillment_state === 'ready' ? '#0B7A3B' : 'var(--n900)',
     fiscal: 'var(--n300)',
     rowBg: '#fff',
     canRefund: false,
-    open: safe(() => orderDialog(o.order_id)),
+    // A paid order opens the card with void, refund and its Webkassa receipts.
+    open: safe(() =>
+      model.saleMode && o.execution_mode === 'pos_sale'
+        ? ops.openCard(o.order_id)
+        : orderDialog(o.order_id),
+    ),
     fiscalLabel: 'без чека',
     note: o.snapshot.details?.kitchen_comment ?? '',
     hasNote: Boolean(o.snapshot.details?.kitchen_comment),
@@ -892,6 +930,11 @@ function draw() {
   v.dayTotal = rows.length + ' заказов · последние 100';
   v.dayEmpty = rows.length === 0;
   v.fiscalLegend = [];
+  if (model.saleMode) {
+    // Paid orders: hall and delivery apart, cancelled orders bring no money. Order sums, not
+    // takings: the cards say so, takings are in the X report.
+    v.dayStats = paidDayStats(rows);
+  }
   const stopRows = (m.menu?.items ?? [])
     .flatMap((p) => [
       p,
@@ -938,6 +981,8 @@ function draw() {
       lift: safe(() => model.setStop(p.variant, false, 'Снят кассиром')),
     }));
   v.stopCount = v.stopActive.length;
+  // Paid mode: everything of part B, on top of the values above (navItems, shift tab).
+  Object.assign(v, ops.templateValues(v, s.tab));
   v.noStops = !v.stopCount;
   v.stopDurations = [
     ['shift', 'До конца смены'],
@@ -990,19 +1035,22 @@ function draw() {
     button.disabled = starting || m.busy || signing;
     button.onclick = async () => {
       if (starting || model.state.busy || signing) return;
-      const wasCreate = model.state.pending?.kind === 'create';
+      const wasCreate = model.state.pending?.kind === 'create',
+        wasSale = model.state.pending?.kind === 'sale';
       await model.recover();
       if (wasCreate && model.state.order && !model.state.pending) {
         lastOrder = model.state.order;
         reference.setState({ screen: 'success', done: {}, doneLeft: 8 });
       }
+      // A recovered paid order shows its number, pickup place and Webkassa field.
+      if (wasSale && model.state.sale && !model.state.pending) sale.done();
     };
     box.append(text, button);
     root.append(box);
   }
   if (m.error && errorShown !== String(m.error)) {
     errorShown = String(m.error);
-    say(errorMessage(m.error));
+    say(model.saleMode ? sale.errorText(m.error) : errorMessage(m.error));
   } else if (!m.error) errorShown = '';
   if (m.busy || signing) {
     root.setAttribute('aria-busy', 'true');
@@ -1031,7 +1079,8 @@ async function orderDialog(id) {
   const title = document.createElement('h2');
   title.textContent = 'Заказ № ' + orderNumber(o);
   const state = document.createElement('p');
-  state.textContent = kitchenLabel(o) + ' · без оплаты';
+  state.textContent =
+    kitchenLabel(o) + (o.execution_mode === 'pos_sale' ? ' · оплачен' : ' · без оплаты');
   state.dataset.testid = 'order-status';
   const list = document.createElement('div');
   for (const line of o.snapshot.lines) {

@@ -67,6 +67,106 @@ function lineKey(item) {
     .sort();
   return `${item.variant_id.toLowerCase()}|${selections.join('|')}`;
 }
+/*
+ * Paid-sale commands (cutover 19.11, contracts section 5.1): exactly what apps/pos/src/model.ts
+ * journals before sending (saleRequest, voidSale, refund, recordFiscal, closeSaleShift) and its
+ * parsePending reads back. Every other kind and key is still refused.
+ */
+const PAYMENT_METHODS = [
+  'cash',
+  'kaspi_terminal',
+  'aggregator_yandex_eda',
+  'aggregator_glovo',
+  'staff_meal',
+  'marketing',
+  'kaspi_manual',
+  'chocofood',
+];
+const REFUND_REASONS = [
+  'guest_changed_mind',
+  'wrong_order',
+  'quality',
+  'aggregator_cancelled',
+  'cashier_error',
+  'other',
+];
+const SALE_KEYS = [
+  'quote_id',
+  'service_mode_confirmed',
+  'order_repeated',
+  'external_order_ref',
+  'tenders',
+  'cash_tendered_minor',
+  'beneficiary',
+  'reason',
+  'approval',
+];
+const EXTERNAL_ORDER_REF = /^[A-Za-z0-9-]{3,40}$/;
+/** The token of a parsed staff/approvals answer (apps/pos/src/types.ts approval). */
+const APPROVAL_TOKEN = /^[A-Za-z0-9._~-]{16,256}$/;
+/** Only `allowed` keys, each of `required` present. */
+function only(value, allowed, required) {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    Object.keys(value).some((key) => !allowed.includes(key)) ||
+    required.some((key) => !Object.hasOwn(value, key))
+  )
+    fail();
+  return value;
+}
+/** A command path such as 'pos/sales/:id/void', `:id` being one uuid. */
+function commandPath(path, pattern) {
+  text(path, 160);
+  const parts = path.split('/'),
+    expected = pattern.split('/');
+  if (parts.length !== expected.length) fail();
+  for (const [index, part] of expected.entries())
+    if (part === ':id') id(parts[index]);
+    else if (parts[index] !== part) fail();
+}
+function positive(value) {
+  money(value);
+  if (value === '0') fail();
+}
+/** {approval_id, token} of a shift manager approval; the PIN never reaches the journal. */
+function proof(value) {
+  exact(value, ['approval_id', 'token']);
+  id(value.approval_id);
+  if (typeof value.token !== 'string' || !APPROVAL_TOKEN.test(value.token)) fail();
+}
+function refundReason(code, value) {
+  if (!REFUND_REASONS.includes(code)) fail();
+  if (typeof value !== 'string' || value.trim().length < 3 || value.trim().length > 300) fail();
+}
+function tenderCount(tenders) {
+  if (!Array.isArray(tenders) || tenders.length < 1 || tenders.length > 2) fail();
+}
+function saleBody(path, body) {
+  if (path !== 'pos/sales') fail();
+  only(body, SALE_KEYS, ['quote_id', 'service_mode_confirmed', 'order_repeated', 'tenders']);
+  id(body.quote_id);
+  if (body.service_mode_confirmed !== true || body.order_repeated !== true) fail();
+  tenderCount(body.tenders);
+  for (const tender of body.tenders) {
+    only(tender, ['method', 'amount_minor', 'reference'], ['method', 'amount_minor']);
+    if (!PAYMENT_METHODS.includes(tender.method)) fail();
+    positive(tender.amount_minor);
+    if (tender.reference !== undefined) text(tender.reference, 40);
+  }
+  if (body.external_order_ref !== undefined) {
+    text(body.external_order_ref, 40);
+    if (!EXTERNAL_ORDER_REF.test(body.external_order_ref)) fail();
+  }
+  if (body.cash_tendered_minor !== undefined) money(body.cash_tendered_minor);
+  if (body.beneficiary !== undefined) text(body.beneficiary, 100);
+  if (body.reason !== undefined) {
+    text(body.reason);
+    if (body.reason.trim().length < 3) fail();
+  }
+  if (body.approval !== undefined) proof(body.approval);
+}
 export function validateJournal(key, raw, scope) {
   if (typeof scope !== 'string' || scope.split('.').length !== 3) fail();
   scope.split('.').forEach(id);
@@ -117,7 +217,15 @@ export function validateJournal(key, raw, scope) {
     if (new Set(d.items.map(lineKey)).size !== d.items.length) fail();
   }
   if (j.pending !== null) {
-    const p = exact(j.pending, ['key', 'path', 'body', 'kind', 'at']);
+    // A receipt number also names its order (`subject`), read again after the answer.
+    const p = exact(j.pending, [
+      'key',
+      'path',
+      'body',
+      'kind',
+      'at',
+      ...(j.pending?.kind === 'fiscal_record' ? ['subject'] : []),
+    ]);
     id(p.key);
     text(p.at, 40);
     if (!/^\d{4}-\d\d-\d\dT/.test(p.at) || !Number.isFinite(Date.parse(p.at))) fail();
@@ -157,11 +265,58 @@ export function validateJournal(key, raw, scope) {
       const parts = p.path.split('/');
       if (parts.length !== 3 || parts[0] !== 'cash-shifts' || parts[2] !== 'close') fail();
       id(parts[1]);
-      exact(p.body, ['expected_version', 'counted_cash_minor', 'reason']);
+      // Today's close has exactly these three keys; closing a sales shift may add the Kaspi
+      // terminal total and the shift_close_pending_fiscal approval (contracts section 5.1).
+      only(
+        p.body,
+        ['expected_version', 'counted_cash_minor', 'reason', 'terminal_reported_minor', 'approval'],
+        ['expected_version', 'counted_cash_minor', 'reason'],
+      );
       integer(p.body.expected_version);
       money(p.body.counted_cash_minor);
       text(p.body.reason);
       if (!p.body.reason.trim()) fail();
+      if (p.body.terminal_reported_minor !== undefined) money(p.body.terminal_reported_minor);
+      if (p.body.approval !== undefined) proof(p.body.approval);
+    } else if (p.kind === 'sale') saleBody(p.path, p.body);
+    else if (p.kind === 'void') {
+      commandPath(p.path, 'pos/sales/:id/void');
+      exact(p.body, [
+        'expected_version',
+        'reason_code',
+        'reason',
+        'fiscal_sale_issued',
+        'approval',
+      ]);
+      integer(p.body.expected_version);
+      refundReason(p.body.reason_code, p.body.reason);
+      if (typeof p.body.fiscal_sale_issued !== 'boolean') fail();
+      proof(p.body.approval);
+    } else if (p.kind === 'refund') {
+      commandPath(p.path, 'pos/sales/:id/refunds');
+      exact(p.body, ['refund_id', 'tenders', 'reason_code', 'reason', 'approval']);
+      id(p.body.refund_id);
+      tenderCount(p.body.tenders);
+      const tenders = p.body.tenders.map((tender) => {
+        exact(tender, ['tender_id', 'amount_minor']);
+        id(tender.tender_id);
+        positive(tender.amount_minor);
+        return tender.tender_id.toLowerCase();
+      });
+      if (new Set(tenders).size !== tenders.length) fail();
+      refundReason(p.body.reason_code, p.body.reason);
+      proof(p.body.approval);
+    } else if (p.kind === 'fiscal_record') {
+      commandPath(p.path, 'pos/fiscal-receipts/:id/record');
+      only(
+        p.body,
+        ['expected_version', 'receipt_number', 'approval'],
+        ['expected_version', 'receipt_number'],
+      );
+      integer(p.body.expected_version);
+      text(p.body.receipt_number, 40);
+      if (p.body.approval !== undefined) proof(p.body.approval);
+      id(p.subject);
     } else if (p.kind === 'ordering') {
       if (!['ordering/open', 'ordering/close'].includes(p.path)) fail();
       exact(p.body, ['expected_version']);

@@ -1038,3 +1038,763 @@ button:focus-visible {
   letter-spacing: 0;
   white-space: nowrap;
 }
+
+/* Cutover 19.11 paid mode screens (sale-view.js). Rendered only when the edge sells (pos_sale). */
+.sale-channels {
+  flex: none;
+  margin: 16px 18px 0;
+  display: flex;
+  gap: 8px;
+  padding: 5px;
+  border-radius: 16px;
+  background: var(--n100);
+}
+.sale-chip {
+  flex: 1;
+  min-height: 56px;
+  padding: 0 12px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Montserrat, sans-serif;
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: 0.03em;
+  text-align: center;
+  cursor: pointer;
+}
+.sale-field {
+  margin: 12px 18px 0;
+  min-height: 64px;
+  border: 2px solid var(--n300);
+  border-radius: 14px;
+  padding: 8px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  background: #fff;
+  cursor: pointer;
+}
+.sale-steps .sale-field,
+.sale-fiscal .sale-field {
+  margin: 0;
+}
+.sale-field-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--n600);
+}
+.sale-field-value {
+  font-size: 22px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.sale-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: rgba(8, 14, 28, 0.62);
+  animation: posFade 0.18s ease both;
+}
+.sale-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 31;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  pointer-events: none;
+}
+.sale-backdrop.sale-top {
+  z-index: 36;
+}
+.sale-layer.sale-top {
+  z-index: 37;
+}
+.sale-card {
+  pointer-events: auto;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 28px 32px;
+  border-radius: 24px;
+  background: var(--bg);
+  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.5);
+  animation: posFade 0.22s ease both;
+}
+.sale-review {
+  width: 980px;
+}
+.sale-pay {
+  width: 1480px;
+  height: min(900px, 100%);
+}
+.sale-done {
+  width: 820px;
+  text-align: center;
+}
+.sale-pin {
+  width: 460px;
+}
+.sale-entry {
+  width: 1180px;
+}
+.sale-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
+}
+.sale-title {
+  font-family: Montserrat, sans-serif;
+  font-weight: 800;
+  font-size: 32px;
+}
+.sale-sub {
+  margin-top: 4px;
+  font-size: 17px;
+  color: var(--n600);
+}
+.sale-type {
+  flex: none;
+  max-width: 50%;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--blue);
+  color: #fff;
+  font-family: Montserrat, sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+  text-align: center;
+}
+.sale-close {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--n100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  cursor: pointer;
+}
+.sale-review-lines {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 20px;
+  border-radius: 16px;
+  background: #fff;
+}
+.sale-review-line {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--n100);
+  font-size: 24px;
+  font-weight: 600;
+}
+.sale-review-line:last-child {
+  border-bottom: 0;
+}
+.sale-review-qty {
+  flex: none;
+  min-width: 56px;
+  font-family: Montserrat, sans-serif;
+  font-weight: 800;
+  color: var(--orange);
+}
+.sale-review-name {
+  flex: 1;
+  min-width: 0;
+}
+.sale-review-mods {
+  margin-top: 4px;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--n600);
+}
+.sale-review-sum {
+  flex: none;
+  font-family: Montserrat, sans-serif;
+  font-weight: 700;
+}
+.sale-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.sale-total b {
+  font-family: Montserrat, sans-serif;
+  font-weight: 800;
+  font-size: 44px;
+  letter-spacing: 0;
+}
+.sale-actions {
+  display: flex;
+  gap: 10px;
+}
+.sale-button {
+  flex: 1;
+  min-height: 68px;
+  padding: 0 18px;
+  border: 2px solid var(--n300);
+  border-radius: 16px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 19px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.sale-primary {
+  flex: 1.6;
+  border-color: transparent;
+  background: var(--orange);
+  color: #fff;
+  font-family: Montserrat, sans-serif;
+  font-weight: 800;
+  font-size: 21px;
+  box-shadow: 0 12px 30px rgba(255, 103, 31, 0.32);
+}
+.sale-primary[aria-disabled='true'] {
+  box-shadow: none;
+}
+.sale-secondary {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.sale-danger {
+  flex: 0 0 150px;
+  color: var(--red);
+}
+.sale-wide {
+  flex: 3;
+}
+.sale-tiles {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.sale-tile {
+  min-height: 112px;
+  padding: 8px;
+  border: 2.5px solid transparent;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.sale-tile-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  overflow: hidden;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Montserrat, sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+}
+.sale-tile-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #fff;
+}
+.sale-tile-label {
+  font-family: Montserrat, sans-serif;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  text-align: center;
+}
+.sale-panel {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  padding: 20px 24px;
+  border-radius: 16px;
+  background: #fff;
+}
+.sale-panel > * {
+  flex: 1;
+}
+.sale-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: var(--n600);
+}
+.sale-cash {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 24px;
+}
+.sale-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sale-caption {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--n600);
+}
+.sale-amount {
+  font-family: Montserrat, sans-serif;
+  font-weight: 800;
+  font-size: 60px;
+  line-height: 1;
+}
+.sale-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.sale-quick .sale-button {
+  flex: 1 1 120px;
+  min-height: 60px;
+}
+.sale-change {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-radius: 14px;
+  font-size: 20px;
+  font-weight: 700;
+}
+.sale-change b {
+  font-family: Montserrat, sans-serif;
+  font-size: 34px;
+}
+.sale-keys {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-content: start;
+  gap: 8px;
+}
+.sale-key {
+  min-height: 68px;
+  border-radius: 12px;
+  background: var(--n100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.sale-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.sale-step {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.sale-mix-part {
+  padding: 10px 14px;
+  border: 2px solid var(--n300);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+}
+.sale-mix-methods {
+  display: flex;
+  gap: 8px;
+}
+.sale-mix-methods .sale-chip {
+  min-height: 48px;
+  border: 1.5px solid var(--n300);
+  font-size: 15px;
+}
+.sale-mix-amount {
+  font-family: Montserrat, sans-serif;
+  font-weight: 800;
+  font-size: 32px;
+}
+.sale-done-main {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  text-align: left;
+}
+.sale-done-number {
+  flex: none;
+  width: 240px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: var(--n100);
+}
+.sale-done-no {
+  font-family: Montserrat, sans-serif;
+  font-weight: 800;
+  font-size: 72px;
+  line-height: 1.05;
+  color: var(--orange);
+}
+.sale-done-info {
+  flex: 1;
+  min-width: 0;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: var(--n100);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sale-done-pickup {
+  font-family: Montserrat, sans-serif;
+  font-weight: 800;
+  font-size: 24px;
+  color: var(--blue);
+}
+.sale-done-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 18px;
+}
+.sale-done-row span {
+  color: var(--n600);
+}
+.sale-done-change {
+  margin-top: 4px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(18, 161, 80, 0.12);
+  color: #0b7a3b;
+  font-family: Montserrat, sans-serif;
+  font-weight: 800;
+  font-size: 26px;
+}
+.sale-fiscal {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #fff3c4;
+  text-align: left;
+}
+.sale-fiscal-note {
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: rgba(18, 161, 80, 0.1);
+  color: #0b7a3b;
+  font-size: 17px;
+  font-weight: 600;
+}
+.sale-pin-dots {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+}
+.sale-pin-dot {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--blue);
+  border-radius: 11px;
+}
+.sale-pin-error {
+  min-height: 24px;
+  text-align: center;
+  font-weight: 600;
+  color: var(--red);
+}
+.sale-entry-value {
+  min-height: 82px;
+  padding: 0 22px;
+  border: 2px solid var(--blue);
+  border-radius: 16px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  font-size: 28px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.sale-entry-keys {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 8px;
+}
+.sale-entry-keys .sale-key {
+  min-height: 64px;
+  font-size: 24px;
+}
+/* Cutover 19.11 paid mode, part B (ops-view.js): order card, Webkassa tab, X/Z, closing. */
+/* The fifth bottom tab exists only in the paid mode; its label and badge need more room. */
+.bottom-nav > .nav-tab[role='button']:nth-child(5) {
+  width: auto !important;
+  min-width: 220px;
+  padding: 0 18px;
+}
+.ops-tab {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 24px 16px;
+  overflow: auto;
+  animation: posFade 0.2s ease both;
+}
+.ops-tab-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.ops-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ops-chips .sale-chip,
+.ops-reasons .sale-chip,
+.ops-answers .sale-chip,
+.ops-amount-row .sale-chip {
+  border: 2px solid var(--n300);
+}
+.ops-chips .sale-chip {
+  flex: none;
+  min-width: 150px;
+}
+.ops-chips .sale-button {
+  flex: none;
+}
+.ops-muted {
+  font-size: 16px;
+  color: var(--n600);
+}
+.ops-note {
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--n100);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.ops-empty {
+  padding: 40px;
+  border-radius: 14px;
+  background: rgba(18, 161, 80, 0.1);
+  color: #0b7a3b;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+}
+.ops-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ops-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: #fff;
+  font-size: 18px;
+}
+.ops-no {
+  min-width: 70px;
+  font-family: Montserrat, sans-serif;
+  font-size: 22px;
+}
+.ops-grow {
+  flex: 1;
+  min-width: 0;
+}
+.ops-row-action {
+  flex: none;
+  min-height: 56px;
+}
+.ops-card {
+  width: 1280px;
+  height: min(900px, 100%);
+}
+.ops-report,
+.ops-close {
+  width: 1180px;
+}
+.ops-columns {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  overflow: auto;
+}
+.ops-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+.ops-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--n100);
+  font-size: 18px;
+}
+.ops-line small {
+  display: block;
+  font-size: 14px;
+  color: var(--n600);
+}
+.ops-line b {
+  font-family: Montserrat, sans-serif;
+  white-space: nowrap;
+}
+.ops-strong {
+  font-size: 20px;
+  font-weight: 700;
+}
+.ops-field {
+  margin: 0;
+}
+.ops-reasons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.ops-reasons .sale-chip,
+.ops-answers .sale-chip {
+  font-size: 16px;
+}
+.ops-answers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.ops-amount-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ops-amount-row .sale-chip {
+  flex: none;
+  min-width: 96px;
+}
+.ops-warn {
+  font-weight: 700;
+  color: var(--red);
+}
+.ops-steps {
+  display: flex;
+  gap: 6px;
+}
+.ops-step {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+}
+.ops-step-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--n600);
+}
+@media (max-width: 1100px), (max-height: 760px) {
+  .sale-card {
+    padding: 18px;
+    gap: 12px;
+  }
+  .sale-title {
+    font-size: 26px;
+  }
+  .sale-cash {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+  .sale-amount {
+    font-size: 44px;
+  }
+  .sale-key {
+    min-height: 56px;
+  }
+  .sale-review-line {
+    font-size: 20px;
+  }
+  .sale-entry-keys {
+    grid-template-columns: repeat(9, 1fr);
+  }
+  .ops-columns {
+    gap: 12px;
+  }
+  .ops-row {
+    gap: 10px;
+    font-size: 16px;
+  }
+  .ops-reasons {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 700px) {
+  .sale-cash,
+  .sale-done-main {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+  .sale-done-number {
+    width: auto;
+  }
+  .sale-tiles {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .sale-entry-keys {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  .sale-actions {
+    flex-wrap: wrap;
+  }
+  .sale-danger {
+    flex: 1 1 40%;
+  }
+  .ops-columns {
+    grid-template-columns: 1fr;
+  }
+  .ops-row {
+    flex-wrap: wrap;
+  }
+}

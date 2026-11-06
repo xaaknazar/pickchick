@@ -45,3 +45,24 @@ contextBridge.exposeInMainWorld('pickchickPosWindow', {
     return () => ipcRenderer.removeListener('pickchick-pos:fullscreen-v1', receive);
   },
 });
+
+// Tickets and the cash drawer (contracts section 5.8). Only plain JSON crosses: main validates the
+// ticket and builds the paper. Each call is one attempt; the answer is
+// {state:'sent'|'failed'|'unknown'|'not_configured'|'unsupported', code?}.
+contextBridge.exposeInMainWorld('pickchickPosPrinter', {
+  print: (ticket) => {
+    let json;
+    try {
+      json = JSON.stringify(ticket);
+    } catch {
+      json = undefined;
+    }
+    if (typeof json !== 'string' || json.length > 32000)
+      return Promise.resolve({ state: 'failed', code: 'INVALID_TICKET' });
+    return ipcRenderer.invoke('pickchick-pos:printer-v1', {
+      operation: 'print',
+      ticket: JSON.parse(json),
+    });
+  },
+  openDrawer: () => ipcRenderer.invoke('pickchick-pos:printer-v1', { operation: 'drawer' }),
+});
