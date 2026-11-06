@@ -536,6 +536,47 @@ test('a missing link blocks only that order; shortages; retry after the fix; ski
       { action: 'consumption_skip', entity_id: draft },
       { action: 'consumption_retry', entity_id: thirsty },
     ]);
+    // The mode is the manager's; every role reads the queue and the links.
+    const mode = {
+      type: 'stock_settings',
+      autoconsume_mode: 'off',
+      start_at: null,
+      expected_revision: 1,
+    };
+    for (const who of [p.shift, p.accountant])
+      await assert.rejects(
+        bo.command(who.token, c.branch, request(mode)),
+        is('FORBIDDEN', 'ROLE_FORBIDDEN'),
+      );
+    await assert.rejects(
+      bo.command(p.analyst.token, c.branch, request(mode)),
+      is('FORBIDDEN', undefined),
+    );
+    for (const who of [p.shift, p.accountant, p.analyst]) {
+      assert.equal((await bo.ops(who.token, c.branch, 'consumption', {})).counts.skipped, 1);
+      assert.equal((await bo.ops(who.token, c.branch, 'menu-links', {})).catalog.version, 1);
+    }
+    // A retry while the mode is off is not run: the item stays as it was.
+    const late = await posSale(c, release, { at: ago(2), number: 25, lines: [['duo', 1]] });
+    await kitchen(c, late, 'in_production');
+    await tick(c);
+    const waiting = (await items(c)).find((i) => i.order_id === late);
+    assert.equal(waiting.state, 'blocked');
+    await bo.command(token, c.branch, request(mode));
+    await assert.rejects(
+      bo.command(
+        token,
+        c.branch,
+        request({
+          type: 'consumption_retry',
+          source: 'pos',
+          order_id: late,
+          expected_revision: waiting.revision,
+        }),
+      ),
+      is('NOT_READY', undefined),
+    );
+    assert.equal((await items(c)).find((i) => i.order_id === late).revision, waiting.revision);
   }));
 
 test('dry_run writes no documents; switched on later it catches up in sale order from start_at', () =>
