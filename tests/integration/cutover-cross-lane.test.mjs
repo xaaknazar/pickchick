@@ -1264,3 +1264,295 @@ test('C4 025 -> 026 -> 027, then a paid day on the KDS layout through the real c
     await rm(root, { recursive: true, force: true });
   }
 });
+
+// ------------------------------------------------ every flag off: old clients, byte for byte ----
+/**
+ * Frozen D0 cashier report shapes (5b212949, cashier-reports.ts): the exact payload keys and the
+ * enums POS-6 widened. An installed cloud parses them strictly.
+ */
+const FROZEN_REPORTS = {
+  shift: {
+    keys: [
+      'shift_id',
+      'terminal_id',
+      'staff_id',
+      'state',
+      'opened_at',
+      'closed_at',
+      'opening_cash_minor',
+      'cash_in_minor',
+      'cash_out_minor',
+      'expected_cash_minor',
+      'counted_cash_minor',
+      'discrepancy_minor',
+    ],
+    enums: { state: ['open', 'closed'] },
+  },
+  order: {
+    keys: [
+      'order_id',
+      'cash_shift_id',
+      'created_at',
+      'total_minor',
+      'state',
+      'version',
+      'execution_mode',
+      'kitchen_state',
+      'display_number',
+      'lines',
+    ],
+    enums: {
+      state: ['awaiting_payment', 'cancelled'],
+      execution_mode: ['payment_required', 'unpaid_service'],
+    },
+  },
+};
+const frozenReport = ({ kind, payload }) =>
+  Object.keys(payload).sort().join() === [...FROZEN_REPORTS[kind].keys].sort().join() &&
+  Object.entries(FROZEN_REPORTS[kind].enums).every(([key, values]) =>
+    values.includes(payload[key]),
+  );
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+/**
+ * The bytes of an answer with only what differs between two desks replaced: identifiers,
+ * timestamps and 64-hex tokens. Keys, their order, values and array lengths stay as they are.
+ */
+const canonical = (value) =>
+  Array.isArray(value)
+    ? value.map(canonical)
+    : value instanceof Date
+      ? '<time>'
+      : value && typeof value === 'object'
+        ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, canonical(item)]))
+        : typeof value === 'string'
+          ? UUID.test(value)
+            ? '<uuid>'
+            : TIME.test(value)
+              ? '<time>'
+              : /^[a-f0-9]{64}$/.test(value)
+                ? '<hex>'
+                : value
+          : value;
+const route = (path) =>
+  path.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, ':id');
+
+/**
+ * Today's clients on one edge: the installed POS (unpaid), the kitchen screens on the old
+ * stations and the board, over HTTP through their gateway profiles. Returns every answer as
+ * canonical bytes and the payloads of the three old streams the day wrote.
+ */
+async function oldClientDay(ctx, desk, server) {
+  const transcript = [];
+  const record = (client) => async (method, path, body) => {
+    const result = await client(method, path, body);
+    transcript.push([
+      `${method} ${route(path)}`,
+      result.status,
+      JSON.stringify(canonical(result.json)),
+    ]);
+    return result;
+  };
+  const pos = record(lanClient(server.url, 'pos', desk.cashier));
+  const boss = record(lanClient(server.url, 'pos', desk.manager));
+  const kitchen = record(lanClient(server.url, 'kitchen', desk.cook, desk.cook.terminal_id));
+  ok(await pos('GET', '/edge/v1/session'));
+  ok(await pos('GET', '/edge/v1/menu'));
+  ok(await pos('GET', '/edge/v1/ordering'));
+  const shift = ok(
+    await boss('POST', '/edge/v1/cash-shifts', { opening_cash_minor: '100000' }),
+    201,
+  );
+  ok(await boss('GET', '/edge/v1/cash-shifts/current'));
+  const order = async () => {
+    const quote = ok(
+      await pos('POST', '/edge/v1/checkout/quotes', {
+        release_id: desk.release.release_id,
+        service_mode: 'takeaway',
+        items: [desk.burger, desk.drink].map((item) => ({
+          variant_id: item.variant_id,
+          quantity: 1,
+        })),
+      }),
+      201,
+    );
+    return ok(
+      await pos('POST', '/edge/v1/orders', {
+        quote_id: quote.quote_id,
+        kitchen_admission: 'unpaid',
+      }),
+      201,
+    );
+  };
+  const kept = await order();
+  ok(await pos('GET', `/edge/v1/orders/${kept.order_id}`));
+  ok(await pos('GET', `/edge/v1/orders?shift_id=${shift.shift_id}`));
+  ok(await kitchen('GET', '/edge/v1/fulfillment/config'));
+  ok(await kitchen('GET', '/edge/v1/fulfillment/stations'));
+  let ticket;
+  for (const station of [desk.prep, desk.assembly]) {
+    ok(await kitchen('GET', `/edge/v1/fulfillment/kitchen?stationId=${station}`));
+    ticket = ok(
+      await kitchen('GET', `/edge/v1/fulfillment/orders/${kept.order_id}?stationId=${station}`),
+    );
+    for (const task of ticket.tasks.filter((t) => t.stationId === station))
+      for (const [action, version] of [
+        ['start_task', task.version],
+        ['complete_task', task.version + 1],
+      ])
+        ticket = ok(
+          await kitchen('POST', `/edge/v1/fulfillment/orders/${kept.order_id}/actions`, {
+            action,
+            expectedVersion: ticket.version,
+            taskId: task.taskId,
+            expectedTaskVersion: version,
+          }),
+        );
+  }
+  for (const action of ['ready', 'handoff']) {
+    ticket = ok(
+      await kitchen('POST', `/edge/v1/fulfillment/orders/${kept.order_id}/actions`, {
+        action,
+        expectedVersion: ticket.version,
+      }),
+    );
+    ok(await kitchen('GET', '/edge/v1/fulfillment/display'));
+  }
+  assert.equal(ticket.state, 'handed_over');
+  const cancelled = await order();
+  ok(
+    await pos('POST', `/edge/v1/orders/${cancelled.order_id}/cancel`, {
+      expected_version: 1,
+      reason: 'Синтетическая отмена',
+    }),
+  );
+  ok(
+    await boss('POST', `/edge/v1/cash-shifts/${shift.shift_id}/movements`, {
+      direction: 'in',
+      amount_minor: '10000',
+      reason: 'Синтетический размен',
+    }),
+  );
+  const open = ok(await boss('GET', `/edge/v1/cash-shifts/${shift.shift_id}`));
+  ok(
+    await boss('POST', `/edge/v1/cash-shifts/${shift.shift_id}/close`, {
+      expected_version: open.version,
+      counted_cash_minor: open.expected_cash_minor,
+      reason: 'Синтетическое закрытие',
+    }),
+  );
+  ok(await boss('GET', '/edge/v1/cash-shifts'));
+  ok(await pos('GET', `/edge/v1/orders?shift_id=${shift.shift_id}`));
+  const rows = async (sql) => JSON.stringify(canonical((await ctx.edge.pool.query(sql)).rows));
+  return {
+    transcript,
+    streams: {
+      commercial: await rows(
+        "SELECT event_type,aggregate_version,schema_version,payload FROM outbox_events WHERE aggregate_type='order_commercial' ORDER BY producer_sequence",
+      ),
+      kitchen: await rows(
+        "SELECT event_type,aggregate_type,aggregate_version,payload FROM fulfillment_outbox WHERE payload->>'commercialOwner'='edge_pos' ORDER BY sequence",
+      ),
+      reports: await rows('SELECT kind,payload FROM cashier_report_outbox ORDER BY sequence'),
+    },
+  };
+}
+
+test('every flag off after C4: today’s POS, kitchen and board get byte-identical answers and stream payloads as on 025, and the new cloud takes them as today', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'pickchick-cross-lane-off-'));
+  const days = {};
+  try {
+    const before026 = await migrationsBefore(root, '026');
+    for (const twin of ['edge025', 'edge027'])
+      await withSyncDatabases(
+        async (ctx) => {
+          const desk = await edge025(ctx);
+          const cloud = await running(createApi, {
+            ...ctx.cloud.config,
+            posOrderSyncEnabled: true,
+          });
+          let server = null;
+          try {
+            if (twin === 'edge027') await windowC4(ctx, desk);
+            server = await startEdge(ctx, desk.runtime);
+            days[twin] = await oldClientDay(ctx, desk, server);
+            // The new routes say "off": pos/config needs 026 (404 keeps the old POS UI), the KDS
+            // layout is off on 025 and on 027 alike.
+            const pos = lanClient(server.url, 'pos', desk.cashier);
+            const kitchen = lanClient(server.url, 'kitchen', desk.cook, desk.cook.terminal_id);
+            const config = await pos('GET', `/edge/v1/pos/config?client_version=${DESK_BUILD}`);
+            const layout = await kitchen('GET', '/edge/v1/fulfillment/layout');
+            const options = {
+              enabled: true,
+              branchId: ctx.branch,
+              origin: cloud.url,
+              identity: desk.identity,
+            };
+            assert.deepEqual(ok(layout), { enabled: false });
+            const sales = await syncPosSalesOnce(desk.posSync.open(), options);
+            if (twin === 'edge025') {
+              assert.equal(config.status, 404);
+              assert.equal(sales.state, 'not_installed');
+            } else {
+              const off = PosConfigSchema.parse(ok(config));
+              assert.equal(off.mode, 'unpaid_service');
+              assert.ok(off.methods.every((method) => !method.enabled));
+              // CLOUD_POS_SALES_SYNC_ENABLED off: the cloud does not support posSales yet.
+              assert.equal(sales.state, 'unsupported');
+              assert.deepEqual(
+                (
+                  await ctx.edge.pool.query(
+                    'SELECT (SELECT count(*)::int FROM pos_sale_outbox) AS events, (SELECT last_error FROM pos_sale_sync_state) AS error',
+                  )
+                ).rows[0],
+                { events: 0, error: 'CLOUD_UNSUPPORTED' },
+              );
+              assert.deepEqual(
+                (
+                  await ctx.edge.pool.query(
+                    'SELECT count(*)::int AS n FROM fulfillment_tasks WHERE station_id=ANY($1)',
+                    [
+                      ['breading', 'toasts', 'assembly_hall', 'assembly_delivery', 'issue'].map(
+                        (fn) => kdsStationId(ctx.branch, fn),
+                      ),
+                    ],
+                  )
+                ).rows[0].n,
+                0,
+              );
+            }
+            // Today's cloud receivers take the old streams; cashier reports keep the D0 shapes.
+            await drain(syncPosOrdersOnce, desk.posSync.open(), options);
+            await drain(syncPosKitchenOnce, desk.posSync.open(), options);
+            const reports = await drainCashierReports(ctx);
+            assert.ok(reports.length >= 3);
+            for (const report of reports)
+              assert.ok(frozenReport(report), JSON.stringify(report.payload));
+            days[twin].cloud = JSON.stringify(
+              canonical(
+                await cloudRows(
+                  ctx,
+                  `SELECT (SELECT json_agg(json_build_array(state,payment_state,execution_mode,version) ORDER BY state)
+                     FROM pos_order_sync_projection WHERE branch_id=$1) AS orders,
+                   (SELECT json_agg(json_build_array(state,execution_mode) ORDER BY state)
+                     FROM pos_kitchen_sync_projection WHERE branch_id=$1) AS kitchen`,
+                ),
+              ),
+            );
+          } finally {
+            if (server) await server.app.close();
+            await cloud.app.close();
+            await desk.drop();
+          }
+        },
+        { edgeMigrationDirectory: before026 },
+      );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+  assert.ok(days.edge025.transcript.length > 30);
+  assert.deepEqual(days.edge027.transcript, days.edge025.transcript);
+  assert.deepEqual(days.edge027.streams, days.edge025.streams);
+  assert.equal(days.edge027.cloud, days.edge025.cloud);
+});
