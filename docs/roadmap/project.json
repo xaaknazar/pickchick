@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-11-05",
+  "updatedAt": "2026-11-07",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -5371,7 +5371,7 @@
       "id": "mobile-android-play-1105",
       "workstream": "mobile",
       "title": "Подготовить Android 1.0.1 (7) для Google Play",
-      "summary": "PR307 включён в shared после Foundation CI 11/11; 584 Node +96 Python и 101 экран production PASS. Android Studio и постоянная подпись готовы; SDK ждёт принятия лицензии владельцем, AAB пока не собран.",
+      "summary": "Подписанный production AAB 1.0.1(7) проверен и доступен во внутреннем треке Google Play одному владельцу. RU/KK/EN, Алекс и 4 адаптации App Store сохранены; аудитория 13+, IARC3+/Everyone. Data safety заполнена как проект. Checkpoint3ab9d51f: Foundation11/11 PASS. П6 публикует отдельная задача p6-retention-1107. Android у владельца сейчас недоступен; физическая приёмка и вычитка KK карточки не завершены. Закрытый тест12/14 не начат, production не отправлен.",
       "status": "active",
       "owner": "development",
       "phase": "acceptance",
@@ -5392,20 +5392,36 @@
         {
           "label": "Foundation CI исходного кода 11/11",
           "url": "https://github.com/xaaknazar/pickchick/actions/runs/41986578348"
+        },
+        {
+          "label": "Внутренний выпуск и оставшиеся проверки",
+          "path": "docs/operations/mobile-play-2026-11/release-1106.md"
+        },
+        {
+          "label": "Журнал П7 и П6",
+          "path": "codex-reports/2026-11-06-android.md"
+        },
+        {
+          "label": "PR313: внутренний тест и карточка",
+          "url": "https://github.com/xaaknazar/pickchick/pull/313"
+        },
+        {
+          "label": "Foundation CI пакета карточки 11/11",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/42291705198"
         }
       ],
       "acceptance": [
         "Полная Foundation CI и Inspect PASS на production AAB с 7 разрешениями.",
         "Проверка владельцем на физическом Android отдельно от web/CI."
       ],
-      "nextAction": "Получить согласие на лицензию SDK, установить SDK/NDK/CMake, получить doctor и Inspect PASS на подписанном AAB. Сайт/Play и приёмка на телефоне отдельно.",
+      "nextAction": "Получить HTTP-доказательства П6 и завершить Data safety. Проверить настоящий Android, получить вычитку KK карточки, затем запустить закрытый тест12/14. Production только после отдельного явного согласия.",
       "checks": {
         "implemented": true,
-        "verified": false,
-        "deployed": false,
+        "verified": true,
+        "deployed": true,
         "accepted": false
       },
-      "customerInput": "Офлайн-копия upload key позже; вычитка KK, Data safety, контакт поддержки и баннер перед Play Console."
+      "customerInput": "Android сейчас недоступен; нужен телефон для приёмки. Вычитка KK всей карточки и 12 участников закрытого теста ещё не подтверждены. Баннер/email утверждены, ключ остаётся на Mac."
     }
   ]
 }

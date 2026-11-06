@@ -1,3 +1,25 @@
+## 7 ноября: внутренний тест Google Play активен
+
+AAB 1.0.1 (7) опубликован только во внутреннем треке; список владельца подключён.
+RU/KK/EN, утверждённый Алекс и четыре адаптации App Store сохранены в карточке.
+Аудитория 13-15, 16-17 и 18+ по уточнению владельца; IARC 3+/Everyone.
+Data safety заполнена и сохранена как проект. Checkpoint 3ab9d51f прошёл
+[Foundation CI 11/11](https://github.com/xaaknazar/pickchick/actions/runs/42291705198).
+Владелец сейчас без Android: физическая приёмка не выполнена. KK карточки
+ждёт вычитки. Console требует закрытый тест 12 участников / 14 дней, он ещё
+не начат. Production не отправлялся и требует отдельного согласия.
+П6 передан p6-retention-1107, публикация пока не подтверждена.
+[Протокол](../codex-reports/2026-11-06-android.md),
+[PR313](https://github.com/xaaknazar/pickchick/pull/313).
+
+Смежные опубликованные факты сохраняются отдельно: С1/С3 завершены,
+API 6630eb0f/schema071, новые флаги выключены -
+[протокол PR311](https://github.com/xaaknazar/pickchick/blob/36f05455845a917ae82c7a79d16190440a4c0b29/docs/operations/server-window-1105/result-evening-2026-11-06.md).
+Название точки в быстрой оплате подготовлено в
+[PR314](https://github.com/xaaknazar/pickchick/pull/314), без нового выпуска.
+Их ветки не заменялись; при общей интеграции сохраняются полные записи обоих PR.
+Онлайн-пульт этим checkpoint не обновлялся, резерв остаётся у stage2.
+
 ## 5 ноября: Android 1.0.1 (7), код включён в shared
 
 [PR307](https://github.com/xaaknazar/pickchick/pull/307) включён обычным merge
