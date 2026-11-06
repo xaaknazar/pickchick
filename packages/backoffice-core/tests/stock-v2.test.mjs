@@ -22,6 +22,14 @@ import {
 import * as contracts from '../../contracts/dist/index.js';
 
 const MIGRATIONS = fileURLToPath(new URL('../../../db/cloud/migrations/', import.meta.url));
+/** The cloud migrations migrate() applies from `first` on (later lanes add files, e.g. 075). */
+async function migrationsFrom(first) {
+  const names = (await readdir(MIGRATIONS))
+    .filter((name) => /^\d{3}_[a-z_]+\.sql$/.test(name) && name >= first)
+    .sort();
+  assert.equal(names[0], first);
+  return names;
+}
 const is = (code, reason) => (error) =>
   error instanceof BackofficeError && error.code === code && error.reason === reason;
 const meta = {
@@ -494,10 +502,12 @@ test('flag on without 074: plain stock commands work as v1, v2 fields and ops/st
           }),
           is('NOT_FOUND', 'STOCK_V2_DISABLED'),
         );
-        // 074 applied under the running runtime: the next command may carry a reason.
-        assert.deepEqual(await migrate(c.cloud.pool, MIGRATIONS, 'cloud'), [
-          '074_cloud_backoffice_cutover.sql',
-        ]);
+        // 074 (and every later file) applied under the running runtime: the next command may
+        // carry a reason.
+        assert.deepEqual(
+          await migrate(c.cloud.pool, MIGRATIONS, 'cloud'),
+          await migrationsFrom('074_cloud_backoffice_cutover.sql'),
+        );
         const waste = await v2.command(
           s.manager.token,
           c.branch,

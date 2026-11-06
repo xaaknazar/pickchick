@@ -40,6 +40,14 @@ import {
 } from '../../../infra/staging/backoffice-cutover-grants.mjs';
 
 const MIGRATIONS = fileURLToPath(new URL('../../../db/cloud/migrations/', import.meta.url));
+/** The cloud migrations migrate() applies from `first` on (later lanes add files, e.g. 075). */
+async function migrationsFrom(first) {
+  const names = (await readdir(MIGRATIONS))
+    .filter((name) => /^\d{3}_[a-z_]+\.sql$/.test(name) && name >= first)
+    .sort();
+  assert.equal(names[0], first);
+  return names;
+}
 const reason = (code) => (error) =>
   error instanceof BackofficeError && error.code === 'FORBIDDEN' && error.reason === code;
 const bareForbidden = (error) =>
@@ -722,10 +730,12 @@ test('new runtime on a cloud schema without 074: flags off unchanged, roles flag
           ),
           { code: 'NOT_READY' },
         );
-        // Then 074 is applied under the running runtime: nothing changes until designations exist.
-        assert.deepEqual(await migrate(c.cloud.pool, MIGRATIONS, 'cloud'), [
-          '074_cloud_backoffice_cutover.sql',
-        ]);
+        // Then 074 (and every later file) is applied under the running runtime: nothing changes
+        // until designations exist.
+        assert.deepEqual(
+          await migrate(c.cloud.pool, MIGRATIONS, 'cloud'),
+          await migrationsFrom('074_cloud_backoffice_cutover.sql'),
+        );
         assert.equal((await on.read(p.shift.token, c.branch)).capabilities.roles, true);
         assert.equal((await on.read(p.shift.token, c.branch)).effective_role, 'analyst');
       },
