@@ -51,7 +51,7 @@ kind `assignment`) в 075 не входят.
 | Флаг                                   | `capabilities` в `GET branches/:id` (только при `true`) | Значение ключа                                                                                                                                              | Зависит от                    | Откат                                            |
 | -------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------ |
 | `BACKOFFICE_POS_DAY_ENABLED`           | `pos_day`                                               | всегда `true`: без 073 вид отвечает `coverage.pos_tables=false`                                                                                             | -                             | `false`                                          |
-| `BACKOFFICE_STOCK_AUTOCONSUME_ENABLED` | `stock_autoconsume`                                     | склад v2 включён и таблицы 075 настроек и очереди доступны роли на запись                                                                                   | `BACKOFFICE_STOCK_V2_ENABLED` | режим `off` или флаг `false`; документы остаются |
+| `BACKOFFICE_STOCK_AUTOCONSUME_ENABLED` | `stock_autoconsume`                                     | склад v2 и `stock_p1` (шаг 5: связи), таблицы 075 настроек и очереди доступны роли на запись                                                                | `BACKOFFICE_STOCK_V2_ENABLED` | режим `off` или флаг `false`; документы остаются |
 | `BACKOFFICE_MANAGER_SHIFTS_ENABLED`    | `manager_shifts`                                        | `bo_manager_shifts` доступна на запись                                                                                                                      | -                             | `false`; смены остаются                          |
 | `BACKOFFICE_STAFF_POSITIONS_ENABLED`   | `staff_positions`                                       | всегда `true` (только поля карточки)                                                                                                                        | -                             | `false`; поля в карточке остаются                |
 | `BACKOFFICE_DISCOUNTS_ENABLED`         | `discounts`                                             | `bo_discounts` на запись и история на чтение                                                                                                                | -                             | `false`                                          |
@@ -125,6 +125,10 @@ DDL заморожен 10.11: дальше файл только дополня�
 `P1_ROLE_PERMISSIONS` в `roles.ts`), в `BACKOFFICE_PERMISSIONS` не входит: `permissions[]` получает его
 только при `stock_p1`, без флагов список прежний. Без `BACKOFFICE_ROLES_ENABLED` решает грант
 (manager - да, analyst - `FORBIDDEN`).
+
+Сделано в шаге 5: `menu_links.write`, `menu_links.approve` (управляющий) приходят в `permissions[]` со
+складом P1, `stock.settings` (управляющий) и `consumption.write` (управляющий, начальник смены) - при
+доступном автосписании; порядок списка - `BACKOFFICE_P1_PERMISSIONS`.
 
 Сторно: `design-backoffice.md` противоречит сам себе (§2 А12 - «сторно ... только manager и
 shift_manager», там же и в таблице §4 - бухгалтер делает сторно, `stock_reverse` m/acc). Принято по
@@ -263,6 +267,30 @@ menu_links_approve { keys: [catalog_key] (1..200), expected_revisions: { [catalo
 Каталог - последняя публикация точки (slug, как `stopVariantId`). Строки: `ingredient_id` - позиция
 склада; `recipe_output_id` - выход техкарты (`stock_policy`, `design-backoffice.md` §4).
 
+**Сделано в шаге 5** (`packages/backoffice-core/src/consumption.ts`, `consumption-store.ts`; за
+`stock_p1`, без него вид - 404 неизвестного вида при выключенном складе v2 и `NOT_FOUND`/
+`STOCK_V2_DISABLED` без 075 или прав; команды - `INVALID_REQUEST` или `NOT_READY`/`STOCK_V2_DISABLED`):
+
+- `items[]` - товары и опции головной публикации в порядке каталога: `catalog_key`, `catalog_ref`,
+  `kind` (`product`/`option`/`combo`/`set`), имена, `linked_product_id` (у опции - товар, который она
+  означает: `linked_product_id` каталога или товар с тем же slug, правило стоп-листа menu-sync),
+  `listed`, `from_combo` (комбо или набор без своей связи с составом), `covered_without_link`, `link`
+  (строки с именем и единицей позиции, `updated_by_name`, `approved_by_name`); `orphans[]` - связи
+  slug, которых нет в головном каталоге; `coverage { items, linked, approved, without_link }` по
+  позициям в продаже. Без публикации или без права чтения `catalog_publications` - `catalog: null`.
+- `menu_link_save`: позиция должна быть в головном каталоге (`NOT_FOUND`/`CATALOG_ITEM_NOT_FOUND`),
+  строка - существующая позиция склада, `recipe_output_id` - выход ровно одной техкарты точки
+  (`INVALID_REQUEST`), количество - целое 1..999999999 в единице позиции, без повторов, 0..50 строк,
+  `none` ⇔ без строк. Новая или изменённая связь - черновик; сохранение без изменений (сравнение jsonb)
+  сохраняет утверждение. `menu_links_approve` - каждая связь на показанной ревизии (`CONFLICT`),
+  утверждённая остаётся как есть. Права - `menu_links.write`, `menu_links.approve` (управляющий).
+- Отклонение от текста выше: `recipe_output_id` - id позиции склада, которая является выходом
+  техкарты (а не id техкарты): шеф выбирает «Котлета (выход ТТК)», вложенные строки ТТК ссылаются
+  на те же позиции. `ingredient_id` списывает позицию как есть, `recipe_output_id` - по `stock_policy`
+  техкарты: `explode` (по умолчанию) - строки × q / выход, рекурсивно до 6 уровней, вложенные выходы
+  по своей политике; `stock` - сам выход. `stock_policy` принимает `save` техкарты при складе P1
+  (`RecipeP1`, строгая `Recipe` без флага прежняя).
+
 ### 5.4 Сторно и списание (склад v2 + 075)
 
 - `stock_reverse { document_id }` - обратный документ `reversal` с движениями ровно противоположными
@@ -317,6 +345,45 @@ consumption_skip   { source, order_id, expected_revision }    // причина 
 (`--once`, тик 30 с) работает только при флаге, под ролью API; без строки настроек или в `off` ничего не
 отбирает. Ручной `consume` при режиме `dry_run`/`on` - `AUTOCONSUME_ACTIVE`. Включать `on` - только при
 покрытии строк продаж связями не ниже 95 % в `dry_run` (runbook).
+
+**Сделано в шаге 5** (`consumption-store.ts`; ключ `stock_autoconsume` = флаг, склад v2, `stock_p1` и
+права 075 на настройки и очередь; без флага вид - 404 неизвестного вида, команды - `INVALID_REQUEST`, с
+флагом без прав - `NOT_READY`):
+
+- Отбор (`enqueueConsumption`, `INSERT ... ON CONFLICT DO NOTHING`, по 200 за тик в порядке продажи):
+  `cloud_pos_sales` (при праве чтения) и `commerce_orders` с оплатой (`sold_at` - первая
+  `commerce_captures`), `sold_at >= start_at`, кухня начала (`pos_kitchen_sync_projection`/
+  `cloud_fulfillment_projection` в `in_production|ready|handed_over`, `trigger_kind=kitchen_started`)
+  или прошёл проход 03:00 Алматы следующего дня (`day_close`). Окно чтения - продажи старше самой
+  старой позиции (перенос `start_at` назад) или новее самой новой минус 7 дней.
+- Обработка (`processConsumptionItem`, своя транзакция на позицию под `bo:branch:<id>`, настройки
+  перечитываются внутри): `pending`; `blocked` после `next_attempt_at` (1, 2, 5, 15, 30, 60 мин) или
+  после поставки, подсчёта, производства, сторно, изменения связи, техкарты или позиции склада;
+  `previewed` при `on`; только `sold_at >= start_at`.
+- Решение: отмена или полный возврат до кухни - `not_required/CANCELLED_BEFORE_KITCHEN`; ручной
+  `consume` облачного заказа - `not_required/MANUAL_CONSUMPTION`; нет версии каталога (касса: release →
+  `catalog_menu_deliveries`; облако: `catalogReference.version`) - `blocked/MENU_VERSION_UNKNOWN`;
+  проблемы разбора (`NO_LINK`, `LINK_NOT_APPROVED`, `ITEM_UNKNOWN`, `COMBO_TOO_DEEP`,
+  `INGREDIENT_UNKNOWN`, `RECIPE_*`) - `blocked`, причина - первая (`NO_LINK` важнее), все - в
+  `detail.problems`; поглощение `counted_at >= sold_at`; `dry_run` - `previewed` с `detail.needs`;
+  `on`: нехватка - `blocked/INSUFFICIENT_STOCK` с `detail.shortages`, нечего списывать -
+  `not_required/NOTHING_TO_CONSUME|ABSORBED_BY_COUNT`, иначе документ `consumption`
+  (`source_ref`, `order_id` только облака, `recipe_snapshot` - версия каталога, ревизии связей и
+  техкарт, потребность с точными дробями), движения `stockEffect('waste')`, позиция `applied`. Автор
+  документа - `bo_stock_settings.updated_by` (у «Повторить» - нажавший).
+- `GET ops/consumption` дополнительно: `display_number`, `refunded` (отмена или возврат кассы,
+  возврат облака - видно возврат после кухни), `trigger_kind`, `updated_at`; `counts` по всем
+  состояниям в рамках дня; `coverage { days: 7, start_date, end_date, sold_lines, linked_lines,
+share_bp, missing: [{catalog_key, name, lines}] (до 20), truncated }` - строки продаж 7 дней Алматы
+  (до 5000 чеков кассы и 5000 заказов), строка покрыта, если весь её разбор без проблем; список - до
+  200 позиций (`truncated.items`).
+- `GET branches/:id` при доступном автосписании - `stock_settings { autoconsume_mode, start_at,
+revision }` (плашка склада) и права `stock.settings`, `consumption.write` в `permissions[]`.
+- `consumption_retry` выполняет попытку сразу в команде (`NOT_READY`, если режим `off` или продажа до
+  `start_at`); `consumption_skip` - `skipped` с причиной запроса; обе - на показанной ревизии
+  (`CONFLICT`), конечная позиция - `CONFLICT`. Аудит - общий конверт команд; документы воркера в
+  `bo_audit` не пишутся (их след - `source_ref` и очередь).
+- Helper P1 при автосписании читает и `cloud_pos_refunds` (полный возврат до кухни, CR `bo-ui-5`).
 
 ### 5.6 Смена менеджера (`BACKOFFICE_MANAGER_SHIFTS_ENABLED`)
 
@@ -443,7 +510,11 @@ discount_state { id, state: 'draft'|'active'|'archived', expected_revision }
 4. Шаг 4 (сделан): сторно (`stock_reverse`), плитки быстрого списания, `counted_at`, плашка про
    продажи, отчёт списаний с учётом сторно, вкладки «Списания» и «Движение» с CSV, ключ `stock_p1`,
    право `stock.reverse`; CR `bo-ui-4`. Перенесено: `variance`/`consumption`, выход ТТК, связи меню.
-5. Автосписание: ядро, воркер, настройки, очередь, экран.
+5. Шаг 5 (сделан): связи меню (`ops/menu-links`, `menu_link_save`, `menu_links_approve`), ядро
+   автосписания, очередь, режим (`ops/consumption`, `stock_settings`, `consumption_retry`,
+   `consumption_skip`), воркер `stock-consumption-worker.ts`, вкладка «Списание по продажам», CR
+   `bo-ui-5`. Перенесено: отчёты склада `view=consumption|variance` (шаг 6, с подсчётом ключевых
+   позиций), поле `stock_policy` в редакторе техкарты кабинета.
 6. Смена менеджера и персонал (должности, выгрузка, `staff-roster-apply`, `staff-pin-batch`).
 7. Скидки и исправления аудита без флага.
 8. Runbook `docs/operations/backoffice-p1-cutover.md`, дополнения `backoffice-cutover.md`, CR маршрутов
