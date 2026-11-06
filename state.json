@@ -7239,10 +7239,8 @@
         "apps/mobile/src/components/OrderSheet.tsx",
         "apps/mobile/src/haptic-map.ts",
         "apps/mobile/src/keyboard-avoidance.ts",
-        "docs/operations/mobile-play-2026-11/account-deletion-web.md",
         "docs/operations/mobile-play-2026-11/app-access.en.txt",
         "docs/operations/mobile-play-2026-11/content-rating.md",
-        "docs/operations/mobile-play-2026-11/data-safety.md",
         "docs/operations/mobile-play-2026-11/graphics/feature-graphic-1024x500.png",
         "docs/operations/mobile-play-2026-11/graphics/play-icon-512.png",
         "docs/operations/mobile-play-2026-11/listing.json",
@@ -7269,7 +7267,7 @@
       ],
       "status": "available",
       "updatedAt": "2026-11-06T20:06:40.746Z",
-      "summary": "Android 1.0.1 (7) production AAB собран из чистого shared 1a9472f1; код PR307/308 merged, Foundation 11/11. SDK лицензия явно принята владельцем, Java21 doctor/Inspect PASS, 7 permissions, подпись 1824 payload записей проверена. Протокол и статус опубликованы 9a9248e2, PR309; CI документации ещё выполняется. Google Play/сайт/сервер/iOS не менялись.\n05.11.2026: владелец явно разрешил временную передачу серверных областей и общих записей задаче stage2-candidate-1105 для четырёх серверных шагов; кассовые, мобильные и остальные резервы сохранены.\n06.11 П6: по прямому решению владельца в исходном задании Android и согласованию между чатами переданы только поддержка /support/#delete-account, её оператор/тесты и общие записи статуса задаче android-play-1106. С1/С3 завершены, release lock отсутствует. Это не передача API, БД, банков, кассы, каталога, цен, Caddy или разрешение Play production.",
+      "summary": "Android 1.0.1 (7) production AAB собран из чистого shared 1a9472f1; код PR307/308 merged, Foundation 11/11. SDK лицензия явно принята владельцем, Java21 doctor/Inspect PASS, 7 permissions, подпись 1824 payload записей проверена. Протокол и статус опубликованы 9a9248e2, PR309; CI документации ещё выполняется. Google Play/сайт/сервер/iOS не менялись.\n05.11.2026: владелец явно разрешил временную передачу серверных областей и общих записей задаче stage2-candidate-1105 для четырёх серверных шагов; кассовые, мобильные и остальные резервы сохранены.\n06.11 П6: по прямому решению владельца в исходном задании Android и согласованию между чатами переданы только поддержка /support/#delete-account, её оператор/тесты и общие записи статуса задаче android-play-1106. С1/С3 завершены, release lock отсутствует. Это не передача API, БД, банков, кассы, каталога, цен, Caddy или разрешение Play production.\n07.11: по прямому поручению владельца П6 переданы только тексты срока хранения (content.json/delete_kept и документы account-deletion-web/data-safety) задаче p6-retention-1107. Публикация остаётся в согласованном окне П6, остальные файлы/ресурсы сохранены.",
       "nextAction": "После зелёной CI PR309 включить протокол обычным merge и закрыть этап. Дальнейшие шаги поддержки/Play Console/внутренней загрузки требуют отдельного да. Офлайн-копия ключа и физический Android не проверены, FCM не настроен. Сборка: Library/Caches/PickChick/android-releases/play-internal-1-r2. Действующие чужие задачи и scopes сохранены.\nП6 передан android-play-1106; широкие @vps и @vps/public-https сняты только у завершённого окна. Перед будущим глобальным серверным окном заново согласовать полный резерв; API/БД/банк/roadmap и остальные области остаются здесь."
     },
     {
@@ -7362,7 +7360,6 @@
         "docs/operations/mobile-play-2026-11/graphics/screenshots-appstore-1106",
         "docs/collaboration/handoff.md",
         "infra/public-staging/support-page-release.py",
-        "infra/public-staging/support/content.json",
         "infra/public-staging/support/render.py",
         "infra/public-staging/support/style.css",
         "tests/operations/test_support_page_release.py",
@@ -7373,7 +7370,7 @@
       "status": "active",
       "head": "c8de3a819bd96cde4ce75a58cea96e9c50dce244",
       "updatedAt": "2026-11-06T20:24:03.317Z",
-      "summary": "c8de3a81 / PR313: AAB 1.0.1(7) released to internal testing; upload certificate matches. Approved Alex banner and RU/KK/EN draft saved; IARC 3+/Everyone; owner changed audience to 13-15,16-17,18+. Listing tests 5/5 and Prettier PASS; current CI running.\n06.11 П6: по прямому решению владельца в исходном задании Android и согласованию между чатами переданы только поддержка /support/#delete-account, её оператор/тесты и общие записи статуса задаче android-play-1106. С1/С3 завершены, release lock отсутствует. Это не передача API, БД, банков, кассы, каталога, цен, Caddy или разрешение Play production.\n06.11: владелец явно разрешил временную передачу этих файлов mobile-cart-location-1106 для названия выбранной точки в быстрой оплате; существующие изменения сохраняются. Общие документы обновляются только добавлением записи, без удаления фактов С1/С3/Android.\nВременная передача статуса и roadmap завершена: PR314, 679ef207. При интеграции сохранить запись mobile-cart-location-1106. Онлайн-пульт этой задачей не публиковался.",
+      "summary": "c8de3a81 / PR313: AAB 1.0.1(7) released to internal testing; upload certificate matches. Approved Alex banner and RU/KK/EN draft saved; IARC 3+/Everyone; owner changed audience to 13-15,16-17,18+. Listing tests 5/5 and Prettier PASS; current CI running.\n06.11 П6: по прямому решению владельца в исходном задании Android и согласованию между чатами переданы только поддержка /support/#delete-account, её оператор/тесты и общие записи статуса задаче android-play-1106. С1/С3 завершены, release lock отсутствует. Это не передача API, БД, банков, кассы, каталога, цен, Caddy или разрешение Play production.\n06.11: владелец явно разрешил временную передачу этих файлов mobile-cart-location-1106 для названия выбранной точки в быстрой оплате; существующие изменения сохраняются. Общие документы обновляются только добавлением записи, без удаления фактов С1/С3/Android.\nВременная передача статуса и roadmap завершена: PR314, 679ef207. При интеграции сохранить запись mobile-cart-location-1106. Онлайн-пульт этой задачей не публиковался.\n07.11: по прямому поручению владельца П6 переданы только тексты срока хранения (content.json/delete_kept и документы account-deletion-web/data-safety) задаче p6-retention-1107. Публикация остаётся в согласованном окне П6, остальные файлы/ресурсы сохранены.",
       "nextAction": "Owner enters tester email list in open Play tab; then physical Android checklist. Emulator SDK download still running on this Mac, screenshots pending. KK review and P6 coordinated server window pending; Data safety only initial draft. Never production without separate owner approval.\nП6 разрешён владельцем; сначала адаптировать support-page-release.py для обновления уже существующей HTTP200 страницы, сохраняя защиту первого развёртывания. Полная CI точного опубликованного коммита, проверенная копия/откат, новый собственный release lock, атомарное обновление только /support/, HTTP200 и #delete-account RU/KK/EN. Сверить неизменность API6630eb0f/schema071/public pointer c3a0fbee и соседей. Не менять Caddy/API/БД/флаги/кассу/цены/каталог. Сохранить записи С1/С3 из36f05455 при обновлении status/roadmap/handoff; не заменять их старой копией shared. Публикация онлайн-пульта не входит в передачу. После П6 записать доказательства и согласованно вернуть временные области."
     },
     {
@@ -7402,7 +7399,10 @@
       "scopes": [
         "docs/operations/mobile-play-2026-11/retention-1107.md",
         "docs/operations/mobile-play-2026-11/legal-retention-proposal-1107.md",
-        "codex-reports/2026-11-07-day.md"
+        "codex-reports/2026-11-07-day.md",
+        "infra/public-staging/support/content.json",
+        "docs/operations/mobile-play-2026-11/account-deletion-web.md",
+        "docs/operations/mobile-play-2026-11/data-safety.md"
       ],
       "status": "active",
       "head": "1a9472f1dc2a34b8ab4db7beb6f9c5616ed23f73",
