@@ -24,7 +24,7 @@ import {
   refundTicket,
 } from '../../apps/pos/dist/v2/ops-view.js';
 import { RECEIPT_READS } from '../../apps/pos/dist/model.js';
-import { receiptRow } from '../../apps/pos/dist/v2/ops-view.js';
+import { receiptRow, reportLines } from '../../apps/pos/dist/v2/ops-view.js';
 import {
   DESK_MODE_KEY,
   PAID_TEXTS,
@@ -4025,12 +4025,20 @@ test('screens: a paid order row says its Webkassa receipt as the X report counts
   assert.deepEqual(
     ['pending', 'recorded', 'not_required', undefined].map((state) => receiptRow(paid, state)),
     [
-      { fiscalLabel: 'чек: не оформлен', fiscal: 'var(--orange)' },
-      { fiscalLabel: 'чек: оформлен', fiscal: '#0B7A3B' },
-      { fiscalLabel: 'чек: не нужен', fiscal: 'var(--n600)' },
-      { fiscalLabel: 'чек: -', fiscal: 'var(--n300)' },
+      { fiscalLabel: 'не оформлен', fiscal: 'var(--orange)' },
+      { fiscalLabel: 'оформлен', fiscal: '#0B7A3B' },
+      { fiscalLabel: 'не нужен', fiscal: 'var(--n600)' },
+      { fiscalLabel: '-', fiscal: 'var(--n300)' },
     ],
   );
+  // The words of the X report line «Чеки Webkassa: оформлено …, не оформлено …, не нужен …».
+  const line = reportLines({
+    discrepancy_minor: null,
+    terminal_discrepancy_minor: null,
+    orders: { count: 3, voided_count: 0 },
+    fiscal: { pending: 1, recorded: 1, not_required: 1 },
+  }).find((text) => text.startsWith('Чеки Webkassa'));
+  assert.equal(line, 'Чеки Webkassa: оформлено 1, не оформлено 1, не нужен 1');
 });
 
 /** A desk that sells, with the orders feed listing the sales of the synthetic edge. */

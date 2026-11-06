@@ -212,17 +212,22 @@ with sync_playwright() as pw:
             expect(page.get_by_test_id('ops-card-title')).to_have_text('Заказ №' + number)
 
         # CR client-5: each paid row says its Webkassa sale receipt as the X report counts it,
-        # read again after the reload; «Чек» opens the card and prints the order ticket.
+        # read again after the reload; «Чек» of a punched or not needed receipt prints the
+        # order ticket.
         nav.get_by_role('button', name=re.compile('^ЗАКАЗЫ')).click()
         def order_row(number):
             return page.locator('.order-table-row', has=page.get_by_text(number, exact=True))
-        expect(order_row('27')).to_contain_text('чек: оформлен', timeout=10000)
-        expect(order_row('28')).to_contain_text('чек: не нужен', timeout=10000)
-        expect(order_row('29')).to_contain_text('чек: не нужен', timeout=10000)
-        for number in ('27', '28', '29'):
-            # The whole state is readable in the 148px column: never cut with an ellipsis.
-            label = order_row(number).get_by_text(re.compile('^чек: '))
-            assert label.evaluate('(e) => e.scrollWidth <= e.clientWidth'), number
+        def receipt_state(number):
+            return order_row(number).get_by_text(re.compile('^(оформлен|не оформлен|не нужен)$'))
+        expect(receipt_state('27')).to_have_text('оформлен', timeout=10000)
+        expect(receipt_state('28')).to_have_text('не нужен', timeout=10000)
+        expect(receipt_state('29')).to_have_text('не нужен', timeout=10000)
+        for width, height in ((1920, 1080), (1366, 768)):
+            page.set_viewport_size({'width': width, 'height': height})
+            for number in ('27', '28', '29'):
+                # The whole state is readable in the ОПЛАТА · ККМ column: never cut.
+                assert receipt_state(number).evaluate('(e) => e.scrollWidth <= e.clientWidth'), (number, width)
+        page.set_viewport_size({'width': 1920, 'height': 1080})
         for number in ('27', '28', '29'):
             expect(order_row(number)).not_to_contain_text('без чека')
             expect(order_row(number)).not_to_contain_text('ТЕСТ')

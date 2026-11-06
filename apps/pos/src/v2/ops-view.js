@@ -85,14 +85,15 @@ export function paidDayStats(orders) {
 /**
  * "ОПЛАТА · ККМ" of an order row in the paid mode (CR client-5): the state of a paid order's
  * Webkassa sale receipt in the words of the X report (оформлен / не оформлен / не нужен), "-"
- * until it is read; an order passed without payment has no receipt and keeps "без чека". Short
- * enough for the 148px column at 13px: "чек: не оформлен" is never cut.
+ * until it is read; an order passed without payment has no receipt and keeps "без чека". The
+ * column header names the receipt, so the words stand alone: at 1366 px the column is 122 px
+ * and "чек: не оформлен" was cut.
  */
 export function receiptRow(order, state) {
   if (order.execution_mode !== 'pos_sale')
     return { fiscalLabel: 'без чека', fiscal: 'var(--n300)' };
   return {
-    fiscalLabel: 'чек: ' + (RECEIPT_STATES[state] ?? '-'),
+    fiscalLabel: RECEIPT_STATES[state] ?? '-',
     fiscal:
       { recorded: '#0B7A3B', pending: 'var(--orange)', not_required: 'var(--n600)' }[state] ??
       'var(--n300)',
