@@ -351,6 +351,59 @@ export function zCsv(day: PosDay): string[][] {
     }),
   ];
 }
+const payments = (n: number) =>
+  n % 10 === 1 && n % 100 !== 11
+    ? 'оплата'
+    : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100)
+      ? 'оплаты'
+      : 'оплат';
+/**
+ * Review BOUI-R6: the methods of a shift on a phone, one line each («Наличные: 5 оплат, 7 000 ₸,
+ * возвраты 7 000 ₸, итого 0 ₸»; the parts after the colon are kept whole on screen), and the
+ * methods without any payment in one line apart.
+ */
+export type MethodLine = { label: string; parts: string[] };
+export const methodLineText = (line: MethodLine) => `${line.label}: ${line.parts.join(', ')}`;
+export function methodLines(methods: Data[]): { lines: MethodLine[]; idle: string | null } {
+  const big = (v: unknown) => BigInt(String(v ?? '0'));
+  const used = methods.filter(
+    (m) =>
+      Number(m['count'] ?? 0) > 0 || big(m['sales_minor']) !== 0n || big(m['refunds_minor']) !== 0n,
+  );
+  const lines = used.map((m) => {
+    const n = Number(m['count'] ?? 0);
+    const refunds = big(m['refunds_minor']);
+    return {
+      label: methodLabel(m['method']),
+      parts: [
+        `${n} ${payments(n)}`,
+        money(m['sales_minor']),
+        ...(refunds !== 0n
+          ? [
+              `возвраты ${money(refunds.toString())}`,
+              `итого ${money((big(m['sales_minor']) - refunds).toString())}`,
+            ]
+          : []),
+      ],
+    };
+  });
+  const idle = methods.filter((m) => !used.includes(m)).map((m) => methodLabel(m['method']));
+  return { lines, idle: idle.length ? `Без оплат: ${idle.join(', ')}.` : null };
+}
+/**
+ * Review BOUI-R6: the discrepancies first on every shift card, in one line («Наличные: расхождение
+ * -500 ₸ · Kaspi терминал: разница 0 ₸»); a value the cash desk did not send is not invented.
+ */
+export function shiftKeyLine(cash: Data | null, terminal: Data): string {
+  const part = (title: string, word: string, v: unknown) =>
+    v === null || v === undefined
+      ? `${title}: ${word} не известна`
+      : `${title}: ${word} ${money(v)}`;
+  return [
+    ...(cash ? [part('Наличные', 'расхождение', cash['discrepancy_minor'])] : []),
+    part('Kaspi терминал', 'разница', terminal['discrepancy_minor']),
+  ].join(' · ');
+}
 /** «Чеки кассы за день»: one row per receipt with the money in tenge. */
 export function receiptsCsv(day: PosDay, sales: Data[] = day.sales): string[][] {
   return [

@@ -15,6 +15,8 @@ import {
   filterReceipts,
   label,
   methodLabel,
+  methodLines,
+  shiftKeyLine,
   receiptName,
   receiptsCsv,
   refundKindLabel,
@@ -590,6 +592,10 @@ export class PosDayView {
     const flags = s['flags'] as Data;
     const cash = s['cash'] as Data | null;
     const terminal = s['terminal'] as Data;
+    // Review BOUI-R6: the discrepancies of the shift on top, in one line.
+    const key = el('p', 'pos-shift-key', shiftKeyLine(cash, terminal));
+    key.dataset.testid = 'pos-shift-key';
+    card.append(key);
     if (flags['cash_discrepancy'] === true && cash)
       card.append(
         notice(
@@ -648,6 +654,21 @@ export class PosDayView {
     grid.append(kaspi);
     card.append(grid);
     const received = s['received'] as Data;
+    // A phone shows one line per method that had payments (review BOUI-R6); the table stays
+    // for wider screens.
+    const short = methodLines(received['methods'] as Data[]);
+    const lines = el('ul', 'pos-method-lines');
+    lines.dataset.testid = 'pos-shift-method-lines';
+    for (const line of short.lines) {
+      const li = el('li', '', `${line.label}: `);
+      line.parts.forEach((part, i) => {
+        if (i) li.append(', ');
+        li.append(el('span', 'op-nowrap', part));
+      });
+      lines.append(li);
+    }
+    if (!short.lines.length) lines.append(el('li', 'muted', 'Оплат нет.'));
+    if (short.idle) lines.append(el('li', 'muted', short.idle));
     card.append(
       el(
         'h4',
@@ -665,6 +686,7 @@ export class PosDayView {
         '-',
         'pos-shift-methods',
       ),
+      lines,
     );
     const fiscal = s['fiscal'] as Data;
     card.append(

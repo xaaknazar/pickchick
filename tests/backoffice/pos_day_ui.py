@@ -247,6 +247,17 @@ with sync_playwright() as pw:
         assert page.evaluate('document.documentElement.scrollWidth') <= 390
         page.locator('.pos-shift').first.scroll_into_view_if_needed()
         capture(page, 'pos-day-shifts-390.png')
+        # Review BOUI-R6: one line per paid method instead of a card per table row, and the
+        # discrepancy line above the cash and Kaspi tables of every shift.
+        for card in page.locator('.pos-shift').all():
+            expect(card.get_by_test_id('pos-shift-methods')).to_be_hidden()
+            expect(card.get_by_test_id('pos-shift-method-lines')).to_be_visible()
+            key = card.get_by_test_id('pos-shift-key').bounding_box()
+            grid = card.locator('.pos-shift-grid').bounding_box()
+            assert key and grid and key['y'] < grid['y'], (key, grid)
+            assert key['x'] + key['width'] <= 390, key
+        expect(page.locator('.pos-shift').first.get_by_test_id('pos-shift-method-lines')).to_contain_text('оплат')
+        print('pos-day shifts 390 height', page.evaluate('document.documentElement.scrollHeight'), flush=True)
         page.get_by_test_id('pos-day-tab-receipts').click()
         receipts = page.get_by_test_id('pos-receipts')
         expect(receipts.locator('tbody tr')).to_have_count(12)

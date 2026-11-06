@@ -2500,6 +2500,46 @@ textarea {
   font-weight: 600;
   color: var(--text);
 }
+.pos-shift-key {
+  font-weight: 600;
+  margin: 8px 0;
+}
+.pos-method-lines {
+  display: none;
+  margin: 8px 0;
+  padding-left: 18px;
+}
+.pos-method-lines li {
+  margin: 4px 0;
+}
+/* Review BOUI-R6: a phone shows the methods of a shift as one line each, not a card per row,
+   and the cash and Kaspi tables of a shift as «Показатель ... сумма» lines. */
+@media (max-width: 480px) {
+  .pos-shift [data-testid='pos-shift-methods'] {
+    display: none;
+  }
+  .pos-method-lines {
+    display: block;
+  }
+  .pos-shift .pos-shift-grid .pos-table tr {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+  }
+  .pos-shift .pos-shift-grid .pos-table td {
+    display: block;
+    padding: 0;
+  }
+  .pos-shift .pos-shift-grid .pos-table td::before {
+    content: none;
+  }
+  .pos-shift .pos-shift-grid .pos-table td:last-child {
+    text-align: right;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+}
 @media (max-width: 650px) {
   .pos-day-controls,
   .pos-receipt-filters,

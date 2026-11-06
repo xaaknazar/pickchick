@@ -22,6 +22,9 @@ import {
   webkassaRows,
   webkassaText,
   zCsv,
+  methodLineText,
+  methodLines,
+  shiftKeyLine,
 } from '../../apps/backoffice/dist/pos-day-model.js';
 import { freshnessText } from '../../apps/backoffice/dist/pos-day.js';
 import { salesCsvText } from '../../apps/backoffice/dist/sales-report-model.js';
@@ -519,4 +522,31 @@ test('three CSV exports: tenge with a comma, «Сумма, ₸», dates DD.MM.YY
   const text = salesCsvText(receipts);
   assert.ok(text.startsWith('﻿'));
   assert.doesNotMatch(text, LONG_DASH);
+});
+
+test('phone shift card (review BOUI-R6): one line per paid method, the discrepancies first', () => {
+  const methods = [
+    { method: 'cash', count: 5, sales_minor: '700000', refunds_minor: '700000' },
+    { method: 'kaspi_terminal', count: 1, sales_minor: '117000', refunds_minor: '0' },
+    { method: 'kaspi_qr', count: 0, sales_minor: '0', refunds_minor: '0' },
+    { method: 'glovo_prepaid', count: 0, sales_minor: '0', refunds_minor: '0' },
+  ];
+  const short = methodLines(methods);
+  assert.deepEqual(short.lines.map(methodLineText), [
+    'Наличные: 5 оплат, 7 000 ₸, возвраты 7 000 ₸, итого 0 ₸',
+    'Kaspi терминал: 1 оплата, 1 170 ₸',
+  ]);
+  assert.match(short.idle, /^Без оплат: .+, .+\.$/);
+  assert.equal(methodLines(methods.slice(2)).lines.length, 0);
+  assert.equal(methodLines(methods.slice(0, 2)).idle, null);
+  assert.equal(
+    shiftKeyLine({ discrepancy_minor: '-50000' }, { discrepancy_minor: '0' }),
+    'Наличные: расхождение -500 ₸ · Kaspi терминал: разница 0 ₸',
+  );
+  // Not sent by the cash desk: said so, never a made-up zero; no cash block, no cash part.
+  assert.equal(
+    shiftKeyLine(null, { discrepancy_minor: null }),
+    'Kaspi терминал: разница не известна',
+  );
+  for (const t of [...short.lines.map(methodLineText), short.idle]) assert.doesNotMatch(t, /[—–]/);
 });
