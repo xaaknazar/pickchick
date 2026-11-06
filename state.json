@@ -7406,11 +7406,11 @@
         "docs/roadmap/project.json",
         "infra/public-staging/support/content.json"
       ],
-      "status": "active",
-      "head": "1edcabe00f4da8f40b9305ec04e1f2a75bdb9b5e",
-      "updatedAt": "2026-11-06T22:32:11.868Z",
-      "summary": "1edcabe0 / PR313: повторная проверка П6 07.11, HTTP 200 на support/RU/KK/EN, delete-account отсутствует, SHA прежние. П6 14001781 ждёт Foundation CI42298575783. Чат П6 уведомлён. Play dashboard: закрытый тест 0/5 задач, 0 участников; Data safety сохранена, не отправлена. Формат и diff PASS, remote SHA совпадает. Play и сервер не менялись.",
-      "nextAction": "После публикации p6-retention-1107 проверить HTTP200 и текст удаления RU/KK/EN; владелец разрешил затем продолжить закрытый тест. Настроить страны, список и выпуск AAB7, проверить весь состав перед отправкой именно закрытого теста. Для 12/14 нужны 12 вступивших участников, известен только email владельца. Physical Android и KK listing pending. Production только отдельное да; сохранить PR311/314 при интеграции, онлайн-пульт не обновлён."
+      "status": "available",
+      "head": "6f0f7b5e35c8f28e22d1e5b2c438a8469f60692a",
+      "updatedAt": "2026-11-06T22:41:16.140Z",
+      "summary": "6f0f7b5e / PR313: закрытый Alpha4701047942306330987 настроен, Казахстан, список owner and staff, отзывы email, исходный AAB7, примечания RU/EN/KK. Выпуск сохранён в Publishing overview, статус Ещё не отправлено на проверку. Исправлена обязательная декларация рекламного ID: Нет, AD_ID blocked. Отсчёт12/14 не начат. Владелец сам добавляет участников, форма открыта. Format/diff/JSON PASS; remote SHA verified.",
+      "nextAction": "П6 исправление21358f91/PR315 проходит CI после подтверждённого отката, HTTP200 RU/KK/EN пока без delete-account. После выпуска П6 проверить anchor/текст и автопроверки Play, отправить именно Alpha; повторного разрешения на закрытый тест не нужно. Проверить сохранённый список владельца, нужны12 вступивших участников. Physical Android и KK listing pending. Production только отдельное да. Исходные guide/data-safety заняты mobile-android-1105; согласовать обновление. Онлайн-пульт не опубликован, PR311/314 сохранить при интеграции."
     }
   ]
 }
