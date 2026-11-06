@@ -6993,7 +6993,6 @@
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-cart-mode-1029",
       "scopes": [
-        "tests/mobile/browser_cart_shortcut.py",
         "docs/operations/mobile-cart-mode-2026-10-29.md",
         "docs/operations/mobile-testflight30.md",
         "docs/operations/mobile-testflight30-evidence.json",
@@ -7003,7 +7002,7 @@
       "status": "available",
       "head": "b32808225f3f88bfa45746f18fbfff2bb0be6bf8",
       "updatedAt": "2026-11-05T09:49:32.321Z",
-      "summary": "Исправлена казахская подсказка оплаты: Jost не содержит ғөңі, вся kk-фраза использует системный полужирный. Коммит b3280822, PR296 обновлён. Typecheck/lint/format, web-export, браузерные AI и 7 roadmap PASS. RU/EN и логика оплаты сохранены. TestFlight30 доступен, но новая правка шрифта в него не входит. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/screens/PhotoProduct.tsx, apps/mobile/src/components/CartShortcut.tsx Documentation continuity transferred to mobile-kazakh-review-1030; build30 and release scopes retained. Owner requested next publication 30.10; release scopes transferred to mobile-kazakh-review-1030.\n2026-11-02: owner approved temporary transfer of pnpm-workspace.yaml and pnpm-lock.yaml from mobile-cart-mode-1029 to front-longpoll-1101 for official node-forge 1.4.1 security update; return after merge. No deploy authorized by this transfer.\n2026-11-02: package scopes returned after PR #301 ordinary merge, node-forge 1.4.1 and full green Foundation CI 41486431876. Integrate shared before further dependency edits.\n2026-11-02 owner approved temporary transfer to mobile-closed-notice-1102: tests/mobile/browser_cart_unavailable.py. Existing behavior preserved; return after merge. Owner approved temporary transfer of 1 exact Android files to mobile-android-1105 on 2026-11-05. Broad app route scope retained because registry cannot express bracketed route names: auth.tsx only is authorized shared scope; all other routes remain here.\n05.11: владелец разрешил перенести готовое исправление node-forge 1.4.1 из shared в резервного кандидата stage2 и временно передать два файла зависимостей задаче stage2-candidate-1105; остальные области сохранены.",
+      "summary": "Исправлена казахская подсказка оплаты: Jost не содержит ғөңі, вся kk-фраза использует системный полужирный. Коммит b3280822, PR296 обновлён. Typecheck/lint/format, web-export, браузерные AI и 7 roadmap PASS. RU/EN и логика оплаты сохранены. TestFlight30 доступен, но новая правка шрифта в него не входит. Owner approved temporary transfer to mobile-kazakh-review-1030 for Kazakh Text imports only: apps/mobile/src/screens/PhotoProduct.tsx, apps/mobile/src/components/CartShortcut.tsx Documentation continuity transferred to mobile-kazakh-review-1030; build30 and release scopes retained. Owner requested next publication 30.10; release scopes transferred to mobile-kazakh-review-1030.\n2026-11-02: owner approved temporary transfer of pnpm-workspace.yaml and pnpm-lock.yaml from mobile-cart-mode-1029 to front-longpoll-1101 for official node-forge 1.4.1 security update; return after merge. No deploy authorized by this transfer.\n2026-11-02: package scopes returned after PR #301 ordinary merge, node-forge 1.4.1 and full green Foundation CI 41486431876. Integrate shared before further dependency edits.\n2026-11-02 owner approved temporary transfer to mobile-closed-notice-1102: tests/mobile/browser_cart_unavailable.py. Existing behavior preserved; return after merge. Owner approved temporary transfer of 1 exact Android files to mobile-android-1105 on 2026-11-05. Broad app route scope retained because registry cannot express bracketed route names: auth.tsx only is authorized shared scope; all other routes remain here.\n05.11: владелец разрешил перенести готовое исправление node-forge 1.4.1 из shared в резервного кандидата stage2 и временно передать два файла зависимостей задаче stage2-candidate-1105; остальные области сохранены.\nВладелец разрешил передачу browser_cart_shortcut.py задаче mobile-cart-location-1106 для подписи точки.",
       "nextAction": "Дождаться полной CI PR296 и включить изменения в shared; нативная проверка шрифта и следующий TestFlight отдельным выпуском. Не менять VPS/кассу/iPad/App Store/онлайн-пульт, реальные платежи не выполнять."
     },
     {
@@ -7388,13 +7387,14 @@
         "tests/mobile/browser_slide_to_pay.py",
         "docs/project-status.md",
         "docs/roadmap/project.json",
-        "tests/mobile/browser_cart_unavailable.py"
+        "tests/mobile/browser_cart_unavailable.py",
+        "tests/mobile/browser_cart_shortcut.py"
       ],
-      "status": "available",
+      "status": "active",
       "head": "bee6b0ad96ca196e0d1d05a25d94c8b8f8b6f246",
       "updatedAt": "2026-11-06T20:34:59.399Z",
       "summary": "PR314, bee6b0ad: название выбранной точки в быстрой оплате. 586 Node +96 Python, typecheck/lint/format/translations, браузерные ABIRL/AH и roadmap 7/7 PASS. Foundation42289232077 идёт. Сборки и сервер не менялись.",
-      "nextAction": "Дождаться CI PR314. Отдельный не включённый в CI browser_cart_shortcut.py содержит старую проверку строки; запрос передачи от mobile-cart-mode-1029 отправлен владельцу, до ответа файл не менять. После согласования обновить тест. Нативная приёмка, merge и выпуск отдельно."
+      "nextAction": "Обновить проверку демо-плашки после согласованной передачи; полный CI PR314 и отдельный нативный выпуск."
     }
   ]
 }
