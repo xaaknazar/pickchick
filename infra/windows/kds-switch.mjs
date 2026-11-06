@@ -10,7 +10,12 @@ import {
   UuidSchema,
 } from '@pickchick/contracts';
 import { createPool, transaction } from '@pickchick/database';
-import { KDS_STATIONS, digest, kdsStationId } from '@pickchick/edge-fulfillment';
+import {
+  KDS_STATIONS,
+  digest,
+  kdsStationId,
+  provisionKdsStations,
+} from '@pickchick/edge-fulfillment';
 import { edgeInstallConfig } from '../../scripts/edge-migrate.mjs';
 import { RUNTIME_PRIVILEGES, WORKER_PRIVILEGES } from './kds-grants.mjs';
 
@@ -23,6 +28,7 @@ import { RUNTIME_PRIVILEGES, WORKER_PRIVILEGES } from './kds-grants.mjs';
  *   ... layout-apply --file <layout.json> --reason "<3-300>"
  *   ... enable --reason "<3-300>"     (new orders get KDS tasks; needs the runtime and worker rights)
  *   ... disable --reason "<3-300>"    (new orders go to the old stations again)
+ *   ... provision --reason "<3-300>"  (the six stations to the `kitchen` login enrolled after 027)
  *
  * Chef TSV columns: product_slug, function, unit, count (unit and count both empty or both set).
  * Screens TSV columns: function, terminal_id. Every change of kds_settings is a new version with
@@ -34,15 +40,17 @@ export const KDS_SWITCH_COMMANDS = Object.freeze([
   'layout-apply',
   'enable',
   'disable',
+  'provision',
 ]);
 const USAGE =
-  'Usage: kds-switch.mjs status | layout-build --tsv <file> [--terminals <file>] --out <file> | layout-apply --file <file> --reason <text> | enable --reason <text> | disable --reason <text>';
+  'Usage: kds-switch.mjs status | layout-build --tsv <file> [--terminals <file>] --out <file> | layout-apply --file <file> --reason <text> | enable --reason <text> | disable --reason <text> | provision --reason <text>';
 const FLAGS = {
   status: { required: [], optional: [] },
   'layout-build': { required: ['--tsv', '--out'], optional: ['--terminals'] },
   'layout-apply': { required: ['--file', '--reason'], optional: [] },
   enable: { required: ['--reason'], optional: [] },
   disable: { required: ['--reason'], optional: [] },
+  provision: { required: ['--reason'], optional: [] },
 };
 /**
  * Database roles of the fulfillment transport worker, which runs the cloud admission of app and
@@ -782,6 +790,46 @@ export async function setKdsLayoutEnabled(
 }
 
 /**
+ * provision: repeats the trusted station provisioning of kds-upgrade-db apply for a shared
+ * `kitchen` login enrolled (or replaced) after 027, without which enable is refused with
+ * KITCHEN_GRANTS_MISSING. Same idempotent provisionKdsStations: adds only missing KDS stations
+ * and the missing station grants of the active `kitchen` login; never changes the switch, the
+ * layouts, the old stations, their routes or grants, or any order. A run that adds something is
+ * one audited settings version (field `provisioned`); a run that adds nothing writes nothing.
+ * Refused, with nothing written, while there is no active `kitchen` login.
+ */
+export async function provisionKds(pool, { branchId, reason: rawReason }) {
+  const reason = checkedReason(rawReason);
+  return transaction(pool, async (client) => {
+    await requireBranch(client, branchId);
+    const settings = await lockSettings(client, branchId);
+    const result = await provisionKdsStations(client, branchId);
+    if (!result.kitchenStaffId)
+      reject(
+        'KITCHEN_LOGIN_MISSING',
+        'Нет активного общего входа kitchen - заведите его и повторите provision',
+      );
+    const changed = result.stationsAdded + result.grantsAdded > 0;
+    let version = settings.version;
+    if (changed) {
+      version = await recordChange(client, branchId, settings, 'provisioned', null, reason);
+      await client.query(
+        'UPDATE kds_settings SET version=$2,updated_at=clock_timestamp() WHERE branch_id=$1',
+        [branchId, version],
+      );
+    }
+    return {
+      changed,
+      stations_added: result.stationsAdded,
+      grants_added: result.grantsAdded,
+      kitchen_login: result.kitchenStaffId,
+      layout_enabled: settings.layout_enabled,
+      settings_version: version,
+    };
+  });
+}
+
+/**
  * status: read-only view of the switch, the active layout, the stations, the worker and runtime
  * rights, the open orders on the old stations and the audit.
  */
@@ -951,6 +999,9 @@ export async function runKdsSwitch(argv, env = process.env, output = console.log
       }
       const result = await applyKdsLayout(pool, { branchId, layout, reason: command.reason });
       output(JSON.stringify({ event: 'kds_layout_applied', ...result }));
+    } else if (command.command === 'provision') {
+      const result = await provisionKds(pool, { branchId, reason: command.reason });
+      output(JSON.stringify({ event: 'kds_provisioned', ...result }));
     } else {
       const result = await setKdsLayoutEnabled(pool, {
         branchId,
