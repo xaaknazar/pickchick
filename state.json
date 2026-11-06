@@ -7381,10 +7381,10 @@
         "docs/operations/mobile-play-2026-11/support-update-1107.md"
       ],
       "status": "active",
-      "head": "3b583d5af156534f7bac6d73348877e716a6936b",
+      "head": "1400178119f9ad7481037391f0f287149f0a75c2",
       "updatedAt": "2026-11-06T21:33:20.209Z",
-      "summary": "PR315, 3b583d5a: владелец подтвердил казахский текст страницы удаления словами перевод в норме. Тексты без изменений; только протокол и журнал. Format/diff PASS. Предыдущие 5 support tests PASS; сервер не изменён. Получена явная передача публикации П6, оператор и резерв support; отдельная политика не разрешена.",
-      "nextAction": "Включить тексты PR315 в кандидат П6, полная CI и выпуск в согласованное окно. Подтверждение KK страницы получено; политику не публиковать без отдельного да."
+      "summary": "П6 в работе: PR315, SHA14001781. Guarded update-existing/rollback-update готовы; прежние5tests PASS, Linux14/14 PASS с настоящим renameat2. Source package проверен и передан только во временную папку VPS. Рабочая support ещё старая, delete-account отсутствует. Foundation42298575783:8jobs success,2in_progress,итоговый11-й ещё не начался. Публикация только после полной11/11 CI точного SHA. Политика не публикуется.",
+      "nextAction": "Дождаться https://github.com/xaaknazar/pickchick/actions/runs/42298575783; preflight/apply П6 с backup/rollback, публичные HTTP200+delete-account RU/KK/EN, протокол. Google Play ведёт android-play-1106; параллельный support release не запускать."
     },
     {
       "id": "android-play-1106",
