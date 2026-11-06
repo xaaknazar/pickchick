@@ -36,6 +36,7 @@ import { mergeCartLines } from '../cart-actions';
 import { ConfiguredProduct } from './ProductConfiguration';
 import { CartShortcut } from '../components/CartShortcut';
 import { AppHeaderBar } from '../components/AppHeader';
+import { RestaurantClosedNotice } from '../components/RestaurantClosedNotice';
 import { GlassButton } from '../components/GlassButton';
 import {
   CityButton,
@@ -730,23 +731,26 @@ export function Cart(props: ScreenProps & { checkout?: CartCheckout }) {
       footerStyle={checkout ? checkoutStyle.footer : checkoutStyle.cartFooter}
       keyboardFooter={checkout?.comment ? <CheckoutKeyboardDone /> : undefined}
       header={
-        <CartTopBar
-          restaurant={
-            checkout?.restaurant ??
-            restaurantLocation(props.model.branch?.id)?.name ??
-            props.model.branch?.name
-          }
-          onClose={props.goBack}
-          clearDisabled={!props.model.cart.length}
-          onClear={() =>
-            setClearSnapshot(
-              props.model.cart.map((line) => ({
-                id: cartLineKey(line),
-                quantity: line.quantity,
-              })),
-            )
-          }
-        />
+        <>
+          <RestaurantClosedNotice model={props.model} />
+          <CartTopBar
+            restaurant={
+              checkout?.restaurant ??
+              restaurantLocation(props.model.branch?.id)?.name ??
+              props.model.branch?.name
+            }
+            onClose={props.goBack}
+            clearDisabled={!props.model.cart.length}
+            onClear={() =>
+              setClearSnapshot(
+                props.model.cart.map((line) => ({
+                  id: cartLineKey(line),
+                  quantity: line.quantity,
+                })),
+              )
+            }
+          />
+        </>
       }
       footer={
         props.model.cart.length ? (

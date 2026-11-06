@@ -50,25 +50,76 @@ SHA-256 сертификата upload key (не содержимое ключа)
 
 `3B:50:AC:C2:B0:F3:CF:D7:07:B6:1B:9C:F0:EE:DC:F2:E8:36:2C:4B:5C:92:53:39:56:B2:6F:CA:9B:0E:8E:56`
 
-Событие doctor: feature_profile=production, environment=production,
-api_url=https://api.pickchick.kz, profile_from_default=false, без warning.
-Doctor пока FAIL: отсутствуют platform android-36, build-tools 35.0.0/36.0.0,
-NDK 27.1.12297006 и CMake 3.22.1. Автоматическая проверка разрешений отклонила
-ответ «да» на юридическую лицензию без отдельного согласия владельца.
-Владельцу передан [текст лицензии Android SDK](https://developer.android.com/studio/terms),
-ответ пока ожидается. Обхода блокировки и принятия лицензии не было.
+## Подписанная сборка на Mac
+
+05.11 владелец отдельно согласился принять лицензию Android SDK. Установлены
+Platform 36, Build-Tools 35.0.0 и 36.0.0, NDK 27.1.12297006, CMake 3.22.1.
+Doctor с Java 21.0.12.1 завершился с кодом 0, все компоненты найдены.
+Первая попытка play-internal-1 на Java 25 завершилась ошибкой configureCMake
+в react-native-screens/worklets. На установленной Java 21 повторная попытка
+play-internal-1-r2 завершилась BUILD SUCCESSFUL за 4 минуты 17 секунд.
+Код приложения и ключ не менялись. Maven 429 не было, зеркало не подключалось.
+Глобальные настройки Java не менялись; выбран только JAVA_HOME этого выпуска.
+
+Исходный опубликованный SHA: `1a9472f1dc2a34b8ab4db7beb6f9c5616ed23f73`, dirty=false.
+Это обычный merge [PR308](https://github.com/xaaknazar/pickchick/pull/308).
+Дерево совпадает с f87d8eda0363b08c1b6b03a105533bf700a3813d:
+`f7d19aec1b4f26d0a22112f7db7ee80e05169b49`.
+[Foundation CI этого дерева](https://github.com/xaaknazar/pickchick/actions/runs/41990360542)
+PASS 11/11, дополнительные 4 проверки также зелёные.
+
+В doctor, build и inspect: feature_profile=production, environment=production,
+api_url=https://api.pickchick.kz, profile_from_default=false, событие backend
+без warning. Inspect PASS, google_play_profile=true, upload_performed=false.
+У Gradle остаются предупреждения устаревших API; их не отключали.
+
+Артефакт вне Git:
+`~/Library/Caches/PickChick/android-releases/play-internal-1-r2/PickChick-1.0.1-7-production.aab`.
+Размер: 166767770 байт.
+SHA-256 AAB: `863c7ba7455e65402925521990b183ca2526d6b20e233c1aa366be14dd8da90d`.
+SHA-256 встроенного Hermes JS:
+`e9f70a81e51b3a3667ac76f987842ab9c859abcf787dc41340644f7ec5052599`.
+
+- package kz.pickchick.app, versionName 1.0.1, versionCode 7;
+- minSdk 24, targetSdk/compileSdk 36;
+- ABI arm64-v8a, armeabi-v7a, x86_64;
+- debuggable/testOnly/usesCleartextTraffic не включены, allowBackup=false,
+  dataExtractionRules заданы, dgis есть, exp+ scheme отсутствует;
+- авторизация server, Kaspi/published catalog включены; simulator,
+  unpaid test orders и Pick Farm выключены; UPCOMING_PAYMENTS не задан;
+- production app.config и Hermes bytecode встроены. Строка старого staging
+  адреса остаётся как константа build-config, а не выбранный backend;
+  production web-обход выше подтверждает 0 обращений к nip.io.
+
+Ровно 7 разрешений:
+
+1. android.permission.INTERNET
+2. android.permission.ACCESS_NETWORK_STATE
+3. android.permission.VIBRATE
+4. android.permission.POST_NOTIFICATIONS
+5. android.permission.WAKE_LOCK
+6. com.google.android.c2dm.permission.RECEIVE
+7. kz.pickchick.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+
+`jarsigner -verify` вернул код 0 и «jar verified». Отдельное чтение всех
+1824 payload-записей через JarFile с проверкой подписи подтвердило 0
+неподписанных записей и единственный SHA-256 сертификата, указанный выше.
+Jarsigner предупреждает о self-signed upload certificate, отсутствии timestamp,
+неподписанных POSIX attributes и порядке ZIP (MANIFEST расположен после payload,
+поэтому JarInputStream его не видит). Дублирующихся ZIP-записей нет; содержимое
+не перепаковывалось. Эти предупреждения сохранены, не скрыты; Google ещё не
+подтвердил приём AAB, поскольку загрузка не разрешена и не выполнялась.
 
 ## Пока не подтверждено
 
-- Установка SDK и doctor без FAIL после согласия владельца на лицензию.
-- Подписанный AAB и Inspect PASS с 7 разрешениями; build ещё не запускался.
 - Физический Android, включая аппаратную Назад и ощутимую вибрацию.
 - FCM/Google Services не настроены; доставка push не заявляется рабочей.
+- Офлайн-копия upload key и пароля: владелец подготовит носитель позже.
+- Приём файла Google Play и установка из внутреннего тестирования.
 
-Офлайн-носитель для резервной копии ключа и пароля владелец подготовит позже.
-Ни ключ, ни пароль в этот протокол не записываются. После выпуска сюда будут
-добавлены SHA-256 AAB и проверенные результаты doctor/build/inspect. Отпечаток
-сертификата уже зафиксирован выше; AAB и его SHA-256 пока отсутствуют.
+Ключ и пароль хранятся вне проекта, пароль в локальной Keychain. Их содержимое
+не включено в Git, чат или логи. Для повторной сборки использовать Java 21 и
+тот же постоянный ключ; секреты передавать только штатным защищённым способом.
 
 ## Последующие шаги только по отдельному разрешению
 

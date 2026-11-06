@@ -1,0 +1,14 @@
+{
+  "synthetic": true,
+  "caddyImage": "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+  "checks": {
+    "ownedHostParity": true,
+    "legacyNotServed": true,
+    "realClientIpGatewayAndStaff": true,
+    "spoofedForwardedIpRejected": true,
+    "availability": { "status": 200, "seconds": 20.076 },
+    "orderWatch": { "status": 200, "seconds": 20.079 },
+    "default": { "status": 504, "seconds": 8.064 },
+    "rollbackSeconds": 0.52
+  }
+}

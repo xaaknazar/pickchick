@@ -14,6 +14,7 @@ import { useAccount } from '../useAccount';
 import { GlassButton } from './GlassButton';
 import { MotionPressable as Pressable } from './Motion';
 import { Logo } from './UI';
+import { RestaurantClosedNotice } from './RestaurantClosedNotice';
 import { useTapGate } from './useTapGuard';
 
 /** The same picture as the avatar of the profile card (ProfileScreen). */
@@ -108,22 +109,25 @@ export function AppHeaderBar({ screen }: { screen?: HeaderScreen }) {
   if (!current) return null;
   const location = restaurantLocation(current.model.branch?.id);
   return (
-    <View testID="app-header-bar" style={s.row}>
-      <Logo size={appHeaderMetrics.logoSize} />
-      <Pressable
-        testID="header-restaurant"
-        accessibilityRole="button"
-        accessibilityLabel={t('Выбрать ресторан')}
-        onPress={() => current.navigate('M05')}
-        style={s.branch}
-      >
-        <Text style={s.title} numberOfLines={1} maxFontSizeMultiplier={appHeaderMaxFontScale}>
-          {localize(location?.name ?? current.model.branch?.name ?? 'Выбрать ресторан')}
-        </Text>
-        <HoursCaption model={current.model} />
-      </Pressable>
-      {/* A guest goes through the same auth gate the profile tab used (returnTo M30). */}
-      <ProfileButton onPress={() => profileTap.run(() => current.navigate('M30'))} />
+    <View style={s.stack}>
+      <RestaurantClosedNotice model={current.model} />
+      <View testID="app-header-bar" style={s.row}>
+        <Logo size={appHeaderMetrics.logoSize} />
+        <Pressable
+          testID="header-restaurant"
+          accessibilityRole="button"
+          accessibilityLabel={t('Выбрать ресторан')}
+          onPress={() => current.navigate('M05')}
+          style={s.branch}
+        >
+          <Text style={s.title} numberOfLines={1} maxFontSizeMultiplier={appHeaderMaxFontScale}>
+            {localize(location?.name ?? current.model.branch?.name ?? 'Выбрать ресторан')}
+          </Text>
+          <HoursCaption model={current.model} />
+        </Pressable>
+        {/* A guest goes through the same auth gate the profile tab used (returnTo M30). */}
+        <ProfileButton onPress={() => profileTap.run(() => current.navigate('M30'))} />
+      </View>
     </View>
   );
 }
@@ -140,6 +144,7 @@ export function AppHeader({ safeArea = true }: { safeArea?: boolean }) {
 }
 
 const s = StyleSheet.create({
+  stack: { width: '100%', maxWidth: appHeaderMetrics.maxWidth, alignSelf: 'center' },
   shell: { flexShrink: 0, paddingBottom: 10, backgroundColor: colors.background, zIndex: 2 },
   row: {
     width: '100%',
