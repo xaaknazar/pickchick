@@ -592,6 +592,31 @@ test('a wrong or foreign PIN in the close-shift dialog keeps the cashier journal
   }
 });
 
+test('the desk hands its configured PIN pad length to the renderer, as the web POS does (6.5)', async () => {
+  for (const [pinLength, expected] of [
+    [undefined, undefined],
+    [4, 4],
+    [6, 6],
+  ])
+    await fixture(
+      async (handler) => {
+        const config = await (await handler(request('/config.json'))).json();
+        assert.equal(config.pinLength, expected, String(pinLength));
+        // Nothing else changes: without the key /config.json is exactly as before.
+        if (pinLength === undefined)
+          assert.deepEqual(config, { branchLabel: 'Synthetic desktop', categories: {} });
+      },
+      {
+        config: validateConfig({
+          edgePort: 3101,
+          branchLabel: 'Synthetic desktop',
+          categories: {},
+          ...(pinLength === undefined ? {} : { pinLength }),
+        }),
+      },
+    );
+});
+
 test('terminal config accepts a 6-digit PIN pad only as an explicit 4 or 6 (6.5)', () => {
   assert.equal(validateConfig({}).pinLength, undefined);
   assert.equal(validateConfig({ pinLength: 6 }).pinLength, 6);

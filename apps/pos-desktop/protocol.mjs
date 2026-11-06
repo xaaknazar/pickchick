@@ -540,6 +540,8 @@ export function createProtocolHandler({
         branchLabel: settings.branchLabel,
         categories: settings.categories,
         ...(settings.terminalId ? { terminalId: settings.terminalId } : {}),
+        // The PIN pad length the operator set (6.5): the lock screen submits at that many digits.
+        ...(settings.pinLength ? { pinLength: settings.pinLength } : {}),
         ...(appVersion ? { appVersion } : {}),
       });
     const media = MENU_MEDIA_PATH.exec(path);
