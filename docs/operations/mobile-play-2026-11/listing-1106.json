@@ -17,7 +17,14 @@
     "appIcon": "graphics/play-icon-512.png",
     "featureGraphic": "graphics/feature-graphic-alex-1106.png",
     "featureGraphicStatus": "approved by owner on 2026-11-06",
-    "phoneScreenshots": "store-graphics.md: Codex captures 4-8 phone screenshots, 1080 x 1920, from the internal testing build"
+    "phoneScreenshots": [
+      "graphics/screenshots-appstore-1106/01-menu.png",
+      "graphics/screenshots-appstore-1106/02-sharing.png",
+      "graphics/screenshots-appstore-1106/03-combo.png",
+      "graphics/screenshots-appstore-1106/04-games.png"
+    ],
+    "phoneScreenshotProvenance": "graphics/screenshots-appstore-1106/manifest.json",
+    "phoneScreenshotStatus": "Owner-directed App Store marketing adaptations, saved to default RU listing draft on 2026-11-06; not Android device captures"
   },
   "listings": {
     "ru-RU": {

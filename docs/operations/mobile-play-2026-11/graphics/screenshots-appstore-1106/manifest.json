@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-06",
+  "tool": "built-in image_gen",
+  "source_set": "appstore-kk-export/iphone-large-1320x2868",
+  "source_language": "KK marketing headline; EN app UI",
+  "output_language": "RU marketing headline; original EN app UI",
+  "owner_direction": "Reuse previously generated App Store screenshots for Google Play",
+  "export": "sips center crop to 9:16 then resample to 1080x1920; no UI painted by export code",
+  "status": "saved to default ru-RU listing draft in Play Console on 2026-11-06; UI shows 4/8 and changes saved",
+  "limitations": [
+    "Not evidence of Android runtime behavior",
+    "Native KK copy review pending",
+    "Real Android phone checklist pending"
+  ],
+  "price_evidence": {
+    "catalog_version": 11,
+    "published_at": "2026-10-14T09:22:15.392Z",
+    "catalog_sha256": "5e6e52dafe0894d2b1482b4b48bbae3d35b35d891228383769cbfed1446091a9",
+    "fingers-25": 13990,
+    "fingers-50": 26990,
+    "fingers-75": 39990,
+    "currency": "KZT",
+    "excluded_test_prices": [90, 100, 17]
+  },
+  "files": [
+    {
+      "id": "01-menu",
+      "file": "01-combo-rewards.png",
+      "prompt": "Use case: compositing. Edit the supplied existing PickChick App Store marketing image for a Google Play phone screenshot. Portrait 9:16, 1080x1920. Preserve the established vivid royal blue/orange food photography, exact Alex rooster identity (white feathers, black sunglasses, chef hat, orange shirt, blue apron), food and overall composition. This is a restrained adaptation, not a redesign. Keep the actual existing app content legible and faithful; do not invent app controls, facts or capabilities. Replace the exterior iPhone metal frame and iOS status bar/Dynamic Island with a simple neutral rounded rectangular app-content panel, with no device brand or OS chrome. Do not invent an Android status bar. Recompose without stretching. Safe 5% margins for headings. No Google Play badges, prices outside actual UI, bonuses, rewards, gifts, push notifications, payment cards, new features. Output one polished final image. Replace ONLY the big Kazakh marketing heading with Russian text exactly \"Выбирай любимое комбо\", on two lines in the same bold white typography. Eliminate the reward/gift claim completely. The central panel must show only the original header, food hero photo and \"Combo of the week\" section. Crop the app-content panel above the product list so no product prices, bottom order badge or unseen product data appear. Preserve the source hero/photo; do not invent an alternative app screen.",
+      "master": "/Users/xaknazar/.codex/generated_images/01a1b172-e24c-70f0-a62c-14f3516a36d7/exec-de145ca3-e2f8-4f16-8d20-a763e35fa94b.png",
+      "source_sha256": "6ada2069fa356c0c12ac8c0ea54ec571c0d7a80459eaa49d1bd7e10ade8d9c48",
+      "master_sha256": "22b12f5b2769edf4f1a2ea74cc5c94d9eccbe7eb9ef1a7e496f763d0105bb409",
+      "master_dimensions": [916, 1717],
+      "center_crop": [916, 1628],
+      "output": "01-menu.png",
+      "dimensions": [1080, 1920],
+      "sha256": "5d93f4346495e422bd7165940aaf47536371774a735523c56c095bd90ed6d883",
+      "bytes": 2744864,
+      "kind": "App Store marketing adaptation; not an Android device capture"
+    },
+    {
+      "id": "02-sharing",
+      "file": "02-friends.png",
+      "prompt": "Use case: compositing. Edit the supplied existing PickChick App Store marketing image for a Google Play phone screenshot. Portrait 9:16, 1080x1920. Preserve the established vivid royal blue/orange food photography, exact Alex rooster identity (white feathers, black sunglasses, chef hat, orange shirt, blue apron), food and overall composition. This is a restrained adaptation, not a redesign. Keep the actual existing app content legible and faithful; do not invent app controls, facts or capabilities. Replace the exterior iPhone metal frame and iOS status bar/Dynamic Island with a simple neutral rounded rectangular app-content panel, with no device brand or OS chrome. Do not invent an Android status bar. Recompose without stretching. Safe 5% margins for headings. No Google Play badges, prices outside actual UI, bonuses, rewards, gifts, push notifications, payment cards, new features. Output one polished final image. Replace ONLY the big marketing heading with Russian text exactly \"Комбо на компанию\", on two lines in the same bold white typography. Keep the orange background. Use the original screenshot area with ONLY the first three sharing-menu products, 25/50/75 chicken fingers. Their verified prices must remain exactly \"13 990 ₸\", \"26 990 ₸\", \"39 990 ₸\". Retain the original product names/descriptions and choose buttons faithfully, including English language. Crop above the 100-finger product and above bottom navigation; no fourth product. Do not change, recalculate or invent prices. Food tray and Alex unchanged.",
+      "master": "/Users/xaknazar/.codex/generated_images/01a1b172-e24c-70f0-a62c-14f3516a36d7/exec-58f67596-11e9-4eb9-be8d-aa245041fd37.png",
+      "source_sha256": "1dcaf563fff659a4ceed5d572472fd7b00b43b2b92cc7310a546dfc8ad1df6a0",
+      "master_sha256": "82f35a6d19ce61ebfcc3d2957e3cafd347e42897c5d0c56dd1c326de6977cdcf",
+      "master_dimensions": [941, 1672],
+      "center_crop": [940, 1672],
+      "output": "02-sharing.png",
+      "dimensions": [1080, 1920],
+      "sha256": "1a61ac575316494d36bd8967970ce04286e503de8fc4f97766a875255391530a",
+      "bytes": 2608800,
+      "kind": "App Store marketing adaptation; not an Android device capture"
+    },
+    {
+      "id": "03-combo",
+      "file": "03-choose-combo.png",
+      "prompt": "Use case: compositing. Edit the supplied existing PickChick App Store marketing image for a Google Play phone screenshot. Portrait 9:16, 1080x1920. Preserve the established vivid royal blue/orange food photography, exact Alex rooster identity (white feathers, black sunglasses, chef hat, orange shirt, blue apron), food and overall composition. This is a restrained adaptation, not a redesign. Keep the actual existing app content legible and faithful; do not invent app controls, facts or capabilities. Replace the exterior iPhone metal frame and iOS status bar/Dynamic Island with a simple neutral rounded rectangular app-content panel, with no device brand or OS chrome. Do not invent an Android status bar. Recompose without stretching. Safe 5% margins for headings. No Google Play badges, prices outside actual UI, bonuses, rewards, gifts, push notifications, payment cards, new features. Output one polished final image. Replace ONLY the big Kazakh marketing heading with Russian exactly \"Твой любимый вкус\", on two lines in the same bold white typography. The central app panel must be a framed crop of the ORIGINAL upper product screen: combo photo, Customise combo button, Master Combo title and ingredient description only. End the crop immediately after the ingredient description. EXCLUDE all of the lower screen including weight/nutrition, Your combo, drink selection, the orange price bar and the test price 100 ₸. No prices anywhere. Do not draw a new product screen. Preserve the source photography and Alex, with food garnish around it.",
+      "master": "/Users/xaknazar/.codex/generated_images/01a1b172-e24c-70f0-a62c-14f3516a36d7/exec-ee021779-3975-4010-9815-6094f8947e65.png",
+      "source_sha256": "4a5fd227fe6b8a82988500f42bcc0a6e74ad494d0923b8ab316d65b754c1133f",
+      "master_sha256": "b16b91fe6bd9fe3ed2fbb79b71a4ad8d5c63accdaab8c03aaab9934f7f8ce17c",
+      "master_dimensions": [916, 1717],
+      "center_crop": [916, 1628],
+      "output": "03-combo.png",
+      "dimensions": [1080, 1920],
+      "sha256": "fe2104ea60c9548fd53366d6d6655ae4494add1006e0cc4e5ba7bc37ce188c5e",
+      "bytes": 2802140,
+      "kind": "App Store marketing adaptation; not an Android device capture"
+    },
+    {
+      "id": "04-games",
+      "file": "06-games.png",
+      "prompt": "Use case: compositing. Edit the supplied existing PickChick App Store marketing image for a Google Play phone screenshot. Portrait 9:16, 1080x1920. Preserve the established vivid royal blue/orange food photography, exact Alex rooster identity (white feathers, black sunglasses, chef hat, orange shirt, blue apron), food and overall composition. This is a restrained adaptation, not a redesign. Keep the actual existing app content legible and faithful; do not invent app controls, facts or capabilities. Replace the exterior iPhone metal frame and iOS status bar/Dynamic Island with a simple neutral rounded rectangular app-content panel, with no device brand or OS chrome. Do not invent an Android status bar. Recompose without stretching. Safe 5% margins for headings. No Google Play badges, prices outside actual UI, bonuses, rewards, gifts, push notifications, payment cards, new features. Output one polished final image. Replace ONLY the large marketing heading with Russian text exactly \"Играй, пока готовим\", on two lines in the same bold white typography. Keep the original Games app screen and original game cards Magic Sort, PICK BLOCKS, PICK MAN faithfully, including the English UI text and artwork. Keep the blue/neon cube background and Alex holding a game controller. No invented scores, prizes, reward claims or new games. Do not cover the game names. Neutral app panel without iOS status bar or home indicator.",
+      "master": "/Users/xaknazar/.codex/generated_images/01a1b172-e24c-70f0-a62c-14f3516a36d7/exec-bd7d6b84-267f-457d-bd59-d5b7f0a39135.png",
+      "source_sha256": "2cb5146bdf9aa50673e320ba0dd8064c80cd9c200733f98a6aed30b418ea262f",
+      "master_sha256": "23f3740c9ff1b586d0d55546043e0ef22d2b5fb8cf728dd0c5d09fb4d7968494",
+      "master_dimensions": [941, 1672],
+      "center_crop": [940, 1672],
+      "output": "04-games.png",
+      "dimensions": [1080, 1920],
+      "sha256": "82e1b1c894d3fd77413c22b152e053280671ed0e8082c627c270d6bbece3fde7",
+      "bytes": 2982270,
+      "kind": "App Store marketing adaptation; not an Android device capture"
+    }
+  ]
+}
