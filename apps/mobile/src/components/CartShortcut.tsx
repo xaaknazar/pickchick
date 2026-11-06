@@ -25,6 +25,8 @@ import { KaspiSlideToPay, type SlidePhase } from './KaspiSlideToPay';
 import { GlassFill, glassBarRim, useGlassBarStyle, useGlassRim } from './GlassButton';
 import { glass } from '../glass';
 import { cartTotal } from '../domain';
+import { cartLocationName } from '../cart-location';
+import { restaurantLocation } from '../restaurant-location';
 import {
   cartBarLayout,
   cartCheckoutBlocked,
@@ -120,16 +122,23 @@ export function CartShortcut({
   const total = MinorMoney(
     payableTotalMinor(cartTotal(model.cart), model.comboRewards?.discountMinor),
   );
+  const branchName = restaurantLocation(model.branch?.id)?.name ?? model.branch?.name ?? '';
+  const locationName = localize(cartLocationName(branchName));
   const diningLabel = t(model.diningMode === 'dine_in' ? 'В зале' : 'С собой');
   const diningIcon = model.diningMode === 'dine_in' ? 'restaurant-outline' : 'bag-handle-outline';
   const reduced = useReducedMotion();
   const capsuleGlass = useGlassBarStyle();
   const pillRim = useGlassRim();
   const { width, fontScale } = useWindowDimensions();
-  const layout = cartBarLayout({ width, fontScale, totalLength: total.length });
+  const baseLayout = cartBarLayout({ width, fontScale, totalLength: total.length });
+  const layout = { ...baseLayout, handleWidth: locationName ? 64 : baseLayout.handleWidth };
   // Keep the full Kazakh dining label and its icon readable on a narrow phone.
   const photoLimit =
-    width < 360 && diningLabel.length > 10 ? Math.min(2, layout.photos) : layout.photos;
+    locationName && width < 360
+      ? 1
+      : width < 360 && diningLabel.length > 10
+        ? Math.min(2, layout.photos)
+        : layout.photos;
   const recent = recentCartLines(model.cart, model.recentCartProductIds, photoLimit);
   const payable = slideToPayAvailable({
     kaspiCheckout: kaspiCheckoutEnabled,
@@ -312,7 +321,7 @@ export function CartShortcut({
                 p0: count,
                 p1: total,
               }),
-              diningLabel,
+              joinSentences(diningLabel, localize(branchName)),
             )}
             accessibilityHint={
               reason
@@ -348,10 +357,26 @@ export function CartShortcut({
                     adjustsFontSizeToFit
                     minimumFontScale={0.85}
                     maxFontSizeMultiplier={1.3}
-                    style={s.diningText}
+                    style={[s.diningText, s.diningMode]}
                   >
                     {diningLabel}
                   </Text>
+                  {locationName ? (
+                    <>
+                      <Text style={s.diningText} maxFontSizeMultiplier={1.3}>
+                        ·
+                      </Text>
+                      <Text
+                        testID="cart-shortcut-location"
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                        maxFontSizeMultiplier={1.3}
+                        style={[s.diningText, s.locationText]}
+                      >
+                        {locationName}
+                      </Text>
+                    </>
+                  ) : null}
                 </View>
                 <Text
                   testID="cart-shortcut-total"
@@ -416,14 +441,14 @@ export function CartShortcut({
 const s = StyleSheet.create({
   dock: {
     paddingTop: 10,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     borderTopWidth: 0,
     backgroundColor: 'transparent',
   },
   floating: { position: 'absolute', bottom: 0, left: 0, right: 0 },
   // In the tab bar's layer the dock is laid out right above the tab capsule: this is the gap.
   aboveTabBar: { paddingBottom: tabCartGap },
-  root: { width: '100%', maxWidth: 320, alignSelf: 'center' },
+  root: { width: '100%', maxWidth: 390, alignSelf: 'center' },
   // The cart button fills the capsule's full height (a larger target, and the dock keeps its
   // distance to the tab bar); the handle and the photos sit inside with the same inset.
   capsule: {
@@ -467,7 +492,7 @@ const s = StyleSheet.create({
   },
   middle: { minWidth: 0, alignItems: 'center', justifyContent: 'center' },
   middleClosed: { flexShrink: 1 },
-  totalBox: { maxWidth: '100%', alignItems: 'center' },
+  totalBox: { width: '100%', alignItems: 'center' },
   dining: {
     maxWidth: '100%',
     flexDirection: 'row',
@@ -483,6 +508,8 @@ const s = StyleSheet.create({
     flexShrink: 1,
     includeFontPadding: false,
   },
+  diningMode: { flexShrink: 0 },
+  locationText: { minWidth: 0, flexShrink: 1 },
   total: {
     fontFamily: font.display,
     color: colors.white,
