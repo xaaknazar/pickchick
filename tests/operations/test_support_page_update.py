@@ -48,8 +48,10 @@ class UpdateTests(unittest.TestCase):
         self.patch(m.r,'baseline',lambda a: (self.old,self.api,self.before))
         self.patch(m.r,'http',self.http)
         self.patch(m.r,'verify_public_asset',self.verify_asset)
-        # Portable test double only. Production has no non-atomic fallback.
-        self.patch(m,'exchange_directories',self.exchange)
+        # Linux runs the entire success/rollback suite against real renameat2.
+        # macOS uses a portable test double; production has no fallback.
+        if m.sys.platform != 'linux':
+            self.patch(m,'exchange_directories',self.exchange)
 
     def patch(self, obj, name, value):
         p = patch.object(obj,name,value);p.start();self.addCleanup(p.stop)
