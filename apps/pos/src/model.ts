@@ -246,10 +246,15 @@ function approvalProof(
   if (!approvalValid(held, action, subject, now, ttlSeconds)) throw new Error('APPROVAL_INVALID');
   return { approval_id: held.approval_id, token: held.token };
 }
-/** A journaled approval proof: exactly {approval_id, token}. */
+/** A journaled approval proof: exactly {approval_id, token}, as pos-desktop's journal keeps it. */
 function parseProof(value: unknown) {
   const a = parse.record(value);
-  if (Object.keys(a).length !== 2 || typeof a.token !== 'string' || !a.token) throw new Error();
+  if (
+    Object.keys(a).length !== 2 ||
+    typeof a.token !== 'string' ||
+    !parse.APPROVAL_TOKEN.test(a.token)
+  )
+    throw new Error();
   parse.uuid(a.approval_id);
 }
 const refundReason = (code: unknown, text: unknown) => {

@@ -1065,10 +1065,12 @@ export function saleResult(value: unknown): SaleResult {
     throw new Error('INVALID_RESPONSE');
   return { order: o, sale: s };
 }
+/** An approval token as the edge issues it; the journal keeps nothing else (pos-desktop too). */
+export const APPROVAL_TOKEN = /^[A-Za-z0-9._~-]{16,256}$/;
 export function approval(value: unknown): Approval {
   const a = record(value),
     m = record(a.manager);
-  if (typeof a.token !== 'string' || !/^[A-Za-z0-9._~-]{16,256}$/.test(a.token))
+  if (typeof a.token !== 'string' || !APPROVAL_TOKEN.test(a.token))
     throw new Error('INVALID_RESPONSE');
   return {
     approval_id: uuid(a.approval_id),

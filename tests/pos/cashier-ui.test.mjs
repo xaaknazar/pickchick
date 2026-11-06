@@ -21,6 +21,7 @@ import {
   refundTicket,
 } from '../../apps/pos/dist/v2/ops-view.js';
 import { parseTicket } from '../../apps/pos-desktop/printer.mjs';
+import { JOURNAL_PREFIX, validateJournal } from '../../apps/pos-desktop/journal.mjs';
 import {
   cashShift as parseShift,
   inputMoney,
@@ -1021,11 +1022,34 @@ function saleEdge({
   };
   return { ...f, api, edge: state };
 }
+/**
+ * The cash desks run pos-desktop, whose main process writes the journal only when its own
+ * validator (apps/pos-desktop/journal.mjs) accepts it; a refused write blocks the desk with
+ * STORAGE_UNAVAILABLE before anything is sent. Every paid-mode cashier here saves through it.
+ */
+function desktopJournal(inner) {
+  return {
+    ...inner,
+    getItem: (key) => inner.getItem(key),
+    setItem: (key, value) => {
+      validateJournal(key, value, key.slice(JOURNAL_PREFIX.length));
+      inner.setItem(key, value);
+    },
+  };
+}
+/** pos-desktop main keeps (ok) or refuses a journal as the cashier reads it back (the tables). */
+function desktopKeeps(scope, raw, ok, label) {
+  const key = JOURNAL_PREFIX + scope;
+  if (ok) assert.equal(validateJournal(key, raw, scope), raw, label);
+  else assert.throws(() => validateJournal(key, raw, scope), /STORAGE_UNAVAILABLE/, label);
+}
+/** When a journaled command was saved, as the cashier writes it (an ISO time). */
+const SAVED_AT = '2026-11-19T03:00:00.000Z';
 async function saleCashier(edge, storage = memory(), sessions = memory(), options = {}) {
   const model = new PosController(
     edge.api,
     sessions,
-    storage,
+    desktopJournal(storage),
     randomUUID,
     undefined,
     undefined,
@@ -1672,13 +1696,60 @@ test('journal keeps only well-formed paid commands; damaged ones block every POS
   };
   const journal = (pending) =>
     JSON.stringify({ version: 1, scope, draft: null, pending, known: [], selected: null });
-  const pending = { kind: 'sale', path: 'pos/sales', body, key: randomUUID(), at: 'x' };
+  const pending = { kind: 'sale', path: 'pos/sales', body, key: randomUUID(), at: SAVED_AT };
+  const approval = { approval_id: randomUUID(), token: 'c'.repeat(64) };
+  const sale = (changes) => ({ ...pending, body: { ...body, ...changes } });
+  const one = (method, amount_minor = '699000') => [{ method, amount_minor }];
   for (const [value, ok] of [
     [pending, true],
-    [{ ...pending, body: { ...body, discount_minor: '100' } }, false],
-    [{ ...pending, body: { ...body, order_repeated: false } }, false],
-    [{ ...pending, body: { ...body, tenders: [{ method: 'card', amount_minor: '1' }] } }, false],
-    [{ ...pending, body: { ...body, approval: { approval_id: randomUUID() } } }, false],
+    [
+      sale({
+        tenders: [
+          { method: 'cash', amount_minor: '400000' },
+          { method: 'kaspi_manual', amount_minor: '299000', reference: 'OP-1' },
+        ],
+        cash_tendered_minor: '500000',
+      }),
+      true,
+    ],
+    [
+      {
+        ...pending,
+        body: {
+          quote_id: body.quote_id,
+          service_mode_confirmed: true,
+          order_repeated: true,
+          external_order_ref: 'YA-123',
+          tenders: one('aggregator_yandex_eda', '750000'),
+        },
+      },
+      true,
+    ],
+    [
+      {
+        ...pending,
+        body: {
+          quote_id: body.quote_id,
+          service_mode_confirmed: true,
+          order_repeated: true,
+          tenders: one('staff_meal'),
+          beneficiary: 'Тестовый сотрудник',
+          approval,
+        },
+      },
+      true,
+    ],
+    [sale({ discount_minor: '100' }), false],
+    [sale({ order_repeated: false }), false],
+    [sale({ tenders: [{ method: 'card', amount_minor: '1' }] }), false],
+    [sale({ tenders: one('cash', '0') }), false],
+    [sale({ tenders: [...one('cash'), ...one('kaspi_manual'), ...one('kaspi_terminal')] }), false],
+    [sale({ tenders: [{ ...one('cash')[0], pin: '1234' }] }), false],
+    [sale({ external_order_ref: 'YA 123' }), false],
+    [sale({ approval: { approval_id: randomUUID() } }), false],
+    [sale({ approval: { ...approval, token: 't' } }), false],
+    [sale({ approval: { ...approval, pin: MANAGER_PIN } }), false],
+    [sale({ reason: ' аб ' }), false],
     [{ ...pending, path: 'orders' }, false],
     [
       {
@@ -1686,7 +1757,7 @@ test('journal keeps only well-formed paid commands; damaged ones block every POS
         path: `pos/fiscal-receipts/${randomUUID()}/record`,
         body: { expected_version: 1, receipt_number: 'TEST-WK-1' },
         key: randomUUID(),
-        at: 'x',
+        at: SAVED_AT,
         subject: randomUUID(),
       },
       true,
@@ -1697,11 +1768,12 @@ test('journal keeps only well-formed paid commands; damaged ones block every POS
         path: `pos/fiscal-receipts/${randomUUID()}/record`,
         body: { expected_version: 1, receipt_number: 'TEST-WK-1' },
         key: randomUUID(),
-        at: 'x',
+        at: SAVED_AT,
       },
       false,
     ],
   ]) {
+    desktopKeeps(scope, journal(value), ok, JSON.stringify(value));
     const storage = memory();
     storage.setItem(`pickchick.pos.journal.v1.${scope}`, journal(value));
     const model = await saleCashier(edge, storage);
@@ -2140,7 +2212,7 @@ test('journal keeps only well-formed void, refund, receipt and close commands', 
     path,
     body,
     key: randomUUID(),
-    at: 'x',
+    at: SAVED_AT,
     ...extra,
   });
   const voidBody = {
@@ -2187,7 +2259,30 @@ test('journal keeps only well-formed void, refund, receipt and close commands', 
       false,
     ],
     [entry('refund', `pos/sales/${order}/refunds`, { ...refundBody, lines: [] }), false],
+    [
+      entry('refund', `pos/sales/${order}/refunds`, {
+        ...refundBody,
+        tenders: [{ ...refundBody.tenders[0], method: 'cash' }],
+      }),
+      false,
+    ],
+    [entry('refund', `pos/sales/${order}/refunds/x`, refundBody), false],
     [entry('shift_close', `cash-shifts/${edge.shift.shift_id}/close`, closeBody), true],
+    [
+      entry('shift_close', `cash-shifts/${edge.shift.shift_id}/close`, {
+        expected_version: 1,
+        counted_cash_minor: '100',
+        reason: 'Закрытие смены',
+      }),
+      true,
+    ],
+    [
+      entry('shift_close', `cash-shifts/${edge.shift.shift_id}/close`, {
+        ...closeBody,
+        pin: MANAGER_PIN,
+      }),
+      false,
+    ],
     [
       entry('shift_close', `cash-shifts/${edge.shift.shift_id}/close`, {
         ...closeBody,
@@ -2220,13 +2315,20 @@ test('journal keeps only well-formed void, refund, receipt and close commands', 
       ),
       false,
     ],
+    [entry('fiscal_record', fiscalPath, { expected_version: 2 }, { subject: order }), false],
   ]) {
     const storage = memory();
     const body = JSON.parse(JSON.stringify(value));
-    storage.setItem(
-      `pickchick.pos.journal.v1.${scope}`,
-      JSON.stringify({ version: 1, scope, draft: null, pending: body, known: [], selected: null }),
-    );
+    const raw = JSON.stringify({
+      version: 1,
+      scope,
+      draft: null,
+      pending: body,
+      known: [],
+      selected: null,
+    });
+    desktopKeeps(scope, raw, ok, JSON.stringify(value));
+    storage.setItem(`pickchick.pos.journal.v1.${scope}`, raw);
     const model = await saleCashier(edge, storage);
     assert.equal(model.state.storageBlocked, !ok, JSON.stringify(value));
     if (ok) assert.equal(model.state.pending.kind, value.kind);
