@@ -564,24 +564,29 @@ const GAP = 1_000_000_000n;
 const EDGE_MIGRATIONS = new URL('../../../db/edge/migrations/', import.meta.url);
 const OUTBOXES = "ARRAY['cashier_report_outbox', 'fulfillment_outbox']";
 /**
- * Stub of CR cloud-5 (docs/collaboration/cutover-cr/cloud-5.md, pos lane, schema026): the
- * edge_restore_fence of 023 with pos_sale_outbox added to the producer sequences it moves, the
- * rest of the function byte for byte, its search_path pinned again (CREATE OR REPLACE resets
- * it) and its EXECUTE rights untouched.
+ * A 026 without CR cloud-5 item 1 (never installed: the reviewed 026 of CR pos-6, SHA
+ * 921c5263, carries the fix): the edge_restore_fence of 023 put back exactly as written, its
+ * search_path pinned again by the 023 DO block (CREATE OR REPLACE resets it), its EXECUTE
+ * rights untouched.
  */
-async function applyPosSalesFence(pool) {
+async function installFence023(pool) {
   const sql = await readFile(new URL('023_edge_restore_fence.sql', EDGE_MIGRATIONS), 'utf8');
   const start = sql.indexOf('CREATE FUNCTION edge_restore_fence(');
   const body = sql.slice(start, sql.indexOf('END; $$;', start) + 'END; $$;'.length);
   assert.equal(body.split(OUTBOXES).length, 2, 'the 023 fence names its two outboxes once');
-  await pool.query(
-    body
-      .replace('CREATE FUNCTION', 'CREATE OR REPLACE FUNCTION')
-      .replace(OUTBOXES, "ARRAY['cashier_report_outbox', 'fulfillment_outbox', 'pos_sale_outbox']"),
-  );
+  await pool.query(body.replace('CREATE FUNCTION', 'CREATE OR REPLACE FUNCTION'));
   const pin = sql.indexOf('DO $$ BEGIN', start);
   await pool.query(sql.slice(pin, sql.indexOf('END $$;', pin) + 'END $$;'.length));
 }
+/** edge_restore_fence(boolean) as installed: posSales covered, pinned search_path, PUBLIC. */
+const installedFence = async (pool) =>
+  (
+    await pool.query(
+      `SELECT pg_get_functiondef(p.oid) LIKE '%pos_sale_outbox%' AS covered,p.proconfig,
+         has_function_privilege('public',p.oid,'EXECUTE') AS public
+       FROM pg_proc p WHERE p.proname='edge_restore_fence' AND p.pronamespace=current_schema()::regnamespace`,
+    )
+  ).rows;
 const lastValue = async (pool, table) =>
   BigInt(
     (
@@ -616,8 +621,10 @@ async function restoreOlderCopy(ctx) {
   return { kept, copied, row, lost };
 }
 
-test('restored edge database, fence of today (023): pos_sale_outbox is left behind, the next sale reuses a sequence and stays parked as CONFLICT', async () => {
+test('restored edge database, a 026 without CR cloud-5 item 1 (fence of 023): pos_sale_outbox is left behind, the next sale reuses a sequence and stays parked as CONFLICT', async () => {
   await withSender(async (ctx) => {
+    await installFence023(ctx.edge.pool);
+    assert.equal((await installedFence(ctx.edge.pool))[0].covered, false);
     const { row, lost } = await restoreOlderCopy(ctx);
     const pos = await lastValue(ctx.edge.pool, 'pos_sale_outbox');
     assert.equal((await fenceRestoredEdge(ctx.edge.pool)).state, 'restore');
@@ -647,8 +654,8 @@ test('restored edge database, fence of today (023): pos_sale_outbox is left behi
   });
 });
 
-/** The owner SQL of docs/operations/backoffice-cutover.md «Восстановление базы кассы», verbatim. */
-async function runbookShift(pool) {
+/** The owner check of docs/operations/backoffice-cutover.md «Восстановление базы кассы», verbatim. */
+async function runbookCheck(pool) {
   const runbook = await readFile(
     new URL('../../../docs/operations/backoffice-cutover.md', import.meta.url),
     'utf8',
@@ -656,35 +663,29 @@ async function runbookShift(pool) {
   const section = runbook.slice(runbook.indexOf('### Восстановление базы кассы'));
   const open = section.indexOf('```sql\n') + '```sql\n'.length;
   const block = section.slice(open, section.indexOf('```\n', open));
-  const [covered, shifted] = await pool.query(block);
-  return { covered: covered.rows[0].covered, value: BigInt(shifted.rows[0].setval) };
+  // Only the check: the interim setval step of CR cloud-5 item 3 is gone (CR pos-6 section 3).
+  assert.doesNotMatch(block, /setval|UPDATE|INSERT|DELETE/i);
+  const result = await pool.query(block);
+  assert.ok(!Array.isArray(result), 'the runbook block is one query');
+  assert.deepEqual(Object.keys(result.rows[0]), ['covered']);
+  return result.rows[0].covered;
 }
 
-test('restored edge database, interim runbook step until CR cloud-5: the owner shifts the posSales number before the desk opens and new events pass', async () => {
+test('restored edge database, runbook check: the reviewed 026 fence covers posSales; the fence of 023 makes the owner stop before the desk opens', async () => {
   await withSender(async (ctx) => {
-    const { lost } = await restoreOlderCopy(ctx);
-    assert.equal((await fenceRestoredEdge(ctx.edge.pool)).state, 'restore');
-    const pos = await lastValue(ctx.edge.pool, 'pos_sale_outbox');
-    assert.deepEqual(await runbookShift(ctx.edge.pool), { covered: false, value: pos + GAP });
-    const [next] = await enqueue(ctx.edge.pool, [cashSale(ctx.branch, 1, 4)]);
-    assert.ok(BigInt(next.sequence) > BigInt(lost.sequence));
-    assert.deepEqual(await ctx.step(), { state: 'delivered', count: 2, more: false });
-    assert.ok((await outbox(ctx.edge.pool)).every((item) => item.acknowledged_at));
-    assert.equal(await cloudCount(ctx.cloud.pool, 'cloud_pos_sales'), 4);
+    assert.equal(await runbookCheck(ctx.edge.pool), true);
+    await installFence023(ctx.edge.pool);
+    assert.equal(await runbookCheck(ctx.edge.pool), false);
   });
 });
 
-test('restored edge database with the posSales fence (CR cloud-5): new events pass the lost timeline; a Z of a shift open across the restore is parked until the cloud owner accepts it as written', async () => {
+test('restored edge database with the posSales fence of 026 (CR cloud-5, CR pos-6): new events pass the lost timeline; a Z of a shift open across the restore is parked until the cloud owner accepts it as written', async () => {
   await withSender(async (ctx) => {
-    await applyPosSalesFence(ctx.edge.pool);
-    const fence = (
-      await ctx.edge.pool.query(
-        `SELECT p.proconfig,has_function_privilege('public',p.oid,'EXECUTE') AS public
-         FROM pg_proc p WHERE p.proname='edge_restore_fence' AND p.pronamespace=current_schema()::regnamespace`,
-      )
-    ).rows;
-    assert.deepEqual(fence, [
+    // The reviewed 026 installs the fence itself: pos_sale_outbox in its list, search_path
+    // pinned, no PUBLIC EXECUTE.
+    assert.deepEqual(await installedFence(ctx.edge.pool), [
       {
+        covered: true,
         proconfig: [`search_path=pg_catalog, ${ctx.edge.schema}, pg_temp`],
         public: false,
       },
@@ -702,11 +703,8 @@ test('restored edge database with the posSales fence (CR cloud-5): new events pa
     assert.equal(await lastValue(ctx.edge.pool, 'pos_sale_outbox'), before.pos + GAP);
     assert.equal((await fenceRestoredEdge(ctx.edge.pool)).state, 'current');
     assert.equal(await lastValue(ctx.edge.pool, 'pos_sale_outbox'), before.pos + GAP);
-    // The runbook check sees the fixed fence (its extra shift would only add another gap).
-    const covered = await ctx.edge.pool.query(
-      "SELECT pg_get_functiondef('edge_restore_fence(boolean)'::regprocedure) LIKE '%pos_sale_outbox%' AS covered",
-    );
-    assert.equal(covered.rows[0].covered, true);
+    // The runbook check passes on this fence.
+    assert.equal(await runbookCheck(ctx.edge.pool), true);
     const sale = cashSale(ctx.branch, 1, 4);
     const [next] = await enqueue(ctx.edge.pool, [sale]);
     assert.equal(BigInt(next.sequence), before.pos + GAP + 1n);
