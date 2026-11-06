@@ -7303,25 +7303,6 @@
       "nextAction": "Продолжить с протокола docs/operations/cashier-launch-1105/README.md. Ближайший серверный fallback069-071 другого Mac исключает072/PR304: отдельная координация072/API/прав и совместимости023 обязательна. Требуются целостный Windows025-оператор, оба возврата служб, POS-sync312 с проверкой5 локальных записей, второй SSD/NAS и независимое хранение recovery-key. Затем согласованное ночное окно и физическая WAN/8час приёмка. Ключ связи истекает20.11; если выпуск не состоялся до10.11, продлить вручную не позднее13.11. PR300 автоматически не сливать: наследует старые серверные изменения. CI источника253 завершена success;61e87987 только документация, её CI отдельно."
     },
     {
-      "id": "android-play-1106",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/android-play-1106",
-      "scopes": [
-        "codex-reports/2026-11-06-android.md",
-        "docs/operations/mobile-play-2026-11/release-1106.md",
-        "@android/emulator",
-        "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.png",
-        "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.provenance.json",
-        "docs/operations/mobile-play-2026-11/listing-1106.json",
-        "@google-play/pickchick"
-      ],
-      "status": "available",
-      "head": "c8de3a819bd96cde4ce75a58cea96e9c50dce244",
-      "updatedAt": "2026-11-06T16:22:02.741Z",
-      "summary": "c8de3a81 / PR313: AAB 1.0.1(7) released to internal testing; upload certificate matches. Approved Alex banner and RU/KK/EN draft saved; IARC 3+/Everyone; owner changed audience to 13-15,16-17,18+. Listing tests 5/5 and Prettier PASS; current CI running.",
-      "nextAction": "Owner enters tester email list in open Play tab; then physical Android checklist. Emulator SDK download still running on this Mac, screenshots pending. KK review and P6 coordinated server window pending; Data safety only initial draft. Never production without separate owner approval."
-    },
-    {
       "id": "stage2-candidate-1105",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/stage2-candidate-1105",
@@ -7377,6 +7358,25 @@
       "updatedAt": "2026-11-06T16:10:52.366Z",
       "summary": "C1 evening PASS: 443 checks, Domain11/11, observation over10min; C3 STOP before owner command, schema068 unchanged, own lock released. Fix818524ec pushed; 37 local tests PASS, CI42249179575 pending.",
       "nextAction": "Await owner repeat-C3 decision and green CI. Do not rerun C1. Fresh UUID/lock, post-C1 compose89cc593e, fresh068 backup/rehearsal; use stage2-owner-connection.py, never require provision. Runtime6630eb0f unchanged; no072/flags. Deadline06Nov18:30UTC. Preserve first-attempt proofs. Android P6 waits; no VPS transfer."
+    },
+    {
+      "id": "android-play-1106",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/android-play-1106",
+      "scopes": [
+        "codex-reports/2026-11-06-android.md",
+        "docs/operations/mobile-play-2026-11/release-1106.md",
+        "@android/emulator",
+        "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.png",
+        "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.provenance.json",
+        "docs/operations/mobile-play-2026-11/listing-1106.json",
+        "@google-play/pickchick"
+      ],
+      "status": "active",
+      "head": "c8de3a819bd96cde4ce75a58cea96e9c50dce244",
+      "updatedAt": "2026-11-06T16:29:12.150Z",
+      "summary": "c8de3a81 / PR313: AAB 1.0.1(7) released to internal testing; upload certificate matches. Approved Alex banner and RU/KK/EN draft saved; IARC 3+/Everyone; owner changed audience to 13-15,16-17,18+. Listing tests 5/5 and Prettier PASS; current CI running.",
+      "nextAction": "Owner enters tester email list in open Play tab; then physical Android checklist. Emulator SDK download still running on this Mac, screenshots pending. KK review and P6 coordinated server window pending; Data safety only initial draft. Never production without separate owner approval."
     }
   ]
 }
