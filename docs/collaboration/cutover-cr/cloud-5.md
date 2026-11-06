@@ -159,3 +159,25 @@ restore stays parked».
 после строки `restore` и до открытия кассы выполнить от владельца базы кассы ручной сдвиг из
 `docs/operations/backoffice-cutover.md`, раздел «Восстановление базы кассы». После п. 1 шаг не
 нужен (повторный сдвиг безвреден: облако допускает пропуски номеров).
+
+## Решение lead/integration (06.11) и что сделано
+
+- **П. 1 одобрен.** Блок `edge_restore_fence` с `pos_sale_outbox` вносит в 026 полоса pos в своём
+  шаге доработки, до заморозки DDL 10.11 18:00 (хеш 026 - новым CR pos). До этого на точке
+  действует ручной шаг владельца базы кассы (п. 3).
+- **П. 2 - вариант A одобрен**, сделан полосой cloud без DDL (подробно - CR `cloud-6.md`):
+  `acceptRestoredShiftReport(pool, input)` в `packages/pos-order-sync/src/sales-cloud.ts`
+  (`input`: `branchId`, `deviceId`, `actorId`, `requestId`, `reason`, `payloadHash`, `event`)
+  и точка входа
+  `scripts/backoffice-setup.mjs --accept-restored-z` (URL владельца базы облака, HTTP-маршрута
+  нет). По сравнению с текстом варианта A добавлены по образцу `command()` бэк-офиса: личный
+  логин с грантом `manager` на точку (`actorId`), ключ идемпотентности (`requestId` + digest в
+  `bo_commands`) и `payload_hash` строки очереди кассы. Аудит - строка `bo_audit`
+  (`pos_sales:accept_restored_z`, причина 3..300 символов, разница с облаком по каждому
+  способу); новой таблицы и миграции 075 не нужно. Отмены и возвраты так не принимаются.
+- **П. 3** остаётся за integration (`docs/operations/edge-restore.md`), шаг нужен, пока 026 без
+  п. 1.
+- Тест «... a Z of a shift open across the restore stays parked» переименован: «... a Z of a
+  shift open across the restore is parked until the cloud owner accepts it as written» - Z
+  по-прежнему паркуется у приёмника, повторное освобождение не помогает, принимает его только
+  команда владельца, после чего поток идёт дальше.
