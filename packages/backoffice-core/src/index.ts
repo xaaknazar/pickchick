@@ -43,6 +43,7 @@ export * from './roles.js';
 export * from './stock-v2.js';
 export * from './sales-report.js';
 export * from './p1-flags.js';
+export * from './edge-staff.js';
 export const BACKOFFICE = Symbol('BACKOFFICE');
 type Actor = {
   id: string;
