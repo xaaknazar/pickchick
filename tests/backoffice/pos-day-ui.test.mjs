@@ -70,15 +70,17 @@ test('allowlists: ops/pos-day takes one date and an optional cash desk, nothing 
     ),
     true,
   );
-  // Step 5 adds ops/consumption and ops/menu-links (autoconsume-ui.test.mjs); others stay out.
+  // Step 5 adds ops/consumption and ops/menu-links (autoconsume-ui.test.mjs), step 6
+  // ops/manager-shifts and ops/staff-roster (manager-shift-ui.test.mjs); others stay out.
   assert.equal(
     allowed('GET', `/v1/admin/backoffice/branches/${branch}/ops/consumption?date=2026-11-19`),
     true,
   );
   assert.equal(
     allowed('GET', `/v1/admin/backoffice/branches/${branch}/ops/manager-shifts?date=2026-11-19`),
-    false,
+    true,
   );
+  assert.equal(allowed('GET', `/v1/admin/backoffice/branches/${branch}/ops/discounts`), false);
   // The public gateway regex lets the view through and nothing new besides it.
   const caddy = await readFile(
     new URL('../../infra/public-staging/gateway.Caddyfile', import.meta.url),
@@ -93,11 +95,13 @@ test('allowlists: ops/pos-day takes one date and an optional cash desk, nothing 
     `${base}/ops/stock`,
     `${base}/ops/menu-links`,
     `${base}/ops/consumption`,
+    `${base}/ops/manager-shifts`,
+    `${base}/ops/staff-roster`,
     `${base}/finance`,
   ])
     assert.equal(regex.test(path), true, path);
   for (const path of [
-    `${base}/ops/manager-shifts`,
+    `${base}/ops/discounts`,
     `${base}/ops/pos-day/x`,
     `${base}/ops/consumption/x`,
     `${base}/ops/`,
