@@ -7383,8 +7383,8 @@
       "status": "active",
       "head": "21358f913c7e8ee2906f84410f256b2ec8638e76",
       "updatedAt": "2026-11-06T21:33:20.209Z",
-      "summary": "П6: первая попытка14001781 после11/11 CI и preflight штатно откатилась. Все178 HTTP-ресурсов/manifest/API/gateway проверены, свойlock снят. Найдены права0700 приumask077; исправлены явные0755. Регрессионный тест воспроизводит прежний дефект; Linux16/16 и прежние5/5 PASS. Новый опубликованный SHA21358f913c7e8ee2906f84410f256b2ec8638e76, PR315. Повторная полная CI идёт; support пока прежняя безdelete-account. Политика не публикуется.",
-      "nextAction": "Дождаться полной11/11 CI SHA21358f91; preflight/apply П6 с backup/rollback, публичные HTTP200+delete-account RU/KK/EN, протокол. Google Play ведёт android-play-1106; параллельный support release не запускать."
+      "summary": "П6 опубликован: SHA21358f913c7e8ee2906f84410f256b2ec8638e76, Foundation42305598717 11/11 PASS. Guarded preflight/apply PASS. Внешние GET https://pickchick.kz/support/ и ru.html/kk.html/en.html - HTTP200, id=delete-account и точный retention всех3языков подтверждены. Manifest a6e33bfcc4215984367f9f419bf65a9256d8d1e284f90b57d9916dc191ce57cf. Контейнеры/API/Caddy/политика неизменны. Идёт15мин наблюдения. Предыдущий откат14001781 подтверждён, свой старыйlock снят.",
+      "nextAction": "Завершить15мин наблюдения, GitHub-протокол и handoff. Для Android: П6 опубликован, delete-account RU/KK/EN подтверждён; https://github.com/xaaknazar/pickchick/actions/runs/42305598717. Google Play остаётся у android-play-1106; политику не публиковать."
     },
     {
       "id": "android-play-1106",
