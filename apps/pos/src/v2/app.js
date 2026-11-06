@@ -2,7 +2,7 @@ import { requestPinCredential } from './pin-login.js';
 import { photoFor } from './photos.js';
 import { ReferenceView } from './reference-view.js';
 import { SaleView } from './sale-view.js';
-import { OpsView } from './ops-view.js';
+import { OpsView, paidDayStats } from './ops-view.js';
 import { TemplateView } from './template-engine.js';
 import { model, pinLogin } from './runtime.js';
 import {
@@ -931,34 +931,9 @@ function draw() {
   v.dayEmpty = rows.length === 0;
   v.fiscalLegend = [];
   if (model.saleMode) {
-    // Paid orders: hall and delivery apart, cancelled orders bring no money.
-    const paid = rows.filter((o) => o.state === 'paid');
-    const stat = (label, list) => ({
-      label,
-      note: 'Оплаченные заказы',
-      color: 'var(--blue)',
-      orders: String(list.length),
-      revenue: money(list.reduce((n, o) => n + BigInt(o.snapshot.total_minor), 0n).toString()),
-      avg: list.length
-        ? money(
-            (
-              list.reduce((n, o) => n + BigInt(o.snapshot.total_minor), 0n) / BigInt(list.length)
-            ).toString(),
-          )
-        : '-',
-      share: 'Без отменённых заказов',
-    });
-    v.dayStats = [
-      stat('ВСЕ ЗАКАЗЫ', paid),
-      stat(
-        'ЗАЛ И НАВЫНОС',
-        paid.filter((o) => !o.snapshot.sales_channel),
-      ),
-      stat(
-        'ДОСТАВКА',
-        paid.filter((o) => o.snapshot.sales_channel),
-      ),
-    ];
+    // Paid orders: hall and delivery apart, cancelled orders bring no money. Order sums, not
+    // takings: the cards say so, takings are in the X report.
+    v.dayStats = paidDayStats(rows);
   }
   const stopRows = (m.menu?.items ?? [])
     .flatMap((p) => [

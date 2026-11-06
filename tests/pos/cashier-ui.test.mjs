@@ -15,9 +15,11 @@ import {
 import { ApiError, errorMessage, saleErrorMessage } from '../../apps/pos/dist/api.js';
 import { SaleView } from '../../apps/pos/dist/v2/sale-view.js';
 import {
+  DAY_SUM_NOTE,
   OpsView,
   drawerMessage,
   orderTicket,
+  paidDayStats,
   printMessage,
   refundTicket,
 } from '../../apps/pos/dist/v2/ops-view.js';
@@ -28,6 +30,7 @@ import {
   inputMoney,
   lineKey,
   linePrice,
+  money,
   menu as parseMenu,
   order as parseOrder,
   pickupText,
@@ -3291,6 +3294,55 @@ test('screens: Webkassa tab lists pending receipts, records numbers, a correctio
   assert.equal(said.at(-1), 'Номер чека Webkassa исправлен');
   assert.equal(lastOp(edge).body.receipt_number, 'TEST-WK-6');
   assert.ok(lastOp(edge).body.approval, 'the correction carries its approval');
+});
+
+test('screens: day cards of the order tab are order sums, not takings, and say so', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  // A cash sale refunded in part, a staff meal, and a sale voided before the kitchen started.
+  const refunded = await soldAndOpened(model, edge);
+  const parts = [{ tender_id: model.state.sale.tenders[0].tender_id, amount_minor: '100000' }];
+  await model.requestApproval(MANAGER_PIN, 'refund', refundSubject(refunded, parts));
+  await model.refund({ tenders: parts, reason_code: 'quality', reason: 'Качество блюда' });
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.equal(model.state.sale.refundable_minor, '599000');
+  model.newDraft();
+  await reviewed(model, edge);
+  await model.requestApproval(MANAGER_PIN, 'staff_meal');
+  await model.sell({ method: 'staff_meal', beneficiary: 'Тестовый сотрудник' });
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.equal(model.state.sale.revenue_kind, 'staff_meal');
+  model.newDraft();
+  const voided = await soldAndOpened(model, edge);
+  await model.requestApproval(MANAGER_PIN, 'void', voidSubject(model.state.sale));
+  await model.voidSale({
+    reason_code: 'guest_changed_mind',
+    reason: 'Гость передумал',
+    fiscal_sale_issued: false,
+  });
+  assert.equal(model.state.error, null, String(model.state.error));
+  assert.equal(edge.edge.orders.get(voided).state, 'cancelled');
+  const orders = [...edge.edge.orders.values()];
+  assert.deepEqual(
+    orders.map((o) => o.state),
+    ['paid', 'paid', 'cancelled'],
+  );
+  const [all, hall, delivery] = paidDayStats(orders);
+  assert.equal(all.label, 'ВСЕ ЗАКАЗЫ');
+  assert.equal(all.orders, '2', 'the voided order is left out');
+  // 6 990 ₸ refunded in part plus a 6 990 ₸ staff meal: 13 980 ₸ of orders, 5 990 ₸ of takings.
+  assert.equal(all.revenue, money('1398000'), 'order totals: the refund is not taken off');
+  assert.equal(all.avg, money('699000'));
+  assert.equal(hall.orders, '2');
+  assert.equal(delivery.orders, '0');
+  assert.equal(delivery.avg, '-');
+  for (const card of [all, hall, delivery]) {
+    assert.equal(card.note, DAY_SUM_NOTE);
+    assert.equal(card.share, 'Без отменённых заказов');
+  }
+  assert.match(DAY_SUM_NOTE, /^Не выручка: питание и маркетинг включены, возвраты не вычтены/);
+  assert.match(DAY_SUM_NOTE, /выручка в X-отчёте$/);
+  assert.ok(!/[–—]/.test(DAY_SUM_NOTE), 'the plain hyphen only');
 });
 
 test('screens: shift tab of the paid mode shows real money; X report prints a typed ticket', async () => {

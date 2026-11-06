@@ -45,6 +45,43 @@ const REFUND_NOTES = {
 const NO_REVENUE = ['staff_meal', 'marketing'];
 const STEPS = ['Сводка', 'Наличные', 'Терминал Kaspi', 'Чеки Webkassa', 'Причина', 'PIN'];
 const blank = () => ({ card: null, report: null, close: null });
+/**
+ * Under the day cards of the order tab: the order list carries neither the payment method nor
+ * the refunds, so its sum is not takings. Takings are the X report's (reportRevenue).
+ */
+export const DAY_SUM_NOTE =
+  'Не выручка: питание и маркетинг включены, возвраты не вычтены - выручка в X-отчёте';
+/**
+ * Day cards of the order tab in the paid mode: paid orders of the day, hall and delivery apart.
+ * A voided order is cancelled and left out; a staff meal, marketing and a partly refunded order
+ * count with their order total, as DAY_SUM_NOTE says on each card.
+ */
+export function paidDayStats(orders) {
+  const paid = orders.filter((o) => o.state === 'paid');
+  const stat = (label, list) => {
+    const sum = list.reduce((n, o) => n + BigInt(o.snapshot.total_minor), 0n);
+    return {
+      label,
+      note: DAY_SUM_NOTE,
+      color: 'var(--blue)',
+      orders: String(list.length),
+      revenue: money(sum.toString()),
+      avg: list.length ? money((sum / BigInt(list.length)).toString()) : '-',
+      share: 'Без отменённых заказов',
+    };
+  };
+  return [
+    stat('ВСЕ ЗАКАЗЫ', paid),
+    stat(
+      'ЗАЛ И НАВЫНОС',
+      paid.filter((o) => !o.snapshot.sales_channel),
+    ),
+    stat(
+      'ДОСТАВКА',
+      paid.filter((o) => o.snapshot.sales_channel),
+    ),
+  ];
+}
 /** Revenue of a report: every method but staff meal and marketing, net of refunds. */
 export const reportRevenue = (report) =>
   report.methods
