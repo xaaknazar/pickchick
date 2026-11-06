@@ -31,15 +31,15 @@ kind `assignment`) в 075 не входят.
 Разрыв с iiko (`iiko-gap.md`, план P0-0...P0-6) по шагам полосы (§7). Отдельный флаг «Кассы» ввело
 решение владельца 05.11 (`BACKOFFICE_POS_DAY_ENABLED`) вместо `BACKOFFICE_SALES_REPORT_ENABLED` из плана.
 
-| iiko-gap | Что                                                                             | Где                                                                                                                                           |
-| -------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| P0-0     | старт и CR                                                                      | шаг 1, CR `bo-ui-1`                                                                                                                           |
-| P0-1     | `GET ops/pos-day`                                                               | шаг 2                                                                                                                                         |
-| P0-2     | раздел «Касса»: «Смены и Z», «Чеки», «Webkassa», три CSV                        | шаг 3                                                                                                                                         |
-| P0-3     | «Главная» и честные тексты (названия состояний, каналов, способов; P0-8, P0-13) | шаг 3                                                                                                                                         |
-| P0-4     | отчёт списаний по причинам                                                      | сделан облачной полосой (CC-6: `ops/stock?view=waste\|movement`, «Списания по причинам»); полоса добавляет `variance` и `consumption` (шаг 4) |
-| P0-5     | `edgeStaffId` и `scripts/edge-staff-id.mjs`                                     | шаг 2                                                                                                                                         |
-| P0-6     | проверка и выпуск                                                               | шаг 8                                                                                                                                         |
+| iiko-gap | Что                                                                             | Где                                                                                                                                   |
+| -------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| P0-0     | старт и CR                                                                      | шаг 1, CR `bo-ui-1`                                                                                                                   |
+| P0-1     | `GET ops/pos-day`                                                               | шаг 2                                                                                                                                 |
+| P0-2     | раздел «Касса»: «Смены и Z», «Чеки», «Webkassa», три CSV                        | шаг 3                                                                                                                                 |
+| P0-3     | «Главная» и честные тексты (названия состояний, каналов, способов; P0-8, P0-13) | шаг 3                                                                                                                                 |
+| P0-4     | отчёт списаний по причинам                                                      | API - облачная полоса (CC-6: `ops/stock?view=waste\|movement`); шаг 4: сторно в отчёте, вкладки «Списания» и «Движение», по дням, CSV |
+| P0-5     | `edgeStaffId` и `scripts/edge-staff-id.mjs`                                     | шаг 2                                                                                                                                 |
+| P0-6     | проверка и выпуск                                                               | шаг 8                                                                                                                                 |
 
 ## 2. Флаги и совместимость
 
@@ -48,14 +48,14 @@ kind `assignment`) в 075 не входят.
 `ServiceConfig` появляется только при включённом флаге; кабинету флаги передаёт
 `backofficeP1Options(config)` (`packages/backoffice-core/src/p1-flags.ts`).
 
-| Флаг                                   | `capabilities` в `GET branches/:id` (только при `true`) | Значение ключа                                                                                                 | Зависит от                    | Откат                                            |
-| -------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------ |
-| `BACKOFFICE_POS_DAY_ENABLED`           | `pos_day`                                               | всегда `true`: без 073 вид отвечает `coverage.pos_tables=false`                                                | -                             | `false`                                          |
-| `BACKOFFICE_STOCK_AUTOCONSUME_ENABLED` | `stock_autoconsume`                                     | склад v2 включён и таблицы 075 настроек и очереди доступны роли на запись                                      | `BACKOFFICE_STOCK_V2_ENABLED` | режим `off` или флаг `false`; документы остаются |
-| `BACKOFFICE_MANAGER_SHIFTS_ENABLED`    | `manager_shifts`                                        | `bo_manager_shifts` доступна на запись                                                                         | -                             | `false`; смены остаются                          |
-| `BACKOFFICE_STAFF_POSITIONS_ENABLED`   | `staff_positions`                                       | всегда `true` (только поля карточки)                                                                           | -                             | `false`; поля в карточке остаются                |
-| `BACKOFFICE_DISCOUNTS_ENABLED`         | `discounts`                                             | `bo_discounts` на запись и история на чтение                                                                   | -                             | `false`                                          |
-| `BACKOFFICE_STOCK_V2_ENABLED` (есть)   | `stock_p1` (новый, шаг склада)                          | ключ есть только при флаге **и** доступных таблицах 075 склада; иначе ключа нет, ответ - как у облачной полосы | 075                           | `false`                                          |
+| Флаг                                   | `capabilities` в `GET branches/:id` (только при `true`) | Значение ключа                                                                                                                                              | Зависит от                    | Откат                                            |
+| -------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------ |
+| `BACKOFFICE_POS_DAY_ENABLED`           | `pos_day`                                               | всегда `true`: без 073 вид отвечает `coverage.pos_tables=false`                                                                                             | -                             | `false`                                          |
+| `BACKOFFICE_STOCK_AUTOCONSUME_ENABLED` | `stock_autoconsume`                                     | склад v2 включён и таблицы 075 настроек и очереди доступны роли на запись                                                                                   | `BACKOFFICE_STOCK_V2_ENABLED` | режим `off` или флаг `false`; документы остаются |
+| `BACKOFFICE_MANAGER_SHIFTS_ENABLED`    | `manager_shifts`                                        | `bo_manager_shifts` доступна на запись                                                                                                                      | -                             | `false`; смены остаются                          |
+| `BACKOFFICE_STAFF_POSITIONS_ENABLED`   | `staff_positions`                                       | всегда `true` (только поля карточки)                                                                                                                        | -                             | `false`; поля в карточке остаются                |
+| `BACKOFFICE_DISCOUNTS_ENABLED`         | `discounts`                                             | `bo_discounts` на запись и история на чтение                                                                                                                | -                             | `false`                                          |
+| `BACKOFFICE_STOCK_V2_ENABLED` (есть)   | `stock_p1` (шаг 4, последний ключ)                      | только `true` и только при флаге **и** `stockP1Ready` (колонки 075 склада и права helper-а P1 со `stockV2`); иначе ключа нет, ответ - как у облачной полосы | 075 и helper P1               | `false` или helper P1 со `stockV2=false`         |
 
 Ключи P1 идут после ключей облачной полосы в порядке таблицы. Правила совместимости:
 
@@ -120,6 +120,11 @@ DDL заморожен 10.11: дальше файл только дополня�
 | `manager_shifts.write` | да      | да            | -          | -       | `manager_shift_open`, `_save`, `_close`                  |
 | `staff.positions`      | да      | -             | -          | -       | поля должности в карточке, `ops/staff-roster`            |
 | `discounts.write`      | да      | -             | -          | -       | `discount_save`, `discount_state`                        |
+
+Сделано в шаге 4: `stock.reverse` - отдельный список P1 (`BACKOFFICE_P1_PERMISSIONS`,
+`P1_ROLE_PERMISSIONS` в `roles.ts`), в `BACKOFFICE_PERMISSIONS` не входит: `permissions[]` получает его
+только при `stock_p1`, без флагов список прежний. Без `BACKOFFICE_ROLES_ENABLED` решает грант
+(manager - да, analyst - `FORBIDDEN`).
 
 Сторно: `design-backoffice.md` противоречит сам себе (§2 А12 - «сторно ... только manager и
 shift_manager», там же и в таблице §4 - бухгалтер делает сторно, `stock_reverse` m/acc). Принято по
@@ -223,6 +228,24 @@ delta_quantity, delta_value_minor }]` по документам `count` пери
 Тест облачной полосы с точным списком ключей документа при складе v2 (`stock-v2.test.mjs`) обновляется
 в шаге склада: без 075 ключи прежние.
 
+**Сделано в шаге 4** (`packages/backoffice-core/src/stock-p1.ts`, `readStockOpsP1`; при `stock_p1`
+вместо `readStockOps`, без него ответ облачной полосы):
+
+- `documents[]` - прежние ключи, затем `source_ref`, `reverses_document_id`, `reversed_by` (id сторно
+  или `null`), `reversed_at`, `reverses` (`{kind, reference, reason_code, created_at}` документа, который
+  сторнирован, или `null`); те же ключи и `reason_code`, `meta` получает список `documents` в `GET
+branches/:id`, а строки `stock` - `counted_at`;
+- `view=waste` берёт и сторно списаний периода: сторно - отрицательная запись дня, в который его
+  провели, с причиной и автором исходного списания (закрытые дни не меняются, дни складываются в
+  период); `documents` - число списаний, `reversals` - число сторно, `value_minor` - нетто; то же в
+  каждой строке `by_reason`, `by_day`, `by_author`; `by_ingredient` - нетто количества и суммы;
+  прежнее списание без кода - строка `reason_code: null`;
+- `view=movement` - сторно отдельным видом `reversal` в `by_kind`;
+- без сторно ответ равен ответу облачной полосы плюс `reversals: 0` и пустые ссылки (тест).
+
+Не сделано в шаге 4: `view=variance` и `view=consumption` (их данные появятся с подсчётом ключевых
+позиций и автосписанием, шаги 5-6), `meta.count_scope`.
+
 ### 5.3 Связи меню: `GET ops/menu-links` и команды (склад v2 + 075)
 
 ```text
@@ -252,6 +275,29 @@ menu_links_approve { keys: [catalog_key] (1..200), expected_revisions: { [catalo
   ставит `counted_at = now()` своим позициям; `meta.count_scope: 'daily_key'|'full'` у подсчёта.
 - `Ingredient` (payload): `quick_waste?: { label: 1..40, quantity }` (плитка «Фингерсы из шкафа»),
   `count_daily?: bool`, `group?`.
+
+**Сделано в шаге 4** (за `stock_p1`; без флага склада v2 команда неизвестна - `INVALID_REQUEST`, с флагом без `stock_p1` - `NOT_READY`/`STOCK_V2_DISABLED`):
+
+- `stock_reverse { document_id, expected_balances }` - отдельной схемой `P1Request` (общая `Command` и
+  `openapi.json` прежние). Отклонение от текста выше: `expected_balances` (ревизии остатков позиций
+  документа, как у `produce`) - окно сторно показывает остаток «сейчас» и «после», и другой документ
+  между показом и проведением даёт `CONFLICT`, а не тихо другой итог. Обратный документ: `kind
+reversal`, тот же `reference`, `reason` запроса, движения ровно противоположные. Отказы:
+  `NOT_FOUND` (не документ точки), `INVALID_REQUEST`/`REVERSAL_NOT_ALLOWED` (подсчёт, сторно,
+  перемещение, документ без движений), `CONFLICT`/`ALREADY_REVERSED`, `CONFLICT`/`COUNTED_AFTER_DOCUMENT`
+  (документ подсчёта позиции позже документа или `counted_at` позже), `CONFLICT` (ревизия),
+  `INSUFFICIENT_STOCK` (остаток или стоимость меньше обратного движения, в том числе ноль штук при
+  ненулевой стоимости - `CHECK` 017), `NOT_READY`/`STOCK_V2_DISABLED` (флаг есть, `stock_p1` нет).
+  Аудит `stock_reverse`, идемпотентность и блокировка точки - общий конверт команд.
+- `quick_waste` в карточке ингредиента принимает `IngredientP1`; без `stock_p1` строгая `Ingredient`
+  отклоняет поле, как раньше. В окне «Списание» плитки ингредиентов в работе; нажатие добавляет
+  количество в строку позиции.
+- Подсчёт двигает `counted_at` своих позиций на время документа (`greatest`, назад нельзя - триггер 075).
+- Кабинет: плашка «Продажи пока не списываются...» (исправления склада: `stock_v2` или `pos_day`),
+  «Последний подсчёт» в «Остатках», вкладки «Списания» и «Движение» с CSV, сторно в «Документах».
+
+Не сделано в шаге 4: строка списания `recipe_output_id` (раскладка выхода ТТК), `count_daily`, `group`,
+`meta.count_scope`, связи меню (§5.3) - они нужны автосписанию и подсчёту ключевых позиций.
 
 ### 5.5 Автосписание (`BACKOFFICE_STOCK_AUTOCONSUME_ENABLED`)
 
@@ -394,7 +440,9 @@ discount_state { id, state: 'draft'|'active'|'archived', expected_revision }
    браузерная проверка с флагом и без, runbook «Касса в бэк-офисе» (`backoffice-p1-cutover.md`).
 3. Шаг 3 (сделан): исправления аудита F01-F17, F19, F20 за флагами (§6), CR `bo-ui-3`; F18 - нет
    (до входа флаги неизвестны).
-4. Склад: сторно, `variance`/`consumption`, быстрые плитки и выход ТТК, связи меню (API и экран).
+4. Шаг 4 (сделан): сторно (`stock_reverse`), плитки быстрого списания, `counted_at`, плашка про
+   продажи, отчёт списаний с учётом сторно, вкладки «Списания» и «Движение» с CSV, ключ `stock_p1`,
+   право `stock.reverse`; CR `bo-ui-4`. Перенесено: `variance`/`consumption`, выход ТТК, связи меню.
 5. Автосписание: ядро, воркер, настройки, очередь, экран.
 6. Смена менеджера и персонал (должности, выгрузка, `staff-roster-apply`, `staff-pin-batch`).
 7. Скидки и исправления аудита без флага.
