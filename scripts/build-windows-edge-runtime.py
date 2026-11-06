@@ -51,6 +51,11 @@ ADMIN_FILES = (
     'scripts/staff-credential.mjs',
     'scripts/staff-file-permissions.mjs',
     'infra/windows/edge-runtime-grants.mjs',
+    # Cutover 19.11 (CR pos-1 section 1, CR pos-4 section 4): edge 026 grants, its guarded
+    # upgrade and the POS sales operator tool. edge-runtime-grants.mjs imports pos-sales-grants.mjs.
+    'infra/windows/pos-sales-grants.mjs',
+    'infra/windows/pos-sales-upgrade-db.mjs',
+    'scripts/pos-sales-setup.mjs',
     'infra/windows/README.md',
     'infra/windows/native-staff-login.md',
     'infra/windows/local-pos-service.md',
