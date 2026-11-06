@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import pathlib
+import posixpath
 import re
 import subprocess
 import tempfile
@@ -117,6 +118,42 @@ class WindowsEdgePackageTests(unittest.TestCase):
             for imported in re.findall(r"from '(\./[^']+)'", text):
                 target = str(pathlib.PurePosixPath(relative).parent / imported[2:])
                 self.assertIn(target, builder.ADMIN_FILES, relative + ' imports ' + imported)
+
+    def test_ships_the_cutover_owner_tools_with_everything_they_import(self):
+        # Master runbook steps 3, 6, 7, 10 and section 9 run these from the RC-edge package
+        # (lead decision 07.11 item 2 adds pos-sales-sync-release.mjs).
+        repo = SCRIPT.parents[1]
+        tools = ['scripts/pos-sales-setup.mjs', 'infra/windows/pos-sales-upgrade-db.mjs',
+                 'infra/windows/kds-upgrade-db.mjs', 'infra/windows/kds-switch.mjs',
+                 'infra/windows/pos-sales-sync-release.mjs']
+        # Workspace packages of the runtime closure: the build roots and their dependencies.
+        workspace = {}
+        for manifest in [*repo.glob('packages/*/package.json'), *repo.glob('services/*/package.json')]:
+            data = json.loads(manifest.read_text())
+            workspace[data['name']] = sorted(name for name in data.get('dependencies', {})
+                                             if name.startswith('@pickchick/'))
+        closure, queue = set(), list(builder.BUILD_ROOTS)
+        while queue:
+            name = queue.pop()
+            if name not in closure:
+                closure.add(name)
+                queue.extend(workspace[name])
+        for relative in tools:
+            self.assertIn(relative, builder.ADMIN_FILES)
+            text = (repo / relative).read_text()
+            for imported in re.findall(r"from '([^']+)'", text):
+                if imported.startswith('.'):
+                    target = posixpath.normpath(posixpath.join(posixpath.dirname(relative), imported))
+                    self.assertIn(target, builder.ADMIN_FILES, relative + ' imports ' + imported)
+                elif imported.startswith('@pickchick/'):
+                    self.assertIn(imported, closure, relative + ' imports ' + imported)
+                else:
+                    self.assertTrue(imported.startswith('node:'), relative + ' imports ' + imported)
+        self.build()
+        manifest = json.loads((self.base / 'output/runtime-manifest.json').read_text())
+        pinned = {entry['path'] for entry in manifest['files']}
+        for relative in tools:
+            self.assertIn(relative, pinned)
 
     def test_rejects_external_dependency_and_missing_dependency(self):
         external = self.base / 'outside'

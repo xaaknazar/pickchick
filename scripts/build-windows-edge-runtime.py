@@ -56,6 +56,10 @@ ADMIN_FILES = (
     'infra/windows/pos-sales-grants.mjs',
     'infra/windows/pos-sales-upgrade-db.mjs',
     'scripts/pos-sales-setup.mjs',
+    # Cutover 19.11 (lead decision 07.11 item 2, review R6): the owner command that lists and
+    # releases a parked posSales event; imports ../../scripts/edge-migrate.mjs (shipped) and
+    # workspace packages of the runtime closure (@pickchick/pos-order-sync is a build root).
+    'infra/windows/pos-sales-sync-release.mjs',
     # Cutover 19.11 (CR kds-1 section 4, CR kds-3): edge 027 grants, the guarded upgrade and the
     # operator switch. kds-switch.mjs imports kds-grants.mjs and ../../scripts/edge-migrate.mjs.
     'infra/windows/kds-grants.mjs',
