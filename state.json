@@ -7348,32 +7348,6 @@
       "nextAction": "Серверное окно завершено, ночной повтор С3 не нужен. Владелец может ввести ключ бота через setup-telegram.command со скрытым вводом; ключ в чат не передавать. Watchdog/shadow, Caddy, касса, магазины,072 и включение флагов отдельно по прежнему плану. Кандидат PR310 и протокол PR311 не слиты; finish запрещён до shared. Android P6/поддержка ожидает согласованной передачи нужных резервов; не считать серверный lock занятым после этого handoff.\nП6 передан android-play-1106; широкие @vps и @vps/public-https сняты только у завершённого окна. Перед будущим глобальным серверным окном заново согласовать полный резерв; API/БД/банк/roadmap и остальные области остаются здесь."
     },
     {
-      "id": "android-play-1106",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/android-play-1106",
-      "scopes": [
-        "codex-reports/2026-11-06-android.md",
-        "docs/operations/mobile-play-2026-11/release-1106.md",
-        "@android/emulator",
-        "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.png",
-        "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.provenance.json",
-        "docs/operations/mobile-play-2026-11/listing-1106.json",
-        "@google-play/pickchick",
-        "docs/operations/mobile-play-2026-11/graphics/screenshots-appstore-1106",
-        "docs/collaboration/handoff.md",
-        "infra/public-staging/support/render.py",
-        "infra/public-staging/support/style.css",
-        "docs/project-status.md",
-        "docs/roadmap/project.json",
-        "infra/public-staging/support/content.json"
-      ],
-      "status": "available",
-      "head": "9fb0504b6da86e33fd9f627a09c8c24dba12ba8a",
-      "updatedAt": "2026-11-06T21:42:29.021Z",
-      "summary": "9fb0504b / PR313: internal AAB1.0.1(7) active with owner list; approved Alex and four App Store adaptations saved. Data safety five types saved as draft. Listing5/5, roadmap evidence, format/diff PASS; previous3ab9d51f Foundation11/11 and photo PASS. New docs CI separate. Owner Android unavailable; KK full listing pending. P6 release transferred to p6-retention-1107. No production submission, server or online-roadmap update.",
-      "nextAction": "After P6 exact-SHA CI/deploy and HTTP200 delete-account RU/KK/EN evidence, finalize Data safety; physical Android checklist and KK listing review; prepare12-person14-day closed test. Production only separate explicit owner approval. Preserve PR311 C1/C3 and PR314 cart-location records during shared integration; do not run support release in parallel."
-    },
-    {
       "id": "mobile-cart-location-1106",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/mobile-cart-location-1106",
@@ -7411,6 +7385,32 @@
       "updatedAt": "2026-11-06T21:33:20.209Z",
       "summary": "PR315, 3b583d5a: владелец подтвердил казахский текст страницы удаления словами перевод в норме. Тексты без изменений; только протокол и журнал. Format/diff PASS. Предыдущие 5 support tests PASS; сервер не изменён. Получена явная передача публикации П6, оператор и резерв support; отдельная политика не разрешена.",
       "nextAction": "Включить тексты PR315 в кандидат П6, полная CI и выпуск в согласованное окно. Подтверждение KK страницы получено; политику не публиковать без отдельного да."
+    },
+    {
+      "id": "android-play-1106",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/android-play-1106",
+      "scopes": [
+        "codex-reports/2026-11-06-android.md",
+        "docs/operations/mobile-play-2026-11/release-1106.md",
+        "@android/emulator",
+        "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.png",
+        "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.provenance.json",
+        "docs/operations/mobile-play-2026-11/listing-1106.json",
+        "@google-play/pickchick",
+        "docs/operations/mobile-play-2026-11/graphics/screenshots-appstore-1106",
+        "docs/collaboration/handoff.md",
+        "infra/public-staging/support/render.py",
+        "infra/public-staging/support/style.css",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "infra/public-staging/support/content.json"
+      ],
+      "status": "active",
+      "head": "9fb0504b6da86e33fd9f627a09c8c24dba12ba8a",
+      "updatedAt": "2026-11-06T21:45:35.239Z",
+      "summary": "9fb0504b / PR313: internal AAB1.0.1(7) active with owner list; approved Alex and four App Store adaptations saved. Data safety five types saved as draft. Listing5/5, roadmap evidence, format/diff PASS; previous3ab9d51f Foundation11/11 and photo PASS. New docs CI separate. Owner Android unavailable; KK full listing pending. P6 release transferred to p6-retention-1107. No production submission, server or online-roadmap update.",
+      "nextAction": "After P6 exact-SHA CI/deploy and HTTP200 delete-account RU/KK/EN evidence, finalize Data safety; physical Android checklist and KK listing review; prepare12-person14-day closed test. Production only separate explicit owner approval. Preserve PR311 C1/C3 and PR314 cart-location records during shared integration; do not run support release in parallel."
     }
   ]
 }
