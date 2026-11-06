@@ -14268,6 +14268,100 @@
         }
       }
     },
+    "/internal/v1/edge/pos-orders/sales": {
+      "post": {
+        "operationId": "receiveEdgePosSales",
+        "description": "Private, disabled-by-default (CLOUD_POS_SALES_SYNC_ENABLED) posSales stream of paid POS sales, voids, refunds, Webkassa receipt records and Z reports of the cashier edge (contracts 5.6). Up to 50 events in edge sequence order; {events: []} is the support probe. Each event commits on its own and is acknowledged only after COMMIT; the answer is the accepted prefix, the first refused event ends it as rejected CONFLICT or INVALID_EVENT. 404 without the flag or schema073. Not routed by the public gateway.",
+        "security": [
+          {
+            "deviceBearer": [],
+            "deviceId": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PosSaleBatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PosSaleBatchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed batch, query string, over 50 events or 96 KiB, unordered sequences",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid, expired or revoked device",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Inactive POS sync binding or another branch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Feature disabled or schema073 missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Global HTTP body limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/internal/v1/edge/station-plans/pull": {
       "post": {
         "operationId": "pullStationPlan",
@@ -14909,6 +15003,308 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BackofficeContent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid catalog or input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid manager credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Branch is outside assigned scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown branch or no publication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Editor disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/backoffice/branches/{branchId}/ops/stock": {
+      "get": {
+        "operationId": "readBackofficeStockReport",
+        "tags": [
+          "Backoffice"
+        ],
+        "security": [
+          {
+            "catalogManagerBearer": []
+          }
+        ],
+        "description": "Requires explicit manager or analyst grant for this branch. Writes require manager, durable request_id and reason; matching replay returns the previous result. Refunds remain pending until a trusted payment observation. Stock changes and audit commit atomically. HTTP commands are limited to 16 KiB.",
+        "parameters": [
+          {
+            "name": "branchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "waste",
+                "movement"
+              ]
+            }
+          },
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackofficeResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid catalog or input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid manager credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Branch is outside assigned scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown branch or no publication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP capacity exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Editor disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/backoffice/branches/{branchId}/ops/sales": {
+      "get": {
+        "operationId": "readBackofficeSalesReport",
+        "tags": [
+          "Backoffice"
+        ],
+        "security": [
+          {
+            "catalogManagerBearer": []
+          }
+        ],
+        "description": "Requires explicit manager or analyst grant for this branch. Writes require manager, durable request_id and reason; matching replay returns the previous result. Refunds remain pending until a trusted payment observation. Stock changes and audit commit atomically. HTTP commands are limited to 16 KiB.",
+        "parameters": [
+          {
+            "name": "branchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackofficeResult"
                 }
               }
             }
@@ -35504,6 +35900,1402 @@
           "sequence",
           "payloadHash",
           "acknowledged"
+        ],
+        "additionalProperties": false
+      },
+      "PosSaleBatch": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "events": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "event_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "branch_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "sequence": {
+                      "type": "string",
+                      "pattern": "^[1-9]\\d{0,18}$"
+                    },
+                    "occurred_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "const": "sale"
+                    },
+                    "payload": {
+                      "type": "object",
+                      "properties": {
+                        "order_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "quote": {
+                          "type": "object",
+                          "properties": {
+                            "details": {
+                              "type": "object",
+                              "properties": {
+                                "display_name": {
+                                  "type": "string",
+                                  "maxLength": 14
+                                },
+                                "kitchen_comment": {
+                                  "type": "string",
+                                  "maxLength": 60
+                                }
+                              },
+                              "required": [
+                                "display_name",
+                                "kitchen_comment"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "sales_channel": {
+                              "type": "string",
+                              "enum": [
+                                "yandex_eda",
+                                "glovo"
+                              ]
+                            },
+                            "quote_id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "branch_id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "release_id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "menu_version": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 2147483647
+                            },
+                            "service_mode": {
+                              "type": "string",
+                              "enum": [
+                                "dine_in",
+                                "takeaway"
+                              ]
+                            },
+                            "channel": {
+                              "type": "string",
+                              "const": "pos"
+                            },
+                            "lines": {
+                              "minItems": 1,
+                              "maxItems": 50,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "modifiers": {
+                                    "maxItems": 100,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "group_id": {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        "option_id": {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        "quantity": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 99
+                                        },
+                                        "group_name": {
+                                          "type": "object",
+                                          "properties": {
+                                            "ru": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 300
+                                            },
+                                            "kk": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 300
+                                            }
+                                          },
+                                          "required": [
+                                            "ru",
+                                            "kk"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        "name": {
+                                          "type": "object",
+                                          "properties": {
+                                            "ru": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 300
+                                            },
+                                            "kk": {
+                                              "type": "string",
+                                              "minLength": 1,
+                                              "maxLength": 300
+                                            }
+                                          },
+                                          "required": [
+                                            "ru",
+                                            "kk"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        "price_minor": {
+                                          "type": "string",
+                                          "pattern": "^(0|[1-9]\\d{0,18})$"
+                                        }
+                                      },
+                                      "required": [
+                                        "group_id",
+                                        "option_id",
+                                        "group_name",
+                                        "name",
+                                        "price_minor"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "product_id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "variant_id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "name": {
+                                    "type": "object",
+                                    "properties": {
+                                      "ru": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 300
+                                      },
+                                      "kk": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 300
+                                      }
+                                    },
+                                    "required": [
+                                      "ru",
+                                      "kk"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "quantity": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 99
+                                  },
+                                  "unit_price_minor": {
+                                    "type": "string",
+                                    "pattern": "^(0|[1-9]\\d{0,18})$"
+                                  },
+                                  "total_minor": {
+                                    "type": "string",
+                                    "pattern": "^(0|[1-9]\\d{0,18})$"
+                                  }
+                                },
+                                "required": [
+                                  "product_id",
+                                  "variant_id",
+                                  "name",
+                                  "quantity",
+                                  "unit_price_minor",
+                                  "total_minor"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "currency": {
+                              "type": "string",
+                              "const": "KZT"
+                            },
+                            "subtotal_minor": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9]\\d{0,18})$"
+                            },
+                            "discount_minor": {
+                              "type": "string",
+                              "const": "0"
+                            },
+                            "total_minor": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9]\\d{0,18})$"
+                            },
+                            "created_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            "expires_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            }
+                          },
+                          "required": [
+                            "quote_id",
+                            "branch_id",
+                            "release_id",
+                            "menu_version",
+                            "service_mode",
+                            "channel",
+                            "lines",
+                            "currency",
+                            "subtotal_minor",
+                            "discount_minor",
+                            "total_minor",
+                            "created_at",
+                            "expires_at"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "shift_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "terminal_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "cashier_staff_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "display_number": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2147483647
+                        },
+                        "sales_channel": {
+                          "type": "string",
+                          "enum": [
+                            "hall",
+                            "yandex_eda",
+                            "glovo"
+                          ]
+                        },
+                        "external_order_ref": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^[A-Z0-9-]{3,40}$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "service_mode": {
+                          "type": "string",
+                          "enum": [
+                            "dine_in",
+                            "takeaway"
+                          ]
+                        },
+                        "revenue_kind": {
+                          "type": "string",
+                          "enum": [
+                            "revenue",
+                            "staff_meal",
+                            "marketing"
+                          ]
+                        },
+                        "total_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9]\\d{0,18})$"
+                        },
+                        "cash_tendered_minor": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^(0|[1-9]\\d{0,18})$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "change_minor": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^(0|[1-9]\\d{0,18})$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "beneficiary": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reason": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 3,
+                              "maxLength": 300
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "approval": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "approval_id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "manager_staff_id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "action": {
+                                  "type": "string",
+                                  "enum": [
+                                    "void",
+                                    "refund",
+                                    "staff_meal",
+                                    "marketing",
+                                    "fiscal_correct",
+                                    "shift_close_pending_fiscal",
+                                    "discount",
+                                    "cash_movement",
+                                    "kds_mode",
+                                    "courier_incident_update"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "approval_id",
+                                "manager_staff_id",
+                                "action"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "tenders": {
+                          "minItems": 1,
+                          "maxItems": 2,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "tender_id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "method": {
+                                "type": "string",
+                                "enum": [
+                                  "cash",
+                                  "kaspi_terminal",
+                                  "aggregator_yandex_eda",
+                                  "aggregator_glovo",
+                                  "staff_meal",
+                                  "marketing",
+                                  "kaspi_manual",
+                                  "chocofood"
+                                ]
+                              },
+                              "amount_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,18})$"
+                              },
+                              "confirmation": {
+                                "type": "string",
+                                "enum": [
+                                  "drawer",
+                                  "cashier_attested",
+                                  "aggregator_attested",
+                                  "manager_approved"
+                                ]
+                              },
+                              "reference": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 40
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "tender_id",
+                              "method",
+                              "amount_minor",
+                              "confirmation",
+                              "reference"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        }
+                      },
+                      "required": [
+                        "order_id",
+                        "quote",
+                        "shift_id",
+                        "terminal_id",
+                        "cashier_staff_id",
+                        "display_number",
+                        "sales_channel",
+                        "external_order_ref",
+                        "service_mode",
+                        "revenue_kind",
+                        "total_minor",
+                        "cash_tendered_minor",
+                        "change_minor",
+                        "beneficiary",
+                        "reason",
+                        "approval",
+                        "tenders",
+                        "created_at"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "event_id",
+                    "branch_id",
+                    "sequence",
+                    "occurred_at",
+                    "kind",
+                    "payload"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "event_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "branch_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "sequence": {
+                      "type": "string",
+                      "pattern": "^[1-9]\\d{0,18}$"
+                    },
+                    "occurred_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "const": "void"
+                    },
+                    "payload": {
+                      "type": "object",
+                      "properties": {
+                        "refund_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "order_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "void",
+                            "refund"
+                          ]
+                        },
+                        "shift_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "terminal_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "staff_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "approved_by_staff_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "approval_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "amount_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9]\\d{0,18})$"
+                        },
+                        "reason_code": {
+                          "type": "string",
+                          "enum": [
+                            "guest_changed_mind",
+                            "wrong_order",
+                            "quality",
+                            "aggregator_cancelled",
+                            "cashier_error",
+                            "other"
+                          ]
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 300
+                        },
+                        "tenders": {
+                          "minItems": 1,
+                          "maxItems": 2,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "tender_id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "method": {
+                                "type": "string",
+                                "enum": [
+                                  "cash",
+                                  "kaspi_terminal",
+                                  "aggregator_yandex_eda",
+                                  "aggregator_glovo",
+                                  "staff_meal",
+                                  "marketing",
+                                  "kaspi_manual",
+                                  "chocofood"
+                                ]
+                              },
+                              "amount_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,18})$"
+                              }
+                            },
+                            "required": [
+                              "tender_id",
+                              "method",
+                              "amount_minor"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        }
+                      },
+                      "required": [
+                        "refund_id",
+                        "order_id",
+                        "kind",
+                        "shift_id",
+                        "terminal_id",
+                        "staff_id",
+                        "approved_by_staff_id",
+                        "approval_id",
+                        "amount_minor",
+                        "reason_code",
+                        "reason",
+                        "tenders",
+                        "created_at"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "event_id",
+                    "branch_id",
+                    "sequence",
+                    "occurred_at",
+                    "kind",
+                    "payload"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "event_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "branch_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "sequence": {
+                      "type": "string",
+                      "pattern": "^[1-9]\\d{0,18}$"
+                    },
+                    "occurred_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "const": "refund"
+                    },
+                    "payload": {
+                      "type": "object",
+                      "properties": {
+                        "refund_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "order_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "void",
+                            "refund"
+                          ]
+                        },
+                        "shift_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "terminal_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "staff_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "approved_by_staff_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "approval_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "amount_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9]\\d{0,18})$"
+                        },
+                        "reason_code": {
+                          "type": "string",
+                          "enum": [
+                            "guest_changed_mind",
+                            "wrong_order",
+                            "quality",
+                            "aggregator_cancelled",
+                            "cashier_error",
+                            "other"
+                          ]
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 300
+                        },
+                        "tenders": {
+                          "minItems": 1,
+                          "maxItems": 2,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "tender_id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "method": {
+                                "type": "string",
+                                "enum": [
+                                  "cash",
+                                  "kaspi_terminal",
+                                  "aggregator_yandex_eda",
+                                  "aggregator_glovo",
+                                  "staff_meal",
+                                  "marketing",
+                                  "kaspi_manual",
+                                  "chocofood"
+                                ]
+                              },
+                              "amount_minor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,18})$"
+                              }
+                            },
+                            "required": [
+                              "tender_id",
+                              "method",
+                              "amount_minor"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        }
+                      },
+                      "required": [
+                        "refund_id",
+                        "order_id",
+                        "kind",
+                        "shift_id",
+                        "terminal_id",
+                        "staff_id",
+                        "approved_by_staff_id",
+                        "approval_id",
+                        "amount_minor",
+                        "reason_code",
+                        "reason",
+                        "tenders",
+                        "created_at"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "event_id",
+                    "branch_id",
+                    "sequence",
+                    "occurred_at",
+                    "kind",
+                    "payload"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "event_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "branch_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "sequence": {
+                      "type": "string",
+                      "pattern": "^[1-9]\\d{0,18}$"
+                    },
+                    "occurred_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "const": "fiscal"
+                    },
+                    "payload": {
+                      "type": "object",
+                      "properties": {
+                        "receipt_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "order_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "refund_id": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "sale",
+                            "refund"
+                          ]
+                        },
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "manual_webkassa"
+                          ]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "recorded",
+                            "not_required"
+                          ]
+                        },
+                        "receipt_number": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2147483647
+                        },
+                        "amount_minor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9]\\d{0,18})$"
+                        },
+                        "recorded_by_staff_id": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "recorded_at": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "receipt_id",
+                        "order_id",
+                        "refund_id",
+                        "kind",
+                        "mode",
+                        "state",
+                        "receipt_number",
+                        "version",
+                        "amount_minor",
+                        "recorded_by_staff_id",
+                        "recorded_at"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "event_id",
+                    "branch_id",
+                    "sequence",
+                    "occurred_at",
+                    "kind",
+                    "payload"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "event_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "branch_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "sequence": {
+                      "type": "string",
+                      "pattern": "^[1-9]\\d{0,18}$"
+                    },
+                    "occurred_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "const": "shift_report"
+                    },
+                    "payload": {
+                      "type": "object",
+                      "properties": {
+                        "shift_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "terminal_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "report": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "x",
+                                "z"
+                              ]
+                            },
+                            "shift_id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "terminal_id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "state": {
+                              "type": "string",
+                              "enum": [
+                                "open",
+                                "closed"
+                              ]
+                            },
+                            "opened_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            "closed_at": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "opening_cash_minor": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9]\\d{0,18})$"
+                            },
+                            "cash_in_minor": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9]\\d{0,18})$"
+                            },
+                            "cash_out_minor": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9]\\d{0,18})$"
+                            },
+                            "cash_sales_minor": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9]\\d{0,18})$"
+                            },
+                            "cash_refunds_minor": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9]\\d{0,18})$"
+                            },
+                            "expected_cash_minor": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9]\\d{0,18})$"
+                            },
+                            "counted_cash_minor": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9]\\d{0,18})$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "discrepancy_minor": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^(?:0|-?[1-9]\\d{0,18})$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "methods": {
+                              "maxItems": 8,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "method": {
+                                    "type": "string",
+                                    "enum": [
+                                      "cash",
+                                      "kaspi_terminal",
+                                      "aggregator_yandex_eda",
+                                      "aggregator_glovo",
+                                      "staff_meal",
+                                      "marketing",
+                                      "kaspi_manual",
+                                      "chocofood"
+                                    ]
+                                  },
+                                  "sales_minor": {
+                                    "type": "string",
+                                    "pattern": "^(0|[1-9]\\d{0,18})$"
+                                  },
+                                  "refunds_minor": {
+                                    "type": "string",
+                                    "pattern": "^(0|[1-9]\\d{0,18})$"
+                                  },
+                                  "count": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "method",
+                                  "sales_minor",
+                                  "refunds_minor",
+                                  "count"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "channels": {
+                              "maxItems": 3,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "sales_channel": {
+                                    "type": "string",
+                                    "enum": [
+                                      "hall",
+                                      "yandex_eda",
+                                      "glovo"
+                                    ]
+                                  },
+                                  "total_minor": {
+                                    "type": "string",
+                                    "pattern": "^(0|[1-9]\\d{0,18})$"
+                                  },
+                                  "count": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "sales_channel",
+                                  "total_minor",
+                                  "count"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "terminal_reported_minor": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9]\\d{0,18})$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "terminal_discrepancy_minor": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^(?:0|-?[1-9]\\d{0,18})$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "fiscal": {
+                              "type": "object",
+                              "properties": {
+                                "pending": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "recorded": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "not_required": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "pending",
+                                "recorded",
+                                "not_required"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "orders": {
+                              "type": "object",
+                              "properties": {
+                                "count": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "voided_count": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "count",
+                                "voided_count"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "report_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "shift_id",
+                            "terminal_id",
+                            "state",
+                            "opened_at",
+                            "closed_at",
+                            "opening_cash_minor",
+                            "cash_in_minor",
+                            "cash_out_minor",
+                            "cash_sales_minor",
+                            "cash_refunds_minor",
+                            "expected_cash_minor",
+                            "counted_cash_minor",
+                            "discrepancy_minor",
+                            "methods",
+                            "channels",
+                            "terminal_reported_minor",
+                            "terminal_discrepancy_minor",
+                            "fiscal",
+                            "orders",
+                            "report_at"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "shift_id",
+                        "terminal_id",
+                        "report"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "event_id",
+                    "branch_id",
+                    "sequence",
+                    "occurred_at",
+                    "kind",
+                    "payload"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "events"
+        ],
+        "additionalProperties": false
+      },
+      "PosSaleBatchResult": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "receipts": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "event_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "sequence": {
+                  "type": "string",
+                  "pattern": "^[1-9]\\d{0,18}$"
+                },
+                "payload_hash": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "acknowledged": {
+                  "type": "boolean",
+                  "const": true
+                }
+              },
+              "required": [
+                "event_id",
+                "sequence",
+                "payload_hash",
+                "acknowledged"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "rejected": {
+            "type": "object",
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "code": {
+                "type": "string",
+                "enum": [
+                  "CONFLICT",
+                  "INVALID_EVENT"
+                ]
+              }
+            },
+            "required": [
+              "event_id",
+              "code"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "receipts"
         ],
         "additionalProperties": false
       },
