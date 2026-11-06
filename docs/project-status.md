@@ -127,11 +127,13 @@ JSON compose и перенос готового node-forge1.4.1. Подтвер�
 84098306 после [полной Foundation CI 11/11](https://github.com/xaaknazar/pickchick/actions/runs/41986578348).
 584 Node + 96 Python, статические проверки, 101 экран production и проверочный
 аккаунт RU/KK/EN PASS. Согласованные 12 файлов переданы, чужие области сохранены.
-Android Studio/Java установлены, постоянный ключ создан с паролем в локальной
-Связке ключей. SDK ждёт согласия владельца на лицензию после отказа
-автоматической проверки разрешений; doctor пока FAIL, AAB не собран.
+Android Studio/SDK/NDK/CMake установлены после явного согласия на лицензию.
+На Java 21 подписанный production AAB 1.0.1 (7) собран из чистого shared
+1a9472f1 (PR308, дерево с Foundation CI 11/11). Doctor и Inspect PASS:
+api.pickchick.kz, ровно 7 разрешений, постоянная подпись проверена.
+AAB SHA-256: 863c7ba7455e65402925521990b183ca2526d6b20e233c1aa366be14dd8da90d.
 Сайт, Google Play, сервер и iOS-релизы не менялись; Android-телефон не проверен.
-Офлайн-копию ключа владелец организует позже.
+FCM не настроен. Офлайн-копию ключа владелец организует позже.
 [Протокол](operations/mobile-play-2026-11/mac-build.md).
 
 ## 5 ноября: TestFlight33 доступен на api.pickchick.kz
