@@ -7406,11 +7406,11 @@
         "docs/roadmap/project.json",
         "infra/public-staging/support/content.json"
       ],
-      "status": "active",
-      "head": "d2b0633ce47219256b433f15a05181f6b2642684",
-      "updatedAt": "2026-11-06T22:01:29.121Z",
-      "summary": "d2b0633c / PR313: Data safety fully saved in Publishing overview, not submitted. Six types include random sign-in device_id independent of FCM; fraud/security added to phone and device ID, partial deletion without account No. Source evidence and actual Console table in release-1106.md. Listing5/5, roadmap evidence, format/diff PASS; latest docs CI separate. Physical Android and KK listing remain pending.",
-      "nextAction": "After p6-retention-1107 deployment verify HTTP200 and delete-account RU/KK/EN before Google review. Original data-safety.md reserved by mobile-android-1105: reconcile its device ID row with release-1106.md, preserving PR315 retention. Closed test12/14 not started. Production only separate owner yes. Preserve PR311/314 during shared integration; online roadmap not deployed."
+      "status": "available",
+      "head": "1edcabe00f4da8f40b9305ec04e1f2a75bdb9b5e",
+      "updatedAt": "2026-11-06T22:03:20.165Z",
+      "summary": "1edcabe0 / PR313: повторная проверка П6 07.11, HTTP 200 на support/RU/KK/EN, delete-account отсутствует, SHA прежние. П6 14001781 ждёт Foundation CI42298575783. Чат П6 уведомлён. Play dashboard: закрытый тест 0/5 задач, 0 участников; Data safety сохранена, не отправлена. Формат и diff PASS, remote SHA совпадает. Play и сервер не менялись.",
+      "nextAction": "После публикации p6-retention-1107 проверить HTTP200 и текст удаления RU/KK/EN; владелец разрешил затем продолжить закрытый тест. Настроить страны, список и выпуск AAB7, проверить весь состав перед отправкой именно закрытого теста. Для 12/14 нужны 12 вступивших участников, известен только email владельца. Physical Android и KK listing pending. Production только отдельное да; сохранить PR311/314 при интеграции, онлайн-пульт не обновлён."
     }
   ]
 }
