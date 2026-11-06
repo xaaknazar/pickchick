@@ -7370,11 +7370,12 @@
         "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.png",
         "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.provenance.json",
         "docs/operations/mobile-play-2026-11/listing-1106.json",
-        "@google-play/pickchick"
+        "@google-play/pickchick",
+        "docs/operations/mobile-play-2026-11/graphics/screenshots-appstore-1106"
       ],
       "status": "active",
       "head": "c8de3a819bd96cde4ce75a58cea96e9c50dce244",
-      "updatedAt": "2026-11-06T16:29:12.150Z",
+      "updatedAt": "2026-11-06T16:38:46.670Z",
       "summary": "c8de3a81 / PR313: AAB 1.0.1(7) released to internal testing; upload certificate matches. Approved Alex banner and RU/KK/EN draft saved; IARC 3+/Everyone; owner changed audience to 13-15,16-17,18+. Listing tests 5/5 and Prettier PASS; current CI running.",
       "nextAction": "Owner enters tester email list in open Play tab; then physical Android checklist. Emulator SDK download still running on this Mac, screenshots pending. KK review and P6 coordinated server window pending; Data safety only initial draft. Never production without separate owner approval."
     }
