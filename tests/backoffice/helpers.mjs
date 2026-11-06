@@ -60,6 +60,7 @@ export async function withCatalog(run, options = {}) {
     roles = false,
     stockV2 = false,
     salesReport = false,
+    posDay = false,
     ...serverOptions
   } = options;
   await withSyncDatabases(async (context) => {
@@ -76,6 +77,8 @@ export async function withCatalog(run, options = {}) {
       ...(roles ? { rolesEnabled: true } : {}),
       ...(stockV2 ? { stockV2Enabled: true } : {}),
       ...(salesReport ? { salesReportEnabled: true } : {}),
+      // Lane bo-ui «Касса» (BACKOFFICE_POS_DAY_ENABLED).
+      ...(posDay ? { posDayEnabled: true } : {}),
     });
     await grantBackoffice(cloud.pool, manager.actor_id, branch, 'manager');
     class CatalogModule {}

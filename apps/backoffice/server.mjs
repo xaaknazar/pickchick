@@ -154,6 +154,23 @@ export const allowed = (method, path) => {
       /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '')
     );
   }
+  // Lane bo-ui «Касса» (BACKOFFICE_POS_DAY_ENABLED): one Almaty day, optionally one cash desk.
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/pos-day$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    const keys = [...q.keys()];
+    const terminal = q.get('terminal_id');
+    return (
+      (search?.length ?? 0) <= 200 &&
+      keys.every((k) => k === 'date' || k === 'terminal_id') &&
+      q.getAll('date').length === 1 &&
+      q.getAll('terminal_id').length <= 1 &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('date') ?? '') &&
+      (terminal === null || new RegExp(`^${UUID}$`, 'i').test(terminal))
+    );
+  }
   if (method === 'GET' && new RegExp(`^/v1/admin/backoffice/branches/${UUID}$`, 'i').test(pathname))
     return reportQuery(search ?? '');
   if (search !== undefined) return false;
@@ -434,10 +451,13 @@ export function createBackofficeServer({
           let size = 0;
           // A reconciliation day lists every matched operation for the accountant's export; a
           // stock report lists up to 200 documents with all their lines; a sales report lists up
-          // to 200 refunds and 200 staff meals with 92 days.
-          const limit = /\/(?:reconciliation|ops\/stock|ops\/sales)\?/.test(path)
-            ? 4 * 1024 * 1024
-            : 1024 * 1024;
+          // to 200 refunds and 200 staff meals with 92 days; a cashier day («Касса») up to 2200
+          // receipts with their items, tenders, refunds and Webkassa receipts.
+          const limit = /\/ops\/pos-day\?/.test(path)
+            ? 8 * 1024 * 1024
+            : /\/(?:reconciliation|ops\/stock|ops\/sales)\?/.test(path)
+              ? 4 * 1024 * 1024
+              : 1024 * 1024;
           for await (const chunk of response.body ?? []) {
             size += chunk.length;
             if (size > limit) {

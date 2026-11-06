@@ -837,6 +837,7 @@ test('flag off: the registry and the order card of a paid POS sale are exactly a
       'completed_total_minor',
     ]);
     assert.equal('pos_terminals' in read, false);
+    assert.equal('pos_staff' in read, false);
     const card = await lane.order(p.manager.token, c.branch, s.id);
     assert.deepEqual(Object.keys(card), [
       'order',
@@ -880,6 +881,9 @@ test('flag on: a paid POS sale is paid, with its cash desk, Webkassa state and r
     assert.equal(row.terminal_id, TERMINAL.two);
     assert.equal(read.cashier_metrics.paid_total_minor, '150000');
     assert.equal(read.cashier_metrics.unpaid_total_minor, '0');
+    assert.deepEqual(read.pos_staff, {
+      [STAFF.second]: { name: NAMES.second, employee_id: EMPLOYEE.second, role: 'cashier' },
+    });
     assert.deepEqual(read.pos_terminals, [
       {
         terminal_id: TERMINAL.two,

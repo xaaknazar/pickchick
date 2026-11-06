@@ -36,7 +36,7 @@ import {
 import { assertStockV2, readStockOps, stockV2Readable, stockV2Writable } from './stock-v2.js';
 import { readSalesReport } from './sales-report.js';
 import { p1Capabilities } from './p1-flags.js';
-import { posOrderCard, posOrderExtras, readPosDay } from './pos-day.js';
+import { posOrderCard, posOrderExtras, posStaffNames, readPosDay } from './pos-day.js';
 export * from './model.js';
 export * from './stops.js';
 export * from './station-plans.js';
@@ -430,8 +430,20 @@ export class Backoffice {
         cashier_orders: cashierOrders,
         cashier_metrics: cashierMetrics,
         selected_shift: selectedShift,
-        // «Касса» (bo-ui): the named cash desks of the registry column, only with the flag on.
-        ...(extras ? { pos_terminals: extras.terminals } : {}),
+        // «Касса» (bo-ui): the named cash desks of the registry column and the names of the
+        // cashiers who opened the listed shifts (edgeStaffId), only with the flag on.
+        ...(extras
+          ? {
+              pos_terminals: extras.terminals,
+              pos_staff: await posStaffNames(
+                db,
+                branch,
+                cashierShifts
+                  .map((shift) => shift['staff_id'])
+                  .filter((id): id is string => typeof id === 'string'),
+              ),
+            }
+          : {}),
         coverage: {
           cashier_reports_available: cashierAvailable,
           cashier_reports_complete: false,

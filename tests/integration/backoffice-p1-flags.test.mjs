@@ -73,8 +73,9 @@ const stable = (state) => {
 };
 /**
  * The read without what the listed P1 capabilities add. pos_day (step 2, «Касса») also adds the
- * named cash desks of the order registry (`pos_terminals`), `paid_total_minor` of the cashier
- * metrics and, per POS order, `terminal_id` (none in these empty branches).
+ * named cash desks of the order registry (`pos_terminals`), the cashier names of the listed shifts
+ * (`pos_staff`), `paid_total_minor` of the cashier metrics and, per POS order, `terminal_id` (none
+ * in these empty branches).
  */
 const without = (state, keys) => {
   const capabilities = { ...state.capabilities };
@@ -82,8 +83,10 @@ const without = (state, keys) => {
   const copy = { ...state, capabilities };
   if (keys.includes('pos_day')) {
     assert.ok(Array.isArray(copy.pos_terminals), 'pos_day adds pos_terminals');
+    assert.deepEqual(copy.pos_staff, {}, 'pos_day adds pos_staff');
     assert.equal(typeof copy.cashier_metrics.paid_total_minor, 'string');
     delete copy.pos_terminals;
+    delete copy.pos_staff;
     copy.cashier_metrics = { ...copy.cashier_metrics };
     delete copy.cashier_metrics.paid_total_minor;
   }
