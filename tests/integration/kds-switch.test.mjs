@@ -11,6 +11,7 @@ import { KdsLayoutSchema } from '@pickchick/contracts';
 import { transaction } from '@pickchick/database';
 import {
   EdgeFulfillment,
+  KDS_STATIONS,
   digest,
   kdsStationId,
   provisionFulfillment,
@@ -29,11 +30,14 @@ import {
   parseChefTsv,
   parseKdsSwitchArgs,
   parseTerminalsTsv,
+  provisionKds,
   setKdsLayoutEnabled,
 } from '../../infra/windows/kds-switch.mjs';
 import { seedEdge, withEdgeSchema } from '../../packages/edge-fulfillment/tests/kds-fixture.mjs';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
+const KDS_STATIONS_OF = (branchId) =>
+  KDS_STATIONS.map((spec) => kdsStationId(branchId, spec.function));
 const tool = fileURLToPath(new URL('../../infra/windows/kds-switch.mjs', import.meta.url));
 const NO_SLUG_NAME = 'Синтетическая позиция без slug';
 const CHEF_TSV = [
@@ -783,6 +787,104 @@ test('enable: the edge runtime must hold its KDS rights, or the kitchen and the 
     }
   }));
 
+test('provision: a kitchen login enrolled after 027 gets the six stations, audited once; a repeat changes nothing', () =>
+  withEdgeSchema(async ({ pool, migrateWith }) => {
+    await migrateWith({ below: '026', with026: true, with027: true });
+    // kds-upgrade-db apply ran while the point had no shared `kitchen` login yet.
+    const { scope, kitchen, prep, assembly } = await seedEdge(pool, {
+      provisionFulfillment,
+      kitchenLogin: false,
+    });
+    const branchId = scope.branchId;
+    const upgrade = await transaction(pool, (client) => provisionKdsStations(client, branchId));
+    assert.deepEqual(
+      [upgrade.stationsAdded, upgrade.kitchenStaffId, upgrade.grantsAdded],
+      [6, null, 0],
+    );
+    const kds = KDS_STATIONS_OF(branchId);
+    const grants = async () =>
+      (
+        await pool.query(
+          'SELECT staff_id,station_id FROM fulfillment_station_grants ORDER BY staff_id,station_id',
+        )
+      ).rows;
+    const fingerprint = async () => ({
+      stations: (await pool.query('SELECT * FROM fulfillment_stations ORDER BY id')).rows,
+      routes: (await pool.query('SELECT * FROM fulfillment_routing ORDER BY branch_id,version'))
+        .rows,
+      layouts: (await pool.query('SELECT * FROM kds_layouts ORDER BY version')).rows,
+    });
+    const count = async () =>
+      (await pool.query('SELECT count(*)::int AS n FROM kds_setting_changes')).rows[0].n;
+    const before = await fingerprint();
+    // No login: refused, nothing written.
+    await assert.rejects(
+      provisionKds(pool, { branchId, reason: 'Вход кухни заведён после 027' }),
+      kdsError('KITCHEN_LOGIN_MISSING'),
+    );
+    await assert.rejects(
+      provisionKds(pool, { branchId, reason: 'no' }),
+      kdsError('REASON_INVALID'),
+    );
+    assert.equal(await count(), 1);
+    assert.deepEqual(
+      (await grants()).filter((g) => kds.includes(g.station_id)),
+      [],
+    );
+    let status = await kdsStatus(pool, { branchId });
+    assert.equal(status.stations.filter((s) => s.kitchen_access).length, 0);
+
+    // The login is enrolled after 027: provision grants it the six KDS stations.
+    await pool.query(
+      "INSERT INTO local_staff_passwords(staff_id,branch_id,login,salt,verifier) VALUES($1,$2,'kitchen',$3,$4)",
+      [kitchen, branchId, 'a'.repeat(64), 'b'.repeat(64)],
+    );
+    const done = await provisionKds(pool, {
+      branchId,
+      reason: '  Вход кухни заведён после 027 ',
+    });
+    assert.deepEqual(done, {
+      changed: true,
+      stations_added: 0,
+      grants_added: 6,
+      kitchen_login: kitchen,
+      layout_enabled: false,
+      settings_version: 2,
+    });
+    assert.deepEqual(
+      (await grants())
+        .filter((g) => g.staff_id === kitchen)
+        .map((g) => g.station_id)
+        .sort(),
+      [...kds, prep, assembly].sort(),
+    );
+    status = await kdsStatus(pool, { branchId });
+    assert.equal(status.stations.filter((s) => s.kitchen_access).length, 6);
+    assert.deepEqual(
+      [status.settings.layout_enabled, status.settings.version, status.kitchen_login],
+      [false, 2, kitchen],
+    );
+    const audit = status.changes[0];
+    assert.deepEqual(
+      [audit.version, audit.field, audit.value, audit.actor, audit.reason],
+      [2, 'provisioned', null, 'operator', 'Вход кухни заведён после 027'],
+    );
+    // Stations, routes and layouts are untouched; the switch stays off.
+    assert.deepEqual(await fingerprint(), before);
+
+    // A repeat adds nothing and writes nothing.
+    const state = { grants: await grants(), changes: await count() };
+    assert.deepEqual(await provisionKds(pool, { branchId, reason: 'Повтор provision' }), {
+      changed: false,
+      stations_added: 0,
+      grants_added: 0,
+      kitchen_login: kitchen,
+      layout_enabled: false,
+      settings_version: 2,
+    });
+    assert.deepEqual({ grants: await grants(), changes: await count() }, state);
+  }));
+
 test('status before 027 reports the old kitchen; no tool command works before provisioning', () =>
   withEdgeSchema(async ({ pool, migrateWith }) => {
     await migrateWith({ below: '026', with026: true });
@@ -814,9 +916,14 @@ test('command line: strict arguments, owner environment only, no network code', 
     command: 'enable',
     reason: 'Т9 учение',
   });
+  assert.deepEqual(parseKdsSwitchArgs(['provision', '--reason', 'Вход кухни заведён']), {
+    command: 'provision',
+    reason: 'Вход кухни заведён',
+  });
   for (const bad of [
     [],
     ['provision'],
+    ['provision', '--file', 'v.json'],
     ['status', '--reason', 'abc'],
     ['enable'],
     ['enable', '--reason'],
