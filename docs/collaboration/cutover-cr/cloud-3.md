@@ -28,6 +28,10 @@ helper прав `infra/staging/backoffice-cutover-grants.mjs`, роли (`packag
 +      );
 ```
 
+Порядок (дополнено после ревью CR-CLOUD-R7): этот вызов идёт после `cloudPosSalesGrants` (CR
+`cloud-2` §2), потому что при включённом бэк-офисе он добавляет `SELECT` на таблицы отчёта 073, а
+`cloudPosSalesGrants` их сбрасывает; подробно - CR `cloud-4` п. 1.
+
 Склад v2 новых прав не требует: `bo_stock_documents.reason_code/meta` покрыты табличными `SELECT,
 INSERT` из `backofficeGrants`. Проверка точного набора - `assertBackofficeCutoverPrivileges(client,
 role, {backoffice, roles, stockV2})`. Без права чтения назначений API работает: назначения не

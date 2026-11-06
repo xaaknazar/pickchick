@@ -10,16 +10,19 @@
  *   guarded historical releases, so nothing is added there). assertBackofficeCutoverPrivileges
  *   proves the column rights the stock v2 command needs.
  *
- * - cloud073 projections read by the sales report (CC-7, contracts 3.2 point 2): their read rights
- *   stay with the one reset of those tables, cloudPosSalesGrants(apiRole, {receiver, backoffice})
- *   in infra/staging/pos-sales-grants.mjs (with the receiver on, the API role already reads them).
- *   A second reset here would undo the first, so this helper only proves the result
- *   (assertBackofficeCutoverPrivileges with `salesReport`); without the rights the report shows
- *   coverage.pos=false instead of failing.
+ * - cloud073 projections read by the sales report (CC-7, contracts 3.2 point 2: this helper grants
+ *   the read rights when the tables exist): with the back office on, an additive GRANT SELECT on
+ *   every SALES_REPORT_TABLES table that exists. No REVOKE: the one reset of those tables stays
+ *   cloudPosSalesGrants(apiRole, {receiver, backoffice}) in infra/staging/pos-sales-grants.mjs
+ *   (pos lane), so this helper must run after it in provision.mjs, and the pos `backoffice` option
+ *   should be the same back-office switch (assertCloudPosSalesPrivileges proves an exact set).
+ *   assertBackofficeCutoverPrivileges with `salesReport` proves the result; without the rights the
+ *   report shows coverage.pos=false instead of failing.
  *
- * Apply after backofficeGrants. The SQL is a reset of exactly the 074 relations: it revokes every
- * privilege of `role` on them, then grants the enabled set. On a database without 074 it is a
- * no-op (to_regclass guard), so provisioning can run before the migration.
+ * Apply after backofficeGrants and cloudPosSalesGrants. For the 074 relations the SQL is a reset:
+ * it revokes every privilege of `role` on them, then grants the enabled set. On a database without
+ * 074 or 073 those parts are no-ops (to_regclass guards), so provisioning can run before the
+ * migrations.
  */
 export const MIGRATION = '074_cloud_backoffice_cutover.sql';
 
@@ -42,7 +45,10 @@ export function backofficeCutoverPrivileges({ backoffice, roles }) {
   return Object.freeze(backoffice && roles ? { bo_role_designations: READ } : {});
 }
 
-/** Reset SQL for `role` on the 074 relations (see the module comment). */
+/**
+ * Reset SQL for `role` on the 074 relations, then (back office on) the additive read grant of the
+ * cloud073 report tables that exist (see the module comment).
+ */
 export function backofficeCutoverGrants(role, options, schema = 'public') {
   if (!NAME.test(role ?? '') || !NAME.test(schema))
     throw new Error('Invalid backoffice cutover grants');
@@ -52,7 +58,16 @@ export function backofficeCutoverGrants(role, options, schema = 'public') {
     `DO $bo_cutover$ BEGIN IF to_regclass('${schema}.bo_role_designations') IS NOT NULL THEN ` +
     `REVOKE ALL ON ${table} FROM "${role}";` +
     (privileges.bo_role_designations ? `GRANT SELECT ON ${table} TO "${role}";` : '') +
-    ' END IF; END $bo_cutover$;'
+    ' END IF; END $bo_cutover$;' +
+    (options.backoffice
+      ? ' DO $bo_cutover_sales$ BEGIN ' +
+        SALES_REPORT_TABLES.map(
+          (name) =>
+            `IF to_regclass('${schema}.${name}') IS NOT NULL THEN ` +
+            `GRANT SELECT ON "${schema}"."${name}" TO "${role}"; END IF;`,
+        ).join(' ') +
+        ' END $bo_cutover_sales$;'
+      : '')
   );
 }
 

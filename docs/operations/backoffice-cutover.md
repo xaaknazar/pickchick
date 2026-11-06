@@ -343,9 +343,10 @@ API не падает: назначения просто не действуют
 ### Включение (§6.2 шаг 8)
 
 1. Права: роль API читает `cloud_pos_sales`, `cloud_pos_tenders`, `cloud_pos_refunds`,
-   `cloud_pos_refund_tenders`, `cloud_pos_shift_reports`. С включённым приёмником `posSales`
-   (`cloudPosSalesGrants(..., {receiver: true})`) права уже есть; без него -
-   `cloudPosSalesGrants(..., {receiver: false, backoffice: true})`. Проверка:
+   `cloud_pos_refund_tenders`, `cloud_pos_shift_reports`. Их выдаёт helper 074
+   `backofficeCutoverGrants(role, {backoffice: true, roles})` (контракт §3.2 п. 2, только
+   добавление, на существующие таблицы); он идёт после сброса прав 073 `cloudPosSalesGrants`
+   (полоса pos), с тем же переключателем `backoffice`. Проверка:
    `assertBackofficeCutoverPrivileges(client, role, {backoffice: true, roles, salesReport: true})`
    (CR `cloud-4`).
 2. `BACKOFFICE_SALES_REPORT_ENABLED=true` в env API (CR `cloud-4`), перезапуск API.

@@ -33,6 +33,7 @@ import { Reconciliation, grantReconciliationAccountant } from '../dist/reconcili
 import * as contracts from '../../contracts/dist/index.js';
 import { backofficeGrants } from '../../../infra/staging/backoffice-grants.mjs';
 import {
+  SALES_REPORT_TABLES,
   assertBackofficeCutoverPrivileges,
   backofficeCutoverGrants,
   backofficeCutoverPrivileges,
@@ -181,8 +182,24 @@ test('backoffice cutover grants: SELECT on designations only with the back-offic
   );
   assert.doesNotMatch(
     backofficeCutoverGrants('pickchick_app', { backoffice: true, roles: false }),
-    /GRANT/,
+    /GRANT SELECT ON "public"\."bo_role_designations"/,
   );
+  // Contracts 3.2 point 2: with the back office the helper also grants read rights on the
+  // cloud073 report tables that exist (additive, no REVOKE: the pos helper owns their reset).
+  const sales = backofficeCutoverGrants('pickchick_app', { backoffice: true, roles: false });
+  for (const table of SALES_REPORT_TABLES)
+    assert.match(
+      sales,
+      new RegExp(
+        `IF to_regclass\\('public\\.${table}'\\) IS NOT NULL THEN GRANT SELECT ON "public"\\."${table}" TO "pickchick_app"; END IF;`,
+      ),
+    );
+  assert.doesNotMatch(sales, /cloud_pos_sale_inbox|cloud_pos_fiscal_receipts|REVOKE[^;]*cloud_pos/);
+  for (const roles of [true, false])
+    assert.doesNotMatch(
+      backofficeCutoverGrants('pickchick_app', { backoffice: false, roles }),
+      /GRANT|cloud_pos/,
+    );
 });
 
 // ------------------------------------------------------------------------- PostgreSQL ----

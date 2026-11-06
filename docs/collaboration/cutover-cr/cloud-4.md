@@ -14,17 +14,30 @@
 ## 1. Права чтения `cloud_pos_*` для отчёта (`infra/staging/provision.mjs`)
 
 Отчёт читает `cloud_pos_sales`, `cloud_pos_tenders`, `cloud_pos_refunds`,
-`cloud_pos_refund_tenders`, `cloud_pos_shift_reports` ролью API. Сброс прав этих таблиц - один,
-`cloudPosSalesGrants` (`infra/staging/pos-sales-grants.mjs`, полоса pos; второй сброс в
-`backoffice-cutover-grants.mjs` отменял бы первый, поэтому его там нет). Вызов из CR `cloud-2`
-(§2) `cloudPosSalesGrants('pickchick_app', {receiver: true, backoffice: true})` уже даёт отчёту
-права. Если интеграция сделает `receiver` зависимым от `CLOUD_POS_SALES_SYNC_ENABLED`, то
-`backoffice` должен оставаться `true`, пока включён отчёт. После вызова - проверка:
+`cloud_pos_refund_tenders`, `cloud_pos_shift_reports` ролью API. По контракту §3.2 п. 2 права
+чтения на них выдаёт helper 074, если таблицы есть: `backofficeCutoverGrants(apiRole,
+{backoffice: true, roles})` (`infra/staging/backoffice-cutover-grants.mjs`, вызов из CR `cloud-3`)
+добавляет `GRANT SELECT` на каждую существующую из пяти таблиц (ревью CR-CLOUD-R7). Это
+добавление без `REVOKE`: сброс прав таблиц 073 остаётся один, `cloudPosSalesGrants`
+(`infra/staging/pos-sales-grants.mjs`, полоса pos). Поэтому порядок в `provision.mjs`:
+`backofficeGrants` → `cloudPosSalesGrants` → `backofficeCutoverGrants` → проверки. Параметр
+`backoffice` у `cloudPosSalesGrants` - тот же переключатель бэк-офиса: тогда helper 074 ничего не
+добавляет сверх набора полосы pos, и её точная проверка `assertCloudPosSalesPrivileges` проходит
+после обоих вызовов (тест `packages/backoffice-core/tests/sales-report.test.mjs`). Вызов из CR
+`cloud-2` (§2) `cloudPosSalesGrants('pickchick_app', {receiver: true, backoffice: true})` даёт те
+же права и сам. После вызовов - проверка:
 
 ```diff
 +import { assertBackofficeCutoverPrivileges } from './backoffice-cutover-grants.mjs';
  ...
        await client.query(cloudPosSalesGrants('pickchick_app', { receiver: true, backoffice: true }));
++      // The CR cloud-3 call goes here, after the cloud073 reset: it adds SELECT on the report tables.
++      await client.query(
++        backofficeCutoverGrants('pickchick_app', {
++          backoffice: config.backofficeEnabled === true,
++          roles: process.env.BACKOFFICE_ROLES_ENABLED === 'true',
++        }),
++      );
 +      await assertBackofficeCutoverPrivileges(client, 'pickchick_app', {
 +        backoffice: config.backofficeEnabled === true,
 +        roles: process.env.BACKOFFICE_ROLES_ENABLED === 'true',

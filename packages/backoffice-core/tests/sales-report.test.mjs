@@ -34,8 +34,14 @@ import {
   salesReportPosReadable,
 } from '../dist/index.js';
 import * as contracts from '../../contracts/dist/index.js';
-import { assertBackofficeCutoverPrivileges } from '../../../infra/staging/backoffice-cutover-grants.mjs';
-import { cloudPosSalesGrants } from '../../../infra/staging/pos-sales-grants.mjs';
+import {
+  assertBackofficeCutoverPrivileges,
+  backofficeCutoverGrants,
+} from '../../../infra/staging/backoffice-cutover-grants.mjs';
+import {
+  assertCloudPosSalesPrivileges,
+  cloudPosSalesGrants,
+} from '../../../infra/staging/pos-sales-grants.mjs';
 import { receivePosSales } from '../../pos-order-sync/dist/index.js';
 import { stream, withPosSalesDatabases } from '../../pos-order-sync/tests/sales-cloud-fixture.mjs';
 
@@ -555,23 +561,38 @@ test('a role without SELECT on cloud073 gets the cloud channels and coverage.pos
         ]);
         assert.deepEqual(r.shifts, []);
         await db.query('ROLLBACK');
-        // The provisioning path: the cloud073 reset with the back-office set, then the proof.
-        await assert.rejects(
+        const proof = () =>
           assertBackofficeCutoverPrivileges(
             db,
             role,
             { backoffice: true, roles: false, salesReport: true },
             schema,
-          ),
+          );
+        await assert.rejects(
+          proof(),
           /cloud_pos_refund_tenders,cloud_pos_refunds,cloud_pos_shift_reports,cloud_pos_tenders/,
         );
+        // The provisioning path (provision.mjs order): the cloud073 reset of the pos lane, then
+        // the 074 helper, which grants read rights on the report tables that exist (contracts 3.2
+        // point 2), then the proof.
+        await db.query(cloudPosSalesGrants(role, { receiver: false, backoffice: false }, schema));
+        await assert.rejects(
+          proof(),
+          /cloud_pos_refund_tenders,cloud_pos_refunds,cloud_pos_sales,cloud_pos_shift_reports,cloud_pos_tenders/,
+        );
+        await db.query(backofficeCutoverGrants(role, { backoffice: true, roles: false }, schema));
+        await proof();
+        // With the pos reset on the same back-office switch the 074 grant adds nothing, so the
+        // pos lane's exact proof still holds after both helpers.
         await db.query(cloudPosSalesGrants(role, { receiver: false, backoffice: true }, schema));
-        await assertBackofficeCutoverPrivileges(
+        await db.query(backofficeCutoverGrants(role, { backoffice: true, roles: false }, schema));
+        await assertCloudPosSalesPrivileges(
           db,
           role,
-          { backoffice: true, roles: false, salesReport: true },
+          { receiver: false, backoffice: true },
           schema,
         );
+        await proof();
         await db.query('BEGIN');
         await db.query(`SET LOCAL ROLE ${role}`);
         const granted = await readSalesReport(
