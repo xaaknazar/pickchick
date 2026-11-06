@@ -592,6 +592,31 @@ test('a wrong or foreign PIN in the close-shift dialog keeps the cashier journal
   }
 });
 
+test('the desk hands its configured PIN pad length to the renderer, as the web POS does (6.5)', async () => {
+  for (const [pinLength, expected] of [
+    [undefined, undefined],
+    [4, 4],
+    [6, 6],
+  ])
+    await fixture(
+      async (handler) => {
+        const config = await (await handler(request('/config.json'))).json();
+        assert.equal(config.pinLength, expected, String(pinLength));
+        // Nothing else changes: without the key /config.json is exactly as before.
+        if (pinLength === undefined)
+          assert.deepEqual(config, { branchLabel: 'Synthetic desktop', categories: {} });
+      },
+      {
+        config: validateConfig({
+          edgePort: 3101,
+          branchLabel: 'Synthetic desktop',
+          categories: {},
+          ...(pinLength === undefined ? {} : { pinLength }),
+        }),
+      },
+    );
+});
+
 test('terminal config accepts a 6-digit PIN pad only as an explicit 4 or 6 (6.5)', () => {
   assert.equal(validateConfig({}).pinLength, undefined);
   assert.equal(validateConfig({ pinLength: 6 }).pinLength, 6);
@@ -803,6 +828,41 @@ test('the desk adds its own build to GET pos/config only; the renderer cannot', 
       fixture(async () => {}, { clientVersion }),
       /INVALID_CLIENT_VERSION/,
       String(clientVersion),
+    );
+});
+
+test('the desk publishes its installed version in /config.json for the lock screen (CR client-5)', async () => {
+  const { desktopAppVersion, APP_VERSION } = await import(
+    pathToFileURL(desktopFile('protocol.mjs')).href
+  );
+  const pkg = JSON.parse(await readFile(desktopFile('package.json'), 'utf8'));
+  // app.getVersion() of the packaged app is the package version.
+  assert.equal(desktopAppVersion(pkg.version), pkg.version);
+  assert.match(pkg.version, APP_VERSION);
+  for (const value of ['0.5', '0.5.0+build', '', 5, undefined, 'v0.5.0'])
+    assert.equal(desktopAppVersion(value), undefined, String(value));
+  await fixture(
+    async (handler, upstream) => {
+      const config = await (await handler(request('/config.json'))).json();
+      assert.deepEqual(config, {
+        branchLabel: 'Synthetic desktop',
+        categories: {},
+        appVersion: '0.5.0',
+      });
+      assert.equal(upstream.length, 0);
+    },
+    { appVersion: '0.5.0' },
+  );
+  // Without it (an older main, tests) /config.json is exactly as before.
+  await fixture(async (handler) => {
+    const config = await (await handler(request('/config.json'))).json();
+    assert.deepEqual(config, { branchLabel: 'Synthetic desktop', categories: {} });
+  });
+  for (const appVersion of ['', '0.5', 'pos-desktop-0.5.0', 1])
+    await assert.rejects(
+      fixture(async () => {}, { appVersion }),
+      /INVALID_APP_VERSION/,
+      String(appVersion),
     );
 });
 

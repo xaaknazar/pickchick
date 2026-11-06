@@ -56,6 +56,14 @@ export const BODYLESS_WRITES = Object.freeze(['/edge/v1/staff/logout']);
  * gateway refuses '%' in a request target).
  */
 export const CLIENT_VERSION = /^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$/;
+/**
+ * Version of the installed build in /config.json (CR client-5): the lock screen of a desk that
+ * sells names it. The same format as apps/pos/src/v2/mode-texts.js APP_VERSION.
+ */
+export const APP_VERSION = /^[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}(?:-[0-9A-Za-z.]{1,32})?$/;
+/** app.getVersion() when it has that format, or undefined (then no version is shown). */
+export const desktopAppVersion = (appVersion) =>
+  typeof appVersion === 'string' && APP_VERSION.test(appVersion) ? appVersion : undefined;
 /** The client_version of an installed build, or undefined when that version cannot be sent. */
 export function desktopClientVersion(appVersion) {
   const value = `pos-desktop-${appVersion}`;
@@ -398,6 +406,7 @@ function json(status, value) {
 /** The renderer can select neither a file path nor an upstream host.
  *  Routes match apps/pos/server.mjs; this adapter changes transport only.
  *  `clientVersion` (desktopClientVersion of the app) is added to GET pos/config only.
+ *  `appVersion` (desktopAppVersion of the app) is published in /config.json.
  *  `dial` is for tests of the pinned remote edge only (see createEdgeTransport). */
 export function createProtocolHandler({
   assetDir,
@@ -406,6 +415,7 @@ export function createProtocolHandler({
   timeoutMs = 10000,
   onSession = () => {},
   clientVersion,
+  appVersion,
   dial,
 }) {
   const settings = validateConfig(config);
@@ -415,6 +425,8 @@ export function createProtocolHandler({
     (typeof clientVersion !== 'string' || !CLIENT_VERSION.test(clientVersion))
   )
     throw new Error('INVALID_CLIENT_VERSION');
+  if (appVersion !== undefined && (typeof appVersion !== 'string' || !APP_VERSION.test(appVersion)))
+    throw new Error('INVALID_APP_VERSION');
   if (
     !(assetDir instanceof URL) ||
     assetDir.protocol !== 'file:' ||
@@ -528,6 +540,9 @@ export function createProtocolHandler({
         branchLabel: settings.branchLabel,
         categories: settings.categories,
         ...(settings.terminalId ? { terminalId: settings.terminalId } : {}),
+        // The PIN pad length the operator set (6.5): the lock screen submits at that many digits.
+        ...(settings.pinLength ? { pinLength: settings.pinLength } : {}),
+        ...(appVersion ? { appVersion } : {}),
       });
     const media = MENU_MEDIA_PATH.exec(path);
     if (media) {

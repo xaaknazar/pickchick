@@ -484,6 +484,11 @@ export type State = {
   shiftReport: ShiftReport | null;
   /** Frozen Z report read after closing a sales shift. */
   zReport: ShiftReport | null;
+  /**
+   * Webkassa state of the sale receipt of each paid order read so far, by order id: the
+   * "ЗАКАЗЫ" rows say оформлен / не оформлен / не нужен as the X report counts receipts.
+   */
+  saleReceipts: Record<string, SaleFiscal['state']>;
 };
 export type FiscalPending = {
   scope: 'shift' | 'all';
@@ -492,7 +497,14 @@ export type FiscalPending = {
   at: number;
 };
 /** Every sale-mode field of a fresh state; they reset with the session and the paid mode. */
-const blankOperations = () => ({ fiscal: null, shiftReport: null, zReport: null });
+const blankOperations = () => ({
+  fiscal: null,
+  shiftReport: null,
+  zReport: null,
+  saleReceipts: {},
+});
+/** GET pos/sales/{id} reads for the receipt state of the "ЗАКАЗЫ" rows, at most per call. */
+export const RECEIPT_READS = 10;
 /** How often the header asks the edge about its cloud link (with the operations refresh). */
 export const CLOUD_LINK_POLL_MS = 10000;
 /** An edge that predates GET edge/v1/cloud-link (404) is asked again only after this pause. */
@@ -584,6 +596,8 @@ export class PosController {
   private cloudLinkMissingUntil = -Infinity;
   private posConfigAt = -Infinity;
   private posConfigMissingUntil = -Infinity;
+  /** When each entry of state.saleReceipts was last read (or its read last failed). */
+  private receiptReadAt = new Map<string, number>();
   /** The edge runs the paid mode (`pos_sale`); otherwise every screen is today's cashier. */
   get saleMode() {
     return this.state.posConfig?.mode === 'pos_sale';
@@ -950,6 +964,7 @@ export class PosController {
     this.posConfigAt = -Infinity;
     this.operationsSaleAt = -Infinity;
     this.posConfigMissingUntil = -Infinity;
+    this.receiptReadAt.clear();
     await this.refreshData();
     await this.readOperations();
     if (journal.selected) await this.readOrder(journal.selected);
@@ -972,6 +987,7 @@ export class PosController {
     this.journal = null;
     this.releaseLease?.();
     this.releaseLease = null;
+    this.receiptReadAt.clear();
     this.state = {
       actor: null,
       menu: null,
@@ -1205,6 +1221,7 @@ export class PosController {
         this.state.saleDraft = blankSaleDraft();
         this.state.approval = null;
         Object.assign(this.state, blankOperations());
+        this.receiptReadAt.clear();
       }
       this.emit();
     }
@@ -2105,6 +2122,59 @@ export class PosController {
     const sale = parse.posSale(await this.request(`pos/sales/${parse.uuid(orderId)}`));
     if (sale.order_id !== orderId) throw new Error('INVALID_RESPONSE');
     if (!this.state.sale || this.state.sale.order_id === orderId) this.state.sale = sale;
+    this.noteSaleReceipt(sale);
+  }
+  /** Keeps the sale receipt state of a sale just read; true when it changed. */
+  private noteSaleReceipt(sale: PosSale) {
+    const receipt = sale.fiscal.find((f) => f.kind === 'sale');
+    if (!receipt) return false;
+    this.receiptReadAt.set(sale.order_id, this.now());
+    if (this.state.saleReceipts[sale.order_id] === receipt.state) return false;
+    this.state.saleReceipts = { ...this.state.saleReceipts, [sale.order_id]: receipt.state };
+    return true;
+  }
+  /**
+   * "ЗАКАЗЫ" in the paid mode (CR client-5): the Webkassa state of the sale receipt of each
+   * listed paid order, as the X report counts receipts. GET pos/sales/{id} for an order not
+   * read yet, and again for a pending one at most every POS_CONFIG_POLL_MS (a recorded or not
+   * required receipt stays so); at most RECEIPT_READS reads per call, in the order given.
+   * Best effort: never while a command is busy or pending, and nothing in the unpaid mode.
+   */
+  async refreshSaleReceipts(orderIds: readonly string[]) {
+    if (!this.saleMode || !this.credential || this.state.busy || this.state.pending) return;
+    const epoch = this.generation,
+      now = this.now();
+    const paid = new Set(
+      this.state.orders.filter((o) => o.execution_mode === 'pos_sale').map((o) => o.order_id),
+    );
+    const due = orderIds
+      .filter((id) => {
+        const state = this.state.saleReceipts[id];
+        return (
+          paid.has(id) &&
+          state !== 'recorded' &&
+          state !== 'not_required' &&
+          now - (this.receiptReadAt.get(id) ?? -Infinity) >= POS_CONFIG_POLL_MS
+        );
+      })
+      .slice(0, RECEIPT_READS);
+    let changed = false;
+    for (const id of due) {
+      try {
+        const sale = parse.posSale(await this.request(`pos/sales/${parse.uuid(id)}`));
+        if (epoch !== this.generation) return;
+        if (sale.order_id === id) changed = this.noteSaleReceipt(sale) || changed;
+      } catch (error) {
+        if (epoch !== this.generation) return;
+        if (error instanceof ApiError && error.code === 'UNAUTHORIZED') {
+          this.fail(error);
+          return;
+        }
+        // Asked again after the pause; the row keeps "-" or its last state meanwhile.
+        this.receiptReadAt.set(id, now);
+      }
+    }
+    if (changed) this.emit();
   }
   /** Best effort: the historical command result stays on screen when the read fails. */
   private async refreshSale(orderId: string) {
@@ -2259,6 +2329,17 @@ export class PosController {
       receipts,
       at: this.now(),
     };
+    // Every sale receipt on the list is pending now; "ЗАКАЗЫ" needs no read for it.
+    const sales = receipts.filter((r) => r.kind === 'sale');
+    if (sales.length) {
+      const now = this.now();
+      const next = { ...this.state.saleReceipts };
+      for (const r of sales) {
+        next[r.order_id] = 'pending';
+        this.receiptReadAt.set(r.order_id, now);
+      }
+      this.state.saleReceipts = next;
+    }
     return receipts;
   }
   /** Best effort for the badge and the tab; a failed read keeps the last list. */

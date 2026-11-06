@@ -2,7 +2,19 @@ import { requestPinCredential } from './pin-login.js';
 import { photoFor } from './photos.js';
 import { ReferenceView } from './reference-view.js';
 import { SaleView } from './sale-view.js';
-import { OpsView, paidDayStats } from './ops-view.js';
+import { OpsView, paidDayStats, receiptRow } from './ops-view.js';
+import {
+  PAID_TEXTS,
+  closeReasonText,
+  deskTexts,
+  findGuestText,
+  kitchenOffText,
+  rememberDeskMode,
+  shiftClosedText,
+  shiftOpenedText,
+  storedDeskPaid,
+  unavailableText,
+} from './mode-texts.js';
 import { TemplateView } from './template-engine.js';
 import { model, pinLogin } from './runtime.js';
 import {
@@ -61,7 +73,8 @@ let lastRender = '',
   previousKey = null,
   lastDeleted = null,
   lastOrder = null,
-  closeReason = 'Тестовая смена без оплаты',
+  // A typed discrepancy reason; without one the close sends closeReasonText of the shift.
+  closeReason = null,
   commentPurpose = 'order',
   errorShown = '',
   menuNoticeShown = 0,
@@ -80,8 +93,14 @@ function schedule() {
   }
 }
 const say = (text) => reference.say(text);
-const unavailable = () =>
-  say('В тестовом режиме эта интеграция не подключена. Деньги и чеки не проводятся.');
+// Test-mode texts stay as they are without payments; a desk that sells says the truth (CR client-5).
+const unavailable = () => say(unavailableText(model.saleMode));
+// Per-desk display hint for the lock screen, which has no session to ask pos/config with.
+const deskStorage = {
+  getItem: (key) => localStorage.getItem(key),
+  setItem: (key, value) => localStorage.setItem(key, value),
+};
+let deskPaid = storedDeskPaid(deskStorage);
 const safe =
   (fn) =>
   async (...args) => {
@@ -225,13 +244,18 @@ async function enterPin(pin, close = false) {
         await transport('staff/logout', credential, { method: 'POST' });
         throw Error('Нужен PIN начальника смены');
       }
-      const shiftId = model.state.shift?.shift_id;
+      const shiftId = model.state.shift?.shift_id,
+        closing = model.state.shift;
       await model.login(JSON.stringify(credential));
-      await model.closeShift(shiftId, String(reference.state.counted * 100), closeReason);
+      await model.closeShift(
+        shiftId,
+        String(reference.state.counted * 100),
+        closeReason ?? closeReasonText(closing),
+      );
       if (model.state.error) throw Error(errorMessage(model.state.error));
       reference.setState({ closeOpen: false, screen: 'lock', pin: '', closePin: '' });
       model.logout();
-      say('Тестовая смена закрыта. Фискальный Z-отчёт не формировался.');
+      say(shiftClosedText(closing));
     } else {
       await pinLogin(pin, config.terminalId);
       if (!model.state.draft && !model.state.pending) model.newDraft();
@@ -274,7 +298,7 @@ async function submit() {
     return;
   }
   if (model.state.ordering?.pos_service_mode !== 'unpaid_service') {
-    say('Тестовая передача на кухню ещё не включена оператором.');
+    say(kitchenOffText(model.state.ordering));
     return;
   }
   await model.create(true);
@@ -451,6 +475,11 @@ function draw() {
     'sayCashOut',
   ])
     v[key] = unavailable;
+  // Desk number and app line (CR client-5): the session's pos/config once it is read, and
+  // until then (the lock screen, the first moment after a PIN) the edge's last answer to this
+  // desk, so a desk that sells never flashes "Касса 1" or "TEST".
+  deskPaid = rememberDeskMode(deskStorage, m, deskPaid);
+  Object.assign(v, deskTexts(deskPaid, config.appVersion));
   // Red: no connection to the cashier server; yellow: no internet, the cashier keeps working.
   const connection = connectionLabel(m);
   Object.assign(v, {
@@ -477,7 +506,7 @@ function draw() {
       await model.openShift(String(Math.round(s.openCash * 100)));
       if (model.state.shift) {
         reference.setState({ screen: 'work', tab: 'order' });
-        say('Тестовая смена открыта');
+        say(shiftOpenedText(model.state.shift));
       }
     }),
     lock,
@@ -519,8 +548,7 @@ function draw() {
       details({ display_name: s.board.trim().slice(0, 14) });
       reference.setState({ guestOpen: false, guest: null });
     },
-    findGuest: () =>
-      say('Поиск аккаунтов и Чики подключим отдельно. Для теста укажите имя на табло.'),
+    findGuest: () => say(findGuestText(model.saleMode)),
     hasPromo: false,
     discountLabel: '0',
     giftAvail: false,
@@ -873,16 +901,12 @@ function draw() {
       }),
     });
   }
-  const rows = m.orders.filter(
-    (o) =>
-      (s.dayFilter === 'all' || s.dayFilter === 'pos') &&
-      new Date(o.created_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Almaty' }) ===
-        filterDate,
-  );
+  const rows = dayOrders();
   v.dayRows = rows.map((o) => ({
     no: orderNumber(o),
     time: time(o.created_at),
-    channel: o.execution_mode === 'pos_sale' ? 'КАССА' : 'КАССА · ТЕСТ',
+    // A desk that sells calls no row a test; "Без оплаты" says what an unpaid row is.
+    channel: o.execution_mode === 'pos_sale' || model.saleMode ? 'КАССА' : 'КАССА · ТЕСТ',
     chBg: 'var(--blue)',
     guest: o.snapshot.details?.display_name || '-',
     items: o.snapshot.lines.map((l) => l.name.ru + ' ×' + l.quantity).join(', '),
@@ -891,7 +915,10 @@ function draw() {
     status: kitchenLabel(o),
     stBg: o.fulfillment_state === 'ready' ? '#DCF2E4' : 'var(--n100)',
     stFg: o.fulfillment_state === 'ready' ? '#0B7A3B' : 'var(--n900)',
-    fiscal: 'var(--n300)',
+    // Paid mode: the Webkassa state of the sale receipt (CR client-5); today "без чека".
+    ...(model.saleMode
+      ? receiptRow(o, m.saleReceipts[o.order_id])
+      : { fiscal: 'var(--n300)', fiscalLabel: 'без чека' }),
     rowBg: '#fff',
     canRefund: false,
     // A paid order opens the card with void, refund and its Webkassa receipts.
@@ -900,7 +927,13 @@ function draw() {
         ? ops.openCard(o.order_id)
         : orderDialog(o.order_id),
     ),
-    fiscalLabel: 'без чека',
+    // «Чек»: a paid order opens its card with the Webkassa number entry of a receipt still to
+    // punch, or prints «Чек заказа (не фискальный)» (ops-view.js printReceipt).
+    reprint: !model.saleMode
+      ? unavailable
+      : o.execution_mode === 'pos_sale'
+        ? safe(() => ops.printReceipt(o.order_id))
+        : () => say(PAID_TEXTS.unpaidReceipt),
     note: o.snapshot.details?.kitchen_comment ?? '',
     hasNote: Boolean(o.snapshot.details?.kitchen_comment),
     canEditNote: false,
@@ -1055,6 +1088,16 @@ function draw() {
   if (m.busy || signing) {
     root.setAttribute('aria-busy', 'true');
   } else root.removeAttribute('aria-busy');
+}
+/** Orders of the day chosen in "ЗАКАЗЫ" (this desk's; a shift manager's are the branch's). */
+function dayOrders() {
+  const s = reference.state;
+  return model.state.orders.filter(
+    (o) =>
+      (s.dayFilter === 'all' || s.dayFilter === 'pos') &&
+      new Date(o.created_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Almaty' }) ===
+        filterDate,
+  );
 }
 function changeDay(days) {
   const d = new Date(filterDate + 'T12:00:00+05:00');
@@ -1215,9 +1258,13 @@ setInterval(() => {
 }, 1000);
 setInterval(() => {
   if (model.state.actor && !blocked() && !document.hidden)
-    void Promise.all([model.refreshOperations(), model.refreshStops()]).then(() =>
-      blocked() ? null : model.syncMenu(),
-    );
+    void Promise.all([model.refreshOperations(), model.refreshStops()]).then(async () => {
+      if (blocked()) return;
+      // Paid mode only (no request otherwise): Webkassa states of the rows on screen.
+      if (reference.state.tab === 'orders')
+        await model.refreshSaleReceipts(dayOrders().map((o) => o.order_id));
+      if (!blocked()) await model.syncMenu();
+    });
 }, 3000);
 // Physical keyboards are supplementary; the on-screen keypad remains primary.
 document.addEventListener('keydown', (event) => {

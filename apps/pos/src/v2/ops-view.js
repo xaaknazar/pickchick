@@ -82,6 +82,23 @@ export function paidDayStats(orders) {
     ),
   ];
 }
+/**
+ * "ОПЛАТА · ККМ" of an order row in the paid mode (CR client-5): the state of a paid order's
+ * Webkassa sale receipt in the words of the X report (оформлен / не оформлен / не нужен), "-"
+ * until it is read; an order passed without payment has no receipt and keeps "без чека". The
+ * column header names the receipt, so the words stand alone: at 1366 px the column is 122 px
+ * and "чек: не оформлен" was cut.
+ */
+export function receiptRow(order, state) {
+  if (order.execution_mode !== 'pos_sale')
+    return { fiscalLabel: 'без чека', fiscal: 'var(--n300)' };
+  return {
+    fiscalLabel: RECEIPT_STATES[state] ?? '-',
+    fiscal:
+      { recorded: '#0B7A3B', pending: 'var(--orange)', not_required: 'var(--n600)' }[state] ??
+      'var(--n300)',
+  };
+}
 /** Revenue of a report: every method but staff meal and marketing, net of refunds. */
 export const reportRevenue = (report) =>
   report.methods
@@ -765,6 +782,20 @@ export class OpsView {
     const { order, sale } = this.model.state;
     if (!order || !sale || order.order_id !== sale.order_id) return;
     await this.print(orderTicket(order, sale, this.terminalLabel));
+  }
+  /**
+   * «Чек» of a paid order row (CR client-5): the order card with its Webkassa receipts, and
+   * one action of that card. A sale receipt still to punch opens its number entry; otherwise a
+   * paid order prints «Чек заказа (не фискальный)» once. A cancelled order prints nothing by
+   * itself: its card has the slip of the void.
+   */
+  async printReceipt(orderId) {
+    await this.openCard(orderId);
+    const target = this.state.card ? this.target() : null;
+    if (target?.order.order_id !== orderId) return;
+    const receipt = this.saleReceipt();
+    if (receipt?.state === 'pending') this.askReceipt(receipt);
+    else if (target.order.state === 'paid') await this.printOrder();
   }
   reportValues() {
     const kind = this.state.report,

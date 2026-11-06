@@ -2,6 +2,7 @@ import { V2_ASSETS } from '../pos-desktop/v2-assets.mjs';
 import { createServer } from 'node:http';
 import { MENU_ASSETS } from '../pos-desktop/menu-assets.mjs';
 import {
+  APP_VERSION,
   BODYLESS_WRITES,
   MENU_MEDIA_PATH,
   SALE_ROUTES,
@@ -56,6 +57,7 @@ export function createPosServer({
   categories = {},
   terminalId,
   pinLength,
+  appVersion,
   timeoutMs = 10000,
 } = {}) {
   if (!Number.isInteger(edgePort) || edgePort < 1 || edgePort > 65535)
@@ -67,9 +69,14 @@ export function createPosServer({
     throw new Error('Invalid terminal id');
   if (pinLength !== undefined && pinLength !== 4 && pinLength !== 6)
     throw new Error('Invalid PIN length');
+  // The installed build shown on the lock screen of a desk that sells (CR client-5); pos-desktop
+  // sends its own. Without it the web POS names no version.
+  if (appVersion !== undefined && (typeof appVersion !== 'string' || !APP_VERSION.test(appVersion)))
+    throw new Error('Invalid app version');
   const config = {
     ...(terminalId === undefined ? {} : { terminalId }),
     ...(pinLength === undefined ? {} : { pinLength }),
+    ...(appVersion === undefined ? {} : { appVersion }),
     branchLabel: String(branchLabel).slice(0, 120),
     categories: Object.fromEntries(
       Object.entries(categories).filter(

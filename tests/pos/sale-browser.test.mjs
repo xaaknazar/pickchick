@@ -516,6 +516,8 @@ test('paid cashier screens in the browser: hall cash, aggregator, staff meal; 40
     branchLabel: 'Тестовая точка',
     categories: { [edge.category]: 'Комбо' },
     terminalId: edge.terminal,
+    // As pos-desktop 0.5.0 sends it: the lock screen of a desk that sells shows it (CR client-5).
+    appVersion: '0.5.0',
   });
   await new Promise((r) => pos.listen(0, '127.0.0.1', r));
   const output = new URL('../../.local/pos-sale-browser/', import.meta.url);

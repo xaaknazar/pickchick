@@ -23,6 +23,22 @@ import {
   printMessage,
   refundTicket,
 } from '../../apps/pos/dist/v2/ops-view.js';
+import { RECEIPT_READS } from '../../apps/pos/dist/model.js';
+import { receiptRow, reportLines } from '../../apps/pos/dist/v2/ops-view.js';
+import {
+  DESK_MODE_KEY,
+  PAID_TEXTS,
+  TEST_TEXTS,
+  closeReasonText,
+  deskTexts,
+  findGuestText,
+  kitchenOffText,
+  rememberDeskMode,
+  shiftClosedText,
+  shiftOpenedText,
+  storedDeskPaid,
+  unavailableText,
+} from '../../apps/pos/dist/v2/mode-texts.js';
 import { parseTicket } from '../../apps/pos-desktop/printer.mjs';
 import { JOURNAL_PREFIX, validateJournal } from '../../apps/pos-desktop/journal.mjs';
 import {
@@ -3879,4 +3895,364 @@ test('screens: voiding a cash sale opens the drawer once; the void slip prints',
   assert.equal(slip.title, 'Отмена заказа (не фискальный)');
   assert.deepEqual(slip.totals, [{ label: 'Отменено', amount_minor: '699000' }]);
   assert.deepEqual(parseTicket(slip), { ...slip, lines: [] });
+});
+
+// ---- CR client-5: test-mode texts of today's screens on a desk that sells ------------------
+
+test('mode texts: a desk without payments keeps today texts byte for byte', () => {
+  // Exactly the strings of D0 (apps/pos/src/v2/app.js and template.html before CR client-5).
+  assert.deepEqual(TEST_TEXTS, {
+    shiftOpened: 'Тестовая смена открыта',
+    shiftClosed: 'Тестовая смена закрыта. Фискальный Z-отчёт не формировался.',
+    closeReason: 'Тестовая смена без оплаты',
+    unavailable: 'В тестовом режиме эта интеграция не подключена. Деньги и чеки не проводятся.',
+    findGuest: 'Поиск аккаунтов и Чики подключим отдельно. Для теста укажите имя на табло.',
+    kitchenOff: 'Тестовая передача на кухню ещё не включена оператором.',
+    deskPrefix: 'Касса 1 · ',
+    deskChip: ' · касса 1',
+    appLine: 'Pick Chick POS 0.4 · TEST',
+  });
+  const testShift = fixture().shift;
+  assert.equal(testShift.payment_processing_available, false);
+  for (const shift of [testShift, null, undefined]) {
+    assert.equal(shiftOpenedText(shift), 'Тестовая смена открыта');
+    assert.equal(
+      shiftClosedText(shift),
+      'Тестовая смена закрыта. Фискальный Z-отчёт не формировался.',
+    );
+    assert.equal(closeReasonText(shift), 'Тестовая смена без оплаты');
+  }
+  assert.equal(unavailableText(false), TEST_TEXTS.unavailable);
+  assert.equal(findGuestText(false), TEST_TEXTS.findGuest);
+  for (const ordering of [
+    null,
+    { pos_service_mode: 'payment_required' },
+    { pos_service_mode: 'unpaid_service' },
+    {},
+  ])
+    assert.equal(kitchenOffText(ordering), TEST_TEXTS.kitchenOff, JSON.stringify(ordering));
+  // The app version never reaches a desk without payments: its footer stays as it was.
+  for (const version of ['0.5.0', undefined, 'x'])
+    assert.deepEqual(deskTexts(false, version), {
+      deskPrefix: 'Касса 1 · ',
+      deskChip: ' · касса 1',
+      appLine: 'Pick Chick POS 0.4 · TEST',
+    });
+});
+
+test('mode texts: a desk that sells names no test, no wrong desk and its real version', () => {
+  const sales = { ...fixture().shift, payment_processing_available: true };
+  assert.equal(shiftOpenedText(sales), 'Смена открыта');
+  assert.equal(
+    shiftClosedText(sales),
+    'Смена закрыта. Не забудьте закрыть смену в кабинете Webkassa.',
+  );
+  assert.equal(closeReasonText(sales), 'Закрытие смены');
+  assert.equal(unavailableText(true), 'Эта функция пока не подключена.');
+  assert.equal(
+    findGuestText(true),
+    'Поиск аккаунтов и Чики подключим отдельно. Укажите имя на табло.',
+  );
+  assert.equal(
+    kitchenOffText({ pos_service_mode: 'pos_sale' }),
+    'Касса получает настройки оплаты - повторите через полминуты.',
+  );
+  assert.deepEqual(deskTexts(true, '0.5.0'), {
+    deskPrefix: '',
+    deskChip: '',
+    appLine: 'Pick Chick POS 0.5.0',
+  });
+  assert.equal(deskTexts(true, '0.5.1-rc.2').appLine, 'Pick Chick POS 0.5.1-rc.2');
+  for (const version of [undefined, null, '', '0.5', '0.5.0+build', '<b>1.0.0</b>', 5])
+    assert.equal(deskTexts(true, version).appLine, 'Pick Chick POS', String(version));
+  for (const text of texts(PAID_TEXTS)) {
+    assert.doesNotMatch(text, /тест|test/i, text);
+    assert.doesNotMatch(text, /[‒-―]/, 'plain hyphen only: ' + text);
+    assert.doesNotMatch(text, /Касса \d|касса \d/, text);
+  }
+});
+
+test('mode texts: the lock screen keeps the edge last definite answer per desk', () => {
+  const storage = memory();
+  assert.equal(storedDeskPaid(storage), false, 'a desk never told anything shows today texts');
+  const config = (mode) => ({ posConfig: { mode }, posConfigMissing: false });
+  const unknown = { posConfig: null, posConfigMissing: false };
+  // A desk without payments writes nothing at all.
+  assert.equal(rememberDeskMode(storage, config('unpaid_service'), false), false);
+  assert.equal(
+    rememberDeskMode(storage, { posConfig: null, posConfigMissing: true }, false),
+    false,
+  );
+  assert.equal(storage.data.size, 0);
+  // pos_sale is kept for the next lock screen, also after a restart (read back from storage).
+  assert.equal(rememberDeskMode(storage, config('pos_sale'), false), true);
+  assert.equal(storage.data.get(DESK_MODE_KEY), 'pos_sale');
+  assert.equal(storedDeskPaid(storage), true);
+  // No session or a failed read is no answer: the last one stays.
+  assert.equal(rememberDeskMode(storage, unknown, true), true);
+  assert.equal(storage.data.get(DESK_MODE_KEY), 'pos_sale');
+  // Back to unpaid (rollback, or 404 of an edge without schema026): today texts again.
+  assert.equal(rememberDeskMode(storage, config('unpaid_service'), true), false);
+  assert.equal(storedDeskPaid(storage), false);
+  assert.equal(rememberDeskMode(storage, config('pos_sale'), false), true);
+  assert.equal(rememberDeskMode(storage, { posConfig: null, posConfigMissing: true }, true), false);
+  assert.equal(storedDeskPaid(storage), false);
+  // Blocked storage never breaks the screen; only the hint is lost after a restart.
+  const blocked = {
+    getItem: () => {
+      throw new Error('blocked');
+    },
+    setItem: () => {
+      throw new Error('blocked');
+    },
+  };
+  assert.equal(storedDeskPaid(blocked), false);
+  assert.equal(rememberDeskMode(blocked, config('pos_sale'), false), true);
+  assert.equal(storedDeskPaid(undefined), false);
+});
+
+test('screens: a paid order row says its Webkassa receipt as the X report counts it', () => {
+  const order = (execution_mode) => ({ order_id: randomUUID(), execution_mode });
+  assert.deepEqual(receiptRow(order('unpaid_service'), undefined), {
+    fiscalLabel: 'без чека',
+    fiscal: 'var(--n300)',
+  });
+  assert.deepEqual(receiptRow(order(undefined), 'pending'), {
+    fiscalLabel: 'без чека',
+    fiscal: 'var(--n300)',
+  });
+  const paid = order('pos_sale');
+  assert.deepEqual(
+    ['pending', 'recorded', 'not_required', undefined].map((state) => receiptRow(paid, state)),
+    [
+      { fiscalLabel: 'не оформлен', fiscal: 'var(--orange)' },
+      { fiscalLabel: 'оформлен', fiscal: '#0B7A3B' },
+      { fiscalLabel: 'не нужен', fiscal: 'var(--n600)' },
+      { fiscalLabel: '-', fiscal: 'var(--n300)' },
+    ],
+  );
+  // The words of the X report line «Чеки Webkassa: оформлено …, не оформлено …, не нужен …».
+  const line = reportLines({
+    discrepancy_minor: null,
+    terminal_discrepancy_minor: null,
+    orders: { count: 3, voided_count: 0 },
+    fiscal: { pending: 1, recorded: 1, not_required: 1 },
+  }).find((text) => text.startsWith('Чеки Webkassa'));
+  assert.equal(line, 'Чеки Webkassa: оформлено 1, не оформлено 1, не нужен 1');
+});
+
+/** A desk that sells, with the orders feed listing the sales of the synthetic edge. */
+function feedEdge(edge) {
+  return {
+    ...edge,
+    api: async (path, auth, options) =>
+      path === 'orders'
+        ? {
+            orders: [...edge.edge.orders.values()].reverse(),
+            server_time: new Date().toISOString(),
+          }
+        : edge.api(path, auth, options),
+  };
+}
+
+test('ЗАКАЗЫ in the paid mode: each paid row is read once; a pending receipt again after the pause', async () => {
+  const edge = saleEdge();
+  const seller = await saleCashier(edge);
+  for (const payment of [
+    { method: 'cash', tendered_minor: '700000' },
+    { method: 'chocofood', external_order_ref: 'CF-100' },
+    { method: 'kaspi_manual' },
+  ]) {
+    await reviewed(seller, edge);
+    await seller.sell(payment);
+    assert.equal(seller.state.error, null, String(seller.state.error));
+    seller.newDraft();
+  }
+  const [cash, choco, manual] = [...edge.edge.sales.values()];
+  // The desk sold them: their receipts are known without any extra read.
+  assert.deepEqual(seller.state.saleReceipts, {
+    [cash.order_id]: 'pending',
+    [choco.order_id]: 'not_required',
+    [manual.order_id]: 'pending',
+  });
+  // The next cashier of the desk (a new session) reads each listed paid order once.
+  let now = Date.now();
+  const desk = feedEdge(edge);
+  const model = await saleCashier(desk, memory(), memory(), { now: () => now });
+  assert.deepEqual(model.state.saleReceipts, {});
+  const ids = model.state.orders.map((o) => o.order_id);
+  assert.deepEqual(ids, [manual.order_id, choco.order_id, cash.order_id], 'newest first');
+  const reads = () => edge.calls.filter((c) => /^pos\/sales\/[0-9a-f-]+$/.test(c.path));
+  const before = reads().length;
+  await model.refreshSaleReceipts([...ids, randomUUID()]);
+  assert.deepEqual(
+    reads()
+      .slice(before)
+      .map((c) => c.path),
+    ids.map((id) => `pos/sales/${id}`),
+    'only listed paid orders, in the order of the rows',
+  );
+  assert.deepEqual(model.state.saleReceipts, {
+    [cash.order_id]: 'pending',
+    [choco.order_id]: 'not_required',
+    [manual.order_id]: 'pending',
+  });
+  await model.refreshSaleReceipts(ids);
+  assert.equal(reads().length, before + 3, 'nothing again before the pause');
+  // The other desk records the cash receipt in Webkassa; after the pause only pending ones
+  // are read again, and the cash one turns "оформлен".
+  Object.assign(cash.fiscal[0], { state: 'recorded', receipt_number: 'TEST-WK-1', version: 2 });
+  now += POS_CONFIG_POLL_MS;
+  await model.refreshSaleReceipts(ids);
+  assert.deepEqual(
+    reads()
+      .slice(before + 3)
+      .map((c) => c.path),
+    [`pos/sales/${manual.order_id}`, `pos/sales/${cash.order_id}`],
+  );
+  assert.equal(model.state.saleReceipts[cash.order_id], 'recorded');
+  // A pending receipt on this shift's list needs no read: the list says it.
+  now += POS_CONFIG_POLL_MS;
+  await model.refreshFiscal();
+  await model.refreshSaleReceipts(ids);
+  assert.equal(reads().length, before + 5, 'recorded and not required stay; pending is listed');
+  assert.equal(model.state.saleReceipts[manual.order_id], 'pending');
+  // A read that fails is asked again only after the pause; the row keeps "-".
+  const failing = feedEdge({
+    ...edge,
+    api: async (path, auth, options) => {
+      if (/^pos\/sales\/[0-9a-f-]+$/.test(path)) throw new ApiError('EDGE_TIMEOUT', 504);
+      return edge.api(path, auth, options);
+    },
+  });
+  const other = await saleCashier(failing, memory(), memory(), { now: () => now });
+  await other.refreshSaleReceipts(ids);
+  await other.refreshSaleReceipts(ids);
+  assert.deepEqual(other.state.saleReceipts, {});
+  assert.equal(other.state.error, null, 'best effort: no error toast for a background read');
+  // Leaving the paid mode forgets them.
+  edge.edge.config = new ApiError('NOT_FOUND', 404);
+  await model.refreshPosConfig(true);
+  assert.equal(model.saleMode, false);
+  assert.deepEqual(model.state.saleReceipts, {});
+});
+
+test('ЗАКАЗЫ in the paid mode: at most RECEIPT_READS reads per refresh; none without payments', async () => {
+  const edge = saleEdge();
+  const seller = await saleCashier(edge);
+  for (let n = 0; n < RECEIPT_READS + 2; n++) {
+    await reviewed(seller, edge);
+    await seller.sell({ method: 'cash', tendered_minor: '700000' });
+    seller.newDraft();
+  }
+  const desk = feedEdge(edge);
+  const model = await saleCashier(desk);
+  const ids = model.state.orders.map((o) => o.order_id);
+  assert.equal(ids.length, RECEIPT_READS + 2);
+  const reads = () => edge.calls.filter((c) => /^pos\/sales\/[0-9a-f-]+$/.test(c.path)).length;
+  const before = reads();
+  await model.refreshSaleReceipts(ids);
+  assert.equal(reads() - before, RECEIPT_READS);
+  await model.refreshSaleReceipts(ids);
+  assert.equal(reads() - before, RECEIPT_READS + 2, 'the rest at the next refresh');
+  assert.equal(Object.keys(model.state.saleReceipts).length, RECEIPT_READS + 2);
+  // An edge without paid sales (pos/config 404): the same rows ask nothing.
+  const f = fixture();
+  const calls = [];
+  const unpaid = new PosController(
+    async (path, auth, options) => {
+      calls.push(path);
+      if (path === 'pos/config') throw new ApiError('NOT_FOUND', 404);
+      return f.api(path, auth, options);
+    },
+    memory(),
+    memory(),
+    randomUUID,
+  );
+  await unpaid.login(JSON.stringify(f.credential));
+  const asked = calls.length;
+  await unpaid.refreshSaleReceipts(ids);
+  assert.equal(calls.length, asked);
+});
+
+test('screens: «Чек» of a paid row: the Webkassa entry of a receipt to punch, else the order ticket', async () => {
+  const edge = saleEdge();
+  const model = await saleCashier(edge);
+  const printer = printerBridge();
+  const { view, ops, said } = wiredScreens(model, printer);
+  await reviewed(model, edge, 'takeaway');
+  await model.sell({ method: 'kaspi_manual' });
+  const sale = model.state.sale;
+  model.newDraft();
+  // Not punched yet: the card of the order opens at the number entry, nothing is printed.
+  await ops.printReceipt(sale.order_id);
+  assert.equal(ops.state.card?.mode, 'view', 'the card shows its Webkassa receipt');
+  assert.deepEqual(
+    ops.cardValues().opsCardReceipts.map((r) => [r.text, r.action]),
+    [['Чек продажи · 6 990 ₸ · не оформлен', 'Внести номер']],
+  );
+  assert.equal(view.state.entry?.purpose, 'fiscalNumber');
+  assert.equal(view.values().saleEntryTitle, 'Номер чека Webkassa');
+  assert.deepEqual(printer.calls, [], 'no paper the cashier did not ask for');
+  view.setState({ entry: { ...view.state.entry, value: 'WK-7' } });
+  await view.saveEntry();
+  assert.equal(said.at(-1), 'Номер чека Webkassa сохранён');
+  assert.equal(model.state.saleReceipts[sale.order_id], 'recorded', 'the row says оформлен');
+  ops.closeCard();
+  // Punched (or not needed): «Чек» prints «Чек заказа (не фискальный)» once.
+  await ops.printReceipt(sale.order_id);
+  assert.equal(ops.state.card?.mode, 'view');
+  assert.equal(view.state.entry, null);
+  assert.equal(printer.calls.length, 1);
+  const [kind, ticket] = printer.calls[0];
+  assert.equal(kind, 'print');
+  assert.equal(ticket.title, 'Чек заказа (не фискальный)');
+  assert.equal(ticket.display_number, sale.display_number);
+  assert.deepEqual(parseTicket(ticket), ticket);
+  assert.equal(said.at(-1), 'Отправлено на печать');
+  // Without a printer the card still opens and the desk says so; nothing claims a test mode.
+  const bare = wiredScreens(model, undefined);
+  await bare.ops.printReceipt(sale.order_id);
+  assert.equal(bare.ops.state.card?.mode, 'view');
+  assert.equal(bare.said.at(-1), 'Печать не настроена');
+  assert.ok(![...said, ...bare.said].some((t) => /тест/i.test(t)), bare.said.join(' | '));
+  // A cancelled order prints nothing by itself: its card has the slip of the void.
+  bare.ops.closeCard();
+  const voided = edge.edge.orders.get(sale.order_id);
+  Object.assign(voided, {
+    state: 'cancelled',
+    version: voided.version + 1,
+    fulfillment_state: 'cancelled',
+    fulfillment: { ...voided.fulfillment, version: 2, state: 'cancelled' },
+    cancellation_reason: 'Синтетическая отмена',
+  });
+  const quiet = printerBridge();
+  const after = wiredScreens(model, quiet);
+  await after.ops.printReceipt(sale.order_id);
+  assert.equal(after.ops.state.card?.mode, 'view');
+  assert.equal(after.view.state.entry, null);
+  assert.deepEqual(quiet.calls, []);
+});
+
+test('web POS publishes the app version for the lock screen only when it is given', async () => {
+  const { createPosServer } = await import('../../apps/pos/server.mjs');
+  for (const bad of ['', '0.5', '0.5.0+build', 5, '1.0.0 '])
+    assert.throws(() => createPosServer({ appVersion: bad }), /app version/, String(bad));
+  for (const [options, expected] of [
+    [{}, undefined],
+    [{ appVersion: '0.5.0' }, '0.5.0'],
+  ]) {
+    const pos = createPosServer({ edgePort: 9, ...options });
+    await new Promise((resolve) => pos.listen(0, '127.0.0.1', resolve));
+    try {
+      const config = await (
+        await fetch(`http://127.0.0.1:${pos.address().port}/config.json`)
+      ).json();
+      assert.equal(config.appVersion, expected);
+      if (expected === undefined)
+        assert.deepEqual(Object.keys(config).sort(), ['branchLabel', 'categories']);
+    } finally {
+      await new Promise((resolve) => pos.close(resolve));
+    }
+  }
 });
