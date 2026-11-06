@@ -61,6 +61,16 @@ ADMIN_FILES = (
     'infra/windows/kds-grants.mjs',
     'infra/windows/kds-upgrade-db.mjs',
     'infra/windows/kds-switch.mjs',
+    # Cutover 19.11 (integration review R8): the POS sync installer refuses a runtime whose
+    # manifest does not pin every file it runs (install-native-pos-sync.ps1, Verify in window
+    # C4 step 3.8); native-pos-sync-db.mjs imports native-foundation-db.mjs and
+    # pos-sync-worker-grants.mjs, which imports pos-sales-grants.mjs.
+    'infra/windows/native-pos-sync-db.mjs',
+    'infra/windows/native-foundation-db.mjs',
+    'infra/windows/pos-sync-worker-grants.mjs',
+    'infra/windows/install-native-pos-sync.ps1',
+    'infra/windows/inspect-native-ssh.ps1',
+    'infra/windows/native-pos-sync.md',
     'infra/windows/README.md',
     'infra/windows/native-staff-login.md',
     'infra/windows/local-pos-service.md',
