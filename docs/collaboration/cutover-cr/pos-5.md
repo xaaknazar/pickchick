@@ -61,7 +61,9 @@ its number for the corrected re-entry» (Яндекс Еда и ChocoFood: от�
 `db/edge/migrations/026_edge_pos_sales.sql` изменён до заморозки DDL (§3.2 п.6: на точке 026
 ещё не применялась). Новый SHA-256:
 `4ff8da34df867929269b7554a61182741840a2300f7a406d4e33748e99a0d873`
-(прежний `9e3ab95a…` из CR pos-1 §1 недействителен). Список отношений, права рантайма и воркера
+(прежний `9e3ab95a…` из CR pos-1 §1 недействителен).
+**Заменён:** в 026 добавлен fence восстановления для `pos_sale_outbox` (CR cloud-5 п. 1),
+действующий SHA-256 - в [CR pos-6 §2](pos-6.md). Список отношений, права рантайма и воркера
 (`infra/windows/pos-sales-grants.mjs`) не меняются: проверка номера читает `pos_sales` и
 `local_orders` правом `SELECT`, которое у рантайма уже есть, а advisory-блокировке прав не нужно.
 Остальное из CR pos-1 §1 и CR pos-4 §4 в силе (ledger копий и `EDGE_BACKUP_SCHEMAS`, гранты в

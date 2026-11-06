@@ -11,11 +11,12 @@
 `9e3ab95a851bae3bb7383e9517d5fcc76f6f0b92bacc98d12f3292309226e8be`.
 Хеш окончательный после заморозки DDL 10.11 18:00; при изменении файла полоса pos пришлёт новый.
 **Заменён:** 026 изменена по ревью (номер заказа после отмены, чек возврата без чека продажи),
-действующий SHA-256 - в [CR pos-5 §2](pos-5.md). Отношения и права ниже не изменились.
+SHA-256 - в [CR pos-5 §2](pos-5.md), затем fence восстановления (CR cloud-5 п. 1): действующий
+SHA-256 - в [CR pos-6 §2](pos-6.md). Отношения и права ниже не изменились.
 
 Новые отношения (владелец - owner edge, грантов в миграции нет):
 `pos_sales_setting_changes` (+ последовательность `pos_sales_setting_changes_change_sequence_seq`), `pos_payment_methods`, `pos_config_fetches`, `local_manager_approvals`, `pos_sales`, `pos_sale_tenders`, `pos_refunds`, `pos_refund_tenders`, `pos_fiscal_receipts`, `pos_shift_reports`, `pos_sale_outbox` (+ `pos_sale_outbox_sequence_seq`), `pos_sale_sync_state`.
-Изменения существующих объектов: CHECK `branch_config.pos_service_mode`, CHECK `local_orders` (state, payment_state, execution_mode, причина отмены + три новых), CHECK `fulfillment_reservations.fulfillment_admission_origin`, колонка `local_cash_shifts.sales_mode` (DEFAULT false), функции `guard_local_order_update`, `guard_local_execution_mode`, `guard_local_execution_admission`, `guard_local_cash_shift`, `guard_cash_movement`, `append_cashier_shift_report` (`CREATE OR REPLACE`, для старых строк ответы и payload прежние - тест `pos-sales-upgrade`). Новые триггеры на `branch_config`: `pos_payment_methods_seed` (AFTER INSERT) и `pos_service_mode_change_guard` (BEFORE UPDATE OF pos_service_mode). Существующие строки миграция не меняет; она добавляет 8 строк `pos_payment_methods` (все `enabled=false`) для строки `branch_config`.
+Изменения существующих объектов: CHECK `branch_config.pos_service_mode`, CHECK `local_orders` (state, payment_state, execution_mode, причина отмены + три новых), CHECK `fulfillment_reservations.fulfillment_admission_origin`, колонка `local_cash_shifts.sales_mode` (DEFAULT false), функции `guard_local_order_update`, `guard_local_execution_mode`, `guard_local_execution_admission`, `guard_local_cash_shift`, `guard_cash_movement`, `append_cashier_shift_report` (`CREATE OR REPLACE`, для старых строк ответы и payload прежние - тест `pos-sales-upgrade`), `edge_restore_fence(boolean)` (`CREATE OR REPLACE`, тело 023 плюс `pos_sale_outbox`, права прежние - [CR pos-6](pos-6.md)). Новые триггеры на `branch_config`: `pos_payment_methods_seed` (AFTER INSERT) и `pos_service_mode_change_guard` (BEFORE UPDATE OF pos_service_mode). Существующие строки миграция не меняет; она добавляет 8 строк `pos_payment_methods` (все `enabled=false`) для строки `branch_config`.
 
 Права (`infra/windows/pos-sales-grants.mjs`):
 
