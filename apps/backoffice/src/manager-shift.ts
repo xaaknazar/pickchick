@@ -21,6 +21,7 @@ import {
   newItemCode,
   openCommand,
   problemText,
+  remarkLine,
   remarks,
   shiftChecklist,
   shiftTitle,
@@ -192,14 +193,14 @@ export class ManagerShiftView {
     const notes = remarks(shift.opening.items);
     if (notes.length) {
       box.append(el('h3', '', 'Замечания открытия'));
-      for (const a of notes)
-        box.append(
-          el(
-            'p',
-            'op-note',
-            `${a.label}: ${ANSWER_LABELS[a.status]}${a.comment ? ' - ' + a.comment : ''}`,
-          ),
-        );
+      for (const a of notes) {
+        const line = remarkLine(a);
+        const p = el('p', 'op-note ms-remark');
+        p.dataset.testid = 'ms-remark';
+        p.append(el('span', 'ms-remark-head', line.text));
+        if (line.comment) p.append(el('br'), el('span', 'muted', line.comment));
+        box.append(p);
+      }
     }
     if (shift.closing?.draft) box.append(el('p', 'op-note', 'Есть сохранённый черновик закрытия.'));
     const close = button(
@@ -276,12 +277,16 @@ export class ManagerShiftView {
     const phase = (title: string, items: StoredAnswer[] | undefined) => {
       d.append(el('h3', '', title));
       for (const a of items ?? []) {
+        // Review BOUI-R8: «пункт - ответ», the comment and the automatic check on own lines.
+        const r = remarkLine(a);
         const line = el('p', 'op-note');
-        line.append(
-          el('strong', '', `${a.label}: ${ANSWER_LABELS[a.status]}`),
-          a.comment ? ` - ${a.comment}` : '',
-          a.check && a.auto ? ` (${checkText(a.auto, a.check)})` : '',
-        );
+        line.append(el('strong', '', r.text));
+        if (r.comment) line.append(el('br'), el('span', 'muted', r.comment));
+        if (a.check && a.auto)
+          line.append(
+            el('br'),
+            el('span', 'muted', `Авто-проверка: ${checkText(a.auto, a.check)}`),
+          );
         d.append(line);
       }
     };

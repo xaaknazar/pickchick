@@ -25,6 +25,7 @@ import {
   newItemCode,
   openCommand,
   problemText,
+  remarkLine,
   shiftChecklist,
   shiftTitle,
   templateCommand,
@@ -375,4 +376,23 @@ test('positions: list gate, «Доступы», payload checks and the roster fi
     rosterSummary({ staff: [{ role: 'cashier' }, { role: 'shift_manager' }, { role: null }] }),
     'В выгрузке 3 карточки: кассиров 1, начальников смены 1. Остальные без доступа к кассе.',
   );
+});
+
+test('opening remarks (review BOUI-R8): «пункт - ответ» and the comment apart', () => {
+  assert.deepEqual(
+    remarkLine({
+      label: 'Явка по графику: все на месте',
+      status: 'problem',
+      comment: ' Жарщик опоздал на 20 минут ',
+    }),
+    {
+      text: 'Явка по графику: все на месте - Есть проблема',
+      comment: 'Комментарий: Жарщик опоздал на 20 минут',
+    },
+  );
+  assert.deepEqual(remarkLine({ label: 'Зал чистый', status: 'not_applicable', comment: null }), {
+    text: 'Зал чистый - Не применимо',
+    comment: null,
+  });
+  assert.equal(remarkLine({ label: 'Пункт', status: 'done', comment: '   ' }).comment, null);
 });

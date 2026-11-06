@@ -126,7 +126,11 @@ with sync_playwright() as pw:
         expect(dialog(page)).to_have_count(0)
         card = block.get_by_test_id('ms-open-card')
         expect(card).to_contain_text('Смена открыта · менеджер Синтетический менеджер смены')
-        expect(card).to_contain_text('Явка по графику: все на месте: Есть проблема - Жарщик опоздал на 20 минут')
+        # Review BOUI-R8: «пункт - ответ», the comment on its own line, no doubled colons.
+        remark = card.get_by_test_id('ms-remark').first
+        expect(remark).to_contain_text('Явка по графику: все на месте - Есть проблема')
+        expect(remark).to_contain_text('Комментарий: Жарщик опоздал на 20 минут')
+        assert ': Есть проблема' not in remark.inner_text(), remark.inner_text()
         expect(card.get_by_test_id('ms-check-cash_shifts')).to_have_text(
             'Есть проблема: Кассовые смены: 2 из 2 закрыты, расхождение -500 ₸. Поясните в комментарии.')
         expect(card.get_by_test_id('ms-check-webkassa_receipts')).to_have_text(
@@ -162,7 +166,8 @@ with sync_playwright() as pw:
         expect(row).to_contain_text('Касса 1 сдала на 500 ₸ меньше, разбор утром.')
         row.get_by_test_id('ms-details').click()
         d = dialog(page)
-        expect(d).to_contain_text('Кассовые смены закрыты, расхождения пояснены: Готово - Касса 1: недостача 500 ₸')
+        expect(d).to_contain_text('Кассовые смены закрыты, расхождения пояснены - Готово')
+        expect(d).to_contain_text('Комментарий: Касса 1: недостача 500 ₸')
         expect(d).to_contain_text('Передача смены')
         d.get_by_role('button', name='Закрыть', exact=True).first.click()
         expect(dialog(page)).to_have_count(0)

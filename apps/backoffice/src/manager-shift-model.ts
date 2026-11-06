@@ -228,6 +228,17 @@ export function shiftTitle(shift: ManagerShift) {
 export function remarks(items: readonly StoredAnswer[] | undefined) {
   return (items ?? []).filter((a) => a.status !== 'done' || a.comment);
 }
+/**
+ * Review BOUI-R8: one remark of the opening, «Явка по графику: все на месте - Есть проблема», and
+ * the comment apart («Комментарий: Жарщик опоздал на 20 минут»), never «пункт: ответ - текст».
+ */
+export function remarkLine(a: { label: string; status: AnswerStatus; comment?: string | null }) {
+  const comment = (a.comment ?? '').trim();
+  return {
+    text: `${a.label} - ${ANSWER_LABELS[a.status]}`,
+    comment: comment ? `Комментарий: ${comment}` : null,
+  };
+}
 export function openCommand(id: string, manager: string | null, answers: readonly Answer[]): Data {
   return {
     type: 'manager_shift_open',
