@@ -2,6 +2,7 @@ import { element as el, button, field, select, check } from './dom.js';
 import { almatyDateTime, cards, labelledCards, tenge, ui } from './ui-fixes.js';
 import { csvTenge, salesCsvText } from './sales-report-model.js';
 import { object, type Data, type Snapshot, type StockReport } from './operations-model.js';
+import { AutoconsumeView, type AutoconsumeCallbacks } from './autoconsume.js';
 import {
   SUPPLIER_KINDS,
   WASTE_REASONS,
@@ -394,6 +395,11 @@ export type InventoryCallbacks = {
   stockP1?: { reverse: ((document: Data) => void) | null; reverseRights: string | null };
   /** The warning that sales are not written off (stock fixes), or null. */
   salesNotice?: string | null;
+  /**
+   * Step 5 «Списание по продажам»: menu-stock links (capabilities.stock_p1), the branch mode and
+   * the queue (capabilities.stock_autoconsume). `stamp` changes with every page snapshot.
+   */
+  autoconsume?: { stamp: string; callbacks: AutoconsumeCallbacks };
 };
 export class InventoryView {
   private tab = 'balances';
@@ -411,6 +417,7 @@ export class InventoryView {
     movement: null,
   };
   private p1Errors: Record<'waste' | 'movement', string> = { waste: '', movement: '' };
+  private sales = new AutoconsumeView();
   render(data: Snapshot, callbacks: InventoryCallbacks) {
     const root = el('section', 'inventory'),
       toolbar = el('div', 'inventory-toolbar'),
@@ -432,6 +439,7 @@ export class InventoryView {
           : callbacks.report
             ? [['report', 'Списания и поставки']]
             : []),
+        ...(callbacks.autoconsume ? [['sales', 'Списание по продажам']] : []),
         ['recipe', 'Техкарты'],
         ['ingredient', callbacks.fixes ? 'Ингредиенты' : 'Номенклатура'],
       ]) {
@@ -453,7 +461,16 @@ export class InventoryView {
         this.reportP1(body, this.tab, callbacks.report);
       else if (this.tab === 'report' && callbacks.report && !p1)
         this.report(body, callbacks.report);
-      else if (this.tab === 'waste' || this.tab === 'movement' || (this.tab === 'report' && p1)) {
+      else if (this.tab === 'sales' && callbacks.autoconsume)
+        body.append(
+          this.sales.render(callbacks.autoconsume.stamp, callbacks.autoconsume.callbacks),
+        );
+      else if (
+        this.tab === 'waste' ||
+        this.tab === 'movement' ||
+        this.tab === 'sales' ||
+        (this.tab === 'report' && p1)
+      ) {
         // The server lost (or gained) stock P1 since the tab was chosen: back to the balances.
         this.tab = 'balances';
         draw();

@@ -96,6 +96,11 @@ const without = (state, keys) => {
     assert.deepEqual(copy.permissions.slice(-2), ['stock.settings', 'consumption.write']);
     copy.permissions = copy.permissions.slice(0, -2);
   }
+  // ... and the branch mode of the stock page (no settings row: off).
+  if (keys.includes('stock_autoconsume') && state.capabilities.stock_autoconsume === true) {
+    assert.deepEqual(copy.stock_settings, { autoconsume_mode: 'off', start_at: null, revision: 0 });
+    delete copy.stock_settings;
+  }
   if (keys.includes('pos_day')) {
     assert.ok(Array.isArray(copy.pos_terminals), 'pos_day adds pos_terminals');
     assert.deepEqual(copy.pos_staff, {}, 'pos_day adds pos_staff');

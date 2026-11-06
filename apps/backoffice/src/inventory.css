@@ -143,3 +143,23 @@
 .op-quick-waste .op-quick-tile {
   min-height: 44px;
 }
+
+/* Lane bo-ui step 5 «Списание по продажам» (capabilities.stock_p1 only): the mode, queue and
+   links blocks keep their distance, the row actions wrap and stay tappable on the phone. */
+.autoconsume > section {
+  margin-top: 20px;
+}
+.autoconsume > section > h3 {
+  margin: 0 0 8px;
+}
+.autoconsume-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.autoconsume-actions .button {
+  min-height: 40px;
+}
+.autoconsume-link-line {
+  align-items: end;
+}

@@ -561,6 +561,16 @@ test('dry_run writes no documents; switched on later it catches up in sale order
     const today = await posSale(c, release, { at: ago(10), number: 5, lines: [['fries', 1]] });
     const before = await balances(c);
     await settings(bo, token, c, 'dry_run', start, 0);
+    // GET branches/:id carries the branch mode for the stock page notice.
+    assert.deepEqual((await bo.read(token, c.branch)).stock_settings, {
+      autoconsume_mode: 'dry_run',
+      start_at: start.toISOString(),
+      revision: 1,
+    });
+    assert.equal(
+      'stock_settings' in (await new Backoffice(c.cloud.pool, true, V2).read(token, c.branch)),
+      false,
+    );
     const preview = await tick(c);
     assert.equal(preview.states.previewed, 3);
     assert.deepEqual(await consumptionDocuments(c), []);

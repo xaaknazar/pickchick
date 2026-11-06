@@ -1,6 +1,12 @@
 import { ApiError, type Request } from './api.js';
 import { salesReport, type SalesReport } from './sales-report-model.js';
 import { posDay, type PosDay } from './pos-day-model.js';
+import {
+  consumptionView,
+  menuLinksView,
+  type ConsumptionView,
+  type MenuLinksView,
+} from './autoconsume-model.js';
 export type Data = Record<string, unknown>;
 export type Entry = {
   id: string;
@@ -81,6 +87,16 @@ export function commandPermission(command: Data): string {
     // Lane bo-ui stock P1: storno of a stock document (servers with capabilities.stock_p1).
     case 'stock_reverse':
       return 'stock.reverse';
+    // Lane bo-ui step 5: menu-stock links and the automatic consumption.
+    case 'menu_link_save':
+      return 'menu_links.write';
+    case 'menu_links_approve':
+      return 'menu_links.approve';
+    case 'stock_settings':
+      return 'stock.settings';
+    case 'consumption_retry':
+    case 'consumption_skip':
+      return 'consumption.write';
     case 'revoke_device':
       return 'devices.write';
     case 'cancel_order':
@@ -136,6 +152,16 @@ export const stockP1 = (data: { capabilities?: unknown } | null | undefined) =>
     (data.capabilities as Data)['stock_p1'] === true,
   );
 /**
+ * Automatic consumption (lane bo-ui step 5, BACKOFFICE_STOCK_AUTOCONSUME_ENABLED): the server
+ * answers GET .../ops/consumption and takes the mode, retry and skip commands.
+ */
+export const autoconsumeAvailable = (data: { capabilities?: unknown } | null | undefined) =>
+  Boolean(
+    data?.capabilities &&
+    typeof data.capabilities === 'object' &&
+    (data.capabilities as Data)['stock_autoconsume'] === true,
+  );
+/**
  * Audit fixes of lane bo-ui that change the cabinet without a flag of their own (design-bo-ui
  * §6, §8 q1; audit F05-F08, F13-F20): on while the server reports capabilities.pos_day, the flag
  * of the cutover back office (BACKOFFICE_POS_DAY_ENABLED). With it off the cabinet is exactly
@@ -170,6 +196,10 @@ export const RIGHTS_TEXT: Record<string, string> = {
   'stock.waste': 'Списание проводят управляющий и начальник смены.',
   'stock.count': 'Инвентаризацию проводят управляющий и начальник смены.',
   'stock.reverse': 'Сторно делают управляющий и бухгалтер.',
+  'menu_links.write': 'Связи меню со складом заводит управляющий: шеф утверждает их через него.',
+  'menu_links.approve': 'Связи меню со складом утверждает управляющий по решению шефа.',
+  'stock.settings': 'Режим списания по продажам меняет управляющий.',
+  'consumption.write': 'Повторить или пропустить списание могут управляющий и начальник смены.',
   'records.write': 'Изменять записи может управляющий точки.',
 };
 /**
@@ -444,6 +474,26 @@ export class OperationsModel {
     const value = await this.api(`branches/${branch}/ops/pos-day?${query.toString()}`);
     if (generation !== this.generation) throw new ApiError('FORBIDDEN');
     return posDay(value, branch);
+  }
+  /** Menu-stock links of the head catalog (GET .../ops/menu-links, lane bo-ui step 5). */
+  async menuLinks(): Promise<MenuLinksView> {
+    const generation = this.generation;
+    const branch = this.branch;
+    const value = await this.api(`branches/${branch}/ops/menu-links`);
+    if (generation !== this.generation) throw new ApiError('FORBIDDEN');
+    return menuLinksView(value, branch);
+  }
+  /** Mode, queue and coverage of the automatic consumption (GET .../ops/consumption). */
+  async consumption(state = '', date = ''): Promise<ConsumptionView> {
+    const generation = this.generation;
+    const branch = this.branch;
+    const query = new URLSearchParams();
+    if (state) query.set('state', state);
+    if (date) query.set('date', date);
+    const search = query.toString();
+    const value = await this.api(`branches/${branch}/ops/consumption${search ? '?' + search : ''}`);
+    if (generation !== this.generation) throw new ApiError('FORBIDDEN');
+    return consumptionView(value, branch);
   }
   /** Sales report (GET .../ops/sales, cutover CC-7) of an Almaty date window. */
   async salesReport(startDate: string, endDate: string): Promise<SalesReport> {

@@ -19,6 +19,22 @@ import {
 import { almatyDateTime, cards, dash, isoDay, labelledCards, ui } from './ui-fixes.js';
 import { NO_FILTER, auditRows, auditView, type AuditFilter } from './audit-model.js';
 import {
+  almatyInput,
+  approveCommand,
+  coverageWarning,
+  itemReason,
+  itemTitle,
+  lineKey,
+  linkCommand,
+  linkTargets,
+  modeConsequence,
+  saleLabel,
+  settingsCommand,
+  type AutoconsumeMode,
+  type ConsumptionView,
+  type LinkDraftLine,
+} from './autoconsume-model.js';
+import {
   almatyStamp,
   displayQuantity,
   documentDetail,
@@ -34,6 +50,7 @@ import {
   StopsModel,
   STATION_PLAN_STATE_LABELS,
   auditFixes,
+  autoconsumeAvailable,
   object,
   permitted,
   posDayAvailable,
@@ -1819,6 +1836,202 @@ export class OperationsView {
     );
   }
 
+  /** The branch mode of the automatic consumption from GET branches/:id (step 5), or off. */
+  private consumptionMode(d: Snapshot): AutoconsumeMode {
+    const mode = object((d as unknown as Data)['stock_settings'])['autoconsume_mode'];
+    return mode === 'dry_run' || mode === 'on' ? mode : 'off';
+  }
+  private consumptionStart(d: Snapshot): string | null {
+    const start = object((d as unknown as Data)['stock_settings'])['start_at'];
+    return typeof start === 'string' ? start : null;
+  }
+  /** «Связь со складом» of one product or option (menu_link_save, step 5). */
+  private linkDialog(item: Data) {
+    const link = item['link'] && typeof item['link'] === 'object' ? (item['link'] as Data) : null;
+    const d = dialog(
+      link ? 'Связь со складом' : 'Новая связь со складом',
+      `${itemTitle(item)}. Количество - на одну проданную позицию, в единице позиции склада (г, мл или шт).`,
+    );
+    d.dataset.testid = 'autoconsume-link-dialog';
+    let effect: 'consume' | 'none' = link?.['effect'] === 'none' ? 'none' : 'consume';
+    const lines: LinkDraftLine[] = link
+      ? (Array.isArray(link['lines']) ? (link['lines'] as Data[]) : []).map((l) => ({
+          target: lineKey(l),
+          quantity: String(l['quantity'] ?? ''),
+        }))
+      : [{ target: '', quantity: '' }];
+    const targets = linkTargets(this.model.data?.records ?? []);
+    const options = [
+      { value: '', label: 'Выберите позицию склада' },
+      ...targets.ingredients.map((i) => ({
+        value: 'i:' + i.id,
+        label: `Склад: ${i.name} (${i.unit === 'g' ? 'г' : i.unit === 'ml' ? 'мл' : 'шт'})`,
+      })),
+      ...targets.outputs.map((i) => ({
+        value: 'r:' + i.id,
+        label: `По ТТК (на сырьё): ${i.name} (${i.unit === 'g' ? 'г' : i.unit === 'ml' ? 'мл' : 'шт'})`,
+      })),
+    ];
+    const body = el('div', 'autoconsume-link-form');
+    const draw = () => {
+      body.replaceChildren(
+        select(
+          'Списание',
+          effect,
+          [
+            { value: 'consume', label: 'Списывать со склада' },
+            { value: 'none', label: 'Без списания (например, «без лука»)' },
+          ],
+          (value) => {
+            effect = value === 'none' ? 'none' : 'consume';
+            if (effect === 'none') lines.splice(0);
+            else if (!lines.length) lines.push({ target: '', quantity: '' });
+            draw();
+          },
+          'autoconsume-link-effect',
+        ),
+      );
+      if (effect === 'consume') {
+        lines.forEach((line, index) => {
+          const row = el('div', 'inventory-filters autoconsume-link-line');
+          row.append(
+            select(
+              'Позиция',
+              line.target,
+              options,
+              (value) => {
+                line.target = value;
+              },
+              'autoconsume-link-target-' + index,
+            ),
+            field(
+              'Количество',
+              line.quantity,
+              (value) => {
+                line.quantity = value;
+              },
+              { id: 'autoconsume-link-quantity-' + index, max: 9 },
+            ),
+            button(
+              'Убрать',
+              () => {
+                lines.splice(index, 1);
+                draw();
+              },
+              'button subtle',
+            ),
+          );
+          body.append(row);
+        });
+        body.append(
+          button(
+            'Добавить строку',
+            () => {
+              lines.push({ target: '', quantity: '' });
+              draw();
+            },
+            'button',
+            'autoconsume-link-add',
+          ),
+          note(
+            '«Склад» списывает позицию как есть. «По ТТК» раскладывает выход техкарты на сырьё, если у техкарты не выбран учёт запасом.',
+          ),
+        );
+      }
+      if (link?.['status'] === 'approved')
+        body.append(
+          note('После изменения связь станет черновиком: её снова утверждает управляющий.'),
+        );
+    };
+    draw();
+    d.append(body);
+    this.footer(d, () => linkCommand(item, effect, lines), 'Сохранить связь');
+  }
+  /** Approval of draft links for the chef (menu_links_approve, step 5). */
+  private approveLinks(items: Data[]) {
+    const d = dialog(
+      'Утвердить связи',
+      'Утверждённые связи списывают продажи. Утвердите только то, что проверил шеф.',
+    );
+    d.dataset.testid = 'autoconsume-approve-dialog';
+    const names = items.slice(0, 200).map((i) => itemTitle(i));
+    d.append(
+      note(
+        `Связей: ${names.length}. ${names.slice(0, 10).join(', ')}${names.length > 10 ? ' и другие' : ''}.`,
+      ),
+    );
+    this.footer(d, () => approveCommand(items), 'Утвердить');
+  }
+  /** «Списание по продажам: Выключено | Проверка без списания | Включено с ...» (step 5). */
+  private modeDialog(view: ConsumptionView) {
+    const d = dialog(
+      'Списание по продажам',
+      'Режим точки. Включать «Включено» - когда в проверке без списания покрытие не ниже 95 % и остатки введены.',
+    );
+    d.dataset.testid = 'autoconsume-mode-dialog';
+    let mode = view.settings.autoconsume_mode;
+    let start = almatyInput(view.settings.start_at);
+    const consequence = el('p', 'notice', modeConsequence(mode, start));
+    consequence.dataset.testid = 'autoconsume-mode-consequence';
+    const warning = coverageWarning(view.coverage);
+    const low = el('p', 'notice error', warning ?? '');
+    low.dataset.testid = 'autoconsume-mode-warning';
+    const update = () => {
+      consequence.textContent = modeConsequence(mode, start);
+      low.hidden = !(warning && mode === 'on');
+    };
+    d.append(
+      select(
+        'Списание по продажам',
+        mode,
+        [
+          { value: 'off', label: 'Выключено' },
+          { value: 'dry_run', label: 'Проверка без списания' },
+          { value: 'on', label: 'Включено' },
+        ],
+        (value) => {
+          mode = value === 'dry_run' || value === 'on' ? value : 'off';
+          update();
+        },
+        'autoconsume-mode-select',
+      ),
+      field(
+        'С какого момента (время Алматы)',
+        start,
+        (value) => {
+          start = value;
+          update();
+        },
+        { id: 'autoconsume-mode-start', type: 'datetime-local' },
+      ),
+      consequence,
+      low,
+    );
+    update();
+    this.footer(d, () => settingsCommand(view.settings, mode, start), 'Сохранить режим');
+  }
+  /** «Повторить» or «Пропустить с причиной» of one queued sale (step 5). */
+  private consumptionDialog(item: Data, kind: 'retry' | 'skip') {
+    const d = dialog(
+      kind === 'retry' ? 'Повторить списание' : 'Пропустить списание',
+      kind === 'retry'
+        ? `${saleLabel(item)}: попытка списания сейчас. ${itemReason(item)}`
+        : `${saleLabel(item)} не будет списана автоматически. Фактический расход внесите списанием или инвентаризацией.`,
+    );
+    d.dataset.testid = 'autoconsume-' + kind + '-dialog';
+    this.footer(
+      d,
+      () => ({
+        type: kind === 'retry' ? 'consumption_retry' : 'consumption_skip',
+        source: item['source'],
+        order_id: item['order_id'],
+        expected_revision: Number(item['revision']),
+      }),
+      kind === 'retry' ? 'Повторить' : 'Пропустить',
+      kind === 'retry' ? { reason: 'Повтор списания после исправления' } : {},
+    );
+  }
+
   private cashierShift(shift: Data) {
     const p = panel(
       'Смена от ' + date(shift['opened_at']),
@@ -2926,8 +3139,55 @@ export class OperationsView {
                   this.model.stockReport(view, start, end),
               }
             : {}),
-          // Stock fixes (iiko-gap P0-13): sales are not written off yet (autoconsume, step 5).
-          ...(stockFixes(d) ? { salesNotice: stockSalesNotice('off', stockP1(d)) } : {}),
+          // Stock fixes (iiko-gap P0-13): whether sales are written off (the branch mode of the
+          // automatic consumption, step 5, while the server runs it; otherwise off).
+          ...(stockFixes(d)
+            ? {
+                salesNotice: stockSalesNotice(
+                  autoconsumeAvailable(d) ? this.consumptionMode(d) : 'off',
+                  stockP1(d),
+                  autoconsumeAvailable(d) ? this.consumptionStart(d) : null,
+                ),
+              }
+            : {}),
+          // Step 5 «Списание по продажам»: links with stock P1, mode and queue with autoconsume.
+          ...(stockP1(d)
+            ? {
+                autoconsume: {
+                  stamp: d.as_of,
+                  callbacks: {
+                    links: () => this.model.menuLinks(),
+                    ...(autoconsumeAvailable(d)
+                      ? {
+                          consumption: (state: string, date: string) =>
+                            this.model.consumption(state, date),
+                        }
+                      : {}),
+                    editLink: permitted(d, 'menu_links.write')
+                      ? (item: Data) => this.linkDialog(item)
+                      : null,
+                    approve: permitted(d, 'menu_links.approve')
+                      ? (items: Data[]) => this.approveLinks(items)
+                      : null,
+                    mode:
+                      autoconsumeAvailable(d) && permitted(d, 'stock.settings')
+                        ? (view: ConsumptionView) => this.modeDialog(view)
+                        : null,
+                    retry:
+                      autoconsumeAvailable(d) && permitted(d, 'consumption.write')
+                        ? (item: Data) => this.consumptionDialog(item, 'retry')
+                        : null,
+                    skip:
+                      autoconsumeAvailable(d) && permitted(d, 'consumption.write')
+                        ? (item: Data) => this.consumptionDialog(item, 'skip')
+                        : null,
+                    rights: (permission: string) =>
+                      rightsText(d, permission) ??
+                      'У вас доступ только для просмотра. Это действие выполняет управляющий точки.',
+                  },
+                },
+              }
+            : {}),
           // Stock P1: «Списания», «Движение», «Последний подсчёт» and storno.
           ...(stockP1(d)
             ? {

@@ -56,6 +56,7 @@ import {
   autoconsumeAvailable,
   readConsumption,
   readMenuLinks,
+  readStockSettings,
   retryConsumption,
   saveMenuLink,
   saveStockSettings,
@@ -542,6 +543,16 @@ export class Backoffice {
         documents,
         publications,
         station_plan: stationPlan,
+        // Automatic consumption (step 5): the branch mode for the stock page, only while it runs.
+        ...(autoconsume
+          ? {
+              stock_settings: await readStockSettings(db, branch).then((v) => ({
+                autoconsume_mode: v.autoconsume_mode,
+                start_at: v.start_at,
+                revision: v.revision,
+              })),
+            }
+          : {}),
         limits: {
           cashier_orders: 200,
           cashier_shifts: 200,

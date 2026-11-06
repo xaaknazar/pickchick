@@ -151,6 +151,12 @@ test('F08 every action code of the back office has a section and a Russian name'
     'consume',
     // Lane bo-ui stock P1 (stock-p1.ts).
     'stock_reverse',
+    // Lane bo-ui step 5 (consumption-store.ts).
+    'menu_link_save',
+    'menu_links_approve',
+    'stock_settings',
+    'consumption_retry',
+    'consumption_skip',
     'cancel_order',
     'refund',
     'manual_refund',

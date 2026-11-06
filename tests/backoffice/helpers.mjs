@@ -66,6 +66,7 @@ export async function withCatalog(run, options = {}) {
     stockV2 = false,
     salesReport = false,
     posDay = false,
+    autoconsume = false,
     workforce = false,
     cloudMigrationDirectory,
     ...serverOptions
@@ -87,6 +88,8 @@ export async function withCatalog(run, options = {}) {
         ...(salesReport ? { salesReportEnabled: true } : {}),
         // Lane bo-ui «Касса» (BACKOFFICE_POS_DAY_ENABLED).
         ...(posDay ? { posDayEnabled: true } : {}),
+        // Lane bo-ui step 5 (BACKOFFICE_STOCK_AUTOCONSUME_ENABLED).
+        ...(autoconsume ? { stockAutoconsumeEnabled: true } : {}),
       });
       await grantBackoffice(cloud.pool, manager.actor_id, branch, 'manager');
       class CatalogModule {}

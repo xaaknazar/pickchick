@@ -230,8 +230,13 @@ export const lastCount = (row: Data) =>
 export function stockSalesNotice(
   mode: 'off' | 'dry_run' | 'on' = 'off',
   lastCount = false,
+  startAt: string | null = null,
 ): string | null {
-  if (mode === 'on') return null;
+  // Step 5: with the automatic consumption on the page says from when sales are written off.
+  if (mode === 'on')
+    return startAt
+      ? `Продажи списываются со склада автоматически с ${almatyStamp(startAt)} по утверждённым связям меню. Продажи без связи или без остатка ждут во вкладке «Списание по продажам».`
+      : null;
   const where = lastCount ? ' - смотрите «Последний подсчёт» у позиции' : '';
   return mode === 'dry_run'
     ? `Списание по продажам работает в режиме проверки: продажи со склада не списываются. Остаток верен только сразу после инвентаризации${where}.`
@@ -462,6 +467,11 @@ export function documentDetail(document: Data): string {
       .filter(Boolean)
       .join(', ');
   }
+  // Step 5: a consumption written by the automatic consumption names its sale (source_ref).
+  if (kind === 'consumption' && typeof document['source_ref'] === 'string')
+    return document['source_ref'].startsWith('pos:')
+      ? 'Автоматически по продаже кассы'
+      : 'Автоматически по заказу приложения или киоска';
   return '-';
 }
 /** Storno state of a document in words, or «-». */

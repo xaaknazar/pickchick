@@ -252,6 +252,11 @@ test('labels: old waste, kinds, document detail, storno state, last count, sales
   assert.match(stockSalesNotice('off', true), /«Последний подсчёт»/);
   assert.match(stockSalesNotice('dry_run', true), /режиме проверки/);
   assert.equal(stockSalesNotice('on', true), null);
+  // Step 5: with the start time the notice says from when sales are written off.
+  assert.match(
+    stockSalesNotice('on', true, '2026-11-18T19:00:00.000Z'),
+    /^Продажи списываются со склада автоматически с 19\.11\.2026 00:00/,
+  );
   for (const text of [stockSalesNotice(), stockSalesNotice('dry_run', true)])
     assert.doesNotMatch(text, /[—–]/);
 });

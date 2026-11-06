@@ -70,8 +70,13 @@ test('allowlists: ops/pos-day takes one date and an optional cash desk, nothing 
     ),
     true,
   );
+  // Step 5 adds ops/consumption and ops/menu-links (autoconsume-ui.test.mjs); others stay out.
   assert.equal(
     allowed('GET', `/v1/admin/backoffice/branches/${branch}/ops/consumption?date=2026-11-19`),
+    true,
+  );
+  assert.equal(
+    allowed('GET', `/v1/admin/backoffice/branches/${branch}/ops/manager-shifts?date=2026-11-19`),
     false,
   );
   // The public gateway regex lets the view through and nothing new besides it.
@@ -86,10 +91,17 @@ test('allowlists: ops/pos-day takes one date and an optional cash desk, nothing 
     `${base}/ops/pos-day`,
     `${base}/ops/sales`,
     `${base}/ops/stock`,
+    `${base}/ops/menu-links`,
+    `${base}/ops/consumption`,
     `${base}/finance`,
   ])
     assert.equal(regex.test(path), true, path);
-  for (const path of [`${base}/ops/consumption`, `${base}/ops/pos-day/x`, `${base}/ops/`])
+  for (const path of [
+    `${base}/ops/manager-shifts`,
+    `${base}/ops/pos-day/x`,
+    `${base}/ops/consumption/x`,
+    `${base}/ops/`,
+  ])
     assert.equal(regex.test(path), false, path);
 });
 

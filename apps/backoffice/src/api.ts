@@ -140,6 +140,22 @@ export function allowedPath(path: string): boolean {
       (terminal === null || new RegExp(`^${UUID}$`).test(terminal))
     );
   }
+  // Lane bo-ui automatic consumption: menu-stock links and the consumption queue.
+  if (new RegExp(`^operations/branches/${UUID}/ops/menu-links$`).test(pathname))
+    return search === undefined;
+  if (new RegExp(`^operations/branches/${UUID}/ops/consumption$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    const state = q.get('state');
+    const date = q.get('date');
+    return (
+      [...q.keys()].every((k) => k === 'state' || k === 'date') &&
+      q.getAll('state').length <= 1 &&
+      q.getAll('date').length <= 1 &&
+      (state === null ||
+        /^(pending|previewed|applied|blocked|skipped|not_required)$/.test(state)) &&
+      (date === null || /^\d{4}-\d{2}-\d{2}$/.test(date))
+    );
+  }
   if (new RegExp(`^operations/branches/${UUID}$`).test(pathname)) return reportQuery(search ?? '');
   return (
     search === undefined &&

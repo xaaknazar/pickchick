@@ -171,6 +171,30 @@ export const allowed = (method, path) => {
       (terminal === null || new RegExp(`^${UUID}$`, 'i').test(terminal))
     );
   }
+  // Lane bo-ui automatic consumption: the menu-stock links (no query) and the queue of one
+  // Almaty day or of every day, optionally one state.
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/menu-links$`, 'i').test(pathname)
+  )
+    return search === undefined;
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/consumption$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    const state = q.get('state');
+    const date = q.get('date');
+    return (
+      (search?.length ?? 0) <= 200 &&
+      [...q.keys()].every((k) => k === 'state' || k === 'date') &&
+      q.getAll('state').length <= 1 &&
+      q.getAll('date').length <= 1 &&
+      (state === null ||
+        /^(pending|previewed|applied|blocked|skipped|not_required)$/.test(state)) &&
+      (date === null || /^\d{4}-\d{2}-\d{2}$/.test(date))
+    );
+  }
   if (method === 'GET' && new RegExp(`^/v1/admin/backoffice/branches/${UUID}$`, 'i').test(pathname))
     return reportQuery(search ?? '');
   if (search !== undefined) return false;
@@ -259,6 +283,9 @@ const assets = new Map([
     'ui-fixes',
     'dialog-guard',
     'audit-model',
+    // Lane bo-ui step 5 «Списание по продажам» (shown only with capabilities.stock_p1).
+    'autoconsume',
+    'autoconsume-model',
   ].map((n) => [`/${n}.js`, [`${n}.js`, 'text/javascript; charset=utf-8']]),
   ...['logo.png', 'shot.jpg', ...Array.from({ length: 24 }, (_, i) => `i${i}.jpg`)].map((n) => [
     `/assets/${n}`,
