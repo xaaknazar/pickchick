@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { appendFile, copyFile, mkdir, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import test from 'node:test';
 import { createPool } from '@pickchick/database';
 import { applyMenu, publishMenu } from '@pickchick/menu-sync';
@@ -50,6 +53,22 @@ import {
   routingSupportsKdsStations,
 } from '../../infra/windows/kds-upgrade-db.mjs';
 import { KDS_RUNTIME_ROLES, KDS_WORKER_ROLES } from '../../infra/windows/kds-switch.mjs';
+import {
+  BACKUP_ROLE,
+  backupLayout,
+  parseBackupKey,
+  readEncryptedArchive,
+  runEdgeBackup,
+} from '../../infra/windows/edge-backup-lib.mjs';
+import {
+  assertBackupPrivileges,
+  ensureBackupRole,
+  grantBackupAccess,
+  prepareCredential,
+  prepareKey,
+  readBackupRole,
+} from '../../infra/windows/edge-backup-setup.mjs';
+import { compareRestoredDatabase } from '../../infra/windows/edge-backup-restore.mjs';
 import { withSyncDatabases } from '../helpers/sync.mjs';
 import { staffAuth } from '../helpers/orders.mjs';
 
@@ -562,6 +581,351 @@ test('kds-upgrade-db: 027 after the 026 tool on a populated edge - KDS stations 
             true,
           );
         } finally {
+          await posSync.drop();
+          await fulfillment.drop();
+          await runtime.drop();
+        }
+      },
+      { edgeMigrationDirectory: edge025 },
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// ------------------------------------------------------ C4 on a restored copy of the 025 edge ----
+// Contracts 6.2 step 3 and 7.3 (integration): window C4 takes a verified backup copy before each
+// step (schema025, schema026, schema027 by the reviewed ledger of native-edge-backup-ledger.json).
+// Here the schema025 copy of a populated edge is restored into a new database and both guarded
+// tools run on that copy with the installed logins; each result is copied again and restored.
+// Needs pg_dump/pg_restore of the server's major version (EDGE_BACKUP_TEST_PG_BIN or the
+// distribution's directory); without them the test is skipped and says so.
+const pinnedLedger = JSON.parse(
+  await readFile(new URL('../../infra/windows/native-edge-backup-ledger.json', import.meta.url)),
+);
+const exec = promisify(execFile);
+
+async function pgTools(pool) {
+  const major = Math.floor(
+    Number((await pool.query("SELECT current_setting('server_version_num') AS v")).rows[0].v) /
+      10000,
+  );
+  const dir = process.env.EDGE_BACKUP_TEST_PG_BIN ?? `/usr/lib/postgresql/${major}/bin`;
+  return ['pg_dump', 'pg_restore'].every((tool) => existsSync(join(dir, tool))) ? dir : null;
+}
+async function dropBackupRole(admin) {
+  if (await readBackupRole(admin)) {
+    await admin.query(`DROP OWNED BY ${BACKUP_ROLE}`);
+    await admin.query(`DROP ROLE ${BACKUP_ROLE}`);
+  }
+}
+/** One connection as `user` to `databaseUrl` (any database of the cluster), pg Client shaped. */
+async function connectAs(databaseUrl, user, password) {
+  const url = new URL(databaseUrl);
+  url.username = user;
+  url.password = password;
+  url.search = '';
+  const pool = createPool(url.toString(), 1);
+  const client = await pool.connect().catch(async (error) => {
+    await pool.end();
+    throw error;
+  });
+  return {
+    query: (...args) => client.query(...args),
+    end: async () => {
+      client.release();
+      await pool.end();
+    },
+  };
+}
+
+/**
+ * The scheduled backup of edge-backup-task.mjs against one database of the test cluster: the
+ * dedicated read-only role, the key and credential files, the real pg_dump/pg_restore.
+ */
+async function backupStand(ctx, root, bin) {
+  const admin = await ctx.edge.admin.connect();
+  try {
+    await dropBackupRole(admin);
+    const stateRoot = join(root, 'backup-state');
+    const layout = backupLayout(stateRoot, posix);
+    for (const dir of ['private', 'staging', 'logs', 'health'])
+      await mkdir(join(stateRoot, dir), { recursive: true });
+    const key = parseBackupKey(
+      await prepareKey(layout.keyFile).then(() => readJson(layout.keyFile)),
+    );
+    const { password } = await prepareCredential(layout.credentialFile, { roleExists: false });
+    await ensureBackupRole(admin, { password });
+    const systemIdentifier = (
+      await admin.query('SELECT system_identifier::text AS id FROM pg_control_system()')
+    ).rows[0].id;
+    const url = new URL(ctx.edge.config.databaseUrl);
+    let copies = 0;
+    /** One run on `database`; returns its status and the archive it stored. */
+    const backup = async (database) => {
+      await grantBackupAccess(admin, { database });
+      const destination = join(root, `second-disk-${++copies}`);
+      await mkdir(destination);
+      const target = new URL(ctx.edge.config.databaseUrl);
+      target.pathname = '/' + database;
+      const { status } = await runEdgeBackup(
+        {
+          config: {
+            branchId: ctx.branch,
+            systemIdentifier,
+            destination,
+            retention: { hourly: 48, daily: 14 },
+            timeZone: 'Asia/Almaty',
+            maxAgeMinutes: 120,
+            reportInHeartbeat: false,
+          },
+          layout,
+          pinned: pinnedLedger,
+          database: { host: url.hostname, port: Number(url.port), name: database },
+          schema: ctx.edge.schema,
+        },
+        {
+          connect: ({ user, password: secret }) => connectAs(target.toString(), user, secret),
+          runTool: (name, args, { env, timeoutMs }) =>
+            exec(join(bin, name), args, {
+              env,
+              timeout: timeoutMs,
+              maxBuffer: 16 * 1024 * 1024,
+            }).then((result) => result.stdout),
+          enterMaintenance: async () => ({ release: async () => undefined }),
+        },
+      );
+      const archive = (await readdir(destination)).find((name) => name.endsWith('.pcbak'));
+      return { status, archive: archive ? join(destination, archive) : null };
+    };
+    /** Restores an archive into a new database of the cluster (owners and ACLs kept). */
+    const restore = async (archive) => {
+      const dump = join(root, `restore-${randomBytes(4).toString('hex')}.dump`);
+      const read = await readEncryptedArchive({ file: archive, key, output: dump });
+      const database = 'xl_copy_' + randomBytes(6).toString('hex');
+      await admin.query(`CREATE DATABASE ${database}`);
+      const target = new URL(ctx.edge.config.databaseUrl);
+      target.pathname = '/' + database;
+      target.search = '';
+      await exec(
+        join(bin, 'pg_restore'),
+        ['--exit-on-error', '--single-transaction', '--dbname=' + target, dump],
+        { env: process.env, timeout: 120000, maxBuffer: 16 * 1024 * 1024 },
+      );
+      await rm(dump);
+      target.searchParams.set('options', `-c search_path=${ctx.edge.schema}`);
+      return { database, meta: read.meta, pool: createPool(target.toString(), 2) };
+    };
+    return { backup, restore, admin, password };
+  } catch (error) {
+    admin.release();
+    throw error;
+  }
+}
+const readJson = async (path) => JSON.parse(await readFile(path, 'utf8'));
+
+test('C4 on a restored schema025 copy of a populated edge: both tools on the copy with exact grants, idempotent inspect, refused repeats and checksums, schema026 and schema027 copies restore', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'pickchick-cutover-copy-'));
+  try {
+    const edge025 = await migrationsBefore(join(root, 'edge025'), '026');
+    await withSyncDatabases(
+      async (ctx) => {
+        const bin = await pgTools(ctx.edge.pool);
+        if (!bin) {
+          t.skip('pg_dump/pg_restore of the server version are missing (EDGE_BACKUP_TEST_PG_BIN)');
+          return;
+        }
+        const { pool, schema } = ctx.edge;
+        const day = await unpaidDay(ctx);
+        await pool.query(
+          "INSERT INTO local_staff_passwords(staff_id,branch_id,login,salt,verifier) VALUES($1,$2,'kitchen',$3,$4)",
+          [day.cook.staff_id, ctx.branch, 'a'.repeat(64), 'b'.repeat(64)],
+        );
+        const runtime = await loginRole(ctx, (role) =>
+          applyEdgeRuntimeGrants(pool, role, { schema, fulfillment: true }),
+        );
+        const fulfillment = await loginRole(ctx, (role) =>
+          pool.query(fulfillmentWorkerGrants(role, schema, { restoreFence: true })),
+        );
+        const posSync = await loginRole(ctx, (role) =>
+          pool.query(posSyncWorkerGrants(role, schema)),
+        );
+        const pos = { runtimeRole: runtime.role, workerRole: posSync.role };
+        const kds = { runtimeRole: runtime.role, workerRoles: [fulfillment.role] };
+        const live = (await pool.query('SELECT current_database() AS name')).rows[0].name;
+        const stand = await backupStand(ctx, root, bin);
+        const copies = [];
+        const tool = async (copyPool, migration, options) => {
+          const client = await copyPool.connect();
+          try {
+            return await migration(client, {
+              appRoot: repoRoot,
+              branchId: ctx.branch,
+              schema,
+              ...options,
+            });
+          } finally {
+            client.release();
+          }
+        };
+        try {
+          // The schema025 copy of the live edge: verified, read-only role, restorable.
+          const first = await stand.backup(live);
+          await assertBackupPrivileges(stand.admin, { schema, databaseDefaultsRevoked: false });
+          assert.equal(first.status.state, 'ok', JSON.stringify(first.status));
+          assert.equal(first.status.schema, 'schema025');
+          const copy = await stand.restore(first.archive);
+          copies.push(copy);
+          assert.deepEqual(await compareRestoredDatabase(copy.pool, copy.meta, { schema }), []);
+          const before = await stateRows(copy.pool);
+          assert.deepEqual(before, await stateRows(pool));
+
+          // A ledger that is not the reviewed 001-025 (one checksum changed) is refused by the
+          // tool and by the backup alike; the copy is then put back to its reviewed bytes.
+          const reviewed025 = (
+            await copy.pool.query(
+              "SELECT checksum FROM schema_migrations WHERE version='025_edge_kitchen_restore_review.sql'",
+            )
+          ).rows[0].checksum;
+          await copy.pool.query(
+            "UPDATE schema_migrations SET checksum=$1 WHERE version='025_edge_kitchen_restore_review.sql'",
+            ['0'.repeat(64)],
+          );
+          await assert.rejects(
+            tool(copy.pool, posSalesMigration, { mode: 'inspect', ...pos }),
+            /Expected unchanged schema025 and only reviewed migration026/,
+          );
+          const unreviewed = await stand.backup(copy.database);
+          assert.deepEqual(
+            [unreviewed.status.state, unreviewed.status.error],
+            ['failed', 'UNREVIEWED_SCHEMA'],
+          );
+          assert.equal(unreviewed.archive, null);
+          await copy.pool.query(
+            "UPDATE schema_migrations SET checksum=$1 WHERE version='025_edge_kitchen_restore_review.sql'",
+            [reviewed025],
+          );
+
+          // 026 on the copy: inspect, apply with the installed logins, exact grants, idempotent.
+          const inspected = await tool(copy.pool, posSalesMigration, { mode: 'inspect', ...pos });
+          assert.deepEqual([inspected.applied, inspected.migrations], [false, 25]);
+          const applied = await tool(copy.pool, posSalesMigration, { mode: 'apply', ...pos });
+          assert.deepEqual(
+            [applied.applied, applied.migrations, applied.fingerprint],
+            [true, 26, inspected.fingerprint],
+          );
+          assert.deepEqual(applied.posSalesGrantedTo, [runtime.role, posSync.role].sort());
+          for (const [role, privileges] of [
+            [runtime.role, RUNTIME_PRIVILEGES],
+            [posSync.role, WORKER_PRIVILEGES],
+          ])
+            assert.equal(
+              (await assertPosSalesPrivileges(copy.pool, role, privileges, { schema })).verified,
+              true,
+            );
+          assert.deepEqual(
+            (await posSalesGrantees(copy.pool, { schema })).sort(),
+            [runtime.role, posSync.role].sort(),
+          );
+          assert.deepEqual(await stateRows(copy.pool), before);
+          await assert.rejects(
+            tool(copy.pool, posSalesMigration, { mode: 'apply', ...pos }),
+            /already applied/,
+          );
+          const verified = await tool(copy.pool, posSalesMigration, { mode: 'inspect', ...pos });
+          assert.deepEqual(
+            await tool(copy.pool, posSalesMigration, { mode: 'inspect', ...pos }),
+            verified,
+          );
+          assert.deepEqual([verified.applied, verified.migrations], [true, 26]);
+          const second = await stand.backup(copy.database);
+          assert.deepEqual([second.status.state, second.status.schema], ['ok', 'schema026']);
+
+          // 027 on the copy: refused on another 026 checksum, then exact grants, idempotent.
+          await copy.pool.query(
+            "UPDATE schema_migrations SET checksum=$1 WHERE version='026_edge_pos_sales.sql'",
+            ['0'.repeat(64)],
+          );
+          await assert.rejects(
+            tool(copy.pool, kdsMigration, { mode: 'inspect', ...kds }),
+            /Expected unchanged schema026 and only reviewed migration027/,
+          );
+          await copy.pool.query(
+            "UPDATE schema_migrations SET checksum=$1 WHERE version='026_edge_pos_sales.sql'",
+            [POS_SALES_SHA256],
+          );
+          const kdsApplied = await tool(copy.pool, kdsMigration, { mode: 'apply', ...kds });
+          assert.deepEqual(
+            [kdsApplied.migrations, kdsApplied.stations, kdsApplied.layoutEnabled],
+            [27, 6, false],
+          );
+          assert.equal(kdsApplied.kitchenStaffId, day.cook.staff_id);
+          assert.equal(
+            (await assertKdsRuntimePrivileges(copy.pool, runtime.role, schema)).verified,
+            true,
+          );
+          assert.equal(
+            (await assertKdsWorkerPrivileges(copy.pool, fulfillment.role, schema)).verified,
+            true,
+          );
+          assert.deepEqual(
+            (await kdsTableGrantees(copy.pool, schema)).sort(),
+            [fulfillment.role, runtime.role].sort(),
+          );
+          await assert.rejects(
+            tool(copy.pool, kdsMigration, { mode: 'apply', ...kds }),
+            /already applied/,
+          );
+          const kdsVerified = await tool(copy.pool, kdsMigration, { mode: 'inspect', ...kds });
+          assert.deepEqual([kdsVerified.applied, kdsVerified.migrations], [true, 27]);
+          assert.deepEqual(
+            await tool(copy.pool, kdsMigration, { mode: 'inspect', ...kds }),
+            kdsVerified,
+          );
+          assert.equal(
+            (await tool(copy.pool, posSalesMigration, { mode: 'inspect', ...pos })).applied,
+            true,
+          );
+          assert.deepEqual(
+            (
+              await copy.pool.query(
+                'SELECT version,checksum FROM schema_migrations ORDER BY version',
+              )
+            ).rows.slice(25),
+            [
+              { version: POS_SALES_MIGRATION, checksum: POS_SALES_SHA256 },
+              { version: KDS_MIGRATION, checksum: KDS_SHA256 },
+            ],
+          );
+          assert.deepEqual(await stateRows(copy.pool), before);
+
+          // The schema027 copy is accepted by the reviewed ledger and restores to the same state.
+          const third = await stand.backup(copy.database);
+          assert.deepEqual([third.status.state, third.status.schema], ['ok', 'schema027']);
+          const restored = await stand.restore(third.archive);
+          copies.push(restored);
+          assert.deepEqual(
+            await compareRestoredDatabase(restored.pool, restored.meta, { schema }),
+            [],
+          );
+          assert.equal(
+            (await tool(restored.pool, kdsMigration, { mode: 'inspect', ...kds })).applied,
+            true,
+          );
+
+          // The live edge is untouched: still the reviewed 025, the rollback point of C4, and
+          // today's runtime keeps working on it.
+          assert.equal((await run(ctx, { mode: 'inspect', ...pos })).applied, false);
+          assert.deepEqual(await stateRows(pool), before);
+          assert.equal((await day.order(runtime.open())).fulfillment.state, 'accepted');
+          await runtime.close();
+        } finally {
+          for (const copy of copies) {
+            await copy.pool.end();
+            await stand.admin.query(`DROP DATABASE ${copy.database} WITH (FORCE)`);
+          }
+          await dropBackupRole(stand.admin);
+          stand.admin.release();
           await posSync.drop();
           await fulfillment.drop();
           await runtime.drop();
