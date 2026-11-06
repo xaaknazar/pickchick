@@ -8,14 +8,16 @@
 // request passes the LAN gateway profile of its client. Every event of order_commercial, the POS
 // kitchen stream, cashier reports and posSales reaches the new cloud (receivePosOrder,
 // receivePosKitchen, receiveCashierReports, receivePosSales). A twin desk proves that with every
-// flag off the old clients get byte-identical answers and stream payloads after the upgrade.
+// flag off the old clients get byte-identical answers and stream payloads after the upgrade, and
+// the same bytes as the frozen pre-cutover runtime (D0) gave on 025 (cutover-d0-baseline.json).
 // Synthetic data only: menu, staff, PIN, order and receipt numbers are made up.
 import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { copyFile, mkdir, mkdtemp, readdir, rm } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { createPool, transaction } from '@pickchick/database';
 import { createApi } from '@pickchick/api';
@@ -24,6 +26,7 @@ import { applyMenu, hashJson, provisionDevice, publishMenu } from '@pickchick/me
 import { provisionStaff, setOrdering, setStaffPin } from '@pickchick/local-orders';
 import {
   EdgeFulfillment,
+  KDS_STATIONS,
   digest,
   grantStation,
   kdsStationId,
@@ -93,6 +96,48 @@ const PIN = '2468';
 const MARKS = { numberMatched: true, courierAccepted: true, photoTaken: true };
 const DESK_BUILD = 'pos-desktop-0.5.0';
 const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
+
+// ------------------------------------------------ D0 baseline (review R4, R9; contracts 3.2) ----
+/**
+ * The pre-cutover runtime (D0, 5b212949) frozen in tests/integration/cutover-d0-baseline.json:
+ * the old-client day below on 025 (today) and on 027 after window C4 with the previous runtime
+ * grants (a rollback of the runtime binary only), and its menu apply of a publication with a new
+ * prep item on 025 and on 027. CI compares this branch with that file. With
+ * CUTOVER_D0_ROOT=<built checkout of 5b212949> the D0 twins also run live and must equal the
+ * file; CUTOVER_D0_RECORD=1 rewrites it from them (then run prettier on it).
+ */
+const D0_FIXTURE = new URL('./cutover-d0-baseline.json', import.meta.url);
+const D0_ROOT = process.env.CUTOVER_D0_ROOT || null;
+const D0_RECORD = process.env.CUTOVER_D0_RECORD === '1';
+const d0 = D0_ROOT
+  ? {
+      commit: execFileSync('git', ['-C', D0_ROOT, 'rev-parse', 'HEAD'], {
+        encoding: 'utf8',
+      }).trim(),
+      createEdge: (await import(pathToFileURL(join(D0_ROOT, 'services/edge/dist/index.js')).href))
+        .createEdge,
+      applyEdgeRuntimeGrants: (
+        await import(pathToFileURL(join(D0_ROOT, 'infra/windows/edge-runtime-grants.mjs')).href)
+      ).applyEdgeRuntimeGrants,
+      applyMenu: (
+        await import(pathToFileURL(join(D0_ROOT, 'packages/menu-sync/dist/index.js')).href)
+      ).applyMenu,
+    }
+  : null;
+const frozenD0 = JSON.parse(await readFile(D0_FIXTURE, 'utf8'));
+/** Live D0 results: rewrite their key of the fixture (record) or equal the frozen ones. */
+async function liveD0(key, value) {
+  if (!D0_RECORD) return assert.deepEqual(value, frozenD0[key], `live D0 ${key}`);
+  const fixture = JSON.parse(await readFile(D0_FIXTURE, 'utf8'));
+  fixture.source = {
+    runtime:
+      'D0 5b212949: services/edge, packages/menu-sync, infra/windows/edge-runtime-grants.mjs',
+    checkout: d0.commit,
+    recorded_by: 'tests/integration/cutover-cross-lane.test.mjs with CUTOVER_D0_RECORD=1',
+  };
+  fixture[key] = frozenD0[key] = value;
+  await writeFile(D0_FIXTURE, JSON.stringify(fixture, null, 2) + '\n');
+}
 const edgeDir = join(repoRoot, 'db/edge/migrations');
 const staffAuth = (credential) => ({ sessionId: credential.session_id, token: credential.token });
 
@@ -1490,7 +1535,7 @@ test('every flag off after C4: today’s POS, kitchen and board get byte-identic
   const days = {};
   try {
     const before026 = await migrationsBefore(root, '026');
-    for (const twin of ['edge025', 'edge027'])
+    for (const twin of ['edge025', 'edge027', ...(d0 ? ['d0on025', 'd0on027'] : [])])
       await withSyncDatabases(
         async (ctx) => {
           const desk = await edge025(ctx);
@@ -1500,8 +1545,21 @@ test('every flag off after C4: today’s POS, kitchen and board get byte-identic
           });
           let server = null;
           try {
-            if (twin === 'edge027') await windowC4(ctx, desk);
-            server = await startEdge(ctx, desk.runtime);
+            if (twin.endsWith('027')) await windowC4(ctx, desk);
+            if (twin === 'd0on027')
+              // Runtime rollback after C4: the previous installer resets the runtime grants.
+              await d0.applyEdgeRuntimeGrants(ctx.edge.pool, desk.runtime.role, {
+                schema: ctx.edge.schema,
+                fulfillment: true,
+              });
+            server = twin.startsWith('d0')
+              ? await running(d0.createEdge, {
+                  ...ctx.edge.config,
+                  databaseUrl: desk.runtime.url,
+                  edgeFulfillmentEnabled: true,
+                  edgeDeviceId: ctx.device,
+                })
+              : await startEdge(ctx, desk.runtime);
             days[twin] = await oldClientDay(ctx, desk, server);
             // The new routes say "off": pos/config needs 026 (404 keeps the old POS UI), the KDS
             // layout is off on 025 and on 027 alike.
@@ -1515,9 +1573,13 @@ test('every flag off after C4: today’s POS, kitchen and board get byte-identic
               origin: cloud.url,
               identity: desk.identity,
             };
-            assert.deepEqual(ok(layout), { enabled: false });
-            const sales = await syncPosSalesOnce(desk.posSync.open(), options);
-            if (twin === 'edge025') {
+            if (twin.startsWith('d0')) assert.equal(layout.status, 404);
+            else assert.deepEqual(ok(layout), { enabled: false });
+            const sales = twin.startsWith('d0')
+              ? null
+              : await syncPosSalesOnce(desk.posSync.open(), options);
+            if (twin.startsWith('d0')) assert.equal(config.status, 404);
+            else if (twin === 'edge025') {
               assert.equal(config.status, 404);
               assert.equal(sales.state, 'not_installed');
             } else {
@@ -1581,6 +1643,111 @@ test('every flag off after C4: today’s POS, kitchen and board get byte-identic
   assert.deepEqual(days.edge027.transcript, days.edge025.transcript);
   assert.deepEqual(days.edge027.streams, days.edge025.streams);
   assert.equal(days.edge027.cloud, days.edge025.cloud);
+  // The kitchen station list is ordered by station id; KDS station ids derive from the (random)
+  // branch id, so the D0-on-027 list is compared in the order of its canonical bytes.
+  const stationsRoute = 'GET /edge/v1/fulfillment/stations';
+  const stationsByBytes = (day) => ({
+    ...day,
+    transcript: day.transcript.map(([request, status, body]) => {
+      if (request !== stationsRoute) return [request, status, body];
+      const answer = JSON.parse(body);
+      return [request, status, JSON.stringify({ ...answer, items: byBytes(answer.items) })];
+    }),
+  });
+  if (d0) {
+    await liveD0('d0on025', days.d0on025);
+    await liveD0('d0on027', stationsByBytes(days.d0on027));
+  }
+  // This branch on 025 and on 027 gives today's clients what the D0 runtime gave on 025.
+  const baseline = frozenD0.d0on025;
+  assert.equal(days.edge025.transcript.length, baseline.transcript.length);
+  days.edge025.transcript.forEach((answer, index) =>
+    assert.deepEqual(answer, baseline.transcript[index], `answer ${index}: ${answer[0]}`),
+  );
+  assert.deepEqual(days.edge025.streams, baseline.streams);
+  assert.equal(days.edge025.cloud, baseline.cloud);
+  // Runtime rollback to D0 after 027 (contracts 3.2 p.4): the kitchen station list then holds
+  // the six KDS stations; every other answer, the old streams and the cloud stay as on 025.
+  // The new runtime on 027 hides them (equal to D0 on 025 above).
+  const rollback = frozenD0.d0on027;
+  assert.deepEqual(
+    baseline.transcript.flatMap((answer, index) =>
+      JSON.stringify(answer) === JSON.stringify(rollback.transcript[index]) ? [] : [answer[0]],
+    ),
+    [stationsRoute],
+  );
+  assert.equal(rollback.transcript.length, baseline.transcript.length);
+  const stationNames = (day) =>
+    JSON.parse(day.transcript.find(([request]) => request === stationsRoute)[2]).items.map(
+      (station) => station.name,
+    );
+  assert.deepEqual(
+    stationNames(rollback)
+      .filter((name) => !stationNames(baseline).includes(name))
+      .sort(),
+    KDS_STATIONS.map((station) => station.name).sort(),
+  );
+  assert.deepEqual(rollback.streams, baseline.streams);
+  assert.equal(rollback.cloud, baseline.cloud);
+});
+
+test('runtime rollback after C4: a menu with a new prep item applies with this runtime on 025 and 027; the D0 menu apply refuses it on 027 (frozen), so D0 needs the schema026 copy', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'pickchick-cross-lane-rollback-'));
+  const acks = {};
+  try {
+    const before026 = await migrationsBefore(root, '026');
+    for (const twin of ['head', ...(d0 ? ['d0'] : [])])
+      await withSyncDatabases(
+        async (ctx) => {
+          const desk = await edge025(ctx);
+          try {
+            const apply = twin === 'd0' ? d0.applyMenu : applyMenu;
+            // A kitchen-routed publication (the release the real menu import publishes).
+            const routed = (version, extra = []) => ({
+              ...desk.release,
+              release_id: randomUUID(),
+              version,
+              items: [
+                { ...desk.burger, kitchen: { route: 'prep' } },
+                { ...desk.drink, kitchen: { route: 'assembly_item' } },
+                ...extra,
+              ],
+            });
+            const publish = async (release) =>
+              canonical(
+                await apply(ctx.edge.pool, ctx.branch, await publishMenu(ctx.cloud.pool, release)),
+              );
+            const on025 = await publish(routed(desk.release.version + 1));
+            await windowC4(ctx, desk);
+            const fresh = {
+              ...desk.burger,
+              product_id: randomUUID(),
+              variant_id: randomUUID(),
+              source_id: 'pick-new',
+              kitchen: { route: 'prep' },
+            };
+            delete fresh.aggregator_prices_minor;
+            const on027 = await publish(routed(desk.release.version + 2, [fresh]));
+            acks[twin] = { on025, on027 };
+          } finally {
+            await desk.drop();
+          }
+        },
+        { edgeMigrationDirectory: before026 },
+      );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+  // This runtime (KDS-2 routing, 6c0cd964): applied before and after 027.
+  for (const ack of Object.values(acks.head)) assert.equal(ack.result, undefined, ack.reason);
+  if (d0) await liveD0('menuApply', acks.d0);
+  // D0: applied on 025; on 027 the six KDS stations make three prep stations, so the new prep
+  // item has no unique station and the publication is refused (the edge keeps its old menu).
+  const frozen = frozenD0.menuApply;
+  assert.equal(frozen.on025.result, undefined);
+  assert.deepEqual([frozen.on027.result, frozen.on027.reason], ['rejected', 'ROUTING_UNRESOLVED']);
+  // Apart from the result, the D0 ACKs have this branch's shape.
+  assert.deepEqual(Object.keys(frozen.on025), Object.keys(acks.head.on025));
 });
 
 // ------------------------------------------------------- no WAN, then every stream catches up ----
