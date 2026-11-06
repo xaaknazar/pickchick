@@ -375,11 +375,18 @@ export class Backoffice {
         await rows(`SELECT c.id,c.created_at,count(o.id)::int orders,max(o.created_at) last_order_at,
     coalesce((SELECT i.accepted FROM identity_consents i WHERE i.customer_id=c.id AND i.kind='marketing' ORDER BY i.recorded_at DESC,i.id DESC LIMIT 1),false) marketing_consent
     FROM identity_customers c JOIN commerce_orders o ON o.customer_id=c.id WHERE o.branch_id=$1 AND c.deleted_at IS NULL GROUP BY c.id ORDER BY max(o.created_at) DESC,c.id LIMIT 200`);
+      // Lane bo-ui (audit F08): with BACKOFFICE_POS_DAY_ENABLED the log rows carry the author's
+      // name (actor_name, null for a removed login); without it the statements are unchanged.
+      const named = this.options.posDayEnabled === true;
       const audit = await rows(
-        'SELECT id,actor_id,action,entity_id,reason,created_at FROM bo_audit WHERE branch_id=$1 ORDER BY created_at DESC,id LIMIT 200',
+        named
+          ? 'SELECT a.id,a.actor_id,m.name actor_name,a.action,a.entity_id,a.reason,a.created_at FROM bo_audit a LEFT JOIN catalog_managers m ON m.id=a.actor_id WHERE a.branch_id=$1 ORDER BY a.created_at DESC,a.id LIMIT 200'
+          : 'SELECT id,actor_id,action,entity_id,reason,created_at FROM bo_audit WHERE branch_id=$1 ORDER BY created_at DESC,id LIMIT 200',
       );
       const catalog_audit = await rows(
-        'SELECT id,actor_id,action,occurred_at created_at FROM catalog_audit WHERE branch_id=$1 ORDER BY occurred_at DESC,id LIMIT 100',
+        named
+          ? 'SELECT a.id,a.actor_id,m.name actor_name,a.action,a.occurred_at created_at FROM catalog_audit a LEFT JOIN catalog_managers m ON m.id=a.actor_id WHERE a.branch_id=$1 ORDER BY a.occurred_at DESC,a.id LIMIT 100'
+          : 'SELECT id,actor_id,action,occurred_at created_at FROM catalog_audit WHERE branch_id=$1 ORDER BY occurred_at DESC,id LIMIT 100',
       );
       const documents = await rows(
         `SELECT d.id,d.kind,d.reference,d.reason,d.order_id,d.created_at,d.actor_id,a.name actor_name,

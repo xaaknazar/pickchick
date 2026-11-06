@@ -947,3 +947,49 @@ test('flag on: a paid POS sale is paid, with its cash desk, Webkassa state and r
     assert.equal(pick(again.cashier_orders, 'id', unpaid).terminal_id, TERMINAL.two);
     assert.equal(again.cashier_metrics.unpaid_total_minor, '50000');
   }));
+
+// ------------------------------------------------------------------ audit log names (F08) ----
+
+test('audit log (F08): names only with the flag; without it the rows keep the cloud lane keys', () =>
+  withSyncDatabases(async (c) => {
+    const p = await people(c);
+    const lane = new Backoffice(c.cloud.pool, true, {});
+    await lane.command(p.manager.token, c.branch, {
+      request_id: randomUUID(),
+      reason: 'Синтетическая запись журнала',
+      command: {
+        type: 'save',
+        kind: 'ingredient',
+        id: randomUUID(),
+        expected_revision: 0,
+        payload: { name: 'Синтетическая булка', unit: 'pcs', minimum: '0', active: true },
+      },
+    });
+    const off = await lane.read(p.manager.token, c.branch, { period: 'day' });
+    assert.equal(off.audit.length, 1);
+    assert.deepEqual(Object.keys(off.audit[0]), [
+      'id',
+      'actor_id',
+      'action',
+      'entity_id',
+      'reason',
+      'created_at',
+    ]);
+    const named = await on(c).read(p.manager.token, c.branch, { period: 'day' });
+    assert.deepEqual(Object.keys(named.audit[0]), [
+      'id',
+      'actor_id',
+      'actor_name',
+      'action',
+      'entity_id',
+      'reason',
+      'created_at',
+    ]);
+    assert.equal(named.audit[0].actor_name, 'Синтетический управляющий');
+    const { actor_name: name, ...rest } = named.audit[0];
+    assert.equal(name, 'Синтетический управляющий');
+    assert.deepEqual(rest, off.audit[0], 'the name is the only difference');
+    // Every reading role sees the same names (the log is reports.read).
+    const analyst = await on(c).read(p.analyst.token, c.branch, { period: 'day' });
+    assert.equal(analyst.audit[0].actor_name, 'Синтетический управляющий');
+  }));
