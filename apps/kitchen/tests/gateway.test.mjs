@@ -55,6 +55,38 @@ test('allowlist rejects foreign routes, duplicate/unknown query, invalid cursor,
   assert.equal(allowed('POST', base + '/orders/' + id + '/cancel'), false);
   assert.equal(allowed('GET', base + '/kitchen?stationId=' + id + '&limit=100'), true);
 });
+// Cutover KDS-5: exactly the routes and query keys of CR kds-5 (LAN profile kitchen).
+test('allowlist adds only the KDS routes of CR kds-5 with their query rules', () => {
+  for (const [method, path] of [
+    ['GET', base + '/layout'],
+    ['GET', base + '/kds/breading'],
+    ['GET', base + '/kds/breading?limit=100'],
+    ['GET', base + '/incidents?scope=open'],
+    ['GET', base + '/incidents?scope=today'],
+    ['POST', base + '/incidents'],
+  ])
+    assert.equal(allowed(method, path), true, method + ' ' + path);
+  for (const [method, path] of [
+    ['GET', base + '/layout?x=1'],
+    ['GET', base + '/layout?stationId=' + id],
+    ['GET', base + '/kds/breading?limit=101'],
+    ['GET', base + '/kds/breading?limit=0'],
+    ['GET', base + '/kds/breading?limit=1&limit=2'],
+    ['GET', base + '/kds/breading?stationId=' + id],
+    ['GET', base + '/incidents'],
+    ['GET', base + '/incidents?scope=all'],
+    ['GET', base + '/incidents?scope=open&scope=today'],
+    ['GET', base + '/incidents?scope=open&limit=10'],
+    ['POST', base + '/incidents?scope=open'],
+    ['POST', base + '/layout'],
+    ['POST', base + '/kds/breading'],
+    ['POST', base + '/incidents/' + id],
+    ['GET', base + '/incidents/' + id],
+    ['GET', base + '/kds'],
+    ['PUT', base + '/incidents'],
+  ])
+    assert.equal(allowed(method, path), false, method + ' ' + path);
+});
 test('gateway host/origin bounds, strips cookies/redirects and forwards only staff headers', () =>
   fixture(async (f) => {
     let r = await fetch(f.url + base + '/config', { headers: { Origin: 'https://bad.example' } });

@@ -16,12 +16,17 @@ import {
   CloudCommandSchema,
   StaffCommandSchema,
   RoutingSchema,
-  taskPlan,
   FulfillmentError,
   LeaseSchema,
   AckSchema,
+  CourierIncidentInputSchema,
+  CourierIncidentQuerySchema,
 } from './model.js';
 import type { TrustedCloud } from './model.js';
+import { buildKitchenPlan } from './kds-plan.js';
+import { readKdsLayout, readMenuKdsSlugs } from './kds-layout.js';
+import { KDS_STATIONS, cloudKdsSlugs, kdsFunctionKind, noKdsSlugs } from './kds.js';
+import type { KdsSlugs } from './kds.js';
 
 import {
   acceptsWork,
@@ -48,7 +53,16 @@ const snapshot = (task: Task): TaskSnapshot => ({
   stationId: task.station_id,
   state: task.state,
   version: task.version,
+  // Pinned at admission by a KDS plan only (toasts of a table); absent on every other task.
+  ...(task.details.kds?.upstreamOf ? { upstreamOf: task.details.kds.upstreamOf } : {}),
 });
+/** KDS task details and the delivery mark leave the edge only while the layout is enabled. */
+const withoutKds = (task: Task): Task => {
+  if (!task.details.kds) return task;
+  const { kds, ...details } = task.details;
+  void kds;
+  return { ...task, details };
+};
 async function lock(client: DatabaseClient, key: string) {
   await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [key]);
 }
@@ -96,6 +110,77 @@ async function tasks(client: DatabaseClient, row: Reservation) {
     )
   ).rows;
 }
+/**
+ * The courier handover journal row (027 delivery_handovers) of a delivery handoff, in the same
+ * transaction as its handed_over step: the aggregator and number of the order, the station that
+ * finished it, who handed it over on which screen, and the command (Idempotency-Key). A replay
+ * of the command returns its stored result before reaching this point; another command of the
+ * same order cannot get here (the order is handed_over), and a reused key conflicts.
+ */
+async function recordHandover(
+  client: DatabaseClient,
+  row: Reservation,
+  staff: { staff_id: string; terminal_id: string },
+  commandId: string,
+  delivery: NonNullable<Reservation['snapshot']['delivery']>,
+) {
+  if (
+    (
+      await client.query('SELECT 1 FROM delivery_handovers WHERE command_id=$1 OR order_id=$2', [
+        commandId,
+        row.order_id,
+      ])
+    ).rowCount
+  )
+    fail('CONFLICT');
+  await client.query(
+    `INSERT INTO delivery_handovers(order_id,branch_id,command_id,provider,external_number,number_matched,courier_accepted,photo_taken,station_id,staff_id,terminal_id)
+     VALUES($1,$2,$3,$4,$5,true,true,true,$6,$7,$8)`,
+    [
+      row.order_id,
+      row.branch_id,
+      commandId,
+      delivery.provider,
+      delivery.externalNumber,
+      row.assembly_station_id,
+      staff.staff_id,
+      staff.terminal_id,
+    ],
+  );
+}
+
+/**
+ * P0 rule of the "Менеджер вызван" banner (no incident statuses before P1 028): an incident is
+ * open for this many minutes after it was recorded, while its order (if any) is still live.
+ */
+export const COURIER_INCIDENT_OPEN_MINUTES = 30;
+interface IncidentRow {
+  incident_id: string;
+  branch_id: string;
+  provider: 'yandex_eda' | 'glovo' | 'other';
+  claimed_number: string | null;
+  kind: 'number_mismatch' | 'not_accepted_in_app' | 'no_photo' | 'courier_refused' | 'other';
+  description: string;
+  staff_id: string;
+  terminal_id: string;
+  request_hash: string;
+  recorded_at: Date;
+  display_number: string | null;
+}
+const INCIDENT_SELECT = `SELECT i.incident_id,i.branch_id,i.provider,i.claimed_number,i.kind,i.description,
+  i.staff_id,i.terminal_id,i.request_hash,i.recorded_at,r.display_number
+  FROM courier_incidents i LEFT JOIN fulfillment_reservations r
+  ON r.branch_id=i.branch_id AND r.order_id=i.order_id`;
+/** CourierIncidentSchema of the contract (contracts section 5.4). */
+const incidentView = (row: IncidentRow) => ({
+  incidentId: row.incident_id,
+  provider: row.provider,
+  claimedNumber: row.claimed_number,
+  kind: row.kind,
+  description: row.description,
+  recordedAt: row.recorded_at.toISOString(),
+  ...(row.display_number !== null ? { displayNumber: row.display_number } : {}),
+});
 
 export class EdgeFulfillment {
   constructor(private readonly pool: DatabasePool) {}
@@ -247,8 +332,14 @@ export class EdgeFulfillment {
             )
           ).rows[0];
           if (!stored) fail('ROUTING_MISSING');
-          const routing = parse(RoutingSchema, stored.payload),
-            plan = taskPlan(p.snapshot, routing);
+          const routing = parse(RoutingSchema, stored.payload);
+          // Contracts section 5.2: the same seam as the cashier path. Layout off: exactly
+          // taskPlan(snapshot, routing) and routing.assemblyStationId.
+          const kitchen = await buildKitchenPlan(client, {
+            branchId: scope.branchId,
+            snapshot: p.snapshot,
+            routing,
+          });
           // A quote may not reserve two commercial order IDs, even on concurrent deliveries.
           await lock(client, 'fulfillment:quote:' + scope.branchId + ':' + p.quoteId);
           if (
@@ -275,8 +366,8 @@ export class EdgeFulfillment {
                 scope.deviceId,
                 p.snapshot,
                 routing.version,
-                JSON.stringify(plan),
-                routing.assemblyStationId,
+                JSON.stringify(kitchen.plan),
+                kitchen.assemblyStationId,
                 number,
               ],
             )
@@ -465,6 +556,8 @@ export class EdgeFulfillment {
       if (restored && restored.status !== 'resume') fail('NOT_READY');
       decided(checkVersion(row.version, command.expectedVersion));
       const shape = decided(commandShape(command));
+      // Courier marks belong to a handoff only (the HTTP schema already says so).
+      if (command.handover && command.action !== 'handoff') fail('INVALID');
       // Each pure step is one aggregate version and one event; task steps also bump the task.
       const apply = async (steps: Step[]) => {
         for (const step of steps) {
@@ -560,7 +653,20 @@ export class EdgeFulfillment {
               planReady({ order: row.state, tasks: (await tasks(client, row)).map(snapshot) }),
             ),
           );
-        } else await apply(decided(planHandoff({ order: row.state })));
+        } else {
+          // Courier handover protocol (Аг9, contracts section 5.4): exactly the orders whose
+          // kitchen tickets carry `delivery` - an aggregator order while the KDS layout is on.
+          // Layout off (or no 027): today's handoff, and marks are refused as before KDS-4.
+          const protocol =
+            row.snapshot.delivery !== undefined && (await readKdsLayout(client, branchId)).enabled;
+          if (command.handover && !protocol) fail('INVALID');
+          const steps = decided(planHandoff({ order: row.state }));
+          if (protocol && !command.handover)
+            throw new FulfillmentError('INVALID', 'HANDOVER_MARKS_REQUIRED');
+          await apply(steps);
+          if (protocol)
+            await recordHandover(client, row, staff, command.commandId, row.snapshot.delivery!);
+        }
       }
       await audit(client, branchId, staff.staff_id, 'fulfillment.' + command.action, row.order_id);
       const result = view(row);
@@ -583,6 +689,7 @@ export class EdgeFulfillment {
       const staff = await authenticateStaff(client, branchId, auth);
       if (q.stationId) await stationPermission(client, branchId, staff, q.stationId);
       await client.query('SET TRANSACTION READ ONLY');
+      const kdsOn = (await readKdsLayout(client, branchId)).enabled;
       const row = await readReservation(client, branchId, orderId);
       const allTasks = await tasks(client, row);
       // Station membership is pinned to this order, including its assembly-only
@@ -599,7 +706,8 @@ export class EdgeFulfillment {
         channel: row.snapshot.channel,
         serviceMode: row.snapshot.serviceMode,
         ...(row.snapshot.kitchenComment ? { kitchenComment: row.snapshot.kitchenComment } : {}),
-        tasks: allTasks,
+        ...(kdsOn && row.snapshot.delivery ? { delivery: row.snapshot.delivery } : {}),
+        tasks: kdsOn ? allTasks : allTasks.map(withoutKds),
         cancellationReason: row.cancellation_reason,
         inventoryDisposition: row.inventory_disposition,
       };
@@ -624,6 +732,7 @@ export class EdgeFulfillment {
       if (!['kitchen', 'shift_manager'].includes(staff.role)) fail('FORBIDDEN');
       if (q.stationId) await stationPermission(client, branchId, staff, q.stationId);
       await client.query('SET TRANSACTION READ ONLY');
+      const kdsOn = (await readKdsLayout(client, branchId)).enabled;
       const hasReviews = (
         await client.query("SELECT to_regclass('fulfillment_restore_reviews') IS NOT NULL AS ok")
       ).rows[0].ok;
@@ -653,7 +762,8 @@ export class EdgeFulfillment {
           channel: row.snapshot.channel,
           serviceMode: row.snapshot.serviceMode,
           ...(row.snapshot.kitchenComment ? { kitchenComment: row.snapshot.kitchenComment } : {}),
-          tasks: await tasks(client, row),
+          ...(kdsOn && row.snapshot.delivery ? { delivery: row.snapshot.delivery } : {}),
+          tasks: kdsOn ? await tasks(client, row) : (await tasks(client, row)).map(withoutKds),
         };
         const size = Buffer.byteLength(JSON.stringify(item));
         if (items.length && bytes + size > 2_097_152) break;
@@ -694,8 +804,9 @@ export class EdgeFulfillment {
       await this.pool.query<{ display_number: string; state: State; display_name: string }>(
         // An order no longer live for edge 022 numbering (untouched for 12 hours, or 'ready' for
         // 3 hours) is off the board: its number may already belong to a new order, and the
-        // board never shows one number twice.
-        `SELECT display_number,state,left(coalesce(snapshot->>'displayName',''),14) AS display_name FROM fulfillment_reservations WHERE branch_id=$1 AND state IN ('accepted','in_production','ready') AND updated_at>clock_timestamp()-CASE WHEN state='ready' THEN interval '3 hours' ELSE interval '12 hours' END AND display_number>$2::bigint ${reviewFilter} ORDER BY display_number LIMIT $3`,
+        // board never shows one number twice. Aggregator orders (snapshot.delivery, cutover
+        // KDS) go to couriers, never to the guest board; the board gets no new key for them.
+        `SELECT display_number,state,left(coalesce(snapshot->>'displayName',''),14) AS display_name FROM fulfillment_reservations WHERE branch_id=$1 AND state IN ('accepted','in_production','ready') AND updated_at>clock_timestamp()-CASE WHEN state='ready' THEN interval '3 hours' ELSE interval '12 hours' END AND display_number>$2::bigint AND snapshot->'delivery' IS NULL ${reviewFilter} ORDER BY display_number LIMIT $3`,
         [branchId, q.afterNumber, q.limit + 1],
       )
     ).rows;
@@ -708,6 +819,271 @@ export class EdgeFulfillment {
       })),
       nextAfterNumber: rows.length > q.limit ? page.at(-1)!.display_number : null,
     };
+  }
+  /**
+   * GET fulfillment/layout (contracts section 5.4). {enabled:false}: the old kitchen screen.
+   * screens: the layout stations of the session's terminal (0..2, tabs); a managed terminal only
+   * opens stations of its own mode.
+   */
+  async readLayout(branchId: string, auth: StaffAuth, terminalMode?: 'prep' | 'assembly') {
+    parse(z.uuid(), branchId);
+    return transaction(this.pool, async (client) => {
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+      const staff = await authenticateStaff(client, branchId, auth);
+      if (!['kitchen', 'shift_manager'].includes(staff.role)) fail('FORBIDDEN');
+      await client.query('SET TRANSACTION READ ONLY');
+      const kds = await readKdsLayout(client, branchId);
+      if (!kds.enabled) return { enabled: false as const };
+      const names = new Map(
+        (
+          await client.query<{ id: string; name: string }>(
+            'SELECT id,name FROM fulfillment_stations WHERE branch_id=$1 AND id=ANY($2::uuid[])',
+            [branchId, kds.layout.stations.map((s) => s.edge_station_id)],
+          )
+        ).rows.map((row) => [row.id, row.name]),
+      );
+      return {
+        enabled: true as const,
+        layoutVersion: kds.version,
+        mode: kds.mode,
+        stations: kds.layout.stations.map((s) => ({
+          id: s.edge_station_id,
+          function: s.function,
+          name:
+            names.get(s.edge_station_id) ??
+            KDS_STATIONS.find((spec) => spec.function === s.function)!.name,
+          kind: kdsFunctionKind(s.function),
+        })),
+        screens: kds.layout.stations
+          .filter(
+            (s) =>
+              s.terminal_ids.includes(staff.terminal_id) &&
+              (!terminalMode || kdsFunctionKind(s.function) === terminalMode),
+          )
+          .map((s) => s.edge_station_id)
+          .slice(0, 2),
+      };
+    });
+  }
+  /**
+   * GET fulfillment/kds/breading (contracts section 5.4, КД4): station 6 has no tasks; its screen
+   * is a projection of the open table tasks whose product the layout lists for breading (or that
+   * carry pinned fingers). Oldest order first; only orders the kitchen may work on. Fingers only
+   * when the layout counts them. NOT_FOUND while the layout is off or has no breading station.
+   */
+  async readBreading(branchId: string, auth: StaffAuth, input: unknown = {}) {
+    parse(z.uuid(), branchId);
+    const q = parse(z.strictObject({ limit: z.int().min(1).max(100).default(50) }), input);
+    return transaction(this.pool, async (client) => {
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+      const staff = await authenticateStaff(client, branchId, auth);
+      if (!['kitchen', 'shift_manager'].includes(staff.role)) fail('FORBIDDEN');
+      const kds = await readKdsLayout(client, branchId);
+      const station = kds.enabled
+        ? kds.layout.stations.find((s) => s.function === 'breading')
+        : undefined;
+      if (!station) return fail('NOT_FOUND');
+      await stationPermission(client, branchId, staff, station.edge_station_id);
+      await client.query('SET TRANSACTION READ ONLY');
+      const hasReviews = (
+        await client.query("SELECT to_regclass('fulfillment_restore_reviews') IS NOT NULL AS ok")
+      ).rows[0].ok;
+      // As the guest board: a restored order counts only once the manager resumed it.
+      const reviewFilter = hasReviews
+        ? ` AND NOT EXISTS (
+        SELECT 1 FROM fulfillment_restore_reviews rr LEFT JOIN fulfillment_restore_decisions d USING(epoch,order_id)
+        WHERE rr.order_id=r.order_id AND rr.epoch=(SELECT max(latest.epoch)
+          FROM fulfillment_restore_reviews latest WHERE latest.order_id=r.order_id)
+        AND coalesce(d.decision,'pending')<>'resume')`
+        : '';
+      const open = `t.branch_id=r.branch_id AND t.order_id=r.order_id AND t.state IN ('queued','in_progress')
+        AND t.details->'kds'->>'function' IN ('assembly_hall','assembly_delivery')`;
+      const orders = (
+        await client.query<{
+          order_id: string;
+          display_number: string | null;
+          snapshot: { channel: string; serviceMode: 'takeaway' | 'dine_in'; delivery?: unknown };
+        }>(
+          `SELECT r.order_id,r.display_number,r.snapshot FROM fulfillment_reservations r
+           WHERE r.branch_id=$1 AND r.state IN ('accepted','in_production')
+           AND EXISTS(SELECT 1 FROM fulfillment_tasks t WHERE ${open}) ${reviewFilter}
+           ORDER BY r.created_at,r.order_id LIMIT 500`,
+          [branchId],
+        )
+      ).rows;
+      const breaded = new Set(station.product_ids);
+      // The open table tasks of every candidate in one statement (station 6 polls every 5 s).
+      const tableTasks = new Map<string, Task['details'][]>();
+      if (orders.length)
+        for (const task of (
+          await client.query<{ order_id: string; details: Task['details'] }>(
+            `SELECT t.order_id,t.details FROM fulfillment_tasks t JOIN fulfillment_reservations r
+             ON r.branch_id=t.branch_id AND r.order_id=t.order_id
+             WHERE r.order_id=ANY($1::uuid[]) AND ${open}
+             ORDER BY t.order_id,t.component_key`,
+            [orders.map((row) => row.order_id)],
+          )
+        ).rows) {
+          const list = tableTasks.get(task.order_id);
+          if (list) list.push(task.details);
+          else tableTasks.set(task.order_id, [task.details]);
+        }
+      let cashierSlugs: KdsSlugs | null | undefined;
+      const result = [];
+      let total = 0,
+        counted = Boolean(station.counts?.length);
+      for (const row of orders) {
+        if (result.length >= q.limit) break;
+        let slugs = cloudKdsSlugs;
+        if (row.snapshot.channel === 'pos') {
+          if (cashierSlugs === undefined) cashierSlugs = await readMenuKdsSlugs(client, branchId);
+          slugs = cashierSlugs ?? noKdsSlugs;
+        }
+        const lines = (tableTasks.get(row.order_id) ?? [])
+          .filter((details) => {
+            const slug = slugs.product(details.productId);
+            return (slug !== null && breaded.has(slug)) || details.kds?.fingers !== undefined;
+          })
+          .map((details) => ({
+            title: details.title,
+            quantity: details.quantity,
+            ...(details.kds?.fingers !== undefined ? { fingers: details.kds.fingers } : {}),
+          }));
+        if (!lines.length) continue;
+        const fingers = lines.reduce((sum, line) => sum + (line.fingers ?? 0), 0);
+        if (lines.some((line) => line.fingers !== undefined)) counted = true;
+        total += fingers;
+        result.push({
+          orderId: row.order_id,
+          displayNumber: row.display_number,
+          serviceMode: row.snapshot.serviceMode,
+          ...(row.snapshot.delivery ? { delivery: row.snapshot.delivery } : {}),
+          lines,
+          ...(fingers > 0 ? { fingers } : {}),
+        });
+      }
+      return { orders: result, ...(counted ? { totalFingers: total } : {}) };
+    });
+  }
+  /**
+   * POST fulfillment/incidents (contracts section 5.4, Аг9): a courier protocol refusal, recorded
+   * at the courier counter (the order's finishing station, else station 3 of the layout, else 2)
+   * by a kitchen login with access to that station or a shift manager. incidentId is the
+   * client's Idempotency-Key: the same staff, terminal and request replay the stored record,
+   * anything else under that id conflicts. The claimed number is stored upper-case like the
+   * aggregator numbers. Insert-only journal, no outbox event (cloud report: P1).
+   * A new incident is NOT_FOUND while the KDS layout is off; a stored one still replays.
+   */
+  async recordIncident(branchId: string, auth: StaffAuth, incidentId: string, input: unknown) {
+    parse(z.uuid(), branchId);
+    const id = parse(z.uuid(), incidentId),
+      request = parse(CourierIncidentInputSchema, input);
+    const incident = {
+      ...(request.orderId ? { orderId: request.orderId } : {}),
+      provider: request.provider,
+      ...(request.claimedNumber ? { claimedNumber: request.claimedNumber.toUpperCase() } : {}),
+      kind: request.kind,
+      description: request.description,
+    };
+    const requestHash = digest(incident);
+    return transaction(this.pool, async (client) => {
+      const staff = await authenticateStaff(client, branchId, auth);
+      if (!['kitchen', 'shift_manager'].includes(staff.role)) fail('FORBIDDEN');
+      const kds = await readKdsLayout(client, branchId);
+      // A stored incident replays even after kds-switch disable (a retry of a lost answer);
+      // only a new incident needs the layout. Without the readable journal (027 or the runtime
+      // grant missing) there is nothing to replay.
+      if (
+        !kds.enabled &&
+        !(
+          await client.query<{ ok: boolean }>(
+            `SELECT to_regclass('courier_incidents') IS NOT NULL
+               AND has_table_privilege(to_regclass('courier_incidents'),'SELECT') AS ok`,
+          )
+        ).rows[0]!.ok
+      )
+        return fail('NOT_FOUND');
+      await lock(client, 'fulfillment:courier-incident:' + id);
+      const select = (sql: string) =>
+        client.query<IncidentRow>(`${INCIDENT_SELECT} WHERE i.incident_id=$1${sql}`, [id]);
+      const saved = (await select('')).rows[0];
+      if (saved) {
+        if (
+          saved.branch_id !== branchId ||
+          saved.staff_id !== staff.staff_id ||
+          saved.terminal_id !== staff.terminal_id ||
+          saved.request_hash !== requestHash
+        )
+          fail('CONFLICT');
+        return incidentView(saved);
+      }
+      if (!kds.enabled) return fail('NOT_FOUND');
+      let stationId: string;
+      if (incident.orderId) {
+        const order = (
+          await client.query<{ assembly_station_id: string }>(
+            'SELECT assembly_station_id FROM fulfillment_reservations WHERE order_id=$1 AND branch_id=$2 FOR KEY SHARE',
+            [incident.orderId, branchId],
+          )
+        ).rows[0];
+        stationId = order?.assembly_station_id ?? fail('NOT_FOUND');
+      } else {
+        const counter =
+          kds.layout.stations.find((s) => s.function === 'delivery_handover') ??
+          kds.layout.stations.find((s) => s.function === 'issue')!;
+        stationId = counter.edge_station_id;
+      }
+      await stationPermission(client, branchId, staff, stationId);
+      await client.query(
+        `INSERT INTO courier_incidents(incident_id,branch_id,order_id,provider,claimed_number,kind,description,station_id,staff_id,terminal_id,request_hash)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        [
+          id,
+          branchId,
+          incident.orderId ?? null,
+          incident.provider,
+          incident.claimedNumber ?? null,
+          incident.kind,
+          incident.description,
+          stationId,
+          staff.staff_id,
+          staff.terminal_id,
+          requestHash,
+        ],
+      );
+      await audit(client, branchId, staff.staff_id, 'fulfillment.courier_incident', id);
+      return incidentView((await select('')).rows[0]!);
+    });
+  }
+  /**
+   * GET fulfillment/incidents?scope=open|today (contracts section 5.4): the "Менеджер вызван"
+   * banner of screens 2 and 3 (open: recorded within COURIER_INCIDENT_OPEN_MINUTES, its order
+   * not yet handed over, cancelled or released) and the journal of the Almaty day. Newest first.
+   * NOT_FOUND while the KDS layout is off.
+   */
+  async listIncidents(branchId: string, auth: StaffAuth, input: unknown) {
+    parse(z.uuid(), branchId);
+    const q = parse(CourierIncidentQuerySchema, input);
+    return transaction(this.pool, async (client) => {
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+      const staff = await authenticateStaff(client, branchId, auth);
+      if (!['kitchen', 'shift_manager'].includes(staff.role)) fail('FORBIDDEN');
+      await client.query('SET TRANSACTION READ ONLY');
+      if (!(await readKdsLayout(client, branchId)).enabled) fail('NOT_FOUND');
+      const open = q.scope === 'open';
+      const window = open
+        ? `i.recorded_at>clock_timestamp()-$2*interval '1 minute'
+           AND (i.order_id IS NULL OR r.state NOT IN ('handed_over','cancelled','released'))`
+        : `i.recorded_at>=(date_trunc('day',clock_timestamp() AT TIME ZONE 'Asia/Almaty') AT TIME ZONE 'Asia/Almaty')`;
+      const rows = (
+        await client.query<IncidentRow>(
+          `${INCIDENT_SELECT} WHERE i.branch_id=$1 AND ${window}
+           ORDER BY i.recorded_at DESC,i.incident_id LIMIT 200`,
+          open ? [branchId, COURIER_INCIDENT_OPEN_MINUTES] : [branchId],
+        )
+      ).rows;
+      return { items: rows.map(incidentView) };
+    });
   }
   async claimOutbox(scope: TrustedCloud, input: unknown) {
     const req = parse(LeaseSchema, input);

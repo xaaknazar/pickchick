@@ -9,6 +9,69 @@ export type Credential = {
   expires_at: string;
 };
 export type Station = { id: string; kind: 'prep' | 'assembly'; name: string };
+/** KDS station functions (contracts section 2.3); the station numbers of the kitchen rules. */
+export const KDS_FUNCTIONS = [
+  'breading',
+  'toasts',
+  'assembly_hall',
+  'assembly_delivery',
+  'issue',
+  'delivery_handover',
+] as const;
+export type KdsFunction = (typeof KDS_FUNCTIONS)[number];
+/** details.kds of a task: only while the edge KDS layout is on (contracts section 5.4). */
+export type TaskKds = {
+  function: KdsFunction;
+  upstreamOf?: string;
+  units?: number;
+  unit?: 'finger' | 'toast' | 'burger';
+  fingers?: number;
+  unmapped?: true;
+};
+/** Aggregator order of a ticket (snapshot.delivery); only while the KDS layout is on. */
+export type Delivery = { provider: 'yandex_eda' | 'glovo'; externalNumber: string };
+/** GET fulfillment/layout with enabled:true; enabled:false or 404 is today's screen (null). */
+export type KdsLayout = {
+  layoutVersion: number;
+  mode: 'morning' | 'normal' | 'peak';
+  stations: { id: string; function: KdsFunction; name: string; kind: 'prep' | 'assembly' }[];
+  /** Stations of this terminal, at most two (tabs). */
+  screens: string[];
+};
+export type BreadingOrder = {
+  orderId: string;
+  displayNumber: string | null;
+  serviceMode: 'takeaway' | 'dine_in';
+  delivery?: Delivery;
+  lines: { title: string; quantity: number; fingers?: number }[];
+  fingers?: number;
+};
+export type Breading = { orders: BreadingOrder[]; totalFingers?: number };
+export const INCIDENT_KINDS = [
+  'number_mismatch',
+  'not_accepted_in_app',
+  'no_photo',
+  'courier_refused',
+  'other',
+] as const;
+export type IncidentKind = (typeof INCIDENT_KINDS)[number];
+export type IncidentProvider = 'yandex_eda' | 'glovo' | 'other';
+export type Incident = {
+  incidentId: string;
+  provider: IncidentProvider;
+  claimedNumber: string | null;
+  kind: IncidentKind;
+  description: string;
+  recordedAt: string;
+  displayNumber?: string;
+};
+/** The three courier handover marks of Аг9; the edge requires all of them. */
+export type Handover = { numberMatched: true; courierAccepted: true; photoTaken: true };
+export const HANDOVER_MARKS: Handover = Object.freeze({
+  numberMatched: true,
+  courierAccepted: true,
+  photoTaken: true,
+});
 export type Summary = {
   orderId: string;
   branchId: string;
@@ -48,6 +111,7 @@ export type Task = {
       quantity: number;
       linkedProductId: string | null;
     }[];
+    kds?: TaskKds;
   };
 };
 export type Order = Summary & {
@@ -55,6 +119,7 @@ export type Order = Summary & {
   channel: 'mobile' | 'kiosk' | 'pos';
   serviceMode: 'takeaway' | 'dine_in';
   kitchenComment?: string;
+  delivery?: Delivery;
   restoreReview?: { epoch: number; status: 'pending' | 'resume' | 'retire' };
   tasks: Task[];
   /** Set by the model for orders read from the cloud stream (never taken from the payload). */
@@ -68,7 +133,8 @@ export type Action =
       taskId: string;
       expectedTaskVersion: number;
     }
-  | { action: 'ready' | 'handoff'; expectedVersion: number }
+  | { action: 'ready'; expectedVersion: number }
+  | { action: 'handoff'; expectedVersion: number; handover?: Handover }
   | { action: 'complete_station'; expectedVersion: number; stationId: string };
 export const prefix = '/edge/v1/fulfillment';
 /** Portal route to the cloud kitchen stream (same contract, ADR-0014). */
@@ -200,6 +266,7 @@ export function order(v: unknown, branch: string): Order {
             linkedProductId: m.linkedProductId === null ? null : str(m.linkedProductId, 160, 1),
           };
         }),
+        ...(d.kds === undefined ? {} : { kds: taskKds(d.kds) }),
       },
     };
   });
@@ -210,6 +277,7 @@ export function order(v: unknown, branch: string): Order {
     channel: choice(o.channel, ['mobile', 'kiosk', 'pos']),
     serviceMode: choice(o.serviceMode, ['takeaway', 'dine_in']),
     ...(o.kitchenComment === undefined ? {} : { kitchenComment: str(o.kitchenComment, 60) }),
+    ...(o.delivery === undefined ? {} : { delivery: delivery(o.delivery) }),
     ...(o.restoreReview === undefined
       ? {}
       : {
@@ -262,12 +330,132 @@ export function action(v: unknown): Action {
     ]);
   if (name === 'complete_station')
     return { action: name, expectedVersion: int(a.expectedVersion), stationId: uuid(a.stationId) };
-  if (name === 'ready' || name === 'handoff')
-    return { action: name, expectedVersion: int(a.expectedVersion) };
+  if (name === 'ready') return { action: name, expectedVersion: int(a.expectedVersion) };
+  if (name === 'handoff')
+    return {
+      action: name,
+      expectedVersion: int(a.expectedVersion),
+      ...(a.handover === undefined ? {} : { handover: handover(a.handover) }),
+    };
   return {
     action: name,
     expectedVersion: int(a.expectedVersion),
     taskId: uuid(a.taskId),
     expectedTaskVersion: int(a.expectedTaskVersion),
   };
+}
+
+// Cutover KDS (contracts section 5.4). New payloads exist only while the edge KDS layout is on;
+// unknown keys are ignored like in order(), known keys are checked.
+function count(v: unknown, max = 1_000_000) {
+  return int(v, max);
+}
+/** All three marks, each exactly true; any other value is not a courier handover. */
+export function handover(v: unknown): Handover {
+  const h = record(v);
+  if (
+    Object.keys(h).sort().join(',') !== 'courierAccepted,numberMatched,photoTaken' ||
+    h.numberMatched !== true ||
+    h.courierAccepted !== true ||
+    h.photoTaken !== true
+  )
+    throw new Error('INVALID_RESPONSE');
+  return { numberMatched: true, courierAccepted: true, photoTaken: true };
+}
+export function delivery(v: unknown): Delivery {
+  const d = record(v),
+    externalNumber = str(d.externalNumber, 40, 3);
+  if (!/^[A-Z0-9-]{3,40}$/.test(externalNumber)) throw new Error('INVALID_RESPONSE');
+  return { provider: choice(d.provider, ['yandex_eda', 'glovo']), externalNumber };
+}
+export function taskKds(v: unknown): TaskKds {
+  const k = record(v);
+  if (k.unmapped !== undefined && k.unmapped !== true) throw new Error('INVALID_RESPONSE');
+  return {
+    function: choice(k.function, KDS_FUNCTIONS),
+    ...(k.upstreamOf === undefined ? {} : { upstreamOf: uuid(k.upstreamOf) }),
+    ...(k.units === undefined ? {} : { units: count(k.units) }),
+    ...(k.unit === undefined ? {} : { unit: choice(k.unit, ['finger', 'toast', 'burger']) }),
+    ...(k.fingers === undefined ? {} : { fingers: count(k.fingers) }),
+    ...(k.unmapped === true ? { unmapped: true as const } : {}),
+  };
+}
+/** GET fulfillment/layout: null for {enabled:false}; screens are distinct layout stations. */
+export function kdsLayout(v: unknown): KdsLayout | null {
+  const o = record(v);
+  if (o.enabled === false) return null;
+  if (o.enabled !== true) throw new Error('INVALID_RESPONSE');
+  const list = array(o.stations, 6, (x) => {
+    const s = record(x);
+    return {
+      id: uuid(s.id),
+      function: choice(s.function, KDS_FUNCTIONS),
+      name: str(s.name, 100, 1),
+      kind: choice(s.kind, ['prep', 'assembly']),
+    };
+  });
+  if (!list.length) throw new Error('INVALID_RESPONSE');
+  unique(list.map((s) => s.id));
+  unique(list.map((s) => s.function));
+  const screens = array(o.screens, 2, uuid);
+  unique(screens);
+  if (screens.some((id) => !list.some((s) => s.id === id))) throw new Error('INVALID_RESPONSE');
+  return {
+    layoutVersion: int(o.layoutVersion),
+    mode: choice(o.mode, ['morning', 'normal', 'peak']),
+    stations: list,
+    screens,
+  };
+}
+/** GET fulfillment/kds/breading (station 6 view). */
+export function breading(v: unknown): Breading {
+  const o = record(v);
+  const orders = array(o.orders, 100, (x) => {
+    const b = record(x);
+    return {
+      orderId: uuid(b.orderId),
+      displayNumber: b.displayNumber === null ? null : number(b.displayNumber),
+      serviceMode: choice(b.serviceMode, ['takeaway', 'dine_in']),
+      ...(b.delivery === undefined ? {} : { delivery: delivery(b.delivery) }),
+      lines: array(b.lines, 2000, (y) => {
+        const l = record(y);
+        return {
+          title: str(l.title, 250, 1),
+          quantity: count(l.quantity),
+          ...(l.fingers === undefined ? {} : { fingers: count(l.fingers) }),
+        };
+      }),
+      ...(b.fingers === undefined ? {} : { fingers: count(b.fingers, 100_000_000) }),
+    };
+  });
+  unique(orders.map((b) => b.orderId));
+  let totalFingers: number | undefined;
+  if (o.totalFingers !== undefined) {
+    if (
+      typeof o.totalFingers !== 'number' ||
+      !Number.isSafeInteger(o.totalFingers) ||
+      o.totalFingers < 0
+    )
+      throw new Error('INVALID_RESPONSE');
+    totalFingers = o.totalFingers;
+  }
+  return { orders, ...(totalFingers === undefined ? {} : { totalFingers }) };
+}
+export function incident(v: unknown): Incident {
+  const i = record(v);
+  return {
+    incidentId: uuid(i.incidentId),
+    provider: choice(i.provider, ['yandex_eda', 'glovo', 'other']),
+    claimedNumber: i.claimedNumber === null ? null : str(i.claimedNumber, 40, 1),
+    kind: choice(i.kind, INCIDENT_KINDS),
+    description: str(i.description, 500, 3),
+    recordedAt: date(i.recordedAt),
+    ...(i.displayNumber === undefined ? {} : { displayNumber: number(i.displayNumber) }),
+  };
+}
+/** GET fulfillment/incidents?scope=open|today, newest first. */
+export function incidents(v: unknown): Incident[] {
+  const items = array(record(v).items, 200, incident);
+  unique(items.map((i) => i.incidentId));
+  return items;
 }

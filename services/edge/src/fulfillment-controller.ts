@@ -23,10 +23,16 @@ import {
   FulfillmentOrderSchema,
   FulfillmentStationsSchema,
   FulfillmentSummarySchema,
+  FulfillmentTaskKdsSchema,
   UuidSchema,
 } from '@pickchick/contracts';
 import { transaction } from '@pickchick/database';
-import { EdgeFulfillment, FulfillmentError } from '@pickchick/edge-fulfillment';
+import {
+  EdgeFulfillment,
+  FulfillmentError,
+  hiddenKdsStations,
+  readKdsLayout,
+} from '@pickchick/edge-fulfillment';
 import {
   authenticateStaff,
   authenticateManagedTerminal,
@@ -38,8 +44,8 @@ import {
 import type { StaffAuth } from '@pickchick/local-orders';
 import { RESOURCE, Resources } from '@pickchick/platform';
 
-type RequestHeaders = Record<string, string | undefined>;
-const pageLimit = z
+export type RequestHeaders = Record<string, string | undefined>;
+export const pageLimit = z
   .string()
   .regex(/^(?:[1-9][0-9]?|100)$/)
   .transform(Number)
@@ -60,14 +66,14 @@ const displayQuery = z.strictObject({
     .default('0'),
   limit: pageLimit,
 });
-const fail = (status: number, code: string): never => {
+export const fail = (status: number, code: string): never => {
   throw new HttpException({ code }, status);
 };
-function input<T>(schema: z.ZodType<T>, value: unknown): T {
+export function input<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
   return result.success ? result.data : fail(400, 'INVALID_REQUEST');
 }
-function output<T>(schema: z.ZodType<T>, value: unknown): T {
+export function output<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.parse(value);
   // Domain pages budget 2 MiB of items; leave room for the envelope and one expanded order.
   if (Buffer.byteLength(JSON.stringify(result)) > 3 * 1024 * 1024) fail(503, 'SERVICE_UNAVAILABLE');
@@ -90,7 +96,13 @@ function summary(row: Summary) {
 function kitchenOrder(
   row: Pick<
     Order,
-    keyof Summary | 'channel' | 'serviceMode' | 'tasks' | 'kitchenComment' | 'restoreReview'
+    | keyof Summary
+    | 'channel'
+    | 'serviceMode'
+    | 'tasks'
+    | 'kitchenComment'
+    | 'restoreReview'
+    | 'delivery'
   >,
 ) {
   return output(FulfillmentKitchenOrderSchema, {
@@ -100,6 +112,8 @@ function kitchenOrder(
     channel: row.channel,
     serviceMode: row.serviceMode,
     ...(row.kitchenComment ? { kitchenComment: row.kitchenComment } : {}),
+    // KDS keys (contracts section 5.4): the repository passes them only while the layout is on.
+    ...(row.delivery ? { delivery: row.delivery } : {}),
     tasks: row.tasks.map((task) => ({
       taskId: task.id,
       stationId: task.station_id,
@@ -117,9 +131,100 @@ function kitchenOrder(
         modifiers: task.details.modifiers.map((modifier) =>
           FulfillmentModifierSchema.strip().parse(modifier),
         ),
+        ...(task.details.kds
+          ? { kds: FulfillmentTaskKdsSchema.strip().parse(task.details.kds) }
+          : {}),
       },
     })),
   });
+}
+
+/** Staff credentials of a kitchen LAN request (shared with kds-controller.ts). */
+export function fulfillmentCredentials(headers: RequestHeaders): StaffAuth {
+  return {
+    sessionId: headers['x-staff-session-id'] ?? '',
+    token: headers.authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1] ?? '',
+    ...(edgeDeviceAccessEnabled()
+      ? { terminal: { id: headers['x-terminal-id'] ?? '', key: headers['x-terminal-key'] ?? '' } }
+      : {}),
+  };
+}
+/**
+ * The kitchen session check of every LAN route: staff session bound to the request terminal,
+ * kitchen or shift manager role, no display terminal, provisioned fulfillment, and for a station
+ * its existence, the terminal mode and (kitchen staff) the station grant.
+ */
+export async function boundFulfillmentSession(
+  resources: Resources,
+  headers: RequestHeaders,
+  requireStation = false,
+  stationId?: string,
+) {
+  const branchId = resources.config.branchId!;
+  const auth = fulfillmentCredentials(headers);
+  return transaction(resources.pool, async (client) => {
+    const actor = await authenticateStaff(client, branchId, auth);
+    if (
+      !UuidSchema.safeParse(headers['x-terminal-id']).success ||
+      actor.terminal_id !== headers['x-terminal-id']
+    )
+      fail(403, 'FORBIDDEN');
+    if (!['kitchen', 'shift_manager'].includes(actor.role)) fail(403, 'FORBIDDEN');
+    const terminal = auth.terminal
+      ? await authenticateManagedTerminal(client, branchId, auth.terminal)
+      : null;
+    if (terminal?.mode === 'display') fail(403, 'FORBIDDEN');
+    const config = await client.query(
+      'SELECT 1 FROM fulfillment_config WHERE branch_id=$1 AND device_id=$2 FOR SHARE',
+      [branchId, resources.config.edgeDeviceId],
+    );
+    if (!config.rowCount) fail(503, 'SERVICE_UNAVAILABLE');
+    if (requireStation && (actor.role === 'kitchen' || terminal) && !stationId)
+      fail(400, 'INVALID_REQUEST');
+    if (stationId) {
+      const station = await client.query(
+        'SELECT kind FROM fulfillment_stations WHERE branch_id=$1 AND id=$2 FOR SHARE',
+        [branchId, stationId],
+      );
+      if (!station.rowCount) fail(403, 'FORBIDDEN');
+      if (terminal && station.rows[0].kind !== terminal.mode) fail(403, 'FORBIDDEN');
+      if (actor.role !== 'shift_manager') {
+        const grant = await client.query(
+          'SELECT 1 FROM fulfillment_station_grants WHERE branch_id=$1 AND staff_id=$2 AND station_id=$3 FOR SHARE',
+          [branchId, actor.staff_id, stationId],
+        );
+        if (!grant.rowCount) fail(403, 'FORBIDDEN');
+      }
+    }
+
+    return actor;
+  });
+}
+/** Feature gate, session check and the error mapping of every kitchen LAN route. */
+export async function runFulfillment<T>(
+  resources: Resources,
+  headers: RequestHeaders,
+  action: (auth: StaffAuth) => Promise<T>,
+) {
+  if (!resources.config.edgeFulfillmentEnabled) fail(404, 'NOT_FOUND');
+  try {
+    await boundFulfillmentSession(resources, headers);
+    return await action(fulfillmentCredentials(headers));
+  } catch (error) {
+    if (error instanceof OrderError)
+      throw new HttpException({ code: error.code }, orderErrorStatus[error.code]);
+    if (error instanceof FulfillmentError) {
+      // Courier protocol (KDS-4): the body code is HANDOVER_MARKS_REQUIRED once ErrorSchema
+      // lists it (CR kds-6); until then the error filter answers 400 INVALID_REQUEST.
+      if (error.code === 'INVALID' && error.reason === 'HANDOVER_MARKS_REQUIRED')
+        fail(400, 'HANDOVER_MARKS_REQUIRED');
+      if (error.code === 'INVALID') fail(400, 'INVALID_REQUEST');
+      if (error.code === 'FORBIDDEN') fail(403, 'FORBIDDEN');
+      if (error.code === 'NOT_FOUND') fail(404, 'NOT_FOUND');
+      fail(409, 'CONFLICT');
+    }
+    throw error;
+  }
 }
 
 /** LAN staff adapter only. No cloud admission, setup, payment or outbox routes. */
@@ -133,70 +238,13 @@ export class FulfillmentController {
     return this.resources.config.branchId!;
   }
   private credentials(headers: RequestHeaders): StaffAuth {
-    return {
-      sessionId: headers['x-staff-session-id'] ?? '',
-      token: headers.authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1] ?? '',
-      ...(edgeDeviceAccessEnabled()
-        ? { terminal: { id: headers['x-terminal-id'] ?? '', key: headers['x-terminal-key'] ?? '' } }
-        : {}),
-    };
+    return fulfillmentCredentials(headers);
   }
-  private async boundSession(headers: RequestHeaders, requireStation = false, stationId?: string) {
-    const auth = this.credentials(headers);
-    return transaction(this.resources.pool, async (client) => {
-      const actor = await authenticateStaff(client, this.branchId, auth);
-      if (
-        !UuidSchema.safeParse(headers['x-terminal-id']).success ||
-        actor.terminal_id !== headers['x-terminal-id']
-      )
-        fail(403, 'FORBIDDEN');
-      if (!['kitchen', 'shift_manager'].includes(actor.role)) fail(403, 'FORBIDDEN');
-      const terminal = auth.terminal
-        ? await authenticateManagedTerminal(client, this.branchId, auth.terminal)
-        : null;
-      if (terminal?.mode === 'display') fail(403, 'FORBIDDEN');
-      const config = await client.query(
-        'SELECT 1 FROM fulfillment_config WHERE branch_id=$1 AND device_id=$2 FOR SHARE',
-        [this.branchId, this.resources.config.edgeDeviceId],
-      );
-      if (!config.rowCount) fail(503, 'SERVICE_UNAVAILABLE');
-      if (requireStation && (actor.role === 'kitchen' || terminal) && !stationId)
-        fail(400, 'INVALID_REQUEST');
-      if (stationId) {
-        const station = await client.query(
-          'SELECT kind FROM fulfillment_stations WHERE branch_id=$1 AND id=$2 FOR SHARE',
-          [this.branchId, stationId],
-        );
-        if (!station.rowCount) fail(403, 'FORBIDDEN');
-        if (terminal && station.rows[0].kind !== terminal.mode) fail(403, 'FORBIDDEN');
-        if (actor.role !== 'shift_manager') {
-          const grant = await client.query(
-            'SELECT 1 FROM fulfillment_station_grants WHERE branch_id=$1 AND staff_id=$2 AND station_id=$3 FOR SHARE',
-            [this.branchId, actor.staff_id, stationId],
-          );
-          if (!grant.rowCount) fail(403, 'FORBIDDEN');
-        }
-      }
-
-      return actor;
-    });
+  private boundSession(headers: RequestHeaders, requireStation = false, stationId?: string) {
+    return boundFulfillmentSession(this.resources, headers, requireStation, stationId);
   }
-  private async run<T>(headers: RequestHeaders, action: (auth: StaffAuth) => Promise<T>) {
-    if (!this.resources.config.edgeFulfillmentEnabled) fail(404, 'NOT_FOUND');
-    try {
-      await this.boundSession(headers);
-      return await action(this.credentials(headers));
-    } catch (error) {
-      if (error instanceof OrderError)
-        throw new HttpException({ code: error.code }, orderErrorStatus[error.code]);
-      if (error instanceof FulfillmentError) {
-        if (error.code === 'INVALID') fail(400, 'INVALID_REQUEST');
-        if (error.code === 'FORBIDDEN') fail(403, 'FORBIDDEN');
-        if (error.code === 'NOT_FOUND') fail(404, 'NOT_FOUND');
-        fail(409, 'CONFLICT');
-      }
-      throw error;
-    }
+  private run<T>(headers: RequestHeaders, action: (auth: StaffAuth) => Promise<T>) {
+    return runFulfillment(this.resources, headers, action);
   }
   @Get('config')
   config() {
@@ -220,9 +268,17 @@ export class FulfillmentController {
         const terminal = auth.terminal
           ? await authenticateManagedTerminal(client, this.branchId, auth.terminal)
           : null;
+        // Layout off: the provisioned KDS stations stay out of today's list (contracts section
+        // 10, risk 3), except while one still has live work after kds-switch disable.
+        const hidden = await hiddenKdsStations(
+          client,
+          this.branchId,
+          rows.rows.map((row) => row.id),
+        );
+        const listed = rows.rows.filter((row) => !hidden.has(row.id));
         return {
           branchId: this.branchId,
-          items: terminal ? rows.rows.filter((row) => row.kind === terminal.mode) : rows.rows,
+          items: terminal ? listed.filter((row) => row.kind === terminal.mode) : listed,
         };
       });
       await this.boundSession(headers);
@@ -284,6 +340,15 @@ export class FulfillmentController {
   action(@Headers() headers: RequestHeaders, @Param('orderId') id: string, @Body() body: unknown) {
     return this.run(headers, async (auth) => {
       const action = input(FulfillmentActionSchema, body);
+      // Courier handover marks (contracts section 5.4) exist only while the KDS layout is on;
+      // otherwise a body carrying them is refused first, exactly as before the contract allowed
+      // the key. The repository decides the protocol again inside the command transaction.
+      if (
+        'handover' in action &&
+        !(await transaction(this.resources.pool, (client) => readKdsLayout(client, this.branchId)))
+          .enabled
+      )
+        fail(400, 'INVALID_REQUEST');
       const orderId = input(UuidSchema, id);
       if (auth.terminal)
         await transaction(this.resources.pool, async (client) => {

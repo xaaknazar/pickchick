@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AggregatorChannelSchema, KdsFunctionSchema, KdsUnitSchema } from './cutover-enums.js';
 
 const uuid = z.uuid();
 const version = z.int().positive().max(2147483647);
@@ -39,6 +40,26 @@ export const FulfillmentModifierSchema = z.strictObject({
   quantity: z.int().min(1).max(1_000_000),
   linkedProductId: reference.nullable(),
 });
+/**
+ * Cutover KDS (contracts section 5.4). Frozen into a task at admission while the edge KDS layout
+ * is enabled; absent otherwise, so installed kitchen clients never see it. upstreamOf: the
+ * assembly table station whose complete_station also closes this task; units/unit: toasts or
+ * burgers to make at station 5; fingers: breaded fingers of this line; unmapped: the product has
+ * no place in the layout and went to the table ("Нет в раскладке").
+ */
+export const FulfillmentTaskKdsSchema = z.strictObject({
+  function: KdsFunctionSchema,
+  upstreamOf: uuid.optional(),
+  units: z.int().min(1).max(1_000_000).optional(),
+  unit: KdsUnitSchema.optional(),
+  fingers: z.int().min(1).max(1_000_000).optional(),
+  unmapped: z.literal(true).optional(),
+});
+/** Aggregator order of a kitchen ticket (snapshot.delivery); the edge stores the number upper-case. */
+export const FulfillmentDeliverySchema = z.strictObject({
+  provider: AggregatorChannelSchema,
+  externalNumber: z.string().regex(/^[A-Z0-9-]{3,40}$/),
+});
 export const FulfillmentTaskSchema = z.strictObject({
   taskId: uuid,
   stationId: uuid,
@@ -53,6 +74,7 @@ export const FulfillmentTaskSchema = z.strictObject({
     description: z.string().max(2000),
     quantity: z.int().min(1).max(1_000_000),
     modifiers: z.array(FulfillmentModifierSchema).max(100),
+    kds: FulfillmentTaskKdsSchema.optional(),
   }),
 });
 export const FulfillmentKitchenOrderSchema = FulfillmentSummarySchema.extend({
@@ -63,6 +85,8 @@ export const FulfillmentKitchenOrderSchema = FulfillmentSummarySchema.extend({
   channel: z.enum(['mobile', 'kiosk', 'pos']),
   serviceMode: z.enum(['takeaway', 'dine_in']),
   kitchenComment: z.string().max(60).optional(),
+  /** Only while the KDS layout is enabled (contracts section 5.4). */
+  delivery: FulfillmentDeliverySchema.optional(),
   tasks: z.array(FulfillmentTaskSchema).max(2000),
 });
 export const FulfillmentOrderSchema = FulfillmentKitchenOrderSchema.extend({
@@ -97,6 +121,12 @@ export const FulfillmentDisplaySchema = z.strictObject({
     .max(100),
   nextAfterNumber: number.nullable(),
 });
+/** The three courier handover marks; each must be confirmed (contracts section 5.4). */
+export const FulfillmentHandoverSchema = z.strictObject({
+  numberMatched: z.literal(true),
+  courierAccepted: z.literal(true),
+  photoTaken: z.literal(true),
+});
 const taskAction = z.strictObject({
   action: z.enum(['start_task', 'complete_task', 'confirm_stop']),
   expectedVersion: version,
@@ -110,7 +140,13 @@ export const FulfillmentActionSchema = z.discriminatedUnion('action', [
     expectedVersion: version,
     stationId: uuid,
   }),
-  z.strictObject({ action: z.enum(['ready', 'handoff']), expectedVersion: version }),
+  z.strictObject({ action: z.literal('ready'), expectedVersion: version }),
+  z.strictObject({
+    action: z.literal('handoff'),
+    expectedVersion: version,
+    /** Courier handover protocol (Аг9); the edge requires it for a delivery order. */
+    handover: FulfillmentHandoverSchema.optional(),
+  }),
   z.strictObject({
     action: z.literal('confirm_cancel'),
     expectedVersion: version,
@@ -122,6 +158,9 @@ export type FulfillmentSummary = z.infer<typeof FulfillmentSummarySchema>;
 export type FulfillmentTask = z.infer<typeof FulfillmentTaskSchema>;
 export type FulfillmentOrder = z.infer<typeof FulfillmentOrderSchema>;
 export type FulfillmentAction = z.infer<typeof FulfillmentActionSchema>;
+export type FulfillmentTaskKds = z.infer<typeof FulfillmentTaskKdsSchema>;
+export type FulfillmentDelivery = z.infer<typeof FulfillmentDeliverySchema>;
+export type FulfillmentHandover = z.infer<typeof FulfillmentHandoverSchema>;
 
 /** Manager-only reconciliation of a restored local ticket. Never authorizes payment. */
 export const FulfillmentRestoreDecisionSchema = z.strictObject({
