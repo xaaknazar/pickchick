@@ -16,8 +16,9 @@ import {
   provisionFulfillment,
   provisionKdsStations,
 } from '@pickchick/edge-fulfillment';
-import { kdsWorkerGrantSql } from '../../infra/windows/kds-grants.mjs';
+import { kdsRuntimeGrantSql, kdsWorkerGrantSql } from '../../infra/windows/kds-grants.mjs';
 import {
+  KDS_RUNTIME_ROLES,
   KDS_WORKER_ROLES,
   KdsSwitchError,
   applyKdsLayout,
@@ -647,14 +648,17 @@ test('enable: the fulfillment worker must read the layout; open orders on old st
         layout: built.layout,
         reason: 'Раскладка шефа (синтетика)',
       });
+      // The runtime role is covered by its own test; here it is absent (a development edge).
       const enable = (workerRoles) =>
         setKdsLayoutEnabled(ctx.pool, {
           branchId: ctx.branchId,
           enabled: true,
           reason: 'Т9 учение (синтетика)',
           workerRoles,
+          runtimeRoles: [absent],
         });
-      const status = (workerRoles) => kdsStatus(ctx.pool, { branchId: ctx.branchId, workerRoles });
+      const status = (workerRoles) =>
+        kdsStatus(ctx.pool, { branchId: ctx.branchId, workerRoles, runtimeRoles: [absent] });
       const blindText =
         'У воркера fulfillment нет прав чтения раскладки KDS - заказы приложения и киоска уйдут на старые станции' +
         ` (роль ${role})`;
@@ -692,6 +696,7 @@ test('enable: the fulfillment worker must read the layout; open orders on old st
       assert.deepEqual(after.summary.slice(0, 1).concat(after.summary.slice(3)), [
         'Раскладка KDS: включена',
         'Воркер fulfillment читает раскладку KDS',
+        'Роль рантайма edge на сервере точки не найдена',
         'Открытых заказов на старых станциях: 2 (из них агрегаторов: 1) - их завершает начальник смены через переключатель станций',
       ]);
       // No worker role on this server (a development edge): reported, never a blocker.
@@ -704,6 +709,77 @@ test('enable: the fulfillment worker must read the layout; open orders on old st
     } finally {
       await ctx.admin.query(`DROP OWNED BY ${role}`).catch(() => {});
       await ctx.admin.query(`DROP ROLE IF EXISTS ${role}`);
+    }
+  }));
+
+test('enable: the edge runtime must hold its KDS rights, or the kitchen and the cashier keep the old stations', () =>
+  withSwitchEdge(async (ctx) => {
+    assert.deepEqual(KDS_RUNTIME_ROLES, ['pickchick_edge_runtime']);
+    const suffix = randomUUID().replaceAll('-', '').slice(0, 16);
+    const runtime = 'kds_switch_runtime_' + suffix,
+      worker = 'kds_switch_worker_' + suffix;
+    await ctx.admin.query(`CREATE ROLE ${runtime} NOLOGIN NOINHERIT`);
+    await ctx.admin.query(`CREATE ROLE ${worker} NOLOGIN NOINHERIT`);
+    try {
+      await ctx.pool.query(`GRANT USAGE ON SCHEMA ${ctx.schema} TO ${runtime}, ${worker}`);
+      await ctx.pool.query(kdsWorkerGrantSql(worker, ctx.schema));
+      const built = await buildKdsLayout(ctx.pool, {
+        branchId: ctx.branchId,
+        tsv: CHEF_TSV,
+        terminalsTsv: ctx.screensTsv(),
+      });
+      await applyKdsLayout(ctx.pool, {
+        branchId: ctx.branchId,
+        layout: built.layout,
+        reason: 'Раскладка шефа (синтетика)',
+      });
+      const roles = { workerRoles: [worker], runtimeRoles: [runtime] };
+      const enable = () =>
+        setKdsLayoutEnabled(ctx.pool, {
+          branchId: ctx.branchId,
+          enabled: true,
+          reason: 'Т9 учение (синтетика)',
+          ...roles,
+        });
+      const status = () => kdsStatus(ctx.pool, { branchId: ctx.branchId, ...roles });
+      const missing =
+        'У рантайма edge нет прав на таблицы KDS - экраны кухни и касса останутся на старых станциях, передача курьеру не запишется' +
+        ` (роль ${runtime})`;
+      const onlyRuntime = (error) => {
+        kdsError('ENABLE_REJECTED', ['RUNTIME_GRANTS_MISSING'])(error);
+        assert.deepEqual(
+          error.errors.map((e) => e.code),
+          ['RUNTIME_GRANTS_MISSING'],
+        );
+        return true;
+      };
+
+      // No KDS rights: readKdsLayout reports the layout as off to the kitchen API and the cashier.
+      await assert.rejects(enable(), onlyRuntime);
+      // Reading the layout is not enough: the courier journals need SELECT and INSERT.
+      await ctx.pool.query(kdsWorkerGrantSql(runtime, ctx.schema));
+      await assert.rejects(enable(), onlyRuntime);
+      const before = await status();
+      assert.deepEqual(before.runtime_roles, [{ role: runtime, kds_rights: false }]);
+      assert.equal(before.summary[3], 'Воркер fulfillment читает раскладку KDS');
+      assert.equal(before.summary[4], missing);
+      assert.equal((await ctx.settings()).layout_enabled, false, 'nothing changed');
+
+      // RUNTIME_PRIVILEGES exactly as kds-upgrade-db installs them (CR kds-1).
+      await ctx.pool.query(kdsRuntimeGrantSql(runtime, ctx.schema));
+      const on = await enable();
+      assert.equal(on.changed, true);
+      const after = await status();
+      assert.deepEqual(after.runtime_roles, [{ role: runtime, kds_rights: true }]);
+      assert.equal(after.summary[4], 'Рантайм edge читает раскладку KDS и пишет журналы передачи');
+      // A later partial reset of the runtime rights shows up in status.
+      await ctx.pool.query(`REVOKE INSERT ON ${ctx.schema}.courier_incidents FROM ${runtime}`);
+      assert.equal((await status()).summary[4], missing);
+      for (const text of [...before.summary, ...after.summary]) assert.doesNotMatch(text, /[‒-―−]/);
+    } finally {
+      await ctx.admin.query(`DROP OWNED BY ${runtime}, ${worker}`).catch(() => {});
+      await ctx.admin.query(`DROP ROLE IF EXISTS ${runtime}`);
+      await ctx.admin.query(`DROP ROLE IF EXISTS ${worker}`);
     }
   }));
 

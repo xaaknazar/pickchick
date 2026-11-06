@@ -12,6 +12,7 @@ import {
 import { createPool, transaction } from '@pickchick/database';
 import { KDS_STATIONS, digest, kdsStationId } from '@pickchick/edge-fulfillment';
 import { edgeInstallConfig } from '../../scripts/edge-migrate.mjs';
+import { RUNTIME_PRIVILEGES, WORKER_PRIVILEGES } from './kds-grants.mjs';
 
 /**
  * Owner tool of the edge KDS layout (cutover 19.11.2026, lane kds; contracts sections 5.4, 6).
@@ -20,7 +21,7 @@ import { edgeInstallConfig } from '../../scripts/edge-migrate.mjs';
  *   node --env-file=<owner.env> infra/windows/kds-switch.mjs status
  *   ... layout-build --tsv <chef.tsv> [--terminals <screens.tsv>] --out <layout.json>
  *   ... layout-apply --file <layout.json> --reason "<3-300>"
- *   ... enable --reason "<3-300>"     (new orders get KDS tasks; needs the worker rights)
+ *   ... enable --reason "<3-300>"     (new orders get KDS tasks; needs the runtime and worker rights)
  *   ... disable --reason "<3-300>"    (new orders go to the old stations again)
  *
  * Chef TSV columns: product_slug, function, unit, count (unit and count both empty or both set).
@@ -56,6 +57,15 @@ export const KDS_WORKER_ROLES = Object.freeze([
 ]);
 const WORKER_GRANTS_TEXT =
   'У воркера fulfillment нет прав чтения раскладки KDS - заказы приложения и киоска уйдут на старые станции';
+/**
+ * Database role of the edge runtime (services/edge: the kitchen API and the cashier admission).
+ * It reads the switch and the layout too, and writes the courier journals (RUNTIME_PRIVILEGES).
+ * Without them the kitchen screens and the cashier stay on the old stations while the worker
+ * already sends app and kiosk orders to the KDS stations, and a courier handover fails.
+ */
+export const KDS_RUNTIME_ROLES = Object.freeze(['pickchick_edge_runtime']);
+const RUNTIME_GRANTS_TEXT =
+  'У рантайма edge нет прав на таблицы KDS - экраны кухни и касса останутся на старых станциях, передача курьеру не запишется';
 const MAX_FILE_BYTES = 256 * 1024;
 const SLUG = /^[a-z0-9][a-z0-9-]{0,39}$/;
 const NAMES = Object.fromEntries(KDS_STATIONS.map((station) => [station.function, station.name]));
@@ -290,23 +300,53 @@ async function activeMenu(client, branchId) {
 }
 
 /**
- * Existing worker roles (pg_roles is cluster-wide) and whether each can read the switch and the
- * active layout of this schema. readKdsLayout reports the layout as off to a role without these
- * rights, so the cloud admission would silently keep the old stations.
+ * Existing roles among `roles` (pg_roles is cluster-wide) and whether each holds every privilege
+ * of `privileges` (a kds-grants.mjs map: 'SELECT', or 'UPDATE(a, b)' for columns) on the KDS
+ * tables of this schema, with USAGE on the schema. A missing right is false, never NULL.
  */
-async function workerLayoutAccess(client, roles) {
+async function rolesWithKdsRights(client, roles, privileges) {
   if (!roles.length) return [];
+  const checks = Object.entries(privileges).flatMap(([table, list]) =>
+    list.flatMap((privilege) => {
+      const [, action, columns] = /^(SELECT|INSERT|UPDATE)(?:\(([a-z_, ]+)\))?$/.exec(privilege);
+      return columns
+        ? columns.split(',').map((column) => ({ table, column: column.trim(), action }))
+        : [{ table, column: null, action }];
+    }),
+  );
+  // An empty check list would group to no rows and hide every role.
+  if (!checks.length) throw new TypeError('KDS privileges');
   return (
     await client.query(
       `SELECT r.rolname AS role,
-         has_schema_privilege(r.rolname,
-           (SELECT relnamespace FROM pg_class WHERE oid=to_regclass('kds_settings')),'USAGE')
-         AND has_table_privilege(r.rolname,to_regclass('kds_settings'),'SELECT')
-         AND has_table_privilege(r.rolname,to_regclass('kds_layouts'),'SELECT') AS layout_read
-       FROM pg_roles r WHERE r.rolname=ANY($1::text[]) ORDER BY r.rolname`,
-      [roles],
+         coalesce(has_schema_privilege(r.rolname,
+           (SELECT relnamespace FROM pg_class WHERE oid=to_regclass('kds_settings')),'USAGE'),false)
+         AND bool_and(coalesce(CASE WHEN c.col IS NULL
+           THEN has_table_privilege(r.rolname,to_regclass(c.tbl),c.act)
+           ELSE has_column_privilege(r.rolname,to_regclass(c.tbl),c.col,c.act) END,false)) AS ok
+       FROM pg_roles r CROSS JOIN unnest($2::text[],$3::text[],$4::text[]) AS c(tbl,col,act)
+       WHERE r.rolname=ANY($1::text[]) GROUP BY r.rolname ORDER BY r.rolname`,
+      [roles, checks.map((c) => c.table), checks.map((c) => c.column), checks.map((c) => c.action)],
     )
   ).rows;
+}
+/**
+ * Fulfillment worker roles that exist and whether each can read the switch and the active layout
+ * (WORKER_PRIVILEGES). readKdsLayout reports the layout as off to a role without these rights,
+ * so the cloud admission would silently keep the old stations.
+ */
+async function workerLayoutAccess(client, roles) {
+  return (await rolesWithKdsRights(client, roles, WORKER_PRIVILEGES)).map((row) => ({
+    role: row.role,
+    layout_read: row.ok,
+  }));
+}
+/** Edge runtime roles that exist and whether each holds RUNTIME_PRIVILEGES of kds-grants.mjs. */
+async function runtimeKdsAccess(client, roles) {
+  return (await rolesWithKdsRights(client, roles, RUNTIME_PRIVILEGES)).map((row) => ({
+    role: row.role,
+    kds_rights: row.ok,
+  }));
 }
 /**
  * Live orders whose finishing station is not a KDS station: admitted on the old stations. After
@@ -333,14 +373,14 @@ const oldStationsText = ({ orders, delivery }) =>
 /**
  * Checks a schema-valid layout against this edge: its KDS stations, the active menu and the
  * kitchen screens. `strict` adds the conditions to switch it on: the kitchen login can open
- * every station, every station with work has a screen and the fulfillment worker can read the
- * layout.
+ * every station, every station with work has a screen, the fulfillment worker can read the
+ * layout and the edge runtime holds its KDS rights.
  */
 async function checkLayout(
   client,
   branchId,
   layout,
-  { strict = false, workerRoles = KDS_WORKER_ROLES } = {},
+  { strict = false, workerRoles = KDS_WORKER_ROLES, runtimeRoles = KDS_RUNTIME_ROLES } = {},
 ) {
   const errors = [],
     warnings = [];
@@ -456,6 +496,16 @@ async function checkLayout(
       problem(
         'WORKER_GRANTS_MISSING',
         `${WORKER_GRANTS_TEXT} (роль ${blind.map((r) => r.role).join(', ')})`,
+      ),
+    );
+  const runtimeBlind = strict
+    ? (await runtimeKdsAccess(client, runtimeRoles)).filter((r) => !r.kds_rights)
+    : [];
+  if (runtimeBlind.length)
+    errors.push(
+      problem(
+        'RUNTIME_GRANTS_MISSING',
+        `${RUNTIME_GRANTS_TEXT} (роль ${runtimeBlind.map((r) => r.role).join(', ')})`,
       ),
     );
   return { errors, warnings, unmapped };
@@ -662,12 +712,18 @@ export async function applyKdsLayout(pool, { branchId, layout: input, reason: ra
 }
 
 /**
- * enable|disable. Enabling re-checks the active layout strictly (including the worker rights)
- * and warns about open orders on the old stations; disabling always works.
+ * enable|disable. Enabling re-checks the active layout strictly (including the runtime and
+ * worker rights) and warns about open orders on the old stations; disabling always works.
  */
 export async function setKdsLayoutEnabled(
   pool,
-  { branchId, enabled, reason: rawReason, workerRoles = KDS_WORKER_ROLES },
+  {
+    branchId,
+    enabled,
+    reason: rawReason,
+    workerRoles = KDS_WORKER_ROLES,
+    runtimeRoles = KDS_RUNTIME_ROLES,
+  },
 ) {
   if (typeof enabled !== 'boolean') throw new TypeError('enabled');
   const reason = checkedReason(rawReason);
@@ -694,6 +750,7 @@ export async function setKdsLayoutEnabled(
       const checked = await checkLayout(client, branchId, parsedLayout(stored), {
         strict: true,
         workerRoles,
+        runtimeRoles,
       });
       if (checked.errors.length)
         reject('ENABLE_REJECTED', 'Раскладку нельзя включить', checked.errors);
@@ -725,10 +782,13 @@ export async function setKdsLayoutEnabled(
 }
 
 /**
- * status: read-only view of the switch, the active layout, the stations, the worker rights, the
- * open orders on the old stations and the audit.
+ * status: read-only view of the switch, the active layout, the stations, the worker and runtime
+ * rights, the open orders on the old stations and the audit.
  */
-export async function kdsStatus(pool, { branchId, workerRoles = KDS_WORKER_ROLES }) {
+export async function kdsStatus(
+  pool,
+  { branchId, workerRoles = KDS_WORKER_ROLES, runtimeRoles = KDS_RUNTIME_ROLES },
+) {
   return transaction(pool, async (client) => {
     await client.query('SET TRANSACTION READ ONLY');
     UuidSchema.parse(branchId);
@@ -791,6 +851,8 @@ export async function kdsStatus(pool, { branchId, workerRoles = KDS_WORKER_ROLES
       access = stations.filter((s) => s.kitchen_access).length;
     const workers = await workerLayoutAccess(client, workerRoles);
     const blind = workers.filter((w) => !w.layout_read);
+    const runtimes = await runtimeKdsAccess(client, runtimeRoles);
+    const runtimeBlind = runtimes.filter((r) => !r.kds_rights);
     const old = await ordersOnOldStations(client, branchId);
     return {
       schema_ready: true,
@@ -822,6 +884,7 @@ export async function kdsStatus(pool, { branchId, workerRoles = KDS_WORKER_ROLES
       stations,
       kitchen_login: kitchen?.id ?? null,
       worker_roles: workers,
+      runtime_roles: runtimes,
       orders_on_old_stations: old,
       changes,
       summary: [
@@ -835,6 +898,11 @@ export async function kdsStatus(pool, { branchId, workerRoles = KDS_WORKER_ROLES
           : workers.length
             ? 'Воркер fulfillment читает раскладку KDS'
             : 'Роль воркера fulfillment на сервере точки не найдена',
+        runtimeBlind.length
+          ? `${RUNTIME_GRANTS_TEXT} (роль ${runtimeBlind.map((r) => r.role).join(', ')})`
+          : runtimes.length
+            ? 'Рантайм edge читает раскладку KDS и пишет журналы передачи'
+            : 'Роль рантайма edge на сервере точки не найдена',
         oldStationsText(old),
       ],
     };

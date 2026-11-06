@@ -37,3 +37,12 @@
 - 027 в этом шаге не менялся, SHA-256 прежний (CR kds-1).
 - `tests/integration/stage2-cross-lane.test.mjs` («the merged contracts publish all three extensions…») красный уже на D0: ждёт `EdgeMenuFeatureSchema.options = ['combo_stops']`, а D0 добавил `aggregator_prices`. Файл не полосы kds.
 - `local-pos.ts` (полоса pos) ещё вызывает `taskPlan`; KDS-план кассы проверен заглушкой порта с `buildKitchenPlan` (`packages/edge-fulfillment/tests/kds-fixture.mjs`, `seamCashierPort`). После слияния pos - прогнать `kds-postgres.test.mjs` и `tests/integration/kds-http.test.mjs` на настоящем `local-pos.ts`.
+
+## 4. Обновление 06.11 (ревью полосы kds, M1)
+
+Фраза раздела 1 «`kds-switch enable` этого не видит» устарела. Теперь `enable` (и строка `status`) проверяет права существующих ролей по `pg_roles`:
+
+- воркер fulfillment: `pickchick_fulfillment_sync` (вход нативного воркера, `native-fulfillment-worker.mjs`) и `pickchick_fulfillment_worker` (умолчание `cashier-reports-upgrade-db.mjs`) - все права `WORKER_PRIVILEGES`, иначе отказ `WORKER_GRANTS_MISSING`;
+- рантайм edge: `pickchick_edge_runtime` - все права `RUNTIME_PRIVILEGES` (CR kds-1), иначе отказ `RUNTIME_GRANTS_MISSING`.
+
+Отсутствующая роль (стенд разработки) не блокирует. Просьбы разделов 1-3 остаются: проверка `enable` - страховка после ошибочной полной переустановки прав, а не замена `kds-upgrade-db`. Если integration выдаёт права под другими именами ролей, нужно сообщить полосе kds: список ролей - `KDS_WORKER_ROLES` и `KDS_RUNTIME_ROLES` в `infra/windows/kds-switch.mjs`.
