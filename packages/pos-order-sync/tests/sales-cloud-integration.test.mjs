@@ -6,6 +6,7 @@ import { hashJson } from '@pickchick/menu-sync';
 import { PosSaleBatchResultSchema, posSaleReceiptFor, receivePosSales } from '../dist/index.js';
 import { running, authFor } from '../../../tests/helpers/sync.mjs';
 import {
+  CASH_TERMINAL_VECTORS,
   SALES_PATH,
   cashSale,
   copy,
@@ -14,6 +15,7 @@ import {
   stream,
   vectorEvent,
   withPosSalesDatabases,
+  zReportFor,
 } from './sales-cloud-fixture.mjs';
 
 // Cloud receiver of posSales (contracts 5.6, CC-4) on PostgreSQL with schema073: projection,
@@ -470,6 +472,228 @@ test('ACK only after COMMIT: a failed commit returns no receipt and stores nothi
     });
     assert.equal(await count(ctx.cloud.pool, 'cloud_pos_sales'), 3);
     assert.equal(await count(ctx.cloud.pool, 'cloud_pos_sale_inbox'), 3);
+  });
+});
+
+test('a Z report lists every method its shift took or returned money with; the pinned cash and terminal Z is accepted as is', async () => {
+  // The pinned Z vector (cash and Kaspi terminal rows only) on the shift of exactly those sales.
+  await withReceiver(async (ctx) => {
+    const events = CASH_TERMINAL_VECTORS.map((name) => vectorEvent(name, ctx.branch));
+    assert.deepEqual(await ctx.send(events), { receipts: receipts(events) });
+    const stored = (await ctx.cloud.pool.query('SELECT report FROM cloud_pos_shift_reports')).rows;
+    assert.deepEqual(
+      stored.map((row) => row.report),
+      [events.at(-1).payload.report],
+    );
+    assert.deepEqual(
+      stored[0].report.methods.map((row) => row.method),
+      ['cash', 'kaspi_terminal'],
+    );
+  });
+  // The full stream: every method has sales in the shift. A Z without the Kaspi manual row is
+  // refused although each row it lists is right; the edge's own Z (all eight rows) is accepted.
+  await withReceiver(async (ctx) => {
+    const events = stream(ctx.branch);
+    const z = events.at(-1);
+    assert.equal(z.kind, 'shift_report');
+    assert.equal(z.payload.report.methods.length, 8);
+    assert.deepEqual((await ctx.send(events.slice(0, -1))).rejected, undefined);
+    const rejections = [];
+    const omitted = copy(z);
+    omitted.payload.report.methods = omitted.payload.report.methods.filter(
+      (row) => row.method !== 'kaspi_manual',
+    );
+    assert.deepEqual(
+      await receivePosSales(
+        ctx.cloud.pool,
+        authFor(ctx.identity),
+        { events: [omitted] },
+        { onRejected: (rejection) => rejections.push(rejection) },
+      ),
+      { receipts: [], rejected: { event_id: omitted.event_id, code: 'INVALID_EVENT' } },
+    );
+    assert.deepEqual(rejections, [
+      {
+        event_id: omitted.event_id,
+        kind: 'shift_report',
+        code: 'INVALID_EVENT',
+        reason: 'shift_methods',
+      },
+    ]);
+    assert.equal(await count(ctx.cloud.pool, 'cloud_pos_shift_reports'), 0);
+    for (const method of ['aggregator_glovo', 'staff_meal']) {
+      const missing = copy(z);
+      missing.payload.report.methods = missing.payload.report.methods.filter(
+        (row) => row.method !== method,
+      );
+      assert.equal((await ctx.send([missing])).rejected.code, 'INVALID_EVENT', method);
+    }
+    assert.deepEqual(await ctx.send([z]), { receipts: receipts([z]) });
+    assert.deepEqual(
+      (await ctx.cloud.pool.query('SELECT report FROM cloud_pos_shift_reports')).rows[0].report,
+      z.payload.report,
+    );
+  });
+});
+
+test('overlapping deliveries of one batch (a request still running after its timeout, a second worker) store one copy; every answer acknowledges every event', async () => {
+  await withReceiver(async (ctx) => {
+    const events = stream(ctx.branch).slice(0, 10),
+      longer = stream(ctx.branch).slice(0, 13);
+    // Two HTTP deliveries and one in-process delivery at the same time, plus a longer batch from
+    // the same head (a second worker that read more rows): all of them see one committed inbox.
+    const answers = await Promise.all([
+      ctx.send(events),
+      ctx.send(events),
+      receivePosSales(ctx.cloud.pool, authFor(ctx.identity), { events }),
+      ctx.send(longer),
+    ]);
+    for (const answer of answers.slice(0, 3))
+      assert.deepEqual(answer, { receipts: receipts(events) });
+    assert.deepEqual(answers[3], { receipts: receipts(longer) });
+    assert.deepEqual(await counts(ctx.cloud.pool), {
+      cloud_pos_sale_inbox: 13,
+      cloud_pos_sales: 8,
+      cloud_pos_tenders: 9,
+      cloud_pos_refunds: 2,
+      cloud_pos_refund_tenders: 2,
+      cloud_pos_fiscal_receipts: 2,
+      cloud_pos_shift_reports: 0,
+    });
+    // One row per entity: the void moved its sale exactly once.
+    const voided = (
+      await ctx.cloud.pool.query(
+        "SELECT order_id,last_sequence::text AS last_sequence FROM cloud_pos_sales WHERE state='voided'",
+      )
+    ).rows;
+    assert.deepEqual(voided, [
+      { order_id: events[8].payload.order_id, last_sequence: events[8].sequence },
+    ]);
+  });
+});
+
+/** The vector `name` moved to a cash desk (own shift and terminal) with a new id and sequence. */
+function deskEvent(name, ctx, desk, sequence, change = () => {}) {
+  return vectorEvent(name, ctx.branch, (p, event) => {
+    event.event_id = randomUUID();
+    event.sequence = String(sequence);
+    p.shift_id = desk.shift;
+    p.terminal_id = desk.terminal;
+    change(p, event);
+  });
+}
+
+test('two cash desks of one edge: interleaved sales, a refund paid out at the other desk and both Z reports', async () => {
+  await withReceiver(async (ctx) => {
+    const [a, b] = [1, 2].map(() => ({ shift: randomUUID(), terminal: randomUUID() }));
+    let sequence = 0;
+    const sale = (name, desk, number) =>
+      deskEvent(name, ctx, desk, ++sequence, (p) => {
+        p.order_id = randomUUID();
+        p.quote.quote_id = randomUUID();
+        p.display_number = number;
+        for (const tender of p.tenders) tender.tender_id = randomUUID();
+      });
+    const a1 = sale('sale_cash_with_change', a, 1); // cash 350000
+    const b1 = sale('sale_mixed_cash_kaspi_terminal', b, 2); // cash 20000 + terminal 400000
+    const a2 = sale('sale_kaspi_manual', a, 3); // Kaspi manual 150050
+    const b2 = sale('sale_cash_with_change', b, 4); // cash 350000
+    // Desk 2 pays back part of desk 1's cash sale from its own drawer.
+    const cross = deskEvent('refund_terminal_part', ctx, b, ++sequence, (p) => {
+      p.refund_id = randomUUID();
+      p.order_id = a1.payload.order_id;
+      p.amount_minor = '100000';
+      p.tenders = [
+        { tender_id: a1.payload.tenders[0].tender_id, method: 'cash', amount_minor: '100000' },
+      ];
+    });
+    // Desk 1 voids its own Kaspi manual sale.
+    const voided = deskEvent('void_cash_sale', ctx, a, ++sequence, (p) => {
+      p.refund_id = randomUUID();
+      p.order_id = a2.payload.order_id;
+      p.amount_minor = a2.payload.total_minor;
+      p.tenders = a2.payload.tenders.map(({ tender_id, method, amount_minor }) => ({
+        tender_id,
+        method,
+        amount_minor,
+      }));
+    });
+    const sales = [a1, b1, a2, b2, cross, voided];
+    assert.deepEqual(await ctx.send(sales), { receipts: receipts(sales) });
+    const z = (desk, source, change) =>
+      deskEvent('shift_report_z', ctx, desk, ++sequence, (p) => {
+        p.report = zReportFor(
+          source,
+          { ...p.report, shift_id: desk.shift, terminal_id: desk.terminal, cash_out_minor: '0' },
+          change,
+        );
+      });
+    // Desk 2's Z that books the cross-desk refund at desk 1 (consistent in itself) is refused:
+    // a refund belongs to the drawer that paid it out.
+    const misbooked = sales.map((event) =>
+      event === cross ? { ...cross, payload: { ...cross.payload, shift_id: a.shift } } : event,
+    );
+    const wrong = z(b, misbooked, {
+      counted_cash_minor: '1370000',
+      terminal_reported_minor: '400000',
+    });
+    assert.equal(wrong.payload.report.cash_refunds_minor, '0');
+    assert.equal((await ctx.send([wrong])).rejected.code, 'INVALID_EVENT');
+    const zA = z(a, sales, {
+      counted_cash_minor: '1350000',
+      terminal_reported_minor: null,
+      terminal_discrepancy_minor: null,
+    });
+    const zB = z(b, sales, { counted_cash_minor: '1270000', terminal_reported_minor: '400000' });
+    assert.deepEqual(await ctx.send([zA, zB]), { receipts: receipts([zA, zB]) });
+    const reports = (
+      await ctx.cloud.pool.query(
+        `SELECT shift_id,terminal_id,expected_cash_minor::text AS expected,
+         discrepancy_minor::text AS discrepancy,terminal_reported_minor::text AS terminal
+         FROM cloud_pos_shift_reports ORDER BY expected_cash_minor DESC`,
+      )
+    ).rows;
+    assert.deepEqual(reports, [
+      {
+        shift_id: a.shift,
+        terminal_id: a.terminal,
+        expected: '1350000',
+        discrepancy: '0',
+        terminal: null,
+      },
+      {
+        shift_id: b.shift,
+        terminal_id: b.terminal,
+        expected: '1270000',
+        discrepancy: '0',
+        terminal: '400000',
+      },
+    ]);
+    const used = (report) =>
+      Object.fromEntries(
+        report.methods
+          .filter((row) => row.count || row.refunds_minor !== '0')
+          .map((row) => [row.method, [row.sales_minor, row.refunds_minor, row.count]]),
+      );
+    assert.deepEqual(used(zA.payload.report), {
+      cash: ['350000', '0', 1],
+      kaspi_manual: ['150050', '150050', 1],
+    });
+    assert.deepEqual(used(zB.payload.report), {
+      cash: ['370000', '100000', 2],
+      kaspi_terminal: ['400000', '0', 1],
+    });
+    const refund = (
+      await ctx.cloud.pool.query(
+        'SELECT order_id,shift_id,terminal_id FROM cloud_pos_refunds WHERE refund_id=$1',
+        [cross.payload.refund_id],
+      )
+    ).rows[0];
+    assert.deepEqual(refund, {
+      order_id: a1.payload.order_id,
+      shift_id: b.shift,
+      terminal_id: b.terminal,
+    });
   });
 });
 

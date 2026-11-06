@@ -506,6 +506,45 @@ test('posSales failures and parking never touch the order_commercial stream', as
   });
 });
 
+test('two sender processes at once (a second worker started with --once) deliver one copy and acknowledge every event', async () => {
+  await withSender(async (ctx) => {
+    await enqueue(ctx.edge.pool, stream(ctx.branch));
+    const input = {
+      enabled: true,
+      branchId: ctx.branch,
+      origin: ctx.api.url,
+      identity: ctx.identity,
+    };
+    // Both processes have read the same outbox rows before either request reaches the cloud.
+    let arrived = 0,
+      release;
+    const gate = new Promise((resolve) => (release = resolve));
+    const io = {
+      fetch: async (url, options) => {
+        arrived += 1;
+        if (arrived === 2) release();
+        await gate;
+        return fetch(url, options);
+      },
+    };
+    const results = await Promise.all([
+      syncPosSalesOnce(ctx.edge.pool, input, createPosSalesSchedule(), io),
+      syncPosSalesOnce(ctx.edge.pool, input, createPosSalesSchedule(), io),
+    ]);
+    assert.deepEqual(results, [
+      { state: 'delivered', count: 14, more: false },
+      { state: 'delivered', count: 14, more: false },
+    ]);
+    const edge = await outbox(ctx.edge.pool);
+    assert.equal(edge.length, 14);
+    assert.ok(edge.every((row) => row.acknowledged_at && row.attempts === 2 && !row.last_error));
+    assert.equal(await cloudCount(ctx.cloud.pool, 'cloud_pos_sale_inbox'), 14);
+    assert.equal(await cloudCount(ctx.cloud.pool, 'cloud_pos_sales'), 8);
+    assert.equal(await cloudCount(ctx.cloud.pool, 'cloud_pos_shift_reports'), 1);
+    assert.equal((await syncState(ctx.edge.pool, ctx.branch)).last_error, null);
+  });
+});
+
 /** A real LOGIN role holding exactly `grants` on one side's test schema. */
 async function restricted(ctx, side, grants, run) {
   const role = 'pos_sales_' + randomUUID().replaceAll('-', ''),

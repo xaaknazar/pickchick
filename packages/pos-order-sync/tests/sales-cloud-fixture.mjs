@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
+import { PosPaymentMethodSchema, SalesChannelSchema } from '@pickchick/contracts';
 import { hashJson, provisionDevice } from '@pickchick/menu-sync';
 import { provisionCloudPosSync, provisionEdgePosSync } from '../dist/index.js';
 import { withSyncDatabases } from '../../../tests/helpers/sync.mjs';
@@ -24,8 +25,88 @@ export function vectorEvent(name, branch, change = () => {}) {
   change(event.payload, event);
   return event;
 }
-/** All 14 vectors in their pinned order (sequences 1..14). */
-export const stream = (branch) => VECTOR_NAMES.map((name) => vectorEvent(name, branch));
+const sum = (values) => values.reduce((total, value) => total + BigInt(value), 0n).toString();
+/**
+ * The Z report the edge writes for the shift of `template` (pos lane buildShiftReport,
+ * packages/local-orders/src/shift-reports.ts): all eight methods and all three channels in
+ * contract order, from the sales of that shift and the refunds made in it, on top of the opening
+ * cash, movements, counted cash and terminal total of `template` (with `change` applied first).
+ */
+export function zReportFor(events, template, change = {}) {
+  const r = { ...copy(template), ...change };
+  const of = (kinds) =>
+    events
+      .filter((event) => kinds.includes(event.kind) && event.payload.shift_id === r.shift_id)
+      .map((event) => event.payload);
+  const sales = of(['sale']),
+    refunds = of(['void', 'refund']);
+  const voided = new Set(
+    events.filter((event) => event.kind === 'void').map((event) => event.payload.order_id),
+  );
+  r.methods = PosPaymentMethodSchema.options.map((method) => {
+    const paid = sales.flatMap((sale) => sale.tenders).filter((t) => t.method === method);
+    const back = refunds.flatMap((refund) => refund.tenders).filter((t) => t.method === method);
+    return {
+      method,
+      sales_minor: sum(paid.map((t) => t.amount_minor)),
+      refunds_minor: sum(back.map((t) => t.amount_minor)),
+      count: paid.length,
+    };
+  });
+  const row = (method) => r.methods.find((item) => item.method === method);
+  r.cash_sales_minor = row('cash').sales_minor;
+  r.cash_refunds_minor = row('cash').refunds_minor;
+  r.expected_cash_minor = sum([
+    r.opening_cash_minor,
+    r.cash_in_minor,
+    `-${r.cash_out_minor}`,
+    r.cash_sales_minor,
+    `-${r.cash_refunds_minor}`,
+  ]);
+  r.discrepancy_minor = sum([r.counted_cash_minor, `-${r.expected_cash_minor}`]);
+  r.channels = SalesChannelSchema.options.map((channel) => {
+    const inChannel = sales.filter((sale) => sale.sales_channel === channel);
+    return {
+      sales_channel: channel,
+      total_minor: sum(inChannel.map((sale) => sale.total_minor)),
+      count: inChannel.length,
+    };
+  });
+  if (r.terminal_reported_minor !== null)
+    r.terminal_discrepancy_minor = sum([
+      r.terminal_reported_minor,
+      `-${row('kaspi_terminal').sales_minor}`,
+      row('kaspi_terminal').refunds_minor,
+    ]);
+  r.orders = {
+    count: sales.length,
+    voided_count: sales.filter((sale) => voided.has(sale.order_id)).length,
+  };
+  return r;
+}
+
+/**
+ * All 14 vectors in their pinned order (sequences 1..14). The pinned Z vector lists only the cash
+ * and Kaspi terminal rows (it is the Z of sales 1 and 2); in the full stream it is completed the
+ * way the edge writes it, every method row of the shift, with the same cash figures.
+ */
+export const stream = (branch) => {
+  const events = VECTOR_NAMES.map((name) => vectorEvent(name, branch));
+  const z = events.find((event) => event.kind === 'shift_report').payload;
+  z.report = zReportFor(events, z.report);
+  return events;
+};
+/** The pinned vectors of one shift that took only cash and Kaspi terminal: its Z as pinned. */
+export const CASH_TERMINAL_VECTORS = Object.freeze([
+  'sale_cash_with_change',
+  'sale_mixed_cash_kaspi_terminal',
+  'void_cash_sale',
+  'refund_terminal_part',
+  'fiscal_sale_pending',
+  'fiscal_sale_recorded',
+  'fiscal_refund_pending',
+  'shift_report_z',
+]);
 
 /** A fresh cash sale (own order, quote and tender ids) for bulk ordering tests. */
 export function cashSale(branch, sequence, displayNumber = 1) {

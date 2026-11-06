@@ -382,7 +382,8 @@ async function applyFiscal(
  * The frozen Z report of a closed sales shift. Its own arithmetic (expected cash, discrepancy,
  * terminal) is checked by the wire model; here its cash and every method row it lists must equal
  * the projected tenders of the shift's sales and refund parts paid at the shift, exactly as the
- * edge computed them (schema026 pos_shift_cash).
+ * edge computed them (schema026 pos_shift_cash), and no method with projected sales or refunds
+ * may be missing from it (the edge always lists all eight methods, zero rows included).
  */
 async function applyShiftReport(
   client: DatabaseClient,
@@ -422,13 +423,16 @@ async function applyShiftReport(
     BigInt(r.cash_refunds_minor) !== BigInt(refunds.get('cash') ?? '0')
   )
     invalid('shift_cash');
+  const listed = new Set<string>(r.methods.map((row) => row.method));
   if (
     r.methods.some(
       (row) =>
         BigInt(row.sales_minor) !== BigInt(sales.get(row.method)?.sales_minor ?? '0') ||
         BigInt(row.refunds_minor) !== BigInt(refunds.get(row.method) ?? '0') ||
         row.count !== (sales.get(row.method)?.count ?? 0),
-    )
+    ) ||
+    // A method the shift took or returned money with must have its own row in the Z report.
+    [...sales.keys(), ...refunds.keys()].some((method) => !listed.has(method))
   )
     invalid('shift_methods');
   await client.query(
