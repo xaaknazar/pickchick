@@ -7347,11 +7347,13 @@
         "docs/operations/idrink-removal",
         "infra/staging/close-test-qr-1106.sql",
         "tests/operations/test_close_test_qr_1106.py",
-        "docs/operations/test-payment-cleanup-1106.md"
+        "docs/operations/test-payment-cleanup-1106.md",
+        "infra/staging/c1-window.py",
+        "tests/operations/test_c1_window.py"
       ],
-      "status": "available",
+      "status": "active",
       "head": "fb0e9c3ce0ef9cbf8794ceccf23b74e3a56fdba3",
-      "updatedAt": "2026-11-06T10:14:34.108Z",
+      "updatedAt": "2026-11-06T13:45:10.233Z",
       "summary": "C1 06.11 15:04 attempted, postcheck AssertionError, rollback PASS. Independent baseline matched; schema068, no active payments, 73/18 unchanged, both availability long-polls200. C3 not started. Report fb0e9c3c PR311; one-time automation deleted.",
       "nextAction": "Review named postchecks and overly broad container Labels comparison; exact failed assertion was not logged. Test corrected orchestrator and agree resumption; do not retry deployment automatically."
     }
