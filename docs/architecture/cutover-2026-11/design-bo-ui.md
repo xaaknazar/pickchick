@@ -137,6 +137,11 @@ DDL заморожен 10.11: дальше файл только дополня�
 (управляющий: поля карточки, список должностей, `ops/staff-roster`) - при флаге должностей. Порядок -
 `BACKOFFICE_P1_PERMISSIONS`. Отказ в выгрузке состава для начальника смены - `ROLE_FORBIDDEN`.
 
+Сделано в шаге 7: `discounts.write` (только управляющий: решение владельца - скидки делаются только в
+бэк-офисе) приходит в `permissions[]` последним, пока редактор доступен (`capabilities.discounts`:
+флаг и права helper-а P1). Начальник смены и бухгалтер получают `ROLE_FORBIDDEN`, аналитик -
+`FORBIDDEN`; без `BACKOFFICE_ROLES_ENABLED` решает грант.
+
 Сторно: `design-backoffice.md` противоречит сам себе (§2 А12 - «сторно ... только manager и
 shift_manager», там же и в таблице §4 - бухгалтер делает сторно, `stock_reverse` m/acc). Принято по
 таблице §4: manager и accountant; вопрос владельцу - §8 в.2.
@@ -157,7 +162,7 @@ allowlist `apps/backoffice/server.mjs` (точные ключи query, пред�
 Новые причины ошибок (`BackofficeErrorReasonSchema`, только при флагах): `COUNTED_AFTER_DOCUMENT`,
 `REVERSAL_NOT_ALLOWED`, `ALREADY_REVERSED`, `RECIPE_POLICY_EXPLODE`, `AUTOCONSUME_ACTIVE`,
 `LINK_NOT_APPROVED`, `CHECKLIST_INCOMPLETE`, `HANDOVER_REQUIRED`, `MANAGER_SHIFT_OPEN`,
-`DISCOUNT_NAME_TAKEN`.
+`DISCOUNT_NAME_TAKEN`, `DISCOUNT_ARCHIVED`, `DISCOUNT_PERIOD_ENDED` (два последних - шаг 7).
 
 ### 5.1 `GET ops/pos-day?date=YYYY-MM-DD[&terminal_id=uuid]` (`BACKOFFICE_POS_DAY_ENABLED`)
 
@@ -501,18 +506,104 @@ active}], sha256}`: все карточки, включая неработающ
 
 ### 5.8 Скидки (`BACKOFFICE_DISCOUNTS_ENABLED`)
 
+**Сделано в шаге 7** (`packages/backoffice-core/src/discounts.ts`; кабинет `apps/backoffice/src/discounts.ts`,
+`discounts-model.ts`). Скидки создаются и меняются только здесь, только управляющим
+(`discounts.write`); читают все четыре роли. Нигде не применяются и не публикуются: ни
+`bo_publications`, ни `bo_delivery_outbox`, ни меню, ни edge (тест «never published»). На запуске
+скидок нет.
+
 ```text
-GET ops/discounts → { discounts: [Discount], history?: (при ?id=) [{ revision, snapshot, changed_by_name, changed_at }] }
+GET ops/discounts[?id=uuid] → { schema_version: 1, branch_id, view: 'discounts', timezone, as_of,
+  applied_at_pos: false, published_to_edge: false,      // станут true, когда касса начнёт применять (P1 pos)
+  channels: ['hall','yandex_eda','glovo','chocofood','mobile','kiosk'],
+  catalog: { version, categories: [{ id, name }], products: [{ id, name, category_id }] } | null,
+  discounts: [Discount & { period: 'always'|'not_started'|'running'|'ended',
+                           unknown_items: { categories: [slug], products: [slug] }, valid: bool }],
+  truncated, limits: { discounts: 200, history: 100 },
+  // только с ?id=: ревизии этой скидки, новые первыми (bo_discount_revisions, пишет триггер владельца)
+  id, history: [{ revision, name, kind, percent_bp, value_minor, scope, schedule,
+                  requires_manager_pin, combinable, state, changed_by_name, changed_at }], history_truncated }
 Discount = { id, name, kind: 'percent'|'amount', percent_bp|null, value_minor|null,
-             scope: { categories: [slug], products: [slug], channels: ['hall'|'yandex_eda'|'glovo'] },
+             scope: { categories: [slug], products: [slug], channels: [канал] },
              schedule: { start_at|null, end_at|null, weekdays: [1..7], hours: [{ from: 'HH:MM', to: 'HH:MM' }] },
-             requires_manager_pin, combinable, state, revision, updated_by_name, updated_at }
-discount_save  { id, expected_revision, payload: Discount без id/state/revision }   // 0 - новая, в draft
+             requires_manager_pin, combinable, state, revision,
+             created_by_name, created_at, updated_by_name, updated_at }
+discount_save  { id, expected_revision, payload: Discount без id/state/revision и имён }  // 0 - новая, в draft
 discount_state { id, state: 'draft'|'active'|'archived', expected_revision }
 ```
 
-Скидки нигде не применяются и не публикуются: ни outbox, ни меню, ни edge. Экран пишет: «Касса пока
-не применяет скидки. Они начнут работать после обновления кассы». На запуске скидок нет.
+Правила (одни и те же в ядре и в форме кабинета, тесты `discounts-unit`, `discounts-ui`):
+
+- **Размер**: процент в базисных пунктах 100..10000 (1-100 %, до двух знаков после запятой) или
+  сумма в целых тиынах больше 0 и не больше 1 000 000 ₸; ровно одно из двух.
+- **Название**: 1-80 символов в одну строку; два живых (не в архиве) названия точки не совпадают
+  без учёта регистра (`CONFLICT/DISCOUNT_NAME_TAKEN`; уникальный индекс 075 - страховка).
+- **На что**: категории и позиции по slug опубликованного каталога (оба списка пусты - всё меню).
+  Неизвестные - `NOT_FOUND/CATALOG_ITEM_NOT_FOUND`; без опубликованного меню - только «Всё меню»
+  (`NOT_READY/CATALOG_NOT_PUBLISHED`). Позиция, ушедшая из меню позже, видна в списке как «(нет в
+  меню)», и такая скидка не включается.
+- **Где**: хотя бы один канал из шести: зал, Яндекс Еда, Glovo, ChocoFood (чек зала с оплатой
+  ChocoFood), приложение (`mobile`), киоск. Задача шага назвала шесть каналов, первоначальный дизайн -
+  три; `scope` - jsonb, DDL не менялся.
+- **Когда**: период `[start_at, end_at)` (каждая граница необязательна); в кабинете - дни Алматы
+  включительно (`end_at` = полночь следующего дня); дни недели ISO 1..7, хотя бы один; до четырёх
+  промежутков `ЧЧ:ММ` по Алматы без пересечений, конец до `24:00`, пусто - весь день.
+- **Условия**: `requires_manager_pin` по умолчанию `true`, `combinable` по умолчанию `false`.
+- **Состояния**: новая и изменённая скидка - `draft`. Изменение включённой возвращает её в `draft`:
+  живая скидка никогда не меняется молча (сохранение без изменений состояние не трогает). Включение
+  (`active`) проверяет сохранённую скидку заново и не включает закончившийся период
+  (`INVALID_REQUEST/DISCOUNT_PERIOD_ENDED`). `archived` конечна (`CONFLICT/DISCOUNT_ARCHIVED`),
+  название освобождается. То же состояние ещё раз - `INVALID_REQUEST`.
+- **Конверт команды**: `request_id`, digest, `bo_audit` с `before_value` и `after_value`, блокировка
+  точки, `expected_revision`; каждую ревизию копирует в `bo_discount_revisions` триггер 075.
+
+Кабинет: раздел «Скидки» после «Промо и баннеры» только при `capabilities.discounts`; сверху -
+«Скидки пока не применяются на кассе. Включим после проверки на кассе.» (текст владельца; заменил
+текст первоначального дизайна). Список (фильтр по состоянию), редактор с черновиком во вкладке,
+«Включить», «Выключить», «В архив», «История». Без флага раздела нет, запросов к `ops/discounts`
+нет, `#discounts` открывает «Главную».
+
+**P1 полосы pos: что понадобится кассе (заметка, не сделано; CR `bo-ui-7`).** Касса применит
+скидки после проверки на кассе (решение владельца). Предложение интерфейса:
+
+1. **Что получит edge.** Целый набор включённых скидок точки, заменяющий прежний (пустой набор -
+   скидок нет), только после явного включения публикации (новый флаг, по умолчанию выключен):
+
+   ```text
+   DiscountSet = { schema_version: 1, branch_id, version: int (растёт), generated_at,
+     discounts: [{ discount_id, revision, name, kind: 'percent'|'amount',
+                   percent_bp|null, value_minor|null,
+                   channels: ['hall'|'yandex_eda'|'glovo'|'chocofood'],  // каналы кассы; mobile/kiosk - облако, позже
+                   categories: [slug], products: [slug],                  // сопоставление с меню кассы по slug
+                   valid_from|null, valid_until|null, weekdays: [1..7], hours: [{ from, to }],  // Алматы
+                   requires_manager_pin, combinable }] }
+   ```
+
+   Доставка - новый вид в существующем канале доставки бэк-офиса на edge (`bo_delivery_outbox`) или
+   отдельный поток, решает integration. На edge - `pos_discount_presets` и `GET pos/config` →
+   `discounts[]` (`design-pos.md`, раздел про конфиг кассы).
+
+2. **Применение.** Кассир выбирает скидку в чеке; касса проверяет канал, период, день недели и час
+   по Алматы и состав. `requires_manager_pin=true` - approval `discount` (уже в
+   `ApprovalActionSchema`, `packages/contracts/src/cutover-enums.ts:45`) с PIN роли `shift_manager`.
+   `combinable=false` - в чеке только эта скидка; `combinable=true` - только вместе с такими же,
+   по очереди от остатка. Чеки без выручки (`staff_meal`, `marketing`) - без скидки.
+3. **Расчёт (предложение).** База - сумма подходящих позиций по цене канала с модификаторами.
+   Процент: `round_half_up(база × percent_bp / 10000)`; сумма: `min(value_minor, база)`. Скидка
+   раскладывается по подходящим позициям пропорционально (метод наибольшего остатка) целыми тиынами,
+   строка не уходит ниже 0.
+4. **Данные продажи.** `QuoteSchema.discount_minor` (сейчас `z.literal('0')`,
+   `packages/contracts/src/index.ts:446`; `packages/local-orders/src/pricing.ts:79`) становится суммой;
+   `pos_sale`: `subtotal_minor - discount_minor = total_minor` (приёмник облака это уже проверяет,
+   `packages/pos-order-sync/src/sales-model.ts:178`), плюс поле `discount` (`discount_id`,
+   `revision`, `name`, `kind`, `percent_bp` или `value_minor`, `approved_by_staff_id`; без скидки -
+   `null`) и `discount_minor` у строки. Проверка
+   «без скидки» в `packages/pos-order-sync/src/model.ts:66` (`total_minor = subtotal_minor`)
+   снимается для продаж со скидкой. В облаке `cloud_pos_sales.discount_minor` уже есть (073), для
+   отчёта по скидкам - `discount jsonb NULL` новой миграцией (номер у integration).
+5. **Возврат** позиции возвращает оплаченную сумму строки (после её доли скидки).
+6. **Бэк-офис после этого**: `applied_at_pos=true` убирает плашку; «Касса» уже показывает
+   `discount_minor` чеков (`ops/pos-day`), отчёт продаж добавит строку «Скидки».
 
 ## 6. Кабинет (`apps/backoffice`, русский) и аудит
 
@@ -580,7 +671,9 @@ discount_state { id, state: 'draft'|'active'|'archived', expected_revision }
    (список с версиями, поля карточки, «Доступы», `ops/staff-roster`), `staff-roster-apply.mjs`,
    `staff-pin-batch.mjs`; 075 раздел 8 `bo_branch_templates`; CR `bo-ui-6`. Перенесено: подсчёт по
    `count_daily`, отчёты склада `variance`/`consumption`, восстановление отозванной записи кассы (CR).
-7. Скидки и исправления аудита без флага.
+7. Шаг 7 (сделан): редактор скидок (`ops/discounts`, `discount_save`, `discount_state`, раздел
+   «Скидки» с плашкой, история), право `discounts.write`, интерфейс для кассы (§5.8, P1), CR
+   `bo-ui-7`. Исправления аудита без флага не делались: §8 в.1 без ответа, умолчание шага 3 в силе.
 8. Runbook `docs/operations/backoffice-p1-cutover.md`, дополнения `backoffice-cutover.md`, CR маршрутов
    для `scripts/contracts.mjs`, полный прогон наборов и `pnpm check`.
 
@@ -610,3 +703,9 @@ discount_state { id, state: 'draft'|'active'|'archived', expected_revision }
    Умолчание: вручную через оператора кассы; функция - полосе pos (CR `bo-ui-6` §3).
 7. **Право на чек-лист.** Умолчание: версию чек-листа сохраняет только управляющий
    (`manager_shifts.template`), открывают и закрывают смену управляющий и начальник смены.
+8. **Изменение включённой скидки** (шаг 7). Умолчание: возвращает её в черновик, управляющий
+   включает её снова (живая скидка не меняется молча). Если владельцу нужно менять, например,
+   только даты без выключения - отдельное решение.
+9. **Каналы и сумма скидки** (шаг 7). Умолчание: шесть каналов (зал, Яндекс Еда, Glovo, ChocoFood,
+   приложение, киоск), ChocoFood - чек зала с оплатой ChocoFood; сумма - до 1 000 000 ₸ на чек
+   (защита от опечатки). Правила расчёта на кассе (§5.8 P1) - предложение для полосы pos.
