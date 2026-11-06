@@ -7361,11 +7361,8 @@
         "@google-play/pickchick",
         "docs/operations/mobile-play-2026-11/graphics/screenshots-appstore-1106",
         "docs/collaboration/handoff.md",
-        "infra/public-staging/support-page-release.py",
         "infra/public-staging/support/render.py",
         "infra/public-staging/support/style.css",
-        "tests/operations/test_support_page_release.py",
-        "@vps/public-https/support",
         "docs/project-status.md",
         "docs/roadmap/project.json",
         "infra/public-staging/support/content.json"
@@ -7373,8 +7370,8 @@
       "status": "active",
       "head": "c8de3a819bd96cde4ce75a58cea96e9c50dce244",
       "updatedAt": "2026-11-06T20:24:03.317Z",
-      "summary": "c8de3a81 / PR313: AAB 1.0.1(7) released to internal testing; upload certificate matches. Approved Alex banner and RU/KK/EN draft saved; IARC 3+/Everyone; owner changed audience to 13-15,16-17,18+. Listing tests 5/5 and Prettier PASS; current CI running.\n06.11 П6: по прямому решению владельца в исходном задании Android и согласованию между чатами переданы только поддержка /support/#delete-account, её оператор/тесты и общие записи статуса задаче android-play-1106. С1/С3 завершены, release lock отсутствует. Это не передача API, БД, банков, кассы, каталога, цен, Caddy или разрешение Play production.\n06.11: владелец явно разрешил временную передачу этих файлов mobile-cart-location-1106 для названия выбранной точки в быстрой оплате; существующие изменения сохраняются. Общие документы обновляются только добавлением записи, без удаления фактов С1/С3/Android.\nВременная передача статуса и roadmap завершена: PR314, 679ef207. При интеграции сохранить запись mobile-cart-location-1106. Онлайн-пульт этой задачей не публиковался.\n07.11: по прямому поручению владельца П6 переданы только тексты срока хранения (content.json/delete_kept и документы account-deletion-web/data-safety) задаче p6-retention-1107. Публикация остаётся в согласованном окне П6, остальные файлы/ресурсы сохранены.\nП6: файлы возвращены после PR315 f2935480. До упаковки/CI кандидата включить 3 поля delete_kept и документы из PR315; политика не публикуется. Вычитка KK с карточкой ещё требуется.",
-      "nextAction": "Owner enters tester email list in open Play tab; then physical Android checklist. Emulator SDK download still running on this Mac, screenshots pending. KK review and P6 coordinated server window pending; Data safety only initial draft. Never production without separate owner approval.\nП6 разрешён владельцем; сначала адаптировать support-page-release.py для обновления уже существующей HTTP200 страницы, сохраняя защиту первого развёртывания. Полная CI точного опубликованного коммита, проверенная копия/откат, новый собственный release lock, атомарное обновление только /support/, HTTP200 и #delete-account RU/KK/EN. Сверить неизменность API6630eb0f/schema071/public pointer c3a0fbee и соседей. Не менять Caddy/API/БД/флаги/кассу/цены/каталог. Сохранить записи С1/С3 из36f05455 при обновлении status/roadmap/handoff; не заменять их старой копией shared. Публикация онлайн-пульта не входит в передачу. После П6 записать доказательства и согласованно вернуть временные области.\nВключить PR315 f2935480: срок хранения без ограничения утверждён владельцем07.11 для страницы удаления. Data safety уже содержит правильный URL; текст срока на странице П6. Общие статус/roadmap обновить при интеграции. Политика только черновик до отдельного да."
+      "summary": "c8de3a81 / PR313: AAB 1.0.1(7) released to internal testing; upload certificate matches. Approved Alex banner and RU/KK/EN draft saved; IARC 3+/Everyone; owner changed audience to 13-15,16-17,18+. Listing tests 5/5 and Prettier PASS; current CI running.\n06.11 П6: по прямому решению владельца в исходном задании Android и согласованию между чатами переданы только поддержка /support/#delete-account, её оператор/тесты и общие записи статуса задаче android-play-1106. С1/С3 завершены, release lock отсутствует. Это не передача API, БД, банков, кассы, каталога, цен, Caddy или разрешение Play production.\n06.11: владелец явно разрешил временную передачу этих файлов mobile-cart-location-1106 для названия выбранной точки в быстрой оплате; существующие изменения сохраняются. Общие документы обновляются только добавлением записи, без удаления фактов С1/С3/Android.\nВременная передача статуса и roadmap завершена: PR314, 679ef207. При интеграции сохранить запись mobile-cart-location-1106. Онлайн-пульт этой задачей не публиковался.\n07.11: по прямому поручению владельца П6 переданы только тексты срока хранения (content.json/delete_kept и документы account-deletion-web/data-safety) задаче p6-retention-1107. Публикация остаётся в согласованном окне П6, остальные файлы/ресурсы сохранены.\nП6: файлы возвращены после PR315 f2935480. До упаковки/CI кандидата включить 3 поля delete_kept и документы из PR315; политика не публикуется. Вычитка KK с карточкой ещё требуется.\nВладелец явно разрешил передать публикацию П6 задаче p6-retention-1107: оператор, его проверки, @vps/public-https/support. Google Play остаётся здесь.",
+      "nextAction": "Продолжать Google Play; П6 публикует p6-retention-1107 по согласованию владельца. Не запускать параллельный support release."
     },
     {
       "id": "mobile-cart-location-1106",
@@ -7402,12 +7399,15 @@
       "scopes": [
         "docs/operations/mobile-play-2026-11/retention-1107.md",
         "docs/operations/mobile-play-2026-11/legal-retention-proposal-1107.md",
-        "codex-reports/2026-11-07-day.md"
+        "codex-reports/2026-11-07-day.md",
+        "infra/public-staging/support-page-release.py",
+        "tests/operations/test_support_page_release.py",
+        "@vps/public-https/support"
       ],
       "status": "active",
       "head": "3b583d5af156534f7bac6d73348877e716a6936b",
       "updatedAt": "2026-11-06T21:31:54.760Z",
-      "summary": "PR315, 3b583d5a: владелец подтвердил казахский текст страницы удаления словами перевод в норме. Тексты без изменений; только протокол и журнал. Format/diff PASS. Предыдущие 5 support tests PASS; сервер не изменён.",
+      "summary": "PR315, 3b583d5a: владелец подтвердил казахский текст страницы удаления словами перевод в норме. Тексты без изменений; только протокол и журнал. Format/diff PASS. Предыдущие 5 support tests PASS; сервер не изменён. Получена явная передача публикации П6, оператор и резерв support; отдельная политика не разрешена.",
       "nextAction": "Включить тексты PR315 в кандидат П6, полная CI и выпуск в согласованное окно. Подтверждение KK страницы получено; политику не публиковать без отдельного да."
     }
   ]
