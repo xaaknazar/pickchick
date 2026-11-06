@@ -1325,9 +1325,18 @@ const frozenReport = ({ kind, payload }) =>
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+/** Elements in the order of their canonical bytes. */
+const byBytes = (items) =>
+  items
+    .map((item) => [JSON.stringify(item), item])
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([, item]) => item);
 /**
  * The bytes of an answer with only what differs between two desks replaced: identifiers,
  * timestamps and 64-hex tokens. Keys, their order, values and array lengths stay as they are.
+ * One exception: the edge lists an order's `tasks` by task id (`ORDER BY id`), a random uuid on
+ * each desk, so the two desks list the same tasks in a random relative order; `tasks` arrays are
+ * compared in the order of their canonical bytes.
  */
 const canonical = (value) =>
   Array.isArray(value)
@@ -1335,7 +1344,14 @@ const canonical = (value) =>
     : value instanceof Date
       ? '<time>'
       : value && typeof value === 'object'
-        ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, canonical(item)]))
+        ? Object.fromEntries(
+            Object.entries(value).map(([key, item]) => [
+              key,
+              key === 'tasks' && Array.isArray(item)
+                ? byBytes(item.map(canonical))
+                : canonical(item),
+            ]),
+          )
         : typeof value === 'string'
           ? UUID.test(value)
             ? '<uuid>'
