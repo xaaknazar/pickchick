@@ -1,0 +1,19 @@
+{
+  "observed_at": "2026-11-06T09:11:27.527089+00:00",
+  "historical_cutoff": "2026-11-01T00:00:00+05:00",
+  "pending_payment_attempts": 0,
+  "unsettled_invoices": 0,
+  "unsettled_qr": 0,
+  "pending_refunds": 0,
+  "active_cloud_kitchen": 0,
+  "edge_active_total": 73,
+  "edge_created_on_or_after_cutoff": 1,
+  "edge_latest_order_created_at": "2026-11-01T14:55:51.692835+00:00",
+  "edge_set_fingerprint": "ae36192ee51ad34c6cd5d4ef0aaa08cb",
+  "edge_historical_fingerprint": "e31f26464e8d98c588110dc079eeb720",
+  "paid_open_total": 18,
+  "paid_created_on_or_after_cutoff": 0,
+  "paid_latest_order_created_at": "2026-10-29T13:58:37.429807+00:00",
+  "paid_set_fingerprint": "cdde16e3e422e09bbd1afc5b9aab2998",
+  "paid_historical_fingerprint": "cdde16e3e422e09bbd1afc5b9aab2998"
+}
