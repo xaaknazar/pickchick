@@ -7380,11 +7380,11 @@
         "tests/operations/test_support_page_update.py",
         "docs/operations/mobile-play-2026-11/support-update-1107.md"
       ],
-      "status": "active",
-      "head": "21358f913c7e8ee2906f84410f256b2ec8638e76",
-      "updatedAt": "2026-11-06T21:33:20.209Z",
-      "summary": "П6 опубликован: SHA21358f913c7e8ee2906f84410f256b2ec8638e76, Foundation42305598717 11/11 PASS. Guarded preflight/apply PASS. Внешние GET https://pickchick.kz/support/ и ru.html/kk.html/en.html - HTTP200, id=delete-account и точный retention всех3языков подтверждены. Manifest a6e33bfcc4215984367f9f419bf65a9256d8d1e284f90b57d9916dc191ce57cf. Контейнеры/API/Caddy/политика неизменны. Идёт15мин наблюдения. Предыдущий откат14001781 подтверждён, свой старыйlock снят.",
-      "nextAction": "Завершить15мин наблюдения, GitHub-протокол и handoff. Для Android: П6 опубликован, delete-account RU/KK/EN подтверждён; https://github.com/xaaknazar/pickchick/actions/runs/42305598717. Google Play остаётся у android-play-1106; политику не публиковать."
+      "status": "available",
+      "head": "8c5d4bfe26a5fa8a051df88c3b6f2da34db5518e",
+      "updatedAt": "2026-11-06T23:40:24.911Z",
+      "summary": "П6 опубликован07.11 04:22Алматы из21358f913c7e8ee2906f84410f256b2ec8638e76; Foundation42305598717 11/11. Preflight/apply PASS; HTTP200+delete-account+точный retention RU/KK/EN. 16раундов/903секунды/112GET PASS. API/public/gateway/контейнеры/политика неизменны, свойlock снят. Копия и source/CI proof сохранены; rollback dry-run PASS. Протокол8c5d4bfe вPR315, remote SHA сверён; рабочее дерево чистое. Fresh shared28875f52 влит обычнымmerge,8файлов релиза идентичны. Общую ветку не сливали.",
+      "nextAction": "Android-задача может продолжать Google Play: П6 готов, https://pickchick.kz/support/#delete-account и RU/KK/EN подтверждены. Политику не публиковать без отдельного да. Проверить финальную CI8c5d4bfe перед согласованным merge PR315; finish только после включения вshared. Общий status/roadmap остаётся уAndroid-задачи, онлайн-пульт не обновлялся."
     },
     {
       "id": "android-play-1106",
