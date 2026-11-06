@@ -72,7 +72,7 @@ test('worker refuses owner credentials, remote/override DB URLs and scope drift'
     edgeDeviceId: deviceId,
     databaseUrl: `postgresql://${syncRole}:${password}@127.0.0.1:55433/pickchick_edge`,
   };
-  validateWorkerConfig(config, 'http://127.0.0.1:43100', branchId, deviceId);
+  validateWorkerConfig(config, 'http://127.0.0.1:43110', branchId, deviceId);
   for (const patch of [
     { databaseUrl: config.databaseUrl.replace(syncRole, 'pickchick_edge_owner') },
     { databaseUrl: config.databaseUrl + '?host=elsewhere' },
@@ -81,9 +81,11 @@ test('worker refuses owner credentials, remote/override DB URLs and scope drift'
     { posOrderSyncEnabled: false },
   ])
     assert.throws(() =>
-      validateWorkerConfig({ ...config, ...patch }, 'http://127.0.0.1:43100', branchId, deviceId),
+      validateWorkerConfig({ ...config, ...patch }, 'http://127.0.0.1:43110', branchId, deviceId),
     );
   assert.throws(() => validateWorkerConfig(config, 'http://127.0.0.1:3100', branchId, deviceId));
+  // 127.0.0.1:43100 is the live PickChickFulfillmentTunnel, never this worker's origin (#312).
+  assert.throws(() => validateWorkerConfig(config, 'http://127.0.0.1:43100', branchId, deviceId));
 });
 test('Windows identity parser rejects stale/wrong/mutated identities and links', async () => {
   const root = await mkdtemp(join(tmpdir(), 'pickchick-identity-test-'));
@@ -127,7 +129,12 @@ test('installer keeps transport private and does not mutate restaurant services 
     script,
     /Add-WindowsCapability|Remove-Service|Stop-Service|Restart-Service|New-NetFirewallRule|StrictHostKeyChecking no|ssh-keyscan|DROP DATABASE|ALTER ROLE/,
   );
-  assert.match(script, /LocalForward 127\.0\.0\.1:43100 127\.0\.0\.1:/);
+  assert.match(script, /LocalForward 127\.0\.0\.1:43110 127\.0\.0\.1:/);
+  // The live PickChickFulfillmentTunnel owns 127.0.0.1:43100; this installer must never
+  // bind, probe or point its worker at it (#312).
+  assert.doesNotMatch(script, /43100/);
+  assert.equal(script.match(/43110/g).length, 7);
+  assert.doesNotMatch(script, /PickChickFulfillmentTunnel/);
   assert.match(script, /@\('PickChickEdge','PickChickSyncTunnel'\)/);
   assert.match(script, /FileMode\]::CreateNew/);
   assert.match(script, /\/setowner','\*S-1-5-19'/);
