@@ -1549,3 +1549,59 @@ test('restore: the saved v11 state becomes a rollback build, saved and published
     options: { '--snapshot': 'a.json', '--out': 'x' },
   });
 });
+
+test('restore from the public catalog: refused when the cashier has aggregator prices, else noted in the review', async (t) => {
+  const dir = await tempDir(t);
+  const write = async (name, value) => {
+    const path = join(dir, name);
+    await writeFile(path, JSON.stringify(value));
+    return path;
+  };
+  // GET /v1/catalog/branches/:id never carries aggregator prices (cutover R5).
+  const open = await write('public.json', {
+    branch_id: branch,
+    version: 11,
+    published_at: '2026-10-14T00:00:00.000Z',
+    payload: v11,
+  });
+  // The cashier menu of today, priced for Yandex Eda.
+  const priced = JSON.parse(JSON.stringify(v11));
+  priced.products[0].channel_prices_minor = { yandex_eda: '459000' };
+  const edgePriced = await write(
+    'edge-priced.json',
+    projectCatalogMenu(
+      priced,
+      branch,
+      9,
+      '2026-11-16T05:00:00.000Z',
+      '20000000-0000-4000-8000-000000000009',
+      { aggregatorPrices: true },
+    ),
+  );
+  const lost = await runRestore({ snapshot: open, out: join(dir, 'lost'), edge: edgePriced });
+  assert.equal(lost.ok, false);
+  assert.deepEqual(
+    lost.manifest.errors.map((e) => e.code),
+    ['AGGREGATOR_PRICES_LOST'],
+  );
+  assert.equal(lost.manifest.payload, null);
+  // Nothing priced anywhere: the public form still restores, and the review says what it lacks.
+  const plain = await runRestore({
+    snapshot: open,
+    out: join(dir, 'plain'),
+    edge: await write('edge-plain.json', edgeMenu),
+  });
+  assert.equal(plain.ok, true, JSON.stringify(plain.manifest.errors));
+  assert.match(
+    await readFile(join(dir, 'plain', 'review.md'), 'utf8'),
+    /Снимок - публичный каталог: цен Яндекс Еды и Glovo в нём нет/,
+  );
+  // The admin state is the snapshot the runbook asks for: no such refusal or note.
+  const admin = await runRestore({
+    snapshot: await write('state.json', v11State),
+    out: join(dir, 'admin'),
+    edge: edgePriced,
+  });
+  assert.equal(admin.ok, true, JSON.stringify(admin.manifest.errors));
+  assert.doesNotMatch(await readFile(join(dir, 'admin', 'review.md'), 'utf8'), /публичный каталог/);
+});

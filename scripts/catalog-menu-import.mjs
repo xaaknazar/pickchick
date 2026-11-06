@@ -1486,6 +1486,13 @@ export function restoreMarkdown({
       'В снимке есть цены Яндекс Еды и Glovo: публикация пройдёт только с',
       '`CATALOG_AGGREGATOR_PRICES_ENABLED=true` и паритетом `--aggregator-prices`.',
     );
+  if (source.form === 'public')
+    lines.push(
+      '',
+      'Снимок - публичный каталог: цен Яндекс Еды и Glovo в нём нет (они только для кассы), откат',
+      'опубликует меню без них. Если на кассе они нужны, соберите откат из ответа',
+      '`GET /v1/admin/catalog/branches/<точка>`.',
+    );
   if (current) {
     const before = new Map(current.payload.products.map((p) => [p.id, p]));
     const after = new Map(payload.products.map((p) => [p.id, p]));
@@ -1548,7 +1555,8 @@ export function restoreMarkdown({
 
 /**
  * restore: a rollback build from a saved catalog - the state.json taken before a publication
- * (admin state), a public catalog or a bare payload. Writes the same outputs as build, so the
+ * (admin state), a public catalog (never with aggregator prices: refused with
+ * AGGREGATOR_PRICES_LOST when the current catalog or the edge menu has them) or a bare payload. Writes the same outputs as build, so the
  * manager signs the review and `save`/`publish` work unchanged; the rollback is a new version
  * with the old content. The 24 published v11 slugs must be in it; products added after the
  * snapshot leave the menu and are listed in the review.
@@ -1584,6 +1592,17 @@ export async function runRestore({ snapshot, out, current, edge }) {
     fail('BRANCH_MISMATCH', 'снимок, текущий каталог и меню кассы - разные точки');
   const payload = CatalogPayloadSchema.parse({ ...source.payload, content_reviewed: false });
   const aggregators = hasAggregatorPrices(payload);
+  // The public route never carries aggregator prices (cashier-only, contracts 5.3): a rollback
+  // built from it would silently take them off the cashier menu.
+  if (
+    source.form === 'public' &&
+    ((currentInput && hasAggregatorPrices(currentInput.payload)) ||
+      edgeInput?.items.some((item) => item.aggregator_prices_minor))
+  )
+    fail(
+      'AGGREGATOR_PRICES_LOST',
+      'публичный каталог без цен агрегаторов, а на кассе или в текущем каталоге они есть: снимок - ответ GET /v1/admin/catalog/branches/<точка>',
+    );
   const slugs = new Set(payload.products.map((p) => p.id));
   for (const slug of LEGACY_SLUGS)
     if (!slugs.has(slug)) fail('EXISTING_SLUG_MISSING', `${slug} нет в снимке`);

@@ -16,6 +16,7 @@ import {
   assertCatalogPublishable,
   catalogAdminOptions,
   isCatalogAggregatorChannel,
+  publicCatalogPayload,
   stripStorefrontPayload,
 } from '../../packages/catalog-admin/dist/index.js';
 import { mockupCatalogDraft } from '../../packages/catalog-admin/dist/seed.js';
@@ -149,6 +150,36 @@ test('storefronts never get aggregator keys; a payload without them is stripped 
   assert.equal(JSON.stringify(stripStorefrontPayload(parsed)), JSON.stringify(historical));
 });
 
+test('the public catalog route drops aggregator keys only; without them the payload is the same object', () => {
+  const payload = withPrices({ mobile: '219900', yandex_eda: '459000', glovo: '469000' });
+  payload.products[0].kitchen_route = 'prep';
+  payload.products[1].channel_prices_minor = { glovo: '1' };
+  payload.products[2].channel_prices_minor = { kiosk: '239900' };
+  const before = structuredClone(payload);
+  const open = publicCatalogPayload(payload);
+  assert.deepEqual(payload, before, 'the stored payload is not mutated');
+  assert.equal(/yandex_eda|glovo/.test(JSON.stringify(open)), false);
+  assert.deepEqual(open.products[0].channel_prices_minor, { mobile: '219900' });
+  assert.equal('channel_prices_minor' in open.products[1], false, 'emptied object removed');
+  assert.equal(open.products[2], payload.products[2], 'a product without them is untouched');
+  // Unlike the storefront strip, the public route keeps every unified-menu field.
+  assert.equal(open.products[0].kitchen_route, 'prep');
+  assert.deepEqual(open.products[0].image, payload.products[0].image);
+  const others = (product) => {
+    const copy = { ...product };
+    delete copy.channel_prices_minor;
+    return copy;
+  };
+  assert.deepEqual(others(open.products[0]), others(payload.products[0]));
+  assert.deepEqual(Object.keys(open.products[0]), Object.keys(payload.products[0]));
+  // No aggregator keys anywhere: the very same payload, so the answer is byte-identical.
+  const plain = withPrices({ mobile: '1' });
+  assert.equal(publicCatalogPayload(plain), plain);
+  const real = realMenuWithAggregatorPrices();
+  assert.equal(CatalogPayloadSchema.safeParse(publicCatalogPayload(real)).success, true);
+  assert.equal(/yandex_eda|glovo/.test(JSON.stringify(publicCatalogPayload(real))), false);
+});
+
 test('frozen strict storefront schema parses the stripped real menu with aggregator prices', () => {
   const payload = realMenuWithAggregatorPrices();
   assert.equal(payload.products.length, 54);
@@ -240,11 +271,20 @@ test('CATALOG_AGGREGATOR_PRICES_ENABLED: off by default, only with edge publicat
       .edgeAggregatorPrices,
     true,
   );
-  // Without the cashier publication the flag has nothing to publish to.
-  assert.equal(
-    catalogAdminOptions({ CATALOG_AGGREGATOR_PRICES_ENABLED: 'true' }).edgeAggregatorPrices,
-    undefined,
-  );
+  // Without the cashier publication the flag has nothing to publish to: the API refuses to
+  // start instead of ignoring it (an operator mistake on 16.11, contracts 6.2 step 5).
+  for (const env of [
+    { CATALOG_AGGREGATOR_PRICES_ENABLED: 'true' },
+    { CATALOG_EDGE_PUBLICATION_ENABLED: 'false', CATALOG_AGGREGATOR_PRICES_ENABLED: 'true' },
+  ])
+    assert.throws(
+      () => catalogAdminOptions(env),
+      /CATALOG_AGGREGATOR_PRICES_CONFIGURATION_INVALID/,
+      JSON.stringify(env),
+    );
+  assert.deepEqual(catalogAdminOptions({ CATALOG_AGGREGATOR_PRICES_ENABLED: 'false' }), {
+    enabled: false,
+  });
   for (const value of ['1', 'TRUE', 'yes', ''])
     assert.throws(
       () => catalogAdminOptions({ ...edge, CATALOG_AGGREGATOR_PRICES_ENABLED: value }),

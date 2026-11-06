@@ -11,6 +11,10 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { MenuSnapshotSchema } from '../../packages/contracts/dist/index.js';
 import { mockupCatalogDraft } from '../../packages/catalog-admin/dist/seed.js';
+import {
+  CatalogPayloadSchema,
+  publicCatalogPayload,
+} from '../../packages/catalog-admin/dist/index.js';
 import { projectCatalogMenu } from '../../packages/menu-sync/dist/index.js';
 import { previewId } from '../../scripts/local-pos-draft.mjs';
 import {
@@ -720,4 +724,40 @@ test('CLI: --aggregator-prices is a switch without a value, accepted once', () =
     ['--catalog', 'c', '--edge', '--aggregator-prices'],
   ])
     assert.throws(() => parseArguments(argv), JSON.stringify(argv));
+});
+
+test('--aggregator-prices refuses the public catalog route, which never carries aggregator prices', () => {
+  const catalog = aggregatorCatalog();
+  const edge = appliedWithPrices(catalog);
+  const admin = {
+    branch: { id: branch, code: 'SYN', name: 'Synthetic' },
+    published: { version: 3, published_at: '2026-11-16T05:00:00.000Z', payload: catalog },
+  };
+  // The public answer of the same publication (GET /v1/catalog/branches/:id, cutover R5).
+  const open = {
+    branch_id: branch,
+    version: 3,
+    published_at: '2026-11-16T05:00:00.000Z',
+    payload: publicCatalogPayload(CatalogPayloadSchema.parse(catalog)),
+  };
+  assert.deepEqual(
+    [catalogInput(admin).form, catalogInput(open).form, catalogInput(catalog).form],
+    ['admin', 'public', 'payload'],
+  );
+  assert.throws(
+    () => catalogEdgeParity({ catalog: open, snapshot: edge }, { aggregatorPrices: true }),
+    /--aggregator-prices needs the admin catalog/,
+  );
+  assert.throws(
+    () => parityRun({ catalog: open, snapshot: edge, aggregatorPrices: true }),
+    /--aggregator-prices needs the admin catalog/,
+  );
+  // The admin state and the bare payload of that publication pass; without the switch the
+  // public form is read as before.
+  for (const input of [admin, catalog])
+    assert.equal(
+      catalogEdgeParity({ catalog: input, snapshot: edge }, { aggregatorPrices: true }).ok,
+      true,
+    );
+  assert.equal(catalogEdgeParity({ catalog: open, snapshot: edge }).ok, true);
 });

@@ -22,6 +22,7 @@ import {
   CatalogStateSchema,
   parseCatalogInput,
   assertCatalogPublishable,
+  publicCatalogPayload,
 } from './contracts.js';
 import type { CatalogCredential, CatalogPayload, CatalogState } from './contracts.js';
 import { authenticateCatalogActor, authorizeCatalog } from './auth.js';
@@ -82,7 +83,12 @@ export function catalogAdminOptions(
   if (!['true', 'false'].includes(comboStops))
     throw new Error('CATALOG_EDGE_COMBO_STOPS_CONFIGURATION_INVALID');
   const aggregatorPrices = env['CATALOG_AGGREGATOR_PRICES_ENABLED'] ?? 'false';
-  if (!['true', 'false'].includes(aggregatorPrices))
+  // Aggregator prices exist only on the cashier edge publication: switched on without it the
+  // flag would do nothing and hide the operator mistake until the first refused publication.
+  if (
+    !['true', 'false'].includes(aggregatorPrices) ||
+    (aggregatorPrices === 'true' && edge !== 'true')
+  )
     throw new Error('CATALOG_AGGREGATOR_PRICES_CONFIGURATION_INVALID');
   const roles = env['CATALOG_ACCESS_ROLES_ENABLED'] ?? 'false';
   if (!['true', 'false'].includes(roles))
@@ -94,7 +100,7 @@ export function catalogAdminOptions(
     enabled: value === 'true',
     ...(edge === 'true' ? { edgePublicationBranchId: edgeBranch! } : {}),
     ...(edge === 'true' && comboStops === 'true' ? { edgeComboStops: true } : {}),
-    ...(edge === 'true' && aggregatorPrices === 'true' ? { edgeAggregatorPrices: true } : {}),
+    ...(aggregatorPrices === 'true' ? { edgeAggregatorPrices: true } : {}),
     ...(mobile === 'true' ? { mobileStorefrontBranchId: branchId! } : {}),
     ...(z.uuid().safeParse(kioskBranch).success ? { kioskBranchId: kioskBranch! } : {}),
     ...(roles === 'true' ? { enforceRoles: true } : {}),
@@ -290,7 +296,8 @@ export class CatalogAdmin {
         branch_id: branchId,
         version: row.version,
         published_at: row.published_at.toISOString(),
-        payload: row.payload,
+        // Aggregator prices are cashier-only (contracts 5.3), also on this public route.
+        payload: publicCatalogPayload(row.payload),
       });
     });
   }

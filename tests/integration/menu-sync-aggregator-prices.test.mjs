@@ -222,8 +222,13 @@ test('ACK: the checksum of each of the four forms is accepted, a foreign one nev
 });
 
 test('catalog publication: off refuses aggregator prices and keeps releases as before; on projects them', async () => {
-  const { CatalogAdmin, provisionCatalogManager, CatalogAdminError } =
-    await import('../../packages/catalog-admin/dist/index.js');
+  const {
+    CatalogAdmin,
+    provisionCatalogManager,
+    CatalogAdminError,
+    CatalogPublicSchema,
+    publicCatalogPayload,
+  } = await import('../../packages/catalog-admin/dist/index.js');
   await withSyncDatabases(async ({ cloud, edge, org, branch, device }) => {
     const auth = authFor(await provisionDevice(cloud.pool, device));
     const manager = await provisionCatalogManager(cloud.pool, {
@@ -344,6 +349,18 @@ test('catalog publication: off refuses aggregator prices and keeps releases as b
     ).rows[0].payload;
     assert.equal(/yandex_eda|glovo/.test(JSON.stringify(head)), true);
     assert.equal(/yandex_eda|glovo/.test(JSON.stringify(storefrontPayload(head))), false);
+    // The public, unauthenticated GET /v1/catalog/branches/:id never shows them either, with the
+    // flag on; everything else (image, kitchen_route, own channel prices) is the publication.
+    const open = await on.publicCatalog(branch);
+    assert.equal(/yandex_eda|glovo/.test(JSON.stringify(open)), false);
+    assert.deepEqual(
+      open,
+      CatalogPublicSchema.parse({ ...open, payload: publicCatalogPayload(head) }),
+    );
+    assert.equal(
+      open.payload.products.filter((p) => p.kitchen_route || p.image).length,
+      head.products.filter((p) => p.kitchen_route || p.image).length,
+    );
   });
 });
 /** Release identity fields differ between two publications; everything else must match. */

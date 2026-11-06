@@ -24,7 +24,9 @@
  *            advertises the aggregator_prices menu feature. Any difference, including a price
  *            the edge does not have yet, is AGGREGATOR_PRICE_CHANGED (a failure, like
  *            PRICE_CHANGED; with --allow it must be in the reviewed list). Without the flag no
- *            aggregator price is compared and the report is exactly the previous one.
+ *            aggregator price is compared and the report is exactly the previous one. The public
+ *            GET /v1/catalog/branches/:id never carries aggregator prices, so this switch refuses
+ *            it as --catalog (exit 2): use the admin response or a bare payload.
  *
  * The catalog is projected with the same projectCatalogMenu the cloud publishes with, then
  * compared item by item. Exit 0: no failure (with --allow: exactly the reviewed changes).
@@ -48,23 +50,30 @@ const isRecord = (value) => value !== null && typeof value === 'object' && !Arra
 
 export class ParityInputError extends Error {}
 
-/** Accepts the admin state, the public publication or a bare payload. */
+/**
+ * Accepts the admin state, the public publication or a bare payload. `form` says which: the public
+ * route never carries aggregator prices (cashier-only, contracts 5.3), so --aggregator-prices
+ * refuses it.
+ */
 export function catalogInput(value) {
   if (!isRecord(value)) throw new ParityInputError('Catalog JSON must be an object');
   let raw = value,
     branchId = null,
     version = null,
-    publishedAt = null;
+    publishedAt = null,
+    form = 'payload';
   if ('published' in value && 'branch' in value) {
     if (!isRecord(value.published)) throw new ParityInputError('Catalog has no publication');
     ({ payload: raw, version, published_at: publishedAt } = value.published);
     branchId = value.branch?.id ?? null;
+    form = 'admin';
   } else if ('payload' in value && 'branch_id' in value) {
     ({ payload: raw, version, published_at: publishedAt, branch_id: branchId } = value);
+    form = 'public';
   }
   const parsed = CatalogPayloadSchema.safeParse(raw);
   if (!parsed.success) throw new ParityInputError('Catalog payload is invalid');
-  return { payload: parsed.data, branchId, version, publishedAt };
+  return { payload: parsed.data, branchId, version, publishedAt, form };
 }
 
 function routingInput(value) {
@@ -222,6 +231,12 @@ export function catalogEdgeParity(
   { detailed = false, aggregatorPrices = false } = {},
 ) {
   const source = catalogInput(catalog);
+  // Compared with a catalog that cannot hold aggregator prices, every edge price would look
+  // unchanged or removed and the gate would say nothing about the publication.
+  if (aggregatorPrices && source.form === 'public')
+    throw new ParityInputError(
+      '--aggregator-prices needs the admin catalog (GET /v1/admin/catalog/branches/:id) or its payload',
+    );
   const parsedSnapshot = MenuSnapshotSchema.safeParse(snapshot);
   if (!parsedSnapshot.success) throw new ParityInputError('Edge snapshot is invalid');
   const edge = parsedSnapshot.data;

@@ -249,19 +249,36 @@ export function stripStorefrontPayload(payload: CatalogPayload): CatalogPayload 
   return {
     ...payload,
     products: payload.products.map((product) => {
-      const copy: Partial<CatalogProduct> = { ...product };
+      const copy: Partial<CatalogProduct> = { ...withoutAggregatorChannelPrices(product) };
       for (const field of CATALOG_STOREFRONT_STRIPPED_FIELDS) delete copy[field];
-      const prices = product.channel_prices_minor;
-      if (prices && Object.keys(prices).some(isCatalogAggregatorChannel)) {
-        const own = Object.fromEntries(
-          Object.entries(prices).filter(([channel]) => !isCatalogAggregatorChannel(channel)),
-        );
-        if (Object.keys(own).length) copy.channel_prices_minor = own;
-        else delete copy.channel_prices_minor;
-      }
       return copy as CatalogProduct;
     }),
   };
+}
+const hasAggregatorChannelPrices = (product: CatalogProduct) =>
+  Object.keys(product.channel_prices_minor ?? {}).some(isCatalogAggregatorChannel);
+/** The product without its yandex_eda/glovo channel prices; the same object when it has none. */
+function withoutAggregatorChannelPrices(product: CatalogProduct): CatalogProduct {
+  if (!hasAggregatorChannelPrices(product)) return product;
+  const copy: Partial<CatalogProduct> = { ...product };
+  const own = Object.fromEntries(
+    Object.entries(product.channel_prices_minor ?? {}).filter(
+      ([channel]) => !isCatalogAggregatorChannel(channel),
+    ),
+  );
+  if (Object.keys(own).length) copy.channel_prices_minor = own;
+  else delete copy.channel_prices_minor;
+  return copy as CatalogProduct;
+}
+/**
+ * The published payload as the public, unauthenticated GET /v1/catalog/branches/:id returns it:
+ * the cashier-only aggregator prices (contracts 5.3) leave channel_prices_minor (and the object
+ * when nothing else is left); image, kitchen_route and every other field stay as published. A
+ * payload without aggregator prices is returned as it is (byte-identical answer).
+ */
+export function publicCatalogPayload(payload: CatalogPayload): CatalogPayload {
+  if (!payload.products.some(hasAggregatorChannelPrices)) return payload;
+  return { ...payload, products: payload.products.map(withoutAggregatorChannelPrices) };
 }
 const MediaVariantUrl = (variant: 'card' | 'hero' | 'thumb') =>
   z.string().regex(new RegExp(`^/v1/media/catalog/[a-f0-9]{64}\\.${variant}\\.webp$`));
