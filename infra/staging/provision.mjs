@@ -13,7 +13,11 @@ import { catalogAccessGrants, edgeMenuStateGrants } from './catalog-edge-grants.
 import { catalogAssetGrants } from './catalog-asset-grants.mjs';
 import { fulfillmentTransportGrants } from './fulfillment-transport-grants.mjs';
 import { cloudPosSyncGrants } from './pos-sync-grants.mjs';
-import { cloudPosSalesGrants } from './pos-sales-grants.mjs';
+import { assertCloudPosSalesPrivileges, cloudPosSalesGrants } from './pos-sales-grants.mjs';
+import {
+  assertBackofficeCutoverPrivileges,
+  backofficeCutoverGrants,
+} from './backoffice-cutover-grants.mjs';
 import { customerCheckoutGrants } from './checkout-grants.mjs';
 import { edgeIdentityRotationGrants } from './edge-identity-rotation-grants.mjs';
 import { customerCheckoutOptions } from '../../packages/commerce-core/dist/index.js';
@@ -148,15 +152,32 @@ async function provision() {
             process.env.BACKOFFICE_MANUAL_REFUNDS_ENABLED === 'true',
         ),
       );
-      // Cutover 19.11 (CR pos-1 section 1 item 5): cloud 073 posSales projection. A reset of only
-      // the 073 tables: the receiver set with CLOUD_POS_SALES_SYNC_ENABLED, otherwise the
-      // back-office read set with BACKOFFICE_ENABLED, otherwise nothing.
-      await client.query(
-        cloudPosSalesGrants('pickchick_app', {
-          receiver: config.posSalesSyncEnabled === true,
-          backoffice: config.backofficeEnabled === true,
-        }),
-      );
+      // cutover:integration begin (run as is by tests/integration/cutover-staging-provision.test.mjs)
+      // Cutover 19.11 (CR pos-1 section 1 item 5, CR cloud-2 section 2): cloud 073 posSales
+      // projection. A reset of only the 073 tables: the receiver set with
+      // CLOUD_POS_SALES_SYNC_ENABLED, otherwise the back-office read set with BACKOFFICE_ENABLED,
+      // otherwise nothing. After backofficeGrants (CR cloud-4 section 1).
+      const posSales = {
+        receiver: config.posSalesSyncEnabled === true,
+        backoffice: config.backofficeEnabled === true,
+      };
+      await client.query(cloudPosSalesGrants('pickchick_app', posSales));
+      // Cutover CC-5..CC-7 (CR cloud-3 section 1, CR cloud-4 section 1): cloud074 role
+      // designations with BACKOFFICE_ROLES_ENABLED, and with the back office on an additive
+      // SELECT on the 073 report tables. After the 073 reset above, with the same back-office
+      // switch, so the exact 073 set below still holds.
+      const cutover = {
+        backoffice: posSales.backoffice,
+        roles: process.env.BACKOFFICE_ROLES_ENABLED === 'true',
+      };
+      await client.query(backofficeCutoverGrants('pickchick_app', cutover));
+      await assertCloudPosSalesPrivileges(client, 'pickchick_app', posSales);
+      await assertBackofficeCutoverPrivileges(client, 'pickchick_app', {
+        ...cutover,
+        stockV2: process.env.BACKOFFICE_STOCK_V2_ENABLED === 'true',
+        salesReport: process.env.BACKOFFICE_SALES_REPORT_ENABLED === 'true',
+      });
+      // cutover:integration end
       if (config.testOrderFlowEnabled)
         await client.query('GRANT INSERT ON bo_records TO pickchick_app');
     });
