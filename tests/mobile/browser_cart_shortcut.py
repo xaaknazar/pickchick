@@ -86,7 +86,7 @@ with sync_playwright() as p:
             label_box = mode.bounding_box()
             total_box = page.get_by_test_id('cart-shortcut-total').bounding_box()
             assert label_box['y'] + label_box['height'] <= total_box['y'] + 1
-            assert re.sub(r'[\ue000-\uf8ff\s]', '', pill.inner_text()) == 'Ссобой4190₸', pill.inner_text()
+            assert re.sub(r'[\ue000-\uf8ff\s]', '', pill.inner_text()) == 'Ссобой·AbayPlaza4190₸', pill.inner_text()
             expect(page.get_by_test_id('cart-count')).to_have_count(0)
             expect(page.get_by_test_id('cart-recent-photo-0')).to_be_visible()
             expect(page.get_by_test_id('cart-recent-photo-1')).to_have_count(0)
@@ -208,27 +208,28 @@ with sync_playwright() as p:
             return [page.get_by_test_id(f'cart-recent-photo-{i}').get_attribute('id')
                     for i in range(page.locator('[data-testid^="cart-recent-photo-"]').count())]
 
+        limit = 1 if width < 360 else 3
         for product in ['pick-combo', 'burger', 'wedges', 'coleslaw']:
             add(product)
-        expect(page.get_by_test_id('cart-recent-photo-2')).to_be_visible()
-        assert photos() == ['cart-recent-coleslaw', 'cart-recent-wedges', 'cart-recent-burger'], photos()
+        expect(page.get_by_test_id(f'cart-recent-photo-{limit - 1}')).to_be_visible()
+        assert photos() == ['cart-recent-coleslaw', 'cart-recent-wedges', 'cart-recent-burger'][:limit], photos()
         page.wait_for_timeout(300)
         page.screenshot(path=str(OUT / f'four-items-{width}.png'))
         # Newest photo is drawn on top at the right end; all photos stay inside the bar.
         bar = page.get_by_test_id('cart-shortcut').bounding_box()
-        boxes = [page.get_by_test_id(f'cart-recent-photo-{i}').bounding_box() for i in range(3)]
-        assert boxes[0]['x'] > boxes[1]['x'] > boxes[2]['x'], boxes
+        boxes = [page.get_by_test_id(f'cart-recent-photo-{i}').bounding_box() for i in range(limit)]
+        assert all(a['x'] > b['x'] for a, b in zip(boxes, boxes[1:])), boxes
         assert all(b['x'] >= bar['x'] and b['x'] + b['width'] <= bar['x'] + bar['width'] for b in boxes)
         total = page.get_by_test_id('cart-shortcut-total')
         assert total.evaluate('(e) => e.scrollWidth <= e.clientWidth + 1')
         add('pick-combo')
-        assert photos() == ['cart-recent-pick-combo', 'cart-recent-coleslaw', 'cart-recent-wedges'], photos()
+        assert photos() == ['cart-recent-pick-combo', 'cart-recent-coleslaw', 'cart-recent-wedges'][:limit], photos()
         # The order is kept with the saved basket.
         page.reload()
-        expect(page.get_by_test_id('cart-recent-photo-2')).to_be_visible(timeout=20000)
-        assert photos() == ['cart-recent-pick-combo', 'cart-recent-coleslaw', 'cart-recent-wedges'], photos()
+        expect(page.get_by_test_id(f'cart-recent-photo-{limit - 1}')).to_be_visible(timeout=20000)
+        assert photos() == ['cart-recent-pick-combo', 'cart-recent-coleslaw', 'cart-recent-wedges'][:limit], photos()
         # Tapping the photos or the total opens the cart (they are decorative parts of one button).
-        for zone in ['cart-recent-photo-0', 'cart-shortcut-total', 'cart-shortcut-dining-label']:
+        for zone in ['cart-recent-photo-0', 'cart-shortcut-total', 'cart-shortcut-dining-label', 'cart-shortcut-location']:
             # Wait until the sheet's closing overlay is gone before a raw coordinate tap.
             # Locator actions auto-wait for this, but mouse.click deliberately does not.
             page.wait_for_function('''(id) => {

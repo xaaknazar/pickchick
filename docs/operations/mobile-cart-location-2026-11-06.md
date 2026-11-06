@@ -21,6 +21,9 @@
 
 - Node mobile:586/586; Python mobile:96/96.
 - Mobile typecheck и адресный ESLint PASS.
+- Демо-плашка browser_cart_shortcut PASS: 320/393/768 pt и альбомный экран852x393,
+  три вкладки, смена режима, сохранение порядка фото, открытие корзины по названию.
+- Локальная сборка roadmap и 7/7 проверок PASS; онлайн-публикации нет.
 - Браузерные ABIRL и AH PASS: 393x852/320x568, RU/KK/EN, короткий жест без отправки, полный жест с одним тестовым счётом, закрытый ресторан без оплаты. CI проверяется отдельно.
 - Только локальные фикстуры. Реальных QR, счетов и платежей нет.
 
@@ -33,8 +36,12 @@
 Владелец согласовал CartShortcut.tsx и browser_slide_to_pay.py из
 mobile-kazakh-review-1030, browser_cart_unavailable.py из
 mobile-closed-notice-1102, project-status/roadmap из android-play-1106.
+Отдельно согласован browser_cart_shortcut.py из mobile-cart-mode-1029.
 Передачи записаны в ProjectSync; остальные области и задачи сохранены.
 В общие документы добавляется только запись этой задачи.
 
 Новый TestFlight/Google Play не собирался, сервер и онлайн-пульт не
 обновлялись. Нативная приёмка и выпуск остаются отдельными шагами.
+
+Код опубликован в [PR314](https://github.com/xaaknazar/pickchick/pull/314).
+Полная Foundation CI идёт отдельно; локальные результаты не заменяют её.
