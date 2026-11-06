@@ -12,6 +12,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test tests/pos-sales-unit.test.mjs",
     "test:integration": "node --test --test-concurrency=1 tests/remote-stops.test.mjs"
   },
   "dependencies": {

@@ -27,12 +27,18 @@ import { staffAuth } from '../../../tests/helpers/orders.mjs';
 test('279: upgrading a pre025 backup before fencing marks live tickets without rewriting pending bytes', async () => {
   const root = await mkdtemp(join(tmpdir(), 'restore-upgrade-'));
   const old = join(root, 'edge');
+  // The reviewed 024 -> 025 step alone: later migrations (026+) have their own upgrade tests.
+  const upgrade = join(root, 'edge-025');
   const migrations = fileURLToPath(new URL('../../../db/edge/migrations/', import.meta.url));
   try {
     await mkdir(old);
-    for (const name of await readdir(migrations))
+    await mkdir(upgrade);
+    for (const name of await readdir(migrations)) {
       if (/^\d{3}_[a-z_]+\.sql$/.test(name) && name < '025')
         await copyFile(join(migrations, name), join(old, name));
+      if (/^\d{3}_[a-z_]+\.sql$/.test(name) && name < '026')
+        await copyFile(join(migrations, name), join(upgrade, name));
+    }
     await withSyncDatabases(
       async (ctx) => {
         const p = ctx.edge.pool;
@@ -115,7 +121,7 @@ test('279: upgrading a pre025 backup before fencing marks live tickets without r
         assert.ok(before[0].pending_event_id);
         assert.equal(before[0].pending_envelope.payload.restoreContext, undefined);
         const events = (await p.query('SELECT * FROM fulfillment_outbox ORDER BY sequence')).rows;
-        assert.deepEqual(await migrate(p, migrations, 'edge'), [
+        assert.deepEqual(await migrate(p, upgrade, 'edge'), [
           '025_edge_kitchen_restore_review.sql',
         ]);
         await fenceRestoredEdge(p, true);

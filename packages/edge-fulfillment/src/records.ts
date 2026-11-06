@@ -53,7 +53,11 @@ export function view(row: Reservation) {
     quoteDigest: row.quote_hash,
     ownerHash: row.owner_hash,
     commercialOwner: row.commercial_owner,
-    ...(row.commercial_owner === 'edge_pos' ? { executionMode: 'unpaid_service' as const } : {}),
+    // Cutover (contracts 5.2): a cashier admission names its mode; edge schema026 lets
+    // admission_kind of an edge_pos row be only unpaid_service or pos_sale.
+    ...(row.commercial_owner === 'edge_pos'
+      ? { executionMode: row.admission_kind as 'unpaid_service' | 'pos_sale' }
+      : {}),
     fulfillmentOwner: 'edge' as const,
     deviceId: row.device_id,
     version: row.version,

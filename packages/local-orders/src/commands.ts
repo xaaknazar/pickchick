@@ -11,7 +11,7 @@ export interface BranchState {
   id: string;
   ordering_enabled: boolean;
   ordering_version: number;
-  pos_service_mode: 'payment_required' | 'unpaid_service';
+  pos_service_mode: 'payment_required' | 'unpaid_service' | 'pos_sale';
 }
 export async function lockBranch(client: DatabaseClient, branchId: string): Promise<BranchState> {
   const result = await client.query<BranchState>(

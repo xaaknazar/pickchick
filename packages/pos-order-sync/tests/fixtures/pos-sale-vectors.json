@@ -1,0 +1,728 @@
+{
+  "description": "Synthetic posSales wire vectors (contracts 5.6). payload_hash = hashJson(payload). Not real data.",
+  "vectors": {
+    "sale_cash_with_change": {
+      "event": {
+        "event_id": "10000000-0000-4000-8000-000000000901",
+        "branch_id": "10000000-0000-4000-8000-000000000001",
+        "sequence": "1",
+        "kind": "sale",
+        "occurred_at": "2026-11-19T06:02:00.000Z",
+        "payload": {
+          "order_id": "10000000-0000-4000-8000-000000000401",
+          "quote": {
+            "quote_id": "10000000-0000-4000-8000-000000000101",
+            "branch_id": "10000000-0000-4000-8000-000000000001",
+            "release_id": "10000000-0000-4000-8000-000000000006",
+            "menu_version": 7,
+            "service_mode": "dine_in",
+            "channel": "pos",
+            "lines": [
+              {
+                "product_id": "10000000-0000-4000-8000-000000000201",
+                "variant_id": "10000000-0000-4000-8000-000000000301",
+                "name": {
+                  "ru": "Синтетическое комбо",
+                  "kk": "Синтетикалық комбо"
+                },
+                "quantity": 1,
+                "unit_price_minor": "350000",
+                "total_minor": "350000"
+              }
+            ],
+            "currency": "KZT",
+            "subtotal_minor": "350000",
+            "discount_minor": "0",
+            "total_minor": "350000",
+            "created_at": "2026-11-19T06:01:00.000Z",
+            "expires_at": "2026-11-19T06:06:00.000Z"
+          },
+          "shift_id": "10000000-0000-4000-8000-000000000002",
+          "terminal_id": "10000000-0000-4000-8000-000000000003",
+          "cashier_staff_id": "10000000-0000-4000-8000-000000000004",
+          "display_number": 1,
+          "sales_channel": "hall",
+          "external_order_ref": null,
+          "service_mode": "dine_in",
+          "revenue_kind": "revenue",
+          "total_minor": "350000",
+          "cash_tendered_minor": "500000",
+          "change_minor": "150000",
+          "beneficiary": null,
+          "reason": null,
+          "approval": null,
+          "tenders": [
+            {
+              "tender_id": "10000000-0000-4000-8000-000000000501",
+              "method": "cash",
+              "amount_minor": "350000",
+              "confirmation": "drawer",
+              "reference": null
+            }
+          ],
+          "created_at": "2026-11-19T06:01:00.000Z"
+        }
+      },
+      "payload_hash": "ae3638eb728550f8a653c2e964866b25eb20d8546066fe9c04bee81b776d8311"
+    },
+    "sale_mixed_cash_kaspi_terminal": {
+      "event": {
+        "event_id": "10000000-0000-4000-8000-000000000902",
+        "branch_id": "10000000-0000-4000-8000-000000000001",
+        "sequence": "2",
+        "kind": "sale",
+        "occurred_at": "2026-11-19T06:03:00.000Z",
+        "payload": {
+          "order_id": "10000000-0000-4000-8000-000000000402",
+          "quote": {
+            "quote_id": "10000000-0000-4000-8000-000000000102",
+            "branch_id": "10000000-0000-4000-8000-000000000001",
+            "release_id": "10000000-0000-4000-8000-000000000006",
+            "menu_version": 7,
+            "service_mode": "takeaway",
+            "channel": "pos",
+            "lines": [
+              {
+                "product_id": "10000000-0000-4000-8000-000000000202",
+                "variant_id": "10000000-0000-4000-8000-000000000302",
+                "name": {
+                  "ru": "Синтетическое комбо",
+                  "kk": "Синтетикалық комбо"
+                },
+                "quantity": 1,
+                "unit_price_minor": "420000",
+                "total_minor": "420000"
+              }
+            ],
+            "currency": "KZT",
+            "subtotal_minor": "420000",
+            "discount_minor": "0",
+            "total_minor": "420000",
+            "created_at": "2026-11-19T06:02:00.000Z",
+            "expires_at": "2026-11-19T06:07:00.000Z"
+          },
+          "shift_id": "10000000-0000-4000-8000-000000000002",
+          "terminal_id": "10000000-0000-4000-8000-000000000003",
+          "cashier_staff_id": "10000000-0000-4000-8000-000000000004",
+          "display_number": 2,
+          "sales_channel": "hall",
+          "external_order_ref": null,
+          "service_mode": "takeaway",
+          "revenue_kind": "revenue",
+          "total_minor": "420000",
+          "cash_tendered_minor": "50000",
+          "change_minor": "30000",
+          "beneficiary": null,
+          "reason": null,
+          "approval": null,
+          "tenders": [
+            {
+              "tender_id": "10000000-0000-4000-8000-000000000502",
+              "method": "cash",
+              "amount_minor": "20000",
+              "confirmation": "drawer",
+              "reference": null
+            },
+            {
+              "tender_id": "10000000-0000-4000-8000-000000000503",
+              "method": "kaspi_terminal",
+              "amount_minor": "400000",
+              "confirmation": "cashier_attested",
+              "reference": null
+            }
+          ],
+          "created_at": "2026-11-19T06:02:00.000Z"
+        }
+      },
+      "payload_hash": "b209db877e025a0c244fe03d7a00edd64a09e15d3592dba41d4ba4ff7fec5cc7"
+    },
+    "sale_yandex_eda": {
+      "event": {
+        "event_id": "10000000-0000-4000-8000-000000000903",
+        "branch_id": "10000000-0000-4000-8000-000000000001",
+        "sequence": "3",
+        "kind": "sale",
+        "occurred_at": "2026-11-19T06:04:00.000Z",
+        "payload": {
+          "order_id": "10000000-0000-4000-8000-000000000403",
+          "quote": {
+            "sales_channel": "yandex_eda",
+            "quote_id": "10000000-0000-4000-8000-000000000103",
+            "branch_id": "10000000-0000-4000-8000-000000000001",
+            "release_id": "10000000-0000-4000-8000-000000000006",
+            "menu_version": 7,
+            "service_mode": "takeaway",
+            "channel": "pos",
+            "lines": [
+              {
+                "product_id": "10000000-0000-4000-8000-000000000203",
+                "variant_id": "10000000-0000-4000-8000-000000000303",
+                "name": {
+                  "ru": "Синтетическое комбо",
+                  "kk": "Синтетикалық комбо"
+                },
+                "quantity": 1,
+                "unit_price_minor": "510000",
+                "total_minor": "510000"
+              }
+            ],
+            "currency": "KZT",
+            "subtotal_minor": "510000",
+            "discount_minor": "0",
+            "total_minor": "510000",
+            "created_at": "2026-11-19T06:03:00.000Z",
+            "expires_at": "2026-11-19T06:08:00.000Z"
+          },
+          "shift_id": "10000000-0000-4000-8000-000000000002",
+          "terminal_id": "10000000-0000-4000-8000-000000000003",
+          "cashier_staff_id": "10000000-0000-4000-8000-000000000004",
+          "display_number": 3,
+          "sales_channel": "yandex_eda",
+          "external_order_ref": "YA-SYN-0001",
+          "service_mode": "takeaway",
+          "revenue_kind": "revenue",
+          "total_minor": "510000",
+          "cash_tendered_minor": null,
+          "change_minor": null,
+          "beneficiary": null,
+          "reason": null,
+          "approval": null,
+          "tenders": [
+            {
+              "tender_id": "10000000-0000-4000-8000-000000000504",
+              "method": "aggregator_yandex_eda",
+              "amount_minor": "510000",
+              "confirmation": "aggregator_attested",
+              "reference": null
+            }
+          ],
+          "created_at": "2026-11-19T06:03:00.000Z"
+        }
+      },
+      "payload_hash": "b98dc97cc583cb6536a79e3cbad8be7655ced0b0184c3d4cdaa04bfe0a0d7151"
+    },
+    "sale_glovo": {
+      "event": {
+        "event_id": "10000000-0000-4000-8000-000000000904",
+        "branch_id": "10000000-0000-4000-8000-000000000001",
+        "sequence": "4",
+        "kind": "sale",
+        "occurred_at": "2026-11-19T06:05:00.000Z",
+        "payload": {
+          "order_id": "10000000-0000-4000-8000-000000000404",
+          "quote": {
+            "sales_channel": "glovo",
+            "quote_id": "10000000-0000-4000-8000-000000000104",
+            "branch_id": "10000000-0000-4000-8000-000000000001",
+            "release_id": "10000000-0000-4000-8000-000000000006",
+            "menu_version": 7,
+            "service_mode": "takeaway",
+            "channel": "pos",
+            "lines": [
+              {
+                "product_id": "10000000-0000-4000-8000-000000000204",
+                "variant_id": "10000000-0000-4000-8000-000000000304",
+                "name": {
+                  "ru": "Синтетическое комбо",
+                  "kk": "Синтетикалық комбо"
+                },
+                "quantity": 1,
+                "unit_price_minor": "275000",
+                "total_minor": "275000"
+              }
+            ],
+            "currency": "KZT",
+            "subtotal_minor": "275000",
+            "discount_minor": "0",
+            "total_minor": "275000",
+            "created_at": "2026-11-19T06:04:00.000Z",
+            "expires_at": "2026-11-19T06:09:00.000Z"
+          },
+          "shift_id": "10000000-0000-4000-8000-000000000002",
+          "terminal_id": "10000000-0000-4000-8000-000000000003",
+          "cashier_staff_id": "10000000-0000-4000-8000-000000000004",
+          "display_number": 4,
+          "sales_channel": "glovo",
+          "external_order_ref": "GL-SYN-0002",
+          "service_mode": "takeaway",
+          "revenue_kind": "revenue",
+          "total_minor": "275000",
+          "cash_tendered_minor": null,
+          "change_minor": null,
+          "beneficiary": null,
+          "reason": null,
+          "approval": null,
+          "tenders": [
+            {
+              "tender_id": "10000000-0000-4000-8000-000000000505",
+              "method": "aggregator_glovo",
+              "amount_minor": "275000",
+              "confirmation": "aggregator_attested",
+              "reference": null
+            }
+          ],
+          "created_at": "2026-11-19T06:04:00.000Z"
+        }
+      },
+      "payload_hash": "9dc2b8b3b80ea08c57815111f2df5244975ce843045a09b55c2dec320db38995"
+    },
+    "sale_chocofood": {
+      "event": {
+        "event_id": "10000000-0000-4000-8000-000000000905",
+        "branch_id": "10000000-0000-4000-8000-000000000001",
+        "sequence": "5",
+        "kind": "sale",
+        "occurred_at": "2026-11-19T06:06:00.000Z",
+        "payload": {
+          "order_id": "10000000-0000-4000-8000-000000000405",
+          "quote": {
+            "quote_id": "10000000-0000-4000-8000-000000000105",
+            "branch_id": "10000000-0000-4000-8000-000000000001",
+            "release_id": "10000000-0000-4000-8000-000000000006",
+            "menu_version": 7,
+            "service_mode": "dine_in",
+            "channel": "pos",
+            "lines": [
+              {
+                "product_id": "10000000-0000-4000-8000-000000000205",
+                "variant_id": "10000000-0000-4000-8000-000000000305",
+                "name": {
+                  "ru": "Синтетическое комбо",
+                  "kk": "Синтетикалық комбо"
+                },
+                "quantity": 1,
+                "unit_price_minor": "199000",
+                "total_minor": "199000"
+              }
+            ],
+            "currency": "KZT",
+            "subtotal_minor": "199000",
+            "discount_minor": "0",
+            "total_minor": "199000",
+            "created_at": "2026-11-19T06:05:00.000Z",
+            "expires_at": "2026-11-19T06:10:00.000Z"
+          },
+          "shift_id": "10000000-0000-4000-8000-000000000002",
+          "terminal_id": "10000000-0000-4000-8000-000000000003",
+          "cashier_staff_id": "10000000-0000-4000-8000-000000000004",
+          "display_number": 5,
+          "sales_channel": "hall",
+          "external_order_ref": "CF-SYN-0003",
+          "service_mode": "dine_in",
+          "revenue_kind": "revenue",
+          "total_minor": "199000",
+          "cash_tendered_minor": null,
+          "change_minor": null,
+          "beneficiary": null,
+          "reason": null,
+          "approval": null,
+          "tenders": [
+            {
+              "tender_id": "10000000-0000-4000-8000-000000000506",
+              "method": "chocofood",
+              "amount_minor": "199000",
+              "confirmation": "aggregator_attested",
+              "reference": null
+            }
+          ],
+          "created_at": "2026-11-19T06:05:00.000Z"
+        }
+      },
+      "payload_hash": "38921e7684f31ccd7f6398ce1809a0fb928a729cbc0928248852a199a5f575e1"
+    },
+    "sale_kaspi_manual": {
+      "event": {
+        "event_id": "10000000-0000-4000-8000-000000000906",
+        "branch_id": "10000000-0000-4000-8000-000000000001",
+        "sequence": "6",
+        "kind": "sale",
+        "occurred_at": "2026-11-19T06:07:00.000Z",
+        "payload": {
+          "order_id": "10000000-0000-4000-8000-000000000406",
+          "quote": {
+            "quote_id": "10000000-0000-4000-8000-000000000106",
+            "branch_id": "10000000-0000-4000-8000-000000000001",
+            "release_id": "10000000-0000-4000-8000-000000000006",
+            "menu_version": 7,
+            "service_mode": "takeaway",
+            "channel": "pos",
+            "lines": [
+              {
+                "product_id": "10000000-0000-4000-8000-000000000206",
+                "variant_id": "10000000-0000-4000-8000-000000000306",
+                "name": {
+                  "ru": "Синтетическое комбо",
+                  "kk": "Синтетикалық комбо"
+                },
+                "quantity": 1,
+                "unit_price_minor": "150050",
+                "total_minor": "150050"
+              }
+            ],
+            "currency": "KZT",
+            "subtotal_minor": "150050",
+            "discount_minor": "0",
+            "total_minor": "150050",
+            "created_at": "2026-11-19T06:06:00.000Z",
+            "expires_at": "2026-11-19T06:11:00.000Z"
+          },
+          "shift_id": "10000000-0000-4000-8000-000000000002",
+          "terminal_id": "10000000-0000-4000-8000-000000000003",
+          "cashier_staff_id": "10000000-0000-4000-8000-000000000004",
+          "display_number": 6,
+          "sales_channel": "hall",
+          "external_order_ref": null,
+          "service_mode": "takeaway",
+          "revenue_kind": "revenue",
+          "total_minor": "150050",
+          "cash_tendered_minor": null,
+          "change_minor": null,
+          "beneficiary": null,
+          "reason": null,
+          "approval": null,
+          "tenders": [
+            {
+              "tender_id": "10000000-0000-4000-8000-000000000507",
+              "method": "kaspi_manual",
+              "amount_minor": "150050",
+              "confirmation": "cashier_attested",
+              "reference": "SYN-OP-1"
+            }
+          ],
+          "created_at": "2026-11-19T06:06:00.000Z"
+        }
+      },
+      "payload_hash": "9c1f3bc32c0a5bb73bd1e93057cdc023409595500a545168c7810b06602ec686"
+    },
+    "sale_staff_meal": {
+      "event": {
+        "event_id": "10000000-0000-4000-8000-000000000907",
+        "branch_id": "10000000-0000-4000-8000-000000000001",
+        "sequence": "7",
+        "kind": "sale",
+        "occurred_at": "2026-11-19T06:08:00.000Z",
+        "payload": {
+          "order_id": "10000000-0000-4000-8000-000000000407",
+          "quote": {
+            "quote_id": "10000000-0000-4000-8000-000000000107",
+            "branch_id": "10000000-0000-4000-8000-000000000001",
+            "release_id": "10000000-0000-4000-8000-000000000006",
+            "menu_version": 7,
+            "service_mode": "takeaway",
+            "channel": "pos",
+            "lines": [
+              {
+                "product_id": "10000000-0000-4000-8000-000000000207",
+                "variant_id": "10000000-0000-4000-8000-000000000307",
+                "name": {
+                  "ru": "Синтетическое комбо",
+                  "kk": "Синтетикалық комбо"
+                },
+                "quantity": 1,
+                "unit_price_minor": "180000",
+                "total_minor": "180000"
+              }
+            ],
+            "currency": "KZT",
+            "subtotal_minor": "180000",
+            "discount_minor": "0",
+            "total_minor": "180000",
+            "created_at": "2026-11-19T06:07:00.000Z",
+            "expires_at": "2026-11-19T06:12:00.000Z"
+          },
+          "shift_id": "10000000-0000-4000-8000-000000000002",
+          "terminal_id": "10000000-0000-4000-8000-000000000003",
+          "cashier_staff_id": "10000000-0000-4000-8000-000000000004",
+          "display_number": 7,
+          "sales_channel": "hall",
+          "external_order_ref": null,
+          "service_mode": "takeaway",
+          "revenue_kind": "staff_meal",
+          "total_minor": "180000",
+          "cash_tendered_minor": null,
+          "change_minor": null,
+          "beneficiary": "Синтетический сотрудник",
+          "reason": null,
+          "approval": {
+            "approval_id": "10000000-0000-4000-8000-000000000607",
+            "manager_staff_id": "10000000-0000-4000-8000-000000000005",
+            "action": "staff_meal"
+          },
+          "tenders": [
+            {
+              "tender_id": "10000000-0000-4000-8000-000000000508",
+              "method": "staff_meal",
+              "amount_minor": "180000",
+              "confirmation": "manager_approved",
+              "reference": null
+            }
+          ],
+          "created_at": "2026-11-19T06:07:00.000Z"
+        }
+      },
+      "payload_hash": "08e742b2d47a5c64bdb125d59eb5dc29785409dfa5dd0350a728511a058ad2a8"
+    },
+    "sale_marketing": {
+      "event": {
+        "event_id": "10000000-0000-4000-8000-000000000908",
+        "branch_id": "10000000-0000-4000-8000-000000000001",
+        "sequence": "8",
+        "kind": "sale",
+        "occurred_at": "2026-11-19T06:09:00.000Z",
+        "payload": {
+          "order_id": "10000000-0000-4000-8000-000000000408",
+          "quote": {
+            "quote_id": "10000000-0000-4000-8000-000000000108",
+            "branch_id": "10000000-0000-4000-8000-000000000001",
+            "release_id": "10000000-0000-4000-8000-000000000006",
+            "menu_version": 7,
+            "service_mode": "takeaway",
+            "channel": "pos",
+            "lines": [
+              {
+                "product_id": "10000000-0000-4000-8000-000000000208",
+                "variant_id": "10000000-0000-4000-8000-000000000308",
+                "name": {
+                  "ru": "Синтетическое комбо",
+                  "kk": "Синтетикалық комбо"
+                },
+                "quantity": 1,
+                "unit_price_minor": "90000",
+                "total_minor": "90000"
+              }
+            ],
+            "currency": "KZT",
+            "subtotal_minor": "90000",
+            "discount_minor": "0",
+            "total_minor": "90000",
+            "created_at": "2026-11-19T06:08:00.000Z",
+            "expires_at": "2026-11-19T06:13:00.000Z"
+          },
+          "shift_id": "10000000-0000-4000-8000-000000000002",
+          "terminal_id": "10000000-0000-4000-8000-000000000003",
+          "cashier_staff_id": "10000000-0000-4000-8000-000000000004",
+          "display_number": 8,
+          "sales_channel": "hall",
+          "external_order_ref": null,
+          "service_mode": "takeaway",
+          "revenue_kind": "marketing",
+          "total_minor": "90000",
+          "cash_tendered_minor": null,
+          "change_minor": null,
+          "beneficiary": null,
+          "reason": "Синтетическая дегустация",
+          "approval": {
+            "approval_id": "10000000-0000-4000-8000-000000000608",
+            "manager_staff_id": "10000000-0000-4000-8000-000000000005",
+            "action": "marketing"
+          },
+          "tenders": [
+            {
+              "tender_id": "10000000-0000-4000-8000-000000000509",
+              "method": "marketing",
+              "amount_minor": "90000",
+              "confirmation": "manager_approved",
+              "reference": null
+            }
+          ],
+          "created_at": "2026-11-19T06:08:00.000Z"
+        }
+      },
+      "payload_hash": "394227fe2899045b314a4ff2d1cd630ce84775790dab6696df04bb250abf781e"
+    },
+    "void_cash_sale": {
+      "event": {
+        "event_id": "10000000-0000-4000-8000-000000000909",
+        "branch_id": "10000000-0000-4000-8000-000000000001",
+        "sequence": "9",
+        "kind": "void",
+        "occurred_at": "2026-11-19T06:10:00.000Z",
+        "payload": {
+          "refund_id": "10000000-0000-4000-8000-000000000701",
+          "order_id": "10000000-0000-4000-8000-000000000401",
+          "kind": "void",
+          "shift_id": "10000000-0000-4000-8000-000000000002",
+          "terminal_id": "10000000-0000-4000-8000-000000000003",
+          "staff_id": "10000000-0000-4000-8000-000000000004",
+          "approved_by_staff_id": "10000000-0000-4000-8000-000000000005",
+          "approval_id": "10000000-0000-4000-8000-000000000601",
+          "amount_minor": "350000",
+          "reason_code": "guest_changed_mind",
+          "reason": "Гость передумал",
+          "tenders": [
+            {
+              "tender_id": "10000000-0000-4000-8000-000000000501",
+              "method": "cash",
+              "amount_minor": "350000"
+            }
+          ],
+          "created_at": "2026-11-19T06:20:00.000Z"
+        }
+      },
+      "payload_hash": "9002aeba7dd82bc40e77627aaeda5ea276ff97b6f8b384a60e6ecb26760952d8"
+    },
+    "refund_terminal_part": {
+      "event": {
+        "event_id": "10000000-0000-4000-8000-000000000910",
+        "branch_id": "10000000-0000-4000-8000-000000000001",
+        "sequence": "10",
+        "kind": "refund",
+        "occurred_at": "2026-11-19T06:11:00.000Z",
+        "payload": {
+          "refund_id": "10000000-0000-4000-8000-000000000702",
+          "order_id": "10000000-0000-4000-8000-000000000402",
+          "kind": "refund",
+          "shift_id": "10000000-0000-4000-8000-000000000002",
+          "terminal_id": "10000000-0000-4000-8000-000000000003",
+          "staff_id": "10000000-0000-4000-8000-000000000004",
+          "approved_by_staff_id": "10000000-0000-4000-8000-000000000005",
+          "approval_id": "10000000-0000-4000-8000-000000000602",
+          "amount_minor": "100000",
+          "reason_code": "quality",
+          "reason": "Синтетическая жалоба",
+          "tenders": [
+            {
+              "tender_id": "10000000-0000-4000-8000-000000000503",
+              "method": "kaspi_terminal",
+              "amount_minor": "100000"
+            }
+          ],
+          "created_at": "2026-11-19T06:25:00.000Z"
+        }
+      },
+      "payload_hash": "97d18c0b5b09275908a0a7085aebe604ad38556f0f74a089c3358b30c364cb37"
+    },
+    "fiscal_sale_pending": {
+      "event": {
+        "event_id": "10000000-0000-4000-8000-000000000911",
+        "branch_id": "10000000-0000-4000-8000-000000000001",
+        "sequence": "11",
+        "kind": "fiscal",
+        "occurred_at": "2026-11-19T06:12:00.000Z",
+        "payload": {
+          "receipt_id": "10000000-0000-4000-8000-000000000801",
+          "order_id": "10000000-0000-4000-8000-000000000402",
+          "refund_id": null,
+          "kind": "sale",
+          "mode": "manual_webkassa",
+          "state": "pending",
+          "receipt_number": null,
+          "version": 1,
+          "amount_minor": "420000",
+          "recorded_by_staff_id": null,
+          "recorded_at": null
+        }
+      },
+      "payload_hash": "911155ae6cea24c841189ef5fb33fbc9e689671f869aa15e27851090198057b0"
+    },
+    "fiscal_sale_recorded": {
+      "event": {
+        "event_id": "10000000-0000-4000-8000-000000000912",
+        "branch_id": "10000000-0000-4000-8000-000000000001",
+        "sequence": "12",
+        "kind": "fiscal",
+        "occurred_at": "2026-11-19T06:13:00.000Z",
+        "payload": {
+          "receipt_id": "10000000-0000-4000-8000-000000000801",
+          "order_id": "10000000-0000-4000-8000-000000000402",
+          "refund_id": null,
+          "kind": "sale",
+          "mode": "manual_webkassa",
+          "state": "recorded",
+          "receipt_number": "SYN-0001",
+          "version": 2,
+          "amount_minor": "420000",
+          "recorded_by_staff_id": "10000000-0000-4000-8000-000000000004",
+          "recorded_at": "2026-11-19T06:30:00.000Z"
+        }
+      },
+      "payload_hash": "7fa959dc30379ef381fb0357166f37935d59700ba628fcfd41c347cecf5279f5"
+    },
+    "fiscal_refund_pending": {
+      "event": {
+        "event_id": "10000000-0000-4000-8000-000000000913",
+        "branch_id": "10000000-0000-4000-8000-000000000001",
+        "sequence": "13",
+        "kind": "fiscal",
+        "occurred_at": "2026-11-19T06:14:00.000Z",
+        "payload": {
+          "receipt_id": "10000000-0000-4000-8000-000000000802",
+          "order_id": "10000000-0000-4000-8000-000000000402",
+          "refund_id": "10000000-0000-4000-8000-000000000702",
+          "kind": "refund",
+          "mode": "manual_webkassa",
+          "state": "pending",
+          "receipt_number": null,
+          "version": 1,
+          "amount_minor": "100000",
+          "recorded_by_staff_id": null,
+          "recorded_at": null
+        }
+      },
+      "payload_hash": "a6b1e8fb413e8236679ea0b6cc90e262b58f3c219da80fca218f1a86734f173d"
+    },
+    "shift_report_z": {
+      "event": {
+        "event_id": "10000000-0000-4000-8000-000000000914",
+        "branch_id": "10000000-0000-4000-8000-000000000001",
+        "sequence": "14",
+        "kind": "shift_report",
+        "occurred_at": "2026-11-19T06:15:00.000Z",
+        "payload": {
+          "shift_id": "10000000-0000-4000-8000-000000000002",
+          "terminal_id": "10000000-0000-4000-8000-000000000003",
+          "report": {
+            "kind": "z",
+            "shift_id": "10000000-0000-4000-8000-000000000002",
+            "terminal_id": "10000000-0000-4000-8000-000000000003",
+            "state": "closed",
+            "opened_at": "2026-11-19T06:00:00.000Z",
+            "closed_at": "2026-11-19T06:50:00.000Z",
+            "opening_cash_minor": "1000000",
+            "cash_in_minor": "0",
+            "cash_out_minor": "200000",
+            "cash_sales_minor": "370000",
+            "cash_refunds_minor": "350000",
+            "expected_cash_minor": "820000",
+            "counted_cash_minor": "815000",
+            "discrepancy_minor": "-5000",
+            "methods": [
+              {
+                "method": "cash",
+                "sales_minor": "370000",
+                "refunds_minor": "350000",
+                "count": 2
+              },
+              {
+                "method": "kaspi_terminal",
+                "sales_minor": "400000",
+                "refunds_minor": "100000",
+                "count": 1
+              }
+            ],
+            "channels": [
+              {
+                "sales_channel": "hall",
+                "total_minor": "770000",
+                "count": 2
+              }
+            ],
+            "terminal_reported_minor": "300000",
+            "terminal_discrepancy_minor": "0",
+            "fiscal": {
+              "pending": 0,
+              "recorded": 1,
+              "not_required": 1
+            },
+            "orders": {
+              "count": 2,
+              "voided_count": 1
+            },
+            "report_at": "2026-11-19T06:50:00.000Z"
+          }
+        }
+      },
+      "payload_hash": "47a06e5b19467b375fb46945f1eb6f7b200aa2a421e8ba18a68076b10f9ed8f6"
+    }
+  }
+}
