@@ -7027,7 +7027,6 @@
         "apps/mobile/src/components/PaymentResumeBanner.tsx",
         "apps/mobile/src/games/pick-man/PickManScreen.tsx",
         "apps/mobile/src/screens/PhotoProduct.tsx",
-        "apps/mobile/src/components/CartShortcut.tsx",
         "apps/mobile/src/ScreenHost.tsx",
         "apps/mobile/src/app/_layout.tsx",
         "apps/mobile/src/app/product-photo.tsx",
@@ -7066,7 +7065,6 @@
         "tests/operations/layout_regression.py",
         "docs/operations/mobile-testflight31.md",
         "docs/operations/mobile-testflight31-evidence.json",
-        "tests/mobile/browser_slide_to_pay.py",
         "tests/mobile/payment-availability.test.mjs",
         "tests/mobile/browser_profile.py",
         "docs/operations/mobile-app-review-1030.md",
@@ -7079,8 +7077,8 @@
       ],
       "status": "available",
       "head": "3ee71dcf50e9ef798688cbcb0aff1cf3e6b6976e",
-      "updatedAt": "2026-11-05T07:09:43.885Z",
-      "summary": "TestFlight 0.2.0 (32) доступен PickChick Internal, статус Тестируется подтверждён 30.10 в15:40. PR298 merged e4eb91b5, исходник aeb7fbda CI11/11; явное удаление аккаунта и геймпад. Итоговый протокол/хеши/status/roadmap опубликованы 3ee71dcf в PR299; дерево чистое. 30.10: owner approved transfer of only docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json to stage2-windows-1030 for preparation, no deployment.\n2026-11-02 owner approved temporary transfer to mobile-closed-notice-1102: apps/mobile/src/components/AppHeader.tsx, apps/mobile/src/screens/CatalogScreens.tsx. Existing behavior preserved; return after merge. 02.11: точечная передача в mobile-tab-motion-1102: apps/mobile/src/components/FloatingTabBar.tsx, apps/mobile/src/components/UI.tsx, tests/mobile/browser_tab_bar.py. Согласие владельца для трёх файлов; CatalogScreens передан из своей предыдущей задачи после merge её опубликованного checkpoint. 02.11: владелец отдельно разрешил передать GameScreens.tsx в mobile-tab-motion-1102 только для повторной прокрутки вкладки; игровая логика сохраняется.\nOwner explicitly approved temporary transfer to mobile-build33-1031 for build33: tests/mobile/browser_review_account.py, tests/mobile/browser_store_walk.py, apps/mobile/app.json, @release/ios, @apple/appstore. Task and all other scopes preserved; no App Store32 submission change. Temporary build33 transfer returned after successful internal TestFlight delivery; existing task and remaining scopes preserved. Owner approved temporary transfer of 5 exact Android files to mobile-android-1105 on 2026-11-05. Broad app route scope retained because registry cannot express bracketed route names: auth.tsx only is authorized shared scope; all other routes remain here.",
+      "updatedAt": "2026-11-06T20:24:03.313Z",
+      "summary": "TestFlight 0.2.0 (32) доступен PickChick Internal, статус Тестируется подтверждён 30.10 в15:40. PR298 merged e4eb91b5, исходник aeb7fbda CI11/11; явное удаление аккаунта и геймпад. Итоговый протокол/хеши/status/roadmap опубликованы 3ee71dcf в PR299; дерево чистое. 30.10: owner approved transfer of only docs/project-status.md, docs/collaboration/handoff.md, docs/roadmap/project.json to stage2-windows-1030 for preparation, no deployment.\n2026-11-02 owner approved temporary transfer to mobile-closed-notice-1102: apps/mobile/src/components/AppHeader.tsx, apps/mobile/src/screens/CatalogScreens.tsx. Existing behavior preserved; return after merge. 02.11: точечная передача в mobile-tab-motion-1102: apps/mobile/src/components/FloatingTabBar.tsx, apps/mobile/src/components/UI.tsx, tests/mobile/browser_tab_bar.py. Согласие владельца для трёх файлов; CatalogScreens передан из своей предыдущей задачи после merge её опубликованного checkpoint. 02.11: владелец отдельно разрешил передать GameScreens.tsx в mobile-tab-motion-1102 только для повторной прокрутки вкладки; игровая логика сохраняется.\nOwner explicitly approved temporary transfer to mobile-build33-1031 for build33: tests/mobile/browser_review_account.py, tests/mobile/browser_store_walk.py, apps/mobile/app.json, @release/ios, @apple/appstore. Task and all other scopes preserved; no App Store32 submission change. Temporary build33 transfer returned after successful internal TestFlight delivery; existing task and remaining scopes preserved. Owner approved temporary transfer of 5 exact Android files to mobile-android-1105 on 2026-11-05. Broad app route scope retained because registry cannot express bracketed route names: auth.tsx only is authorized shared scope; all other routes remain here.\n06.11: владелец явно разрешил временную передачу этих файлов mobile-cart-location-1106 для названия выбранной точки в быстрой оплате; существующие изменения сохраняются. Общие документы обновляются только добавлением записи, без удаления фактов С1/С3/Android.",
       "nextAction": "Владелец записывает на физическом iPhone вход и полное удаление выделенного review-аккаунта. Затем проверить видео, добавить в App Review Notes и подготовить повторную отправку Apple. Документационный PR299 ждёт собственной CI/merge; это не меняет доступность32. Сервер/касса/пульт не выпускались, реальные аккаунты/платежи не затронуты."
     },
     {
@@ -7364,8 +7362,6 @@
         "docs/operations/mobile-play-2026-11/listing-1106.json",
         "@google-play/pickchick",
         "docs/operations/mobile-play-2026-11/graphics/screenshots-appstore-1106",
-        "docs/project-status.md",
-        "docs/roadmap/project.json",
         "docs/collaboration/handoff.md",
         "infra/public-staging/support-page-release.py",
         "infra/public-staging/support/content.json",
@@ -7376,8 +7372,8 @@
       ],
       "status": "active",
       "head": "c8de3a819bd96cde4ce75a58cea96e9c50dce244",
-      "updatedAt": "2026-11-06T20:06:40.746Z",
-      "summary": "c8de3a81 / PR313: AAB 1.0.1(7) released to internal testing; upload certificate matches. Approved Alex banner and RU/KK/EN draft saved; IARC 3+/Everyone; owner changed audience to 13-15,16-17,18+. Listing tests 5/5 and Prettier PASS; current CI running.\n06.11 П6: по прямому решению владельца в исходном задании Android и согласованию между чатами переданы только поддержка /support/#delete-account, её оператор/тесты и общие записи статуса задаче android-play-1106. С1/С3 завершены, release lock отсутствует. Это не передача API, БД, банков, кассы, каталога, цен, Caddy или разрешение Play production.",
+      "updatedAt": "2026-11-06T20:24:03.317Z",
+      "summary": "c8de3a81 / PR313: AAB 1.0.1(7) released to internal testing; upload certificate matches. Approved Alex banner and RU/KK/EN draft saved; IARC 3+/Everyone; owner changed audience to 13-15,16-17,18+. Listing tests 5/5 and Prettier PASS; current CI running.\n06.11 П6: по прямому решению владельца в исходном задании Android и согласованию между чатами переданы только поддержка /support/#delete-account, её оператор/тесты и общие записи статуса задаче android-play-1106. С1/С3 завершены, release lock отсутствует. Это не передача API, БД, банков, кассы, каталога, цен, Caddy или разрешение Play production.\n06.11: владелец явно разрешил временную передачу этих файлов mobile-cart-location-1106 для названия выбранной точки в быстрой оплате; существующие изменения сохраняются. Общие документы обновляются только добавлением записи, без удаления фактов С1/С3/Android.",
       "nextAction": "Owner enters tester email list in open Play tab; then physical Android checklist. Emulator SDK download still running on this Mac, screenshots pending. KK review and P6 coordinated server window pending; Data safety only initial draft. Never production without separate owner approval.\nП6 разрешён владельцем; сначала адаптировать support-page-release.py для обновления уже существующей HTTP200 страницы, сохраняя защиту первого развёртывания. Полная CI точного опубликованного коммита, проверенная копия/откат, новый собственный release lock, атомарное обновление только /support/, HTTP200 и #delete-account RU/KK/EN. Сверить неизменность API6630eb0f/schema071/public pointer c3a0fbee и соседей. Не менять Caddy/API/БД/флаги/кассу/цены/каталог. Сохранить записи С1/С3 из36f05455 при обновлении status/roadmap/handoff; не заменять их старой копией shared. Публикация онлайн-пульта не входит в передачу. После П6 записать доказательства и согласованно вернуть временные области."
     },
     {
@@ -7388,11 +7384,16 @@
         "apps/mobile/src/cart-location.ts",
         "tests/mobile/cart-location.test.mjs",
         "tests/mobile/browser_cart_location.py",
-        "docs/operations/mobile-cart-location-2026-11-06.md"
+        "docs/operations/mobile-cart-location-2026-11-06.md",
+        "apps/mobile/src/components/CartShortcut.tsx",
+        "tests/mobile/browser_slide_to_pay.py",
+        "docs/project-status.md",
+        "docs/roadmap/project.json"
       ],
       "status": "active",
       "head": "1a9472f1dc2a34b8ab4db7beb6f9c5616ed23f73",
-      "updatedAt": "2026-11-06T20:20:06.849Z"
+      "updatedAt": "2026-11-06T20:24:03.317Z",
+      "summary": "\n06.11: владелец явно разрешил временную передачу этих файлов mobile-cart-location-1106 для названия выбранной точки в быстрой оплате; существующие изменения сохраняются. Общие документы обновляются только добавлением записи, без удаления фактов С1/С3/Android."
     }
   ]
 }
