@@ -81,7 +81,12 @@ import {
 import { CatalogAdminController } from './catalog-admin-controller.js';
 import { encodeCatalogImage } from './catalog-image-encoder.js';
 import { CatalogMediaController, useCatalogAssetBodyParser } from './catalog-media-controller.js';
-import { BACKOFFICE, Backoffice, backofficeOptions } from '@pickchick/backoffice-core';
+import {
+  BACKOFFICE,
+  Backoffice,
+  backofficeOptions,
+  backofficeP1Options,
+} from '@pickchick/backoffice-core';
 import {
   DeviceRegistryController,
   KioskPresenceController,
@@ -354,11 +359,11 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
         provide: BACKOFFICE,
         inject: [RESOURCE],
         useFactory: (resources: Resources) =>
-          new Backoffice(
-            resources.pool,
-            config.backofficeEnabled === true,
-            backofficeOptions(process.env),
-          ),
+          new Backoffice(resources.pool, config.backofficeEnabled === true, {
+            ...backofficeOptions(process.env),
+            // Back-office P1 (bo-ui): validated by loadConfig, no key while a flag is off.
+            ...backofficeP1Options(config),
+          }),
       },
       { provide: RESOURCE, useFactory: () => new Resources(config) },
       {

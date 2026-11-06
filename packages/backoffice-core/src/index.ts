@@ -35,12 +35,14 @@ import {
 } from './roles.js';
 import { assertStockV2, readStockOps, stockV2Readable, stockV2Writable } from './stock-v2.js';
 import { readSalesReport } from './sales-report.js';
+import { p1Capabilities } from './p1-flags.js';
 export * from './model.js';
 export * from './stops.js';
 export * from './station-plans.js';
 export * from './roles.js';
 export * from './stock-v2.js';
 export * from './sales-report.js';
+export * from './p1-flags.js';
 export const BACKOFFICE = Symbol('BACKOFFICE');
 type Actor = {
   id: string;
@@ -379,6 +381,8 @@ export class Backoffice {
           : {};
       const stockV2 =
         this.options.stockV2Enabled === true ? { stock_v2: await stockV2Writable(db) } : {};
+      // Back-office P1 (bo-ui): {} without a query while every P1 flag is off.
+      const p1 = await p1Capabilities(db, this.options);
       return {
         schema_version: 1,
         branch_id: branch,
@@ -473,6 +477,7 @@ export class Backoffice {
           ...stockV2,
           // Cutover CC-7: only while BACKOFFICE_SALES_REPORT_ENABLED is on.
           ...(this.options.salesReportEnabled === true ? { sales_report: true } : {}),
+          ...p1,
         },
       };
     });
