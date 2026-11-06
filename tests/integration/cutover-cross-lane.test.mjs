@@ -1530,6 +1530,312 @@ async function oldClientDay(ctx, desk, server) {
   };
 }
 
+test('the other five methods (Kaspi manual, ChocoFood, staff meal, marketing, Yandex Eda) go from the real edge to cloud_pos_*; the Z by method equals the cloud tenders and the cloud shift report', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'pickchick-cross-lane-methods-'));
+  try {
+    const before026 = await migrationsBefore(root, '026');
+    await withSyncDatabases(
+      async (ctx) => {
+        const edge = ctx.edge.pool;
+        const desk = await edge025(ctx);
+        let server = null;
+        await windowC4(ctx, desk);
+        const cloud = await running(createApi, {
+          ...ctx.cloud.config,
+          posOrderSyncEnabled: true,
+          posSalesSyncEnabled: true,
+        });
+        try {
+          const options = {
+            enabled: true,
+            branchId: ctx.branch,
+            origin: cloud.url,
+            identity: desk.identity,
+          };
+          server = await startEdge(ctx, desk.runtime);
+          const pos = lanClient(server.url, 'pos', desk.cashier);
+          const boss = lanClient(server.url, 'pos', desk.manager);
+          const salesSync = desk.posSync.open();
+          await drainPosSales(salesSync, options, createPosSalesSchedule());
+          ok(await pos('GET', `/edge/v1/pos/config?client_version=${DESK_BUILD}`));
+          await switchOn(ctx, desk, pos);
+          const shift = CashShiftSchema.parse(
+            ok(await boss('POST', '/edge/v1/cash-shifts', { opening_cash_minor: '500000' }), 201),
+          );
+          const quote = async (items, extra = {}) =>
+            ok(
+              await pos('POST', '/edge/v1/checkout/quotes', {
+                release_id: desk.release.release_id,
+                service_mode: 'takeaway',
+                items: items.map((item) => ({ variant_id: item.variant_id, quantity: 1 })),
+                ...extra,
+              }),
+              201,
+            );
+          const approve = async (action, q) =>
+            ManagerApprovalSchema.parse(
+              ok(
+                await pos('POST', '/edge/v1/staff/approvals', {
+                  staff_id: desk.manager.staff_id,
+                  pin: PIN,
+                  action,
+                  subject: { quote_id: q.quote_id, amount_minor: q.total_minor },
+                }),
+                201,
+              ),
+            );
+          const sell = async (q, body) =>
+            PosSaleResultSchema.parse(
+              ok(
+                await pos('POST', '/edge/v1/pos/sales', {
+                  quote_id: q.quote_id,
+                  service_mode_confirmed: true,
+                  order_repeated: true,
+                  ...body,
+                }),
+                201,
+              ),
+            );
+          const proof = (approval) => ({
+            approval_id: approval.approval_id,
+            token: approval.token,
+          });
+          // Kaspi manual (QR or transfer, the cashier attests it; manual Webkassa receipt).
+          const manualQuote = await quote([desk.burger], { service_mode: 'dine_in' });
+          const manual = await sell(manualQuote, {
+            tenders: [{ method: 'kaspi_manual', amount_minor: '349000', reference: 'SYN-QR-1' }],
+          });
+          // ChocoFood: already paid on the platform, hall prices, its own number.
+          const chocoQuote = await quote([desk.burger, desk.drink], { service_mode: 'dine_in' });
+          const choco = await sell(chocoQuote, {
+            tenders: [{ method: 'chocofood', amount_minor: '409000' }],
+            external_order_ref: ' cf-2001 ',
+          });
+          // Staff meal and marketing: the shift manager's PIN, beneficiary or reason.
+          const mealQuote = await quote([desk.drink]);
+          const meal = await sell(mealQuote, {
+            tenders: [{ method: 'staff_meal', amount_minor: '60000' }],
+            beneficiary: 'Синтетический повар',
+            approval: proof(await approve('staff_meal', mealQuote)),
+          });
+          const promoQuote = await quote([desk.drink]);
+          const promo = await sell(promoQuote, {
+            tenders: [{ method: 'marketing', amount_minor: '60000' }],
+            reason: 'Синтетическая дегустация',
+            approval: proof(await approve('marketing', promoQuote)),
+          });
+          // Yandex Eda from its tablet: the aggregator price, its number in upper case.
+          const yandexQuote = await quote([desk.burger], { sales_channel: 'yandex_eda' });
+          assert.equal(yandexQuote.total_minor, '399000');
+          const yandex = await sell(yandexQuote, {
+            tenders: [{ method: 'aggregator_yandex_eda', amount_minor: '399000' }],
+            external_order_ref: 'y-3003',
+          });
+          const sold = [manual, choco, meal, promo, yandex];
+          assert.deepEqual(
+            sold.map(({ sale }) => [
+              sale.sales_channel,
+              sale.external_order_ref,
+              sale.revenue_kind,
+              sale.tenders.map((t) => [t.method, t.amount_minor, t.confirmation, t.reference]),
+              sale.fiscal.map((f) => f.state),
+            ]),
+            [
+              [
+                'hall',
+                null,
+                'revenue',
+                [['kaspi_manual', '349000', 'cashier_attested', 'SYN-QR-1']],
+                ['pending'],
+              ],
+              [
+                'hall',
+                'CF-2001',
+                'revenue',
+                [['chocofood', '409000', 'aggregator_attested', null]],
+                ['not_required'],
+              ],
+              [
+                'hall',
+                null,
+                'staff_meal',
+                [['staff_meal', '60000', 'manager_approved', null]],
+                ['not_required'],
+              ],
+              [
+                'hall',
+                null,
+                'marketing',
+                [['marketing', '60000', 'manager_approved', null]],
+                ['not_required'],
+              ],
+              [
+                'yandex_eda',
+                'Y-3003',
+                'revenue',
+                [['aggregator_yandex_eda', '399000', 'aggregator_attested', null]],
+                ['not_required'],
+              ],
+            ],
+          );
+          // The one manual Webkassa receipt (Kaspi manual), then the Z.
+          const pending = PosFiscalPendingSchema.parse(
+            ok(await pos('GET', `/edge/v1/pos/fiscal-receipts/pending?shift_id=${shift.shift_id}`)),
+          ).receipts;
+          assert.deepEqual(
+            pending.map((r) => [r.order_id, r.kind, r.amount_minor, r.methods]),
+            [[manual.order.order_id, 'sale', '349000', ['kaspi_manual']]],
+          );
+          ok(
+            await pos('POST', `/edge/v1/pos/fiscal-receipts/${pending[0].receipt_id}/record`, {
+              expected_version: pending[0].version,
+              receipt_number: 'SYN-WK-21',
+            }),
+          );
+          const open = ok(await boss('GET', `/edge/v1/cash-shifts/${shift.shift_id}`));
+          assert.equal(open.expected_cash_minor, '500000');
+          ok(
+            await boss('POST', `/edge/v1/cash-shifts/${shift.shift_id}/close`, {
+              expected_version: open.version,
+              counted_cash_minor: '500000',
+              reason: 'Синтетическое закрытие',
+            }),
+          );
+          const z = PosShiftReportSchema.parse(
+            ok(await boss('GET', `/edge/v1/cash-shifts/${shift.shift_id}/z-report`)),
+          );
+          const byMethod = (rows) =>
+            [...rows].sort((a, b) => (a.method < b.method ? -1 : a.method > b.method ? 1 : 0));
+          // Every method has its line in the Z; the three unused ones are zero.
+          const used = z.methods.filter((line) => line.count > 0);
+          assert.deepEqual(
+            z.methods
+              .filter((line) => line.count === 0)
+              .map((line) => [line.method, line.sales_minor, line.refunds_minor])
+              .sort(),
+            [
+              ['aggregator_glovo', '0', '0'],
+              ['cash', '0', '0'],
+              ['kaspi_terminal', '0', '0'],
+            ],
+          );
+          assert.deepEqual(byMethod(used), [
+            {
+              method: 'aggregator_yandex_eda',
+              sales_minor: '399000',
+              refunds_minor: '0',
+              count: 1,
+            },
+            { method: 'chocofood', sales_minor: '409000', refunds_minor: '0', count: 1 },
+            { method: 'kaspi_manual', sales_minor: '349000', refunds_minor: '0', count: 1 },
+            { method: 'marketing', sales_minor: '60000', refunds_minor: '0', count: 1 },
+            { method: 'staff_meal', sales_minor: '60000', refunds_minor: '0', count: 1 },
+          ]);
+          assert.deepEqual(
+            [z.cash_sales_minor, z.expected_cash_minor, z.discrepancy_minor, z.orders, z.fiscal],
+            [
+              '0',
+              '500000',
+              '0',
+              { count: 5, voided_count: 0 },
+              { pending: 0, recorded: 1, not_required: 4 },
+            ],
+          );
+
+          // posSales, order_commercial and kitchen through the cloud API.
+          const delivered = await drainPosSales(salesSync, options, createPosSalesSchedule());
+          assert.ok(delivered.includes('delivered') && delivered.at(-1) === 'idle');
+          await drain(syncPosOrdersOnce, salesSync, options);
+          await drain(syncPosKitchenOnce, salesSync, options);
+          const ids = sold.map(({ order }) => order.order_id);
+          const cloudSales = byOrder(
+            await cloudRows(
+              ctx,
+              `SELECT order_id,state,sales_channel,external_order_ref,revenue_kind,total_minor::text AS total
+               FROM cloud_pos_sales WHERE branch_id=$1`,
+            ),
+          );
+          assert.deepEqual(
+            ids.map((id) => {
+              const row = cloudSales[id];
+              return [
+                row.state,
+                row.sales_channel,
+                row.external_order_ref,
+                row.revenue_kind,
+                row.total,
+              ];
+            }),
+            [
+              ['paid', 'hall', null, 'revenue', '349000'],
+              ['paid', 'hall', 'CF-2001', 'revenue', '409000'],
+              ['paid', 'hall', null, 'staff_meal', '60000'],
+              ['paid', 'hall', null, 'marketing', '60000'],
+              ['paid', 'yandex_eda', 'Y-3003', 'revenue', '399000'],
+            ],
+          );
+          // Cloud tenders by method equal the Z by method; the stored Z is the edge's.
+          const tenders = await cloudRows(
+            ctx,
+            `SELECT method,sum(amount_minor)::text AS sales_minor,count(*)::int AS count,
+               array_agg(DISTINCT confirmation) AS confirmations
+             FROM cloud_pos_tenders WHERE branch_id=$1 GROUP BY method ORDER BY method`,
+          );
+          assert.deepEqual(
+            tenders.map(({ method, sales_minor, count }) => ({
+              method,
+              sales_minor,
+              refunds_minor: '0',
+              count,
+            })),
+            byMethod(used),
+          );
+          assert.deepEqual(Object.fromEntries(tenders.map((t) => [t.method, t.confirmations])), {
+            aggregator_yandex_eda: ['aggregator_attested'],
+            chocofood: ['aggregator_attested'],
+            kaspi_manual: ['cashier_attested'],
+            marketing: ['manager_approved'],
+            staff_meal: ['manager_approved'],
+          });
+          const [stored] = await cloudRows(
+            ctx,
+            'SELECT report,expected_cash_minor::text AS expected FROM cloud_pos_shift_reports WHERE branch_id=$1',
+          );
+          assert.equal(stored.expected, '500000');
+          const withoutTime = (report) => {
+            const copy = { ...report };
+            delete copy.report_at;
+            return copy;
+          };
+          assert.deepEqual(withoutTime(PosShiftReportSchema.parse(stored.report)), withoutTime(z));
+          assert.deepEqual(stored.report.methods, z.methods);
+          assert.deepEqual(stored.report.channels, z.channels);
+          assert.deepEqual(
+            await cloudRows(
+              ctx,
+              `SELECT receipt_number,state FROM cloud_pos_fiscal_receipts WHERE branch_id=$1 AND state<>'not_required'`,
+            ),
+            [{ receipt_number: 'SYN-WK-21', state: 'recorded' }],
+          );
+          assert.deepEqual(
+            await edge
+              .query('SELECT count(*)::int AS n FROM pos_sale_outbox WHERE acknowledged_at IS NULL')
+              .then((r) => r.rows[0].n),
+            0,
+          );
+        } finally {
+          if (server) await server.app.close();
+          await cloud.app.close();
+          await desk.drop();
+        }
+      },
+      { edgeMigrationDirectory: before026 },
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('every flag off after C4: today’s POS, kitchen and board get byte-identical answers and stream payloads as on 025, and the new cloud takes them as today', async () => {
   const root = await mkdtemp(join(tmpdir(), 'pickchick-cross-lane-off-'));
   const days = {};
