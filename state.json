@@ -7349,9 +7349,9 @@
         "tests/operations/test_close_test_qr_1106.py",
         "docs/operations/test-payment-cleanup-1106.md"
       ],
-      "status": "available",
+      "status": "active",
       "head": "cc3eac4781250b3eee17998648ed1772275132eb",
-      "updatedAt": "2026-11-06T07:45:25.944Z",
+      "updatedAt": "2026-11-06T09:08:10.288Z",
       "summary": "06.11 12:41 Алматы: три подтверждённых владельцем неоплаченных тестовых attempt/intent/QR закрыты с минимальной зашифрованной копией VPS/Mac и аудитом. Dry-run/rollback и 13 финальных проверок PASS. Активные attempts/invoices/QR/refunds=0; история/деньги/чеки/службы сохранены. Протокол cc3eac47 опубликован в PR311. Архив БД iDrink ранее удалён; смешанный архив сохранён.",
       "nextAction": "Отдельно сверить 73 незавершённые edge-проекции и 18 paid-unfinished перед новым серверным окном. Не считать закрытие тестов разрешением на релиз, миграции, Caddy, устройства или магазины. Общий lock освобождён. Онлайн-пульт не обновлён. Журнал в ~/Claude/PickChick-exchange/codex-reports/2026-11-06-night.md."
     }
