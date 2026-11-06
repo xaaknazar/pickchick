@@ -182,3 +182,46 @@ test('007 keeps state event uniqueness and immutable outbox/results while reserv
     );
   });
 });
+
+// Cutover 19.11 (contracts 3.1, 3.2): the reviewed bytes of the edge migrations 026+ and their
+// order on top of the installed 025. Integration pins each hash from the owning lane's CR.
+const CUTOVER_EDGE = {
+  '026_edge_pos_sales.sql': '921c526320f6b878f592949d7ca2ebc71e28a1ceb14881c74909314ed46d057c',
+};
+
+test('cutover edge migrations upgrade a 025 edge in order with their reviewed bytes, earlier ledger unchanged', async () => {
+  const files = (await readdir(directory)).filter((name) => /^\d{3}_[a-z_]+\.sql$/.test(name));
+  const cutover = files.filter((name) => name >= '026').sort();
+  assert.deepEqual(cutover, Object.keys(CUTOVER_EDGE).sort());
+  for (const [name, checksum] of Object.entries(CUTOVER_EDGE))
+    assert.equal(
+      createHash('sha256')
+        .update(await readFile(join(directory, name)))
+        .digest('hex'),
+      checksum,
+      name,
+    );
+  await isolated(async (pool) =>
+    subset(
+      (name) => name < '026',
+      async (installed) => {
+        assert.equal(
+          (await migrate(pool, installed, 'edge')).at(-1),
+          '025_edge_kitchen_restore_review.sql',
+        );
+        const before = await ledger(pool);
+        assert.deepEqual(await migrate(pool, directory, 'edge'), cutover);
+        const after = await ledger(pool);
+        assert.deepEqual(after.slice(0, before.length), before);
+        assert.deepEqual(
+          after.slice(before.length).map(({ version, checksum }) => [version, checksum]),
+          cutover.map((name) => [name, CUTOVER_EDGE[name]]),
+        );
+        assert.deepEqual(await migrate(pool, directory, 'edge'), []);
+        // An edge on 026+ never runs on a package without its files (older runtime package).
+        await assert.rejects(migrate(pool, installed, 'edge'), /unsupported schema/);
+        assert.deepEqual(await ledger(pool), after);
+      },
+    ),
+  );
+});
