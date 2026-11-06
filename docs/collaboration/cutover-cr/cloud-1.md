@@ -41,3 +41,36 @@ D0 (5b212949, §4.3 п.2 контракта) добавил в `EdgeMenuFeatureS
 ```
 
 Без этой строки поведение то же: флаг по умолчанию `false`.
+
+## Третье: правка вне шаблона владения (ревью CR-CLOUD-R11)
+
+`tests/integration/menu-sync.test.mjs` не подходит под шаблон полосы
+`tests/integration/{catalog,menu-sync,channel,unified-menu}-*` (§4.1: после `menu-sync` в имени
+точка, а не дефис), но полоса cloud правила его в коммите 8856dc1a: касса новой сборки заявляет
+обе фичи меню, и тест ждал прежний запрос. Правка - только ожидаемый запрос, проверка та же:
+
+```diff
+-      // No active menu yet: only the menu features this runtime applies (stage 2, pcs).
+-      assert.equal(fake.requests[0].query, '?menu_features=combo_stops');
++      // No active menu yet: only the menu features this runtime applies (stage 2 combo_stops,
++      // cutover aggregator_prices).
++      assert.equal(fake.requests[0].query, '?menu_features=combo_stops%2Caggregator_prices');
+ ...
+-      assert.equal(features, 'combo_stops');
++      assert.equal(features, 'combo_stops,aggregator_prices');
+```
+
+Просьба к интеграции: принять эту правку при слиянии cloud часть B (или считать файл файлом полосы
+cloud в §4.1).
+
+## Статус
+
+П. 1 применён интеграцией в `codex/cutover-1119` (2ee4bdab, «stage 2 cross-lane check expects the
+aggregator_prices menu feature»). П. 2 и п. 3 - на интеграции.
+
+## Для интеграции: сообщение коммита f8355655
+
+`f8355655` - целый `git cherry-pick -x` коммита полосы pos 513985f6 (патч идентичен, проверено
+ревью). Строка `(cherry picked from commit 513985f6...)`, которую добавляет `-x`, стоит после двух
+обязательных строк подписи. Переписывать коммит нельзя (правило полос); следующие переносы
+полоса cloud делает так, чтобы ссылка на исходный коммит была в теле сообщения до подписи.
