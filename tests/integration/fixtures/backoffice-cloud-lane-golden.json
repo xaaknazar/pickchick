@@ -1,0 +1,4186 @@
+{
+  "all off": {
+    "read manager day": {
+      "ok": {
+        "schema_version": 1,
+        "branch_id": "BRANCH",
+        "role": "manager",
+        "period_start": "2031-03-13T19:00:00.000Z",
+        "period_end": "2031-03-14T19:00:00.000Z",
+        "timezone": "Asia/Almaty",
+        "operational_shift_filter": {
+          "available": true,
+          "selected_shift_id": null,
+          "mode": "calendar",
+          "financials_available": true,
+          "reason": null
+        },
+        "cashier_shifts": [
+          {
+            "state": "open",
+            "shift_id": "U1",
+            "staff_id": "U2",
+            "closed_at": null,
+            "opened_at": "2031-03-14T05:00:00.000Z",
+            "terminal_id": "U3",
+            "cash_in_minor": "0",
+            "cash_out_minor": "0",
+            "cash_sales_minor": "150000",
+            "discrepancy_minor": null,
+            "cash_refunds_minor": "0",
+            "counted_cash_minor": null,
+            "opening_cash_minor": "500000",
+            "expected_cash_minor": "650000",
+            "id": "U1",
+            "device_id": "DEVICE",
+            "observed_at": "<clock>"
+          },
+          {
+            "state": "open",
+            "shift_id": "U4",
+            "staff_id": "U5",
+            "closed_at": null,
+            "opened_at": "2031-03-14T04:00:00.000Z",
+            "terminal_id": "U6",
+            "cash_in_minor": "0",
+            "cash_out_minor": "0",
+            "cash_sales_minor": "0",
+            "discrepancy_minor": null,
+            "cash_refunds_minor": "0",
+            "counted_cash_minor": null,
+            "opening_cash_minor": "1000000",
+            "expected_cash_minor": "1000000",
+            "id": "U4",
+            "device_id": "DEVICE",
+            "observed_at": "<clock>"
+          }
+        ],
+        "cashier_orders": [
+          {
+            "lines": [],
+            "state": "paid",
+            "version": 1,
+            "order_id": "CASHIERORDER",
+            "created_at": "2031-03-14T05:00:00.000Z",
+            "total_minor": "250000",
+            "cash_shift_id": "U4",
+            "kitchen_state": "handed_over",
+            "display_number": "1",
+            "execution_mode": "pos_sale",
+            "id": "CASHIERORDER",
+            "observed_at": "<clock>",
+            "owner": "edge_pos",
+            "channel": "pos",
+            "source": "cashier_report",
+            "payment_state": "not_started",
+            "fiscal_state": "not_requested"
+          }
+        ],
+        "cashier_metrics": {
+          "orders": 1,
+          "cancelled_orders": 0,
+          "unpaid_total_minor": "0",
+          "completed_total_minor": "250000"
+        },
+        "selected_shift": null,
+        "coverage": {
+          "cashier_reports_available": true,
+          "cashier_reports_complete": false,
+          "cashier_financials": false,
+          "observed_at": "<clock>"
+        },
+        "period": "custom",
+        "records": [
+          {
+            "id": "U7",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическая кассир 2",
+              "note": "",
+              "role": "cashier",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "U8",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический начальник смены",
+              "note": "",
+              "role": "manager",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "U9",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический кассир",
+              "note": "",
+              "role": "cashier",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "COOK",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический повар",
+              "note": "",
+              "role": "cook",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "FILLET",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическое филе",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "BUN",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическая булка",
+              "unit": "pcs",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "RECIPE",
+            "kind": "recipe",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический фарш",
+              "lines": [{ "quantity": "1", "ingredient_id": "BUN" }],
+              "product_id": "ttk:syn-golden",
+              "yield_quantity": "1000",
+              "output_ingredient_id": "FILLET"
+            },
+            "updated_at": "<clock>"
+          }
+        ],
+        "stock": [
+          {
+            "id": "BUN",
+            "payload": {
+              "name": "Синтетическая булка",
+              "unit": "pcs",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "18",
+            "value_minor": "18000",
+            "revision": 2
+          },
+          {
+            "id": "FILLET",
+            "payload": {
+              "name": "Синтетическое филе",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "4900",
+            "value_minor": "1143660",
+            "revision": 2
+          }
+        ],
+        "orders": [
+          {
+            "id": "CLOUDORDER",
+            "created_at": "2031-03-14T07:30:00.000Z",
+            "total_minor": "450000",
+            "version": "1",
+            "state": "awaiting_admission",
+            "channel": "mobile",
+            "owner": "cloud",
+            "payment_state": null,
+            "kitchen_state": null,
+            "observed_at": null,
+            "display_number": null,
+            "captured_minor": "450000",
+            "refunded_minor": "0"
+          }
+        ],
+        "pos": [],
+        "metrics": {
+          "orders": 1,
+          "handed_over": 0,
+          "captured_minor": "450000",
+          "refunded_minor": "0",
+          "unknown_payments": 0,
+          "kitchen_active": 0,
+          "pos_orders": 0,
+          "completed_total_minor": "0"
+        },
+        "chart": [{ "day": "2031-03-14", "amount_minor": "450000" }],
+        "finance": [],
+        "refunds": [],
+        "issues": [],
+        "devices": [
+          {
+            "id": "DEVICE",
+            "name": "Synthetic",
+            "kind": "edge",
+            "status": "pending",
+            "last_fulfillment_at": null,
+            "last_pos_at": null
+          }
+        ],
+        "availability": {
+          "device_id": null,
+          "stopped_ids": [],
+          "revision": null,
+          "observed_at": null,
+          "fresh": false,
+          "stopped_items": [],
+          "source": "edge_transport",
+          "writable": false
+        },
+        "kitchen": [],
+        "guests": [],
+        "audit": [
+          {
+            "id": "U10",
+            "actor_id": "MANAGER",
+            "action": "save:recipe",
+            "entity_id": "RECIPE",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U11",
+            "actor_id": "MANAGER",
+            "action": "save:employee",
+            "entity_id": "COOK",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U12",
+            "actor_id": "MANAGER",
+            "action": "stock:count",
+            "entity_id": "U13",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U14",
+            "actor_id": "MANAGER",
+            "action": "stock:waste",
+            "entity_id": "U15",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U16",
+            "actor_id": "MANAGER",
+            "action": "stock:receipt",
+            "entity_id": "U17",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U18",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "FILLET",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U19",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "BUN",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          }
+        ],
+        "catalog_audit": [],
+        "documents": [
+          {
+            "id": "U13",
+            "kind": "count",
+            "reference": "ИНВ-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическое филе",
+                "unit": "g",
+                "balance_after": "4900",
+                "ingredient_id": "FILLET",
+                "quantity_delta": "-100",
+                "value_after_minor": "1143660",
+                "value_delta_minor": "-23340"
+              }
+            ]
+          },
+          {
+            "id": "U15",
+            "kind": "waste",
+            "reference": "СП-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическая булка",
+                "unit": "pcs",
+                "balance_after": "18",
+                "ingredient_id": "BUN",
+                "quantity_delta": "-2",
+                "value_after_minor": "18000",
+                "value_delta_minor": "-2000"
+              }
+            ]
+          },
+          {
+            "id": "U17",
+            "kind": "receipt",
+            "reference": "НАК-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическая булка",
+                "unit": "pcs",
+                "balance_after": "20",
+                "ingredient_id": "BUN",
+                "quantity_delta": "20",
+                "value_after_minor": "20000",
+                "value_delta_minor": "20000"
+              },
+              {
+                "name": "Синтетическое филе",
+                "unit": "g",
+                "balance_after": "5000",
+                "ingredient_id": "FILLET",
+                "quantity_delta": "5000",
+                "value_after_minor": "1167000",
+                "value_delta_minor": "1167000"
+              }
+            ]
+          }
+        ],
+        "publications": [],
+        "station_plan": {
+          "schema_version": 1,
+          "enabled": false,
+          "available": true,
+          "latest": null,
+          "applied": null,
+          "edge": null,
+          "plans": []
+        },
+        "limits": {
+          "cashier_orders": 200,
+          "cashier_shifts": 200,
+          "orders": 200,
+          "pos": 200,
+          "finance": 200,
+          "refunds": 200,
+          "issues": 100,
+          "records": 2000
+        },
+        "truncated": {
+          "cashier_orders": false,
+          "cashier_shifts": false,
+          "orders": false,
+          "pos": false,
+          "finance": false,
+          "refunds": false,
+          "issues": false
+        },
+        "capabilities": {
+          "operational_shift_filter": true,
+          "bank_settlement": false,
+          "push_delivery": false,
+          "external_reviews": false,
+          "fiscal_shift": false,
+          "edge_configuration_delivery": false
+        }
+      }
+    },
+    "read manager week": {
+      "ok": {
+        "schema_version": 1,
+        "branch_id": "BRANCH",
+        "role": "manager",
+        "period_start": "2031-03-07T19:00:00.000Z",
+        "period_end": "2031-03-14T19:00:00.000Z",
+        "timezone": "Asia/Almaty",
+        "operational_shift_filter": {
+          "available": true,
+          "selected_shift_id": null,
+          "mode": "calendar",
+          "financials_available": true,
+          "reason": null
+        },
+        "cashier_shifts": [
+          {
+            "state": "open",
+            "shift_id": "U1",
+            "staff_id": "U2",
+            "closed_at": null,
+            "opened_at": "2031-03-14T05:00:00.000Z",
+            "terminal_id": "U3",
+            "cash_in_minor": "0",
+            "cash_out_minor": "0",
+            "cash_sales_minor": "150000",
+            "discrepancy_minor": null,
+            "cash_refunds_minor": "0",
+            "counted_cash_minor": null,
+            "opening_cash_minor": "500000",
+            "expected_cash_minor": "650000",
+            "id": "U1",
+            "device_id": "DEVICE",
+            "observed_at": "<clock>"
+          },
+          {
+            "state": "open",
+            "shift_id": "U4",
+            "staff_id": "U5",
+            "closed_at": null,
+            "opened_at": "2031-03-14T04:00:00.000Z",
+            "terminal_id": "U6",
+            "cash_in_minor": "0",
+            "cash_out_minor": "0",
+            "cash_sales_minor": "0",
+            "discrepancy_minor": null,
+            "cash_refunds_minor": "0",
+            "counted_cash_minor": null,
+            "opening_cash_minor": "1000000",
+            "expected_cash_minor": "1000000",
+            "id": "U4",
+            "device_id": "DEVICE",
+            "observed_at": "<clock>"
+          }
+        ],
+        "cashier_orders": [
+          {
+            "lines": [],
+            "state": "paid",
+            "version": 1,
+            "order_id": "CASHIERORDER",
+            "created_at": "2031-03-14T05:00:00.000Z",
+            "total_minor": "250000",
+            "cash_shift_id": "U4",
+            "kitchen_state": "handed_over",
+            "display_number": "1",
+            "execution_mode": "pos_sale",
+            "id": "CASHIERORDER",
+            "observed_at": "<clock>",
+            "owner": "edge_pos",
+            "channel": "pos",
+            "source": "cashier_report",
+            "payment_state": "not_started",
+            "fiscal_state": "not_requested"
+          }
+        ],
+        "cashier_metrics": {
+          "orders": 1,
+          "cancelled_orders": 0,
+          "unpaid_total_minor": "0",
+          "completed_total_minor": "250000"
+        },
+        "selected_shift": null,
+        "coverage": {
+          "cashier_reports_available": true,
+          "cashier_reports_complete": false,
+          "cashier_financials": false,
+          "observed_at": "<clock>"
+        },
+        "period": "custom",
+        "records": [
+          {
+            "id": "U7",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическая кассир 2",
+              "note": "",
+              "role": "cashier",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "U8",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический начальник смены",
+              "note": "",
+              "role": "manager",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "U9",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический кассир",
+              "note": "",
+              "role": "cashier",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "COOK",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический повар",
+              "note": "",
+              "role": "cook",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "FILLET",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическое филе",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "BUN",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическая булка",
+              "unit": "pcs",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "RECIPE",
+            "kind": "recipe",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический фарш",
+              "lines": [{ "quantity": "1", "ingredient_id": "BUN" }],
+              "product_id": "ttk:syn-golden",
+              "yield_quantity": "1000",
+              "output_ingredient_id": "FILLET"
+            },
+            "updated_at": "<clock>"
+          }
+        ],
+        "stock": [
+          {
+            "id": "BUN",
+            "payload": {
+              "name": "Синтетическая булка",
+              "unit": "pcs",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "18",
+            "value_minor": "18000",
+            "revision": 2
+          },
+          {
+            "id": "FILLET",
+            "payload": {
+              "name": "Синтетическое филе",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "4900",
+            "value_minor": "1143660",
+            "revision": 2
+          }
+        ],
+        "orders": [
+          {
+            "id": "CLOUDORDER",
+            "created_at": "2031-03-14T07:30:00.000Z",
+            "total_minor": "450000",
+            "version": "1",
+            "state": "awaiting_admission",
+            "channel": "mobile",
+            "owner": "cloud",
+            "payment_state": null,
+            "kitchen_state": null,
+            "observed_at": null,
+            "display_number": null,
+            "captured_minor": "450000",
+            "refunded_minor": "0"
+          }
+        ],
+        "pos": [],
+        "metrics": {
+          "orders": 1,
+          "handed_over": 0,
+          "captured_minor": "450000",
+          "refunded_minor": "0",
+          "unknown_payments": 0,
+          "kitchen_active": 0,
+          "pos_orders": 0,
+          "completed_total_minor": "0"
+        },
+        "chart": [{ "day": "2031-03-14", "amount_minor": "450000" }],
+        "finance": [],
+        "refunds": [],
+        "issues": [],
+        "devices": [
+          {
+            "id": "DEVICE",
+            "name": "Synthetic",
+            "kind": "edge",
+            "status": "pending",
+            "last_fulfillment_at": null,
+            "last_pos_at": null
+          }
+        ],
+        "availability": {
+          "device_id": null,
+          "stopped_ids": [],
+          "revision": null,
+          "observed_at": null,
+          "fresh": false,
+          "stopped_items": [],
+          "source": "edge_transport",
+          "writable": false
+        },
+        "kitchen": [],
+        "guests": [],
+        "audit": [
+          {
+            "id": "U10",
+            "actor_id": "MANAGER",
+            "action": "save:recipe",
+            "entity_id": "RECIPE",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U11",
+            "actor_id": "MANAGER",
+            "action": "save:employee",
+            "entity_id": "COOK",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U12",
+            "actor_id": "MANAGER",
+            "action": "stock:count",
+            "entity_id": "U13",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U14",
+            "actor_id": "MANAGER",
+            "action": "stock:waste",
+            "entity_id": "U15",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U16",
+            "actor_id": "MANAGER",
+            "action": "stock:receipt",
+            "entity_id": "U17",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U18",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "FILLET",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U19",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "BUN",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          }
+        ],
+        "catalog_audit": [],
+        "documents": [
+          {
+            "id": "U13",
+            "kind": "count",
+            "reference": "ИНВ-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическое филе",
+                "unit": "g",
+                "balance_after": "4900",
+                "ingredient_id": "FILLET",
+                "quantity_delta": "-100",
+                "value_after_minor": "1143660",
+                "value_delta_minor": "-23340"
+              }
+            ]
+          },
+          {
+            "id": "U15",
+            "kind": "waste",
+            "reference": "СП-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическая булка",
+                "unit": "pcs",
+                "balance_after": "18",
+                "ingredient_id": "BUN",
+                "quantity_delta": "-2",
+                "value_after_minor": "18000",
+                "value_delta_minor": "-2000"
+              }
+            ]
+          },
+          {
+            "id": "U17",
+            "kind": "receipt",
+            "reference": "НАК-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическая булка",
+                "unit": "pcs",
+                "balance_after": "20",
+                "ingredient_id": "BUN",
+                "quantity_delta": "20",
+                "value_after_minor": "20000",
+                "value_delta_minor": "20000"
+              },
+              {
+                "name": "Синтетическое филе",
+                "unit": "g",
+                "balance_after": "5000",
+                "ingredient_id": "FILLET",
+                "quantity_delta": "5000",
+                "value_after_minor": "1167000",
+                "value_delta_minor": "1167000"
+              }
+            ]
+          }
+        ],
+        "publications": [],
+        "station_plan": {
+          "schema_version": 1,
+          "enabled": false,
+          "available": true,
+          "latest": null,
+          "applied": null,
+          "edge": null,
+          "plans": []
+        },
+        "limits": {
+          "cashier_orders": 200,
+          "cashier_shifts": 200,
+          "orders": 200,
+          "pos": 200,
+          "finance": 200,
+          "refunds": 200,
+          "issues": 100,
+          "records": 2000
+        },
+        "truncated": {
+          "cashier_orders": false,
+          "cashier_shifts": false,
+          "orders": false,
+          "pos": false,
+          "finance": false,
+          "refunds": false,
+          "issues": false
+        },
+        "capabilities": {
+          "operational_shift_filter": true,
+          "bank_settlement": false,
+          "push_delivery": false,
+          "external_reviews": false,
+          "fiscal_shift": false,
+          "edge_configuration_delivery": false
+        }
+      }
+    },
+    "read analyst day": {
+      "ok": {
+        "schema_version": 1,
+        "branch_id": "BRANCH",
+        "role": "analyst",
+        "period_start": "2031-03-13T19:00:00.000Z",
+        "period_end": "2031-03-14T19:00:00.000Z",
+        "timezone": "Asia/Almaty",
+        "operational_shift_filter": {
+          "available": true,
+          "selected_shift_id": null,
+          "mode": "calendar",
+          "financials_available": true,
+          "reason": null
+        },
+        "cashier_shifts": [
+          {
+            "state": "open",
+            "shift_id": "U1",
+            "staff_id": "U2",
+            "closed_at": null,
+            "opened_at": "2031-03-14T05:00:00.000Z",
+            "terminal_id": "U3",
+            "cash_in_minor": "0",
+            "cash_out_minor": "0",
+            "cash_sales_minor": "150000",
+            "discrepancy_minor": null,
+            "cash_refunds_minor": "0",
+            "counted_cash_minor": null,
+            "opening_cash_minor": "500000",
+            "expected_cash_minor": "650000",
+            "id": "U1",
+            "device_id": "DEVICE",
+            "observed_at": "<clock>"
+          },
+          {
+            "state": "open",
+            "shift_id": "U4",
+            "staff_id": "U5",
+            "closed_at": null,
+            "opened_at": "2031-03-14T04:00:00.000Z",
+            "terminal_id": "U6",
+            "cash_in_minor": "0",
+            "cash_out_minor": "0",
+            "cash_sales_minor": "0",
+            "discrepancy_minor": null,
+            "cash_refunds_minor": "0",
+            "counted_cash_minor": null,
+            "opening_cash_minor": "1000000",
+            "expected_cash_minor": "1000000",
+            "id": "U4",
+            "device_id": "DEVICE",
+            "observed_at": "<clock>"
+          }
+        ],
+        "cashier_orders": [
+          {
+            "lines": [],
+            "state": "paid",
+            "version": 1,
+            "order_id": "CASHIERORDER",
+            "created_at": "2031-03-14T05:00:00.000Z",
+            "total_minor": "250000",
+            "cash_shift_id": "U4",
+            "kitchen_state": "handed_over",
+            "display_number": "1",
+            "execution_mode": "pos_sale",
+            "id": "CASHIERORDER",
+            "observed_at": "<clock>",
+            "owner": "edge_pos",
+            "channel": "pos",
+            "source": "cashier_report",
+            "payment_state": "not_started",
+            "fiscal_state": "not_requested"
+          }
+        ],
+        "cashier_metrics": {
+          "orders": 1,
+          "cancelled_orders": 0,
+          "unpaid_total_minor": "0",
+          "completed_total_minor": "250000"
+        },
+        "selected_shift": null,
+        "coverage": {
+          "cashier_reports_available": true,
+          "cashier_reports_complete": false,
+          "cashier_financials": false,
+          "observed_at": "<clock>"
+        },
+        "period": "custom",
+        "records": [
+          {
+            "id": "U7",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическая кассир 2",
+              "note": "",
+              "role": "cashier",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "U8",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический начальник смены",
+              "note": "",
+              "role": "manager",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "U9",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический кассир",
+              "note": "",
+              "role": "cashier",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "COOK",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический повар",
+              "note": "",
+              "role": "cook",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "FILLET",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическое филе",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "BUN",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическая булка",
+              "unit": "pcs",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "RECIPE",
+            "kind": "recipe",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический фарш",
+              "lines": [{ "quantity": "1", "ingredient_id": "BUN" }],
+              "product_id": "ttk:syn-golden",
+              "yield_quantity": "1000",
+              "output_ingredient_id": "FILLET"
+            },
+            "updated_at": "<clock>"
+          }
+        ],
+        "stock": [
+          {
+            "id": "BUN",
+            "payload": {
+              "name": "Синтетическая булка",
+              "unit": "pcs",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "18",
+            "value_minor": "18000",
+            "revision": 2
+          },
+          {
+            "id": "FILLET",
+            "payload": {
+              "name": "Синтетическое филе",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "4900",
+            "value_minor": "1143660",
+            "revision": 2
+          }
+        ],
+        "orders": [
+          {
+            "id": "CLOUDORDER",
+            "created_at": "2031-03-14T07:30:00.000Z",
+            "total_minor": "450000",
+            "version": "1",
+            "state": "awaiting_admission",
+            "channel": "mobile",
+            "owner": "cloud",
+            "payment_state": null,
+            "kitchen_state": null,
+            "observed_at": null,
+            "display_number": null,
+            "captured_minor": "450000",
+            "refunded_minor": "0"
+          }
+        ],
+        "pos": [],
+        "metrics": {
+          "orders": 1,
+          "handed_over": 0,
+          "captured_minor": "450000",
+          "refunded_minor": "0",
+          "unknown_payments": 0,
+          "kitchen_active": 0,
+          "pos_orders": 0,
+          "completed_total_minor": "0"
+        },
+        "chart": [{ "day": "2031-03-14", "amount_minor": "450000" }],
+        "finance": [],
+        "refunds": [],
+        "issues": [],
+        "devices": [
+          {
+            "id": "DEVICE",
+            "name": "Synthetic",
+            "kind": "edge",
+            "status": "pending",
+            "last_fulfillment_at": null,
+            "last_pos_at": null
+          }
+        ],
+        "availability": {
+          "device_id": null,
+          "stopped_ids": [],
+          "revision": null,
+          "observed_at": null,
+          "fresh": false,
+          "stopped_items": [],
+          "source": "edge_transport",
+          "writable": false
+        },
+        "kitchen": [],
+        "guests": [],
+        "audit": [
+          {
+            "id": "U10",
+            "actor_id": "MANAGER",
+            "action": "save:recipe",
+            "entity_id": "RECIPE",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U11",
+            "actor_id": "MANAGER",
+            "action": "save:employee",
+            "entity_id": "COOK",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U12",
+            "actor_id": "MANAGER",
+            "action": "stock:count",
+            "entity_id": "U13",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U14",
+            "actor_id": "MANAGER",
+            "action": "stock:waste",
+            "entity_id": "U15",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U16",
+            "actor_id": "MANAGER",
+            "action": "stock:receipt",
+            "entity_id": "U17",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U18",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "FILLET",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U19",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "BUN",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          }
+        ],
+        "catalog_audit": [],
+        "documents": [
+          {
+            "id": "U13",
+            "kind": "count",
+            "reference": "ИНВ-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическое филе",
+                "unit": "g",
+                "balance_after": "4900",
+                "ingredient_id": "FILLET",
+                "quantity_delta": "-100",
+                "value_after_minor": "1143660",
+                "value_delta_minor": "-23340"
+              }
+            ]
+          },
+          {
+            "id": "U15",
+            "kind": "waste",
+            "reference": "СП-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическая булка",
+                "unit": "pcs",
+                "balance_after": "18",
+                "ingredient_id": "BUN",
+                "quantity_delta": "-2",
+                "value_after_minor": "18000",
+                "value_delta_minor": "-2000"
+              }
+            ]
+          },
+          {
+            "id": "U17",
+            "kind": "receipt",
+            "reference": "НАК-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическая булка",
+                "unit": "pcs",
+                "balance_after": "20",
+                "ingredient_id": "BUN",
+                "quantity_delta": "20",
+                "value_after_minor": "20000",
+                "value_delta_minor": "20000"
+              },
+              {
+                "name": "Синтетическое филе",
+                "unit": "g",
+                "balance_after": "5000",
+                "ingredient_id": "FILLET",
+                "quantity_delta": "5000",
+                "value_after_minor": "1167000",
+                "value_delta_minor": "1167000"
+              }
+            ]
+          }
+        ],
+        "publications": [],
+        "station_plan": {
+          "schema_version": 1,
+          "enabled": false,
+          "available": true,
+          "latest": null,
+          "applied": null,
+          "edge": null,
+          "plans": []
+        },
+        "limits": {
+          "cashier_orders": 200,
+          "cashier_shifts": 200,
+          "orders": 200,
+          "pos": 200,
+          "finance": 200,
+          "refunds": 200,
+          "issues": 100,
+          "records": 2000
+        },
+        "truncated": {
+          "cashier_orders": false,
+          "cashier_shifts": false,
+          "orders": false,
+          "pos": false,
+          "finance": false,
+          "refunds": false,
+          "issues": false
+        },
+        "capabilities": {
+          "operational_shift_filter": true,
+          "bank_settlement": false,
+          "push_delivery": false,
+          "external_reviews": false,
+          "fiscal_shift": false,
+          "edge_configuration_delivery": false
+        }
+      }
+    },
+    "read analyst week": {
+      "ok": {
+        "schema_version": 1,
+        "branch_id": "BRANCH",
+        "role": "analyst",
+        "period_start": "2031-03-07T19:00:00.000Z",
+        "period_end": "2031-03-14T19:00:00.000Z",
+        "timezone": "Asia/Almaty",
+        "operational_shift_filter": {
+          "available": true,
+          "selected_shift_id": null,
+          "mode": "calendar",
+          "financials_available": true,
+          "reason": null
+        },
+        "cashier_shifts": [
+          {
+            "state": "open",
+            "shift_id": "U1",
+            "staff_id": "U2",
+            "closed_at": null,
+            "opened_at": "2031-03-14T05:00:00.000Z",
+            "terminal_id": "U3",
+            "cash_in_minor": "0",
+            "cash_out_minor": "0",
+            "cash_sales_minor": "150000",
+            "discrepancy_minor": null,
+            "cash_refunds_minor": "0",
+            "counted_cash_minor": null,
+            "opening_cash_minor": "500000",
+            "expected_cash_minor": "650000",
+            "id": "U1",
+            "device_id": "DEVICE",
+            "observed_at": "<clock>"
+          },
+          {
+            "state": "open",
+            "shift_id": "U4",
+            "staff_id": "U5",
+            "closed_at": null,
+            "opened_at": "2031-03-14T04:00:00.000Z",
+            "terminal_id": "U6",
+            "cash_in_minor": "0",
+            "cash_out_minor": "0",
+            "cash_sales_minor": "0",
+            "discrepancy_minor": null,
+            "cash_refunds_minor": "0",
+            "counted_cash_minor": null,
+            "opening_cash_minor": "1000000",
+            "expected_cash_minor": "1000000",
+            "id": "U4",
+            "device_id": "DEVICE",
+            "observed_at": "<clock>"
+          }
+        ],
+        "cashier_orders": [
+          {
+            "lines": [],
+            "state": "paid",
+            "version": 1,
+            "order_id": "CASHIERORDER",
+            "created_at": "2031-03-14T05:00:00.000Z",
+            "total_minor": "250000",
+            "cash_shift_id": "U4",
+            "kitchen_state": "handed_over",
+            "display_number": "1",
+            "execution_mode": "pos_sale",
+            "id": "CASHIERORDER",
+            "observed_at": "<clock>",
+            "owner": "edge_pos",
+            "channel": "pos",
+            "source": "cashier_report",
+            "payment_state": "not_started",
+            "fiscal_state": "not_requested"
+          }
+        ],
+        "cashier_metrics": {
+          "orders": 1,
+          "cancelled_orders": 0,
+          "unpaid_total_minor": "0",
+          "completed_total_minor": "250000"
+        },
+        "selected_shift": null,
+        "coverage": {
+          "cashier_reports_available": true,
+          "cashier_reports_complete": false,
+          "cashier_financials": false,
+          "observed_at": "<clock>"
+        },
+        "period": "custom",
+        "records": [
+          {
+            "id": "U7",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическая кассир 2",
+              "note": "",
+              "role": "cashier",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "U8",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический начальник смены",
+              "note": "",
+              "role": "manager",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "U9",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический кассир",
+              "note": "",
+              "role": "cashier",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "COOK",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический повар",
+              "note": "",
+              "role": "cook",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "FILLET",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическое филе",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "BUN",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическая булка",
+              "unit": "pcs",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "RECIPE",
+            "kind": "recipe",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический фарш",
+              "lines": [{ "quantity": "1", "ingredient_id": "BUN" }],
+              "product_id": "ttk:syn-golden",
+              "yield_quantity": "1000",
+              "output_ingredient_id": "FILLET"
+            },
+            "updated_at": "<clock>"
+          }
+        ],
+        "stock": [
+          {
+            "id": "BUN",
+            "payload": {
+              "name": "Синтетическая булка",
+              "unit": "pcs",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "18",
+            "value_minor": "18000",
+            "revision": 2
+          },
+          {
+            "id": "FILLET",
+            "payload": {
+              "name": "Синтетическое филе",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "4900",
+            "value_minor": "1143660",
+            "revision": 2
+          }
+        ],
+        "orders": [
+          {
+            "id": "CLOUDORDER",
+            "created_at": "2031-03-14T07:30:00.000Z",
+            "total_minor": "450000",
+            "version": "1",
+            "state": "awaiting_admission",
+            "channel": "mobile",
+            "owner": "cloud",
+            "payment_state": null,
+            "kitchen_state": null,
+            "observed_at": null,
+            "display_number": null,
+            "captured_minor": "450000",
+            "refunded_minor": "0"
+          }
+        ],
+        "pos": [],
+        "metrics": {
+          "orders": 1,
+          "handed_over": 0,
+          "captured_minor": "450000",
+          "refunded_minor": "0",
+          "unknown_payments": 0,
+          "kitchen_active": 0,
+          "pos_orders": 0,
+          "completed_total_minor": "0"
+        },
+        "chart": [{ "day": "2031-03-14", "amount_minor": "450000" }],
+        "finance": [],
+        "refunds": [],
+        "issues": [],
+        "devices": [
+          {
+            "id": "DEVICE",
+            "name": "Synthetic",
+            "kind": "edge",
+            "status": "pending",
+            "last_fulfillment_at": null,
+            "last_pos_at": null
+          }
+        ],
+        "availability": {
+          "device_id": null,
+          "stopped_ids": [],
+          "revision": null,
+          "observed_at": null,
+          "fresh": false,
+          "stopped_items": [],
+          "source": "edge_transport",
+          "writable": false
+        },
+        "kitchen": [],
+        "guests": [],
+        "audit": [
+          {
+            "id": "U10",
+            "actor_id": "MANAGER",
+            "action": "save:recipe",
+            "entity_id": "RECIPE",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U11",
+            "actor_id": "MANAGER",
+            "action": "save:employee",
+            "entity_id": "COOK",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U12",
+            "actor_id": "MANAGER",
+            "action": "stock:count",
+            "entity_id": "U13",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U14",
+            "actor_id": "MANAGER",
+            "action": "stock:waste",
+            "entity_id": "U15",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U16",
+            "actor_id": "MANAGER",
+            "action": "stock:receipt",
+            "entity_id": "U17",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U18",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "FILLET",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U19",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "BUN",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          }
+        ],
+        "catalog_audit": [],
+        "documents": [
+          {
+            "id": "U13",
+            "kind": "count",
+            "reference": "ИНВ-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическое филе",
+                "unit": "g",
+                "balance_after": "4900",
+                "ingredient_id": "FILLET",
+                "quantity_delta": "-100",
+                "value_after_minor": "1143660",
+                "value_delta_minor": "-23340"
+              }
+            ]
+          },
+          {
+            "id": "U15",
+            "kind": "waste",
+            "reference": "СП-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическая булка",
+                "unit": "pcs",
+                "balance_after": "18",
+                "ingredient_id": "BUN",
+                "quantity_delta": "-2",
+                "value_after_minor": "18000",
+                "value_delta_minor": "-2000"
+              }
+            ]
+          },
+          {
+            "id": "U17",
+            "kind": "receipt",
+            "reference": "НАК-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическая булка",
+                "unit": "pcs",
+                "balance_after": "20",
+                "ingredient_id": "BUN",
+                "quantity_delta": "20",
+                "value_after_minor": "20000",
+                "value_delta_minor": "20000"
+              },
+              {
+                "name": "Синтетическое филе",
+                "unit": "g",
+                "balance_after": "5000",
+                "ingredient_id": "FILLET",
+                "quantity_delta": "5000",
+                "value_after_minor": "1167000",
+                "value_delta_minor": "1167000"
+              }
+            ]
+          }
+        ],
+        "publications": [],
+        "station_plan": {
+          "schema_version": 1,
+          "enabled": false,
+          "available": true,
+          "latest": null,
+          "applied": null,
+          "edge": null,
+          "plans": []
+        },
+        "limits": {
+          "cashier_orders": 200,
+          "cashier_shifts": 200,
+          "orders": 200,
+          "pos": 200,
+          "finance": 200,
+          "refunds": 200,
+          "issues": 100,
+          "records": 2000
+        },
+        "truncated": {
+          "cashier_orders": false,
+          "cashier_shifts": false,
+          "orders": false,
+          "pos": false,
+          "finance": false,
+          "refunds": false,
+          "issues": false
+        },
+        "capabilities": {
+          "operational_shift_filter": true,
+          "bank_settlement": false,
+          "push_delivery": false,
+          "external_reviews": false,
+          "fiscal_shift": false,
+          "edge_configuration_delivery": false
+        }
+      }
+    },
+    "order cashier": {
+      "ok": {
+        "order": {
+          "lines": [],
+          "state": "paid",
+          "version": 1,
+          "order_id": "CASHIERORDER",
+          "created_at": "2031-03-14T05:00:00.000Z",
+          "total_minor": "250000",
+          "cash_shift_id": "U4",
+          "kitchen_state": "handed_over",
+          "display_number": "1",
+          "execution_mode": "pos_sale",
+          "id": "CASHIERORDER",
+          "observed_at": "<clock>",
+          "snapshot": { "lines": [] },
+          "source": "cashier_report",
+          "owner": "edge_pos",
+          "channel": "pos",
+          "payment_state": "not_started",
+          "fiscal_state": "not_requested"
+        },
+        "owner": "edge_pos",
+        "source": "cashier_report",
+        "captures": [],
+        "refunds": [],
+        "fiscal": [],
+        "events": [],
+        "capabilities": { "can_cancel": false, "can_refund": false }
+      }
+    },
+    "order app": {
+      "ok": {
+        "order": {
+          "id": "CLOUDORDER",
+          "snapshot": { "lines": [], "channel": "mobile" },
+          "state": "awaiting_admission",
+          "version": "1",
+          "total_minor": "450000",
+          "created_at": "2031-03-14T07:30:00.000Z"
+        },
+        "owner": "cloud",
+        "captures": [
+          { "id": "U20", "amount_minor": "450000", "occurred_at": "2031-03-14T07:31:00.000Z" }
+        ],
+        "refunds": [],
+        "fiscal": [],
+        "events": [],
+        "issues": [],
+        "refund_capabilities": { "adapter": false, "manual": false }
+      }
+    },
+    "ops sales": { "error": { "code": "NOT_FOUND", "reason": null } },
+    "ops stock": { "error": { "code": "NOT_FOUND", "reason": "STOCK_V2_DISABLED" } },
+    "ops pos-day": { "error": { "code": "NOT_FOUND", "reason": null } },
+    "ops orders": { "error": { "code": "NOT_FOUND", "reason": null } },
+    "ops menu-links": { "error": { "code": "NOT_FOUND", "reason": null } },
+    "ops consumption": { "error": { "code": "NOT_FOUND", "reason": null } },
+    "ops manager-shifts": { "error": { "code": "NOT_FOUND", "reason": null } },
+    "ops staff-roster": { "error": { "code": "NOT_FOUND", "reason": null } },
+    "ops discounts": { "error": { "code": "NOT_FOUND", "reason": null } },
+    "ops bogus": { "error": { "code": "NOT_FOUND", "reason": null } },
+    "command storno": { "error": { "code": "INVALID_REQUEST", "reason": null } },
+    "command discount": { "error": { "code": "INVALID_REQUEST", "reason": null } },
+    "command save with a P1 field": { "error": { "code": "INVALID_REQUEST", "reason": null } },
+    "command save a new ingredient": {
+      "ok": {
+        "id": "SAVED_1",
+        "kind": "ingredient",
+        "revision": 1,
+        "payload": {
+          "name": "Синтетический лук all off",
+          "unit": "g",
+          "active": true,
+          "minimum": "0"
+        },
+        "updated_at": "<clock>"
+      }
+    }
+  },
+  "roles and sales report": {
+    "read manager day": {
+      "ok": {
+        "schema_version": 1,
+        "branch_id": "BRANCH",
+        "role": "manager",
+        "effective_role": "manager",
+        "permissions": [
+          "reports.read",
+          "finance.read",
+          "finance.write",
+          "reconciliation.read",
+          "reconciliation.write",
+          "workforce.read",
+          "workforce.write",
+          "records.write",
+          "devices.write",
+          "restore_reviews.write",
+          "stops.write",
+          "orders.cancel",
+          "orders.refund",
+          "stock.receipt",
+          "stock.waste",
+          "stock.count",
+          "stock.production"
+        ],
+        "period_start": "2031-03-13T19:00:00.000Z",
+        "period_end": "2031-03-14T19:00:00.000Z",
+        "timezone": "Asia/Almaty",
+        "operational_shift_filter": {
+          "available": true,
+          "selected_shift_id": null,
+          "mode": "calendar",
+          "financials_available": true,
+          "reason": null
+        },
+        "cashier_shifts": [
+          {
+            "state": "open",
+            "shift_id": "U1",
+            "staff_id": "U2",
+            "closed_at": null,
+            "opened_at": "2031-03-14T05:00:00.000Z",
+            "terminal_id": "U3",
+            "cash_in_minor": "0",
+            "cash_out_minor": "0",
+            "cash_sales_minor": "150000",
+            "discrepancy_minor": null,
+            "cash_refunds_minor": "0",
+            "counted_cash_minor": null,
+            "opening_cash_minor": "500000",
+            "expected_cash_minor": "650000",
+            "id": "U1",
+            "device_id": "DEVICE",
+            "observed_at": "<clock>"
+          },
+          {
+            "state": "open",
+            "shift_id": "U4",
+            "staff_id": "U5",
+            "closed_at": null,
+            "opened_at": "2031-03-14T04:00:00.000Z",
+            "terminal_id": "U6",
+            "cash_in_minor": "0",
+            "cash_out_minor": "0",
+            "cash_sales_minor": "0",
+            "discrepancy_minor": null,
+            "cash_refunds_minor": "0",
+            "counted_cash_minor": null,
+            "opening_cash_minor": "1000000",
+            "expected_cash_minor": "1000000",
+            "id": "U4",
+            "device_id": "DEVICE",
+            "observed_at": "<clock>"
+          }
+        ],
+        "cashier_orders": [
+          {
+            "lines": [],
+            "state": "paid",
+            "version": 1,
+            "order_id": "CASHIERORDER",
+            "created_at": "2031-03-14T05:00:00.000Z",
+            "total_minor": "250000",
+            "cash_shift_id": "U4",
+            "kitchen_state": "handed_over",
+            "display_number": "1",
+            "execution_mode": "pos_sale",
+            "id": "CASHIERORDER",
+            "observed_at": "<clock>",
+            "owner": "edge_pos",
+            "channel": "pos",
+            "source": "cashier_report",
+            "payment_state": "not_started",
+            "fiscal_state": "not_requested"
+          }
+        ],
+        "cashier_metrics": {
+          "orders": 1,
+          "cancelled_orders": 0,
+          "unpaid_total_minor": "0",
+          "completed_total_minor": "250000"
+        },
+        "selected_shift": null,
+        "coverage": {
+          "cashier_reports_available": true,
+          "cashier_reports_complete": false,
+          "cashier_financials": false,
+          "observed_at": "<clock>"
+        },
+        "period": "custom",
+        "records": [
+          {
+            "id": "U7",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическая кассир 2",
+              "note": "",
+              "role": "cashier",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "U8",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический начальник смены",
+              "note": "",
+              "role": "manager",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "U9",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический кассир",
+              "note": "",
+              "role": "cashier",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "COOK",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический повар",
+              "note": "",
+              "role": "cook",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "SAVED_1",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический лук all off",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "FILLET",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическое филе",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "BUN",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическая булка",
+              "unit": "pcs",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "RECIPE",
+            "kind": "recipe",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический фарш",
+              "lines": [{ "quantity": "1", "ingredient_id": "BUN" }],
+              "product_id": "ttk:syn-golden",
+              "yield_quantity": "1000",
+              "output_ingredient_id": "FILLET"
+            },
+            "updated_at": "<clock>"
+          }
+        ],
+        "stock": [
+          {
+            "id": "BUN",
+            "payload": {
+              "name": "Синтетическая булка",
+              "unit": "pcs",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "18",
+            "value_minor": "18000",
+            "revision": 2
+          },
+          {
+            "id": "SAVED_1",
+            "payload": {
+              "name": "Синтетический лук all off",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "0",
+            "value_minor": "0",
+            "revision": 0
+          },
+          {
+            "id": "FILLET",
+            "payload": {
+              "name": "Синтетическое филе",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "4900",
+            "value_minor": "1143660",
+            "revision": 2
+          }
+        ],
+        "orders": [
+          {
+            "id": "CLOUDORDER",
+            "created_at": "2031-03-14T07:30:00.000Z",
+            "total_minor": "450000",
+            "version": "1",
+            "state": "awaiting_admission",
+            "channel": "mobile",
+            "owner": "cloud",
+            "payment_state": null,
+            "kitchen_state": null,
+            "observed_at": null,
+            "display_number": null,
+            "captured_minor": "450000",
+            "refunded_minor": "0"
+          }
+        ],
+        "pos": [],
+        "metrics": {
+          "orders": 1,
+          "handed_over": 0,
+          "captured_minor": "450000",
+          "refunded_minor": "0",
+          "unknown_payments": 0,
+          "kitchen_active": 0,
+          "pos_orders": 0,
+          "completed_total_minor": "0"
+        },
+        "chart": [{ "day": "2031-03-14", "amount_minor": "450000" }],
+        "finance": [],
+        "refunds": [],
+        "issues": [],
+        "devices": [
+          {
+            "id": "DEVICE",
+            "name": "Synthetic",
+            "kind": "edge",
+            "status": "pending",
+            "last_fulfillment_at": null,
+            "last_pos_at": null
+          }
+        ],
+        "availability": {
+          "device_id": null,
+          "stopped_ids": [],
+          "revision": null,
+          "observed_at": null,
+          "fresh": false,
+          "stopped_items": [],
+          "source": "edge_transport",
+          "writable": false
+        },
+        "kitchen": [],
+        "guests": [],
+        "audit": [
+          {
+            "id": "U21",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "SAVED_1",
+            "reason": "Синтетическая проверка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U10",
+            "actor_id": "MANAGER",
+            "action": "save:recipe",
+            "entity_id": "RECIPE",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U11",
+            "actor_id": "MANAGER",
+            "action": "save:employee",
+            "entity_id": "COOK",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U12",
+            "actor_id": "MANAGER",
+            "action": "stock:count",
+            "entity_id": "U13",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U14",
+            "actor_id": "MANAGER",
+            "action": "stock:waste",
+            "entity_id": "U15",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U16",
+            "actor_id": "MANAGER",
+            "action": "stock:receipt",
+            "entity_id": "U17",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U18",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "FILLET",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U19",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "BUN",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          }
+        ],
+        "catalog_audit": [],
+        "documents": [
+          {
+            "id": "U13",
+            "kind": "count",
+            "reference": "ИНВ-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическое филе",
+                "unit": "g",
+                "balance_after": "4900",
+                "ingredient_id": "FILLET",
+                "quantity_delta": "-100",
+                "value_after_minor": "1143660",
+                "value_delta_minor": "-23340"
+              }
+            ]
+          },
+          {
+            "id": "U15",
+            "kind": "waste",
+            "reference": "СП-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическая булка",
+                "unit": "pcs",
+                "balance_after": "18",
+                "ingredient_id": "BUN",
+                "quantity_delta": "-2",
+                "value_after_minor": "18000",
+                "value_delta_minor": "-2000"
+              }
+            ]
+          },
+          {
+            "id": "U17",
+            "kind": "receipt",
+            "reference": "НАК-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическая булка",
+                "unit": "pcs",
+                "balance_after": "20",
+                "ingredient_id": "BUN",
+                "quantity_delta": "20",
+                "value_after_minor": "20000",
+                "value_delta_minor": "20000"
+              },
+              {
+                "name": "Синтетическое филе",
+                "unit": "g",
+                "balance_after": "5000",
+                "ingredient_id": "FILLET",
+                "quantity_delta": "5000",
+                "value_after_minor": "1167000",
+                "value_delta_minor": "1167000"
+              }
+            ]
+          }
+        ],
+        "publications": [],
+        "station_plan": {
+          "schema_version": 1,
+          "enabled": false,
+          "available": true,
+          "latest": null,
+          "applied": null,
+          "edge": null,
+          "plans": []
+        },
+        "limits": {
+          "cashier_orders": 200,
+          "cashier_shifts": 200,
+          "orders": 200,
+          "pos": 200,
+          "finance": 200,
+          "refunds": 200,
+          "issues": 100,
+          "records": 2000
+        },
+        "truncated": {
+          "cashier_orders": false,
+          "cashier_shifts": false,
+          "orders": false,
+          "pos": false,
+          "finance": false,
+          "refunds": false,
+          "issues": false
+        },
+        "capabilities": {
+          "operational_shift_filter": true,
+          "bank_settlement": false,
+          "push_delivery": false,
+          "external_reviews": false,
+          "fiscal_shift": false,
+          "edge_configuration_delivery": false,
+          "roles": true,
+          "sales_report": true
+        }
+      }
+    },
+    "read manager week": {
+      "ok": {
+        "schema_version": 1,
+        "branch_id": "BRANCH",
+        "role": "manager",
+        "effective_role": "manager",
+        "permissions": [
+          "reports.read",
+          "finance.read",
+          "finance.write",
+          "reconciliation.read",
+          "reconciliation.write",
+          "workforce.read",
+          "workforce.write",
+          "records.write",
+          "devices.write",
+          "restore_reviews.write",
+          "stops.write",
+          "orders.cancel",
+          "orders.refund",
+          "stock.receipt",
+          "stock.waste",
+          "stock.count",
+          "stock.production"
+        ],
+        "period_start": "2031-03-07T19:00:00.000Z",
+        "period_end": "2031-03-14T19:00:00.000Z",
+        "timezone": "Asia/Almaty",
+        "operational_shift_filter": {
+          "available": true,
+          "selected_shift_id": null,
+          "mode": "calendar",
+          "financials_available": true,
+          "reason": null
+        },
+        "cashier_shifts": [
+          {
+            "state": "open",
+            "shift_id": "U1",
+            "staff_id": "U2",
+            "closed_at": null,
+            "opened_at": "2031-03-14T05:00:00.000Z",
+            "terminal_id": "U3",
+            "cash_in_minor": "0",
+            "cash_out_minor": "0",
+            "cash_sales_minor": "150000",
+            "discrepancy_minor": null,
+            "cash_refunds_minor": "0",
+            "counted_cash_minor": null,
+            "opening_cash_minor": "500000",
+            "expected_cash_minor": "650000",
+            "id": "U1",
+            "device_id": "DEVICE",
+            "observed_at": "<clock>"
+          },
+          {
+            "state": "open",
+            "shift_id": "U4",
+            "staff_id": "U5",
+            "closed_at": null,
+            "opened_at": "2031-03-14T04:00:00.000Z",
+            "terminal_id": "U6",
+            "cash_in_minor": "0",
+            "cash_out_minor": "0",
+            "cash_sales_minor": "0",
+            "discrepancy_minor": null,
+            "cash_refunds_minor": "0",
+            "counted_cash_minor": null,
+            "opening_cash_minor": "1000000",
+            "expected_cash_minor": "1000000",
+            "id": "U4",
+            "device_id": "DEVICE",
+            "observed_at": "<clock>"
+          }
+        ],
+        "cashier_orders": [
+          {
+            "lines": [],
+            "state": "paid",
+            "version": 1,
+            "order_id": "CASHIERORDER",
+            "created_at": "2031-03-14T05:00:00.000Z",
+            "total_minor": "250000",
+            "cash_shift_id": "U4",
+            "kitchen_state": "handed_over",
+            "display_number": "1",
+            "execution_mode": "pos_sale",
+            "id": "CASHIERORDER",
+            "observed_at": "<clock>",
+            "owner": "edge_pos",
+            "channel": "pos",
+            "source": "cashier_report",
+            "payment_state": "not_started",
+            "fiscal_state": "not_requested"
+          }
+        ],
+        "cashier_metrics": {
+          "orders": 1,
+          "cancelled_orders": 0,
+          "unpaid_total_minor": "0",
+          "completed_total_minor": "250000"
+        },
+        "selected_shift": null,
+        "coverage": {
+          "cashier_reports_available": true,
+          "cashier_reports_complete": false,
+          "cashier_financials": false,
+          "observed_at": "<clock>"
+        },
+        "period": "custom",
+        "records": [
+          {
+            "id": "U7",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическая кассир 2",
+              "note": "",
+              "role": "cashier",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "U8",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический начальник смены",
+              "note": "",
+              "role": "manager",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "U9",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический кассир",
+              "note": "",
+              "role": "cashier",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "COOK",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический повар",
+              "note": "",
+              "role": "cook",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "SAVED_1",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический лук all off",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "FILLET",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическое филе",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "BUN",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическая булка",
+              "unit": "pcs",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "RECIPE",
+            "kind": "recipe",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический фарш",
+              "lines": [{ "quantity": "1", "ingredient_id": "BUN" }],
+              "product_id": "ttk:syn-golden",
+              "yield_quantity": "1000",
+              "output_ingredient_id": "FILLET"
+            },
+            "updated_at": "<clock>"
+          }
+        ],
+        "stock": [
+          {
+            "id": "BUN",
+            "payload": {
+              "name": "Синтетическая булка",
+              "unit": "pcs",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "18",
+            "value_minor": "18000",
+            "revision": 2
+          },
+          {
+            "id": "SAVED_1",
+            "payload": {
+              "name": "Синтетический лук all off",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "0",
+            "value_minor": "0",
+            "revision": 0
+          },
+          {
+            "id": "FILLET",
+            "payload": {
+              "name": "Синтетическое филе",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "4900",
+            "value_minor": "1143660",
+            "revision": 2
+          }
+        ],
+        "orders": [
+          {
+            "id": "CLOUDORDER",
+            "created_at": "2031-03-14T07:30:00.000Z",
+            "total_minor": "450000",
+            "version": "1",
+            "state": "awaiting_admission",
+            "channel": "mobile",
+            "owner": "cloud",
+            "payment_state": null,
+            "kitchen_state": null,
+            "observed_at": null,
+            "display_number": null,
+            "captured_minor": "450000",
+            "refunded_minor": "0"
+          }
+        ],
+        "pos": [],
+        "metrics": {
+          "orders": 1,
+          "handed_over": 0,
+          "captured_minor": "450000",
+          "refunded_minor": "0",
+          "unknown_payments": 0,
+          "kitchen_active": 0,
+          "pos_orders": 0,
+          "completed_total_minor": "0"
+        },
+        "chart": [{ "day": "2031-03-14", "amount_minor": "450000" }],
+        "finance": [],
+        "refunds": [],
+        "issues": [],
+        "devices": [
+          {
+            "id": "DEVICE",
+            "name": "Synthetic",
+            "kind": "edge",
+            "status": "pending",
+            "last_fulfillment_at": null,
+            "last_pos_at": null
+          }
+        ],
+        "availability": {
+          "device_id": null,
+          "stopped_ids": [],
+          "revision": null,
+          "observed_at": null,
+          "fresh": false,
+          "stopped_items": [],
+          "source": "edge_transport",
+          "writable": false
+        },
+        "kitchen": [],
+        "guests": [],
+        "audit": [
+          {
+            "id": "U21",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "SAVED_1",
+            "reason": "Синтетическая проверка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U10",
+            "actor_id": "MANAGER",
+            "action": "save:recipe",
+            "entity_id": "RECIPE",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U11",
+            "actor_id": "MANAGER",
+            "action": "save:employee",
+            "entity_id": "COOK",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U12",
+            "actor_id": "MANAGER",
+            "action": "stock:count",
+            "entity_id": "U13",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U14",
+            "actor_id": "MANAGER",
+            "action": "stock:waste",
+            "entity_id": "U15",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U16",
+            "actor_id": "MANAGER",
+            "action": "stock:receipt",
+            "entity_id": "U17",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U18",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "FILLET",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U19",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "BUN",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          }
+        ],
+        "catalog_audit": [],
+        "documents": [
+          {
+            "id": "U13",
+            "kind": "count",
+            "reference": "ИНВ-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическое филе",
+                "unit": "g",
+                "balance_after": "4900",
+                "ingredient_id": "FILLET",
+                "quantity_delta": "-100",
+                "value_after_minor": "1143660",
+                "value_delta_minor": "-23340"
+              }
+            ]
+          },
+          {
+            "id": "U15",
+            "kind": "waste",
+            "reference": "СП-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическая булка",
+                "unit": "pcs",
+                "balance_after": "18",
+                "ingredient_id": "BUN",
+                "quantity_delta": "-2",
+                "value_after_minor": "18000",
+                "value_delta_minor": "-2000"
+              }
+            ]
+          },
+          {
+            "id": "U17",
+            "kind": "receipt",
+            "reference": "НАК-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическая булка",
+                "unit": "pcs",
+                "balance_after": "20",
+                "ingredient_id": "BUN",
+                "quantity_delta": "20",
+                "value_after_minor": "20000",
+                "value_delta_minor": "20000"
+              },
+              {
+                "name": "Синтетическое филе",
+                "unit": "g",
+                "balance_after": "5000",
+                "ingredient_id": "FILLET",
+                "quantity_delta": "5000",
+                "value_after_minor": "1167000",
+                "value_delta_minor": "1167000"
+              }
+            ]
+          }
+        ],
+        "publications": [],
+        "station_plan": {
+          "schema_version": 1,
+          "enabled": false,
+          "available": true,
+          "latest": null,
+          "applied": null,
+          "edge": null,
+          "plans": []
+        },
+        "limits": {
+          "cashier_orders": 200,
+          "cashier_shifts": 200,
+          "orders": 200,
+          "pos": 200,
+          "finance": 200,
+          "refunds": 200,
+          "issues": 100,
+          "records": 2000
+        },
+        "truncated": {
+          "cashier_orders": false,
+          "cashier_shifts": false,
+          "orders": false,
+          "pos": false,
+          "finance": false,
+          "refunds": false,
+          "issues": false
+        },
+        "capabilities": {
+          "operational_shift_filter": true,
+          "bank_settlement": false,
+          "push_delivery": false,
+          "external_reviews": false,
+          "fiscal_shift": false,
+          "edge_configuration_delivery": false,
+          "roles": true,
+          "sales_report": true
+        }
+      }
+    },
+    "read analyst day": {
+      "ok": {
+        "schema_version": 1,
+        "branch_id": "BRANCH",
+        "role": "analyst",
+        "effective_role": "analyst",
+        "permissions": ["reports.read", "finance.read", "reconciliation.read", "workforce.read"],
+        "period_start": "2031-03-13T19:00:00.000Z",
+        "period_end": "2031-03-14T19:00:00.000Z",
+        "timezone": "Asia/Almaty",
+        "operational_shift_filter": {
+          "available": true,
+          "selected_shift_id": null,
+          "mode": "calendar",
+          "financials_available": true,
+          "reason": null
+        },
+        "cashier_shifts": [
+          {
+            "state": "open",
+            "shift_id": "U1",
+            "staff_id": "U2",
+            "closed_at": null,
+            "opened_at": "2031-03-14T05:00:00.000Z",
+            "terminal_id": "U3",
+            "cash_in_minor": "0",
+            "cash_out_minor": "0",
+            "cash_sales_minor": "150000",
+            "discrepancy_minor": null,
+            "cash_refunds_minor": "0",
+            "counted_cash_minor": null,
+            "opening_cash_minor": "500000",
+            "expected_cash_minor": "650000",
+            "id": "U1",
+            "device_id": "DEVICE",
+            "observed_at": "<clock>"
+          },
+          {
+            "state": "open",
+            "shift_id": "U4",
+            "staff_id": "U5",
+            "closed_at": null,
+            "opened_at": "2031-03-14T04:00:00.000Z",
+            "terminal_id": "U6",
+            "cash_in_minor": "0",
+            "cash_out_minor": "0",
+            "cash_sales_minor": "0",
+            "discrepancy_minor": null,
+            "cash_refunds_minor": "0",
+            "counted_cash_minor": null,
+            "opening_cash_minor": "1000000",
+            "expected_cash_minor": "1000000",
+            "id": "U4",
+            "device_id": "DEVICE",
+            "observed_at": "<clock>"
+          }
+        ],
+        "cashier_orders": [
+          {
+            "lines": [],
+            "state": "paid",
+            "version": 1,
+            "order_id": "CASHIERORDER",
+            "created_at": "2031-03-14T05:00:00.000Z",
+            "total_minor": "250000",
+            "cash_shift_id": "U4",
+            "kitchen_state": "handed_over",
+            "display_number": "1",
+            "execution_mode": "pos_sale",
+            "id": "CASHIERORDER",
+            "observed_at": "<clock>",
+            "owner": "edge_pos",
+            "channel": "pos",
+            "source": "cashier_report",
+            "payment_state": "not_started",
+            "fiscal_state": "not_requested"
+          }
+        ],
+        "cashier_metrics": {
+          "orders": 1,
+          "cancelled_orders": 0,
+          "unpaid_total_minor": "0",
+          "completed_total_minor": "250000"
+        },
+        "selected_shift": null,
+        "coverage": {
+          "cashier_reports_available": true,
+          "cashier_reports_complete": false,
+          "cashier_financials": false,
+          "observed_at": "<clock>"
+        },
+        "period": "custom",
+        "records": [
+          {
+            "id": "U7",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическая кассир 2",
+              "note": "",
+              "role": "cashier",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "U8",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический начальник смены",
+              "note": "",
+              "role": "manager",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "U9",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический кассир",
+              "note": "",
+              "role": "cashier",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "COOK",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический повар",
+              "note": "",
+              "role": "cook",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "SAVED_1",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический лук all off",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "FILLET",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическое филе",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "BUN",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическая булка",
+              "unit": "pcs",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "RECIPE",
+            "kind": "recipe",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический фарш",
+              "lines": [{ "quantity": "1", "ingredient_id": "BUN" }],
+              "product_id": "ttk:syn-golden",
+              "yield_quantity": "1000",
+              "output_ingredient_id": "FILLET"
+            },
+            "updated_at": "<clock>"
+          }
+        ],
+        "stock": [
+          {
+            "id": "BUN",
+            "payload": {
+              "name": "Синтетическая булка",
+              "unit": "pcs",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "18",
+            "value_minor": "18000",
+            "revision": 2
+          },
+          {
+            "id": "SAVED_1",
+            "payload": {
+              "name": "Синтетический лук all off",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "0",
+            "value_minor": "0",
+            "revision": 0
+          },
+          {
+            "id": "FILLET",
+            "payload": {
+              "name": "Синтетическое филе",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "4900",
+            "value_minor": "1143660",
+            "revision": 2
+          }
+        ],
+        "orders": [
+          {
+            "id": "CLOUDORDER",
+            "created_at": "2031-03-14T07:30:00.000Z",
+            "total_minor": "450000",
+            "version": "1",
+            "state": "awaiting_admission",
+            "channel": "mobile",
+            "owner": "cloud",
+            "payment_state": null,
+            "kitchen_state": null,
+            "observed_at": null,
+            "display_number": null,
+            "captured_minor": "450000",
+            "refunded_minor": "0"
+          }
+        ],
+        "pos": [],
+        "metrics": {
+          "orders": 1,
+          "handed_over": 0,
+          "captured_minor": "450000",
+          "refunded_minor": "0",
+          "unknown_payments": 0,
+          "kitchen_active": 0,
+          "pos_orders": 0,
+          "completed_total_minor": "0"
+        },
+        "chart": [{ "day": "2031-03-14", "amount_minor": "450000" }],
+        "finance": [],
+        "refunds": [],
+        "issues": [],
+        "devices": [
+          {
+            "id": "DEVICE",
+            "name": "Synthetic",
+            "kind": "edge",
+            "status": "pending",
+            "last_fulfillment_at": null,
+            "last_pos_at": null
+          }
+        ],
+        "availability": {
+          "device_id": null,
+          "stopped_ids": [],
+          "revision": null,
+          "observed_at": null,
+          "fresh": false,
+          "stopped_items": [],
+          "source": "edge_transport",
+          "writable": false
+        },
+        "kitchen": [],
+        "guests": [],
+        "audit": [
+          {
+            "id": "U21",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "SAVED_1",
+            "reason": "Синтетическая проверка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U10",
+            "actor_id": "MANAGER",
+            "action": "save:recipe",
+            "entity_id": "RECIPE",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U11",
+            "actor_id": "MANAGER",
+            "action": "save:employee",
+            "entity_id": "COOK",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U12",
+            "actor_id": "MANAGER",
+            "action": "stock:count",
+            "entity_id": "U13",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U14",
+            "actor_id": "MANAGER",
+            "action": "stock:waste",
+            "entity_id": "U15",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U16",
+            "actor_id": "MANAGER",
+            "action": "stock:receipt",
+            "entity_id": "U17",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U18",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "FILLET",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U19",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "BUN",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          }
+        ],
+        "catalog_audit": [],
+        "documents": [
+          {
+            "id": "U13",
+            "kind": "count",
+            "reference": "ИНВ-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическое филе",
+                "unit": "g",
+                "balance_after": "4900",
+                "ingredient_id": "FILLET",
+                "quantity_delta": "-100",
+                "value_after_minor": "1143660",
+                "value_delta_minor": "-23340"
+              }
+            ]
+          },
+          {
+            "id": "U15",
+            "kind": "waste",
+            "reference": "СП-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическая булка",
+                "unit": "pcs",
+                "balance_after": "18",
+                "ingredient_id": "BUN",
+                "quantity_delta": "-2",
+                "value_after_minor": "18000",
+                "value_delta_minor": "-2000"
+              }
+            ]
+          },
+          {
+            "id": "U17",
+            "kind": "receipt",
+            "reference": "НАК-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическая булка",
+                "unit": "pcs",
+                "balance_after": "20",
+                "ingredient_id": "BUN",
+                "quantity_delta": "20",
+                "value_after_minor": "20000",
+                "value_delta_minor": "20000"
+              },
+              {
+                "name": "Синтетическое филе",
+                "unit": "g",
+                "balance_after": "5000",
+                "ingredient_id": "FILLET",
+                "quantity_delta": "5000",
+                "value_after_minor": "1167000",
+                "value_delta_minor": "1167000"
+              }
+            ]
+          }
+        ],
+        "publications": [],
+        "station_plan": {
+          "schema_version": 1,
+          "enabled": false,
+          "available": true,
+          "latest": null,
+          "applied": null,
+          "edge": null,
+          "plans": []
+        },
+        "limits": {
+          "cashier_orders": 200,
+          "cashier_shifts": 200,
+          "orders": 200,
+          "pos": 200,
+          "finance": 200,
+          "refunds": 200,
+          "issues": 100,
+          "records": 2000
+        },
+        "truncated": {
+          "cashier_orders": false,
+          "cashier_shifts": false,
+          "orders": false,
+          "pos": false,
+          "finance": false,
+          "refunds": false,
+          "issues": false
+        },
+        "capabilities": {
+          "operational_shift_filter": true,
+          "bank_settlement": false,
+          "push_delivery": false,
+          "external_reviews": false,
+          "fiscal_shift": false,
+          "edge_configuration_delivery": false,
+          "roles": true,
+          "sales_report": true
+        }
+      }
+    },
+    "read analyst week": {
+      "ok": {
+        "schema_version": 1,
+        "branch_id": "BRANCH",
+        "role": "analyst",
+        "effective_role": "analyst",
+        "permissions": ["reports.read", "finance.read", "reconciliation.read", "workforce.read"],
+        "period_start": "2031-03-07T19:00:00.000Z",
+        "period_end": "2031-03-14T19:00:00.000Z",
+        "timezone": "Asia/Almaty",
+        "operational_shift_filter": {
+          "available": true,
+          "selected_shift_id": null,
+          "mode": "calendar",
+          "financials_available": true,
+          "reason": null
+        },
+        "cashier_shifts": [
+          {
+            "state": "open",
+            "shift_id": "U1",
+            "staff_id": "U2",
+            "closed_at": null,
+            "opened_at": "2031-03-14T05:00:00.000Z",
+            "terminal_id": "U3",
+            "cash_in_minor": "0",
+            "cash_out_minor": "0",
+            "cash_sales_minor": "150000",
+            "discrepancy_minor": null,
+            "cash_refunds_minor": "0",
+            "counted_cash_minor": null,
+            "opening_cash_minor": "500000",
+            "expected_cash_minor": "650000",
+            "id": "U1",
+            "device_id": "DEVICE",
+            "observed_at": "<clock>"
+          },
+          {
+            "state": "open",
+            "shift_id": "U4",
+            "staff_id": "U5",
+            "closed_at": null,
+            "opened_at": "2031-03-14T04:00:00.000Z",
+            "terminal_id": "U6",
+            "cash_in_minor": "0",
+            "cash_out_minor": "0",
+            "cash_sales_minor": "0",
+            "discrepancy_minor": null,
+            "cash_refunds_minor": "0",
+            "counted_cash_minor": null,
+            "opening_cash_minor": "1000000",
+            "expected_cash_minor": "1000000",
+            "id": "U4",
+            "device_id": "DEVICE",
+            "observed_at": "<clock>"
+          }
+        ],
+        "cashier_orders": [
+          {
+            "lines": [],
+            "state": "paid",
+            "version": 1,
+            "order_id": "CASHIERORDER",
+            "created_at": "2031-03-14T05:00:00.000Z",
+            "total_minor": "250000",
+            "cash_shift_id": "U4",
+            "kitchen_state": "handed_over",
+            "display_number": "1",
+            "execution_mode": "pos_sale",
+            "id": "CASHIERORDER",
+            "observed_at": "<clock>",
+            "owner": "edge_pos",
+            "channel": "pos",
+            "source": "cashier_report",
+            "payment_state": "not_started",
+            "fiscal_state": "not_requested"
+          }
+        ],
+        "cashier_metrics": {
+          "orders": 1,
+          "cancelled_orders": 0,
+          "unpaid_total_minor": "0",
+          "completed_total_minor": "250000"
+        },
+        "selected_shift": null,
+        "coverage": {
+          "cashier_reports_available": true,
+          "cashier_reports_complete": false,
+          "cashier_financials": false,
+          "observed_at": "<clock>"
+        },
+        "period": "custom",
+        "records": [
+          {
+            "id": "U7",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическая кассир 2",
+              "note": "",
+              "role": "cashier",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "U8",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический начальник смены",
+              "note": "",
+              "role": "manager",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "U9",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический кассир",
+              "note": "",
+              "role": "cashier",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "COOK",
+            "kind": "employee",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический повар",
+              "note": "",
+              "role": "cook",
+              "active": true
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "SAVED_1",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический лук all off",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "FILLET",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическое филе",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "BUN",
+            "kind": "ingredient",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетическая булка",
+              "unit": "pcs",
+              "active": true,
+              "minimum": "0"
+            },
+            "updated_at": "<clock>"
+          },
+          {
+            "id": "RECIPE",
+            "kind": "recipe",
+            "revision": 1,
+            "payload": {
+              "name": "Синтетический фарш",
+              "lines": [{ "quantity": "1", "ingredient_id": "BUN" }],
+              "product_id": "ttk:syn-golden",
+              "yield_quantity": "1000",
+              "output_ingredient_id": "FILLET"
+            },
+            "updated_at": "<clock>"
+          }
+        ],
+        "stock": [
+          {
+            "id": "BUN",
+            "payload": {
+              "name": "Синтетическая булка",
+              "unit": "pcs",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "18",
+            "value_minor": "18000",
+            "revision": 2
+          },
+          {
+            "id": "SAVED_1",
+            "payload": {
+              "name": "Синтетический лук all off",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "0",
+            "value_minor": "0",
+            "revision": 0
+          },
+          {
+            "id": "FILLET",
+            "payload": {
+              "name": "Синтетическое филе",
+              "unit": "g",
+              "active": true,
+              "minimum": "0"
+            },
+            "quantity": "4900",
+            "value_minor": "1143660",
+            "revision": 2
+          }
+        ],
+        "orders": [
+          {
+            "id": "CLOUDORDER",
+            "created_at": "2031-03-14T07:30:00.000Z",
+            "total_minor": "450000",
+            "version": "1",
+            "state": "awaiting_admission",
+            "channel": "mobile",
+            "owner": "cloud",
+            "payment_state": null,
+            "kitchen_state": null,
+            "observed_at": null,
+            "display_number": null,
+            "captured_minor": "450000",
+            "refunded_minor": "0"
+          }
+        ],
+        "pos": [],
+        "metrics": {
+          "orders": 1,
+          "handed_over": 0,
+          "captured_minor": "450000",
+          "refunded_minor": "0",
+          "unknown_payments": 0,
+          "kitchen_active": 0,
+          "pos_orders": 0,
+          "completed_total_minor": "0"
+        },
+        "chart": [{ "day": "2031-03-14", "amount_minor": "450000" }],
+        "finance": [],
+        "refunds": [],
+        "issues": [],
+        "devices": [
+          {
+            "id": "DEVICE",
+            "name": "Synthetic",
+            "kind": "edge",
+            "status": "pending",
+            "last_fulfillment_at": null,
+            "last_pos_at": null
+          }
+        ],
+        "availability": {
+          "device_id": null,
+          "stopped_ids": [],
+          "revision": null,
+          "observed_at": null,
+          "fresh": false,
+          "stopped_items": [],
+          "source": "edge_transport",
+          "writable": false
+        },
+        "kitchen": [],
+        "guests": [],
+        "audit": [
+          {
+            "id": "U21",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "SAVED_1",
+            "reason": "Синтетическая проверка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U10",
+            "actor_id": "MANAGER",
+            "action": "save:recipe",
+            "entity_id": "RECIPE",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U11",
+            "actor_id": "MANAGER",
+            "action": "save:employee",
+            "entity_id": "COOK",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U12",
+            "actor_id": "MANAGER",
+            "action": "stock:count",
+            "entity_id": "U13",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U14",
+            "actor_id": "MANAGER",
+            "action": "stock:waste",
+            "entity_id": "U15",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U16",
+            "actor_id": "MANAGER",
+            "action": "stock:receipt",
+            "entity_id": "U17",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U18",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "FILLET",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          },
+          {
+            "id": "U19",
+            "actor_id": "MANAGER",
+            "action": "save:ingredient",
+            "entity_id": "BUN",
+            "reason": "Синтетическая подготовка",
+            "created_at": "<clock>"
+          }
+        ],
+        "catalog_audit": [],
+        "documents": [
+          {
+            "id": "U13",
+            "kind": "count",
+            "reference": "ИНВ-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическое филе",
+                "unit": "g",
+                "balance_after": "4900",
+                "ingredient_id": "FILLET",
+                "quantity_delta": "-100",
+                "value_after_minor": "1143660",
+                "value_delta_minor": "-23340"
+              }
+            ]
+          },
+          {
+            "id": "U15",
+            "kind": "waste",
+            "reference": "СП-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическая булка",
+                "unit": "pcs",
+                "balance_after": "18",
+                "ingredient_id": "BUN",
+                "quantity_delta": "-2",
+                "value_after_minor": "18000",
+                "value_delta_minor": "-2000"
+              }
+            ]
+          },
+          {
+            "id": "U17",
+            "kind": "receipt",
+            "reference": "НАК-1",
+            "reason": "Синтетическая подготовка",
+            "order_id": null,
+            "created_at": "<clock>",
+            "actor_id": "MANAGER",
+            "actor_name": "Синтетический управляющий",
+            "lines": [
+              {
+                "name": "Синтетическая булка",
+                "unit": "pcs",
+                "balance_after": "20",
+                "ingredient_id": "BUN",
+                "quantity_delta": "20",
+                "value_after_minor": "20000",
+                "value_delta_minor": "20000"
+              },
+              {
+                "name": "Синтетическое филе",
+                "unit": "g",
+                "balance_after": "5000",
+                "ingredient_id": "FILLET",
+                "quantity_delta": "5000",
+                "value_after_minor": "1167000",
+                "value_delta_minor": "1167000"
+              }
+            ]
+          }
+        ],
+        "publications": [],
+        "station_plan": {
+          "schema_version": 1,
+          "enabled": false,
+          "available": true,
+          "latest": null,
+          "applied": null,
+          "edge": null,
+          "plans": []
+        },
+        "limits": {
+          "cashier_orders": 200,
+          "cashier_shifts": 200,
+          "orders": 200,
+          "pos": 200,
+          "finance": 200,
+          "refunds": 200,
+          "issues": 100,
+          "records": 2000
+        },
+        "truncated": {
+          "cashier_orders": false,
+          "cashier_shifts": false,
+          "orders": false,
+          "pos": false,
+          "finance": false,
+          "refunds": false,
+          "issues": false
+        },
+        "capabilities": {
+          "operational_shift_filter": true,
+          "bank_settlement": false,
+          "push_delivery": false,
+          "external_reviews": false,
+          "fiscal_shift": false,
+          "edge_configuration_delivery": false,
+          "roles": true,
+          "sales_report": true
+        }
+      }
+    },
+    "order cashier": {
+      "ok": {
+        "order": {
+          "lines": [],
+          "state": "paid",
+          "version": 1,
+          "order_id": "CASHIERORDER",
+          "created_at": "2031-03-14T05:00:00.000Z",
+          "total_minor": "250000",
+          "cash_shift_id": "U4",
+          "kitchen_state": "handed_over",
+          "display_number": "1",
+          "execution_mode": "pos_sale",
+          "id": "CASHIERORDER",
+          "observed_at": "<clock>",
+          "snapshot": { "lines": [] },
+          "source": "cashier_report",
+          "owner": "edge_pos",
+          "channel": "pos",
+          "payment_state": "not_started",
+          "fiscal_state": "not_requested"
+        },
+        "owner": "edge_pos",
+        "source": "cashier_report",
+        "captures": [],
+        "refunds": [],
+        "fiscal": [],
+        "events": [],
+        "capabilities": { "can_cancel": false, "can_refund": false }
+      }
+    },
+    "order app": {
+      "ok": {
+        "order": {
+          "id": "CLOUDORDER",
+          "snapshot": { "lines": [], "channel": "mobile" },
+          "state": "awaiting_admission",
+          "version": "1",
+          "total_minor": "450000",
+          "created_at": "2031-03-14T07:30:00.000Z"
+        },
+        "owner": "cloud",
+        "captures": [
+          { "id": "U20", "amount_minor": "450000", "occurred_at": "2031-03-14T07:31:00.000Z" }
+        ],
+        "refunds": [],
+        "fiscal": [],
+        "events": [],
+        "issues": [],
+        "refund_capabilities": { "adapter": false, "manual": false }
+      }
+    },
+    "ops sales": {
+      "ok": {
+        "schema_version": 1,
+        "branch_id": "BRANCH",
+        "view": "sales",
+        "timezone": "Asia/Almaty",
+        "start_date": "2031-03-14",
+        "end_date": "2031-03-14",
+        "period_start": "2031-03-13T19:00:00.000Z",
+        "period_end": "2031-03-14T19:00:00.000Z",
+        "coverage": {
+          "pos": true,
+          "cloud": true,
+          "pos_received_at": "<clock>",
+          "discounts": false
+        },
+        "totals": {
+          "checks": 8,
+          "voided_checks": 1,
+          "sales_minor": "2100000",
+          "voids_minor": "200000",
+          "refunds_minor": "750000",
+          "revenue_minor": "1150000",
+          "average_check_minor": "237500",
+          "discount_minor": "0",
+          "no_revenue_checks": 2,
+          "no_revenue_minor": "150000"
+        },
+        "channels": [
+          {
+            "channel": "hall_dine_in",
+            "source": "pos",
+            "checks": 4,
+            "voided_checks": 0,
+            "sales_minor": "570000",
+            "voids_minor": "0",
+            "refunds_minor": "700000",
+            "revenue_minor": "-130000",
+            "average_check_minor": "142500",
+            "discount_minor": "0"
+          },
+          {
+            "channel": "hall_takeaway",
+            "source": "pos",
+            "checks": 2,
+            "voided_checks": 0,
+            "sales_minor": "480000",
+            "voids_minor": "0",
+            "refunds_minor": "50000",
+            "revenue_minor": "430000",
+            "average_check_minor": "240000",
+            "discount_minor": "0"
+          },
+          {
+            "channel": "yandex_eda",
+            "source": "pos",
+            "checks": 1,
+            "voided_checks": 0,
+            "sales_minor": "400000",
+            "voids_minor": "0",
+            "refunds_minor": "0",
+            "revenue_minor": "400000",
+            "average_check_minor": "400000",
+            "discount_minor": "0"
+          },
+          {
+            "channel": "glovo",
+            "source": "pos",
+            "checks": 0,
+            "voided_checks": 1,
+            "sales_minor": "200000",
+            "voids_minor": "200000",
+            "refunds_minor": "0",
+            "revenue_minor": "0",
+            "average_check_minor": "0",
+            "discount_minor": "0"
+          },
+          {
+            "channel": "mobile",
+            "source": "cloud",
+            "checks": 1,
+            "voided_checks": 0,
+            "sales_minor": "450000",
+            "voids_minor": "0",
+            "refunds_minor": "0",
+            "revenue_minor": "450000",
+            "average_check_minor": "450000",
+            "discount_minor": "0"
+          },
+          {
+            "channel": "kiosk",
+            "source": "cloud",
+            "checks": 0,
+            "voided_checks": 0,
+            "sales_minor": "0",
+            "voids_minor": "0",
+            "refunds_minor": "0",
+            "revenue_minor": "0",
+            "average_check_minor": "0",
+            "discount_minor": "0"
+          }
+        ],
+        "methods": [
+          {
+            "method": "cash",
+            "source": "pos",
+            "revenue": true,
+            "payments": 4,
+            "sales_minor": "550000",
+            "voids_minor": "0",
+            "refunds_minor": "700000",
+            "net_minor": "-150000"
+          },
+          {
+            "method": "kaspi_terminal",
+            "source": "pos",
+            "revenue": true,
+            "payments": 1,
+            "sales_minor": "200000",
+            "voids_minor": "0",
+            "refunds_minor": "50000",
+            "net_minor": "150000"
+          },
+          {
+            "method": "kaspi_manual",
+            "source": "pos",
+            "revenue": true,
+            "payments": 1,
+            "sales_minor": "120000",
+            "voids_minor": "0",
+            "refunds_minor": "0",
+            "net_minor": "120000"
+          },
+          {
+            "method": "aggregator_yandex_eda",
+            "source": "pos",
+            "revenue": true,
+            "payments": 1,
+            "sales_minor": "400000",
+            "voids_minor": "0",
+            "refunds_minor": "0",
+            "net_minor": "400000"
+          },
+          {
+            "method": "aggregator_glovo",
+            "source": "pos",
+            "revenue": true,
+            "payments": 1,
+            "sales_minor": "200000",
+            "voids_minor": "200000",
+            "refunds_minor": "0",
+            "net_minor": "0"
+          },
+          {
+            "method": "chocofood",
+            "source": "pos",
+            "revenue": true,
+            "payments": 1,
+            "sales_minor": "180000",
+            "voids_minor": "0",
+            "refunds_minor": "0",
+            "net_minor": "180000"
+          },
+          {
+            "method": "staff_meal",
+            "source": "pos",
+            "revenue": false,
+            "payments": 1,
+            "sales_minor": "90000",
+            "voids_minor": "0",
+            "refunds_minor": "0",
+            "net_minor": "90000"
+          },
+          {
+            "method": "marketing",
+            "source": "pos",
+            "revenue": false,
+            "payments": 1,
+            "sales_minor": "60000",
+            "voids_minor": "0",
+            "refunds_minor": "0",
+            "net_minor": "60000"
+          },
+          {
+            "method": "online",
+            "source": "cloud",
+            "revenue": true,
+            "payments": 1,
+            "sales_minor": "450000",
+            "voids_minor": "0",
+            "refunds_minor": "0",
+            "net_minor": "450000"
+          }
+        ],
+        "by_day": [
+          {
+            "day": "2031-03-14",
+            "checks": 8,
+            "sales_minor": "2100000",
+            "voids_minor": "200000",
+            "refunds_minor": "750000",
+            "revenue_minor": "1150000",
+            "no_revenue_minor": "150000"
+          }
+        ],
+        "by_hour": [
+          { "hour": 0, "checks": 0, "sales_minor": "0" },
+          { "hour": 1, "checks": 0, "sales_minor": "0" },
+          { "hour": 2, "checks": 0, "sales_minor": "0" },
+          { "hour": 3, "checks": 0, "sales_minor": "0" },
+          { "hour": 4, "checks": 0, "sales_minor": "0" },
+          { "hour": 5, "checks": 0, "sales_minor": "0" },
+          { "hour": 6, "checks": 0, "sales_minor": "0" },
+          { "hour": 7, "checks": 0, "sales_minor": "0" },
+          { "hour": 8, "checks": 0, "sales_minor": "0" },
+          { "hour": 9, "checks": 0, "sales_minor": "0" },
+          { "hour": 10, "checks": 1, "sales_minor": "250000" },
+          { "hour": 11, "checks": 1, "sales_minor": "120000" },
+          { "hour": 12, "checks": 3, "sales_minor": "930000" },
+          { "hour": 13, "checks": 1, "sales_minor": "400000" },
+          { "hour": 14, "checks": 0, "sales_minor": "0" },
+          { "hour": 15, "checks": 0, "sales_minor": "0" },
+          { "hour": 16, "checks": 0, "sales_minor": "0" },
+          { "hour": 17, "checks": 0, "sales_minor": "0" },
+          { "hour": 18, "checks": 0, "sales_minor": "0" },
+          { "hour": 19, "checks": 1, "sales_minor": "150000" },
+          { "hour": 20, "checks": 0, "sales_minor": "0" },
+          { "hour": 21, "checks": 1, "sales_minor": "50000" },
+          { "hour": 22, "checks": 0, "sales_minor": "0" },
+          { "hour": 23, "checks": 0, "sales_minor": "0" }
+        ],
+        "no_revenue": {
+          "kinds": [
+            {
+              "revenue_kind": "staff_meal",
+              "checks": 1,
+              "voided_checks": 0,
+              "total_minor": "90000"
+            },
+            { "revenue_kind": "marketing", "checks": 1, "voided_checks": 0, "total_minor": "60000" }
+          ],
+          "items": [
+            {
+              "order_id": "U22",
+              "display_number": 5,
+              "revenue_kind": "marketing",
+              "state": "paid",
+              "total_minor": "60000",
+              "beneficiary": null,
+              "reason": "Дегустация для партнёра",
+              "approval_manager_staff_id": "U23",
+              "cashier_staff_id": "U5",
+              "shift_id": "U4",
+              "terminal_id": "U6",
+              "sold_at": "2031-03-14T10:00:00.000Z"
+            },
+            {
+              "order_id": "U24",
+              "display_number": 4,
+              "revenue_kind": "staff_meal",
+              "state": "paid",
+              "total_minor": "90000",
+              "beneficiary": "Синтетический сотрудник",
+              "reason": null,
+              "approval_manager_staff_id": "U23",
+              "cashier_staff_id": "U5",
+              "shift_id": "U4",
+              "terminal_id": "U6",
+              "sold_at": "2031-03-14T09:00:00.000Z"
+            }
+          ]
+        },
+        "refunds": [
+          {
+            "source": "pos",
+            "refund_id": "U25",
+            "order_id": "U26",
+            "display_number": 2,
+            "channel": "hall_takeaway",
+            "revenue_kind": "revenue",
+            "kind": "refund",
+            "amount_minor": "50000",
+            "reason_code": "quality",
+            "reason": "Гость вернул холодный заказ",
+            "staff_id": "U5",
+            "approved_by_staff_id": "U23",
+            "approved_by_actor_id": null,
+            "approved_by_name": null,
+            "created_at": "2031-03-14T13:00:00.000Z",
+            "methods": [{ "method": "kaspi_terminal", "amount_minor": "50000" }]
+          },
+          {
+            "source": "pos",
+            "refund_id": "U27",
+            "order_id": "U28",
+            "display_number": 6,
+            "channel": "glovo",
+            "revenue_kind": "revenue",
+            "kind": "void",
+            "amount_minor": "200000",
+            "reason_code": "aggregator_cancelled",
+            "reason": "Курьер отменил заказ",
+            "staff_id": "U5",
+            "approved_by_staff_id": "U23",
+            "approved_by_actor_id": null,
+            "approved_by_name": null,
+            "created_at": "2031-03-14T11:10:00.000Z",
+            "methods": [{ "method": "aggregator_glovo", "amount_minor": "200000" }]
+          },
+          {
+            "source": "pos",
+            "refund_id": "U29",
+            "order_id": "U30",
+            "display_number": 9,
+            "channel": "hall_dine_in",
+            "revenue_kind": "revenue",
+            "kind": "refund",
+            "amount_minor": "700000",
+            "reason_code": "quality",
+            "reason": "Гость вернул холодный заказ",
+            "staff_id": "U5",
+            "approved_by_staff_id": "U23",
+            "approved_by_actor_id": null,
+            "approved_by_name": null,
+            "created_at": "2031-03-14T04:30:00.000Z",
+            "methods": [{ "method": "cash", "amount_minor": "700000" }]
+          }
+        ],
+        "shifts": [
+          {
+            "shift_id": "U31",
+            "terminal_id": "U32",
+            "checks": 1,
+            "sales_minor": "50000",
+            "first_sale_at": "2031-03-14T16:00:00.000Z",
+            "last_sale_at": "2031-03-14T16:00:00.000Z",
+            "z": null
+          },
+          {
+            "shift_id": "U1",
+            "terminal_id": "U3",
+            "checks": 3,
+            "sales_minor": "450000",
+            "first_sale_at": "2031-03-14T06:00:00.000Z",
+            "last_sale_at": "2031-03-14T14:00:00.000Z",
+            "z": null
+          },
+          {
+            "shift_id": "U4",
+            "terminal_id": "U6",
+            "checks": 3,
+            "sales_minor": "1150000",
+            "first_sale_at": "2031-03-14T05:00:00.000Z",
+            "last_sale_at": "2031-03-14T11:00:00.000Z",
+            "z": {
+              "closed_at": "2031-03-14T19:30:00.000Z",
+              "expected_cash_minor": "800000",
+              "counted_cash_minor": "795000",
+              "discrepancy_minor": "-5000",
+              "terminal_reported_minor": "140000"
+            }
+          }
+        ],
+        "top_items": [
+          {
+            "product_id": "U33",
+            "name": "Синтетический бургер",
+            "quantity": 1,
+            "total_minor": "400000"
+          },
+          {
+            "product_id": "U34",
+            "name": "Синтетический бургер",
+            "quantity": 1,
+            "total_minor": "300000"
+          },
+          {
+            "product_id": "U35",
+            "name": "Синтетический бургер",
+            "quantity": 1,
+            "total_minor": "250000"
+          },
+          {
+            "product_id": "U36",
+            "name": "Синтетический бургер",
+            "quantity": 1,
+            "total_minor": "180000"
+          },
+          {
+            "product_id": "U37",
+            "name": "Синтетический бургер",
+            "quantity": 1,
+            "total_minor": "150000"
+          },
+          {
+            "product_id": "U38",
+            "name": "Синтетический бургер",
+            "quantity": 1,
+            "total_minor": "120000"
+          },
+          {
+            "product_id": "U39",
+            "name": "Синтетический бургер",
+            "quantity": 1,
+            "total_minor": "50000"
+          }
+        ],
+        "truncated": { "refunds": false, "no_revenue": false, "shifts": false },
+        "limits": { "refunds": 200, "no_revenue": 200, "shifts": 50, "top_items": 20 }
+      }
+    },
+    "ops stock": { "error": { "code": "NOT_FOUND", "reason": "STOCK_V2_DISABLED" } },
+    "ops pos-day": { "error": { "code": "NOT_FOUND", "reason": null } },
+    "ops orders": { "error": { "code": "NOT_FOUND", "reason": null } },
+    "ops menu-links": { "error": { "code": "NOT_FOUND", "reason": null } },
+    "ops consumption": { "error": { "code": "NOT_FOUND", "reason": null } },
+    "ops manager-shifts": { "error": { "code": "NOT_FOUND", "reason": null } },
+    "ops staff-roster": { "error": { "code": "NOT_FOUND", "reason": null } },
+    "ops discounts": { "error": { "code": "NOT_FOUND", "reason": null } },
+    "ops bogus": { "error": { "code": "NOT_FOUND", "reason": null } },
+    "command storno": { "error": { "code": "INVALID_REQUEST", "reason": null } },
+    "command discount": { "error": { "code": "INVALID_REQUEST", "reason": null } },
+    "command save with a P1 field": { "error": { "code": "INVALID_REQUEST", "reason": null } },
+    "command save a new ingredient": {
+      "ok": {
+        "id": "SAVED_2",
+        "kind": "ingredient",
+        "revision": 1,
+        "payload": {
+          "name": "Синтетический лук roles and sales report",
+          "unit": "g",
+          "active": true,
+          "minimum": "0"
+        },
+        "updated_at": "<clock>"
+      }
+    }
+  }
+}

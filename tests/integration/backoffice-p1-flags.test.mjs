@@ -304,6 +304,8 @@ test('flags off: GET branches/:id and the ops views are the cloud lane result, 0
       const off = new Backoffice(c.cloud.pool, true, { ...cloud, ...offOptions });
       for (const view of [
         'pos-day',
+        // The order registry on the server (audit F10) rides BACKOFFICE_POS_DAY_ENABLED.
+        'orders',
         'consumption',
         ...(cloud.stockV2Enabled ? [] : ['menu-links']),
         'manager-shifts',
