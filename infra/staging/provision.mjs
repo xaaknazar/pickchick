@@ -13,6 +13,7 @@ import { catalogAccessGrants, edgeMenuStateGrants } from './catalog-edge-grants.
 import { catalogAssetGrants } from './catalog-asset-grants.mjs';
 import { fulfillmentTransportGrants } from './fulfillment-transport-grants.mjs';
 import { cloudPosSyncGrants } from './pos-sync-grants.mjs';
+import { cloudPosSalesGrants } from './pos-sales-grants.mjs';
 import { customerCheckoutGrants } from './checkout-grants.mjs';
 import { edgeIdentityRotationGrants } from './edge-identity-rotation-grants.mjs';
 import { customerCheckoutOptions } from '../../packages/commerce-core/dist/index.js';
@@ -146,6 +147,15 @@ async function provision() {
           config.backofficeEnabled === true &&
             process.env.BACKOFFICE_MANUAL_REFUNDS_ENABLED === 'true',
         ),
+      );
+      // Cutover 19.11 (CR pos-1 section 1 item 5): cloud 073 posSales projection. A reset of only
+      // the 073 tables: the receiver set with CLOUD_POS_SALES_SYNC_ENABLED, otherwise the
+      // back-office read set with BACKOFFICE_ENABLED, otherwise nothing.
+      await client.query(
+        cloudPosSalesGrants('pickchick_app', {
+          receiver: config.posSalesSyncEnabled === true,
+          backoffice: config.backofficeEnabled === true,
+        }),
       );
       if (config.testOrderFlowEnabled)
         await client.query('GRANT INSERT ON bo_records TO pickchick_app');
