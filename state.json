@@ -7353,11 +7353,11 @@
         "infra/staging/stage2-owner-connection.py",
         "tests/operations/test_stage2_owner_connection.py"
       ],
-      "status": "active",
-      "head": "818524ec8fdfebe7552864c5942948e22d11a496",
-      "updatedAt": "2026-11-06T16:10:52.366Z",
-      "summary": "C1 evening PASS: 443 checks, Domain11/11, observation over10min; C3 STOP before owner command, schema068 unchanged, own lock released. Fix818524ec pushed; 37 local tests PASS, CI42249179575 pending.",
-      "nextAction": "Await owner repeat-C3 decision and green CI. Do not rerun C1. Fresh UUID/lock, post-C1 compose89cc593e, fresh068 backup/rehearsal; use stage2-owner-connection.py, never require provision. Runtime6630eb0f unchanged; no072/flags. Deadline06Nov18:30UTC. Preserve first-attempt proofs. Android P6 waits; no VPS transfer."
+      "status": "available",
+      "head": "36f05455845a917ae82c7a79d16190440a4c0b29",
+      "updatedAt": "2026-11-06T17:44:25.454Z",
+      "summary": "С1 сохранён, С3 PASS 06.11 в разрешённом вечернем окне. CI818524ec Foundation11/11 и Offline PASS; свежие копии068/071 на VPS/Mac, восстановление и репетиции PASS. Установлены069-071 и API6630eb0f, новые флаги false. Domain12/12,7маршрутов и15.1мин наблюдения PASS; активная работа0,73/18 неизменны. Все собственные release locks сняты. Протокол36f05455 опубликован в PR311, shared не менялся. Онлайн-пульт не обновлён.",
+      "nextAction": "Серверное окно завершено, ночной повтор С3 не нужен. Владелец может ввести ключ бота через setup-telegram.command со скрытым вводом; ключ в чат не передавать. Watchdog/shadow, Caddy, касса, магазины,072 и включение флагов отдельно по прежнему плану. Кандидат PR310 и протокол PR311 не слиты; finish запрещён до shared. Android P6/поддержка ожидает согласованной передачи нужных резервов; не считать серверный lock занятым после этого handoff."
     },
     {
       "id": "android-play-1106",
