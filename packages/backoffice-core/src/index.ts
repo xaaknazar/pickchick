@@ -54,6 +54,7 @@ import {
   approveMenuLinks,
   assertManualConsume,
   autoconsumeAvailable,
+  linkedOutputs,
   readConsumption,
   readMenuLinks,
   readStockSettings,
@@ -1458,8 +1459,9 @@ export class Backoffice {
     /**
      * Stock P1 (step 8): refuse a recipe whose stock_policy is explicitly 'explode'. Its output
      * is laid out into raw ingredients at every sale, so a produced batch would write the raw
-     * ingredients off twice and keep the output in stock forever. Without a policy the cloud
-     * lane rule stands (production allowed).
+     * ingredients off twice and keep the output in stock forever. A recipe without a policy
+     * whose output an approved menu link writes off at the sale is refused too (review BOUI-R1:
+     * the chef chooses first). Any other recipe without a policy: the cloud lane rule stands.
      */
     policy = false,
   ) {
@@ -1486,6 +1488,12 @@ export class Backoffice {
       if (!recipe.output_ingredient_id) return fail('INVALID_REQUEST');
       if (policy && recipe.stock_policy === 'explode')
         throw new ErrorCode('INVALID_REQUEST', 'RECIPE_POLICY_EXPLODE');
+      if (
+        policy &&
+        recipe.stock_policy === undefined &&
+        (await linkedOutputs(db, branch)).has(recipe.output_ingredient_id)
+      )
+        throw new ErrorCode('INVALID_REQUEST', 'RECIPE_POLICY_UNSET');
       snapshot = r;
       add(recipe, BigInt(c.batches));
       output = {

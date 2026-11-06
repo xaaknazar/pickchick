@@ -33,10 +33,12 @@ import {
   menuLinksView,
   modeConsequence,
   modeText,
+  outputPolicyText,
   queueActions,
   saleLabel,
   settingsCommand,
   shareText,
+  unsetPolicyWarnings,
 } from '../../apps/backoffice/dist/autoconsume-model.js';
 
 const branch = randomUUID();
@@ -233,6 +235,24 @@ test('queue: sale, reason with names and shortages, needs, document, actions', (
     itemReason({ state: 'not_required', reason: 'CANCELLED_BEFORE_KITCHEN', detail: {} }),
     'отменён до начала приготовления',
   );
+  // Review BOUI-R1: the recipe without a chosen policy is named in the queue.
+  assert.equal(
+    itemReason({
+      state: 'blocked',
+      reason: 'RECIPE_POLICY_UNSET',
+      detail: {
+        problems: [
+          {
+            code: 'RECIPE_POLICY_UNSET',
+            catalog_key: null,
+            name: 'Котлета маринованная',
+            ingredient_id: PATTY,
+          },
+        ],
+      },
+    }),
+    'в техкарте «Котлета маринованная» не выбран «Выход техкарты при продаже»',
+  );
   assert.equal(
     itemReason({ state: 'skipped', reason: 'Отдали как замену', detail: {} }),
     'Причина: Отдали как замену',
@@ -391,6 +411,41 @@ test('links: titles, statuses, filters, editor and approval commands', () => {
   assert.deepEqual(
     targets.outputs.map((i) => i.id),
     [PATTY],
+  );
+  // Review BOUI-R1: each TTK output carries its recipe's policy; none chosen is said in words.
+  assert.deepEqual(
+    targets.outputs.map((i) => [i.policy, outputPolicyText(i.policy)]),
+    [[null, 'способ не выбран']],
+  );
+  assert.equal(outputPolicyText('explode'), 'на сырьё');
+  assert.equal(outputPolicyText('stock'), 'сам выход');
+  const named = linkTargets([
+    { kind: 'ingredient', id: PATTY, payload: { name: 'Котлета', unit: 'pcs' } },
+    {
+      kind: 'recipe',
+      id: randomUUID(),
+      payload: { name: 'Котлета маринованная', output_ingredient_id: PATTY },
+    },
+  ]);
+  const [warning] = unsetPolicyWarnings(named.outputs, [
+    { target: 'r:' + PATTY, quantity: '1' },
+    { target: 'i:' + PATTY, quantity: '1' },
+  ]);
+  assert.match(warning, /В техкарте «Котлета маринованная» не выбран «Выход техкарты при продаже»/);
+  assert.match(warning, /не спишутся/);
+  assert.doesNotMatch(warning, LONG_DASHES);
+  const chosen = linkTargets([
+    { kind: 'ingredient', id: PATTY, payload: { name: 'Котлета', unit: 'pcs' } },
+    {
+      kind: 'recipe',
+      id: randomUUID(),
+      payload: { name: 'Котлета', output_ingredient_id: PATTY, stock_policy: 'stock' },
+    },
+  ]);
+  assert.equal(chosen.outputs[0].policy, 'stock');
+  assert.deepEqual(
+    unsetPolicyWarnings(chosen.outputs, [{ target: 'r:' + PATTY, quantity: '1' }]),
+    [],
   );
   const view = menuLinksView(
     { schema_version: 1, branch_id: branch, catalog: null, items: [], orphans: [], coverage: {} },

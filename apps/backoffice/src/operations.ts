@@ -27,6 +27,8 @@ import {
   lineKey,
   linkCommand,
   linkTargets,
+  outputPolicyText,
+  unsetPolicyWarnings,
   modeConsequence,
   saleLabel,
   settingsCommand,
@@ -1941,10 +1943,19 @@ export class OperationsView {
       })),
       ...targets.outputs.map((i) => ({
         value: 'r:' + i.id,
-        label: `По ТТК (на сырьё): ${i.name} (${i.unit === 'g' ? 'г' : i.unit === 'ml' ? 'мл' : 'шт'})`,
+        label: `По ТТК: ${i.name} (${i.unit === 'g' ? 'г' : i.unit === 'ml' ? 'мл' : 'шт'}, ${outputPolicyText(i.policy)})`,
       })),
     ];
     const body = el('div', 'autoconsume-link-form');
+    // Review BOUI-R1: a TTK output without a chosen policy is not written off at the sale.
+    const warnings = el('div', 'autoconsume-link-warnings');
+    warnings.dataset.testid = 'autoconsume-link-policy-warning';
+    const warn = () =>
+      warnings.replaceChildren(
+        ...unsetPolicyWarnings(targets.outputs, effect === 'consume' ? lines : []).map((text) =>
+          el('p', 'op-form-error', text),
+        ),
+      );
     const draw = () => {
       body.replaceChildren(
         select(
@@ -1973,6 +1984,7 @@ export class OperationsView {
               options,
               (value) => {
                 line.target = value;
+                warn();
               },
               'autoconsume-link-target-' + index,
             ),
@@ -2006,9 +2018,11 @@ export class OperationsView {
             'autoconsume-link-add',
           ),
           note(
-            '«Склад» списывает позицию как есть. «По ТТК» раскладывает выход техкарты на сырьё, если у техкарты не выбран учёт запасом.',
+            '«Склад» списывает позицию как есть. «По ТТК» списывает выход техкарты так, как выбрано в техкарте: на сырьё из состава или сам выход со склада.',
           ),
+          warnings,
         );
+        warn();
       }
       if (link?.['status'] === 'approved')
         body.append(

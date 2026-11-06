@@ -6,6 +6,7 @@ import { readable, type BackofficeOptions } from './stops.js';
 import { P1_FEATURE_RELATIONS, p1RelationsReady } from './p1-flags.js';
 import { stockP1Ready } from './stock-p1.js';
 import {
+  MAX_RECIPE_DEPTH,
   MenuLinkLineSchema,
   catalogHas,
   catalogIndex,
@@ -235,6 +236,30 @@ async function recipeRecords(db: Db, branch: string) {
       [branch],
     )
   ).rows;
+}
+/**
+ * Outputs of production recipes that a sale reaches through an approved menu link: the
+ * `recipe_output_id` lines of the approved links and, through recipes not kept as stock, the
+ * nested outputs of their lines. `produce` refuses a recipe of such an output while its
+ * stock_policy is not chosen (RECIPE_POLICY_UNSET, review BOUI-R1).
+ */
+export async function linkedOutputs(db: Db, branch: string): Promise<Set<string>> {
+  const links = await readLinks(db, branch);
+  const recipes = recipesByOutput(await recipeRecords(db, branch));
+  const out = new Set<string>();
+  const visit = (output: string, depth: number) => {
+    if (out.has(output) || depth > MAX_RECIPE_DEPTH) return;
+    out.add(output);
+    const list = recipes.get(output);
+    if (list?.length !== 1 || list[0]!.recipe.stock_policy === 'stock') return;
+    for (const line of list[0]!.recipe.lines)
+      if (recipes.has(line.ingredient_id)) visit(line.ingredient_id, depth + 1);
+  };
+  for (const link of links.values())
+    if (link.status === 'approved')
+      for (const line of link.lines)
+        if ('recipe_output_id' in line) visit(line.recipe_output_id, 0);
+  return out;
 }
 /**
  * menu_link_save (manager): the link of one catalog product or option of the head publication.

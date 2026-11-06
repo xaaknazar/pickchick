@@ -822,3 +822,122 @@ test('least privilege: the worker runs as the API role only with the P1 helper f
     }
     assert.equal((await consumptionDocuments(c)).length, 1);
   }));
+
+test('a semi-finished item made in batches is written off once: no policy blocks sale and production', () =>
+  withSyncDatabases(async (c) => {
+    // Review BOUI-R1: «Котлета маринованная» is made in batches through «Производство» and sold
+    // through the fries link (recipe_output_id). Before the fix a recipe without stock_policy was
+    // exploded at every sale, so the raw beef went out twice and the cutlets never did.
+    const { bo, release, token } = await setup(c);
+    const save = async (kind, id, expected_revision, payload) =>
+      bo.command(token, c.branch, request({ type: 'save', kind, id, expected_revision, payload }));
+    const beef = randomUUID();
+    const cutlet = randomUUID();
+    await save('ingredient', beef, 0, {
+      name: 'Синтетическая говядина',
+      unit: 'g',
+      minimum: '0',
+      active: true,
+    });
+    await save('ingredient', cutlet, 0, {
+      name: 'Синтетическая котлета маринованная (выход)',
+      unit: 'pcs',
+      minimum: '0',
+      active: true,
+    });
+    const recipeId = randomUUID();
+    const recipePayload = {
+      name: 'Синтетическая котлета маринованная',
+      product_id: 'ttk:syn-cutlet',
+      output_ingredient_id: cutlet,
+      yield_quantity: '1',
+      lines: [{ ingredient_id: beef, quantity: '100' }],
+    };
+    await save('recipe', recipeId, 0, recipePayload);
+    await receipt(bo, token, c, [[beef, '2000', '400000']]);
+    const link = await bo.command(
+      token,
+      c.branch,
+      request({
+        type: 'menu_link_save',
+        catalog_ref: { product_id: 'fries' },
+        effect: 'consume',
+        lines: [{ recipe_output_id: cutlet, quantity: '1' }],
+        expected_revision: 0,
+      }),
+    );
+    const produce = async (revision, batches = 10) => {
+      const b = await balances(c);
+      return bo.command(
+        token,
+        c.branch,
+        request({
+          type: 'produce',
+          recipe_id: recipeId,
+          recipe_revision: revision,
+          batches,
+          expected_balances: Object.fromEntries(Object.entries(b).map(([k, v]) => [k, v.revision])),
+          reference: 'PR-CUTLET',
+        }),
+      );
+    };
+    const docs = async () =>
+      (
+        await c.cloud.pool.query(
+          'SELECT kind FROM bo_stock_documents WHERE branch_id=$1 ORDER BY created_at,id',
+          [c.branch],
+        )
+      ).rows.map((r) => r.kind);
+    // A draft link does not consume: production without a policy is the cloud lane's.
+    assert.equal((await produce(1, 1)).kind, 'production');
+    await bo.command(
+      token,
+      c.branch,
+      request({
+        type: 'menu_links_approve',
+        keys: ['fries'],
+        expected_revisions: { fries: link.revision },
+      }),
+    );
+    // Approved: the sale writes the output off, so production without a choice is refused.
+    const before = await docs();
+    await assert.rejects(produce(1), is('INVALID_REQUEST', 'RECIPE_POLICY_UNSET'));
+    assert.deepEqual(await docs(), before);
+    // The sale while the policy is unset: blocked with the recipe named, nothing written off.
+    await settings(bo, token, c, 'on', ago(60), 0);
+    const sale = await posSale(c, release, { at: ago(10), number: 61, lines: [['fries', 1]] });
+    await kitchen(c, sale, 'in_production');
+    await tick(c);
+    let item = (await items(c)).find((i) => i.order_id === sale);
+    assert.equal(item.state, 'blocked');
+    assert.equal(item.reason, 'RECIPE_POLICY_UNSET');
+    assert.deepEqual(item.detail.problems, [
+      {
+        code: 'RECIPE_POLICY_UNSET',
+        catalog_key: null,
+        name: 'Синтетическая котлета маринованная',
+        ingredient_id: cutlet,
+      },
+    ]);
+    assert.deepEqual(await consumptionDocuments(c), []);
+    assert.equal((await balances(c))[beef].quantity, '1900');
+    assert.equal((await balances(c))[cutlet].quantity, '1');
+    // The chef chooses «Списывать сам выход»; a batch of 10 takes the beef once.
+    await save('recipe', recipeId, 1, { ...recipePayload, stock_policy: 'stock' });
+    assert.equal((await produce(2)).kind, 'production');
+    let b = await balances(c);
+    assert.equal(b[beef].quantity, '900');
+    assert.equal(b[cutlet].quantity, '11');
+    // The recipe changed since the attempt: the next tick retries and writes off one cutlet.
+    await tick(c);
+    item = (await items(c)).find((i) => i.order_id === sale);
+    assert.equal(item.state, 'applied');
+    const [doc] = await consumptionDocuments(c);
+    assert.deepEqual(doc.moves, { [cutlet]: '1' });
+    b = await balances(c);
+    assert.equal(b[beef].quantity, '900', 'the raw beef is written off once, by production');
+    assert.equal(b[cutlet].quantity, '10');
+    // «Раскладывать на сырьё» is never produced to stock, linked or not.
+    await save('recipe', recipeId, 2, { ...recipePayload, stock_policy: 'explode' });
+    await assert.rejects(produce(3), is('INVALID_REQUEST', 'RECIPE_POLICY_EXPLODE'));
+  }));

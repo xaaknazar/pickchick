@@ -14,8 +14,11 @@ import { Recipe, StopCatalogRef } from './model.js';
  *   or the catalog product whose slug is the option slug, the menu-sync combo stop rule);
  * - a link line is a stock item (`ingredient_id`, consumed as is) or the output of a production
  *   recipe (`recipe_output_id`, a TTK output). An output is consumed by its recipe's stock_policy:
- *   `explode` (the default) writes off the recipe lines times quantity / yield, recursively up to
- *   6 levels, nested outputs by their own policy; `stock` writes off the output item itself.
+ *   `explode` writes off the recipe lines times quantity / yield, recursively up to 6 levels,
+ *   nested outputs by their own policy; `stock` writes off the output item itself. A recipe
+ *   without a policy is a problem (RECIPE_POLICY_UNSET), never a silent explode: its output may
+ *   be made in batches through «Производство», and exploding it at the sale would write the raw
+ *   ingredients off a second time (review BOUI-R1).
  * Every quantity is an exact fraction (BigInt); one half-up rounding per ingredient per order.
  * A missing or unapproved link, an unknown catalog item or a broken recipe is a problem: the
  * order is blocked with its reasons and nothing of it is written off.
@@ -208,6 +211,7 @@ export const PROBLEM_CODES = [
   'RECIPE_AMBIGUOUS',
   'RECIPE_CYCLE',
   'RECIPE_TOO_DEEP',
+  'RECIPE_POLICY_UNSET',
 ] as const;
 export type ProblemCode = (typeof PROBLEM_CODES)[number];
 export type Problem = {
@@ -287,6 +291,9 @@ export function resolveOrder(context: ResolveContext, lines: readonly OrderLine[
     if (stack.includes(id)) return problem('RECIPE_CYCLE', null, recipe.name, ingredient);
     if (depth >= MAX_RECIPE_DEPTH) return problem('RECIPE_TOO_DEEP', null, recipe.name, ingredient);
     result.recipes[id] = revision;
+    // No policy chosen: the chef decides first (a produced batch would be written off twice).
+    if (recipe.stock_policy === undefined)
+      return problem('RECIPE_POLICY_UNSET', null, recipe.name, ingredient);
     if (recipe.stock_policy === 'stock') return need(ingredient, amount);
     for (const line of recipe.lines) {
       const part = times(amount, BigInt(line.quantity), BigInt(recipe.yield_quantity));

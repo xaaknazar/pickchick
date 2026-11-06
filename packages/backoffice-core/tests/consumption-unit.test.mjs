@@ -185,9 +185,10 @@ test('combos explode by components up to 5 levels; links win; problems block', (
   ]);
 });
 
-test('recipes: explode by default, stock policy, nesting, cycles, ambiguity, depth', () => {
+test('recipes: explode, stock policy, no policy blocks, nesting, cycles, ambiguity, depth', () => {
   const catalog = catalogIndex(BRANCH, 1, { products: [p('dish')] });
-  const recipe = (output, yieldQuantity, lines, extra = {}) => ({
+  // Every recipe here is explicitly exploded unless the case says otherwise.
+  const recipe = (output, yieldQuantity, lines, extra = { stock_policy: 'explode' }) => ({
     id: randomUUID(),
     revision: 2,
     payload: {
@@ -234,6 +235,25 @@ test('recipes: explode by default, stock policy, nesting, cycles, ambiguity, dep
   ]);
   assert.deepEqual([...stock.needs.keys()].sort(), [ids.a, ids.mid].sort());
   assert.equal(roundHalfUp(stock.needs.get(ids.mid)).toString(), '1');
+  // Review BOUI-R1: a recipe without a policy is never exploded silently, at any level. The
+  // order is blocked with the recipe named, and nothing of it is written off.
+  const unset = run([recipe(ids.out, '3', [[ids.a, '50']], {})]);
+  assert.deepEqual(unset.problems, [
+    { code: 'RECIPE_POLICY_UNSET', catalog_key: null, name: 'ТТК', ingredient_id: ids.out },
+  ]);
+  assert.equal(unset.needs.size, 0);
+  const nestedUnset = run([
+    recipe(ids.out, '3', [
+      [ids.mid, '1'],
+      [ids.a, '50'],
+    ]),
+    recipe(ids.mid, '2', [[ids.b, '10']], {}),
+  ]);
+  assert.deepEqual(
+    nestedUnset.problems.map((x) => [x.code, x.ingredient_id]),
+    [['RECIPE_POLICY_UNSET', ids.mid]],
+  );
+  assert.equal(nestedUnset.needs.has(ids.b), false);
   // A cycle, two recipes for one output, no recipe at all.
   assert.deepEqual(
     run([

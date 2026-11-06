@@ -244,6 +244,8 @@ function problemText(p: Data): string {
       return `техкарты ссылаются друг на друга: ${String(p['name'] ?? '')}`.trim();
     case 'RECIPE_TOO_DEEP':
       return 'техкарты вложены глубже 6 уровней';
+    case 'RECIPE_POLICY_UNSET':
+      return `в техкарте ${p['name'] ? `«${String(p['name'])}» ` : ''}не выбран «Выход техкарты при продаже»`;
     default:
       return String(p['code']);
   }
@@ -333,24 +335,61 @@ export function filterLinks(items: Data[], filter: LinkFilter): Data[] {
   if (filter === 'draft') return items.filter(isDraft);
   return items;
 }
-/** Stock items for the link editor: every ingredient, and those that are a TTK output. */
+/** How a TTK output is written off at the sale (the recipe's stock_policy), null = not chosen. */
+export type OutputPolicy = 'explode' | 'stock' | null;
+/** «на сырьё», «сам выход», «способ не выбран»: the link editor's words for a TTK output. */
+export const outputPolicyText = (policy: OutputPolicy) =>
+  policy === 'explode' ? 'на сырьё' : policy === 'stock' ? 'сам выход' : 'способ не выбран';
+/**
+ * Stock items for the link editor: every ingredient, and those that are a TTK output, with the
+ * stock_policy and the name of their recipe.
+ */
 export function linkTargets(records: { kind: string; id: string; payload: Data }[]) {
   const ingredients = records
     .filter((r) => r.kind === 'ingredient')
     .map((r) => ({ id: r.id, name: String(r.payload['name']), unit: String(r.payload['unit']) }))
     .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
-  const outputs = new Map<string, number>();
+  const outputs = new Map<string, Data[]>();
   for (const r of records)
     if (r.kind === 'recipe' && typeof r.payload['output_ingredient_id'] === 'string')
-      outputs.set(
-        r.payload['output_ingredient_id'],
-        (outputs.get(r.payload['output_ingredient_id']) ?? 0) + 1,
-      );
+      outputs.set(r.payload['output_ingredient_id'], [
+        ...(outputs.get(r.payload['output_ingredient_id']) ?? []),
+        r.payload,
+      ]);
   return {
     ingredients,
     // A TTK output names exactly one production recipe (the server refuses others).
-    outputs: ingredients.filter((i) => outputs.get(i.id) === 1),
+    outputs: ingredients
+      .filter((i) => outputs.get(i.id)?.length === 1)
+      .map((i) => {
+        const recipe = outputs.get(i.id)![0]!;
+        const policy = recipe['stock_policy'];
+        return {
+          ...i,
+          recipe: String(recipe['name'] ?? ''),
+          policy: (policy === 'explode' || policy === 'stock' ? policy : null) as OutputPolicy,
+        };
+      }),
   };
+}
+/**
+ * Review BOUI-R1: a TTK output whose recipe has no stock_policy is never written off at the sale
+ * (the queue blocks it with RECIPE_POLICY_UNSET). The editor says so for each such line.
+ */
+export function unsetPolicyWarnings(
+  outputs: { id: string; recipe: string; policy: OutputPolicy }[],
+  lines: LinkDraftLine[],
+): string[] {
+  const out: string[] = [];
+  for (const line of lines) {
+    if (!line.target.startsWith('r:')) continue;
+    const output = outputs.find((o) => o.id === line.target.slice(2));
+    if (output && output.policy === null)
+      out.push(
+        `В техкарте «${output.recipe}» не выбран «Выход техкарты при продаже». Пока его не выберут, продажи по этой связи не спишутся: очередь покажет «Не списано».`,
+      );
+  }
+  return out;
 }
 export type LinkDraftLine = { target: string; quantity: string };
 /** `i:<id>` stock item as is, `r:<id>` TTK output by its recipe. */

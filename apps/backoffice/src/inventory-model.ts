@@ -523,9 +523,12 @@ export const INGREDIENT_GROUP_OPTIONS: readonly { value: string; label: string }
   { value: 'household', label: 'Хозтовары' },
   { value: 'other', label: 'Другое' },
 ];
-/** stock_policy of a recipe output (design-bo-ui 5.3); empty = the default, explode. */
+/**
+ * stock_policy of a recipe output (design-bo-ui 5.3). Empty = not chosen: a sale through a menu
+ * link is not written off until the chef chooses (review BOUI-R1).
+ */
 export const RECIPE_POLICY_OPTIONS: readonly { value: string; label: string }[] = [
-  { value: '', label: 'По умолчанию: раскладывать на сырьё' },
+  { value: '', label: 'Не выбрано: продажи с этим выходом не спишутся' },
   { value: 'explode', label: 'Раскладывать на сырьё (производство недоступно)' },
   { value: 'stock', label: 'Списывать сам выход (заготовка партиями)' },
 ];

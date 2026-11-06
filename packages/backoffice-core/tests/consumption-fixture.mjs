@@ -179,11 +179,14 @@ export async function stockFixture(bo, token, c) {
       lines: lines.map(([ingredient_id, quantity]) => ({ ingredient_id, quantity })),
       ...extra,
     });
+  // The chef chooses how each output is written off at the sale (review BOUI-R1: no default).
   s.recipes = {
-    patty: await recipe('Котлета', s.patty, '1', [[s.meat, '120']]),
+    patty: await recipe('Котлета', s.patty, '1', [[s.meat, '120']], { stock_policy: 'explode' }),
     // The sauce is made in batches by production documents: written off as stock.
     sauce: await recipe('Соус', s.sauce, '1000', [[s.mayo, '1000']], { stock_policy: 'stock' }),
-    nugget: await recipe('Наггетсы', s.nugget, '3', [[s.chicken, '100']]),
+    nugget: await recipe('Наггетсы', s.nugget, '3', [[s.chicken, '100']], {
+      stock_policy: 'explode',
+    }),
   };
   await receipt(bo, token, c, [
     [s.bun, '100', '500000'],

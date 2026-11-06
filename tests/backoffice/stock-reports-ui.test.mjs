@@ -190,6 +190,8 @@ test('proxy and cabinet allowlists: the two new stock views, nothing else', () =
 
 test('words: RECIPE_POLICY_EXPLODE and the key count check of the manager shift', () => {
   assert.match(reasonMessage('RECIPE_POLICY_EXPLODE'), /Списывать сам выход/);
+  // Review BOUI-R1: a linked output without a chosen policy is not produced either.
+  assert.match(reasonMessage('RECIPE_POLICY_UNSET'), /не выбран «Выход техкарты при продаже»/);
   assert.equal(
     checkText('key_count', {
       status: 'problem',
