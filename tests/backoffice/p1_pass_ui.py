@@ -137,6 +137,14 @@ with sync_playwright() as pw:
             page.get_by_test_id('pos-day-tab-receipts').click()
             expect(page.get_by_test_id('pos-receipts')).to_be_visible()
             check(page, role, 'pos-receipts', width)
+            # A receipt card (step 2 had no phone screenshot of it): it fits the window.
+            page.get_by_test_id('pos-receipts').locator('tbody tr').filter(
+                has_text='Kaspi терминал').first.get_by_role('button', name='Открыть').click()
+            expect(page.get_by_test_id('pos-receipt-card')).to_be_visible()
+            expect(page.get_by_test_id('pos-receipt-tenders')).to_contain_text('Kaspi терминал')
+            check(page, role, 'pos-receipt-card', width)
+            page.get_by_test_id('pos-dialog-close').click()
+            expect(page.get_by_test_id('pos-receipt-card')).to_have_count(0)
             page.get_by_test_id('pos-day-tab-webkassa').click()
             expect(page.get_by_test_id('pos-webkassa-pending')).to_be_visible()
             check(page, role, 'pos-webkassa', width)
