@@ -223,6 +223,42 @@ class C1(unittest.TestCase):
             self.assertEqual(result['failure']['check'],'window.bounds')
             self.assertEqual(host.installs,0)
 
+    def evening(self):
+        host = FixtureHost()
+        host.payload.update(approved_start_utc='2026-11-06T15:12:00+00:00',
+                            approved_end_utc='2026-11-06T18:30:00+00:00',
+                            window_exception='owner-evening-2026-11-06')
+        return host
+
+    def test_explicit_one_day_evening_exception_passes(self):
+        result, host = self.execute(self.evening(), datetime(2026,11,6,16,tzinfo=timezone.utc))
+        self.assertEqual(result['status'], 'PASS')
+        self.assertEqual(host.installs, 1)
+
+    def test_evening_requires_explicit_exception(self):
+        host = self.evening(); host.payload.pop('window_exception')
+        result, host = self.execute(host, datetime(2026,11,6,16,tzinfo=timezone.utc))
+        self.assertEqual(result['failure']['check'], 'window.bounds')
+        self.assertEqual(host.installs, 0)
+
+    def test_evening_cannot_extend_date_or_deadline(self):
+        for start,end in [('2026-11-07T15:12:00+00:00','2026-11-07T18:30:00+00:00'),
+                          ('2026-11-06T15:12:00+00:00','2026-11-06T18:30:01+00:00')]:
+            host = self.evening();host.payload.update(approved_start_utc=start, approved_end_utc=end)
+            result, host = self.execute(host, datetime(2026,11,6,16,tzinfo=timezone.utc))
+            self.assertEqual(result['failure']['check'], 'window.bounds')
+            self.assertEqual(host.installs, 0)
+
+    def test_evening_start_reserves_90_minutes_for_remaining_work(self):
+        result, host = self.execute(self.evening(), datetime(2026,11,6,17,tzinfo=timezone.utc))
+        self.assertEqual(result['failure']['check'], 'window.start_deadline')
+        self.assertEqual(host.installs, 0)
+
+    def test_evening_expiration_stops(self):
+        result, host = self.execute(self.evening(), datetime(2026,11,6,18,30,tzinfo=timezone.utc))
+        self.assertEqual(result['failure']['check'], 'window.current')
+        self.assertEqual(host.installs, 0)
+
     def test_neighbor_snapshot_includes_all_labels(self):
         rows=[{'Name':'/bank','Id':'x','Image':'y','State':{'Running':True,'StartedAt':'z'},
                'Config':{'Labels':{'com.docker.compose.config-hash':'abc','custom':SECRET}}}]

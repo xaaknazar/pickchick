@@ -151,13 +151,18 @@ def verify_window(checks, payload, now, starting=False):
     end_minute = local_end.hour * 60 + local_end.minute
     daytime = 7 * 60 <= start_minute < 16 * 60 and end_minute <= 19 * 60
     nighttime = 30 <= start_minute < 7 * 60 and end_minute <= 7 * 60
+    # Owner-approved, date-bound exception. This is not a reusable evening mode.
+    evening = (payload.get('window_exception') == 'owner-evening-2026-11-06'
+               and start >= datetime(2026, 11, 6, 15, 12, tzinfo=timezone.utc)
+               and end <= datetime(2026, 11, 6, 18, 30, tzinfo=timezone.utc))
     checks.equal('window.bounds', True, local_start.date() == local_end.date()
-                 and start < end and (daytime or nighttime))
+                 and start < end and (daytime or nighttime or evening))
     checks.equal('window.current', True, start <= now < end)
     if starting:
         local_now = now.astimezone(almaty)
         checks.equal('window.start_deadline', True,
-                     local_now.hour < (16 if daytime else 7))
+                     (now < end - timedelta(minutes=90)) if evening
+                     else local_now.hour < (16 if daytime else 7))
 
 
 class Host:
