@@ -7390,10 +7390,11 @@
         "docs/roadmap/project.json",
         "tests/mobile/browser_cart_unavailable.py"
       ],
-      "status": "active",
-      "head": "1a9472f1dc2a34b8ab4db7beb6f9c5616ed23f73",
-      "updatedAt": "2026-11-06T20:24:03.317Z",
-      "summary": "\n06.11: владелец явно разрешил временную передачу этих файлов mobile-cart-location-1106 для названия выбранной точки в быстрой оплате; существующие изменения сохраняются. Общие документы обновляются только добавлением записи, без удаления фактов С1/С3/Android."
+      "status": "available",
+      "head": "bee6b0ad96ca196e0d1d05a25d94c8b8f8b6f246",
+      "updatedAt": "2026-11-06T20:34:59.399Z",
+      "summary": "PR314, bee6b0ad: название выбранной точки в быстрой оплате. 586 Node +96 Python, typecheck/lint/format/translations, браузерные ABIRL/AH и roadmap 7/7 PASS. Foundation42289232077 идёт. Сборки и сервер не менялись.",
+      "nextAction": "Дождаться CI PR314. Отдельный не включённый в CI browser_cart_shortcut.py содержит старую проверку строки; запрос передачи от mobile-cart-mode-1029 отправлен владельцу, до ответа файл не менять. После согласования обновить тест. Нативная приёмка, merge и выпуск отдельно."
     }
   ]
 }
