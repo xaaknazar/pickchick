@@ -40,7 +40,17 @@ infra/windows/native-pos-sync-permissions.ps1
 infra/windows/native-pos-sync.md
 infra/windows/native-foundation-db.mjs
 infra/windows/pos-sync-worker-grants.mjs
+infra/windows/pos-sales-grants.mjs
 ```
+
+Cutover 19.11 (CR cloud-2 section 2): `pos-sync-worker-grants.mjs` imports
+`pos-sales-grants.mjs`. On an edge with schema026 (`026_edge_pos_sales.sql` in the ledger),
+`Prepare` also grants the posSales sender set `WORKER_PRIVILEGES` (SELECT and
+UPDATE(acknowledged_at, attempts, last_error) on `pos_sale_outbox`, SELECT, INSERT, UPDATE on
+`pos_sale_sync_state`), and `Verify` requires exactly the pre-cutover set plus that set.
+`pos-sales-upgrade-db.mjs apply` grants the same set to an existing sync role in window C4; a
+role prepared on 025 without that step fails `Verify` on 026 (`Sync role table privileges
+differ`). Without schema026 the grants and the check are the pre-cutover ones.
 
 The worker dynamically resolves packages from its immutable `app/package.json`.
 Do not copy a pnpm store, symlinks, owner environment, machine identity or keys into

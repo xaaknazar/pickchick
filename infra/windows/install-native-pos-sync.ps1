@@ -279,7 +279,7 @@ if ($stage.nodeSha256 -cne '158f7685b44de51f6c0df1d153526cbcd3e1bc739a8dfc607721
 $manifest=Read-Json (Join-Path $runtimeRoot 'runtime-manifest.json') 8388608
 if ($manifest.format -cne 'pickchick-edge-runtime-v1' -or $manifest.sourceCommit -cne $SourceCommit) {throw 'Immutable runtime source differs.'}
 # Verify every shipped file before any privileged helper is executed.
-foreach ($relative in @('infra/windows/native-pos-sync-db.mjs','infra/windows/native-foundation-db.mjs','infra/windows/pos-sync-worker-grants.mjs','infra/windows/native-pos-sync-worker.mjs','infra/windows/native-pos-sync-permissions.ps1')) {
+foreach ($relative in @('infra/windows/native-pos-sync-db.mjs','infra/windows/native-foundation-db.mjs','infra/windows/pos-sync-worker-grants.mjs','infra/windows/pos-sales-grants.mjs','infra/windows/native-pos-sync-worker.mjs','infra/windows/native-pos-sync-permissions.ps1')) {
     if (@($manifest.files | Where-Object {$_.path -ceq $relative}).Count -ne 1) {throw 'Required sync administration file is not pinned in the manifest.'}
 }
 foreach ($file in $manifest.files) {

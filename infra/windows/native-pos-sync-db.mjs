@@ -5,6 +5,11 @@ import { resolve, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { validateCredentials } from './native-foundation-db.mjs';
 import { posSyncWorkerGrants } from './pos-sync-worker-grants.mjs';
+import {
+  MIGRATION as POS_SALES_MIGRATION,
+  WORKER_PRIVILEGES,
+  parsePrivileges,
+} from './pos-sales-grants.mjs';
 
 export const syncRole = 'pickchick_pos_sync';
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
@@ -45,23 +50,63 @@ const updateColumns = {
   outbox_events: 'attempts,acknowledged_at',
   fulfillment_outbox: 'attempts,acknowledged_at',
 };
-async function assertRights(owner, requireGranted) {
+/**
+ * Reviewed rights of syncRole per relation: SELECT, INSERT, UPDATE (true = table-level, otherwise
+ * the column list). posSales (edge schema026 in the ledger, cutover CR cloud-2 section 2): the
+ * sender also reads pos_sale_outbox and writes pos_sale_sync_state, exactly WORKER_PRIVILEGES of
+ * pos-sales-grants.mjs, which pos-sales-upgrade-db.mjs grants on 026 and prepare grants below.
+ * Without 026 the reviewed set is byte-for-byte the pre-cutover one.
+ */
+export function reviewedSyncRights(posSales) {
+  if (typeof posSales !== 'boolean') throw new Error('Invalid POS sales grant flag');
+  const rights = Object.fromEntries(
+    Object.entries(updateColumns).map(([name, columns]) => [
+      name,
+      { insert: false, update: columns.split(',') },
+    ]),
+  );
+  if (posSales)
+    for (const [name, entry] of Object.entries(parsePrivileges(WORKER_PRIVILEGES))) {
+      if (entry.kind !== 'r' || !entry.select || name in rights)
+        throw new Error('Invalid POS sales worker rights');
+      rights[name] = { insert: entry.insert, update: entry.update };
+    }
+  return rights;
+}
+/**
+ * Table and column rights of `role` on every relation of `schema` against reviewedSyncRights:
+ * nothing beyond them, and with `requireGranted` all of them. The installer runs it for syncRole
+ * on public; tests run it for a temporary role on a migrated schema.
+ */
+export async function assertSyncRelationRights(
+  owner,
+  { role = syncRole, schema = 'public', requireGranted, posSales },
+) {
+  const reviewed = reviewedSyncRights(posSales);
+  if (typeof requireGranted !== 'boolean') throw new Error('Invalid sync rights check');
   const relations = (
     await owner.query(
       `SELECT c.oid,c.relname,c.relkind,
     has_table_privilege($1,c.oid,'SELECT') AS sel,
-    has_table_privilege($1,c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') AS writes
+    has_table_privilege($1,c.oid,'INSERT') AS ins,
+    has_table_privilege($1,c.oid,'UPDATE') AS upd,
+    has_table_privilege($1,c.oid,'DELETE,TRUNCATE,REFERENCES,TRIGGER') AS writes
     FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-    WHERE n.nspname='public' AND c.relkind IN ('r','p','v','m','f')`,
-      [syncRole],
+    WHERE n.nspname=$2 AND c.relkind IN ('r','p','v','m','f')`,
+      [role, schema],
     )
   ).rows;
   for (const relation of relations) {
-    const allowed = updateColumns[relation.relname];
+    const allowed = reviewed[relation.relname];
+    const tableUpdate = allowed?.update === true;
     if (
       relation.writes ||
+      (relation.ins && !allowed?.insert) ||
+      (relation.upd && !tableUpdate) ||
       (relation.sel && !allowed) ||
-      (requireGranted && allowed && !relation.sel)
+      (requireGranted &&
+        allowed &&
+        (!relation.sel || (allowed.insert && !relation.ins) || (tableUpdate && !relation.upd)))
     )
       throw new Error('Sync role table privileges differ');
     const columns = (
@@ -69,15 +114,17 @@ async function assertRights(owner, requireGranted) {
         `SELECT attname,
       has_column_privilege($1,attrelid,attnum,'SELECT') AS sel,
       has_column_privilege($1,attrelid,attnum,'UPDATE') AS upd,
-      has_column_privilege($1,attrelid,attnum,'INSERT,REFERENCES') AS extra
+      has_column_privilege($1,attrelid,attnum,'INSERT') AS ins,
+      has_column_privilege($1,attrelid,attnum,'REFERENCES') AS extra
       FROM pg_attribute WHERE attrelid=$2 AND attnum>0 AND NOT attisdropped`,
-        [syncRole, relation.oid],
+        [role, relation.oid],
       )
     ).rows;
     for (const column of columns) {
-      const update = allowed?.split(',').includes(column.attname) ?? false;
+      const update = Boolean(tableUpdate || allowed?.update.includes(column.attname));
       if (
         column.extra ||
+        (column.ins && !allowed?.insert) ||
         (column.sel && !allowed) ||
         (column.upd && !update) ||
         (requireGranted && update && !column.upd)
@@ -87,9 +134,12 @@ async function assertRights(owner, requireGranted) {
   }
   if (
     requireGranted &&
-    Object.keys(updateColumns).some((name) => !relations.some((r) => r.relname === name))
+    Object.keys(reviewed).some((name) => !relations.some((r) => r.relname === name))
   )
     throw new Error('Sync migrations missing');
+}
+async function assertRights(owner, requireGranted, posSales) {
+  await assertSyncRelationRights(owner, { requireGranted, posSales });
   const invalid = (
     await owner.query(
       `SELECT
@@ -226,24 +276,26 @@ export async function configureSyncDatabase(Client, foundation, secret, options)
     const branches = (await owner.query('SELECT id FROM branch_config')).rows;
     if (branches.length !== 1 || branches[0].id !== secret.branchId)
       throw new Error('Local branch binding differs');
-    await assertRights(owner, false);
+    // Edge schema026 (guarded pos-sales-upgrade-db.mjs) adds the posSales sender rights.
+    const posSales = ledger.some((r) => r.version === POS_SALES_MIGRATION);
+    await assertRights(owner, false, posSales);
     if (mode === 'prepare') {
       await owner.query('BEGIN');
       try {
         await owner.query(
-          `GRANT CONNECT ON DATABASE pickchick_edge TO ${syncRole};\n${posSyncWorkerGrants(syncRole)}`,
+          `GRANT CONNECT ON DATABASE pickchick_edge TO ${syncRole};\n${posSyncWorkerGrants(syncRole, 'public', { posSales })}`,
         );
-        await assertRights(owner, true);
+        await assertRights(owner, true, posSales);
         await owner.query('COMMIT');
       } catch (error) {
         await owner.query('ROLLBACK');
         throw error;
       }
-    } else await assertRights(owner, true);
+    } else await assertRights(owner, true, posSales);
     worker = new Client({ ...base, user: syncRole, password: secret.password });
     worker.on('error', () => {});
     await worker.connect();
-    for (const table of Object.keys(updateColumns))
+    for (const table of Object.keys(reviewedSyncRights(posSales)))
       await worker.query(`SELECT * FROM ${table} LIMIT 0`);
     let scope;
     if (mode === 'bind') {
