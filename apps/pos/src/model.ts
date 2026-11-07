@@ -602,6 +602,20 @@ export class PosController {
   get saleMode() {
     return this.state.posConfig?.mode === 'pos_sale';
   }
+  /**
+   * The edge sells (GET ordering says pos_sale) but this session has no answer to pos/config
+   * yet: its first read failed and is asked again at the next operations refresh (review 07.11
+   * R1). Nothing is sold, sent to the kitchen or closed meanwhile; the screens only must not
+   * call this desk a test. Once pos/config answered (any mode, or 404) that answer decides: it
+   * is read after GET ordering, so it is the newer one.
+   */
+  get awaitingSale() {
+    return (
+      !this.state.posConfig &&
+      !this.state.posConfigMissing &&
+      this.state.ordering?.pos_service_mode === 'pos_sale'
+    );
+  }
   subscribe(listener: () => void) {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -1186,6 +1200,8 @@ export class PosController {
    * GET pos/config (contracts section 5.1). A 404 is an edge without paid sales: today's
    * unpaid cashier, asked again after POS_CONFIG_MISSING_MS. A failed read keeps the last
    * answer, so a short LAN loss never flips the screens; only the edge's own answer does.
+   * A session without any answer yet does not know whether its desk sells, so a failed read
+   * then is asked again at the next operations refresh, not after POS_CONFIG_POLL_MS.
    */
   async refreshPosConfig(force = false) {
     const now = this.now(),
@@ -1209,6 +1225,9 @@ export class PosController {
       } else if (error instanceof ApiError && error.code === 'UNAUTHORIZED') {
         this.fail(error);
         return;
+      } else if (!this.state.posConfig && !this.state.posConfigMissing) {
+        // No answer yet in this session (review 07.11 R1): the poll window is not used up.
+        this.posConfigAt = -Infinity;
       }
     }
     if (epoch !== this.generation) return;
@@ -2139,9 +2158,21 @@ export class PosController {
    * read yet, and again for a pending one at most every POS_CONFIG_POLL_MS (a recorded or not
    * required receipt stays so); at most RECEIPT_READS reads per call, in the order given.
    * Best effort: never while a command is busy or pending, and nothing in the unpaid mode.
+   * One call at a time: the 3 s refresh does not wait for it, and on a slow gateway a second
+   * call would read the same orders again (review 07.11 R3); it returns at once instead.
    */
   async refreshSaleReceipts(orderIds: readonly string[]) {
     if (!this.saleMode || !this.credential || this.state.busy || this.state.pending) return;
+    if (this.receiptsReading) return;
+    this.receiptsReading = true;
+    try {
+      await this.readSaleReceipts(orderIds);
+    } finally {
+      this.receiptsReading = false;
+    }
+  }
+  private receiptsReading = false;
+  private async readSaleReceipts(orderIds: readonly string[]) {
     const epoch = this.generation,
       now = this.now();
     const paid = new Set(

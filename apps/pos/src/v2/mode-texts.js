@@ -43,8 +43,8 @@ export const unavailableText = (paid) => (paid ? PAID_TEXTS.unavailable : TEST_T
 export const findGuestText = (paid) => (paid ? PAID_TEXTS.findGuest : TEST_TEXTS.findGuest);
 /**
  * Today's "send to kitchen" refused by the mode of GET ordering. An edge that already sells
- * while pos/config was not read yet (it is asked again within POS_CONFIG_POLL_MS) is not
- * called a test.
+ * while pos/config was not read yet (it is asked again at the next refresh) is not called a
+ * test.
  */
 export const kitchenOffText = (ordering) =>
   ordering?.pos_service_mode === 'pos_sale' ? PAID_TEXTS.kitchenWait : TEST_TEXTS.kitchenOff;
@@ -85,6 +85,38 @@ export function storedDeskPaid(storage) {
   } catch {
     return false;
   }
+}
+/**
+ * Whether the screens speak as a desk that sells: the session's pos/config pos_sale, or an edge
+ * that sells by GET ordering while the session waits for its first pos/config answer (review
+ * 07.11 R1, model.awaitingSale), or, before a session read GET ordering (the lock screen), the
+ * desk's last answer `lastPaid`. A desk without payments (404, unpaid_service, an edge that
+ * does not say) gets false: today's texts byte for byte.
+ */
+export const deskSells = (model, lastPaid) =>
+  model.saleMode || model.awaitingSale || (!model.state.ordering && lastPaid === true);
+/**
+ * Today's values that would call the desk of a selling edge a test, or pass an order without
+ * payment, while its session waits for pos/config (model.awaitingSale; asked again at the next
+ * refresh). `legacy` are today's template values, `empty` an empty cart, `say` the toast.
+ * Nothing here sells or writes: «К ОПЛАТЕ», the X report and closing ask to wait.
+ */
+export function awaitingValues(legacy, { busy, empty, say }) {
+  const wait = () => say(PAID_TEXTS.kitchenWait);
+  return {
+    payBtnLabel: busy ? legacy.payBtnLabel : empty ? 'К ОПЛАТЕ' : 'К ОПЛАТЕ · ' + legacy.totalLabel,
+    toPay: wait,
+    confirmPay: wait,
+    shiftRevenue: '-',
+    shiftPays: [{ name: 'Отчёт смены загружается', sum: '-', color: 'var(--n300)' }],
+    kkmLine: 'Чеки: вручную в Webkassa',
+    cashLog: legacy.cashLog.map((row) =>
+      row.what === 'Начальный остаток · тест' ? { ...row, what: 'Начальный остаток' } : row,
+    ),
+    sayX: wait,
+    sayTotals: wait,
+    startClose: wait,
+  };
 }
 /** Keeps the edge's last definite answer; returns whether this desk sells (for the lock). */
 export function rememberDeskMode(storage, state, previous) {

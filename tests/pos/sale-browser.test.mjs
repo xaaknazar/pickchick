@@ -104,7 +104,11 @@ function syntheticEdge() {
     sales: new Map(),
     commands: new Map(),
     posts: [],
+    // Every POST orders with the pos/config mode of that moment (null: the edge answers 404).
     unpaid: [],
+    // Review 07.11 R1: GET pos/config answers 503 while set; GET ordering still says pos_sale.
+    configFails: false,
+    configReads: 0,
     number: 26,
     // Part B: voids, refunds, receipts, approvals and the closed shift.
     ops: [],
@@ -364,6 +368,30 @@ function syntheticEdge() {
     });
     return [200, sale];
   };
+  /** An order of today's unpaid cashier, admitted to the kitchen without payment. */
+  const unpaidOrder = (body) => {
+    const q = state.quotes.get(body.quote_id);
+    if (!q) return [409, { code: 'CONFLICT' }];
+    const order = {
+      cash_shift_id: shift.shift_id,
+      order_id: randomUUID(),
+      branch_id: branch,
+      quote_id: q.quote_id,
+      version: 1,
+      state: 'awaiting_payment',
+      payment_state: 'not_started',
+      fiscal_state: 'not_requested',
+      fulfillment_state: 'accepted',
+      execution_mode: 'unpaid_service',
+      fulfillment: { version: 1, display_number: String(++state.number), state: 'accepted' },
+      next_action: 'none',
+      snapshot: q,
+      created_at: new Date().toISOString(),
+      cancellation_reason: null,
+    };
+    state.orders.set(order.order_id, order);
+    return [201, order];
+  };
   const route = (method, path, body, headers) => {
     if (path === '/health/ready') return [200, { ready: true }];
     if (path === '/edge/v1/staff/pin') {
@@ -415,10 +443,13 @@ function syntheticEdge() {
         const o = state.orders.get(p.split('/')[1]);
         return o ? [200, o] : [404, { code: 'NOT_FOUND' }];
       }
-      if (p === 'pos/config')
+      if (p === 'pos/config') {
+        state.configReads++;
+        if (state.configFails) return [503, { code: 'EDGE_UNAVAILABLE' }];
         return state.config
           ? [200, { ...state.config, server_time: now }]
           : [404, { code: 'NOT_FOUND' }];
+      }
       if (p.startsWith('pos/sales/')) {
         const s = state.sales.get(p.split('/')[2]);
         return s ? [200, s] : [404, { code: 'NOT_FOUND' }];
@@ -428,8 +459,12 @@ function syntheticEdge() {
     if (p === 'staff/logout') return [204, null];
     if (p === 'checkout/quotes') return [200, quote(body)];
     if (p === 'orders') {
-      state.unpaid.push(body);
-      return [409, { code: 'SERVICE_MODE_DISABLED' }];
+      state.unpaid.push({ mode: state.config?.mode ?? null, body });
+      // Today's cashier on an edge without pos/config passes the order to the kitchen unpaid;
+      // an edge that sells refuses POST orders.
+      if (state.config || body.kitchen_admission !== 'unpaid')
+        return [409, { code: 'SERVICE_MODE_DISABLED' }];
+      return unpaidOrder(body);
     }
     if (p === 'pos/sales') {
       state.posts.push(body);
@@ -528,7 +563,9 @@ test('paid cashier screens in the browser: hall cash, aggregator, staff meal; 40
     // The browser script switches the synthetic edge to an edge without pos/config and back.
     if (req.url === '/legacy') edge.state.config = null;
     if (req.url === '/paid') edge.state.config = paid;
-    res.end('{}');
+    if (req.url === '/config-fail') edge.state.configFails = true;
+    if (req.url === '/config-ok') edge.state.configFails = false;
+    res.end(JSON.stringify({ configReads: edge.state.configReads }));
   });
   await new Promise((r) => control.listen(0, '127.0.0.1', r));
   try {
@@ -568,7 +605,13 @@ test('paid cashier screens in the browser: hall cash, aggregator, staff meal; 40
     assert.equal(edge.state.sales.size, 3);
     const recorded = [...edge.state.sales.values()][0].fiscal[0];
     assert.equal(recorded.receipt_number, 'TEST-WK-1');
-    assert.equal(edge.state.unpaid.length, 0, 'POST orders is never sent in the paid mode');
+    // POST orders only from today's cashier on the edge without pos/config (the 404 phase), and
+    // not while the first pos/config read of a desk on an edge that sells was failing (R1).
+    assert.deepEqual(
+      edge.state.unpaid.map((u) => [u.mode, u.body.kitchen_admission]),
+      [[null, 'unpaid']],
+      'POST orders is never sent in the paid mode',
+    );
     // Part B: refund of the cash order, void of the aggregator order, the refund receipt, the
     // close with the Kaspi terminal total and no pending receipts (so no close approval).
     const [first, second] = [...edge.state.sales.values()];

@@ -42,6 +42,33 @@ def no_long_dashes(page):
     assert '\u2014' not in text and '\u2013' not in text, 'long dash in cashier text'
 
 
+# Today's test-mode texts (the synthetic names here say "\u0422\u0435\u0441\u0442\u043e\u0432\u043e\u0435 \u043a\u043e\u043c\u0431\u043e", so no plain "\u0442\u0435\u0441\u0442").
+TEST_TEXTS = re.compile(
+    '\u041a\u0410\u0421\u0421\u0410 \u00b7 \u0422\u0415\u0421\u0422|\u043a\u0430\u0441\u0441\u0430 1|\u00b7 TEST|\u0422\u0435\u0441\u0442 \u0431\u0435\u0437 \u043e\u043f\u043b\u0430\u0442\u044b|\u0442\u0435\u0441\u0442\u043e\u0432\u044b\u0445 \u0437\u0430\u043a\u0430\u0437\u043e\u0432|\u0422\u0435\u0441\u0442\u043e\u0432\u044b\u0435 \u0437\u0430\u043a\u0430\u0437\u044b|\u0442\u0435\u0441\u0442\u043e\u0432\u044b\u0439 \u0437\u0430\u043a\u0430\u0437'
+    '|\u0422\u0435\u0441\u0442\u043e\u0432\u0430\u044f \u0441\u043c\u0435\u043d\u0430|\u0442\u0435\u0441\u0442\u043e\u0432\u043e\u043c \u0440\u0435\u0436\u0438\u043c\u0435|\u0414\u043b\u044f \u0442\u0435\u0441\u0442\u0430|\u041d\u0430\u0447\u0430\u043b\u044c\u043d\u044b\u0439 \u043e\u0441\u0442\u0430\u0442\u043e\u043a \u00b7 \u0442\u0435\u0441\u0442|\u0422\u0435\u0441\u0442\u043e\u0432\u044b\u0439 \u0440\u0435\u0436\u0438\u043c'
+    '|\u0422\u0435\u0441\u0442 \u00b7 \u0431\u0435\u0437 \u043e\u043f\u043b\u0430\u0442\u044b|\u041e\u043f\u043b\u0430\u0442\u0430 \u043d\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0430|\u0431\u0435\u0437 \u043e\u043f\u043b\u0430\u0442\u044b [0-9]', re.I)
+
+
+def no_test_text(page, where):
+    found = TEST_TEXTS.findall(page.locator('[data-pos]').inner_text())
+    assert not found, (where, found)
+
+
+def toast(page, text):
+    expect(page.locator('.pos-toast')).to_have_text(text)
+
+
+def bar_fits(page, where):
+    """Review 07.11 R5: with five tabs the staff chip and \u00ab\u0411\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u0430\u0442\u044c\u00bb stay on the screen."""
+    nav = page.locator('.bottom-nav')
+    expect(nav.get_by_role('button', name=re.compile('\u0427\u0415\u041a\u0418 WEBKASSA'))).to_be_visible()
+    width = page.viewport_size['width']
+    for name, item in (('lock', button(page, '\u0411\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u0430\u0442\u044c')), ('staff chip', nav.locator('.nav-info > div:not(.lock-action)'))):
+        box = item.bounding_box()
+        assert box and box['x'] >= 0 and box['x'] + box['width'] <= width, (where, name, box, width)
+    assert nav.evaluate('(e) => e.scrollWidth <= e.clientWidth'), (where, 'bottom bar scrolls')
+
+
 with sync_playwright() as pw:
     browser = pw.chromium.launch(headless=True)
     context = browser.new_context(viewport={'width': 1920, 'height': 1080}, reduced_motion='reduce', has_touch=True)
@@ -197,13 +224,62 @@ with sync_playwright() as pw:
         assert page.evaluate(HINT) == 'unpaid'
         capture(page, 'legacy-pay-1920.png')
         expect(page.locator('.bottom-nav').get_by_role('button', name=re.compile('ЧЕКИ WEBKASSA'))).to_have_count(0)
-        page.keyboard.press('Escape')
+        # Today's cashier passes it to the kitchen without payment (№30, an unpaid row later).
+        button(page, 'ПЕРЕДАТЬ БЕЗ ОПЛАТЫ').click()
+        expect(page.locator('.success-modal')).to_be_visible()
+        button(page, re.compile('^Следующий заказ'), exact=False).click()
+        expect(page.locator('.success-modal')).to_have_count(0)
 
-        # Part B on an edge that sells again: refund, void, Webkassa tab, X report, closing.
+        # Review 07.11 R1: the edge sells again (GET ordering pos_sale), but the session's first
+        # pos/config read fails (503). The desk last heard "unpaid", yet no screen says test,
+        # nothing is passed without payment, and pos/config is asked again at each refresh.
+        reads = json.loads(urlopen(fixture['control'] + '/config-fail').read())['configReads']
         urlopen(fixture['control'] + '/paid').read()
         page.reload()
-        expect(page.get_by_test_id('sale-channels')).to_be_visible()
+        tile = page.get_by_role('button', name=re.compile('Тестовое комбо'))
+        expect(tile).to_be_visible()
         nav = page.locator('.bottom-nav')
+        expect(page.get_by_text(re.compile('касса 1', re.I))).to_have_count(0)
+        expect(page.get_by_test_id('sale-channels')).to_have_count(0)
+        assert page.evaluate(HINT) == 'unpaid', 'a failed read is no answer'
+        button(page, 'Промокод').click()
+        toast(page, 'Эта функция пока не подключена.')
+        tile.click()
+        button(page, 'К ОПЛАТЕ · 3 490 ₸').click()
+        toast(page, 'Касса получает настройки оплаты - повторите через полминуты.')
+        expect(page.locator('[data-screen-label="D Оплата"]')).to_have_count(0)
+        no_test_text(page, 'order screen, pos/config 503')
+        nav.get_by_role('button', name=re.compile('^ЗАКАЗЫ')).click()
+        waiting_row = page.locator('.order-table-row', has=page.get_by_text('27', exact=True))
+        expect(waiting_row).to_contain_text('КАССА')
+        expect(waiting_row).not_to_contain_text('без чека')
+        unpaid_row = page.locator('.order-table-row', has=page.get_by_text('30', exact=True))
+        expect(unpaid_row).to_contain_text('Без оплаты')
+        expect(unpaid_row).to_contain_text('без чека')
+        no_test_text(page, 'orders, pos/config 503')
+        waiting_row.get_by_role('button', name='Чек', exact=True).click()
+        toast(page, 'Касса получает настройки оплаты - повторите через полминуты.')
+        capture(page, 'awaiting-orders-1920.png')
+        nav.get_by_role('button', name=re.compile('^СМЕНА')).click()
+        expect(page.get_by_text('Отчёт смены загружается')).to_be_visible()
+        no_test_text(page, 'shift tab, pos/config 503')
+        button(page, 'Закрыть смену').click()
+        toast(page, 'Касса получает настройки оплаты - повторите через полминуты.')
+        expect(page.locator('.close-shift-modal')).to_have_count(0)
+        # pos/config is asked again at each refresh (3 s), not after the 30 s poll.
+        for _ in range(20):
+            if json.loads(urlopen(fixture['control'] + '/count').read())['configReads'] >= reads + 2:
+                break
+            page.wait_for_timeout(500)
+        else:
+            raise AssertionError('pos/config was not asked again within 10 s')
+        # The edge answers again: the next refresh turns the desk paid.
+        urlopen(fixture['control'] + '/config-ok').read()
+        nav.get_by_role('button', name=re.compile('^ЗАКАЗ$')).click()
+        expect(page.get_by_test_id('sale-channels')).to_be_visible(timeout=10000)
+        assert page.evaluate(HINT) == 'pos_sale'
+
+        # Part B on an edge that sells again: refund, void, Webkassa tab, X report, closing.
 
         def open_order(number):
             nav.get_by_role('button', name=re.compile('^ЗАКАЗЫ')).click()
@@ -227,10 +303,20 @@ with sync_playwright() as pw:
             for number in ('27', '28', '29'):
                 # The whole state is readable in the ОПЛАТА · ККМ column: never cut.
                 assert receipt_state(number).evaluate('(e) => e.scrollWidth <= e.clientWidth'), (number, width)
+            bar_fits(page, f'orders {width}')
+        capture(page, 'orders-paid-1366.png')
         page.set_viewport_size({'width': 1920, 'height': 1080})
         for number in ('27', '28', '29'):
             expect(order_row(number)).not_to_contain_text('без чека')
             expect(order_row(number)).not_to_contain_text('ТЕСТ')
+        # Review 07.11 R2: an order passed without payment before (№30, the 404 phase) on a
+        # desk that sells: no "ТЕСТ", no receipt, and «Чек» says why.
+        expect(order_row('30')).to_contain_text('КАССА')
+        expect(order_row('30')).to_contain_text('Без оплаты')
+        expect(order_row('30')).to_contain_text('без чека')
+        no_test_text(page, 'orders, paid')
+        order_row('30').get_by_role('button', name='Чек', exact=True).click()
+        toast(page, 'Заказ передан без оплаты - чека нет.')
         capture(page, 'orders-paid-1920.png')
         order_row('28').get_by_role('button', name='Чек', exact=True).click()
         expect(page.get_by_test_id('ops-card-title')).to_have_text('Заказ №28')
@@ -341,5 +427,10 @@ with sync_playwright() as pw:
         paid_lock(page)
         assert not errors, errors
         assert not external, external
+    except Exception:
+        page.screenshot(path=str(output / 'sale-failure.png'))
+        print('RENDER_ERRORS', errors)
+        print(page.locator('body').inner_text()[-1800:])
+        raise
     finally:
         browser.close()

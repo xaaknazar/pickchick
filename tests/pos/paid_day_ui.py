@@ -47,6 +47,17 @@ def capture(page, name):
     page.screenshot(path=str(output / name))
 
 
+def bar_fits(page, where):
+    """Review 07.11 R5: with five tabs the staff chip and «Блокировать» stay on a 1366 px screen."""
+    nav = page.locator('.bottom-nav')
+    expect(nav.get_by_role('button', name=re.compile('ЧЕКИ WEBKASSA'))).to_be_visible()
+    width = page.viewport_size['width']
+    for name, item in (('lock', button(page, 'Блокировать')), ('staff chip', nav.locator('.nav-info > div:not(.lock-action)'))):
+        box = item.bounding_box()
+        assert box and box['x'] >= 0 and box['x'] + box['width'] <= width, (where, name, box, width)
+    assert nav.evaluate('(e) => e.scrollWidth <= e.clientWidth'), (where, 'bottom bar scrolls')
+
+
 def paid_lock(page):
     expect(button(page, '1')).to_be_visible()
     expect(page.locator('.pin-connection')).to_have_text(PAID_LOCK)
@@ -110,6 +121,7 @@ with sync_playwright() as pw:
         toast(page, 'Смена открыта')
         expect(page.get_by_text('Начальник смены', exact=True).first).to_be_visible()
         no_test_text(page, 'order screen')
+        bar_fits(page, 'order screen')
         button(page, 'Промокод').click()
         toast(page, 'Эта функция пока не подключена.')
 
@@ -154,6 +166,8 @@ with sync_playwright() as pw:
             cell = receipt_state(number)
             assert cell.evaluate('(e) => e.scrollWidth <= e.clientWidth'), (number, 'label cut')
         no_test_text(page, 'orders')
+        # A receipt still to punch puts its count on «ЧЕКИ WEBKASSA»; the bar still fits.
+        bar_fits(page, 'orders')
         capture(page, 'paid-orders-1366.png')
         # «Чек» of a receipt still to punch: its card at the Webkassa number entry, no paper.
         row(third).get_by_role('button', name='Чек', exact=True).click()
