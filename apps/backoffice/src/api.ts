@@ -236,12 +236,32 @@ export function allowedPath(path: string): boolean {
       value('id', new RegExp(`^${UUID}$`))
     );
   }
+  // Lane bo-ui2 step 5: the staff assignment of one business day (or today), or the intervals of
+  // a window (the server checks the 92 days), optionally of one employee or one station.
+  if (new RegExp(`^operations/branches/${UUID}/ops/staff-assignments$`).test(pathname))
+    return (search?.length ?? 0) <= 200 && assignmentQuery(new URLSearchParams(search ?? ''));
   if (new RegExp(`^operations/branches/${UUID}$`).test(pathname)) return reportQuery(search ?? '');
   return (
     search === undefined &&
     new RegExp(
       `^operations/branches/${UUID}/(?:commands|stops|kiosk-payment-incidents|orders/${UUID}|devices(?:/(?:inventory|pairing-codes|revoke|kitchen-password-reset(?:/events)?|${UUID}/(?:events|inventory-events)))?)$`,
     ).test(pathname)
+  );
+}
+/** The query of GET .../ops/staff-assignments: a day, or a window with optional filters. */
+function assignmentQuery(q: URLSearchParams) {
+  const keys = ['date', 'start_date', 'end_date', 'employee_id', 'station_code'];
+  const day = (k: string) => q.get(k) === null || /^\d{4}-\d{2}-\d{2}$/.test(q.get(k) ?? '');
+  if (![...q.keys()].every((k) => keys.includes(k)) || keys.some((k) => q.getAll(k).length > 1))
+    return false;
+  const range = q.has('start_date') || q.has('end_date');
+  return (
+    ['date', 'start_date', 'end_date'].every(day) &&
+    (range
+      ? !q.has('date') && q.has('start_date') && q.has('end_date')
+      : !q.has('employee_id') && !q.has('station_code')) &&
+    (q.get('employee_id') === null || new RegExp(`^${UUID}$`).test(q.get('employee_id') ?? '')) &&
+    (q.get('station_code') === null || /^[a-z][a-z0-9_]{1,39}$/.test(q.get('station_code') ?? ''))
   );
 }
 export async function staffAuth(action: 'session' | 'login' | 'logout', body?: unknown) {
@@ -562,6 +582,18 @@ const reasons: Record<string, string> = {
     'Заявку уже подали, приняли или отменили в другом окне. Обновите список и проверьте её.',
   REQUEST_INCOMPLETE:
     'Чтобы подать заявку, нужны строки, дата «Нужно к» не раньше сегодняшней и, для заявки поставщику, поставщик.',
+  // Lane bo-ui2 step 5 (servers with capabilities.staff_assignment).
+  STATION_UNKNOWN:
+    'Такой станции нет в списке должностей точки или она выключена. Обновите страницу.',
+  STATION_NOT_ALLOWED:
+    'Эта станция не входит в должность сотрудника. Поставить не по должности может управляющий, указав причину.',
+  EMPLOYEE_NOT_WORKING: 'Сотрудник не работает или удалён. Обновите страницу.',
+  ASSIGNMENT_TIME:
+    'Время не подходит: оно позже текущего больше чем на 5 минут или раньше начала интервала. Время с 00:00 до 05:59 - ночь после дня смены.',
+  ASSIGNMENT_OVERLAP:
+    'В это время сотрудник уже стоял на станции: интервалы не пересекаются. Укажите время позже начала текущего интервала.',
+  ASSIGNMENT_PREVIOUS_DAY:
+    'У сотрудника не закрыт интервал прошлого дня смены. Сначала нажмите «Закончить» у этого интервала.',
 };
 export const reasonMessage = (reason: string | undefined) =>
   reason === undefined ? undefined : reasons[reason];

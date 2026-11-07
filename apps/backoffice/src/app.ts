@@ -12,6 +12,7 @@ import {
   posDayAvailable,
   rightsText,
   roleTitle,
+  staffAssignmentAvailable,
   supplyAvailable,
 } from './operations-model.js';
 import { dirtyDialogOpen } from './dialog-guard.js';
@@ -29,6 +30,8 @@ import {
   supplyRequestsView,
 } from './supply-model.js';
 import { staffPositions } from './staff-positions-model.js';
+import { AssignmentPage } from './assignment.js';
+import { ASSIGNMENT_SECTION, assignmentRangeView } from './assignment-model.js';
 import { FinanceModel } from './finance-model.js';
 import { FinanceView } from './finance.js';
 import { OperationsView, POS_SECTION, sections } from './operations.js';
@@ -62,10 +65,12 @@ let wantPos = location.hash === '#pos';
 let wantDiscounts = location.hash === '#discounts';
 // Lane bo-ui2 step 2 «Закупки»: #supply opens only once the server reports capabilities.supply.
 let wantSupply = location.hash === '#supply';
+// Lane bo-ui2 step 5 «Расстановка»: #assignment opens once the server reports staff_assignment.
+let wantAssignment = location.hash === '#assignment';
 /**
  * The sections of this server: `sections`, plus «Касса» after «Заказы» while pos_day is on,
- * «Закупки» after «Остатки» while supply is on and «Скидки» after «Промо и баннеры» while
- * discounts is on.
+ * «Закупки» after «Остатки» while supply is on, «Расстановка» after «Смены» while the staff
+ * assignment is on and «Скидки» after «Промо и баннеры» while discounts is on.
  */
 const allSections = (): readonly (readonly [string, string, string])[] => {
   let list: readonly (readonly [string, string, string])[] = posDayAvailable(operations.data)
@@ -74,6 +79,10 @@ const allSections = (): readonly (readonly [string, string, string])[] => {
   if (supplyAvailable(operations.data)) {
     const at = list.findIndex((s) => s[0] === 'stock') + 1;
     list = [...list.slice(0, at), SUPPLY_SECTION, ...list.slice(at)];
+  }
+  if (staffAssignmentAvailable(operations.data)) {
+    const at = list.findIndex((s) => s[0] === 'shifts') + 1;
+    list = [...list.slice(0, at), ASSIGNMENT_SECTION, ...list.slice(at)];
   }
   if (!discountsAvailable(operations.data)) return list;
   const at = list.findIndex((s) => s[0] === 'promo') + 1;
@@ -233,6 +242,34 @@ const supplyPage = new SupplyPage({
   scope: () => `${operations.actor}:${operations.branch}`,
   changed: () => softRender(),
 });
+// Lane bo-ui2 step 5 «Расстановка», only with capabilities.staff_assignment.
+const assignmentPage = new AssignmentPage({
+  load: async (query) => (await operations.opsView('staff-assignments', query)).value,
+  branch: () => operations.branch,
+  execute: async (command, reason) => {
+    try {
+      if (await operations.execute(command, reason)) return null;
+      return operations.error ?? new ApiError('PENDING');
+    } catch (e) {
+      return e;
+    }
+  },
+  can: (permission) => operations.data !== null && permitted(operations.data, permission),
+  rights: (permission) => rightsText(operations.data, permission),
+  scope: () => `${operations.actor}:${operations.branch}`,
+  changed: () => softRender(),
+});
+// Step 5: the stations of each employee and day in the time sheet («Табель»).
+workforceView.assignments = () =>
+  staffAssignmentAvailable(operations.data)
+    ? async (start, end) => {
+        const out = await operations.opsView('staff-assignments', {
+          start_date: start,
+          end_date: end,
+        });
+        return assignmentRangeView(out.value, out.branch);
+      }
+    : null;
 // Lane bo-ui2 step 4: «Создать заявку» of «К заказу» opens the request editor of «Закупки».
 operationView.requestFromHint = (form, mixed) => supplyPage.newRequest(form, mixed);
 function syncOperations() {
@@ -242,6 +279,7 @@ function syncOperations() {
     managerShift.clear();
     discountPage.clear();
     supplyPage.clear();
+    assignmentPage.clear();
     finance.clear();
     financeView.clear();
     operations.clear();
@@ -515,12 +553,28 @@ function render() {
     if (supplyAvailable(operations.data)) page = 'supply';
   }
   if (page === 'supply' && operations.data && !supplyAvailable(operations.data)) page = 'dash';
+  if (wantAssignment && operations.data) {
+    wantAssignment = false;
+    if (staffAssignmentAvailable(operations.data)) page = 'assignment';
+  }
+  if (page === 'assignment' && operations.data && !staffAssignmentAvailable(operations.data))
+    page = 'dash';
   const shell = el('div', 'shell'),
     sidebar = el('aside', 'sidebar'),
     brand = el('div', 'brand');
   brand.append(image('logo.png', 'PickChick'), el('small', '', 'Управление рестораном'));
   sidebar.append(brand);
-  const primary = ['dash', 'orders', 'pos', 'items', 'stoplist', 'shifts', 'reports', 'finance'];
+  const primary = [
+    'dash',
+    'orders',
+    'pos',
+    'items',
+    'stoplist',
+    'shifts',
+    'assignment',
+    'reports',
+    'finance',
+  ];
   const navigation = el('nav', 'navigation');
   navigation.setAttribute('aria-label', 'Разделы кабинета');
   const appendLinks = (container: HTMLElement, list: (readonly [string, string, string])[]) => {
@@ -701,7 +755,8 @@ function render() {
     page !== 'finance' &&
     page !== 'pos' &&
     page !== 'discounts' &&
-    page !== 'supply'
+    page !== 'supply' &&
+    page !== 'assignment'
   ) {
     const periods = el('div', 'op-periods');
     for (const [id, label] of [
@@ -953,6 +1008,25 @@ function render() {
       content.append(n);
     }
     supplyPage.render(content);
+    return;
+  }
+  if (page === 'assignment') {
+    // A command whose answer did not arrive is checked here, before the next one.
+    if (operations.pending) {
+      const n = notice(
+        'Результат прошлой операции ещё не подтверждён. Проверьте его, прежде чем менять расстановку.',
+      );
+      const recover = button(
+        'Проверить результат',
+        () => void operations.recover().then(() => assignmentPage.reload()),
+        'button primary',
+        'as-recover',
+      );
+      recover.disabled = operations.busy;
+      n.append(recover);
+      content.append(n);
+    }
+    assignmentPage.render(content);
     return;
   }
   if (page === 'devices') {

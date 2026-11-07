@@ -788,3 +788,140 @@
 .sp-dialog .form-grid {
   align-items: start;
 }
+
+/* Lane bo-ui2 step 5: «Расстановка» (capabilities.staff_assignment). */
+.assignment > .notice,
+.assignment > .op-note,
+.assignment > .as-bar,
+.assignment > .as-heading,
+.assignment > .as-grid,
+.assignment > .as-free {
+  margin-left: 16px;
+  margin-right: 16px;
+}
+.assignment > .inventory-table {
+  margin: 0 16px 16px;
+}
+.as-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 12px;
+}
+.as-bar .field {
+  flex: 0 1 200px;
+}
+.as-note,
+.as-rights {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+.as-heading {
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+.as-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.as-station {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fff;
+}
+/* Who stands there is said in words («На станции: 2»); the border only repeats it. */
+.as-station-busy {
+  border-left: 4px solid var(--accent);
+}
+.as-station-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.as-station-head h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+.as-count {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.as-people,
+.as-free {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.as-person {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+.as-who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.as-override {
+  color: var(--muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+.as-person-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.as-past {
+  margin: 8px 0 0;
+}
+.as-earlier .as-earlier-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  margin: 6px 0 0;
+}
+.as-dialog {
+  width: min(560px, calc(100vw - 32px));
+}
+.as-form {
+  display: grid;
+  gap: 10px;
+  margin: 8px 0 12px;
+}
+.as-name {
+  font-weight: 600;
+  margin: 0;
+}
+.as-current {
+  margin: 0;
+}
+/* The stations of a day in the month grid of «Табель»: a dot after the hours. */
+.wf-day-cell.wf-placed::after {
+  content: '•';
+  margin-left: 2px;
+}
+@media (max-width: 650px) {
+  .as-grid {
+    grid-template-columns: 1fr;
+  }
+  .as-bar .field {
+    flex: 1 1 100%;
+  }
+  .as-person-actions .button {
+    flex: 1 1 auto;
+  }
+  .as-dialog {
+    width: calc(100vw - 16px);
+  }
+}

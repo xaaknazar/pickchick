@@ -125,6 +125,10 @@ export function commandPermission(command: Data): string {
     case 'supply_request_cancel':
     case 'supply_request_receive':
       return 'supply.close';
+    // Lane bo-ui2 step 5: the staff assignment (an override also needs staff.assign_override).
+    case 'staff_assign':
+    case 'staff_unassign':
+      return 'staff.assign';
     case 'revoke_device':
       return 'devices.write';
     case 'cancel_order':
@@ -228,6 +232,17 @@ export const supplyAvailable = (data: { capabilities?: unknown } | null | undefi
     (data.capabilities as Data)['supply'] === true,
   );
 /**
+ * Staff assignment «Расстановка» (lane bo-ui2 step 5, BACKOFFICE_STAFF_ASSIGNMENT_ENABLED with the
+ * staff positions and the cloud076 rights): the server answers GET .../ops/staff-assignments and
+ * takes staff_assign and staff_unassign.
+ */
+export const staffAssignmentAvailable = (data: { capabilities?: unknown } | null | undefined) =>
+  Boolean(
+    data?.capabilities &&
+    typeof data.capabilities === 'object' &&
+    (data.capabilities as Data)['staff_assignment'] === true,
+  );
+/**
  * Audit fixes of lane bo-ui that change the cabinet without a flag of their own (design-bo-ui
  * §6, §8 q1; audit F05-F08, F13-F20): on while the server reports capabilities.pos_day, the flag
  * of the cutover back office (BACKOFFICE_POS_DAY_ENABLED). With it off the cabinet is exactly
@@ -273,6 +288,8 @@ export const RIGHTS_TEXT: Record<string, string> = {
   'suppliers.write': 'Поставщиков и их цены ведут управляющий и бухгалтер.',
   'supply.write': 'Заявки создают и подают управляющий и начальник смены.',
   'supply.close': 'Принять поставку по заявке и отменить заявку может только управляющий.',
+  'staff.assign': 'Расстановку ведут управляющий и начальник смены.',
+  'staff.assign_override': 'Поставить сотрудника не по должности может только управляющий.',
   'records.write': 'Изменять записи может управляющий точки.',
 };
 /**
@@ -628,7 +645,8 @@ export class OperationsModel {
    */
   async opsView(
     // Lane bo-ui2 step 4: 'stock' with view=balances|reorder (stock-reports-model.ts).
-    view: 'suppliers' | 'supply-requests' | 'supplier-imports' | 'stock',
+    // Step 5: 'staff-assignments' (assignment-model.ts).
+    view: 'suppliers' | 'supply-requests' | 'supplier-imports' | 'stock' | 'staff-assignments',
     query: Record<string, string> = {},
   ) {
     const generation = this.generation;

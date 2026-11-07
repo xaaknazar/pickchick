@@ -55,7 +55,8 @@ export const storage = () => {
  * and payroll routes (WORKFORCE_ENABLED); `posDay` is lane bo-ui's BACKOFFICE_POS_DAY_ENABLED.
  * `cloudMigrationDirectory` runs the API on an older cloud schema (lane bo-ui: stock v2 without
  * cloud075 is the cloud lane's stock page). `supply` is lane bo-ui2's BACKOFFICE_SUPPLY_ENABLED
- * (it needs `stockV2`), `stockReports` its BACKOFFICE_STOCK_REPORTS_ENABLED (also with `stockV2`).
+ * (it needs `stockV2`), `stockReports` its BACKOFFICE_STOCK_REPORTS_ENABLED (also with `stockV2`),
+ * `staffAssignment` its BACKOFFICE_STAFF_ASSIGNMENT_ENABLED (it needs `staffPositions`).
  */
 export async function withCatalog(run, options = {}) {
   const {
@@ -73,6 +74,7 @@ export async function withCatalog(run, options = {}) {
     discounts = false,
     supply = false,
     stockReports = false,
+    staffAssignment = false,
     workforce = false,
     cloudMigrationDirectory,
     ...serverOptions
@@ -105,6 +107,8 @@ export async function withCatalog(run, options = {}) {
         ...(supply ? { supplyEnabled: true } : {}),
         // Lane bo-ui2 step 4 (BACKOFFICE_STOCK_REPORTS_ENABLED, with stock v2).
         ...(stockReports ? { stockReportsEnabled: true } : {}),
+        // Lane bo-ui2 step 5 (BACKOFFICE_STAFF_ASSIGNMENT_ENABLED, with the staff positions).
+        ...(staffAssignment ? { staffAssignmentEnabled: true } : {}),
       });
       await grantBackoffice(cloud.pool, manager.actor_id, branch, 'manager');
       class CatalogModule {}
