@@ -506,6 +506,7 @@ jobs:
           pnpm --filter @pickchick/commerce-core... build
           pnpm --filter @pickchick/kitchen... build
           pnpm --filter @pickchick/fulfillment-transport... build
+          pnpm --filter @pickchick/pos-order-sync... build
       - name: Install browser test tools
         run: |
           python3 -m venv .local/design-venv
