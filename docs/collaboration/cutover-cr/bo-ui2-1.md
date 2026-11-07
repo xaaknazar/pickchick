@@ -152,3 +152,27 @@ design-bo-ui.md` - раздел «Вторая волна» (схемы отве
 - `permissions[]` получает `suppliers.write`, `supply.write`, `supply.close` после всех прав P1 и
   только при `capabilities.supply=true` (тест `backoffice-p2-flags.test.mjs` обновлён).
 - Runbook: `docs/operations/backoffice-supply.md` (включение, роли, работа, откат).
+
+## 7. Шаг 3 (импорт цен из iiko): что изменилось для integration
+
+- 076 не менялся: хеш из п. 0 прежний (`436131f9…93a3`), новых прав нет - импорт пишет
+  `bo_supplier_price_imports` (SELECT, INSERT), `bo_suppliers` и `bo_supplier_prices`, которые
+  helper уже даёт при `supply`.
+- Новая команда `supplier_prices_import` через существующий `POST .../commands` (право
+  `suppliers.write`, только при `BACKOFFICE_SUPPLY_ENABLED` и складе v2) и новый вид
+  `ops/supplier-imports` (только при флаге). Имя вида - в перечень `view` из предложения CR
+  `bo-ui-8` §2. Новые причины только в `BackofficeErrorReasonSchema` (`IMPORT_ALREADY_APPLIED`,
+  `IMPORT_STALE`); `packages/contracts` и `openapi.json` не менялись.
+- Команда помещается в общий лимит JSON 100 КБ (`packages/platform/src/http.ts`): скрипт режет план
+  на части до 500 цен и не больше 90 КБ тела. Отдельного лимита для маршрута не нужно.
+- Регулярка `backoffice_get` в `infra/public-staging/gateway.Caddyfile` и allowlist
+  `apps/backoffice/server.mjs` дополнены видом `supplier-imports` (пути полосы); шлюз стенда
+  обновляется вместе с кабинетом.
+- `ops/suppliers?id`: в `imports[]` больше нет полного `summary`, только `file_name` и `counts`
+  (ответ кабинета ограничен 1 МБ); вид включён только с флагом, эталон флагов выключенных не
+  затронут.
+- Новый инструмент оператора `scripts/supplier-prices-import.mjs` (сухой прогон по умолчанию,
+  `--apply --expected-plan`); runbook `docs/operations/backoffice-supply.md` §5. Если integration
+  ведёт перечень операторских скриптов в мастер-runbook или пакете администратора - добавить его
+  туда (в окно Cloud-2 он не нужен: загрузка цен - после включения флага, по готовности выгрузки
+  владельца, трекер Д6).

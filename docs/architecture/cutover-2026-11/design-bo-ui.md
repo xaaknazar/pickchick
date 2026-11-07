@@ -1061,7 +1061,7 @@ staff_unassign { employee_id, ended_at, expected_revision }
 
 Новые причины ошибок (`BackofficeErrorReasonSchema`, только при флагах, список уточняется в шагах):
 `SUPPLIER_NAME_TAKEN`, `SUPPLIER_INACTIVE`, `PRICE_UNIT_MISMATCH`, `IMPORT_ALREADY_APPLIED`,
-`REQUEST_LOCKED` (заявка не черновик), `ASSIGNMENT_OVERLAP`.
+`IMPORT_STALE` (шаг 3), `REQUEST_LOCKED` (заявка не черновик), `ASSIGNMENT_OVERLAP`.
 
 **Сделано в шаге 2 и отклонения от схем выше** (`packages/backoffice-core/src/supply.ts`,
 `p2-commands.ts`; тесты `supply.test.mjs`, `supply-unit.test.mjs`):
@@ -1096,6 +1096,64 @@ staff_unassign { employee_id, ended_at, expected_revision }
   UNIQUE, ставится один раз, `received` конечна); тест одновременного приёма двумя запросами даёт
   ровно один документ.
 - `supplier_prices_import` и `scripts/supplier-prices-import.mjs` - не в шаге 2 (следующий шаг).
+
+**Сделано в шаге 3 (импорт цен, Д6) и отклонения от схем выше**
+(`packages/backoffice-core/src/supplier-import.ts`, `scripts/supplier-prices-import.mjs`; тесты
+`supplier-import.test.mjs`, `tests/backoffice/supplier-prices-import.test.mjs`,
+`tests/integration/backoffice-p2-supplier-prices-import.test.mjs`, `supplier-imports-ui.test.mjs`,
+`supplier-imports-browser.test.mjs`; runbook `docs/operations/backoffice-supply.md` §5):
+
+- Команда - частями. API принимает не больше 100 КБ JSON на команду
+  (`packages/platform/src/http.ts`, общий `json` 100 KiB), а план до 5000 строк (076
+  `row_count`) в одну команду не помещается. Поэтому вместо `rows: [...] (1..2000)` одна команда -
+  одна часть плана:
+
+  ```text
+  supplier_prices_import { batch_id, source: 'iiko_export'|'csv', file_sha256, plan_sha256,
+                           row_count (строк файла, 1..5000), part, parts (1..50),
+                           summary (только в части 1), suppliers: [{ id, name, kind }] (0..200, новые),
+                           prices: [{ supplier_id, ingredient_id, unit, price_minor, valid_from }] (1..500) }
+    → { batch_id, part, parts, supplier_ids, suppliers_created, prices_created, unchanged }
+  ```
+
+  Часть 1 создаёт запись импорта (`UNIQUE(branch_id, plan_sha256)`) с отчётом, каждая часть -
+  своих новых поставщиков и цены `source='import'`; каждая в общем конверте (`request_id`, digest,
+  `bo_audit` с результатом части, блокировка точки), право `suppliers.write`, флаги
+  `supplyEnabled` и `stockV2Enabled` (`P2_COMMAND_FLAGS`). `batch_id`, id новых поставщиков и
+  `request_id` частей скрипт выводит из SHA-256 плана, поэтому повтор после потерянного ответа
+  отправляет те же байты. Части проверяются по порядку: часть 2 без части 1 или от другого плана -
+  `CONFLICT/IMPORT_STALE`; часть, уже записанная под другим `request_id`, -
+  `CONFLICT/IMPORT_ALREADY_APPLIED` (новые причины `IMPORT_ALREADY_APPLIED`, `IMPORT_STALE`).
+
+- Импорт только добавляет. Цена того же поставщика, позиции, единицы и дня с той же суммой -
+  `unchanged`, без записи; с другой суммой, занятое название нового поставщика, поставщик в архиве,
+  выключенная или чужая позиция - `CONFLICT/IMPORT_STALE`, часть не записана. Поэтому
+  `prices_changed` из предложения шага 1 нет: импорт не меняет и не удаляет ни цен, ни поставщиков
+  (исправление - вручную, `supplier_price_save`). Единица, которая не измеряет позицию, -
+  `INVALID_REQUEST/PRICE_UNIT_MISMATCH`.
+- `summary` (отчёт в `bo_supplier_price_imports.summary`) - строгая схема `ImportSummarySchema`:
+  `{ schema: 'pickchick.supplier-prices-report/v1', file_name, profile: 'iiko'|'csv'|'custom',
+parts, counts: { rows, matched, new_prices, unchanged, new_suppliers, not_found, ambiguous,
+unit_mismatch, duplicates, conflicts, inactive, invalid, notes }, issues: [{ line, code, supplier,
+name, text }] (до 300), issues_total }`, не больше 24 КБ; полный список строк - в файле плана.
+  Коды строк - `IMPORT_ISSUE_CATEGORIES` (категория у каждого кода; скрипт и кабинет сверяются с
+  ними тестами).
+- Новый вид `GET ops/supplier-imports[?id=uuid]` (только при флаге, все роли, `reports.read`):
+  последние 20 импортов с частями (`parts_applied` из аудита команд, `complete`), итогами и
+  счётчиками отчёта; один (с `id` или последний) целиком - отчёт, поставщики импорта (создан ли
+  импортом, сколько цен из него осталось), `prices_corrected` - сколько его цен исправлено вручную.
+  Без флага - 404 неизвестного вида. Allowlist кабинета, прокси и регулярка шлюза дополнены.
+- Отклонение в `GET ops/suppliers?id`: `imports[]` теперь без полного `summary`, только
+  `file_name` и `counts`: 50 отчётов по 24 КБ превысили бы 1 МБ ответа кабинета; полный отчёт -
+  `ops/supplier-imports?id`.
+- Сопоставление позиций: «код» - это id позиции PickChick (uuid). Артикулы iiko в PickChick не
+  хранятся (ингредиенты заведены из ТТК без артикулов), поэтому колонка артикула iiko не
+  используется; без кода - точное название (регистр, пробелы, «ё» не важны), иначе отчёт.
+- Кабинет: в «Поставщики и цены» блок «Импорт цен из iiko» (последний импорт или выбранный из 20:
+  состояние словами, загружено, счётчики отчёта, строки с причиной и фильтром, поставщики импорта).
+  Сервер без вида (404) - блока нет.
+- `Ingredient.supply_kind` (§9.2) в шаге 3 не сделан: он нужен группировке подсказки к заказу и
+  переходит в шаг отчётов склада.
 
 ### 9.5 Порядок работ полосы bo-ui2 (шаги 2-6 - предложение)
 
