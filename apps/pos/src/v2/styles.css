@@ -1561,6 +1561,33 @@ button:focus-visible {
   min-width: 220px;
   padding: 0 18px;
 }
+/*
+ * Five tabs at 1366 px (review 07.11 R5): they pushed the staff chip and «Блокировать» off the
+ * screen. Only with the fifth tab and at most 1500 px: narrower tabs, and the connection line
+ * gives way (ellipsis, its dot stays) before the chip and the lock button do. The four tabs of
+ * the unpaid cashier are untouched.
+ */
+@media (max-width: 1500px) {
+  .bottom-nav:has(> .nav-tab:nth-child(5)) > .nav-tab[role='button'] {
+    width: auto !important;
+    min-width: 140px;
+    padding: 0 10px;
+    font-size: 15px !important;
+  }
+  .bottom-nav:has(> .nav-tab:nth-child(5)) > .nav-info {
+    flex-shrink: 1;
+    min-width: 0;
+  }
+  .bottom-nav:has(> .nav-tab:nth-child(5)) .nav-info > div {
+    flex-shrink: 0;
+  }
+  .bottom-nav:has(> .nav-tab:nth-child(5)) .nav-connection {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
 .ops-tab {
   position: absolute;
   inset: 0;
