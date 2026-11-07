@@ -7,7 +7,8 @@ import {
 
 let pool;
 try {
-  // <role> [--fulfillment] [--cloud-link]; --cloud-link lets POS v2 show "no internet".
+  // <role> [--fulfillment]. --cloud-link is refused: on a live cashier use the additive
+  // infra/windows/cloud-link-grant.mjs. On schema020+ a role that already holds rights is refused.
   const { role, options } = runtimeGrantCliOptions(process.argv.slice(2));
   pool = createPool(edgeInstallConfig().databaseUrl, 1);
   const result = await applyEdgeRuntimeGrants(pool, role, options);

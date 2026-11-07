@@ -49,6 +49,18 @@ async function runtime(ctx, run) {
   }
 }
 
+/** A role that holds nothing in the schema yet: the only role a schema020+ reset still grants (#278). */
+async function freshRole(ctx, run) {
+  const role = 'edge_runtime_' + randomUUID().replaceAll('-', '');
+  await ctx.admin.query(`CREATE ROLE ${role} NOLOGIN NOINHERIT`);
+  try {
+    await run(role);
+  } finally {
+    await ctx.admin.query(`DROP OWNED BY ${role}`);
+    await ctx.admin.query(`DROP ROLE ${role}`);
+  }
+}
+
 test('real edge runtime executes POS, row locks and kitchen lifecycle without setup authority', async () => {
   await fixture(async (ctx) => {
     const menu = { ...fixtureMenu, release_id: randomUUID(), branch_id: ctx.scope.branchId };
@@ -249,26 +261,73 @@ test('kitchen HTTP uses restricted runtime credentials for config locks, station
   });
 });
 
-test('reapplying runtime grants removes old column permissions and disabled kitchen access', async () => {
+/** Every privilege of `role` on the objects of `schema`, as sorted text rows. */
+async function privileges(pool, schema, role) {
+  const { rows } = await pool.query(
+    `SELECT format('%s|%s',c.relname,x.privilege_type) AS p
+       FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) x
+      WHERE c.relnamespace=$1::regnamespace AND x.grantee=$2::regrole
+     UNION ALL
+     SELECT format('%s.%s|%s',c.relname,a.attname,x.privilege_type)
+       FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid CROSS JOIN LATERAL aclexplode(a.attacl) x
+      WHERE c.relnamespace=$1::regnamespace AND a.attnum>0 AND NOT a.attisdropped AND x.grantee=$2::regrole
+     UNION ALL
+     SELECT format('%s()|%s',p.proname,x.privilege_type)
+       FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) x
+      WHERE p.pronamespace=$1::regnamespace AND x.grantee=$2::regrole
+     UNION ALL
+     SELECT format('schema|%s',x.privilege_type)
+       FROM pg_namespace n CROSS JOIN LATERAL aclexplode(n.nspacl) x
+      WHERE n.oid=$1::regnamespace AND x.grantee=$2::regrole`,
+    [schema, role],
+  );
+  return rows.map((r) => r.p).sort();
+}
+
+test('schema020+: reapplying runtime grants to a live role is refused before any REVOKE (#278)', async () => {
   await fixture(async (ctx) =>
     runtime(ctx, async (pool, role, options) => {
+      // A grant from another tool (here a stray column) must survive the refused reapply.
       await ctx.pool.query(`GRANT UPDATE(role) ON local_staff TO ${role}`);
-      await applyEdgeRuntimeGrants(ctx.pool, role, options);
-      await assert.rejects(pool.query("UPDATE local_staff SET role='cashier'"), denied);
-      await applyEdgeRuntimeGrants(ctx.pool, role, { ...options, fulfillment: false });
-      await assert.rejects(pool.query('SELECT 1 FROM fulfillment_reservations'), denied);
+      const before = await privileges(ctx.pool, ctx.schema, role);
+      assert.ok(before.includes('local_staff.role|UPDATE'));
+      for (const attempt of [
+        options,
+        { ...options, fulfillment: false },
+        { ...options, cloudLink: true },
+        { schema: ctx.schema },
+      ])
+        await assert.rejects(applyEdgeRuntimeGrants(ctx.pool, role, attempt), /Live runtime role/);
+      assert.deepEqual(await privileges(ctx.pool, ctx.schema, role), before);
+      await pool.query("UPDATE local_staff SET role='cashier' WHERE false");
+      await pool.query('SELECT 1 FROM fulfillment_reservations LIMIT 1');
       assert.equal((await readSession(pool, ctx.scope.branchId, ctx.cashier.auth)).role, 'cashier');
       const owner = (await ctx.pool.query('SELECT current_user')).rows[0].current_user;
       await assert.rejects(applyEdgeRuntimeGrants(ctx.pool, owner, options));
-      await ctx.pool.query('GRANT UPDATE(role) ON local_staff TO PUBLIC');
-      await assert.rejects(applyEdgeRuntimeGrants(ctx.pool, role, options));
-      await ctx.pool.query('REVOKE UPDATE(role) ON local_staff FROM PUBLIC');
-      await applyEdgeRuntimeGrants(ctx.pool, role, options);
     }),
   );
 });
 
-test('cutover 026: runtime grants hold exactly the reviewed POS sales privileges and reset them', async () => {
+test('schema020+: a role holding nothing yet is still granted; PUBLIC privileges are refused', async () => {
+  await fixture(async (ctx) => {
+    const fresh = 'edge_runtime_' + randomUUID().replaceAll('-', '');
+    await ctx.admin.query(`CREATE ROLE ${fresh} NOLOGIN NOINHERIT`);
+    try {
+      const options = { schema: ctx.schema, fulfillment: true };
+      await ctx.pool.query('GRANT UPDATE(role) ON local_staff TO PUBLIC');
+      await assert.rejects(applyEdgeRuntimeGrants(ctx.pool, fresh, options), /public/i);
+      assert.deepEqual(await privileges(ctx.pool, ctx.schema, fresh), []);
+      await ctx.pool.query('REVOKE UPDATE(role) ON local_staff FROM PUBLIC');
+      await applyEdgeRuntimeGrants(ctx.pool, fresh, options);
+      assert.ok((await privileges(ctx.pool, ctx.schema, fresh)).includes('local_orders|INSERT'));
+    } finally {
+      await ctx.admin.query(`DROP OWNED BY ${fresh}`);
+      await ctx.admin.query(`DROP ROLE ${fresh}`);
+    }
+  });
+});
+
+test('cutover 026: runtime grants hold exactly the reviewed POS sales privileges and a live role is never reset', async () => {
   await fixture(async (ctx) =>
     runtime(ctx, async (pool, role, options) => {
       const { RUNTIME_PRIVILEGES, assertPosSalesPrivileges, posSalesGrantees } =
@@ -291,14 +350,25 @@ test('cutover 026: runtime grants hold exactly the reviewed POS sales privileges
         'DELETE FROM pos_sales',
       ])
         await assert.rejects(pool.query(sql), denied, sql);
-      // A stray grant is removed by the next reset; the reviewed set comes back without it.
+      // #278: a live role is never reset. A stray grant makes the reset refuse before any REVOKE
+      // and stays visible to the exact check until the operator removes it.
       await ctx.pool.query(`GRANT UPDATE ON pos_sales, pos_sale_sync_state TO ${role}`);
       await assert.rejects(exact(), /POS sales table privileges differ/);
-      await applyEdgeRuntimeGrants(ctx.pool, role, options);
+      await assert.rejects(applyEdgeRuntimeGrants(ctx.pool, role, options), /Live runtime role/);
+      await assert.rejects(exact(), /POS sales table privileges differ/);
+      await ctx.pool.query(`REVOKE UPDATE ON pos_sales, pos_sale_sync_state FROM ${role}`);
       assert.deepEqual(await exact(), { verified: true, relations: 14 });
-      // Without kitchen access the POS sale objects stay (they are not kitchen privileges).
-      await applyEdgeRuntimeGrants(ctx.pool, role, { ...options, fulfillment: false });
-      assert.deepEqual(await exact(), { verified: true, relations: 14 });
+      // A first install without kitchen access still gets the POS sale objects (they are not
+      // kitchen privileges).
+      await freshRole(ctx, async (other) => {
+        await applyEdgeRuntimeGrants(ctx.pool, other, { ...options, fulfillment: false });
+        assert.deepEqual(
+          await assertPosSalesPrivileges(ctx.pool, other, RUNTIME_PRIVILEGES, {
+            schema: ctx.schema,
+          }),
+          { verified: true, relations: 14 },
+        );
+      });
       // A ledger that names 026 while its objects are missing (or the reverse) is refused.
       const row = (
         await ctx.pool.query(
@@ -306,9 +376,11 @@ test('cutover 026: runtime grants hold exactly the reviewed POS sales privileges
         )
       ).rows[0];
       try {
-        await assert.rejects(
-          applyEdgeRuntimeGrants(ctx.pool, role, options),
-          /POS sales migration objects differ/,
+        await freshRole(ctx, (other) =>
+          assert.rejects(
+            applyEdgeRuntimeGrants(ctx.pool, other, options),
+            /POS sales migration objects differ/,
+          ),
         );
       } finally {
         await ctx.pool.query(
@@ -316,7 +388,6 @@ test('cutover 026: runtime grants hold exactly the reviewed POS sales privileges
           [row.version, row.checksum, row.scope],
         );
       }
-      await applyEdgeRuntimeGrants(ctx.pool, role, options);
       assert.deepEqual(await exact(), { verified: true, relations: 14 });
     }),
   );
@@ -337,12 +408,25 @@ test('cutover 027: runtime grants hold exactly the reviewed KDS privileges with 
         'UPDATE delivery_handovers SET staff_id=staff_id',
       ])
         await assert.rejects(pool.query(sql), denied, sql);
-      // Without kitchen access none of the KDS tables is reachable after the reset.
-      await applyEdgeRuntimeGrants(ctx.pool, role, { ...options, fulfillment: false });
-      assert.deepEqual(await kdsTableGrantees(ctx.pool, ctx.schema), []);
-      await assert.rejects(pool.query('SELECT 1 FROM kds_settings'), denied);
-      await applyEdgeRuntimeGrants(ctx.pool, role, options);
+      // #278: dropping kitchen access on a live role is refused, the KDS set stays as it was.
+      await assert.rejects(
+        applyEdgeRuntimeGrants(ctx.pool, role, { ...options, fulfillment: false }),
+        /Live runtime role/,
+      );
       assert.equal((await assertKdsRuntimePrivileges(ctx.pool, role, ctx.schema)).verified, true);
+      // A first install without kitchen access reaches none of the KDS tables.
+      await freshRole(ctx, async (other) => {
+        await applyEdgeRuntimeGrants(ctx.pool, other, { ...options, fulfillment: false });
+        assert.deepEqual(await kdsTableGrantees(ctx.pool, ctx.schema), [role]);
+        assert.equal(
+          (
+            await ctx.pool.query(`SELECT has_table_privilege($1,'kds_settings','SELECT') AS can`, [
+              other,
+            ])
+          ).rows[0].can,
+          false,
+        );
+      });
       // A ledger that names 027 while its objects are missing (or the reverse) is refused.
       const row = (
         await ctx.pool.query(
@@ -350,9 +434,11 @@ test('cutover 027: runtime grants hold exactly the reviewed KDS privileges with 
         )
       ).rows[0];
       try {
-        await assert.rejects(
-          applyEdgeRuntimeGrants(ctx.pool, role, options),
-          /KDS migration objects differ/,
+        await freshRole(ctx, (other) =>
+          assert.rejects(
+            applyEdgeRuntimeGrants(ctx.pool, other, options),
+            /KDS migration objects differ/,
+          ),
         );
       } finally {
         await ctx.pool.query(
@@ -371,29 +457,32 @@ test('cutover 028: the runtime reads the desk number through its table SELECT an
       // CR pos-7 section 1.3: 028 needs no grant of its own. The table-level SELECT on
       // local_terminals covers the new column; the runtime's column UPDATE(lock_anchor) and the
       // device access UPDATE(active) never reach it.
-      const privileges = async () =>
+      const privileges = async (who = role) =>
         (
           await ctx.pool.query(
             `SELECT has_column_privilege($1,'local_terminals','desk_number','SELECT') AS select,
                has_column_privilege($1,'local_terminals','desk_number','INSERT') AS insert,
                has_column_privilege($1,'local_terminals','desk_number','UPDATE') AS update`,
-            [role],
+            [who],
           )
         ).rows[0];
       const readOnly = { select: true, insert: false, update: false };
-      for (const fulfillment of [true, false, true]) {
-        await applyEdgeRuntimeGrants(ctx.pool, role, { ...options, fulfillment });
-        assert.deepEqual(await privileges(), readOnly);
-        await assert.rejects(pool.query('UPDATE local_terminals SET desk_number=1'), denied);
-        assert.equal(
-          (
-            await pool.query(
-              'SELECT count(*)::int AS n FROM local_terminals WHERE desk_number IS NOT NULL',
-            )
-          ).rows[0].n,
-          0,
-        );
-      }
+      assert.deepEqual(await privileges(), readOnly);
+      await assert.rejects(pool.query('UPDATE local_terminals SET desk_number=1'), denied);
+      assert.equal(
+        (
+          await pool.query(
+            'SELECT count(*)::int AS n FROM local_terminals WHERE desk_number IS NOT NULL',
+          )
+        ).rows[0].n,
+        0,
+      );
+      // A first install reads and never writes the desk number, with and without kitchen access.
+      for (const fulfillment of [true, false])
+        await freshRole(ctx, async (other) => {
+          await applyEdgeRuntimeGrants(ctx.pool, other, { ...options, fulfillment });
+          assert.deepEqual(await privileges(other), readOnly);
+        });
       // GET pos/config of the runtime answers null until the owner numbers the desk, then the
       // number; the owner's audited command is the only writer.
       assert.equal(
@@ -417,10 +506,12 @@ test('cutover 028: the runtime reads the desk number through its table SELECT an
         ]),
         denied,
       );
-      // A stray column grant is removed by the next reset.
+      // #278: a stray column grant makes the live reset refuse; the operator removes it.
       await ctx.pool.query(`GRANT UPDATE(desk_number) ON local_terminals TO ${role}`);
       assert.equal((await privileges()).update, true);
-      await applyEdgeRuntimeGrants(ctx.pool, role, options);
+      await assert.rejects(applyEdgeRuntimeGrants(ctx.pool, role, options), /Live runtime role/);
+      assert.equal((await privileges()).update, true);
+      await ctx.pool.query(`REVOKE UPDATE(desk_number) ON local_terminals FROM ${role}`);
       assert.deepEqual(await privileges(), readOnly);
       assert.equal(
         (await readPosConfig(pool, ctx.scope.branchId, ctx.cashier.auth)).desk_number,
