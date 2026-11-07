@@ -1,5 +1,6 @@
 // Cutover 19.11.2026, integration (review R10): the command lines of the two guarded edge tools of
-// window C4, infra/windows/pos-sales-upgrade-db.mjs and kds-upgrade-db.mjs. A refusal names its
+// window C4, infra/windows/pos-sales-upgrade-db.mjs (026, and 028 with inspect-028/apply-028,
+// CR pos-7) and kds-upgrade-db.mjs. A refusal names its
 // own cause (master runbook, step 3 table of refusals); anything else stays generic or gives only
 // an error code; no connection string or password is ever printed. The CLI never connects before
 // its arguments and the owner URL are checked.
@@ -14,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { withSyncDatabases } from '../helpers/sync.mjs';
 import {
+  deskNumberMigration,
   operatorMessage as posMessage,
   posSalesMigration,
 } from '../../infra/windows/pos-sales-upgrade-db.mjs';
@@ -23,16 +25,32 @@ import {
 } from '../../infra/windows/kds-upgrade-db.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
+const posFile = fileURLToPath(
+  new URL('../../infra/windows/pos-sales-upgrade-db.mjs', import.meta.url),
+);
 const tools = {
   pos: {
-    file: fileURLToPath(new URL('../../infra/windows/pos-sales-upgrade-db.mjs', import.meta.url)),
+    file: posFile,
     prefix: 'POS sales migration stopped',
+    invocation: 'Invalid POS sales migration invocation',
+    modes: ['inspect', 'apply'],
     message: posMessage,
     migration: posSalesMigration,
+  },
+  // The 028 step is the same command line with its own modes (CR pos-7 section 2 p.1).
+  desk: {
+    file: posFile,
+    prefix: 'POS sales migration stopped',
+    invocation: 'Invalid POS sales migration invocation',
+    modes: ['inspect-028', 'apply-028'],
+    message: posMessage,
+    migration: deskNumberMigration,
   },
   kds: {
     file: fileURLToPath(new URL('../../infra/windows/kds-upgrade-db.mjs', import.meta.url)),
     prefix: 'KDS migration stopped',
+    invocation: 'Invalid KDS migration invocation',
+    modes: ['inspect', 'apply'],
     message: kdsMessage,
     migration: kdsMigration,
   },
@@ -59,20 +77,18 @@ async function cli(tool, args, url) {
 
 for (const [name, tool] of Object.entries(tools))
   test(`${name}: the command line names its refusal, never the connection string`, async () => {
-    const invocation =
-      name === 'pos'
-        ? 'Invalid POS sales migration invocation'
-        : 'Invalid KDS migration invocation';
+    const [inspect, apply] = tool.modes;
     const line = (reason) => `${tool.prefix}: ${reason}; inspect protected state.`;
     for (const args of [
       [],
-      ['inspect'],
+      [inspect],
       ['repair', repoRoot, repoRoot, branch],
-      ['inspect', repoRoot, repoRoot, 'not-a-branch'],
-      ['apply', repoRoot, repoRoot, branch, 'extra'],
+      [name === 'kds' ? 'inspect-028' : 'inspect-027', repoRoot, repoRoot, branch],
+      [inspect, repoRoot, repoRoot, 'not-a-branch'],
+      [apply, repoRoot, repoRoot, branch, 'extra'],
     ])
-      assert.equal(await cli(tool, args, owner), line(invocation), JSON.stringify(args));
-    const valid = ['inspect', repoRoot, repoRoot, branch];
+      assert.equal(await cli(tool, args, owner), line(tool.invocation), JSON.stringify(args));
+    const valid = [inspect, repoRoot, repoRoot, branch];
     // The runtime login, another port, host or database: refused before any connection.
     for (const url of [
       runtime,
@@ -94,7 +110,7 @@ for (const [name, tool] of Object.entries(tools))
     const empty = await mkdtemp(join(tmpdir(), 'cutover-tools-root-'));
     try {
       assert.equal(
-        await cli(tool, ['inspect', empty, repoRoot, branch], owner),
+        await cli(tool, [inspect, empty, repoRoot, branch], owner),
         line('database or connection error MODULE_NOT_FOUND'),
       );
     } finally {
@@ -134,7 +150,7 @@ test('a refusal on a real edge carries its own message to the operator; the runb
   await withSyncDatabases(async (ctx) => {
     const client = await ctx.edge.pool.connect();
     try {
-      // On a fully migrated edge (027): 026 is no longer pending, 027 is already applied.
+      // On a fully migrated edge (028): 026 and 027 are no longer pending, 028 is applied.
       for (const tool of Object.values(tools)) {
         const error = await tool
           .migration(client, {
@@ -151,19 +167,19 @@ test('a refusal on a real edge carries its own message to the operator; the runb
         assert.equal(tool.message(error), error.message);
         assert.match(
           error.message,
-          /already applied; nothing changed|Expected unchanged schema02[56] and only reviewed migration02[67]/,
+          /already applied; nothing changed|Expected unchanged schema02[567] and only reviewed migration02[678]/,
         );
       }
     } finally {
       client.release();
     }
   });
-  // Every refusal text of both tools appears in the runbook table with its cause.
+  // Every refusal text of both tools (the 028 step included) appears in the runbook table.
   const runbook = await readFile(
     new URL('../../docs/operations/cutover-2026-11-19.md', import.meta.url),
     'utf8',
   );
-  for (const tool of Object.values(tools)) {
+  for (const tool of [tools.pos, tools.kds]) {
     const source = await readFile(tool.file, 'utf8');
     const messages = [...source.matchAll(/refused\('([^']+)'/g)].map((m) => m[1]);
     assert.ok(messages.length > 15);

@@ -16,6 +16,7 @@ import {
   createQuote,
   openCashShift,
   provisionStaff,
+  readPosConfig,
   setOrdering,
 } from '@pickchick/local-orders';
 import {
@@ -33,12 +34,18 @@ import {
   posSalesGrantees,
 } from '../../infra/windows/pos-sales-grants.mjs';
 import {
+  CLI_MODES,
+  DESK_NUMBER_MIGRATION,
+  DESK_NUMBER_PREVIOUS,
+  DESK_NUMBER_SHA256,
   FENCE_QUEUES_023,
   FENCE_QUEUES_026,
   POS_SALES_MIGRATION,
   POS_SALES_SHA256,
+  deskNumberMigration,
   posSalesMigration,
 } from '../../infra/windows/pos-sales-upgrade-db.mjs';
+import { setDeskNumber } from '../../scripts/pos-sales-setup.mjs';
 import {
   KDS_TABLES,
   assertKdsRuntimePrivileges,
@@ -189,7 +196,7 @@ async function unpaidDay(ctx) {
     { expected_version: 1, reason: 'Синтетическая отмена' },
     port,
   );
-  return { order, live, cook };
+  return { order, live, cook, cashier };
 }
 
 const run = async (ctx, options) => {
@@ -209,6 +216,19 @@ const runKds = async (ctx, options) => {
   const client = await ctx.edge.pool.connect();
   try {
     return await kdsMigration(client, {
+      appRoot: repoRoot,
+      branchId: ctx.branch,
+      schema: ctx.edge.schema,
+      ...options,
+    });
+  } finally {
+    client.release();
+  }
+};
+const runDesk = async (ctx, options) => {
+  const client = await ctx.edge.pool.connect();
+  try {
+    return await deskNumberMigration(client, {
       appRoot: repoRoot,
       branchId: ctx.branch,
       schema: ctx.edge.schema,
@@ -593,11 +613,302 @@ test('kds-upgrade-db: 027 after the 026 tool on a populated edge - KDS stations 
   }
 });
 
+// ------------------------------------------------------------- edge 028: the desk number ----
+// CR pos-7 section 2 p.1 (lead decision 07.11 (1)): pos-sales-upgrade-db.mjs inspect-028 and
+// apply-028 in window C4 right after kds-upgrade-db.mjs (027), on the same populated edge.
+test('pos-sales-upgrade-db 028: the desk number after the 026 and 027 tools on a populated edge - one nullable column, nothing else changes, the runtime reads it and cannot write it, repeat refused', async () => {
+  // The 027 that 028 follows is the one the KDS tool applies (CR kds-1); 028 is the CR pos-7 file.
+  assert.deepEqual(DESK_NUMBER_PREVIOUS, { version: KDS_MIGRATION, checksum: KDS_SHA256 });
+  assert.equal(digest(await readFile(join(edgeDir, DESK_NUMBER_MIGRATION))), DESK_NUMBER_SHA256);
+  assert.deepEqual(Object.keys(CLI_MODES), ['inspect', 'apply', 'inspect-028', 'apply-028']);
+  const root = await mkdtemp(join(tmpdir(), 'pickchick-cutover-028-'));
+  try {
+    const edge025 = await migrationsBefore(join(root, 'edge025'), '026');
+    await withSyncDatabases(
+      async (ctx) => {
+        const { pool, schema } = ctx.edge;
+        const day = await unpaidDay(ctx);
+        await pool.query(
+          "INSERT INTO local_staff_passwords(staff_id,branch_id,login,salt,verifier) VALUES($1,$2,'kitchen',$3,$4)",
+          [day.cook.staff_id, ctx.branch, 'a'.repeat(64), 'b'.repeat(64)],
+        );
+        const runtime = await loginRole(ctx, (role) =>
+          applyEdgeRuntimeGrants(pool, role, { schema, fulfillment: true }),
+        );
+        const fulfillment = await loginRole(ctx, (role) =>
+          pool.query(fulfillmentWorkerGrants(role, schema, { restoreFence: true })),
+        );
+        const posSync = await loginRole(ctx, (role) =>
+          pool.query(posSyncWorkerGrants(role, schema)),
+        );
+        const desk = { runtimeRole: runtime.role };
+        const terminals = async () =>
+          (
+            await pool.query('SELECT to_jsonb(t) AS row FROM local_terminals t ORDER BY id')
+          ).rows.map((r) => r.row);
+        try {
+          // 028 only after the reviewed 027: refused on 025 and on 026.
+          await assert.rejects(
+            runDesk(ctx, { mode: 'inspect', ...desk }),
+            /Expected unchanged schema027 and only reviewed migration028/,
+          );
+          await run(ctx, { mode: 'apply', runtimeRole: runtime.role, workerRole: posSync.role });
+          await assert.rejects(
+            runDesk(ctx, { mode: 'inspect', ...desk }),
+            /Expected unchanged schema027 and only reviewed migration028/,
+          );
+          await runKds(ctx, {
+            mode: 'apply',
+            runtimeRole: runtime.role,
+            workerRoles: [fulfillment.role],
+          });
+          const ledger027 = await ledger(pool);
+          assert.equal(ledger027.length, 27);
+          // An app root without 028 or with other 028 bytes, and a connected service, are refused.
+          const without = join(root, 'without028');
+          await migrationsBefore(without, '028');
+          await assert.rejects(
+            runDesk(ctx, { mode: 'apply', ...desk, appRoot: without }),
+            /Expected reviewed migrations 001-027 and the reviewed migration028/,
+          );
+          const tampered = join(root, 'tampered028');
+          await migrationsBefore(tampered, '029');
+          await appendFile(join(tampered, 'db/edge/migrations', DESK_NUMBER_MIGRATION), '\n-- x\n');
+          await assert.rejects(
+            runDesk(ctx, { mode: 'apply', ...desk, appRoot: tampered }),
+            /Expected reviewed migrations 001-027 and the reviewed migration028/,
+          );
+          await posSync.open().query('SELECT 1');
+          await assert.rejects(
+            runDesk(ctx, { mode: 'apply', ...desk }),
+            /Edge services must be stopped/,
+          );
+          await posSync.close();
+          // GET pos/config reads the whole row: a runtime without the table SELECT (or one that
+          // could write a new column) is refused before anything changes.
+          await pool.query(`REVOKE SELECT ON local_terminals FROM ${runtime.role}`);
+          await assert.rejects(
+            runDesk(ctx, { mode: 'inspect', ...desk }),
+            /Runtime role cannot read the desk number/,
+          );
+          await pool.query(`GRANT SELECT ON local_terminals TO ${runtime.role}`);
+          await pool.query(`GRANT INSERT ON local_terminals TO ${runtime.role}`);
+          await assert.rejects(
+            runDesk(ctx, { mode: 'apply', ...desk }),
+            /Runtime role can write the desk number/,
+          );
+          await pool.query(`REVOKE INSERT ON local_terminals FROM ${runtime.role}`);
+          assert.deepEqual(await ledger(pool), ledger027);
+
+          const inspected = await runDesk(ctx, { mode: 'inspect', ...desk });
+          assert.deepEqual(
+            [
+              inspected.applied,
+              inspected.migrations,
+              inspected.deskNumbers,
+              inspected.runtimeRolePresent,
+              inspected.runtimeReadsDeskNumber,
+            ],
+            [false, 27, 0, true, true],
+          );
+          const before = await stateRows(pool);
+          const terminalsBefore = await terminals();
+          assert.ok(terminalsBefore.length >= 2);
+          assert.ok(terminalsBefore.every((row) => !('desk_number' in row)));
+          const applied = await runDesk(ctx, { mode: 'apply', ...desk });
+          assert.deepEqual(applied, {
+            mode: 'apply',
+            migration: DESK_NUMBER_MIGRATION,
+            migrations: 28,
+            applied: true,
+            runtimeRolePresent: true,
+            runtimeReadsDeskNumber: true,
+            deskNumbers: 0,
+            dataPreserved: true,
+            fingerprint: inspected.fingerprint,
+          });
+          assert.deepEqual(await ledger(pool), [
+            ...ledger027,
+            { version: DESK_NUMBER_MIGRATION, checksum: DESK_NUMBER_SHA256 },
+          ]);
+          assert.deepEqual(await stateRows(pool), before);
+          // Every terminal row is the same plus desk_number null (off: no desk has a number).
+          assert.deepEqual(
+            await terminals(),
+            terminalsBefore.map((row) => ({ ...row, desk_number: null })),
+          );
+
+          // The runtime reads the column and cannot write it; today's unpaid flow goes on and
+          // GET pos/config answers no number until the operator sets one (CR pos-7 section 3).
+          const reader = runtime.open();
+          assert.equal(
+            (
+              await reader.query(
+                'SELECT count(*)::int AS n FROM local_terminals WHERE desk_number IS NULL',
+              )
+            ).rows[0].n,
+            terminalsBefore.length,
+          );
+          await assert.rejects(
+            reader.query('UPDATE local_terminals SET desk_number=1'),
+            (error) => error.code === '42501',
+          );
+          assert.equal((await day.order(reader)).fulfillment.state, 'accepted');
+          assert.equal(
+            (await readPosConfig(reader, ctx.branch, staffAuth(day.cashier))).desk_number,
+            null,
+          );
+          const numbered = await setDeskNumber(pool, ctx.branch, {
+            terminal_id: day.cashier.terminal_id,
+            desk_number: 1,
+            reason: 'Касса 1 у входа',
+          });
+          assert.equal(numbered.changes.length, 1);
+          assert.equal(
+            (await readPosConfig(reader, ctx.branch, staffAuth(day.cashier))).desk_number,
+            1,
+          );
+          await runtime.close();
+
+          // A repeat never reapplies; inspect proves the installed objects and the runtime read.
+          await assert.rejects(
+            runDesk(ctx, { mode: 'apply', ...desk }),
+            /Migration028 is already applied; nothing changed/,
+          );
+          const verified = await runDesk(ctx, { mode: 'inspect', ...desk });
+          assert.deepEqual(
+            [
+              verified.applied,
+              verified.migrations,
+              verified.deskNumbers,
+              verified.runtimeReadsDeskNumber,
+              verified.fingerprint,
+            ],
+            [true, 28, 1, true, null],
+          );
+          // A runtime grant reset on 028 keeps the read and gives no write.
+          await applyEdgeRuntimeGrants(pool, runtime.role, { schema, fulfillment: true });
+          assert.equal(
+            (await runDesk(ctx, { mode: 'inspect', ...desk })).runtimeReadsDeskNumber,
+            true,
+          );
+          await pool.query(`GRANT UPDATE(desk_number) ON local_terminals TO ${runtime.role}`);
+          await assert.rejects(
+            runDesk(ctx, { mode: 'inspect', ...desk }),
+            /Runtime role can write the desk number/,
+          );
+          await pool.query(`REVOKE UPDATE(desk_number) ON local_terminals FROM ${runtime.role}`);
+          // A missing guard is found by inspect.
+          await pool.query('DROP TRIGGER local_terminal_desk_number_guard ON local_terminals');
+          await assert.rejects(
+            runDesk(ctx, { mode: 'inspect', ...desk }),
+            /Desk number objects differ from migration028/,
+          );
+          await pool.query(
+            'CREATE TRIGGER local_terminal_desk_number_guard BEFORE INSERT OR UPDATE OF desk_number ON local_terminals FOR EACH ROW EXECUTE FUNCTION guard_local_terminal_desk_number()',
+          );
+          assert.equal((await runDesk(ctx, { mode: 'inspect', ...desk })).applied, true);
+          // The 026 and 027 tools still verify their own state on 028.
+          assert.equal(
+            (
+              await run(ctx, {
+                mode: 'inspect',
+                runtimeRole: runtime.role,
+                workerRole: posSync.role,
+              })
+            ).applied,
+            true,
+          );
+          assert.equal(
+            (
+              await runKds(ctx, {
+                mode: 'inspect',
+                runtimeRole: runtime.role,
+                workerRoles: [fulfillment.role],
+              })
+            ).applied,
+            true,
+          );
+        } finally {
+          await posSync.drop();
+          await fulfillment.drop();
+          await runtime.drop();
+        }
+      },
+      { edgeMigrationDirectory: edge025 },
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('pos-sales-upgrade-db 028 refuses a ledger that is not exactly 001-027 and a 028 without its ledger row, and works without an installed runtime', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'pickchick-cutover-028-ledger-'));
+  try {
+    const edge027 = await migrationsBefore(join(root, 'edge027'), '028');
+    await withSyncDatabases(
+      async (ctx) => {
+        const { pool } = ctx.edge;
+        const absent = { runtimeRole: 'cut_absent_runtime' };
+        await assert.rejects(
+          runDesk(ctx, { mode: 'inspect', ...absent, branchId: randomUUID() }),
+          /Branch differs/,
+        );
+        // Another 027 checksum in the ledger is refused, nothing changes.
+        await pool.query('UPDATE schema_migrations SET checksum=$1 WHERE version=$2', [
+          '0'.repeat(64),
+          KDS_MIGRATION,
+        ]);
+        await assert.rejects(
+          runDesk(ctx, { mode: 'apply', ...absent }),
+          /Expected unchanged schema027 and only reviewed migration028/,
+        );
+        await pool.query('UPDATE schema_migrations SET checksum=$1 WHERE version=$2', [
+          KDS_SHA256,
+          KDS_MIGRATION,
+        ]);
+        const inspected = await runDesk(ctx, { mode: 'inspect', ...absent });
+        assert.deepEqual(
+          [
+            inspected.applied,
+            inspected.migrations,
+            inspected.runtimeRolePresent,
+            inspected.runtimeReadsDeskNumber,
+          ],
+          [false, 27, false, null],
+        );
+        const applied = await runDesk(ctx, { mode: 'apply', ...absent });
+        assert.deepEqual(
+          [
+            applied.applied,
+            applied.migrations,
+            applied.deskNumbers,
+            applied.runtimeReadsDeskNumber,
+          ],
+          [true, 28, 0, null],
+        );
+        assert.equal(applied.fingerprint, inspected.fingerprint);
+        // 028 objects without their ledger row (applied by hand) are never applied again.
+        await pool.query('DELETE FROM schema_migrations WHERE version=$1', [DESK_NUMBER_MIGRATION]);
+        await assert.rejects(
+          runDesk(ctx, { mode: 'apply', ...absent }),
+          /Desk number objects already exist/,
+        );
+      },
+      { edgeMigrationDirectory: edge027 },
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 // ------------------------------------------------------ C4 on a restored copy of the 025 edge ----
 // Contracts 6.2 step 3 and 7.3 (integration): window C4 takes a verified backup copy before each
-// step (schema025, schema026, schema027 by the reviewed ledger of native-edge-backup-ledger.json).
-// Here the schema025 copy of a populated edge is restored into a new database and both guarded
-// tools run on that copy with the installed logins; each result is copied again and restored.
+// step (schema025, schema026, schema027, schema028 by the reviewed ledger of
+// native-edge-backup-ledger.json).
+// Here the schema025 copy of a populated edge is restored into a new database and the guarded
+// steps 026, 027 and 028 run on that copy with the installed logins; each result is copied again
+// and restored.
 // Needs pg_dump/pg_restore of the server's major version (EDGE_BACKUP_TEST_PG_BIN or the
 // distribution's directory); without them the test is skipped and says so.
 const pinnedLedger = JSON.parse(
@@ -724,7 +1035,7 @@ async function backupStand(ctx, root, bin) {
 }
 const readJson = async (path) => JSON.parse(await readFile(path, 'utf8'));
 
-test('C4 on a restored schema025 copy of a populated edge: both tools on the copy with exact grants, idempotent inspect, refused repeats and checksums, schema026 and schema027 copies restore', async (t) => {
+test('C4 on a restored schema025 copy of a populated edge: the 026, 027 and 028 steps on the copy with exact grants, idempotent inspect, refused repeats and checksums, schema026, schema027 and schema028 copies restore', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'pickchick-cutover-copy-'));
   try {
     const edge025 = await migrationsBefore(join(root, 'edge025'), '026');
@@ -912,6 +1223,56 @@ test('C4 on a restored schema025 copy of a populated edge: both tools on the cop
             (await tool(restored.pool, kdsMigration, { mode: 'inspect', ...kds })).applied,
             true,
           );
+
+          // 028 on the copy right after the schema027 copy (CR pos-7): refused on another 027
+          // checksum, then applied off, idempotent; the schema028 copy restores to the same state.
+          const desk = { runtimeRole: runtime.role };
+          await copy.pool.query(
+            "UPDATE schema_migrations SET checksum=$1 WHERE version='027_edge_kds_foundation.sql'",
+            ['0'.repeat(64)],
+          );
+          await assert.rejects(
+            tool(copy.pool, deskNumberMigration, { mode: 'inspect', ...desk }),
+            /Expected unchanged schema027 and only reviewed migration028/,
+          );
+          await copy.pool.query(
+            "UPDATE schema_migrations SET checksum=$1 WHERE version='027_edge_kds_foundation.sql'",
+            [KDS_SHA256],
+          );
+          const deskApplied = await tool(copy.pool, deskNumberMigration, {
+            mode: 'apply',
+            ...desk,
+          });
+          assert.deepEqual(
+            [deskApplied.migrations, deskApplied.deskNumbers, deskApplied.runtimeReadsDeskNumber],
+            [28, 0, true],
+          );
+          await assert.rejects(
+            tool(copy.pool, deskNumberMigration, { mode: 'apply', ...desk }),
+            /already applied/,
+          );
+          assert.deepEqual(await stateRows(copy.pool), before);
+          const fourth = await stand.backup(copy.database);
+          assert.deepEqual([fourth.status.state, fourth.status.schema], ['ok', 'schema028']);
+          const restored028 = await stand.restore(fourth.archive);
+          copies.push(restored028);
+          assert.deepEqual(
+            await compareRestoredDatabase(restored028.pool, restored028.meta, { schema }),
+            [],
+          );
+          const deskVerified = await tool(restored028.pool, deskNumberMigration, {
+            mode: 'inspect',
+            ...desk,
+          });
+          assert.deepEqual([deskVerified.applied, deskVerified.migrations], [true, 28]);
+          for (const [migration, options] of [
+            [posSalesMigration, pos],
+            [kdsMigration, kds],
+          ])
+            assert.equal(
+              (await tool(restored028.pool, migration, { mode: 'inspect', ...options })).applied,
+              true,
+            );
 
           // The live edge is untouched: still the reviewed 025, the rollback point of C4, and
           // today's runtime keeps working on it.

@@ -1,9 +1,9 @@
 // Cutover 19.11.2026, integration (contracts 7.3 "integration"; CR kds-8 section 2, CR client-3
 // section 3, CR client-4 section 5, CR cloud-2 section 5). One cashier edge goes through window
-// C4 (025 -> 026 -> 027) with the guarded Windows tools and its installed runtime, POS sync and
-// FulfillmentWorker logins; the operator then switches the KDS layout and paid POS sales on with
-// the real operator commands, and a paid day runs through the real edge HTTP routes of the cash
-// desk and the kitchen screens: the real local-pos.ts admission with buildKitchenPlan (not the
+// C4 (025 -> 026 -> 027 -> 028) with the guarded Windows tools and its installed runtime, POS
+// sync and FulfillmentWorker logins; the operator then switches the KDS layout and paid POS sales
+// on with the real operator commands, and a paid day runs through the real edge HTTP routes of the
+// cash desk and the kitchen screens: the real local-pos.ts admission with buildKitchenPlan (not the
 // seamCashierPort stub of the kds lane), the cascade from the tables, the courier handover. Every
 // request passes the LAN gateway profile of its client. Every event of order_commercial, the POS
 // kitchen stream, cashier reports and posSales reaches the new cloud (receivePosOrder,
@@ -81,7 +81,10 @@ import {
   assertKdsRuntimePrivileges,
   assertKdsWorkerPrivileges,
 } from '../../infra/windows/kds-grants.mjs';
-import { posSalesMigration } from '../../infra/windows/pos-sales-upgrade-db.mjs';
+import {
+  deskNumberMigration,
+  posSalesMigration,
+} from '../../infra/windows/pos-sales-upgrade-db.mjs';
 import { kdsMigration } from '../../infra/windows/kds-upgrade-db.mjs';
 import {
   applyKdsLayout,
@@ -360,7 +363,10 @@ async function edge025(ctx) {
   };
 }
 
-/** Window C4 (contracts 6.2 step 3): every edge service stopped, 026 and then 027 by the tools. */
+/**
+ * Window C4 (contracts 6.2 step 3): every edge service stopped, 026, 027 and then 028 (the desk
+ * number, CR pos-7; no desk numbered: off) by the guarded tools.
+ */
 async function windowC4(ctx, desk) {
   for (const login of [desk.runtime, desk.fulfillment, desk.posSync]) await login.close();
   const tool = async (migration, options) => {
@@ -389,6 +395,13 @@ async function windowC4(ctx, desk) {
   assert.deepEqual(
     [kitchen.migrations, kitchen.stations, kitchen.kitchenStaffId, kitchen.layoutEnabled],
     [27, 6, desk.cook.staff_id, false],
+  );
+  const number = { runtimeRole: desk.runtime.role };
+  assert.equal((await tool(deskNumberMigration, { mode: 'inspect', ...number })).applied, false);
+  const numbers = await tool(deskNumberMigration, { mode: 'apply', ...number });
+  assert.deepEqual(
+    [numbers.migrations, numbers.deskNumbers, numbers.runtimeReadsDeskNumber],
+    [28, 0, true],
   );
   // Contracts 5.9: exactly the reviewed privileges of each installed login.
   const options = { schema: ctx.edge.schema };
@@ -629,7 +642,7 @@ async function switchOn(ctx, desk, pos) {
   assert.ok(paidConfig.methods.every((method) => method.enabled));
 }
 
-test('C4 025 -> 026 -> 027, then a paid day on the KDS layout through the real cash desk and kitchen routes reaches the new cloud on all four streams', async () => {
+test('C4 025 -> 026 -> 027 -> 028, then a paid day on the KDS layout through the real cash desk and kitchen routes reaches the new cloud on all four streams', async () => {
   const root = await mkdtemp(join(tmpdir(), 'pickchick-cross-lane-'));
   try {
     const before026 = await migrationsBefore(root, '026');
