@@ -3,6 +3,7 @@ import json
 import pathlib
 import posixpath
 import re
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -159,6 +160,35 @@ class WindowsEdgePackageTests(unittest.TestCase):
         pinned = {entry['path'] for entry in manifest['files']}
         for relative in tools:
             self.assertIn(relative, pinned)
+
+    def test_ships_every_edge_migration_with_the_bytes_the_cutover_tools_pin(self):
+        # The builder copies db/edge/migrations whole, so edge 028 (the desk number, CR pos-7
+        # section 2 p.5) needs no list change. The manifest pins every migration of the repository
+        # with the bytes that the backup ledger and the guarded C4 tools (026, 027, 028) accept.
+        repo = SCRIPT.parents[1]
+        shutil.rmtree(self.source / 'db/edge/migrations')
+        shutil.copytree(repo / 'db/edge/migrations', self.source / 'db/edge/migrations')
+        self.build()
+        manifest = json.loads((self.base / 'output/runtime-manifest.json').read_text())
+        prefix = 'db/edge/migrations/'
+        pinned = {entry['path'][len(prefix):]: entry['sha256'] for entry in manifest['files']
+                  if entry['path'].startswith(prefix)}
+        names = sorted(path.name for path in (repo / prefix).glob('*.sql'))
+        self.assertEqual(sorted(pinned), names)
+        ledger = json.loads((repo / 'infra/windows/native-edge-backup-ledger.json').read_text())
+        self.assertEqual([row['version'] for row in ledger], names[:len(ledger)])
+        for row in ledger:
+            self.assertEqual(pinned[row['version']], row['checksum'], row['version'])
+        tools = {name: (repo / 'infra/windows' / name).read_text()
+                 for name in ('pos-sales-upgrade-db.mjs', 'kds-upgrade-db.mjs')}
+        for tool, constant, migration in (
+                ('pos-sales-upgrade-db.mjs', 'POS_SALES_SHA256', '026_edge_pos_sales.sql'),
+                ('kds-upgrade-db.mjs', 'KDS_SHA256', '027_edge_kds_foundation.sql'),
+                ('pos-sales-upgrade-db.mjs', 'DESK_NUMBER_SHA256', '028_edge_pos_desk_number.sql')):
+            found = re.search(r'export const ' + constant + r" =\s*'([a-f0-9]{64})'", tools[tool])
+            self.assertIsNotNone(found, constant)
+            self.assertEqual(pinned[migration], found.group(1), migration)
+            self.assertIn(migration, [row['version'] for row in ledger])
 
     def test_rejects_external_dependency_and_missing_dependency(self):
         external = self.base / 'outside'
