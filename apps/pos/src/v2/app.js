@@ -5,7 +5,9 @@ import { SaleView } from './sale-view.js';
 import { OpsView, paidDayStats, receiptRow } from './ops-view.js';
 import {
   PAID_TEXTS,
+  awaitingValues,
   closeReasonText,
+  deskSells,
   deskTexts,
   findGuestText,
   kitchenOffText,
@@ -93,14 +95,16 @@ function schedule() {
   }
 }
 const say = (text) => reference.say(text);
-// Test-mode texts stay as they are without payments; a desk that sells says the truth (CR client-5).
-const unavailable = () => say(unavailableText(model.saleMode));
 // Per-desk display hint for the lock screen, which has no session to ask pos/config with.
 const deskStorage = {
   getItem: (key) => localStorage.getItem(key),
   setItem: (key, value) => localStorage.setItem(key, value),
 };
 let deskPaid = storedDeskPaid(deskStorage);
+// Test-mode texts stay as they are without payments; a desk that sells says the truth (CR
+// client-5), also while its session waits for the first pos/config answer (review 07.11 R1).
+const sells = () => deskSells(model, deskPaid);
+const unavailable = () => say(unavailableText(sells()));
 const safe =
   (fn) =>
   async (...args) => {
@@ -475,11 +479,13 @@ function draw() {
     'sayCashOut',
   ])
     v[key] = unavailable;
-  // Desk number and app line (CR client-5): the session's pos/config once it is read, and
-  // until then (the lock screen, the first moment after a PIN) the edge's last answer to this
-  // desk, so a desk that sells never flashes "Касса 1" or "TEST".
+  // Desk number and app line (CR client-5): the session's pos/config once it is read, GET
+  // ordering while that read is still missing (review 07.11 R1), and before both (the lock
+  // screen, the first moment after a PIN) the edge's last answer to this desk, so a desk that
+  // sells never flashes "Касса 1" or "TEST".
   deskPaid = rememberDeskMode(deskStorage, m, deskPaid);
-  Object.assign(v, deskTexts(deskPaid, config.appVersion));
+  const paid = sells();
+  Object.assign(v, deskTexts(paid, config.appVersion));
   // Red: no connection to the cashier server; yellow: no internet, the cashier keeps working.
   const connection = connectionLabel(m);
   Object.assign(v, {
@@ -548,7 +554,7 @@ function draw() {
       details({ display_name: s.board.trim().slice(0, 14) });
       reference.setState({ guestOpen: false, guest: null });
     },
-    findGuest: () => say(findGuestText(model.saleMode)),
+    findGuest: () => say(findGuestText(sells())),
     hasPromo: false,
     discountLabel: '0',
     giftAvail: false,
@@ -690,6 +696,10 @@ function draw() {
     syncLabel: 'Локальный сервер · внешние каналы ещё не подключены',
   });
   Object.assign(v, sale.templateValues(v));
+  // The edge sells but this session has no pos/config yet (review 07.11 R1): asked again at the
+  // next refresh; until then nothing is passed without payment and nothing says "test".
+  if (model.awaitingSale)
+    Object.assign(v, awaitingValues(v, { busy: blocked(), empty: !s.cart.length, say }));
   v.tiles = (groups[s.cat] ?? []).map((p) => {
     // Own stop (unknown counts as out), or the combo rule: a stopped fixed component or a
     // required choice with nothing left (fields present only in menus for the new cashier).
@@ -906,7 +916,7 @@ function draw() {
     no: orderNumber(o),
     time: time(o.created_at),
     // A desk that sells calls no row a test; "Без оплаты" says what an unpaid row is.
-    channel: o.execution_mode === 'pos_sale' || model.saleMode ? 'КАССА' : 'КАССА · ТЕСТ',
+    channel: o.execution_mode === 'pos_sale' || paid ? 'КАССА' : 'КАССА · ТЕСТ',
     chBg: 'var(--blue)',
     guest: o.snapshot.details?.display_name || '-',
     items: o.snapshot.lines.map((l) => l.name.ru + ' ×' + l.quantity).join(', '),
@@ -915,8 +925,9 @@ function draw() {
     status: kitchenLabel(o),
     stBg: o.fulfillment_state === 'ready' ? '#DCF2E4' : 'var(--n100)',
     stFg: o.fulfillment_state === 'ready' ? '#0B7A3B' : 'var(--n900)',
-    // Paid mode: the Webkassa state of the sale receipt (CR client-5); today "без чека".
-    ...(model.saleMode
+    // Paid mode: the Webkassa state of the sale receipt (CR client-5), "-" until it is read;
+    // an unpaid row and today's cashier "без чека".
+    ...(paid
       ? receiptRow(o, m.saleReceipts[o.order_id])
       : { fiscal: 'var(--n300)', fiscalLabel: 'без чека' }),
     rowBg: '#fff',
@@ -928,12 +939,15 @@ function draw() {
         : orderDialog(o.order_id),
     ),
     // «Чек»: a paid order opens its card with the Webkassa number entry of a receipt still to
-    // punch, or prints «Чек заказа (не фискальный)» (ops-view.js printReceipt).
-    reprint: !model.saleMode
+    // punch, or prints «Чек заказа (не фискальный)» (ops-view.js printReceipt); while pos/config
+    // is still awaited it asks to wait.
+    reprint: !paid
       ? unavailable
-      : o.execution_mode === 'pos_sale'
-        ? safe(() => ops.printReceipt(o.order_id))
-        : () => say(PAID_TEXTS.unpaidReceipt),
+      : o.execution_mode !== 'pos_sale'
+        ? () => say(PAID_TEXTS.unpaidReceipt)
+        : model.saleMode
+          ? safe(() => ops.printReceipt(o.order_id))
+          : () => say(PAID_TEXTS.kitchenWait),
     note: o.snapshot.details?.kitchen_comment ?? '',
     hasNote: Boolean(o.snapshot.details?.kitchen_comment),
     canEditNote: false,
@@ -963,7 +977,7 @@ function draw() {
   v.dayTotal = rows.length + ' заказов · последние 100';
   v.dayEmpty = rows.length === 0;
   v.fiscalLegend = [];
-  if (model.saleMode) {
+  if (paid) {
     // Paid orders: hall and delivery apart, cancelled orders bring no money. Order sums, not
     // takings: the cards say so, takings are in the X report.
     v.dayStats = paidDayStats(rows);

@@ -29,7 +29,9 @@ import {
   DESK_MODE_KEY,
   PAID_TEXTS,
   TEST_TEXTS,
+  awaitingValues,
   closeReasonText,
+  deskSells,
   deskTexts,
   findGuestText,
   kitchenOffText,
@@ -1093,7 +1095,9 @@ async function reviewed(model, edge, mode = 'dine_in') {
 const posted = (edge) => edge.edge.posts.map((p) => p.body);
 
 test('pos/config 404 or any refused read keeps today unpaid cashier with the same requests', async () => {
-  const run = async (answer) => {
+  // `reads`: GET pos/config at login and the next refresh. A definite answer (404 or a mode) is
+  // kept for the poll interval; a failed first read is asked again at once (review 07.11 R1).
+  const run = async (answer, reads = 1) => {
     const f = fixture();
     f.item.modifier_groups = [];
     const api = async (path, auth, options = {}) => {
@@ -1123,7 +1127,12 @@ test('pos/config 404 or any refused read keeps today unpaid cashier with the sam
     assert.equal(model.state.sale, null);
     assert.equal(model.state.pending.kind, 'create');
     const config = f.calls.filter((c) => c.path === 'pos/config');
-    assert.deepEqual(config, [{ path: 'pos/config' }], 'one plain GET at login, nothing else');
+    assert.deepEqual(
+      config,
+      Array.from({ length: reads }, () => ({ path: 'pos/config' })),
+      'plain GETs only: one at login, again at the next refresh only without an answer',
+    );
+    assert.equal(model.awaitingSale, false, 'GET ordering says unpaid_service');
     assert.deepEqual(
       f.calls.filter((c) => /^pos\/(?!config$)|-report$|^staff\/approvals/.test(c.path)),
       [],
@@ -1149,14 +1158,14 @@ test('pos/config 404 or any refused read keeps today unpaid cashier with the sam
   };
   const missing = await run(new ApiError('NOT_FOUND', 404));
   assert.equal(missing.model.state.posConfigMissing, true);
-  for (const other of [
-    new ApiError('EDGE_UNREACHABLE'),
-    new Error('Unexpected synthetic transport path'),
-    { ...posConfigFor(), mode: 'unpaid_service' },
-    { ...posConfigFor(), mode: 'payment_required' },
-    { mode: 'pos_sale' },
+  for (const [other, reads] of [
+    [new ApiError('EDGE_UNREACHABLE'), 2],
+    [new Error('Unexpected synthetic transport path'), 2],
+    [{ ...posConfigFor(), mode: 'unpaid_service' }, 1],
+    [{ ...posConfigFor(), mode: 'payment_required' }, 1],
+    [{ mode: 'pos_sale' }, 2],
   ]) {
-    const result = await run(other);
+    const result = await run(other, reads);
     assert.equal(result.model.state.posConfigMissing, false);
     assert.deepEqual(result.calls, missing.calls, 'pos/config never changes another request');
   }
@@ -1189,6 +1198,125 @@ test('pos/config is polled with operations; a failed read keeps the mode, a 404 
   await model.refreshOperations();
   assert.equal(reads(), 4);
   assert.equal(model.saleMode, true);
+});
+
+test('a failed first pos/config on an edge that sells: asked again at the next refresh, nothing says test', async () => {
+  // Review 07.11 R1: GET ordering says pos_sale, the first GET pos/config answers 503.
+  const edge = saleEdge();
+  let now = 1_000_000,
+    failures = 1;
+  const desk = {
+    ...edge,
+    api: async (path, auth, options = {}) => {
+      if (path === 'pos/config' && failures > 0) {
+        failures--;
+        edge.calls.push({ path });
+        throw new ApiError('EDGE_UNREACHABLE', 503);
+      }
+      const answer = await edge.api(path, auth, options);
+      return path === 'ordering' ? { ...answer, pos_service_mode: 'pos_sale' } : answer;
+    },
+  };
+  const model = await saleCashier(desk, memory(), memory(), { now: () => now });
+  assert.equal(model.saleMode, false);
+  assert.equal(model.awaitingSale, true);
+  // A desk never told anything (no hint) on this edge speaks as one that sells.
+  const paid = deskSells(model, false);
+  assert.equal(paid, true);
+  assert.equal(unavailableText(paid), PAID_TEXTS.unavailable);
+  assert.equal(findGuestText(paid), PAID_TEXTS.findGuest);
+  assert.equal(kitchenOffText(model.state.ordering), PAID_TEXTS.kitchenWait);
+  assert.deepEqual(deskTexts(paid, '0.5.0'), {
+    deskPrefix: '',
+    deskChip: '',
+    appLine: 'Pick Chick POS 0.5.0',
+  });
+  // Today's pay, shift and closing values: «К ОПЛАТЕ» and closing ask to wait, no test text.
+  const said = [];
+  const legacy = {
+    payBtnLabel: 'НА КУХНЮ · 6 990 ₸',
+    totalLabel: '6 990 ₸',
+    cashLog: [
+      { time: '09:00', what: 'Внесение · Размен', sum: '+1 000 ₸', fg: 'var(--green)' },
+      { time: '08:00', what: 'Начальный остаток · тест', sum: '5 000 ₸', fg: 'var(--green)' },
+    ],
+  };
+  const values = awaitingValues(legacy, { busy: false, empty: false, say: (t) => said.push(t) });
+  assert.equal(values.payBtnLabel, 'К ОПЛАТЕ · 6 990 ₸');
+  assert.equal(
+    awaitingValues(legacy, { busy: false, empty: true, say: () => {} }).payBtnLabel,
+    'К ОПЛАТЕ',
+  );
+  assert.equal(
+    awaitingValues({ ...legacy, payBtnLabel: 'Проверяем запрос...' }, { busy: true, empty: false })
+      .payBtnLabel,
+    'Проверяем запрос...',
+  );
+  for (const key of ['toPay', 'confirmPay', 'sayX', 'sayTotals', 'startClose']) values[key]();
+  assert.deepEqual(said, Array(5).fill(PAID_TEXTS.kitchenWait));
+  assert.deepEqual(
+    values.cashLog.map((row) => row.what),
+    ['Внесение · Размен', 'Начальный остаток'],
+  );
+  const shown = [...texts(values), ...said];
+  for (const text of shown) {
+    assert.doesNotMatch(text, /тест|test/i, text);
+    assert.ok(!Object.values(TEST_TEXTS).includes(text), text);
+  }
+  // A paid row says "-" until its receipt is read; an unpaid one keeps "без чека".
+  assert.deepEqual(receiptRow({ execution_mode: 'pos_sale' }, model.state.saleReceipts.x), {
+    fiscalLabel: '-',
+    fiscal: 'var(--n300)',
+  });
+  // Nothing is sold, sent or read for the paid mode meanwhile.
+  await model.refreshSaleOperations(true);
+  await model.refreshSaleReceipts([randomUUID()]);
+  model.quantity(edge.item.variant_id, 1);
+  await model.calculate();
+  await model.create(true);
+  assert.equal(model.state.order, null);
+  assert.equal(model.state.error?.message, 'SERVICE_MODE_DISABLED');
+  assert.deepEqual(
+    edge.calls.filter(
+      (c) =>
+        (c.method === 'POST' && c.path !== 'checkout/quotes') ||
+        /^pos\/(?!config$)|-report$/.test(c.path),
+    ),
+    [],
+    'nothing written and no paid-mode read while pos/config is awaited',
+  );
+  // The next operations refresh (3 s, not POS_CONFIG_POLL_MS) asks again: the desk sells.
+  const reads = () => edge.calls.filter((c) => c.path === 'pos/config').length;
+  assert.equal(reads(), 1);
+  now += 3000;
+  await model.refreshOperations();
+  assert.equal(reads(), 2);
+  assert.equal(model.saleMode, true);
+  assert.equal(model.awaitingSale, false);
+  // A definite answer is newer than GET ordering: unpaid_service or 404 keep today's texts.
+  for (const answer of [
+    { ...posConfigFor(), mode: 'unpaid_service' },
+    new ApiError('NOT_FOUND', 404),
+  ]) {
+    const other = saleEdge({ config: answer });
+    const stale = await saleCashier(
+      {
+        ...other,
+        api: async (path, auth, options = {}) => {
+          const value = await other.api(path, auth, options);
+          return path === 'ordering' ? { ...value, pos_service_mode: 'pos_sale' } : value;
+        },
+      },
+      memory(),
+      memory(),
+    );
+    assert.equal(stale.awaitingSale, false);
+    assert.equal(deskSells(stale, true), false, 'the hint never outvotes an answer');
+  }
+  // Before a session read GET ordering (the lock screen) only the desk's last answer counts.
+  const locked = new PosController(edge.api, memory(), memory(), randomUUID);
+  assert.equal(deskSells(locked, false), false);
+  assert.equal(deskSells(locked, true), true);
 });
 
 test('paid mode: no POST without "В зале / С собой" and the repeat screen; cash with change', async () => {
