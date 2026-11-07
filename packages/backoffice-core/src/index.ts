@@ -36,6 +36,7 @@ import {
 import { assertStockV2, readStockOps, stockV2Readable, stockV2Writable } from './stock-v2.js';
 import { readSalesReport } from './sales-report.js';
 import { p1Capabilities } from './p1-flags.js';
+import { p2Capabilities } from './p2-flags.js';
 import { posOrderCard, posOrderExtras, posStaffNames, readPosDay } from './pos-day.js';
 import {
   IngredientP1,
@@ -91,6 +92,7 @@ export * from './roles.js';
 export * from './stock-v2.js';
 export * from './sales-report.js';
 export * from './p1-flags.js';
+export * from './p2-flags.js';
 export * from './pos-day.js';
 export * from './edge-staff.js';
 export * from './stock-p1.js';
@@ -493,6 +495,8 @@ export class Backoffice {
       const staffPositions = this.options.staffPositionsEnabled === true;
       // Back-office P1 (bo-ui): {} without a query while every P1 flag is off.
       const p1 = await p1Capabilities(db, this.options, stockP1);
+      // Back-office second wave (bo-ui2): {} without a query while its three flags are off.
+      const p2 = await p2Capabilities(db, this.options);
       const roles =
         this.options.rolesEnabled === true
           ? {
@@ -643,6 +647,8 @@ export class Backoffice {
           // Cutover CC-7: only while BACKOFFICE_SALES_REPORT_ENABLED is on.
           ...(this.options.salesReportEnabled === true ? { sales_report: true } : {}),
           ...p1,
+          // Second wave (bo-ui2): after every bo-ui key, stock_p1 included.
+          ...p2,
         },
       };
     });

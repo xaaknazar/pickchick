@@ -43,6 +43,20 @@ export interface ServiceConfig {
   backofficeStaffPositionsEnabled?: boolean;
   /** BACKOFFICE_DISCOUNTS_ENABLED: the discount editor only; nothing is published to the edge. */
   backofficeDiscountsEnabled?: boolean;
+  /**
+   * Back-office second wave (lane bo-ui2, owner decision 06.11; design-bo-ui.md «Вторая волна»).
+   * Cloud API only, each needs BACKOFFICE_ENABLED, all default off and present here only when on.
+   * BACKOFFICE_SUPPLY_ENABLED: suppliers, supplier prices and their import, supply requests
+   * (cloud076). Needs BACKOFFICE_STOCK_V2_ENABLED: a received request is a stock v2 receipt.
+   */
+  backofficeSupplyEnabled?: boolean;
+  /** BACKOFFICE_STOCK_REPORTS_ENABLED: stock balances, stock turnover and the order hint. */
+  backofficeStockReportsEnabled?: boolean;
+  /**
+   * BACKOFFICE_STAFF_ASSIGNMENT_ENABLED: staff at stations (cloud076 bo_staff_assignments). Needs
+   * BACKOFFICE_STAFF_POSITIONS_ENABLED: the stations are the positions of the branch list.
+   */
+  backofficeStaffAssignmentEnabled?: boolean;
   workforceEnabled?: boolean;
   trustedProxyIps?: string[];
   edgeFulfillmentEnabled?: boolean;
@@ -67,6 +81,12 @@ export const BACKOFFICE_P1_FLAGS = Object.freeze([
   'BACKOFFICE_MANAGER_SHIFTS_ENABLED',
   'BACKOFFICE_STAFF_POSITIONS_ENABLED',
   'BACKOFFICE_DISCOUNTS_ENABLED',
+] as const);
+/** Back-office second-wave flags of lane bo-ui2 (design-bo-ui.md «Вторая волна»), default off. */
+export const BACKOFFICE_P2_FLAGS = Object.freeze([
+  'BACKOFFICE_SUPPLY_ENABLED',
+  'BACKOFFICE_STOCK_REPORTS_ENABLED',
+  'BACKOFFICE_STAFF_ASSIGNMENT_ENABLED',
 ] as const);
 
 function boundedInteger(
@@ -142,6 +162,24 @@ export function loadConfig(
     env.BACKOFFICE_STOCK_V2_ENABLED !== 'true'
   )
     throw new Error('BACKOFFICE_STOCK_AUTOCONSUME_ENABLED requires BACKOFFICE_STOCK_V2_ENABLED');
+  // Back-office second wave (bo-ui2): the same rules, plus the flags each one builds on.
+  for (const name of BACKOFFICE_P2_FLAGS) {
+    const value = env[name] ?? 'false';
+    if (
+      !['true', 'false'].includes(value) ||
+      (value === 'true' && (service !== 'api' || backoffice !== 'true'))
+    )
+      throw new Error(`${name} requires the cloud backoffice`);
+  }
+  if (env.BACKOFFICE_SUPPLY_ENABLED === 'true' && env.BACKOFFICE_STOCK_V2_ENABLED !== 'true')
+    throw new Error('BACKOFFICE_SUPPLY_ENABLED requires BACKOFFICE_STOCK_V2_ENABLED');
+  if (
+    env.BACKOFFICE_STAFF_ASSIGNMENT_ENABLED === 'true' &&
+    env.BACKOFFICE_STAFF_POSITIONS_ENABLED !== 'true'
+  )
+    throw new Error(
+      'BACKOFFICE_STAFF_ASSIGNMENT_ENABLED requires BACKOFFICE_STAFF_POSITIONS_ENABLED',
+    );
   const workforce = env.WORKFORCE_ENABLED ?? 'false';
   if (
     !['true', 'false'].includes(workforce) ||
@@ -265,6 +303,13 @@ export function loadConfig(
       ? { backofficeStaffPositionsEnabled: true }
       : {}),
     ...(env.BACKOFFICE_DISCOUNTS_ENABLED === 'true' ? { backofficeDiscountsEnabled: true } : {}),
+    ...(env.BACKOFFICE_SUPPLY_ENABLED === 'true' ? { backofficeSupplyEnabled: true } : {}),
+    ...(env.BACKOFFICE_STOCK_REPORTS_ENABLED === 'true'
+      ? { backofficeStockReportsEnabled: true }
+      : {}),
+    ...(env.BACKOFFICE_STAFF_ASSIGNMENT_ENABLED === 'true'
+      ? { backofficeStaffAssignmentEnabled: true }
+      : {}),
     ...(workforce === 'true' ? { workforceEnabled: true } : {}),
     ...(catalogAdmin === 'true' ? { catalogAdminEnabled: true } : {}),
     ...(fulfillment === 'true'
