@@ -7421,10 +7421,10 @@
         "@vps/public-https/legal"
       ],
       "status": "active",
-      "head": "db3dfb1f9bdf0710f58e0780dce8d5e9ecd2c14e",
+      "head": "f8a23411b6634f99e615e41f9f333c29aeeaa941",
       "updatedAt": "2026-11-07T07:11:24.320Z",
-      "summary": "П6 опубликован07.11 04:22Алматы из21358f913c7e8ee2906f84410f256b2ec8638e76; Foundation42305598717 11/11. Preflight/apply PASS; HTTP200+delete-account+точный retention RU/KK/EN. 16раундов/903секунды/112GET PASS. API/public/gateway/контейнеры/политика неизменны, свойlock снят. Копия и source/CI proof сохранены; rollback dry-run PASS. Протокол8c5d4bfe вPR315, remote SHA сверён; рабочее дерево чистое. Fresh shared28875f52 влит обычнымmerge,8файлов релиза идентичны. Общую ветку не сливали.",
-      "nextAction": "Android-задача может продолжать Google Play: П6 готов, https://pickchick.kz/support/#delete-account и RU/KK/EN подтверждены. Политику не публиковать без отдельного да. Проверить финальную CI8c5d4bfe перед согласованным merge PR315; finish только после включения вshared. Общий status/roadmap остаётся уAndroid-задачи, онлайн-пульт не обновлялся."
+      "summary": "П6 опубликован ранее, PR315 включён в shared. 07.11 владелец отдельно разрешил публикацию подготовленного абзаца политики и передачу legal-update.py/test_legal_update.py. Новый режим retention с точными pins/source/CI proof, проверенной копией и откатом опубликован f8a23411, PR318. Локально15тестов PASS; точный HTML-кандидат8aa6fe78 совпадает с утверждённым. Сервер не менялся, baseline07:11UTC прежний, lock отсутствует. Foundation42350481264 queued, runners ещё не назначены.",
+      "nextAction": "После Foundation11/11 точного f8a23411: повторить baseline и резервы, source package6файлов, preflight, apply одного абзаца, внешние GET и протокол. До зелёной CI не применять. Google Play остаётся уAndroid. Локальный пакет /private/tmp/pickchick-legal-f8a23411b6634f99e615e41f9f333c29aeeaa941; runbook legal-retention-proposal-1107.md."
     }
   ]
 }
