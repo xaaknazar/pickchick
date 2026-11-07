@@ -21,7 +21,8 @@ export async function pendingWork(stand) {
       (SELECT count(*) FROM fulfillment_transport_state WHERE branch_id=$1 AND pending_cloud IS NOT NULL) transport_pending,
       (SELECT count(*) FROM pos_kitchen_sync_state WHERE branch_id=$1 AND dead_lettered_at IS NOT NULL) kitchen_dead_letter,
       (SELECT count(*) FROM fulfillment_transport_failures WHERE branch_id=$1 AND resolved_at IS NULL) transport_failures,
-      (SELECT count(*) FROM remote_stop_commands WHERE branch_id=$1 AND state<>'received' AND reported_at IS NULL) stop_receipts`,
+      (SELECT count(*) FROM remote_stop_commands WHERE branch_id=$1 AND state<>'received' AND reported_at IS NULL) stop_receipts,
+      (SELECT count(*) FROM pos_sale_outbox WHERE branch_id=$1 AND acknowledged_at IS NULL) pos_sales`,
     b,
   );
   const [cloud] = await rows(
@@ -48,7 +49,8 @@ export async function backlogMark(stand) {
     `SELECT
       (SELECT max(producer_sequence)::text FROM outbox_events WHERE branch_id=$1 AND aggregate_type='order_commercial' AND acknowledged_at IS NULL) pos,
       (SELECT max(sequence)::text FROM fulfillment_outbox WHERE branch_id=$1 AND acknowledged_at IS NULL) kitchen,
-      (SELECT max(sequence)::text FROM cashier_report_outbox WHERE branch_id=$1 AND acknowledged_at IS NULL) cashier`,
+      (SELECT max(sequence)::text FROM cashier_report_outbox WHERE branch_id=$1 AND acknowledged_at IS NULL) cashier,
+      (SELECT max(sequence)::text FROM pos_sale_outbox WHERE branch_id=$1 AND acknowledged_at IS NULL) sales`,
     b,
   );
   const commands = (
@@ -63,13 +65,20 @@ export async function backlogMark(stand) {
 }
 /** True once everything in the mark is delivered, even while new traffic keeps arriving. */
 export async function backlogDelivered(stand, mark) {
-  const b = [stand.ids.branch, mark.pos ?? '0', mark.kitchen ?? '0', mark.cashier ?? '0'];
+  const b = [
+    stand.ids.branch,
+    mark.pos ?? '0',
+    mark.kitchen ?? '0',
+    mark.cashier ?? '0',
+    mark.sales ?? '0',
+  ];
   const [left] = await rows(
     stand.edge,
     `SELECT
       (SELECT count(*) FROM outbox_events WHERE branch_id=$1 AND aggregate_type='order_commercial' AND acknowledged_at IS NULL AND producer_sequence<=$2::bigint)
       + (SELECT count(*) FROM fulfillment_outbox WHERE branch_id=$1 AND acknowledged_at IS NULL AND sequence<=$3::bigint)
-      + (SELECT count(*) FROM cashier_report_outbox WHERE branch_id=$1 AND acknowledged_at IS NULL AND sequence<=$4::bigint) n`,
+      + (SELECT count(*) FROM cashier_report_outbox WHERE branch_id=$1 AND acknowledged_at IS NULL AND sequence<=$4::bigint)
+      + (SELECT count(*) FROM pos_sale_outbox WHERE branch_id=$1 AND acknowledged_at IS NULL AND sequence<=$5::bigint) n`,
     b,
   );
   if (num(left.n) > 0) return false;
@@ -97,13 +106,118 @@ export async function stopsConverged(stand) {
   return JSON.stringify(cloud) === JSON.stringify(edge);
 }
 
+/**
+ * The paid day on both sides (edge schema026, cloud schema073): sales, tenders, refunds and
+ * voids with their parts, receipts, Z reports and the posSales stream itself. Money as text in
+ * tiyn (bigint), compared exactly.
+ */
+async function posSalesSnapshot(stand) {
+  const b = [stand.ids.branch];
+  const e = stand.edge,
+    c = stand.cloud;
+  const refundParts = (table) =>
+    `(SELECT json_agg(json_build_array(t.tender_id,t.method,t.amount_minor::text) ORDER BY t.tender_id)
+      FROM ${table} t WHERE t.refund_id=r.${table === 'pos_refund_tenders' ? 'id' : 'refund_id'})`;
+  return {
+    edge: {
+      sales: await rows(
+        e,
+        `SELECT s.order_id,s.shift_id,s.terminal_id,s.total_minor::text,s.cash_tendered_minor::text,
+           s.change_minor::text,s.sales_channel,s.external_order_ref,s.revenue_kind,o.state
+         FROM pos_sales s JOIN local_orders o ON o.id=s.order_id AND o.branch_id=s.branch_id
+         WHERE s.branch_id=$1`,
+        b,
+      ),
+      tenders: await rows(
+        e,
+        `SELECT id tender_id,order_id,method,amount_minor::text,confirmation,reference
+         FROM pos_sale_tenders WHERE branch_id=$1`,
+        b,
+      ),
+      refunds: await rows(
+        e,
+        `SELECT r.id refund_id,r.order_id,r.kind,r.shift_id,r.amount_minor::text,
+           ${refundParts('pos_refund_tenders')} parts FROM pos_refunds r WHERE r.branch_id=$1`,
+        b,
+      ),
+      receipts: await rows(
+        e,
+        `SELECT id receipt_id,order_id,refund_id,kind,state,receipt_number,version,amount_minor::text
+         FROM pos_fiscal_receipts WHERE branch_id=$1`,
+        b,
+      ),
+      reports: await rows(
+        e,
+        `SELECT shift_id,terminal_id,report,terminal_reported_minor::text FROM pos_shift_reports
+         WHERE branch_id=$1`,
+        b,
+      ),
+      events: await rows(
+        e,
+        `SELECT event_id,kind,sequence::text,acknowledged_at IS NOT NULL acknowledged,last_error
+         FROM pos_sale_outbox WHERE branch_id=$1 ORDER BY sequence`,
+        b,
+      ),
+    },
+    cloud: {
+      sales: await rows(
+        c,
+        `SELECT order_id,shift_id,terminal_id,device_id,total_minor::text,cash_tendered_minor::text,
+           change_minor::text,sales_channel,external_order_ref,revenue_kind,state
+         FROM cloud_pos_sales WHERE branch_id=$1`,
+        b,
+      ),
+      tenders: await rows(
+        c,
+        `SELECT tender_id,order_id,method,amount_minor::text,confirmation,reference
+         FROM cloud_pos_tenders WHERE branch_id=$1`,
+        b,
+      ),
+      refunds: await rows(
+        c,
+        `SELECT r.refund_id,r.order_id,r.kind,r.shift_id,r.amount_minor::text,
+           ${refundParts('cloud_pos_refund_tenders')} parts FROM cloud_pos_refunds r WHERE r.branch_id=$1`,
+        b,
+      ),
+      receipts: await rows(
+        c,
+        `SELECT receipt_id,order_id,refund_id,kind,state,receipt_number,version,amount_minor::text
+         FROM cloud_pos_fiscal_receipts WHERE branch_id=$1`,
+        b,
+      ),
+      reports: await rows(
+        c,
+        `SELECT shift_id,terminal_id,device_id,report,expected_cash_minor::text,
+           counted_cash_minor::text,discrepancy_minor::text,terminal_reported_minor::text
+         FROM cloud_pos_shift_reports WHERE branch_id=$1`,
+        b,
+      ),
+      inbox: await rows(
+        c,
+        'SELECT event_id,kind,sequence::text,device_id FROM cloud_pos_sale_inbox WHERE branch_id=$1',
+        b,
+      ),
+      // Z reports the cloud owner accepted as written after an edge restore (CR cloud-5 p.2 A).
+      acceptedRestoredZ: (
+        await rows(
+          c,
+          "SELECT entity_id shift_id FROM bo_audit WHERE branch_id=$1 AND action='pos_sales:accept_restored_z'",
+          b,
+        )
+      ).map((r) => r.shift_id),
+    },
+  };
+}
+
 export async function snapshot(stand) {
   const b = [stand.ids.branch];
   const e = stand.edge,
     c = stand.cloud;
   const commerce = await import('../../packages/commerce-core/dist/index.js');
+  const paid = await posSalesSnapshot(stand);
   return {
     edge: {
+      posSales: paid.edge,
       restoreDecisions: await rows(e, 'SELECT * FROM fulfillment_restore_decisions'),
       orders: await rows(
         e,
@@ -165,6 +279,7 @@ export async function snapshot(stand) {
         ?.release_id,
     },
     cloud: {
+      posSales: paid.cloud,
       restoreConflicts: await rows(
         c,
         'SELECT order_id,aggregate_version,envelope,producer_sequence::text FROM pos_kitchen_restore_conflicts WHERE branch_id=$1 ORDER BY producer_sequence DESC',
@@ -359,7 +474,9 @@ export function evaluate(data, ledger, context = {}) {
   const posDiff = [];
   for (const o of data.edge.orders) {
     const remote = cloudPos.get(o.id);
-    const expectedState = o.state === 'cancelled' ? 'cancelled' : 'awaiting_payment';
+    // A paid sale (pos_sale) is 'paid' on both sides; an unpaid order stays awaiting payment.
+    const expectedState =
+      o.state === 'cancelled' ? 'cancelled' : o.state === 'paid' ? 'paid' : 'awaiting_payment';
     if (!remote || remote.total_minor !== o.total_minor || remote.state !== expectedState)
       posDiff.push({ order: o.id, edge: o.state, cloud: remote?.state ?? null });
   }
@@ -663,12 +780,326 @@ export function evaluate(data, ledger, context = {}) {
       data.edge.activeRelease ?? null,
     ),
   );
+  // 12. Paid day (pos_sale): only when the run sold with payment; an unpaid run has no rows.
+  if (paidDay(data)) results.push(...evaluatePosSales(data, ledger, context));
+  return results;
+}
+
+/** Whether the run has any posSales data on either side (a paid day ran). */
+export function paidDay(data) {
+  const e = data.edge.posSales,
+    c = data.cloud.posSales;
+  return Boolean(
+    e &&
+    c &&
+    (e.sales.length || e.events.length || e.reports.length || c.sales.length || c.inbox.length),
+  );
+}
+
+/** Same value whatever the key order (jsonb, HTTP and test objects compared alike). */
+export function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === 'object')
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, canonical(value[key])]),
+    );
+  return value;
+}
+const same = (a, b) => JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
+const big = (v) => BigInt(v ?? '0');
+/** Rows of `list` keyed by `key`; a key seen twice is reported by the caller. */
+const keyed = (list, key) => new Map(list.map((row) => [row[key], row]));
+/** Per method: sales of the shift's sales and refunds of refunds paid at the shift (receiver rule). */
+function shiftTotals(posSales, shiftId) {
+  const sales = new Set(
+    posSales.sales.filter((s) => s.shift_id === shiftId).map((s) => s.order_id),
+  );
+  const methods = new Map();
+  const row = (method) => {
+    if (!methods.has(method)) methods.set(method, { sales: 0n, refunds: 0n, count: 0 });
+    return methods.get(method);
+  };
+  for (const t of posSales.tenders)
+    if (sales.has(t.order_id)) {
+      row(t.method).sales += big(t.amount_minor);
+      row(t.method).count++;
+    }
+  for (const r of posSales.refunds)
+    if (r.shift_id === shiftId)
+      for (const [, method, amount] of r.parts ?? []) row(method).refunds += big(amount);
+  return methods;
+}
+/**
+ * The Z against money rows, as the receiver checks it: cash and every method row equal the sales
+ * and refunds of the shift; no method with money is missing. `cloudMayHoldMore` (a Z accepted after
+ * a restore) allows the rows to hold more than the Z, never less.
+ */
+export function zMismatch(report, totals, { cloudMayHoldMore = false } = {}) {
+  const problems = [];
+  const cmp = (what, z, rows) => {
+    if (cloudMayHoldMore ? z > rows : z !== rows)
+      problems.push({ what, z: z.toString(), rows: rows.toString() });
+  };
+  cmp('cash_sales', big(report.cash_sales_minor), totals.get('cash')?.sales ?? 0n);
+  cmp('cash_refunds', big(report.cash_refunds_minor), totals.get('cash')?.refunds ?? 0n);
+  const listed = new Set(report.methods.map((m) => m.method));
+  for (const m of report.methods) {
+    const t = totals.get(m.method) ?? { sales: 0n, refunds: 0n, count: 0 };
+    cmp(`${m.method}.sales`, big(m.sales_minor), t.sales);
+    cmp(`${m.method}.refunds`, big(m.refunds_minor), t.refunds);
+    cmp(`${m.method}.count`, BigInt(m.count), BigInt(t.count));
+  }
+  for (const [method, t] of totals)
+    if (!listed.has(method) && (t.sales || t.refunds)) problems.push({ what: `${method}.missing` });
+  return problems;
+}
+
+/**
+ * Paid day: the cloud holds every sale, void, refund, receipt and Z of the edge exactly once with
+ * the same money (tiyn), the posSales stream is drained with nothing parked, every Z agrees with
+ * its rows, and the edge holds what each cashier was told. `context.lostPosOrders` are sales the
+ * cloud got from the lost timeline of a restore drill: kept in the cloud, absent on the edge.
+ */
+export function evaluatePosSales(data, ledger, context = {}) {
+  const e = data.edge.posSales,
+    c = data.cloud.posSales;
+  const lost = new Set(context.lostPosOrders ?? []);
+  const results = [];
+  // 1. Sales: same set, shift, desk, money and state (edge cancelled = cloud voided).
+  const cloudSales = keyed(c.sales, 'order_id');
+  const saleDiff = [];
+  for (const s of e.sales) {
+    const r = cloudSales.get(s.order_id);
+    const state = s.state === 'cancelled' ? 'voided' : s.state;
+    if (
+      !r ||
+      r.state !== state ||
+      ['shift_id', 'terminal_id', 'total_minor', 'cash_tendered_minor', 'change_minor'].some(
+        (k) => r[k] !== s[k],
+      ) ||
+      ['sales_channel', 'external_order_ref', 'revenue_kind'].some((k) => r[k] !== s[k])
+    )
+      saleDiff.push({
+        order: s.order_id,
+        edge: `${s.state}/${s.total_minor}`,
+        cloud: r ? `${r.state}/${r.total_minor}` : null,
+      });
+  }
+  const edgeSales = new Set(e.sales.map((s) => s.order_id));
+  const extraSales = c.sales.filter((r) => !edgeSales.has(r.order_id) && !lost.has(r.order_id));
+  results.push(
+    check(
+      'paid_sales_in_cloud',
+      'Облако получило каждую продажу с оплатой ровно один раз: та же смена, касса, сумма, сдача и статус (отмена - voided)',
+      saleDiff.length === 0 &&
+        extraSales.length === 0 &&
+        c.sales.length === new Set(c.sales.map((s) => s.order_id)).size,
+      e.sales.length,
+      c.sales.length - c.sales.filter((r) => lost.has(r.order_id)).length,
+      saleDiff.length || extraSales.length
+        ? { different: sample(saleDiff), extra: sample(extraSales.map((r) => r.order_id)) }
+        : undefined,
+    ),
+  );
+  // 2. Tenders: every part of every sale, same method, amount, confirmation and reference.
+  const tenderKey = (t) =>
+    JSON.stringify([
+      t.tender_id,
+      t.order_id,
+      t.method,
+      t.amount_minor,
+      t.confirmation,
+      t.reference,
+    ]);
+  const edgeTenders = new Set(e.tenders.map(tenderKey));
+  const cloudTenders = c.tenders.filter((t) => !lost.has(t.order_id)).map(tenderKey);
+  const tenderDiff =
+    e.tenders.filter((t) => !cloudTenders.includes(tenderKey(t))).length +
+    cloudTenders.filter((k) => !edgeTenders.has(k)).length;
+  results.push(
+    check(
+      'paid_tenders_in_cloud',
+      'Оплаты продаж (наличные, Kaspi, смешанная, ChocoFood) в облаке те же, что на кассе, до тиына',
+      tenderDiff === 0 && cloudTenders.length === e.tenders.length,
+      e.tenders.length,
+      cloudTenders.length,
+    ),
+  );
+  // 3. Voids and refunds with their parts.
+  const refundKey = (r) =>
+    JSON.stringify([r.refund_id, r.order_id, r.kind, r.shift_id, r.amount_minor, r.parts]);
+  const cloudRefunds = new Set(c.refunds.filter((r) => !lost.has(r.order_id)).map(refundKey));
+  const edgeRefunds = new Set(e.refunds.map(refundKey));
+  const refundDiff = [
+    ...e.refunds.filter((r) => !cloudRefunds.has(refundKey(r))).map((r) => r.refund_id),
+    ...c.refunds
+      .filter((r) => !lost.has(r.order_id) && !edgeRefunds.has(refundKey(r)))
+      .map((r) => r.refund_id),
+  ];
+  results.push(
+    check(
+      'paid_refunds_in_cloud',
+      'Отмены и возвраты (по частям оплаты) дошли в облако ровно один раз с теми же суммами',
+      refundDiff.length === 0,
+      e.refunds.length,
+      cloudRefunds.size,
+      refundDiff.length ? { different: sample(refundDiff) } : undefined,
+    ),
+  );
+  // 4. Manual Webkassa receipts: the last version of each.
+  const receiptKey = (r) =>
+    JSON.stringify([
+      r.receipt_id,
+      r.order_id,
+      r.refund_id,
+      r.kind,
+      r.state,
+      r.receipt_number,
+      r.version,
+      r.amount_minor,
+    ]);
+  const cloudReceipts = new Set(c.receipts.filter((r) => !lost.has(r.order_id)).map(receiptKey));
+  const receiptDiff = e.receipts.filter((r) => !cloudReceipts.has(receiptKey(r))).length;
+  results.push(
+    check(
+      'paid_receipts_in_cloud',
+      'Чеки Webkassa (номер, состояние, версия, сумма) в облаке такие же, как на кассе',
+      receiptDiff === 0 && cloudReceipts.size === e.receipts.length,
+      e.receipts.length,
+      cloudReceipts.size,
+    ),
+  );
+  // 5. Z reports: the cloud stores the edge's frozen Z, and every Z equals the money rows of its
+  // shift on both sides (cloud: more only for a Z accepted after a restore).
+  const cloudReports = keyed(c.reports, 'shift_id');
+  const accepted = new Set(c.acceptedRestoredZ ?? []);
+  const zProblems = [];
+  for (const z of e.reports) {
+    const r = cloudReports.get(z.shift_id);
+    if (!r) {
+      zProblems.push({ shift: z.shift_id, problem: 'missing_in_cloud' });
+      continue;
+    }
+    if (
+      !same(r.report, z.report) ||
+      r.terminal_id !== z.terminal_id ||
+      r.expected_cash_minor !== z.report.expected_cash_minor ||
+      r.counted_cash_minor !== z.report.counted_cash_minor ||
+      r.discrepancy_minor !== z.report.discrepancy_minor ||
+      r.terminal_reported_minor !== z.terminal_reported_minor
+    )
+      zProblems.push({ shift: z.shift_id, problem: 'cloud_z_differs' });
+    const edgeSide = zMismatch(z.report, shiftTotals(e, z.shift_id));
+    if (edgeSide.length) zProblems.push({ shift: z.shift_id, problem: 'edge_z_vs_rows', edgeSide });
+    const cloudSide = zMismatch(r.report, shiftTotals(c, z.shift_id), {
+      cloudMayHoldMore: accepted.has(z.shift_id),
+    });
+    if (cloudSide.length)
+      zProblems.push({ shift: z.shift_id, problem: 'cloud_z_vs_rows', cloudSide });
+  }
+  const edgeShifts = new Set(e.reports.map((z) => z.shift_id));
+  const extraZ = c.reports.filter((r) => !edgeShifts.has(r.shift_id));
+  results.push(
+    check(
+      'paid_z_in_cloud',
+      'Z каждой смены продаж в облаке тот же, что на кассе, и сходится с продажами и возвратами смены до тиына',
+      zProblems.length === 0 && extraZ.length === 0,
+      e.reports.length,
+      c.reports.length,
+      zProblems.length || extraZ.length
+        ? { problems: sample(zProblems), extra: sample(extraZ.map((r) => r.shift_id)) }
+        : undefined,
+    ),
+  );
+  // 6. The stream: every edge event in the cloud inbox once, acknowledged, nothing parked.
+  const inbox = new Map();
+  for (const row of c.inbox) inbox.set(row.event_id, (inbox.get(row.event_id) ?? 0) + 1);
+  const notOnce = e.events.filter((ev) => inbox.get(ev.event_id) !== 1);
+  const unacknowledged = e.events.filter((ev) => !ev.acknowledged);
+  const parked = e.events.filter((ev) => ev.last_error?.startsWith('rejected:'));
+  const edgeEvents = new Set(e.events.map((ev) => ev.event_id));
+  const cloudOnly = c.inbox.filter((row) => !edgeEvents.has(row.event_id));
+  results.push(
+    check(
+      'paid_events_once',
+      'Каждое событие posSales кассы принято облаком ровно один раз, очередь пуста, припаркованных нет',
+      notOnce.length === 0 &&
+        unacknowledged.length === 0 &&
+        parked.length === 0 &&
+        (cloudOnly.length === 0 || lost.size > 0),
+      { events: e.events.length, pending: 0, parked: 0 },
+      {
+        events: c.inbox.length,
+        pending: unacknowledged.length,
+        parked: parked.length,
+        cloud_only: cloudOnly.length,
+      },
+      notOnce.length || parked.length
+        ? {
+            not_once: sample(notOnce.map((ev) => ev.event_id)),
+            parked: sample(
+              parked.map((ev) => ({ event: ev.event_id, kind: ev.kind, error: ev.last_error })),
+            ),
+          }
+        : undefined,
+    ),
+  );
+  // 7. What each cashier was told is what the edge holds (sale, tenders, void, refunds, Z).
+  const edgeById = keyed(e.sales, 'order_id');
+  const told = [...(ledger.posSales?.values() ?? [])].filter((p) => !lost.has(p.orderId));
+  const tellProblems = [];
+  for (const p of told) {
+    const s = edgeById.get(p.orderId);
+    const parts = e.tenders
+      .filter((t) => t.order_id === p.orderId)
+      .map((t) => [t.tender_id, t.method, t.amount_minor]);
+    const refunds = e.refunds.filter((r) => r.order_id === p.orderId && r.kind === 'refund');
+    if (
+      !s ||
+      s.total_minor !== p.total ||
+      (s.state === 'cancelled') !== p.voided ||
+      !same(parts.sort(), p.tenders.map((t) => [t.tenderId, t.method, t.amount]).sort()) ||
+      !same(
+        refunds.map((r) => [r.refund_id, r.amount_minor]).sort(),
+        p.refunds.map((r) => [r.refundId, r.amount]).sort(),
+      )
+    )
+      tellProblems.push(p.orderId);
+  }
+  const edgeZ = keyed(e.reports, 'shift_id');
+  const zTold = (ledger.salesShifts ?? []).filter((s) => !same(edgeZ.get(s.shiftId)?.report, s.z));
+  results.push(
+    check(
+      'paid_cashier_told',
+      'Продажи, отмены, возвраты и Z, которые увидели кассиры и менеджер, сохранены на кассе такими же',
+      tellProblems.length === 0 && zTold.length === 0,
+      { sales: told.length, z: ledger.salesShifts?.length ?? 0 },
+      {
+        sales: told.length - tellProblems.length,
+        z: (ledger.salesShifts?.length ?? 0) - zTold.length,
+      },
+      tellProblems.length || zTold.length
+        ? { sales: sample(tellProblems), z: sample(zTold.map((s) => s.shiftId)) }
+        : undefined,
+    ),
+  );
   return results;
 }
 
 /** Totals for the report: how much moved through each stream. */
 export function volumes(data) {
   return {
+    ...(paidDay(data)
+      ? {
+          paid_sales: data.edge.posSales.sales.length,
+          paid_voided: data.edge.posSales.sales.filter((s) => s.state === 'cancelled').length,
+          paid_refunds: data.edge.posSales.refunds.filter((r) => r.kind === 'refund').length,
+          paid_z: data.edge.posSales.reports.length,
+          paid_events: data.edge.posSales.events.length,
+        }
+      : {}),
     pos_orders: data.edge.orders.length,
     pos_cancelled: data.edge.orders.filter((o) => o.state === 'cancelled').length,
     pos_events: data.edge.posEvents.total,

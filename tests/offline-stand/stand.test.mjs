@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { channelOrdersLostByRestore, evaluate, volumes } from './checks.mjs';
+import {
+  channelOrdersLostByRestore,
+  evaluate,
+  evaluatePosSales,
+  paidDay,
+  volumes,
+  zMismatch,
+} from './checks.mjs';
 import { LABELS, distinguishable } from './staff-view.mjs';
 import { parseArgs, parseDuration, profileFor, PROFILES } from './run.mjs';
 import { checkedAdminUrl, scopedUrl, standCatalog } from './stand.mjs';
@@ -472,4 +479,385 @@ test('resumed restore requires the latest durable observation, not merely a mana
   assert.ok(!failed(evaluate(data, ledger, context)).includes('restore_reviews_preserve_history'));
   data.cloud.restoreConflicts[0].aggregate_version--;
   assert.ok(failed(evaluate(data, ledger, context)).includes('restore_reviews_preserve_history'));
+});
+
+/**
+ * A consistent paid day (pos_sale) on both sides: one desk, one shift; A paid in cash with
+ * change, B paid by Kaspi terminal and voided. Money in tiyn as text, as the snapshot reads it.
+ */
+function paidWorld() {
+  const [A, B, S, T, tA, tB, rB] = [60, 61, 62, 63, 64, 65, 66].map(id);
+  const z = {
+    kind: 'z',
+    shift_id: S,
+    terminal_id: T,
+    state: 'closed',
+    opening_cash_minor: '0',
+    cash_in_minor: '0',
+    cash_out_minor: '0',
+    cash_sales_minor: '150000',
+    cash_refunds_minor: '0',
+    expected_cash_minor: '150000',
+    counted_cash_minor: '150000',
+    discrepancy_minor: '0',
+    methods: [
+      { method: 'cash', sales_minor: '150000', refunds_minor: '0', count: 1 },
+      { method: 'kaspi_terminal', sales_minor: '100000', refunds_minor: '100000', count: 1 },
+    ],
+    channels: [{ sales_channel: 'hall', total_minor: '150000', count: 1 }],
+    terminal_reported_minor: '0',
+    terminal_discrepancy_minor: '0',
+    fiscal: { pending: 0, recorded: 1, not_required: 1 },
+    orders: { count: 2, voided_count: 1 },
+  };
+  const sale = (order, total, tendered, change, state) => ({
+    order_id: order,
+    shift_id: S,
+    terminal_id: T,
+    total_minor: total,
+    cash_tendered_minor: tendered,
+    change_minor: change,
+    sales_channel: 'hall',
+    external_order_ref: null,
+    revenue_kind: 'revenue',
+    state,
+  });
+  const tenders = [
+    {
+      tender_id: tA,
+      order_id: A,
+      method: 'cash',
+      amount_minor: '150000',
+      confirmation: 'drawer',
+      reference: null,
+    },
+    {
+      tender_id: tB,
+      order_id: B,
+      method: 'kaspi_terminal',
+      amount_minor: '100000',
+      confirmation: 'cashier_attested',
+      reference: null,
+    },
+  ];
+  const refunds = [
+    {
+      refund_id: rB,
+      order_id: B,
+      kind: 'void',
+      shift_id: S,
+      amount_minor: '100000',
+      parts: [[tB, 'kaspi_terminal', '100000']],
+    },
+  ];
+  const receipts = [
+    {
+      receipt_id: id(67),
+      order_id: A,
+      refund_id: null,
+      kind: 'sale',
+      state: 'recorded',
+      receipt_number: 'SYN-1',
+      version: 2,
+      amount_minor: '150000',
+    },
+    {
+      receipt_id: id(68),
+      order_id: B,
+      refund_id: null,
+      kind: 'sale',
+      state: 'not_required',
+      receipt_number: null,
+      version: 2,
+      amount_minor: '100000',
+    },
+  ];
+  const events = ['sale', 'sale', 'void', 'fiscal', 'fiscal', 'shift_report'].map((kind, i) => ({
+    event_id: id(70 + i),
+    kind,
+    sequence: String(i + 1),
+    acknowledged: true,
+    last_error: null,
+  }));
+  const posSales = {
+    edge: {
+      sales: [
+        sale(A, '150000', '200000', '50000', 'paid'),
+        sale(B, '100000', null, null, 'cancelled'),
+      ],
+      tenders,
+      refunds,
+      receipts,
+      reports: [{ shift_id: S, terminal_id: T, report: z, terminal_reported_minor: '0' }],
+      events,
+    },
+    cloud: {
+      sales: [
+        { ...sale(A, '150000', '200000', '50000', 'paid'), device_id: id(69) },
+        { ...sale(B, '100000', null, null, 'voided'), device_id: id(69) },
+      ],
+      tenders: tenders.map((t) => ({ ...t })),
+      refunds: refunds.map((r) => ({ ...r })),
+      receipts: receipts.map((r) => ({ ...r })),
+      reports: [
+        {
+          shift_id: S,
+          terminal_id: T,
+          device_id: id(69),
+          // jsonb comes back with its own key order: the comparison must not care.
+          report: Object.fromEntries(Object.entries(z).reverse()),
+          expected_cash_minor: '150000',
+          counted_cash_minor: '150000',
+          discrepancy_minor: '0',
+          terminal_reported_minor: '0',
+        },
+      ],
+      inbox: events.map((e) => ({
+        event_id: e.event_id,
+        kind: e.kind,
+        sequence: e.sequence,
+        device_id: id(69),
+      })),
+      acceptedRestoredZ: [],
+    },
+  };
+  const ledger = {
+    posSales: new Map([
+      [
+        A,
+        {
+          orderId: A,
+          total: '150000',
+          voided: false,
+          tenders: [{ tenderId: tA, method: 'cash', amount: '150000' }],
+          refunds: [],
+        },
+      ],
+      [
+        B,
+        {
+          orderId: B,
+          total: '100000',
+          voided: true,
+          tenders: [{ tenderId: tB, method: 'kaspi_terminal', amount: '100000' }],
+          refunds: [],
+        },
+      ],
+    ]),
+    salesShifts: [{ shiftId: S, desk: 1, z: { ...z } }],
+  };
+  const data = { edge: { posSales: posSales.edge }, cloud: { posSales: posSales.cloud } };
+  return { data, ledger, ids: { A, B, S, T, tA, tB, rB } };
+}
+const PAID_CHECKS = [
+  'paid_sales_in_cloud',
+  'paid_tenders_in_cloud',
+  'paid_refunds_in_cloud',
+  'paid_receipts_in_cloud',
+  'paid_z_in_cloud',
+  'paid_events_once',
+  'paid_cashier_told',
+];
+
+test('paid day: a consistent edge and cloud pass every posSales check; an unpaid run gets none', () => {
+  const { data, ledger } = paidWorld();
+  const results = evaluatePosSales(data, ledger);
+  assert.deepEqual(
+    results.map((r) => r.id),
+    PAID_CHECKS,
+  );
+  assert.deepEqual(failed(results), []);
+  assert.ok(results.every((r) => /[а-я]/i.test(r.title)));
+  // An unpaid run: no posSales rows (or no posSales keys at all, as before) - no paid checks.
+  const unpaid = world();
+  const before = evaluate(unpaid.data, unpaid.ledger, { pending }).map((r) => r.id);
+  assert.ok(before.every((check) => !check.startsWith('paid_')));
+  const empty = paidWorld().data;
+  for (const side of [empty.edge.posSales, empty.cloud.posSales])
+    for (const key of Object.keys(side)) if (Array.isArray(side[key])) side[key] = [];
+  Object.assign(unpaid.data.edge, { posSales: empty.edge.posSales });
+  Object.assign(unpaid.data.cloud, { posSales: empty.cloud.posSales });
+  assert.equal(paidDay(unpaid.data), false);
+  assert.deepEqual(
+    evaluate(unpaid.data, unpaid.ledger, { pending }).map((r) => r.id),
+    before,
+  );
+  assert.equal(volumes(unpaid.data).paid_sales, undefined);
+  // With a paid day the same evaluate adds them, after every unpaid check.
+  const both = world();
+  Object.assign(both.data.edge, { posSales: data.edge.posSales });
+  Object.assign(both.data.cloud, { posSales: data.cloud.posSales });
+  const ids = evaluate(both.data, both.ledger, { pending }).map((r) => r.id);
+  assert.deepEqual(ids.slice(0, before.length), before);
+  assert.deepEqual(ids.slice(before.length), PAID_CHECKS);
+  assert.deepEqual(volumes(both.data).paid_sales, 2);
+});
+
+test('paid day: a missing, extra or changed sale, tender, refund or receipt in the cloud fails its check', () => {
+  const fails = (mutate) => {
+    const w = paidWorld();
+    mutate(w.data.cloud.posSales, w.ids);
+    return failed(evaluatePosSales(w.data, w.ledger));
+  };
+  assert.ok(fails((c) => c.sales.pop()).includes('paid_sales_in_cloud'));
+  assert.ok(fails((c) => (c.sales[1].state = 'paid')).includes('paid_sales_in_cloud'));
+  assert.ok(fails((c) => (c.sales[0].change_minor = '49999')).includes('paid_sales_in_cloud'));
+  assert.ok(
+    fails((c) => c.sales.push({ ...c.sales[0], order_id: id(90) })).includes('paid_sales_in_cloud'),
+  );
+  // One tiyn more on a tender.
+  assert.ok(fails((c) => (c.tenders[0].amount_minor = '150001')).includes('paid_tenders_in_cloud'));
+  assert.ok(fails((c) => c.tenders.pop()).includes('paid_tenders_in_cloud'));
+  assert.ok(fails((c) => c.refunds.pop()).includes('paid_refunds_in_cloud'));
+  assert.ok(
+    fails((c) => (c.refunds[0].parts = [[c.refunds[0].parts[0][0], 'cash', '100000']])).includes(
+      'paid_refunds_in_cloud',
+    ),
+  );
+  assert.ok(
+    fails((c) => (c.receipts[0].receipt_number = 'SYN-2')).includes('paid_receipts_in_cloud'),
+  );
+  assert.ok(fails((c) => (c.receipts[0].version = 1)).includes('paid_receipts_in_cloud'));
+});
+
+test('paid day: a Z that differs from the edge, from its money rows or is missing in the cloud fails', () => {
+  const run = (mutate) => {
+    const w = paidWorld();
+    mutate(w);
+    return failed(evaluatePosSales(w.data, w.ledger));
+  };
+  assert.ok(run((w) => w.data.cloud.posSales.reports.pop()).includes('paid_z_in_cloud'));
+  assert.ok(
+    run((w) => (w.data.cloud.posSales.reports[0].counted_cash_minor = '150001')).includes(
+      'paid_z_in_cloud',
+    ),
+  );
+  assert.ok(
+    run(
+      (w) =>
+        (w.data.cloud.posSales.reports[0].report = {
+          ...w.data.cloud.posSales.reports[0].report,
+          cash_sales_minor: '150001',
+        }),
+    ).includes('paid_z_in_cloud'),
+  );
+  // The edge's own Z against its own rows (a Kaspi refund the Z does not count).
+  assert.ok(
+    run((w) => {
+      w.data.edge.posSales.tenders[1].amount_minor = '100100';
+      w.data.cloud.posSales.tenders[1].amount_minor = '100100';
+    }).includes('paid_z_in_cloud'),
+  );
+  // A method with money must have its own Z row.
+  const report = paidWorld().data.edge.posSales.reports[0].report;
+  const totals = new Map([
+    ['cash', { sales: 150000n, refunds: 0n, count: 1 }],
+    ['kaspi_terminal', { sales: 100000n, refunds: 100000n, count: 1 }],
+    ['chocofood', { sales: 1n, refunds: 0n, count: 1 }],
+  ]);
+  assert.deepEqual(zMismatch(report, totals), [{ what: 'chocofood.missing' }]);
+});
+
+test('paid day: an event parked, pending, missing or received twice fails; what the cashier was told must be on the edge', () => {
+  const run = (mutate) => {
+    const w = paidWorld();
+    mutate(w);
+    return failed(evaluatePosSales(w.data, w.ledger));
+  };
+  assert.ok(
+    run(
+      (w) =>
+        (w.data.edge.posSales.events[5] = {
+          ...w.data.edge.posSales.events[5],
+          acknowledged: false,
+          last_error: 'rejected:INVALID_EVENT',
+        }),
+    ).includes('paid_events_once'),
+  );
+  assert.ok(
+    run((w) => (w.data.edge.posSales.events[0].acknowledged = false)).includes('paid_events_once'),
+  );
+  assert.ok(run((w) => w.data.cloud.posSales.inbox.pop()).includes('paid_events_once'));
+  assert.ok(
+    run((w) => w.data.cloud.posSales.inbox.push({ ...w.data.cloud.posSales.inbox[0] })).includes(
+      'paid_events_once',
+    ),
+  );
+  // A cloud event the edge never had (only a restore drill's lost timeline may have one).
+  assert.ok(
+    run((w) =>
+      w.data.cloud.posSales.inbox.push({
+        event_id: id(99),
+        kind: 'sale',
+        sequence: '9',
+        device_id: id(69),
+      }),
+    ).includes('paid_events_once'),
+  );
+  assert.ok(
+    run((w) => (w.ledger.posSales.get(w.ids.A).total = '150100')).includes('paid_cashier_told'),
+  );
+  assert.ok(
+    run((w) => (w.ledger.posSales.get(w.ids.B).voided = false)).includes('paid_cashier_told'),
+  );
+  assert.ok(
+    run((w) =>
+      w.ledger.posSales.get(w.ids.A).refunds.push({ refundId: id(91), amount: '1000' }),
+    ).includes('paid_cashier_told'),
+  );
+  assert.ok(
+    run(
+      (w) =>
+        (w.ledger.salesShifts[0].z = { ...w.ledger.salesShifts[0].z, expected_cash_minor: '1' }),
+    ).includes('paid_cashier_told'),
+  );
+});
+
+test('paid day after a restore: the cloud may hold more than the Z only for a Z its owner accepted, and only lost-timeline sales may be cloud-only', () => {
+  // The cloud has sale L of the lost timeline in the same shift; the restored edge never had it.
+  const lostWorld = () => {
+    const w = paidWorld();
+    const L = id(80);
+    const c = w.data.cloud.posSales;
+    c.sales.push({
+      ...c.sales[0],
+      order_id: L,
+      total_minor: '50000',
+      cash_tendered_minor: '50000',
+      change_minor: '0',
+    });
+    c.tenders.push({ ...c.tenders[0], tender_id: id(81), order_id: L, amount_minor: '50000' });
+    c.inbox.push({ event_id: id(82), kind: 'sale', sequence: '1000000001', device_id: id(69) });
+    return { ...w, L };
+  };
+  const plain = lostWorld();
+  assert.deepEqual(
+    failed(evaluatePosSales(plain.data, plain.ledger)).sort(),
+    ['paid_events_once', 'paid_sales_in_cloud', 'paid_tenders_in_cloud', 'paid_z_in_cloud'].sort(),
+  );
+  // Declared lost but the Z not accepted by the owner: the Z still fails against the cloud rows.
+  const declared = lostWorld();
+  assert.deepEqual(
+    failed(evaluatePosSales(declared.data, declared.ledger, { lostPosOrders: [declared.L] })),
+    ['paid_z_in_cloud'],
+  );
+  const accepted = lostWorld();
+  accepted.data.cloud.posSales.acceptedRestoredZ = [accepted.ids.S];
+  assert.deepEqual(
+    failed(evaluatePosSales(accepted.data, accepted.ledger, { lostPosOrders: [accepted.L] })),
+    [],
+  );
+  // Accepted, but the Z claims more than the cloud holds: never allowed.
+  const more = lostWorld();
+  more.data.cloud.posSales.acceptedRestoredZ = [more.ids.S];
+  more.data.cloud.posSales.reports[0].report = {
+    ...more.data.cloud.posSales.reports[0].report,
+    cash_sales_minor: '999999',
+  };
+  more.data.edge.posSales.reports[0].report = { ...more.data.cloud.posSales.reports[0].report };
+  assert.ok(
+    failed(evaluatePosSales(more.data, more.ledger, { lostPosOrders: [more.L] })).includes(
+      'paid_z_in_cloud',
+    ),
+  );
 });

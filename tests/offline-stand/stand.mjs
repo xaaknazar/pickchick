@@ -16,7 +16,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { createPool, migrate } from '@pickchick/database';
 import { provisionDevice, publishMenu, projectCatalogMenu } from '@pickchick/menu-sync';
-import { provisionStaff, openCashShift } from '@pickchick/local-orders';
+import { provisionStaff, openCashShift, setStaffPin } from '@pickchick/local-orders';
 import { provisionFulfillment, grantStation } from '@pickchick/edge-fulfillment';
 import { provisionFulfillmentTransport } from '@pickchick/fulfillment-transport';
 import { provisionEdgePosSync, provisionCloudPosSync } from '@pickchick/pos-order-sync';
@@ -151,6 +151,8 @@ const SERVICES = {
   menu: { script: 'tests/offline-stand/worker.mjs', args: ['menu'] },
 };
 export const WORKERS = ['fulfillment', 'pos', 'menu'];
+/** Synthetic PIN of the stand's shift manager (paid day approvals); never a real PIN. */
+const STAND_MANAGER_PIN = '2468';
 
 export class Stand {
   constructor({ runDir, cloudUrl, edgeUrl, restoreUrl, seed = 1, log = () => {} }) {
@@ -363,6 +365,39 @@ export class Stand {
     return { sessionId: c.session_id, token: c.token };
   }
 
+  /**
+   * The cash desks of a paid day (master runbook step 4, two desks): desk 1 is the stand's
+   * terminal, desk 2 gets its own terminal and cashier; the one shift manager works both desks
+   * (a session on each) and confirms voids and refunds with a PIN (POST staff/approvals). Added
+   * once and kept by refreshStaff; an unpaid run never calls it.
+   */
+  async paidDesks() {
+    if (!this.staffSetup.cashier2) {
+      this.terminal2 = randomUUID();
+      this.staffSetup.cashier2 = {
+        staff_id: randomUUID(),
+        terminal_id: this.terminal2,
+        role: 'cashier',
+      };
+      this.staffSetup.manager2 = {
+        staff_id: this.staffSetup.manager.staff_id,
+        terminal_id: this.terminal2,
+        role: 'shift_manager',
+      };
+      await this.refreshStaff();
+    }
+    if (!this.managerPin) {
+      // Synthetic PIN of the synthetic shift manager; enrolment ends the manager's sessions.
+      await setStaffPin(this.edge, this.ids.branch, this.auth('manager'), STAND_MANAGER_PIN);
+      this.managerPin = STAND_MANAGER_PIN;
+      await this.refreshStaff();
+    }
+    return [
+      { number: 1, terminal: this.terminal, cashier: 'cashier', manager: 'manager' },
+      { number: 2, terminal: this.terminal2, cashier: 'cashier2', manager: 'manager2' },
+    ];
+  }
+
   env(name) {
     const base = {
       PATH: process.env.PATH,
@@ -379,6 +414,9 @@ export class Stand {
         API_PORT: String(this.ports.api),
         CLOUD_FULFILLMENT_TRANSPORT_ENABLED: 'true',
         CLOUD_POS_ORDER_SYNC_ENABLED: 'true',
+        // The cloud of 19.11 (Cloud step 5, 16.11): the posSales receiver is on. An unpaid day
+        // sends only the empty probe; a paid day (scenario paid_day) delivers its sales here.
+        CLOUD_POS_SALES_SYNC_ENABLED: 'true',
       };
     const edge = {
       ...base,

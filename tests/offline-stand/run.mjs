@@ -64,6 +64,9 @@ export const PROFILES = {
     cloudDownMs: 10000,
     restoreLostMs: 15000,
     restoreAfterMs: 15000,
+    // paid_day: online sales, then the internet lost for the rest of the day until Z.
+    paidOnlineMs: 10000,
+    paidOutageMs: 45000,
     backlogEvents: 300,
     backlogTimeoutMs: 4 * MINUTE,
     convergeTimeoutMs: 4 * MINUTE,

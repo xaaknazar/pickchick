@@ -8,6 +8,9 @@
  * - Mobile: the commerce foundation with catalog pricing (as CustomerCheckout prices it); the
  *   bank and fiscal answers are trusted synthetic observations (no Kaspi, no Webkassa).
  * - Back office: the real requestStopInTransaction for a remote stop command.
+ * - Paid day (cutover 19.11): two cash desks sell through POST pos/sales with tenders the cashier
+ *   marks by hand, voids and refunds with the shift manager's PIN, manual Webkassa numbers, X and
+ *   Z (edge schema026); the cloud receives them through the posSales stream.
  * Every order the actors create is recorded in `ledger`, the reference the checks compare with.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -35,6 +38,8 @@ const EXPECTED_REFUSALS = [
   'BRANCH_UNAVAILABLE',
 ];
 export const isNetwork = (error) => error instanceof ActorError && NETWORK.has(error.code);
+/** Tenders a paid-day cashier marks by hand (Restaurant.tenders); no payment API is called. */
+export const PAID_KINDS = ['cash', 'kaspi_terminal', 'mixed', 'kaspi_manual', 'chocofood'];
 
 async function call(origin, path, { method = 'GET', headers = {}, body, timeoutMs = 8000 } = {}) {
   let response;
@@ -75,7 +80,11 @@ export class Restaurant {
       remoteStops: [],
       shifts: [],
       duplicatePaymentReplays: 0,
+      // Paid day (pos_sale): each sale as the cashier was told, and each closed sales shift.
+      posSales: new Map(),
+      salesShifts: [],
     };
+    this.paid = null;
     this.counters = {
       pos_sales: 0,
       pos_cancels: 0,
@@ -147,6 +156,8 @@ export class Restaurant {
   }
   /** One cashier sale (unpaid service, straight to the kitchen); optionally cancelled at once. */
   async posSale({ cancel = false } = {}) {
+    // A paid day (scenario paid_day) sells through POST pos/sales on its desks instead.
+    if (this.paid) return this.paidSale();
     const menu = await this.posMenu();
     const burger = this.variant('burger'),
       group = burger.modifier_groups[0];
@@ -248,6 +259,12 @@ export class Restaurant {
   }
   /** Shift close with a cash count, then a new shift (both on the edge only). */
   async closeAndReopenShift() {
+    const closed = await this.closeShift();
+    const opened = await this.openShift();
+    return { closed, opened };
+  }
+  /** Close the open (unpaid) shift of desk 1 with a cash count. */
+  async closeShift() {
     const current = await this.pos('GET', 'cash-shifts/current', undefined, { actor: 'manager' });
     const shift = current.shift ?? current;
     const closed = await this.pos(
@@ -265,13 +282,303 @@ export class Restaurant {
       orders: Number(closed.order_count ?? 0),
       total: closed.order_total_minor ?? '0',
     });
-    const opened = await this.pos(
+    return closed;
+  }
+  async openShift() {
+    return this.pos('POST', 'cash-shifts', { opening_cash_minor: '0' }, { actor: 'manager' });
+  }
+
+  // ---------- paid cash desks (pos_sale, cutover 19.11) ----------
+  /**
+   * While `paid` is set (scenario paid_day) the cashiers sell through POST pos/sales on the two
+   * desks of Stand.paidDesks, each with its open sales shift; tenders are the methods the cashier
+   * marks by hand (cash with change, Kaspi terminal, a mix, Kaspi QR by number, ChocoFood), so
+   * no bank or payment API is called. Unset, nothing here runs.
+   */
+  startPaidDay(desks) {
+    this.paid = { desks, shifts: new Map(), receipts: 0, references: 0 };
+  }
+  endPaidDay() {
+    this.paid = null;
+  }
+  desk(number) {
+    const desk = this.paid?.desks.find((d) => d.number === number);
+    if (!desk) throw new ActorError('DESK_UNKNOWN');
+    return desk;
+  }
+  /** What the cash desk asks at start and after a login (GET pos/config with its build). */
+  async posConfig(actor) {
+    return this.pos('GET', 'pos/config?client_version=offline-stand', undefined, { actor });
+  }
+  async openSalesShift(desk, opening = '2000000') {
+    const shift = await this.pos(
       'POST',
       'cash-shifts',
-      { opening_cash_minor: '0' },
-      { actor: 'manager' },
+      { opening_cash_minor: opening },
+      { actor: desk.manager },
     );
-    return { closed, opened };
+    if (shift.payment_processing_available !== true) throw new ActorError('NOT_A_SALES_SHIFT');
+    this.paid.shifts.set(desk.number, shift.shift_id);
+    return shift;
+  }
+  /** The shift manager types the PIN on the cashier's desk (POST staff/approvals). */
+  async approve(desk, action, subject) {
+    const approval = await this.pos(
+      'POST',
+      'staff/approvals',
+      {
+        staff_id: this.stand.staff[desk.manager].staff_id,
+        pin: this.stand.managerPin,
+        action,
+        subject,
+      },
+      { actor: desk.cashier },
+    );
+    return { approval_id: approval.approval_id, token: approval.token };
+  }
+  /** Tenders for a total in tiyn by the cashier's choice; amounts are whole tenge. */
+  tenders(kind, total) {
+    const t = BigInt(total);
+    const ref = () => `OFS-${++this.paid.references}-${randomBytes(3).toString('hex')}`;
+    if (kind === 'cash') {
+      const tendered = ((t + 99999n) / 100000n) * 100000n;
+      return {
+        tenders: [{ method: 'cash', amount_minor: t.toString() }],
+        cash_tendered_minor: tendered.toString(),
+      };
+    }
+    if (kind === 'kaspi_terminal')
+      return { tenders: [{ method: 'kaspi_terminal', amount_minor: t.toString() }] };
+    if (kind === 'mixed')
+      return {
+        tenders: [
+          { method: 'cash', amount_minor: '50000' },
+          { method: 'kaspi_terminal', amount_minor: (t - 50000n).toString() },
+        ],
+        cash_tendered_minor: '100000',
+      };
+    if (kind === 'kaspi_manual')
+      return {
+        tenders: [{ method: 'kaspi_manual', amount_minor: t.toString(), reference: ref() }],
+      };
+    if (kind === 'chocofood')
+      return {
+        tenders: [{ method: 'chocofood', amount_minor: t.toString() }],
+        external_order_ref: ref(),
+      };
+    throw new ActorError('TENDER_KIND_UNKNOWN');
+  }
+  /**
+   * One paid sale on a desk (random desk and tender unless given): quote, then POST pos/sales.
+   * The answer is what the cashier was told; it goes to ledger.pos (orders) and ledger.posSales.
+   */
+  async paidSale({ desk, kind } = {}) {
+    const menu = await this.posMenu();
+    desk ??= this.paid.desks[Math.floor(this.random() * this.paid.desks.length)];
+    const burger = this.variant('burger'),
+      group = burger.modifier_groups[0];
+    const pick = ['wings', 'fries', 'cola', 'combo-day', 'pie', 'tea'].filter(
+      (slug) => !this.stopped.has(slug),
+    );
+    // Every paid sale has the burger: a kitchen ticket that a void can still stop.
+    const items = [
+      {
+        variant_id: burger.variant_id,
+        quantity: 1 + Math.floor(this.random() * 2),
+        ...(this.random() < 0.5
+          ? { modifiers: [{ group_id: group.id, option_id: group.options[0].id, quantity: 1 }] }
+          : {}),
+      },
+      {
+        variant_id: this.variant(pick[Math.floor(this.random() * pick.length)]).variant_id,
+        quantity: 1,
+      },
+    ];
+    kind ??= PAID_KINDS[Math.floor(this.random() * PAID_KINDS.length)];
+    let quote;
+    try {
+      quote = await this.pos(
+        'POST',
+        'checkout/quotes',
+        {
+          release_id: menu.release_id,
+          service_mode: this.random() < 0.5 ? 'takeaway' : 'dine_in',
+          items,
+        },
+        { actor: desk.cashier },
+      );
+    } catch (error) {
+      this.refused(this.counters.pos_refused, error);
+      if (error.code === 'MENU_CHANGED') this.menu = null;
+      return null;
+    }
+    let result;
+    try {
+      result = await this.pos(
+        'POST',
+        'pos/sales',
+        {
+          quote_id: quote.quote_id,
+          service_mode_confirmed: true,
+          order_repeated: true,
+          ...this.tenders(kind, quote.total_minor),
+        },
+        { actor: desk.cashier },
+      );
+    } catch (error) {
+      if (!EXPECTED_REFUSALS.includes(error.code)) throw error;
+      this.refused(this.counters.pos_refused, error);
+      return null;
+    }
+    const { order, sale } = result;
+    if (sale.total_minor !== quote.total_minor || sale.terminal_id !== desk.terminal)
+      throw new ActorError('SALE_DIFFERS_FROM_QUOTE');
+    this.counters.pos_sales++;
+    this.counters.paid_sales = (this.counters.paid_sales ?? 0) + 1;
+    const entry = {
+      orderId: order.order_id,
+      total: sale.total_minor,
+      cancelled: false,
+      at: Date.now(),
+    };
+    this.ledger.pos.set(order.order_id, entry);
+    const paid = {
+      orderId: order.order_id,
+      desk: desk.number,
+      terminalId: sale.terminal_id,
+      shiftId: sale.shift_id,
+      kind,
+      total: sale.total_minor,
+      change: sale.change_minor,
+      tenders: sale.tenders.map((t) => ({
+        tenderId: t.tender_id,
+        method: t.method,
+        amount: t.amount_minor,
+      })),
+      refunds: [],
+      voided: false,
+      at: entry.at,
+    };
+    this.ledger.posSales.set(order.order_id, paid);
+    return paid;
+  }
+  /** Void before the kitchen starts, with the manager's PIN (POST pos/sales/{id}/void). */
+  async paidVoid(paid) {
+    const desk = this.desk(paid.desk);
+    try {
+      await this.pos(
+        'POST',
+        `pos/sales/${paid.orderId}/void`,
+        {
+          expected_version: 1,
+          reason_code: 'guest_changed_mind',
+          reason: 'Стенд: гость передумал',
+          fiscal_sale_issued: false,
+          approval: await this.approve(desk, 'void', {
+            order_id: paid.orderId,
+            amount_minor: paid.total,
+          }),
+        },
+        { actor: desk.cashier },
+      );
+    } catch (error) {
+      // The kitchen already started it: the cashier refunds instead.
+      if (error.code !== 'ORDER_IN_PRODUCTION') throw error;
+      this.refused(this.counters.pos_refused, error);
+      return false;
+    }
+    paid.voided = true;
+    this.ledger.pos.get(paid.orderId).cancelled = true;
+    this.counters.pos_cancels++;
+    return true;
+  }
+  /**
+   * Refund by tender parts (POST pos/sales/{id}/refunds) at the sale's desk: `parts` are
+   * [{tender, amount}] of the sale's own tenders, one approval for their sum.
+   */
+  async paidRefund(paid, parts) {
+    const desk = this.desk(paid.desk);
+    const refundId = randomUUID();
+    const amount = parts.reduce((sum, part) => sum + BigInt(part.amount), 0n).toString();
+    const sale = await this.pos(
+      'POST',
+      `pos/sales/${paid.orderId}/refunds`,
+      {
+        refund_id: refundId,
+        tenders: parts.map((part) => ({
+          tender_id: part.tender.tenderId,
+          amount_minor: part.amount,
+        })),
+        reason_code: 'quality',
+        reason: 'Стенд: возврат по качеству',
+        approval: await this.approve(desk, 'refund', {
+          order_id: paid.orderId,
+          amount_minor: amount,
+        }),
+      },
+      { actor: desk.cashier },
+    );
+    if (!sale.refunds.some((r) => r.refund_id === refundId)) throw new ActorError('REFUND_MISSING');
+    paid.refunds.push({ refundId, amount });
+    this.counters.paid_refunds = (this.counters.paid_refunds ?? 0) + 1;
+    return sale;
+  }
+  /** Manual Webkassa: every pending receipt of the desk's shift gets its (synthetic) number. */
+  async recordReceipts(desk) {
+    const shiftId = this.paid.shifts.get(desk.number);
+    const { receipts } = await this.pos(
+      'GET',
+      `pos/fiscal-receipts/pending?shift_id=${shiftId}`,
+      undefined,
+      { actor: desk.cashier },
+    );
+    for (const receipt of receipts)
+      await this.pos(
+        'POST',
+        `pos/fiscal-receipts/${receipt.receipt_id}/record`,
+        {
+          expected_version: receipt.version,
+          receipt_number: `OFS-WK-${++this.paid.receipts}`,
+        },
+        { actor: desk.cashier },
+      );
+    return receipts.length;
+  }
+  async shiftReport(desk, kind) {
+    return this.pos(
+      'GET',
+      `cash-shifts/${this.paid.shifts.get(desk.number)}/${kind}-report`,
+      undefined,
+      { actor: desk.manager },
+    );
+  }
+  /**
+   * Closing of a sales shift as the close wizard does it: X, the drawer counted exactly, the
+   * Kaspi terminal total typed from its own report (X net of refunds), then the frozen Z.
+   */
+  async closeSalesShift(desk) {
+    const shiftId = this.paid.shifts.get(desk.number);
+    const x = await this.shiftReport(desk, 'x');
+    const kaspi = x.methods.find((m) => m.method === 'kaspi_terminal');
+    const terminal = kaspi ? BigInt(kaspi.sales_minor) - BigInt(kaspi.refunds_minor) : 0n;
+    const open = await this.pos('GET', `cash-shifts/${shiftId}`, undefined, {
+      actor: desk.manager,
+    });
+    await this.pos(
+      'POST',
+      `cash-shifts/${shiftId}/close`,
+      {
+        expected_version: open.version,
+        counted_cash_minor: open.expected_cash_minor,
+        reason: 'Стенд: закрытие смены продаж',
+        terminal_reported_minor: terminal.toString(),
+      },
+      { actor: desk.manager },
+    );
+    const z = await this.shiftReport(desk, 'z');
+    this.paid.shifts.delete(desk.number);
+    this.ledger.salesShifts.push({ shiftId, desk: desk.number, x, z });
+    return { x, z };
   }
 
   // ---------- kitchen screen (LAN) ----------
