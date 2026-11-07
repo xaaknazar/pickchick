@@ -680,6 +680,20 @@ export function requestView(row: RequestRow, names: Names, cancelReason: string 
   };
 }
 export type SupplyRequestView = ReturnType<typeof requestView>;
+/** Names shown with a row of the list (the full lines come with `id`). */
+export const SUPPLY_LIST_LINE_NAMES = 3;
+/**
+ * A request as the list shows it: everything but the lines, which come with `id` (the list of
+ * 200 requests stays small, under the 1 MB the cabinet accepts): their count and the first names.
+ */
+export function requestListRow(view: SupplyRequestView) {
+  const { lines, ...rest } = view;
+  return {
+    ...rest,
+    line_count: lines.length,
+    line_names: lines.slice(0, SUPPLY_LIST_LINE_NAMES).map((l) => l.name),
+  };
+}
 async function requestRow(db: Db, branch: string, id: string, lock = false) {
   return (
     await db.query<RequestRow>(
@@ -1005,7 +1019,8 @@ export const SupplyRequestsQuery = z
   .refine(stockWindowValid);
 /**
  * GET .../ops/supply-requests?start_date&end_date[&state][&kind][&id] (design-bo-ui 9.4): the
- * requests created in an Almaty window of at most 92 days, newest first (at most 200), the counts
+ * requests created in an Almaty window of at most 92 days, newest first (at most 200, without
+ * their lines: requestListRow), the counts
  * by state of the window and the open drafts and submitted requests of every day. With `id` also
  * that request (whatever its day), its text for print and copy, its receipt with the lines and
  * the difference between the request and the receipt.
@@ -1078,7 +1093,7 @@ export async function readSupplyRequests(db: Db, branch: string, input: unknown,
     today: almatyDay(now),
     start_date: q.start_date,
     end_date: q.end_date,
-    requests: listed.map((r) => requestView(r, names, reasons.get(r.id) ?? null)),
+    requests: listed.map((r) => requestListRow(requestView(r, names, reasons.get(r.id) ?? null))),
     counts,
     open,
     limits: { requests: SUPPLY_REQUEST_LIMIT, lines: SUPPLY_REQUEST_LINES },

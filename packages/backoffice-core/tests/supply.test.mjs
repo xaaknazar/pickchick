@@ -861,6 +861,12 @@ test('the list: an Almaty window of at most 92 days, state and kind filters, cou
     );
     assert.deepEqual(all.counts, { draft: 1, submitted: 1, received: 0, cancelled: 0 });
     assert.deepEqual(all.open, { draft: 2, submitted: 1 });
+    // The list carries no lines (they come with id): their count and the first names.
+    assert.equal('lines' in all.requests[0], false);
+    assert.deepEqual(
+      [all.requests[0].line_count, all.requests[0].line_names],
+      [1, ['Синтетическая булка']],
+    );
     assert.equal('request' in all, false);
     assert.equal(all.limits.requests, 200);
     const bakery = await bo.ops(manager.token, c.branch, 'supply-requests', {
