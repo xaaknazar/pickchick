@@ -4,11 +4,13 @@ See supplier-imports-browser.test.mjs. Phases: empty (supply on, no import yet: 
 how imports come), loaded (after the script imported a synthetic file twice: the newest import
 with its state, what was loaded, the report counts, the rows that were not loaded with the
 reason and a filter, the suppliers of the import, the choice of the older import; the manager at
-1440 and 390 px, the analyst reads the same). Screenshots at 1440x900 and 390x844, scale 1,
-Asia/Almaty. Synthetic data only.
+1440 and 390 px, the analyst reads the same), old-api (step 6: the view answers 404 like a step 2
+server, so the block is hidden and nothing else changes; a 503 is said in words inside the
+block). Screenshots at 1440x900 and 390x844, scale 1, Asia/Almaty. Synthetic data only.
 """
 import json
 import sys
+import uuid
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
 
@@ -21,12 +23,20 @@ with sync_playwright() as pw:
     browser = pw.chromium.launch(args=['--lang=ru-RU'])
     errors = []
 
-    def session(credential, width=1440, height=900):
+    def session(credential, width=1440, height=900, imports=None):
         context = browser.new_context(viewport={'width': width, 'height': height},
                                       device_scale_factor=1, timezone_id='Asia/Almaty',
                                       locale='ru-RU')
         page = context.new_page()
         page.on('pageerror', lambda error: errors.append(str(error)))
+        if imports:
+            # Step 6: the view answers like an older server (404 of an unknown view) or fails
+            # (503), in the standard error envelope of the API.
+            status, code = imports
+            envelope = json.dumps({'code': code, 'message_key': 'errors.' + code.lower(),
+                                   'trace_id': str(uuid.uuid4()), 'retryable': status >= 500})
+            page.route('**/ops/supplier-imports*', lambda route: route.fulfill(
+                status=status, content_type='application/json', body=envelope))
         page.goto(config['url'] + '#supply')
         page.get_by_test_id('credential-file').set_input_files({
             'name': 'person.json', 'mimeType': 'application/json',
@@ -35,7 +45,10 @@ with sync_playwright() as pw:
         page.wait_for_function("() => !document.body.innerText.includes('Загружаем данные')")
         expect(page.get_by_test_id('supply')).to_be_visible()
         page.get_by_test_id('sp-tab-suppliers').click()
-        expect(page.get_by_test_id('sp-imports')).to_be_visible()
+        if imports and imports[0] == 404:
+            expect(page.get_by_test_id('sp-suppliers')).to_be_visible()
+        else:
+            expect(page.get_by_test_id('sp-imports')).to_be_visible()
         return page
 
     def capture(page, name, full=True):
@@ -55,6 +68,29 @@ with sync_playwright() as pw:
         expect(page.get_by_test_id('sp-import-empty')).to_contain_text('Импортов ещё не было.')
         no_long_dash(page, 'empty')
         capture(page, 'imports-empty-1440.png')
+        page.context.close()
+
+    if PHASE == 'old-api':
+        # Step 6 (step 3 notDone): an API without ops/supplier-imports (404, as a step 2 build
+        # answers) hides the block and nothing else; the suppliers and the requests still work.
+        for width, height in ((1440, 900), (390, 844)):
+            page = session(config['manager'], width, height, imports=(404, 'NOT_FOUND'))
+            expect(page.get_by_test_id('sp-suppliers')).to_contain_text('Поставщик 1')
+            expect(page.get_by_test_id('sp-imports')).to_have_count(0)
+            expect(page.locator('body')).not_to_contain_text('Импорты цен не загрузились')
+            expect(page.locator('body')).not_to_contain_text('Закупки не загрузились')
+            no_long_dash(page, f'old-api {width}')
+            no_page_scroll(page, width)
+            capture(page, f'imports-old-api-{width}.png')
+            page.get_by_test_id('sp-tab-requests').click()
+            expect(page.get_by_test_id('sp-new')).to_be_enabled()
+            page.context.close()
+        # Any other failure is said in words inside the block; the rest of the page stays.
+        page = session(config['manager'], imports=(503, 'SERVICE_UNAVAILABLE'))
+        alert = page.get_by_test_id('sp-imports').locator('[role=alert]')
+        expect(alert).to_have_text('Импорты цен не загрузились. Нажмите «Обновить».')
+        expect(page.get_by_test_id('sp-suppliers')).to_contain_text('Поставщик 1')
+        capture(page, 'imports-failed-1440.png')
         page.context.close()
 
     if PHASE == 'loaded':

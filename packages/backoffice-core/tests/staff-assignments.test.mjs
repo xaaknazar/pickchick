@@ -630,6 +630,24 @@ test('manager shift: «Расстановка заполнена» closes the da
     assert.equal(stored.code, 'staff_assignment');
     assert.equal(stored.label, 'Расстановка заполнена');
     assert.equal(stored.check.status, 'ok');
+
+    // Step 6 (step 5 notDone): rollback. With the flag switched off after the close, the closed
+    // shift reads back exactly as it was stored (the answer, its label and its check snapshot);
+    // only the extra item and its live check of the open day are gone.
+    const onRead = await bo.ops(manager.token, c.branch, 'manager-shifts', { date: Y });
+    const off = new Backoffice(c.cloud.pool, true, { ...ON, staffAssignmentEnabled: false });
+    const offRead = await off.ops(manager.token, c.branch, 'manager-shifts', { date: Y });
+    const mine = (view) => view.shifts.find((x) => x.id === shift);
+    assert.deepEqual(mine(offRead), mine(onRead));
+    assert.deepEqual(mine(offRead).closing.items.at(-1), stored);
+    assert.equal('extra_items' in offRead, false);
+    assert.equal('staff_assignment' in offRead.checks, false);
+    // The intervals stay in the table; the view and the commands answer like unknown ones.
+    assert.equal(await count(c), 2);
+    await assert.rejects(
+      off.ops(manager.token, c.branch, 'staff-assignments', { date: Y }),
+      is('NOT_FOUND', undefined),
+    );
   }));
 
 test('range: the read of the time sheet and КД9, compact, filtered, at most 92 days', () =>

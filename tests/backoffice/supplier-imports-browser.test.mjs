@@ -2,7 +2,9 @@
 // supplier_imports_ui.py): before any import the block says how imports come; after two runs of
 // scripts/supplier-prices-import.mjs against the real API the manager reads the newest import
 // with its report at 1440 and 390 px, the older one with a price corrected by hand since, and the
-// analyst reads the same. Real API and PostgreSQL behind the operator proxy, synthetic data only.
+// analyst reads the same. Step 6: an API without ops/supplier-imports (404) hides only the block,
+// a failing one (503) is said in words inside it. Real API and PostgreSQL behind the operator
+// proxy, synthetic data only.
 // Screenshots: .local/backoffice-supplier-imports/ at 1440x900 and 390x844.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -97,6 +99,8 @@ test('«Импорт цен из iiko»: empty, then two imports with their repo
         payload: { name: 'Поставщик 1', kind: 'supplier', active: true },
       });
       assert.equal(await browser(ctx, 'empty'), 0);
+      // Step 6: an API without the view (404) or failing on it (503): the rest stays.
+      assert.equal(await browser(ctx, 'old-api'), 0);
 
       // Two imports through the script itself, against the real API.
       const dir = await mkdtemp(join(fileURLToPath(output), 'files-'));

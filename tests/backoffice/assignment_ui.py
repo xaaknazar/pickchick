@@ -6,8 +6,9 @@ menu, #assignment opens «Главная», no request to ops/staff-assignments,
 станцию», «Переставить», a station outside the position with the manager's reason, «Закончить»,
 the history of the day, the shift manager without the override and its reason in words, the
 accountant and the analyst read only, the phone at 390 px, «Расстановка заполнена» in the closing
-checklist and the stations in «Табель»). Screenshots at 1440x900 and 390x844, scale 1,
-Asia/Almaty. Synthetic data only.
+checklist and the stations in «Табель»), rollback (step 6: a shift closed with «Расстановка
+заполнена» while the feature was on still shows that answer and its check after the flag is
+off). Screenshots at 1440x900 and 390x844, scale 1, Asia/Almaty. Synthetic data only.
 """
 import json
 import sys
@@ -102,6 +103,27 @@ with sync_playwright() as pw:
             expect(item).to_have_count(0)
         d.get_by_role('button', name='Закрыть', exact=True).click()
         expect(d).to_have_count(0)
+
+    # ------------------------------------------------------------------------------------------
+    if MODE == 'rollback':
+        # Step 6 (step 5 notDone): the shift was closed with «Расстановка заполнена» while the
+        # feature was on; with the flag off now the section is gone, and the closed shift still
+        # shows the stored answer with its automatic check, in words.
+        page = session(config['manager'], '#assignment')
+        expect(page.get_by_test_id('nav-assignment')).to_have_count(0)
+        nav(page, 'shifts')
+        expect(page.get_by_test_id('ms-closed')).to_be_visible()
+        page.get_by_test_id('ms-details').first.click()
+        d = dialog(page, 'ms-details-dialog')
+        expect(d).to_contain_text('Расстановка заполнена - Готово')
+        expect(d).to_contain_text('Комментарий: Все на своих станциях')
+        expect(d).to_contain_text('Авто-проверка:')
+        no_long_dash(page, 'rollback')
+        capture(page, 'rollback-details-1440.png')
+        d.get_by_role('button', name='Закрыть', exact=True).first.click()
+        expect(d).to_have_count(0)
+        assert not any('staff-assignments' in u for u in requests), requests
+        page.close()
 
     # ------------------------------------------------------------------------------------------
     if MODE == 'off':

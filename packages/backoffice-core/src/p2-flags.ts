@@ -1,6 +1,6 @@
 import type { DatabaseClient } from '@pickchick/database';
 import { p1RelationsReady } from './p1-flags.js';
-import { stockV2Writable } from './stock-v2.js';
+import { stockV2Readable, stockV2Writable } from './stock-v2.js';
 import { stockReportsAvailable } from './stock-reports.js';
 import type { BackofficeOptions } from './stops.js';
 
@@ -48,15 +48,16 @@ export const P2_FEATURE_RELATIONS = Object.freeze({
 /**
  * Suppliers, prices and supply requests can run for the current database role (step 2): the flag,
  * stock v2 (a received request is a stock v2 receipt with where it came from and the invoice
- * date, so the role must also write the cloud074 columns) and the cloud076 rights of
- * backoffice-supply-grants.mjs.
+ * date, so the role must also write the cloud074 columns, and read them back for the request
+ * card - step 6) and the cloud076 rights of backoffice-supply-grants.mjs.
  */
 export async function supplyAvailable(db: Db, options: BackofficeOptions): Promise<boolean> {
   return (
     options.supplyEnabled === true &&
     options.stockV2Enabled === true &&
     (await p1RelationsReady(db, P2_FEATURE_RELATIONS.supply)) &&
-    (await stockV2Writable(db))
+    (await stockV2Writable(db)) &&
+    (await stockV2Readable(db))
   );
 }
 /**

@@ -6,7 +6,9 @@
 //         «Поставить на станцию», «Переставить», a station outside the position with the
 //         manager's reason, «Закончить», the history of the day, the shift manager (no override,
 //         the reason in words), the accountant and the analyst (read only), the phone at 390 px,
-//         «Расстановка заполнена» in the closing checklist and the stations in «Табель».
+//         «Расстановка заполнена» in the closing checklist and the stations in «Табель»;
+//   rollback - (step 6) a manager shift closed with «Расстановка заполнена» while the feature
+//         was on; with the flag off the closed shift still shows that answer and its check.
 // Real API and PostgreSQL behind the operator proxy. Synthetic data only.
 // Screenshots: .local/backoffice-assignment/ at 1440x900 and 390x844.
 import test from 'node:test';
@@ -18,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { withCatalog } from './helpers.mjs';
 import { provisionCatalogManager } from '../../packages/catalog-admin/dist/index.js';
 import {
+  Backoffice,
   MANAGER_SHIFT_TEMPLATE_V1,
   designateBackoffice,
   grantBackoffice,
@@ -158,6 +161,61 @@ test('staff assignment off: no «Расстановка», no request to its vie
   withCatalog(async (ctx) => {
     const ids = await seed(ctx, false);
     assert.equal(await browser(ctx, 'off', ids), 0, 'staff assignment off must pass');
+  }, OPTIONS));
+
+test('staff assignment rolled back: a shift closed with «Расстановка заполнена» reads the same', () =>
+  withCatalog(async (ctx) => {
+    const ids = await seed(ctx, false);
+    // The feature was on while the shift was closed (same database, a back office with the
+    // flag); the API of the cabinet runs with the flag off, as after a rollback.
+    const on = new Backoffice(ctx.cloud.pool, true, {
+      rolesEnabled: true,
+      staffPositionsEnabled: true,
+      managerShiftsEnabled: true,
+      staffAssignmentEnabled: true,
+    });
+    const send = (command) =>
+      on.command(ctx.manager.token, ctx.branch, {
+        request_id: randomUUID(),
+        reason: 'Синтетическая подготовка',
+        command,
+      });
+    // HH:MM halfway between 06:00 of the business day and now (a time before 06:00 is the night
+    // after the day), so the interval is always in the past.
+    const now = new Date(Date.now() + 5 * 3600000);
+    const since = (now.getUTCHours() * 60 + now.getUTCMinutes() - 360 + 1440) % 1440;
+    const at = (360 + Math.floor(since / 2)) % 1440;
+    await send({
+      type: 'staff_assign',
+      employee_id: ids.fryer,
+      station_code: 'fryer',
+      business_date: ids.today,
+      time: `${String(Math.floor(at / 60)).padStart(2, '0')}:${String(at % 60).padStart(2, '0')}`,
+      expected_revision: 0,
+    });
+    const [shift] = (
+      await ctx.cloud.pool.query(
+        "SELECT id::text,revision FROM bo_manager_shifts WHERE branch_id=$1 AND state='open'",
+        [ctx.branch],
+      )
+    ).rows;
+    const closed = await send({
+      type: 'manager_shift_close',
+      id: shift.id,
+      items: [
+        ...MANAGER_SHIFT_TEMPLATE_V1.closing.map((i) => ({
+          code: i.code,
+          status: 'done',
+          comment: null,
+        })),
+        // A comment, so the close is accepted whatever the check says at the hour of the run.
+        { code: 'staff_assignment', status: 'done', comment: 'Все на своих станциях' },
+      ],
+      handover: 'Смену принял синтетический менеджер',
+      expected_revision: shift.revision,
+    });
+    assert.equal(closed.closing.items.at(-1).code, 'staff_assignment');
+    assert.equal(await browser(ctx, 'rollback', ids), 0, 'the rollback must pass');
   }, OPTIONS));
 
 test('staff assignment on: place, move, override, end, roles, phone, checklist and time sheet', () =>

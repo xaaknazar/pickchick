@@ -1085,6 +1085,20 @@ test('API role: NOT_READY without the 076 helper rights, requests to the receipt
         ).receipt.supplier_kind,
         'bakery',
       );
+      // Step 6 (step 2 notDone): a role that writes the receipt columns of 074 but cannot read
+      // them back would fail on the request card (it reads the receipt's meta): the key is false
+      // and the views NOT_READY, as without the rights; with SELECT back, it works again.
+      await c.cloud.pool.query(`REVOKE SELECT ON bo_stock_documents FROM ${role}`);
+      await c.cloud.pool.query(
+        `DO $$ BEGIN EXECUTE (SELECT format('GRANT SELECT (%s) ON bo_stock_documents TO ${role}',
+           string_agg(quote_ident(attname), ',')) FROM pg_attribute
+           WHERE attrelid = 'bo_stock_documents'::regclass AND attnum > 0 AND NOT attisdropped
+             AND attname NOT IN ('meta', 'reason_code')); END $$`,
+      );
+      assert.equal((await bo.read(manager.token, c.branch)).capabilities.supply, false);
+      await assert.rejects(bo.ops(manager.token, c.branch, 'suppliers', {}), is('NOT_READY'));
+      await c.cloud.pool.query(`GRANT SELECT ON bo_stock_documents TO ${role}`);
+      assert.equal((await bo.read(manager.token, c.branch)).capabilities.supply, true);
       // The role never deletes; the helper off again: NOT_READY, the rows stay.
       await assert.rejects(
         pool.query('DELETE FROM bo_supply_requests'),
