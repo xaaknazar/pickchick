@@ -1,7 +1,8 @@
 // CR client-5: one paid day of a cash desk in a real browser against the real edge with
 // schema026 (paid sales, pos lane): what the cashier reads on a desk that sells. The test-mode
 // day of the same screens is browser.test.mjs. On an edge without schema026 (this lane alone)
-// there is nothing to sell with and the day is skipped; it runs on the integration branch.
+// there is nothing to sell with and the day is skipped; it runs on the integration branch. With
+// edge 028 (CR pos-7) the desk is numbered 2 and the day checks «Касса 2» (CR client-5 §3.2).
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
@@ -18,7 +19,10 @@ import { createPosServer } from '../../apps/pos/server.mjs';
 
 const auth = (c) => ({ sessionId: c.session_id, token: c.token });
 const edgeMigrations = fileURLToPath(new URL('../../db/edge/migrations/', import.meta.url));
-const schema026 = (await readdir(edgeMigrations)).some((name) => name.startsWith('026_'));
+const migrations = await readdir(edgeMigrations);
+const schema026 = migrations.some((name) => name.startsWith('026_'));
+// Edge 028 (pos lane, CR pos-7): the operator numbers the desk; without it the desk has none.
+const schema028 = migrations.some((name) => name.startsWith('028_'));
 
 /** The operator's switch (scripts/pos-sales-setup.mjs), with the audit row the edge requires. */
 async function audited(pool, branch, subject, before, after, change) {
@@ -117,6 +121,21 @@ test(
           ]),
         );
       }
+      // `pos-sales-setup.mjs desk --number 2` on an edge with 028: this desk is «Касса 2».
+      const deskNumber = schema028 ? 2 : null;
+      if (deskNumber)
+        await audited(
+          pool,
+          ctx.branch,
+          'desk_number',
+          { terminal_id: terminal, desk_number: null },
+          { terminal_id: terminal, desk_number: deskNumber },
+          (c) =>
+            c.query('UPDATE local_terminals SET desk_number=$1 WHERE id=$2', [
+              deskNumber,
+              terminal,
+            ]),
+        );
       const edge = await running(createEdge, {
         ...ctx.edge.config,
         edgeFulfillmentEnabled: true,
@@ -141,6 +160,7 @@ test(
           JSON.stringify({
             url: `http://127.0.0.1:${pos.address().port}`,
             output: fileURLToPath(output),
+            desk_number: deskNumber,
           }),
           { mode: 0o600 },
         );

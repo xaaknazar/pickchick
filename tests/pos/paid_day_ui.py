@@ -2,6 +2,8 @@
 
 Every text a cashier reads on a desk that sells: no test mode, no wrong desk number, the
 Webkassa state of each order, «Чек» of an order and the installed version on the lock screen.
+With edge 028 (CR pos-7) the operator numbered this desk: «Касса N» on the opening and lock
+screens and « · касса N» in the header (CR client-5 §3.2); without 028 the desk has no number.
 """
 import json
 import re
@@ -13,6 +15,9 @@ fixture = json.loads(Path(sys.argv[1]).read_text())
 url = fixture['url']
 output = Path(fixture['output'])
 HINT = "() => localStorage.getItem('pickchick.pos.desk-mode.v1')"
+DESK_HINT = "() => localStorage.getItem('pickchick.pos.desk-number.v1')"
+DESK = fixture['desk_number']
+CHIP = f' · касса {DESK}' if DESK else ''
 TEST_LOCK = 'Вход по личному PIN · Pick Chick POS 0.4 · TEST'
 PAID_LOCK = 'Вход по личному PIN · Pick Chick POS 0.5.0'
 # Synthetic names carry no "тест": any match is a test-mode text of the cashier screens.
@@ -62,6 +67,10 @@ def paid_lock(page):
     expect(button(page, '1')).to_be_visible()
     expect(page.locator('.pin-connection')).to_have_text(PAID_LOCK)
     no_test_text(page, 'lock')
+    if DESK:
+        expect(page.get_by_text(re.compile(f'^\\s*Касса {DESK} · [0-9]{{2}}:[0-9]{{2}}\\s*$'))).to_be_visible()
+    else:
+        expect(page.get_by_text(re.compile('Касса [0-9]'))).to_have_count(0)
 
 
 def sell(page, tender):
@@ -114,12 +123,15 @@ with sync_playwright() as pw:
         subtitle = page.locator('.shift-open-subtitle')
         expect(subtitle).to_contain_text('Абая 62 · ')
         expect(subtitle).to_contain_text('открывает Синтетический начальник (Начальник смены)')
-        expect(subtitle).not_to_contain_text('Касса')
+        if DESK:
+            expect(subtitle).to_contain_text(f'Абая 62 · Касса {DESK} · ')
+        else:
+            expect(subtitle).not_to_contain_text('Касса')
         assert page.evaluate(HINT) == 'pos_sale'
         capture(page, 'paid-opening-1366.png')
         button(page, 'Открыть смену').click()
         toast(page, 'Смена открыта')
-        expect(page.get_by_text('Начальник смены', exact=True).first).to_be_visible()
+        expect(page.get_by_text('Начальник смены' + CHIP, exact=True).first).to_be_visible()
         no_test_text(page, 'order screen')
         bar_fits(page, 'order screen')
         button(page, 'Промокод').click()
@@ -130,7 +142,7 @@ with sync_playwright() as pw:
         paid_lock(page)
         capture(page, 'paid-lock-1366.png')
         pin(page, '1357')
-        expect(page.get_by_text('Кассир', exact=True).first).to_be_visible()
+        expect(page.get_by_text('Кассир' + CHIP, exact=True).first).to_be_visible()
         first = sell(page, 'cash')
         page.get_by_test_id('sale-receipt').click()
         entry = page.locator('.sale-entry')
@@ -222,6 +234,7 @@ with sync_playwright() as pw:
         page.get_by_role('button', name='Готово · закрыть кассу').click()
         paid_lock(page)
         assert page.evaluate(HINT) == 'pos_sale'
+        assert page.evaluate(DESK_HINT) == (str(DESK) if DESK else None)
         assert not errors, errors
         assert not external, external
     except Exception:
@@ -231,4 +244,4 @@ with sync_playwright() as pw:
         raise
     finally:
         browser.close()
-print('POS paid day (CR client-5): opening, three sales, receipt states, «Чек», lock and Z on a desk that sells - no test-mode text.')
+print(f'POS paid day (CR client-5): opening, three sales, receipt states, «Чек», lock and Z on a desk that sells - no test-mode text; desk number {DESK}.')

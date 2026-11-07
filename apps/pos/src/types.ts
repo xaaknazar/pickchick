@@ -823,6 +823,8 @@ export type PosConfig = {
   fiscal_mode: 'manual_webkassa';
   approval_ttl_seconds: number;
   server_time: string;
+  /** Number of this desk (1..99) set by the operator (edge 028, CR pos-7), or null. */
+  desk_number: number | null;
 };
 export type SaleTender = {
   tender_id: string;
@@ -891,6 +893,12 @@ const positive = (value: unknown): string => {
   return amount;
 };
 /**
+ * The desk number of pos/config (CR client-5 section 3.2): an integer 1..99, else null. An edge
+ * without 028 omits the key; a number is only shown, so a bad one is no number, never a refusal.
+ */
+export const deskNumber = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 99 ? value : null;
+/**
  * Unknown method or channel codes are skipped, never offered: a later edge may add one (P1)
  * without breaking this cashier. Known codes must be well-formed and unique.
  */
@@ -923,6 +931,7 @@ export function posConfig(value: unknown): PosConfig {
     fiscal_mode: 'manual_webkassa',
     approval_ttl_seconds: integer(c.approval_ttl_seconds, 1, 3600),
     server_time: date(c.server_time),
+    desk_number: deskNumber(c.desk_number),
   };
 }
 /** The kitchen number is a positive integer; the edge may send it as a number or a string. */

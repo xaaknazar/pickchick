@@ -28,6 +28,7 @@ import { RECEIPT_READS } from '../../apps/pos/dist/model.js';
 import { receiptRow, reportLines } from '../../apps/pos/dist/v2/ops-view.js';
 import {
   DESK_MODE_KEY,
+  DESK_NUMBER_KEY,
   PAID_TEXTS,
   TEST_TEXTS,
   awaitingValues,
@@ -37,8 +38,10 @@ import {
   findGuestText,
   kitchenOffText,
   rememberDeskMode,
+  rememberDeskNumber,
   shiftClosedText,
   shiftOpenedText,
+  storedDeskNumber,
   storedDeskPaid,
   unavailableText,
 } from '../../apps/pos/dist/v2/mode-texts.js';
@@ -1163,6 +1166,8 @@ test('pos/config 404 or any refused read keeps today unpaid cashier with the sam
     [new ApiError('EDGE_UNREACHABLE'), 2],
     [new Error('Unexpected synthetic transport path'), 2],
     [{ ...posConfigFor(), mode: 'unpaid_service' }, 1],
+    // Edge 028 numbers the desk before payments are on (CR pos-7): nothing else changes.
+    [{ ...posConfigFor(), mode: 'unpaid_service', desk_number: 2 }, 1],
     [{ ...posConfigFor(), mode: 'payment_required' }, 1],
     [{ mode: 'pos_sale' }, 2],
   ]) {
@@ -2186,6 +2191,29 @@ test('paid orders, sales and sales-mode shifts parse; unpaid parsing stays stric
       methods: [...posConfigFor().methods, posConfigFor().methods[0]],
     }),
   );
+});
+
+test('pos/config desk number: an integer 1..99, else null; the rest of the answer is the same', () => {
+  // Edge 028 (CR pos-7) adds desk_number last; an edge 026 without it omits the key.
+  assert.equal(parsePosConfig(posConfigFor()).desk_number, null);
+  for (const number of [1, 2, 99])
+    assert.equal(parsePosConfig(posConfigFor({ desk_number: number })).desk_number, number);
+  // Only a display value: a bad one is no number, never a refused pos/config.
+  for (const bad of [null, 0, 100, -1, 2.5, '2', '02', true, {}, [2], NaN, Infinity])
+    assert.equal(parsePosConfig(posConfigFor({ desk_number: bad })).desk_number, null, String(bad));
+  const server_time = new Date().toISOString();
+  const rest = (config) => {
+    const other = { ...config };
+    delete other.desk_number;
+    return other;
+  };
+  const plain = parsePosConfig(posConfigFor({ server_time }));
+  for (const number of [undefined, null, 2, 'x'])
+    assert.deepEqual(
+      rest(parsePosConfig(posConfigFor({ server_time, desk_number: number }))),
+      rest(plain),
+      String(number),
+    );
 });
 
 test('a quote close to expiry is quoted again before payment; same content keeps the review', async () => {
@@ -4138,6 +4166,164 @@ test('mode texts: the lock screen keeps the edge last definite answer per desk',
   assert.equal(storedDeskPaid(blocked), false);
   assert.equal(rememberDeskMode(blocked, config('pos_sale'), false), true);
   assert.equal(storedDeskPaid(undefined), false);
+});
+
+test('mode texts: a desk that sells shows the number of pos/config in today wording', () => {
+  assert.deepEqual(deskTexts(true, '0.5.0', 2), {
+    deskPrefix: 'Касса 2 · ',
+    deskChip: ' · касса 2',
+    appLine: 'Pick Chick POS 0.5.0',
+  });
+  assert.deepEqual(deskTexts(true, undefined, 99), {
+    deskPrefix: 'Касса 99 · ',
+    deskChip: ' · касса 99',
+    appLine: 'Pick Chick POS',
+  });
+  // No number (an edge without 028, or not set yet) or a bad one: no number, as before.
+  for (const number of [null, undefined, 0, 100, 2.5, '2'])
+    assert.deepEqual(deskTexts(true, '0.5.0', number), deskTexts(true, '0.5.0'), String(number));
+  assert.deepEqual(deskTexts(true, '0.5.0', null), {
+    deskPrefix: '',
+    deskChip: '',
+    appLine: 'Pick Chick POS 0.5.0',
+  });
+  // Without payments the number is never used: today's «Касса 1» byte for byte.
+  for (const number of [2, 99, null])
+    assert.deepEqual(deskTexts(false, '0.5.0', number), {
+      deskPrefix: TEST_TEXTS.deskPrefix,
+      deskChip: TEST_TEXTS.deskChip,
+      appLine: TEST_TEXTS.appLine,
+    });
+});
+
+test('mode texts: the lock screen keeps the number of the last pos_sale answer only', () => {
+  const storage = memory();
+  const config = (mode, desk_number) => ({
+    posConfig: { mode, desk_number },
+    posConfigMissing: false,
+  });
+  assert.equal(storedDeskNumber(storage), null);
+  // A desk without payments writes nothing, even when its edge already numbers it; a desk that
+  // sells on an edge without 028 has nothing to write.
+  assert.equal(rememberDeskNumber(storage, config('unpaid_service', 2), null), null);
+  assert.equal(
+    rememberDeskNumber(storage, { posConfig: null, posConfigMissing: true }, null),
+    null,
+  );
+  assert.equal(rememberDeskNumber(storage, config('pos_sale', null), null), null);
+  assert.equal(storage.data.size, 0);
+  // pos_sale with a number: kept in its own key and read back after a restart.
+  assert.equal(rememberDeskNumber(storage, config('pos_sale', 2), null), 2);
+  assert.deepEqual([...storage.data], [[DESK_NUMBER_KEY, '2']], 'the mode key is not touched');
+  assert.equal(storedDeskNumber(storage), 2);
+  // No answer (the lock, a failed read) and other modes keep it; the mode hint decides whether
+  // it is shown.
+  assert.equal(rememberDeskNumber(storage, { posConfig: null, posConfigMissing: false }, 2), 2);
+  assert.equal(rememberDeskNumber(storage, config('unpaid_service', 3), 2), 2);
+  assert.equal(storage.data.get(DESK_NUMBER_KEY), '2');
+  // The operator renumbers or clears it: the next pos_sale answer says so.
+  assert.equal(rememberDeskNumber(storage, config('pos_sale', 1), 2), 1);
+  assert.equal(storedDeskNumber(storage), 1);
+  assert.equal(rememberDeskNumber(storage, config('pos_sale', null), 1), null);
+  assert.equal(storage.data.has(DESK_NUMBER_KEY), false);
+  for (const bad of ['0', '100', '02', '2.5', 'x', '', ' 2']) {
+    storage.data.set(DESK_NUMBER_KEY, bad);
+    assert.equal(storedDeskNumber(storage), null, bad);
+  }
+  const blocked = {
+    getItem: () => {
+      throw new Error('blocked');
+    },
+    setItem: () => {
+      throw new Error('blocked');
+    },
+    removeItem: () => {
+      throw new Error('blocked');
+    },
+  };
+  assert.equal(storedDeskNumber(blocked), null);
+  assert.equal(rememberDeskNumber(blocked, config('pos_sale', 2), null), 2);
+  assert.equal(rememberDeskNumber(blocked, config('pos_sale', null), 2), null);
+  assert.equal(storedDeskNumber(undefined), null);
+});
+
+/** The desk line, chip and footer app.js renders: the model plus this desk's display hints. */
+function deskScreen(hints) {
+  let paid = storedDeskPaid(hints),
+    number = storedDeskNumber(hints);
+  return (model) => {
+    paid = rememberDeskMode(hints, model.state, paid);
+    number = rememberDeskNumber(hints, model.state, number);
+    return deskTexts(deskSells(model, paid), '0.5.0', paid ? number : null);
+  };
+}
+
+test('desk number on the screens: the session, the lock, a restart; no number and unpaid as today', async () => {
+  const hints = memory();
+  const numbered = {
+    deskPrefix: 'Касса 2 · ',
+    deskChip: ' · касса 2',
+    appLine: 'Pick Chick POS 0.5.0',
+  };
+  const unnumbered = { deskPrefix: '', deskChip: '', appLine: 'Pick Chick POS 0.5.0' };
+  const today = deskTexts(false);
+  const edge = saleEdge({ config: posConfigFor({ desk_number: 2 }) });
+  // Before the first PIN login on this desk nothing is known: today's lock texts.
+  assert.deepEqual(
+    deskScreen(hints)(new PosController(edge.api, memory(), memory(), randomUUID)),
+    today,
+  );
+  const model = await saleCashier(edge);
+  const screen = deskScreen(hints);
+  assert.equal(model.state.posConfig.desk_number, 2);
+  assert.deepEqual(screen(model), numbered, 'opening screen and header');
+  model.logout();
+  assert.deepEqual(screen(model), numbered, 'the lock screen');
+  // After a restart, before anyone logs in: the hint of the last pos_sale answer.
+  const restarted = new PosController(edge.api, memory(), memory(), randomUUID);
+  assert.deepEqual(deskScreen(hints)(restarted), numbered);
+  // The session's first pos/config fails while GET ordering says pos_sale: the hint's number.
+  const failing = {
+    ...edge,
+    api: async (path, auth, options = {}) => {
+      if (path === 'pos/config') throw new ApiError('EDGE_UNREACHABLE', 503);
+      const value = await edge.api(path, auth, options);
+      return path === 'ordering' ? { ...value, pos_service_mode: 'pos_sale' } : value;
+    },
+  };
+  const awaiting = await saleCashier(failing);
+  assert.equal(awaiting.awaitingSale, true);
+  assert.deepEqual(deskScreen(hints)(awaiting), numbered);
+  assert.deepEqual(deskScreen(memory())(awaiting), unnumbered, 'no hint: no number');
+  // Renumbered: the session's own answer wins over the hint at once.
+  edge.edge.config = posConfigFor({ desk_number: 1 });
+  const renumbered = await saleCashier(edge);
+  assert.equal(deskScreen(hints)(renumbered).deskChip, ' · касса 1');
+  assert.equal(storedDeskNumber(hints), 1);
+  // An edge without 028 (no key) or a number cleared: a desk that sells without a number.
+  edge.edge.config = posConfigFor();
+  assert.deepEqual(screen(await saleCashier(edge)), unnumbered);
+  assert.equal(hints.data.has(DESK_NUMBER_KEY), false);
+  // Without payments (unpaid_service with a number, or 404): today's «Касса 1» byte for byte,
+  // on the session screens and on the next lock screen.
+  edge.edge.config = posConfigFor({ desk_number: 2 });
+  await saleCashier(edge).then(screen);
+  for (const answer of [
+    posConfigFor({ mode: 'unpaid_service', desk_number: 2 }),
+    new ApiError('NOT_FOUND', 404),
+  ]) {
+    edge.edge.config = answer;
+    const unpaid = await saleCashier(edge);
+    assert.deepEqual(screen(unpaid), today);
+    unpaid.logout();
+    assert.deepEqual(screen(unpaid), today);
+    assert.deepEqual(
+      deskScreen(hints)(new PosController(edge.api, memory(), memory(), randomUUID)),
+      today,
+    );
+    edge.edge.config = posConfigFor({ desk_number: 2 });
+    await saleCashier(edge).then(screen);
+  }
 });
 
 test('screens: a paid order row says its Webkassa receipt as the X report counts it', () => {
