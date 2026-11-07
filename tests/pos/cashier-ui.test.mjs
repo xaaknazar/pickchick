@@ -4303,6 +4303,55 @@ test('ЗАКАЗЫ in the paid mode: at most RECEIPT_READS reads per refresh; no
   assert.equal(calls.length, asked);
 });
 
+test('ЗАКАЗЫ in the paid mode: one receipt read at a time on a slow gateway', async () => {
+  // Review 07.11 R3: the 3 s refresh does not wait; a second call must not read the same ids.
+  const edge = saleEdge();
+  const seller = await saleCashier(edge);
+  for (let n = 0; n < 3; n++) {
+    await reviewed(seller, edge);
+    await seller.sell({ method: 'cash', tendered_minor: '700000' });
+    seller.newDraft();
+  }
+  const held = [];
+  const slow = feedEdge({
+    ...edge,
+    api: async (path, auth, options) => {
+      if (/^pos\/sales\/[0-9a-f-]+$/.test(path)) await new Promise((resolve) => held.push(resolve));
+      return edge.api(path, auth, options);
+    },
+  });
+  let now = Date.now();
+  const model = await saleCashier(slow, memory(), memory(), { now: () => now });
+  const ids = model.state.orders.map((o) => o.order_id);
+  const reads = () => edge.calls.filter((c) => /^pos\/sales\/[0-9a-f-]+$/.test(c.path)).length;
+  const before = reads();
+  const first = model.refreshSaleReceipts(ids);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(held.length, 1, 'the first read is on its way');
+  // The next refreshes while it runs return at once and ask nothing.
+  await model.refreshSaleReceipts(ids);
+  await model.refreshSaleReceipts(ids);
+  assert.equal(held.length, 1);
+  // The running call reads each listed paid order once, one after another.
+  const release = async (total) => {
+    for (let n = 0; n < 50 && reads() - before < total; n++) {
+      held.shift()?.();
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+  };
+  await release(3);
+  await first;
+  assert.equal(reads() - before, 3);
+  assert.deepEqual(Object.values(model.state.saleReceipts), ['pending', 'pending', 'pending']);
+  // Once it is done the next call runs again: after the pause the pending ones are read.
+  now += POS_CONFIG_POLL_MS;
+  const again = model.refreshSaleReceipts(ids);
+  await new Promise((resolve) => setImmediate(resolve));
+  await release(6);
+  await again;
+  assert.equal(reads() - before, 6);
+});
+
 test('screens: «Чек» of a paid row: the Webkassa entry of a receipt to punch, else the order ticket', async () => {
   const edge = saleEdge();
   const model = await saleCashier(edge);

@@ -2158,9 +2158,21 @@ export class PosController {
    * read yet, and again for a pending one at most every POS_CONFIG_POLL_MS (a recorded or not
    * required receipt stays so); at most RECEIPT_READS reads per call, in the order given.
    * Best effort: never while a command is busy or pending, and nothing in the unpaid mode.
+   * One call at a time: the 3 s refresh does not wait for it, and on a slow gateway a second
+   * call would read the same orders again (review 07.11 R3); it returns at once instead.
    */
   async refreshSaleReceipts(orderIds: readonly string[]) {
     if (!this.saleMode || !this.credential || this.state.busy || this.state.pending) return;
+    if (this.receiptsReading) return;
+    this.receiptsReading = true;
+    try {
+      await this.readSaleReceipts(orderIds);
+    } finally {
+      this.receiptsReading = false;
+    }
+  }
+  private receiptsReading = false;
+  private async readSaleReceipts(orderIds: readonly string[]) {
     const epoch = this.generation,
       now = this.now();
     const paid = new Set(
