@@ -7420,9 +7420,9 @@
         "docs/roadmap/project.json",
         "infra/public-staging/support/content.json"
       ],
-      "status": "available",
+      "status": "active",
       "head": "4ffb9899eb80e0abed182cf9358db96cdb9d8e13",
-      "updatedAt": "2026-11-07T07:53:04.220Z",
+      "updatedAt": "2026-11-07T07:54:35.941Z",
       "summary": "4ffb9899 / PR313: владелец07.11 разрешил отправку закрытого выпуска, с последним составом iOS. Android1.0.1(7) source1a9472f1 включает iOS33 source4c7ed8ec. AAB SHA совпал, штатный Inspect PASS production api.pickchick.kz, Foundation41994780430 success11/11. СвежиеGET support RU/KK/EN+delete-account+retention,privacy,APIhealth200. Play готов отправить16 изменений. Shareddb3dfb1f слит обычным mergef262a44d, журналы обеих сторон и roadmap сохранены; AAB не менялся. После обновления страницы Apple сессия истекла; пользователь получил запрос войти. Google пока не отправлен. Документы опубликованы,remoteSHA сверено; CI нового документального checkpoint отдельно, онлайн-пульт не опубликован.",
       "nextAction": "После входа владельца в Apple сверить последнюю сборку свежим UI. Если33, Android7 уже содержит её код плюс адаптацииAndroid: отправить16 изменений Alpha Google по явному разрешению, проверить статус рассмотрения, сохранить screenshot и журнал. Если iOS новее - сравнитьsource и подготовить актуальныйAndroid до отправки. Не запрашивать разрешение на отправку повторно. Production отдельно, 12участников14дней и физическийAndroid не приняты. PR313 пока не сливать безCI."
     }
