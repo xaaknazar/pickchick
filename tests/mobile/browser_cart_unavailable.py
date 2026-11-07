@@ -381,7 +381,8 @@ def expect_closed_bar(page, total='4 190 ₸', lang='ru'):
     dining = tr('С собой', lang)
     expect(visible(page, 'cart-shortcut-dining-label')).to_have_text(dining)
     text = re.sub(r'[\ue000-\uf8ff\s]', '', visible(page, 'open-cart').inner_text())
-    assert text == re.sub(r'\s', '', dining + total), text
+    assert text == re.sub(r'\s', '', dining + '·Abay Plaza' + total), text
+    expect(visible(page, 'cart-shortcut-location')).to_have_text('Abay Plaza')
     box = bar.bounding_box()
     button = visible(page, 'open-cart').bounding_box()
     # The cart button fills the whole capsule: the total is a big target, nothing on the left.
@@ -393,16 +394,18 @@ def expect_closed_bar(page, total='4 190 ₸', lang='ru'):
     assert abs(box['x'] + box['width'] / 2 - view / 2) <= 2, (box, view)
     amount = visible(page, 'cart-shortcut-total').bounding_box()
     newest = visible(page, 'cart-recent-photo-0').bounding_box()
-    assert amount['x'] - box['x'] <= 40, ('empty glass before the total', amount, box)
+    caption = visible(page, 'cart-shortcut-dining').bounding_box()
+    assert caption['x'] - box['x'] <= 40, ('empty glass before the caption', caption, box)
+    assert abs(amount['x'] + amount['width'] / 2 - caption['x'] - caption['width'] / 2) <= 1, (amount, caption)
     assert box['x'] + box['width'] - (newest['x'] + newest['width']) <= 12, (newest, box)
-    assert box['width'] <= min(view - 48, 320) - 60, ('the capsule did not shrink', box, view)
+    assert box['width'] <= min(view - 32, 390) - 30, ('the capsule did not shrink', box, view)
 
 
 def expect_open_bar(page, timeout=10000):
     expect(visible(page, 'cart-pay-handle')).to_have_count(1, timeout=timeout)
     expect(page.locator('#cart-pay-mark-kaspi').filter(visible=True)).to_have_count(1)
-    # Owner 28.10: the open capsule stays compact (24 pt gutters, at most 320 pt).
-    width = min(page.viewport_size['width'] - 48, 320)
+    # Owner 06.11: room for the selected location (16 pt gutters, at most 390 pt).
+    width = min(page.viewport_size['width'] - 32, 390)
     for _ in range(20):
         box = visible(page, 'cart-shortcut').bounding_box()
         if abs(box['width'] - width) <= 2:

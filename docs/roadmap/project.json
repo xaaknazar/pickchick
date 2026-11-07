@@ -5523,6 +5523,34 @@
         "deployed": false,
         "accepted": false
       }
+    },
+    {
+      "id": "mobile-cart-location-1106",
+      "workstream": "mobile",
+      "title": "Название точки в быстрой оплате",
+      "summary": "В быстрой оплате рядом со способом получения показано название выбранной точки. На RU/KK/EN пройдены сценарии ABIRL (свайп, вкладки, подпись) и AH (закрытый ресторан); 586 Node +96 Python, typecheck/lint PASS. Нативный выпуск ещё не выполнен.",
+      "status": "active",
+      "owner": "development",
+      "phase": "integration",
+      "dependsOn": ["mobile-cart-mode-1029"],
+      "evidence": [
+        {
+          "label": "Реализация и проверки",
+          "path": "docs/operations/mobile-cart-location-2026-11-06.md"
+        }
+      ],
+      "acceptance": [
+        "Название соответствует выбранному ресторану и способу получения.",
+        "RU/KK/EN: подпись не перекрывает сумму и ручку оплаты.",
+        "Прежние ограничения и защита от повторного счёта сохранены."
+      ],
+      "nextAction": "PR/CI, затем отдельная нативная приёмка и выпуск.",
+      "checks": {
+        "implemented": true,
+        "verified": true,
+        "deployed": false,
+        "accepted": false
+      }
     }
   ]
 }
