@@ -746,6 +746,25 @@
   word-break: normal;
   hyphens: manual;
 }
+/* Step 6 pass: the request number column is narrow (the generic first column takes 34 % and
+   squeezed «Позиции» into five lines). */
+.supply [data-testid='sp-requests'] td:first-child {
+  width: auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+/* The same for the import report (its first column is a line number). */
+.sp-imports .inventory-table td:first-child {
+  width: auto;
+}
+/* Step 6 pass: in a phone card (a grid cell) a state badge keeps its own width instead of
+   stretching over the whole value column. */
+.supply .bo-cards td > .sp-state,
+.sp-dialog .bo-cards td > .sp-state,
+[data-testid='stock-reorder'] .bo-cards td > .op-badge,
+[data-testid='stock-balances'] .bo-cards td > .op-badge {
+  justify-self: start;
+}
 .sp-print-root {
   display: none;
 }

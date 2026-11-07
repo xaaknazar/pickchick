@@ -527,7 +527,8 @@ export class WorkforceView {
             ? 'Загружаем станции из «Расстановки»...'
             : placement === null
               ? 'Станции из «Расстановки» не загрузились. Табель показан без них.'
-              : `Станции - из «Расстановки», по дню смены.${placement.truncated.intervals ? ' Показаны не все интервалы месяца.' : ''}`,
+              : // Step 6 pass: the month grid says what its dot means.
+                `Станции - из «Расстановки», по дню смены.${this.range === 'month' ? ' Точка в ячейке - сотрудник стоял на станции в этот день, какие станции - в подсказке ячейки.' : ''}${placement.truncated.intervals ? ' Показаны не все интервалы месяца.' : ''}`,
         );
         note.dataset.testid = 'wf-stations-note';
         root.append(note);

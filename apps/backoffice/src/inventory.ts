@@ -91,6 +91,17 @@ function download(name: string, rows: string[][]) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+/**
+ * Lane bo-ui2 step 6 pass: a note of a stock report whose amounts never break across lines
+ * («59 880 ₸» used to end a phone line as «59»). Strings are text, `{ minor }` is an amount.
+ */
+function moneyNote(testId: string, ...parts: (string | { minor: unknown })[]): HTMLElement {
+  const p = el('p', 'op-note');
+  for (const part of parts)
+    p.append(typeof part === 'string' ? part : el('span', 'stock-money', tenge(part.minor)));
+  p.dataset.testid = testId;
+  return p;
+}
 /** `p1`: a stock P1 table, labelled for the phone without the audit fixes (labelledCards). */
 function table(head: string[], rows: (string | Node)[][], p1 = false) {
   const wrap = el('div', 'inventory-table'),
@@ -512,13 +523,20 @@ function turnoverBlock(report: unknown): Node[] {
     out.push(n);
   }
   const t = turnover.totals;
-  const sum = el(
-    'p',
-    'op-note',
-    `Стоимость запасов: на начало ${tenge(t.opening.value_minor)}, пришло ${tenge(t.in.value_minor)}, ушло ${tenge(t.out.value_minor)}, на конец ${tenge(t.closing.value_minor)}.`,
+  out.push(
+    moneyNote(
+      'stock-turnover-totals',
+      'Стоимость запасов: на начало ',
+      { minor: t.opening.value_minor },
+      ', пришло ',
+      { minor: t.in.value_minor },
+      ', ушло ',
+      { minor: t.out.value_minor },
+      ', на конец ',
+      { minor: t.closing.value_minor },
+      '.',
+    ),
   );
-  sum.dataset.testid = 'stock-turnover-totals';
-  out.push(sum);
   const wrap = table(
     ['Ингредиент', 'На начало', 'Пришло', 'Ушло', 'На конец', 'Сумма на конец', 'Из чего'],
     turnover.rows.map((r) => [
@@ -1350,12 +1368,14 @@ export class InventoryView {
       const atAverage = rows.reduce((n, r) => n + BigInt(r.value_minor), 0n);
       const atLast = rows.reduce((n, r) => n + BigInt(r.value_last_price_minor ?? '0'), 0n);
       const unpriced = rows.filter((r) => r.value_last_price_minor === null && r.quantity !== '0');
-      const summary = el(
-        'p',
-        'op-note',
-        `Показано ${rows.length} из ${v.rows.length}. Стоимость выбранных запасов: ${tenge(atAverage)} по средней себестоимости, ${tenge(atLast)} по последней цене закупки${unpriced.length ? ` (без цены закупки: ${unpriced.length} поз.)` : ''}. Ниже минимума: ${v.totals.below_minimum}.`,
+      const summary = moneyNote(
+        'stock-balances-summary',
+        `Показано ${rows.length} из ${v.rows.length}. Стоимость выбранных запасов: `,
+        { minor: atAverage },
+        ' по средней себестоимости, ',
+        { minor: atLast },
+        ` по последней цене закупки${unpriced.length ? ` (без цены закупки: ${unpriced.length} поз.)` : ''}. Ниже минимума: ${v.totals.below_minimum}.`,
       );
-      summary.dataset.testid = 'stock-balances-summary';
       host.append(
         summary,
         table(
@@ -1499,15 +1519,22 @@ export class InventoryView {
       if (banner) host.append(banner);
       const rule = el('p', 'op-note', reorderRuleText(v));
       rule.dataset.testid = 'stock-reorder-rule';
-      const totals = el(
-        'p',
-        'op-note',
-        v.rows.length
-          ? `Ниже цели: ${v.totals.below}, рядом с минимумом: ${v.totals.near}. Заказать на ${tenge(v.totals.hint_value_minor)} по последним ценам${v.totals.unpriced ? ` (без цены: ${v.totals.unpriced} поз.)` : ''}.`
-          : 'Все позиции с минимумом или отметкой «Мясо» выше цели: заказывать нечего.',
-      );
-      totals.dataset.testid = 'stock-reorder-totals';
-      const tools = el('div', 'op-actions');
+      const totals = v.rows.length
+        ? moneyNote(
+            'stock-reorder-totals',
+            `Ниже цели: ${v.totals.below}, рядом с минимумом: ${v.totals.near}. Заказать на `,
+            { minor: v.totals.hint_value_minor },
+            ` по последним ценам${v.totals.unpriced ? ` (без цены: ${v.totals.unpriced} поз.)` : ''}.`,
+          )
+        : moneyNote(
+            'stock-reorder-totals',
+            'Все позиции с минимумом или отметкой «Мясо» выше цели: заказывать нечего.',
+          );
+      const tools = el('div', 'op-actions stock-reorder-tools');
+      // Step 6 pass: the rights note goes under the buttons (inside the row it pushed «Обновить»
+      // out of a 390 px phone), and only a role that can create a request gets the checkboxes.
+      let rights: HTMLElement | null = null;
+      const pickable = typeof reports.createRequest === 'function';
       if (reports.createRequest) {
         const create = reports.createRequest;
         const count = v.rows.filter((r) => selected.has(r.ingredient_id)).length;
@@ -1534,9 +1561,9 @@ export class InventoryView {
         b.disabled = true;
         b.title = why;
         b.setAttribute('aria-describedby', 'stock-reorder-request-why');
-        const note = el('p', 'op-note op-rights', why);
-        note.id = 'stock-reorder-request-why';
-        tools.append(b, note);
+        rights = el('p', 'op-note op-rights', why);
+        rights.id = 'stock-reorder-request-why';
+        tools.append(b);
       }
       tools.append(
         button(
@@ -1556,10 +1583,12 @@ export class InventoryView {
         ),
       );
       host.append(totals, tools);
+      if (rights) host.append(rights);
+      host.classList.toggle('stock-reorder-pickable', pickable);
       host.append(
         table(
           [
-            'В заявку',
+            ...(pickable ? ['В заявку'] : []),
             'Ингредиент',
             'Остаток',
             'Расход в день (7 / 14 дней)',
@@ -1589,22 +1618,24 @@ export class InventoryView {
                 `Откуда: ${r.supply_kind ? (SUPPLY_KIND_LABELS[r.supply_kind] ?? r.supply_kind) : 'не задано'}`,
               ),
             );
-            const order = el(
-              'span',
-              '',
-              r.hint === '0'
-                ? 'ничего'
-                : `${displayQuantity(r.hint, r.unit)} · ${
-                    r.hint_value_minor === null ? 'нет цены' : tenge(r.hint_value_minor)
-                  }`,
-            );
+            const order = el('span', '', r.hint === '0' ? 'ничего' : '');
+            if (r.hint !== '0')
+              // The amount stays on one line («20 ₸», not «20» and «₸» under it).
+              order.append(
+                `${displayQuantity(r.hint, r.unit)} · `,
+                el(
+                  'span',
+                  'stock-money',
+                  r.hint_value_minor === null ? 'нет цены' : tenge(r.hint_value_minor),
+                ),
+              );
             const state = el(
               'span',
               'op-badge' + (r.state === 'below' ? ' bad' : ''),
               REORDER_STATE_LABELS[r.state],
             );
             return [
-              pick,
+              ...(pickable ? [pick] : []),
               name,
               displayQuantity(r.balance, r.unit),
               `${perDayText(r.use.d7, r.unit)} / ${perDayText(r.use.d14, r.unit)}`,
