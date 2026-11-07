@@ -13,6 +13,7 @@ import {
   closeCashShift,
   readCashShift,
   provisionStaff,
+  readPosConfig,
 } from '@pickchick/local-orders';
 import { EdgeFulfillment } from '@pickchick/edge-fulfillment';
 import { applyMenu, hashJson } from '@pickchick/menu-sync';
@@ -359,6 +360,72 @@ test('cutover 027: runtime grants hold exactly the reviewed KDS privileges with 
           [row.version, row.checksum, row.scope],
         );
       }
+    }),
+  );
+});
+
+test('cutover 028: the runtime reads the desk number through its table SELECT and can never write it, with and without kitchen access', async () => {
+  await fixture(async (ctx) =>
+    runtime(ctx, async (pool, role, options) => {
+      const { setDeskNumber } = await import('../../scripts/pos-sales-setup.mjs');
+      // CR pos-7 section 1.3: 028 needs no grant of its own. The table-level SELECT on
+      // local_terminals covers the new column; the runtime's column UPDATE(lock_anchor) and the
+      // device access UPDATE(active) never reach it.
+      const privileges = async () =>
+        (
+          await ctx.pool.query(
+            `SELECT has_column_privilege($1,'local_terminals','desk_number','SELECT') AS select,
+               has_column_privilege($1,'local_terminals','desk_number','INSERT') AS insert,
+               has_column_privilege($1,'local_terminals','desk_number','UPDATE') AS update`,
+            [role],
+          )
+        ).rows[0];
+      const readOnly = { select: true, insert: false, update: false };
+      for (const fulfillment of [true, false, true]) {
+        await applyEdgeRuntimeGrants(ctx.pool, role, { ...options, fulfillment });
+        assert.deepEqual(await privileges(), readOnly);
+        await assert.rejects(pool.query('UPDATE local_terminals SET desk_number=1'), denied);
+        assert.equal(
+          (
+            await pool.query(
+              'SELECT count(*)::int AS n FROM local_terminals WHERE desk_number IS NOT NULL',
+            )
+          ).rows[0].n,
+          0,
+        );
+      }
+      // GET pos/config of the runtime answers null until the owner numbers the desk, then the
+      // number; the owner's audited command is the only writer.
+      assert.equal(
+        (await readPosConfig(pool, ctx.scope.branchId, ctx.cashier.auth)).desk_number,
+        null,
+      );
+      const numbered = await setDeskNumber(ctx.pool, ctx.scope.branchId, {
+        terminal_id: ctx.cashier.terminal_id,
+        desk_number: 2,
+        reason: 'Касса 2 у окна',
+      });
+      assert.deepEqual(numbered.desk, { terminal_id: ctx.cashier.terminal_id, desk_number: 2 });
+      assert.equal(numbered.changes.length, 1);
+      assert.equal(
+        (await readPosConfig(pool, ctx.scope.branchId, ctx.cashier.auth)).desk_number,
+        2,
+      );
+      await assert.rejects(
+        pool.query('UPDATE local_terminals SET desk_number=NULL WHERE id=$1', [
+          ctx.cashier.terminal_id,
+        ]),
+        denied,
+      );
+      // A stray column grant is removed by the next reset.
+      await ctx.pool.query(`GRANT UPDATE(desk_number) ON local_terminals TO ${role}`);
+      assert.equal((await privileges()).update, true);
+      await applyEdgeRuntimeGrants(ctx.pool, role, options);
+      assert.deepEqual(await privileges(), readOnly);
+      assert.equal(
+        (await readPosConfig(pool, ctx.scope.branchId, ctx.cashier.auth)).desk_number,
+        2,
+      );
     }),
   );
 });
