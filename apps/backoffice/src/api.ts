@@ -197,6 +197,31 @@ export function allowedPath(path: string): boolean {
       (id === null || new RegExp(`^${UUID}$`).test(id))
     );
   }
+  // Lane bo-ui2 step 2: the suppliers (one with its prices) and the supply requests of a window.
+  if (new RegExp(`^operations/branches/${UUID}/ops/suppliers$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    const id = q.get('id');
+    return (
+      [...q.keys()].every((k) => k === 'id') &&
+      q.getAll('id').length <= 1 &&
+      (id === null || new RegExp(`^${UUID}$`).test(id))
+    );
+  }
+  if (new RegExp(`^operations/branches/${UUID}/ops/supply-requests$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    const keys = ['start_date', 'end_date', 'state', 'kind', 'id'];
+    const value = (k: string, re: RegExp) => q.get(k) === null || re.test(q.get(k) ?? '');
+    return (
+      (search?.length ?? 0) <= 200 &&
+      [...q.keys()].every((k) => keys.includes(k)) &&
+      keys.every((k) => q.getAll(k).length <= 1) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('start_date') ?? '') &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '') &&
+      value('state', /^(draft|submitted|received|cancelled)$/) &&
+      value('kind', /^(central_kitchen|bakery|household|supplier)$/) &&
+      value('id', new RegExp(`^${UUID}$`))
+    );
+  }
   if (new RegExp(`^operations/branches/${UUID}$`).test(pathname)) return reportQuery(search ?? '');
   return (
     search === undefined &&
@@ -512,6 +537,17 @@ const reasons: Record<string, string> = {
   DISCOUNT_NAME_TAKEN: 'Скидка с таким названием уже есть. Выберите другое название.',
   DISCOUNT_ARCHIVED: 'Скидка в архиве: её нельзя изменить или включить. Создайте новую.',
   DISCOUNT_PERIOD_ENDED: 'Период скидки уже закончился. Измените даты и включите её снова.',
+  // Lane bo-ui2 step 2 (servers with capabilities.supply).
+  SUPPLIER_NAME_TAKEN:
+    'Поставщик с таким названием уже есть (возможно, в архиве). Выберите другое название.',
+  SUPPLIER_INACTIVE:
+    'Поставщик в архиве: на него нельзя оформить заявку или новую цену. Верните его из архива или выберите другого.',
+  PRICE_UNIT_MISMATCH:
+    'Единица цены не подходит к позиции: для граммов - г или кг, для миллилитров - мл или л, для штук - шт.',
+  REQUEST_LOCKED:
+    'Заявку уже подали, приняли или отменили в другом окне. Обновите список и проверьте её.',
+  REQUEST_INCOMPLETE:
+    'Чтобы подать заявку, нужны строки, дата «Нужно к» не раньше сегодняшней и, для заявки поставщику, поставщик.',
 };
 export const reasonMessage = (reason: string | undefined) =>
   reason === undefined ? undefined : reasons[reason];

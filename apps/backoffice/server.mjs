@@ -260,6 +260,40 @@ export const allowed = (method, path) => {
       (id === null || new RegExp(`^${UUID}$`, 'i').test(id))
     );
   }
+  // Lane bo-ui2 step 2 (BACKOFFICE_SUPPLY_ENABLED): the suppliers, one with its prices, and the
+  // supply requests of an Almaty window (the server checks the 92 days), optionally one state,
+  // one kind and one request.
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/suppliers$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    const id = q.get('id');
+    return (
+      (search?.length ?? 0) <= 200 &&
+      [...q.keys()].every((k) => k === 'id') &&
+      q.getAll('id').length <= 1 &&
+      (id === null || new RegExp(`^${UUID}$`, 'i').test(id))
+    );
+  }
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/supply-requests$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    const keys = ['start_date', 'end_date', 'state', 'kind', 'id'];
+    const value = (k, re) => q.get(k) === null || re.test(q.get(k));
+    return (
+      (search?.length ?? 0) <= 200 &&
+      [...q.keys()].every((k) => keys.includes(k)) &&
+      keys.every((k) => q.getAll(k).length <= 1) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('start_date') ?? '') &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '') &&
+      value('state', /^(draft|submitted|received|cancelled)$/) &&
+      value('kind', /^(central_kitchen|bakery|household|supplier)$/) &&
+      value('id', new RegExp(`^${UUID}$`, 'i'))
+    );
+  }
   if (method === 'GET' && new RegExp(`^/v1/admin/backoffice/branches/${UUID}$`, 'i').test(pathname))
     return reportQuery(search ?? '');
   if (search !== undefined) return false;
@@ -359,6 +393,9 @@ const assets = new Map([
     // Lane bo-ui step 7 «Скидки» (shown only with capabilities.discounts).
     'discounts',
     'discounts-model',
+    // Lane bo-ui2 step 2 «Закупки» (shown only with capabilities.supply).
+    'supply',
+    'supply-model',
   ].map((n) => [`/${n}.js`, [`${n}.js`, 'text/javascript; charset=utf-8']]),
   ...['logo.png', 'shot.jpg', ...Array.from({ length: 24 }, (_, i) => `i${i}.jpg`)].map((n) => [
     `/assets/${n}`,

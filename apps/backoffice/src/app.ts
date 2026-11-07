@@ -12,6 +12,7 @@ import {
   posDayAvailable,
   rightsText,
   roleTitle,
+  supplyAvailable,
 } from './operations-model.js';
 import { dirtyDialogOpen } from './dialog-guard.js';
 import { cards, dash, ui } from './ui-fixes.js';
@@ -20,6 +21,8 @@ import { WorkforceView } from './workforce.js';
 import { ManagerShiftView } from './manager-shift.js';
 import { DiscountsPage } from './discounts.js';
 import { DISCOUNTS_SECTION } from './discounts-model.js';
+import { SupplyPage } from './supply.js';
+import { SUPPLY_SECTION, suppliersView, supplyRequestsView } from './supply-model.js';
 import { staffPositions } from './staff-positions-model.js';
 import { FinanceModel } from './finance-model.js';
 import { FinanceView } from './finance.js';
@@ -52,14 +55,21 @@ let page = sections.some((s) => s[0] === location.hash.slice(1)) ? location.hash
 let wantPos = location.hash === '#pos';
 // Lane bo-ui step 7 «Скидки»: #discounts opens only once the server reports capabilities.discounts.
 let wantDiscounts = location.hash === '#discounts';
+// Lane bo-ui2 step 2 «Закупки»: #supply opens only once the server reports capabilities.supply.
+let wantSupply = location.hash === '#supply';
 /**
- * The sections of this server: `sections`, plus «Касса» after «Заказы» while pos_day is on and
- * «Скидки» after «Промо и баннеры» while discounts is on.
+ * The sections of this server: `sections`, plus «Касса» after «Заказы» while pos_day is on,
+ * «Закупки» after «Остатки» while supply is on and «Скидки» after «Промо и баннеры» while
+ * discounts is on.
  */
 const allSections = (): readonly (readonly [string, string, string])[] => {
-  const list = posDayAvailable(operations.data)
+  let list: readonly (readonly [string, string, string])[] = posDayAvailable(operations.data)
     ? [...sections.slice(0, 2), POS_SECTION, ...sections.slice(2)]
     : sections;
+  if (supplyAvailable(operations.data)) {
+    const at = list.findIndex((s) => s[0] === 'stock') + 1;
+    list = [...list.slice(0, at), SUPPLY_SECTION, ...list.slice(at)];
+  }
   if (!discountsAvailable(operations.data)) return list;
   const at = list.findIndex((s) => s[0] === 'promo') + 1;
   return [...list.slice(0, at), DISCOUNTS_SECTION, ...list.slice(at)];
@@ -186,12 +196,40 @@ const discountPage = new DiscountsPage({
   scope: () => `${operations.actor}:${operations.branch}`,
   changed: () => softRender(),
 });
+// Lane bo-ui2 step 2 «Закупки», only with capabilities.supply (the system sends nothing).
+const supplyPage = new SupplyPage({
+  suppliers: async (id) => {
+    const out = await operations.opsView('suppliers', id ? { id } : {});
+    return suppliersView(out.value, out.branch);
+  },
+  requests: async (q) => {
+    const out = await operations.opsView('supply-requests', q as Record<string, string>);
+    return supplyRequestsView(out.value, out.branch);
+  },
+  execute: async (command, reason) => {
+    try {
+      if (await operations.execute(command, reason)) return null;
+      return operations.error ?? new ApiError('PENDING');
+    } catch (e) {
+      return e;
+    }
+  },
+  can: (permission) => operations.data !== null && permitted(operations.data, permission),
+  rights: (permission) => rightsText(operations.data, permission),
+  stock: () => operations.data?.stock ?? [],
+  refreshStock: async () => {
+    if (model.actor && model.state) await operations.load(model.actor.id, model.state.branch.id);
+  },
+  scope: () => `${operations.actor}:${operations.branch}`,
+  changed: () => softRender(),
+});
 function syncOperations() {
   if (!model.actor) {
     workforce.clear();
     workforceView.clear();
     managerShift.clear();
     discountPage.clear();
+    supplyPage.clear();
     finance.clear();
     financeView.clear();
     operations.clear();
@@ -460,6 +498,11 @@ function render() {
   }
   if (page === 'discounts' && operations.data && !discountsAvailable(operations.data))
     page = 'dash';
+  if (wantSupply && operations.data) {
+    wantSupply = false;
+    if (supplyAvailable(operations.data)) page = 'supply';
+  }
+  if (page === 'supply' && operations.data && !supplyAvailable(operations.data)) page = 'dash';
   const shell = el('div', 'shell'),
     sidebar = el('aside', 'sidebar'),
     brand = el('div', 'brand');
@@ -641,7 +684,13 @@ function render() {
   const periodTarget = page === 'shifts' ? legacyControls : header;
   // «Касса» has its own day and cash desk pickers (audit F07: no period that does nothing);
   // «Скидки» has no period at all.
-  if (page !== 'items' && page !== 'finance' && page !== 'pos' && page !== 'discounts') {
+  if (
+    page !== 'items' &&
+    page !== 'finance' &&
+    page !== 'pos' &&
+    page !== 'discounts' &&
+    page !== 'supply'
+  ) {
     const periods = el('div', 'op-periods');
     for (const [id, label] of [
       ['day', 'Сегодня'],
@@ -873,6 +922,25 @@ function render() {
       content.append(n);
     }
     discountPage.render(content);
+    return;
+  }
+  if (page === 'supply') {
+    // A command whose answer did not arrive is checked here, before the next one.
+    if (operations.pending) {
+      const n = notice(
+        'Результат прошлой операции ещё не подтверждён. Проверьте его, прежде чем менять заявки и поставщиков.',
+      );
+      const recover = button(
+        'Проверить результат',
+        () => void operations.recover().then(() => supplyPage.reload()),
+        'button primary',
+        'sp-recover',
+      );
+      recover.disabled = operations.busy;
+      n.append(recover);
+      content.append(n);
+    }
+    supplyPage.render(content);
     return;
   }
   if (page === 'devices') {

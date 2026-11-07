@@ -587,3 +587,172 @@
 .discounts .inventory-table td:nth-child(3) {
   min-width: 170px;
 }
+
+/* Lane bo-ui2 step 2: «Закупки» (capabilities.supply). */
+.supply > .notice,
+.supply > .op-note,
+.supply > .sp-bar,
+.supply > .sp-list-actions,
+.supply > .sp-tabs {
+  margin-left: 16px;
+  margin-right: 16px;
+}
+.supply > .inventory-table {
+  margin: 0 16px 16px;
+}
+.sp-banner {
+  border-left: 4px solid var(--accent);
+}
+.sp-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 12px;
+}
+.sp-bar .field {
+  flex: 1 1 150px;
+  max-width: 220px;
+}
+.sp-list-actions {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.sp-rights {
+  margin: 0;
+}
+.sp-state {
+  font-weight: 600;
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.sp-state-draft {
+  background: #f3f5f8;
+}
+.sp-state-submitted {
+  background: #e8f0ff;
+  border-color: #9db8f0;
+}
+.sp-state-received {
+  background: #e7f6ec;
+  border-color: #8fcfa5;
+}
+.sp-state-cancelled {
+  background: #fbeceb;
+  border-color: #e3a9a4;
+}
+.sp-dialog {
+  width: min(900px, calc(100vw - 32px));
+}
+.sp-dialog .op-form-error p {
+  margin: 0;
+}
+.sp-info {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  margin: 8px 0 12px;
+}
+.sp-info dt {
+  color: var(--muted, #5b6573);
+}
+.sp-info dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.sp-total {
+  font-weight: 600;
+  margin: 8px 0 12px;
+}
+.sp-dialog h3 {
+  margin: 16px 0 8px;
+}
+.sp-dialog .sp-difference {
+  margin-top: 8px;
+}
+.sp-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 6px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.sp-line .field:first-child {
+  flex: 2 1 220px;
+}
+.sp-line .field {
+  flex: 1 1 120px;
+}
+/* The cost of a receipt line: its label and hint stay on two lines at most. */
+.sp-line .field:nth-child(4) {
+  flex: 1 1 190px;
+}
+.sp-line > .op-note {
+  flex: 1 1 100%;
+  margin: 0;
+}
+.sp-text {
+  width: 100%;
+  font: inherit;
+  white-space: pre-wrap;
+}
+.sp-share {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.sp-request-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.sp-price-form {
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+  padding-top: 8px;
+}
+.supply .inventory-table td,
+.sp-dialog .inventory-table td {
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
+}
+.sp-print-root {
+  display: none;
+}
+@media (max-width: 650px) {
+  .sp-dialog {
+    width: calc(100vw - 16px);
+  }
+  .sp-bar .field {
+    max-width: none;
+  }
+  .sp-info {
+    grid-template-columns: 1fr;
+  }
+}
+@media print {
+  html.sp-printing body > :not(.sp-print-root) {
+    display: none !important;
+  }
+  html.sp-printing .sp-print-root {
+    display: block;
+    color: #000;
+    font:
+      12pt/1.4 Arial,
+      sans-serif;
+  }
+  .sp-print-root table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12pt 0;
+  }
+  .sp-print-root th,
+  .sp-print-root td {
+    border: 1px solid #000;
+    padding: 4pt 6pt;
+    text-align: left;
+  }
+}
