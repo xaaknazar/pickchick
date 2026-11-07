@@ -40,7 +40,7 @@ test('every second-wave flag off on the bo-ui schema (075): the same outputs', (
     withSyncDatabases(sameAsGolden, { cloudMigrationDirectory: directory }),
   ));
 
-test('the comparison can fail: a second-wave flag that is on changes exactly the reads', () =>
+test('the comparison can fail: the stock reports flag changes exactly the reads and the movement', () =>
   withSyncDatabases(async (c) => {
     const expected = await golden();
     const ours = await goldenOutputs(
@@ -53,20 +53,29 @@ test('the comparison can fail: a second-wave flag that is on changes exactly the
       for (const name of Object.keys(expected[set]))
         if (JSON.stringify(ours[set][name]) !== JSON.stringify(expected[set][name]))
           differing.push(`${set}: ${name}`);
-    // Five reads per set gain capabilities.stock_reports; nothing else changes yet (the views of
-    // the second wave come with their steps).
+    // Five reads per set gain capabilities.stock_reports (false without stock v2), and where
+    // stock v2 runs view=movement gains its turnover after all its bo-ui keys (step 4). Nothing
+    // else changes: every other view and command keeps the bo-ui answer.
+    const v2 = (set) => set !== 'all off';
     assert.deepEqual(
       differing,
       Object.keys(expected).flatMap((set) =>
         Object.keys(expected[set])
-          .filter((name) => name.startsWith('read '))
+          .filter((name) => name.startsWith('read ') || (v2(set) && name === 'ops stock movement'))
           .map((name) => `${set}: ${name}`),
       ),
     );
     for (const set of Object.keys(expected)) {
       const read = ours[set]['read manager day'].ok;
       assert.equal(Object.keys(read.capabilities).at(-1), 'stock_reports');
+      assert.equal(read.capabilities.stock_reports, v2(set), set);
       delete read.capabilities.stock_reports;
       assert.deepStrictEqual(read, expected[set]['read manager day'].ok);
+      if (!v2(set)) continue;
+      const movement = ours[set]['ops stock movement'].ok;
+      assert.deepEqual(Object.keys(movement).slice(-2), ['turnover', 'consumption'], set);
+      delete movement.turnover;
+      delete movement.consumption;
+      assert.deepStrictEqual(movement, expected[set]['ops stock movement'].ok, set);
     }
   }));

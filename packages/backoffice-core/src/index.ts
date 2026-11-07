@@ -46,6 +46,14 @@ import {
 } from './p2-commands.js';
 import { readSuppliers, readSupplyRequests, supplyCommand } from './supply.js';
 import { importSupplierPrices, readSupplierImports } from './supplier-import.js';
+import {
+  ingredientP2Keys,
+  readStockBalances,
+  readStockReorder,
+  readStockTurnover,
+  stockConsumption,
+  withIngredientP2,
+} from './stock-reports.js';
 import { posOrderCard, posOrderExtras, posStaffNames, readPosDay } from './pos-day.js';
 import {
   IngredientP1,
@@ -105,6 +113,7 @@ export * from './p2-flags.js';
 export * from './p2-commands.js';
 export * from './supply.js';
 export * from './supplier-import.js';
+export * from './stock-reports.js';
 export * from './pos-day.js';
 export * from './edge-staff.js';
 export * from './stock-p1.js';
@@ -686,6 +695,9 @@ export class Backoffice {
    * - `suppliers`, `supply-requests` and `supplier-imports` (bo-ui2 steps 2-3, supply.ts and
    *   supplier-import.ts): only while BACKOFFICE_SUPPLY_ENABLED is on; otherwise exactly the 404
    *   of an unknown view.
+   * - `stock?view=balances|reorder` and the `turnover` of `stock?view=movement` (bo-ui2 step 4,
+   *   stock-reports.ts): only while BACKOFFICE_STOCK_REPORTS_ENABLED is on; otherwise the query
+   *   is refused (INVALID_REQUEST) and view=movement answers exactly as before.
    */
   async ops(token: string, branch: string, view: string, input: unknown = {}) {
     return transaction(this.pool, async (db) => {
@@ -745,9 +757,32 @@ export class Backoffice {
       if (view !== 'stock') return fail('NOT_FOUND');
       if (this.options.stockV2Enabled !== true || !(await stockV2Readable(db)))
         throw new ErrorCode('NOT_FOUND', 'STOCK_V2_DISABLED');
+      const now = new Date();
+      // Second wave (bo-ui2 step 4, stock-reports.ts): the balances and the reorder hint, only
+      // while BACKOFFICE_STOCK_REPORTS_ENABLED is on; without it their query stays invalid.
+      const reports = this.options.stockReportsEnabled === true;
+      const asked =
+        input !== null && typeof input === 'object'
+          ? (input as Record<string, unknown>)['view']
+          : null;
+      if (reports && asked === 'balances')
+        return readStockBalances(db, branch, input, this.options, now);
+      if (reports && asked === 'reorder')
+        return readStockReorder(db, branch, input, this.options, now);
       // Stock P1 (bo-ui): storno in the reports and the storno links of the documents.
-      if (await stockP1Ready(db)) return readStockOpsP1(db, branch, input, new Date());
-      return readStockOps(db, branch, input, new Date());
+      const answer = (await stockP1Ready(db))
+        ? await readStockOpsP1(db, branch, input, now)
+        : await readStockOps(db, branch, input, now);
+      // The movement of the window gains its turnover per ingredient (opening, kinds, closing).
+      if (!reports || answer.view !== 'movement') return answer;
+      return {
+        ...answer,
+        turnover: await readStockTurnover(db, branch, {
+          start: new Date(answer.period_start),
+          end: new Date(answer.period_end),
+        }),
+        consumption: await stockConsumption(db, branch, this.options, now),
+      };
     });
   }
   /** Stop list v2 (catalog names, edge versions, open commands); analysts may read it. */
@@ -1111,10 +1146,17 @@ export class Backoffice {
           // Review BOUI-R3: while stock P1 is not available an ingredient or a recipe keeps its
           // P1 fields (the employee pattern): sent back unchanged they are not refused, left out
           // they are not wiped.
-          const keptP1 =
-            (c.kind === 'ingredient' || c.kind === 'recipe') && !p1Record
+          // Second wave (bo-ui2 step 4, stock-reports.ts): an ingredient may carry supply_kind
+          // (supply) and meat (stock reports) while their flag is on; otherwise it keeps them the
+          // same way, so with the flags off a bo-ui card is saved exactly as before.
+          const p2 = c.kind === 'ingredient' ? ingredientP2Keys(this.options) : { on: [], off: [] };
+          const keptKeys: readonly string[] = [
+            ...((c.kind === 'ingredient' || c.kind === 'recipe') && !p1Record
               ? STOCK_P1_RECORD_KEYS[c.kind]
-              : null;
+              : []),
+            ...p2.off,
+          ];
+          const keptP1 = keptKeys.length ? keptKeys : null;
           const sentP1 =
             keptP1 !== null &&
             typeof c.payload === 'object' &&
@@ -1131,13 +1173,13 @@ export class Backoffice {
           // read before the payload check (its kept fields); every other record after it.
           let old = c.kind === 'employee' || sentP1 ? await lockOld() : undefined;
           const parsed = parse(
-            (p1Record
-              ? c.kind === 'ingredient'
-                ? IngredientP1
-                : RecipeP1
-              : positions
-                ? EmployeeP1
-                : Schemas[c.kind]) as z.ZodType<Record<string, unknown>>,
+            (c.kind === 'ingredient'
+              ? withIngredientP2(p1Record ? IngredientP1 : Schemas.ingredient, p2.on)
+              : p1Record
+                ? RecipeP1
+                : positions
+                  ? EmployeeP1
+                  : Schemas[c.kind]) as z.ZodType<Record<string, unknown>>,
             // A card that already has position fields keeps them with the flag off: a cabinet
             // that sends them back unchanged is not refused (positions.ts).
             c.kind === 'employee' && !positions

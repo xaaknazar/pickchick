@@ -1,6 +1,7 @@
 import type { DatabaseClient } from '@pickchick/database';
 import { p1RelationsReady } from './p1-flags.js';
 import { stockV2Writable } from './stock-v2.js';
+import { stockReportsAvailable } from './stock-reports.js';
 import type { BackofficeOptions } from './stops.js';
 
 /**
@@ -60,19 +61,21 @@ export async function supplyAvailable(db: Db, options: BackofficeOptions): Promi
 }
 export type P2Capabilities = {
   supply?: boolean;
-  stock_reports?: true;
+  stock_reports?: boolean;
   staff_assignment?: boolean;
 };
 /**
  * The second-wave keys of GET branches/:id capabilities, in this order, only for the flags that
  * are on. `supply` also needs stock v2 (a received request is a stock v2 receipt; supplyAvailable)
  * and `staff_assignment` the staff positions (the stations are positions), like loadConfig
- * requires. `stock_reports` reads only tables the back office already reads, so it is always true.
+ * requires. `stock_reports` (step 4) lives under GET .../ops/stock, so it needs stock v2 and the
+ * cloud074 columns readable (stockReportsAvailable), like the view itself.
  */
 export async function p2Capabilities(db: Db, options: BackofficeOptions): Promise<P2Capabilities> {
   const out: P2Capabilities = {};
   if (options.supplyEnabled === true) out.supply = await supplyAvailable(db, options);
-  if (options.stockReportsEnabled === true) out.stock_reports = true;
+  if (options.stockReportsEnabled === true)
+    out.stock_reports = await stockReportsAvailable(db, options);
   if (options.staffAssignmentEnabled === true)
     out.staff_assignment =
       options.staffPositionsEnabled === true &&

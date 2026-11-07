@@ -34,7 +34,8 @@ const CONFIG_KEY = {
 /** What each flag builds on (loadConfig refuses it alone). */
 const NEEDS = {
   BACKOFFICE_SUPPLY_ENABLED: { BACKOFFICE_STOCK_V2_ENABLED: 'true' },
-  BACKOFFICE_STOCK_REPORTS_ENABLED: {},
+  // Step 4: the reports are views of the stock v2 page (GET .../ops/stock).
+  BACKOFFICE_STOCK_REPORTS_ENABLED: { BACKOFFICE_STOCK_V2_ENABLED: 'true' },
   BACKOFFICE_STAFF_ASSIGNMENT_ENABLED: { BACKOFFICE_STAFF_POSITIONS_ENABLED: 'true' },
 };
 const OPTION = {
@@ -51,7 +52,7 @@ const CAPABILITY = {
 /** The options each second-wave option builds on (its key is false without them). */
 const BASE = {
   supplyEnabled: { stockV2Enabled: true },
-  stockReportsEnabled: {},
+  stockReportsEnabled: { stockV2Enabled: true },
   staffAssignmentEnabled: { staffPositionsEnabled: true },
 };
 /** Every bo-ui flag on, with the cloud lane flags its features build on. */
@@ -138,6 +139,10 @@ test('loadConfig: the three second-wave flags default off, add a key only when o
         env({ BACKOFFICE_SUPPLY_ENABLED: 'true', BACKOFFICE_STOCK_V2_ENABLED: 'false' }),
       ),
     /requires BACKOFFICE_STOCK_V2_ENABLED/,
+  );
+  assert.throws(
+    () => loadConfig('api', env({ BACKOFFICE_STOCK_REPORTS_ENABLED: 'true' })),
+    /BACKOFFICE_STOCK_REPORTS_ENABLED requires BACKOFFICE_STOCK_V2_ENABLED/,
   );
   assert.throws(
     () => loadConfig('api', env({ BACKOFFICE_STAFF_ASSIGNMENT_ENABLED: 'true' })),
@@ -323,7 +328,7 @@ test('each second-wave flag adds only its capability key, after every bo-ui key'
               }
             : off;
         assert.deepEqual(withoutKeys(state, [key]), expected);
-        // Without the flag it builds on, the key is there and false (stock_reports needs none).
+        // Without the flag it builds on, the key is there and false.
         if (Object.keys(BASE[option]).length) {
           const alone = stable(
             await new Backoffice(c.cloud.pool, true, { [option]: true }).read(p.token, c.branch),

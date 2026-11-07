@@ -50,7 +50,10 @@ export interface ServiceConfig {
    * (cloud076). Needs BACKOFFICE_STOCK_V2_ENABLED: a received request is a stock v2 receipt.
    */
   backofficeSupplyEnabled?: boolean;
-  /** BACKOFFICE_STOCK_REPORTS_ENABLED: stock balances, stock turnover and the order hint. */
+  /**
+   * BACKOFFICE_STOCK_REPORTS_ENABLED: stock balances, stock turnover and the order hint (GET
+   * .../ops/stock). Needs BACKOFFICE_STOCK_V2_ENABLED: the reports are views of the stock v2 page.
+   */
   backofficeStockReportsEnabled?: boolean;
   /**
    * BACKOFFICE_STAFF_ASSIGNMENT_ENABLED: staff at stations (cloud076 bo_staff_assignments). Needs
@@ -173,6 +176,8 @@ export function loadConfig(
   }
   if (env.BACKOFFICE_SUPPLY_ENABLED === 'true' && env.BACKOFFICE_STOCK_V2_ENABLED !== 'true')
     throw new Error('BACKOFFICE_SUPPLY_ENABLED requires BACKOFFICE_STOCK_V2_ENABLED');
+  if (env.BACKOFFICE_STOCK_REPORTS_ENABLED === 'true' && env.BACKOFFICE_STOCK_V2_ENABLED !== 'true')
+    throw new Error('BACKOFFICE_STOCK_REPORTS_ENABLED requires BACKOFFICE_STOCK_V2_ENABLED');
   if (
     env.BACKOFFICE_STAFF_ASSIGNMENT_ENABLED === 'true' &&
     env.BACKOFFICE_STAFF_POSITIONS_ENABLED !== 'true'
