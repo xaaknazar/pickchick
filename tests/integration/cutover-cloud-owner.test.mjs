@@ -282,6 +282,25 @@ test('the tool pins the reviewed 072/073/074 bytes, parses only its commands and
           error.code === 1 &&
           error.stderr.trim() === 'Cutover cloud owner guard: Owner database required',
       );
+  // The master runbook names the 075 step, its pinned hash and every refusal an operator can see.
+  const runbook = await readFile(
+    new URL('../../docs/operations/cutover-2026-11-19.md', import.meta.url),
+    'utf8',
+  );
+  for (const text of [
+    'owner inspect-075',
+    'owner deploy-075',
+    'owner p1-grants pos-day,stock-v2,manager-shifts,staff-positions',
+    P1_CHECKSUM,
+    'Cloud 075 is already applied: deploy-075 runs once',
+    'Exact 075 candidate file required',
+    `Reviewed migration bytes differ: ${P1_MIGRATION}`,
+    'Run deploy-075 (075 with the reviewed bytes) first',
+    'BACKOFFICE_ENABLED grants are required first',
+    'autoconsume requires stock-v2',
+    'Back-office P1 grants differ from every known flag state: run inspect-075',
+  ])
+    assert.ok(runbook.includes(text), text);
   const usage = await run(process.execPath, [tool, 'flag', 'roles'], {
     env: { PATH: process.env.PATH },
   }).catch((error) => error);
