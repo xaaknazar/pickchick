@@ -644,6 +644,17 @@ test('deploy-075 on exact schema074: 075 with every P1 flag off, data and ACL ke
       assert.deepEqual(p1Only(await runtimePrivileges(pool, role)), p1Privileges(true, day));
       await owner(client, () => setCutoverFlag(client, { role, flag: 'roles', enabled: false }));
       const consume = await grants([...day, 'autoconsume']);
+      // The receiver flag resets the 073 tables to the receiver set and back: the P1 reads on
+      // cloud_pos_* (pos-day, autoconsume) are in both sets, so nothing of P1 is lost.
+      const withP1 = await runtimePrivileges(pool, role);
+      const receiverOn = await owner(client, () =>
+        setCutoverFlag(client, { role, flag: 'pos-sales-sync', enabled: true }),
+      );
+      assert.deepEqual(receiverOn.privilegesRemoved, []);
+      await owner(client, () =>
+        setCutoverFlag(client, { role, flag: 'pos-sales-sync', enabled: false }),
+      );
+      assert.deepEqual(await runtimePrivileges(pool, role), withP1);
       assert.deepEqual(consume.privilegesRemoved, []);
       assert.deepEqual(
         p1Only(consume.privilegesAdded),
