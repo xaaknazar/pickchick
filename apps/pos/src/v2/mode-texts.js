@@ -2,6 +2,7 @@
 // byte while the desk works without payments (pos/config 404 or unpaid_service: installed desks
 // must not change); a desk that sells (pos/config pos_sale) says what is true there instead.
 // DOM-free, like sale-view.js and ops-view.js.
+import { deskNumber } from '../types.js';
 
 /** Today's texts, exactly as the unpaid cashier shows them. */
 export const TEST_TEXTS = Object.freeze({
@@ -15,7 +16,10 @@ export const TEST_TEXTS = Object.freeze({
   deskChip: ' · касса 1',
   appLine: 'Pick Chick POS 0.4 · TEST',
 });
-/** The same places on a desk that sells. No desk number: nothing tells this desk's (CR §2). */
+/**
+ * The same places on a desk that sells. Its desk number only when the edge tells it (pos/config
+ * desk_number, CR client-5 §3.2), see deskTexts.
+ */
 export const PAID_TEXTS = Object.freeze({
   shiftOpened: 'Смена открыта',
   shiftClosed: 'Смена закрыта. Не забудьте закрыть смену в кабинете Webkassa.',
@@ -55,20 +59,22 @@ export const appVersion = (value) =>
   typeof value === 'string' && APP_VERSION.test(value) ? value : null;
 /**
  * Desk line of the lock and opening screens ("Касса 1 · " + clock or date), the role chip of
- * the header and the lock footer. A desk that sells shows no desk number rather than a wrong
- * one, and its real version without "TEST".
+ * the header and the lock footer. A desk that sells shows the number its edge gave it (1..99,
+ * in today's wording) or no number rather than a wrong one, and its real version without
+ * "TEST". Without payments the number is never used: today's "Касса 1" byte for byte.
  */
-export function deskTexts(paid, version) {
+export function deskTexts(paid, version, number = null) {
   if (!paid)
     return {
       deskPrefix: TEST_TEXTS.deskPrefix,
       deskChip: TEST_TEXTS.deskChip,
       appLine: TEST_TEXTS.appLine,
     };
-  const known = appVersion(version);
+  const known = appVersion(version),
+    desk = deskNumber(number);
   return {
-    deskPrefix: '',
-    deskChip: '',
+    deskPrefix: desk === null ? '' : `Касса ${desk} · `,
+    deskChip: desk === null ? '' : ` · касса ${desk}`,
     appLine: PAID_TEXTS.appName + (known ? ' ' + known : ''),
   };
 }
@@ -130,4 +136,31 @@ export function rememberDeskMode(storage, state, previous) {
       /* The lock screen falls back to today's texts after a restart. */
     }
   return paid;
+}
+/**
+ * The desk number that goes with the pos_sale hint above: the number of the edge's last pos_sale
+ * answer to this desk, kept in a sibling key (the mode key keeps its two values for older
+ * builds). Only a display hint, like the mode; a desk without payments never writes it.
+ */
+export const DESK_NUMBER_KEY = 'pickchick.pos.desk-number.v1';
+export function storedDeskNumber(storage) {
+  try {
+    const value = storage?.getItem(DESK_NUMBER_KEY);
+    return typeof value === 'string' && /^[1-9][0-9]?$/.test(value) ? Number(value) : null;
+  } catch {
+    return null;
+  }
+}
+/** Keeps the number of a pos_sale answer; any other answer or none keeps `previous`. */
+export function rememberDeskNumber(storage, state, previous) {
+  if (state.posConfig?.mode !== 'pos_sale') return previous;
+  const number = deskNumber(state.posConfig.desk_number);
+  if (number !== previous)
+    try {
+      if (number === null) storage?.removeItem(DESK_NUMBER_KEY);
+      else storage?.setItem(DESK_NUMBER_KEY, String(number));
+    } catch {
+      /* The lock screen shows no number after a restart; the session shows it again. */
+    }
+  return number;
 }

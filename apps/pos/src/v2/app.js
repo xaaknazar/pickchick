@@ -12,8 +12,10 @@ import {
   findGuestText,
   kitchenOffText,
   rememberDeskMode,
+  rememberDeskNumber,
   shiftClosedText,
   shiftOpenedText,
+  storedDeskNumber,
   storedDeskPaid,
   unavailableText,
 } from './mode-texts.js';
@@ -99,8 +101,11 @@ const say = (text) => reference.say(text);
 const deskStorage = {
   getItem: (key) => localStorage.getItem(key),
   setItem: (key, value) => localStorage.setItem(key, value),
+  removeItem: (key) => localStorage.removeItem(key),
 };
-let deskPaid = storedDeskPaid(deskStorage);
+let deskPaid = storedDeskPaid(deskStorage),
+  // The desk number of the edge's last pos_sale answer (CR client-5 §3.2); shown only with it.
+  deskNo = storedDeskNumber(deskStorage);
 // Test-mode texts stay as they are without payments; a desk that sells says the truth (CR
 // client-5), also while its session waits for the first pos/config answer (review 07.11 R1).
 const sells = () => deskSells(model, deskPaid);
@@ -482,10 +487,12 @@ function draw() {
   // Desk number and app line (CR client-5): the session's pos/config once it is read, GET
   // ordering while that read is still missing (review 07.11 R1), and before both (the lock
   // screen, the first moment after a PIN) the edge's last answer to this desk, so a desk that
-  // sells never flashes "Касса 1" or "TEST".
+  // sells never flashes "Касса 1" or "TEST". Its number: the session's pos/config pos_sale, else
+  // the number of the desk's last pos_sale answer (none after any other answer).
   deskPaid = rememberDeskMode(deskStorage, m, deskPaid);
+  deskNo = rememberDeskNumber(deskStorage, m, deskNo);
   const paid = sells();
-  Object.assign(v, deskTexts(paid, config.appVersion));
+  Object.assign(v, deskTexts(paid, config.appVersion, deskPaid ? deskNo : null));
   // Red: no connection to the cashier server; yellow: no internet, the cashier keeps working.
   const connection = connectionLabel(m);
   Object.assign(v, {

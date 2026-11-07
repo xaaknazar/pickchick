@@ -565,6 +565,9 @@ test('paid cashier screens in the browser: hall cash, aggregator, staff meal; 40
     if (req.url === '/paid') edge.state.config = paid;
     if (req.url === '/config-fail') edge.state.configFails = true;
     if (req.url === '/config-ok') edge.state.configFails = false;
+    // Edge 028 (CR pos-7): pos/config names this desk's number; before, the key is absent (026).
+    if (req.url === '/desk-2') paid.desk_number = 2;
+    if (req.url === '/desk-null') paid.desk_number = null;
     res.end(JSON.stringify({ configReads: edge.state.configReads }));
   });
   await new Promise((r) => control.listen(0, '127.0.0.1', r));

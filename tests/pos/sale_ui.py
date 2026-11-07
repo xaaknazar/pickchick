@@ -29,6 +29,17 @@ def capture(page, name):
 PAID_LOCK = 'Вход по личному PIN · Pick Chick POS 0.5.0'
 TEST_LOCK = 'Вход по личному PIN · Pick Chick POS 0.4 · TEST'
 HINT = "() => localStorage.getItem('pickchick.pos.desk-mode.v1')"
+DESK_HINT = "() => localStorage.getItem('pickchick.pos.desk-number.v1')"
+DESK_NUMBER = re.compile('[Кк]асса [0-9]')
+
+
+def on_screen(page, item, where):
+    """The whole element is inside the viewport (no cut desk number at 1366 px)."""
+    box = item.bounding_box()
+    size = page.viewport_size
+    assert box and box['x'] >= 0 and box['y'] >= 0, (where, box)
+    assert box['x'] + box['width'] <= size['width'] and box['y'] + box['height'] <= size['height'], (where, box, size)
+    assert item.evaluate('(e) => e.scrollWidth <= e.clientWidth'), (where, 'text cut')
 
 
 def paid_lock(page):
@@ -94,10 +105,12 @@ with sync_playwright() as pw:
             button(page, digit).click()
         tile = page.get_by_role('button', name=re.compile('Тестовое комбо'))
         expect(tile).to_be_visible()
-        # CR client-5: a desk that sells names no test mode and no wrong desk number.
+        # CR client-5: a desk that sells names no test mode and no wrong desk number. This edge
+        # does not number its desks yet (pos/config without desk_number, an edge 026).
         expect(page.get_by_text('Кассир', exact=True).first).to_be_visible()
-        expect(page.get_by_text(re.compile('касса 1', re.I))).to_have_count(0)
+        expect(page.get_by_text(DESK_NUMBER)).to_have_count(0)
         assert page.evaluate(HINT) == 'pos_sale'
+        assert page.evaluate(DESK_HINT) is None
         button(page, 'Промокод').click()
         expect(page.locator('.pos-toast')).to_have_text('Эта функция пока не подключена.')
 
@@ -273,11 +286,16 @@ with sync_playwright() as pw:
             page.wait_for_timeout(500)
         else:
             raise AssertionError('pos/config was not asked again within 10 s')
-        # The edge answers again: the next refresh turns the desk paid.
+        # The edge answers again, and now numbers this desk (edge 028, CR pos-7): the next
+        # refresh turns the desk paid, «касса 2» in the header in today's wording.
+        urlopen(fixture['control'] + '/desk-2').read()
         urlopen(fixture['control'] + '/config-ok').read()
         nav.get_by_role('button', name=re.compile('^ЗАКАЗ$')).click()
         expect(page.get_by_test_id('sale-channels')).to_be_visible(timeout=10000)
         assert page.evaluate(HINT) == 'pos_sale'
+        chip = nav.locator('.nav-info > div:not(.lock-action)')
+        expect(chip).to_contain_text('Кассир · касса 2')
+        assert page.evaluate(DESK_HINT) == '2'
 
         # Part B on an edge that sells again: refund, void, Webkassa tab, X report, closing.
 
@@ -304,6 +322,8 @@ with sync_playwright() as pw:
                 # The whole state is readable in the ОПЛАТА · ККМ column: never cut.
                 assert receipt_state(number).evaluate('(e) => e.scrollWidth <= e.clientWidth'), (number, width)
             bar_fits(page, f'orders {width}')
+            expect(chip.get_by_text('Кассир · касса 2', exact=True)).to_be_visible()
+            on_screen(page, chip, f'header chip {width}')
         capture(page, 'orders-paid-1366.png')
         page.set_viewport_size({'width': 1920, 'height': 1080})
         for number in ('27', '28', '29'):
@@ -420,11 +440,48 @@ with sync_playwright() as pw:
         page.get_by_role('button', name='Готово · закрыть кассу').click()
         expect(button(page, '1')).to_be_visible()
         paid_lock(page)
+        lock_line = page.get_by_text(re.compile('^\\s*Касса 2 · [0-9]{2}:[0-9]{2}\\s*$'))
+        expect(lock_line).to_be_visible()
         capture(page, 'lock-paid-1920.png')
-        # After a restart the lock screen still knows this desk sells.
+        # After a restart, before the first PIN login, the lock screen still knows this desk
+        # sells and its number (the hint of the last pos_sale answer).
         page.reload()
         expect(button(page, '1')).to_be_visible()
         paid_lock(page)
+        for width, height in ((1920, 1080), (1366, 768)):
+            page.set_viewport_size({'width': width, 'height': height})
+            expect(lock_line).to_be_visible()
+            on_screen(page, lock_line, f'lock {width}')
+        capture(page, 'lock-paid-desk-1366.png')
+        # The opening screen of the next shift (the shift manager signs in): «Касса 2 · ».
+        for digit in '2468':
+            button(page, digit).click()
+        subtitle = page.locator('.shift-open-subtitle')
+        expect(subtitle).to_contain_text('Тестовая точка · Касса 2 · ')
+        expect(subtitle).to_contain_text(' · открывает Тестовый начальник (Начальник смены)')
+        for width, height in ((1366, 768), (1920, 1080)):
+            page.set_viewport_size({'width': width, 'height': height})
+            on_screen(page, subtitle, f'opening {width}')
+            capture(page, f'shift-open-desk-{width}.png')
+        no_test_text(page, 'opening, desk 2')
+        # The operator clears the number (desk --clear): no number again, exactly as before 028.
+        urlopen(fixture['control'] + '/desk-null').read()
+        page.reload()
+        expect(subtitle).to_be_visible()
+        expect(subtitle).not_to_contain_text('Касса')
+        expect(subtitle).to_contain_text('Тестовая точка · ')
+        assert page.evaluate(DESK_HINT) is None
+        assert page.evaluate(HINT) == 'pos_sale'
+        # A restart of the window (same desk, no session): the lock screen of a desk that sells,
+        # without a number.
+        page.close()
+        page = context.new_page()
+        page.on('pageerror', lambda e: errors.append(str(e)))
+        page.goto(url)
+        expect(button(page, '1')).to_be_visible()
+        paid_lock(page)
+        expect(page.get_by_text(re.compile('^\\s*[0-9]{2}:[0-9]{2}\\s*$')).first).to_be_visible()
+        expect(page.get_by_text(DESK_NUMBER)).to_have_count(0)
         assert not errors, errors
         assert not external, external
     except Exception:
