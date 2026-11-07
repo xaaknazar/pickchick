@@ -1,0 +1,202 @@
+{
+  "observedAt": "2026-11-05T21:03:01.228549+00:00",
+  "releaseLockPresent": false,
+  "legacyProject": "deploy",
+  "containers": [
+    {
+      "name": "deploy-server-1",
+      "id": "56d189bdc0a6e859da607633e69aa1c21a9ef5aebecaf6a36958be460dc3e6c0",
+      "imageId": "sha256:cda8c924efe9cd6929fea6ab50e28b7605beb96ec5891edcf01a645fe7bff42e",
+      "repoDigests": [
+        "deploy-server@sha256:cda8c924efe9cd6929fea6ab50e28b7605beb96ec5891edcf01a645fe7bff42e"
+      ],
+      "state": "running",
+      "restartPolicy": {
+        "Name": "unless-stopped",
+        "MaximumRetryCount": 0
+      },
+      "startedAt": "2026-08-20T11:23:54.518957959Z",
+      "service": "server",
+      "mounts": []
+    },
+    {
+      "name": "deploy-caddy-1",
+      "id": "882c34b45f20aea325a4f77a7dfcd73accf9e2a2d58e86be5551b9b32342243b",
+      "imageId": "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+      "repoDigests": [
+        "caddy@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648"
+      ],
+      "state": "running",
+      "restartPolicy": {
+        "Name": "unless-stopped",
+        "MaximumRetryCount": 0
+      },
+      "startedAt": "2026-08-19T18:01:44.32152829Z",
+      "service": "caddy",
+      "mounts": [
+        {
+          "type": "bind",
+          "name": null,
+          "source": "/opt/idrink/deploy/Caddyfile",
+          "destination": "/etc/caddy/Caddyfile"
+        },
+        {
+          "type": "volume",
+          "name": "deploy_caddy_data",
+          "source": "/var/lib/docker/volumes/deploy_caddy_data/_data",
+          "destination": "/data"
+        },
+        {
+          "type": "volume",
+          "name": "deploy_caddy_config",
+          "source": "/var/lib/docker/volumes/deploy_caddy_config/_data",
+          "destination": "/config"
+        }
+      ]
+    },
+    {
+      "name": "deploy-db-1",
+      "id": "2c04cf98357826fed81428eb70f95380912787bcf1cc50c92488b2047288bb36",
+      "imageId": "sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685",
+      "repoDigests": [
+        "postgres@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685"
+      ],
+      "state": "running",
+      "restartPolicy": {
+        "Name": "unless-stopped",
+        "MaximumRetryCount": 0
+      },
+      "startedAt": "2026-08-19T17:53:10.226108251Z",
+      "service": "db",
+      "mounts": [
+        {
+          "type": "volume",
+          "name": "deploy_pgdata",
+          "source": "/var/lib/docker/volumes/deploy_pgdata/_data",
+          "destination": "/var/lib/postgresql/data"
+        }
+      ]
+    }
+  ],
+  "volumes": [
+    {
+      "name": "deploy_caddy_config",
+      "mountpoint": "/var/lib/docker/volumes/deploy_caddy_config/_data",
+      "sizeKiB": 16,
+      "containerUsers": ["deploy-caddy-1"]
+    },
+    {
+      "name": "deploy_caddy_data",
+      "mountpoint": "/var/lib/docker/volumes/deploy_caddy_data/_data",
+      "sizeKiB": 156,
+      "containerUsers": ["deploy-caddy-1"]
+    },
+    {
+      "name": "deploy_pgdata",
+      "mountpoint": "/var/lib/docker/volumes/deploy_pgdata/_data",
+      "sizeKiB": 64976,
+      "containerUsers": ["deploy-db-1"]
+    }
+  ],
+  "networks": [
+    {
+      "name": "deploy_default",
+      "id": "b1754dd49fd1ccf5c49eb850408d2967380d11a244c6df30644246487b7622dc",
+      "ipam": [
+        {
+          "Subnet": "172.18.0.0/16",
+          "Gateway": "172.18.0.1"
+        }
+      ],
+      "containers": [
+        "deploy-caddy-1",
+        "deploy-db-1",
+        "deploy-server-1",
+        "pickchick-public-gateway",
+        "pickchick-staff-login"
+      ]
+    }
+  ],
+  "pickchickOnLegacyNetwork": [
+    {
+      "name": "pickchick-public-gateway",
+      "address": "172.18.0.5"
+    },
+    {
+      "name": "pickchick-staff-login",
+      "address": "172.18.0.6"
+    },
+    {
+      "name": "pickchick-staff-login-backup-59f0c0d98a6d",
+      "address": ""
+    },
+    {
+      "name": "pickchick-staff-login-backup-4caca195a4a5",
+      "address": ""
+    },
+    {
+      "name": "pickchick-staff-login-backup-ab73aae4d5ab",
+      "address": ""
+    },
+    {
+      "name": "pickchick-staff-login-backup-661f84c20b47",
+      "address": ""
+    },
+    {
+      "name": "pickchick-staff-login-backup-d379075bf678",
+      "address": ""
+    },
+    {
+      "name": "pickchick-staff-login-backup-f01cb45f441d",
+      "address": ""
+    },
+    {
+      "name": "pickchick-staff-login-backup-8468e3aed72c",
+      "address": ""
+    },
+    {
+      "name": "pickchick-staff-login-backup-23fb39e152fc",
+      "address": ""
+    },
+    {
+      "name": "pickchick-staff-login-backup-3f55929a0f17",
+      "address": ""
+    }
+  ],
+  "front": {
+    "sha256": "5993997a230ae099d9cb9b93c3a6cdf22f691ff1e1df35ac97a16d00ac6e0e52",
+    "pickchickSites": [
+      "pickchick.185.129.51.103.nip.io",
+      "pickchick.kz",
+      "api.pickchick.kz",
+      "www.pickchick.kz"
+    ],
+    "legacySiteBlockCount": 1,
+    "certMounts": [
+      {
+        "path": "/var/lib/docker/volumes/deploy_caddy_data/_data",
+        "destination": "/data"
+      },
+      {
+        "path": "/var/lib/docker/volumes/deploy_caddy_config/_data",
+        "destination": "/config"
+      }
+    ]
+  },
+  "database": {
+    "engine": "PostgreSQL",
+    "version": "16.15",
+    "sizeBytes": 9133079
+  },
+  "directorySizeKiB": 1752,
+  "memory": "total        used        free      shared  buff/cache   available\nMem:            3914        1617         442          37        2189        2296\nSwap:           2047         224        1823",
+  "disk": "Filesystem      Size  Used Avail Use% Mounted on\n/dev/vda1       193G   63G  130G  33% /",
+  "containerMemory": "pickchick-staging-api-1 88.47MiB / 512MiB\npickchick-public-gateway 15.39MiB / 128MiB\npickchick-roadmap 30.21MiB / 192MiB\npickchick-kitchen-portal 41.74MiB / 256MiB\npickchick-kaspi-worker 73.91MiB / 256MiB\npickchick-kiosk-kaspi-qr-worker 73.64MiB / 256MiB\npickchick-staff-login 41.6MiB / 512MiB\npickchick-kaspi-bridge 51.14MiB / 192MiB\npickchick-staging-cloud-db-1 69.79MiB / 768MiB\npickchick-staging-redis-cache-1 1.582MiB / 128MiB\ndeploy-server-1 63.85MiB / 3.823GiB\ndeploy-caddy-1 45.89MiB / 3.823GiB\ndeploy-db-1 13.11MiB / 3.823GiB",
+  "managementFiles": [],
+  "unreadableManagementDirectories": [],
+  "firewall": null,
+  "legacyDNS": {
+    "configuredDomainCount": 1,
+    "pointsToVps": true
+  }
+}

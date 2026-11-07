@@ -25,6 +25,7 @@ import { colors, font } from '../theme';
 import { SheetKeyboardOffsetContext } from './OrderSheet';
 import { GlassButton } from './GlassButton';
 import { useTabBarInset } from './tab-bar-inset';
+import { useTabScrollToTop } from './useTabScrollToTop';
 import { keyboardAvoidingBehavior } from '../keyboard-avoidance';
 
 export type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -348,6 +349,7 @@ export function Page({
   const [keyboardVisible, setKeyboardVisible] = useState(() => Keyboard.isVisible());
   const hasKeyboardFooter = keyboardFooter != null;
   const scrollRef = useRef<ScrollView>(null);
+  useTabScrollToTop(scrollRef);
   const scrollY = useRef(0);
   const revealFocusedInput = useCallback(() => {
     const input = TextInput.State.currentlyFocusedInput();
