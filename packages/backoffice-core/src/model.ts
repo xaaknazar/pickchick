@@ -47,6 +47,9 @@ export const BackofficeErrorReasonSchema = z.enum([
   'PRICE_UNIT_MISMATCH',
   'REQUEST_LOCKED',
   'REQUEST_INCOMPLETE',
+  // Lane bo-ui2 price import (design-bo-ui 9.4, step 3): only with BACKOFFICE_SUPPLY_ENABLED.
+  'IMPORT_ALREADY_APPLIED',
+  'IMPORT_STALE',
 ]);
 export type BackofficeErrorReason = z.infer<typeof BackofficeErrorReasonSchema>;
 export class BackofficeError extends Error {

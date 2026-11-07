@@ -45,6 +45,7 @@ import {
   type P2RequestInput,
 } from './p2-commands.js';
 import { readSuppliers, readSupplyRequests, supplyCommand } from './supply.js';
+import { importSupplierPrices, readSupplierImports } from './supplier-import.js';
 import { posOrderCard, posOrderExtras, posStaffNames, readPosDay } from './pos-day.js';
 import {
   IngredientP1,
@@ -103,6 +104,7 @@ export * from './p1-flags.js';
 export * from './p2-flags.js';
 export * from './p2-commands.js';
 export * from './supply.js';
+export * from './supplier-import.js';
 export * from './pos-day.js';
 export * from './edge-staff.js';
 export * from './stock-p1.js';
@@ -681,6 +683,9 @@ export class Backoffice {
    *   exactly the 404 of an unknown view.
    * - `discounts` (bo-ui step 7, discounts.ts): only while BACKOFFICE_DISCOUNTS_ENABLED is on;
    *   otherwise exactly the 404 of an unknown view.
+   * - `suppliers`, `supply-requests` and `supplier-imports` (bo-ui2 steps 2-3, supply.ts and
+   *   supplier-import.ts): only while BACKOFFICE_SUPPLY_ENABLED is on; otherwise exactly the 404
+   *   of an unknown view.
    */
   async ops(token: string, branch: string, view: string, input: unknown = {}) {
     return transaction(this.pool, async (db) => {
@@ -725,14 +730,17 @@ export class Backoffice {
       }
       // Second wave (bo-ui2 step 2, supply.ts): suppliers with their prices and the supply
       // requests, only while BACKOFFICE_SUPPLY_ENABLED is on; every role reads.
+      // Step 3 (supplier-import.ts): the price imports with their reports.
       if (
-        (view === 'suppliers' || view === 'supply-requests') &&
+        (view === 'suppliers' || view === 'supply-requests' || view === 'supplier-imports') &&
         this.options.supplyEnabled === true
       ) {
         if (!(await supplyAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
         return view === 'suppliers'
           ? readSuppliers(db, branch, input, new Date())
-          : readSupplyRequests(db, branch, input, new Date());
+          : view === 'supplier-imports'
+            ? readSupplierImports(db, branch, input, new Date())
+            : readSupplyRequests(db, branch, input, new Date());
       }
       if (view !== 'stock') return fail('NOT_FOUND');
       if (this.options.stockV2Enabled !== true || !(await stockV2Readable(db)))
@@ -998,7 +1006,14 @@ export class Backoffice {
         let result: unknown;
         let before: unknown = null;
         let entity: string | null;
-        if (
+        if (c.type === 'supplier_prices_import') {
+          // The price import of scripts/supplier-prices-import.mjs (supplier-import.ts): one part
+          // of a plan, only adding suppliers and prices; the flag, stock v2 and the 076 rights.
+          if (!(await supplyAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+          const done = await importSupplierPrices(db, branch, actor.id, c);
+          result = done.result;
+          entity = done.entity;
+        } else if (
           c.type === 'supplier_save' ||
           c.type === 'supplier_price_save' ||
           c.type === 'supply_request_save' ||

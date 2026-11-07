@@ -8,6 +8,7 @@ import {
   SupplyRequestSaveCommand,
   SupplyRequestSubmitCommand,
 } from './supply.js';
+import { SupplierPricesImportCommand } from './supplier-import.js';
 
 /**
  * Every second-wave command (lane bo-ui2, design-bo-ui.md §9.4). Like the P1 commands of
@@ -18,6 +19,8 @@ import {
 export const P2Command = z.discriminatedUnion('type', [
   SupplierSaveCommand,
   SupplierPriceSaveCommand,
+  // Step 3: the price import of scripts/supplier-prices-import.mjs (supplier-import.ts).
+  SupplierPricesImportCommand,
   SupplyRequestSaveCommand,
   SupplyRequestSubmitCommand,
   SupplyRequestCancelCommand,
@@ -40,6 +43,7 @@ export const P2_COMMAND_PERMISSIONS: Readonly<
 > = Object.freeze({
   supplier_save: ['suppliers.write'],
   supplier_price_save: ['suppliers.write'],
+  supplier_prices_import: ['suppliers.write'],
   supply_request_save: ['supply.write'],
   supply_request_submit: ['supply.write'],
   supply_request_cancel: ['supply.close'],
@@ -54,6 +58,7 @@ export const P2_COMMAND_FLAGS: Readonly<
 > = Object.freeze({
   supplier_save: ['supplyEnabled', 'stockV2Enabled'],
   supplier_price_save: ['supplyEnabled', 'stockV2Enabled'],
+  supplier_prices_import: ['supplyEnabled', 'stockV2Enabled'],
   supply_request_save: ['supplyEnabled', 'stockV2Enabled'],
   supply_request_submit: ['supplyEnabled', 'stockV2Enabled'],
   supply_request_cancel: ['supplyEnabled', 'stockV2Enabled'],

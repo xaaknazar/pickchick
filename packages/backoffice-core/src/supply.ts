@@ -435,6 +435,11 @@ async function savePrice(
 }
 
 export const SuppliersQuery = z.strictObject({ id: z.uuid().optional() });
+/** The file and the counts of an import report (supplier-import.ts ImportSummarySchema). */
+const ImportReportHead = z.object({
+  file_name: z.string(),
+  counts: z.record(z.string(), z.number()),
+});
 /**
  * GET .../ops/suppliers[?id=uuid] (design-bo-ui 9.4): the suppliers of the branch, active ones
  * first, by name. With `id` also the prices of that supplier (by ingredient, unit and day, newest
@@ -461,6 +466,8 @@ export async function readSuppliers(db: Db, branch: string, input: unknown, now:
         [branch, q.id, today],
       )
     ).rows;
+    // The imports its prices came from, each with its file and counts only: the full report of
+    // an import is GET .../ops/supplier-imports?id (step 3), so 50 reports never fill this answer.
     const imports = (
       await db.query<{
         id: string;
@@ -484,7 +491,15 @@ export async function readSuppliers(db: Db, branch: string, input: unknown, now:
       id: q.id,
       prices: prices.slice(0, SUPPLIER_PRICE_LIMIT).map(priceView),
       prices_truncated: prices.length > SUPPLIER_PRICE_LIMIT,
-      imports: imports.map((i) => ({ ...i, applied_at: iso(i.applied_at) })),
+      imports: imports.map(({ summary, ...i }) => {
+        const report = ImportReportHead.safeParse(summary);
+        return {
+          ...i,
+          file_name: report.success ? report.data.file_name : null,
+          counts: report.success ? report.data.counts : null,
+          applied_at: iso(i.applied_at),
+        };
+      }),
     };
   }
   return {
