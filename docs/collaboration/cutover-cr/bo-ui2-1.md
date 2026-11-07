@@ -235,3 +235,35 @@ design-bo-ui.md` - раздел «Вторая волна» (схемы отве
   поэтому комментарий не правился; описание - в `design-bo-ui.md` §9.4.
 - Откат - флаг `false` и перезапуск API; интервалы остаются. Runbook:
   `docs/operations/backoffice-supply.md` §9.
+
+## 10. Шаг 6 (завершение полосы): что изменилось для integration
+
+- **076 окончательная**: не менялась с шага 1, SHA-256
+  `436131f9854b5f4c024ab1492c2b7857bd14925e2398dc092548dadc25e693a3` (п. 0). Её и закрепить в
+  охраняемом owner-шаге облачных миграций и фикстурах (п. 3).
+- `capabilities.supply` теперь требует ещё и чтения столбцов прихода 074 (`stockV2Readable` в
+  `supplyAvailable`): карточка заявки читает приход обратно. `backofficeGrants` даёт и запись, и
+  чтение, действий не нужно; роль без чтения получает `supply=false` и `NOT_READY` вместо ошибки
+  500 (тест «API role» в `supply.test.mjs`). Эталон флагов выключенных не затронут.
+- Новых видов, команд, прав, причин ошибок и env нет. `packages/contracts` и `openapi.json` не
+  менялись за всю полосу.
+- Полный перечень того, что integration добавляет из этой полосы (п. 1-9 вместе):
+  1. вызов helper-а `backofficeSupplyGrants`/`assertBackofficeSupplyPrivileges` в `provision.mjs`
+     сразу после helper-а bo-ui (п. 1);
+  2. три флага в `infra/staging/compose.yaml` (`api`, `provision`) и `.env.example` (п. 2);
+  3. 076 в порядке облачных миграций, фикстурах и owner-шаге сразу после 075 (п. 3, п. 4);
+  4. имена видов в перечень `view` CR `bo-ui-8` §2, если он ведётся: `suppliers`,
+     `supply-requests`, `supplier-imports`, `staff-assignments`; значения `ops/stock?view=`
+     `balances` и `reorder` (п. 6-9);
+  5. шлюз стенда (`infra/public-staging/gateway.Caddyfile`, регулярка `backoffice_get` уже
+     дополнена в путях полосы) выкладывается вместе с кабинетом;
+  6. `scripts/supplier-prices-import.mjs` - в перечень операторских скриптов мастер-runbook или
+     пакета администратора, если он ведётся (п. 7).
+- Runbook полосы закончен: `docs/operations/backoffice-supply.md`, раздел «Коротко» - что включает
+  каждый флаг, порядок 13.11-19.11 (076 в Cloud-2; 18.11 - отчёты склада и закупки с импортом
+  цен из выгрузки iiko до её отключения; расстановка по умолчанию с 20.11), роли и откат; §10 -
+  проход по экранам и тесты; §11 - чего пока нет. В `backoffice-cutover.md` добавлена ссылка на
+  него. Для мастер-runbook перехода (integration): шаги 18.11 из «Порядка» второй волны и строка
+  отката «флаги второй волны `false`, перезапуск API».
+- Проход браузером по всем экранам второй волны, ролям и ширинам:
+  `tests/backoffice/p2-pass-browser.test.mjs` (входит в `test:backoffice`).
