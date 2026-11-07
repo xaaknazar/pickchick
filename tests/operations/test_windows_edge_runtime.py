@@ -125,7 +125,10 @@ class WindowsEdgePackageTests(unittest.TestCase):
         repo = SCRIPT.parents[1]
         tools = ['scripts/pos-sales-setup.mjs', 'infra/windows/pos-sales-upgrade-db.mjs',
                  'infra/windows/kds-upgrade-db.mjs', 'infra/windows/kds-switch.mjs',
-                 'infra/windows/pos-sales-sync-release.mjs']
+                 'infra/windows/pos-sales-sync-release.mjs',
+                 # Lane bo-ui: the roster scripts of backoffice-p1-cutover.md run on the server.
+                 'scripts/staff-roster-apply.mjs', 'scripts/staff-pin-batch.mjs',
+                 'scripts/edge-staff-id.mjs']
         # Workspace packages of the runtime closure: the build roots and their dependencies.
         workspace = {}
         for manifest in [*repo.glob('packages/*/package.json'), *repo.glob('services/*/package.json')]:
@@ -141,7 +144,9 @@ class WindowsEdgePackageTests(unittest.TestCase):
         for relative in tools:
             self.assertIn(relative, builder.ADMIN_FILES)
             text = (repo / relative).read_text()
-            for imported in re.findall(r"from '([^']+)'", text):
+            # Static imports and the dynamic import('...') the operator scripts load at run time.
+            for imported in re.findall(r"from '([^']+)'|import\('([^']+)'\)", text):
+                imported = imported[0] or imported[1]
                 if imported.startswith('.'):
                     target = posixpath.normpath(posixpath.join(posixpath.dirname(relative), imported))
                     self.assertIn(target, builder.ADMIN_FILES, relative + ' imports ' + imported)

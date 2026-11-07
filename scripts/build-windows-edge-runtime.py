@@ -65,6 +65,13 @@ ADMIN_FILES = (
     'infra/windows/kds-grants.mjs',
     'infra/windows/kds-upgrade-db.mjs',
     'infra/windows/kds-switch.mjs',
+    # Lane bo-ui (CR bo-ui-6, backoffice-p1-cutover.md «Состав на кассе»): the point operator runs
+    # the roster scripts on the point server. staff-roster-apply.mjs imports edge-staff-id.mjs,
+    # staff-pin-batch.mjs imports staff-roster-apply.mjs; both load staff-credential.mjs and
+    # hidden-password.mjs (shipped above) and packages of the runtime closure.
+    'scripts/edge-staff-id.mjs',
+    'scripts/staff-roster-apply.mjs',
+    'scripts/staff-pin-batch.mjs',
     # Cutover 19.11 (integration review R8): the POS sync installer refuses a runtime whose
     # manifest does not pin every file it runs (install-native-pos-sync.ps1, Verify in window
     # C4 step 3.8); native-pos-sync-db.mjs imports native-foundation-db.mjs and
