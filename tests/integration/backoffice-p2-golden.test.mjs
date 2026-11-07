@@ -79,3 +79,61 @@ test('the comparison can fail: the stock reports flag changes exactly the reads 
       assert.deepStrictEqual(movement, expected[set]['ops stock movement'].ok, set);
     }
   }));
+
+test('the comparison can fail: the staff assignment flag changes exactly the reads and its views', () =>
+  withSyncDatabases(async (c) => {
+    const expected = await golden();
+    const ours = await goldenOutputs(
+      lane,
+      c,
+      lane.backofficeP2Options({ backofficeStaffAssignmentEnabled: true }),
+    );
+    const differing = [];
+    for (const set of Object.keys(expected))
+      for (const name of Object.keys(expected[set]))
+        if (JSON.stringify(ours[set][name]) !== JSON.stringify(expected[set][name]))
+          differing.push(`${set}: ${name}`);
+    // Step 5: five reads per set gain capabilities.staff_assignment (false without the staff
+    // positions), ops/staff-assignments answers (NOT_READY without the positions), and where the
+    // manager shift runs with the positions its view gains the check and the closing item. The
+    // commands of the golden carry the step 1 proposal bodies (an instant instead of the business
+    // day and the time), so they stay unknown commands.
+    const full = (set) => set === 'bo-ui flags';
+    assert.deepEqual(
+      differing,
+      Object.keys(expected).flatMap((set) =>
+        Object.keys(expected[set])
+          .filter(
+            (name) =>
+              name.startsWith('read ') ||
+              name === 'ops staff-assignments' ||
+              name === 'ops shift manager staff-assignments' ||
+              (full(set) && name === 'ops manager-shifts'),
+          )
+          .map((name) => `${set}: ${name}`),
+      ),
+    );
+    for (const set of Object.keys(expected)) {
+      const read = ours[set]['read manager day'].ok;
+      assert.equal(Object.keys(read.capabilities).at(-1), 'staff_assignment');
+      assert.equal(read.capabilities.staff_assignment, full(set), set);
+      delete read.capabilities.staff_assignment;
+      if (full(set)) {
+        // With roles on the manager also lists the two rights, after every other one.
+        assert.deepEqual(read.permissions.slice(-2), ['staff.assign', 'staff.assign_override']);
+        read.permissions.splice(-2);
+      }
+      assert.deepStrictEqual(read, expected[set]['read manager day'].ok, set);
+      for (const view of ['ops staff-assignments', 'ops shift manager staff-assignments'])
+        if (full(set))
+          assert.equal(ours[set][view].ok.view, 'staff-assignments', `${set}: ${view}`);
+        else assert.deepEqual(ours[set][view], { error: { code: 'NOT_READY', reason: null } });
+      if (!full(set)) continue;
+      const shifts = ours[set]['ops manager-shifts'].ok;
+      assert.deepEqual(Object.keys(shifts).slice(-2), ['checks', 'extra_items'], set);
+      assert.equal(Object.keys(shifts.checks).at(-1), 'staff_assignment');
+      delete shifts.extra_items;
+      delete shifts.checks.staff_assignment;
+      assert.deepStrictEqual(shifts, expected[set]['ops manager-shifts'].ok, set);
+    }
+  }));

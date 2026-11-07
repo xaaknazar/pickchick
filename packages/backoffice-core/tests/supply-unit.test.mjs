@@ -89,15 +89,16 @@ test('payloads: a supplier name is collapsed and trimmed, an empty note is none'
 });
 
 test('permissions: the matrix of step 2 and the order of permissions[]', () => {
+  // Step 5 adds the two rights of the staff assignment after the supply ones.
   assert.deepEqual(
     [...BACKOFFICE_P2_PERMISSIONS],
-    ['suppliers.write', 'supply.write', 'supply.close'],
+    ['suppliers.write', 'supply.write', 'supply.close', 'staff.assign', 'staff.assign_override'],
   );
-  assert.deepEqual([...SUPPLY_PERMISSIONS], [...BACKOFFICE_P2_PERMISSIONS]);
+  assert.deepEqual([...SUPPLY_PERMISSIONS], BACKOFFICE_P2_PERMISSIONS.slice(0, 3));
   const matrix = Object.fromEntries(
     ['manager', 'shift_manager', 'accountant', 'analyst'].map((role) => [
       role,
-      BACKOFFICE_P2_PERMISSIONS.filter((p) => can(role, p)),
+      SUPPLY_PERMISSIONS.filter((p) => can(role, p)),
     ]),
   );
   assert.deepEqual(matrix, {
@@ -117,8 +118,9 @@ test('permissions: the matrix of step 2 and the order of permissions[]', () => {
     assert.equal(can(role, 'stock.receipt'), true);
     assert.equal(can(role, 'supply.close'), false);
   }
-  for (const flags of Object.values(P2_COMMAND_FLAGS))
-    assert.deepEqual([...flags], ['supplyEnabled', 'stockV2Enabled']);
+  for (const [type, flags] of Object.entries(P2_COMMAND_FLAGS))
+    if (!type.startsWith('staff_'))
+      assert.deepEqual([...flags], ['supplyEnabled', 'stockV2Enabled'], type);
   // Without p2 the list is exactly the one before (P0 then P1).
   assert.deepEqual(permissionsOf('manager', ['discounts.write']), [
     ...permissionsOf('manager'),

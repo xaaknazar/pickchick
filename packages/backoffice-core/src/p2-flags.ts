@@ -59,6 +59,20 @@ export async function supplyAvailable(db: Db, options: BackofficeOptions): Promi
     (await stockV2Writable(db))
   );
 }
+/**
+ * The staff assignment can run for the current database role (step 5): the flag, the staff
+ * positions (the stations are positions) and the cloud076 rights of backoffice-supply-grants.mjs.
+ */
+export async function staffAssignmentAvailable(
+  db: Db,
+  options: BackofficeOptions,
+): Promise<boolean> {
+  return (
+    options.staffAssignmentEnabled === true &&
+    options.staffPositionsEnabled === true &&
+    (await p1RelationsReady(db, P2_FEATURE_RELATIONS.staff_assignment))
+  );
+}
 export type P2Capabilities = {
   supply?: boolean;
   stock_reports?: boolean;
@@ -77,8 +91,6 @@ export async function p2Capabilities(db: Db, options: BackofficeOptions): Promis
   if (options.stockReportsEnabled === true)
     out.stock_reports = await stockReportsAvailable(db, options);
   if (options.staffAssignmentEnabled === true)
-    out.staff_assignment =
-      options.staffPositionsEnabled === true &&
-      (await p1RelationsReady(db, P2_FEATURE_RELATIONS.staff_assignment));
+    out.staff_assignment = await staffAssignmentAvailable(db, options);
   return out;
 }

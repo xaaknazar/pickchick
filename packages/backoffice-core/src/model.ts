@@ -50,6 +50,14 @@ export const BackofficeErrorReasonSchema = z.enum([
   // Lane bo-ui2 price import (design-bo-ui 9.4, step 3): only with BACKOFFICE_SUPPLY_ENABLED.
   'IMPORT_ALREADY_APPLIED',
   'IMPORT_STALE',
+  // Lane bo-ui2 staff assignment (design-bo-ui 9.4, step 5): only with
+  // BACKOFFICE_STAFF_ASSIGNMENT_ENABLED.
+  'STATION_UNKNOWN',
+  'STATION_NOT_ALLOWED',
+  'EMPLOYEE_NOT_WORKING',
+  'ASSIGNMENT_TIME',
+  'ASSIGNMENT_OVERLAP',
+  'ASSIGNMENT_PREVIOUS_DAY',
 ]);
 export type BackofficeErrorReason = z.infer<typeof BackofficeErrorReasonSchema>;
 export class BackofficeError extends Error {

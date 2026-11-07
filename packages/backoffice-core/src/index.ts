@@ -36,14 +36,16 @@ import {
 import { assertStockV2, readStockOps, stockV2Readable, stockV2Writable } from './stock-v2.js';
 import { readSalesReport } from './sales-report.js';
 import { p1Capabilities } from './p1-flags.js';
-import { p2Capabilities, supplyAvailable } from './p2-flags.js';
+import { p2Capabilities, staffAssignmentAvailable, supplyAvailable } from './p2-flags.js';
 import {
   P2Request,
   P2_COMMAND_FLAGS,
   P2_COMMAND_PERMISSIONS,
+  STAFF_ASSIGNMENT_PERMISSIONS,
   SUPPLY_PERMISSIONS,
   type P2RequestInput,
 } from './p2-commands.js';
+import { readStaffAssignments, staffAssignmentCommand } from './staff-assignments.js';
 import { readSuppliers, readSupplyRequests, supplyCommand } from './supply.js';
 import { importSupplierPrices, readSupplierImports } from './supplier-import.js';
 import {
@@ -114,6 +116,7 @@ export * from './p2-commands.js';
 export * from './supply.js';
 export * from './supplier-import.js';
 export * from './stock-reports.js';
+export * from './staff-assignments.js';
 export * from './pos-day.js';
 export * from './edge-staff.js';
 export * from './stock-p1.js';
@@ -536,8 +539,12 @@ export class Backoffice {
                   // Discounts (step 7): the editor, while the 075 rights are there.
                   ...(p1.discounts === true ? (['discounts.write'] as const) : []),
                 ],
-                // Second wave (bo-ui2): suppliers and requests, while the 076 rights are there.
-                p2.supply === true ? SUPPLY_PERMISSIONS : [],
+                // Second wave (bo-ui2): suppliers and requests, while the 076 rights are there;
+                // step 5: the staff assignment, while it is available.
+                [
+                  ...(p2.supply === true ? SUPPLY_PERMISSIONS : []),
+                  ...(p2.staff_assignment === true ? STAFF_ASSIGNMENT_PERMISSIONS : []),
+                ],
               ),
             }
           : {};
@@ -698,6 +705,8 @@ export class Backoffice {
    * - `stock?view=balances|reorder` and the `turnover` of `stock?view=movement` (bo-ui2 step 4,
    *   stock-reports.ts): only while BACKOFFICE_STOCK_REPORTS_ENABLED is on; otherwise the query
    *   is refused (INVALID_REQUEST) and view=movement answers exactly as before.
+   * - `staff-assignments` (bo-ui2 step 5, staff-assignments.ts): only while
+   *   BACKOFFICE_STAFF_ASSIGNMENT_ENABLED is on; otherwise exactly the 404 of an unknown view.
    */
   async ops(token: string, branch: string, view: string, input: unknown = {}) {
     return transaction(this.pool, async (db) => {
@@ -753,6 +762,12 @@ export class Backoffice {
           : view === 'supplier-imports'
             ? readSupplierImports(db, branch, input, new Date())
             : readSupplyRequests(db, branch, input, new Date());
+      }
+      // Second wave (bo-ui2 step 5, staff-assignments.ts): the staff assignment of a business day
+      // or of a window, only while BACKOFFICE_STAFF_ASSIGNMENT_ENABLED is on; every role reads.
+      if (view === 'staff-assignments' && this.options.staffAssignmentEnabled === true) {
+        if (!(await staffAssignmentAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+        return readStaffAssignments(db, branch, input, new Date(), this.options);
       }
       if (view !== 'stock') return fail('NOT_FOUND');
       if (this.options.stockV2Enabled !== true || !(await stockV2Readable(db)))
@@ -1041,7 +1056,15 @@ export class Backoffice {
         let result: unknown;
         let before: unknown = null;
         let entity: string | null;
-        if (c.type === 'supplier_prices_import') {
+        if (c.type === 'staff_assign' || c.type === 'staff_unassign') {
+          // Staff assignment (staff-assignments.ts): the flag, the positions and the 076 rights.
+          // A station outside the employee's positions also checks staff.assign_override.
+          if (!(await staffAssignmentAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+          const done = await staffAssignmentCommand(db, branch, actor.id, actor.effective, c);
+          result = done.result;
+          before = done.before;
+          entity = done.entity;
+        } else if (c.type === 'supplier_prices_import') {
           // The price import of scripts/supplier-prices-import.mjs (supplier-import.ts): one part
           // of a plan, only adding suppliers and prices; the flag, stock v2 and the 076 rights.
           if (!(await supplyAvailable(db, this.options))) throw new ErrorCode('NOT_READY');

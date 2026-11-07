@@ -314,18 +314,15 @@ test('each second-wave flag adds only its capability key, after every bo-ui key'
         );
         assert.deepEqual(Object.keys(state.capabilities), [...Object.keys(off.capabilities), key]);
         assert.equal(state.capabilities[key], true, key);
-        // Step 2: with roles on, supply also lists its rights in permissions[], after the rest.
+        // Step 2: with roles on, supply also lists its rights in permissions[], after the rest;
+        // step 5: the staff assignment its two rights.
+        const rights = {
+          supplyEnabled: ['suppliers.write', 'supply.write', 'supply.close'],
+          staffAssignmentEnabled: ['staff.assign', 'staff.assign_override'],
+        }[option];
         const expected =
-          option === 'supplyEnabled' && Array.isArray(off.permissions)
-            ? {
-                ...off,
-                permissions: [
-                  ...off.permissions,
-                  'suppliers.write',
-                  'supply.write',
-                  'supply.close',
-                ],
-              }
+          rights && Array.isArray(off.permissions)
+            ? { ...off, permissions: [...off.permissions, ...rights] }
             : off;
         assert.deepEqual(withoutKeys(state, [key]), expected);
         // Without the flag it builds on, the key is there and false.

@@ -106,6 +106,13 @@ export const BACKOFFICE_P2_PERMISSIONS = [
    * of the request) or cancel it with a reason (BACKOFFICE_SUPPLY_ENABLED).
    */
   'supply.close',
+  /**
+   * Staff assignment: put an employee on a station from HH:MM, move him, end his interval
+   * (BACKOFFICE_STAFF_ASSIGNMENT_ENABLED, step 5).
+   */
+  'staff.assign',
+  /** Put an employee on a station his positions do not allow, with a reason (step 5). */
+  'staff.assign_override',
 ] as const;
 export type BackofficeP2Permission = (typeof BACKOFFICE_P2_PERMISSIONS)[number];
 export type BackofficeAnyPermission =
@@ -167,13 +174,15 @@ export const P1_ROLE_PERMISSIONS: Readonly<
  * Second-wave matrix (design-bo-ui §9.3 with the rules of step 2): suppliers and their prices by
  * the manager and the accountant; supply requests created and submitted by the manager and the
  * shift manager, received and cancelled by the manager only; the accountant and the analyst read
- * the requests.
+ * the requests. Step 5: the staff assignment by the manager and the shift manager; a station
+ * outside the employee's positions only by the manager (the task of step 5: «unless the manager
+ * confirms an override with a reason»); the accountant and the analyst read it.
  */
 export const P2_ROLE_PERMISSIONS: Readonly<
   Record<BackofficeEffectiveRole, readonly BackofficeP2Permission[]>
 > = Object.freeze({
   manager: BACKOFFICE_P2_PERMISSIONS,
-  shift_manager: Object.freeze(['supply.write'] as const),
+  shift_manager: Object.freeze(['supply.write', 'staff.assign'] as const),
   accountant: Object.freeze(['suppliers.write'] as const),
   analyst: Object.freeze([] as const),
 });

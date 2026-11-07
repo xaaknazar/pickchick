@@ -9,6 +9,7 @@ import {
   SupplyRequestSubmitCommand,
 } from './supply.js';
 import { SupplierPricesImportCommand } from './supplier-import.js';
+import { StaffAssignCommand, StaffUnassignCommand } from './staff-assignments.js';
 
 /**
  * Every second-wave command (lane bo-ui2, design-bo-ui.md §9.4). Like the P1 commands of
@@ -25,6 +26,9 @@ export const P2Command = z.discriminatedUnion('type', [
   SupplyRequestSubmitCommand,
   SupplyRequestCancelCommand,
   SupplyRequestReceiveCommand,
+  // Step 5: the staff assignment (staff-assignments.ts).
+  StaffAssignCommand,
+  StaffUnassignCommand,
 ]);
 export type P2CommandInput = z.infer<typeof P2Command>;
 /** POST .../commands body of a second-wave command (the same envelope as Request in model.ts). */
@@ -36,7 +40,9 @@ export const P2Request = z.strictObject({
 export type P2RequestInput = z.infer<typeof P2Request>;
 /**
  * The permissions each second-wave command checks (design-bo-ui §9.3, roles.ts): all of them,
- * in this order. Receiving also posts a stock receipt, so it needs stock.receipt as well.
+ * in this order. Receiving also posts a stock receipt, so it needs stock.receipt as well. A
+ * staff assignment outside the employee's positions also needs staff.assign_override, checked by
+ * the command itself (only then).
  */
 export const P2_COMMAND_PERMISSIONS: Readonly<
   Record<P2CommandInput['type'], readonly (BackofficeP2Permission | BackofficePermission)[]>
@@ -48,12 +54,16 @@ export const P2_COMMAND_PERMISSIONS: Readonly<
   supply_request_submit: ['supply.write'],
   supply_request_cancel: ['supply.close'],
   supply_request_receive: ['supply.close', 'stock.receipt'],
+  staff_assign: ['staff.assign'],
+  staff_unassign: ['staff.assign'],
 });
 /** The back-office options each second-wave command needs besides its own feature checks. */
 export const P2_COMMAND_FLAGS: Readonly<
   Record<
     P2CommandInput['type'],
-    readonly ('supplyEnabled' | 'stockV2Enabled' | 'staffAssignmentEnabled')[]
+    readonly (
+      'supplyEnabled' | 'stockV2Enabled' | 'staffAssignmentEnabled' | 'staffPositionsEnabled'
+    )[]
   >
 > = Object.freeze({
   supplier_save: ['supplyEnabled', 'stockV2Enabled'],
@@ -63,10 +73,18 @@ export const P2_COMMAND_FLAGS: Readonly<
   supply_request_submit: ['supplyEnabled', 'stockV2Enabled'],
   supply_request_cancel: ['supplyEnabled', 'stockV2Enabled'],
   supply_request_receive: ['supplyEnabled', 'stockV2Enabled'],
+  // The stations are the staff positions (loadConfig requires them with this flag).
+  staff_assign: ['staffAssignmentEnabled', 'staffPositionsEnabled'],
+  staff_unassign: ['staffAssignmentEnabled', 'staffPositionsEnabled'],
 });
 /** The second-wave permissions of the supply feature (permissions[] while it is available). */
 export const SUPPLY_PERMISSIONS: readonly BackofficeP2Permission[] = Object.freeze([
   'suppliers.write',
   'supply.write',
   'supply.close',
+]);
+/** The second-wave permissions of the staff assignment (permissions[] while it is available). */
+export const STAFF_ASSIGNMENT_PERMISSIONS: readonly BackofficeP2Permission[] = Object.freeze([
+  'staff.assign',
+  'staff.assign_override',
 ]);
