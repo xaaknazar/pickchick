@@ -42,9 +42,10 @@ const CLIENT_VERSION = /^[0-9A-Za-z][0-9A-Za-z._+-]{0,63}$/;
 /**
  * GET pos/config (contracts 5.1): the service mode, the eight methods with their operator state
  * and pinned policy, the channels (a channel is enabled while one of its methods is), the manual
- * Webkassa mode and the approval TTL. Every fetch records this cash desk's last fetch (staff and
- * optional client build), so the operator enables pos_sale only after every desk runs the new
- * POS. 404 on an edge without schema026 (the POS then keeps its unpaid UI).
+ * Webkassa mode, the approval TTL and the desk number of this terminal (schema028, else null).
+ * Every fetch records this cash desk's last fetch (staff and optional client build), so the
+ * operator enables pos_sale only after every desk runs the new POS. 404 on an edge without
+ * schema026 (the POS then keeps its unpaid UI).
  */
 export async function readPosConfig(
   pool: DatabasePool,
@@ -79,6 +80,15 @@ export async function readPosConfig(
     );
     const time = (await client.query<{ time: Date }>('SELECT clock_timestamp() AS time')).rows[0]!
       .time;
+    // Schema028 desk number of the session's terminal. The row read through to_jsonb names no
+    // column, so the same statement answers null on an edge without 028 (runtime: table SELECT).
+    const desk = (
+      await client.query<{ desk_number: number | null }>(
+        `SELECT to_jsonb(t)->'desk_number' AS desk_number FROM local_terminals t
+         WHERE t.id=$1 AND t.branch_id=$2`,
+        [actor.terminal_id, branchId],
+      )
+    ).rows[0];
     return PosConfigSchema.parse({
       mode: branch.pos_service_mode,
       methods: methods.map(({ code, enabled, requires_approval, allow_in_mix, fiscal_policy }) => ({
@@ -97,6 +107,7 @@ export async function readPosConfig(
       fiscal_mode: 'manual_webkassa',
       approval_ttl_seconds: POS_APPROVAL_TTL_SECONDS,
       server_time: time.toISOString(),
+      desk_number: desk?.desk_number ?? null,
     });
   });
 }

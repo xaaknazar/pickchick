@@ -357,11 +357,18 @@ test('responses: config, sale, result, receipts and ShiftReport', () => {
     fiscal_mode: 'manual_webkassa',
     approval_ttl_seconds: 120,
     server_time: time,
+    desk_number: null,
   };
   assert.equal(POS_APPROVAL_TTL_SECONDS, 120);
   assert.deepEqual(PosConfigSchema.parse(config), config);
   assert.equal(PosConfigSchema.safeParse({ ...config, approval_ttl_seconds: 60 }).success, false);
   assert.equal(PosConfigSchema.safeParse({ ...config, discounts: [] }).success, false);
+  // Schema028 desk number (CR pos-7): 1..99 or null, always present, the last key.
+  for (const desk of [1, 2, 99])
+    assert.deepEqual(PosConfigSchema.parse({ ...config, desk_number: desk }).desk_number, desk);
+  for (const desk of [0, 100, 1.5, '2', undefined])
+    assert.equal(PosConfigSchema.safeParse({ ...config, desk_number: desk }).success, false);
+  assert.equal(Object.keys(PosConfigSchema.parse(config)).at(-1), 'desk_number');
   assert.deepEqual(PosSaleSchema.parse(sale), sale);
   const result = {
     order: { ...unpaidOrder, state: 'paid', payment_state: 'captured', execution_mode: 'pos_sale' },

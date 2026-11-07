@@ -8,16 +8,22 @@ import { edgeInstallConfig } from './edge-migrate.mjs';
 /**
  * Owner-only switch of paid POS sales on the edge (cutover 2026-11, contracts 00 p.1, 2.4, 6.1,
  * 6.2; docs/operations/pos-sales.md). Changes only edge database rows: branch_config.pos_service_mode
- * and pos_payment_methods (enabled, fiscal_policy). Every change writes its pos_sales_setting_changes
- * audit row (before/after, reason) first; schema026 refuses any change without it. No network:
- * the cloud and the cash desks are judged only by what they recorded in this database.
+ * and pos_payment_methods (enabled, fiscal_policy), and with schema028 the desk number of a cash
+ * desk (local_terminals.desk_number; lead decision 07.11 (1), CR pos-7). Every change writes its
+ * pos_sales_setting_changes audit row (before/after, reason) first; schema026/028 refuse any change
+ * without it. No network: the cloud and the cash desks are judged only by what they recorded in
+ * this database.
  *
  *   node scripts/pos-sales-setup.mjs status
  *   node scripts/pos-sales-setup.mjs enable --methods cash,kaspi_terminal,... --reason "..."
  *   node scripts/pos-sales-setup.mjs disable --reason "..."
  *   node scripts/pos-sales-setup.mjs fiscal-policy --method <code> --policy manual_webkassa|not_required --reason "..."
+ *   node scripts/pos-sales-setup.mjs desk --terminal <uuid> --number <1..99> --reason "..."
+ *   node scripts/pos-sales-setup.mjs desk --terminal <uuid> --clear --reason "..."
  */
 export const POS_SALES_MIGRATION = '026_edge_pos_sales.sql';
+/** Edge schema028: local_terminals.desk_number and its audit subject 'desk_number'. */
+export const DESK_NUMBER_MIGRATION = '028_edge_pos_desk_number.sql';
 /** The posSales sender records every answered probe or batch; older than this is unsupported. */
 export const CLOUD_SUPPORT_HOURS = 24;
 /** A cash desk: a terminal with a cash shift or a cashier/shift manager login in this window. */
@@ -32,7 +38,23 @@ const MESSAGES = {
   BRANCH_MISSING: 'Точка EDGE_BRANCH_ID не найдена в branch_config',
   PRECONDITIONS: 'Включать нельзя: не выполнены предусловия (blockers)',
   SALES_SHIFT_OPEN: 'Выключать нельзя: открыта смена продаж - закройте смены (Z) на всех кассах',
+  DESK_NOT_INSTALLED:
+    'На сервере точки нет миграции 028 (номер кассы) - сначала обновление базы из папки поставки RC-edge',
+  TERMINAL_UNKNOWN:
+    'Терминала --terminal нет на этой точке: возьмите terminalId из config.json кассы',
+  TERMINAL_INACTIVE: 'Терминал выключен (active = false): номер кассы ему не ставится',
+  TERMINAL_NOT_DESK: 'Это кухонный экран или табло (доступ устройств), а не касса',
+  DESK_NUMBER_TAKEN:
+    'Этот номер уже у другой активной кассы точки: сначала снимите его там (desk --clear)',
 };
+/** What `desk` reports when it changed nothing (a rerun) and when it wrote the number. */
+const DESK_RESULTS = {
+  set: 'Номер кассы записан',
+  cleared: 'Номер кассы снят',
+  same: 'Ничего не изменено: у кассы уже этот номер',
+  none: 'Ничего не изменено: у кассы нет номера',
+};
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const BLOCKERS = {
   OPEN_SHIFTS: 'Открыты кассовые смены - закройте их на всех кассах',
   CLOUD_NOT_SUPPORTED: `Облако не подтвердило приём продаж (posSales) за последние ${CLOUD_SUPPORT_HOURS} ч`,
@@ -56,7 +78,10 @@ const reasonOf = (value) => {
   return reason;
 };
 
-/** argv after the script name -> {command, ...options}; each option exactly once. */
+/**
+ * argv after the script name -> {command, ...options}; each option exactly once. `desk` takes
+ * --terminal and --reason, and exactly one of --number <1..99> or the bare flag --clear.
+ */
 export function parsePosSalesSetupArgs(argv) {
   const [command, ...rest] = argv;
   const allowed = {
@@ -64,19 +89,39 @@ export function parsePosSalesSetupArgs(argv) {
     enable: ['methods', 'reason'],
     disable: ['reason'],
     'fiscal-policy': ['method', 'policy', 'reason'],
+    desk: ['terminal', 'number', 'reason'],
   }[command];
   if (!allowed) throw new PosSalesSetupError('INVALID_ARGUMENTS');
+  const flags = command === 'desk' ? ['clear'] : [];
   const options = {};
-  for (let i = 0; i < rest.length; i += 2) {
+  for (let i = 0; i < rest.length;) {
     const name = /^--([a-z]+)$/.exec(rest[i] ?? '')?.[1];
+    if (name && flags.includes(name) && !(name in options)) {
+      options[name] = true;
+      i += 1;
+      continue;
+    }
     if (!name || !allowed.includes(name) || name in options || typeof rest[i + 1] !== 'string')
       throw new PosSalesSetupError('INVALID_ARGUMENTS');
     options[name] = rest[i + 1];
+    i += 2;
   }
-  if (allowed.some((name) => !(name in options))) throw new PosSalesSetupError('INVALID_ARGUMENTS');
+  const required = command === 'desk' ? ['terminal', 'reason'] : allowed;
+  if (
+    required.some((name) => !(name in options)) ||
+    (command === 'desk' && 'number' in options === 'clear' in options)
+  )
+    throw new PosSalesSetupError('INVALID_ARGUMENTS');
   if (command === 'status') return { command };
   const reason = reasonOf(options.reason);
   if (command === 'disable') return { command, reason };
+  if (command === 'desk') {
+    const terminal = options.terminal.toLowerCase();
+    if (!UUID.test(terminal) || ('number' in options && !/^[1-9][0-9]?$/.test(options.number)))
+      throw new PosSalesSetupError('INVALID_ARGUMENTS');
+    const desk = 'number' in options ? Number(options.number) : null;
+    return { command, terminal_id: terminal, desk_number: desk, reason };
+  }
   if (command === 'enable') {
     const methods = options.methods.split(',').map((code) => code.trim());
     if (
@@ -159,9 +204,19 @@ async function readState(client, branchId, lock = false) {
   const managed = (
     await client.query("SELECT to_regclass('terminal_access_registry') IS NOT NULL AS ready")
   ).rows[0].ready;
+  // Schema028 (desk numbers) is optional on top of 026: without it every desk shows null.
+  const deskNumbers = (
+    await client.query(
+      `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE scope='edge' AND version=$1)
+         AND EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='local_terminals'::regclass
+           AND attname='desk_number' AND NOT attisdropped) AS installed`,
+      [DESK_NUMBER_MIGRATION],
+    )
+  ).rows[0].installed;
   const desks = (
     await client.query(
-      `SELECT t.id AS terminal_id,f.last_fetched_at,f.client_version FROM local_terminals t
+      `SELECT t.id AS terminal_id,${deskNumbers ? 't.desk_number' : 'NULL::smallint AS desk_number'},
+         f.last_fetched_at,f.client_version FROM local_terminals t
        LEFT JOIN pos_config_fetches f ON f.terminal_id=t.id AND f.branch_id=t.branch_id
        WHERE t.branch_id=$1 AND t.active AND NOT t.device_access_managed
          ${managed ? 'AND NOT EXISTS(SELECT 1 FROM terminal_access_registry r WHERE r.terminal_id=t.id)' : ''}
@@ -200,6 +255,7 @@ async function readState(client, branchId, lock = false) {
   return {
     branch,
     methods,
+    deskNumbers,
     view: {
       branch_id: branchId,
       mode: branch.pos_service_mode,
@@ -227,6 +283,7 @@ async function readState(client, branchId, lock = false) {
         : null,
       cash_desks: desks.map((desk) => ({
         terminal_id: desk.terminal_id,
+        desk_number: desk.desk_number,
         config_fetched: desk.last_fetched_at !== null,
         last_fetched_at: desk.last_fetched_at?.toISOString() ?? null,
         client_version: desk.client_version ?? null,
@@ -365,10 +422,91 @@ export async function setPosFiscalPolicy(pool, branchId, { method, policy, reaso
   });
 }
 
+/**
+ * Schema028: the number of one cash desk (1..99), or none (`desk_number: null`, --clear). Any
+ * time, shifts open or not: the number is only what the cash desk shows. Refused for a terminal
+ * of another branch or none, an inactive one, a kitchen screen or display (device access), and a
+ * number another active desk of the branch holds. The same number again changes nothing.
+ */
+export async function setDeskNumber(pool, branchId, { terminal_id, desk_number, reason }) {
+  return transaction(pool, async (client) => {
+    const state = await readState(client, branchId, true);
+    if (!state.deskNumbers) throw new PosSalesSetupError('DESK_NOT_INSTALLED');
+    const owner = (
+      await client.query(
+        "SELECT pg_get_userbyid(relowner)=current_user AS owner FROM pg_class WHERE oid='local_terminals'::regclass",
+      )
+    ).rows[0].owner;
+    if (owner !== true) throw new PosSalesSetupError('NOT_OWNER');
+    const terminal = (
+      await client.query(
+        `SELECT t.id::text AS id,t.active,t.device_access_managed,t.desk_number,
+           EXISTS(SELECT 1 FROM terminal_access_registry r WHERE r.terminal_id=t.id) AS registered
+         FROM local_terminals t WHERE t.id=$1 AND t.branch_id=$2 FOR UPDATE OF t`,
+        [terminal_id, branchId],
+      )
+    ).rows[0];
+    if (!terminal) throw new PosSalesSetupError('TERMINAL_UNKNOWN', { terminal_id });
+    if (!terminal.active) throw new PosSalesSetupError('TERMINAL_INACTIVE', { terminal_id });
+    if (terminal.device_access_managed || terminal.registered)
+      throw new PosSalesSetupError('TERMINAL_NOT_DESK', { terminal_id });
+    const desk = { terminal_id: terminal.id, desk_number };
+    if (terminal.desk_number === desk_number)
+      return {
+        ...state.view,
+        desk,
+        changes: [],
+        message: DESK_RESULTS[desk_number === null ? 'none' : 'same'],
+      };
+    const holder =
+      desk_number === null
+        ? undefined
+        : (
+            await client.query(
+              `SELECT id::text AS terminal_id FROM local_terminals
+               WHERE branch_id=$1 AND active AND desk_number=$2 AND id<>$3`,
+              [branchId, desk_number, terminal.id],
+            )
+          ).rows[0];
+    if (holder) throw new PosSalesSetupError('DESK_NUMBER_TAKEN', { desk_number, ...holder });
+    const change = await audited(
+      client,
+      branchId,
+      'desk_number',
+      { terminal_id: terminal.id, desk_number: terminal.desk_number },
+      desk,
+      reason,
+      () =>
+        client
+          .query('UPDATE local_terminals SET desk_number=$3 WHERE id=$1 AND branch_id=$2', [
+            terminal.id,
+            branchId,
+            desk_number,
+          ])
+          .catch((error) => {
+            // The partial unique index is the last word on a number another desk got meanwhile.
+            if (
+              error?.code === '23505' &&
+              error.constraint === 'local_terminals_active_desk_number'
+            )
+              throw new PosSalesSetupError('DESK_NUMBER_TAKEN', { desk_number });
+            throw error;
+          }),
+    );
+    return {
+      ...(await readState(client, branchId)).view,
+      desk,
+      changes: [change],
+      message: DESK_RESULTS[desk_number === null ? 'cleared' : 'set'],
+    };
+  });
+}
+
 export async function runPosSalesSetup(pool, branchId, args) {
   if (args.command === 'status') return posSalesStatus(pool, branchId);
   if (args.command === 'enable') return enablePosSales(pool, branchId, args);
   if (args.command === 'disable') return disablePosSales(pool, branchId, args);
+  if (args.command === 'desk') return setDeskNumber(pool, branchId, args);
   return setPosFiscalPolicy(pool, branchId, args);
 }
 

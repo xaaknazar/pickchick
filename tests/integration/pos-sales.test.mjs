@@ -1564,6 +1564,8 @@ test('GET pos/config: 404 on an edge without schema026; fetch record per desk', 
           fiscal_mode: 'manual_webkassa',
           approval_ttl_seconds: 120,
           server_time: undefined,
+          // Schema028 (CR pos-7): no desk has a number until the operator sets one.
+          desk_number: null,
         },
       );
       const fetch = async () =>
