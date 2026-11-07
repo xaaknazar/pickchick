@@ -21,6 +21,14 @@ const CHECK = fails('23514');
 const UNIQUE = fails('23505');
 const FK = fails('23503');
 const withoutClock = (value) => ({ ...value, as_of: null });
+/** The cloud migrations migrate() applies from `first` on (later lanes add files, e.g. 076). */
+async function migrationsFrom(first) {
+  const names = (await readdir(MIGRATIONS))
+    .filter((name) => /^\d{3}_[a-z_]+\.sql$/.test(name) && name >= first)
+    .sort();
+  assert.equal(names[0], first);
+  return names;
+}
 /** The storno and source keys stock P1 appends to a document row (stock-p1.ts). */
 const P1_LINK_KEYS = [
   'source_ref',
@@ -242,7 +250,11 @@ test('upgrade from 074 with data: documents stay valid, the cloud lane runtime a
         const before = await snapshot();
         assert.equal(before.documents.length, 9);
 
-        assert.deepEqual(await migrate(c.cloud.pool, MIGRATIONS, 'cloud'), [P1]);
+        // 075 and every later file (lane bo-ui2: 076, which creates new tables only).
+        assert.deepEqual(
+          await migrate(c.cloud.pool, MIGRATIONS, 'cloud'),
+          await migrationsFrom(P1),
+        );
         const after = await snapshot();
         // GET branches/:id, GET ops/stock and every old row are byte-identical after 075, except
         // for what stock P1 adds under stock v2 (all of it null or the stored values on old rows).
