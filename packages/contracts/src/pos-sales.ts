@@ -160,6 +160,8 @@ export const PosConfigChannelSchema = z.strictObject({
   code: SalesChannelSchema,
   enabled: z.boolean(),
 });
+/** Number of a cash desk (edge schema028 local_terminals.desk_number), set by the operator. */
+export const PosDeskNumberSchema = z.number().int().min(1).max(99);
 export const PosConfigSchema = z.strictObject({
   mode: PosServiceModeSchema,
   methods: z.array(PosConfigMethodSchema).max(8),
@@ -167,6 +169,12 @@ export const PosConfigSchema = z.strictObject({
   fiscal_mode: FiscalModeSchema,
   approval_ttl_seconds: z.literal(POS_APPROVAL_TTL_SECONDS),
   server_time: datetime,
+  /**
+   * The session terminal's desk number (lead decision 07.11 (1), CR pos-7): null until the
+   * operator sets one, and on an edge without schema028. The last key, so every earlier byte of
+   * the answer stays as before; a POS reads a 026 edge's answer without it as null.
+   */
+  desk_number: PosDeskNumberSchema.nullable(),
 });
 
 /** One-time manager confirmation attached to a command (POST staff/approvals result). */
