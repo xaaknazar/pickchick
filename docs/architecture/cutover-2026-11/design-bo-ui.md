@@ -829,11 +829,11 @@ branches/:id?period=custom` этого дня, не трогая период д
 Env API, `true|false`, по умолчанию `false`, только облачный API с `BACKOFFICE_ENABLED=true`
 (`loadConfig`, список `BACKOFFICE_P2_FLAGS`; кабинету - `backofficeP2Options(config)`, `p2-flags.ts`).
 
-| Флаг                                  | `capabilities`     | Значение ключа                                                   | Нужен также                          | Откат                                      |
-| ------------------------------------- | ------------------ | ---------------------------------------------------------------- | ------------------------------------ | ------------------------------------------ |
-| `BACKOFFICE_SUPPLY_ENABLED`           | `supply`           | `true` при складе v2 и правах 076 (helper bo-ui2), иначе `false` | `BACKOFFICE_STOCK_V2_ENABLED`        | `false`; поставщики, цены, заявки остаются |
-| `BACKOFFICE_STOCK_REPORTS_ENABLED`    | `stock_reports`    | всегда `true` (читает таблицы склада, права уже есть)            | -                                    | `false`                                    |
-| `BACKOFFICE_STAFF_ASSIGNMENT_ENABLED` | `staff_assignment` | `true` при должностях и правах 076, иначе `false`                | `BACKOFFICE_STAFF_POSITIONS_ENABLED` | `false`; интервалы остаются                |
+| Флаг                                  | `capabilities`     | Значение ключа                                                      | Нужен также                           | Откат                                      |
+| ------------------------------------- | ------------------ | ------------------------------------------------------------------- | ------------------------------------- | ------------------------------------------ |
+| `BACKOFFICE_SUPPLY_ENABLED`           | `supply`           | `true` при складе v2 и правах 076 (helper bo-ui2), иначе `false`    | `BACKOFFICE_STOCK_V2_ENABLED`         | `false`; поставщики, цены, заявки остаются |
+| `BACKOFFICE_STOCK_REPORTS_ENABLED`    | `stock_reports`    | `true` при складе v2 и читаемых столбцах 074 (шаг 4), иначе `false` | `BACKOFFICE_STOCK_V2_ENABLED` (шаг 4) | `false`; поля карточки остаются            |
+| `BACKOFFICE_STAFF_ASSIGNMENT_ENABLED` | `staff_assignment` | `true` при должностях и правах 076, иначе `false`                   | `BACKOFFICE_STAFF_POSITIONS_ENABLED`  | `false`; интервалы остаются                |
 
 Поставка по заявке - приход склада v2 (откуда, поставщик, дата накладной), поэтому без склада v2
 `loadConfig` отказывает; станции расстановки - должности списка точки (§5.7), поэтому без должностей
@@ -915,6 +915,11 @@ price_minor? (целые тиын > 0, только при поставщике)
 - `Ingredient.supply_kind?: 'central_kitchen'|'bakery'|'household'|'supplier'` (`design-backoffice.md`
   §3) - откуда обычно приходит позиция (группировка подсказки и заявок). Принимается схемой карточки
   второй волны только при `BACKOFFICE_SUPPLY_ENABLED`; без флага - как сегодня (отказ строгой схемы).
+- Шаг 4: `Ingredient.meat?: boolean` - цель «К заказу» - 3 дня расхода (§9.4 «Сделано в шаге 4»).
+  Принимается только при `BACKOFFICE_STOCK_REPORTS_ENABLED` (и складе v2), `supply_kind` - только при
+  `BACKOFFICE_SUPPLY_ENABLED` (и складе v2). Без флага сохранённое значение остаётся, а то же значение,
+  присланное обратно, не отклоняется (правило отката BOUI-R3, `ingredientP2Keys`, `index.ts`);
+  новое или изменённое - отказ строгой схемы, как раньше.
 
 ### 9.3 Права (матрица §5.10, §4 + вторая волна)
 
@@ -1155,6 +1160,61 @@ name, text }] (до 300), issues_total }`, не больше 24 КБ; полны
 - `Ingredient.supply_kind` (§9.2) в шаге 3 не сделан: он нужен группировке подсказки к заказу и
   переходит в шаг отчётов склада.
 
+**Сделано в шаге 4 (отчёты склада, Ск4) и отклонения от схем выше**
+(`packages/backoffice-core/src/stock-reports.ts`; кабинет `apps/backoffice/src/stock-reports-model.ts`,
+`inventory.ts`; тесты `stock-reports.test.mjs`, `stock-reports-unit.test.mjs`,
+`tests/backoffice/stock-reports-p2-ui.test.mjs`, `stock-reports-p2-browser.test.mjs`):
+
+- Отклонение: по заданию шага отчёты - виды существующего `GET ops/stock`, а не отдельные
+  `ops/stock-balances`, `ops/stock-turnover`, `ops/order-hint` из предложения шага 1:
+  `ops/stock?view=balances`, `ops/stock?view=reorder` (без других ключей запроса) и прежний
+  `ops/stock?view=movement&start_date&end_date` (до 92 дней), который при флаге получает
+  `turnover` и `consumption` после всех своих ключей bo-ui. Поэтому отчётам нужен склад v2:
+  `loadConfig` не запускает API с `BACKOFFICE_STOCK_REPORTS_ENABLED` без
+  `BACKOFFICE_STOCK_V2_ENABLED`, а `capabilities.stock_reports` - `true` только при складе v2 и
+  читаемых столбцах 074 (`stockReportsAvailable`; без них `ops/stock` - 404 `STOCK_V2_DISABLED`).
+  Без флага `view=balances|reorder` - `INVALID_REQUEST` строгой схемы bo-ui, `view=movement` -
+  ответ bo-ui байт-в-байт (эталон: «comparison can fail» допускает при флаге только чтения и
+  `ops stock movement` там, где склад v2 есть, и сверяет его без двух новых ключей). Имена
+  `stock-balances`, `stock-turnover`, `order-hint` остаются неизвестными видами (404).
+- `view=balances`: строки всех позиций (до 2000) - `ingredient_id, name, unit, active, group,
+supply_kind, meat, quantity, value_minor, minimum, below_minimum, counted_at, last_movement_at,
+last_purchase{quantity, value_minor, at, document_id}|null, value_last_price_minor|null, revision`;
+  `totals { items, active, below_minimum, value_minor, value_last_price_minor, unpriced }`,
+  `counted_at_known`, `consumption`. «Ниже минимума» - активная позиция с минимумом и остатком
+  меньше него. Последняя цена закупки - последняя строка документа `receipt` с суммой больше нуля,
+  не сторнированного; стоимость по ней - половина вверх (остаток × сумма / количество).
+  Без `?date` (на конец дня) - не нужно заданию шага.
+- `view=movement` + `turnover { rows, totals, mismatches, limits, truncated }`: по позиции
+  `opening`, `receipts`, `production_in`, `consumption`, `waste`, `production_out`, `counts`,
+  `reversals`, `transfers`, `in`, `out`, `closing` - каждое `{ quantity, value_minor }` со знаком;
+  `totals` - только суммы (единицы позиций разные). Начало - остаток после последнего движения до
+  окна (порядок `created_at`, `id`), конец = начало + движения окна, `in`/`out` - положительные и
+  отрицательные движения, так что начало + пришло - ушло = конец по количеству и сумме. Конец
+  сверяется с остатком после последнего движения окна: расхождение - id позиции в `mismatches`
+  (кабинет пишет «не сходится»; в тестах всегда пусто).
+- `view=reorder` (вместо `order-hint?kind&supplier_id&days`; фильтров нет, «Откуда» - поле
+  строки): активные позиции с целью больше нуля, у которых остаток ниже цели (`state: 'below'`) или
+  не больше цели плюс 20 % (`near`). Цель - минимум; у позиции «Мясо» - 3 дня расхода по большему
+  из средних за 7 и 14 полных дней (вверх), но не меньше минимума (`target_rule: 'meat_days'`).
+  `hint` = max(0, цель - остаток), `days_left` = остаток × дни / расход (вниз), `hint_value_minor` -
+  по последней цене закупки. Отклонение от «только документы списания по продажам»: расход = списание
+  по продажам (`consumption`, автоматические и ручные) + расход в производство (отрицательные
+  движения `production`), каждый за вычетом своего сторно в день сторно; списания и инвентаризации
+  не расход. Иначе сырое мясо, которое уходит в заготовку через «Производство», не имело бы расхода
+  и правило «3 дня» к нему не применялось бы. Периоды - полные дни Алматы до сегодняшнего; при
+  режиме `on` - не раньше первого полного дня после `start_at` (`periods.d7/d14` с днями), чтобы
+  свежий запуск не занижал средний расход. Сортировка: ниже цели, затем меньше дней, затем имя.
+- `consumption` (во всех трёх) = `{ mode: 'off'|'dry_run'|'on'|'unavailable', start_at, backlog,
+sales_included }`; `sales_included` = режим `on` и `backlog.stalled=false`. Пока его нет, кабинет
+  на каждой вкладке пишет, что цифры без продаж (или текст `stallText` о необработанных продажах).
+- Право чтения - `reports.read`, все четыре роли; новых прав нет, `permissions[]` прежний.
+  «Создать заявку» - право `supply.write` при `capabilities.supply` (кабинет), иначе кнопки нет или
+  она неактивна с причиной словами.
+- Объём: каждый отчёт читает движения всей истории точки (последнее движение до окна, последняя
+  поставка) без индекса по `(branch_id, ingredient_id)` - DDL заморожен. На объёме одной точки
+  (около миллиона движений за год) это доли секунды; если станет медленно - индекс отдельным CR.
+
 ### 9.5 Порядок работ полосы bo-ui2 (шаги 2-6 - предложение)
 
 1. Шаг 1 (сделан): 076, `backoffice-supply-grants.mjs`, флаги и ключи, эталон `aff89ce6`, CR `bo-ui2-1`,
@@ -1179,3 +1239,6 @@ name, text }] (до 300), issues_total }`, не больше 24 КБ; полны
 5. **Приём поставки по заявке и отмена заявки** - только управляющий (шаг 2). Если вечернюю поставку
    принимает начальник смены без управляющего, он проводит обычную «Поставку» на странице «Остатки»
    (P0), а заявку закрывает управляющий; либо владелец выдаёт начальнику смены `supply.close`.
+6. **«К заказу»** (шаг 4): цель мяса - 3 дня расхода, «рядом» - до цели плюс 20 %, расход -
+   продажи и расход в производство за 7 и 14 полных дней. Если владелец хочет другое число дней или
+   отдельную цель для каждой позиции - поле карточки вместо флажка «Мясо» (без DDL).

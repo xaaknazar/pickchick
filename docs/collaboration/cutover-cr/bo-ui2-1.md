@@ -62,8 +62,8 @@ TRUNCATE не выдаются нигде. Тест `least privilege` в `p2-gra
 этот, и проверяет обе точные проверки (`assertBackofficeP1Privileges` остаётся верной).
 
 `loadConfig('api')` в начале `provision.mjs` уже проверяет флаги (только API, нужен
-`BACKOFFICE_ENABLED`, поставки - вместе с `BACKOFFICE_STOCK_V2_ENABLED`, расстановка - вместе с
-`BACKOFFICE_STAFF_POSITIONS_ENABLED`). Без вызова API не падает: ключи `capabilities.supply` и
+`BACKOFFICE_ENABLED`, поставки и, с шага 4, отчёты склада - вместе с `BACKOFFICE_STOCK_V2_ENABLED`,
+расстановка - вместе с `BACKOFFICE_STAFF_POSITIONS_ENABLED`). Без вызова API не падает: ключи `capabilities.supply` и
 `capabilities.staff_assignment` будут `false`.
 
 ## 2. Флаги в окружении (`infra/staging/compose.yaml`, `.env.example`)
@@ -83,7 +83,7 @@ TRUNCATE не выдаются нигде. Тест `least privilege` в `p2-gra
 +# Cutover bo-ui2 (owner decision 06.11, cloud076): back-office second wave, all off by default.
 +# Suppliers, supplier prices and their import, supply requests; needs BACKOFFICE_STOCK_V2_ENABLED.
 +BACKOFFICE_SUPPLY_ENABLED=false
-+# Stock balances, stock turnover and the order hint.
++# Stock balances, stock turnover and the order hint; needs BACKOFFICE_STOCK_V2_ENABLED.
 +BACKOFFICE_STOCK_REPORTS_ENABLED=false
 +# Staff at stations; needs BACKOFFICE_STAFF_POSITIONS_ENABLED.
 +BACKOFFICE_STAFF_ASSIGNMENT_ENABLED=false
@@ -176,3 +176,25 @@ design-bo-ui.md` - раздел «Вторая волна» (схемы отве
   ведёт перечень операторских скриптов в мастер-runbook или пакете администратора - добавить его
   туда (в окно Cloud-2 он не нужен: загрузка цен - после включения флага, по готовности выгрузки
   владельца, трекер Д6).
+
+## 8. Шаг 4 (отчёты склада): что изменилось для integration
+
+- 076 не менялся: хеш из п. 0 прежний (`436131f9…93a3`). Новых прав нет: отчёты читают таблицы
+  склада 017/074/075, которые уже дают `backofficeGrants` и helper bo-ui (тест «API role» в
+  `stock-reports.test.mjs` - роль только с `backofficeGrants` даёт те же ответы, что владелец).
+- `loadConfig`: `BACKOFFICE_STOCK_REPORTS_ENABLED=true` без `BACKOFFICE_STOCK_V2_ENABLED=true` - ошибка
+  запуска (`... requires BACKOFFICE_STOCK_V2_ENABLED`), как у поставок. В `.env.example` (п. 2)
+  комментарий дополнен. `capabilities.stock_reports` - `true` только при складе v2 и читаемых
+  столбцах 074 (раньше всегда `true`).
+- Новых видов нет: отчёты - `GET ops/stock?view=balances` и `?view=reorder` (без других ключей
+  запроса) и `turnover`, `consumption` в прежнем `?view=movement`. Регулярка шлюза не менялась
+  (`ops/stock` в ней есть); allowlist прокси `apps/backoffice/server.mjs` и кабинета (`api.ts`)
+  дополнен (пути полосы). Если integration ведёт перечень значений `view` для `ops/stock` (CR
+  `bo-ui-8` §2) - добавить `balances`, `reorder`.
+- Карточка ингредиента: поля `meat` (при отчётах склада) и `supply_kind` (при поставках), только в
+  `payload` (`bo_records`), без DDL; без флагов прежняя строгая схема, сохранённые значения не
+  стираются (правило отката bo-ui).
+- Эталон флагов выключенных: `backoffice-p2-golden.test.mjs` проходит на 076 и 075; проверка «эталон
+  может упасть» теперь допускает при `stockReports` чтения и `ops stock movement` (там, где склад
+  v2), и сверяет его без двух новых ключей. `packages/contracts` и `openapi.json` не менялись.
+- Runbook: `docs/operations/backoffice-supply.md` §8.
