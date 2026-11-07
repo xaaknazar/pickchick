@@ -42,7 +42,10 @@ with sync_playwright() as pw:
         if not nav.is_visible():
             page.get_by_test_id('navigation-toggle').click()
         nav.click()
-        expect(page.locator('h1, h2', has_text='Финансовые показатели').first).to_be_visible()
+        # 15 s: in a full suite on a shared machine the reports page once took longer than the
+        # default 5 s (bo-ui2 step 6); the check itself is unchanged.
+        expect(page.locator('h1, h2', has_text='Финансовые показатели').first).to_be_visible(
+            timeout=15000)
 
     if config['mode'] == 'off':
         page = session(1440)
