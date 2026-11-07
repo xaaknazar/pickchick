@@ -188,6 +188,9 @@ test('007 keeps state event uniqueness and immutable outbox/results while reserv
 const CUTOVER_EDGE = {
   '026_edge_pos_sales.sql': '921c526320f6b878f592949d7ca2ebc71e28a1ceb14881c74909314ed46d057c',
   '027_edge_kds_foundation.sql': '41e55b450721646e45be599cf58626fd52328113f5a8165bb8fa5edf1e3a2a97',
+  // CR pos-7 (lead decision 07.11 (1)): the desk number, applied only after 027.
+  '028_edge_pos_desk_number.sql':
+    '684ffa9c5265d32fd3c33e6190ca3126c83c5cb47974aa274cf198fc905d0abf',
 };
 
 test('cutover edge migrations upgrade a 025 edge in order with their reviewed bytes, earlier ledger unchanged', async () => {
@@ -230,7 +233,8 @@ test('cutover edge migrations upgrade a 025 edge in order with their reviewed by
 test('cutover edge 027 is never applied before 026: a gapped install refuses 026 later without changes', async () => {
   await isolated(async (pool) =>
     subset(
-      (name) => name !== '026_edge_pos_sales.sql',
+      // 028 builds on the 026 audit table: without 026 it is never applied at all.
+      (name) => name !== '026_edge_pos_sales.sql' && name < '028',
       async (gapped) => {
         // migrate() itself does not require contiguous numbers; the guarded tools do (3.2 p.1).
         await migrate(pool, gapped, 'edge');
@@ -239,6 +243,22 @@ test('cutover edge 027 is never applied before 026: a gapped install refuses 026
         await assert.rejects(migrate(pool, directory, 'edge'), /Out-of-order migration/);
         assert.deepEqual(await ledger(pool), before);
         assert.equal((await pool.query("SELECT to_regclass('pos_sales') AS r")).rows[0].r, null);
+      },
+    ),
+  );
+});
+
+test('cutover edge 028 is never followed by 027: a gapped install without 027 refuses 027 later without changes', async () => {
+  await isolated(async (pool) =>
+    subset(
+      (name) => name !== '027_edge_kds_foundation.sql',
+      async (gapped) => {
+        await migrate(pool, gapped, 'edge');
+        const before = await ledger(pool);
+        assert.equal(before.at(-1).version, '028_edge_pos_desk_number.sql');
+        await assert.rejects(migrate(pool, directory, 'edge'), /Out-of-order migration/);
+        assert.deepEqual(await ledger(pool), before);
+        assert.equal((await pool.query("SELECT to_regclass('kds_settings') AS r")).rows[0].r, null);
       },
     ),
   );

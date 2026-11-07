@@ -391,7 +391,7 @@ test('010 to 011 preserves existing sessions/menu/shift rows and does not seed a
                   (table === 'branch_config'
                     ? "-'pos_service_mode'"
                     : table === 'local_terminals'
-                      ? "-'device_access_managed'"
+                      ? "-'device_access_managed'-'desk_number'"
                       : '') +
                   ' AS record FROM ' +
                   table +
@@ -423,7 +423,7 @@ test('010 to 011 preserves existing sessions/menu/shift rows and does not seed a
                   (table === 'branch_config'
                     ? "-'pos_service_mode'"
                     : table === 'local_terminals'
-                      ? "-'device_access_managed'"
+                      ? "-'device_access_managed'-'desk_number'"
                       : '') +
                   ' AS record FROM ' +
                   table +
