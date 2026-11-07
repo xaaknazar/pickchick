@@ -7419,9 +7419,11 @@
       "scopes": [
         "HANDOVER-codex-1107.md"
       ],
-      "status": "active",
-      "head": "db3dfb1f9bdf0710f58e0780dce8d5e9ecd2c14e",
-      "updatedAt": "2026-11-07T06:38:22.165Z"
+      "status": "available",
+      "head": "bab52cfdb11a5c47a269fa6da7908853731f3e0c",
+      "updatedAt": "2026-11-07T06:42:23.964Z",
+      "summary": "WIP передача опубликована: codex/cutover-1119 6acda2c5, документная ветка bab52cfd. 158 ранее отсутствовавших веток запушены и все SHA сверены; локальных веток без origin нет. Только HANDOVER-codex-1107.md добавлен в cutover. Claude 48ede212 не изменялся и не сливался. CI базы 2ee4bdab: Foundation11/11 и Windows package success; третьего круга на этом Mac нет, paid-day offline NOT RUN.",
+      "nextAction": "Claude продолжает сведение. Уточнить другой Mac/папку третьего круга и pos-1107/claude-branch-for-codex.md/список7. Codex не меняет Windows-кассу до окончания сведения Claude. Документную ветку целиком не сливать в cutover; её файл уже перенесён. Общие status/roadmap и онлайн-пульт не менялись."
     }
   ]
 }
