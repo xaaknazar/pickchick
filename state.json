@@ -7420,11 +7420,11 @@
         "docs/roadmap/project.json",
         "infra/public-staging/support/content.json"
       ],
-      "status": "active",
-      "head": "f262a44d2775fe0e08d809762dd2a41b5a9018d5",
-      "updatedAt": "2026-11-07T07:50:13.408Z",
-      "summary": "c8421229 / PR313: по переданному владельцем email добавлен второй тестировщик в существующий выбранный список Alpha. Console подтвердил 2 адреса; личный адрес в репозиторий не внесён. Остальных владелец добавит08.11. HTTP П6 снова200 на всех страницах, delete-account ещё нет; PR315 исправление21358f91 проходит CI. Format/diff/JSON PASS, push и remote SHA verified. Закрытый выпуск не отправлен, отсчёт12/14 не начат.",
-      "nextAction": "После успешной публикации П6 проверить HTTP200+delete-account и текст RU/KK/EN, автопроверки Play и отправить сохранённый Alpha1.0.1(7) Google. Разрешение на закрытый тест уже есть. Дополнить список до12 и подтвердить вступление участников; owner Android недоступен, KK listing pending. Production только отдельное да. Сервер П6 не менять параллельно; исходные guide/data-safety согласовать с mobile-android-1105. Онлайн-пульт не опубликован; сохранитьPR311/314 при интеграции."
+      "status": "available",
+      "head": "4ffb9899eb80e0abed182cf9358db96cdb9d8e13",
+      "updatedAt": "2026-11-07T07:53:04.220Z",
+      "summary": "4ffb9899 / PR313: владелец07.11 разрешил отправку закрытого выпуска, с последним составом iOS. Android1.0.1(7) source1a9472f1 включает iOS33 source4c7ed8ec. AAB SHA совпал, штатный Inspect PASS production api.pickchick.kz, Foundation41994780430 success11/11. СвежиеGET support RU/KK/EN+delete-account+retention,privacy,APIhealth200. Play готов отправить16 изменений. Shareddb3dfb1f слит обычным mergef262a44d, журналы обеих сторон и roadmap сохранены; AAB не менялся. После обновления страницы Apple сессия истекла; пользователь получил запрос войти. Google пока не отправлен. Документы опубликованы,remoteSHA сверено; CI нового документального checkpoint отдельно, онлайн-пульт не опубликован.",
+      "nextAction": "После входа владельца в Apple сверить последнюю сборку свежим UI. Если33, Android7 уже содержит её код плюс адаптацииAndroid: отправить16 изменений Alpha Google по явному разрешению, проверить статус рассмотрения, сохранить screenshot и журнал. Если iOS новее - сравнитьsource и подготовить актуальныйAndroid до отправки. Не запрашивать разрешение на отправку повторно. Production отдельно, 12участников14дней и физическийAndroid не приняты. PR313 пока не сливать безCI."
     }
   ]
 }
