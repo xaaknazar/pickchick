@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 import shutil
 import sys
+import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -35,6 +36,143 @@ BEFORE = {
     'terms': 'a2db09ed2e6e50b0797472e17dc93aff05fefc620736cfd6fbd31939c2063c58',
     'privacy': '98cdf40ae17339184ba28d357215fdd809bcbbac8d3880c92e18ed2bfbef29a8',
 }
+RETENTION_PROPOSAL = 'docs/operations/mobile-play-2026-11/legal-retention-proposal-1107.md'
+RETENTION_BEFORE = '0fdf0a075e7b53a58210f8840e1bb98a0b209f3e81964026019001bf31b74467'
+RETENTION_AFTER = '8aa6fe78f4164049549aaa5da2970eb091bc04d2c6e4ee6c0d32e19ffe4162d8'
+RETENTION_TEXT = 'После удаления аккаунта заказы и платежи сохраняются без номера телефона и профиля для учёта, отчётов и сверки оплат без ограничения срока хранения.'
+
+
+def retention_candidate(original, proposal):
+    r.require(hashlib.sha256(original).hexdigest() == RETENTION_BEFORE, 'legal.retention.privacy_pin')
+    r.require('Публикация одобрена владельцем 07.11.2026' in proposal and
+              proposal.count('> ' + RETENTION_TEXT) == 1, 'legal.retention.owner_approval')
+    anchor = '<h2>Сроки хранения аккаунта</h2>'.encode()
+    r.require(original.count(anchor) == 1, 'legal.retention.unique_heading')
+    addition = paragraphs([RETENTION_TEXT]).encode()
+    result = original.replace(anchor, anchor + addition, 1)
+    r.require(result.replace(anchor + addition, anchor, 1) == original,
+              'legal.retention.only_insertion')
+    r.require(hashlib.sha256(result).hexdigest() == RETENTION_AFTER, 'legal.retention.candidate_pin')
+    return result
+
+
+def atomic_file(path, data):
+    temp = path.with_name('.legal-' + uuid.uuid4().hex)
+    try:
+        with temp.open('xb') as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        temp.chmod(0o644)
+        temp.replace(path)
+        fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    finally:
+        if temp.exists():
+            temp.unlink()
+
+
+def retention_verify(a, old, api, before, manifest, endpoints):
+    r.require(r.baseline(a) == (old, api, before), 'legal.retention.baseline')
+    r.require(r.public_files(old) == manifest, 'legal.retention.assets')
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        list(pool.map(r.verify_public_asset, manifest['files'].items()))
+    for path, expected in endpoints.items():
+        r.require(r.http(path)[:2] == expected, 'legal.retention.http.' + path.replace('/', '_'))
+    status, body, _ = r.http('/legal/privacy')
+    r.require(status == 200 and hashlib.sha256(body).hexdigest() == manifest['files']['legal/privacy.html'],
+              'legal.retention.http_privacy')
+    r.require(r.containers() == before, 'legal.retention.containers')
+
+
+def retention_update(a, old, api, before):
+    web = old / 'infra/public-staging/public-web'
+    privacy, mp = web / 'legal/privacy.html', web / '.release.json'
+    r.require(re.fullmatch('[a-f0-9]{64}', a.expected_manifest_sha256 or ''),
+              'legal.retention.manifest_pin_required')
+    r.require(r.digest(mp) == a.expected_manifest_sha256, 'legal.retention.manifest_pin')
+    manifest = r.public_files(old)
+    original, original_manifest = privacy.read_bytes(), mp.read_bytes()
+    release = r.ROOT / 'legal-retention-updates' / a.source_sha
+    rollback = getattr(a, 'rollback_retention', False)
+    if rollback:
+        result = json.loads((release / 'result.json').read_text())
+        r.require(result.get('status') == 'PASS' and result.get('source_sha') == a.source_sha,
+                  'legal.retention.rollback_result')
+        r.require(result.get('api_sha') == api.name and result.get('public_sha') == old.name and
+                  result.get('manifest_after_sha256') == a.expected_manifest_sha256,
+                  'legal.retention.rollback_pins')
+        replacement = (release / 'privacy.before.html').read_bytes()
+        replacement_manifest = (release / 'manifest.before.json').read_bytes()
+        r.require(hashlib.sha256(replacement_manifest).hexdigest() == result['manifest_before_sha256'],
+                  'legal.retention.backup_manifest_pin')
+        r.require(retention_candidate(replacement, (ROOT / RETENTION_PROPOSAL).read_text()) == original,
+                  'legal.retention.rollback_page')
+        updated = json.loads(replacement_manifest)
+    else:
+        replacement = retention_candidate(original, (ROOT / RETENTION_PROPOSAL).read_text())
+        updated = json.loads(original_manifest)
+        updated['files']['legal/privacy.html'] = hashlib.sha256(replacement).hexdigest()
+        replacement_manifest = (json.dumps(updated, indent=2) + '\n').encode()
+        r.require(not release.exists(), 'legal.retention.immutable_journal_exists')
+    untouched = json.loads(json.dumps(updated))
+    untouched['files']['legal/privacy.html'] = manifest['files']['legal/privacy.html']
+    r.require(untouched == manifest, 'legal.retention.unrelated_manifest')
+    endpoints = {path: r.http(path)[:2] for path in
+                 ['/legal/terms', '/support/', '/support/kk.html', '/support/en.html',
+                  '/health/live', '/kitchen-live/health', '/roadmap/health', '/v1/capabilities']}
+    r.require(all(v[0] == 200 for v in endpoints.values()), 'legal.retention.baseline_http')
+    retention_verify(a, old, api, before, manifest, endpoints)
+    outcome = {'source_sha': a.source_sha, 'mode': 'rollback-retention' if rollback else 'retention',
+               'validated': True, 'applied': False, 'api_sha': api.name, 'public_sha': old.name,
+               'manifest_before_sha256': a.expected_manifest_sha256,
+               'privacy_before_sha256': hashlib.sha256(original).hexdigest(),
+               'privacy_after_sha256': hashlib.sha256(replacement).hexdigest()}
+    if not a.apply:
+        print(json.dumps(outcome)); return
+    with r.lock(a.source_sha):
+        r.require(r.baseline(a) == (old, api, before), 'legal.retention.baseline_after_lock')
+        r.require(privacy.read_bytes() == original and mp.read_bytes() == original_manifest,
+                  'legal.retention.bytes_after_lock')
+        if not rollback:
+            release.mkdir(parents=True, mode=0o700)
+            release.chmod(0o700)
+            for name, data in [('privacy.before.html', original), ('manifest.before.json', original_manifest)]:
+                f = release / name
+                with f.open('xb') as stream:
+                    stream.write(data); stream.flush(); os.fsync(stream.fileno())
+                f.chmod(0o600)
+                r.require(f.read_bytes() == data, 'legal.retention.backup_verified')
+        journal = release / ('rollback.json' if rollback else 'result.json')
+        r.save(journal, {**outcome, 'status': 'prepared'})
+        attempted = False
+        try:
+            r.require(privacy.read_bytes() == original and mp.read_bytes() == original_manifest,
+                      'legal.retention.bytes_before_replace')
+            attempted = True
+            atomic_file(privacy, replacement)
+            atomic_file(mp, replacement_manifest)
+            retention_verify(a, old, api, before, updated, endpoints)
+            outcome.update(applied=True, status='rolled_back' if rollback else 'PASS',
+                           manifest_after_sha256=r.digest(mp), all_containers_unchanged=True)
+            r.save(journal, outcome)
+        except BaseException as error:
+            # CAS: refuse overwriting a foreign change, and retain the owned lock on failure.
+            if attempted:
+                r.require(privacy.read_bytes() in (original, replacement) and
+                          mp.read_bytes() in (original_manifest, replacement_manifest),
+                          'legal.retention.rollback_foreign_change')
+                atomic_file(privacy, original)
+                atomic_file(mp, original_manifest)
+                retention_verify(a, old, api, before, manifest, endpoints)
+            check = str(error) if re.fullmatch(r'legal\.retention\.[a-zA-Z0-9_.]+', str(error)) else type(error).__name__
+            r.save(journal, {**outcome, 'status': 'rolled_back' if attempted else 'stopped',
+                             'check': check, 'lock_retained': True})
+            raise
+    print(json.dumps(outcome))
 
 
 def section(proposal, heading):
@@ -83,7 +221,8 @@ def candidate(kind, original, proposal, effective_date):
 def verify_source(a):
     m = json.loads((ROOT/'legal-source.json').read_text())
     r.require(m.get('source_sha') == a.source_sha, 'Source manifest differs')
-    needed = {'infra/public-staging/legal-update.py', PROPOSAL,
+    proposal = RETENTION_PROPOSAL if getattr(a, 'retention', False) or getattr(a, 'rollback_retention', False) else PROPOSAL
+    needed = {'infra/public-staging/legal-update.py', proposal,
               'infra/roadmap/remote-deploy.py', 'infra/backoffice-login/release.py',
               'infra/domains/release-alias.py', 'infra/public-staging/device-center-gateway.py'}
     r.require(set(m['files']) == needed, 'Source files differ')
@@ -113,6 +252,8 @@ def main(a):
     a.expected_api_release = str(r.ROOT/'releases'/a.expected_api_sha)
     a.expected_public_release = str(r.ROOT/'public-https/releases'/a.expected_public_sha)
     old, api, before = r.baseline(a)
+    if getattr(a, 'retention', False) or getattr(a, 'rollback_retention', False):
+        return retention_update(a, old, api, before)
     original = old/'infra/public-staging/gateway.Caddyfile'
     new_text = original.read_text()
     manifest = r.public_files(old)
@@ -185,7 +326,11 @@ if __name__ == '__main__':
     for field in ('source-sha','expected-api-sha','expected-public-sha','expected-gateway-sha256'):
         parser.add_argument('--'+field,required=True)
     parser.add_argument('--ci-proof',type=Path,required=True)
-    parser.add_argument('--effective-date',required=True)
+    parser.add_argument('--effective-date')
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument('--retention',action='store_true')
+    modes.add_argument('--rollback-retention',action='store_true')
+    parser.add_argument('--expected-manifest-sha256')
     parser.add_argument('--apply',action='store_true')
     try:main(parser.parse_args())
     except BaseException as error:
