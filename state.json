@@ -7365,32 +7365,6 @@
       "nextAction": "Проверить Foundation CI https://github.com/xaaknazar/pickchick/actions/runs/42290245032; затем согласованное слияние и отдельный выпуск. Физическая приёмка на iPhone ещё не выполнена."
     },
     {
-      "id": "android-play-1106",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/android-play-1106",
-      "scopes": [
-        "codex-reports/2026-11-06-android.md",
-        "docs/operations/mobile-play-2026-11/release-1106.md",
-        "@android/emulator",
-        "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.png",
-        "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.provenance.json",
-        "docs/operations/mobile-play-2026-11/listing-1106.json",
-        "@google-play/pickchick",
-        "docs/operations/mobile-play-2026-11/graphics/screenshots-appstore-1106",
-        "docs/collaboration/handoff.md",
-        "infra/public-staging/support/render.py",
-        "infra/public-staging/support/style.css",
-        "docs/project-status.md",
-        "docs/roadmap/project.json",
-        "infra/public-staging/support/content.json"
-      ],
-      "status": "available",
-      "head": "c842122964e88115f3deb0e820c45f380a9b9d78",
-      "updatedAt": "2026-11-06T22:49:48.048Z",
-      "summary": "c8421229 / PR313: по переданному владельцем email добавлен второй тестировщик в существующий выбранный список Alpha. Console подтвердил 2 адреса; личный адрес в репозиторий не внесён. Остальных владелец добавит08.11. HTTP П6 снова200 на всех страницах, delete-account ещё нет; PR315 исправление21358f91 проходит CI. Format/diff/JSON PASS, push и remote SHA verified. Закрытый выпуск не отправлен, отсчёт12/14 не начат.",
-      "nextAction": "После успешной публикации П6 проверить HTTP200+delete-account и текст RU/KK/EN, автопроверки Play и отправить сохранённый Alpha1.0.1(7) Google. Разрешение на закрытый тест уже есть. Дополнить список до12 и подтвердить вступление участников; owner Android недоступен, KK listing pending. Production только отдельное да. Сервер П6 не менять параллельно; исходные guide/data-safety согласовать с mobile-android-1105. Онлайн-пульт не опубликован; сохранитьPR311/314 при интеграции."
-    },
-    {
       "id": "cutover-handover-1107",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/cutover-handover-1107",
@@ -7425,6 +7399,32 @@
       "updatedAt": "2026-11-07T07:21:26.741Z",
       "summary": "Утверждённый абзац политики подготовлен: PR318/f8a23411,15тестовPASS, точныйкандидат8aa6fe78. Foundation42350481264 queued, runnersне назначены; серверне менялся, lockотсутствует. ПредыдущийП6 опубликован и PR315вshared.",
       "nextAction": "После Foundation11/11 точногоf8a23411 повторитьbaseline/резервы, source6файлов, legal-update.py --retention preflight/apply, проверитьcanonical+nip.io/terms/support/health, сохранитьпротокол. Публикацияуже разрешена; нового согласияне требуется. GooglePlayвAndroid-задаче."
+    },
+    {
+      "id": "android-play-1106",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/android-play-1106",
+      "scopes": [
+        "codex-reports/2026-11-06-android.md",
+        "docs/operations/mobile-play-2026-11/release-1106.md",
+        "@android/emulator",
+        "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.png",
+        "docs/operations/mobile-play-2026-11/graphics/feature-graphic-alex-1106.provenance.json",
+        "docs/operations/mobile-play-2026-11/listing-1106.json",
+        "@google-play/pickchick",
+        "docs/operations/mobile-play-2026-11/graphics/screenshots-appstore-1106",
+        "docs/collaboration/handoff.md",
+        "infra/public-staging/support/render.py",
+        "infra/public-staging/support/style.css",
+        "docs/project-status.md",
+        "docs/roadmap/project.json",
+        "infra/public-staging/support/content.json"
+      ],
+      "status": "active",
+      "head": "f262a44d2775fe0e08d809762dd2a41b5a9018d5",
+      "updatedAt": "2026-11-07T07:50:13.408Z",
+      "summary": "c8421229 / PR313: по переданному владельцем email добавлен второй тестировщик в существующий выбранный список Alpha. Console подтвердил 2 адреса; личный адрес в репозиторий не внесён. Остальных владелец добавит08.11. HTTP П6 снова200 на всех страницах, delete-account ещё нет; PR315 исправление21358f91 проходит CI. Format/diff/JSON PASS, push и remote SHA verified. Закрытый выпуск не отправлен, отсчёт12/14 не начат.",
+      "nextAction": "После успешной публикации П6 проверить HTTP200+delete-account и текст RU/KK/EN, автопроверки Play и отправить сохранённый Alpha1.0.1(7) Google. Разрешение на закрытый тест уже есть. Дополнить список до12 и подтвердить вступление участников; owner Android недоступен, KK listing pending. Production только отдельное да. Сервер П6 не менять параллельно; исходные guide/data-safety согласовать с mobile-android-1105. Онлайн-пульт не опубликован; сохранитьPR311/314 при интеграции."
     }
   ]
 }
