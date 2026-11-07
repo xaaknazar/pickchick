@@ -60,6 +60,9 @@ ADMIN_FILES = (
     # releases a parked posSales event; imports ../../scripts/edge-migrate.mjs (shipped) and
     # workspace packages of the runtime closure (@pickchick/pos-order-sync is a build root).
     'infra/windows/pos-sales-sync-release.mjs',
+    # Issue #312 step 4: read-only backlog report before the first PickChickPosSync Install;
+    # imports ../../scripts/edge-migrate.mjs (shipped) and @pickchick/database.
+    'infra/windows/pos-sync-backlog.mjs',
     # Cutover 19.11 (CR kds-1 section 4, CR kds-3): edge 027 grants, the guarded upgrade and the
     # operator switch. kds-switch.mjs imports kds-grants.mjs and ../../scripts/edge-migrate.mjs.
     'infra/windows/kds-grants.mjs',
