@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
+import { setImmediate as nextTurn } from 'node:timers/promises';
 import {
   POS_CONFIG_MISSING_MS,
   POS_CONFIG_POLL_MS,
@@ -4326,7 +4327,7 @@ test('ЗАКАЗЫ in the paid mode: one receipt read at a time on a slow gatewa
   const reads = () => edge.calls.filter((c) => /^pos\/sales\/[0-9a-f-]+$/.test(c.path)).length;
   const before = reads();
   const first = model.refreshSaleReceipts(ids);
-  await new Promise((resolve) => setImmediate(resolve));
+  await nextTurn();
   assert.equal(held.length, 1, 'the first read is on its way');
   // The next refreshes while it runs return at once and ask nothing.
   await model.refreshSaleReceipts(ids);
@@ -4336,7 +4337,7 @@ test('ЗАКАЗЫ in the paid mode: one receipt read at a time on a slow gatewa
   const release = async (total) => {
     for (let n = 0; n < 50 && reads() - before < total; n++) {
       held.shift()?.();
-      await new Promise((resolve) => setImmediate(resolve));
+      await nextTurn();
     }
   };
   await release(3);
@@ -4346,7 +4347,7 @@ test('ЗАКАЗЫ in the paid mode: one receipt read at a time on a slow gatewa
   // Once it is done the next call runs again: after the pause the pending ones are read.
   now += POS_CONFIG_POLL_MS;
   const again = model.refreshSaleReceipts(ids);
-  await new Promise((resolve) => setImmediate(resolve));
+  await nextTurn();
   await release(6);
   await again;
   assert.equal(reads() - before, 6);
