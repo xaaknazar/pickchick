@@ -103,16 +103,25 @@ test('BACKOFFICE_REMOTE_STOPS_ENABLED defaults off and accepts only true or fals
     remoteStopsEnabled: false,
     manualRefundsEnabled: false,
     stationPlanDeliveryEnabled: false,
+    rolesEnabled: false,
+    stockV2Enabled: false,
+    salesReportEnabled: false,
   });
   assert.deepEqual(backofficeOptions({ BACKOFFICE_REMOTE_STOPS_ENABLED: 'false' }), {
     remoteStopsEnabled: false,
     manualRefundsEnabled: false,
     stationPlanDeliveryEnabled: false,
+    rolesEnabled: false,
+    stockV2Enabled: false,
+    salesReportEnabled: false,
   });
   assert.deepEqual(backofficeOptions({ BACKOFFICE_REMOTE_STOPS_ENABLED: 'true' }), {
     remoteStopsEnabled: true,
     manualRefundsEnabled: false,
     stationPlanDeliveryEnabled: false,
+    rolesEnabled: false,
+    stockV2Enabled: false,
+    salesReportEnabled: false,
   });
   assert.equal(
     backofficeOptions({ BACKOFFICE_MANUAL_REFUNDS_ENABLED: 'true' }).manualRefundsEnabled,

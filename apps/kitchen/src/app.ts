@@ -11,7 +11,9 @@ import { request, apiPrefix, assetPrefix, portalMode, demoMode } from './api.js'
 import { createDemo, memoryStorage } from './demo.js';
 import { demoTicket } from './ticket-view.js';
 import { startRuntime } from './runtime.js';
-import { UUID, type Action } from './types.js';
+import { kdsScreen, kdsVisible } from './kds-view.js';
+import { openHandover, openIncident } from './courier.js';
+import { HANDOVER_MARKS, UUID, type Action, type Order } from './types.js';
 const root = document.querySelector<HTMLDivElement>('#app')!;
 const demo = demoMode ? createDemo() : null;
 if (demo) document.body.classList.add('ticket-demo');
@@ -26,6 +28,8 @@ let configLoaded = false;
 /** Portal cloud stream: the page is a cloud screen first; a cook login adds the cashier stream. */
 let cloudMode = false;
 let cookLogin = false;
+/** Courier counter (3): number typed from the courier's app; filters the tiles. */
+let courierNumber = '';
 const escape = (s: string) =>
   s.replace(
     /[&<>"']/g,
@@ -87,6 +91,10 @@ const errors: Record<string, string> = {
   PAIRING_WRONG_SCREEN:
     'Код выпущен для другого экрана или точки. Попросите у управляющего новый код для этого экрана.',
   PAIRING_RATE_LIMITED: 'Слишком много попыток. Подождите минуту.',
+  HANDOVER_MARKS_REQUIRED: 'Отметьте все три условия протокола передачи.',
+  HANDOVER_REFUSED:
+    'Передача не принята сервером точки: протокол передачи изменился. Проверьте заказ и передайте снова.',
+  KDS_LAYOUT_OFF: 'Раскладка KDS на сервере точки выключена - работает прежний экран.',
 };
 function scopedStorage(storage: Storage) {
   const prefix = portalMode ? 'portal.' + portalMode + '.' : '';
@@ -185,7 +193,9 @@ function render() {
     }
   }
   const s = model.state;
-  const visibleOrders = s.orders.filter((o) => {
+  // Cutover KDS: a station of the active edge layout gets its KDS screen (contracts 5.4).
+  const kdsFn = !demo && !s.cloud && s.mode === 'kitchen' ? model.kdsFunction() : null;
+  const legacyVisible = s.orders.filter((o) => {
     if (!s.wholeTicketActions || o.state === 'cancel_requested') return true;
     if (o.assemblyStationId === s.stationId)
       return o.tasks.every((t) => t.stationId === s.stationId || t.state === 'done');
@@ -193,6 +203,11 @@ function render() {
       (t) => t.stationId === s.stationId && ['queued', 'in_progress'].includes(t.state),
     );
   });
+  const visibleOrders = kdsFn
+    ? kdsFn === 'breading'
+      ? (s.breading?.orders ?? [])
+      : kdsVisible(kdsFn, s.stationId ?? '', s.orders)
+    : legacyVisible;
   const focus = document.activeElement instanceof HTMLElement ? document.activeElement.id : '';
   const viewKey = `${s.mode}:${s.stationId ?? ''}`;
   const scroll =
@@ -295,7 +310,11 @@ function render() {
   const stations = [...s.stations].sort(
     (a, b) => Number(a.kind === 'assembly') - Number(b.kind === 'assembly'),
   );
-  const nav = `<nav aria-label="Рабочий экран">${portalMode === 'display' ? '' : button('Кухня', 'id="mode-kitchen" aria-pressed="' + (s.mode === 'kitchen') + '"', blocked)}${terminalAccess.enabled ? '' : button('Табло', 'id="mode-display" aria-pressed="' + (s.mode === 'display') + '"', blocked)}${s.cloud ? `<span class="connection ${s.error ? 'offline' : ''}">${streamIndicators(s.streams)}${s.lastSync ? `<span class="sync-time">${new Date(s.lastSync).toLocaleTimeString('ru-RU')}</span>` : ''}</span>` : `<span class="connection ${s.error ? 'offline' : ''}" role="status">${s.error ? 'Нет актуального подтверждения связи' : demo ? 'Демо-заказы' : s.lastSync ? 'Связь с локальным узлом' : 'Подключение'}${s.lastSync ? ` · ${new Date(s.lastSync).toLocaleTimeString('ru-RU')}` : ''}</span>`}${button('Обновить', 'id="refresh"', s.busy)}${demo ? '' : !cloudMode ? button('Выйти', 'id="logout"') : s.actor ? button('Выйти (повар)', 'id="logout"') : portalMode === 'display' && terminalAccess.enabled ? '' : button('Вход повара', 'id="cook-login"')}${s.mode === 'kitchen' ? `<div class="station-switcher" role="group" aria-label="Кухонные станции">${stations.map((station) => button(`<span class="station-kind">${station.kind === 'assembly' ? 'Сборка и выдача' : 'Приготовление'}</span><span class="station-name">${escape(station.name)}</span>`, `id="station-${station.id}" class="station-button" data-station="${station.id}" aria-pressed="${station.id === s.stationId}"`, blocked)).join('')}</div>` : ''}</nav>`;
+  const nav = `<nav aria-label="Рабочий экран">${portalMode === 'display' ? '' : button('Кухня', 'id="mode-kitchen" aria-pressed="' + (s.mode === 'kitchen') + '"', blocked)}${terminalAccess.enabled ? '' : button('Табло', 'id="mode-display" aria-pressed="' + (s.mode === 'display') + '"', blocked)}${s.cloud ? `<span class="connection ${s.error ? 'offline' : ''}">${streamIndicators(s.streams)}${s.lastSync ? `<span class="sync-time">${new Date(s.lastSync).toLocaleTimeString('ru-RU')}</span>` : ''}</span>` : `<span class="connection ${s.error ? 'offline' : ''}" role="status">${s.error ? 'Нет актуального подтверждения связи' : demo ? 'Демо-заказы' : s.lastSync ? 'Связь с локальным узлом' : 'Подключение'}${s.lastSync ? ` · ${new Date(s.lastSync).toLocaleTimeString('ru-RU')}` : ''}</span>`}${button('Обновить', 'id="refresh"', s.busy)}${demo ? '' : !cloudMode ? button('Выйти', 'id="logout"') : s.actor ? button('Выйти (повар)', 'id="logout"') : portalMode === 'display' && terminalAccess.enabled ? '' : button('Вход повара', 'id="cook-login"')}${s.mode === 'kitchen' ? `<div class="station-switcher${model.tabs.length ? ' kds-tabs' : ''}" role="group" aria-label="${model.tabs.length ? 'Экраны этого терминала' : 'Кухонные станции'}">${(model.tabs.length ? model.tabs : stations).map((station) => button(`<span class="station-kind">${station.kind === 'assembly' ? 'Сборка и выдача' : 'Приготовление'}</span><span class="station-name">${escape(station.name)}</span>`, `id="station-${station.id}" class="station-button" data-station="${station.id}" aria-pressed="${station.id === s.stationId}"`, blocked)).join('')}</div>` : ''}</nav>`;
+  const notice =
+    s.kdsNotice && !s.kds
+      ? `<aside class="kds-notice" role="status">${escape(errors[s.kdsNotice]!)}</aside>`
+      : '';
   const error = s.error
     ? `<aside class="error" role="alert">${escape(errors[s.error] ?? 'Операция не завершена. Проверьте локальный узел и доступ.')} ${s.lastSync ? 'Показаны последние полученные данные.' : ''}</aside>`
     : '';
@@ -316,6 +335,46 @@ function render() {
     s.mode === 'display'
       ? `<footer class="pagination"><strong>PICK YOUR PEAK</strong><span>Страница ${boardPage + 1} из ${boardPages} · всего ${s.display.length} · смена каждые 8 секунд</span></footer>`
       : `<footer class="pagination">${button('В начало очереди', 'id="first"', s.busy || !s.cursor)}<span>${s.mode === 'kitchen' ? 'Заказы' : 'Номера'}: ${s.mode === 'kitchen' ? s.orders.length : s.display.length}${s.next ? ' · есть следующая страница' : ''}</span>${button('Следующая страница', 'id="next"', s.busy || !s.next)}</footer>`;
+  const ticket = (o: Order) => {
+    if (demo) return demoTicket(o, s.stations, s.stationId ?? '', demo.details(o.orderId), blocked);
+    const actions = allowedActions(o, s.stationId ?? '', s.wholeTicketActions);
+    const ticketBlocked = blockedFor(o);
+    const offline = model.ownerOffline(o);
+    const prepTicket = s.wholeTicketActions && s.stationId !== o.assemblyStationId;
+    const visibleTasks = prepTicket ? o.tasks.filter((t) => t.stationId === s.stationId) : o.tasks;
+    const extras = prepTicket ? o.tasks.filter((t) => t.stationId !== s.stationId) : [];
+    return `<article class="ticket ${o.state === 'cancel_requested' ? 'cancel' : ''}${offline ? ' owner-offline' : ''}" data-order="${o.orderId}"${s.cloud ? ` data-owner="${ownerOf(o)}"` : ''}><div class="ticket-head"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div><span class="mode">${o.serviceMode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ'}</span><p class="channel">${o.channel === 'pos' ? 'Касса' : o.channel === 'kiosk' ? 'Киоск' : 'Приложение'}</p>${s.cloud ? sourceBadge(ownerOf(o), offline) : ''}</div><div class="age"><strong>${Math.max(0, Math.floor((Date.now() - Date.parse(o.createdAt)) / 60000))} мин</strong><small>${escape(labels[o.state] ?? o.state)}</small></div></div>${o.restoreReview?.status === 'pending' ? `<aside class="order-note"><strong>Проверка после восстановления</strong><p>Приготовление и выдача приостановлены. Руководитель смены должен сверить этот заказ.</p>${s.actor?.role === 'shift_manager' && ownerOf(o) === 'edge' ? button('Проверить заказ', `data-restore-review="${o.orderId}"`, ticketBlocked) : '<p>Войдите под учётной записью руководителя смены.</p>'}</aside>` : ''}${o.kitchenComment ? `<aside class="order-note"><strong>Комментарий к заказу</strong><p>${escape(o.kitchenComment)}</p></aside>` : ''}<div class="lines">${visibleTasks
+      .map((t) => {
+        const index = o.tasks.indexOf(t);
+        const own = t.stationId === s.stationId;
+        const a = actions.find((a) => 'taskId' in a && a.taskId === t.taskId);
+        return `<section class="line ${own ? '' : 'other-station'}"><span class="line-number" aria-label="Позиция ${index + 1}">${index + 1}</span><span class="quantity">${t.details.quantity}×</span><div class="line-info"><h3>${escape(t.details.title)}</h3>${t.details.parentTitle && t.details.parentTitle !== t.details.title ? `<p class="parent">${escape(t.details.parentTitle)}</p>` : ''}${t.details.modifiers.length ? `<p class="modifiers">${t.details.modifiers.map((m) => `${escape(m.groupTitle.ru)}: ${escape(m.label.ru)}${m.quantity > 1 ? ' ×' + m.quantity : ''}`).join(' · ')}</p>` : ''}${t.details.description && t.details.description !== o.kitchenComment ? `<p class="description">${escape(t.details.description)}</p>` : ''}<p class="task-state">${own ? 'Эта станция' : escape(s.stations.find((x) => x.id === t.stationId)?.name ?? 'Другая станция')} · ${escape(labels[t.state] ?? t.state)}</p>${a ? button(actionLabel[a.action], `id="task-${t.taskId}" data-command="${escape(JSON.stringify({ orderId: o.orderId, body: a }))}"`, ticketBlocked) : ''}</div></section>`;
+      })
+      .join(
+        '',
+      )}</div>${extras.length ? `<p class="assembly-extras">На других станциях: ${extras.map((t) => `${escape(t.details.title)} ×${t.details.quantity}`).join(' · ')}</p>` : ''}<div class="ticket-actions">${actions
+      .filter((a) => !('taskId' in a))
+      .map((a) =>
+        // A delivery ticket (KDS layout on) on an old station, e.g. an aggregator order admitted
+        // before kds-switch enable: handed over with the three marks, as on the courier counter.
+        a.action === 'handoff' && o.delivery && ownerOf(o) === 'edge'
+          ? button(
+              'Передать курьеру',
+              `id="handover-${o.orderId}" data-handover="${o.orderId}"`,
+              ticketBlocked,
+            )
+          : button(
+              a.action === 'complete_station' && s.stationId === o.assemblyStationId
+                ? 'Заказ собран'
+                : actionLabel[a.action],
+              `id="order-${o.orderId}" data-command="${escape(JSON.stringify({ orderId: o.orderId, body: a }))}"`,
+              ticketBlocked,
+            ),
+      )
+      .join(
+        '',
+      )}${o.state === 'cancel_requested' ? '<p>Сначала подтвердите остановку своих позиций. Итоговую отмену и остатки сверяет управляющий.</p>' : ''}${!actions.length && !o.restoreReview && o.state !== 'cancel_requested' ? '<p>Ожидание следующей станции</p>' : ''}</div></article>`;
+  };
   let content: string;
   if (s.mode === 'display') {
     content = `<main class="board workspace" data-testid="display"><section><h2>ГОТОВИТСЯ</h2><div class="numbers">${
@@ -333,52 +392,31 @@ function render() {
         )
         .join('') || '<p>Готовые заказы появятся здесь</p>'
     }</div><p class="take-hint">Подойдите к стойке выдачи и назовите номер заказа</p></section></main>`;
+  } else if (kdsFn) {
+    content = kdsScreen({
+      fn: kdsFn,
+      stationId: s.stationId ?? '',
+      // Names of every layout station (a terminal is granted only its own).
+      stations: s.kds?.stations ?? s.stations,
+      orders: s.orders,
+      breading: s.breading,
+      incidents: s.incidents,
+      now: Date.now(),
+      courierNumber,
+      actions: (o) => allowedActions(o, s.stationId ?? '', s.wholeTicketActions),
+      blocked: blockedFor,
+      ticket,
+    });
   } else {
     content = `<main class="workspace"><div class="tickets" data-testid="queue">${
-      visibleOrders
-        .map((o) => {
-          if (demo)
-            return demoTicket(o, s.stations, s.stationId ?? '', demo.details(o.orderId), blocked);
-          const actions = allowedActions(o, s.stationId ?? '', s.wholeTicketActions);
-          const ticketBlocked = blockedFor(o);
-          const offline = model.ownerOffline(o);
-          const prepTicket = s.wholeTicketActions && s.stationId !== o.assemblyStationId;
-          const visibleTasks = prepTicket
-            ? o.tasks.filter((t) => t.stationId === s.stationId)
-            : o.tasks;
-          const extras = prepTicket ? o.tasks.filter((t) => t.stationId !== s.stationId) : [];
-          return `<article class="ticket ${o.state === 'cancel_requested' ? 'cancel' : ''}${offline ? ' owner-offline' : ''}" data-order="${o.orderId}"${s.cloud ? ` data-owner="${ownerOf(o)}"` : ''}><div class="ticket-head"><strong class="number">${escape(o.displayNumber ?? '-')}</strong><div><span class="mode">${o.serviceMode === 'dine_in' ? 'В ЗАЛЕ' : 'С СОБОЙ'}</span><p class="channel">${o.channel === 'pos' ? 'Касса' : o.channel === 'kiosk' ? 'Киоск' : 'Приложение'}</p>${s.cloud ? sourceBadge(ownerOf(o), offline) : ''}</div><div class="age"><strong>${Math.max(0, Math.floor((Date.now() - Date.parse(o.createdAt)) / 60000))} мин</strong><small>${escape(labels[o.state] ?? o.state)}</small></div></div>${o.restoreReview?.status === 'pending' ? `<aside class="order-note"><strong>Проверка после восстановления</strong><p>Приготовление и выдача приостановлены. Руководитель смены должен сверить этот заказ.</p>${s.actor?.role === 'shift_manager' && ownerOf(o) === 'edge' ? button('Проверить заказ', `data-restore-review="${o.orderId}"`, ticketBlocked) : '<p>Войдите под учётной записью руководителя смены.</p>'}</aside>` : ''}${o.kitchenComment ? `<aside class="order-note"><strong>Комментарий к заказу</strong><p>${escape(o.kitchenComment)}</p></aside>` : ''}<div class="lines">${visibleTasks
-            .map((t) => {
-              const index = o.tasks.indexOf(t);
-              const own = t.stationId === s.stationId;
-              const a = actions.find((a) => 'taskId' in a && a.taskId === t.taskId);
-              return `<section class="line ${own ? '' : 'other-station'}"><span class="line-number" aria-label="Позиция ${index + 1}">${index + 1}</span><span class="quantity">${t.details.quantity}×</span><div class="line-info"><h3>${escape(t.details.title)}</h3>${t.details.parentTitle && t.details.parentTitle !== t.details.title ? `<p class="parent">${escape(t.details.parentTitle)}</p>` : ''}${t.details.modifiers.length ? `<p class="modifiers">${t.details.modifiers.map((m) => `${escape(m.groupTitle.ru)}: ${escape(m.label.ru)}${m.quantity > 1 ? ' ×' + m.quantity : ''}`).join(' · ')}</p>` : ''}${t.details.description && t.details.description !== o.kitchenComment ? `<p class="description">${escape(t.details.description)}</p>` : ''}<p class="task-state">${own ? 'Эта станция' : escape(s.stations.find((x) => x.id === t.stationId)?.name ?? 'Другая станция')} · ${escape(labels[t.state] ?? t.state)}</p>${a ? button(actionLabel[a.action], `id="task-${t.taskId}" data-command="${escape(JSON.stringify({ orderId: o.orderId, body: a }))}"`, ticketBlocked) : ''}</div></section>`;
-            })
-            .join(
-              '',
-            )}</div>${extras.length ? `<p class="assembly-extras">На других станциях: ${extras.map((t) => `${escape(t.details.title)} ×${t.details.quantity}`).join(' · ')}</p>` : ''}<div class="ticket-actions">${actions
-            .filter((a) => !('taskId' in a))
-            .map((a) =>
-              button(
-                a.action === 'complete_station' && s.stationId === o.assemblyStationId
-                  ? 'Заказ собран'
-                  : actionLabel[a.action],
-                `id="order-${o.orderId}" data-command="${escape(JSON.stringify({ orderId: o.orderId, body: a }))}"`,
-                ticketBlocked,
-              ),
-            )
-            .join(
-              '',
-            )}${o.state === 'cancel_requested' ? '<p>Сначала подтвердите остановку своих позиций. Итоговую отмену и остатки сверяет управляющий.</p>' : ''}${!actions.length && !o.restoreReview && o.state !== 'cancel_requested' ? '<p>Ожидание следующей станции</p>' : ''}</div></article>`;
-        })
-        .join('') ||
+      legacyVisible.map(ticket).join('') ||
       '<div class="empty"><span>✓</span><h2>Очередь пуста</h2><p>Новые допущенные заказы появятся здесь автоматически</p></div>'
     }</div></main>`;
   }
   const demoControls = demo
     ? `<aside class="demo-controls" aria-label="Управление демо"><div><strong>ДЕМО · ПРОВЕРКА ДИЗАЙНА</strong><span>Вымышленные заказы. Касса не нужна. Обновление страницы начинает сценарий заново.</span></div>${button('+ Новый заказ', 'id="demo-add"', blocked)}${button(autoOrders ? 'Поток: каждые 25 с · пауза' : 'Продолжить поток заказов', 'id="demo-auto" aria-pressed="' + autoOrders + '"')}${button('Сбросить демо', 'id="demo-reset"', blocked)}<span role="status">${escape(demoNotice)}</span></aside>`
     : '';
-  root.innerHTML = header + demoControls + nav + error + recovery + content + pagination;
+  root.innerHTML = header + demoControls + nav + notice + error + recovery + content + pagination;
   document.getElementById('demo-add')?.addEventListener('click', () => {
     if (demo) {
       demoNotice = demo.add() ? 'Добавлен новый заказ' : 'Очередь заполнена. Сбросьте демо.';
@@ -448,7 +486,62 @@ function render() {
       if (o) void model.command(o, data.body);
     }),
   );
+  // Courier counter (3): the three handover marks and the protocol refusal (Аг9).
+  const edgeOrder = (id: string | undefined) =>
+    s.orders.find((x) => x.orderId === id && ownerOf(x) === 'edge');
+  const refusal = (o?: Order) => {
+    if (!s.actor) return;
+    openIncident({
+      actor: s.actor,
+      transport: request,
+      storage: scopedStorage(localStorage),
+      ...(o ? { order: o } : {}),
+      ...(courierNumber.trim() ? { claimedNumber: courierNumber.trim() } : {}),
+      recorded: () => whenIdle(() => void model.refresh()),
+    });
+  };
+  document.querySelectorAll<HTMLButtonElement>('[data-handover]').forEach((b) =>
+    b.addEventListener('click', () => {
+      const o = edgeOrder(b.dataset.handover);
+      if (!o || blockedFor(o)) return;
+      openHandover(
+        o,
+        courierNumber,
+        () =>
+          whenIdle(() => {
+            const current = edgeOrder(o.orderId);
+            if (current)
+              void model.command(current, {
+                action: 'handoff',
+                expectedVersion: current.version,
+                handover: HANDOVER_MARKS,
+              });
+          }),
+        () => refusal(edgeOrder(o.orderId) ?? o),
+      );
+    }),
+  );
+  document
+    .querySelectorAll<HTMLButtonElement>('[data-incident]')
+    .forEach((b) => b.addEventListener('click', () => refusal(edgeOrder(b.dataset.incident))));
+  document.getElementById('courier-number')?.addEventListener('input', (event) => {
+    courierNumber = (event.target as HTMLInputElement).value.slice(0, 40);
+    render();
+  });
+  document.getElementById('courier-clear')?.addEventListener('click', () => {
+    courierNumber = '';
+    render();
+    document.getElementById('courier-number')?.focus();
+  });
   if (focus) document.getElementById(focus)?.focus({ preventScroll: true });
+  const typed = document.activeElement;
+  if (typed instanceof HTMLInputElement && typed.id === 'courier-number')
+    typed.setSelectionRange(typed.value.length, typed.value.length);
+}
+/** A dialog answers outside a render: wait for the running poll instead of dropping the tap. */
+function whenIdle(run: () => void, deadline = Date.now() + 15000) {
+  if (!model.state.busy || Date.now() > deadline) run();
+  else window.setTimeout(() => whenIdle(run, deadline), 100);
 }
 function updateLoginWait() {
   const seconds = Math.max(0, Math.ceil((model.retryLoginAt - Date.now()) / 1000));

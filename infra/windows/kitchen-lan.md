@@ -21,11 +21,12 @@ native gateway остаётся на 127.0.0.1:4178.
 параметров ниже использует переменные оператора, а не реальные секреты:
 
 ```powershell
-.\install-kitchen-lan.ps1 -CashierAddress $CashierIp -KitchenAddress $KitchenIp -KitchenTerminalId $KitchenTerminal -BranchLabel $BranchName -GatewaySha256 $ReviewedGatewayHash -CheckSha256 $ReviewedCheckHash
+.\install-kitchen-lan.ps1 -CashierAddress $CashierIp -KitchenAddress $KitchenIp -KitchenTerminalId $KitchenTerminal -BranchLabel $BranchName -GatewaySha256 $ReviewedGatewayHash -CheckSha256 $ReviewedCheckHash -ProfilesSha256 $ReviewedProfilesHash
 ```
 
-Рядом должны находиться исходные `kitchen-lan-gateway.mjs`, `kitchen-lan-check.mjs`
-и точная проверенная версия `install-native-foundation.ps1`. SHA256 обоих JS-файлов
+Рядом должны находиться исходные `kitchen-lan-gateway.mjs`, `lan-route-profiles.mjs`
+(профили маршрутов, шлюз импортирует его из своей папки), `kitchen-lan-check.mjs`
+и точная проверенная версия `install-native-foundation.ps1`. SHA256 трёх JS-файлов
 берутся из manifest поставки. Helper сверяет foundation, копирует уже проверенный
 WinSW 2.12 и использует установленный Node 24.21.0.
 
@@ -57,6 +58,19 @@ firewall и config должны обновляться согласованно.
 Если установка остановилась, защищённые файлы сохраняются. Повторная команда
 отказывается перезаписывать существующую службу; сначала проверяется фактическое
 состояние. Исходный edge и его база этим helper не изменяются.
+
+## Несколько клиентов и профили (переход 19.11)
+
+Установщик ставит шлюз с одним кухонным адресом (прежний формат `clientAddresses`).
+Список устройств меняет `update-kitchen-lan-clients.ps1` без переустановки: прежний
+формат для одних кухонных экранов (`-Legacy`, К7) или `clients[]` с профилем на адрес
+(`kitchen`, `display`, `pos`; до 32 клиентов, `maxConnections` 64). Маршруты профилей -
+`lan-route-profiles.mjs`; прежний `clientAddresses` на новом коде остаётся профилем
+`kitchen` с прежними лимитами (20 адресов, 40 соединений). Конфиг проверяется
+командой `node kitchen-lan-gateway.mjs --check <config>` без запуска listener.
+Кассы и кухонные моноблоки подключают `install-pos-client.ps1` и
+`install-kitchen-client.ps1`. Порядок, проверки и откат:
+[LAN-клиенты точки](../../docs/operations/lan-clients.md).
 
 Проверены на локальном стенде настоящий HTTPS/AES PFX, проверка сертификата,
 границы Host/Origin, сохранение команды и авторизации, login 2 KiB, logout 204,

@@ -13,7 +13,8 @@ import type { DatabaseClient, DatabasePool } from '@pickchick/database';
 import { authenticateDevice } from './identity.js';
 import type { DeviceAuth } from './identity.js';
 import { canonicalJson, hashJson, SyncError } from './common.js';
-import { withoutComboStopLinks } from './catalog-projection.js';
+import { withoutAggregatorPrices, withoutComboStopLinks } from './catalog-projection.js';
+import type { MenuSnapshot } from '@pickchick/contracts';
 
 /**
  * Menu features from the edge's `menu_features` query value. Lenient on purpose: unknown or
@@ -33,15 +34,46 @@ export function edgeMenuFeatures(value: unknown): EdgeMenuFeature[] {
 }
 
 /**
- * Delivery form of a stored publication. An edge without the combo_stops feature (the installed
- * edge parses the menu strictly) gets the publication without the cashier fields and the
- * checksum of exactly that menu; an unmarked publication is returned unchanged.
+ * The cashier fields of each menu feature and the function removing them. Every feature in
+ * EdgeMenuFeatureSchema must be listed (the Record type enforces it); each stripper returns the
+ * same object when there is nothing to remove.
  */
-function deliveredForm(event: MenuPublished, features: readonly string[]): MenuPublished {
-  if (features.includes('combo_stops')) return event;
-  const menu = withoutComboStopLinks(event.payload.menu);
+const FEATURE_STRIPPERS: Readonly<Record<EdgeMenuFeature, (menu: MenuSnapshot) => MenuSnapshot>> = {
+  combo_stops: withoutComboStopLinks,
+  aggregator_prices: withoutAggregatorPrices,
+};
+
+/**
+ * Delivery form of a stored publication for the features an edge advertised. For every feature
+ * the edge did not list (an installed edge parses the menu strictly and lists none) the fields
+ * of that feature are removed and the checksum is the one of exactly that menu. A publication
+ * with nothing to remove is returned unchanged (byte-identical reply).
+ */
+export function menuDeliveryForm(event: MenuPublished, features: readonly string[]): MenuPublished {
+  let menu = event.payload.menu;
+  for (const feature of EdgeMenuFeatureSchema.options)
+    if (!features.includes(feature)) menu = FEATURE_STRIPPERS[feature](menu);
   if (menu === event.payload.menu) return event;
   return MenuPublishedSchema.parse({ ...event, payload: { menu, checksum: hashJson(menu) } });
+}
+
+/** Every subset of the known menu features: the forms an edge may have been given. */
+function featureSubsets(): EdgeMenuFeature[][] {
+  return EdgeMenuFeatureSchema.options.reduce<EdgeMenuFeature[][]>(
+    (subsets, feature) => [...subsets, ...subsets.map((subset) => [...subset, feature])],
+    [[]],
+  );
+}
+
+/**
+ * Checksums an ACK of this publication may carry: one per delivery form over the subsets of
+ * {combo_stops, aggregator_prices} (equal forms collapse). The stored checksum is the form with
+ * every feature; an unmarked publication has exactly one.
+ */
+export function menuDeliveryChecksums(event: MenuPublished): Set<string> {
+  return new Set(
+    featureSubsets().map((features) => menuDeliveryForm(event, features).payload.checksum),
+  );
 }
 
 const eventColumns = `event_id, producer_id, producer_sequence, branch_id, aggregate_type,
@@ -231,7 +263,7 @@ export async function pullMenu(
     await client.query('UPDATE outbox_events SET attempts = attempts + 1 WHERE event_id = $1', [
       eventId,
     ]);
-    return { event: deliveredForm(await readEvent(client, eventId), options.features ?? []) };
+    return { event: menuDeliveryForm(await readEvent(client, eventId), options.features ?? []) };
   });
 }
 
@@ -251,13 +283,12 @@ export async function acknowledgeMenu(pool: DatabasePool, auth: DeviceAuth, inpu
     if (!row.rows[0]) throw new SyncError('NOT_FOUND');
     const event = await readEvent(client, ack.event_id);
     // The edge acknowledges the exact form it was given: the stored publication, or for an edge
-    // without the combo_stops feature the same publication without the cashier fields.
+    // without some menu features the same publication without those features' cashier fields.
     if (
       ack.producer_id !== event.producer_id ||
       ack.producer_sequence !== event.producer_sequence ||
       ack.release_id !== event.aggregate_id ||
-      (ack.checksum !== event.payload.checksum &&
-        ack.checksum !== deliveredForm(event, []).payload.checksum)
+      !menuDeliveryChecksums(event).has(ack.checksum)
     )
       throw new SyncError('CONFLICT');
     const previous = await client.query(

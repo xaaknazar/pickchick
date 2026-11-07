@@ -1,3 +1,5 @@
+import { posSalesWorkerGrants } from './pos-sales-grants.mjs';
+
 /** Dedicated transport roles. Never apply these to the staff-facing Edge HTTP role. */
 function roleSql(role, schema, statements) {
   for (const name of [role, schema])
@@ -21,8 +23,15 @@ function roleSql(role, schema, statements) {
       .join('\n')
   );
 }
-export function posSyncWorkerGrants(role, schema = 'public') {
-  return roleSql(role, schema, [
+/**
+ * POS sync worker role. posSales (edge schema026, cutover CR pos-1 section 1): the caller passes
+ * true only when 026 is applied; the posSales sender (cloud lane) then also reads pos_sale_outbox,
+ * records its delivery and writes pos_sale_sync_state (WORKER_PRIVILEGES of pos-sales-grants.mjs).
+ * Without it the SQL is byte-identical to the pre-cutover grants.
+ */
+export function posSyncWorkerGrants(role, schema = 'public', { posSales = false } = {}) {
+  if (typeof posSales !== 'boolean') throw new Error('Invalid POS sales grant flag');
+  const sql = roleSql(role, schema, [
     ['SELECT', 'pos_order_sync_state,pos_kitchen_sync_state,outbox_events,fulfillment_outbox'],
     [
       'UPDATE(lease_token,lease_until,pending_event_id,pending_envelope,pending_hash,failure_count,retry_after,last_error)',
@@ -34,6 +43,7 @@ export function posSyncWorkerGrants(role, schema = 'public') {
     ],
     ['UPDATE(attempts,acknowledged_at)', 'outbox_events,fulfillment_outbox'],
   ]);
+  return posSales ? sql + '\n' + posSalesWorkerGrants(role, schema) : sql;
 }
 export function posSyncReceiverGrants(role, schema = 'public', { restoreReview = false } = {}) {
   return (

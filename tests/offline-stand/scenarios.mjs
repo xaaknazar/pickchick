@@ -21,9 +21,12 @@ import {
   backlogDelivered,
   stopsConverged,
   channelOrdersLostByRestore,
+  canonical,
 } from './checks.mjs';
 import { staffView, LABELS } from './staff-view.mjs';
 import { WORKERS, checkedAdminUrl, StandError } from './stand.mjs';
+import { posSalesSetup } from './owner.mjs';
+import { PAID_KINDS } from './restaurant.mjs';
 
 const run = promisify(execFile);
 const round = (v) => Math.round(v * 10) / 10;
@@ -677,7 +680,263 @@ export const SCENARIOS = {
       };
     },
   },
+
+  paid_day: {
+    title:
+      'День с оплатой на двух кассах (pos_sale): включение владельцем, продажи, отмена и возврат без интернета, X и Z, доставка posSales в облако, возврат в режим без оплаты',
+    async run(ctx) {
+      const { stand, r, traffic, profile } = ctx;
+      const notes = {};
+      const checks = [];
+      // Quiet start, as before the owner's step: traffic stopped, every queue delivered.
+      await traffic.stop();
+      await ctx.converge();
+      const desks = await stand.paidDesks();
+      const switched = await switchToPaid(ctx, desks, notes, checks);
+      r.startPaidDay(desks);
+      for (const desk of desks) await r.openSalesShift(desk);
+      const before = { paid: r.counters.paid_sales ?? 0, kitchen: r.counters.kitchen_actions };
+      traffic.start();
+      // Online: the sales of both desks reach the cloud as they happen.
+      await ctx.hold(profile.paidOnlineMs ?? 10000);
+      const online = await ctx.cleared(await backlogMark(stand));
+      notes.online_delivery_seconds = online.seconds;
+      // The internet drops in the middle of the day.
+      stand.wan.set(profile.wanFault ?? 'down');
+      const outageAt = Date.now();
+      const atOutage = r.counters.paid_sales ?? 0;
+      await ctx.hold(5000);
+      // A void before the kitchen starts and a refund of two tender parts, both with the shift
+      // manager's PIN; the kitchen does not move meanwhile, so the void is not a race.
+      await traffic.stop();
+      const toVoid = await r.paidSale({ desk: desks[1], kind: 'cash' });
+      const voided = toVoid ? await r.paidVoid(toVoid) : false;
+      const toRefund = await r.paidSale({ desk: desks[0], kind: 'mixed' });
+      if (!toVoid || !toRefund) throw new StandError('PAID_SCRIPTED_SALE_REFUSED');
+      const [cashPart, kaspiPart] = ['cash', 'kaspi_terminal'].map((method) =>
+        toRefund.tenders.find((t) => t.method === method),
+      );
+      await r.paidRefund(toRefund, [
+        { tender: cashPart, amount: cashPart.amount },
+        { tender: kaspiPart, amount: '50000' },
+      ]);
+      traffic.start();
+      await ctx.hold(Math.max(0, (profile.paidOutageMs ?? 45000) - (Date.now() - outageAt)));
+      // End of the day, still without internet: receipts punched in Webkassa, X, then Z.
+      await traffic.stop();
+      const shifts = [];
+      for (const desk of desks) {
+        const recorded = await r.recordReceipts(desk);
+        const { x, z } = await r.closeSalesShift(desk);
+        shifts.push({ desk: desk.number, recorded, x, z });
+      }
+      const offline = await pendingWork(stand);
+      const pendingZ = Number(
+        (
+          await stand.edge.query(
+            "SELECT count(*) FROM pos_sale_outbox WHERE branch_id=$1 AND kind='shift_report' AND acknowledged_at IS NULL",
+            [stand.ids.branch],
+          )
+        ).rows[0].count,
+      );
+      const soldOffline = (r.counters.paid_sales ?? 0) - atOutage;
+      const offlineByDesk = desks.map(
+        (desk) =>
+          [...r.ledger.posSales.values()].filter((p) => p.desk === desk.number && p.at >= outageAt)
+            .length,
+      );
+      notes.paid_sales = (r.counters.paid_sales ?? 0) - before.paid;
+      notes.paid_sales_offline = soldOffline;
+      notes.paid_sales_offline_by_desk = offlineByDesk;
+      notes.paid_kinds = Object.fromEntries(
+        PAID_KINDS.map((kind) => [
+          kind,
+          [...r.ledger.posSales.values()].filter((p) => p.kind === kind).length,
+        ]),
+      );
+      notes.pos_sales_events_at_reconnect = offline.pos_sales;
+      notes.shifts = shifts.map((s) => ({
+        desk: s.desk,
+        receipts_recorded: s.recorded,
+        cash_sales_minor: s.z.cash_sales_minor,
+        cash_refunds_minor: s.z.cash_refunds_minor,
+        expected_cash_minor: s.z.expected_cash_minor,
+        orders: s.z.orders,
+      }));
+      const totalsOf = (report) =>
+        canonical({
+          opening: report.opening_cash_minor,
+          cash_sales: report.cash_sales_minor,
+          cash_refunds: report.cash_refunds_minor,
+          expected: report.expected_cash_minor,
+          methods: report.methods,
+          channels: report.channels,
+          orders: report.orders,
+        });
+      checks.push(
+        check(
+          'paid_scripted_void_and_refund',
+          'Отмена до начала готовки и возврат двух частей оплаты прошли с PIN менеджера',
+          voided === true && toRefund.refunds.length === 1,
+          { voided: true, refunds: 1 },
+          { voided, refunds: toRefund.refunds.length },
+        ),
+        check(
+          'paid_kept_selling_offline',
+          'Обе кассы продавали с оплатой без интернета',
+          soldOffline > 0 && offlineByDesk.every((n) => n > 0),
+          'на каждой кассе > 0',
+          offlineByDesk,
+        ),
+        check(
+          'paid_backlog_kept_offline',
+          'Продажи, отмены, возвраты, чеки и оба Z без интернета ждут отправки на кассе',
+          offline.pos_sales > 0 && pendingZ === desks.length,
+          { pending: '> 0', z: desks.length },
+          { pending: offline.pos_sales, z: pendingZ },
+        ),
+        check(
+          'paid_x_equals_z',
+          'X перед закрытием и Z смены каждой кассы совпадают, касса и терминал без расхождений, чеки внесены',
+          shifts.every(
+            (s) =>
+              JSON.stringify(totalsOf(s.x)) === JSON.stringify(totalsOf(s.z)) &&
+              s.z.kind === 'z' &&
+              s.z.discrepancy_minor === '0' &&
+              s.z.terminal_discrepancy_minor === '0' &&
+              s.z.fiscal.pending === 0,
+          ),
+          true,
+          shifts.map((s) => ({
+            desk: s.desk,
+            discrepancy: s.z.discrepancy_minor,
+            terminal: s.z.terminal_discrepancy_minor,
+            pending: s.z.fiscal.pending,
+          })),
+        ),
+      );
+      // The internet is back: the backlog (the Z included) reaches the cloud in order.
+      const mark = await backlogMark(stand);
+      notes.outage_seconds = round((Date.now() - outageAt) / 1000);
+      stand.wan.set('up');
+      const cleared = await ctx.cleared(mark);
+      notes.convergence_seconds = cleared.seconds;
+      checks.push(
+        check(
+          'paid_converged_in_time',
+          `После возврата связи продажи, отмены, возвраты, чеки и Z доставлены за ${profile.convergeLimitS} с`,
+          cleared.converged && cleared.seconds <= profile.convergeLimitS,
+          `<= ${profile.convergeLimitS} с`,
+          `${cleared.seconds} с`,
+        ),
+      );
+      r.endPaidDay();
+      await switchBack(ctx, desks, switched, notes, checks);
+      return { notes, checks };
+    },
+  },
 };
+
+/**
+ * Master runbook step 6 on the stand, with the owner's real command line (never SQL): the
+ * preconditions (every shift closed, each desk asked GET pos/config with its build, the cloud
+ * answered the posSales probe within 24 h), the desk numbers of step 4, then `enable` with every
+ * method as the runbook types it. Afterwards each desk sees pos_sale and its number.
+ */
+async function switchToPaid(ctx, desks, notes, checks) {
+  const { stand, r } = ctx;
+  await r.closeShift();
+  for (const desk of desks) await r.posConfig(desk.cashier);
+  for (const desk of desks)
+    await posSalesSetup(stand, [
+      'desk',
+      '--terminal',
+      desk.terminal,
+      '--number',
+      String(desk.number),
+      '--reason',
+      `Стенд: касса ${desk.number}`,
+    ]);
+  let status;
+  for (let attempt = 0; attempt < 20; attempt++) {
+    status = await posSalesSetup(stand, ['status']);
+    if (status.ready_to_enable || status.blockers.some((b) => b.code !== 'CLOUD_NOT_SUPPORTED'))
+      break;
+    // The worker's empty probe has not been answered yet (it runs at start, then every 10 min).
+    await sleep(3000);
+  }
+  notes.status_before_enable = {
+    mode: status.mode,
+    blockers: status.blockers.map((b) => b.code),
+    cloud_supported: status.cloud.supported,
+    cash_desks: status.cash_desks.map((d) => ({
+      desk_number: d.desk_number,
+      config_fetched: d.config_fetched,
+      client_version: d.client_version,
+    })),
+  };
+  const enabled = await posSalesSetup(stand, [
+    'enable',
+    '--methods',
+    'cash,kaspi_terminal,kaspi_manual,aggregator_yandex_eda,aggregator_glovo,chocofood,staff_meal,marketing',
+    '--reason',
+    'Стенд: день с оплатой',
+  ]);
+  const configs = [];
+  for (const desk of desks) configs.push(await r.posConfig(desk.cashier));
+  const deskNumbers = new Map(enabled.cash_desks.map((d) => [d.terminal_id, d.desk_number]));
+  checks.push(
+    check(
+      'paid_switch_audited',
+      'Владелец включил оплату на кассе командой runbook (pos-sales-setup.mjs enable, запись аудита), обе кассы видят pos_sale и свой номер',
+      status.ready_to_enable === true &&
+        enabled.event === 'pos_sales_enable' &&
+        enabled.mode === 'pos_sale' &&
+        enabled.recent_changes.some(
+          (c) => c.subject === 'pos_service_mode' && c.after?.pos_service_mode === 'pos_sale',
+        ) &&
+        desks.every((desk) => deskNumbers.get(desk.terminal) === desk.number) &&
+        configs.every(
+          (config, i) =>
+            config.mode === 'pos_sale' &&
+            config.desk_number === desks[i].number &&
+            config.methods.every((m) => m.enabled),
+        ),
+      { mode: 'pos_sale', desks: desks.map((d) => d.number) },
+      {
+        mode: enabled.mode,
+        blockers: status.blockers.map((b) => b.code),
+        desks: configs.map((c) => c.desk_number),
+      },
+    ),
+  );
+  return { changes: enabled.changes.length };
+}
+
+/** Back to the day without payment (runbook T7 «завершено»): `disable`, then the unpaid shift. */
+async function switchBack(ctx, desks, switched, notes, checks) {
+  const { stand, r } = ctx;
+  const disabled = await posSalesSetup(stand, [
+    'disable',
+    '--reason',
+    'Стенд: день с оплатой завершён',
+  ]);
+  await r.openShift();
+  const configs = [];
+  for (const desk of desks) configs.push(await r.posConfig(desk.cashier));
+  notes.switch_changes = { enable: switched.changes, disable: disabled.changes.length };
+  checks.push(
+    check(
+      'paid_switch_back',
+      'Команда disable вернула кассы в режим без оплаты (все смены продаж закрыты Z), касса снова открывает обычную смену',
+      disabled.event === 'pos_sales_disable' &&
+        disabled.mode === 'unpaid_service' &&
+        configs.every((c) => c.mode === 'unpaid_service' && c.methods.every((m) => !m.enabled)),
+      'unpaid_service',
+      { mode: disabled.mode, desks: configs.map((c) => c.mode) },
+    ),
+  );
+}
 
 /** Unacknowledged cashier events whose (order, version) the cloud already holds with another
  * event: the signature of a restored cashier re-living the lost timeline. */
@@ -864,4 +1123,6 @@ export const SCENARIO_ORDER = [
   'edge_restart',
   'cloud_restart',
   'edge_restore',
+  // Last: it switches the edge to pos_sale and back, so every unpaid scenario runs as before.
+  'paid_day',
 ];

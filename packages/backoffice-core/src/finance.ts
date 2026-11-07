@@ -4,6 +4,12 @@ import { transaction, type DatabasePool, type DatabaseClient } from '@pickchick/
 import { catalogHash } from '@pickchick/catalog-admin';
 import { digest } from '@pickchick/commerce-core';
 import { BackofficeError, parse } from './model.js';
+import {
+  permissionsOf,
+  requirePermission,
+  resolveBackofficeRole,
+  type BackofficeEffectiveRole,
+} from './roles.js';
 
 export const FINANCE = Symbol('FINANCE');
 const date = z.iso
@@ -183,12 +189,19 @@ export const FinanceQuery = z
 const fail = (code: ConstructorParameters<typeof BackofficeError>[0]): never => {
   throw new BackofficeError(code);
 };
-type Actor = { id: string; organization_id: string; role: 'manager' | 'analyst' };
+type Actor = {
+  id: string;
+  organization_id: string;
+  role: 'manager' | 'analyst';
+  effective: BackofficeEffectiveRole;
+};
 
 export class Finance {
   constructor(
     private pool: DatabasePool,
     private enabled = false,
+    /** BACKOFFICE_ROLES_ENABLED (cutover CC-5): accountants write, shift managers do not read. */
+    private options: { rolesEnabled?: boolean } = {},
   ) {}
   private async scope(
     db: DatabaseClient,
@@ -205,8 +218,16 @@ export class Finance {
         [catalogHash(token), branch],
       )
     ).rows[0];
-    if (!actor || (write && actor.role !== 'manager')) return fail('FORBIDDEN');
-    return actor;
+    if (!actor) return fail('FORBIDDEN');
+    const { role } = await resolveBackofficeRole(
+      db,
+      actor.id,
+      branch,
+      actor.role,
+      this.options.rolesEnabled === true,
+    );
+    requirePermission(role, write ? 'finance.write' : 'finance.read');
+    return { ...actor, effective: role };
   }
   // Closing is cumulative (audit 4.4): a closed month's opening balances are the sum of
   // everything before it, so a closed month also locks every earlier month, open or not.
@@ -499,6 +520,10 @@ export class Finance {
         capabilities: { replace: true, history: true },
         branch_id: branch,
         role: actor.role,
+        // Cutover CC-5: only with BACKOFFICE_ROLES_ENABLED (an accountant has an analyst grant).
+        ...(this.options.rolesEnabled === true
+          ? { effective_role: actor.effective, permissions: permissionsOf(actor.effective) }
+          : {}),
         as_of: new Date().toISOString(),
         query: q,
         categories,

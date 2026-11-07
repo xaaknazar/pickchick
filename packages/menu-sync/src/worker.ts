@@ -23,10 +23,13 @@ export { localCloudOrigin } from './device-http.js';
 
 /**
  * Menu features this edge runtime applies, advertised on every pull. combo_stops: local-orders
- * and the POS screen use combo_component_variant_ids / linked_variant_id (stage 2). The cloud
- * sends those fields only to an edge that lists the feature; installed clouds ignore the key.
+ * and the POS screen use combo_component_variant_ids / linked_variant_id (stage 2).
+ * aggregator_prices (cutover Аг4): the menu schema of this runtime parses
+ * aggregator_prices_minor and the cashier prices aggregator channels from it
+ * (channelItemPriceMinor); hall prices stay price_minor. The cloud sends those fields only to
+ * an edge that lists the feature; installed clouds ignore the key and unknown values.
  */
-export const EDGE_MENU_FEATURES: readonly EdgeMenuFeature[] = ['combo_stops'];
+export const EDGE_MENU_FEATURES: readonly EdgeMenuFeature[] = ['combo_stops', 'aggregator_prices'];
 
 /** Download attempts for a publication's photos before it is rejected as MEDIA_UNAVAILABLE. */
 export const MENU_MEDIA_ATTEMPTS = 3;

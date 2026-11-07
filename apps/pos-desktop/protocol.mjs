@@ -1,19 +1,80 @@
 import { V2_ASSETS } from './v2-assets.mjs';
 import { readFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
+import { createHash, X509Certificate } from 'node:crypto';
+import { request as requestHttps } from 'node:https';
+import { isIP } from 'node:net';
+import { Readable } from 'node:stream';
+import { connect as connectTls } from 'node:tls';
 import { MENU_ASSETS } from './menu-assets.mjs';
+import { validatePrinter } from './printer.mjs';
 
 export const APP_ORIGIN = 'pickchick-pos://app';
 export const APP_URL = `${APP_ORIGIN}/`;
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
+/**
+ * Paid-sale routes of the cashier (cutover 19.11, contracts section 5.5), one definition for
+ * this adapter and apps/pos/server.mjs. The edge answers 404 until it runs pos_sale.
+ */
+export const SALE_ROUTES = Object.freeze({
+  read: Object.freeze([
+    'pos/config',
+    `pos/sales/${UUID}`,
+    'pos/fiscal-receipts/pending',
+    `cash-shifts/${UUID}/x-report`,
+    `cash-shifts/${UUID}/z-report`,
+  ]),
+  write: Object.freeze([
+    'staff/approvals',
+    'pos/sales',
+    `pos/sales/${UUID}/void`,
+    `pos/sales/${UUID}/refunds`,
+    `pos/fiscal-receipts/${UUID}/record`,
+  ]),
+});
+/** GET paths that may carry exactly one `?shift_id=<uuid>` filter (today's orders, receipts). */
+export const SHIFT_FILTERED = Object.freeze(['orders', 'pos/fiscal-receipts/pending']);
 const readPath = new RegExp(
-  `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?)$`,
+  `^/edge/v1/(session|menu|menu/version|ordering|cloud-link|orders|orders/${UUID}|cash-shifts|cash-shifts/current|cash-shifts/${UUID}|availability/stops(?:/${UUID})?|${SALE_ROUTES.read.join('|')})$`,
   'i',
 );
 const writePath = new RegExp(
-  `^/edge/v1/(staff/(login|pin|logout)|checkout/quotes|orders|orders/${UUID}/cancel|cash-shifts|cash-shifts/${UUID}/(?:close|movements)|ordering/(open|close)|availability/stops)$`,
+  `^/edge/v1/(staff/(login|pin|logout)|checkout/quotes|orders|orders/${UUID}/cancel|cash-shifts|cash-shifts/${UUID}/(?:close|movements)|ordering/(open|close)|availability/stops|${SALE_ROUTES.write.join('|')})$`,
   'i',
 );
+/** The edge routes of this desk; the CL-4 `pos` gateway profile mirrors them (section 5.5). */
+export { readPath as EDGE_READ_PATH, writePath as EDGE_WRITE_PATH };
+/**
+ * POST paths forwarded without a body or Content-Type: the renderer ends a session with a bare
+ * POST staff/logout, which the edge revokes by its headers alone. The `pos` gateway profile lists
+ * the same paths as bodyless and refuses a body on them.
+ */
+export const BODYLESS_WRITES = Object.freeze(['/edge/v1/staff/logout']);
+/**
+ * `client_version` of GET pos/config (CR pos-2 section 1.1): the edge records which build each
+ * desk runs for the pos-sales-setup status. This adapter adds its own build; the renderer cannot
+ * choose it. A subset of the edge's format without '+', so no character needs encoding (the
+ * gateway refuses '%' in a request target).
+ */
+export const CLIENT_VERSION = /^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$/;
+/**
+ * Version of the installed build in /config.json (CR client-5): the lock screen of a desk that
+ * sells names it. The same format as apps/pos/src/v2/mode-texts.js APP_VERSION.
+ */
+export const APP_VERSION = /^[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}(?:-[0-9A-Za-z.]{1,32})?$/;
+/** app.getVersion() when it has that format, or undefined (then no version is shown). */
+export const desktopAppVersion = (appVersion) =>
+  typeof appVersion === 'string' && APP_VERSION.test(appVersion) ? appVersion : undefined;
+/** The client_version of an installed build, or undefined when that version cannot be sent. */
+export function desktopClientVersion(appVersion) {
+  const value = `pos-desktop-${appVersion}`;
+  return typeof appVersion === 'string' &&
+    /^[0-9A-Za-z]/.test(appVersion) &&
+    CLIENT_VERSION.test(value)
+    ? value
+    : undefined;
+}
+/** PIN checks typed on this desk: small bodies only (contracts section 5.1, staff/approvals). */
+const PIN_PATHS = ['/edge/v1/staff/login', '/edge/v1/staff/pin', '/edge/v1/staff/approvals'];
 const assets = new Map([
   ...V2_ASSETS.map(([name, type]) => ['/' + name, [name, type]]),
   ...MENU_ASSETS.map((name) => [`/assets/menu/${name}`, [`assets/menu/${name}`, 'image/jpeg']]),
@@ -33,19 +94,24 @@ const isWebp = (bytes) =>
   bytes.length >= 12 &&
   bytes.toString('latin1', 0, 4) === 'RIFF' &&
   bytes.toString('latin1', 8, 12) === 'WEBP';
-/** Reads one cached photo from the loopback edge. The bytes are returned only when they are a
- *  WebP whose SHA-256 is exactly the requested name; anything else yields null (fallback). */
+/** Reads one cached photo from the configured edge: the loopback edge, or `transport` (the
+ *  desktop's edge transport, pinned TLS for a remote edge). The bytes are returned only when they
+ *  are a WebP whose SHA-256 is exactly the requested name; anything else yields null (fallback). */
 export async function fetchMenuMedia(
   sha256,
-  { edgePort, fetchImpl = globalThis.fetch, timeoutMs },
+  { edgePort, fetchImpl = globalThis.fetch, timeoutMs, transport },
 ) {
   if (!/^[a-f0-9]{64}$/.test(sha256)) return null;
   try {
-    const response = await fetchImpl(`http://127.0.0.1:${edgePort}/edge/v1/media/${sha256}.webp`, {
+    const path = `/edge/v1/media/${sha256}.webp`;
+    const init = {
       method: 'GET',
       redirect: 'error',
       signal: AbortSignal.timeout(Math.min(timeoutMs, 5000)),
-    });
+    };
+    const response = await (transport
+      ? transport(path, init)
+      : fetchImpl(`http://127.0.0.1:${edgePort}${path}`, init));
     if (response.status !== 200 || response.redirected) {
       await response.body?.cancel().catch(() => {});
       return null;
@@ -86,11 +152,11 @@ export function createMenuMediaCache({ maxBytes = 24 * 1024 * 1024 } = {}) {
 /** Resolves a hash photo to verified WebP bytes or the bundled logo. */
 export async function menuMediaResponse(
   sha256,
-  { edgePort, fetchImpl, timeoutMs, cache, assetDir },
+  { edgePort, fetchImpl, timeoutMs, cache, assetDir, transport },
 ) {
   let bytes = cache.get(sha256);
   if (!bytes) {
-    bytes = await fetchMenuMedia(sha256, { edgePort, fetchImpl, timeoutMs });
+    bytes = await fetchMenuMedia(sha256, { edgePort, fetchImpl, timeoutMs, transport });
     if (bytes) cache.set(sha256, bytes);
   }
   if (bytes) return { status: 200, type: 'image/webp', bytes };
@@ -123,7 +189,7 @@ function localURL(value) {
       url.username ||
       url.password ||
       (url.search &&
-        (url.pathname !== '/edge/v1/orders' ||
+        (!SHIFT_FILTERED.some((path) => url.pathname === `/edge/v1/${path}`) ||
           !new RegExp(`^\\?shift_id=${UUID}$`, 'i').test(url.search))) ||
       url.hash
     )
@@ -146,16 +212,63 @@ export function isAllowedRendererURL(value) {
   );
 }
 
+/**
+ * Operator-owned trust of a remote edge (contracts CL-2, section 6.1): the LAN gateway of the
+ * branch server at a private IPv4 and its one pinned certificate, which must name that IP and be
+ * valid now. Same rules as apps/kitchen/server.mjs validateUpstream. Both keys absent: loopback,
+ * exactly as before. Never sent to the renderer.
+ */
+export function validateUpstream({ edgeHost, edgeCertificatePem } = {}) {
+  if (edgeHost === undefined && edgeCertificatePem === undefined) return {};
+  try {
+    if (typeof edgeHost !== 'string' || isIP(edgeHost) !== 4) throw new Error();
+    const [a, b] = edgeHost.split('.').map(Number);
+    if (!(a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)))
+      throw new Error();
+    if (typeof edgeCertificatePem !== 'string' || edgeCertificatePem.length > 16384)
+      throw new Error();
+    const pem = edgeCertificatePem.trim();
+    if (
+      !/^-----BEGIN CERTIFICATE-----\r?\n[A-Za-z0-9+/=\r\n]+\r?\n-----END CERTIFICATE-----$/.test(
+        pem,
+      )
+    )
+      throw new Error();
+    const certificate = new X509Certificate(pem);
+    if (
+      certificate.checkIP(edgeHost) !== edgeHost ||
+      Date.parse(certificate.validFrom) > Date.now() ||
+      Date.parse(certificate.validTo) <= Date.now()
+    )
+      throw new Error();
+    return { edgeHost, edgeCertificatePem: pem + '\n' };
+  } catch {
+    throw new Error('INVALID_POS_CONFIG');
+  }
+}
+
 export function validateConfig(value = {}) {
   if (
     !value ||
     typeof value !== 'object' ||
     Array.isArray(value) ||
     Object.keys(value).some(
-      (key) => !['edgePort', 'branchLabel', 'categories', 'terminalId', 'pinLength'].includes(key),
+      (key) =>
+        ![
+          'edgePort',
+          'branchLabel',
+          'categories',
+          'terminalId',
+          'pinLength',
+          'edgeHost',
+          'edgeCertificatePem',
+          'printer',
+        ].includes(key),
     )
   )
     throw new Error('INVALID_POS_CONFIG');
+  const upstream = validateUpstream(value);
+  const printer = validatePrinter(value.printer);
   const {
     edgePort = 3101,
     branchLabel = 'Локальная точка',
@@ -195,7 +308,71 @@ export function validateConfig(value = {}) {
     categories: { ...categories },
     ...(terminalId === undefined ? {} : { terminalId }),
     ...(pinLength === undefined ? {} : { pinLength }),
+    ...upstream,
+    ...(printer === undefined ? {} : { printer }),
   };
+}
+
+/**
+ * HTTPS to the remote edge, trusting only the pinned certificate (contracts CL-2). One TLS
+ * connection per request and no agent, so no pooled socket is shared with another trust; Node
+ * never follows a redirect and there is no code path to plain HTTP. `dial` (tests only) supplies
+ * the TCP socket; certificate and IP checks are the same either way.
+ */
+function pinnedRequest({ edgeHost, edgePort, edgeCertificatePem }, path, init, dial) {
+  return new Promise((resolve, reject) => {
+    const tls = {
+      host: edgeHost,
+      port: edgePort,
+      ca: edgeCertificatePem,
+      rejectUnauthorized: true,
+      minVersion: 'TLSv1.2',
+      ALPNProtocols: ['http/1.1'],
+    };
+    const upstream = requestHttps(
+      {
+        host: edgeHost,
+        port: edgePort,
+        path,
+        method: init.method,
+        // The gateway accepts exactly its own address as Host.
+        headers: { ...init.headers, Host: `${edgeHost}:${edgePort}` },
+        signal: init.signal,
+        createConnection: () =>
+          connectTls(dial ? { ...tls, socket: dial(edgeHost, edgePort) } : tls),
+      },
+      (response) => {
+        const status = response.statusCode ?? 502;
+        try {
+          const headers = new globalThis.Headers();
+          for (const key of ['content-type', 'content-length', 'retry-after']) {
+            const value = response.headers[key];
+            if (typeof value === 'string') headers.set(key, value);
+          }
+          // Redirects are answered as INVALID_RESPONSE by the caller and never followed.
+          const empty = [204, 205, 304].includes(status) || (status >= 300 && status < 400);
+          if (empty) response.resume();
+          resolve(new Response(empty ? null : Readable.toWeb(response), { status, headers }));
+        } catch (error) {
+          response.destroy();
+          reject(error);
+        }
+      },
+    );
+    upstream.on('error', reject);
+    upstream.end(init.body);
+  });
+}
+
+/**
+ * The one way this desk reaches its edge: `(path, init) => Response`. Without edgeHost it is
+ * plain HTTP to 127.0.0.1:edgePort through fetchImpl, byte for byte as before; with edgeHost it is
+ * pinned HTTPS only, and fetchImpl is never used (no fallback to HTTP).
+ */
+export function createEdgeTransport(settings, { fetchImpl = globalThis.fetch, dial } = {}) {
+  if (!settings.edgeHost)
+    return (path, init) => fetchImpl(`http://127.0.0.1:${settings.edgePort}${path}`, init);
+  return (path, init) => pinnedRequest(settings, path, init, dial);
 }
 
 async function readBounded(stream, limit) {
@@ -227,15 +404,29 @@ function json(status, value) {
 }
 
 /** The renderer can select neither a file path nor an upstream host.
- *  Routes match apps/pos/server.mjs; this adapter changes transport only. */
+ *  Routes match apps/pos/server.mjs; this adapter changes transport only.
+ *  `clientVersion` (desktopClientVersion of the app) is added to GET pos/config only.
+ *  `appVersion` (desktopAppVersion of the app) is published in /config.json.
+ *  `dial` is for tests of the pinned remote edge only (see createEdgeTransport). */
 export function createProtocolHandler({
   assetDir,
   config = {},
   fetchImpl = globalThis.fetch,
   timeoutMs = 10000,
   onSession = () => {},
+  clientVersion,
+  appVersion,
+  dial,
 }) {
   const settings = validateConfig(config);
+  const edge = createEdgeTransport(settings, { fetchImpl, dial });
+  if (
+    clientVersion !== undefined &&
+    (typeof clientVersion !== 'string' || !CLIENT_VERSION.test(clientVersion))
+  )
+    throw new Error('INVALID_CLIENT_VERSION');
+  if (appVersion !== undefined && (typeof appVersion !== 'string' || !APP_VERSION.test(appVersion)))
+    throw new Error('INVALID_APP_VERSION');
   if (
     !(assetDir instanceof URL) ||
     assetDir.protocol !== 'file:' ||
@@ -272,7 +463,9 @@ export function createProtocolHandler({
       // Only the session that holds journal authority can lose it. An isolated PIN check (the
       // shift-close dialog) and another person's credential (logout of a non-manager PIN) never
       // revoke the logged-in cashier's journal; a request without a session id still does.
-      const pinCheck = path === '/edge/v1/staff/pin';
+      // A shift manager approval refused with 401/403 is a wrong manager PIN, not this session
+      // ending (contracts section 5.1, R13); the cashier's next ordinary request tells that.
+      const pinCheck = path === '/edge/v1/staff/pin' || path === '/edge/v1/staff/approvals';
       const ownSession =
         !headers['x-staff-session-id'] || headers['x-staff-session-id'] === journalSession;
       if (
@@ -282,15 +475,13 @@ export function createProtocolHandler({
       )
         revoke();
       let body;
-      if (request.method === 'POST') {
+      // A bodyless path (logout) is forwarded without a body, whatever the renderer attached.
+      if (request.method === 'POST' && !BODYLESS_WRITES.includes(path)) {
         if (request.headers.get('content-type') !== 'application/json')
           return json(415, { code: 'INVALID_REQUEST' });
         try {
           body = Buffer.from(
-            await readBounded(
-              request.body,
-              ['/edge/v1/staff/login', '/edge/v1/staff/pin'].includes(path) ? 2048 : 64000,
-            ),
+            await readBounded(request.body, PIN_PATHS.includes(path) ? 2048 : 64000),
           ).toString('utf8');
           JSON.parse(body);
         } catch (error) {
@@ -298,17 +489,19 @@ export function createProtocolHandler({
         }
         headers['Content-Type'] = 'application/json';
       }
+      // GET pos/config never carries a renderer query (localURL); the build reported is ours.
+      const search =
+        clientVersion && request.method === 'GET' && path === '/edge/v1/pos/config'
+          ? `?client_version=${clientVersion}`
+          : url.search;
       try {
-        const response = await fetchImpl(
-          `http://127.0.0.1:${settings.edgePort}${path}${url.search}`,
-          {
-            method: request.method,
-            headers,
-            redirect: 'error',
-            signal: AbortSignal.any([request.signal, AbortSignal.timeout(timeoutMs)]),
-            ...(body === undefined ? {} : { body }),
-          },
-        );
+        const response = await edge(`${path}${search}`, {
+          method: request.method,
+          headers,
+          redirect: 'error',
+          signal: AbortSignal.any([request.signal, AbortSignal.timeout(timeoutMs)]),
+          ...(body === undefined ? {} : { body }),
+        });
         if (response.redirected || (response.status >= 300 && response.status < 400))
           return json(502, { code: 'INVALID_RESPONSE' });
         const payload = await readBounded(response.body, 4000000);
@@ -347,15 +540,17 @@ export function createProtocolHandler({
         branchLabel: settings.branchLabel,
         categories: settings.categories,
         ...(settings.terminalId ? { terminalId: settings.terminalId } : {}),
+        // The PIN pad length the operator set (6.5): the lock screen submits at that many digits.
+        ...(settings.pinLength ? { pinLength: settings.pinLength } : {}),
+        ...(appVersion ? { appVersion } : {}),
       });
     const media = MENU_MEDIA_PATH.exec(path);
     if (media) {
       const result = await menuMediaResponse(media[1], {
-        edgePort: settings.edgePort,
-        fetchImpl,
         timeoutMs,
         cache: mediaCache,
         assetDir,
+        transport: edge,
       });
       if (!result) return json(404, { code: 'NOT_FOUND' });
       return new Response(result.bytes, {

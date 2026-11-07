@@ -4,6 +4,7 @@ import { transaction, type DatabasePool, type DatabaseClient } from '@pickchick/
 import { catalogHash } from '@pickchick/catalog-admin';
 import { digest } from '@pickchick/commerce-core';
 import { BackofficeError, parse } from './model.js';
+import { requirePermission, resolveBackofficeRole } from './roles.js';
 import {
   WorkforceRequest,
   WorkforceSchemas,
@@ -28,6 +29,11 @@ export class Workforce {
   constructor(
     private pool: DatabasePool,
     private enabled = false,
+    /**
+     * BACKOFFICE_ROLES_ENABLED (cutover CC-5): a shift manager sees no rates and payroll, so the
+     * whole time sheet answers ROLE_FORBIDDEN; an accountant reads it like an analyst.
+     */
+    private options: { rolesEnabled?: boolean } = {},
   ) {}
   private async scope(db: DatabaseClient, token: string, branch: string, write = false) {
     if (!this.enabled) return fail('SERVICE_UNAVAILABLE');
@@ -42,7 +48,15 @@ export class Workforce {
         [catalogHash(token), branch],
       )
     ).rows[0];
-    if (!actor || (write && actor.role !== 'manager')) return fail('FORBIDDEN');
+    if (!actor) return fail('FORBIDDEN');
+    const { role } = await resolveBackofficeRole(
+      db,
+      actor.id,
+      branch,
+      actor.role,
+      this.options.rolesEnabled === true,
+    );
+    requirePermission(role, write ? 'workforce.write' : 'workforce.read');
     return actor;
   }
   private async records(db: DatabaseClient, branch: string): Promise<WorkRecord[]> {

@@ -92,7 +92,7 @@
         Pick Chick · {{ branchLabel }}
       </div>
       <div style="margin-top: 6px; font-size: 20px; color: rgba(255, 255, 255, 0.72)">
-        Касса 1 · {{ clock }}
+        {{ deskPrefix }}{{ clock }}
       </div>
       <div class="pin-dots" style="margin-top:44px;display:flex;gap:18px;animation:{{ pinShake }}">
         <sc-for list="{{ pinDots }}" as="d" hint-placeholder-count="4">
@@ -125,7 +125,7 @@
         class="pin-connection"
         style="margin-top: 36px; font-size: 15px; color: rgba(255, 255, 255, 0.55)"
       >
-        {{ connLabel }} · Pick Chick POS 0.4 · TEST
+        {{ connLabel }} · {{ appLine }}
       </div>
       <div
         class="pin-hint"
@@ -183,7 +183,8 @@
           class="shift-open-subtitle"
           style="margin-top: 6px; font-size: 18px; color: var(--n600)"
         >
-          {{ branchLabel }} · Касса 1 · {{ dateLabel }} · открывает {{ userName }} ({{ userRole }})
+          {{ branchLabel }} · {{ deskPrefix }}{{ dateLabel }} · открывает {{ userName }} ({{
+          userRole }})
         </div>
         <div
           class="shift-open-label"
@@ -437,6 +438,32 @@
                 flex-direction: column;
               "
             >
+              <!-- Cutover 19.11 paid mode: sales channel and aggregator order number -->
+              <sc-if value="{{ saleChannelBar }}" hint-placeholder-val="{{ false }}">
+                <div class="sale-channels" data-testid="sale-channels">
+                  <sc-for list="{{ saleChannels }}" as="c" hint-placeholder-count="3">
+                    <div
+                      onClick="{{ c.pick }}"
+                      class="sale-chip"
+                      aria-pressed="{{ c.pressed }}"
+                      style="background:{{ c.bg }};color:{{ c.fg }}"
+                    >
+                      {{ c.label }}
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <sc-if value="{{ saleRefShown }}" hint-placeholder-val="{{ false }}">
+                <div
+                  onClick="{{ saleRefPick }}"
+                  class="sale-field"
+                  data-testid="sale-external-ref"
+                  style="border-color:{{ saleRefBorder }};color:{{ saleRefFg }}"
+                >
+                  <span class="sale-field-label">{{ saleRefTitle }}</span>
+                  <span class="sale-field-value">{{ saleRefValue }}</span>
+                </div>
+              </sc-if>
               <div
                 style="
                   flex: none;
@@ -2414,7 +2441,7 @@
                       </div></sc-if
                     >
                     <div
-                      onClick="{{ sayReprint }}"
+                      onClick="{{ r.reprint }}"
                       style="
                         flex: none;
                         height: 48px;
@@ -3332,6 +3359,51 @@
             </sc-if>
           </div>
         </sc-if>
+        <!-- Cutover 19.11 paid mode, part B: "Чеки Webkassa" tab (ops-view.js) -->
+        <sc-if value="{{ isFiscalTab }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="W Чеки Webkassa" class="ops-tab">
+            <div class="ops-tab-head">
+              <div>
+                <div class="sale-title" data-testid="ops-fiscal-title">{{ opsFiscalTitle }}</div>
+                <div class="ops-muted">{{ opsFiscalSub }}</div>
+              </div>
+              <div class="ops-chips">
+                <sc-for list="{{ opsFiscalScopes }}" as="c" hint-placeholder-count="2">
+                  <div
+                    onClick="{{ c.pick }}"
+                    class="sale-chip"
+                    aria-pressed="{{ c.pressed }}"
+                    style="background:{{ c.bg }};color:{{ c.fg }}"
+                  >
+                    {{ c.label }}
+                  </div>
+                </sc-for>
+                <div onClick="{{ opsFiscalRefresh }}" class="sale-button">Обновить</div>
+              </div>
+            </div>
+            <div class="ops-note">
+              Пробейте чек в кабинете Webkassa и внесите его номер. С неоформленными чеками смену
+              закрывают только с PIN начальника смены.
+            </div>
+            <sc-if value="{{ opsFiscalEmpty }}" hint-placeholder-val="{{ false }}">
+              <div class="ops-empty">Неоформленных чеков нет</div>
+            </sc-if>
+            <div class="ops-list">
+              <sc-for list="{{ opsFiscalRows }}" as="r" hint-placeholder-count="4">
+                <div class="ops-row" data-testid="ops-fiscal-row">
+                  <b class="ops-no">{{ r.no }}</b>
+                  <span>{{ r.time }}</span>
+                  <span>{{ r.kind }}</span>
+                  <span class="ops-grow">{{ r.methods }}</span>
+                  <b>{{ r.sum }}</b>
+                  <div onClick="{{ r.record }}" class="sale-button sale-secondary ops-row-action">
+                    Внести номер
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
       </div>
 
       <!-- НИЖНЯЯ НАВИГАЦИЯ -->
@@ -3411,7 +3483,7 @@
             <div style="line-height: 1.15">
               <b style="color: var(--n900); font-size: 15px">{{ userName }}</b><br /><span
                 style="font-size: 12px"
-                >{{ userRole }} · касса 1</span
+                >{{ userRole }}{{ deskChip }}</span
               >
             </div>
           </div>
@@ -5179,6 +5251,659 @@
     </div>
   </sc-if>
 
+  <!-- Cutover 19.11 paid mode (contracts section 5.1): repeat, payment, done, PIN, text entry -->
+  <sc-if value="{{ isSaleReview }}" hint-placeholder-val="{{ false }}">
+    <div class="sale-backdrop" onClick="{{ saleReviewBack }}"></div>
+    <div class="sale-layer">
+      <div
+        class="sale-card sale-review"
+        data-screen-label="S1 Повтор заказа"
+        role="dialog"
+        aria-label="Повторите заказ гостю"
+      >
+        <div class="sale-head">
+          <div>
+            <div class="sale-title">Повторите заказ гостю</div>
+            <div class="sale-sub">
+              Прочитайте гостю состав, тип и сумму. Оплата - после подтверждения.
+            </div>
+          </div>
+          <div class="sale-type" data-testid="sale-review-type">{{ saleReviewType }}</div>
+        </div>
+        <div class="sale-review-lines">
+          <sc-for list="{{ saleReviewLines }}" as="l" hint-placeholder-count="3">
+            <div class="sale-review-line">
+              <div class="sale-review-qty">{{ l.qty }}</div>
+              <div class="sale-review-name">
+                <div>{{ l.name }}</div>
+                <sc-if value="{{ l.mods }}" hint-placeholder-val="{{ false }}"
+                  ><div class="sale-review-mods">{{ l.mods }}</div></sc-if
+                >
+              </div>
+              <div class="sale-review-sum">{{ l.total }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div class="sale-total">
+          <span>ИТОГО</span><b data-testid="sale-review-total">{{ saleReviewTotal }}</b>
+        </div>
+        <div class="sale-actions">
+          <div onClick="{{ saleReviewBack }}" class="sale-button">Изменить</div>
+          <div onClick="{{ saleReviewConfirm }}" class="sale-button sale-primary">
+            Гость подтвердил - к оплате
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isSalePay }}" hint-placeholder-val="{{ false }}">
+    <div class="sale-backdrop" onClick="{{ salePayBack }}"></div>
+    <div class="sale-layer">
+      <div
+        class="sale-card sale-pay"
+        data-screen-label="S2 Оплата"
+        role="dialog"
+        aria-label="Оплата заказа"
+      >
+        <div class="sale-head">
+          <div>
+            <div class="sale-title">Оплата · {{ saleReviewType }}</div>
+            <div class="sale-sub">
+              Сумма заказа <b data-testid="sale-pay-total">{{ saleReviewTotal }}</b>
+            </div>
+          </div>
+          <div onClick="{{ salePayBack }}" class="sale-close" aria-label="Назад к заказу">✕</div>
+        </div>
+        <div class="sale-tiles">
+          <sc-for list="{{ saleTiles }}" as="p" hint-placeholder-count="7">
+            <div
+              onClick="{{ p.pick }}"
+              class="sale-tile"
+              aria-pressed="{{ p.pressed }}"
+              style="background:{{ p.bg }};border-color:{{ p.border }};color:{{ p.fg }}"
+            >
+              <div class="sale-tile-icon" style="background:{{ p.iconBg }}">
+                <sc-if value="{{ p.isKaspi }}" hint-placeholder-val="{{ false }}"
+                  ><img src="/v2/assets/kaspi.png" alt="Kaspi"
+                /></sc-if>
+                <sc-if value="{{ p.notKaspi }}" hint-placeholder-val="{{ true }}"
+                  ><span>{{ p.icon }}</span></sc-if
+                >
+              </div>
+              <div class="sale-tile-label">{{ p.label }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div class="sale-panel">
+          <sc-if value="{{ salePanelNone }}" hint-placeholder-val="{{ true }}">
+            <div class="sale-hint">Выберите способ оплаты</div>
+          </sc-if>
+          <sc-if value="{{ salePanelCash }}" hint-placeholder-val="{{ false }}">
+            <div class="sale-cash">
+              <div class="sale-column">
+                <div class="sale-caption">ВНЕСЕНО ГОСТЕМ</div>
+                <div class="sale-amount" data-testid="sale-cash-in">{{ saleCashLabel }}</div>
+                <div class="sale-quick">
+                  <sc-for list="{{ saleCashQuick }}" as="q" hint-placeholder-count="4">
+                    <div onClick="{{ q.tap }}" class="sale-button">{{ q.label }}</div>
+                  </sc-for>
+                </div>
+                <div
+                  class="sale-change"
+                  style="background:{{ saleChangeBg }};color:{{ saleChangeFg }}"
+                >
+                  <span>{{ saleChangeTitle }}</span
+                  ><b data-testid="sale-change">{{ saleChangeLabel }}</b>
+                </div>
+              </div>
+              <div class="sale-keys">
+                <sc-for list="{{ saleCashKeys }}" as="k" hint-placeholder-count="12">
+                  <div onClick="{{ k.tap }}" class="sale-key" style="color:{{ k.fg }}">
+                    {{ k.label }}
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ salePanelTerminal }}" hint-placeholder-val="{{ false }}">
+            <div class="sale-steps">
+              <sc-for list="{{ saleTerminalSteps }}" as="t" hint-placeholder-count="3">
+                <div class="sale-step">{{ t }}</div>
+              </sc-for>
+              <div onClick="{{ saleTerminalDecline }}" class="sale-button sale-secondary">
+                Терминал отклонил
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ salePanelManual }}" hint-placeholder-val="{{ false }}">
+            <div class="sale-steps">
+              <div class="sale-step">Гость оплатил Kaspi QR или переводом на счёт ресторана.</div>
+              <div class="sale-step">
+                Проверьте поступление <b>{{ saleReviewTotal }}</b> в Kaspi.
+              </div>
+              <div onClick="{{ saleManualRefPick }}" class="sale-field">
+                <span class="sale-field-label">Номер операции (необязательно)</span>
+                <span class="sale-field-value">{{ saleManualRefValue }}</span>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ salePanelMix }}" hint-placeholder-val="{{ false }}">
+            <div class="sale-cash">
+              <div class="sale-column">
+                <sc-for list="{{ saleMixParts }}" as="m" hint-placeholder-count="2">
+                  <div
+                    onClick="{{ m.pick }}"
+                    class="sale-mix-part"
+                    style="border-color:{{ m.border }}"
+                  >
+                    <div class="sale-caption">{{ m.title }}</div>
+                    <div class="sale-mix-methods">
+                      <sc-for list="{{ m.methods }}" as="o" hint-placeholder-count="3">
+                        <div
+                          onClick="{{ o.pick }}"
+                          class="sale-chip"
+                          aria-pressed="{{ o.pressed }}"
+                          style="background:{{ o.bg }};color:{{ o.fg }}"
+                        >
+                          {{ o.label }}
+                        </div>
+                      </sc-for>
+                    </div>
+                    <div class="sale-mix-amount">{{ m.amount }}</div>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ saleMixHasCash }}" hint-placeholder-val="{{ false }}">
+                  <div
+                    onClick="{{ saleMixCashPick }}"
+                    class="sale-mix-part"
+                    style="border-color:{{ saleMixCashBorder }}"
+                  >
+                    <div class="sale-caption">ВНЕСЕНО НАЛИЧНЫМИ</div>
+                    <div class="sale-mix-amount">{{ saleMixCashLabel }}</div>
+                  </div>
+                </sc-if>
+                <div
+                  class="sale-change"
+                  style="background:{{ saleMixRestBg }};color:{{ saleMixRestFg }}"
+                >
+                  <span>{{ saleMixRestTitle }}</span><b>{{ saleMixRestLabel }}</b>
+                </div>
+              </div>
+              <div class="sale-keys">
+                <sc-for list="{{ saleMixKeys }}" as="k" hint-placeholder-count="12">
+                  <div onClick="{{ k.tap }}" class="sale-key" style="color:{{ k.fg }}">
+                    {{ k.label }}
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ salePanelChoco }}" hint-placeholder-val="{{ false }}">
+            <div class="sale-steps">
+              <div class="sale-step">
+                Заказ уже оплачен на платформе ChocoFood. Сверьте сумму с заказом.
+              </div>
+              <div
+                onClick="{{ saleChocoRefPick }}"
+                class="sale-field"
+                style="border-color:{{ saleChocoRefBorder }}"
+              >
+                <span class="sale-field-label">Номер заказа ChocoFood*</span>
+                <span class="sale-field-value">{{ saleChocoRefValue }}</span>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ salePanelAggregator }}" hint-placeholder-val="{{ false }}">
+            <div class="sale-steps">
+              <div class="sale-step" data-testid="sale-aggregator-note">
+                {{ saleAggregatorNote }}
+              </div>
+              <div class="sale-step">Выдача - на столе выдачи доставки. Чек Webkassa не нужен.</div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ salePanelFree }}" hint-placeholder-val="{{ false }}">
+            <div class="sale-steps">
+              <div class="sale-step">{{ saleFreeNote }}</div>
+              <div
+                onClick="{{ saleFreeTextPick }}"
+                class="sale-field"
+                style="border-color:{{ saleFreeTextBorder }}"
+              >
+                <span class="sale-field-label">{{ saleFreeTextTitle }}</span>
+                <span class="sale-field-value">{{ saleFreeTextValue }}</span>
+              </div>
+              <div
+                onClick="{{ saleApprovalPick }}"
+                class="sale-field"
+                style="border-color:{{ saleApprovalBorder }}"
+                data-testid="sale-approval"
+              >
+                <span class="sale-field-label">PIN начальника смены*</span>
+                <span class="sale-field-value">{{ saleApprovalLabel }}</span>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+        <div class="sale-actions">
+          <div onClick="{{ salePayBack }}" class="sale-button">Назад к заказу</div>
+          <div
+            onClick="{{ salePayConfirm }}"
+            class="sale-button sale-primary"
+            data-testid="sale-pay-confirm"
+            aria-disabled="{{ salePayDisabled }}"
+            style="background:{{ salePayBg }};color:{{ salePayFg }}"
+          >
+            {{ salePayLabel }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isSaleDone }}" hint-placeholder-val="{{ false }}">
+    <div class="sale-backdrop"></div>
+    <div class="sale-layer">
+      <div
+        class="sale-card sale-done"
+        data-screen-label="S3 Готово"
+        role="dialog"
+        aria-label="Заказ оформлен"
+      >
+        <div class="sale-title">{{ saleDoneTitle }}</div>
+        <div class="sale-done-main">
+          <div class="sale-done-number">
+            <div class="sale-caption">ЗАКАЗ</div>
+            <div class="sale-done-no" data-testid="sale-done-number">№{{ saleDoneNo }}</div>
+          </div>
+          <div class="sale-done-info">
+            <div class="sale-done-pickup" data-testid="sale-done-pickup">{{ saleDonePickup }}</div>
+            <div class="sale-done-row"><span>Оплата</span><b>{{ saleDoneMethod }}</b></div>
+            <div class="sale-done-row"><span>Сумма</span><b>{{ saleDoneSum }}</b></div>
+            <sc-if value="{{ saleDoneChange }}" hint-placeholder-val="{{ false }}">
+              <div class="sale-done-change" data-testid="sale-done-change">
+                {{ saleDoneChange }}
+              </div>
+            </sc-if>
+          </div>
+        </div>
+        <sc-if value="{{ saleFiscalPending }}" hint-placeholder-val="{{ false }}">
+          <div class="sale-fiscal">
+            <div class="sale-caption">ЧЕК WEBKASSA - ПРОБЕЙТЕ В КАБИНЕТЕ WEBKASSA</div>
+            <div onClick="{{ saleReceiptPick }}" class="sale-field" data-testid="sale-receipt">
+              <span class="sale-field-label">Номер чека Webkassa</span>
+              <span class="sale-field-value">{{ saleReceiptValue }}</span>
+            </div>
+            <div class="sale-actions">
+              <div onClick="{{ saleReceiptLater }}" class="sale-button">Позже</div>
+              <div onClick="{{ saleReceiptSave }}" class="sale-button sale-secondary">
+                Сохранить
+              </div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ saleFiscalNote }}" hint-placeholder-val="{{ false }}">
+          <div class="sale-fiscal-note" data-testid="sale-fiscal-note">{{ saleFiscalNote }}</div>
+        </sc-if>
+        <div class="sale-actions">
+          <div onClick="{{ saleDonePrint }}" class="sale-button" data-testid="sale-done-print">
+            Печать чека
+          </div>
+          <div onClick="{{ saleNext }}" class="sale-button sale-primary">Новый заказ</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ saleApprovalOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="sale-backdrop sale-top" onClick="{{ saleApprovalClose }}"></div>
+    <div class="sale-layer sale-top">
+      <div class="sale-card sale-pin" role="dialog" aria-label="PIN начальника смены">
+        <div class="sale-head">
+          <div>
+            <div class="sale-title">PIN начальника смены</div>
+            <div class="sale-sub">{{ saleApprovalSub }}</div>
+          </div>
+          <div onClick="{{ saleApprovalClose }}" class="sale-close" aria-label="Закрыть">✕</div>
+        </div>
+        <div class="sale-pin-dots">
+          <sc-for list="{{ saleApprovalDots }}" as="d" hint-placeholder-count="4">
+            <div class="sale-pin-dot" style="background:{{ d.bg }}"></div>
+          </sc-for>
+        </div>
+        <div class="sale-pin-error" role="status">{{ saleApprovalError }}</div>
+        <div class="sale-keys">
+          <sc-for list="{{ saleApprovalKeys }}" as="k" hint-placeholder-count="12">
+            <div onClick="{{ k.tap }}" class="sale-key" style="color:{{ k.fg }}">{{ k.label }}</div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ saleEntryOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="sale-backdrop sale-top" onClick="{{ saleEntryCancel }}"></div>
+    <div class="sale-layer sale-top">
+      <div class="sale-card sale-entry" role="dialog" aria-label="{{ saleEntryTitle }}">
+        <div class="sale-head">
+          <div>
+            <div class="sale-title">{{ saleEntryTitle }}</div>
+            <div class="sale-sub">{{ saleEntrySub }}</div>
+          </div>
+          <div onClick="{{ saleEntryCancel }}" class="sale-close" aria-label="Закрыть">✕</div>
+        </div>
+        <div
+          class="sale-entry-value"
+          data-testid="sale-entry-value"
+          style="color:{{ saleEntryFg }}"
+        >
+          {{ saleEntryShown }}
+        </div>
+        <div class="sale-entry-keys">
+          <sc-for list="{{ saleEntryKeys }}" as="k" hint-placeholder-count="36">
+            <div onClick="{{ k.tap }}" class="sale-key">{{ k.label }}</div>
+          </sc-for>
+        </div>
+        <div class="sale-actions">
+          <sc-if value="{{ saleEntrySpace }}" hint-placeholder-val="{{ false }}">
+            <div onClick="{{ saleEntrySpaceTap }}" class="sale-button sale-wide">Пробел</div>
+          </sc-if>
+          <div onClick="{{ saleEntryBack }}" class="sale-button sale-danger">⌫</div>
+          <div onClick="{{ saleEntryClear }}" class="sale-button sale-danger">Стереть</div>
+        </div>
+        <div class="sale-actions">
+          <div onClick="{{ saleEntryCancel }}" class="sale-button">Отмена</div>
+          <div onClick="{{ saleEntrySave }}" class="sale-button sale-primary">
+            {{ saleEntryCta }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+  <!-- Cutover 19.11 paid mode, part B (ops-view.js): paid order card, X/Z report, close wizard -->
+  <sc-if value="{{ isOpsCard }}" hint-placeholder-val="{{ false }}">
+    <div class="sale-backdrop" onClick="{{ opsCardClose }}"></div>
+    <div class="sale-layer">
+      <div
+        class="sale-card ops-card"
+        data-screen-label="S4 Оплаченный заказ"
+        role="dialog"
+        aria-label="{{ opsCardTitle }}"
+      >
+        <div class="sale-head">
+          <div>
+            <div class="sale-title" data-testid="ops-card-title">{{ opsCardTitle }}</div>
+            <div class="ops-muted" data-testid="ops-card-status">
+              {{ opsCardStatus }} · {{ opsCardPickup }}
+            </div>
+          </div>
+          <div onClick="{{ opsCardClose }}" class="sale-close" aria-label="Закрыть">✕</div>
+        </div>
+        <div class="ops-columns">
+          <div class="ops-column">
+            <div class="sale-caption">СОСТАВ</div>
+            <sc-for list="{{ opsCardLines }}" as="l" hint-placeholder-count="2">
+              <div class="ops-line"><span>{{ l.text }}</span><b>{{ l.sum }}</b></div>
+            </sc-for>
+            <div class="ops-line ops-strong">
+              <span>Итого</span><b data-testid="ops-card-total">{{ opsCardTotal }}</b>
+            </div>
+            <div class="sale-caption">ОПЛАТЫ</div>
+            <sc-for list="{{ opsCardTenders }}" as="t" hint-placeholder-count="2">
+              <div class="ops-line">
+                <span>{{ t.name }}<small>{{ t.left }}</small></span
+                ><b>{{ t.sum }}</b>
+              </div>
+            </sc-for>
+            <sc-if value="{{ opsCardHasRefunds }}" hint-placeholder-val="{{ false }}">
+              <div class="sale-caption">ОТМЕНЫ И ВОЗВРАТЫ</div>
+              <sc-for list="{{ opsCardRefunds }}" as="r" hint-placeholder-count="1">
+                <div class="ops-line" data-testid="ops-card-refund">
+                  <span>{{ r.text }}</span><b>{{ r.sum }}</b>
+                  <div onClick="{{ r.print }}" class="sale-button sale-secondary ops-row-action">
+                    Печать
+                  </div>
+                </div>
+              </sc-for>
+            </sc-if>
+            <div class="sale-caption">ЧЕКИ WEBKASSA</div>
+            <sc-for list="{{ opsCardReceipts }}" as="r" hint-placeholder-count="1">
+              <div class="ops-line" data-testid="ops-card-receipt">
+                <span>{{ r.text }}</span>
+                <sc-if value="{{ r.action }}" hint-placeholder-val="{{ false }}">
+                  <div onClick="{{ r.tap }}" class="sale-button sale-secondary ops-row-action">
+                    {{ r.action }}
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <div class="ops-column">
+            <sc-if value="{{ opsCardView }}" hint-placeholder-val="{{ true }}">
+              <sc-if value="{{ opsCardCanVoid }}" hint-placeholder-val="{{ false }}">
+                <div onClick="{{ opsCardVoidPick }}" class="sale-button">Отменить заказ</div>
+              </sc-if>
+              <sc-if value="{{ opsCardCanRefund }}" hint-placeholder-val="{{ false }}">
+                <div onClick="{{ opsCardRefundPick }}" class="sale-button">Возврат</div>
+              </sc-if>
+              <div class="ops-note" data-testid="ops-card-note">{{ opsCardNote }}</div>
+            </sc-if>
+            <sc-if value="{{ opsCardEdit }}" hint-placeholder-val="{{ false }}">
+              <div class="sale-caption">ПРИЧИНА*</div>
+              <div class="ops-reasons">
+                <sc-for list="{{ opsReasons }}" as="c" hint-placeholder-count="6">
+                  <div
+                    onClick="{{ c.pick }}"
+                    class="sale-chip"
+                    aria-pressed="{{ c.pressed }}"
+                    style="background:{{ c.bg }};color:{{ c.fg }}"
+                  >
+                    {{ c.label }}
+                  </div>
+                </sc-for>
+              </div>
+              <div onClick="{{ opsReasonPick }}" class="sale-field ops-field">
+                <span class="sale-field-label">Комментарий к причине*</span>
+                <span class="sale-field-value">{{ opsReasonValue }}</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ opsCardVoid }}" hint-placeholder-val="{{ false }}">
+              <div class="ops-note">{{ opsVoidNote }}</div>
+              <sc-if value="{{ opsVoidAsk }}" hint-placeholder-val="{{ false }}">
+                <div class="sale-caption">ЧЕК ПРОДАЖИ В WEBKASSA*</div>
+                <div class="ops-answers">
+                  <sc-for list="{{ opsVoidAnswers }}" as="c" hint-placeholder-count="2">
+                    <div
+                      onClick="{{ c.pick }}"
+                      class="sale-chip"
+                      aria-pressed="{{ c.pressed }}"
+                      style="background:{{ c.bg }};color:{{ c.fg }}"
+                    >
+                      {{ c.label }}
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </sc-if>
+            <sc-if value="{{ opsCardRefund }}" hint-placeholder-val="{{ false }}">
+              <sc-for list="{{ opsRefundTenders }}" as="t" hint-placeholder-count="2">
+                <div
+                  onClick="{{ t.pick }}"
+                  class="sale-mix-part"
+                  data-testid="ops-refund-tender"
+                  style="border-color:{{ t.border }}"
+                >
+                  <div class="sale-caption">{{ t.name }} · {{ t.left }}</div>
+                  <div class="ops-amount-row">
+                    <div class="sale-mix-amount">{{ t.amount }}</div>
+                    <div onClick="{{ t.all }}" class="sale-chip">Всё</div>
+                  </div>
+                  <div class="ops-muted">{{ t.note }}</div>
+                  <sc-if value="{{ t.warn }}" hint-placeholder-val="{{ false }}">
+                    <div class="ops-warn">{{ t.warn }}</div>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <div class="sale-keys">
+                <sc-for list="{{ opsRefundKeys }}" as="k" hint-placeholder-count="12">
+                  <div onClick="{{ k.tap }}" class="sale-key" style="color:{{ k.fg }}">
+                    {{ k.label }}
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+        <div class="sale-actions">
+          <sc-if value="{{ opsCardView }}" hint-placeholder-val="{{ true }}">
+            <div onClick="{{ opsCardPrint }}" class="sale-button" data-testid="ops-card-print">
+              Печать чека
+            </div>
+            <div onClick="{{ opsCardClose }}" class="sale-button">Закрыть</div>
+          </sc-if>
+          <sc-if value="{{ opsCardEdit }}" hint-placeholder-val="{{ false }}">
+            <div onClick="{{ opsCardBack }}" class="sale-button">Назад</div>
+            <div
+              onClick="{{ opsConfirm }}"
+              class="sale-button sale-primary"
+              data-testid="ops-confirm"
+              aria-disabled="{{ opsConfirmDisabled }}"
+              style="background:{{ opsConfirmBg }};color:{{ opsConfirmFg }}"
+            >
+              {{ opsConfirmLabel }}
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isOpsReport }}" hint-placeholder-val="{{ false }}">
+    <div class="sale-backdrop"></div>
+    <div class="sale-layer">
+      <div
+        class="sale-card ops-report"
+        data-screen-label="S5 Отчёт смены"
+        role="dialog"
+        aria-label="{{ opsReportTitle }}"
+      >
+        <div class="sale-head">
+          <div>
+            <div class="sale-title" data-testid="ops-report-title">{{ opsReportTitle }}</div>
+            <div class="ops-muted">{{ opsReportSub }}</div>
+          </div>
+        </div>
+        <div class="ops-columns">
+          <div class="ops-column">
+            <div class="sale-caption">НАЛИЧНЫЕ</div>
+            <sc-for list="{{ opsReportRows }}" as="r" hint-placeholder-count="6">
+              <div class="ops-line"><span>{{ r.label }}</span><b>{{ r.value }}</b></div>
+            </sc-for>
+            <sc-for list="{{ opsReportLines }}" as="l" hint-placeholder-count="2">
+              <div class="ops-muted">{{ l.text }}</div>
+            </sc-for>
+          </div>
+          <div class="ops-column">
+            <div class="sale-caption">ПО СПОСОБАМ ОПЛАТЫ</div>
+            <sc-for list="{{ opsReportMethods }}" as="r" hint-placeholder-count="3">
+              <div class="ops-line"><span>{{ r.name }}</span><b>{{ r.value }}</b></div>
+            </sc-for>
+            <div class="ops-line ops-strong">
+              <span>Выручка</span><b data-testid="ops-report-revenue">{{ opsReportRevenue }}</b>
+            </div>
+            <div class="sale-caption">ПО КАНАЛАМ</div>
+            <sc-for list="{{ opsReportChannels }}" as="r" hint-placeholder-count="2">
+              <div class="ops-line"><span>{{ r.name }}</span><b>{{ r.value }}</b></div>
+            </sc-for>
+          </div>
+        </div>
+        <sc-if value="{{ opsReportZ }}" hint-placeholder-val="{{ false }}">
+          <div class="sale-fiscal" data-testid="ops-report-webkassa">
+            Не забудьте закрыть смену в кабинете Webkassa.
+          </div>
+        </sc-if>
+        <div class="sale-actions">
+          <div onClick="{{ opsReportPrint }}" class="sale-button sale-secondary">Печать</div>
+          <div onClick="{{ opsReportClose }}" class="sale-button sale-primary">
+            {{ opsReportCloseLabel }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isOpsClose }}" hint-placeholder-val="{{ false }}">
+    <div class="sale-backdrop"></div>
+    <div class="sale-layer">
+      <div
+        class="sale-card ops-close"
+        data-screen-label="S6 Закрытие смены"
+        role="dialog"
+        aria-label="Закрытие смены"
+      >
+        <div class="sale-head">
+          <div class="sale-title">Закрытие смены</div>
+        </div>
+        <div class="ops-steps">
+          <sc-for list="{{ opsCloseSteps }}" as="c" hint-placeholder-count="6">
+            <div class="ops-step" style="background:{{ c.bg }}"></div>
+          </sc-for>
+        </div>
+        <div class="ops-columns">
+          <div class="ops-column">
+            <div class="ops-step-title" data-testid="ops-close-step">{{ opsCloseTitle }}</div>
+            <sc-for list="{{ opsCloseRows }}" as="r" hint-placeholder-count="3">
+              <div class="ops-line"><span>{{ r.label }}</span><b>{{ r.value }}</b></div>
+            </sc-for>
+            <sc-if value="{{ opsCloseKeypad }}" hint-placeholder-val="{{ false }}">
+              <div class="sale-caption">{{ opsCloseAmountTitle }}</div>
+              <div class="sale-amount" data-testid="ops-close-amount">{{ opsCloseAmount }}</div>
+              <div
+                class="sale-change"
+                data-testid="ops-close-diff"
+                style="background:{{ opsCloseDiffBg }};color:{{ opsCloseDiffFg }}"
+              >
+                <span>{{ opsCloseDiff }}</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ opsCloseNote }}" hint-placeholder-val="{{ false }}">
+              <div
+                class="ops-note"
+                data-testid="ops-close-note"
+                style="background:{{ opsCloseNoteBg }}"
+              >
+                {{ opsCloseNote }}
+              </div>
+            </sc-if>
+            <sc-if value="{{ opsCloseField }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ opsCloseFieldPick }}" class="sale-field ops-field">
+                <span class="sale-field-label">Причина расхождения*</span>
+                <span class="sale-field-value">{{ opsCloseFieldValue }}</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ opsCloseAction }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ opsCloseAct }}" class="sale-button sale-secondary">
+                {{ opsCloseAction }}
+              </div>
+            </sc-if>
+          </div>
+          <sc-if value="{{ opsCloseKeypad }}" hint-placeholder-val="{{ false }}">
+            <div class="sale-keys">
+              <sc-for list="{{ opsCloseKeys }}" as="k" hint-placeholder-count="12">
+                <div onClick="{{ k.tap }}" class="sale-key" style="color:{{ k.fg }}">
+                  {{ k.label }}
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+        <div class="sale-actions">
+          <div onClick="{{ opsCloseBack }}" class="sale-button">{{ opsCloseBackLabel }}</div>
+          <div
+            onClick="{{ opsCloseNext }}"
+            class="sale-button sale-primary"
+            data-testid="ops-close-next"
+          >
+            {{ opsCloseCta }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
   <!-- ТОСТ -->
   <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
     <div

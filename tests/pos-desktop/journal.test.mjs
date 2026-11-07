@@ -265,3 +265,142 @@ test('v2 held details, timed stops and cash movement survive native restart with
     assert.throws(() => store.setItem(key, JSON.stringify(tampered)), /STORAGE_UNAVAILABLE/);
   });
 });
+
+test('paid sale, void, refund, Webkassa number and sales close survive a native restart', async () => {
+  // Before, main refused every paid command, so a paid desk blocked (STORAGE_UNAVAILABLE)
+  // at the save that must precede POST pos/sales.
+  await fixture(async ({ options }) => {
+    const value = JSON.parse(snapshot());
+    const approval = { approval_id: id(40), token: 'c'.repeat(64) };
+    const reason = { reason_code: 'quality', reason: 'Synthetic quality reason' };
+    const commands = [
+      {
+        kind: 'sale',
+        path: 'pos/sales',
+        body: {
+          quote_id: id(41),
+          service_mode_confirmed: true,
+          order_repeated: true,
+          tenders: [
+            { method: 'cash', amount_minor: '400000' },
+            { method: 'kaspi_terminal', amount_minor: '299900', reference: 'TEST-OP-1' },
+          ],
+          cash_tendered_minor: '500000',
+        },
+      },
+      {
+        kind: 'sale',
+        path: 'pos/sales',
+        body: {
+          quote_id: id(41),
+          service_mode_confirmed: true,
+          order_repeated: true,
+          external_order_ref: 'GL-77',
+          tenders: [{ method: 'aggregator_glovo', amount_minor: '750000' }],
+        },
+      },
+      {
+        kind: 'sale',
+        path: 'pos/sales',
+        body: {
+          quote_id: id(41),
+          service_mode_confirmed: true,
+          order_repeated: true,
+          tenders: [{ method: 'marketing', amount_minor: '699000' }],
+          reason: 'Synthetic tasting',
+          approval,
+        },
+      },
+      {
+        kind: 'void',
+        path: `pos/sales/${id(42)}/void`,
+        body: { expected_version: 1, ...reason, fiscal_sale_issued: true, approval },
+      },
+      {
+        kind: 'refund',
+        path: `pos/sales/${id(42)}/refunds`,
+        body: {
+          refund_id: id(43),
+          tenders: [
+            { tender_id: id(44), amount_minor: '100000' },
+            { tender_id: id(45), amount_minor: '1000' },
+          ],
+          ...reason,
+          approval,
+        },
+      },
+      {
+        kind: 'fiscal_record',
+        path: `pos/fiscal-receipts/${id(46)}/record`,
+        body: { expected_version: 2, receipt_number: 'TEST-WK-8', approval },
+        subject: id(42),
+      },
+      {
+        kind: 'shift_close',
+        path: `cash-shifts/${id(30)}/close`,
+        body: {
+          expected_version: 1,
+          counted_cash_minor: '100000',
+          reason: 'End of synthetic shift',
+          terminal_reported_minor: '299900',
+          approval,
+        },
+      },
+    ];
+    for (const pending of commands) {
+      value.pending = { ...pending, key: id(31), at: '2030-01-01T00:00:00.000Z' };
+      const store = createJournalStore(options);
+      authorize(store);
+      store.setItem(key, JSON.stringify(value));
+      const restarted = createJournalStore(options);
+      authorize(restarted);
+      assert.deepEqual(JSON.parse(restarted.getItem(key)), value, pending.kind);
+    }
+    // The last one (a sales close) is durable; nothing below may replace it.
+    const valid = JSON.stringify(value);
+    const store = createJournalStore(options);
+    authorize(store);
+    const [cashSale, , , voided, refund, receipt, close] = commands;
+    const invalid = [
+      { ...cashSale, body: { ...cashSale.body, discount_minor: '100' } },
+      { ...cashSale, body: { ...cashSale.body, tenders: [] } },
+      {
+        ...cashSale,
+        body: { ...cashSale.body, tenders: [{ method: 'card', amount_minor: '699900' }] },
+      },
+      { ...cashSale, body: { ...cashSale.body, tenders: [{ method: 'cash', amount_minor: '0' }] } },
+      { ...cashSale, body: { ...cashSale.body, order_repeated: false } },
+      { ...cashSale, body: { ...cashSale.body, external_order_ref: 'GL 77' } },
+      { ...cashSale, body: { ...cashSale.body, approval: { ...approval, pin: '1234' } } },
+      { ...cashSale, body: { ...cashSale.body, approval: { ...approval, token: 'short' } } },
+      { ...cashSale, path: 'orders' },
+      { ...voided, body: { ...voided.body, reason_code: 'mistake' } },
+      { ...voided, body: { ...voided.body, reason: ' ab ' } },
+      { ...voided, body: { ...voided.body, approval: undefined } },
+      { ...voided, path: `pos/sales/${id(42)}/refunds` },
+      {
+        ...refund,
+        body: { ...refund.body, tenders: [refund.body.tenders[0], refund.body.tenders[0]] },
+      },
+      { ...refund, body: { ...refund.body, lines: [] } },
+      { ...refund, path: `pos/sales/${id(42)}/refunds/x` },
+      { ...receipt, subject: undefined },
+      { ...receipt, body: { ...receipt.body, receipt_number: '' } },
+      { ...close, body: { ...close.body, terminal_reported_minor: '-1' } },
+      { ...close, body: { ...close.body, pin: '1234' } },
+      { ...close, subject: id(42) },
+    ];
+    for (const pending of invalid) {
+      const rejected = JSON.parse(valid);
+      rejected.pending = JSON.parse(
+        JSON.stringify({ ...pending, key: id(31), at: rejected.pending.at }),
+      );
+      assert.throws(
+        () => store.setItem(key, JSON.stringify(rejected)),
+        /STORAGE_UNAVAILABLE/,
+        JSON.stringify(pending),
+      );
+      assert.equal(store.getItem(key), valid, 'Rejected write must preserve pending recovery');
+    }
+  });
+});

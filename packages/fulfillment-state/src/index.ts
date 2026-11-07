@@ -75,6 +75,12 @@ export interface TaskSnapshot {
   stationId: string;
   state: TaskState;
   version: number;
+  /**
+   * Cutover KDS (contracts section 5.4): the station whose complete_station also closes this
+   * task (a toast made at station 5 for assembly table 1 or 2). Pinned in the task at admission;
+   * absent on every task without a KDS layout, which keeps the old behaviour exactly.
+   */
+  upstreamOf?: string | undefined;
 }
 export type EventKind = 'task_changed' | 'ready' | 'handed_over' | 'cancelled';
 export type Step =
@@ -187,6 +193,10 @@ export function planTask(input: {
  * (queued -> in_progress -> done) so the event stream equals single-task commands; the assembly
  * station then makes the order ready. Caller has already checked station permission and should
  * check `acceptsWork` before loading tasks.
+ *
+ * Cascade (cutover KDS): tasks of other stations with `upstreamOf` = this station (toasts of an
+ * assembly table) are closed first, the same way and each with its own stationId; no new event
+ * kind. Without such tasks every decision and step is exactly the one before the cascade.
  */
 export function planCompleteStation(input: {
   order: OrderState;
@@ -197,18 +207,26 @@ export function planCompleteStation(input: {
   const { order, assemblyStationId, stationId, tasks } = input;
   if (!acceptsWork(order)) return reject('NOT_READY');
   const own = tasks.filter((task) => task.stationId === stationId);
+  const upstream = tasks.filter(
+    (task) => task.stationId !== stationId && task.upstreamOf === stationId,
+  );
   const assembly = stationId === assemblyStationId;
   if (!assembly && !own.length) return reject('FORBIDDEN');
   if (
     assembly &&
-    (!tasks.length || tasks.some((task) => task.stationId !== stationId && task.state !== 'done'))
+    (!tasks.length ||
+      tasks.some(
+        (task) =>
+          task.stationId !== stationId && task.upstreamOf !== stationId && task.state !== 'done',
+      ))
   )
     return reject('NOT_READY');
-  if (own.some((task) => !['queued', 'in_progress', 'done'].includes(task.state)))
+  const closing = [...upstream, ...own];
+  if (closing.some((task) => !['queued', 'in_progress', 'done'].includes(task.state)))
     return reject('NOT_READY');
-  if (!assembly && own.every((task) => task.state === 'done')) return reject('NOT_READY');
+  if (!assembly && closing.every((task) => task.state === 'done')) return reject('NOT_READY');
   const steps: Step[] = [];
-  for (const task of own) {
+  for (const task of closing) {
     if (task.state === 'done') continue;
     const path: TaskState[] = task.state === 'queued' ? ['in_progress', 'done'] : ['done'];
     let from: TaskState = task.state;

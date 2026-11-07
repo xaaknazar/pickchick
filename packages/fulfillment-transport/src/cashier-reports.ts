@@ -29,6 +29,10 @@ export const CashierReportSchema = z.discriminatedUnion('kind', [
       expected_cash_minor: amount,
       counted_cash_minor: amount.nullable(),
       discrepancy_minor: signed.nullable(),
+      // Cutover (contracts 5.6, edge schema026): only a sales_mode shift carries both keys, and
+      // its expected cash counts them. Every other shift has neither (the payload as before).
+      cash_sales_minor: amount.optional(),
+      cash_refunds_minor: amount.optional(),
     }),
   }),
   z.strictObject({
@@ -44,9 +48,10 @@ export const CashierReportSchema = z.discriminatedUnion('kind', [
       cash_shift_id: uuid.nullable(),
       created_at: time,
       total_minor: amount,
-      state: z.enum(['awaiting_payment', 'cancelled']),
+      // Cutover (contracts 5.6): a paid POS sale is paid (version 1) or, voided, cancelled (2).
+      state: z.enum(['awaiting_payment', 'cancelled', 'paid']),
       version: z.int().positive(),
-      execution_mode: z.enum(['payment_required', 'unpaid_service']),
+      execution_mode: z.enum(['payment_required', 'unpaid_service', 'pos_sale']),
       kitchen_state: z
         .enum([
           'held',
@@ -106,14 +111,20 @@ export async function receiveCashierReports(
       throw new TransportError('INVALID_REQUEST');
     if (event.kind === 'shift') {
       const s = event.payload;
+      // A sales shift: opening + in - out + cash sales - cash refunds = expected (contracts 5.6).
+      const sales = s.cash_sales_minor !== undefined;
       if (
+        sales !== (s.cash_refunds_minor !== undefined) ||
         [s.opening_cash_minor, s.expected_cash_minor, s.counted_cash_minor].some(
           (value) => value !== null && BigInt(value) > 9223372036854775807n,
         )
       )
         throw new TransportError('INVALID_REQUEST');
       if (
-        BigInt(s.opening_cash_minor) + BigInt(s.cash_in_minor) - BigInt(s.cash_out_minor) !==
+        BigInt(s.opening_cash_minor) +
+          BigInt(s.cash_in_minor) -
+          BigInt(s.cash_out_minor) +
+          (sales ? BigInt(s.cash_sales_minor!) - BigInt(s.cash_refunds_minor!) : 0n) !==
           BigInt(s.expected_cash_minor) ||
         (s.state === 'open'
           ? s.closed_at !== null || s.counted_cash_minor !== null || s.discrepancy_minor !== null
@@ -128,7 +139,9 @@ export async function receiveCashierReports(
     } else {
       const o = event.payload;
       if (
-        o.version !== (o.state === 'awaiting_payment' ? 1 : 2) ||
+        o.version !== (o.state === 'cancelled' ? 2 : 1) ||
+        // paid only for a pos_sale, which is never awaiting payment.
+        (o.state === 'paid') !== (o.execution_mode === 'pos_sale' && o.state !== 'cancelled') ||
         BigInt(o.total_minor) > 9223372036854775807n
       )
         throw new TransportError('INVALID_REQUEST');

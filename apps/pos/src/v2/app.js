@@ -1,6 +1,24 @@
 import { requestPinCredential } from './pin-login.js';
 import { photoFor } from './photos.js';
 import { ReferenceView } from './reference-view.js';
+import { SaleView } from './sale-view.js';
+import { OpsView, paidDayStats, receiptRow } from './ops-view.js';
+import {
+  PAID_TEXTS,
+  awaitingValues,
+  closeReasonText,
+  deskSells,
+  deskTexts,
+  findGuestText,
+  kitchenOffText,
+  rememberDeskMode,
+  rememberDeskNumber,
+  shiftClosedText,
+  shiftOpenedText,
+  storedDeskNumber,
+  storedDeskPaid,
+  unavailableText,
+} from './mode-texts.js';
 import { TemplateView } from './template-engine.js';
 import { model, pinLogin } from './runtime.js';
 import {
@@ -59,7 +77,8 @@ let lastRender = '',
   previousKey = null,
   lastDeleted = null,
   lastOrder = null,
-  closeReason = 'Тестовая смена без оплаты',
+  // A typed discrepancy reason; without one the close sends closeReasonText of the shift.
+  closeReason = null,
   commentPurpose = 'order',
   errorShown = '',
   menuNoticeShown = 0,
@@ -78,8 +97,19 @@ function schedule() {
   }
 }
 const say = (text) => reference.say(text);
-const unavailable = () =>
-  say('В тестовом режиме эта интеграция не подключена. Деньги и чеки не проводятся.');
+// Per-desk display hint for the lock screen, which has no session to ask pos/config with.
+const deskStorage = {
+  getItem: (key) => localStorage.getItem(key),
+  setItem: (key, value) => localStorage.setItem(key, value),
+  removeItem: (key) => localStorage.removeItem(key),
+};
+let deskPaid = storedDeskPaid(deskStorage),
+  // The desk number of the edge's last pos_sale answer (CR client-5 §3.2); shown only with it.
+  deskNo = storedDeskNumber(deskStorage);
+// Test-mode texts stay as they are without payments; a desk that sells says the truth (CR
+// client-5), also while its session waits for the first pos/config answer (review 07.11 R1).
+const sells = () => deskSells(model, deskPaid);
+const unavailable = () => say(unavailableText(sells()));
 const safe =
   (fn) =>
   async (...args) => {
@@ -91,6 +121,30 @@ const safe =
     }
     schedule();
   };
+// Paid mode screens (cutover 19.11); they render nothing unless the edge sells (pos_sale).
+const sale = new SaleView(model, {
+  onChange: schedule,
+  guard: safe,
+  say,
+  pinLength,
+  next: nextOrder,
+  // Declared below; called only after a sale is paid or its ticket is asked for.
+  onSold: (paid) => ops.sold(paid),
+  printOrder: () => ops.printOrder(),
+});
+// Paid mode, part B: order card (void, refund), Webkassa tab, X/Z and the sales close wizard.
+const ops = new OpsView(model, sale, {
+  onChange: schedule,
+  guard: safe,
+  say,
+  setTab: (tab) => reference.setState({ tab }),
+  pinCredential: (pin) => requestPinCredential(pin, config.terminalId),
+  logoutCredential: (credential) =>
+    transport('staff/logout', credential, { method: 'POST' }).catch(() => {}),
+  endSession: () => lock(),
+  printer: globalThis.pickchickPosPrinter,
+  terminalLabel: config.branchLabel ?? 'Локальная точка',
+});
 function details(change) {
   const d = model.state.draft;
   if (d)
@@ -199,13 +253,18 @@ async function enterPin(pin, close = false) {
         await transport('staff/logout', credential, { method: 'POST' });
         throw Error('Нужен PIN начальника смены');
       }
-      const shiftId = model.state.shift?.shift_id;
+      const shiftId = model.state.shift?.shift_id,
+        closing = model.state.shift;
       await model.login(JSON.stringify(credential));
-      await model.closeShift(shiftId, String(reference.state.counted * 100), closeReason);
+      await model.closeShift(
+        shiftId,
+        String(reference.state.counted * 100),
+        closeReason ?? closeReasonText(closing),
+      );
       if (model.state.error) throw Error(errorMessage(model.state.error));
       reference.setState({ closeOpen: false, screen: 'lock', pin: '', closePin: '' });
       model.logout();
-      say('Тестовая смена закрыта. Фискальный Z-отчёт не формировался.');
+      say(shiftClosedText(closing));
     } else {
       await pinLogin(pin, config.terminalId);
       if (!model.state.draft && !model.state.pending) model.newDraft();
@@ -248,7 +307,7 @@ async function submit() {
     return;
   }
   if (model.state.ordering?.pos_service_mode !== 'unpaid_service') {
-    say('Тестовая передача на кухню ещё не включена оператором.');
+    say(kitchenOffText(model.state.ordering));
     return;
   }
   await model.create(true);
@@ -282,6 +341,8 @@ function nextOrder() {
   if (blocked()) return;
   clearInterval(successTimer);
   model.newDraft();
+  sale.reset();
+  ops.reset();
   lastOrder = null;
   reference.setState({
     screen: 'work',
@@ -296,6 +357,8 @@ function nextOrder() {
 function lock() {
   if (blocked()) return;
   model.logout();
+  sale.reset();
+  ops.reset();
   globalThis.pickchickPosJournal?.endSession();
   reference.setState({ screen: 'lock', pin: '', user: null });
 }
@@ -394,6 +457,8 @@ function draw() {
       }
     : null;
   if (!m.actor && s.screen !== 'lock') s.screen = 'lock';
+  // The Webkassa tab exists only while the edge sells (pos_sale).
+  if (s.tab === 'fiscal' && !model.saleMode) s.tab = 'order';
   const v = reference.renderVals();
   v.interactionBusy = Boolean(m.busy || m.pending || m.storageBlocked);
   // The designer module supplies appearance and local view transitions only.
@@ -419,6 +484,15 @@ function draw() {
     'sayCashOut',
   ])
     v[key] = unavailable;
+  // Desk number and app line (CR client-5): the session's pos/config once it is read, GET
+  // ordering while that read is still missing (review 07.11 R1), and before both (the lock
+  // screen, the first moment after a PIN) the edge's last answer to this desk, so a desk that
+  // sells never flashes "Касса 1" or "TEST". Its number: the session's pos/config pos_sale, else
+  // the number of the desk's last pos_sale answer (none after any other answer).
+  deskPaid = rememberDeskMode(deskStorage, m, deskPaid);
+  deskNo = rememberDeskNumber(deskStorage, m, deskNo);
+  const paid = sells();
+  Object.assign(v, deskTexts(paid, config.appVersion, deskPaid ? deskNo : null));
   // Red: no connection to the cashier server; yellow: no internet, the cashier keeps working.
   const connection = connectionLabel(m);
   Object.assign(v, {
@@ -445,7 +519,7 @@ function draw() {
       await model.openShift(String(Math.round(s.openCash * 100)));
       if (model.state.shift) {
         reference.setState({ screen: 'work', tab: 'order' });
-        say('Тестовая смена открыта');
+        say(shiftOpenedText(model.state.shift));
       }
     }),
     lock,
@@ -487,8 +561,7 @@ function draw() {
       details({ display_name: s.board.trim().slice(0, 14) });
       reference.setState({ guestOpen: false, guest: null });
     },
-    findGuest: () =>
-      say('Поиск аккаунтов и Чики подключим отдельно. Для теста укажите имя на табло.'),
+    findGuest: () => say(findGuestText(sells())),
     hasPromo: false,
     discountLabel: '0',
     giftAvail: false,
@@ -629,6 +702,11 @@ function draw() {
     shiftByLabel: 'управляющим',
     syncLabel: 'Локальный сервер · внешние каналы ещё не подключены',
   });
+  Object.assign(v, sale.templateValues(v));
+  // The edge sells but this session has no pos/config yet (review 07.11 R1): asked again at the
+  // next refresh; until then nothing is passed without payment and nothing says "test".
+  if (model.awaitingSale)
+    Object.assign(v, awaitingValues(v, { busy: blocked(), empty: !s.cart.length, say }));
   v.tiles = (groups[s.cat] ?? []).map((p) => {
     // Own stop (unknown counts as out), or the combo rule: a stopped fixed component or a
     // required choice with nothing left (fields present only in menus for the new cashier).
@@ -840,29 +918,43 @@ function draw() {
       }),
     });
   }
-  const rows = m.orders.filter(
-    (o) =>
-      (s.dayFilter === 'all' || s.dayFilter === 'pos') &&
-      new Date(o.created_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Almaty' }) ===
-        filterDate,
-  );
+  const rows = dayOrders();
   v.dayRows = rows.map((o) => ({
     no: orderNumber(o),
     time: time(o.created_at),
-    channel: 'КАССА · ТЕСТ',
+    // A desk that sells calls no row a test; "Без оплаты" says what an unpaid row is.
+    channel: o.execution_mode === 'pos_sale' || paid ? 'КАССА' : 'КАССА · ТЕСТ',
     chBg: 'var(--blue)',
     guest: o.snapshot.details?.display_name || '-',
     items: o.snapshot.lines.map((l) => l.name.ru + ' ×' + l.quantity).join(', '),
     sum: money(o.snapshot.total_minor),
-    pay: 'Без оплаты',
+    pay: o.execution_mode === 'pos_sale' ? 'Оплачен' : 'Без оплаты',
     status: kitchenLabel(o),
     stBg: o.fulfillment_state === 'ready' ? '#DCF2E4' : 'var(--n100)',
     stFg: o.fulfillment_state === 'ready' ? '#0B7A3B' : 'var(--n900)',
-    fiscal: 'var(--n300)',
+    // Paid mode: the Webkassa state of the sale receipt (CR client-5), "-" until it is read;
+    // an unpaid row and today's cashier "без чека".
+    ...(paid
+      ? receiptRow(o, m.saleReceipts[o.order_id])
+      : { fiscal: 'var(--n300)', fiscalLabel: 'без чека' }),
     rowBg: '#fff',
     canRefund: false,
-    open: safe(() => orderDialog(o.order_id)),
-    fiscalLabel: 'без чека',
+    // A paid order opens the card with void, refund and its Webkassa receipts.
+    open: safe(() =>
+      model.saleMode && o.execution_mode === 'pos_sale'
+        ? ops.openCard(o.order_id)
+        : orderDialog(o.order_id),
+    ),
+    // «Чек»: a paid order opens its card with the Webkassa number entry of a receipt still to
+    // punch, or prints «Чек заказа (не фискальный)» (ops-view.js printReceipt); while pos/config
+    // is still awaited it asks to wait.
+    reprint: !paid
+      ? unavailable
+      : o.execution_mode !== 'pos_sale'
+        ? () => say(PAID_TEXTS.unpaidReceipt)
+        : model.saleMode
+          ? safe(() => ops.printReceipt(o.order_id))
+          : () => say(PAID_TEXTS.kitchenWait),
     note: o.snapshot.details?.kitchen_comment ?? '',
     hasNote: Boolean(o.snapshot.details?.kitchen_comment),
     canEditNote: false,
@@ -892,6 +984,11 @@ function draw() {
   v.dayTotal = rows.length + ' заказов · последние 100';
   v.dayEmpty = rows.length === 0;
   v.fiscalLegend = [];
+  if (paid) {
+    // Paid orders: hall and delivery apart, cancelled orders bring no money. Order sums, not
+    // takings: the cards say so, takings are in the X report.
+    v.dayStats = paidDayStats(rows);
+  }
   const stopRows = (m.menu?.items ?? [])
     .flatMap((p) => [
       p,
@@ -938,6 +1035,8 @@ function draw() {
       lift: safe(() => model.setStop(p.variant, false, 'Снят кассиром')),
     }));
   v.stopCount = v.stopActive.length;
+  // Paid mode: everything of part B, on top of the values above (navItems, shift tab).
+  Object.assign(v, ops.templateValues(v, s.tab));
   v.noStops = !v.stopCount;
   v.stopDurations = [
     ['shift', 'До конца смены'],
@@ -990,23 +1089,36 @@ function draw() {
     button.disabled = starting || m.busy || signing;
     button.onclick = async () => {
       if (starting || model.state.busy || signing) return;
-      const wasCreate = model.state.pending?.kind === 'create';
+      const wasCreate = model.state.pending?.kind === 'create',
+        wasSale = model.state.pending?.kind === 'sale';
       await model.recover();
       if (wasCreate && model.state.order && !model.state.pending) {
         lastOrder = model.state.order;
         reference.setState({ screen: 'success', done: {}, doneLeft: 8 });
       }
+      // A recovered paid order shows its number, pickup place and Webkassa field.
+      if (wasSale && model.state.sale && !model.state.pending) sale.done();
     };
     box.append(text, button);
     root.append(box);
   }
   if (m.error && errorShown !== String(m.error)) {
     errorShown = String(m.error);
-    say(errorMessage(m.error));
+    say(model.saleMode ? sale.errorText(m.error) : errorMessage(m.error));
   } else if (!m.error) errorShown = '';
   if (m.busy || signing) {
     root.setAttribute('aria-busy', 'true');
   } else root.removeAttribute('aria-busy');
+}
+/** Orders of the day chosen in "ЗАКАЗЫ" (this desk's; a shift manager's are the branch's). */
+function dayOrders() {
+  const s = reference.state;
+  return model.state.orders.filter(
+    (o) =>
+      (s.dayFilter === 'all' || s.dayFilter === 'pos') &&
+      new Date(o.created_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Almaty' }) ===
+        filterDate,
+  );
 }
 function changeDay(days) {
   const d = new Date(filterDate + 'T12:00:00+05:00');
@@ -1031,7 +1143,8 @@ async function orderDialog(id) {
   const title = document.createElement('h2');
   title.textContent = 'Заказ № ' + orderNumber(o);
   const state = document.createElement('p');
-  state.textContent = kitchenLabel(o) + ' · без оплаты';
+  state.textContent =
+    kitchenLabel(o) + (o.execution_mode === 'pos_sale' ? ' · оплачен' : ' · без оплаты');
   state.dataset.testid = 'order-status';
   const list = document.createElement('div');
   for (const line of o.snapshot.lines) {
@@ -1166,9 +1279,13 @@ setInterval(() => {
 }, 1000);
 setInterval(() => {
   if (model.state.actor && !blocked() && !document.hidden)
-    void Promise.all([model.refreshOperations(), model.refreshStops()]).then(() =>
-      blocked() ? null : model.syncMenu(),
-    );
+    void Promise.all([model.refreshOperations(), model.refreshStops()]).then(async () => {
+      if (blocked()) return;
+      // Paid mode only (no request otherwise): Webkassa states of the rows on screen.
+      if (reference.state.tab === 'orders')
+        await model.refreshSaleReceipts(dayOrders().map((o) => o.order_id));
+      if (!blocked()) await model.syncMenu();
+    });
 }, 3000);
 // Physical keyboards are supplementary; the on-screen keypad remains primary.
 document.addEventListener('keydown', (event) => {

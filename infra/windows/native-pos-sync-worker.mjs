@@ -38,6 +38,62 @@ export async function readWindowsIdentity(path, schema, branchId, deviceId, now 
     throw new Error('Expired or mismatched Windows identity');
   return identity;
 }
+/**
+ * posSales (contracts 5.6, cutover CC-4): a loop of its own beside the order and kitchen streams
+ * of main(), with its own schedule in @pickchick/pos-order-sync (10 minutes while the cloud does
+ * not support it, own backoff, empty probe while idle). Its failures stay here: they never delay,
+ * stop or log as the two other streams. A runtime whose package has no sender skips the loop.
+ */
+export async function runPosSalesLoop({
+  pool,
+  sync,
+  identity,
+  branchId,
+  origin,
+  once,
+  signal,
+  log = (line) => console.log(line),
+  fail = (line) => console.error(line),
+  pause = () =>
+    delay(1000 + Math.floor(Math.random() * 250), undefined, { signal }).catch(() => undefined),
+}) {
+  if (
+    typeof sync.syncPosSalesOnce !== 'function' ||
+    typeof sync.createPosSalesSchedule !== 'function'
+  )
+    return;
+  const schedule = sync.createPosSalesSchedule();
+  do {
+    let more = false;
+    if (once || Date.now() >= schedule.nextAttemptAt) {
+      try {
+        let current;
+        try {
+          current = await identity();
+        } catch (error) {
+          schedule.failures = Math.min(schedule.failures + 1, 1000000);
+          schedule.nextAttemptAt = Date.now() + sync.posRetryDelayMs(schedule.failures);
+          throw error;
+        }
+        const result = await sync.syncPosSalesOnce(
+          pool,
+          { enabled: true, branchId, origin, identity: current },
+          schedule,
+        );
+        // Whitelisted metadata only, as in main(): never bodies, URLs, credentials or identity.
+        if (once || !['idle', 'busy', 'disabled', 'waiting'].includes(result.state))
+          log(JSON.stringify({ event: 'pos_sales_sync', state: result.state }));
+        more = result.state === 'delivered' && result.more;
+        if (once && ['retry', 'parked'].includes(result.state)) process.exitCode = 1;
+      } catch {
+        fail(JSON.stringify({ event: 'pos_sales_sync_failed', retrying: !once }));
+        if (once) process.exitCode = 1;
+      }
+    }
+    if (once || signal.aborted) break;
+    if (!more) await pause();
+  } while (!signal.aborted);
+}
 async function main() {
   const [identityPath, branchId, deviceId, ...extra] = process.argv.slice(2);
   if (
@@ -81,6 +137,15 @@ async function main() {
     stop = new AbortController(),
     once = extra.includes('--once');
   for (const signal of ['SIGTERM', 'SIGINT']) process.once(signal, () => stop.abort());
+  const sales = runPosSalesLoop({
+    pool,
+    sync,
+    identity: () => readWindowsIdentity(identityPath, DeviceIdentitySchema, branchId, deviceId),
+    branchId,
+    origin,
+    once,
+    signal: stop.signal,
+  });
   try {
     do {
       let delivered = false;
@@ -114,6 +179,8 @@ async function main() {
         }).catch(() => undefined);
     } while (!stop.signal.aborted);
   } finally {
+    // The posSales loop ends with the same signal (or after its single --once step).
+    await sales;
     await pool.end();
   }
 }

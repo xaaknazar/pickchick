@@ -1,4 +1,6 @@
 import { element as el, button, field, select, check } from './dom.js';
+import { cards, isoDay, isoMonth, ui } from './ui-fixes.js';
+import { csvTenge } from './sales-report-model.js';
 import {
   FinanceModel,
   money,
@@ -46,7 +48,7 @@ function table(headers: string[], rows: (string | HTMLElement)[][]) {
   }
   t.append(head, body);
   wrap.append(t);
-  return wrap;
+  return cards(wrap, headers);
 }
 const options = (v: Record<string, string>) =>
   Object.entries(v).map(([value, label]) => ({ value, label }));
@@ -102,6 +104,11 @@ export class FinanceView {
   get dirty() {
     return this.editing;
   }
+  /**
+   * Lane bo-ui (audit F03, F09): who may write the ledger, in words, for a person who cannot.
+   * app.ts sets it; null keeps the cabinet's silent disabled buttons.
+   */
+  rights: () => string | null = () => null;
   clear() {
     this.editing = false;
     this.extraOpen = false;
@@ -120,6 +127,8 @@ export class FinanceView {
   private act(label: string, fn: () => void, primary = false) {
     const b = button(label, fn, primary ? 'button primary' : 'button');
     b.disabled = !this.model.writable;
+    const why = this.model.roleWrites ? null : this.rights();
+    if (why) b.title = why;
     return b;
   }
   render(target: HTMLElement) {
@@ -232,6 +241,12 @@ export class FinanceView {
     if (m.notice) {
       const n = el('p', 'notice compact', m.notice);
       n.setAttribute('role', 'status');
+      area.append(n);
+    }
+    const why = d && !m.roleWrites ? this.rights() : null;
+    if (why) {
+      const n = el('p', 'notice compact finance-rights', why + ' У вас - просмотр.');
+      n.dataset.testid = 'finance-rights';
       area.append(n);
     }
     if (m.pending) {
@@ -374,7 +389,7 @@ export class FinanceView {
       );
       const value = el('strong', r.void_reason ? 'muted' : '', money(e.amount_minor));
       return [
-        e.cash_date ?? e.recognition_date ?? '-',
+        isoDay(e.cash_date ?? e.recognition_date ?? '-'),
         name,
         kinds[e.kind] ?? e.kind,
         d.categories.find((c) => c.id === e.category_id)?.name ?? 'Перевод',
@@ -418,7 +433,8 @@ export class FinanceView {
             'Подразделение',
             'Контрагент',
             'Документ',
-            'Сумма, тиын',
+            // Audit F11 (with the fixes): CSV money in tenge, «Сумма, ₸».
+            ui.fixes ? 'Сумма, ₸' : 'Сумма, тиын',
             'Автор',
             'Статус',
             'Примечание',
@@ -433,7 +449,7 @@ export class FinanceView {
               d.centers[e.center]!,
               e.counterparty,
               e.reference,
-              e.amount_minor,
+              ui.fixes ? csvTenge(e.amount_minor) : e.amount_minor,
               r.author,
               entryStatus(r),
               e.note,
@@ -736,8 +752,8 @@ export class FinanceView {
       ['reference', 'Назначение', e.reference],
       ['kind', 'Тип', kinds[e.kind] ?? e.kind],
       ['amount_minor', 'Сумма', money(e.amount_minor)],
-      ['cash_date', 'Дата движения денег', e.cash_date ?? '-'],
-      ['recognition_date', 'Дата ОПиУ', e.recognition_date ?? '-'],
+      ['cash_date', 'Дата движения денег', isoDay(e.cash_date ?? '-')],
+      ['recognition_date', 'Дата ОПиУ', isoDay(e.recognition_date ?? '-')],
       ['account_id', 'Счёт', d.accounts.find((a) => a.id === e.account_id)?.name ?? '-'],
       ['to_account_id', 'На счёт', d.accounts.find((a) => a.id === e.to_account_id)?.name ?? '-'],
       ['category_id', 'Статья', d.categories.find((c) => c.id === e.category_id)?.name ?? '-'],
@@ -1324,7 +1340,7 @@ export class FinanceView {
       closed
         ? 'закрыт'
         : lastClosed && value < lastClosed
-          ? `заблокирован закрытием ${lastClosed.slice(0, 7)}`
+          ? `заблокирован закрытием ${isoMonth(lastClosed.slice(0, 7))}`
           : 'открыт';
     period.append(
       el('h2', '', 'Закрытие месяца'),
@@ -1375,13 +1391,17 @@ export class FinanceView {
     const reopen = this.act('Открыть для исправлений', () => change(false));
     reopen.disabled ||= inheritedLock || !state?.closed;
     period.append(
-      el('p', '', `Статус ${month.slice(0, 7)}: ${status(month, state?.closed ?? false)}`),
+      el(
+        'p',
+        '',
+        `Статус ${isoMonth(month.slice(0, 7))}: ${status(month, state?.closed ?? false)}`,
+      ),
       this.act('Закрыть месяц', () => change(true)),
       reopen,
       table(
         ['Месяц', 'Статус', 'Версия'],
         d.periods.map((p) => [
-          p.month.slice(0, 7),
+          isoMonth(p.month.slice(0, 7)),
           status(p.month, p.closed).replace(/^./, (letter) => letter.toUpperCase()),
           String(p.revision),
         ]),

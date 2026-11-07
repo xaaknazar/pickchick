@@ -9,8 +9,10 @@ import {
   Param,
   Post,
   Query,
+  UseFilters,
 } from '@nestjs/common';
 import { BackofficeError } from '@pickchick/backoffice-core';
+import { BackofficeReasonException, BackofficeReasonFilter } from './backoffice-controller.js';
 
 export const WORKFORCE = Symbol('WORKFORCE');
 export interface WorkforceService {
@@ -18,6 +20,7 @@ export interface WorkforceService {
   command(token: string, branch: string, input: unknown): Promise<unknown>;
 }
 @Controller('v1/admin/backoffice/branches/:id/workforce')
+@UseFilters(BackofficeReasonFilter)
 export class WorkforceController {
   constructor(@Inject(WORKFORCE) private readonly service: WorkforceService) {}
   private token(auth?: string) {
@@ -27,6 +30,9 @@ export class WorkforceController {
     try {
       return await fn();
     } catch (e) {
+      // Only BACKOFFICE_ROLES_ENABLED gives a workforce error a reason (ROLE_FORBIDDEN).
+      if (e instanceof BackofficeError && e.reason)
+        throw new BackofficeReasonException(e.code, e.reason);
       if (e instanceof BackofficeError)
         throw new HttpException(
           { code: e.code },

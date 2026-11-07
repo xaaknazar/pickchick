@@ -142,3 +142,68 @@ export const errorMessage = (error: unknown): string => {
     )[code] ?? 'Не удалось выполнить действие. Проверьте локальный узел и повторите проверку.'
   );
 };
+/** What a sale error refers to, so one edge code can name the right aggregator or ChocoFood. */
+export type SaleErrorContext = {
+  channel?: 'hall' | 'yandex_eda' | 'glovo';
+  method?: string;
+};
+/**
+ * Cashier texts of the paid-sale mode (contracts section 5.1 and section 00). Codes the sale
+ * screens do not know fall back to errorMessage, so the unpaid cashier keeps its texts.
+ */
+export const saleErrorMessage = (error: unknown, context: SaleErrorContext = {}): string => {
+  const code = error instanceof Error ? error.message : 'UNKNOWN';
+  const chocofood = context.method === 'chocofood';
+  const text: Record<string, string> = {
+    SERVICE_MODE_DISABLED: 'Касса не принимает оплату - сообщите менеджеру',
+    METHOD_DISABLED: 'Этот способ оплаты выключен',
+    TENDER_SUM_MISMATCH: 'Сумма оплат не равна сумме заказа',
+    CASH_TENDERED_TOO_LOW: 'Внесено меньше суммы наличными',
+    TERMINAL_AMOUNT_NOT_WHOLE: 'На терминале - только целые тенге',
+    CHANNEL_PRICE_UNAVAILABLE:
+      context.channel === 'glovo' ? 'Нет в меню Glovo' : 'Нет в меню Яндекс Еды',
+    EXTERNAL_REF_REQUIRED: chocofood
+      ? 'Введите номер заказа ChocoFood'
+      : 'Введите номер заказа агрегатора',
+    EXTERNAL_REF_DUPLICATE: 'Этот номер заказа уже пробит',
+    APPROVAL_REQUIRED: 'Нужен PIN начальника смены',
+    APPROVAL_INVALID: 'Подтверждение недействительно или истекло - введите PIN ещё раз',
+    ORDER_IN_PRODUCTION: 'Кухня уже начала - оформите возврат',
+    REFUND_LIMIT: 'Сумма больше доступной к возврату',
+    REFUND_NOT_SUPPORTED: chocofood
+      ? 'Возврат ChocoFood оформляется в кабинете ChocoFood'
+      : 'Возврат агрегатора оформляется в кабинете агрегатора',
+    DRAWER_INSUFFICIENT: 'В кассе недостаточно наличных',
+    FISCAL_PENDING: 'Есть неоформленные чеки Webkassa',
+    // Checks the cashier screen makes before anything is sent.
+    SERVICE_MODE_REQUIRED: 'Выберите: в зале или с собой',
+    ORDER_REVIEW_REQUIRED: 'Сначала повторите заказ гостю',
+    POS_CONFIG_UNAVAILABLE:
+      'Настройки оплаты не получены. Проверьте связь с сервером кассы и повторите.',
+    MIX_INVALID:
+      'Смешанная оплата - две части из наличных, Kaspi терминала и Kaspi вручную, наличными не больше одной части',
+    REFERENCE_INVALID: 'Номер операции - от 1 до 40 символов',
+    BENEFICIARY_REQUIRED: 'Укажите, кому питание сотрудника',
+    REASON_REQUIRED: 'Укажите причину - от 3 до 300 символов',
+    APPROVAL_PIN_REJECTED: 'Неверный PIN или нет прав начальника смены',
+    RECEIPT_NUMBER_INVALID: 'Номер чека Webkassa - от 1 до 40 символов',
+    RECEIPT_NOT_PENDING: 'Этот чек уже оформлен',
+    AGGREGATOR_TAKEAWAY_ONLY: 'Заказ агрегатора - только с собой',
+    // Void, refund, Webkassa receipts and closing a sales shift (part B).
+    REFUND_REASON_REQUIRED: 'Выберите причину',
+    REFUND_AMOUNT_INVALID: 'Введите сумму возврата хотя бы по одной оплате',
+    FISCAL_SALE_ANSWER_REQUIRED: 'Ответьте: чек продажи уже пробит в Webkassa?',
+    SALE_NOT_ACTIVE: 'Заказ уже отменён или возвращён полностью',
+    RECEIPT_NUMBER_SAME: 'Это тот же номер чека',
+    PRINTER_NOT_CONFIGURED: 'Печать не настроена',
+    PRINT_FAILED: 'Принтер не ответил. Проверьте принтер и бумагу; повторите печать вручную.',
+    // Printing and the drawer from pos-desktop (CL-3, section 5.8): one attempt per tap.
+    PRINT_UNKNOWN:
+      'Неизвестно, напечатан ли чек. Проверьте принтер; при необходимости повторите печать вручную.',
+    PRINTER_BUSY: 'Принтер занят предыдущей печатью. Повторите через несколько секунд.',
+    DRAWER_BY_KEY: 'Ящик открывается ключом',
+    DRAWER_FAILED: 'Ящик не открылся - откройте его ключом',
+    DRAWER_UNKNOWN: 'Неизвестно, открылся ли ящик - проверьте его',
+  };
+  return text[code] ?? errorMessage(error);
+};

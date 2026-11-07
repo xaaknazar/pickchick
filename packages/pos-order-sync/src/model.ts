@@ -21,13 +21,16 @@ export const PosOrderEventSchema = EventEnvelopeSchema.extend({
   aggregate_type: z.literal('order_commercial'),
   aggregate_version: z.union([z.literal(1), z.literal(2)]),
   event_type: z.enum(['order.created', 'order.cancelled']),
+  // Cutover (contracts 5.6): a paid POS sale is order.created paid/captured/pos_sale (version 1)
+  // and, after its void, order.cancelled (version 2, still captured). Unpaid and
+  // payment_required events are accepted exactly as before.
   payload: z.strictObject({
     order_id: z.uuid(),
     quote_id: z.uuid(),
-    state: z.enum(['awaiting_payment', 'cancelled']),
-    payment_state: z.literal('not_started'),
+    state: z.enum(['awaiting_payment', 'cancelled', 'paid']),
+    payment_state: z.enum(['not_started', 'captured']),
     fulfillment_state: z.literal('blocked'),
-    execution_mode: z.literal('unpaid_service').optional(),
+    execution_mode: z.enum(['unpaid_service', 'pos_sale']).optional(),
     total_minor: MoneyMinorSchema,
     currency: z.literal('KZT'),
     channel: z.literal('pos'),
@@ -51,6 +54,7 @@ export function parseEvent(input: unknown): PosOrderEvent {
     p = event.payload,
     q = p.snapshot;
   const created = event.event_type === 'order.created';
+  const sale = p.execution_mode === 'pos_sale';
   if (
     Buffer.byteLength(JSON.stringify(input)) > MAX_EVENT_BYTES ||
     hashJson(input) !== hashJson(event) ||
@@ -58,7 +62,10 @@ export function parseEvent(input: unknown): PosOrderEvent {
     event.correlation_id !== p.order_id ||
     event.causation_id !== null ||
     event.aggregate_version !== (created ? 1 : 2) ||
-    p.state !== (created ? 'awaiting_payment' : 'cancelled') ||
+    p.state !== (created ? (sale ? 'paid' : 'awaiting_payment') : 'cancelled') ||
+    p.payment_state !== (sale ? 'captured' : 'not_started') ||
+    // An aggregator quote exists only for a paid sale, and an aggregator order is takeaway.
+    (q.sales_channel !== undefined && (!sale || q.service_mode !== 'takeaway')) ||
     q.branch_id !== event.branch_id ||
     p.quote_id !== q.quote_id ||
     p.total_minor !== q.total_minor ||

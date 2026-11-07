@@ -11,12 +11,22 @@ import {
   readCashShift,
   listCashShifts,
   listLocalOrders,
+  listPendingFiscalReceipts,
   createQuote,
   createLocalOrder,
   cancelLocalOrder,
+  moveCash,
   provisionStaff,
   readOrdering,
+  readShiftReport,
 } from '@pickchick/local-orders';
+import {
+  CashShiftSchema,
+  PosPaymentMethodSchema,
+  PosShiftReportSchema,
+} from '@pickchick/contracts';
+import { parsePosSaleEvent } from '@pickchick/pos-order-sync';
+import { transaction } from '@pickchick/database';
 import { withOrderDesk, staffAuth, staffHeaders } from '../helpers/orders.mjs';
 import { running, request } from '../helpers/sync.mjs';
 const code = (expected) => (error) => error.code === expected;
@@ -410,4 +420,261 @@ test('priced modifiers survive order, feed and sync envelope; same SKU different
       code('INVALID_REQUEST'),
     );
   });
+});
+
+// Cutover (contracts 5.1, 5.6; edge schema026): a shift that did not open in pos_sale mode is
+// the shift of before - same CashShift, close body, frozen report and cashier report - and only a
+// shift opened in pos_sale mode counts sales, has X/Z and the Kaspi terminal total.
+const CASH_SHIFT_KEYS = [
+  'shift_id',
+  'branch_id',
+  'terminal_id',
+  'staff_id',
+  'version',
+  'state',
+  'opened_at',
+  'closed_at',
+  'closed_by_staff_id',
+  'opening_cash_minor',
+  'expected_cash_minor',
+  'cash_movements',
+  'counted_cash_minor',
+  'discrepancy_minor',
+  'closing_reason',
+  'currency',
+  'order_count',
+  'awaiting_payment_count',
+  'cancelled_count',
+  'order_total_minor',
+  'unpaid_total_minor',
+  'cash_received_minor',
+  'cash_refunded_minor',
+  'payment_processing_available',
+  'report_at',
+];
+const CLOSED_REPORT_KEYS = [
+  'order_count',
+  'awaiting_payment_count',
+  'cancelled_count',
+  'order_total_minor',
+  'unpaid_total_minor',
+  'cash_received_minor',
+  'cash_refunded_minor',
+  'payment_processing_available',
+  'report_at',
+  'expected_cash_minor',
+  'cash_movements',
+];
+const CASHIER_SHIFT_KEYS = [
+  'shift_id',
+  'terminal_id',
+  'staff_id',
+  'state',
+  'opened_at',
+  'closed_at',
+  'opening_cash_minor',
+  'cash_in_minor',
+  'cash_out_minor',
+  'expected_cash_minor',
+  'counted_cash_minor',
+  'discrepancy_minor',
+];
+const cashierShiftReports = async (ctx, shiftId) =>
+  (
+    await ctx.edge.pool.query(
+      "SELECT payload FROM cashier_report_outbox WHERE kind='shift' AND entity_id=$1 ORDER BY sequence",
+      [shiftId],
+    )
+  ).rows.map((row) => row.payload);
+async function switchMode(ctx, from, to) {
+  await transaction(ctx.edge.pool, async (client) => {
+    await client.query(
+      `INSERT INTO pos_sales_setting_changes(change_id,branch_id,subject,before,after,actor,reason)
+       VALUES($1,$2,'pos_service_mode',$3,$4,'operator','Синтетическое переключение')`,
+      [randomUUID(), ctx.branch, { pos_service_mode: from }, { pos_service_mode: to }],
+    );
+    await client.query('UPDATE branch_config SET pos_service_mode=$2 WHERE id=$1', [
+      ctx.branch,
+      to,
+    ]);
+  });
+}
+const movement = (ctx, shiftId, direction, amount) =>
+  moveCash(ctx.edge.pool, ctx.branch, staffAuth(ctx.manager), randomUUID(), shiftId, {
+    direction,
+    amount_minor: amount,
+    reason: 'Synthetic movement',
+  });
+
+test('an ordinary shift on schema026 keeps its CashShift, close body, frozen and cashier reports; no X or Z', async () => {
+  await withOrderDesk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    assert.equal(
+      (
+        await pool.query('SELECT sales_mode FROM local_cash_shifts WHERE id=$1', [
+          ctx.shift.shift_id,
+        ])
+      ).rows[0].sales_mode,
+      false,
+    );
+    await create(ctx);
+    await movement(ctx, ctx.shift.shift_id, 'in', '1000');
+    const open = await readCashShift(pool, ctx.branch, auth(ctx), ctx.shift.shift_id);
+    assert.deepEqual(Object.keys(open), CASH_SHIFT_KEYS);
+    assert.deepEqual(
+      [open.cash_received_minor, open.cash_refunded_minor, open.payment_processing_available],
+      ['0', '0', false],
+    );
+    assert.equal(open.expected_cash_minor, '1000');
+    // The cutover close keys belong to sales shifts only.
+    for (const extra of [
+      { terminal_reported_minor: '0' },
+      { approval: { approval_id: randomUUID(), token: 'a'.repeat(64) } },
+    ])
+      await assert.rejects(close(ctx, extra), code('INVALID_REQUEST'));
+    for (const kind of ['x', 'z'])
+      await assert.rejects(
+        readShiftReport(pool, ctx.branch, staffAuth(ctx.manager), ctx.shift.shift_id, kind),
+        code('NOT_FOUND'),
+      );
+    const closed = await close(ctx, { counted_cash_minor: '1000' });
+    assert.deepEqual(Object.keys(closed), CASH_SHIFT_KEYS);
+    assert.deepEqual(CashShiftSchema.parse(closed), closed);
+    assert.deepEqual(
+      [closed.cash_received_minor, closed.cash_refunded_minor, closed.payment_processing_available],
+      ['0', '0', false],
+    );
+    const frozen = (
+      await pool.query('SELECT closed_report FROM local_cash_shifts WHERE id=$1', [
+        ctx.shift.shift_id,
+      ])
+    ).rows[0].closed_report;
+    assert.deepEqual(Object.keys(frozen).sort(), [...CLOSED_REPORT_KEYS].sort());
+    const reports = await cashierShiftReports(ctx, ctx.shift.shift_id);
+    assert.deepEqual(
+      reports.map((payload) => payload.state),
+      ['open', 'open', 'closed'],
+    );
+    for (const payload of reports)
+      assert.deepEqual(Object.keys(payload).sort(), [...CASHIER_SHIFT_KEYS].sort());
+    assert.equal(reports.at(-1).expected_cash_minor, '1000');
+    assert.deepEqual(
+      (
+        await listPendingFiscalReceipts(
+          pool,
+          ctx.branch,
+          staffAuth(ctx.manager),
+          ctx.shift.shift_id,
+        )
+      ).receipts,
+      [],
+    );
+    for (const table of ['pos_shift_reports', 'pos_sale_outbox'])
+      assert.equal(
+        Number((await pool.query(`SELECT count(*) FROM ${table}`)).rows[0].count),
+        0,
+        table,
+      );
+  });
+});
+
+test('a shift opened in pos_sale mode counts sales; switching the mode needs every drawer closed', async () => {
+  await withOrderDesk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    const manager = staffAuth(ctx.manager);
+    await assert.rejects(switchMode(ctx, 'payment_required', 'pos_sale'));
+    await close(ctx);
+    await switchMode(ctx, 'payment_required', 'pos_sale');
+    const opened = await openCashShift(pool, ctx.branch, manager, randomUUID(), {
+      opening_cash_minor: '200000',
+    });
+    assert.deepEqual(Object.keys(opened), CASH_SHIFT_KEYS);
+    assert.equal(
+      (await pool.query('SELECT sales_mode FROM local_cash_shifts WHERE id=$1', [opened.shift_id]))
+        .rows[0].sales_mode,
+      true,
+    );
+    assert.deepEqual(
+      [opened.cash_received_minor, opened.cash_refunded_minor, opened.payment_processing_available],
+      ['0', '0', true],
+    );
+    await movement(ctx, opened.shift_id, 'in', '5000');
+    assert.equal(
+      (await movement(ctx, opened.shift_id, 'out', '1000')).expected_cash_minor,
+      '204000',
+    );
+    await assert.rejects(switchMode(ctx, 'pos_sale', 'unpaid_service'));
+    const x = await readShiftReport(pool, ctx.branch, auth(ctx), opened.shift_id, 'x');
+    assert.deepEqual(PosShiftReportSchema.parse(x), x);
+    assert.equal(x.expected_cash_minor, '204000');
+    assert.deepEqual(
+      x.methods.map((row) => row.method),
+      PosPaymentMethodSchema.options,
+    );
+    assert.ok(
+      x.methods.every(
+        (row) => row.sales_minor === '0' && row.refunds_minor === '0' && row.count === 0,
+      ),
+    );
+    assert.deepEqual(x.fiscal, { pending: 0, recorded: 0, not_required: 0 });
+    assert.deepEqual(x.orders, { count: 0, voided_count: 0 });
+    // Nothing pending: the close needs no approval and freezes the Z report.
+    const closed = await closeCashShift(pool, ctx.branch, manager, randomUUID(), opened.shift_id, {
+      expected_version: 1,
+      counted_cash_minor: '204000',
+      reason: 'Synthetic close',
+      terminal_reported_minor: '0',
+    });
+    assert.deepEqual(Object.keys(closed), CASH_SHIFT_KEYS);
+    assert.equal(closed.discrepancy_minor, '0');
+    assert.equal(closed.payment_processing_available, true);
+    const z = await readShiftReport(pool, ctx.branch, manager, opened.shift_id, 'z');
+    assert.deepEqual(
+      [
+        z.kind,
+        z.state,
+        z.counted_cash_minor,
+        z.terminal_reported_minor,
+        z.terminal_discrepancy_minor,
+      ],
+      ['z', 'closed', '204000', '0', '0'],
+    );
+    const event = (
+      await pool.query("SELECT * FROM pos_sale_outbox WHERE kind='shift_report' AND entity_id=$1", [
+        opened.shift_id,
+      ])
+    ).rows[0];
+    assert.deepEqual(
+      parsePosSaleEvent({
+        event_id: event.event_id,
+        branch_id: event.branch_id,
+        sequence: event.sequence,
+        kind: event.kind,
+        occurred_at: event.occurred_at.toISOString(),
+        payload: event.payload,
+      }).payload.report,
+      z,
+    );
+    // The cashier report of a sales shift: the old keys plus its cash sales and refunds.
+    const reports = await cashierShiftReports(ctx, opened.shift_id);
+    for (const payload of reports)
+      assert.deepEqual(
+        Object.keys(payload).sort(),
+        [...CASHIER_SHIFT_KEYS, 'cash_sales_minor', 'cash_refunds_minor'].sort(),
+      );
+    assert.deepEqual(
+      [reports.at(-1).state, reports.at(-1).expected_cash_minor, reports.at(-1).cash_sales_minor],
+      ['closed', '204000', '0'],
+    );
+    // Back to the unpaid mode: the next shift is ordinary again.
+    await switchMode(ctx, 'pos_sale', 'unpaid_service');
+    const ordinary = await openCashShift(pool, ctx.branch, manager, randomUUID(), {
+      opening_cash_minor: '0',
+    });
+    assert.equal(ordinary.payment_processing_available, false);
+    await assert.rejects(
+      readShiftReport(pool, ctx.branch, manager, ordinary.shift_id, 'x'),
+      code('NOT_FOUND'),
+    );
+  }, false);
 });

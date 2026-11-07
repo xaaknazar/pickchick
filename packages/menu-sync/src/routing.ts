@@ -82,7 +82,8 @@ function checkedRouting(routing: KitchenRouting, stations: Map<string, KitchenSt
  *   that a cloud combo no longer expands into them, and an unused route is inert.
  * - A product key (hashed POS product_id or catalog slug source_id) without a route copies the
  *   station of its sibling key, else follows the published kitchen field: 'prep' maps to the
- *   single prep station, 'assembly_item' to routing.assemblyStationId. No default is inferred.
+ *   prep station of the existing prep routes (or, without any, the single prep station),
+ *   'assembly_item' to routing.assemblyStationId. No default is inferred.
  * - A published unexpanded_combo adds the explicit whole-product flag to the slug route.
  * - Coverage is then checked for a synthetic POS line and a synthetic cloud line of every item.
  *
@@ -97,9 +98,17 @@ export function deriveRouting(
   if (stations.size !== stationList.length) throw new MenuRoutingError('duplicate station');
   checkedRouting(active, stations);
   const prepStations = stationList.filter((station) => station.kind === 'prep');
+  // Cutover KDS (contracts section 1.2, KDS-2): the KDS stations "Панировка (6)" and "Тосты и
+  // бургеры (5)" are prep stations too, yet never targets of the routing. The prep station of a
+  // new item is the one every existing prep route already uses; only a routing without prep
+  // routes falls back to the single prep station. Routes on two prep stations stay ambiguous.
+  const routedPrep = new Set(
+    active.routes.filter((route) => route.kind === 'prep').map((route) => route.stationId),
+  );
   const prepStation = () => {
-    if (prepStations.length !== 1) throw new MenuRoutingError('prep station is not unique');
-    return prepStations[0]!.id;
+    if (routedPrep.size === 1) return [...routedPrep][0]!;
+    if (routedPrep.size === 0 && prepStations.length === 1) return prepStations[0]!.id;
+    throw new MenuRoutingError('prep station is not unique');
   };
   const routes = new Map(active.routes.map((route) => [route.productId, { ...route }]));
   const set = (route: KitchenRoute) => routes.set(route.productId, route);

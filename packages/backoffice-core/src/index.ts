@@ -24,11 +24,97 @@ import {
   type BackofficeOptions,
 } from './stops.js';
 import { createStationPlanInTransaction, readStationPlanStatus } from './station-plans.js';
+import {
+  can,
+  commandPermission,
+  permissionsOf,
+  requirePermission,
+  resolveBackofficeRole,
+  type BackofficeAnyPermission,
+  type BackofficeEffectiveRole,
+} from './roles.js';
+import { assertStockV2, readStockOps, stockV2Readable, stockV2Writable } from './stock-v2.js';
+import { readSalesReport } from './sales-report.js';
+import { p1Capabilities } from './p1-flags.js';
+import { posOrderCard, posOrderExtras, posStaffNames, readPosDay } from './pos-day.js';
+import {
+  IngredientP1,
+  STOCK_P1_RECORD_KEYS,
+  keepStoredFields,
+  stripKeptFields,
+  P1_COMMAND_FLAGS,
+  P1_COMMAND_PERMISSIONS,
+  P1_DOCUMENTS_SQL,
+  P1Request,
+  markCounted,
+  readStockOpsP1,
+  reverseStockDocument,
+  stockP1Ready,
+  type P1RequestInput,
+} from './stock-p1.js';
+import { RecipeP1 } from './consumption.js';
+import {
+  approveMenuLinks,
+  assertManualConsume,
+  autoconsumeAvailable,
+  consumptionBacklog,
+  linkedOutputs,
+  readConsumption,
+  readMenuLinks,
+  readStockSettings,
+  retryConsumption,
+  saveMenuLink,
+  saveStockSettings,
+  skipConsumption,
+} from './consumption-store.js';
+import {
+  managerShiftCommand,
+  managerShiftsAvailable,
+  readManagerShifts,
+} from './manager-shifts-store.js';
+import {
+  EMPLOYEE_P1_KEYS,
+  EmployeeP1,
+  assertEmployeePositions,
+  keepEmployeePositions,
+  readStaffPositions,
+  readStaffRoster,
+  saveStaffPositions,
+  stripKeptPositions,
+} from './positions.js';
+import { discountCommand, discountsAvailable, readDiscounts } from './discounts.js';
+import { readOrdersRegistry } from './orders-registry.js';
 export * from './model.js';
 export * from './stops.js';
 export * from './station-plans.js';
+export * from './roles.js';
+export * from './stock-v2.js';
+export * from './sales-report.js';
+export * from './p1-flags.js';
+export * from './pos-day.js';
+export * from './edge-staff.js';
+export * from './stock-p1.js';
+export * from './consumption.js';
+export * from './consumption-store.js';
+export * from './manager-shifts.js';
+export * from './manager-shifts-store.js';
+export * from './positions.js';
+export * from './discounts.js';
+export * from './p1-rollback.js';
+export * from './orders-registry.js';
 export const BACKOFFICE = Symbol('BACKOFFICE');
-type Actor = { id: string; organization_id: string; role: 'manager' | 'analyst' };
+/** The old manager journal (bo_records kind shift) in GET branches/:id while the shift runs. */
+export const LEGACY_JOURNAL_LIMIT = 200;
+type Actor = {
+  id: string;
+  organization_id: string;
+  /** The bo_access_grants role, unchanged in every response (`role`). */
+  role: 'manager' | 'analyst';
+  /** Cutover CC-5: equal to `role` unless BACKOFFICE_ROLES_ENABLED and a designation apply. */
+  effective: BackofficeEffectiveRole;
+  /** BACKOFFICE_ROLES_ENABLED and cloud074 readable. */
+  designations: boolean;
+};
 type Row = {
   id: string;
   kind: Kind;
@@ -83,15 +169,20 @@ export class Backoffice {
   }
   async reviewRestore(token: string, branch: string, input: unknown) {
     return transaction(this.pool, async (db) => {
-      const actor = await this.scope(db, token, branch, true);
+      const actor = await this.scope(db, token, branch, 'restore_reviews.write');
       return decideRestoreReview(db, branch, actor.id, input);
     });
   }
+  /**
+   * Token, branch grant and the permission `need` of the effective role (roles.ts). With
+   * BACKOFFICE_ROLES_ENABLED off the effective role is the grant role: reads for both roles and
+   * writes for the manager only, with the same errors as before.
+   */
   private async scope(
     db: DatabaseClient,
     token: string,
     branch: string,
-    write = false,
+    need: BackofficeAnyPermission = 'reports.read',
   ): Promise<Actor> {
     if (!this.enabled) fail('SERVICE_UNAVAILABLE');
     parse(z.uuid(), branch);
@@ -109,8 +200,21 @@ export class Backoffice {
         [actor.id, branch, actor.organization_id],
       )
     ).rows[0];
-    if (!grant || (write && grant.role !== 'manager')) return fail('FORBIDDEN');
-    return { ...actor, role: grant.role };
+    if (!grant) return fail('FORBIDDEN');
+    const resolved = await resolveBackofficeRole(
+      db,
+      actor.id,
+      branch,
+      grant.role,
+      this.options.rolesEnabled === true,
+    );
+    requirePermission(resolved.role, need);
+    return {
+      ...actor,
+      role: grant.role,
+      effective: resolved.role,
+      designations: resolved.designations,
+    };
   }
   async content(branch: string, channel: string) {
     parse(z.uuid(), branch);
@@ -153,6 +257,8 @@ export class Backoffice {
 
       const rows = async (sql: string, args: unknown[] = [branch]) =>
         (await db.query(sql, args)).rows;
+      // Back-office P1 «Касса» (bo-ui): paid POS sales, cash desks, Webkassa state. Off: as before.
+      const posDay = this.options.posDayEnabled === true;
       const reportsInstalled =
         (await rows("SELECT 1 WHERE to_regclass('cloud_cashier_orders') IS NOT NULL", [])).length >
         0;
@@ -196,12 +302,18 @@ export class Backoffice {
               `SELECT count(*)::int orders,
         count(*) FILTER(WHERE payload->>'state'='cancelled')::int cancelled_orders,
         coalesce(sum((payload->>'total_minor')::numeric) FILTER(WHERE payload->>'state'='awaiting_payment'),0)::text unpaid_total_minor,
-        coalesce(sum((payload->>'total_minor')::numeric) FILTER(WHERE payload->>'kitchen_state'='handed_over'),0)::text completed_total_minor
+        coalesce(sum((payload->>'total_minor')::numeric) FILTER(WHERE payload->>'kitchen_state'='handed_over'),0)::text completed_total_minor${posDay ? ",\n        coalesce(sum((payload->>'total_minor')::numeric) FILTER(WHERE payload->>'state'='paid'),0)::text paid_total_minor" : ''}
         FROM cloud_cashier_orders WHERE branch_id=$1 AND (($4::uuid IS NOT NULL AND cash_shift_id=$4) OR ($4::uuid IS NULL AND created_at >= $2 AND created_at < $3))`,
               [branch, start, end, q.shift_id ?? null],
             )
           )[0]
-        : { orders: 0, cancelled_orders: 0, unpaid_total_minor: '0', completed_total_minor: '0' };
+        : {
+            orders: 0,
+            cancelled_orders: 0,
+            unpaid_total_minor: '0',
+            completed_total_minor: '0',
+            ...(posDay ? { paid_total_minor: '0' } : {}),
+          };
       const cashierObserved = reportsInstalled
         ? (
             await rows(
@@ -213,22 +325,29 @@ export class Backoffice {
       const cashierShifts = shiftRows.slice(0, 200).map(flattenShift);
       if (selectedShift && !cashierShifts.some((row) => row.id === selectedShift.id))
         cashierShifts.unshift(selectedShift);
-      const cashierOrders = cashierRows.slice(0, 200).map((row) => ({
-        ...row.payload,
-        id: row.id,
-        created_at: row.created_at,
-        observed_at: row.observed_at,
-        owner: 'edge_pos',
-        channel: 'pos',
-        source: 'cashier_report',
-        payment_state: 'not_started',
-        fiscal_state: 'not_requested',
-      }));
-      const records = await rows(
-        'SELECT id,kind,revision,payload,updated_at FROM bo_records WHERE branch_id=$1 ORDER BY kind,updated_at DESC,id LIMIT 2000',
+      // Manager shift (bo-ui step 6): the old journal (kind shift) is read only and listed apart,
+      // its newest 200, so it never crowds stations and tickets out of the 2000 records
+      // (design-backoffice 1). Without the feature: the cloud lane's statement.
+      const managerShifts =
+        this.options.managerShiftsEnabled === true &&
+        (await managerShiftsAvailable(db, this.options));
+      let records = await rows(
+        managerShifts
+          ? `SELECT id,kind,revision,payload,updated_at FROM (
+              (SELECT id,kind,revision,payload,updated_at FROM bo_records WHERE branch_id=$1 AND kind<>'shift' ORDER BY kind,updated_at DESC,id LIMIT 2000)
+              UNION ALL
+              (SELECT id,kind,revision,payload,updated_at FROM bo_records WHERE branch_id=$1 AND kind='shift' ORDER BY updated_at DESC,id LIMIT ${LEGACY_JOURNAL_LIMIT + 1})
+            ) r ORDER BY kind,updated_at DESC,id`
+          : 'SELECT id,kind,revision,payload,updated_at FROM bo_records WHERE branch_id=$1 ORDER BY kind,updated_at DESC,id LIMIT 2000',
       );
+      const journal = records.filter((r) => r.kind === 'shift');
+      const journalTruncated = managerShifts && journal.length > LEGACY_JOURNAL_LIMIT;
+      if (journalTruncated) records = records.filter((r) => r !== journal[LEGACY_JOURNAL_LIMIT]);
+      // Stock P1 (bo-ui, stock-p1.ts): only with stock v2, cloud075 and its rights; otherwise the
+      // stock rows, the documents and the capabilities are the cloud lane's.
+      const stockP1 = this.options.stockV2Enabled === true && (await stockP1Ready(db));
       const stock = await rows(
-        `SELECT r.id,r.payload,b.quantity::text,b.value_minor::text,b.revision FROM bo_records r LEFT JOIN bo_stock_balances b ON b.branch_id=r.branch_id AND b.ingredient_id=r.id WHERE r.branch_id=$1 AND r.kind='ingredient' ORDER BY r.payload->>'name',r.id`,
+        `SELECT r.id,r.payload,b.quantity::text,b.value_minor::text,b.revision${stockP1 ? ',b.counted_at' : ''} FROM bo_records r LEFT JOIN bo_stock_balances b ON b.branch_id=r.branch_id AND b.ingredient_id=r.id WHERE r.branch_id=$1 AND r.kind='ingredient' ORDER BY r.payload->>'name',r.id`,
       );
       const orders = await rows(
         `SELECT o.id,o.created_at,o.total_minor::text,o.version::text,o.state,o.snapshot->>'channel' channel,'cloud' owner,p.state payment_state,f.state kitchen_state,f.observed_at,f.display_number::text,
@@ -241,6 +360,33 @@ export class Backoffice {
         `SELECT p.order_id id,p.first_observed_at created_at,p.total_minor::text,p.version::text,p.state,'pos' channel,p.commercial_owner owner,p.payment_state,coalesce(k.state,p.fulfillment_state) kitchen_state,coalesce(k.observed_at,p.updated_at) observed_at,p.execution_mode FROM pos_order_sync_projection p LEFT JOIN pos_kitchen_sync_projection k ON k.order_id=p.order_id AND k.branch_id=p.branch_id WHERE p.branch_id=$1 AND p.first_observed_at >= $2 AND p.first_observed_at < $3 ${reportsInstalled ? 'AND NOT EXISTS(SELECT 1 FROM cloud_cashier_orders c WHERE c.id=p.order_id AND c.branch_id=p.branch_id)' : ''} ORDER BY p.first_observed_at DESC,p.order_id LIMIT 201`,
         [branch, start, end],
       );
+      const extras = posDay
+        ? await posOrderExtras(
+            db,
+            branch,
+            [
+              ...cashierRows
+                .slice(0, 200)
+                .map((row) => ({ id: row.id, shift_id: row.cash_shift_id })),
+              ...pos.slice(0, 200).map((row) => ({ id: row.id, shift_id: null })),
+            ],
+            reportsInstalled,
+          )
+        : null;
+      const cashierOrders = cashierRows.slice(0, 200).map((row) => ({
+        ...row.payload,
+        id: row.id,
+        created_at: row.created_at,
+        observed_at: row.observed_at,
+        owner: 'edge_pos',
+        channel: 'pos',
+        source: 'cashier_report',
+        // CR pos-4 section 2: a paid POS sale is paid, its receipt state comes from cloud073.
+        payment_state:
+          extras && row.payload.execution_mode === 'pos_sale' ? 'captured' : 'not_started',
+        fiscal_state: extras?.fiscal.get(row.id) ?? 'not_requested',
+        ...(extras ? { terminal_id: extras.terminal.get(row.id) ?? null } : {}),
+      }));
       const metrics = (
         await rows(
           `SELECT
@@ -305,14 +451,23 @@ export class Backoffice {
         await rows(`SELECT c.id,c.created_at,count(o.id)::int orders,max(o.created_at) last_order_at,
     coalesce((SELECT i.accepted FROM identity_consents i WHERE i.customer_id=c.id AND i.kind='marketing' ORDER BY i.recorded_at DESC,i.id DESC LIMIT 1),false) marketing_consent
     FROM identity_customers c JOIN commerce_orders o ON o.customer_id=c.id WHERE o.branch_id=$1 AND c.deleted_at IS NULL GROUP BY c.id ORDER BY max(o.created_at) DESC,c.id LIMIT 200`);
+      // Lane bo-ui (audit F08): with BACKOFFICE_POS_DAY_ENABLED the log rows carry the author's
+      // name (actor_name, null for a removed login); without it the statements are unchanged.
+      const named = this.options.posDayEnabled === true;
       const audit = await rows(
-        'SELECT id,actor_id,action,entity_id,reason,created_at FROM bo_audit WHERE branch_id=$1 ORDER BY created_at DESC,id LIMIT 200',
+        named
+          ? 'SELECT a.id,a.actor_id,m.name actor_name,a.action,a.entity_id,a.reason,a.created_at FROM bo_audit a LEFT JOIN catalog_managers m ON m.id=a.actor_id WHERE a.branch_id=$1 ORDER BY a.created_at DESC,a.id LIMIT 200'
+          : 'SELECT id,actor_id,action,entity_id,reason,created_at FROM bo_audit WHERE branch_id=$1 ORDER BY created_at DESC,id LIMIT 200',
       );
       const catalog_audit = await rows(
-        'SELECT id,actor_id,action,occurred_at created_at FROM catalog_audit WHERE branch_id=$1 ORDER BY occurred_at DESC,id LIMIT 100',
+        named
+          ? 'SELECT a.id,a.actor_id,m.name actor_name,a.action,a.occurred_at created_at FROM catalog_audit a LEFT JOIN catalog_managers m ON m.id=a.actor_id WHERE a.branch_id=$1 ORDER BY a.occurred_at DESC,a.id LIMIT 100'
+          : 'SELECT id,actor_id,action,occurred_at created_at FROM catalog_audit WHERE branch_id=$1 ORDER BY occurred_at DESC,id LIMIT 100',
       );
       const documents = await rows(
-        `SELECT d.id,d.kind,d.reference,d.reason,d.order_id,d.created_at,d.actor_id,a.name actor_name,
+        stockP1
+          ? P1_DOCUMENTS_SQL
+          : `SELECT d.id,d.kind,d.reference,d.reason,d.order_id,d.created_at,d.actor_id,a.name actor_name,
           coalesce((SELECT jsonb_agg(jsonb_build_object(
             'ingredient_id',m.ingredient_id,'name',r.payload->>'name','unit',r.payload->>'unit',
             'quantity_delta',m.quantity_delta::text,'value_delta_minor',m.value_delta_minor::text,
@@ -331,10 +486,38 @@ export class Backoffice {
         branch,
         this.options.stationPlanDeliveryEnabled === true,
       );
+      // Cutover CC-5/CC-6: new keys only while their flag is on (the installed UI reads `role`).
+      // P1 permissions only for the features that are available (design-bo-ui 2 rule 5).
+      const autoconsume = stockP1 && (await autoconsumeAvailable(db, this.options));
+      // Staff positions (bo-ui step 6): card fields only, always usable while the flag is on.
+      const staffPositions = this.options.staffPositionsEnabled === true;
+      // Back-office P1 (bo-ui): {} without a query while every P1 flag is off.
+      const p1 = await p1Capabilities(db, this.options, stockP1);
+      const roles =
+        this.options.rolesEnabled === true
+          ? {
+              effective_role: actor.effective,
+              permissions: permissionsOf(actor.effective, [
+                ...(stockP1
+                  ? (['stock.reverse', 'menu_links.write', 'menu_links.approve'] as const)
+                  : []),
+                ...(autoconsume ? (['stock.settings', 'consumption.write'] as const) : []),
+                ...(managerShifts
+                  ? (['manager_shifts.write', 'manager_shifts.template'] as const)
+                  : []),
+                ...(staffPositions ? (['staff.positions'] as const) : []),
+                // Discounts (step 7): the editor, while the 075 rights are there.
+                ...(p1.discounts === true ? (['discounts.write'] as const) : []),
+              ]),
+            }
+          : {};
+      const stockV2 =
+        this.options.stockV2Enabled === true ? { stock_v2: await stockV2Writable(db) } : {};
       return {
         schema_version: 1,
         branch_id: branch,
         role: actor.role,
+        ...roles,
         as_of: now.toISOString(),
         period_start: start.toISOString(),
         period_end: end.toISOString(),
@@ -350,6 +533,20 @@ export class Backoffice {
         cashier_orders: cashierOrders,
         cashier_metrics: cashierMetrics,
         selected_shift: selectedShift,
+        // «Касса» (bo-ui): the named cash desks of the registry column and the names of the
+        // cashiers who opened the listed shifts (edgeStaffId), only with the flag on.
+        ...(extras
+          ? {
+              pos_terminals: extras.terminals,
+              pos_staff: await posStaffNames(
+                db,
+                branch,
+                cashierShifts
+                  .map((shift) => (shift as Record<string, unknown>)['staff_id'])
+                  .filter((id): id is string => typeof id === 'string'),
+              ),
+            }
+          : {}),
         coverage: {
           cashier_reports_available: cashierAvailable,
           cashier_reports_complete: false,
@@ -362,7 +559,12 @@ export class Backoffice {
         orders: q.shift_id ? [] : orders.slice(0, 200),
         pos: q.shift_id
           ? []
-          : pos.slice(0, 200).filter((row) => !cashierOrders.some((c) => c.id === row.id)),
+          : pos
+              .slice(0, 200)
+              .filter((row) => !cashierOrders.some((c) => c.id === row.id))
+              .map((row) =>
+                extras ? { ...row, terminal_id: extras.terminal.get(row.id) ?? null } : row,
+              ),
         metrics: q.shift_id
           ? {
               ...metrics,
@@ -394,6 +596,20 @@ export class Backoffice {
         documents,
         publications,
         station_plan: stationPlan,
+        // Automatic consumption (step 5): the branch mode for the stock page, only while it runs.
+        ...(autoconsume
+          ? {
+              stock_settings: await readStockSettings(db, branch).then(async (v) => ({
+                autoconsume_mode: v.autoconsume_mode,
+                start_at: v.start_at,
+                revision: v.revision,
+                // Review BOUI-R2: sales the worker should have handled and has not.
+                backlog: await consumptionBacklog(db, branch, v, now),
+              })),
+            }
+          : {}),
+        // Staff positions (step 6): the list in force for the cards, the roster and «Доступы».
+        ...(staffPositions ? { staff_positions: await readStaffPositions(db, branch) } : {}),
         limits: {
           cashier_orders: 200,
           cashier_shifts: 200,
@@ -403,6 +619,7 @@ export class Backoffice {
           refunds: 200,
           issues: 100,
           records: 2000,
+          ...(managerShifts ? { shift_records: LEGACY_JOURNAL_LIMIT } : {}),
         },
         truncated: {
           cashier_orders: cashierRows.length > 200,
@@ -412,6 +629,7 @@ export class Backoffice {
           finance: finance.length > 200,
           refunds: refunds.length > 200,
           issues: issues.length > 100,
+          ...(managerShifts ? { shift_records: journalTruncated } : {}),
         },
         capabilities: {
           operational_shift_filter: cashierAvailable,
@@ -420,8 +638,76 @@ export class Backoffice {
           external_reviews: false,
           fiscal_shift: false,
           edge_configuration_delivery: stationPlan.enabled && stationPlan.available,
+          ...(this.options.rolesEnabled === true ? { roles: actor.designations } : {}),
+          ...stockV2,
+          // Cutover CC-7: only while BACKOFFICE_SALES_REPORT_ENABLED is on.
+          ...(this.options.salesReportEnabled === true ? { sales_report: true } : {}),
+          ...p1,
         },
       };
+    });
+  }
+  /**
+   * Cutover read views under one prefix (contracts 5.10): GET .../ops/<view>, one REPEATABLE READ
+   * snapshot each, permission reports.read.
+   * - `stock` (CC-6): stock v2 report of waste by reason and of every document with its v2
+   *   fields, only while BACKOFFICE_STOCK_V2_ENABLED is on and cloud074 is readable; otherwise
+   *   404 STOCK_V2_DISABLED.
+   * - `sales` (CC-7, sales-report.ts): only while BACKOFFICE_SALES_REPORT_ENABLED is on;
+   *   otherwise exactly the 404 of an unknown view.
+   * - `pos-day` (bo-ui «Касса», pos-day.ts) and `orders` (the order registry on the server,
+   *   orders-registry.ts, audit F10): only while BACKOFFICE_POS_DAY_ENABLED is on; otherwise
+   *   exactly the 404 of an unknown view.
+   * - `discounts` (bo-ui step 7, discounts.ts): only while BACKOFFICE_DISCOUNTS_ENABLED is on;
+   *   otherwise exactly the 404 of an unknown view.
+   */
+  async ops(token: string, branch: string, view: string, input: unknown = {}) {
+    return transaction(this.pool, async (db) => {
+      await db.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+      const actor = await this.scope(db, token, branch);
+      if (view === 'sales' && this.options.salesReportEnabled === true)
+        return readSalesReport(db, branch, input, new Date());
+      // Back-office P1 «Касса» (bo-ui, pos-day.ts): only while BACKOFFICE_POS_DAY_ENABLED is on.
+      if (view === 'pos-day' && this.options.posDayEnabled === true)
+        return readPosDay(db, branch, input, new Date());
+      // The order registry searched, sorted, paged and totalled on the server (audit F10).
+      if (view === 'orders' && this.options.posDayEnabled === true)
+        return readOrdersRegistry(db, branch, input, new Date());
+      // Back-office P1 menu-stock links (stock P1) and the consumption queue (autoconsume).
+      if (view === 'menu-links' && this.options.stockV2Enabled === true) {
+        if (!(await stockP1Ready(db))) throw new ErrorCode('NOT_FOUND', 'STOCK_V2_DISABLED');
+        return readMenuLinks(db, branch, input);
+      }
+      if (
+        view === 'consumption' &&
+        this.options.stockAutoconsumeEnabled === true &&
+        this.options.stockV2Enabled === true
+      ) {
+        if (!(await autoconsumeAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+        return readConsumption(db, branch, input, new Date());
+      }
+      // Back-office P1 manager shift (step 6): only while BACKOFFICE_MANAGER_SHIFTS_ENABLED is on.
+      if (view === 'manager-shifts' && this.options.managerShiftsEnabled === true) {
+        if (!(await managerShiftsAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+        return readManagerShifts(db, branch, input, new Date(), this.options);
+      }
+      // The roster of the cashier edge (step 6): the manager only (staff.positions).
+      if (view === 'staff-roster' && this.options.staffPositionsEnabled === true) {
+        requirePermission(actor.effective, 'staff.positions');
+        parse(z.strictObject({}), input);
+        return readStaffRoster(db, branch, new Date());
+      }
+      // Discounts (step 7): only while BACKOFFICE_DISCOUNTS_ENABLED is on; every role reads.
+      if (view === 'discounts' && this.options.discountsEnabled === true) {
+        if (!(await discountsAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+        return readDiscounts(db, branch, input, new Date());
+      }
+      if (view !== 'stock') return fail('NOT_FOUND');
+      if (this.options.stockV2Enabled !== true || !(await stockV2Readable(db)))
+        throw new ErrorCode('NOT_FOUND', 'STOCK_V2_DISABLED');
+      // Stock P1 (bo-ui): storno in the reports and the storno links of the documents.
+      if (await stockP1Ready(db)) return readStockOpsP1(db, branch, input, new Date());
+      return readStockOps(db, branch, input, new Date());
     });
   }
   /** Stop list v2 (catalog names, edge versions, open commands); analysts may read it. */
@@ -429,7 +715,15 @@ export class Backoffice {
     return transaction(this.pool, async (db) => {
       await db.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
       const actor = await this.scope(db, token, branch);
-      return readStopList(db, actor, branch, this.options);
+      // A designated shift manager may send stop commands (roles.ts); `role` stays the grant.
+      return readStopList(
+        db,
+        this.options.rolesEnabled === true
+          ? { ...actor, can_write_stops: can(actor.effective, 'stops.write') }
+          : actor,
+        branch,
+        this.options,
+      );
     });
   }
   /** Manager-only stop/unstop command for the cashier edge, behind BACKOFFICE_REMOTE_STOPS_ENABLED. */
@@ -437,7 +731,7 @@ export class Backoffice {
     const request = parse(StopRequest, input);
     try {
       return await transaction(this.pool, async (db) => {
-        const actor = await this.scope(db, token, branch, true);
+        const actor = await this.scope(db, token, branch, 'stops.write');
         return requestStopInTransaction(db, actor, branch, request, this.options);
       });
     } catch (error) {
@@ -478,7 +772,10 @@ export class Backoffice {
               ])
             ).rows[0]
           : null;
-        if (report)
+        // Back-office P1 «Касса» (bo-ui): the cashier receipt (tenders, voids, refunds, Webkassa).
+        const posDay = this.options.posDayEnabled === true;
+        if (report) {
+          const card = posDay ? await posOrderCard(db, branch, id, true) : null;
           return {
             order: {
               ...report.payload,
@@ -494,8 +791,11 @@ export class Backoffice {
               source: 'cashier_report',
               owner: 'edge_pos',
               channel: 'pos',
-              payment_state: 'not_started',
-              fiscal_state: 'not_requested',
+              // CR pos-4 section 2: a paid POS sale is paid; its receipt state is in pos_sale.
+              payment_state:
+                posDay && report.payload.execution_mode === 'pos_sale' ? 'captured' : 'not_started',
+              fiscal_state:
+                card?.pos_sale?.fiscal.find((f) => f.kind === 'sale')?.state ?? 'not_requested',
             },
             owner: 'edge_pos',
             source: 'cashier_report',
@@ -504,7 +804,9 @@ export class Backoffice {
             fiscal: [],
             events: [],
             capabilities: { can_cancel: false, can_refund: false },
+            ...(card ?? {}),
           };
+        }
         const pos = (
           await db.query(
             'SELECT p.order_id id,p.snapshot,p.state,p.version,p.total_minor::text,p.payment_state,p.fiscal_state,p.execution_mode,coalesce(k.state,p.fulfillment_state) kitchen_state,k.version kitchen_version,k.observed_at FROM pos_order_sync_projection p LEFT JOIN pos_kitchen_sync_projection k ON k.order_id=p.order_id AND k.branch_id=p.branch_id WHERE p.order_id=$1 AND p.branch_id=$2',
@@ -520,7 +822,15 @@ export class Backoffice {
             [id, branch],
           )
         ).rows;
-        return { order: pos, owner: 'edge', captures: [], refunds: [], fiscal: [], events };
+        return {
+          order: pos,
+          owner: 'edge',
+          captures: [],
+          refunds: [],
+          fiscal: [],
+          events,
+          ...(posDay ? await posOrderCard(db, branch, id, Boolean(reportsInstalled)) : {}),
+        };
       }
       const captures = (
         await db.query(
@@ -573,12 +883,41 @@ export class Backoffice {
       };
     });
   }
+  /**
+   * A P1 command (stock-p1.ts, `stock_reverse`): parsed by its own schema and only while its flag
+   * is on, so with the flag off it is exactly an unknown command (INVALID_REQUEST) and the shared
+   * Command union stays the cloud lane's.
+   */
+  private p1Request(input: unknown): P1RequestInput | null {
+    const o = this.options;
+    if (
+      !(
+        o.stockV2Enabled === true ||
+        o.managerShiftsEnabled === true ||
+        o.staffPositionsEnabled === true ||
+        o.discountsEnabled === true
+      ) ||
+      Request.safeParse(input).success
+    )
+      return null;
+    const parsed = P1Request.safeParse(input);
+    if (!parsed.success) return null;
+    // Each P1 command exists only while its flags are on (P1_COMMAND_FLAGS).
+    if (P1_COMMAND_FLAGS[parsed.data.command.type].some((flag) => o[flag] !== true)) return null;
+    return parsed.data;
+  }
   async command(token: string, branch: string, input: unknown) {
-    const req = parse(Request, input);
+    const req: z.infer<typeof Request> | P1RequestInput =
+      this.p1Request(input) ?? parse(Request, input);
     const manualRefund = req.command.type === 'manual_refund';
+    const c0 = req.command;
+    const permission: BackofficeAnyPermission =
+      c0.type in P1_COMMAND_PERMISSIONS
+        ? P1_COMMAND_PERMISSIONS[c0.type as keyof typeof P1_COMMAND_PERMISSIONS]
+        : commandPermission(c0 as z.infer<typeof Request>['command']);
     try {
       return await transaction(this.pool, async (db) => {
-        const actor = await this.scope(db, token, branch, true);
+        const actor = await this.scope(db, token, branch, permission);
         await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
           'bo:actor:' + actor.id + ':' + req.request_id,
         ]);
@@ -600,15 +939,136 @@ export class Backoffice {
         let result: unknown;
         let before: unknown = null;
         let entity: string | null;
-        if (c.type === 'save') {
-          const payload = parse(Schemas[c.kind] as z.ZodType<Record<string, unknown>>, c.payload);
-          const old = (
-            await db.query<Row>(
-              'SELECT * FROM bo_records WHERE branch_id=$1 AND kind=$2 AND id=$3 FOR UPDATE',
-              [branch, c.kind, c.id],
-            )
-          ).rows[0];
+        if (c.type === 'stock_reverse') {
+          // Stock P1 storno (stock-p1.ts): flag on, cloud075 and its rights, or not at all.
+          if (!(await stockP1Ready(db))) throw new ErrorCode('NOT_READY', 'STOCK_V2_DISABLED');
+          result = await reverseStockDocument(db, branch, actor.id, req.reason, c);
+          entity = (result as { id: string }).id;
+        } else if (c.type === 'menu_link_save' || c.type === 'menu_links_approve') {
+          // Menu-stock links (consumption-store.ts): stock P1 or not at all.
+          if (!(await stockP1Ready(db))) throw new ErrorCode('NOT_READY', 'STOCK_V2_DISABLED');
+          result =
+            c.type === 'menu_link_save'
+              ? await saveMenuLink(db, branch, actor.id, c)
+              : await approveMenuLinks(db, branch, actor.id, c);
+          entity = null;
+        } else if (
+          c.type === 'stock_settings' ||
+          c.type === 'consumption_retry' ||
+          c.type === 'consumption_skip'
+        ) {
+          // Automatic consumption (consumption-store.ts): flag, stock P1 and the 075 rights.
+          if (!(await autoconsumeAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+          if (c.type === 'stock_settings') {
+            result = await saveStockSettings(db, branch, actor.id, c);
+            entity = null;
+          } else {
+            result =
+              c.type === 'consumption_retry'
+                ? await retryConsumption(db, branch, actor.id, c)
+                : await skipConsumption(db, branch, actor.id, req.reason, c);
+            entity = c.order_id;
+          }
+        } else if (
+          c.type === 'manager_shift_open' ||
+          c.type === 'manager_shift_save' ||
+          c.type === 'manager_shift_close' ||
+          c.type === 'manager_shift_template'
+        ) {
+          // Manager shift (manager-shifts-store.ts): the flag and the cloud075 rights.
+          if (!(await managerShiftsAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+          result = await managerShiftCommand(db, branch, actor.id, c, new Date(), this.options);
+          entity = c.type === 'manager_shift_template' ? null : c.id;
+        } else if (c.type === 'staff_positions_save') {
+          // The branch list of positions (positions.ts).
+          result = await saveStaffPositions(db, branch, actor.id, c);
+          entity = null;
+        } else if (c.type === 'discount_save' || c.type === 'discount_state') {
+          // Discount editor (discounts.ts): the flag and the cloud075 rights; never published.
+          if (!(await discountsAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+          const done = await discountCommand(db, branch, actor.id, c, new Date());
+          result = done.result;
+          before = done.before;
+          entity = c.id;
+        } else if (c.type === 'save') {
+          // Manager shift on (step 6): the old journal is read only.
+          if (
+            c.kind === 'shift' &&
+            this.options.managerShiftsEnabled === true &&
+            (await managerShiftsAvailable(db, this.options))
+          )
+            throw new ErrorCode('NOT_READY', 'LEGACY_JOURNAL_READ_ONLY');
+          // Stock P1: an ingredient may carry its quick waste tile; otherwise the strict schema.
+          // A recipe may carry its stock_policy (explode, stock) for the automatic consumption.
+          const p1Record =
+            (c.kind === 'ingredient' || c.kind === 'recipe') &&
+            this.options.stockV2Enabled === true &&
+            (await stockP1Ready(db));
+          // Staff positions (step 6): an employee card may carry its position fields.
+          const positions = c.kind === 'employee' && this.options.staffPositionsEnabled === true;
+          // Review BOUI-R3: while stock P1 is not available an ingredient or a recipe keeps its
+          // P1 fields (the employee pattern): sent back unchanged they are not refused, left out
+          // they are not wiped.
+          const keptP1 =
+            (c.kind === 'ingredient' || c.kind === 'recipe') && !p1Record
+              ? STOCK_P1_RECORD_KEYS[c.kind]
+              : null;
+          const sentP1 =
+            keptP1 !== null &&
+            typeof c.payload === 'object' &&
+            c.payload !== null &&
+            keptP1.some((k) => k in (c.payload as Record<string, unknown>));
+          const lockOld = async () =>
+            (
+              await db.query<Row>(
+                'SELECT * FROM bo_records WHERE branch_id=$1 AND kind=$2 AND id=$3 FOR UPDATE',
+                [branch, c.kind, c.id],
+              )
+            ).rows[0];
+          // An employee card, and a stock card that names P1 fields while stock P1 is off, is
+          // read before the payload check (its kept fields); every other record after it.
+          let old = c.kind === 'employee' || sentP1 ? await lockOld() : undefined;
+          const parsed = parse(
+            (p1Record
+              ? c.kind === 'ingredient'
+                ? IngredientP1
+                : RecipeP1
+              : positions
+                ? EmployeeP1
+                : Schemas[c.kind]) as z.ZodType<Record<string, unknown>>,
+            // A card that already has position fields keeps them with the flag off: a cabinet
+            // that sends them back unchanged is not refused (positions.ts).
+            c.kind === 'employee' && !positions
+              ? stripKeptPositions(c.payload, old?.payload)
+              : sentP1
+                ? stripKeptFields(c.payload, old?.payload, keptP1)
+                : c.payload,
+          );
+          if (c.kind !== 'employee' && !sentP1) old = await lockOld();
+          // stock_policy belongs to a production recipe only: a menu recipe is pinned into the
+          // immutable order snapshots (cloud017), which the cloud lane parses strictly.
+          if (
+            p1Record &&
+            c.kind === 'recipe' &&
+            'stock_policy' in parsed &&
+            parsed['output_ingredient_id'] === null
+          )
+            fail('INVALID_REQUEST');
           if ((old?.revision ?? 0) !== c.expected_revision) return fail('CONFLICT');
+          if (positions && EMPLOYEE_P1_KEYS.some((k) => k in parsed)) {
+            requirePermission(actor.effective, 'staff.positions');
+            assertEmployeePositions(
+              (await readStaffPositions(db, branch)).positions,
+              parsed,
+              old?.payload ?? null,
+            );
+          }
+          const payload =
+            c.kind === 'employee'
+              ? keepEmployeePositions(parsed, old?.payload)
+              : keptP1
+                ? keepStoredFields(parsed, old?.payload, keptP1)
+                : parsed;
           before = old?.payload ?? null;
           entity = c.id;
           await this.validateRecord(db, branch, c.kind, payload, old);
@@ -682,10 +1142,31 @@ export class Backoffice {
           entity = plan.id;
           result = { station_plan: plan };
         } else if (c.type === 'stock') {
-          result = await this.stock(db, branch, actor, req.reason, c.kind, c.reference, c.lines);
+          // Stock v2 (CC-6): the flag and cloud074 decide whether reason_code/meta are accepted.
+          const v2 = this.options.stockV2Enabled === true && (await stockV2Writable(db));
+          assertStockV2(c, v2);
+          result = await this.stock(db, branch, actor, req.reason, c.kind, c.reference, c.lines, {
+            reason_code: c.reason_code ?? null,
+            meta: c.meta ?? null,
+          });
           entity = (result as { id: string }).id;
+          // Stock P1: a count is the physical truth of its ingredients from now on (counted_at).
+          if (c.kind === 'count' && v2 && (await stockP1Ready(db)))
+            await markCounted(
+              db,
+              branch,
+              entity,
+              c.lines.map((line) => line.ingredient_id),
+            );
         } else if (c.type === 'produce' || c.type === 'consume') {
-          result = await this.production(db, branch, actor, req.reason, c);
+          // A branch that writes off automatically (dry_run or on) takes no manual consume.
+          if (c.type === 'consume') await assertManualConsume(db, branch, this.options);
+          // Stock P1: a recipe marked «раскладывать при продаже» is never produced to stock.
+          const policy =
+            c.type === 'produce' &&
+            this.options.stockV2Enabled === true &&
+            (await stockP1Ready(db));
+          result = await this.production(db, branch, actor, req.reason, c, policy);
           entity = (result as { id: string }).id;
         } else if (c.type === 'revoke_device') {
           const d = (
@@ -864,7 +1345,8 @@ export class Backoffice {
     if (kind === 'game' && old && payload['template'] !== old.payload['template']) fail('CONFLICT');
     if (kind === 'ingredient' && old && payload['unit'] !== old.payload['unit']) fail('CONFLICT');
     if (kind === 'recipe') {
-      const p = parse(Recipe, payload);
+      // RecipeP1 = Recipe plus the optional stock_policy (accepted only under stock P1).
+      const p = parse(RecipeP1, payload);
       for (const l of p.lines)
         if (!(await exists('ingredient', l.ingredient_id))) fail('INVALID_REQUEST');
       if (p.output_ingredient_id && !(await exists('ingredient', p.output_ingredient_id)))
@@ -964,12 +1446,20 @@ export class Backoffice {
       value_minor: string;
       expected_revision: number;
     }[],
+    v2: { reason_code: string | null; meta: Record<string, unknown> | null },
   ) {
     const id = randomUUID();
-    await db.query(
-      'INSERT INTO bo_stock_documents(id,branch_id,actor_id,kind,reference,reason) VALUES($1,$2,$3,$4,$5,$6)',
-      [id, branch, actor.id, kind, reference, reason],
-    );
+    // A v1 document is written with exactly the pre-074 statement (works with or without 074).
+    if (v2.reason_code === null && v2.meta === null)
+      await db.query(
+        'INSERT INTO bo_stock_documents(id,branch_id,actor_id,kind,reference,reason) VALUES($1,$2,$3,$4,$5,$6)',
+        [id, branch, actor.id, kind, reference, reason],
+      );
+    else
+      await db.query(
+        'INSERT INTO bo_stock_documents(id,branch_id,actor_id,kind,reference,reason,reason_code,meta) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+        [id, branch, actor.id, kind, reference, reason, v2.reason_code, v2.meta],
+      );
     for (const line of lines) {
       const b = (
         await db.query(
@@ -1006,6 +1496,14 @@ export class Backoffice {
     actor: Actor,
     reason: string,
     c: Extract<z.infer<typeof Request>['command'], { type: 'produce' | 'consume' }>,
+    /**
+     * Stock P1 (step 8): refuse a recipe whose stock_policy is explicitly 'explode'. Its output
+     * is laid out into raw ingredients at every sale, so a produced batch would write the raw
+     * ingredients off twice and keep the output in stock forever. A recipe without a policy
+     * whose output an approved menu link writes off at the sale is refused too (review BOUI-R1:
+     * the chef chooses first). Any other recipe without a policy: the cloud lane rule stands.
+     */
+    policy = false,
   ) {
     const needs = new Map<string, bigint>();
     let output: { id: string; quantity: bigint } | null = null;
@@ -1026,8 +1524,16 @@ export class Backoffice {
       ).rows[0];
       if (!r) return fail('NOT_FOUND');
       if (r.revision !== c.recipe_revision) return fail('CONFLICT');
-      const recipe = parse(Recipe, r.payload);
+      const recipe = parse(RecipeP1, r.payload);
       if (!recipe.output_ingredient_id) return fail('INVALID_REQUEST');
+      if (policy && recipe.stock_policy === 'explode')
+        throw new ErrorCode('INVALID_REQUEST', 'RECIPE_POLICY_EXPLODE');
+      if (
+        policy &&
+        recipe.stock_policy === undefined &&
+        (await linkedOutputs(db, branch)).has(recipe.output_ingredient_id)
+      )
+        throw new ErrorCode('INVALID_REQUEST', 'RECIPE_POLICY_UNSET');
       snapshot = r;
       add(recipe, BigInt(c.batches));
       output = {
@@ -1062,7 +1568,7 @@ export class Backoffice {
           (details.kind === 'combo' || details.modifiers?.length || details.components?.length)
         )
           return fail('NOT_READY');
-        add(parse(Recipe, line.recipe), BigInt(line.quantity));
+        add(parse(RecipeP1, line.recipe), BigInt(line.quantity));
       }
       if (needs.size === 0) return fail('NOT_READY');
     }

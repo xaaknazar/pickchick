@@ -1,7 +1,8 @@
 /**
  * Offline stand worker process: the three cashier sync loops exactly as the Windows services pace
  * them (infra/windows/native-*-worker.mjs exports), but without the Windows-only service checks
- * (ACL script, fixed role/port). One process per loop, so the stand can kill one of them.
+ * (ACL script, fixed role/port). One process per loop, so the stand can kill one of them; the POS
+ * process also runs the posSales loop of the same service (cutover 19.11, contracts 5.6).
  *
  *   node tests/offline-stand/worker.mjs fulfillment|pos|menu
  *
@@ -22,7 +23,10 @@ import {
   workerProtocolVersion,
 } from '../../infra/windows/native-fulfillment-worker.mjs';
 import { runMenuSyncLoop, MENU_SYNC_SCHEMA } from '../../infra/windows/native-menu-sync-worker.mjs';
-import { readWindowsIdentity } from '../../infra/windows/native-pos-sync-worker.mjs';
+import {
+  readWindowsIdentity,
+  runPosSalesLoop,
+} from '../../infra/windows/native-pos-sync-worker.mjs';
 
 const kind = process.argv[2];
 if (!['fulfillment', 'pos', 'menu'].includes(kind)) throw new Error('worker kind required');
@@ -41,7 +45,8 @@ const wait = (ms) =>
     if (error.name !== 'AbortError') throw error;
   });
 
-const pool = createPool(config.databaseUrl, 2);
+// The POS worker runs two loops on its pool (orders/kitchen and posSales), like the service.
+const pool = createPool(config.databaseUrl, kind === 'pos' ? 3 : 2);
 try {
   if (kind === 'fulfillment') await fulfillmentLoop();
   else if (kind === 'pos') await posLoop();
@@ -80,9 +85,40 @@ async function fulfillmentLoop() {
   } while (!stop.signal.aborted);
 }
 
-/** native-pos-sync-worker.mjs main loop: POS orders, then POS kitchen facts. */
+/**
+ * native-pos-sync-worker.mjs main(): POS orders, then POS kitchen facts, and beside them the
+ * posSales loop of its own (runPosSalesLoop, the service's own export: schedule, backoff and the
+ * empty probe of @pickchick/pos-order-sync). Without schema026 or without the cloud receiver it
+ * only rechecks every 10 minutes, so an unpaid day sends nothing but the probe.
+ */
 async function posLoop() {
   log({ event: 'worker_started', worker: kind });
+  const json = (line) => {
+    try {
+      return JSON.parse(line);
+    } catch {
+      return { event: 'pos_sales_log', line: String(line).slice(0, 200) };
+    }
+  };
+  const sales = runPosSalesLoop({
+    pool,
+    sync: posSync,
+    identity,
+    branchId,
+    origin,
+    once: false,
+    signal: stop.signal,
+    log: (line) => log(json(line)),
+    fail: (line) => log(json(line)),
+  });
+  try {
+    await ordersAndKitchen();
+  } finally {
+    // The posSales loop ends with the same signal.
+    await sales;
+  }
+}
+async function ordersAndKitchen() {
   do {
     let delivered = false;
     try {

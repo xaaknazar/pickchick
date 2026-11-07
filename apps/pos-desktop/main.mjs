@@ -3,9 +3,12 @@ import { mkdir, readFile, stat } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createJournalStore } from './journal.mjs';
+import { createPrinter } from './printer.mjs';
 import {
   APP_URL,
   createProtocolHandler,
+  desktopAppVersion,
+  desktopClientVersion,
   isAllowedRendererURL,
   validateConfig,
 } from './protocol.mjs';
@@ -28,6 +31,73 @@ app.setAppUserModelId('kz.pickchick.pos');
 const ownsInstance = app.requestSingleInstanceLock();
 let window;
 let fullscreenChange;
+// Hidden print windows of the Windows driver (contracts section 5.8); closed with the app.
+const sheets = new Set();
+/**
+ * Prints one ticket's HTML (built by printer.mjs from typed JSON) on the Windows queue
+ * `deviceName` from a hidden window without scripts, images or network. 'sent': the spooler took
+ * the job; 'failed': it was not printed. No answer is decided by the caller (unknown).
+ */
+async function printHtml(printSession, { html, deviceName, heightMicrons }) {
+  const sheet = new BrowserWindow({
+    show: false,
+    width: 320,
+    height: 640,
+    webPreferences: {
+      session: printSession,
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      javascript: false,
+      images: false,
+      webgl: false,
+      webSecurity: true,
+      spellcheck: false,
+      devTools: false,
+    },
+  });
+  sheets.add(sheet);
+  const close = () => {
+    clearTimeout(reap);
+    sheets.delete(sheet);
+    if (!sheet.isDestroyed()) sheet.destroy();
+  };
+  // A job the spooler never answers still frees its window.
+  const reap = setTimeout(close, 120000);
+  try {
+    await sheet.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+    const printers = await sheet.webContents.getPrintersAsync();
+    if (!printers.some((printer) => printer.name === deviceName)) {
+      close();
+      return 'failed';
+    }
+  } catch {
+    close();
+    return 'failed';
+  }
+  return new Promise((resolve) => {
+    try {
+      sheet.webContents.print(
+        {
+          silent: true,
+          deviceName,
+          printBackground: false,
+          color: false,
+          copies: 1,
+          margins: { marginType: 'none' },
+          pageSize: { width: 80000, height: heightMicrons },
+        },
+        (success) => {
+          close();
+          resolve(success ? 'sent' : 'failed');
+        },
+      );
+    } catch {
+      close();
+      resolve('failed');
+    }
+  });
+}
 function toggleFullscreen() {
   if (fullscreenChange) return fullscreenChange;
   const target = !window.isFullScreen();
@@ -78,6 +148,30 @@ else {
       }
       config = validateConfig(config);
       const journal = createJournalStore({ directory: join(profile, 'journal-v1') });
+      // Tickets and the drawer (contracts section 5.8): typed JSON in, paper built here.
+      const printSession = session.fromPartition('pickchick-pos-print-v1');
+      printSession.setPermissionRequestHandler((_contents, _permission, callback) =>
+        callback(false),
+      );
+      printSession.setPermissionCheckHandler(() => false);
+      printSession.webRequest.onBeforeRequest((details, callback) =>
+        callback({ cancel: !details.url.startsWith('data:text/html;charset=utf-8,') }),
+      );
+      const printer = createPrinter({
+        printer: config.printer,
+        printHtml: (job) => printHtml(printSession, job),
+      });
+      ipcMain.handle('pickchick-pos:printer-v1', (event, message) => {
+        if (
+          !window ||
+          window.isDestroyed() ||
+          event.sender !== window.webContents ||
+          event.senderFrame !== window.webContents.mainFrame ||
+          event.senderFrame.url !== APP_URL
+        )
+          throw new Error('PRINTER_UNAVAILABLE');
+        return printer.handle(message);
+      });
       ipcMain.handle('pickchick-pos:window-v1', (event, operation) => {
         if (
           !window ||
@@ -139,6 +233,10 @@ else {
           assetDir: new URL('./renderer/', import.meta.url),
           config,
           onSession: (value, sessionId) => journal.setSession(value, sessionId),
+          // Which build this desk runs, for pos-sales-setup status (CR pos-2 section 1.1).
+          clientVersion: desktopClientVersion(app.getVersion()),
+          // Shown on the lock screen of a desk that sells (CR client-5).
+          appVersion: desktopAppVersion(app.getVersion()),
         }),
       );
       Menu.setApplicationMenu(null);
@@ -189,6 +287,10 @@ else {
       window.webContents.on('did-navigate', () => journal.setSession(null));
       window.webContents.on('render-process-gone', () => journal.setSession(null));
       window.on('close', () => isolatedSession.flushStorageData());
+      window.on('closed', () => {
+        for (const sheet of sheets) if (!sheet.isDestroyed()) sheet.destroy();
+        sheets.clear();
+      });
       await window.loadURL(APP_URL);
     })
     .catch(() => {

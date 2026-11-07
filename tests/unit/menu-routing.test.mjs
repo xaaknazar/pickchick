@@ -92,7 +92,7 @@ test('existing stations win over a changed kitchen field; routes of removed prod
   assert.ok(first.routes.some((route) => route.productId === removed.source_id));
 });
 
-test('new products follow the published kitchen field and the single prep station only', () => {
+test('new products follow the published kitchen field and the prep station of the prep routes', () => {
   const snapshot = menu();
   const active = installed(snapshot);
   const extra = {
@@ -112,8 +112,19 @@ test('new products follow the published kitchen field and the single prep statio
     kind: 'prep',
   });
   assert.equal(routes.get(extra.product_id).stationId, prep);
+  // Cutover KDS-2: with a second prep station (KDS 5 and 6 are prep) a new prep item follows
+  // the station of the existing prep routes; routes on two prep stations stay ambiguous.
   const second = [...stations, { id: randomUUID(), kind: 'prep' }];
-  assert.throws(() => deriveRouting(withExtra, active, second), unresolved);
+  assert.equal(
+    deriveRouting(withExtra, active, second).routes.find((route) => route.productId === 'new-item')
+      .stationId,
+    prep,
+  );
+  const split = {
+    ...active,
+    routes: [...active.routes, { productId: 'other-prep', stationId: second[2].id, kind: 'prep' }],
+  };
+  assert.throws(() => deriveRouting(withExtra, split, second), unresolved);
   // An assembly item never needs the prep station, even when there are two.
   const assemblyOnly = {
     items: [...snapshot.items, { ...extra, kitchen: { route: 'assembly_item' } }],

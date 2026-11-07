@@ -1,5 +1,7 @@
 import { transaction } from '@pickchick/database';
 import { displayNumberGrant } from './fulfillment-worker-grants.mjs';
+import { MIGRATION as POS_SALES_MIGRATION, posSalesRuntimeGrants } from './pos-sales-grants.mjs';
+import { MIGRATION as KDS_MIGRATION, kdsRuntimeGrantSql } from './kds-grants.mjs';
 
 const posRead = [
   'schema_migrations',
@@ -346,6 +348,29 @@ export async function applyEdgeRuntimeGrants(pool, role, options = {}) {
     if (review.applied && options.fulfillment)
       await client.query(`GRANT SELECT ON ${namespace}.fulfillment_restore_reviews,${namespace}.fulfillment_restore_decisions TO ${target};
         GRANT INSERT ON ${namespace}.fulfillment_restore_decisions TO ${target};`);
+    // Edge schema026 (cutover 19.11, CR pos-1 section 1): the paid POS sale objects. The reset
+    // above revoked them, so a reinstall keeps exactly the reviewed 026 runtime privileges
+    // (infra/windows/pos-sales-grants.mjs). Before 026 nothing is granted.
+    const sales = (
+      await client.query(
+        `SELECT EXISTS(SELECT 1 FROM ${namespace}.schema_migrations WHERE scope='edge' AND version=$1) AS applied,
+       to_regclass($2) IS NOT NULL AS sales`,
+        [POS_SALES_MIGRATION, `${namespace}.pos_sales`],
+      )
+    ).rows[0];
+    if (sales.applied !== sales.sales) throw new Error('POS sales migration objects differ');
+    if (sales.applied) await client.query(posSalesRuntimeGrants(role, schema));
+    // Edge schema027 (cutover 19.11, CR kds-1 section 3): the KDS switch, layouts and courier
+    // journals are kitchen privileges, so only with fulfillment (infra/windows/kds-grants.mjs).
+    const kds = (
+      await client.query(
+        `SELECT EXISTS(SELECT 1 FROM ${namespace}.schema_migrations WHERE scope='edge' AND version=$1) AS applied,
+       to_regclass($2) IS NOT NULL AS settings`,
+        [KDS_MIGRATION, `${namespace}.kds_settings`],
+      )
+    ).rows[0];
+    if (kds.applied !== kds.settings) throw new Error('KDS migration objects differ');
+    if (kds.applied && options.fulfillment) await client.query(kdsRuntimeGrantSql(role, schema));
 
     const create = await client.query("SELECT has_schema_privilege($1,$2,'CREATE') AS permitted", [
       role,

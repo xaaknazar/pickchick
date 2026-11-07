@@ -12,8 +12,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test tests/unit.test.mjs",
-    "test:integration": "node --env-file=../../.env.example --test --test-concurrency=1 tests/integration.test.mjs tests/kitchen-integration.test.mjs tests/kitchen-upgrade.test.mjs tests/restore.test.mjs"
+    "test": "node --test tests/unit.test.mjs tests/sales-worker.test.mjs tests/sales-cloud.test.mjs tests/sales-cloud-error-codes.test.mjs",
+    "test:integration": "node --env-file=../../.env.example --test --test-concurrency=1 tests/integration.test.mjs tests/kitchen-integration.test.mjs tests/kitchen-upgrade.test.mjs tests/restore.test.mjs tests/sales-cloud-integration.test.mjs tests/sales-worker-integration.test.mjs tests/sales-cloud-restored-z.test.mjs"
   },
   "dependencies": {
     "@pickchick/contracts": "workspace:*",

@@ -9,9 +9,11 @@ param(
     [Parameter(Mandatory=$true)][ValidateLength(1,120)][string]$BranchLabel,
     [Parameter(Mandatory=$true)][ValidatePattern('^[a-f0-9]{64}$')][string]$GatewaySha256,
     [Parameter(Mandatory=$true)][ValidatePattern('^[a-f0-9]{64}$')][string]$CheckSha256,
+    [Parameter(Mandatory=$true)][ValidatePattern('^[a-f0-9]{64}$')][string]$ProfilesSha256,
     [string]$FoundationScript=(Join-Path $PSScriptRoot 'install-native-foundation.ps1'),
     [string]$GatewayScript=(Join-Path $PSScriptRoot 'kitchen-lan-gateway.mjs'),
-    [string]$CheckScript=(Join-Path $PSScriptRoot 'kitchen-lan-check.mjs')
+    [string]$CheckScript=(Join-Path $PSScriptRoot 'kitchen-lan-check.mjs'),
+    [string]$ProfilesScript=(Join-Path $PSScriptRoot 'lan-route-profiles.mjs')
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
@@ -70,6 +72,8 @@ $serviceExe=Join-Path $serviceRoot 'PickChickKitchenLAN.exe'
 $serviceXml=Join-Path $serviceRoot 'PickChickKitchenLAN.xml'
 $gatewayTarget=Join-Path $serviceRoot 'kitchen-lan-gateway.mjs'
 $checkTarget=Join-Path $serviceRoot 'kitchen-lan-check.mjs'
+# The gateway imports its route profiles from the same directory (cutover CL-4).
+$profilesTarget=Join-Path $serviceRoot 'lan-route-profiles.mjs'
 $configPath=Join-Path $privateRoot 'gateway.json'
 $pfxPath=Join-Path $privateRoot 'server.pfx'
 $publicPath=Join-Path $dataRoot 'public-kitchen-config.json'
@@ -111,6 +115,7 @@ $handles=[Collections.Generic.List[IDisposable]]::new()
 try {
     $gatewaySource=Open-VerifiedFile $GatewayScript $GatewaySha256;$handles.Add($gatewaySource)
     $checkSource=Open-VerifiedFile $CheckScript $CheckSha256;$handles.Add($checkSource)
+    $profilesSource=Open-VerifiedFile $ProfilesScript $ProfilesSha256;$handles.Add($profilesSource)
     $winswSource=Open-VerifiedFile $winsw $stage.winSwSha256;$handles.Add($winswSource)
     if((& $node --version).Trim() -cne 'v24.21.0' -or $LASTEXITCODE -ne 0) {throw 'Pinned Node executable differs.'}
     New-ProtectedDirectory $serviceRoot 'ReadAndExecute'
@@ -119,6 +124,7 @@ try {
     New-ProtectedDirectory $logs 'Modify'
     Copy-LanVerified $gatewaySource $gatewayTarget
     Copy-LanVerified $checkSource $checkTarget
+    Copy-LanVerified $profilesSource $profilesTarget
     Copy-LanVerified $winswSource $serviceExe
     $random=[byte[]]::new(48);$rng=[Security.Cryptography.RandomNumberGenerator]::Create()
     try {$rng.GetBytes($random)} finally {$rng.Dispose()}
@@ -162,7 +168,7 @@ try {
     if($proc.ExecutablePath -cne $node -or $proc.ParentProcessId -ne $svc.ProcessId) {throw 'Kitchen listener ownership differs.'}
     $hasher=[Security.Cryptography.SHA256]::Create()
     try {$certHash=[BitConverter]::ToString($hasher.ComputeHash($cert.RawData)).Replace('-','').ToLowerInvariant()} finally {$hasher.Dispose()}
-    Write-LanFile (Join-Path $dataRoot 'installation.json') ([ordered]@{format='pickchick-kitchen-lan-v1';completed=$true;cashierAddress=$CashierAddress;kitchenAddress=$KitchenAddress;terminalId=$KitchenTerminalId.ToString();certificateSha256=$certHash;certificateExpiresAt=$cert.NotAfter.ToUniversalTime().ToString('o');gatewaySha256=$GatewaySha256;checkSha256=$CheckSha256;checkedAt=[DateTime]::UtcNow.ToString('o')} | ConvertTo-Json)
+    Write-LanFile (Join-Path $dataRoot 'installation.json') ([ordered]@{format='pickchick-kitchen-lan-v1';completed=$true;cashierAddress=$CashierAddress;kitchenAddress=$KitchenAddress;terminalId=$KitchenTerminalId.ToString();certificateSha256=$certHash;certificateExpiresAt=$cert.NotAfter.ToUniversalTime().ToString('o');gatewaySha256=$GatewaySha256;checkSha256=$CheckSha256;profilesSha256=$ProfilesSha256;checkedAt=[DateTime]::UtcNow.ToString('o')} | ConvertTo-Json)
     Write-Output ('KITCHEN_LAN_VERIFIED certificateSha256='+$certHash)
     Write-Output ('Public kitchen config: '+$publicPath)
 } catch {

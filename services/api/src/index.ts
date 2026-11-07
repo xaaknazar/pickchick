@@ -45,7 +45,7 @@ import {
   edgeMenuFeatures,
   pullMenu,
   SyncError,
-  withoutComboStopLinks,
+  withoutEdgeOnlyFields,
 } from '@pickchick/menu-sync';
 import {
   BranchSchema,
@@ -81,7 +81,12 @@ import {
 import { CatalogAdminController } from './catalog-admin-controller.js';
 import { encodeCatalogImage } from './catalog-image-encoder.js';
 import { CatalogMediaController, useCatalogAssetBodyParser } from './catalog-media-controller.js';
-import { BACKOFFICE, Backoffice, backofficeOptions } from '@pickchick/backoffice-core';
+import {
+  BACKOFFICE,
+  Backoffice,
+  backofficeOptions,
+  backofficeP1Options,
+} from '@pickchick/backoffice-core';
 import {
   DeviceRegistryController,
   KioskPresenceController,
@@ -147,8 +152,9 @@ class BranchesController {
       [id.data],
     );
     if (!rows[0]) throw new NotFoundException();
-    // Public read-only menu: the cashier-only combo stop fields stay off this route.
-    return withoutComboStopLinks(MenuSnapshotSchema.parse(rows[0].payload));
+    // Public read-only menu (installed mobile parses it strictly): the cashier-only fields of
+    // every menu feature (combo stop links, aggregator prices) stay off this route.
+    return withoutEdgeOnlyFields(MenuSnapshotSchema.parse(rows[0].payload));
   }
 }
 
@@ -262,6 +268,8 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
             new CloudChannelStops(resources.pool, {
               ...cloudStopOptions(process.env),
               enabled: config.backofficeEnabled === true,
+              // Cutover CC-5: designated shift managers change stops (default off).
+              rolesEnabled: backofficeOptions(process.env).rolesEnabled === true,
             }),
         },
       ]
@@ -312,13 +320,17 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
         provide: WORKFORCE,
         inject: [RESOURCE],
         useFactory: (resources: Resources) =>
-          new Workforce(resources.pool, config.workforceEnabled === true),
+          new Workforce(resources.pool, config.workforceEnabled === true, {
+            rolesEnabled: backofficeOptions(process.env).rolesEnabled === true,
+          }),
       },
       {
         provide: FINANCE,
         inject: [RESOURCE],
         useFactory: (resources: Resources) =>
-          new Finance(resources.pool, config.backofficeEnabled === true),
+          new Finance(resources.pool, config.backofficeEnabled === true, {
+            rolesEnabled: backofficeOptions(process.env).rolesEnabled === true,
+          }),
       },
       {
         provide: RECONCILIATION,
@@ -328,6 +340,7 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
             resources.pool,
             config.backofficeEnabled === true &&
               reconciliationOptions(process.env).enabled === true,
+            { rolesEnabled: backofficeOptions(process.env).rolesEnabled === true },
           ),
       },
       {
@@ -346,11 +359,11 @@ export async function createApi(config: ServiceConfig = loadConfig('api')) {
         provide: BACKOFFICE,
         inject: [RESOURCE],
         useFactory: (resources: Resources) =>
-          new Backoffice(
-            resources.pool,
-            config.backofficeEnabled === true,
-            backofficeOptions(process.env),
-          ),
+          new Backoffice(resources.pool, config.backofficeEnabled === true, {
+            ...backofficeOptions(process.env),
+            // Back-office P1 (bo-ui): validated by loadConfig, no key while a flag is off.
+            ...backofficeP1Options(config),
+          }),
       },
       { provide: RESOURCE, useFactory: () => new Resources(config) },
       {

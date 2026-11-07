@@ -2,15 +2,38 @@ import { DevicesModel } from './devices-model.js';
 import { DeviceAccessView } from './components/DeviceAccessView.js';
 import { KioskIncidentsModel } from './kiosk-incidents-model.js';
 import { KioskIncidentsView } from './components/KioskIncidentsView.js';
-import { OperationsModel, StopsModel } from './operations-model.js';
+import {
+  OperationsModel,
+  StopsModel,
+  discountsAvailable,
+  headerRole,
+  managerShiftsAvailable,
+  permitted,
+  posDayAvailable,
+  rightsText,
+  roleTitle,
+} from './operations-model.js';
+import { dirtyDialogOpen } from './dialog-guard.js';
+import { cards, dash, ui } from './ui-fixes.js';
 import { WorkforceModel } from './workforce-model.js';
 import { WorkforceView } from './workforce.js';
+import { ManagerShiftView } from './manager-shift.js';
+import { DiscountsPage } from './discounts.js';
+import { DISCOUNTS_SECTION } from './discounts-model.js';
+import { staffPositions } from './staff-positions-model.js';
 import { FinanceModel } from './finance-model.js';
 import { FinanceView } from './finance.js';
-import { OperationsView, sections } from './operations.js';
+import { OperationsView, POS_SECTION, sections } from './operations.js';
 import { CatalogModel } from './model.js';
-import { transport, message, staffAuth } from './api.js';
-import { money, copy, deliveryText, publicationCopy } from './domain.js';
+import { ApiError, transport, message, staffAuth } from './api.js';
+import {
+  aggregatorPriceLine,
+  copy,
+  deliveryText,
+  hasAggregatorPrice,
+  money,
+  publicationCopy,
+} from './domain.js';
 import {
   element as el,
   button,
@@ -25,6 +48,22 @@ import { openEditor, emptyProduct, type EditorContext } from './editor.js';
 const root = document.querySelector<HTMLDivElement>('#app')!,
   model = new CatalogModel(transport, window.sessionStorage);
 let page = sections.some((s) => s[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'dash';
+// Lane bo-ui «Касса»: #pos opens only once the server reports capabilities.pos_day.
+let wantPos = location.hash === '#pos';
+// Lane bo-ui step 7 «Скидки»: #discounts opens only once the server reports capabilities.discounts.
+let wantDiscounts = location.hash === '#discounts';
+/**
+ * The sections of this server: `sections`, plus «Касса» after «Заказы» while pos_day is on and
+ * «Скидки» after «Промо и баннеры» while discounts is on.
+ */
+const allSections = (): readonly (readonly [string, string, string])[] => {
+  const list = posDayAvailable(operations.data)
+    ? [...sections.slice(0, 2), POS_SECTION, ...sections.slice(2)]
+    : sections;
+  if (!discountsAvailable(operations.data)) return list;
+  const at = list.findIndex((s) => s[0] === 'promo') + 1;
+  return [...list.slice(0, at), DISCOUNTS_SECTION, ...list.slice(at)];
+};
 let cashierJournalOpen = false;
 const operations = new OperationsModel(
   (path, request) => model.operations(path, request),
@@ -86,10 +125,73 @@ const workforce = new WorkforceModel(
   render,
 );
 const workforceView = new WorkforceView(workforce, render);
+// Lane bo-ui: the audit fixes (F05 read errors) and the rights in words (F03, F09); both return
+// what the cabinet showed before while the server has neither roles nor the audit fixes.
+finance.fixes = workforce.fixes = () => operations.fixes;
+financeView.rights = () => rightsText(operations.data, 'finance.write');
+workforceView.rights = () => rightsText(operations.data, 'workforce.write');
+// Lane bo-ui step 6: staff positions on the «Сотрудники» tab, only with capabilities.staff_positions.
+workforceView.positions = () => ({
+  list: staffPositions(operations.data),
+  may: operations.data !== null && permitted(operations.data, 'staff.positions'),
+  rights: rightsText(operations.data, 'staff.positions'),
+  roster: () => operations.staffRoster(),
+  savePositions: async (command, reason) => {
+    try {
+      if (await operations.execute(command, reason)) return null;
+      return message(operations.error);
+    } catch (e) {
+      return message(e);
+    }
+  },
+});
+// Lane bo-ui step 6 «Смена менеджера» on the «Смены» page, only with capabilities.manager_shifts.
+const managerShift = new ManagerShiftView({
+  load: (date) => operations.managerShifts(date),
+  execute: async (command, reason) => {
+    try {
+      if (await operations.execute(command, reason)) return null;
+      return message(operations.error);
+    } catch (e) {
+      return message(e);
+    }
+  },
+  can: (permission) => operations.data !== null && permitted(operations.data, permission),
+  rights: (permission) => rightsText(operations.data, permission),
+  employees: () =>
+    (operations.data?.records ?? [])
+      .filter((r) => r.kind === 'employee' && r.payload['active'] && !r.payload['deleted'])
+      .map((r) => ({ value: r.id, label: String(r.payload['name']) })),
+  toStock: () => {
+    page = 'stock';
+    history.replaceState(null, '', '#stock');
+    render();
+  },
+  scope: () => `${operations.actor}:${operations.branch}`,
+  changed: () => softRender(),
+});
+// Lane bo-ui step 7 «Скидки», only with capabilities.discounts (the POS does not apply them yet).
+const discountPage = new DiscountsPage({
+  load: (id) => operations.discounts(id),
+  execute: async (command, reason) => {
+    try {
+      if (await operations.execute(command, reason)) return null;
+      return operations.error ?? new ApiError('PENDING');
+    } catch (e) {
+      return e;
+    }
+  },
+  can: (permission) => operations.data !== null && permitted(operations.data, permission),
+  rights: (permission) => rightsText(operations.data, permission),
+  scope: () => `${operations.actor}:${operations.branch}`,
+  changed: () => softRender(),
+});
 function syncOperations() {
   if (!model.actor) {
     workforce.clear();
     workforceView.clear();
+    managerShift.clear();
+    discountPage.clear();
     finance.clear();
     financeView.clear();
     operations.clear();
@@ -117,8 +219,10 @@ function syncOperations() {
     (incidents.actor !== model.actor.id || incidents.branch !== branch)
   )
     void incidents.load(model.actor.id, branch);
-  if (branch) void finance.scope(model.actor.id, branch);
-  if (branch && (page === 'shifts' || workforce.actor))
+  // Cutover CC-5: a shift manager sees neither the finance ledger nor rates and payroll.
+  const reads = (permission: string) => !operations.data || permitted(operations.data, permission);
+  if (branch && reads('finance.read')) void finance.scope(model.actor.id, branch);
+  if (branch && (page === 'shifts' || workforce.actor) && reads('workforce.read'))
     void workforce.scope(model.actor.id, branch);
   if (branch && (operations.actor !== model.actor.id || operations.branch !== branch))
     void operations.load(model.actor.id, branch);
@@ -334,21 +438,37 @@ function login() {
   page.append(card);
   root.replaceChildren(page);
 }
+/** Audit F07: the pages whose data follows the header period (with the audit fixes). */
+const PERIOD_PAGES = ['dash', 'orders', 'reports', 'shifts'];
 function render() {
   if (page !== 'devices') devices.hideCode();
+  // Lane bo-ui audit fixes: one switch for every view (ui-fixes.ts), and a root class for CSS.
+  ui.fixes = Boolean(model.actor) && operations.fixes;
+  document.documentElement.classList.toggle('bo-fixes', ui.fixes);
   if (!model.actor) {
     login();
     return;
   }
+  if (wantPos && operations.data) {
+    wantPos = false;
+    if (posDayAvailable(operations.data)) page = 'pos';
+  }
+  if (page === 'pos' && operations.data && !posDayAvailable(operations.data)) page = 'dash';
+  if (wantDiscounts && operations.data) {
+    wantDiscounts = false;
+    if (discountsAvailable(operations.data)) page = 'discounts';
+  }
+  if (page === 'discounts' && operations.data && !discountsAvailable(operations.data))
+    page = 'dash';
   const shell = el('div', 'shell'),
     sidebar = el('aside', 'sidebar'),
     brand = el('div', 'brand');
   brand.append(image('logo.png', 'PickChick'), el('small', '', 'Управление рестораном'));
   sidebar.append(brand);
-  const primary = ['dash', 'orders', 'items', 'stoplist', 'shifts', 'reports', 'finance'];
+  const primary = ['dash', 'orders', 'pos', 'items', 'stoplist', 'shifts', 'reports', 'finance'];
   const navigation = el('nav', 'navigation');
   navigation.setAttribute('aria-label', 'Разделы кабинета');
-  const appendLinks = (container: HTMLElement, list: (typeof sections)[number][]) => {
+  const appendLinks = (container: HTMLElement, list: (readonly [string, string, string])[]) => {
     for (const [id, label] of list) {
       const nav = button(
         id === 'items'
@@ -374,7 +494,12 @@ function render() {
           if (finance.pending && page === 'finance') return;
           financeView.clear();
           page = id;
-          if (id === 'shifts' && model.actor && model.state)
+          if (
+            id === 'shifts' &&
+            model.actor &&
+            model.state &&
+            (!operations.data || permitted(operations.data, 'workforce.read'))
+          )
             void workforce.scope(model.actor.id, model.state.branch.id);
           history.replaceState(null, '', '#' + id);
           if (id === 'stoplist' && model.actor && model.state)
@@ -390,15 +515,18 @@ function render() {
     }
   };
   const daily = el('div', 'nav-primary');
+  // Cutover CC-5: sections the role cannot read are not offered (the server answers 403 anyway).
+  const visible = (section: readonly [string, string, string]) =>
+    section[0] !== 'finance' || !operations.data || permitted(operations.data, 'finance.read');
   appendLinks(
     daily,
-    [...sections]
-      .filter((section) => primary.includes(section[0]))
+    [...allSections()]
+      .filter((section) => primary.includes(section[0]) && visible(section))
       .sort((a, b) => primary.indexOf(a[0]) - primary.indexOf(b[0])),
   );
   appendLinks(
     daily,
-    [...sections].filter((section) => !primary.includes(section[0])),
+    [...allSections()].filter((section) => !primary.includes(section[0]) && visible(section)),
   );
   navigation.append(daily);
   navigation.id = 'cabinet-navigation';
@@ -418,7 +546,7 @@ function render() {
   const user = el('div', 'user');
   user.append(
     el('strong', '', model.actor.name),
-    el('span', 'muted', 'Управление рестораном'),
+    el('span', 'muted', roleTitle(operations.data) ?? 'Управление рестораном'),
     button(
       'Выйти',
       async () => {
@@ -451,10 +579,24 @@ function render() {
     header = el('header', 'topbar'),
     titles = el('div', 'page-title');
   titles.append(
-    el('h1', '', sections.find((s) => s[0] === page)?.[1] ?? 'PickChick'),
-    el('p', 'muted', sections.find((s) => s[0] === page)?.[2] ?? ''),
+    el(
+      'h1',
+      '',
+      // Audit F17 (with the fixes): the page is called what its menu item is called.
+      ui.fixes && page === 'items'
+        ? 'Меню и цены'
+        : (allSections().find((s) => s[0] === page)?.[1] ?? 'PickChick'),
+    ),
+    el('p', 'muted', allSections().find((s) => s[0] === page)?.[2] ?? ''),
   );
   header.append(titles);
+  // Audit F09: who is signed in, in the header (also on a phone, where the sidebar folds).
+  const role = headerRole(operations.data);
+  if (role) {
+    const chip = el('p', 'header-role', role);
+    chip.dataset.testid = 'header-role';
+    header.append(chip);
+  }
   const branch = select(
     'Точка',
     model.state?.branch.id ?? '',
@@ -497,7 +639,9 @@ function render() {
   header.append(branch);
   const legacyControls = el('div', 'wf-legacy-controls');
   const periodTarget = page === 'shifts' ? legacyControls : header;
-  if (page !== 'items' && page !== 'finance') {
+  // «Касса» has its own day and cash desk pickers (audit F07: no period that does nothing);
+  // «Скидки» has no period at all.
+  if (page !== 'items' && page !== 'finance' && page !== 'pos' && page !== 'discounts') {
     const periods = el('div', 'op-periods');
     for (const [id, label] of [
       ['day', 'Сегодня'],
@@ -546,9 +690,26 @@ function render() {
       'op-refresh',
     );
     refresh.disabled = operations.busy || Boolean(operations.pending);
-    tools.append(periodField);
+    // Audit F07 (with the fixes): no period switch on pages it does not change. Audit F13:
+    // «Оплаты и чеки» have one date, the reconciliation day (or their own), not the header one.
+    const periodShown = !ui.fixes || PERIOD_PAGES.includes(page);
+    if (periodShown) tools.append(periodField);
+    else {
+      const hint = el(
+        'small',
+        'muted header-filter-hint',
+        page === 'settlements'
+          ? 'Дата страницы - день ниже, без выбора периода.'
+          : 'Данные на сейчас, без выбора периода.',
+      );
+      hint.dataset.testid = 'no-period-hint';
+      tools.append(hint);
+    }
     periodTarget.append(tools);
-    if (['dash', 'orders', 'shifts', 'reports', 'settlements'].includes(page)) {
+    if (
+      ['dash', 'orders', 'shifts', 'reports', 'settlements'].includes(page) &&
+      !(ui.fixes && page === 'settlements')
+    ) {
       const shifts = operations.data?.cashier_shifts ?? [];
       if (shifts.length) {
         const chooser = select(
@@ -596,7 +757,7 @@ function render() {
           ),
         );
     }
-    if (choosingCustom || operations.period === 'custom') {
+    if (periodShown && (choosingCustom || operations.period === 'custom')) {
       const dates = el('form', 'date-range');
       const start = field(
         'С даты',
@@ -668,8 +829,15 @@ function render() {
   main.append(content);
   shell.append(sidebar, main);
   root.replaceChildren(shell);
+  const hidden = (permission: string) =>
+    operations.data !== null && !permitted(operations.data, permission);
   if (page === 'shifts') {
-    workforceView.render(content);
+    if (managerShiftsAvailable(operations.data)) managerShift.render(content);
+    if (hidden('workforce.read'))
+      content.append(
+        notice('Табель, ставки и начисления видят управляющий и бухгалтер. Кассовые смены - ниже.'),
+      );
+    else workforceView.render(content);
     const cashier = el('details', 'panel');
     cashier.open = cashierJournalOpen;
     cashier.addEventListener('toggle', () => {
@@ -683,7 +851,28 @@ function render() {
     return;
   }
   if (page === 'finance') {
-    financeView.render(content);
+    if (hidden('finance.read'))
+      content.append(notice('Финансы видят управляющий и бухгалтер точки.', 'notice error'));
+    else financeView.render(content);
+    return;
+  }
+  if (page === 'discounts') {
+    // A discount command whose answer did not arrive is checked here, before the next one.
+    if (operations.pending) {
+      const n = notice(
+        'Результат прошлой операции ещё не подтверждён. Проверьте его, прежде чем менять скидки.',
+      );
+      const recover = button(
+        'Проверить результат',
+        () => void operations.recover().then(() => discountPage.reload()),
+        'button primary',
+        'dc-recover',
+      );
+      recover.disabled = operations.busy;
+      n.append(recover);
+      content.append(n);
+    }
+    discountPage.render(content);
     return;
   }
   if (page === 'devices') {
@@ -837,8 +1026,8 @@ function render() {
   const table = el('table'),
     thead = el('thead'),
     tr = el('tr');
-  for (const text of ['Позиция', 'Категория', 'Цена', 'КБЖУ', 'В меню', 'Действия'])
-    tr.append(el('th', '', text));
+  const catalogHeads = ['Позиция', 'Категория', 'Цена', 'КБЖУ', 'В меню', 'Действия'];
+  for (const text of catalogHeads) tr.append(el('th', '', text));
   thead.append(tr);
   const tbody = el('tbody');
   tbody.dataset.testid = 'catalog-products';
@@ -851,7 +1040,9 @@ function render() {
     el(
       'p',
       'muted table-help',
-      '«Скрыта из меню» — позиция не попадёт в следующую публикацию. Если блюдо временно закончилось, поставьте его на «Стоп» в разделе «Стоп-лист»: стоп действует сразу на кассе, в приложении и киоске и не требует публикации.',
+      dash(
+        '«Скрыта из меню» — позиция не попадёт в следующую публикацию. Если блюдо временно закончилось, поставьте его на «Стоп» в разделе «Стоп-лист»: стоп действует сразу на кассе, в приложении и киоске и не требует публикации.',
+      ),
     ),
   );
   content.append(panel);
@@ -885,6 +1076,12 @@ function render() {
           model.payload!.categories.find((c) => c.id === p.category_id)?.name.ru ?? p.category_id,
         price = el('td', 'price', money(p.price_minor)),
         nutrition = el('td');
+      // Cutover: aggregator prices next to the base price (only where they are in use).
+      if (model.state?.publication_support?.aggregator_prices === true || hasAggregatorPrice(p)) {
+        const line = el('small', 'muted aggregator-prices', aggregatorPriceLine(p));
+        line.dataset.testid = `aggregator-prices-${p.id}`;
+        price.append(line);
+      }
       nutrition.append(
         el('span', '', `${p.nutrition.energy_kcal} ккал`),
         el(
@@ -939,6 +1136,8 @@ function render() {
       row.append(cell);
       tbody.append(row);
     }
+    // Audit F14 (with the fixes): price and buttons stay on a phone screen.
+    cards(tableWrap, catalogHeads);
   }
   rows();
   const groups = model.payload.products.flatMap((p) => p.modifier_groups.map((g) => ({ p, g })));
@@ -1094,7 +1293,9 @@ function channelStatus() {
       'p',
       'muted channel-help',
       support?.mobile || support?.kiosk || support?.pos
-        ? 'Сохранённый черновик ничего не меняет. После публикации приложение и киоск берут новое меню сразу, касса — после подтверждения кассового узла.'
+        ? dash(
+            'Сохранённый черновик ничего не меняет. После публикации приложение и киоск берут новое меню сразу, касса — после подтверждения кассового узла.',
+          )
         : 'Подключение публикаций к приложению, кассе и киоску ещё не включено. Сохранённый черновик сам по себе не меняет действующее меню.',
     ),
   );
@@ -1159,7 +1360,9 @@ window.addEventListener('beforeunload', (event) => {
     finance.pending ||
     financeView.dirty ||
     workforce.pending ||
-    workforceView.dirty
+    workforceView.dirty ||
+    // Audit F01: an open guarded dialog with changes (only with the fixes; see dialog-guard.ts).
+    dirtyDialogOpen()
   ) {
     event.preventDefault();
     event.returnValue = '';

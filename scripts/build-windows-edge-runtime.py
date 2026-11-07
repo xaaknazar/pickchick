@@ -51,6 +51,37 @@ ADMIN_FILES = (
     'scripts/staff-credential.mjs',
     'scripts/staff-file-permissions.mjs',
     'infra/windows/edge-runtime-grants.mjs',
+    # Cutover 19.11 (CR pos-1 section 1, CR pos-4 section 4): edge 026 grants, its guarded
+    # upgrade and the POS sales operator tool. edge-runtime-grants.mjs imports pos-sales-grants.mjs.
+    'infra/windows/pos-sales-grants.mjs',
+    'infra/windows/pos-sales-upgrade-db.mjs',
+    'scripts/pos-sales-setup.mjs',
+    # Cutover 19.11 (lead decision 07.11 item 2, review R6): the owner command that lists and
+    # releases a parked posSales event; imports ../../scripts/edge-migrate.mjs (shipped) and
+    # workspace packages of the runtime closure (@pickchick/pos-order-sync is a build root).
+    'infra/windows/pos-sales-sync-release.mjs',
+    # Cutover 19.11 (CR kds-1 section 4, CR kds-3): edge 027 grants, the guarded upgrade and the
+    # operator switch. kds-switch.mjs imports kds-grants.mjs and ../../scripts/edge-migrate.mjs.
+    'infra/windows/kds-grants.mjs',
+    'infra/windows/kds-upgrade-db.mjs',
+    'infra/windows/kds-switch.mjs',
+    # Lane bo-ui (CR bo-ui-6, backoffice-p1-cutover.md «Состав на кассе»): the point operator runs
+    # the roster scripts on the point server. staff-roster-apply.mjs imports edge-staff-id.mjs,
+    # staff-pin-batch.mjs imports staff-roster-apply.mjs; both load staff-credential.mjs and
+    # hidden-password.mjs (shipped above) and packages of the runtime closure.
+    'scripts/edge-staff-id.mjs',
+    'scripts/staff-roster-apply.mjs',
+    'scripts/staff-pin-batch.mjs',
+    # Cutover 19.11 (integration review R8): the POS sync installer refuses a runtime whose
+    # manifest does not pin every file it runs (install-native-pos-sync.ps1, Verify in window
+    # C4 step 3.8); native-pos-sync-db.mjs imports native-foundation-db.mjs and
+    # pos-sync-worker-grants.mjs, which imports pos-sales-grants.mjs.
+    'infra/windows/native-pos-sync-db.mjs',
+    'infra/windows/native-foundation-db.mjs',
+    'infra/windows/pos-sync-worker-grants.mjs',
+    'infra/windows/install-native-pos-sync.ps1',
+    'infra/windows/inspect-native-ssh.ps1',
+    'infra/windows/native-pos-sync.md',
     'infra/windows/README.md',
     'infra/windows/native-staff-login.md',
     'infra/windows/local-pos-service.md',

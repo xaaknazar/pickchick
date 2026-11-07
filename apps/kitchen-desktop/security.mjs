@@ -14,6 +14,13 @@ export const ASSETS = [
   'runtime.js',
   'types.js',
   'terminal-access.js',
+  // Every module app.js imports must be packaged, or the renderer cannot start.
+  'restore-review.js',
+  'demo.js',
+  'ticket-view.js',
+  // Cutover KDS screens (contracts 5.4).
+  'kds-view.js',
+  'courier.js',
   'components/TerminalPairing.js',
   'components/DisplayAccess.js',
   'components/PasswordReset.js',

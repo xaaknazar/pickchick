@@ -227,7 +227,26 @@ export const ErrorSchema = z.strictObject({
     'SERVICE_MODE_DISABLED',
     'KITCHEN_UNAVAILABLE',
     'ORDER_IN_PRODUCTION',
+    // Cashier edge pos_sale routes only (contracts 5.1, PosErrorCodeSchema in pos-sales.ts; CR
+    // pos-1 section 2, CR client-4 section 1); cloud routes never send them.
+    'METHOD_DISABLED',
+    'TENDER_SUM_MISMATCH',
+    'CASH_TENDERED_TOO_LOW',
+    'TERMINAL_AMOUNT_NOT_WHOLE',
+    'CHANNEL_PRICE_UNAVAILABLE',
+    'EXTERNAL_REF_REQUIRED',
+    'EXTERNAL_REF_DUPLICATE',
+    'APPROVAL_REQUIRED',
+    'APPROVAL_INVALID',
+    'REFUND_LIMIT',
+    'REFUND_NOT_SUPPORTED',
+    'DRAWER_INSUFFICIENT',
+    'FISCAL_PENDING',
     'SHIFT_CLOSED',
+    // Kitchen edge only (cutover KDS-4, CR kds-6): handoff of a delivery order without the three
+    // courier marks. Only kitchen clients with the KDS layout send marks; cloud routes never
+    // answer it.
+    'HANDOVER_MARKS_REQUIRED',
     'CONFLICT',
     'INSUFFICIENT_STOCK',
     'NOT_READY',
@@ -389,6 +408,14 @@ export const ModifierSelectionSchema = z.strictObject({
   option_id: UuidSchema,
   quantity: z.number().int().min(1).max(99).optional(),
 });
+// cutover:pos - the POS region imports the shared enums and the sale schemas it extends
+// (contracts 4.2: the pos lane edits only this region of index.ts; imports are hoisted).
+import {
+  AggregatorChannelSchema,
+  PosServiceModeSchema,
+  SalesChannelSchema,
+} from './cutover-enums.js';
+import { PosApprovalProofSchema, PosSaleSchema } from './pos-sales.js';
 export const QuoteModifierSchema = ModifierSelectionSchema.extend({
   group_name: LocalizedTextSchema,
   name: LocalizedTextSchema,
@@ -424,6 +451,8 @@ export const QuoteLineSchema = z.strictObject({
 });
 export const QuoteSchema = z.strictObject({
   details: PosOrderDetailsSchema.optional(),
+  // Cutover: aggregator quote of a pos_sale (absent = hall; hall quotes stay byte-identical).
+  sales_channel: AggregatorChannelSchema.optional(),
   quote_id: UuidSchema,
   branch_id: UuidSchema,
   release_id: UuidSchema,
@@ -465,11 +494,13 @@ export const LocalOrderSchema = z.strictObject({
   branch_id: UuidSchema,
   quote_id: UuidSchema,
   version: z.number().int().positive().max(2147483647),
-  state: z.enum(['awaiting_payment', 'cancelled']),
-  payment_state: z.literal('not_started'),
+  // Cutover (contracts 5.1): a pos_sale order is paid and captured from version 1; every other
+  // order keeps awaiting_payment/cancelled and not_started. Receipts live in the sale, not here.
+  state: z.enum(['awaiting_payment', 'cancelled', 'paid']),
+  payment_state: z.enum(['not_started', 'captured']),
   fiscal_state: z.literal('not_requested'),
   fulfillment_state: z.union([z.literal('blocked'), LocalFulfillmentStateSchema]),
-  execution_mode: z.literal('unpaid_service').optional(),
+  execution_mode: z.enum(['unpaid_service', 'pos_sale']).optional(),
   fulfillment: LocalFulfillmentSchema.optional(),
   next_action: z.enum(['payment_not_available', 'none']),
   snapshot: QuoteSchema,
@@ -480,7 +511,7 @@ export const OrderingCommandSchema = z.strictObject({
   expected_version: z.number().int().positive().max(2147483647),
 });
 export const OrderingStateSchema = z.strictObject({
-  pos_service_mode: z.enum(['payment_required', 'unpaid_service']).optional(),
+  pos_service_mode: PosServiceModeSchema.optional(),
   branch_id: UuidSchema,
   ordering_enabled: z.boolean(),
   version: z.number().int().positive().max(2147483647),
@@ -563,9 +594,10 @@ export const CashShiftSchema = z.strictObject({
   cancelled_count: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   order_total_minor: MoneyMinorSchema,
   unpaid_total_minor: MoneyMinorSchema,
-  cash_received_minor: z.literal('0'),
-  cash_refunded_minor: z.literal('0'),
-  payment_processing_available: z.literal(false),
+  // Cutover (contracts 5.1): money of a sales_mode shift; every other shift keeps '0', '0', false.
+  cash_received_minor: MoneyMinorSchema,
+  cash_refunded_minor: MoneyMinorSchema,
+  payment_processing_available: z.boolean(),
   report_at: z.iso.datetime(),
 });
 export const CashShiftCurrentSchema = z.strictObject({
@@ -580,12 +612,28 @@ export const LocalOrderListSchema = z.strictObject({
   orders: z.array(LocalOrderSchema).max(100),
   server_time: z.iso.datetime(),
 });
+// cutover:pos - requests and results of contracts 5.1 that extend the schemas above. Not routed
+// until the pos_sale controller; the original schemas keep serving the unpaid POS unchanged.
+/** POST checkout/quotes in pos_sale: CartSchema + sales_channel ('hall' = field absent). */
+export const PosQuoteRequestSchema = CartSchema.extend({
+  sales_channel: SalesChannelSchema.optional(),
+});
+/** POST cash-shifts/{id}/close of a sales shift: Kaspi terminal total and, with pending
+ * receipts, the shift_close_pending_fiscal approval. */
+export const PosCashShiftCloseSchema = CashShiftCloseSchema.extend({
+  terminal_reported_minor: MoneyMinorSchema.optional(),
+  approval: PosApprovalProofSchema.optional(),
+});
+/** 201 of POST pos/sales and 200 of POST pos/sales/{orderId}/void. */
+export const PosSaleResultSchema = z.strictObject({ order: LocalOrderSchema, sale: PosSaleSchema });
+export type PosSaleResult = z.infer<typeof PosSaleResultSchema>;
 export type CashShift = z.infer<typeof CashShiftSchema>;
 
 // OpenAPI and event JSON Schema are generated from these runtime schemas.
 export const jsonSchema = (schema: z.ZodType) => z.toJSONSchema(schema);
 
 export * from './fulfillment.js';
+export * from './pos-sales.js';
 
 export * from './customer-commerce.js';
 export * from './cutover-enums.js';
@@ -593,5 +641,6 @@ export * from './cutover-enums.js';
 export * from './device-access.js';
 export * from './notifications.js';
 export * from './station-plans.js';
+export * from './kds.js';
 
 export * from './combo-rewards.js';

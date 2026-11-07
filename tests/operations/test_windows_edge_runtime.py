@@ -1,6 +1,9 @@
 import importlib.util
 import json
 import pathlib
+import posixpath
+import re
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -85,6 +88,107 @@ class WindowsEdgePackageTests(unittest.TestCase):
             self.assertFalse(any('.local' in name for name in archive.namelist()))
             self.assertTrue(all((entry.external_attr >> 16) & 0o170000 != 0o120000
                                 for entry in archive.infolist()))
+
+    def test_manifest_pins_every_file_the_pos_sync_installer_requires(self):
+        # install-native-pos-sync.ps1 refuses a runtime whose manifest misses one of these files
+        # ('Required sync administration file is not pinned in the manifest').
+        installer = (SCRIPT.parents[1] / 'infra/windows/install-native-pos-sync.ps1').read_text()
+        listed = re.search(r"foreach \(\$relative in @\(([^)]*)\)\) \{\s*\n\s*if \(@\(\$manifest\.files", installer)
+        self.assertIsNotNone(listed)
+        required = re.findall(r"'([^']+)'", listed.group(1))
+        self.assertEqual(len(required), 6)
+        # Files the installer itself runs before the manifest check, and the operator guide.
+        shipped = required + ['infra/windows/install-native-pos-sync.ps1',
+                              'infra/windows/inspect-native-ssh.ps1',
+                              'infra/windows/native-pos-sync.md']
+        for relative in shipped:
+            self.assertIn(relative, builder.ADMIN_FILES)
+            self.assertTrue((SCRIPT.parents[1] / relative).is_file(), relative)
+        self.build()
+        manifest = json.loads((self.base / 'output/runtime-manifest.json').read_text())
+        pinned = {entry['path'] for entry in manifest['files']}
+        for relative in shipped:
+            self.assertIn(relative, pinned)
+            entry = next(entry for entry in manifest['files'] if entry['path'] == relative)
+            self.assertRegex(entry['sha256'], '^[a-f0-9]{64}$')
+        # Every relative import of the shipped POS sync modules is shipped too.
+        for relative in required:
+            if not relative.endswith('.mjs'):
+                continue
+            text = (SCRIPT.parents[1] / relative).read_text()
+            for imported in re.findall(r"from '(\./[^']+)'", text):
+                target = str(pathlib.PurePosixPath(relative).parent / imported[2:])
+                self.assertIn(target, builder.ADMIN_FILES, relative + ' imports ' + imported)
+
+    def test_ships_the_cutover_owner_tools_with_everything_they_import(self):
+        # Master runbook steps 3, 6, 7, 10 and section 9 run these from the RC-edge package
+        # (lead decision 07.11 item 2 adds pos-sales-sync-release.mjs).
+        repo = SCRIPT.parents[1]
+        tools = ['scripts/pos-sales-setup.mjs', 'infra/windows/pos-sales-upgrade-db.mjs',
+                 'infra/windows/kds-upgrade-db.mjs', 'infra/windows/kds-switch.mjs',
+                 'infra/windows/pos-sales-sync-release.mjs',
+                 # Lane bo-ui: the roster scripts of backoffice-p1-cutover.md run on the server.
+                 'scripts/staff-roster-apply.mjs', 'scripts/staff-pin-batch.mjs',
+                 'scripts/edge-staff-id.mjs']
+        # Workspace packages of the runtime closure: the build roots and their dependencies.
+        workspace = {}
+        for manifest in [*repo.glob('packages/*/package.json'), *repo.glob('services/*/package.json')]:
+            data = json.loads(manifest.read_text())
+            workspace[data['name']] = sorted(name for name in data.get('dependencies', {})
+                                             if name.startswith('@pickchick/'))
+        closure, queue = set(), list(builder.BUILD_ROOTS)
+        while queue:
+            name = queue.pop()
+            if name not in closure:
+                closure.add(name)
+                queue.extend(workspace[name])
+        for relative in tools:
+            self.assertIn(relative, builder.ADMIN_FILES)
+            text = (repo / relative).read_text()
+            # Static imports and the dynamic import('...') the operator scripts load at run time.
+            for imported in re.findall(r"from '([^']+)'|import\('([^']+)'\)", text):
+                imported = imported[0] or imported[1]
+                if imported.startswith('.'):
+                    target = posixpath.normpath(posixpath.join(posixpath.dirname(relative), imported))
+                    self.assertIn(target, builder.ADMIN_FILES, relative + ' imports ' + imported)
+                elif imported.startswith('@pickchick/'):
+                    self.assertIn(imported, closure, relative + ' imports ' + imported)
+                else:
+                    self.assertTrue(imported.startswith('node:'), relative + ' imports ' + imported)
+        self.build()
+        manifest = json.loads((self.base / 'output/runtime-manifest.json').read_text())
+        pinned = {entry['path'] for entry in manifest['files']}
+        for relative in tools:
+            self.assertIn(relative, pinned)
+
+    def test_ships_every_edge_migration_with_the_bytes_the_cutover_tools_pin(self):
+        # The builder copies db/edge/migrations whole, so edge 028 (the desk number, CR pos-7
+        # section 2 p.5) needs no list change. The manifest pins every migration of the repository
+        # with the bytes that the backup ledger and the guarded C4 tools (026, 027, 028) accept.
+        repo = SCRIPT.parents[1]
+        shutil.rmtree(self.source / 'db/edge/migrations')
+        shutil.copytree(repo / 'db/edge/migrations', self.source / 'db/edge/migrations')
+        self.build()
+        manifest = json.loads((self.base / 'output/runtime-manifest.json').read_text())
+        prefix = 'db/edge/migrations/'
+        pinned = {entry['path'][len(prefix):]: entry['sha256'] for entry in manifest['files']
+                  if entry['path'].startswith(prefix)}
+        names = sorted(path.name for path in (repo / prefix).glob('*.sql'))
+        self.assertEqual(sorted(pinned), names)
+        ledger = json.loads((repo / 'infra/windows/native-edge-backup-ledger.json').read_text())
+        self.assertEqual([row['version'] for row in ledger], names[:len(ledger)])
+        for row in ledger:
+            self.assertEqual(pinned[row['version']], row['checksum'], row['version'])
+        tools = {name: (repo / 'infra/windows' / name).read_text()
+                 for name in ('pos-sales-upgrade-db.mjs', 'kds-upgrade-db.mjs')}
+        for tool, constant, migration in (
+                ('pos-sales-upgrade-db.mjs', 'POS_SALES_SHA256', '026_edge_pos_sales.sql'),
+                ('kds-upgrade-db.mjs', 'KDS_SHA256', '027_edge_kds_foundation.sql'),
+                ('pos-sales-upgrade-db.mjs', 'DESK_NUMBER_SHA256', '028_edge_pos_desk_number.sql')):
+            found = re.search(r'export const ' + constant + r" =\s*'([a-f0-9]{64})'", tools[tool])
+            self.assertIsNotNone(found, constant)
+            self.assertEqual(pinned[migration], found.group(1), migration)
+            self.assertIn(migration, [row['version'] for row in ledger])
 
     def test_rejects_external_dependency_and_missing_dependency(self):
         external = self.base / 'outside'

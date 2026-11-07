@@ -1,0 +1,3420 @@
+import assert from 'node:assert/strict';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { copyFile, mkdir, mkdtemp, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { setTimeout as sleep } from 'node:timers/promises';
+import test from 'node:test';
+import { createPool, transaction } from '@pickchick/database';
+import { createEdge } from '@pickchick/edge';
+import { applyMenu, hashJson, hashToken, publishMenu } from '@pickchick/menu-sync';
+import {
+  approvalSubjectHash,
+  closeCashShift,
+  createLocalOrder,
+  createPosSale,
+  createQuote,
+  listPendingFiscalReceipts,
+  moveCash,
+  openCashShift,
+  provisionStaff,
+  readCashShift,
+  readLocalOrder,
+  readPosConfig,
+  readPosSale,
+  readShiftReport,
+  recordFiscalReceipt,
+  refundPosSale,
+  requestManagerApproval,
+  setOrdering,
+  setStaffPin,
+  voidPosSale,
+} from '@pickchick/local-orders';
+import {
+  EdgeFulfillment,
+  RoutingSchema,
+  grantStation,
+  localUnpaidExecution,
+  provisionFulfillment,
+  taskPlan,
+} from '@pickchick/edge-fulfillment';
+import {
+  CashShiftSchema,
+  ErrorSchema,
+  LocalOrderSchema,
+  ManagerApprovalSchema,
+  POS_PAYMENT_METHOD_POLICY,
+  PosConfigSchema,
+  PosFiscalPendingSchema,
+  PosFiscalReceiptSchema,
+  PosPaymentMethodSchema,
+  PosSaleResultSchema,
+  PosSaleSchema,
+  PosShiftReportSchema,
+  QuoteSchema,
+} from '@pickchick/contracts';
+import { parsePosSaleEvent } from '@pickchick/pos-order-sync';
+import { applyEdgeRuntimeGrants } from '../../infra/windows/edge-runtime-grants.mjs';
+import { posSalesRuntimeGrants } from '../../infra/windows/pos-sales-grants.mjs';
+import { request, running, withSyncDatabases } from '../helpers/sync.mjs';
+import { staffAuth, staffHeaders } from '../helpers/orders.mjs';
+
+// POS-2 (contracts 00, 2.2, 5.1, 5.2, 5.6): paid POS sales on the cashier edge, end to end on the
+// real schema026 and runtime. Synthetic data only: menu, staff, PINs and order numbers are made up.
+const ALL = PosPaymentMethodSchema.options;
+const PIN = '2468';
+const CASHIER_PIN = '135790';
+const code = (expected) => (error) => error.code === expected;
+const edgeDir = fileURLToPath(new URL('../../db/edge/migrations/', import.meta.url));
+
+async function switchMode(pool, branch, from, to) {
+  await transaction(pool, async (client) => {
+    await client.query(
+      `INSERT INTO pos_sales_setting_changes(change_id,branch_id,subject,before,after,actor,reason)
+       VALUES($1,$2,'pos_service_mode',$3,$4,'operator','Синтетическое переключение')`,
+      [randomUUID(), branch, { pos_service_mode: from }, { pos_service_mode: to }],
+    );
+    await client.query('UPDATE branch_config SET pos_service_mode=$2 WHERE id=$1', [branch, to]);
+  });
+}
+async function setMethod(pool, branch, method, change) {
+  await transaction(pool, async (client) => {
+    const old = (
+      await client.query(
+        'SELECT enabled,fiscal_policy FROM pos_payment_methods WHERE branch_id=$1 AND code=$2 FOR UPDATE',
+        [branch, method],
+      )
+    ).rows[0];
+    const next = { ...old, ...change };
+    await client.query(
+      `INSERT INTO pos_sales_setting_changes(change_id,branch_id,subject,before,after,actor,reason)
+       VALUES($1,$2,$3,$4,$5,'operator','Синтетическая настройка')`,
+      [randomUUID(), branch, method, old, next],
+    );
+    await client.query(
+      'UPDATE pos_payment_methods SET enabled=$3,fiscal_policy=$4 WHERE branch_id=$1 AND code=$2',
+      [branch, method, next.enabled, next.fiscal_policy],
+    );
+  });
+}
+/** Sales shift of one cash desk (opening a shift in pos_sale mode through the API is POS-4). */
+async function salesShift(pool, branch, manager, terminal, opening = '500000') {
+  const id = randomUUID();
+  await pool.query(
+    'INSERT INTO local_cash_shifts(id,branch_id,staff_id,terminal_id,opening_cash_minor,sales_mode) VALUES($1,$2,$3,$4,$5,true)',
+    [id, branch, manager.staff_id, terminal, opening],
+  );
+  return id;
+}
+const closeShifts = (pool) =>
+  pool.query(
+    "UPDATE local_cash_shifts SET state='closed',version=version+1,closed_at=clock_timestamp(),closed_by_staff_id=staff_id,counted_cash_minor=0,discrepancy_minor=0,closing_reason='Синтетика',closed_report='{}' WHERE state='open'",
+  );
+
+/** Hall item with Yandex Eda and Glovo prices and a sauce option, and a hall-only drink at a
+ * price with tiyn (not whole tenge). */
+function salesMenu(ctx) {
+  const base = ctx.menu();
+  const group = randomUUID(),
+    option = randomUUID();
+  const burger = {
+    ...base.items[0],
+    aggregator_prices_minor: { yandex_eda: '399000', glovo: '389000' },
+    modifier_groups: [
+      {
+        id: group,
+        name: { ru: 'Соус', kk: 'Соус' },
+        min_selected: 0,
+        max_selected: 2,
+        options: [
+          {
+            id: option,
+            name: { ru: 'Сырный', kk: 'Ірімшік' },
+            price_minor: '20000',
+            max_quantity: 2,
+          },
+        ],
+      },
+    ],
+  };
+  const drink = {
+    ...base.items[0],
+    product_id: randomUUID(),
+    variant_id: randomUUID(),
+    name: { ru: 'Синтетический напиток', kk: 'Синтетикалық сусын' },
+    price_minor: '125050',
+  };
+  return { release: { ...base, items: [burger, drink] }, burger, drink, group, option };
+}
+
+async function prepareDesk(ctx, { mode, methods }) {
+  const edge = ctx.edge.pool;
+  const menu = salesMenu(ctx);
+  await applyMenu(edge, ctx.branch, await publishMenu(ctx.cloud.pool, menu.release));
+  const setup = (role, terminal = randomUUID()) => ({
+    staff_id: randomUUID(),
+    terminal_id: terminal,
+    name: 'Синтетический сотрудник',
+    role,
+  });
+  const cashierSetup = setup('cashier');
+  await setStaffPin(
+    edge,
+    ctx.branch,
+    staffAuth(await provisionStaff(edge, ctx.branch, cashierSetup)),
+    CASHIER_PIN,
+  );
+  const cashier = await provisionStaff(edge, ctx.branch, cashierSetup);
+  const managerSetup = {
+    ...setup('shift_manager', cashier.terminal_id),
+    name: 'Синтетический менеджер',
+  };
+  // Enrolling a PIN revokes the bootstrap session; the desk then gets a fresh one.
+  await setStaffPin(
+    edge,
+    ctx.branch,
+    staffAuth(await provisionStaff(edge, ctx.branch, managerSetup)),
+    PIN,
+  );
+  const manager = await provisionStaff(edge, ctx.branch, managerSetup);
+  const second = await provisionStaff(edge, ctx.branch, setup('cashier'));
+  const prep = randomUUID(),
+    assembly = randomUUID();
+  const routing = {
+    version: 1,
+    assemblyStationId: assembly,
+    routes: menu.release.items.map((item) => ({
+      productId: item.product_id,
+      stationId: prep,
+      kind: 'prep',
+    })),
+  };
+  await provisionFulfillment(edge, {
+    organizationId: ctx.org,
+    branchId: ctx.branch,
+    deviceId: ctx.device,
+    producerId: randomUUID(),
+    stations: [
+      { id: prep, kind: 'prep', name: 'Synthetic prep' },
+      { id: assembly, kind: 'assembly', name: 'Synthetic assembly' },
+    ],
+    routing,
+  });
+  await setOrdering(edge, ctx.branch, staffAuth(manager), randomUUID(), true, {
+    expected_version: 1,
+  });
+  const shifts = {};
+  if (mode === 'pos_sale') {
+    await switchMode(edge, ctx.branch, 'payment_required', 'pos_sale');
+    for (const method of methods) await setMethod(edge, ctx.branch, method, { enabled: true });
+    shifts.first = await salesShift(edge, ctx.branch, manager, cashier.terminal_id);
+    shifts.second = await salesShift(edge, ctx.branch, manager, second.terminal_id);
+  } else {
+    if (mode !== 'payment_required')
+      await edge.query('UPDATE branch_config SET pos_service_mode=$2 WHERE id=$1', [
+        ctx.branch,
+        mode,
+      ]);
+    shifts.first = (
+      await openCashShift(edge, ctx.branch, staffAuth(manager), randomUUID(), {
+        opening_cash_minor: '0',
+      })
+    ).shift_id;
+  }
+  return {
+    ...ctx,
+    ...menu,
+    setup,
+    cashier,
+    manager,
+    second,
+    prep,
+    assembly,
+    routing,
+    shifts,
+    port: localUnpaidExecution({ enabled: true, deviceId: ctx.device }),
+  };
+}
+async function desk(run, { mode = 'pos_sale', methods = ALL, edgeMigrationDirectory } = {}) {
+  await withSyncDatabases(
+    async (ctx) => run(await prepareDesk(ctx, { mode, methods })),
+    edgeMigrationDirectory ? { edgeMigrationDirectory } : {},
+  );
+}
+
+const line = (ctx, quantity = 1, sauces = 0) => ({
+  variant_id: ctx.burger.variant_id,
+  quantity,
+  ...(sauces
+    ? { modifiers: [{ group_id: ctx.group, option_id: ctx.option, quantity: sauces }] }
+    : {}),
+});
+const quote = (ctx, { channel, items, serviceMode = 'takeaway', actor = ctx.cashier } = {}) =>
+  createQuote(ctx.edge.pool, ctx.branch, staffAuth(actor), {
+    release_id: ctx.release.release_id,
+    service_mode: serviceMode,
+    items: items ?? [line(ctx)],
+    ...(channel ? { sales_channel: channel } : {}),
+  });
+const sale = (q, extra) => ({
+  quote_id: q.quote_id,
+  service_mode_confirmed: true,
+  order_repeated: true,
+  ...extra,
+});
+const sell = (ctx, body, { key = randomUUID(), actor = ctx.cashier, port = ctx.port } = {}) =>
+  createPosSale(ctx.edge.pool, ctx.branch, staffAuth(actor), key, body, port);
+const approve = (
+  ctx,
+  action,
+  subject,
+  { actor = ctx.cashier, pin = PIN, staff = ctx.manager } = {},
+) =>
+  requestManagerApproval(ctx.edge.pool, ctx.branch, staffAuth(actor), {
+    staff_id: staff.staff_id,
+    pin,
+    action,
+    subject,
+  });
+const proof = (approval) => ({ approval_id: approval.approval_id, token: approval.token });
+const count = async (pool, table, where = 'true', values = []) =>
+  Number((await pool.query(`SELECT count(*) FROM ${table} WHERE ${where}`, values)).rows[0].count);
+const SALE_TABLES = [
+  'local_orders',
+  'pos_sales',
+  'pos_sale_tenders',
+  'pos_fiscal_receipts',
+  'pos_sale_outbox',
+  'fulfillment_reservations',
+  'fulfillment_tasks',
+  'fulfillment_outbox',
+];
+const counts = async (pool) =>
+  Object.fromEntries(
+    await Promise.all(SALE_TABLES.map(async (table) => [table, await count(pool, table)])),
+  );
+/** The posSales events of an order, as the sender reads them (contracts 5.6), strictly parsed. */
+async function saleEvents(pool, orderId) {
+  const rows = (
+    await pool.query(
+      `SELECT e.* FROM pos_sale_outbox e WHERE e.entity_id=$1 OR e.payload->>'order_id'=$1::text
+       ORDER BY e.sequence`,
+      [orderId],
+    )
+  ).rows;
+  return rows.map((row) => {
+    assert.equal(row.payload_hash, hashJson(row.payload));
+    return parsePosSaleEvent({
+      event_id: row.event_id,
+      branch_id: row.branch_id,
+      sequence: row.sequence,
+      kind: row.kind,
+      occurred_at: row.occurred_at.toISOString(),
+      payload: row.payload,
+    });
+  });
+}
+const reservation = async (pool, orderId) =>
+  (await pool.query('SELECT * FROM fulfillment_reservations WHERE order_id=$1', [orderId])).rows[0];
+
+test('cash with change: one transaction writes the paid order, kitchen admission, receipt and events', async () => {
+  await desk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    const q = await quote(ctx, { items: [line(ctx, 2, 1)], serviceMode: 'dine_in' });
+    assert.equal(q.total_minor, '738000');
+    assert.equal('sales_channel' in q, false);
+    const shiftReports = await count(pool, 'cashier_report_outbox', "kind='shift'");
+    const key = randomUUID(),
+      body = sale(q, {
+        tenders: [{ method: 'cash', amount_minor: '738000' }],
+        cash_tendered_minor: '1000000',
+      });
+    const result = await sell(ctx, body, { key });
+    assert.deepEqual(PosSaleResultSchema.parse(result), result);
+    const { order, sale: paid } = result;
+    assert.equal(order.state, 'paid');
+    assert.equal(order.payment_state, 'captured');
+    assert.equal(order.execution_mode, 'pos_sale');
+    assert.equal(order.fiscal_state, 'not_requested');
+    assert.equal(order.fulfillment_state, 'accepted');
+    assert.equal(order.next_action, 'none');
+    assert.equal(order.version, 1);
+    assert.equal(order.cash_shift_id, ctx.shifts.first);
+    assert.deepEqual(order.snapshot, q);
+    assert.deepEqual(
+      { ...paid, created_at: undefined, tenders: undefined, fiscal: undefined },
+      {
+        order_id: order.order_id,
+        display_number: Number(order.fulfillment.display_number),
+        pickup: 'issue',
+        sales_channel: 'hall',
+        external_order_ref: null,
+        service_mode: 'dine_in',
+        revenue_kind: 'revenue',
+        total_minor: '738000',
+        cash_tendered_minor: '1000000',
+        change_minor: '262000',
+        refunds: [],
+        refundable_minor: '738000',
+        shift_id: ctx.shifts.first,
+        terminal_id: ctx.cashier.terminal_id,
+        cashier_staff_id: ctx.cashier.staff_id,
+        created_at: undefined,
+        tenders: undefined,
+        fiscal: undefined,
+      },
+    );
+    assert.deepEqual(
+      paid.tenders.map(({ tender_id, ...tender }) => (assert.ok(tender_id), tender)),
+      [{ method: 'cash', amount_minor: '738000', confirmation: 'drawer', reference: null }],
+    );
+    assert.deepEqual(
+      paid.fiscal.map(({ receipt_id, ...receipt }) => (assert.ok(receipt_id), receipt)),
+      [
+        {
+          kind: 'sale',
+          state: 'pending',
+          receipt_number: null,
+          version: 1,
+          amount_minor: '738000',
+        },
+      ],
+    );
+    // Replay with the same key and body is the stored result; reads agree with it.
+    assert.deepEqual(await sell(ctx, body, { key }), result);
+    assert.deepEqual(
+      await readPosSale(pool, ctx.branch, staffAuth(ctx.cashier), order.order_id),
+      paid,
+    );
+    assert.deepEqual(
+      await readLocalOrder(pool, ctx.branch, staffAuth(ctx.cashier), order.order_id),
+      order,
+    );
+    // Kitchen admission of a paid sale: pos_sale, channel pos, the hall service mode.
+    const row = await reservation(pool, order.order_id);
+    assert.equal(row.admission_kind, 'pos_sale');
+    assert.equal(row.commercial_owner, 'edge_pos');
+    assert.equal(row.local_order_id, order.order_id);
+    assert.equal(row.authorized_by_staff_id, ctx.cashier.staff_id);
+    assert.equal(row.snapshot.channel, 'pos');
+    assert.equal(row.snapshot.serviceMode, 'dine_in');
+    assert.equal('delivery' in row.snapshot, false);
+    const kitchen = (
+      await pool.query('SELECT payload FROM fulfillment_outbox WHERE order_id=$1', [order.order_id])
+    ).rows;
+    assert.equal(kitchen.length, 1);
+    assert.equal(kitchen[0].payload.executionMode, 'pos_sale');
+    // posSales: the sale and its receipt, parsed by the wire model with the pinned hash.
+    const events = await saleEvents(pool, order.order_id);
+    assert.deepEqual(
+      events.map((event) => event.kind),
+      ['sale', 'fiscal'],
+    );
+    assert.ok(BigInt(events[0].sequence) < BigInt(events[1].sequence));
+    assert.deepEqual(events[0].payload, {
+      order_id: order.order_id,
+      quote: q,
+      shift_id: ctx.shifts.first,
+      terminal_id: ctx.cashier.terminal_id,
+      cashier_staff_id: ctx.cashier.staff_id,
+      display_number: paid.display_number,
+      sales_channel: 'hall',
+      external_order_ref: null,
+      service_mode: 'dine_in',
+      revenue_kind: 'revenue',
+      total_minor: '738000',
+      cash_tendered_minor: '1000000',
+      change_minor: '262000',
+      beneficiary: null,
+      reason: null,
+      approval: null,
+      tenders: paid.tenders,
+      created_at: paid.created_at,
+    });
+    assert.deepEqual(events[1].payload, {
+      receipt_id: paid.fiscal[0].receipt_id,
+      order_id: order.order_id,
+      refund_id: null,
+      kind: 'sale',
+      mode: 'manual_webkassa',
+      state: 'pending',
+      receipt_number: null,
+      version: 1,
+      amount_minor: '738000',
+      recorded_by_staff_id: null,
+      recorded_at: null,
+    });
+    // order_commercial (contracts 5.6): order.created, paid and captured, version 1.
+    const commercial = (
+      await pool.query(
+        "SELECT aggregate_version,payload FROM outbox_events WHERE aggregate_id=$1 AND event_type='order.created'",
+        [order.order_id],
+      )
+    ).rows;
+    assert.equal(commercial.length, 1);
+    assert.equal(commercial[0].aggregate_version, '1');
+    assert.equal(commercial[0].payload.state, 'paid');
+    assert.equal(commercial[0].payload.payment_state, 'captured');
+    assert.equal(commercial[0].payload.execution_mode, 'pos_sale');
+    assert.equal(commercial[0].payload.total_minor, '738000');
+    // A sale writes no shift report; exactly one of everything.
+    assert.equal(await count(pool, 'cashier_report_outbox', "kind='shift'"), shiftReports);
+    assert.deepEqual(await counts(pool), {
+      local_orders: 1,
+      pos_sales: 1,
+      pos_sale_tenders: 1,
+      pos_fiscal_receipts: 1,
+      pos_sale_outbox: 2,
+      fulfillment_reservations: 1,
+      fulfillment_tasks: 1,
+      fulfillment_outbox: 1,
+    });
+    assert.equal(
+      await count(pool, 'local_audit', "action='pos_sale.created' AND resource_id=$1", [
+        order.order_id,
+      ]),
+      1,
+    );
+  });
+});
+
+test('mixed payment: cash+terminal and cash+kaspi_manual, change only from cash, mix rules', async () => {
+  await desk(async (ctx) => {
+    const terminal = await sell(
+      ctx,
+      sale(await quote(ctx), {
+        tenders: [
+          { method: 'cash', amount_minor: '49000' },
+          { method: 'kaspi_terminal', amount_minor: '300000', reference: 'SYN-RRN-0001' },
+        ],
+        cash_tendered_minor: '50000',
+      }),
+    );
+    assert.equal(terminal.sale.change_minor, '1000');
+    assert.equal(terminal.sale.cash_tendered_minor, '50000');
+    assert.deepEqual(
+      terminal.sale.tenders.map(({ method, amount_minor, confirmation, reference }) => ({
+        method,
+        amount_minor,
+        confirmation,
+        reference,
+      })),
+      [
+        { method: 'cash', amount_minor: '49000', confirmation: 'drawer', reference: null },
+        {
+          method: 'kaspi_terminal',
+          amount_minor: '300000',
+          confirmation: 'cashier_attested',
+          reference: 'SYN-RRN-0001',
+        },
+      ],
+    );
+    assert.equal(terminal.sale.fiscal[0].state, 'pending');
+    const manual = await sell(
+      ctx,
+      sale(await quote(ctx), {
+        tenders: [
+          { method: 'cash', amount_minor: '100000' },
+          { method: 'kaspi_manual', amount_minor: '249000', reference: 'SYN-OP-1' },
+        ],
+        cash_tendered_minor: '100000',
+      }),
+    );
+    assert.equal(manual.sale.change_minor, '0');
+    assert.deepEqual(
+      manual.sale.tenders.map((t) => [t.method, t.confirmation]),
+      [
+        ['cash', 'drawer'],
+        ['kaspi_manual', 'cashier_attested'],
+      ],
+    );
+    // Two non-cash parts of the mix set need no cash tendered.
+    const cards = await sell(
+      ctx,
+      sale(await quote(ctx), {
+        tenders: [
+          { method: 'kaspi_terminal', amount_minor: '200000' },
+          { method: 'kaspi_manual', amount_minor: '149000' },
+        ],
+      }),
+    );
+    assert.equal(cards.sale.cash_tendered_minor, null);
+    assert.equal(cards.sale.change_minor, null);
+    for (const event of [terminal, manual, cards])
+      assert.deepEqual(
+        (await saleEvents(ctx.edge.pool, event.order.order_id)).map((e) => e.kind),
+        ['sale', 'fiscal'],
+      );
+    const before = await counts(ctx.edge.pool);
+    const q = await quote(ctx);
+    for (const [body, expected] of [
+      [
+        {
+          tenders: [
+            { method: 'cash', amount_minor: '100000' },
+            { method: 'cash', amount_minor: '249000' },
+          ],
+          cash_tendered_minor: '349000',
+        },
+        'INVALID_REQUEST',
+      ],
+      [
+        {
+          tenders: [
+            { method: 'cash', amount_minor: '100000' },
+            { method: 'staff_meal', amount_minor: '249000' },
+          ],
+          cash_tendered_minor: '100000',
+          beneficiary: 'Синтетический получатель',
+        },
+        'INVALID_REQUEST',
+      ],
+      [
+        {
+          tenders: [
+            { method: 'cash', amount_minor: '100000' },
+            { method: 'kaspi_terminal', amount_minor: '200000' },
+          ],
+          cash_tendered_minor: '100000',
+        },
+        'TENDER_SUM_MISMATCH',
+      ],
+      [
+        {
+          tenders: [
+            { method: 'cash', amount_minor: '149000' },
+            { method: 'kaspi_terminal', amount_minor: '200000' },
+          ],
+          cash_tendered_minor: '100000',
+        },
+        'CASH_TENDERED_TOO_LOW',
+      ],
+      [
+        {
+          tenders: [
+            { method: 'cash', amount_minor: '149000' },
+            { method: 'kaspi_terminal', amount_minor: '200000' },
+          ],
+        },
+        'INVALID_REQUEST',
+      ],
+      [
+        {
+          tenders: [{ method: 'kaspi_terminal', amount_minor: '349000' }],
+          cash_tendered_minor: '1',
+        },
+        'INVALID_REQUEST',
+      ],
+      [
+        {
+          tenders: [
+            { method: 'cash', amount_minor: '100000' },
+            { method: 'kaspi_manual', amount_minor: '100000' },
+            { method: 'kaspi_terminal', amount_minor: '149000' },
+          ],
+          cash_tendered_minor: '100000',
+        },
+        'INVALID_REQUEST',
+      ],
+    ])
+      await assert.rejects(sell(ctx, sale(q, body)), code(expected));
+    assert.deepEqual(await counts(ctx.edge.pool), before);
+  });
+});
+
+test('kaspi_manual alone, receipt number at sale, terminal only in whole tenge', async () => {
+  await desk(async (ctx) => {
+    const manual = await sell(
+      ctx,
+      sale(await quote(ctx), {
+        tenders: [{ method: 'kaspi_manual', amount_minor: '349000', reference: 'SYN-QR-77' }],
+      }),
+    );
+    assert.deepEqual(
+      manual.sale.tenders.map(({ method, confirmation, reference }) => ({
+        method,
+        confirmation,
+        reference,
+      })),
+      [{ method: 'kaspi_manual', confirmation: 'cashier_attested', reference: 'SYN-QR-77' }],
+    );
+    assert.equal(manual.sale.fiscal[0].state, 'pending');
+    // A Webkassa number typed with the sale records the receipt at once.
+    const recorded = await sell(
+      ctx,
+      sale(await quote(ctx), {
+        tenders: [{ method: 'kaspi_manual', amount_minor: '349000' }],
+        fiscal_receipt_number: 'SYN-WK-0001',
+      }),
+    );
+    assert.deepEqual(
+      { ...recorded.sale.fiscal[0], receipt_id: undefined },
+      {
+        receipt_id: undefined,
+        kind: 'sale',
+        state: 'recorded',
+        receipt_number: 'SYN-WK-0001',
+        version: 1,
+        amount_minor: '349000',
+      },
+    );
+    const fiscal = (await saleEvents(ctx.edge.pool, recorded.order.order_id))[1].payload;
+    assert.equal(fiscal.state, 'recorded');
+    assert.equal(fiscal.recorded_by_staff_id, ctx.cashier.staff_id);
+    assert.match(fiscal.recorded_at, /Z$/);
+    // 1250.50 tenge: the terminal refuses the tiyn, Kaspi manual or a cash remainder take them.
+    const drink = [{ variant_id: ctx.drink.variant_id, quantity: 1 }];
+    const odd = await quote(ctx, { items: drink });
+    assert.equal(odd.total_minor, '125050');
+    const before = await counts(ctx.edge.pool);
+    await assert.rejects(
+      sell(ctx, sale(odd, { tenders: [{ method: 'kaspi_terminal', amount_minor: '125050' }] })),
+      code('TERMINAL_AMOUNT_NOT_WHOLE'),
+    );
+    await assert.rejects(
+      sell(
+        ctx,
+        sale(odd, {
+          tenders: [
+            { method: 'kaspi_terminal', amount_minor: '125010' },
+            { method: 'cash', amount_minor: '40' },
+          ],
+          cash_tendered_minor: '100',
+        }),
+      ),
+      code('TERMINAL_AMOUNT_NOT_WHOLE'),
+    );
+    assert.deepEqual(await counts(ctx.edge.pool), before);
+    const split = await sell(
+      ctx,
+      sale(odd, {
+        tenders: [
+          { method: 'kaspi_terminal', amount_minor: '125000' },
+          { method: 'cash', amount_minor: '50' },
+        ],
+        cash_tendered_minor: '100',
+      }),
+    );
+    assert.equal(split.sale.change_minor, '50');
+    const manualOdd = await sell(
+      ctx,
+      sale(await quote(ctx, { items: drink }), {
+        tenders: [{ method: 'kaspi_manual', amount_minor: '125050' }],
+      }),
+    );
+    assert.equal(manualOdd.sale.total_minor, '125050');
+  });
+});
+
+test('ChocoFood: hall order with its own number, required, unique, alone', async () => {
+  await desk(async (ctx) => {
+    const tender = [{ method: 'chocofood', amount_minor: '349000' }];
+    const q = await quote(ctx, { serviceMode: 'dine_in' });
+    await assert.rejects(sell(ctx, sale(q, { tenders: tender })), code('EXTERNAL_REF_REQUIRED'));
+    const paid = await sell(ctx, sale(q, { tenders: tender, external_order_ref: ' cf-1001 ' }));
+    assert.equal(paid.sale.sales_channel, 'hall');
+    assert.equal(paid.sale.pickup, 'issue');
+    assert.equal(paid.sale.service_mode, 'dine_in');
+    assert.equal(paid.sale.external_order_ref, 'CF-1001');
+    assert.equal(paid.sale.tenders[0].confirmation, 'aggregator_attested');
+    // Default fiscal policy of ChocoFood: no Webkassa receipt until the accountant decides.
+    assert.equal(paid.sale.fiscal[0].state, 'not_required');
+    const kitchen = await reservation(ctx.edge.pool, paid.order.order_id);
+    assert.equal(kitchen.snapshot.serviceMode, 'dine_in');
+    assert.equal('delivery' in kitchen.snapshot, false);
+    const before = await counts(ctx.edge.pool);
+    for (const ref of ['CF-1001', 'cf-1001'])
+      await assert.rejects(
+        sell(ctx, sale(await quote(ctx), { tenders: tender, external_order_ref: ref })),
+        code('EXTERNAL_REF_DUPLICATE'),
+      );
+    await assert.rejects(
+      sell(
+        ctx,
+        sale(await quote(ctx), {
+          tenders: [
+            { method: 'chocofood', amount_minor: '249000' },
+            { method: 'cash', amount_minor: '100000' },
+          ],
+          cash_tendered_minor: '100000',
+          external_order_ref: 'CF-1002',
+        }),
+      ),
+      code('INVALID_REQUEST'),
+    );
+    // A number belongs only to ChocoFood or an aggregator.
+    await assert.rejects(
+      sell(
+        ctx,
+        sale(await quote(ctx), {
+          tenders: [{ method: 'cash', amount_minor: '349000' }],
+          cash_tendered_minor: '349000',
+          external_order_ref: 'CF-1003',
+        }),
+      ),
+      code('INVALID_REQUEST'),
+    );
+    assert.deepEqual(await counts(ctx.edge.pool), before);
+  });
+});
+
+test('aggregators: channel prices, takeaway only, own method, required unique number, delivery', async () => {
+  await desk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    // Hall quote byte for byte as before; 'hall' is the absent field.
+    const hall = await quote(ctx, { items: [line(ctx, 1, 2)] });
+    const named = await quote(ctx, { items: [line(ctx, 1, 2)], channel: 'hall' });
+    for (const q of [hall, named]) {
+      assert.equal(q.total_minor, '389000');
+      // The pre-cutover hall quote: same keys in the same order, no sales_channel.
+      assert.deepEqual(Object.keys(q), [
+        'quote_id',
+        'branch_id',
+        'release_id',
+        'menu_version',
+        'service_mode',
+        'channel',
+        'lines',
+        'currency',
+        'subtotal_minor',
+        'discount_minor',
+        'total_minor',
+        'created_at',
+        'expires_at',
+      ]);
+      assert.deepEqual(QuoteSchema.parse(q), q);
+    }
+    assert.deepEqual(
+      {
+        ...named,
+        quote_id: hall.quote_id,
+        created_at: hall.created_at,
+        expires_at: hall.expires_at,
+      },
+      hall,
+    );
+    const yandex = await quote(ctx, { items: [line(ctx, 1, 2)], channel: 'yandex_eda' });
+    assert.equal(yandex.sales_channel, 'yandex_eda');
+    // Line at the channel price, the sauce at the hall surcharge (contracts 9 q.10).
+    assert.equal(yandex.lines[0].unit_price_minor, '439000');
+    assert.equal(yandex.lines[0].modifiers[0].price_minor, '20000');
+    assert.equal(yandex.total_minor, '439000');
+    const glovo = await quote(ctx, { channel: 'glovo' });
+    assert.equal(glovo.total_minor, '389000');
+    await assert.rejects(
+      quote(ctx, { channel: 'glovo', items: [{ variant_id: ctx.drink.variant_id, quantity: 1 }] }),
+      code('CHANNEL_PRICE_UNAVAILABLE'),
+    );
+    await assert.rejects(
+      quote(ctx, { channel: 'yandex_eda', serviceMode: 'dine_in' }),
+      code('INVALID_REQUEST'),
+    );
+    const before = await counts(pool);
+    const own = [{ method: 'aggregator_yandex_eda', amount_minor: '439000' }];
+    await assert.rejects(sell(ctx, sale(yandex, { tenders: own })), code('EXTERNAL_REF_REQUIRED'));
+    for (const tenders of [
+      [{ method: 'aggregator_glovo', amount_minor: '439000' }],
+      [{ method: 'kaspi_terminal', amount_minor: '439000' }],
+    ])
+      await assert.rejects(
+        sell(ctx, sale(yandex, { tenders, external_order_ref: 'YA-1' })),
+        code('INVALID_REQUEST'),
+      );
+    // Aggregator methods never pay a hall order.
+    await assert.rejects(
+      sell(
+        ctx,
+        sale(hall, {
+          tenders: [{ method: 'aggregator_yandex_eda', amount_minor: '389000' }],
+          external_order_ref: 'YA-2',
+        }),
+      ),
+      code('INVALID_REQUEST'),
+    );
+    assert.deepEqual(await counts(pool), before);
+    const paid = await sell(ctx, sale(yandex, { tenders: own, external_order_ref: 'ya-777-abc' }));
+    assert.equal(paid.sale.sales_channel, 'yandex_eda');
+    assert.equal(paid.sale.pickup, 'delivery_handover');
+    assert.equal(paid.sale.external_order_ref, 'YA-777-ABC');
+    assert.equal(paid.sale.service_mode, 'takeaway');
+    assert.equal(paid.sale.tenders[0].confirmation, 'aggregator_attested');
+    assert.equal(paid.sale.fiscal[0].state, 'not_required');
+    assert.equal(paid.order.snapshot.sales_channel, 'yandex_eda');
+    const kitchen = await reservation(pool, paid.order.order_id);
+    assert.equal(kitchen.admission_kind, 'pos_sale');
+    assert.equal(kitchen.snapshot.channel, 'pos');
+    assert.equal(kitchen.snapshot.serviceMode, 'takeaway');
+    assert.deepEqual(kitchen.snapshot.delivery, {
+      provider: 'yandex_eda',
+      externalNumber: 'YA-777-ABC',
+    });
+    const [event] = await saleEvents(pool, paid.order.order_id);
+    assert.equal(event.payload.sales_channel, 'yandex_eda');
+    assert.equal(event.payload.quote.sales_channel, 'yandex_eda');
+    // Unique per channel: the same number again in Yandex Eda is refused, in Glovo it is another order.
+    await assert.rejects(
+      sell(
+        ctx,
+        sale(await quote(ctx, { channel: 'yandex_eda' }), {
+          tenders: [{ method: 'aggregator_yandex_eda', amount_minor: '399000' }],
+          external_order_ref: 'YA-777-ABC',
+        }),
+      ),
+      code('EXTERNAL_REF_DUPLICATE'),
+    );
+    const other = await sell(
+      ctx,
+      sale(glovo, {
+        tenders: [{ method: 'aggregator_glovo', amount_minor: '389000' }],
+        external_order_ref: 'YA-777-ABC',
+      }),
+    );
+    assert.equal(other.sale.sales_channel, 'glovo');
+    assert.deepEqual((await reservation(pool, other.order.order_id)).snapshot.delivery, {
+      provider: 'glovo',
+      externalNumber: 'YA-777-ABC',
+    });
+    // POST orders never takes an aggregator quote.
+    await assert.rejects(
+      createLocalOrder(
+        pool,
+        ctx.branch,
+        staffAuth(ctx.cashier),
+        randomUUID(),
+        { quote_id: (await quote(ctx, { channel: 'glovo' })).quote_id },
+        ctx.port,
+      ),
+      code('SERVICE_MODE_DISABLED'),
+    );
+  });
+});
+
+test('staff meal and marketing: approval, beneficiary or reason; without them nothing is written', async () => {
+  await desk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    const q = await quote(ctx);
+    const meal = { tenders: [{ method: 'staff_meal', amount_minor: '349000' }] };
+    const before = await counts(pool);
+    await assert.rejects(
+      sell(ctx, sale(q, { ...meal, beneficiary: 'Синтетический повар' })),
+      code('APPROVAL_REQUIRED'),
+    );
+    const approval = await approve(ctx, 'staff_meal', {
+      quote_id: q.quote_id,
+      amount_minor: '349000',
+    });
+    assert.deepEqual(ManagerApprovalSchema.parse(approval), approval);
+    assert.deepEqual(approval.manager, {
+      staff_id: ctx.manager.staff_id,
+      name: 'Синтетический менеджер',
+    });
+    await assert.rejects(
+      sell(ctx, sale(q, { ...meal, approval: proof(approval) })),
+      code('INVALID_REQUEST'),
+    );
+    await assert.rejects(
+      sell(
+        ctx,
+        sale(q, { ...meal, approval: proof(approval), beneficiary: 'Кто-то', reason: 'Лишнее' }),
+      ),
+      code('INVALID_REQUEST'),
+    );
+    assert.deepEqual(await counts(pool), before);
+    assert.equal(await count(pool, 'local_manager_approvals', 'consumed_at IS NOT NULL'), 0);
+    const key = randomUUID();
+    const paid = await sell(
+      ctx,
+      sale(q, { ...meal, approval: proof(approval), beneficiary: 'Синтетический повар' }),
+      { key },
+    );
+    assert.equal(paid.sale.revenue_kind, 'staff_meal');
+    assert.equal(paid.sale.tenders[0].confirmation, 'manager_approved');
+    assert.equal(paid.sale.fiscal[0].state, 'not_required');
+    const stored = (
+      await pool.query(
+        'SELECT a.consumed_command_key,a.consumed_at,s.approval_id,s.beneficiary FROM local_manager_approvals a JOIN pos_sales s ON s.approval_id=a.id WHERE a.id=$1',
+        [approval.approval_id],
+      )
+    ).rows[0];
+    assert.equal(stored.consumed_command_key, key);
+    assert.ok(stored.consumed_at);
+    assert.equal(stored.beneficiary, 'Синтетический повар');
+    const [event] = await saleEvents(pool, paid.order.order_id);
+    assert.deepEqual(event.payload.approval, {
+      approval_id: approval.approval_id,
+      manager_staff_id: ctx.manager.staff_id,
+      action: 'staff_meal',
+    });
+    assert.equal(event.payload.beneficiary, 'Синтетический повар');
+    // Marketing: a reason and its own approval.
+    const m = await quote(ctx);
+    const promo = { tenders: [{ method: 'marketing', amount_minor: '349000' }] };
+    await assert.rejects(
+      sell(ctx, sale(m, { ...promo, reason: 'Синтетическая дегустация' })),
+      code('APPROVAL_REQUIRED'),
+    );
+    const marketing = await approve(ctx, 'marketing', {
+      quote_id: m.quote_id,
+      amount_minor: '349000',
+    });
+    const free = await sell(
+      ctx,
+      sale(m, { ...promo, reason: 'Синтетическая дегустация', approval: proof(marketing) }),
+    );
+    assert.equal(free.sale.revenue_kind, 'marketing');
+    assert.equal(
+      (await saleEvents(pool, free.order.order_id))[0].payload.reason,
+      'Синтетическая дегустация',
+    );
+    // A revenue sale never carries (and so never spends) an approval.
+    const unused = await approve(ctx, 'staff_meal', {
+      quote_id: m.quote_id,
+      amount_minor: '349000',
+    });
+    await assert.rejects(
+      sell(
+        ctx,
+        sale(await quote(ctx), {
+          tenders: [{ method: 'cash', amount_minor: '349000' }],
+          cash_tendered_minor: '349000',
+          approval: proof(unused),
+        }),
+      ),
+      code('INVALID_REQUEST'),
+    );
+  });
+});
+
+test('approval: wrong PIN, not a manager, expired, other desk, wrong action or amount, reused', async () => {
+  await desk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    const q = await quote(ctx);
+    const subject = { quote_id: q.quote_id, amount_minor: '349000' };
+    const body = (approval) =>
+      sale(q, {
+        tenders: [{ method: 'staff_meal', amount_minor: '349000' }],
+        beneficiary: 'Синтетический повар',
+        approval: proof(approval),
+      });
+    // PIN checks (this test stays under the desk window of 10 attempts per minute).
+    await assert.rejects(
+      approve(ctx, 'staff_meal', subject, { pin: '9999' }),
+      code('UNAUTHORIZED'),
+    );
+    // CR client-2 1: the desk may name itself; the PIN's owner, a shift manager, approves.
+    assert.equal(
+      (await approve(ctx, 'staff_meal', subject, { staff: ctx.cashier })).manager.staff_id,
+      ctx.manager.staff_id,
+    );
+    // Naming someone else still checks that person: the manager's PIN is not theirs.
+    await assert.rejects(
+      approve(ctx, 'staff_meal', subject, { staff: ctx.second }),
+      code('UNAUTHORIZED'),
+    );
+    await assert.rejects(
+      approve(ctx, 'staff_meal', subject, { staff: ctx.cashier, pin: CASHIER_PIN }),
+      code('FORBIDDEN'),
+    );
+    await assert.rejects(
+      requestManagerApproval(pool, ctx.branch, staffAuth(ctx.cashier), {
+        staff_id: ctx.manager.staff_id,
+        pin: PIN,
+        action: 'staff_meal',
+        subject: { quote_id: q.quote_id },
+      }),
+      code('INVALID_REQUEST'),
+    );
+    const issued = await approve(ctx, 'staff_meal', subject);
+    const row = (
+      await pool.query('SELECT * FROM local_manager_approvals WHERE id=$1', [issued.approval_id])
+    ).rows[0];
+    assert.equal(row.terminal_id, ctx.cashier.terminal_id);
+    assert.equal(row.requested_by_staff_id, ctx.cashier.staff_id);
+    assert.equal(row.manager_staff_id, ctx.manager.staff_id);
+    assert.equal(row.token_hash, hashToken(issued.token));
+    assert.equal(row.subject_hash, approvalSubjectHash('staff_meal', subject));
+    const ttl = (row.expires_at - row.created_at) / 1000;
+    assert.ok(ttl > 119 && ttl <= 120, String(ttl));
+    assert.equal(await count(pool, 'local_manager_approvals', 'token_hash=$1', [issued.token]), 0);
+    const before = await counts(pool);
+    // Another desk's approval (1 attempt on the second desk).
+    const elsewhere = await approve(ctx, 'staff_meal', subject, { actor: ctx.second });
+    await assert.rejects(sell(ctx, body(elsewhere)), code('APPROVAL_INVALID'));
+    // Wrong action, wrong amount, wrong token.
+    const marketing = await approve(ctx, 'marketing', subject);
+    await assert.rejects(sell(ctx, body(marketing)), code('APPROVAL_INVALID'));
+    const cheaper = await approve(ctx, 'staff_meal', { ...subject, amount_minor: '1000' });
+    await assert.rejects(sell(ctx, body(cheaper)), code('APPROVAL_INVALID'));
+    await assert.rejects(
+      sell(ctx, body({ ...issued, token: randomBytes(32).toString('hex') })),
+      code('APPROVAL_INVALID'),
+    );
+    // Expired: an approval of one second (the schema allows at most 120).
+    const expired = { approval_id: randomUUID(), token: randomBytes(32).toString('hex') };
+    await pool.query(
+      `INSERT INTO local_manager_approvals(id,branch_id,terminal_id,manager_staff_id,requested_by_staff_id,
+       action,subject,subject_hash,token_hash,expires_at)
+       VALUES($1,$2,$3,$4,$5,'staff_meal',$6,$7,$8,clock_timestamp()+interval '1 second')`,
+      [
+        expired.approval_id,
+        ctx.branch,
+        ctx.cashier.terminal_id,
+        ctx.manager.staff_id,
+        ctx.cashier.staff_id,
+        subject,
+        approvalSubjectHash('staff_meal', subject),
+        hashToken(expired.token),
+      ],
+    );
+    await sleep(1200);
+    await assert.rejects(sell(ctx, body(expired)), code('APPROVAL_INVALID'));
+    // Already spent by another command.
+    await pool.query(
+      'UPDATE local_manager_approvals SET consumed_at=clock_timestamp(),consumed_command_key=$2 WHERE id=$1',
+      [issued.approval_id, randomUUID()],
+    );
+    await assert.rejects(sell(ctx, body(issued)), code('APPROVAL_INVALID'));
+    // A manager who lost the role after typing the PIN.
+    const fired = await approve(ctx, 'staff_meal', subject);
+    await pool.query('UPDATE local_staff SET active=false WHERE id=$1', [ctx.manager.staff_id]);
+    await assert.rejects(sell(ctx, body(fired)), code('APPROVAL_INVALID'));
+    assert.deepEqual(await counts(pool), before);
+    await pool.query('UPDATE local_staff SET active=true WHERE id=$1', [ctx.manager.staff_id]);
+    assert.equal((await sell(ctx, body(fired))).sale.revenue_kind, 'staff_meal');
+  });
+});
+
+test('Idempotency-Key: same body replays without spending again, another body conflicts', async () => {
+  await desk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    const q = await quote(ctx);
+    const approval = await approve(ctx, 'staff_meal', {
+      quote_id: q.quote_id,
+      amount_minor: '349000',
+    });
+    const key = randomUUID();
+    const body = sale(q, {
+      tenders: [{ method: 'staff_meal', amount_minor: '349000' }],
+      beneficiary: 'Синтетический повар',
+      approval: proof(approval),
+    });
+    const [first, again] = await Promise.all([sell(ctx, body, { key }), sell(ctx, body, { key })]);
+    assert.deepEqual(first, again);
+    const spent = async () =>
+      (
+        await pool.query(
+          'SELECT consumed_at,consumed_command_key FROM local_manager_approvals WHERE id=$1',
+          [approval.approval_id],
+        )
+      ).rows[0];
+    const once = await spent();
+    assert.equal(once.consumed_command_key, key);
+    assert.deepEqual(await sell(ctx, body, { key }), first);
+    assert.deepEqual(await spent(), once);
+    await assert.rejects(
+      sell(ctx, { ...body, beneficiary: 'Другой получатель' }, { key }),
+      code('CONFLICT'),
+    );
+    // Another key for the same quote is a second order attempt.
+    await assert.rejects(sell(ctx, body), code('CONFLICT'));
+    assert.equal(await count(pool, 'pos_sales'), 1);
+    assert.equal(await count(pool, 'pos_sale_outbox'), 2);
+  });
+});
+
+test('mode: off outside pos_sale; POST orders refused in pos_sale; open sales shift required', async () => {
+  await desk(
+    async (ctx) => {
+      const q = await quote(ctx);
+      await assert.rejects(
+        sell(
+          ctx,
+          sale(q, {
+            tenders: [{ method: 'cash', amount_minor: '349000' }],
+            cash_tendered_minor: '349000',
+          }),
+        ),
+        code('SERVICE_MODE_DISABLED'),
+      );
+      await assert.rejects(quote(ctx, { channel: 'yandex_eda' }), code('SERVICE_MODE_DISABLED'));
+      const config = await readPosConfig(ctx.edge.pool, ctx.branch, staffAuth(ctx.cashier));
+      assert.equal(config.mode, 'unpaid_service');
+      assert.ok(config.methods.every((method) => !method.enabled));
+      // The unpaid flow is untouched.
+      const order = await createLocalOrder(
+        ctx.edge.pool,
+        ctx.branch,
+        staffAuth(ctx.cashier),
+        randomUUID(),
+        { quote_id: q.quote_id, kitchen_admission: 'unpaid' },
+        ctx.port,
+      );
+      assert.equal(order.execution_mode, 'unpaid_service');
+      assert.equal(order.state, 'awaiting_payment');
+      assert.equal(
+        (await reservation(ctx.edge.pool, order.order_id)).admission_kind,
+        'unpaid_service',
+      );
+      const kitchen = (
+        await ctx.edge.pool.query('SELECT payload FROM fulfillment_outbox WHERE order_id=$1', [
+          order.order_id,
+        ])
+      ).rows;
+      assert.equal(kitchen[0].payload.executionMode, 'unpaid_service');
+      assert.equal(await count(ctx.edge.pool, 'pos_sale_outbox'), 0);
+    },
+    { mode: 'unpaid_service' },
+  );
+  await desk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    for (const input of [{}, { kitchen_admission: 'unpaid' }])
+      await assert.rejects(
+        createLocalOrder(
+          pool,
+          ctx.branch,
+          staffAuth(ctx.cashier),
+          randomUUID(),
+          { quote_id: (await quote(ctx)).quote_id, ...input },
+          ctx.port,
+        ),
+        code('SERVICE_MODE_DISABLED'),
+      );
+    const cash = (q) =>
+      sale(q, {
+        tenders: [{ method: 'cash', amount_minor: '349000' }],
+        cash_tendered_minor: '349000',
+      });
+    // Without the kitchen wiring of the host there is no paid sale.
+    await assert.rejects(
+      sell(ctx, cash(await quote(ctx)), { port: null }),
+      code('SERVICE_MODE_DISABLED'),
+    );
+    const third = await provisionStaff(pool, ctx.branch, ctx.setup('cashier'));
+    await assert.rejects(
+      sell(ctx, cash(await quote(ctx, { actor: third })), { actor: third }),
+      code('CASH_SHIFT_REQUIRED'),
+    );
+    // A disabled kitchen admission rolls the whole sale back.
+    await assert.rejects(
+      sell(ctx, cash(await quote(ctx)), {
+        port: localUnpaidExecution({ enabled: false, deviceId: ctx.device }),
+      }),
+      code('KITCHEN_UNAVAILABLE'),
+    );
+    for (const table of SALE_TABLES) assert.equal(await count(pool, table), 0, table);
+  });
+});
+
+test('method disabled: refused before an approval is asked; config shows methods and channels', async () => {
+  await desk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    await setMethod(pool, ctx.branch, 'cash', { enabled: false });
+    await setMethod(pool, ctx.branch, 'staff_meal', { enabled: false });
+    await setMethod(pool, ctx.branch, 'aggregator_glovo', { enabled: false });
+    await setMethod(pool, ctx.branch, 'kaspi_terminal', { fiscal_policy: 'not_required' });
+    await assert.rejects(
+      sell(
+        ctx,
+        sale(await quote(ctx), {
+          tenders: [{ method: 'cash', amount_minor: '349000' }],
+          cash_tendered_minor: '349000',
+        }),
+      ),
+      code('METHOD_DISABLED'),
+    );
+    await assert.rejects(
+      sell(
+        ctx,
+        sale(await quote(ctx), {
+          tenders: [
+            { method: 'cash', amount_minor: '49000' },
+            { method: 'kaspi_terminal', amount_minor: '300000' },
+          ],
+          cash_tendered_minor: '49000',
+        }),
+      ),
+      code('METHOD_DISABLED'),
+    );
+    await assert.rejects(
+      sell(
+        ctx,
+        sale(await quote(ctx), {
+          tenders: [{ method: 'staff_meal', amount_minor: '349000' }],
+          beneficiary: 'Синтетический повар',
+        }),
+      ),
+      code('METHOD_DISABLED'),
+    );
+    for (const table of SALE_TABLES) assert.equal(await count(pool, table), 0, table);
+    // The operator's fiscal policy decides the receipt (kaspi_terminal now needs none).
+    const terminal = await sell(
+      ctx,
+      sale(await quote(ctx), { tenders: [{ method: 'kaspi_terminal', amount_minor: '349000' }] }),
+    );
+    assert.equal(terminal.sale.fiscal[0].state, 'not_required');
+    const config = await readPosConfig(pool, ctx.branch, staffAuth(ctx.cashier));
+    assert.deepEqual(PosConfigSchema.parse(config), config);
+    assert.equal(config.mode, 'pos_sale');
+    const methods = Object.fromEntries(config.methods.map(({ code: method, ...m }) => [method, m]));
+    assert.deepEqual(Object.keys(methods), ALL);
+    assert.equal(methods.cash.enabled, false);
+    assert.equal(methods.staff_meal.enabled, false);
+    assert.equal(methods.kaspi_manual.enabled, true);
+    assert.equal(methods.kaspi_terminal.fiscal_policy, 'not_required');
+    assert.deepEqual(config.channels, [
+      { code: 'hall', enabled: true },
+      { code: 'yandex_eda', enabled: true },
+      { code: 'glovo', enabled: false },
+    ]);
+  });
+});
+
+test('two cash desks sell in parallel: each on its own shift, distinct numbers, one stream', async () => {
+  await desk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    const desks = [ctx.cashier, ctx.second, ctx.cashier, ctx.second, ctx.cashier, ctx.second];
+    const quotes = await Promise.all(desks.map((actor) => quote(ctx, { actor })));
+    const results = await Promise.all(
+      desks.map((actor, index) =>
+        sell(
+          ctx,
+          sale(quotes[index], {
+            tenders: [{ method: 'cash', amount_minor: '349000' }],
+            cash_tendered_minor: '500000',
+          }),
+          { actor },
+        ),
+      ),
+    );
+    results.forEach((result, index) =>
+      assert.equal(
+        result.sale.shift_id,
+        desks[index] === ctx.cashier ? ctx.shifts.first : ctx.shifts.second,
+      ),
+    );
+    assert.equal(new Set(results.map((r) => r.sale.display_number)).size, desks.length);
+    const sequences = (
+      await pool.query('SELECT sequence,kind FROM pos_sale_outbox ORDER BY sequence')
+    ).rows;
+    assert.equal(sequences.length, desks.length * 2);
+    // Each sale's events are adjacent (sale then receipt): the branch lock serializes sales.
+    for (let index = 0; index < sequences.length; index += 2)
+      assert.deepEqual([sequences[index].kind, sequences[index + 1].kind], ['sale', 'fiscal']);
+    // The same aggregator number typed on both desks at once is sold once.
+    const both = await Promise.allSettled(
+      [ctx.cashier, ctx.second].map(async (actor) =>
+        sell(
+          ctx,
+          sale(await quote(ctx, { actor, channel: 'yandex_eda' }), {
+            tenders: [{ method: 'aggregator_yandex_eda', amount_minor: '399000' }],
+            external_order_ref: 'YA-DESK-1',
+          }),
+          { actor },
+        ),
+      ),
+    );
+    assert.equal(both.filter((r) => r.status === 'fulfilled').length, 1);
+    assert.equal(both.find((r) => r.status === 'rejected').reason.code, 'EXTERNAL_REF_DUPLICATE');
+    // Each desk sees its own sales; the shift manager sees both.
+    await assert.rejects(
+      readPosSale(pool, ctx.branch, staffAuth(ctx.second), results[0].order.order_id),
+      code('NOT_FOUND'),
+    );
+    assert.equal(
+      (await readPosSale(pool, ctx.branch, staffAuth(ctx.manager), results[1].order.order_id))
+        .terminal_id,
+      ctx.second.terminal_id,
+    );
+  });
+});
+
+test('without a KDS layout a paid sale is admitted like an unpaid order and cooked to handoff', async () => {
+  await desk(
+    async (ctx) => {
+      const pool = ctx.edge.pool;
+      const items = [line(ctx, 2, 1), { variant_id: ctx.drink.variant_id, quantity: 1 }];
+      const unpaid = await createLocalOrder(
+        pool,
+        ctx.branch,
+        staffAuth(ctx.cashier),
+        randomUUID(),
+        { quote_id: (await quote(ctx, { items })).quote_id, kitchen_admission: 'unpaid' },
+        ctx.port,
+      );
+      await closeShifts(pool);
+      await switchMode(pool, ctx.branch, 'unpaid_service', 'pos_sale');
+      for (const method of ALL) await setMethod(pool, ctx.branch, method, { enabled: true });
+      await salesShift(pool, ctx.branch, ctx.manager, ctx.cashier.terminal_id);
+      const paid = await sell(
+        ctx,
+        sale(await quote(ctx, { items }), {
+          tenders: [{ method: 'kaspi_manual', amount_minor: '863050' }],
+        }),
+      );
+      const [a, b] = [
+        await reservation(pool, unpaid.order_id),
+        await reservation(pool, paid.order.order_id),
+      ];
+      const routing = RoutingSchema.parse(ctx.routing);
+      for (const row of [a, b]) {
+        assert.deepEqual(row.task_plan, taskPlan(row.snapshot, routing));
+        assert.equal(row.assembly_station_id, ctx.assembly);
+        assert.equal(row.routing_version, 1);
+        assert.equal(row.state, 'accepted');
+      }
+      // Same snapshot and plan up to the fresh line ids, totals and the admission kind.
+      const lineIds = (row) => row.snapshot.lines.map((l) => l.lineId);
+      const normalize = (row) => {
+        const ids = lineIds(row);
+        return JSON.parse(
+          JSON.stringify({ snapshot: row.snapshot, plan: row.task_plan }).replace(
+            new RegExp(ids.join('|'), 'g'),
+            (id) => `line-${ids.indexOf(id)}`,
+          ),
+        );
+      };
+      assert.deepEqual(normalize(b), normalize(a));
+      assert.deepEqual([a.admission_kind, b.admission_kind], ['unpaid_service', 'pos_sale']);
+      const tasks = async (orderId) =>
+        (
+          await pool.query(
+            `SELECT station_id,kind,state,routing_version,details->>'title' AS title,
+             details->'quantity' AS quantity FROM fulfillment_tasks WHERE order_id=$1 ORDER BY 5,6`,
+            [orderId],
+          )
+        ).rows;
+      assert.deepEqual(await tasks(paid.order.order_id), await tasks(unpaid.order_id));
+      // The kitchen runs the paid order through its usual lifecycle.
+      const cook = await provisionStaff(pool, ctx.branch, ctx.setup('kitchen'));
+      await grantStation(pool, ctx.branch, cook.staff_id, ctx.prep);
+      await grantStation(pool, ctx.branch, cook.staff_id, ctx.assembly);
+      const repo = new EdgeFulfillment(pool);
+      const act = (current, action, extra = {}) =>
+        repo.act(ctx.branch, staffAuth(cook), {
+          commandId: randomUUID(),
+          orderId: current.orderId,
+          expectedVersion: current.version,
+          action,
+          ...extra,
+        });
+      let current = await repo.readOrder(ctx.branch, staffAuth(cook), paid.order.order_id, {
+        stationId: ctx.prep,
+      });
+      assert.equal(current.tasks.length, 2);
+      for (const task of current.tasks) {
+        current = await act(current, 'start_task', {
+          taskId: task.id,
+          expectedTaskVersion: task.version,
+        });
+        current = await act(current, 'complete_task', {
+          taskId: task.id,
+          expectedTaskVersion: task.version + 1,
+        });
+      }
+      current = await act(current, 'ready');
+      assert.equal((await act(current, 'handoff')).state, 'handed_over');
+      const done = await readLocalOrder(
+        pool,
+        ctx.branch,
+        staffAuth(ctx.cashier),
+        paid.order.order_id,
+      );
+      assert.equal(done.state, 'paid');
+      assert.equal(done.version, 1);
+      assert.equal(done.fulfillment.state, 'handed_over');
+      const events = (
+        await pool.query(
+          'SELECT event_type,payload FROM fulfillment_outbox WHERE order_id=$1 ORDER BY sequence',
+          [paid.order.order_id],
+        )
+      ).rows;
+      assert.equal(events.at(-1).event_type, 'edge.fulfillment_handed_over');
+      assert.ok(events.every((event) => event.payload.executionMode === 'pos_sale'));
+    },
+    { mode: 'unpaid_service' },
+  );
+});
+
+test('GET pos/config: 404 on an edge without schema026; fetch record per desk', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'pos-sales-'));
+  try {
+    const before026 = join(root, 'edge');
+    await mkdir(before026);
+    for (const file of await readdir(edgeDir))
+      if (/^\d{3}_[a-z_]+\.sql$/.test(file) && file < '026')
+        await copyFile(join(edgeDir, file), join(before026, file));
+    await desk(
+      async (ctx) => {
+        const auth = staffAuth(ctx.cashier);
+        await assert.rejects(readPosConfig(ctx.edge.pool, ctx.branch, auth), code('NOT_FOUND'));
+        await assert.rejects(
+          readPosSale(ctx.edge.pool, ctx.branch, auth, randomUUID()),
+          code('NOT_FOUND'),
+        );
+        await assert.rejects(
+          approve(ctx, 'staff_meal', { quote_id: randomUUID(), amount_minor: '1' }),
+          code('NOT_FOUND'),
+        );
+        const q = await quote(ctx);
+        assert.equal('sales_channel' in q, false);
+        await assert.rejects(
+          sell(
+            ctx,
+            sale(q, { tenders: [{ method: 'kaspi_manual', amount_minor: q.total_minor }] }),
+          ),
+          code('SERVICE_MODE_DISABLED'),
+        );
+        await assert.rejects(quote(ctx, { channel: 'glovo' }), code('SERVICE_MODE_DISABLED'));
+        // POS-3/4/5 on an edge without schema026: no receipts, reports, voids or refunds.
+        const manager = staffAuth(ctx.manager);
+        for (const kind of ['x', 'z'])
+          await assert.rejects(
+            readShiftReport(ctx.edge.pool, ctx.branch, manager, ctx.shifts.first, kind),
+            code('NOT_FOUND'),
+          );
+        await assert.rejects(
+          listPendingFiscalReceipts(ctx.edge.pool, ctx.branch, manager),
+          code('NOT_FOUND'),
+        );
+        await assert.rejects(
+          recordFiscalReceipt(ctx.edge.pool, ctx.branch, auth, randomUUID(), randomUUID(), {
+            expected_version: 1,
+            receipt_number: 'SYN-1',
+          }),
+          code('NOT_FOUND'),
+        );
+        const proofless = { approval_id: randomUUID(), token: 'a'.repeat(64) };
+        const reasons = { reason_code: 'other', reason: 'Синтетика', approval: proofless };
+        await assert.rejects(
+          voidPosSale(
+            ctx.edge.pool,
+            ctx.branch,
+            auth,
+            randomUUID(),
+            randomUUID(),
+            { expected_version: 1, fiscal_sale_issued: false, ...reasons },
+            ctx.port,
+          ),
+          code('SERVICE_MODE_DISABLED'),
+        );
+        await assert.rejects(
+          refundPosSale(ctx.edge.pool, ctx.branch, auth, randomUUID(), randomUUID(), {
+            refund_id: randomUUID(),
+            tenders: [{ tender_id: randomUUID(), amount_minor: '100' }],
+            ...reasons,
+          }),
+          code('SERVICE_MODE_DISABLED'),
+        );
+        const server = await running(createEdge, ctx.edge.config);
+        try {
+          const response = await request(server.url + '/edge/v1/pos/config', {
+            headers: staffHeaders(ctx.cashier),
+          });
+          assert.equal(response.status, 404);
+          assert.equal((await response.json()).code, 'NOT_FOUND');
+          const x = await request(
+            `${server.url}/edge/v1/cash-shifts/${ctx.shifts.first}/x-report`,
+            { headers: staffHeaders(ctx.cashier) },
+          );
+          assert.equal(x.status, 404);
+        } finally {
+          await server.app.close();
+        }
+        // A shift of a 025 edge closes exactly as before; the cutover keys are refused.
+        const close = (body) =>
+          closeCashShift(ctx.edge.pool, ctx.branch, manager, randomUUID(), ctx.shifts.first, {
+            expected_version: 1,
+            counted_cash_minor: '0',
+            reason: 'Синтетическое закрытие',
+            ...body,
+          });
+        await assert.rejects(close({ terminal_reported_minor: '0' }), code('INVALID_REQUEST'));
+        const closed = await close({});
+        assert.deepEqual(
+          [closed.state, closed.cash_received_minor, closed.payment_processing_available],
+          ['closed', '0', false],
+        );
+      },
+      { mode: 'unpaid_service', edgeMigrationDirectory: before026 },
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+  await desk(
+    async (ctx) => {
+      const pool = ctx.edge.pool;
+      const config = await readPosConfig(pool, ctx.branch, staffAuth(ctx.cashier));
+      assert.deepEqual(
+        { ...config, server_time: undefined },
+        {
+          mode: 'payment_required',
+          methods: ALL.map((method) => ({
+            code: method,
+            enabled: false,
+            requires_approval: POS_PAYMENT_METHOD_POLICY[method].requires_approval,
+            allow_in_mix: POS_PAYMENT_METHOD_POLICY[method].allow_in_mix,
+            fiscal_policy: POS_PAYMENT_METHOD_POLICY[method].fiscal_policy,
+          })),
+          channels: [
+            { code: 'hall', enabled: false },
+            { code: 'yandex_eda', enabled: false },
+            { code: 'glovo', enabled: false },
+          ],
+          fiscal_mode: 'manual_webkassa',
+          approval_ttl_seconds: 120,
+          server_time: undefined,
+          // Schema028 (CR pos-7): no desk has a number until the operator sets one.
+          desk_number: null,
+        },
+      );
+      const fetch = async () =>
+        (
+          await pool.query('SELECT * FROM pos_config_fetches WHERE terminal_id=$1', [
+            ctx.cashier.terminal_id,
+          ])
+        ).rows;
+      const [first] = await fetch();
+      assert.equal(first.staff_id, ctx.cashier.staff_id);
+      assert.equal(first.client_version, null);
+      await readPosConfig(pool, ctx.branch, staffAuth(ctx.manager), 'pos-2.0.0');
+      const [next] = await fetch();
+      assert.equal(next.staff_id, ctx.manager.staff_id);
+      assert.equal(next.client_version, 'pos-2.0.0');
+      assert.ok(next.last_fetched_at >= first.last_fetched_at);
+      assert.equal(next.first_fetched_at.getTime(), first.first_fetched_at.getTime());
+      for (const bad of ['bad version', '', ['pos-2.0.0']])
+        await assert.rejects(
+          readPosConfig(pool, ctx.branch, staffAuth(ctx.cashier), bad),
+          code('INVALID_REQUEST'),
+        );
+      const cook = await provisionStaff(pool, ctx.branch, ctx.setup('kitchen'));
+      await assert.rejects(readPosConfig(pool, ctx.branch, staffAuth(cook)), code('FORBIDDEN'));
+      assert.equal(await count(pool, 'pos_config_fetches'), 1);
+    },
+    { mode: 'payment_required' },
+  );
+});
+
+test('HTTP: pos/config, approvals with the staff/pin backoff, sales, replay and error codes', async () => {
+  await desk(async (ctx) => {
+    const server = await running(createEdge, {
+      ...ctx.edge.config,
+      edgeFulfillmentEnabled: true,
+      edgeDeviceId: ctx.device,
+    });
+    // Until CR pos-1 adds the POS codes to ErrorSchema the error filter answers CONFLICT.
+    const wire = (expected) =>
+      ErrorSchema.shape.code.options.includes(expected) ? expected : 'CONFLICT';
+    try {
+      const url = (path) => server.url + '/edge/v1/' + path;
+      const post = (path, body, actor = ctx.cashier, key = randomUUID()) =>
+        request(url(path), {
+          method: 'POST',
+          headers: staffHeaders(actor, key),
+          body: JSON.stringify(body),
+        });
+      const config = await request(url('pos/config?client_version=pos-2.1.0'), {
+        headers: staffHeaders(ctx.cashier),
+      });
+      assert.equal(config.status, 200);
+      assert.equal(config.headers.get('cache-control'), 'no-store');
+      assert.equal(PosConfigSchema.parse(await config.json()).mode, 'pos_sale');
+      assert.equal(
+        (
+          await request(url('pos/config?client_version=bad%20one'), {
+            headers: staffHeaders(ctx.cashier),
+          })
+        ).status,
+        400,
+      );
+      const quoted = await post('checkout/quotes', {
+        release_id: ctx.release.release_id,
+        service_mode: 'takeaway',
+        items: [line(ctx)],
+      });
+      assert.equal(quoted.status, 201);
+      const q = await quoted.json();
+      assert.equal('sales_channel' in q, false);
+      const aggregator = await post('checkout/quotes', {
+        release_id: ctx.release.release_id,
+        service_mode: 'takeaway',
+        items: [line(ctx)],
+        sales_channel: 'glovo',
+      });
+      assert.equal(aggregator.status, 201);
+      assert.equal((await aggregator.json()).sales_channel, 'glovo');
+      // The PIN backoff of a desk is shared with staff/pin: 5 free typos, then a lock.
+      const wrong = { staff_id: ctx.manager.staff_id, pin: '0000', action: 'staff_meal' };
+      const subject = { quote_id: q.quote_id, amount_minor: q.total_minor };
+      for (let attempt = 0; attempt < 5; attempt++)
+        assert.equal(
+          (await post('staff/approvals', { ...wrong, subject }, ctx.second)).status,
+          401,
+        );
+      const locked = await post('staff/approvals', { ...wrong, pin: PIN, subject }, ctx.second);
+      assert.equal(locked.status, 429);
+      assert.equal((await locked.json()).code, 'AUTH_RATE_LIMITED');
+      assert.match(locked.headers.get('retry-after'), /^[1-9][0-9]*$/);
+      const pinLogin = await request(url('staff/pin'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: PIN, terminal_id: ctx.second.terminal_id }),
+      });
+      assert.equal(pinLogin.status, 429);
+      // The first desk is not affected.
+      const issued = await post('staff/approvals', {
+        staff_id: ctx.manager.staff_id,
+        pin: PIN,
+        action: 'staff_meal',
+        subject,
+      });
+      assert.equal(issued.status, 201);
+      assert.equal(issued.headers.get('cache-control'), 'no-store');
+      const approval = ManagerApprovalSchema.parse(await issued.json());
+      const key = randomUUID();
+      const body = sale(q, {
+        tenders: [{ method: 'staff_meal', amount_minor: q.total_minor }],
+        beneficiary: 'Синтетический повар',
+        approval: proof(approval),
+      });
+      const created = await post('pos/sales', body, ctx.cashier, key);
+      assert.equal(created.status, 201);
+      const result = PosSaleResultSchema.parse(await created.json());
+      const replay = await post('pos/sales', body, ctx.cashier, key);
+      assert.equal(replay.status, 201);
+      assert.deepEqual(await replay.json(), result);
+      const conflict = await post(
+        'pos/sales',
+        { ...body, beneficiary: 'Другой' },
+        ctx.cashier,
+        key,
+      );
+      assert.equal(conflict.status, 409);
+      assert.equal((await conflict.json()).code, 'CONFLICT');
+      const read = await request(url('pos/sales/' + result.order.order_id), {
+        headers: staffHeaders(ctx.cashier),
+      });
+      assert.equal(read.status, 200);
+      assert.deepEqual(PosSaleSchema.parse(await read.json()), result.sale);
+      const order = await request(url('orders/' + result.order.order_id), {
+        headers: staffHeaders(ctx.cashier),
+      });
+      assert.deepEqual(LocalOrderSchema.parse(await order.json()), result.order);
+      const q2 = await (
+        await post('checkout/quotes', {
+          release_id: ctx.release.release_id,
+          service_mode: 'dine_in',
+          items: [line(ctx)],
+        })
+      ).json();
+      const mismatch = await post(
+        'pos/sales',
+        sale(q2, { tenders: [{ method: 'kaspi_manual', amount_minor: '1' }] }),
+      );
+      assert.equal(mismatch.status, 409);
+      assert.equal((await mismatch.json()).code, wire('TENDER_SUM_MISMATCH'));
+      const orders = await post('orders', { quote_id: q2.quote_id });
+      assert.equal(orders.status, 409);
+      assert.equal((await orders.json()).code, 'SERVICE_MODE_DISABLED');
+      const invalid = await post('pos/sales', { ...sale(q2, { tenders: [] }) });
+      assert.equal(invalid.status, 400);
+      assert.equal((await post('staff/approvals', { pin: PIN })).status, 400);
+      const anonymous = await request(url('staff/approvals'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staff_id: ctx.manager.staff_id, pin: PIN, action: 'void', subject }),
+      });
+      assert.equal(anonymous.status, 401);
+      assert.equal(
+        (await request(url('pos/sales/' + randomUUID()), { headers: staffHeaders(ctx.cashier) }))
+          .status,
+        404,
+      );
+    } finally {
+      await server.app.close();
+    }
+  });
+});
+
+test('a restricted runtime LOGIN with the 5.9 grants sells; any failure leaves nothing behind', async () => {
+  await desk(async (ctx) => {
+    const role = 'pos_sale_' + randomUUID().replaceAll('-', ''),
+      password = randomBytes(32).toString('hex');
+    let pool;
+    try {
+      await ctx.edge.admin.query(
+        `CREATE ROLE ${role} LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT`,
+      );
+      await applyEdgeRuntimeGrants(ctx.edge.pool, role, {
+        schema: ctx.edge.schema,
+        fulfillment: true,
+      });
+      await ctx.edge.pool.query(posSalesRuntimeGrants(role, ctx.edge.schema));
+      const url = new URL(ctx.edge.config.databaseUrl);
+      url.username = role;
+      url.password = password;
+      pool = createPool(url.toString());
+      const restricted = { ...ctx, edge: { ...ctx.edge, pool } };
+      assert.equal(
+        (await readPosConfig(pool, ctx.branch, staffAuth(ctx.cashier))).mode,
+        'pos_sale',
+      );
+      const q = await quote(restricted);
+      const approval = await approve(restricted, 'marketing', {
+        quote_id: q.quote_id,
+        amount_minor: q.total_minor,
+      });
+      const body = sale(q, {
+        tenders: [{ method: 'marketing', amount_minor: q.total_minor }],
+        reason: 'Синтетическая дегустация',
+        approval: proof(approval),
+      });
+      // An outbox fault rolls back the order, kitchen, tenders, receipt and the approval.
+      await ctx.edge.pool
+        .query(`CREATE FUNCTION fail_pos_sale_outbox() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN RAISE EXCEPTION 'Synthetic fault'; END $$;
+        CREATE TRIGGER fail_pos_sale_outbox BEFORE INSERT ON pos_sale_outbox FOR EACH ROW EXECUTE FUNCTION fail_pos_sale_outbox()`);
+      const key = randomUUID();
+      await assert.rejects(sell(restricted, body, { key }));
+      for (const table of [...SALE_TABLES, 'outbox_events'])
+        assert.equal(
+          await count(
+            ctx.edge.pool,
+            table,
+            table === 'outbox_events' ? "event_type='order.created'" : 'true',
+          ),
+          0,
+          table,
+        );
+      assert.equal(
+        await count(ctx.edge.pool, 'local_manager_approvals', 'consumed_at IS NOT NULL'),
+        0,
+      );
+      await ctx.edge.pool.query('DROP TRIGGER fail_pos_sale_outbox ON pos_sale_outbox');
+      const paid = await sell(restricted, body, { key });
+      assert.equal(paid.sale.revenue_kind, 'marketing');
+      const cash = await sell(
+        restricted,
+        sale(await quote(restricted), {
+          tenders: [{ method: 'cash', amount_minor: '349000' }],
+          cash_tendered_minor: '349000',
+        }),
+      );
+      assert.equal(cash.sale.change_minor, '0');
+      assert.deepEqual(
+        await readPosSale(pool, ctx.branch, staffAuth(ctx.cashier), cash.order.order_id),
+        cash.sale,
+      );
+      // The runtime still cannot touch operator settings or rewrite history.
+      for (const sql of [
+        "UPDATE branch_config SET pos_service_mode='unpaid_service'",
+        'UPDATE pos_payment_methods SET enabled=false',
+        'UPDATE pos_sales SET total_minor=total_minor',
+        'DELETE FROM pos_sale_tenders',
+        'UPDATE pos_sale_outbox SET acknowledged_at=clock_timestamp()',
+        'UPDATE local_manager_approvals SET expires_at=expires_at',
+      ])
+        await assert.rejects(pool.query(sql), code('42501'), sql);
+    } finally {
+      if (pool) await pool.end();
+      await ctx.edge.admin.query(`DROP OWNED BY ${role}`);
+      await ctx.edge.admin.query(`DROP ROLE ${role}`);
+    }
+  });
+});
+
+// POS-3/4/5 (contracts 5.1, 5.6, section 00): void, refunds, manual Webkassa receipts and the
+// money of a sales shift. Approvals are typed with a PIN where the PIN path matters; elsewhere
+// they are issued by SQL (the desk allows 10 PIN attempts a minute) and spent by the runtime.
+async function grantApproval(ctx, action, subject, { terminal = ctx.cashier.terminal_id } = {}) {
+  const approval = { approval_id: randomUUID(), token: randomBytes(32).toString('hex') };
+  await ctx.edge.pool.query(
+    `INSERT INTO local_manager_approvals(id,branch_id,terminal_id,manager_staff_id,requested_by_staff_id,
+     action,subject,subject_hash,token_hash,expires_at)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,clock_timestamp()+interval '120 seconds')`,
+    [
+      approval.approval_id,
+      ctx.branch,
+      terminal,
+      ctx.manager.staff_id,
+      ctx.cashier.staff_id,
+      action,
+      subject,
+      approvalSubjectHash(action, subject),
+      hashToken(approval.token),
+    ],
+  );
+  return approval;
+}
+const spent = async (pool, approval) =>
+  (
+    await pool.query('SELECT consumed_command_key FROM local_manager_approvals WHERE id=$1', [
+      approval.approval_id,
+    ])
+  ).rows[0].consumed_command_key;
+const cashSale = async (ctx, { actor = ctx.cashier, tendered = '500000' } = {}) =>
+  sell(
+    ctx,
+    sale(await quote(ctx, { actor }), {
+      tenders: [{ method: 'cash', amount_minor: '349000' }],
+      cash_tendered_minor: tendered,
+    }),
+    { actor },
+  );
+const mixSale = async (ctx) =>
+  sell(
+    ctx,
+    sale(await quote(ctx), {
+      tenders: [
+        { method: 'cash', amount_minor: '49000' },
+        { method: 'kaspi_terminal', amount_minor: '300000' },
+      ],
+      cash_tendered_minor: '50000',
+    }),
+  );
+const voidSale = (
+  ctx,
+  orderId,
+  body,
+  { key = randomUUID(), actor = ctx.cashier, port = ctx.port } = {},
+) => voidPosSale(ctx.edge.pool, ctx.branch, staffAuth(actor), key, orderId, body, port);
+const voidBody = async (ctx, paid, { issued = false, approval } = {}) => ({
+  expected_version: paid.order.version,
+  reason_code: 'cashier_error',
+  reason: 'Синтетическая отмена',
+  fiscal_sale_issued: issued,
+  approval: proof(
+    approval ??
+      (await grantApproval(ctx, 'void', {
+        order_id: paid.order.order_id,
+        amount_minor: paid.sale.total_minor,
+      })),
+  ),
+});
+const refundSale = (ctx, orderId, body, { key = randomUUID(), actor = ctx.cashier } = {}) =>
+  refundPosSale(ctx.edge.pool, ctx.branch, staffAuth(actor), key, orderId, body);
+const sum = (parts) =>
+  parts.reduce((total, part) => total + BigInt(part.amount_minor), 0n).toString();
+const refundBody = async (ctx, paid, parts, { amount = sum(parts) } = {}) => ({
+  refund_id: randomUUID(),
+  tenders: parts,
+  reason_code: 'quality',
+  reason: 'Синтетический возврат',
+  approval: proof(
+    await grantApproval(ctx, 'refund', { order_id: paid.order.order_id, amount_minor: amount }),
+  ),
+});
+const part = (paid, method, amount) => ({
+  tender_id: paid.sale.tenders.find((tender) => tender.method === method).tender_id,
+  amount_minor: amount,
+});
+const strip = ({ receipt_id, ...receipt }) => (assert.ok(receipt_id), receipt);
+/** The kitchen starts the first task of the order (contracts 5.1: then only a refund). */
+async function startKitchen(ctx, orderId) {
+  const cook = await provisionStaff(ctx.edge.pool, ctx.branch, ctx.setup('kitchen'));
+  await grantStation(ctx.edge.pool, ctx.branch, cook.staff_id, ctx.prep);
+  const repo = new EdgeFulfillment(ctx.edge.pool);
+  const current = await repo.readOrder(ctx.branch, staffAuth(cook), orderId, {
+    stationId: ctx.prep,
+  });
+  const task = current.tasks[0];
+  return repo.act(ctx.branch, staffAuth(cook), {
+    commandId: randomUUID(),
+    orderId,
+    expectedVersion: current.version,
+    action: 'start_task',
+    taskId: task.id,
+    expectedTaskVersion: task.version,
+  });
+}
+
+test('void before the kitchen starts: order and kitchen cancelled, every tender back, receipts and events', async () => {
+  await desk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    const drawer = async () =>
+      (await readCashShift(pool, ctx.branch, staffAuth(ctx.cashier), ctx.shifts.first))
+        .expected_cash_minor;
+    assert.equal(await drawer(), '500000');
+    const paid = await cashSale(ctx);
+    assert.equal(await drawer(), '849000');
+    const shiftReports = await count(pool, 'cashier_report_outbox', "kind='shift'");
+    // A real PIN approval: the desk names itself and the shift manager types the PIN.
+    const approval = await approve(
+      ctx,
+      'void',
+      { order_id: paid.order.order_id, amount_minor: '349000' },
+      { staff: ctx.cashier },
+    );
+    const key = randomUUID();
+    const body = await voidBody(ctx, paid, { approval });
+    const result = await voidSale(ctx, paid.order.order_id, body, { key });
+    assert.deepEqual(PosSaleResultSchema.parse(result), result);
+    const { order, sale: voided } = result;
+    assert.deepEqual(
+      {
+        state: order.state,
+        version: order.version,
+        payment_state: order.payment_state,
+        execution_mode: order.execution_mode,
+        fulfillment_state: order.fulfillment_state,
+        next_action: order.next_action,
+        cancellation_reason: order.cancellation_reason,
+      },
+      {
+        state: 'cancelled',
+        version: 2,
+        payment_state: 'captured',
+        execution_mode: 'pos_sale',
+        fulfillment_state: 'cancelled',
+        next_action: 'none',
+        cancellation_reason: 'Синтетическая отмена',
+      },
+    );
+    assert.equal(voided.refundable_minor, '0');
+    assert.equal(voided.refunds.length, 1);
+    const [refund] = voided.refunds;
+    assert.deepEqual(
+      { ...refund, refund_id: undefined, created_at: undefined },
+      {
+        refund_id: undefined,
+        kind: 'void',
+        amount_minor: '349000',
+        reason_code: 'cashier_error',
+        approved_by_staff_id: ctx.manager.staff_id,
+        created_at: undefined,
+        tenders: [{ tender_id: paid.sale.tenders[0].tender_id, amount_minor: '349000' }],
+      },
+    );
+    // Never punched: the sale receipt is no longer required, nor is a return receipt.
+    assert.deepEqual(voided.fiscal.map(strip), [
+      {
+        kind: 'sale',
+        state: 'not_required',
+        receipt_number: null,
+        version: 2,
+        amount_minor: '349000',
+      },
+      {
+        kind: 'refund',
+        state: 'not_required',
+        receipt_number: null,
+        version: 1,
+        amount_minor: '349000',
+      },
+    ]);
+    // The cash went back out of this desk's drawer.
+    assert.equal(await drawer(), '500000');
+    // Replay is the stored result; the same key with another body conflicts; no second void.
+    assert.deepEqual(await voidSale(ctx, paid.order.order_id, body, { key }), result);
+    await assert.rejects(
+      voidSale(ctx, paid.order.order_id, { ...body, reason: 'Другая причина' }, { key }),
+      code('CONFLICT'),
+    );
+    await assert.rejects(
+      voidSale(ctx, paid.order.order_id, await voidBody(ctx, { ...paid, order })),
+      code('CONFLICT'),
+    );
+    assert.equal(await spent(pool, approval), key);
+    // The kitchen admission and its tasks are cancelled through the unpaid cancel path.
+    const kitchen = await reservation(pool, paid.order.order_id);
+    assert.equal(kitchen.state, 'cancelled');
+    assert.equal(kitchen.cancellation_reason, 'Синтетическая отмена');
+    assert.equal(
+      await count(pool, 'fulfillment_tasks', "order_id=$1 AND state<>'cancelled'", [
+        paid.order.order_id,
+      ]),
+      0,
+    );
+    const kitchenEvents = (
+      await pool.query(
+        'SELECT event_type,payload FROM fulfillment_outbox WHERE order_id=$1 ORDER BY sequence',
+        [paid.order.order_id],
+      )
+    ).rows;
+    assert.deepEqual(
+      kitchenEvents.map((event) => event.event_type),
+      ['edge.fulfillment_accepted', 'edge.fulfillment_cancelled'],
+    );
+    assert.ok(kitchenEvents.every((event) => event.payload.executionMode === 'pos_sale'));
+    // posSales: sale, its receipt, the void, its receipt and the sale receipt's version 2.
+    const events = await saleEvents(pool, paid.order.order_id);
+    assert.deepEqual(
+      events.map((event) => event.kind),
+      ['sale', 'fiscal', 'void', 'fiscal', 'fiscal'],
+    );
+    assert.deepEqual(events[2].payload, {
+      refund_id: refund.refund_id,
+      order_id: paid.order.order_id,
+      kind: 'void',
+      shift_id: ctx.shifts.first,
+      terminal_id: ctx.cashier.terminal_id,
+      staff_id: ctx.cashier.staff_id,
+      approved_by_staff_id: ctx.manager.staff_id,
+      approval_id: approval.approval_id,
+      amount_minor: '349000',
+      reason_code: 'cashier_error',
+      reason: 'Синтетическая отмена',
+      tenders: [
+        { tender_id: paid.sale.tenders[0].tender_id, method: 'cash', amount_minor: '349000' },
+      ],
+      created_at: refund.created_at,
+    });
+    assert.deepEqual(
+      events
+        .slice(3)
+        .map((event) => [event.payload.kind, event.payload.state, event.payload.version]),
+      [
+        ['refund', 'not_required', 1],
+        ['sale', 'not_required', 2],
+      ],
+    );
+    assert.equal(events[3].payload.refund_id, refund.refund_id);
+    // order_commercial: order.cancelled at version 2, still captured (contracts 5.6).
+    const cancelled = (
+      await pool.query(
+        "SELECT aggregate_version,payload FROM outbox_events WHERE aggregate_id=$1 AND event_type='order.cancelled'",
+        [paid.order.order_id],
+      )
+    ).rows;
+    assert.equal(cancelled.length, 1);
+    assert.equal(cancelled[0].aggregate_version, '2');
+    assert.equal(cancelled[0].payload.state, 'cancelled');
+    assert.equal(cancelled[0].payload.payment_state, 'captured');
+    assert.equal(cancelled[0].payload.execution_mode, 'pos_sale');
+    for (const action of ['pos_sale.voided', 'fulfillment.local_pos_sale_cancelled'])
+      assert.equal(
+        await count(pool, 'local_audit', 'action=$1 AND resource_id=$2', [
+          action,
+          paid.order.order_id,
+        ]),
+        1,
+        action,
+      );
+    // A void writes no shift report.
+    assert.equal(await count(pool, 'cashier_report_outbox', "kind='shift'"), shiftReports);
+
+    // Mixed cash + terminal, the receipt punched but not typed in yet: a return receipt is due.
+    const mix = await mixSale(ctx);
+    const mixed = await voidSale(
+      ctx,
+      mix.order.order_id,
+      await voidBody(ctx, mix, { issued: true }),
+    );
+    assert.deepEqual(
+      mixed.sale.refunds[0].tenders,
+      mix.sale.tenders.map(({ tender_id, amount_minor }) => ({ tender_id, amount_minor })),
+    );
+    assert.deepEqual(
+      mixed.sale.fiscal.map(({ kind, state, version }) => [kind, state, version]),
+      [
+        ['sale', 'pending', 1],
+        ['refund', 'pending', 1],
+      ],
+    );
+    assert.equal(await drawer(), '500000');
+    // A recorded sale receipt was issued: voiding it as never punched contradicts it.
+    const typed = await sell(
+      ctx,
+      sale(await quote(ctx), {
+        tenders: [{ method: 'kaspi_manual', amount_minor: '349000' }],
+        fiscal_receipt_number: 'SYN-WK-0001',
+      }),
+    );
+    const before = await counts(pool);
+    const refused = await voidBody(ctx, typed);
+    await assert.rejects(voidSale(ctx, typed.order.order_id, refused), code('CONFLICT'));
+    assert.equal(await spent(pool, refused.approval), null);
+    const issued = await voidSale(
+      ctx,
+      typed.order.order_id,
+      await voidBody(ctx, typed, { issued: true }),
+    );
+    assert.deepEqual(
+      issued.sale.fiscal.map(({ kind, state, receipt_number }) => [kind, state, receipt_number]),
+      [
+        ['sale', 'recorded', 'SYN-WK-0001'],
+        ['refund', 'pending', null],
+      ],
+    );
+    assert.equal((await counts(pool)).pos_fiscal_receipts, before.pos_fiscal_receipts + 1);
+    // An aggregator order is voided like any sale before the kitchen; nothing is due.
+    const glovo = await sell(
+      ctx,
+      sale(await quote(ctx, { channel: 'glovo' }), {
+        tenders: [{ method: 'aggregator_glovo', amount_minor: '389000' }],
+        external_order_ref: 'GL-VOID-1',
+      }),
+    );
+    await assert.rejects(
+      voidSale(ctx, glovo.order.order_id, { ...(await voidBody(ctx, glovo)), expected_version: 2 }),
+      code('CONFLICT'),
+    );
+    const wrongAction = await grantApproval(ctx, 'refund', {
+      order_id: glovo.order.order_id,
+      amount_minor: '389000',
+    });
+    await assert.rejects(
+      voidSale(ctx, glovo.order.order_id, await voidBody(ctx, glovo, { approval: wrongAction })),
+      code('APPROVAL_INVALID'),
+    );
+    const elsewhere = await grantApproval(
+      ctx,
+      'void',
+      { order_id: glovo.order.order_id, amount_minor: '389000' },
+      { terminal: ctx.second.terminal_id },
+    );
+    await assert.rejects(
+      voidSale(ctx, glovo.order.order_id, await voidBody(ctx, glovo, { approval: elsewhere })),
+      code('APPROVAL_INVALID'),
+    );
+    // Another desk's cashier does not see this sale.
+    await assert.rejects(
+      voidSale(ctx, glovo.order.order_id, await voidBody(ctx, glovo), { actor: ctx.second }),
+      code('NOT_FOUND'),
+    );
+    // Its receipt was not required, so it was never fiscalized: "issued" contradicts the record.
+    // Nothing is written (no Webkassa return receipt to punch) and the approval is not spent.
+    const untouched = async () => ({
+      ...(await counts(pool)),
+      pos_refunds: await count(pool, 'pos_refunds'),
+      pos_refund_tenders: await count(pool, 'pos_refund_tenders'),
+      outbox_events: await count(pool, 'outbox_events'),
+    });
+    const beforeIssued = await untouched();
+    const issuedBody = await voidBody(ctx, glovo, { issued: true });
+    await assert.rejects(voidSale(ctx, glovo.order.order_id, issuedBody), code('CONFLICT'));
+    assert.deepEqual(await untouched(), beforeIssued);
+    assert.equal(await spent(pool, issuedBody.approval), null);
+    assert.equal(
+      (await listPendingFiscalReceipts(pool, ctx.branch, staffAuth(ctx.cashier))).receipts.filter(
+        (receipt) => receipt.order_id === glovo.order.order_id,
+      ).length,
+      0,
+    );
+    const aggregatorVoid = await voidSale(ctx, glovo.order.order_id, await voidBody(ctx, glovo));
+    assert.deepEqual(
+      aggregatorVoid.sale.fiscal.map(({ kind, state, version }) => [kind, state, version]),
+      [
+        ['sale', 'not_required', 1],
+        ['refund', 'not_required', 1],
+      ],
+    );
+    assert.deepEqual(
+      (await saleEvents(pool, glovo.order.order_id)).map((event) => event.kind),
+      ['sale', 'fiscal', 'void', 'fiscal'],
+    );
+    // Without the kitchen wiring of the host there is no void.
+    const last = await cashSale(ctx);
+    await assert.rejects(
+      voidSale(ctx, last.order.order_id, await voidBody(ctx, last), { port: null }),
+      code('SERVICE_MODE_DISABLED'),
+    );
+  });
+});
+
+test('refunds: by tender, full or partial, limits, terminal tenge, drawer, platform sales, replay', async () => {
+  await desk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    const mix = await mixSale(ctx);
+    // The kitchen started: no void any more (nothing written, the approval stays unused).
+    await startKitchen(ctx, mix.order.order_id);
+    const before = await counts(pool);
+    const tooLate = await voidBody(ctx, mix);
+    await assert.rejects(voidSale(ctx, mix.order.order_id, tooLate), code('ORDER_IN_PRODUCTION'));
+    assert.deepEqual(await counts(pool), before);
+    assert.equal(await spent(pool, tooLate.approval), null);
+    // A refund by tender: part of the cash and part of the terminal payment.
+    const parts = [part(mix, 'cash', '20000'), part(mix, 'kaspi_terminal', '100000')];
+    const key = randomUUID();
+    const body = await refundBody(ctx, mix, parts);
+    const refunded = await refundSale(ctx, mix.order.order_id, body, { key });
+    assert.deepEqual(PosSaleSchema.parse(refunded), refunded);
+    assert.equal(refunded.refundable_minor, '229000');
+    assert.deepEqual(
+      { ...refunded.refunds[0], created_at: undefined },
+      {
+        refund_id: body.refund_id,
+        kind: 'refund',
+        amount_minor: '120000',
+        reason_code: 'quality',
+        approved_by_staff_id: ctx.manager.staff_id,
+        created_at: undefined,
+        tenders: parts,
+      },
+    );
+    // The sale had a receipt: its partial return needs one too.
+    assert.deepEqual(
+      refunded.fiscal.map(({ kind, state, amount_minor }) => [kind, state, amount_minor]),
+      [
+        ['sale', 'pending', '349000'],
+        ['refund', 'pending', '120000'],
+      ],
+    );
+    assert.deepEqual(await refundSale(ctx, mix.order.order_id, body, { key }), refunded);
+    await assert.rejects(
+      refundSale(ctx, mix.order.order_id, { ...body, reason: 'Другая причина' }, { key }),
+      code('CONFLICT'),
+    );
+    // The same refund_id under another key is another command for the same refund.
+    await assert.rejects(
+      refundSale(ctx, mix.order.order_id, {
+        ...(await refundBody(ctx, mix, parts)),
+        refund_id: body.refund_id,
+      }),
+      code('CONFLICT'),
+    );
+    // The order row does not change (the cloud keeps versions 1/2); the kitchen goes on.
+    const order = await readLocalOrder(
+      pool,
+      ctx.branch,
+      staffAuth(ctx.cashier),
+      mix.order.order_id,
+    );
+    assert.equal(order.state, 'paid');
+    assert.equal(order.version, 1);
+    assert.equal(order.fulfillment.state, 'in_production');
+    assert.equal(await count(pool, 'outbox_events', 'aggregate_id=$1', [mix.order.order_id]), 1);
+    const events = await saleEvents(pool, mix.order.order_id);
+    assert.deepEqual(
+      events.map((event) => event.kind),
+      ['sale', 'fiscal', 'refund', 'fiscal'],
+    );
+    assert.deepEqual(events[2].payload, {
+      refund_id: body.refund_id,
+      order_id: mix.order.order_id,
+      kind: 'refund',
+      shift_id: ctx.shifts.first,
+      terminal_id: ctx.cashier.terminal_id,
+      staff_id: ctx.cashier.staff_id,
+      approved_by_staff_id: ctx.manager.staff_id,
+      approval_id: body.approval.approval_id,
+      amount_minor: '120000',
+      reason_code: 'quality',
+      reason: 'Синтетический возврат',
+      tenders: [
+        { ...parts[0], method: 'cash' },
+        { ...parts[1], method: 'kaspi_terminal' },
+      ],
+      created_at: refunded.refunds[0].created_at,
+    });
+    assert.equal(events[3].payload.refund_id, body.refund_id);
+    assert.equal(
+      await count(pool, 'local_audit', "action='pos_sale.refunded' AND resource_id=$1", [
+        mix.order.order_id,
+      ]),
+      1,
+    );
+    // Rules before the approval: a correct approval is never spent on a refused refund.
+    const unchanged = await counts(pool);
+    for (const [tenders, expected] of [
+      [[part(mix, 'cash', '29001')], 'REFUND_LIMIT'],
+      [[part(mix, 'kaspi_terminal', '200100')], 'REFUND_LIMIT'],
+      [[part(mix, 'kaspi_terminal', '150')], 'TERMINAL_AMOUNT_NOT_WHOLE'],
+      [[{ tender_id: randomUUID(), amount_minor: '100' }], 'INVALID_REQUEST'],
+    ]) {
+      const refusal = await refundBody(ctx, mix, tenders);
+      await assert.rejects(refundSale(ctx, mix.order.order_id, refusal), code(expected), expected);
+      assert.equal(await spent(pool, refusal.approval), null);
+    }
+    await assert.rejects(
+      refundSale(
+        ctx,
+        mix.order.order_id,
+        await refundBody(ctx, mix, [part(mix, 'cash', '1000')], { amount: '999' }),
+      ),
+      code('APPROVAL_INVALID'),
+    );
+    await assert.rejects(
+      refundSale(ctx, mix.order.order_id, {
+        ...body,
+        approval: undefined,
+        refund_id: randomUUID(),
+      }),
+      code('INVALID_REQUEST'),
+    );
+    assert.deepEqual(await counts(pool), unchanged);
+    // Cash never above the drawer: 500000 + 49000 - 20000, then 520000 taken out.
+    const shift = () => readCashShift(pool, ctx.branch, staffAuth(ctx.cashier), ctx.shifts.first);
+    assert.equal((await shift()).expected_cash_minor, '529000');
+    const out = await moveCash(
+      pool,
+      ctx.branch,
+      staffAuth(ctx.manager),
+      randomUUID(),
+      ctx.shifts.first,
+      {
+        direction: 'out',
+        amount_minor: '520000',
+        reason: 'Синтетическая инкассация',
+      },
+    );
+    assert.equal(out.expected_cash_minor, '9000');
+    await assert.rejects(
+      refundSale(ctx, mix.order.order_id, await refundBody(ctx, mix, [part(mix, 'cash', '9001')])),
+      code('DRAWER_INSUFFICIENT'),
+    );
+    // A withdrawal cannot take the cash sales either (schema026 guard and moveCash agree).
+    await assert.rejects(
+      moveCash(pool, ctx.branch, staffAuth(ctx.manager), randomUUID(), ctx.shifts.first, {
+        direction: 'out',
+        amount_minor: '9001',
+        reason: 'Синтетика',
+      }),
+      code('INVALID_REQUEST'),
+    );
+    const rest = await refundSale(
+      ctx,
+      mix.order.order_id,
+      await refundBody(ctx, mix, [
+        part(mix, 'cash', '9000'),
+        part(mix, 'kaspi_terminal', '200000'),
+      ]),
+    );
+    assert.equal(rest.refundable_minor, '20000');
+    assert.equal((await shift()).expected_cash_minor, '0');
+    assert.equal((await shift()).cash_refunded_minor, '29000');
+    // The platform refunds its own orders; staff meal and marketing moved no money.
+    const yandex = await sell(
+      ctx,
+      sale(await quote(ctx, { channel: 'yandex_eda' }), {
+        tenders: [{ method: 'aggregator_yandex_eda', amount_minor: '399000' }],
+        external_order_ref: 'YA-REF-1',
+      }),
+    );
+    const choco = await sell(
+      ctx,
+      sale(await quote(ctx), {
+        tenders: [{ method: 'chocofood', amount_minor: '349000' }],
+        external_order_ref: 'CF-REF-1',
+      }),
+    );
+    const mealQuote = await quote(ctx);
+    const meal = await sell(
+      ctx,
+      sale(mealQuote, {
+        tenders: [{ method: 'staff_meal', amount_minor: '349000' }],
+        beneficiary: 'Синтетический повар',
+        approval: proof(
+          await grantApproval(ctx, 'staff_meal', {
+            quote_id: mealQuote.quote_id,
+            amount_minor: '349000',
+          }),
+        ),
+      }),
+    );
+    for (const [paid, method] of [
+      [yandex, 'aggregator_yandex_eda'],
+      [choco, 'chocofood'],
+      [meal, 'staff_meal'],
+    ])
+      await assert.rejects(
+        refundSale(
+          ctx,
+          paid.order.order_id,
+          await refundBody(ctx, paid, [part(paid, method, '100')]),
+        ),
+        code('REFUND_NOT_SUPPORTED'),
+        method,
+      );
+    // A voided sale has nothing left to refund.
+    const voided = await cashSale(ctx);
+    await voidSale(ctx, voided.order.order_id, await voidBody(ctx, voided));
+    await assert.rejects(
+      refundSale(
+        ctx,
+        voided.order.order_id,
+        await refundBody(ctx, voided, [part(voided, 'cash', '100')]),
+      ),
+      code('CONFLICT'),
+    );
+    // At most 100 refunds per sale (PosSaleSchema): 100 small ones, then a refusal.
+    const manual = await sell(
+      ctx,
+      sale(await quote(ctx), { tenders: [{ method: 'kaspi_manual', amount_minor: '349000' }] }),
+    );
+    const tender = manual.sale.tenders[0].tender_id;
+    await transaction(pool, async (client) => {
+      for (let index = 0; index < 100; index++) {
+        const approval = randomUUID(),
+          refundId = randomUUID();
+        await client.query(
+          `INSERT INTO local_manager_approvals(id,branch_id,terminal_id,manager_staff_id,requested_by_staff_id,
+           action,subject,subject_hash,token_hash,expires_at)
+           VALUES($1,$2,$3,$4,$5,'refund','{}',$6,$7,clock_timestamp()+interval '120 seconds')`,
+          [
+            approval,
+            ctx.branch,
+            ctx.cashier.terminal_id,
+            ctx.manager.staff_id,
+            ctx.cashier.staff_id,
+            'a'.repeat(64),
+            randomBytes(32).toString('hex'),
+          ],
+        );
+        await client.query(
+          'UPDATE local_manager_approvals SET consumed_at=clock_timestamp(),consumed_command_key=$2 WHERE id=$1',
+          [approval, randomUUID()],
+        );
+        await client.query(
+          `INSERT INTO pos_refunds(id,order_id,branch_id,kind,shift_id,terminal_id,staff_id,approved_by_staff_id,
+           approval_id,amount_minor,reason_code,reason) VALUES($1,$2,$3,'refund',$4,$5,$6,$7,$8,100,'other','Синтетика')`,
+          [
+            refundId,
+            manual.order.order_id,
+            ctx.branch,
+            ctx.shifts.first,
+            ctx.cashier.terminal_id,
+            ctx.cashier.staff_id,
+            ctx.manager.staff_id,
+            approval,
+          ],
+        );
+        await client.query(
+          `INSERT INTO pos_refund_tenders(refund_id,tender_id,order_id,branch_id,method,amount_minor)
+           VALUES($1,$2,$3,$4,'kaspi_manual',100)`,
+          [refundId, tender, manual.order.order_id, ctx.branch],
+        );
+        await client.query(
+          `INSERT INTO pos_fiscal_receipts(id,branch_id,order_id,refund_id,kind,state,amount_minor)
+           VALUES($1,$2,$3,$4,'refund','not_required',100)`,
+          [randomUUID(), ctx.branch, manual.order.order_id, refundId],
+        );
+      }
+    });
+    const hundred = await readPosSale(
+      pool,
+      ctx.branch,
+      staffAuth(ctx.cashier),
+      manual.order.order_id,
+    );
+    assert.equal(hundred.refunds.length, 100);
+    assert.equal(hundred.fiscal.length, 101);
+    assert.equal(hundred.refundable_minor, '339000');
+    await assert.rejects(
+      refundSale(
+        ctx,
+        manual.order.order_id,
+        await refundBody(ctx, manual, [part(manual, 'kaspi_manual', '100')]),
+      ),
+      code('REFUND_LIMIT'),
+    );
+  });
+});
+
+test('a voided aggregator or ChocoFood order frees its number for the corrected re-entry', async () => {
+  await desk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    const yandexSale = (q, ref, actor = ctx.cashier) =>
+      sell(
+        ctx,
+        sale(q, {
+          tenders: [{ method: 'aggregator_yandex_eda', amount_minor: '399000' }],
+          external_order_ref: ref,
+        }),
+        { actor },
+      );
+    const yandex = async (ref) => yandexSale(await quote(ctx, { channel: 'yandex_eda' }), ref);
+    const live = async (ref) =>
+      Number(
+        (
+          await pool.query(
+            `SELECT count(*) FILTER (WHERE o.state='paid') AS live FROM pos_sales s
+             JOIN local_orders o ON o.id=s.order_id WHERE s.external_order_ref=$1`,
+            [ref],
+          )
+        ).rows[0].live,
+      );
+    // The cashier keyed the order wrongly: void it before the kitchen starts, then enter it again
+    // under the platform's real number, so the courier handover still matches the tablet.
+    const wrong = await yandex('YA-FIX-1');
+    await voidSale(ctx, wrong.order.order_id, await voidBody(ctx, wrong));
+    const fixed = await yandex('ya-fix-1');
+    assert.equal(fixed.sale.external_order_ref, 'YA-FIX-1');
+    assert.deepEqual((await reservation(pool, fixed.order.order_id)).snapshot.delivery, {
+      provider: 'yandex_eda',
+      externalNumber: 'YA-FIX-1',
+    });
+    // History keeps the voided sale with its number; only one sale with it is live.
+    const history = await readPosSale(
+      pool,
+      ctx.branch,
+      staffAuth(ctx.cashier),
+      wrong.order.order_id,
+    );
+    assert.equal(history.external_order_ref, 'YA-FIX-1');
+    assert.equal(history.refunds[0].kind, 'void');
+    assert.equal(await live('YA-FIX-1'), 1);
+    const before = await counts(pool);
+    await assert.rejects(yandex('YA-FIX-1'), code('EXTERNAL_REF_DUPLICATE'));
+    assert.deepEqual(await counts(pool), before);
+    // ChocoFood (hall, its own number) the same way.
+    const choco = async (ref) =>
+      sell(
+        ctx,
+        sale(await quote(ctx, { serviceMode: 'dine_in' }), {
+          tenders: [{ method: 'chocofood', amount_minor: '349000' }],
+          external_order_ref: ref,
+        }),
+      );
+    const cf = await choco('CF-FIX-1');
+    await assert.rejects(choco('CF-FIX-1'), code('EXTERNAL_REF_DUPLICATE'));
+    await voidSale(ctx, cf.order.order_id, await voidBody(ctx, cf));
+    const cfAgain = await choco('cf-fix-1');
+    assert.equal(cfAgain.sale.external_order_ref, 'CF-FIX-1');
+    assert.equal(cfAgain.sale.tenders[0].confirmation, 'aggregator_attested');
+    await assert.rejects(choco('CF-FIX-1'), code('EXTERNAL_REF_DUPLICATE'));
+    assert.equal(await live('CF-FIX-1'), 1);
+    // Both desks re-enter a voided number at the same moment: exactly one sale wins.
+    await voidSale(ctx, fixed.order.order_id, await voidBody(ctx, fixed));
+    assert.equal(await live('YA-FIX-1'), 0);
+    const quotes = await Promise.all(
+      [ctx.cashier, ctx.second].map((actor) => quote(ctx, { actor, channel: 'yandex_eda' })),
+    );
+    const both = await Promise.allSettled(
+      [ctx.cashier, ctx.second].map((actor, index) => yandexSale(quotes[index], 'YA-FIX-1', actor)),
+    );
+    assert.equal(both.filter((result) => result.status === 'fulfilled').length, 1);
+    assert.equal(
+      both.find((result) => result.status === 'rejected').reason.code,
+      'EXTERNAL_REF_DUPLICATE',
+    );
+    assert.equal(await live('YA-FIX-1'), 1);
+    // Each sale entered with the number goes to the cloud with it: the wrong one, the fix and the
+    // winner of the race (the refused one wrote nothing).
+    const numbered = (
+      await pool.query(
+        "SELECT kind FROM pos_sale_outbox WHERE payload->>'external_order_ref'='YA-FIX-1' ORDER BY sequence",
+      )
+    ).rows.map((row) => row.kind);
+    assert.deepEqual(numbered, ['sale', 'sale', 'sale']);
+  });
+});
+
+test("a refund of another desk's sale is made in a shift manager session on the refunding desk", async () => {
+  await desk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    const paid = await cashSale(ctx);
+    const deskB = async (amount) => ({
+      refund_id: randomUUID(),
+      tenders: [part(paid, 'cash', amount)],
+      reason_code: 'quality',
+      reason: 'Синтетический возврат',
+      approval: proof(
+        await grantApproval(
+          ctx,
+          'refund',
+          { order_id: paid.order.order_id, amount_minor: amount },
+          { terminal: ctx.second.terminal_id },
+        ),
+      ),
+    });
+    // The cashier session of desk B does not see desk A's sale, even with an approval there.
+    await assert.rejects(
+      refundSale(ctx, paid.order.order_id, await deskB('100000'), { actor: ctx.second }),
+      code('NOT_FOUND'),
+    );
+    // Runbook pos-sales.md 5: a shift manager signs in on desk B; the refund is booked at desk B's
+    // open sales shift and its cash comes out of desk B's drawer.
+    const managerB = await provisionStaff(
+      pool,
+      ctx.branch,
+      ctx.setup('shift_manager', ctx.second.terminal_id),
+    );
+    const refunded = await refundSale(ctx, paid.order.order_id, await deskB('100000'), {
+      actor: managerB,
+    });
+    assert.equal(refunded.refundable_minor, '249000');
+    assert.deepEqual(
+      (
+        await pool.query(
+          'SELECT shift_id,terminal_id,staff_id FROM pos_refunds WHERE order_id=$1',
+          [paid.order.order_id],
+        )
+      ).rows,
+      [
+        {
+          shift_id: ctx.shifts.second,
+          terminal_id: ctx.second.terminal_id,
+          staff_id: managerB.staff_id,
+        },
+      ],
+    );
+    const drawer = async (shift) =>
+      (await readCashShift(pool, ctx.branch, staffAuth(ctx.manager), shift)).expected_cash_minor;
+    assert.equal(await drawer(ctx.shifts.first), '849000');
+    assert.equal(await drawer(ctx.shifts.second), '400000');
+  });
+});
+
+test('manual Webkassa: pending receipts per desk and shift, record later, correct with fiscal_correct', async () => {
+  await desk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    const list = (actor, shiftId) =>
+      listPendingFiscalReceipts(pool, ctx.branch, staffAuth(actor), shiftId);
+    const record = (actor, receiptId, body, key = randomUUID()) =>
+      recordFiscalReceipt(pool, ctx.branch, staffAuth(actor), key, receiptId, body);
+    const cash = await cashSale(ctx);
+    const typed = await sell(
+      ctx,
+      sale(await quote(ctx), {
+        tenders: [{ method: 'kaspi_manual', amount_minor: '349000' }],
+        fiscal_receipt_number: 'SYN-WK-100',
+      }),
+    );
+    const choco = await sell(
+      ctx,
+      sale(await quote(ctx), {
+        tenders: [{ method: 'chocofood', amount_minor: '349000' }],
+        external_order_ref: 'CF-WK-1',
+      }),
+    );
+    const other = await sell(
+      ctx,
+      sale(await quote(ctx, { actor: ctx.second }), {
+        tenders: [
+          { method: 'kaspi_manual', amount_minor: '49000' },
+          { method: 'kaspi_terminal', amount_minor: '300000' },
+        ],
+      }),
+      { actor: ctx.second },
+    );
+    const refunded = await refundSale(
+      ctx,
+      cash.order.order_id,
+      await refundBody(ctx, cash, [part(cash, 'cash', '49000')]),
+    );
+    const [saleReceipt, refundReceipt] = refunded.fiscal;
+    const pending = await list(ctx.cashier);
+    assert.deepEqual(PosFiscalPendingSchema.parse(pending), pending);
+    assert.deepEqual(
+      pending.receipts.map(({ created_at, ...receipt }) => (assert.ok(created_at), receipt)),
+      [
+        {
+          receipt_id: saleReceipt.receipt_id,
+          order_id: cash.order.order_id,
+          display_number: cash.sale.display_number,
+          kind: 'sale',
+          amount_minor: '349000',
+          methods: ['cash'],
+          version: 1,
+        },
+        {
+          receipt_id: refundReceipt.receipt_id,
+          order_id: cash.order.order_id,
+          display_number: cash.sale.display_number,
+          kind: 'refund',
+          amount_minor: '49000',
+          methods: ['cash'],
+          version: 1,
+        },
+      ],
+    );
+    assert.deepEqual(
+      (await list(ctx.second)).receipts.map((receipt) => [receipt.order_id, receipt.methods]),
+      [[other.order.order_id, ['kaspi_manual', 'kaspi_terminal']]],
+    );
+    assert.equal((await list(ctx.manager)).receipts.length, 3);
+    assert.equal((await list(ctx.manager, ctx.shifts.first)).receipts.length, 2);
+    assert.equal((await list(ctx.manager, ctx.shifts.second)).receipts.length, 1);
+    await assert.rejects(list(ctx.cashier, ctx.shifts.second), code('NOT_FOUND'));
+    for (const bad of ['not-a-uuid', [ctx.shifts.first]])
+      await assert.rejects(list(ctx.cashier, bad), code('INVALID_REQUEST'));
+    // Record the sale receipt later (the number is trimmed); replay and stale versions.
+    const key = randomUUID();
+    const body = { expected_version: 1, receipt_number: ' SYN-WK-101 ' };
+    const recorded = await record(ctx.cashier, saleReceipt.receipt_id, body, key);
+    assert.deepEqual(PosFiscalReceiptSchema.parse(recorded), recorded);
+    assert.deepEqual(
+      { ...recorded, recorded_at: undefined },
+      {
+        receipt_id: saleReceipt.receipt_id,
+        order_id: cash.order.order_id,
+        refund_id: null,
+        kind: 'sale',
+        mode: 'manual_webkassa',
+        state: 'recorded',
+        receipt_number: 'SYN-WK-101',
+        version: 2,
+        amount_minor: '349000',
+        recorded_by_staff_id: ctx.cashier.staff_id,
+        recorded_at: undefined,
+      },
+    );
+    assert.ok(recorded.recorded_at);
+    assert.deepEqual(await record(ctx.cashier, saleReceipt.receipt_id, body, key), recorded);
+    await assert.rejects(
+      record(ctx.cashier, saleReceipt.receipt_id, { ...body, receipt_number: 'X-1' }, key),
+      code('CONFLICT'),
+    );
+    await assert.rejects(record(ctx.cashier, saleReceipt.receipt_id, body), code('CONFLICT'));
+    // No approval for a first record; another desk's receipt is not visible to a cashier.
+    await assert.rejects(
+      record(ctx.cashier, refundReceipt.receipt_id, {
+        expected_version: 1,
+        receipt_number: 'SYN-WK-102',
+        approval: proof(
+          await grantApproval(ctx, 'fiscal_correct', {
+            order_id: cash.order.order_id,
+            amount_minor: '49000',
+          }),
+        ),
+      }),
+      code('INVALID_REQUEST'),
+    );
+    await assert.rejects(
+      record(ctx.second, refundReceipt.receipt_id, { expected_version: 1, receipt_number: 'Y-1' }),
+      code('NOT_FOUND'),
+    );
+    const refundRecorded = await record(ctx.cashier, refundReceipt.receipt_id, {
+      expected_version: 1,
+      receipt_number: 'SYN-WK-102',
+    });
+    assert.equal(refundRecorded.refund_id, refunded.refunds[0].refund_id);
+    assert.equal(refundRecorded.kind, 'refund');
+    // Correcting a recorded number needs fiscal_correct for {order_id, amount of the receipt}.
+    const correction = { expected_version: 2, receipt_number: 'SYN-WK-103' };
+    await assert.rejects(
+      record(ctx.cashier, saleReceipt.receipt_id, correction),
+      code('APPROVAL_REQUIRED'),
+    );
+    for (const subject of [
+      { order_id: cash.order.order_id, amount_minor: '49000' },
+      { order_id: typed.order.order_id, amount_minor: '349000' },
+    ])
+      await assert.rejects(
+        record(ctx.cashier, saleReceipt.receipt_id, {
+          ...correction,
+          approval: proof(await grantApproval(ctx, 'fiscal_correct', subject)),
+        }),
+        code('APPROVAL_INVALID'),
+      );
+    const fix = await approve(
+      ctx,
+      'fiscal_correct',
+      { order_id: cash.order.order_id, amount_minor: '349000' },
+      { staff: ctx.cashier },
+    );
+    const corrected = await record(ctx.cashier, saleReceipt.receipt_id, {
+      ...correction,
+      approval: proof(fix),
+    });
+    assert.equal(corrected.version, 3);
+    assert.equal(corrected.receipt_number, 'SYN-WK-103');
+    assert.equal(
+      (
+        await pool.query('SELECT approval_id FROM pos_fiscal_receipts WHERE id=$1', [
+          saleReceipt.receipt_id,
+        ])
+      ).rows[0].approval_id,
+      fix.approval_id,
+    );
+    // A receipt the policy does not require has nothing to record.
+    await assert.rejects(
+      record(ctx.cashier, choco.sale.fiscal[0].receipt_id, {
+        expected_version: 1,
+        receipt_number: 'Z-1',
+      }),
+      code('CONFLICT'),
+    );
+    await assert.rejects(
+      record(ctx.cashier, randomUUID(), { expected_version: 1, receipt_number: 'Z-1' }),
+      code('NOT_FOUND'),
+    );
+    // A shift manager records any desk's receipt.
+    assert.equal(
+      (
+        await record(ctx.manager, other.sale.fiscal[0].receipt_id, {
+          expected_version: 1,
+          receipt_number: 'SYN-WK-200',
+        })
+      ).recorded_by_staff_id,
+      ctx.manager.staff_id,
+    );
+    assert.deepEqual((await list(ctx.manager)).receipts, []);
+    // Every change is one fiscal event with the whole record, versions in order.
+    const fiscal = (await saleEvents(pool, cash.order.order_id)).filter(
+      (event) => event.kind === 'fiscal' && event.payload.kind === 'sale',
+    );
+    assert.deepEqual(
+      fiscal.map((event) => [
+        event.payload.version,
+        event.payload.state,
+        event.payload.receipt_number,
+      ]),
+      [
+        [1, 'pending', null],
+        [2, 'recorded', 'SYN-WK-101'],
+        [3, 'recorded', 'SYN-WK-103'],
+      ],
+    );
+    assert.deepEqual(fiscal[2].payload, corrected);
+    assert.equal(
+      await count(pool, 'local_audit', "action='pos_fiscal.corrected' AND resource_id=$1", [
+        saleReceipt.receipt_id,
+      ]),
+      1,
+    );
+    assert.equal(
+      (await readPosSale(pool, ctx.branch, staffAuth(ctx.cashier), typed.order.order_id)).fiscal[0]
+        .receipt_number,
+      'SYN-WK-100',
+    );
+  });
+});
+
+test('sales shift money: opened in pos_sale, expected with sales, change and refunds, X and Z, close gate', async () => {
+  await desk(async (ctx) => {
+    const pool = ctx.edge.pool;
+    const manager = staffAuth(ctx.manager);
+    const close = (shiftId, body, key = randomUUID()) =>
+      closeCashShift(pool, ctx.branch, manager, key, shiftId, {
+        expected_version: 1,
+        reason: 'Синтетическое закрытие',
+        ...body,
+      });
+    const report = (shiftId, kind, actor = ctx.manager) =>
+      readShiftReport(pool, ctx.branch, staffAuth(actor), shiftId, kind);
+    // The desk's fixture shift has no sales and nothing pending: it closes without approval.
+    await assert.rejects(report(ctx.shifts.first, 'z'), code('CONFLICT'));
+    const first = await close(ctx.shifts.first, { counted_cash_minor: '500000' });
+    assert.equal(first.discrepancy_minor, '0');
+    const empty = await report(ctx.shifts.first, 'z');
+    assert.equal(empty.expected_cash_minor, '500000');
+    assert.equal(empty.orders.count, 0);
+    // A shift opened through the API in pos_sale mode counts sales.
+    const opened = await openCashShift(pool, ctx.branch, manager, randomUUID(), {
+      opening_cash_minor: '100000',
+    });
+    const shiftId = opened.shift_id;
+    assert.equal(
+      (await pool.query('SELECT sales_mode FROM local_cash_shifts WHERE id=$1', [shiftId])).rows[0]
+        .sales_mode,
+      true,
+    );
+    assert.equal(opened.payment_processing_available, true);
+    assert.equal(opened.cash_received_minor, '0');
+    assert.equal(opened.expected_cash_minor, '100000');
+    const a = await cashSale(ctx);
+    assert.equal(a.sale.change_minor, '151000');
+    const b = await mixSale(ctx);
+    const c = await sell(
+      ctx,
+      sale(await quote(ctx), { tenders: [{ method: 'kaspi_manual', amount_minor: '349000' }] }),
+    );
+    const d = await sell(
+      ctx,
+      sale(await quote(ctx, { channel: 'glovo' }), {
+        tenders: [{ method: 'aggregator_glovo', amount_minor: '389000' }],
+        external_order_ref: 'GL-Z-1',
+      }),
+    );
+    const mealQuote = await quote(ctx);
+    await sell(
+      ctx,
+      sale(mealQuote, {
+        tenders: [{ method: 'staff_meal', amount_minor: '349000' }],
+        beneficiary: 'Синтетический повар',
+        approval: proof(
+          await grantApproval(ctx, 'staff_meal', {
+            quote_id: mealQuote.quote_id,
+            amount_minor: '349000',
+          }),
+        ),
+      }),
+    );
+    for (const [direction, amount] of [
+      ['in', '10000'],
+      ['out', '5000'],
+    ])
+      await moveCash(pool, ctx.branch, manager, randomUUID(), shiftId, {
+        direction,
+        amount_minor: amount,
+        reason: 'Синтетика',
+      });
+    await refundSale(ctx, a.order.order_id, await refundBody(ctx, a, [part(a, 'cash', '20000')]));
+    await refundSale(
+      ctx,
+      b.order.order_id,
+      await refundBody(ctx, b, [part(b, 'kaspi_terminal', '100000')]),
+    );
+    await voidSale(ctx, c.order.order_id, await voidBody(ctx, c));
+    assert.equal(d.sale.fiscal[0].state, 'not_required');
+    // expected = 100000 + 10000 - 5000 + (349000 + 49000) - 20000
+    const live = await readCashShift(pool, ctx.branch, manager, shiftId);
+    assert.deepEqual(
+      {
+        expected_cash_minor: live.expected_cash_minor,
+        cash_received_minor: live.cash_received_minor,
+        cash_refunded_minor: live.cash_refunded_minor,
+        payment_processing_available: live.payment_processing_available,
+        order_count: live.order_count,
+        cancelled_count: live.cancelled_count,
+        awaiting_payment_count: live.awaiting_payment_count,
+        order_total_minor: live.order_total_minor,
+        unpaid_total_minor: live.unpaid_total_minor,
+      },
+      {
+        expected_cash_minor: '483000',
+        cash_received_minor: '398000',
+        cash_refunded_minor: '20000',
+        payment_processing_available: true,
+        order_count: 5,
+        cancelled_count: 1,
+        awaiting_payment_count: 0,
+        order_total_minor: '1785000',
+        unpaid_total_minor: '0',
+      },
+    );
+    const methods = (rows) =>
+      Object.fromEntries(rows.map(({ method, ...row }) => [method, Object.values(row).join('/')]));
+    const x = await report(shiftId, 'x', ctx.cashier);
+    assert.deepEqual(PosShiftReportSchema.parse(x), x);
+    assert.deepEqual(
+      { ...x, methods: undefined, channels: undefined, opened_at: undefined, report_at: undefined },
+      {
+        kind: 'x',
+        shift_id: shiftId,
+        terminal_id: ctx.cashier.terminal_id,
+        state: 'open',
+        opened_at: undefined,
+        closed_at: null,
+        opening_cash_minor: '100000',
+        cash_in_minor: '10000',
+        cash_out_minor: '5000',
+        cash_sales_minor: '398000',
+        cash_refunds_minor: '20000',
+        expected_cash_minor: '483000',
+        counted_cash_minor: null,
+        discrepancy_minor: null,
+        methods: undefined,
+        channels: undefined,
+        terminal_reported_minor: null,
+        terminal_discrepancy_minor: null,
+        fiscal: { pending: 4, recorded: 0, not_required: 4 },
+        orders: { count: 5, voided_count: 1 },
+        report_at: undefined,
+      },
+    );
+    // All eight methods in contract order (sales/refunds/payments) and the three channels.
+    assert.deepEqual(methods(x.methods), {
+      cash: '398000/20000/2',
+      kaspi_terminal: '300000/100000/1',
+      aggregator_yandex_eda: '0/0/0',
+      aggregator_glovo: '389000/0/1',
+      staff_meal: '349000/0/1',
+      marketing: '0/0/0',
+      kaspi_manual: '349000/349000/1',
+      chocofood: '0/0/0',
+    });
+    assert.deepEqual(Object.keys(methods(x.methods)), ALL);
+    assert.deepEqual(x.channels, [
+      { sales_channel: 'hall', total_minor: '1396000', count: 4 },
+      { sales_channel: 'yandex_eda', total_minor: '0', count: 0 },
+      { sales_channel: 'glovo', total_minor: '389000', count: 1 },
+    ]);
+    assert.equal(
+      sum(x.channels.map((row) => ({ amount_minor: row.total_minor }))),
+      sum(x.methods.map((row) => ({ amount_minor: row.sales_minor }))),
+    );
+    // Pending receipts block the close without the shift manager's approval.
+    const pending = await listPendingFiscalReceipts(pool, ctx.branch, manager, shiftId);
+    const pendingSum = sum(pending.receipts);
+    assert.equal(pending.receipts.length, 4);
+    assert.equal(pendingSum, '818000');
+    const closing = {
+      counted_cash_minor: '483100',
+      terminal_reported_minor: '199500',
+    };
+    const before = await count(pool, 'pos_sale_outbox');
+    await assert.rejects(close(shiftId, closing), code('FISCAL_PENDING'));
+    const wrong = await grantApproval(ctx, 'shift_close_pending_fiscal', {
+      shift_id: shiftId,
+      amount_minor: '1',
+    });
+    await assert.rejects(
+      close(shiftId, { ...closing, approval: proof(wrong) }),
+      code('APPROVAL_INVALID'),
+    );
+    assert.equal((await readCashShift(pool, ctx.branch, manager, shiftId)).state, 'open');
+    assert.equal(await count(pool, 'pos_shift_reports', 'shift_id=$1', [shiftId]), 0);
+    assert.equal(await count(pool, 'pos_sale_outbox'), before);
+    // The manager types the PIN in their own session on this desk.
+    const approval = await approve(
+      ctx,
+      'shift_close_pending_fiscal',
+      { shift_id: shiftId, amount_minor: pendingSum },
+      { actor: ctx.manager },
+    );
+    const key = randomUUID();
+    const closed = await close(shiftId, { ...closing, approval: proof(approval) }, key);
+    assert.deepEqual(CashShiftSchema.parse(closed), closed);
+    assert.equal(closed.state, 'closed');
+    assert.equal(closed.expected_cash_minor, '483000');
+    assert.equal(closed.counted_cash_minor, '483100');
+    assert.equal(closed.discrepancy_minor, '100');
+    assert.equal(closed.cash_received_minor, '398000');
+    assert.deepEqual(Object.keys(closed).sort(), Object.keys(first).sort());
+    assert.deepEqual(await close(shiftId, { ...closing, approval: proof(approval) }, key), closed);
+    assert.deepEqual(await readCashShift(pool, ctx.branch, manager, shiftId), closed);
+    const z = await report(shiftId, 'z');
+    assert.deepEqual(PosShiftReportSchema.parse(z), z);
+    assert.deepEqual(
+      { ...z, kind: 'x', state: 'open', closed_at: null, report_at: undefined },
+      {
+        ...x,
+        counted_cash_minor: '483100',
+        discrepancy_minor: '100',
+        terminal_reported_minor: '199500',
+        terminal_discrepancy_minor: '-500',
+        report_at: undefined,
+      },
+    );
+    assert.equal(z.kind, 'z');
+    assert.equal(z.closed_at, closed.closed_at);
+    const frozen = (
+      await pool.query('SELECT * FROM pos_shift_reports WHERE shift_id=$1', [shiftId])
+    ).rows[0];
+    assert.equal(frozen.pending_fiscal_count, 4);
+    assert.equal(frozen.approval_id, approval.approval_id);
+    assert.equal(frozen.terminal_reported_minor, '199500');
+    // posSales: the Z report as the cloud checks it (arithmetic of 5.6).
+    const event = (
+      await pool.query("SELECT * FROM pos_sale_outbox WHERE kind='shift_report' AND entity_id=$1", [
+        shiftId,
+      ])
+    ).rows[0];
+    const parsed = parsePosSaleEvent({
+      event_id: event.event_id,
+      branch_id: event.branch_id,
+      sequence: event.sequence,
+      kind: event.kind,
+      occurred_at: event.occurred_at.toISOString(),
+      payload: event.payload,
+    });
+    assert.deepEqual(parsed.payload, {
+      shift_id: shiftId,
+      terminal_id: ctx.cashier.terminal_id,
+      report: z,
+    });
+    // The cashier report of a sales shift counts sales and refunds (contracts 5.6).
+    const cashier = (
+      await pool.query(
+        "SELECT payload FROM cashier_report_outbox WHERE kind='shift' AND entity_id=$1 ORDER BY sequence DESC LIMIT 1",
+        [shiftId],
+      )
+    ).rows[0].payload;
+    assert.deepEqual(
+      [
+        cashier.state,
+        cashier.expected_cash_minor,
+        cashier.cash_sales_minor,
+        cashier.cash_refunds_minor,
+      ],
+      ['closed', '483000', '398000', '20000'],
+    );
+    // Z is frozen; X shows receipts recorded after the close.
+    await recordFiscalReceipt(
+      pool,
+      ctx.branch,
+      staffAuth(ctx.cashier),
+      randomUUID(),
+      a.sale.fiscal[0].receipt_id,
+      {
+        expected_version: 1,
+        receipt_number: 'SYN-WK-300',
+      },
+    );
+    assert.deepEqual((await report(shiftId, 'x')).fiscal, {
+      pending: 3,
+      recorded: 1,
+      not_required: 4,
+    });
+    assert.deepEqual(await report(shiftId, 'z'), z);
+    assert.equal((await report(shiftId, 'x')).terminal_reported_minor, '199500');
+    // No open sales shift on this desk: no refund here now.
+    await assert.rejects(
+      refundSale(ctx, a.order.order_id, await refundBody(ctx, a, [part(a, 'cash', '100')])),
+      code('CASH_SHIFT_REQUIRED'),
+    );
+    await assert.rejects(report(ctx.shifts.second, 'z'), code('CONFLICT'));
+    await assert.rejects(report(shiftId, 'x', ctx.second), code('NOT_FOUND'));
+    await assert.rejects(report(randomUUID(), 'x'), code('NOT_FOUND'));
+    await assert.rejects(report('nope', 'x'), code('INVALID_REQUEST'));
+    // A desk's pending receipts are closed with an approval of that desk only.
+    await sell(
+      ctx,
+      sale(await quote(ctx, { actor: ctx.second }), {
+        tenders: [{ method: 'kaspi_manual', amount_minor: '349000' }],
+      }),
+      { actor: ctx.second },
+    );
+    const remote = await grantApproval(ctx, 'shift_close_pending_fiscal', {
+      shift_id: ctx.shifts.second,
+      amount_minor: '349000',
+    });
+    await assert.rejects(
+      close(ctx.shifts.second, { counted_cash_minor: '500000', approval: proof(remote) }),
+      code('FORBIDDEN'),
+    );
+  });
+});
+
+test('HTTP: void, refunds, Webkassa receipts, X and Z and the sales close', async () => {
+  await desk(async (ctx) => {
+    const server = await running(createEdge, {
+      ...ctx.edge.config,
+      edgeFulfillmentEnabled: true,
+      edgeDeviceId: ctx.device,
+    });
+    const wire = (expected) =>
+      ErrorSchema.shape.code.options.includes(expected) ? expected : 'CONFLICT';
+    try {
+      const url = (path) => server.url + '/edge/v1/' + path;
+      const post = (path, body, actor = ctx.cashier, key = randomUUID()) =>
+        request(url(path), {
+          method: 'POST',
+          headers: staffHeaders(actor, key),
+          body: JSON.stringify(body),
+        });
+      const get = (path, actor = ctx.cashier) =>
+        request(url(path), { headers: staffHeaders(actor) });
+      const first = await cashSale(ctx);
+      const voided = await post(
+        `pos/sales/${first.order.order_id}/void`,
+        await voidBody(ctx, first),
+      );
+      assert.equal(voided.status, 200);
+      const result = PosSaleResultSchema.parse(await voided.json());
+      assert.equal(result.order.state, 'cancelled');
+      assert.equal(result.sale.refunds[0].kind, 'void');
+      const second = await mixSale(ctx);
+      const body = await refundBody(ctx, second, [part(second, 'kaspi_terminal', '300000')]);
+      const key = randomUUID();
+      const refunded = await post(
+        `pos/sales/${second.order.order_id}/refunds`,
+        body,
+        ctx.cashier,
+        key,
+      );
+      assert.equal(refunded.status, 201);
+      const sale2 = PosSaleSchema.parse(await refunded.json());
+      assert.equal(sale2.refundable_minor, '49000');
+      const replay = await post(
+        `pos/sales/${second.order.order_id}/refunds`,
+        body,
+        ctx.cashier,
+        key,
+      );
+      assert.equal(replay.status, 201);
+      assert.deepEqual(await replay.json(), sale2);
+      const limit = await post(
+        `pos/sales/${second.order.order_id}/refunds`,
+        await refundBody(ctx, second, [part(second, 'kaspi_terminal', '100')]),
+      );
+      assert.equal(limit.status, 409);
+      assert.equal((await limit.json()).code, wire('REFUND_LIMIT'));
+      assert.equal(
+        (await post(`pos/sales/${second.order.order_id}/refunds`, { ...body, tenders: [] })).status,
+        400,
+      );
+      assert.equal(
+        (await post(`pos/sales/${randomUUID()}/void`, await voidBody(ctx, first))).status,
+        404,
+      );
+      const pending = await get(`pos/fiscal-receipts/pending?shift_id=${ctx.shifts.first}`);
+      assert.equal(pending.status, 200);
+      assert.equal(pending.headers.get('cache-control'), 'no-store');
+      const receipts = PosFiscalPendingSchema.parse(await pending.json()).receipts;
+      assert.deepEqual(
+        receipts.map((receipt) => [receipt.kind, receipt.amount_minor]),
+        [
+          ['sale', '349000'],
+          ['refund', '300000'],
+        ],
+      );
+      assert.equal(
+        (
+          await get(
+            `pos/fiscal-receipts/pending?shift_id=${ctx.shifts.first}&shift_id=${ctx.shifts.first}`,
+          )
+        ).status,
+        400,
+      );
+      assert.equal((await get('pos/fiscal-receipts/pending?shift_id=bad')).status, 400);
+      const recorded = await post(`pos/fiscal-receipts/${receipts[1].receipt_id}/record`, {
+        expected_version: 1,
+        receipt_number: 'SYN-WK-HTTP-1',
+      });
+      assert.equal(recorded.status, 200);
+      assert.equal(PosFiscalReceiptSchema.parse(await recorded.json()).state, 'recorded');
+      const x = await get(`cash-shifts/${ctx.shifts.first}/x-report`);
+      assert.equal(x.status, 200);
+      assert.equal(x.headers.get('cache-control'), 'no-store');
+      assert.equal(PosShiftReportSchema.parse(await x.json()).expected_cash_minor, '549000');
+      const early = await get(`cash-shifts/${ctx.shifts.first}/z-report`);
+      assert.equal(early.status, 409);
+      assert.equal((await early.json()).code, 'CONFLICT');
+      const closing = {
+        expected_version: 1,
+        counted_cash_minor: '549000',
+        reason: 'Синтетическое закрытие',
+        terminal_reported_minor: '0',
+      };
+      const gated = await post(`cash-shifts/${ctx.shifts.first}/close`, closing, ctx.manager);
+      assert.equal(gated.status, 409);
+      assert.equal((await gated.json()).code, wire('FISCAL_PENDING'));
+      const approval = await grantApproval(ctx, 'shift_close_pending_fiscal', {
+        shift_id: ctx.shifts.first,
+        amount_minor: '349000',
+      });
+      const closed = await post(
+        `cash-shifts/${ctx.shifts.first}/close`,
+        { ...closing, approval: proof(approval) },
+        ctx.manager,
+      );
+      assert.equal(closed.status, 200);
+      assert.equal(CashShiftSchema.parse(await closed.json()).discrepancy_minor, '0');
+      const z = await get(`cash-shifts/${ctx.shifts.first}/z-report`);
+      assert.equal(z.status, 200);
+      const frozen = PosShiftReportSchema.parse(await z.json());
+      assert.equal(frozen.kind, 'z');
+      assert.equal(frozen.terminal_discrepancy_minor, '0');
+      assert.equal((await get(`cash-shifts/${randomUUID()}/x-report`)).status, 404);
+    } finally {
+      await server.app.close();
+    }
+  });
+});
+
+test('a restricted runtime LOGIN with the 5.9 grants voids, refunds, records and closes', async () => {
+  await desk(async (ctx) => {
+    const role = 'pos_money_' + randomUUID().replaceAll('-', ''),
+      password = randomBytes(32).toString('hex');
+    let pool;
+    try {
+      await ctx.edge.admin.query(
+        `CREATE ROLE ${role} LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT`,
+      );
+      await applyEdgeRuntimeGrants(ctx.edge.pool, role, {
+        schema: ctx.edge.schema,
+        fulfillment: true,
+      });
+      await ctx.edge.pool.query(posSalesRuntimeGrants(role, ctx.edge.schema));
+      const url = new URL(ctx.edge.config.databaseUrl);
+      url.username = role;
+      url.password = password;
+      pool = createPool(url.toString());
+      const restricted = { ...ctx, edge: { ...ctx.edge, pool } };
+      const a = await cashSale(restricted);
+      const voided = await voidSale(
+        restricted,
+        a.order.order_id,
+        await voidBody(ctx, a, { issued: true }),
+      );
+      assert.equal(voided.order.state, 'cancelled');
+      // The order number guard of schema026 runs on the 5.9 grants: void, re-entry, duplicate.
+      const glovo = async () =>
+        sell(
+          restricted,
+          sale(await quote(restricted, { channel: 'glovo' }), {
+            tenders: [{ method: 'aggregator_glovo', amount_minor: '389000' }],
+            external_order_ref: 'GL-LOGIN-1',
+          }),
+        );
+      const keyed = await glovo();
+      await voidSale(restricted, keyed.order.order_id, await voidBody(ctx, keyed));
+      assert.equal((await glovo()).sale.external_order_ref, 'GL-LOGIN-1');
+      await assert.rejects(glovo(), code('EXTERNAL_REF_DUPLICATE'));
+      const b = await mixSale(restricted);
+      const refunded = await refundSale(
+        restricted,
+        b.order.order_id,
+        await refundBody(ctx, b, [part(b, 'cash', '49000')]),
+      );
+      assert.equal(refunded.refunds.length, 1);
+      const receipt = refunded.fiscal.find((row) => row.kind === 'refund');
+      const recorded = await recordFiscalReceipt(
+        pool,
+        ctx.branch,
+        staffAuth(ctx.cashier),
+        randomUUID(),
+        receipt.receipt_id,
+        {
+          expected_version: 1,
+          receipt_number: 'SYN-WK-R1',
+        },
+      );
+      assert.equal(recorded.version, 2);
+      const corrected = await recordFiscalReceipt(
+        pool,
+        ctx.branch,
+        staffAuth(ctx.cashier),
+        randomUUID(),
+        receipt.receipt_id,
+        {
+          expected_version: 2,
+          receipt_number: 'SYN-WK-R2',
+          approval: proof(
+            await grantApproval(ctx, 'fiscal_correct', {
+              order_id: b.order.order_id,
+              amount_minor: '49000',
+            }),
+          ),
+        },
+      );
+      assert.equal(corrected.version, 3);
+      const pending = await listPendingFiscalReceipts(
+        pool,
+        ctx.branch,
+        staffAuth(ctx.manager),
+        ctx.shifts.first,
+      );
+      assert.equal(
+        (await readShiftReport(pool, ctx.branch, staffAuth(ctx.cashier), ctx.shifts.first, 'x'))
+          .fiscal.pending,
+        pending.receipts.length,
+      );
+      const closed = await closeCashShift(
+        pool,
+        ctx.branch,
+        staffAuth(ctx.manager),
+        randomUUID(),
+        ctx.shifts.first,
+        {
+          expected_version: 1,
+          counted_cash_minor: '500000',
+          reason: 'Синтетическое закрытие',
+          approval: proof(
+            await grantApproval(ctx, 'shift_close_pending_fiscal', {
+              shift_id: ctx.shifts.first,
+              amount_minor: sum(pending.receipts),
+            }),
+          ),
+        },
+      );
+      assert.equal(closed.state, 'closed');
+      assert.equal(
+        (await readShiftReport(pool, ctx.branch, staffAuth(ctx.manager), ctx.shifts.first, 'z'))
+          .kind,
+        'z',
+      );
+      const opened = await openCashShift(pool, ctx.branch, staffAuth(ctx.manager), randomUUID(), {
+        opening_cash_minor: '0',
+      });
+      assert.equal(opened.payment_processing_available, true);
+      // History stays append-only for the runtime.
+      for (const sql of [
+        'UPDATE pos_refunds SET reason=reason',
+        'DELETE FROM pos_refund_tenders',
+        'UPDATE pos_shift_reports SET report=report',
+        'UPDATE pos_fiscal_receipts SET amount_minor=amount_minor',
+      ])
+        await assert.rejects(pool.query(sql), code('42501'), sql);
+    } finally {
+      if (pool) await pool.end();
+      await ctx.edge.admin.query(`DROP OWNED BY ${role}`);
+      await ctx.edge.admin.query(`DROP ROLE ${role}`);
+    }
+  });
+});

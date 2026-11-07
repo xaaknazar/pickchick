@@ -103,7 +103,8 @@ export async function receivePosOrder(pool: DatabasePool, auth: DeviceAuth, inpu
             existing.snapshot_hash !== snapshotHash ||
             existing.quote_id !== p.quote_id ||
             existing.total_minor !== p.total_minor ||
-            (existing.execution_mode ?? undefined) !== p.execution_mode
+            (existing.execution_mode ?? undefined) !== p.execution_mode ||
+            existing.payment_state !== p.payment_state
       )
         throw new PosSyncError('CONFLICT');
       // No contiguous-global-sequence requirement: unrelated filtered stream events may create gaps.
@@ -124,10 +125,12 @@ export async function receivePosOrder(pool: DatabasePool, auth: DeviceAuth, inpu
         ],
       );
       if (event.aggregate_version === 1) {
+        // state/payment_state: awaiting_payment/not_started (the old row exactly) or, for a
+        // paid POS sale (cloud 073), paid/captured.
         await client.query(
           `INSERT INTO pos_order_sync_projection(order_id,branch_id,device_id,producer_id,
-          quote_id,snapshot,snapshot_hash,total_minor,version,state,last_event_id,execution_mode)
-          VALUES($1,$2,$3,$4,$5,$6,$7,$8,1,'awaiting_payment',$9,$10)`,
+          quote_id,snapshot,snapshot_hash,total_minor,version,state,last_event_id,execution_mode,
+          payment_state) VALUES($1,$2,$3,$4,$5,$6,$7,$8,1,$11,$9,$10,$12)`,
           [
             event.aggregate_id,
             branch,
@@ -139,6 +142,8 @@ export async function receivePosOrder(pool: DatabasePool, auth: DeviceAuth, inpu
             p.total_minor,
             event.event_id,
             p.execution_mode ?? null,
+            p.state,
+            p.payment_state,
           ],
         );
       } else {
@@ -151,7 +156,14 @@ export async function receivePosOrder(pool: DatabasePool, auth: DeviceAuth, inpu
       return receiptFor(event);
     });
   } catch (error) {
-    if (error && typeof error === 'object' && 'code' in error && error.code === '23505')
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      (error.code === '23505' ||
+        // A cloud before 073 refuses a paid POS sale by CHECK: the edge keeps it and retries.
+        (error.code === '23514' && p.execution_mode === 'pos_sale'))
+    )
       throw new PosSyncError('CONFLICT');
     throw error;
   }

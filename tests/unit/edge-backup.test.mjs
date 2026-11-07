@@ -34,7 +34,7 @@ const code = (expected) => (error) => error instanceof EdgeBackupError && error.
 const rows = (count) =>
   pinned.slice(0, count).map(({ version, checksum, scope }) => ({ version, checksum, scope }));
 
-test('only the reviewed edge schemas 020-025 are backed up; anything else is refused', () => {
+test('only the reviewed edge schemas 020-028 are backed up; anything else is refused', () => {
   assert.deepEqual(EDGE_BACKUP_SCHEMAS, {
     schema020: 20,
     schema021: 21,
@@ -42,6 +42,9 @@ test('only the reviewed edge schemas 020-025 are backed up; anything else is ref
     schema023: 23,
     schema024: 24,
     schema025: 25,
+    schema026: 26,
+    schema027: 27,
+    schema028: 28,
   });
   for (const [name, length] of Object.entries(EDGE_BACKUP_SCHEMAS))
     assert.equal(verifiedSchema(rows(length), pinned), name);
@@ -53,12 +56,16 @@ test('only the reviewed edge schemas 020-025 are backed up; anything else is ref
     ),
     'schema023',
   );
-  const future = { version: '026_edge_future.sql', checksum: 'a'.repeat(64), scope: 'edge' };
+  const future = {
+    version: String(pinned.length + 1).padStart(3, '0') + '_edge_future.sql',
+    checksum: 'a'.repeat(64),
+    scope: 'edge',
+  };
   for (const ledger of [
     rows(19),
     rows(14),
     [],
-    [...rows(25), future],
+    [...rows(pinned.length), future],
     // 024 is reviewed by its exact file bytes: another 024 is not schema024.
     rows(23).concat([{ ...pinned[23], checksum: 'd'.repeat(64) }]),
     rows(23).concat([{ ...pinned[23], version: '024_edge_other.sql' }]),
@@ -98,6 +105,69 @@ test('schema024 (stage 2 station plans) is reviewed by the exact bytes of the ed
   assert.equal(verifiedSchema(rows(24), pinned), 'schema024');
   // The pending runtime release (schema023) is still accepted by the same tool.
   assert.equal(verifiedSchema(rows(23), pinned), 'schema023');
+});
+
+test('schema026 (cutover POS sales) is reviewed by the exact bytes of the edge 026 migration', async () => {
+  const name = '026_edge_pos_sales.sql';
+  const bytes = await readFile(new URL('../../db/edge/migrations/' + name, import.meta.url));
+  const checksum = createHash('sha256').update(bytes).digest('hex');
+  // CR pos-6 section 2: the 026 with the posSales restore fence.
+  assert.equal(checksum, '921c526320f6b878f592949d7ca2ebc71e28a1ceb14881c74909314ed46d057c');
+  assert.deepEqual(pinned[25], { version: name, checksum, scope: 'edge' });
+  // The guarded 025 -> 026 upgrade applies exactly this file.
+  const { POS_SALES_MIGRATION } = await import('../../infra/windows/pos-sales-upgrade-db.mjs');
+  assert.equal(POS_SALES_MIGRATION, name);
+  assert.equal(verifiedSchema(rows(26), pinned), 'schema026');
+  // A cashier still on 025 before the window is backed up by the same tool.
+  assert.equal(verifiedSchema(rows(25), pinned), 'schema025');
+  // The superseded 026 drafts (CR pos-1, CR pos-5) are never a reviewed schema.
+  for (const superseded of [
+    '9e3ab95a851bae3bb7383e9517d5fcc76f6f0b92bacc98d12f3292309226e8be',
+    '4ff8da34df867929269b7554a61182741840a2300f7a406d4e33748e99a0d873',
+  ])
+    assert.throws(
+      () => verifiedSchema(rows(25).concat([{ ...pinned[25], checksum: superseded }]), pinned),
+      code('UNREVIEWED_SCHEMA'),
+    );
+});
+
+test('schema027 (cutover KDS foundation) is reviewed by the exact bytes of the edge 027 migration', async () => {
+  const name = '027_edge_kds_foundation.sql';
+  const bytes = await readFile(new URL('../../db/edge/migrations/' + name, import.meta.url));
+  const checksum = createHash('sha256').update(bytes).digest('hex');
+  // CR kds-1 section 1 (unchanged by CR kds-3, kds-5).
+  assert.equal(checksum, '41e55b450721646e45be599cf58626fd52328113f5a8165bb8fa5edf1e3a2a97');
+  assert.deepEqual(pinned[26], { version: name, checksum, scope: 'edge' });
+  const { KDS_MIGRATION, KDS_SHA256 } = await import('../../infra/windows/kds-upgrade-db.mjs');
+  assert.equal(KDS_MIGRATION, name);
+  assert.equal(KDS_SHA256, checksum);
+  assert.equal(verifiedSchema(rows(27), pinned), 'schema027');
+  assert.equal(verifiedSchema(rows(26), pinned), 'schema026');
+  assert.throws(
+    () => verifiedSchema(rows(26).concat([{ ...pinned[26], checksum: 'e'.repeat(64) }]), pinned),
+    code('UNREVIEWED_SCHEMA'),
+  );
+});
+
+test('schema028 (cutover desk number) is reviewed by the exact bytes of the edge 028 migration', async () => {
+  const name = '028_edge_pos_desk_number.sql';
+  const bytes = await readFile(new URL('../../db/edge/migrations/' + name, import.meta.url));
+  const checksum = createHash('sha256').update(bytes).digest('hex');
+  // CR pos-7 section 1.1.
+  assert.equal(checksum, '684ffa9c5265d32fd3c33e6190ca3126c83c5cb47974aa274cf198fc905d0abf');
+  assert.deepEqual(pinned[27], { version: name, checksum, scope: 'edge' });
+  // The guarded 027 -> 028 step (pos-sales-upgrade-db.mjs apply-028) applies exactly this file.
+  const { DESK_NUMBER_MIGRATION, DESK_NUMBER_SHA256 } =
+    await import('../../infra/windows/pos-sales-upgrade-db.mjs');
+  assert.equal(DESK_NUMBER_MIGRATION, name);
+  assert.equal(DESK_NUMBER_SHA256, checksum);
+  assert.equal(verifiedSchema(rows(28), pinned), 'schema028');
+  // A cashier still on 027 before the 028 step is backed up by the same tool.
+  assert.equal(verifiedSchema(rows(27), pinned), 'schema027');
+  assert.throws(
+    () => verifiedSchema(rows(27).concat([{ ...pinned[27], checksum: 'e'.repeat(64) }]), pinned),
+    code('UNREVIEWED_SCHEMA'),
+  );
 });
 const config = {
   format: 'pickchick-edge-backup-config-v1',
@@ -440,7 +510,9 @@ test('copy listing only accepts complete copies of this branch and old leftovers
     // that copy may hold the newest data, so it is neither a copy nor a leftover here.
     const newer = name('2026-10-20T09:17:00Z', '0000000b');
     await writeFile(join(dir, newer), 'x');
-    await writeFile(join(dir, newer + '.json'), sidecar(newer, 1, { schema: 'schema026' }));
+    const unreviewed =
+      'schema' + String(Math.max(...Object.values(EDGE_BACKUP_SCHEMAS)) + 1).padStart(3, '0');
+    await writeFile(join(dir, newer + '.json'), sidecar(newer, 1, { schema: unreviewed }));
     const damaged = name('2026-10-20T08:17:00Z', '0000000c');
     await writeFile(join(dir, damaged), 'x');
     await writeFile(join(dir, damaged + '.json'), '{"format":');

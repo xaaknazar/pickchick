@@ -1,0 +1,60 @@
+diff --git a/tests/unit/catalog-edge-parity.test.mjs b/tests/unit/catalog-edge-parity.test.mjs
+index a0c23db5..79b2b776 100644
+--- a/tests/unit/catalog-edge-parity.test.mjs
++++ b/tests/unit/catalog-edge-parity.test.mjs
+@@ -211,10 +211,18 @@ test('routing coverage reports routes derived on apply and proves derivation wit
+   });
+   assert.equal(report.ok, true);
+   assert.equal(report.routing.derived_version, 3);
+-  // With two prep stations a new prep route cannot be derived: the publication would be rejected.
++  // Prep routes on two prep stations: a new prep route cannot be derived (cutover KDS-2 rule),
++  // the publication would be rejected.
++  const secondPrep = '30000000-0000-4000-8000-000000000003';
+   const ambiguous = {
+-    routing: { ...routing, routes: routing.routes.slice(1) },
+-    stations: [...stations, { id: '30000000-0000-4000-8000-000000000003', kind: 'prep' }],
++    routing: {
++      ...routing,
++      routes: [
++        ...routing.routes.slice(1),
++        { productId: 'other-prep', stationId: secondPrep, kind: 'prep' },
++      ],
++    },
++    stations: [...stations, { id: secondPrep, kind: 'prep' }],
+   };
+   report = catalogEdgeParity({ catalog: mockupCatalogDraft, snapshot, routing: ambiguous });
+   assert.equal(report.ok, false);
+diff --git a/tests/unit/menu-routing.test.mjs b/tests/unit/menu-routing.test.mjs
+index 49775a1b..5096ff75 100644
+--- a/tests/unit/menu-routing.test.mjs
++++ b/tests/unit/menu-routing.test.mjs
+@@ -92,7 +92,7 @@ test('existing stations win over a changed kitchen field; routes of removed prod
+   assert.ok(first.routes.some((route) => route.productId === removed.source_id));
+ });
+ 
+-test('new products follow the published kitchen field and the single prep station only', () => {
++test('new products follow the published kitchen field and the prep station of the prep routes', () => {
+   const snapshot = menu();
+   const active = installed(snapshot);
+   const extra = {
+@@ -112,8 +112,19 @@ test('new products follow the published kitchen field and the single prep statio
+     kind: 'prep',
+   });
+   assert.equal(routes.get(extra.product_id).stationId, prep);
++  // Cutover KDS-2: with a second prep station (KDS 5 and 6 are prep) a new prep item follows
++  // the station of the existing prep routes; routes on two prep stations stay ambiguous.
+   const second = [...stations, { id: randomUUID(), kind: 'prep' }];
+-  assert.throws(() => deriveRouting(withExtra, active, second), unresolved);
++  assert.equal(
++    deriveRouting(withExtra, active, second).routes.find((route) => route.productId === 'new-item')
++      .stationId,
++    prep,
++  );
++  const split = {
++    ...active,
++    routes: [...active.routes, { productId: 'other-prep', stationId: second[2].id, kind: 'prep' }],
++  };
++  assert.throws(() => deriveRouting(withExtra, split, second), unresolved);
+   // An assembly item never needs the prep station, even when there are two.
+   const assemblyOnly = {
+     items: [...snapshot.items, { ...extra, kitchen: { route: 'assembly_item' } }],

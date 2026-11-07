@@ -89,7 +89,12 @@ export class KioskCheckoutController {
           RESTAURANT_CLOSED: 409,
           CATALOG_UPGRADE_REQUIRED: 409,
         };
-        throw new HttpException({ code: error.code }, codes[error.code]);
+        // REFUND_LIMIT is a cashier edge code in ErrorSchema (CR pos-1): kiosk bundles keep the
+        // CONFLICT the error filter answered before the edge codes joined it.
+        throw new HttpException(
+          { code: error.code === 'REFUND_LIMIT' ? 'CONFLICT' : error.code },
+          codes[error.code],
+        );
       }
       throw error;
     }

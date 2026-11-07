@@ -538,6 +538,9 @@ td.price {
   white-space: nowrap;
   font-weight: 650;
 }
+td.price .aggregator-prices {
+  font-weight: 400;
+}
 .product-identity {
   display: flex;
   align-items: center;
@@ -2294,4 +2297,296 @@ textarea {
 .photo-actions > .button {
   flex: 0 0 auto;
   margin-bottom: 26px;
+}
+/* Cutover CC-7: sales report on the reports page. */
+.sales-report {
+  min-width: 0;
+}
+.sales-report-filters {
+  grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) auto;
+  margin: 12px 0;
+}
+.sales-report-filters input {
+  min-height: 44px;
+  width: 100%;
+}
+.sales-report h3 {
+  margin: 22px 0 8px;
+  font-size: 15px;
+}
+.sales-table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.sales-table td {
+  white-space: nowrap;
+}
+.sales-table td:nth-child(n + 6) {
+  white-space: normal;
+}
+.sales-report-rules ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+@media (max-width: 650px) {
+  .sales-report-filters {
+    grid-template-columns: 1fr;
+  }
+  .sales-report .panel-head {
+    flex-wrap: wrap;
+  }
+}
+/* Lane bo-ui «Касса» (BACKOFFICE_POS_DAY_ENABLED): only new classes, nothing else changes. */
+.pos-day,
+.pos-day-body,
+.pos-shifts {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.pos-day > *,
+.pos-day-body > *,
+.pos-shifts > *,
+.pos-home > *,
+.pos-dialog > * {
+  min-width: 0;
+}
+.pos-day-controls > .button {
+  justify-self: start;
+}
+.pos-home .stats,
+.pos-amount {
+  white-space: nowrap;
+}
+.pos-day .pos-stats {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+.pos-dialog .pos-stats {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+.pos-dialog .stat strong {
+  font-size: 20px;
+}
+/* The receipt card: columns share the dialog width and their text wraps inside them. */
+.pos-dialog .op-table {
+  table-layout: fixed;
+}
+.pos-dialog .op-table th {
+  white-space: normal;
+}
+.pos-day-controls {
+  display: grid;
+  grid-template-columns: minmax(150px, 220px) minmax(150px, 260px) auto;
+  align-items: end;
+  gap: 12px;
+}
+.pos-day-controls input,
+.pos-day-controls select,
+.pos-receipt-filters input,
+.pos-receipt-filters select {
+  min-height: 44px;
+  width: 100%;
+}
+.pos-day-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.pos-day-tabs .button.selected,
+.pos-day-tabs .button.selected:hover:not(:disabled),
+.pos-day-tabs .button.selected:focus-visible {
+  background: var(--text);
+  color: var(--card);
+  border-color: var(--text);
+}
+.pos-day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.pos-day-head h2 {
+  font-size: 18px;
+  margin: 0;
+}
+.pos-day h3,
+.pos-dialog h3,
+.pos-home h3 {
+  margin: 18px 0 8px;
+  font-size: 15px;
+}
+.pos-shift h4 {
+  margin: 14px 0 6px;
+  font-size: 14px;
+}
+.pos-shift-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.pos-receipt-filters {
+  display: grid;
+  grid-template-columns: minmax(200px, 2fr) repeat(3, minmax(140px, 1fr));
+  align-items: end;
+  gap: 12px;
+}
+.pos-receipt-name {
+  display: flex;
+  flex-direction: column;
+}
+.pos-receipt-name small,
+.pos-table td small {
+  display: block;
+}
+.pos-table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+/* The global table minimum (870 px) and the global first/last cell widths (34 %, 215 px) would
+   push «Касса» tables past their panel and dialog and squeeze the phone cards. */
+.pos-table table {
+  min-width: 0;
+}
+.pos-table td:first-child,
+.pos-table td:last-child {
+  width: auto;
+}
+.pos-table td {
+  /* Words wrap at spaces only (audit F19: no «Наличн-ые»). */
+  overflow-wrap: break-word;
+  padding: 12px 8px;
+}
+.pos-table th {
+  padding: 12px 8px;
+}
+.pos-nowrap,
+.op-nowrap {
+  white-space: nowrap;
+}
+.pos-notice {
+  margin: 0;
+}
+.pos-warn {
+  border-left: 4px solid var(--red);
+  font-weight: 600;
+}
+.pos-day-rules ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.pos-day-rules summary {
+  cursor: pointer;
+  min-height: 44px;
+  font-weight: 600;
+}
+.pos-home {
+  display: grid;
+  gap: 14px;
+}
+.pos-home-period {
+  font-size: 15px;
+  margin: 18px 0 0;
+}
+.pos-order-totals {
+  font-weight: 600;
+  color: var(--text);
+}
+.pos-shift-key {
+  font-weight: 600;
+  margin: 8px 0;
+}
+.pos-method-lines {
+  display: none;
+  margin: 8px 0;
+  padding-left: 18px;
+}
+.pos-method-lines li {
+  margin: 4px 0;
+}
+/* Review BOUI-R6: a phone shows the methods of a shift as one line each, not a card per row,
+   and the cash and Kaspi tables of a shift as «Показатель ... сумма» lines. */
+@media (max-width: 480px) {
+  .pos-shift [data-testid='pos-shift-methods'] {
+    display: none;
+  }
+  .pos-method-lines {
+    display: block;
+  }
+  .pos-shift .pos-shift-grid .pos-table tr {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+  }
+  .pos-shift .pos-shift-grid .pos-table td {
+    display: block;
+    padding: 0;
+  }
+  .pos-shift .pos-shift-grid .pos-table td::before {
+    content: none;
+  }
+  .pos-shift .pos-shift-grid .pos-table td:last-child {
+    text-align: right;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+}
+@media (max-width: 650px) {
+  .pos-day-controls,
+  .pos-receipt-filters,
+  .pos-shift-grid {
+    grid-template-columns: 1fr;
+  }
+  .pos-day-tabs .button {
+    flex: 1 1 30%;
+  }
+  /* Phone: every row becomes a labelled card; no amount or button is off the screen. */
+  .pos-table .op-table,
+  .pos-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  .pos-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .pos-table tr {
+    display: block;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .pos-table td {
+    display: grid;
+    grid-template-columns: minmax(96px, 40%) minmax(0, 1fr);
+    gap: 8px;
+    padding: 4px 0;
+    border: 0;
+    white-space: normal;
+    max-width: none;
+  }
+  .pos-table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 400;
+  }
+  .pos-table td[data-label='']::before {
+    content: none;
+  }
+  .pos-table .pos-empty-row td {
+    display: block;
+  }
 }

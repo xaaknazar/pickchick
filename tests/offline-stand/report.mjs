@@ -57,6 +57,9 @@ export function renderMarkdown(report) {
         ? `накоплено ${notes.events_accumulated} событий`
         : null,
       notes.offline_minutes !== undefined ? `без интернета ${notes.offline_minutes} мин` : null,
+      notes.paid_sales !== undefined
+        ? `продаж с оплатой ${notes.paid_sales} (без связи ${notes.paid_sales_offline}), Z: ${notes.shifts?.length ?? 0}`
+        : null,
       notes.pos_orders_lost_by_restore !== undefined
         ? `потеряно восстановлением: ${notes.pos_orders_lost_by_restore} заказов кассы, ${notes.channel_orders_lost_by_restore} заказов киоска/приложения`
         : null,
@@ -121,6 +124,10 @@ export function renderMarkdown(report) {
       `- Выдано гостям: ${v.handed_over}; отметок комбо: ${v.stamps}; команд стопа из кабинета: ${v.remote_stop_commands}.`,
       `- События синхронизации касса <-> облако: ${v.total_sync_events} (заказы кассы ${v.pos_events}, кухня кассы ${v.kitchen_events_pos}, кухня киоска/приложения ${v.kitchen_events_channel}, команды облака ${v.cloud_commands_applied}, отчёты смен ${v.cashier_report_events}).`,
     );
+    if (v.paid_sales !== undefined)
+      lines.push(
+        `- День с оплатой (pos_sale): продаж ${v.paid_sales} (отменено ${v.paid_voided}), возвратов ${v.paid_refunds}, Z ${v.paid_z}, событий posSales ${v.paid_events}.`,
+      );
   }
   const counters = report.actors?.counters;
   if (counters)

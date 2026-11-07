@@ -1,10 +1,55 @@
+import { dash } from './ui-fixes.js';
 import type { CatalogPayload } from '@pickchick/catalog-admin/contracts';
 export type { CatalogPayload };
 export type Product = CatalogPayload['products'][number];
 export type Group = Product['modifier_groups'][number];
 export type Branch = { id: string; code: string; name: string };
 export type Actor = { id: string; name: string };
-export type PublicationSupport = { mobile: boolean; pos: boolean; kiosk: boolean };
+export type PublicationSupport = {
+  mobile: boolean;
+  pos: boolean;
+  kiosk: boolean;
+  /** CATALOG_AGGREGATOR_PRICES_ENABLED: the cashier takes Yandex Eda / Glovo prices (cutover). */
+  aggregator_prices?: true;
+};
+/** Own channels: draft-only overrides of the base price (mobile publishes on its storefront). */
+export const OWN_CHANNELS = ['mobile', 'pos', 'kiosk'] as const;
+/** Aggregator channels (cutover Аг4): a price present = sold there; only the cashier uses it. */
+export const AGGREGATOR_CHANNELS = ['yandex_eda', 'glovo'] as const;
+export type PriceChannel = (typeof OWN_CHANNELS)[number] | (typeof AGGREGATOR_CHANNELS)[number];
+const PRICE_CHANNELS: readonly string[] = [...OWN_CHANNELS, ...AGGREGATOR_CHANNELS];
+const isAggregatorChannel = (channel: string) =>
+  (AGGREGATOR_CHANNELS as readonly string[]).includes(channel);
+/** Text of a channel price field: tenge, or empty when the product has no price there. */
+export function channelPriceInput(p: Product, channel: PriceChannel): string {
+  const value = p.channel_prices_minor?.[channel];
+  return value === undefined ? '' : toMajor(value);
+}
+/**
+ * Applies a channel price field to the product in place and touches nothing else. Empty removes
+ * the key (and an emptied channel_prices_minor); a valid amount sets it; an invalid one leaves
+ * the product unchanged for explicit validation and returns false.
+ */
+export function setChannelPrice(p: Product, channel: PriceChannel, input: string): boolean {
+  if (!input.trim()) {
+    if (p.channel_prices_minor) {
+      delete p.channel_prices_minor[channel];
+      if (!Object.keys(p.channel_prices_minor).length) delete p.channel_prices_minor;
+    }
+    return true;
+  }
+  let minor: string;
+  try {
+    minor = toMinor(input);
+  } catch {
+    return false;
+  }
+  p.channel_prices_minor ??= {};
+  p.channel_prices_minor[channel] = minor;
+  return true;
+}
+export const hasAggregatorPrice = (p: Product) =>
+  Object.keys(p.channel_prices_minor ?? {}).some(isAggregatorChannel);
 export type MenuRejectReason =
   'ROUTING_UNRESOLVED' | 'VERSION_NOT_NEWER' | 'MEDIA_UNAVAILABLE' | 'INVALID_MENU';
 /** Cashier (edge) delivery of the latest catalog publication, as the catalog state reports it. */
@@ -131,8 +176,7 @@ export function productIssues(p: Product, payload: CatalogPayload): string[] {
       errors.push('Цены каналов: некорректный формат.');
     else
       for (const [channel, value] of Object.entries(overrides)) {
-        if (!['mobile', 'pos', 'kiosk'].includes(channel))
-          errors.push('Цены каналов: неизвестный канал.');
+        if (!PRICE_CHANNELS.includes(channel)) errors.push('Цены каналов: неизвестный канал.');
         try {
           if (typeof value !== 'string') throw new Error();
           toMajor(value);
@@ -360,9 +404,11 @@ export function deliveryText(
     };
   if (delivery.status === 'rejected')
     return {
-      text: `Касса: отклонено — ${
-        delivery.reject_reason ? rejectText[delivery.reject_reason] : 'причина не указана'
-      }`,
+      text: dash(
+        `Касса: отклонено — ${
+          delivery.reject_reason ? rejectText[delivery.reject_reason] : 'причина не указана'
+        }`,
+      ),
       tone: 'bad',
       warning: null,
     };
@@ -394,6 +440,10 @@ export function publicationCopy(support: PublicationSupport | undefined): string
     parts.push(
       'Касса получит меню после подтверждения кассового узла (обычно в течение минуты); статус виден на этой странице.',
     );
+  if (support?.pos && support.aggregator_prices)
+    parts.push(
+      'Цены Яндекс Еды и Glovo получит только касса - для заказов с планшетов агрегаторов; приложение и киоск их не показывают.',
+    );
   const off = [
     !support?.mobile && 'приложение',
     !support?.kiosk && 'киоск',
@@ -401,7 +451,8 @@ export function publicationCopy(support: PublicationSupport | undefined): string
   ].filter(Boolean) as string[];
   if (off.length === 3)
     return 'Связь публикаций с приложением, киоском и кассой ещё не включена. Сохранённая версия станет действующей после подключения каналов.';
-  if (off.length) parts.push(`Не подключены: ${off.join(', ')} — они остаются на своих версиях.`);
+  if (off.length)
+    parts.push(dash(`Не подключены: ${off.join(', ')} — они остаются на своих версиях.`));
   return parts.join(' ');
 }
 export function parseState(value: unknown): CatalogState {
@@ -431,6 +482,7 @@ export function parseState(value: unknown): CatalogState {
         mobile: support['mobile'] === true,
         pos: support['pos'] === true,
         kiosk: support['kiosk'] === true,
+        ...(support['aggregator_prices'] === true ? { aggregator_prices: true as const } : {}),
       };
     // A delivery status this build cannot read is dropped rather than breaking the editor.
     if (state.edge_delivery !== undefined)
@@ -441,10 +493,37 @@ export function parseState(value: unknown): CatalogState {
   }
 }
 
-export function catalogHasChannelPrices(payload: CatalogPayload, mobileEnabled = false): boolean {
+/**
+ * True when the payload has a channel price the server would refuse to publish: own channels
+ * (mobile only with its storefront), aggregators only while the cashier takes their prices.
+ */
+export function catalogHasChannelPrices(
+  payload: CatalogPayload,
+  mobileEnabled = false,
+  aggregatorEnabled = false,
+): boolean {
   return payload.products.some((product) =>
     Object.keys(product.channel_prices_minor ?? {}).some(
-      (channel) => channel !== 'mobile' || !mobileEnabled,
+      (channel) =>
+        !(channel === 'mobile' && mobileEnabled) &&
+        !(aggregatorEnabled && isAggregatorChannel(channel)),
     ),
   );
+}
+/** Aggregator prices the server would refuse: present while their publication is off. */
+export const catalogHasBlockedAggregatorPrices = (
+  payload: CatalogPayload,
+  aggregatorEnabled = false,
+) => !aggregatorEnabled && payload.products.some(hasAggregatorPrice);
+/** One-line aggregator prices of a product for the catalog table: «Яндекс Еда: 4 590 ₸ · Glovo: -». */
+export function aggregatorPriceLine(p: Product): string {
+  return [
+    ['yandex_eda', 'Яндекс Еда'],
+    ['glovo', 'Glovo'],
+  ]
+    .map(([channel, label]) => {
+      const value = p.channel_prices_minor?.[channel as PriceChannel];
+      return `${label}: ${value === undefined ? '-' : money(value)}`;
+    })
+    .join(' · ');
 }

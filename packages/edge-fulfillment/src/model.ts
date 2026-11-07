@@ -1,11 +1,16 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
+import type { KdsFunction } from './kds.js';
 
 export class FulfillmentError extends Error {
   constructor(
     readonly code:
       'INVALID' | 'FORBIDDEN' | 'NOT_FOUND' | 'CONFLICT' | 'NOT_READY' | 'ROUTING_MISSING',
-    readonly reason?: 'ITEM_STOPPED',
+    /**
+     * ITEM_STOPPED: a NOT_READY admission refusal (stopped item). HANDOVER_MARKS_REQUIRED: an
+     * INVALID handoff of a delivery order without the three courier marks (cutover KDS-4).
+     */
+    readonly reason?: 'ITEM_STOPPED' | 'HANDOVER_MARKS_REQUIRED',
   ) {
     super(code);
   }
@@ -110,6 +115,15 @@ const DetailsSchema = z
       .max(100),
   })
   .passthrough();
+/**
+ * Cutover KDS (contracts section 5.2): aggregator order of a cashier sale. The pos lane writes
+ * it for yandex_eda/glovo sales (the external order ref upper-case); same rule as
+ * FulfillmentDeliverySchema and delivery_handovers (027). Absent for hall, ChocoFood and cloud.
+ */
+export const SnapshotDeliverySchema = z.strictObject({
+  provider: z.enum(['yandex_eda', 'glovo']),
+  externalNumber: z.string().regex(/^[A-Z0-9-]{3,40}$/),
+});
 export const SnapshotSchema = z
   .object({
     organizationId: uuid,
@@ -118,6 +132,7 @@ export const SnapshotSchema = z
     serviceMode: z.enum(['takeaway', 'dine_in']),
     displayName: z.string().max(14).optional(),
     kitchenComment: z.string().max(60).optional(),
+    delivery: SnapshotDeliverySchema.optional(),
     currency: z.literal('KZT'),
     totalMinor: z.string().regex(/^(0|[1-9][0-9]{0,15})$/),
     lines: z
@@ -196,7 +211,40 @@ export const StaffCommandSchema = z.strictObject({
   expectedTaskVersion: z.int().positive().optional(),
   reason: z.string().min(1).max(500).optional(),
   inventoryDisposition: z.enum(['requires_inventory_review', 'recorded_elsewhere']).optional(),
+  /**
+   * Cutover KDS-4 (contracts section 5.4, FulfillmentHandoverSchema): the courier protocol marks
+   * of a delivery order handoff, each confirmed. Absent on every other command, so the request
+   * hash of every existing command is unchanged.
+   */
+  handover: z
+    .strictObject({
+      numberMatched: z.literal(true),
+      courierAccepted: z.literal(true),
+      photoTaken: z.literal(true),
+    })
+    .optional(),
 });
+/**
+ * Cutover KDS-4: a courier protocol refusal (Аг9) as the kitchen sends it. Structural mirror of
+ * CourierIncidentRequestSchema (@pickchick/contracts kds.ts, which this package does not depend
+ * on); a test pins both. The client's Idempotency-Key is the incident id.
+ */
+/** +7 or 8 and ten digits: the journal stores no phone numbers (looksLikePhone of the contract). */
+const noPhone = (text: string) =>
+  !/(?:\+\s*7|(?<![\p{L}\p{N}-])8)(?:[\s()-]*\d){10}(?!\d)/u.test(text);
+export const CourierIncidentInputSchema = z.strictObject({
+  orderId: uuid.optional(),
+  provider: z.enum(['yandex_eda', 'glovo', 'other']),
+  claimedNumber: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9-]{1,40}$/)
+    .refine(noPhone)
+    .optional(),
+  kind: z.enum(['number_mismatch', 'not_accepted_in_app', 'no_photo', 'courier_refused', 'other']),
+  description: z.string().trim().min(3).max(500).refine(noPhone),
+});
+export const CourierIncidentQuerySchema = z.strictObject({ scope: z.enum(['open', 'today']) });
 export const LeaseSchema = z.strictObject({
   workerId: uuid,
   limit: z.int().min(1).max(100),
@@ -205,6 +253,18 @@ export const LeaseSchema = z.strictObject({
 export const AckSchema = z.strictObject({ eventId: uuid, workerId: uuid, leaseToken: uuid });
 export type Routing = z.infer<typeof RoutingSchema>;
 export type Snapshot = z.infer<typeof SnapshotSchema>;
+/**
+ * KDS task details (contracts section 5.4, FulfillmentTaskKdsSchema), frozen at admission while
+ * the edge KDS layout is enabled; never set by taskPlan.
+ */
+export type KdsTaskDetails = {
+  function: KdsFunction;
+  upstreamOf?: string;
+  units?: number;
+  unit?: 'finger' | 'toast' | 'burger';
+  fingers?: number;
+  unmapped?: true;
+};
 export type TaskPlan = {
   componentKey: string;
   stationId: string;
@@ -217,6 +277,7 @@ export type TaskPlan = {
     parentTitle: string;
     description: string;
     modifiers: unknown[];
+    kds?: KdsTaskDetails;
   };
 };
 /** Explicit routes for every leaf and parent item; no inferred "default station". */

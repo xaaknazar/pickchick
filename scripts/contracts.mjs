@@ -75,6 +75,8 @@ import {
   PosOrderEventSchema,
   PosKitchenEventSchema,
   PosOrderReceiptSchema,
+  PosSaleBatchSchema,
+  PosSaleBatchResultSchema,
 } from '@pickchick/pos-order-sync';
 import {
   CatalogStateSchema,
@@ -363,6 +365,219 @@ const openapi = {
       'CashMovementInput',
       { idempotent: true, shiftId: true },
     ),
+    // cutover:pos begin
+    // Paid POS sales on the cashier edge (docs/architecture/cutover-2026-11-contracts.md 5.1).
+    // Schemas are inlined so this block needs no shared import or component edit (contracts 4.2).
+    ...(await (async () => {
+      const c = await import('@pickchick/contracts');
+      const body = (schema) => ({
+        required: true,
+        content: { 'application/json': { schema: jsonSchema(schema) } },
+      });
+      const ok = (schema, description = 'Success') => ({
+        description,
+        content: { 'application/json': { schema: jsonSchema(schema) } },
+      });
+      const uuidParameter = (name, where = 'path') => ({
+        name,
+        in: where,
+        required: true,
+        schema: { type: 'string', format: 'uuid' },
+      });
+      const errors = {
+        400: response('Error', 'Invalid request'),
+        401: response('Error', 'Invalid or expired local staff session'),
+        403: response('Error', 'Role cannot perform operation'),
+        404: response('Error', 'Edge without schema026, or resource outside actor scope'),
+        500: response('Error', 'Internal error'),
+      };
+      const staff = [{ staffBearer: [], staffSession: [] }];
+      const conflicts =
+        'Paid-sale rule refused (contracts 5.1): SERVICE_MODE_DISABLED, METHOD_DISABLED, TENDER_SUM_MISMATCH, CASH_TENDERED_TOO_LOW, TERMINAL_AMOUNT_NOT_WHOLE, CHANNEL_PRICE_UNAVAILABLE, EXTERNAL_REF_REQUIRED, EXTERNAL_REF_DUPLICATE, APPROVAL_REQUIRED, APPROVAL_INVALID, CASH_SHIFT_REQUIRED, QUOTE_EXPIRED, MENU_CHANGED, ITEM_STOPPED, KITCHEN_UNAVAILABLE, or an idempotency conflict. Until ErrorSchema lists the POS codes (CR pos-1) the body says CONFLICT.';
+      return {
+        // The hall cart is unchanged; an aggregator quote names sales_channel ('hall' = absent).
+        '/edge/v1/checkout/quotes': {
+          post: {
+            ...staffOperation('post', 'createLocalQuote', 'Quote', 'Cart', { status: 201 }).post,
+            requestBody: body(c.PosQuoteRequestSchema),
+            description:
+              'sales_channel yandex_eda|glovo only in pos_sale mode and only takeaway; lines are priced with the aggregator price (409 CHANNEL_PRICE_UNAVAILABLE when the item is not sold there). Without the field (or with hall) the quote is exactly the hall quote.',
+          },
+        },
+        '/edge/v1/pos/config': {
+          get: {
+            operationId: 'readPosConfig',
+            security: staff,
+            parameters: [
+              {
+                name: 'client_version',
+                in: 'query',
+                required: false,
+                schema: { type: 'string', pattern: '^[0-9A-Za-z][0-9A-Za-z._+-]{0,63}$' },
+                description: 'Client build of this cash desk, recorded with its last config fetch.',
+              },
+            ],
+            responses: { 200: ok(c.PosConfigSchema), ...errors },
+            description:
+              'Service mode, the eight payment methods and channels of the branch. 404 on an edge without schema026: the POS keeps its unpaid UI.',
+          },
+        },
+        '/edge/v1/pos/sales': {
+          post: {
+            operationId: 'createPosSale',
+            security: staff,
+            parameters: [uuidParameter('Idempotency-Key', 'header')],
+            requestBody: body(c.PosSaleRequestSchema),
+            responses: {
+              201: ok(c.PosSaleResultSchema, 'Paid order admitted to the kitchen'),
+              ...errors,
+              409: response('Error', conflicts),
+              413: response('Error', 'Request too large'),
+            },
+            description:
+              'One PostgreSQL transaction: paid captured order, tenders, kitchen admission, Webkassa receipt record and durable posSales events. A replay with the same Idempotency-Key and body returns the stored result and never spends an approval twice. An aggregator or ChocoFood order number belongs to at most one sale of its channel that is not voided (EXTERNAL_REF_DUPLICATE): a void frees it for the corrected re-entry.',
+          },
+        },
+        '/edge/v1/pos/sales/{orderId}': {
+          get: {
+            operationId: 'readPosSale',
+            security: staff,
+            parameters: [uuidParameter('orderId')],
+            responses: { 200: ok(c.PosSaleSchema), ...errors },
+          },
+        },
+        '/edge/v1/staff/approvals': {
+          post: {
+            operationId: 'requestManagerApproval',
+            security: staff,
+            requestBody: body(c.ManagerApprovalRequestSchema),
+            responses: {
+              201: ok(c.ManagerApprovalSchema, 'One-time approval token, valid 120 s'),
+              ...errors,
+              401: response('Error', 'Invalid session, or wrong manager PIN'),
+              403: response('Error', 'The PIN is not a shift manager'),
+              429: {
+                ...response('Error', 'AUTH_RATE_LIMITED: PIN backoff of this cash desk'),
+                headers: { 'Retry-After': { schema: { type: 'string' } } },
+              },
+              503: response('Error', 'Local service unavailable'),
+            },
+            description:
+              'The shift manager PIN on this cash desk (the terminal of the session) with the backoff of staff/pin. staff_id names the manager, or is the session staff itself: then the owner of the PIN must be a shift manager. The token is bound to the desk, action and subject hash and is spent once by the command that needs it.',
+          },
+        },
+        '/edge/v1/pos/sales/{orderId}/void': {
+          post: {
+            operationId: 'voidPosSale',
+            security: staff,
+            parameters: [uuidParameter('orderId'), uuidParameter('Idempotency-Key', 'header')],
+            requestBody: body(c.PosVoidRequestSchema),
+            responses: {
+              200: ok(c.PosSaleResultSchema, 'Order cancelled (version 2) and the sale returned'),
+              ...errors,
+              409: response(
+                'Error',
+                'ORDER_IN_PRODUCTION (the kitchen started: refund instead), DRAWER_INSUFFICIENT, APPROVAL_INVALID, CASH_SHIFT_REQUIRED, SERVICE_MODE_DISABLED, or CONFLICT (version, a refund already made, a recorded sale receipt with fiscal_sale_issued false, a sale receipt that was not required with fiscal_sale_issued true, idempotency). Until ErrorSchema lists the POS codes (CR pos-1) the body says CONFLICT.',
+              ),
+            },
+            description:
+              "Before the kitchen starts, with the approval 'void' for {order_id, amount_minor: total}: one transaction cancels the kitchen admission and the order, returns every tender in full at this desk's open sales shift (cash from its drawer) and records the return receipt (pending when fiscal_sale_issued, else not_required; a pending sale receipt then becomes not_required).",
+          },
+        },
+        '/edge/v1/pos/sales/{orderId}/refunds': {
+          post: {
+            operationId: 'refundPosSale',
+            security: staff,
+            parameters: [uuidParameter('orderId'), uuidParameter('Idempotency-Key', 'header')],
+            requestBody: body(c.PosRefundRequestSchema),
+            responses: {
+              201: ok(c.PosSaleSchema, 'Refund recorded; the order row is unchanged'),
+              ...errors,
+              409: response(
+                'Error',
+                'REFUND_LIMIT (above what a tender still holds, or 100 refunds), REFUND_NOT_SUPPORTED (aggregator, ChocoFood, staff meal, marketing), TERMINAL_AMOUNT_NOT_WHOLE, DRAWER_INSUFFICIENT, APPROVAL_INVALID, CASH_SHIFT_REQUIRED, SERVICE_MODE_DISABLED, or CONFLICT (voided sale, known refund_id, idempotency). Until ErrorSchema lists the POS codes (CR pos-1) the body says CONFLICT.',
+              ),
+            },
+            description:
+              "Full or partial amounts per tender with the approval 'refund' for {order_id, amount_minor: the refund}, at this desk's open sales shift; cash never above its drawer. The refund receipt is pending when the sale had a receipt, else not_required.",
+          },
+        },
+        '/edge/v1/pos/fiscal-receipts/pending': {
+          get: {
+            operationId: 'listPendingFiscalReceipts',
+            security: staff,
+            parameters: [
+              {
+                name: 'shift_id',
+                in: 'query',
+                required: false,
+                schema: { type: 'string', format: 'uuid' },
+                description: 'Receipts of the sales and refunds of this shift (its closing gate).',
+              },
+            ],
+            responses: { 200: ok(c.PosFiscalPendingSchema), ...errors },
+            description:
+              'Receipts still to be punched in the Webkassa cabinet, oldest first: of this cash desk for a cashier, of every desk for a shift manager.',
+          },
+        },
+        '/edge/v1/pos/fiscal-receipts/{receiptId}/record': {
+          post: {
+            operationId: 'recordFiscalReceipt',
+            security: staff,
+            parameters: [uuidParameter('receiptId'), uuidParameter('Idempotency-Key', 'header')],
+            requestBody: body(c.PosFiscalRecordRequestSchema),
+            responses: {
+              200: ok(c.PosFiscalReceiptSchema, 'The receipt record (a new version)'),
+              ...errors,
+              409: response(
+                'Error',
+                'APPROVAL_REQUIRED or APPROVAL_INVALID (correcting a recorded number), or CONFLICT (stale version, receipt not required, idempotency). Until ErrorSchema lists the POS codes (CR pos-1) the body says CONFLICT.',
+              ),
+            },
+            description:
+              "The Webkassa receipt number typed at the sale or later. Correcting a recorded number needs the approval 'fiscal_correct' for {order_id, amount_minor: the receipt amount}.",
+          },
+        },
+        '/edge/v1/cash-shifts/{shiftId}/x-report': {
+          get: {
+            operationId: 'readCashShiftXReport',
+            security: staff,
+            parameters: [uuidParameter('shiftId')],
+            responses: { 200: ok(c.PosShiftReportSchema), ...errors },
+            description:
+              'PickChick X report of a sales shift, computed now (not fiscal). 404 for a shift that did not open in pos_sale mode and on an edge without schema026.',
+          },
+        },
+        '/edge/v1/cash-shifts/{shiftId}/z-report': {
+          get: {
+            operationId: 'readCashShiftZReport',
+            security: staff,
+            parameters: [uuidParameter('shiftId')],
+            responses: {
+              200: ok(c.PosShiftReportSchema),
+              ...errors,
+              409: response('Error', 'CONFLICT: the shift is still open'),
+            },
+            description:
+              'PickChick Z report frozen when the sales shift closed (not fiscal). 404 for a shift that did not open in pos_sale mode.',
+          },
+        },
+        // The close of a sales shift also takes the Kaspi terminal total and, with pending
+        // receipts, the approval; an ordinary shift refuses both keys (400) as before.
+        '/edge/v1/cash-shifts/{shiftId}/close': {
+          post: {
+            ...staffOperation('post', 'closeCashShift', 'CashShift', 'CashShiftClose', {
+              idempotent: true,
+              shiftId: true,
+            }).post,
+            requestBody: body(c.PosCashShiftCloseSchema),
+            description:
+              "terminal_reported_minor and approval only for a sales shift. With receipts of its sales and refunds pending, the approval 'shift_close_pending_fiscal' for {shift_id, amount_minor: their sum}, typed on the shift's own desk, is required (409 FISCAL_PENDING without it; until ErrorSchema lists the POS codes the body says CONFLICT). The shift closes, then its Z report is frozen.",
+          },
+        },
+      };
+    })()),
+    // cutover:pos end
     '/edge/v1/orders/{orderId}': staffOperation('get', 'readLocalOrder', 'LocalOrder', undefined, {
       orderId: true,
     }),
@@ -1049,6 +1264,71 @@ Object.assign(openapi.paths, {
     ],
   ),
 });
+// cutover:kds begin
+// Cutover KDS (contracts section 5.4). The edge serves these only while its KDS layout is enabled.
+{
+  const kds = await import('@pickchick/contracts');
+  Object.assign(openapi.components.schemas, {
+    KdsLayout: jsonSchema(kds.KdsLayoutSchema),
+    FulfillmentLayout: jsonSchema(kds.FulfillmentLayoutSchema),
+    KdsBreading: jsonSchema(kds.KdsBreadingSchema),
+    CourierIncidentRequest: jsonSchema(kds.CourierIncidentRequestSchema),
+    CourierIncident: jsonSchema(kds.CourierIncidentSchema),
+    CourierIncidentList: jsonSchema(kds.CourierIncidentListSchema),
+  });
+  Object.assign(openapi.paths, {
+    '/edge/v1/fulfillment/layout': fulfillmentOperation(
+      'get',
+      'getLocalKdsLayout',
+      'FulfillmentLayout',
+    ),
+    '/edge/v1/fulfillment/kds/breading': fulfillmentOperation(
+      'get',
+      'getLocalKdsBreading',
+      'KdsBreading',
+      undefined,
+      {},
+      [limitParameter],
+    ),
+    '/edge/v1/fulfillment/incidents': {
+      ...fulfillmentOperation(
+        'get',
+        'listLocalCourierIncidents',
+        'CourierIncidentList',
+        undefined,
+        {},
+        [
+          {
+            name: 'scope',
+            in: 'query',
+            required: true,
+            schema: { type: 'string', enum: ['open', 'today'] },
+            description:
+              'open: the "manager called" banner (recorded in the last 30 minutes, order still live); today: the journal of the Asia/Almaty day.',
+          },
+        ],
+      ),
+      ...fulfillmentOperation(
+        'post',
+        'recordLocalCourierIncident',
+        'CourierIncident',
+        'CourierIncidentRequest',
+        { status: 201, idempotent: true },
+      ),
+    },
+  });
+  openapi.paths['/edge/v1/fulfillment/incidents'].get.description +=
+    ' Courier protocol refusals of the point, newest first, at most 200. 404 while the KDS layout is off.';
+  openapi.paths['/edge/v1/fulfillment/incidents'].post.description +=
+    ' Records a courier protocol refusal (insert-only journal, no cloud event). Idempotency-Key is the incident id: the same staff, terminal and body replay the stored record, anything else under that key is 409. A kitchen login needs access to the order finishing station (else station 3, else 2 of the layout); a managed screen must be an assembly screen. 404 while the KDS layout is off.';
+  openapi.paths['/edge/v1/fulfillment/orders/{orderId}/actions'].post.description +=
+    ' Cutover KDS-4: while the KDS layout is on, the handoff of an aggregator order requires handover {numberMatched, courierAccepted, photoTaken} all true (400 HANDOVER_MARKS_REQUIRED otherwise) and writes the courier handover journal row in the same transaction; marks on any other order or with the layout off are 400.';
+  openapi.paths['/edge/v1/fulfillment/layout'].get.description +=
+    ' KDS layout of the point: {enabled:false} while kds_settings.layout_enabled is off or schema027 is missing (the kitchen client keeps its old screen); otherwise the layout version, shift mode, the KDS stations and the stations of the requesting terminal (0..2 screens). An older edge answers 404.';
+  openapi.paths['/edge/v1/fulfillment/kds/breading'].get.description +=
+    ' Breading station 6 view: prep terminal and access to the breading station. Accepted or in-production orders, oldest first, whose open assembly table tasks hold breading products; fingers only when the layout counts them. 404 while the KDS layout is off.';
+}
+// cutover:kds end
 
 openapi.paths['/edge/v1/fulfillment/orders/{orderId}/restore-review'].post.description =
   'Local edge only. Shift manager for this branch and an active non-display terminal. Immutable decision with reason, epoch, expected version and body commandId. Resume allows local kitchen work; retire suppresses it. Neither changes canonical state, payment or handoff. Exact body retry returns the original decision.';
@@ -1144,6 +1424,37 @@ openapi.paths['/internal/v1/edge/pos-orders/events'] = {
     },
   },
 };
+// cutover:cloud begin
+// posSales stream of the cashier edge (contracts 5.6, cutover CC-4; CR cloud-2 section 3).
+Object.assign(openapi.components.schemas, {
+  PosSaleBatch: jsonSchema(PosSaleBatchSchema),
+  PosSaleBatchResult: jsonSchema(PosSaleBatchResultSchema),
+});
+openapi.paths['/internal/v1/edge/pos-orders/sales'] = {
+  post: {
+    operationId: 'receiveEdgePosSales',
+    description:
+      'Private, disabled-by-default (CLOUD_POS_SALES_SYNC_ENABLED) posSales stream of paid POS sales, voids, refunds, Webkassa receipt records and Z reports of the cashier edge (contracts 5.6). Up to 50 events in edge sequence order; {events: []} is the support probe. Each event commits on its own and is acknowledged only after COMMIT; the answer is the accepted prefix, the first refused event ends it as rejected CONFLICT or INVALID_EVENT. 404 without the flag or schema073. Not routed by the public gateway.',
+    security: [{ deviceBearer: [], deviceId: [] }],
+    requestBody: {
+      required: true,
+      content: { 'application/json': { schema: { $ref: '#/components/schemas/PosSaleBatch' } } },
+    },
+    responses: {
+      200: response('PosSaleBatchResult'),
+      400: response(
+        'Error',
+        'Malformed batch, query string, over 50 events or 96 KiB, unordered sequences',
+      ),
+      401: response('Error', 'Invalid, expired or revoked device'),
+      403: response('Error', 'Inactive POS sync binding or another branch'),
+      404: response('Error', 'Feature disabled or schema073 missing'),
+      413: response('Error', 'Global HTTP body limit exceeded'),
+      500: response('Error', 'Internal error'),
+    },
+  },
+};
+// cutover:cloud end
 
 // Station plans for the cashier edge (cloud070, stage 2 lane cfg).
 Object.assign(openapi.components.schemas, {
@@ -1258,6 +1569,58 @@ Object.assign(openapi.paths, {
   },
   '/v1/content/branches/{branchId}': { get: boContent },
 });
+// cutover:cloud begin
+// Cutover read views GET .../ops/<view> (contracts 5.10): stock v2 (CC-6, CR cloud-3 section 3)
+// and the sales report (CC-7, CR cloud-4 section 3). Both answer 404 while their flag is off.
+const boStockReport = boOperation('readBackofficeStockReport', 'BackofficeResult');
+boStockReport.parameters.push(
+  {
+    name: 'view',
+    in: 'query',
+    required: true,
+    schema: { type: 'string', enum: ['waste', 'movement'] },
+  },
+  { name: 'start_date', in: 'query', required: true, schema: { type: 'string', format: 'date' } },
+  { name: 'end_date', in: 'query', required: true, schema: { type: 'string', format: 'date' } },
+);
+openapi.paths['/v1/admin/backoffice/branches/{branchId}/ops/stock'] = { get: boStockReport };
+const boSalesReport = boOperation('readBackofficeSalesReport', 'BackofficeResult');
+boSalesReport.parameters.push(
+  { name: 'start_date', in: 'query', required: true, schema: { type: 'string', format: 'date' } },
+  { name: 'end_date', in: 'query', required: true, schema: { type: 'string', format: 'date' } },
+);
+openapi.paths['/v1/admin/backoffice/branches/{branchId}/ops/sales'] = { get: boSalesReport };
+// cutover:cloud end
+// cutover:bo-ui begin
+// Back-office P1 read views of lane bo-ui under the same prefix (contracts 5.10; CR bo-ui-8
+// section 2, CR bo-ui-9 section 3; added by integration). Each answers only while its flag is on
+// (pos-day and orders: BACKOFFICE_POS_DAY_ENABLED; menu-links: stock v2 on cloud075 with the P1
+// grants; consumption: BACKOFFICE_STOCK_AUTOCONSUME_ENABLED; manager-shifts, staff-roster,
+// discounts: their own flags), otherwise 404 like an unknown view. The query keys of each view are
+// exactly the allowlist of the cabinet proxy (apps/backoffice/server.mjs) and the gateway
+// (infra/public-staging/gateway.Caddyfile); ops/stock and ops/sales keep their own paths above.
+const boP1View = boOperation('readBackofficeOperationsView', 'BackofficeResult');
+boP1View.description +=
+  ' Back-office P1 view of lane bo-ui (schema_version 1), each behind its own disabled-by-default flag: while it is off the view answers 404 like an unknown view.';
+boP1View.parameters.push({
+  name: 'view',
+  in: 'path',
+  required: true,
+  schema: {
+    type: 'string',
+    enum: [
+      'pos-day',
+      'orders',
+      'menu-links',
+      'consumption',
+      'manager-shifts',
+      'staff-roster',
+      'discounts',
+    ],
+  },
+});
+openapi.paths['/v1/admin/backoffice/branches/{branchId}/ops/{view}'] = { get: boP1View };
+// cutover:bo-ui end
 
 for (const [name, schema] of Object.entries({
   NotificationConfigSchema,

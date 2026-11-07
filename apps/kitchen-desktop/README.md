@@ -12,8 +12,8 @@
 
 ## Установка на второй моноблок
 
-1. Установить `PickChick-Kitchen-Setup-0.1.0-x64.exe` для текущего пользователя
-   Windows или запустить `PickChick-Kitchen-Portable-0.1.0-x64.exe`.
+1. Установить `PickChick-Kitchen-Setup-<версия>-x64.exe` (сейчас 0.4.0) для текущего
+   пользователя Windows или запустить `PickChick-Kitchen-Portable-<версия>-x64.exe`.
 2. Оператор настраивает `%APPDATA%\PickChickKitchen\config.json`. При размещении
    edge на кассе задаются `edgePort` (порт LAN TLS gateway), `edgeHost` (частный
    IPv4 кассы), `edgeCertificatePem` (публичный PEM сертификата этого gateway),
@@ -135,13 +135,16 @@ npm run verify:win
 ```
 
 Release-сборка требует чистый HEAD. Manifest содержит SHA коммита и SHA256
-входных исходников, конфигурации, lockfile и всех 13 renderer assets.
+входных исходников, конфигурации, lockfile и всех renderer assets (`ASSETS` в
+`security.mjs`, 25 файлов в 0.4.0). `npm test` проверяет, что пакет содержит
+ровно те модули, которые загружает `app.js` (в 0.3.0 не хватало
+`restore-review.js`, `demo.js` и `ticket-view.js`).
 `verify:win` сверяет точный HEAD, хеши исходников и ASAR, byte-for-byte gateway,
 явный список файлов (включая локальные шрифты), PE32+ AMD64 payload и fuses.
 Результат и SHA256 EXE сохраняются в `release/verification.json`.
 
-Результаты: `release/PickChick-Kitchen-Setup-0.1.0-x64.exe` и
-`release/PickChick-Kitchen-Portable-0.1.0-x64.exe`. NSIS распаковщик может быть
+Результаты: `release/PickChick-Kitchen-Setup-<версия>-x64.exe` и
+`release/PickChick-Kitchen-Portable-<версия>-x64.exe`. NSIS распаковщик может быть
 PE32; вложенное приложение проверяется как PE32+ AMD64. Build-результаты не
 включаются в Git. `pack:mac-test` предназначен только для проверки Mac-пакета.
 
@@ -159,3 +162,19 @@ Authenticode-подпись не настроена. Сборка на macOS и 
 паролю, приготовление, переключение сборки, табло и выдачу при двух разрешениях.
 Канал `pos` показывается как «Касса»; состав допускает все 100 модификаторов
 канонического контракта. Это не подтверждение реальной установки на Windows.
+
+## 0.4.0: экраны KDS (переход 19.11.2026)
+
+Версия 0.4.0 содержит экраны станций KDS из `apps/kitchen` (контракт перехода,
+раздел 5.4): панировка (6), тосты и бургеры (5), столы сборки 1 и 2, выдача (2),
+выдача доставки (3) с тремя отметками передачи курьеру, «Отказ по протоколу» и
+баннер «Менеджер вызван». Экран выбирается по `GET fulfillment/layout` для
+терминала этого моноблока; две станции одного терминала показываются вкладками.
+Пока раскладка KDS на сервере точки выключена (`kds-switch disable`, по
+умолчанию) или edge не знает маршрута (404), экран прежний. Новые маршруты
+gateway - ровно CR kds-5. Порядок установки и включения:
+[KDS-станции](../../docs/operations/kds-stations.md).
+
+Номер версии: контракт называет «kitchen-desktop 0.2.0», но 0.2.0 уже выпущена
+(`docs/operations/windows-workstations-release-719d1d7.md`), а в D0 стоит 0.3.0,
+поэтому выпуск KDS - 0.4.0 (установщик не должен понижать версию).
