@@ -21,6 +21,7 @@ infra/**
 !infra/windows/
 infra/windows/**
 !infra/windows/pos-sync-worker-grants.mjs
+!infra/windows/pos-sales-grants.mjs
 **/node_modules
 **/dist
 **/.env*
