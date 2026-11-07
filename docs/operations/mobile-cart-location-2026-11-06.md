@@ -45,3 +45,13 @@ mobile-closed-notice-1102, project-status/roadmap из android-play-1106.
 
 Код опубликован в [PR314](https://github.com/xaaknazar/pickchick/pull/314).
 Полная Foundation CI идёт отдельно; локальные результаты не заменяют её.
+
+## 07.11: узкий экран в закрытой капсуле
+
+Foundation CI на PR314 упала: на 320 pt по-казахски закрытая капсула
+(ресторан закрыт, без ручки оплаты) была 269 pt при пределе 258 pt. Шрифт
+в CI шире локального примерно на 20 pt. Теперь в закрытой капсуле на экране
+уже 360 pt строка «способ получения · точка» не шире 140 pt: название точки
+сокращается многоточием, способ получения не сокращается, VoiceOver читает
+полное название. Локально на 320 pt KK/RU/EN `browser_cart_unavailable.py`
+и `browser_slide_to_pay.py` PASS, typecheck и lint PASS.

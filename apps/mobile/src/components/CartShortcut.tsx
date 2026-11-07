@@ -349,7 +349,10 @@ export function CartShortcut({
               style={[s.middle, closed ? s.middleClosed : s.fill, contentStyle]}
             >
               <View testID="cart-total" style={s.totalBox}>
-                <View testID="cart-shortcut-dining" style={s.dining}>
+                <View
+                  testID="cart-shortcut-dining"
+                  style={[s.dining, closed && locationName && width < 360 && s.diningNarrowClosed]}
+                >
                   <Icon name={diningIcon} size={14} color={s.diningText.color} />
                   <Text
                     testID="cart-shortcut-dining-label"
@@ -508,6 +511,9 @@ const s = StyleSheet.create({
     flexShrink: 1,
     includeFontPadding: false,
   },
+  // The closed capsule hugs its content: on a narrow phone the location gives way with an
+  // ellipsis (the full name stays in VoiceOver) so a long Kazakh dining label still fits.
+  diningNarrowClosed: { maxWidth: 140 },
   diningMode: { flexShrink: 0 },
   locationText: { minWidth: 0, flexShrink: 1 },
   total: {
