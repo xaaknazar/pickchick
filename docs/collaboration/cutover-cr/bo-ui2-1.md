@@ -198,3 +198,40 @@ design-bo-ui.md` - раздел «Вторая волна» (схемы отве
   может упасть» теперь допускает при `stockReports` чтения и `ops stock movement` (там, где склад
   v2), и сверяет его без двух новых ключей. `packages/contracts` и `openapi.json` не менялись.
 - Runbook: `docs/operations/backoffice-supply.md` §8.
+
+## 9. Шаг 5 (расстановка, А9): что изменилось для integration
+
+- 076 не менялся: хеш из п. 0 прежний (`436131f9…93a3`). Новых прав нет: команды пишут
+  `bo_staff_assignments` (SELECT, INSERT, UPDATE - ключ `staffAssignment` helper-а, п. 1), причину
+  «не по должности» - в `bo_audit` (права облачной полосы). Тест «API role» в
+  `staff-assignments.test.mjs`: без прав helper-а вид отвечает `NOT_READY`, с ровно ними - работает.
+- `capabilities.staff_assignment` - `true` только при должностях
+  (`BACKOFFICE_STAFF_POSITIONS_ENABLED`) и правах 076 на таблицу (`staffAssignmentAvailable`);
+  `loadConfig` с шага 1 не запускает API с флагом без должностей. Включение - сначала `provision` с флагом (п. 1, п. 2), потом API.
+- Новый вид `ops/staff-assignments` (только при флаге; без него - 404 неизвестного вида) и две
+  команды `staff_assign`, `staff_unassign` через существующий `POST .../commands` (права
+  `staff.assign`, `staff.assign_override`). Имя вида - в перечень `view` из предложения CR `bo-ui-8`
+  §2, если integration его ведёт. Новые причины только в `BackofficeErrorReasonSchema`
+  (`STATION_UNKNOWN`, `STATION_NOT_ALLOWED`, `EMPLOYEE_NOT_WORKING`, `ASSIGNMENT_TIME`,
+  `ASSIGNMENT_OVERLAP`, `ASSIGNMENT_PREVIOUS_DAY`); `packages/contracts` и `openapi.json` не
+  менялись.
+- `permissions[]` получает `staff.assign` и `staff.assign_override` (по роли) после прав поставок и
+  только при `capabilities.staff_assignment=true` (тест `backoffice-p2-flags.test.mjs` обновлён).
+- Вид `ops/manager-shifts` при доступной расстановке получает последним ключом `extra_items` и
+  последней проверкой `checks.staff_assignment` (пункт «Расстановка заполнена» в закрытии, вне
+  шаблона точки). Без флага вид и команды смены те же, что у bo-ui: эталон
+  `backoffice-p2-golden.test.mjs` проходит на 076 и 075; новая проверка «эталон может упасть» для
+  расстановки допускает ровно чтения, `ops/staff-assignments` и `ops/manager-shifts`.
+- Регулярка `backoffice_get` в `infra/public-staging/gateway.Caddyfile` и allowlist
+  `apps/backoffice/server.mjs` дополнены видом `staff-assignments` и модулями кабинета
+  `assignment`, `assignment-model` (пути полосы); шлюз стенда обновляется вместе с кабинетом, иначе
+  раздел «Расстановка» получит 404 от шлюза при включённом флаге.
+- Чтение для статистики ошибок кухни (КД9, полоса kds): вид
+  `ops/staff-assignments?start_date&end_date&station_code` и `assignedAt` из
+  `@pickchick/backoffice-core` (`design-bo-ui.md` §9.4 «Чтение для КД9»). Коды станций кухни - коды
+  функций KDS (`KdsFunctionSchema`), без изменений контракта.
+- Комментарий SQL в 076 называет `station_code` кодом должности; по факту это код функции KDS или
+  код должности без экрана (оба под ту же проверку столбца). 076 заморожен и закреплён хешем,
+  поэтому комментарий не правился; описание - в `design-bo-ui.md` §9.4.
+- Откат - флаг `false` и перезапуск API; интервалы остаются. Runbook:
+  `docs/operations/backoffice-supply.md` §9.
