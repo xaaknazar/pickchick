@@ -127,6 +127,59 @@ export type SupplyRequestsView = {
   receipt?: SupplyReceipt | null;
   difference?: SupplyDifference[] | null;
 };
+/** One issue of an import report: a row of the file that was not loaded, or a note. */
+export type ImportIssue = {
+  line: number;
+  code: string;
+  supplier: string | null;
+  name: string | null;
+  text: string;
+};
+/** The counts of an import report (supplier-import.ts IMPORT_COUNT_KEYS). */
+export type ImportCounts = Record<(typeof IMPORT_COUNT_KEYS)[number], number>;
+/** One price import as GET .../ops/supplier-imports lists it (lane bo-ui2 step 3). */
+export type SupplierImport = {
+  id: string;
+  source: string;
+  file_name: string | null;
+  profile: string | null;
+  file_sha256: string;
+  plan_sha256: string;
+  row_count: number;
+  actor_name: string | null;
+  applied_at: string;
+  parts: number | null;
+  parts_applied: number[];
+  complete: boolean;
+  suppliers_created: number;
+  prices_created: number;
+  unchanged: number;
+  counts: ImportCounts | null;
+};
+export type SupplierImportDetail = SupplierImport & {
+  summary: {
+    counts: ImportCounts;
+    issues: ImportIssue[];
+    issues_total: number;
+  } | null;
+  suppliers: {
+    id: string;
+    name: string;
+    kind: SupplierKind;
+    active: boolean;
+    created: boolean;
+    prices: number;
+  }[];
+  prices_kept: number;
+  prices_corrected: number;
+};
+export type SupplierImportsView = {
+  schema_version: 1;
+  branch_id: string;
+  imports: SupplierImport[];
+  truncated: { imports: boolean };
+  import: SupplierImportDetail | null;
+};
 
 /** The section of the cabinet (after «Остатки»), only with capabilities.supply. */
 export const SUPPLY_SECTION = [
@@ -203,6 +256,58 @@ export function suppliersView(value: unknown, branch: string): SuppliersView {
     )
       invalid();
   return value as SuppliersView;
+}
+const IMPORT_COUNT_KEYS = [
+  'rows',
+  'matched',
+  'new_prices',
+  'unchanged',
+  'new_suppliers',
+  'not_found',
+  'ambiguous',
+  'unit_mismatch',
+  'duplicates',
+  'conflicts',
+  'inactive',
+  'invalid',
+  'notes',
+] as const;
+const isCounts = (v: unknown) =>
+  isObject(v) && IMPORT_COUNT_KEYS.every((k) => Number.isInteger(v[k]) && Number(v[k]) >= 0);
+const isImport = (v: unknown): v is Data =>
+  isObject(v) &&
+  typeof v['id'] === 'string' &&
+  typeof v['applied_at'] === 'string' &&
+  typeof v['row_count'] === 'number' &&
+  Array.isArray(v['parts_applied']) &&
+  typeof v['complete'] === 'boolean' &&
+  typeof v['prices_created'] === 'number' &&
+  (v['counts'] === null || isCounts(v['counts']));
+/** GET .../ops/supplier-imports as the page reads it; anything else is an invalid answer. */
+export function supplierImportsView(value: unknown, branch: string): SupplierImportsView {
+  if (
+    !isObject(value) ||
+    value['schema_version'] !== 1 ||
+    value['branch_id'] !== branch ||
+    value['view'] !== 'supplier-imports' ||
+    !Array.isArray(value['imports']) ||
+    !value['imports'].every(isImport) ||
+    !isObject(value['truncated'])
+  )
+    invalid();
+  const one = value['import'];
+  if (one !== null) {
+    if (!isImport(one) || !Array.isArray(one['suppliers'])) invalid();
+    const summary = one['summary'];
+    if (
+      summary !== null &&
+      (!isObject(summary) || !isCounts(summary['counts']) || !Array.isArray(summary['issues']))
+    )
+      invalid();
+    for (const i of (isObject(summary) ? summary['issues'] : []) as unknown[])
+      if (!isObject(i) || typeof i['line'] !== 'number' || typeof i['text'] !== 'string') invalid();
+  }
+  return value as SupplierImportsView;
 }
 /** GET .../ops/supply-requests as the page reads it; anything else is an invalid answer. */
 export function supplyRequestsView(value: unknown, branch: string): SupplyRequestsView {
@@ -661,4 +766,67 @@ export function requestsCsv(view: SupplyRequestsView): string[][] {
       r.total_minor === null ? '' : csvTenge(r.total_minor),
     ]),
   ];
+}
+
+// --------------------------------------------------------------- the price import ----
+
+/**
+ * The categories of an import report in the order the page shows them (supplier-import.ts
+ * IMPORT_ISSUE_CATEGORIES; the same words as the report of scripts/supplier-prices-import.mjs).
+ */
+export const IMPORT_COUNT_LABELS: readonly [keyof ImportCounts, string][] = [
+  ['rows', 'Строк в файле'],
+  ['matched', 'Сопоставлено строк'],
+  ['new_prices', 'Новых цен'],
+  ['unchanged', 'Уже были с той же ценой'],
+  ['new_suppliers', 'Новых поставщиков'],
+  ['not_found', 'Позиция не найдена'],
+  ['ambiguous', 'Неоднозначно'],
+  ['unit_mismatch', 'Единица не подходит'],
+  ['duplicates', 'Повторы в файле'],
+  ['conflicts', 'На этот день уже другая цена'],
+  ['inactive', 'Позиция выключена или поставщик в архиве'],
+  ['invalid', 'Ошибка в строке'],
+  ['notes', 'Заметки (строка загружена)'],
+];
+/** Why a row was not loaded, in words (the codes of supplier-import.ts). */
+export const IMPORT_ISSUE_LABELS: Record<string, string> = {
+  SUPPLIER_REQUIRED: 'Нет поставщика',
+  SUPPLIER_NAME_INVALID: 'Название поставщика не подходит',
+  PRICE_INVALID: 'Цена не разобрана',
+  DATE_INVALID: 'Дата не разобрана',
+  NAME_REQUIRED: 'Нет позиции',
+  CODE_INVALID: 'Код не PickChick',
+  KIND_INVALID: 'Вид поставщика не разобран',
+  NOT_FOUND: 'Позиция не найдена',
+  CODE_UNKNOWN: 'Нет позиции с таким кодом',
+  NAME_AMBIGUOUS: 'Название у нескольких позиций',
+  CODE_NAME_MISMATCH: 'Код и название не совпадают',
+  SUPPLIER_AMBIGUOUS: 'Несколько поставщиков с таким названием',
+  UNIT_UNKNOWN: 'Неизвестная единица',
+  UNIT_MISMATCH: 'Единица не подходит к позиции',
+  DUPLICATE: 'Повтор строки',
+  DUPLICATE_CONFLICT: 'Разные цены за один день',
+  PRICE_EXISTS: 'На этот день уже другая цена',
+  INGREDIENT_INACTIVE: 'Позиция выключена',
+  SUPPLIER_ARCHIVED: 'Поставщик в архиве',
+  KIND_IGNORED: 'Заметка: вид поставщика не изменён',
+};
+/** The state of a batch in words: loaded fully or not yet (with the parts). */
+export function importStateText(i: Pick<SupplierImport, 'complete' | 'parts' | 'parts_applied'>) {
+  if (i.complete) return 'Загружен полностью';
+  return i.parts
+    ? `Загружен не полностью: частей ${i.parts_applied.length} из ${i.parts}. Повторите загрузку тем же планом.`
+    : 'Загружен без отчёта: проверьте у того, кто загружал.';
+}
+/** «07.11.2026 14:05, прайс-лист.csv» for the choice of another import. */
+export const importTitle = (i: SupplierImport, when: (iso: string) => string) =>
+  `${when(i.applied_at)}${i.file_name ? ', ' + i.file_name : ''}`;
+/** The rows of the report table: every count, the problem categories only when not zero. */
+export function importCountRows(counts: ImportCounts): [string, string][] {
+  return IMPORT_COUNT_LABELS.filter(
+    ([key]) =>
+      ['rows', 'matched', 'new_prices', 'unchanged', 'new_suppliers'].includes(key) ||
+      counts[key] > 0,
+  ).map(([key, label]) => [label, String(counts[key])]);
 }

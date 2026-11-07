@@ -276,6 +276,20 @@ export const allowed = (method, path) => {
       (id === null || new RegExp(`^${UUID}$`, 'i').test(id))
     );
   }
+  // Lane bo-ui2 step 3: the price imports of the branch, or one of them with its report.
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/supplier-imports$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    const id = q.get('id');
+    return (
+      (search?.length ?? 0) <= 200 &&
+      [...q.keys()].every((k) => k === 'id') &&
+      q.getAll('id').length <= 1 &&
+      (id === null || new RegExp(`^${UUID}$`, 'i').test(id))
+    );
+  }
   if (
     method === 'GET' &&
     new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/supply-requests$`, 'i').test(pathname)

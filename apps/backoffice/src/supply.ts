@@ -27,12 +27,16 @@ import {
   SUPPLY_ERRORS,
   UNIT_LABELS,
   WINDOW_DAYS,
+  IMPORT_ISSUE_LABELS,
   belowMinimumLines,
   cancelCommand,
   differenceText,
   dmy,
   emptyRequestForm,
   hintOf,
+  importCountRows,
+  importStateText,
+  importTitle,
   lineEstimate,
   linesText,
   partial,
@@ -65,6 +69,7 @@ import {
   type RequestKind,
   type Supplier,
   type SupplierKind,
+  type SupplierImportsView,
   type SupplierPrice,
   type SuppliersView,
   type SupplyDifference,
@@ -87,6 +92,8 @@ export type RequestsQuery = {
 export type SupplyCallbacks = {
   suppliers: (id?: string) => Promise<SuppliersView>;
   requests: (q: RequestsQuery) => Promise<SupplyRequestsView>;
+  /** Step 3: the price imports, the newest (or `id`) with its report. */
+  imports: (id?: string) => Promise<SupplierImportsView>;
   execute: (command: Data, reason: string) => Promise<unknown>;
   can: (permission: string) => boolean;
   rights: (permission: string) => string | null;
@@ -270,6 +277,11 @@ export class SupplyPage {
   private kind = '';
   private requests: SupplyRequestsView | null = null;
   private suppliersList: SuppliersView | null = null;
+  /** Step 3: the price imports; `importsMissing` - an older server without the view. */
+  private imports: SupplierImportsView | null = null;
+  private importsMissing = false;
+  private importsError = '';
+  private importCode = '';
   private error = '';
   private loading = false;
   private loadedFor = '';
@@ -277,6 +289,10 @@ export class SupplyPage {
   clear() {
     this.requests = null;
     this.suppliersList = null;
+    this.imports = null;
+    this.importsMissing = false;
+    this.importsError = '';
+    this.importCode = '';
     this.error = '';
     this.loadedFor = '';
     this.tab = 'requests';
@@ -301,6 +317,7 @@ export class SupplyPage {
       const [requests, suppliers] = await Promise.all([
         this.cb.requests(this.query()),
         this.cb.suppliers(),
+        this.loadImports(),
       ]);
       this.requests = requests;
       this.suppliersList = suppliers;
@@ -313,6 +330,20 @@ export class SupplyPage {
     } finally {
       this.loading = false;
       this.cb.changed();
+    }
+  }
+  /**
+   * The price imports (step 3). An older server answers 404: the block is not shown; any other
+   * failure is said in words and does not stop the rest of the page.
+   */
+  private async loadImports(id?: string) {
+    try {
+      this.imports = await this.cb.imports(id);
+      this.importsMissing = false;
+      this.importsError = '';
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'NOT_FOUND' && !id) this.importsMissing = true;
+      else this.importsError = 'Импорты цен не загрузились. Нажмите «Обновить».';
     }
   }
   render(host: HTMLElement) {
@@ -1378,6 +1409,154 @@ export class SupplyPage {
       ),
     );
     if (v.truncated.suppliers) p.append(el('p', 'op-note', 'Показаны первые 500 поставщиков.'));
+    this.renderImports(p);
+  }
+  /**
+   * «Импорт цен из iiko» (step 3): the last import (or the chosen one) with its report - what was
+   * loaded, every category of rows that were not, those rows with the reason, the suppliers it
+   * created or priced, and the prices corrected by hand since. The import itself runs from
+   * scripts/supplier-prices-import.mjs (docs/operations/backoffice-supply.md); here it is read.
+   */
+  private renderImports(p: HTMLElement) {
+    if (this.importsMissing) return;
+    const box = el('section', 'sp-imports');
+    box.dataset.testid = 'sp-imports';
+    box.append(el('h3', '', 'Импорт цен из iiko'));
+    p.append(box);
+    if (this.importsError) {
+      const e = el('p', 'notice error', this.importsError);
+      e.setAttribute('role', 'alert');
+      box.append(e);
+    }
+    const v = this.imports;
+    if (!v) {
+      if (this.loading) box.append(el('p', 'op-note', 'Загружаем импорты...'));
+      return;
+    }
+    const one = v.import;
+    if (!one) {
+      const empty = el(
+        'p',
+        'op-note',
+        'Импортов ещё не было. Поставщиков и цены из выгрузки iiko загружает скрипт по инструкции «Закупки: импорт цен»; после загрузки здесь будет её отчёт.',
+      );
+      empty.dataset.testid = 'sp-import-empty';
+      box.append(empty);
+      return;
+    }
+    if (v.imports.length > 1)
+      box.append(
+        select(
+          'Импорт',
+          one.id,
+          v.imports.map((i) => ({ value: i.id, label: importTitle(i, almatyDateTime) })),
+          (id) => {
+            this.importCode = '';
+            void this.loadImports(id).then(() => this.cb.changed());
+          },
+          'sp-import-pick',
+        ),
+      );
+    const state = el(
+      'p',
+      `sp-state ${one.complete ? 'sp-state-received' : 'sp-state-submitted'}`,
+      importStateText(one),
+    );
+    state.dataset.testid = 'sp-import-state';
+    const head = el(
+      'p',
+      'op-note',
+      `${almatyDateTime(one.applied_at)}${one.actor_name ? ', ' + one.actor_name : ''}. Файл: ${one.file_name ?? 'без названия'} (${one.source === 'iiko_export' ? 'выгрузка iiko' : 'CSV'}), строк с данными: ${one.row_count}.`,
+    );
+    head.dataset.testid = 'sp-import-head';
+    const loaded = el(
+      'p',
+      'sp-total',
+      `Загружено новых цен: ${one.prices_created}, новых поставщиков: ${one.suppliers_created}.${one.prices_corrected ? ` Исправлено вручную после импорта: ${one.prices_corrected}.` : ''}`,
+    );
+    loaded.dataset.testid = 'sp-import-loaded';
+    box.append(head, state, loaded);
+    if (!one.summary) {
+      box.append(el('p', 'op-note', 'Отчёт этого импорта не сохранён.'));
+    } else {
+      // Label and count side by side, also on a phone: no table headers to repeat in cards.
+      const list = el('dl', 'sp-info sp-import-counts');
+      list.dataset.testid = 'sp-import-counts';
+      for (const [label, value] of importCountRows(one.summary.counts)) {
+        const pair = el('div', 'sp-count');
+        pair.append(el('dt', '', label), el('dd', '', value));
+        list.append(pair);
+      }
+      box.append(list);
+      const issues = one.summary.issues;
+      if (issues.length) {
+        box.append(el('h3', '', 'Строки, которые не загрузились, и заметки'));
+        const codes = [...new Set(issues.map((i) => i.code))];
+        box.append(
+          select(
+            'Показать',
+            this.importCode,
+            [
+              { value: '', label: `Все (${issues.length})` },
+              ...codes.map((code) => ({
+                value: code,
+                label: `${IMPORT_ISSUE_LABELS[code] ?? code} (${issues.filter((i) => i.code === code).length})`,
+              })),
+            ],
+            (code) => {
+              this.importCode = code;
+              this.cb.changed();
+            },
+            'sp-import-filter',
+          ),
+        );
+        const shown = issues.filter((i) => !this.importCode || i.code === this.importCode);
+        box.append(
+          table(
+            ['Строка', 'Почему', 'Поставщик', 'Позиция', 'Подробно'],
+            shown.map((i) => [
+              String(i.line),
+              IMPORT_ISSUE_LABELS[i.code] ?? i.code,
+              i.supplier ?? '-',
+              i.name ?? '-',
+              i.text,
+            ]),
+            '',
+            'sp-import-issues',
+          ),
+        );
+        if (one.summary.issues_total > issues.length) {
+          const more = el(
+            'p',
+            'op-note',
+            `Показаны первые ${issues.length} из ${one.summary.issues_total} строк. Полный список - в файле плана у того, кто загружал.`,
+          );
+          more.dataset.testid = 'sp-import-more';
+          box.append(more);
+        }
+      }
+    }
+    box.append(el('h3', '', 'Поставщики этого импорта'));
+    box.append(
+      table(
+        ['Поставщик', 'Новый', 'Цен из импорта сейчас'],
+        one.suppliers.map((s) => [
+          `${s.name}${s.active ? '' : ' (в архиве)'}`,
+          s.created ? 'Да, создан импортом' : 'Нет, уже был',
+          String(s.prices),
+        ]),
+        'Цен из этого импорта сейчас нет.',
+        'sp-import-suppliers',
+      ),
+    );
+    box.append(
+      el(
+        'p',
+        'op-note',
+        `SHA-256 файла ${one.file_sha256.slice(0, 12)}…, плана ${one.plan_sha256.slice(0, 12)}…`,
+      ),
+    );
+    if (v.truncated.imports) box.append(el('p', 'op-note', 'В списке - последние 20 импортов.'));
   }
   private editSupplier(s: Supplier | null) {
     const box = dialog(s ? `Изменить: ${s.name}` : 'Новый поставщик', '', 'sp-supplier-editor');

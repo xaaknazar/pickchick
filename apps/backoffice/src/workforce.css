@@ -713,6 +713,33 @@
   margin-top: 16px;
   padding-top: 8px;
 }
+/* Lane bo-ui2 step 3: the report of the last price import under the suppliers. */
+.sp-imports {
+  border-top: 1px solid var(--border);
+  margin: 16px 16px 0;
+  padding: 8px 0 16px;
+}
+.sp-imports h3 {
+  margin: 16px 0 8px;
+}
+.sp-imports .inventory-table {
+  margin: 8px 0;
+}
+.sp-imports .field {
+  max-width: 420px;
+}
+.sp-imports p.sp-state {
+  margin: 8px 0;
+}
+.sp-import-counts .sp-count {
+  display: contents;
+}
+@media (max-width: 650px) {
+  /* A count stays next to its label on a phone. */
+  .sp-info.sp-import-counts {
+    grid-template-columns: 1fr max-content;
+  }
+}
 .supply .inventory-table td,
 .sp-dialog .inventory-table td {
   overflow-wrap: normal;

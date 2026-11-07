@@ -622,10 +622,14 @@ export class OperationsModel {
     return discountsView(value, branch);
   }
   /**
-   * One second-wave view (lane bo-ui2: GET .../ops/suppliers and .../ops/supply-requests), as
+   * One second-wave view (lane bo-ui2: GET .../ops/suppliers, .../ops/supply-requests and, step
+   * 3, .../ops/supplier-imports), as
    * the server answered it; the page checks the shape (supply-model.ts).
    */
-  async opsView(view: 'suppliers' | 'supply-requests', query: Record<string, string> = {}) {
+  async opsView(
+    view: 'suppliers' | 'supply-requests' | 'supplier-imports',
+    query: Record<string, string> = {},
+  ) {
     const generation = this.generation;
     const branch = this.branch;
     const search = new URLSearchParams(query).toString();

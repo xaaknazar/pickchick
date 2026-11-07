@@ -207,6 +207,16 @@ export function allowedPath(path: string): boolean {
       (id === null || new RegExp(`^${UUID}$`).test(id))
     );
   }
+  // Lane bo-ui2 step 3: the price imports, or one of them with its report.
+  if (new RegExp(`^operations/branches/${UUID}/ops/supplier-imports$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    const id = q.get('id');
+    return (
+      [...q.keys()].every((k) => k === 'id') &&
+      q.getAll('id').length <= 1 &&
+      (id === null || new RegExp(`^${UUID}$`).test(id))
+    );
+  }
   if (new RegExp(`^operations/branches/${UUID}/ops/supply-requests$`).test(pathname)) {
     const q = new URLSearchParams(search ?? '');
     const keys = ['start_date', 'end_date', 'state', 'kind', 'id'];

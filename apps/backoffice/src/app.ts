@@ -22,7 +22,12 @@ import { ManagerShiftView } from './manager-shift.js';
 import { DiscountsPage } from './discounts.js';
 import { DISCOUNTS_SECTION } from './discounts-model.js';
 import { SupplyPage } from './supply.js';
-import { SUPPLY_SECTION, suppliersView, supplyRequestsView } from './supply-model.js';
+import {
+  SUPPLY_SECTION,
+  supplierImportsView,
+  suppliersView,
+  supplyRequestsView,
+} from './supply-model.js';
 import { staffPositions } from './staff-positions-model.js';
 import { FinanceModel } from './finance-model.js';
 import { FinanceView } from './finance.js';
@@ -205,6 +210,11 @@ const supplyPage = new SupplyPage({
   requests: async (q) => {
     const out = await operations.opsView('supply-requests', q as Record<string, string>);
     return supplyRequestsView(out.value, out.branch);
+  },
+  // Step 3: the price imports of scripts/supplier-prices-import.mjs with their reports.
+  imports: async (id) => {
+    const out = await operations.opsView('supplier-imports', id ? { id } : {});
+    return supplierImportsView(out.value, out.branch);
   },
   execute: async (command, reason) => {
     try {
