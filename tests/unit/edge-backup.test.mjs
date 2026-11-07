@@ -34,7 +34,7 @@ const code = (expected) => (error) => error instanceof EdgeBackupError && error.
 const rows = (count) =>
   pinned.slice(0, count).map(({ version, checksum, scope }) => ({ version, checksum, scope }));
 
-test('only the reviewed edge schemas 020-027 are backed up; anything else is refused', () => {
+test('only the reviewed edge schemas 020-028 are backed up; anything else is refused', () => {
   assert.deepEqual(EDGE_BACKUP_SCHEMAS, {
     schema020: 20,
     schema021: 21,
@@ -44,6 +44,7 @@ test('only the reviewed edge schemas 020-027 are backed up; anything else is ref
     schema025: 25,
     schema026: 26,
     schema027: 27,
+    schema028: 28,
   });
   for (const [name, length] of Object.entries(EDGE_BACKUP_SCHEMAS))
     assert.equal(verifiedSchema(rows(length), pinned), name);
@@ -144,6 +145,27 @@ test('schema027 (cutover KDS foundation) is reviewed by the exact bytes of the e
   assert.equal(verifiedSchema(rows(26), pinned), 'schema026');
   assert.throws(
     () => verifiedSchema(rows(26).concat([{ ...pinned[26], checksum: 'e'.repeat(64) }]), pinned),
+    code('UNREVIEWED_SCHEMA'),
+  );
+});
+
+test('schema028 (cutover desk number) is reviewed by the exact bytes of the edge 028 migration', async () => {
+  const name = '028_edge_pos_desk_number.sql';
+  const bytes = await readFile(new URL('../../db/edge/migrations/' + name, import.meta.url));
+  const checksum = createHash('sha256').update(bytes).digest('hex');
+  // CR pos-7 section 1.1.
+  assert.equal(checksum, '684ffa9c5265d32fd3c33e6190ca3126c83c5cb47974aa274cf198fc905d0abf');
+  assert.deepEqual(pinned[27], { version: name, checksum, scope: 'edge' });
+  // The guarded 027 -> 028 step (pos-sales-upgrade-db.mjs apply-028) applies exactly this file.
+  const { DESK_NUMBER_MIGRATION, DESK_NUMBER_SHA256 } =
+    await import('../../infra/windows/pos-sales-upgrade-db.mjs');
+  assert.equal(DESK_NUMBER_MIGRATION, name);
+  assert.equal(DESK_NUMBER_SHA256, checksum);
+  assert.equal(verifiedSchema(rows(28), pinned), 'schema028');
+  // A cashier still on 027 before the 028 step is backed up by the same tool.
+  assert.equal(verifiedSchema(rows(27), pinned), 'schema027');
+  assert.throws(
+    () => verifiedSchema(rows(27).concat([{ ...pinned[27], checksum: 'e'.repeat(64) }]), pinned),
     code('UNREVIEWED_SCHEMA'),
   );
 });

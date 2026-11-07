@@ -133,5 +133,10 @@
     "version": "027_edge_kds_foundation.sql",
     "checksum": "41e55b450721646e45be599cf58626fd52328113f5a8165bb8fa5edf1e3a2a97",
     "scope": "edge"
+  },
+  {
+    "version": "028_edge_pos_desk_number.sql",
+    "checksum": "684ffa9c5265d32fd3c33e6190ca3126c83c5cb47974aa274cf198fc905d0abf",
+    "scope": "edge"
   }
 ]

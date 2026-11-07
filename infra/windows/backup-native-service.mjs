@@ -87,8 +87,10 @@ export const SERVICE_BACKUP_SCHEMAS = Object.freeze({
   schema026: 26,
   // Cutover 19.11 (CR kds-1): the guarded 026 -> 027 upgrade follows a schema026 copy.
   schema027: 27,
+  // Cutover 19.11 (CR pos-7): the guarded 027 -> 028 upgrade (desk number) follows a schema027 copy.
+  schema028: 28,
 });
-const PINNED_LEDGER_LENGTH = 27;
+const PINNED_LEDGER_LENGTH = 28;
 
 /** The exact expected ledger for a mode, after validating the shape of the pinned file. */
 export function expectedServiceLedger(pinned, ledgerMode = 'schema014') {

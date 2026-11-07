@@ -110,11 +110,12 @@ Install делает:
 
 ## Схемы
 
-Разрешены только проверенные схемы 020-027 (`native-edge-backup-ledger.json`). Касса
+Разрешены только проверенные схемы 020-028 (`native-edge-backup-ledger.json`). Касса
 сейчас на 020; 021-023 придут с выпуском runtime 21.10, 024 (планы станций, этап 2) - с
 охраняемым обновлением `station-plan-upgrade-db.mjs`, 026 (продажи кассы, переход 19.11) - с
-`pos-sales-upgrade-db.mjs`, 027 (KDS) - с `kds-upgrade-db.mjs`. Любая другая схема (например,
-миграция 028 до её проверки здесь)
+`pos-sales-upgrade-db.mjs`, 027 (KDS) - с `kds-upgrade-db.mjs`, 028 (номер кассы) - с
+`pos-sales-upgrade-db.mjs apply-028`. Любая другая схема (например, миграция 029 до её
+проверки здесь)
 останавливает копию с кодом `UNREVIEWED_SCHEMA`, мониторинг это
 показывает. Каждая новая edge-миграция требует добавить её в ledger, проверить и заново
 выполнить Install этой папкой поставки (новые закрепления).
@@ -137,7 +138,8 @@ Install делает:
 `921c5263...d057c`; черновые 026 из CR pos-1 и pos-5 отклоняются), затем свежая проверенная
 копия схемы 025, затем `pos-sales-upgrade-db.mjs inspect` и `apply`; следующая копия - уже
 схемы 026; затем `kds-upgrade-db.mjs inspect` и `apply` (027, SHA-256 `41e55b45...a2a97`) и
-копия схемы 027. 026 заменяет `edge_restore_fence` (в список очередей добавлена `pos_sale_outbox`,
+копия схемы 027; затем `pos-sales-upgrade-db.mjs inspect-028` и `apply-028` (028, SHA-256
+`684ffa9c...d0abf`, CR pos-7) и копия схемы 028. 026 заменяет `edge_restore_fence` (в список очередей добавлена `pos_sale_outbox`,
 владелец и права прежние): у роли копии по-прежнему нет `EXECUTE` на функции владельца.
 Это подготовленный порядок, не запись об установке на Windows.
 
@@ -217,7 +219,7 @@ Uninstall ничего не меняет и просит повторить по
 | `DESTINATION_UNAVAILABLE`                                      | второе место не найдено или не читается                                                               |
 | `DESTINATION_FULL`                                             | на втором месте меньше размера дампа + 64 МБ                                                          |
 | `DESTINATION_WRITE_FAILED`, `VERIFY_FAILED`                    | запись или проверка копии не удалась; файл копии удалён                                               |
-| `UNREVIEWED_SCHEMA`                                            | схема базы не входит в 020-027                                                                        |
+| `UNREVIEWED_SCHEMA`                                            | схема базы не входит в 020-028                                                                        |
 | `CLUSTER_MISMATCH`, `BRANCH_MISMATCH`                          | другой кластер PostgreSQL или другая точка                                                            |
 | `DATABASE_UNAVAILABLE`, `SNAPSHOT_FAILED`                      | роль не вошла или не прочитала снимок                                                                 |
 | `DUMP_FAILED`, `ARCHIVE_INCOMPLETE`                            | pg_dump не завершился или в архиве нет данных таблицы                                                 |

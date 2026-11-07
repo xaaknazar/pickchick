@@ -49,14 +49,14 @@ test('backup rejects foreign branch, different service mode and changed migratio
   assert.throws(() => verifyServiceSnapshot(branch, changed, branchId, ledger));
 });
 
-test('pinned ledger is exactly the reviewed edge migrations 001-027 of this repository', async () => {
+test('pinned ledger is exactly the reviewed edge migrations 001-028 of this repository', async () => {
   const dir = fileURLToPath(new URL('../../db/edge/migrations/', import.meta.url));
-  // A later migration (028+) needs its own reviewed allowlist entry; it is not accepted here.
+  // A later migration (029+) needs its own reviewed allowlist entry; it is not accepted here.
   const names = (await readdir(dir))
     .filter((name) => name.endsWith('.sql'))
     .sort()
-    .slice(0, 27);
-  assert.equal(names.length, 27);
+    .slice(0, 28);
+  assert.equal(names.length, 28);
   assert.deepEqual(
     pinned,
     await Promise.all(
@@ -104,9 +104,15 @@ test('pinned ledger is exactly the reviewed edge migrations 001-027 of this repo
     pinned[26].checksum,
     '41e55b450721646e45be599cf58626fd52328113f5a8165bb8fa5edf1e3a2a97',
   );
+  // Cutover 19.11 (CR pos-7): the desk number, after a schema027 copy.
+  assert.equal(pinned[27].version, '028_edge_pos_desk_number.sql');
+  assert.equal(
+    pinned[27].checksum,
+    '684ffa9c5265d32fd3c33e6190ca3126c83c5cb47974aa274cf198fc905d0abf',
+  );
 });
 
-test('each reviewed schema014-027 accepts only its own exact ledger', () => {
+test('each reviewed schema014-028 accepts only its own exact ledger', () => {
   assert.deepEqual(Object.keys(SERVICE_BACKUP_SCHEMAS), [
     'schema014',
     'schema015',
@@ -122,6 +128,7 @@ test('each reviewed schema014-027 accepts only its own exact ledger', () => {
     'schema025',
     'schema026',
     'schema027',
+    'schema028',
   ]);
   for (const [mode, length] of Object.entries(SERVICE_BACKUP_SCHEMAS)) {
     const expected = expectedServiceLedger(pinned, mode);
