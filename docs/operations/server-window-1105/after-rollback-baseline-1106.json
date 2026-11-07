@@ -1,0 +1,32 @@
+{
+  "observedAt": "2026-11-06T10:07:24.181152+00:00",
+  "apiRevision": "c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da",
+  "apiImage": "sha256:063076dbe2033aefc0128a8ac9ed67f38d7a98e3e295e125c9e0b1876e6b6729",
+  "pointers": {
+    "current": "/opt/pickchick-staging/releases/c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da",
+    "public-https/current": "/opt/pickchick-staging/public-https/releases/c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da"
+  },
+  "hashes": {
+    "/opt/pickchick-staging/releases/c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da/infra/staging/compose.yaml": "05d009fa3bc286c403032f2be9eaf6d25c7ff004abdd1b92c0880baff2682805",
+    "/opt/pickchick-staging/public-https/releases/c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da/infra/public-staging/compose.yaml": "b56dac55f6ec8670ac868ab438fd900f9eecdb7e1497ad16d388daa8cb93f426",
+    "/opt/pickchick-staging/public-https/releases/c3a0fbeea69e3c94b4a0994f5cdee74ba98c77da/infra/public-staging/gateway.Caddyfile": "c603c640458f791ad0c19430ab3fd1e344dcc9f1448fbf99357524368e5fa520"
+  },
+  "flags": {
+    "CATALOG_EDGE_COMBO_STOPS_ENABLED": "absent",
+    "BACKOFFICE_STATION_PLAN_DELIVERY_ENABLED": "absent",
+    "BACKOFFICE_RECONCILIATION_ENABLED": "absent",
+    "CLOUD_EDGE_IDENTITY_ROTATION_ENABLED": "absent",
+    "CUSTOMER_COMBO_REWARDS_ENABLED": "absent",
+    "CUSTOMER_PUSH_ENABLED": "absent",
+    "CUSTOMER_NOTIFICATIONS_ENABLED": "absent"
+  },
+  "lockExists": false,
+  "diskFreeGiB": 129.87,
+  "front_sha256": "5993997a230ae099d9cb9b93c3a6cdf22f691ff1e1df35ac97a16d00ac6e0e52",
+  "mutations_performed": false,
+  "ledger_count": 61,
+  "ledger_head": "068_cloud_identity_abuse_limits.sql",
+  "ledger_checksums_verified": true,
+  "baseline_matches": true,
+  "differences": []
+}

@@ -1,0 +1,4 @@
+# Private snapshot preserves the existing unrelated site block byte for byte.
+# Neither this snapshot nor certificate/key storage is committed to Git.
+import /etc/caddy/private/legacy.Caddyfile
+import /etc/caddy/sites.Caddyfile
