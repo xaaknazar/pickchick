@@ -309,7 +309,20 @@ test('each second-wave flag adds only its capability key, after every bo-ui key'
         );
         assert.deepEqual(Object.keys(state.capabilities), [...Object.keys(off.capabilities), key]);
         assert.equal(state.capabilities[key], true, key);
-        assert.deepEqual(withoutKeys(state, [key]), off);
+        // Step 2: with roles on, supply also lists its rights in permissions[], after the rest.
+        const expected =
+          option === 'supplyEnabled' && Array.isArray(off.permissions)
+            ? {
+                ...off,
+                permissions: [
+                  ...off.permissions,
+                  'suppliers.write',
+                  'supply.write',
+                  'supply.close',
+                ],
+              }
+            : off;
+        assert.deepEqual(withoutKeys(state, [key]), expected);
         // Without the flag it builds on, the key is there and false (stock_reports needs none).
         if (Object.keys(BASE[option]).length) {
           const alone = stable(

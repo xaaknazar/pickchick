@@ -41,6 +41,12 @@ export const BackofficeErrorReasonSchema = z.enum([
   'DISCOUNT_NAME_TAKEN',
   'DISCOUNT_ARCHIVED',
   'DISCOUNT_PERIOD_ENDED',
+  // Lane bo-ui2 suppliers and supply requests (design-bo-ui 9.4): only with BACKOFFICE_SUPPLY_ENABLED.
+  'SUPPLIER_NAME_TAKEN',
+  'SUPPLIER_INACTIVE',
+  'PRICE_UNIT_MISMATCH',
+  'REQUEST_LOCKED',
+  'REQUEST_INCOMPLETE',
 ]);
 export type BackofficeErrorReason = z.infer<typeof BackofficeErrorReasonSchema>;
 export class BackofficeError extends Error {

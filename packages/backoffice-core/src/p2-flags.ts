@@ -1,5 +1,6 @@
 import type { DatabaseClient } from '@pickchick/database';
 import { p1RelationsReady } from './p1-flags.js';
+import { stockV2Writable } from './stock-v2.js';
 import type { BackofficeOptions } from './stops.js';
 
 /**
@@ -43,6 +44,20 @@ export const P2_FEATURE_RELATIONS = Object.freeze({
   ] as const),
   staff_assignment: Object.freeze([['bo_staff_assignments', WRITE]] as const),
 });
+/**
+ * Suppliers, prices and supply requests can run for the current database role (step 2): the flag,
+ * stock v2 (a received request is a stock v2 receipt with where it came from and the invoice
+ * date, so the role must also write the cloud074 columns) and the cloud076 rights of
+ * backoffice-supply-grants.mjs.
+ */
+export async function supplyAvailable(db: Db, options: BackofficeOptions): Promise<boolean> {
+  return (
+    options.supplyEnabled === true &&
+    options.stockV2Enabled === true &&
+    (await p1RelationsReady(db, P2_FEATURE_RELATIONS.supply)) &&
+    (await stockV2Writable(db))
+  );
+}
 export type P2Capabilities = {
   supply?: boolean;
   stock_reports?: true;
@@ -50,15 +65,13 @@ export type P2Capabilities = {
 };
 /**
  * The second-wave keys of GET branches/:id capabilities, in this order, only for the flags that
- * are on. `supply` also needs stock v2 (a received request is a stock v2 receipt) and
- * `staff_assignment` the staff positions (the stations are positions), like loadConfig requires.
- * `stock_reports` reads only tables the back office already reads, so it is always true.
+ * are on. `supply` also needs stock v2 (a received request is a stock v2 receipt; supplyAvailable)
+ * and `staff_assignment` the staff positions (the stations are positions), like loadConfig
+ * requires. `stock_reports` reads only tables the back office already reads, so it is always true.
  */
 export async function p2Capabilities(db: Db, options: BackofficeOptions): Promise<P2Capabilities> {
   const out: P2Capabilities = {};
-  if (options.supplyEnabled === true)
-    out.supply =
-      options.stockV2Enabled === true && (await p1RelationsReady(db, P2_FEATURE_RELATIONS.supply));
+  if (options.supplyEnabled === true) out.supply = await supplyAvailable(db, options);
   if (options.stockReportsEnabled === true) out.stock_reports = true;
   if (options.staffAssignmentEnabled === true)
     out.staff_assignment =

@@ -36,7 +36,15 @@ import {
 import { assertStockV2, readStockOps, stockV2Readable, stockV2Writable } from './stock-v2.js';
 import { readSalesReport } from './sales-report.js';
 import { p1Capabilities } from './p1-flags.js';
-import { p2Capabilities } from './p2-flags.js';
+import { p2Capabilities, supplyAvailable } from './p2-flags.js';
+import {
+  P2Request,
+  P2_COMMAND_FLAGS,
+  P2_COMMAND_PERMISSIONS,
+  SUPPLY_PERMISSIONS,
+  type P2RequestInput,
+} from './p2-commands.js';
+import { readSuppliers, readSupplyRequests, supplyCommand } from './supply.js';
 import { posOrderCard, posOrderExtras, posStaffNames, readPosDay } from './pos-day.js';
 import {
   IngredientP1,
@@ -93,6 +101,8 @@ export * from './stock-v2.js';
 export * from './sales-report.js';
 export * from './p1-flags.js';
 export * from './p2-flags.js';
+export * from './p2-commands.js';
+export * from './supply.js';
 export * from './pos-day.js';
 export * from './edge-staff.js';
 export * from './stock-p1.js';
@@ -501,18 +511,23 @@ export class Backoffice {
         this.options.rolesEnabled === true
           ? {
               effective_role: actor.effective,
-              permissions: permissionsOf(actor.effective, [
-                ...(stockP1
-                  ? (['stock.reverse', 'menu_links.write', 'menu_links.approve'] as const)
-                  : []),
-                ...(autoconsume ? (['stock.settings', 'consumption.write'] as const) : []),
-                ...(managerShifts
-                  ? (['manager_shifts.write', 'manager_shifts.template'] as const)
-                  : []),
-                ...(staffPositions ? (['staff.positions'] as const) : []),
-                // Discounts (step 7): the editor, while the 075 rights are there.
-                ...(p1.discounts === true ? (['discounts.write'] as const) : []),
-              ]),
+              permissions: permissionsOf(
+                actor.effective,
+                [
+                  ...(stockP1
+                    ? (['stock.reverse', 'menu_links.write', 'menu_links.approve'] as const)
+                    : []),
+                  ...(autoconsume ? (['stock.settings', 'consumption.write'] as const) : []),
+                  ...(managerShifts
+                    ? (['manager_shifts.write', 'manager_shifts.template'] as const)
+                    : []),
+                  ...(staffPositions ? (['staff.positions'] as const) : []),
+                  // Discounts (step 7): the editor, while the 075 rights are there.
+                  ...(p1.discounts === true ? (['discounts.write'] as const) : []),
+                ],
+                // Second wave (bo-ui2): suppliers and requests, while the 076 rights are there.
+                p2.supply === true ? SUPPLY_PERMISSIONS : [],
+              ),
             }
           : {};
       const stockV2 =
@@ -707,6 +722,17 @@ export class Backoffice {
       if (view === 'discounts' && this.options.discountsEnabled === true) {
         if (!(await discountsAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
         return readDiscounts(db, branch, input, new Date());
+      }
+      // Second wave (bo-ui2 step 2, supply.ts): suppliers with their prices and the supply
+      // requests, only while BACKOFFICE_SUPPLY_ENABLED is on; every role reads.
+      if (
+        (view === 'suppliers' || view === 'supply-requests') &&
+        this.options.supplyEnabled === true
+      ) {
+        if (!(await supplyAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+        return view === 'suppliers'
+          ? readSuppliers(db, branch, input, new Date())
+          : readSupplyRequests(db, branch, input, new Date());
       }
       if (view !== 'stock') return fail('NOT_FOUND');
       if (this.options.stockV2Enabled !== true || !(await stockV2Readable(db)))
@@ -912,18 +938,45 @@ export class Backoffice {
     if (P1_COMMAND_FLAGS[parsed.data.command.type].some((flag) => o[flag] !== true)) return null;
     return parsed.data;
   }
+  /**
+   * A second-wave command (p2-commands.ts): parsed by its own schema and only while one of the
+   * second-wave flags is on, so with all three off nothing is parsed here and every such command
+   * is exactly an unknown command (INVALID_REQUEST), as in bo-ui.
+   */
+  private p2Request(input: unknown): P2RequestInput | null {
+    const o = this.options;
+    if (!(
+      o.supplyEnabled === true ||
+      o.stockReportsEnabled === true ||
+      o.staffAssignmentEnabled === true
+    ))
+      return null;
+    const parsed = P2Request.safeParse(input);
+    if (!parsed.success) return null;
+    if (P2_COMMAND_FLAGS[parsed.data.command.type].some((flag) => o[flag] !== true)) return null;
+    return parsed.data;
+  }
   async command(token: string, branch: string, input: unknown) {
-    const req: z.infer<typeof Request> | P1RequestInput =
-      this.p1Request(input) ?? parse(Request, input);
+    const req: z.infer<typeof Request> | P1RequestInput | P2RequestInput =
+      this.p1Request(input) ?? this.p2Request(input) ?? parse(Request, input);
     const manualRefund = req.command.type === 'manual_refund';
     const c0 = req.command;
-    const permission: BackofficeAnyPermission =
-      c0.type in P1_COMMAND_PERMISSIONS
+    // A second-wave command checks every permission of its list (receive: supply.close and
+    // stock.receipt); the first one is the scope check.
+    const p2Permissions =
+      c0.type in P2_COMMAND_PERMISSIONS
+        ? P2_COMMAND_PERMISSIONS[c0.type as keyof typeof P2_COMMAND_PERMISSIONS]
+        : null;
+    const permission: BackofficeAnyPermission = p2Permissions
+      ? p2Permissions[0]!
+      : c0.type in P1_COMMAND_PERMISSIONS
         ? P1_COMMAND_PERMISSIONS[c0.type as keyof typeof P1_COMMAND_PERMISSIONS]
         : commandPermission(c0 as z.infer<typeof Request>['command']);
     try {
       return await transaction(this.pool, async (db) => {
         const actor = await this.scope(db, token, branch, permission);
+        for (const extra of p2Permissions?.slice(1) ?? [])
+          requirePermission(actor.effective, extra);
         await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
           'bo:actor:' + actor.id + ':' + req.request_id,
         ]);
@@ -945,7 +998,35 @@ export class Backoffice {
         let result: unknown;
         let before: unknown = null;
         let entity: string | null;
-        if (c.type === 'stock_reverse') {
+        if (
+          c.type === 'supplier_save' ||
+          c.type === 'supplier_price_save' ||
+          c.type === 'supply_request_save' ||
+          c.type === 'supply_request_submit' ||
+          c.type === 'supply_request_cancel' ||
+          c.type === 'supply_request_receive'
+        ) {
+          // Suppliers and supply requests (supply.ts): the flag, stock v2 and the 076 rights. A
+          // received request posts its receipt with the stock command's own code, in this
+          // transaction.
+          if (!(await supplyAvailable(db, this.options))) throw new ErrorCode('NOT_READY');
+          const done = await supplyCommand(
+            db,
+            branch,
+            actor.id,
+            req.reason,
+            c,
+            new Date(),
+            (reference, lines, meta) =>
+              this.stock(db, branch, actor, req.reason, 'receipt', reference, lines, {
+                reason_code: null,
+                meta,
+              }),
+          );
+          result = done.result;
+          before = done.before;
+          entity = done.entity;
+        } else if (c.type === 'stock_reverse') {
           // Stock P1 storno (stock-p1.ts): flag on, cloud075 and its rights, or not at all.
           if (!(await stockP1Ready(db))) throw new ErrorCode('NOT_READY', 'STOCK_V2_DISABLED');
           result = await reverseStockDocument(db, branch, actor.id, req.reason, c);
