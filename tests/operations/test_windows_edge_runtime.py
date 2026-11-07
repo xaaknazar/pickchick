@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import pathlib
+import re
 import subprocess
 import tempfile
 import unittest
@@ -85,6 +86,38 @@ class WindowsEdgePackageTests(unittest.TestCase):
             self.assertFalse(any('.local' in name for name in archive.namelist()))
             self.assertTrue(all((entry.external_attr >> 16) & 0o170000 != 0o120000
                                 for entry in archive.infolist()))
+
+    def test_manifest_pins_every_file_the_pos_sync_installer_requires(self):
+        # install-native-pos-sync.ps1 refuses a runtime whose manifest misses one of these files
+        # ('Required sync administration file is not pinned in the manifest').
+        installer = (SCRIPT.parents[1] / 'infra/windows/install-native-pos-sync.ps1').read_text()
+        listed = re.search(r"foreach \(\$relative in @\(([^)]*)\)\) \{\s*\n\s*if \(@\(\$manifest\.files", installer)
+        self.assertIsNotNone(listed)
+        required = re.findall(r"'([^']+)'", listed.group(1))
+        self.assertEqual(len(required), 5)
+        # Files the installer itself runs before the manifest check, and the operator guide.
+        shipped = required + ['infra/windows/install-native-pos-sync.ps1',
+                              'infra/windows/inspect-native-ssh.ps1',
+                              'infra/windows/native-pos-sync.md',
+                              'infra/windows/pos-sync-backlog.mjs', 'scripts/edge-migrate.mjs']
+        for relative in shipped:
+            self.assertIn(relative, builder.ADMIN_FILES)
+            self.assertTrue((SCRIPT.parents[1] / relative).is_file(), relative)
+        self.build()
+        manifest = json.loads((self.base / 'output/runtime-manifest.json').read_text())
+        pinned = {entry['path'] for entry in manifest['files']}
+        for relative in shipped:
+            self.assertIn(relative, pinned)
+            entry = next(entry for entry in manifest['files'] if entry['path'] == relative)
+            self.assertRegex(entry['sha256'], '^[a-f0-9]{64}$')
+        # Every relative import of the shipped POS sync modules is shipped too.
+        for relative in required:
+            if not relative.endswith('.mjs'):
+                continue
+            text = (SCRIPT.parents[1] / relative).read_text()
+            for imported in re.findall(r"from '(\./[^']+)'", text):
+                target = str(pathlib.PurePosixPath(relative).parent / imported[2:])
+                self.assertIn(target, builder.ADMIN_FILES, relative + ' imports ' + imported)
 
     def test_rejects_external_dependency_and_missing_dependency(self):
         external = self.base / 'outside'
