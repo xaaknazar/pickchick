@@ -18,6 +18,7 @@ import {
   assertBackofficeCutoverPrivileges,
   backofficeCutoverGrants,
 } from './backoffice-cutover-grants.mjs';
+import { assertBackofficeP1Privileges, backofficeP1Grants } from './backoffice-p1-grants.mjs';
 import { customerCheckoutGrants } from './checkout-grants.mjs';
 import { edgeIdentityRotationGrants } from './edge-identity-rotation-grants.mjs';
 import { customerCheckoutOptions } from '../../packages/commerce-core/dist/index.js';
@@ -180,6 +181,24 @@ async function provision() {
       // cutover:integration end
       if (config.testOrderFlowEnabled)
         await client.query('GRANT INSERT ON bo_records TO pickchick_app');
+      // cutover:bo-ui begin (run as is by tests/integration/cutover-staging-provision.test.mjs)
+      // Cutover bo-ui (CR bo-ui-1 section 1, CR bo-ui-5 section 2, CR bo-ui-6 section 1): cloud075
+      // back-office P1. Last in the transaction: the helper resets only the 075 relations and adds
+      // SELECT on 073 and catalog tables whose resets other helpers above own. Before 075 it does
+      // nothing (to_regclass). The same back-office switch as cloudPosSalesGrants, so the exact 073
+      // set still holds (CR bo-ui-5 section 2). Every key false = no right on any 075 relation.
+      const p1 = {
+        backoffice: config.backofficeEnabled === true,
+        posDay: config.backofficePosDayEnabled === true,
+        stockV2: process.env.BACKOFFICE_STOCK_V2_ENABLED === 'true',
+        autoconsume: config.backofficeStockAutoconsumeEnabled === true,
+        managerShifts: config.backofficeManagerShiftsEnabled === true,
+        staffPositions: config.backofficeStaffPositionsEnabled === true,
+        discounts: config.backofficeDiscountsEnabled === true,
+      };
+      await client.query(backofficeP1Grants('pickchick_app', p1));
+      await assertBackofficeP1Privileges(client, 'pickchick_app', p1);
+      // cutover:bo-ui end
     });
     console.log(JSON.stringify({ event: 'staging_provisioned', applied }));
   } finally {
