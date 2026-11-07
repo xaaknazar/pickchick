@@ -446,7 +446,7 @@ export function emptyRequestForm(kind: RequestKind, today: string): RequestForm 
   return { kind, supplier_id: '', needed_by: shiftDay(today, 1), note: '', lines: [] };
 }
 /** A base quantity as the editor shows it: kg or l when it divides into whole thousandths. */
-function editorQuantity(qty: string, base: string): { quantity: string; unit: string } {
+export function editorQuantity(qty: string, base: string): { quantity: string; unit: string } {
   if ((base === 'g' || base === 'ml') && BigInt(qty) >= 1000n) {
     const n = BigInt(qty);
     const fraction = (n % 1000n).toString().padStart(3, '0').replace(/0+$/, '');

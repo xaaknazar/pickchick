@@ -163,3 +163,17 @@
 .autoconsume-link-line {
   align-items: end;
 }
+/* Lane bo-ui2 step 4 stock reports (capabilities.stock_reports only): the actions of «Остатки»
+   and «К заказу» in one row, a tappable checkbox per row and «Откуда» under the name. */
+.inventory .op-actions {
+  margin: 8px 0;
+}
+.stock-reorder-pick {
+  width: 24px;
+  height: 24px;
+  margin: 0;
+}
+.stock-reorder-from {
+  display: block;
+  margin-top: 2px;
+}

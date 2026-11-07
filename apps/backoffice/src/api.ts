@@ -127,6 +127,10 @@ export function allowedPath(path: string): boolean {
   // Cutover CC-6: stock v2 report; cutover read views live under ops/<view>.
   if (new RegExp(`^operations/branches/${UUID}/ops/stock$`).test(pathname)) {
     const q = new URLSearchParams(search ?? '');
+    // Lane bo-ui2 step 4: the balances and the reorder hint take no dates (the API decides by
+    // its flag BACKOFFICE_STOCK_REPORTS_ENABLED).
+    if ([...q.keys()].length === 1 && /^(balances|reorder)$/.test(q.get('view') ?? ''))
+      return q.getAll('view').length === 1;
     return (
       [...q.keys()].length === 3 &&
       ['view', 'start_date', 'end_date'].every((k) => q.getAll(k).length === 1) &&

@@ -627,7 +627,8 @@ export class OperationsModel {
    * the server answered it; the page checks the shape (supply-model.ts).
    */
   async opsView(
-    view: 'suppliers' | 'supply-requests' | 'supplier-imports',
+    // Lane bo-ui2 step 4: 'stock' with view=balances|reorder (stock-reports-model.ts).
+    view: 'suppliers' | 'supply-requests' | 'supplier-imports' | 'stock',
     query: Record<string, string> = {},
   ) {
     const generation = this.generation;

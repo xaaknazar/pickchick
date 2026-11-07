@@ -233,6 +233,8 @@ const supplyPage = new SupplyPage({
   scope: () => `${operations.actor}:${operations.branch}`,
   changed: () => softRender(),
 });
+// Lane bo-ui2 step 4: «Создать заявку» of «К заказу» opens the request editor of «Закупки».
+operationView.requestFromHint = (form, mixed) => supplyPage.newRequest(form, mixed);
 function syncOperations() {
   if (!model.actor) {
     workforce.clear();

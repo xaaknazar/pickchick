@@ -153,6 +153,10 @@ export const allowed = (method, path) => {
     new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/stock$`, 'i').test(pathname)
   ) {
     const q = new URLSearchParams(search ?? '');
+    // Lane bo-ui2 step 4: view=balances and view=reorder take no dates; the API decides by its
+    // flag (BACKOFFICE_STOCK_REPORTS_ENABLED) and answers INVALID_REQUEST without it.
+    if ([...q.keys()].length === 1 && /^(balances|reorder)$/.test(q.get('view') ?? ''))
+      return (search?.length ?? 0) <= 200 && q.getAll('view').length === 1;
     return (
       (search?.length ?? 0) <= 200 &&
       [...q.keys()].length === 3 &&
@@ -410,6 +414,8 @@ const assets = new Map([
     // Lane bo-ui2 step 2 «Закупки» (shown only with capabilities.supply).
     'supply',
     'supply-model',
+    // Lane bo-ui2 step 4 stock reports (used only with capabilities.stock_reports).
+    'stock-reports-model',
   ].map((n) => [`/${n}.js`, [`${n}.js`, 'text/javascript; charset=utf-8']]),
   ...['logo.png', 'shot.jpg', ...Array.from({ length: 24 }, (_, i) => `i${i}.jpg`)].map((n) => [
     `/assets/${n}`,

@@ -783,3 +783,8 @@
     text-align: left;
   }
 }
+/* Lane bo-ui2 step 4: a field with a note under it (no supplier of the kind yet) no longer
+   stretches the field beside it in the request editor. */
+.sp-dialog .form-grid {
+  align-items: start;
+}

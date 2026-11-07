@@ -695,23 +695,49 @@ export class SupplyPage {
   private draftKey(id: string) {
     return `${DRAFT}:${this.cb.scope()}:${id}`;
   }
+  /**
+   * Lane bo-ui2 step 4: a new request prefilled from «К заказу» of «Остатки» (kind, lines with the
+   * suggested quantities). Nothing is saved until the person saves it.
+   */
+  newRequest(form: RequestForm, mixed: boolean) {
+    this.editRequest(null, { form, mixed });
+  }
   /** Create (r = null) or edit a draft; the input survives a reload of the tab. */
-  private editRequest(r: SupplyRequest | null) {
+  private editRequest(
+    r: SupplyRequest | null,
+    prefill: { form: RequestForm; mixed: boolean } | null = null,
+  ) {
     const today = almatyToday();
     const store = sessionStore();
-    const key = this.draftKey(r ? r.id : 'new');
+    const key = this.draftKey(r ? r.id : prefill ? 'reorder' : 'new');
     type Draft = { id: string; revision: number; form: RequestForm; reason: string };
-    const saved = readDraft<Draft>(store, key);
+    const saved = prefill ? null : readDraft<Draft>(store, key);
     const restored = saved && saved.revision === (r?.revision ?? 0) ? saved : null;
     const form: RequestForm =
-      restored?.form ?? (r ? requestFormOf(r) : emptyRequestForm('bakery', today));
+      restored?.form ??
+      (r ? requestFormOf(r) : (prefill?.form ?? emptyRequestForm('bakery', today)));
     const requestId = restored?.id ?? r?.id ?? crypto.randomUUID();
-    let reason = restored?.reason ?? (r ? 'Изменение заявки' : 'Новая заявка');
+    let reason =
+      restored?.reason ??
+      (r ? 'Изменение заявки' : prefill ? 'Заявка по подсказке «К заказу»' : 'Новая заявка');
     const box = dialog(
       r ? `Изменить заявку № ${r.number}` : 'Новая заявка',
       'Остаток - по учёту склада сейчас. Подсказка «минимум - остаток» - сколько не хватает до минимального запаса позиции. Без минимума подсказки нет.',
       'sp-editor',
     );
+    if (prefill) {
+      const n = el(
+        'p',
+        'notice',
+        `Строки и количества подставлены из «К заказу» (для мяса - на 3 дня расхода, иначе до минимума; «Подсказка» в строке ниже - только «минимум - остаток»). Проверьте «Куда» и количества перед сохранением.${
+          prefill.mixed
+            ? ' Отмеченные позиции приходят из разных мест: выбран вид «Поставщик», поменяйте его или разделите заявку.'
+            : ''
+        }`,
+      );
+      n.dataset.testid = 'sp-prefilled';
+      box.append(n);
+    }
     guard(box, {
       question: 'Закрыть окно? Несохранённые изменения заявки пропадут.',
       store,
