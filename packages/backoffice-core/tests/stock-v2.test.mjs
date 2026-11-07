@@ -22,6 +22,14 @@ import {
 import * as contracts from '../../contracts/dist/index.js';
 
 const MIGRATIONS = fileURLToPath(new URL('../../../db/cloud/migrations/', import.meta.url));
+/** The cloud migrations migrate() applies from `first` on (later lanes add files, e.g. 075). */
+async function migrationsFrom(first) {
+  const names = (await readdir(MIGRATIONS))
+    .filter((name) => /^\d{3}_[a-z_]+\.sql$/.test(name) && name >= first)
+    .sort();
+  assert.equal(names[0], first);
+  return names;
+}
 const is = (code, reason) => (error) =>
   error instanceof BackofficeError && error.code === code && error.reason === reason;
 const meta = {
@@ -372,7 +380,11 @@ test('flag on: waste needs a reason, receipts keep supplier and date, nothing ha
         ['Синтетическая булка', 'pcs', '6', '6000'],
       ],
     );
-    assert.deepEqual(report.summary.by_day, [{ day: today, documents: 5, value_minor: '56000' }]);
+    // On 075 stock v2 carries stock P1 (lane bo-ui, stock-p1.ts): every waste row also counts the
+    // storno documents of the window (none here); stock-p1.test.mjs pins the cloud lane answer.
+    assert.deepEqual(report.summary.by_day, [
+      { day: today, documents: 5, reversals: 0, value_minor: '56000' },
+    ]);
     assert.deepEqual(
       report.summary.by_author.map((r) => [r.actor_name, r.documents, r.value_minor]),
       [
@@ -431,7 +443,9 @@ test('flag on: waste needs a reason, receipts keep supplier and date, nothing ha
       }),
       is('UNAUTHORIZED', undefined),
     );
-    // The D0 list in GET branches/:id is unchanged by stock v2 (reason codes live in ops/stock).
+    // The D0 list in GET branches/:id keeps its keys and order; on 075 stock P1 (lane bo-ui)
+    // appends the reason, the receipt details and the storno links (without 075: the D0 keys,
+    // stock-p1.test.mjs).
     const state = await v2.read(s.manager.token, c.branch);
     assert.deepEqual(Object.keys(state.documents[0]), [
       'id',
@@ -443,6 +457,13 @@ test('flag on: waste needs a reason, receipts keep supplier and date, nothing ha
       'actor_id',
       'actor_name',
       'lines',
+      'reason_code',
+      'meta',
+      'source_ref',
+      'reverses_document_id',
+      'reversed_by',
+      'reversed_at',
+      'reverses',
     ]);
   }));
 
@@ -494,10 +515,12 @@ test('flag on without 074: plain stock commands work as v1, v2 fields and ops/st
           }),
           is('NOT_FOUND', 'STOCK_V2_DISABLED'),
         );
-        // 074 applied under the running runtime: the next command may carry a reason.
-        assert.deepEqual(await migrate(c.cloud.pool, MIGRATIONS, 'cloud'), [
-          '074_cloud_backoffice_cutover.sql',
-        ]);
+        // 074 (and every later file) applied under the running runtime: the next command may
+        // carry a reason.
+        assert.deepEqual(
+          await migrate(c.cloud.pool, MIGRATIONS, 'cloud'),
+          await migrationsFrom('074_cloud_backoffice_cutover.sql'),
+        );
         const waste = await v2.command(
           s.manager.token,
           c.branch,

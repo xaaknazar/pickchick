@@ -1,3 +1,4 @@
+import { dash } from './ui-fixes.js';
 import type { CatalogPayload } from '@pickchick/catalog-admin/contracts';
 export type { CatalogPayload };
 export type Product = CatalogPayload['products'][number];
@@ -403,9 +404,11 @@ export function deliveryText(
     };
   if (delivery.status === 'rejected')
     return {
-      text: `Касса: отклонено — ${
-        delivery.reject_reason ? rejectText[delivery.reject_reason] : 'причина не указана'
-      }`,
+      text: dash(
+        `Касса: отклонено — ${
+          delivery.reject_reason ? rejectText[delivery.reject_reason] : 'причина не указана'
+        }`,
+      ),
       tone: 'bad',
       warning: null,
     };
@@ -448,7 +451,8 @@ export function publicationCopy(support: PublicationSupport | undefined): string
   ].filter(Boolean) as string[];
   if (off.length === 3)
     return 'Связь публикаций с приложением, киоском и кассой ещё не включена. Сохранённая версия станет действующей после подключения каналов.';
-  if (off.length) parts.push(`Не подключены: ${off.join(', ')} — они остаются на своих версиях.`);
+  if (off.length)
+    parts.push(dash(`Не подключены: ${off.join(', ')} — они остаются на своих версиях.`));
   return parts.join(' ');
 }
 export function parseState(value: unknown): CatalogState {

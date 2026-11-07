@@ -22,8 +22,11 @@ test('operator proxy allowlist: only ops/stock with view and a date window', () 
   const ok = (q) => allowed('GET', `${base}/stock?${q}`);
   assert.equal(ok('view=waste&start_date=2026-11-19&end_date=2026-11-19'), true);
   assert.equal(ok('view=movement&start_date=2026-11-01&end_date=2026-11-30'), true);
+  // Lane bo-ui stock P1 (step 8): the API answers these only with stock P1, see below.
+  assert.equal(ok('view=variance&start_date=2026-11-19&end_date=2026-11-19'), true);
+  assert.equal(ok('view=consumption&start_date=2026-11-19&end_date=2026-11-19'), true);
   for (const q of [
-    'view=consumption&start_date=2026-11-19&end_date=2026-11-19',
+    'view=sales&start_date=2026-11-19&end_date=2026-11-19',
     'view=waste&start_date=2026-11-19',
     'view=waste&start_date=2026-11-19&end_date=2026-11-19&token=x',
     'view=waste&view=waste&start_date=2026-11-19&end_date=2026-11-19',
@@ -70,11 +73,16 @@ test('flags off: ops/stock answers 404 STOCK_V2_DISABLED, v2 fields 409, read ke
     assert.equal(body.code, 'NOT_FOUND');
     assert.deepEqual(body.error, { code: 'STOCK_V2_DISABLED' });
     // The proxy refuses what it does not know before the API sees it.
-    const blocked = await fetch(c.url + opsPath(c.branch, { ...query, view: 'consumption' }), {
+    const blocked = await fetch(c.url + opsPath(c.branch, { ...query, view: 'sales' }), {
       headers,
     });
     assert.equal(blocked.status, 404);
     assert.equal((await blocked.json()).error, undefined);
+    // A stock P1 view (lane bo-ui step 8) reaches the API, which answers as for every stock view
+    // while stock v2 is off.
+    const p1 = await fetch(c.url + opsPath(c.branch, { ...query, view: 'variance' }), { headers });
+    assert.equal(p1.status, 404);
+    assert.deepEqual((await p1.json()).error, { code: 'STOCK_V2_DISABLED' });
     // The API itself: an unknown view is a plain 404.
     const unknown = await fetch(
       `${c.upstream}/v1/admin/backoffice/branches/${c.branch}/ops/sales?start_date=2026-11-01`,
@@ -190,8 +198,10 @@ test('flags on: permissions in read, waste reasons over HTTP, ops/stock report, 
       );
       assert.equal(report.status, 200);
       const data = await report.json();
+      // On 075 stock v2 carries lane bo-ui's stock P1: each waste row counts its storno too.
+      assert.equal(state.capabilities.stock_p1, true);
       assert.deepEqual(data.summary.by_reason, [
-        { reason_code: 'hot_cabinet_expired', documents: 1, value_minor: '200' },
+        { reason_code: 'hot_cabinet_expired', documents: 1, reversals: 0, value_minor: '200' },
       ]);
       const movement = await (
         await fetch(
@@ -250,6 +260,46 @@ test('flags on: permissions in read, waste reasons over HTTP, ops/stock report, 
       const financeBody = await finance.json();
       assert.equal(financeBody.code, 'FORBIDDEN');
       assert.deepEqual(financeBody.error, { code: 'ROLE_FORBIDDEN' });
+
+      // Stock P1 storno through the proxy: the shift manager may not, the manager may once.
+      const wasteId = data.documents[0].id;
+      const balances = async () =>
+        Object.fromEntries(
+          (
+            await (
+              await fetch(`${c.url}/v1/admin/backoffice/branches/${c.branch}?period=day`, {
+                headers: headers(c.manager.token),
+              })
+            ).json()
+          ).stock.map((r) => [r.id, r.revision]),
+        );
+      const storno = async (token) =>
+        command(token, {
+          type: 'stock_reverse',
+          document_id: wasteId,
+          expected_balances: await balances(),
+        });
+      const denied = await storno(shift.token);
+      assert.equal(denied.status, 403);
+      assert.deepEqual((await denied.json()).error, { code: 'ROLE_FORBIDDEN' });
+      const reversed = await storno(c.manager.token);
+      assert.equal(reversed.status, 200);
+      assert.equal((await reversed.json()).reverses_document_id, wasteId);
+      const again = await storno(c.manager.token);
+      assert.equal(again.status, 409);
+      const body = await again.json();
+      assert.equal(body.code, 'CONFLICT');
+      assert.deepEqual(body.error, { code: 'ALREADY_REVERSED' });
+      const after = await (
+        await fetch(
+          c.url + opsPath(c.branch, { view: 'waste', start_date: today(), end_date: today() }),
+          { headers: headers(c.manager.token) },
+        )
+      ).json();
+      assert.deepEqual(
+        after.summary.by_reason.find((r) => r.reason_code === 'hot_cabinet_expired'),
+        { reason_code: 'hot_cabinet_expired', documents: 1, reversals: 1, value_minor: '0' },
+      );
     },
     { roles: true, stockV2: true },
   ));

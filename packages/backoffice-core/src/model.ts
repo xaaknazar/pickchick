@@ -21,6 +21,26 @@ export const BackofficeErrorReasonSchema = z.enum([
   'ROLE_FORBIDDEN',
   'STOCK_V2_DISABLED',
   'REASON_REQUIRED',
+  // Lane bo-ui stock P1 (design-bo-ui 5): only with BACKOFFICE_STOCK_V2_ENABLED and cloud075.
+  'REVERSAL_NOT_ALLOWED',
+  'ALREADY_REVERSED',
+  'COUNTED_AFTER_DOCUMENT',
+  'RECIPE_POLICY_EXPLODE',
+  'RECIPE_POLICY_UNSET',
+  // Lane bo-ui automatic consumption (design-bo-ui 5.5): only with BACKOFFICE_STOCK_AUTOCONSUME_ENABLED.
+  'AUTOCONSUME_ACTIVE',
+  // Lane bo-ui manager shift (design-bo-ui 5.6): only with BACKOFFICE_MANAGER_SHIFTS_ENABLED.
+  'MANAGER_SHIFT_OPEN',
+  'CHECKLIST_INCOMPLETE',
+  'HANDOVER_REQUIRED',
+  'LEGACY_JOURNAL_READ_ONLY',
+  // Lane bo-ui staff positions (design-bo-ui 5.7): only with BACKOFFICE_STAFF_POSITIONS_ENABLED.
+  'POSITION_UNKNOWN',
+  'POSITION_IN_USE',
+  // Lane bo-ui discounts (design-bo-ui 5.8): only with BACKOFFICE_DISCOUNTS_ENABLED.
+  'DISCOUNT_NAME_TAKEN',
+  'DISCOUNT_ARCHIVED',
+  'DISCOUNT_PERIOD_ENDED',
 ]);
 export type BackofficeErrorReason = z.infer<typeof BackofficeErrorReasonSchema>;
 export class BackofficeError extends Error {

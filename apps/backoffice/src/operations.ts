@@ -1,23 +1,90 @@
 import { InventoryView, inventoryEditor } from './inventory.js';
 import { SalesReportView } from './sales-report.js';
+import { PosDayView, PosHomeView, receiptDetails } from './pos-day.js';
+import { almatyTime, csvTenge } from './sales-report-model.js';
+import {
+  deskLabel,
+  ordersTotalsText,
+  pagerText,
+  periodDays,
+  searchAllowed,
+  type OrdersParams,
+  type OrdersView,
+} from './orders-model.js';
 import { ReconciliationView } from './components/ReconciliationView.js';
 import { ReconciliationModel } from './reconciliation-model.js';
 import { element as el, button, field, select, check } from './dom.js';
-import { message } from './api.js';
+import { ApiError, message } from './api.js';
+import {
+  dropDraft,
+  guard,
+  isGuarded,
+  mayClose,
+  readDraft,
+  sessionStore,
+  settle,
+  writeDraft,
+} from './dialog-guard.js';
+import { almatyDateTime, cards, dash, isoDay, labelledCards, ui } from './ui-fixes.js';
+import { NO_FILTER, auditRows, auditView, type AuditFilter } from './audit-model.js';
+import {
+  almatyInput,
+  approveCommand,
+  backlogOf,
+  coverageWarning,
+  itemReason,
+  itemTitle,
+  lineKey,
+  linkCommand,
+  linkTargets,
+  outputPolicyText,
+  unsetPolicyWarnings,
+  modeConsequence,
+  saleLabel,
+  settingsCommand,
+  stallText,
+  type AutoconsumeMode,
+  type ConsumptionView,
+  type LinkDraftLine,
+} from './autoconsume-model.js';
+import {
+  almatyStamp,
+  displayQuantity,
+  documentDetail,
+  quickWasteField,
+  quickWasteTiles,
+  reversalPreview,
+  stockKindLabel,
+  stockSalesNotice,
+  INGREDIENT_GROUP_OPTIONS,
+  RECIPE_POLICY_OPTIONS,
+  almatyDay,
+  keyCountLines,
+  type StockKind,
+  type StockReportView,
+} from './inventory-model.js';
 import {
   OperationsModel,
   StopsModel,
   STATION_PLAN_STATE_LABELS,
+  auditFixes,
+  autoconsumeAvailable,
+  managerShiftsAvailable,
   object,
   permitted,
+  posDayAvailable,
   refundActions,
+  rightsText,
   salesReportAvailable,
+  stockFixes,
+  stockP1,
   stockV2,
   stationPlanReason,
   stationPlanStatus,
   stationPlanSummary,
   type Data,
   type Entry,
+  type Snapshot,
   type StopDuration,
   type StopItem,
   type StopList,
@@ -43,6 +110,11 @@ export const sections = [
   ['shifts', 'Смены', 'Сотрудники и управленческий журнал смен'],
   ['audit', 'Журнал аудита', 'Кто, когда и что изменил'],
 ] as const;
+/**
+ * «Касса» (lane bo-ui, BACKOFFICE_POS_DAY_ENABLED): shown after «Заказы» only while GET
+ * branches/:id reports capabilities.pos_day; without it the cabinet has exactly `sections`.
+ */
+export const POS_SECTION = ['pos', 'Касса', 'Смены, чеки и Webkassa'] as const;
 const labels: Record<string, string> = {
   open: 'Открыта',
   'order.created': 'Заказ создан',
@@ -122,18 +194,50 @@ const labels: Record<string, string> = {
   pcs: 'шт',
 };
 const val = (v: unknown) => (v === null || v === undefined || v === '' ? '-' : String(v));
-const status = (v: unknown) => labels[String(v)] ?? val(v);
+/**
+ * Lane bo-ui (CR pos-4 section 2): names of the codes of paid POS sales, used only while
+ * capabilities.pos_day is on (`posLabels`, set by every render); without it a code shows as before.
+ */
+const POS_LABELS: Record<string, string> = {
+  paid: 'Оплачен',
+  captured: 'Оплачено',
+  pos_sale: 'Продажа кассы',
+  voided: 'Отменён',
+  recorded: 'Чек оформлен',
+  not_required: 'Чек не нужен',
+  unpaid_service: 'Без оплаты в PickChick',
+  payment_required: 'Оплата при заказе',
+};
+let posLabels = false;
+/** Lane bo-ui audit fixes (F16, F19): codes that showed as is (`ui.fixes` only). */
+const FIX_LABELS: Record<string, string> = {
+  staff: 'Персонал',
+  kitchen: 'Экран кухни',
+  revoked: 'Отключено',
+  sale: 'Продажа',
+  refund: 'Возврат',
+  not_requested: 'Не запрошен',
+};
+const status = (v: unknown) =>
+  labels[String(v)] ??
+  (posLabels ? POS_LABELS[String(v)] : undefined) ??
+  (ui.fixes ? FIX_LABELS[String(v)] : undefined) ??
+  val(v);
 const date = (v: unknown) =>
   v
-    ? new Date(String(v)).toLocaleString('ru-RU', {
-        timeZone: 'Asia/Almaty',
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
+    ? ui.fixes
+      ? almatyDateTime(v)
+      : new Date(String(v)).toLocaleString('ru-RU', {
+          timeZone: 'Asia/Almaty',
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
     : '-';
+/** Columns of the storno preview (lane bo-ui stock P1). */
+const STORNO_HEADERS = ['Ингредиент', 'Сейчас', 'Изменение', 'После сторно', 'Стоимость'];
 const amount = (v: unknown) => {
   const n = BigInt(String(v ?? '0')),
     a = n < 0n ? -n : n;
@@ -146,12 +250,48 @@ function badge(value: unknown) {
   const n = el('span', 'op-badge', status(value));
   if (['unknown', 'failed', 'attention_required', 'revoked'].includes(String(value)))
     n.classList.add('bad');
-  if (['active', 'succeeded', 'issued', 'handed_over', 'resolved'].includes(String(value)))
+  if (
+    ['active', 'succeeded', 'issued', 'handed_over', 'resolved'].includes(String(value)) ||
+    (posLabels && ['captured', 'paid', 'recorded'].includes(String(value)))
+  )
     n.classList.add('good');
   return n;
 }
 function note(text: string) {
   return el('p', 'op-note', text);
+}
+/** Lane bo-ui audit F01: sessionStorage drafts of the record editor and the stock documents. */
+const RECORD_DRAFT = 'pickchick.backoffice.record-draft.v1';
+const STOCK_DRAFT = 'pickchick.backoffice.stock-draft.v1';
+type RecordDraft = { revision: number; payload: Data; reason: string; saved_at: string };
+/** Audit F17: the window is called what its button is called. */
+const STOCK_TITLES: Record<StockKind, string> = {
+  receipt: 'Поставка',
+  waste: 'Списание',
+  count: 'Инвентаризация',
+};
+const commandPermissionOf = (kind: StockKind) =>
+  kind === 'receipt' ? 'stock.receipt' : kind === 'waste' ? 'stock.waste' : 'stock.count';
+type StockDraft = {
+  reference: string;
+  lines: { ingredient_id: string; quantity: string; unit: string; cost: string }[];
+  v2: { reason_code: string; supplier_kind: string; supplier_name: string; document_date: string };
+  reason: string;
+  saved_at: string;
+};
+function restoredNote(savedAt: unknown) {
+  const at =
+    typeof savedAt === 'string' && Number.isFinite(Date.parse(savedAt))
+      ? ' от ' + almatyDateTime(savedAt)
+      : '';
+  const n = el(
+    'p',
+    'notice op-draft-restored',
+    `Восстановлен несохранённый ввод${at}. Проверьте поля перед сохранением.`,
+  );
+  n.setAttribute('role', 'status');
+  n.dataset.testid = 'op-draft-restored';
+  return n;
 }
 function notice(text: string, cls: string, testId?: string) {
   const n = el('div', 'notice ' + cls, text);
@@ -196,7 +336,7 @@ function table(headers: string[], rows: (string | Node)[][], empty = 'Данны
   }
   t.append(body);
   wrap.append(t);
-  return wrap;
+  return cards(wrap, headers);
 }
 function stats(items: [string, string, string?][]) {
   const n = el('div', 'stats');
@@ -225,6 +365,8 @@ function dialog(title: string, sub: string) {
     close = button(
       'Закрыть',
       () => {
+        // Audit F01: a guarded dialog with changes asks first (dialog-guard.ts); others close.
+        if (!mayClose(d)) return;
         d.close();
         d.remove();
       },
@@ -388,13 +530,13 @@ export function stopRowState(
         tone: 'good',
       };
     case 'conflict':
-      return { text: 'Касса изменила позицию — обновите', tone: 'bad' };
+      return { text: dash('Касса изменила позицию — обновите'), tone: 'bad' };
     case 'no_open_shift':
       return { text: 'Нет открытой смены', tone: 'bad' };
     case 'expired':
       return { text: 'Касса не ответила за 2 минуты', tone: 'bad' };
     case 'not_found':
-      return { text: 'Позиции нет в меню кассы — опубликуйте меню', tone: 'bad' };
+      return { text: dash('Позиции нет в меню кассы — опубликуйте меню'), tone: 'bad' };
     default:
       return { text: 'Касса вернула неизвестный ответ', tone: 'bad' };
   }
@@ -408,7 +550,15 @@ export function stopName(item: StopItem) {
 export class OperationsView {
   private inventory = new InventoryView();
   private sales = new SalesReportView();
-  private stopFilter: 'all' | 'stopped' | 'waiting' = 'all';
+  private posDay = new PosDayView();
+  private home = new PosHomeView();
+  private orderSort: 'new' | 'old' | 'number' | 'amount' = 'new';
+  private orderDesk = '';
+  /** null: not chosen yet - «Все позиции», or «Только на стопе» with the audit fixes (F20). */
+  private stopFilter: 'all' | 'stopped' | 'waiting' | null = null;
+  private get stopMode(): 'all' | 'stopped' | 'waiting' {
+    return this.stopFilter ?? (ui.fixes ? 'stopped' : 'all');
+  }
   private stopQuery = '';
   constructor(
     readonly model: OperationsModel,
@@ -575,7 +725,7 @@ export class OperationsView {
       search,
       select(
         'Показать',
-        this.stopFilter,
+        this.stopMode,
         [
           { value: 'all', label: 'Все позиции' },
           { value: 'stopped', label: 'Только на стопе' },
@@ -589,6 +739,12 @@ export class OperationsView {
       ),
     );
     p.append(filters);
+    if (ui.fixes)
+      p.append(
+        note(
+          'В списке «Все позиции» варианты блюд скрыты, пока они не на стопе. Чтобы найти вариант, введите его название в поиск.',
+        ),
+      );
     const wrap = el('div', 'table-wrap'),
       t = el('table', 'op-table stop-table'),
       head = el('thead'),
@@ -603,12 +759,20 @@ export class OperationsView {
     const rows = () => {
       body.replaceChildren();
       const q = this.stopQuery.trim().toLocaleLowerCase();
+      const mode = this.stopMode;
       const visible = d.items.filter(
         (i) =>
-          (this.stopFilter === 'all' ||
-            (this.stopFilter === 'stopped' && i.sales_blocked) ||
-            (this.stopFilter === 'waiting' && i.pending)) &&
-          (!q || stopName(i).toLocaleLowerCase().includes(q)),
+          (mode === 'all' ||
+            (mode === 'stopped' && i.sales_blocked) ||
+            (mode === 'waiting' && i.pending)) &&
+          (!q || stopName(i).toLocaleLowerCase().includes(q)) &&
+          // Audit F20 (with the fixes): options of «Все позиции» show on a search, or when stopped.
+          (!ui.fixes ||
+            mode !== 'all' ||
+            q ||
+            i.kind !== 'option' ||
+            i.sales_blocked ||
+            Boolean(i.pending)),
       );
       for (const item of visible) body.append(this.stopRow(item, d, blocker));
       if (!visible.length) {
@@ -616,7 +780,11 @@ export class OperationsView {
           td = el(
             'td',
             'op-empty',
-            d.catalog ? 'По запросу ничего не найдено.' : 'Меню ещё не опубликовано.',
+            !d.catalog
+              ? 'Меню ещё не опубликовано.'
+              : ui.fixes && mode === 'stopped' && !q
+                ? 'Сейчас на стопе ничего нет. Чтобы поставить позицию на стоп, выберите «Все позиции».'
+                : 'По запросу ничего не найдено.',
           );
         td.colSpan = 4;
         r.append(td);
@@ -695,27 +863,59 @@ export class OperationsView {
   private options(kind: string) {
     return this.model.entries(kind).map((r) => ({ value: r.id, label: val(r.payload['name']) }));
   }
-  private async submit(d: HTMLDialogElement, command: () => Data, reason: string) {
+  private async submit(
+    d: HTMLDialogElement,
+    command: () => Data,
+    reason: string,
+    conflict?: () => Promise<string>,
+  ) {
     const error = d.querySelector('.op-form-error')!;
     error.textContent = '';
     try {
       const ok = await this.model.execute(command(), reason);
       if (ok) {
+        settle(d);
         d.close();
         d.remove();
-      } else error.textContent = message(this.model.error);
+      } else if (
+        conflict &&
+        this.model.error instanceof ApiError &&
+        this.model.error.code === 'CONFLICT'
+      )
+        error.textContent = await conflict();
+      else error.textContent = message(this.model.error);
     } catch (e) {
       error.textContent = e instanceof Error && !('code' in e) ? e.message : message(e);
     }
+    // Review BOUI-R5 (with the fixes): the message is scrolled into the dialog, above the sticky
+    // submit button (scroll-margin in audit-fixes.css), so a phone never shows half a sentence.
+    if (ui.fixes && error.textContent) error.scrollIntoView?.({ block: 'nearest' });
   }
-  private footer(d: HTMLDialogElement, command: () => Data, label = 'Сохранить') {
-    let reason = '';
+  /**
+   * The reason field, the error line and the submit button of a command dialog. Lane bo-ui:
+   * `options` restore and track the reason of a draft and handle a CONFLICT in place (stock).
+   */
+  private footer(
+    d: HTMLDialogElement,
+    command: () => Data,
+    label = 'Сохранить',
+    options: {
+      reason?: string;
+      onReason?: (value: string) => void;
+      conflict?: () => Promise<string>;
+    } = {},
+  ) {
+    let reason = options.reason ?? '';
+    // Audit F01 (with the fixes): every command dialog asks before its input is thrown away.
+    if (auditFixes(this.model.data) && !isGuarded(d))
+      guard(d, { question: 'Закрыть окно? Введённые данные не сохранятся.' });
     d.append(
       field(
         'Причина изменения',
         reason,
         (v) => {
           reason = v;
+          options.onReason?.(v);
         },
         { required: true, id: 'op-reason', max: 500 },
       ),
@@ -725,19 +925,54 @@ export class OperationsView {
     d.append(error);
     const save = button(
       label,
-      () => void this.submit(d, command, reason),
+      () => void this.submit(d, command, reason, options.conflict),
       'button primary',
       'op-save',
     );
     d.append(save);
   }
   edit(kind: string, record?: Entry) {
-    const p = structuredClone(record?.payload ?? defaultPayload(kind)),
+    // Audit F01 (with the fixes): the input of a record survives a reload and a forced close.
+    const store = auditFixes(this.model.data) ? sessionStore() : null;
+    const key = auditFixes(this.model.data)
+      ? `${RECORD_DRAFT}:${this.model.actor}:${this.model.branch}:${kind}:${record?.id ?? 'new'}`
+      : null;
+    const saved = key ? readDraft<RecordDraft>(store, key) : null;
+    const restored =
+      saved &&
+      saved.revision === (record?.revision ?? 0) &&
+      saved.payload &&
+      typeof saved.payload === 'object'
+        ? saved
+        : null;
+    if (key && saved && !restored) dropDraft(store, key);
+    const p = structuredClone(restored?.payload ?? record?.payload ?? defaultPayload(kind)),
       d = dialog(
         record ? 'Изменить запись' : 'Новая запись',
         'Изменения сохраняются для выбранной точки и попадают в журнал аудита.',
       );
     d.dataset.testid = 'op-editor';
+    let reason = restored?.reason ?? '';
+    const persist = () => {
+      if (key)
+        writeDraft(store, key, {
+          revision: record?.revision ?? 0,
+          payload: p,
+          reason,
+          saved_at: new Date().toISOString(),
+        } satisfies RecordDraft);
+    };
+    if (key) {
+      guard(d, {
+        question: 'Закрыть окно? Изменения записи не сохранятся.',
+        store,
+        key,
+        dirty: restored !== null,
+      });
+      if (restored) d.append(restoredNote(restored.saved_at));
+      d.addEventListener('input', persist);
+      d.addEventListener('change', persist);
+    }
     const fields: F[] = [{ key: 'name', label: 'Название' }];
     const stateField: F = {
       key: 'status',
@@ -1052,6 +1287,108 @@ export class OperationsView {
         }),
       );
     }
+    // Stock P1: the quick waste tile of an ingredient (design-backoffice 5 «Остатки»). Without
+    // the capability the field is not shown and the payload is left as it is.
+    let tile: { label: string; quantity: string } | null = null;
+    if (kind === 'ingredient' && stockP1(this.model.data)) {
+      const q =
+        p['quick_waste'] && typeof p['quick_waste'] === 'object' ? object(p['quick_waste']) : {};
+      const typed = {
+        label: typeof q['label'] === 'string' ? q['label'] : '',
+        quantity: typeof q['quantity'] === 'string' ? q['quantity'] : '',
+      };
+      tile = typed;
+      // The draft keeps the fields as typed; the save checks them (quickWasteField).
+      const keep = () => {
+        if (typed.label || typed.quantity) p['quick_waste'] = { ...typed };
+        else delete p['quick_waste'];
+      };
+      const unit = status(p['unit']);
+      const box = el('div', 'form-grid');
+      box.append(
+        field(
+          'Название плитки',
+          typed.label,
+          (v) => {
+            typed.label = v;
+            keep();
+          },
+          { id: 'op-quick-waste-label', max: 40, hint: 'Например, «Фингерсы из шкафа».' },
+        ),
+        field(
+          'Количество за одно нажатие',
+          typed.quantity,
+          (v) => {
+            typed.quantity = v;
+            keep();
+          },
+          {
+            id: 'op-quick-waste-quantity',
+            hint: `Целое число в учётной единице ингредиента (${unit}).`,
+          },
+        ),
+      );
+      d.append(
+        el('h3', '', 'Плитка быстрого списания'),
+        note(
+          'Необязательно. Плитка появится в окне «Списание»: одно нажатие добавит это количество. Оставьте оба поля пустыми, чтобы убрать плитку.',
+        ),
+        box,
+      );
+      // Step 8: the closing count of the key positions (Ск7) and the group of the position.
+      const count = el('div', 'form-grid');
+      count.append(
+        check(
+          'Считать каждый день (подсчёт на закрытии)',
+          p['count_daily'] === true,
+          (on) => {
+            if (on) p['count_daily'] = true;
+            else delete p['count_daily'];
+          },
+          'op-count-daily',
+        ),
+        select(
+          'Группа',
+          typeof p['group'] === 'string' ? p['group'] : '',
+          [{ value: '', label: 'Не задана' }, ...INGREDIENT_GROUP_OPTIONS],
+          (value) => {
+            if (value) p['group'] = value;
+            else delete p['group'];
+          },
+          'op-ingredient-group',
+        ),
+      );
+      d.append(
+        el('h3', '', 'Подсчёт на закрытии'),
+        note(
+          'Отмеченные позиции попадают в «Подсчёт на закрытии» в «Остатках», а смена менеджера при закрытии проверяет, что их посчитали.',
+        ),
+        count,
+      );
+    }
+    // Stock P1 (step 8): how the automatic consumption treats the output of this recipe.
+    if (kind === 'recipe' && stockP1(this.model.data)) {
+      const policy = el('div', 'form-grid');
+      policy.append(
+        select(
+          'Выход техкарты при продаже',
+          typeof p['stock_policy'] === 'string' ? p['stock_policy'] : '',
+          [...RECIPE_POLICY_OPTIONS],
+          (value) => {
+            if (value) p['stock_policy'] = value;
+            else delete p['stock_policy'];
+          },
+          'op-stock-policy',
+        ),
+      );
+      d.append(
+        el('h3', '', 'Списание по продажам'),
+        note(
+          'Только для техкарт с выходом полуфабриката. «Раскладывать на сырьё» - при продаже списывается сырьё из состава, «Производство» по такой техкарте недоступно. «Списывать сам выход» - заготовку делают партиями через «Производство», а продажа списывает готовый выход со склада.',
+        ),
+        policy,
+      );
+    }
     if (kind === 'campaign')
       d.append(
         note(
@@ -1068,13 +1405,35 @@ export class OperationsView {
             : 'Публикация сохраняет план. Применение на локальной кухне требует подтверждения устройства.',
         ),
       );
-    this.footer(d, () => ({
-      type: 'save',
-      kind,
-      id: record?.id ?? crypto.randomUUID(),
-      expected_revision: record?.revision ?? 0,
-      payload: p,
-    }));
+    this.footer(
+      d,
+      () => {
+        if (tile) {
+          const value = quickWasteField(tile.label, tile.quantity);
+          if (value) p['quick_waste'] = value;
+          else delete p['quick_waste'];
+        }
+        // stock_policy belongs to a recipe with an output (the server refuses it on a menu one).
+        if (kind === 'recipe' && !p['output_ingredient_id']) delete p['stock_policy'];
+        return {
+          type: 'save',
+          kind,
+          id: record?.id ?? crypto.randomUUID(),
+          expected_revision: record?.revision ?? 0,
+          payload: p,
+        };
+      },
+      'Сохранить',
+      key
+        ? {
+            reason,
+            onReason: (value) => {
+              reason = value;
+              persist();
+            },
+          }
+        : {},
+    );
   }
   /**
    * Binding of a back-office station to a kitchen station the cashier reported. Shown only when
@@ -1324,8 +1683,10 @@ export class OperationsView {
     title: string,
     fields: [string, (p: Data) => string | Node][],
     sub = '',
+    order?: (a: Entry, b: Entry) => number,
+    readOnly = false,
   ) {
-    const writable = permitted(this.model.data, 'records.write'),
+    const writable = !readOnly && permitted(this.model.data, 'records.write'),
       p = panel(
         title,
         sub,
@@ -1333,7 +1694,8 @@ export class OperationsView {
           ? [button('Добавить', () => this.edit(kind), 'button primary', 'op-add-' + kind)]
           : [],
       );
-    const rows = this.model.entries(kind).map((r) => {
+    const entries = this.model.entries(kind);
+    const rows = (order ? [...entries].sort(order) : entries).map((r) => {
       const actions = el('div', 'op-actions');
       if (writable)
         actions.append(
@@ -1404,20 +1766,359 @@ export class OperationsView {
       'Провести производство',
     );
   }
-  private stock(kind: 'receipt' | 'waste' | 'count') {
+  private stockDraftKey(kind: StockKind) {
+    return `${STOCK_DRAFT}:${this.model.actor}:${this.model.branch}:${kind}`;
+  }
+  /**
+   * A stock document dialog. `key` (stock P1, step 8): «Подсчёт на закрытии» - a count that starts
+   * with the positions marked «Считать каждый день» (an unfinished count draft wins).
+   */
+  private stock(kind: StockKind, closing = false) {
     const v2 = stockV2(this.model.data);
+    // Lane bo-ui (audit F01, F02, F17) with stock v2 or the audit fixes; otherwise as before.
+    const fixes = stockFixes(this.model.data);
     const d = dialog(
-      status(kind),
-      kind === 'count'
-        ? 'Введите фактически посчитанное количество. Ноль означает отсутствие запаса; пустая строка не считается нулём. Перед проведением проверьте расхождения.'
-        : v2 && kind === 'waste'
-          ? 'Выберите причину, ингредиенты и количество. Все строки проводятся одним документом с одной причиной.'
-          : v2 && kind === 'receipt'
-            ? 'Укажите, откуда поставка, номер и дату накладной, ингредиенты и стоимость. Все строки проводятся одним документом.'
-            : 'Укажите ингредиенты, количество и основание. Все строки проводятся одним документом.',
+      closing ? 'Подсчёт на закрытии' : fixes ? STOCK_TITLES[kind] : status(kind),
+      closing
+        ? 'Посчитайте ключевые позиции и введите фактическое количество. Ноль - запаса нет; пустую строку уберите, если позицию не считали. Документ проводится как инвентаризация этих позиций.'
+        : kind === 'count'
+          ? 'Введите фактически посчитанное количество. Ноль означает отсутствие запаса; пустая строка не считается нулём. Перед проведением проверьте расхождения.'
+          : v2 && kind === 'waste'
+            ? 'Выберите причину, ингредиенты и количество. Все строки проводятся одним документом с одной причиной.'
+            : v2 && kind === 'receipt'
+              ? 'Укажите, откуда поставка, номер и дату накладной, ингредиенты и стоимость. Все строки проводятся одним документом.'
+              : 'Укажите ингредиенты, количество и основание. Все строки проводятся одним документом.',
     );
-    const command = inventoryEditor(d, kind, this.model.data!.stock, { stockV2: v2 });
-    this.footer(d, command, 'Провести документ');
+    if (!fixes) {
+      const command = inventoryEditor(d, kind, this.model.data!.stock, { stockV2: v2 });
+      this.footer(d, command, 'Провести документ');
+      return;
+    }
+    const store = sessionStore(),
+      key = this.stockDraftKey(kind),
+      saved = readDraft<StockDraft>(store, key);
+    guard(d, {
+      question: 'Отменить ввод документа? Набранные строки не будут проведены.',
+      store,
+      key,
+      dirty: saved !== null,
+    });
+    if (saved) d.append(restoredNote(saved.saved_at));
+    const editor = inventoryEditor(d, kind, this.model.data!.stock, {
+      stockV2: v2,
+      draft: saved,
+      ...(closing
+        ? {
+            prefill: keyCountLines(this.model.data!.stock),
+            reference: `Подсчёт на закрытии ${almatyDay(new Date()).split('-').reverse().join('.')}`,
+          }
+        : {}),
+      // Stock P1: the quick waste tiles of the ingredient cards (waste only).
+      ...(stockP1(this.model.data) && kind === 'waste'
+        ? { quickWaste: quickWasteTiles(this.model.data!.stock) }
+        : {}),
+    });
+    let reason = typeof saved?.reason === 'string' ? saved.reason : '';
+    // Every change goes to the tab's draft; a closed (sent or discarded) dialog writes nothing.
+    const persist = () => {
+      if (d.isConnected && d.open)
+        writeDraft(store, key, {
+          ...editor.state(),
+          reason,
+          saved_at: new Date().toISOString(),
+        } satisfies StockDraft);
+    };
+    for (const type of ['input', 'change', 'click']) d.addEventListener(type, persist);
+    // The stock page lists unfinished documents; redraw it once this one is closed.
+    d.addEventListener('close', () => this.model.changed(), { once: true });
+    this.footer(d, editor, 'Провести документ', {
+      reason,
+      onReason: (value) => {
+        reason = value;
+        persist();
+      },
+      // Audit F02: another document moved these balances. Read them again in place, keep the
+      // lines and the reason, and let the same dialog send again with the new revisions.
+      conflict: async () => {
+        await this.model.load(this.model.actor, this.model.branch);
+        if (this.model.data) editor.setStock(this.model.data.stock);
+        persist();
+        return 'Остаток изменился, пока вы вводили документ: по этим позициям уже провели другой документ. Колонка «По учёту» обновлена, ваши строки сохранены. Проверьте их, отметьте проверку и проведите документ ещё раз.';
+      },
+    });
+  }
+
+  /**
+   * Stock P1 storno of a whole document (design-bo-ui 5.4): the exact opposite of its movements as
+   * one new document; the original stays in history. The preview is against today's balances; a
+   * CONFLICT (another document moved them) reloads them in place.
+   */
+  private reverse(document: Data) {
+    const d = dialog(
+      'Сторно документа',
+      'Сторно создаст обратный документ. Исходный останется в истории.',
+    );
+    d.dataset.testid = 'stock-reverse-dialog';
+    const body = el('div');
+    let current = document;
+    let preview = reversalPreview(current, this.model.data?.stock ?? []);
+    const draw = () => {
+      body.replaceChildren(
+        el(
+          'p',
+          'op-note',
+          `${stockKindLabel(current['kind'])} «${String(current['reference'])}» от ${almatyStamp(current['created_at'])}. ${documentDetail(current)}`,
+        ),
+        labelledCards(
+          table(
+            STORNO_HEADERS,
+            preview.lines.map((l) => [
+              l.name,
+              displayQuantity(l.before, l.unit),
+              (BigInt(l.delta) > 0n ? '+' : '') + displayQuantity(l.delta, l.unit),
+              l.ok ? displayQuantity(l.after, l.unit) : 'Не хватает',
+              (BigInt(l.value_delta) > 0n ? '+' : '') + amount(l.value_delta),
+            ]),
+          ),
+          STORNO_HEADERS,
+        ),
+      );
+      if (preview.error) {
+        const n = el('p', 'notice error', preview.error);
+        n.dataset.testid = 'stock-reverse-blocked';
+        body.append(n);
+      }
+    };
+    draw();
+    d.append(body);
+    this.footer(
+      d,
+      () => {
+        if (preview.error) throw new Error(preview.error);
+        return preview.command;
+      },
+      'Провести сторно',
+      {
+        conflict: async () => {
+          // ALREADY_REVERSED and COUNTED_AFTER_DOCUMENT are conflicts with a reason: say it.
+          const failure = this.model.error;
+          if (failure instanceof ApiError && failure.reason) return message(failure);
+          await this.model.load(this.model.actor, this.model.branch);
+          current = this.model.data?.documents.find((v) => v['id'] === current['id']) ?? current;
+          preview = reversalPreview(current, this.model.data?.stock ?? []);
+          draw();
+          return 'Остатки этих позиций изменились, пока окно было открыто. Таблица обновлена: проверьте её и проведите сторно ещё раз.';
+        },
+      },
+    );
+  }
+
+  /** The branch mode of the automatic consumption from GET branches/:id (step 5), or off. */
+  private consumptionMode(d: Snapshot): AutoconsumeMode {
+    const mode = object((d as unknown as Data)['stock_settings'])['autoconsume_mode'];
+    return mode === 'dry_run' || mode === 'on' ? mode : 'off';
+  }
+  private consumptionStart(d: Snapshot): string | null {
+    const start = object((d as unknown as Data)['stock_settings'])['start_at'];
+    return typeof start === 'string' ? start : null;
+  }
+  /** «Связь со складом» of one product or option (menu_link_save, step 5). */
+  private linkDialog(item: Data) {
+    const link = item['link'] && typeof item['link'] === 'object' ? (item['link'] as Data) : null;
+    const d = dialog(
+      link ? 'Связь со складом' : 'Новая связь со складом',
+      `${itemTitle(item)}. Количество - на одну проданную позицию, в единице позиции склада (г, мл или шт).`,
+    );
+    d.dataset.testid = 'autoconsume-link-dialog';
+    let effect: 'consume' | 'none' = link?.['effect'] === 'none' ? 'none' : 'consume';
+    const lines: LinkDraftLine[] = link
+      ? (Array.isArray(link['lines']) ? (link['lines'] as Data[]) : []).map((l) => ({
+          target: lineKey(l),
+          quantity: String(l['quantity'] ?? ''),
+        }))
+      : [{ target: '', quantity: '' }];
+    const targets = linkTargets(this.model.data?.records ?? []);
+    const options = [
+      { value: '', label: 'Выберите позицию склада' },
+      ...targets.ingredients.map((i) => ({
+        value: 'i:' + i.id,
+        label: `Склад: ${i.name} (${i.unit === 'g' ? 'г' : i.unit === 'ml' ? 'мл' : 'шт'})`,
+      })),
+      ...targets.outputs.map((i) => ({
+        value: 'r:' + i.id,
+        label: `По ТТК: ${i.name} (${i.unit === 'g' ? 'г' : i.unit === 'ml' ? 'мл' : 'шт'}, ${outputPolicyText(i.policy)})`,
+      })),
+    ];
+    const body = el('div', 'autoconsume-link-form');
+    // Review BOUI-R1: a TTK output without a chosen policy is not written off at the sale.
+    const warnings = el('div', 'autoconsume-link-warnings');
+    warnings.dataset.testid = 'autoconsume-link-policy-warning';
+    const warn = () =>
+      warnings.replaceChildren(
+        ...unsetPolicyWarnings(targets.outputs, effect === 'consume' ? lines : []).map((text) =>
+          el('p', 'op-form-error', text),
+        ),
+      );
+    const draw = () => {
+      body.replaceChildren(
+        select(
+          'Списание',
+          effect,
+          [
+            { value: 'consume', label: 'Списывать со склада' },
+            { value: 'none', label: 'Без списания (например, «без лука»)' },
+          ],
+          (value) => {
+            effect = value === 'none' ? 'none' : 'consume';
+            if (effect === 'none') lines.splice(0);
+            else if (!lines.length) lines.push({ target: '', quantity: '' });
+            draw();
+          },
+          'autoconsume-link-effect',
+        ),
+      );
+      if (effect === 'consume') {
+        lines.forEach((line, index) => {
+          const row = el('div', 'inventory-filters autoconsume-link-line');
+          row.append(
+            select(
+              'Позиция',
+              line.target,
+              options,
+              (value) => {
+                line.target = value;
+                warn();
+              },
+              'autoconsume-link-target-' + index,
+            ),
+            field(
+              'Количество',
+              line.quantity,
+              (value) => {
+                line.quantity = value;
+              },
+              { id: 'autoconsume-link-quantity-' + index, max: 9 },
+            ),
+            button(
+              'Убрать',
+              () => {
+                lines.splice(index, 1);
+                draw();
+              },
+              'button subtle',
+            ),
+          );
+          body.append(row);
+        });
+        body.append(
+          button(
+            'Добавить строку',
+            () => {
+              lines.push({ target: '', quantity: '' });
+              draw();
+            },
+            'button',
+            'autoconsume-link-add',
+          ),
+          note(
+            '«Склад» списывает позицию как есть. «По ТТК» списывает выход техкарты так, как выбрано в техкарте: на сырьё из состава или сам выход со склада.',
+          ),
+          warnings,
+        );
+        warn();
+      }
+      if (link?.['status'] === 'approved')
+        body.append(
+          note('После изменения связь станет черновиком: её снова утверждает управляющий.'),
+        );
+    };
+    draw();
+    d.append(body);
+    this.footer(d, () => linkCommand(item, effect, lines), 'Сохранить связь');
+  }
+  /** Approval of draft links for the chef (menu_links_approve, step 5). */
+  private approveLinks(items: Data[]) {
+    const d = dialog(
+      'Утвердить связи',
+      'Утверждённые связи списывают продажи. Утвердите только то, что проверил шеф.',
+    );
+    d.dataset.testid = 'autoconsume-approve-dialog';
+    const names = items.slice(0, 200).map((i) => itemTitle(i));
+    d.append(
+      note(
+        `Связей: ${names.length}. ${names.slice(0, 10).join(', ')}${names.length > 10 ? ' и другие' : ''}.`,
+      ),
+    );
+    this.footer(d, () => approveCommand(items), 'Утвердить');
+  }
+  /** «Списание по продажам: Выключено | Проверка без списания | Включено с ...» (step 5). */
+  private modeDialog(view: ConsumptionView) {
+    const d = dialog(
+      'Списание по продажам',
+      'Режим точки. Включать «Включено» - когда в проверке без списания покрытие не ниже 95 % и остатки введены.',
+    );
+    d.dataset.testid = 'autoconsume-mode-dialog';
+    let mode = view.settings.autoconsume_mode;
+    let start = almatyInput(view.settings.start_at);
+    const consequence = el('p', 'notice', modeConsequence(mode, start));
+    consequence.dataset.testid = 'autoconsume-mode-consequence';
+    const warning = coverageWarning(view.coverage);
+    const low = el('p', 'notice error', warning ?? '');
+    low.dataset.testid = 'autoconsume-mode-warning';
+    const update = () => {
+      consequence.textContent = modeConsequence(mode, start);
+      low.hidden = !(warning && mode === 'on');
+    };
+    d.append(
+      select(
+        'Списание по продажам',
+        mode,
+        [
+          { value: 'off', label: 'Выключено' },
+          { value: 'dry_run', label: 'Проверка без списания' },
+          { value: 'on', label: 'Включено' },
+        ],
+        (value) => {
+          mode = value === 'dry_run' || value === 'on' ? value : 'off';
+          update();
+        },
+        'autoconsume-mode-select',
+      ),
+      field(
+        'С какого момента (время Алматы)',
+        start,
+        (value) => {
+          start = value;
+          update();
+        },
+        { id: 'autoconsume-mode-start', type: 'datetime-local' },
+      ),
+      consequence,
+      low,
+    );
+    update();
+    this.footer(d, () => settingsCommand(view.settings, mode, start), 'Сохранить режим');
+  }
+  /** «Повторить» or «Пропустить с причиной» of one queued sale (step 5). */
+  private consumptionDialog(item: Data, kind: 'retry' | 'skip') {
+    const d = dialog(
+      kind === 'retry' ? 'Повторить списание' : 'Пропустить списание',
+      kind === 'retry'
+        ? `${saleLabel(item)}: попытка списания сейчас. ${itemReason(item)}`
+        : `${saleLabel(item)} не будет списана автоматически. Фактический расход внесите списанием или инвентаризацией.`,
+    );
+    d.dataset.testid = 'autoconsume-' + kind + '-dialog';
+    this.footer(
+      d,
+      () => ({
+        type: kind === 'retry' ? 'consumption_retry' : 'consumption_skip',
+        source: item['source'],
+        order_id: item['order_id'],
+        expected_revision: Number(item['revision']),
+      }),
+      kind === 'retry' ? 'Повторить' : 'Пропустить',
+      kind === 'retry' ? { reason: 'Повтор списания после исправления' } : {},
+    );
   }
 
   private cashierShift(shift: Data) {
@@ -1440,17 +2141,30 @@ export class OperationsView {
         ),
       ],
     );
+    const rows: (string | Node)[][] = [
+      ['Состояние', shift['state'] === 'open' ? 'Открыта' : 'Закрыта'],
+      ['Открыта', date(shift['opened_at'])],
+      ['Закрыта', date(shift['closed_at'])],
+      ['Кассир', posLabels ? this.staffName(shift['staff_id']) : val(shift['staff_id'])],
+      ['Наличные на открытии', amount(shift['opening_cash_minor'])],
+      ['Внесения', amount(shift['cash_in_minor'])],
+      ['Изъятия', amount(shift['cash_out_minor'])],
+    ];
+    // Lane bo-ui (CR pos-4 section 2): a sales shift takes cash; opening + in - out + sales -
+    // refunds = expected. The cash desk by its name.
+    if (posLabels) {
+      rows.splice(1, 0, ['Касса', this.deskName(shift['terminal_id'])]);
+      if (shift['cash_sales_minor'] !== undefined)
+        rows.push(
+          ['Наличные продажи', amount(shift['cash_sales_minor'])],
+          ['Наличные возвраты', amount(shift['cash_refunds_minor'])],
+        );
+    }
     p.append(
       table(
         ['Показатель', 'Значение'],
         [
-          ['Состояние', shift['state'] === 'open' ? 'Открыта' : 'Закрыта'],
-          ['Открыта', date(shift['opened_at'])],
-          ['Закрыта', date(shift['closed_at'])],
-          ['Кассир', val(shift['staff_id'])],
-          ['Наличные на открытии', amount(shift['opening_cash_minor'])],
-          ['Внесения', amount(shift['cash_in_minor'])],
-          ['Изъятия', amount(shift['cash_out_minor'])],
+          ...rows,
           ['Ожидаемый остаток', amount(shift['expected_cash_minor'])],
           [
             'Пересчитано при закрытии',
@@ -1466,7 +2180,312 @@ export class OperationsView {
     );
     return p;
   }
+  /** The back-office name of an edge staff id (edgeStaffId), or its short code (audit F12). */
+  private staffName(id: unknown) {
+    if (typeof id !== 'string' || !id) return 'Кассир не определён';
+    return this.model.data?.pos_staff?.[id]?.name ?? `Сотрудник ${id.slice(0, 8)} (нет карточки)`;
+  }
+  /** «Касса 1», «Касса 2» by the server's order of first shifts (audit F10). */
+  private deskName(id: unknown) {
+    if (typeof id !== 'string' || !id) return 'Касса не известна';
+    return (
+      this.model.data?.pos_terminals?.find((t) => t.terminal_id === id)?.label ??
+      `Касса ${id.slice(0, 4)}`
+    );
+  }
+  /**
+   * The order registry while «Касса» is on (audit F04, F10, F11): the cash desk of every POS
+   * order, numbers that repeat across desks told apart, the date in one line, sorting, totals of
+   * the list and a CSV in tenge with date, number and cash desk. Without the flag the registry
+   * below in render() is unchanged.
+   */
+  private posOrders(content: HTMLElement, d: Snapshot) {
+    // Audit F10: the server searches, sorts, pages and totals every order of the period
+    // (GET .../ops/orders). If it cannot answer, the newest orders of GET branches/:id are
+    // filtered here, as in step 2, and the screen says that the list is partial.
+    const all = [
+      ...new Map(
+        [...d.orders, ...d.pos, ...(d.cashier_orders ?? [])].map((row) => [String(row['id']), row]),
+      ).values(),
+    ];
+    const desks = d.pos_terminals ?? [];
+    const window = periodDays(d.period_start, d.period_end ?? d.as_of);
+    let server: OrdersView | null = null;
+    let serverFailed = false;
+    let loading = true;
+    let page = 1;
+    let ticket = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const desk = (o: Data) =>
+      o['channel'] !== 'pos'
+        ? '-'
+        : server
+          ? deskLabel(server, typeof o['terminal_id'] === 'string' ? o['terminal_id'] : null)
+          : this.deskName(o['terminal_id']);
+    const number = (o: Data) =>
+      o['display_number'] ? '№' + String(o['display_number']) : String(o['id']).slice(0, 8);
+    const payment = (o: Data) =>
+      o['channel'] === 'pos' && o['payment_state'] === 'not_started'
+        ? 'Оплата на кассе: данные не поступают'
+        : status(o['payment_state']);
+    const live = (o: Data) => !['cancelled', 'voided'].includes(String(o['state']));
+    let query = '',
+      channel = '';
+    const params = (p = page): OrdersParams => ({
+      ...window,
+      q: searchAllowed(query) ? query : '',
+      channel,
+      terminal_id: this.orderDesk,
+      sort: this.orderSort,
+      page: p,
+    });
+    const visible = () =>
+      all
+        .filter(
+          (o) =>
+            (!channel || o['channel'] === channel) &&
+            (!this.orderDesk || (o['channel'] === 'pos' && o['terminal_id'] === this.orderDesk)) &&
+            (String(o['id']).includes(query.trim()) ||
+              String(o['display_number'] ?? '').includes(query.trim().replace(/^№\s*/, ''))),
+        )
+        .sort((a, b) => {
+          const time = String(a['created_at']).localeCompare(String(b['created_at']));
+          if (this.orderSort === 'old') return time;
+          if (this.orderSort === 'number')
+            return (
+              Number(a['display_number'] ?? 0) - Number(b['display_number'] ?? 0) ||
+              desk(a).localeCompare(desk(b)) ||
+              -time
+            );
+          if (this.orderSort === 'amount') {
+            const x =
+              BigInt(String(b['total_minor'] ?? '0')) - BigInt(String(a['total_minor'] ?? '0'));
+            return x > 0n ? 1 : x < 0n ? -1 : -time;
+          }
+          return -time;
+        });
+    const clipped = d.truncated;
+    const csvRow = (o: Data) => {
+      const at = almatyTime(String(o['created_at']));
+      return [
+        at.slice(0, 10),
+        at.slice(11),
+        number(o),
+        desk(o),
+        status(o['channel']),
+        csvTenge(o['total_minor'] ?? '0'),
+        payment(o),
+        status(o['kitchen_state'] ?? o['state']),
+        String(o['id']),
+      ];
+    };
+    const CSV_HEAD = [
+      'Дата',
+      'Время',
+      'Номер',
+      'Касса',
+      'Канал',
+      'Сумма, ₸',
+      'Оплата',
+      'Кухня',
+      'ID заказа',
+    ];
+    const exportAll = async () => {
+      if (!server) return exportCsv('orders', CSV_HEAD, visible().map(csvRow));
+      // Every page of the selection, at most 50 pages (5 000 orders) in one file.
+      const rows: Data[] = [];
+      for (let p = 1; p <= Math.min(server.pages, 50); p++)
+        rows.push(...(p === server.page ? server.rows : (await this.model.orders(params(p))).rows));
+      exportCsv('orders', CSV_HEAD, rows.map(csvRow));
+    };
+    const p = panel(
+      'Реестр заказов',
+      'Приложение, киоск и касса. У каждой кассы свои номера заказов, поэтому рядом с номером указана касса. Деньги и чеки кассы по дням - в разделе «Касса».',
+      [
+        button('Проверка восстановления', () => this.restoreReviews()),
+        button(
+          'Экспорт CSV',
+          () =>
+            void exportAll().catch(() => {
+              hint.textContent = 'Файл не собран: нет связи с сервером. Повторите позже.';
+            }),
+          'button',
+          'op-orders-csv',
+        ),
+      ],
+    );
+    const list = el('div');
+    const totals = el('p', 'op-note pos-order-totals');
+    totals.dataset.testid = 'op-orders-totals';
+    const pager = el('div', 'toolbar op-orders-pager');
+    pager.dataset.testid = 'op-orders-pager';
+    const hint = el('p', 'op-note');
+    hint.dataset.testid = 'op-orders-hint';
+    const draw = () => {
+      const rows = server ? server.rows : visible();
+      if (server) totals.textContent = ordersTotalsText(server);
+      else {
+        const kept = rows.filter(live);
+        const sum = kept.reduce((a, o) => a + BigInt(String(o['total_minor'] ?? '0')), 0n);
+        const byDesk = desks
+          .map((t) => {
+            const mine = kept.filter(
+              (o) => o['channel'] === 'pos' && o['terminal_id'] === t.terminal_id,
+            );
+            return mine.length
+              ? `${t.label}: ${mine.length}, ${amount(mine.reduce((a, o) => a + BigInt(String(o['total_minor'] ?? '0')), 0n))}`
+              : '';
+          })
+          .filter(Boolean);
+        totals.textContent = loading
+          ? 'Загружаем заказы за период...'
+          : `Итого по списку: заказов ${rows.length}, без отменённых ${kept.length} на ${amount(sum)}` +
+            (byDesk.length ? `. ${byDesk.join(' · ')}` : '') +
+            (clipped?.['orders'] || clipped?.['pos'] || clipped?.['cashier_orders']
+              ? '. Список неполный: итог только по показанным заказам.'
+              : '.') +
+            (serverFailed
+              ? ' Поиск по всему периоду сейчас недоступен: показаны последние заказы, не больше 200 из каждого источника.'
+              : '');
+      }
+      hint.textContent = searchAllowed(query)
+        ? ''
+        : 'Ищите по номеру заказа («117» или «№117») или по началу ID заказа.';
+      pager.replaceChildren();
+      if (server && server.pages > 1) {
+        const back = button(
+          'Назад',
+          () => {
+            page = Math.max(1, page - 1);
+            void load();
+          },
+          'button subtle',
+          'op-orders-prev',
+        );
+        back.disabled = server.page <= 1;
+        const next = button(
+          'Дальше',
+          () => {
+            page = Math.min(server!.pages, page + 1);
+            void load();
+          },
+          'button subtle',
+          'op-orders-next',
+        );
+        next.disabled = server.page >= server.pages;
+        pager.append(back, el('span', 'op-note', pagerText(server)), next);
+      }
+      if (loading && !server && !serverFailed) {
+        list.replaceChildren(el('p', 'op-note', 'Загружаем заказы...'));
+        return;
+      }
+      list.replaceChildren(
+        table(
+          ['Заказ', 'Касса', 'Дата', 'Канал', 'Сумма', 'Оплата', 'Кухня', ''],
+          rows.map((o) => {
+            const when = el('span', 'op-nowrap', almatyTime(String(o['created_at'])));
+            if (o['channel'] === 'pos' && o['source'] !== 'cashier_report')
+              when.title = 'Время получения сервером';
+            const pay = el('span', 'op-badge', payment(o));
+            if (['captured', 'paid'].includes(String(o['payment_state'])))
+              pay.classList.add('good');
+            return [
+              number(o),
+              desk(o),
+              when,
+              status(o['channel']),
+              amount(o['total_minor']),
+              pay,
+              badge(o['kitchen_state'] ?? o['state']),
+              button('Открыть', () => void this.order(String(o['id'])), 'button subtle'),
+            ];
+          }),
+        ),
+      );
+    };
+    const load = async () => {
+      const mine = ++ticket;
+      loading = true;
+      draw();
+      try {
+        const view = await this.model.orders(params());
+        if (mine !== ticket) return;
+        server = view;
+        page = view.page;
+        serverFailed = false;
+      } catch {
+        if (mine !== ticket) return;
+        server = null;
+        serverFailed = true;
+      }
+      loading = false;
+      draw();
+    };
+    // A filter starts again from page 1; without the server the list is filtered here.
+    const refresh = () => {
+      page = 1;
+      if (serverFailed) draw();
+      else void load();
+    };
+    const toolbar = el('div', 'toolbar');
+    toolbar.append(
+      field(
+        'Найти заказ',
+        query,
+        (v) => {
+          query = v;
+          clearTimeout(timer);
+          if (serverFailed) draw();
+          else timer = setTimeout(refresh, 300);
+        },
+        { id: 'op-order-search' },
+      ),
+      select(
+        'Канал',
+        channel,
+        [{ value: '', label: 'Все' }, ...opts(['mobile', 'pos', 'kiosk'])],
+        (v) => {
+          channel = v;
+          refresh();
+        },
+        'op-order-channel',
+      ),
+      select(
+        'Касса',
+        this.orderDesk,
+        [
+          { value: '', label: 'Все кассы' },
+          ...desks.map((t) => ({ value: t.terminal_id, label: t.label })),
+        ],
+        (v) => {
+          this.orderDesk = v;
+          refresh();
+        },
+        'op-order-desk',
+      ),
+      select(
+        'Порядок',
+        this.orderSort,
+        [
+          { value: 'new', label: 'Сначала новые' },
+          { value: 'old', label: 'Сначала старые' },
+          { value: 'number', label: 'По номеру' },
+          { value: 'amount', label: 'По сумме' },
+        ],
+        (v) => {
+          this.orderSort = v as typeof this.orderSort;
+          refresh();
+        },
+        'op-order-sort',
+      ),
+    );
+    p.append(toolbar, hint, totals, list, pager);
+    draw();
+    void load();
+    content.append(p);
+  }
   async order(id: string) {
+    posLabels = posDayAvailable(this.model.data);
     try {
       const data = await this.model.order(id),
         o = object(data['order']),
@@ -1505,11 +2524,38 @@ export class OperationsView {
           ]),
         ),
       );
-      for (const [key, title] of [
-        ['captures', 'Подтверждённые оплаты'],
-        ['refunds', 'Возвраты'],
-        ['fiscal', 'Фискальные документы'],
-      ] as const)
+      // Lane bo-ui (audit F04): a POS order shows the cashier receipt from cloud073, or says that
+      // the payment of the cash desk does not reach the cloud; never «Не начата».
+      const posOrder = posLabels && data['owner'] !== 'cloud';
+      if (posOrder) {
+        const sale = data['pos_sale'];
+        if (sale && typeof sale === 'object') {
+          const terminal = data['pos_terminal'] as
+            { terminal_id: string; label: string; first_seen_at: string | null } | null | undefined;
+          d.append(
+            el('h3', '', 'Чек кассы'),
+            ...receiptDetails(
+              {
+                terminals: terminal ? [terminal] : (this.model.data?.pos_terminals ?? []),
+                staff: (data['pos_staff'] as Snapshot['pos_staff']) ?? {},
+              },
+              sale as Data,
+            ),
+          );
+        } else
+          d.append(
+            note(
+              'Оплата на кассе: данные о ней в облако не поступают. Сумма и позиции - по данным кассы.',
+            ),
+          );
+      }
+      for (const [key, title] of posOrder
+        ? []
+        : ([
+            ['captures', 'Подтверждённые оплаты'],
+            ['refunds', 'Возвраты'],
+            ['fiscal', 'Фискальные документы'],
+          ] as const))
         d.append(
           el('h3', '', title),
           key === 'refunds'
@@ -1755,6 +2801,229 @@ export class OperationsView {
       mode === 'manual' ? 'Зарегистрировать возврат' : 'Запросить возврат',
     );
   }
+  /**
+   * Audit F05: what went wrong with the last request, in words that fit it. Access is mentioned
+   * only for 403; the request id only for a command whose result is unconfirmed; a lost
+   * connection keeps the shown data and says from when it is.
+   */
+  private problem(hasData: boolean) {
+    const m = this.model,
+      e = m.error;
+    const code = e instanceof ApiError ? e.code : '';
+    const status = e instanceof ApiError ? e.status : 0;
+    const asOf = m.data
+      ? new Date(m.data.as_of).toLocaleTimeString('ru-RU', {
+          timeZone: 'Asia/Almaty',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : '';
+    let text: string;
+    if (code === 'NETWORK' && m.pending)
+      text =
+        'Ответ на команду не получен. Нажмите «Проверить»: повтор того же запроса не создаст вторую запись.';
+    else if (code === 'NETWORK' || code === 'SERVICE_UNAVAILABLE')
+      text = hasData
+        ? `Нет связи с сервером. Показаны данные на ${asOf}. Проверьте интернет и нажмите «Повторить».`
+        : 'Нет связи с сервером. Проверьте интернет и нажмите «Повторить».';
+    else if (status === 403 || code === 'FORBIDDEN')
+      text = 'Для операционных разделов нужен отдельный доступ управляющего к выбранной точке.';
+    else text = message(e);
+    const n = notice(text, 'error bad', 'op-problem');
+    if (
+      hasData &&
+      !m.pending &&
+      ['NETWORK', 'SERVICE_UNAVAILABLE', 'INVALID_RESPONSE'].includes(code)
+    )
+      n.append(
+        button('Повторить', () => void m.load(m.actor, m.branch), 'button subtle', 'op-retry'),
+      );
+    return n;
+  }
+  private auditFilter: AuditFilter = { ...NO_FILTER };
+  /** Audit F08: names, Russian operation names, and filters by author, section and days. */
+  private auditPage(content: HTMLElement, d: Snapshot) {
+    const rows = auditRows(d.audit, d.catalog_audit);
+    const p = panel(
+      'История изменений',
+      'Последние 200 операций бэк-офиса и 100 операций меню, новые сверху. Фильтры работают по этому списку.',
+    );
+    p.dataset.testid = 'audit-log';
+    const list = el('div'),
+      count = el('p', 'op-note');
+    count.dataset.testid = 'audit-count';
+    const draw = () => {
+      const shown = auditView(rows, this.auditFilter);
+      count.textContent = `Показано ${shown.length} из ${rows.length}.`;
+      list.replaceChildren(
+        table(
+          ['Время', 'Автор', 'Раздел', 'Операция', 'Причина'],
+          shown.map((r) => [date(r.at), r.author, r.section, r.action, r.reason]),
+          'Нет операций по выбранным условиям.',
+        ),
+      );
+    };
+    const pick = (values: string[]) =>
+      [...new Set(values)]
+        .sort((a, b) => a.localeCompare(b, 'ru'))
+        .map((v) => ({ value: v, label: v }));
+    const filters = el('div', 'filters audit-filters');
+    filters.append(
+      select(
+        'Автор',
+        this.auditFilter.author,
+        [{ value: '', label: 'Все авторы' }, ...pick(rows.map((r) => r.author))],
+        (v) => {
+          this.auditFilter.author = v;
+          draw();
+        },
+        'audit-author',
+      ),
+      select(
+        'Раздел',
+        this.auditFilter.section,
+        [{ value: '', label: 'Все разделы' }, ...pick(rows.map((r) => r.section))],
+        (v) => {
+          this.auditFilter.section = v;
+          draw();
+        },
+        'audit-section',
+      ),
+      field(
+        'С даты',
+        this.auditFilter.from,
+        (v) => {
+          this.auditFilter.from = v;
+          draw();
+        },
+        { id: 'audit-from', type: 'date' },
+      ),
+      field(
+        'По дату',
+        this.auditFilter.to,
+        (v) => {
+          this.auditFilter.to = v;
+          draw();
+        },
+        { id: 'audit-to', type: 'date' },
+      ),
+    );
+    p.append(filters, count, list);
+    draw();
+    content.append(p);
+  }
+  /** The blocks of «Оплаты и чеки» below the reconciliation, from one snapshot. */
+  private settlementBlocks(content: HTMLElement, src: Snapshot) {
+    const metrics = src.metrics;
+    const clipped = src.truncated;
+    content.append(
+      stats([
+        ['Оплаты', amount(metrics['captured_minor']), 'Приложение и киоск'],
+        ['Возвраты', amount(metrics['refunded_minor']), 'Приложение и киоск'],
+        ['Неизвестные платежи', val(metrics['unknown_payments'])],
+        ['Проблемы сверки', String(src.issues.length) + (clipped?.['issues'] ? '+' : '')],
+      ]),
+    );
+    const p = panel('Фискальные документы', 'Статус приходит от фискального адаптера.');
+    p.append(
+      table(
+        ['Документ', 'Заказ', 'Тип', 'Сумма', 'Статус'],
+        src.finance.map((v) => [
+          String(v['id']).slice(0, 8),
+          String(v['order_id']).slice(0, 8),
+          v['kind'] === 'sale' ? 'Продажа' : 'Возврат',
+          amount(v['amount_minor']),
+          badge(v['state']),
+        ]),
+      ),
+    );
+    const r = panel('Возвраты');
+    r.append(
+      table(
+        ['Заказ', 'Сумма', 'Причина', 'Статус'],
+        src.refunds.map((v) => [
+          String(v['order_id']).slice(0, 8),
+          amount(v['amount_minor']),
+          val(v['reason']),
+          badge(v['state']),
+        ]),
+      ),
+    );
+    content.append(
+      p,
+      r,
+      note(
+        'Закрытие фискальной смены и выгрузка в 1С ожидают подключения и проверки соответствующих адаптеров.',
+      ),
+    );
+  }
+  /** Audit F13: the day of «Оплаты и чеки» and its snapshot (GET branches/:id of that day). */
+  private settle: { day: string; stamp: string; data: Snapshot | null; failed: boolean } | null =
+    null;
+  private settleOwnDay = '';
+  /** The reconciliation day while the reconciliation is shown, else the page's own day. */
+  dayOfSettlements(): { day: string; reconciliation: boolean } {
+    const rec = this.reconciliation?.model;
+    if (rec && !rec.unavailable && /^\d{4}-\d{2}-\d{2}$/.test(rec.day))
+      return { day: rec.day, reconciliation: true };
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Almaty' }).format(new Date());
+    return { day: this.settleOwnDay || today, reconciliation: false };
+  }
+  private settlementsDay(content: HTMLElement, stamp: string) {
+    const { day, reconciliation } = this.dayOfSettlements();
+    // Another day, or «Обновить» (a new main snapshot): the day is read again.
+    if (this.settle?.day !== day || this.settle.stamp !== stamp) {
+      const mine = { day, stamp, data: null as Snapshot | null, failed: false };
+      this.settle = mine;
+      void this.model
+        .daySnapshot(day)
+        .then((v) => {
+          mine.data = v;
+        })
+        .catch(() => {
+          mine.failed = true;
+        })
+        .finally(() => {
+          if (this.settle === mine) this.model.changed();
+        });
+    }
+    const head = el('div', 'toolbar settle-head');
+    const title = el(
+      'h2',
+      'op-section-title',
+      `Приложение и киоск за ${day.slice(8, 10)}.${day.slice(5, 7)}.${day.slice(0, 4)}` +
+        (reconciliation ? ' (день сверки выше)' : ''),
+    );
+    title.dataset.testid = 'settle-title';
+    head.append(title);
+    if (!reconciliation) {
+      const picker = field(
+        'День',
+        day,
+        (v) => {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+            this.settleOwnDay = v;
+            this.model.changed();
+          }
+        },
+        { id: 'settle-day', type: 'date' },
+      );
+      head.append(picker);
+    }
+    content.append(head);
+    const s = this.settle;
+    if (!s?.data) {
+      content.append(
+        note(
+          s?.failed
+            ? 'Данные дня не загрузились: нет связи с сервером. Нажмите «Обновить».'
+            : 'Загружаем данные дня...',
+        ),
+      );
+      return;
+    }
+    this.settlementBlocks(content, s.data);
+  }
   /** Stage 2, lane rec: daily reconciliation on top of «Оплаты и чеки»; hidden while off. */
   private reconciliation: ReconciliationView | null = null;
   private renderReconciliation(content: HTMLElement) {
@@ -1776,6 +3045,7 @@ export class OperationsView {
   render(page: string, content: HTMLElement) {
     const m = this.model,
       d = m.data;
+    posLabels = posDayAvailable(d);
     // Cutover CC-5: a shift manager does not see reconciliation (servers with roles only).
     if (page === 'finance' && (!d || permitted(d, 'reconciliation.read')))
       this.renderReconciliation(content);
@@ -1787,7 +3057,9 @@ export class OperationsView {
       content.append(panel('Загружаем стоп-лист…', 'Получаем состояние кассы.'));
       return;
     }
-    if (m.error) content.append(note(message(m.error)));
+    // Audit F05 (with the fixes): loading and a lost connection never read as missing access.
+    const fixes = m.fixes;
+    if (m.error) content.append(fixes ? this.problem(Boolean(d)) : note(message(m.error)));
     if (m.pending)
       content.append(
         panel(
@@ -1796,6 +3068,20 @@ export class OperationsView {
           [button('Проверить', () => void m.recover(), 'button primary', 'op-recover')],
         ),
       );
+    if (!d && fixes) {
+      const p = panel(
+        m.busy ? 'Загружаем данные…' : 'Данные не загрузились',
+        m.busy ? 'Получаем данные точки, это займёт несколько секунд.' : '',
+        m.busy ? [] : [button('Повторить', () => void m.load(m.actor, m.branch), 'button primary')],
+      );
+      p.dataset.testid = m.busy ? 'op-loading' : 'op-load-failed';
+      content.append(p);
+      return;
+    }
+    if (d && fixes && m.busy) {
+      const n = notice('Обновляем данные…', 'op-refreshing', 'op-refreshing');
+      content.append(n);
+    }
     if (!d) {
       content.append(
         panel(
@@ -1806,6 +3092,13 @@ export class OperationsView {
       );
       return;
     }
+    // Lane bo-ui «Касса»: one cashier day, read only (pos-day.ts).
+    if (page === 'pos') {
+      if (!posLabels)
+        content.append(panel('Раздел «Касса» недоступен', 'На сервере этот раздел выключен.'));
+      else content.append(this.posDay.render((date, desk) => m.posDay(date, desk), m.branch));
+      return;
+    }
     const metrics = d.metrics;
     const clipped = d.truncated;
     if (
@@ -1813,6 +3106,9 @@ export class OperationsView {
       ['dash', 'reports', 'finance'].includes(page)
     ) {
       const summary = d.cashier_metrics ?? {};
+      // CR pos-4 section 2: a sales shift (cash_sales_minor) takes payment at the cash desk.
+      const salesShift =
+        posLabels && d.selected_shift != null && d.selected_shift['cash_sales_minor'] !== undefined;
       content.append(
         panel(
           'Отчёт по кассовой смене',
@@ -1821,10 +3117,14 @@ export class OperationsView {
         stats([
           ['Заказы кассы', val(summary['orders'])],
           ['Отменены', val(summary['cancelled_orders'])],
-          ['Сумма неоплаченных заказов', amount(summary['unpaid_total_minor'])],
+          salesShift
+            ? ['Оплачено на кассе', amount(summary['paid_total_minor'])]
+            : ['Сумма неоплаченных заказов', amount(summary['unpaid_total_minor'])],
         ]),
         note(
-          'Это полученные операционные данные кассы; полнота истории ещё не подтверждена. Подтверждённые оплаты, возвраты и фискальные итоги этой смены пока не передаются. Наличие заказа не означает оплату.',
+          salesShift
+            ? 'Смена продаж: оплаты и возвраты приняты кассой. Способы оплаты, чеки Webkassa и Z-отчёт - в разделе «Касса».'
+            : 'Это полученные операционные данные кассы; полнота истории ещё не подтверждена. Подтверждённые оплаты, возвраты и фискальные итоги этой смены пока не передаются. Наличие заказа не означает оплату.',
         ),
       );
       if (d.selected_shift) content.append(this.cashierShift(d.selected_shift));
@@ -1901,6 +3201,20 @@ export class OperationsView {
       // Cutover CC-7: the sales report of every channel, only from servers that have it.
       if (page === 'reports' && salesReportAvailable(d))
         content.append(this.sales.render((start, end) => this.model.salesReport(start, end)));
+      // Lane bo-ui (iiko-gap P0-6): today of every channel and the cash desks on «Главная».
+      if (page === 'dash' && posLabels)
+        content.append(
+          this.home.render({
+            branch: m.branch,
+            posDay: (date, desk) => m.posDay(date, desk),
+            salesReport: salesReportAvailable(d) ? (start, end) => m.salesReport(start, end) : null,
+            open: () => {
+              history.replaceState(null, '', '#pos');
+              this.navigate('pos');
+            },
+          }),
+          el('h2', 'pos-home-period', 'Приложение и киоск за выбранный период'),
+        );
       content.append(
         stats([
           [
@@ -1925,8 +3239,10 @@ export class OperationsView {
         const bar = el('progress');
         bar.max = 1000;
         bar.value = Number((BigInt(String(r['amount_minor'])) * 1000n) / max);
-        bar.setAttribute('aria-label', val(r['day']));
-        b.append(el('span', '', val(r['day'])), bar, el('strong', '', amount(r['amount_minor'])));
+        // Audit F19 (with the fixes): «05.11.2026», not «2026-11-05».
+        const day = ui.fixes ? isoDay(r['day']) : val(r['day']);
+        bar.setAttribute('aria-label', day);
+        b.append(el('span', '', day), bar, el('strong', '', amount(r['amount_minor'])));
         bars.append(b);
       }
       if (!d.chart.length) bars.append(note('Подтверждённых оплат за этот период нет.'));
@@ -1961,7 +3277,14 @@ export class OperationsView {
           'Средняя сумма: исходная сумма выданных заказов, до вычета возвратов.',
           [
             button('Экспорт CSV', () =>
-              exportCsv('report', ['Показатель', 'Сумма, минимальные единицы KZT'], report),
+              // Audit F11 (with the fixes): tenge with a decimal comma, «Сумма, ₸».
+              ui.fixes
+                ? exportCsv(
+                    'report',
+                    ['Показатель', 'Сумма, ₸'],
+                    report.map(([a, b]) => [a!, csvTenge(b)]),
+                  )
+                : exportCsv('report', ['Показатель', 'Сумма, минимальные единицы KZT'], report),
             ),
           ],
         );
@@ -1978,6 +3301,10 @@ export class OperationsView {
           ),
         );
       }
+      return;
+    }
+    if (page === 'orders' && posLabels) {
+      this.posOrders(content, d);
       return;
     }
     if (page === 'orders') {
@@ -2085,14 +3412,110 @@ export class OperationsView {
           ['Документы', String(d.documents.length), 'Последние 200'],
         ]),
       );
+      const store = stockFixes(d) ? sessionStore() : null;
       content.append(
         this.inventory.render(d, {
           stock: (kind) => this.stock(kind),
           can: (permission) => permitted(d, permission),
+          ...(stockFixes(d)
+            ? {
+                fixes: true,
+                rights: (permission: string) => rightsText(d, permission),
+                drafts: (['receipt', 'waste', 'count'] as const)
+                  .filter(
+                    (kind) =>
+                      permitted(d, commandPermissionOf(kind)) &&
+                      readDraft(store, this.stockDraftKey(kind)) !== null,
+                  )
+                  .map((kind) => ({
+                    kind,
+                    label: STOCK_TITLES[kind],
+                    open: () => this.stock(kind),
+                  })),
+              }
+            : {}),
           ...(stockV2(d)
             ? {
-                report: (view: 'waste' | 'movement', start: string, end: string) =>
+                report: (view: StockReportView, start: string, end: string) =>
                   this.model.stockReport(view, start, end),
+              }
+            : {}),
+          // Step 8 «Подсчёт на закрытии»: the positions marked «Считать каждый день».
+          ...(stockP1(d) && permitted(d, 'stock.count') && keyCountLines(d.stock).length
+            ? {
+                keyCount: {
+                  open: () => this.stock('count', true),
+                  items: keyCountLines(d.stock).length,
+                },
+              }
+            : {}),
+          // Stock fixes (iiko-gap P0-13): whether sales are written off (the branch mode of the
+          // automatic consumption, step 5, while the server runs it; otherwise off).
+          ...(stockFixes(d)
+            ? {
+                salesNotice: stockSalesNotice(
+                  autoconsumeAvailable(d) ? this.consumptionMode(d) : 'off',
+                  stockP1(d),
+                  autoconsumeAvailable(d) ? this.consumptionStart(d) : null,
+                  autoconsumeAvailable(d)
+                    ? stallText(
+                        backlogOf(object((d as unknown as Data)['stock_settings'])['backlog']),
+                        this.consumptionMode(d),
+                        d.as_of,
+                      )
+                    : null,
+                ),
+              }
+            : {}),
+          // Step 5 «Списание по продажам»: links with stock P1, mode and queue with autoconsume.
+          ...(stockP1(d)
+            ? {
+                autoconsume: {
+                  stamp: d.as_of,
+                  callbacks: {
+                    links: () => this.model.menuLinks(),
+                    ...(autoconsumeAvailable(d)
+                      ? {
+                          consumption: (state: string, date: string) =>
+                            this.model.consumption(state, date),
+                        }
+                      : {}),
+                    editLink: permitted(d, 'menu_links.write')
+                      ? (item: Data) => this.linkDialog(item)
+                      : null,
+                    approve: permitted(d, 'menu_links.approve')
+                      ? (items: Data[]) => this.approveLinks(items)
+                      : null,
+                    mode:
+                      autoconsumeAvailable(d) && permitted(d, 'stock.settings')
+                        ? (view: ConsumptionView) => this.modeDialog(view)
+                        : null,
+                    retry:
+                      autoconsumeAvailable(d) && permitted(d, 'consumption.write')
+                        ? (item: Data) => this.consumptionDialog(item, 'retry')
+                        : null,
+                    skip:
+                      autoconsumeAvailable(d) && permitted(d, 'consumption.write')
+                        ? (item: Data) => this.consumptionDialog(item, 'skip')
+                        : null,
+                    rights: (permission: string) =>
+                      rightsText(d, permission) ??
+                      'У вас доступ только для просмотра. Это действие выполняет управляющий точки.',
+                  },
+                },
+              }
+            : {}),
+          // Stock P1: «Списания», «Движение», «Последний подсчёт» and storno.
+          ...(stockP1(d)
+            ? {
+                stockP1: {
+                  reverse: permitted(d, 'stock.reverse')
+                    ? (document: Data) => this.reverse(document)
+                    : null,
+                  reverseRights: permitted(d, 'stock.reverse')
+                    ? null
+                    : rightsText(d, 'stock.reverse'),
+                },
               }
             : {}),
           records: (kind) =>
@@ -2115,46 +3538,13 @@ export class OperationsView {
       return;
     }
     if (page === 'finance') {
-      content.append(
-        stats([
-          ['Оплаты', amount(metrics['captured_minor']), 'Приложение и киоск'],
-          ['Возвраты', amount(metrics['refunded_minor']), 'Приложение и киоск'],
-          ['Неизвестные платежи', val(metrics['unknown_payments'])],
-          ['Проблемы сверки', String(d.issues.length) + (clipped?.['issues'] ? '+' : '')],
-        ]),
-      );
-      const p = panel('Фискальные документы', 'Статус приходит от фискального адаптера.');
-      p.append(
-        table(
-          ['Документ', 'Заказ', 'Тип', 'Сумма', 'Статус'],
-          d.finance.map((v) => [
-            String(v['id']).slice(0, 8),
-            String(v['order_id']).slice(0, 8),
-            v['kind'] === 'sale' ? 'Продажа' : 'Возврат',
-            amount(v['amount_minor']),
-            badge(v['state']),
-          ]),
-        ),
-      );
-      const r = panel('Возвраты');
-      r.append(
-        table(
-          ['Заказ', 'Сумма', 'Причина', 'Статус'],
-          d.refunds.map((v) => [
-            String(v['order_id']).slice(0, 8),
-            amount(v['amount_minor']),
-            val(v['reason']),
-            badge(v['state']),
-          ]),
-        ),
-      );
-      content.append(
-        p,
-        r,
-        note(
-          'Закрытие фискальной смены и выгрузка в 1С ожидают подключения и проверки соответствующих адаптеров.',
-        ),
-      );
+      // Audit F13 (with the fixes): one date on the page. The header period is gone here; the
+      // blocks below show the reconciliation day (or their own day without reconciliation).
+      if (ui.fixes) {
+        this.settlementsDay(content, d.as_of);
+        return;
+      }
+      this.settlementBlocks(content, d);
       return;
     }
     if (page === 'promo')
@@ -2208,7 +3598,54 @@ export class OperationsView {
         ),
       );
     }
-    if (page === 'tickets')
+    if (page === 'tickets' && ui.fixes) {
+      // Audit F15: priority, «Просрочено» in words, overdue first, then urgent, then by due time.
+      const now = Date.now();
+      const overdue = (p: Data) =>
+        ['new', 'in_progress'].includes(String(p['status'])) &&
+        typeof p['due_at'] === 'string' &&
+        Date.parse(p['due_at']) < now;
+      const rank = (r: Entry) =>
+        (overdue(r.payload) ? 0 : 2) + (r.payload['priority'] === 'urgent' ? 0 : 1);
+      content.append(
+        this.records(
+          'ticket',
+          'Обращения',
+          [
+            ['Тип', (p) => status(p['category'])],
+            [
+              'Приоритет',
+              (p) => {
+                const b = el('span', 'op-badge', status(p['priority']));
+                if (p['priority'] === 'urgent') b.classList.add('bad');
+                return b;
+              },
+            ],
+            [
+              'Статус',
+              (p) => {
+                const box = el('div', 'op-ticket-state');
+                box.append(badge(p['status']));
+                if (overdue(p)) box.append(el('span', 'op-badge bad op-overdue', 'Просрочено'));
+                return box;
+              },
+            ],
+            ['Срок', (p) => date(p['due_at'])],
+            [
+              'Ответственный',
+              (p) =>
+                this.options('employee').find((v) => v.value === p['assignee_id'])?.label ?? '-',
+            ],
+          ],
+          'Просроченные обращения - сверху, затем срочные.',
+          (a, b) =>
+            rank(a) - rank(b) ||
+            String(a.payload['due_at'] ?? '9999').localeCompare(
+              String(b.payload['due_at'] ?? '9999'),
+            ),
+        ),
+      );
+    } else if (page === 'tickets')
       content.append(
         this.records('ticket', 'Обращения', [
           ['Тип', (p) => status(p['category'])],
@@ -2250,12 +3687,26 @@ export class OperationsView {
       if (plan) content.append(this.stationPlanPanel(plan));
       const p = panel(
         'Наблюдаемые заказы кухни',
-        'Последнее подтверждённое состояние из обмена с локальной точкой.',
+        ui.fixes
+          ? 'Последние 50 заказов из обмена с локальной точкой. Все заказы с оплатой и кухней - в разделе «Заказы».'
+          : 'Последнее подтверждённое состояние из обмена с локальной точкой.',
+        ui.fixes
+          ? [
+              button(
+                'Открыть «Заказы»',
+                () => {
+                  history.replaceState(null, '', '#orders');
+                  this.navigate('orders');
+                },
+                'button subtle',
+              ),
+            ]
+          : [],
       );
       p.append(
         table(
           ['Заказ', 'Статус', 'Версия маршрута', 'Получено'],
-          d.kitchen.map((v) => [
+          (ui.fixes ? d.kitchen.slice(0, 50) : d.kitchen).map((v) => [
             val(v['display_number'] ?? String(v['order_id']).slice(0, 8)),
             badge(v['state']),
             val(v['routing_version']),
@@ -2331,6 +3782,9 @@ export class OperationsView {
           note('Показаны последние 200 смен периода. Для остальных смен сузьте период.'),
         );
       if (d.selected_shift) content.append(this.cashierShift(d.selected_shift));
+      // Lane bo-ui step 6: with the manager shift the old journal is read only (the server
+      // refuses new entries) and shows its newest 200 entries.
+      const journalReadOnly = managerShiftsAvailable(d);
       content.append(
         this.records(
           'shift',
@@ -2344,18 +3798,35 @@ export class OperationsView {
             ['Открыта', (p) => date(p['opened_at'])],
             ['Закрыта', (p) => date(p['closed_at'])],
           ],
-          'Управленческая смена. Не заменяет фискальную смену кассы.',
-        ),
-        this.records(
-          'employee',
-          'Сотрудники',
-          [
-            ['Роль', (p) => status(p['role'])],
-            ['Работает', (p) => (p['active'] ? 'Да' : 'Нет')],
-          ],
-          'Карточки для учёта. Доступ к кассе и кухне выдаётся отдельно.',
+          journalReadOnly
+            ? 'Прежний журнал, только для чтения. Смены менеджера ведутся в блоке «Смена менеджера» выше.' +
+                (clipped?.['shift_records'] ? ' Показаны последние 200 записей.' : '')
+            : 'Управленческая смена. Не заменяет фискальную смену кассы.',
+          undefined,
+          journalReadOnly,
         ),
       );
+      // Audit F16 (with the fixes): the employees are kept on the «Сотрудники» tab above only.
+      if (!ui.fixes)
+        content.append(
+          this.records(
+            'employee',
+            'Сотрудники',
+            [
+              ['Роль', (p) => status(p['role'])],
+              ['Работает', (p) => (p['active'] ? 'Да' : 'Нет')],
+            ],
+            'Карточки для учёта. Доступ к кассе и кухне выдаётся отдельно.',
+          ),
+        );
+      else
+        content.append(
+          note('Карточки сотрудников, ставки и роли - на вкладке «Сотрудники» раздела «Смены».'),
+        );
+    }
+    if (page === 'audit' && ui.fixes) {
+      this.auditPage(content, d);
+      return;
     }
     if (page === 'audit') {
       const rows = [...d.audit, ...d.catalog_audit].sort((a, b) =>

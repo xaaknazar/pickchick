@@ -60,6 +60,38 @@ export const BACKOFFICE_PERMISSIONS = [
   'stock.production',
 ] as const;
 export type BackofficePermission = (typeof BACKOFFICE_PERMISSIONS)[number];
+/**
+ * Back-office P1 permissions (lane bo-ui, design-bo-ui 4), never part of BACKOFFICE_PERMISSIONS:
+ * a P1 permission is checked only by a P1 command and listed in permissions[] only while its
+ * feature is available (design-bo-ui 2 rule 5), so the P0 matrix stays the cloud lane's.
+ */
+export const BACKOFFICE_P1_PERMISSIONS = [
+  /** Storno of a stock document (stock P1, BACKOFFICE_STOCK_V2_ENABLED with cloud075). */
+  'stock.reverse',
+  /** Menu-stock links: edit a link (menu_link_save) and approve links for the chef (stock P1). */
+  'menu_links.write',
+  'menu_links.approve',
+  /** Branch mode of the automatic consumption (BACKOFFICE_STOCK_AUTOCONSUME_ENABLED). */
+  'stock.settings',
+  /** Retry or skip a queued consumption (BACKOFFICE_STOCK_AUTOCONSUME_ENABLED). */
+  'consumption.write',
+  /** Open, save and close the manager shift (BACKOFFICE_MANAGER_SHIFTS_ENABLED). */
+  'manager_shifts.write',
+  /** Save a new version of the branch checklist (BACKOFFICE_MANAGER_SHIFTS_ENABLED). */
+  'manager_shifts.template',
+  /**
+   * Position fields of an employee card, the branch list of positions and the roster of the
+   * cashier edge (BACKOFFICE_STAFF_POSITIONS_ENABLED).
+   */
+  'staff.positions',
+  /**
+   * Create, edit, switch on and off and archive discounts (BACKOFFICE_DISCOUNTS_ENABLED). The
+   * cashier applies them later with the shift manager's PIN (P1 of the pos lane).
+   */
+  'discounts.write',
+] as const;
+export type BackofficeP1Permission = (typeof BACKOFFICE_P1_PERMISSIONS)[number];
+export type BackofficeAnyPermission = BackofficePermission | BackofficeP1Permission;
 
 /**
  * P0 matrix (contracts 5.10): manager - everything; shift_manager - cancellations of cloud
@@ -96,6 +128,23 @@ export const ROLE_PERMISSIONS: Readonly<
     'workforce.read',
   ] as const),
 });
+/**
+ * P1 matrix (design-bo-ui 4): storno by the manager and the accountant (design-backoffice 4
+ * table, design-bo-ui 8 q2; the shift manager only if the owner says so); links and the branch
+ * mode by the manager only (the chef approves through the manager); retry and skip of a queued
+ * consumption by the manager and the shift manager; the manager shift by the manager and the
+ * shift manager (design-bo-ui 4), its checklist template by the manager; positions and the roster
+ * by the manager; discounts by the manager only (owner decision 05.11: they are made only in the
+ * back office; the shift manager approves one at the cash desk with a PIN, P1).
+ */
+export const P1_ROLE_PERMISSIONS: Readonly<
+  Record<BackofficeEffectiveRole, readonly BackofficeP1Permission[]>
+> = Object.freeze({
+  manager: BACKOFFICE_P1_PERMISSIONS,
+  shift_manager: Object.freeze(['consumption.write', 'manager_shifts.write'] as const),
+  accountant: Object.freeze(['stock.reverse'] as const),
+  analyst: Object.freeze([] as const),
+});
 
 export function effectiveRole(
   grant: BackofficeGrantRole,
@@ -104,12 +153,26 @@ export function effectiveRole(
 ): BackofficeEffectiveRole {
   return grant === 'manager' ? 'manager' : ((rolesEnabled ? designation : null) ?? 'analyst');
 }
-export function can(role: BackofficeEffectiveRole, permission: BackofficePermission): boolean {
-  return (ROLE_PERMISSIONS[role] as readonly string[]).includes(permission);
+export function can(role: BackofficeEffectiveRole, permission: BackofficeAnyPermission): boolean {
+  return (
+    (ROLE_PERMISSIONS[role] as readonly string[]).includes(permission) ||
+    (P1_ROLE_PERMISSIONS[role] as readonly string[]).includes(permission)
+  );
 }
-/** permissions[] of GET branches/:id, in BACKOFFICE_PERMISSIONS order. */
-export function permissionsOf(role: BackofficeEffectiveRole): BackofficePermission[] {
-  return BACKOFFICE_PERMISSIONS.filter((permission) => can(role, permission));
+/**
+ * permissions[] of GET branches/:id, in BACKOFFICE_PERMISSIONS order, then the P1 permissions of
+ * the features listed in `p1` (none by default: the cloud lane's list).
+ */
+export function permissionsOf(
+  role: BackofficeEffectiveRole,
+  p1: readonly BackofficeP1Permission[] = [],
+): BackofficeAnyPermission[] {
+  return [
+    ...BACKOFFICE_PERMISSIONS.filter((permission) => can(role, permission)),
+    ...BACKOFFICE_P1_PERMISSIONS.filter(
+      (permission) => p1.includes(permission) && can(role, permission),
+    ),
+  ];
 }
 /**
  * FORBIDDEN unless `role` has `permission`. Manager and analyst keep the bare FORBIDDEN of today;
@@ -117,7 +180,7 @@ export function permissionsOf(role: BackofficeEffectiveRole): BackofficePermissi
  */
 export function requirePermission(
   role: BackofficeEffectiveRole,
-  permission: BackofficePermission,
+  permission: BackofficeAnyPermission,
 ): void {
   if (can(role, permission)) return;
   throw new BackofficeError(

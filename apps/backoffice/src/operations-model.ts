@@ -1,5 +1,15 @@
 import { ApiError, type Request } from './api.js';
 import { salesReport, type SalesReport } from './sales-report-model.js';
+import { posDay, type PosDay } from './pos-day-model.js';
+import { ordersSearch, ordersView, type OrdersParams, type OrdersView } from './orders-model.js';
+import {
+  consumptionView,
+  menuLinksView,
+  type ConsumptionView,
+  type MenuLinksView,
+} from './autoconsume-model.js';
+import { managerShiftsView, type ManagerShiftsView } from './manager-shift-model.js';
+import { discountsView, type DiscountsView } from './discounts-model.js';
 export type Data = Record<string, unknown>;
 export type Entry = {
   id: string;
@@ -48,6 +58,11 @@ export type Snapshot = {
   effective_role?: string;
   permissions?: string[];
   capabilities: Data;
+  /** «Касса» (lane bo-ui): only from servers with BACKOFFICE_POS_DAY_ENABLED. */
+  pos_terminals?: { terminal_id: string; label: string; first_seen_at: string | null }[];
+  pos_staff?: Record<string, { name: string; employee_id: string; role: string }>;
+  /** Staff positions (lane bo-ui step 6): only with BACKOFFICE_STAFF_POSITIONS_ENABLED. */
+  staff_positions?: unknown;
 };
 /**
  * Whether the signed-in person may do `permission` (cutover CC-5, contracts 5.10). Servers with
@@ -74,6 +89,32 @@ export function commandPermission(command: Data): string {
     case 'produce':
     case 'consume':
       return 'stock.production';
+    // Lane bo-ui stock P1: storno of a stock document (servers with capabilities.stock_p1).
+    case 'stock_reverse':
+      return 'stock.reverse';
+    // Lane bo-ui step 5: menu-stock links and the automatic consumption.
+    case 'menu_link_save':
+      return 'menu_links.write';
+    case 'menu_links_approve':
+      return 'menu_links.approve';
+    case 'stock_settings':
+      return 'stock.settings';
+    case 'consumption_retry':
+    case 'consumption_skip':
+      return 'consumption.write';
+    // Lane bo-ui step 6: the manager shift and the branch list of positions.
+    case 'manager_shift_open':
+    case 'manager_shift_save':
+    case 'manager_shift_close':
+      return 'manager_shifts.write';
+    case 'manager_shift_template':
+      return 'manager_shifts.template';
+    case 'staff_positions_save':
+      return 'staff.positions';
+    // Lane bo-ui step 7: the discount editor (manager only).
+    case 'discount_save':
+    case 'discount_state':
+      return 'discounts.write';
     case 'revoke_device':
       return 'devices.write';
     case 'cancel_order':
@@ -103,6 +144,13 @@ export const salesReportAvailable = (data: { capabilities?: unknown } | null | u
     typeof data.capabilities === 'object' &&
     (data.capabilities as Data)['sales_report'] === true,
   );
+/** «Касса» (lane bo-ui, BACKOFFICE_POS_DAY_ENABLED): the server answers GET .../ops/pos-day. */
+export const posDayAvailable = (data: { capabilities?: unknown } | null | undefined) =>
+  Boolean(
+    data?.capabilities &&
+    typeof data.capabilities === 'object' &&
+    (data.capabilities as Data)['pos_day'] === true,
+  );
 /** Stock v2 (cutover CC-6): the server takes waste reasons and receipt details. */
 export const stockV2 = (data: { capabilities?: unknown } | null | undefined) =>
   Boolean(
@@ -110,6 +158,112 @@ export const stockV2 = (data: { capabilities?: unknown } | null | undefined) =>
     typeof data.capabilities === 'object' &&
     (data.capabilities as Data)['stock_v2'] === true,
   );
+/**
+ * Stock P1 (lane bo-ui, design-bo-ui 2 and 5.4): the server with stock v2, cloud075 and its rights
+ * takes storno, quick waste tiles and reports counted_at; without the key the cabinet is the
+ * cloud lane's stock page.
+ */
+export const stockP1 = (data: { capabilities?: unknown } | null | undefined) =>
+  Boolean(
+    data?.capabilities &&
+    typeof data.capabilities === 'object' &&
+    (data.capabilities as Data)['stock_p1'] === true,
+  );
+/**
+ * Automatic consumption (lane bo-ui step 5, BACKOFFICE_STOCK_AUTOCONSUME_ENABLED): the server
+ * answers GET .../ops/consumption and takes the mode, retry and skip commands.
+ */
+export const autoconsumeAvailable = (data: { capabilities?: unknown } | null | undefined) =>
+  Boolean(
+    data?.capabilities &&
+    typeof data.capabilities === 'object' &&
+    (data.capabilities as Data)['stock_autoconsume'] === true,
+  );
+/**
+ * Manager shift (lane bo-ui step 6, BACKOFFICE_MANAGER_SHIFTS_ENABLED): the server answers GET
+ * .../ops/manager-shifts, takes the shift commands and keeps the old journal read only.
+ */
+export const managerShiftsAvailable = (data: { capabilities?: unknown } | null | undefined) =>
+  Boolean(
+    data?.capabilities &&
+    typeof data.capabilities === 'object' &&
+    (data.capabilities as Data)['manager_shifts'] === true,
+  );
+/** Staff positions (lane bo-ui step 6, BACKOFFICE_STAFF_POSITIONS_ENABLED). */
+export const staffPositionsAvailable = (data: { capabilities?: unknown } | null | undefined) =>
+  Boolean(
+    data?.capabilities &&
+    typeof data.capabilities === 'object' &&
+    (data.capabilities as Data)['staff_positions'] === true,
+  );
+/**
+ * Discount editor (lane bo-ui step 7, BACKOFFICE_DISCOUNTS_ENABLED): the server answers GET
+ * .../ops/discounts and takes discount_save and discount_state. Never applied at the cash desk yet.
+ */
+export const discountsAvailable = (data: { capabilities?: unknown } | null | undefined) =>
+  Boolean(
+    data?.capabilities &&
+    typeof data.capabilities === 'object' &&
+    (data.capabilities as Data)['discounts'] === true,
+  );
+/**
+ * Audit fixes of lane bo-ui that change the cabinet without a flag of their own (design-bo-ui
+ * §6, §8 q1; audit F05-F08, F13-F20): on while the server reports capabilities.pos_day, the flag
+ * of the cutover back office (BACKOFFICE_POS_DAY_ENABLED). With it off the cabinet is exactly
+ * the cloud lane's. The only place that decides; CR bo-ui-3 asks integration to confirm it.
+ */
+export const auditFixes = (data: { capabilities?: unknown } | null | undefined) =>
+  posDayAvailable(data);
+/** Stock dialog fixes (audit F01, F02, F17 of the stock): stock v2 or the audit fixes. */
+export const stockFixes = (data: { capabilities?: unknown } | null | undefined) =>
+  stockV2(data) || auditFixes(data);
+/**
+ * «Вы: ...» in the page header (audit F09): the effective role from servers with roles; with the
+ * audit fixes also the grant role of servers without them. null: the header has no role line.
+ */
+export function headerRole(
+  data: { role?: unknown; effective_role?: unknown; capabilities?: unknown } | null | undefined,
+): string | null {
+  const designated = roleTitle(data);
+  if (designated) return designated;
+  if (!auditFixes(data)) return null;
+  return data?.role === 'manager'
+    ? 'Вы: управляющий'
+    : data?.role === 'analyst'
+      ? 'Вы: просмотр'
+      : null;
+}
+/** Who may do it under the role matrix (contracts 5.10), for servers with roles. */
+export const RIGHTS_TEXT: Record<string, string> = {
+  'finance.write': 'Вносить и исправлять операции могут управляющий и бухгалтер точки.',
+  'workforce.write': 'График, табель, ставки и начисления меняет управляющий точки.',
+  'stock.receipt': 'Поставку проводят управляющий, начальник смены и бухгалтер.',
+  'stock.waste': 'Списание проводят управляющий и начальник смены.',
+  'stock.count': 'Инвентаризацию проводят управляющий и начальник смены.',
+  'stock.reverse': 'Сторно делают управляющий и бухгалтер.',
+  'menu_links.write': 'Связи меню со складом заводит управляющий: шеф утверждает их через него.',
+  'menu_links.approve': 'Связи меню со складом утверждает управляющий по решению шефа.',
+  'stock.settings': 'Режим списания по продажам меняет управляющий.',
+  'consumption.write': 'Повторить или пропустить списание могут управляющий и начальник смены.',
+  'manager_shifts.write': 'Открывают и закрывают смену управляющий и начальник смены.',
+  'manager_shifts.template': 'Чек-лист смены меняет управляющий.',
+  'staff.positions': 'Должности, доступ к кассе и выгрузку состава ведёт управляющий.',
+  'discounts.write': 'Скидки создаёт и меняет только управляющий точки.',
+  'records.write': 'Изменять записи может управляющий точки.',
+};
+/**
+ * Why a button is not available to this person, in words (audit F03, F09), or null when the
+ * cabinet keeps today's silent rule (no roles on the server and no audit fixes).
+ */
+export function rightsText(
+  data: { permissions?: unknown; capabilities?: unknown } | null | undefined,
+  permission: string,
+): string | null {
+  if (Array.isArray(data?.permissions))
+    return RIGHTS_TEXT[permission] ?? 'Для вашей роли это действие недоступно.';
+  if (!auditFixes(data)) return null;
+  return 'У вас доступ только для просмотра. Это действие выполняет управляющий точки.';
+}
 export type OperationalApi = (path: string, request?: Request) => Promise<unknown>;
 type Pending = {
   actor: string;
@@ -117,6 +271,7 @@ type Pending = {
   request: { request_id: string; reason: string; command: Data };
 };
 const KEY = 'pickchick.backoffice.operations.v1';
+const FIXES_KEY = 'pickchick.backoffice.audit-fixes.v1';
 /**
  * Refund actions of a cloud order card. Without a bank refund adapter the old "request refund"
  * button is hidden (nothing would execute it); managers record refunds made in Kaspi Pay when
@@ -174,6 +329,8 @@ export class OperationsModel {
   period = 'day';
   filters: ReportFilters = {};
   private generation = 0;
+  /** auditFixes of the last snapshot of this person and branch (survives a reload of the tab). */
+  private known = false;
   constructor(
     /** Shared with the reconciliation section of the settlements page (same transport). */
     readonly api: OperationalApi,
@@ -182,6 +339,16 @@ export class OperationsModel {
   ) {}
   private key() {
     return KEY + ':' + this.actor;
+  }
+  private fixesKey() {
+    return FIXES_KEY + ':' + this.actor + ':' + this.branch;
+  }
+  /**
+   * Lane bo-ui (audit F05): whether the audit fixes apply. Known from the snapshot, and while
+   * none is loaded (first load, lost connection) from the last one of this person and branch.
+   */
+  get fixes(): boolean {
+    return this.data ? auditFixes(this.data) : this.known;
   }
   clear() {
     this.generation++;
@@ -193,6 +360,7 @@ export class OperationsModel {
     this.busy = false;
     this.pending = null;
     this.error = null;
+    this.known = false;
   }
   async load(
     actor: string,
@@ -208,7 +376,11 @@ export class OperationsModel {
     if (this.pending && changedScope && actor === this.actor) throw new ApiError('PENDING');
     const changedWindow =
       period !== this.period || JSON.stringify(filters) !== JSON.stringify(this.filters);
-    if (changedWindow) this.data = null;
+    // Audit F05 (with the fixes): another period keeps the shown data, marked «Обновляем…»,
+    // until the new snapshot arrives; a failed load returns to the period of the shown data.
+    const keep = !changedScope && this.fixes && this.data !== null;
+    const previous = { period: this.period, filters: this.filters };
+    if (changedWindow && !keep) this.data = null;
     if (changedScope) {
       this.data = null;
       this.pending = null;
@@ -217,6 +389,13 @@ export class OperationsModel {
     this.branch = branch;
     this.period = period;
     this.filters = { ...filters };
+    if (changedScope) {
+      try {
+        this.known = this.store.getItem(this.fixesKey()) === '1';
+      } catch {
+        this.known = false;
+      }
+    }
     const generation = ++this.generation;
     this.busy = true;
     this.error = null;
@@ -243,11 +422,24 @@ export class OperationsModel {
       }
       if (filters.shiftId) query.set('shift_id', filters.shiftId);
       const value = await this.api(`branches/${branch}?${query.toString()}`);
-      if (generation === this.generation) this.data = snapshot(value, branch);
+      if (generation === this.generation) {
+        this.data = snapshot(value, branch);
+        this.known = auditFixes(this.data);
+        try {
+          if (this.known) this.store.setItem(this.fixesKey(), '1');
+          else this.store.removeItem(this.fixesKey());
+        } catch {
+          // Only the first screen of the next reload depends on it.
+        }
+      }
     } catch (e) {
       if (generation === this.generation) {
         this.error = e;
         if (e instanceof ApiError && [401, 403].includes(e.status)) this.data = null;
+        else if (keep && changedWindow) {
+          this.period = previous.period;
+          this.filters = previous.filters;
+        }
       }
     } finally {
       if (generation === this.generation) {
@@ -315,12 +507,95 @@ export class OperationsModel {
     return object(value);
   }
   /** Stock v2 report (GET .../ops/stock, cutover CC-6): waste by reason or every document. */
-  async stockReport(view: 'waste' | 'movement', startDate: string, endDate: string) {
+  async stockReport(
+    view: 'waste' | 'movement' | 'variance' | 'consumption',
+    startDate: string,
+    endDate: string,
+  ) {
     const generation = this.generation;
     const query = new URLSearchParams({ view, start_date: startDate, end_date: endDate });
     const value = await this.api(`branches/${this.branch}/ops/stock?${query.toString()}`);
     if (generation !== this.generation) throw new ApiError('FORBIDDEN');
     return stockReport(value, this.branch, view);
+  }
+  /** One cashier day for «Касса» (GET .../ops/pos-day, lane bo-ui), optionally one cash desk. */
+  async posDay(date: string, terminal = ''): Promise<PosDay> {
+    const generation = this.generation;
+    const branch = this.branch;
+    const query = new URLSearchParams({ date });
+    if (terminal) query.set('terminal_id', terminal);
+    const value = await this.api(`branches/${branch}/ops/pos-day?${query.toString()}`);
+    if (generation !== this.generation) throw new ApiError('FORBIDDEN');
+    return posDay(value, branch);
+  }
+  /**
+   * GET branches/:id of one Almaty day, not kept as the shown snapshot (audit F13: «Оплаты и
+   * чеки» show the reconciliation day, the header period stays as it is for the other pages).
+   */
+  async daySnapshot(day: string): Promise<Snapshot> {
+    const branch = this.branch;
+    const query = new URLSearchParams({ period: 'custom', start_date: day, end_date: day });
+    const value = await this.api(`branches/${branch}?${query.toString()}`);
+    if (branch !== this.branch) throw new ApiError('FORBIDDEN');
+    return snapshot(value, branch);
+  }
+  /** One page of the order registry on the server (GET .../ops/orders, audit F10). */
+  async orders(params: OrdersParams): Promise<OrdersView> {
+    const generation = this.generation;
+    const branch = this.branch;
+    const value = await this.api(`branches/${branch}/ops/orders?${ordersSearch(params)}`);
+    if (generation !== this.generation) throw new ApiError('FORBIDDEN');
+    return ordersView(value, branch);
+  }
+  /** Menu-stock links of the head catalog (GET .../ops/menu-links, lane bo-ui step 5). */
+  async menuLinks(): Promise<MenuLinksView> {
+    const generation = this.generation;
+    const branch = this.branch;
+    const value = await this.api(`branches/${branch}/ops/menu-links`);
+    if (generation !== this.generation) throw new ApiError('FORBIDDEN');
+    return menuLinksView(value, branch);
+  }
+  /** Mode, queue and coverage of the automatic consumption (GET .../ops/consumption). */
+  async consumption(state = '', date = ''): Promise<ConsumptionView> {
+    const generation = this.generation;
+    const branch = this.branch;
+    const query = new URLSearchParams();
+    if (state) query.set('state', state);
+    if (date) query.set('date', date);
+    const search = query.toString();
+    const value = await this.api(`branches/${branch}/ops/consumption${search ? '?' + search : ''}`);
+    if (generation !== this.generation) throw new ApiError('FORBIDDEN');
+    return consumptionView(value, branch);
+  }
+  /** Manager shift of one Almaty day (GET .../ops/manager-shifts, lane bo-ui step 6). */
+  async managerShifts(date: string): Promise<ManagerShiftsView> {
+    const generation = this.generation;
+    const branch = this.branch;
+    const value = await this.api(
+      `branches/${branch}/ops/manager-shifts?${new URLSearchParams({ date }).toString()}`,
+    );
+    if (generation !== this.generation) throw new ApiError('FORBIDDEN');
+    return managerShiftsView(value, branch);
+  }
+  /** The roster of the cash desk (GET .../ops/staff-roster, manager, lane bo-ui step 6). */
+  async staffRoster(): Promise<Data> {
+    const generation = this.generation;
+    const branch = this.branch;
+    const value = object(await this.api(`branches/${branch}/ops/staff-roster`));
+    if (generation !== this.generation) throw new ApiError('FORBIDDEN');
+    if (value['branch_id'] !== branch || !Array.isArray(value['staff']))
+      throw new ApiError('INVALID_RESPONSE');
+    return value;
+  }
+  /** Discounts of the branch, with the revisions of one (GET .../ops/discounts, step 7). */
+  async discounts(id = ''): Promise<DiscountsView> {
+    const generation = this.generation;
+    const branch = this.branch;
+    const value = await this.api(
+      `branches/${branch}/ops/discounts${id ? '?' + new URLSearchParams({ id }).toString() : ''}`,
+    );
+    if (generation !== this.generation) throw new ApiError('FORBIDDEN');
+    return discountsView(value, branch);
   }
   /** Sales report (GET .../ops/sales, cutover CC-7) of an Almaty date window. */
   async salesReport(startDate: string, endDate: string): Promise<SalesReport> {

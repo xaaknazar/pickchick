@@ -55,21 +55,21 @@ const day = z.iso.date();
 /** At most 92 calendar days (Asia/Almaty), like the other cutover reports. */
 export const STOCK_OPS_MAX_DAYS = 92;
 export const STOCK_OPS_DOCUMENT_LIMIT = 200;
+/** A real calendar window of at most STOCK_OPS_MAX_DAYS days (also the stock P1 query). */
+export const stockWindowValid = (q: { start_date: string; end_date: string }) =>
+  q.start_date >= '2000-01-01' &&
+  q.end_date <= '2099-12-31' &&
+  q.start_date <= q.end_date &&
+  new Date(`${q.start_date}T00:00:00Z`).toISOString().slice(0, 10) === q.start_date &&
+  new Date(`${q.end_date}T00:00:00Z`).toISOString().slice(0, 10) === q.end_date &&
+  Date.parse(q.end_date) - Date.parse(q.start_date) < STOCK_OPS_MAX_DAYS * 86400000;
 export const StockOpsQuery = z
   .strictObject({
     view: z.enum(['waste', 'movement']),
     start_date: day,
     end_date: day,
   })
-  .refine(
-    (q) =>
-      q.start_date >= '2000-01-01' &&
-      q.end_date <= '2099-12-31' &&
-      q.start_date <= q.end_date &&
-      new Date(`${q.start_date}T00:00:00Z`).toISOString().slice(0, 10) === q.start_date &&
-      new Date(`${q.end_date}T00:00:00Z`).toISOString().slice(0, 10) === q.end_date &&
-      Date.parse(q.end_date) - Date.parse(q.start_date) < STOCK_OPS_MAX_DAYS * 86400000,
-  );
+  .refine(stockWindowValid);
 export type StockOpsQueryInput = z.infer<typeof StockOpsQuery>;
 
 /**

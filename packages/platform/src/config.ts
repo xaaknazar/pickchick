@@ -24,6 +24,25 @@ export interface ServiceConfig {
   customerAuthEnabled?: boolean;
   catalogAdminEnabled?: boolean;
   backofficeEnabled?: boolean;
+  /**
+   * Back-office P1 (lane bo-ui, owner decision 05.11; docs/architecture/cutover-2026-11/
+   * design-bo-ui.md section 2). Cloud API only, each needs BACKOFFICE_ENABLED, all default off and
+   * present here only when on, so the config of an API with every flag off is unchanged.
+   * BACKOFFICE_POS_DAY_ENABLED: section «Касса», GET .../ops/pos-day, the new «Главная».
+   */
+  backofficePosDayEnabled?: boolean;
+  /**
+   * BACKOFFICE_STOCK_AUTOCONSUME_ENABLED: the stock consumption worker and the per-branch
+   * bo_stock_settings (cloud075). Needs BACKOFFICE_STOCK_V2_ENABLED: it consumes by the menu-stock
+   * links of stock v2.
+   */
+  backofficeStockAutoconsumeEnabled?: boolean;
+  /** BACKOFFICE_MANAGER_SHIFTS_ENABLED: manager shift checklists (cloud075 bo_manager_shifts). */
+  backofficeManagerShiftsEnabled?: boolean;
+  /** BACKOFFICE_STAFF_POSITIONS_ENABLED: positions, extra stations, POS access, roster export. */
+  backofficeStaffPositionsEnabled?: boolean;
+  /** BACKOFFICE_DISCOUNTS_ENABLED: the discount editor only; nothing is published to the edge. */
+  backofficeDiscountsEnabled?: boolean;
   workforceEnabled?: boolean;
   trustedProxyIps?: string[];
   edgeFulfillmentEnabled?: boolean;
@@ -40,6 +59,15 @@ export interface ServiceConfig {
   /** Cloud accepts device-initiated identity renewal (cloud066, edge-identity-rotation.md). */
   edgeIdentityRotationEnabled?: boolean;
 }
+
+/** Back-office P1 flags of lane bo-ui (design-bo-ui.md section 2), all default off. */
+export const BACKOFFICE_P1_FLAGS = Object.freeze([
+  'BACKOFFICE_POS_DAY_ENABLED',
+  'BACKOFFICE_STOCK_AUTOCONSUME_ENABLED',
+  'BACKOFFICE_MANAGER_SHIFTS_ENABLED',
+  'BACKOFFICE_STAFF_POSITIONS_ENABLED',
+  'BACKOFFICE_DISCOUNTS_ENABLED',
+] as const);
 
 function boundedInteger(
   env: NodeJS.ProcessEnv,
@@ -100,6 +128,20 @@ export function loadConfig(
   const backoffice = env.BACKOFFICE_ENABLED ?? 'false';
   if (!['true', 'false'].includes(backoffice) || (backoffice === 'true' && service !== 'api'))
     throw new Error('BACKOFFICE_ENABLED configuration invalid');
+  // Back-office P1 (bo-ui): strict true|false, the cloud API with the back office only.
+  for (const name of BACKOFFICE_P1_FLAGS) {
+    const value = env[name] ?? 'false';
+    if (
+      !['true', 'false'].includes(value) ||
+      (value === 'true' && (service !== 'api' || backoffice !== 'true'))
+    )
+      throw new Error(`${name} requires the cloud backoffice`);
+  }
+  if (
+    env.BACKOFFICE_STOCK_AUTOCONSUME_ENABLED === 'true' &&
+    env.BACKOFFICE_STOCK_V2_ENABLED !== 'true'
+  )
+    throw new Error('BACKOFFICE_STOCK_AUTOCONSUME_ENABLED requires BACKOFFICE_STOCK_V2_ENABLED');
   const workforce = env.WORKFORCE_ENABLED ?? 'false';
   if (
     !['true', 'false'].includes(workforce) ||
@@ -212,6 +254,17 @@ export function loadConfig(
     ),
     ...(customerAuth === 'true' ? { customerAuthEnabled: true } : {}),
     ...(backoffice === 'true' ? { backofficeEnabled: true } : {}),
+    ...(env.BACKOFFICE_POS_DAY_ENABLED === 'true' ? { backofficePosDayEnabled: true } : {}),
+    ...(env.BACKOFFICE_STOCK_AUTOCONSUME_ENABLED === 'true'
+      ? { backofficeStockAutoconsumeEnabled: true }
+      : {}),
+    ...(env.BACKOFFICE_MANAGER_SHIFTS_ENABLED === 'true'
+      ? { backofficeManagerShiftsEnabled: true }
+      : {}),
+    ...(env.BACKOFFICE_STAFF_POSITIONS_ENABLED === 'true'
+      ? { backofficeStaffPositionsEnabled: true }
+      : {}),
+    ...(env.BACKOFFICE_DISCOUNTS_ENABLED === 'true' ? { backofficeDiscountsEnabled: true } : {}),
     ...(workforce === 'true' ? { workforceEnabled: true } : {}),
     ...(catalogAdmin === 'true' ? { catalogAdminEnabled: true } : {}),
     ...(fulfillment === 'true'

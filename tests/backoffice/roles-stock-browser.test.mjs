@@ -1,17 +1,21 @@
 // Cutover CC-5/CC-6: the real back office (Chromium) with BACKOFFICE_ROLES_ENABLED and
 // BACKOFFICE_STOCK_V2_ENABLED: waste reason, receipt details, stock report, shift manager menus.
-// See roles_stock_ui.py.
+// See roles_stock_ui.py. Run twice: on the cloud lane schema (074, its stock page) and on 075,
+// where stock v2 carries lane bo-ui's stock P1 («Списания» and «Движение» instead of one tab).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readdir, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { withCatalog } from './helpers.mjs';
 import { provisionCatalogManager } from '../../packages/catalog-admin/dist/index.js';
 import { designateBackoffice, grantBackoffice } from '../../packages/backoffice-core/dist/index.js';
 
-test('stock v2 and roles in the browser: reasons, invoice details, report, shift manager', () =>
+const MIGRATIONS = fileURLToPath(new URL('../../db/cloud/migrations/', import.meta.url));
+const flow = (p1, cloudMigrationDirectory) =>
   withCatalog(
     async (ctx) => {
       const ingredient = randomUUID();
@@ -68,6 +72,7 @@ test('stock v2 and roles in the browser: reasons, invoice details, report, shift
             manager: ctx.manager,
             shift,
             ingredient,
+            p1,
             output: fileURLToPath(output),
           }),
           { mode: 0o600 },
@@ -141,5 +146,25 @@ test('stock v2 and roles in the browser: reasons, invoice details, report, shift
         await rm(temp, { recursive: true, force: true });
       }
     },
-    { staticPrefix: '/backoffice', roles: true, stockV2: true },
-  ));
+    {
+      staticPrefix: '/backoffice',
+      roles: true,
+      stockV2: true,
+      ...(cloudMigrationDirectory ? { cloudMigrationDirectory } : {}),
+    },
+  );
+
+test('stock v2 and roles in the browser on the cloud lane schema (074): its stock page', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'pickchick-cloud-074-browser-'));
+  try {
+    for (const file of await readdir(MIGRATIONS))
+      if (/^\d{3}_[a-z_]+\.sql$/.test(file) && file < '075')
+        await cp(join(MIGRATIONS, file), join(directory, file));
+    await flow(false, directory);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('stock v2 and roles in the browser on 075: reasons, invoice details, P1 report tabs', () =>
+  flow(true));

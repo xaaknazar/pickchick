@@ -50,6 +50,14 @@ import { stream, withPosSalesDatabases } from '../../pos-order-sync/tests/sales-
  * Every amount below is synthetic; the day is 19.11.2026 in Asia/Almaty (UTC+5).
  */
 const MIGRATIONS = fileURLToPath(new URL('../../../db/cloud/migrations/', import.meta.url));
+/** The cloud migrations migrate() applies from `first` on (later lanes add files, e.g. 075). */
+async function migrationsFrom(first) {
+  const names = (await readdir(MIGRATIONS))
+    .filter((name) => /^\d{3}_[a-z_]+\.sql$/.test(name) && name >= first)
+    .sort();
+  assert.equal(names[0], first);
+  return names;
+}
 const is = (code, reason) => (error) =>
   error instanceof BackofficeError && error.code === code && error.reason === reason;
 
@@ -637,10 +645,9 @@ test('new runtime on a cloud schema without 073: cloud channels only, then 073 a
             ['kiosk', 1, '210000'],
           ],
         );
-        assert.deepEqual(await migrate(c.cloud.pool, MIGRATIONS, 'cloud'), [
-          '073_cloud_pos_sales_sync.sql',
-          '074_cloud_backoffice_cutover.sql',
-        ]);
+        const pending = await migrationsFrom('073_cloud_pos_sales_sync.sql');
+        assert.equal(pending[1], '074_cloud_backoffice_cutover.sql');
+        assert.deepEqual(await migrate(c.cloud.pool, MIGRATIONS, 'cloud'), pending);
         const after = await bo.ops(p.manager.token, c.branch, 'sales', {
           start_date: D,
           end_date: D,

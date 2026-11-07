@@ -1,4 +1,22 @@
-import { element as el, button, field, select, grid } from './dom.js';
+import { element as el, button, field, select, grid, check } from './dom.js';
+import {
+  MAX_EXTRA_POSITIONS,
+  POS_ACCESS_LABELS,
+  accessLabel,
+  accessText,
+  defaultAccess,
+  extraCodes,
+  extraText,
+  newPositionCode,
+  positionLabel,
+  positionPayload,
+  rosterFileName,
+  rosterSummary,
+  selectablePositions,
+  type StaffPosition,
+  type StaffPositions,
+} from './staff-positions-model.js';
+import { almatyDateTime, cards, isoMonth, ui, yearOptions } from './ui-fixes.js';
 import {
   WorkforceModel,
   type WorkRecord,
@@ -13,6 +31,28 @@ import {
 } from './workforce-model.js';
 
 type Data = Record<string, unknown>;
+/**
+ * Lane bo-ui step 6 (capabilities.staff_positions): what app.ts hands to the «Сотрудники» tab.
+ * `list` is null without the capability, and the tab is then the cloud lane's.
+ */
+export type PositionsHooks = {
+  list: StaffPositions | null;
+  /** The person may set positions, the list and download the roster (staff.positions). */
+  may: boolean;
+  rights: string | null;
+  roster: () => Promise<Data>;
+  /** Sends staff_positions_save; null on success, else the error in words. */
+  savePositions: (command: Data, reason: string) => Promise<string | null>;
+};
+/** Audit F08: the kinds of workforce records in the history, in words. */
+const HISTORY_KINDS: Record<string, string> = {
+  plan: 'График',
+  time: 'Табель',
+  rate: 'Ставка',
+  bonus: 'Премия',
+  payroll: 'Ведомость',
+  employee: 'Карточка сотрудника',
+};
 type Form = {
   kind: string;
   id: string;
@@ -71,16 +111,37 @@ export class WorkforceView {
   private employee = '';
   private form: Form | null = null;
   private formError = '';
+  /** Step 6: the list of positions being edited, its reason and errors, the roster note. */
+  private positionsForm: StaffPosition[] | null = null;
+  private positionsReason = '';
+  private positionsError = '';
+  private rosterNote = '';
   constructor(
     private model: WorkforceModel,
     private changed: () => void,
   ) {}
   get dirty() {
-    return this.form !== null;
+    return this.form !== null || this.positionsForm !== null;
   }
+  /** Lane bo-ui step 6: staff positions; app.ts sets it. */
+  positions: () => PositionsHooks = () => ({
+    list: null,
+    may: false,
+    rights: null,
+    roster: async () => ({}),
+    savePositions: async () => null,
+  });
+  /**
+   * Lane bo-ui (audit F03, F09): who may change the schedule, in words, for a person who cannot.
+   * app.ts sets it; null keeps the cabinet's silent disabled buttons.
+   */
+  rights: () => string | null = () => null;
   clear() {
     this.form = null;
     this.formError = '';
+    this.positionsForm = null;
+    this.positionsError = '';
+    this.rosterNote = '';
   }
   private name(id: unknown) {
     return (
@@ -90,7 +151,38 @@ export class WorkforceView {
   private button(text: string, action: () => void, primary = false) {
     const b = button(text, action, primary ? 'button primary' : 'button');
     b.disabled = !this.model.writable;
+    const why = this.model.roleWrites ? null : this.rights();
+    if (why) b.title = why;
     return b;
+  }
+  /** Audit F08 (with the fixes): what a history row changed and for whom. */
+  private historyAction(a: { action: string; before_value?: unknown; after_value?: unknown }) {
+    const after = (a.after_value ?? null) as Data | null,
+      before = (a.before_value ?? null) as Data | null;
+    const kind = String(after?.['kind'] ?? before?.['kind'] ?? '');
+    const payload = (after?.['payload'] ?? before?.['payload'] ?? null) as Data | null;
+    const who =
+      kind === 'employee'
+        ? String(payload?.['name'] ?? after?.['name'] ?? '')
+        : payload?.['employee_id']
+          ? this.name(payload['employee_id'])
+          : '';
+    const what = HISTORY_KINDS[kind];
+    const base =
+      a.action === 'workforce.save'
+        ? (what ?? 'Изменение записи')
+        : a.action === 'workforce.delete'
+          ? 'Удаление: ' + (what ?? 'запись').toLowerCase()
+          : a.action === 'workforce.period'
+            ? `${after?.['closed'] ? 'Закрытие' : 'Открытие'} табеля за ${isoMonth(String(after?.['month'] ?? '').slice(0, 7))}`
+            : a.action === 'workforce.generate_payroll'
+              ? 'Расчёт ведомости'
+              : a.action === 'save:employee'
+                ? 'Карточка сотрудника'
+                : a.action === 'workforce.import'
+                  ? 'Импорт явок'
+                  : 'Изменение записи';
+    return who && a.action !== 'workforce.period' ? `${base}: ${who}` : base;
   }
   private recordActions(kind: string, record: WorkRecord | EmployeeRecord) {
     const actions = el('div', 'wf-row-actions');
@@ -159,7 +251,7 @@ export class WorkforceView {
     });
     table.append(head, body);
     wrap.append(table);
-    return wrap;
+    return cards(wrap, headers);
   }
   private matching(r: WorkRecord) {
     if (r.payload['deleted']) return false;
@@ -218,6 +310,12 @@ export class WorkforceView {
         }),
       );
     const data = this.model.data;
+    const why = data && !this.model.roleWrites ? this.rights() : null;
+    if (why) {
+      const n = el('p', 'wf-notice wf-rights', why + ' У вас - просмотр.');
+      n.dataset.testid = 'workforce-rights';
+      root.append(n);
+    }
     if (!data) {
       root.append(
         el(
@@ -240,9 +338,12 @@ export class WorkforceView {
       void this.model.load();
     };
     const selectedYear = this.model.month.slice(0, 4);
-    const years = [
-      ...new Set([...Array.from({ length: 101 }, (_, i) => String(2000 + i)), selectedYear]),
-    ].sort();
+    // Audit F19 (with the fixes): the years of PickChick data, not 2000-2099.
+    const years = ui.fixes
+      ? yearOptions(selectedYear)
+      : [
+          ...new Set([...Array.from({ length: 101 }, (_, i) => String(2000 + i)), selectedYear]),
+        ].sort();
     filters.append(
       select(
         'Месяц',
@@ -448,20 +549,83 @@ export class WorkforceView {
         this.button('Добавить сотрудника', () => this.edit('employee'), true),
         this.button('Добавить ставку', () => this.edit('rate')),
       );
+      // Lane bo-ui step 6: positions, cashier access and the roster of the cash desk.
+      const hooks = this.positions();
+      const list = hooks.list;
+      if (list) {
+        const roster = button('Выгрузить состав для кассы', () => void this.downloadRoster());
+        roster.dataset.testid = 'wf-roster';
+        const positions = button('Должности', () => {
+          this.positionsForm = list.positions.map((p) => ({ ...p, kds: [...p.kds] }));
+          this.positionsReason = '';
+          this.positionsError = '';
+          this.changed();
+        });
+        positions.dataset.testid = 'wf-positions';
+        positions.disabled = !list.editable;
+        for (const b of [roster, positions]) {
+          if (!hooks.may) {
+            b.disabled = true;
+            if (hooks.rights) b.title = hooks.rights;
+          }
+          bar.append(b);
+        }
+      }
       root.append(bar);
+      if (list && !hooks.may && hooks.rights) root.append(el('p', 'wf-note', hooks.rights));
+      if (this.rosterNote) {
+        const n = el('p', 'wf-notice', this.rosterNote);
+        n.dataset.testid = 'wf-roster-note';
+        root.append(n);
+      }
+      if (list && this.positionsForm) {
+        this.positionsEditor(root, list);
+        return;
+      }
+      const people = data.employees.filter(
+        (e) => !e.payload.deleted && (!this.employee || e.id === this.employee),
+      );
       root.append(
-        this.table(
-          ['Сотрудник', 'Роль', 'Статус', 'Действия'],
-          data.employees
-            .filter((e) => !e.payload.deleted && (!this.employee || e.id === this.employee))
-            .map((e) => [
-              e.payload.name,
-              e.payload.position ?? status(e.payload.role),
-              status(e.payload.employment_status ?? (e.payload.active ? 'working' : 'inactive')),
-              this.recordActions('employee', e),
-            ]),
-          'Добавьте сотрудников, чтобы составлять график и табель.',
-        ),
+        list
+          ? this.table(
+              [
+                'Сотрудник',
+                'Должность',
+                'Доп. станции',
+                'Доступ к кассе',
+                'Доступы',
+                'Статус',
+                'Действия',
+              ],
+              people.map((e) => {
+                const p = e.payload as unknown as Data;
+                return [
+                  e.payload.name,
+                  // A card without a position from the list shows its old free text, if any.
+                  typeof p['position_code'] === 'string'
+                    ? positionLabel(list, p['position_code'])
+                    : (e.payload.position ?? 'Не выбрана'),
+                  extraText(list, p),
+                  accessLabel(p),
+                  accessText(list, p),
+                  status(
+                    e.payload.employment_status ?? (e.payload.active ? 'working' : 'inactive'),
+                  ),
+                  this.recordActions('employee', e),
+                ];
+              }),
+              'Добавьте сотрудников, чтобы составлять график и табель.',
+            )
+          : this.table(
+              ['Сотрудник', 'Роль', 'Статус', 'Действия'],
+              people.map((e) => [
+                e.payload.name,
+                e.payload.position ?? status(e.payload.role),
+                status(e.payload.employment_status ?? (e.payload.active ? 'working' : 'inactive')),
+                this.recordActions('employee', e),
+              ]),
+              'Добавьте сотрудников, чтобы составлять график и табель.',
+            ),
       );
       root.append(
         el('h2', '', 'Почасовые ставки'),
@@ -586,17 +750,21 @@ export class WorkforceView {
               details.append(d);
             }
             return [
-              new Date(a.created_at).toLocaleString('ru-RU', { timeZone: 'Asia/Almaty' }),
+              ui.fixes
+                ? almatyDateTime(a.created_at)
+                : new Date(a.created_at).toLocaleString('ru-RU', { timeZone: 'Asia/Almaty' }),
               a.author ?? a.actor_id,
-              a.action === 'workforce.delete'
-                ? 'Удаление записи'
-                : a.action === 'workforce.period'
-                  ? 'Закрытие / открытие табеля'
-                  : a.action === 'save:employee'
-                    ? 'Карточка сотрудника'
-                    : a.action === 'workforce.import'
-                      ? 'Импорт явок'
-                      : 'Изменение записи',
+              ui.fixes
+                ? this.historyAction(a)
+                : a.action === 'workforce.delete'
+                  ? 'Удаление записи'
+                  : a.action === 'workforce.period'
+                    ? 'Закрытие / открытие табеля'
+                    : a.action === 'save:employee'
+                      ? 'Карточка сотрудника'
+                      : a.action === 'workforce.import'
+                        ? 'Импорт явок'
+                        : 'Изменение записи',
               a.reason,
               details,
             ];
@@ -943,6 +1111,10 @@ export class WorkforceView {
     values['reason'] = '';
     values['role'] ??= 'cook';
     values['employment_status'] ??= p['active'] === false ? 'inactive' : 'working';
+    if (kind === 'employee' && this.positions().list) {
+      values['extra_position_codes'] = extraCodes(p).join(',');
+      values['pos_access'] ??= 'none';
+    }
     if (kind === 'plan') {
       values['start'] = p['start'] ? localDateTime(String(p['start'])) : this.day + 'T09:00';
       values['end'] = p['end'] ? localDateTime(String(p['end'])) : this.day + 'T18:00';
@@ -979,6 +1151,225 @@ export class WorkforceView {
     this.formError = '';
     this.changed();
     this.focusEditor();
+  }
+  /** Lane bo-ui step 6: «Должность», «Доп. станции», «Доступ к кассе» of the card. */
+  private positionFields(controls: HTMLElement, list: StaffPositions, v: Record<string, string>) {
+    const current = v['position_code'] ?? '';
+    const extra = (v['extra_position_codes'] ?? '').split(',').filter(Boolean);
+    const choices = selectablePositions(list, [current, ...extra]);
+    const position = select(
+      'Должность',
+      current,
+      [
+        { value: '', label: 'Не выбрана' },
+        ...choices.map((p) => ({
+          value: p.code,
+          label:
+            p.label +
+            (p.station ? ` (станция ${p.station})` : '') +
+            (p.active ? '' : ' - выключена'),
+        })),
+      ],
+      (value) => {
+        v['position_code'] = value;
+        // A new position brings its default cashier access until the person picks one.
+        if (value && v['pos_access_set'] !== 'true') v['pos_access'] = defaultAccess(list, value);
+        v['extra_position_codes'] = (v['extra_position_codes'] ?? '')
+          .split(',')
+          .filter((c) => c && c !== value)
+          .join(',');
+        this.changed();
+      },
+      'wf-position',
+    );
+    position.querySelector('select')!.setAttribute('aria-label', 'Должность');
+    controls.append(position);
+    const box = el('fieldset', 'wf-extra');
+    box.dataset.testid = 'wf-extra';
+    box.append(el('legend', '', `Доп. станции (до ${MAX_EXTRA_POSITIONS})`));
+    for (const p of choices.filter((c) => c.code !== current))
+      box.append(
+        check(
+          p.label,
+          extra.includes(p.code),
+          (on) => {
+            const now = (v['extra_position_codes'] ?? '').split(',').filter(Boolean);
+            v['extra_position_codes'] = (
+              on ? [...new Set([...now, p.code])] : now.filter((c) => c !== p.code)
+            ).join(',');
+          },
+          'wf-extra-' + p.code,
+        ),
+      );
+    controls.append(box);
+    const access = select(
+      'Доступ к кассе',
+      v['pos_access'] ?? 'none',
+      Object.entries(POS_ACCESS_LABELS).map(([value, label]) => ({ value, label })),
+      (value) => {
+        v['pos_access'] = value;
+        v['pos_access_set'] = 'true';
+      },
+      'wf-pos-access',
+    );
+    access.querySelector('select')!.setAttribute('aria-label', 'Доступ к кассе');
+    controls.append(
+      access,
+      el(
+        'p',
+        'wf-note',
+        'Кассир и начальник смены входят на кассу по личному PIN. Экраны кухни - общим входом кухни. Доступ на кассе появится после выгрузки состава и запуска скриптов на сервере точки.',
+      ),
+    );
+  }
+  /** «Выгрузить состав для кассы»: the roster file for scripts/staff-roster-apply.mjs. */
+  private async downloadRoster() {
+    try {
+      const roster = await this.positions().roster();
+      const a = el('a');
+      const url = URL.createObjectURL(
+        new Blob([JSON.stringify(roster, null, 2) + '\n'], { type: 'application/json' }),
+      );
+      a.href = url;
+      a.download = rosterFileName(String(roster['generated_at'] ?? new Date().toISOString()));
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      this.rosterNote =
+        rosterSummary(roster) +
+        ' Передайте файл оператору точки: staff-roster-apply.mjs, затем staff-pin-batch.mjs.';
+    } catch {
+      this.rosterNote = 'Состав не выгрузился. Проверьте связь и повторите.';
+    }
+    this.changed();
+  }
+  /** The branch list of positions: rename, default access, station, on/off, new positions. */
+  private positionsEditor(root: HTMLElement, list: StaffPositions) {
+    const rows = this.positionsForm!;
+    const box = el('section', 'wf-editor wf-positions-editor');
+    box.dataset.testid = 'wf-positions-editor';
+    box.append(
+      el('h2', '', 'Должности точки'),
+      el(
+        'p',
+        'muted',
+        `Версия ${list.version}. Должность нельзя удалить: её можно выключить, у сотрудников она останется.`,
+      ),
+    );
+    if (this.positionsError) {
+      const e = el('p', 'wf-alert', this.positionsError);
+      e.setAttribute('role', 'alert');
+      box.append(e);
+    }
+    rows.forEach((p, i) => {
+      const row = el('div', 'wf-actions wf-position-row');
+      row.append(
+        field(
+          'Должность',
+          p.label,
+          (value) => {
+            p.label = value;
+          },
+          { id: 'wf-position-label-' + i, max: 60 },
+        ),
+        select(
+          'Станция',
+          p.station === null ? '' : String(p.station),
+          [
+            { value: '', label: 'Без станции' },
+            ...Array.from({ length: 9 }, (_, n) => ({
+              value: String(n + 1),
+              label: String(n + 1),
+            })),
+          ],
+          (value) => {
+            p.station = value ? Number(value) : null;
+          },
+        ),
+        select(
+          'Доступ к кассе',
+          p.pos_access,
+          Object.entries(POS_ACCESS_LABELS).map(([value, label]) => ({ value, label })),
+          (value) => {
+            p.pos_access = value as StaffPosition['pos_access'];
+          },
+        ),
+        check(
+          'Действует',
+          p.active,
+          (on) => {
+            p.active = on;
+          },
+          'wf-position-active-' + i,
+        ),
+      );
+      box.append(row);
+    });
+    const add = button('Добавить должность', () => {
+      rows.push({
+        code: newPositionCode(rows),
+        label: '',
+        station: null,
+        kds: [],
+        pos_access: 'none',
+        active: true,
+      });
+      this.changed();
+    });
+    add.dataset.testid = 'wf-position-add';
+    box.append(
+      add,
+      field(
+        'Причина изменения',
+        this.positionsReason,
+        (value) => {
+          this.positionsReason = value;
+        },
+        { id: 'wf-positions-reason', max: 500, required: true },
+      ),
+    );
+    const actions = el('div', 'wf-actions');
+    const save = button(
+      'Сохранить список',
+      () =>
+        void (async () => {
+          if (rows.some((p) => !p.label.trim())) {
+            this.positionsError = 'У каждой должности должно быть название.';
+            this.changed();
+            return;
+          }
+          if (this.positionsReason.trim().length < 3) {
+            this.positionsError = 'Укажите причину: минимум 3 символа.';
+            this.changed();
+            return;
+          }
+          const failed = await this.positions().savePositions(
+            {
+              type: 'staff_positions_save',
+              positions: rows.map((p) => ({ ...p, label: p.label.trim() })),
+              expected_version: list.version,
+            },
+            this.positionsReason,
+          );
+          if (failed) this.positionsError = failed;
+          else {
+            this.positionsForm = null;
+            this.positionsError = '';
+          }
+          this.changed();
+        })(),
+      'button primary',
+    );
+    save.dataset.testid = 'wf-positions-save';
+    actions.append(
+      save,
+      button('Отмена', () => {
+        this.positionsForm = null;
+        this.positionsError = '';
+        this.changed();
+      }),
+    );
+    box.append(actions);
+    root.append(box);
   }
   private editor(root: HTMLElement) {
     const f = this.form!,
@@ -1210,7 +1601,9 @@ export class WorkforceView {
     if (f.kind === 'employee') {
       input('name', 'Имя сотрудника');
       choice('role', 'Роль', ['cook', 'cashier', 'assembler', 'manager', 'staff']);
-      input('position', 'Должность', 'text', false);
+      const hooks = this.positions();
+      if (hooks.list && hooks.may) this.positionFields(controls, hooks.list, v);
+      else input('position', 'Должность', 'text', false);
       input('note', 'Примечание', 'text', false);
       choice('employment_status', 'Текущий статус', ['working', 'inactive', 'unknown']);
     }
@@ -1329,7 +1722,8 @@ export class WorkforceView {
           ...(previous?.payload['source'] ? { source: previous.payload['source'] } : {}),
         };
       }
-      if (f.kind === 'employee')
+      if (f.kind === 'employee') {
+        const hooks = this.positions();
         payload = {
           name: v['name'],
           role: v['role'],
@@ -1337,7 +1731,10 @@ export class WorkforceView {
           employment_status: v['employment_status'],
           ...(v['position']?.trim() ? { position: v['position'] } : {}),
           note: v['note'] ?? '',
+          // Lane bo-ui step 6: the position fields only with staff positions on the server.
+          ...(hooks.list && hooks.may ? positionPayload(hooks.list, v) : {}),
         };
+      }
       if (f.kind === 'delete')
         command = {
           type: 'delete',

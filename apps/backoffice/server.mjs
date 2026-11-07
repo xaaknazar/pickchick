@@ -11,6 +11,28 @@ export const JSON_MAX_BYTES = 300 * 1024;
 /** Content-addressed catalog photo renditions, proxied same-origin so CSP img-src stays 'self'. */
 export const MEDIA_ROUTE = /^\/v1\/media\/catalog\/[a-f0-9]{64}(?:\.(?:card|hero|thumb))?\.webp$/;
 export const MEDIA_MAX_BYTES = 1500000;
+/**
+ * Lane bo-ui (audit F10): GET .../ops/orders - an Almaty date window, optionally a search
+ * (number or a piece of the id), channel, cash desk, order and page; each key at most once.
+ */
+function ordersQuery(q, flags = '') {
+  const one = (k) => q.getAll(k).length <= 1;
+  const day = (v) => v !== null && /^\d{4}-\d{2}-\d{2}$/.test(v);
+  const value = (k, re) => q.get(k) === null || re.test(q.get(k));
+  return (
+    [...q.keys()].every((k) =>
+      ['start_date', 'end_date', 'q', 'channel', 'terminal_id', 'sort', 'page'].includes(k),
+    ) &&
+    ['start_date', 'end_date', 'q', 'channel', 'terminal_id', 'sort', 'page'].every(one) &&
+    day(q.get('start_date')) &&
+    day(q.get('end_date')) &&
+    value('q', /^[0-9a-fA-F№ -]{0,40}$/) &&
+    value('channel', /^(mobile|kiosk|pos)$/) &&
+    value('terminal_id', new RegExp(`^${UUID}$`, flags)) &&
+    value('sort', /^(new|old|number|amount)$/) &&
+    value('page', /^[1-9][0-9]{0,3}$/)
+  );
+}
 function reportQuery(search) {
   if (search.length > 400) return false;
   const query = new URLSearchParams(search);
@@ -135,7 +157,8 @@ export const allowed = (method, path) => {
       (search?.length ?? 0) <= 200 &&
       [...q.keys()].length === 3 &&
       ['view', 'start_date', 'end_date'].every((k) => q.getAll(k).length === 1) &&
-      /^(waste|movement)$/.test(q.get('view') ?? '') &&
+      // Lane bo-ui stock P1 (step 8) adds variance and consumption; the API decides by its flag.
+      /^(waste|movement|variance|consumption)$/.test(q.get('view') ?? '') &&
       /^\d{4}-\d{2}-\d{2}$/.test(q.get('start_date') ?? '') &&
       /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '')
     );
@@ -152,6 +175,89 @@ export const allowed = (method, path) => {
       ['start_date', 'end_date'].every((k) => q.getAll(k).length === 1) &&
       /^\d{4}-\d{2}-\d{2}$/.test(q.get('start_date') ?? '') &&
       /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '')
+    );
+  }
+  // Lane bo-ui «Касса» (BACKOFFICE_POS_DAY_ENABLED): one Almaty day, optionally one cash desk.
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/pos-day$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    const keys = [...q.keys()];
+    const terminal = q.get('terminal_id');
+    return (
+      (search?.length ?? 0) <= 200 &&
+      keys.every((k) => k === 'date' || k === 'terminal_id') &&
+      q.getAll('date').length === 1 &&
+      q.getAll('terminal_id').length <= 1 &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('date') ?? '') &&
+      (terminal === null || new RegExp(`^${UUID}$`, 'i').test(terminal))
+    );
+  }
+  // Lane bo-ui (audit F10): the order registry of an Almaty date window, searched, sorted and
+  // paged on the server (BACKOFFICE_POS_DAY_ENABLED).
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/orders$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    return (search?.length ?? 0) <= 300 && ordersQuery(q, 'i');
+  }
+  // Lane bo-ui automatic consumption: the menu-stock links (no query) and the queue of one
+  // Almaty day or of every day, optionally one state.
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/menu-links$`, 'i').test(pathname)
+  )
+    return search === undefined;
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/consumption$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    const state = q.get('state');
+    const date = q.get('date');
+    return (
+      (search?.length ?? 0) <= 200 &&
+      [...q.keys()].every((k) => k === 'state' || k === 'date') &&
+      q.getAll('state').length <= 1 &&
+      q.getAll('date').length <= 1 &&
+      (state === null ||
+        /^(pending|previewed|applied|blocked|skipped|not_required)$/.test(state)) &&
+      (date === null || /^\d{4}-\d{2}-\d{2}$/.test(date))
+    );
+  }
+  // Lane bo-ui step 6: the manager shift of one Almaty day (or today) and the cash desk roster.
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/manager-shifts$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    const date = q.get('date');
+    return (
+      (search?.length ?? 0) <= 200 &&
+      [...q.keys()].every((k) => k === 'date') &&
+      q.getAll('date').length <= 1 &&
+      (date === null || /^\d{4}-\d{2}-\d{2}$/.test(date))
+    );
+  }
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/staff-roster$`, 'i').test(pathname)
+  )
+    return search === undefined;
+  // Lane bo-ui step 7: the discount editor, every discount or one with its revisions.
+  if (
+    method === 'GET' &&
+    new RegExp(`^/v1/admin/backoffice/branches/${UUID}/ops/discounts$`, 'i').test(pathname)
+  ) {
+    const q = new URLSearchParams(search ?? '');
+    const id = q.get('id');
+    return (
+      (search?.length ?? 0) <= 200 &&
+      [...q.keys()].every((k) => k === 'id') &&
+      q.getAll('id').length <= 1 &&
+      (id === null || new RegExp(`^${UUID}$`, 'i').test(id))
     );
   }
   if (method === 'GET' && new RegExp(`^/v1/admin/backoffice/branches/${UUID}$`, 'i').test(pathname))
@@ -206,7 +312,7 @@ export const allowed = (method, path) => {
 const assets = new Map([
   ['/workspace.css', ['workspace.css', 'text/css; charset=utf-8']],
   ['/', ['index.html', 'text/html; charset=utf-8']],
-  ...['styles', 'fonts', 'workforce', 'inventory', 'device-center'].map((n) => [
+  ...['styles', 'fonts', 'workforce', 'inventory', 'device-center', 'audit-fixes'].map((n) => [
     `/${n}.css`,
     [`${n}.css`, 'text/css; charset=utf-8'],
   ]),
@@ -235,6 +341,24 @@ const assets = new Map([
     'finance-charts',
     'sales-report',
     'sales-report-model',
+    // Lane bo-ui «Касса» (shown only while the API reports capabilities.pos_day).
+    'pos-day',
+    'pos-day-model',
+    'orders-model',
+    // Lane bo-ui audit fixes (active only while the API reports them).
+    'ui-fixes',
+    'dialog-guard',
+    'audit-model',
+    // Lane bo-ui step 5 «Списание по продажам» (shown only with capabilities.stock_p1).
+    'autoconsume',
+    'autoconsume-model',
+    // Lane bo-ui step 6 (shown only with capabilities.manager_shifts / staff_positions).
+    'manager-shift',
+    'manager-shift-model',
+    'staff-positions-model',
+    // Lane bo-ui step 7 «Скидки» (shown only with capabilities.discounts).
+    'discounts',
+    'discounts-model',
   ].map((n) => [`/${n}.js`, [`${n}.js`, 'text/javascript; charset=utf-8']]),
   ...['logo.png', 'shot.jpg', ...Array.from({ length: 24 }, (_, i) => `i${i}.jpg`)].map((n) => [
     `/assets/${n}`,
@@ -434,10 +558,15 @@ export function createBackofficeServer({
           let size = 0;
           // A reconciliation day lists every matched operation for the accountant's export; a
           // stock report lists up to 200 documents with all their lines; a sales report lists up
-          // to 200 refunds and 200 staff meals with 92 days.
-          const limit = /\/(?:reconciliation|ops\/stock|ops\/sales)\?/.test(path)
-            ? 4 * 1024 * 1024
-            : 1024 * 1024;
+          // to 200 refunds and 200 staff meals with 92 days; a cashier day («Касса») up to 2200
+          // receipts with their items, tenders, refunds and Webkassa receipts; the discounts up to
+          // 200 with their catalog scope and the catalog names.
+          const limit = /\/ops\/pos-day\?/.test(path)
+            ? 8 * 1024 * 1024
+            : /\/(?:reconciliation|ops\/stock|ops\/sales)\?/.test(path) ||
+                /\/ops\/discounts(?:\?|$)/.test(path)
+              ? 4 * 1024 * 1024
+              : 1024 * 1024;
           for await (const chunk of response.body ?? []) {
             size += chunk.length;
             if (size > limit) {

@@ -11,6 +11,23 @@ export class ApiError extends Error {
 export type Request = { method?: 'GET' | 'PUT' | 'POST'; body?: unknown };
 export type Transport = (path: string, token: string, options?: Request) => Promise<unknown>;
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
+/** Lane bo-ui (audit F10): GET .../ops/orders, the order registry on the server. */
+function ordersQuery(q: URLSearchParams) {
+  const keys = ['start_date', 'end_date', 'q', 'channel', 'terminal_id', 'sort', 'page'];
+  const day = (v: string | null) => v !== null && /^\d{4}-\d{2}-\d{2}$/.test(v);
+  const value = (k: string, re: RegExp) => q.get(k) === null || re.test(q.get(k) ?? '');
+  return (
+    [...q.keys()].every((k) => keys.includes(k)) &&
+    keys.every((k) => q.getAll(k).length <= 1) &&
+    day(q.get('start_date')) &&
+    day(q.get('end_date')) &&
+    value('q', /^[0-9a-fA-F№ -]{0,40}$/) &&
+    value('channel', /^(mobile|kiosk|pos)$/) &&
+    value('terminal_id', new RegExp(`^${UUID}$`)) &&
+    value('sort', /^(new|old|number|amount)$/) &&
+    value('page', /^[1-9][0-9]{0,3}$/)
+  );
+}
 function reportQuery(search: string) {
   if (search.length > 400) return false;
   const query = new URLSearchParams(search);
@@ -113,7 +130,7 @@ export function allowedPath(path: string): boolean {
     return (
       [...q.keys()].length === 3 &&
       ['view', 'start_date', 'end_date'].every((k) => q.getAll(k).length === 1) &&
-      /^(waste|movement)$/.test(q.get('view') ?? '') &&
+      /^(waste|movement|variance|consumption)$/.test(q.get('view') ?? '') &&
       /^\d{4}-\d{2}-\d{2}$/.test(q.get('start_date') ?? '') &&
       /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '')
     );
@@ -126,6 +143,58 @@ export function allowedPath(path: string): boolean {
       ['start_date', 'end_date'].every((k) => q.getAll(k).length === 1) &&
       /^\d{4}-\d{2}-\d{2}$/.test(q.get('start_date') ?? '') &&
       /^\d{4}-\d{2}-\d{2}$/.test(q.get('end_date') ?? '')
+    );
+  }
+  // Lane bo-ui «Касса»: one Almaty day, optionally one cash desk.
+  if (new RegExp(`^operations/branches/${UUID}/ops/pos-day$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    const terminal = q.get('terminal_id');
+    return (
+      [...q.keys()].every((k) => k === 'date' || k === 'terminal_id') &&
+      q.getAll('date').length === 1 &&
+      q.getAll('terminal_id').length <= 1 &&
+      /^\d{4}-\d{2}-\d{2}$/.test(q.get('date') ?? '') &&
+      (terminal === null || new RegExp(`^${UUID}$`).test(terminal))
+    );
+  }
+  // Lane bo-ui (audit F10): the order registry of a date window on the server.
+  if (new RegExp(`^operations/branches/${UUID}/ops/orders$`).test(pathname))
+    return (search?.length ?? 0) <= 300 && ordersQuery(new URLSearchParams(search ?? ''));
+  // Lane bo-ui automatic consumption: menu-stock links and the consumption queue.
+  if (new RegExp(`^operations/branches/${UUID}/ops/menu-links$`).test(pathname))
+    return search === undefined;
+  if (new RegExp(`^operations/branches/${UUID}/ops/consumption$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    const state = q.get('state');
+    const date = q.get('date');
+    return (
+      [...q.keys()].every((k) => k === 'state' || k === 'date') &&
+      q.getAll('state').length <= 1 &&
+      q.getAll('date').length <= 1 &&
+      (state === null ||
+        /^(pending|previewed|applied|blocked|skipped|not_required)$/.test(state)) &&
+      (date === null || /^\d{4}-\d{2}-\d{2}$/.test(date))
+    );
+  }
+  // Lane bo-ui step 6: the manager shift of one Almaty day and the roster of the cash desk.
+  if (new RegExp(`^operations/branches/${UUID}/ops/manager-shifts$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    return (
+      [...q.keys()].every((k) => k === 'date') &&
+      q.getAll('date').length <= 1 &&
+      (q.get('date') === null || /^\d{4}-\d{2}-\d{2}$/.test(q.get('date') ?? ''))
+    );
+  }
+  if (new RegExp(`^operations/branches/${UUID}/ops/staff-roster$`).test(pathname))
+    return search === undefined;
+  // Lane bo-ui step 7: the discounts, or one discount with its revisions.
+  if (new RegExp(`^operations/branches/${UUID}/ops/discounts$`).test(pathname)) {
+    const q = new URLSearchParams(search ?? '');
+    const id = q.get('id');
+    return (
+      [...q.keys()].every((k) => k === 'id') &&
+      q.getAll('id').length <= 1 &&
+      (id === null || new RegExp(`^${UUID}$`).test(id))
     );
   }
   if (new RegExp(`^operations/branches/${UUID}$`).test(pathname)) return reportQuery(search ?? '');
@@ -420,6 +489,29 @@ const reasons: Record<string, string> = {
   REASON_REQUIRED: 'Укажите причину списания.',
   STOCK_V2_DISABLED:
     'Причины списаний и данные накладной пока не включены на сервере. Обновите страницу.',
+  // Lane bo-ui stock P1 (servers with capabilities.stock_p1).
+  REVERSAL_NOT_ALLOWED:
+    'Этот документ не сторнируется: инвентаризацию исправляют новой инвентаризацией, сторно - не отменяют.',
+  ALREADY_REVERSED: 'Документ уже сторнирован. Сторно - одно на документ. Обновите страницу.',
+  COUNTED_AFTER_DOCUMENT:
+    'После документа по его позициям провели инвентаризацию: она уже учла фактический остаток. Исправьте остаток новой инвентаризацией или списанием.',
+  RECIPE_POLICY_EXPLODE:
+    'Эта техкарта при продаже раскладывается на сырьё, поэтому её не производят партиями. Если заготовку делают заранее, выберите в техкарте «Списывать сам выход».',
+  RECIPE_POLICY_UNSET:
+    'Выход этой техкарты списывается при продаже по связи меню, а в техкарте не выбран «Выход техкарты при продаже». Если заготовку делают партиями, выберите «Списывать сам выход» и проведите производство снова.',
+  // Lane bo-ui step 6 (servers with capabilities.manager_shifts / staff_positions).
+  MANAGER_SHIFT_OPEN: 'Смена менеджера уже открыта. Обновите страницу и закройте её.',
+  CHECKLIST_INCOMPLETE:
+    'Ответьте на все обязательные пункты. «Есть проблема», «Не применимо» и пункты с проблемой по данным требуют комментария.',
+  HANDOVER_REQUIRED: 'Заполните передачу смены: минимум 3 символа.',
+  LEGACY_JOURNAL_READ_ONLY:
+    'Управленческий журнал только для чтения: смены ведутся в блоке «Смена менеджера».',
+  POSITION_UNKNOWN: 'Такой должности нет в списке или она выключена. Обновите страницу.',
+  POSITION_IN_USE: 'Должность нельзя удалить из списка: её можно только выключить.',
+  // Lane bo-ui step 7 (servers with capabilities.discounts).
+  DISCOUNT_NAME_TAKEN: 'Скидка с таким названием уже есть. Выберите другое название.',
+  DISCOUNT_ARCHIVED: 'Скидка в архиве: её нельзя изменить или включить. Создайте новую.',
+  DISCOUNT_PERIOD_ENDED: 'Период скидки уже закончился. Измените даты и включите её снова.',
 };
 export const reasonMessage = (reason: string | undefined) =>
   reason === undefined ? undefined : reasons[reason];

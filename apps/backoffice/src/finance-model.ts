@@ -1,4 +1,5 @@
 import { ApiError, type Request } from './api.js';
+import { tenge, ui } from './ui-fixes.js';
 
 export type Category = {
   id: string;
@@ -97,6 +98,8 @@ export function minor(value: string): string {
   return String(n);
 }
 export function money(value: string) {
+  // Lane bo-ui audit F19: one money format with the rest of the cabinet.
+  if (ui.fixes) return tenge(value);
   const n = BigInt(value),
     a = n < 0n ? -n : n;
   return `${n < 0n ? '-' : ''}${(a / 100n).toLocaleString('ru-RU')},${String(a % 100n).padStart(2, '0')} ₸`;
@@ -222,7 +225,8 @@ export class FinanceModel {
     } catch (e) {
       if (generation === this.generation) {
         this.data = null;
-        this.error = this.explain(e);
+        // Audit F05 (with the fixes): a failed read is not an unconfirmed write.
+        this.error = this.fixes() ? this.readError(e) : this.explain(e);
       }
     } finally {
       if (generation === this.generation) {
@@ -250,10 +254,25 @@ export class FinanceModel {
       );
     return e instanceof Error ? e.message : 'Не удалось выполнить операцию.';
   }
+  private readError(e: unknown) {
+    const code = e instanceof ApiError ? e.code : '';
+    if (code === 'NETWORK')
+      return 'Нет связи с сервером. Проверьте интернет и нажмите «Показать» ещё раз.';
+    if (code === 'FORBIDDEN') return 'Нет доступа к финансам этой точки.';
+    if (code === 'INVALID_RESPONSE')
+      return 'Ответ сервера не прошёл проверку. Обновите страницу и нажмите «Показать».';
+    return this.explain(e);
+  }
+  /** Lane bo-ui audit fixes (app.ts sets it from OperationsModel.fixes). */
+  fixes: () => boolean = () => false;
+  /** The signed-in role may write the ledger (manager grant, or finance.write with roles). */
+  get roleWrites() {
+    return (
+      this.data?.role === 'manager' || Boolean(this.data?.permissions?.includes('finance.write'))
+    );
+  }
   get writable() {
-    const role =
-      this.data?.role === 'manager' || Boolean(this.data?.permissions?.includes('finance.write'));
-    return role && !this.busy && !this.pending && !this.storageBroken;
+    return this.roleWrites && !this.busy && !this.pending && !this.storageBroken;
   }
   async send(command: Record<string, unknown>, reason: string) {
     if (!this.writable) return false;

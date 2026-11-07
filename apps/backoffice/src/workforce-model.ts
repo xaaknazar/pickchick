@@ -171,7 +171,8 @@ export class WorkforceModel {
     } catch (e) {
       if (generation === this.generation) {
         this.data = null;
-        this.error = this.explain(e);
+        // Audit F05 (with the fixes): a failed read is not an unconfirmed write.
+        this.error = this.fixes() ? this.readError(e) : this.explain(e);
       }
     } finally {
       if (generation === this.generation) {
@@ -205,8 +206,23 @@ export class WorkforceModel {
       );
     return e instanceof Error ? e.message : 'Не удалось выполнить операцию.';
   }
+  private readError(e: unknown) {
+    const code = e instanceof ApiError ? e.code : '';
+    if (code === 'NETWORK')
+      return 'Нет связи с сервером. Проверьте интернет и нажмите «Повторить загрузку».';
+    if (code === 'FORBIDDEN') return 'Нет доступа к графику и табелю этой точки.';
+    if (code === 'INVALID_RESPONSE')
+      return 'Ответ сервера не прошёл проверку. Обновите страницу и повторите загрузку.';
+    return this.explain(e);
+  }
+  /** Lane bo-ui audit fixes (app.ts sets it from OperationsModel.fixes). */
+  fixes: () => boolean = () => false;
+  /** The signed-in role may change the schedule, time sheet and payroll (manager grant). */
+  get roleWrites() {
+    return this.data?.role === 'manager';
+  }
   get writable() {
-    return this.data?.role === 'manager' && !this.busy && !this.pending && !this.storageBroken;
+    return this.roleWrites && !this.busy && !this.pending && !this.storageBroken;
   }
   async send(command: Record<string, unknown>, reason: string) {
     if (!this.writable) return false;

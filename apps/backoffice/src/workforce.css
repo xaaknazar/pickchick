@@ -390,3 +390,200 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Lane bo-ui step 6: «Смена менеджера» (capabilities.manager_shifts) and positions. */
+.manager-shift .ms-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 12px 16px 14px;
+  background: var(--card);
+}
+.manager-shift > h3,
+.manager-shift > .ms-history-bar,
+.manager-shift > .notice,
+.manager-shift > .op-note {
+  margin-left: 16px;
+  margin-right: 16px;
+}
+.manager-shift > .inventory-table {
+  margin: 0 16px 16px;
+}
+.ms-history-bar .field {
+  max-width: 260px;
+}
+.manager-shift .ms-card.ms-open {
+  border-left: 4px solid var(--green);
+}
+.ms-title {
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+.ms-check {
+  margin: 4px 0;
+  padding-left: 10px;
+  border-left: 3px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.ms-check-ok {
+  border-left-color: var(--green);
+}
+.ms-check-problem {
+  border-left-color: var(--red);
+}
+.ms-check-no_data {
+  border-left-color: var(--accent);
+}
+.ms-dialog {
+  width: min(760px, calc(100vw - 32px));
+}
+.ms-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 10px 0;
+  padding: 8px 12px;
+}
+.ms-item legend {
+  font-weight: 600;
+  padding: 0 4px;
+}
+.ms-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+.ms-options .button.selected {
+  background: var(--text);
+  color: var(--card);
+  border-color: var(--text);
+}
+.ms-handover {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ms-template-row,
+.wf-position-row {
+  align-items: end;
+  flex-wrap: wrap;
+}
+.wf-extra {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+.wf-extra legend {
+  padding: 0 4px;
+}
+@media (max-width: 650px) {
+  .ms-options .button {
+    flex: 1 1 100%;
+  }
+  .ms-dialog {
+    width: calc(100vw - 16px);
+  }
+}
+
+/* Lane bo-ui step 7: «Скидки» (capabilities.discounts). */
+.discounts > .notice,
+.discounts > .op-note,
+.discounts > .dc-bar {
+  margin-left: 16px;
+  margin-right: 16px;
+}
+.discounts > .inventory-table {
+  margin: 0 16px 16px;
+}
+.dc-banner {
+  border-left: 4px solid var(--accent);
+}
+.dc-bar .field {
+  max-width: 280px;
+}
+.dc-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.dc-state-active {
+  font-weight: 600;
+}
+.dc-actions {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dc-dialog {
+  width: min(820px, calc(100vw - 32px));
+}
+.dc-group {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 12px 0;
+  padding: 6px 12px 10px;
+}
+.dc-group legend {
+  font-weight: 600;
+  padding: 0 4px;
+}
+.dc-checks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 18px;
+}
+.dc-checks .check {
+  min-height: 40px;
+  padding: 6px 0;
+}
+.dc-sub,
+.dc-cat-name {
+  font-weight: 600;
+  margin: 6px 0 0;
+}
+.dc-hours {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+.dc-hour {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 12px;
+}
+.dc-hour .field {
+  max-width: 160px;
+}
+.dc-dialog .op-form-error p {
+  margin: 0;
+}
+@media (max-width: 650px) {
+  .dc-dialog {
+    width: calc(100vw - 16px);
+  }
+  .dc-hour .field {
+    max-width: none;
+    flex: 1 1 120px;
+  }
+}
+/* Words stay whole in the discount columns (no «Синтетичес кая»). */
+.discounts .inventory-table td,
+.dc-dialog .inventory-table td {
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
+}
+.dc-cell {
+  display: grid;
+  gap: 4px;
+}
+.dc-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.discounts .inventory-table td:nth-child(3) {
+  min-width: 170px;
+}

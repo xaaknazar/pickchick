@@ -149,6 +149,9 @@ export function navigationIcon(name: string) {
     stations: 'M8 3h8v5H8zM3 16h6v5H3zM15 16h6v5h-6zM12 8v4M6 16v-4h12v4',
     devices: 'M3 4h18v13H3zM8 21h8M12 17v4',
     audit: 'M4 4h16v17H4zM8 8h8M8 12h8M8 16h5',
+    pos: 'M4 10h16v10H4zM7 10V5h10v5M8 14h2M14 14h2M8 17h8',
+    discounts:
+      'M19 5 5 19M7.5 4.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M16.5 14.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5',
   };
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');

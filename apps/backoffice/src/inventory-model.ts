@@ -1,4 +1,5 @@
 import { object, type Data } from './operations-model.js';
+import { csvTenge, csvTextCell } from './sales-report-model.js';
 export type StockKind = 'receipt' | 'waste' | 'count';
 export type StockLine = { ingredient_id: string; quantity: string; unit: string; cost: string };
 const limit = 999999999999999n;
@@ -177,4 +178,493 @@ export function almatyDay(now: Date, days = 0) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Almaty' }).format(
     new Date(now.getTime() - days * 86400000),
   );
+}
+
+/*
+ * Stock P1 (lane bo-ui; design-bo-ui 5.2, 5.4; design-backoffice 5 «Остатки»). Used only while
+ * the server reports capabilities.stock_p1 (stock v2 with cloud075 and its rights).
+ */
+/** The old waste of the cloud lane without a reason code, as the report names it. */
+export const wasteReasonLabelP1 = (code: unknown) =>
+  code === null || code === undefined
+    ? 'Без кода причины (до включения склада v2)'
+    : wasteReasonLabel(code);
+/** Document kinds a storno takes (stock-p1.ts REVERSIBLE_KINDS). */
+export const REVERSIBLE_KINDS = ['receipt', 'waste', 'production', 'consumption'] as const;
+const KIND_NAMES: Record<string, string> = {
+  receipt: 'Поставка',
+  waste: 'Списание',
+  count: 'Инвентаризация',
+  production: 'Производство',
+  consumption: 'По техкарте',
+  transfer: 'Перемещение',
+  reversal: 'Сторно',
+};
+export const stockKindLabel = (kind: unknown) => KIND_NAMES[String(kind)] ?? String(kind);
+const time = (value: unknown) => {
+  if (!value) return '-';
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('ru-RU', {
+      timeZone: 'Asia/Almaty',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(new Date(String(value)))
+      .map((p) => [p.type, p.value]),
+  );
+  return `${parts['day']}.${parts['month']}.${parts['year']} ${parts['hour']}:${parts['minute']}`;
+};
+/** «19.11.2026 13:05» in Almaty time, «-» without a value. */
+export const almatyStamp = time;
+/** «Последний подсчёт» of a stock row: the time of the last count, or that there was none. */
+export const lastCount = (row: Data) =>
+  row['counted_at'] ? time(row['counted_at']) : 'Подсчёта не было';
+/**
+ * The warning of «Остатки» while sales are not written off (design-backoffice 7, iiko-gap P0-13):
+ * balances move only by documents, so they are right right after a count and drift with every sale.
+ */
+export function stockSalesNotice(
+  mode: 'off' | 'dry_run' | 'on' = 'off',
+  lastCount = false,
+  startAt: string | null = null,
+  /** Review BOUI-R2: the stall text of the worker (stallText), shown instead of «списываются». */
+  stall: string | null = null,
+): string | null {
+  if (stall && mode !== 'off') return stall;
+  // Step 5: with the automatic consumption on the page says from when sales are written off.
+  if (mode === 'on')
+    return startAt
+      ? `Продажи списываются со склада автоматически с ${almatyStamp(startAt)} по утверждённым связям меню. Продажи без связи или без остатка ждут во вкладке «Списание по продажам».`
+      : null;
+  const where = lastCount ? ' - смотрите «Последний подсчёт» у позиции' : '';
+  return mode === 'dry_run'
+    ? `Списание по продажам работает в режиме проверки: продажи со склада не списываются. Остаток верен только сразу после инвентаризации${where}.`
+    : `Продажи пока не списываются со склада автоматически. Остаток верен только сразу после инвентаризации${where}. Расход между подсчётами вносите списанием.`;
+}
+/** Why a document cannot be reversed, in words, or null when the storno is offered. */
+export function reversalBlocker(document: Data, stock: Data[]): string | null {
+  const kind = String(document['kind']);
+  if (kind === 'reversal') return 'Это сторно. Сторно не отменяется повторным сторно.';
+  if (kind === 'count')
+    return 'Инвентаризацию не сторнируют: исправьте остаток новой инвентаризацией.';
+  if (!(REVERSIBLE_KINDS as readonly string[]).includes(kind))
+    return 'Этот вид документа не сторнируется.';
+  if (document['reversed_by'])
+    return `Документ уже сторнирован ${time(document['reversed_at'])}. Сторно - одно на документ.`;
+  const lines = Array.isArray(document['lines']) ? (document['lines'] as Data[]) : [];
+  if (!lines.length) return 'В документе нет движений: сторнировать нечего.';
+  const created = Date.parse(String(document['created_at']));
+  const counted = lines.some((l) => {
+    const row = stock.find((s) => s['id'] === l['ingredient_id']);
+    return row?.['counted_at'] ? Date.parse(String(row['counted_at'])) > created : false;
+  });
+  if (counted)
+    return 'После документа по его позициям провели инвентаризацию: она уже учла фактический остаток. Исправьте остаток новой инвентаризацией или списанием.';
+  return null;
+}
+export type ReversalLine = {
+  ingredient_id: string;
+  name: string;
+  unit: string;
+  before: string;
+  delta: string;
+  after: string;
+  value_delta: string;
+  /** The exact opposite fits the balance: never below zero, no value left without quantity. */
+  ok: boolean;
+};
+/**
+ * The storno preview: every movement of the document turned around against today's balance, and
+ * the command with the balance revisions the dialog showed (CONFLICT if another document moves
+ * them first). `error` names the first line the server would refuse with INSUFFICIENT_STOCK.
+ */
+export function reversalPreview(document: Data, stock: Data[]) {
+  const lines = (Array.isArray(document['lines']) ? (document['lines'] as Data[]) : []).map(
+    (l): ReversalLine => {
+      const row = stock.find((s) => s['id'] === l['ingredient_id']);
+      const q = BigInt(String(row?.['quantity'] ?? 0)),
+        v = BigInt(String(row?.['value_minor'] ?? 0)),
+        dq = -BigInt(String(l['quantity_delta'] ?? 0)),
+        dv = -BigInt(String(l['value_delta_minor'] ?? 0));
+      const after = q + dq,
+        value = v + dv;
+      return {
+        ingredient_id: String(l['ingredient_id']),
+        name: String(l['name'] ?? l['ingredient_id']),
+        unit: String(l['unit'] ?? 'pcs'),
+        before: q.toString(),
+        delta: dq.toString(),
+        after: after.toString(),
+        value_delta: dv.toString(),
+        ok: Boolean(row) && after >= 0n && value >= 0n && (after !== 0n || value === 0n),
+      };
+    },
+  );
+  const bad = lines.find((l) => !l.ok);
+  return {
+    lines,
+    error: bad
+      ? `${bad.name}: остаток или его стоимость уже меньше, чем добавил документ. Сторно невозможно - проверьте остаток инвентаризацией.`
+      : null,
+    command: {
+      type: 'stock_reverse',
+      document_id: String(document['id']),
+      expected_balances: Object.fromEntries(
+        lines.map((l) => [
+          l.ingredient_id,
+          Number(stock.find((s) => s['id'] === l.ingredient_id)?.['revision'] ?? 0),
+        ]),
+      ),
+    },
+  };
+}
+/** Quick waste tiles (Ingredient.quick_waste) of the ingredients in use, by label. */
+export type QuickTile = { ingredient_id: string; label: string; quantity: string; unit: string };
+export function quickWasteTiles(stock: Data[]): QuickTile[] {
+  return stock
+    .map((row) => {
+      const p = object(row['payload']);
+      const q =
+        p['quick_waste'] && typeof p['quick_waste'] === 'object' ? object(p['quick_waste']) : null;
+      if (!p['active'] || !q || typeof q['label'] !== 'string' || typeof q['quantity'] !== 'string')
+        return null;
+      return {
+        ingredient_id: String(row['id']),
+        label: q['label'],
+        quantity: q['quantity'],
+        unit: String(p['unit'] ?? 'pcs'),
+      };
+    })
+    .filter((t): t is QuickTile => t !== null)
+    .sort((a, b) => a.label.localeCompare(b.label, 'ru'));
+}
+/**
+ * One press of a tile: adds its quantity (base unit) to the waste line of the ingredient, or opens
+ * the line. A line typed in kg or l is converted to the base unit first; an unreadable quantity is
+ * replaced by the tile's.
+ */
+export function addQuickWaste(lines: StockLine[], tile: QuickTile): StockLine[] {
+  const i = lines.findIndex((l) => l.ingredient_id === tile.ingredient_id);
+  if (i < 0) {
+    const empty = lines.length === 1 && !lines[0]!.ingredient_id && !lines[0]!.quantity.trim();
+    const line = {
+      ingredient_id: tile.ingredient_id,
+      quantity: tile.quantity,
+      unit: tile.unit,
+      cost: '',
+    };
+    return empty ? [line] : [...lines, line];
+  }
+  const current = lines[i]!;
+  let base: bigint;
+  try {
+    base = BigInt(stockQuantity(current.quantity, current.unit, tile.unit));
+  } catch {
+    base = 0n;
+  }
+  const next = { ...current, unit: tile.unit, quantity: (base + BigInt(tile.quantity)).toString() };
+  return lines.map((l, n) => (n === i ? next : l));
+}
+/** Ingredient editor: the tile fields as typed; both empty removes the tile. */
+export function quickWasteField(label: string, quantity: string): Data | null {
+  const l = label.trim(),
+    q = quantity.trim();
+  if (!l && !q) return null;
+  if (!l || l.length > 40) throw new Error('Название плитки - от 1 до 40 символов.');
+  if (!/^[1-9][0-9]{0,14}$/.test(q))
+    throw new Error('Количество плитки - целое число больше нуля в учётной единице ингредиента.');
+  return { label: l, quantity: q };
+}
+/** A quantity of a base unit for a CSV cell: «1,5» with «кг», «12» with «шт». */
+export function csvQuantity(value: unknown, base: unknown): [string, string] {
+  const n = BigInt(String(value ?? 0));
+  if (base !== 'g' && base !== 'ml') return [n.toString(), 'шт'];
+  const a = n < 0n ? -n : n;
+  const fraction = (a % 1000n).toString().padStart(3, '0').replace(/0+$/, '');
+  return [
+    `${n < 0n ? '-' : ''}${(a / 1000n).toString()}${fraction ? ',' + fraction : ''}`,
+    base === 'g' ? 'кг' : 'л',
+  ];
+}
+const rowsOf = (summary: Data, key: string) =>
+  Array.isArray(summary[key]) ? (summary[key] as Data[]) : [];
+/**
+ * «Списания» CSV (P1 report, exact over the whole window): one block per table, blocks separated
+ * by an empty row, money in tenge under «Сумма, ₸».
+ */
+export function wasteReportCsv(report: {
+  start_date: string;
+  end_date: string;
+  totals: Data;
+  summary: Data;
+}): string[][] {
+  const day = (d: unknown) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d));
+    return m ? `${m[3]}.${m[2]}.${m[1]}` : String(d);
+  };
+  const t = report.totals;
+  return [
+    ['Списания за период', `${day(report.start_date)} - ${day(report.end_date)}`],
+    ['Документов списания', 'Сторно', 'Сумма, ₸'],
+    [String(t['documents'] ?? 0), String(t['reversals'] ?? 0), csvTenge(t['value_minor'] ?? '0')],
+    [],
+    ['Причина', 'Документов', 'Сторно', 'Сумма, ₸'],
+    ...rowsOf(report.summary, 'by_reason').map((r) => [
+      wasteReasonLabelP1(r['reason_code']),
+      String(r['documents'] ?? 0),
+      String(r['reversals'] ?? 0),
+      csvTenge(r['value_minor']),
+    ]),
+    [],
+    ['День', 'Документов', 'Сторно', 'Сумма, ₸'],
+    ...rowsOf(report.summary, 'by_day').map((r) => [
+      day(r['day']),
+      String(r['documents'] ?? 0),
+      String(r['reversals'] ?? 0),
+      csvTenge(r['value_minor']),
+    ]),
+    [],
+    ['Ингредиент', 'Списано', 'Единица', 'Сумма, ₸'],
+    ...rowsOf(report.summary, 'by_ingredient').map((r) => [
+      csvTextCell(r['name']),
+      ...csvQuantity(r['quantity'], r['unit']),
+      csvTenge(r['value_minor']),
+    ]),
+    [],
+    ['Автор списания', 'Документов', 'Сторно', 'Сумма, ₸'],
+    ...rowsOf(report.summary, 'by_author').map((r) => [
+      csvTextCell(r['actor_name']),
+      String(r['documents'] ?? 0),
+      String(r['reversals'] ?? 0),
+      csvTenge(r['value_minor']),
+    ]),
+  ];
+}
+/** Where a document came from or why it was written off, in words (report and documents tab). */
+export function documentDetail(document: Data): string {
+  const kind = String(document['kind']);
+  if (kind === 'waste') return wasteReasonLabelP1(document['reason_code']);
+  if (kind === 'reversal') {
+    const r =
+      document['reverses'] && typeof document['reverses'] === 'object'
+        ? (document['reverses'] as Data)
+        : null;
+    if (!r) return 'Сторно';
+    return `Сторно: ${stockKindLabel(r['kind'])} «${String(r['reference'])}» от ${time(r['created_at'])}${
+      r['kind'] === 'waste' ? ', ' + wasteReasonLabelP1(r['reason_code']) : ''
+    }`;
+  }
+  const meta =
+    document['meta'] && typeof document['meta'] === 'object' ? (document['meta'] as Data) : null;
+  if (kind === 'receipt' && meta) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(meta['document_date']));
+    return [
+      supplierKindLabel(meta['supplier_kind']),
+      meta['supplier_name'] ? String(meta['supplier_name']) : '',
+      m ? `накладная от ${m[3]}.${m[2]}.${m[1]}` : '',
+    ]
+      .filter(Boolean)
+      .join(', ');
+  }
+  // Step 5: a consumption written by the automatic consumption names its sale (source_ref).
+  if (kind === 'consumption' && typeof document['source_ref'] === 'string')
+    return document['source_ref'].startsWith('pos:')
+      ? 'Автоматически по продаже кассы'
+      : 'Автоматически по заказу приложения или киоска';
+  return '-';
+}
+/** Storno state of a document in words, or «-». */
+export const reversalState = (document: Data) =>
+  document['reversed_by'] ? `Сторнирован ${time(document['reversed_at'])}` : '-';
+/** «Строки документов» CSV of the listed documents (at most 200, the report says when cut). */
+export function stockDocumentsCsv(documents: Data[]): string[][] {
+  return [
+    [
+      'Дата',
+      'Документ',
+      'Вид',
+      'Причина или поставщик',
+      'Ингредиент',
+      'Изменение',
+      'Единица',
+      'Сумма, ₸',
+      'Автор',
+      'Основание',
+      'Сторно',
+    ],
+    ...documents.flatMap((d) =>
+      (Array.isArray(d['lines']) ? (d['lines'] as Data[]) : []).map((l) => [
+        time(d['created_at']),
+        csvTextCell(d['reference']),
+        stockKindLabel(d['kind']),
+        csvTextCell(documentDetail(d)),
+        csvTextCell(l['name']),
+        ...csvQuantity(l['quantity_delta'], l['unit']),
+        csvTenge(l['value_delta_minor']),
+        csvTextCell(d['actor_name']),
+        csvTextCell(d['reason']),
+        reversalState(d),
+      ]),
+    ),
+  ];
+}
+
+// ------------------------------------------------- stock P1 step 8: reports and key count ----
+
+/** Report tabs of stock P1 (GET .../ops/stock?view=…). */
+export type StockReportView = 'waste' | 'movement' | 'variance' | 'consumption';
+/** Ingredient groups (design-backoffice 3) in the card and in the count dialog. */
+export const INGREDIENT_GROUP_OPTIONS: readonly { value: string; label: string }[] = [
+  { value: 'raw', label: 'Сырьё' },
+  { value: 'semi', label: 'Полуфабрикаты' },
+  { value: 'packaging', label: 'Упаковка' },
+  { value: 'drink', label: 'Напитки' },
+  { value: 'household', label: 'Хозтовары' },
+  { value: 'other', label: 'Другое' },
+];
+/**
+ * stock_policy of a recipe output (design-bo-ui 5.3). Empty = not chosen: a sale through a menu
+ * link is not written off until the chef chooses (review BOUI-R1).
+ */
+export const RECIPE_POLICY_OPTIONS: readonly { value: string; label: string }[] = [
+  { value: '', label: 'Не выбрано: продажи с этим выходом не спишутся' },
+  { value: 'explode', label: 'Раскладывать на сырьё (производство недоступно)' },
+  { value: 'stock', label: 'Списывать сам выход (заготовка партиями)' },
+];
+const SOURCE_NAMES: Record<string, string> = {
+  pos: 'Касса',
+  cloud: 'Приложение и киоск',
+  manual: 'Вручную по техкартам заказа',
+};
+/** Where a consumption came from, in words («Расход по продажам»). */
+export const consumptionSourceLabel = (source: unknown) =>
+  SOURCE_NAMES[String(source)] ?? String(source);
+/**
+ * «Подсчёт на закрытии»: the used positions marked «Считать каждый день» (count_daily), by group
+ * and name, as empty count lines of the count dialog.
+ */
+export function keyCountLines(stock: Data[]): StockLine[] {
+  const order = INGREDIENT_GROUP_OPTIONS.map((g) => g.value);
+  return stock
+    .map((row) => ({ row, p: object(row['payload']) }))
+    .filter(({ p }) => p['active'] === true && p['count_daily'] === true)
+    .sort((a, b) => {
+      const ga = order.indexOf(String(a.p['group'] ?? 'other')),
+        gb = order.indexOf(String(b.p['group'] ?? 'other'));
+      return ga - gb || String(a.p['name']).localeCompare(String(b.p['name']), 'ru');
+    })
+    .map(({ row, p }) => ({
+      ingredient_id: String(row['id']),
+      quantity: '',
+      unit: String(p['unit'] ?? 'pcs'),
+      cost: '',
+    }));
+}
+/** A signed quantity of a base unit for the variance table: «-2 шт», «+0,5 кг», «0 г». */
+export function signedQuantity(value: unknown, base: unknown) {
+  const n = BigInt(String(value ?? 0));
+  return (n > 0n ? '+' : '') + displayQuantity(n, base);
+}
+/** «Расхождения подсчёта» CSV: totals, positions and days, money in tenge. */
+export function varianceReportCsv(report: {
+  start_date: string;
+  end_date: string;
+  totals: Data;
+  summary: Data;
+}): string[][] {
+  const day = (d: unknown) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d));
+    return m ? `${m[3]}.${m[2]}.${m[1]}` : String(d);
+  };
+  const t = report.totals;
+  return [
+    ['Расхождения подсчёта за период', `${day(report.start_date)} - ${day(report.end_date)}`],
+    ['Подсчётов', 'Позиций', 'Недостача, ₸', 'Излишек, ₸', 'Итого, ₸'],
+    [
+      String(t['documents'] ?? 0),
+      String(t['items'] ?? 0),
+      csvTenge(t['shortage_value_minor'] ?? '0'),
+      csvTenge(t['surplus_value_minor'] ?? '0'),
+      csvTenge(t['delta_value_minor'] ?? '0'),
+    ],
+    [],
+    [
+      'Ингредиент',
+      'Подсчётов',
+      'Ожидалось',
+      'Посчитано',
+      'Разница',
+      'Единица',
+      'Сумма, ₸',
+      'Последний подсчёт',
+    ],
+    ...rowsOf(report.summary, 'rows').map((r) => {
+      const [expected, unit] = csvQuantity(r['expected'], r['unit']);
+      return [
+        csvTextCell(r['name']),
+        String(r['counts'] ?? 0),
+        expected,
+        csvQuantity(r['counted'], r['unit'])[0],
+        csvQuantity(r['delta_quantity'], r['unit'])[0],
+        unit,
+        csvTenge(r['delta_value_minor']),
+        time(r['last_counted_at']),
+      ];
+    }),
+    [],
+    ['День', 'Подсчётов', 'Позиций', 'Недостача, ₸', 'Излишек, ₸', 'Итого, ₸'],
+    ...rowsOf(report.summary, 'by_day').map((r) => [
+      day(r['day']),
+      String(r['documents'] ?? 0),
+      String(r['items'] ?? 0),
+      csvTenge(r['shortage_value_minor']),
+      csvTenge(r['surplus_value_minor']),
+      csvTenge(r['delta_value_minor']),
+    ]),
+  ];
+}
+/** «Расход по продажам» CSV: totals, sources, days and positions, net of storno. */
+export function consumptionReportCsv(report: {
+  start_date: string;
+  end_date: string;
+  totals: Data;
+  summary: Data;
+}): string[][] {
+  const day = (d: unknown) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d));
+    return m ? `${m[3]}.${m[2]}.${m[1]}` : String(d);
+  };
+  const t = report.totals;
+  return [
+    ['Расход по продажам за период', `${day(report.start_date)} - ${day(report.end_date)}`],
+    ['Документов', 'Сторно', 'Сумма, ₸'],
+    [String(t['documents'] ?? 0), String(t['reversals'] ?? 0), csvTenge(t['value_minor'] ?? '0')],
+    [],
+    ['Источник', 'Документов', 'Сторно', 'Сумма, ₸'],
+    ...rowsOf(report.summary, 'by_source').map((r) => [
+      consumptionSourceLabel(r['source']),
+      String(r['documents'] ?? 0),
+      String(r['reversals'] ?? 0),
+      csvTenge(r['value_minor']),
+    ]),
+    [],
+    ['День', 'Документов', 'Сторно', 'Сумма, ₸'],
+    ...rowsOf(report.summary, 'by_day').map((r) => [
+      day(r['day']),
+      String(r['documents'] ?? 0),
+      String(r['reversals'] ?? 0),
+      csvTenge(r['value_minor']),
+    ]),
+    [],
+    ['Ингредиент', 'Списано', 'Единица', 'Сумма, ₸'],
+    ...rowsOf(report.summary, 'by_ingredient').map((r) => [
+      csvTextCell(r['name']),
+      ...csvQuantity(r['quantity'], r['unit']),
+      csvTenge(r['value_minor']),
+    ]),
+  ];
 }

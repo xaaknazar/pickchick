@@ -42,6 +42,21 @@ export interface BackofficeOptions {
    * reports capabilities.sales_report. Default off: the view is 404 like any unknown view.
    */
   salesReportEnabled?: boolean;
+  /**
+   * Back-office P1 (lane bo-ui, design-bo-ui.md section 2), set from the API ServiceConfig by
+   * backofficeP1Options (p1-flags.ts), never from backofficeOptions(env). All default off; with
+   * every one off nothing of P1 runs and no response gains a key.
+   * BACKOFFICE_POS_DAY_ENABLED: «Касса», GET .../ops/pos-day, the new «Главная».
+   */
+  posDayEnabled?: boolean;
+  /** BACKOFFICE_STOCK_AUTOCONSUME_ENABLED: consumption worker and bo_stock_settings (cloud075). */
+  stockAutoconsumeEnabled?: boolean;
+  /** BACKOFFICE_MANAGER_SHIFTS_ENABLED: manager shift checklists (cloud075). */
+  managerShiftsEnabled?: boolean;
+  /** BACKOFFICE_STAFF_POSITIONS_ENABLED: positions, extra stations, POS access, roster export. */
+  staffPositionsEnabled?: boolean;
+  /** BACKOFFICE_DISCOUNTS_ENABLED: discount editor (cloud075); never published to the edge. */
+  discountsEnabled?: boolean;
 }
 function flag(env: Record<string, string | undefined>, name: string) {
   const value = env[name] ?? 'false';
