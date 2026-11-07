@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-11-06",
+  "updatedAt": "2026-11-07",
   "project": {
     "name": "PickChick",
     "summary": "Собственная операционная система ресторана: от приложения и кассы до кухни, Чиков и бэк-офиса. Переход с действующей iiko.",
@@ -5452,7 +5452,7 @@
       "id": "mobile-android-play-1105",
       "workstream": "mobile",
       "title": "Подготовить Android 1.0.1 (7) для Google Play",
-      "summary": "PR307/308 включены в shared после Foundation CI 11/11. Android 1.0.1 (7) подписан из чистого 1a9472f1 на Java 21; doctor/Inspect PASS, api.pickchick.kz, ровно 7 разрешений, подпись всех payload-записей проверена. 584 Node +96 Python и 101 экран production PASS. Google Play и сайт не менялись.",
+      "summary": "07.11 по уточнению владельца подготовленная Android1.0.1(7) отправлена Google в закрытый Alpha для Казахстана вместе с16 изменениями. Console подтвердила «Изменения на проверке» и нужную сборку, идёт автоматическая проверка. AAB SHA/Inspect и Foundation исходника11/11 PASS; код iOS33 включён. П6 support RU/KK/EN с удалением и сроком хранения доступен, Data safety6типов сохранена. iOS и сервер не менялись. Одобрение и доступность закрытого теста пока не подтверждены; отсчёт12/14 и физическая приёмка не подтверждены. Production не отправлен.",
       "status": "active",
       "owner": "development",
       "phase": "acceptance",
@@ -5475,6 +5475,22 @@
           "url": "https://github.com/xaaknazar/pickchick/actions/runs/41986578348"
         },
         {
+          "label": "Внутренний выпуск и оставшиеся проверки",
+          "path": "docs/operations/mobile-play-2026-11/release-1106.md"
+        },
+        {
+          "label": "Журнал П7 и П6",
+          "path": "codex-reports/2026-11-06-android.md"
+        },
+        {
+          "label": "PR313: внутренний тест и карточка",
+          "url": "https://github.com/xaaknazar/pickchick/pull/313"
+        },
+        {
+          "label": "Foundation CI пакета карточки 11/11",
+          "url": "https://github.com/xaaknazar/pickchick/actions/runs/42291705198"
+        },
+        {
           "label": "Foundation CI дерева подписанной сборки 11/11",
           "url": "https://github.com/xaaknazar/pickchick/actions/runs/41990360542"
         }
@@ -5483,14 +5499,14 @@
         "Полная Foundation CI и Inspect PASS на production AAB с 7 разрешениями.",
         "Проверка владельцем на физическом Android отдельно от web/CI."
       ],
-      "nextAction": "Отдельно согласовать обновление поддержки и Play Console; сохранить офлайн-копию ключа, затем внутреннее тестирование на физическом Android. FCM не настроен.",
+      "nextAction": "Дождаться решения Google, проверить доступность закрытой ссылки, обеспечить минимум12 вступивших участников14дней, проверить настоящий Android. Production отдельно. Документальная CI PR313 и онлайн-пульт отдельно.",
       "checks": {
         "implemented": true,
         "verified": true,
-        "deployed": false,
+        "deployed": true,
         "accepted": false
       },
-      "customerInput": "Офлайн-копия upload key позже; вычитка KK, Data safety, контакт поддержки и баннер перед Play Console."
+      "customerInput": "Android сейчас недоступен; нужен телефон для приёмки. Вычитка KK всей карточки и 12 участников закрытого теста ещё не подтверждены. Баннер/email утверждены, ключ остаётся на Mac."
     },
     {
       "id": "platform-idrink-retirement",

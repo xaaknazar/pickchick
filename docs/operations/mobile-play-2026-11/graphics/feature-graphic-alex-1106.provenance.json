@@ -1,0 +1,16 @@
+{
+  "date": "2026-11-06",
+  "tool": "built-in image_gen",
+  "status": "approved by owner on 2026-11-06",
+  "asset": "feature-graphic-alex-1106.png",
+  "dimensions": [1024, 500],
+  "mode": "RGB",
+  "sha256": "538a3196a7a0ee4dc6c6e4b7c321695c1f5fb60dd63a70c1ad7ee619aaf4b753",
+  "references": [
+    "apps/mobile/assets/order-status/chef-ready.png",
+    "docs/operations/mobile-play-2026-11/graphics/feature-graphic-1024x500.png"
+  ],
+  "generationPrompt": "Create premium Google Play feature graphic for PickChick, 2.048:1 landscape. Preserve original Alex rooster: white layered feathers, red comb and wattles, yellow beak, glossy black sunglasses, orange chef jacket, cobalt apron, cream chef hat. Place original orange-white PICK CHICK sticker logo at left; Alex at right presents actual chicken burger, strips and signature sauce from references. Deep cobalt #0047BB background with restrained orange #FF671F, polished 3D mascot, appetizing food detail, soft physically grounded studio shadows. No drink, Coca-Cola, other brand, slogan, prices, UI, badges, claims or watermark. Keep face/logo/food within safe area. Opaque RGB.",
+  "refinementPrompt": "Preserve banner identity, logo, food and lighting. Reduce complete Alex-and-tray group about 15 percent, keep at right, leave at least 8 percent image height above chef hat and comfortable space around tray and hands. Preserve wide 2.048:1 ratio, no new objects or text.",
+  "packaging": "Original output 1792x875, proportional downsample by sips to 1024x500, no crop, no alpha. Original draft preserved."
+}
