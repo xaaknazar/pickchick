@@ -195,7 +195,7 @@ Host pickchick-pos-private
   LogLevel ERROR
   GatewayPorts no
   EscapeChar none
-  LocalForward 127.0.0.1:43100 127.0.0.1:$($Connection.remoteApiPort)
+  LocalForward 127.0.0.1:43110 127.0.0.1:$($Connection.remoteApiPort)
 "@
 }
 function Build-ServiceXml([string]$Id,[string]$Executable,[string[]]$Arguments,[string[]]$Depends) {
@@ -292,7 +292,7 @@ if (@($manifest.dependencies | Where-Object {$_.name -ceq '@pickchick/pos-order-
 if (-not (Test-Path -LiteralPath $statePath)) {
     if ($Mode -ne 'Prepare' -or (Test-Path -LiteralPath $root) -or (Test-Path -LiteralPath $binRoot)) {throw 'New setup requires Prepare and unused transport directories. Uncertain files were retained.'}
     foreach ($name in @('PickChickSyncTunnel','PickChickPosSync')) {if (Get-Service $name -ErrorAction SilentlyContinue) {throw 'Unowned transport service already exists.'}}
-    if (@(Get-NetTCPConnection -LocalPort 43100 -State Listen -ErrorAction SilentlyContinue).Count) {throw 'Local forward port is already occupied.'}
+    if (@(Get-NetTCPConnection -LocalPort 43110 -State Listen -ErrorAction SilentlyContinue).Count) {throw 'Local forward port is already occupied.'}
     Set-ProtectedAcl $root -Directory -ServiceRead
     Set-ProtectedAcl $operatorRoot -Directory
     $script:state=[pscustomobject]@{format='pickchick-native-pos-sync-v1';syncInstallId=[guid]::NewGuid().ToString();installId=$foundation.installId;branchId=$branch;computerName=$env:COMPUTERNAME;operatorSid=$operatorSid.Value;releaseName=$ReleaseName;sourceCommit=$SourceCommit;manifestHash=(Hash-File (Join-Path $runtimeRoot 'runtime-manifest.json'));prepared=$false;configured=$false;installed=$false;sshHash=(Hash-File $ssh);keygenHash=(Hash-File $keygen);connectionHash='';identityHash='';knownHostsHash='';publicKeyHash='';updatedAt=''}
@@ -363,7 +363,7 @@ if ($Mode -eq 'Configure') {
     Ensure-Text $identityPath $identityText -ServiceRead
     Ensure-Text $configPath (Build-SshConfig $connection $keyPath $hostsPath) -ServiceRead
     $secret=Read-SyncSecret
-    $workerEnv="APP_ENV=local`nEDGE_BRANCH_ID=$branch`nEDGE_DEVICE_ID=$($connection.deviceId)`nEDGE_POS_ORDER_SYNC_ENABLED=true`nEDGE_POS_ORDER_SYNC_CLOUD_ORIGIN=http://127.0.0.1:43100`nEDGE_DATABASE_URL=postgresql://pickchick_pos_sync:$($secret.password)@127.0.0.1:55433/pickchick_edge`n"
+    $workerEnv="APP_ENV=local`nEDGE_BRANCH_ID=$branch`nEDGE_DEVICE_ID=$($connection.deviceId)`nEDGE_POS_ORDER_SYNC_ENABLED=true`nEDGE_POS_ORDER_SYNC_CLOUD_ORIGIN=http://127.0.0.1:43110`nEDGE_DATABASE_URL=postgresql://pickchick_pos_sync:$($secret.password)@127.0.0.1:55433/pickchick_edge`n"
     Ensure-Text $envPath $workerEnv -ServiceRead
     $bindingPath=Join-Path $operatorRoot 'binding-input.json'
     Ensure-Text $bindingPath ([pscustomobject]@{branchId=$branch;organizationId=$connection.organizationId;deviceId=$connection.deviceId} | ConvertTo-Json -Compress)
@@ -382,7 +382,7 @@ $connection=Read-Json $connectionPath;Validate-Connection $connection
 $device=Read-Json $identityPath 4096
 if ($device.branch_id -cne $branch -or $device.device_id -cne $connection.deviceId -or [DateTimeOffset]::Parse($device.expires_at).UtcDateTime -le [DateTime]::UtcNow) {throw 'Configured device identity is expired or changed.'}
 $secret=Read-SyncSecret
-$expectedEnv="APP_ENV=local`nEDGE_BRANCH_ID=$branch`nEDGE_DEVICE_ID=$($connection.deviceId)`nEDGE_POS_ORDER_SYNC_ENABLED=true`nEDGE_POS_ORDER_SYNC_CLOUD_ORIGIN=http://127.0.0.1:43100`nEDGE_DATABASE_URL=postgresql://pickchick_pos_sync:$($secret.password)@127.0.0.1:55433/pickchick_edge`n"
+$expectedEnv="APP_ENV=local`nEDGE_BRANCH_ID=$branch`nEDGE_DEVICE_ID=$($connection.deviceId)`nEDGE_POS_ORDER_SYNC_ENABLED=true`nEDGE_POS_ORDER_SYNC_CLOUD_ORIGIN=http://127.0.0.1:43110`nEDGE_DATABASE_URL=postgresql://pickchick_pos_sync:$($secret.password)@127.0.0.1:55433/pickchick_edge`n"
 if ([IO.File]::ReadAllText($envPath) -cne $expectedEnv) {throw 'Dedicated worker environment changed.'}
 Validate-KnownHosts ([IO.File]::ReadAllText($hostsPath)) $connection
 if ([IO.File]::ReadAllText($configPath) -cne (Build-SshConfig $connection $keyPath $hostsPath)) {throw 'SSH configuration changed.'}
@@ -413,13 +413,13 @@ foreach ($service in $services) {
 }
 $deadline=[DateTime]::UtcNow.AddSeconds(15)
 do {
-    $listeners=@(Get-NetTCPConnection -LocalPort 43100 -State Listen -ErrorAction SilentlyContinue)
+    $listeners=@(Get-NetTCPConnection -LocalPort 43110 -State Listen -ErrorAction SilentlyContinue)
     if ($listeners.Count -or [DateTime]::UtcNow -ge $deadline) {break}
     Start-Sleep -Milliseconds 500
 } while ($true)
-if ($listeners.Count -ne 1 -or $listeners[0].LocalAddress -ne '127.0.0.1') {throw 'SSH tunnel must bind only 127.0.0.1:43100.'}
+if ($listeners.Count -ne 1 -or $listeners[0].LocalAddress -ne '127.0.0.1') {throw 'SSH tunnel must bind only 127.0.0.1:43110.'}
 $process=Get-CimInstance Win32_Process -Filter ('ProcessId='+$listeners[0].OwningProcess)
 $tunnel=Get-CimInstance Win32_Service -Filter "Name='PickChickSyncTunnel'"
 if ($process.ExecutablePath -ine $ssh -or $process.ParentProcessId -ne $tunnel.ProcessId) {throw 'Local forward is not owned by the reviewed service.'}
 $state.installed=$true;Save-State
-[pscustomobject]@{phase='running';localForward='127.0.0.1:43100';databaseRole='pickchick_pos_sync';cloudDeliveryVerified=$false;note='Service and listener checks do not prove cloud acknowledgment. Verify real order and kitchen checkpoints separately.'} | ConvertTo-Json
+[pscustomobject]@{phase='running';localForward='127.0.0.1:43110';databaseRole='pickchick_pos_sync';cloudDeliveryVerified=$false;note='Service and listener checks do not prove cloud acknowledgment. Verify real order and kitchen checkpoints separately.'} | ConvertTo-Json

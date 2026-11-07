@@ -248,21 +248,68 @@ test('kitchen HTTP uses restricted runtime credentials for config locks, station
   });
 });
 
-test('reapplying runtime grants removes old column permissions and disabled kitchen access', async () => {
+/** Every privilege of `role` on the objects of `schema`, as sorted text rows. */
+async function privileges(pool, schema, role) {
+  const { rows } = await pool.query(
+    `SELECT format('%s|%s',c.relname,x.privilege_type) AS p
+       FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) x
+      WHERE c.relnamespace=$1::regnamespace AND x.grantee=$2::regrole
+     UNION ALL
+     SELECT format('%s.%s|%s',c.relname,a.attname,x.privilege_type)
+       FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid CROSS JOIN LATERAL aclexplode(a.attacl) x
+      WHERE c.relnamespace=$1::regnamespace AND a.attnum>0 AND NOT a.attisdropped AND x.grantee=$2::regrole
+     UNION ALL
+     SELECT format('%s()|%s',p.proname,x.privilege_type)
+       FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) x
+      WHERE p.pronamespace=$1::regnamespace AND x.grantee=$2::regrole
+     UNION ALL
+     SELECT format('schema|%s',x.privilege_type)
+       FROM pg_namespace n CROSS JOIN LATERAL aclexplode(n.nspacl) x
+      WHERE n.oid=$1::regnamespace AND x.grantee=$2::regrole`,
+    [schema, role],
+  );
+  return rows.map((r) => r.p).sort();
+}
+
+test('schema020+: reapplying runtime grants to a live role is refused before any REVOKE (#278)', async () => {
   await fixture(async (ctx) =>
     runtime(ctx, async (pool, role, options) => {
+      // A grant from another tool (here a stray column) must survive the refused reapply.
       await ctx.pool.query(`GRANT UPDATE(role) ON local_staff TO ${role}`);
-      await applyEdgeRuntimeGrants(ctx.pool, role, options);
-      await assert.rejects(pool.query("UPDATE local_staff SET role='cashier'"), denied);
-      await applyEdgeRuntimeGrants(ctx.pool, role, { ...options, fulfillment: false });
-      await assert.rejects(pool.query('SELECT 1 FROM fulfillment_reservations'), denied);
+      const before = await privileges(ctx.pool, ctx.schema, role);
+      assert.ok(before.includes('local_staff.role|UPDATE'));
+      for (const attempt of [
+        options,
+        { ...options, fulfillment: false },
+        { ...options, cloudLink: true },
+        { schema: ctx.schema },
+      ])
+        await assert.rejects(applyEdgeRuntimeGrants(ctx.pool, role, attempt), /Live runtime role/);
+      assert.deepEqual(await privileges(ctx.pool, ctx.schema, role), before);
+      await pool.query("UPDATE local_staff SET role='cashier' WHERE false");
+      await pool.query('SELECT 1 FROM fulfillment_reservations LIMIT 1');
       assert.equal((await readSession(pool, ctx.scope.branchId, ctx.cashier.auth)).role, 'cashier');
       const owner = (await ctx.pool.query('SELECT current_user')).rows[0].current_user;
       await assert.rejects(applyEdgeRuntimeGrants(ctx.pool, owner, options));
-      await ctx.pool.query('GRANT UPDATE(role) ON local_staff TO PUBLIC');
-      await assert.rejects(applyEdgeRuntimeGrants(ctx.pool, role, options));
-      await ctx.pool.query('REVOKE UPDATE(role) ON local_staff FROM PUBLIC');
-      await applyEdgeRuntimeGrants(ctx.pool, role, options);
     }),
   );
+});
+
+test('schema020+: a role holding nothing yet is still granted; PUBLIC privileges are refused', async () => {
+  await fixture(async (ctx) => {
+    const fresh = 'edge_runtime_' + randomUUID().replaceAll('-', '');
+    await ctx.admin.query(`CREATE ROLE ${fresh} NOLOGIN NOINHERIT`);
+    try {
+      const options = { schema: ctx.schema, fulfillment: true };
+      await ctx.pool.query('GRANT UPDATE(role) ON local_staff TO PUBLIC');
+      await assert.rejects(applyEdgeRuntimeGrants(ctx.pool, fresh, options), /public/i);
+      assert.deepEqual(await privileges(ctx.pool, ctx.schema, fresh), []);
+      await ctx.pool.query('REVOKE UPDATE(role) ON local_staff FROM PUBLIC');
+      await applyEdgeRuntimeGrants(ctx.pool, fresh, options);
+      assert.ok((await privileges(ctx.pool, ctx.schema, fresh)).includes('local_orders|INSERT'));
+    } finally {
+      await ctx.admin.query(`DROP OWNED BY ${fresh}`);
+      await ctx.admin.query(`DROP ROLE ${fresh}`);
+    }
+  });
 });
