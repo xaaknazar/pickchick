@@ -3,6 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { copy, type Locale } from '../i18n';
 import { colors, useMetrics } from '../theme';
 import { Body, Button, Heading, Language } from './UI';
+import { ReviewAccess } from './ReviewAccess';
 import { DeviceField } from './DeviceField';
 export function EnrollmentForm({
   locale,
@@ -15,6 +16,7 @@ export function EnrollmentForm({
   error,
   valid,
   onSubmit,
+  onReview,
 }: {
   locale: Locale;
   onLocale: (v: Locale) => void;
@@ -26,6 +28,7 @@ export function EnrollmentForm({
   error: boolean;
   valid: boolean;
   onSubmit: () => void;
+  onReview?: () => void;
 }) {
   const { px } = useMetrics();
   const safe = useSafeAreaInsets();
@@ -75,6 +78,7 @@ export function EnrollmentForm({
           busy={busy}
           onPress={onSubmit}
         />
+        {onReview ? <ReviewAccess locale={locale} onOpen={onReview} /> : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );
