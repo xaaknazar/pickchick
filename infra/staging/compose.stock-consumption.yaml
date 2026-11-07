@@ -1,0 +1,40 @@
+# Cutover bo-ui (CR bo-ui-5 section 1): explicit opt-in overlay of the stock consumption worker,
+# never included by the ordinary deploy command (like compose.customer-auth.yaml). The verified API
+# image of the api service with the worker entry point, the API role, the private network only, no
+# port, a profile of its own. Including this file and naming the service IS the switch-on, done
+# only after the owner's «да» (docs/operations/cutover-2026-11-19.md, step 8):
+#   docker compose -f compose.yaml -f compose.stock-consumption.yaml --profile stock-consumption \
+#     up -d --no-deps stock-consumption-worker
+# Off again: the same files with `rm -sf stock-consumption-worker`, before the API flag goes off.
+# The worker writes stock only for branches whose mode the manager set to dry_run or on in the
+# cabinet, and needs the grants of backoffice-p1-grants.mjs (autoconsume); without them it logs
+# `not_ready` on every tick and writes nothing.
+services:
+  stock-consumption-worker:
+    image: pickchick-api:${RELEASE_SHA:?Set verified release SHA}
+    profiles: [stock-consumption]
+    init: true
+    read_only: true
+    tmpfs: ['/tmp:size=16m,mode=1777']
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }
+    networks: [private]
+    command: ['node', 'services/api/dist/stock-consumption-worker.js']
+    environment:
+      APP_ENV: staging
+      DB_POOL_MAX: '2'
+      CATALOG_ADMIN_ENABLED: 'true'
+      BACKOFFICE_ENABLED: 'true'
+      BACKOFFICE_STOCK_V2_ENABLED: 'true'
+      BACKOFFICE_STOCK_AUTOCONSUME_ENABLED: 'true'
+      CLOUD_DATABASE_URL: postgresql://pickchick_app:${DB_APP_PASSWORD:?Generate a separate secret}@cloud-db:5432/pickchick_cloud
+      REDIS_URL: redis://default:${REDIS_PASSWORD:?Generate a separate secret}@redis-cache:6379/0
+    depends_on:
+      cloud-db: { condition: service_healthy }
