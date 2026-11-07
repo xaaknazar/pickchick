@@ -857,7 +857,11 @@ Env API, `true|false`, по умолчанию `false`, только облач�
 5. `permissions[]` получает права §9.3 только при доступной функции.
 
 Сделано в шаге 1: флаги, ключи `capabilities`, 076, helper прав, эталон, CR `bo-ui2-1`, этот раздел.
-Видов и команд ещё нет: при включённом флаге они пока отвечают так же, как без него.
+Шаг 2 (поставки): виды `suppliers` и `supply-requests`, шесть команд поставщиков и заявок (§9.4),
+права §9.3 и раздел кабинета «Закупки». Ключ `supply` теперь ещё требует, чтобы роль API писала
+столбцы прихода 074 (`supplyAvailable`, `p2-flags.ts`): приём заявки - это приход склада v2. Импорт
+цен (`supplier_prices_import`), отчёты склада и расстановка - следующие шаги; до них эти виды и
+команды при включённом флаге отвечают так же, как без него.
 
 ### 9.2 Миграция 076 (`db/cloud/migrations/076_cloud_backoffice_supply.sql`)
 
@@ -919,12 +923,24 @@ price_minor? (целые тиын > 0, только при поставщике)
 `permissions[]` только при доступной функции; без `BACKOFFICE_ROLES_ENABLED` решает грант (manager -
 всё, analyst - `FORBIDDEN`).
 
-| Право                      | manager | shift_manager | accountant | analyst | Команды                                                                 |
-| -------------------------- | ------- | ------------- | ---------- | ------- | ----------------------------------------------------------------------- |
-| `suppliers.write`          | да      | -             | да         | -       | `supplier_save`, `supplier_price_save`, `supplier_prices_import`        |
-| `supply.write`             | да      | да            | -          | -       | `supply_request_save`, `supply_request_submit`, `supply_request_cancel` |
-| `stock.receipt` (есть, P0) | да      | да            | да         | -       | `supply_request_receive`                                                |
-| `staff.assign`             | да      | да            | -          | -       | `staff_assign`, `staff_unassign`                                        |
+| Право                      | manager | shift_manager | accountant | analyst | Команды                                                             |
+| -------------------------- | ------- | ------------- | ---------- | ------- | ------------------------------------------------------------------- |
+| `suppliers.write`          | да      | -             | да         | -       | `supplier_save`, `supplier_price_save`, `supplier_prices_import`    |
+| `supply.write`             | да      | да            | -          | -       | `supply_request_save`, `supply_request_submit`                      |
+| `supply.close` (шаг 2)     | да      | -             | -          | -       | `supply_request_cancel`, `supply_request_receive`                   |
+| `stock.receipt` (есть, P0) | да      | да            | да         | -       | `supply_request_receive` (вторым условием, вместе с `supply.close`) |
+| `staff.assign`             | да      | да            | -          | -       | `staff_assign`, `staff_unassign`                                    |
+
+Отклонение шага 2 от предложения шага 1: по заданию шага («manager and shift manager create and
+submit; manager receives and cancels; accountant reads») принимает поставку по заявке и отменяет
+заявку только управляющий. Поэтому отдельное право `supply.close` (`BACKOFFICE_P2_PERMISSIONS`,
+`P2_ROLE_PERMISSIONS`, `roles.ts`), а `stock.receipt` остаётся вторым условием приёма
+(`P2_COMMAND_PERMISSIONS`, `p2-commands.ts`). Обычный приход склада (P0) по-прежнему проводят
+управляющий, начальник смены и бухгалтер. Если владелец решит, что начальник смены тоже принимает
+поставки по заявкам, - одна строка `supply.close` в `P2_ROLE_PERMISSIONS.shift_manager` и тест
+матрицы (§9.6 в.5). Права второй волны идут в `permissions[]` после всех прав P1 и только при
+`capabilities.supply === true`; без `BACKOFFICE_ROLES_ENABLED` решает грант (manager - всё, analyst -
+`FORBIDDEN` без причины).
 
 ### 9.4 API (схемы - предложение шага 1; шаги видов уточняют их с отметкой отклонений)
 
@@ -1047,6 +1063,40 @@ staff_unassign { employee_id, ended_at, expected_revision }
 `SUPPLIER_NAME_TAKEN`, `SUPPLIER_INACTIVE`, `PRICE_UNIT_MISMATCH`, `IMPORT_ALREADY_APPLIED`,
 `REQUEST_LOCKED` (заявка не черновик), `ASSIGNMENT_OVERLAP`.
 
+**Сделано в шаге 2 и отклонения от схем выше** (`packages/backoffice-core/src/supply.ts`,
+`p2-commands.ts`; тесты `supply.test.mjs`, `supply-unit.test.mjs`):
+
+- Команды разбираются схемой `P2Request` только при флаге (`Backoffice.p2Request`, по образцу
+  `p1Request` и `P1_COMMAND_FLAGS`: `P2_COMMAND_FLAGS` - `supplyEnabled` и `stockV2Enabled`); со всеми
+  флагами второй волны выключенными ничего не разбирается, команда - `INVALID_REQUEST`, вид - 404.
+  Каждая команда - в общем конверте (`request_id`, digest, `bo_audit` с `before_value`/`after_value`,
+  блокировка `bo:branch:<id>`), `expected_revision` обязательна; изменение без разницы не поднимает
+  ревизию (как скидки).
+- `GET ops/suppliers`: в ответе ещё `today`, `limits.prices` (1000) и с `?id` - `prices_truncated`.
+  Цены поставщика упорядочены по позиции, единице и дню (новые выше) - это история цены по позиции;
+  исправление строки поднимает её ревизию, прежняя цена - в `before_value` аудита.
+- `GET ops/supply-requests`: `start_date` и `end_date` обязательны и с `?id`. Строки списка - без
+  `lines` (`line_count` и `line_names` первых трёх; кабинет принимает ответ до 1 МБ, а 200 заявок по
+  100 строк его превысили бы); у заявки ещё `unpriced_lines` и `cancel_reason` (из аудита команды
+  отмены). С `?id` - `request` (заявка в любой день), `text`, `receipt` (`document_date`,
+  `supplier_kind`, `supplier_name`, `total_minor`, фактические строки), `difference` (по каждой
+  позиции заявки и прихода: заказали, получили, разница со знаком). Общий `open` - черновики и
+  поданные заявки всех дней (кабинет говорит, что есть открытые заявки вне периода), и `today`.
+- `supply_request_save`: `supplier_id`, `needed_by`, `note` можно не передавать (null); вид не
+  меняется (`INVALID_REQUEST`); поставщик - этой точки, нужного вида (§9.2) и не в архиве
+  (`SUPPLIER_INACTIVE`); позиция - активная. Ожидаемая сумма строки - по цене в силе на сегодня
+  (день сохранения, при подаче - день подачи); если после округления 0, строка без цены.
+- `supply_request_submit`: строки, `needed_by` не раньше сегодняшнего дня Алматы и поставщик у
+  заявки поставщику, иначе `INVALID_REQUEST`/`REQUEST_INCOMPLETE` (новая причина).
+- `supply_request_cancel` - черновик или поданная заявка; `supply_request_receive` - только поданная;
+  иное состояние - `CONFLICT`/`REQUEST_LOCKED`. Ответ приёма - вся заявка и `difference`. Приход
+  проводится кодом команды `stock` (`Backoffice.stock`: те же движения и средняя себестоимость), с
+  `meta` (откуда = вид заявки, имя поставщика, дата накладной) и причиной запроса; неверная ревизия
+  остатка - `CONFLICT`, ничего не записано. Связь «один раз» держит 076 (`receipt_document_id`
+  UNIQUE, ставится один раз, `received` конечна); тест одновременного приёма двумя запросами даёт
+  ровно один документ.
+- `supplier_prices_import` и `scripts/supplier-prices-import.mjs` - не в шаге 2 (следующий шаг).
+
 ### 9.5 Порядок работ полосы bo-ui2 (шаги 2-6 - предложение)
 
 1. Шаг 1 (сделан): 076, `backoffice-supply-grants.mjs`, флаги и ключи, эталон `aff89ce6`, CR `bo-ui2-1`,
@@ -1068,3 +1118,6 @@ staff_unassign { employee_id, ended_at, expected_revision }
    принимают поставку все, кому разрешён приход (управляющий, начальник смены, бухгалтер).
 3. **Хозтовары** - заявка без поставщика (свой хоз склад) или поставщику вида «поставщик».
 4. **Расстановка после полуночи** относится к бизнес-дню открытой смены менеджера.
+5. **Приём поставки по заявке и отмена заявки** - только управляющий (шаг 2). Если вечернюю поставку
+   принимает начальник смены без управляющего, он проводит обычную «Поставку» на странице «Остатки»
+   (P0), а заявку закрывает управляющий; либо владелец выдаёт начальнику смены `supply.close`.

@@ -133,3 +133,22 @@ design-bo-ui.md` - раздел «Вторая волна» (схемы отве
   путях полосы, без CR.
 - Шаги операторов для `scripts/supplier-prices-import.mjs` и включение флагов - в runbook и CR
   последнего шага.
+
+## 6. Шаг 2 (поставки): что изменилось для integration
+
+- 076 не менялся: хеш из п. 0 прежний.
+- Появились виды `ops/suppliers` и `ops/supply-requests` (только при `BACKOFFICE_SUPPLY_ENABLED`) и
+  шесть команд `supplier_save`, `supplier_price_save`, `supply_request_save`, `_submit`, `_cancel`,
+  `_receive` через существующий `POST .../commands`. Имена двух видов - в перечень `view` из
+  предложения CR `bo-ui-8` §2. Новые причины ошибок только в `BackofficeErrorReasonSchema`
+  (`SUPPLIER_NAME_TAKEN`, `SUPPLIER_INACTIVE`, `PRICE_UNIT_MISMATCH`, `REQUEST_LOCKED`,
+  `REQUEST_INCOMPLETE`); `packages/contracts` и `openapi.json` не менялись.
+- Регулярка `backoffice_get` в `infra/public-staging/gateway.Caddyfile` и allowlist
+  `apps/backoffice/server.mjs` дополнены двумя видами (пути полосы). Публичный шлюз стенда
+  обновляется вместе с выкладкой кабинета, иначе раздел «Закупки» получит 404 от шлюза при
+  включённом флаге.
+- Ключ `capabilities.supply` теперь `true` только если роль API ещё и пишет столбцы прихода 074
+  (`stockV2Writable`); `backofficeGrants` их даёт, действий не нужно.
+- `permissions[]` получает `suppliers.write`, `supply.write`, `supply.close` после всех прав P1 и
+  только при `capabilities.supply=true` (тест `backoffice-p2-flags.test.mjs` обновлён).
+- Runbook: `docs/operations/backoffice-supply.md` (включение, роли, работа, откат).
