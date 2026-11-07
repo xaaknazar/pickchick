@@ -7420,11 +7420,11 @@
         "tests/operations/test_legal_update.py",
         "@vps/public-https/legal"
       ],
-      "status": "active",
+      "status": "available",
       "head": "f8a23411b6634f99e615e41f9f333c29aeeaa941",
-      "updatedAt": "2026-11-07T07:11:24.320Z",
-      "summary": "П6 опубликован ранее, PR315 включён в shared. 07.11 владелец отдельно разрешил публикацию подготовленного абзаца политики и передачу legal-update.py/test_legal_update.py. Новый режим retention с точными pins/source/CI proof, проверенной копией и откатом опубликован f8a23411, PR318. Локально15тестов PASS; точный HTML-кандидат8aa6fe78 совпадает с утверждённым. Сервер не менялся, baseline07:11UTC прежний, lock отсутствует. Foundation42350481264 queued, runners ещё не назначены.",
-      "nextAction": "После Foundation11/11 точного f8a23411: повторить baseline и резервы, source package6файлов, preflight, apply одного абзаца, внешние GET и протокол. До зелёной CI не применять. Google Play остаётся уAndroid. Локальный пакет /private/tmp/pickchick-legal-f8a23411b6634f99e615e41f9f333c29aeeaa941; runbook legal-retention-proposal-1107.md."
+      "updatedAt": "2026-11-07T07:21:26.741Z",
+      "summary": "Утверждённый абзац политики подготовлен: PR318/f8a23411,15тестовPASS, точныйкандидат8aa6fe78. Foundation42350481264 queued, runnersне назначены; серверне менялся, lockотсутствует. ПредыдущийП6 опубликован и PR315вshared.",
+      "nextAction": "После Foundation11/11 точногоf8a23411 повторитьbaseline/резервы, source6файлов, legal-update.py --retention preflight/apply, проверитьcanonical+nip.io/terms/support/health, сохранитьпротокол. Публикацияуже разрешена; нового согласияне требуется. GooglePlayвAndroid-задаче."
     }
   ]
 }
