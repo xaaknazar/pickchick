@@ -7365,26 +7365,6 @@
       "nextAction": "Проверить Foundation CI https://github.com/xaaknazar/pickchick/actions/runs/42290245032; затем согласованное слияние и отдельный выпуск. Физическая приёмка на iPhone ещё не выполнена."
     },
     {
-      "id": "p6-retention-1107",
-      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
-      "branch": "codex/p6-retention-1107",
-      "scopes": [
-        "docs/operations/mobile-play-2026-11/retention-1107.md",
-        "docs/operations/mobile-play-2026-11/legal-retention-proposal-1107.md",
-        "codex-reports/2026-11-07-day.md",
-        "infra/public-staging/support-page-release.py",
-        "tests/operations/test_support_page_release.py",
-        "@vps/public-https/support",
-        "tests/operations/test_support_page_update.py",
-        "docs/operations/mobile-play-2026-11/support-update-1107.md"
-      ],
-      "status": "available",
-      "head": "8c5d4bfe26a5fa8a051df88c3b6f2da34db5518e",
-      "updatedAt": "2026-11-06T23:40:24.911Z",
-      "summary": "П6 опубликован07.11 04:22Алматы из21358f913c7e8ee2906f84410f256b2ec8638e76; Foundation42305598717 11/11. Preflight/apply PASS; HTTP200+delete-account+точный retention RU/KK/EN. 16раундов/903секунды/112GET PASS. API/public/gateway/контейнеры/политика неизменны, свойlock снят. Копия и source/CI proof сохранены; rollback dry-run PASS. Протокол8c5d4bfe вPR315, remote SHA сверён; рабочее дерево чистое. Fresh shared28875f52 влит обычнымmerge,8файлов релиза идентичны. Общую ветку не сливали.",
-      "nextAction": "Android-задача может продолжать Google Play: П6 готов, https://pickchick.kz/support/#delete-account и RU/KK/EN подтверждены. Политику не публиковать без отдельного да. Проверить финальную CI8c5d4bfe перед согласованным merge PR315; finish только после включения вshared. Общий status/roadmap остаётся уAndroid-задачи, онлайн-пульт не обновлялся."
-    },
-    {
       "id": "android-play-1106",
       "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
       "branch": "codex/android-play-1106",
@@ -7422,6 +7402,29 @@
       "updatedAt": "2026-11-07T06:42:23.964Z",
       "summary": "WIP передача опубликована: codex/cutover-1119 6acda2c5, документная ветка bab52cfd. 158 ранее отсутствовавших веток запушены и все SHA сверены; локальных веток без origin нет. Только HANDOVER-codex-1107.md добавлен в cutover. Claude 48ede212 не изменялся и не сливался. CI базы 2ee4bdab: Foundation11/11 и Windows package success; третьего круга на этом Mac нет, paid-day offline NOT RUN.",
       "nextAction": "Claude продолжает сведение. Уточнить другой Mac/папку третьего круга и pos-1107/claude-branch-for-codex.md/список7. Codex не меняет Windows-кассу до окончания сведения Claude. Документную ветку целиком не сливать в cutover; её файл уже перенесён. Общие status/roadmap и онлайн-пульт не менялись."
+    },
+    {
+      "id": "p6-retention-1107",
+      "owner": "d319991c-a3ca-474e-b49b-c09ff0485e92",
+      "branch": "codex/p6-retention-1107",
+      "scopes": [
+        "docs/operations/mobile-play-2026-11/retention-1107.md",
+        "docs/operations/mobile-play-2026-11/legal-retention-proposal-1107.md",
+        "codex-reports/2026-11-07-day.md",
+        "infra/public-staging/support-page-release.py",
+        "tests/operations/test_support_page_release.py",
+        "@vps/public-https/support",
+        "tests/operations/test_support_page_update.py",
+        "docs/operations/mobile-play-2026-11/support-update-1107.md",
+        "infra/public-staging/legal-update.py",
+        "tests/operations/test_legal_update.py",
+        "@vps/public-https/legal"
+      ],
+      "status": "active",
+      "head": "db3dfb1f9bdf0710f58e0780dce8d5e9ecd2c14e",
+      "updatedAt": "2026-11-07T07:11:24.320Z",
+      "summary": "П6 опубликован07.11 04:22Алматы из21358f913c7e8ee2906f84410f256b2ec8638e76; Foundation42305598717 11/11. Preflight/apply PASS; HTTP200+delete-account+точный retention RU/KK/EN. 16раундов/903секунды/112GET PASS. API/public/gateway/контейнеры/политика неизменны, свойlock снят. Копия и source/CI proof сохранены; rollback dry-run PASS. Протокол8c5d4bfe вPR315, remote SHA сверён; рабочее дерево чистое. Fresh shared28875f52 влит обычнымmerge,8файлов релиза идентичны. Общую ветку не сливали.",
+      "nextAction": "Android-задача может продолжать Google Play: П6 готов, https://pickchick.kz/support/#delete-account и RU/KK/EN подтверждены. Политику не публиковать без отдельного да. Проверить финальную CI8c5d4bfe перед согласованным merge PR315; finish только после включения вshared. Общий status/roadmap остаётся уAndroid-задачи, онлайн-пульт не обновлялся."
     }
   ]
 }
