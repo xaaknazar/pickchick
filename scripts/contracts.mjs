@@ -1591,6 +1591,36 @@ boSalesReport.parameters.push(
 );
 openapi.paths['/v1/admin/backoffice/branches/{branchId}/ops/sales'] = { get: boSalesReport };
 // cutover:cloud end
+// cutover:bo-ui begin
+// Back-office P1 read views of lane bo-ui under the same prefix (contracts 5.10; CR bo-ui-8
+// section 2, CR bo-ui-9 section 3; added by integration). Each answers only while its flag is on
+// (pos-day and orders: BACKOFFICE_POS_DAY_ENABLED; menu-links: stock v2 on cloud075 with the P1
+// grants; consumption: BACKOFFICE_STOCK_AUTOCONSUME_ENABLED; manager-shifts, staff-roster,
+// discounts: their own flags), otherwise 404 like an unknown view. The query keys of each view are
+// exactly the allowlist of the cabinet proxy (apps/backoffice/server.mjs) and the gateway
+// (infra/public-staging/gateway.Caddyfile); ops/stock and ops/sales keep their own paths above.
+const boP1View = boOperation('readBackofficeOperationsView', 'BackofficeResult');
+boP1View.description +=
+  ' Back-office P1 view of lane bo-ui (schema_version 1), each behind its own disabled-by-default flag: while it is off the view answers 404 like an unknown view.';
+boP1View.parameters.push({
+  name: 'view',
+  in: 'path',
+  required: true,
+  schema: {
+    type: 'string',
+    enum: [
+      'pos-day',
+      'orders',
+      'menu-links',
+      'consumption',
+      'manager-shifts',
+      'staff-roster',
+      'discounts',
+    ],
+  },
+});
+openapi.paths['/v1/admin/backoffice/branches/{branchId}/ops/{view}'] = { get: boP1View };
+// cutover:bo-ui end
 
 for (const [name, schema] of Object.entries({
   NotificationConfigSchema,
