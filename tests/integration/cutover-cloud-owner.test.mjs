@@ -3,6 +3,9 @@
 // schema072 ledger in one transaction with every cutover flag off, the grants of each flag one at
 // a time, all 32 switch combinations equal to provision.mjs's cutover:integration block, repeat
 // and wrong-bytes refusals, and the guarded API environment step on a synthetic compose file.
+// Lane bo-ui (CR bo-ui-1 sections 3-4, CR bo-ui-6 section 2, CR bo-ui-9): cloud 075 as its own
+// step on an exact schema074 ledger with every P1 flag off, and p1-grants for every accepted P1
+// flag list equal to provision.mjs's cutover:bo-ui block.
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
@@ -24,6 +27,10 @@ import {
   assertBackofficeCutoverPrivileges,
   backofficeCutoverGrants,
 } from '../../infra/staging/backoffice-cutover-grants.mjs';
+import {
+  assertBackofficeP1Privileges,
+  backofficeP1Grants,
+} from '../../infra/staging/backoffice-p1-grants.mjs';
 import { OwnerGuardError, runtimePrivileges } from '../../infra/staging/unified-menu-owner.mjs';
 import {
   BASELINE,
@@ -31,14 +38,22 @@ import {
   COMPOSE_FLAGS,
   MIGRATIONS,
   NEW_TABLES,
+  P1_CHECKSUM,
+  P1_FLAGS,
+  P1_MIGRATION,
+  P1_TABLES,
   PROVISION_KEYS,
   composeCandidate,
   composeFlag,
   cutoverPrivileges,
+  deployBackofficeP1,
   deployCutover,
+  p1Privileges,
   parseArguments,
+  setBackofficeP1,
   setCutoverFlag,
 } from '../../infra/staging/cutover-cloud-owner.mjs';
+import { loadConfig } from '../../packages/platform/dist/index.js';
 
 const source = fileURLToPath(new URL('../../db/cloud/migrations/', import.meta.url));
 const tool = fileURLToPath(new URL('../../infra/staging/cutover-cloud-owner.mjs', import.meta.url));
@@ -100,6 +115,55 @@ function provisionBlock(role, schema) {
     );
 }
 
+// The cutover:bo-ui block of provision.mjs (lane bo-ui, the last statement of the transaction), run
+// as is for a twin role with the config loadConfig('api') makes of the same P1 flags.
+const p1Block = provision.slice(
+  provision.indexOf('// cutover:bo-ui begin'),
+  provision.indexOf('// cutover:bo-ui end'),
+);
+function provisionP1Block(role, schema) {
+  const body = p1Block.replaceAll("'pickchick_app'", `'${role}'`);
+  assert.ok(!body.includes('pickchick_app'));
+  const fn = new AsyncFunction(
+    'client',
+    'config',
+    'process',
+    'backofficeP1Grants',
+    'assertBackofficeP1Privileges',
+    body,
+  );
+  return (client, backoffice, enabled) => {
+    const env = {
+      APP_ENV: 'local',
+      CLOUD_DATABASE_URL: 'postgresql://pickchick_local:x@127.0.0.1:55432/pickchick_cloud',
+      REDIS_URL: 'redis://127.0.0.1:56379/0',
+      CATALOG_ADMIN_ENABLED: 'true',
+      BACKOFFICE_ENABLED: String(backoffice),
+      ...Object.fromEntries(
+        Object.entries(P1_FLAGS).map(([name, [, key]]) => [key, String(enabled.includes(name))]),
+      ),
+    };
+    return fn(
+      client,
+      loadConfig('api', env),
+      { env },
+      (name, options) => backofficeP1Grants(name, options, schema),
+      (db, name, options) => assertBackofficeP1Privileges(db, name, options, schema),
+    );
+  };
+}
+/** Every P1 flag list p1-grants accepts (autoconsume only with stock-v2), in P1_FLAGS order. */
+const P1_LISTS = (() => {
+  const names = Object.keys(P1_FLAGS);
+  const lists = [];
+  for (let mask = 0; mask < 2 ** names.length; mask += 1) {
+    const list = names.filter((_, i) => mask & (1 << i));
+    if (!list.includes('autoconsume') || list.includes('stock-v2')) lists.push(list);
+  }
+  return lists;
+})();
+const p1Only = (privileges) => privileges.filter((p) => P1_TABLES.includes(p.split('|')[0]));
+
 /** A cloud on exact schema072 (the VPS before Cloud-1) and an API role with backofficeGrants. */
 async function withCloud072(backoffice, body) {
   const baseline = await copyMigrations('cutover-owner-072-', (f) => number(f) <= 72);
@@ -149,7 +213,16 @@ test('the tool pins the reviewed 072/073/074 bytes, parses only its commands and
     assert.equal(sha256(await readFile(join(source, name))), checksum, name);
   assert.deepEqual(Object.keys(CHECKSUMS), [BASELINE, ...MIGRATIONS]);
   const hex = 'a'.repeat(64);
+  assert.equal(sha256(await readFile(join(source, P1_MIGRATION))), P1_CHECKSUM, P1_MIGRATION);
+  assert.equal(P1_MIGRATION, '075_cloud_backoffice_ops.sql');
   assert.deepEqual(parseArguments(['inspect']), { command: 'inspect' });
+  for (const command of ['inspect-075', 'deploy-075'])
+    assert.deepEqual(parseArguments([command]), { command });
+  assert.deepEqual(parseArguments(['p1-grants', 'none']), { command: 'p1-grants', enabled: [] });
+  assert.deepEqual(parseArguments(['p1-grants', 'stock-v2,pos-day']), {
+    command: 'p1-grants',
+    enabled: ['stock-v2', 'pos-day'],
+  });
   assert.deepEqual(parseArguments(['flag', 'pos-sales-sync', 'true']), {
     command: 'flag',
     flag: 'pos-sales-sync',
@@ -186,6 +259,13 @@ test('the tool pins the reviewed 072/073/074 bytes, parses only its commands and
     ['compose-candidate', '--compose', 'c', '--sha256', hex],
     ['compose-flag', 'bo-ui', 'true', '--compose', 'c', '--sha256', hex, '--out', 'o'],
     ['provision'],
+    ['deploy-075', '--force'],
+    ['p1-grants'],
+    ['p1-grants', ''],
+    ['p1-grants', 'pos-day,pos-day'],
+    ['p1-grants', 'pos-day,bo-ui'],
+    ['p1-grants', 'none', 'discounts'],
+    ['flag', 'pos-day', 'true'],
   ])
     assert.throws(() => parseArguments(argv), OwnerGuardError, JSON.stringify(argv));
   for (const url of [
@@ -193,14 +273,15 @@ test('the tool pins the reviewed 072/073/074 bytes, parses only its commands and
     'postgresql://pickchick_owner:x@127.0.0.1:1/other',
     'not a url',
   ])
-    await assert.rejects(
-      run(process.execPath, [tool, 'deploy'], {
-        env: { PATH: process.env.PATH, CLOUD_DATABASE_URL: url },
-      }),
-      (error) =>
-        error.code === 1 &&
-        error.stderr.trim() === 'Cutover cloud owner guard: Owner database required',
-    );
+    for (const command of [['deploy'], ['deploy-075'], ['p1-grants', 'none']])
+      await assert.rejects(
+        run(process.execPath, [tool, ...command], {
+          env: { PATH: process.env.PATH, CLOUD_DATABASE_URL: url },
+        }),
+        (error) =>
+          error.code === 1 &&
+          error.stderr.trim() === 'Cutover cloud owner guard: Owner database required',
+      );
   const usage = await run(process.execPath, [tool, 'flag', 'roles'], {
     env: { PATH: process.env.PATH },
   }).catch((error) => error);
@@ -428,6 +509,212 @@ for (const backoffice of [true, false])
             for (const name of done.reverse())
               await setCutoverFlag(client, { role, flag: name, enabled: false });
             assert.deepEqual(await runtimePrivileges(client, role), deployed, label);
+          } finally {
+            await client.query('ROLLBACK');
+          }
+        }
+      } finally {
+        await rm(candidate, { recursive: true, force: true });
+      }
+    }));
+
+test('deploy-075 on exact schema074: 075 with every P1 flag off, data and ACL kept, provision-equal; wrong ledger, bytes and repeat refused; p1-grants exact deltas', () =>
+  withCloud072(true, async ({ ctx, client, role, schema }) => {
+    const candidate = await copyMigrations('cutover-owner-p1-', (f) => number(f) <= 75);
+    const tampered = await copyMigrations('cutover-owner-p1-tampered-', (f) => number(f) <= 75);
+    await writeFile(
+      join(tampered, P1_MIGRATION),
+      (await readFile(join(source, P1_MIGRATION), 'utf8')) + '\n-- changed\n',
+    );
+    const without = await copyMigrations('cutover-owner-p1-missing-', (f) => number(f) <= 74);
+    await writeFile(join(candidate, '076_cloud_later_lane.sql'), 'SELECT 1;');
+    try {
+      const pool = ctx.cloud.pool;
+      const inspect = (directory) =>
+        owner(client, () => deployBackofficeP1(client, { directory, role, inspect: true }), false);
+      const grants = (enabled) => owner(client, () => setBackofficeP1(client, { role, enabled }));
+      // Before Cloud-1's deploy: schema072 is not the ledger 075 needs.
+      await assert.rejects(inspect(candidate), guardError(/Exact schema074 ledger required/));
+      await owner(client, () => deployCutover(client, { directory: candidate, role }));
+      const deployed = await runtimePrivileges(pool, role);
+      await assert.rejects(grants([]), guardError(/Run deploy-075/));
+      await assert.rejects(inspect(tampered), guardError(/Reviewed migration bytes differ: 075_/));
+      await assert.rejects(inspect(without), guardError(/Exact 075 candidate file required/));
+      assert.deepEqual(await inspect(candidate), {
+        ledger: 'schema074',
+        pending: [P1_MIGRATION],
+        reviewedBytes: true,
+        backofficeGrants: true,
+        privilegesAdded: [],
+        p1Privileges: [],
+      });
+      const ledgerBefore = (await pool.query('SELECT version FROM schema_migrations')).rows.length;
+      assert.deepEqual(
+        await owner(client, () => deployBackofficeP1(client, { directory: candidate, role })),
+        {
+          applied: [P1_MIGRATION],
+          existingDataPreserved: true,
+          backofficeGrants: true,
+          privilegesAdded: [],
+          privilegesRemoved: [],
+          p1Flags: [],
+        },
+      );
+      const ledger = (
+        await pool.query('SELECT version,checksum FROM schema_migrations ORDER BY version')
+      ).rows;
+      assert.equal(ledger.length, ledgerBefore + 1);
+      assert.deepEqual(ledger.at(-1), { version: P1_MIGRATION, checksum: P1_CHECKSUM });
+      for (const table of P1_TABLES)
+        assert.equal(
+          (await pool.query('SELECT to_regclass($1) IS NOT NULL AS ok', [table])).rows[0].ok,
+          true,
+        );
+      // The standard runner accepts the ledger through 075; 076 (lane bo-ui2) is not applied here.
+      const through075 = await copyMigrations('cutover-owner-p1-runner-', (f) => number(f) <= 75);
+      try {
+        assert.deepEqual(await migrate(pool, through075, 'cloud'), []);
+      } finally {
+        await rm(through075, { recursive: true, force: true });
+      }
+      assert.deepEqual(await runtimePrivileges(pool, role), deployed);
+      // provision.mjs's cutover:bo-ui block with every P1 flag off grants exactly the same.
+      await provisionP1Block(role, schema)(pool, true, []);
+      assert.deepEqual(await runtimePrivileges(pool, role), deployed);
+      await assert.rejects(
+        owner(client, () => deployBackofficeP1(client, { directory: candidate, role })),
+        guardError(/already applied/),
+      );
+      assert.deepEqual(await inspect(candidate), {
+        ledger: 'schema075',
+        pending: [],
+        reviewedBytes: true,
+        backofficeGrants: true,
+        privilegesAdded: [],
+        p1Privileges: [],
+      });
+      // The 073/074 step is untouched by 075: its repeat is still refused, a flag still works.
+      await assert.rejects(
+        owner(client, () => deployCutover(client, { directory: candidate, role })),
+        guardError(/already applied/),
+      );
+
+      await assert.rejects(grants(['autoconsume']), guardError(/autoconsume requires stock-v2/));
+      const day = ['pos-day', 'stock-v2', 'manager-shifts', 'staff-positions'];
+      const first = await grants(day);
+      assert.deepEqual(first.p1Flags, day);
+      assert.deepEqual(first.environment, [
+        'BACKOFFICE_POS_DAY_ENABLED',
+        'BACKOFFICE_STOCK_V2_ENABLED',
+        'BACKOFFICE_MANAGER_SHIFTS_ENABLED',
+        'BACKOFFICE_STAFF_POSITIONS_ENABLED',
+      ]);
+      assert.deepEqual(first.privilegesRemoved, []);
+      assert.deepEqual(first.privilegesAdded, p1Privileges(true, day));
+      assert.ok(first.privilegesAdded.includes('bo_branch_templates||INSERT'));
+      assert.ok(
+        !first.privilegesAdded.some(
+          (p) => /UPDATE|DELETE|TRUNCATE/.test(p) && p.startsWith('bo_branch_templates'),
+        ),
+      );
+      // A cutover flag keeps the P1 grants (it resets only the 073/074 tables).
+      const roles = await owner(client, () =>
+        setCutoverFlag(client, { role, flag: 'roles', enabled: true }),
+      );
+      assert.deepEqual(roles.privilegesAdded, ['bo_role_designations||SELECT']);
+      assert.deepEqual(p1Only(await runtimePrivileges(pool, role)), p1Privileges(true, day));
+      await owner(client, () => setCutoverFlag(client, { role, flag: 'roles', enabled: false }));
+      const consume = await grants([...day, 'autoconsume']);
+      assert.deepEqual(consume.privilegesRemoved, []);
+      assert.deepEqual(
+        p1Only(consume.privilegesAdded),
+        ['bo_consumption_items', 'bo_stock_settings'].flatMap((t) =>
+          ['INSERT', 'SELECT', 'UPDATE'].map((p) => `${t}||${p}`),
+        ),
+      );
+      // Outside 075 only the helper's declared SELECTs (the worker's catalog reads) are added.
+      assert.ok(
+        consume.privilegesAdded
+          .filter((p) => !p1Only([p]).length)
+          .every((p) => p.endsWith('||SELECT')),
+      );
+      const off = await grants([]);
+      assert.deepEqual(off.privilegesAdded, []);
+      assert.deepEqual(off.privilegesRemoved, p1Privileges(true, [...day, 'autoconsume']));
+      const now = await runtimePrivileges(pool, role);
+      assert.deepEqual(p1Only(now), []);
+      assert.deepEqual(
+        now,
+        [
+          ...new Set([...deployed, ...consume.privilegesAdded.filter((p) => !p1Only([p]).length)]),
+        ].sort(),
+      );
+      // A stray grant on a 075 relation is not a known state: refused until inspected.
+      await pool.query(`GRANT DELETE ON ${schema}.bo_discounts TO ${role}`);
+      await assert.rejects(grants(['discounts']), guardError(/differ from every known flag state/));
+      assert.ok((await inspect(candidate)).p1Privileges.includes('bo_discounts||DELETE'));
+      await pool.query(`REVOKE DELETE ON ${schema}.bo_discounts FROM ${role}`);
+    } finally {
+      for (const dir of [candidate, tampered, without])
+        await rm(dir, { recursive: true, force: true });
+    }
+  }));
+
+for (const backoffice of [true, false])
+  test(`p1-grants with BACKOFFICE_ENABLED=${backoffice}: every accepted P1 flag list gives exactly the provision.mjs rights, or is refused where provision grants nothing`, () =>
+    withCloud072(backoffice, async ({ ctx, client, role, schema }) => {
+      const candidate = await copyMigrations('cutover-owner-p1-combo-', (f) => number(f) <= 75);
+      try {
+        await owner(client, () => deployCutover(client, { directory: candidate, role }));
+        await owner(client, () => deployBackofficeP1(client, { directory: candidate, role }));
+        const deployed = await runtimePrivileges(ctx.cloud.pool, role);
+        assert.equal(P1_LISTS.length, 48);
+        for (const list of P1_LISTS) {
+          const label = JSON.stringify({ backoffice, list });
+          await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
+          try {
+            await client.query('SAVEPOINT grants');
+            const refused = await setBackofficeP1(client, { role, enabled: list }).then(
+              () => false,
+              (error) => {
+                assert.ok(error instanceof OwnerGuardError, label);
+                assert.match(error.message, /BACKOFFICE_ENABLED grants are required first/, label);
+                return true;
+              },
+            );
+            if (refused) await client.query('ROLLBACK TO SAVEPOINT grants');
+            assert.equal(refused, !backoffice && list.length > 0, label);
+            // The twin: a fresh role, backofficeGrants, the cutover block, then the P1 block.
+            const twin = 'cutover_twin_' + randomUUID().replaceAll('-', '').slice(0, 20);
+            await client.query(`CREATE ROLE ${twin} NOLOGIN`);
+            await client.query(backofficeGrants(twin, backoffice));
+            await client.query('SAVEPOINT twin');
+            const twinRun = await provisionBlock(twin, schema)(client, {
+              receiver: false,
+              backoffice,
+              roles: false,
+              stockV2: list.includes('stock-v2'),
+              salesReport: false,
+            }).catch((error) => {
+              // Stock v2 without the back office: provision refuses before the P1 block.
+              assert.ok(!backoffice && list.includes('stock-v2'), label);
+              assert.match(error.message, /not writable|not readable/, label);
+              return 'refused';
+            });
+            if (twinRun === 'refused') await client.query('ROLLBACK TO SAVEPOINT twin');
+            if (backoffice) {
+              await provisionP1Block(twin, schema)(client, backoffice, list);
+              assert.deepEqual(
+                await runtimePrivileges(client, role),
+                await runtimePrivileges(client, twin),
+                label,
+              );
+              assert.deepEqual(
+                p1Only(await runtimePrivileges(client, role)),
+                p1Privileges(true, list),
+                label,
+              );
+            } else assert.deepEqual(await runtimePrivileges(client, role), deployed, label);
           } finally {
             await client.query('ROLLBACK');
           }
