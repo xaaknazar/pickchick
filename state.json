@@ -7513,9 +7513,11 @@
         "tests/operations/windows-pos-sync.test.ps1",
         ".github/workflows/windows-pos-sync.yml"
       ],
-      "status": "active",
-      "head": "d5137b2139ac26b595aa661d4771d4a64bd0502f",
-      "updatedAt": "2026-11-08T15:29:06.013Z"
+      "status": "available",
+      "head": "40508c62b8c7d7a4dba4390566a21d4007d6c369",
+      "updatedAt": "2026-11-08T15:47:48.726Z",
+      "summary": "PR326 40508c62: ordinary merge of PR316 commits, adapted PR319 backlog and complete POS installer ZIP closure on shareda29788f7. Full build,19 distinct Node tests (including native PG18.6),5 packaging tests, Windows5.1 run42495224832 success. Real runtime ZIP SHA256 bc779b26a418355cadbe3a1a1ba1b9a9be73d84e530a9b763a3e07a7a0179a21. Foundation42495224560 pending.",
+      "nextAction": "After CI explicitly integrate newer shared and merge. Only then audit PR316 closure. PR319 still separate cutover target. Read real five-order backlog and obtain disposition before first Windows install43110; fulfillment43100 unchanged. No live install/delivery acceptance."
     },
     {
       "id": "pg186-rehearsal-1108",
