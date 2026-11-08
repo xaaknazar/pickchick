@@ -7480,9 +7480,11 @@
         "tests/integration/queue-recovery-cloud-owner.test.mjs",
         "docs/operations/queue-recovery-cloud-072.md"
       ],
-      "status": "active",
-      "head": "a29788f7728f5d9832c81511d3caa4d1789e20b3",
-      "updatedAt": "2026-11-08T15:08:49.837Z"
+      "status": "available",
+      "head": "e1cbdb99623f192687a0f23556fb4841c7279086",
+      "updatedAt": "2026-11-08T15:47:44.004Z",
+      "summary": "PR325 e1cbdb99: cloud071→072 DB-only transaction, old rows/sequences/ACL preserved, exact new grants for four current POS/BO combinations. 20/20 PG18.3 tests plus build/lint/format passed. Full Foundation42494114493 pending. No VPS/API/flags changed.",
+      "nextAction": "Review final CI and integrate current shared before merge. DB helper does not deploy API or produce Windows cloud release proof. Real backup/lease/writer stop, API072 compatibility with actual023/024 binaries and release window remain."
     },
     {
       "id": "pos-sync-shared-1108",
