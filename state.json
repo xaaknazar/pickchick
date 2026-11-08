@@ -7460,16 +7460,11 @@
         "docs/operations/cashier-launch-1105",
         "infra/windows/queue-recovery-upgrade-db.mjs",
         "tests/operations/queue-recovery-upgrade.test.mjs",
-        ".github/workflows/ci.yml",
-        "infra/windows/update-runtime-queue-recovery-025.ps1",
-        "tests/operations/test_windows_queue_recovery_release.py",
-        "tests/operations/windows-queue-recovery-release.test.ps1",
-        "scripts/build-windows-edge-runtime.py",
-        "tests/operations/test_windows_edge_runtime.py"
+        ".github/workflows/ci.yml"
       ],
       "status": "active",
       "head": "722b0439f9f1e3baf9ef65546bc79f98199d5cc3",
-      "updatedAt": "2026-11-08T13:48:54.564Z",
+      "updatedAt": "2026-11-08T14:02:45.431Z",
       "summary": "PR300, протокол61e87987 опубликован. Кандидат25387997: Foundation11/11, offline9/9 без known issues/skip, WindowsPOS success и хеши проверены; runtime025 SHA77023bee собран и проверен на реальной изолированной копии. Касса192.168.2.69,7 служб Running/Auto, Edge/tunnel ready; защищённая копия020 сверена по47 таблицам на Windows/Mac, зашифрованные020/023/024/025 расшифровкой проверены. Репетиция020→023→024→025 и restore020/023/025 прошла, кластер остановлен. Новый helper024→025,8/8 тестов, pnpm check passed. Производство020 не обновлялось. SSD у владельца пока нет. Найден POS-sync blocker312; работающий43100 не менять. Общие status/roadmap заняты другим Mac, онлайн-пульт не обновлён.",
       "nextAction": "Продолжить с протокола docs/operations/cashier-launch-1105/README.md. Ближайший серверный fallback069-071 другого Mac исключает072/PR304: отдельная координация072/API/прав и совместимости023 обязательна. Требуются целостный Windows025-оператор, оба возврата служб, POS-sync312 с проверкой5 локальных записей, второй SSD/NAS и независимое хранение recovery-key. Затем согласованное ночное окно и физическая WAN/8час приёмка. Ключ связи истекает20.11; если выпуск не состоялся до10.11, продлить вручную не позднее13.11. PR300 автоматически не сливать: наследует старые серверные изменения. CI источника253 завершена success;61e87987 только документация, её CI отдельно."
     }
