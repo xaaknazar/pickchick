@@ -7425,6 +7425,17 @@
       "updatedAt": "2026-11-07T07:56:42.657Z",
       "summary": "bde2d7d7 / PR313: по новому решению владельца отправлена текущая Android1.0.1(7), iOS не трогали. В Play отправлены16 изменений, Console подтвердила Изменения на проверке и Alpha1.0.1(7), началась автоматическая проверка. Screenshot /private/tmp/pickchick-play-alpha7-submitted-1107.png. AAB source1a9472f1 и SHA прежние, Inspect production и Foundation11/11 PASS из предыдущего шага. Support3языка с delete-account/retention200. Журнал/status/roadmap обновлены, format/diff PASS, push выполнен; CI документальногоPR313 отдельно. Сервер и production не менялись, онлайн-пульт не обновлён.",
       "nextAction": "Не отправлять повторно. Дождаться решения Google, проверить доступность закрытой ссылки, минимум12 вступивших участников14дней и физическийAndroid. Production только отдельное решение. iOS не трогать по последнему поручению. ВключениеPR313 вshared после полнойCI; онлайн-пульт отдельно в согласованной области."
+    },
+    {
+      "id": "workstation-recovery-1108",
+      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
+      "branch": "codex/workstation-recovery-1108",
+      "scopes": [
+        "docs/operations/workstation-recovery-1108.md"
+      ],
+      "status": "active",
+      "head": "b8d14e08cc817ad6eba6e14fe7a7ba19d899bd70",
+      "updatedAt": "2026-11-08T12:13:04.026Z"
     }
   ]
 }
