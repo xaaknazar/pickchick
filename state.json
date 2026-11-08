@@ -7446,11 +7446,11 @@
         "docs/roadmap/project.json",
         "infra/public-staging/support/content.json"
       ],
-      "status": "active",
-      "head": "b8d14e08cc817ad6eba6e14fe7a7ba19d899bd70",
-      "updatedAt": "2026-11-08T13:25:29.478Z",
-      "summary": "bde2d7d7 / PR313: по новому решению владельца отправлена текущая Android1.0.1(7), iOS не трогали. В Play отправлены16 изменений, Console подтвердила Изменения на проверке и Alpha1.0.1(7), началась автоматическая проверка. Screenshot /private/tmp/pickchick-play-alpha7-submitted-1107.png. AAB source1a9472f1 и SHA прежние, Inspect production и Foundation11/11 PASS из предыдущего шага. Support3языка с delete-account/retention200. Журнал/status/roadmap обновлены, format/diff PASS, push выполнен; CI документальногоPR313 отдельно. Сервер и production не менялись, онлайн-пульт не обновлён.",
-      "nextAction": "Не отправлять повторно. Дождаться решения Google, проверить доступность закрытой ссылки, минимум12 вступивших участников14дней и физическийAndroid. Production только отдельное решение. iOS не трогать по последнему поручению. ВключениеPR313 вshared после полнойCI; онлайн-пульт отдельно в согласованной области."
+      "status": "available",
+      "head": "4544cc368eb6e7694eab7be6d7475bd37db1ed11",
+      "updatedAt": "2026-11-08T13:31:12.296Z",
+      "summary": "08.11: список Google Play расширен с2 до16 адресов, все15 из сообщения владельца плюс прежний второй; частные email не сохранены в Git. История запроса1 Опубликовано, dashboard задача Alpha выполнена,0 вступивших. Приглашение работает с Become a tester. SupportRU/KK/EN HTTP200+delete-account. Commit4544cc36 / PR322 опубликован, remote SHA verified; format/diff/JSON/secret-pattern checks PASS. Бинарник, сервер, iOS, Windows и production не менялись.",
+      "nextAction": "Участники вступают и устанавливают на Android с Google Play под внесёнными аккаунтами; проверить12+непрерывных14дней, отзывы и физическую приёмку. Не утверждать, что16адресов означают16вступивших. Не вступали от имени владельца. Production только отдельное да. PR322 ждётCI; онлайн-пульт не обновлён. Windows-файлы не менять до окончания сведения Claude."
     }
   ]
 }
