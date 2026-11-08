@@ -7438,6 +7438,19 @@
       "updatedAt": "2026-11-08T12:19:35.160Z",
       "summary": "Рабочая копия подготовлена. Отчёт сохранён в опубликованном checkpoint. Создание PR остановлено автоматической проверкой. Рабочие системы не менялись.",
       "nextAction": "Продолжить локально на Windows после обеспечения доступа. Для создания PR после отказа автоматической проверки требуется отдельное подтверждение владельца."
+    },
+    {
+      "id": "cutover-pg18-1108",
+      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
+      "branch": "codex/cutover-pg18-1108",
+      "scopes": [
+        "scripts/verify-cutover-postgres18.py",
+        "tests/operations/test_cutover_postgres18.py",
+        "docs/operations/cutover-pg18-1108.md"
+      ],
+      "status": "active",
+      "head": "b8d14e08cc817ad6eba6e14fe7a7ba19d899bd70",
+      "updatedAt": "2026-11-08T13:03:12.319Z"
     }
   ]
 }
