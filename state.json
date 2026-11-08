@@ -7530,11 +7530,11 @@
         "docs/operations/launch-cloud-progress-1108.md",
         "docs/operations/launch-cloud-progress-1108.csv"
       ],
-      "status": "active",
-      "head": "e3e1e2ca9376d5fa7d538b9220dbc83d0b5724d4",
-      "updatedAt": "2026-11-08T15:53:36.800Z",
-      "summary": "PR327 fa5cf236: rehearsal pinned to server/backup tools18.6, fixed temp initdb readiness race.4 unit tests and final28/28 on exact cutover4c2beb13, no skips; synthetic containers cleaned. TAP SHA256 929631bf18e1e2e83bb65b3469292ef1995809afc1631456be879daf4ade1bae.73-task CSV/report saved. Menu54 fixture build and20 import tests passed;49 unconfirmed and channel prices absent.",
-      "nextAction": "Check exact-head CI then explicitly integrate current shared. K15 needs final RC and protected real cashier copy/Windows acceptance. Menu needs approved manager sheets and actual snapshots/parity. Shared status/roadmap remain reserved by Android task. No production changes."
+      "status": "available",
+      "head": "80c1a6abbd41221954ce442b9a7ded83d42d65fb",
+      "updatedAt": "2026-11-08T15:54:24.275Z",
+      "summary": "PR327 head80c1a6ab: current shared ec5625c1 explicitly merged after PR324 full green CI. PG18.6 rehearsal tool unchanged since final28/28 cutover4c2, no skips, synthetic cleanup complete. Integrated checks4 runner +14 operator guards PASS; CSV73 tasks and report updated. No production changes.",
+      "nextAction": "Check latest-head CI, then integrate any newer shared before merge. K15 still needs real protected cashier copy and final RC/Windows. PR325/326 pending own fullCI and shared integration. Menu needs49 confirmations and real channel prices; current54-item fixture is not approved. Global status/roadmap remain with Android task."
     }
   ]
 }
