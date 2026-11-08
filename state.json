@@ -7401,9 +7401,11 @@
         "docs/operations/mobile-testflight32.md",
         "docs/operations/mobile-testflight32-evidence.json"
       ],
-      "status": "active",
-      "head": "b8d14e08cc817ad6eba6e14fe7a7ba19d899bd70",
-      "updatedAt": "2026-11-08T13:11:27.910Z"
+      "status": "done",
+      "head": "28d66fb93afbbe065243f9864d2605bf605a8641",
+      "updatedAt": "2026-11-08T13:55:05.871Z",
+      "summary": "PR321 merged into shared92a0259e; head28d66fb9, full Foundation CI success plus 28/28 PostgreSQL18 stand checks. Four TestFlight27/32 protocols restored byte-for-byte with explicit owner approval. No production changes.",
+      "nextAction": "Repeat on final RC and protected cashier copy with Windows acceptance; stand success is not installed release."
     },
     {
       "id": "android-play-1106",
