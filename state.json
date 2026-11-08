@@ -7441,9 +7441,11 @@
         "docs/operations/windows-transition-after-launch.md",
         "docs/operations/windows-device-inventory-template.csv"
       ],
-      "status": "active",
-      "head": "b8d14e08cc817ad6eba6e14fe7a7ba19d899bd70",
-      "updatedAt": "2026-11-08T13:34:15.827Z"
+      "status": "done",
+      "head": "75c129623e2c1bf434e3276aec9040fb3e400aae",
+      "updatedAt": "2026-11-08T13:57:21.548Z",
+      "summary": "PR323 merged into shared2cf775fa; head75c12962. Windows10 transition plan and blank34-field inventory template complete; formatting/links/CSV checked. No OS/device changes. Full Foundation CI still running; documentation-only PR is not a release.",
+      "nextAction": "Inventory KД6 and per-device support/driver/licence decision, then isolated rehearsal and one pilot after stable restaurant launch."
     },
     {
       "id": "stage2-windows-1030",
