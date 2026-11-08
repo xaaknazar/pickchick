@@ -7514,6 +7514,19 @@
       "status": "active",
       "head": "d5137b2139ac26b595aa661d4771d4a64bd0502f",
       "updatedAt": "2026-11-08T15:29:06.013Z"
+    },
+    {
+      "id": "pg186-rehearsal-1108",
+      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
+      "branch": "codex/pg186-rehearsal-1108",
+      "scopes": [
+        "scripts/verify-cutover-postgres18.py",
+        "tests/operations/test_cutover_postgres18.py",
+        "docs/operations/cutover-pg18-1108.md"
+      ],
+      "status": "active",
+      "head": "a29788f7728f5d9832c81511d3caa4d1789e20b3",
+      "updatedAt": "2026-11-08T15:33:45.889Z"
     }
   ]
 }
