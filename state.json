@@ -7451,6 +7451,18 @@
       "updatedAt": "2026-11-08T13:31:12.296Z",
       "summary": "08.11: список Google Play расширен с2 до16 адресов, все15 из сообщения владельца плюс прежний второй; частные email не сохранены в Git. История запроса1 Опубликовано, dashboard задача Alpha выполнена,0 вступивших. Приглашение работает с Become a tester. SupportRU/KK/EN HTTP200+delete-account. Commit4544cc36 / PR322 опубликован, remote SHA verified; format/diff/JSON/secret-pattern checks PASS. Бинарник, сервер, iOS, Windows и production не менялись.",
       "nextAction": "Участники вступают и устанавливают на Android с Google Play под внесёнными аккаунтами; проверить12+непрерывных14дней, отзывы и физическую приёмку. Не утверждать, что16адресов означают16вступивших. Не вступали от имени владельца. Production только отдельное да. PR322 ждётCI; онлайн-пульт не обновлён. Windows-файлы не менять до окончания сведения Claude."
+    },
+    {
+      "id": "windows-transition-plan-1108",
+      "owner": "7e4b3d13-fb3a-4c93-9851-302f914646a8",
+      "branch": "codex/windows-transition-plan-1108",
+      "scopes": [
+        "docs/operations/windows-transition-after-launch.md",
+        "docs/operations/windows-device-inventory-template.csv"
+      ],
+      "status": "active",
+      "head": "b8d14e08cc817ad6eba6e14fe7a7ba19d899bd70",
+      "updatedAt": "2026-11-08T13:34:15.827Z"
     }
   ]
 }
