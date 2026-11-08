@@ -7463,11 +7463,11 @@
         ".github/workflows/ci.yml",
         "infra/windows/.gitattributes"
       ],
-      "status": "active",
-      "head": "5dd3e7dffa41bb64eeeaa531ab83735ddbaef30f",
-      "updatedAt": "2026-11-08T14:07:09.664Z",
-      "summary": "PR300, протокол61e87987 опубликован. Кандидат25387997: Foundation11/11, offline9/9 без known issues/skip, WindowsPOS success и хеши проверены; runtime025 SHA77023bee собран и проверен на реальной изолированной копии. Касса192.168.2.69,7 служб Running/Auto, Edge/tunnel ready; защищённая копия020 сверена по47 таблицам на Windows/Mac, зашифрованные020/023/024/025 расшифровкой проверены. Репетиция020→023→024→025 и restore020/023/025 прошла, кластер остановлен. Новый helper024→025,8/8 тестов, pnpm check passed. Производство020 не обновлялось. SSD у владельца пока нет. Найден POS-sync blocker312; работающий43100 не менять. Общие status/roadmap заняты другим Mac, онлайн-пульт не обновлён.",
-      "nextAction": "Продолжить с протокола docs/operations/cashier-launch-1105/README.md. Ближайший серверный fallback069-071 другого Mac исключает072/PR304: отдельная координация072/API/прав и совместимости023 обязательна. Требуются целостный Windows025-оператор, оба возврата служб, POS-sync312 с проверкой5 локальных записей, второй SSD/NAS и независимое хранение recovery-key. Затем согласованное ночное окно и физическая WAN/8час приёмка. Ключ связи истекает20.11; если выпуск не состоялся до10.11, продлить вручную не позднее13.11. PR300 автоматически не сливать: наследует старые серверные изменения. CI источника253 завершена success;61e87987 только документация, её CI отдельно."
+      "status": "available",
+      "head": "0499f5836e113fa38bb0ea7013d8607473626083",
+      "updatedAt": "2026-11-08T14:14:57.802Z",
+      "summary": "PR300 head0499f583 published, shared2cf775fa explicitly merged; accepted server/offline/handoff kept. Fixed Windows LF/CRLF checksum drift with .gitattributes and added actual Windows5.1 guard CI. Windows run42488292583 both jobs success (POS package and3/3 guards). Build, DB025 helper8/8 on PG18 and Linux guards3/3 passed. CI transport10m timeout diagnosed; standalone commit2cf20e31 raises budget25m without removing checks. No live devices/server/keys/data changed. Full new Foundation CI pending; PR300 remains draft. See cloud-checkpoint-1108.md and preserved cashier-launch-1105 protocol.",
+      "nextAction": "Complete guarded024→025 Windows operator with cloud072/API/rights proof, exact runtime/fullCI and fresh restored real backup; do not pass025/028 archive to024 installer. Carry minimal CI budget fix into final cutover explicitly and run exact-SHA CI. Then real-copy rehearsal/rollback, independent backup disk/key, LAN and agreed deployment window. POS sync43110 separately with real backlog decision; existing43100 stays. No release readiness claimed."
     }
   ]
 }
