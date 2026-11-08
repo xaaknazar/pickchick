@@ -7508,11 +7508,12 @@
         "tests/integration/windows-cloud-link-grant.test.mjs",
         "tests/operations/test_windows_edge_runtime.py",
         "tests/operations/windows-pos-sync.test.mjs",
-        "tests/operations/windows-pos-sync.test.ps1"
+        "tests/operations/windows-pos-sync.test.ps1",
+        ".github/workflows/windows-pos-sync.yml"
       ],
       "status": "active",
-      "head": "a29788f7728f5d9832c81511d3caa4d1789e20b3",
-      "updatedAt": "2026-11-08T15:24:25.024Z"
+      "head": "d5137b2139ac26b595aa661d4771d4a64bd0502f",
+      "updatedAt": "2026-11-08T15:29:06.013Z"
     }
   ]
 }
